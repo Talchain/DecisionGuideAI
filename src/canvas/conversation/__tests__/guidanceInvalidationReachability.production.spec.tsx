@@ -125,10 +125,43 @@ describe('N-23 §1 — useGuidanceInvalidationOnEdit clears stale coaching on a 
     expect(guidanceIds()).not.toContain(ITEM_ID)
   })
 
-  it('a node RELABEL (structural data change) clears it', () => {
+  it('⚠ CORRECTED: a node RELABEL must NOT clear it — a rename is not a model change', () => {
+    // ⚠⚠ THIS CASE ASSERTED THE OPPOSITE AND THE OPPOSITE WAS A LIVE DEFECT.
+    // The original read:
+    //
+    //     it('a node RELABEL (structural data change) clears it', … )
+    //       expect(guidanceIds()).not.toContain(ITEM_ID)
+    //
+    // Refuted. "Structural data change" was this file's own coinage, taken from
+    // `diffSnapshots`, which stringifies the WHOLE `data` object. The codebase
+    // already owns the question and answers it differently: the registry behind
+    // `ANALYTICAL_NODE_DATA_FIELDS` EXCLUDES `label`, `body`, `description`,
+    // position and colour as cosmetic. So renaming a node destroyed the strip,
+    // the on-canvas markers and every inspector coaching section — on screen AND
+    // on disk, because `clearGuidanceItems` also wipes the persisted blob — while
+    // the transcript coaching card beside them still reported `'current'`,
+    // because `coachingCurrency` asks the canonical owner.
+    //
+    // Dark at base (the only host sat where `aiPanelV2` is OFF, and it defaults
+    // TRUE); universal the moment this lane mounted the hook in the flag-ON
+    // branch. The original wording is kept above rather than deleted, because
+    // "the test said so" is exactly how a wrong predicate earns tenure.
     renderHook(() => useGuidanceInvalidationOnEdit())
     useCanvasStore.setState({
       nodes: [node('n1', 'Gross Revenue'), BASE_NODES[1]],
+    } as never)
+    expect(guidanceIds()).toContain(ITEM_ID)
+  })
+
+  it('an ANALYTICAL data change on the SAME node still clears — the contrast', () => {
+    // Without this the case above is satisfied by a hook that was deleted.
+    // `observedState` carries the `stale` purpose in the canonical registry.
+    renderHook(() => useGuidanceInvalidationOnEdit())
+    useCanvasStore.setState({
+      nodes: [
+        { ...node('n1', 'Revenue'), data: { label: 'Revenue', observedState: { value: 7 } } } as Node,
+        BASE_NODES[1],
+      ],
     } as never)
     expect(guidanceIds()).not.toContain(ITEM_ID)
   })
@@ -382,38 +415,57 @@ describe('N-23 §2 — the fix is mounted on the deployed surface, and carries n
     expect(host).not.toContain('useConversationContext')
   })
 
-  it('the two guard chains have not diverged', () => {
-    // ⚠ THE "SINGLE AUTHORITY" CLAIM WAS NOT EARNED, and saying so is the point.
-    // What is genuinely shared is the DIFF (`takeSnapshot`/`diffSnapshots`). The
-    // INVALIDATION DECISION — scenario switch, reference equality,
-    // `_externalMutationActive`, baseline advance, position-only — is ~30 lines
-    // of COPIED control flow with nothing asserting the two copies agree.
-    // Mutant M2c proved the divergence is invisible: removing the position-only
-    // guard from the EMITTER left all 22 tests green.
+  it('⚠ SUPERSEDED — the two chains DELIBERATELY diverge now; what is pinned is WHOSE ANSWER each takes', () => {
+    // ⚠⚠ THIS GUARD USED TO ASSERT THE TWO CHAINS "ASK THE SAME QUESTIONS", over
+    // a five-entry list including `if (!diff)` (position-only) and
+    // `if (!prevSnapshot)`. It was added in good faith to close review FIX 6 —
+    // and it was pinning the very coupling that shipped the regression.
     //
-    // This does not merge the two chains (they legitimately differ after the
-    // decision point: one clears, one debounces and emits). It asserts that both
-    // still ASK THE SAME QUESTIONS, so a guard deleted from either side REDs.
+    // The chains answer DIFFERENT QUESTIONS (CLAUDE.md trap 21). The emitter asks
+    // "what changed, so CEE can be told?", for which the whole `data` object is
+    // the right granularity. The invalidation asks "does this invalidate an
+    // ANALYSIS?", which `domain/analyticalChange.ts` owns and answers with a
+    // registry that excludes cosmetic fields. Forcing them to share a predicate
+    // is what made a rename destroy the user's coaching.
+    //
+    // So the invariant is no longer "same questions". It is: the invalidation
+    // chain DEFERS to the canonical owner and does NOT re-implement a field list.
+    // That is the property whose loss would bring the defect back.
     const src = read(EMITTER_FILE)
-    const emitter = stripComments(functionBody(src, 'export function useGraphEditEvents'))
     const invalidation = stripComments(
       functionBody(src, 'export function useGuidanceInvalidationOnEdit'),
     )
-
-    expect(emitter.length, 'precondition: emitter body extracted').toBeGreaterThan(200)
+    const emitter = stripComments(functionBody(src, 'export function useGraphEditEvents'))
     expect(invalidation.length, 'precondition: invalidation body extracted').toBeGreaterThan(200)
+    expect(emitter.length, 'precondition: emitter body extracted').toBeGreaterThan(200)
 
-    const SHARED_GUARDS: Array<[string, RegExp]> = [
-      ['scenario switch', /currentScenarioId !== scenarioIdRef\.current/],
-      ['reference equality', /curr\.nodes === prev\.nodes && curr\.edges === prev\.edges/],
-      ['external mutation', /curr\._externalMutationActive > 0/],
-      ['missing baseline', /if \(!prevSnapshot\)/],
-      ['position-only', /if \(!diff\)/],
-    ]
-    for (const [name, re] of SHARED_GUARDS) {
-      expect(re.test(emitter), `emitter lost its "${name}" guard`).toBe(true)
-      expect(re.test(invalidation), `invalidation lost its "${name}" guard`).toBe(true)
+    // (a) it asks the canonical owner…
+    expect(
+      invalidation,
+      'the invalidation stopped consulting domain/analyticalChange — the cosmetic-edit ' +
+        'regression is back',
+    ).toContain('hasAnalyticalGraphChange(')
+    expect(stripComments(src)).toContain("from '../domain/analyticalChange'")
+
+    // (b) …and does NOT re-implement the taxonomy locally. A copied field list is
+    //     how a fifth authority is born; the registry is importable, so there is
+    //     no reason to spell one here.
+    for (const field of ['observedState', 'interventions', 'success_threshold']) {
+      expect(
+        invalidation,
+        `the invalidation names "${field}" itself instead of deriving it from the registry`,
+      ).not.toContain(field)
     }
+
+    // (c) CONTRAST CONTROL — the probe discriminates. The EMITTER legitimately
+    //     still uses the whole-`data` diff, so a probe that could not tell the
+    //     two chains apart would fail here.
+    expect(emitter, 'contrast: the emitter still owns the wire-facing diff').toContain(
+      'diffSnapshots(',
+    )
+    expect(invalidation, 'the invalidation must no longer consult the wire diff').not.toContain(
+      'diffSnapshots(',
+    )
   })
 
   it('POSTURE ENUMERATION: exactly one clearing authority, except OFF x OFF', () => {

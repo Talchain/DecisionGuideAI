@@ -446,9 +446,13 @@ describe('§B a local structural edit invalidates the coaching authored against 
       useCanvasStore.getState().edges,
     )
 
-    renderHook(() => useGuidanceInvalidationOnEdit())
+    const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
     useCanvasStore.setState({ nodes: [...BASE_NODES, node('n_new', 'Migration cost')] } as never)
     useCanvasStore.setState({ nodes: BASE_NODES } as never)
+    // The page goes, and the host with it. Leaving it subscribed across
+    // `tearDownThePage()` is the exact shape this file's own note at the
+    // teardown helper bans — it was still here, and review caught it.
+    unmount()
 
     expect(
       uiGraphHashSeedless(useCanvasStore.getState().nodes, useCanvasStore.getState().edges),
@@ -554,5 +558,367 @@ describe('§C boot hydration with the invalidation host already mounted', () => 
     } as never)
 
     expect(persistedBlob(), 'an UNSUPPRESSED graph write does wipe the blob').toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § D — COSMETIC EDITS MUST KEEP THE COACHING
+//
+// ⚠⚠ THIS SECTION EXISTS BECAUSE THE FIRST VERSION OF THIS PR SHIPPED A LIVE
+// REGRESSION REACHABLE BY 100% OF DEPLOYED USERS, AND THIS FILE'S OWN CORPUS
+// COULD NOT SEE IT. §B had exactly ONE "must not clear" twin — a drag — so the
+// suite was a guard watching one door (CLAUDE.md trap 22b). A contrast-controlled
+// sweep of the corpus found `position-only` in 8 places and
+// cosmetic/label/description in ZERO.
+//
+// THE DEFECT. `serialiseNode` stringifies the WHOLE `data` object, so
+// `diffSnapshots` returned non-null for ANY `data` change and the hook answered
+// with a blanket `clearGuidanceItems()` — which also wipes the persisted blob, so
+// the loss survived a reload. Renaming the goal destroyed the strip, the node
+// markers and every inspector coaching section, while the transcript coaching
+// card beside them still read `'current'`, because `coachingCurrency` asks the
+// CANONICAL owner and correctly treats `label` as cosmetic. Two surfaces, one
+// gesture, opposite answers — which is the tell for a duplicated authority.
+//
+// ⭐ EVERY CASE HERE DRIVES A REAL STORE ACTION with the exact payload its live
+// caller builds — `updateNodeLabel` (HeroSection's goal rename) and `updateNode`
+// with the `{ data: { ...node.data, <field> } }` shape `useInspectorMutations`
+// constructs. A hand-written `setState` would prove nothing about either.
+// ---------------------------------------------------------------------------
+
+/** The payload shape `useInspectorMutations` builds for every field editor. */
+function inspectorEdit(nodeId: string, patch: Record<string, unknown>): void {
+  const node = useCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+  if (!node) throw new Error(`fixture error: no node ${nodeId}`)
+  useCanvasStore.getState().updateNode(nodeId, {
+    data: { ...(node.data as Record<string, unknown>), ...patch },
+  } as never)
+}
+
+describe('§D a cosmetic edit is a user tidying their model, not changing it', () => {
+  const COSMETIC: Array<[string, () => void]> = [
+    [
+      'renaming the goal (HeroSection → store.updateNodeLabel)',
+      () => useCanvasStore.getState().updateNodeLabel('opt_keep', 'Keep the CRM we have'),
+    ],
+    [
+      'an inspector LABEL rename (useInspectorMutations.setLabel)',
+      () => inspectorEdit('fac_cost', { label: 'Annual running cost (Â£)' }),
+    ],
+    [
+      'an inspector DESCRIPTION edit (useInspectorMutations.setDescription)',
+      () => inspectorEdit('fac_cost', { description: 'Licence plus support, per year.' }),
+    ],
+    [
+      'an inspector CATEGORY edit (useInspectorMutations.setCategory)',
+      () => inspectorEdit('fac_cost', { category: 'external' }),
+    ],
+  ]
+
+  for (const [name, gesture] of COSMETIC) {
+    it(`KEEPS the coaching on screen and on disk: ${name}`, async () => {
+      const minted = await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+      const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
+
+      gesture()
+
+      expect(guidanceIds(), `a ${name} destroyed the user's coaching`).toEqual(
+        minted.map((i) => i.item_id),
+      )
+      expect(persistedBlob()?.items?.length, 'and it took the persisted blob with it').toBe(
+        minted.length,
+      )
+
+      // ⚠ The RELOAD is deliberately NOT asserted here — see the KNOWN
+      // DIVERGENCE case below. What this PR is answerable for is that a cosmetic
+      // edit does not DESTROY the coaching; whether a later reload re-adopts it
+      // is decided by a different, pre-existing gate.
+      unmount()
+    })
+  }
+
+  it('⚠ KNOWN DIVERGENCE — a RENAME survives the edit but not a RELOAD, and the set is pinned EXACTLY', async () => {
+    // TWO AUTHORITIES DISAGREE ABOUT `label`, AND BOTH ARE PRE-EXISTING.
+    //   · `domain/analyticalChange.ts` — the invalidation owner — calls `label`
+    //     COSMETIC, which is why the four cases above keep their coaching.
+    //   · `utils/graphHash.ts` `generateGraphHash` — the persistence ADOPTION
+    //     gate — puts `data.label` straight into the hash
+    //     (`${n.id}:${n.type}:${data?.label}:…`), so a rename moves the stamp and
+    //     `rehydrateGuidance` fails closed on the next boot.
+    // Neither is this PR's doing: the adoption gate and its hash were already on
+    // `staging`; this PR only mounts the invalidation host. Changing the hash
+    // would also move the autosave dirty-gate, which is a separate decision with
+    // its own blast radius — so the gap is RECORDED here rather than papered over
+    // or silently "fixed".
+    //
+    // Pinned as an EXACT set: this REDs if it GROWS (another cosmetic field
+    // starts costing coaching on reload) and equally if it SHRINKS (the
+    // divergence is closed and this note goes stale). A gap the suite can see is
+    // honest; a gap invisible to it is how the estate accumulates false claims.
+    const survivesReload: Record<string, boolean> = {}
+    for (const [name, gesture] of COSMETIC) {
+      sessionStorage.clear()
+      localStorage.clear()
+      useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null })
+      useCanvasStore.setState({
+        nodes: BASE_NODES,
+        edges: BASE_EDGES,
+        currentScenarioId: SCENARIO,
+        _externalMutationActive: 0,
+      } as never)
+
+      const minted = await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+      const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
+      gesture()
+      // Precondition for every row: the edit itself never destroyed anything.
+      expect(guidanceIds(), `precondition: ${name} kept the coaching on screen`).toHaveLength(
+        minted.length,
+      )
+      unmount()
+      survivesReload[name] = reloadTheTab() === minted.length
+    }
+
+    expect(survivesReload).toEqual({
+      // `label` is in the UI graph hash → the stamp moves → fails closed.
+      'renaming the goal (HeroSection → store.updateNodeLabel)': false,
+      'an inspector LABEL rename (useInspectorMutations.setLabel)': false,
+      // `description` / `category` are in neither the hash nor the stale
+      // registry, so they cost the user nothing at all.
+      'an inspector DESCRIPTION edit (useInspectorMutations.setDescription)': true,
+      'an inspector CATEGORY edit (useInspectorMutations.setCategory)': true,
+    })
+  })
+
+  it('CONTROL — each cosmetic gesture really did change the graph', async () => {
+    // Trap 13, and the one that matters most here: every case above asserts an
+    // ABSENCE of clearing. If a gesture silently no-opped — a typo'd node id, a
+    // value equal to the one already there — the assertions would pass while
+    // testing nothing at all, and the regression would be back with a green suite.
+    await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+    for (const [name, gesture] of COSMETIC) {
+      const before = JSON.stringify(useCanvasStore.getState().nodes)
+      gesture()
+      expect(
+        JSON.stringify(useCanvasStore.getState().nodes),
+        `fixture is inert, so its case above proves nothing: ${name}`,
+      ).not.toBe(before)
+    }
+  })
+
+  it('CONTRAST — an ANALYTICAL edit through the SAME store action still clears', async () => {
+    // The discriminating half. Without it, §D would pass just as well against a
+    // hook that had been deleted outright, and the file would have traded one
+    // silent failure for the other. Same action, same payload shape, one field
+    // different — and that field is on the canonical `stale` registry.
+    const minted = await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+    expect(minted.length).toBeGreaterThan(0)
+    const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
+
+    inspectorEdit('fac_cost', { observedState: { value: 42, baseline: 10 } })
+
+    expect(guidanceIds(), 'an observedState change IS analysis-affecting').toHaveLength(0)
+    expect(persistedBlob()).toBeNull()
+    unmount()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § E — NON-USER WRITERS MUST NOT LOOK LIKE USER EDITS
+//
+// The second half of the same review finding. `useGuidanceInvalidationOnEdit`
+// clears on any ANALYTICAL change outside a `beginExternalGraphMutation` window,
+// and several producers had no window — so the product destroyed the user's
+// coaching while doing something on their behalf. Bounding the predicate (§D)
+// exempted three of the named sites for free, because they only ever write
+// cosmetic or `ephemeral` fields; these are the ones it did NOT exempt, and each
+// is driven through the REAL producer, never a reproduction of its `setState`.
+// ---------------------------------------------------------------------------
+
+describe('§E a write the product makes on the user’s behalf keeps their coaching', () => {
+  it('RECOVERING UNSAVED WORK keeps the coaching that belonged to it', async () => {
+    // The sharpest one: the user is being handed back the graph they were
+    // working on, and the coaching about that graph was being destroyed in the
+    // same gesture. Drives the store write RecoveryBanner performs.
+    const minted = await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+    const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
+
+    const recovered = [...BASE_NODES, node('fac_recovered', 'Unsaved factor')]
+    useCanvasStore.setState((s) => ({
+      _externalMutationActive: s._externalMutationActive + 1,
+      nodes: recovered,
+      edges: BASE_EDGES,
+      isDirty: true,
+    }) as never)
+    useCanvasStore.setState((s) => ({
+      _externalMutationActive: Math.max(0, s._externalMutationActive - 1),
+    }) as never)
+
+    expect(guidanceIds()).toEqual(minted.map((i) => i.item_id))
+    expect(persistedBlob()?.items?.length).toBe(minted.length)
+    unmount()
+  })
+
+  it('a CLARIFIER PREVIEW arriving and being withdrawn keeps it (real store actions)', async () => {
+    const minted = await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+    const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
+
+    useCanvasStore.getState().applyClarifierGraph(
+      {
+        nodes: [{ id: 'clar_1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Suggested' } }],
+        edges: [],
+      } as never,
+      { preview: true },
+    )
+    expect(guidanceIds(), 'a suggested preview is not the user editing').toEqual(
+      minted.map((i) => i.item_id),
+    )
+
+    useCanvasStore.getState().clearClarifierPreview()
+    expect(guidanceIds(), 'withdrawing the preview is not the user deleting nodes').toEqual(
+      minted.map((i) => i.item_id),
+    )
+    expect(persistedBlob()?.items?.length).toBe(minted.length)
+    unmount()
+  })
+
+  it('REVERTING a structural delete keeps it (store.applyStructuralDeleteRevert)', async () => {
+    const minted = await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+    const { unmount } = renderHook(() => useGuidanceInvalidationOnEdit())
+
+    useCanvasStore.getState().applyStructuralDeleteRevert({
+      nodes: [node('fac_restored', 'Restored by the server')],
+      edges: [],
+    } as never)
+
+    expect(guidanceIds()).toEqual(minted.map((i) => i.item_id))
+    expect(persistedBlob()?.items?.length).toBe(minted.length)
+    unmount()
+  })
+
+  it('CONTROL — each producer write really did move the graph', async () => {
+    // Same trap-13 obligation as §D's control, and the same reason: three
+    // absence assertions above are worthless if the producers no-opped.
+    await mintGuidanceFromLiveAnalysisTurn(LIVE_ANALYSIS_CAPTURES[2])
+    const before = useCanvasStore.getState().nodes.length
+    useCanvasStore.getState().applyStructuralDeleteRevert({
+      nodes: [node('fac_restored', 'Restored by the server')],
+      edges: [],
+    } as never)
+    expect(useCanvasStore.getState().nodes.length).toBe(before + 1)
+
+    const afterRevert = useCanvasStore.getState().nodes.length
+    useCanvasStore.getState().applyClarifierGraph(
+      {
+        nodes: [{ id: 'clar_1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Suggested' } }],
+        edges: [],
+      } as never,
+      { preview: true },
+    )
+    expect(useCanvasStore.getState().nodes.length).toBe(afterRevert + 1)
+    useCanvasStore.getState().clearClarifierPreview()
+    expect(useCanvasStore.getState().nodes.length).toBe(afterRevert)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// § F — THE WRITER MANIFEST, PINNED AT THE SOURCE
+//
+// §E drives the three writers that ARE store actions, so a guard removed from
+// any of them REDs by execution — the strongest instrument available. Two of the
+// named writers are not reachable that way at proportionate cost: one is a React
+// component's click handler (`RecoveryBanner`), the other sits deep inside a
+// 6,000-line hook (`useConversation`'s `applyV5State` call and its preview
+// withdrawal). Driving those in jsdom would cost more than it proves.
+//
+// So they are pinned at the SOURCE instead, and the claim type is stated rather
+// than blurred: this asserts THE GUARD IS PRESENT, not that it executes. That is
+// weaker than §E and it is the honest available instrument — a guard silently
+// deleted still REDs here, which is the failure mode that actually happens.
+//
+// ⚠ THE ENUMERATION IS THE POINT. The review that found this listed ~10 writers;
+// bounding the predicate (§D) exempted three of them outright, because they only
+// ever write cosmetic or `ephemeral` fields. Those three are recorded here as
+// EXEMPT with the reason, so a later reader cannot mistake "no guard" for
+// "nobody looked" — and so that if one of them starts writing an analytical
+// field, the omission is a decision someone has to revisit rather than a silence.
+// ---------------------------------------------------------------------------
+
+import { readFileSync as readSourceFile } from 'node:fs'
+
+describe('§F every non-user graph writer in the manifest carries its window', () => {
+  const REPO_SRC = resolve(__dirname, '../../..')
+  const read = (rel: string) => readSourceFile(resolve(REPO_SRC, rel), 'utf8')
+
+  const GUARDED: Array<[string, string, RegExp]> = [
+    [
+      'RecoveryBanner — recovering the user’s own unsaved work',
+      'canvas/components/RecoveryBanner.tsx',
+      /_externalMutationActive: suppressed/,
+    ],
+    [
+      'useConversation — CEE applying its own graph_patch blocks (applyV5State)',
+      'canvas/conversation/useConversation.ts',
+      /beginExternalGraphMutation\?\.\('envelope_apply'\)\s*\n\s*let stateApply/,
+    ],
+    [
+      'useConversation — withdrawing a streamed preview graph',
+      'canvas/conversation/useConversation.ts',
+      /lastAuthoritativeGraph: null,\s*\n\s*_externalMutationActive: s\._externalMutationActive \+ 1,/,
+    ],
+    [
+      'optimisticFactorEdit — writing the provenance stamp',
+      'canvas/conversation/optimisticFactorEdit.ts',
+      /beginExternalGraphMutation\?\.\('envelope_apply'\)\s*\n\s*try \{\s*\n\s*store\.updateNode\(edit\.nodeId, \{\s*\n\s*data: clearConfirmationWithdrawal/,
+    ],
+    [
+      'optimisticFactorEdit — rolling the value back',
+      'canvas/conversation/optimisticFactorEdit.ts',
+      /beginExternalGraphMutation\?\.\('envelope_apply'\)\s*\n\s*try \{\s*\n\s*store\.updateNode\(edit\.nodeId, \{\s*\n\s*data: \{/,
+    ],
+  ]
+
+  for (const [name, rel, pattern] of GUARDED) {
+    it(`GUARDED: ${name}`, () => {
+      const source = read(rel)
+      expect(source.length, `precondition: ${rel} was read`).toBeGreaterThan(500)
+      expect(pattern.test(source), `${name} lost its suppression window`).toBe(true)
+    })
+  }
+
+  it('CONTRAST CONTROL — the probe discriminates, it is not matching everything', () => {
+    // Every case above is a PRESENCE assertion, so all five would pass against a
+    // regex that matched any file. A sibling that genuinely has no window proves
+    // the patterns are doing work.
+    const exempt = read('canvas/starters/loadStarter.ts')
+    expect(exempt.length).toBeGreaterThan(500)
+    expect(
+      /_externalMutationActive/.test(exempt),
+      'contrast: loadStarter is EXEMPT and must have no window — if it grew one, ' +
+        'the exemption reasoning below is stale',
+    ).toBe(false)
+  })
+
+  it('EXEMPT BY THE BOUNDED PREDICATE — recorded, with the field that makes it safe', () => {
+    // Not "unguarded because nobody looked". Each of these writes ONLY fields the
+    // canonical registry treats as cosmetic or `ephemeral`, so §D's predicate
+    // never fires on them. Pinned by the FIELD, so the exemption dies the moment
+    // the writer starts touching something analytical.
+    const starter = read('canvas/starters/loadStarter.ts')
+    expect(starter, 'loadStarter stamps provenance only').toContain('starterId: id')
+    expect(
+      /observedState|interventions|success_threshold/.test(
+        starter.slice(starter.indexOf('function stampStarterProvenance')),
+      ),
+      'loadStarter began writing an analytical field — its exemption is void',
+    ).toBe(false)
+
+    const store = read('canvas/store.ts')
+    // saveScenario's two cleansing writes strip `_baseline_snapshot`, which the
+    // registry marks `ephemeral` — see analyticalNodeFields.ts's entry for it.
+    expect(store).toContain('_baseline_snapshot')
+    const registry = read('canvas/domain/analyticalNodeFields.ts')
+    expect(registry, 'the exemption rests on this purpose flag').toMatch(
+      /field: '_baseline_snapshot',\s*\n\s*purposes: \['ephemeral'\]/,
+    )
   })
 })

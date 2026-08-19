@@ -516,11 +516,20 @@ export function confirmOptimisticFactorEdit(edit: OptimisticFactorEdit): Confirm
   // the retraction: this is the one place a user claim is earned, so it is the
   // one place the door reopens. Clearing it anywhere else — or not at all —
   // would make a re-confirmation invisible.
-  store.updateNode(edit.nodeId, {
-    data: clearConfirmationWithdrawal(
-      withObservedStateUpdate(node.data, edit.reviewedStamp) as Record<string, unknown>,
-    ),
-  } as never)
+  // ⚠ NOT A USER EDIT — this writes the PROVENANCE STAMP onto the value the user
+  // already edited a moment ago. It touches `observedState`, which IS analytical,
+  // so the bounded predicate does not exempt it: without this window the stamp
+  // wipes the coaching a beat after the edit that earned it.
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    store.updateNode(edit.nodeId, {
+      data: clearConfirmationWithdrawal(
+        withObservedStateUpdate(node.data, edit.reviewedStamp) as Record<string, unknown>,
+      ),
+    } as never)
+  } finally {
+    store.endExternalGraphMutation?.()
+  }
 
   // Persist the earned stamp NOW (L66, final-walk defect 0, P1). The stamp is
   // the ONE thing only the client holds — the value round-trips through CEE,
@@ -576,12 +585,20 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
   const currentValue = obs.value
   if (currentValue !== edit.sentValue) return 'value_moved_on'
 
-  store.updateNode(edit.nodeId, {
-    data: {
-      ...(node.data as Record<string, unknown>),
-      observedState: edit.prevObservedState,
-      display_value: edit.prevDisplayValue,
-    },
-  } as never)
+  // ⚠ NOT A USER EDIT — a ROLLBACK to the value that was there before. The graph
+  // ends up back where the coaching was authored, so treating it as an edit
+  // destroys coaching that the revert has just made valid again.
+  store.beginExternalGraphMutation?.('envelope_apply')
+  try {
+    store.updateNode(edit.nodeId, {
+      data: {
+        ...(node.data as Record<string, unknown>),
+        observedState: edit.prevObservedState,
+        display_value: edit.prevDisplayValue,
+      },
+    } as never)
+  } finally {
+    store.endExternalGraphMutation?.()
+  }
   return 'reverted'
 }

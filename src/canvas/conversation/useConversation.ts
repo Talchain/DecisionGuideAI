@@ -493,11 +493,18 @@ function discardStreamedPreview(preview: { nodes?: unknown[]; edges?: unknown[] 
   )
   if (previewNodeIds.size === 0) return
   const state = useCanvasStore.getState()
-  useCanvasStore.setState({
+  // ⚠ NOT A USER EDIT — a streamed PREVIEW graph being withdrawn. Same-`set()`
+  // suppression so `useGuidanceInvalidationOnEdit` does not read the withdrawal
+  // as the user deleting their own nodes (MUT-ORDER: a later raise is too late).
+  useCanvasStore.setState((s) => ({
     nodes: state.nodes.filter((n) => !previewNodeIds.has(n.id)),
     edges: state.edges.filter((e) => !previewNodeIds.has(e.source) && !previewNodeIds.has(e.target)),
     lastAuthoritativeGraph: null,
-  })
+    _externalMutationActive: s._externalMutationActive + 1,
+  }))
+  useCanvasStore.setState((s) => ({
+    _externalMutationActive: Math.max(0, s._externalMutationActive - 1),
+  }))
 }
 
 export interface StreamedDraftTurnResult {
@@ -5008,7 +5015,25 @@ export function useConversation(): UseConversationReturn {
             // the top level, so we splice it in here rather than widening the
             // store shape upstream.
             const v5StoreSnapshot = useCanvasStore.getState()
-            const stateApply = applyV5State(
+            // ⚠ NOT A USER EDIT — CEE APPLYING ITS OWN graph_patch blocks
+            // (`set_factor_value` writes `observedState`, `adjust_edge_strength`
+            // writes edge weight/direction: both ANALYTICAL, so the bounded
+            // predicate does not exempt them). Without this window the turn
+            // destroys the coaching it is in the middle of delivering — P0-A's
+            // shape, one seam further along.
+            //
+            // ⭐ GUARDED AT THE CALL SITE RATHER THAN THE LEAF, and the reason is
+            // derived, not assumed: `applyV5State` has EXACTLY ONE production
+            // caller — this one (`rg "applyV5State\(" src` excluding tests, at
+            // this tip). The estate's own rule is to guard the leaf BECAUSE a
+            // second caller usually exists; here there is none, and `applyV5State`
+            // takes an INJECTED `V5ApplicatorStore`, so a leaf guard would mean
+            // widening that interface and every test double with it. Re-derive the
+            // caller count before moving this — a second caller makes it wrong.
+            useCanvasStore.getState().beginExternalGraphMutation?.('envelope_apply')
+            let stateApply: ReturnType<typeof applyV5State>
+            try {
+              stateApply = applyV5State(
               target.response,
               {
                 ...v5StoreSnapshot,
@@ -5026,7 +5051,10 @@ export function useConversation(): UseConversationReturn {
                 turnClientId,
                 currentClientTurnId: activeV5TurnIdRef.current,
               },
-            )
+              )
+            } finally {
+              useCanvasStore.getState().endExternalGraphMutation?.()
+            }
             if (import.meta.env.DEV) {
               if (stateApply.applied.length > 0) {
                 console.warn('[sendTurn V5] state applied:', stateApply.applied)

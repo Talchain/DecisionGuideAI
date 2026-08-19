@@ -13,6 +13,7 @@ import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { isOrchestratorV2Enabled, isJourneyTabEnabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { hasAnalyticalGraphChange } from '../domain/analyticalChange'
 import { appendEvent } from '../../services/scenarioService'
 import { resolveElementLabel } from './utils/resolveElementLabel'
 import type { WireSystemEvent } from './types'
@@ -451,13 +452,43 @@ export function useGraphEditEvents(
 // is therefore STRUCTURALLY INCAPABLE of emitting anything. The guard for that
 // is a source-level assertion in the spec, not a promise in this comment.
 //
-// SINGLE AUTHORITY ON "WHAT IS A STRUCTURAL CHANGE". This deliberately reuses
-// `takeSnapshot`/`diffSnapshots` from the emitter above rather than
-// re-implementing the diff. Two same-named-but-different notions of "the graph
-// changed" is this estate's most-paid-for defect class (the two
-// `generateGraphHash` twins), and a copy here would drift the moment either side
-// is touched. Position-only changes are excluded by `diffSnapshots` returning
-// `null` — dragging a node must not wipe the user's coaching.
+// ⚠⚠ THE "SINGLE AUTHORITY" CLAIM THAT USED TO SIT HERE IS WITHDRAWN — IT WAS
+// BOTH UNEARNED AND POINTED AT THE WRONG AUTHORITY, AND IT SHIPPED A LIVE
+// REGRESSION. It read:
+//
+//     "SINGLE AUTHORITY ON 'WHAT IS A STRUCTURAL CHANGE'. This deliberately
+//      reuses `takeSnapshot`/`diffSnapshots` from the emitter above rather than
+//      re-implementing the diff. … Position-only changes are excluded by
+//      `diffSnapshots` returning `null` — dragging a node must not wipe the
+//      user's coaching."
+//
+// Every sentence is true and the conclusion is still wrong, because the two
+// hooks ANSWER DIFFERENT QUESTIONS (CLAUDE.md trap 21). The emitter asks
+// *"what changed, so CEE can be told?"* — for which the whole `data` object is
+// the right granularity. This hook asks *"does this change invalidate an
+// ANALYSIS?"* — a question the codebase ALREADY OWNS, in
+// `domain/analyticalChange.ts`, whose registry (`analyticalNodeFields.ts`)
+// deliberately EXCLUDES `label`, `body`, `description`, `position` and colour as
+// cosmetic. Sharing the emitter's diff made this a FOURTH authority answering
+// that question differently.
+//
+// THE COST, measured: `serialiseNode` stringifies the WHOLE `data` object, so
+// `diffSnapshots` returned non-null for ANY `data` change and this hook answered
+// with a blanket `clearGuidanceItems()` — which also wipes the PERSISTED blob,
+// so the loss survived a reload. Renaming the goal, or editing a node's
+// description or category, destroyed every piece of the user's coaching. Dark at
+// base (the only caller was hosted where `aiPanelV2` is OFF, and it defaults
+// TRUE), and universal the moment this hook was mounted in the flag-ON branch.
+// The tell was two surfaces disagreeing on one gesture: the strip and the node
+// markers were destroyed while the transcript coaching card beside them still
+// reported `'current'`, because `coachingCurrency` asks the CANONICAL owner and
+// correctly treats `label` as cosmetic.
+//
+// SO: the authority for THIS question is `hasAnalyticalGraphChange`, which lives
+// in and derives from that canonical registry. `diffSnapshots` keeps the
+// emitter's question and is no longer consulted here. Position-only changes are
+// excluded because position is not a `data` field at all — not because a shared
+// helper happens to drop them.
 //
 // ⚠⚠ EXTERNAL MUTATIONS STAY SUPPRESSED — and the ORIGINAL VERSION OF THIS NOTE
 // WAS FALSIFIED BY REVIEW, which is why it now reads at this length.
@@ -494,12 +525,13 @@ export function useGraphEditEvents(
  * only the canvas store (read) and the guidance store (clear).
  */
 export function useGuidanceInvalidationOnEdit(): void {
-  const snapshotRef = useRef<GraphSnapshot | null>(null)
+  /** The graph the surviving coaching is understood to describe. */
+  const baselineRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
   const scenarioIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     const state = useCanvasStore.getState()
-    snapshotRef.current = takeSnapshot(state.nodes, state.edges)
+    baselineRef.current = { nodes: state.nodes, edges: state.edges }
     scenarioIdRef.current = state.currentScenarioId
 
     const unsubscribe = useCanvasStore.subscribe((curr, prev) => {
@@ -508,7 +540,7 @@ export function useGuidanceInvalidationOnEdit(): void {
       // own rehydration gate keys on `scenarioId` anyway.
       if (curr.currentScenarioId !== scenarioIdRef.current) {
         scenarioIdRef.current = curr.currentScenarioId
-        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+        baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
         return
       }
 
@@ -518,25 +550,24 @@ export function useGuidanceInvalidationOnEdit(): void {
       // Patch-apply / hydration / envelope-apply. Re-baseline so the next real
       // user edit diffs against the post-mutation graph rather than a stale one.
       if (curr._externalMutationActive > 0) {
-        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+        baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
         return
       }
 
-      const prevSnapshot = snapshotRef.current
-      if (!prevSnapshot) {
-        snapshotRef.current = takeSnapshot(curr.nodes, curr.edges)
+      const baseline = baselineRef.current
+      if (!baseline) {
+        baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
         return
       }
 
-      const currSnapshot = takeSnapshot(curr.nodes, curr.edges)
-      const diff = diffSnapshots(prevSnapshot, currSnapshot)
-      // Position-only change: advance the baseline, keep the coaching.
-      if (!diff) {
-        snapshotRef.current = currSnapshot
-        return
-      }
+      // ⭐ THE CANONICAL OWNER ANSWERS. A cosmetic edit — rename, description,
+      // category, a drag — advances the baseline and KEEPS the coaching. Only an
+      // analysis-affecting change invalidates it. See the withdrawal note above
+      // for what the previous predicate destroyed.
+      const analytical = hasAnalyticalGraphChange(baseline, { nodes: curr.nodes, edges: curr.edges })
+      baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
+      if (!analytical) return
 
-      snapshotRef.current = currSnapshot
       useGuidanceStore.getState().clearGuidanceItems()
     })
 

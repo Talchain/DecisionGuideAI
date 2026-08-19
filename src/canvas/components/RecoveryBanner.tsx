@@ -58,7 +58,18 @@ export function RecoveryBanner() {
       }
     }
 
+    // ⚠ NOT A USER EDIT — RECOVERING THE USER'S OWN UNSAVED WORK. Without this
+    // window `useGuidanceInvalidationOnEdit` reads the restore as the user
+    // rebuilding their model from nothing and destroys the coaching that
+    // belonged to exactly this recovered graph, on screen and on disk. Raised in
+    // the SAME `set()` as the write; a later one arrives too late (MUT-ORDER).
+    // Read-then-write rather than the updater form: this is one synchronous
+    // click handler with no concurrent writer, and the object literal keeps the
+    // precise typing the updater form widened away (the typecheck ratchet caught
+    // that, which the named local gate alone would not have).
+    const suppressed = useCanvasStore.getState()._externalMutationActive + 1
     useCanvasStore.setState({
+      _externalMutationActive: suppressed,
       nodes: autosaveData.nodes,
       edges: autosaveData.edges,
       currentScenarioId: autosaveData.scenarioId || null,
@@ -69,6 +80,7 @@ export function RecoveryBanner() {
       ceeAnalysisReady: autosaveData.ceeAnalysisReady ?? null,
       selectedGoalNode: goalNodeId,
     })
+    useCanvasStore.setState({ _externalMutationActive: Math.max(0, suppressed - 1) })
 
     // Clear autosave after recovery and mark as dismissed
     clearAutosave()
