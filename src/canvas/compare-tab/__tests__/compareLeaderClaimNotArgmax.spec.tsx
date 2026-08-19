@@ -343,6 +343,28 @@ describe('deriveCompareState quotes the verdict instead of re-deriving a 17th on
     expect(deriveCompareState([tied(1), tied(2)], false)).toBe('noWinner')
   })
 
+  it("PRECONDITION: a 'tied' verdict guarantees the two options the copy prints", () => {
+    // The `noWinner` arm destructures `const [top, second] = latest.options`
+    // and prints both. That is only safe because of a containment the two
+    // derivations share, and it is worth pinning rather than trusting:
+    //
+    //   `deriveDecisionVerdict` returns UNKNOWN for `comparable.length < 2`
+    //   BEFORE any authority applies, so 'tied' ⇒ at least two COMPARABLE
+    //   options. `comparable` and `extractOptions` filter the SAME sorted
+    //   array on the same predicate (non-empty id + finite win_probability),
+    //   and an id only reaches `comparable` if the FIRST entry carrying it had
+    //   a finite probability — which is exactly the entry `extractOptions`
+    //   takes. So comparable ⊆ options, and 'tied' ⇒ options.length >= 2.
+    //
+    // If a later edit lets the two filters drift apart, this REDs here rather
+    // than as an undefined-property crash inside a template.
+    const tied = tiedRun(1, 0.51, 0.49)
+    expect(tied.leaderVerdict.separation).toBe('tied')
+    expect(tied.options.length).toBeGreaterThanOrEqual(2)
+    expect(tied.options[0].winProbability).toEqual(expect.any(Number))
+    expect(tied.options[1].winProbability).toEqual(expect.any(Number))
+  })
+
   it("a leader change is claimable only when BOTH runs named one", () => {
     const flipped = snapshotFrom(
       response(
