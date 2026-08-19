@@ -5364,12 +5364,12 @@ export function useConversation(): UseConversationReturn {
             // DECLARED field on `OlumiResponseSchema` (0.48.0), so it rides the
             // response surface itself rather than the `__additive__` demotion.
             //
-            // ⚠ FAIL-CLOSED, AND ABSENCE IS THE COMMON, MEANINGFUL CASE: a draft
-            // that dropped nothing carries no key (the field is `.optional()`
-            // and the producer omits rather than zeroing), the extractor returns
-            // null, and the conditional spread attaches nothing — so the bubble
-            // asserts no omission. Attaching a zero/empty value here would put
-            // "Olumi left 0 things out of this model" on every clean draft.
+            // ⚠ FAIL-CLOSED, AND ABSENCE MEANS LESS THAN IT LOOKS LIKE: the
+            // contract cannot encode zero (`total_count` positive, `groups`
+            // min 1), so a missing key means NO ATTESTATION WAS SUPPLIED, never
+            // "this draft dropped nothing". The extractor returns null, the
+            // conditional spread attaches nothing, and the bubble asserts
+            // neither an omission nor a completeness.
             const modelBuildingNotices = extractModelBuildingNoticesSidecar(target.response)
             addMessage({
               id: crypto.randomUUID(),

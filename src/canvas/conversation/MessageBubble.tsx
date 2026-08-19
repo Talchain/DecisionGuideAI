@@ -495,9 +495,11 @@ export const MessageBubble = memo(function MessageBubble({
       {/* What Olumi had to leave out of the model it drafted on THIS turn.
         * NO FLAG (CEE emits `model_building_notices` unconditionally, and it is
         * a declared 0.48.0 contract field), and the condition is the PAYLOAD'S
-        * OWN PRESENCE: a draft that dropped nothing carries no key, so
-        * `message.modelBuildingNotices` is undefined and nothing renders.
-        * Rendering a zero here would report an omission that never happened.
+        * OWN PRESENCE: with no attestation `message.modelBuildingNotices` is
+        * undefined and nothing renders. The contract cannot encode zero, so
+        * absence is SILENCE, not a clean bill of health — rendering a zero here
+        * would report an omission that never happened, and rendering
+        * reassurance would claim a completeness the field cannot evidence.
         * Assistant-only: an omission is a fact about a MODEL OLUMI BUILT, and
         * the user's own bubble never carries one. */}
       {!isUser && message.modelBuildingNotices && (

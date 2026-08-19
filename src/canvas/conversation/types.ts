@@ -102,10 +102,12 @@ export interface ConversationMessage {
    * (modelBuildingNotices.ts, which carries the full producer contract).
    *
    * When present the bubble renders a `ModelBuildingNoticesNotice`; when ABSENT
-   * it renders exactly as today and makes NO claim — the producer OMITS the key
-   * on a turn that dropped nothing rather than sending a zero, so synthesising
-   * an empty value here would report an omission that never happened. No flag:
-   * CEE emits it unconditionally, so this auto-lights-up.
+   * it renders exactly as today and makes NO claim IN EITHER DIRECTION. The
+   * contract cannot encode zero (`total_count` is positive, `groups` is min 1),
+   * so absence means NO ATTESTATION WAS SUPPLIED — never "nothing was dropped".
+   * Synthesising an empty value would report an omission that never happened;
+   * rendering reassurance would assert a completeness the field cannot evidence.
+   * No flag: CEE emits it unconditionally, so this auto-lights-up.
    *
    * Ephemeral: derived from the live turn and NOT persisted — hydrated history
    * renders without the notice, the same treatment as `reasoning`,

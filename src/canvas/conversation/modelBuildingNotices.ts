@@ -142,13 +142,20 @@ export const MODEL_BUILDING_NOTICES_POINTER =
  * rather than restated. Restating them would be a second copy of a producer
  * rule that can drift (CLAUDE.md trap 12); using the schema cannot.
  *
- * ⚠ FAIL-CLOSED, AND THE ABSENT CASE IS LOAD-BEARING. A turn that dropped
- * nothing carries NO key — the field is `.optional()` and the producer omits
- * it rather than sending a zero. So absence yields `null`, the caller attaches
- * nothing, and the bubble makes NO claim. Synthesising `{ totalCount: 0 }` here
- * would put "Olumi left 0 things out of this model" in front of every user on
- * every clean draft, which is the mint-a-zero defect this estate has already
- * shipped once and reads as a broken product.
+ * ⚠ FAIL-CLOSED, AND THE ABSENT CASE IS LOAD-BEARING — BUT IT MEANS LESS THAN
+ * IT LOOKS LIKE. The contract CANNOT ENCODE ZERO: `total_count` is `.positive()`
+ * and `groups` is `.min(1)`, so there is no representable "nothing was dropped"
+ * payload. Absence therefore means **no notice attestation was supplied** — NOT
+ * "this draft dropped nothing". The two are different claims and only the first
+ * is evidence.
+ *
+ * So absence yields `null`, the caller attaches nothing, and the bubble makes
+ * NO CLAIM IN EITHER DIRECTION. Two fabrications are banned here, not one:
+ *   · `{ totalCount: 0 }` would put "Olumi left 0 things out of this model" in
+ *     front of every user — the mint-a-zero defect this estate has shipped once.
+ *   · A reassurance ("nothing was left out", "your brief was captured in full")
+ *     would be WORSE: a positive completeness claim built on a silent field,
+ *     which is precisely the confident wrongness this capability exists to end.
  *
  * A row whose kind this UI cannot name is DROPPED from `rows` while
  * `totalCount` is preserved verbatim — the count is the producer's, and

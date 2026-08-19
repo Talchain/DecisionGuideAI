@@ -38,8 +38,19 @@ const VALID = {
 } as const
 
 describe('extractModelBuildingNoticesSidecar — ⭐ absence never becomes a zero', () => {
-  it('returns null when the key is absent (the clean-draft case)', () => {
+  it('returns null when the key is absent (no attestation supplied)', () => {
     expect(extractModelBuildingNoticesSidecar({ assistant_text: 'hi' })).toBeNull()
+  })
+
+  it('the contract cannot encode zero, so a zero-shaped payload is REJECTED', () => {
+    // `total_count` is `.positive()` and `groups` is `.min(1)`: there is no
+    // representable "nothing was dropped" value. This pins that the UI cannot
+    // be handed one and quietly render it as a completeness claim.
+    expect(
+      extractModelBuildingNoticesSidecar({
+        model_building_notices: { total_count: 0, groups: [], details_redacted: true },
+      }),
+    ).toBeNull()
   })
 
   it('returns null for null/undefined values and non-object responses', () => {

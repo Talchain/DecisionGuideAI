@@ -70,12 +70,23 @@ describe('ModelBuildingNoticesNotice — ⭐ no minted zero (no payload ⇒ no c
     expect(screen.queryByTestId('model-building-notices-toggle')).toBeNull()
   })
 
-  it('the clean reply never says anything about things being left out', () => {
-    // The strong form: not merely "the testid is absent", but that no
-    // left-out language reaches the DOM under any other markup.
+  it('the reply with no attestation makes NO claim IN EITHER DIRECTION', () => {
+    // The strong form: not merely "the testid is absent", but that neither
+    // kind of fabrication reaches the DOM under any other markup.
+    //
+    // The contract CANNOT ENCODE ZERO (`total_count` positive, `groups` min 1),
+    // so an absent field means NO ATTESTATION WAS SUPPLIED — not "nothing was
+    // dropped". Both directions are therefore banned, and the second is the
+    // more dangerous one: a completeness reassurance built on a silent field is
+    // a positive claim with no evidence behind it at all.
     const { container } = render(<MessageBubble message={makeMsg()} onChipClick={noop} />)
+    // (a) no minted omission
     expect(container.textContent).not.toMatch(/left\s+\d+/i)
     expect(container.textContent).not.toMatch(/out of this model/i)
+    // (b) no minted completeness
+    expect(container.textContent).not.toMatch(/nothing was (left|dropped|omitted)/i)
+    expect(container.textContent).not.toMatch(/captured (in full|everything)/i)
+    expect(container.textContent).not.toMatch(/complete model|fully represented/i)
   })
 
   it('a USER message never carries the notice, even with a payload attached', () => {
