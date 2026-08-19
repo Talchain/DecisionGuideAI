@@ -469,37 +469,52 @@ export const ACTIONS_MENU = [
     label: 'Pressure-test the frame',
     prompt: 'Is this the right question to be asking, and does it fit my wider goals?',
     // Frame-challenge coaching. explain_from_structure EXPLAINS the model;
-    // this spark challenges it — no honest vocabulary entry.
+    // this spark challenges it — no honest ACTION vocabulary entry.
     action_type: null,
+    // ⭐ ROUTED. CEE's typed coaching arm serves this intent, so the click
+    // arrives TYPED instead of as anonymous prose CEE has to re-infer.
+    intent: 'challenge_frame',
   },
   {
     id: 'widen_options',
     label: 'Widen the options',
     prompt: 'Suggest materially different options that work through a different mechanism from the ones I already have.',
-    // Option-elicitation coaching; the boundary enum has no add_option.
+    // Option-elicitation coaching; the ACTION enum has no add_option.
     action_type: null,
+    // ⭐ ROUTED, and the only one of the four with a published protocol behind
+    // it: CEE cites DSK-P-004 (Opportunity cost prompting) on frame-stage
+    // turns, where the bundle's own stage_applicability admits it.
+    intent: 'elicit_options',
   },
   {
     id: 'outside_view',
     label: 'Take the outside view',
     prompt: 'Take the outside view on this decision: what do similar decisions and base rates suggest?',
-    // Base-rate coaching — no vocabulary entry.
+    // Base-rate coaching — no ACTION vocabulary entry.
     action_type: null,
+    // Declared but NOT yet routed by CEE, so the send gate withholds it. The
+    // declaration is the point: when CEE's arm grows this intent, the send
+    // lights up with no change here.
+    intent: 'outside_view',
   },
   {
     id: 'pre_mortem',
     label: 'Run a pre-mortem',
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
-    // Failure-imagination coaching — no vocabulary entry.
+    // Failure-imagination coaching — no ACTION vocabulary entry.
     action_type: null,
+    // Declared, not yet routed — withheld by the send gate.
+    intent: 'pre_mortem',
   },
   {
     id: 'risks_upside',
     label: 'Find risks and upside',
     prompt: 'What risks and best-case upsides are missing from my model?',
     // Gap-elicitation coaching (what is MISSING) — explain_* describes what
-    // is present; no honest entry.
+    // is present; no honest ACTION entry.
     action_type: null,
+    // Declared, not yet routed — withheld by the send gate.
+    intent: 'elicit_risks',
   },
   {
     id: 'calibrate_estimates',
@@ -512,6 +527,9 @@ export const ACTIONS_MENU = [
     // analysis facts). Live since the 0.20.0 re-vendor + CEE acceptance
     // (2026-07-20) — now sends.
     action_type: 'analysis_readiness',
+    // Declared, not yet routed — withheld. Independent of action_type, which
+    // is live: an intent names WHAT the user wants, a handler names HOW.
+    intent: 'estimate_help',
   },
   {
     id: 'compare_view',
@@ -520,6 +538,10 @@ export const ACTIONS_MENU = [
     // compare_options compares DECISION OPTIONS, not the user's view vs the
     // model's — stamping it would misdeclare the intent.
     action_type: null,
+    // No honest INTENT either: the Intent set has no "compare my view with
+    // yours" member, and `discuss` would flatten a specific ask into the
+    // catch-all. Null is the honest answer, not a gap.
+    intent: null,
   },
   {
     id: 'prepare_first_analysis',
@@ -531,6 +553,10 @@ export const ACTIONS_MENU = [
     // wrongness class this metadata exists to kill. Live since the 0.20.0
     // re-vendor + CEE acceptance (2026-07-20) — now sends.
     action_type: 'analysis_readiness',
+    // The readiness ACTION already carries this spark's meaning precisely;
+    // adding an intent would be a second, weaker declaration of the same
+    // thing.
+    intent: null,
   },
 ] as const satisfies ReadonlyArray<ActionsMenuItem>
 
@@ -578,13 +604,23 @@ export const SPARK_PROMPTS = {
     label: 'Define success with Olumi',
     prompt: 'Help me define a measurable success target for this goal.',
     // Goal-target coaching; set_factor_value is a validated mutation, not
-    // a conversation — no honest entry.
+    // a conversation — no honest ACTION entry.
     action_type: null,
+    // ⭐ ROUTED. CEE's arm asks for a metric, a threshold and a date, and
+    // carries NO science badge — no published protocol names a
+    // success-definition exercise at this stage, and DSK-P-006 is explicitly
+    // contraindicated before the user has decided.
+    intent: 'define_success',
   },
   reflectBias: {
     id: 'reflect_bias',
     label: 'Talk it through with Olumi',
     prompt: 'You flagged a possible blind spot in how my model leans. Help me think it through.',
     action_type: null,
+    // ⭐ ROUTED. `challenge_assumption` — the consider-the-opposite family.
+    // CEE cites DSK-P-003 only on `decide` turns, where the bundle admits it;
+    // on the pre-analysis panel it coaches without a badge, because
+    // DSK-P-003 requires analysis results this surface does not have.
+    intent: 'challenge_assumption',
   },
 } satisfies Record<string, SparkPrompt>

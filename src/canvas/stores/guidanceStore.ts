@@ -234,6 +234,33 @@ export interface SendChipMeta {
   id?: string
   /** `suggested_actions[].action_type` exactly as the producer emitted it. */
   action_type?: string
+  /**
+   * ⭐ The producer-declared TYPED INTENT (`suggested_actions[].action_intent`
+   * / a registry spark's authored intent), forwarded unchanged.
+   *
+   * ⚠⚠ THIS FIELD'S ABSENCE WAS A LIVE USER-FACING DEFECT (ROADMAP 2.1288),
+   * and the shape of it is worth keeping: the widening card authors
+   * `action_intent: 'add_option'` (CEE `draft-option-widening-blocks.ts:720`),
+   * CEE's add-option rail fires on `ingress.chip?.intent === 'add_option'`
+   * (`route-v2.ts:2819`), and there was NO TRANSPORT BETWEEN THEM. The turn
+   * fell to the free-text edit lane and came back a refusal — so the user
+   * clicked a chip the product itself offered and was told no, at the cost of
+   * their Run affordance. The missing piece was never a handler; it was this
+   * field.
+   *
+   * `buildV5Payload` already reads `chipMeta.intent` and already emits
+   * `chip.intent` on the wire, and its send gate
+   * (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) still decides whether the value
+   * travels. So this can only ever forward an intent the PRODUCER declared and
+   * CEE has accepted — never one the UI invented, and never one CEE cannot
+   * route. Optional, so every existing caller is byte-identical.
+   *
+   * NOT to be confused with `ActionChip.intent`, which is the UI STYLING
+   * variant ('primary' | 'secondary' | 'undo') — a different concept that
+   * happens to share the name (see `useConversation.sendChip`, which
+   * deliberately does not forward it).
+   */
+  intent?: string
   /** `suggested_actions[].parameters`, forwarded unchanged. */
   parameters?: Record<string, unknown>
 }
@@ -271,7 +298,7 @@ export interface GuidanceState {
   /** Registered by ConversationPanel so inspector "Ask about this" can pre-fill chat input */
   _prefillChat: ((text: string) => void) | null
   /** Registered by ConversationPanel — unified action dispatch with chip_metadata */
-  _dispatchAction: ((opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
+  _dispatchAction: ((opts: { action_type?: string; intent?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
   /**
    * Identity token for the ACTIVE registration. Ownership checks must use
    * this, never a callback identity: with the singleton conversation

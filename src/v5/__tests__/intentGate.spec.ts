@@ -22,12 +22,34 @@ describe('intent wire allowlist — schema parity (derive-don\'t-mirror)', () =>
     }
   })
 
-  it('add_option is the currently-accepted intent; coaching intents are withheld', () => {
-    expect(CEE_ACCEPTED_INTENTS.has('add_option')).toBe(true)
-    // The coaching/elicitation arm is not confirmed deployed — withheld until
-    // the registry-stamping lane adds them with deploy provenance.
-    expect(CEE_ACCEPTED_INTENTS.has('challenge_frame')).toBe(false)
-    expect(CEE_ACCEPTED_INTENTS.has('elicit_options')).toBe(false)
+  /**
+   * ⭐ THE ACCEPTED SET IS THE UI HALF OF A TWO-REPO GATE, so it is pinned by
+   * EXACT IDENTITY rather than by spot checks. CEE's arm routes exactly
+   * `ROUTED_COACHING_INTENTS` (`orchestrator-v5/coaching/typed-intent-directive.ts`)
+   * plus the pre-existing `add_option` rail; widening either half alone
+   * re-creates the silent-drop bug the gate exists to prevent — in one
+   * direction the chip degrades to prose, in the other CEE is told it routes
+   * something it does not.
+   *
+   * `toEqual` on the whole set, not `.has()` per member: a `.has()` list cannot
+   * see an entry that should NOT be there, which is the failure mode with a
+   * cross-repo cost.
+   */
+  it('the accepted set is EXACTLY add_option plus the four CEE routes', () => {
+    expect(new Set(CEE_ACCEPTED_INTENTS)).toEqual(
+      new Set(['add_option', 'challenge_frame', 'define_success', 'elicit_options', 'challenge_assumption']),
+    )
+  })
+
+  it('the intents CEE does NOT route are still withheld — the gate has not been opened wholesale', () => {
+    // Paired with the assertion above: that one alone is satisfied by a build
+    // that accepts everything AND happens to list these five. These four are
+    // published `Intent` members with mounted sparks and no CEE arm; a build
+    // that accepted them would send an intent the service cannot serve.
+    for (const withheld of ['outside_view', 'pre_mortem', 'elicit_risks', 'discuss'] as const) {
+      expect(KNOWN_INTENTS.has(withheld), `${withheld} must be published`).toBe(true)
+      expect(CEE_ACCEPTED_INTENTS.has(withheld), `${withheld} must be withheld`).toBe(false)
+    }
   })
 })
 

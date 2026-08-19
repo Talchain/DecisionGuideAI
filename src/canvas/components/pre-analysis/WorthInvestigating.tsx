@@ -180,7 +180,7 @@ function GapRow({ gap, onSetValue, factorInfluence }: { gap: EvidenceGap; onSetV
       item_id: gap.factorId,
       surface: 'pre_analysis' as const,
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+      profile_stage: state.currentStage ?? undefined,
     }
     trackGuidance('EVIDENCE_GAP_SHOWN', { ...basePayload, item_type: 'evidence_gap' })
     if (onSetValue) {
@@ -203,7 +203,7 @@ function GapRow({ gap, onSetValue, factorInfluence }: { gap: EvidenceGap; onSetV
       item_type: 'evidence_gap',
       surface: 'pre_analysis',
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+      profile_stage: state.currentStage ?? undefined,
     })
   }
 
@@ -214,7 +214,7 @@ function GapRow({ gap, onSetValue, factorInfluence }: { gap: EvidenceGap; onSetV
       item_type: 'fix',
       surface: 'pre_analysis',
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+      profile_stage: state.currentStage ?? undefined,
     })
     onSetValue?.(gap.factorId)
   }

@@ -98,7 +98,9 @@ describe('V5CoachingBlock — action chip dispatch (2.225)', () => {
     expect(sendChip).toHaveBeenCalledTimes(1)
     // label = what the chip DISPLAYS; message = what is SENT. Both producer
     // copy, neither templated, interpolated or appended to.
-    expect(sendChip).toHaveBeenCalledWith('Confirm this assumption', PRODUCER_PROMPT)
+    expect(sendChip).toHaveBeenCalledWith('Confirm this assumption', PRODUCER_PROMPT, {
+      intent: 'confirm_factor',
+    })
     const [, message] = sendChip.mock.calls[0] as [string, string]
     expect(message).toBe(PRODUCER_PROMPT)
     // Guard against a composed message that merely CONTAINS the producer text.
@@ -115,7 +117,10 @@ describe('V5CoachingBlock — action chip dispatch (2.225)', () => {
     await user.tab()
     expect(screen.getByTestId('v5-coaching-action')).toHaveFocus()
     await user.keyboard('{Enter}')
-    expect(sendChip).toHaveBeenCalledWith('Re-run analysis', PRODUCER_PROMPT)
+    // No `action_intent` on this block, so no meta — the third argument is
+    // `undefined`, not an empty object. A producer that declared nothing must
+    // not have something invented on its behalf.
+    expect(sendChip).toHaveBeenCalledWith('Re-run analysis', PRODUCER_PROMPT, undefined)
   })
 
   it('fires at most once — a settled chip does not re-send', async () => {
@@ -193,5 +198,82 @@ describe('V5CoachingBlock — fail-closed semantics (2.225)', () => {
     await user.click(action)
     expect(action).not.toBeDisabled()
     expect(action).not.toHaveAttribute('data-settled')
+  })
+})
+
+/**
+ * ⭐⭐ THE TRANSPORT THE BANKED BRANCH LEFT OPEN — and the one that carries the
+ * motivating defect.
+ *
+ * ROADMAP 2.1288: CEE's widening card authors `action_intent: 'add_option'`
+ * (`draft-option-widening-blocks.ts:720`); CEE's add-option rail fires on
+ * `ingress.chip?.intent === 'add_option'` (`route-v2.ts:2819`); and this
+ * component — the one that RENDERS that card's chip — called
+ * `sendChip(label, message)` with NO third argument. The producer's typed
+ * intent reached the DOM as `data-action-intent` and stopped there.
+ *
+ * ⚠ WHY THIS FILE AND NOT THE STORE'S. The typed-intent branch added
+ * `SendChipMeta.intent` and the `ConversationPanel` forward, so the TYPE layer
+ * was complete and a type-level test would have passed. The value still never
+ * left the component, because the caller passed no meta at all. A field that
+ * exists and is never populated is indistinguishable, from the type's point of
+ * view, from one that works — which is why this is asserted at the CALL, on a
+ * rendered click, and not on the interface.
+ */
+describe('V5CoachingBlock — the producer\'s typed intent leaves the component (2.1288)', () => {
+  let sendChip: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    sendChip = vi.fn()
+    useGuidanceStore.setState({ _sendChip: sendChip })
+  })
+
+  it('forwards `action_intent` as chip META, not only as a DOM attribute', async () => {
+    const user = userEvent.setup()
+    render(
+      <V5CoachingBlock
+        block={{
+          ...BASE,
+          coaching_kind: 'widening',
+          action_intent: 'add_option',
+          action_label: 'Add this option',
+          action_prompt: PRODUCER_PROMPT,
+        }}
+      />,
+    )
+    const chip = screen.getByTestId('v5-coaching-action')
+
+    // The DOM attribute is the PRE-FIX behaviour, still correct and still
+    // present. Asserted here so the test cannot be satisfied by moving the
+    // value rather than by also transporting it.
+    expect(chip).toHaveAttribute('data-action-intent', 'add_option')
+
+    await user.click(chip)
+
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    const [, , meta] = sendChip.mock.calls[0] as [string, string, { intent?: string } | undefined]
+    expect(
+      meta?.intent,
+      'the widening card\'s intent did not leave the component — the click will take ' +
+        'the free-text edit lane and come back a refusal, at the cost of the Run affordance',
+    ).toBe('add_option')
+  })
+
+  it('CONTRAST — a card with NO action_intent sends no meta at all', async () => {
+    // The discriminating half. Without it, the assertion above is satisfied by
+    // a build that stamps some intent on every chip; with it, the value is
+    // provably the PRODUCER'S and not the UI's invention.
+    const user = userEvent.setup()
+    render(
+      <V5CoachingBlock
+        block={{ ...BASE, action_label: 'Add this option', action_prompt: PRODUCER_PROMPT }}
+      />,
+    )
+    const chip = screen.getByTestId('v5-coaching-action')
+    expect(chip).not.toHaveAttribute('data-action-intent')
+
+    await user.click(chip)
+    const [, , meta] = sendChip.mock.calls[0] as [string, string, unknown]
+    expect(meta, 'the UI must never author an intent the producer did not declare').toBeUndefined()
   })
 })
