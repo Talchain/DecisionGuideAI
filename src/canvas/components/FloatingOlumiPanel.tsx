@@ -14,6 +14,7 @@ import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { ConversationPanel } from '../conversation/ConversationPanel'
+import { THREAD_TESTID_FLOATING } from '../conversation/zones/ChatThread'
 import {
   useFloatingPanelState,
   revealWouldImposeFloating,
@@ -1084,6 +1085,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
           onAttach={noop}
           hideComposer
           compact
+          /* Mount identity: this host and the docked Olumi tab can both be
+             mounted at once, so they must not answer to one `data-testid`.
+             The rationale and the canonical assignment live in one place —
+             the note beside these constants in `zones/ChatThread.tsx`. */
+          threadTestId={THREAD_TESTID_FLOATING}
         />
         <AIInputBar ref={inputBarRef} variant="floating" onCogClick={onCogClick} hideChevron />
       </div>

@@ -74,6 +74,12 @@ interface ConversationPanelProps {
    * smart-scroll runs unchanged.
    */
   scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
+  /**
+   * Which conversation surface this panel IS, forwarded to ChatThread so the
+   * two hosts never share one `data-testid`. See the mount-identity note in
+   * `zones/ChatThread.tsx`. Defaults to the canonical docked identity.
+   */
+  threadTestId?: string
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -129,6 +135,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   prefillChat: prefillChatOverride,
   compact = false,
   scrollListRef,
+  threadTestId,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
@@ -791,6 +798,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onProposalConfirm={handleProposalConfirm}
         compact={compact}
         scrollListRef={scrollListRef}
+        testId={threadTestId}
       />
 
       {!hideComposer && (

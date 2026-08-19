@@ -31,6 +31,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { ConversationMessage } from '../../conversation/types'
+import { THREAD_SCROLL_SENTINEL_TESTID } from '../../conversation/zones/ChatThread'
 import type { ReportV1 } from '../../../adapters/plot/types'
 
 // ---------------------------------------------------------------------------
@@ -583,16 +584,27 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     try {
       landAnalysisTurn(rerender)
 
-      // useSmartScroll took its scrollToBottom branch: the listEndRef sentinel
-      // (ChatThread.tsx:213), `{ behavior: 'smooth' }`, no `block`.
+      // useSmartScroll took its scrollToBottom branch: the `listEndRef`
+      // sentinel, `{ behavior: 'smooth' }`, no `block`.
+      //
+      // ⚠ THIS USED TO IDENTIFY THE SENTINEL AS "the scrolled element with NO
+      // `data-testid`" — a predicate ANY untagged element satisfies, so it
+      // bound to a description rather than to the object (CLAUDE.md trap 19).
+      // It was also silently coupled to the sentinel staying anonymous: giving
+      // that element an identity turned this assertion red without anything
+      // about the scroll behaviour changing. Bound to the exported constant now,
+      // so the spec and the component cannot drift apart.
       const bottomPin = probe.calls.find(
         (c) =>
-          c.target.getAttribute('data-testid') === null &&
+          c.target.getAttribute('data-testid') === THREAD_SCROLL_SENTINEL_TESTID &&
           typeof c.opts === 'object' &&
           c.opts !== null &&
           (c.opts as ScrollIntoViewOptions).block === undefined,
       )
-      expect(bottomPin).toBeDefined()
+      expect(
+        bottomPin,
+        'no scroll was aimed at the thread-end sentinel — the diagnosis this case pins no longer holds',
+      ).toBeDefined()
       // …and it was asked for while the wrapper still carried `hidden`. In a
       // real browser that subtree has no layout box, so this call does nothing.
       expect(bottomPin?.wrapperHidden).toBe(true)
