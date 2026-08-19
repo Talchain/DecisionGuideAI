@@ -27,6 +27,8 @@ import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
+// The canonical "open the editor for this node" seam — see handleSetValueForGap.
+import { openNodeInspector } from '../../nodes/shared/openNodeInspector'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
@@ -984,13 +986,31 @@ export function PreAnalysisPanel({
 
   // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
+  /**
+   * THE CANONICAL RULE, shared with `TriageActionCardsBody.openValueEditor`:
+   * a control labelled "Edit value" opens the node's inspector. One owner,
+   * `openNodeInspector`; no per-consumer variant.
+   *
+   * ⚠ This handler's own comment claimed it "opens the inspector for a
+   * factor" and it never did. `selectNodeWithoutHistory` writes the selection
+   * and `focusNodeById` moves the camera; `InspectorModal` is gated on
+   * `showFullInspector`, LOCAL React state in `ReactFlowGraph` raised ONLY by
+   * the `olumi:open-full-inspector` window event, which neither call
+   * dispatches. Selection alone opens no editing surface anywhere in the app.
+   * So this panel and the post-analysis panel told the same lie, by two
+   * different routes — which is exactly why the fix is one shared owner
+   * rather than a second bespoke handler here.
+   *
+   * `openNodeInspector` performs the selection itself (without history —
+   * opening an editor is not a graph change), so the explicit select is now
+   * redundant and is gone. It fail-closes silently on a factor that is not on
+   * the canvas, replacing the previous silent no-op with the same outcome.
+   */
   const handleSetValueForGap = useCallback((factorId: string) => {
     // Note: FIX_CLICKED is also fired in GapRow.handleClick; PreAnalysisPanel is the
     // logical orchestrator so we skip double-firing here.
-    // Select the factor node to open inspector — non-destructive, no undo needed
-    selectNodeWithoutHistory(factorId)
-    focusNodeById(factorId)
-  }, [selectNodeWithoutHistory])
+    openNodeInspector(factorId)
+  }, [])
 
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
