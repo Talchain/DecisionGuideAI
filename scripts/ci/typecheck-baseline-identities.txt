@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2272
+# count=2263
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -268,9 +268,6 @@
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS6133	'isLast' is declared but its value is never read.
-1	src/canvas/components/CommandPalette.tsx	TS2322	Type 'Promise<boolean>' is not assignable to type 'Promise | void<void>'.
-1	src/canvas/components/CommandPalette.tsx	TS2322	Type 'boolean' is not assignable to type 'Promise | void<void>'.
-6	src/canvas/components/CommandPalette.tsx	TS2322	Type 'null | string' is not assignable to type 'Promise | void<void>'.
 7	src/canvas/components/CompareView.tsx	TS2339	Property 'summary' does not exist on type 'ReportV1'.
 1	src/canvas/components/ComparisonTable.tsx	TS6133	'TrendingUp' is declared but its value is never read.
 1	src/canvas/components/ComparisonTable.tsx	TS7015	Element implicitly has an 'any' type because index expression is not of type 'number'.
@@ -509,7 +506,7 @@
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'graph_state' does not exist on type 'TurnRequestPayload'.
 1	src/canvas/conversation/useConversation.ts	TS2339	Property 'message' does not exist on type 'TurnRequestPayload'.
 2	src/canvas/conversation/useConversation.ts	TS2339	Property 'selected_elements' does not exist on type 'TurnRequestPayload'.
-1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 261 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
+1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 265 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
 2	src/canvas/conversation/useConversation.ts	TS2352	Conversion of type 'OrchestratorResponseEnvelopeV2' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'op' is declared but its value is never read.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'ops' is declared but its value is never read.
@@ -1019,7 +1016,6 @@
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"low"' have no overlap.
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"moderate"' have no overlap.
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"negligible"' have no overlap.
-1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS6133	'React' is declared but its value is never read.
 4	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'factorId' does not exist in type 'UncertaintyItem'.
 1	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'voi' does not exist in type 'UncertaintyItem'.
 8	src/components/results/__tests__/v12.2-fixes.spec.tsx	TS2739	Type '{ id: string; label: string; winProbability: number; rank: number; expected: number; isRecommended: false; }' is missing the following properties from type 'OptionResult': outcome, p10, p50, p90
