@@ -588,7 +588,17 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // and the "never strand the user with zero composers" invariant cannot move.
   useEffect(() => {
     if (!isOpen || yieldToFirstUse || yieldToDockedOlumi) return
-    if (revealWouldImposeFloating({ isMinimised, source, userRepositioned, userChoseFloating })) return
+    // ⚠ FLAG-GATED, exactly as `yieldToDockedOlumi` above is. Routing this cell
+    // to the dock is only honest when the dock CAN host Olumi, and that is
+    // `isAiPanelV2Enabled()`: with the flag OFF, `OutputsDock` redirects tab
+    // `olumi` -> `results`, so an unconditional guard would deregister the
+    // channel while nothing else can take it — `focusFloating()` false, the
+    // dock branch skipped, and `revealOlumiSurface()` returning false having
+    // fronted NOTHING. `VITE_FEATURE_AI_PANEL_V2` is set only under
+    // `[context.staging.environment]`, so that is production and every
+    // rollback posture. Not staging-reachable; it would silently disable the
+    // documented rollback lever. The twin test pins the flag-OFF direction.
+    if (isAiPanelV2Enabled() && revealWouldImposeFloating({ isMinimised, source, userRepositioned, userChoseFloating })) return
     return registerFloatingFocus(() => {
       const state = useFloatingPanelState.getState()
       if (state.isMinimised) {

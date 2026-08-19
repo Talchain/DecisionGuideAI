@@ -45,9 +45,14 @@ vi.mock('../../utils/markdown', () => ({
   renderMarkdown: (s: string) => s,
   sanitiseMarkdown: (s: string) => s,
 }))
+// MUTABLE, not a `vi.fn`: this config sets `mockReset: true`, which in vitest 1.x
+// resets a spy's implementation to `undefined` — a flag mock built as a spy would
+// silently read FALSE in every test after the first. Plain state is immune, and
+// `beforeEach` re-pins the default so the flag-OFF twin cannot leak.
+const flagState = vi.hoisted(() => ({ aiPanelV2: true }))
 vi.mock('../../../flags', async (io) => ({
   ...(await io<Record<string, unknown>>()),
-  isAiPanelV2Enabled: () => true,
+  isAiPanelV2Enabled: () => flagState.aiPanelV2,
 }))
 
 const canvasMockState = {
@@ -137,6 +142,7 @@ function mountPanelIn(state: { source: FloatingPanelSource; userRepositioned: bo
 }
 
 beforeEach(() => {
+  flagState.aiPanelV2 = true
   Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true })
   Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
   useFloatingPanelState.getState().reset()
@@ -292,5 +298,33 @@ describe('the focus channel stops lying about being on screen (UX gate 7a)', () 
     })
     rerender(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />)
     expect(focusFloating(), 'a dragged panel is a user-owned surface again').toBe(true)
+  })
+
+  it('TWIN (flag): with aiPanelV2 OFF the imposing cell STILL registers — the dock cannot host Olumi', () => {
+    // ⭐ THE OPPOSITE-DIRECTION TWIN FOR THE *FLAG* AXIS. Every case above runs
+    // with the flag ON, where the dock genuinely hosts Olumi and routing the
+    // imposing cell there is honest. `VITE_FEATURE_AI_PANEL_V2` is set only
+    // under `[context.staging.environment]` (netlify.toml), so OFF is
+    // production and every rollback posture — and there `OutputsDock`
+    // redirects tab 'olumi' -> 'results'. An UNGATED guard would therefore
+    // deregister this channel while nothing else can take it:
+    // `revealOlumiSurface()` returns `focusFloating()` on that branch, so an
+    // automatic reveal would return false HAVING FRONTED NOTHING AT ALL.
+    //
+    // Without this case the guard's flag-dependence is unpinned: a tidy-up
+    // that drops the `isAiPanelV2Enabled()` conjunct at
+    // `FloatingOlumiPanel.tsx` goes fully green. Revert that conjunct and this
+    // test — and only this test — REDs.
+    flagState.aiPanelV2 = false
+    mountPanelIn(IMPOSING)
+    expect(
+      focusFloating(),
+      'flag OFF: the dock cannot host Olumi, so the floating channel must stay registered',
+    ).toBe(true)
+    // ...and the reveal primitive therefore fronts something rather than nothing.
+    expect(
+      revealOlumiSurface(),
+      'flag OFF: reveal must front the floating surface, not return false having fronted nothing',
+    ).toBe(true)
   })
 })
