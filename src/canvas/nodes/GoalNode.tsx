@@ -17,6 +17,11 @@
  * No ExpertOverlay. No MetricPills.
  */
 import { memo, useMemo } from 'react'
+import {
+  GOAL_LABEL_FROM_BRIEF_COPY,
+  GOAL_LABEL_FROM_BRIEF_TESTID,
+  goalLabelIsUnconfirmedBriefExtract,
+} from '../domain/goalLabelProvenance'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -360,6 +365,24 @@ export const GoalNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
+        {/* ⭐ The label is the user's own sentence, lifted from the brief —
+            CEE's objective derivation refused, so the canvas is showing a
+            stated FACT where a goal belongs. A MARKER, not a second
+            affordance: per L-47 the canvas signals and the detail lives one
+            hover away, and the single place to act is the Analysis tab's Goal
+            field. Editing there stamps `user_set` and this disappears. */}
+        {goalLabelIsUnconfirmedBriefExtract(
+          props.data as { provenance?: unknown } | undefined,
+        ) && (
+          <span
+            data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
+            title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
+            className={`mt-1 inline-flex items-center rounded-full border border-info/40 bg-info/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-light`}
+          >
+            {GOAL_LABEL_FROM_BRIEF_COPY.pill}
+          </span>
+        )}
+
         {/* No target, post-analysis: analysis done but no threshold to evaluate.
             Null-probability guard swaps the copy when the run produced no
             finite win_probability (BoundaryError / null probs / stale state). */}

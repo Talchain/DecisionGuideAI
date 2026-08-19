@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useMemo } from 'react'
+import { goalLabelIsUnconfirmedBriefExtract } from '../../../domain/goalLabelProvenance'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
 import {
@@ -42,7 +43,12 @@ import type {
 export interface PreAnalysisModel {
   hero: {
     decisionTitle: string | null
-    goal: { nodeId: string; label: string } | null
+    /**
+     * `fromBrief` is CEE's own `provenance: 'from_brief'` stamp, resolved by the
+     * ONE predicate (`goalLabelIsUnconfirmedBriefExtract`) rather than re-read
+     * from the node here — so the surface consumes a decision, not a field.
+     */
+    goal: { nodeId: string; label: string; fromBrief: boolean } | null
     success: SuccessState
     goalNodeId: string | null
     coaching: { text: string; attribution: Attribution } | null
@@ -503,7 +509,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       : undefined
     return {
       decisionTitle: briefTitle && briefTitle.length > 0 ? briefTitle : decisionLabel ?? null,
-      goal: facts.goalNode ? { nodeId: facts.goalNode.id, label: goalLabel ?? '' } : null,
+      goal: facts.goalNode
+        ? {
+            nodeId: facts.goalNode.id,
+            label: goalLabel ?? '',
+            fromBrief: goalLabelIsUnconfirmedBriefExtract(
+              facts.goalNode.data as { provenance?: unknown } | undefined,
+            ),
+          }
+        : null,
       success,
       goalNodeId: facts.goalNode?.id ?? null,
       coaching,

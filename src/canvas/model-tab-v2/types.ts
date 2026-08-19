@@ -142,6 +142,14 @@ export interface ModelRow {
   group: ModelGroupId
   label: string
   /**
+   * True when this row's LABEL is an unconfirmed extract from the user's brief
+   * (CEE `provenance: 'from_brief'`), resolved by the one predicate in
+   * `domain/goalLabelProvenance`. Distinct from `provenanceSource` below, which
+   * is about the VALUE — two different questions, deliberately not sharing a
+   * field.
+   */
+  labelFromBrief?: boolean
+  /**
    * The value shown in the row, ALREADY RESOLVED FOR DISPLAY and in PLAIN
    * language ("Strong positive effect", "45 days"). `null` means nothing is
    * stated — which is a fact to render, never a zero to invent.

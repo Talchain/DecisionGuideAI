@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2272
+# count=2263
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -268,9 +268,6 @@
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/components/AdvancedSettingsPanel.tsx	TS6133	'isLast' is declared but its value is never read.
-1	src/canvas/components/CommandPalette.tsx	TS2322	Type 'Promise<boolean>' is not assignable to type 'Promise | void<void>'.
-1	src/canvas/components/CommandPalette.tsx	TS2322	Type 'boolean' is not assignable to type 'Promise | void<void>'.
-6	src/canvas/components/CommandPalette.tsx	TS2322	Type 'null | string' is not assignable to type 'Promise | void<void>'.
 7	src/canvas/components/CompareView.tsx	TS2339	Property 'summary' does not exist on type 'ReportV1'.
 1	src/canvas/components/ComparisonTable.tsx	TS6133	'TrendingUp' is declared but its value is never read.
 1	src/canvas/components/ComparisonTable.tsx	TS7015	Element implicitly has an 'any' type because index expression is not of type 'number'.
@@ -672,7 +669,7 @@
 2	src/canvas/provenance/ProvenanceHub.tsx	TS2339	Property 'text' does not exist on type 'Citation'.
 3	src/canvas/share/__tests__/decisionSummary.spec.ts	TS2322	Type 'number | undefined' is not assignable to type 'number'.
 3	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type 'number' is not assignable to type 'CEEInterventionV3'.
-1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 26 more ...; userReviewedStrength?: boole...' is not assignable to type 'Edge<EdgeData>[]'.
+1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; curvature?: number | undefined; ... 27 more ...; userReviewedStrength?: boolean | undefined; }; ... 27 more ...; domAttributes?: Omit<...>...' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS6133	'newEdge' is declared but its value is never read.
 1	src/canvas/store/__tests__/documents.spec.ts	TS6133	'ValidationError' is declared but its value is never read.
 2	src/canvas/store/__tests__/resultsSettle.spec.ts	TS2322	Type 'undefined' is not assignable to type 'number'.
@@ -751,10 +748,10 @@
 1	src/canvas/ui/inspector-v2/panels/OptionPanel.tsx	TS6133	'onClose' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx	TS6133	'onClose' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/types.ts	TS6196	'FactorCategory' is declared but never used.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | ... 2 more ... | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; curvature?: number | undefined; pathType?: "bezier" | "smoothstep" | "straight" | undefined; ... 25 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 27 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ weightSource: "user"; direction?: "negative" | "positive" | undefined; directionSource?: "cee" | "template" | "user" | undefined; weight: number; style?: "dashed" | "dotted" | "solid" | undefined; ... 26 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'displayColor' is declared but its value is never read.
@@ -1019,7 +1016,6 @@
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"low"' have no overlap.
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"moderate"' have no overlap.
 1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS2367	This comparison appears to be unintentional because the types '"unknown"' and '"negligible"' have no overlap.
-1	src/components/results/__tests__/isl-field-surfacing.spec.tsx	TS6133	'React' is declared but its value is never read.
 4	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'factorId' does not exist in type 'UncertaintyItem'.
 1	src/components/results/__tests__/v12.2-factor-labels.spec.tsx	TS2353	Object literal may only specify known properties, and 'voi' does not exist in type 'UncertaintyItem'.
 8	src/components/results/__tests__/v12.2-fixes.spec.tsx	TS2739	Type '{ id: string; label: string; winProbability: number; rank: number; expected: number; isRecommended: false; }' is missing the following properties from type 'OptionResult': outcome, p10, p50, p90
