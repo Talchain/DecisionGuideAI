@@ -15,7 +15,8 @@
  *   4. a MISSING quantity rendered as zero rather than as absence.
  */
 import { describe, it, expect } from 'vitest'
-import { deriveRunPairComparison, deriveLeaderClaim } from '../deriveRunPairComparison'
+import { deriveRunPairComparison } from '../deriveRunPairComparison'
+import { deriveLeaderClaim } from '../leaderClaim'
 import {
   makeAnalysisSnapshot,
   DEFAULT_LEADER_VERDICT,
@@ -244,7 +245,16 @@ describe('deriveLeaderClaim — the run quotes its OWN producer verdict', () => 
       options: [{ id: 'opt-b', label: 'Option B', winProbability: 71 }],
       leaderVerdict: { ...DEFAULT_LEADER_VERDICT, leaderId: 'opt-b' },
     })
-    expect(deriveLeaderClaim(snapshot)).toEqual({ kind: 'named', optionId: 'opt-b', label: 'Option B' })
+    // ROADMAP 2.835 — the claim now carries the probability too, taken from
+    // the SAME `SnapshotOption` the label came from, so a surface cannot print
+    // one option's name beside another's number. `toEqual` on the whole object
+    // keeps this exhaustive: a new field added without a decision REDs here.
+    expect(deriveLeaderClaim(snapshot)).toEqual({
+      kind: 'named',
+      optionId: 'opt-b',
+      label: 'Option B',
+      winProbability: 71,
+    })
   })
 
   it('the producer’s TIE verdict is "tied" — the one case a denial is licensed', () => {
@@ -257,16 +267,21 @@ describe('deriveLeaderClaim — the run quotes its OWN producer verdict', () => 
   })
 
   it('IGNORES `winnerId`: an argmax winner does not license leader language', () => {
+    // ⚠ This case used to set `winnerLabel: 'Option A'` and
+    // `winnerProbability: 88` alongside `winnerId`. ROADMAP 2.835 DELETED those
+    // two fields, so the scenario they described — a fully-populated argmax
+    // sitting beside an unentitled verdict — is now unrepresentable. The
+    // assertion is unchanged and still bites on the field that remains.
     const snapshot = persisted({
       runNumber: 1,
       winnerId: 'opt-a',
-      winnerLabel: 'Option A',
-      winnerProbability: 88,
+      options: [{ id: 'opt-a', label: 'Option A', winProbability: 88 }],
       leaderVerdict: UNCLAIMED_LEADER_VERDICT,
     })
     const claim = deriveLeaderClaim(snapshot)
     expect(claim.kind).toBe('unclaimed')
     expect(claim.label).toBeNull()
+    expect(claim.winProbability).toBeNull()
   })
 
   it('an entitled verdict whose leader is NOT in the run’s options falls silent rather than naming a blank', () => {

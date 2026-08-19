@@ -6,6 +6,7 @@ import {
 import { typography } from '../../styles/typography'
 import { DotProgression } from './DotProgression'
 import { HealthIndicators } from './HealthIndicators'
+import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import type { AnalysisSnapshot } from './types'
 
 interface TrajectorySectionProps {
@@ -98,7 +99,16 @@ function ExpertTable({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
 
 export interface TrajectoryDatum {
   run: number
-  winner: number
+  /**
+   * The LEADING option's probability in this run — the option the latest run's
+   * verdict names, followed by id across the whole series.
+   *
+   * null ⇒ this run did not score that option (ROADMAP 2.835). It was
+   * non-nullable and fed by the per-run argmax, which made two silent claims at
+   * once: a run with no probabilities plotted at 0, and a run whose argmax was
+   * a DIFFERENT option contributed that option's value to this line.
+   */
+  winner: number | null
   /** null ⇒ this run had no runner-up, or the engine did not score it. */
   runnerUp: number | null
   /** null ⇒ goal attainment was not assessed for this run. */
@@ -118,32 +128,58 @@ export interface TrajectoryDatum {
  * Recharts leaves a GAP for a null y-value (`connectNulls` defaults false), so
  * an unscored run breaks the line instead of pinning it to zero.
  *
+ * ROADMAP 2.835 brings the WINNER series to the same standard, and adds the
+ * identity binding both series need: `leaderOptionId` is the option the latest
+ * run's verdict names, and every point on the line is THAT option's probability
+ * in that run. Passing `null` draws no leader line at all — correct when the
+ * producer named no leader, because the line's entire meaning is a claim about
+ * a named option.
+ *
  * Exported so the series can be asserted directly: jsdom cannot prove anything
  * about a rendered chart (CLAUDE.md trap 3), and a test that renders recharts
  * under jsdom would be pinning nothing.
  */
-export function buildTrajectoryData(snapshots: AnalysisSnapshot[]): TrajectoryDatum[] {
+export function buildTrajectoryData(
+  snapshots: AnalysisSnapshot[],
+  leaderOptionId: string | null,
+): TrajectoryDatum[] {
   return snapshots.map(s => ({
     run: s.runNumber,
-    winner: s.winnerProbability,
+    winner: optionProbabilityIn(s, leaderOptionId),
     runnerUp: s.runnerUpProbability,
     goal: s.goalProbability,
   }))
 }
 
 function TrajectoryChart({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
-  const data = buildTrajectoryData(snapshots)
+  const claim = deriveLeaderClaim(snapshots[snapshots.length - 1])
+  const data = buildTrajectoryData(snapshots, claim.optionId)
 
   // Derived from the SERIES rather than re-deriving a predicate over the
   // snapshots: one source of truth for "is there anything to draw", so a
   // change to the series cannot leave the line-visibility guard behind.
   const hasGoal = data.some(d => d.goal != null)
   const hasRunnerUp = data.some(d => d.runnerUp != null)
+  // Same rule, now needed for the leader line too: it is drawn only where there
+  // is something measured to draw.
+  const hasWinner = claim.kind === 'named' && data.some(d => d.winner != null)
 
-  // Find flip points
+  // Flip markers — ROADMAP 2.835.
+  //
+  // This was `s.winnerId !== snapshots[i].winnerId`, over a field that is
+  // `winner?.option_id ?? ''` at source. A run the producer did not score
+  // compared as `''`, so it was UNEQUAL to any scored neighbour and the chart
+  // drew a "the result flipped here" reference line across a run in which
+  // nothing was measured. A flip is claimable only when both runs NAMED a
+  // leader — the same rule `deriveRunPairComparison.leaderChange` and the
+  // state machine's `'flipped'` arm apply, so all three agree by construction.
   const flipRuns = snapshots
     .slice(1)
-    .filter((s, i) => s.winnerId !== snapshots[i].winnerId)
+    .filter((s, i) => {
+      const to = deriveLeaderClaim(s)
+      const from = deriveLeaderClaim(snapshots[i])
+      return to.kind === 'named' && from.kind === 'named' && to.optionId !== from.optionId
+    })
     .map(s => s.runNumber)
 
   return (
@@ -170,14 +206,16 @@ function TrajectoryChart({ snapshots }: { snapshots: AnalysisSnapshot[] }) {
             strokeOpacity={0.5}
           />
         ))}
-        <Line
-          type="monotone"
-          dataKey="winner"
-          stroke="var(--chart-1)"
-          strokeWidth={2}
-          dot={{ r: 3 }}
-          activeDot={{ r: 5 }}
-        />
+        {hasWinner && (
+          <Line
+            type="monotone"
+            dataKey="winner"
+            stroke="var(--chart-1)"
+            strokeWidth={2}
+            dot={{ r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+        )}
         {hasRunnerUp && (
           <Line
             type="monotone"

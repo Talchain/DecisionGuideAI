@@ -26,8 +26,10 @@ describe('persistedRunSnapshotFactory — field mapping', () => {
       }),
     )!
     expect(s.winnerId).toBe('opt-high')
-    expect(s.winnerLabel).toBe('High')
-    expect(s.winnerProbability).toBe(70)
+    // ROADMAP 2.835 — `winnerLabel` / `winnerProbability` are retired; the same
+    // sorted mapping is asserted on `options`, which is what the tab now reads.
+    expect(s.options[0].label).toBe('High')
+    expect(s.options[0].winProbability).toBe(70)
     expect(s.runnerUpId).toBe('opt-low')
     expect(s.runnerUpProbability).toBe(30)
   })

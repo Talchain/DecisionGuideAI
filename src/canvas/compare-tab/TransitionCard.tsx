@@ -11,6 +11,7 @@ interface TransitionCardProps {
   transition: Transition
   startOpen: boolean
   showExpert: boolean
+  /** Only the MEASURED deltas — nulls are excluded by TransitionsSection. */
   allDeltas: number[]
   registerRef?: (key: string, el: HTMLDivElement | null) => void
 }
@@ -35,6 +36,26 @@ const MAGNITUDE_LABELS: Record<string, string> = {
   major: 'Major shift',
   refinement: 'Refinement',
   minor: 'Minor adjustment',
+}
+
+/**
+ * The estate's standing absence token — the same string RunPairCompare,
+ * TrajectorySection's expert table and the Compare hero use.
+ */
+const NOT_ASSESSED = 'Not assessed'
+
+/**
+ * The leader's movement, or an honest statement that it is not measurable
+ * (ROADMAP 2.835).
+ *
+ * `winnerProbDelta` became `number | null` when the tab stopped subtracting
+ * client-side argmaxes: a delta needs the SAME option scored at BOTH ends.
+ * Rendering a null through the old template produced `+nullpp` beside a
+ * zero-width `DeltaBar` — a template literal coerces null to the string
+ * "null" and TypeScript cannot catch it inside one.
+ */
+function deltaText(delta: number | null): string {
+  return delta != null ? `${delta >= 0 ? '+' : ''}${delta}pp` : NOT_ASSESSED
 }
 
 export function TransitionCard({
@@ -77,11 +98,15 @@ export function TransitionCard({
         </span>
         {!open && (
           <span className={`${typography.panelMeta} ml-1`}>
-            {tr.winnerProbDelta >= 0 ? '+' : ''}{tr.winnerProbDelta}pp
+            {deltaText(tr.winnerProbDelta)}
           </span>
         )}
         <span className={`${typography.panelMeta} ml-auto inline-flex items-center px-2 py-px rounded-full border border-panel-border bg-transparent text-text-body whitespace-nowrap`}>
-          {MAGNITUDE_LABELS[tr.magnitude] ?? tr.magnitude}
+          {/* ROADMAP 2.835: magnitude is a band over the delta, so it is null
+              exactly when the delta is. `MAGNITUDE_LABELS[null]` would render
+              nothing, leaving an empty pill that reads as a badge the code
+              forgot to fill rather than as a fact nobody measured. */}
+          {tr.magnitude != null ? (MAGNITUDE_LABELS[tr.magnitude] ?? tr.magnitude) : NOT_ASSESSED}
         </span>
       </button>
 
@@ -137,9 +162,14 @@ export function TransitionCard({
           {/* Impact */}
           <div className="flex items-center gap-1.5">
             <span className={typography.panelBody}>
-              {tr.winnerProbDelta >= 0 ? '+' : ''}{tr.winnerProbDelta}pp
+              {deltaText(tr.winnerProbDelta)}
             </span>
-            <DeltaBar value={tr.winnerProbDelta} maxAbs={maxAbs} />
+            {/* No bar for an unmeasurable movement. A zero-width bar is still a
+                BAR — it reads as "measured, and it did not move", which is the
+                claim we do not have. */}
+            {tr.winnerProbDelta != null && (
+              <DeltaBar value={tr.winnerProbDelta} maxAbs={maxAbs} />
+            )}
           </div>
           {tr.robustnessChanged && (
             <div className={`${typography.panelBody} mt-0.5`}>

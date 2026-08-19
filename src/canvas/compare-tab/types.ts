@@ -55,7 +55,11 @@ export type SnapshotSource = 'session' | 'persisted'
 export interface SnapshotOption {
   id: string
   label: string
-  /** 0-100, rounded — the same convention as `winnerProbability`. */
+  /**
+   * 0-100, rounded. THE tab's win-probability convention, and since ROADMAP
+   * 2.835 the only one: every leader figure the Compare tab prints or plots is
+   * this field, reached through the option the run's own verdict names.
+   */
   winProbability: number
 }
 
@@ -123,21 +127,44 @@ export interface AnalysisSnapshot {
    * producer signals (`robustness.near_tie`, `decision_brief.headline_banded`,
    * `robustness.recommended_option_id`).
    *
-   * ⚠ IT IS NOT `winnerId`. `winnerId`/`winnerLabel` below are a client-side
-   * ARGMAX over `option_comparison` — precisely the deleted "Authority 3" that
-   * `src/lib/decisionVerdict.ts` exists to prevent, kept here only because the
-   * pre-existing hero/trajectory copy is built on them. Any surface that says
+   * ⚠ IT IS NOT `winnerId`. `winnerId` below is a client-side ARGMAX over
+   * `option_comparison` — precisely the deleted "Authority 3" that
+   * `src/lib/decisionVerdict.ts` exists to prevent. Any surface that says
    * "leads" / "leading option" / "winner" must read THIS field and honour
    * `hasLeadingOption`; `separation: 'unknown'` licenses silence, never a
    * denial. See that module's header for why the two are different questions.
+   *
+   * Turn it into a NAMEABLE claim with `deriveLeaderClaim`
+   * (deriveRunPairComparison.ts) — the one derivation entitled to resolve a
+   * verdict against this run's own options — never by hand at a call site.
    */
   leaderVerdict: DecisionVerdict
 
-  // Winner/runner-up (from option_comparison sorted by win_probability desc)
+  /**
+   * ⛔ IDENTITY ONLY. NOT A DISPLAY SOURCE, AND NOT A LEADER CLAIM.
+   *
+   * ROADMAP 2.835 retired the ARGMAX TRIO as a display source. `winnerLabel`
+   * and `winnerProbability` are GONE — deleted rather than made nullable,
+   * because a nullable argmax would have been a PARALLEL RULE standing beside
+   * the canonical owner, and every surface that had reached for them would
+   * have kept reaching. Deleting them makes the reach a type error instead,
+   * exactly as `decisionVerdict` did by omitting `'win_probability'` from its
+   * `source` union.
+   *
+   * `winnerProbability` was the estate's last minted zero on this tab:
+   * `Math.round((winner?.win_probability ?? 0) * 100)` over an OPTIONAL wire
+   * field, publishing an unscored option as a confident 0% — beside the
+   * runner-up's honest "not scored in this run" (ROADMAP 2.834), inside one
+   * string literal.
+   *
+   * `winnerId` SURVIVES because identity and entitlement are different
+   * questions and `decisionVerdict`'s own doctrine keeps identity working for
+   * non-claiming consumers. Its single remaining reader is `CompareFooter`,
+   * which FOCUSES a node on the canvas — an action, not an assertion.
+   * ⚠ If you are about to read this to say something to the user, you want
+   * `deriveLeaderClaim` instead.
+   */
   winnerId: string
-  winnerLabel: string
-  /** 0-100 (matches existing results store convention) */
-  winnerProbability: number
   /** null if only 1 option */
   runnerUpId: string | null
   runnerUpLabel: string | null
@@ -221,8 +248,38 @@ export interface AnalysisSnapshot {
 // State machine
 // ---------------------------------------------------------------------------
 
-/** State precedence: stale > flipped > noWinner > converged > improving */
-export type CompareState = 'improving' | 'noWinner' | 'converged' | 'flipped' | 'stale'
+/**
+ * State precedence: stale > flipped > noWinner > unclaimed > converged > improving
+ *
+ * ⚠ EVERY STATE EXCEPT `'stale'` AND `'unclaimed'` SELECTS COPY THAT MAKES A
+ * LEADER CLAIM, so each is gated on the run's own `leaderVerdict` — never on
+ * the client-side argmax (ROADMAP 2.835). The mapping, stated once:
+ *
+ *   `'flipped'`    both runs NAMED a leader and named different ones
+ *                  (`deriveLeaderClaim(...).kind === 'named'` on both).
+ *   `'noWinner'`   `separation === 'tied'` — the PRODUCER's own "no clear
+ *                  leading option". Only a producer tie licenses that denial.
+ *   `'unclaimed'`  the latest run named no leader. Copy makes NO claim in
+ *                  either direction.
+ *   `'converged'`  the last three runs all named the SAME leader and its own
+ *                  probability moved < 3pp.
+ *   `'improving'`  a named leader, otherwise.
+ *
+ * ⭐ `'unclaimed'` IS NOT A SYNONYM FOR `'noWinner'`, AND COLLAPSING THEM IS THE
+ * DEFECT `src/lib/decisionVerdict.ts` EXISTS TO PREVENT. `separation: 'tied'`
+ * is the producer SAYING the options are within noise; `'unknown'` is the
+ * producer's SILENCE (a withheld turn drops `headline_banded` and nulls
+ * `leading_option_id` while the win probabilities keep riding the wire — CEE
+ * #711). Silence licenses no claim in either direction, so it must not become
+ * "No clear leading option", which is a second claim we have no authority for.
+ */
+export type CompareState =
+  | 'improving'
+  | 'noWinner'
+  | 'unclaimed'
+  | 'converged'
+  | 'flipped'
+  | 'stale'
 
 // ---------------------------------------------------------------------------
 // Run selector
@@ -323,6 +380,25 @@ export interface LeaderClaim {
   kind: 'named' | 'tied' | 'unclaimed'
   optionId: string | null
   label: string | null
+  /**
+   * The claimed leader's own win probability, 0-100 — taken from the SAME
+   * `SnapshotOption` this claim resolved its label from, never re-derived
+   * (ROADMAP 2.835).
+   *
+   * Non-null only on `kind: 'named'`, and that is a STRUCTURAL guarantee, not
+   * a convention: `extractOptions` drops any option the producer did not score
+   * (absence, NaN and Infinity alike), so an unscored option is absent from
+   * `snapshot.options`, so `deriveLeaderClaim` cannot find it and returns
+   * `'unclaimed'`. There is no code path that owns a probability for a leader
+   * the producer never measured — which is why the old
+   * `winnerProbability: Math.round((winner?.win_probability ?? 0) * 100)` could
+   * not simply be made nullable: the honest value has to come from the option
+   * the VERDICT names, not from a client-side argmax over the raw array.
+   *
+   * ⚠ A producer-sent `0` is a MEASUREMENT and survives to render as "0%". The
+   * guard upstream is on ABSENCE, never on the value.
+   */
+  winProbability: number | null
 }
 
 export interface RunPairComparison {
@@ -376,9 +452,28 @@ export interface RunPairComparison {
 export interface Transition {
   fromRunNumber: number
   toRunNumber: number
-  magnitude: 'major' | 'refinement' | 'minor'
+  /**
+   * How big the leader's movement was. `null` when `winnerProbDelta` is null —
+   * magnitude is a BAND OVER that delta, so it cannot be known when the delta
+   * is not (ROADMAP 2.835). `classifyMagnitude(0)` would have read 'minor',
+   * publishing "a small change" about two runs that were never compared.
+   */
+  magnitude: 'major' | 'refinement' | 'minor' | null
   edits: string[]
-  winnerProbDelta: number
+  /**
+   * The leading option's movement in percentage points, later minus earlier.
+   *
+   * T2b, and the SAME both-ends-or-nothing rule `goalProbDelta` below and
+   * `OptionDelta.deltaPp` already follow: null unless BOTH runs named the same
+   * leader AND both scored it (ROADMAP 2.835). This was
+   * `to.winnerProbability - from.winnerProbability` over the client-side
+   * argmax, which had two independent failure modes and published both as
+   * measurements — a run that scored nothing subtracted as 0 (measured: a
+   * 70pp "collapse" against a run with no probabilities at all), and two runs
+   * whose argmax was a DIFFERENT option produced a cross-option subtraction
+   * presented as one option's trajectory.
+   */
+  winnerProbDelta: number | null
   /** T2b: false when either end was never assessed — absence is not a change. */
   robustnessChanged: boolean
   /** T2b: null when the producer sent no robustness data for that run. */

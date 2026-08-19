@@ -264,7 +264,7 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
   it('never renders "no edits" and "Structure changed" together (the observed defect)', () => {
     const tr = valueOnlyEditTransition()
     render(
-      <TransitionCard transition={tr} startOpen showExpert allDeltas={[tr.winnerProbDelta]} />,
+      <TransitionCard transition={tr} startOpen showExpert allDeltas={tr.winnerProbDelta != null ? [tr.winnerProbDelta] : []} />,
     )
     const noEdits = screen.queryByText(/Rerun \(no edits\)/)
     const structure = screen.queryByText(/Structure changed/)
@@ -276,7 +276,7 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
   it('renders the edit as "+0.5 → +0.8" against the edited relationship', () => {
     const tr = valueOnlyEditTransition()
     render(
-      <TransitionCard transition={tr} startOpen showExpert allDeltas={[tr.winnerProbDelta]} />,
+      <TransitionCard transition={tr} startOpen showExpert allDeltas={tr.winnerProbDelta != null ? [tr.winnerProbDelta] : []} />,
     )
     expect(screen.getByTestId(`change-edge-${EDITED_EDGE_ID}-weight`)).toHaveTextContent(
       `${STRENGTH_BEFORE} → ${STRENGTH_AFTER}`,
@@ -286,7 +286,7 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
   it('describes the change exactly ONCE — no prose bullet duplicating the detail row', () => {
     const tr = valueOnlyEditTransition()
     render(
-      <TransitionCard transition={tr} startOpen showExpert allDeltas={[tr.winnerProbDelta]} />,
+      <TransitionCard transition={tr} startOpen showExpert allDeltas={tr.winnerProbDelta != null ? [tr.winnerProbDelta] : []} />,
     )
     // The same edit rendered as both a prose bullet and a detail row would make
     // one change look like two on a surface whose whole job is counting changes.
@@ -296,7 +296,7 @@ describe('ROADMAP 2.578 — the labels cannot contradict each other', () => {
   it('renders no change row for the untouched edge', () => {
     const tr = valueOnlyEditTransition()
     render(
-      <TransitionCard transition={tr} startOpen showExpert allDeltas={[tr.winnerProbDelta]} />,
+      <TransitionCard transition={tr} startOpen showExpert allDeltas={tr.winnerProbDelta != null ? [tr.winnerProbDelta] : []} />,
     )
     expect(screen.queryByTestId(`change-edge-${UNTOUCHED_EDGE_ID}-weight`)).toBeNull()
   })

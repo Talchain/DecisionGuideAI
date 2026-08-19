@@ -69,9 +69,12 @@ vi.mock('../../hooks/useAnalysisTrust', () => ({
 // except Hero, which echoes the content we assert on, and EmptyState /
 // RunSelector, which ARE the surfaces under test.
 vi.mock('../Hero', () => ({
-  Hero: ({ snapshots }: { snapshots: Array<{ winnerLabel: string }> }) => (
+  // ROADMAP 2.835 — the real Hero names its leader via `deriveLeaderClaim`
+  // (verdict resolved against `options`), so the stand-in reads the same place
+  // rather than the retired `winnerLabel`.
+  Hero: ({ snapshots }: { snapshots: Array<{ options: Array<{ label: string }> }> }) => (
     <div data-testid="compare-hero">
-      {snapshots.length} runs · {snapshots[snapshots.length - 1]?.winnerLabel}
+      {snapshots.length} runs · {snapshots[snapshots.length - 1]?.options[0]?.label}
     </div>
   ),
 }))

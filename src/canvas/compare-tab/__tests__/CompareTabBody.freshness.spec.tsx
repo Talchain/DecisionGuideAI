@@ -13,8 +13,36 @@ import type { AnalysisSnapshot } from '../types'
 
 // Two snapshots, same winner, 30pp margin → non-stale path resolves to 'improving'.
 const SNAPSHOTS = [
-  { runNumber: 1, winnerId: 'opt-a', winnerProbability: 65, runnerUpProbability: 35 },
-  { runNumber: 2, winnerId: 'opt-a', winnerProbability: 65, runnerUpProbability: 35 },
+  // ROADMAP 2.835 — the state machine reads `leaderVerdict` + `options`, not
+  // the retired argmax fields. Same run, same numbers, stated through the two
+  // fields the product actually decides on, so this cast no longer describes a
+  // snapshot shape the factory cannot produce.
+  {
+    runNumber: 1,
+    options: [
+      { id: 'opt-a', label: 'Option A', winProbability: 65 },
+      { id: 'opt-b', label: 'Option B', winProbability: 35 },
+    ],
+    leaderVerdict: {
+      leaderId: 'opt-a', separation: 'clear', hasLeadingOption: true,
+      gapPp: 30, source: 'producer_near_tie',
+    },
+    winnerId: 'opt-a',
+    runnerUpProbability: 35,
+  },
+  {
+    runNumber: 2,
+    options: [
+      { id: 'opt-a', label: 'Option A', winProbability: 65 },
+      { id: 'opt-b', label: 'Option B', winProbability: 35 },
+    ],
+    leaderVerdict: {
+      leaderId: 'opt-a', separation: 'clear', hasLeadingOption: true,
+      gapPp: 30, source: 'producer_near_tie',
+    },
+    winnerId: 'opt-a',
+    runnerUpProbability: 35,
+  },
 ] as unknown as AnalysisSnapshot[]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
