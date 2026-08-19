@@ -73,6 +73,7 @@ const DROPPED_TWO_LABEL = 'Rip and Replace'
 const NOTE = {
   gauge: 'comparison-scope-note-comparative',
   cards: 'comparison-scope-note-options',
+  goal: 'comparison-scope-note-goal',
 } as const
 
 function analysed(id: string, winProbability: number): OptionResult {
@@ -197,11 +198,24 @@ describe('comparison-scope disclosure — a subset result says which options it 
       expect(within(comparative).getByTestId(NOTE.gauge)).toHaveTextContent('3 of your 4 options')
     })
 
-    // ⭐ THE DISCRIMINATING PIN. `probability_of_goal` is subset-INVARIANT per
-    // ISL's own response builder, so the goal block must NOT carry this
-    // qualification. A note rendered everywhere passes every other assertion
-    // in this file and fails only here.
-    it('does NOT qualify the goal block — goal fit is subset-invariant', () => {
+    // ⭐ THE DISCRIMINATING PIN, CORRECTED.
+    //
+    // The first version asserted the goal block carried NO qualification at
+    // all, on the grounds that `probability_of_goal` is subset-invariant. That
+    // is right about the MAGNITUDES and wrong about the BLOCK: `goalRows` is
+    // sorted descending by the goal quantity on every non-withheld run, and
+    // order is a designation (`optionDisplayOrder`, ROADMAP 1.306 — a rule
+    // WinGauge itself already applies to `designationsWithheld`). So the block
+    // gets the neutral scope SENTENCE, and must still NOT get the
+    // set-dependence `detail` line.
+    //
+    // ⚠ The block's EXISTENCE is asserted first. The previous version wrapped
+    // the assertion in `if (goalBlock)`, which is vacuous whenever the fixture
+    // stops producing goal numbers — a reviewer proved the contingency by
+    // dropping one unpinned fixture property and watching the misplacement
+    // mutant go red → green (trap 13: an absence probe needs to prove it can
+    // see a presence).
+    it('qualifies the goal block with the SENTENCE but never the detail line', () => {
       const options = subsetOptions()
       render(
         <WinGauge
@@ -210,10 +224,25 @@ describe('comparison-scope disclosure — a subset result says which options it 
           goalThreshold={0.5}
         />,
       )
-      const goalBlock = screen.queryByTestId('win-gauge-goal-block')
-      if (goalBlock) {
-        expect(within(goalBlock).queryByTestId(NOTE.gauge)).toBeNull()
-      }
+      const goalBlock = screen.getByTestId('win-gauge-goal-block')
+      const note = within(goalBlock).getByTestId(NOTE.goal)
+      expect(note).toHaveTextContent('3 of your 4 options')
+      expect(note).toHaveTextContent(DROPPED_LABEL)
+      // The set-dependence claim belongs to the comparative surfaces only.
+      expect(note).not.toHaveTextContent('Ranks and comparative percentages')
+    })
+
+    it('renders NO goal-block note when every option was compared', () => {
+      const options = fullSetOptions()
+      render(
+        <WinGauge
+          shares={gaugeShares(options)}
+          comparisonScope={deriveComparisonScope(options)}
+          goalThreshold={0.5}
+        />,
+      )
+      expect(screen.getByTestId('win-gauge-goal-block')).toBeTruthy()
+      expect(screen.queryByTestId(NOTE.goal)).toBeNull()
     })
 
     it('renders NO scope note when every option was compared', () => {
@@ -291,6 +320,33 @@ describe('comparison-scope disclosure — a subset result says which options it 
         total: 5,
         excludedLabels: [DROPPED_LABEL, DROPPED_TWO_LABEL],
       })
+    })
+
+    // ⛔ THE ID LEAK. `useResultsSectionData` sets
+    // `label: node.data?.label || nodeId`, so an unlabelled option arrives
+    // carrying its own id as a well-formed string. Without the guard the
+    // sentence under the hero reads "— 79b5d7c0 was left out.", i.e. a raw
+    // internal identifier presented to a user as the name of their option.
+    it('never names an option by its own node id', () => {
+      const scope = deriveComparisonScope([
+        analysed(KEEP_A, 0.62),
+        { id: '79b5d7c0', label: '79b5d7c0', notAnalysed: true },
+      ])
+      expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [] })
+      expect(COMPARISON_SCOPE_COPY.sentence(scope!)).toBe(
+        'Comparing 1 of your 2 options — 1 was left out.',
+      )
+      expect(COMPARISON_SCOPE_COPY.sentence(scope!)).not.toContain('79b5d7c0')
+    })
+
+    // CONTRAST CONTROL — the guard rejects a label that IS the id, and must
+    // not reject a real label that merely sits beside one (trap 13e).
+    it('CONTRAST — a genuine label on an option with an id is still named', () => {
+      const scope = deriveComparisonScope([
+        analysed(KEEP_A, 0.62),
+        { id: '79b5d7c0', label: DROPPED_LABEL, notAnalysed: true },
+      ])
+      expect(scope!.excludedLabels).toEqual([DROPPED_LABEL])
     })
 
     it('reports the COUNT rather than inventing a name when a label is unusable', () => {

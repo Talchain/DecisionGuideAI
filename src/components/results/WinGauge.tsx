@@ -385,6 +385,17 @@ export function WinGauge({
           >
             {GOAL_ANCHOR_COPY.label(substituted)}
           </p>
+          {/* ⭐ SUBSET DISCLOSURE — the SENTENCE only, never `withDetail`.
+              The per-option goal magnitudes here are subset-INVARIANT, so the
+              "ranks and comparative percentages describe those N only" line
+              must not sweep them in. But `goalRows` above is SORTED DESCENDING
+              by the goal quantity on every non-withheld run, and order is a
+              designation (`optionDisplayOrder`'s header, ROADMAP 1.306 — the
+              same rule this component already applies to `designationsWithheld`
+              a few lines up). A leader placed first among three, with nothing
+              saying a fourth was never scored, is the hero's superlative
+              encoded as position rather than words. */}
+          <ComparisonScopeNote scope={comparisonScope} surface="goal" className="mb-1" />
           <div className="flex flex-col gap-1">
             {goalRows.map((share) => {
               const clamped = Math.max(0, Math.min(1, share.goalProbability as number))

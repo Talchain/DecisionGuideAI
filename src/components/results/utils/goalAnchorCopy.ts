@@ -344,6 +344,9 @@ export interface ComparisonScope {
    * Labels of the options left out, in the order they arrived. MAY BE SHORTER
    * than `total - analysed`: an option with no usable label cannot be named,
    * and inventing a name for it would be worse than reporting the count alone.
+   *
+   * "No usable label" includes a label that is merely the option's own NODE ID
+   * — see the guard in {@link deriveComparisonScope}.
    */
   readonly excludedLabels: readonly string[]
 }
@@ -373,7 +376,10 @@ export interface ComparisonScope {
  * where the whole set was compared.
  */
 export function deriveComparisonScope(
-  options: ReadonlyArray<{ label?: string | null; notAnalysed?: boolean }> | null | undefined,
+  options:
+    | ReadonlyArray<{ id?: string | null; label?: string | null; notAnalysed?: boolean }>
+    | null
+    | undefined,
 ): ComparisonScope | null {
   const all = options ?? []
   if (all.length === 0) return null
@@ -389,7 +395,24 @@ export function deriveComparisonScope(
     analysed,
     total: all.length,
     excludedLabels: excluded
-      .map((o) => (typeof o.label === 'string' ? o.label.trim() : ''))
+      .map((o) => {
+        const label = typeof o.label === 'string' ? o.label.trim() : ''
+        // ⛔ NEVER NAME AN OPTION BY ITS NODE ID.
+        //
+        // `useResultsSectionData` sets `label: node.data?.label || nodeId`, so
+        // an unlabelled option arrives carrying its OWN ID as a perfectly
+        // well-formed string — and a whitespace check cannot tell the two
+        // apart. Without this guard the sentence under the hero reads
+        // "…— 79b5d7c0 was left out.", which is a raw internal identifier
+        // presented to a user as the name of their option.
+        //
+        // The leak pre-dates this change (`NotAnalysedOptionCard` has it too,
+        // low in the card list); what this register does is PROMOTE it to a
+        // headline. Rejecting it here falls back to the count path
+        // ("1 was left out"), which is honest and already tested.
+        const isBareId = label.length > 0 && label === (o.id ?? '')
+        return isBareId ? '' : label
+      })
       .filter((label) => label.length > 0),
   }
 }

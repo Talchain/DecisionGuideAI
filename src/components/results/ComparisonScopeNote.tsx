@@ -20,13 +20,28 @@
  * bind-by-predicate defect trap 19 exists to stop. Naming the surface keeps
  * every assertion bound to the surface it is a claim about.
  *
- * ## ⚠ WHERE THIS MUST NOT BE MOUNTED
+ * ## ⚠ WHAT EACH MOUNT MAY CLAIM — the `withDetail` split is load-bearing
  *
- * Only beside a COMPARATIVE or SUPERLATIVE claim — win probability, rank,
- * ordinal, "highest", "came out ahead". ISL lists `probability_of_goal` among
- * the per-option quantities that are INVARIANT on a subset, so the goal-fit
- * block is deliberately NOT qualified: saying a figure is set-dependent when
- * it is not is the same class of untruth, pointing the other way.
+ * Mount this beside any COMPARATIVE or SUPERLATIVE claim — win probability,
+ * rank, ordinal, "highest", "came out ahead". Two kinds of surface qualify,
+ * and they get DIFFERENT amounts of the register:
+ *
+ *   - **Set-dependent VALUES** (win %, rank, the hero's superlative headline)
+ *     take `withDetail`, because `COMPARISON_SCOPE_COPY.detail` — "ranks and
+ *     comparative percentages describe those N only" — is true of them.
+ *
+ *   - **Set-dependent ORDER over invariant values** (the WinGauge goal block)
+ *     takes the `sentence` ALONE. ISL lists `probability_of_goal` among the
+ *     per-option quantities that are INVARIANT on a subset, so `detail` would
+ *     be an untruth in the opposite direction — telling a user a magnitude is
+ *     set-dependent when it is not. But the block is NOT therefore exempt:
+ *     it SORTS descending by that quantity, and order is a designation
+ *     (`utils/optionDisplayOrder.ts`, ROADMAP 1.306; this repo's own WinGauge
+ *     already gates that sort for `designationsWithheld`). A leader shown
+ *     first among three, with nothing saying a fourth was never scored, is
+ *     the same superlative encoded as position instead of as words.
+ *
+ * The neutral `sentence` states a fact about the RUN and is true on both.
  */
 import { AlertCircle } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -40,7 +55,7 @@ export interface ComparisonScopeNoteProps {
    */
   scope: ComparisonScope | null | undefined
   /** Which mounted surface this instance qualifies — see the header. */
-  surface: 'hero' | 'comparative' | 'options'
+  surface: 'hero' | 'comparative' | 'options' | 'goal'
   /**
    * Render the consequence line as well. Off by default: the compact surfaces
    * have room for the scope sentence only, and a truncated second line is
