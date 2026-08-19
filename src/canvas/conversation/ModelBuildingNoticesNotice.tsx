@@ -68,7 +68,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
       data-testid="model-building-notices"
       data-total-count={notices.totalCount}
       data-row-count={notices.rows.length}
-      className="mt-1.5"
+      className="mt-2"
     >
       <button
         type="button"
@@ -86,7 +86,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
 
       {expanded && (
         <div id="model-building-notices-detail" className="mt-1 pl-4 space-y-1">
-          <ul className="space-y-0.5" role="list">
+          <ul className="space-y-1" role="list">
             {notices.rows.map((row) => (
               <li
                 key={row.kind}
@@ -95,7 +95,11 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
                 data-notice-kind={row.kind}
                 className={`${typography.panelMeta} text-text-light`}
               >
-                <span className="font-medium text-text-body">{row.count}</span>{' '}
+                {/* Emphasis by COLOUR, never by a raw font weight. DS v5 §2.4
+                    bans raw sizes and weights in panel scope, and this file sits
+                    in the dock closure — the row is `text-text-light`, so the
+                    darker body token carries the count on its own. */}
+                <span className="text-text-body">{row.count}</span>{' '}
                 {row.description}
               </li>
             ))}
