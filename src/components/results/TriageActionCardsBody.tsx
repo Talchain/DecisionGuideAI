@@ -29,6 +29,11 @@ import {
 import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
+// The canonical "open the editor for this node" seam. Imported here for the
+// same reason `AnalysisHeroPanel` imports `openEdgeStrengthEditor`: a surface
+// in the OutputsDock cannot reach the inspector any other way. See
+// `openValueEditor` below.
+import { openNodeInspector } from '@/canvas/nodes/shared/openNodeInspector'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
@@ -201,6 +206,45 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     sourcePill: null,
     passiveLabels: undefined,
   }))
+}
+
+// ── The "Edit value" affordance: one rule, named ────────────────────────────
+
+/**
+ * THE CANONICAL RULE: a control labelled "Edit value" opens the node's
+ * inspector — the only surface in the product that can edit a factor's value.
+ * It never merely moves the camera.
+ *
+ * ## What this replaces, and why it was a lie
+ *
+ * These call sites passed `onEdit={onFocusNode}`. `onFocusNode` resolves to
+ * `useFocusCamera`'s `handleFocusNode`, which selects the node, sets a
+ * transient focus dim and conditionally fits the camera. It opens nothing:
+ * `InspectorModal` is gated on `showFullInspector`, LOCAL React state in
+ * `ReactFlowGraph` raised only by the `olumi:open-full-inspector` window
+ * event, and `handleFocusNode` never dispatches it. So the pencil promised an
+ * edit and delivered a pan, leaving the user to find the node and click it.
+ *
+ * This is the panel-side twin of the R5 defect already fixed on the canvas,
+ * where the on-node Edit pencil wrote `showInspectorPanel` — a store field
+ * with zero render consumers. Same promise, different dead end.
+ *
+ * ## Why the handler lives here and not in `TriageCard`
+ *
+ * `TriageCard` is shared UI and deliberately carries no canvas dependency (see
+ * the `aiDiscussSlot` prop comment: consumers construct canvas-coupled
+ * elements and pass them in). So the rule is applied at the SEAM — explicitly,
+ * by name — rather than being an accident of whichever handler a consumer
+ * happened to inject. `PreAnalysisPanel`, the other consumer of this
+ * component, injects this same helper for the same control.
+ *
+ * Fail-closed and silent on a node that is not on the canvas, inherited from
+ * `openNodeInspector`: a stale target must never open an empty inspector.
+ *
+ * Module-level so the reference is stable across renders of a memoised tree.
+ */
+const openValueEditor = (nodeId: string): void => {
+  openNodeInspector(nodeId)
 }
 
 // ── Section 2: Result checks (Brief 5.8B D2c — flip-risk extracted) ─────────
@@ -907,7 +951,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                       sourcePill={item.sourcePill}
                       passiveLabels={item.passiveLabels}
                       onConfirm={onConfirm}
-                      onEdit={onFocusNode}
+                      onEdit={openValueEditor}
                       onHoverEnter={onHoverEnter}
                       onHoverLeave={onHoverLeave}
                     />
@@ -924,7 +968,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
               onConfirm={onConfirm}
-              onEdit={onFocusNode}
+              onEdit={openValueEditor}
             />
           )}
         </div>
