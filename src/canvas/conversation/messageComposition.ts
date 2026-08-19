@@ -504,6 +504,97 @@ export function collectConsentSurfaceText(
 }
 
 /**
+ * SECOND-CHANNEL ROUTING — a different question from suppression, kept apart
+ * from it on purpose (UX gate 2026-08-18 point 4b).
+ *
+ * ## The producer fact
+ *
+ * CEE's `decision_review_enricher` emits the analysis narrative on TWO
+ * channels of the SAME turn:
+ *
+ *   · `analysis_result.enrichment.decision_review.narrative_summary`
+ *     — untyped prose inside the pinned answer card;
+ *   · a `review_card` with `card_kind: "narrative"`, title "How the analysis
+ *     reads" — the same string, byte for byte.
+ *
+ * Measured over every analysis-turn capture in this repo carrying
+ * `narrative_summary` (8 payloads, 2026-07-31 → 2026-08-17): the narrative
+ * card is present in 8/8, exactly one per turn, byte-identical in 8/8, and
+ * always the turn's FIRST point candidate — so it is always top-level, never
+ * demoted into the disclosure. The contrast that proves the measurement
+ * discriminates: `readiness_rationale` is duplicated in 0/8.
+ *
+ * ## Why this is NOT `dedupeRenderedText`
+ *
+ * `dedupeRenderedText` answers "has a higher tier already rendered this exact
+ * segment?" — a string question, deliberately narrow, and deliberately unable
+ * to touch a typed card (withholding a line of a card changes what the card
+ * means, and a card emptied of its body is a worse artefact than the
+ * duplicate). Running it over these two surfaces would ALSO suppress a
+ * legitimately repeated sentence the day CEE has a reason to repeat one, and
+ * it would leave the two channels in place, hidden.
+ *
+ * The question here is not about strings at all. It is: WHICH CHANNEL
+ * DELIVERS THIS CONTENT? Answered structurally, by block presence, so the
+ * routing cannot depend on the prose staying byte-identical and cannot
+ * silently start or stop discriminating when the wording changes. Two harms
+ * under one predicate is the mistake this module already refuses to make
+ * (trap 22b); this is the second predicate, named apart.
+ *
+ * ## Direction of the residual risk
+ *
+ * The card wins because it TITLES the content ("How the analysis reads") and
+ * is always top-level. Absence of the card costs a duplicate, never a
+ * paragraph — the caller's flag defaults to "not delivered", exactly as
+ * `collectConsentSurfaceText` defaults to collecting nothing. The one thing
+ * this cannot survive is CEE making the two channels carry DIFFERENT prose;
+ * the spec pins that precondition against the corpus so a divergence REDs
+ * rather than quietly dropping text.
+ */
+/**
+ * ⚠ A HAND-MAINTAINED MIRROR OF CEE'S VOCABULARY, and named as one.
+ *
+ * `card_kind` is deliberately typed loosely on the wire so a future producer
+ * kind passes through without a UI release, which means a CEE rename would
+ * NOT be a type error here — this constant would simply stop matching and the
+ * duplicate would come back. It fails OPEN (a duplicate, never a deletion),
+ * which is the safe direction, but nothing in the type system REDs on drift.
+ *
+ * So the spec carries a CORPUS-DERIVED guard: it reads the narrative card's
+ * `card_kind` out of every capture in the corpus and asserts it equals this
+ * constant. Derivation cannot prove the constant is RIGHT, only that the
+ * corpus and the code still agree — which is exactly the drift that would
+ * silently reopen the defect (platform trap 12/12d).
+ */
+export const NARRATIVE_REVIEW_CARD_KIND = 'narrative'
+
+/**
+ * Does this turn deliver the analysis narrative as a TYPED, TITLED card?
+ *
+ * True iff the turn carries a review card of the narrative kind with a
+ * non-empty body. Body content is never compared to anything — only its
+ * existence, because an empty card delivers nothing and must not cause the
+ * untyped copy to be withheld.
+ */
+export function turnDeliversNarrativeAsTypedCard(
+  blocks: readonly ConversationBlock[] | undefined,
+): boolean {
+  if (!blocks || blocks.length === 0) return false
+  return blocks.some((block) => {
+    // `v5_review_card` ONLY. The legacy `review_card` was in this condition
+    // and was UNREACHABLE: `ReviewCardBlock` (types.ts) carries
+    // title/body/variant/tone/priority and has NO `card_kind` at all, so the
+    // kind test below could never pass for it. A dead branch in a predicate
+    // reads as coverage of a case that cannot occur — removed rather than
+    // left to imply the legacy shape was considered and handled.
+    if (block.type !== 'v5_review_card') return false
+    if (block.card_kind !== NARRATIVE_REVIEW_CARD_KIND) return false
+    const body: unknown = block.body
+    return typeof body === 'string' && body.trim().length > 0
+  })
+}
+
+/**
  * Invariant 1, as an executable check: the composition is a TOTAL PARTITION of
  * the input indices. Exported so the spec binds the real function rather than
  * re-implementing the rule (a guard that re-states the code agrees with itself

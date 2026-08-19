@@ -67,7 +67,11 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
-import { composeMessage, dedupeRenderedText } from './messageComposition'
+import {
+  composeMessage,
+  dedupeRenderedText,
+  turnDeliversNarrativeAsTypedCard,
+} from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
 import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
@@ -246,6 +250,38 @@ export const InlineBlocks = memo(function InlineBlocks({
    * it is in the detail class and the disclosure is closed. Previously this was
    * a disjunction over two budgets that could (and did) disagree.
    */
+  /**
+   * SECOND-CHANNEL ROUTING (UX gate 2026-08-18 point 4b). Computed ONCE per
+   * turn, because the analysis-result card cannot see its siblings and must
+   * not guess. Structural — block presence, never a string comparison. See
+   * `turnDeliversNarrativeAsTypedCard`.
+   *
+   * ⚠⚠ COMPUTED OVER `topLevel`, NOT OVER `blocks`, AND THE DIFFERENCE IS A
+   * DELETED PARAGRAPH. The first version of this passed the whole `blocks`
+   * array, so a narrative card DEMOTED into the closed disclosure still
+   * suppressed the untyped copy: the analysis card withheld the paragraph and
+   * the disclosure hid the card, so the narrative was NOWHERE. Proven by
+   * execution on real producer bytes, changing only the card's ORDER —
+   * narrative 1st among candidates renders once; narrative 4th rendered ZERO
+   * times. Real turns carry 9–17 point candidates against `MAX_POINTS`, so
+   * 6–14 are demoted on every analysis turn; only CEE's `priority_rank: 10`
+   * (the minimum in all 8 captures) kept the narrative top-level. That is a
+   * PRODUCER-OWNED FACT mirrored nowhere in the UI — a re-rank upstream would
+   * have deleted the paragraph with no UI signal. Reading `topLevel` removes
+   * the dependency on it rather than mirroring it.
+   *
+   * This is exactly what the C13 comment twenty lines below warns against:
+   * gate on a card being CURRENTLY RENDERED, never on mere presence.
+   *
+   * ⚠ Deliberately NOT gated on `isBlockHidden`: `topLevel` membership is
+   * stable with respect to `detailExpanded`, so the paragraph cannot appear
+   * or vanish as the user opens the disclosure.
+   */
+  const narrativeDeliveredByTypedCard = useMemo(
+    () => turnDeliversNarrativeAsTypedCard(topLevel.map((e) => blocks[e.index])),
+    [topLevel, blocks],
+  )
+
   const detailIndices = useMemo(() => new Set(detail.map((e) => e.index)), [detail])
   const isBlockHidden = useCallback(
     (i: number) => !detailExpanded && detailIndices.has(i),
@@ -305,6 +341,7 @@ export const InlineBlocks = memo(function InlineBlocks({
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={assistantTextWordCount}
           commentaryTextOverride={commentaryTextOverrides.get(index)}
+          narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
           isLatestAssistantTurn={isLatestAssistantTurn}
           onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
           blockContainerRef={blockContainerRef}
@@ -385,6 +422,11 @@ interface BlockRendererProps {
    * when something was withheld, so the ordinary path is untouched.
    */
   commentaryTextOverride?: string
+  /**
+   * UX gate 2026-08-18 point 4b — does this turn deliver the analysis
+   * narrative as its own titled card? Only `v5_analysis_result` reads it.
+   */
+  narrativeDeliveredByTypedCard?: boolean
   /** L-42: only the newest assistant turn's applied-edit card may claim the staleness voice. */
   isLatestAssistantTurn?: boolean
   /** C11: reveal collapsed pacing/budget content (present only while something is collapsed). */
@@ -404,6 +446,7 @@ function BlockRenderer({
   onProposalConfirm,
   assistantTextWordCount = 0,
   commentaryTextOverride,
+  narrativeDeliveredByTypedCard = false,
   isLatestAssistantTurn = false,
   onRevealHiddenBlocks,
   blockContainerRef,
@@ -493,7 +536,12 @@ function BlockRenderer({
     // V5 block kinds — no flag gate; whole V5 path is behind
     // VITE_ENABLE_V5_ORCHESTRATOR at the dispatcher level.
     case 'v5_analysis_result':
-      return <V5AnalysisResultBlock block={block} />
+      return (
+        <V5AnalysisResultBlock
+          block={block}
+          narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
+        />
+      )
 
     case 'v5_graph_patch':
       return (
