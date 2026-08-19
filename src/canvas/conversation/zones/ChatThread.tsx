@@ -21,6 +21,35 @@ import { useCanvasStore } from '../../store'
 import { useDraftStore, draftStreamPhaseFor } from '../../stores/draftStore'
 import { SETTLING_STAGES, SETTLING_AFTER_COACHING_STAGES } from '../../components/DraftLoadingAnimation'
 
+/**
+ * ⭐ MOUNT IDENTITY — the two conversation surfaces must never answer to the
+ * same name.
+ *
+ * `ConversationPanel` has two production hosts (`OlumiTabBody.tsx:106`, the
+ * docked Olumi tab, and `FloatingOlumiPanel.tsx:1079`), and they are NOT
+ * mutually exclusive. `olumiSurface.ts`'s guard (`dockHostsOlumi`) yields the
+ * floating panel only when the dock is open AND its tab is `olumi`; on every
+ * other tab the docked host stays MOUNTED behind `hidden`
+ * (`OutputsDock.tsx:3271-3279`, kept mounted on purpose so scroll position and
+ * `useSmartScroll` state survive a tab switch) while the floating panel renders
+ * too. That guard was written for VISIBLE exclusivity — `olumiSurface.ts:4-5`
+ * says "exactly one may be visible" — and mount exclusivity was never claimed.
+ *
+ * So both hosts really do mount a thread at once, and until now both answered
+ * to `chat-thread`. Measured consequence, in real Chromium: the hidden twin is
+ * `display:none`, 0x0, `hitTestable: false` — which means it can never take a
+ * click from a HUMAN, but it absolutely can take one from anything selecting by
+ * testid. A probe that resolves `chat-thread` to the wrong twin measures an
+ * element no user is looking at and reports a working affordance as dead.
+ *
+ * The DOCKED tab is canonical and keeps the plain name, because it is the host
+ * `dockHostsOlumi` already makes the winner whenever both could serve, and the
+ * one deliberately kept alive across tab switches. Both names live HERE, once,
+ * so a rename cannot land on one host and miss the other.
+ */
+export const THREAD_TESTID_DOCKED = 'chat-thread'
+export const THREAD_TESTID_FLOATING = 'chat-thread-floating'
+
 interface ChatThreadProps {
   messages: ConversationMessage[]
   isThinking: boolean
@@ -55,6 +84,12 @@ interface ChatThreadProps {
    * at the trigger below).
    */
   scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
+  /**
+   * Which conversation surface this thread IS. Defaults to the canonical
+   * docked identity; the floating host passes `THREAD_TESTID_FLOATING`.
+   * See the mount-identity note above.
+   */
+  testId?: string
 }
 
 /**
@@ -116,6 +151,7 @@ export const ChatThread = memo(function ChatThread({
   onProposalConfirm,
   compact,
   scrollListRef,
+  testId = THREAD_TESTID_DOCKED,
 }: ChatThreadProps) {
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
@@ -225,7 +261,7 @@ export const ChatThread = memo(function ChatThread({
       role="log"
       aria-label="Conversation"
       aria-live="polite"
-      data-testid="chat-thread"
+      data-testid={testId}
     >
       {showEmptyState && (
         <EmptyState
