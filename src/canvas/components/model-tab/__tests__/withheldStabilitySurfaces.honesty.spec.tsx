@@ -122,9 +122,14 @@ function snapshot(overrides: Partial<AnalysisSnapshot> = {}): AnalysisSnapshot {
     graphHash: 'hash-1',
     nodeCount: 2,
     edgeCount: 1,
+    // ROADMAP 2.835 — see sibling spec. Single scored option, so `runnerUpId`
+    // stays null as before; the leader is named by the verdict, not an argmax.
     winnerId: 'opt-1',
-    winnerLabel: 'Option A',
-    winnerProbability: 60,
+    options: [{ id: 'opt-1', label: 'Option A', winProbability: 60 }],
+    leaderVerdict: {
+      leaderId: 'opt-1', separation: 'clear', hasLeadingOption: true,
+      gapPp: null, source: 'producer_near_tie',
+    },
     runnerUpId: null,
     runnerUpLabel: null,
     runnerUpProbability: null,
