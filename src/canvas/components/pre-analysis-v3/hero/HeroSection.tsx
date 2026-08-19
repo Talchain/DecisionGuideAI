@@ -10,6 +10,10 @@
  */
 
 import { memo, useCallback } from 'react'
+import {
+  GOAL_LABEL_FROM_BRIEF_COPY,
+  GOAL_LABEL_FROM_BRIEF_TESTID,
+} from '../../../domain/goalLabelProvenance'
 import { Sparkles } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '../../../../styles/typography'
@@ -192,6 +196,22 @@ export const HeroSection = memo(function HeroSection({
             </Tooltip>
           }
         />
+        {/*
+          ⭐ THE GOAL IS A BRIEF EXTRACT, AND THE PRODUCT SAYS SO.
+          Rendered only when CEE stamped `provenance: 'from_brief'` — i.e. its
+          own objective derivation REFUSED and the user's raw sentence stayed as
+          the label. It states the provenance and points at the field directly
+          above, which is already the affordance: editing it stamps `user_set`
+          and this notice stops. No goal is inferred, suggested or ranked.
+        */}
+        {hero.goal?.fromBrief === true && (
+          <p
+            data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
+            className={`${typography.panelMeta} -mt-1 text-text-light`}
+          >
+            {GOAL_LABEL_FROM_BRIEF_COPY.notice}
+          </p>
+        )}
         <InlineField
           inputId={SUCCESS_INPUT_ID}
           label={HERO_COPY.successFieldLabel}

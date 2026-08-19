@@ -106,6 +106,7 @@
  */
 
 import type { Edge, Node } from '@xyflow/react'
+import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
 import type { EdgeData } from '../domain/edges'
 import type { ObservedState } from '../domain/nodes'
 // ⚠ The model-tab's NARROWER twin — see `narrowObservedState`. Both are imported
@@ -400,6 +401,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         kind,
         group: KIND_GROUP[kind],
         label,
+        labelFromBrief: goalLabelIsUnconfirmedBriefExtract(data),
         // Raw user units — see `ModelProjectionInput.goalThreshold`.
         primaryValue: input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold),
         attention: input.goalThreshold === null ? ['no-value'] : [],

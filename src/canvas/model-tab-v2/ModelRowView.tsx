@@ -34,6 +34,10 @@
  */
 
 import { typography } from '../../styles/typography'
+import {
+  GOAL_LABEL_FROM_BRIEF_COPY,
+  GOAL_LABEL_FROM_BRIEF_TESTID,
+} from '../domain/goalLabelProvenance'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
 import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
@@ -168,6 +172,20 @@ export function ModelRowView({
       >
         {row.label}
       </button>
+
+      {/* The label is the user's own sentence lifted from the brief, not an
+          objective. Same claim, same copy and same predicate as the canvas
+          node and the Analysis Goal field — the outline states it, and the one
+          place to act stays the Analysis tab. */}
+      {row.labelFromBrief === true && (
+        <span
+          data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
+          title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
+          className={`${typography.edgeLabel} text-text-light whitespace-nowrap`}
+        >
+          {GOAL_LABEL_FROM_BRIEF_COPY.pill}
+        </span>
+      )}
 
       <ValueCell
         row={row}

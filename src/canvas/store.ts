@@ -1,5 +1,6 @@
 // Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
+import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
@@ -2080,7 +2081,25 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   updateNodeLabel: (id, label) => {
     pushToHistory(get, set)
-    set((s) => ({ nodes: s.nodes.map(n => n.id === id ? { ...n, data: { ...n.data, label } } : n) }))
+    set((s) => ({
+      nodes: s.nodes.map(n => {
+        if (n.id !== id) return n
+        // A person just authored this label. On a GOAL that supersedes CEE's
+        // `from_brief` stamp, which is what stops the surfaces going on
+        // saying the label was lifted from the brief after the user has
+        // rewritten it (the second harm: the same predicate guards both
+        // directions, so it has to be cleared by the act that falsifies it).
+        // `provenanceAfterHumanAuthoredLabel` returns undefined for every
+        // other kind, so a factor's VALUE provenance is left alone.
+        const authored = provenanceAfterHumanAuthoredLabel(
+          (n.data as { kind?: string } | undefined)?.kind ?? n.type,
+        )
+        return {
+          ...n,
+          data: { ...n.data, label, ...(authored ? { provenance: authored } : {}) },
+        }
+      }),
+    }))
   },
 
   updateNode: (id, updates) => {
