@@ -326,6 +326,46 @@ describe('deriveTransitions', () => {
       expect(deriveTransitions(snapshots)[0].deterministicAnchor)
         .toContain('Growth overtook Churn')
     })
+
+    // ── D7: THE MINTED "(elasticity 0.00)", PINNED ────────────────────────────
+    //
+    // Found by mutation, not by reading: replacing the file's single elasticity
+    // accessor with `f.elasticity ?? 0` left 582 tests across 46 files GREEN,
+    // while the sentence a user reads changed from an honest silence to
+    // "(elasticity 0.00)" — a two-decimal measurement for a factor the producer
+    // never scored. The existing "remained" test above cannot see it: it uses
+    // `toContain`, so it passes with OR without the parenthetical.
+    //
+    // Both assertions are load-bearing and neither is sufficient alone. The
+    // `not.toContain` is the actual claim; the positive one is its precondition,
+    // so the test cannot pass by the sentence being empty or the transition
+    // never being built (which is how an absence assertion goes vacuous).
+    it('states NO number when the producer did not score the top factor', () => {
+      const unscored = [makeFactor({ id: 'fac-a', label: 'Churn', elasticity: null })]
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, topFactors: unscored }),
+        makeSnapshot({ runNumber: 2, topFactors: unscored }),
+      ]
+      const anchor = deriveTransitions(snapshots)[0].deterministicAnchor
+
+      expect(anchor).toBe('Based on: Churn remained the top influence factor')
+      expect(anchor).not.toContain('elasticity')
+      expect(anchor).not.toContain('0.00')
+    })
+
+    // The opposite-direction twin (trap 22b): over-suppressing a number the
+    // producer DID state is the same defect pointing the other way, so the
+    // scored case is pinned to the exact string too. Without this, "drop the
+    // parenthetical always" would satisfy the test above.
+    it('STILL states the number when the producer did score it', () => {
+      const scored = [makeFactor({ id: 'fac-a', label: 'Churn', elasticity: 0.42 })]
+      const snapshots = [
+        makeSnapshot({ runNumber: 1, topFactors: scored }),
+        makeSnapshot({ runNumber: 2, topFactors: scored }),
+      ]
+      expect(deriveTransitions(snapshots)[0].deterministicAnchor)
+        .toBe('Based on: Churn remained the top influence factor (elasticity 0.42)')
+    })
   })
 
   it('sets reason and aiContext to null (not yet available)', () => {
@@ -376,6 +416,66 @@ describe('deriveTransitions', () => {
         }),
       ]
       expect(deriveTransitions(snapshots)[0].affectedFactorIds).toContain('fac-a')
+    })
+
+    // ── D7: A FACTOR THAT STOPPED BEING SCORED HAS NOT "CHANGED BY >20%" ──────
+    //
+    // Same mutation-found hole as the anchor above. With `elasticity ?? 0`, an
+    // unscored end is read as a measured 0, so the relative change against any
+    // non-zero previous value computes as 1.0 — over the 0.2 threshold — and the
+    // factor is reported as affected. That is a change in WHAT WAS MEASURED
+    // being published as a change in the factor itself.
+    //
+    // `fac-b` is the positive control, in the SAME assertion set: without it,
+    // an implementation that returned an empty list for everything would pass.
+    // The pair is what binds the claim to `fac-a` specifically (trap 19).
+    it('does NOT report a factor as changed when one end was never scored', () => {
+      const snapshots = [
+        makeSnapshot({
+          runNumber: 1,
+          topFactors: [
+            makeFactor({ id: 'fac-a', elasticity: 0.5 }),
+            makeFactor({ id: 'fac-b', elasticity: 0.5 }),
+          ],
+        }),
+        makeSnapshot({
+          runNumber: 2,
+          topFactors: [
+            makeFactor({ id: 'fac-a', elasticity: null }), // producer declined to score
+            makeFactor({ id: 'fac-b', elasticity: 0.9 }),  // genuine 80% change
+          ],
+        }),
+      ]
+      const affected = deriveTransitions(snapshots)[0].affectedFactorIds
+
+      expect(affected).not.toContain('fac-a')
+      expect(affected).toContain('fac-b')
+    })
+
+    // The mirror: an unscored PREVIOUS end is equally not a change. Pinned
+    // separately because the two ends are read on different code paths — the
+    // previous value comes from the prev-run map, the current from the factor.
+    it('does NOT report a factor as changed when the PREVIOUS end was never scored', () => {
+      const snapshots = [
+        makeSnapshot({
+          runNumber: 1,
+          topFactors: [
+            makeFactor({ id: 'fac-a', elasticity: null }),
+            makeFactor({ id: 'fac-b', elasticity: 0.5 }),
+          ],
+        }),
+        makeSnapshot({
+          runNumber: 2,
+          topFactors: [
+            makeFactor({ id: 'fac-a', elasticity: 0.5 }),
+            makeFactor({ id: 'fac-b', elasticity: 0.9 }),
+          ],
+        }),
+      ]
+      const affected = deriveTransitions(snapshots)[0].affectedFactorIds
+
+      expect(affected).not.toContain('fac-a')
+      expect(affected).toContain('fac-b')
     })
   })
 })
