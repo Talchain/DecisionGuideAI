@@ -302,6 +302,77 @@ export function readinessWillScaffold(readiness: GraphReadiness | null | undefin
  */
 const ANALYSIS_READINESS_BLOCKED = 'blocked'
 
+/**
+ * The producer's ADVISORY blocker codes — itemised entries that ride along on
+ * an otherwise READY payload and do NOT stand between the model and a run.
+ *
+ * ── WHY THIS EXISTS (derived at CEE `a61fe7ff`, the deployed build) ─────────
+ * `blockers` is the gate's predicate, and until this constant existed it was a
+ * RAW COUNT. But the producer's blocker list is not homogeneous, and CEE says
+ * so in its own words at
+ * `orchestrator-v5/context/canonical-analysis-state.ts:47-56`:
+ *
+ *   "`status === 'ready'` carrying advisory `constraint_dropped` blockers is a
+ *    BY-DESIGN combination on the shared contract (the egress boundary injects
+ *    informational constraint-drop blockers onto an already-ready payload
+ *    without recomputing status). It must NOT downgrade usability."
+ *
+ * The chain that produces it, end to end:
+ *   · `cee/transforms/analysis-ready.ts:1474` `extractConstraintDropBlockers`
+ *     turns an STRP `CONSTRAINT_DROPPED` mutation into a blocker whose
+ *     `blocker_type` is `constraint_dropped`;
+ *   · `cee/unified-pipeline/stages/boundary.ts:198` PUSHES it onto
+ *     `analysis_ready.blockers` and DOES NOT recompute `status` — its own
+ *     comment: "dropped constraints mean the graph is still runnable";
+ *   · `orchestrator/tools/draft-graph.ts:907` carries `blockers` through
+ *     VERBATIM onto `DraftGraphResult.analysisReady`;
+ *   · `orchestrator-v5/compose/analysis-state-v1.ts:322` `mapWireBlockers`
+ *     maps it onto the wire with NO actionability filter.
+ *
+ * So a raw count refuses a model the producer has just called ready — the
+ * original 2.635 defect in a new spelling, and the reason this is a COUNT
+ * change rather than a second clause (Paul's convergence rule: one run-gate
+ * predicate, superseded in place, never a parallel rule).
+ *
+ * ── WHY KEYED ON `code`, AND WHY A DENYLIST ────────────────────────────────
+ * ⚠ `blocker_type` IS NOT ON THIS WIRE. `AnalysisBlockerSchema`
+ * (`@talchain/schemas/boundary`, 0.48.0) is `.strict()` and carries only
+ * `code` / `category` / `message` / `repairability` / the four scope fields.
+ * `category` cannot discriminate either: `constraint_dropped` maps to
+ * `option_values`, the SAME category as `missing_value` and `ambiguous_value`
+ * (`analysis-ready-helper.ts:665-707`). `repairability` is `human_input_required`
+ * for all four. **`code` is the only discriminator the producer actually ships**,
+ * and `CONSTRAINT_REVIEW_REQUIRED` is emitted from exactly one branch —
+ * `analysis-ready-helper.ts:705`, the `constraint_dropped` case — so the
+ * mapping is 1:1 and not a guess.
+ *
+ * A DENYLIST, not an allowlist of actionable codes, and the direction is
+ * load-bearing. The contract states `code` is a deliberately OPEN vocabulary
+ * ("a closed enum here would reject codes a newer producer legitimately
+ * emits"). An allowlist would therefore FAIL OPEN: a new actionable code would
+ * go uncounted and the gate would let through a run the producer meant to
+ * stop. This denylist fails CLOSED — an unrecognised code still refuses. It is
+ * the same fail-safe direction CEE argues for its own sibling set at
+ * `orchestrator-v5/tools/handlers/analysis-ready-core.ts:371-375`.
+ *
+ * ⚠ HAND-RESTATED, ONCE, AT THE SINGLE SEAM THAT READS IT — the same
+ * concession `ANALYSIS_READINESS_BLOCKED` above makes, for the same reason:
+ * the constant lives in CEE and the UI cannot import it. It is pinned by a
+ * test that REDs if the producer renames or reclassifies the code.
+ */
+const ADVISORY_BLOCKER_CODES: ReadonlySet<string> = new Set(['CONSTRAINT_REVIEW_REQUIRED'])
+
+/**
+ * The blockers that genuinely stand between this model and a run.
+ *
+ * Bound by the blocker's own `code` IDENTITY, never by position or by raw
+ * length — a value predicate another blocker could satisfy is how a gate ends
+ * up counting the wrong object.
+ */
+function actionableBlockerCount(blockers: readonly AnalysisBlocker[]): number {
+  return blockers.filter((blocker) => !ADVISORY_BLOCKER_CODES.has(blocker.code)).length
+}
+
 export function readinessObjectsToRun(
   readiness: GraphReadiness | null | undefined,
   analysisReadiness?: AnalysisReadinessAuthority | null,
@@ -339,8 +410,26 @@ export function readinessObjectsToRun(
     //     this clause the Analyse control would turn ENABLED one turn after CEE
     //     refused the run. The user clicks, and is refused again.
     //
-    // (b) `blockers.length > 0` — the itemised impediments, for every other
-    //     stated status.
+    // (b) `actionableBlockerCount(...) > 0` — the itemised impediments that
+    //     genuinely stand in the way, for every other stated status.
+    //
+    // ⚠ (b) WAS A RAW `blockers.length > 0` UNTIL THIS CHANGE, AND THAT WAS THE
+    // SAME DEFECT IN A NEW SPELLING. The comment below already cited CEE's
+    // integrity guard as corroboration — but read only its first half. The
+    // guard flags `status_ready_with_actionable_blockers` and deliberately
+    // EXCLUDES advisory blockers precisely BECAUSE those "ride along on
+    // otherwise ready payloads by design"; the exclusion is evidence the
+    // combination OCCURS, not that it cannot. Derived at CEE `a61fe7ff`: a
+    // `constraint_dropped` blocker is injected onto an already-`ready` payload
+    // without recomputing status, and reaches this wire unfiltered (the full
+    // chain is on `ADVISORY_BLOCKER_CODES` above). A raw count therefore
+    // refuses a model the producer has just called ready — while the SAME
+    // payload's `usable_for_prose` / `usable_for_chips` stay true, so the
+    // product would contradict itself on one turn.
+    //
+    // The count is CHANGED, not supplemented: there is exactly one run-gate
+    // predicate, and an actionability check bolted beside the old count would
+    // be the parallel rule this seam exists to abolish.
     //
     // ⚠ WHY NOT THE SIMPLER `status !== 'ready'`. It was proposed, and it is
     // REFUTED at the producer: two non-ready statuses describe models that ARE
@@ -365,7 +454,10 @@ export function readinessObjectsToRun(
     // So the honest predicate refuses what is provably unrunnable and lets the
     // producer's itemised list decide the rest. Refusing on a status whose cause
     // we cannot name would re-create the original defect in a new spelling.
-    return analysisReadiness.status === ANALYSIS_READINESS_BLOCKED || analysisReadiness.blockers.length > 0
+    return (
+      analysisReadiness.status === ANALYSIS_READINESS_BLOCKED ||
+      actionableBlockerCount(analysisReadiness.blockers) > 0
+    )
   }
 
   // ⏳ REMOVAL TRIGGER for the side-car fallback below.

@@ -539,3 +539,177 @@ describe("CEE's `unknown` sentinel behaves IDENTICALLY to an absent verdict", ()
     }
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADVISORY BLOCKERS RIDE ALONG ON A READY PAYLOAD — AND MUST NOT CLOSE THE GATE
+//
+// ── THE DEFECT THIS PINS (derived at CEE `a61fe7ff`, the deployed build) ────
+// #792 made `blockers` the predicate, as a RAW COUNT. But the producer's list
+// is not homogeneous. CEE's own header says so
+// (`orchestrator-v5/context/canonical-analysis-state.ts:47-56`):
+//
+//   "`status === 'ready'` carrying advisory `constraint_dropped` blockers is a
+//    BY-DESIGN combination on the shared contract (the egress boundary injects
+//    informational constraint-drop blockers onto an already-ready payload
+//    without recomputing status). It must NOT downgrade usability."
+//
+// The chain, at the bytes: `extractConstraintDropBlockers`
+// (`cee/transforms/analysis-ready.ts:1474`) mints the blocker →
+// `cee/unified-pipeline/stages/boundary.ts:198` pushes it onto an already-ready
+// `analysis_ready.blockers` WITHOUT recomputing status →
+// `orchestrator/tools/draft-graph.ts:907` carries `blockers` through verbatim →
+// `orchestrator-v5/compose/analysis-state-v1.ts:322` `mapWireBlockers` maps it
+// onto the wire with NO actionability filter, as
+// `code: 'CONSTRAINT_REVIEW_REQUIRED'` (`analysis-ready-helper.ts:705`, the sole
+// emitter of that code).
+//
+// So a raw count refuses a model the producer JUST CALLED READY — the 2.635
+// defect in a new spelling. Worse, the same payload's `usable_for_prose` and
+// `usable_for_chips` stay TRUE, so the product contradicts itself on one turn.
+//
+// ── WHAT EACH TEST IS FOR ──────────────────────────────────────────────────
+// · RED-FIRST REDs at pristine (the gate refuses a ready model).
+// · ACTIONABLE STILL REFUSES is the DISCRIMINATING PARTNER: it stays green at
+//   pristine and REDs the moment the filter is widened to drop an actionable
+//   code — proving the fix narrows the count to a named class rather than
+//   simply counting fewer things.
+// · The DRIFT PIN REDs if CEE renames or reclassifies the code we restate.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The producer's advisory blocker code, restated from CEE
+ * `orchestrator/tools/analysis-ready-helper.ts:705` — the `constraint_dropped`
+ * case of `blockerIssue`, and the only branch in that repo that emits it.
+ */
+const ADVISORY_CODE = 'CONSTRAINT_REVIEW_REQUIRED'
+
+/**
+ * The ACTIONABLE codes `blockerIssue` emits, restated from the same switch
+ * (`analysis-ready-helper.ts:683-702`). These are the images of CEE's
+ * `ACTIONABLE_BLOCKER_TYPES` (`canonical-analysis-state.ts:130`:
+ * `missing_value`, `ambiguous_value`, `missing_connection`) — the set
+ * difference against the schema's four-member `AnalysisBlockerType` enum
+ * (`src/schemas/analysis-ready.ts:140`) is exactly `constraint_dropped`, which
+ * is what `ADVISORY_CODE` above is the wire spelling of.
+ */
+const ACTIONABLE_CODES = [
+  'MISSING_OPTION_VALUE',
+  'AMBIGUOUS_OPTION_VALUE',
+  'MISSING_OPTION_CONNECTION',
+] as const
+
+/**
+ * The advisory blocker AS CEE SHIPS IT — the `common` fields of `blockerIssue`
+ * (`repairability: 'human_input_required'`), the `option_values` category that
+ * `constraint_dropped` shares with `missing_value`, and the producer-authored
+ * message. The shared category is the point: `category` CANNOT discriminate
+ * here, which is why the fix keys on `code`.
+ */
+function advisoryBlocker(overrides: Partial<AnalysisBlocker> = {}): AnalysisBlocker {
+  return blocker({
+    code: ADVISORY_CODE,
+    category: 'option_values',
+    message: 'Review the unresolved constraint for "Cut burn rate by 30%".',
+    repairability: 'human_input_required',
+    factor_id: 'fac_burn_rate',
+    factor_label: 'Cut burn rate by 30%',
+    ...overrides,
+  })
+}
+
+describe('advisory blockers on a READY payload do not close the gate', () => {
+  it('RED-FIRST — a ready model carrying only a constraint_dropped advisory is RUNNABLE', () => {
+    // The exact combination CEE documents as by-design. At pristine the raw
+    // count refuses this, which is the defect.
+    const result = gate({
+      analysisReadiness: { status: 'ready', blockers: [advisoryBlocker()] },
+    })
+
+    expect(result.allowed).toBe(true)
+    // And it must not manufacture a refusal sentence about a model the producer
+    // called ready — the 2.635 failure mode, which was a FALSE sentence as much
+    // as a dead control.
+    expect(result.reason).toBeUndefined()
+    expect(result.blockingReasons ?? []).not.toContain(BLOCKED_REASON_COPY.unspecified)
+  })
+
+  it('goes through the REAL selector seam, not a hand-built authority', () => {
+    // Bound to `selectAnalysisReadinessAuthority` for the same reason the rest
+    // of this file is: a guard living in the selector would otherwise be
+    // invisible to every assertion here.
+    const authority = selectAnalysisReadinessAuthority(
+      wireState({ status: 'ready', blockers: [advisoryBlocker()] }),
+    )
+    expect(authority).not.toBeNull()
+    expect(authority!.blockers.map((b) => b.code)).toEqual([ADVISORY_CODE])
+    expect(readinessObjectsToRun(SIDE_CAR_OBJECTS, authority)).toBe(false)
+    expect(gate({ analysisReadiness: authority }).allowed).toBe(true)
+  })
+
+  it('DISCRIMINATING PARTNER — every ACTIONABLE code still closes the gate on a ready payload', () => {
+    // Green at pristine, and the half that REDs if the filter is widened to
+    // drop an actionable code. Without it, "stop counting blockers entirely"
+    // would satisfy the RED-FIRST case above and delete the gate.
+    for (const code of ACTIONABLE_CODES) {
+      const result = gate({
+        analysisReadiness: { status: 'ready', blockers: [blocker({ code })] },
+      })
+      expect(result.allowed, code).toBe(false)
+    }
+  })
+
+  it('an advisory blocker does not MASK an actionable one sharing the list', () => {
+    // Bound by code IDENTITY, never by array position: the advisory sits FIRST
+    // here, so a fix that inspected only `blockers[0]` would wrongly permit.
+    const result = gate({
+      analysisReadiness: {
+        status: 'ready',
+        blockers: [advisoryBlocker(), blocker({ code: 'MISSING_OPTION_VALUE' })],
+      },
+    })
+    expect(result.allowed).toBe(false)
+  })
+
+  it('an UNRECOGNISED code still refuses — the denylist fails CLOSED', () => {
+    // `code` is an OPEN vocabulary by contract ("a closed enum here would
+    // reject codes a newer producer legitimately emits"). An allowlist of
+    // actionable codes would fail OPEN on a newly-minted actionable code; this
+    // asserts the chosen direction, which is the safe one.
+    const result = gate({
+      analysisReadiness: {
+        status: 'ready',
+        blockers: [blocker({ code: 'SOME_FUTURE_PRODUCER_CODE' })],
+      },
+    })
+    expect(result.allowed).toBe(false)
+  })
+
+  it('`blocked` still refuses even when every blocker is advisory', () => {
+    // Clause (a) is untouched by this change and must stay untouched: a
+    // refusal turn emits `status: 'blocked'`, and the gate must not reopen one
+    // turn later just because the list happens to hold nothing actionable.
+    expect(
+      gate({ analysisReadiness: { status: 'blocked', blockers: [advisoryBlocker()] } }).allowed,
+    ).toBe(false)
+    expect(gate({ analysisReadiness: { status: 'blocked', blockers: [] } }).allowed).toBe(false)
+  })
+
+  it('DRIFT PIN — the restated advisory code is the one CEE actually emits', () => {
+    // The UI cannot import `ACTIONABLE_BLOCKER_TYPES`; this constant is a
+    // hand-restatement, so it gets the same treatment
+    // `ANALYSIS_READINESS_BLOCKED` gets. If CEE renames the code, reclassifies
+    // `constraint_dropped` as actionable, or routes it through a different
+    // code, this REDs and names the seam.
+    expect(ADVISORY_CODE).toBe('CONSTRAINT_REVIEW_REQUIRED')
+    // The advisory code must NOT appear among the actionable ones — the two
+    // sets are disjoint by construction, and a rename that collided them would
+    // otherwise pass silently.
+    expect(ACTIONABLE_CODES).not.toContain(ADVISORY_CODE as never)
+    // And exactly ONE code is waived. A second entry appearing here without a
+    // derivation at the producer is the hand-maintained mirror drifting.
+    const waived = ACTIONABLE_CODES.filter(
+      (c) => gate({ analysisReadiness: { status: 'ready', blockers: [blocker({ code: c })] } }).allowed,
+    )
+    expect(waived).toEqual([])
+  })
+})
