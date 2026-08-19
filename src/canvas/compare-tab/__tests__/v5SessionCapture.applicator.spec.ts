@@ -141,9 +141,15 @@ describe('ROADMAP 2.350 — V5 session capture feeds the Compare snapshot store'
     // construction whatever the factory did. Provenance —
     //   "Invest in Content Marketing"  win_probability 0.5241916666666667
     //   "Hire Two Sales Reps"          win_probability 0.2504416666666667
-    // and the snapshot reports 0-100 rounded (types.ts:57), so 52 and 25.
-    expect(snap.winnerLabel).toBe('Invest in Content Marketing')
-    expect(snap.winnerProbability).toBe(52)
+    // and the snapshot reports 0-100 rounded, so 52 and 25.
+    //
+    // ROADMAP 2.835: read through `options` (sorted by win probability desc)
+    // rather than the retired `winnerLabel` / `winnerProbability`. Same source,
+    // same measurements, same literals — `options` is now the only place a
+    // per-option probability lives, and an option the producer did not score is
+    // absent from it rather than present at a fabricated 0.
+    expect(snap.options[0].label).toBe('Invest in Content Marketing')
+    expect(snap.options[0].winProbability).toBe(52)
     expect(snap.runnerUpProbability).toBe(25)
     // Six factors in the fixture, capped at the factory's top 5
     // (analysisSnapshotFactory.ts:86 `.slice(0, 5)`) — so 5, not 6. Asserting

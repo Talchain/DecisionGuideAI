@@ -35,8 +35,16 @@ import type { AnalysisSnapshot } from '../types'
 function snapshot(runNumber: number): AnalysisSnapshot {
   return {
     runNumber,
-    winnerLabel: 'Adopt Segment',
-    winnerProbability: 62,
+    // ROADMAP 2.835 — the hero reads its leader from `leaderVerdict` resolved
+    // against `options`. Same option, same 62%, stated the way the tab reads it.
+    options: [
+      { id: 'opt_segment', label: 'Adopt Segment', winProbability: 62 },
+      { id: 'opt_rudderstack', label: 'Adopt RudderStack', winProbability: 24 },
+    ],
+    leaderVerdict: {
+      leaderId: 'opt_segment', separation: 'clear', hasLeadingOption: true,
+      gapPp: 38, source: 'producer_near_tie',
+    },
     runnerUpLabel: 'Adopt RudderStack',
     runnerUpProbability: 24,
     winnerId: 'opt_segment',

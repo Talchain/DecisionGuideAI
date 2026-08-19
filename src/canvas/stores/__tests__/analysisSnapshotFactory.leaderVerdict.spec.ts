@@ -218,7 +218,10 @@ describe('snapshot.leaderVerdict — quoted from the producer, never derived', (
       ],
     } as unknown as Partial<V2RunResponse>)
 
-    expect(snapshot.winnerProbability).toBe(88)
+    // The DATA is not withheld, only the CLAIM — the 88 still rides the wire
+    // and into the snapshot. Bound by option_id (ROADMAP 2.835) rather than to
+    // the retired `winnerProbability`, so it cannot pass on a different option.
+    expect(snapshot.options.find(o => o.id === 'opt-a')!.winProbability).toBe(88)
     expect(snapshot.leaderVerdict.hasLeadingOption).toBe(false)
     // 'unknown', NOT 'tied' — silence, never a denial (CEE #711 withheld-turn
     // semantics; see decisionVerdict.ts).

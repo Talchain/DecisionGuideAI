@@ -72,6 +72,15 @@ export interface ParsedAnalysisEnrichment {
  * hero inviting the user to "Calibrate " at "0% influence" — three fabricated
  * measurements in one sentence.
  *
+ * ⚠ THE PROBE OUTPUT ABOVE IS A HISTORIC RECORD AND IS LEFT VERBATIM. It is
+ * what a dated build actually emitted, so it is EVIDENCE, not a fixture to keep
+ * current — rewriting it would falsify the record this guard was merged on.
+ * For the reader arriving later: `winnerLabel` and `winnerProbability` no
+ * longer exist on `AnalysisSnapshot` (ROADMAP 2.835 deleted them with the
+ * client-side argmax), so that exact shape is no longer producible. This guard
+ * is still the one that stops an empty envelope being admitted in the first
+ * place; 2.835 removed the fabrication DOWNSTREAM of it.
+ *
  * Both arrays are non-empty in 773/773 live persisted facts AND in both
  * `analysis_result` blocks captured off the live guest wire on the 2026-08-04b
  * walk (4 options / 6 factors each), so this costs nothing on real data — it

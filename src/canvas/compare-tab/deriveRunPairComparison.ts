@@ -30,44 +30,11 @@
 import type {
   AnalysisSnapshot,
   FactorDelta,
-  LeaderClaim,
   OptionDelta,
   RunPairComparison,
 } from './types'
 import { classifyChange, structureForChangeKind } from './deriveTransitions'
-
-// ---------------------------------------------------------------------------
-// Leader claim — quoted from the run's own verdict
-// ---------------------------------------------------------------------------
-
-/**
- * What THIS run's producer entitles us to say about its leading option.
- *
- * Note the last guard: an entitled verdict whose `leaderId` is not among the
- * run's own options cannot be NAMED, and a leader we cannot name must not be
- * announced. It falls to `'unclaimed'` (silence) rather than rendering a bare
- * id or an empty label — the "Calibrate ␣" class of defect this estate has
- * already paid for once.
- */
-export function deriveLeaderClaim(snapshot: AnalysisSnapshot): LeaderClaim {
-  const verdict = snapshot.leaderVerdict
-
-  if (verdict.hasLeadingOption && verdict.leaderId != null) {
-    const option = snapshot.options.find(o => o.id === verdict.leaderId)
-    if (option != null && option.label.length > 0) {
-      return { kind: 'named', optionId: option.id, label: option.label }
-    }
-    return { kind: 'unclaimed', optionId: null, label: null }
-  }
-
-  // `'tied'` is the producer's own "no clear leading option". `'unknown'` is
-  // its silence — and `decisionVerdict`'s doctrine is that silence licenses no
-  // claim in EITHER direction, so it must not collapse into 'tied'.
-  if (verdict.separation === 'tied') {
-    return { kind: 'tied', optionId: null, label: null }
-  }
-  return { kind: 'unclaimed', optionId: null, label: null }
-}
+import { deriveLeaderClaim } from './leaderClaim'
 
 // ---------------------------------------------------------------------------
 // Option deltas — union, matched by option id

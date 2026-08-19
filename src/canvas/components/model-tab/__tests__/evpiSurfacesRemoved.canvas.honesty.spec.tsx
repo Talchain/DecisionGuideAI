@@ -222,9 +222,18 @@ describe('compare-tab Hero — no pp claim, and the CTA still targets a factor',
       graphHash: 'h',
       nodeCount: 4,
       edgeCount: 3,
+      // ROADMAP 2.835 — the compare Hero names its leader from `leaderVerdict`
+      // resolved against `options`; the argmax fields it used to read are gone.
+      // Same option, same 62%, stated the way the surface reads it.
       winnerId: 'opt_a',
-      winnerLabel: 'Option A',
-      winnerProbability: 62,
+      options: [
+        { id: 'opt_a', label: 'Option A', winProbability: 62 },
+        { id: 'opt_b', label: 'Option B', winProbability: 35 },
+      ],
+      leaderVerdict: {
+        leaderId: 'opt_a', separation: 'clear', hasLeadingOption: true,
+        gapPp: 27, source: 'producer_near_tie',
+      },
       runnerUpId: 'opt_b',
       runnerUpLabel: 'Option B',
       runnerUpProbability: 35,

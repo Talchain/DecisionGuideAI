@@ -471,9 +471,28 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     options: extractOptions(options as V2OptionComparison[]),
     leaderVerdict: deriveRunLeaderVerdict(rawV2Response, options as V2OptionComparison[]),
 
+    // ⛔ IDENTITY ONLY — see types.ts. `winnerLabel` and `winnerProbability`
+    // stood here until ROADMAP 2.835 and are DELETED, not made nullable.
+    //
+    //     winnerProbability: Math.round((winner?.win_probability ?? 0) * 100)
+    //
+    // `win_probability` is OPTIONAL on the wire (`adapters/plot/v2/types.ts`),
+    // so that `?? 0` published an unscored option as a confident 0% — on a
+    // PERSISTENCE surface, so the fabricated zero outlived the run that failed
+    // to produce it, exactly as ROADMAP 2.834's runner-up did one line below.
+    //
+    // The convergent fix was not a nullable field. These three were the
+    // client-side ARGMAX — the "Authority 3" `src/lib/decisionVerdict.ts`
+    // deleted — so making one of them absence-preserving would have left a
+    // parallel leader rule standing beside `leaderVerdict`, which is emitted
+    // four lines above and is the canonical owner. The tab's display surfaces
+    // now read `deriveLeaderClaim`, and a leader's probability comes from the
+    // `options` entry the verdict NAMES; an option the producer never scored is
+    // not in `options` at all, so there is nothing left to coerce.
+    //
+    // `winnerId` survives for `CompareFooter`, which focuses a node — identity,
+    // not a claim.
     winnerId: winner?.option_id ?? '',
-    winnerLabel: winner?.option_label ?? '',
-    winnerProbability: Math.round((winner?.win_probability ?? 0) * 100),
     runnerUpId: runnerUp?.option_id ?? null,
     runnerUpLabel: runnerUp?.option_label ?? null,
     // ROADMAP 2.834 — this line had TWO absence paths and only one was honest.
@@ -483,11 +502,17 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     // surface, so that fabricated 0 outlived the run and replayed on the
     // compare tab in every later session.
     //
-    // The type is unchanged (`number | null`, types.ts:144) — absence was
-    // already first-class here, so no consumer contract moves. `winnerProbability`
-    // above deliberately keeps its `?? 0`: it is non-nullable and is consumed
-    // ARITHMETICALLY by deriveCompareState, so making it nullable would change
-    // which hero copy fires (out of scope, ROADMAP 2.835).
+    // The type is unchanged (`number | null`) — absence was already
+    // first-class here, so no consumer contract moved.
+    //
+    // ⭐ THIS COMMENT USED TO END: "`winnerProbability` above deliberately
+    // keeps its `?? 0` … making it nullable would change which hero copy
+    // fires (out of scope, ROADMAP 2.835)." That was an accurate scope note
+    // and it is now CLOSED. 2.835 did not make the field nullable — it found
+    // that the field should not exist, because the surfaces reading it were
+    // asking a client-side argmax a question `leaderVerdict` already answers.
+    // Which hero copy fires is now decided by the producer's verdict, so the
+    // arithmetic that forced the `?? 0` is gone with it.
     runnerUpProbability:
       runnerUp?.win_probability != null ? Math.round(runnerUp.win_probability * 100) : null,
 

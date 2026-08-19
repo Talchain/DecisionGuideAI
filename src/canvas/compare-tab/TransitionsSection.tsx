@@ -12,7 +12,13 @@ interface TransitionsSectionProps {
 
 export function TransitionsSection({ transitions, showExpert, registerCardRef }: TransitionsSectionProps) {
   const [open, setOpen] = useState(true)
-  const allDeltas = transitions.map(t => t.winnerProbDelta)
+  // ROADMAP 2.835 — only MEASURED deltas set the bar scale. An unmeasurable
+  // transition contributes nothing: including it as 0 would not change
+  // `Math.max`, but it would put a fabricated sample in a series whose whole
+  // job is to describe the movements this session actually saw.
+  const allDeltas = transitions
+    .map(t => t.winnerProbDelta)
+    .filter((d): d is number => d != null)
 
   return (
     <div className="border-b border-panel-border">

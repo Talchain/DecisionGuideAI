@@ -11,6 +11,7 @@ import type {
   FactorSensitivitySummary,
   StructureComparison,
 } from './types'
+import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import {
   classifyGraphProjections,
   fieldDisplayLabel,
@@ -29,11 +30,67 @@ import {
 // Magnitude classification
 // ---------------------------------------------------------------------------
 
-function classifyMagnitude(delta: number): 'major' | 'refinement' | 'minor' {
+/**
+ * Band the leader's movement.
+ *
+ * ROADMAP 2.835: null in, null out. Magnitude is a BAND OVER the delta, so it
+ * cannot be known when the delta is not — and the failure was not neutral,
+ * because `classifyMagnitude(0)` returns `'minor'`. An unmeasurable pair would
+ * have been badged "a small change", which is a claim about two runs that were
+ * never compared.
+ */
+function classifyMagnitude(delta: number | null): 'major' | 'refinement' | 'minor' | null {
+  if (delta == null) return null
   const abs = Math.abs(delta)
   if (abs >= 10) return 'major'
   if (abs >= 3) return 'refinement'
   return 'minor'
+}
+
+/**
+ * The leading option's movement between two runs, in percentage points.
+ *
+ * BOTH ENDS OR NOTHING, and both ends must be THE SAME OPTION (ROADMAP 2.835).
+ * The rule is `goalProbDelta`'s and `OptionDelta.deltaPp`'s, applied to the one
+ * quantity on this tab that still lacked it:
+ *
+ *     const delta = to.winnerProbability - from.winnerProbability
+ *
+ * `winnerProbability` was a minted argmax, so that subtraction had two silent
+ * failure modes. A run the producer did not score contributed 0 — measured on
+ * a real payload, a scored 70% followed by an unscored run produced
+ * `winnerProbDelta: -70`, a 70-point collapse presented with a magnitude badge
+ * and a filled delta bar. And when the two runs' argmaxes were DIFFERENT
+ * options, it subtracted one option's probability from another's and labelled
+ * the result the leader's trajectory.
+ *
+ * The leader is taken from the LATER run (the one the card is about), and its
+ * probability is looked up by id on both sides.
+ */
+function deriveWinnerProbDelta(
+  from: AnalysisSnapshot,
+  to: AnalysisSnapshot,
+): number | null {
+  const toClaim = deriveLeaderClaim(to)
+  if (toClaim.kind !== 'named') return null
+  const before = optionProbabilityIn(from, toClaim.optionId)
+  const after = optionProbabilityIn(to, toClaim.optionId)
+  return before != null && after != null ? after - before : null
+}
+
+/**
+ * Did the leading option change between two runs?
+ *
+ * The SAME rule as `deriveRunPairComparison.leaderChange` and the state
+ * machine's `'flipped'` arm: claimable only when BOTH runs NAMED a leader.
+ * Previously `a.winnerId !== b.winnerId`, where an unscored run's id is `''`
+ * — unequal to every scored neighbour, so an unmeasured run was counted as a
+ * flip and reported as "Result flipped once".
+ */
+function leaderFlipped(from: AnalysisSnapshot, to: AnalysisSnapshot): boolean {
+  const a = deriveLeaderClaim(from)
+  const b = deriveLeaderClaim(to)
+  return a.kind === 'named' && b.kind === 'named' && a.optionId !== b.optionId
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +413,7 @@ function deriveEditLines(verdict: GraphChangeVerdict, to: AnalysisSnapshot): str
 }
 
 function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transition {
-  const delta = to.winnerProbability - from.winnerProbability
+  const delta = deriveWinnerProbDelta(from, to)
   const changeVerdict = classifyChange(from, to)
   const { ids: affectedFactorIds, labels: affectedFactorLabels } =
     deriveAffectedFactors(from.topFactors, to.topFactors)
@@ -459,7 +516,7 @@ export function buildRangeTransition(
   const legs = snapshots.slice(fromIndex + 1, toIndex + 1)
 
   const flipCount = legs.filter((s, i) =>
-    s.winnerId !== snapshots[fromIndex + i].winnerId
+    leaderFlipped(snapshots[fromIndex + i], s)
   ).length
   if (flipCount > 0) {
     caveats.push(`Result flipped ${flipCount === 1 ? 'once' : `${flipCount} times`}`)

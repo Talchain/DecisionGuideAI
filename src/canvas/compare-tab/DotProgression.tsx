@@ -2,6 +2,7 @@ import { Target } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { GraphLink } from '../../components/results/GraphLink'
 import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
+import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import type { AnalysisSnapshot } from './types'
 
 interface DotProgressionProps {
@@ -80,14 +81,37 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
 
   const latest = snapshots[snapshots.length - 1]
 
-  const rows: OptionRow[] = [
-    {
-      label: latest.winnerLabel,
-      nodeId: latest.winnerId,
-      values: snapshots.map(s => s.winnerProbability),
-      colour: 'bg-info',
-    },
-  ]
+  // ROADMAP 2.835 — the leader row is QUOTED from the latest run's own verdict
+  // and then followed BY OPTION ID across every run.
+  //
+  // It was `label: latest.winnerLabel` with `values: snapshots.map(s =>
+  // s.winnerProbability)`, and those two lines did not describe the same
+  // thing. The label came from the LATEST run's argmax; each value came from
+  // that RUN's own argmax. So a row headed "Expand to EU" plotted whichever
+  // option happened to lead in each earlier run — a cross-option attribution
+  // presented as one option's progression, and invisible to any assertion that
+  // only checks the numbers are plausible. `optionProbabilityIn` matches by id,
+  // the same rule `deriveOptionDeltas` enforces for the pair table.
+  //
+  // A run that did not score the option yields null, which `ProgressionCell`
+  // already renders as a hollow dot and "—" (ROADMAP 2.834). That path existed
+  // for the runner-up row; the leader row could not reach it because
+  // `winnerProbability` was non-nullable and minted a 0 instead.
+  const claim = deriveLeaderClaim(latest)
+
+  // No entitled claim ⇒ no leader row. The row's whole content is an assertion
+  // about a named option, so there is nothing honest to draw; the runner-up and
+  // target rows below still render on their own facts.
+  const rows: OptionRow[] = claim.kind === 'named'
+    ? [
+        {
+          label: claim.label!,
+          nodeId: claim.optionId,
+          values: snapshots.map(s => optionProbabilityIn(s, claim.optionId)),
+          colour: 'bg-info',
+        },
+      ]
+    : []
 
   if (latest.runnerUpId) {
     rows.push({
@@ -120,7 +144,17 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
 
       {/* Option rows */}
       {rows.map(row => (
-        <div key={row.nodeId ?? row.label} className="flex items-center mb-1">
+        // ROADMAP 2.835 — the row carries its OPTION ID as a testid so an
+        // assertion can bind to one row by IDENTITY. Without it a test has only
+        // the container's text, which spans every row: a probe written for the
+        // leader row then fires on the runner-up row's numbers too, and reports
+        // a defect in the wrong quantity. (Measured: a mutant that fabricated
+        // only `runnerUpProbability` RED-ed a leader-row test.)
+        <div
+          key={row.nodeId ?? row.label}
+          data-testid={`compare-progression-row-${row.nodeId ?? 'unidentified'}`}
+          className="flex items-center mb-1"
+        >
           <span
             className={`${typography.panelBody} font-medium w-[68px] flex-shrink-0 truncate`}
           >

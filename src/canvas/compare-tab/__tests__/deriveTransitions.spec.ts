@@ -5,7 +5,7 @@ import {
   buildRangeTransition,
   compareStructure,
 } from '../deriveTransitions'
-import { makeAnalysisSnapshot } from './__fixtures__/analysisSnapshot'
+import { makeAnalysisSnapshot, makeLedSnapshot as makeLed } from './__fixtures__/analysisSnapshot'
 import type { AnalysisSnapshot, FactorSensitivitySummary } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -83,8 +83,8 @@ describe('deriveTransitions', () => {
 
   it('creates one transition for 2 snapshots', () => {
     const snapshots = [
-      makeSnapshot({ runNumber: 1, winnerProbability: 60 }),
-      makeSnapshot({ runNumber: 2, winnerProbability: 70 }),
+      makeLed(1, 'opt-a', 60),
+      makeLed(2, 'opt-a', 70),
     ]
     const result = deriveTransitions(snapshots)
     expect(result).toHaveLength(1)
@@ -105,40 +105,40 @@ describe('deriveTransitions', () => {
   describe('magnitude thresholds', () => {
     it('classifies >=10pp as major', () => {
       const snapshots = [
-        makeSnapshot({ runNumber: 1, winnerProbability: 55 }),
-        makeSnapshot({ runNumber: 2, winnerProbability: 65 }),
+        makeLed(1, 'opt-a', 55),
+        makeLed(2, 'opt-a', 65),
       ]
       expect(deriveTransitions(snapshots)[0].magnitude).toBe('major')
     })
 
     it('classifies exactly 10pp as major', () => {
       const snapshots = [
-        makeSnapshot({ runNumber: 1, winnerProbability: 60 }),
-        makeSnapshot({ runNumber: 2, winnerProbability: 70 }),
+        makeLed(1, 'opt-a', 60),
+        makeLed(2, 'opt-a', 70),
       ]
       expect(deriveTransitions(snapshots)[0].magnitude).toBe('major')
     })
 
     it('classifies >=3pp and <10pp as refinement', () => {
       const snapshots = [
-        makeSnapshot({ runNumber: 1, winnerProbability: 60 }),
-        makeSnapshot({ runNumber: 2, winnerProbability: 65 }),
+        makeLed(1, 'opt-a', 60),
+        makeLed(2, 'opt-a', 65),
       ]
       expect(deriveTransitions(snapshots)[0].magnitude).toBe('refinement')
     })
 
     it('classifies <3pp as minor', () => {
       const snapshots = [
-        makeSnapshot({ runNumber: 1, winnerProbability: 70 }),
-        makeSnapshot({ runNumber: 2, winnerProbability: 72 }),
+        makeLed(1, 'opt-a', 70),
+        makeLed(2, 'opt-a', 72),
       ]
       expect(deriveTransitions(snapshots)[0].magnitude).toBe('minor')
     })
 
     it('classifies negative deltas correctly', () => {
       const snapshots = [
-        makeSnapshot({ runNumber: 1, winnerProbability: 75 }),
-        makeSnapshot({ runNumber: 2, winnerProbability: 60 }),
+        makeLed(1, 'opt-a', 75),
+        makeLed(2, 'opt-a', 60),
       ]
       expect(deriveTransitions(snapshots)[0].magnitude).toBe('major')
     })
@@ -396,9 +396,9 @@ describe('buildCumulativeTransition', () => {
 
   it('builds cumulative card from first to latest', () => {
     const snapshots = [
-      makeSnapshot({ runNumber: 1, winnerProbability: 60 }),
-      makeSnapshot({ runNumber: 2, winnerProbability: 65 }),
-      makeSnapshot({ runNumber: 3, winnerProbability: 73 }),
+      makeLed(1, 'opt-a', 60),
+      makeLed(2, 'opt-a', 65),
+      makeLed(3, 'opt-a', 73),
     ]
     const result = buildCumulativeTransition(snapshots)!
     expect(result.isCumulative).toBe(true)
@@ -421,9 +421,9 @@ describe('buildCumulativeTransition', () => {
 
   it('includes flip caveat when winner changed in intermediate runs', () => {
     const snapshots = [
-      makeSnapshot({ runNumber: 1, winnerId: 'opt-a' }),
-      makeSnapshot({ runNumber: 2, winnerId: 'opt-b' }),
-      makeSnapshot({ runNumber: 3, winnerId: 'opt-a' }),
+      makeLed(1, 'opt-a', 65),
+      makeLed(2, 'opt-b', 65),
+      makeLed(3, 'opt-a', 65),
     ]
     const result = buildCumulativeTransition(snapshots)!
     expect(result.cumulativeCaveats).toContainEqual(
@@ -551,10 +551,10 @@ describe('buildRangeTransition', () => {
     // Distinct per-run graphHash: see the note on 'collects all edit summaries'.
     // Each leg is therefore a real change, and the logged summary is what the
     // card shows for a graph-less run — which is what these interval tests pin.
-    makeSnapshot({ runNumber: 1, graphHash: 'h-1', winnerProbability: 50, editSummary: 'Initial analysis' }),
-    makeSnapshot({ runNumber: 2, graphHash: 'h-2', winnerProbability: 55, editSummary: 'Tightened churn' }),
-    makeSnapshot({ runNumber: 3, graphHash: 'h-3', winnerProbability: 61, editSummary: 'Added risk' }),
-    makeSnapshot({ runNumber: 4, graphHash: 'h-4', winnerProbability: 74, editSummary: 'Reweighted price' }),
+    makeLed(1, 'opt-a', 50, { graphHash: 'h-1', editSummary: 'Initial analysis' }),
+    makeLed(2, 'opt-a', 55, { graphHash: 'h-2', editSummary: 'Tightened churn' }),
+    makeLed(3, 'opt-a', 61, { graphHash: 'h-3', editSummary: 'Added risk' }),
+    makeLed(4, 'opt-a', 74, { graphHash: 'h-4', editSummary: 'Reweighted price' }),
   ]
 
   it('an ADJACENT pair is exactly the plain pairwise card', () => {
@@ -579,10 +579,10 @@ describe('buildRangeTransition', () => {
 
   it('counts flips only INSIDE the picked range', () => {
     const snapshots = [
-      makeSnapshot({ runNumber: 1, winnerId: 'opt-a' }),
-      makeSnapshot({ runNumber: 2, winnerId: 'opt-b' }), // flip is outside 2..4
-      makeSnapshot({ runNumber: 3, winnerId: 'opt-b' }),
-      makeSnapshot({ runNumber: 4, winnerId: 'opt-b' }),
+      makeLed(1, 'opt-a', 65),
+      makeLed(2, 'opt-b', 65), // flip is outside 2..4
+      makeLed(3, 'opt-b', 65),
+      makeLed(4, 'opt-b', 65),
     ]
     expect(buildRangeTransition(snapshots, 1, 3)!.cumulativeCaveats.join(' ')).not.toContain('flipped')
     expect(buildRangeTransition(snapshots, 0, 3)!.cumulativeCaveats.join(' ')).toContain('flipped')

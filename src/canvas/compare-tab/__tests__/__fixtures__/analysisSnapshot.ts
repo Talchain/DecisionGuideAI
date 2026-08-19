@@ -45,6 +45,53 @@ export const TIED_LEADER_VERDICT: DecisionVerdict = {
 /** No applicable producer signal ⇒ silence, never a denial. */
 export const UNCLAIMED_LEADER_VERDICT: DecisionVerdict = NO_CLAIM_VERDICT
 
+const LABELS: Record<string, string> = { 'opt-a': 'Option A', 'opt-b': 'Option B' }
+
+/**
+ * A run whose PRODUCER named `leaderId` and scored it at `leaderProbability`.
+ *
+ * ⚠ ADDED BY ROADMAP 2.835, AND IT REPLACES A ONE-FIELD OVERRIDE WITH A
+ * CONSISTENT PAIR — deliberately.
+ *
+ * Specs used to say `makeAnalysisSnapshot({ winnerProbability: 60 })` or
+ * `{ winnerId: 'opt-b' }`, because the state machine and the transition deltas
+ * read the client-side argmax. Those fields are retired: what the tab decides
+ * on now is the run's `leaderVerdict` TOGETHER WITH its `options`, and the two
+ * have to agree — a verdict naming an option that is absent from `options` is a
+ * real and different case (a leader that cannot be NAMED), not a fixture
+ * convenience.
+ *
+ * Building them together here means a spec cannot express "the leader scored
+ * 60%" in a way the product could never emit (trap 16-inverse: a fixture you
+ * wrote yourself is not evidence about the wire). Specs that MEAN to exercise
+ * the mismatch construct it explicitly.
+ */
+export function makeLedSnapshot(
+  runNumber: number,
+  leaderId: 'opt-a' | 'opt-b',
+  leaderProbability: number,
+  overrides: Partial<AnalysisSnapshot> = {},
+): AnalysisSnapshot {
+  const rivalId = leaderId === 'opt-a' ? 'opt-b' : 'opt-a'
+  return makeAnalysisSnapshot({
+    runNumber,
+    options: [
+      { id: leaderId, label: LABELS[leaderId], winProbability: leaderProbability },
+      { id: rivalId, label: LABELS[rivalId], winProbability: 100 - leaderProbability },
+    ],
+    leaderVerdict: {
+      ...DEFAULT_LEADER_VERDICT,
+      leaderId,
+      gapPp: leaderProbability - (100 - leaderProbability),
+    },
+    winnerId: leaderId,
+    runnerUpId: rivalId,
+    runnerUpLabel: LABELS[rivalId],
+    runnerUpProbability: 100 - leaderProbability,
+    ...overrides,
+  })
+}
+
 export function makeAnalysisSnapshot(
   overrides: Partial<AnalysisSnapshot> & { runNumber: number },
 ): AnalysisSnapshot {
@@ -66,9 +113,21 @@ export function makeAnalysisSnapshot(
     graphProjection: null,
     options: DEFAULT_SNAPSHOT_OPTIONS,
     leaderVerdict: DEFAULT_LEADER_VERDICT,
+    /**
+     * ⛔ IDENTITY ONLY. `winnerLabel` / `winnerProbability` were removed from
+     * `AnalysisSnapshot` by ROADMAP 2.835 — the argmax trio stopped being a
+     * display source, and the two display fields were deleted rather than made
+     * nullable so a surface reaching for them is a type error.
+     *
+     * A spec that wants "what may this run SAY about its leader" reads
+     * `deriveLeaderClaim`, whose answer comes from `leaderVerdict` above and
+     * `options` — both already defaulted here to the producer's happy path
+     * (an entitled verdict naming `opt-a`, which `DEFAULT_SNAPSHOT_OPTIONS`
+     * scores at 65). So the default claim is still "Option A, 65%"; it is now
+     * DERIVED from the same two fields the product derives it from, instead of
+     * being a third copy this fixture had to keep in step.
+     */
     winnerId: 'opt-a',
-    winnerLabel: 'Option A',
-    winnerProbability: 65,
     runnerUpId: 'opt-b',
     runnerUpLabel: 'Option B',
     runnerUpProbability: 35,

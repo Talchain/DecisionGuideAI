@@ -22,11 +22,15 @@
  * such an envelope, so these tests exercise the branch the guard misses rather
  * than re-proving the guard.
  *
- * ⚠ OUT OF SCOPE, DELIBERATELY: `winnerProbability` (:477) keeps its `?? 0`.
- * It is declared non-nullable `number` (types.ts:140) and is consumed
- * ARITHMETICALLY by `deriveCompareState`, so making it nullable would change
- * which hero copy fires — a product judgement, not a mechanical honesty swap.
- * The last test below pins that this change does NOT disturb that machine.
+ * ⭐ THAT SCOPE NOTE IS NOW CLOSED (ROADMAP 2.835). It read: "OUT OF SCOPE,
+ * DELIBERATELY: `winnerProbability` keeps its `?? 0` … consumed ARITHMETICALLY
+ * by `deriveCompareState`, so making it nullable would change which hero copy
+ * fires — a product judgement, not a mechanical honesty swap."
+ *
+ * The judgement was made, and the answer was not "make it nullable": the field
+ * was DELETED along with `winnerLabel`, because the surfaces reading it were
+ * asking a client-side argmax a question `leaderVerdict` already answers. The
+ * arithmetic that forced the `?? 0` is gone with it.
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
@@ -111,11 +115,19 @@ describe('buildAnalysisSnapshot — runner-up win probability absence', () => {
 
 describe('the out-of-scope state machine is undisturbed', () => {
   it('deriveCompareState returns the same verdict for an unscored runner-up', () => {
-    // `deriveCompareState` already coerces null with its own `?? 0`, so
-    // absent → 0 (before this change) and absent → null → 0 (after) are the
-    // SAME input to it. This pins that equivalence rather than asserting it:
-    // if a later edit removes that `?? 0`, this test reds instead of the
-    // hero silently changing state.
+    // ⚠ THE REASON THIS HOLDS CHANGED, AND THE OLD REASON IS NOW FALSE.
+    //
+    // It used to read: "`deriveCompareState` already coerces null with its own
+    // `?? 0`, so absent → 0 and absent → null → 0 are the SAME input to it."
+    // That `?? 0` is gone (ROADMAP 2.835). The equivalence now holds for a
+    // STRONGER reason: `deriveCompareState` does not read
+    // `runnerUpProbability` at all — it quotes the run's `leaderVerdict`.
+    //
+    // Left in place, and worth keeping, because it is now a guard against
+    // RE-INTRODUCTION: if any future edit makes the state machine read the
+    // runner-up again, a fabricated 0 and an honest null stop agreeing and
+    // this REDs. Recording why a passing test passes is the difference between
+    // a guard and a guard agreeing with itself.
     const unscored = build([
       { option_id: 'opt-1', option_label: 'Option A', win_probability: 0.05 },
       { option_id: 'opt-2', option_label: 'Option B' },
