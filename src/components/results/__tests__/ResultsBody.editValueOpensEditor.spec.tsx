@@ -198,11 +198,23 @@ function makeData(): ResultsSectionDataReturn {
 interface Handlers {
   onConfirmFactor: ReturnType<typeof vi.fn>
   onSetFactorValue: ReturnType<typeof vi.fn>
+  onFocusNode: ReturnType<typeof vi.fn>
 }
 
+/**
+ * ⚠ `onFocusNode` IS SUPPLIED DELIBERATELY, and the spec is worthless without
+ * it. At pristine the pencil's render gate was `action.kind === 'edit' &&
+ * onEdit && action.targetId`, with `onEdit` BEING `onFocusNode` — so a fixture
+ * that omitted it rendered no pencil at all, and every test here would have
+ * failed at pristine by proving the control ABSENT rather than proving it
+ * lied. The deployed parent supplies it (`OutputsDock` →
+ * `onFocusNode={handleFocusResultNode}`), so the fixture must too, or it is
+ * not testing the input space real users load.
+ */
 function renderBody(): Handlers {
   const onConfirmFactor = vi.fn()
   const onSetFactorValue = vi.fn()
+  const onFocusNode = vi.fn()
   render(
     <ResultsBody
       resultsSectionData={makeData()}
@@ -210,12 +222,13 @@ function renderBody(): Handlers {
       onSendMessage={() => {}}
       onConfirmFactor={onConfirmFactor}
       onSetFactorValue={onSetFactorValue}
+      onFocusNode={onFocusNode}
       nodeValueLookup={{
         [GAP_NODE_ID]: { value: 12, unit: 'weeks', cap: null },
       }}
     />,
   )
-  return { onConfirmFactor, onSetFactorValue }
+  return { onConfirmFactor, onSetFactorValue, onFocusNode }
 }
 
 /**
