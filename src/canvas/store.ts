@@ -28,6 +28,15 @@ import {
   mergeStructuralDeleteIntents,
   type StructuralDeleteIntent,
 } from './mutations/structuralDelete'
+import {
+  EMPTY_DURABLE_DELETION_RECORD,
+  addDurableDeletion,
+  buildDurableDeletionNotice,
+  reconcileDurableDeletions,
+  withholdDurableDeletions,
+  type DurableDeletionNotice,
+  type DurableDeletionRecord,
+} from './store/durableDeletionGuard'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import * as scenarios from './store/scenarios'
 import type { ScenarioFraming } from './store/scenarios'
@@ -624,6 +633,25 @@ interface CanvasState {
    * by `useStructuralDeleteEvents`, which is the ONE sender.
    */
   pendingStructuralDeletes: StructuralDeleteIntent[]
+  /**
+   * Canvas ids the server has PROVEN removed from the saved model — written
+   * ONLY from a `'proven'` `structural_delete` receipt.
+   *
+   * ⚠ THIS IS NOT A SECOND DIVERGENCE AUTHORITY. It is the existing receipt's
+   * verdict, recorded so the ONE consumer that was ignoring it — history
+   * restoration — can honour it. Undo restored `history.past[n]` verbatim, so
+   * Cmd+Z put back a node the server had durably deleted and the canvas
+   * asserted a model state the server declined to hold. Nothing here decides
+   * durability; `resolveStructuralDelete` does, and a refused or unconfirmed
+   * delete records NOTHING (its elements are legitimately undoable).
+   *
+   * NEVER PERSISTED — the same discipline as `analysisRefusalNotice`. History
+   * itself is session-local, so a record that outlived it would guard snapshots
+   * that no longer exist.
+   */
+  durablyDeletedElements: DurableDeletionRecord
+  /** What the guard last did, for the canvas to announce. Null = it did nothing. */
+  durableDeletionNotice: DurableDeletionNotice | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
   // CEE V3: Per-node LLM reasoning (node ID → why text) for rationale tooltips
@@ -1020,6 +1048,22 @@ interface CanvasState {
     nodes: readonly Node[]
     edges: readonly Edge<EdgeData>[]
   }) => void
+  /**
+   * 0.48.0: record that the server PROVED these elements gone from the saved
+   * model, so history restoration stops bringing them back.
+   *
+   * ⚠ CALL THIS ONLY FROM A `'proven'` RECEIPT. It is the twin of
+   * `applyStructuralDeleteRevert` — that one handles "the server did NOT remove
+   * these", this one "the server DID". A refused or unconfirmed delete must
+   * reach neither: its elements are legitimately undoable, and recording them
+   * here would make the product refuse to restore something it still holds.
+   */
+  recordDurableDeletion: (removed: {
+    readonly nodeIds: readonly string[]
+    readonly edgeIds: readonly string[]
+  }) => void
+  /** Dismiss the durable-deletion notice once the canvas has shown it. */
+  clearDurableDeletionNotice: () => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
@@ -1406,6 +1450,12 @@ const DECISION_CONTEXT_CLEAR = {
   // never edited. (Typed rather than left to `as const`, which would infer
   // `readonly []` and refuse to satisfy the mutable store field.)
   pendingStructuralDeletes: [] as StructuralDeleteIntent[],
+  // 0.48.0: the durable-delete record names ids in ONE decision's graph.
+  // Carrying it across a context replacement would guard a new canvas against
+  // deletions made in a decision the user has left — and could withhold a node
+  // that merely shares an id.
+  durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD as DurableDeletionRecord,
+  durableDeletionNotice: null as DurableDeletionNotice | null,
 } as const
 
 /**
@@ -1539,6 +1589,20 @@ function markAnalysisFreshnessDirty(
  * `mergeStructuralDeleteIntents` for why the fold is only sound inside it.
  */
 let structuralDeleteTickOpen = false
+
+/**
+ * Monotonic id for durable-deletion notices.
+ *
+ * ⚠ NOT DECORATION. The canvas announces the notice by SUBSCRIBING to this
+ * field, and two identical outcomes in a row are value-equal — so without a
+ * changing member the second press is swallowed and the user is told once for
+ * two Cmd+Z's. Same defect shape as a toast keyed on a message string.
+ */
+let durableNoticeSeq = 0
+function nextDurableNoticeSeq(): number {
+  durableNoticeSeq += 1
+  return durableNoticeSeq
+}
 
 /**
  * Record a user delete gesture for the wire, BEFORE the removal is applied.
@@ -1919,6 +1983,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastServerGraphHash: null,
   // 0.48.0: no delete gestures awaiting the wire.
   pendingStructuralDeletes: [],
+  // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
+  durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
+  durableDeletionNotice: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
   // CEE V3: Per-node LLM reasoning for rationale tooltips
@@ -2484,7 +2551,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // still forwards to PLoT. Re-derive it from the reverted graph's goal node so
     // the scalar and the node stay in lockstep (an undo past the target-set
     // restores null).
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(prev.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState() })
+    // 0.48.0 — a restore may not resurrect what the server durably deleted.
+    // The snapshot predates the receipt, so it is filtered against it rather
+    // than applied verbatim; `withholdDurableDeletions` is a no-op (a copy)
+    // whenever nothing has been proven deleted, which is the common case.
+    const guarded = withholdDurableDeletions(prev, get().durablyDeletedElements, { nodes, edges })
+    const notice = buildDurableDeletionNotice('withheld', guarded, prev, nextDurableNoticeSeq())
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -2501,7 +2574,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     logConstraintClearIfPresent(get, 'redo')
     // P0-1: mirror undo — re-derive the goal-threshold scalar from the reapplied
     // graph's goal node so it cannot outlive the node it describes.
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(next.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState() })
+    // 0.48.0 — mirror of undo, and NOT defensive padding. `pushToHistory`
+    // clears `future` on every mutation, so a future entry captured BEFORE a
+    // durable delete is not reachable today; the guard is here so the invariant
+    // is a property of history RESTORATION rather than of one direction, and so
+    // a later change to the redo stack's lifecycle cannot quietly re-open the
+    // defect on the other side.
+    const guarded = withholdDurableDeletions(next, get().durablyDeletedElements, { nodes, edges })
+    const notice = buildDurableDeletionNotice('withheld', guarded, next, nextDurableNoticeSeq())
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -3351,6 +3432,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       nextNodeId: 1,
       nextEdgeId: 1,
+      // 0.48.0 — MUST be cleared here, and `nextNodeId: 1` above is exactly
+      // why. Canvas node ids are sequential integers (`createNodeId` returns
+      // `String(nextNodeId)`), so a reset makes the NEXT graph reissue the same
+      // ids the previous one used. A durable-delete record surviving that would
+      // match a brand-new, never-deleted node by id and withhold it from undo —
+      // silently eating the user's work, which is the exact opposite-direction
+      // harm this guard exists to avoid. (`resetCanvas`, `importCanvas` and
+      // `hydrateGraphSlice` clear it via DECISION_CONTEXT_CLEAR; this action
+      // does not apply that block, so it clears them itself.)
+      durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
+      durableDeletionNotice: null,
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
       hasCompletedFirstRun: false,
       showDraftChat: false,
@@ -4896,6 +4988,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (queued.length === 0) return []
     set({ pendingStructuralDeletes: [] })
     return queued
+  },
+
+  recordDurableDeletion: (removed) => {
+    if (removed.nodeIds.length === 0 && removed.edgeIds.length === 0) return
+    const record = addDurableDeletion(get().durablyDeletedElements, removed)
+    // The receipt can land AFTER an undo has already put the elements back (the
+    // send is a round-trip; Cmd+Z is instant). Reconcile the LIVE canvas so it
+    // cannot keep asserting a node the server has proven gone — this is a no-op
+    // in the ordinary case, where the elements left on the delete and never
+    // returned.
+    const { nodes, edges } = get()
+    const reconciled = reconcileDurableDeletions({ nodes, edges }, record)
+    const notice = buildDurableDeletionNotice(
+      'reconciled',
+      reconciled,
+      { nodes, edges },
+      nextDurableNoticeSeq(),
+    )
+    if (notice === null) {
+      // Nothing came off the canvas: record the verdict and say nothing. A
+      // notice here would announce a removal the user never saw happen.
+      set({ durablyDeletedElements: record })
+      return
+    }
+    set((s) => ({
+      durablyDeletedElements: record,
+      nodes: reconciled.nodes,
+      edges: reconciled.edges,
+      durableDeletionNotice: notice,
+      ...deriveGoalThresholdFromNode(reconciled.nodes, s.outcomeNodeId),
+    }))
+    markAnalysisFreshnessDirty(get, set)
+  },
+
+  clearDurableDeletionNotice: () => {
+    if (get().durableDeletionNotice === null) return
+    set({ durableDeletionNotice: null })
   },
 
   applyStructuralDeleteRevert: (restore) => {

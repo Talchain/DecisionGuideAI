@@ -2999,7 +2999,28 @@ export function useConversation(): UseConversationReturn {
 
       if (outcome.kind === 'response') {
         const receipt = readStructuralDeleteReceipt(intent, outcome.response)
-        if (receipt === 'proven') return
+        if (receipt === 'proven') {
+          // 0.48.0 — THE RECEIPT NOW BINDS UNDO. `proven` means CEE re-read the
+          // COMMITTED bytes and found these ids absent, so the deletion is a
+          // fact about the saved model. Until this call existed the receipt had
+          // exactly one consumer (the revert, on its negative arm) and history
+          // restoration ignored it entirely — so Cmd+Z put the node back and
+          // the canvas asserted a model state the server had durably declined.
+          // Recorded ONLY here: the `refuted`/`unproven`/409/transport arms all
+          // fall through to the revert below, and their elements stay undoable.
+          //
+          // Scenario-gated for the same reason `revertStructuralDelete` is —
+          // these are canvas ids in ONE decision's graph, and applying them to a
+          // scenario the user has since switched to could withhold an unrelated
+          // node that happens to share an id.
+          if ((store.currentScenarioId ?? null) === capturedScenarioId) {
+            store.recordDurableDeletion({
+              nodeIds: intent.claimedNodeIds,
+              edgeIds: intent.claimedEdgeIds,
+            })
+          }
+          return
+        }
         shouldRevert = true
         const spoke =
           typeof outcome.response.assistant_text === 'string' &&
