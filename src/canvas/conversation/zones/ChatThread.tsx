@@ -22,8 +22,26 @@ import { useDraftStore, draftStreamPhaseFor } from '../../stores/draftStore'
 import { SETTLING_STAGES, SETTLING_AFTER_COACHING_STAGES } from '../../components/DraftLoadingAnimation'
 
 /**
- * ⭐ MOUNT IDENTITY — the two conversation surfaces must never answer to the
- * same name.
+ * ⭐ MOUNT IDENTITY — the two conversation surfaces' THREAD CONTAINERS must
+ * never answer to the same name.
+ *
+ * ⚠ READ THE SCOPE BEFORE RELYING ON THIS. What is split is the container, and
+ * ONLY the container. `testId` is consumed at exactly one place in this file
+ * (the `data-testid` on the scroll container below) and is forwarded to no
+ * child, so EVERY descendant testid is still built from content alone and is
+ * still duplicated across the two hosts. The concrete case that started this
+ * lane is among them: the run chip's id comes from chip data
+ * (`SuggestedChips.tsx`, `` `suggested-chip-${chip.id}` ``), so
+ * `suggested-chip-run_analysis` STILL resolves to two live elements whenever
+ * both hosts are mounted, and a probe selecting it is still ambiguous.
+ *
+ * So the honest claim is narrow: a probe can now name WHICH THREAD it means,
+ * and it must scope any descendant query to that container
+ * (`within(getByTestId(THREAD_TESTID_DOCKED))`) rather than querying the
+ * document. Unscoped descendant selectors are exactly as ambiguous as they
+ * were before this change. Threading a host prefix through every descendant
+ * testid is the fix that would make the broad claim true; it is not done here,
+ * and it would be a repo-wide change to selectors and e2e specs.
  *
  * `ConversationPanel` has two production hosts (`OlumiTabBody.tsx:106`, the
  * docked Olumi tab, and `FloatingOlumiPanel.tsx:1079`), and they are NOT
@@ -35,8 +53,8 @@ import { SETTLING_STAGES, SETTLING_AFTER_COACHING_STAGES } from '../../component
  * too. That guard was written for VISIBLE exclusivity — `olumiSurface.ts:4-5`
  * says "exactly one may be visible" — and mount exclusivity was never claimed.
  *
- * So both hosts really do mount a thread at once, and until now both answered
- * to `chat-thread`. Measured consequence, in real Chromium: the hidden twin is
+ * So both hosts really do mount a thread at once, and until now both CONTAINERS
+ * answered to `chat-thread`. Measured consequence, in real Chromium: the hidden twin is
  * `display:none`, 0x0, `hitTestable: false` — which means it can never take a
  * click from a HUMAN, but it absolutely can take one from anything selecting by
  * testid. A probe that resolves `chat-thread` to the wrong twin measures an
@@ -339,7 +357,12 @@ export const ChatThread = memo(function ChatThread({
         </button>
       )}
 
-      <div ref={listEndRef} />
+      {/* The scroll sentinel `useSmartScroll` calls `scrollIntoView` on. It
+          carries a testid so a spec can assert the scroll was aimed at THIS
+          element by identity, rather than counting calls on a globally stubbed
+          `Element.prototype.scrollIntoView` that any element would satisfy
+          (CLAUDE.md trap 19). */}
+      <div ref={listEndRef} data-testid="thread-scroll-sentinel" />
     </div>
   )
 })

@@ -32,7 +32,63 @@ import { render, act } from '@testing-library/react'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
-const scrollIntoView = vi.fn()
+/**
+ * ⚠ WITHOUT THIS MOCK THIS FILE COLLECTS ZERO TESTS AND THE SUITE STAYS GREEN.
+ *
+ * `ChatThread` reaches `src/services/threadService.ts`, which imports
+ * `src/lib/supabase.ts`, which THROWS at module scope when
+ * `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are absent (`supabase.ts:38`).
+ * That is a COLLECTION-time failure, so none of the cases below exist to fail —
+ * and in a multi-file run the aggregate total is dominated by files that did
+ * collect, so a healthy-looking total and a zero-failure line are both fully
+ * consistent with this file's entire scroll evidence never having run
+ * (CLAUDE.md trap 2b). Measured on this branch before the mock was added: this
+ * file and `threadMountIdentity.spec.tsx` both failed at collect.
+ *
+ * Mirrors the mock in the sibling `FloatingOlumiPanel.threadIdentity.spec.tsx`.
+ * The COLLECTION GUARD below is the second half: the mock stops the file dying,
+ * the guard makes a silent shrink impossible.
+ */
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
+  isSupabaseAvailable: () => false,
+}))
+
+/**
+ * The stub is installed on `Element.prototype`, so EVERY element satisfies a
+ * bare call-count assertion. Bind to the sentinel BY IDENTITY via the recorded
+ * `this` of each call (CLAUDE.md trap 19) — counting calls proves a scroll
+ * happened somewhere, never that it was aimed at the thread's end.
+ *
+ * ⚠ Captured HERE rather than read from `scrollIntoView.mock.contexts`: that
+ * field is declared in @vitest/spy's TYPINGS but does not exist in the 1.6.1
+ * RUNTIME this repo pins (`node_modules/.pnpm/@vitest+spy@1.6.1`, zero
+ * occurrences in `dist/index.js`; the 3.2.4 copy that also sits in the store
+ * does have it). Reading the wrong installed copy's `.d.ts` typechecks and
+ * then throws at run time — so the context is recorded explicitly and the
+ * assertion cannot depend on which copy resolves.
+ */
+const scrollTargets: unknown[] = []
+const scrollIntoView = vi.fn(function (this: unknown) {
+  scrollTargets.push(this)
+})
+
+/** The element `useSmartScroll` actually scrolls to (`useSmartScroll.ts:63,70`). */
+const SENTINEL_TESTID = 'thread-scroll-sentinel'
+
+function sentinelIn(root: ParentNode): Element {
+  const el = root.querySelector(`[data-testid="${SENTINEL_TESTID}"]`)
+  expect(
+    el,
+    'precondition: the scroll sentinel is not in the DOM, so every assertion below would be vacuous',
+  ).not.toBeNull()
+  return el as Element
+}
+
+/** How many times the scroll was aimed at THIS element, not at any element. */
+function scrollsTo(el: Element): number {
+  return scrollTargets.filter((c) => c === el).length
+}
 
 /** Flush the rAF the content sensor coalesces on. */
 async function flushFrames() {
@@ -82,17 +138,38 @@ const assistantMsg = (
 describe('ChatThread — content growing on an existing message is scrolled to', () => {
   beforeEach(() => {
     scrollIntoView.mockClear()
+    scrollTargets.length = 0
     Element.prototype.scrollIntoView = scrollIntoView
   })
   afterEach(() => {
     vi.useRealTimers()
   })
 
+  /**
+   * ⭐ COLLECTION GUARD — asserts this file's OWN cases by name.
+   *
+   * A suite total, an exit code and a zero-failure count are all consistent
+   * with this file contributing nothing (CLAUDE.md trap 2b). This is a
+   * hand-written list on purpose: it cannot be derived from the thing it
+   * checks, and it FAILS LOUD if the set grows OR shrinks, which is the
+   * sanctioned form of a mirror (trap 12).
+   */
+  it('COLLECTION GUARD — all four cases in this file were collected, by name', (ctx) => {
+    const names = (ctx.task.suite?.tasks ?? []).map((t) => t.name)
+    expect(names).toEqual([
+      'COLLECTION GUARD — all four cases in this file were collected, by name',
+      'scrolls when the reply BODY grows on the same message id — messages.length identical',
+      'scrolls when the CHIPS arrive on an already-rendered reply — the affordance the user needs',
+      'does NOT scroll when the user has deliberately scrolled up — it raises the pill instead',
+    ])
+  })
+
   it('scrolls when the reply BODY grows on the same message id — messages.length identical', async () => {
     const before = [userMsg('u1'), assistantMsg('a1', 'Here is a first read.')]
-    const { rerender } = render(<ChatThread {...props(before)} />)
+    const { rerender, container } = render(<ChatThread {...props(before)} />)
     await flushFrames()
-    const scrollsBeforeGrowth = scrollIntoView.mock.calls.length
+    const sentinel = sentinelIn(container)
+    const scrollsBeforeGrowth = scrollsTo(sentinel)
 
     // THE COMMIT THAT MATTERS: same id 'a1', body grows the way `text_delta`
     // grows it. Pin the defect's whole mechanism in-test rather than assuming
@@ -104,18 +181,22 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     rerender(<ChatThread {...props(after)} />)
     await flushFrames()
 
+    // The sentinel is the SAME DOM node across the rerender (React reuses it),
+    // so this is a before/after count on one identified element.
+    expect(sentinelIn(container)).toBe(sentinel)
     expect(
-      scrollIntoView.mock.calls.length,
-      'the reply body grew below the fold and nothing scrolled to it — the user is left ' +
+      scrollsTo(sentinel),
+      'the reply body grew below the fold and nothing scrolled to the thread end — the user is left ' +
         'looking at the top of a reply whose remainder, and whose chips, are off screen',
     ).toBeGreaterThan(scrollsBeforeGrowth)
   })
 
   it('scrolls when the CHIPS arrive on an already-rendered reply — the affordance the user needs', async () => {
     const before = [userMsg('u1'), assistantMsg('a1', 'Here is a first read.')]
-    const { rerender } = render(<ChatThread {...props(before)} />)
+    const { rerender, container } = render(<ChatThread {...props(before)} />)
     await flushFrames()
-    const scrollsBeforeChips = scrollIntoView.mock.calls.length
+    const sentinel = sentinelIn(container)
+    const scrollsBeforeChips = scrollsTo(sentinel)
 
     const after = [
       userMsg('u1'),
@@ -131,14 +212,19 @@ describe('ChatThread — content growing on an existing message is scrolled to',
 
     // Bind to the chip BY ITS OWN TESTID — never by index or by "the last
     // button", which another element could satisfy (CLAUDE.md trap 19).
+    // ⚠ Scoped to THIS thread's container, not the document. `suggested-chip-*`
+    // testids are built from chip data alone and are NOT split per host (see
+    // the mount-identity note in `zones/ChatThread.tsx`), so a document-wide
+    // query for one is ambiguous the moment a second thread is mounted.
     expect(
-      document.querySelector('[data-testid="suggested-chip-run_analysis"]'),
+      container.querySelector('[data-testid="suggested-chip-run_analysis"]'),
       'precondition: the chip must actually be in the DOM, or this case proves nothing',
     ).not.toBeNull()
 
+    expect(sentinelIn(container)).toBe(sentinel)
     expect(
-      scrollIntoView.mock.calls.length,
-      'the suggested chips landed and nothing scrolled to them — this is the "dead affordance": ' +
+      scrollsTo(sentinel),
+      'the suggested chips landed and nothing scrolled to the thread end — this is the "dead affordance": ' +
         'the chip works, the user simply cannot see it',
     ).toBeGreaterThan(scrollsBeforeChips)
   })
@@ -148,8 +234,9 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     // simply re-pinned on every mutation would satisfy both cases above while
     // stealing scroll from someone reading history — its own defect.
     const before = [userMsg('u1'), assistantMsg('a1', 'Here is a first read.')]
-    const { rerender, getByTestId, queryByTestId } = render(<ChatThread {...props(before)} />)
+    const { rerender, getByTestId, queryByTestId, container } = render(<ChatThread {...props(before)} />)
     await flushFrames()
+    const sentinel = sentinelIn(container)
 
     const thread = getByTestId('chat-thread')
     // A container the user has scrolled well away from the bottom.
@@ -162,7 +249,7 @@ describe('ChatThread — content growing on an existing message is scrolled to',
       thread.dispatchEvent(new Event('scroll'))
     })
 
-    const scrollsAfterUserScrolledUp = scrollIntoView.mock.calls.length
+    const scrollsAfterUserScrolledUp = scrollsTo(sentinel)
 
     rerender(
       <ChatThread
@@ -171,8 +258,9 @@ describe('ChatThread — content growing on an existing message is scrolled to',
     )
     await flushFrames()
 
+    expect(sentinelIn(container)).toBe(sentinel)
     expect(
-      scrollIntoView.mock.calls.length,
+      scrollsTo(sentinel),
       'the thread yanked a reader who had deliberately scrolled up back to the bottom',
     ).toBe(scrollsAfterUserScrolledUp)
     expect(

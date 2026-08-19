@@ -103,6 +103,21 @@ beforeEach(() => {
 })
 
 describe('FloatingOlumiPanel — the identity it gives its thread', () => {
+  /**
+   * ⭐ COLLECTION GUARD — this file's OWN cases, by name. This file already
+   * mocks `lib/supabase`, so it collects without the env vars; the guard is
+   * here because a suite total can never tell you whether THIS file
+   * contributed anything (CLAUDE.md trap 2b), and a one-case file is the
+   * easiest of all to lose silently.
+   */
+  it('COLLECTION GUARD — both cases in this file were collected, by name', (ctx) => {
+    const names = (ctx.task.suite?.tasks ?? []).map((t) => t.name)
+    expect(names).toEqual([
+      'COLLECTION GUARD — both cases in this file were collected, by name',
+      'LINK 3 — hands its ConversationPanel the FLOATING identity, never the canonical one',
+    ])
+  })
+
   it('LINK 3 — hands its ConversationPanel the FLOATING identity, never the canonical one', () => {
     useFloatingPanelState.getState().open('user')
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })

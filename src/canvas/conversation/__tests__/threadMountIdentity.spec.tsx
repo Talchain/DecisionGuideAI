@@ -1,5 +1,13 @@
 /**
- * MOUNT IDENTITY — the two conversation surfaces must not share one testid.
+ * MOUNT IDENTITY — the two conversation surfaces' thread CONTAINERS must not
+ * share one testid.
+ *
+ * ⚠ SCOPE, STATED SO NOTHING LARGER IS READ INTO A GREEN RUN HERE: every case
+ * below is about the container's own `data-testid`. Descendant testids are
+ * built from content alone and are NOT split per host — `suggested-chip-*`
+ * included — so a document-wide query for a descendant is still ambiguous
+ * while both hosts are mounted. The full statement, and the reason the broad
+ * fix was not taken, is in the mount-identity note in `zones/ChatThread.tsx`.
  *
  * ⚠ WHAT IS AND IS NOT CLAIMED HERE. A COUNT of mounts is not a visibility
  * claim, so jsdom can make it (CLAUDE.md trap 3 bans the other kind). The
@@ -29,6 +37,21 @@ import { ChatThread, THREAD_TESTID_DOCKED, THREAD_TESTID_FLOATING } from '../zon
 import { ConversationPanel } from '../ConversationPanel'
 import type { ConversationMessage } from '../types'
 import type { UseConversationReturn } from '../useConversation'
+
+/**
+ * ⚠ WITHOUT THIS MOCK THIS FILE COLLECTS ZERO TESTS AND THE SUITE STAYS GREEN.
+ * `ChatThread`/`ConversationPanel` reach `services/threadService.ts` →
+ * `lib/supabase.ts`, which THROWS at module scope without
+ * `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (`supabase.ts:38`) — a
+ * COLLECTION-time death that a multi-file run's aggregate total hides
+ * (CLAUDE.md trap 2b). Measured on this branch before the mock was added: this
+ * file failed at collect. Mirrors the sibling
+ * `FloatingOlumiPanel.threadIdentity.spec.tsx`.
+ */
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
+  isSupabaseAvailable: () => false,
+}))
 
 vi.mock('../../../adapters/plot', () => ({
   plot: { validatePatch: vi.fn() },
@@ -77,6 +100,22 @@ describe('the two conversation hosts do not share one data-testid', () => {
     // calls it on commit. Stubbing it keeps this file's claims about IDENTITY
     // and never about geometry.
     Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  /**
+   * ⭐ COLLECTION GUARD — this file's OWN cases, by name. A hand-written list
+   * on purpose: it cannot be derived from the thing it checks, and it fails
+   * loud if the set grows OR shrinks (CLAUDE.md trap 12's sanctioned form).
+   */
+  it('COLLECTION GUARD — all five cases in this file were collected, by name', (ctx) => {
+    const names = (ctx.task.suite?.tasks ?? []).map((t) => t.name)
+    expect(names).toEqual([
+      'COLLECTION GUARD — all five cases in this file were collected, by name',
+      'the two identities are DIFFERENT strings — the whole point, asserted before anything relies on it',
+      'LINK 1 — ChatThread answers to the identity it is given, and to no other',
+      'LINK 2 — ConversationPanel forwards the identity through to its thread',
+      'LINK 2b — and defaults to the canonical identity when no surface is named',
+    ])
   })
 
   it('the two identities are DIFFERENT strings — the whole point, asserted before anything relies on it', () => {
