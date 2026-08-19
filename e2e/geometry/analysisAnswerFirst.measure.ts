@@ -52,6 +52,22 @@
  * the starter's, and the above-the-fold claim for a genuinely typed thin brief
  * is settled on the deployed build, not here.
  *
+ * ── WHAT THE TRIM BOUGHT, MEASURED (19 Aug 2026, local Chromium) ───────────
+ * The same file, run twice, differing ONLY in `DecisionOverviewCard`'s
+ * `autoExpand` (the PR's one-line change, reverted in place as a mutant and
+ * restored HEAD-relative):
+ *
+ *   pristine  overview h=282  hero.top=536  subCardsExpanded=true   → 2 FAILED
+ *   fixed     overview h=135  hero.top=389  subCardsExpanded=false  → 2 passed
+ *
+ * ⚠ STATED PRECISELY, because two of the three gate assertions discriminate
+ * and one does NOT: `subCardsExpanded` and `disclosure` flip, and they are why
+ * the pristine arm REDs. `hero.top < fold` passes in BOTH arms here
+ * (536 < 586 at 1280x800 — 91% of the fold, i.e. barely). This replayed thin
+ * state is not the deployed typed-thin-brief that put the verdict at 573px in
+ * a 515px region, so the above-the-fold assertion remains a floor this
+ * harness cannot exercise adversarially. Do not read it as the evidence.
+ *
  * ── PRECONDITIONS ARE PINNED, NOT HOPED FOR (trap 13b) ─────────────────────
  * A run in which the hero never mounted would otherwise report a comfortable
  * number about a component that is not on screen (trap 3b). Both anchors are
