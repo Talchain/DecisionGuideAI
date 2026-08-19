@@ -139,7 +139,7 @@ describe('P0 — producer writes must not clear the user coaching', () => {
     // the P0 back again with nothing red. So the REAL store is pinned here: if
     // either method is ever removed or renamed, this REDs instead of the
     // suppression quietly evaporating.
-    const st = useCanvasStore.getState() as Record<string, unknown>
+    const st = useCanvasStore.getState() as unknown as Record<string, unknown>
     expect(typeof st.beginExternalGraphMutation).toBe('function')
     expect(typeof st.endExternalGraphMutation).toBe('function')
   })
