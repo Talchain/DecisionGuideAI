@@ -294,6 +294,14 @@ export function readinessWillScaffold(readiness: GraphReadiness | null | undefin
  * exactly what POC-DONE's PC1 forbids. A truthful "we could not check, you can
  * still run" is not a dead end; a false "you cannot run" is.
  */
+/**
+ * The one member of the producer's readiness vocabulary that cannot describe a
+ * runnable model (CEE `cee/transforms/analysis-ready.ts`,
+ * `orchestrator/tools/analysis-ready-helper.ts`). Named once; the derivation
+ * lives at the single use site below.
+ */
+const ANALYSIS_READINESS_BLOCKED = 'blocked'
+
 export function readinessObjectsToRun(
   readiness: GraphReadiness | null | undefined,
   analysisReadiness?: AnalysisReadinessAuthority | null,
@@ -312,8 +320,73 @@ export function readinessObjectsToRun(
   // at all once the producer has spoken. A conjunction or a disjunction here
   // would be a PARALLEL RULE — two authorities kept in a relationship — which
   // is exactly the shape that produced the defect.
-  if (analysisReadiness) return analysisReadiness.blockers.length > 0
+  if (analysisReadiness) {
+    // ⭐ TWO CLAUSES, BOTH DRAWN FROM THE SAME AUTHORITY — still one owner.
+    //
+    // (a) `status === 'blocked'` — DERIVED, not assumed. It is the one member of
+    //     the vocabulary that cannot describe a runnable model, and it is
+    //     provably different from the other three non-ready values:
+    //       · it is ABSENT from the payload-status priority chain that grades an
+    //         ordinary model (`cee/transforms/analysis-ready.ts:958-969` emits
+    //         only needs_user_input | needs_user_mapping | needs_encoding |
+    //         ready — 0 occurrences of 'blocked'; contrast control in the same
+    //         range: 'needs_encoding' appears twice);
+    //       · its only writers are genuine refusal / hard-block paths —
+    //         `analysis-ready-helper.ts:1117` (hardBlocked), `:1123` (no
+    //         semantic payload at all) and `buildAnalysisRefusalReadiness:1440`.
+    //     `buildAnalysisRefusalReadiness` emits `status: 'blocked'` with NO
+    //     `blockers` key, so on a refusal turn the list is `[]` — and without
+    //     this clause the Analyse control would turn ENABLED one turn after CEE
+    //     refused the run. The user clicks, and is refused again.
+    //
+    // (b) `blockers.length > 0` — the itemised impediments, for every other
+    //     stated status.
+    //
+    // ⚠ WHY NOT THE SIMPLER `status !== 'ready'`. It was proposed, and it is
+    // REFUTED at the producer: two non-ready statuses describe models that ARE
+    // analysable.
+    //   · `needs_user_mapping` fires on `unreachableControllableBlockers`
+    //     (`analysis-ready.ts:961`) — a controllable factor with no inbound
+    //     option edge, which that file's own payload step calls "informational,
+    //     alongside existing blockers". A model with fully-encoded options and
+    //     one unconnected factor is analysable and would be refused.
+    //   · `needs_encoding` (`:966`) is EXACTLY the UI-SEM-091 scaffold state,
+    //     whose whole shipped point (CEE #612, and the comment at the scaffold
+    //     rung below) is that "the graph is runnable even though
+    //     can_run_analysis is false" — the run triggers the draft. Refusing it
+    //     would delete a shipped capability.
+    // Corroborated by CEE's own integrity guard, which flags only
+    // `status_ready_with_actionable_blockers`
+    // (`canonical-analysis-state.ts:494`) and deliberately excludes advisory
+    // blockers that "ride along on otherwise ready payloads by design". There is
+    // no reverse guard, because non-ready-yet-runnable is not an anomaly there —
+    // it is normal.
+    //
+    // So the honest predicate refuses what is provably unrunnable and lets the
+    // producer's itemised list decide the rest. Refusing on a status whose cause
+    // we cannot name would re-create the original defect in a new spelling.
+    return analysisReadiness.status === ANALYSIS_READINESS_BLOCKED || analysisReadiness.blockers.length > 0
+  }
 
+  // ⏳ REMOVAL TRIGGER for the side-car fallback below.
+  //
+  // This is NOT a pre-0.46-only shim and must not be read as one. The producer
+  // verdict is TURN-SCOPED: `analysisStateV1` is cleared on turn silence and on
+  // a schema-parse failure (`applyV5State.ts`), on import / reset /
+  // scenario-switch (`store.ts`), and is `null` at initial load — and CEE omits
+  // `analysis_state` on most `sendFinalised200` exits. So this branch fires
+  // routinely mid-journey, and ONE SILENT TURN re-opens the defect this lane
+  // closed. Keeping it is still correct: it is byte-identical to the behaviour
+  // shipping today, and deleting it now would hand a fresh user a dead Analyse
+  // control on any turn CEE stays quiet.
+  //
+  // DELETE THIS BRANCH, AND THE `readiness` PARAMETER WITH IT, WHEN — and only
+  // when — the producer verdict is durable across a silent turn: i.e. when
+  // `analysisStateV1` is either RETAINED (with its own staleness mark) rather
+  // than cleared on absence, or re-supplied on every turn. Until one of those
+  // holds, a consumer with no verdict has no honest alternative to asking the
+  // side-car. The condition is about the STORE'S RETENTION POLICY, not about a
+  // schema version, and no date makes it true.
   return Boolean(readiness) && !readiness!.can_run_analysis && !readinessWillScaffold(readiness)
 }
 

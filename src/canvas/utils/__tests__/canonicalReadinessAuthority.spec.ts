@@ -59,9 +59,10 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import type { AnalysisBlocker } from '@talchain/schemas/boundary'
+import type { AnalysisBlocker, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { canRunAnalysis, readinessObjectsToRun } from '../canRunAnalysis'
+import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 import type { GraphReadiness } from '../../hooks/useGraphReadiness'
 import type { CanRunAnalysisParams } from '../canRunAnalysis'
@@ -101,6 +102,60 @@ function blocker(overrides: Partial<AnalysisBlocker> = {}): AnalysisBlocker {
     repairability: 'user_repairable',
     ...overrides,
   }
+}
+
+/**
+ * The producer's STATED readiness vocabulary, as a closed set.
+ *
+ * Mirrored from CEE `orchestrator-v5/context/canonical-analysis-state.ts:137-145`
+ * (`ANALYSIS_READY_STATUSES`). FIVE members — and `'unknown'` is deliberately
+ * NOT one of them: that is `READINESS_STATUS_UNSUPPLIED`
+ * (`orchestrator-v5/compose/analysis-state-v1.ts:106`), the sentinel substituted
+ * when no status was supplied, minted in a different file. Treating it as a
+ * sixth member of this list is the conflation the sentinel guard exists to undo.
+ */
+const ANALYSIS_READY_STATUSES = [
+  'ready',
+  'needs_user_mapping',
+  'needs_encoding',
+  'needs_user_input',
+  'blocked',
+] as const
+
+/**
+ * The stated statuses that can describe a RUNNABLE model — the five above minus
+ * `blocked`.
+ *
+ * ⚠ DERIVED AT THE PRODUCER, and this is the load-bearing distinction. A
+ * proposal to make the gate `status !== 'ready'` was refuted there: at
+ * `cee/transforms/analysis-ready.ts:958-969` the payload-status chain emits
+ * `needs_user_mapping` for an unconnected controllable factor its own payload
+ * step calls "informational", and `needs_encoding` for the UI-SEM-091 scaffold
+ * state that is explicitly runnable. `blocked` is absent from that chain
+ * entirely and is written only by hard-block and refusal paths.
+ */
+const RUNNABLE_STATED_STATUSES = ANALYSIS_READY_STATUSES.filter((s) => s !== 'blocked')
+
+/**
+ * A full `AnalysisStateV1` as the wire carries it, so the cases below travel
+ * through `selectAnalysisReadinessAuthority` — THE REAL SEAM — rather than
+ * hand-constructing the authority object the gate happens to accept. Without
+ * this, a sentinel guard living in the selector would be invisible to every
+ * assertion in this file.
+ */
+function wireState(readiness: AnalysisStateV1['readiness']): AnalysisStateV1 {
+  return {
+    run_state: { kind: 'never_run' },
+    readiness,
+    leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+    robustness: {},
+    usable_for_prose: false,
+    usable_for_chips: false,
+    usable_for_followup: false,
+    requires_rerun: false,
+    blocked_unusable: false,
+    contradictions: [],
+  } as AnalysisStateV1
 }
 
 /**
@@ -149,14 +204,59 @@ describe('AC1 — producer says ready with zero blockers: the control is ENABLED
     expect(result.reason).not.toBe(BLOCKED_REASON_COPY.unspecified)
   })
 
-  it('an empty blocker list is a POSITIVE claim, whatever status code rides with it', () => {
-    // The contract's words. `status` is a producer-owned free-string code and a
-    // consumer maps it to its own copy; `blockers` is the itemised list of what
-    // stands in the way. Blocking on a status we cannot name a cause for is
-    // exactly the refusal-without-a-reason this lane exists to delete — and a
-    // run CEE then declines still refuses WITH a stated reason, which is
-    // strictly better than a disabled control that lies.
-    expect(gate({ analysisReadiness: { status: 'unknown_code', blockers: [] } }).allowed).toBe(true)
+  it('an empty blocker list is a POSITIVE claim, across the producer\'s REAL vocabulary', () => {
+    // ⚠ RE-DERIVED FROM THE PRODUCER, 19 Aug 2026 (trap 13c). This case used to
+    // read `{ status: 'unknown_code', blockers: [] }` and was justified by the
+    // contract's `describe()` prose calling `status` an open producer-owned
+    // code. The prose is not the producer. At CEE staging the STATED vocabulary
+    // is the five-member `ANALYSIS_READY_STATUSES`
+    // (`orchestrator-v5/context/canonical-analysis-state.ts:137-145`), so
+    // `'unknown_code'` is a fixture the producer CANNOT EMIT — and a fixture
+    // outside the producer's output domain proves nothing (trap 16-inverse).
+    //
+    // What the rung actually claims is narrower and true: for a STATED verdict,
+    // the itemised blocker list is what decides, and an empty one is a positive
+    // finding. Asserted across every value the producer can actually send.
+    for (const status of RUNNABLE_STATED_STATUSES) {
+      expect(gate({ analysisReadiness: { status, blockers: [] } }).allowed, status).toBe(true)
+    }
+  })
+
+  it('A CASE PER STATED STATUS — `blocked` refuses, the other four defer to the list', () => {
+    // Bound by the status LITERAL, one row per value, never by a predicate
+    // another status could satisfy (trap 19). The table IS the claim:
+    //
+    //   ready              [] -> PERMIT   nothing itemised, nothing blocking
+    //   needs_user_mapping [] -> PERMIT   informational unconnected factor
+    //   needs_encoding     [] -> PERMIT   the UI-SEM-091 scaffold state
+    //   needs_user_input   [] -> PERMIT   its blockers ARE the list; empty = none
+    //   blocked            [] -> REFUSE   the refusal builder's own carrier
+    expect(gate({ analysisReadiness: { status: 'ready', blockers: [] } }).allowed).toBe(true)
+    expect(gate({ analysisReadiness: { status: 'needs_user_mapping', blockers: [] } }).allowed).toBe(true)
+    expect(gate({ analysisReadiness: { status: 'needs_encoding', blockers: [] } }).allowed).toBe(true)
+    expect(gate({ analysisReadiness: { status: 'needs_user_input', blockers: [] } }).allowed).toBe(true)
+    expect(gate({ analysisReadiness: { status: 'blocked', blockers: [] } }).allowed).toBe(false)
+  })
+
+  it('a refusal turn does not hand back an ENABLED button one turn later', () => {
+    // `buildAnalysisRefusalReadiness` (`analysis-ready-helper.ts:1440`) emits
+    // `status: 'blocked'` with no `blockers` key, so the wire carries `[]`. On
+    // the blockers-only predicate that OPENED the gate immediately after CEE had
+    // refused the run — click, refused, button live again, click, refused.
+    const refusalTurn = gate({ analysisReadiness: { status: 'blocked', blockers: [] } })
+    expect(refusalTurn.allowed).toBe(false)
+  })
+
+  it('and the sentence it shows names nothing it cannot name', () => {
+    // Honesty check on the empty-list refusal. The producer itemised nothing, so
+    // the copy must not imply a specific missing thing — it says only that
+    // something more is needed and points at the chat, which on a refusal turn
+    // genuinely carries CEE's own explanation.
+    const reason = gate({ analysisReadiness: { status: 'blocked', blockers: [] } }).reason
+    expect(reason).toBe(BLOCKED_REASON_COPY.unspecified)
+    // Never a fabricated specific: no quoted label, no count, no identifier.
+    expect(reason).not.toMatch(/"/)
+    expect(reason).not.toMatch(/\d/)
   })
 })
 
@@ -363,5 +463,79 @@ describe('CONTRAST CONTROL — no producer verdict: the side-car still answers',
     })
     expect(result.allowed).toBe(false)
     expect(result.reason).toContain('Two options share one label')
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE UNSUPPLIED SENTINEL — an absence wearing a status code.
+//
+// These cases go through `selectAnalysisReadinessAuthority`, not through a
+// hand-built authority object, because the guard lives in the selector and a
+// spec that skipped it would pass against a selector that had none.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("CEE's `unknown` sentinel behaves IDENTICALLY to an absent verdict", () => {
+  const viaSelector = (state: AnalysisStateV1 | null) =>
+    gate({ analysisReadiness: selectAnalysisReadinessAuthority(state) })
+
+  it('does not let an unsupplied verdict discard an objecting side-car', () => {
+    // The harm, stated plainly: `{ status: 'unknown', blockers: [] }` read as a
+    // stated verdict is a POSITIVE claim that nothing is blocking — so the gate
+    // would open and the side-car would never be asked, on a turn where CEE
+    // said only that it had not assessed. CEE's own comment forbids reading the
+    // sentinel as `blocked`; reading it as READY is worse.
+    const unsupplied = viaSelector(wireState({ status: 'unknown', blockers: [] }))
+    expect(unsupplied.allowed).toBe(false)
+    expect(unsupplied.reason).toBe(BLOCKED_REASON_COPY.unspecified)
+  })
+
+  it('IDENTICAL to absence — same verdict, same sentence, both directions', () => {
+    // Bound by EQUIVALENCE, not by a hard-coded expectation (trap 19): whatever
+    // the not-stated path does, the sentinel path must do. A future change to
+    // the fallback cannot silently separate them.
+    const absent = gate({ analysisReadiness: null })
+    const unsupplied = viaSelector(wireState({ status: 'unknown', blockers: [] }))
+    expect(unsupplied.allowed).toBe(absent.allowed)
+    expect(unsupplied.reason).toBe(absent.reason)
+
+    // And with a PERMISSIVE side-car, both open — proving the equivalence is not
+    // just "the sentinel always blocks".
+    const absentOpen = gate({ readiness: SIDE_CAR_PERMITS, analysisReadiness: null })
+    const unsuppliedOpen = gate({
+      readiness: SIDE_CAR_PERMITS,
+      analysisReadiness: selectAnalysisReadinessAuthority(
+        wireState({ status: 'unknown', blockers: [] }),
+      ),
+    })
+    expect(unsuppliedOpen.allowed).toBe(absentOpen.allowed)
+    expect(unsuppliedOpen.allowed).toBe(true)
+  })
+
+  it('the sentinel does not swallow blockers the producer DID itemise', () => {
+    // The fail-safe direction. If a turn ever carries the sentinel WITH a
+    // populated list, falling to the side-car must not lose it — so this pins
+    // that the guard is scoped to the status and cannot become a blanket escape.
+    const withBlockers = viaSelector(
+      wireState({
+        status: 'unknown',
+        blockers: [blocker({ option_label: 'Extend the free trial' })],
+      }),
+    )
+    expect(withBlockers.allowed).toBe(false)
+  })
+
+  it('DISCRIMINATION — every STATED status still reaches the gate through the selector', () => {
+    // The other half of the pair. Without this, a selector that returned `null`
+    // for everything would satisfy the three cases above — and would have
+    // silently deleted the entire fix.
+    for (const status of ANALYSIS_READY_STATUSES) {
+      const authority = selectAnalysisReadinessAuthority(wireState({ status, blockers: [] }))
+      expect(authority, status).not.toBeNull()
+      expect(authority!.status, status).toBe(status)
+      // Reaching the gate, it supersedes the objecting side-car — permitting for
+      // every runnable status, refusing for `blocked`, and in BOTH cases proving
+      // the selector handed the verdict on rather than nulling it.
+      expect(gate({ analysisReadiness: authority }).allowed, status).toBe(status !== 'blocked')
+    }
   })
 })

@@ -754,10 +754,57 @@ export function useAnalysisState(): ComposedAnalysisState {
  * what to do about it, and it falls back to the side-car verdict — the
  * pre-0.46 behaviour, byte-for-byte.
  */
+/**
+ * CEE's `READINESS_STATUS_UNSUPPLIED` (`orchestrator-v5/compose/analysis-state-v1.ts:106`).
+ *
+ * Restated here rather than imported because CEE is a separate service with no
+ * shared export for it — the contract package types `status` as a plain string.
+ * That makes this a hand-maintained mirror (trap 12), so it is named ONCE, at
+ * the single seam that reads it, with the producer path in the comment above;
+ * the guard below fails loud in the only way that matters — a rename at CEE
+ * makes the sentinel arrive as a stated status, and the `unknown`-behaves-like-
+ * absence test REDs.
+ */
+const READINESS_STATUS_UNSUPPLIED = 'unknown'
+
 export function selectAnalysisReadinessAuthority(
   analysisState: AnalysisStateV1 | null,
 ): AnalysisReadinessAuthority | null {
   if (analysisState === null) return null
+
+  // ⭐ THE UNSUPPLIED SENTINEL IS AN ABSENCE WEARING A STATUS CODE.
+  //
+  // Derived at the producer, not from the contract's prose (trap 13c — the
+  // `describe()` text calls `status` a producer-owned code and says nothing
+  // about this):
+  //
+  //   CEE `orchestrator-v5/compose/analysis-state-v1.ts:106`
+  //     export const READINESS_STATUS_UNSUPPLIED = 'unknown'
+  //   …substituted at `:314` whenever `canonical.status` is not a non-empty
+  //   string — and the FULL `analysis_state` is still emitted around it, with
+  //   `mapWireBlockers` returning `[]` for an absent list (`:180`). So
+  //   `{ status: 'unknown', blockers: [] }` is a routinely reachable payload.
+  //
+  // CEE's own comment beside the constant is explicit: it "says exactly what is
+  // true: no readiness verdict was supplied on this turn. It is NOT a synonym
+  // for `blocked`, and a consumer must not treat it as one." Read as a stated
+  // verdict, its empty blocker list would be a POSITIVE claim that nothing is
+  // blocking — so this consumer would treat it as a synonym for READY, which is
+  // worse than the reading CEE forbids, and it would discard a side-car verdict
+  // that may correctly be refusing.
+  //
+  // ⚠ NOTE WHAT 'unknown' IS NOT. The stated vocabulary is the FIVE-member
+  // `ANALYSIS_READY_STATUSES` at `orchestrator-v5/context/canonical-analysis-state.ts:137-145`
+  // — `ready | needs_user_mapping | needs_encoding | needs_user_input | blocked`.
+  // `'unknown'` is not a member of it; it is the sentinel substituted when
+  // `coerceReadyStatus` returns null, and it is minted in a different file.
+  // Folding it into that allowlist as a sixth value is the same conflation this
+  // guard exists to undo.
+  //
+  // So it collapses to the state this module already has a name for: NOT
+  // STATED. Same value, same downstream behaviour, one concept.
+  if (analysisState.readiness.status === READINESS_STATUS_UNSUPPLIED) return null
+
   return {
     status: analysisState.readiness.status,
     blockers: analysisState.readiness.blockers,
