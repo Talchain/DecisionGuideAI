@@ -24,6 +24,7 @@ import {
   resolveEvidenceGapConfidenceDisplay,
   evidenceGapGenericText,
   evidenceGapSourcePill,
+  isEvidenceGapAddressed,
 } from './utils/evidenceGapConfidenceDisplay'
 import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
@@ -467,20 +468,65 @@ function T1ChecksFooter({
     robustnessVerdict === 'moderate' ||
     robustnessVerdict === 'fragile'
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
-  const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
-  // ⚠ L-58 / L-38. `evidenceKnown` is `gaps.length > 0` and NOTHING MORE, and
-  // the label it drove said "Evidence unknown" — which is not what the value
-  // means. An empty list is the producer returning no evidence gaps; whether
-  // that is "assessed, none found" or "not assessed" is genuinely
-  // indistinguishable here, because `useResultsSectionData` collapses absent
-  // and empty through `?? []` (`:3221-3226`). So the honest label states the
-  // ONE thing we hold — that nothing was flagged — and claims neither
-  // coverage nor an absence of assessment. (Trap 13c: the expectation is
-  // derived from the producer's semantics, not from what the field's name
-  // suggests it ought to mean.)
+  // ⭐ NO DENIAL WITHOUT AUTHORITY — THE EVIDENCE TWIN (UX gate point 8,
+  // 18 Aug 2026). This is the SAME ruling applied 24 lines above to the leader
+  // verdict, applied to the check it missed on the same day.
+  //
+  // The previous note (kept below in spirit) was right that "assessed, none
+  // found" and "not assessed" were indistinguishable here — and then drew the
+  // wrong conclusion from it. It chose to state "the ONE thing we hold"
+  // ("No evidence gaps flagged") on a value that, when the producer is silent,
+  // holds NOTHING. That is a denial minted by the UI out of a producer's
+  // silence, and it is exactly what the leader-verdict ruling forbids:
+  //
+  //   "`unknown` licenses silence, never a denial"
+  //   "Reconciling the DEFAULTS would have been the wrong fix; withdrawing
+  //    the unlicensed claim is the right one."
+  //
+  // MEASURED, and this is why it matters rather than being a nicety: on the
+  // deployed build the producer is ALWAYS silent (see the derivation comment
+  // in `useResultsSectionData`), so this glyph rendered "No evidence gaps
+  // flagged" on EVERY completed analysis — 12 of 12 real-browser runs across
+  // 6 captured turns and 2 graphs — while the same screen carried four live
+  // evidence-weakness flags from the fields the producer DOES populate.
+  // A constant string is not a check; it is furniture that reads as one.
+  //
+  // ⚠ THE FIX IS NOT "MAKE TWO READERS AGREE". The assumed-strength card, the
+  // Strengthen queue and the canvas science icons answer DIFFERENT questions
+  // (edge-strength provenance, recommendation lifecycle, factor extraction
+  // provenance) — they are not second opinions about this one, and aligning
+  // them would be reconciling defaults across concepts (CLAUDE.md trap 21).
+  // What is deleted is this surface's licence to speak when its own authority
+  // said nothing. The remaining wider divergence is reported, not patched here.
+  //
+  // The distinction now arrives explicitly rather than being inferred from an
+  // emptiness that two different states produce.
+  const evidenceAssessed = data.confidence.evidenceGapsAssessed === true
   const evidenceKnown = gaps.length > 0
-  const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
+  const addressed = gaps.filter(g => isEvidenceGapAddressed(g.confidence)).length
   const total = gaps.length
+  // ⭐ NO ALL-CLEAR WITHOUT AUTHORITY — THE UNKNOWN-CONFIDENCE FACE OF IT.
+  //
+  // This used to be `!evidenceWeak && evidenceKnown`, with
+  // `evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)`
+  // — a TWO-valued predicate over a THREE-valued input. `useResultsSectionData`
+  // maps a gap with no stated `confidence` to `null` DELIBERATELY, and
+  // `evidenceGapConfidenceDisplay`'s contract is explicit that "Callers must
+  // SUPPRESS the figure and anything derived from it". `evidenceWeak` derived
+  // from it anyway, so "the producer never said" came out as "not weak", which
+  // came out as a green tick and "Evidence covered".
+  //
+  // Concrete input, and it is one payload producing two contradicting
+  // sentences ONE ROW APART:
+  //   `[{ factor_id: 'f1', factor_label: 'Supplier lead time', voi_score: 0.9 }]`
+  // (no `confidence`) rendered ✓ "Evidence covered" while `checks-addressed`
+  // beside it rendered "0 of 1 evidence gaps addressed".
+  //
+  // The tick is now DERIVED FROM THE SAME `addressed` COUNT that span renders,
+  // so the two cannot disagree by construction — a stronger guarantee than two
+  // predicates that merely happen to agree today (CLAUDE.md trap 21: the fix
+  // for two authorities is to make them one, not to align their defaults).
+  const evidenceAllAddressed = evidenceKnown && addressed === total
 
   // §6.2g: the legacy arm ("Winner" / "No winner") is DELETED, not
   // re-anchored. `useV17Copy` already selected the glossary-compliant labels
@@ -541,16 +587,32 @@ function T1ChecksFooter({
           dataTestid="checks-robust"
         />
         <ChecksGlyph
-          ok={!evidenceWeak && evidenceKnown}
-          // An empty gap list is the NEUTRAL third state, not a failure — the
-          // red X was itself part of the wrongness ("Evidence unknown" scored
-          // as a fault). `unknown` renders the muted help glyph.
+          ok={evidenceAllAddressed}
+          // Two states render the muted help glyph rather than the red X, for
+          // two different reasons: the producer assessed and found nothing (a
+          // real, licensed all-clear) and the producer never assessed (no
+          // claim available). Neither is a failure; only one is a finding.
           unknown={!evidenceKnown}
           okLabel="Evidence covered"
-          notOkLabel={evidenceKnown ? 'Evidence gaps' : 'No evidence gaps flagged'}
-          // Only the empty-list arm needs the caveat: with gaps present the
-          // label is a plain count-backed fact.
-          title={evidenceKnown ? undefined : 'The analysis returned no evidence gaps for this run.'}
+          notOkLabel={
+            evidenceKnown
+              ? 'Evidence gaps'
+              : evidenceAssessed
+                ? 'No evidence gaps flagged'
+                : // States that the check could not be made. It is NOT a
+                  // verdict about the model's evidence — it is the absence of
+                  // one, which is why it must not read like "No evidence gaps
+                  // flagged" (a finding). Same idiom as the two checks beside
+                  // it: 'Leading option not assessed', 'Robustness not assessed'.
+                  'Evidence not assessed'
+          }
+          title={
+            evidenceKnown
+              ? undefined
+              : evidenceAssessed
+                ? 'The analysis returned no evidence gaps for this run.'
+                : 'This run did not return an evidence assessment, so the analysis makes no claim either way.'
+          }
           dataTestid="checks-evidence"
         />
         {total > 0 && (

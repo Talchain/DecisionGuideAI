@@ -66,7 +66,30 @@ export function extractM1CoachingFromV2(response: V2RunResponse): M1Coaching | n
     readiness: coaching.readiness ?? undefined,
     readiness_signals: coaching.readiness_signals ?? undefined,
     key_drivers: coaching.key_drivers ?? undefined,
-    evidence_gaps: coaching.evidence_gaps ?? [],
+    // ⭐ NO DENIAL WITHOUT AUTHORITY, AT THE ONLY LIVE WRITER OF THE FIELD.
+    //
+    // This used to read `coaching.evidence_gaps ?? []`. That is the exact
+    // collapse the footer fix withdraws, one hop UPSTREAM of it and on the one
+    // path that actually writes `runMeta.m1Coaching`: a persisted response with
+    // `m1_coaching` present and no `evidence_gaps` key had an array MINTED for
+    // it here, so `useResultsSectionData`'s deliberately narrow
+    // `Array.isArray(m1Coaching?.evidence_gaps)` read TRUE, and "What we
+    // checked" rendered the unlicensed all-clear "No evidence gaps flagged" on
+    // a run the producer never assessed. The comment there — "silence can never
+    // be read as an assessment" — and the doc on `evidenceGapsAssessed` were
+    // both FALSE on this path, because the silence had already been overwritten
+    // before that flag ever looked.
+    //
+    // The key is therefore ABSENT when the producer sent nothing, and present
+    // (including as a genuine `[]`) only when the producer actually spoke.
+    // `M1Coaching.evidence_gaps` is optional, so absence is expressible.
+    //
+    // ⚠ Its two neighbours below (`next_actions`, `assumptions_ledger`) carry
+    // the same idiom and are deliberately NOT changed here: nothing reads an
+    // "assessed?" distinction off either of them today, so changing them would
+    // be scope this lane has not derived consumers for. Recorded, not silently
+    // fixed.
+    ...(Array.isArray(coaching.evidence_gaps) ? { evidence_gaps: coaching.evidence_gaps } : {}),
     next_actions: coaching.next_actions ?? [],
     assumptions_ledger: Array.isArray(coaching.assumptions_ledger) ? coaching.assumptions_ledger : [],
     top_fragile_edge: coaching.top_fragile_edge ?? undefined,
