@@ -121,6 +121,19 @@ export function AnalysisHeroContainer({
     [onFocusNode, onConfirmFactor],
   )
 
+  // ⭐ SUBSET DISCLOSURE — derived from the same `allOptions` the hero model is
+  // built from, so the headline's field and the option cards' field are one
+  // fact read twice rather than two derivations that can disagree.
+  // `deriveComparisonScope` returns null whenever there is nothing to say.
+  //
+  // ⚠ MUST STAY ABOVE the empty-model early return below: a hook called after
+  // a conditional return changes hook order between renders
+  // (react-hooks/rules-of-hooks — caught by lint, not by the test suite).
+  const comparisonScope = useMemo(
+    () => deriveComparisonScope(data.recommendation?.allOptions),
+    [data.recommendation?.allOptions],
+  )
+
   // Fail closed on the hero MODEL only — never on the act-on-it section. A
   // model that cannot be built (pre-run default, malformed retained state)
   // says nothing about whether there are factors to confirm, and the queue is
@@ -145,15 +158,6 @@ export function AnalysisHeroContainer({
       </section>
     )
   }
-
-  // ⭐ SUBSET DISCLOSURE — derived HERE, from the same `allOptions` the hero
-  // model is built from, so the headline's field and the option cards' field
-  // are one fact read twice rather than two derivations that can disagree.
-  // `deriveComparisonScope` returns null whenever there is nothing to say.
-  const comparisonScope = useMemo(
-    () => deriveComparisonScope(data.recommendation?.allOptions),
-    [data.recommendation?.allOptions],
-  )
 
   return (
     <AnalysisHeroPanel
