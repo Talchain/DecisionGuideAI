@@ -37,6 +37,7 @@ import {
   isAboveSimulationResolution,
   isBelowSimulationResolution,
 } from '../../utils/formatPercent'
+import { FOCUS_ON_CANVAS_LABEL, focusOnCanvasTestId } from './utils/focusOnCanvasCopy'
 import { ExpertBlock } from './ExpertBlock'
 import { NotAnalysedOptionCard } from './NotAnalysedOptionCard'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
@@ -1074,15 +1075,24 @@ function OptionCard({
             </button>
           )}
           {!option.isBaseline && onFocusNode && (
+            // ⚠ THIS CHIP READ "Edit interventions" AND EDITED NOTHING.
+            // `onFocusNode` on this surface is `handleFocusResultNode`
+            // (`OutputsDock.tsx:1415-1422`): a fail-closed camera move plus a
+            // 3-second node highlight. No editor is opened — the estate's
+            // dedicated `openNodeInspector` helper is not on this path.
+            // The label now comes from the single owner that
+            // `NotAnalysedOptionCard` already reads, which had the honest
+            // wording for this same handler all along.
             <button
               type="button"
+              data-testid={focusOnCanvasTestId(option.id)}
               onClick={(e) => {
                 e.stopPropagation()
                 onFocusNode(option.id)
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              Edit interventions
+              {FOCUS_ON_CANVAS_LABEL}
             </button>
           )}
         </div>
