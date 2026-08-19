@@ -61,7 +61,7 @@
 import { describe, it, expect } from 'vitest'
 import type { AnalysisBlocker, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
-import { canRunAnalysis, readinessObjectsToRun } from '../canRunAnalysis'
+import { actionableBlockers, canRunAnalysis, readinessObjectsToRun } from '../canRunAnalysis'
 import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 import type { GraphReadiness } from '../../hooks/useGraphReadiness'
@@ -694,12 +694,17 @@ describe('advisory blockers on a READY payload do not close the gate', () => {
     expect(gate({ analysisReadiness: { status: 'blocked', blockers: [] } }).allowed).toBe(false)
   })
 
-  it('DRIFT PIN — the restated advisory code is the one CEE actually emits', () => {
-    // The UI cannot import `ACTIONABLE_BLOCKER_TYPES`; this constant is a
-    // hand-restatement, so it gets the same treatment
-    // `ANALYSIS_READINESS_BLOCKED` gets. If CEE renames the code, reclassifies
-    // `constraint_dropped` as actionable, or routes it through a different
-    // code, this REDs and names the seam.
+  it('DRIFT PIN — UI-side only: this spec and the gate waive the same one code', () => {
+    // ⚠ SCOPE, CORRECTED 19 Aug 2026. This case claimed it REDs "if CEE renames
+    // the code". It cannot: nothing in this repo observes the producer, and a
+    // CEE-side rename lands green here. Read it as a UI-side pin and nothing
+    // more — the producer half needs a live capture or a CEE-side guard.
+    //
+    // The literal below is deliberately kept as DOCUMENTATION of the wire
+    // spelling, and it is NOT the discriminating assertion: it compares a local
+    // const to its own literal and can never fail. The two assertions after it
+    // are the ones with teeth, because both derive their answer from the
+    // SOURCE's `ADVISORY_BLOCKER_CODES` by running the gate.
     expect(ADVISORY_CODE).toBe('CONSTRAINT_REVIEW_REQUIRED')
     // The advisory code must NOT appear among the actionable ones — the two
     // sets are disjoint by construction, and a rename that collided them would
@@ -711,5 +716,118 @@ describe('advisory blockers on a READY payload do not close the gate', () => {
       (c) => gate({ analysisReadiness: { status: 'ready', blockers: [blocker({ code: c })] } }).allowed,
     )
     expect(waived).toEqual([])
+  })
+})
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACCEPTANCE — THE SENTENCE DESCRIBES THE LIST THE GATE DECIDED ON.
+//
+// Finding 794-1. The gate counts only ACTIONABLE blockers; the refusal beneath
+// it was composed from the RAW list. With one actionable blocker and one
+// advisory one the product refused over the first and then named BOTH:
+//
+//   "Launch in Q1" and "Burn rate" are not ready for analysis yet.
+//   Ask in the chat what they need.
+//
+// `Burn rate` is the blocker the gate has JUST RULED OUT. The user is sent to
+// fix something that cannot open the run — and the file's own rule one line up
+// says the reason comes from whichever authority decided. It did; it then
+// described a different list than the decision was made on.
+//
+// ⚠ NOT A REGRESSION: the pre-#794 gate named both too, because it counted
+// both. #794 is the change that made the two lists differ, so the sentence
+// becomes its problem.
+//
+// THE PAIR IS THE EVIDENCE, and neither half alone is:
+//  · MIXED asserts the ONE-blocker rung naming ONLY the actionable label.
+//  · TWO-ACTIONABLE TWIN asserts the TWO-blocker rung naming BOTH. Without it,
+//    "always compose from the first blocker" or "always emit the one-blocker
+//    rung" would satisfy MIXED — the assertion would pass by naming FEWER
+//    things rather than by naming the RIGHT things.
+// Both bind by the label's IDENTITY through the copy factories, never by a
+// substring another rung could satisfy.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** The actionable blocker AS CEE SHIPS IT, scoped to a quotable option. */
+function actionableBlocker(overrides: Partial<AnalysisBlocker> = {}): AnalysisBlocker {
+  return blocker({
+    code: 'MISSING_OPTION_VALUE',
+    category: 'option_values',
+    message: 'Choose the missing effect value for "Launch in Q1".',
+    repairability: 'human_input_required',
+    option_id: 'opt_launch_q1',
+    option_label: 'Launch in Q1',
+    ...overrides,
+  })
+}
+
+describe('the refusal names the blockers the gate actually decided on', () => {
+  it('MIXED — one actionable + one advisory names ONLY the actionable one', () => {
+    const result = gate({
+      analysisReadiness: {
+        status: 'needs_user_input',
+        blockers: [actionableBlocker(), advisoryBlocker({ factor_label: 'Burn rate' })],
+      },
+    })
+
+    // Precondition, pinned in-test: this payload must genuinely be the mixed
+    // case, or the assertion below could pass because the fixture stopped
+    // reproducing anything rather than because the code is right.
+    expect(actionableBlockers([actionableBlocker(), advisoryBlocker()]).map((b) => b.code)).toEqual([
+      'MISSING_OPTION_VALUE',
+    ])
+
+    expect(result.allowed).toBe(false)
+    // Bound by IDENTITY through the factory: the one-blocker rung, quoting the
+    // ACTIONABLE element's own label.
+    expect(result.reason).toBe(BLOCKED_REASON_COPY.canonicalOneBlocker('Launch in Q1'))
+    // And the advisory element is named NOWHERE — not in the primary sentence,
+    // not in a `+N more` tail, not in any other blocking reason.
+    expect(result.reason).not.toContain('Burn rate')
+    for (const line of result.blockingReasons ?? []) {
+      expect(line).not.toContain('Burn rate')
+    }
+  })
+
+  it('TWO-ACTIONABLE TWIN — two actionable blockers still name BOTH', () => {
+    // The discriminating partner. It REDs if the fix degrades to "name one
+    // thing" or "name the first thing", which is how a narrowing assertion
+    // passes for the wrong reason.
+    const result = gate({
+      analysisReadiness: {
+        status: 'needs_user_input',
+        blockers: [
+          actionableBlocker(),
+          actionableBlocker({
+            code: 'AMBIGUOUS_OPTION_VALUE',
+            option_id: 'opt_hold',
+            option_label: 'Hold until Q3',
+          }),
+        ],
+      },
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toBe(
+      BLOCKED_REASON_COPY.canonicalTwoBlockers('Launch in Q1', 'Hold until Q3'),
+    )
+  })
+
+  it('ADVISORY-ONLY ON A `blocked` STATUS degrades to the non-committal rung', () => {
+    // The domain case the fix must not get wrong. Here the gate is closed by
+    // clause (a) — the STATUS — and the actionable list is EMPTY, so there is
+    // no blocker entitled to be named. The honest answer is the less-specific
+    // TRUE rung, never the advisory element the status did not refuse over.
+    const result = gate({
+      analysisReadiness: {
+        status: 'blocked',
+        blockers: [advisoryBlocker({ factor_label: 'Burn rate' })],
+      },
+    })
+
+    expect(result.allowed).toBe(false)
+    expect(result.reason).toBe(BLOCKED_REASON_COPY.unspecified)
+    expect(result.reason).not.toContain('Burn rate')
   })
 })

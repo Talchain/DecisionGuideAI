@@ -343,8 +343,23 @@ const ANALYSIS_READINESS_BLOCKED = 'blocked'
  * (`analysis-ready-helper.ts:665-707`). `repairability` is `human_input_required`
  * for all four. **`code` is the only discriminator the producer actually ships**,
  * and `CONSTRAINT_REVIEW_REQUIRED` is emitted from exactly one branch —
- * `analysis-ready-helper.ts:705`, the `constraint_dropped` case — so the
- * mapping is 1:1 and not a guess.
+ * `analysis-ready-helper.ts:705`, the `constraint_dropped` case.
+ *
+ * ⚠ THAT HOLDS IN ONE DIRECTION ONLY, AND THIS COMMENT SAID "1:1" (corrected
+ * 19 Aug 2026, derived at CEE `a7ee21e9`). CODE → CASE is exact: nothing but
+ * `constraint_dropped` can produce this code, which is all the denylist needs.
+ * CASE → CODE is NOT: `blockerIssue` has an EARLY RETURN above the switch
+ * (`analysis-ready-helper.ts:672-679`) that codes a blocker
+ * `UNREACHABLE_CONTROLLABLE_FACTOR` whenever
+ * `status === 'needs_user_mapping' && !optionId && factorId` — and
+ * `extractConstraintDropBlockers` (`cee/transforms/analysis-ready.ts:1488-1495`)
+ * ALWAYS sets `factor_id` and NEVER `option_id`. So on a `needs_user_mapping`
+ * turn a constraint drop reaches this wire under the OTHER code and is counted
+ * as actionable.
+ *
+ * That direction FAILS CLOSED — an unwaived code still refuses the run — so it
+ * is no regression and no reason to widen the set. It is recorded because the
+ * "1:1" shorthand would license exactly the widening that WOULD be one.
  *
  * A DENYLIST, not an allowlist of actionable codes, and the direction is
  * load-bearing. The contract states `code` is a deliberately OPEN vocabulary
@@ -357,8 +372,21 @@ const ANALYSIS_READINESS_BLOCKED = 'blocked'
  *
  * ⚠ HAND-RESTATED, ONCE, AT THE SINGLE SEAM THAT READS IT — the same
  * concession `ANALYSIS_READINESS_BLOCKED` above makes, for the same reason:
- * the constant lives in CEE and the UI cannot import it. It is pinned by a
- * test that REDs if the producer renames or reclassifies the code.
+ * the constant lives in CEE and the UI cannot import it.
+ *
+ * ⚠ AND BE PRECISE ABOUT WHAT PINS IT (corrected 19 Aug 2026). This said the
+ * pin "REDs if the producer renames or reclassifies the code". It does not, and
+ * cannot: NOTHING IN THIS REPO OBSERVES CEE. A producer-side rename lands green
+ * here and silently reopens the defect — the unrecognised code simply refuses
+ * the run again, which is the fail-closed direction but is still the wrong
+ * answer on a payload CEE calls ready.
+ *
+ * What the pin actually catches is UI-SIDE DRIFT: this set and the spec's
+ * fixtures moving apart, a second code being waived here without a derivation,
+ * or the waived code colliding with an actionable one. That is worth having.
+ * The producer-side half is only detectable at a live capture or a CEE-side
+ * guard, and neither exists — so do not read a green suite as evidence about
+ * CEE's vocabulary.
  */
 const ADVISORY_BLOCKER_CODES: ReadonlySet<string> = new Set(['CONSTRAINT_REVIEW_REQUIRED'])
 
@@ -368,9 +396,30 @@ const ADVISORY_BLOCKER_CODES: ReadonlySet<string> = new Set(['CONSTRAINT_REVIEW_
  * Bound by the blocker's own `code` IDENTITY, never by position or by raw
  * length — a value predicate another blocker could satisfy is how a gate ends
  * up counting the wrong object.
+ *
+ * ⭐ THE ARRAY IS THE OWNER, AND THE COUNT IS DERIVED FROM IT (19 Aug 2026).
+ *
+ * This returned a COUNT until now, and the gate was the only caller — so the
+ * SENTENCE beneath the gate was still composed from the RAW list. With one
+ * actionable blocker and one advisory one the product refused the run over the
+ * first and then named BOTH: `"Launch in Q1" and "Burn rate" are not ready for
+ * analysis yet.` `Burn rate` is the blocker this predicate has just decided is
+ * NOT blocking, and the sentence sent the user to fix something that cannot
+ * unblock the run — a dead end of exactly the kind POC-DONE's PC1 bans.
+ *
+ * It also contradicted the rule stated at the composition site itself: the
+ * reason comes from WHICHEVER AUTHORITY DECIDED. It did — and then described a
+ * different list than the one the decision was made on.
+ *
+ * So the filter is expressed ONCE, as the list, and every consumer derives
+ * from it: the gate takes `.length`, the composers take the array. A second
+ * filter written beside this one — or a caller that keeps reaching past it to
+ * `readiness.blockers` — is the parallel rule this seam exists to abolish.
  */
-function actionableBlockerCount(blockers: readonly AnalysisBlocker[]): number {
-  return blockers.filter((blocker) => !ADVISORY_BLOCKER_CODES.has(blocker.code)).length
+export function actionableBlockers(
+  blockers: readonly AnalysisBlocker[],
+): readonly AnalysisBlocker[] {
+  return blockers.filter((blocker) => !ADVISORY_BLOCKER_CODES.has(blocker.code))
 }
 
 export function readinessObjectsToRun(
@@ -410,7 +459,7 @@ export function readinessObjectsToRun(
     //     this clause the Analyse control would turn ENABLED one turn after CEE
     //     refused the run. The user clicks, and is refused again.
     //
-    // (b) `actionableBlockerCount(...) > 0` — the itemised impediments that
+    // (b) `actionableBlockers(...).length > 0` — the itemised impediments that
     //     genuinely stand in the way, for every other stated status.
     //
     // ⚠ (b) WAS A RAW `blockers.length > 0` UNTIL THIS CHANGE, AND THAT WAS THE
@@ -456,7 +505,7 @@ export function readinessObjectsToRun(
     // we cannot name would re-create the original defect in a new spelling.
     return (
       analysisReadiness.status === ANALYSIS_READINESS_BLOCKED ||
-      actionableBlockerCount(analysisReadiness.blockers) > 0
+      actionableBlockers(analysisReadiness.blockers).length > 0
     )
   }
 
@@ -658,8 +707,15 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     // pre-derived here, for the same reason `draftStreamPhase` is (2.122): a
     // predicate re-derived at each call site is a hand-maintained mirror, and
     // the mutant that drops one clause from it survives.
+    //
+    // ⚠ AND THE SAME LIST, NOT JUST THE SAME AUTHORITY (19 Aug 2026). Choosing
+    // the right authority is only half of it: this composed from
+    // `analysisReadiness.blockers` RAW while the gate one line up decided on
+    // the ACTIONABLE subset, so the sentence named blockers the gate had just
+    // ruled out. `actionableBlockers` is the one filter both now read — see its
+    // header for the sentence that shipped.
     const composed = analysisReadiness
-      ? composeAnalysisBlockedReason(analysisReadiness.blockers)
+      ? composeAnalysisBlockedReason(actionableBlockers(analysisReadiness.blockers))
       : composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)

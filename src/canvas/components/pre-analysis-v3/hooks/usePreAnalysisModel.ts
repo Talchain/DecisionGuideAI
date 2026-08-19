@@ -10,7 +10,11 @@
 import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
-import { readinessObjectsToRun, readinessWillScaffold } from '../../../utils/canRunAnalysis'
+import {
+  actionableBlockers,
+  readinessObjectsToRun,
+  readinessWillScaffold,
+} from '../../../utils/canRunAnalysis'
 import { useAnalysisReadinessAuthority } from '../../../state/analysisStateSelector'
 import { composeAnalysisBlockedReason } from '../../../utils/composeBlockedReason'
 import { resolveStarterId } from '../../../starters/loadStarter'
@@ -434,7 +438,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
         return {
           dot: 'muted' as const,
           headline: FOOTER_COPY.notReady,
-          subline: composeAnalysisBlockedReason(analysisReadiness.blockers),
+          // ...and from the same LIST that authority decided on. `canRun` is
+          // the run gate's verdict, and that gate counts only ACTIONABLE
+          // blockers; composing from the raw list here would name an advisory
+          // blocker the gate had already ruled out, and send the user to fix
+          // something that cannot open the run. One filter, one owner:
+          // `actionableBlockers` in `canRunAnalysis`.
+          subline: composeAnalysisBlockedReason(
+            actionableBlockers(analysisReadiness.blockers),
+          ),
         }
       }
       const explanation = readiness?.confidence_explanation?.trim()
