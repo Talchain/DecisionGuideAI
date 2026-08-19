@@ -283,3 +283,179 @@ export const LENS_COPY = {
       ? 'The goal ranking above is unchanged.'
       : 'The comparative ranking above is unchanged.',
 } as const
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE COMPARISON-SET REGISTER — what the numbers on this run were computed
+ * OVER, said next to the numbers themselves.
+ * ─────────────────────────────────────────────────────────────────────────
+ *
+ * ## The defect this closes
+ *
+ * The product already excludes an option and proceeds: CEE's admission gate
+ * drops an option with nothing to submit and runs the rest, and the UI derives
+ * that fact at the join (`utils/notAnalysedOptions.ts`). So subset results
+ * reach users today.
+ *
+ * ISL is explicit about which quantities do NOT survive subsetting
+ * (`isl/src/utils/response_builder.py`): `win_probability`, `rank`,
+ * `expected_regret`, `decision_evpi`, `factor_evppi`,
+ * `recommendation_stability` and the flip thresholds are all defined OVER THE
+ * CANDIDATE SET. CEE's own comment says admission *"changes WHICH options are
+ * compared, never what any number means"* — true of the metric's DEFINITION
+ * and false of its VALUE. A 62% among three is not a 62% among four, and a
+ * leader that never met the excluded option is not the leader of the question
+ * the user asked.
+ *
+ * ## Why this is a REGISTER and not fifteen strings
+ *
+ * `NotAnalysedOptionCard` already discloses exclusion — on the excluded
+ * option's own card, which is exactly where a user reading a headline
+ * percentage is not looking. Proximity is the whole point: a disclosure the
+ * user must go looking for does not qualify a headline. This register exists
+ * so the qualification is ONE sentence rendered beside the numbers on every
+ * comparative surface, rather than a sixteenth spelling per render site — the
+ * same reason `COMPARATIVE_COPY` exists above.
+ *
+ * ## ⚠ WHAT THIS MUST NOT BE ATTACHED TO
+ *
+ * The A-register quantity (`goalProbability`, "chance of hitting your goal")
+ * is INVARIANT on a subset — ISL lists `probability_of_goal` among the
+ * per-option quantities that survive. Qualifying it would be its own small
+ * untruth in the opposite direction: telling a user a number is set-dependent
+ * when it is not. Attach this ONLY where a comparative or superlative claim is
+ * made — win probability, rank, ordinal, "highest", "came out ahead".
+ *
+ * A superlative over an invariant quantity IS comparative: "has the HIGHEST
+ * chance of hitting your goal" ranges over the candidate set even though each
+ * option's own figure does not. The hero headline is therefore in scope.
+ */
+
+/**
+ * The derived scope of a run's comparison. `null` means there is nothing to
+ * say — see {@link deriveComparisonScope}.
+ */
+export interface ComparisonScope {
+  /** How many options were actually in the comparison. Always ≥ 1. */
+  readonly analysed: number
+  /** How many options the user has. Always > {@link analysed}. */
+  readonly total: number
+  /**
+   * Labels of the options left out, in the order they arrived. MAY BE SHORTER
+   * than `total - analysed`: an option with no usable label cannot be named,
+   * and inventing a name for it would be worse than reporting the count alone.
+   */
+  readonly excludedLabels: readonly string[]
+}
+
+/**
+ * Derive the comparison scope from the options array the results surfaces
+ * already hold.
+ *
+ * ⭐ NO SECOND PREDICATE. "Was this option in the comparison?" already has a
+ * canonical owner — `utils/notAnalysedOptions.ts`, surfaced onto
+ * `OptionResult.notAnalysed` by `useResultsSectionData` at the left join. This
+ * function COUNTS that flag; it does not re-decide it. A second spelling of
+ * "was it analysed" is how two surfaces end up contradicting each other about
+ * one option (CLAUDE.md trap 21), and this estate has paid for that shape
+ * repeatedly.
+ *
+ * Returns `null` — i.e. SAY NOTHING — in three states, all of them deliberate:
+ *
+ *   1. **Nothing excluded.** A "comparing 4 of 4" note on every result is
+ *      noise, and noise is how a real disclosure stops being read.
+ *   2. **Nothing analysed.** There are no comparative numbers on screen to
+ *      qualify; the surfaces render no ranks at all in this state. Qualifying
+ *      absent numbers would be a sentence about nothing.
+ *   3. **Empty input.** No run, no claim.
+ *
+ * It therefore fails toward saying less, and is a strict no-op on every run
+ * where the whole set was compared.
+ */
+export function deriveComparisonScope(
+  options: ReadonlyArray<{ label?: string | null; notAnalysed?: boolean }> | null | undefined,
+): ComparisonScope | null {
+  const all = options ?? []
+  if (all.length === 0) return null
+
+  const excluded = all.filter((o) => o.notAnalysed === true)
+  const analysed = all.length - excluded.length
+
+  // States 1 and 2 — see the header.
+  if (excluded.length === 0) return null
+  if (analysed === 0) return null
+
+  return {
+    analysed,
+    total: all.length,
+    excludedLabels: excluded
+      .map((o) => (typeof o.label === 'string' ? o.label.trim() : ''))
+      .filter((label) => label.length > 0),
+  }
+}
+
+/**
+ * Join labels in British house style — no serial comma.
+ *
+ * Not exported: it is an implementation detail of the register, and a second
+ * public list-joiner is exactly the kind of near-duplicate helper that drifts.
+ */
+function joinLabels(labels: readonly string[]): string {
+  if (labels.length === 1) return labels[0]
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+}
+
+/**
+ * The comparison-set register — ONE spelling of "these numbers compare N of
+ * your M options", for every surface that renders a comparative figure.
+ *
+ * The verb is `left out`, matching `notAnalysedCopy`'s shipped sentence
+ * (*"it was left out of the comparison"*) verbatim in its operative words, so
+ * the card-level disclosure and the headline-level one cannot read as two
+ * different events happening to one option.
+ *
+ * ⚠ NEUTRAL BY CONSTRUCTION. Nothing here may imply the excluded option was
+ * considered and lost — it was never scored. "Left out" states the fact and
+ * claims nothing about its merit. Do not add a comparative verb.
+ */
+export const COMPARISON_SCOPE_COPY = {
+  /**
+   * Compact scope phrase — no full stop, for a caption slot beside a chart
+   * heading where a sentence would crowd the number.
+   */
+  phrase: (scope: ComparisonScope): string =>
+    `Comparing ${scope.analysed} of your ${scope.total} options`,
+
+  /**
+   * Who is outside the set. Falls back to the COUNT when no excluded option
+   * carries a usable label — reporting "1 was left out" is honest; inventing
+   * "Untitled option" is not.
+   */
+  excludedClause: (scope: ComparisonScope): string => {
+    const missing = scope.total - scope.analysed
+    if (scope.excludedLabels.length === 0) {
+      return missing === 1 ? '1 was left out' : `${missing} were left out`
+    }
+    const verb = scope.excludedLabels.length === 1 ? 'was' : 'were'
+    return `${joinLabels(scope.excludedLabels)} ${verb} left out`
+  },
+
+  /**
+   * THE disclosure sentence — scope and names in one line, for rendering
+   * directly beneath a headline or a chart heading.
+   */
+  sentence: (scope: ComparisonScope): string =>
+    `${COMPARISON_SCOPE_COPY.phrase(scope)} — ${COMPARISON_SCOPE_COPY.excludedClause(scope)}.`,
+
+  /**
+   * The consequence, for surfaces with room for a second line. States what the
+   * ISL contract states: the comparative quantities range over the candidate
+   * set, and this run's candidate set is smaller than the user's option set.
+   *
+   * Deliberately says "ranks and comparative percentages" and NOT "the
+   * numbers" — the goal-fit figure on the same screen is subset-invariant and
+   * this sentence must not sweep it in.
+   */
+  detail: (scope: ComparisonScope): string =>
+    `Ranks and comparative percentages describe those ${scope.analysed} only.`,
+} as const

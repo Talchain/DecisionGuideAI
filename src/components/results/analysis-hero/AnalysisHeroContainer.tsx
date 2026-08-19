@@ -23,6 +23,7 @@ import { revealOlumiSurface } from '../../../canvas/conversation/revealOlumi'
 import { AnalysisHeroPanel } from './AnalysisHeroPanel'
 import { useAnalysisHero } from './useAnalysisHero'
 import { HERO_COPY } from './heroCopy'
+import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import { makeRowActionDispatcher } from './actOnIt/dispatchAction'
 import {
@@ -145,9 +146,19 @@ export function AnalysisHeroContainer({
     )
   }
 
+  // ⭐ SUBSET DISCLOSURE — derived HERE, from the same `allOptions` the hero
+  // model is built from, so the headline's field and the option cards' field
+  // are one fact read twice rather than two derivations that can disagree.
+  // `deriveComparisonScope` returns null whenever there is nothing to say.
+  const comparisonScope = useMemo(
+    () => deriveComparisonScope(data.recommendation?.allOptions),
+    [data.recommendation?.allOptions],
+  )
+
   return (
     <AnalysisHeroPanel
       model={model}
+      comparisonScope={comparisonScope}
       rerunDisabled={rerunDisabled}
       focusPanelSelector={focusPanelSelector}
       nextRecommendation={nextRecommendation}

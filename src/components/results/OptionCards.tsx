@@ -24,9 +24,11 @@ import {
   COMPARATIVE_COPY,
   GOAL_ANCHOR_COPY,
   LENS_COPY,
+  deriveComparisonScope,
   isFiniteProbability,
   runHasGoalNumbers,
 } from './utils/goalAnchorCopy'
+import { ComparisonScopeNote } from './ComparisonScopeNote'
 // NOTE (ROADMAP 2.333): the bare `formatPercent` import is GONE from this
 // file. It survived here as `formatPct` for exactly one caller — `StatBar`'s
 // internal readout — and that caller is the N11 defect. Every number this
@@ -1281,6 +1283,17 @@ export function OptionCards({
 
   return (
     <div className="space-y-2" data-testid="option-cards">
+      {/* ⭐ SUBSET DISCLOSURE — the rank markers and win percentages below are
+          defined OVER THE CANDIDATE SET (ISL `response_builder.py`), so a run
+          that compared fewer options than the user has must say so HERE, not
+          only on the excluded option's own card further down the list. Derived
+          from the SAME `notAnalysed` flag this component already partitions on
+          — no second predicate. */}
+      <ComparisonScopeNote
+        scope={deriveComparisonScope(options)}
+        surface="options"
+        withDetail
+      />
       {visibleOptions.map((option, index) => {
         // ⭐ NO-RANK RULING — THE FORK, AND THE ONLY PLACE IT IS MADE.
         //
