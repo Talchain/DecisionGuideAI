@@ -111,7 +111,19 @@ vi.mock('../../conversation/useConversation', async () => {
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { FloatingOlumiPanel } from '../FloatingOlumiPanel'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
-import { useCanvasStore } from '../../store'
+import { useCanvasStore as realCanvasStore } from '../../store'
+
+/**
+ * `vi.mock` is a RUNTIME substitution — TypeScript still resolves this import to
+ * the real canvas store, whose `Node` type this fixture deliberately does not
+ * satisfy (the placement rule reads only `id` and `type`). Narrow the handle to
+ * the mock's own shape rather than widening the fixture to a full `Node`, which
+ * would be a lie about what the rule actually consumes.
+ */
+const canvasStore = realCanvasStore as unknown as {
+  setState: (patch: Partial<CanvasMockState>) => void
+  getState: () => CanvasMockState
+}
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>
@@ -155,7 +167,7 @@ beforeEach(() => {
   Object.defineProperty(window, 'innerHeight', { value: VIEWPORT_H, configurable: true })
   useFloatingPanelState.getState().reset()
   document.body.querySelectorAll('.react-flow__node').forEach((el) => el.remove())
-  useCanvasStore.setState({ nodes: [], layoutVersion: 0, pendingLayout: false, layoutInProgress: false })
+  canvasStore.setState({ nodes: [], layoutVersion: 0, pendingLayout: false, layoutInProgress: false })
 })
 
 describe('FloatingOlumiPanel — the store and the DOM agree about where the panel is', () => {
@@ -193,7 +205,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
     act(() => {
       mountGraphNode('dec-1', { left: 300, top: 200, width: 220, height: 90 })
       mountGraphNode('fac-1', { left: 640, top: 430, width: 200, height: 80 })
-      useCanvasStore.setState({
+      canvasStore.setState({
         nodes: [{ id: 'dec-1', type: 'decision' }, { id: 'fac-1', type: 'factor' }],
         layoutVersion: 1,
       })
@@ -220,7 +232,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
     const commitAt = (vw: number): number => {
       Object.defineProperty(window, 'innerWidth', { value: vw, configurable: true })
       useFloatingPanelState.getState().reset()
-      useCanvasStore.setState({ nodes: [], layoutVersion: 0 })
+      canvasStore.setState({ nodes: [], layoutVersion: 0 })
       document.body.querySelectorAll('.react-flow__node').forEach((el) => el.remove())
       useFloatingPanelState.setState({
         isOpen: true,
@@ -233,7 +245,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
       const { unmount } = render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
       act(() => {
         mountGraphNode('dec-1', { left: 120, top: 180, width: 220, height: 90 })
-        useCanvasStore.setState({ nodes: [{ id: 'dec-1', type: 'decision' }], layoutVersion: 1 })
+        canvasStore.setState({ nodes: [{ id: 'dec-1', type: 'decision' }], layoutVersion: 1 })
       })
       const pos = useFloatingPanelState.getState().position
       expect(pos, `the store must know where the panel is at ${vw}px`).not.toBeNull()
@@ -259,7 +271,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
     // pre-layout rects, and the canvas store has NOT reported quiescence.
     const movePre = mountGraphNode('dec-1', { left: 20, top: 20, width: 220, height: 90 })
     const moveFac = mountGraphNode('fac-1', { left: 30, top: 130, width: 200, height: 80 })
-    useCanvasStore.setState({
+    canvasStore.setState({
       nodes: [{ id: 'dec-1', type: 'decision' }, { id: 'fac-1', type: 'factor' }],
       layoutVersion: 0,
       layoutInProgress: true,
@@ -291,7 +303,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
     act(() => {
       movePre({ left: 700, top: 520, width: 220, height: 90 })
       moveFac({ left: 980, top: 640, width: 200, height: 80 })
-      useCanvasStore.setState({ layoutVersion: 1, layoutInProgress: false })
+      canvasStore.setState({ layoutVersion: 1, layoutInProgress: false })
     })
 
     const committed = useFloatingPanelState.getState().position
@@ -313,7 +325,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
    */
   it('the re-clamp handler refuses to invent a position for an unplaced panel', () => {
     mountGraphNode('dec-1', { left: 300, top: 200, width: 220, height: 90 })
-    useCanvasStore.setState({ nodes: [{ id: 'dec-1', type: 'decision' }], layoutVersion: 1 })
+    canvasStore.setState({ nodes: [{ id: 'dec-1', type: 'decision' }], layoutVersion: 1 })
     useFloatingPanelState.setState({
       isOpen: true,
       source: 'user',
