@@ -247,3 +247,35 @@ describe('Confirm in the queue commits through the ONE authority', () => {
     expect(screen.getByTestId(`${QUEUE}-item-${UNVERIFIED_A}`)).toBeInTheDocument()
   })
 })
+
+// ── F8: finishing the job must not look like a dead end ─────────────────────
+
+describe('⭐ resolving the LAST item returns you to the outline (F8)', () => {
+  it('does not strand the user in an empty queue', () => {
+    // The chip renders only on a non-zero count, so an empty queue cannot be
+    // ENTERED — only arrived at. Left as it was, the outline stayed replaced by
+    // "Nothing needs attention here." and the chip that would bring it back is
+    // suppressed while a queue is open.
+    const only = [
+      factor(UNVERIFIED_A, 'Sales cycle length', 'cee_inference'),
+      factor(VERIFIED, 'Headcount', 'user_confirmed'),
+    ]
+    renderPanel(only)
+    fireEvent.click(screen.getByTestId(CHIP))
+    fireEvent.click(screen.getByTestId(`${QUEUE}-item-${UNVERIFIED_A}-apply`))
+
+    // The host's re-render — this panel holds no store subscription by design.
+    const fresh = useCanvasStore.getState().nodes as Node[]
+    cleanup()
+    render(<ModelTabV2Panel nodes={fresh} edges={[]} goalThreshold={null} />)
+
+    // The outline is back…
+    expect(screen.getByTestId(`model-row-v2-${UNVERIFIED_A}`)).toBeInTheDocument()
+    // …the queue is gone, and so is the empty-state text that would have been
+    // the only thing on screen.
+    expect(screen.queryByTestId(QUEUE)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`${QUEUE}-empty`)).not.toBeInTheDocument()
+    // …and there is nothing left to verify, so no chip either.
+    expect(screen.queryByTestId(CHIP)).not.toBeInTheDocument()
+  })
+})

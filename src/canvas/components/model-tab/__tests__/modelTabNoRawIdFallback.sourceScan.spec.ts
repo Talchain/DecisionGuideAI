@@ -32,20 +32,39 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { blankNonCode } from '../../../../../tests/helpers/stripSourceComments'
+import { blankNonCode, stripComments } from '../../../../../tests/helpers/stripSourceComments'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..', '..', '..', '..', '..')
 const V1_DIR = join(HERE, '..')
 const V2_DIR = join(HERE, '..', '..', '..', 'model-tab-v2')
+/**
+ * ⭐⭐ THE CONTAINER — IN SCOPE SINCE 19 Aug 2026, AND ITS ABSENCE WAS THE
+ * SCAN'S THIRD BLIND SPOT.
+ *
+ * `ModelTabBody.tsx` sits at `canvas/components/`, OUTSIDE both directories
+ * this file walked, and it renders the Model tab. Measured with these same
+ * patterns: SEVEN raw-id fallbacks, of which six reached the user — the goal
+ * heading and both clipboard exports, i.e. the precise leak
+ * `model-tab/utils.ts:80-83` records as having already "left the estate in what
+ * a user pastes into a document".
+ *
+ * ⚠ AND THE ARGUMENT FOR SCOPING IT IN WAS ALREADY WRITTEN, ONE COMMIT EARLIER,
+ * ABOUT SOMETHING ELSE. `buildGoalFitRows` was fixed in place rather than
+ * pinned because "`ModelTabBody` owns it, so the leak would have become
+ * permanent". That applies verbatim to its OWNER, which outlives the duplicate
+ * editor completely — and the argument was not made about the owner.
+ */
+const CONTAINER = join(HERE, '..', '..', 'ModelTabBody.tsx')
 
 /**
  * The defect CLASS: a nullish-coalescing fallback whose right-hand side is an
  * element's `id`, `source` or `target`.
  *
- * ⚠ Comments and string literals are BLANKED first (`blankNonCode`) — this file's
- * own header quotes the pattern, and a scan that matched its own documentation
- * would report a leak that does not exist.
+ * ⚠ Comments are stripped first (`stripComments`) — this file's own header quotes
+ * the patterns, and a scan that matched its own documentation would report a leak
+ * that does not exist. String and template bodies are kept as CODE: the third
+ * pattern's whole target lives inside a template literal.
  */
 const RAW_ID_FALLBACK = /\?\?\s*[A-Za-z_$][\w$]*(?:\??\.[\w$]+)*\.(?:id|source|target)\b/g
 
@@ -74,20 +93,79 @@ const RAW_ID_FALLBACK = /\?\?\s*[A-Za-z_$][\w$]*(?:\??\.[\w$]+)*\.(?:id|source|t
 const RAW_ID_TERNARY =
   /\blabel\b[^\n;]{0,120}\?[^\n;]{0,120}:\s*[A-Za-z_$][\w$]*(?:\??\.[\w$]+)*\.(?:id|source|target)\b/g
 
+/**
+ * ⭐⭐ THE THIRD SHAPE, AND THE REASON THE OTHER TWO WERE NOT ENOUGH.
+ *
+ * A raw PROVENANCE token reaching user copy is a different defect from a raw ID
+ * fallback, and it hid in the gap between them on TWO independent axes:
+ *
+ *   · TRANSFORM. `blankNonCode` blanks template-literal BODIES. Measured:
+ *     `` `Source: ${obs.source}` `` → the transform leaves
+ *     `` `                     ` ``, so the read is erased before any pattern
+ *     runs. The sibling guard in `model-tab-v2/__tests__/` documents this exact
+ *     failure ("two of these guards shipped structurally incapable of firing")
+ *     and switched to `stripComments`. That lesson was not carried across. It is
+ *     now: every scan in this file uses `stripComments`.
+ *
+ *   · PATTERN. Switching the transform alone does NOT catch it — measured, not
+ *     assumed. In `x ? `Source: ${obs.source}` : null` the raw read sits in the
+ *     ternary's CONSEQUENT, so `RAW_ID_TERNARY` (which anchors on the alternate)
+ *     still reads zero. A guard needs both halves right.
+ *
+ * So a live `Source: cee_inference` sat in the INTERSECTION of both blind spots
+ * — in `adapters.ts`, ~80 lines below a commit that fixed the identical
+ * expression elsewhere and announced the class closed.
+ */
+/*
+ * ⚠ THE INTERPOLATION MUST *BE* THE RAW READ — not merely contain one.
+ *
+ * The first cut matched any `${…}` mentioning `.source`, and its own contrast
+ * control caught it firing on `` `Source: ${mapSourceToDisplay(obs.source)}` `` —
+ * i.e. on the HONEST FIX. A guard that reddens the correct code gets narrowed
+ * back to uselessness by the first lane it inconveniences, so it is narrowed
+ * here, deliberately, with both directions pinned.
+ *
+ * A single leading call is allowed (`observedStateOf(data)!.source`) because that
+ * is the shape the repair-queue producer actually used; a call WRAPPING the read
+ * is not, because that is what humanising looks like.
+ */
+const RAW_PROVENANCE_IN_COPY =
+  /`[^`]*\$\{\s*[A-Za-z_$][\w$]*(?:\([^()]*\))?(?:!?\??\.[\w$]+)*!?\??\.(?:source|provenance)!?\s*\}[^`]*`/g
+
+/**
+ * ⚠ RECURSIVE, and `__tests__` excluded — the sibling guard walks this way and
+ * this one did not. Both directories are flat today, so there is no live gap;
+ * the shape is the defect (a subdirectory added later would be silently out of
+ * scope, and the clean result would read exactly like a clean result).
+ */
+const EXCLUDED_DIR_NAMES = new Set(['__tests__', '__fixtures__', '__mocks__', '__snapshots__'])
+
 function tsFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true })
-    .filter(e => e.isFile() && /\.tsx?$/.test(e.name))
-    .map(e => join(dir, e.name))
+  const out: string[] = []
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name)
+    if (e.isDirectory()) {
+      if (!EXCLUDED_DIR_NAMES.has(e.name)) out.push(...tsFiles(full))
+      continue
+    }
+    if (/\.tsx?$/.test(e.name)) out.push(full)
+  }
+  return out
 }
 
 /** Both shapes, unioned — the CLASS, not whichever spelling was fixed last. */
 function fallbacksIn(file: string): number {
-  return countIn(readFileSync(file, 'utf8'))
+  return countIn(readFileSync(file, 'utf8'), file)
 }
 
-function countIn(src: string): number {
-  const code = blankNonCode(src)
-  return [...code.matchAll(RAW_ID_FALLBACK)].length + [...code.matchAll(RAW_ID_TERNARY)].length
+function countIn(src: string, file = 'x.ts'): number {
+  // ⚠ `stripComments`, NOT `blankNonCode` — see `RAW_PROVENANCE_IN_COPY`.
+  const code = stripComments(src, file)
+  return (
+    [...code.matchAll(RAW_ID_FALLBACK)].length +
+    [...code.matchAll(RAW_ID_TERNARY)].length +
+    [...code.matchAll(RAW_PROVENANCE_IN_COPY)].length
+  )
 }
 
 function scan(dir: string): Record<string, number> {
@@ -125,6 +203,18 @@ const V1_PINNED: Record<string, number> = {
   'src/canvas/components/model-tab/RelationshipsSection.tsx': 2,
 }
 
+/**
+ * ⚠ THE CONTAINER'S RESIDUAL — the two `sortedFactors` comparator TIEBREAKS
+ * (`ModelTabBody.tsx:515-516`). An id used to order a list never reaches the
+ * screen, and resolving it would collapse every unnamed node to one key and make
+ * the order arbitrary. Counted anyway rather than excused by a narrower pattern,
+ * for the reason this file already applies to `FactorsSection`: a scan that
+ * decides which matches "don't count" is a scan that can be argued with.
+ *
+ * The other five were DISPLAY and are fixed, not pinned.
+ */
+const CONTAINER_PINNED = 2
+
 describe('the CANONICAL editor never falls back to a wire id', () => {
   it('model-tab-v2/ carries ZERO raw-id fallbacks — derived, nothing to maintain', () => {
     expect(scan(V2_DIR)).toEqual({})
@@ -133,13 +223,17 @@ describe('the CANONICAL editor never falls back to a wire id', () => {
   it('POSITIVE CONTROL: the pattern DOES detect the shape it bans', () => {
     // Without this, a broken regex would certify every directory as clean and
     // the "zero" above would be a statement about the instrument (trap 13).
+    // ⚠ THROUGH `countIn` — the SAME pipeline the claims use. The earlier
+    // version of this control tested the bare regex against a bare string, which
+    // is how the sibling guard once certified a matcher its real scan never got
+    // to run. A control must exercise the transform too.
     const sample = 'const l = String(node.data?.label ?? node.id)\nconst f = x?.label ?? edge.source\n'
-    expect([...blankNonCode(sample).matchAll(RAW_ID_FALLBACK)]).toHaveLength(2)
+    expect(countIn(sample)).toBe(2)
   })
 
   it('CONTRAST CONTROL: it does NOT fire on an honest resolution', () => {
     const honest = "const l = resolveCanvasLabel(edge.source, labels) ?? UNNAMED_ELEMENT_LABEL\n"
-    expect([...blankNonCode(honest).matchAll(RAW_ID_FALLBACK)]).toHaveLength(0)
+    expect(countIn(honest)).toBe(0)
   })
 
   it('POSITIVE CONTROL: the TERNARY shape — the one that got past this scan — is detected', () => {
@@ -149,6 +243,34 @@ describe('the CANONICAL editor never falls back to a wire id', () => {
     expect(countIn(ternary)).toBe(1)
     // …and the queue-producer spelling, which uses a different receiver.
     expect(countIn("label: typeof data?.label === 'string' ? data.label : n.id,\n")).toBe(1)
+  })
+
+  it('⭐ POSITIVE CONTROL: a wire token interpolated into user copy IS detected', () => {
+    // The exact live expression this scan failed to see, in the file it was
+    // pointed at. Proven to read ZERO under the previous transform+pattern pair.
+    expect(
+      countIn("const b = typeof obs?.source === 'string' ? `Source: ${obs.source}` : null\n"),
+    ).toBe(1)
+    expect(countIn('const b = `Source: ${data.provenance}`\n')).toBe(1)
+    // The repair-queue producer's actual pre-fix spelling — a call, then the read.
+    expect(countIn('const b = `Source: ${observedStateOf(data)!.source}`\n')).toBe(1)
+  })
+
+  it('⭐ REGRESSION CONTROL: the OLD transform provably could not see it', () => {
+    // Pins WHY the third pattern needed a transform change too, so nobody
+    // "simplifies" `stripComments` back to `blankNonCode` and silently restores
+    // the blind spot. This is a fact about the instrument, asserted.
+    const live = "const b = typeof obs?.source === 'string' ? `Source: ${obs.source}` : null\n"
+    expect([...blankNonCode(live).matchAll(RAW_PROVENANCE_IN_COPY)]).toHaveLength(0)
+    expect([...stripComments(live, 'x.ts').matchAll(RAW_PROVENANCE_IN_COPY)]).toHaveLength(1)
+  })
+
+  it('CONTRAST CONTROL: an honest interpolation of a RESOLVED label is clean', () => {
+    // The discriminating half: interpolation is not the defect, interpolating a
+    // WIRE TOKEN is. A guard that banned all interpolation would be deleted by
+    // the first lane it inconvenienced.
+    expect(countIn('const b = `Source: ${mapSourceToDisplay(obs.source) ?? ""}`\n')).toBe(0)
+    expect(countIn('const t = `${row.label} → ${target.label}`\n')).toBe(0)
   })
 
   it('CONTRAST CONTROL: an object literal naming a raw id is NOT a fallback', () => {
@@ -189,5 +311,27 @@ describe('the DUPLICATE stack’s residual is bounded and named', () => {
     // Contrast control: a file that IS in the residual reads non-zero, so the
     // absence above is a fact about this card and not a dead scan.
     expect(v1['src/canvas/components/model-tab/GoalSection.tsx']).toBe(1)
+  })
+})
+
+describe('the CONTAINER — which outlives the removal — leaks nothing to the user', () => {
+  it('the file is where this scan thinks it is', () => {
+    // Without this, a moved or renamed container makes every claim below vacuous
+    // by reading an empty string (trap 13).
+    expect(readFileSync(CONTAINER, 'utf8').length).toBeGreaterThan(1000)
+  })
+
+  it('matches the pinned residual EXACTLY — and every entry is an ORDERING key', () => {
+    // Both directions. Growth is a new leak. SHRINKAGE means the two comparator
+    // tiebreaks were changed, which is a decision that must be made here.
+    expect(fallbacksIn(CONTAINER)).toBe(CONTAINER_PINNED)
+  })
+
+  it('CONTRAST CONTROL: the instrument reads this file, and it discriminates', () => {
+    // A magnitude check against a known non-zero, so "2" above cannot be the
+    // output of a scan that silently read nothing. `GoalSection` is pinned at 1
+    // in the residual above and must still read 1 through the same helper.
+    expect(fallbacksIn(join(V1_DIR, 'GoalSection.tsx'))).toBe(1)
+    expect(fallbacksIn(join(V2_DIR, 'adapters.ts'))).toBe(0)
   })
 })

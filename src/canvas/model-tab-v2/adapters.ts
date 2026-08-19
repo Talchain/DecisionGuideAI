@@ -128,7 +128,12 @@ import { getDisplayEdgeId } from '../utils/edgeIdentity'
 // THE ONE id → label policy (`src/canvas/domain/canvasLabels.ts`). It returns
 // `null` rather than the identifier, and rejects a stored label that is itself
 // id-shaped — which is why it is imported here rather than reimplemented.
-import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../domain/canvasLabels'
+import {
+  buildCanvasLabelMap,
+  honestLabel,
+  resolveCanvasLabel,
+  UNNAMED_ELEMENT_LABEL,
+} from '../domain/canvasLabels'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorNeedsVerification } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
@@ -268,7 +273,21 @@ function relationshipLabel(
   targetId: string,
   labels: ReadonlyMap<string, string>,
 ): string {
-  if (typeof data?.label === 'string' && data.label.trim() !== '') return data.label
+  /*
+   * ⚠ F5 — THE SAME REJECTION THE NODE PATH GETS. `resolveCanvasLabel` refuses
+   * a stored label that is ITSELF id-shaped, because producers sometimes seed a
+   * label from an id and the leak would simply move one hop upstream. That
+   * reasoning does not stop at nodes, and this branch was reading the edge's own
+   * `data.label` raw — so the policy was applied on one path and not its
+   * neighbour, in one function.
+   *
+   * Reachability was NOT established in either direction, and that is exactly
+   * why the policy is applied rather than argued about: it costs one call, and
+   * an id-shaped edge label falls back to the endpoint pair — which reads
+   * better than the id whether or not the case occurs.
+   */
+  const own = honestLabel(data?.label)
+  if (own !== null) return own
   const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
   const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
   return `${from} → ${to}`
@@ -506,6 +525,19 @@ function sourceBasis(source: string | null | undefined): string | null {
 /**
  * An edge's provenance, gated exactly as v1 gates it.
  *
+ * ⚠⚠ F4 — WHAT WAS PORTED IS THE GATE, NOT THE VOCABULARY, AND THE DIFFERENCE
+ * MATTERS. A factor's `observedState.source` is a closed enum with a classifier
+ * (`mapSourceToDisplay` → "AI estimate"). An edge's `provenance` is
+ * `z.string().max(100)` (`edges.ts:198`) — free-form, no classifier exists, and
+ * its own schema doc examples are wire-ish tokens. So this function CANNOT
+ * humanise; it can only decide whether a source is worth stating at all.
+ *
+ * Stated plainly so nobody reads the sibling `sourceBasis` and assumes parity:
+ * an evidence provenance still reaches the user VERBATIM. That is the v1
+ * behaviour, deliberately preserved, and it is a narrower property than "no wire
+ * token reaches the user". Closing it needs an edge-provenance vocabulary, which
+ * is a product decision and not this lane's to invent.
+ *
  * ⚠ THE GATE IS THE POINT. `RelationshipsSection.tsx:213` prints a provenance
  * only when it is EVIDENCE — `assumption`, `template` and `ai-suggested` are
  * placeholders, and announcing "Source: assumption" states a basis that does
@@ -526,7 +558,24 @@ export function toRepairQueueItems(
 
   if (queueId === 'confirm-estimates') {
     return factorNodes
-      .filter(n => factorNeedsVerification(n.data))
+      /*
+       * ⚠⚠ F2 — `factorNeedsVerification` IS `!source || source === 'cee_inference'`
+       * (`valueProvenance.ts:227-231`), which a factor with NO `observedState` at
+       * all satisfies. Those factors were entering this queue, where Confirm
+       * rendered over "No value set": an enabled button asking the user to endorse
+       * nothing, which the authority then refuses — a silent no-op (preamble P8).
+       *
+       * ⭐ THE OUTLINE'S ROW CHIP ALREADY REFUSED EXACTLY THIS, with the reasoning
+       * written out (`ModelRowView.tsx:134-136`): `…&& row.primaryValue !== null`.
+       * Two surfaces answering ONE question — "may this be confirmed?" — and the
+       * queue was the weaker one. The rule now lives at the PRODUCER, so the queue
+       * cannot contain an item the row would have refused.
+       *
+       * It also closes a duplication: a value-less factor satisfied BOTH this
+       * predicate and `no-value`'s, so it stood in two queues at once. `no-value`
+       * is the one that describes it, and confirming is not the repair it needs.
+       */
+      .filter(n => factorNeedsVerification(n.data) && factorValue(n.data) !== null)
       .map(n => {
         const data = n.data as Record<string, unknown> | undefined
         return {
@@ -623,7 +672,16 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       rowId,
       description: typeof data?.description === 'string' ? data.description : null,
       secondaryValues: secondary,
-      basis: typeof obs?.source === 'string' ? `Source: ${obs.source}` : null,
+      // ⚠⚠ F1, AND IT IS THIS COMMIT'S OWN THESIS TURNED ON ITSELF. The
+      // previous commit fixed the IDENTICAL expression in the repair-queue
+      // producer and left this one raw — so the detail pane printed
+      // `Source: cee_inference` under "Where it came from", DIRECTLY BENEATH
+      // the `SourceProvenancePill` that humanises the same field to "AI
+      // estimate" (`ModelDetailRegion.tsx:250-263`). The panel said both.
+      // Catching one instance of a class and announcing the class is fixed is
+      // the defect; the scan that should have caught it was blind twice over
+      // (see `modelTabNoRawIdFallback.sourceScan.spec.ts`).
+      basis: sourceBasis(obs?.source),
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's

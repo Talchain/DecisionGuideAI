@@ -12,13 +12,15 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RepairQueueList } from '../RepairQueueList'
 import type { RepairQueue, RepairQueueItem } from '../types'
+import { REPAIR_QUEUE } from '../rowPresentation'
 
-const QUEUE: RepairQueue = {
-  id: 'confirm-estimates',
-  reason: 'unconfirmed-estimate',
-  title: 'Confirm estimates',
-  supportsApplyAll: true,
-}
+/**
+ * ⚠ THE SHIPPED OBJECT, NOT A LOCAL COPY (F6). `REPAIR_QUEUE` was introduced as
+ * the one definitions table and then became a THIRD copy, because both render
+ * specs kept declaring their own — so the object the product renders was never
+ * exercised by the tests that claim to cover this component.
+ */
+const QUEUE: RepairQueue = REPAIR_QUEUE['confirm-estimates']
 
 function item(rowId: string, over: Partial<RepairQueueItem> = {}): RepairQueueItem {
   return {
@@ -158,5 +160,85 @@ describe('RepairQueueList — navigation is ID-addressed and safe today', () => 
     )
     fireEvent.click(screen.getByTestId(`repair-queue-v2-${QUEUE.id}-item-f2-label`))
     expect(onFocusOnCanvas).toHaveBeenCalledWith('f2')
+  })
+})
+
+// ── F2: the control is fail-closed on the ITEM, not only on the carrier ──────
+
+describe('⭐ Apply is offered only when there is something to act on (F2, P8)', () => {
+  const onApply = vi.fn()
+
+  function applyBtn(rowId: string) {
+    return screen.getByTestId(`repair-queue-v2-${QUEUE.id}-item-${rowId}-apply`)
+  }
+
+  it('an item with NEITHER a current nor a suggested value gets a DISABLED Apply', () => {
+    // The live shape: `factorNeedsVerification` admitted factors with no
+    // `observedState`, the row read "No value set", and Confirm was ENABLED and
+    // wrote nothing — the authority fails closed and both call sites discard the
+    // outcome, so the failure was silent.
+    render(
+      <RepairQueueList
+        queue={QUEUE}
+        items={[item('empty', { currentValue: null, suggestedValue: null })]}
+        onApply={onApply}
+      />,
+    )
+    expect(applyBtn('empty')).toBeDisabled()
+    fireEvent.click(applyBtn('empty'))
+    expect(onApply).not.toHaveBeenCalled()
+  })
+
+  it('CONTRAST CONTROL: an item WITH a current value is enabled, same render', () => {
+    // Bound by id and asserted in the same run, so the disable above is about
+    // that item and not about `onApply` being ignored altogether.
+    render(
+      <RepairQueueList
+        queue={QUEUE}
+        items={[
+          item('empty', { currentValue: null, suggestedValue: null }),
+          item('valued'),
+        ]}
+        onApply={onApply}
+      />,
+    )
+    expect(applyBtn('empty')).toBeDisabled()
+    expect(applyBtn('valued')).toBeEnabled()
+  })
+
+  it('⭐ CONTRAST CONTROL: a SUGGESTED value alone is enough — Queue A still works', () => {
+    // The predicate is deliberately the weaker, general one. `set-option-values`
+    // items legitimately have `currentValue === null` and carry a suggestion; a
+    // gate copied from the confirm queue's membership rule would have silently
+    // disabled Queue A before it was ever mounted.
+    render(
+      <RepairQueueList
+        queue={QUEUE}
+        items={[item('suggested', { currentValue: null, suggestedValue: '30 days' })]}
+        onApply={onApply}
+      />,
+    )
+    expect(applyBtn('suggested')).toBeEnabled()
+  })
+
+  it('the two refusals read differently — "no carrier" is not "no value"', () => {
+    // Telling a user their row awaits a carrier, when in fact it has no value to
+    // act on, sends them to wait for something that will not help them.
+    const { unmount } = render(
+      <RepairQueueList queue={QUEUE} items={[item('a')]} />,
+    )
+    const noCarrier = applyBtn('a').getAttribute('title')
+    unmount()
+    render(
+      <RepairQueueList
+        queue={QUEUE}
+        items={[item('a', { currentValue: null, suggestedValue: null })]}
+        onApply={onApply}
+      />,
+    )
+    const noReferent = applyBtn('a').getAttribute('title')
+    expect(noCarrier).toBeTruthy()
+    expect(noReferent).toBeTruthy()
+    expect(noCarrier).not.toBe(noReferent)
   })
 })

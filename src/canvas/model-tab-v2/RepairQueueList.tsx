@@ -99,6 +99,15 @@ export interface RepairQueueListProps {
 const NO_AUTHORITY_ITEM =
   'Applying is not connected yet — this cannot be changed from here.'
 
+/**
+ * ⚠ A DIFFERENT REFUSAL FROM `NO_AUTHORITY_ITEM`, AND IT MUST READ THAT WAY.
+ * "Not connected yet" is about the product; this is about THIS ROW. Telling a
+ * user their row is awaiting a carrier when in fact it has no value to act on
+ * sends them to wait for something that will not help them.
+ */
+const NO_REFERENT_ITEM =
+  'There is no value here to act on yet — set one first.'
+
 const NO_AUTHORITY_DEFER =
   'Recording this decision is not connected yet — leaving it unresolved cannot be saved from here.'
 
@@ -109,6 +118,56 @@ const NO_AUTHORITY_BATCH =
   'Applying every row at once needs the batch operation that is still being built. ' +
   'Doing it one row at a time would re-run the analysis after each one. ' +
   'Items left unresolved are never included.'
+
+/**
+ * The resolving control — ONE button, and never a third state that pretends.
+ *
+ * ⚠⚠ IT IS FAIL-CLOSED ON THE ITEM AS WELL AS ON THE CARRIER (F2). An item with
+ * NEITHER a current value nor a suggested one has nothing for Apply to refer
+ * to: the authority fails closed on it, writes nothing, and returns an outcome
+ * both call sites discard — so the user pressed a live button and the model did
+ * not move, with no feedback. That is preamble P8, and it is precisely what the
+ * outline's row chip already refuses (`ModelRowView.tsx:134-136`).
+ *
+ * ⚠ THIS IS NOT A SECOND ANSWER TO THE PRODUCER'S QUESTION (trap 21). The
+ * producer answers *"which elements belong in THIS queue?"* — a per-queue
+ * membership rule. This answers *"does this item carry anything to act on?"* — a
+ * universal property of a queue row, true whichever producer built it. Note the
+ * predicate is deliberately the WEAKER, general one: `set-option-values` items
+ * legitimately have `currentValue === null` and carry a `suggestedValue`, so a
+ * gate copied from the confirm queue's membership rule would have silently
+ * disabled Queue A before it was ever mounted.
+ */
+function ApplyControl({
+  queueId,
+  item,
+  onApply,
+  applyLabel,
+}: {
+  queueId: string
+  item: RepairQueueItem
+  onApply?: (rowId: string) => void
+  applyLabel: string
+}) {
+  const hasReferent = item.currentValue !== null || item.suggestedValue !== null
+  const enabled = onApply !== undefined && hasReferent
+  const reason = onApply === undefined ? NO_AUTHORITY_ITEM : NO_REFERENT_ITEM
+  return (
+    <button
+      type="button"
+      data-testid={`repair-queue-v2-${queueId}-item-${item.rowId}-apply`}
+      disabled={!enabled}
+      onClick={enabled ? () => onApply!(item.rowId) : undefined}
+      title={enabled ? undefined : reason}
+      aria-label={enabled ? `${applyLabel} ${item.label}` : `${item.label} — ${reason}`}
+      className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
+        enabled ? 'text-text-header hover:bg-panel-hover' : 'text-text-light cursor-not-allowed'
+      }`}
+    >
+      {enabled ? applyLabel : 'Apply'}
+    </button>
+  )
+}
 
 /** The label/value cells, identical in both groups so one item reads one way. */
 function ItemCells({
@@ -210,30 +269,18 @@ export function RepairQueueList({
               <ItemCells queueId={q} item={item} onFocusOnCanvas={onFocusOnCanvas} />
 
               {/*
-                ⚠ ONE BUTTON, TWO HONEST STATES — never a third that pretends.
-                With a carrier it resolves the item; without one it is disabled
-                and says why. It never renders enabled-but-inert, which is the
-                shape that would let the queue report a success it never had.
+                ⚠ THIS COMMENT PREVIOUSLY CLAIMED "it never renders
+                enabled-but-inert". THAT WAS FALSE when written: it gated on the
+                carrier alone, so an item with no value rendered an ENABLED
+                Confirm that wrote nothing. The claim is now true, and it is true
+                because `ApplyControl` gates on the ITEM as well — see its header.
               */}
-              <button
-                type="button"
-                data-testid={`repair-queue-v2-${q}-item-${item.rowId}-apply`}
-                disabled={onApply === undefined}
-                onClick={onApply === undefined ? undefined : () => onApply(item.rowId)}
-                title={onApply === undefined ? NO_AUTHORITY_ITEM : undefined}
-                aria-label={
-                  onApply === undefined
-                    ? `${item.label} — ${NO_AUTHORITY_ITEM}`
-                    : `${applyLabel} ${item.label}`
-                }
-                className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
-                  onApply === undefined
-                    ? 'text-text-light cursor-not-allowed'
-                    : 'text-text-header hover:bg-panel-hover'
-                }`}
-              >
-                {onApply === undefined ? 'Apply' : applyLabel}
-              </button>
+              <ApplyControl
+                queueId={q}
+                item={item}
+                onApply={onApply}
+                applyLabel={applyLabel}
+              />
 
               {/*
                 The user's other legitimate answer. It sits beside Apply, not

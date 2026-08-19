@@ -85,6 +85,18 @@ export interface ModelTabV2PanelProps {
   onHandOffToOlumi?: (message: string, reason: string) => void
 }
 
+/**
+ * The queues that are actually MOUNTED AND WIRED at this tip.
+ *
+ * ⚠ NARROWER THAN `RepairQueue['id']` ON PURPOSE. `REPAIR_QUEUE` is total over
+ * all four queues — correct for the definitions table — but only
+ * `confirm-estimates` has a write carrier (`proposeFactorConfirmation`). Typing
+ * the panel's state to the total union would make `'contested'` look sanctioned
+ * when nothing renders it. Adding a queue here is a deliberate act, not a
+ * discovery in a diff.
+ */
+type MountedQueueId = Extract<RepairQueue['id'], 'confirm-estimates'>
+
 /** One active edit at a time — the row the user is currently changing. */
 interface ActiveEdit {
   rowId: string
@@ -112,8 +124,34 @@ export function ModelTabV2Panel({
    * doing it inside the fix would be the defect class reproduced one layer up.
    * So the queue REPLACES the outline while it is open, and one control
    * returns.
+   *
+   * ⚠⚠ AND THE SCOPE OF THAT CLAIM, STATED BECAUSE THE COMMIT THAT INTRODUCED
+   * THIS OVERSTATED IT. What is true HERE is that this panel renders a row once:
+   * the branch above is structurally exclusive and the spec pins the outline rows
+   * absent in queue mode, with a before-click contrast control.
+   *
+   * What is NOT yet true is the SURFACE. `ModelTabBody.tsx` renders
+   * `FactorsSection` unconditionally, outside this panel, in the same scroll — so
+   * a queued factor appears in the queue AND in its v1 factor card. The
+   * consolidation's invariant *"there is only ever one rendering of a row"* is a
+   * goal at this tip, not an achieved state, and it stays that way until the
+   * duplicate section stack is deleted.
+   *
+   * A spec that renders THIS COMPONENT can never see that (trap 3b — bound to a
+   * component, not to the surface the deployed tab mounts), which is exactly how
+   * the overstatement passed a green suite.
    */
-  const [activeQueue, setActiveQueue] = useState<RepairQueue['id'] | null>(null)
+  const [activeQueue, setActiveQueue] = useState<MountedQueueId | null>(null)
+  /**
+   * ⚠ ONE PREDICATE, DERIVED ONCE (F7). Two independent tests for "am I in a
+   * queue" (`activeQueue === 'confirm-estimates'` for the body,
+   * `activeQueue === null` for the detail region) were equivalent ONLY because
+   * exactly one id was settable. `REPAIR_QUEUE` is total over four ids, which
+   * makes the other three LOOK sanctioned — and setting one would have rendered
+   * the outline AND suppressed the detail region. `MountedQueueId` narrows the
+   * state to what is actually wired, so the two readings cannot diverge.
+   */
+  const inQueue = activeQueue !== null
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
@@ -230,6 +268,23 @@ export function ModelTabV2Panel({
     confirmAuthority.proposeFactorConfirmation()
     setPendingConfirmId(null)
   }, [pendingConfirmId, confirmAuthority])
+
+  /**
+   * ⚠ F8 — RESOLVING THE LAST ITEM RETURNS YOU TO THE OUTLINE.
+   *
+   * The chip only renders when the count is non-zero, so an empty queue cannot
+   * be ENTERED; it can only be arrived at by clearing the last item. Leaving the
+   * user there replaces the whole outline with "Nothing needs attention here."
+   * and, because the chip is suppressed while a queue is open, the only way out
+   * is a control they have no reason to look for. Finishing the job should not
+   * look like a dead end.
+   *
+   * The count falls on the HOST's re-render — this panel holds no store
+   * subscription by design — which is exactly when this fires.
+   */
+  useEffect(() => {
+    if (activeQueue === 'confirm-estimates' && confirmItems.length === 0) setActiveQueue(null)
+  }, [activeQueue, confirmItems.length])
 
   /** Rows are nodes OR edges — focus each with the helper that owns its kind. */
   const focusOnCanvas = useCallback(
@@ -440,7 +495,7 @@ export function ModelTabV2Panel({
         Rendered only when the count is non-zero: a chip reading "0 to verify"
         is furniture, and the queue behind it would be empty.
       */}
-      {confirmItems.length > 0 && activeQueue === null && (
+      {confirmItems.length > 0 && !inQueue && (
         <button
           type="button"
           data-testid="model-tab-v2-chip-confirm-estimates"
@@ -451,7 +506,7 @@ export function ModelTabV2Panel({
         </button>
       )}
 
-      {activeQueue === 'confirm-estimates' ? (
+      {inQueue ? (
         <>
           <button
             type="button"
@@ -498,7 +553,7 @@ export function ModelTabV2Panel({
       />
       )}
 
-      {activeQueue === null && selectedRow !== null && selectedDetail !== null && (
+      {!inQueue && selectedRow !== null && selectedDetail !== null && (
         <ModelDetailRegion
           row={selectedRow}
           detail={selectedDetail}

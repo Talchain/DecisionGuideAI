@@ -412,10 +412,26 @@ describe('toRepairQueueItems — each queue derives from the same predicate as i
     optionNode('o2', 'Mapped', { f1: 30 }),
   ]
 
-  it('confirm-estimates returns exactly the unconfirmed factors, in order', () => {
+  it('confirm-estimates returns exactly the unconfirmed factors THAT HAVE A VALUE', () => {
     const items = toRepairQueueItems(input({ nodes }), 'confirm-estimates')
-    // f3 has no source either, so it is also unconfirmed — identity, not count.
-    expect(items.map(i => i.rowId)).toEqual(['f1', 'f3'])
+    /*
+     * ⚠⚠ THIS EXPECTATION USED TO BE `['f1', 'f3']`, AND THE COMMENT BESIDE IT
+     * EXPLAINED WHY: "f3 has no source either, so it is also unconfirmed". That
+     * reading of the predicate was correct and the RESULT was a defect (F2).
+     *
+     * `f3` has NO value at all. In the queue it rendered as "No value set" with
+     * an enabled Confirm beside it — asking the user to endorse nothing, which
+     * the authority then refuses, writing nothing and returning an outcome both
+     * call sites discard. A live button, a silent no-op (preamble P8). The
+     * outline's row chip already refused exactly this case.
+     *
+     * `f3` is not dropped: it is in `no-value`, asserted immediately below, and
+     * that is the repair it actually needs. It was previously in BOTH queues —
+     * two contradictory instructions about one factor.
+     *
+     * Identity, not count: `f1` specifically, and `f3` specifically absent.
+     */
+    expect(items.map(i => i.rowId)).toEqual(['f1'])
   })
 
   it('no-value returns exactly the factors with nothing set', () => {

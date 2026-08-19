@@ -45,6 +45,14 @@ import { UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
 
 const RAW_ID = 'fac_uk_arr_retention'
 
+/**
+ * ⚠ CONFIRM-QUEUE FIXTURES CARRY `raw_value`, AND THAT IS NOT DECORATION.
+ * `getPrimaryValue` (the live displayed-value rule) returns `null` without it,
+ * so a factor lacking it shows "No value set" and is — correctly — not a
+ * confirmation candidate. A fixture without `raw_value` would silently test the
+ * empty queue while appearing to test a populated one.
+ */
+
 function factorNode(id: string, label: unknown, observedState?: Record<string, unknown>): Node {
   return {
     id,
@@ -105,7 +113,7 @@ describe('the canonical editor names elements in the user’s words, never by wi
 
   it('repair-queue items name their element the same way — all three producers', () => {
     // Bound by rowId, so each assertion is about the element it names.
-    const unverified = factorNode(RAW_ID, undefined, { value: 0.4, source: 'cee_inference' })
+    const unverified = factorNode(RAW_ID, undefined, { value: 0.4, raw_value: 40, source: 'cee_inference' })
     const confirm = toRepairQueueItems(project([unverified]), 'confirm-estimates')
     expect(confirm.map(i => i.rowId)).toContain(RAW_ID)
     expect(confirm.find(i => i.rowId === RAW_ID)!.label).toBe(UNNAMED_ELEMENT_LABEL)
@@ -122,7 +130,7 @@ describe('the canonical editor names elements in the user’s words, never by wi
 
     // CONTRAST CONTROL, same shape, same run: a labelled element reads its label.
     const named = toRepairQueueItems(
-      project([factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, source: 'cee_inference' })]),
+      project([factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })]),
       'confirm-estimates',
     )
     expect(named.find(i => i.rowId === RAW_ID)!.label).toBe('UK ARR retention')
@@ -134,7 +142,7 @@ describe('the canonical editor names elements in the user’s words, never by wi
 describe('provenance reaches the user as a label, never as the wire token', () => {
   it('the confirm queue’s basis reads "AI estimate", not "cee_inference"', () => {
     const items = toRepairQueueItems(
-      project([factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, source: 'cee_inference' })]),
+      project([factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })]),
       'confirm-estimates',
     )
     const basis = items.find(i => i.rowId === RAW_ID)!.basis
@@ -142,6 +150,83 @@ describe('provenance reaches the user as a label, never as the wire token', () =
     expect(basis).toBe('Source: AI estimate')
     // Absent: the enum. Beside the presence, so it cannot pass on null.
     expect(basis).not.toContain('cee_inference')
+  })
+
+  it('⭐ F1 — the NODE DETAIL pane reads the label too, not just the queue', () => {
+    /*
+     * The instance the previous commit MISSED while announcing the class fixed.
+     * `toRowDetail`'s node branch carried the identical expression 82 lines
+     * below the one that was repaired, and it renders at
+     * `ModelDetailRegion.tsx:250-263` under "Where it came from" — DIRECTLY
+     * BENEATH the `SourceProvenancePill` humanising the same field. The panel
+     * said both.
+     */
+    const node = factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })
+    const detail = toRowDetail(project([node]), RAW_ID)
+    expect(detail, 'no detail projected — the fixture is wrong, not the code').not.toBeNull()
+    expect(detail!.basis).toBe('Source: AI estimate')
+    expect(detail!.basis).not.toContain('cee_inference')
+  })
+
+  it('⭐ the detail pane and the queue agree — the same node, the same words', () => {
+    /*
+     * The contrast control that makes the pin above about the CLASS rather than
+     * one call site. Two independent producers, one node, one sentence: if a
+     * future change repairs one and not the other, this fails where a
+     * single-path assertion would not.
+     */
+    const node = factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })
+    const input = project([node])
+    const fromDetail = toRowDetail(input, RAW_ID)!.basis
+    const fromQueue = toRepairQueueItems(input, 'confirm-estimates').find(
+      i => i.rowId === RAW_ID,
+    )!.basis
+    expect(fromDetail).toBe(fromQueue)
+    // …and non-null, so the equality above cannot be satisfied by two nulls.
+    expect(fromDetail).toBe('Source: AI estimate')
+  })
+})
+
+// ── 2b. F2 — a factor with no value is not a confirmation candidate ──────────
+
+describe('a factor with NO VALUE cannot be confirmed, and is not offered as if it could', () => {
+  const VALUELESS = 'fac_no_value_yet'
+
+  it('⭐ it is ABSENT from confirm-estimates — confirming endorses nothing', () => {
+    // `factorNeedsVerification` is `!source || source === 'cee_inference'`, which
+    // a factor with no `observedState` at all satisfies. It was entering this
+    // queue and rendering an enabled Confirm over "No value set" (P8).
+    const input = project([factorNode(VALUELESS, 'Churn rate')])
+    expect(toRepairQueueItems(input, 'confirm-estimates').map(i => i.rowId)).not.toContain(
+      VALUELESS,
+    )
+  })
+
+  it('CONTRAST CONTROL: it is still surfaced — in the queue that describes it', () => {
+    // The absence above must be a re-homing, not a drop. Without this the fix
+    // could have been "filter it out everywhere" and the gap would vanish.
+    const input = project([factorNode(VALUELESS, 'Churn rate')])
+    expect(toRepairQueueItems(input, 'no-value').map(i => i.rowId)).toContain(VALUELESS)
+  })
+
+  it('CONTRAST CONTROL: a factor WITH a value is still a confirmation candidate', () => {
+    // The discriminating half — proves the new conjunct did not empty the queue.
+    const input = project([
+      factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' }),
+    ])
+    expect(toRepairQueueItems(input, 'confirm-estimates').map(i => i.rowId)).toContain(RAW_ID)
+  })
+
+  it('⭐ it no longer stands in TWO queues at once', () => {
+    // It satisfied both predicates, so it was simultaneously "confirm this
+    // estimate" and "this has no value" — two contradictory instructions about
+    // one factor.
+    const input = project([factorNode(VALUELESS, 'Churn rate')])
+    const inConfirm = toRepairQueueItems(input, 'confirm-estimates').some(
+      i => i.rowId === VALUELESS,
+    )
+    const inNoValue = toRepairQueueItems(input, 'no-value').some(i => i.rowId === VALUELESS)
+    expect([inConfirm, inNoValue]).toEqual([false, true])
   })
 })
 
@@ -159,9 +244,23 @@ describe('an edge states a source only when it HAS one', () => {
     }
   })
 
-  it('CONTRAST CONTROL: a real evidence provenance IS stated', () => {
-    // The discriminating half. Without it, the gate could be a hard `null` and
-    // every assertion above would still pass.
+  it('CONTRAST CONTROL: a real evidence provenance IS stated — VERBATIM, and that is the honest limit', () => {
+    /*
+     * ⚠ F4 — THIS PINS A WIRE-ISH TOKEN AS EXPECTED OUTPUT, DELIBERATELY, AND
+     * THAT IS A NARROWER PROPERTY THAN THIS FILE'S §2 HEADING CLAIMS.
+     *
+     * What was ported from v1 is the GATE (evidence vs placeholder), not a
+     * vocabulary. A factor's `source` is a closed enum with a classifier; an
+     * edge's `provenance` is `z.string().max(100)` (`edges.ts:198`) with no
+     * classifier anywhere in the estate. So an evidence provenance reaches the
+     * user verbatim — v1's behaviour, preserved on purpose.
+     *
+     * Recorded rather than quietly asserted, because "the canonical editor never
+     * shows a wire token" is TRUE of factor provenance and NOT YET TRUE of edge
+     * provenance, and a reader who takes the heading at face value would be
+     * wrong. Closing it needs an edge-provenance vocabulary — a product
+     * decision, not a scan fix.
+     */
     const input = project(nodes, [edgeBetween({ provenance: 'customer_interviews' })])
     expect(toRowDetail(input, 'e1')!.basis).toBe('Source: customer_interviews')
   })
