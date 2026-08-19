@@ -21,6 +21,7 @@ import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { GroundedOnNotice } from './GroundedOnNotice'
+import { ModelBuildingNoticesNotice } from './ModelBuildingNoticesNotice'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
@@ -490,6 +491,17 @@ export const MessageBubble = memo(function MessageBubble({
         * one. */}
       {!isUser && message.groundedSelection && (
         <GroundedOnNotice groundedSelection={message.groundedSelection} />
+      )}
+      {/* What Olumi had to leave out of the model it drafted on THIS turn.
+        * NO FLAG (CEE emits `model_building_notices` unconditionally, and it is
+        * a declared 0.48.0 contract field), and the condition is the PAYLOAD'S
+        * OWN PRESENCE: a draft that dropped nothing carries no key, so
+        * `message.modelBuildingNotices` is undefined and nothing renders.
+        * Rendering a zero here would report an omission that never happened.
+        * Assistant-only: an omission is a fact about a MODEL OLUMI BUILT, and
+        * the user's own bubble never carries one. */}
+      {!isUser && message.modelBuildingNotices && (
+        <ModelBuildingNoticesNotice notices={message.modelBuildingNotices} />
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />

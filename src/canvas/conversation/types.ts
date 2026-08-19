@@ -9,6 +9,7 @@ import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
 import type { GroundedSelection } from './groundedSelection'
+import type { ModelBuildingNoticesView } from './modelBuildingNotices'
 
 // ---------------------------------------------------------------------------
 // § 1 — Conversation messages
@@ -94,6 +95,25 @@ export interface ConversationMessage {
    * no longer name.
    */
   groundedSelection?: GroundedSelection
+  /**
+   * What Olumi had to leave out of the model it drafted on THIS turn —
+   * `model_building_notices`, a DECLARED optional field on the V5 body (schemas
+   * 0.48.0), parsed + fail-closed by `extractModelBuildingNoticesSidecar`
+   * (modelBuildingNotices.ts, which carries the full producer contract).
+   *
+   * When present the bubble renders a `ModelBuildingNoticesNotice`; when ABSENT
+   * it renders exactly as today and makes NO claim — the producer OMITS the key
+   * on a turn that dropped nothing rather than sending a zero, so synthesising
+   * an empty value here would report an omission that never happened. No flag:
+   * CEE emits it unconditionally, so this auto-lights-up.
+   *
+   * Ephemeral: derived from the live turn and NOT persisted — hydrated history
+   * renders without the notice, the same treatment as `reasoning`,
+   * `answerShape` and `groundedSelection`. Deliberate: an omission is a fact
+   * about the draft produced in THIS session, and replaying it against a model
+   * the user has since edited would assert a loss that no longer holds.
+   */
+  modelBuildingNotices?: ModelBuildingNoticesView
   /**
    * Transcript honesty (dress-rehearsal trust item #3, 2026-07-20): delivery
    * state of a visible user send on the LIVE V5 path.
