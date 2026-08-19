@@ -128,13 +128,74 @@ describe('D7 opposite-direction twin — a value the producer DID compute still 
     expect(row.winner).toBe('Build capacity instead')
   })
 
-  it('w2d: both attested flip rows are carried (a withheld LEADER does not suppress the flip science)', () => {
-    // This capture's turn carries `leader_claim.permitted: false`, and the
-    // producer nonetheless shipped both bucket identities. Whether that is
-    // itself coherent is coherence pair CX4's question, not this factory's:
-    // over-suppressing here would discard science the producer sent.
-    const s = snapshotOf(W2D)
+  it('a withheld LEADER does not by itself suppress the flip science', () => {
+    // w2d's turn carries `leader_claim.permitted: false` and the producer
+    // nonetheless shipped both bucket identities. That is coherence pair CX4's
+    // question, NOT a reason for this factory to discard the rows: the CX5
+    // suppression below is keyed on `no_flip_in_range`, not on the leader
+    // verdict. Proven by removing only the CX5 trigger from the same capture —
+    // the rows come back, so the suppression is CX5's doing and not a blanket
+    // distrust of a withheld turn.
+    const raw = clone(W2D)
+    for (const r of raw.flip_thresholds as Array<Record<string, unknown>>) {
+      delete r.no_flip_in_range
+    }
+    const s = snapshotOf(raw)
     expect(s.conditionalWinners.map(r => r.factorId)).toEqual(['71c6351d', 'fcf3d740'])
+  })
+})
+
+// ───────────────────────────────────────────────────────────────────────────
+// THE COHERENCE GATE'S CX5 FINDING IS NOW ACTED ON, NOT MERELY DETECTED.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('D7 — CX5: no_flip_in_range beside winner_flips suppresses the flip claim', () => {
+  it('w2d is a REAL deployed instance: both factors are structurally invariant AND claim a flip', () => {
+    // Stated first so the test below is measuring a real contradiction rather
+    // than one this lane composed.
+    const flips = W2D.flip_thresholds as Array<Record<string, unknown>>
+    const cws = W2D.conditional_winners as Array<Record<string, unknown>>
+    expect(flips.map(r => [r.factor_id, r.no_flip_in_range, r.flip_reason])).toEqual([
+      ['71c6351d', true, 'structurally_invariant'],
+      ['fcf3d740', true, 'structurally_invariant'],
+    ])
+    expect(cws.map(r => [r.factor_id, r.winner_flips])).toEqual([
+      ['71c6351d', true],
+      ['fcf3d740', true],
+    ])
+  })
+
+  it('the contradicted rows are DROPPED — the Compare tab no longer says a structurally invariant factor flips', () => {
+    expect(snapshotOf(W2D).conditionalWinners).toEqual([])
+  })
+
+  it('OPPOSITE DIRECTION — probe-A has flip_reason "found" and NO no_flip_in_range, so its claim survives', () => {
+    const flips = PROBE_A.flip_thresholds as Array<Record<string, unknown>>
+    const demand = flips.find(r => r.factor_id === 'fac_demand')!
+    expect(demand.flip_reason).toBe('found')
+    expect(Object.prototype.hasOwnProperty.call(demand, 'no_flip_in_range')).toBe(false)
+
+    // An ABSENT assertion is not a negative one. Treating absence as "no flip"
+    // would suppress every flip the producer actually computed.
+    expect(snapshotOf(PROBE_A).conditionalWinners).toHaveLength(1)
+  })
+
+  it('bound by factor IDENTITY — a no-flip row for a DIFFERENT factor suppresses nothing', () => {
+    const raw = clone(PROBE_A)
+    const flips = raw.flip_thresholds as Array<Record<string, unknown>>
+    flips.find(r => r.factor_id === 'fac_capacity')!.no_flip_in_range = true
+    // fac_capacity is asserted no-flip; fac_demand is the one with a
+    // conditional-winner row, and it is untouched.
+    expect(snapshotOf(raw).conditionalWinners.map(r => r.factorId)).toEqual(['fac_demand'])
+  })
+
+  it('a matching LABEL with a different id does NOT suppress — the join is on the id', () => {
+    const raw = clone(PROBE_A)
+    const flips = raw.flip_thresholds as Array<Record<string, unknown>>
+    const capacity = flips.find(r => r.factor_id === 'fac_capacity')!
+    capacity.no_flip_in_range = true
+    capacity.factor_label = 'Customer demand' // same LABEL as fac_demand
+    expect(snapshotOf(raw).conditionalWinners.map(r => r.factorId)).toEqual(['fac_demand'])
   })
 })
 

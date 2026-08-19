@@ -87,7 +87,15 @@ describe('persistedRunSnapshotFactory — field mapping', () => {
             factor_id: 'factor-1',
             factor_label: 'Factor One',
             split_value: 12,
-            high_bucket: { winner_label: 'Option B' },
+    // D7: `winner_flips` and the bucket IDENTITIES are added because the
+    // contract REQUIRES the first (`winner_flips: z.boolean()`) and the factory
+    // now binds the flip claim to it and to the ids. A row without them was
+    // never a legal payload, so this fixture was pinning SLOT PRECEDENCE with
+    // an illegal row. Precedence is still exactly what these tests measure —
+    // the row is merely now one the producer could actually emit.
+            winner_flips: true,
+            low_bucket: { winner_id: 'opt-a', winner_label: 'Option A' },
+            high_bucket: { winner_id: 'opt-b', winner_label: 'Option B' },
           },
         ],
         edgeEValues: [{ edge_id: 'factor-1->goal', e_value: 1.8 }],
@@ -118,7 +126,9 @@ describe('persistedRunSnapshotFactory — field mapping', () => {
         factor_id: 'factor-1',
         factor_label: 'Factor One',
         split_value: 12,
-        high_bucket: { winner_label: 'Option B' },
+        winner_flips: true,
+        low_bucket: { winner_id: 'opt-a', winner_label: 'Option A' },
+        high_bucket: { winner_id: 'opt-b', winner_label: 'Option B' },
       },
     ]
     enrichment.robustness.edge_e_values = [{ edge_id: 'factor-1->goal', e_value: 1.8 }]
@@ -129,6 +139,8 @@ describe('persistedRunSnapshotFactory — field mapping', () => {
         factorId: 'factor-1',
         factorLabel: 'Factor One',
         winner: 'Option B',
+        winnerId: 'opt-b',
+        lowWinnerId: 'opt-a',
         condition: 'When Factor One exceeds 12',
       },
     ])

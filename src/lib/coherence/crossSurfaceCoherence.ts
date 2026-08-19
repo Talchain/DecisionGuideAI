@@ -325,6 +325,114 @@ export interface CoherenceViolation {
   readonly evidence: Readonly<Record<string, string>>
 }
 
+/**
+ * WHAT THE GATE DOES WHEN A PAIR FIRES — the disposition, decided per pair.
+ *
+ * ⚠ D7. Until now every pair's answer was the same one: NOTHING. The module
+ * header is honest that it "renders nothing, gates no mount, suppresses no
+ * field", and that was the right constraint while the pairs were being
+ * established — but a detector nobody acts on is instrumentation, not a
+ * guarantee, and five of six pairs remained sanctioned at both ends of the
+ * wire. This map is the answer to "what SHOULD it do", stated per pair and in
+ * code rather than in a document, so a pair cannot acquire a detector without
+ * someone deciding what the detection is for.
+ *
+ * ⚠⚠ AND THE RULING THAT MATTERS MOST: NOT EVERY PAIR SHOULD BE MADE TO AGREE.
+ * Forcing two authorities that answer DIFFERENT QUESTIONS into agreement is a
+ * defect in its own right (the leader-claim seam cost this estate exactly that,
+ * twice, a day apart). Where the two surfaces are answering different
+ * questions, the disposition is `name_apart` and the correct engineering
+ * response is to distinguish the concepts, NOT to reconcile the defaults.
+ */
+export type CoherenceDisposition =
+  /**
+   * The two members answer the SAME question and disagree. One of them is
+   * wrong, we cannot know which, and the consumer must decline the claim.
+   * Suppression here is not over-suppression: nothing is withheld that the
+   * producer coherently stated.
+   */
+  | 'suppress_at_consumer'
+  /**
+   * The two members answer DIFFERENT questions. There is no contradiction to
+   * fix; the fix is vocabulary. Making these agree would destroy information.
+   */
+  | 'name_apart'
+  /**
+   * A genuine contradiction the consumer cannot act on, because the fact that
+   * would settle it is not transmitted, or because acting would mean rewriting
+   * producer prose. Reported; not enforced.
+   */
+  | 'report_only'
+
+export const COHERENCE_DISPOSITIONS: Readonly<Record<CoherencePairId, {
+  readonly disposition: CoherenceDisposition
+  readonly rationale: string
+  /** Where the disposition is CARRIED OUT, or '' when it is not yet. */
+  readonly enforcedAt: string
+}>> = {
+  CX1: {
+    disposition: 'name_apart',
+    rationale:
+      'DIFFERENT QUESTIONS. `complete_current` is about the RUN THAT HAPPENED — '
+      + 'this result reflects the model as it stood. `readiness` is about the NEXT '
+      + 'run — the model as it stands NOW cannot be analysed. A model that was '
+      + 'analysed and has SINCE acquired a blocker satisfies both, truthfully. '
+      + 'Forcing agreement would delete a legitimate and common state.',
+    enforcedAt: '',
+  },
+  CX2: {
+    disposition: 'suppress_at_consumer',
+    rationale:
+      'SAME QUESTION: did this turn produce an analysis? `refused` says no; '
+      + '`usable_for_chips` says yes and chip-safe. Consuming a refused turn for '
+      + 'chips is the harm. NOT YET ENFORCED — the chip path is another lane\'s '
+      + 'surface this wave (see the collision note in the PR).',
+    enforcedAt: '',
+  },
+  CX3: {
+    disposition: 'report_only',
+    rationale:
+      'The pair\'s weakest limb is `not_on_the_wire`: the fact that would settle '
+      + 'whether a run occurred is not transmitted. A consumer cannot act on a '
+      + 'fact it does not have, and guessing would mint one.',
+    enforcedAt: '',
+  },
+  CX4: {
+    disposition: 'suppress_at_consumer',
+    rationale:
+      'SAME QUESTION: may this turn name a leading option? `leader_claim.permitted: '
+      + 'false` says no; a conditional-winner row names one anyway. The action is to '
+      + 'strip the NAME, never the row — the producer\'s own withheld-claim projection '
+      + 'strips exactly the identity members and forwards the factor-level science, so '
+      + 'the consumer applies the withholding the producer failed to apply. '
+      + 'NOT YET ENFORCED in the Compare tab: `leader_claim` rides `analysis_state`, a '
+      + 'SIBLING of the enrichment block the snapshot factory receives, so the fact is '
+      + 'not in scope at that seam. Threading it there is a plumbing change, rowed.',
+    enforcedAt: '',
+  },
+  CX5: {
+    disposition: 'suppress_at_consumer',
+    rationale:
+      'SAME QUESTION: can this factor flip the winner? `flip_thresholds.'
+      + 'no_flip_in_range: true` says no; `conditional_winners.winner_flips: true` '
+      + 'says yes, for the same `factor_id`. Both facts ride the SAME enrichment '
+      + 'object, so the consumer can act without any new plumbing.',
+    enforcedAt:
+      'src/canvas/stores/analysisSnapshotFactory.ts — `collectNoFlipFactorIds`, '
+      + 'joined on `factor_id`. Pinned by '
+      + '`analysisSnapshotFactory.scienceAttestation.spec.ts`, including the '
+      + 'opposite-direction twin (an ABSENT `no_flip_in_range` suppresses nothing).',
+  },
+  CX6: {
+    disposition: 'report_only',
+    rationale:
+      'A genuine contradiction, but acting on it means rewriting assistant prose '
+      + 'at the consumer. That is a producer obligation; a consumer that edits a '
+      + 'sentence to match a blocker is inventing an utterance.',
+    enforcedAt: '',
+  },
+}
+
 export const COHERENCE_PAIRS: Readonly<Record<CoherencePairId, CoherencePair>> = {
   CX1: {
     id: 'CX1',

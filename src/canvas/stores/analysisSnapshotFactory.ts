@@ -159,6 +159,29 @@ function extractConditionalWinners(
   const nested = (response?.robustness as Record<string, unknown> | undefined)?.conditional_winners
   const raw = Array.isArray(root) ? root : nested
   if (!Array.isArray(raw)) return []
+
+  // ── D7 GATE 0: THE COHERENCE GATE'S CX5 FINDING, ACTED ON ────────────────
+  // `crossSurfaceCoherence` pair CX5 detects `flip_thresholds.no_flip_in_range:
+  // true` beside `conditional_winners.winner_flips: true` FOR THE SAME FACTOR —
+  // two producer statements about one factor that cannot both hold. Until now
+  // the gate only OBSERVED it: nothing consumed the finding, so a detector with
+  // no consumer is instrumentation, not a guarantee.
+  //
+  // This is not hypothetical. The real capture
+  // `seeded-2026-08-17-w2d-analysis-turn.json` carries `no_flip_in_range: true`
+  // with `flip_reason: 'structurally_invariant'` for factors `71c6351d` and
+  // `fcf3d740`, and `winner_flips: true` for those SAME two ids — and the
+  // Compare tab rendered "…, Floating price contract takes over" for a factor
+  // the same payload declares cannot flip at all.
+  //
+  // WHY SUPPRESS RATHER THAN RECONCILE. The two statements are answering the
+  // SAME question ("can this factor flip the winner?") and giving opposite
+  // answers, which is what makes this actionable where CX1 is not. We cannot
+  // know which is right, and picking one would be inventing a finding. The
+  // honest move is the one this file already takes for a producer
+  // self-contradiction in the bucket ids: decline the claim.
+  const noFlipFactorIds = collectNoFlipFactorIds(response)
+
   return raw
     .filter((w: Record<string, unknown>) => w && typeof w === 'object')
     // ── D7 GATE 1: THE PRODUCER'S FLIP ATTESTATION ───────────────────────────
@@ -174,6 +197,8 @@ function extractConditionalWinners(
     // behind, so one payload produced a flip claim on one surface and not the
     // other.
     .filter((w: Record<string, unknown>) => w.winner_flips === true)
+    .filter((w: Record<string, unknown>) =>
+      !(typeof w.factor_id === 'string' && noFlipFactorIds.has(w.factor_id)))
     // ── D7 GATE 2: A CLAIM NEEDS A THRESHOLD IT CAN STATE ────────────────────
     // "flips at N" requires a finite N. A row without one cannot state the
     // condition, and the old `: ''` arm produced the bare fragment ", X takes
@@ -212,6 +237,36 @@ function extractConditionalWinners(
         condition: `When ${factorLabel !== '' ? factorLabel : 'this factor'} exceeds ${w.split_value}${w.split_unit ? ` ${String(w.split_unit)}` : ''}`,
       }
     })
+}
+
+/**
+ * Factor ids whose `flip_thresholds` row asserts `no_flip_in_range: true`.
+ *
+ * Bound by IDENTITY (`factor_id`), never by `factor_label`: the two arrays are
+ * joined on the id in the producer's own CX5 detector
+ * (`crossSurfaceCoherence.ts:728-739`), and joining on a label would both miss
+ * a real contradiction between two same-labelled factors and invent one
+ * between two differently-labelled rows for the same factor.
+ *
+ * ONLY `=== true` counts. The field is absent on both real captures that carry
+ * a genuine flip (`flip_reason: 'found'`), and an ABSENT assertion is not a
+ * negative one — treating absence as "no flip" would suppress every flip the
+ * producer did compute, which is the mirror defect.
+ */
+function collectNoFlipFactorIds(response: V2RunResponse): Set<string> {
+  const out = new Set<string>()
+  const root = (response as unknown as Record<string, unknown> | undefined)?.flip_thresholds
+  const nested = (response?.robustness as Record<string, unknown> | undefined)?.flip_thresholds
+  const rows = Array.isArray(root) ? root : nested
+  if (!Array.isArray(rows)) return out
+  for (const r of rows) {
+    if (r && typeof r === 'object'
+      && (r as Record<string, unknown>).no_flip_in_range === true
+      && typeof (r as Record<string, unknown>).factor_id === 'string') {
+      out.add((r as Record<string, unknown>).factor_id as string)
+    }
+  }
+  return out
 }
 
 /** Read one string member off a conditional-winner bucket. Absent ⇒ null. */
