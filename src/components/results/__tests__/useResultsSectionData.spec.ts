@@ -17,7 +17,6 @@ import {
   selectDriverDisplayModel,
   normaliseDirection,
   getFactorDirection,
-  getSemanticLabel,
   mapReadinessLevel,
   mapConfidenceLevel,
   getConfidenceTier,
@@ -28,6 +27,7 @@ import {
   determineWinnerSelection,
   resolveBaselineId,
 } from '../useResultsSectionData'
+import { resolveDriverSemanticLabels } from '../driverDisplayModel'
 import { useCanvasStore } from '../../../canvas/store'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
@@ -371,29 +371,48 @@ describe('computeFactorRanks', () => {
 // 5. Semantic Label Tests
 // =============================================================================
 
-describe('getSemanticLabel', () => {
-  it('always returns "biggest" for rank 1', () => {
-    expect(getSemanticLabel(1, 1.0)).toBe('biggest')
-    expect(getSemanticLabel(1, 0.5)).toBe('biggest')
-    expect(getSemanticLabel(1, 0.1)).toBe('biggest')
+/**
+ * ⚠ `getSemanticLabel(rank, normalisedInfluence)` WAS DELETED (2026-08-19) and
+ * its policy moved to `resolveDriverSemanticLabels` in `driverDisplayModel` —
+ * the module that already owned the display value. The old function derived
+ * the badge from a SECOND basis (|elasticity| / max|elasticity|), so a factor
+ * the panel printed at Influence 100% shipped badged "Lower influence"; and
+ * its "rank 1 always wins" rule crowned one of several tied factors on a
+ * tie-break the user cannot see. The thresholds below are carried over
+ * unchanged; what changed is which number they read and that the crown now
+ * requires a real margin.
+ */
+describe('resolveDriverSemanticLabels — thresholds (carried over from getSemanticLabel)', () => {
+  const labelFor = (topValue: number, value: number) =>
+    resolveDriverSemanticLabels([
+      { key: 'top', value: topValue },
+      { key: 'subject', value },
+    ]).get('subject')
+
+  it('crowns a top that is clear of its runner-up', () => {
+    expect(resolveDriverSemanticLabels([
+      { key: 'top', value: 1.0 },
+      { key: 'other', value: 0.1 },
+    ]).get('top')).toBe('biggest')
+    expect(resolveDriverSemanticLabels([{ key: 'only', value: 0.1 }]).get('only')).toBe('biggest')
   })
 
-  it('returns "strong" for normalised >= 0.50 (rank > 1)', () => {
-    expect(getSemanticLabel(2, 0.50)).toBe('strong')
-    expect(getSemanticLabel(2, 0.75)).toBe('strong')
-    expect(getSemanticLabel(3, 0.99)).toBe('strong')
+  it('returns "strong" for a display value >= 0.50 below the top', () => {
+    expect(labelFor(1.0, 0.50)).toBe('strong')
+    expect(labelFor(1.0, 0.75)).toBe('strong')
+    expect(labelFor(1.0, 0.99)).toBe('strong')
   })
 
-  it('returns "moderate" for normalised 0.20-0.49 (rank > 1)', () => {
-    expect(getSemanticLabel(2, 0.20)).toBe('moderate')
-    expect(getSemanticLabel(2, 0.35)).toBe('moderate')
-    expect(getSemanticLabel(2, 0.49)).toBe('moderate')
+  it('returns "moderate" for a display value 0.20-0.49 below the top', () => {
+    expect(labelFor(1.0, 0.20)).toBe('moderate')
+    expect(labelFor(1.0, 0.35)).toBe('moderate')
+    expect(labelFor(1.0, 0.49)).toBe('moderate')
   })
 
-  it('returns "minor" for normalised < 0.20 (rank > 1)', () => {
-    expect(getSemanticLabel(2, 0.19)).toBe('minor')
-    expect(getSemanticLabel(2, 0.10)).toBe('minor')
-    expect(getSemanticLabel(2, 0.01)).toBe('minor')
+  it('returns "minor" for a display value < 0.20 below the top', () => {
+    expect(labelFor(1.0, 0.19)).toBe('minor')
+    expect(labelFor(1.0, 0.10)).toBe('minor')
+    expect(labelFor(1.0, 0.01)).toBe('minor')
   })
 })
 

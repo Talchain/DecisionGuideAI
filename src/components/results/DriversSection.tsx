@@ -30,6 +30,7 @@ import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpe
 import { EMPTY_STATES } from './emptyStates'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel } from './utils/cleanFactorLabel'
+import { INFLUENCE_TIE_EPSILON } from './driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
@@ -1002,14 +1003,22 @@ export function DriversSection({
           {DISPLAY_SAFE_DRIVER_CONFIDENCE && <div aria-hidden="true" />}
         </div>
 
-        {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
+        {/* v7.10 T9: equal-influence note when all visible drivers are tied.
+            ⚠ THE COUNT WORD IS GONE, AND DERIVING ONE WOULD NOT HAVE FIXED IT.
+            This said "Both factors" unconditionally and printed under a section
+            headed 4 on a real user's screen. A derived count cannot settle it
+            either: this note ranges over `visibleDrivers` while the heading
+            counts the non-zero-impact total, so the two can legitimately
+            differ. Count-free copy cannot contradict any heading beside it.
+            The tie width is the shared `INFLUENCE_TIE_EPSILON`, so this note
+            and the rank badges can no longer disagree about what a tie is. */}
         {visibleDrivers.length >= 2 && (() => {
           const scores = visibleDrivers.map(d => d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0)
           const max = Math.max(...scores)
           const min = Math.min(...scores)
-          return (max - min) <= 0.01 ? (
+          return (max - min) <= INFLUENCE_TIE_EPSILON ? (
             <p className={`${typography.panelMeta} text-text-light italic px-3 pb-2`}>
-              Both factors have similar influence on the outcome.
+              These factors have similar influence on the outcome.
             </p>
           ) : null
         })()}
