@@ -22,6 +22,7 @@ import {
   type FloatingPanelSize,
 } from '../hooks/useFloatingPanelState'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
+import { clearanceCandidates, COMFORT_OCCLUSION_GAP, type Box } from '../utils/cameraComfort'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
@@ -147,6 +148,214 @@ function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, view
     x: Math.max(DEFAULT_MARGIN, Math.floor((viewportW - size.width) / 2)),
     y: Math.max(DEFAULT_MARGIN, Math.floor((viewportH - size.height) / 2)),
   }
+}
+
+/* ── FIT-THEN-PLACE ────────────────────────────────────────────────────────
+ *
+ * THE DEFECT (measured in real Chromium, 49 `elementFromPoint` probes per cell,
+ * five committed starter drafts, 1200-1600px):
+ *
+ *   The user could not click the Decision node of their own model. The panel is
+ *   a FIXED-SIZE, FIXED-ORIGIN window while the graph's fit box SCALES, so the
+ *   two collide below a threshold at the panel's right edge. Decision-node
+ *   hittable probes on the as-shipped placement: 1200 → 0/49 · 1250 → 0/49 ·
+ *   1300 → 14 · 1350 → 28 · 1400 → 42 · clear only at ≥1450. The node's own hit
+ *   area is correct — the SAME node in the SAME code is 49/49 at 1450 and 0/49
+ *   at 1250, so this is placement, not hit-testing.
+ *
+ * THE RULE, and why it is this rule and not the obvious one.
+ *
+ * The obvious rule is "place the panel where it hides least of the model", and
+ * IT DOES NOT WORK. Measured over 50 browser-captured geometry cells: minimising
+ * overlap with the fitted node bbox leaves the Decision node partly buried in 7
+ * of 50 cells even when solved EXHAUSTIVELY over every legal position (the best
+ * possible such placement still scores 28/49 at 1250). Minimising total occluded
+ * node area is worse (19/50); minimax per-node coverage is far worse (37/50).
+ * They all fail the same way: a 400x550 panel plus its 36px tab is over half the
+ * usable canvas at 1250, so SOME of the model is always hidden, and every
+ * area-based objective happily trades the Decision away to hide less elsewhere.
+ *
+ * So the objective is LEXICOGRAPHIC, and its first term names what must never be
+ * traded:
+ *
+ *   1. the panel must not cover the model's ANCHOR — the Decision node, the one
+ *      node the whole graph is about, and the one the user must be able to click
+ *      to steer their model;
+ *   2. among placements that satisfy (1), hide as little of the rest of the
+ *      model as possible.
+ *
+ * Measured: 50/50 cells at 49/49 hittable probes, worst cell included.
+ *
+ * ⭐ CANONICAL OWNER. The candidate placements are the four clearances of
+ * `cameraComfort.clearanceCandidates` — the module that already owns "how do you
+ * hold a frame clear of the floating companion" — read as TRANSLATIONS of the
+ * panel rather than as insets on a frame. This adds NO second spelling of that
+ * geometry, and it deliberately does not touch `computeFitPadding`, which still
+ * reserves the companion exactly zero graph width (guard G2a). The panel moves;
+ * the graph is never charged for it.
+ *
+ * ⚠ ALL FOUR CANDIDATES, NOT JUST `cheapestClearance`. The cheapest clearance is
+ * frequently unreachable once `clampPositionToViewport` has had its say (the
+ * panel cannot leave the canvas, cannot cross the dock, cannot ride under the top
+ * bar), and a clamped-away move looks exactly like a move that was never needed.
+ * Every candidate is therefore CLAMPED FIRST and scored AFTERWARDS, so the rule
+ * chooses among placements that are actually reachable.
+ */
+
+/** Total area of the intersection of two boxes; 0 when they do not overlap. */
+function overlapArea(a: Box, b: Box): number {
+  const w = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+  const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+  return w > 0 && h > 0 ? w * h : 0
+}
+
+/**
+ * The panel's OCCLUDING box for a candidate top-left.
+ *
+ * Includes the side tab, which is a sibling at `left: -SIDE_TAB_WIDTH` with the
+ * panel `overflow: visible` — so it is NOT part of the panel's own
+ * `getBoundingClientRect`. This is the same union
+ * `cameraComfort.readFloatingCompanionBox` measures, for the same reason: omit it
+ * and the box is 36px short of what the user sees.
+ */
+export function panelOccluderBox(pos: FloatingPanelPosition, size: FloatingPanelSize): Box {
+  return {
+    left: pos.x - SIDE_TAB_WIDTH,
+    top: pos.y,
+    right: pos.x + size.width,
+    bottom: pos.y + size.height,
+  }
+}
+
+/** What the placement rule needs to know about the model that is on screen. */
+export interface ModelBoxes {
+  /** Every rendered graph node's viewport-coordinate box. */
+  nodes: Box[]
+  /**
+   * The box the placement must keep clear: the Decision node when the model has
+   * one. `null` for a model with no decision (an imported or partial graph) — the
+   * rule then degrades to term (2) alone, which is the best available when there
+   * is no anchor to protect.
+   */
+  anchor: Box | null
+}
+
+/** React Flow renders each node as `.react-flow__node[data-id="<id>"]`
+ *  (same spelling as `useGuidancePulseHighlight`). */
+const GRAPH_NODE_SELECTOR = '.react-flow__node[data-id]'
+
+/**
+ * Read the model's on-screen boxes.
+ *
+ * ⚠ THE ANCHOR IS BOUND BY IDENTITY, NEVER BY POSITION (CLAUDE.md trap 19). The
+ * caller passes the Decision node's STORE ID and this looks that exact node up in
+ * the DOM; nothing here infers "the anchor" from where a box happens to sit, so a
+ * different node cannot satisfy the lookup.
+ *
+ * Zero-size rects are dropped — an unmeasured or `display:none` node contributes
+ * no occlusion and would otherwise drag the union to the origin.
+ */
+export function readModelBoxes(anchorNodeId: string | null): ModelBoxes {
+  if (typeof document === 'undefined') return { nodes: [], anchor: null }
+  const nodes: Box[] = []
+  let anchor: Box | null = null
+  for (const el of document.querySelectorAll(GRAPH_NODE_SELECTOR)) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+    const box: Box = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
+    nodes.push(box)
+    if (anchorNodeId !== null && (el as HTMLElement).dataset.id === anchorNodeId) anchor = box
+  }
+  return { nodes, anchor }
+}
+
+/** Union of every node box, or null when nothing is rendered. */
+function unionOf(boxes: Box[]): Box | null {
+  if (boxes.length === 0) return null
+  return {
+    left: Math.min(...boxes.map((b) => b.left)),
+    top: Math.min(...boxes.map((b) => b.top)),
+    right: Math.max(...boxes.map((b) => b.right)),
+    bottom: Math.max(...boxes.map((b) => b.bottom)),
+  }
+}
+
+/**
+ * The panel's DEFAULT top-left: fit-then-place. See the FIT-THEN-PLACE block
+ * above for the rule and the measurements behind it.
+ *
+ * Pure — the caller supplies the measured model — so the whole rule is testable
+ * without a DOM, mirroring `cameraComfort.comfortInsets`.
+ *
+ * FAIL-OPEN TO TODAY'S BEHAVIOUR: with nothing rendered (`model.nodes` empty) this
+ * returns exactly the clamped centred default it has always returned, so an empty
+ * canvas, a pre-mount measurement and jsdom are all unchanged.
+ *
+ * This SUPERSEDES the bare centred default as the panel's default-placement
+ * authority; `defaultCentredPosition` survives only as the base this starts from,
+ * with this as its single call site.
+ */
+export function graphAwareDefaultPosition(
+  size: FloatingPanelSize,
+  viewportW: number,
+  viewportH: number,
+  rightInset: number,
+  topInset: number,
+  model: ModelBoxes,
+): FloatingPanelPosition {
+  const clampHere = (pos: FloatingPanelPosition) =>
+    clampPositionToViewport(pos, size, viewportW, viewportH, rightInset, topInset)
+
+  const base = clampHere(defaultCentredPosition(size, viewportW - rightInset, viewportH))
+  if (model.nodes.length === 0) return base
+
+  // The frame that must stay clear: the anchor when there is one, else the whole
+  // model — see ModelBoxes.anchor for why the fallback is the honest one.
+  const frame = model.anchor ?? unionOf(model.nodes)
+  if (!frame) return base
+
+  const candidates = clearanceCandidates(frame, panelOccluderBox(base, size))
+  // `null` means the base placement already clears the frame — nothing to solve.
+  if (!candidates) return base
+
+  // Each clearance is taken WITH A BREATHING GAP, the same `COMFORT_OCCLUSION_GAP`
+  // the comfort frame adds for the same reason — and here it also absorbs the
+  // small vertical settle the graph makes after the layout store reports
+  // quiescence (measured at ±13-21px between runs, pre-existing). A gap can only
+  // move the panel FURTHER in the clearing direction and the clamp caps it, so it
+  // can never reduce the clearance actually achieved.
+  const placements: FloatingPanelPosition[] = [base]
+  for (const c of candidates) {
+    const step = c.amount + COMFORT_OCCLUSION_GAP
+    placements.push(
+      clampHere({
+        x: base.x + (c.side === 'right' ? step : c.side === 'left' ? -step : 0),
+        y: base.y + (c.side === 'bottom' ? step : c.side === 'top' ? -step : 0),
+      }),
+    )
+  }
+
+  // Lexicographic: anchor coverage first, then how much of the rest of the model
+  // is hidden. `Number.MAX_SAFE_INTEGER` is never reached — both terms are
+  // bounded by the viewport area — so the pair cannot alias.
+  const score = (pos: FloatingPanelPosition): [number, number] => {
+    const occ = panelOccluderBox(pos, size)
+    const anchorCover = overlapArea(frame, occ)
+    let modelCover = 0
+    for (const node of model.nodes) modelCover += overlapArea(node, occ)
+    return [anchorCover, modelCover]
+  }
+
+  let best = placements[0]
+  let bestScore = score(best)
+  for (const pos of placements) {
+    const s = score(pos)
+    if (s[0] < bestScore[0] || (s[0] === bestScore[0] && s[1] < bestScore[1])) {
+      best = pos
+      bestScore = s
+    }
+  }
+  return best
 }
 
 /**
@@ -414,6 +623,18 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const yieldToFirstUse = source === 'system-first-use' && nodeCount === 0
 
+  // FIT-THEN-PLACE inputs. Both selectors return a PRIMITIVE so Zustand's
+  // referential-equality check keeps them from re-rendering the panel on every
+  // store write (returning a derived object here would churn on every tick).
+  //
+  // `anchorNodeId` is the Decision node's store id — the identity the placement
+  // rule binds to. `layoutSettled` is the canvas store's OWN definition of
+  // quiescence (the same three fields the visual harness waits on), not a timer
+  // and not a guess: node rects are only worth measuring once the layout that
+  // produced them has committed.
+  const anchorNodeId = useCanvasStore((s) => s.nodes.find((n) => n.type === 'decision')?.id ?? null)
+  const layoutSettled = useCanvasStore((s) => !s.pendingLayout && !s.layoutInProgress && s.layoutVersion > 0)
+
   // Render-time duplicate-surface guard. If AI Panel v2 is on AND the docked
   // Olumi tab is the active right-panel surface, the floating panel must
   // NOT paint — even for a single frame. OutputsDockBody's useEffect closes
@@ -527,8 +748,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // header is always visible, grabbable, and not under the dock. Mirrors
     // handlePointerMove's drag-time clamp so the same bounds apply across
     // entry points.
-    const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw - dockInset, vh)
-    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset, measureTopInset())
+    const topInset = measureTopInset()
+    // FIT-THEN-PLACE: the DEFAULT placement is taken off the model (see the
+    // block above `graphAwareDefaultPosition`). A STORED position is never
+    // touched — a panel the user dragged stays exactly where they put it.
+    const model = readModelBoxes(anchorNodeId)
+    const rawPos =
+      position ?? graphAwareDefaultPosition({ width: w, height: h }, vw, vh, dockInset, topInset, model)
+    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset, topInset)
     // Apply the slide transition INLINE (not via React style prop) so the
     // browser sees: old el.style.left value → transition declaration → new
     // el.style.left value, animating between them. Setting it on the React
@@ -541,14 +768,51 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     el.style.left = `${pos.x}px`
     el.style.top = `${pos.y}px`
     applyPanelShape(shapeRef.current, pathRef.current, w, h)
-    // Commit the centred default the FIRST time the panel opens so the
-    // minimise pill anchor isn't null. Stored-position clamping is reapplied
-    // on every render via this same effect, so we don't need to write back —
-    // the DOM is always correct.
-    if (position === null) {
+    // Commit the computed default the FIRST time the panel opens so the store
+    // and the DOM agree about where the panel is. Stored-position clamping is
+    // reapplied on every render via this same effect, so we don't need to write
+    // back — the DOM is always correct.
+    //
+    // ⚠ NOT WHILE THE MODEL IS STILL SETTLING. `setInitialPosition` is a
+    // ONE-SHOT (it writes only while `position` is null), so committing a
+    // placement measured against half-laid-out node rects would freeze the panel
+    // at a position computed from geometry that no longer exists. Until the
+    // canvas store reports quiescence AND something is actually rendered, the
+    // placement is applied to the DOM but left uncommitted, so this effect
+    // re-derives it on the next tick. An empty canvas has no model to settle and
+    // commits immediately, exactly as before.
+    if (position === null && (nodeCount === 0 || (layoutSettled && model.nodes.length > 0))) {
       setInitialPosition(pos)
     }
-  }, [isOpen, isMinimised, position, size, isAutoRepositioning, setInitialPosition, minimise])
+    // ⭐⭐ `yieldToFirstUse` / `yieldToDockedOlumi` / `nodeCount` / `layoutSettled`
+    // ARE LOAD-BEARING DEPS, AND THEIR ABSENCE WAS A SECOND, SEPARATE DEFECT
+    // (measured 19 Aug 2026). This component returns null — so `containerRef` is
+    // null and this effect early-returns — for exactly `!isOpen ||
+    // yieldToFirstUse || yieldToDockedOlumi`. Only `isOpen` was in the deps. So
+    // on the path every seeded user reaches (hero yields once the first graph
+    // lands) the container MOUNTED WITHOUT THIS EFFECT EVER RE-RUNNING: the panel
+    // kept the JSX defaults `left: 0; top: 0`, `setInitialPosition` was never
+    // called, and the re-clamp handler below then read that empty style as 0 and
+    // pinned the panel to the clamp floor. Measured: DOM `left: 52px; top: 73px`,
+    // BYTE-IDENTICAL FROM 1024 TO 1920, while the store still said
+    // `position: null` and the design default for that state was x=226. Two
+    // authorities for one fact, and the one that won had computed nothing.
+    // Listing every condition the early return reads makes container-mount and
+    // effect-run the same event by construction.
+  }, [
+    isOpen,
+    isMinimised,
+    position,
+    size,
+    isAutoRepositioning,
+    setInitialPosition,
+    minimise,
+    yieldToFirstUse,
+    yieldToDockedOlumi,
+    nodeCount,
+    layoutSettled,
+    anchorNodeId,
+  ])
 
   // Register a focus channel so the persistent status strip and Olumi-tab
   // click (when floating is open) can imperatively focus the input.
@@ -648,6 +912,15 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
 
       const el = containerRef.current
       if (!el) return
+      // ⭐ ONE PLACEMENT AUTHORITY. This handler RE-CLAMPS a panel the layout
+      // effect has already placed; it must never INVENT a placement. Without
+      // this guard it read an unset `el.style.left` as `parseFloat('') || 0` →
+      // 0 → clamped to the floor, which is how the panel came to sit at a
+      // byte-identical (52, 73) at every viewport from 1024 to 1920 while the
+      // store still held `position: null` (see the layout effect's dep note).
+      // An unset style means the layout effect has not run yet, and the correct
+      // answer to that is to wait for it, not to guess.
+      if (!el.style.left || !el.style.top) return
       // Same MIN_WIDTH-or-minimise rule as the layout effect: if the
       // viewport-or-dock resize leaves no room for a MIN_WIDTH panel,
       // auto-minimise to the pill.

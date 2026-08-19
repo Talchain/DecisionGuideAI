@@ -51,6 +51,16 @@
  * the camera moves. That is not a loop (the gate runs per focus action, not
  * continuously) and it is what the decision's step 6 fixes properly, by MOVING
  * the panel — fit-then-place — instead of reserving around it.
+ *
+ * ⭐ STEP 6 IS NOW BUILT, AND IT CONSUMES THIS MODULE (19 Aug 2026).
+ * `FloatingOlumiPanel.graphAwareDefaultPosition` is the fit-then-place rule: it
+ * takes the panel's DEFAULT placement off the model by reading the same four
+ * clearances the gate reads (`clearanceCandidates`, below) as candidate
+ * translations of the panel. THIS MODULE REMAINS THE ONLY OWNER OF COMPANION
+ * OCCLUSION GEOMETRY — the placement rule adds no second spelling of it, and it
+ * does not touch `computeFitPadding`, which still reserves nothing for the
+ * companion. Measured consequence: the Decision node went from 0/49 hittable
+ * probes at 1200-1250px to 49/49 across 1200-1600px.
  */
 
 import { computeFitPadding, type FitPadding } from './computeFitPadding'
@@ -107,8 +117,14 @@ export interface Box {
 /** The four sides a clearance can be taken from. */
 export type ComfortClearanceSide = 'left' | 'right' | 'top' | 'bottom'
 
+/** One way to hold a frame entirely clear of an occluder, and what it costs. */
+export interface ComfortClearance {
+  side: ComfortClearanceSide
+  amount: number
+}
+
 /**
- * The cheapest way to hold a frame entirely clear of a FREE-FLOATING occluder.
+ * EVERY way to hold a frame entirely clear of a FREE-FLOATING occluder.
  *
  * MOVED HERE VERBATIM from `computeFitPadding.cheapestReservation` (18 Aug 2026)
  * — the geometry is unchanged and its tests came with it; what changed is who is
@@ -117,31 +133,50 @@ export type ComfortClearanceSide = 'left' | 'right' | 'top' | 'bottom'
  *
  * A rectangular inset cannot express "this box is covered", so the only way to
  * keep a frame off an occluder is to keep the frame entirely to one side of it.
- * Four clearances achieve that; this returns the SMALLEST:
+ * Four clearances achieve that, always in this order:
  *
  *   right  → `frame.right - occ.left`     (frame sits left of the occluder)
  *   left   → `occ.right - frame.left`     (frame sits right of it)
  *   bottom → `frame.bottom - occ.top`     (frame sits above it)
  *   top    → `occ.bottom - frame.top`     (frame sits below it)
  *
- * Returns `null` when the occluder does not overlap at all. Ties resolve in
- * `right, left, bottom, top` order, which only matters for exactly-square
- * overlaps and never changes the amount.
+ * Returns `null` when the occluder does not overlap at all — the one case in
+ * which no clearance is needed. When it does overlap, all four amounts are
+ * strictly positive by construction (overlap on an axis makes both of that
+ * axis's expressions positive).
+ *
+ * ⭐ WHY THIS IS EXPORTED AND NOT PRIVATE TO `cheapestClearance` (19 Aug 2026).
+ * The comfort GATE only ever wants the smallest amount, because it is widening
+ * an inset. The floating panel's fit-then-place rule
+ * (`graphAwareDefaultPosition`) wants the SAME four clearances read the other
+ * way round — as four candidate TRANSLATIONS of the occluder — because after
+ * `clampPositionToViewport` the cheapest one may not be reachable and a more
+ * expensive one may be. Both consumers therefore read ONE spelling of the
+ * geometry: `cheapestClearance` is now `min` over this list, so the two can
+ * never drift (CLAUDE.md trap 12 — derive, don't mirror).
  */
-export function cheapestClearance(
-  frame: Box,
-  occ: Box,
-): { side: ComfortClearanceSide; amount: number } | null {
+export function clearanceCandidates(frame: Box, occ: Box): ComfortClearance[] | null {
   const overlapsX = occ.left < frame.right && occ.right > frame.left
   const overlapsY = occ.top < frame.bottom && occ.bottom > frame.top
   if (!overlapsX || !overlapsY) return null
 
-  const candidates: Array<{ side: ComfortClearanceSide; amount: number }> = [
+  return [
     { side: 'right', amount: frame.right - occ.left },
     { side: 'left', amount: occ.right - frame.left },
     { side: 'bottom', amount: frame.bottom - occ.top },
     { side: 'top', amount: occ.bottom - frame.top },
   ]
+}
+
+/**
+ * The cheapest of `clearanceCandidates`. Ties resolve in
+ * `right, left, bottom, top` order, which only matters for exactly-square
+ * overlaps and never changes the amount.
+ */
+export function cheapestClearance(frame: Box, occ: Box): ComfortClearance | null {
+  const candidates = clearanceCandidates(frame, occ)
+  if (!candidates) return null
+
   let best = candidates[0]
   for (const c of candidates) {
     if (c.amount < best.amount) best = c
