@@ -144,7 +144,17 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
 
       {/* Option rows */}
       {rows.map(row => (
-        <div key={row.nodeId ?? row.label} className="flex items-center mb-1">
+        // ROADMAP 2.835 — the row carries its OPTION ID as a testid so an
+        // assertion can bind to one row by IDENTITY. Without it a test has only
+        // the container's text, which spans every row: a probe written for the
+        // leader row then fires on the runner-up row's numbers too, and reports
+        // a defect in the wrong quantity. (Measured: a mutant that fabricated
+        // only `runnerUpProbability` RED-ed a leader-row test.)
+        <div
+          key={row.nodeId ?? row.label}
+          data-testid={`compare-progression-row-${row.nodeId ?? 'unidentified'}`}
+          className="flex items-center mb-1"
+        >
           <span
             className={`${typography.panelBody} font-medium w-[68px] flex-shrink-0 truncate`}
           >

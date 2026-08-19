@@ -58,7 +58,7 @@
  * cannot pass because some OTHER element happened to satisfy a value predicate.
  */
 import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { buildAnalysisSnapshot } from '../../stores/analysisSnapshotFactory'
@@ -408,17 +408,35 @@ describe('the leader series is bound to ONE option id across runs', () => {
   })
 
   it('DotProgression prints no fabricated 0% for an unscored run', () => {
-    const { container } = render(
-      <DotProgression snapshots={[scoredRun(1, 0.7, 0.2), unscoredRun(2)]} />,
-    )
-    expect(container.textContent).not.toMatch(ZERO_PERCENT)
+    // ⚠ SCOPED TO THE LEADER ROW BY OPTION ID, not to the container.
+    //
+    // The container spans every row, and a mutant that fabricated only
+    // `runnerUpProbability` made a container-wide version of this assertion go
+    // RED — a leader-row test reporting a defect in a different quantity. A
+    // probe that fires on an object it was not written for is trap 19, and it
+    // is why the discriminating mutant PAIR is run: the biting mutant alone
+    // proved sensitivity to something, not to this.
+    render(<DotProgression snapshots={[scoredRun(1, 0.7, 0.2), unscoredRun(2)]} />)
+
+    // The leader row is absent entirely — nothing was entitled to be named —
+    // which is itself the assertion: no row, so no number for it.
+    expect(screen.queryByTestId(`compare-progression-row-${LEADER_ID}`)).toBeNull()
   })
 
-  it('CONTRAST: DotProgression still prints an honestly-measured 0%', () => {
-    const { container } = render(
-      <DotProgression snapshots={[scoredRun(1, 0.7, 0.2), scoredRun(2, 0, 0)]} />,
-    )
-    expect(container.textContent).toMatch(ZERO_PERCENT)
+  it('CONTRAST: DotProgression still prints an honestly-measured 0% in the leader row', () => {
+    render(<DotProgression snapshots={[scoredRun(1, 0.7, 0.2), scoredRun(2, 0, 0)]} />)
+    const row = screen.getByTestId(`compare-progression-row-${LEADER_ID}`)
+    expect(row.textContent).toMatch(ZERO_PERCENT)
+  })
+
+  it('a scored leader keeps its own row, and the row shows its own numbers', () => {
+    // The positive control for the two above: the testid is reachable at all,
+    // so `queryByTestId(...) === null` in the absence case means "no row",
+    // never "wrong testid" (trap 13).
+    render(<DotProgression snapshots={[scoredRun(1, 0.7, 0.2), scoredRun(2, 0.7, 0.2)]} />)
+    const row = screen.getByTestId(`compare-progression-row-${LEADER_ID}`)
+    expect(row.textContent).toContain('70%')
+    expect(row.textContent).not.toContain('20%')
   })
 })
 
