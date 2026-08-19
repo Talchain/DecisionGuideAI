@@ -41,6 +41,7 @@ import {
   notAnalysedReasonCopy,
   resolveOptionPrompt,
 } from './utils/notAnalysedCopy'
+import { FOCUS_ON_CANVAS_LABEL } from './utils/focusOnCanvasCopy'
 import type { OptionResult } from './types'
 
 export interface NotAnalysedOptionCardProps {
@@ -111,7 +112,10 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              Show on canvas
+              {/* Read from the shared owner: this card and `OptionCards` render
+                  the SAME `onFocusNode` handler, and holding two labels for it
+                  is how one of them came to promise editing. */}
+              {FOCUS_ON_CANVAS_LABEL}
             </button>
           )}
         </div>
