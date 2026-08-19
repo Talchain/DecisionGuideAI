@@ -47,7 +47,7 @@ function factorNode(id: string, label: string, data: Record<string, unknown> = {
 
 function wireNodes(nodes: Node[], edges: Edge[] = []): WireNode[] {
   const payload = JSON.parse(
-    buildReadinessPayload({ nodes, edges, ceeAnalysisReady: null, currentBriefText: null }),
+    buildReadinessPayload({ nodes, edges, ceeAnalysisReady: null, currentBriefText: null, currentScenarioId: null }),
   )
   return payload.graph.nodes as WireNode[]
 }
@@ -159,7 +159,7 @@ describe('buildReadinessPayload — option interventions reach the wire', () => 
     ]
 
     const payload = JSON.parse(
-      buildReadinessPayload({ nodes, edges, ceeAnalysisReady: null, currentBriefText: null }),
+      buildReadinessPayload({ nodes, edges, ceeAnalysisReady: null, currentBriefText: null, currentScenarioId: null }),
     )
 
     // Factor projection intact, field for field.
