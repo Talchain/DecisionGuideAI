@@ -42,9 +42,23 @@ import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionR
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import type { ActOnItRow, RowActionDispatcher } from './actOnIt/types'
 import type { HeroChartModel, HeroLens, HeroStatusModel } from './heroTypes'
+import { ComparisonScopeNote } from '../ComparisonScopeNote'
+import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
 export interface AnalysisHeroPanelProps {
   model: HeroChartModel | HeroStatusModel
+  /**
+   * ⭐ SUBSET DISCLOSURE — the run's comparison set, or `null`/absent when the
+   * whole option set was compared. Derived by `AnalysisHeroContainer` from the
+   * SAME `recommendation.allOptions` this panel's model is built from
+   * (`deriveComparisonScope`), so the headline and the option cards cannot
+   * disagree about which options were in the field.
+   *
+   * OPTIONAL because the internal fixture gallery mounts this panel with
+   * hand-built models and no run behind them; absent means "say nothing",
+   * which is the correct behaviour for example data.
+   */
+  comparisonScope?: ComparisonScope | null
   /** Wave 2 (§6.5): canvas focus for quick links; absent = links inert-hidden. */
   onFocusTarget?: (targetId: string) => void
   /**
@@ -175,6 +189,7 @@ export function AnalysisHeroPanel({
   dispatchRowAction,
   chatAvailable = false,
   actOnItQueueSlot,
+  comparisonScope = null,
 }: AnalysisHeroPanelProps) {
   const panelId = useId()
   const [lensState, setLensState] = useState<HeroLens | null>(null)
@@ -367,6 +382,12 @@ export function AnalysisHeroPanel({
             {model.subline}
           </p>
         )}
+        {/* ⭐ SUBSET DISCLOSURE — the headline names a LEADER, and a superlative
+            ranges over the candidate set even where the underlying per-option
+            quantity is subset-invariant. "Highest chance of hitting your goal"
+            is a claim about the field, so a field smaller than the user's
+            option set has to be named right here, under the claim. */}
+        <ComparisonScopeNote scope={comparisonScope} surface="hero" withDetail />
       </div>
 
       {/* Chart area — prototype v6 stale doctrine: NEVER dimmed or locked.

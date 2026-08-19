@@ -37,7 +37,13 @@
 
 import { typography } from '../../styles/typography'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
-import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY, isFiniteProbability } from './utils/goalAnchorCopy'
+import {
+  GOAL_ANCHOR_COPY,
+  COMPARATIVE_COPY,
+  isFiniteProbability,
+  type ComparisonScope,
+} from './utils/goalAnchorCopy'
+import { ComparisonScopeNote } from './ComparisonScopeNote'
 import { formatGoalProbability } from './utils/displayFloors'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { deriveOddsRoundingNote, ODDS_ROUNDING_NOTE_TESTID } from './utils/oddsRoundingNote'
@@ -211,6 +217,7 @@ export function WinGauge({
   decisionState,
   designationsWithheld = false,
   goalThreshold = null,
+  comparisonScope = null,
 }: {
   shares: OptionWinShare[]
   decisionState?: DecisionState
@@ -242,6 +249,17 @@ export function WinGauge({
    * target. This prop is what lets it tell those two silences apart.
    */
   goalThreshold?: number | null
+  /**
+   * ⭐ SUBSET DISCLOSURE — the run's comparison set, or `null` when the whole
+   * option set was compared (`deriveComparisonScope`).
+   *
+   * A PROP rather than a derivation, because this component never sees the
+   * option set: `shares` arrives pre-filtered to options carrying a finite
+   * `winProbability`, so an excluded option is already gone by the time the
+   * gauge renders and `shares.length` cannot distinguish "three options" from
+   * "three of four". The caller holds `allOptions`; it derives there.
+   */
+  comparisonScope?: ComparisonScope | null
 }) {
   if (shares.length === 0) return null
 
@@ -367,6 +385,17 @@ export function WinGauge({
           >
             {GOAL_ANCHOR_COPY.label(substituted)}
           </p>
+          {/* ⭐ SUBSET DISCLOSURE — the SENTENCE only, never `withDetail`.
+              The per-option goal magnitudes here are subset-INVARIANT, so the
+              "ranks and comparative percentages describe those N only" line
+              must not sweep them in. But `goalRows` above is SORTED DESCENDING
+              by the goal quantity on every non-withheld run, and order is a
+              designation (`optionDisplayOrder`'s header, ROADMAP 1.306 — the
+              same rule this component already applies to `designationsWithheld`
+              a few lines up). A leader placed first among three, with nothing
+              saying a fourth was never scored, is the hero's superlative
+              encoded as position rather than words. */}
+          <ComparisonScopeNote scope={comparisonScope} surface="goal" className="mb-1" />
           <div className="flex flex-col gap-1">
             {goalRows.map((share) => {
               const clamped = Math.max(0, Math.min(1, share.goalProbability as number))
@@ -479,6 +508,12 @@ export function WinGauge({
             {COMPARATIVE_COPY.label}
           </p>
         </Tooltip>
+        {/* ⭐ SUBSET DISCLOSURE — scoped to THIS block deliberately. The
+            comparative share is defined over the candidate set; the goal
+            block above is not (ISL lists `probability_of_goal` among the
+            per-option quantities invariant under subsetting), so qualifying
+            it there would be an untruth pointing the other way. */}
+        <ComparisonScopeNote scope={comparisonScope} surface="comparative" className="mb-1" />
         {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}
         <div className={`flex rounded-full overflow-hidden gap-0.5${isDeemphasised ? ' h-2' : ' h-3'}`}>
           {sorted.map((share) => {

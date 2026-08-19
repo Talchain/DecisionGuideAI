@@ -24,7 +24,7 @@ import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
 import { AdvancedSection, RiskAppetiteFilter, LENS_ARM, type RiskAppetite } from './AdvancedSection'
 import { selectLensOption } from './utils/selectLensOption'
-import { LENS_COPY, runHasGoalNumbers } from './utils/goalAnchorCopy'
+import { LENS_COPY, deriveComparisonScope, runHasGoalNumbers } from './utils/goalAnchorCopy'
 import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
@@ -580,6 +580,15 @@ export const ResultsBody = memo(function ResultsBody({
               // channel at source, so `goalFitWithheld` (which needs a joint
               // figure to ARRIVE) can no longer see that state.
               goalThreshold={resultsSectionData.recommendation.goalThreshold}
+              // ⭐ SUBSET DISCLOSURE — `shares` above is pre-filtered to
+              // options carrying a finite winProbability, so the gauge cannot
+              // see that an option was excluded. The comparison set is derived
+              // HERE, from the unfiltered `allOptions`, and rendered inside the
+              // gauge's COMPARATIVE block only (the goal block's quantity is
+              // subset-invariant).
+              comparisonScope={deriveComparisonScope(
+                resultsSectionData.recommendation.allOptions,
+              )}
             />
             {/* Codex B1: winnerId is ALWAYS the canonical leader — every leader
                 predicate (downside sentence, leader CTA/prompt) keys to it. The
