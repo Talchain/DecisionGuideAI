@@ -10,7 +10,9 @@
 import { useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
-import { readinessWillScaffold } from '../../../utils/canRunAnalysis'
+import { readinessObjectsToRun, readinessWillScaffold } from '../../../utils/canRunAnalysis'
+import { useAnalysisReadinessAuthority } from '../../../state/analysisStateSelector'
+import { composeAnalysisBlockedReason } from '../../../utils/composeBlockedReason'
 import { resolveStarterId } from '../../../starters/loadStarter'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
 import { computeBars, type BarsModel } from '../selectors/computeBars'
@@ -196,6 +198,9 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [decisionPresent, facts, success.isSet, coverage.influenceCoverage, rowCounts],
   )
 
+  // The producer's own readiness verdict for this turn. See `canRun` below.
+  const analysisReadiness = useAnalysisReadinessAuthority()
+
   // UI-SEM-091: runnable-via-scaffold. CEE (#612) rides a scaffold intent on
   // the readiness response; when it will draft the remaining options the graph
   // is runnable despite can_run_analysis being false. Both the footer and the
@@ -203,20 +208,47 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const willScaffoldOptions = readinessWillScaffold(readiness)
   const scaffoldOptionCount = readiness?.scaffold_plan?.option_count
 
+  // ⭐ ONE READINESS ANSWER FOR THE WHOLE PANEL (19 Aug 2026).
+  //
+  // This hook used to compute its own: `readiness.can_run_analysis ||
+  // willScaffoldOptions`, read straight off the SIDE-CAR verdict. The comment
+  // that stood here said its purpose was that "the footer agree with the run
+  // gate (canRunAnalysis util)" — a hand-maintained agreement between two
+  // expressions, which is the mirror this estate keeps paying for (trap 12).
+  //
+  // It came due the moment the gate gained a superseding authority: the mounted
+  // spec caught an ENABLED "Analyse first pass" button sitting directly beneath
+  // the line "Not ready for analysis yet". Same defect class as the blocker this
+  // lane was opened for, created by fixing it one layer up.
+  //
+  // So the panel now asks `readinessObjectsToRun` — the SAME predicate the gate
+  // and the dispatch barrier ask — instead of restating it. Three surfaces, one
+  // definition, and no expression left here to drift.
+  //
+  // ⚠ The tri-state is preserved and it matters. `null` means NOBODY has
+  // answered — not the producer, not the side-car — and the footer's first arm
+  // depends on it to avoid claiming anything about an unassessed model. It is
+  // deliberately NOT `readiness == null` alone any more: a producer verdict IS
+  // an answer, so a panel that had one would otherwise report itself as still
+  // waiting to hear.
+  const nothingHasAnswered = readiness == null && analysisReadiness == null
+  const canRun = nothingHasAnswered ? null : !readinessObjectsToRun(readiness, analysisReadiness)
+
   const ladder = useMemo(
     () =>
       computeLadder({
         goalPresent: facts.goalNode != null,
         successSet: success.isSet,
         topUncalibrated: top,
-        canRunAnalysis: readiness ? readiness.can_run_analysis : null,
+        // The one value, not a second read of the side-car field.
+        canRunAnalysis: canRun,
         readinessExplanation: readiness?.confidence_explanation
           ? guardCeeText(readiness.confidence_explanation, LADDER_COPY.readiness_fallback).text
           : null,
         willScaffoldOptions,
         scaffoldOptionCount,
       }),
-    [facts.goalNode, success.isSet, top, readiness, willScaffoldOptions, scaffoldOptionCount],
+    [facts.goalNode, success.isSet, top, canRun, readiness, willScaffoldOptions, scaffoldOptionCount],
   )
 
   const narrowFramingDetail = useMemo(() => {
@@ -335,9 +367,6 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // every other slice.
   const contested = useMemo(() => computeContestedRows(nodes, edges), [nodes, edges])
 
-  // UI-SEM-091: effective runnable ORs the scaffold intent, so advanced.canRun
-  // and the footer agree with the run gate (canRunAnalysis util).
-  const canRun = readiness ? readiness.can_run_analysis || willScaffoldOptions : null
   const footer = useMemo(() => {
     // ── No verdict: say so, and claim nothing ────────────────────────
     //
@@ -358,13 +387,19 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     // shape, which the readinessStore header records as ZERO graph-readiness
     // requests in three of four witnessed guest sessions).
     //
-    // Deliberately keyed on `readiness == null` ALONE, not on
-    // `readiness == null && readinessError == null`. When an error IS recorded
-    // the outage arm in PanelFooter outranks this value anyway, so the extra
-    // conjunct buys nothing — and omitting it means a null verdict can never
-    // produce an availability claim by any route, which is the fail-safe
-    // direction. The run gate is untouched: unknown does not object.
-    if (readiness == null) {
+    // Deliberately NOT keyed on `readinessError == null`. When an error IS
+    // recorded the outage arm in PanelFooter outranks this value anyway, so the
+    // extra conjunct buys nothing — and omitting it means an unanswered verdict
+    // can never produce an availability claim by any route, which is the
+    // fail-safe direction. The run gate is untouched: unknown does not object.
+    //
+    // ⚠ AMENDED 19 Aug 2026. This used to read `readiness == null` ALONE, and
+    // that sentence was written when the side-car was the only thing that could
+    // answer. It is now `nothingHasAnswered` — BOTH authorities silent — because
+    // a producer verdict IS an answer, and a panel holding one that reported
+    // itself as still waiting to hear would be a false claim of the same family
+    // as the one this lane deleted, just in the humble direction.
+    if (nothingHasAnswered) {
       return {
         dot: 'warning' as const,
         headline: FOOTER_COPY.readinessPending,
@@ -374,7 +409,11 @@ export function usePreAnalysisModel(): PreAnalysisModel {
 
     // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
     // remaining options — disclose the draft, never the not-ready copy.
-    if (readiness?.can_run_analysis === false && willScaffoldOptions) {
+    // Scaffold intent is a SIDE-CAR field, so this disclosure belongs to the
+    // side-car branch. Once the producer has stated readiness the side-car is
+    // superseded, and announcing a draft it licensed would be a claim from an
+    // authority that no longer decides.
+    if (analysisReadiness == null && readiness?.can_run_analysis === false && willScaffoldOptions) {
       return {
         dot: 'warning' as const,
         headline: FOOTER_COPY.ready,
@@ -385,6 +424,19 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       }
     }
     if (canRun === false) {
+      // The reason comes from the authority that DECIDED, never from the other
+      // one — the same rule the gate applies. `PanelFooter` overrides this whole
+      // value while the gate is shut (it renders the gate's own composed
+      // sentence), so in practice this arm is only reachable if the two ever
+      // disagree; composing it from the deciding authority means that even then
+      // the two cannot tell different stories about one state.
+      if (analysisReadiness) {
+        return {
+          dot: 'muted' as const,
+          headline: FOOTER_COPY.notReady,
+          subline: composeAnalysisBlockedReason(analysisReadiness.blockers),
+        }
+      }
       const explanation = readiness?.confidence_explanation?.trim()
       return {
         dot: 'muted' as const,
@@ -408,11 +460,16 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     }
   }, [
     canRun,
+    nothingHasAnswered,
+    // Read directly by two arms now (the scaffold guard and the not-ready
+    // subline), so it is a first-class input to this memo, not a value `canRun`
+    // can stand in for.
+    analysisReadiness,
     willScaffoldOptions,
     scaffoldOptionCount,
     success.isSet,
     top,
-    // The null/non-null transition is what the new first branch turns on.
+    // The null/non-null transition is what the first branch turns on.
     // `canRun` already tracks it (null → boolean), but depending on the
     // verdict itself keeps the memo's inputs honest rather than relying on a
     // derived value to stand in for it.

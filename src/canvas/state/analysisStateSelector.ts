@@ -57,6 +57,7 @@ import type {
 } from '@talchain/schemas/boundary'
 
 import { useCanvasStore } from '../store'
+import type { AnalysisReadinessAuthority } from '../utils/canRunAnalysis'
 import {
   classifyFreshnessForDisplay,
   resolveDisplayedFreshness,
@@ -724,4 +725,47 @@ export function useAnalysisState(): ComposedAnalysisState {
       ceeAnalysisReadyStatus,
     ],
   )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE RUN GATE'S READ OF THE PRODUCER'S READINESS (19 Aug 2026).
+//
+// `useAnalysisState()` above already exposes this as `readinessStatus` /
+// `readinessBlockers`, and until this date NOTHING IN THE PRODUCT READ EITHER —
+// a canonical verdict computed by CEE, carried on every turn, parsed, stored,
+// and unconsumed, while the Analyse control was gated by a side-car assessment
+// that could and did disagree with it.
+//
+// This narrower accessor exists so the gate reads the authority WITHOUT paying
+// for the full composition (the run gate is evaluated on every canvas render,
+// including drag frames) and, more importantly, so no surface reads
+// `s.analysisStateV1.readiness` directly. It DERIVES NOTHING: it reshapes two
+// producer fields and stops. Anything that decides something about them belongs
+// in `canRunAnalysis`, which is where the one predicate lives.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The producer's readiness verdict for the run gate, or `null` when the wire
+ * stated none.
+ *
+ * ⚠ `null` MEANS NOT STATED, and that is a third state, not a negative one. A
+ * consumer must not read it as "nothing is blocking" (that is `blockers: []`)
+ * nor as "something is". `canRunAnalysis` is the only place entitled to decide
+ * what to do about it, and it falls back to the side-car verdict — the
+ * pre-0.46 behaviour, byte-for-byte.
+ */
+export function selectAnalysisReadinessAuthority(
+  analysisState: AnalysisStateV1 | null,
+): AnalysisReadinessAuthority | null {
+  if (analysisState === null) return null
+  return {
+    status: analysisState.readiness.status,
+    blockers: analysisState.readiness.blockers,
+  }
+}
+
+/** Hook form. Memoised on the store slice, so it is stable across renders. */
+export function useAnalysisReadinessAuthority(): AnalysisReadinessAuthority | null {
+  const analysisState = useCanvasStore((s) => s.analysisStateV1)
+  return useMemo(() => selectAnalysisReadinessAuthority(analysisState), [analysisState])
 }

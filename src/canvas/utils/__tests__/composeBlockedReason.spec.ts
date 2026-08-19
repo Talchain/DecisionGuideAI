@@ -345,6 +345,21 @@ describe('AMENDMENT A1 — the composed sentence is VETTED, never rewritten', ()
       // other and must classify as composed-safe, or the footer would degrade it
       // to the non-committal fallback and the staleness disclosure would vanish.
       staleRecheck: [BLOCKED_REASON_COPY.staleRecheck],
+      // The canonical rungs (19 Aug 2026) — the producer's own readiness
+      // blockers. Same obligation as every rung above: composed copy that the
+      // footer must render VERBATIM, never degrade to the fallback.
+      canonicalOneBlocker: [
+        BLOCKED_REASON_COPY.canonicalOneBlocker('Move billing to edge computing'),
+        BLOCKED_REASON_COPY.canonicalOneBlocker('Extend the free trial'),
+      ],
+      canonicalTwoBlockers: [
+        BLOCKED_REASON_COPY.canonicalTwoBlockers('Buy a vendor platform', 'Build in house'),
+      ],
+      canonicalManyBlockers: [
+        BLOCKED_REASON_COPY.canonicalManyBlockers(1),
+        BLOCKED_REASON_COPY.canonicalManyBlockers(3),
+        BLOCKED_REASON_COPY.canonicalManyBlockers(12),
+      ],
     }
     expect(Object.keys(samples).sort()).toEqual(Object.keys(BLOCKED_REASON_COPY).sort())
 

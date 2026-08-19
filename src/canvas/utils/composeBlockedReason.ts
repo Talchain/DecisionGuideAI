@@ -34,6 +34,8 @@
  *       does not license must not be made.
  */
 
+import type { AnalysisBlocker } from '@talchain/schemas/boundary'
+
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import {
   containsBannedTerm,
@@ -138,6 +140,49 @@ export const BLOCKED_REASON_COPY = {
    * it to stand in for them. It is transient by construction: the refetch it
    * describes is already debounced and in flight.
    */
+  /**
+   * ── THE CANONICAL RUNGS (19 Aug 2026) ───────────────────────────────────
+   *
+   * The three above them render the SIDE-CAR verdict's structured fields. These
+   * three render the PRODUCER's own `analysis_state.readiness.blockers`, and
+   * they exist because that list answers a question the side-car fields cannot:
+   * it is itemised, and every entry carries its own scope.
+   *
+   * ⚠ THEY DELIBERATELY DO NOT REUSE `oneOption`/`twoOptions`/`manyOptions`.
+   * Those sentences assert a SPECIFIC cause — "has no effect values yet, tell
+   * Olumi what it changes" — which an `AnalysisBlocker` may not support: the
+   * list also carries goal-scoped and factor-scoped entries. Borrowing a
+   * sentence because it is the right SHAPE is how this module acquired the
+   * false claims its header records.
+   *
+   * ⚠ AND THEY DO NOT QUOTE `blocker.message`. That is producer PROSE, and this
+   * module's founding rule is that user-facing copy is composed from STRUCTURED
+   * fields, never derived from the engine's sentences — parsing or passing
+   * through prose is the same hand-maintained mirror in a new place. What is
+   * quoted is `option_label` / `factor_label`: the user's OWN words about their
+   * own decision, vetted by `safeDisplayLabel` exactly as the option rungs vet
+   * theirs.
+   *
+   * The claim each one makes is deliberately thin — the element is not ready,
+   * and the chat can say what it needs. It is true for every blocker category
+   * the contract admits, which is what qualifies it to stand for all of them.
+   */
+  /** One blocker, scoped to an element we can quote by name. */
+  canonicalOneBlocker: (label: string) =>
+    `"${label}" is not ready for analysis yet. Ask in the chat what it needs.`,
+  /** Two blockers, both quotable. */
+  canonicalTwoBlockers: (first: string, second: string) =>
+    `"${first}" and "${second}" are not ready for analysis yet. Ask in the chat what they need.`,
+  /**
+   * Count-only rung: three or more, or any count whose scope labels could not
+   * be quoted. The number is the PRODUCER's own list length — still a fact
+   * drawn from the verdict, just a less specific one. Never zero: the caller
+   * only composes when the list is non-empty.
+   */
+  canonicalManyBlockers: (n: number) =>
+    n === 1
+      ? '1 part of your model is not ready for analysis yet. Ask in the chat what it needs.'
+      : `${n} parts of your model are not ready for analysis yet. Ask in the chat what they need.`,
   staleRecheck:
     'Your model changed since the last check. Olumi is checking again, which takes a moment.',
 } as const
@@ -367,6 +412,50 @@ export function composeReadinessBlockedReason(
   return BLOCKED_REASON_COPY.unspecified
 }
 
+/**
+ * Compose the refusal from the PRODUCER's own readiness blockers.
+ *
+ * The counterpart to `composeReadinessBlockedReason`, for the authority that
+ * supersedes it. Same rule, one layer up: name the remedy when the structured
+ * fields support it, and degrade only to a LESS SPECIFIC TRUE claim — never to
+ * a different one.
+ *
+ * ⚠ THE EMPTY LIST IS NOT A REFUSAL AND MUST NEVER REACH HERE. The contract is
+ * explicit that `blockers: []` is a POSITIVE claim — the producer assessed
+ * readiness and found nothing blocking — so a caller composing a refusal from
+ * an empty list has already decided something this function cannot justify.
+ * The guard below returns the non-committal rung rather than inventing a cause,
+ * but the real protection is `readinessObjectsToRun`, which never asks.
+ *
+ * Scope labels only, never `blocker.message`: see the rung docs above.
+ */
+export function composeAnalysisBlockedReason(
+  blockers: readonly AnalysisBlocker[],
+): string {
+  if (blockers.length === 0) return BLOCKED_REASON_COPY.unspecified
+
+  // `option_label` and `factor_label` are the two scopes the contract carries.
+  // Read in that order because an option is the more actionable of the two and
+  // the one the user chose the words for; a blocker scoped to neither has no
+  // name to give and falls to the count.
+  const labelled = blockers
+    .map((b) => b.option_label ?? b.factor_label ?? '')
+    .map((raw) => (raw.trim().length > 0 ? safeDisplayLabel(raw) : null))
+    .filter((label): label is string => label !== null)
+
+  if (blockers.length === 1 && labelled.length === 1) {
+    return BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])
+  }
+  if (blockers.length === 2 && labelled.length === 2) {
+    return BLOCKED_REASON_COPY.canonicalTwoBlockers(labelled[0], labelled[1])
+  }
+  // A2's rule, inherited: the count published is the VERDICT's own list length,
+  // never the length of the sub-list we managed to quote. Publishing the latter
+  // would understate the work outstanding by exactly the number of entries we
+  // could not name.
+  return BLOCKED_REASON_COPY.canonicalManyBlockers(blockers.length)
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // A1 — the render path must VET this copy, never REWRITE it.
 //
@@ -433,6 +522,16 @@ function composedPatterns(): RegExp[] {
     BLOCKED_REASON_COPY.goalMissing,
     BLOCKED_REASON_COPY.tooFewOptions,
     BLOCKED_REASON_COPY.unspecified,
+    // The canonical rungs. Omitting them here would degrade every
+    // producer-sourced refusal to the footer's non-committal fallback at the
+    // render seam — i.e. it would re-create the exact false sentence this lane
+    // was opened to delete, one layer further down. The sample-matrix spec
+    // fails loud if a rung is added without a sample, which is why that spec
+    // asserts coverage of every key.
+    BLOCKED_REASON_COPY.canonicalOneBlocker(LABEL_SLOT),
+    BLOCKED_REASON_COPY.canonicalTwoBlockers(LABEL_SLOT, SECOND_LABEL_SLOT),
+    BLOCKED_REASON_COPY.canonicalManyBlockers(1),
+    BLOCKED_REASON_COPY.canonicalManyBlockers(COUNT_SLOT),
     // ROADMAP 2.635 (I-3). Omitting it here would have been the exact failure
     // this function's docstring warns about: an unrecognised composed sentence
     // classifies as `foreign` and the render path degrades it to the surface's

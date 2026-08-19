@@ -37,8 +37,11 @@
  */
 
 import { draftValuesAreUnsettled, type DraftStreamPhase } from '../stores/draftStore'
+import type { AnalysisBlocker } from '@talchain/schemas/boundary'
+
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import {
+  composeAnalysisBlockedReason,
   composeReadinessBlockedReason,
   type OptionNeedingValues,
 } from './composeBlockedReason'
@@ -121,11 +124,62 @@ export interface GraphHealthState {
   }>
 }
 
+/**
+ * ⭐ THE CANONICAL READINESS AUTHORITY — `analysis_state.readiness`, as the
+ * PRODUCER stated it on this turn (contract `@talchain/schemas/boundary`).
+ *
+ * ── WHY IT IS HERE, AND WHY THE OTHER ONE IS NOW SUBORDINATE ──────────────
+ * Until 19 Aug 2026 this gate had exactly one readiness input: the SIDE-CAR
+ * verdict fetched from `/bff/cee/graph-readiness` and held in `readinessStore`.
+ * Two notions of "ready" therefore existed under one name, and on the frozen
+ * quartet they DISAGREED on a fresh user's very first model:
+ *
+ *   analysis_state.readiness = { status: 'ready', blockers: [] }   ← producer
+ *   readinessStore.readiness.can_run_analysis = false              ← side-car
+ *
+ * The gate asked the side-car, closed, and — because that verdict carried no
+ * structured cause — explained itself with `BLOCKED_REASON_COPY.unspecified`:
+ * *"Olumi needs something more from this model before the next analysis."* The
+ * producer had just said nothing was missing. The product asserted an untruth
+ * about the user's own model and offered a chat route that was itself a no-op.
+ *
+ * ── THE RULE (Paul, binding): name the owner, SUPERSEDE the competitor ─────
+ * `analysis_state.readiness` is the owner. When it is STATED, the side-car
+ * verdict is NOT CONSULTED — not weighted, not OR-ed, not used as a tiebreak.
+ * When it is ABSENT (`null`), the side-car answers exactly as before. That is
+ * the same feature-detected precedence `analysisStateSelector` already applies
+ * to every other analysis truth, and it is why this change is a no-op for every
+ * pre-0.46 fixture in the suite: they carry no `analysis_state`.
+ *
+ * ⚠ `blockers` IS THE PREDICATE, NOT `status`. The contract: an empty list "is
+ * a POSITIVE claim: the producer assessed readiness and found nothing
+ * blocking", while `status` is a producer-owned free-string code a consumer
+ * maps to its own copy. Gating on a status whose cause we cannot name would
+ * re-create the very refusal-without-a-reason this exists to delete — and a run
+ * the producer then declines still refuses WITH a stated reason, which is
+ * strictly better than a control that lies about why it is dead.
+ */
+export interface AnalysisReadinessAuthority {
+  /** The producer's readiness status code. Carried for callers; never gates. */
+  readonly status: string
+  /**
+   * Everything standing between the model and an analysable state, itemised
+   * with per-option and per-factor scope. `[]` is a POSITIVE finding.
+   */
+  readonly blockers: readonly AnalysisBlocker[]
+}
+
 export interface CanRunAnalysisParams {
   /** Graph health from validation */
   graphHealth: GraphHealthState | null
   /** Graph readiness from CEE */
   readiness: GraphReadiness | null
+  /**
+   * ⭐ The canonical authority (above). `null`/omitted = NOT STATED, which is a
+   * different fact from "stated, and nothing is blocking" — collapsing the two
+   * is how an absence becomes a fabricated finding.
+   */
+  analysisReadiness?: AnalysisReadinessAuthority | null
   /** Whether there are critical/blocking actions */
   hasBlockers: boolean
   /** Number of nodes in graph */
@@ -240,7 +294,26 @@ export function readinessWillScaffold(readiness: GraphReadiness | null | undefin
  * exactly what POC-DONE's PC1 forbids. A truthful "we could not check, you can
  * still run" is not a dead end; a false "you cannot run" is.
  */
-export function readinessObjectsToRun(readiness: GraphReadiness | null | undefined): boolean {
+export function readinessObjectsToRun(
+  readiness: GraphReadiness | null | undefined,
+  analysisReadiness?: AnalysisReadinessAuthority | null,
+): boolean {
+  // ⭐ SUPERSESSION, APPLIED ONCE, HERE (19 Aug 2026).
+  //
+  // The precedence lives inside the ONE predicate rather than at the two call
+  // sites, for the same reason the predicate itself exists (I-5): the render
+  // gate and the dispatch barrier both ask this question, and a precedence rule
+  // written twice is the hand-maintained mirror that drifts in the permissive
+  // direction. Putting it here also makes the supersession un-bypassable — a
+  // future caller cannot accidentally get the old answer by forgetting a
+  // clause, because there is no clause to forget.
+  //
+  // Note what this deliberately does NOT do: it does not consult `readiness`
+  // at all once the producer has spoken. A conjunction or a disjunction here
+  // would be a PARALLEL RULE — two authorities kept in a relationship — which
+  // is exactly the shape that produced the defect.
+  if (analysisReadiness) return analysisReadiness.blockers.length > 0
+
   return Boolean(readiness) && !readiness!.can_run_analysis && !readinessWillScaffold(readiness)
 }
 
@@ -295,7 +368,7 @@ export const RUN_LICENCE_SUPERSEDED_REFUSAL =
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, analysisReadiness = null, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
 
@@ -400,13 +473,29 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // asserts a fact the panel's own counts could contradict.
   // ROADMAP 2.635 (I-5) — the rung's predicate is `readinessObjectsToRun`, so
   // the dispatch barrier can ask the SAME question without re-implementing it.
-  if (readinessObjectsToRun(readiness)) {
-    // ROADMAP 2.635 (I-3) — the staleness mark travels WITH the verdict into
-    // the composer. It is passed through rather than pre-derived here, for the
-    // same reason `draftStreamPhase` is (2.122): a predicate re-derived at each
-    // call site is a hand-maintained mirror, and the mutant that drops one
-    // clause from it survives.
-    const composed = composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)
+  if (readinessObjectsToRun(readiness, analysisReadiness)) {
+    // ⭐ The reason comes from WHICHEVER AUTHORITY DECIDED, never from the other
+    // one. A refusal explained by a verdict that did not make it is the
+    // two-questions-one-name defect wearing the fix's clothes: the gate would
+    // be right and the sentence beneath it would be about a different
+    // assessment. `readinessObjectsToRun` chose above; this chooses the same
+    // way, from the same value, one line later.
+    //
+    // ⚠ `readinessStale` is deliberately NOT forwarded on the canonical branch.
+    // It is `readinessStore.stale` — a fact about the SIDE-CAR's evidence, not
+    // about the producer's. Letting it rewrite a producer-stated refusal into
+    // "Olumi is checking again" would re-mix the two authorities in the very
+    // act of separating them, and would claim a refetch is in flight for a
+    // verdict no refetch will touch.
+    //
+    // ROADMAP 2.635 (I-3) — on the legacy branch the staleness mark still
+    // travels WITH the verdict into the composer, passed through rather than
+    // pre-derived here, for the same reason `draftStreamPhase` is (2.122): a
+    // predicate re-derived at each call site is a hand-maintained mirror, and
+    // the mutant that drops one clause from it survives.
+    const composed = analysisReadiness
+      ? composeAnalysisBlockedReason(analysisReadiness.blockers)
+      : composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)
     }

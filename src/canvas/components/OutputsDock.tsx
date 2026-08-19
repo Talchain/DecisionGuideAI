@@ -156,6 +156,10 @@ import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+import {
+  selectAnalysisReadinessAuthority,
+  useAnalysisReadinessAuthority,
+} from '../state/analysisStateSelector'
 // ROADMAP 2.635 (I-4) — read at DISPATCH time, not via a render-scope selector:
 // the whole point of the licence barrier is to see the store as it is when the
 // run actually goes out, not as it was when the gate was computed.
@@ -1081,6 +1085,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // ROADMAP 2.635 — `stale` feeds the gate's COPY (I-3) and `verdictAtMs`
   // identifies WHICH verdict licensed a run (I-4).
   const { readiness, stale: readinessStale, verdictAtMs: readinessVerdictAtMs } = useGraphReadiness()
+  // ⭐ The CANONICAL readiness authority — `analysis_state.readiness`, stated by
+  // the producer on the turn. Read beside the side-car verdict deliberately: the
+  // two used to be one name with two meanings, and seeing them on adjacent lines
+  // is the cheapest possible reminder of which one decides. `canRunAnalysis`
+  // applies the precedence; this surface never does.
+  const analysisReadiness = useAnalysisReadinessAuthority()
 
   // C1 review: the orphan-banner footer suppression is GONE. It rested on a
   // premise that is false at this ref — it claimed the footer would carry
@@ -1144,6 +1154,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
+    analysisReadiness,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
@@ -1220,12 +1231,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // `readinessObjectsToRun`, the gate's own rung predicate, so there is still
     // exactly one definition of what a readiness objection is (I-5).
     const licenceAtDispatch = useReadinessStore.getState()
+    // Re-read at DISPATCH time, not closed over from render: the flush above is
+    // a real window and a fresh turn can land inside it. Reading the render-time
+    // value here would answer with a verdict the store may have already replaced.
+    const analysisReadinessAtDispatch = selectAnalysisReadinessAuthority(
+      useCanvasStore.getState().analysisStateV1,
+    )
     if (
       verdictLicenceSuperseded(licensedByVerdict, {
         verdictAtMs: licenceAtDispatch.verdictAtMs,
         stale: licenceAtDispatch.stale,
       }) &&
-      readinessObjectsToRun(licenceAtDispatch.readiness)
+      // ⭐ Same precedence at the barrier as at the gate. Without the second
+      // argument this asks the SIDE-CAR about a run the PRODUCER licensed, so a
+      // gate that correctly opened would be re-refused between the click and
+      // the wire — the silent-death class, re-created by omission.
+      readinessObjectsToRun(licenceAtDispatch.readiness, analysisReadinessAtDispatch)
     ) {
       console.warn('[OutputsDock] run licence superseded before dispatch', {
         licensedByVerdictAtMs: licensedByVerdict.verdictAtMs,
