@@ -23,6 +23,7 @@ import {
   describeModelBuildingNoticeKind,
   extractModelBuildingNoticesSidecar,
   modelBuildingNoticesSummary,
+  toModelBuildingNoticesView,
   MODEL_BUILDING_NOTICES_POINTER,
 } from '../modelBuildingNotices'
 
@@ -153,15 +154,63 @@ describe('modelBuildingNotices copy — ⭐ user-facing strings stay human', () 
     expect(MODEL_BUILDING_NOTICES_POINTER).not.toMatch(/click|button|below|press/i)
   })
 
-  it('an unnameable kind is dropped from rows while total_count is preserved', () => {
-    // Documented divergence: the headline is the PRODUCER's count; rows are
-    // only what this UI can phrase. Asserted here so a future edit that
-    // "fixes" the mismatch by shrinking total_count REDs.
+  it('preserves the producer total and the producer row order on a fully nameable payload', () => {
     const view = extractModelBuildingNoticesSidecar({ model_building_notices: VALID })
     expect(view?.totalCount).toBe(3)
     expect(view?.rows.map((r) => r.kind)).toEqual([
       'detail_not_connected',
       'relationship_not_used',
     ])
+  })
+})
+
+/**
+ * ⭐ THE UNNAMEABLE-KIND BRANCH, AND WHY IT NEEDS ITS OWN ENTRY POINT.
+ *
+ * A mutant that made `toModelBuildingNoticesView` render unnameable kinds as
+ * the string "unknown" SURVIVED the first version of this suite. The survivor
+ * was not equivalent — it exposed a real hole, and the hole was in a test whose
+ * NAME claimed the drop while its FIXTURE contained only nameable kinds, so it
+ * could never observe one (CLAUDE.md trap 19: an assertion that passes on the
+ * wrong object).
+ *
+ * The branch is unreachable through `extractModelBuildingNoticesSidecar` BY
+ * CONSTRUCTION — the schema's kind enum is closed, so an unknown kind fails
+ * `safeParse` and never reaches the shaper. It is defensive against a future
+ * schema bump that widens the enum before this UI adds a phrasing for the new
+ * member. That is a real, reachable future state, so the branch stays and is
+ * exercised HERE, at the shaper, which is the only entry point that can reach
+ * it. The cast is deliberate and is the point of the test.
+ */
+describe('toModelBuildingNoticesView — ⭐ the unnameable-kind drop', () => {
+  it('drops an unnameable kind from rows while preserving the PRODUCER total', () => {
+    const view = toModelBuildingNoticesView({
+      total_count: 5,
+      groups: [
+        { kind: 'detail_not_connected', count: 2 },
+        // A member this UI has no phrasing for — the future-enum case.
+        { kind: 'a_kind_added_after_this_ui' as never, count: 3 },
+      ],
+      details_redacted: true,
+    })
+    // The row is gone...
+    expect(view.rows.map((r) => r.kind)).toEqual(['detail_not_connected'])
+    // ...and NOTHING renders its code under any substitute label.
+    expect(view.rows.every((r) => !r.description.includes('_'))).toBe(true)
+    expect(view.rows.map((r) => r.description)).not.toContain('unknown')
+    // ...while the headline stays the producer's number, not a re-derived one.
+    // Shrinking this to 2 would misreport the producer; that is the divergence
+    // the renderer is written to keep honest.
+    expect(view.totalCount).toBe(5)
+  })
+
+  it('yields zero rows when NO kind is nameable, leaving the renderer nothing to claim', () => {
+    const view = toModelBuildingNoticesView({
+      total_count: 4,
+      groups: [{ kind: 'another_future_kind' as never, count: 4 }],
+      details_redacted: true,
+    })
+    expect(view.rows).toHaveLength(0)
+    expect(view.totalCount).toBe(4)
   })
 })

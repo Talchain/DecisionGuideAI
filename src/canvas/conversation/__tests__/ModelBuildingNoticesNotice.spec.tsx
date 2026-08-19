@@ -181,6 +181,29 @@ describe('ModelBuildingNoticesNotice — ⭐ no raw wire vocabulary reaches the 
   })
 })
 
+describe('ModelBuildingNoticesNotice — ⭐ a headline with no nameable row is silence', () => {
+  it('renders NOTHING when every kind is unnameable, rather than a bare count', () => {
+    // "Olumi left 4 things out" with no breakdown and no route is a dead end by
+    // the product's own definition — it reports a loss the user cannot act on.
+    // Reached only via a future enum widening (see the wire spec), so it is
+    // built through the shaper with a cast, exactly as that suite does.
+    const unnameable = toModelBuildingNoticesView({
+      total_count: 4,
+      groups: [{ kind: 'a_kind_added_after_this_ui' as never, count: 4 }],
+      details_redacted: true,
+    })
+    const { container } = render(
+      <MessageBubble
+        message={makeMsg({ modelBuildingNotices: unnameable })}
+        onChipClick={noop}
+      />,
+    )
+    expect(screen.queryByTestId('model-building-notices')).toBeNull()
+    expect(container.textContent).not.toMatch(/out of this model/i)
+    expect(container.textContent).not.toContain('a_kind_added_after_this_ui')
+  })
+})
+
 describe('ModelBuildingNoticesNotice — ⭐ progressive disclosure', () => {
   it('collapsed by default: the summary shows, the breakdown and pointer do not', () => {
     render(
