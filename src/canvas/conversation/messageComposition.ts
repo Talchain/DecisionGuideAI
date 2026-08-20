@@ -94,6 +94,7 @@
  *    silently absorbed.
  */
 import type { ConversationBlock, GraphPatchBlock } from './types'
+import { readDecisionReviewWireState } from '../../v5/decisionReviewAdapter'
 import { isLensCompanionBlock } from './phase3Pacing'
 import {
   isGraphPatchApplied,
@@ -763,18 +764,76 @@ export function turnDeliversNarrativeAsTypedCard(
   blocks: readonly ConversationBlock[] | undefined,
 ): boolean {
   if (!blocks || blocks.length === 0) return false
-  return blocks.some((block) => {
-    // `v5_review_card` ONLY. The legacy `review_card` was in this condition
-    // and was UNREACHABLE: `ReviewCardBlock` (types.ts) carries
-    // title/body/variant/tone/priority and has NO `card_kind` at all, so the
-    // kind test below could never pass for it. A dead branch in a predicate
-    // reads as coverage of a case that cannot occur — removed rather than
-    // left to imply the legacy shape was considered and handled.
-    if (block.type !== 'v5_review_card') return false
-    if (block.card_kind !== NARRATIVE_REVIEW_CARD_KIND) return false
+
+  let cardBody: string | null = null
+  for (const block of blocks) {
+    // `v5_review_card` ONLY — and that is the POST-ADAPTER type, not the wire
+    // type. CEE sends `type: "review_card"` with `card_kind: "narrative"`
+    // (`phase3-blocks.ts:2544-2545`); `adaptTypedReviewCardBlock`
+    // (`src/v5/phase3TypedBlocks.ts:104-131`) accepts that wire type and
+    // re-emits it as `v5_review_card`, carrying `card_kind` through verbatim.
+    // Comparing this constant against CEE's wire literal therefore compares
+    // across a translation boundary and reads as a mismatch that is not one.
+    // `narrativeChannelContract.spec.ts` pins both ends against the shared
+    // contract so a real divergence REDs.
+    //
+    // The legacy `review_card` was in this condition and was UNREACHABLE:
+    // the UI's own `ReviewCardBlock` (types.ts) carries
+    // title/body/variant/tone/priority and has NO `card_kind` at all.
+    if (block.type !== 'v5_review_card') continue
+    if (block.card_kind !== NARRATIVE_REVIEW_CARD_KIND) continue
     const body: unknown = block.body
-    return typeof body === 'string' && body.trim().length > 0
-  })
+    if (typeof body === 'string' && body.trim().length > 0) {
+      cardBody = body
+      break
+    }
+  }
+  if (cardBody === null) return false
+
+  // ── COMPLETENESS ────────────────────────────────────────────────────────
+  // Presence of the card is not delivery of the narrative. CEE builds the
+  // body as `truncate(narrative_summary, 300)`
+  // (`phase3-blocks.ts:2529`, cap at `:214`), while `narrative_summary`
+  // is uncapped free prose at every hop. When the narrative overruns, the
+  // card carries a PREFIX — and withholding the untyped copy in favour of it
+  // renders the tail NOWHERE.
+  //
+  // The rule this file already states, on the no-card twin, is that absence
+  // of the card may only ever cost a DUPLICATE, never a paragraph. The same
+  // rule decides this: a card that carries only part of the narrative has
+  // not delivered it, so the complete copy stands. The cost is a
+  // near-duplicate on long narratives; the alternative is deleting the end
+  // of the producer's own paragraph.
+  //
+  // Deliberately CONTAINMENT, not equality: a future producer that frames the
+  // narrative inside a longer body still delivers it in full. And the check
+  // only ever flips the answer to false on POSITIVE evidence of a short body
+  // — when the turn carries no readable narrative to compare against, the
+  // structural verdict stands unchanged.
+  const narrative = turnNarrativeSummary(blocks)
+  if (narrative === null) return true
+  return cardBody.trim().includes(narrative.trim())
+}
+
+/**
+ * The turn's `narrative_summary`, read through the SAME canonical adapter the
+ * analysis-result card renders from (`readDecisionReviewWireState`), so the
+ * two can never disagree about what the untyped copy would say. A second
+ * hand-rolled path-walk into `enrichment.decision_review` would be exactly the
+ * parallel reader this platform keeps paying for.
+ *
+ * `null` when the turn carries no analysis-result block, no decision review,
+ * or no narrative prose — all of which mean there is nothing to lose.
+ */
+function turnNarrativeSummary(blocks: readonly ConversationBlock[]): string | null {
+  for (const block of blocks) {
+    if (block.type !== 'v5_analysis_result') continue
+    const state = readDecisionReviewWireState(block.enrichment)
+    if (state.kind !== 'v0_30') continue
+    const summary = state.review.narrative_summary
+    if (typeof summary === 'string' && summary.trim().length > 0) return summary
+  }
+  return null
 }
 
 /**

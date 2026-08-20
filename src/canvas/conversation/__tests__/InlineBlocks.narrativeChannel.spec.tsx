@@ -405,6 +405,158 @@ describe('Olumi copy assembly — the narrative channel renders once', () => {
   )
 
   /**
+   * ══ THE COMPLETENESS TWINS (UX gate 4b, second order) ══════════════════
+   *
+   * The routing above is STRUCTURAL: it withholds the untyped copy whenever a
+   * narrative card is present. That is right only while the card carries the
+   * WHOLE narrative. It does not always.
+   *
+   * CEE builds the card body as `truncate(narrative_summary, BODY_MAX)` with
+   * `BODY_MAX = 300` (`olumi-assistants-service`
+   * `src/orchestrator-v5/compose/phase3-blocks.ts:2529`, constant at `:214`
+   * via `COACHING_BLOCK_BODY_MAX`), appending an ellipsis when it cuts.
+   * `narrative_summary` itself is free LLM prose specified as "2-4 sentences"
+   * with NO cap at any hop — the shared contract's enrichment record is
+   * documented "deliberately open ... passes through verbatim", so nothing
+   * upstream bounds it.
+   *
+   * So a long-but-ordinary narrative yields a card carrying a PREFIX, while
+   * the only complete copy is the one the routing withholds — and the tail is
+   * then rendered NOWHERE. That inverts this file's own governing rule, stated
+   * on the twin below: absence of the card may only ever cost a DUPLICATE,
+   * never a paragraph. Here it costs the end of one.
+   *
+   * REACHABILITY, bounded by the producer rather than by imagination
+   * (trap 16-inverse): the corpus does not reach the cap — 176-264 chars
+   * across 8/8, a margin as thin as 36 characters — so no capture can pin
+   * this. But CEE's own prompt ships a canonical `narrative_summary` exemplar
+   * of 368 characters (`src/prompts/Versions /decision_review_prompt_v4_1.txt`
+   * :246), 68 over the cap. The producer's documented model of this field
+   * already exceeds what the card can carry.
+   *
+   * These tests are deliberately CAP-AGNOSTIC. They assert the UI's rule —
+   * "a card that carries only part of the narrative has not delivered it" —
+   * which is correct wherever the producer chooses to cut. Mirroring CEE's
+   * 300 here would be a hand-maintained copy of another repo's constant, the
+   * defect class this file already refuses elsewhere.
+   *
+   * Every string remains PRODUCER PROSE: the long narrative is two real
+   * capture narratives concatenated, never a sentence composed by this spec.
+   */
+  describe('completeness — a truncated card has not delivered the narrative', () => {
+    /** Two real producer narratives joined: long enough to be cut, all producer prose. */
+    function longNarrative(): string {
+      const a = liftCapture(CAPTURES[0]).narrativeSummary
+      const b = liftCapture(CAPTURES[1]).narrativeSummary
+      const joined = `${a} ${b}`
+      expect(joined.length).toBeGreaterThan(300)
+      return joined
+    }
+
+    /**
+     * The turn as the producer would send it when the narrative overruns the
+     * card: `narrative_summary` complete, card body cut to a prefix + ellipsis.
+     * The cut point is expressed as a FRACTION, not CEE's constant.
+     */
+    function truncatedCardTurn(): { blocks: ConversationBlock[]; full: string; shown: string } {
+      const { blocks } = liftCapture(CAPTURES[0])
+      const full = longNarrative()
+      const shown = `${full.slice(0, Math.floor(full.length * 0.6)).trimEnd()}\u2026`
+      expect(shown.length).toBeLessThan(full.length)
+
+      const next = blocks.map((b) => {
+        if (b.type === 'v5_analysis_result') {
+          const enrichment = b.enrichment as Record<string, unknown>
+          const review = enrichment.decision_review as Record<string, unknown>
+          return {
+            ...b,
+            enrichment: {
+              ...enrichment,
+              decision_review: { ...review, narrative_summary: full },
+            },
+          } as ConversationBlock
+        }
+        if (b.type === 'v5_review_card' && b.card_kind === NARRATIVE_REVIEW_CARD_KIND) {
+          return { ...b, body: shown } as ConversationBlock
+        }
+        return b
+      })
+      return { blocks: next, full, shown }
+    }
+
+    /**
+     * THE DEFECT. RED before the fix: the complete narrative appears zero
+     * times, because the card shows a prefix and the routing withheld the
+     * only complete copy.
+     */
+    it('a card carrying only a PREFIX does not suppress the complete copy', () => {
+      const { blocks, full } = truncatedCardTurn()
+      const { container } = render(<InlineBlocks blocks={blocks} turnId="t-trunc" />)
+      expect(countOccurrences(container.textContent ?? '', full)).toBe(1)
+    })
+
+    /** The tail is the part that vanished; name it directly, not just the whole. */
+    it('the TAIL past the producer\u2019s cut still reaches the user', () => {
+      const { blocks, full, shown } = truncatedCardTurn()
+      const tail = full.slice(shown.length - 1).trim()
+      expect(tail.length).toBeGreaterThan(20)
+      const { container } = render(<InlineBlocks blocks={blocks} turnId="t-tail" />)
+      expect(container.textContent ?? '').toContain(tail)
+    })
+
+    /** Nothing is deleted in exchange: the titled card still renders. */
+    it('the titled card still renders alongside the complete copy', () => {
+      const { blocks } = truncatedCardTurn()
+      const { container } = render(<InlineBlocks blocks={blocks} turnId="t-both" />)
+      expect(container.textContent).toContain('How the analysis reads')
+    })
+
+    /**
+     * OPPOSITE-DIRECTION TWIN (trap 22b). The fix must not re-open the
+     * duplicate: when the card carries the narrative IN FULL, the untyped
+     * copy stays withheld. Same construction, uncut body.
+     */
+    it('TWIN: a card carrying the narrative IN FULL still suppresses the copy', () => {
+      const { blocks } = liftCapture(CAPTURES[0])
+      const full = longNarrative()
+      const next = blocks.map((b) => {
+        if (b.type === 'v5_analysis_result') {
+          const enrichment = b.enrichment as Record<string, unknown>
+          const review = enrichment.decision_review as Record<string, unknown>
+          return {
+            ...b,
+            enrichment: {
+              ...enrichment,
+              decision_review: { ...review, narrative_summary: full },
+            },
+          } as ConversationBlock
+        }
+        if (b.type === 'v5_review_card' && b.card_kind === NARRATIVE_REVIEW_CARD_KIND) {
+          return { ...b, body: full } as ConversationBlock
+        }
+        return b
+      })
+      const { container } = render(<InlineBlocks blocks={next} turnId="t-full" />)
+      expect(countOccurrences(container.textContent ?? '', full)).toBe(1)
+      expect(
+        container.querySelector('[data-testid="v5-analysis-result-narrative-summary"]'),
+      ).toBeNull()
+    })
+
+    /**
+     * THE PRECONDITION PIN (trap 13b). These twins are only discriminating
+     * while the two bodies genuinely differ; if the construction ever stopped
+     * cutting, every assertion above would pass by testing nothing.
+     */
+    it('the probe really does cut the body (the twins discriminate)', () => {
+      const { full, shown } = truncatedCardTurn()
+      expect(shown).not.toEqual(full)
+      expect(full.startsWith(shown.slice(0, -1))).toBe(true)
+      expect(full.includes(shown)).toBe(false)
+    })
+  })
+
+  /**
    * THE NARROWNESS TWIN. Only the narrative channel is routed. The other
    * `decision_review` prose fields are NOT duplicated by any card (measured
    * 0/8) and must keep rendering in the analysis-result card exactly as
