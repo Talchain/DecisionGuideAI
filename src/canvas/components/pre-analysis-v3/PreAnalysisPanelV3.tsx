@@ -170,6 +170,10 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
         // is the surface that used to claim "Analysis available" about a model
         // nothing had assessed. It says so instead. Run authority is unchanged.
         readinessCheck={model.readinessCheck}
+        // The unanswered arm moved out of `model.footer` into the shared
+        // ladder when a second pre-run surface appeared; the flag rides here so
+        // this surface reaches it through the same owner the shell's bar does.
+        nothingHasAnswered={model.nothingHasAnswered}
       />
     </div>
   )

@@ -126,6 +126,11 @@ import { focusExistingTarget } from '../utils/focusHelpers'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
+import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
+import {
+  deriveReadinessCheck,
+  readinessNothingHasAnswered,
+} from './pre-analysis-v3/footer/readinessDisplay'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
 // Results Panel Redesign: v7 four-section layout components
@@ -1084,7 +1089,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // ROADMAP 2.635 — `stale` feeds the gate's COPY (I-3) and `verdictAtMs`
   // identifies WHICH verdict licensed a run (I-4).
-  const { readiness, stale: readinessStale, verdictAtMs: readinessVerdictAtMs } = useGraphReadiness()
+  const {
+    readiness,
+    stale: readinessStale,
+    verdictAtMs: readinessVerdictAtMs,
+    // `error` and `refresh` feed the readiness bar the shell hosts on the
+    // Olumi surface: the CHECK-failed arm outranks the gate copy there for
+    // the same reason it does on the Analysis footer, and Retry is the
+    // recovery that goes with it.
+    error: readinessError,
+    refresh: refreshReadiness,
+  } = useGraphReadiness()
   // ⭐ The CANONICAL readiness authority — `analysis_state.readiness`, stated by
   // the producer on the turn. Read beside the side-car verdict deliberately: the
   // two used to be one name with two meanings, and seeing them on adjacent lines
@@ -1174,6 +1189,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  // ── INPUTS FOR THE SHELL-HOSTED READINESS BAR ──────────────────────────────
+  // Both are DERIVED THROUGH THE PANEL'S OWN OWNER (`readinessDisplay.ts`), not
+  // restated here. `usePreAnalysisModel` builds the identical two values from
+  // the identical store fields; a second expression in this file is exactly the
+  // mirror that let the bar and the footer disagree in the first place.
+  const readinessCheckForBar = useMemo(
+    () =>
+      deriveReadinessCheck({
+        error: readinessError,
+        verdictRetained: readiness != null,
+        stale: readinessStale,
+        verdictAtMs: readinessVerdictAtMs,
+        retry: refreshReadiness,
+      }),
+    [readinessError, readiness, readinessStale, readinessVerdictAtMs, refreshReadiness],
+  )
+  const readinessUnanswered = readinessNothingHasAnswered(readiness, analysisReadiness)
   const showToast = useShowToastSafe()
 
   // Handle Run button click
@@ -3324,9 +3356,52 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             the footer stack below is flag-gated, and hosting the control there
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
-        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar === 'reanalyse' ? (
+        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' ? (
           <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
-            <ReanalyseBar onReanalyse={handleRunAnalysis} />
+            {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
+                `footerBar` and switches on its value; it does not test a tab id
+                and it does not grow a second, parallel condition beside the
+                first. Adding a value to that union without handling it here is
+                a TYPE ERROR (the `never` arm below), which is the same
+                mechanism `scroll`/`padding` use.
+
+                `readiness` exists because of a measured coherence defect: the
+                blocked Analysis footer tells the user *"Ask in the chat what
+                they need"*, and acting on it fronts the Olumi tab, whose
+                selection UNMOUNTS the pre-analysis subtree at
+                `effectiveActiveTab === 'results'` above. The advice removed its
+                own context. `AnalysisReadinessBar`'s header carries the
+                witness; `shellContract.ts`'s `footerBar` doc carries why the
+                fix is a footer declaration and NOT a change to that mount. */}
+            {(() => {
+              const bar = surfaceFor(effectiveActiveTab).footerBar
+              switch (bar) {
+                case 'reanalyse':
+                  return <ReanalyseBar onReanalyse={handleRunAnalysis} />
+                case 'readiness':
+                  return (
+                    <AnalysisReadinessBar
+                      preRunWithModel={isPreRun && nodes.length > 0}
+                      canRun={canRunAnalysis}
+                      blockedReason={runBlockedTooltip}
+                      isAnalysing={isRunning}
+                      readinessCheck={readinessCheckForBar}
+                      nothingHasAnswered={readinessUnanswered}
+                      onAnalyse={handleRunAnalysis}
+                    />
+                  )
+                // Unreachable through the guard above, and handled anyway so
+                // the `never` arm keeps meaning "a value was added to the union
+                // and nobody wired it" rather than "TypeScript cannot see the
+                // guard's narrowing through the second lookup".
+                case 'none':
+                  return null
+                default: {
+                  const exhaustive: never = bar
+                  return exhaustive
+                }
+              }
+            })()}
           </div>
         ) : null}
 

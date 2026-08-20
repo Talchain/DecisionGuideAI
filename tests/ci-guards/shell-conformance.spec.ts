@@ -736,12 +736,47 @@ describe('the shell contract itself holds together', () => {
     expect(WORKSPACE_SURFACES.results.footerBar).toBe('none')
   })
 
+  it('the Olumi surface asks the SHELL to carry the readiness statement', () => {
+    // The blocked Analysis footer says "Ask in the chat what they need"; acting
+    // on it fronts Olumi, and `{effectiveActiveTab === 'results' && …}` unmounts
+    // the sentence and the Analyse control. Declared into the shell's footer
+    // region so the surface the user is SENT TO carries the fact they were sent
+    // to ask about. Bound by identity to `olumi`, so "some surface declares
+    // readiness" cannot satisfy it.
+    expect(WORKSPACE_SURFACES.olumi.footerBar).toBe('readiness')
+    // …and the surface is genuinely presented, so this is not a declaration on
+    // a tab no user can reach (Journey/Compare are the live counter-examples).
+    expect(WORKSPACE_SURFACES.olumi.presentedAsTab).toBe(true)
+  })
+
+  it('every declared footerBar value has a render arm in the shell host', () => {
+    // The declaration is only worth what the host does with it. A value added
+    // to the union and rendered nowhere is the invisible mutant this contract
+    // was built to abolish — declared, type-clean, and dark.
+    const dock = readFileSync(path.join(REPO, SHELL_HOST), 'utf8')
+    const declared = new Set(
+      (Object.keys(WORKSPACE_SURFACES) as Array<keyof typeof WORKSPACE_SURFACES>)
+        .map(id => WORKSPACE_SURFACES[id].footerBar)
+        .filter(v => v !== 'none'),
+    )
+    expect(declared.size).toBeGreaterThan(1)
+    for (const value of declared) {
+      expect(dock, `no render arm for footerBar '${value}'`).toContain(`case '${value}':`)
+    }
+  })
+
   it('the shell renders the footer bar OUTSIDE the flag-gated stack', () => {
     // Hosting it inside the aiPanelV2 block would make the Model tab's only
     // re-run control vanish on rollback — a worse defect than the one fixed.
     const dock = readFileSync(path.join(REPO, SHELL_HOST), 'utf8')
     expect(dock).toContain('data-testid="shell-surface-footer-bar"')
-    expect(dock).toContain("surfaceFor(effectiveActiveTab).footerBar === 'reanalyse'")
+    // ⚠ THE GATE READS THE DESCRIPTOR, NOT A TAB ID — and it is now a lookup
+    // over the whole union rather than an equality against one value, because a
+    // second surface declares a bar. The equality was pinned here verbatim
+    // until 20 Aug 2026; it is SUPERSEDED rather than joined by a second
+    // assertion, so there is exactly one statement of what the gate is.
+    expect(dock).toContain("surfaceFor(effectiveActiveTab).footerBar !== 'none'")
+    expect(dock).not.toContain("effectiveActiveTab === 'olumi' && surfaceFor")
     const barAt = dock.indexOf('data-testid="shell-surface-footer-bar"')
     const stackAt = dock.indexOf('data-testid="ai-panel-footer-stack"')
     expect(barAt).toBeGreaterThan(0)

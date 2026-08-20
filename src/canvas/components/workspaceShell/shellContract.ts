@@ -278,8 +278,35 @@ export interface WorkspaceSurfaceDescriptor {
    * the surface's only re-run control also cannot simply be dropped into the
    * end of a long scrolling list, where it lands several screens below the
    * fold. Declaring it here is how a surface asks the shell to host it.
+   *
+   * ⭐ THIS FIELD IS THE CANONICAL OWNER OF "WHAT DOES THE SHELL PUT UNDER THIS
+   * SURFACE", AND IT IS THE ANSWER TO A RECURRING SHAPE, NOT A ONE-OFF. Both
+   * values exist because a control the user needs lives inside
+   * `OutputsDock`'s `results` render branch — `{effectiveActiveTab ===
+   * 'results' && …}` — and is therefore UNMOUNTED, not merely hidden, on every
+   * other surface:
+   *
+   *   'reanalyse' — the Model surface had no re-run control at all, because
+   *                 `AnalysisFooter` mounts on `results` only.
+   *   'readiness' — the Olumi surface had no statement of WHY the run is
+   *                 blocked, because the pre-analysis footer mounts on
+   *                 `results` only. That mattered more than it sounds: the
+   *                 blocked footer's own copy says *"Ask in the chat what they
+   *                 need"*, and acting on it fronts the Olumi tab, which takes
+   *                 the sentence and the Analyse control off screen. The
+   *                 instruction destroyed its own context.
+   *
+   * ⚠ WHY THE FIX IS A FOOTER DECLARATION AND NOT A MOUNT CHANGE. Making the
+   * `results` subtree survive a tab switch (as Olumi's does) would preserve its
+   * STATE and change nothing a user can see — a CSS-hidden subtree is still
+   * invisible. And Olumi's mount is not the anomaly to copy in the other
+   * direction: it is deliberate and load-bearing (`OutputsDock.tsx`'s wrapper
+   * comment; `OlumiTabBody`'s guidance-store callbacks are registered with no
+   * cleanup precisely because it stays mounted). The asymmetry is fine. What
+   * was missing was a way for the surface the user is SENT TO to carry the fact
+   * they were sent to ask about.
    */
-  readonly footerBar: 'none' | 'reanalyse'
+  readonly footerBar: 'none' | 'reanalyse' | 'readiness'
 }
 
 /**
@@ -301,7 +328,11 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   olumi: {
     id: 'olumi',
     label: 'Olumi',
-    footerBar: 'none',
+    // `AnalysisReadinessBar` — the pre-run readiness statement, carried to the
+    // surface the blocked footer's own copy sends the user to. Renders null
+    // unless the Analysis surface would be showing its pre-run panel for the
+    // same store state, so it makes no claim Analysis is not already making.
+    footerBar: 'readiness',
     // Bottom-anchored conversation with its own stick-to-bottom threshold.
     scroll: 'self',
     padding: 'self',

@@ -310,6 +310,13 @@ export const FOOTER_COPY = {
   running: 'Analysis running',
   runningSub: 'Hold on while the first pass completes',
   analyse: 'Analyse first pass',
+  /**
+   * The run control's label WHILE a run is in flight. It was a bare literal
+   * at `PanelFooter.tsx:186` while one surface rendered the control; the
+   * shell's `AnalysisReadinessBar` renders the same control on the Olumi
+   * surface, so the string is named here rather than typed a second time.
+   */
+  analysing: 'Analysing…',
 
   // ── ROADMAP 2.332 / 2.339 — the readiness check itself failed ─────
   //

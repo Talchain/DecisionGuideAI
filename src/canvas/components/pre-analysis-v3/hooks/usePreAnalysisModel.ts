@@ -31,6 +31,10 @@ import { buildEstimateRows, topUncalibrated } from '../selectors/buildEstimateRo
 import { deriveSignalViews } from '../signals/deriveSignalViews'
 import { useSignalSessionStore } from '../signals/signalSessionStore'
 import { CEE_FALLBACK_COPY, FOOTER_COPY, LADDER_COPY } from '../constants'
+import {
+  deriveReadinessCheck,
+  readinessNothingHasAnswered,
+} from '../footer/readinessDisplay'
 import { guardCeeText, guardCeeTextOrNull, categoriseCoaching } from '../signals/ceeTextGuard'
 import type {
   Attribution,
@@ -113,6 +117,13 @@ export interface PreAnalysisModel {
     verdictAtMs: number | null
     retry: () => void
   } | null
+  /**
+   * Neither the side-car nor the producer has answered. Exposed because the
+   * arm that consumes it moved OUT of `footer` and into the shared ladder
+   * (`footer/readinessDisplay.ts`) when a second pre-run surface appeared —
+   * one with no `PreAnalysisModel` to read it from.
+   */
+  nothingHasAnswered: boolean
 }
 
 export function usePreAnalysisModel(): PreAnalysisModel {
@@ -241,7 +252,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // deliberately NOT `readiness == null` alone any more: a producer verdict IS
   // an answer, so a panel that had one would otherwise report itself as still
   // waiting to hear.
-  const nothingHasAnswered = readiness == null && analysisReadiness == null
+  const nothingHasAnswered = readinessNothingHasAnswered(readiness, analysisReadiness)
   const canRun = nothingHasAnswered ? null : !readinessObjectsToRun(readiness, analysisReadiness)
 
   const ladder = useMemo(
@@ -378,45 +389,23 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const contested = useMemo(() => computeContestedRows(nodes, edges), [nodes, edges])
 
   const footer = useMemo(() => {
-    // ── No verdict: say so, and claim nothing ────────────────────────
+    // ⚠ THE `nothingHasAnswered` ARM USED TO BE FIRST IN THIS MEMO AND IT HAS
+    // MOVED — to `footer/readinessDisplay.ts`, which is now the one owner of
+    // which headline a pre-run surface states. It is a MOVE, not a copy: this
+    // memo had exactly one consumer (`PreAnalysisPanelV3` → `PanelFooter`), and
+    // that consumer now reaches the unanswered arm through the shared ladder
+    // BEFORE this value is read.
     //
-    // FIRST, because with `readiness == null` nothing below this line is
-    // entitled to make a claim about the model. `canRun` is `null` here (not
-    // `false`), so the `canRun === false` arm does not fire and the memo used
-    // to fall through to the availability copy — printing "Analysis available"
-    // about a model nothing had assessed, beside a CTA that `canRunAnalysis`
-    // leaves enabled (it blocks only on `readiness && !can_run_analysis`).
-    // Witnessed on deployed staging 2026-08-13 as the exact triple
-    // "Analysis available / First pass will be provisional until success is
-    // defined / Analyse first pass" while CEE refused the run.
+    // Why it had to move: a SECOND pre-run surface exists (the shell's
+    // `AnalysisReadinessBar`, hosted on the Olumi tab so the blocked footer's
+    // "Ask in the chat" advice does not destroy its own context). It has no
+    // `PreAnalysisModel`, so an arm living in here was unreachable from it —
+    // and it duly claimed "Analysis available" on exactly the state this arm
+    // was added, one day earlier, to stop this surface claiming.
     //
-    // #564 / 2.332 / 2.339 closed the arms where the check FAILS; every one of
-    // them sets `readinessError`, and `readinessCheck` is derived as
-    // `readinessError ? {…} : null`. This is the arm none of them reach: the
-    // check has not answered YET, or never fired at all (the 2.345 starvation
-    // shape, which the readinessStore header records as ZERO graph-readiness
-    // requests in three of four witnessed guest sessions).
-    //
-    // Deliberately NOT keyed on `readinessError == null`. When an error IS
-    // recorded the outage arm in PanelFooter outranks this value anyway, so the
-    // extra conjunct buys nothing — and omitting it means an unanswered verdict
-    // can never produce an availability claim by any route, which is the
-    // fail-safe direction. The run gate is untouched: unknown does not object.
-    //
-    // ⚠ AMENDED 19 Aug 2026. This used to read `readiness == null` ALONE, and
-    // that sentence was written when the side-car was the only thing that could
-    // answer. It is now `nothingHasAnswered` — BOTH authorities silent — because
-    // a producer verdict IS an answer, and a panel holding one that reported
-    // itself as still waiting to hear would be a false claim of the same family
-    // as the one this lane deleted, just in the humble direction.
-    if (nothingHasAnswered) {
-      return {
-        dot: 'warning' as const,
-        headline: FOOTER_COPY.readinessPending,
-        subline: FOOTER_COPY.readinessPendingSub,
-      }
-    }
-
+    // What this value MEANS is therefore narrower than it was: it is the
+    // RESTING display — what to say once the outage, in-flight, gate and
+    // unanswered arms have all declined. Everything below is unchanged.
     // UI-SEM-091: readiness reports not-runnable, but CEE will draft the
     // remaining options — disclose the draft, never the not-ready copy.
     // Scaffold intent is a SIDE-CAR field, so this disclosure belongs to the
@@ -478,7 +467,6 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     }
   }, [
     canRun,
-    nothingHasAnswered,
     // Read directly by two arms now (the scaffold guard and the not-ready
     // subline), so it is a first-class input to this memo, not a value `canRun`
     // can stand in for.
@@ -546,17 +534,17 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // status (2.339). The 429 arm sets an error too, but it also publishes a
   // labelled local fallback, so it is a verdict-bearing state and reaches the
   // retained arm rather than the never-checked one, which is the truth.
+  // Derived through the shared builder so the shell's bar and this panel cannot
+  // hold different ideas of what "the check failed" means (`readinessDisplay.ts`).
   const readinessCheck = useMemo(
     () =>
-      readinessError
-        ? {
-            message: readinessError,
-            verdictRetained: readiness != null,
-            stale: readinessStale,
-            verdictAtMs: readinessVerdictAtMs,
-            retry: refreshReadiness,
-          }
-        : null,
+      deriveReadinessCheck({
+        error: readinessError,
+        verdictRetained: readiness != null,
+        stale: readinessStale,
+        verdictAtMs: readinessVerdictAtMs,
+        retry: refreshReadiness,
+      }),
     [readinessError, readiness, readinessStale, readinessVerdictAtMs, refreshReadiness],
   )
 
@@ -573,6 +561,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       advanced,
       footer,
       readinessCheck,
+      nothingHasAnswered,
     }),
     [
       hero,
@@ -586,6 +575,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       advanced,
       footer,
       readinessCheck,
+      nothingHasAnswered,
     ],
   )
 }
