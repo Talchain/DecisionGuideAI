@@ -90,6 +90,7 @@ function rowsFor(edges: typeof SHARED_SOURCE): { lines: string[]; chipLabels: st
       edges={edges}
       onFocusNode={() => {}}
       designationsWithheld={false}
+      flipEvidenceAttestsNoFlip={false}
     />,
   )
   const chips = Array.from(container.querySelectorAll('[data-testid^="fragile-review-chip-"]'))

@@ -56,6 +56,7 @@ export function FragileEdgeGroupCard({
   onSendMessage,
   expertMode,
   designationsWithheld,
+  flipEvidenceAttestsNoFlip,
 }: {
   /**
    * Shared alt-winner label for this group (D11: grouped by alt-winner).
@@ -80,6 +81,12 @@ export function FragileEdgeGroupCard({
    * future call site can forget.
    */
   designationsWithheld: boolean
+  /**
+   * Q2 — EVIDENCE, quoted from the caller via `attestsNoFactorFlip(status)`.
+   * A DIFFERENT question from `designationsWithheld` (see `fragileEdgeCopy`
+   * `flipVerbPermitted`), and REQUIRED for the same reason as above.
+   */
+  flipEvidenceAttestsNoFlip: boolean
 }) {
   const hasEValue = edges.some(e => e.e_value != null)
 
@@ -109,6 +116,7 @@ export function FragileEdgeGroupCard({
     edgeCount: edges.length,
     hasEValue,
     designationsWithheld,
+    flipEvidenceAttestsNoFlip,
   })
   const headerCopy = header.kind === 'altWinner'
     ? <>{header.lead}<span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">{header.altWinnerLabel}</span></>
@@ -161,13 +169,13 @@ export function FragileEdgeGroupCard({
                 {' shifts'}
               </span>
               {!altWinnerLabel && (
-                <span>{fragileEdgeConsequence({ designationsWithheld })}</span>
+                <span>{fragileEdgeConsequence({ designationsWithheld, flipEvidenceAttestsNoFlip })}</span>
               )}
             </div>
             {edge.e_value != null && expertMode && (
               <ExpertBlock>
                 <p className={`${typography.panelMeta} text-text-light`}>
-                  {fragileEValueNote({ eValue: edge.e_value, designationsWithheld })}
+                  {fragileEValueNote({ eValue: edge.e_value, designationsWithheld, flipEvidenceAttestsNoFlip })}
                 </p>
               </ExpertBlock>
             )}
@@ -204,6 +212,7 @@ export function FragileEdgeGroupCard({
                 fromLabel: stripEncodingNotation(edges[0].from_label),
                 toLabel: stripEncodingNotation(edges[0].to_label),
                 designationsWithheld,
+                flipEvidenceAttestsNoFlip,
               }),
               label: 'Discuss fragile relationships',
             })}

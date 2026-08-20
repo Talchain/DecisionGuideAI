@@ -335,7 +335,7 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
 
   it('PERMITTED: the header is byte-identical to today', () => {
     expect(
-      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: false }),
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }),
     ).toEqual({ kind: 'altWinner', lead: '2 factors could flip the result to ', altWinnerLabel: HIGH_LABEL })
   })
 
@@ -343,7 +343,7 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
     // Pinned as a shape, not just a substring: a fix that returned a plain
     // sentence would drop the `fragile-alt-winner` element and the name with it.
     expect(
-      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: true }),
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: true, flipEvidenceAttestsNoFlip: false }),
     ).toEqual({ kind: 'altWinner', lead: '2 factors could shift the comparison towards ', altWinnerLabel: HIGH_LABEL })
   })
 })
@@ -364,13 +364,13 @@ describe('StressTestSection fragile factors — STRING 2: the singleton header',
 
   it('PERMITTED: the singleton header is byte-identical to today', () => {
     expect(
-      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: false }),
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }),
     ).toEqual({ kind: 'altWinner', lead: 'Result could flip to ', altWinnerLabel: HIGH_LABEL })
   })
 
   it('WITHHELD: the singleton header keeps the altWinner shape', () => {
     expect(
-      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: true }),
+      fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: true, flipEvidenceAttestsNoFlip: false }),
     ).toEqual({ kind: 'altWinner', lead: 'The comparison could shift towards ', altWinnerLabel: HIGH_LABEL })
   })
 
@@ -378,9 +378,9 @@ describe('StressTestSection fragile factors — STRING 2: the singleton header',
     // The verdict-independent branch — a control against a fix that rewrote
     // copy it had no reason to touch.
     for (const designationsWithheld of [false, true]) {
-      expect(fragileEdgeGroupHeader({ altWinnerLabel: null, edgeCount: 1, hasEValue: false, designationsWithheld }))
+      expect(fragileEdgeGroupHeader({ altWinnerLabel: null, edgeCount: 1, hasEValue: false, designationsWithheld, flipEvidenceAttestsNoFlip: false }))
         .toEqual({ kind: 'plain', text: 'Fragile relationship' })
-      expect(fragileEdgeGroupHeader({ altWinnerLabel: null, edgeCount: 2, hasEValue: true, designationsWithheld }))
+      expect(fragileEdgeGroupHeader({ altWinnerLabel: null, edgeCount: 2, hasEValue: true, designationsWithheld, flipEvidenceAttestsNoFlip: false }))
         .toEqual({ kind: 'plain', text: 'Fragile result, verify key assumptions' })
     }
   })
@@ -403,7 +403,7 @@ describe('StressTestSection fragile factors — STRING 3: the per-edge consequen
   })
 
   it('PERMITTED: the clause is byte-identical to today', () => {
-    expect(fragileEdgeConsequence({ designationsWithheld: false })).toBe('which option is most likely to hit your goal could change')
+    expect(fragileEdgeConsequence({ designationsWithheld: false, flipEvidenceAttestsNoFlip: false })).toBe('which option is most likely to hit your goal could change')
   })
 })
 
@@ -428,6 +428,7 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
         edges={eValueEdges}
         expertMode
         designationsWithheld={designationsWithheld}
+        flipEvidenceAttestsNoFlip={false}
       />,
     )
   }
@@ -450,7 +451,7 @@ describe('StressTestSection fragile factors — STRING 4: the expert E-value not
   })
 
   it('PERMITTED: the note is byte-identical to today', () => {
-    expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false }))
+    expect(fragileEValueNote({ eValue: 2.0, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }))
       .toBe('E-value 2.0: assumptions would only need to be 2.0x wrong to change which option is most likely to hit your goal.')
   })
 })
@@ -461,13 +462,13 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
   const base = { edgeCount: 2, fromLabel: FRAGILE_FROM, toLabel: 'Value delivered' }
 
   it('ANTI-VACUITY: the PERMITTED grouped draft names the flip target', () => {
-    const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: false })
+    const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: false, flipEvidenceAttestsNoFlip: false })
     expect(draft).toBe(`Are these 2 relationships that could flip the result to ${HIGH_LABEL} reliable?`)
     expect(draft).toMatch(FRAGILE_CLAIM_RE)
   })
 
   it('WITHHELD: the grouped draft asks about the comparison, still naming the alternative', () => {
-    const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: true })
+    const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: true, flipEvidenceAttestsNoFlip: false })
     expect(draft).toBe(`Are these 2 relationships that could shift the comparison towards ${HIGH_LABEL} reliable?`)
     expect(draft).not.toMatch(FRAGILE_CLAIM_RE)
     // The user's own question carries every fact the analysis computed.
@@ -514,10 +515,11 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
   })
 
   it('the two already-neutral drafts are byte-identical in BOTH verdict states', () => {
+    const flipEvidenceAttestsNoFlip = false
     for (const designationsWithheld of [false, true]) {
-      expect(fragileDiscussDraft({ ...base, edgeCount: 1, altWinnerLabel: HIGH_LABEL, designationsWithheld }))
+      expect(fragileDiscussDraft({ ...base, edgeCount: 1, altWinnerLabel: HIGH_LABEL, designationsWithheld, flipEvidenceAttestsNoFlip }))
         .toBe(`Is the relationship between ${FRAGILE_FROM} and Value delivered reliable?`)
-      expect(fragileDiscussDraft({ ...base, altWinnerLabel: null, designationsWithheld }))
+      expect(fragileDiscussDraft({ ...base, altWinnerLabel: null, designationsWithheld, flipEvidenceAttestsNoFlip }))
         .toBe('Are these 2 fragile relationships in my model reliable?')
     }
   })
