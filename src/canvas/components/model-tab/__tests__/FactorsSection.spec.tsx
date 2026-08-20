@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FactorsSection } from '../FactorsSection'
 import { DetailToggleContext } from '../DetailToggleContext'
+import { normalisedScaleSuffix } from '../statisticalNotation'
 import type { Node } from '@xyflow/react'
 
 // jsdom does not implement scrollIntoView
@@ -334,10 +335,27 @@ describe('FactorsSection', () => {
 
   // ── Normalised value display tests ─────────────────────────────────────────
 
-  it('shows (normalised) suffix when only normalised value present (no raw_value, no unit)', () => {
+  it('names the scale in words for a non-expert, and restores (normalised) in expert mode', () => {
+    // Was: asserted '(normalised)' with NO provider, i.e. it pinned the leak —
+    // a fresh guest with expert mode OFF read internal notation. Both registers
+    // are asserted so a fix that DELETES the term cannot pass either.
     const nodes = [makeFactorNode('f1', 'Score', { value: 0.5 })]
-    render(<FactorsSection factorNodes={nodes} />)
-    expect(screen.getByTestId('factor-f1-normalised-label')).toBeInTheDocument()
+    const plain = render(
+      <DetailToggleContext.Provider value={{ showDetail: false }}>
+        <FactorsSection factorNodes={nodes} />
+      </DetailToggleContext.Provider>,
+    )
+    const off = screen.getByTestId('factor-f1-normalised-label')
+    expect(off).toBeInTheDocument()
+    expect(off).toHaveTextContent(normalisedScaleSuffix(false))
+    expect(off.textContent).not.toMatch(/normalised/i)
+    plain.unmount()
+
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <FactorsSection factorNodes={nodes} />
+      </DetailToggleContext.Provider>,
+    )
     expect(screen.getByTestId('factor-f1-normalised-label')).toHaveTextContent('(normalised)')
   })
 

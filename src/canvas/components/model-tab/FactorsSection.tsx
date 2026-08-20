@@ -31,6 +31,7 @@ import { InlineEdit } from './InlineEdit'
 import { SourceProvenancePill } from './SourceProvenancePill'
 import { DataBar } from '../../ui/shared/DataBar'
 import { DetailToggleContext } from './DetailToggleContext'
+import { normalisedScaleSuffix, priorRangeLabel } from './statisticalNotation'
 import { CoachingCard } from './CoachingCard'
 import type { ObservedState, FactorInfluenceMap } from './types'
 import {
@@ -394,7 +395,12 @@ function FactorCard({
         /* External: prior range */
         <div className="space-y-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`${typography.panelMeta} text-text-light w-12 shrink-0`}>Prior</span>
+            <span
+              className={`${typography.panelMeta} text-text-light w-24 shrink-0`}
+              data-testid={`factor-${node.id}-prior-label`}
+            >
+              {priorRangeLabel(showDetail)}
+            </span>
             {hasPriorRange ? (
               <>
                 <InlineEdit
@@ -420,7 +426,7 @@ function FactorCard({
                   <span className={`${typography.panelMeta} text-text-light`}>· from model repair</span>
                 )}
                 {!obs.unit && !isSynthesisedPrior && (
-                  <span className={`${typography.panelMeta} text-text-light`} data-testid={`factor-${node.id}-normalised-range`}>(normalised)</span>
+                  <span className={`${typography.panelMeta} text-text-light`} data-testid={`factor-${node.id}-normalised-range`}>{normalisedScaleSuffix(showDetail)}</span>
                 )}
               </>
             ) : (
@@ -472,7 +478,7 @@ function FactorCard({
                   tooltip="Click to edit value"
                   testId={`factor-${node.id}-value`}
                 />
-                <span className={`${typography.panelMeta} text-text-light`} data-testid={`factor-${node.id}-normalised-label`}>(normalised)</span>
+                <span className={`${typography.panelMeta} text-text-light`} data-testid={`factor-${node.id}-normalised-label`}>{normalisedScaleSuffix(showDetail)}</span>
               </>
             ) : (
               <span
