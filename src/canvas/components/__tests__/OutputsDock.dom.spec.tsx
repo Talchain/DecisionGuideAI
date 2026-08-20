@@ -216,14 +216,58 @@ describe('OutputsDock DOM', () => {
     useCanvasStore.setState({
       nodes: [
         { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
-        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { source: 'cee_inference' } } },
-        { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'B', observedState: { source: 'user' } } },
+        // ⚠ `value` IS PART OF THE FIXTURE NOW, and it is not decoration: the
+        // badge counts factors the user can actually VERIFY, and an AI estimate
+        // with no number carries nothing to verify (`factorIsConfirmable`,
+        // narrowed 19 Aug 2026). This fixture previously carried a bare
+        // `{ source: 'cee_inference' }`, which is not a shape the producer emits
+        // — `setObservedValue` always writes `value` — and it was the shape that
+        // used to inflate this badge.
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { value: 0.4, raw_value: 40, source: 'cee_inference' } } },
+        { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'B', observedState: { value: 0.9, raw_value: 90, source: 'user' } } },
       ],
     } as any)
     renderOutputsDock()
     const badge = screen.getByTestId('model-tab-verify-badge')
     expect(badge).toBeInTheDocument()
     expect(badge).toHaveTextContent('1')
+  })
+
+  it('⚠ does NOT count an AI estimate with NO VALUE — there is nothing to verify', () => {
+    /*
+     * The opposite-direction twin of the test above, and the defect the
+     * narrowing closes. `factorNeedsVerification` alone is
+     * `!source || source === 'cee_inference'`, which a factor with no value at
+     * all satisfies — so this badge used to read "1", the user had no way to
+     * drive it to zero, and the Confirm the count implies is one the write
+     * authority declines. `f1` here is in the `no-value` repair queue instead,
+     * which is the repair it actually needs.
+     */
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { source: 'cee_inference' } } },
+      ],
+    } as any)
+    renderOutputsDock()
+    expect(screen.queryByTestId('model-tab-verify-badge')).not.toBeInTheDocument()
+  })
+
+  it('⚠ DOES count a capped factor carrying `value` and NO `raw_value`', () => {
+    /*
+     * The other direction, and the one a `raw_value` guard silently drops. This
+     * is a staging-witnessed wire shape (`conversation/factorValueEdit.ts:145`):
+     * the write authority accepts it, so the badge must count it and the Confirm
+     * must be offered. Bound to the count, not merely to the badge's presence.
+     */
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { value: 0.7, source: 'cee_inference' } } },
+      ],
+    } as any)
+    renderOutputsDock()
+    expect(screen.getByTestId('model-tab-verify-badge')).toHaveTextContent('1')
   })
 
   it('hides Model tab verify badge when no factors need verification', () => {
