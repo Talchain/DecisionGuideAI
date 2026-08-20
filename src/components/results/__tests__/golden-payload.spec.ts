@@ -464,7 +464,7 @@ describe('Golden payload regression tests', () => {
       // Should NOT expose the raw message
       expect(result.title).not.toContain('intercept=0')
       expect(result.title).not.toContain('fac_')
-      expect(result.title).toBe('Review this factor\'s inputs')
+      expect(result.title).toBe('Part of this analysis was limited')
     })
 
     it('V14.2: constraint template suggestions contain no arrow notation', () => {
@@ -625,8 +625,8 @@ describe('Golden payload regression tests', () => {
       const path3 = humanised.find(c => c.factorId === 'fac_revenue')
       expect(path3).toBeDefined()
       expect(path3!.displayText).toBeNull()
-      expect(path3!.title).toBe("Review this factor's inputs")
-      expect(path3!.description).toBe("Some information needed to assess this factor isn't available yet.")
+      expect(path3!.title).toBe('Part of this analysis was limited')
+      expect(path3!.description).toBe("Olumi's engine reported a condition this version has no wording for yet. Nothing has been hidden — the raw code is listed in the run's audit details.")
     })
 
     it('items with clean userMessage but no template get no suggestion', () => {

@@ -92,8 +92,10 @@ describe('humaniseCritique', () => {
     // P0-C2) naming a goal-fit target whose probabilities were withheld
     // because the underlying value is unscaled/missing. Before this fix it
     // had no CODE_TEMPLATES entry, so it fell through to the safe-but-vague
-    // generic fallback ("Review this factor's inputs") — technically honest
-    // but not the meaningful warning the roadmap item calls for.
+    // generic fallback (then worded "Review this factor's inputs") — technically
+    // honest but not the meaningful warning the roadmap item calls for. That
+    // wording is quoted as it WAS: the generic fallback has since been
+    // de-factor-framed, and the assertion below compares against the current one.
     it('CONSTRAINT_TARGET_UNRELIABLE with resolved label', () => {
       const labels = new Map([['fac_churn', 'Customer churn']])
       const result = humaniseCritique(
@@ -101,7 +103,7 @@ describe('humaniseCritique', () => {
         labels,
       )
       expect(result.title).toContain('Customer churn')
-      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.title).not.toBe('Part of this analysis was limited')
       expect(result.description.length).toBeGreaterThan(0)
       expect(result.suggestion).toContain('Customer churn')
       expect(result.factorId).toBe('fac_churn')
@@ -121,8 +123,8 @@ describe('humaniseCritique', () => {
     // better vs lower-is-better) couldn't be confirmed (SUSPECT) or was
     // assumed without confirmation (ASSUMED). Before this fix neither had a
     // CODE_TEMPLATES entry, so both fell through to the generic unmapped-code
-    // fallback ("Review this factor's inputs") instead of a meaningful,
-    // direction-specific warning.
+    // fallback (then worded "Review this factor's inputs") instead of a
+    // meaningful, direction-specific warning. Quoted as it WAS — see above.
     it('CONSTRAINT_DIRECTION_SUSPECT with resolved label', () => {
       const labels = new Map([['fac_churn', 'Customer churn']])
       const result = humaniseCritique(
@@ -130,7 +132,7 @@ describe('humaniseCritique', () => {
         labels,
       )
       expect(result.title).toContain('Customer churn')
-      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.title).not.toBe('Part of this analysis was limited')
       expect(result.description).toContain("couldn't be confirmed")
       expect(result.description.length).toBeGreaterThan(0)
       expect(result.suggestion).toContain('Customer churn')
@@ -151,7 +153,7 @@ describe('humaniseCritique', () => {
         labels,
       )
       expect(result.title).toContain('Revenue')
-      expect(result.title).not.toBe("Review this factor's inputs")
+      expect(result.title).not.toBe('Part of this analysis was limited')
       expect(result.description).toContain('assumed')
       expect(result.description.length).toBeGreaterThan(0)
       expect(result.suggestion).toContain('Revenue')
@@ -183,8 +185,14 @@ describe('humaniseCritique', () => {
           message: 'constraint_fac_customer_churn_max observed_state.value intercept=0',
         }),
       )
-      expect(result.title).toBe("Review this factor's inputs")
-      expect(result.description).toContain("isn't available yet")
+      expect(result.title).toBe('Part of this analysis was limited')
+      // Re-pointed when the fallback was de-factor-framed. The old assertion
+      // pinned the phrase "isn't available yet" from the previous description;
+      // the property it was really protecting is that an UNMAPPED code gets a
+      // safe generic description that neither blames the user's inputs nor
+      // leaves them nowhere to go. Pin that instead of the old wording.
+      expect(result.description).not.toMatch(/review this factor|assess this factor/i)
+      expect(result.description).toMatch(/audit details/i)
       // V12.1: Unmapped codes must NOT have suggestion — banner filter (suggestion != null)
       // excludes them from the attention banner above the hero.
       expect(result.suggestion).toBeUndefined()

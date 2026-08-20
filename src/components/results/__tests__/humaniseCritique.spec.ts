@@ -140,7 +140,7 @@ describe('humaniseCritique', () => {
     const result = humaniseCritique(item, nodeLabels)
     expect(result.displayText).toBeNull()
     // Title still has generic text for ConfidenceSection rows
-    expect(result.title).toBe('Review this factor\'s inputs')
+    expect(result.title).toBe('Part of this analysis was limited')
   })
 
   it('V14.3b: internal-token userMessage falls through to generic fallback', () => {
@@ -153,7 +153,7 @@ describe('humaniseCritique', () => {
     const result = humaniseCritique(item, nodeLabels)
     expect(result.displayText).toBeNull()
     // V14.3b: Title must also be safe — falls through to generic, not contaminated userMessage
-    expect(result.title).toBe("Review this factor's inputs")
+    expect(result.title).toBe('Part of this analysis was limited')
   })
 
   it('V14.3: userMessage fallback does NOT auto-generate suggestion', () => {
