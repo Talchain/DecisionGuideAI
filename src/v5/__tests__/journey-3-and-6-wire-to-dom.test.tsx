@@ -315,7 +315,7 @@ describe('Workstream 1 — Journey 6 wire-to-DOM (set_factor_value)', () => {
 
     render(<V5GraphPatchBlock block={block} />)
 
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor value')
     expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale')
     // Renders user-facing raw_value + unit, NOT the normalised
     // 0.5 → 0.7 the wire envelope also carries.
