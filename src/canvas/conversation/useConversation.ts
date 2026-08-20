@@ -72,6 +72,7 @@ import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrat
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractAnswerShapeSidecar } from './answerShape'
 import { extractGroundedSelectionSidecar } from './groundedSelection'
+import { extractModelBuildingNoticesSidecar } from './modelBuildingNotices'
 // Leg 3 blocker fix: the wire->camelCase coaching mapper lives in the CEE
 // client adapter (DraftChat/useRetryDraft path); the V5 inline-draft seam
 // reuses it so one mapper owns the coaching wire shape.
@@ -5358,6 +5359,18 @@ export function useConversation(): UseConversationReturn {
             // would fabricate a grounding on every ungrounded turn, which is
             // the precise defect the wire spec's guards pin.
             const groundedSelection = extractGroundedSelectionSidecar(target.response)
+            // What Olumi had to leave out of the model it drafted on this turn.
+            // Unlike the three sidecars above, `model_building_notices` is a
+            // DECLARED field on `OlumiResponseSchema` (0.48.0), so it rides the
+            // response surface itself rather than the `__additive__` demotion.
+            //
+            // ⚠ FAIL-CLOSED, AND ABSENCE MEANS LESS THAN IT LOOKS LIKE: the
+            // contract cannot encode zero (`total_count` positive, `groups`
+            // min 1), so a missing key means NO ATTESTATION WAS SUPPLIED, never
+            // "this draft dropped nothing". The extractor returns null, the
+            // conditional spread attaches nothing, and the bubble asserts
+            // neither an omission nor a completeness.
+            const modelBuildingNotices = extractModelBuildingNoticesSidecar(target.response)
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
@@ -5367,6 +5380,7 @@ export function useConversation(): UseConversationReturn {
               ...(reasoning ? { reasoning } : {}),
               ...(answerShape ? { answerShape } : {}),
               ...(groundedSelection ? { groundedSelection } : {}),
+              ...(modelBuildingNotices ? { modelBuildingNotices } : {}),
               timestamp: new Date(),
             })
 

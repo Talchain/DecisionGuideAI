@@ -21,6 +21,7 @@ import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { GroundedOnNotice } from './GroundedOnNotice'
+import { ModelBuildingNoticesNotice } from './ModelBuildingNoticesNotice'
 import { InlineBlocks } from './InlineBlocks'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
@@ -490,6 +491,19 @@ export const MessageBubble = memo(function MessageBubble({
         * one. */}
       {!isUser && message.groundedSelection && (
         <GroundedOnNotice groundedSelection={message.groundedSelection} />
+      )}
+      {/* What Olumi had to leave out of the model it drafted on THIS turn.
+        * NO FLAG (CEE emits `model_building_notices` unconditionally, and it is
+        * a declared 0.48.0 contract field), and the condition is the PAYLOAD'S
+        * OWN PRESENCE: with no attestation `message.modelBuildingNotices` is
+        * undefined and nothing renders. The contract cannot encode zero, so
+        * absence is SILENCE, not a clean bill of health — rendering a zero here
+        * would report an omission that never happened, and rendering
+        * reassurance would claim a completeness the field cannot evidence.
+        * Assistant-only: an omission is a fact about a MODEL OLUMI BUILT, and
+        * the user's own bubble never carries one. */}
+      {!isUser && message.modelBuildingNotices && (
+        <ModelBuildingNoticesNotice notices={message.modelBuildingNotices} />
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
         <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />
