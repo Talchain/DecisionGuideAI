@@ -20,7 +20,11 @@ import { typography } from '../../../styles/typography'
 import { isV5Eligible } from '../../../v5/eligibility'
 import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
-import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
+import {
+  admitsRunAffordance,
+  useAnalysisMayRun,
+  useAnalysisStatus,
+} from '../../hooks/useAnalysisReady'
 import { useCanvasStore } from '../../store'
 import { type FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
@@ -141,6 +145,9 @@ export function SuggestedChips({
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
+  // CEE's own admission verdict for this turn. `undefined` on a pre-`may_run`
+  // CEE, which `admitsRunAffordance` reads as "fall back to `status`".
+  const analysisMayRun = useAnalysisMayRun()
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
   // Decision is via `decideRunAnalysisPolish` (product rule, see helper above):
@@ -177,7 +184,9 @@ export function SuggestedChips({
     : 'keep'
 
   // Filter rule (V5 active):
-  //   action_type === 'run_analysis' → gated by analysisStatus === 'ready',
+  //   action_type === 'run_analysis' → gated by `admitsRunAffordance`, i.e.
+  //                                    analysisStatus === 'ready' OR CEE's own
+  //                                    may_run === true,
   //                                    EXCEPT when aiPanelV2 will relabel to
   //                                    "Rerun" (stale/cannot-confirm), in which
   //                                    case the chip must survive the gate so the
@@ -193,7 +202,13 @@ export function SuggestedChips({
         const isV5Known = V5_ENABLED_ACTIONS.has(c.action_type)
         if (!isV5Known) return false
         const needsReadiness = READINESS_GATED_ACTIONS.has(c.action_type)
-        if (needsReadiness && analysisStatus !== 'ready') {
+        // WIDENED (was `analysisStatus !== 'ready'`): CEE now publishes its own
+        // admission verdict, which is ALSO true when the run will proceed by
+        // excluding the options the user left open. That is the readiness loop's
+        // payoff turn — `needs_user_input` AND runnable — where the old gate hid
+        // the very affordance the turn had just offered. Disjunction, so nothing
+        // that rendered before stops rendering; see `admitsRunAffordance`.
+        if (needsReadiness && !admitsRunAffordance(analysisStatus, analysisMayRun)) {
           // Single bypass: run_analysis survives when the polish will
           // relabel it. The decision is upstream (`runAnalysisPolish`).
           if (c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun') {
@@ -213,7 +228,11 @@ export function SuggestedChips({
         c.action_type &&
         V5_ENABLED_ACTIONS.has(c.action_type) &&
         READINESS_GATED_ACTIONS.has(c.action_type) &&
-        analysisStatus !== 'ready' &&
+        // Mirrors the gate above, INCLUDING the may_run term — a dev log that
+        // reported a chip as "removed for unreadiness" while the gate had in
+        // fact admitted it would be a mirror telling a different story from the
+        // code beside it.
+        !admitsRunAffordance(analysisStatus, analysisMayRun) &&
         // Mirror the bypass — a chip that survived shouldn't show up as
         // "removed" in the dev log.
         !(c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun'),
@@ -229,6 +248,7 @@ export function SuggestedChips({
         count: removedUnready.length,
         action_types: removedUnready.map((c) => c.action_type ?? 'null'),
         analysis_status: analysisStatus,
+        analysis_may_run: analysisMayRun ?? null,
       })
     }
   }
