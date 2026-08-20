@@ -44,6 +44,16 @@ export const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event
   adjust_edge_strength: 'conversation',
   remove_factor: 'conversation',
   set_goal_target: 'conversation',
+  // ⭐ Readiness coaching is a conversational answer, so 'conversation' is the
+  // honest turn type — the same one the UI's own `prepare_first_analysis` spark
+  // already gets. Added 2026-08-20 because CEE's `analysis_not_ready` recovery
+  // chip is now typed `analysis_readiness` (the one action_type route-v2 routes
+  // to the readiness arm without an LLM round-trip, so it cannot be demoted by
+  // the analysis-election gate). Without a mapping here that chip is absent from
+  // the DERIVED `V5_ENABLED_ACTIONS` and `SuggestedChips` deletes it outright —
+  // strictly worse than the misroute it replaces, because a chip that never
+  // renders gives the user nothing to click.
+  analysis_readiness: 'conversation',
   run_premortem: 'explain',
   draft_graph: 'explicit_generate',
 }
