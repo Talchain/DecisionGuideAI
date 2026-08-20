@@ -347,8 +347,11 @@ export const ResultsBody = memo(function ResultsBody({
 
       {/* Roadmap 1.12 (provisional_doctrine_v0): warning-severity producer
           inference_warnings surface as a compact honest-caveat strip beside
-          the freshness area. Producer message verbatim; info-severity stays
-          hidden; renders nothing when no warning-severity entries exist. */}
+          the freshness area. Copy is HUMANISED via humaniseInferenceWarningTitle
+          (the V14.3 no-message-render guard — the strip keys off producer `code`
+          and never renders the raw producer `message`; see
+          InferenceWarningStrip.tsx:11-17,70). Info-severity stays hidden;
+          renders nothing when no warning-severity entries exist. */}
       <InferenceWarningStrip warnings={resultsSectionData.confidence.inferenceWarnings} />
 
       {/* Lane 3 Car 1 residual (ROADMAP 2.358 closure): WARNING-severity
