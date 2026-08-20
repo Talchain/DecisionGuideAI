@@ -18,6 +18,7 @@ import {
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
@@ -102,6 +103,14 @@ interface ModelTabBodyProps {
 // the one classification authority now serves both (trap 12: derive, do not
 // mirror).
 
+/**
+ * The id `model-tab-v1-disclosure` points `aria-controls` at. A module constant
+ * rather than a literal at both use sites: the button and the region it labels
+ * must agree, and two hand-copied literals are the mirror this estate keeps
+ * paying for.
+ */
+const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
+
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
 const EMPTY_NODE_IDS = new Set<string>()
 const EMPTY_EDGE_IDS = new Set<string>()
@@ -134,6 +143,22 @@ export const ModelTabBody = memo(function ModelTabBody({
   // Single-open accordion: in default mode, only one section open at a time.
   // In expert mode (showDetail), sections manage their own state independently.
   const [openSection, setOpenSection] = useState<string | null>('factors')
+
+  // ── The v1 stack's disclosure (2026-08-20) ──────────────────────────────────
+  //
+  // The Model tab renders TWO complete editors of the SAME model, stacked: the
+  // v2 outline and, below it, the v1 sections. Measured on the deployed build
+  // `d4b9f981` by a fresh guest with their own drafted brief: 2,967px of
+  // content in a 669px dock body — 4.47 screens — at both 1280×800 and
+  // 1440×900, before and after analysis. The lower block addressed NO entity
+  // the outline did not already address.
+  //
+  // COLLAPSED BY DEFAULT, NOT DELETED AND NOT GATED AWAY. Six capabilities have
+  // no v2 equivalent and must stay reachable: contested-edge adjudication, CEE
+  // structural repairs, the model card / audit trail, goal-target editing, edge
+  // strength/direction/likelihood editing, and factor prior-range + baseline
+  // editing. This is a default, not a removal.
+  const [v1Expanded, setV1Expanded] = useState(false)
   const isExpert = expertMode ?? false
   const makeSectionProps = useCallback((sectionId: string) => {
     if (isExpert) return {} // expert mode: uncontrolled (multi-open)
@@ -171,10 +196,32 @@ export const ModelTabBody = memo(function ModelTabBody({
   // triggers a re-render that fires the previous run's cleanup before the RAF
   // callback gets a chance to execute, killing the scroll. The mountedRef
   // guard above handles the unmount-during-RAF case without that race.
+  //
+  // ⚠⚠ THE DISCLOSURE ABOVE HAD TO BE BUILT AROUND THIS EFFECT, NOT PAST IT.
+  // The scroll target is found with `document.querySelector`, so it exists only
+  // while the v1 sections are MOUNTED. Two consequences, both load-bearing:
+  //
+  //   1. The collapsed v1 stack stays MOUNTED and is hidden with the `hidden`
+  //      ATTRIBUTE — never unmounted, never conditionally rendered. Unmounting
+  //      it would make this `querySelector` return null and the deep link would
+  //      fail SILENTLY: `el?.scrollIntoView` no-ops on null, nothing throws, and
+  //      no test that does not assert the scroll would notice.
+  //   2. Mounted is necessary but NOT sufficient — `scrollIntoView` on a
+  //      `display:none` element does nothing either. So the request also
+  //      EXPANDS the stack, in the same commit as `setOpenSection`, before the
+  //      frame that scrolls. This is the pattern the existing `setOpenSection`
+  //      call already relies on: a passive-effect state update is processed
+  //      before the browser paints, so the RAF callback sees the expanded DOM.
+  //
+  // Reachable callers of this deep link, all live: the assistant's `open_section`
+  // UI directive (`v5/applyV5State.ts`), PreAnalysisPanel's "See all
+  // relationships", and ContestedSection. Pinned in
+  // `__tests__/ModelTabBody.v1StackCollapsed.spec.tsx`.
   const pendingSection = useUIStore(s => s.pendingModelTabSection)
   useEffect(() => {
     if (!pendingSection) return
     setOpenSection(pendingSection)
+    setV1Expanded(true)
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
       const el = document.querySelector<HTMLElement>(`[data-testid="model-${pendingSection}-section"]`)
@@ -826,6 +873,31 @@ export const ModelTabBody = memo(function ModelTabBody({
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
       />
 
+      {/* ── The v1 stack, COLLAPSED BY DEFAULT ────────────────────────────── */}
+      {/* Present and expandable, never removed. See the `v1Expanded` note. */}
+      <section data-testid="model-tab-v1-stack" className="border-t border-panel-border pt-3">
+        <button
+          type="button"
+          data-testid="model-tab-v1-disclosure"
+          aria-expanded={v1Expanded}
+          aria-controls={V1_STACK_CONTENT_ID}
+          onClick={() => setV1Expanded(v => !v)}
+          className="w-full flex items-baseline gap-2 text-left py-1"
+        >
+          <span aria-hidden="true" className="text-text-light">{v1Expanded ? '▾' : '▸'}</span>
+          <span className={`${typography.panelHeader} text-text-header`}>Detailed editing</span>
+          <span className={`${typography.panelMeta} text-text-light`}>
+            Goal target, option interventions, relationship strengths, risks and the model card
+          </span>
+        </button>
+
+        {/* ⚠ MOUNTED WHEN COLLAPSED. `hidden` is an attribute, not a branch:
+            the sections stay in the DOM so the `model-{section}-section`
+            deep-link `querySelector` above keeps resolving. Do not convert this
+            to `{v1Expanded && (...)}` — that silently breaks assistant-driven
+            section navigation with no error anywhere. */}
+        <div id={V1_STACK_CONTENT_ID} data-testid={V1_STACK_CONTENT_ID} hidden={!v1Expanded}>
+
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
       {/* No sort label post-analysis. The list is ordered by influence, and we
           do not assert that its order encodes value — the previous
@@ -922,6 +994,8 @@ export const ModelTabBody = memo(function ModelTabBody({
           />
         </div>
       </ModelTabHeader>
+        </div>
+      </section>
 
       {/* ── Streaming diagnostics (Shift+D) ───────────────────────────────── */}
       <StreamingDiagnostics
