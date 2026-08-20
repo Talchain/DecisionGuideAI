@@ -10,6 +10,13 @@
  * (humaniseCritique.ts:270-274 at pristine 43fd19e1) — mislabelling the
  * condition and discarding the actionable remedy.
  *
+ * ⚠ THAT QUOTED SENTENCE IS HISTORY, DELIBERATELY LEFT AS SAID. The generic
+ * fallback has since been de-factor-framed (it now reads "Part of this
+ * analysis was limited"), because the same defect was found across the other
+ * 24 codes of this vocabulary. The assertions below therefore compare against
+ * the CURRENT fallback; this paragraph records the one that caused the defect.
+ * Rewriting it would falsify why this file exists.
+ *
  * PRODUCER SEMANTICS, derived at ISL staging tip (robustness_analyzer_v2.py,
  * `_resolve_goal_threshold` refuse() sites):
  *   · GOAL_THRESHOLD_FRAME_UNSPECIFIED — the threshold was supplied without a
@@ -43,7 +50,7 @@ describe('humaniseCritique — goal-threshold refusals are goal-scoped, never fa
   it('GOAL_THRESHOLD_NOT_CONVERTIBLE: goal-scoped title, honest withhold description, actionable current-level remedy', () => {
     const result = humaniseCritique(item('GOAL_THRESHOLD_NOT_CONVERTIBLE'))
     // Not the generic factor-framed fallback.
-    expect(result.title).not.toBe("Review this factor's inputs")
+    expect(result.title).not.toBe('Part of this analysis was limited')
     expect(result.title.toLowerCase()).toContain('goal')
     expect(result.title.toLowerCase()).not.toContain('factor')
     // The honest substance: withheld, not guessed.
@@ -56,7 +63,7 @@ describe('humaniseCritique — goal-threshold refusals are goal-scoped, never fa
 
   it('GOAL_THRESHOLD_FRAME_UNSPECIFIED: names the level-vs-change ambiguity and how to resolve it', () => {
     const result = humaniseCritique(item('GOAL_THRESHOLD_FRAME_UNSPECIFIED'))
-    expect(result.title).not.toBe("Review this factor's inputs")
+    expect(result.title).not.toBe('Part of this analysis was limited')
     expect(result.title.toLowerCase()).toContain('goal')
     expect(result.title.toLowerCase()).not.toContain('factor')
     expect(result.description).toMatch(/level/i)

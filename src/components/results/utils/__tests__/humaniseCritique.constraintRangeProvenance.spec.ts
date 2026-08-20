@@ -128,7 +128,7 @@ describe('constraint-range critique copy is grounded in the producer', () => {
       item({ code: 'CONSTRAINT_NO_DERIVABLE_RANGE', message: 'msg', affectedNodes: ['fac_churn'] }),
       LABELS,
     )
-    expect(r.title).toBe('Review this factor\'s inputs')
+    expect(r.title).toBe('Part of this analysis was limited')
     expect(r.displayText).toBeNull()
     // …and specifically NOT the sentence it used to fabricate.
     expect(r.title).not.toMatch(/has no estimate set/i)
