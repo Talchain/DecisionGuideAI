@@ -83,7 +83,7 @@ beforeEach(() => {
 })
 
 describe('V5GraphPatchBlock — clean receipt rendering', () => {
-  it('renders set_factor_value as "Updated factor" + entity + numeric diff', () => {
+  it('renders set_factor_value as "Updated factor value" + entity + numeric diff', () => {
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
       status: 'applied',
@@ -93,7 +93,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { value: 0.7 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor value')
     expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale')
     expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.5 → 0.7')
     expect(screen.getByTestId('v5-change-status').textContent).toBe('Applied')
@@ -116,7 +116,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
     expectNoLeakInDOM()
   })
 
-  it('renders adjust_edge_strength as "Adjusted connection" + endpoints + numeric diff', () => {
+  it('renders adjust_edge_strength as "Adjusted connection strength" + endpoints + numeric diff', () => {
     const block: V5GraphPatchBlockType = {
       type: 'v5_graph_patch',
       status: 'applied',
@@ -126,7 +126,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { strength: 0.6 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection strength')
     expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale → overall outcome')
     expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.3 → 0.6')
     expectNoLeakInDOM()
@@ -276,7 +276,7 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       after: { value: 0.7, raw_value: 70, unit: '%', cap: 100 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor value')
     expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale')
     expect(screen.getByTestId('v5-change-summary').textContent).toBe('50% → 70%')
     // Critical: never the normalised decimals in the visible text.
@@ -314,7 +314,7 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection strength')
     expect(screen.getByTestId('v5-change-entity').textContent).toBe(
       'Marketing budget → Revenue',
     )
@@ -477,7 +477,7 @@ describe('V5GraphPatchBlock — G3 adjust_edge_strength graceful fallback', () =
       after: null,
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection strength')
     // Endpoints resolve via the canvas store fallback (edge id is in EDGES).
     expect(screen.getByTestId('v5-change-entity').textContent).toBe(
       'team morale → overall outcome',
@@ -505,7 +505,7 @@ describe('V5GraphPatchBlock — G3 adjust_edge_strength graceful fallback', () =
     }
     render(<V5GraphPatchBlock block={block} />)
     const card = screen.getByTestId('v5-change-receipt')
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection strength')
     expect(screen.queryByTestId('v5-change-entity')).toBeNull()
     expect(screen.queryByTestId('v5-change-summary')).toBeNull()
     expect(card.outerHTML).not.toContain('edge_unknown_unmapped')
@@ -528,7 +528,7 @@ describe('V5GraphPatchBlock — G3 adjust_edge_strength graceful fallback', () =
       after: 'oops' as unknown as null,
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection strength')
     expect(screen.queryByTestId('v5-change-summary')).toBeNull()
     expectNoLeakInDOM()
   })

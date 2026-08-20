@@ -15,6 +15,7 @@ import {
   buildV5PatchReceipt,
   buildV5PatchDeps,
   formatConstraintValue,
+  V5_OPERATION_LABELS,
 } from '../v5GraphPatchDescription'
 
 const FORBIDDEN_TERMS = [
@@ -106,7 +107,7 @@ describe('buildV5PatchReceipt — set_factor_value', () => {
   it('uses canvas-store label when present and shows numeric diff', () => {
     const deps = makeDeps([{ id: 'fac_team_morale', label: 'team morale' }])
     const r = buildV5PatchReceipt(block(), deps)
-    expect(r.actionLabel).toBe('Updated factor')
+    expect(r.actionLabel).toBe('Updated factor value')
     expect(r.entityLabel).toBe('team morale')
     expect(r.changeSummary).toBe('0.5 → 0.7')
     expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
@@ -349,7 +350,7 @@ describe('buildV5PatchReceipt — adjust_edge_strength', () => {
       ],
     )
     const r = buildV5PatchReceipt(block(), deps)
-    expect(r.actionLabel).toBe('Adjusted connection')
+    expect(r.actionLabel).toBe('Adjusted connection strength')
     expect(r.entityLabel).toBe('team morale → outcome')
     expect(r.changeSummary).toBe('0.3 → 0.6')
     expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
@@ -383,5 +384,38 @@ describe('buildV5PatchReceipt — invariants', () => {
       )
       expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
     }
+  })
+})
+
+/**
+ * ⭐⭐ THE RECEIPT NAMES THE FIELD — pinned for its REASON, not for its wording.
+ *
+ * Fresh-guest browser witness, 20 Aug 2026 (UI `7153fbd7` / CEE `65445df`).
+ * Three different numbers hang off one option → factor pair: the link's
+ * STRENGTH, the factor's OWN VALUE, and the option's EFFECT VALUE. Two writes
+ * landed on the first two while the product's blocker was asking for the third,
+ * and the card's action label said only "Adjusted connection" / "Updated
+ * factor" — true of the entity, silent about which number moved.
+ *
+ * These assert the FIELD WORD is present rather than the exact phrase, so a
+ * later copy edit is free to reword the verb and is NOT free to drop the field.
+ */
+describe('the action label names the field that moved', () => {
+  it('every applied operation label names its field', () => {
+    expect(V5_OPERATION_LABELS.set_factor_value).toMatch(/\bvalue\b/i)
+    expect(V5_OPERATION_LABELS.adjust_edge_strength).toMatch(/\bstrength\b/i)
+    expect(V5_OPERATION_LABELS.add_constraint).toMatch(/\bconstraint\b/i)
+  })
+
+  it('the two numeric fields on one option → factor pair are DISTINGUISHABLE from each other', () => {
+    // The discriminating assertion: a reader must be able to tell a link
+    // strength change from a factor value change. Equal labels — or labels that
+    // differ only in the entity word — would fail the user in exactly the way
+    // the witness recorded.
+    expect(V5_OPERATION_LABELS.set_factor_value).not.toBe(
+      V5_OPERATION_LABELS.adjust_edge_strength,
+    )
+    expect(V5_OPERATION_LABELS.set_factor_value).not.toMatch(/\bstrength\b/i)
+    expect(V5_OPERATION_LABELS.adjust_edge_strength).not.toMatch(/\bfactor value\b/i)
   })
 })

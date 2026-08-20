@@ -30,10 +30,31 @@ import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 // for V5 ops so the block component does not duplicate the table).
 // ---------------------------------------------------------------------------
 
+/**
+ * ⭐⭐ THE ACTION LABEL NAMES THE FIELD, NOT JUST THE ENTITY.
+ *
+ * Fresh-guest browser witness, 20 Aug 2026 (UI `7153fbd7` / CEE `65445df`). Two
+ * writes landed under the "Applied" badge that answered a question the user had
+ * not asked: an edge STRENGTH moved 1 → 0.6, and a factor's OWN VALUE moved
+ * 0.5 → 0.7, both while the product's blocker was asking for that option ×
+ * factor pair's EFFECT VALUE — a third number, on the same two entities.
+ *
+ * The card already named the entity and the before → after. What it could not
+ * do was let the reader tell WHICH NUMBER had moved: "Adjusted connection" and
+ * "Updated factor" both describe a change to an entity, not to a field. On a
+ * surface where three different numbers hang off the same option → factor pair,
+ * that is the difference between a receipt a user can check and one they cannot.
+ *
+ * ⚠ THE BADGE BESIDE THIS IS STILL THE BARE WORD "Applied"
+ * (`V5GraphPatchBlock.tsx:115`), gated on `block.status` alone. It stays: the
+ * badge answers *did it land?* and this label answers *what moved?* — two
+ * questions, named apart. What is fixed here is that the second question now
+ * has an answer.
+ */
 export const V5_OPERATION_LABELS: Record<V5GraphPatchBlock['operation'], string> = {
-  set_factor_value: 'Updated factor',
+  set_factor_value: 'Updated factor value',
   add_constraint: 'Added constraint',
-  adjust_edge_strength: 'Adjusted connection',
+  adjust_edge_strength: 'Adjusted connection strength',
 }
 
 const V5_NOOP_LABELS: Record<V5GraphPatchBlock['operation'], string> = {
@@ -221,8 +242,9 @@ export interface V5PatchDeps {
 
 export interface V5PatchReceipt {
   /**
-   * Action label — the title-case verb phrase, e.g. "Updated factor",
-   * "Added constraint", "Adjusted connection". Safe to show as a heading.
+   * Action label — the title-case verb phrase naming the FIELD that moved,
+   * e.g. "Updated factor value", "Added constraint", "Adjusted connection
+   * strength". Safe to show as a heading.
    */
   readonly actionLabel: string
   /**
