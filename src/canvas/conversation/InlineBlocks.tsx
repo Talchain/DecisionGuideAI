@@ -68,9 +68,11 @@ import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
 import {
+  collectBlockProseSurface,
   composeMessage,
   dedupeRenderedText,
   turnDeliversNarrativeAsTypedCard,
+  withSuppressedProse,
 } from './messageComposition'
 import { GraphVocabularyLegend } from './GraphVocabularyLegend'
 import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
@@ -200,7 +202,6 @@ export const InlineBlocks = memo(function InlineBlocks({
     [composition],
   )
   const detail = composition.detail
-  const hasDetail = detail.length > 0
 
   // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
   const showBadgeDots = true
@@ -220,30 +221,114 @@ export const InlineBlocks = memo(function InlineBlocks({
    * reveal what was demoted, never re-write it (invariant 1's byte-preserving
    * demotion guarantee).
    */
-  const commentaryTextOverrides = useMemo(() => {
+  const { commentaryTextOverrides, proseOverriddenBlocks, emptiedBlocks } = useMemo(() => {
     const order = [
       ...[...composition.pinned, ...composition.points].sort((a, b) => a.index - b.index),
       ...composition.detail,
     ]
     const seen: string[] = [...(alreadyRendered ?? [])]
     const overrides = new Map<number, string>()
+    const cloned = new Map<number, ConversationBlock>()
+    const emptied = new Set<number>()
+
     for (const entry of order) {
       const block = blocks[entry.index]
-      if (block.type !== 'commentary') continue
-      const text = (block as CommentaryBlockType).text ?? ''
-      const { text: survived, suppressedCount } = dedupeRenderedText(text, seen)
-      // Suppression may remove PART of a block, never the whole of it. A
-      // commentary whose every paragraph was already rendered above keeps its
-      // original text: an empty card with a live "More" toggle is a worse
-      // artefact than the duplicate, and silently deleting a block would breach
-      // the composition's own no-drop guarantee (invariant 1) from the text
-      // side. The suppression is a de-duplicator, not a censor.
-      const useOverride = suppressedCount > 0 && survived.trim().length > 0
-      if (useOverride) overrides.set(entry.index, survived)
-      seen.push(useOverride ? survived : text)
+
+      /**
+       * `commentary` keeps its OWN ratified path, unchanged. It is pinned, so
+       * it never reaches the disclosure this lane is fixing, and its "never
+       * empties a block" rule is pinned by an existing spec. Re-deciding it
+       * here would put two mechanisms on one seam.
+       */
+      if (block.type === 'commentary') {
+        const text = (block as CommentaryBlockType).text ?? ''
+        const { text: survived, suppressedCount } = dedupeRenderedText(text, seen)
+        // Suppression may remove PART of a block, never the whole of it. A
+        // commentary whose every paragraph was already rendered above keeps its
+        // original text: an empty card with a live "More" toggle is a worse
+        // artefact than the duplicate, and silently deleting a block would breach
+        // the composition's own no-drop guarantee (invariant 1) from the text
+        // side. The suppression is a de-duplicator, not a censor.
+        const useOverride = suppressedCount > 0 && survived.trim().length > 0
+        if (useOverride) overrides.set(entry.index, survived)
+        seen.push(useOverride ? survived : text)
+        continue
+      }
+
+      /**
+       * ⚠⚠ THE FIX. This used to be `if (block.type !== 'commentary') continue`
+       * — and `commentary` is in PINNED_BLOCK_TYPES, so it can NEVER land in
+       * `detail`. Every block behind "Show N more" was therefore STRUCTURALLY
+       * INELIGIBLE for suppression: the walk included `composition.detail`
+       * only to `continue` past all of it. That is the whole defect; the
+       * composition and the render path were never the problem.
+       *
+       * Per FIELD, so a card that repeats one of its paragraphs keeps the
+       * others and keeps its title. Applied in RENDER order across every tier,
+       * with no tier-conditional predicate — a rule that behaved differently
+       * inside the disclosure would be a second authority wearing one name.
+       */
+      const surface = collectBlockProseSurface(block)
+      if (surface.fields.length === 0) continue
+
+      const survivedFields = new Map<string, string>()
+      let anySuppressed = false
+      let anySurvivingText = false
+      for (const { field, text } of surface.fields) {
+        const { text: survived, suppressedCount } = dedupeRenderedText(text, seen)
+        if (suppressedCount > 0) {
+          anySuppressed = true
+          survivedFields.set(field, survived)
+        }
+        const effective = suppressedCount > 0 ? survived : text
+        if (effective.trim().length > 0) anySurvivingText = true
+        // Accumulated even when nothing was suppressed: a block's prose is
+        // what makes a LATER repeat of it a duplicate. This is the direction
+        // that fixes the witnessed pairs, and it is why top-level cards must
+        // take part in the walk even though they are never demoted.
+        seen.push(effective)
+      }
+      if (!anySuppressed) continue
+
+      /**
+       * The honest empty result. A block whose prose is ALL it has and whose
+       * every paragraph the user has already read renders nothing — not a
+       * bordered shell around three empty paragraphs. Nothing is lost: by
+       * construction every removed segment was rendered somewhere above.
+       *
+       * Any block that keeps a title, a table or a list is NOT emptied, and
+       * is never dropped — those carry content the user has not seen.
+       */
+      if (surface.proseIsSoleContent && !anySurvivingText) {
+        emptied.add(entry.index)
+        continue
+      }
+      cloned.set(entry.index, withSuppressedProse(block, survivedFields))
     }
-    return overrides
+
+    return {
+      commentaryTextOverrides: overrides,
+      proseOverriddenBlocks: cloned,
+      emptiedBlocks: emptied,
+    }
   }, [composition, blocks, alreadyRendered])
+
+  /**
+   * WHAT WILL ACTUALLY RENDER. An emptied block is removed from its tier here,
+   * at the ONE place that already knows it was emptied — so the disclosure's
+   * count, its accessible name and the sr-only summary all describe what
+   * opening it really reveals. A "Show 1 more" that reveals nothing is the
+   * empty shell one level up.
+   */
+  const visibleTopLevel = useMemo(
+    () => (emptiedBlocks.size === 0 ? topLevel : topLevel.filter((e) => !emptiedBlocks.has(e.index))),
+    [topLevel, emptiedBlocks],
+  )
+  const visibleDetail = useMemo(
+    () => (emptiedBlocks.size === 0 ? detail : detail.filter((e) => !emptiedBlocks.has(e.index))),
+    [detail, emptiedBlocks],
+  )
+  const hasDetail = visibleDetail.length > 0
 
   /**
    * THE visibility rule — one predicate, every consumer. A block is hidden iff
@@ -278,11 +363,11 @@ export const InlineBlocks = memo(function InlineBlocks({
    * or vanish as the user opens the disclosure.
    */
   const narrativeDeliveredByTypedCard = useMemo(
-    () => turnDeliversNarrativeAsTypedCard(topLevel.map((e) => blocks[e.index])),
-    [topLevel, blocks],
+    () => turnDeliversNarrativeAsTypedCard(visibleTopLevel.map((e) => blocks[e.index])),
+    [visibleTopLevel, blocks],
   )
 
-  const detailIndices = useMemo(() => new Set(detail.map((e) => e.index)), [detail])
+  const detailIndices = useMemo(() => new Set(visibleDetail.map((e) => e.index)), [visibleDetail])
   const isBlockHidden = useCallback(
     (i: number) => !detailExpanded && detailIndices.has(i),
     [detailExpanded, detailIndices],
@@ -292,7 +377,9 @@ export const InlineBlocks = memo(function InlineBlocks({
   // CURRENTLY RENDERED — never on mere presence in the turn (a legend for
   // cards hidden inside the closed disclosure explains vocabulary the user
   // cannot see).
-  const phase3Rendered = blocks.some((b, i) => isPhase3CardBlock(b) && !isBlockHidden(i))
+  const phase3Rendered = blocks.some(
+    (b, i) => isPhase3CardBlock(b) && !isBlockHidden(i) && !emptiedBlocks.has(i),
+  )
 
   // C11: citations can point at demoted content. Handed to the commentary
   // renderer only while the disclosure is actually closed, so a genuinely
@@ -317,7 +404,7 @@ export const InlineBlocks = memo(function InlineBlocks({
    * it sits. Two render paths here would be two places for them to drift.
    */
   const renderEntry = (index: number) => {
-    const block = blocks[index]
+    const block = proseOverriddenBlocks.get(index) ?? blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
     return (
       // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
@@ -360,12 +447,12 @@ export const InlineBlocks = memo(function InlineBlocks({
         // double-announced every toggle.
         <span className="sr-only">
           {detailExpanded
-            ? `Showing all ${blocks.length} supporting items`
-            : `${detail.length} more supporting item${detail.length !== 1 ? 's' : ''} available`}
+            ? `Showing all ${visibleTopLevel.length + visibleDetail.length} supporting items`
+            : `${visibleDetail.length} more supporting item${visibleDetail.length !== 1 ? 's' : ''} available`}
         </span>
       )}
 
-      {topLevel.map((e) => renderEntry(e.index))}
+      {visibleTopLevel.map((e) => renderEntry(e.index))}
 
       {hasDetail && (
         <>
@@ -378,18 +465,18 @@ export const InlineBlocks = memo(function InlineBlocks({
             aria-label={
               detailExpanded
                 ? 'Hide supporting detail'
-                : `Show ${detail.length} more supporting item${detail.length !== 1 ? 's' : ''}`
+                : `Show ${visibleDetail.length} more supporting item${visibleDetail.length !== 1 ? 's' : ''}`
             }
           >
             {detailExpanded ? (
               <><ChevronUp size={12} aria-hidden="true" /> Show less</>
             ) : (
-              <><ChevronDown size={12} aria-hidden="true" /> Show {detail.length} more</>
+              <><ChevronDown size={12} aria-hidden="true" /> Show {visibleDetail.length} more</>
             )}
           </button>
           {detailExpanded && (
             <div className={styles.blockDetailBody} data-testid="block-detail-body">
-              {detail.map((e) => renderEntry(e.index))}
+              {visibleDetail.map((e) => renderEntry(e.index))}
             </div>
           )}
         </>
