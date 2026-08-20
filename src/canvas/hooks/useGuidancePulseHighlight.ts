@@ -70,7 +70,7 @@ export function useGuidancePulseHighlight(): void {
             item_type: 'highlight',
             surface: 'canvas',
             scenario_id: storeState.currentScenarioId ?? undefined,
-            profile_stage: (storeState.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+            profile_stage: storeState.currentStage ?? undefined,
           })
         }
       }

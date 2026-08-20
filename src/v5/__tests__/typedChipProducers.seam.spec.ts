@@ -18,7 +18,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
 
 import { buildChipMeta, type ChipMetaInput } from '../../canvas/conversation/chipMeta'
-import { buildV5Payload, type BuildV5PayloadInput } from '../buildPayload'
+import { CEE_ACCEPTED_INTENTS, buildV5Payload, type BuildV5PayloadInput } from '../buildPayload'
+import { ACTIONS_MENU, SPARK_PROMPTS } from '../../canvas/components/pre-analysis-v3/constants'
 import { callV5Turn } from '../v5Adapter'
 import {
   buildSetFactorValueParameters,
@@ -188,14 +189,120 @@ describe('first-class chip.id lift + intent send gate', () => {
     expect(body.chip?.id).toBe('explicit')
   })
 
-  it('WITHHOLDS a not-yet-accepted intent (challenge_frame) — no intent key on the wire', async () => {
+  it('WITHHOLDS a not-yet-accepted intent (pre_mortem) — no intent key on the wire', async () => {
+    // `pre_mortem` is PUBLISHED in the vendored enum and DECLARED by a mounted
+    // spark, and CEE has no arm for it — so the gate must still fail closed and
+    // the chip behave like an identity-only chip. (This case used to be
+    // `challenge_frame`; that intent is now routed, so the withhold arm moved
+    // to an intent that is genuinely unrouted rather than being deleted.)
     const body = await wireBody(
-      { intent: 'challenge_frame', parameters: { spark_id: 'frame_1' } },
+      { intent: 'pre_mortem', parameters: { spark_id: 'pre_mortem' } },
       'chip',
     )
-    // The gate fails closed: the chip behaves like an identity-only chip.
     expect(body.chip && 'intent' in body.chip).toBe(false)
-    expect(body.chip?.id).toBe('frame_1')
-    expect(body.chip?.parameters).toEqual({ spark_id: 'frame_1' })
+    expect(body.chip?.id).toBe('pre_mortem')
+    expect(body.chip?.parameters).toEqual({ spark_id: 'pre_mortem' })
+  })
+})
+
+/**
+ * ⭐⭐ THE PRODUCER→WIRE CHAIN FOR A TYPED COACHING INTENT — the capability this
+ * lane exists to deliver, asserted on the ACTUAL HTTP BODY.
+ *
+ * ── THE DEFECT ───────────────────────────────────────────────────────────────
+ * `CEE_ACCEPTED_INTENTS` had exactly ONE member. Four MOUNTED sparks carry
+ * `action_type: null` (no honest handler exists for a conversation) and, until
+ * now, carried nothing else either — so the click reached CEE as anonymous
+ * prose and CEE re-inferred the intent from the message text. On the widening
+ * card the fall-through was worse than silent: the turn took the free-text edit
+ * lane, came back a REFUSAL, and the recovery chips replaced the row that held
+ * `Run analysis` (ROADMAP 2.1288, DOM-witnessed 2/2 on 17 Aug). The user
+ * accepted the product's own suggestion and paid for it with their ability to
+ * run.
+ *
+ * ── DERIVED FROM THE REGISTRY, NEVER FROM A HAND-TYPED LIST ──────────────────
+ * The cases below are built by READING the mounted spark registry
+ * (`ACTIONS_MENU` / `SPARK_PROMPTS`) and filtering to the sparks that declare an
+ * intent. A test that hand-typed `'challenge_frame'` would pass while the spark
+ * a user actually clicks declared something else, or nothing at all — the exact
+ * gap that let four mounted affordances sit untyped for weeks. Here, unmount a
+ * spark or drop its intent and this suite stops covering it AND the count
+ * assertion REDs.
+ */
+describe('typed coaching intents — mounted spark → chip.intent on the wire', () => {
+  /**
+   * Every mounted spark that declares a typed wire intent, read from the
+   * registry and DEDUPED BY ID.
+   *
+   * The dedupe is not tidiness — `SPARK_PROMPTS` ALIASES five `ACTIONS_MENU`
+   * entries via `fromActionsMenu` (`widen_options`, `pre_mortem`,
+   * `calibrate_estimates`, `pressure_test_frame`, `risks_upside`), so five
+   * affordances each have two mount points; only `define_success` and
+   * `reflect_bias` are declared inline with no menu counterpart. Without the
+   * dedupe the contrast assertion below reported the same spark twice and read
+   * as a registry defect. One affordance, one row.
+   */
+  const declaringSparks = [...new Map(
+    [...ACTIONS_MENU, ...Object.values(SPARK_PROMPTS)]
+      .filter((s): s is typeof s & { intent: string } => typeof s.intent === 'string' && s.intent.length > 0)
+      .map(s => [s.id, s] as const),
+  ).values()]
+
+  it('the registry declares intents at all — the sweep is not empty', () => {
+    // Trap 13: `it.each` over an empty array reports ZERO tests and a GREEN
+    // suite. The count is asserted by name so an emptied registry REDs here
+    // rather than silently deleting the coverage below.
+    //
+    // EXACT, not a floor: six ACTIONS_MENU entries declare an intent
+    // (`compare_view` and `prepare_first_analysis` declare `null`) and two
+    // panel-only sparks add `define_success` and `reflect_bias` — eight after
+    // the dedupe. A `>=` floor cannot see a spark that LOSES its intent while
+    // another gains one, which is the drift this assertion exists to catch.
+    expect(declaringSparks.length).toBe(8)
+  })
+
+  it.each(declaringSparks.map(s => [s.id, s.intent] as const))(
+    'spark %s declares intent %s — and the gate decides, not the declaration',
+    async (sparkId, intent) => {
+      const body = await wireBody({ intent, parameters: { spark_id: sparkId } }, 'chip')
+      const accepted = CEE_ACCEPTED_INTENTS.has(intent as never)
+      if (accepted) {
+        expect(
+          body.chip?.intent,
+          `${sparkId} declares an ACCEPTED intent but it did not reach the wire — ` +
+            'the chip has degraded to anonymous prose, which is the defect this closes',
+        ).toBe(intent)
+      } else {
+        expect(
+          body.chip && 'intent' in body.chip,
+          `${sparkId} declares ${intent}, which CEE does not route — sending it would ` +
+            'claim a capability the deployed service does not have',
+        ).toBe(false)
+      }
+      // Identity travels either way, so an unrouted spark is no worse off than
+      // before this lane.
+      expect(body.chip?.id).toBe(sparkId)
+    },
+  )
+
+  it('CONTRAST — at least one spark is SENT and at least one is WITHHELD', () => {
+    // ⭐ Without this the it.each above is satisfied by a build where the gate
+    // accepts EVERYTHING (every branch takes the `accepted` arm) or accepts
+    // NOTHING (every branch takes the withhold arm). Neither would be caught by
+    // a per-case assertion, because each case would still agree with itself.
+    const sent = declaringSparks.filter(s => CEE_ACCEPTED_INTENTS.has(s.intent as never))
+    const withheld = declaringSparks.filter(s => !CEE_ACCEPTED_INTENTS.has(s.intent as never))
+    expect(sent.map(s => s.id).sort()).toEqual(
+      ['define_success', 'pressure_test_frame', 'reflect_bias', 'widen_options'],
+    )
+    expect(withheld.length, 'no spark is withheld — the gate has been opened wholesale').toBeGreaterThan(0)
+  })
+
+  it('a composer turn carrying the same intent value still sends it — the gate is not source-scoped', async () => {
+    // The gate is about the VALUE, not the surface. Pinned so a future
+    // source-scoped narrowing is a deliberate, visible change rather than a
+    // silent one.
+    const body = await wireBody({ intent: 'challenge_frame', parameters: { spark_id: 'x' } }, 'chip_click')
+    expect(body.chip?.intent).toBe('challenge_frame')
   })
 })

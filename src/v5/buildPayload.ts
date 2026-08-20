@@ -1003,20 +1003,63 @@ export const KNOWN_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>(
  *   atomic held proposal via add-option-transaction.ts; an incomplete/absent
  *   `chip.parameters` falls through benignly to the coach (never a 422).
  *
- * NOT yet listed (deliberately withheld): the coaching / elicitation intents
- * (`elicit_options`, `challenge_frame`, `challenge_assumption`, `outside_view`,
- * `pre_mortem`, `elicit_risks`, `estimate_help`, `mitigation_help`,
- * `define_success`, `discuss`). Their typed CEE routing arm (design §3.1) is not
- * confirmed on the deployed service; the registry-stamping lane adds them here
- * WITH deploy provenance, in lockstep with the CEE coaching-arm deploy.
+ * - challenge_frame, define_success, elicit_options, challenge_assumption:
+ *   CEE's TYPED COACHING ARM (`orchestrator-v5/coaching/typed-intent-directive.ts`),
+ *   which appends a method directive to the routing turn so the coach authors
+ *   the answer with the named method in front of it. These four are listed
+ *   together because they are exactly the four MOUNTED affordances that were
+ *   degrading to generic free prose — `pressure_test_frame`, `define_success`,
+ *   `widen_options` and `reflect_bias`, all of which carry `action_type: null`
+ *   because no honest handler exists for a conversation.
+ *
+ *   ⚠⚠ DEPLOY ORDER IS LOAD-BEARING AND THIS ENTRY IS THE SECOND HALF. CEE's
+ *   arm must be MERGED AND DEPLOYED BEFORE this list grows, because listing an
+ *   intent here is precisely the claim "the deployed service routes this". On
+ *   an OLD CEE, a new UI sending these four is not a 422 — CEE's ingress
+ *   accepts any published `Intent` and simply finds no arm, so the turn behaves
+ *   exactly as it does today (free prose). The cost of getting the order wrong
+ *   is therefore a silent no-op, not a break; but the LIST WOULD BE LYING in
+ *   the interval, and this registry's whole value is that it does not.
+ *
+ * NOT yet listed (deliberately withheld): the remaining coaching / elicitation
+ * intents (`outside_view`, `pre_mortem`, `elicit_risks`, `estimate_help`,
+ * `mitigation_help`, `discuss`). Several sparks now DECLARE these — the
+ * declaration is deliberate and the gate is what withholds them, so each lights
+ * up with zero further UI change the moment CEE routes it.
  */
 export const CEE_ACCEPTED_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>([
   'add_option',
+  'challenge_frame',
+  'define_success',
+  'elicit_options',
+  'challenge_assumption',
 ])
 
 function sanitiseIntent(raw: string | undefined): IntentLiteral | undefined {
   if (!raw) return undefined
-  return isSendableToken(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)
-    ? (raw as IntentLiteral)
-    : undefined
+  if (isSendableToken(raw, KNOWN_INTENTS, CEE_ACCEPTED_INTENTS)) return raw as IntentLiteral
+
+  /**
+   * ⭐ OBSERVABILITY ONLY — the gate's BEHAVIOUR is unchanged and the `intent`
+   * key stays omitted from the payload exactly as before.
+   *
+   * WHY THIS EXISTS: a declared intent that failed the gate used to disappear
+   * with no trace anywhere, and that SILENCE is the mechanism that made the
+   * original defect invisible — nothing in a dev session distinguished "this
+   * chip declared no intent" from "this chip declared one and the gate dropped
+   * it", so four mounted affordances degraded to anonymous prose for weeks with
+   * every signal reading healthy. A withheld intent is a legitimate, expected
+   * state; it simply must not be a SECRET one.
+   *
+   * The `!raw` early return above means this can only fire for a NON-EMPTY
+   * declared string. The ordinary no-intent turn — the overwhelming majority —
+   * returns before reaching here and never logs.
+   */
+  if (import.meta.env.DEV) {
+    console.warn(
+      `[v5] chip.intent "${raw}" withheld from the wire — not in CEE_ACCEPTED_INTENTS. ` +
+        'The send gate dropped it; the chip still travels with its identity.',
+    )
+  }
+  return undefined
 }

@@ -50,8 +50,20 @@ export interface ActionChipProps {
   /** DOM test id for the chip. */
   testId: string
   /**
-   * Producer's `action_intent`. A machine token: it rides as a data-*
-   * attribute for downstream readers and is NEVER rendered as copy.
+   * Producer's `action_intent` — a machine token, NEVER rendered as copy.
+   *
+   * ⚠⚠ IT USED TO RIDE ONLY AS A `data-*` ATTRIBUTE, AND THAT WAS THE WHOLE
+   * DEFECT. CEE's widening card authors `action_intent: 'add_option'`; CEE's
+   * add-option rail fires on `ingress.chip?.intent === 'add_option'`
+   * (`route-v2.ts:2819`); and this component — the one that RENDERS that card's
+   * chip — called `sendChip(label, message)` with no third argument. The
+   * producer's typed intent reached the DOM and stopped there. So the user
+   * clicked a chip the product itself had offered, the turn fell through to the
+   * free-text edit lane, and it came back a refusal (ROADMAP 2.1288,
+   * DOM-witnessed 2/2 on 17 Aug) — at the cost of the Run affordance, because
+   * the recovery chips replaced the row.
+   *
+   * The transport was never a missing handler. It was this argument.
    */
   intent?: string
 }
@@ -67,9 +79,14 @@ export function ActionChip({ label, message, testId, intent }: ActionChipProps):
     if (settled) return
     // Fail closed WITHOUT acknowledging (see header).
     if (!sendChip) return
-    sendChip(label, message)
+    // The producer's typed intent travels as chip META, not just as a DOM
+    // attribute. `buildV5Payload`'s send gate
+    // (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) still decides whether it reaches
+    // the wire and still fails CLOSED, so this can only ever forward an intent
+    // the PRODUCER declared and the deployed CEE routes.
+    sendChip(label, message, intent ? { intent } : undefined)
     setSettled(true)
-  }, [settled, sendChip, label, message])
+  }, [settled, sendChip, label, message, intent])
 
   return (
     <button

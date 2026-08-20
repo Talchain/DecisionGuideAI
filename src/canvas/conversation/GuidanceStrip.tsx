@@ -179,7 +179,7 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       item_type: coachingItemType(topItem.category),
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      profile_stage: state.currentStage ?? undefined,
     })
   }, [topItem, dismissedId])
 
@@ -215,7 +215,7 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       item_type: coachingItemType(topItem.category),
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      profile_stage: state.currentStage ?? undefined,
       // Only when the dwell belongs to THIS item — never carried across a swap.
       ...(shownAtRef.current?.itemId === topItem.item_id
         ? { dwell_ms: bucketDwellMs(Date.now() - shownAtRef.current.at) }
@@ -234,7 +234,7 @@ export const GuidanceStrip = memo(function GuidanceStrip({
       item_type: coachingItemType(topItem.category),
       surface: 'guidance_panel',
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as GuidanceEventPayload['profile_stage'] | undefined,
+      profile_stage: state.currentStage ?? undefined,
       // Only when the dwell belongs to THIS item — never carried across a swap.
       ...(shownAtRef.current?.itemId === topItem.item_id
         ? { dwell_ms: bucketDwellMs(Date.now() - shownAtRef.current.at) }

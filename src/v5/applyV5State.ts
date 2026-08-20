@@ -45,7 +45,7 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
-import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
@@ -498,10 +498,24 @@ export interface ApplyV5StateOptions {
   currentClientTurnId?: string | null
 }
 
+/**
+ * ⭐ DERIVED FROM THE CONTRACT, NOT RE-DECLARED.
+ *
+ * This predicate used to spell the canonical vocabulary out by hand:
+ * `v === 'frame' || v === 'analyse' || v === 'decide' || v === 'review'`. That
+ * is a FOURTH declaration of a set the shared schema already owns and
+ * explicitly instructs consumers to derive from — and it is the drift shape
+ * this estate keeps paying for, because it is a hand-maintained mirror that
+ * reads GREEN while it is wrong: a member added to `Stage` in a re-vendor would
+ * simply be rejected here, silently, as "no stage signal".
+ *
+ * `Stage` is a Zod enum, so `safeParse` IS the membership test. There is
+ * nothing left to keep in sync.
+ */
 function isStage(s: string | { stage?: string } | undefined): s is StageType {
   if (!s) return false
   const v = typeof s === 'string' ? s : s.stage
-  return v === 'frame' || v === 'analyse' || v === 'decide' || v === 'review'
+  return Stage.safeParse(v).success
 }
 
 function normaliseStage(

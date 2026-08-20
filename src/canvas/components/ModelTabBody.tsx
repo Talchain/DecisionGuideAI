@@ -151,7 +151,7 @@ export const ModelTabBody = memo(function ModelTabBody({
       item_type: 'trust',
       surface: 'model_tab',
       scenario_id: state.currentScenarioId ?? undefined,
-      profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
+      profile_stage: state.currentStage ?? undefined,
     })
   }, [])
 

@@ -13,6 +13,7 @@
  */
 
 import { trackEvent } from '../lib/posthog'
+import type { ScenarioStage } from '../types/scenario'
 
 // ---------------------------------------------------------------------------
 // § 1 — Event name constants
@@ -55,8 +56,20 @@ export interface GuidanceEventPayload {
   surface: 'guidance_panel' | 'pre_analysis' | 'results' | 'model_tab' | 'inspector' | 'canvas'
   /** Current scenario ID (no content — only ID) */
   scenario_id?: string
-  /** Decision lifecycle stage */
-  profile_stage?: 'frame' | 'ideate' | 'evaluate' | 'decide'
+  /**
+   * Decision lifecycle stage.
+   *
+   * ⚠ THIS WAS A FIFTH SPELLING, AND IT WAS WRONG. It hand-typed
+   * `'frame' | 'ideate' | 'evaluate' | 'decide'` — the UI vocabulary MINUS
+   * `optimise`. Every writer reads `store.currentStage`, which is a full
+   * `ScenarioStage`, so five call sites had to CAST to satisfy this type and an
+   * `optimise` value shipped as an off-type string that the declaration says
+   * cannot occur. A type that is narrower than its only source is not a
+   * constraint, it is a lie with casts holding it up.
+   *
+   * Derived from `ScenarioStage` so it cannot disagree with what is stored.
+   */
+  profile_stage?: ScenarioStage
   /**
    * ROADMAP 1.68 — how long the item had been SHOWN when it was clicked or
    * dismissed, BUCKETED via `measurementConfig.bucketDwellMs`. This is 1.68's
