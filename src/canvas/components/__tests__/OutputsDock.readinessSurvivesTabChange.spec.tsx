@@ -40,7 +40,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { ConversationMessage } from '../../conversation/types'
@@ -634,5 +634,118 @@ describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
     expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(
       footerHeadline,
     )
+  }, 30_000)
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⭐ THE RESTING ARM — the one the ladder does NOT share, and therefore the one
+ * that can still drift.
+ *
+ * The delta review measured the asymmetry and it ran the wrong way: making the
+ * SHELL's resting headline diverge REDs (the READY test's copy assertion bites),
+ * but making the PANEL's diverge SURVIVED — 11/11 green while the two surfaces
+ * contradicted each other in the resting state. The guarded half is a frozen
+ * constant (`RESTING_AVAILABLE`); the unguarded half is a four-branch memo that
+ * has been edited repeatedly (scaffold arm, success-unset arm, estimates arm).
+ *
+ * That is trap 22b in miniature — one direction tested, the other open, suite
+ * green throughout — and leaving it would half-close the exact defect class this
+ * PR exists to close, in the change written to close it. So resting gets the
+ * same equality treatment as PENDING / OUTAGE / BLOCKED, and the mutant battery
+ * proves it bites in BOTH directions.
+ */
+describe('THE TWO SURFACES AGREE — the resting arm too', () => {
+  it('RESTING — a verdict exists and nothing objects: the same headline on both', async () => {
+    seedSideCar(SIDE_CAR_AGREES)
+    seedCanvasWithModel()
+    useCanvasStore.setState({
+      analysisStateV1: analysisState({ status: 'ready', blockers: [] } as AnalysisStateV1['readiness']),
+    } as never)
+
+    render(<Wrapper><OutputsDock /></Wrapper>)
+
+    await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    // Preconditions pinned in-test: this really is RESTING and not one of the
+    // three arms above wearing its clothes (trap 13b — a guard whose
+    // discrimination depends on a fixture that nothing pins).
+    expect(useReadinessStore.getState().error).toBeNull()
+    expect(useReadinessStore.getState().readiness).not.toBeNull()
+    expect(screen.queryByTestId('pre-analysis-v3-readiness-outage')).toBeNull()
+    expect(screen.getByTestId('pre-analysis-v3-analyse')).toBeEnabled()
+
+    const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
+    expect(footerHeadline).toBe(FOOTER_COPY.ready)
+
+    clickOlumiTab()
+    expect(olumiIsFronted()).toBe(true)
+
+    // ⭐ THE EQUALITY, against the OTHER SURFACE rather than a constant.
+    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(
+      footerHeadline,
+    )
+  }, 30_000)
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⭐ ENABLE IN PLACE — the behaviour that satisfies the founder's ruling, and
+ * the one the suite could not see.
+ *
+ * The ruling is that the route Olumi recommends must actually be usable: the
+ * user is told to ask in the chat, and when the answer lands the action must be
+ * there. `READY` above seeds the ready state BEFORE render, so it proves the bar
+ * CAN show an enabled control — never that the control enables WITHOUT the user
+ * leaving the chat. Enable-in-place was verified twice by driving it, and a
+ * behaviour verified only by a reviewer's probe is not protected.
+ *
+ * One variable moves: the PRODUCER's verdict, which supersedes the side-car
+ * (`canRunAnalysis`'s precedence). That is the real journey — the user asks,
+ * Olumi repairs, the next verdict says ready — and it means the flip cannot be
+ * attributed to anything else in the fixture.
+ *
+ * ⚠ IN PLACE IS ASSERTED BY NODE IDENTITY, not by "an enabled button exists".
+ * A remount that produced a fresh enabled button would satisfy the weaker claim
+ * while the user's chat surface flickered or lost its front.
+ */
+describe('ENABLE IN PLACE — the answer lands and the action is already there', () => {
+  it('blocked in the chat → the producer answers → THE SAME button enables, Olumi never loses front', async () => {
+    seedSideCar(SIDE_CAR_OBJECTS)
+    seedCanvasWithModel()
+    useCanvasStore.setState({ analysisStateV1: analysisState(fourBlockers()) } as never)
+
+    render(<Wrapper><OutputsDock /></Wrapper>)
+    await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+
+    clickOlumiTab()
+    expect(olumiIsFronted()).toBe(true)
+
+    const bar = screen.getByTestId('analysis-readiness-bar')
+    const button = screen.getByTestId('analysis-readiness-bar-analyse')
+    expect(bar).toHaveAttribute('data-blocked', 'true')
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('title', WITNESSED_REASON)
+
+    // The answers land. Nothing else moves — no tab click, no remount, no
+    // second render call.
+    act(() => {
+      useCanvasStore.setState({
+        analysisStateV1: analysisState({ status: 'ready', blockers: [] } as AnalysisStateV1['readiness']),
+      } as never)
+    })
+
+    // ⭐ THE SAME DOM NODE. Not "a button is enabled" — THIS button.
+    expect(screen.getByTestId('analysis-readiness-bar-analyse')).toBe(button)
+    expect(button).toBeEnabled()
+    expect(button).not.toHaveAttribute('title')
+    expect(screen.getByTestId('analysis-readiness-bar')).toBe(bar)
+    expect(bar).toHaveAttribute('data-blocked', 'false')
+
+    // The user is still where the advice sent them, and the reason is gone
+    // because there is no longer one to state.
+    expect(olumiIsFronted()).toBe(true)
+    expect(screen.queryByTestId('analysis-readiness-bar-reason')).toBeNull()
   }, 30_000)
 })

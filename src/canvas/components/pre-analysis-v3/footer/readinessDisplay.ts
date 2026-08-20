@@ -49,6 +49,32 @@
  * (`FOOTER_COPY.ready`); they differ only in how much detail they add beneath
  * it, and the shell's states LESS rather than something different. A surface
  * without the panel model supplies `RESTING_AVAILABLE` and says no more.
+ *
+ * ⚠ AND BECAUSE IT IS THE UNSHARED ARM, IT IS THE ONE THAT CAN STILL DRIFT — so
+ * it is pinned by the same headline-equality test as the shared arms
+ * (`OutputsDock.readinessSurvivesTabChange.spec.tsx`, "RESTING"), proven to bite
+ * in BOTH directions by the mutant pair R1/R2. It shipped guarded on one side
+ * only: making the SHELL's constant diverge REDed, while making the PANEL's
+ * four-branch memo diverge survived 11/11 green — the guarded half frozen, the
+ * unguarded half the one that actually gets edited. One direction tested and the
+ * other open is trap 22b, and it would have half-closed the very defect class
+ * this module was extracted to close.
+ *
+ * ⚠ RECORDED, SEEN AND JUDGED — NOT CHASED. `usePreAnalysisModel`'s resting memo
+ * has an internal `canRun === false` branch returning `notReady`, where the
+ * shell's `RESTING_AVAILABLE` would say `ready`. It is UNREACHABLE while the run
+ * gate and the readiness authorities agree: the ladder's own gate arm fires
+ * first on `!canRun`, so the panel's branch is reached only if the two ever
+ * disagree — which is what its own comment says. A LATENT contradiction, not a
+ * live one. If the gate and the hook are ever allowed to diverge, this is where
+ * it will surface.
+ *
+ * ⚠ ALSO RECORDED: `describeReadinessCheck`'s RETAINED and STALE branches render
+ * a timestamp through `formatTakenAt`, and the shell's bar now shows that copy on
+ * the Olumi surface. Divergence risk is nil — one shared function, one
+ * expression — but that copy has never been DRIVEN on the bar; the equality test
+ * reaches only the `readinessUnchecked` branch. Presence of a shared function is
+ * not coverage of every branch it can take.
  */
 
 import { FOOTER_COPY } from '../constants'
