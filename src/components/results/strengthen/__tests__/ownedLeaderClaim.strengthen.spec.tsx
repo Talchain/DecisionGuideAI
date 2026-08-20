@@ -59,6 +59,7 @@ function everyBranch(
   return {
     goalThreshold: null, // -> strengthen:success-measure
     analysisComplete: true,
+    flipThresholds: null,
     fragileEdges: [
       {
         edgeId: 'edge_9',

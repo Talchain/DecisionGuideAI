@@ -27,6 +27,7 @@
  */
 import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
+import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 
 /**
  * GuidanceItem → StrengthenPhase3Item, the ONE store→engine mapping
@@ -300,7 +301,29 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // because "this option wins in N% of runs" survives without a ranking.
   // The DATA is not lost: `challengeFragileEdges` also feeds V7SignalRow's
   // flip-risk chip, buildV7Lenses' flipRisks and V7TopMatter.
-  if (!leaderClaimWithheld && inputs.analysisComplete && inputs.fragileEdges.length > 0) {
+  //
+  // ⚠⚠ SECOND GATE, AND IT IS A DIFFERENT QUESTION (the anti-correlated half).
+  // `leaderClaimWithheld` is Q1, PERMISSION. It is FALSE on exactly the runs
+  // where Q2 bites, because a run whose factors cannot flip the leader is a run
+  // whose leader IS confidently designated — so Q1 alone left this rec asserting
+  // "55% chance the result flips to {alt}" directly beside the footer's "none of
+  // the factors we could test changed which option leads on its own". Witnessed
+  // on `live-analysis-turn-walkA-2026-08-04.json`, same panel, same run, same
+  // named alternative. Q2 is the producer's own flip evidence, read through the
+  // existing `classifyFlipEvidence` authority — no new derivation.
+  //
+  // GATED, not relabelled, for the reason the Q1 comment above already gives:
+  // there is no leader-free reading of "chance the result flips", and the title
+  // ("most likely to change the leader") carries the same claim. The DATA is not
+  // lost — the same `challengeFragileEdges` feed the fragile card, V7SignalRow's
+  // chip, `buildV7Lenses` flipRisks and V7TopMatter.
+  const flipEvidenceAttestsNoFlip = attestsNoFactorFlip(inputs.flipThresholds)
+  if (
+    !leaderClaimWithheld &&
+    !flipEvidenceAttestsNoFlip &&
+    inputs.analysisComplete &&
+    inputs.fragileEdges.length > 0
+  ) {
     const top = [...inputs.fragileEdges].sort(
       (a, b) => b.switchProbability - a.switchProbability,
     )[0]

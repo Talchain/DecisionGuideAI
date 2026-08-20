@@ -72,7 +72,8 @@ function renderSection(fragileEdges: ChallengeFragileEdge[]) {
       winnerLabel="Option A"
       alternativeLabel="Option B"
       designationsWithheld={false}
-    />,
+    
+      flipThresholds={null}/>,
   )
 }
 

@@ -9,6 +9,7 @@
 
 import type { GuidanceCategory } from '../../../canvas/stores/guidanceStore'
 import type { FactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
+import type { FlipThresholdLike } from '../utils/selectFlipRisk'
 
 /** §8.2 adaptive help types — internal only, never shown as stages. */
 export type HelpType = 'clarify' | 'broaden' | 'challenge' | 'evaluate' | 'commit'
@@ -161,6 +162,14 @@ export interface StrengthenInputs {
    * pinned by test so it cannot drift to silence.
    */
   hasLeadingOption?: boolean
+  /**
+   * The producer's flip-threshold ROWS, uninterpreted. Handed to
+   * `attestsNoFactorFlip()`, which delegates to `classifyFlipEvidence` — this
+   * module derives nothing. REQUIRED, not optional-defaulting-absent: an opt-in
+   * gate is a gate every future call site can forget, and absence here reads as
+   * "no attestation" i.e. the claim-permitting arm.
+   */
+  flipThresholds: readonly FlipThresholdLike[] | null
   fragileEdges: StrengthenFragileEdge[]
   factors: StrengthenFactor[]
   robustness: { status: string | null; level: string | null }

@@ -1,3 +1,5 @@
+import { classifyFlipEvidence, type FlipThresholdLike } from './selectFlipRisk'
+
 /**
  * fragileEdgeCopy — the stress-test fragile-factor card's prose, as pure
  * functions of the shared verdict (ROADMAP 1.267, the #503/#505 pattern).
@@ -85,10 +87,99 @@ export const FRAGILE_NEUTRAL_OBJECT = 'the comparison'
  */
 export interface FragileEdgeVerdictInput {
   /**
-   * `!DecisionVerdict.hasLeadingOption`, quoted from the caller. Never
-   * re-derived here.
+   * Q1 — PERMISSION. `!DecisionVerdict.hasLeadingOption`, quoted from the
+   * caller. Never re-derived here.
    */
   designationsWithheld: boolean
+  /**
+   * Q2 — EVIDENCE. `flip_thresholds_status === 'all_no_effect'`, quoted from
+   * the caller via `attestsNoFactorFlip()`. Never re-derived here.
+   *
+   * This is a DIFFERENT QUESTION from `designationsWithheld` and the two are
+   * deliberately not merged into one boolean — see `flipVerbPermitted`.
+   */
+  flipEvidenceAttestsNoFlip: boolean
+}
+
+/**
+ * Q2's ONE SPELLING — and it OWNS NO LOGIC, on purpose.
+ *
+ * ⚠⚠ THIS DELEGATES TO THE UI'S EXISTING FLIP-EVIDENCE AUTHORITY AND MUST
+ * NEVER GROW A RULE OF ITS OWN. `selectFlipRisk.ts` already classifies this
+ * run's flip evidence, and its header already states the rule this module was
+ * violating, in its own words:
+ *
+ *     `flips_absent` — "flip thresholds are PRESENT and EVERY row is
+ *     non-flipping. The producer has affirmatively said there is no flip.
+ *     NO SURFACE MAY NAME A FLIP RISK OR PRINT A FLIP PERCENTAGE."
+ *
+ * The fragile-edge card is a surface that named a flip risk and printed a flip
+ * percentage, and it was the one surface that never asked. That is the whole
+ * defect: not a missing rule, an UNCONSULTED one.
+ *
+ * Delegating rather than re-deriving buys three things this module must not
+ * re-litigate, each already settled and tested in `classifyFlipEvidence`:
+ *   · an EMPTY/absent array is `no_producer_flip_data`, NOT an attestation —
+ *     so there is no vacuous-truth trap here (`[].every(...)` is `true`);
+ *   · an unknown/failed/timed-out reason FAILS the allow-list and degrades to
+ *     "we do not know", keeping the strong verb — fail toward not-claiming;
+ *   · the attesting vocabulary lives once, in `flipReasonVocabulary`, mirroring
+ *     PLoT's exported `NO_EFFECT_REASONS` — never restated here.
+ *
+ * ⚠ AND WHY NOT `flip_thresholds_status`: it is the producer's own summary and
+ * would be the natural input, but it DOES NOT REACH THIS CONSUMER. Derived at a
+ * real capture, not assumed — `live-analysis-turn-walkA-2026-08-04.json` carries
+ * `enrichment.robustness.display_verdict_reason` (the attested wording) and
+ * `enrichment.flip_thresholds` (7 rows) but NO `flip_thresholds_status`
+ * anywhere; across the JSON corpus the field appears in exactly ONE file, a
+ * PLoT-shaped `/v2/run` capture, versus 12 carrying `display_verdict_reason`.
+ * A gate keyed on the status would have been FALSE on precisely the runs that
+ * need it and the fix would have shipped DARK.
+ */
+export function attestsNoFactorFlip(
+  flipThresholds: readonly FlipThresholdLike[] | null | undefined,
+): boolean {
+  return classifyFlipEvidence(flipThresholds) === 'flips_absent'
+}
+
+/**
+ * TWO INDEPENDENT QUESTIONS, ONE CONSEQUENCE — named apart on purpose.
+ *
+ * ⚠⚠ THIS IS THE WHOLE POINT OF THE FIX, so it is written out rather than
+ * collapsed into `a || b`:
+ *
+ *   Q1 PERMISSION — `designationsWithheld`: may this turn name a leading
+ *      option AT ALL? When it may not, "flip the result to X" presupposes a
+ *      current result to flip FROM, and that designation is exactly what the
+ *      verdict withheld.
+ *
+ *   Q2 EVIDENCE — `flipEvidenceAttestsNoFlip`: did this run's own factor-flip
+ *      probe attest that no probed factor changes the leader ON ITS OWN? When
+ *      it did, flip vocabulary here IMPERSONATES an authority this card does
+ *      not hold. This card's data are EDGES scored by elasticity and observed
+ *      under JOINT Monte Carlo sampling; the flip probe sweeps ROOT FACTORS
+ *      ONE AT A TIME. Different objects, different scopes, different
+ *      manipulations — so both statements can be, and routinely are, TRUE.
+ *      PLoT already wrote this down and nothing downstream read it:
+ *      `robustness-display-verdict.ts:85-89` — fragile edges are "a different
+ *      measurement from factor flips and is not contradicted by them".
+ *
+ * ⚠ AND THE COLLISION MECHANIC, which is why this went unnoticed: Q1 and Q2
+ * are ANTI-CORRELATED. A run where nothing can flip the leader is precisely a
+ * run where the leader IS confidently designated — so `designationsWithheld`
+ * is FALSE exactly when `flipEvidenceAttestsNoFlip` is TRUE. The neutral copy
+ * below already existed and was gated OFF on exactly the runs that needed it.
+ * Two questions under one gate, failing in the worst direction.
+ *
+ * Neither question is a fallback for the other: each ALONE forbids the verb,
+ * and each is pinned by its own test so a later edit cannot quietly drop one.
+ */
+function flipVerbPermitted(input: FragileEdgeVerdictInput): boolean {
+  // Q1 — permission.
+  if (input.designationsWithheld) return false
+  // Q2 — evidence.
+  if (input.flipEvidenceAttestsNoFlip) return false
+  return true
 }
 
 /**
@@ -102,9 +193,26 @@ export type FragileEdgeGroupHeader =
   /** `lead` (trailing space included) followed by the alt-winner element. */
   | { kind: 'altWinner'; lead: string; altWinnerLabel: string }
 
-/** `N factor` / `N factors` — the count is DATA and survives withholding. */
-function factorCount(edgeCount: number): string {
-  return `${edgeCount} ${edgeCount === 1 ? 'factor' : 'factors'}`
+/**
+ * `N relationship` / `N relationships` — the count is DATA and survives
+ * withholding. Only the NOUN changed, and it was a plain falsehood
+ * INDEPENDENT of the flip-vocabulary defect above:
+ *
+ * The producer array being counted is `robustness.fragile_edges` — EDGES
+ * (`edge_id = "{from}->{to}"`, ISL `robustness_analyzer_v2.py:5964-5996`), not
+ * factors. Edges and source factors are NOT 1:1, and the estate had already
+ * measured it: `StressTestSection.tsx:287-289` records that "two different
+ * edges sharing a source factor legitimately render the same 'If X shifts'
+ * line". So "3 factors" could be, and on the witnessed staging run was, a
+ * count of 3 edges over FEWER distinct factors — wrong on any run, including
+ * runs where the flip evidence says nothing at all.
+ *
+ * `relationships` is not new vocabulary: `fragileDiscussDraft` below has
+ * always called them that ("Are these N relationships…"), so the module was
+ * already internally inconsistent and this settles it toward the true noun.
+ */
+function relationshipCount(edgeCount: number): string {
+  return `${edgeCount} ${edgeCount === 1 ? 'relationship' : 'relationships'}`
 }
 
 export function fragileEdgeGroupHeader({
@@ -112,6 +220,7 @@ export function fragileEdgeGroupHeader({
   edgeCount,
   hasEValue,
   designationsWithheld,
+  flipEvidenceAttestsNoFlip,
 }: FragileEdgeVerdictInput & {
   /** Resolved shared alt-winner for the group, or null/'' when there is none. */
   altWinnerLabel: string | null
@@ -131,7 +240,7 @@ export function fragileEdgeGroupHeader({
 
   const multiple = edgeCount > 1
 
-  if (designationsWithheld) {
+  if (!flipVerbPermitted({ designationsWithheld, flipEvidenceAttestsNoFlip })) {
     // The count survives AND so does the name — the alternative is directional
     // sensitivity data. What goes is "flip the result TO", which presupposes a
     // current result to flip from. Same shape as `heroCopy.flipRiskWithAlternative`
@@ -139,7 +248,7 @@ export function fragileEdgeGroupHeader({
     return {
       kind: 'altWinner',
       lead: multiple
-        ? `${factorCount(edgeCount)} could shift ${FRAGILE_NEUTRAL_OBJECT} towards `
+        ? `${relationshipCount(edgeCount)} could shift ${FRAGILE_NEUTRAL_OBJECT} towards `
         : `${sentenceCase(FRAGILE_NEUTRAL_OBJECT)} could shift towards `,
       altWinnerLabel,
     }
@@ -147,7 +256,9 @@ export function fragileEdgeGroupHeader({
 
   return {
     kind: 'altWinner',
-    lead: multiple ? `${factorCount(edgeCount)} could flip the result to ` : 'Result could flip to ',
+    lead: multiple
+      ? `${relationshipCount(edgeCount)} could flip the result to `
+      : 'Result could flip to ',
     altWinnerLabel,
   }
 }
@@ -156,10 +267,10 @@ export function fragileEdgeGroupHeader({
  * The per-edge trailing clause, rendered beside "If {source} shifts" when the
  * group has no named alt-winner.
  */
-export function fragileEdgeConsequence({ designationsWithheld }: FragileEdgeVerdictInput): string {
-  return designationsWithheld
-    ? `${FRAGILE_NEUTRAL_OBJECT} could change`
-    : 'which option is most likely to hit your goal could change'
+export function fragileEdgeConsequence(input: FragileEdgeVerdictInput): string {
+  return flipVerbPermitted(input)
+    ? 'which option is most likely to hit your goal could change'
+    : `${FRAGILE_NEUTRAL_OBJECT} could change`
 }
 
 /**
@@ -168,12 +279,12 @@ export function fragileEdgeConsequence({ designationsWithheld }: FragileEdgeVerd
  */
 export function fragileEValueNote({
   eValue,
-  designationsWithheld,
+  ...verdict
 }: FragileEdgeVerdictInput & { eValue: number }): string {
   const v = eValue.toFixed(1)
-  return designationsWithheld
-    ? `E-value ${v}: assumptions would only need to be ${v}x wrong to change ${FRAGILE_NEUTRAL_OBJECT}.`
-    : `E-value ${v}: assumptions would only need to be ${v}x wrong to change which option is most likely to hit your goal.`
+  return flipVerbPermitted(verdict)
+    ? `E-value ${v}: assumptions would only need to be ${v}x wrong to change which option is most likely to hit your goal.`
+    : `E-value ${v}: assumptions would only need to be ${v}x wrong to change ${FRAGILE_NEUTRAL_OBJECT}.`
 }
 
 /**
@@ -192,7 +303,7 @@ export function fragileDiscussDraft({
   altWinnerLabel,
   fromLabel,
   toLabel,
-  designationsWithheld,
+  ...verdict
 }: FragileEdgeVerdictInput & {
   edgeCount: number
   altWinnerLabel: string | null
@@ -203,9 +314,9 @@ export function fragileDiscussDraft({
   const multiple = edgeCount > 1
 
   if (altWinnerLabel && multiple) {
-    return designationsWithheld
-      ? `Are these ${edgeCount} relationships that could shift ${FRAGILE_NEUTRAL_OBJECT} towards ${altWinnerLabel} reliable?`
-      : `Are these ${edgeCount} relationships that could flip the result to ${altWinnerLabel} reliable?`
+    return flipVerbPermitted(verdict)
+      ? `Are these ${edgeCount} relationships that could flip the result to ${altWinnerLabel} reliable?`
+      : `Are these ${edgeCount} relationships that could shift ${FRAGILE_NEUTRAL_OBJECT} towards ${altWinnerLabel} reliable?`
   }
 
   if (altWinnerLabel) {

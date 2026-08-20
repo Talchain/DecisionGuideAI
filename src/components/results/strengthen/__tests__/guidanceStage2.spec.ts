@@ -57,6 +57,7 @@ const coachingBlock = (over: Record<string, unknown>): Record<string, unknown> =
 const baseInputs: StrengthenInputs = {
   goalThreshold: 62,
   analysisComplete: true,
+  flipThresholds: null,
   fragileEdges: [],
   factors: [],
   robustness: { status: null, level: null },

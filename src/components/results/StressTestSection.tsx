@@ -36,6 +36,8 @@ import {
   stripStatusQuoSuffixForDisplay,
 } from './utils/cleanFactorLabel'
 import { dedupeFragileEdgesByIdentity } from './utils/dedupeFragileEdges'
+import { attestsNoFactorFlip } from './utils/fragileEdgeCopy'
+import type { FlipThresholdLike } from './utils/selectFlipRisk'
 import { typography } from '../../styles/typography'
 import {
   buildDisconfirmationCard,
@@ -90,6 +92,18 @@ export interface StressTestSectionProps {
    * scope is still the two authored cards; CLAIM scope is the whole section.
    */
   designationsWithheld: boolean
+  /**
+   * The producer's flip-threshold ROWS, passed through UNINTERPRETED. Handed
+   * to `attestsNoFactorFlip()`, which delegates to the existing
+   * `classifyFlipEvidence` authority — this file derives nothing.
+   */
+  /**
+   * REQUIRED, matching `FragileEdgeGroupCard.flipEvidenceAttestsNoFlip`. An
+   * optional outer door makes the required inner one decorative: a call site
+   * that simply omits it silently selects the claim-permitting arm. `null` is
+   * an explicit "no rows", which classifies `no_producer_flip_data`.
+   */
+  flipThresholds: readonly FlipThresholdLike[] | null
   /** Recommended option label (winner) — drives template question phrasing. */
   winnerLabel: string
   /** Runner-up option label (alternative) — drives template question phrasing. */
@@ -238,6 +252,7 @@ export const StressTestSection = memo(function StressTestSection({
   sensitivityReferenceLabel,
   showThinkingPatterns = true,
   designationsWithheld,
+  flipThresholds,
 }: StressTestSectionProps) {
   // ROADMAP 1.267. ONE derived boolean, used by both the count and the
   // render — the #501 lesson that a designation suppressed in the list but
@@ -390,6 +405,7 @@ export const StressTestSection = memo(function StressTestSection({
                 onSendMessage={onSendMessage}
                 expertMode={expertMode}
                 designationsWithheld={designationsWithheld}
+                flipEvidenceAttestsNoFlip={attestsNoFactorFlip(flipThresholds)}
               />
             ))}
           </div>

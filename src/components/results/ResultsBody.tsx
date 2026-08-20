@@ -787,6 +787,7 @@ export const ResultsBody = memo(function ResultsBody({
                   winnerLabel={winnerLabel}
                   alternativeLabel={alternativeLabel}
                   robustnessStatus={resultsSectionData.confidence.robustnessStatus}
+                  flipThresholds={resultsSectionData.recommendation.flipThresholds ?? null}
                   analysisDegraded={analysisDegraded}
                   onFocusNode={onFocusNode}
                   onSendMessage={onSendMessage}

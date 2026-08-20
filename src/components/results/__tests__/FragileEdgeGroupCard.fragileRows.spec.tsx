@@ -53,6 +53,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[makeFragileEdge({ alternative_winner_label: 'Option B' })]}
       />,
@@ -71,6 +72,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[makeFragileEdge({
           from_label: 'Factor A',
@@ -91,6 +93,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel={null}
         edges={[makeFragileEdge({ alternative_winner_label: undefined })]}
       />,
@@ -104,6 +107,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[makeFragileEdge()]}
       />,
@@ -123,6 +127,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[makeFragileEdge({ from_id: 'node-source-1' })]}
         onFocusNode={onFocusNode}
@@ -141,6 +146,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[makeFragileEdge()]}
       />,
@@ -153,6 +159,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[makeFragileEdge({ from_label: 'Market Size', to_label: 'Revenue' })]}
         onFocusNode={onFocusNode}
@@ -177,6 +184,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={edges}
         onFocusNode={onFocusNode}
@@ -201,6 +209,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={edges}
         onFocusNode={onFocusNode}
@@ -224,6 +233,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={edges}
         onFocusNode={onFocusNode}
@@ -256,6 +266,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={[edgeWithoutId]}
         onFocusNode={onFocusNode}
@@ -279,6 +290,7 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6c Review chip', () => {
     render(
       <FragileEdgeGroupCard
         designationsWithheld={false}
+        flipEvidenceAttestsNoFlip={false}
         altWinnerLabel="Option B"
         edges={edges}
         onFocusNode={onFocusNode}

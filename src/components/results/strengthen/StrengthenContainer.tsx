@@ -113,6 +113,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // (P(flip | only this edge varies)) and was previously PREFERRED here —
       // a mislabel whenever both quantities arrived. An unmeasured edge
       // produces no flip recommendation (absence renders nothing).
+      flipThresholds: data.recommendation.flipThresholds ?? null,
       fragileEdges: fragile
         .filter((fe) => typeof fe.switch_probability === 'number')
         .map((fe) => ({
