@@ -6,6 +6,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { OptionsSection } from '../OptionsSection'
 import type { Node } from '@xyflow/react'
+import { DetailToggleContext } from '../DetailToggleContext'
+import { normalisedScaleSuffix } from '../statisticalNotation'
 
 const mockUpdateNode = vi.fn()
 
@@ -202,18 +204,34 @@ describe('OptionsSection', () => {
 
   // ── Normalised intervention display ────────────────────────────────────────
 
-  it('shows normalised label when intervention target is 0-1 and factor has large raw baseline', () => {
-    // Factor with raw_value=10000 and unit=£. Intervention target is 0.8 (normalised).
+  it('marks a model-space intervention target in words, and restores (normalised) in expert mode', () => {
+    // Factor with raw_value=10000 and unit=£. Intervention target is 0.8, which
+    // `looksNormalised` (OptionsSection.tsx:93-95) classifies as model space.
+    // Was: asserted /normalised/ with NO provider — it pinned the leak.
     const factor = makeFactorNode('f1', 'Ad spend', 10000, '£')
     const option = makeOptionNode('opt1', 'Campaign', { f1: 0.8 })
-    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
-    // Target should show as normalised, not £0.8
-    expect(screen.getByText(/0\.80/)).toBeInTheDocument()
-    expect(screen.getByText(/normalised/)).toBeInTheDocument()
-    // Baseline should show raw value with unit
+    const plain = render(
+      <DetailToggleContext.Provider value={{ showDetail: false }}>
+        <OptionsSection optionNodes={[option]} allNodes={[factor]} />
+      </DetailToggleContext.Provider>,
+    )
+    const off = screen.getByTestId('intervention-opt1-f1-display')
+    expect(off).toHaveTextContent('0.80')
+    expect(off).toHaveTextContent(normalisedScaleSuffix(false))
+    expect(off.textContent).not.toMatch(/normalised/i)
+    // Baseline still shows the raw value with unit; no delta chip (cross-unit-space)
     expect(screen.getByText('£10,000')).toBeInTheDocument()
-    // Delta chip should NOT render (cross-unit-space)
     expect(screen.queryByText(/£9,999/)).not.toBeInTheDocument()
+    plain.unmount()
+
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <OptionsSection optionNodes={[option]} allNodes={[factor]} />
+      </DetailToggleContext.Provider>,
+    )
+    const on = screen.getByTestId('intervention-opt1-f1-display')
+    expect(on).toHaveTextContent('0.80')
+    expect(on).toHaveTextContent('(normalised)')
   })
 
   it('shows raw values with units when both baseline and target are in same range', () => {

@@ -18,6 +18,7 @@ import { focusNodeById } from '../../utils/focusHelpers'
 import { formatValueWithUnit, formatSmartNumber } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
+import { normalisedScaleSuffix } from './statisticalNotation'
 import { unwrapInterventionValue, formatRawValueWithUnit } from '../../utils/labelUtils'
 import { interventionTargetValue } from '../../domain/interventions'
 
@@ -296,7 +297,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
             const targetDisplay = iv.displayValue
               ? iv.displayValue
               : iv.hasRawUnit
-                ? `${iv.currentValue.toFixed(2)} (normalised)`
+                ? `${iv.currentValue.toFixed(2)} ${normalisedScaleSuffix(showDetail)}`
                 : formatRawValueWithUnit(iv.currentValue, iv.unit)
 
             return (

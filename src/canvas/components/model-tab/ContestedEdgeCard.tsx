@@ -14,6 +14,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { AlertTriangle, Check } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { DetailToggleContext } from './DetailToggleContext'
+import { estimateGapText } from './statisticalNotation'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { useCanvasStore } from '../../store'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
@@ -334,8 +335,11 @@ export function ContestedEdgeCard({
       {primaryReason && !isResolved && (
         <p className={`${typography.panelMeta} text-text-light mb-1`}>
           {primaryReason}
-          <span className={`${typography.panelMeta} text-warning ml-1`}>
-            Δ {deltaMagnitude.toFixed(2)}
+          <span
+            className={`${typography.panelMeta} text-warning ml-1`}
+            data-testid={`contested-estimate-gap-${edgeId}`}
+          >
+            {estimateGapText(deltaMagnitude, showDetail)}
           </span>
         </p>
       )}
