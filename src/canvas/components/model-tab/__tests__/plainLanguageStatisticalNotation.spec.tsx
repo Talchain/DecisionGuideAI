@@ -73,12 +73,10 @@ vi.mock('../../../utils/evidenceCoverage', () => ({
   NON_EVIDENCE_PROVENANCE: ['assumption', 'template', 'ai-suggested'],
 }))
 
-let sliderOnChange: ((v: number) => void) | undefined
 vi.mock('../../../ui/inspector/SignedStrengthSlider', () => ({
-  SignedStrengthSlider: ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
-    sliderOnChange = onChange
-    return <input type="range" data-testid="mock-strength-slider" defaultValue={value} onChange={e => onChange(parseFloat(e.target.value))} />
-  },
+  SignedStrengthSlider: ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
+    <input type="range" data-testid="mock-strength-slider" defaultValue={value} onChange={e => onChange(parseFloat(e.target.value))} />
+  ),
 }))
 
 const mockStorage = new Map<string, string>()
