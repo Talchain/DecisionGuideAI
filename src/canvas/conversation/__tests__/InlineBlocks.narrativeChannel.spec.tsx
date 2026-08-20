@@ -29,8 +29,11 @@
  * sentence later, and it would hide the composer defect instead of resolving
  * it. `messageComposition.ts` already refuses to de-duplicate a text against
  * itself for exactly this reason. What is resolved here is the CHANNEL: when
- * the turn delivers the narrative as a typed, titled card, the untyped copy
- * inside the analysis-result card does not render. One content, one surface.
+ * the turn delivers the narrative as a typed, titled card IN FULL, the untyped
+ * copy inside the analysis-result card does not render. One content, one
+ * surface. (The card's body is read to confirm that "in full" — see the
+ * completeness twins below. That is a delivery test, not a de-duplication:
+ * nothing is ever suppressed for merely repeating.)
  *
  * This also REPAIRS A STALE PREMISE rather than overriding a live rule.
  * `V5AnalysisResultBlock`'s docblock justified rendering these fields as "the

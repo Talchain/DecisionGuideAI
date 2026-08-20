@@ -425,10 +425,19 @@ function V5AnalysisResultBlockImpl({
         >
           {/*
             UX gate 2026-08-18 point 4b — the narrative is withheld HERE only
-            when the turn delivers it as its own titled card. Not a string
-            comparison and not a de-duplication: a channel choice, made on
-            block presence, so it cannot depend on the prose staying
-            byte-identical. See `turnDeliversNarrativeAsTypedCard`.
+            when the turn delivers it as its own titled card, IN FULL. A
+            channel choice, not a de-duplication: a repeated sentence is
+            never suppressed for being repeated. See
+            `turnDeliversNarrativeAsTypedCard`.
+
+            This comment used to say "not a string comparison ... so it
+            cannot depend on the prose staying byte-identical". The card's
+            body IS now read, to confirm it carries the whole paragraph —
+            because the contract caps that body at 300 chars while
+            `narrative_summary` is uncapped, so a presence-only test withheld
+            the complete copy in favour of a truncated one and the tail
+            rendered nowhere. Withholding still requires a card; it now also
+            requires that the card actually delivers the paragraph.
           */}
           {review030.narrative_summary !== null && !narrativeDeliveredByTypedCard && (
             <p

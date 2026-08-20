@@ -755,10 +755,30 @@ export const NARRATIVE_REVIEW_CARD_KIND = 'narrative'
 /**
  * Does this turn deliver the analysis narrative as a TYPED, TITLED card?
  *
- * True iff the turn carries a review card of the narrative kind with a
- * non-empty body. Body content is never compared to anything — only its
- * existence, because an empty card delivers nothing and must not cause the
- * untyped copy to be withheld.
+ * True iff the turn carries a review card of the narrative kind whose body
+ * carries the narrative IN FULL. An empty card delivers nothing; so does a
+ * card carrying only part of the paragraph.
+ *
+ * ⚠ THE BODY *IS* COMPARED, and this docstring used to say it never was.
+ * The check is DELIVERY-COMPLETENESS, not de-duplication: the two channels
+ * are never reconciled by matching prose, and a repeated sentence is never
+ * suppressed for being repeated. What is asked is only whether the card
+ * carries the whole of what the untyped copy would otherwise say — because
+ * withholding a complete copy in favour of a truncated one deletes the tail.
+ *
+ * Do not "simplify" this back to presence-only. That is precisely the shape
+ * that deleted the end of the paragraph: the card body is bounded BY THE
+ * CONTRACT (`ReviewCardBlockSchema.body` is `.max(300)`), while
+ * `narrative_summary` is not a declared field of
+ * `EnrichmentDecisionReviewSchema` at all — that object is `.passthrough()`
+ * and documented "deliberately open ... passes through verbatim". One channel
+ * is capped by the spec and the other is uncapped by the spec, so the
+ * overrun is ADMITTED BY THE CONTRACT, not merely observed.
+ *
+ * THE DELTA IS MONOTONE, which is why this is safe: no card still returns
+ * false, and a card present returns true UNLESS there is positive evidence
+ * of a short body. Every input that kept the untyped copy before still keeps
+ * it — the change can only ever ADD kept copies, never remove one.
  */
 export function turnDeliversNarrativeAsTypedCard(
   blocks: readonly ConversationBlock[] | undefined,
