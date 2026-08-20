@@ -127,6 +127,10 @@ import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/obser
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
+import {
+  deriveReadinessCheck,
+  readinessNothingHasAnswered,
+} from './pre-analysis-v3/footer/readinessDisplay'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
 // Results Panel Redesign: v7 four-section layout components
@@ -1085,7 +1089,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   // ROADMAP 2.635 — `stale` feeds the gate's COPY (I-3) and `verdictAtMs`
   // identifies WHICH verdict licensed a run (I-4).
-  const { readiness, stale: readinessStale, verdictAtMs: readinessVerdictAtMs } = useGraphReadiness()
+  const {
+    readiness,
+    stale: readinessStale,
+    verdictAtMs: readinessVerdictAtMs,
+    // `error` and `refresh` feed the readiness bar the shell hosts on the
+    // Olumi surface: the CHECK-failed arm outranks the gate copy there for
+    // the same reason it does on the Analysis footer, and Retry is the
+    // recovery that goes with it.
+    error: readinessError,
+    refresh: refreshReadiness,
+  } = useGraphReadiness()
   // ⭐ The CANONICAL readiness authority — `analysis_state.readiness`, stated by
   // the producer on the turn. Read beside the side-car verdict deliberately: the
   // two used to be one name with two meanings, and seeing them on adjacent lines
@@ -1175,6 +1189,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  // ── INPUTS FOR THE SHELL-HOSTED READINESS BAR ──────────────────────────────
+  // Both are DERIVED THROUGH THE PANEL'S OWN OWNER (`readinessDisplay.ts`), not
+  // restated here. `usePreAnalysisModel` builds the identical two values from
+  // the identical store fields; a second expression in this file is exactly the
+  // mirror that let the bar and the footer disagree in the first place.
+  const readinessCheckForBar = useMemo(
+    () =>
+      deriveReadinessCheck({
+        error: readinessError,
+        verdictRetained: readiness != null,
+        stale: readinessStale,
+        verdictAtMs: readinessVerdictAtMs,
+        retry: refreshReadiness,
+      }),
+    [readinessError, readiness, readinessStale, readinessVerdictAtMs, refreshReadiness],
+  )
+  const readinessUnanswered = readinessNothingHasAnswered(readiness, analysisReadiness)
   const showToast = useShowToastSafe()
 
   // Handle Run button click
@@ -3354,6 +3385,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       canRun={canRunAnalysis}
                       blockedReason={runBlockedTooltip}
                       isAnalysing={isRunning}
+                      readinessCheck={readinessCheckForBar}
+                      nothingHasAnswered={readinessUnanswered}
                       onAnalyse={handleRunAnalysis}
                     />
                   )

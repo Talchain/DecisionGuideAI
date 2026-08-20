@@ -19,40 +19,60 @@
  * The shell hosts it in its reserved footer region, declared by the Olumi
  * surface as `footerBar: 'readiness'` (`shellContract.ts`) — the same mechanism
  * the Model surface uses to ask for `ReanalyseBar`, and for the same underlying
- * reason: the control the surface needs is mounted on `results` only.
+ * reason: the control that surface needs is mounted on `results` only.
  *
  *  1. NOT A SECOND GATE. `canRun` and `blockedReason` are the shell's own
  *     `canRunAnalysis` / `runBlockedTooltip` — the SAME two values the Analysis
  *     footer's button and title are derived from, computed once in
- *     `OutputsDock` above the tab branch. Nothing is re-derived here. A bar
- *     that recomputed readiness would be the two-authorities defect this estate
- *     keeps paying for.
+ *     `OutputsDock` above the tab branch. Nothing is re-derived here.
  *  2. NOT A SECOND RUNNER. `onAnalyse` is `handleRunAnalysis`, the canonical
  *     runner registered in `canonicalRunRegistry`. The retired
  *     `StaleAnalysisBadge` is the counter-example: its rerun bypassed it.
  *  3. NOT A FRESHNESS SURFACE. It renders only PRE-RUN. Staleness after a
- *     completed analysis belongs to the freshness strip and `ReanalyseBar`, and
- *     adding a third claimant is what got the last one retired.
- *  4. NOT A NEW SENTENCE. Every string here is the one the Analysis footer
- *     already renders for the same state, through the same `vetBlockedReason`.
- *     Two surfaces, one copy authority.
+ *     completed analysis belongs to the freshness strip and `ReanalyseBar`.
+ *  4. ⭐ NOT A SECOND OPINION ABOUT WHAT TO SAY — AND THIS ONE IT GOT WRONG
+ *     THE FIRST TIME. It shipped with a two-arm expression
+ *     (`blocked ? notReady : ready`) beside the footer's four-arm ladder, and
+ *     on a reachable state the two contradicted each other: with neither
+ *     readiness authority having answered, the footer said "Readiness not
+ *     checked yet" (warning) and this bar said "Analysis available" (green) —
+ *     the confident claim, on the surface the advice sends the user to. Both
+ *     surfaces now call `deriveReadinessDisplay`, which is the one owner.
+ *     `readinessDisplay.ts`'s header carries the ladder and the measurement.
  *
  * ⚠ THE BUTTON'S HONESTY IS THE POINT AND IS NOT NEGOTIABLE. It is `disabled`
- * on exactly `!canRun`, and carries the same reason as its `title`. It must
- * never look pressable while the gate is shut — the blocked state on the
- * Analysis surface was hard-won and this surface inherits it rather than
- * re-deciding it.
+ * on exactly `!canRun`, and carries the gate's own sentence as its `title`. It
+ * must never look pressable while the gate is shut.
  */
 
-// ⚠ THE MODULE, NOT THE BARREL. `components/ui/index.ts` re-exports the whole
-// brick set, and importing it pulls ~6 unrelated files into the DOCK'S IMPORT
-// CLOSURE — which is the scope of the raw-typography guard, so the barrel
-// silently drags in six files' worth of pre-existing violations and REDs the
-// per-file pin. Measured, not guessed.
+import { RefreshCw } from 'lucide-react'
+// ⚠ THE MODULE, NOT THE `components/ui` BARREL. Measured: the barrel re-exports
+// the whole brick set, which pulls six unrelated files into the DOCK'S
+// TRANSITIVE IMPORT CLOSURE — the scope of the raw-typography rule — and REDs
+// `tests/ci-guards/shell-conformance.spec.ts` ("no file in the dock closure
+// gains raw typography"): DeltaInterpretation +1, RangeChips +3, RangeLabels
+// +3, ScoreChip +1, VerdictCard +1, FieldLabel +2. It does NOT move
+// `ci:guard:ds:enforce`, which stays EXIT=0 with `panel-typography-scoped` Δ+0
+// — naming that guard here would send the next reader to a check that cannot
+// reproduce the finding.
 import { Button } from '../../../components/ui/Button'
 import { typography } from '../../../styles/typography'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
-import { BLOCKED_REASON_FALLBACK, vetBlockedReason } from '../../utils/vetBlockedReason'
+import {
+  deriveReadinessDisplay,
+  gateBlockedSubline,
+  RESTING_AVAILABLE,
+  type ReadinessCheckFacts,
+  type ReadinessDot,
+} from '../pre-analysis-v3/footer/readinessDisplay'
+
+/** The shell's copy of the panel's dot palette, keyed off the shared type so a
+ *  new dot cannot be added in one place and missed here. */
+const DOT_CLASSES: Record<ReadinessDot, string> = {
+  muted: 'bg-text-light',
+  warning: 'bg-warning',
+  success: 'bg-success',
+}
 
 export interface AnalysisReadinessBarProps {
   /**
@@ -63,10 +83,19 @@ export interface AnalysisReadinessBarProps {
   preRunWithModel: boolean
   /** OutputsDock's `canRunAnalysis`. The run gate, not a copy of it. */
   canRun: boolean
-  /** OutputsDock's `runBlockedTooltip`. Only read while `!canRun`. */
+  /** OutputsDock's `runBlockedTooltip`. Only read while the gate is shut. */
   blockedReason?: string
   /** OutputsDock's `isRunning`. */
   isAnalysing: boolean
+  /**
+   * Non-null only when the readiness CHECK failed. Outranks the gate copy —
+   * the gate blocks only on `readiness && !can_run_analysis`, so an unreachable
+   * readiness service leaves `canRun` TRUE, and without this arm the bar would
+   * render a green "Analysis available" straight through an outage.
+   */
+  readinessCheck?: (ReadinessCheckFacts & { retry: () => void }) | null
+  /** `readinessNothingHasAnswered(...)` — neither authority has spoken. */
+  nothingHasAnswered: boolean
   /** OutputsDock's `handleRunAnalysis` — the canonical runner. */
   onAnalyse: () => void
 }
@@ -76,6 +105,8 @@ export function AnalysisReadinessBar({
   canRun,
   blockedReason,
   isAnalysing,
+  readinessCheck = null,
+  nothingHasAnswered,
   onAnalyse,
 }: AnalysisReadinessBarProps) {
   // Outside the pre-run window the Analysis surface itself shows no readiness
@@ -84,10 +115,19 @@ export function AnalysisReadinessBar({
   if (!preRunWithModel) return null
 
   const blocked = !canRun && !isAnalysing
-  // While a run is in flight the gate reports blocked for an obvious reason the
-  // label already states, so repeating a gate reason would be noise — and it is
-  // not the reason the control is unpressable.
-  const subline = blocked ? vetBlockedReason(blockedReason || BLOCKED_REASON_FALLBACK) : null
+  // ⚠ `resting` is the ONLY arm this surface supplies itself, and it says LESS
+  // than the panel's rather than something different: same headline
+  // (`FOOTER_COPY.ready`), no subline. The panel can add whether success is
+  // defined or estimates are uncalibrated; the shell has no `PreAnalysisModel`
+  // and must not invent the difference.
+  const display = deriveReadinessDisplay({
+    readinessCheck,
+    isAnalysing,
+    canRun,
+    blockedReason,
+    nothingHasAnswered,
+    resting: RESTING_AVAILABLE,
+  })
 
   return (
     <div
@@ -99,33 +139,50 @@ export function AnalysisReadinessBar({
     >
       <span
         aria-hidden
-        className={`h-2 w-2 flex-none rounded-full ${blocked ? 'bg-text-light' : 'bg-success'}`}
+        className={`h-2 w-2 flex-none rounded-full ${DOT_CLASSES[display.dot]}`}
       />
-      <div className="min-w-0 flex-1">
-        <p className={`${typography.panelBody} text-text-header`}>
-          {blocked ? FOOTER_COPY.notReady : FOOTER_COPY.ready}
+      <div
+        className="min-w-0 flex-1"
+        {...(readinessCheck ? { 'data-testid': 'analysis-readiness-bar-outage' } : {})}
+      >
+        <p className={`${typography.panelBody} text-text-header`} data-testid="analysis-readiness-bar-headline">
+          {display.headline}
         </p>
-        {subline && (
+        {display.subline && (
           <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-readiness-bar-reason">
-            {subline}
+            {display.subline}
           </p>
         )}
       </div>
-      {/* ⚠ THE SHARED `Button`, NOT A HAND-ROLLED ONE, AND THAT IS THE POINT.
-          The blocked treatment on the Analysis surface — `opacity 0.4`,
-          `cursor: not-allowed`, an explanatory `title` — was hard-won, and it
-          belongs to this component (`disabled:opacity-40
-          disabled:cursor-not-allowed`, Button.tsx). Re-implementing it here
-          would put a SECOND blocked appearance for the SAME state one tab away
-          from the first: the two would read as different degrees of "no", and
-          would drift the first time either moved. Same component, same props
-          shape, same disabled predicate as `PanelFooter`'s. */}
+      {/* The check can be retried without touching the run. Deliberately NOT a
+          gate: the verdict is the server's, and this asks it again — it never
+          decides in its place. Same affordance the Analysis footer offers, so
+          the route stays usable on whichever surface the user is standing. */}
+      {readinessCheck && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="flex-none"
+          onClick={readinessCheck.retry}
+          aria-label={FOOTER_COPY.readinessRetry}
+          data-testid="analysis-readiness-bar-retry"
+        >
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+          Retry
+        </Button>
+      )}
+      {/* ⚠ THE SHARED `Button`, NOT A HAND-ROLLED ONE. The blocked treatment on
+          the Analysis surface — `opacity 0.4`, `cursor: not-allowed`, an
+          explanatory `title` — belongs to that component
+          (`disabled:opacity-40 disabled:cursor-not-allowed`). Re-implementing it
+          here would put a SECOND blocked appearance for the SAME state one tab
+          away from the first. */}
       <Button
         size="sm"
         className="flex-none"
         onClick={onAnalyse}
         disabled={isAnalysing || !canRun}
-        title={blocked ? subline || undefined : undefined}
+        title={blocked ? gateBlockedSubline(blockedReason) : undefined}
         data-testid="analysis-readiness-bar-analyse"
       >
         {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}

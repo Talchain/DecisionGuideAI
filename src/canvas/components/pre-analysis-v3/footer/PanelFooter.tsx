@@ -6,6 +6,14 @@
  * from the SAME authority first. Only when the gate is open does the line
  * fall back to the readiness-coaching copy from the model. The subline
  * wraps — never truncates.
+ *
+ * ⚠ THE LADDER ITSELF NOW LIVES IN `./readinessDisplay.ts`, AND THIS FILE IS NO
+ * LONGER ITS OWNER. A second pre-run surface (the shell's `AnalysisReadinessBar`
+ * on the Olumi tab) states the same line, and while the two computed it
+ * separately they contradicted each other on a reachable state — this one said
+ * "Readiness not checked yet", the other said "Analysis available", for the
+ * same store. Both now call `deriveReadinessDisplay`. Read that module's header
+ * for the ladder, the measurement, and the one arm the surfaces do NOT share.
  */
 
 import { memo } from 'react'
@@ -13,64 +21,8 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '../../../../components/ui'
 import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
-import { vetBlockedReason } from '../../../utils/vetBlockedReason'
+import { deriveReadinessDisplay, describeReadinessCheck, gateBlockedSubline } from './readinessDisplay'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
-
-/**
- * ROADMAP 2.332 — the moment a retained verdict was taken, as a clock time.
- *
- * Deliberately time-of-day and not a "5 minutes ago" elapsed string: elapsed
- * copy goes stale the instant it is rendered unless something re-renders it on
- * a timer, and a wrong elapsed figure is a worse claim than no figure. The
- * locale format is the browser's; the SENTENCE is what the tests bind to.
- */
-function formatTakenAt(ms: number): string {
-  return new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
-
-/**
- * ROADMAP 2.332 / 2.339 — what the footer says when the readiness CHECK
- * failed, as opposed to when the model was graded and found wanting.
- *
- * Three distinct states, because they are three distinct facts:
- *   · nothing timestamped stands behind the panel — either no answer has ever
- *     arrived, or what is on screen is a LOCAL fallback rather than a server
- *     answer (the 429 arm, whose behaviour is unchanged and rowed separately);
- *   · a timestamped server answer, retained, still describing this model;
- *   · a timestamped server answer the model has outgrown.
- *
- * ⚠ The discriminator is `verdictAtMs`, NOT "is there a verdict object". The
- * store stamps `verdictAtMs` only where a real answer landed and explicitly
- * NULLS it on the 429 local-fallback arm, so a surface can never cite a time
- * for a number no server produced. Discriminating on the presence of
- * `readiness` would do exactly that — it is a hand-read of a field that means
- * something else.
- *
- * Every arm names the cause. Returns null when the check completed, which is
- * what keeps this slice invisible on the healthy path.
- */
-function describeReadinessCheck(
-  check: PreAnalysisModel['readinessCheck'],
-): { headline: string; subline: string } | null {
-  if (!check) return null
-
-  // The store's own message names WHICH failure it was (unreachable / missing
-  // / could not answer / rate limited). It is composed in this repo and never
-  // carries the response body, so it is safe to render verbatim.
-  if (check.verdictAtMs == null) {
-    return {
-      headline: check.verdictRetained
-        ? FOOTER_COPY.readinessRecheckFailed
-        : FOOTER_COPY.readinessUnchecked,
-      subline: FOOTER_COPY.readinessSub(check.message),
-    }
-  }
-
-  return {
-    headline: check.stale ? FOOTER_COPY.readinessStale : FOOTER_COPY.readinessRecheckFailed,
-    subline: FOOTER_COPY.readinessRetainedSub(check.message, formatTakenAt(check.verdictAtMs)),
-  }
-}
 
 const DOT_CLASSES: Record<PreAnalysisModel['footer']['dot'], string> = {
   muted: 'bg-text-light',
@@ -91,6 +43,13 @@ interface PanelFooterProps {
    * Never gates the run; it replaces the footer's claim about the check.
    */
   readinessCheck?: PreAnalysisModel['readinessCheck']
+  /**
+   * `readinessNothingHasAnswered(...)` — neither the side-car nor the producer
+   * has spoken. Was an arm INSIDE `usePreAnalysisModel`'s footer memo until the
+   * ladder moved; it is passed explicitly now so the shell's bar, which has no
+   * panel model, reaches the same arm through the same owner.
+   */
+  nothingHasAnswered?: boolean
 }
 
 export const PanelFooter = memo(function PanelFooter({
@@ -100,48 +59,28 @@ export const PanelFooter = memo(function PanelFooter({
   canRun,
   blockedReason,
   readinessCheck = null,
+  nothingHasAnswered = false,
 }: PanelFooterProps) {
   const disabled = isAnalysing || !canRun
 
-  // blockedReason can carry CEE-authored readiness text via OutputsDock's
-  // tooltip. The vetting rule — and the reason composed copy must never meet
-  // the SUBSTITUTING guard — lives in `utils/vetBlockedReason.ts`, which is now
-  // its single owner: the shell's readiness bar renders the same string on the
-  // Olumi surface, and a second copy of this rule here is exactly how two
-  // surfaces come to show two different sentences for one state.
-  const safeBlockedReason = blockedReason
-    ? vetBlockedReason(blockedReason)
-    : undefined
+  // ⭐ ONE LADDER, TWO SURFACES. Everything this used to decide inline — the
+  // outage override, the in-flight arm, the gate arm with its vetted reason, and
+  // the unanswered arm that used to sit inside the model's footer memo — is now
+  // `deriveReadinessDisplay`. `footer` is this surface's RESTING value only: the
+  // one arm a surface with a `PreAnalysisModel` can say more about than a
+  // surface without one.
+  const display = deriveReadinessDisplay({
+    readinessCheck,
+    isAnalysing,
+    canRun,
+    blockedReason,
+    nothingHasAnswered,
+    resting: footer,
+  })
 
-  // Single gate authority: dot, copy and button all derive from canRun.
-  // The tooltip string is advisory while the gate is open (footer diagnosis:
-  // treating it as a gate made an enabled-looking state read as disabled).
-  // While a run is in flight the gate reports blocked ("analysis is
-  // currently running") — say that, not "not ready".
-  //
-  // ROADMAP 2.332 / 2.339 — the outage arm outranks BOTH the gate copy and the
-  // model's own footer, and it has to.
-  //
-  // Below it, `!canRun ? notReady : footer` is a total function over a boolean:
-  // whichever way the gate lands, the footer makes a claim about a readiness
-  // assessment. With `readiness === null` the gate stays OPEN (canRunAnalysis
-  // blocks only on `readiness && !can_run_analysis`), so an unreachable service
-  // rendered as "Analysis available" — the exact invisible outage #564 merged
-  // on record. Deriving this state from `canRun` cannot fix that: `canRun` is a
-  // fact about the run, not about whether anything was checked.
+  // Kept as its own read so the outage TESTID below marks exactly the state the
+  // outage arm fired on, rather than being inferred from the rendered copy.
   const outage = describeReadinessCheck(readinessCheck)
-
-  const display = outage
-    ? { dot: 'warning' as const, headline: outage.headline, subline: outage.subline }
-    : isAnalysing
-      ? { dot: 'success' as const, headline: FOOTER_COPY.running, subline: FOOTER_COPY.runningSub }
-      : !canRun
-        ? {
-            dot: 'muted' as const,
-            headline: FOOTER_COPY.notReady,
-            subline: safeBlockedReason || FOOTER_COPY.notReadySubFallback,
-          }
-        : footer
 
   return (
     <div
@@ -156,7 +95,12 @@ export const PanelFooter = memo(function PanelFooter({
         className="min-w-0 flex-1"
         {...(outage ? { 'data-testid': 'pre-analysis-v3-readiness-outage' } : {})}
       >
-        <p className={typo('panelBody', 'text-text-header')}>{display.headline}</p>
+        <p
+          className={typo('panelBody', 'text-text-header')}
+          data-testid="pre-analysis-v3-footer-headline"
+        >
+          {display.headline}
+        </p>
         <p className={`${typography.panelMeta} text-text-light`}>{display.subline}</p>
       </div>
       {/* The check can be retried without touching the run. Deliberately NOT a
@@ -180,7 +124,7 @@ export const PanelFooter = memo(function PanelFooter({
         className="flex-none"
         onClick={onAnalyse}
         disabled={disabled}
-        title={!isAnalysing && !canRun ? safeBlockedReason || FOOTER_COPY.notReadySubFallback : undefined}
+        title={!isAnalysing && !canRun ? gateBlockedSubline(blockedReason) : undefined}
         data-testid="pre-analysis-v3-analyse"
       >
         {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}

@@ -495,6 +495,7 @@ describe('the bar itself — the pre-run window is a guard, not a decoration', (
         canRun={false}
         blockedReason={WITNESSED_REASON}
         isAnalysing={false}
+        nothingHasAnswered={false}
         onAnalyse={() => {}}
       />,
     )
@@ -511,10 +512,127 @@ describe('the bar itself — the pre-run window is a guard, not a decoration', (
         canRun={false}
         blockedReason={WITNESSED_REASON}
         isAnalysing={false}
+        nothingHasAnswered={false}
         onAnalyse={() => {}}
       />,
     )
     expect(screen.getByTestId('analysis-readiness-bar')).toHaveAttribute('data-blocked', 'true')
     expect(screen.getByTestId('analysis-readiness-bar-reason')).toHaveTextContent(WITNESSED_REASON)
   })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⭐ THE TWO SURFACES AGREE — an EQUALITY guard, not two copy assertions.
+ *
+ * This block exists because the first version of this PR shipped the bar with
+ * its own two-arm expression beside `PanelFooter`'s four-arm ladder, and an
+ * independent review drove the mounted dock into a state where they said
+ * different things: with neither readiness authority having answered, the
+ * Analysis footer said *"Readiness not checked yet"* (warning) while the Olumi
+ * bar said *"Analysis available"* (green) — the confident claim, on the surface
+ * the advice sends the user to.
+ *
+ * ⚠ NOTE THE DATES. The footer's `nothingHasAnswered` arm landed 19 Aug; the
+ * bar landed 20 Aug. Two fixes for one harm, one day apart, each correct in
+ * isolation, NEITHER ONE'S TESTS ABLE TO SEE THE OTHER. Nothing inside either
+ * diff could have surfaced it.
+ *
+ * So these assertions are deliberately EQUALITIES between the two surfaces
+ * rather than checks that each says the right thing. An equality cannot pass
+ * while they disagree, and it fails loudly if either surface later grows an arm
+ * the other lacks — which is exactly how this arrived. Both are read across a
+ * tab change with the store untouched in between, because the results subtree
+ * unmounts and the two can never be on screen at once.
+ */
+describe('THE TWO SURFACES AGREE — headline equality, not two copies', () => {
+  it('PENDING — neither authority has answered: the same headline on both', async () => {
+    // The cold-load / starvation state: the check has not answered YET and has
+    // not failed. A fetch that never settles is what produces it honestly —
+    // resolving gives a verdict, rejecting gives the outage arm.
+    clearInflightCache()
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+    useReadinessStore.setState({
+      readiness: null, loading: true, error: null, stale: false, verdictAtMs: null,
+    })
+    seedCanvasWithModel()
+    useCanvasStore.setState({ analysisStateV1: null } as never)
+
+    render(<Wrapper><OutputsDock /></Wrapper>)
+
+    await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    // The precondition is PINNED IN-TEST: without it this could pass because
+    // the state never arrived, not because the surfaces agree (trap 13b).
+    expect(useReadinessStore.getState().readiness).toBeNull()
+    expect(useReadinessStore.getState().error).toBeNull()
+    const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
+    expect(footerHeadline).toBe(FOOTER_COPY.readinessPending)
+
+    clickOlumiTab()
+    expect(olumiIsFronted()).toBe(true)
+
+    const barHeadline = screen.getByTestId('analysis-readiness-bar-headline').textContent ?? ''
+    // ⭐ THE EQUALITY. Written against the OTHER SURFACE, not against a constant:
+    // a constant would let both drift together and still pass.
+    expect(barHeadline).toBe(footerHeadline)
+    // …and the specific claim that was wrong is named, so a future reader can
+    // see which direction the defect ran.
+    expect(barHeadline).not.toBe(FOOTER_COPY.ready)
+  }, 30_000)
+
+  it('OUTAGE — the check failed: the same headline on both, and Retry on both', async () => {
+    // A network rejection is what sets `readinessStore.error` and KEEPS it set:
+    // the mount fetch fails again rather than clearing it.
+    clearInflightCache()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
+    seedCanvasWithModel()
+    useCanvasStore.setState({ analysisStateV1: null } as never)
+
+    render(<Wrapper><OutputsDock /></Wrapper>)
+
+    const outageRow = await screen.findByTestId(
+      'pre-analysis-v3-readiness-outage', {}, { timeout: 20_000 },
+    )
+    // Precondition pinned in-test: the store really is in the failed state.
+    expect(useReadinessStore.getState().error).not.toBeNull()
+    expect(useReadinessStore.getState().readiness).toBeNull()
+    expect(outageRow).toBeInTheDocument()
+    const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
+    expect(footerHeadline.length).toBeGreaterThan(0)
+
+    clickOlumiTab()
+    expect(olumiIsFronted()).toBe(true)
+
+    expect(screen.getByTestId('analysis-readiness-bar-outage')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(
+      footerHeadline,
+    )
+    // The gate stays OPEN through an outage (`canRunAnalysis` blocks only on
+    // `readiness && !can_run_analysis`), which is exactly why the bar would
+    // otherwise have rendered a green "Analysis available" here.
+    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').not.toBe(
+      FOOTER_COPY.ready,
+    )
+    // The recovery goes with the claim: the route stays usable on whichever
+    // surface the user is standing on.
+    expect(screen.getByTestId('analysis-readiness-bar-retry')).toBeEnabled()
+  }, 30_000)
+
+  it('BLOCKED — the gate arm too, so the guard is not pinned to the new arms alone', async () => {
+    seedSideCar(SIDE_CAR_OBJECTS)
+    seedCanvasWithModel()
+    useCanvasStore.setState({ analysisStateV1: analysisState(fourBlockers()) } as never)
+
+    render(<Wrapper><OutputsDock /></Wrapper>)
+
+    await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
+    const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
+    expect(footerHeadline).toBe(FOOTER_COPY.notReady)
+
+    clickOlumiTab()
+    expect(screen.getByTestId('analysis-readiness-bar-headline').textContent ?? '').toBe(
+      footerHeadline,
+    )
+  }, 30_000)
 })
