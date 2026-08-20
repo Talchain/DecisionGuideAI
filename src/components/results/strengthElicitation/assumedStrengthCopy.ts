@@ -19,11 +19,12 @@
  * MAY SAY:
  *   · "if this link is weaker than we assumed, {alt} came out ahead in NN% of runs"
  *     — the conditional, which is exactly what was measured.
- *   · "nobody has set this strength" — a fact about our own graph state, read
- *     from `edgeValueSource`, carrying no producer claim at all.
- *   · "this is the one to pin down first" — an ordering claim licensed ONLY by
- *     the producer's own sort, and phrased as a suggestion about where to spend
- *     attention, never as a statement about the model's structure.
+ *   · "your team has not confirmed this estimate" — only when existing graph
+ *     provenance says the value is `ai_inferred`.
+ *   · "nobody has set this strength" — only when the value source is absent.
+ *   · "highest such rate" — because the selector takes the maximum existing
+ *     `switch_probability` among eligible unresolved strengths. It is a claim
+ *     about that conditional rate, never about structural importance or VOI.
  *
  * MUST NOT SAY:
  *   (a) "the most important relationship" / "this link decides it" — an
@@ -63,7 +64,9 @@ export const ASSUMED_STRENGTH_TITLE = 'One assumption worth pinning down'
  * `{from} → {to}` are canvas labels — the team's own words for their own model.
  */
 export function assumedStrengthLead(s: AssumedStrengthSelection): string {
-  return `Nobody has set how strongly ${s.fromLabel} affects ${s.toLabel} — the model is using a placeholder.`
+  return s.strengthProvenance === 'ai_inferred'
+    ? `Olumi estimated how strongly ${s.fromLabel} affects ${s.toLabel}, but your team has not confirmed it.`
+    : `Nobody has set how strongly ${s.fromLabel} affects ${s.toLabel} yet.`
 }
 
 /**
@@ -73,14 +76,18 @@ export function assumedStrengthLead(s: AssumedStrengthSelection): string {
  */
 export function assumedStrengthWhy(s: AssumedStrengthSelection): string {
   const pct = Math.round(s.switchProbability * 100)
-  return s.alternativeWinnerLabel !== null
-    ? `In the runs where that link came out weak, ${s.alternativeWinnerLabel} was the stronger option ${pct}% of the time. So the placeholder is doing real work in the answer you are looking at.`
-    : `In the runs where that link came out weak, a different option came out ahead ${pct}% of the time. So the placeholder is doing real work in the answer you are looking at.`
+  const measured = s.alternativeWinnerLabel !== null
+    ? `In the runs where that link came out weak, ${s.alternativeWinnerLabel} was the stronger option ${pct}% of the time.`
+    : `In the runs where that link came out weak, a different option came out ahead ${pct}% of the time.`
+  return `${measured} Of the unconfirmed relationship strengths you can resolve here, this had the highest such rate in this run.`
 }
 
 /** The ask. An invitation to supply judgement, never an instruction to agree. */
-export const ASSUMED_STRENGTH_ASK =
-  'Set it to what your team actually believes, then re-run to see whether it changes the answer.'
+export function assumedStrengthAsk(s: AssumedStrengthSelection): string {
+  return s.strengthProvenance === 'ai_inferred'
+    ? 'Confirm Olumi’s estimate or change it to what your team believes. If the value changes, re-run to see whether it changes the answer.'
+    : 'Set it to what your team believes, then re-run to see whether it changes the answer.'
+}
 
 /**
  * The "and others" clause. Only ever rendered when the count EXCEEDS one, and it
@@ -91,8 +98,8 @@ export function assumedStrengthOthers(assumedFragileCount: number): string | nul
   if (assumedFragileCount <= 1) return null
   const n = assumedFragileCount - 1
   return n === 1
-    ? 'One other relationship driving this result also has a placeholder strength.'
-    : `${n} other relationships driving this result also have placeholder strengths.`
+    ? 'One other sensitive relationship also has an unconfirmed strength.'
+    : `${n} other sensitive relationships also have unconfirmed strengths.`
 }
 
 /**
@@ -126,5 +133,5 @@ export const ASSUMED_STRENGTH_REFUSAL_COPY: Record<AssumedStrengthRefusal, strin
   all_strengths_set:
     'No unresolved assumed strength was found among the relationships this run was sensitive to.',
   no_fragile_edges:
-    'No single relationship stood out as driving this run’s answer, so there is no one assumption to pin down first.',
+    'This run found no relationship with a measured weak-link rate high enough to surface here.',
 }

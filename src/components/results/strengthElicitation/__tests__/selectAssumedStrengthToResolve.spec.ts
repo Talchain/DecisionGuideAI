@@ -13,6 +13,10 @@ import {
 } from '../selectAssumedStrengthToResolve'
 import { THRESHOLDS } from '../../../../lib/mappers/constants'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from '../../../../canvas/domain/edges'
+// COMMITTED CAPTURES, not fixtures this spec authored. A hand-written array
+// encodes the author's model of ISL; these are what ISL actually emitted.
+import nonDescendingCapture from '../../../../v5/__tests__/fixtures/v5-analysis-result.bundle-45c9b625.json'
+import descendingCapture from '../../../../v5/__tests__/fixtures/live-analysis-turn-walkA-2026-08-04.json'
 
 const labels = new Map<string, string>([
   ['n_demand', 'Customer demand'],
@@ -53,19 +57,19 @@ const fragileRow = (
 ) => ({ from_id: from, to_id: to, switch_probability, ...extra })
 
 describe('selectAssumedStrengthToResolve — the assumed × decision-relevant join', () => {
-  it('names the FIRST assumed edge in PRODUCER ORDER, bound by edge id', () => {
+  it('names the eligible edge with the HIGHEST measured switch probability', () => {
     const d = selectAssumedStrengthToResolve({
       fragileEdges: [
-        fragileRow('n_demand', 'n_rev', ABOVE, { alternative_winner_label: 'Consolidate' }),
-        fragileRow('n_price', 'n_cost', ALSO_ABOVE),
+        fragileRow('n_demand', 'n_rev', ALSO_ABOVE),
+        fragileRow('n_price', 'n_cost', ABOVE, { alternative_winner_label: 'Consolidate' }),
       ],
       edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev'), assumedEdge('e_price_cost', 'n_price', 'n_cost')],
       nodeLabels: labels,
     })
-    expect(d.selected?.edgeId).toBe('e_demand_rev')
+    expect(d.selected?.edgeId).toBe('e_price_cost')
     expect(d.refusalReason).toBeNull()
-    expect(d.selected?.fromLabel).toBe('Customer demand')
-    expect(d.selected?.toLabel).toBe('Revenue growth')
+    expect(d.selected?.fromLabel).toBe('Pricing power')
+    expect(d.selected?.toLabel).toBe('Unit cost')
     expect(d.selected?.alternativeWinnerLabel).toBe('Consolidate')
     expect(d.assumedFragileCount).toBe(2)
   })
@@ -73,7 +77,7 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
   it('SKIPS a higher-ranked edge whose strength somebody SET, and names the next assumed one', () => {
     // The discriminating case: rank 1 is the MORE fragile edge, but it is not an
     // assumption — it is a number the user chose. Re-eliciting it would be
-    // telling a team its own decision is a placeholder.
+    // telling a team its own confirmed judgement is still unresolved.
     const d = selectAssumedStrengthToResolve({
       fragileEdges: [
         fragileRow('n_demand', 'n_rev', ABOVE),
@@ -167,6 +171,7 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
       nodeLabels: labels,
     })
     expect(ai.selected?.edgeId).toBe('e_demand_rev')
+    expect(ai.selected?.strengthProvenance).toBe('ai_inferred')
 
     // The editor writes the field-specific user stamp and correctly leaves the
     // edge's AI creation provenance intact. Same number, opposite eligibility.
@@ -194,6 +199,28 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
       nodeLabels: labels,
     })
     expect(d.selected?.edgeId).toBe('e_demand_rev')
+    expect(d.selected?.strengthProvenance).toBe('ai_inferred')
+  })
+
+  it('classifies an unstamped default as missing, never as an AI estimate', () => {
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: [fragileRow('n_demand', 'n_rev', ABOVE)],
+      edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev')],
+      nodeLabels: labels,
+    })
+    expect(d.selected?.strengthProvenance).toBe('missing')
+  })
+
+  it('does not let AI edge-creation provenance launder an unstamped default into an estimate', () => {
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: [fragileRow('n_demand', 'n_rev', ABOVE)],
+      edges: [{
+        ...assumedEdge('e_demand_rev', 'n_demand', 'n_rev'),
+        data: { ...DEFAULT_EDGE_DATA, origin: 'ai', provenanceDisplay: 'ai_inferred' },
+      }],
+      nodeLabels: labels,
+    })
+    expect(d.selected?.strengthProvenance).toBe('missing')
   })
 
   it.each([
@@ -327,13 +354,12 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
     expect(d.assumedFragileCount).toBe(1)
   })
 
-  it('uses the FIRST eligible producer identity and never re-ranks in the UI', () => {
-    // Deliberately put a larger number second. The producer owns ranking and
-    // communicates it through row order; sorting these rows locally would mint
-    // a second ranking authority and select a different edge.
+  it('F4 — an unsorted producer payload cannot make array position outrank the measured score', () => {
+    // This is the load-bearing contrast refuted by committed captures. It REDs
+    // under the old first-row implementation and under a min-score mutant.
     const rows = [
-      fragileRow('n_demand', 'n_rev', 0.20),
-      fragileRow('n_price', 'n_cost', 0.45),
+      fragileRow('n_demand', 'n_rev', 0.22),
+      fragileRow('n_price', 'n_cost', 0.548),
     ]
 
     const d = selectAssumedStrengthToResolve({
@@ -341,9 +367,48 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
       edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev'), assumedEdge('e_price_cost', 'n_price', 'n_cost')],
       nodeLabels: labels,
     })
+    expect(d.selected?.edgeId).toBe('e_price_cost')
+    expect(d.selected?.switchProbability).toBe(0.548)
+    expect(d.selected?.edgeId).not.toBe('e_demand_rev')
+  })
+
+  it('breaks an equal-score tie by stable edge identity without claiming one score is larger', () => {
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: [
+        fragileRow('n_price', 'n_cost', ABOVE),
+        fragileRow('n_demand', 'n_rev', ABOVE),
+      ],
+      edges: [
+        assumedEdge('z-price-cost', 'n_price', 'n_cost'),
+        assumedEdge('a-demand-rev', 'n_demand', 'n_rev'),
+      ],
+      nodeLabels: labels,
+    })
+    expect(d.selected?.edgeId).toBe('a-demand-rev')
+    expect(d.selected?.switchProbability).toBe(ABOVE)
+  })
+
+  it('a duplicated edge row cannot lend its score to its twin — each row is scored on its OWN number', () => {
+    // The header claims this ("prevents a duplicated edge row earlier in the
+    // payload from lending its number to a later row") and, until this test,
+    // nothing held it: a mutant that passed ALL rows to the score helper
+    // SURVIVED the whole suite. Unreachable on observed data — zero duplicated
+    // edge identities across all 29 distinct committed arrays — which is
+    // exactly why it is pinned rather than trusted: a producer change would
+    // make it reachable silently.
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: [
+        fragileRow('n_demand', 'n_rev', 0.20),
+        fragileRow('n_demand', 'n_rev', 0.55),
+      ],
+      edges: [assumedEdge('e_demand_rev', 'n_demand', 'n_rev')],
+      nodeLabels: labels,
+    })
+    // Bound by identity, and by the number that belongs to the winning ROW.
     expect(d.selected?.edgeId).toBe('e_demand_rev')
-    expect(d.selected?.switchProbability).toBe(0.20)
-    expect(d.selected?.edgeId).not.toBe('e_price_cost')
+    expect(d.selected?.switchProbability).toBe(0.55)
+    // One canvas edge is ONE assumption, however many rows name it.
+    expect(d.assumedFragileCount).toBe(1)
   })
 
   it('tolerates malformed rows without dropping the whole decision', () => {
@@ -353,5 +418,128 @@ describe('selectAssumedStrengthToResolve — the assumed × decision-relevant jo
       nodeLabels: labels,
     })
     expect(d.selected?.edgeId).toBe('e_demand_rev')
+  })
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.01])(
+    'does not let an invalid probability (%s) poison the maximum',
+    (invalid) => {
+      const d = selectAssumedStrengthToResolve({
+        fragileEdges: [
+          fragileRow('n_demand', 'n_rev', invalid),
+          fragileRow('n_price', 'n_cost', 0.548),
+        ],
+        edges: [
+          assumedEdge('e_demand_rev', 'n_demand', 'n_rev'),
+          assumedEdge('e_price_cost', 'n_price', 'n_cost'),
+        ],
+        nodeLabels: labels,
+      })
+      expect(d.selected?.edgeId).toBe('e_price_cost')
+      expect(d.selected?.switchProbability).toBe(0.548)
+    },
+  )
+})
+
+/**
+ * ── THE PRODUCER'S OWN PAYLOADS ────────────────────────────────────────────
+ *
+ * Both arrays below are COMMITTED CAPTURES of real ISL output. The canvas
+ * edges and node labels are DERIVED FROM THE ROWS THEMSELVES (`edge_id`,
+ * `from_id`/`to_id`, `from_label`/`to_label`), so nothing in this section is a
+ * shape this spec invented — the point of the defect was that a self-authored
+ * fixture had certified an ordering the producer never promised.
+ *
+ * Each test PINS ITS OWN PRECONDITION before asserting the outcome. Without
+ * that, a later fixture edit could remove the property under test and both
+ * tests would keep passing while proving nothing.
+ */
+interface CaptureRow {
+  readonly edge_id: string
+  readonly from_id: string
+  readonly to_id: string
+  readonly from_label: string
+  readonly to_label: string
+  readonly switch_probability: number
+}
+
+/** Every captured row becomes an UNRESOLVED canvas edge keyed by the producer's own id. */
+const capturedEdges = (rows: readonly CaptureRow[]): ElicitationCanvasEdge[] =>
+  rows.map((r) => ({
+    id: r.edge_id,
+    source: r.from_id,
+    target: r.to_id,
+    data: { ...DEFAULT_EDGE_DATA },
+  }))
+
+const capturedLabels = (rows: readonly CaptureRow[]): Map<string, string> => {
+  const m = new Map<string, string>()
+  for (const r of rows) {
+    m.set(r.from_id, r.from_label)
+    m.set(r.to_id, r.to_label)
+  }
+  return m
+}
+
+/** Rows the visibility floor admits — the only population the surface can name. */
+const aboveFloor = (rows: readonly CaptureRow[]): CaptureRow[] =>
+  rows.filter((r) => r.switch_probability > THRESHOLDS.FRAGILE_EDGE_FILTER)
+
+const NON_DESCENDING_ROWS = (nonDescendingCapture as unknown as {
+  block: { enrichment: { robustness: { fragile_edges: CaptureRow[] } } }
+}).block.enrichment.robustness.fragile_edges
+
+const DESCENDING_ROWS = (descendingCapture as unknown as {
+  blocks: { enrichment: { robustness: { fragile_edges: CaptureRow[] } } }[]
+}).blocks[0].enrichment.robustness.fragile_edges
+
+describe('selectAssumedStrengthToResolve — against COMMITTED ISL captures', () => {
+  it('CAPTURE (max NOT at index 0): names the highest-scoring edge by IDENTITY, not the first row', () => {
+    const rows = aboveFloor(NON_DESCENDING_ROWS)
+
+    // PRECONDITION — this capture must actually exhibit the defect, or the
+    // assertion below proves nothing. Bound by identity, not by position.
+    expect(rows.length).toBeGreaterThan(1)
+    const maxRow = rows.reduce((a, b) => (b.switch_probability > a.switch_probability ? b : a))
+    expect(maxRow.edge_id).toBe('fac_marketing_expertise->out_campaign_effectiveness')
+    expect(rows[0].edge_id).toBe('fac_ad_spend->risk_budget_overrun')
+    expect(rows[0].edge_id).not.toBe(maxRow.edge_id) // the defect, present in this payload
+
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: NON_DESCENDING_ROWS,
+      edges: capturedEdges(NON_DESCENDING_ROWS),
+      nodeLabels: capturedLabels(NON_DESCENDING_ROWS),
+    })
+
+    // RED under the `fragile_edges[0]` rule, which names the 0.164 row.
+    expect(d.selected?.edgeId).toBe('fac_marketing_expertise->out_campaign_effectiveness')
+    expect(d.selected?.edgeId).not.toBe('fac_ad_spend->risk_budget_overrun')
+    expect(d.selected?.switchProbability).toBe(maxRow.switch_probability)
+    expect(d.selected?.fromLabel).toBe('Marketing Strategy Quality')
+    expect(d.selected?.toLabel).toBe('Campaign Conversion Effectiveness')
+    expect(d.refusalReason).toBeNull()
+  })
+
+  it('CAPTURE (already descending): selects exactly the edge the producer-order rule selected — a strict improvement, not a swap', () => {
+    const rows = aboveFloor(DESCENDING_ROWS)
+
+    // PRECONDITION — this capture must be the OPPOSITE case: already ordered,
+    // so first row and maximum row are the same edge. If a fixture edit broke
+    // that, this test would silently stop testing the no-regression direction.
+    expect(rows.length).toBeGreaterThan(1)
+    const maxRow = rows.reduce((a, b) => (b.switch_probability > a.switch_probability ? b : a))
+    expect(rows[0].edge_id).toBe(maxRow.edge_id)
+    expect(rows[0].edge_id).toBe('fac_selfserve->out_product_led_growth')
+
+    const d = selectAssumedStrengthToResolve({
+      fragileEdges: DESCENDING_ROWS,
+      edges: capturedEdges(DESCENDING_ROWS),
+      nodeLabels: capturedLabels(DESCENDING_ROWS),
+    })
+
+    // GREEN both before and after the fix. The old rule took `[0]`; the new
+    // rule takes the maximum; on this payload they are the same edge.
+    expect(d.selected?.edgeId).toBe('fac_selfserve->out_product_led_growth')
+    expect(d.selected?.switchProbability).toBe(rows[0].switch_probability)
+    expect(d.refusalReason).toBeNull()
   })
 })

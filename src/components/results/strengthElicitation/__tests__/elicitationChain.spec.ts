@@ -20,9 +20,9 @@
  * remain separate from this in-process mounted proof.
  */
 import { createElement } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   selectAssumedStrengthToResolve,
   type ElicitationCanvasEdge,
@@ -38,6 +38,10 @@ import { AssumedStrengthCard } from '../AssumedStrengthCard'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { useCanvasStore } from '../../../../canvas/store'
 import { InspectorModal } from '../../../../canvas/components/InspectorModal'
+import { buildV2RequestFromAnalysisReady } from '../../../../adapters/plot/v2/adapter'
+import type { CEEAnalysisReady } from '../../../../adapters/cee/types'
+import { projectAutosaveData } from '../../../../canvas/store/autosaveProjection'
+import { clearAutosave, loadAutosave, saveAutosave } from '../../../../canvas/store/scenarios'
 
 vi.mock('../../../../canvas/utils/focusHelpers', async () => {
   const actual = await vi.importActual<typeof import('../../../../canvas/utils/focusHelpers')>(
@@ -60,7 +64,10 @@ const draftedEdge = (): ElicitationCanvasEdge => ({
   target: 'n_rev',
   data: {
     ...DEFAULT_EDGE_DATA,
+    weight: 0.52,
     weightSource: 'cee',
+    direction: 'negative',
+    directionSource: 'cee',
     provenanceDisplay: 'ai_inferred',
     origin: 'ai',
   },
@@ -69,6 +76,24 @@ const draftedEdge = (): ElicitationCanvasEdge => ({
 const fragileEdges = [
   { from_id: 'n_demand', to_id: 'n_rev', switch_probability: ABOVE, alternative_winner_label: 'Consolidate' },
 ]
+
+const validAnalysisReady = {
+  status: 'ready',
+  goal_node_id: 'n_rev',
+  suggested_seed: '71152',
+  options: [{
+    id: 'opt-control',
+    label: 'Control',
+    status: 'ready',
+    interventions: {
+      n_demand: { value: 0.6, source: 'user_specified' },
+    },
+  }],
+} satisfies CEEAnalysisReady
+
+afterEach(() => {
+  clearAutosave()
+})
 
 describe('P4 chain: elicitation → resolve → stale → rerun → loop closed', () => {
   it('LINK 1 — elicitation names the assumed relationship, by edge identity', () => {
@@ -188,23 +213,170 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     ))
     expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Very strong' }))
+    fireEvent.click(screen.getByTestId('strength-band-very-strong'))
 
     const edited = useCanvasStore.getState()
     const data = edited.edges.find(edge => edge.id === 'e_demand_rev')?.data as Record<string, unknown>
     expect(data.weight).toBe(0.85)
     expect(data.weightSource).toBe('user')
+    // A preset is a magnitude choice. The existing negative causal direction
+    // and its producer provenance survive because the user did not choose sign.
+    expect(data.direction).toBe('negative')
+    expect(data.directionSource).toBe('cee')
     // Editing the field does not rewrite the edge's creation/display provenance.
     expect(data.provenanceDisplay).toBe('ai_inferred')
     expect(data.origin).toBe('ai')
     expect(edited.analysisFreshnessDirty).toBe(true)
     expect(screen.getByRole('button', { name: 'Re-run the analysis' })).toBeInTheDocument()
     expect(screen.getByText('Re-run to see how this affects the results')).toBeInTheDocument()
+
+    // The real canonical request builder consumes the changed store value on a
+    // contract-valid readiness premise (`options[].id`, persisted goal id).
+    const { request } = buildV2RequestFromAnalysisReady(
+      edited.nodes as never,
+      edited.edges as never,
+      validAnalysisReady,
+    )
+    expect(request.graph.edges).toHaveLength(1)
+    expect(request.graph.edges[0].strength.mean).toBe(-0.85)
   })
 
-  it('HONESTY — confirming the placeholder AS-IS is not an analytical change, so no rerun is promised', () => {
+  it('MOUNTED — confirm-current uses the exact live estimate, preserves direction, persists, and does not false-stale', () => {
+    const first = draftedEdge()
+    const second: ElicitationCanvasEdge = {
+      id: 'e_cost_rev',
+      source: 'n_cost',
+      target: 'n_rev',
+      data: {
+        ...DEFAULT_EDGE_DATA,
+        weight: 0.34,
+        weightSource: 'cee',
+        direction: 'positive',
+        directionSource: 'cee',
+        provenanceDisplay: 'ai_inferred',
+        origin: 'ai',
+      },
+    }
+    const ranked = [
+      ...fragileEdges,
+      { from_id: 'n_cost', to_id: 'n_rev', switch_probability: ABOVE - 0.05 },
+    ]
+    const labels = new Map([...nodeLabels, ['n_cost', 'Delivery cost']])
+    const decision = selectAssumedStrengthToResolve({
+      fragileEdges: ranked,
+      edges: [first, second],
+      nodeLabels: labels,
+    })
+    expect(decision.selected?.edgeId).toBe(first.id)
+
+    useCanvasStore.setState({
+      currentScenarioId: '11111111-2222-4333-8444-555555555555',
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_cost', type: 'factor', position: { x: 0, y: 120 }, data: { label: 'Delivery cost' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: [first, second] as never,
+      showResultsPanel: true,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      history: { past: [], future: [] },
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } as never,
+    })
+
+    render(createElement(AssumedStrengthCard, { decision, onResolve: openEdgeStrengthEditor }))
+    fireEvent.click(screen.getByTestId('assumed-strength-action'))
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: first.id, onClose: () => {} }),
+    ))
+
+    expect(screen.getByText(/Olumi’s current estimate is/)).toHaveTextContent('0.52')
+    expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
+
+    // Server/store refresh after mount: the click must confirm 0.6147, not the
+    // value captured on first render, a rounded display value, or the active
+    // band's 0.55 midpoint.
+    act(() => {
+      const refreshedEdges = useCanvasStore.getState().edges.map((edge) => edge.id === first.id
+        ? { ...edge, data: { ...edge.data, weight: 0.6147 } }
+        : edge)
+      // This is a controlled server/store refresh, not a user edit; bypass the
+      // canonical mutation path deliberately so the test can prove the action
+      // reads the live value rather than the first-render closure.
+      useCanvasStore.setState({ edges: refreshedEdges } as never)
+    })
+    expect(screen.getByText(/Olumi’s current estimate is/)).toHaveTextContent('0.6147')
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm this estimate' }))
+
+    const confirmed = useCanvasStore.getState()
+    const data = confirmed.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
+    expect(data.weight).toBe(0.6147)
+    expect(data.weight).not.toBe(0.55)
+    expect(data.weightSource).toBe('user')
+    expect(data.direction).toBe('negative')
+    expect(data.directionSource).toBe('cee')
+    expect(data.provenanceDisplay).toBe('ai_inferred')
+    expect(data.origin).toBe('ai')
+    expect(confirmed.analysisFreshnessDirty).toBe(false)
+    expect(screen.getByText('Updated')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
+
+    const next = selectAssumedStrengthToResolve({
+      fragileEdges: ranked,
+      edges: confirmed.edges as ElicitationCanvasEdge[],
+      nodeLabels: labels,
+    })
+    expect(next.selected?.edgeId).toBe(second.id)
+
+    saveAutosave(projectAutosaveData({
+      nodes: confirmed.nodes,
+      edges: confirmed.edges,
+      scenarioId: confirmed.currentScenarioId,
+      ceeAnalysisReady: validAnalysisReady,
+      selectedGoalNode: 'n_rev',
+      analysis: null,
+      goalConstraints: null,
+    }, 123))
+    const restored = loadAutosave()
+    const restoredData = restored?.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
+    expect(restoredData.weight).toBe(0.6147)
+    expect(restoredData.weightSource).toBe('user')
+    expect(restoredData.direction).toBe('negative')
+    expect(restoredData.directionSource).toBe('cee')
+  })
+
+  it('MUTANT CONTROL — a hidden default has no confirm-as-estimate action', () => {
+    const data = { ...DEFAULT_EDGE_DATA } as Record<string, unknown>
+    const edge: ElicitationCanvasEdge = {
+      id: 'e_demand_rev',
+      source: 'n_demand',
+      target: 'n_rev',
+      data,
+    }
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: [edge] as never,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+    })
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: edge.id, onClose: () => {} }),
+    ))
+    expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
+    expect(screen.queryByText(/Olumi’s current estimate is/)).toBeNull()
+  })
+
+  it('HONESTY — confirming an AI estimate AS-IS is not an analytical change, so no rerun is promised', () => {
     // The interaction must not promise a consequence it cannot deliver. If the
-    // user looks at the placeholder and decides 0.5 was right all along, the
+    // user looks at the estimate and decides 0.52 was right all along, the
     // MODEL is more trustworthy (the value is now theirs) but the NUMBERS are
     // identical — so a rerun would show nothing, and the staleness machinery
     // correctly declines to claim otherwise. `weightSource` is deliberately NOT

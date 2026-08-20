@@ -2,8 +2,9 @@
  * StrengthBandButtons — quick-select buttons for edge strength bands (B.4).
  *
  * Renders a row of outlined pill buttons for Slight / Moderate / Strong / Very strong.
- * Clicking a button sets the edge strength magnitude to the band midpoint while
- * preserving the current direction sign. The active band is highlighted.
+ * Each button discloses the exact midpoint it will write; a categorical label
+ * must not silently become an exact number attributed to the user. Clicking a
+ * button preserves the current direction sign. The active band is highlighted.
  *
  * Thresholds align with inspectorStrings.ts getStrengthLabel():
  *   Very strong >= 0.70, Strong >= 0.40, Moderate >= 0.20, Slight < 0.20
@@ -65,7 +66,8 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             key={band.label}
             type="button"
             onClick={() => handleClick(band.midpoint)}
-            className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer
+            aria-label={`${band.label}: set strength to ${band.midpoint.toFixed(2)}`}
+            className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer inline-flex flex-col items-center leading-tight
               ${isActive
                 ? 'border-primary text-primary'
                 : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
@@ -73,7 +75,8 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             aria-pressed={isActive}
             data-testid={`strength-band-${band.label.toLowerCase().replace(/\s+/g, '-')}`}
           >
-            {band.label}
+            <span>{band.label}</span>
+            <span className="font-mono text-[9px] opacity-75">{band.midpoint.toFixed(2)}</span>
           </button>
         )
       })}

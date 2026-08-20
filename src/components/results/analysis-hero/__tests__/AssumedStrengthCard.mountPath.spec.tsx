@@ -56,6 +56,7 @@ const SELECTED: AssumedStrengthDecision = {
     toLabel: 'Revenue growth',
     switchProbability: 0.35,
     alternativeWinnerLabel: 'Consolidate',
+    strengthProvenance: 'ai_inferred',
   },
   refusalReason: null,
   assumedFragileCount: 3,

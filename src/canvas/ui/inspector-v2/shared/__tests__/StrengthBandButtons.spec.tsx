@@ -1,6 +1,7 @@
 /**
  * StrengthBandButtons unit tests (B.4)
- * Verifies: rendering, click behaviour, active state detection, sign preservation.
+ * Verifies: rendering, disclosed numeric consequence, click behaviour, active
+ * state detection, sign preservation.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
@@ -11,10 +12,11 @@ describe('StrengthBandButtons', () => {
     const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
     const buttons = container.querySelectorAll('button')
     expect(buttons).toHaveLength(4)
-    expect(buttons[0].textContent).toBe('Slight')
-    expect(buttons[1].textContent).toBe('Moderate')
-    expect(buttons[2].textContent).toBe('Strong')
-    expect(buttons[3].textContent).toBe('Very strong')
+    expect(buttons[0].textContent).toBe('Slight0.10')
+    expect(buttons[1].textContent).toBe('Moderate0.30')
+    expect(buttons[2].textContent).toBe('Strong0.55')
+    expect(buttons[3].textContent).toBe('Very strong0.85')
+    expect(buttons[2].getAttribute('aria-label')).toBe('Strong: set strength to 0.55')
   })
 
   it('marks "Strong" as active when value is within the strong band (0.50)', () => {
