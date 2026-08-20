@@ -81,15 +81,22 @@ describe('explain-chips vocabulary — parser → filter seam (V-P0-2)', () => {
     // them on arrival, and this test certified the deletion as correct.
     // `compare_options` was excluded on the same false ground.
     //
-    // Two exclusions remain and both are now DERIVED rather than remembered:
-    // `explain_from_structure` and `analysis_readiness` have no
-    // ACTION_TO_TURN_TYPE mapping, so a click would fall through to the default
-    // turn type — the "promises action, delivers default routing" case the old
-    // comment named. Add the mapping and the chip lights up on its own; nobody
-    // has to remember to edit a list. The general form of this assertion lives
-    // in chipActionVocabulary.spec.ts ("excluded for a DERIVABLE reason").
+    // ONE exclusion remains, and it is DERIVED rather than remembered:
+    // `explain_from_structure` has no ACTION_TO_TURN_TYPE mapping, so a click
+    // would fall through to the default turn type — the "promises action,
+    // delivers default routing" case the old comment named. Add the mapping and
+    // the chip lights up on its own; nobody has to remember to edit a list. The
+    // general form of this assertion lives in chipActionVocabulary.spec.ts
+    // ("excluded for a DERIVABLE reason").
+    //
+    // ⭐ `analysis_readiness` LEFT THIS SET ON 2026-08-20, exactly as this
+    // comment's own instruction anticipated. CEE's `analysis_not_ready` recovery
+    // chip is now typed `analysis_readiness`, so the chip must render; the
+    // mapping was added to `ACTION_TO_TURN_TYPE` and this assertion narrowed by
+    // derivation, not by hand-editing a list. See
+    // `canvas/conversation/__tests__/analysisReadinessChipRenders.spec.tsx`.
     const excluded = ActionType.options.filter((t) => !V5_ENABLED_ACTIONS.has(t))
-    expect(new Set(excluded)).toEqual(new Set(['explain_from_structure', 'analysis_readiness']))
+    expect(new Set(excluded)).toEqual(new Set(['explain_from_structure']))
   })
 
   it('the debug-bundle turn selector recognises the explain chip vocabulary (review fold)', () => {

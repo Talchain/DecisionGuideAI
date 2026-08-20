@@ -40,6 +40,11 @@ describe('ACTION_TO_TURN_TYPE mapping', () => {
     adjust_edge_strength: 'conversation',
     remove_factor: 'conversation',
     set_goal_target: 'conversation',
+    // Added 2026-08-20 with the CEE `analysis_not_ready` recovery chip, which is
+    // now typed `analysis_readiness` so it routes to the readiness arm instead
+    // of being demoted by the analysis-election gate. Without the mapping the
+    // chip is filtered out at render and the user sees nothing at all.
+    analysis_readiness: 'conversation',
     run_premortem: 'explain',
     draft_graph: 'explicit_generate',
   }
