@@ -92,11 +92,33 @@ describe('SURFACE 1 — T1FlipRiskCallout consults the flip authority', () => {
     expect(el.textContent ?? '').not.toContain('could overtake')
   })
 
-  it('DATA SURVIVES: the alternative, the factor and the percentage all remain', () => {
+  it('ATTESTED NO-FLIP: the PERCENTAGE goes with the verb — it is a claim, not data', () => {
+    // ⚠ `switch_probability` means P(the alternative OVERTAKES). Beside the
+    // weakened verb it would read "55% chance it gains ground" — a hedged verb
+    // carrying an UNHEDGED NUMBER, i.e. the number saying more than its own
+    // sentence. Labelling it correctly ("chance it overtakes") would reinstate
+    // the very claim this change removes, so no wording keeps it.
+    render(<TriageActionCardsBody data={triageData(ATTESTED_ROWS)} />)
+    const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
+    expect(t).not.toContain('55% probability')
+    expect(t).not.toMatch(/\d+\s*%/)
+  })
+
+  it('DATA SURVIVES: the alternative and the factor are still named', () => {
+    // The DATA stays in full; only the CLAIM changes. The finding itself is
+    // carried by the fragile card (count, labels, E-values, alt-winner,
+    // Stability pill) — this callout is not the only place it lives.
     render(<TriageActionCardsBody data={triageData(ATTESTED_ROWS)} />)
     const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
     expect(t).toContain(ALT)
     expect(t).toContain('Self-Serve Product Tier')
+    expect(t).toContain('could gain ground')
+  })
+
+  it('OPPOSITE DIRECTION: a genuinely flip-bearing run keeps the percentage WITH its strong verb', () => {
+    render(<TriageActionCardsBody data={triageData(FLIPPING_ROWS)} />)
+    const t = screen.getByTestId('t1-flip-risk-callout').textContent ?? ''
+    expect(t).toContain('could overtake')
     expect(t).toContain('55% probability')
   })
 })

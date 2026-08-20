@@ -318,7 +318,20 @@ function T1FlipRiskCallout({
         If <strong>{fromLabelDisplay}</strong> shifts,{' '}
         <strong>{altWinnerLabelDisplay}</strong>{' '}
         {attestsNoFlip ? 'could gain ground' : 'could overtake'}
-        {switchPct != null && ` (${switchPct}% probability)`}.
+        {/* ⚠ THE PERCENTAGE GOES WITH THE VERB, and the reason is not the
+            authority's rule alone — it is that the NUMBER WOULD SAY MORE THAN
+            THE SENTENCE IT SITS IN. `switch_probability` means P(the
+            alternative OVERTAKES). Printed beside a deliberately weakened verb
+            it reads "55% chance it gains ground", which is not what the number
+            measures — a hedged verb carrying an unhedged number. The only
+            honest label for it ("55% chance it overtakes") is precisely the
+            claim this whole change removes, so there is no wording that keeps
+            it. It is a CLAIM, not data, and it goes.
+
+            This is not the product saying less: it is declining to say
+            something false. The finding survives in full on the fragile card
+            (count, labels, E-values, alt-winner, Stability pill). */}
+        {!attestsNoFlip && switchPct != null && ` (${switchPct}% probability)`}.
         {onFocusNode && fragile.fromId && (
           <>
             {' '}
