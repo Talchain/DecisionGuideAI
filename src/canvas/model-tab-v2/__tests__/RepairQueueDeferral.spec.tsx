@@ -22,13 +22,15 @@ import { render, screen } from '@testing-library/react'
 import { RepairQueueList } from '../RepairQueueList'
 import { ModelRowView } from '../ModelRowView'
 import type { DeferralRecord, ModelRow, RepairQueue, RepairQueueItem } from '../types'
+import { REPAIR_QUEUE } from '../rowPresentation'
 
-const QUEUE: RepairQueue = {
-  id: 'confirm-estimates',
-  reason: 'unconfirmed-estimate',
-  title: 'Confirm estimates',
-  supportsApplyAll: true,
-}
+/**
+ * ⚠ THE SHIPPED OBJECT, NOT A LOCAL COPY (F6). `REPAIR_QUEUE` was introduced as
+ * the one definitions table and then became a THIRD copy, because both render
+ * specs kept declaring their own — so the object the product renders was never
+ * exercised by the tests that claim to cover this component.
+ */
+const QUEUE: RepairQueue = REPAIR_QUEUE['confirm-estimates']
 
 const PAUL: DeferralRecord = { by: 'Paul', at: '2026-08-16T10:30:00.000Z' }
 

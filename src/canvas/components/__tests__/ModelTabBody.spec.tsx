@@ -266,15 +266,56 @@ describe('Inline edit — Enter/Escape/blur (value field)', () => {
   })
 })
 
-describe('Search footer', () => {
-  it('renders the search input', () => {
-    const nodes = [
-      makeFactorNode('f1', 'Market size', { source: 'user' }),
-    ]
+describe('Search footer — an inert control must SAY it is inert', () => {
+  /*
+   * ⚠⚠ THE PREVIOUS TEST HERE ASSERTED ONLY `toBeInTheDocument()`, AND THAT IS
+   * HOW THIS SHIPPED. The search box was enabled, accepted keystrokes, and
+   * filtered NOTHING — `searchQuery` was declared in `ModelTabBody`, threaded to
+   * `ModelFooter`, and read by no consumer anywhere in `src/`. A presence
+   * assertion cannot tell a working control from furniture; the estate's other
+   * five search boxes each have a real filter, and a test shaped like this one
+   * would have passed for any of them equally.
+   *
+   * The control is now disabled WITH A STATED REASON — the pattern the Model tab
+   * already uses honestly for an unbuilt capability (`ModelRowView`'s "Editing
+   * is not connected yet"). These assertions bind to that, so wiring the filter
+   * without re-enabling the input goes red, and re-enabling it without a filter
+   * goes red too.
+   */
+  const renderFooter = () => {
+    const nodes = [makeFactorNode('f1', 'Market size', { source: 'user' })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
+    return screen.getByTestId('model-search')
+  }
 
-    const search = screen.getByTestId('model-search')
-    expect(search).toBeInTheDocument()
+  it('renders the search input', () => {
+    expect(renderFooter()).toBeInTheDocument()
+  })
+
+  it('⚠ is DISABLED — it filters nothing, and must not invite typing', () => {
+    expect(renderFooter()).toBeDisabled()
+  })
+
+  it('⚠ states WHY, to the screen reader and on hover — not just visually', () => {
+    const search = renderFooter()
+    // The exact copy is the contract: an accessible name that says "search"
+    // and nothing else would leave a screen-reader user with no signal at all.
+    expect(search).toHaveAccessibleName(
+      'Search is not connected yet — the list cannot be filtered from here.',
+    )
+    expect(search).toHaveAttribute(
+      'title',
+      'Search is not connected yet — the list cannot be filtered from here.',
+    )
+  })
+
+  it('⚠ POSITIVE CONTROL — the copy buttons in the same footer are NOT disabled', () => {
+    // Otherwise "disabled" above could be satisfied by a footer that failed to
+    // render its controls at all, or by a blanket disable of the whole bar
+    // (trap 13 — an absence assertion needs a presence it can see).
+    renderFooter()
+    expect(screen.getByTestId('model-copy')).toBeEnabled()
+    expect(screen.getByTestId('model-copy-json')).toBeEnabled()
   })
 })
 

@@ -1,7 +1,19 @@
 /**
  * Model tab v2 — THE REPAIR QUEUE LIST, RENDER-ONLY (design §5.3).
  *
- * ⚠ DELIBERATELY INERT (and still unmounted by the 16 Aug 2026 mount train,
+ * ⚠⚠ NO LONGER WHOLLY INERT, AND NO LONGER UNMOUNTED (18 Aug 2026, the
+ * REHOME → DELETE lane). Two of the four carriers this file was waiting for
+ * now exist: #777 gave `useModelEditAuthority` `proposeFactorConfirmation`
+ * and `proposeOptionIntervention`. So the CONFIRM-ESTIMATES queue is mounted
+ * and its Confirm resolves, through the SAME authority call as the outline
+ * row's Confirm chip — one edit, one path, two entry points. `proposeBatch`
+ * and `proposeDeferral` still do not exist, so Apply-all, Defer and Resume
+ * remain disabled and still say why. The paragraph below is the ORIGINAL
+ * statement, kept because its reasoning is what governs the parts that are
+ * still inert.
+ *
+ * ⚠ DELIBERATELY INERT (as shipped 16 Aug 2026, and still true of every
+ * control whose carrier is missing;
  * which mounted the outline + detail region only). This renders the queue. It
  * does not apply anything, and it cannot: applying needs write operations the
  * canonical wire does not carry yet (`proposeOptionIntervention`,
@@ -61,10 +73,40 @@ export interface RepairQueueListProps {
   items: readonly RepairQueueItem[]
   /** Focus the element on the canvas — read-only navigation, safe today. */
   onFocusOnCanvas?: (rowId: string) => void
+  /**
+   * Resolve ONE item, through the caller's write authority.
+   *
+   * ⚠ OPTIONAL, AND ITS ABSENCE IS THE HONEST DEFAULT. A queue whose carrier
+   * does not exist yet passes nothing and every Apply stays DISABLED with the
+   * reason on it — the state this component shipped in. A queue whose carrier
+   * DOES exist passes it, and only that queue's button comes alive. So
+   * "connected" is a per-queue fact the type system carries, not a flag someone
+   * has to remember to keep true.
+   *
+   * ⚠ THIS COMPONENT STILL WRITES NOTHING. It calls back; the mount host owns
+   * the authority. Wiring a store setter in here would make the queue a second
+   * writer of the same edit — the defect the whole consolidation removes.
+   */
+  onApply?: (rowId: string) => void
+  /**
+   * What resolving means IN THIS QUEUE. "Apply" is right for a suggested value;
+   * "Confirm" is right for ratifying an estimate that is already in the model,
+   * where "Apply" would imply a change that does not happen.
+   */
+  applyLabel?: string
 }
 
 const NO_AUTHORITY_ITEM =
   'Applying is not connected yet — this cannot be changed from here.'
+
+/**
+ * ⚠ A DIFFERENT REFUSAL FROM `NO_AUTHORITY_ITEM`, AND IT MUST READ THAT WAY.
+ * "Not connected yet" is about the product; this is about THIS ROW. Telling a
+ * user their row is awaiting a carrier when in fact it has no value to act on
+ * sends them to wait for something that will not help them.
+ */
+const NO_REFERENT_ITEM =
+  'There is no value here to act on yet — set one first.'
 
 const NO_AUTHORITY_DEFER =
   'Recording this decision is not connected yet — leaving it unresolved cannot be saved from here.'
@@ -76,6 +118,56 @@ const NO_AUTHORITY_BATCH =
   'Applying every row at once needs the batch operation that is still being built. ' +
   'Doing it one row at a time would re-run the analysis after each one. ' +
   'Items left unresolved are never included.'
+
+/**
+ * The resolving control — ONE button, and never a third state that pretends.
+ *
+ * ⚠⚠ IT IS FAIL-CLOSED ON THE ITEM AS WELL AS ON THE CARRIER (F2). An item with
+ * NEITHER a current value nor a suggested one has nothing for Apply to refer
+ * to: the authority fails closed on it, writes nothing, and returns an outcome
+ * both call sites discard — so the user pressed a live button and the model did
+ * not move, with no feedback. That is preamble P8, and it is precisely what the
+ * outline's row chip already refuses (`ModelRowView.tsx:134-136`).
+ *
+ * ⚠ THIS IS NOT A SECOND ANSWER TO THE PRODUCER'S QUESTION (trap 21). The
+ * producer answers *"which elements belong in THIS queue?"* — a per-queue
+ * membership rule. This answers *"does this item carry anything to act on?"* — a
+ * universal property of a queue row, true whichever producer built it. Note the
+ * predicate is deliberately the WEAKER, general one: `set-option-values` items
+ * legitimately have `currentValue === null` and carry a `suggestedValue`, so a
+ * gate copied from the confirm queue's membership rule would have silently
+ * disabled Queue A before it was ever mounted.
+ */
+function ApplyControl({
+  queueId,
+  item,
+  onApply,
+  applyLabel,
+}: {
+  queueId: string
+  item: RepairQueueItem
+  onApply?: (rowId: string) => void
+  applyLabel: string
+}) {
+  const hasReferent = item.currentValue !== null || item.suggestedValue !== null
+  const enabled = onApply !== undefined && hasReferent
+  const reason = onApply === undefined ? NO_AUTHORITY_ITEM : NO_REFERENT_ITEM
+  return (
+    <button
+      type="button"
+      data-testid={`repair-queue-v2-${queueId}-item-${item.rowId}-apply`}
+      disabled={!enabled}
+      onClick={enabled ? () => onApply!(item.rowId) : undefined}
+      title={enabled ? undefined : reason}
+      aria-label={enabled ? `${applyLabel} ${item.label}` : `${item.label} — ${reason}`}
+      className={`${typography.buttonSmall} border border-panel-border rounded px-2 py-0.5 ${
+        enabled ? 'text-text-header hover:bg-panel-hover' : 'text-text-light cursor-not-allowed'
+      }`}
+    >
+      {enabled ? applyLabel : 'Apply'}
+    </button>
+  )
+}
 
 /** The label/value cells, identical in both groups so one item reads one way. */
 function ItemCells({
@@ -119,7 +211,13 @@ function ItemCells({
   )
 }
 
-export function RepairQueueList({ queue, items, onFocusOnCanvas }: RepairQueueListProps) {
+export function RepairQueueList({
+  queue,
+  items,
+  onFocusOnCanvas,
+  onApply,
+  applyLabel = 'Apply',
+}: RepairQueueListProps) {
   // Partition, preserving the caller's order within each group.
   const activeItems = items.filter(i => i.deferred === undefined)
   const deferredItems = items.filter(i => i.deferred !== undefined)
@@ -170,16 +268,19 @@ export function RepairQueueList({ queue, items, onFocusOnCanvas }: RepairQueueLi
             >
               <ItemCells queueId={q} item={item} onFocusOnCanvas={onFocusOnCanvas} />
 
-              <button
-                type="button"
-                data-testid={`repair-queue-v2-${q}-item-${item.rowId}-apply`}
-                disabled
-                title={NO_AUTHORITY_ITEM}
-                aria-label={`${item.label} — ${NO_AUTHORITY_ITEM}`}
-                className={`${typography.buttonSmall} text-text-light cursor-not-allowed border border-panel-border rounded px-2 py-0.5`}
-              >
-                Apply
-              </button>
+              {/*
+                ⚠ THIS COMMENT PREVIOUSLY CLAIMED "it never renders
+                enabled-but-inert". THAT WAS FALSE when written: it gated on the
+                carrier alone, so an item with no value rendered an ENABLED
+                Confirm that wrote nothing. The claim is now true, and it is true
+                because `ApplyControl` gates on the ITEM as well — see its header.
+              */}
+              <ApplyControl
+                queueId={q}
+                item={item}
+                onApply={onApply}
+                applyLabel={applyLabel}
+              />
 
               {/*
                 The user's other legitimate answer. It sits beside Apply, not

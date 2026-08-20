@@ -12,7 +12,13 @@
  * NOTHING HERE IS MOUNTED. See `types.ts` for the directory-level statement.
  */
 
-import type { AttentionReason, DeferralRecord, ModelElementKind, ModelGroupId } from './types'
+import type {
+  AttentionReason,
+  DeferralRecord,
+  ModelElementKind,
+  ModelGroupId,
+  RepairQueue,
+} from './types'
 
 /**
  * How a deferral reads on screen (design §5.3, Paul's ruling 16 Aug 2026).
@@ -47,6 +53,48 @@ function formatDeferralDate(iso: string): string {
  * The seven group headings, mapping 1:1 onto the brief's IA (design §4.1).
  * Total over `ModelGroupId` — a new group cannot render as an untitled section.
  */
+/**
+ * THE FOUR REPAIR QUEUES, TOTAL BY CONSTRUCTION (design §5.3).
+ *
+ * ⚠ A `Record` over `RepairQueue['id']`, for the same reason as every other map
+ * in this file: adding a queue id becomes a TYPE ERROR here rather than a queue
+ * that renders with no title. The definitions were previously inline in the
+ * queue's own spec — i.e. the only place a queue existed was a test fixture,
+ * which is how a surface stays unmountable without anyone noticing.
+ *
+ * ⚠ `supportsApplyAll` IS A CLAIM ABOUT THE BATCH CARRIER, NOT A PREFERENCE.
+ * It stays `true` where the design wants the affordance; the affordance itself
+ * still renders DISABLED until `proposeBatch` exists, because N single
+ * proposals is N turns, N undo steps and N analysis invalidations for one
+ * gesture (`contracts.ts` §1).
+ */
+export const REPAIR_QUEUE: Record<RepairQueue['id'], RepairQueue> = {
+  'confirm-estimates': {
+    id: 'confirm-estimates',
+    reason: 'unconfirmed-estimate',
+    title: 'Confirm estimates',
+    supportsApplyAll: true,
+  },
+  'set-option-values': {
+    id: 'set-option-values',
+    reason: 'missing-intervention',
+    title: 'Set option values',
+    supportsApplyAll: true,
+  },
+  contested: {
+    id: 'contested',
+    reason: 'contested',
+    title: 'Contested relationships',
+    supportsApplyAll: false,
+  },
+  'no-value': {
+    id: 'no-value',
+    reason: 'no-value',
+    title: 'Factors with no value',
+    supportsApplyAll: false,
+  },
+}
+
 export const GROUP_TITLE: Record<ModelGroupId, string> = {
   goal: 'Goal',
   options: 'Options',

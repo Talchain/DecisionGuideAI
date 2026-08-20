@@ -77,6 +77,7 @@
 import { useCallback } from 'react'
 import { useCanvasStore } from '../store'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
+import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useNodeMutations } from '../ui/inspector-v2/useInspectorMutations'
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
@@ -244,12 +245,13 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
     if (!activeNodeId) return 'not_encodable'
     const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
     if (!node || resolveNodeTypeLiteral(node) !== 'factor') return 'not_encodable'
-    const data = node.data as Record<string, unknown> | undefined
-    const obs = (data?.observedState ?? data?.observed_state) as
-      | Record<string, unknown>
-      | undefined
-    const value = obs?.value
-    if (typeof value !== 'number' || !Number.isFinite(value)) return 'not_encodable'
+    // ⚠ THE REFUSAL IS `factorHasConfirmableValue`, NOT A COPY OF IT. This read
+    // its own `observedState.value` finiteness inline, and FOUR surfaces
+    // separately guessed at the same condition to decide whether to OFFER the
+    // control — in three different spellings, two of them wrong on a reachable
+    // class. The gate and the refusal are now the same function, so a surface
+    // cannot offer what this will decline.
+    if (!factorHasConfirmableValue(node.data)) return 'not_encodable'
 
     mutations.setObservedSource('user_confirmed')
     return 'committed'

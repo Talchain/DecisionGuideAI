@@ -54,10 +54,28 @@ export function resolveCanvasLabel(
   id: string,
   labels: ReadonlyMap<string, string>,
 ): string | null {
-  const label = labels.get(id)
-  if (label === undefined) return null
+  return honestLabel(labels.get(id))
+}
+
+/**
+ * THE POLICY ITSELF, for callers that already hold the candidate string.
+ *
+ * ⚠ EXTRACTED SO IT CANNOT BE RE-EXPRESSED. An edge carries its OWN `label` (not
+ * one looked up by id), so `model-tab-v2/adapters.ts`'s relationship path had no
+ * map to hand and read it raw — the id-shaped-label rejection was applied on the
+ * node path and not on its neighbour, inside one function. The alternative was a
+ * caller building a one-entry `Map` to borrow the lookup, which is the policy
+ * smuggled through a data structure rather than named.
+ *
+ * `resolveCanvasLabel` is now this function plus a lookup, so there is exactly
+ * one definition of what an honest label is.
+ */
+export function honestLabel(label: unknown): string | null {
+  if (typeof label !== 'string') return null
   const trimmed = label.trim()
   if (trimmed === '') return null
+  // Producers sometimes seed a label from an id; without this the leak just
+  // moves one hop upstream and still reaches the user.
   if (RAW_ID_PATTERN.test(trimmed)) return null
   return trimmed
 }

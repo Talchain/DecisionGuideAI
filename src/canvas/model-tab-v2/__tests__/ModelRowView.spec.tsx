@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ModelRowView } from '../ModelRowView'
 import type { ModelRow } from '../types'
 
@@ -41,6 +41,55 @@ describe('ModelRowView — renders the model, never its own opinion of it', () =
     expect(screen.getByTestId('model-row-v2-f1-label')).toHaveTextContent('Win rate')
     // Not "0.4" — the producer decided how this reads; the row does not re-derive it.
     expect(screen.getByTestId('model-row-v2-f1-value')).toHaveTextContent('0.40')
+  })
+})
+
+describe('⭐ Confirm ✓ is offered by the ATTENTION REASON alone — no second value guard', () => {
+  /*
+   * ⚠⚠ THIS EXISTS BECAUSE A MUTANT BIT ONLY A SOURCE SCAN (measured, 19 Aug
+   * 2026). Re-adding `&& row.primaryValue !== null` here failed exactly ONE
+   * assertion — the textual guard saying the competitor is gone — and NOTHING
+   * behavioural. A scan proves the line is absent; only a render proves the
+   * chip appears on the row that needs it (trap 13b — presence of a control is
+   * not coverage of the branch).
+   *
+   * The row below is the wire-real shape the old guard hid: a capped factor
+   * carrying `observedState.value` and NO `raw_value`, so it has a value to
+   * CONFIRM and none to DISPLAY. `primaryValue` is null and the chip must still
+   * render, because the write authority accepts it.
+   */
+  it('⚠ renders Confirm on a row with a confirmable value and NO displayable one', () => {
+    const onConfirmValueAsIs = vi.fn()
+    render(
+      <ModelRowView
+        row={row({
+          id: 'f_model_scale',
+          primaryValue: null,
+          attention: ['no-value', 'unconfirmed-estimate'],
+        })}
+        tier="plain"
+        onConfirmValueAsIs={onConfirmValueAsIs}
+      />,
+    )
+    // Bound by IDENTITY — the testid carries the row id, so a sibling row's
+    // chip cannot satisfy this (trap 19).
+    const chip = screen.getByTestId('model-row-v2-f_model_scale-confirm-as-is')
+    expect(chip).toBeInTheDocument()
+    fireEvent.click(chip)
+    expect(onConfirmValueAsIs).toHaveBeenCalledWith('f_model_scale')
+  })
+
+  it('⚠ DISCRIMINATING TWIN — a row WITHOUT the reason gets no chip, same props', () => {
+    // Without this, the assertion above would be satisfied by a chip that
+    // renders unconditionally. The two rows differ in exactly one field.
+    render(
+      <ModelRowView
+        row={row({ id: 'f_confirmed', primaryValue: null, attention: ['no-value'] })}
+        tier="plain"
+        onConfirmValueAsIs={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('model-row-v2-f_confirmed-confirm-as-is')).toBeNull()
   })
 })
 

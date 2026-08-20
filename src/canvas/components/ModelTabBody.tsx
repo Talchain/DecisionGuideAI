@@ -22,6 +22,10 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
+// THE ONE id → label policy. This container OUTLIVES the duplicate editor, so a
+// raw-id fallback here would have become permanent when the sections go — the
+// same argument that fixed `buildGoalFitRows` in place rather than pinning it.
+import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../domain/canvasLabels'
 import { edgeValueSource, resolveEdgeValueDisplay, compareEdgeValueDisplays, type EdgeValueSource } from '../domain/edgeValueProvenance'
 import { getCausalEdges } from '../domain/edgeUtils'
 import { SectionErrorBoundary } from './GraphTextView'
@@ -121,7 +125,11 @@ export const ModelTabBody = memo(function ModelTabBody({
   expertMode,
   onSendMessage,
 }: ModelTabBodyProps) {
-  const [searchQuery, setSearchQuery] = useState('')
+  // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
+  // `ModelFooter`, and consumed by NOTHING — no filter read it anywhere in
+  // `src/`, so the box was an enabled control that silently did nothing. Keeping
+  // the state beside a disabled input would leave the next reader hunting for a
+  // filter that does not exist. See `ModelFooter`'s header.
 
   // Single-open accordion: in default mode, only one section open at a time.
   // In expert mode (showDetail), sections manage their own state independently.
@@ -512,6 +520,11 @@ export const ModelTabBody = memo(function ModelTabBody({
       const needsA = (!srcA || srcA === 'cee_inference' || fullRangeA) ? 0 : 1
       const needsB = (!srcB || srcB === 'cee_inference' || fullRangeB) ? 0 : 1
       if (needsA !== needsB) return needsA - needsB
+      // ⚠ ORDERING KEYS, NOT DISPLAY — an id used to break a tie never reaches
+      // the screen. Kept raw (a resolved label would collapse every unnamed node
+      // to one key and make the order arbitrary) and PINNED in the scan rather
+      // than excused by a narrower pattern: a scan that decides which matches
+      // "don't count" is a scan that can be argued with.
       const labelA = String((a.data as any)?.label ?? a.id)
       const labelB = String((b.data as any)?.label ?? b.id)
       return labelA.localeCompare(labelB)
@@ -559,8 +572,17 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   // ── Goal headline ─────────────────────────────────────────────────────────
 
+  /**
+   * ONE map for every label this container resolves — the goal heading and both
+   * clipboard exports. Built here rather than per call site, which is also what
+   * stops the three of them drifting apart.
+   */
+  const nodeLabels = useMemo(() => buildCanvasLabelMap(nodes), [nodes])
+
   const goalNode = grouped.goal[0]
-  const goalLabel = goalNode ? String((goalNode.data as any)?.label ?? goalNode.id) : null
+  const goalLabel = goalNode
+    ? resolveCanvasLabel(goalNode.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
+    : null
 
   // ── Contested pending count (reactive — updates after each resolution) ───
 
@@ -696,30 +718,37 @@ export const ModelTabBody = memo(function ModelTabBody({
     lines.push('')
     lines.push('Factors:')
     for (const n of sortedFactors) {
-      const lbl = String((n.data as any)?.label ?? n.id)
+      const lbl = resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
       const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state ?? {}
-      const src = obs.source ? ` [${mapSourceToDisplay(obs.source) ?? obs.source}]` : ' [no source]'
+      // ⚠ NO `?? obs.source` TAIL. `mapSourceToDisplay` already returns the raw
+      // token for anything it cannot classify, so the tail added nothing except a
+      // second, unclassified route for `cee_inference` to reach the clipboard —
+      // and `utils.ts:80-83` records this exact leak as having already "left the
+      // estate in what a user pastes into a document".
+      const src = obs.source ? ` [${mapSourceToDisplay(obs.source)}]` : ' [no source]'
       lines.push(`  • ${lbl}${src}`)
     }
     lines.push('')
     lines.push('Edges:')
     for (const e of sortedEdges) {
-      const src = nodes.find(n => n.id === e.source)
-      const tgt = nodes.find(n => n.id === e.target)
-      const fromLbl = String((src?.data as any)?.label ?? e.source)
-      const toLbl = String((tgt?.data as any)?.label ?? e.target)
+      // ⚠ The two `nodes.find` lookups that stood here are gone with the raw
+      // reads that needed them — `nodeLabels` is the one map, built once.
+      const fromLbl = resolveCanvasLabel(e.source, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
+      const toLbl = resolveCanvasLabel(e.target, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
       lines.push(`  • ${fromLbl} → ${toLbl}`)
     }
     const text = lines.join('\n')
     navigator.clipboard?.writeText(text).catch(() => {})
-  }, [goalLabel, sortedFactors, sortedEdges, nodes])
+  }, [goalLabel, sortedFactors, sortedEdges, nodeLabels])
 
   const handleCopyJson = useCallback(() => {
     const payload = {
       goal: goalLabel ?? null,
       factors: sortedFactors.map(n => ({
+        // The id stays, deliberately — an export needs identity. It is the
+        // LABEL that must never silently become one.
         id: n.id,
-        label: String((n.data as any)?.label ?? n.id),
+        label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
         category: (n.data as any)?.category ?? null,
         observedState: (n.data as any)?.observedState ?? (n.data as any)?.observed_state ?? null,
         prior: (n.data as any)?.prior ?? null,
@@ -747,7 +776,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     }
     const json = JSON.stringify(payload, null, 2)
     navigator.clipboard?.writeText(json).catch(() => {})
-  }, [goalLabel, sortedFactors, sortedEdges])
+  }, [goalLabel, sortedFactors, sortedEdges, nodeLabels])
 
   /**
    * The Olumi hand-off for the canonical outline's group affordances.
@@ -919,8 +948,6 @@ export const ModelTabBody = memo(function ModelTabBody({
 
       {/* ── Footer: search + copy ─────────────────────────────────────────── */}
       <ModelFooter
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         onCopyText={handleCopyText}
         onCopyJson={handleCopyJson}
       />

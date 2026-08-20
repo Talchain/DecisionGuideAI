@@ -49,9 +49,17 @@ import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { ModelOutline } from './ModelOutline'
 import { ModelDetailRegion } from './ModelDetailRegion'
+import { RepairQueueList } from './RepairQueueList'
+import { REPAIR_QUEUE } from './rowPresentation'
 import type { GroupAction, GroupActionContext } from './groupActions'
-import { toModelRows, toRowDetail, nodeKind, type ModelProjectionInput } from './adapters'
-import type { DetailTier, EditCommitState } from './types'
+import {
+  toModelRows,
+  toRepairQueueItems,
+  toRowDetail,
+  nodeKind,
+  type ModelProjectionInput,
+} from './adapters'
+import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
   nodes: Node[]
@@ -77,6 +85,18 @@ export interface ModelTabV2PanelProps {
   onHandOffToOlumi?: (message: string, reason: string) => void
 }
 
+/**
+ * The queues that are actually MOUNTED AND WIRED at this tip.
+ *
+ * ⚠ NARROWER THAN `RepairQueue['id']` ON PURPOSE. `REPAIR_QUEUE` is total over
+ * all four queues — correct for the definitions table — but only
+ * `confirm-estimates` has a write carrier (`proposeFactorConfirmation`). Typing
+ * the panel's state to the total union would make `'contested'` look sanctioned
+ * when nothing renders it. Adding a queue here is a deliberate act, not a
+ * discovery in a diff.
+ */
+type MountedQueueId = Extract<RepairQueue['id'], 'confirm-estimates'>
+
 /** One active edit at a time — the row the user is currently changing. */
 interface ActiveEdit {
   rowId: string
@@ -94,6 +114,44 @@ export function ModelTabV2Panel({
   onHandOffToOlumi,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
+  /**
+   * Which repair queue the user is standing in, if any.
+   *
+   * ⚠ A MODE, NOT A SECOND LIST. Design §5.3: a queue is *a filtered view of
+   * the same outline* — "there is only ever one rendering of a row". Rendering
+   * the queue BESIDE the outline would put the same factor on screen twice,
+   * which is precisely the defect this whole consolidation exists to remove;
+   * doing it inside the fix would be the defect class reproduced one layer up.
+   * So the queue REPLACES the outline while it is open, and one control
+   * returns.
+   *
+   * ⚠⚠ AND THE SCOPE OF THAT CLAIM, STATED BECAUSE THE COMMIT THAT INTRODUCED
+   * THIS OVERSTATED IT. What is true HERE is that this panel renders a row once:
+   * the branch above is structurally exclusive and the spec pins the outline rows
+   * absent in queue mode, with a before-click contrast control.
+   *
+   * What is NOT yet true is the SURFACE. `ModelTabBody.tsx` renders
+   * `FactorsSection` unconditionally, outside this panel, in the same scroll — so
+   * a queued factor appears in the queue AND in its v1 factor card. The
+   * consolidation's invariant *"there is only ever one rendering of a row"* is a
+   * goal at this tip, not an achieved state, and it stays that way until the
+   * duplicate section stack is deleted.
+   *
+   * A spec that renders THIS COMPONENT can never see that (trap 3b — bound to a
+   * component, not to the surface the deployed tab mounts), which is exactly how
+   * the overstatement passed a green suite.
+   */
+  const [activeQueue, setActiveQueue] = useState<MountedQueueId | null>(null)
+  /**
+   * ⚠ ONE PREDICATE, DERIVED ONCE (F7). Two independent tests for "am I in a
+   * queue" (`activeQueue === 'confirm-estimates'` for the body,
+   * `activeQueue === null` for the detail region) were equivalent ONLY because
+   * exactly one id was settable. `REPAIR_QUEUE` is total over four ids, which
+   * makes the other three LOOK sanctioned — and setting one would have rendered
+   * the outline AND suppressed the detail region. `MountedQueueId` narrows the
+   * state to what is actually wired, so the two readings cannot diverge.
+   */
+  const inQueue = activeQueue !== null
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
@@ -121,6 +179,18 @@ export function ModelTabV2Panel({
   )
 
   const rows = useMemo(() => toModelRows(projection), [projection])
+
+  /**
+   * ⚠ THE CHIP AND THE QUEUE ARE THE SAME DERIVATION, so they cannot disagree.
+   * The count on the chip IS `confirmItems.length` — not a second predicate
+   * that happens to agree today. The current tab ships the opposite: a
+   * "N to verify" badge whose N counts factors the user has no way to reach.
+   * This is the first time that badge does anything (design §7.2).
+   */
+  const confirmItems = useMemo(
+    () => toRepairQueueItems(projection, 'confirm-estimates'),
+    [projection],
+  )
 
   /**
    * The rows whose edit has a canonical transaction at this tip: factors.
@@ -198,6 +268,23 @@ export function ModelTabV2Panel({
     confirmAuthority.proposeFactorConfirmation()
     setPendingConfirmId(null)
   }, [pendingConfirmId, confirmAuthority])
+
+  /**
+   * ⚠ F8 — RESOLVING THE LAST ITEM RETURNS YOU TO THE OUTLINE.
+   *
+   * The chip only renders when the count is non-zero, so an empty queue cannot
+   * be ENTERED; it can only be arrived at by clearing the last item. Leaving the
+   * user there replaces the whole outline with "Nothing needs attention here."
+   * and, because the chip is suppressed while a queue is open, the only way out
+   * is a control they have no reason to look for. Finishing the job should not
+   * look like a dead end.
+   *
+   * The count falls on the HOST's re-render — this panel holds no store
+   * subscription by design — which is exactly when this fires.
+   */
+  useEffect(() => {
+    if (activeQueue === 'confirm-estimates' && confirmItems.length === 0) setActiveQueue(null)
+  }, [activeQueue, confirmItems.length])
 
   /** Rows are nodes OR edges — focus each with the helper that owns its kind. */
   const focusOnCanvas = useCallback(
@@ -403,6 +490,49 @@ export function ModelTabV2Panel({
         </div>
       </header>
 
+      {/*
+        THE ATTENTION CHIP — the first time "N to verify" is a control.
+        Rendered only when the count is non-zero: a chip reading "0 to verify"
+        is furniture, and the queue behind it would be empty.
+      */}
+      {confirmItems.length > 0 && !inQueue && (
+        <button
+          type="button"
+          data-testid="model-tab-v2-chip-confirm-estimates"
+          onClick={() => setActiveQueue('confirm-estimates')}
+          className={`${typography.buttonSmall} self-start rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
+        >
+          {confirmItems.length === 1 ? '1 to verify' : `${confirmItems.length} to verify`}
+        </button>
+      )}
+
+      {inQueue ? (
+        <>
+          <button
+            type="button"
+            data-testid="model-tab-v2-queue-back"
+            onClick={() => setActiveQueue(null)}
+            className={`${typography.buttonSmall} self-start rounded border border-panel-border px-2 py-0.5 text-text-header hover:bg-panel-hover`}
+          >
+            Back to the model outline
+          </button>
+          <RepairQueueList
+            queue={REPAIR_QUEUE['confirm-estimates']}
+            items={confirmItems}
+            onFocusOnCanvas={focusOnCanvas}
+            /*
+              ⚠ THE SAME AUTHORITY CALL AS THE ROW'S CONFIRM CHIP, not a second
+              implementation of confirming. `confirmValueAsIs` routes to
+              `useModelEditAuthority.proposeFactorConfirmation`, so the queue and
+              the row stamp `user_confirmed` through ONE path. Two entry points
+              to one edit is the design; two implementations of one edit is the
+              defect being removed.
+            */
+            onApply={confirmValueAsIs}
+            applyLabel="Confirm"
+          />
+        </>
+      ) : (
       <ModelOutline
         rows={rows}
         tier={tier}
@@ -421,8 +551,9 @@ export function ModelTabV2Panel({
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}
       />
+      )}
 
-      {selectedRow !== null && selectedDetail !== null && (
+      {!inQueue && selectedRow !== null && selectedDetail !== null && (
         <ModelDetailRegion
           row={selectedRow}
           detail={selectedDetail}

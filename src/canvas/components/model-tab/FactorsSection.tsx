@@ -19,7 +19,7 @@ import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { useNodeMutations } from '../../ui/inspector-v2/useInspectorMutations'
 import { useModelEditAuthority } from '../../hooks/useModelEditAuthority'
-import { factorNeedsVerification } from '../../domain/valueProvenance'
+import { factorIsConfirmable } from '../../domain/valueProvenance'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { buildFactorValueEditEvent } from '../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../conversation/optimisticFactorEdit'
@@ -326,14 +326,21 @@ function FactorCard({
 
   // Task 8: Verify/confirm button
   //
-  // ⚠ THE PREDICATE IS `factorNeedsVerification`, THE SAME ONE THE BADGE COUNTS.
+  // ⚠ THE PREDICATE IS `factorIsConfirmable`, THE SAME ONE THE BADGE COUNTS.
   // It used to be `obs.source !== 'user'`, which was already loose — it offered
   // Confirm over a `brief_extraction` the badge did not count — and it becomes
   // WRONG the moment the gesture stamps `user_confirmed` rather than `user`:
   // the button would survive its own success and invite the user to confirm the
   // same number for ever. One question, one predicate.
-  const showConfirmButton =
-    factorNeedsVerification(node.data) && (primaryValue !== null || normalisedValue !== null)
+  //
+  // ⚠⚠ AND THE VALUE GUARD IS NO LONGER THIS SURFACE'S TO WRITE. It read
+  // `(primaryValue !== null || normalisedValue !== null)` — a DISPLAY question
+  // standing in for a WRITE question. The authority refuses unless
+  // `observedState.value` is a finite number, so `raw_value`-only factors got an
+  // enabled Confirm that silently did nothing. `factorIsConfirmable` is that
+  // refusal condition, inverted, and it is the same function the badge counts
+  // with — the button and the number can no longer disagree about a row.
+  const showConfirmButton = factorIsConfirmable(node.data)
   const [confirmFlash, setConfirmFlash] = useState(false)
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }, [])

@@ -44,10 +44,15 @@
  *   · `getDirectionalStrengthLabel`  — model-tab/strengthBands
  *   · `getPrimaryValue`              — model-tab/utils
  *   · `getDisplayEdgeId`             — utils/edgeIdentity
- *   · `factorNeedsVerification`      — domain/valueProvenance. ⚠ THIS USED TO BE
- *     A PORT, with a corpus pinning the copy against `countFactorsToVerify`.
- *     It MOVED to the domain layer on 18 Aug 2026 and both readers now import
- *     it, so there is nothing left to pin: agreement is structural, not tested.
+ *   · `factorIsConfirmable`          — domain/valueProvenance. ⚠ THE CANONICAL
+ *     "N to verify" PREDICATE, and the only one. `factorNeedsVerification` was
+ *     ported here once, then moved to the domain layer (18 Aug); the FULL
+ *     question — needs verification AND has a ratifiable value — was still being
+ *     answered four ways across five surfaces until 19 Aug. It is now one
+ *     function, defined as the write authority's own refusal condition inverted,
+ *     so agreement is structural. The corpus that would notice the surviving
+ *     definition being WRONG lives in `__tests__/factorConfirmable.spec.ts`
+ *     (trap 12d — derivation and corpus are not redundant; ship both).
  *
  * PORTED, because the live logic is not exported per-item:
  *   · `edgeIsContested` ← `RelationshipsSection.tsx:610`.
@@ -65,13 +70,17 @@
  * Naming them is the point: an unnamed divergence is how two surfaces end up
  * quietly disagreeing about the same model.
  *
- * D1 — TWO LIVE "NEEDS VERIFICATION" PREDICATES EXIST, AND THEY DISAGREE.
- *      `countFactorsToVerify` (utils.ts:118) is `!source || source ===
- *      'cee_inference'`. The factor SORT KEY in `ModelTabBody.tsx:492-493` is
- *      wider — it also flags an `external` factor carrying a full 0–1 prior
- *      range. Nothing reconciles them. This adapter follows the FIRST, because
- *      that is the one the "N to verify" badge and Queue B are counted from, and
- *      a queue that disagreed with its own chip is the defect being closed.
+ * D1 — ⭐ SETTLED 19 Aug 2026: ONE PREDICATE, `factorIsConfirmable`, OWNED BY
+ *      `domain/valueProvenance`. `countFactorsToVerify`, this adapter's queue,
+ *      the outline's `unconfirmed-estimate` marker, `ModelRowView`'s Confirm chip
+ *      and `FactorsSection`'s Confirm ✓ all call it; none keeps a copy, and the
+ *      write authority gates on its `factorHasConfirmableValue` half — so a
+ *      surface cannot offer a confirmation the writer will decline.
+ *      ⚠ STILL UNRECONCILED, AND DELIBERATELY SO: the factor SORT KEY in
+ *      `ModelTabBody.tsx` is wider (it also flags an `external` factor carrying a
+ *      full 0–1 prior range). That is an ORDERING key, not a count and not an
+ *      affordance — a different question (trap 21), left alone rather than
+ *      aligned into a fifth reading of this one.
  *
  * D2 — `'no-value'` IS AUTHORED FRESH, NOT PORTED. There is no per-factor
  *      "has no value" predicate anywhere in the live tree. The Model card's
@@ -118,13 +127,24 @@ import { getCausalEdges } from '../domain/edgeUtils'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
+// THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
+// renders. Imported, never re-expressed: a second copy is how the pill and the
+// outline start disagreeing about what `cee_inference` is called.
+import { mapSourceToDisplay } from '../components/model-tab/utils'
+// The evidence gate v1 applies before it will print a provenance at all.
+import { NON_EVIDENCE_PROVENANCE } from '../utils/evidenceCoverage'
 import { getDisplayEdgeId } from '../utils/edgeIdentity'
 // THE ONE id → label policy (`src/canvas/domain/canvasLabels.ts`). It returns
 // `null` rather than the identifier, and rejects a stored label that is itself
 // id-shaped — which is why it is imported here rather than reimplemented.
-import { buildCanvasLabelMap, resolveCanvasLabel, UNNAMED_ELEMENT_LABEL } from '../domain/canvasLabels'
+import {
+  buildCanvasLabelMap,
+  honestLabel,
+  resolveCanvasLabel,
+  UNNAMED_ELEMENT_LABEL,
+} from '../domain/canvasLabels'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
-import { factorNeedsVerification } from '../domain/valueProvenance'
+import { factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import type {
@@ -262,7 +282,21 @@ function relationshipLabel(
   targetId: string,
   labels: ReadonlyMap<string, string>,
 ): string {
-  if (typeof data?.label === 'string' && data.label.trim() !== '') return data.label
+  /*
+   * ⚠ F5 — THE SAME REJECTION THE NODE PATH GETS. `resolveCanvasLabel` refuses
+   * a stored label that is ITSELF id-shaped, because producers sometimes seed a
+   * label from an id and the leak would simply move one hop upstream. That
+   * reasoning does not stop at nodes, and this branch was reading the edge's own
+   * `data.label` raw — so the policy was applied on one path and not its
+   * neighbour, in one function.
+   *
+   * Reachability was NOT established in either direction, and that is exactly
+   * why the policy is applied rather than argued about: it costs one call, and
+   * an id-shaped edge label falls back to the endpoint pair — which reads
+   * better than the id whether or not the case occurs.
+   */
+  const own = honestLabel(data?.label)
+  if (own !== null) return own
   const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
   const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
   return `${from} → ${to}`
@@ -353,10 +387,25 @@ function edgeValue(data: unknown): string | null {
 // Rows
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * ⚠ THE TWO REASONS ANSWER DIFFERENT QUESTIONS AND KEEP DIFFERENT PREDICATES
+ * (trap 21). `no-value` asks *"is there a number this outline can DISPLAY?"* —
+ * `getPrimaryValue`, i.e. `raw_value`. `unconfirmed-estimate` asks *"may this be
+ * CONFIRMED?"* — `factorIsConfirmable`, i.e. the write authority's own condition
+ * on `observedState.value`. They are not spellings of one rule and they are
+ * deliberately not aligned.
+ *
+ * ⚠ `unconfirmed-estimate` CARRIES THE VALUE GUARD NOW, so `ModelRowView` no
+ * longer re-derives one. It used to be the bare `factorNeedsVerification`, which
+ * marked a factor with no value at all as an unratified ESTIMATE — there was no
+ * estimate to ratify, and the row's Confirm chip then had to bolt its own
+ * `row.primaryValue !== null` on top. One question was being answered twice, in
+ * two files, with two different fields.
+ */
 function attentionForFactor(data: unknown, value: string | null): AttentionReason[] {
   const out: AttentionReason[] = []
   if (value === null) out.push('no-value')
-  if (factorNeedsVerification(data)) out.push('unconfirmed-estimate')
+  if (factorIsConfirmable(data)) out.push('unconfirmed-estimate')
   return out
 }
 
@@ -377,7 +426,13 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     const kind = nodeKind(node)
     if (kind === null) continue
     const data = node.data as Record<string, unknown> | undefined
-    const label = typeof data?.label === 'string' ? data.label : node.id
+    // THE ONE id → label policy, same as the relationship rows below.
+    // ⚠ NOT `typeof data?.label === 'string' ? data.label : node.id`, which is
+    // what stood here: a raw wire id (`fac_arr`) rendered as the row's NAME.
+    // That is the same leak #777 fixed on the relationship path, wearing a
+    // ternary instead of a `??` — which is precisely why the source scan that
+    // certified this directory at ZERO could not see it.
+    const label = resolveCanvasLabel(node.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
 
     if (kind === 'factor') {
       const value = factorValue(data)
@@ -478,6 +533,46 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
  * queue: a badge and its queue that disagree is the defect the current tab
  * already ships, where "N to verify" counts factors the user cannot reach.
  */
+/**
+ * A factor's provenance, in the user's words.
+ *
+ * ⚠ `Source: cee_inference` IS A WIRE TOKEN, NOT COPY. `mapSourceToDisplay` is
+ * the policy `SourceProvenancePill` already renders ("AI estimate", "Confirmed
+ * by you"); this surface reuses it rather than printing the enum, so the pill
+ * and the queue cannot disagree about what a source is called.
+ */
+function sourceBasis(source: string | null | undefined): string | null {
+  const label = mapSourceToDisplay(source ?? undefined)
+  return label === null ? null : `Source: ${label}`
+}
+
+/**
+ * An edge's provenance, gated exactly as v1 gates it.
+ *
+ * ⚠⚠ F4 — WHAT WAS PORTED IS THE GATE, NOT THE VOCABULARY, AND THE DIFFERENCE
+ * MATTERS. A factor's `observedState.source` is a closed enum with a classifier
+ * (`mapSourceToDisplay` → "AI estimate"). An edge's `provenance` is
+ * `z.string().max(100)` (`edges.ts:198`) — free-form, no classifier exists, and
+ * its own schema doc examples are wire-ish tokens. So this function CANNOT
+ * humanise; it can only decide whether a source is worth stating at all.
+ *
+ * Stated plainly so nobody reads the sibling `sourceBasis` and assumes parity:
+ * an evidence provenance still reaches the user VERBATIM. That is the v1
+ * behaviour, deliberately preserved, and it is a narrower property than "no wire
+ * token reaches the user". Closing it needs an edge-provenance vocabulary, which
+ * is a product decision and not this lane's to invent.
+ *
+ * ⚠ THE GATE IS THE POINT. `RelationshipsSection.tsx:213` prints a provenance
+ * only when it is EVIDENCE — `assumption`, `template` and `ai-suggested` are
+ * placeholders, and announcing "Source: assumption" states a basis that does
+ * not exist. The ungated read this replaces printed all three.
+ */
+function edgeProvenanceBasis(provenance: unknown): string | null {
+  if (typeof provenance !== 'string' || provenance.trim() === '') return null
+  if (NON_EVIDENCE_PROVENANCE.includes(provenance)) return null
+  return `Source: ${provenance}`
+}
+
 export function toRepairQueueItems(
   input: ModelProjectionInput,
   queueId: RepairQueue['id'],
@@ -487,19 +582,53 @@ export function toRepairQueueItems(
 
   if (queueId === 'confirm-estimates') {
     return factorNodes
-      .filter(n => factorNeedsVerification(n.data))
+      /*
+       * ⚠⚠ F2 — `factorNeedsVerification` ALONE IS `!source || source ===
+       * 'cee_inference'`, which a factor with NO `observedState` at all satisfies.
+       * Those factors were entering this queue, where Confirm rendered over "No
+       * value set": an enabled button asking the user to endorse nothing, which
+       * the authority then refuses — a silent no-op (preamble P8).
+       *
+       * ⚠⚠ AND THE FIRST FIX FOR IT WAS WRONG IN THE OPPOSITE DIRECTION, which is
+       * why this reads `factorIsConfirmable` and not a local conjunction. It was
+       * `… && factorValue(n.data) !== null` — `getPrimaryValue`, i.e. `raw_value`
+       * — copied from `ModelRowView`'s `row.primaryValue !== null`. But the write
+       * authority gates on `observedState.value`, and a capped factor off the wire
+       * carries `{value: 0.7}` with NO `raw_value`
+       * (`conversation/factorValueEdit.ts:145`, staging-witnessed). So the
+       * over-count closed and an UNDER-count opened: a real, confirmable factor
+       * dropped out of the queue AND lost its chip, while `FactorsSection` went on
+       * offering the same row a working button. One direction of corpus could not
+       * see both (trap 22b).
+       *
+       * ⭐ THE RECONCILIATION IS THE PRODUCER'S CONDITION, NOT THE WIDER OR THE
+       * NARROWER OF TWO GUESSES (trap 13c). `factorIsConfirmable` IS
+       * `proposeFactorConfirmation`'s refusal, inverted, and the authority imports
+       * the same half — so this queue holds exactly the rows the writer accepts.
+       *
+       * ⚠ WHAT IT DOES *NOT* CLAIM: that `no-value` and this are disjoint. They
+       * answer different questions (display vs write) and keep different
+       * predicates on purpose, so a factor with a model-scale `value` and no
+       * displayable `raw_value` legitimately appears in both. Stated rather than
+       * quietly aligned — the earlier text here claimed the duplication was closed,
+       * and that was the over-read.
+       */
+      .filter(n => factorIsConfirmable(n.data))
       .map(n => {
         const data = n.data as Record<string, unknown> | undefined
         return {
           rowId: n.id,
-          label: typeof data?.label === 'string' ? data.label : n.id,
+          label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
           currentValue: factorValue(data),
           // Confirming ratifies the value that is already there; it does not
           // propose a different one.
           suggestedValue: null,
-          basis: typeof observedStateOf(data)?.source === 'string'
-            ? `Source: ${observedStateOf(data)!.source}`
-            : null,
+          // ⚠ THE CLASSIFIED LABEL, NEVER THE WIRE TOKEN. This read
+          // `Source: ${obs.source}` and put `Source: cee_inference` on screen
+          // as body copy. v1 never did: `SourceProvenancePill` renders
+          // `mapSourceToDisplay` ("AI estimate"), and the raw token appears
+          // only in a `title`. Same policy imported, not a second copy.
+          basis: sourceBasis(observedStateOf(data)?.source),
         }
       })
   }
@@ -508,10 +637,9 @@ export function toRepairQueueItems(
     return factorNodes
       .filter(n => factorValue(n.data) === null)
       .map(n => {
-        const data = n.data as Record<string, unknown> | undefined
         return {
           rowId: n.id,
-          label: typeof data?.label === 'string' ? data.label : n.id,
+          label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
           currentValue: null,
           suggestedValue: null,
           basis: null,
@@ -545,10 +673,9 @@ export function toRepairQueueItems(
   return input.nodes
     .filter(n => nodeKind(n) === 'option' && optionHasNoInterventions(n.data))
     .map(n => {
-      const data = n.data as Record<string, unknown> | undefined
       return {
         rowId: n.id,
-        label: typeof data?.label === 'string' ? data.label : n.id,
+        label: resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL,
         currentValue: null,
         suggestedValue: null,
         basis: 'This option does not change any factor yet',
@@ -583,7 +710,16 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       rowId,
       description: typeof data?.description === 'string' ? data.description : null,
       secondaryValues: secondary,
-      basis: typeof obs?.source === 'string' ? `Source: ${obs.source}` : null,
+      // ⚠⚠ F1, AND IT IS THIS COMMIT'S OWN THESIS TURNED ON ITSELF. The
+      // previous commit fixed the IDENTICAL expression in the repair-queue
+      // producer and left this one raw — so the detail pane printed
+      // `Source: cee_inference` under "Where it came from", DIRECTLY BENEATH
+      // the `SourceProvenancePill` that humanises the same field to "AI
+      // estimate" (`ModelDetailRegion.tsx:250-263`). The panel said both.
+      // Catching one instance of a class and announcing the class is fixed is
+      // the defect; the scan that should have caught it was blind twice over
+      // (see `modelTabNoRawIdFallback.sourceScan.spec.ts`).
+      basis: sourceBasis(obs?.source),
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's
@@ -603,7 +739,7 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     rowId,
     description: typeof data?.label === 'string' ? data.label : null,
     secondaryValues: [],
-    basis: typeof data?.provenance === 'string' ? `Source: ${data.provenance}` : null,
+    basis: edgeProvenanceBasis(data?.provenance),
     adjustments: [],
     affects: [
       { id: edge.target, label: endpointLabel(edge.target, nodeLabels) },
@@ -669,12 +805,28 @@ function buildAdvancedForNode(id: string, obs: ObservedState | undefined) {
   ]
 }
 
+/**
+ * ⚠ BOTH NUMBERS ARE PROVENANCE-GATED, AND ONE OF THEM WAS READING THE WRONG
+ * FIELD. The raw reads this replaces had two independent defects:
+ *
+ *  1. `data.strengthStd` unstamped is `USER_EDGE_DEFAULTS.strengthStd = 0.15` —
+ *     a constant nobody measured, printed as a measured uncertainty. v1 closed
+ *     exactly this (ROADMAP 2.296 C4, `RelationshipsSection.tsx:183-197`) by
+ *     routing through `resolveEdgeValueDisplay`, which shows a number only once
+ *     its ingestion site has stamped a source. This surface did not, so the
+ *     canonical editor was laundering a default the duplicate editor suppresses.
+ *  2. `data.exists_probability` IS NOT THE EDITED FIELD. Every likelihood write
+ *     in the product lands on `beliefExists` (`useInspectorMutations.ts:429-435`,
+ *     via `setExistsProbability`), so a user who set a likelihood saw this row
+ *     read empty. `resolveEdgeValueDisplay(data, 'beliefExists')` owns that
+ *     spelling — including the legacy `belief` leg — in one place.
+ */
 function buildAdvancedForEdge(id: string, data: Record<string, unknown> | undefined) {
-  const std = data?.strengthStd
-  const ep = data?.exists_probability
+  const std = resolveEdgeValueDisplay(data, 'strengthStd')
+  const ep = resolveEdgeValueDisplay(data, 'beliefExists')
   return [
     { label: 'Edge ID', value: id },
-    { label: 'Std', value: typeof std === 'number' ? String(std) : null },
-    { label: 'Exists probability', value: typeof ep === 'number' ? String(ep) : null },
+    { label: 'Std', value: std.show ? String(std.value) : null },
+    { label: 'Exists probability', value: ep.show ? String(ep.value) : null },
   ]
 }
