@@ -116,7 +116,8 @@ describe('StressTestSection surface', () => {
         alternativeLabel="Option B"
         designationsWithheld={false}
         sensitivityReferenceLabel="Hire a contractor"
-      />,
+      
+        flipThresholds={null}/>,
     )
     expect(screen.getByTestId('sensitivity-reference-caption')).toHaveTextContent(
       'Sensitivities computed against Hire a contractor',
@@ -131,7 +132,8 @@ describe('StressTestSection surface', () => {
         alternativeLabel="Option B"
         designationsWithheld={false}
         sensitivityReferenceLabel={null}
-      />,
+      
+        flipThresholds={null}/>,
     )
     expect(screen.queryByTestId('sensitivity-reference-caption')).not.toBeInTheDocument()
   })

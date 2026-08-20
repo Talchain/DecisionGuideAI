@@ -49,6 +49,7 @@ import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { useCanvasStore } from '@/canvas/store'
+import { attestsNoFactorFlip } from './utils/fragileEdgeCopy'
 import {
   buildStrengthenOverlayMap,
   findStrengthenOverlay,
@@ -285,6 +286,13 @@ function T1FlipRiskCallout({
 }) {
   const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
   if (!fragile) return null
+  // ⚠ CONSULT THE FLIP AUTHORITY — this callout renders the LITERAL second line
+  // of the witnessed contradiction ("{alt} could overtake (57% probability)")
+  // beside a footer stating that no probed factor changes the leader on its own.
+  // `switch_probability` is an EDGE statistic observed under JOINT sampling; the
+  // footer speaks for a SOLO sweep of root factors. Same fix as the fragile card:
+  // the presupposing verb goes, ALL data stays (see `fragileEdgeCopy`).
+  const attestsNoFlip = attestsNoFactorFlip(data.recommendation.flipThresholds)
   const switchPct = fragile.switchProbability != null
     ? Math.round(fragile.switchProbability * 100)
     : null
@@ -308,7 +316,8 @@ function T1FlipRiskCallout({
       <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
       <p className={`${typography.panelBody} text-text-body`}>
         If <strong>{fromLabelDisplay}</strong> shifts,{' '}
-        <strong>{altWinnerLabelDisplay}</strong> could overtake
+        <strong>{altWinnerLabelDisplay}</strong>{' '}
+        {attestsNoFlip ? 'could gain ground' : 'could overtake'}
         {switchPct != null && ` (${switchPct}% probability)`}.
         {onFocusNode && fragile.fromId && (
           <>

@@ -166,7 +166,8 @@ function renderStressTest(designationsWithheld: boolean) {
       winnerLabel={HIGH_LABEL}
       alternativeLabel={MID_LABEL}
       designationsWithheld={designationsWithheld}
-    />,
+    
+      flipThresholds={null}/>,
   )
 }
 
@@ -283,7 +284,8 @@ function renderFragile(designationsWithheld: boolean, edges: ChallengeFragileEdg
       winnerLabel={HIGH_LABEL}
       alternativeLabel={MID_LABEL}
       designationsWithheld={designationsWithheld}
-    />,
+    
+      flipThresholds={null}/>,
   )
   return { ...utils, subsection: () => screen.getByTestId('stress-test-fragile-subsection') }
 }
@@ -497,7 +499,8 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
         alternativeLabel={MID_LABEL}
         designationsWithheld={designationsWithheld}
         onSendMessage={() => {}}
-      />,
+      
+        flipThresholds={null}/>,
     )
     const subsection = screen.getByTestId('stress-test-fragile-subsection')
     fireEvent.click(within(subsection).getByTestId('discuss-with-ai'))

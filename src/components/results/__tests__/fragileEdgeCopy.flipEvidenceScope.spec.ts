@@ -263,10 +263,14 @@ describe('THE NOUN — a plain falsehood, INDEPENDENT of the contradiction', () 
   })
 })
 
-describe('ANTI-RECURRENCE — no exported copy function may borrow the vocabulary', () => {
-  // The next surface to reach for this vocabulary must fail loud here. The
-  // covered set is asserted against the module's ACTUAL exports, so a function
-  // added later cannot slip past by simply not being listed.
+describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () => {
+  // ⚠ SCOPE, STATED HONESTLY BECAUSE THE OBVIOUS TITLE OVERSTATES IT. This is a
+  // NAME tripwire, NOT behavioural coverage. Adding a new export REDs the
+  // membership test below — but an editor who then adds the new name to
+  // `COVERED` goes GREEN again WITHOUT the new function ever being exercised
+  // against the vocabulary. Measured, not assumed: that exact mutant (M5b) is
+  // GREEN. What this buys is a forced STOP at the moment of adding a function,
+  // not a proof that the function behaves.
   const COVERED = [
     'attestsNoFactorFlip',
     'fragileEdgeGroupHeader',
@@ -275,7 +279,7 @@ describe('ANTI-RECURRENCE — no exported copy function may borrow the vocabular
     'fragileDiscussDraft',
   ].sort()
 
-  it('the covered set IS the module\'s exported function set (fails loud on a new export)', () => {
+  it('NAME TRIPWIRE: the covered set IS the exported function set — a new export REDs here (adding the name silences it; that is the limit)', () => {
     const exported = Object.entries(fragileEdgeCopy)
       .filter(([, v]) => typeof v === 'function')
       .map(([k]) => k)

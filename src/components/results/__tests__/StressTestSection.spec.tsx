@@ -75,7 +75,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByText('Stress-test your decision')).toBeInTheDocument()
       expect(screen.getByTestId('accordion-stress-test')).toBeInTheDocument()
@@ -89,7 +90,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const preview = screen.getByTestId('stress-test-preview')
       expect(preview).toHaveTextContent('Customer churn rate')
@@ -105,7 +107,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const preview = screen.getByTestId('stress-test-preview')
       expect(preview).toHaveTextContent('Review your key assumptions')
@@ -122,7 +125,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByTestId('stress-test-sensitive-subsection')).toBeInTheDocument()
       expect(screen.getByText('Sensitive assumptions (2)')).toBeInTheDocument()
@@ -145,7 +149,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByText('Sensitive assumptions (3)')).toBeInTheDocument()
     })
@@ -159,7 +164,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.queryByTestId('stress-test-sensitive-subsection')).not.toBeInTheDocument()
       expect(screen.queryByText(/Sensitive assumptions/)).not.toBeInTheDocument()
@@ -179,7 +185,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           alternativeLabel="Option B"
           designationsWithheld={false}
           onSendMessage={onSendMessage}
-        />,
+        
+          flipThresholds={null}/>,
       )
       fireEvent.click(screen.getByText('What if this changes?'))
       expect(onSendMessage).not.toHaveBeenCalled()
@@ -198,7 +205,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByText('Thinking patterns (2)')).toBeInTheDocument()
       expect(screen.getByTestId('stress-test-disconfirmation')).toBeInTheDocument()
@@ -213,7 +221,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
       expect(card).toHaveTextContent(
@@ -247,7 +256,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
       // NON-VACUOUS: the card renders and still asks its question…
@@ -266,7 +276,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const card = screen.getByTestId('stress-test-disconfirmation')
       expect(card).not.toHaveTextContent('limited evidence')
@@ -281,7 +292,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const card = screen.getByTestId('stress-test-outside-view')
       expect(card).toHaveTextContent(
@@ -306,7 +318,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByTestId('stress-test-fragile-subsection')).toBeInTheDocument()
       expect(screen.getByText('Fragile factors (2)')).toBeInTheDocument()
@@ -334,7 +347,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const altWinner = screen.getByTestId('fragile-alt-winner')
       expect(altWinner.textContent).toBe('Continue Without Dedicated Support')
@@ -349,7 +363,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.queryByTestId('stress-test-fragile-subsection')).not.toBeInTheDocument()
       expect(screen.queryByText(/Fragile factors/)).not.toBeInTheDocument()
@@ -367,7 +382,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           alternativeLabel="Option B"
           designationsWithheld={false}
           robustnessStatus="computed"
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(
         screen.getByText('No sensitivity or fragility signals fired. Your model is currently consistent.'),
@@ -385,7 +401,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           alternativeLabel="Option B"
           designationsWithheld={false}
           robustnessStatus="unavailable"
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByTestId('stress-test-didnt-run')).toHaveTextContent(
         "Robustness analysis didn't run for this pass, so fragility hasn't been checked.",
@@ -401,7 +418,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByTestId('stress-test-didnt-run')).toBeInTheDocument()
       expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
@@ -417,7 +435,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           designationsWithheld={false}
           robustnessStatus="computed"
           analysisDegraded
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(screen.getByTestId('stress-test-degraded')).toHaveTextContent(/approximations/)
       expect(screen.queryByText(/currently consistent/)).not.toBeInTheDocument()
@@ -431,7 +450,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       expect(
         screen.queryByText('No sensitivity or fragility signals fired. Your model is currently consistent.'),
@@ -448,7 +468,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
           winnerLabel="Option A"
           alternativeLabel="Option B"
           designationsWithheld={false}
-        />,
+        
+          flipThresholds={null}/>,
       )
       const html = container.innerHTML
       expect(/\bfac_/.test(html)).toBe(false)

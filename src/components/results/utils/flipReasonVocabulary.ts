@@ -26,7 +26,8 @@
  * DERIVATION — cite the source, do not re-imagine it
  * ─────────────────────────────────────────────────────────────────────────
  * AUTHORITY IS PLoT, NOT THE SCHEMAS PACKAGE. The pinned contract
- * (`package.json:102` → `file:./vendor/talchain-schemas-0.31.0.tgz`) types this
+ * (`package.json:108` → `file:./vendor/talchain-schemas-0.48.0.tgz`, derived at
+ * this tip — the citation previously read 0.31.0 and had gone stale) types this
  * field as an OPEN string, not a union — `dist/boundary/enrichment.d.ts:2010`
  * (`flip_reason: z.ZodString`) and `json-schema/EnrichmentFlipThresholdSchema
  * .json` (`"flip_reason": {"type": "string"}`) — and its own docblock at

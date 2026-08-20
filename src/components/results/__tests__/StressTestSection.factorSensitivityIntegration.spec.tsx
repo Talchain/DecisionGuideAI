@@ -13,7 +13,8 @@
  *     → context line MUST appear)
  *   - the corresponding driver's per-row triage data has no
  *     confidence override
- * Then render `<StressTestSection drivers={data.drivers.drivers} ... />`
+ * Then render `<StressTestSection drivers={data.drivers.drivers} ... 
+      flipThresholds={null}/>`
  * and assert the context line appears with the factor label.
  */
 
@@ -166,7 +167,8 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
         winnerLabel="Option A"
         alternativeLabel="Option B"
         designationsWithheld={false}
-      />,
+      
+        flipThresholds={null}/>,
     )
 
     const card = screen.getByTestId('stress-test-disconfirmation')
@@ -191,7 +193,8 @@ describe('StressTestSection — factor_sensitivity → DriverItem.confidence int
         winnerLabel="Option A"
         alternativeLabel="Option B"
         designationsWithheld={false}
-      />,
+      
+        flipThresholds={null}/>,
     )
 
     const card = screen.getByTestId('stress-test-disconfirmation')

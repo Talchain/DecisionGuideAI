@@ -157,7 +157,8 @@ describe('StressTestSection "What if this changes?" — prefill, never auto-send
           alternativeLabel="Option B"
           designationsWithheld={false}
           onSendMessage={onSendMessage}
-        />
+        
+          flipThresholds={null}/>
         <AskOlumiDrawer />
       </>,
     )

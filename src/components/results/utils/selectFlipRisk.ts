@@ -199,7 +199,12 @@ export function classifyFlipEvidence(
   if (!Array.isArray(flipThresholds) || flipThresholds.length === 0) {
     return 'no_producer_flip_data'
   }
-  if (flipThresholds.some((ft) => typeof ft?.flip_value === 'number')) {
+  // `Number.isFinite`, not a bare `typeof` — matching `:253` below, which is
+  // the same question ("is this a usable number?") and already answers it
+  // strictly. Two spellings in one file is the twin shape this estate keeps
+  // paying for; `NaN` is `typeof 'number'` and would have opened the gate as a
+  // real flip value.
+  if (flipThresholds.some((ft) => Number.isFinite(ft?.flip_value))) {
     return 'flips_present'
   }
   // ROADMAP 2.280 — NO ROW CARRIES A FLIP VALUE. That is NOT yet enough to

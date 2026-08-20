@@ -34,6 +34,7 @@ import { extractPhase3FromV5Response } from '../../../../v5/extractPhase3FromV5R
 const base: StrengthenInputs = {
   goalThreshold: 62,
   analysisComplete: true,
+  flipThresholds: null,
   fragileEdges: [],
   factors: [],
   robustness: { status: null, level: null },

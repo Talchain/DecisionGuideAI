@@ -97,7 +97,13 @@ export interface StressTestSectionProps {
    * to `attestsNoFactorFlip()`, which delegates to the existing
    * `classifyFlipEvidence` authority — this file derives nothing.
    */
-  flipThresholds?: readonly FlipThresholdLike[] | null
+  /**
+   * REQUIRED, matching `FragileEdgeGroupCard.flipEvidenceAttestsNoFlip`. An
+   * optional outer door makes the required inner one decorative: a call site
+   * that simply omits it silently selects the claim-permitting arm. `null` is
+   * an explicit "no rows", which classifies `no_producer_flip_data`.
+   */
+  flipThresholds: readonly FlipThresholdLike[] | null
   /** Recommended option label (winner) — drives template question phrasing. */
   winnerLabel: string
   /** Runner-up option label (alternative) — drives template question phrasing. */

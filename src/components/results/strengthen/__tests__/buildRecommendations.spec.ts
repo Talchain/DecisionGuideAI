@@ -11,6 +11,7 @@ import type { StrengthenInputs } from '../strengthenTypes'
 const base: StrengthenInputs = {
   goalThreshold: 62,
   analysisComplete: true,
+  flipThresholds: null,
   fragileEdges: [],
   factors: [],
   robustness: { status: null, level: null },
