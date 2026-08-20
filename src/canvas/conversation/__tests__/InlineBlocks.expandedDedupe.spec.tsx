@@ -252,6 +252,31 @@ describe('a multi-field card loses only the field that repeats', () => {
     expect(blocksContaining(SHARED)).toEqual([0])
   })
 
+  it('OPPOSITE DIRECTION — a card repeating ITSELF across fields keeps both', () => {
+    // Invariant 4(b): repetition WITHIN one surface is the producer's and
+    // always survives. A card is one surface, so a v5_evidence whose gap and
+    // impact genuinely say the same thing renders both — nothing above it has
+    // shown either, and blanking one would be suppression against itself.
+    const same = 'Adoption rate is the single unknown that decides this.'
+    render(
+      <InlineBlocks
+        blocks={[
+          reviewCard(1, 'Unique review body 1'),
+          reviewCard(2, 'Unique review body 2'),
+          reviewCard(3, 'Unique review body 3'),
+          {
+            ...evidence(1, same),
+            impact_if_gathered: same,
+          } as V5EvidenceBlock,
+        ]}
+      />,
+    )
+    expand()
+    const card = blockAt(3)!
+    expect(card.querySelector('[data-testid="v5-evidence-gap"]')!.textContent).toContain(same)
+    expect(card.querySelector('[data-testid="v5-evidence-impact"]')!.textContent).toContain(same)
+  })
+
   it('OPPOSITE DIRECTION — its sibling fields and label are all still rendered', () => {
     render(<InlineBlocks blocks={blocks()} />)
     expand()

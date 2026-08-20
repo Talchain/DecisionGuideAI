@@ -272,6 +272,20 @@ export const InlineBlocks = memo(function InlineBlocks({
       if (surface.fields.length === 0) continue
 
       const survivedFields = new Map<string, string>()
+      /**
+       * ⚠ HELD BACK UNTIL THE WHOLE BLOCK IS DECIDED, and the reason is
+       * invariant 4(b): a segment is withheld only against a surface ABOVE it,
+       * and repetition WITHIN one surface is the producer's and always
+       * survives. A card is one surface. Pushing field 1 into `seen` before
+       * field 2 of the SAME card is read would suppress a `v5_evidence` whose
+       * gap and impact genuinely say the same thing — blanking one of its
+       * paragraphs for no reader benefit, against the stated rule.
+       *
+       * Not observed in this repo's 12 live captures (25 multi-field blocks,
+       * 0 intra-block repeats), so this is the invariant governing rather than
+       * a measured defect — which is exactly when it is cheapest to get right.
+       */
+      const pending: string[] = []
       let anySuppressed = false
       let anySurvivingText = false
       for (const { field, text } of surface.fields) {
@@ -286,8 +300,9 @@ export const InlineBlocks = memo(function InlineBlocks({
         // what makes a LATER repeat of it a duplicate. This is the direction
         // that fixes the witnessed pairs, and it is why top-level cards must
         // take part in the walk even though they are never demoted.
-        seen.push(effective)
+        pending.push(effective)
       }
+      for (const text of pending) seen.push(text)
       if (!anySuppressed) continue
 
       /**
