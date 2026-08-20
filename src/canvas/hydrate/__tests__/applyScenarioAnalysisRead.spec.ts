@@ -27,6 +27,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
+import type { Mock } from 'vitest'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import {
@@ -69,17 +70,31 @@ const RESULT_BLOCK = {
   },
 }
 
+/**
+ * The two store writers, typed BY IDENTITY off the store contract rather than
+ * restated here (trap 12). `ReturnType<typeof vi.fn>` widens to
+ * `Mock<any[], unknown>` while `vi.fn(() => {})` infers `Mock<[], void>`, and
+ * vitest's `Mock` is INVARIANT in its argument tuple (`mock.calls` puts `TArgs`
+ * in both positions), so the two do not assign — TS2322. Deriving both the
+ * declaration and the implementation from `ScenarioAnalysisApplyStore` fixes it
+ * at the source AND makes the arg-bearing assertions below (`toHaveBeenCalledWith`,
+ * `mock.calls[0]![0]`) type-check against the REAL parameter, which a widened
+ * `any[]` would have silently stopped checking.
+ */
+type SetVerdictFn = NonNullable<ScenarioAnalysisApplyStore['setAnalysisStateV1']>
+type ResultsCompleteFn = NonNullable<ScenarioAnalysisApplyStore['resultsComplete']>
+
 function makeStore(overrides: Partial<ScenarioAnalysisApplyStore> = {}): {
   store: ScenarioAnalysisApplyStore
-  setAnalysisStateV1: ReturnType<typeof vi.fn>
-  resultsComplete: ReturnType<typeof vi.fn>
+  setAnalysisStateV1: Mock<Parameters<SetVerdictFn>, ReturnType<SetVerdictFn>>
+  resultsComplete: Mock<Parameters<ResultsCompleteFn>, ReturnType<ResultsCompleteFn>>
   calls: string[]
 } {
   const calls: string[] = []
-  const setAnalysisStateV1 = vi.fn(() => {
+  const setAnalysisStateV1 = vi.fn<Parameters<SetVerdictFn>, ReturnType<SetVerdictFn>>(() => {
     calls.push('setAnalysisStateV1')
   })
-  const resultsComplete = vi.fn(() => {
+  const resultsComplete = vi.fn<Parameters<ResultsCompleteFn>, ReturnType<ResultsCompleteFn>>(() => {
     calls.push('resultsComplete')
   })
   return {
