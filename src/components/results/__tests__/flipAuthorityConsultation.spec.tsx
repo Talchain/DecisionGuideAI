@@ -178,6 +178,18 @@ describe('ATTESTED_NO_FLIP_REASONS is a MIRROR of PLoT — pin what cannot be im
     ])
   })
 
+  it('NaN is not a flip value — one spelling of "is this a number", pinned', () => {
+    // ⚠ Without this the `typeof` → `Number.isFinite` correction is an
+    // EQUIVALENT mutant: no real capture carries NaN, so nothing would notice a
+    // revert. `typeof NaN === 'number'` is TRUE and would classify a row with no
+    // usable flip value as `flips_present`, opening the gate and re-admitting
+    // the flip claim on a run whose reasons all attest. `:253` in the same
+    // module already answers this question strictly; this pins that they agree.
+    expect(
+      attestsNoFactorFlip([{ flip_value: Number.NaN, flip_reason: 'structurally_invariant' }]),
+    ).toBe(true)
+  })
+
   it('each token independently drives the authority to flips_absent', () => {
     for (const reason of ATTESTED_NO_FLIP_REASONS) {
       expect(attestsNoFactorFlip([{ flip_value: null, flip_reason: reason }])).toBe(true)
