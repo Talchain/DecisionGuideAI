@@ -443,6 +443,23 @@ export interface CEEAnalysisReady {
    */
   blocked_reason?: string
   /**
+   * CEE's OWN admission answer for this turn — will the analysis proceed if
+   * asked, right now? (cee `src/orchestrator/types.ts`,
+   * `GraphPatchBlockData.analysis_ready.may_run`, `resolveRunAdmission(...)
+   * .willProceed` — the boolean CEE's own run path throws on.)
+   *
+   * ⚠ NOT A RESTATEMENT OF `status`. `status` is the stricter *"is this model
+   * ready as it stands?"*; `may_run` is ALSO true when the run will proceed by
+   * excluding options the user left open. One `status` value
+   * (`needs_user_input`) carries BOTH verdicts, so `status` cannot be read to
+   * recover this — which is the whole reason the field exists.
+   *
+   * ABSENT means a pre-`may_run` CEE, never "no". Consumers must fall back to
+   * their existing behaviour when it is missing, so the two services can deploy
+   * in either order.
+   */
+  may_run?: boolean
+  /**
    * User-facing questions explaining issues when status is not 'ready'.
    * E.g., "The factor 'Price' doesn't have a path to the goal. Is this correct?"
    */
