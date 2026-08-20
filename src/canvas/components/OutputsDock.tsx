@@ -126,6 +126,7 @@ import { focusExistingTarget } from '../utils/focusHelpers'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
+import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
 // Results Panel Redesign: v7 four-section layout components
@@ -3324,9 +3325,50 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             the footer stack below is flag-gated, and hosting the control there
             would make it vanish entirely on rollback. The bar renders its own
             null when the analysis is not stale. */}
-        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar === 'reanalyse' ? (
+        {effectiveIsOpen && surfaceFor(effectiveActiveTab).footerBar !== 'none' ? (
           <div className="flex-shrink-0" data-testid="shell-surface-footer-bar">
-            <ReanalyseBar onReanalyse={handleRunAnalysis} />
+            {/* ⭐ ONE OWNER, TWO BARS. The gate reads the SURFACE DESCRIPTOR's
+                `footerBar` and switches on its value; it does not test a tab id
+                and it does not grow a second, parallel condition beside the
+                first. Adding a value to that union without handling it here is
+                a TYPE ERROR (the `never` arm below), which is the same
+                mechanism `scroll`/`padding` use.
+
+                `readiness` exists because of a measured coherence defect: the
+                blocked Analysis footer tells the user *"Ask in the chat what
+                they need"*, and acting on it fronts the Olumi tab, whose
+                selection UNMOUNTS the pre-analysis subtree at
+                `effectiveActiveTab === 'results'` above. The advice removed its
+                own context. `AnalysisReadinessBar`'s header carries the
+                witness; `shellContract.ts`'s `footerBar` doc carries why the
+                fix is a footer declaration and NOT a change to that mount. */}
+            {(() => {
+              const bar = surfaceFor(effectiveActiveTab).footerBar
+              switch (bar) {
+                case 'reanalyse':
+                  return <ReanalyseBar onReanalyse={handleRunAnalysis} />
+                case 'readiness':
+                  return (
+                    <AnalysisReadinessBar
+                      preRunWithModel={isPreRun && nodes.length > 0}
+                      canRun={canRunAnalysis}
+                      blockedReason={runBlockedTooltip}
+                      isAnalysing={isRunning}
+                      onAnalyse={handleRunAnalysis}
+                    />
+                  )
+                // Unreachable through the guard above, and handled anyway so
+                // the `never` arm keeps meaning "a value was added to the union
+                // and nobody wired it" rather than "TypeScript cannot see the
+                // guard's narrowing through the second lookup".
+                case 'none':
+                  return null
+                default: {
+                  const exhaustive: never = bar
+                  return exhaustive
+                }
+              }
+            })()}
           </div>
         ) : null}
 

@@ -13,8 +13,7 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '../../../../components/ui'
 import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
-import { guardCeeText } from '../signals/ceeTextGuard'
-import { classifyBlockedReason } from '../../../utils/composeBlockedReason'
+import { vetBlockedReason } from '../../../utils/vetBlockedReason'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 
 /**
@@ -73,18 +72,6 @@ function describeReadinessCheck(
   }
 }
 
-/** See the call site for why composed copy never meets the substituting guard. */
-function vetBlockedReason(blockedReason: string): string {
-  switch (classifyBlockedReason(blockedReason)) {
-    case 'composed-safe':
-      return blockedReason
-    case 'composed-unsafe':
-      return FOOTER_COPY.notReadySubFallback
-    default:
-      return guardCeeText(blockedReason, FOOTER_COPY.notReadySubFallback).text
-  }
-}
-
 const DOT_CLASSES: Record<PreAnalysisModel['footer']['dot'], string> = {
   muted: 'bg-text-light',
   warning: 'bg-warning',
@@ -117,22 +104,11 @@ export const PanelFooter = memo(function PanelFooter({
   const disabled = isAnalysing || !canRun
 
   // blockedReason can carry CEE-authored readiness text via OutputsDock's
-  // tooltip — guard it like every other CEE-rendered string in the panel.
-  //
-  // ⚠ …EXCEPT when it is COMPOSED copy (utils/composeBlockedReason.ts), which is
-  // built from vetted parts: a DGAI sentence frame plus the user's OWN option
-  // label. `guardCeeText` prefers IN-PLACE SUBSTITUTION and enforces terms the
-  // label vet does not, so it rewrote a label the user typed — an option named
-  // "Move billing to edge computing" rendered here as "…to connection
-  // computing" while the unguarded ⌘Enter toast and dock tooltip showed the real
-  // one. Two surfaces, two option names, one state: the exact class this
-  // module's copy exists to end, re-created by the guard meant to prevent it.
-  // (Its own header agrees: substitution applies to coaching text, "NEVER to
-  // option/factor/risk labels — those are shared graph data".)
-  //
-  // So composed copy is VETTED, never rewritten; if the vet fails the WHOLE
-  // sentence degrades to the non-committal fallback. Foreign strings (engine
-  // prose, validator messages) keep the guard's contract unchanged.
+  // tooltip. The vetting rule — and the reason composed copy must never meet
+  // the SUBSTITUTING guard — lives in `utils/vetBlockedReason.ts`, which is now
+  // its single owner: the shell's readiness bar renders the same string on the
+  // Olumi surface, and a second copy of this rule here is exactly how two
+  // surfaces come to show two different sentences for one state.
   const safeBlockedReason = blockedReason
     ? vetBlockedReason(blockedReason)
     : undefined
@@ -207,7 +183,7 @@ export const PanelFooter = memo(function PanelFooter({
         title={!isAnalysing && !canRun ? safeBlockedReason || FOOTER_COPY.notReadySubFallback : undefined}
         data-testid="pre-analysis-v3-analyse"
       >
-        {isAnalysing ? 'Analysing…' : FOOTER_COPY.analyse}
+        {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}
       </Button>
     </div>
   )
