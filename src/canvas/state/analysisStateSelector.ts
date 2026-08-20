@@ -776,19 +776,35 @@ export function useAnalysisState(): ComposedAnalysisState {
  * nor as "something is". `canRunAnalysis` is the only place entitled to decide
  * what to do about it, and it falls back to the side-car verdict — the
  * pre-0.46 behaviour, byte-for-byte.
- */
-/**
- * CEE's `READINESS_STATUS_UNSUPPLIED` (`orchestrator-v5/compose/analysis-state-v1.ts:106`).
  *
- * Restated here rather than imported because CEE is a separate service with no
- * shared export for it — the contract package types `status` as a plain string.
- * That makes this a hand-maintained mirror (trap 12), so it is named ONCE, at
- * the single seam that reads it, with the producer path in the comment above;
- * the guard below fails loud in the only way that matters — a rename at CEE
- * makes the sentinel arrive as a stated status, and the `unknown`-behaves-like-
- * absence test REDs.
+ * ⭐ THE SENTINEL HAS ONE OWNER, AND IT IS NOT THIS FILE.
+ * `ANALYSIS_READY_STATUS_UNSUPPLIED` (`adapters/cee/types.ts`) is the canonical
+ * declaration: the sentinel arrives across the CEE boundary, so it is named at
+ * the boundary and consumed here. This seam declares nothing.
+ *
+ * ⚠ IT USED TO DECLARE ITS OWN, AND THE STATED REASON WAS FALSE WHEN WRITTEN —
+ * which is worth recording, because the comment read as a justification rather
+ * than as the mirror it was. It said the value was "restated here rather than
+ * imported because CEE is a separate service with no shared export for it", and
+ * concluded it was therefore "named ONCE, at the single seam that reads it".
+ * The premise reasons about the wrong artefact: there is indeed no export in
+ * the CEE service or the contract package, but this repo's own cee-adapter has
+ * exported `ANALYSIS_READY_STATUS_UNSUPPLIED = 'unknown'` all along
+ * (`adapters/cee/types.ts:401` at the base of this change, with a consumer
+ * already reading it). So the local copy was never the only name; it was a
+ * second one, and the comment beside it argued for a locality the code did not
+ * have. Converged rather than left parallel: a duplicate authority under a
+ * confident "named ONCE" is how a third copy gets added.
+ *
+ * ⚠ AND THE HONEST LIMIT OF THAT CLAIM, because "one owner" is exactly the kind
+ * of sentence that goes stale: a THIRD declaration of the same `'unknown'`
+ * string exists at `lib/coherence/crossSurfaceCoherence.ts` (exported, read by
+ * the coherence gate). It is out of this change's scope and is NOT converged
+ * here. The guard in `analysisStateSelector.unsuppliedReadiness.spec.ts` is
+ * therefore scoped to THIS module by name and does not claim repo-wide
+ * uniqueness — a guard asserting something false about the estate would have to
+ * be weakened later, which is how alarms stop meaning anything.
  */
-const READINESS_STATUS_UNSUPPLIED = 'unknown'
 
 export function selectAnalysisReadinessAuthority(
   analysisState: AnalysisStateV1 | null,
@@ -826,7 +842,7 @@ export function selectAnalysisReadinessAuthority(
   //
   // So it collapses to the state this module already has a name for: NOT
   // STATED. Same value, same downstream behaviour, one concept.
-  if (analysisState.readiness.status === READINESS_STATUS_UNSUPPLIED) return null
+  if (analysisState.readiness.status === ANALYSIS_READY_STATUS_UNSUPPLIED) return null
 
   return {
     status: analysisState.readiness.status,

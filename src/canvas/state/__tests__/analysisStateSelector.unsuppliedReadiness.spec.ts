@@ -40,6 +40,9 @@ import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 
 import { composeAnalysisState, type ComposeAnalysisStateInput } from '../analysisStateSelector'
 import { ANALYSIS_READY_STATUS_UNSUPPLIED } from '../../../adapters/cee/types'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { SRC, blankComments } from '../../utils/__tests__/helpers/derivedCallSites'
 
 /**
  * PRE-ANALYSIS, the state the regression destroys: a drafted model CEE has
@@ -200,5 +203,79 @@ describe('analysisStateSelector — the unsupplied-readiness sentinel', () => {
 
   it('the UI sentinel constant is still the exact string CEE emits', () => {
     expect(ANALYSIS_READY_STATUS_UNSUPPLIED).toBe('unknown')
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CONVERGENCE GUARD — one declaration of the sentinel IN THIS MODULE
+// ═════════════════════════════════════════════════════════════════════════════
+/**
+ * `analysisStateSelector.ts` used to declare its OWN `= 'unknown'` sentinel
+ * beside a docstring claiming it was therefore "named ONCE, at the single seam
+ * that reads it". The claim was false when written: this repo's cee-adapter
+ * already exported `ANALYSIS_READY_STATUS_UNSUPPLIED` and already had a
+ * consumer. Two names for one string, under a comment arguing there was one.
+ *
+ * ⚠ WHAT THIS GUARD DOES *NOT* CLAIM, stated so it never has to be weakened:
+ * it does NOT assert repo-wide uniqueness. A third declaration of the same
+ * string lives at `lib/coherence/crossSurfaceCoherence.ts` (exported, read by
+ * the coherence gate) and is deliberately out of scope here. A guard that
+ * asserted something false about the estate would be relaxed the first time it
+ * fired honestly, and a relaxed alarm teaches people to stop looking. So the
+ * scope is exactly one named module, and the name is in the assertion.
+ *
+ * ⚠ IT MUST BE ABLE TO FAIL, AND THE COMMENT-BLANKING IS WHY IT CAN. The real
+ * module QUOTES CEE's declaration inside a `//` comment as producer evidence.
+ * Over raw text this guard would red against correct code, and the obvious
+ * "fix" would be to loosen the pattern until it matched nothing — a guard
+ * agreeing with itself. It therefore scans comment-blanked source (reusing the
+ * canonical scanner, not a second copy of one), and carries the discriminating
+ * pair below: a fixture with a REAL declaration must be SEEN, a fixture with
+ * only a COMMENTED one must be IGNORED. Neither alone shows anything.
+ */
+describe('convergence — the unsupplied sentinel is declared once, at the boundary', () => {
+  /** Any `const|let|var <name> = 'unknown'` binding, however named. */
+  const SENTINEL_DECL = /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*(?::[^=\n]*)?=\s*(['"])unknown\1/g
+
+  const declarationsIn = (text: string): string[] =>
+    (blankComments(text).match(SENTINEL_DECL) ?? []).map((m) => m.trim())
+
+  const MODULE_PATH = join(SRC, 'canvas', 'state', 'analysisStateSelector.ts')
+  const moduleSource = readFileSync(MODULE_PATH, 'utf8')
+
+  it('CONTROL: the module under test was actually read (non-empty, and is the right file)', () => {
+    expect(moduleSource.length).toBeGreaterThan(1000)
+    expect(moduleSource).toContain('export function selectAnalysisReadinessAuthority')
+  })
+
+  it('POSITIVE CONTROL: the detector SEES a real local declaration', () => {
+    const fixture = "const READINESS_STATUS_UNSUPPLIED = 'unknown'\nexport function f() { return 1 }"
+    expect(declarationsIn(fixture)).toHaveLength(1)
+  })
+
+  it('POSITIVE CONTROL: it sees one under any other name, so a rename cannot evade it', () => {
+    const fixture = 'let somethingElse: string = "unknown"'
+    expect(declarationsIn(fixture)).toHaveLength(1)
+  })
+
+  it('BLINDNESS CONTROL: a declaration QUOTED IN A COMMENT is not counted', () => {
+    const fixture = "//     export const READINESS_STATUS_UNSUPPLIED = 'unknown'\nexport function f() { return 1 }"
+    expect(declarationsIn(fixture)).toHaveLength(0)
+  })
+
+  it('analysisStateSelector.ts declares no sentinel of its own', () => {
+    expect(declarationsIn(moduleSource)).toEqual([])
+  })
+
+  it('it consumes the canonical owner from the cee adapter instead', () => {
+    expect(blankComments(moduleSource)).toContain(
+      "import { ANALYSIS_READY_STATUS_UNSUPPLIED } from '../../adapters/cee/types'",
+    )
+  })
+
+  it('and the canonical owner is the string the comparison actually needs', () => {
+    expect(blankComments(moduleSource)).toContain(
+      'analysisState.readiness.status === ANALYSIS_READY_STATUS_UNSUPPLIED',
+    )
   })
 })
