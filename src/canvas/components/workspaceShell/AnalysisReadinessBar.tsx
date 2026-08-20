@@ -44,6 +44,12 @@
  * re-deciding it.
  */
 
+// ⚠ THE MODULE, NOT THE BARREL. `components/ui/index.ts` re-exports the whole
+// brick set, and importing it pulls ~6 unrelated files into the DOCK'S IMPORT
+// CLOSURE — which is the scope of the raw-typography guard, so the barrel
+// silently drags in six files' worth of pre-existing violations and REDs the
+// per-file pin. Measured, not guessed.
+import { Button } from '../../../components/ui/Button'
 import { typography } from '../../../styles/typography'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
 import { BLOCKED_REASON_FALLBACK, vetBlockedReason } from '../../utils/vetBlockedReason'
@@ -105,16 +111,25 @@ export function AnalysisReadinessBar({
           </p>
         )}
       </div>
-      <button
-        type="button"
+      {/* ⚠ THE SHARED `Button`, NOT A HAND-ROLLED ONE, AND THAT IS THE POINT.
+          The blocked treatment on the Analysis surface — `opacity 0.4`,
+          `cursor: not-allowed`, an explanatory `title` — was hard-won, and it
+          belongs to this component (`disabled:opacity-40
+          disabled:cursor-not-allowed`, Button.tsx). Re-implementing it here
+          would put a SECOND blocked appearance for the SAME state one tab away
+          from the first: the two would read as different degrees of "no", and
+          would drift the first time either moved. Same component, same props
+          shape, same disabled predicate as `PanelFooter`'s. */}
+      <Button
+        size="sm"
+        className="flex-none"
         onClick={onAnalyse}
         disabled={isAnalysing || !canRun}
         title={blocked ? subline || undefined : undefined}
-        className={`${typography.panelBody} flex-none rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed`}
         data-testid="analysis-readiness-bar-analyse"
       >
         {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}
-      </button>
+      </Button>
     </div>
   )
 }
