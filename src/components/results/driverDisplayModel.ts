@@ -20,6 +20,8 @@
  * the decision.
  */
 
+import type { DriverSemanticLabel } from './types'
+
 export type DriverDisplayProvenance = 'influence_score' | 'normalised_elasticity'
 
 export interface DriverDisplayEntry {
@@ -155,4 +157,65 @@ export function compareByDisplayModel(
   if (b.value !== a.value) return b.value - a.value
   if (b.elasticity !== a.elasticity) return b.elasticity - a.elasticity
   return a.key.localeCompare(b.key)
+}
+
+/**
+ * The smallest gap in displayed influence that the panel is willing to call a
+ * DIFFERENCE. Below it, two factors are shown as equally influential and no
+ * copy may rank one above the other.
+ *
+ * ⚠ ONE OWNER, THREE CONSUMERS. This was previously an unnamed `0.01` inlined
+ * at the Drivers panel's equal-influence note, while the rank-1 crown used no
+ * tie notion at all and the dominance nudge used none either — so the same
+ * screen could print "these factors have similar influence" beside a badge
+ * crowning one of them "Top driver". A tie is one concept; it gets one number.
+ */
+export const INFLUENCE_TIE_EPSILON = 0.01
+
+/**
+ * Resolve every driver's semantic label FROM THE DISPLAY VALUES THEMSELVES.
+ *
+ * ⚠ WHY THIS LIVES HERE AND TAKES THE WHOLE SET. The badge used to be derived
+ * by `getSemanticLabel(rank, normalisedInfluence)` in `useResultsSectionData`
+ * — a SECOND basis (|elasticity| / max|elasticity|) unrelated to the number
+ * printed beside it. Under complete producer coverage the two diverge freely,
+ * and a factor the panel printed at **Influence 100%** was badged **"Lower
+ * influence"** on a real user's screen. This module's own header has always
+ * said the order, the crown and the bar must follow the SAME number; taking
+ * the resolved display values as the only input is what makes the second basis
+ * unreachable rather than merely discouraged.
+ *
+ * ⚠ THE CROWN YIELDS TO A TIE. "Rank 1 always gets 'biggest'" bought badge
+ * uniqueness by inventing a distinction the data does not contain: at a tie
+ * the winner is decided by the comparator's elasticity/key tie-breaks, which
+ * the user cannot see. Three factors at 100% were badged "Top driver",
+ * "High-impact driver" and "Lower influence". A crown is now awarded only to a
+ * top that is clear of its runner-up by more than `INFLUENCE_TIE_EPSILON`;
+ * tied factors all take the threshold label, so equal numbers read equal.
+ *
+ * Thresholds (0.50 strong / 0.20 moderate) are carried over unchanged from
+ * UI-SEM-039. Both bases are set-relative 0-1 with the top at 1.0, so moving
+ * the basis does not silently re-calibrate them.
+ */
+export function resolveDriverSemanticLabels(
+  entries: ReadonlyArray<{ key: string; value: number }>,
+): Map<string, DriverSemanticLabel> {
+  const out = new Map<string, DriverSemanticLabel>()
+  if (entries.length === 0) return out
+
+  const values = entries.map((e) => (Number.isFinite(e.value) ? e.value : 0))
+  const max = Math.max(...values)
+  // Clear of the runner-up, or there is no runner-up at all.
+  const contendersAtTop = values.filter((v) => max - v <= INFLUENCE_TIE_EPSILON).length
+  const topIsUnique = contendersAtTop === 1
+
+  entries.forEach((entry, i) => {
+    const value = values[i]
+    if (topIsUnique && value === max) {
+      out.set(entry.key, 'biggest')
+      return
+    }
+    out.set(entry.key, value >= 0.5 ? 'strong' : value >= 0.2 ? 'moderate' : 'minor')
+  })
+  return out
 }

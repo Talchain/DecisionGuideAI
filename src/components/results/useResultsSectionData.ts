@@ -29,7 +29,6 @@ import type {
   DriverItem,
   UncertaintyItem,
   ImprovementItem,
-  DriverSemanticLabel,
   DriverDirection,
   ConfidenceTier,
   RawFactorSensitivity,
@@ -76,7 +75,11 @@ import {
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
-import { computeNormalisedInfluences, selectDriverDisplayModel } from './driverDisplayModel'
+import {
+  computeNormalisedInfluences,
+  resolveDriverSemanticLabels,
+  selectDriverDisplayModel,
+} from './driverDisplayModel'
 import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
@@ -890,20 +893,20 @@ function getFactorDirection(
 // =============================================================================
 
 /**
- * Get semantic label for a driver.
- * Rank 1 always gets "biggest" (ensures uniqueness).
- * Ranks 2+ use threshold-based labels.
+ * ⚠ `getSemanticLabel(rank, normalisedInfluence)` WAS DELETED HERE, NOT MOVED
+ * AND NOT WRAPPED (2026-08-19). It derived the badge from |elasticity| /
+ * max|elasticity| — a SECOND basis, unrelated to the number printed beside it
+ * — so a factor the panel showed at **Influence 100%** shipped badged **"Lower
+ * influence"** to a real user, and its rank-1 crown ignored ties entirely
+ * (three factors at 100% badged "Top driver" / "High-impact driver" / "Lower
+ * influence" on one screen).
+ *
+ * The label is now resolved by `resolveDriverSemanticLabels` in
+ * `driverDisplayModel` — the module that already owned the display value and
+ * whose header already required the order, the crown and the bar to follow the
+ * SAME number. Deleting rather than delegating is the point: the second basis
+ * is no longer reachable from anywhere.
  */
-function getSemanticLabel(rank: number, normalisedValue: number): DriverSemanticLabel {
-  // Rank 1 always gets "Biggest factor"
-  if (rank === 1) return 'biggest'
-
-  // UI-SEM-039: Driver semantic label thresholds (0.50 strong, 0.20 moderate).
-  // Remove when PLoT provides semantic labels per driver.
-  if (normalisedValue >= 0.50) return 'strong'
-  if (normalisedValue >= 0.20) return 'moderate'
-  return 'minor'
-}
 
 // =============================================================================
 // Confidence Tier Derivation (CRITICAL: Full Fallback Chain)
@@ -2324,6 +2327,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         displayValue: displayModel.get(f.key)?.value ?? 0,
       })),
     )
+    // ONE number decides the bar, the order AND the badge. Resolved over the
+    // whole set because the tie rule is a property of the set, not of a row.
+    const semanticLabelMap = resolveDriverSemanticLabels(
+      factorsWithKeys.map((f) => ({ key: f.key, value: displayModel.get(f.key)?.value ?? 0 })),
+    )
 
     // Step 4: Derive edges for direction mapping
     const edgesForDirection: EdgeForDirection[] = edges.map(e => ({
@@ -2430,7 +2438,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           outcomeNodeIds,
           f.raw.direction
         )
-        const semanticLabel = getSemanticLabel(rank, normalisedInfluence)
+        const semanticLabel = semanticLabelMap.get(f.key) ?? 'minor'
 
         // Check if factor can be focused on canvas
         const driverForMatch: Driver = { kind: 'node', id: f.key, label: f.raw.label }
@@ -3713,7 +3721,6 @@ export {
   normalizeOutcomeValues,
   normaliseDirection,
   getFactorDirection,
-  getSemanticLabel,
   mapReadinessLevel,
   mapConfidenceLevel,
   getConfidenceTier,

@@ -37,6 +37,7 @@ import { openNodeInspector } from '@/canvas/nodes/shared/openNodeInspector'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
+import { INFLUENCE_TIE_EPSILON } from './driverDisplayModel'
 // Canonical glossary check shared with the v17 hero row builders. Used in
 // v17 mode (`useV17Copy === true`) to sanitise user-supplied labels before
 // they are interpolated into GENERATED prose, aria-labels, or titles. The
@@ -362,7 +363,11 @@ function T1DominantNudge({
   useV17Copy?: boolean
 }) {
   const drivers = data.drivers
-  const topDriver = drivers.topDrivers?.[0] ?? drivers.drivers?.[0]
+  // ⚠ ONE list, so "the top" and "the runner-up" cannot come from different
+  // orderings. Same fallback the single-driver read used before.
+  const rankedDrivers = (drivers.topDrivers?.length ? drivers.topDrivers : drivers.drivers) ?? []
+  const topDriver = rankedDrivers[0]
+  const runnerUp = rankedDrivers[1]
   // Lane 2 (policy): gate and phrase the nudge on the SAME display influence
   // the panel/hero/graph/tornado show (driverDisplayModel via the stamped
   // displayInfluence) — a raw-score read here claimed dominance the panel's
@@ -383,7 +388,18 @@ function T1DominantNudge({
         ? topDriver.displayProvenance === 'influence_score'
         : typeof topDriver.influenceScore === 'number')
     : false
-  const showNudge = absoluteBasis && topInfluence >= 0.8
+  // ⚠ DOMINANCE REQUIRES A RUNNER-UP TO BE DOMINANT OVER (2026-08-19). The
+  // gate tested only the top's own magnitude, so on a run where three factors
+  // tied at 100% it printed "Dominant factor: Cloud migration progress drives
+  // 100% of the outcome" while two other rows on the same screen also read
+  // 100%. "Dominant" is a COMPARATIVE claim; a tie cannot support one. Same
+  // `INFLUENCE_TIE_EPSILON` the panel's badges and its equal-influence note
+  // use, so all three surfaces agree on what counts as a tie.
+  const runnerUpInfluence = runnerUp
+    ? (runnerUp.displayInfluence ?? runnerUp.influenceScore ?? runnerUp.normalisedInfluence ?? 0)
+    : 0
+  const topIsClearOfRunnerUp = !runnerUp || topInfluence - runnerUpInfluence > INFLUENCE_TIE_EPSILON
+  const showNudge = absoluteBasis && topInfluence >= 0.8 && topIsClearOfRunnerUp
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
   if (!showNudge || !dominantLabel) return null
