@@ -353,8 +353,16 @@ export const InlineBlocks = memo(function InlineBlocks({
   /**
    * SECOND-CHANNEL ROUTING (UX gate 2026-08-18 point 4b). Computed ONCE per
    * turn, because the analysis-result card cannot see its siblings and must
-   * not guess. Structural — block presence, never a string comparison. See
-   * `turnDeliversNarrativeAsTypedCard`.
+   * not guess. See `turnDeliversNarrativeAsTypedCard`.
+   *
+   * Block presence decides the CHANNEL; the card's body is then read to
+   * confirm it carries the narrative in full. This line used to read
+   * "never a string comparison" — it now is one, deliberately. Not
+   * de-duplication: a repeated sentence is never suppressed for repeating.
+   * The question is only whether the card DELIVERS the paragraph, because a
+   * card whose body the contract caps at 300 chars can carry a prefix of an
+   * uncapped `narrative_summary`, and withholding the complete copy in
+   * favour of that prefix deletes the tail.
    *
    * ⚠⚠ COMPUTED OVER `topLevel`, NOT OVER `blocks`, AND THE DIFFERENCE IS A
    * DELETED PARAGRAPH. The first version of this passed the whole `blocks`
