@@ -34,6 +34,43 @@ import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { blankNonCode, stripComments } from '../../../../../tests/helpers/stripSourceComments'
 
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠⚠⚠ MERGE INSTRUCTION FOR PR #790 — THE RESOLUTION IS A **UNION**, NOT A SIDE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * #782 (this file, landing FIRST) and #790 widen THE SAME GUARD ON ORTHOGONAL
+ * AXES. Taking either side wholesale silently NARROWS the guard and the suite
+ * still passes green — which is the only reason this comment exists.
+ *
+ *   #782 widened the PATTERN AND THE REACH:
+ *     · `RAW_ID_TERNARY` — the ternary form (`x ? a : b.id`), alongside the
+ *       original `??` form, plus interpolation.
+ *     · `tsFiles` is RECURSIVE, with `EXCLUDED_DIR_NAMES`.
+ *     · `ModelTabBody.tsx` added as a scan target (the container, which sits
+ *       OUTSIDE both directories and renders the tab).
+ *
+ *   #790 widened the SCOPE:
+ *     · `CONTESTED_DIR` — `canvas/components/contested/`, scanned and pinned
+ *       empty.
+ *
+ * ⚠ #782's RECURSION DOES **NOT** SUBSUME #790's DIRECTORY. `CONTESTED_DIR` is
+ * `join(HERE, '..', '..', 'contested')` — a SIBLING of `model-tab/`, not a
+ * child of it — so the recursive walk of `V1_DIR` never reaches it. Dropping
+ * #790's constant because "the walk is recursive now" removes a whole directory
+ * from the guard, and nothing goes red.
+ *
+ * ⚠ AND THE CONVERSE: keeping #790's non-recursive `tsFiles` reverts the
+ * recursion, the ternary pattern and the container target in one move. Those
+ * three exist because the scan certified this directory at ZERO while a raw
+ * wire id was rendering as a row's NAME.
+ *
+ * SO: keep BOTH `tsFiles` recursion AND `CONTESTED_DIR`; keep BOTH the `??` and
+ * ternary patterns; keep BOTH scan targets AND the contested assertions.
+ * `V1_PINNED` is BYTE-IDENTICAL in both branches (verified 19 Aug, 665 bytes
+ * each) — that half is free, take either.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..', '..', '..', '..', '..')
 const V1_DIR = join(HERE, '..')

@@ -125,7 +125,11 @@ export const ModelTabBody = memo(function ModelTabBody({
   expertMode,
   onSendMessage,
 }: ModelTabBodyProps) {
-  const [searchQuery, setSearchQuery] = useState('')
+  // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
+  // `ModelFooter`, and consumed by NOTHING — no filter read it anywhere in
+  // `src/`, so the box was an enabled control that silently did nothing. Keeping
+  // the state beside a disabled input would leave the next reader hunting for a
+  // filter that does not exist. See `ModelFooter`'s header.
 
   // Single-open accordion: in default mode, only one section open at a time.
   // In expert mode (showDetail), sections manage their own state independently.
@@ -944,8 +948,6 @@ export const ModelTabBody = memo(function ModelTabBody({
 
       {/* ── Footer: search + copy ─────────────────────────────────────────── */}
       <ModelFooter
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         onCopyText={handleCopyText}
         onCopyJson={handleCopyJson}
       />

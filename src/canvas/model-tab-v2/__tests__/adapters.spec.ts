@@ -21,7 +21,7 @@ import type { EdgeData } from '../../domain/edges'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { countFactorsToVerify } from '../../components/model-tab/utils'
-import { factorNeedsVerification } from '../../domain/valueProvenance'
+import { factorIsConfirmable, factorNeedsVerification } from '../../domain/valueProvenance'
 import {
   edgeIsContested,
   nodeKind,
@@ -68,8 +68,19 @@ function input(over: Partial<ModelProjectionInput> = {}): ModelProjectionInput {
   return { nodes: [], edges: [], goalThreshold: null, ...over }
 }
 
-/** A factor whose value the user has confirmed — the "no attention" baseline. */
-const CONFIRMED_OBS = { raw_value: 45, unit: 'days', source: 'user_confirmed' }
+/**
+ * A factor whose value the user has confirmed — the "no attention" baseline.
+ *
+ * ⚠ IT CARRIES `value` AS WELL AS `raw_value`, because the producer does and
+ * this fixture previously did not (corrected 19 Aug 2026). `setObservedValue`
+ * writes both, and for an UNCAPPED factor CEE stores them identically
+ * (`conversation/factorValueEdit.ts:138-142`, staging-witnessed
+ * `{value: 40000, unit: '£', raw_value: 40000}`). A `raw_value`-only factor is
+ * outside the producer's output domain — a fixture the author invented — and it
+ * silently exercised the branch where the write authority REFUSES
+ * (trap 16-inverse: a fixture you wrote yourself is not evidence about the wire).
+ */
+const CONFIRMED_OBS = { value: 45, raw_value: 45, unit: 'days', source: 'user_confirmed' }
 
 // ── Kind and grouping ────────────────────────────────────────────────────────
 
@@ -141,7 +152,7 @@ describe('toModelRows — factor values and attention', () => {
     const rows = toModelRows(
       input({
         nodes: [
-          factorNode('f1', 'AI', { raw_value: 45, unit: 'days', source: 'cee_inference' }),
+          factorNode('f1', 'AI', { value: 45, raw_value: 45, unit: 'days', source: 'cee_inference' }),
           factorNode('f2', 'Confirmed', CONFIRMED_OBS),
         ],
       }),
@@ -184,32 +195,43 @@ describe('⭐ ONE definition of "needs verification", and the count delegates to
    * snake_case wire spelling and a factor with no observed state at all.
    */
   const CORPUS: Node[] = [
-    factorNode('a', 'no source', { raw_value: 1 }),
-    factorNode('b', 'cee_inference', { raw_value: 1, source: 'cee_inference' }),
-    factorNode('c', 'user', { raw_value: 1, source: 'user' }),
-    factorNode('d', 'user_confirmed', { raw_value: 1, source: 'user_confirmed' }),
-    factorNode('e', 'brief', { raw_value: 1, source: 'brief_extraction' }),
+    factorNode('a', 'no source', { value: 1, raw_value: 1 }),
+    factorNode('b', 'cee_inference', { value: 1, raw_value: 1, source: 'cee_inference' }),
+    factorNode('c', 'user', { value: 1, raw_value: 1, source: 'user' }),
+    factorNode('d', 'user_confirmed', { value: 1, raw_value: 1, source: 'user_confirmed' }),
+    factorNode('e', 'brief', { value: 1, raw_value: 1, source: 'brief_extraction' }),
     factorNode('f', 'no observed state', null),
     {
       id: 'g',
       type: 'factor',
       position: { x: 0, y: 0 },
       // The WIRE spelling. Reading only camelCase here would under-count.
-      data: { label: 'snake_case', type: 'factor', observed_state: { raw_value: 1, source: 'cee_inference' } },
+      data: {
+        label: 'snake_case',
+        type: 'factor',
+        observed_state: { value: 1, raw_value: 1, source: 'cee_inference' },
+      },
     },
   ]
 
-  it('the badge COUNT is the domain predicate applied N times — it holds no copy', () => {
-    // Still worth asserting after the move: it goes RED the day
-    // `countFactorsToVerify` grows its own inline predicate back.
-    const viaPredicate = CORPUS.filter(n => factorNeedsVerification(n.data)).length
+  it('the badge COUNT is `factorIsConfirmable` applied N times — it holds no copy', () => {
+    // ⚠ NARROWED 19 Aug 2026, AND THE NARROWING IS THE POINT. The count used to
+    // delegate to the BARE `factorNeedsVerification`, which counts a factor with
+    // NOTHING TO CONFIRM — a number the user cannot drive to zero and a Confirm
+    // the write authority declines. The full question ("needs verification AND
+    // has a ratifiable value") now lives once, in `domain/valueProvenance`.
+    const viaPredicate = CORPUS.filter(n => factorIsConfirmable(n.data)).length
     expect(countFactorsToVerify(CORPUS)).toBe(viaPredicate)
-    // ⚠ AND THE COUNT IS NOT TRIVIAL. Without this the line above would pass on
-    // a corpus where nothing needs verification, i.e. on two functions that both
-    // return false for everything (trap 13 — an absence assertion needs a
-    // positive control).
+    // ⚠ AND THE COUNT IS NOT TRIVIAL — otherwise the line above would pass on
+    // two functions that both return false for everything (trap 13).
     expect(viaPredicate).toBeGreaterThan(0)
     expect(viaPredicate).toBeLessThan(CORPUS.length)
+    // ⚠ AND IT IS GENUINELY NARROWER THAN THE BARE PREDICATE ON THIS CORPUS. `f`
+    // has no observed state at all: unverified, and nothing to verify. Without
+    // this the delegation above would be satisfied by re-widening the count.
+    expect(countFactorsToVerify(CORPUS)).toBeLessThan(
+      CORPUS.filter(n => factorNeedsVerification(n.data)).length,
+    )
   })
 
   it('⭐ the predicate is DEFINED exactly once in the tree — the mirror is gone, not relocated', () => {
@@ -377,7 +399,7 @@ describe('⭐ the projection tracks the store — and only where it should', () 
         nodes: [
           factorNode('f1', 'Sales cycle', { raw_value: 45, unit: 'days', source: 'user_confirmed' }),
           // f2 changed in both value and label.
-          factorNode('f2', 'Renamed', { raw_value: 99, unit: '%', source: 'cee_inference' }),
+          factorNode('f2', 'Renamed', { value: 99, raw_value: 99, unit: '%', source: 'cee_inference' }),
         ],
       }),
     ).find(r => r.id === 'f1')!
@@ -392,7 +414,7 @@ describe('⭐ the projection tracks the store — and only where it should', () 
       input({
         nodes: [
           factorNode('f1', 'Sales cycle', { raw_value: 45, unit: 'days', source: 'user_confirmed' }),
-          factorNode('f2', 'Renamed', { raw_value: 99, unit: '%', source: 'cee_inference' }),
+          factorNode('f2', 'Renamed', { value: 99, raw_value: 99, unit: '%', source: 'cee_inference' }),
         ],
       }),
     ).find(r => r.id === 'f2')!
@@ -405,9 +427,12 @@ describe('⭐ the projection tracks the store — and only where it should', () 
 
 describe('toRepairQueueItems — each queue derives from the same predicate as its chip', () => {
   const nodes = [
-    factorNode('f1', 'Unconfirmed', { raw_value: 45, unit: 'days', source: 'cee_inference' }),
+    factorNode('f1', 'Unconfirmed', { value: 45, raw_value: 45, unit: 'days', source: 'cee_inference' }),
     factorNode('f2', 'Confirmed', CONFIRMED_OBS),
     factorNode('f3', 'No value', null),
+    // ⚠ THE WIRE SHAPE A `raw_value` GUARD DROPS: model scale only, no
+    // `raw_value`. Confirmable — the write authority accepts it.
+    factorNode('f4', 'Model scale only', { value: 0.7, source: 'cee_inference' }),
     optionNode('o1', 'Unmapped'),
     optionNode('o2', 'Mapped', { f1: 30 }),
   ]
@@ -426,17 +451,37 @@ describe('toRepairQueueItems — each queue derives from the same predicate as i
      * outline's row chip already refused exactly this case.
      *
      * `f3` is not dropped: it is in `no-value`, asserted immediately below, and
-     * that is the repair it actually needs. It was previously in BOTH queues —
-     * two contradictory instructions about one factor.
+     * that is the repair it actually needs.
      *
-     * Identity, not count: `f1` specifically, and `f3` specifically absent.
+     * ⚠⚠ AND THE VALUE GUARD IS `observedState.value`, NOT `raw_value`
+     * (corrected 19 Aug 2026). The first fix for F2 wrote
+     * `factorValue(n.data) !== null` — `getPrimaryValue`, which reads `raw_value`
+     * only — and so closed the over-count while opening an UNDER-count: `f4`
+     * below is a capped factor off the wire carrying `{value}` and NO
+     * `raw_value` (`conversation/factorValueEdit.ts:145`, staging-witnessed). It
+     * is confirmable, the write authority accepts it, and it had silently
+     * dropped out of this queue and lost its chip. The predicate is now the
+     * authority's own condition (`factorIsConfirmable`), so neither direction
+     * can drift.
+     *
+     * ⚠ `f4` IS IN BOTH QUEUES, AND THAT IS CORRECT. It has a value to CONFIRM
+     * and no value to DISPLAY — two different questions with two different
+     * predicates (trap 21). An earlier comment here claimed this fix closed a
+     * both-queues duplication outright; that was an over-read, corrected rather
+     * than quietly left standing.
+     *
+     * Identity, not count: `f1` and `f4` specifically, `f3` specifically absent.
      */
-    expect(items.map(i => i.rowId)).toEqual(['f1'])
+    expect(items.map(i => i.rowId)).toEqual(['f1', 'f4'])
   })
 
-  it('no-value returns exactly the factors with nothing set', () => {
+  it('no-value returns exactly the factors with nothing DISPLAYABLE set', () => {
     const items = toRepairQueueItems(input({ nodes }), 'no-value')
-    expect(items.map(i => i.rowId)).toEqual(['f3'])
+    // `f4` is here as well as in `confirm-estimates`: nothing to show, something
+    // to ratify. The two queues answer different questions and keep different
+    // predicates — asserted by identity so a later "reconciliation" of the two
+    // goes red instead of silently collapsing them.
+    expect(items.map(i => i.rowId)).toEqual(['f3', 'f4'])
   })
 
   it('set-option-values returns exactly the options that change nothing', () => {

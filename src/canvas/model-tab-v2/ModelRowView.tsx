@@ -129,16 +129,21 @@ export function ModelRowView({
    * the queue counts. Asking the same question a second way here is how the
    * chip and the ⚠ start disagreeing about the same row (trap 12).
    *
-   * The value guard is separate and is NOT a duplicate of it: `attention` says
-   * the estimate is unratified; `primaryValue` says there is a number on screen
-   * to ratify. A Confirm button over an empty cell asks the user to endorse
-   * nothing (preamble P8), and the authority would refuse it anyway — so the
-   * button does not appear rather than appearing and failing.
+   * ⚠⚠ AND THE VALUE GUARD IS GONE FROM HERE, WHICH IS THE POINT. It used to
+   * read `&& row.primaryValue !== null` — a second, LOCAL answer to "is there
+   * something to ratify?", written against the DISPLAY value. `primaryValue` is
+   * `getPrimaryValue`, i.e. `raw_value`; the write authority gates on
+   * `observedState.value`, and a capped factor carrying only `value` has one and
+   * not the other. So this chip hid on rows the authority would have accepted
+   * — while `FactorsSection` showed the same rows a button.
+   *
+   * `unconfirmed-estimate` now carries the whole question (`factorIsConfirmable`
+   * in `adapters.ts`), so there is exactly one predicate and this surface reads
+   * it rather than re-deriving half of it.
    */
   const canConfirmAsIs =
     typeof onConfirmValueAsIs === 'function' &&
-    row.attention.includes('unconfirmed-estimate') &&
-    row.primaryValue !== null
+    row.attention.includes('unconfirmed-estimate')
 
   return (
     <li

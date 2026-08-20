@@ -229,3 +229,77 @@ export function factorNeedsVerification(data: unknown): boolean {
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   return !obs?.source || obs?.source === 'cee_inference'
 }
+
+/**
+ * Is there a number here that a confirmation could actually ratify?
+ *
+ * ⚠⚠ THIS IS THE AUTHORITY'S OWN REFUSAL CONDITION, INVERTED — NOT A READING OF
+ * IT. `useModelEditAuthority.proposeFactorConfirmation` returns
+ * `'not_encodable'` unless `observedState.value` is a FINITE NUMBER, and it
+ * stamps nothing when it refuses. Every surface that OFFERS a confirmation must
+ * therefore gate on exactly this, or it renders a control the authority will
+ * silently decline (preamble P8 — an enabled button that does nothing).
+ *
+ * The authority imports this rather than keeping its own copy, so the gate and
+ * the refusal cannot drift apart. That is the whole point: a surface asking
+ * "may I offer Confirm?" and the writer answering "no" must be ONE predicate.
+ *
+ * ⚠ IT IS `value`, NOT `raw_value`, AND THE DIFFERENCE IS WIRE-REAL. `value` is
+ * MODEL scale; `raw_value` is the USER-UNIT magnitude, and it is frequently
+ * ABSENT — `conversation/factorValueEdit.ts:145` records the staging-witnessed
+ * shape `{value: 0.7}` with no `raw_value` for a capped factor. A gate written
+ * against `raw_value` (or against `getPrimaryValue`, which reads only
+ * `raw_value`) therefore refuses a whole class of factors the authority would
+ * have accepted — an UNDER-count, the exact mirror of the over-count it was
+ * written to close. Both directions are pinned in
+ * `__tests__/factorConfirmable.spec.ts`.
+ *
+ * ⚠ BOTH SPELLINGS, for the same reason `factorNeedsVerification` reads both:
+ * canvas stores `observedState`, the CEE/PLoT wire uses `observed_state`, and
+ * real graphs carry both.
+ */
+export function factorHasConfirmableValue(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  const value = obs?.value
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+/**
+ * ⭐⭐ THE CANONICAL PREDICATE FOR "N TO VERIFY" — one question, one owner.
+ *
+ * A factor is CONFIRMABLE when it still needs a human to look at it AND there is
+ * a number present that a confirmation can ratify.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WHY IT EXISTS: FIVE SURFACES WERE ANSWERING ONE QUESTION FOUR WAYS
+ * ─────────────────────────────────────────────────────────────────────────────
+ * "N to verify" is rendered by `StatusBar`, `WorkspaceShellTabStrip`,
+ * `ModelHealthSection`, `FactorsSection`'s accordion tier label and — new — the
+ * v2 attention chip. The Confirm affordance is offered by `FactorCard` (v1) and
+ * `ModelRowView` (v2). Before this predicate existed they used FOUR spellings:
+ *
+ *   · `countFactorsToVerify`        — bare `factorNeedsVerification`
+ *   · v2 repair queue              — `… && getPrimaryValue(…) !== null`
+ *   · `FactorsSection` Confirm ✓   — `… && (primaryValue ?? normalisedValue)`
+ *   · `ModelRowView` Confirm ✓     — `… && row.primaryValue !== null`
+ *
+ * They agreed on the common shapes and diverged on two REACHABLE classes, in
+ * OPPOSITE directions — which is why no single-direction corpus could see both
+ * (trap 22b). The bare form over-counts a factor with no value at all; the
+ * `raw_value` forms under-count a capped factor carrying only `value`.
+ *
+ * ⚠ THE RECONCILIATION IS NOT "PICK THE WIDER" OR "PICK THE NARROWER". It is
+ * the PRODUCER's condition: the only honest answer to "should this row be
+ * counted and offered?" is "will the writer accept it?" (trap 13c — derive the
+ * expectation from the producer's declared semantics, never from your own
+ * reading of what a field ought to mean). Every one of the sites above now
+ * calls this function, and none keeps a copy.
+ *
+ * ⚠ NOT THE SAME QUESTION AS `no-value` (trap 21). `no-value` asks "is there a
+ * number the outline can DISPLAY?", which is `getPrimaryValue` and legitimately
+ * a different predicate. Named apart on purpose rather than aligned.
+ */
+export function factorIsConfirmable(data: unknown): boolean {
+  return factorNeedsVerification(data) && factorHasConfirmableValue(data)
+}

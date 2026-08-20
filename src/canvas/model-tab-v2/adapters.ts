@@ -44,10 +44,15 @@
  *   · `getDirectionalStrengthLabel`  — model-tab/strengthBands
  *   · `getPrimaryValue`              — model-tab/utils
  *   · `getDisplayEdgeId`             — utils/edgeIdentity
- *   · `factorNeedsVerification`      — domain/valueProvenance. ⚠ THIS USED TO BE
- *     A PORT, with a corpus pinning the copy against `countFactorsToVerify`.
- *     It MOVED to the domain layer on 18 Aug 2026 and both readers now import
- *     it, so there is nothing left to pin: agreement is structural, not tested.
+ *   · `factorIsConfirmable`          — domain/valueProvenance. ⚠ THE CANONICAL
+ *     "N to verify" PREDICATE, and the only one. `factorNeedsVerification` was
+ *     ported here once, then moved to the domain layer (18 Aug); the FULL
+ *     question — needs verification AND has a ratifiable value — was still being
+ *     answered four ways across five surfaces until 19 Aug. It is now one
+ *     function, defined as the write authority's own refusal condition inverted,
+ *     so agreement is structural. The corpus that would notice the surviving
+ *     definition being WRONG lives in `__tests__/factorConfirmable.spec.ts`
+ *     (trap 12d — derivation and corpus are not redundant; ship both).
  *
  * PORTED, because the live logic is not exported per-item:
  *   · `edgeIsContested` ← `RelationshipsSection.tsx:610`.
@@ -65,13 +70,17 @@
  * Naming them is the point: an unnamed divergence is how two surfaces end up
  * quietly disagreeing about the same model.
  *
- * D1 — TWO LIVE "NEEDS VERIFICATION" PREDICATES EXIST, AND THEY DISAGREE.
- *      `countFactorsToVerify` (utils.ts:118) is `!source || source ===
- *      'cee_inference'`. The factor SORT KEY in `ModelTabBody.tsx:492-493` is
- *      wider — it also flags an `external` factor carrying a full 0–1 prior
- *      range. Nothing reconciles them. This adapter follows the FIRST, because
- *      that is the one the "N to verify" badge and Queue B are counted from, and
- *      a queue that disagreed with its own chip is the defect being closed.
+ * D1 — ⭐ SETTLED 19 Aug 2026: ONE PREDICATE, `factorIsConfirmable`, OWNED BY
+ *      `domain/valueProvenance`. `countFactorsToVerify`, this adapter's queue,
+ *      the outline's `unconfirmed-estimate` marker, `ModelRowView`'s Confirm chip
+ *      and `FactorsSection`'s Confirm ✓ all call it; none keeps a copy, and the
+ *      write authority gates on its `factorHasConfirmableValue` half — so a
+ *      surface cannot offer a confirmation the writer will decline.
+ *      ⚠ STILL UNRECONCILED, AND DELIBERATELY SO: the factor SORT KEY in
+ *      `ModelTabBody.tsx` is wider (it also flags an `external` factor carrying a
+ *      full 0–1 prior range). That is an ORDERING key, not a count and not an
+ *      affordance — a different question (trap 21), left alone rather than
+ *      aligned into a fifth reading of this one.
  *
  * D2 — `'no-value'` IS AUTHORED FRESH, NOT PORTED. There is no per-factor
  *      "has no value" predicate anywhere in the live tree. The Model card's
@@ -135,7 +144,7 @@ import {
   UNNAMED_ELEMENT_LABEL,
 } from '../domain/canvasLabels'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
-import { factorNeedsVerification } from '../domain/valueProvenance'
+import { factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import type {
@@ -378,10 +387,25 @@ function edgeValue(data: unknown): string | null {
 // Rows
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * ⚠ THE TWO REASONS ANSWER DIFFERENT QUESTIONS AND KEEP DIFFERENT PREDICATES
+ * (trap 21). `no-value` asks *"is there a number this outline can DISPLAY?"* —
+ * `getPrimaryValue`, i.e. `raw_value`. `unconfirmed-estimate` asks *"may this be
+ * CONFIRMED?"* — `factorIsConfirmable`, i.e. the write authority's own condition
+ * on `observedState.value`. They are not spellings of one rule and they are
+ * deliberately not aligned.
+ *
+ * ⚠ `unconfirmed-estimate` CARRIES THE VALUE GUARD NOW, so `ModelRowView` no
+ * longer re-derives one. It used to be the bare `factorNeedsVerification`, which
+ * marked a factor with no value at all as an unratified ESTIMATE — there was no
+ * estimate to ratify, and the row's Confirm chip then had to bolt its own
+ * `row.primaryValue !== null` on top. One question was being answered twice, in
+ * two files, with two different fields.
+ */
 function attentionForFactor(data: unknown, value: string | null): AttentionReason[] {
   const out: AttentionReason[] = []
   if (value === null) out.push('no-value')
-  if (factorNeedsVerification(data)) out.push('unconfirmed-estimate')
+  if (factorIsConfirmable(data)) out.push('unconfirmed-estimate')
   return out
 }
 
@@ -559,23 +583,37 @@ export function toRepairQueueItems(
   if (queueId === 'confirm-estimates') {
     return factorNodes
       /*
-       * ⚠⚠ F2 — `factorNeedsVerification` IS `!source || source === 'cee_inference'`
-       * (`valueProvenance.ts:227-231`), which a factor with NO `observedState` at
-       * all satisfies. Those factors were entering this queue, where Confirm
-       * rendered over "No value set": an enabled button asking the user to endorse
-       * nothing, which the authority then refuses — a silent no-op (preamble P8).
+       * ⚠⚠ F2 — `factorNeedsVerification` ALONE IS `!source || source ===
+       * 'cee_inference'`, which a factor with NO `observedState` at all satisfies.
+       * Those factors were entering this queue, where Confirm rendered over "No
+       * value set": an enabled button asking the user to endorse nothing, which
+       * the authority then refuses — a silent no-op (preamble P8).
        *
-       * ⭐ THE OUTLINE'S ROW CHIP ALREADY REFUSED EXACTLY THIS, with the reasoning
-       * written out (`ModelRowView.tsx:134-136`): `…&& row.primaryValue !== null`.
-       * Two surfaces answering ONE question — "may this be confirmed?" — and the
-       * queue was the weaker one. The rule now lives at the PRODUCER, so the queue
-       * cannot contain an item the row would have refused.
+       * ⚠⚠ AND THE FIRST FIX FOR IT WAS WRONG IN THE OPPOSITE DIRECTION, which is
+       * why this reads `factorIsConfirmable` and not a local conjunction. It was
+       * `… && factorValue(n.data) !== null` — `getPrimaryValue`, i.e. `raw_value`
+       * — copied from `ModelRowView`'s `row.primaryValue !== null`. But the write
+       * authority gates on `observedState.value`, and a capped factor off the wire
+       * carries `{value: 0.7}` with NO `raw_value`
+       * (`conversation/factorValueEdit.ts:145`, staging-witnessed). So the
+       * over-count closed and an UNDER-count opened: a real, confirmable factor
+       * dropped out of the queue AND lost its chip, while `FactorsSection` went on
+       * offering the same row a working button. One direction of corpus could not
+       * see both (trap 22b).
        *
-       * It also closes a duplication: a value-less factor satisfied BOTH this
-       * predicate and `no-value`'s, so it stood in two queues at once. `no-value`
-       * is the one that describes it, and confirming is not the repair it needs.
+       * ⭐ THE RECONCILIATION IS THE PRODUCER'S CONDITION, NOT THE WIDER OR THE
+       * NARROWER OF TWO GUESSES (trap 13c). `factorIsConfirmable` IS
+       * `proposeFactorConfirmation`'s refusal, inverted, and the authority imports
+       * the same half — so this queue holds exactly the rows the writer accepts.
+       *
+       * ⚠ WHAT IT DOES *NOT* CLAIM: that `no-value` and this are disjoint. They
+       * answer different questions (display vs write) and keep different
+       * predicates on purpose, so a factor with a model-scale `value` and no
+       * displayable `raw_value` legitimately appears in both. Stated rather than
+       * quietly aligned — the earlier text here claimed the duplication was closed,
+       * and that was the over-read.
        */
-      .filter(n => factorNeedsVerification(n.data) && factorValue(n.data) !== null)
+      .filter(n => factorIsConfirmable(n.data))
       .map(n => {
         const data = n.data as Record<string, unknown> | undefined
         return {
