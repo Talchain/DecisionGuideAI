@@ -22,6 +22,25 @@
  * Structure and scanners are adapted from
  * `components/results/analysisState/__tests__/analysisStateRegion.mountSites.spec.ts`
  * — the estate's established form for this guarantee.
+ *
+ * ⚠⚠ WHAT THE "UNGATED" TEST BELOW DOES **NOT** PROVE — READ BEFORE CITING IT.
+ * It reads the ONE LINE ABOVE the mount and greps for `isEnabled|Enabled\(\)|
+ * flags\.`. That makes it evidence about the LOCAL guard expression and NOTHING
+ * ELSE. It is STRUCTURALLY INCAPABLE of seeing an ANCESTOR gate: a flag on
+ * MessageBubble itself, on ChatMessage, on ChatThread, on ConversationPanel, or
+ * on any host above them would leave this test fully green while the notice
+ * never reached a user. **This test is not product-level reachability
+ * evidence, and must never be reported as such.**
+ *
+ * The ancestor chain was cleared SEPARATELY, by hand, in the #804 review
+ * (2026-08-19): `ConversationPanel → ChatThread → ChatMessage → MessageBubble`,
+ * each a single unconditional call site, all three panel hosts reading the same
+ * state, with extraction at the one `routeV5Response` success branch where the
+ * streamed and buffered draft paths have already converged. The only gate on
+ * the path is the V5 flag the entire live product already runs behind. That is
+ * a DATED MANUAL DERIVATION, not something this file re-derives — if the
+ * component tree changes, it must be re-walked by hand, because nothing here
+ * will fail.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -108,7 +127,7 @@ describe('model-building notices have exactly one production mount site', () => 
     expect(importersOf('ModelBuildingNoticesNotice', files)).toEqual([BUBBLE])
   })
 
-  it('the mount is UNGATED — no feature flag stands between the payload and the user', () => {
+  it('the mount guard is LOCALLY flag-free (see header: says nothing about ancestors)', () => {
     // ⭐ THE POINT OF THE WHOLE LANE. `model_building_notices` was wire-reachable
     // and unrendered; hanging it behind a flag would repeat that failure in a
     // new place. `preAnalysisEnriched` in particular defaults to FALSE and its

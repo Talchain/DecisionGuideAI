@@ -155,6 +155,106 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
   })
 })
 
+/**
+ * ⭐ ROW-LEVEL COPY. THIS SUITE PREVIOUSLY GUARDED ONLY THE HEADLINE.
+ *
+ * The singular/plural mutant (M5) pointed at `modelBuildingNoticesSummary` and
+ * bit cleanly — which made the kit LOOK like it covered number agreement, while
+ * every ROW was rendering "1 Alternatives that were merged into a single option"
+ * at `count: 1`. A guard aimed at one of two surfaces reports on one of two
+ * surfaces; the green result said nothing about the other (CLAUDE.md trap 22:
+ * presence of a guard is not coverage of its input).
+ *
+ * `count: 1` is not an edge case here — `total_count: 1` is the most likely
+ * draft the producer emits, so this was the MODAL rendering, one line beneath a
+ * headline that gets singular right.
+ *
+ * The fix is structural rather than lexical: the count is a TRAILING quantity,
+ * so it never has to agree with a fixed-number category label. These assertions
+ * are therefore written against the SHAPE (no bare leading numeral), not against
+ * a particular phrasing — a future copy edit that reintroduces a leading count
+ * REDs even if it words the descriptions differently.
+ */
+describe('ModelBuildingNoticesNotice — ⭐ row copy reads correctly at EVERY count', () => {
+  /** Every kind at count 1 — the modal draft, and the one that read wrongly. */
+  const allKindsAtOne = toModelBuildingNoticesView({
+    total_count: 6,
+    groups: [
+      { kind: 'detail_not_connected', count: 1 },
+      { kind: 'relationship_not_used', count: 1 },
+      { kind: 'alternative_consolidated', count: 1 },
+      { kind: 'conflict_resolved_conservatively', count: 1 },
+      { kind: 'target_not_modelled_as_threshold', count: 1 },
+      { kind: 'other', count: 1 },
+    ],
+    details_redacted: true,
+  })
+
+  async function expandRows(view: ModelBuildingNoticesView) {
+    const user = userEvent.setup()
+    render(
+      <MessageBubble message={makeMsg({ modelBuildingNotices: view })} onChipClick={noop} />,
+    )
+    await user.click(screen.getByTestId('model-building-notices-toggle'))
+    return screen.getAllByRole('listitem').filter((li) => li.hasAttribute('data-notice-kind'))
+  }
+
+  it('NO row begins with a bare numeral — at count 1, for any of the six kinds', async () => {
+    const rows = await expandRows(allKindsAtOne)
+    expect(rows).toHaveLength(6)
+    for (const row of rows) {
+      const text = (row.textContent ?? '').trim()
+      // The defect shape: a digit, then whitespace, then the category label.
+      expect(
+        text,
+        `row "${row.getAttribute('data-notice-kind')}" leads with a bare numeral: ${text}`,
+      ).not.toMatch(/^\d+\s/)
+      // And it must still state the quantity somewhere — dropping the count to
+      // dodge agreement would pass a "no leading numeral" check while losing
+      // information the producer sent.
+      expect(text).toMatch(/\(1\)/)
+    }
+  })
+
+  it('a row states its OWN count as a trailing quantity, bound by kind', async () => {
+    // Identity binding: the 4 travels with `relationship_not_used`, not merely
+    // "a 4 appears somewhere in the list".
+    const mixed = toModelBuildingNoticesView({
+      total_count: 5,
+      groups: [
+        { kind: 'detail_not_connected', count: 1 },
+        { kind: 'relationship_not_used', count: 4 },
+      ],
+      details_redacted: true,
+    })
+    const rows = await expandRows(mixed)
+    const byKind = (k: string) =>
+      (rows.find((r) => r.getAttribute('data-notice-kind') === k)?.textContent ?? '').trim()
+
+    expect(byKind('detail_not_connected')).toMatch(/\(1\)$/)
+    expect(byKind('relationship_not_used')).toMatch(/\(4\)$/)
+    expect(byKind('detail_not_connected')).not.toMatch(/^\d/)
+    expect(byKind('relationship_not_used')).not.toMatch(/^\d/)
+  })
+
+  it('the singular HEADLINE and the singular ROW agree on the same payload', async () => {
+    // The two surfaces sit one line apart, so a mismatch is conspicuous. This
+    // pins them TOGETHER — the assertion the kit was missing when the headline
+    // was guarded alone.
+    const one = toModelBuildingNoticesView({
+      total_count: 1,
+      groups: [{ kind: 'alternative_consolidated', count: 1 }],
+      details_redacted: true,
+    })
+    const rows = await expandRows(one)
+    expect(screen.getByTestId('model-building-notices-toggle').textContent).toContain(
+      '1 thing from your brief',
+    )
+    expect(rows).toHaveLength(1)
+    expect((rows[0].textContent ?? '').trim()).not.toMatch(/^1\s/)
+  })
+})
+
 describe('ModelBuildingNoticesNotice — ⭐ no raw wire vocabulary reaches the user', () => {
   it('no kind code appears as text anywhere in the bubble, expanded or collapsed', async () => {
     const user = userEvent.setup()

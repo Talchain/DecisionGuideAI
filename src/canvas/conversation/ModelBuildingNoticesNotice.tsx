@@ -95,12 +95,22 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
                 data-notice-kind={row.kind}
                 className={`${typography.panelMeta} text-text-light`}
               >
-                {/* Emphasis by COLOUR, never by a raw font weight. DS v5 §2.4
-                    bans raw sizes and weights in panel scope, and this file sits
-                    in the dock closure — the row is `text-text-light`, so the
-                    darker body token carries the count on its own. */}
-                <span className="text-text-body">{row.count}</span>{' '}
-                {row.description}
+                {/* ⚠ THE COUNT IS A TRAILING QUANTITY, NOT A LEADING NUMERAL.
+                    A leading count reads "1 Alternatives that were merged into a
+                    single option" whenever a group holds one item — and
+                    `total_count: 1` is the most likely draft of all. The
+                    description is a CATEGORY LABEL with fixed grammatical
+                    number, so nothing prefixed to it can agree at both 1 and n;
+                    parenthesising the quantity sidesteps agreement entirely and
+                    reads correctly at every count, without a second copy field
+                    per kind.
+
+                    Emphasis by COLOUR, never by a raw font weight: DS v5 §2.4
+                    bans raw sizes and weights in panel scope and this file sits
+                    in the dock closure, so the darker body token carries the
+                    quantity on its own. */}
+                {row.description}{' '}
+                <span className="text-text-body">({row.count})</span>
               </li>
             ))}
           </ul>
