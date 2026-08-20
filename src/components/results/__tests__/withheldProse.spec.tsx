@@ -307,14 +307,14 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
 
   it('ANTI-VACUITY: the PERMITTED header carries the claim the matcher hunts', () => {
     const text = fragileText(false, twoEdges)
-    expect(text).toContain('2 factors could flip the result to')
+    expect(text).toContain('2 relationships could flip the result to')
     expect(text).toMatch(FRAGILE_CLAIM_RE)
     expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
   })
 
   it('WITHHELD: the header drops the presupposing verb', () => {
     const text = fragileText(true, twoEdges)
-    expect(text).toContain('2 factors could shift the comparison towards')
+    expect(text).toContain('2 relationships could shift the comparison towards')
     expect(text).not.toMatch(FRAGILE_CLAIM_RE)
   })
 
@@ -333,10 +333,13 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
       .toContain(HIGH_LABEL)
   })
 
-  it('PERMITTED: the header is byte-identical to today', () => {
+  // ⚠ NOUN CORRECTED (fragile-edge scope fix): `fragile_edges` are EDGES, and
+  // edges are not 1:1 with source factors (`StressTestSection.tsx:287-289`), so
+  // "2 factors" was a plain miscount. The VERB half below is unchanged.
+  it('PERMITTED: the header keeps the flip verb (noun corrected to relationships)', () => {
     expect(
       fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }),
-    ).toEqual({ kind: 'altWinner', lead: '2 factors could flip the result to ', altWinnerLabel: HIGH_LABEL })
+    ).toEqual({ kind: 'altWinner', lead: '2 relationships could flip the result to ', altWinnerLabel: HIGH_LABEL })
   })
 
   it('WITHHELD: the header keeps the altWinner SHAPE — only the lead changes', () => {
@@ -344,7 +347,7 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
     // sentence would drop the `fragile-alt-winner` element and the name with it.
     expect(
       fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: true, flipEvidenceAttestsNoFlip: false }),
-    ).toEqual({ kind: 'altWinner', lead: '2 factors could shift the comparison towards ', altWinnerLabel: HIGH_LABEL })
+    ).toEqual({ kind: 'altWinner', lead: '2 relationships could shift the comparison towards ', altWinnerLabel: HIGH_LABEL })
   })
 })
 
