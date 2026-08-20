@@ -293,6 +293,16 @@ describe('deep-link navigation to a section still works', () => {
 
     act(() => { useUIStore.getState().requestModelTabSection('risks') })
 
+    // (1) The SAME load-bearing assertion the sibling test carries. Without it
+    //     this test stays GREEN under the mutant that deletes
+    //     `setV1Expanded(true)`, because jsdom fires the scroll spy even on a
+    //     `display:none` element — so the scroll assertions below prove
+    //     INTENT, never EFFECT. A test that survives the very mutant that
+    //     breaks the thing it is named for does not pin its property.
+    await waitFor(() => {
+      expect(screen.getByTestId('model-tab-v1-stack-content')).toBeVisible()
+    })
+
     const risks = screen.getByTestId('model-risks-section')
     await waitFor(() => {
       expect(scrollContexts).toContain(risks)
