@@ -503,6 +503,189 @@ export function collectConsentSurfaceText(
   return out
 }
 
+// ---------------------------------------------------------------------------
+// THE DEMOTED FAMILIES' PROSE — what a block behind "Show N more" renders
+// ---------------------------------------------------------------------------
+
+/** One free-prose field of a block, named so suppression can be PER-FIELD. */
+export interface BlockProseField {
+  /** The block's own property name. The identity a clone writes back through. */
+  readonly field: string
+  /** Its text exactly as the producer sent it. Never normalised here. */
+  readonly text: string
+}
+
+/** What free prose a block renders, and whether that prose is all it has. */
+export interface BlockProseSurface {
+  readonly fields: readonly BlockProseField[]
+  /**
+   * True when `fields` is the block's ONLY reader-facing content, so a block
+   * whose every field was suppressed has nothing left to render and must be
+   * dropped rather than shown as an empty shell.
+   *
+   * False for every card that keeps a title, a table or a list — those still
+   * carry content the user has not seen, and dropping them would be per-BLOCK
+   * suppression by the back door.
+   */
+  readonly proseIsSoleContent: boolean
+}
+
+const NO_PROSE: BlockProseSurface = { fields: [], proseIsSoleContent: false }
+
+function prose(
+  proseIsSoleContent: boolean,
+  ...candidates: ReadonlyArray<readonly [string, unknown]>
+): BlockProseSurface {
+  const fields: BlockProseField[] = []
+  for (const [field, value] of candidates) {
+    if (typeof value === 'string' && value.trim().length > 0) fields.push({ field, text: value })
+  }
+  return fields.length === 0 ? NO_PROSE : { fields, proseIsSoleContent }
+}
+
+/**
+ * THE PER-TYPE PROSE ACCESSOR — the enabling change UX gate point 4 needed.
+ *
+ * ## The question this answers, and the one it does NOT
+ *
+ * `collectConsentSurfaceText` above answers *"what will this turn's CONSENT
+ * SURFACES state?"* — a tier-0 SOURCE question, pinned-only, dependent on
+ * runtime patch state. This answers *"what free prose does this ONE block
+ * render, field by field?"* — a TARGET question over the demoted families.
+ *
+ * They are deliberately two functions with two names because they are two
+ * questions, and this estate's chronic defect is two questions sharing one
+ * name until their defaults disagree on a reachable class of turn (trap 21).
+ * Their domains are DISJOINT by construction — every type below is
+ * non-pinned, every type the collector reads is pinned — so there is no
+ * mirror between them to drift. What they share, and what makes this ONE
+ * dedupe authority rather than two, is the comparison: both feed the single
+ * `dedupeRenderedText` / `renderSegmentKey` pair. Nothing here re-implements
+ * a match.
+ *
+ * ## Why per-FIELD and not per-block
+ *
+ * `v5_evidence` carries THREE independent paragraphs and `v5_exercise` up to
+ * six. Suppressing a whole card to remove one repeated line would delete
+ * paragraphs the user has never seen — the inverse harm, and the worse one.
+ * A duplicate is cosmetic; a deleted line is a lie about what the producer
+ * said. So the unit of suppression is the FIELD, and within a field the
+ * existing paragraph-segment rule applies unchanged.
+ *
+ * ## Why the list is deliberately PARTIAL, and what each omission costs
+ *
+ * Absence here costs a duplicate. A wrong INCLUSION costs content, or
+ * replaces the producer's words with the UI's. Every omission below was
+ * derived by reading the renderer, not by guessing at a field name:
+ *
+ *   · `brief.summary` — its "Show more" toggle renders unconditionally, so a
+ *     blanked summary leaves a live disclosure that reveals nothing.
+ *   · `evidence.findings[].text` (legacy) — blank findings are filtered out
+ *     and REPLACED with the UI's own "Research findings available". Blanking
+ *     would substitute our copy for the producer's, which is worse than a
+ *     repeat.
+ *   · `model_receipt.coachingSummary` — the dispatcher returns null on a
+ *     blank one, so suppressing it deletes the whole card. That is per-block
+ *     suppression by the back door.
+ *   · `framing.goal` — the decision statement itself, structural, not a
+ *     paragraph.
+ *   · `premortem.risk_paths[]`, `flip_analysis.flip_conditions[]`,
+ *     `v5_exercise.warning_signs[]` — short structured clauses inside list
+ *     rows, not prose paragraphs; blanking one leaves a dangling row.
+ *   · `v5_coaching.signal` — provenance ("Why this came up"), not the card's
+ *     prose.
+ *   · `fact`, `artefact`, `v5_unsupported` — carry no free prose at all.
+ *   · `commentary` — PINNED, and its suppression is already owned by
+ *     InlineBlocks' existing whole-text path with its own ratified rule
+ *     ("never empties a block"). One seam, one writer.
+ *   · every pinned consent type — a control's copy is what the user is
+ *     agreeing THROUGH. It is a dedupe SOURCE, never a target.
+ *
+ * Unknown / future types fall through to `NO_PROSE` rather than guessing.
+ */
+export function collectBlockProseSurface(block: ConversationBlock): BlockProseSurface {
+  switch (block.type) {
+    // ── one prose paragraph under a title the card keeps ──────────────────
+    case 'v5_coaching':
+    case 'v5_review_card':
+    case 'review_card':
+      return prose(false, ['body', (block as { body?: unknown }).body])
+
+    // ── three independent paragraphs under a factor label the card keeps ──
+    case 'v5_evidence':
+      return prose(
+        false,
+        ['evidence_gap', block.evidence_gap],
+        ['suggested_technique', block.suggested_technique],
+        ['impact_if_gathered', block.impact_if_gathered],
+      )
+
+    /**
+     * ⚠ SOLE CONTENT. `V5ExerciseBlock` has no title: with every prose field
+     * blank the renderer emits a bordered card with an icon and nothing to
+     * read. Each field is individually truthiness-guarded, so partial
+     * suppression degrades cleanly.
+     */
+    case 'v5_exercise':
+      return prose(
+        true,
+        ['failure_scenario', block.failure_scenario],
+        ['mitigation', block.mitigation],
+        ['reference_class', block.reference_class],
+        ['counter_case', block.counter_case],
+        ['review_trigger', block.review_trigger],
+      )
+
+    /**
+     * ⚠ SOLE CONTENT. The renderer's heading is the hard-coded word
+     * "Explanation" — UI copy, not the producer's — so a blanked narrative
+     * leaves a card titled "Explanation" saying nothing at all.
+     */
+    case 'v5_explanation':
+      return prose(true, ['narrative', block.narrative])
+
+    /**
+     * Narrative plus a structure the block keeps. `v5_flip_analysis` is sole
+     * content only when it carries no scenarios, because its heading is
+     * hard-coded UI copy in exactly the way `v5_explanation`'s is.
+     */
+    case 'v5_flip_analysis':
+      return prose(block.flip_scenarios.length === 0, ['narrative', block.narrative])
+    case 'v5_comparison':
+      return prose(false, ['narrative', block.narrative])
+    case 'comparison':
+    case 'premortem':
+    case 'flip_analysis':
+      return prose(false, ['narrative', (block as { narrative?: unknown }).narrative])
+
+    // ── legacy exercise: instructions under a title the card keeps ────────
+    case 'exercise':
+      return prose(false, ['instructions', block.instructions])
+
+    default:
+      return NO_PROSE
+  }
+}
+
+/**
+ * A block with the named prose fields replaced by what survived suppression.
+ *
+ * A SHALLOW CLONE, because `BlockRenderer` hands the whole block object to
+ * every renderer and none of them destructures prose at the dispatcher — so a
+ * clone flows through all 21 arms with no renderer change and no new prop.
+ * The original array is never mutated: the composition, the citation indices
+ * and the store all keep reading the block exactly as ingested.
+ */
+export function withSuppressedProse(
+  block: ConversationBlock,
+  survived: ReadonlyMap<string, string>,
+): ConversationBlock {
+  if (survived.size === 0) return block
+  const clone: Record<string, unknown> = { ...(block as unknown as Record<string, unknown>) }
+  for (const [field, text] of survived) clone[field] = text
+  return clone as unknown as ConversationBlock
+}
+
 /**
  * SECOND-CHANNEL ROUTING — a different question from suppression, kept apart
  * from it on purpose (UX gate 2026-08-18 point 4b).
