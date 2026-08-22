@@ -179,6 +179,41 @@ export function useFitViewOnLayoutVersion(): void {
   // `useInitialLayoutGuard` already uses, and structural rather than
   // positional, so a user's own pan/drag never re-arms it). A graph that goes
   // on to be laid out is handled by trigger 1 and returns early here.
+  //
+  // ⭐⭐ THE LATCH IS SET INSIDE THE FRAME, NOT BEFORE IT — and that ordering is
+  // the whole of SENDABLE failure 6 (23 Aug 2026). Written the other way round,
+  // this effect claimed the identity and THEN scheduled the fit, while its own
+  // cleanup cancels that frame on every dependency change. A restored graph
+  // changes `nodes` between the effect and the frame BY CONSTRUCTION: React
+  // Flow measures the nodes it has just mounted and dispatches `dimensions`
+  // changes, the canvas routes them through `onNodesChange`, and
+  // `applyNodeChanges` returns a NEW array (`store.ts` — `set({ nodes:
+  // updatedNodes })`). So the frame was cancelled, the effect re-ran, the
+  // already-claimed identity bounced it, and THE PRODUCT'S FIT NEVER RAN AT ALL
+  // — leaving the camera on xyflow's own mount `fitView` prop, which carries
+  // neither `computeFitPadding`'s reservations nor `minZoom`.
+  //
+  // What that costs, measured on deployed staging at 1280x800 (the minimum
+  // supported PoC viewport), restore arm: the camera parks at 0.4279 — BELOW
+  // `LABEL_LEGIBLE_ZOOM`, i.e. inside the band the product itself labels
+  // unreadable and offers a "zoom in to read" notice for. `labelCounterScale`
+  // is capped at `1 / LABEL_LEGIBLE_ZOOM` by construction, so every
+  // counter-scaled glyph renders at 0.4279 / 0.5 = 85.6% of its declared size:
+  // 8.56px on 58 elements against the Design System v5 §2.4 10px canvas floor.
+  //
+  // ⚠ THE CAP IS NOT THE DEFECT AND MUST NOT BE RAISED. `MAX_LABEL_COUNTER_SCALE`
+  // is what node GEOMETRY is sized for (`nodeLayoutConstants.ts`), and it is a
+  // constant only because the lowest zoom the product ever CHOOSES is a
+  // constant — `LABEL_LEGIBLE_ZOOM`, passed as `minZoom` by the closure above.
+  // Letting an automatic fit park below that floor does not merely under-size
+  // text; it falsifies the premise the geometry bound rests on. The floor is
+  // the authority; this effect simply has to reach it.
+  //
+  // Latching in the frame keeps the once-per-identity guarantee intact — the
+  // claim is made at the moment the camera actually moves — while a fit that
+  // has not happened yet stays re-schedulable. It also means the fit runs on
+  // the LAST frame the dependencies settle into, i.e. after measurement, so it
+  // frames measured nodes rather than un-measured ones.
   const aimedIdentityRef = useRef<string | null>(null)
   useEffect(() => {
     if (layoutVersion > 0) return
@@ -186,8 +221,8 @@ export function useFitViewOnLayoutVersion(): void {
     if (!isRestoredModelReady(s)) return
     const key = getGraphIdentityKey(s.currentScenarioId, s.nodes, s.edges)
     if (aimedIdentityRef.current === key) return
-    aimedIdentityRef.current = key
     const raf = requestAnimationFrame(() => {
+      aimedIdentityRef.current = key
       fitNow.current()
     })
     return () => cancelAnimationFrame(raf)
