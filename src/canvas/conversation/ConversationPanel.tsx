@@ -26,6 +26,7 @@ import { plot } from '../../adapters/plot'
 import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
+import { heldProposalStateKey } from './selectors'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import { useOptionalConversationContext } from './ConversationContext'
 import { prefillInto } from './prefillTarget'
@@ -214,6 +215,22 @@ export const ConversationPanel = memo(function ConversationPanel({
       })
     },
     [sendMessage],
+  )
+
+  // ── Held-proposal settlement handler (SENDABLE failure 5) ─────────
+  // The card no longer owns whether it is settled. It reports the PROPOSAL
+  // HANDLE here and this writes the one shared registry, so the dock copy and
+  // the floating-panel copy of the same proposal retire together instead of
+  // one of them keeping live controls over a change that already happened.
+  //
+  // `setPatchBlockState` is the existing single writer for card settlement
+  // (graph-patch cards already use it); `heldProposalStateKey` namespaces the
+  // handle so the two key spaces cannot collide inside the one map.
+  const handleHeldProposalSettle = useCallback(
+    (proposalId: string, settlement: 'accepted' | 'dismissed') => {
+      setPatchBlockState(heldProposalStateKey(proposalId), settlement)
+    },
+    [setPatchBlockState],
   )
 
   // Best-effort system-event dispatch: for background acks (patch_dismissed,
@@ -802,6 +819,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onRetry={retryLast}
         onArtefactMessage={handleArtefactMessage}
         onProposalConfirm={handleProposalConfirm}
+        onHeldProposalSettle={handleHeldProposalSettle}
         compact={compact}
         scrollListRef={scrollListRef}
         testId={threadTestId}

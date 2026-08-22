@@ -23,6 +23,7 @@ import { AnswerBody, resolveAnswerBodyText } from './AnswerBody'
 import { GroundedOnNotice } from './GroundedOnNotice'
 import { ModelBuildingNoticesNotice } from './ModelBuildingNoticesNotice'
 import { InlineBlocks } from './InlineBlocks'
+import type { HeldProposalSettlement } from '../../v5/blocks/V5HeldProposalBlock'
 import { AlertCircle, ChevronDown, ChevronUp, ListPlus, AlignLeft, RefreshCw } from 'lucide-react'
 import { FeedbackRow } from './FeedbackRow'
 import { StalenessPill, type StalenessFreshness } from './StalenessPill'
@@ -137,6 +138,9 @@ interface MessageBubbleProps {
   onFeedback?: (turnId: string, rating: 'up' | 'down') => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /** SENDABLE failure 5 — record a held proposal's settlement in the shared
+   *  `patchBlockStates` registry so every mounted surface retires it together. */
+  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
   /**
    * When true, render message body text with DS v5 panelBody (12px /
    * leading-relaxed) instead of the legacy body (16px / leading-relaxed).
@@ -166,6 +170,7 @@ export const MessageBubble = memo(function MessageBubble({
   onFeedback,
   onArtefactMessage,
   onProposalConfirm,
+  onHeldProposalSettle,
   compact = false,
   onRetryFailedSend,
   isLatestAssistantTurn = false,
@@ -518,6 +523,7 @@ export const MessageBubble = memo(function MessageBubble({
           onPatchDismiss={onPatchDismiss}
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
+          onHeldProposalSettle={onHeldProposalSettle}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
           // ONE RENDER AUTHORITY: tier 0 (consent cards) then tier 2 (the prose
           // body as it was ACTUALLY rendered, post-suppression) — so a

@@ -92,6 +92,58 @@ export function resolvePatchBlockState(
   return localState ?? 'proposed'
 }
 
+/**
+ * SETTLEMENT KEY FOR A HELD PROPOSAL — bound by PROPOSAL IDENTITY.
+ *
+ * ── The defect this closes (SENDABLE failure 5, witnessed 2026-08-22) ───────
+ * `V5HeldProposalBlock` owned its settled/unsettled state in a component-local
+ * `useState`. Two surfaces are mounted at once on the canvas (the dock's
+ * `OlumiTabBody` and `FloatingOlumiPanel`, both reading the SAME singleton
+ * `useConversationContext()` message list), so ONE proposal renders as TWO OR
+ * MORE React instances. Local state cannot cross an instance boundary, so
+ * confirming in one surface left every other copy with live controls, an
+ * unchanged "Waiting for your go-ahead" heading, and a confirm button that
+ * re-fired into a refusal. The card was answering "did the user click THIS
+ * React node?" while the user, the server and every other copy were asking
+ * "has this PROPOSAL been settled?" — two authorities, similar names.
+ *
+ * There is exactly ONE settlement authority in this conversation:
+ * `useConversation`'s `patchBlockStates` map (`PatchBlockState`), written via
+ * `setPatchBlockState` and read by `resolvePatchBlockState` above. Held
+ * proposals converge onto it rather than minting a second registry.
+ *
+ * ⚠ WHY THE KEY IS NOT `turnId:proposal_id`, unlike the graph-patch key.
+ * A graph patch is identified by its position in a turn. A held proposal is a
+ * CEE-minted hold HANDLE (`gmh_…`) whose lifecycle is owned SERVER-side, per
+ * handle, across turns: confirming it retires the hold itself, not one turn's
+ * view of it. Keying by turn would let the same handle read `proposed` in one
+ * turn and `accepted` in another — precisely the split this closes. So the key
+ * is the handle, and only the handle.
+ *
+ * The `held:` prefix keeps the two key spaces disjoint inside the one map, so
+ * a `patch_id` can never collide with a `proposal_id`.
+ */
+export const HELD_PROPOSAL_STATE_KEY_PREFIX = 'held:'
+
+export function heldProposalStateKey(proposalId: string): string {
+  return `${HELD_PROPOSAL_STATE_KEY_PREFIX}${proposalId}`
+}
+
+/**
+ * Resolve a held proposal's settlement from the shared registry.
+ *
+ * Unlike `resolvePatchBlockState` there is no producer-supplied `status` to
+ * consult: `HeldProposalBlockSchema` carries no status field, so the block
+ * itself never asserts settlement and the local registry is the only reader.
+ * Absent ⇒ `'proposed'`, i.e. exactly today's behaviour for a fresh proposal.
+ */
+export function resolveHeldProposalState(
+  proposalId: string,
+  patchBlockStates: Map<string, PatchBlockState> | undefined,
+): PatchBlockState {
+  return patchBlockStates?.get(heldProposalStateKey(proposalId)) ?? 'proposed'
+}
+
 function hasPendingPatch(
   messages: ConversationMessage[],
   patchBlockStates: Map<string, PatchBlockState>,

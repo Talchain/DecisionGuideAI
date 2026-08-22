@@ -10,6 +10,7 @@
 
 import { memo } from 'react'
 import { MessageBubble } from '../MessageBubble'
+import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { ACTION_BAR_GUTTER_PX, MessageActions } from './MessageActions'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -45,6 +46,9 @@ interface ChatMessageProps {
   onFeedback?: (turnId: string, rating: 'up' | 'down') => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /** SENDABLE failure 5 — record a held proposal's settlement in the shared
+   *  `patchBlockStates` registry so every mounted surface retires it together. */
+  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
   /** AI panel v2 surface — render message body at panelBody (12px). */
   compact?: boolean
   /**
@@ -74,6 +78,7 @@ export const ChatMessage = memo(function ChatMessage({
   onFeedback,
   onArtefactMessage,
   onProposalConfirm,
+  onHeldProposalSettle,
   compact,
   showFailedSendRetry,
   isLatestAssistantTurn = false,
@@ -121,6 +126,7 @@ export const ChatMessage = memo(function ChatMessage({
         onFeedback={onFeedback}
         onArtefactMessage={onArtefactMessage}
         onProposalConfirm={onProposalConfirm}
+        onHeldProposalSettle={onHeldProposalSettle}
         compact={compact}
         onRetryFailedSend={showFailedSendRetry ? onRetry : undefined}
         isLatestAssistantTurn={isLatestAssistantTurn}

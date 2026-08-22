@@ -12,6 +12,7 @@ import { typography } from '../../../styles/typography'
 import { useSmartScroll } from '../hooks/useSmartScroll'
 import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
+import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
 import { ThinkingIndicator } from './ThinkingIndicator'
 import { SuggestedChips } from './SuggestedChips'
@@ -93,6 +94,9 @@ interface ChatThreadProps {
   onRetry: () => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /** SENDABLE failure 5 — record a held proposal's settlement in the shared
+   *  `patchBlockStates` registry so every mounted surface retires it together. */
+  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
   /** AI panel v2 surface — render message body at panelBody (12px). */
   compact?: boolean
   /**
@@ -178,6 +182,7 @@ export const ChatThread = memo(function ChatThread({
   onRetry,
   onArtefactMessage,
   onProposalConfirm,
+  onHeldProposalSettle,
   compact,
   scrollListRef,
   testId = THREAD_TESTID_DOCKED,
@@ -327,6 +332,7 @@ export const ChatThread = memo(function ChatThread({
             onFeedback={onFeedback}
             onArtefactMessage={onArtefactMessage}
             onProposalConfirm={onProposalConfirm}
+            onHeldProposalSettle={onHeldProposalSettle}
             compact={compact}
           />
         )
