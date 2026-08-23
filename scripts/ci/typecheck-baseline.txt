@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2263
+# count=2260
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -273,7 +273,7 @@
 4	src/canvas/nodes/__tests__/FactorNode.baseline.regression.spec.ts
 1	src/canvas/nodes/__tests__/FactorNode.optionTable.spec.tsx
 1	src/canvas/nodes/__tests__/FactorNode.priorRange.spec.tsx
-14	src/canvas/nodes/__tests__/FactorNode.spec.tsx
+11	src/canvas/nodes/__tests__/FactorNode.spec.tsx
 13	src/canvas/nodes/__tests__/GoalNode.spec.tsx
 29	src/canvas/nodes/__tests__/OptionNode.spec.tsx
 4	src/canvas/nodes/__tests__/OutcomeNode.spec.tsx
