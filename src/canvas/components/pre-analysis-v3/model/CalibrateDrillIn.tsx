@@ -112,6 +112,14 @@ import {
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { parseSuccessTarget } from '../hero/parseSuccessTarget'
 import type { EstimateRowModel } from '../types'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../mutations/mutationAuthority'
+
+const V3_FACTOR_VALUE_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorValue,
+)
+const V3_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorConfirmation,
+)
 
 interface CalibrateDrillInProps {
   row: EstimateRowModel
@@ -236,6 +244,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
   // edit committed during a running analysis is queued and flushed when the
   // in-flight lock clears, rather than dropped.
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  const canCommitCanonicalValue = V3_FACTOR_VALUE_CONNECTED && sendSystemEvent != null
 
   /**
    * ONE commit path for both affordances.
@@ -462,7 +471,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
   return (
     <div className="mb-2 ml-6 space-y-2" data-testid="pre-analysis-v3-drill">
       <div className="flex items-center gap-2">
-      {row.canEditValue && (
+      {row.canEditValue && canCommitCanonicalValue && (
         <>
           <input
             aria-label={`Your estimate for ${row.label}`}
@@ -487,7 +496,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           </Tooltip>
         </>
       )}
-      {!row.needsValue && (
+      {!row.needsValue && V3_FACTOR_CONFIRMATION_CONNECTED && canCommitCanonicalValue && (
         <button
           type="button"
           onClick={() => {
@@ -525,7 +534,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         already lives — the client — as a POSITIVE marker that survives the boot
         merge (see `withdrawUserConfirmation`).
       */}
-      {row.reviewed && row.provenanceKind === 'confirmed' && (
+      {V3_FACTOR_CONFIRMATION_CONNECTED && row.reviewed && row.provenanceKind === 'confirmed' && (
         <button
           type="button"
           onClick={() => {
@@ -542,7 +551,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
           Undo confirmation
         </button>
       )}
-      {row.canEditValue && canDescribeInWords && (
+      {row.canEditValue && canDescribeInWords && canCommitCanonicalValue && (
         <Tooltip content="Say what you think in plain words" delay={300}>
           <PanelIconButton
             variant="ghost"
@@ -597,7 +606,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         guarantee-theatre class this estate hunts, so the denial is explicit and
         pinned by a test rather than left to a reviewer's memory.
       */}
-      {!row.needsValue && (
+      {!row.needsValue && V3_FACTOR_CONFIRMATION_CONNECTED && (
         <p
           className={`${typography.panelMeta} text-text-light`}
           data-testid="pre-analysis-v3-confirmation-note"
@@ -618,7 +627,7 @@ export const CalibrateDrillIn = memo(function CalibrateDrillIn({ row, onDone }: 
         12 is about. Nothing else about this surface changed — the state, the
         gate and `acceptElicited` are still owned here.
       */}
-      {inWords && row.canEditValue && canDescribeInWords && (
+      {inWords && row.canEditValue && canDescribeInWords && canCommitCanonicalValue && (
         <BeliefElicitationField
           testId="pre-analysis-v3-in-words"
           label={row.label}

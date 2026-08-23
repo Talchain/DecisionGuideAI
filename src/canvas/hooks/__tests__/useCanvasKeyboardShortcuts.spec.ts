@@ -188,32 +188,34 @@ describe('useCanvasKeyboardShortcuts', () => {
   })
 
   describe('T: Open Templates Panel', () => {
-    it('calls openTemplatesPanel when T pressed', () => {
+    it('withholds the local template mutation route and explains where to edit', () => {
       // Mock store to have panel closed initially
       useCanvasStore.setState({ showTemplatesPanel: false })
 
-      renderHook(() => useCanvasKeyboardShortcuts({}))
+      const onShowToast = vi.fn()
+      renderHook(() => useCanvasKeyboardShortcuts({ onShowToast }))
 
       // Simulate T key press
       const event = new KeyboardEvent('keydown', { key: 't' })
       window.dispatchEvent(event)
 
-      // Check that panel is now open
       const state = useCanvasStore.getState()
-      expect(state.showTemplatesPanel).toBe(true)
+      expect(state.showTemplatesPanel).toBe(false)
+      expect(onShowToast).toHaveBeenCalledWith(
+        'Change this through the Model tab or ask Olumi so the shared model stays in sync.',
+        'info',
+      )
     })
 
-    it('opens the panel for CapsLock T too (key "T", shiftKey false) — the first screen advertises this key', () => {
-      // The first-run starter strip renders "Press T for all templates". With
-      // CapsLock engaged the event is key 'T' with shiftKey FALSE — a
-      // lowercase-only match makes the screen's only advertised shortcut a
-      // silent no-op. Shift+T (key 'T', shiftKey true) must stay excluded.
+    it('fails closed for CapsLock T too (key "T", shiftKey false)', () => {
       useCanvasStore.setState({ showTemplatesPanel: false })
+      const onShowToast = vi.fn()
 
-      renderHook(() => useCanvasKeyboardShortcuts({}))
+      renderHook(() => useCanvasKeyboardShortcuts({ onShowToast }))
 
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', shiftKey: false }))
-      expect(useCanvasStore.getState().showTemplatesPanel).toBe(true)
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(false)
+      expect(onShowToast).toHaveBeenCalledTimes(1)
     })
 
     it('still ignores Shift+T (key "T" with shiftKey true)', () => {
@@ -242,7 +244,7 @@ describe('useCanvasKeyboardShortcuts', () => {
       openTemplatesPanelSpy.mockRestore()
     })
 
-    it('passes document.activeElement as invoker', () => {
+    it('never hands the focused element to the disabled template route', () => {
       useCanvasStore.setState({ showTemplatesPanel: false })
       const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
 
@@ -257,8 +259,7 @@ describe('useCanvasKeyboardShortcuts', () => {
       const event = new KeyboardEvent('keydown', { key: 't' })
       window.dispatchEvent(event)
 
-      // Should call with activeElement
-      expect(openTemplatesPanelSpy).toHaveBeenCalledWith(button)
+      expect(openTemplatesPanelSpy).not.toHaveBeenCalled()
 
       // Cleanup
       document.body.removeChild(button)
@@ -344,6 +345,25 @@ describe('useCanvasKeyboardShortcuts', () => {
       window.dispatchEvent(event)
 
       expect(preventDefaultSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe('P: local probability editor authority', () => {
+    it('does not focus or mutate a selected decision and gives the shared-model explanation', () => {
+      const onShowToast = vi.fn()
+      const onToggleInspector = vi.fn()
+      renderHook(() => useCanvasKeyboardShortcuts({ onShowToast, onToggleInspector }))
+
+      const event = new KeyboardEvent('keydown', { key: 'p' })
+      const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+      window.dispatchEvent(event)
+
+      expect(preventDefaultSpy).toHaveBeenCalled()
+      expect(onToggleInspector).not.toHaveBeenCalled()
+      expect(onShowToast).toHaveBeenCalledWith(
+        'Change this through the Model tab or ask Olumi so the shared model stays in sync.',
+        'info',
+      )
     })
   })
 

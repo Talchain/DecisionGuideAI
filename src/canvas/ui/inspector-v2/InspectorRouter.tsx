@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { useNodeMutations } from './useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -143,7 +143,6 @@ export const InspectorRouter = memo(function InspectorRouter({
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { techMode, setTechMode } = useTechToggle()
-  const nodeMutations = useNodeMutations(nodeId ?? '')
 
   const panelType = useMemo(
     () => resolvePanelType(nodeId, edgeId, nodes as { id: string; type?: string; data?: Record<string, unknown> }[]),
@@ -210,12 +209,27 @@ export const InspectorRouter = memo(function InspectorRouter({
           />
         }
       >
-        <EdgePanel
-          edgeId={edgeId}
-          techMode={techMode}
-          onClose={onClose}
-          onNavigate={handleNavigate}
-        />
+        <div
+          id="inspector-authority-notice"
+          role="note"
+          data-testid="inspector-authority-notice"
+          className="rounded border border-panel-border bg-panel-hover px-3 py-2 text-xs text-text-body"
+        >
+          {INSPECTOR_READ_ONLY_REASON}
+        </div>
+        <fieldset
+          disabled
+          aria-describedby="inspector-authority-notice"
+          data-authority="disabled"
+          className="contents"
+        >
+          <EdgePanel
+            edgeId={edgeId}
+            techMode={techMode}
+            onClose={onClose}
+            onNavigate={handleNavigate}
+          />
+        </fieldset>
       </InspectorShell>
     )
   }
@@ -286,7 +300,6 @@ export const InspectorRouter = memo(function InspectorRouter({
       nodeKind={SHAPED_KINDS.has(nodeType) ? nodeType : undefined}
       nodeId={nodeId}
       label={label}
-      onLabelChange={nodeMutations.setLabel}
       typePill={typePill}
       typePillColor={pillColor}
       confidenceBadge={confidenceBadge}
@@ -309,7 +322,22 @@ export const InspectorRouter = memo(function InspectorRouter({
           <div>System: raw_label: {rawLabel}</div>
         </TechnicalDisclosure>
       )}
-      <PanelComponent {...panelProps} />
+      <div
+        id="inspector-authority-notice"
+        role="note"
+        data-testid="inspector-authority-notice"
+        className="rounded border border-panel-border bg-panel-hover px-3 py-2 text-xs text-text-body"
+      >
+        {INSPECTOR_READ_ONLY_REASON}
+      </div>
+      <fieldset
+        disabled
+        aria-describedby="inspector-authority-notice"
+        data-authority="disabled"
+        className="contents"
+      >
+        <PanelComponent {...panelProps} />
+      </fieldset>
     </InspectorShell>
   )
 })

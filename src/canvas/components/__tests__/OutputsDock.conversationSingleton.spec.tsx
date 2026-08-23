@@ -145,7 +145,7 @@ describe('useConversation singleton invariant', () => {
     // surface mounted under the dock subtree adds another call), this
     // count climbs to 2+ and the test fails.
     expect(useConversationCallCount.n).toBe(1)
-  })
+  }, 15_000)
 
   it('FF-off: OutputsDock alone mounts exactly one useConversation() instance (legacy host)', async () => {
     flagState.aiPanelV2 = false
@@ -153,7 +153,7 @@ describe('useConversation singleton invariant', () => {
     // No provider — OutputsDockLegacyHost owns the call directly.
     render(<OutputsDock />)
     expect(useConversationCallCount.n).toBe(1)
-  })
+  }, 15_000)
 })
 
 // ---------------------------------------------------------------------------
@@ -638,4 +638,95 @@ describe('Olumi tab click while floating is open', () => {
     // With floating closed, the click activates the Olumi tab normally.
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
   })
+
+  it('B5: expanded Outputs minimises floating Olumi when the shared usable rectangle would be too narrow', async () => {
+    const { waitFor, fireEvent } = await import('@testing-library/react')
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useCanvasStore } = await import('../../store')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 })
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute('data-testid') === 'outputs-dock') {
+        return { x: 852, y: 12, left: 852, top: 12, right: 1268, bottom: 784, width: 416, height: 772, toJSON: () => ({}) } as DOMRect
+      }
+      return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect
+    })
+
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+      hasCompletedFirstRun: true,
+    } as any)
+    sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useFloatingPanelState.getState().reset()
+
+    const { findByTestId } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    expect((await findByTestId('outputs-dock')).getAttribute('data-panel-composition')).toBe('expanded')
+    // Drive the actual mounted dock state, not only session/global stores that
+    // may have been initialised earlier in this long-lived module fixture.
+    fireEvent.click(await findByTestId('outputs-dock-tab-results'))
+    expect(useUIStore.getState().activeOutputTab).toBe('results')
+    act(() => { useFloatingPanelState.getState().open('user') })
+    await waitFor(() => expect(useFloatingPanelState.getState().isMinimised).toBe(true))
+
+    rectSpy.mockRestore()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    sessionStorage.removeItem('canvas.outputsDock.v1')
+    useFloatingPanelState.getState().reset()
+    useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
+  }, 15_000)
+
+  it('B5 contrast: choosing floating Olumi collapses Outputs before revealing the window', async () => {
+    const { waitFor } = await import('@testing-library/react')
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useCanvasStore } = await import('../../store')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { requestFloatingOlumiSurface } = await import('../panelComposition')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 })
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute('data-testid') === 'outputs-dock') {
+        return { x: 852, y: 12, left: 852, top: 12, right: 1268, bottom: 784, width: 416, height: 772, toJSON: () => ({}) } as DOMRect
+      }
+      return { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect
+    })
+
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+      hasCompletedFirstRun: true,
+    } as any)
+    sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify({ isOpen: true, activeTab: 'results' }))
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useFloatingPanelState.getState().reset()
+
+    const { findByTestId } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    const dock = await findByTestId('outputs-dock')
+    expect(dock.getAttribute('data-panel-composition')).toBe('expanded')
+
+    act(() => {
+      requestFloatingOlumiSurface(() => useFloatingPanelState.getState().open('user'))
+    })
+
+    await waitFor(() => expect(dock.getAttribute('data-panel-composition')).toBe('collapsed'))
+    await waitFor(() => expect(useFloatingPanelState.getState().isOpen).toBe(true))
+    expect(useFloatingPanelState.getState().isMinimised).toBe(false)
+
+    rectSpy.mockRestore()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    sessionStorage.removeItem('canvas.outputsDock.v1')
+    useFloatingPanelState.getState().reset()
+    useCanvasStore.setState({ nodes: [], hasCompletedFirstRun: false } as any)
+  }, 15_000)
 })

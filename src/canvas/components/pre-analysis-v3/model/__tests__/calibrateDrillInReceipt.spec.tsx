@@ -309,30 +309,11 @@ describe('the drill-in commit is a real factor_value_edit turn (2.304 slice 1)',
     })
   })
 
-  it('"Confirm as is" dispatches the same turn, carrying the value the user is confirming, and changes nothing locally', async () => {
-    // The turn is HELD OPEN so the assertions below see the local state the
-    // commit itself produced. With a reply in hand the revert/confirm arm has
-    // already run, which would mask a commit that had written the value.
-    holdFirstTurn = true
-    replies.push(acceptance(PRIOR_OBSERVED.value, PRIOR_OBSERVED.raw_value))
+  it('does not mount or dispatch the retired local confirmation action', () => {
     renderHarness()
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('pre-analysis-v3-confirm-as-is'))
-      await flush()
-    })
-
-    const edits = factorValueEdits()
-    expect(edits).toHaveLength(1)
-    expect(edits[0]).toMatchObject({
-      kind: 'factor_value_edit',
-      target_id: FACTOR_ID,
-      value: PRIOR_OBSERVED.value,
-      raw_value: PRIOR_OBSERVED.raw_value,
-    })
-    // ...and CHANGES NOTHING locally. A confirmation is an endorsement, not an
-    // edit: routing it through the optimistic value write would run
-    // `setObservedValue`, which clears BOTH `display_value` copies — silently
-    // dropping CEE's own prose off a row the user asked to leave alone.
+    expect(screen.queryByTestId('pre-analysis-v3-confirm-as-is')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-unconfirm')).not.toBeInTheDocument()
+    expect(factorValueEdits()).toHaveLength(0)
     const node = useCanvasStore.getState().nodes.find((n) => n.id === FACTOR_ID)!
     expect((node.data as Record<string, unknown>).display_value).toBe('3 months')
     expect(observedNow().value).toBe(PRIOR_OBSERVED.value)
@@ -388,29 +369,14 @@ describe('"checked by you" is gated on the RECEIPT, not on the commit or the dis
     expect(screen.getByText('edited by you')).toBeInTheDocument()
   })
 
-  it('"Confirm as is" only stamps user_confirmed after its own receipt', async () => {
-    holdFirstTurn = true
-    replies.push(acceptance(PRIOR_OBSERVED.value, PRIOR_OBSERVED.raw_value))
+  it('cannot stamp user_confirmed without an authoritative confirmation carrier', () => {
     renderHarness()
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('pre-analysis-v3-confirm-as-is'))
-      await flush()
-    })
+    expect(screen.queryByTestId('pre-analysis-v3-confirm-as-is')).not.toBeInTheDocument()
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
     expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
     expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
-
-    await act(async () => {
-      resolveInFlight?.(undefined)
-      await flush()
-    })
-    expect(observedNow().source).toBe('user_confirmed')
-    expect(observedNow().extractionType).toBe('explicit')
-    // 2.638 S2: an endorsement of Olumi's own number reads as a CONFIRMATION,
-    // never as an edit — the distinction the consent witness found collapsed.
-    expect(screen.getByText('confirmed by you')).toBeInTheDocument()
-    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+    expect(factorValueEdits()).toHaveLength(0)
   })
 
   it('a REFUSED commit (200, no receipt) reverts the optimistic number and never claims the row is checked', async () => {

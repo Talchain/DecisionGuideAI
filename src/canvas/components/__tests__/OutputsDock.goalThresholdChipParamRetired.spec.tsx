@@ -304,4 +304,15 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
     expect(chips[0]!.parameters).toEqual({ chip_id: 'goal_run_analysis' })
     expect(goalThresholdParamOf(chips[0]!)).toBeUndefined()
   })
+
+  it('B3: post-run factor cards receive no local-only mutation callbacks', () => {
+    renderDock()
+    expect(screen.getByTestId('mock-results-body')).toBeInTheDocument()
+    expect(capturedResultsBodyProps.current).not.toBeNull()
+    expect(capturedResultsBodyProps.current).not.toHaveProperty('onConfirmFactor')
+    expect(capturedResultsBodyProps.current).not.toHaveProperty('onSetFactorValue')
+    // Positive control: this is the live ResultsBody prop seam, not an empty
+    // mock capture whose absence assertions could pass vacuously.
+    expect(capturedResultsBodyProps.current).toHaveProperty('resultsSectionData')
+  })
 })

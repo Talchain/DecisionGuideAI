@@ -30,9 +30,18 @@ import { InlineField } from './InlineField'
 import { parseSuccessTarget } from './parseSuccessTarget'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 import type { LadderStep, SparkPrompt } from '../types'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+  SHARED_MODEL_AUTHORITY_COPY,
+} from '../../../mutations/mutationAuthority'
 
 export const GOAL_INPUT_ID = 'pre-analysis-v3-goal'
 export const SUCCESS_INPUT_ID = 'pre-analysis-v3-success'
+
+const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
+)
 
 interface HeroSectionProps {
   hero: PreAnalysisModel['hero']
@@ -183,7 +192,8 @@ export const HeroSection = memo(function HeroSection({
           value={hero.goal?.label ?? ''}
           placeholder={HERO_COPY.goalPlaceholder}
           attention={!hero.goal}
-          onCommit={commitGoal}
+          onCommit={GOAL_SUCCESS_EDIT_CONNECTED ? commitGoal : undefined}
+          readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}
           trailing={
             <Tooltip content={HERO_COPY.pressureTestGoal} delay={300}>
               <PanelIconButton
@@ -219,7 +229,8 @@ export const HeroSection = memo(function HeroSection({
           value={hero.success.displayText ?? ''}
           placeholder={HERO_COPY.successPlaceholder}
           attention={hero.goal != null && !hero.success.isSet}
-          onCommit={commitSuccess}
+          onCommit={GOAL_SUCCESS_EDIT_CONNECTED ? commitSuccess : undefined}
+          readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}
           trailing={
             <>
               {successAttribution}
@@ -235,6 +246,14 @@ export const HeroSection = memo(function HeroSection({
             </>
           }
         />
+        {!GOAL_SUCCESS_EDIT_CONNECTED && (
+          <p
+            className={`${typography.panelMeta} ml-16 text-text-light`}
+            data-testid="pre-analysis-v3-authority-note"
+          >
+            {SHARED_MODEL_AUTHORITY_COPY}
+          </p>
+        )}
       </div>
 
       <CoachingSlot coaching={hero.coaching} />

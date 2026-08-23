@@ -29,6 +29,14 @@ import { SUCCESS_INPUT_ID } from '../hero/HeroSection'
 import type { NodeType } from '../../../domain/nodes'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 import type { SparkPrompt } from '../types'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../mutations/mutationAuthority'
+
+const V3_STRUCTURAL_ADD_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd,
+)
+const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
+)
 
 interface YourDecisionSectionProps {
   model: PreAnalysisModel
@@ -270,11 +278,14 @@ export const YourDecisionSection = memo(function YourDecisionSection({
             )}
           </span>
           {!model.hero.success.isSet && (
-            <Tooltip content="Set it in the field above" delay={300}>
+            <Tooltip content={GOAL_SUCCESS_EDIT_CONNECTED ? 'Set it in the field above' : SPARK_PROMPTS.defineSuccess.label} delay={300}>
               <PanelIconButton
-                variant="ghost"
-                aria-label="Go to the success field"
-                onClick={() => document.getElementById(SUCCESS_INPUT_ID)?.focus()}
+                variant={GOAL_SUCCESS_EDIT_CONNECTED ? 'ghost' : 'ai'}
+                aria-label={GOAL_SUCCESS_EDIT_CONNECTED ? 'Go to the success field' : SPARK_PROMPTS.defineSuccess.label}
+                onClick={() => {
+                  if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+                  else onSendPrompt(SPARK_PROMPTS.defineSuccess)
+                }}
               >
                 <ArrowUp className="h-3.5 w-3.5" aria-hidden />
               </PanelIconButton>
@@ -299,14 +310,26 @@ export const YourDecisionSection = memo(function YourDecisionSection({
             </span>
           </div>
         ))}
-        <AddRow
-          placeholder={MODEL_VIEW_COPY.optionsAddPlaceholder}
-          addLabel="Add option"
-          spark={SPARK_PROMPTS.widenOptions}
-          onAdd={label => addNamedNode('option', label)}
-          onSendPrompt={onSendPrompt}
-          testId="pre-analysis-v3-add-option"
-        />
+        {V3_STRUCTURAL_ADD_CONNECTED ? (
+          <AddRow
+            placeholder={MODEL_VIEW_COPY.optionsAddPlaceholder}
+            addLabel="Add option"
+            spark={SPARK_PROMPTS.widenOptions}
+            onAdd={label => addNamedNode('option', label)}
+            onSendPrompt={onSendPrompt}
+            testId="pre-analysis-v3-add-option"
+          />
+        ) : (
+          <button
+            type="button"
+            className={`${typography.panelBody} ml-6 inline-flex items-center gap-1.5 text-info underline underline-offset-2`}
+            onClick={() => onSendPrompt(SPARK_PROMPTS.widenOptions)}
+            data-testid="pre-analysis-v3-explore-options"
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+            Explore more options with Olumi
+          </button>
+        )}
       </Group>
 
       <Group
@@ -328,14 +351,26 @@ export const YourDecisionSection = memo(function YourDecisionSection({
             </span>
           </div>
         ))}
-        <AddRow
-          placeholder={MODEL_VIEW_COPY.risksAddPlaceholder}
-          addLabel="Add risk"
-          spark={SPARK_PROMPTS.findRisks}
-          onAdd={label => addNamedNode('risk', label)}
-          onSendPrompt={onSendPrompt}
-          testId="pre-analysis-v3-add-risk"
-        />
+        {V3_STRUCTURAL_ADD_CONNECTED ? (
+          <AddRow
+            placeholder={MODEL_VIEW_COPY.risksAddPlaceholder}
+            addLabel="Add risk"
+            spark={SPARK_PROMPTS.findRisks}
+            onAdd={label => addNamedNode('risk', label)}
+            onSendPrompt={onSendPrompt}
+            testId="pre-analysis-v3-add-risk"
+          />
+        ) : (
+          <button
+            type="button"
+            className={`${typography.panelBody} ml-6 inline-flex items-center gap-1.5 text-info underline underline-offset-2`}
+            onClick={() => onSendPrompt(SPARK_PROMPTS.findRisks)}
+            data-testid="pre-analysis-v3-explore-risks"
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+            Explore risks with Olumi
+          </button>
+        )}
       </Group>
 
       <Group
@@ -367,6 +402,10 @@ export const YourDecisionSection = memo(function YourDecisionSection({
                 onToggle={nodeId =>
                   setExpandedEstimate(current => (current === nodeId ? null : nodeId))
                 }
+                onAsk={estimate => onSendPrompt({
+                  ...SPARK_PROMPTS.calibrate,
+                  prompt: `Help me estimate ${estimate.label} using the evidence and uncertainty in this model.`,
+                })}
               />
               {/* Walk gap #3 (dead-end half): the old `&& !row.reviewed` guard
                   locked a wrong checked value out of the editor that accepted

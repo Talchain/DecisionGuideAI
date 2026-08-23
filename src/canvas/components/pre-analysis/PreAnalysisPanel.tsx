@@ -29,6 +29,10 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
 // The canonical "open the editor for this node" seam — see handleSetValueForGap.
 import { openNodeInspector } from '../../nodes/shared/openNodeInspector'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../../mutations/mutationAuthority'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
@@ -663,9 +667,9 @@ type MappedTriageCard = TriageCardItem & {
 type UnifiedQueueEntryProp = { card: MappedTriageCard; overlay: StrengthenOverlay | null }
 
 interface T1Handlers {
-  onConfirm: (targetId: string) => void
-  onEdit: (targetId: string) => void
-  onUpdateEdgeStrength: (edgeId: string, value: number) => void
+  onConfirm?: (targetId: string) => void
+  onEdit?: (targetId: string) => void
+  onUpdateEdgeStrength?: (edgeId: string, value: number) => void
   onHoverEnter: (type: 'node' | 'edge', id: string) => void
   onHoverLeave: () => void
   buildAiDiscuss: (entry: UnifiedQueueEntryProp) => React.ReactNode
@@ -673,6 +677,19 @@ interface T1Handlers {
   onBiasHoverEnter: (targetFactorId: string | null) => void
   onBiasHoverLeave: () => void
 }
+
+const PRE_ANALYSIS_FACTOR_VALUE_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisFactorValue,
+)
+const PRE_ANALYSIS_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisFactorConfirmation,
+)
+const PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength,
+)
+const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
+)
 
 // Pre-analysis-power-v1 Task 6 — disclosure verb override for the pre-analysis
 // panel's TriageCard call-sites. ExpandableCoachingText's default
@@ -1243,9 +1260,11 @@ export function PreAnalysisPanel({
   // handlers route through the same setHighlightedNodes/Edges store calls
   // as the legacy bias trigger render.
   const t1Handlers = useMemo<T1Handlers>(() => ({
-    onConfirm: handleConfirm,
-    onEdit: handleSetValueForGap,
-    onUpdateEdgeStrength: handleUpdateEdgeStrength,
+    onConfirm: PRE_ANALYSIS_FACTOR_CONFIRMATION_CONNECTED ? handleConfirm : undefined,
+    onEdit: PRE_ANALYSIS_FACTOR_VALUE_CONNECTED ? handleSetValueForGap : undefined,
+    onUpdateEdgeStrength: PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED
+      ? handleUpdateEdgeStrength
+      : undefined,
     onHoverEnter: handleHoverElement,
     onHoverLeave: handleHoverClear,
     buildAiDiscuss: (entry) => entry.card.aiDiscuss
@@ -1357,7 +1376,12 @@ export function PreAnalysisPanel({
     // (CEE hint / deterministic derived context / generic fallback).
     const capHintSubtitle = resolveCapHintSubtitle(resolverInput, formatValueWithUnit)
     const subtitle = capHintSubtitle ?? mapped.subtitle
-    if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
+    if (
+      PRE_ANALYSIS_FACTOR_VALUE_CONNECTED &&
+      targetId &&
+      item.focus?.type === 'node' &&
+      (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')
+    ) {
       return {
         ...mapped,
         subtitle,
@@ -2378,7 +2402,7 @@ export function PreAnalysisPanel({
               <AnalysisSettings
                 goalNodes={data.nodesByKind.goal}
                 selectedGoalNode={data.goalNode}
-                onGoalChange={handleGoalChange}
+                onGoalChange={GOAL_SUCCESS_EDIT_CONNECTED ? handleGoalChange : undefined}
               >
                 <SuccessTarget
                   goalNode={data.goalNode}
@@ -2387,10 +2411,10 @@ export function PreAnalysisPanel({
                   isThresholdAutoDerived={data.isThresholdAutoDerived}
                   isThresholdConfirmed={data.isThresholdConfirmed}
                   thresholdProvenance={data.thresholdProvenance}
-                  onThresholdChange={handleThresholdChange}
-                  onThresholdConfirm={handleThresholdConfirm}
-                  onThresholdEdit={handleThresholdEdit}
-                  onGoalChange={handleGoalChange}
+                  onThresholdChange={GOAL_SUCCESS_EDIT_CONNECTED ? handleThresholdChange : undefined}
+                  onThresholdConfirm={GOAL_SUCCESS_EDIT_CONNECTED ? handleThresholdConfirm : undefined}
+                  onThresholdEdit={GOAL_SUCCESS_EDIT_CONNECTED ? handleThresholdEdit : undefined}
+                  onGoalChange={GOAL_SUCCESS_EDIT_CONNECTED ? handleGoalChange : undefined}
                   goalThresholdRaw={data.goalThresholdRaw}
                   goalThresholdUnit={data.goalThresholdUnit}
                   thresholdSourceBadge={data.thresholdSourceBadge}

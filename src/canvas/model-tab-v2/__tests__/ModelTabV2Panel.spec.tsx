@@ -299,27 +299,26 @@ describe('ModelTabV2Panel — factor value edits ride the canonical transaction'
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Honest non-connected affordances
+// Honest non-connected values
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('ModelTabV2Panel — rows with no canonical carrier stay honestly disabled', () => {
+describe('ModelTabV2Panel — rows with no canonical carrier are information, not controls', () => {
   it.each([
     ['relationship', EDGE_ID],
     ['option', OPTION_ID],
     ['goal', GOAL_ID],
-  ])('the %s row value affordance is disabled and says why', (_kind, id) => {
+  ])('the %s row value is static text', (_kind, id) => {
     renderPanel()
     const value = screen.getByTestId(`model-row-v2-${id}-value`)
-    expect(value).toBeDisabled()
-    expect(value).toHaveAttribute(
-      'title',
-      'Editing is not connected yet — this value cannot be changed from here.',
-    )
+    expect(value.tagName).toBe('SPAN')
+    expect(value).not.toHaveAttribute('role', 'button')
   })
 
-  it('POSITIVE CONTROL: the factor row is NOT disabled — the rule above discriminates', () => {
+  it('POSITIVE CONTROL: the canonical factor value remains an enabled button', () => {
     renderPanel()
-    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`)).not.toBeDisabled()
+    const value = screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`)
+    expect(value.tagName).toBe('BUTTON')
+    expect(value).toBeEnabled()
   })
 })
 

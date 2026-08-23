@@ -11,18 +11,24 @@
  */
 
 import { memo } from 'react'
-import { Check, Plus, Pencil } from 'lucide-react'
+import { Check, Plus, Pencil, Sparkles } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography, typo } from '../../../../styles/typography'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, RANK_LABEL_COPY } from '../constants'
 import type { EstimateRowModel } from '../types'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../mutations/mutationAuthority'
+
+const V3_FACTOR_VALUE_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorValue,
+)
 
 interface EstimateRowProps {
   row: EstimateRowModel
   expanded: boolean
   onToggle: (nodeId: string) => void
+  onAsk?: (row: EstimateRowModel) => void
 }
 
 /**
@@ -44,7 +50,7 @@ function reviewedPillCopy(kind: EstimateRowModel['provenanceKind']): string {
   return ATTRIBUTION_COPY.checkedByYou
 }
 
-export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }: EstimateRowProps) {
+export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle, onAsk }: EstimateRowProps) {
   const pill = row.reviewed ? (
     <Pill variant="success" size="small">{reviewedPillCopy(row.provenanceKind)}</Pill>
   ) : row.needsValue ? (
@@ -56,7 +62,33 @@ export const EstimateRow = memo(function EstimateRow({ row, expanded, onToggle }
     <Pill variant="default" size="small">{ATTRIBUTION_COPY.unchecked}</Pill>
   )
 
-  const action = row.reviewed ? (
+  const canEditCanonicalValue = V3_FACTOR_VALUE_CONNECTED && row.canEditValue
+  const askAction = onAsk ? (
+    <button
+      type="button"
+      onClick={() => onAsk(row)}
+      aria-label={`Ask Olumi about ${row.label}`}
+      className={typo(
+        'panelMeta',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-panel-border bg-transparent px-2 py-1 text-text-body outline-none transition-colors hover:bg-panel-hover focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info/40',
+      )}
+      data-testid={`pre-analysis-v3-ask-${row.nodeId}`}
+    >
+      <Sparkles className="h-3 w-3" aria-hidden />
+      Ask Olumi
+    </button>
+  ) : null
+
+  const action = !canEditCanonicalValue ? (
+    row.reviewed ? (
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex h-7 w-4 items-center justify-center" aria-hidden>
+          <Check className="h-3.5 w-3.5 text-success" />
+        </span>
+        {askAction}
+      </span>
+    ) : askAction
+  ) : row.reviewed ? (
     // Journey-walk gap #3 (dead-end half): once "checked by you", the Check
     // button vanished and a wrong checked value could not be repaired from
     // the surface that accepted it. The tick stays (the state is truthful);

@@ -55,14 +55,14 @@ describe('OnboardingOverlay', () => {
     it('starts at step 0 (Welcome)', () => {
       render(<OnboardingOverlay isOpen={true} onClose={vi.fn()} />)
       expect(screen.getByText('Welcome to Olumi')).toBeInTheDocument()
-      expect(screen.getByText(/Olumi keeps the whole decision journey in one canvas/)).toBeInTheDocument()
+      expect(screen.getByText(/messy strategic work into a living visual model/)).toBeInTheDocument()
     })
 
     it('advances to step 1 on Next click', () => {
       render(<OnboardingOverlay isOpen={true} onClose={vi.fn()} />)
       const nextButton = screen.getByLabelText('Next step')
       fireEvent.click(nextButton)
-      expect(screen.getByText('Templates and merging')).toBeInTheDocument()
+      expect(screen.getByText('One shared model')).toBeInTheDocument()
     })
 
     it('advances through first few steps', () => {
@@ -71,15 +71,15 @@ describe('OnboardingOverlay', () => {
 
       // Step 0 → 1
       fireEvent.click(nextButton)
-      expect(screen.getByText('Templates and merging')).toBeInTheDocument()
+      expect(screen.getByText('One shared model')).toBeInTheDocument()
 
       // Step 1 → 2
       fireEvent.click(nextButton)
-      expect(screen.getByText('Save and autosave')).toBeInTheDocument()
+      expect(screen.getByText('Know what changed')).toBeInTheDocument()
 
       // Step 2 → 3
       fireEvent.click(nextButton)
-      expect(screen.getByText('Editing Essentials')).toBeInTheDocument()
+      expect(screen.getByText('Refine with confidence')).toBeInTheDocument()
     })
 
     it('goes back to previous step on Previous click', () => {
@@ -89,7 +89,7 @@ describe('OnboardingOverlay', () => {
 
       // Go to step 1
       fireEvent.click(nextButton)
-      expect(screen.getByText('Templates and merging')).toBeInTheDocument()
+      expect(screen.getByText('One shared model')).toBeInTheDocument()
 
       // Go back to step 0
       fireEvent.click(prevButton)
@@ -285,7 +285,7 @@ describe('OnboardingOverlay', () => {
 
       fireEvent.click(nextButton)
 
-      expect(screen.getByText(/Step 2 of 9: Templates and merging/)).toBeInTheDocument()
+      expect(screen.getByText(/Step 2 of 9: One shared model/)).toBeInTheDocument()
     })
   })
 
@@ -503,7 +503,7 @@ describe('OnboardingOverlay', () => {
       }
 
       // Should remain on a valid step without crashing or going out-of-bounds
-      expect(screen.getByText('Templates and merging')).toBeInTheDocument()
+      expect(screen.getByText('One shared model')).toBeInTheDocument()
       expect(screen.getByText('Next')).toBeInTheDocument()
     })
 

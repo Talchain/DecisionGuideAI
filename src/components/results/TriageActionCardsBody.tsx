@@ -33,6 +33,10 @@ import type { TriageCardCategory, TriageCardAction } from '@/components/shared/T
 // same reason `AnalysisHeroPanel` imports `openEdgeStrengthEditor`: a surface
 // in the OutputsDock cannot reach the inspector any other way. See
 // `openValueEditor` below.
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '@/canvas/mutations/mutationAuthority'
 import { openNodeInspector } from '@/canvas/nodes/shared/openNodeInspector'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
@@ -245,6 +249,12 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
  *
  * Module-level so the reference is stable across renders of a memoised tree.
  */
+const POST_RUN_VALUE_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.postRunFactorValue,
+)
+const POST_RUN_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.postRunFactorConfirmation,
+)
 const openValueEditor = (nodeId: string): void => {
   openNodeInspector(nodeId)
 }
@@ -881,7 +891,11 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
   // sort + dedup is pure waste if the result never reaches the DOM.
   const allActions = useMemo(() => {
     if (suppressTriageQueue) return []
-    const gaps = mapEvidenceGapsToActions(data, onSetValue, nodeValueLookup)
+    const gaps = mapEvidenceGapsToActions(
+      data,
+      POST_RUN_VALUE_EDIT_CONNECTED ? onSetValue : undefined,
+      nodeValueLookup,
+    )
     const next = mapNextActionsToCards(data)
     const merged = [...gaps, ...next].map(item =>
       applyOverlayToItem(item, findStrengthenOverlay(item, strengthenOverlayMap)),
@@ -988,8 +1002,8 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                       editorConfig={item.editorConfig}
                       sourcePill={item.sourcePill}
                       passiveLabels={item.passiveLabels}
-                      onConfirm={onConfirm}
-                      onEdit={openValueEditor}
+                      onConfirm={POST_RUN_FACTOR_CONFIRMATION_CONNECTED ? onConfirm : undefined}
+                      onEdit={POST_RUN_VALUE_EDIT_CONNECTED ? openValueEditor : undefined}
                       onHoverEnter={onHoverEnter}
                       onHoverLeave={onHoverLeave}
                     />
@@ -1005,8 +1019,8 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
               startOrdinal={4}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
-              onConfirm={onConfirm}
-              onEdit={openValueEditor}
+              onConfirm={POST_RUN_FACTOR_CONFIRMATION_CONNECTED ? onConfirm : undefined}
+              onEdit={POST_RUN_VALUE_EDIT_CONNECTED ? openValueEditor : undefined}
             />
           )}
         </div>

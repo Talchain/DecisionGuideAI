@@ -34,7 +34,9 @@ interface InlineFieldProps {
   value: string
   placeholder: string
   /** Returns true when committed, or a hint string when input is unusable. */
-  onCommit: (raw: string) => true | string
+  onCommit?: (raw: string) => true | string
+  /** Render the producer value without offering a browser-only model edit. */
+  readOnly?: boolean
   /** Warning-tinted border while the field needs attention. */
   attention?: boolean
   /** Trailing affordances (sparks, attribution). */
@@ -52,6 +54,7 @@ export const InlineField = memo(function InlineField({
   trailing,
   inputId,
   ariaLabel,
+  readOnly = false,
 }: InlineFieldProps) {
   const [draft, setDraft] = useState(value)
   const [hint, setHint] = useState<string | null>(null)
@@ -84,6 +87,7 @@ export const InlineField = memo(function InlineField({
       setHint(null)
       return
     }
+    if (!onCommit) return
     const result = onCommit(draft)
     if (result === true) {
       pendingInputRef.current = false
@@ -107,6 +111,24 @@ export const InlineField = memo(function InlineField({
   }
 
   const hintId = inputId ? `${inputId}-hint` : undefined
+
+  if (readOnly) {
+    return (
+      <div className="grid min-h-8 grid-cols-[56px_1fr_auto] items-center gap-2">
+        <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
+        <span
+          id={inputId}
+          role="textbox"
+          aria-label={ariaLabel}
+          aria-readonly="true"
+          className={`${typography.panelBody} min-w-0 truncate px-2 text-text-header ${value ? '' : 'text-text-light'}`}
+        >
+          {value || placeholder}
+        </span>
+        <span className="flex items-center gap-1">{trailing}</span>
+      </div>
+    )
+  }
 
   return (
     <div>

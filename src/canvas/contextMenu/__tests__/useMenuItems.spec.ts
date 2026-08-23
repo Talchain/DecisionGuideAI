@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useMenuItems } from '../useMenuItems'
+import { LOCAL_SEMANTIC_CONTEXT_MENU_IDS, useMenuItems } from '../useMenuItems'
 import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, MenuEntry } from '../types'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { Node, Edge } from '@xyflow/react'
@@ -59,6 +59,13 @@ function getItemIds(items: MenuEntry[]): string[] {
   return items.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id)
 }
 
+function getAllItemIds(items: MenuEntry[]): string[] {
+  return items.flatMap(entry => {
+    if ('type' in entry) return []
+    return [entry.id, ...getAllItemIds(entry.submenuItems ?? [])]
+  })
+}
+
 function findItem(items: MenuEntry[], id: string): MenuItemDef | undefined {
   for (const entry of items) {
     if ('id' in entry && entry.id === id) return entry as MenuItemDef
@@ -79,30 +86,34 @@ beforeEach(() => vi.clearAllMocks())
 describe('pane menu', () => {
   const target: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
 
-  it('includes add node, ask AI, and paste', () => {
+  it('keeps read-only and presentation actions while hiding local semantic writes', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
-    expect(ids).toContain('add-node')
     expect(ids).toContain('ask-ai-pane')
-    expect(ids).toContain('paste')
+    expect(ids).toContain('auto-arrange')
+    expect(ids).toContain('toggle-view-mode')
+    expect(ids).not.toContain('add-node')
+    expect(ids).not.toContain('paste')
+    expect(ids).not.toContain('undo')
+    expect(ids).not.toContain('redo')
   })
 
-  it('paste is disabled when clipboard is empty', () => {
+  it('does not mount paste even when the clipboard state would disable it', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const paste = findItem(result.current, 'paste')
-    expect(paste?.enabled).toBe(false)
+    expect(paste).toBeUndefined()
   })
 
-  it('add node submenu has 5 node types', () => {
+  it('does not leak any nested add-node actions', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    const addNode = findItem(result.current, 'add-node')
-    expect(addNode?.submenuItems).toHaveLength(6)
+    expect(getAllItemIds(result.current)).not.toContain('add-node')
+    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(false)
   })
 })
 
@@ -119,20 +130,20 @@ describe('factor node menu (full)', () => {
     kind: 'node', nodeId: 'f1', nodeType: 'factor', node, screenPos: { x: 0, y: 0 },
   }
 
-  it('includes ask AI, explore, set value, add connected factor, mark as assumption, clipboard, delete', () => {
+  it('keeps inquiry, copy and conditional delete while hiding local semantic writes', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).toContain('ask-ai')
     expect(ids).toContain('explore')
-    expect(ids).toContain('set-value')
-    expect(ids).toContain('add-connected-factor')
-    expect(ids).toContain('mark-assumption')
-    expect(ids).toContain('cut')
     expect(ids).toContain('copy')
-    expect(ids).toContain('duplicate')
     expect(ids).toContain('delete')
+    expect(ids).not.toContain('set-value')
+    expect(ids).not.toContain('add-connected-factor')
+    expect(ids).not.toContain('mark-assumption')
+    expect(ids).not.toContain('cut')
+    expect(ids).not.toContain('duplicate')
   })
 
   it('Ask AI has Explain and Challenge submenu items', () => {
@@ -178,12 +189,12 @@ describe('decision node menu (reduced)', () => {
     expect(subIds).not.toContain('ask-ai-challenge')
   })
 
-  it('includes add connected factor', () => {
+  it('withholds add connected factor without a receipt-bearing carrier', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
-    expect(ids).toContain('add-connected-factor')
+    expect(ids).not.toContain('add-connected-factor')
   })
 })
 
@@ -253,14 +264,14 @@ describe('causal edge menu', () => {
     kind: 'edge', edgeId: 'e1', edge, isStructural: false, screenPos: { x: 0, y: 0 },
   }
 
-  it('includes ask AI (explain + challenge), mark as assumption, and delete', () => {
+  it('keeps inquiry and conditional delete but hides local edge semantics', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).toContain('ask-ai')
-    expect(ids).toContain('mark-assumption')
     expect(ids).toContain('delete')
+    expect(ids).not.toContain('mark-assumption')
 
     const askAI = findItem(result.current, 'ask-ai')
     const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
@@ -299,16 +310,16 @@ describe('multi-select menu', () => {
     kind: 'multi', nodeIds: ['f1', 'g1'], edgeIds: ['e1'], screenPos: { x: 0, y: 0 },
   }
 
-  it('includes ask AI, cut, copy, duplicate, delete', () => {
+  it('keeps inquiry, copy and conditional delete but hides cut and duplicate', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).toContain('ask-ai')
-    expect(ids).toContain('cut')
     expect(ids).toContain('copy')
-    expect(ids).toContain('duplicate')
     expect(ids).toContain('delete')
+    expect(ids).not.toContain('cut')
+    expect(ids).not.toContain('duplicate')
   })
 })
 
@@ -317,7 +328,7 @@ describe('multi-select menu', () => {
 // ---------------------------------------------------------------------------
 
 describe('assumption flag label', () => {
-  it('shows "Remove assumption flag" when already flagged', () => {
+  it('does not mount the local assumption toggle even when already flagged', () => {
     const node = {
       id: 'f1', type: 'factor', position: { x: 0, y: 0 },
       data: { label: 'Revenue', kind: 'factor', flagged_as_assumption: true },
@@ -329,7 +340,7 @@ describe('assumption flag label', () => {
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const item = findItem(result.current, 'mark-assumption')
-    expect(item?.label).toBe('Remove assumption flag')
+    expect(item).toBeUndefined()
   })
 })
 
@@ -368,7 +379,7 @@ describe('org node assumption exclusion', () => {
     expect(ids).not.toContain('mark-assumption')
   })
 
-  it('goal node DOES include mark-assumption', () => {
+  it('goal node also withholds mark-assumption without server authority', () => {
     const node = {
       id: 'g1', type: 'goal', position: { x: 0, y: 0 },
       data: { label: 'Profit', kind: 'goal' },
@@ -380,6 +391,30 @@ describe('org node assumption exclusion', () => {
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
-    expect(ids).toContain('mark-assumption')
+    expect(ids).not.toContain('mark-assumption')
+  })
+})
+
+describe('central context-menu authority audit', () => {
+  it.each([
+    { kind: 'pane', screenPos: { x: 1, y: 2 } } as PaneTarget,
+    {
+      kind: 'node', nodeId: 'f1', nodeType: 'factor', screenPos: { x: 1, y: 2 },
+      node: { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'F' } } as Node,
+    } as NodeTarget,
+    {
+      kind: 'edge', edgeId: 'e1', isStructural: false, screenPos: { x: 1, y: 2 },
+      edge: { id: 'e1', source: 'f1', target: 'g1', data: {} } as Edge<EdgeData>,
+    } as EdgeTarget,
+    { kind: 'multi', nodeIds: ['f1'], edgeIds: [], screenPos: { x: 1, y: 2 } } as MultiTarget,
+  ])('recursively excludes every local semantic action for $kind targets', target => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const mounted = new Set(getAllItemIds(result.current))
+    for (const forbidden of LOCAL_SEMANTIC_CONTEXT_MENU_IDS) {
+      expect(mounted.has(forbidden), `${forbidden} mounted for ${target.kind}`).toBe(false)
+    }
+    expect(mounted.has('delete')).toBe(target.kind !== 'pane')
   })
 })

@@ -1,51 +1,6 @@
-/**
- * ResultsBody — a pencil labelled "Edit value" MUST OPEN AN EDITOR.
- *
- * ## The defect this file exists to prevent, stated bluntly
- *
- * `TriageActionCardsBody` wired the shared `TriageCard`'s edit affordance as
- * `onEdit={onFocusNode}`. `onFocusNode` resolves to `useFocusCamera`'s
- * `handleFocusNode`: it selects the node, sets a transient focus dim and
- * (conditionally) moves the camera. It opens NOTHING. The only surface that
- * can edit a factor's value is `InspectorModal`, whose visibility is LOCAL
- * React state in `ReactFlowGraph` (`showFullInspector`), reachable from
- * outside only through the `olumi:open-full-inspector` window event — which
- * `handleFocusNode` never dispatches. So a control that says "Edit value"
- * panned the camera and left the user to find the node and click it
- * themselves.
- *
- * This is the panel-side twin of the R5 defect already fixed on the canvas
- * (see `NodeQuickActions.spec.tsx`): there the on-node Edit pencil wrote
- * `showInspectorPanel`, a store field with zero render consumers. Same shape,
- * different dead end.
- *
- * ## The canonical rule this pins
- *
- * "Edit value" opens the node's inspector, via `openNodeInspector` — the one
- * owner of "raise the editor for this node". There is no per-consumer
- * variant. It fail-closes silently on a node that is not on the canvas.
- *
- * ## Identity binding (CLAUDE.md trap 19)
- *
- * Two factors are on screen and BOTH carry an affordance. Every assertion
- * names one of them by its `targetNodeId`, and the discriminating test clicks
- * the SECOND card's pencil and asserts the FIRST card's node was not selected
- * — a mutant that ignores its argument and opens `nodes[0]` must not survive.
- *
- * ## The honest consumer this must not break
- *
- * `InlineValueControls` (`TriageCard.tsx`) renders its OWN pencil, also
- * labelled "Edit value", whose click commits the number typed into the
- * adjacent spinbutton via `editorConfig.onSave`. That one is honest and does
- * not route through `onEdit` at all. The third test is its control: it must be
- * GREEN before and after the change, and it must NOT raise the inspector.
- *
- * ⚠ SCOPE (CLAUDE.md trap 3): DOM-presence, store-state and window-event
- * assertions only. jsdom cannot prove the inspector is visible, or that it
- * paints above the dock. A browser witness owns that claim.
- */
+/** ResultsBody — controls with no GraphV3 carrier do not mount. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -266,7 +221,7 @@ function withInspectorWatch<T>(fn: (count: () => number) => T): T {
   }
 }
 
-describe('ResultsBody — "Edit value" opens the editor it names', () => {
+describe('ResultsBody — local-only value actions fail closed', () => {
   beforeEach(() => {
     localStorage.clear()
     useCanvasStore.setState({
@@ -290,65 +245,28 @@ describe('ResultsBody — "Edit value" opens the editor it names', () => {
     localStorage.clear()
   })
 
-  /**
-   * Precondition pin (CLAUDE.md trap 13b): the control exists on the MOUNTED
-   * surface. If a flag ever moves the cockpit host, this REDs here rather than
-   * letting the behavioural tests below pass against a component the
-   * deployment does not render.
-   */
-  it('the pencil renders on the next-action card, inside the live mount path', () => {
+  it('keeps both action cards visible while withholding the dead pencil', () => {
     renderBody()
-    expect(
-      within(cardFor(ACTION_LABEL)).getByRole('button', { name: 'Edit value' }),
-    ).toBeInTheDocument()
+    expect(cardFor(GAP_LABEL)).toBeInTheDocument()
+    expect(cardFor(ACTION_LABEL)).toBeInTheDocument()
+    expect(within(cardFor(ACTION_LABEL)).queryByRole('button', { name: 'Edit value' }))
+      .not.toBeInTheDocument()
   })
 
-  /**
-   * ⭐ THE PIN. RED at pristine: `onEdit={onFocusNode}` selects and pans, and
-   * dispatches no inspector-raise signal at all, so `raised` stays 0.
-   */
-  it('clicking it RAISES THE INSPECTOR — the only surface that can edit a value', () => {
-    renderBody()
-    withInspectorWatch(count => {
-      fireEvent.click(within(cardFor(ACTION_LABEL)).getByRole('button', { name: 'Edit value' }))
-      expect(count()).toBe(1)
-    })
-  })
-
-  /**
-   * ⭐ THE DISCRIMINATING HALF. The next-action card is the SECOND card in the
-   * queue, deliberately: a mutant that ignores its argument and opens
-   * `nodes[0]` would satisfy the test above and must fail here.
-   */
-  it('opens THIS card’s node, not the other card’s (discriminating pair)', () => {
-    renderBody()
-    fireEvent.click(within(cardFor(ACTION_LABEL)).getByRole('button', { name: 'Edit value' }))
-
-    const selected = useCanvasStore.getState().selection.nodeIds
-    expect(selected.has(ACTION_NODE_ID)).toBe(true)
-    expect(selected.has(GAP_NODE_ID)).toBe(false)
-  })
-
-  /**
-   * ⭐ THE HONEST CONSUMER, GREEN BEFORE AND AFTER. `InlineValueControls` has
-   * its own "Edit value" pencil that commits the adjacent spinbutton through
-   * `editorConfig.onSave`. It must keep committing, and must NOT be collapsed
-   * into the inspector route — a fix that routed every pencil through
-   * `openNodeInspector` would destroy the one affordance that already worked.
-   *
-   * The negative half is not vacuous: it is asserted in the same act as the
-   * positive commit, so a click that did nothing at all would fail the first
-   * expectation before reaching the second.
-   */
-  it('leaves the inline value editor alone — it still commits, and opens nothing', () => {
-    const { onSetFactorValue } = renderBody()
+  it('withholds the inline editor even when a caller supplies local callbacks', () => {
+    const { onSetFactorValue, onConfirmFactor } = renderBody()
     const card = cardFor(GAP_LABEL)
-    const input = within(card).getByRole('spinbutton', { name: `Value for ${GAP_LABEL}` })
-    fireEvent.change(input, { target: { value: '20' } })
+    expect(within(card).queryByRole('spinbutton', { name: `Value for ${GAP_LABEL}` }))
+      .not.toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Confirm AI estimate' }))
+      .not.toBeInTheDocument()
+    expect(onSetFactorValue).not.toHaveBeenCalled()
+    expect(onConfirmFactor).not.toHaveBeenCalled()
+  })
 
+  it('dispatches no inspector raise as a side effect of rendering the queue', () => {
+    renderBody()
     withInspectorWatch(count => {
-      fireEvent.click(within(card).getByRole('button', { name: 'Edit value' }))
-      expect(onSetFactorValue).toHaveBeenCalledWith(GAP_NODE_ID, 20)
       expect(count()).toBe(0)
     })
   })

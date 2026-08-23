@@ -18,6 +18,11 @@ import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
+
+const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
+)
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 const VersionsPanelHost = lazy(() => import('../canvas/versions/VersionsPanelHost').then(m => ({ default: m.VersionsPanelHost })))
@@ -251,7 +256,7 @@ export default function CanvasMVP() {
         {/* Templates Panel */}
         <Suspense fallback={null}>
           <TemplatesPanel
-            isOpen={showTemplatesPanel}
+            isOpen={TEMPLATE_GRAPH_MUTATIONS_CONNECTED && showTemplatesPanel}
             onClose={() => {
               closeTemplatesPanel()
               setInsertionError(null) // Clear error when panel closes

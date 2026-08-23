@@ -35,6 +35,7 @@ function seed(overrides: Record<string, unknown> = {}) {
     ],
     selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null },
     lastServerGraphHash: HASH,
+    lastAuthoritativeGraph: null,
     pendingStructuralDeletes: [],
     _externalMutationActive: 0,
     ...overrides,
@@ -91,11 +92,63 @@ describe('the four delete gestures each record ONE durable-removal intent', () =
 })
 
 describe('the stand-downs (twin: recorded vs not)', () => {
-  it('records NOTHING when CEE has stamped no graph_hash — no fabricated base', () => {
-    seed({ lastServerGraphHash: null })
+  const canonicalNoHashGestures = [
+    [
+      'deleteSelected',
+      () => {
+        useCanvasStore.setState({
+          selection: {
+            nodeIds: new Set(['option_b']),
+            edgeIds: new Set<string>(),
+            anchorPosition: null,
+          },
+        } as never)
+        useCanvasStore.getState().deleteSelected()
+      },
+    ],
+    ['deleteNodeById', () => useCanvasStore.getState().deleteNodeById('option_b')],
+    ['deleteEdgeById', () => useCanvasStore.getState().deleteEdgeById('e-1')],
+    ['deleteEdge', () => useCanvasStore.getState().deleteEdge('e-1')],
+    [
+      'onNodesChange remove',
+      () => useCanvasStore.getState().onNodesChange([{ type: 'remove', id: 'option_b' }] as never),
+    ],
+    [
+      'onEdgesChange remove',
+      () => useCanvasStore.getState().onEdgesChange([{ type: 'remove', id: 'e-1' }] as never),
+    ],
+  ] as const
+
+  it.each(canonicalNoHashGestures)(
+    '%s fails closed when a canonical scenario has no current graph_hash',
+    (_name, act) => {
+      seed({ lastServerGraphHash: null })
+      const beforeNodeIds = useCanvasStore.getState().nodes.map((n) => n.id)
+      const beforeEdgeIds = useCanvasStore.getState().edges.map((e) => e.id)
+      const messages: string[] = []
+      const onToast = (event: Event) => {
+        messages.push((event as CustomEvent<{ message?: string }>).detail?.message ?? '')
+      }
+      window.addEventListener('topbar:show-toast', onToast)
+
+      act()
+
+      window.removeEventListener('topbar:show-toast', onToast)
+      expect(queue()).toEqual([])
+      expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(beforeNodeIds)
+      expect(useCanvasStore.getState().edges.map((e) => e.id)).toEqual(beforeEdgeIds)
+      expect(messages).toContain('Sync the shared model before deleting. Nothing was removed.')
+    },
+  )
+
+  it('still permits a genuinely local scratch graph while making no durability claim', () => {
+    seed({
+      currentScenarioId: null,
+      lastAuthoritativeGraph: null,
+      lastServerGraphHash: null,
+    })
     useCanvasStore.getState().deleteNodeById('option_b')
     expect(queue()).toEqual([])
-    // …and the deletion still happened locally: the fallback is preserved.
     expect(useCanvasStore.getState().nodes.map((n) => n.id)).not.toContain('option_b')
   })
 

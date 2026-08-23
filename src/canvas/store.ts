@@ -1647,7 +1647,7 @@ function recordStructuralDeleteIntent(
   get: () => CanvasState,
   set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
   removed: { nodeIds: Iterable<string>; edgeIds: Iterable<string> },
-): void {
+): boolean {
   const state = get()
   const result = captureStructuralDelete({
     nodesBefore: state.nodes,
@@ -1662,13 +1662,32 @@ function recordStructuralDeleteIntent(
         : `sd-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   })
   if (!result.ok) {
-    if (import.meta.env.DEV && result.reason === 'no_server_graph_hash') {
-      console.warn(
-        '[structuralDelete] no CEE graph_hash held yet — this deletion stays local ' +
-          '(it will not persist). See canvas/mutations/structuralDelete.ts KNOWN GAP.',
-      )
+    if (result.reason === 'no_server_graph_hash') {
+      // A server-backed scenario with no current CAS base is the exact reload
+      // branch that used to remove locally, show the changed canvas, and then
+      // resurrect on reload. Fail before local removal and give every gesture
+      // (pointer, keyboard, built-in React Flow and inspector) one visible
+      // reason through the canvas's canonical toast bridge.
+      const ownsServerGraph =
+        state.currentScenarioId != null || state.lastAuthoritativeGraph != null
+      if (ownsServerGraph) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+            detail: {
+              message: 'Sync the shared model before deleting. Nothing was removed.',
+              level: 'warning',
+            },
+          }))
+        }
+        return false
+      }
+      // A genuinely local scratch graph has no server model to diverge from.
+      // It remains editable, but records no false durability claim.
+      return true
     }
-    return
+    // Producer/reconciliation writes must still apply locally; empty or stale
+    // ids are harmless no-ops at their existing call sites.
+    return true
   }
   // Fold same-tick captures into ONE payload — see the manifest above (React
   // Flow splits one keypress across two callbacks) and
@@ -1693,6 +1712,7 @@ function recordStructuralDeleteIntent(
     }
     return { pendingStructuralDeletes: [...queued, result.intent] }
   })
+  return true
 }
 
 /**
@@ -2284,17 +2304,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
-    // Selection toggles are non-structural; skip history churn on pure select changes.
-    const isSelectOnly = changes.every(c => c.type === 'select' || c.type === 'dimensions')
-
-    // Debounce history for drag operations
-    const isDrag = changes.some(c => c.type === 'position' && (c as any).dragging)
+    let acceptedChanges = changes
 
     // Only invalidate analysis_ready if deleted nodes are critical (goal, option, intervention targets)
     const removedChanges = changes.filter(c => c.type === 'remove')
     if (removedChanges.length > 0) {
       const deletedNodeIds = removedChanges.map(c => (c as { id: string }).id)
-      maybeInvalidateOnNodeDelete(get, set, deletedNodeIds)
       // 0.48.0 — durable removal, path 5 of 6. React Flow's built-in delete
       // (default Backspace/Delete; no `deleteKeyCode` prop is set) removes nodes
       // through this handler, and its listener sits nearer the event target than
@@ -2302,13 +2317,29 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // path that actually runs. Incident edges are NOT enumerated: CEE's
       // `applyRemoveNode` owns that cascade. Recorded BEFORE the set() below,
       // against the pre-delete graph.
-      recordStructuralDeleteIntent(get, set, { nodeIds: deletedNodeIds, edgeIds: [] })
+      const deleteAllowed = recordStructuralDeleteIntent(get, set, {
+        nodeIds: deletedNodeIds,
+        edgeIds: [],
+      })
+      if (!deleteAllowed) {
+        acceptedChanges = changes.filter(c => c.type !== 'remove')
+      } else {
+        maybeInvalidateOnNodeDelete(get, set, deletedNodeIds)
+      }
     }
 
-    const hasSelectChange = changes.some(c => c.type === 'select')
+    if (acceptedChanges.length === 0) return
+
+    // Selection toggles are non-structural; skip history churn on pure select changes.
+    const isSelectOnly = acceptedChanges.every(c => c.type === 'select' || c.type === 'dimensions')
+
+    // Debounce history for drag operations
+    const isDrag = acceptedChanges.some(c => c.type === 'position' && (c as any).dragging)
+
+    const hasSelectChange = acceptedChanges.some(c => c.type === 'select')
 
     set((s) => {
-      const updatedNodes = applyNodeChanges(changes, s.nodes)
+      const updatedNodes = applyNodeChanges(acceptedChanges, s.nodes)
 
       let selection = s.selection
 
@@ -2363,8 +2394,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
-    const isSelectOnly = changes.every(c => c.type === 'select')
-    const hasSelectChange = changes.some(c => c.type === 'select')
+    let acceptedChanges = changes
 
     // Edge removals via React Flow's built-in delete (default deleteKeyCode =
     // Backspace/Delete) reach the store ONLY through this handler — they never go
@@ -2375,23 +2405,32 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const removedEdgeChanges = changes.filter((c) => c.type === 'remove')
     if (removedEdgeChanges.length > 0) {
       const edgesBefore = get().edges
-      for (const change of removedEdgeChanges) {
-        const removed = edgesBefore.find((e) => e.id === (change as { id: string }).id)
-        if (removed) maybeInvalidateOnEdgeDelete(get, set, removed)
-      }
       // 0.48.0 — durable removal, path 6 of 6. The comment above is the reason
       // this line has to exist: built-in edge deletes reach the store ONLY here,
       // so without it the commonest keyboard gesture would stay local-only and
       // the connection would come back on the next re-run. Same tick as the node
       // half, so the two fold into ONE payload.
-      recordStructuralDeleteIntent(get, set, {
+      const deleteAllowed = recordStructuralDeleteIntent(get, set, {
         nodeIds: [],
         edgeIds: removedEdgeChanges.map((c) => (c as { id: string }).id),
       })
+      if (!deleteAllowed) {
+        acceptedChanges = changes.filter(c => c.type !== 'remove')
+      } else {
+        for (const change of removedEdgeChanges) {
+          const removed = edgesBefore.find((e) => e.id === (change as { id: string }).id)
+          if (removed) maybeInvalidateOnEdgeDelete(get, set, removed)
+        }
+      }
     }
 
+    if (acceptedChanges.length === 0) return
+
+    const isSelectOnly = acceptedChanges.every(c => c.type === 'select')
+    const hasSelectChange = acceptedChanges.some(c => c.type === 'select')
+
     set((s) => {
-      const updatedEdges = applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[]
+      const updatedEdges = applyEdgeChanges(acceptedChanges, s.edges) as Edge<EdgeData>[]
       let selection = s.selection
       if (hasSelectChange) {
         const selectedEdges = updatedEdges.filter(e => e.selected)
@@ -2613,6 +2652,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   deleteSelected: () => {
     const { selection, outcomeNodeId, edges, ceeAnalysisReady } = get()
     const count = selection.nodeIds.size + selection.edgeIds.size
+    if (count === 0) return
+    // Gate before history, invalidation or local removal. With a canonical
+    // scenario but no current server hash, every delete entry point must fail
+    // closed rather than create a canvas state reload will resurrect.
+    if (!recordStructuralDeleteIntent(get, set, {
+      nodeIds: selection.nodeIds,
+      edgeIds: selection.edgeIds,
+    })) return
     pushToHistory(get, set, `Deleted ${count} element${count !== 1 ? 's' : ''}`)
     // P0.5 Fix: Clear outcomeNodeId if the outcome node is being deleted
     const shouldClearOutcome = outcomeNodeId && selection.nodeIds.has(outcomeNodeId)
@@ -2628,11 +2675,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // removal takes its incident edges with it, so splitting this into per-
     // element turns would open a dangling-edge window the contract forbids.
     // Before the removal set(), against the graph the user was looking at.
-    recordStructuralDeleteIntent(get, set, {
-      nodeIds: selection.nodeIds,
-      edgeIds: selection.edgeIds,
-    })
-
     set((s) => {
       const remaining = s.nodes.filter(n => !selection.nodeIds.has(n.id))
       const newOutcomeId = shouldClearOutcome ? null : s.outcomeNodeId
@@ -2672,14 +2714,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   deleteNodeById: (nodeId: string) => {
-    const nodeLabel = (get().nodes.find(n => n.id === nodeId)?.data as Record<string, unknown>)?.label as string ?? nodeId
+    const node = get().nodes.find(n => n.id === nodeId)
+    if (!node) return
+    if (!recordStructuralDeleteIntent(get, set, { nodeIds: [nodeId], edgeIds: [] })) return
+    const nodeLabel = (node.data as Record<string, unknown>)?.label as string ?? nodeId
     pushToHistory(get, set, `Deleted ${nodeLabel}`)
     const { outcomeNodeId } = get()
     // P0.5 Fix: Clear outcomeNodeId if this is the outcome node
     const shouldClearOutcome = outcomeNodeId === nodeId
     // 0.48.0 — durable removal, before the removal set(). Incident edges are
     // NOT enumerated: CEE's `applyRemoveNode` owns that cascade.
-    recordStructuralDeleteIntent(get, set, { nodeIds: [nodeId], edgeIds: [] })
     set((s) => {
       const remaining = s.nodes.filter(n => n.id !== nodeId)
       const newOutcomeId = shouldClearOutcome ? null : s.outcomeNodeId
@@ -2706,9 +2750,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const edge = edges.find(e => e.id === edgeId)
     if (!edge) return
 
-    pushToHistory(get, set, 'Deleted connection')
     // 0.48.0 — durable removal, addressed by the canonical (from, to) pair.
-    recordStructuralDeleteIntent(get, set, { nodeIds: [], edgeIds: [edgeId] })
+    if (!recordStructuralDeleteIntent(get, set, { nodeIds: [], edgeIds: [edgeId] })) return
+    pushToHistory(get, set, 'Deleted connection')
     set((s) => ({
       edges: s.edges.filter(e => e.id !== edgeId),
       // Clear selection if deleted edge was selected
@@ -3353,10 +3397,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const edge = edges.find(e => e.id === id)
     if (!edge) return
 
-    pushToHistory(get, set, 'Deleted connection')
     // 0.48.0 — durable removal. The edge inspector's Delete lands here, so it
     // must record too or that gesture would stay local-only.
-    recordStructuralDeleteIntent(get, set, { nodeIds: [], edgeIds: [id] })
+    if (!recordStructuralDeleteIntent(get, set, { nodeIds: [], edgeIds: [id] })) return
+    pushToHistory(get, set, 'Deleted connection')
 
     const newEdges = edges.filter(e => e.id !== id)
     const newEdgeIds = new Set(selection.edgeIds)

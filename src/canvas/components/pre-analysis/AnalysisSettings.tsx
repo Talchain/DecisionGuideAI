@@ -60,19 +60,25 @@ export function AnalysisSettings({
           >
             Goal
           </label>
-          <select
-            id="goal-selector"
-            value={selectedGoalNode?.id ?? ''}
-            onChange={(e) => onGoalChange?.(e.target.value)}
-            title={selectedGoalNode ? getNodeLabel(selectedGoalNode) : undefined}
-            className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info cursor-pointer truncate`}
-          >
-            {goalNodes.map(goal => (
-              <option key={goal.id} value={goal.id}>
-                {getNodeLabel(goal)}
-              </option>
-            ))}
-          </select>
+          {onGoalChange ? (
+            <select
+              id="goal-selector"
+              value={selectedGoalNode?.id ?? ''}
+              onChange={(e) => onGoalChange(e.target.value)}
+              title={selectedGoalNode ? getNodeLabel(selectedGoalNode) : undefined}
+              className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info cursor-pointer truncate`}
+            >
+              {goalNodes.map(goal => (
+                <option key={goal.id} value={goal.id}>
+                  {getNodeLabel(goal)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span id="goal-selector" className={`${typography.panelBody} min-w-0 truncate text-text-body`}>
+              {selectedGoalNode ? getNodeLabel(selectedGoalNode) : 'No goal selected'}
+            </span>
+          )}
         </div>
 
         {children}
