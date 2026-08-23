@@ -1,24 +1,13 @@
 /**
- * ROADMAP 2.296 C1 — the Model tab Goal card's "Discuss with AI" action.
+ * Model-tab goal coaching ownership.
  *
- * THE DEFECT (#553): `GoalSection`'s outer wrapper was rewritten to accept and
- * forward ONLY `goalNode` — `export function GoalSection({ goalNode }:
- * GoalSectionProps)` — while `ModelTabBody` still supplies `onSendMessage`
- * (ModelTabBody.tsx `<GoalSection goalNode={...} onSendMessage={onSendMessage} />`).
- * `GoalSectionInner` renders the Discuss button only under `{onSendMessage &&
- * ...}`, so the action silently vanished from the goal card while every
- * sibling section (Options, Factors, Relationships, Risks) kept its own.
- *
- * RED-first: these tests render the REAL ModelTabBody→GoalSection path — not
- * GoalSectionInner directly — because the defect lives in the wrapper hop. At
- * the pristine tip the `goal-discuss` testid is absent from the document.
- *
- * CLAIM TYPE: jsdom presence/click-wiring only — never layout or visibility
- * (trap 3).
+ * The retired v1 Goal card must not return merely because a caller supplies a
+ * chat callback. The connected v2 outline keeps the goal readable; contextual
+ * coaching is owned by the live Olumi surfaces, not a duplicate local card.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ModelTabBody } from '../ModelTabBody'
 import type { Node } from '@xyflow/react'
 
@@ -84,8 +73,8 @@ beforeEach(() => {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('Goal section Discuss with AI — real ModelTabBody→GoalSection path (2.296 C1)', () => {
-  it('RED-first: the goal card renders the Discuss action when ModelTabBody supplies onSendMessage', () => {
+describe('Model goal coaching stays on the connected route', () => {
+  it('keeps the goal readable in v2 without mounting the retired goal card', () => {
     const onSendMessage = vi.fn()
     render(
       <ModelTabBody
@@ -95,14 +84,16 @@ describe('Goal section Discuss with AI — real ModelTabBody→GoalSection path 
         onSendMessage={onSendMessage}
       />,
     )
-    // Anti-vacuity (trap 13): the goal section itself is on screen, so the
-    // absence of the button below cannot mean "the card never rendered".
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
-    // The defect: #553's wrapper dropped the callback, so this was absent.
-    expect(screen.getByTestId('goal-discuss')).toBeInTheDocument()
+    const panel = screen.getByTestId('model-tab-v2-panel')
+    const row = screen.getByTestId('model-row-v2-goal-1')
+    expect(panel).toContainElement(row)
+    expect(within(row).getByText('Maximise Revenue')).toBeInTheDocument()
+    expect(screen.queryByTestId('model-goal-section')).toBeNull()
+    expect(screen.queryByTestId('goal-discuss')).toBeNull()
+    expect(onSendMessage).not.toHaveBeenCalled()
   })
 
-  it('clicking the Discuss action sends a message naming the goal', () => {
+  it('supplying a chat callback cannot revive a second model or local action', () => {
     const onSendMessage = vi.fn()
     render(
       <ModelTabBody
@@ -112,16 +103,10 @@ describe('Goal section Discuss with AI — real ModelTabBody→GoalSection path 
         onSendMessage={onSendMessage}
       />,
     )
-    fireEvent.click(screen.getByTestId('goal-discuss'))
-    expect(onSendMessage).toHaveBeenCalledTimes(1)
-    expect(String(onSendMessage.mock.calls[0][0])).toContain('Maximise Revenue')
-  })
-
-  it('control: with no onSendMessage supplied, no Discuss action renders', () => {
-    // Guards the fix's shape: forwarding must remain conditional pass-through,
-    // never a fabricated default handler.
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[makeGoalNode()]} edges={[]} />)
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
+    expect(screen.getAllByTestId('model-outline-v2')).toHaveLength(1)
+    expect(screen.queryByTestId('model-tab-v1-stack')).toBeNull()
     expect(screen.queryByTestId('goal-discuss')).toBeNull()
+    expect(onSendMessage).not.toHaveBeenCalled()
   })
 })

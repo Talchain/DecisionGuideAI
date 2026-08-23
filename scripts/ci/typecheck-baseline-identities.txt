@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2253
+# count=2252
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -442,7 +442,6 @@
 1	src/canvas/contextMenu/Submenu.tsx	TS6133	'ChevronRight' is declared but its value is never read.
 1	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx	TS2339	Property 'getState' does not exist on type 'Mock<[selector: any], any>'.
 1	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx	TS2339	Property 'setState' does not exist on type 'Mock<[selector: any], any>'.
-1	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx	TS2339	Property 'style' does not exist on type 'Element'.
 1	src/canvas/contextMenu/__tests__/actions.spec.ts	TS6196	'PaneTarget' is declared but never used.
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2322	Type 'VitestUtils' is not assignable to type 'Awaitable<HookCleanupCallback>'.
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2339	Property 'getState' does not exist on type 'Mock<[selector: any], any>'.

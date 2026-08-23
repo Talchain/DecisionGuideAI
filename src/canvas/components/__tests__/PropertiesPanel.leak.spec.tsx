@@ -82,7 +82,7 @@ describe('PropertiesPanel - Inspector Routing', () => {
 
     const { getByText } = render(<PropertiesPanel />)
     
-    expect(getByText('Select a node or edge to edit its details.')).toBeDefined()
+    expect(getByText('Select a node or edge to inspect its details.')).toBeDefined()
   })
 
   it('handles rapid selection switching without crashes', () => {
@@ -115,7 +115,7 @@ describe('PropertiesPanel - Inspector Routing', () => {
       return selector ? selector(state) : state
     })
     rerender(<PropertiesPanel />)
-    expect(getByText('Select a node or edge to edit its details.')).toBeDefined()
+    expect(getByText('Select a node or edge to inspect its details.')).toBeDefined()
 
     // No crashes - test passes
   })

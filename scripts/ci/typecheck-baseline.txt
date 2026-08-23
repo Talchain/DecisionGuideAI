@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2253
+# count=2252
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -194,7 +194,7 @@
 1	src/canvas/components/pre-analysis/primitives/Pill.tsx
 1	src/canvas/contextMenu/CanvasContextMenu.tsx
 1	src/canvas/contextMenu/Submenu.tsx
-3	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx
+2	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx
 1	src/canvas/contextMenu/__tests__/actions.spec.ts
 3	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts
 12	src/canvas/contextMenu/actions.ts
