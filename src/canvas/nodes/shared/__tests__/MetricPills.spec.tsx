@@ -9,8 +9,7 @@
  * does. Canvas-node idiom: native `title` + `aria-label` on the pill span
  * (same as the sibling EdgePills strength pill — audit §8 P0-4).
  *
- * Fail-closed: with no provenance passed (legacy callers/fixtures) the chip
- * keeps a generic honest label and never claims a basis it was not given.
+ * Fail-closed: with no provenance passed, the numeric chip is withheld.
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -23,7 +22,6 @@ const RELATIVE_TITLE =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const ABSOLUTE_TITLE =
   'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
-const GENERIC_TITLE = 'Influence: how much this factor affects the outcome'
 
 describe('MetricPills — influence-scale disclosure (lane C4)', () => {
   // Review fix 5: aria-label on a role-less <span> is unreliably announced
@@ -50,11 +48,14 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
     expect(pill.getAttribute('title')).not.toContain('always shows 100%')
   })
 
-  it('no provenance (fail-closed): generic honest label, no basis claim', () => {
+  it('no provenance (fail-closed): withholds the numeric claim', () => {
     render(<MetricPills influencePct={80} />)
-    const pill = screen.getByRole('img', { name: 'Influence 80%' })
-    expect(pill.textContent).toBe('Influence 80%')
-    expect(pill.getAttribute('title')).toBe(GENERIC_TITLE)
+    expect(screen.queryByText('Influence 80%')).not.toBeInTheDocument()
+  })
+
+  it('preserves an attested zero', () => {
+    render(<MetricPills influencePct={0} influenceProvenance="influence_score" />)
+    expect(screen.getByText('Influence 0%')).toBeInTheDocument()
   })
 
   it('unchanged behaviour: renders nothing when no metric is present', () => {

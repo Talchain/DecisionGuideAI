@@ -17,7 +17,7 @@ function triageCard(overrides: Partial<TriageCardItem> = {}): TriageCardItem {
     detail: 'Detail',
     subtitle: undefined,
     category: 'verify',
-    influence: null,
+    analysisMetric: null,
     action: undefined,
     sourcePill: null,
     ...overrides,

@@ -25,6 +25,11 @@ import { ContestedEdgeCard } from '../model-tab/ContestedEdgeCard'
 import { DetailToggleContext } from '../model-tab/DetailToggleContext'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import type { Edge, Node } from '@xyflow/react'
+import { resolveAnalysisMetric } from '@/components/results/driverDisplayModel'
+import {
+  analysisMetricTitle,
+  analysisMetricVisibleLabel,
+} from '@/components/results/influenceScaleCopy'
 
 function SubgroupDivider({ label }: { label: string }) {
   return (
@@ -148,7 +153,7 @@ interface AllImprovementsProps {
   nodes?: Node[]
   /** Handler for resolving a contested edge */
   onResolveEdge?: (edgeId: string, action: UserAction, customMean?: number) => void
-  /** Pre-analysis sensitivity factor influence map for "Drives N%" labels */
+  /** Producer pre-analysis influence scores, keyed by factor id. */
   factorInfluenceMap?: Map<string, number>
 }
 
@@ -200,7 +205,7 @@ interface TierSectionProps {
   nodes?: Node[]
   /** Handler for resolving contested edges */
   onResolveEdge?: (edgeId: string, action: UserAction, customMean?: number) => void
-  /** Factor influence map for "Drives N%" labels */
+  /** Producer pre-analysis influence scores, keyed by factor id. */
   factorInfluenceMap?: Map<string, number>
 }
 
@@ -600,7 +605,7 @@ interface ImprovementRowProps {
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   /** Handler for clearing hover */
   onHoverLeave?: () => void
-  /** Factor influence score (0–1) for "Drives N%" label */
+  /** Producer pre-analysis influence score (0–1). */
   factorInfluence?: number
 }
 
@@ -615,6 +620,10 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
   // Inline value editor for verify items
   const [showValueEditor, setShowValueEditor] = useState(false)
   const [editValue, setEditValue] = useState('')
+  const analysisMetric = resolveAnalysisMetric({
+    value: factorInfluence,
+    basis: 'pre_analysis_influence',
+  })
 
   const handleOpenValueEditor = () => {
     setEditValue(item.rawValue != null ? String(item.rawValue) : '')
@@ -932,10 +941,15 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               </span>
               </Tooltip>
             )}
-            {/* Influence label from pre-analysis sensitivity (Task 4b) */}
-            {factorInfluence != null && factorInfluence > 0 && (
-              <span className={`shrink-0 ${typography.panelMeta} text-text-light ml-1`}>
-                Drives {Math.round(factorInfluence * 100)}%
+            {/* Basis-licensed metric from pre-analysis sensitivity. */}
+            {analysisMetric && (
+              <span
+                className={`shrink-0 ${typography.panelMeta} text-text-light ml-1`}
+                title={analysisMetricTitle(analysisMetric)}
+                role="img"
+                aria-label={analysisMetricTitle(analysisMetric)}
+              >
+                {analysisMetricVisibleLabel(analysisMetric)}
               </span>
             )}
           </div>

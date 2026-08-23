@@ -377,6 +377,7 @@ describe('FactorNode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
+      influenceProvenance: 'influence_score',
       confidence: 0.45,
       inSensitivityAnalysis: true,
       achievementProbability: null,
@@ -549,6 +550,7 @@ describe('FactorNode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
+      influenceProvenance: 'influence_score',
       confidence: 0.6,
       inSensitivityAnalysis: true,
       achievementProbability: null,
@@ -654,6 +656,7 @@ describe('FactorNode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
+      influenceProvenance: 'influence_score',
       confidence: 0.6,
       inSensitivityAnalysis: true,
       achievementProbability: null,
@@ -848,15 +851,11 @@ describe('FactorNode', () => {
       )
     })
 
-    it('no provenance stamp: fails closed to generic wording, claiming no basis', () => {
+    it('no provenance stamp: withholds the influence value and its scale claim', () => {
       renderDetailedWithProvenance(null, 0.6)
-      const bar = screen.getByRole('progressbar', { name: 'Influence' })
-      expect(bar.getAttribute('aria-valuenow')).toBe('60')
-      const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
-        'Influence: how much this factor affects the outcome'
-      )
-      expect(row?.getAttribute('title')).not.toContain('100%')
+      expect(screen.queryByRole('progressbar', { name: /Influence/ })).toBeNull()
+      expect(screen.queryByText('Influence')).toBeNull()
+      expect(screen.queryByText('60%')).toBeNull()
     })
   })
 })

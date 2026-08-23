@@ -32,6 +32,64 @@ export interface DriverDisplayEntry {
 }
 
 /**
+ * The bases that may license a numeric analysis claim in mounted UI copy.
+ * `influence_score` is an absolute producer scale, not a share. The
+ * elasticity fallback is set-relative. Pre-analysis influence and value of
+ * information are separate producer metrics and must never borrow each
+ * other's label.
+ */
+export type AnalysisMetricBasis =
+  | DriverDisplayProvenance
+  | 'pre_analysis_influence'
+  | 'value_of_information'
+
+export type PermittedAnalysisMetricLanguage =
+  | 'absolute_influence_score'
+  | 'set_relative_influence'
+  | 'pre_analysis_influence_score'
+  | 'value_of_information'
+
+/** A numeric claim can travel only as this indivisible policy result. */
+export interface ResolvedAnalysisMetric {
+  /** Producer or policy value, unchanged. */
+  value: number
+  /** Attested meaning of that value. */
+  basis: AnalysisMetricBasis
+  /** The only class of language the mounted consumer may generate. */
+  permittedLanguage: PermittedAnalysisMetricLanguage
+}
+
+const PERMITTED_LANGUAGE_BY_BASIS: Record<AnalysisMetricBasis, PermittedAnalysisMetricLanguage> = {
+  influence_score: 'absolute_influence_score',
+  normalised_elasticity: 'set_relative_influence',
+  pre_analysis_influence: 'pre_analysis_influence_score',
+  value_of_information: 'value_of_information',
+}
+
+function isAnalysisMetricBasis(value: unknown): value is AnalysisMetricBasis {
+  return typeof value === 'string' && value in PERMITTED_LANGUAGE_BY_BASIS
+}
+
+/**
+ * Canonical value + basis + permitted-language resolver.
+ *
+ * Absence fails closed. Zero remains a real value. The resolver does not
+ * clamp, scale, normalise, or otherwise modify the supplied number.
+ */
+export function resolveAnalysisMetric(input: {
+  value: unknown
+  basis: AnalysisMetricBasis | null | undefined
+}): ResolvedAnalysisMetric | null {
+  if (typeof input.value !== 'number' || !Number.isFinite(input.value)) return null
+  if (!isAnalysisMetricBasis(input.basis)) return null
+  return {
+    value: input.value,
+    basis: input.basis,
+    permittedLanguage: PERMITTED_LANGUAGE_BY_BASIS[input.basis],
+  }
+}
+
+/**
  * Normalise raw elasticities to 0-1 relative to the largest magnitude in the
  * set (top = 1.0, others proportional). Degenerate sets (max |elasticity| <
  * 0.001) map every factor to 0 so a direction-only display is triggered
@@ -132,6 +190,53 @@ export function selectDriverDisplayModel(
     }
   }
   return out
+}
+
+/**
+ * Resolve the exact value and basis that may back generated driver copy.
+ *
+ * A stamped display pair is accepted only when it agrees with the field that
+ * attests that basis. This makes a contradictory display value/basis fail
+ * closed instead of certifying one number and printing another. Unstamped
+ * legacy rows read directly from the basis-bearing producer field; a bare
+ * `displayInfluence` never licenses a claim. Missing values return null and
+ * an explicit zero survives.
+ */
+export function resolveDriverClaimBasis(
+  driver: {
+    displayInfluence?: number | null
+    displayProvenance?: DriverDisplayProvenance | null
+    influenceScore?: number | null
+    normalisedInfluence?: number | null
+  } | null | undefined,
+): ResolvedAnalysisMetric | null {
+  if (!driver) return null
+  const finite = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value)
+
+  if (driver.displayProvenance != null) {
+    if (!isAnalysisMetricBasis(driver.displayProvenance)) return null
+    if (!finite(driver.displayInfluence)) return null
+    const attestedValue = driver.displayProvenance === 'influence_score'
+      ? driver.influenceScore
+      : driver.normalisedInfluence
+    if (!finite(attestedValue) || !Object.is(attestedValue, driver.displayInfluence)) return null
+    return resolveAnalysisMetric({
+      value: driver.displayInfluence,
+      basis: driver.displayProvenance,
+    })
+  }
+
+  if (finite(driver.influenceScore)) {
+    return resolveAnalysisMetric({ value: driver.influenceScore, basis: 'influence_score' })
+  }
+  if (finite(driver.normalisedInfluence)) {
+    return resolveAnalysisMetric({
+      value: driver.normalisedInfluence,
+      basis: 'normalised_elasticity',
+    })
+  }
+  return null
 }
 
 /**

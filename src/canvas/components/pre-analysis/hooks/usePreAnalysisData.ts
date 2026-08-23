@@ -120,15 +120,17 @@ export interface ImprovementItem {
    * Brief 4 Task 8: per-factor context used to derive a deterministic
    * subtitle when the CEE `hint` is absent. Populated by usePreAnalysisData
    * from m1_coaching.evidence_gaps and the graph structure. Consumers
-   * should pick the first populated field in the priority order:
-   * voi → downstreamDegree.
+   * should preserve the two metric bases rather than collapsing them into a
+   * bare score. Priority for display is value of information, then
+   * pre-analysis influence, then downstream degree.
    *
    * ⛔ `evpiPp` removed — it fed "Resolving could improve confidence by {pp}pp"
    * in mapImprovementToTriageCard. The figure is `evpi_percentage_points`, which
    * ISL measures at 0.0 for the very factors PLoT scores at 12.3 / 10.2 / 6.6.
    */
   sensitivityContext?: {
-    voi?: number
+    valueOfInformation?: number
+    factorInfluence?: number
     downstreamDegree?: number
   }
 }
@@ -816,9 +818,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const factorInfluence = preAnalysisSensitivity?.factor_influence?.[factor.id]
       const downstreamDegree = edges.filter(e => e.source === factor.id).length
       const sensitivityContext = {
-        voi: typeof factorInfluence === 'number'
-          ? factorInfluence
-          : (factorEvidenceGap?.voi_score ?? factorEvidenceGap?.voi),
+        valueOfInformation: factorEvidenceGap?.voi_score ?? factorEvidenceGap?.voi,
+        factorInfluence: typeof factorInfluence === 'number' ? factorInfluence : undefined,
         downstreamDegree: downstreamDegree > 0 ? downstreamDegree : undefined,
       }
 

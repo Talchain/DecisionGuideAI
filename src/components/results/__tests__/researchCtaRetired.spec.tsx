@@ -102,6 +102,23 @@ function makeDriver(): DriverItem {
   } as unknown as DriverItem
 }
 
+function makeRunnerUp(): DriverItem {
+  return {
+    factorKey: 'fac_runner',
+    factorLabel: 'Implementation effort',
+    rawElasticity: 0.2,
+    normalisedInfluence: 0.2,
+    influenceScore: 0.2,
+    displayInfluence: 0.2,
+    displayProvenance: 'influence_score',
+    rank: 2,
+    direction: 'negative',
+    semanticLabel: 'second',
+    canFocus: true,
+    matchedNodeId: 'node_runner',
+  } as unknown as DriverItem
+}
+
 function makeData(): ResultsSectionDataReturn {
   const winner = {
     id: 'opt_a',
@@ -131,10 +148,13 @@ function makeData(): ResultsSectionDataReturn {
   } as DecisionResultData
 
   const drivers: DriversSectionData = {
-    drivers: [makeDriver()],
-    topDrivers: [makeDriver()],
+    // A comparative "dominant" claim needs a second, basis-bearing driver.
+    // Keeping that evidence in the fixture prevents this unrelated CTA guard
+    // from passing through a missing-as-zero assumption.
+    drivers: [makeDriver(), makeRunnerUp()],
+    topDrivers: [makeDriver(), makeRunnerUp()],
     driversStatus: 'computed',
-    totalCount: 1,
+    totalCount: 2,
     hasMagnitudeData: true,
     dominantFactorId: 'node_top',
     dominantFactorLabel: DOMINANT_LABEL,

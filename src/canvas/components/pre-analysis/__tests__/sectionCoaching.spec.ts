@@ -7,6 +7,7 @@ import {
 } from '../sectionCoaching'
 import type { ReviewNextSignal } from '../pickStartHere'
 import type { TriageCardItem } from '../mapImprovementToTriageCard'
+import { resolveAnalysisMetric } from '@/components/results/driverDisplayModel'
 
 function triageCard(overrides: Partial<TriageCardItem> = {}): TriageCardItem {
   return {
@@ -15,7 +16,10 @@ function triageCard(overrides: Partial<TriageCardItem> = {}): TriageCardItem {
     detail: 'Detail',
     subtitle: undefined,
     category: 'verify',
-    influence: 0.45,
+    analysisMetric: resolveAnalysisMetric({
+      value: 0.45,
+      basis: 'pre_analysis_influence',
+    }),
     action: undefined,
     sourcePill: null,
     ...overrides,
@@ -29,22 +33,29 @@ function triage(score: number, title = 'Factor A', defaulted = false): ReviewNex
     score,
     defaultedScore: defaulted,
     focusId: 'fac_a',
-    card: triageCard({ title }),
+    card: triageCard({
+      title,
+      analysisMetric: resolveAnalysisMetric({
+        value: score,
+        basis: 'pre_analysis_influence',
+      }),
+    }),
   }
 }
 
 describe('getReviewNextCoachingLine', () => {
   it('renders triage coaching with a percentage', () => {
     expect(getReviewNextCoachingLine(triage(0.45)))
-      .toBe("Factor A drives 45% of the result and hasn't been validated.")
+      .toBe("Factor A has a pre-analysis influence score of 45% and hasn't been validated.")
   })
 
   it('returns null for defaulted triage scores (P1-3 guard)', () => {
     expect(getReviewNextCoachingLine(triage(0.5, 'Factor A', true))).toBeNull()
   })
 
-  it('returns null for zero-percent triage scores', () => {
-    expect(getReviewNextCoachingLine(triage(0))).toBeNull()
+  it('preserves an explicitly attested zero-percent triage score', () => {
+    expect(getReviewNextCoachingLine(triage(0)))
+      .toBe("Factor A has a pre-analysis influence score of 0% and hasn't been validated.")
   })
 
   it('renders the overlap line for option_quality with intervention overlap', () => {
@@ -106,10 +117,9 @@ describe('isRedundantWithStartHere', () => {
 
   it('flags substring overlap as redundant', () => {
     const signal = triage(0.45, 'Direct Delivery Capacity')
-    // The triage line will contain "Direct Delivery Capacity drives..." which
-    // includes the title as a substring — redundant.
+    // The triage line includes the title as a substring, so it is redundant.
     expect(isRedundantWithStartHere(
-      'Direct Delivery Capacity drives 45% of the result',
+      'Direct Delivery Capacity has a pre-analysis influence score of 45%',
       signal,
     )).toBe(true)
   })
@@ -126,8 +136,8 @@ describe('isRedundantWithStartHere', () => {
 
 describe('resolveReviewNextCoachingLine end-to-end', () => {
   it('suppresses when triage title is contained in the coaching line', () => {
-    // Triage signal always yields "{title} drives..." which contains the title
-    // as a substring → should be suppressed to avoid duplication with the
+    // Triage signal always yields a sentence beginning with the title, so it
+    // should be suppressed to avoid duplication with the
     // Start here card title.
     const signal = triage(0.45, 'Factor A')
     expect(resolveReviewNextCoachingLine(signal)).toBeNull()

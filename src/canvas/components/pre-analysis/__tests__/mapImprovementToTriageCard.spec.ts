@@ -17,6 +17,12 @@
 import { describe, it, expect } from 'vitest'
 import { mapImprovementToTriageCard } from '../mapImprovementToTriageCard'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
+import { resolveAnalysisMetric } from '@/components/results/driverDisplayModel'
+
+const metric = (value: number) => resolveAnalysisMetric({
+  value,
+  basis: 'pre_analysis_influence',
+})!
 
 function makeFactorItem(overrides: Partial<ImprovementItem> = {}): ImprovementItem {
   return {
@@ -47,7 +53,7 @@ function makeEdgeItem(overrides: Partial<ImprovementItem> = {}): ImprovementItem
 
 describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
   it('does not render "0 scale" for an inferred zero placeholder factor', () => {
-    const card = mapImprovementToTriageCard(makeFactorItem(), 0.45)
+    const card = mapImprovementToTriageCard(makeFactorItem(), metric(0.45))
     expect(card.subtitle ?? '').not.toMatch(/0\s*scale/i)
     expect(card.detail).not.toMatch(/0\s*scale/i)
   })
@@ -56,7 +62,7 @@ describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
     'does not render "0 %s" for placeholder unit %s',
     (unit) => {
       // Factor variant
-      const factorCard = mapImprovementToTriageCard(makeFactorItem({ unit }), 0.45)
+      const factorCard = mapImprovementToTriageCard(makeFactorItem({ unit }), metric(0.45))
       expect(factorCard.subtitle ?? '').not.toMatch(new RegExp(`0\\s*${unit}`, 'i'))
     },
   )
@@ -67,7 +73,7 @@ describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
     // factor-coaching path applies (subtitle does not reference rawValue here).
     const card = mapImprovementToTriageCard(
       makeFactorItem({ rawValue: 500, unit: 'engineers' }),
-      0.45,
+      metric(0.45),
     )
     // The factor subtitle path doesn't include the value parenthetical, so we
     // assert that the value+unit doesn't get accidentally stripped if it ever
@@ -79,7 +85,7 @@ describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
     // The previous code rendered: "How strongly does X (0 scale) affect Y?"
     // — using ImprovementItem.rawValue, which belongs to the *target* factor, not
     // the source referenced in the question. Drop the parenthetical entirely.
-    const card = mapImprovementToTriageCard(makeEdgeItem(), 0.45)
+    const card = mapImprovementToTriageCard(makeEdgeItem(), metric(0.45))
     expect(card.subtitle ?? '').not.toMatch(/\(\s*0\s*scale\s*\)/i)
     expect(card.subtitle ?? '').not.toMatch(/\(\s*\d+\s*\w+\s*\)/) // no value parenthetical at all
   })
@@ -87,7 +93,7 @@ describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
   it.each(['score', 'index', 'norm'])(
     'edge subtitle for placeholder unit %s does not leak the unit',
     (unit) => {
-      const card = mapImprovementToTriageCard(makeEdgeItem({ unit }), 0.45)
+      const card = mapImprovementToTriageCard(makeEdgeItem({ unit }), metric(0.45))
       expect(card.subtitle ?? '').not.toMatch(new RegExp(`0\\s*${unit}`, 'i'))
     },
   )
@@ -97,7 +103,7 @@ describe('mapImprovementToTriageCard — P0-1 "0 scale" guard', () => {
 
 describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 4)', () => {
   it('renames "AI estimate" to "Olumi\'s estimate" for sourceBadge="ai"', () => {
-    const card = mapImprovementToTriageCard(makeFactorItem({ sourceBadge: 'ai' }), 0.5)
+    const card = mapImprovementToTriageCard(makeFactorItem({ sourceBadge: 'ai' }), metric(0.5))
     expect(card.sourcePill?.label).toBe("Olumi's estimate")
     // Regression guard: the legacy literal must not appear.
     expect(card.sourcePill?.label).not.toBe('AI estimate')
@@ -105,7 +111,7 @@ describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 
   })
 
   it('keeps "From brief" unchanged for sourceBadge="brief"', () => {
-    const card = mapImprovementToTriageCard(makeFactorItem({ sourceBadge: 'brief' }), 0.5)
+    const card = mapImprovementToTriageCard(makeFactorItem({ sourceBadge: 'brief' }), metric(0.5))
     expect(card.sourcePill?.label).toBe('From brief')
     expect(card.sourcePill?.borderClass).toBe('border-success/30')
   })
@@ -113,7 +119,7 @@ describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 
   it('routes no-value node items (category=fix) to "Needs value"', () => {
     const card = mapImprovementToTriageCard(
       makeFactorItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
-      0.5,
+      metric(0.5),
     )
     expect(card.sourcePill?.label).toBe('Needs value')
     expect(card.sourcePill?.borderClass).toBe('border-warning/30')
@@ -122,7 +128,7 @@ describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 
   it('routes no-value edge items (category=fix, focus.type=edge) to "Needs judgement"', () => {
     const card = mapImprovementToTriageCard(
       makeEdgeItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
-      0.5,
+      metric(0.5),
     )
     expect(card.sourcePill?.label).toBe('Needs judgement')
     expect(card.sourcePill?.borderClass).toBe('border-warning/30')
@@ -131,7 +137,7 @@ describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 
   it('triggers "Needs judgement" when detail is "No evidence" on an edge', () => {
     const card = mapImprovementToTriageCard(
       makeEdgeItem({ sourceBadge: undefined, category: 'verify', detail: 'No evidence' }),
-      0.5,
+      metric(0.5),
     )
     expect(card.sourcePill?.label).toBe('Needs judgement')
   })
@@ -139,7 +145,7 @@ describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 
   it('returns null sourcePill when there is no badge, no fix category, and no missing-data detail', () => {
     const card = mapImprovementToTriageCard(
       makeFactorItem({ sourceBadge: undefined, category: 'verify', detail: 'Confirm or edit the AI estimate' }),
-      0.5,
+      metric(0.5),
     )
     expect(card.sourcePill).toBeNull()
   })
@@ -147,11 +153,11 @@ describe('mapImprovementToTriageCard — sourcePill (pre-analysis-power-v1 Task 
   it('never emits the legacy "No data" label (replaced by "Needs value" / "Needs judgement")', () => {
     const nodeCard = mapImprovementToTriageCard(
       makeFactorItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
-      0.5,
+      metric(0.5),
     )
     const edgeCard = mapImprovementToTriageCard(
       makeEdgeItem({ sourceBadge: undefined, category: 'fix', detail: 'No observed data' }),
-      0.5,
+      metric(0.5),
     )
     expect(nodeCard.sourcePill?.label).not.toBe('No data')
     expect(edgeCard.sourcePill?.label).not.toBe('No data')

@@ -17,7 +17,10 @@
  * en-GB, no internal analytical vocabulary, and NO em dashes (DS ban) in any
  * user-facing string exported here.
  */
-import type { DriverDisplayProvenance } from './driverDisplayModel'
+import type {
+  DriverDisplayProvenance,
+  ResolvedAnalysisMetric,
+} from './driverDisplayModel'
 
 /** Header tooltip / pill title — no basis stamped (fail-closed). */
 export const INFLUENCE_EXPLANATION_GENERIC =
@@ -69,7 +72,7 @@ export function influencePillAriaLabel(
     ? `Influence ${pct}%, relative to the strongest factor. The top driver always shows 100%`
     : provenance === 'influence_score'
       ? `Influence ${pct}%, an absolute causal influence score from the analysis`
-      : `Influence ${pct}%`
+      : 'Influence basis unavailable'
 }
 
 /**
@@ -84,4 +87,59 @@ export function influenceBarAriaLabel(
     : provenance === 'influence_score'
       ? 'Influence, an absolute causal influence score from the analysis'
       : 'Influence'
+}
+
+/** Convert a resolved metric to display percent without rescaling its value. */
+export function analysisMetricPercent(metric: ResolvedAnalysisMetric): number {
+  return Math.round(metric.value * 100)
+}
+
+/** Compact visible label. Every number names its licensed metric. */
+export function analysisMetricVisibleLabel(metric: ResolvedAnalysisMetric): string {
+  const pct = analysisMetricPercent(metric)
+  switch (metric.permittedLanguage) {
+    case 'absolute_influence_score':
+      return `Influence score ${pct}%`
+    case 'set_relative_influence':
+      return `Relative influence ${pct}%`
+    case 'pre_analysis_influence_score':
+      return `Pre-analysis influence score ${pct}%`
+    case 'value_of_information':
+      return `Value of information ${pct}%`
+  }
+}
+
+/** Standalone title and accessible description for a resolved metric. */
+export function analysisMetricTitle(metric: ResolvedAnalysisMetric): string {
+  const pct = analysisMetricPercent(metric)
+  switch (metric.permittedLanguage) {
+    case 'absolute_influence_score':
+      return `Influence score ${pct}% on the analysis scale`
+    case 'set_relative_influence':
+      return `Influence ${pct}%, relative to the strongest factor in this analysis`
+    case 'pre_analysis_influence_score':
+      return `Pre-analysis influence score ${pct}%`
+    case 'value_of_information':
+      return `Value of information ${pct}%`
+  }
+}
+
+/** Predicate slot for generated prose after a factor name. */
+export function analysisMetricPredicate(metric: ResolvedAnalysisMetric): string {
+  const pct = analysisMetricPercent(metric)
+  switch (metric.permittedLanguage) {
+    case 'absolute_influence_score':
+      return `has an influence score of ${pct}%`
+    case 'set_relative_influence':
+      return `has relative influence of ${pct}% within this analysis`
+    case 'pre_analysis_influence_score':
+      return `has a pre-analysis influence score of ${pct}%`
+    case 'value_of_information':
+      return `has a value of information score of ${pct}%`
+  }
+}
+
+/** Complete context sentence used by compact coaching surfaces. */
+export function analysisMetricContextSentence(metric: ResolvedAnalysisMetric): string {
+  return `${analysisMetricTitle(metric)}.`
 }
