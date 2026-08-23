@@ -28,6 +28,7 @@ import { RiskPanel } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { resolveElementLabel } from '../../domain/elementLabel'
+import { typography } from '../../../styles/typography'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -213,7 +214,7 @@ export const InspectorRouter = memo(function InspectorRouter({
           id="inspector-authority-notice"
           role="note"
           data-testid="inspector-authority-notice"
-          className="rounded border border-panel-border bg-panel-hover px-3 py-2 text-xs text-text-body"
+          className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
         >
           {INSPECTOR_READ_ONLY_REASON}
         </div>
@@ -326,7 +327,7 @@ export const InspectorRouter = memo(function InspectorRouter({
         id="inspector-authority-notice"
         role="note"
         data-testid="inspector-authority-notice"
-        className="rounded border border-panel-border bg-panel-hover px-3 py-2 text-xs text-text-body"
+        className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
       >
         {INSPECTOR_READ_ONLY_REASON}
       </div>
