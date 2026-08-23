@@ -1,16 +1,14 @@
 /**
- * ModelTabBody — the contested-edge verdict REACHES THE WIRE (P4 transport).
+ * ModelTabBody — retired local adjudication stays retired.
  *
- * Verified defect at staging dae8908f: `handleResolveContested` was a pure
- * local `updateEdge`; the human's settled disagreement — the highest-signal
- * judgement in the product — never left the browser. This spec pins the new
- * wiring: resolving a contested edge STILL applies locally exactly as before,
- * AND emits the `edge_adjudication` system event (best-effort, after the
- * local apply, via the optional conversation context — absent context must
- * not break resolution).
+ * The legacy stack offered a connected-looking contested-edge action whose
+ * mutation was not backed by a canonical GraphV3 receipt. B3 mounts one v2
+ * model route and withholds that local action. These tests keep a positive
+ * control on the mounted model while proving neither the local store nor the
+ * historical best-effort event seam is touched.
  */
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
 
 import { ModelTabBody } from '../ModelTabBody'
@@ -130,42 +128,30 @@ function renderBody(edge: Edge) {
   )
 }
 
-describe('ModelTabBody — contested resolution reaches the wire', () => {
+describe('ModelTabBody — local contested resolution is not mounted', () => {
   beforeEach(() => {
     sendSystemEvent.mockClear()
     mockUpdateEdge.mockClear()
     contextValue = { sendSystemEvent }
   })
 
-  it('⭐ accepting pass 1 applies locally AND emits edge_adjudication, identity-bound', () => {
+  it('keeps the v2 model visible but exposes no legacy adjudication control', () => {
     renderBody(makeContestedEdge())
-    fireEvent.click(screen.getByTestId('contested-accept-pass1-e-contested'))
 
-    // The existing local apply is untouched.
-    expect(mockUpdateEdge).toHaveBeenCalledTimes(1)
-
-    // …and the verdict now leaves the browser.
-    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
-    const [event] = sendSystemEvent.mock.calls[0]!
-    expect(event).toEqual({
-      type: 'edge_adjudication',
-      payload: {
-        from: 'n1',
-        to: 'n2',
-        edge_id: 'e-contested',
-        verdict: 'accepted_pass1',
-        // accepted_pass1 keeps the CURRENT (pass1) value — carried
-        // informatively so the fact is self-contained.
-        resolved_strength_mean: 0.6,
-      },
-    })
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('model-scientific-transparency')).toBeInTheDocument()
+    expect(screen.queryByTestId('contested-accept-pass1-e-contested')).toBeNull()
+    expect(mockUpdateEdge).not.toHaveBeenCalled()
+    expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
-  it('a missing conversation context must not break local resolution (best-effort wire)', () => {
+  it('does not resurrect the retired mutation when conversation context is absent', () => {
     contextValue = null
     renderBody(makeContestedEdge())
-    fireEvent.click(screen.getByTestId('contested-accept-pass1-e-contested'))
-    expect(mockUpdateEdge).toHaveBeenCalledTimes(1)
+
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('contested-accept-pass1-e-contested')).toBeNull()
+    expect(mockUpdateEdge).not.toHaveBeenCalled()
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 })

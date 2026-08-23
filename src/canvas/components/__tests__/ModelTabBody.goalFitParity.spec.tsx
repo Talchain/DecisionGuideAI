@@ -1,42 +1,15 @@
 /**
- * Goal-probability tab parity — journey-walk 2026-08-03 §10.4 (Paul's 2.262
- * tab-parity directive), Model-tab arm.
+ * Model-tab goal-fit ownership.
  *
- * THE WITNESSED GAP (journey-walk-2026-08-03.md §10.4, quartet UI 43fd19e1):
- * per-option goal probability renders on the Analysis tab only ("N% chance of
- * hitting your goal", Goal fit lens) — the Model tab's goal card shows Target
- * only. WIRING GAP, not a design decision, derived at the bytes: ModelTabBody
- * already holds `results.report` and maps report data into sibling sections
- * (conditional winners → OptionsSection, edge e-values → Relationships), and
- * the per-option figures sit in the SAME report at
- * `report.option_probabilities` — GoalSection is simply never handed them.
- *
- * DISCIPLINE (matches the Analysis-tab surfaces exactly):
- *  · ONE chooser: every figure resolves through `selectGoalProbability` —
- *    never a raw read of the owned fields (claim-ownership registration).
- *  · Register-only copy: `GOAL_ANCHOR_COPY.phrase` carries the possessive
- *    gate — the substituted-joint basis withholds "your goal" wording.
- *  · Complete-field gate (the V7 goal lens / OptionCards "Hits target" rule):
- *    rows render only when a target is set AND every option carries an
- *    admissible figure — no partial rankings.
- *  · Modelled-basis caveat: `GOAL_FIT_BASIS_CAVEAT_COPY` adjacent whenever
- *    the number rides `scored_from === 'modelled_outcome_distribution'`.
- *  · Producer order preserved (grouped option order) — no re-sorting, no
- *    winner designation minted here.
- *
- * RED-first at pristine 43fd19e1: the goal card renders no per-option rows,
- * so the first describe fails. Fixture values are the walk's real wire
- * figures (0.0987 / 0.12 / 0.1633 / 0.02 → 10% / 12% / 16% / 2%).
- *
- * CLAIM TYPE: jsdom presence only — never layout or visibility (trap 3).
+ * Analysis owns goal-fit results. The Model tab owns the living model outline
+ * and scientific provenance; it must not mount the retired v1 goal card as a
+ * second, potentially divergent results surface.
  */
-
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
-import { ModelTabBody } from '../ModelTabBody'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
-// ── Mocks (same shape as ModelTabBody.goalDiscuss.spec.tsx) ──────────────────
+import { ModelTabBody } from '../ModelTabBody'
 
 vi.mock('../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -77,38 +50,18 @@ vi.mock('../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-// ── Fixtures — the walk's real option set and wire figures ────────────────────
-
 function makeNodes(): Node[] {
   const mk = (id: string, type: string, label: string, data: Record<string, unknown> = {}): Node =>
     ({ id, type, position: { x: 0, y: 0 }, data: { label, ...data } }) as Node
   return [
     mk('goal_arr', 'goal', 'Reach £1,000,000 ARR', {
-      goal_threshold_raw: 1000000,
+      goal_threshold_raw: 1_000_000,
       goal_threshold_unit: '£',
       goal_threshold: 0.8,
     }),
     mk('opt_content', 'option', 'Invest in Content Marketing'),
     mk('opt_sales', 'option', 'Hire Two Sales Reps'),
-    mk('opt_selfserve', 'option', 'Build Self-Serve Tier'),
-    mk('opt_statusquo', 'option', 'Continue Current Approach (Status Quo)'),
   ]
-}
-
-/** Walk wire figures (journey-walk §2): goal probabilities per option. */
-function walkOptionProbabilities(): Record<string, Record<string, unknown>> {
-  return {
-    opt_content: { win_probability: 0.23, goal_probability: 0.0987 },
-    opt_sales: { win_probability: 0.3, goal_probability: 0.12 },
-    opt_selfserve: { win_probability: 0.46, goal_probability: 0.1633 },
-    opt_statusquo: { win_probability: 0.0145, goal_probability: 0.02 },
-  }
-}
-
-function setResults(optionProbabilities: Record<string, unknown> | undefined): void {
-  mockResults = optionProbabilities
-    ? { status: 'complete', report: { option_probabilities: optionProbabilities } }
-    : null
 }
 
 const DEFAULT_PROPS = {
@@ -122,152 +75,44 @@ const DEFAULT_PROPS = {
   robustness: null,
 }
 
+function renderModel(): void {
+  const nodes = makeNodes()
+  mockGraph.nodes = nodes
+  mockGraph.edges = []
+  render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockResults = null
 })
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
-describe('Model-tab goal card — per-option goal fit (real ModelTabBody→GoalSection path)', () => {
-  it('renders every option with its register-copy goal-fit readout (walk figures)', () => {
-    setResults(walkOptionProbabilities())
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
-    const section = screen.getByTestId('model-goal-section')
-    const rows = within(section).getByTestId('goal-fit-parity')
-    // All four options, producer figures faithfully rounded, register phrase.
-    expect(rows).toHaveTextContent('Invest in Content Marketing')
-    expect(rows).toHaveTextContent('10% chance of hitting your goal')
-    expect(rows).toHaveTextContent('Hire Two Sales Reps')
-    expect(rows).toHaveTextContent('12% chance of hitting your goal')
-    expect(rows).toHaveTextContent('Build Self-Serve Tier')
-    expect(rows).toHaveTextContent('16% chance of hitting your goal')
-    expect(rows).toHaveTextContent('Continue Current Approach (Status Quo)')
-    expect(rows).toHaveTextContent('2% chance of hitting your goal')
-  })
-
-  /**
-   * ⭐ AMENDED BY L62 (2026-08-04). THIS IS THE SCREENSHOT-05 SURFACE.
-   *
-   * 2.282 pinned that this card kept the substituted numbers and swapped to
-   * the non-possessive register. That is exactly what the user was looking at
-   * in L60's screenshot 05: "< 1% chance of meeting every target this run
-   * scored" four times, directly under "Target: 250,000" — for a target the
-   * engine had never even received, scored from a frame-blind comparison that
-   * forces P ~ 0 for every option.
-   *
-   * `buildGoalFitRows` calls `selectGoalProbability` and returns `null` the
-   * moment any option has no admissible figure (its complete-field rule). With
-   * the substitution withheld that is now every option, so the block does not
-   * render — the honest-absence state for this card, and the same rule the
-   * "one option without a figure" test below already pinned.
-   */
-  it('L62: a joint-only run renders NO goal-fit block at all — neither register, no caveat', () => {
-    // The witnessed 2.282 shape: goal_probability absent, joint present,
-    // scored from the modelled outcome distribution.
-    setResults({
-      opt_content: {
-        probability_of_joint_goal: 0.0054,
-        goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
+describe('Model-tab goal-fit ownership', () => {
+  it('keeps model and scientific-transparency surfaces visible without the legacy goal duplicate', () => {
+    mockResults = {
+      status: 'complete',
+      report: {
+        option_probabilities: {
+          opt_content: { goal_probability: 0.0987 },
+          opt_sales: { goal_probability: 0.12 },
+        },
       },
-      opt_sales: {
-        probability_of_joint_goal: 0.55,
-        goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
-      },
-      opt_selfserve: {
-        probability_of_joint_goal: 0.3,
-        goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
-      },
-      opt_statusquo: {
-        probability_of_joint_goal: 0.1,
-        goal_fit_basis: { scored_from: 'modelled_outcome_distribution' },
-      },
-    })
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
+    }
 
-    // Control first: the card ITSELF still renders, so the absences below are
-    // about the goal-fit claim and not about a blank tab.
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
+    renderModel()
 
-    // The block is gone entirely — no rows, so neither register can appear.
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('model-scientific-transparency')).toBeInTheDocument()
+    expect(screen.queryByTestId('model-goal-section')).toBeNull()
     expect(screen.queryByTestId('goal-fit-parity')).toBeNull()
-    const section = screen.getByTestId('model-goal-section')
-    expect(section).not.toHaveTextContent('chance of hitting your goal')
-    expect(section).not.toHaveTextContent('chance of meeting every target this run scored')
-    // Doctrine B in the only form left: with no number displayed there is
-    // nothing for the modelled-basis caveat to qualify, so it must not render
-    // either. A caveat beside no figure is a hedge about a value the user
-    // cannot see.
-    expect(screen.queryByTestId('goal-fit-modelled-caveat')).toBeNull()
+    expect(screen.queryByText(/chance of hitting your goal/i)).toBeNull()
   })
-})
 
-describe('honest gates — no partial rankings, no rows without a basis', () => {
-  it('one option without an admissible figure → NO rows at all (complete-field rule)', () => {
-    // ⚠ FIXTURE CORRECTED BY THE NO-RANK LANE (14 Aug 2026), AND THE
-    // CORRECTION IS ITSELF THE FINDING.
-    //
-    // This test's NAME says "without an admissible figure". Its fixture said
-    // `delete probs.opt_statusquo` — which is a DIFFERENT FACT: not "analysed
-    // and unscoreable" but "never analysed at all". The two arrived at one
-    // `return null` inside `buildGoalFitRows`, and that conflation is exactly
-    // what Paul's ruling separates (CLAUDE.md trap 21: two questions under one
-    // return). The name was right and the fixture was wrong, so the fixture is
-    // what changed: the entry is now PRESENT and carries no goal figure, which
-    // is what the complete-field rule was written to catch.
-    //
-    // The other fact — an option the run never analysed — is pinned by its own
-    // twin below, where it now renders rows instead of blanking the card.
-    const probs = walkOptionProbabilities()
-    probs.opt_statusquo = { win_probability: 0.0145 }
-    setResults(probs)
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
+  it('preserves the same single-route ownership before analysis', () => {
+    renderModel()
+
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('model-tab-v1-stack')).toBeNull()
     expect(screen.queryByTestId('goal-fit-parity')).toBeNull()
-  })
-
-  it('OPPOSITE TWIN — an option the run NEVER ANALYSED still leaves rows for the analysed ones', () => {
-    // Paul's ruling, 14 Aug 2026: an unanalysable option is not in the
-    // comparison — it must not be ranked, and it must not delete the ranking.
-    // Before this lane, `delete probs.opt_statusquo` blanked the ENTIRE
-    // goal-fit card for the three options that WERE scored.
-    const probs = walkOptionProbabilities()
-    delete probs.opt_statusquo
-    setResults(probs)
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
-    const parity = screen.getByTestId('goal-fit-parity')
-    // The three analysed options keep their rows, by label identity.
-    expect(parity).toHaveTextContent('Invest in Content Marketing')
-    expect(parity).toHaveTextContent('Hire Two Sales Reps')
-    expect(parity).toHaveTextContent('Build Self-Serve Tier')
-    // And the never-analysed option contributes none — no row, no figure.
-    expect(parity).not.toHaveTextContent('Continue Current Approach')
-  })
-
-  it('no target set on the goal → no rows even with full figures', () => {
-    setResults(walkOptionProbabilities())
-    const nodes = makeNodes().map(n =>
-      n.id === 'goal_arr'
-        ? ({ ...n, data: { label: 'Reach £1,000,000 ARR' } } as Node)
-        : n,
-    )
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
-    expect(screen.queryByTestId('goal-fit-parity')).toBeNull()
-  })
-
-  it('no analysis results → the goal card is unchanged (target row only)', () => {
-    setResults(undefined)
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
-    expect(screen.getByTestId('model-goal-section')).toBeInTheDocument()
-    expect(screen.queryByTestId('goal-fit-parity')).toBeNull()
-  })
-
-  it('sub-1% figures render the floor readout, never a rounded-to-zero claim', () => {
-    const probs = walkOptionProbabilities()
-    probs.opt_statusquo = { win_probability: 0.0145, goal_probability: 0.004 }
-    setResults(probs)
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={makeNodes()} edges={[]} />)
-    expect(screen.getByTestId('goal-fit-parity')).toHaveTextContent('< 1%')
   })
 })

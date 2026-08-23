@@ -12,7 +12,7 @@
  * `AnalysisHeroPanel` must RED here, not merely in a unit test of the card.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { makeHeroData } from '../__fixtures__/hero.fixtures'
 import type { AssumedStrengthDecision } from '../../strengthElicitation/selectAssumedStrengthToResolve'
@@ -24,13 +24,6 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusExistingTarget: vi.fn(),
   focusModelTarget: vi.fn(() => true),
 }))
-
-vi.mock('../../../../canvas/utils/openEdgeStrengthEditor', async () => {
-  const actual = await vi.importActual<typeof import('../../../../canvas/utils/openEdgeStrengthEditor')>(
-    '../../../../canvas/utils/openEdgeStrengthEditor',
-  )
-  return { ...actual, openEdgeStrengthEditor: vi.fn(() => true) }
-})
 
 vi.mock('@/flags', async () => {
   // `importOriginal`-spread, never a hand-listed allowlist — a `vi.mock` factory
@@ -44,7 +37,6 @@ vi.mock('@/flags', async () => {
   }
 })
 
-import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import { ResultsBody } from '../../ResultsBody'
 import { useCanvasStore } from '@/canvas/store'
 import { useUIStore } from '@/stores/uiStore'
@@ -125,18 +117,14 @@ describe('§0 the elicitation is on the DEFAULT Analysis tab', () => {
     expect(screen.getByTestId('assumed-strength-others').textContent).toContain('2 other')
   })
 
-  it('0.4 the action opens THE EDITOR for the named edge — not merely focuses it', () => {
+  it('0.4 keeps the measured relationship visible but withholds the local-only strength editor', () => {
     renderAnalysisTab(SELECTED)
-    fireEvent.click(screen.getByTestId('assumed-strength-action'))
-    // Asserted by ARGUMENT: the edge it opens the editor for is the edge it
-    // named. This spec owns the BUTTON→ROUTE hop only; that the route actually
-    // lands on the strength control is pinned separately, against the real
-    // store and the real panel, in
-    // `canvas/utils/__tests__/openEdgeStrengthEditor.spec.tsx`. The two are kept
-    // apart deliberately — an earlier version asserted a focus mock here and
-    // INFERRED the rest, which is exactly how a button that never reached the
-    // editor passed review.
-    expect(openEdgeStrengthEditor).toHaveBeenCalledWith('e_demand_rev')
+    expect(screen.getByTestId('assumed-strength-card')).toHaveAttribute(
+      'data-edge-id',
+      'e_demand_rev',
+    )
+    expect(screen.getByTestId('assumed-strength-why')).toHaveTextContent('35%')
+    expect(screen.queryByTestId('assumed-strength-action')).toBeNull()
   })
 
   it('0.5 a speaking refusal renders its sentence and NO card', () => {
