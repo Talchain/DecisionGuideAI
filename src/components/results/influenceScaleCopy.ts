@@ -85,3 +85,70 @@ export function influenceBarAriaLabel(
       ? 'Influence, an absolute causal influence score from the analysis'
       : 'Influence'
 }
+
+// ── The absolute-share claim ────────────────────────────────────────────────
+
+/**
+ * ⭐⭐ THE ONE OWNER OF "WHAT NUMBER MAY BACK AN ABSOLUTE CAUSAL SHARE CLAIM"
+ * (2026-08-23). The answer is NONE OF THEM, and that is why this returns a
+ * MAGNITUDE claim rather than a SHARE claim.
+ *
+ * ⚠ WHY. "drives NN% of the outcome" is a SHARE claim: it asserts the factor
+ * accounts for NN% of the outcome, which implies the factors' shares
+ * partition 100%. Neither basis `driverDisplayModel` can resolve partitions:
+ *
+ *   • 'normalised_elasticity' is |elasticity| / max|elasticity|. The top
+ *     factor is 1.0 BY CONSTRUCTION and the values are per-set. Never a share.
+ *   • 'influence_score' is the producer's ABSOLUTE CAUSAL INFLUENCE SCORE —
+ *     this module's own INFLUENCE_EXPLANATION_ABSOLUTE says exactly that.
+ *     An absolute SCALE is not a PARTITION: every factor may score high at
+ *     once. Measured at the bytes on the repo's golden staging capture
+ *     (`src/test/fixtures/golden-path-staging-2026-04-05.json`), seven
+ *     `influence_score` values read 1.0 / 0.8494 / 0.7304 / 0.6694 / 0.6562 /
+ *     0.3730 / 0.2238 and SUM TO 4.5022 — 450% of one outcome.
+ *
+ * So the witnessed defect (a nudge reading "drives 100% of the outcome"
+ * beside rows reading 75% and 68%, summing to 243%) cannot be repaired by
+ * adjusting the number or by tightening the gate. THE CLAIM IS WHAT IS
+ * WRONG. Both surfaces that made it — the T1 dominance nudge
+ * (`TriageActionCardsBody`) and the `TriageCard` influence-bar tooltip —
+ * render from here, and their local "of the outcome" templates are gone.
+ *
+ * The number itself is retained and is honest: it is the influence value on
+ * a disclosed basis. Only the partition framing is removed.
+ *
+ * Fail-closed on an unstamped basis: state the number, claim no basis.
+ */
+function influenceMagnitudeCore(
+  pct: number,
+  provenance: DriverDisplayProvenance | null | undefined,
+): string {
+  return provenance === 'influence_score'
+    ? `influence score of ${pct}%`
+    : provenance === 'normalised_elasticity'
+      ? `influence of ${pct}%, relative to the strongest factor`
+      : `influence of ${pct}%`
+}
+
+/**
+ * Predicate slot: reads after a subject, e.g. "{factor} has an influence
+ * score of 95%." Used by the T1 dominance nudge.
+ */
+export function influenceMagnitudePredicate(
+  pct: number,
+  provenance: DriverDisplayProvenance | null | undefined,
+): string {
+  return `has an ${influenceMagnitudeCore(pct, provenance)}`
+}
+
+/**
+ * Standalone slot: a native `title` / tooltip on its own. Same claim, same
+ * decision, sentence case. Used by the TriageCard influence bar.
+ */
+export function influenceMagnitudeTitle(
+  pct: number,
+  provenance: DriverDisplayProvenance | null | undefined,
+): string {
+  const core = influenceMagnitudeCore(pct, provenance)
+  return core.charAt(0).toUpperCase() + core.slice(1)
+}

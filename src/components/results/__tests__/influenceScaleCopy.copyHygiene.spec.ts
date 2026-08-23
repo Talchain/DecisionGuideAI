@@ -21,6 +21,8 @@ import {
   influenceExplanation,
   influencePillAriaLabel,
   influenceBarAriaLabel,
+  influenceMagnitudePredicate,
+  influenceMagnitudeTitle,
 } from '../influenceScaleCopy'
 
 const BANNED_TERMS = /\b(node|edge|coefficient|elasticity|normalised value|graph hash|winner|validate)\b/i
@@ -42,6 +44,9 @@ function allStrings(): string[] {
       influenceExplanation(p),
       influencePillAriaLabel(62, p),
       influenceBarAriaLabel(p),
+      // The absolute-share claim's two grammatical slots — same policing.
+      influenceMagnitudePredicate(62, p),
+      influenceMagnitudeTitle(62, p),
     ]),
   ]
 }
@@ -56,6 +61,14 @@ describe('influence-scale disclosure copy hygiene (C4 fix 3)', () => {
       const shouting = s.match(/\b[A-Z]{2,}\b/g) ?? []
       expect(shouting, s).toEqual([])
     }
+  })
+
+  it('never states an influence number as a share of the outcome', () => {
+    // The 21 Aug fresh-guest witness: "drives 100% of the outcome" beside
+    // rows reading 75% and 68%. No basis this product resolves partitions
+    // (the golden staging capture's seven influence_scores sum to 450%), so
+    // no string here may imply one.
+    for (const s of allStrings()) expect(s, s).not.toMatch(/\d+\s*%\s*of the outcome/i)
   })
 
   it('avoids internal analytical vocabulary and American spellings', () => {

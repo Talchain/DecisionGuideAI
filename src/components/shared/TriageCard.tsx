@@ -16,6 +16,7 @@ import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
 import { ExpandableCoachingText } from './ExpandableCoachingText'
 import Tooltip from '@/components/Tooltip'
+import { influenceMagnitudeTitle } from '@/components/results/influenceScaleCopy'
 import { classifyUnit } from '@/utils/unitClassifier'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -480,7 +481,14 @@ export function TriageCard(props: TriageCardProps) {
         {influencePct != null && (
           <div
             className="flex items-center gap-1 flex-shrink-0"
-            title={`Drives ${influencePct}% of the outcome`}
+            /* ⭐ ONE OWNER (influenceScaleCopy.influenceMagnitudeTitle). The
+               literal `Drives ${influencePct}% of the outcome` that stood
+               here was an absolute SHARE claim on a number that is not a
+               share, made with NO basis at all — this card receives a bare
+               `influence` prop and never learns its provenance, so it fails
+               closed to the number without a basis. The competing local
+               template is DELETED, not wrapped. */
+            title={influenceMagnitudeTitle(influencePct, undefined)}
           >
             <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
               <div

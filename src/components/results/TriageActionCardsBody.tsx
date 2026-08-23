@@ -37,7 +37,8 @@ import { openNodeInspector } from '@/canvas/nodes/shared/openNodeInspector'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
-import { INFLUENCE_TIE_EPSILON } from './driverDisplayModel'
+import { INFLUENCE_TIE_EPSILON, resolveDriverClaimBasis } from './driverDisplayModel'
+import { influenceMagnitudePredicate } from './influenceScaleCopy'
 // Canonical glossary check shared with the v17 hero row builders. Used in
 // v17 mode (`useV17Copy === true`) to sanitise user-supplied labels before
 // they are interpolated into GENERATED prose, aria-labels, or titles. The
@@ -390,26 +391,22 @@ function T1DominantNudge({
   const rankedDrivers = (drivers.topDrivers?.length ? drivers.topDrivers : drivers.drivers) ?? []
   const topDriver = rankedDrivers[0]
   const runnerUp = rankedDrivers[1]
-  // Lane 2 (policy): gate and phrase the nudge on the SAME display influence
-  // the panel/hero/graph/tornado show (driverDisplayModel via the stamped
-  // displayInfluence) — a raw-score read here claimed dominance the panel's
-  // own bars contradicted under partial producer coverage (Codex R3-B1 class).
-  const topInfluence = topDriver
-    ? (topDriver.displayInfluence ?? topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
-    : 0
-  // Review fold: "drives NN% of the outcome" is an ABSOLUTE causal claim —
-  // honest only on the producer influence_score basis. Under partial
-  // coverage the display value is set-relative (top driver ≡ 1.0 by
-  // construction), so the nudge would fire on EVERY such run claiming
-  // "100% of the outcome", contradicting the V17 dominance gate
-  // (UI-SEM-040, deliberately absolute) on the same screen. No provenance
-  // marker (legacy fixture) falls back to "a finite raw producer score
-  // exists" — the pre-fold absolute semantic.
-  const absoluteBasis = topDriver
-    ? (topDriver.displayProvenance
-        ? topDriver.displayProvenance === 'influence_score'
-        : typeof topDriver.influenceScore === 'number')
-    : false
+  // ⭐ ONE READ FOR THE VALUE AND ITS BASIS (2026-08-23, trap 21). This used
+  // to be TWO reads answering DIFFERENT questions: the value came from
+  // `displayInfluence ?? influenceScore ?? normalisedInfluence` while the gate
+  // separately asked "does an absolute producer score exist?". On an unstamped
+  // payload the gate passed on `influenceScore` while the sentence printed the
+  // SET-RELATIVE `displayInfluence` (top ≡ 1.0 by construction) — the
+  // witnessed "drives 100% of the outcome". `resolveDriverClaimBasis` is now
+  // the canonical owner of that question and returns value + basis together,
+  // so the two cannot disagree. Both former reads are DELETED, not wrapped.
+  const topBasis = resolveDriverClaimBasis(topDriver)
+  const topInfluence = topBasis?.value ?? 0
+  // Unchanged semantics: the dominance warning is licensed only on the
+  // producer's absolute basis. Under partial coverage the display value is
+  // set-relative and the top is 1.0 on EVERY such run, so a relative basis
+  // may not support a dominance claim at all.
+  const absoluteBasis = topBasis?.provenance === 'influence_score'
   // ⚠ DOMINANCE REQUIRES A RUNNER-UP TO BE DOMINANT OVER (2026-08-19). The
   // gate tested only the top's own magnitude, so on a run where three factors
   // tied at 100% it printed "Dominant factor: Cloud migration progress drives
@@ -417,20 +414,25 @@ function T1DominantNudge({
   // 100%. "Dominant" is a COMPARATIVE claim; a tie cannot support one. Same
   // `INFLUENCE_TIE_EPSILON` the panel's badges and its equal-influence note
   // use, so all three surfaces agree on what counts as a tie.
-  const runnerUpInfluence = runnerUp
-    ? (runnerUp.displayInfluence ?? runnerUp.influenceScore ?? runnerUp.normalisedInfluence ?? 0)
-    : 0
+  const runnerUpInfluence = resolveDriverClaimBasis(runnerUp)?.value ?? 0
   const topIsClearOfRunnerUp = !runnerUp || topInfluence - runnerUpInfluence > INFLUENCE_TIE_EPSILON
   const showNudge = absoluteBasis && topInfluence >= 0.8 && topIsClearOfRunnerUp
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
   if (!showNudge || !dominantLabel) return null
   const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
+  // ⭐ THE CLAIM COMES FROM ITS ONE OWNER (influenceScaleCopy). The literal
+  // `drives ${pct}% of the outcome` that stood here was an absolute SHARE
+  // claim, and NO number this product holds is a share: the producer's
+  // influence_score is an absolute causal-influence SCORE, not a partition —
+  // the golden staging capture's seven scores sum to 450%. Fixing the number
+  // or the gate could not make that sentence true, so the CLAIM is what
+  // changed. The number survives, on its disclosed basis.
   const dominantFocusId = drivers.dominantFactorId
     ?? topDriver?.matchedNodeId
     ?? topDriver?.factorKey
     ?? null
-  const explanation = `drives ${dominantPct}% of the outcome.`
+  const explanation = `${influenceMagnitudePredicate(dominantPct, topBasis?.provenance)}.`
   // (Round-5 P1.2, P0 follow-up) Both v17 and legacy modes use glossary-
   // safe copy. The legacy branch previously contained "the recommendation
   // could change"; the P0 surface-copy cleanup retired that. The two

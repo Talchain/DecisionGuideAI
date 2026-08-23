@@ -135,6 +135,60 @@ export function selectDriverDisplayModel(
 }
 
 /**
+ * ⭐⭐ THE ONE OWNER OF "WHICH NUMBER MAY BACK A BASIS-STAMPED INFLUENCE CLAIM,
+ * AND ON WHICH BASIS" (2026-08-23).
+ *
+ * ⚠ TRAP 21 — TWO AUTHORITIES ANSWERING DIFFERENT QUESTIONS UNDER ONE
+ * SENTENCE. The T1 dominance nudge used to read its VALUE as
+ * `displayInfluence ?? influenceScore ?? normalisedInfluence` and separately
+ * certify its BASIS as `displayProvenance === 'influence_score'` or, when
+ * unstamped, `typeof influenceScore === 'number'`. Those are different
+ * questions: "what do we show?" and "does an absolute producer score exist?".
+ * On an unstamped payload carrying BOTH a set-relative `displayInfluence`
+ * (top ≡ 1.0 by construction) and a modest `influenceScore`, the gate passed
+ * on the producer score while the sentence printed the set-relative 1.0 — the
+ * witnessed "drives 100% of the outcome".
+ *
+ * The fix is structural, not a bigger gate: the value and the basis come from
+ * ONE read, so a surface CANNOT certify one field and print another. When the
+ * pipeline has stamped a basis, that stamp and its value are taken together
+ * (`selectDriverDisplayModel` writes both, so they cannot disagree). When it
+ * has not (legacy fixtures, cached payloads), the value is taken FROM THE
+ * FIELD THAT CERTIFIES THE BASIS — never from `displayInfluence`, whose basis
+ * is then unknown. Absence is returned as `null`, never defaulted to 0 on a
+ * claimed basis (a 0 on a claimed basis is still a claim).
+ *
+ * Deliberately NOT a share. See `influenceScaleCopy.influenceMagnitudeClaim`
+ * for why no value here may back a "NN% of the outcome" sentence.
+ */
+export function resolveDriverClaimBasis(
+  driver: {
+    displayInfluence?: number | null
+    displayProvenance?: DriverDisplayProvenance | null
+    influenceScore?: number | null
+    normalisedInfluence?: number | null
+  } | null | undefined,
+): DriverDisplayEntry | null {
+  if (!driver) return null
+  const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
+  if (driver.displayProvenance === 'influence_score' || driver.displayProvenance === 'normalised_elasticity') {
+    // Stamped: the stamper wrote value and basis together. Take both.
+    return finite(driver.displayInfluence)
+      ? { value: driver.displayInfluence, provenance: driver.displayProvenance }
+      : null
+  }
+  // Unstamped: read the value from whichever field certifies the basis.
+  if (finite(driver.influenceScore)) {
+    return { value: driver.influenceScore, provenance: 'influence_score' }
+  }
+  if (finite(driver.normalisedInfluence)) {
+    return { value: driver.normalisedInfluence, provenance: 'normalised_elasticity' }
+  }
+  return null
+}
+
+/**
  * Rank comparator on a resolved display model: value descending, then
  * elasticity as the tie-break, then key alphabetically for determinism.
  * The graph badge ranks with this so its order matches the panel's, both keyed
