@@ -17,6 +17,12 @@ import type { ScientificEditorProps } from './ScientificEditor'
 import { ExpandableCoachingText } from './ExpandableCoachingText'
 import Tooltip from '@/components/Tooltip'
 import { classifyUnit } from '@/utils/unitClassifier'
+import type { ResolvedAnalysisMetric } from '@/components/results/driverDisplayModel'
+import {
+  analysisMetricPercent,
+  analysisMetricTitle,
+  analysisMetricVisibleLabel,
+} from '@/components/results/influenceScaleCopy'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -47,8 +53,8 @@ export interface TriageCardProps {
   subtitle?: string
   /** Category for badge colour */
   category: TriageCardCategory
-  /** Optional influence score 0-1 for influence bar */
-  influence?: number | null
+  /** Resolved value + basis policy. A bare number is deliberately unsupported. */
+  analysisMetric?: ResolvedAnalysisMetric | null
   /**
    * ⛔ `evoiImpact` DELETED — do not reinstate.
    * It rendered `{n.toFixed(1)}pp` on BOTH card variants, fed from
@@ -311,8 +317,8 @@ function InlineValueControls({
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, badgeColor, influence, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle, disclosureLabels }: TriageCardProps) {
-  const influencePct = influence != null ? Math.round(influence * 100) : null
+function CompactTriageCard({ title, ordinal, category, badgeColor, analysisMetric, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle, disclosureLabels }: TriageCardProps) {
+  const metricPct = analysisMetric ? analysisMetricPercent(analysisMetric) : null
   const resolvedBadgeColor = badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
   return (
@@ -338,15 +344,20 @@ function CompactTriageCard({ title, ordinal, category, badgeColor, influence, on
             {sourcePill.label}
           </span>
         )}
-        {influencePct != null && (
-          <div className="flex items-center gap-1 shrink-0">
+        {analysisMetric && metricPct != null && (
+          <div
+            className="flex items-center gap-1 shrink-0"
+            title={analysisMetricTitle(analysisMetric)}
+            role="img"
+            aria-label={analysisMetricTitle(analysisMetric)}
+          >
             <div className="w-8 h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
               <div
                 className="h-full rounded-sm"
-                style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
+                style={{ width: `${Math.min(100, metricPct)}%`, backgroundColor: evaluativeVar(analysisMetric.value) }}
               />
             </div>
-            <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
+            <span className={`${typography.panelMeta} text-text-light`}>{analysisMetricVisibleLabel(analysisMetric)}</span>
           </div>
         )}
         {/* ⛔ REMOVED: the `{evoiImpact.toFixed(1)}pp` pill. See the prop
@@ -413,7 +424,7 @@ export function TriageCard(props: TriageCardProps) {
     detail,
     subtitle,
     category,
-    influence,
+    analysisMetric,
     variant = 'default',
     action,
     editorConfig,
@@ -432,7 +443,7 @@ export function TriageCard(props: TriageCardProps) {
 
   if (variant === 'compact') return <CompactTriageCard {...props} />
 
-  const influencePct = influence != null ? Math.round(influence * 100) : null
+  const metricPct = analysisMetric ? analysisMetricPercent(analysisMetric) : null
   const badgeColor = props.badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
   // Display text: detail (subtitle is removed per Task 1b)
@@ -476,19 +487,21 @@ export function TriageCard(props: TriageCardProps) {
             {label}
           </span>
         ))}
-        {/* Influence % top-right */}
-        {influencePct != null && (
+        {/* Basis-licensed analysis metric top-right. */}
+        {analysisMetric && metricPct != null && (
           <div
             className="flex items-center gap-1 flex-shrink-0"
-            title={`Drives ${influencePct}% of the outcome`}
+            title={analysisMetricTitle(analysisMetric)}
+            role="img"
+            aria-label={analysisMetricTitle(analysisMetric)}
           >
             <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
               <div
                 className="h-full rounded-sm"
-                style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
+                style={{ width: `${Math.min(100, metricPct)}%`, backgroundColor: evaluativeVar(analysisMetric.value) }}
               />
             </div>
-            <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
+            <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{analysisMetricVisibleLabel(analysisMetric)}</span>
           </div>
         )}
         {/* ⛔ REMOVED: the EVPI percentage-point pill. See the prop comment

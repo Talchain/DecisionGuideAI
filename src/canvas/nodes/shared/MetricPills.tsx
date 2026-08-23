@@ -18,8 +18,7 @@
  * discloses the basis via native `title` + `aria-label` (the canvas-node
  * tooltip idiom — same as the sibling EdgePills strength pill; the floating
  * DS Tooltip is not used inside React Flow node chrome). Fail-closed: with no
- * provenance passed, the pill keeps a generic honest label and never claims a
- * basis it was not given. Copy comes from the ONE shared module
+ * provenance passed, the influence number is withheld. Copy comes from the ONE shared module
  * (influenceScaleCopy) DriversSection consumes too, so the surfaces cannot
  * drift (review fix 3).
  */
@@ -29,7 +28,7 @@ import { influenceExplanation, influencePillAriaLabel } from '../../../component
 
 interface MetricPillsProps {
   influencePct?: number | null
-  /** Which basis produced influencePct (see driverDisplayModel). Absent → generic copy. */
+  /** Which basis produced influencePct. Absent means the number is withheld. */
   influenceProvenance?: DriverDisplayProvenance | null
   /**
    * Already gated by the shared display policy
@@ -50,7 +49,9 @@ export function MetricPills({
   confidenceIsDefaulted = false,
   confidenceIsProvisional = false,
 }: MetricPillsProps) {
-  const hasInfluence = influencePct != null && influencePct > 0
+  const hasInfluence = influencePct != null
+    && Number.isFinite(influencePct)
+    && influenceProvenance != null
   const hasConfidence = confidencePct != null && confidencePct > 0
 
   if (!hasInfluence && !hasConfidence) return null

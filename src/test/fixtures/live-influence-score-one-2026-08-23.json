@@ -1,0 +1,30 @@
+{
+  "source": "2026-08-23 disposable-guest staging analysis response",
+  "scenario_id": "b2df845f-6062-4310-9d72-b23b376619b1",
+  "request_id": "8252b0c7-d444-40a8-b4b2-da8ab9f5a487",
+  "response_hash": "28b985864b24",
+  "graph_hash": "e5129ccb2ccd897e",
+  "factors": [
+    {
+      "factor_id": "f41ba465",
+      "factor_label": "Monthly Payroll Burn",
+      "influence_score": 1,
+      "elasticity": 0,
+      "influence_rank": 1
+    },
+    {
+      "factor_id": "61a58ad6",
+      "factor_label": "Q1 Renewal Rate",
+      "influence_score": 0.8842105263157893,
+      "elasticity": 0.8842105263157893,
+      "influence_rank": 2
+    },
+    {
+      "factor_id": "4453072e",
+      "factor_label": "Contractor Cost Offset",
+      "influence_score": 0.6,
+      "elasticity": 0,
+      "influence_rank": 3
+    }
+  ]
+}
