@@ -19,7 +19,6 @@ import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
-import { useGuidanceStore } from '../stores/guidanceStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { shouldShowEdgeLabel } from './edgeLabelVisibility'
@@ -32,7 +31,7 @@ import {
 } from './edgePresentation'
 import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence, shouldShowLabel, getEdgeConfidence } from '../domain/edges'
+import { shouldShowLabel, getEdgeConfidence } from '../domain/edges'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
@@ -44,7 +43,6 @@ import {
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
-import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
@@ -53,6 +51,7 @@ import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
+import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
 
 /**
  * StyledEdge with semantic visual properties
@@ -93,14 +92,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
   const labelMode = useEdgeLabelMode(state => state.mode)
 
-  // P1.6: First-time edge edit hint
+  // P1.6: First-time edge-details hint
   const { showHint: showEdgeHint, dismissHint: dismissEdgeHint } = useEdgeEditHint()
   const edges = getEdges()
   const isFirstEdge = edges.length > 0 && edges[0].id === id
-
-  // P0-9: Inline edit popover state
-  const [showEditPopover, setShowEditPopover] = useState(false)
-  const [editPopoverPosition, setEditPopoverPosition] = useState({ x: 0, y: 0 })
 
   // C1: Hover state for edge label visibility
   const [isHovered, setIsHovered] = useState(false)
@@ -125,9 +120,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode } = useCanvasStore(
     useShallow(s => ({
-      updateEdgeData: s.updateEdgeData,
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
       report: s.results.report,
@@ -451,39 +445,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   )
   const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}`
 
-  // P0-9: Handle double-click to open inline editor
+  // Inspect the relationship without claiming a local React-Flow write is a
+  // shared-model edit. Inspector v2 owns the visible read-only authority copy.
   const handleLabelDoubleClick = (event: React.MouseEvent) => {
     event.stopPropagation()
-    setEditPopoverPosition({ x: event.clientX, y: event.clientY })
-    setShowEditPopover(true)
-    // Dismiss first-time hint when user discovers edge editing
+    openEdgeStrengthEditor(edgeIdKey)
+    // Dismiss the first-time hint once the details route is discovered.
     if (showEdgeHint) dismissEdgeHint()
-  }
-
-  // P0-9: Handle edge data update from popover
-  //
-  // ⭐ ROADMAP 2.950 — the strength stamp, CONDITIONAL on the value moving.
-  // `EdgeEditPopover` live-previews on a 120 ms debounce, INCLUDING an initial
-  // fire with the SEED values the moment it opens. Stamping every fire would
-  // launder the `weight` default into a user claim just by opening the popover
-  // — the exact failure `edgeValueProvenance.ts` exists to prevent — while
-  // never stamping would leave the (now provenance-gated) label saying "not
-  // set" about a strength the user just chose. So: stamp `weightSource:
-  // 'user'` only when the written weight differs from the one on screen, and
-  // clear any producer `strength_mean` with it — the resolver prefers the
-  // pre-signed mean, so a stale one would keep speaking over the user's number
-  // (same shape as `PreAnalysisPanel`'s user override, :1216).
-  //
-  // `belief` is deliberately NOT stamped: it is the legacy confidence field,
-  // not the provenanced `beliefExists` channel, and stamping
-  // `beliefExistsSource` for it would claim a value the beliefExists reader
-  // would then resolve from the DEFAULTED `beliefExists: 0.8` instead.
-  const handleEdgeUpdate = (edgeId: string, updatedData: { weight: number; belief: number }) => {
-    if (updatedData.weight !== weight) {
-      updateEdgeData(edgeId, { ...updatedData, strength_mean: undefined, weightSource: 'user' })
-    } else {
-      updateEdgeData(edgeId, updatedData)
-    }
   }
 
   // C1: Handle hover for edge label visibility + T1: delayed hover popover
@@ -1131,7 +1099,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               const baseTooltip = provenance
                 ? `${edgeDescription.tooltip} • Source: ${provenance}`
                 : edgeDescription.tooltip
-              return `${baseTooltip}\n\nDouble-click to edit`
+              return `${baseTooltip}\n\nDouble-click to inspect`
             })()}
             onDoubleClick={handleLabelDoubleClick}
             onMouseEnter={handleMouseEnter}
@@ -1330,15 +1298,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         )
       })()}
 
-      {/* P0-9: Inline edge edit popover */}
-      {showEditPopover && (
-        <EdgeEditPopover
-          edge={{ id, data: { weight, belief: belief ?? 0.5 } }}
-          position={editPopoverPosition}
-          onUpdate={handleEdgeUpdate}
-          onClose={() => setShowEditPopover(false)}
-        />
-      )}
     </>
   )
 })

@@ -13,6 +13,7 @@ import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../mutations/mutationAuthority'
 
 interface Action {
   id: string
@@ -182,7 +183,10 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       })
     } },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
-  ]
+  ].filter(action => (
+    hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
+    || !action.id.startsWith('add-')
+  ))
 
   const filteredActions = query.trim() === ''
     ? actions

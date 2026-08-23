@@ -33,11 +33,21 @@ import type { TriageCardCategory, TriageCardAction } from '@/components/shared/T
 // same reason `AnalysisHeroPanel` imports `openEdgeStrengthEditor`: a surface
 // in the OutputsDock cannot reach the inspector any other way. See
 // `openValueEditor` below.
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '@/canvas/mutations/mutationAuthority'
 import { openNodeInspector } from '@/canvas/nodes/shared/openNodeInspector'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
-import { INFLUENCE_TIE_EPSILON } from './driverDisplayModel'
+import {
+  INFLUENCE_TIE_EPSILON,
+  resolveAnalysisMetric,
+  resolveDriverClaimBasis,
+  type ResolvedAnalysisMetric,
+} from './driverDisplayModel'
+import { analysisMetricPredicate } from './influenceScaleCopy'
 // Canonical glossary check shared with the v17 hero row builders. Used in
 // v17 mode (`useV17Copy === true`) to sanitise user-supplied labels before
 // they are interpolated into GENERATED prose, aria-labels, or titles. The
@@ -116,7 +126,7 @@ interface MappedActionItem {
   detail: string
   subtitle: string | undefined
   category: TriageCardCategory
-  influence: number | null
+  analysisMetric: ResolvedAnalysisMetric | null
   action: TriageCardAction | undefined
   targetNodeId: string | undefined
   editorConfig: ScientificEditorProps | null
@@ -166,7 +176,10 @@ function mapEvidenceGapsToActions(
       detail,
       subtitle: undefined,
       category: 'add_evidence' as const,
-      influence: gap.voi > 0 ? gap.voi : null,
+      analysisMetric: resolveAnalysisMetric({
+        value: gap.voi,
+        basis: 'value_of_information',
+      }),
       action: {
         kind: 'set_value' as const,
         label: 'Set value',
@@ -196,7 +209,7 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     detail: action.rationale,
     subtitle: undefined,
     category: 'strengthen' as const,
-    influence: null,
+    analysisMetric: null,
     action: action.targetId ? {
       kind: 'edit' as const,
       label: 'Edit',
@@ -245,6 +258,12 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
  *
  * Module-level so the reference is stable across renders of a memoised tree.
  */
+const POST_RUN_VALUE_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.postRunFactorValue,
+)
+const POST_RUN_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.postRunFactorConfirmation,
+)
 const openValueEditor = (nodeId: string): void => {
   openNodeInspector(nodeId)
 }
@@ -390,47 +409,30 @@ function T1DominantNudge({
   const rankedDrivers = (drivers.topDrivers?.length ? drivers.topDrivers : drivers.drivers) ?? []
   const topDriver = rankedDrivers[0]
   const runnerUp = rankedDrivers[1]
-  // Lane 2 (policy): gate and phrase the nudge on the SAME display influence
-  // the panel/hero/graph/tornado show (driverDisplayModel via the stamped
-  // displayInfluence) — a raw-score read here claimed dominance the panel's
-  // own bars contradicted under partial producer coverage (Codex R3-B1 class).
-  const topInfluence = topDriver
-    ? (topDriver.displayInfluence ?? topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
-    : 0
-  // Review fold: "drives NN% of the outcome" is an ABSOLUTE causal claim —
-  // honest only on the producer influence_score basis. Under partial
-  // coverage the display value is set-relative (top driver ≡ 1.0 by
-  // construction), so the nudge would fire on EVERY such run claiming
-  // "100% of the outcome", contradicting the V17 dominance gate
-  // (UI-SEM-040, deliberately absolute) on the same screen. No provenance
-  // marker (legacy fixture) falls back to "a finite raw producer score
-  // exists" — the pre-fold absolute semantic.
-  const absoluteBasis = topDriver
-    ? (topDriver.displayProvenance
-        ? topDriver.displayProvenance === 'influence_score'
-        : typeof topDriver.influenceScore === 'number')
-    : false
+  // Value, basis, and permitted language come from one policy read. Missing
+  // or contradictory fields fail closed; neither state becomes a numeric 0.
+  const topMetric = resolveDriverClaimBasis(topDriver)
+  const runnerUpMetric = resolveDriverClaimBasis(runnerUp)
   // ⚠ DOMINANCE REQUIRES A RUNNER-UP TO BE DOMINANT OVER (2026-08-19). The
-  // gate tested only the top's own magnitude, so on a run where three factors
-  // tied at 100% it printed "Dominant factor: Cloud migration progress drives
-  // 100% of the outcome" while two other rows on the same screen also read
-  // 100%. "Dominant" is a COMPARATIVE claim; a tie cannot support one. Same
+  // gate tested only the top's own magnitude, so it still asserted a dominant
+  // factor on a run where three factors tied at 100%. "Dominant" is a
+  // COMPARATIVE claim; a tie cannot support one. Same
   // `INFLUENCE_TIE_EPSILON` the panel's badges and its equal-influence note
   // use, so all three surfaces agree on what counts as a tie.
-  const runnerUpInfluence = runnerUp
-    ? (runnerUp.displayInfluence ?? runnerUp.influenceScore ?? runnerUp.normalisedInfluence ?? 0)
-    : 0
-  const topIsClearOfRunnerUp = !runnerUp || topInfluence - runnerUpInfluence > INFLUENCE_TIE_EPSILON
-  const showNudge = absoluteBasis && topInfluence >= 0.8 && topIsClearOfRunnerUp
+  const comparableAbsolutePair =
+    topMetric?.basis === 'influence_score' && runnerUpMetric?.basis === 'influence_score'
+  const topIsClearOfRunnerUp = comparableAbsolutePair
+    ? topMetric.value - runnerUpMetric.value > INFLUENCE_TIE_EPSILON
+    : false
+  const showNudge = comparableAbsolutePair && topMetric.value >= 0.8 && topIsClearOfRunnerUp
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
   if (!showNudge || !dominantLabel) return null
-  const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
   const dominantFocusId = drivers.dominantFactorId
     ?? topDriver?.matchedNodeId
     ?? topDriver?.factorKey
     ?? null
-  const explanation = `drives ${dominantPct}% of the outcome.`
+  const explanation = `${analysisMetricPredicate(topMetric)}.`
   // (Round-5 P1.2, P0 follow-up) Both v17 and legacy modes use glossary-
   // safe copy. The legacy branch previously contained "the recommendation
   // could change"; the P0 surface-copy cleanup retired that. The two
@@ -827,7 +829,7 @@ function AlsoConsiderDisclosure({
               detail={item.detail}
               subtitle={item.subtitle}
               category={item.category}
-              influence={item.influence}
+              analysisMetric={item.analysisMetric}
               action={item.action}
               variant="compact"
               editorConfig={item.editorConfig}
@@ -881,7 +883,11 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
   // sort + dedup is pure waste if the result never reaches the DOM.
   const allActions = useMemo(() => {
     if (suppressTriageQueue) return []
-    const gaps = mapEvidenceGapsToActions(data, onSetValue, nodeValueLookup)
+    const gaps = mapEvidenceGapsToActions(
+      data,
+      POST_RUN_VALUE_EDIT_CONNECTED ? onSetValue : undefined,
+      nodeValueLookup,
+    )
     const next = mapNextActionsToCards(data)
     const merged = [...gaps, ...next].map(item =>
       applyOverlayToItem(item, findStrengthenOverlay(item, strengthenOverlayMap)),
@@ -890,9 +896,9 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
     // Removed: our own compute layer contradicts it (ISL measures 0.0pp for
     // the factors PLoT scores at 12.3 / 10.2 / 6.6) and the ordering it
     // induces is inverted against ISL. Gaps now arrive in the producer's own
-    // order; the surviving `influence` tie-break is PLoT's normalised impact,
-    // which is not a function of the discredited confidence figure.
-    merged.sort((a, b) => (b.influence ?? 0) - (a.influence ?? 0))
+    // order; the surviving metric tie-break retains the producer value and
+    // keeps value of information explicitly distinct from influence.
+    merged.sort((a, b) => (b.analysisMetric?.value ?? -1) - (a.analysisMetric?.value ?? -1))
     // Dedup by canonical factor identity (targetNodeId) after sort so the
     // highest-ranked occurrence survives. See `dedupTriageItems` for the rule
     // (targetNodeId first, normalised-title fallback).
@@ -983,13 +989,13 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                       detail={item.detail}
                       subtitle={item.subtitle}
                       category={item.category}
-                      influence={item.influence}
+                      analysisMetric={item.analysisMetric}
                       action={item.action}
                       editorConfig={item.editorConfig}
                       sourcePill={item.sourcePill}
                       passiveLabels={item.passiveLabels}
-                      onConfirm={onConfirm}
-                      onEdit={openValueEditor}
+                      onConfirm={POST_RUN_FACTOR_CONFIRMATION_CONNECTED ? onConfirm : undefined}
+                      onEdit={POST_RUN_VALUE_EDIT_CONNECTED ? openValueEditor : undefined}
                       onHoverEnter={onHoverEnter}
                       onHoverLeave={onHoverLeave}
                     />
@@ -1005,8 +1011,8 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
               startOrdinal={4}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
-              onConfirm={onConfirm}
-              onEdit={openValueEditor}
+              onConfirm={POST_RUN_FACTOR_CONFIRMATION_CONNECTED ? onConfirm : undefined}
+              onEdit={POST_RUN_VALUE_EDIT_CONNECTED ? openValueEditor : undefined}
             />
           )}
         </div>

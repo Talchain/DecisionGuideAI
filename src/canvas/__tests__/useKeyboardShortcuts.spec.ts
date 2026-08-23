@@ -6,6 +6,7 @@ import {
   resolveEffectiveInteractionMode,
   shouldReleaseTextFocusOnCanvasPointerDown,
 } from '../useKeyboardShortcuts'
+import { useCanvasStore } from '../store'
 
 describe('useKeyboardShortcuts — interaction mode', () => {
   let onModeChange: ReturnType<typeof vi.fn>
@@ -190,6 +191,29 @@ describe('useKeyboardShortcuts — interaction mode', () => {
       expect(onModeChange).not.toHaveBeenCalled()
       expect(onSpaceHeld).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('useKeyboardShortcuts — shared-model mutation authority', () => {
+  beforeEach(() => {
+    useCanvasStore.getState().resetCanvas()
+  })
+
+  it.each([
+    ['duplicateSelected', { key: 'd', ctrlKey: true }],
+    ['cutSelected', { key: 'x', ctrlKey: true }],
+    ['pasteClipboard', { key: 'v', ctrlKey: true }],
+    ['undo', { key: 'z', ctrlKey: true }],
+    ['redo', { key: 'y', ctrlKey: true }],
+    ['redo', { key: 'z', ctrlKey: true, shiftKey: true }],
+  ] as const)('does not execute %s without a receipt-bearing carrier', (method, init) => {
+    const spy = vi.spyOn(useCanvasStore.getState(), method)
+    renderHook(() => useKeyboardShortcuts())
+
+    window.dispatchEvent(new KeyboardEvent('keydown', init))
+
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
   })
 })
 

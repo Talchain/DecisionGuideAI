@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2263
+# count=2252
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -379,8 +379,6 @@
 1	src/canvas/components/__tests__/KeyboardMap.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/components/__tests__/LayerProvider.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/components/__tests__/ModelCardLite.spec.tsx	TS6133	'beforeEach' is declared but its value is never read.
-1	src/canvas/components/__tests__/ModelTabBody.spec.tsx	TS2739	Type '{ edgeId: string; fromId: string; toId: string; switchProbability: number; }' is missing the following properties from type 'MappedFragileEdge': fromLabel, toLabel, alternativeWinnerId, alternativeWinnerLabel
-1	src/canvas/components/__tests__/ModelTabBody.spec.tsx	TS2740	Type '{ edgeId: string; switchProbability: number; }' is missing the following properties from type 'MappedFragileEdge': fromId, toId, fromLabel, toLabel, and 2 more.
 1	src/canvas/components/__tests__/ObjectiveBanner.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/components/__tests__/RiskProfileBadge.spec.tsx	TS2305	Module '"../../../adapters/plot/types"' has no exported member 'RiskProfile'.
 2	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
@@ -444,7 +442,6 @@
 1	src/canvas/contextMenu/Submenu.tsx	TS6133	'ChevronRight' is declared but its value is never read.
 1	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx	TS2339	Property 'getState' does not exist on type 'Mock<[selector: any], any>'.
 1	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx	TS2339	Property 'setState' does not exist on type 'Mock<[selector: any], any>'.
-1	src/canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx	TS2339	Property 'style' does not exist on type 'Element'.
 1	src/canvas/contextMenu/__tests__/actions.spec.ts	TS6196	'PaneTarget' is declared but never used.
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2322	Type 'VitestUtils' is not assignable to type 'Awaitable<HookCleanupCallback>'.
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2339	Property 'getState' does not exist on type 'Mock<[selector: any], any>'.
@@ -455,8 +452,6 @@
 1	src/canvas/contextMenu/actions.ts	TS6196	'EdgeTarget' is declared but never used.
 1	src/canvas/contextMenu/actions.ts	TS6196	'MultiTarget' is declared but never used.
 40	src/canvas/contextMenu/useMenuItems.ts	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ className?: string | undefined; size?: number | undefined; }> | undefined'.
-1	src/canvas/contextMenu/useMenuItems.ts	TS6133	'isOrg' is declared but its value is never read.
-1	src/canvas/contextMenu/useMenuItems.ts	TS6196	'MenuItemDef' is declared but never used.
 1	src/canvas/conversation/ActionStrip.tsx	TS6133	'GraphPatchBlock' is declared but its value is never read.
 1	src/canvas/conversation/ConversationPanel.tsx	TS2345	Argument of type '(opts: DispatchActionOpts) => Promise<void>' is not assignable to parameter of type '(opts: { action_type?: string | undefined; parameters?: Record<string, unknown> | undefined; label: string; message: string; hidden?: boolean | undefined; source: string; }) => void'.
 1	src/canvas/conversation/ConversationPanel.tsx	TS6133	'logger' is declared but its value is never read.
@@ -518,16 +513,13 @@
 1	src/canvas/domain/__tests__/migrations.spec.ts	TS2532	Object is possibly 'undefined'.
 1	src/canvas/domain/__tests__/nodes.spec.ts	TS6133	'NodeDataSchema' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'unknown' is not assignable to type 'string | undefined'.
-1	src/canvas/edges/StyledEdge.tsx	TS2322	Type 'unknown' is not assignable to type 'string'.
 1	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'flagged_as_assumption' does not exist on type '{}'.
 6	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'robustness' does not exist on type 'ReportV1'.
 1	src/canvas/edges/StyledEdge.tsx	TS2344	Type 'EdgeData' does not satisfy the constraint 'Edge<Record<string, unknown>, string | undefined>'.
 15	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type 'unknown' is not assignable to parameter of type 'string'.
 1	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type '{}' is not assignable to parameter of type 'boolean'.
 1	src/canvas/edges/StyledEdge.tsx	TS2352	Conversion of type 'ReportV1' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-1	src/canvas/edges/StyledEdge.tsx	TS6133	'formatConfidence' is declared but its value is never read.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'labelVisibility' is declared but its value is never read.
-1	src/canvas/edges/StyledEdge.tsx	TS6133	'useGuidanceStore' is declared but its value is never read.
 4	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'waitFor' is declared but its value is never read.
 2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx	TS6133	'container' is declared but its value is never read.
@@ -621,7 +613,6 @@
 7	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: number; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
-3	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: number; confidence: number; inSensitivityAnalysis: true; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: number; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: false; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2739	Type '{ data: Record<string, unknown>; id: string; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Required<Pick<Node<Record<string, unknown>, string | undefined>, "deletable" | "draggable" | "dragging" | "selectable" | "selected" | "type" | "zIndex">>': deletable, selectable, draggable
 2	src/canvas/nodes/__tests__/GoalNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: false; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.

@@ -100,10 +100,6 @@ export interface ModelRowViewProps {
   onConfirmValueAsIs?: (id: string) => void
 }
 
-/** Why the editor is unavailable. Shown on the disabled control, in words. */
-const NO_AUTHORITY_REASON =
-  'Editing is not connected yet — this value cannot be changed from here.'
-
 export function ModelRowView({
   row,
   tier,
@@ -451,7 +447,7 @@ function ValueCell({
    * plus one marker, which is the difference between stating a fact and
    * shouting it.
    */
-  if (!row.editable) {
+  if (!row.editable || !editorAvailable) {
     return (
       <span data-testid={testid} className={typography.tabular}>
         {display ?? ''}
@@ -459,37 +455,13 @@ function ValueCell({
     )
   }
 
-  /*
-   * ⚠ THE EDITABLE-BUT-UNCONNECTED ROW DELIBERATELY STILL SAYS "Not set", AND
-   * THIS COMMENT EXISTS SO NOBODY "FINISHES THE JOB" BY SILENCING IT.
-   *
-   * A first cut of the wall fix silenced it too, and broke
-   * `ModelTabV2Panel.spec.tsx`'s pinned invariant that the relationship, option
-   * and goal rows render a DISABLED control carrying `NO_AUTHORITY_REASON`. That
-   * invariant is right: a control that says "editing is not connected yet" is
-   * strictly more truthful than an empty cell, and silence here would replace a
-   * truthful fallback with nothing (P3).
-   *
-   * Which means the remaining "Not set" repetition on this surface is NOT a
-   * display defect — it is the visible shape of the edit paths that have no
-   * canonical carrier yet (design §2 F6/F9). Suppressing it would have killed
-   * the symptom and left the defect (trap 23). It is reported, not hidden.
-   */
-
   return (
     <button
       type="button"
       data-testid={testid}
-      disabled={!editorAvailable}
-      title={editorAvailable ? 'Change this value' : NO_AUTHORITY_REASON}
-      aria-label={
-        editorAvailable
-          ? `Change ${row.label}`
-          : `${row.label} — ${NO_AUTHORITY_REASON}`
-      }
-      className={`${typography.tabular} text-left ${
-        editorAvailable ? 'underline decoration-dotted' : 'text-text-light cursor-not-allowed'
-      }`}
+      title="Change this value"
+      aria-label={`Change ${row.label}`}
+      className={`${typography.tabular} text-left underline decoration-dotted`}
       onClick={e => {
         e.stopPropagation()
         onBeginEdit?.(row.id)

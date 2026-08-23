@@ -25,13 +25,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { EstimateRow } from '../EstimateRow'
 import { CalibrateDrillIn } from '../CalibrateDrillIn'
 import type { EstimateRowModel } from '../../types'
 import { useCanvasStore } from '../../../../store'
-import { isReviewedByUser } from '../../../pre-analysis/utils/isReviewedByUser'
-import { isConfirmationWithdrawn } from '../../../../utils/hydrateProvenance'
 
 const NODE_ID = 'fac_pricing_level'
 
@@ -97,73 +95,21 @@ describe('2.638 S2 (a) · the row says WHICH act it recorded', () => {
   })
 })
 
-describe('2.638 S2 (b) · the confirmation is reversible from the drill-in', () => {
-  it('a confirmed row offers "Undo confirmation"', () => {
+describe('confirmation controls fail closed without canonical authority', () => {
+  it.each([
+    base,
+    { ...base, provenanceKind: 'edited' as const },
+    { ...base, reviewed: false, provenanceKind: 'ai' as const },
+  ])('mounts no confirm, unconfirm or confirmation-effect copy for $provenanceKind rows', row => {
+    render(<CalibrateDrillIn row={row} onDone={vi.fn()} />)
+    expect(screen.queryByTestId('pre-analysis-v3-confirm-as-is')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-unconfirm')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-confirmation-note')).not.toBeInTheDocument()
+  })
+
+  it('does not change the existing confirmed value merely by mounting the drill-in', () => {
     render(<CalibrateDrillIn row={base} onDone={vi.fn()} />)
-    const btn = screen.getByTestId('pre-analysis-v3-unconfirm')
-    expect(btn).toHaveTextContent('Undo confirmation')
-    expect(btn).toHaveAccessibleName('Undo your confirmation of Pricing level')
-  })
-
-  it('the copy discloses STATUS, never an effect on the analysis', () => {
-    render(<CalibrateDrillIn row={base} onDone={vi.fn()} />)
-    const note = screen.getByTestId('pre-analysis-v3-confirmation-note')
-    // The one sentence the design allows: who stands behind the number, and an
-    // explicit denial that confirming moved the maths.
-    expect(note).toHaveTextContent(
-      'Confirming records that you stand behind this number. It does not change the analysis.',
-    )
-  })
-
-  it('clicking it clears the claim on THIS node and leaves the number alone', () => {
-    render(<CalibrateDrillIn row={base} onDone={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('pre-analysis-v3-unconfirm'))
-
-    const node = useCanvasStore.getState().nodes.find((n: any) => n.id === NODE_ID) as any
-    expect(isConfirmationWithdrawn(node.data)).toBe(true)
-    expect(isReviewedByUser(node)).toBe(false)
-    expect(node.data.observedState.value).toBe(0.7)
-    expect(node.data.observedState.raw_value).toBe(70)
-  })
-
-  it('an EDITED row is NOT offered an undo — the prior number was never retained', () => {
-    render(<CalibrateDrillIn row={{ ...base, provenanceKind: 'edited' }} onDone={vi.fn()} />)
-    expect(screen.queryByTestId('pre-analysis-v3-unconfirm')).toBeNull()
-  })
-
-  it('an UNREVIEWED row is not offered an undo either', () => {
-    render(
-      <CalibrateDrillIn
-        row={{ ...base, reviewed: false, provenanceKind: 'ai' }}
-        onDone={vi.fn()}
-      />,
-    )
-    expect(screen.queryByTestId('pre-analysis-v3-unconfirm')).toBeNull()
-    // …and the surface that CAN make the claim is still there.
-    expect(screen.getByTestId('pre-analysis-v3-confirm-as-is')).toBeInTheDocument()
-  })
-
-  /** Identity binding (trap 19): the withdrawal must hit the named node only. */
-  it('leaves a sibling confirmed factor untouched', () => {
-    const store = useCanvasStore.getState()
-    const sibling = {
-      id: 'fac_other',
-      type: 'factor',
-      position: { x: 0, y: 0 },
-      data: {
-        label: 'Other',
-        kind: 'factor',
-        observedState: { value: 0.7, raw_value: 70, cap: 100, source: 'user_confirmed' },
-        observed_state: { value: 0.7, raw_value: 70, cap: 100, source: 'user_confirmed' },
-      },
-    }
-    useCanvasStore.setState({ nodes: [...(store.nodes as any[]), sibling] as never } as never)
-
-    render(<CalibrateDrillIn row={base} onDone={vi.fn()} />)
-    fireEvent.click(screen.getByTestId('pre-analysis-v3-unconfirm'))
-
-    const other = useCanvasStore.getState().nodes.find((n: any) => n.id === 'fac_other') as any
-    expect(isConfirmationWithdrawn(other.data)).toBe(false)
-    expect(isReviewedByUser(other)).toBe(true)
+    const node = useCanvasStore.getState().nodes.find(n => n.id === NODE_ID) as any
+    expect(node.data.observedState).toMatchObject({ value: 0.7, raw_value: 70, source: 'user_confirmed' })
   })
 })

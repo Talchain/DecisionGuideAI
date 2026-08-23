@@ -18,6 +18,15 @@
 import { useEffect, useCallback } from 'react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
 import { isGraphLensEnabled } from '../../flags'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+  SHARED_MODEL_AUTHORITY_COPY,
+} from '../mutations/mutationAuthority'
+
+const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
+)
 
 /** Custom event dispatched by L key — TopBar listens to toggle the lens dropdown */
 export const LENS_TOGGLE_EVENT = 'topbar:toggle-lens'
@@ -62,6 +71,10 @@ export function useCanvasKeyboardShortcuts({
     // P: Focus inline probabilities editor for selected decision
     if (e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
+      if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+        onShowToast?.(SHARED_MODEL_AUTHORITY_COPY, 'info')
+        return
+      }
       const state = useCanvasStore.getState()
       const { selection, edges } = state
 
@@ -111,6 +124,10 @@ export function useCanvasKeyboardShortcuts({
     // inert via the target guard above.
     if ((e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
+      if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+        onShowToast?.(SHARED_MODEL_AUTHORITY_COPY, 'info')
+        return
+      }
       const state = useCanvasStore.getState()
       const { showTemplatesPanel, openTemplatesPanel } = state
 

@@ -175,6 +175,7 @@ export function SuccessTarget({
   }, [constraintInput, onSendMessage])
 
   const constraints = goalConstraints ?? []
+  const canEditThreshold = Boolean(onThresholdChange || onThresholdConfirm || onThresholdEdit)
 
   // Render goal name with diamond shape
   const renderGoalHeader = () => {
@@ -232,7 +233,7 @@ export function SuccessTarget({
   if (isThresholdConfirmed && successThreshold !== null) {
     return (
       <div className={`rounded-lg border ${borderColor} bg-panel p-3 space-y-2`}>
-        <button
+        {canEditThreshold ? <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center gap-2 text-left cursor-pointer"
@@ -247,9 +248,15 @@ export function SuccessTarget({
           <span className="text-text-light shrink-0">·</span>
           <span className={`${typography.panelHeader} text-text-header shrink-0`}>{formatValue(successThreshold)}</span>
           <Check className="w-3.5 h-3.5 text-success shrink-0" />
-        </button>
+        </button> : <div className="w-full flex items-center gap-2 text-left">
+          <GoalDiamond />
+          <span className={`${typography.panelHeader} text-text-header truncate`} title={goalLabel}>{goalLabel}</span>
+          <span className="text-text-light shrink-0">·</span>
+          <span className={`${typography.panelHeader} text-text-header shrink-0`}>{formatValue(successThreshold)}</span>
+          <Check className="w-3.5 h-3.5 text-success shrink-0" />
+        </div>}
 
-        {isExpanded && (
+        {isExpanded && canEditThreshold && (
           <div className="mt-2 pt-2 border-t border-panel-border flex flex-col gap-2">
             <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
             <div className="flex items-center gap-2">
@@ -304,6 +311,22 @@ export function SuccessTarget({
 
   // No target set — always-visible inline input
   if (successThreshold === null) {
+    if (!canEditThreshold) {
+      return (
+        <div className={`relative rounded-lg border ${borderColor} bg-panel p-3 pr-7`}>
+          <div className="flex flex-col gap-2">
+            {renderGoalHeader()}
+            <p className={`${typography.panelBody} text-text-light`}>No success target is recorded in the shared model.</p>
+          </div>
+          <div className="absolute bottom-1 right-1">
+            <DiscussWithAiButton
+              element={{ kind: 'goal', label: goalLabel }}
+              ariaLabel="Ask Olumi to define the success target"
+            />
+          </div>
+        </div>
+      )
+    }
     return (
       <div className={`relative rounded-lg border ${borderColor} bg-panel p-3 pr-7`}>
         <div className="flex flex-col gap-2">
@@ -378,7 +401,7 @@ export function SuccessTarget({
       )}
 
       {/* Inline edit when expanded */}
-      {isExpanded && (
+      {isExpanded && canEditThreshold && (
         <div className="pt-2 border-t border-panel-border flex flex-col gap-2">
           <label className={`${typography.panelBody} text-text-light`}>{editLabel}</label>
           <div className="flex items-center gap-2">
@@ -429,7 +452,7 @@ export function SuccessTarget({
       )}
 
       {/* Confirm / Edit — bottom right */}
-      {!isExpanded && (
+      {!isExpanded && canEditThreshold && (
         <div className="flex justify-end gap-1">
           <button
             type="button"

@@ -529,8 +529,11 @@ describe('PreAnalysisPanel', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const toggle = screen.getByRole('button', { name: /advanced/i })
       fireEvent.click(toggle)
-      // AnalysisSettings hosts the goal selector inside the accordion body.
-      expect(screen.getByLabelText(/goal/i)).toBeInTheDocument()
+      // B3 keeps the selected goal readable but withholds the local-only
+      // selector until it has a canonical mutation receipt.
+      const accordion = screen.getByTestId('analysis-settings-accordion')
+      expect(within(accordion).getAllByText('Goal').length).toBeGreaterThan(0)
+      expect(within(accordion).queryByRole('combobox')).toBeNull()
     })
 
     it('surfaces cee_inference verify items inside the T1 unified queue', () => {
@@ -1236,8 +1239,8 @@ describe('PreAnalysisPanel', () => {
     })
   })
 
-  describe('Inline editor regression — always present for factor triage cards', () => {
-    it('renders an inline editor for a factor card with a numeric rawValue', () => {
+  describe('Factor triage remains readable without a local-only editor', () => {
+    it('shows a numeric factor and its evidence without a spinbutton', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         triageActions: {
           top3: [{
@@ -1256,10 +1259,12 @@ describe('PreAnalysisPanel', () => {
         },
       }))
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('spinbutton', { name: /Market Size/i })).toBeInTheDocument()
+      expect(screen.getByText('Market Size')).toBeInTheDocument()
+      expect(screen.getByText('500 engineers')).toBeInTheDocument()
+      expect(screen.queryByRole('spinbutton', { name: /Market Size/i })).toBeNull()
     })
 
-    it('renders an inline editor for a factor card with null rawValue and null value', () => {
+    it('shows an unset factor honestly without constructing an editor', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         triageActions: {
           top3: [{
@@ -1278,10 +1283,12 @@ describe('PreAnalysisPanel', () => {
         },
       }))
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('spinbutton', { name: /Churn Rate/i })).toBeInTheDocument()
+      expect(screen.getByText('Churn Rate')).toBeInTheDocument()
+      expect(screen.getByText('Estimated')).toBeInTheDocument()
+      expect(screen.queryByRole('spinbutton', { name: /Churn Rate/i })).toBeNull()
     })
 
-    it('renders an inline editor for an inferred-zero factor card (detail === "Not set")', () => {
+    it('preserves an attested zero/readout without a hidden local commit path', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         triageActions: {
           top3: [{
@@ -1300,22 +1307,18 @@ describe('PreAnalysisPanel', () => {
         },
       }))
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('spinbutton', { name: /Direct Delivery Capacity/i })).toBeInTheDocument()
+      expect(screen.getByText('Direct Delivery Capacity')).toBeInTheDocument()
+      expect(screen.getByText('Not set')).toBeInTheDocument()
+      expect(screen.queryByRole('spinbutton', { name: /Direct Delivery Capacity/i })).toBeNull()
     })
   })
 
   // ── Brief 4 hotfix self-review P1.2: integration coverage ───────────────
   //
-  // Unit tests in resolveEditorRawValue.spec.ts prove the predicate and copy
-  // behaviour in isolation. Variant-parity tests in TriageCard.spec.tsx prove
-  // both variants render the subtitle + ordinal + EVPI pill identically.
-  //
-  // This block glues the two together: assert the full mapping → predicate →
-  // render chain works on realistic fixtures. A regression in any of the
-  // three intermediaries (PreAnalysisPanel wiring, resolveCapHintSubtitle
-  // predicate, TriageCard render order) would surface here.
-  describe('Brief-extracted cap fallback — end-to-end render (P1.2)', () => {
-    it('renders the "Brief suggests up to: £X" hint for the Annual Assistant Cost shape', () => {
+  // B3 retires the non-canonical editor and its editor-only coaching copy.
+  // The scientifically useful source, label and observed detail remain.
+  describe('Brief-extracted cap disclosure without false edit authority', () => {
+    it('keeps the Annual Assistant Cost source and value readable without an editor', () => {
       // Real-world shape from the hiring bundle: brief extracted "up to
       // £70,000", no live baseline so raw_value=0. Expected end state:
       // - editor renders empty (resolveEditorRawValue returns null)
@@ -1339,15 +1342,14 @@ describe('PreAnalysisPanel', () => {
         },
       }))
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('Brief suggests up to: £70,000')).toBeInTheDocument()
+      expect(screen.getByText('Annual Assistant Cost')).toBeInTheDocument()
+      expect(screen.getByText('£0')).toBeInTheDocument()
       expect(screen.getByText('From brief')).toBeInTheDocument()
-      // The editor's spinbutton renders for the target; value is empty
-      // (resolveEditorRawValue returned null for the brief+zero+cap case).
-      const input = screen.getByRole('spinbutton', { name: /Annual Assistant Cost/i })
-      expect(input).toHaveValue(null)
+      expect(screen.queryByText('Brief suggests up to: £70,000')).toBeNull()
+      expect(screen.queryByRole('spinbutton', { name: /Annual Assistant Cost/i })).toBeNull()
     })
 
-    it('renders the neutral no-figure hint when the brief-extracted factor has a placeholder unit', () => {
+    it('keeps placeholder-unit detail explicit without suggesting an unavailable commit', () => {
       // P1.1: when the unit is "scale" / "index" / …, the numeric figure is
       // meaningless, but the card must still render a coaching subtitle — not
       // fall back to the upstream "0 of N" body text that would conflict
@@ -1370,10 +1372,11 @@ describe('PreAnalysisPanel', () => {
         },
       }))
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('Brief suggests a value. Set it to confirm.')).toBeInTheDocument()
-      // The "0 of 70" fallback must NOT appear — the subtitle override
-      // should win over the upstream formatObservedStateDetail.
-      expect(screen.queryByText('0 of 70')).not.toBeInTheDocument()
+      expect(screen.getByText('Customer Satisfaction')).toBeInTheDocument()
+      expect(screen.getByText('0 of 70')).toBeInTheDocument()
+      expect(screen.getByText('From brief')).toBeInTheDocument()
+      expect(screen.queryByText('Brief suggests a value. Set it to confirm.')).toBeNull()
+      expect(screen.queryByRole('spinbutton', { name: /Customer Satisfaction/i })).toBeNull()
     })
 
     it('does not render the hint for AI-sourced (non-brief) zero-raw cards', () => {
@@ -1398,6 +1401,8 @@ describe('PreAnalysisPanel', () => {
       }))
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.queryByText(/^Brief suggests/)).not.toBeInTheDocument()
+      expect(screen.getByText('Market Share')).toBeInTheDocument()
+      expect(screen.queryByRole('spinbutton', { name: /Market Share/i })).toBeNull()
     })
   })
 

@@ -118,7 +118,7 @@ describe('CommandPalette DOM - Accessibility', () => {
 
     // Arrow down to select second item
     fireEvent.keyDown(document, { key: 'ArrowDown' })
-    expect(input.getAttribute('aria-activedescendant')).toBe('cmd-action-add-goal')
+    expect(input.getAttribute('aria-activedescendant')).toBe('cmd-action-open-inspector')
   })
 
   it('keeps dialog open when Run Analysis fails on empty graph (Enter key)', async () => {
@@ -145,7 +145,7 @@ describe('CommandPalette DOM - Rich Node Types', () => {
     cleanup()
   })
 
-  it('exposes a Factor node creation action and executes it', async () => {
+  it('hides every add-node command when canvas semantic mutations lack server authority', async () => {
     const onClose = vi.fn()
 
     render(<CommandPalette isOpen onClose={onClose} />)
@@ -153,11 +153,9 @@ describe('CommandPalette DOM - Rich Node Types', () => {
     const input = screen.getByPlaceholderText('Search actions...')
     fireEvent.change(input, { target: { value: 'factor' } })
 
-    const actionButton = await screen.findByText('Add Factor Node')
-    fireEvent.click(actionButton)
-
-    expect(mockAddNode).toHaveBeenCalledTimes(1)
-    expect(mockAddNode).toHaveBeenCalledWith(undefined, 'factor')
+    expect(screen.queryByText('Add Factor Node')).not.toBeInTheDocument()
+    expect(screen.getByText('No actions found')).toBeInTheDocument()
+    expect(mockAddNode).not.toHaveBeenCalled()
   })
 
   it('uses runLayoutWithProgress for the Tidy Layout action', async () => {

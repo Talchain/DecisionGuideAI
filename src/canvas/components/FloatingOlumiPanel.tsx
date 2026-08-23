@@ -28,6 +28,10 @@ import { useUIStore } from '../../stores/uiStore'
 import { isAiPanelV2Enabled } from '../../flags'
 import { readPersistedActiveDockTab, readPersistedDockOpen } from './OutputsDock'
 import { dockHostsOlumi, type OlumiDockTab } from './olumiSurface'
+import {
+  FLOATING_OLUMI_SIDE_TAB_WIDTH,
+  requestFloatingOlumiSurface,
+} from './panelComposition'
 
 interface FloatingOlumiPanelProps {
   /** Called when the user clicks the Dock button. The host should switch the
@@ -47,7 +51,7 @@ const DEFAULT_MARGIN = 16
  *  dominate the panel on smaller viewports; 32×32 is the established
  *  in-panel icon-button scale.
  *  The drag handle is a thin (6px) horizontal strip across the top. */
-const SIDE_TAB_WIDTH = 36
+const SIDE_TAB_WIDTH = FLOATING_OLUMI_SIDE_TAB_WIDTH
 const DRAG_HANDLE_HEIGHT = 6
 
 /** V4 "one continuous shape" geometry: the floating panel and its top-left tab
@@ -867,8 +871,10 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     return registerFloatingFocus(() => {
       const state = useFloatingPanelState.getState()
       if (state.isMinimised) {
-        state.restore()
-        requestAnimationFrame(() => inputBarRef.current?.focus())
+        requestFloatingOlumiSurface(() => {
+          state.restore()
+          requestAnimationFrame(() => inputBarRef.current?.focus())
+        })
       } else {
         inputBarRef.current?.focus()
       }
@@ -1203,7 +1209,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     pillEl = (
       <button
         type="button"
-        onClick={restoreByUser}
+        onClick={() => requestFloatingOlumiSurface(restoreByUser)}
         className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{
           zIndex: 300,

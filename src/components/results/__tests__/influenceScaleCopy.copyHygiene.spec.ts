@@ -21,7 +21,15 @@ import {
   influenceExplanation,
   influencePillAriaLabel,
   influenceBarAriaLabel,
+  analysisMetricContextSentence,
+  analysisMetricPredicate,
+  analysisMetricTitle,
+  analysisMetricVisibleLabel,
 } from '../influenceScaleCopy'
+import {
+  resolveAnalysisMetric,
+  type ResolvedAnalysisMetric,
+} from '../driverDisplayModel'
 
 const BANNED_TERMS = /\b(node|edge|coefficient|elasticity|normalised value|graph hash|winner|validate)\b/i
 const AMERICAN = /\b(analyze|optimize|color|behavior|center|favorite)\w*/i
@@ -29,6 +37,12 @@ const AMERICAN = /\b(analyze|optimize|color|behavior|center|favorite)\w*/i
 const PROVENANCES = ['normalised_elasticity', 'influence_score', null] as const
 
 function allStrings(): string[] {
+  const metrics = [
+    resolveAnalysisMetric({ value: 0.62, basis: 'influence_score' }),
+    resolveAnalysisMetric({ value: 0.62, basis: 'normalised_elasticity' }),
+    resolveAnalysisMetric({ value: 0.62, basis: 'pre_analysis_influence' }),
+    resolveAnalysisMetric({ value: 0.62, basis: 'value_of_information' }),
+  ].filter((metric): metric is ResolvedAnalysisMetric => metric != null)
   return [
     INFLUENCE_EXPLANATION_GENERIC,
     INFLUENCE_EXPLANATION_RELATIVE,
@@ -42,6 +56,12 @@ function allStrings(): string[] {
       influenceExplanation(p),
       influencePillAriaLabel(62, p),
       influenceBarAriaLabel(p),
+    ]),
+    ...metrics.flatMap((metric) => [
+      analysisMetricVisibleLabel(metric),
+      analysisMetricTitle(metric),
+      analysisMetricPredicate(metric),
+      analysisMetricContextSentence(metric),
     ]),
   ]
 }

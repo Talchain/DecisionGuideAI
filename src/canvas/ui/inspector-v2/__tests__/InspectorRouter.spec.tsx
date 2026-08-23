@@ -329,3 +329,40 @@ describe('InspectorRouter — confidence badges are provenance-gated', () => {
     expect(text).not.toMatch(/60%/)
   })
 })
+
+describe('InspectorRouter — semantic controls fail closed without GraphV3 authority', () => {
+  const onClose = vi.fn()
+
+  it('states the authority boundary and disables the whole node panel editor', () => {
+    setStoreState([
+      {
+        id: 'r1',
+        type: 'risk',
+        data: { label: 'Operational risk', kind: 'risk', probability: 0.4, impact: 'medium' },
+        position: { x: 0, y: 0 },
+      },
+    ])
+    render(<InspectorRouter nodeId="r1" edgeId={null} onClose={onClose} />)
+
+    expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
+      'cannot yet be saved to the shared model',
+    )
+    const boundary = document.querySelector<HTMLFieldSetElement>('fieldset[data-authority="disabled"]')
+    expect(boundary).not.toBeNull()
+    expect(boundary).toBeDisabled()
+    expect(screen.getByRole('button', { name: /close/i })).toBeEnabled()
+  })
+
+  it('applies the same boundary to relationship controls', () => {
+    setStoreState(
+      [
+        { id: 'f1', type: 'factor', data: { label: 'Marketing' }, position: { x: 0, y: 0 } },
+        { id: 'g1', type: 'goal', data: { label: 'Revenue' }, position: { x: 0, y: 0 } },
+      ],
+      [{ id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.5, direction: 'positive' } }],
+    )
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={onClose} />)
+    expect(document.querySelector('fieldset[data-authority="disabled"]')).toBeDisabled()
+    expect(screen.getByTestId('inspector-authority-notice')).toBeInTheDocument()
+  })
+})

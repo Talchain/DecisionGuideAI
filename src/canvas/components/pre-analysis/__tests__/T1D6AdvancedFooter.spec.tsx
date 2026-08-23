@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
@@ -188,11 +188,15 @@ describe('Brief 5.8A D6 — T3 Advanced accordion', () => {
     expect(accordion.querySelector('[data-testid="accordion-preview-line"]')).toBeNull()
   })
 
-  it('expanding the Advanced accordion reveals the goal selector', () => {
+  it('expanding Advanced reveals the shared-model goal without a local selector', () => {
     mockUsePreAnalysisData.mockReturnValue(baseData())
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /advanced/i }))
-    expect(screen.getByLabelText(/goal/i)).toBeInTheDocument()
+    const accordion = screen.getByTestId('analysis-settings-accordion')
+    expect(within(accordion).getAllByText('Goal').length).toBeGreaterThan(0)
+    expect(within(accordion).getAllByText('Project success').length).toBeGreaterThan(0)
+    expect(within(accordion).queryByRole('combobox')).toBeNull()
+    expect(within(accordion).queryByRole('spinbutton')).toBeNull()
   })
 
   it('does not mount the Advanced accordion when no goal nodes exist', () => {

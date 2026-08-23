@@ -1,28 +1,6 @@
-/**
- * ResultsBody — P4's "Confirm AI estimate" MUST RENDER ON THE LIVE ANALYSIS
- * SURFACE (ROADMAP 2.661; the corrected premise of 2.651).
- *
- * ## The defect this file exists to prevent, stated bluntly
- *
- * `ResultsBody` used to mount BOTH triage-carrying surfaces — `AnalysisHeroV17`
- * and `DecisionConfidencePanel` — inside a flag arm no deployment rendered, so
- * on the posture real users loaded the confirm/set-value affordance did not
- * exist at all. A user could not confirm an AI estimate after an analysis.
- * That fork is now closed: the cockpit mounts unconditionally and hosts the
- * affordance, and these tests bind to that one host.
- *
- * ## Identity binding (CLAUDE.md trap 19)
- *
- * Every assertion binds to ONE named factor by its `targetNodeId`, and the
- * handler-argument checks pin that identity a second time at the call: only
- * this card can produce this id. Nothing here finds "the first confirm
- * button" or "a card with an editor".
- *
- * ⚠ SCOPE (CLAUDE.md trap 3): DOM-presence and handler-call assertions only.
- * jsdom cannot prove visibility, layout, or that anything is above the fold.
- */
+/** ResultsBody live mount — semantic controls require GraphV3 authority. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -188,7 +166,7 @@ function liveMount(): HTMLElement {
   return screen.getByTestId(LIVE_MOUNT)
 }
 
-describe('ResultsBody — "Confirm AI estimate" on the live analysis surface (2.661)', () => {
+describe('ResultsBody — local-only estimate actions stay off the live surface', () => {
   beforeEach(() => {
     localStorage.clear()
     useCanvasStore.setState({
@@ -204,73 +182,22 @@ describe('ResultsBody — "Confirm AI estimate" on the live analysis surface (2.
     localStorage.clear()
   })
 
-  /**
-   * ⭐ I-A, THE ROW'S CAPABILITY CLAIM. RED at pristine: on the posture real
-   * staging users loaded, the button did not exist.
-   */
-  it('the affordance RENDERS, inside the live mount path', () => {
+  it('keeps the factor card in the live mount but withholds both mutation controls', () => {
     renderBody()
-    expect(
-      within(targetCardWithin(liveMount())).getByRole('button', {
-        name: 'Confirm AI estimate',
-      }),
-    ).toBeInTheDocument()
-  })
-
-  /**
-   * I-A, second half: it does not merely DRAW — the confirmation LANDS, with
-   * the same argument the default-posture control asserts. A button that
-   * renders but reports nothing satisfies presence and still fails the user.
-   */
-  it('the confirmation LANDS with this factor’s id', () => {
-    const { onConfirmFactor } = renderBody()
-    fireEvent.click(
-      within(targetCardWithin(liveMount())).getByRole('button', {
-        name: 'Confirm AI estimate',
-      }),
-    )
-    expect(onConfirmFactor).toHaveBeenCalledTimes(1)
-    expect(onConfirmFactor).toHaveBeenCalledWith(TARGET_NODE_ID)
-  })
-
-  /** I-A: the set-value control is the other half of P4 and must also land. */
-  it('the inline value editor commits an override for this factor', () => {
-    const { onSetFactorValue } = renderBody()
     const card = targetCardWithin(liveMount())
-    const input = within(card).getByRole('spinbutton', { name: `Value for ${TARGET_LABEL}` })
-    fireEvent.change(input, { target: { value: '20' } })
-    fireEvent.click(within(card).getByRole('button', { name: 'Edit value' }))
-    expect(onSetFactorValue).toHaveBeenCalledWith(TARGET_NODE_ID, 20)
+    expect(card).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Confirm AI estimate' })).not.toBeInTheDocument()
+    expect(within(card).queryByRole('spinbutton', { name: `Value for ${TARGET_LABEL}` })).not.toBeInTheDocument()
   })
 
-  /**
-   * ⭐ I-B, limb 1 — the run gate #609 shipped still applies on this surface.
-   * The new host must inherit the gating, not route around it.
-   */
-  it('while a run is IN FLIGHT the affordance stays suppressed', () => {
-    renderBody({ isRunning: true })
+  it.each([
+    ['stale', { isStale: true }],
+    ['running', { isRunning: true }],
+  ] as const)('%s posture cannot re-enable a control with no carrier', (_name, posture) => {
+    renderBody(posture)
     const card = targetCardWithin(liveMount())
-    expect(
-      within(card).queryByRole('button', { name: 'Confirm AI estimate' }),
-    ).not.toBeInTheDocument()
-    expect(
-      within(card).queryByRole('spinbutton', { name: `Value for ${TARGET_LABEL}` }),
-    ).not.toBeInTheDocument()
-  })
-
-  /**
-   * ⭐ I-B, limb 2 — staleness must NEVER suppress (Paul's Ruling 3, the lock
-   * #609 retired). This is the limb that would silently come back if someone
-   * re-derived `suppressMutations` on the new host.
-   */
-  it('STALE results still offer the affordance, and it lands', () => {
-    const { onConfirmFactor } = renderBody({ isStale: true })
-    fireEvent.click(
-      within(targetCardWithin(liveMount())).getByRole('button', {
-        name: 'Confirm AI estimate',
-      }),
-    )
-    expect(onConfirmFactor).toHaveBeenCalledWith(TARGET_NODE_ID)
+    expect(within(card).queryByRole('button', { name: 'Confirm AI estimate' })).not.toBeInTheDocument()
+    expect(within(card).queryByRole('spinbutton')).not.toBeInTheDocument()
   })
 
   /**
@@ -280,13 +207,11 @@ describe('ResultsBody — "Confirm AI estimate" on the live analysis surface (2.
    * mounts, and NOT twice". A re-host REDs this rather than leaving a green
    * suite pointed at a component no deployment renders.
    */
-  it('mount path — the cockpit host carries the affordance exactly once, and no legacy panel survives', () => {
+  it('mount path — the cockpit remains singular and no legacy panel survives', () => {
     renderBody()
     expect(screen.getByTestId('analysis-hero-panel')).toBeInTheDocument()
     expect(liveMount()).toBeInTheDocument()
     expect(screen.queryByTestId('decision-confidence-panel')).not.toBeInTheDocument()
-    // Exactly one confirm affordance for this factor — the cockpit must not
-    // double-render what the deleted legacy arm used to own.
-    expect(screen.getAllByRole('button', { name: 'Confirm AI estimate' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Confirm AI estimate' })).not.toBeInTheDocument()
   })
 })

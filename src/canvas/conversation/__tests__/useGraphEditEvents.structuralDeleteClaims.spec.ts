@@ -103,24 +103,26 @@ describe('claimed removals do not ALSO ride the debounced notification', () => {
     expect(payload.operations).toEqual(['add'])
   })
 
-  it('WITHOUT a base hash nothing is claimed, so the notification still carries the removal', () => {
-    // The KNOWN GAP path: today's behaviour is preserved exactly, not replaced.
+  it('WITHOUT a base hash a shared scenario fails closed: no removal and no edit notification', () => {
     seed(null)
     renderHook(() => useGraphEditEvents(send))
+    const beforeNodeIds = useCanvasStore.getState().nodes.map((item) => item.id)
+    const messages: string[] = []
+    const onToast = (event: Event) => {
+      messages.push((event as CustomEvent<{ message?: string }>).detail?.message ?? '')
+    }
+    window.addEventListener('topbar:show-toast', onToast)
     act(() => {
       useCanvasStore.getState().deleteNodeById('option_b')
     })
+    window.removeEventListener('topbar:show-toast', onToast)
     act(() => {
       vi.advanceTimersByTime(2000)
     })
-    const calls = graphEditCalls()
-    expect(calls).toHaveLength(1)
-    const payload = calls[0][0].payload as {
-      changed_node_ids: string[]
-      operations: string[]
-    }
-    expect(payload.changed_node_ids).toEqual(['option_b'])
-    expect(payload.operations).toEqual(['remove'])
+    expect(graphEditCalls()).toHaveLength(0)
+    expect(useCanvasStore.getState().nodes.map((item) => item.id)).toEqual(beforeNodeIds)
+    expect(useCanvasStore.getState().pendingStructuralDeletes).toEqual([])
+    expect(messages).toContain('Sync the shared model before deleting. Nothing was removed.')
   })
 })
 

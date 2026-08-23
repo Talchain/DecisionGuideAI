@@ -244,13 +244,14 @@ describe('Analysis cockpit — ONE surface', () => {
     expect(within(section).queryByText(`Verify ${GAP_LABEL}`)).not.toBeInTheDocument()
   })
 
-  it('§2b P4 "Confirm AI estimate" survives the consolidation, exactly once', () => {
+  it('§2b keeps the evidence gap readable while withholding local confirmation', () => {
     const { onConfirmFactor } = renderCockpit()
-    const buttons = screen.getAllByRole('button', { name: 'Confirm AI estimate' })
-    expect(buttons).toHaveLength(1)
-    expect(cockpit()).toContainElement(buttons[0])
-    buttons[0].click()
-    expect(onConfirmFactor).toHaveBeenCalledWith(GAP_NODE_ID)
+    const host = screen.getByTestId('hero-arm-triage-actions')
+    expect(cockpit()).toContainElement(host)
+    expect(within(host).getByText(GAP_LABEL)).toBeInTheDocument()
+    expect(within(host).queryByRole('button', { name: 'Confirm AI estimate' })).toBeNull()
+    expect(within(host).queryByRole('spinbutton')).toBeNull()
+    expect(onConfirmFactor).not.toHaveBeenCalled()
   })
 
   // ── §3 States of ONE system, not a fork ──────────────────────────────────
@@ -273,11 +274,13 @@ describe('Analysis cockpit — ONE surface', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('§3d the STALE state never suppresses them (Paul ruling 3, the retired lock)', () => {
+  it('§3d the STALE state preserves the finding without reviving local mutation', () => {
     const { onConfirmFactor } = renderCockpit({ isStale: true })
-    const btn = screen.getByRole('button', { name: 'Confirm AI estimate' })
-    btn.click()
-    expect(onConfirmFactor).toHaveBeenCalledWith(GAP_NODE_ID)
+    const host = screen.getByTestId('hero-arm-triage-actions')
+    expect(within(host).getByText(GAP_LABEL)).toBeInTheDocument()
+    expect(within(host).queryByRole('button', { name: 'Confirm AI estimate' })).toBeNull()
+    expect(within(host).queryByRole('spinbutton')).toBeNull()
+    expect(onConfirmFactor).not.toHaveBeenCalled()
   })
 
   // ── §4 The dark fork is DELETED, not merely unmounted ────────────────────

@@ -13,10 +13,9 @@ interface Shortcut {
 }
 
 const shortcuts: Shortcut[] = [
-  // Editing
-  { keys: 'Double-click', description: 'Edit node label', category: 'Editing' },
-  { keys: 'Enter', description: 'Commit edit', category: 'Editing' },
-  { keys: 'Escape', description: 'Cancel edit', category: 'Editing' },
+  // Navigation
+  { keys: 'Double-click', description: 'Inspect node details', category: 'Navigation' },
+  { keys: 'Escape', description: 'Close active surface', category: 'Navigation' },
   
   // Selection
   { keys: '⌘/Ctrl + A', description: 'Select all', category: 'Selection' },
@@ -24,16 +23,8 @@ const shortcuts: Shortcut[] = [
   { keys: 'Shift + Click', description: 'Toggle selection', category: 'Selection' },
   
   // Actions
-  { keys: '⌘/Ctrl + D', description: 'Duplicate selected', category: 'Actions' },
   { keys: '⌘/Ctrl + C', description: 'Copy selected', category: 'Actions' },
-  { keys: '⌘/Ctrl + X', description: 'Cut selected', category: 'Actions' },
-  { keys: '⌘/Ctrl + V', description: 'Paste', category: 'Actions' },
-  { keys: 'Delete/Backspace', description: 'Delete selected', category: 'Actions' },
-  
-  // History
-  { keys: '⌘/Ctrl + Z', description: 'Undo', category: 'History' },
-  { keys: '⌘/Ctrl + Shift + Z', description: 'Redo', category: 'History' },
-  { keys: '⌘/Ctrl + Y', description: 'Redo (alt)', category: 'History' },
+  { keys: 'Delete/Backspace', description: 'Delete selected when synced', category: 'Actions' },
   
   // Navigation
   { keys: 'Arrow Keys', description: 'Nudge selected (1px)', category: 'Navigation' },

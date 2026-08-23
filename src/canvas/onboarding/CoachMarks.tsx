@@ -44,7 +44,7 @@ const DEFAULT_STEPS: CoachMarkStep[] = [
     id: 'canvas-controls',
     title: 'Canvas Controls',
     description:
-      'Use the toolbar to add nodes, connect them, and build your decision graph. Click and drag to pan the canvas.',
+      'Use the canvas to navigate and inspect the shared model. Ask Olumi for structural changes so they stay in sync.',
     targetSelector: '#plot-toolbar',
     position: 'right',
   },

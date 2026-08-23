@@ -212,17 +212,12 @@ export function ModelDetailRegion({
                         Cancel
                       </button>
                     </>
-                  ) : (
+                  ) : editable ? (
                     <button
                       type="button"
-                      disabled={!editable}
                       data-testid={`model-detail-v2-intervention-${iv.factorId}-value`}
-                      title={editable ? 'Change this target' : undefined}
-                      aria-label={
-                        editable
-                          ? `Change the target for ${iv.factorLabel}`
-                          : `${iv.factorLabel}: ${iv.value ?? 'Not set'}`
-                      }
+                      title="Change this target"
+                      aria-label={`Change the target for ${iv.factorLabel}`}
                       onClick={() =>
                         onBeginInterventionEdit?.(
                           iv.factorId,
@@ -233,12 +228,17 @@ export function ModelDetailRegion({
                           iv.numericValue === null ? '' : String(iv.numericValue),
                         )
                       }
-                      className={`${typography.tabular} ${
-                        editable ? 'underline decoration-dotted' : 'text-text-light'
-                      }`}
+                      className={`${typography.tabular} underline decoration-dotted`}
                     >
                       {iv.value ?? 'Not set'}
                     </button>
+                  ) : (
+                    <span
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-value`}
+                      className={`${typography.tabular} text-text-light`}
+                    >
+                      {iv.value ?? 'Not set'}
+                    </span>
                   )}
                 </li>
               )

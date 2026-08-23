@@ -19,6 +19,8 @@ import { trackGuidance } from '../../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../../store'
 import type { Node, Edge } from '@xyflow/react'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
+import { resolveAnalysisMetric } from '@/components/results/driverDisplayModel'
+import { analysisMetricContextSentence } from '@/components/results/influenceScaleCopy'
 
 // ---------------------------------------------------------------------------
 // § 1 — Types
@@ -36,7 +38,7 @@ export interface EvidenceGap {
 export interface WorthInvestigatingProps {
   gaps: EvidenceGap[]
   onSetValue?: (factorId: string) => void
-  /** Factor influence map for "Drives N%" labels (Task 4b) */
+  /** Producer pre-analysis influence scores, keyed by factor id. */
   factorInfluenceMap?: Map<string, number>
 }
 
@@ -219,6 +221,11 @@ function GapRow({ gap, onSetValue, factorInfluence }: { gap: EvidenceGap; onSetV
     onSetValue?.(gap.factorId)
   }
 
+  const analysisMetric = resolveAnalysisMetric({
+    value: factorInfluence,
+    basis: 'pre_analysis_influence',
+  })
+
   return (
     <li
       className={`bg-panel border border-panel-border rounded-lg p-2.5 space-y-1 transition-colors ${
@@ -231,8 +238,8 @@ function GapRow({ gap, onSetValue, factorInfluence }: { gap: EvidenceGap; onSetV
         {gap.factorLabel}
       </p>
       <p className={`${typography.panelMeta} text-text-light`}>
-        {factorInfluence != null && factorInfluence > 0
-          ? `Drives ${Math.round(factorInfluence * 100)}% of outcome variance. ${gap.description}`
+        {analysisMetric
+          ? `${analysisMetricContextSentence(analysisMetric)} ${gap.description}`
           : gap.description}
       </p>
 

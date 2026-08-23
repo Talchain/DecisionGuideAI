@@ -13,19 +13,16 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockCanvasState: any
 
 vi.mock('../../store', () => ({
   useCanvasStore: Object.assign(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (selector: (s: any) => unknown) => selector(mockCanvasState),
     { getState: () => mockCanvasState },
   ),
 }))
 vi.mock('../../../stores/uiStore', () => ({
   useUIStore: Object.assign(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (selector: (s: any) => unknown) => selector({ pendingModelTabSection: null }),
     { getState: () => ({ requestModelTabSection: vi.fn() }) },
   ),
@@ -34,8 +31,8 @@ vi.mock('../../../telemetry/guidanceEvents', () => ({ trackGuidance: vi.fn() }))
 vi.mock('../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
-// Stub the heavy section tree; the header passes children through so the
-// sections' wrapper (the retained content) stays in the DOM.
+// Stub the retired heavy section tree. Assertions bind the retained model to
+// the connected v2 panel, so this file cannot pass against the hidden v1 body.
 vi.mock('../model-tab/ModelTabHeader', () => ({
   ModelTabHeader: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="model-content">{children}</div>
@@ -105,7 +102,7 @@ beforeEach(() => {
 describe('F9: ModelTabBody run-state coverage', () => {
   it('positive control: idle shows the model with no run treatment and no busy mark', () => {
     renderModelTab()
-    expect(screen.getByTestId('model-content')).toBeInTheDocument()
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
     expect(screen.queryByTestId('analysis-run-skeleton')).not.toBeInTheDocument()
     expect(screen.getByTestId('model-tab')).not.toHaveAttribute('aria-busy')
@@ -115,7 +112,7 @@ describe('F9: ModelTabBody run-state coverage', () => {
     setRun('streaming', Date.now())
     renderModelTab()
     expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
-    expect(screen.getByTestId('model-content')).toBeInTheDocument()
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
     expect(screen.getByTestId('model-tab')).toHaveAttribute('aria-busy', 'true')
     expect(screen.queryByTestId('analysis-run-skeleton')).not.toBeInTheDocument()
   })
@@ -140,7 +137,7 @@ describe('F9: ModelTabBody run-state coverage', () => {
     renderModelTab()
     expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
     expect(screen.queryByTestId('analysis-run-skeleton')).not.toBeInTheDocument()
-    expect(screen.getByTestId('model-content')).toBeInTheDocument()
+    expect(screen.getByTestId('model-tab-v2-panel')).toBeInTheDocument()
   })
 
   it('contributes no aria-live region of its own (the dock announcer is the single voice)', () => {

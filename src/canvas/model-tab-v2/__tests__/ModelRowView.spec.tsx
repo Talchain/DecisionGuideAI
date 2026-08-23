@@ -117,14 +117,12 @@ describe('ModelRowView — F9: a factor with no value can still be given one', (
   })
 })
 
-describe('ModelRowView — the disabled-affordance rule (the lane boundary)', () => {
-  it('with NO write authority the editor is disabled and says why in words', () => {
+describe('ModelRowView — the authority boundary', () => {
+  it('with NO write authority the value is static text, not a dead control', () => {
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" />)
     const cell = screen.getByTestId('model-row-v2-f1-value')
-    expect(cell).toBeDisabled()
-    // The label must EXPLAIN, not merely be absent. A silently dead control is
-    // indistinguishable from a broken one.
-    expect(cell.getAttribute('title')).toMatch(/not connected yet/i)
+    expect(cell.tagName).toBe('SPAN')
+    expect(cell).not.toHaveAttribute('role', 'button')
   })
 
   it('with an authority wired the editor is enabled and reports the row id it was clicked for', () => {

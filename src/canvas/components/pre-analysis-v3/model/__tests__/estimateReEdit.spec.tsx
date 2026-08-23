@@ -28,6 +28,12 @@ import { PreAnalysisPanelV3 } from '../../PreAnalysisPanelV3'
 import { ToastProvider } from '../../../../ToastContext'
 import { useCanvasStore } from '../../../../store'
 import { useReadinessStore } from '../../../../stores/readinessStore'
+import { ConversationProvider } from '../../../../conversation/ConversationContext'
+
+vi.mock('../../../../../v5/v5Adapter', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, callV5Turn: vi.fn(() => new Promise(() => {})) }
+})
 
 const base: EstimateRowModel = {
   nodeId: 'f1',
@@ -56,15 +62,19 @@ describe('EstimateRow — a reviewed row still offers a way back into the editor
     expect(onToggle).toHaveBeenCalledWith('f1')
   })
 
-  it('confirm-only reviewed rows (canEditValue false) offer the affordance too — Confirm-as-is state is also revisitable', () => {
+  it('non-editable reviewed rows offer Ask Olumi, never a local confirm/edit control', () => {
+    const onAsk = vi.fn()
     render(
       <EstimateRow
         row={{ ...base, canEditValue: false, displayText: null }}
         expanded={false}
         onToggle={vi.fn()}
+        onAsk={onAsk}
       />,
     )
-    expect(screen.getByTestId('pre-analysis-v3-edit-f1')).toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-edit-f1')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-ask-f1'))
+    expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ nodeId: 'f1' }))
   })
 })
 
@@ -108,7 +118,9 @@ describe('YourDecisionSection guard — the drill-in opens for a reviewed row (r
   it('clicking Edit on the reviewed row opens the drill-in input', () => {
     render(
       <ToastProvider>
-        <PreAnalysisPanelV3 onAnalyse={vi.fn()} isAnalysing={false} canRun blockedReason={undefined} />
+        <ConversationProvider>
+          <PreAnalysisPanelV3 onAnalyse={vi.fn()} isAnalysing={false} canRun blockedReason={undefined} />
+        </ConversationProvider>
       </ToastProvider>,
     )
     // Open the "Your decision" disclosure, then the estimates group (both

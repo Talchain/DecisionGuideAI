@@ -41,7 +41,11 @@ const SCALE_QUANTUM = 100
 export function CanvasLabelScaleSync() {
   // Selecting the QUANTISED SCALE (a number), not the raw transform, so this
   // component re-renders only when the written value would actually change.
-  const scale = useStore((s) => Math.round(labelCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
+  // Quantise UP, not to nearest. Nearest rounding put a declared 10px label at
+  // 9.97px in the exact 1280px CRM fit: visually close, but below the product's
+  // own legibility floor. Ceiling preserves the floor while retaining the same
+  // two-decimal write cadence.
+  const scale = useStore((s) => Math.ceil(labelCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
   const markerRef = useRef<HTMLSpanElement | null>(null)
 
   useEffect(() => {

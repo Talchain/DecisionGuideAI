@@ -36,6 +36,7 @@ import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { AssumedStrengthCard } from '../strengthElicitation/AssumedStrengthCard'
 import { openEdgeStrengthEditor } from '../../../canvas/utils/openEdgeStrengthEditor'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../canvas/mutations/mutationAuthority'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionRow'
@@ -552,7 +553,9 @@ export function AnalysisHeroPanel({
           that has no honest sentence. */}
       <AssumedStrengthCard
         decision={model.evidence.assumedStrength}
-        onResolve={openEdgeStrengthEditor}
+        onResolve={hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.analysisAssumedEdgeStrength)
+          ? openEdgeStrengthEditor
+          : undefined}
       />
 
       {/* ── WHAT TO ACT ON NEXT ──────────────────────────────────────────

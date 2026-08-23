@@ -17,8 +17,10 @@ import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
 import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
-import type { ContextTarget, MenuEntry, MenuItemDef } from './types'
+import type { ContextTarget, MenuEntry } from './types'
+import { isDivider } from './types'
 import type { NodeType } from '../domain/nodes'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../mutations/mutationAuthority'
 import {
   deleteAction,
   addNodeAction,
@@ -71,6 +73,52 @@ function getNodeRange(node: any): { min: number; max: number } | null {
 
 const DIV: MenuEntry = { type: 'divider' }
 
+/**
+ * Local React-Flow mutations that look like shared-model edits. Delete is not
+ * in this set: it has its own server-hash/CAS authority gate in the store.
+ * Copy, layout, selection, lenses and AI questions are presentation/read-only
+ * actions and remain available.
+ */
+export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
+  'add-node',
+  'undo',
+  'redo',
+  'paste',
+  'set-value',
+  'add-connected-factor',
+  'add-connected-outcome',
+  'add-connected-risk',
+  'mark-assumption',
+  'cut',
+  'duplicate',
+  'reverse-edge',
+  'insert-factor-between',
+])
+
+function compactDividers(entries: MenuEntry[]): MenuEntry[] {
+  const compacted: MenuEntry[] = []
+  for (const entry of entries) {
+    if (isDivider(entry) && (compacted.length === 0 || isDivider(compacted.at(-1)!))) continue
+    compacted.push(entry)
+  }
+  if (compacted.length > 0 && isDivider(compacted.at(-1)!)) compacted.pop()
+  return compacted
+}
+
+export function applyContextMenuMutationAuthority(entries: MenuEntry[]): MenuEntry[] {
+  if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)) return entries
+  const filtered = entries.flatMap<MenuEntry>((entry) => {
+    if (isDivider(entry)) return [entry]
+    if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(entry.id)) return []
+    const submenuItems = entry.submenuItems
+      ? applyContextMenuMutationAuthority(entry.submenuItems)
+      : undefined
+    if (entry.hasSubmenu && submenuItems?.length === 0) return []
+    return [{ ...entry, ...(submenuItems ? { submenuItems } : {}) }]
+  })
+  return compactDividers(filtered)
+}
+
 // ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
@@ -98,16 +146,20 @@ export function useMenuItems({
     const wrap = (action: () => void | Promise<void>) => () => { void action(); onClose() }
 
     if (target.kind === 'pane') {
-      return buildPaneMenu(target, showToast, screenToFlowPosition, hasClipboard, wrap)
+      return applyContextMenuMutationAuthority(
+        buildPaneMenu(target, showToast, screenToFlowPosition, hasClipboard, wrap),
+      )
     }
     if (target.kind === 'node') {
-      return buildNodeMenu(target, showToast, wrap, onOpenCustomValue)
+      return applyContextMenuMutationAuthority(
+        buildNodeMenu(target, showToast, wrap, onOpenCustomValue),
+      )
     }
     if (target.kind === 'edge') {
-      return buildEdgeMenu(target, showToast, wrap)
+      return applyContextMenuMutationAuthority(buildEdgeMenu(target, showToast, wrap))
     }
     if (target.kind === 'multi') {
-      return buildMultiMenu(target, showToast, hasClipboard, wrap)
+      return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, hasClipboard, wrap))
     }
     return []
   }, [target, showToast, screenToFlowPosition, hasClipboard, onClose, onOpenCustomValue])
@@ -249,7 +301,6 @@ function buildNodeMenu(
   const items: MenuEntry[] = []
   const kind = target.nodeType as string
   const isFull = FULL_MENU_KINDS.has(kind)
-  const isOrg = ORG_KINDS.has(kind)
   const isGoal = kind === 'goal'
   const node = target.node
 

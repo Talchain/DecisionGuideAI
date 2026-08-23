@@ -29,6 +29,7 @@
  */
 import { useCallback } from 'react'
 import { Check } from 'lucide-react'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 
 interface ActionIconsProps {
   nodeId: string
@@ -44,7 +45,7 @@ export function ActionIcons({ showConfirm, onConfirm }: ActionIconsProps) {
     onConfirm?.()
   }, [onConfirm])
 
-  if (!showConfirm) return null
+  if (!showConfirm || !hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasFactorConfirmation)) return null
 
   return (
     <div className="absolute bottom-2 left-2.5 flex gap-0.5">

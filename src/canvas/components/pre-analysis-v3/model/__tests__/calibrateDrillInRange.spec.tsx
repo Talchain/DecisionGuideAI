@@ -38,6 +38,12 @@ import { CalibrateDrillIn } from '../CalibrateDrillIn'
 import type { EstimateRowModel } from '../../types'
 import { useCanvasStore } from '../../../../store'
 import { getObservedState } from '../../../../utils/observedStateHelpers'
+import { ConversationProvider } from '../../../../conversation/ConversationContext'
+
+vi.mock('../../../../../v5/v5Adapter', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, callV5Turn: vi.fn(() => new Promise(() => {})) }
+})
 
 /** The walk's row shape: capless, unitless, value-bearing, editable. */
 const walkRow: EstimateRowModel = {
@@ -86,6 +92,14 @@ function typeAndSave(text: string, row: EstimateRowModel = walkRow): void {
   fireEvent.click(screen.getByLabelText(`Save estimate for ${row.label}`))
 }
 
+function renderDrill(activeRow: EstimateRowModel = walkRow, onDone = vi.fn()) {
+  return render(
+    <ConversationProvider>
+      <CalibrateDrillIn row={activeRow} onDone={onDone} />
+    </ConversationProvider>,
+  )
+}
+
 describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude entries (walk gap #3)', () => {
   beforeEach(() => {
     cleanup()
@@ -93,7 +107,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
   })
 
   it('the witnessed entry "£60,000" is refused: nothing committed, honest hint shown', () => {
-    render(<CalibrateDrillIn row={walkRow} onDone={vi.fn()} />)
+    renderDrill()
     typeAndSave('£60,000')
     const os = getObservedState(
       useCanvasStore.getState().nodes.find(n => n.id === 'fac_content_marketing')?.data,
@@ -109,7 +123,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
   })
 
   it('"60%" is refused the same way (the NL path already refuses % on this factor)', () => {
-    render(<CalibrateDrillIn row={walkRow} onDone={vi.fn()} />)
+    renderDrill()
     typeAndSave('60%')
     const os = getObservedState(
       useCanvasStore.getState().nodes.find(n => n.id === 'fac_content_marketing')?.data,
@@ -121,7 +135,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
 
   it('an in-range entry "0.6" commits (the guard refuses magnitudes, not the editor)', () => {
     const onDone = vi.fn()
-    render(<CalibrateDrillIn row={walkRow} onDone={onDone} />)
+    renderDrill(walkRow, onDone)
     typeAndSave('0.6')
     const os = getObservedState(
       useCanvasStore.getState().nodes.find(n => n.id === 'fac_content_marketing')?.data,
@@ -140,7 +154,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
   })
 
   it('boundary values 0 and 1 commit; a negative entry is refused', () => {
-    render(<CalibrateDrillIn row={walkRow} onDone={vi.fn()} />)
+    renderDrill()
     typeAndSave('1')
     expect(
       getObservedState(
@@ -150,7 +164,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
 
     cleanup()
     seedWalkNode()
-    render(<CalibrateDrillIn row={walkRow} onDone={vi.fn()} />)
+    renderDrill()
     typeAndSave('-0.2')
     const os = getObservedState(
       useCanvasStore.getState().nodes.find(n => n.id === 'fac_content_marketing')?.data,
@@ -178,7 +192,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
       displayText: null,
       needsValue: true,
     }
-    render(<CalibrateDrillIn row={emptyRow} onDone={vi.fn()} />)
+    renderDrill(emptyRow)
     typeAndSave('£60,000', emptyRow)
     expect(
       getObservedState(useCanvasStore.getState().nodes.find(n => n.id === 'f-empty')?.data)
@@ -208,7 +222,7 @@ describe('CalibrateDrillIn — normalised-scale-only factors refuse magnitude en
       label: 'Growth Budget Spend',
       cap: 150000,
     }
-    render(<CalibrateDrillIn row={capRow} onDone={vi.fn()} />)
+    renderDrill(capRow)
     typeAndSave('£60,000', capRow)
     const os = getObservedState(
       useCanvasStore.getState().nodes.find(n => n.id === 'f-cap')?.data,
