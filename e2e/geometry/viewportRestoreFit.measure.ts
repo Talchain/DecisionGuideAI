@@ -40,6 +40,7 @@
  */
 import { test, expect, type Page } from '@playwright/test'
 import { posturePins } from '../visual/flagPosture'
+import { LABEL_LEGIBLE_ZOOM, renderedLabelPx } from '../../src/canvas/utils/zoomLegibility'
 import {
   openCanvas,
   freezeMotion,
@@ -94,6 +95,8 @@ async function prepareKeepingStorage(page: Page, vp: { width: number; height: nu
 
 interface Frame {
   transform: string
+  /** The viewport scale, read off the rendered matrix — the `a` component. */
+  zoom: number
   layoutVersion: number
   storeNodeCount: number
   modelNodeCount: number
@@ -124,8 +127,11 @@ async function frameOf(page: Page): Promise<Frame> {
         behindBanner.push(el.dataset.id!)
       }
     }
+    const transform = vpEl ? getComputedStyle(vpEl).transform : 'NO-VIEWPORT-EL'
+    const m = /matrix\(([-0-9.eE]+)/.exec(transform)
     return {
-      transform: vpEl ? getComputedStyle(vpEl).transform : 'NO-VIEWPORT-EL',
+      transform,
+      zoom: m ? Number(m[1]) : NaN,
       layoutVersion: store.layoutVersion,
       storeNodeCount: store.nodes.length,
       modelNodeCount: model.length,
@@ -253,6 +259,28 @@ test('the restored model is framed, and the frame follows the window', async ({ 
   for (let i = 0; i < SIZES.length; i++) {
     const size = `${SIZES[i].width}x${SIZES[i].height}`
     expect(frames[i].behindBanner, `RESTORE @${size}: model nodes behind the header banner`).toEqual([])
+  }
+
+  // (b2) THE CAMERA IS NOT PARKED BELOW THE LEGIBILITY FLOOR — SENDABLE failure 6.
+  //      Measured on deployed staging at 1280x800, restore arm: 0.4279. The
+  //      counter-scale saturates at `1 / LABEL_LEGIBLE_ZOOM`, so every
+  //      counter-scaled glyph rendered at 0.4279 / 0.5 = 85.6% of its declared
+  //      size — 8.56px on 58 elements against the DS v5 §2.4 10px canvas floor.
+  //      The floor is not lowered and the cap is not raised: the fit owner
+  //      simply has to reach the floor it already asks for.
+  //
+  //      POSITIVE CONTROL FIRST (trap 13): the same arithmetic must JUDGE the
+  //      measured park short, or "meets the floor" is a verdict nothing can fail.
+  expect(renderedLabelPx(10, 0.4279), 'the legibility arithmetic cannot fail — this check would be vacuous')
+    .toBeLessThan(10)
+  expect(fresh.zoom, 'FRESH: the control arm is itself below the floor').toBeGreaterThanOrEqual(LABEL_LEGIBLE_ZOOM)
+  for (let i = 0; i < SIZES.length; i++) {
+    const size = `${SIZES[i].width}x${SIZES[i].height}`
+    expect(Number.isFinite(frames[i].zoom), `RESTORE @${size}: no viewport matrix — the floor check would be vacuous`).toBe(true)
+    expect(
+      frames[i].zoom,
+      `RESTORE @${size}: the product parked the camera at ${frames[i].zoom}, below the legibility floor — canvas text renders at ${(renderedLabelPx(10, frames[i].zoom)).toFixed(2)}px against a declared 10px`,
+    ).toBeGreaterThanOrEqual(LABEL_LEGIBLE_ZOOM)
   }
 
   // (c) NO WORSE OFF-SCREEN THAN THE PRODUCT'S OWN FRESH FIT at the same window.
