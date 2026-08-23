@@ -54,7 +54,14 @@ describe('MetricPills — confidence disclosure travels with the number', () => 
   it('renders no confidence pill at all when the policy withheld the number', () => {
     // The live state today. Note the influence pill is still asked for, so a
     // pass here cannot come from the component rendering nothing.
-    render(<MetricPills influencePct={80} confidencePct={null} confidenceIsDefaulted />)
+    render(
+      <MetricPills
+        influencePct={80}
+        influenceProvenance="influence_score"
+        confidencePct={null}
+        confidenceIsDefaulted
+      />,
+    )
     expect(screen.getByText('Influence 80%')).toBeDefined()
     expect(screen.queryByTestId('metric-pill-confidence')).toBeNull()
     expect(screen.queryByTestId('metric-pill-confidence-default-estimate')).toBeNull()
