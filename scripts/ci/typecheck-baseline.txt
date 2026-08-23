@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2260
+# count=2253
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -161,7 +161,6 @@
 1	src/canvas/components/__tests__/KeyboardMap.spec.tsx
 1	src/canvas/components/__tests__/LayerProvider.spec.tsx
 1	src/canvas/components/__tests__/ModelCardLite.spec.tsx
-2	src/canvas/components/__tests__/ModelTabBody.spec.tsx
 1	src/canvas/components/__tests__/ObjectiveBanner.spec.tsx
 1	src/canvas/components/__tests__/RiskProfileBadge.spec.tsx
 7	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx
@@ -199,7 +198,7 @@
 1	src/canvas/contextMenu/__tests__/actions.spec.ts
 3	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts
 12	src/canvas/contextMenu/actions.ts
-42	src/canvas/contextMenu/useMenuItems.ts
+40	src/canvas/contextMenu/useMenuItems.ts
 1	src/canvas/conversation/ActionStrip.tsx
 4	src/canvas/conversation/ConversationPanel.tsx
 3	src/canvas/conversation/InlineBlocks.tsx
@@ -233,7 +232,7 @@
 1	src/canvas/domain/__tests__/edgeLabels.spec.ts
 1	src/canvas/domain/__tests__/migrations.spec.ts
 1	src/canvas/domain/__tests__/nodes.spec.ts
-30	src/canvas/edges/StyledEdge.tsx
+27	src/canvas/edges/StyledEdge.tsx
 5	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx
 2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx
 1	src/canvas/health/issueExplainers.ts
