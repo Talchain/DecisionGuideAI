@@ -413,6 +413,84 @@ describe('useFitViewOnLayoutVersion — the restore trigger', () => {
     ])
   })
 
+  // ⭐⭐ THE PAIR BELOW IS THE PRICE OF MAKING THE FIT RE-SCHEDULABLE, and it was
+  // found by adversarial review, not by this suite. Deferring the latch means a
+  // cancelled fit can be retried — which is the fix — but it also means the LATCH
+  // KEY decides how often the camera moves. Keyed on the STRUCTURAL identity
+  // (sorted node + edge ids) it would re-frame on every add, delete, undo and
+  // paste, because on a restored graph `layoutVersion` stays 0 all session and
+  // nothing else stops it. Keyed on the RESTORE it fires once, as intended.
+  //
+  // Neither test alone shows the binding: the first proves edits do NOT re-frame,
+  // the second proves a genuinely new restore still DOES. A latch that simply
+  // never fires twice would pass the first and fail the second.
+
+  it('a STRUCTURAL edit on a restored graph does not yank the camera back to fit-all', () => {
+    renderHook(() => useFitViewOnLayoutVersion())
+    const graph = restoredGraph()
+    act(() => { restore(graph) })
+    act(() => { measureAll(graph) })
+    flushFrames()
+
+    // PRECONDITION 1: the restore fit landed, so what follows is about a SECOND
+    // fit and not about the first one being missing.
+    expect(fitViewSpy, 'the restore fit never landed — this test would prove nothing').toHaveBeenCalledTimes(1)
+
+    const before = useCanvasStore.getState()
+    const structuralBefore = getGraphIdentityKey(before.currentScenarioId, before.nodes, before.edges)
+
+    act(() => { useCanvasStore.getState().addNode({ x: 900, y: 400 }, 'factor') })
+    currentNodes = useCanvasStore.getState().nodes.map((n) => ({ id: n.id }))
+
+    const after = useCanvasStore.getState()
+    // PRECONDITION 2: the edit really did change the STRUCTURAL identity — the key
+    // the old code latched on. Without this the test passes for the wrong reason.
+    expect(
+      getGraphIdentityKey(after.currentScenarioId, after.nodes, after.edges),
+      'the edit did not change the structural identity — the regression could not occur',
+    ).not.toBe(structuralBefore)
+    // PRECONDITION 3: still the restore state class. `addNode` must not have
+    // requested a layout, or trigger 1 would own the frame and this proves nothing.
+    expect(after.layoutVersion, 'a layout ran — the restore trigger is no longer the author').toBe(0)
+    expect(after.pendingLayout).toBe(false)
+
+    flushFrames()
+
+    // THE POSTCONDITION. The user zoomed into a corner and added a factor; the
+    // camera must stay where they put it.
+    expect(
+      fitViewSpy,
+      'adding a node re-framed the whole canvas — the latch is keyed on structure, not on the restore',
+    ).toHaveBeenCalledTimes(1)
+  })
+
+  it('TWIN: a genuinely NEW restore still frames the camera', () => {
+    renderHook(() => useFitViewOnLayoutVersion())
+    const graph = restoredGraph()
+    act(() => { restore(graph) })
+    act(() => { measureAll(graph) })
+    flushFrames()
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+
+    // A DIFFERENT scenario arrives in the same mount — a new restore, not an edit.
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'scenario-two' } as never)
+      restore(graph)
+    })
+    act(() => { measureAll(graph) })
+
+    // PRECONDITION: still the restore state class, so the restore trigger is the
+    // only possible author of the call below.
+    expect(useCanvasStore.getState().layoutVersion).toBe(0)
+
+    flushFrames()
+
+    expect(
+      fitViewSpy,
+      'a new restore was not framed — the latch is stuck once-per-mount instead of once-per-restore',
+    ).toHaveBeenCalledTimes(2)
+  })
+
   it('the floor it asks for is the one constant the counter-scale is capped at', () => {
     // Binds the camera contract to the legibility authority rather than to a
     // number: `labelCounterScale` saturates at `1 / LABEL_LEGIBLE_ZOOM`, so any

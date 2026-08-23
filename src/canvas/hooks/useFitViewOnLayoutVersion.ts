@@ -7,7 +7,7 @@ import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
-import { getGraphIdentityKey, graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
+import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -106,6 +106,19 @@ function cameraHasATarget(s: CameraReadinessState): boolean {
  *
  * Must be called inside a ReactFlowProvider (uses `useReactFlow`).
  */
+/**
+ * The identity of a RESTORE, which is what the restore trigger latches on.
+ *
+ * Deliberately NOT `getGraphIdentityKey`: that one is a STRUCTURAL hash and
+ * answers "is this the same shape of graph?". This one answers "is this the same
+ * restored model?", and must therefore survive every edit the user makes to it.
+ */
+function restoreIdentityKey(scenarioId: string | null | undefined): string {
+  return typeof scenarioId === 'string' && scenarioId.length > 0
+    ? `scenario:${scenarioId}`
+    : 'draft'
+}
+
 export function useFitViewOnLayoutVersion(): void {
   const layoutVersion = useCanvasStore((s) => s.layoutVersion)
   // Restore-trigger inputs. Selected individually and as stable references /
@@ -175,10 +188,9 @@ export function useFitViewOnLayoutVersion(): void {
   // clean at 1440x900 / 1512x982. The fresh path at 1280x800 is clean, which is
   // the contrast that makes it the restore's defect and not the graph's.
   //
-  // Fires ONCE PER GRAPH IDENTITY, keyed by `getGraphIdentityKey` (the key
-  // `useInitialLayoutGuard` already uses, and structural rather than
-  // positional, so a user's own pan/drag never re-arms it). A graph that goes
-  // on to be laid out is handled by trigger 1 and returns early here.
+  // Fires ONCE PER RESTORE, keyed by the SCENARIO (see `restoreIdentityKey`), so
+  // neither the user's own pan/drag nor their subsequent edits re-arm it. A graph
+  // that goes on to be laid out is handled by trigger 1 and returns early here.
   //
   // ⭐⭐ THE LATCH IS SET INSIDE THE FRAME, NOT BEFORE IT — and that ordering is
   // the whole of SENDABLE failure 6 (23 Aug 2026). Written the other way round,
@@ -214,15 +226,45 @@ export function useFitViewOnLayoutVersion(): void {
   // has not happened yet stays re-schedulable. It also means the fit runs on
   // the LAST frame the dependencies settle into, i.e. after measurement, so it
   // frames measured nodes rather than un-measured ones.
-  const aimedIdentityRef = useRef<string | null>(null)
+  //
+  // ⭐⭐ AND THE LATCH IS KEYED ON THE RESTORE, NOT ON THE STRUCTURE. These are two
+  // different questions and the old key conflated them. `getGraphIdentityKey`
+  // hashes SORTED NODE AND EDGE IDS (`graphNeedsInitialLayout.ts` —
+  // `structuralHash`), so it changes on every add, delete, undo and paste.
+  //
+  // ⚠ That conflation is harmless only while the fit can never re-schedule. Make
+  // the fit re-schedulable — which is the whole point of the change above — and a
+  // STRUCTURAL key turns every node the user adds into an animated fit-all that
+  // yanks the camera out from under them. On a RESTORED graph there is nothing to
+  // stop it: `layoutVersion` stays `0` for the entire session, because `addNode`,
+  // `addNodeWithEdge` and `deleteNodeById` never call `setPendingLayout`, and the
+  // only write to `layoutVersion` in the store is inside `applyLayout`. So the
+  // user zooms into one corner, adds an option, and the canvas animates back to
+  // fit-all. The old code swallowed that silently — via the same cancellation bug
+  // this fix repairs.
+  //
+  // The question this latch answers is "have we framed THIS RESTORE yet?", never
+  // "have we framed THIS STRUCTURE yet?". One semantic question, one key. Keying
+  // on the scenario also gives the right behaviour on scenario SWITCH: the ref
+  // holds only the last key, so X → Y → X re-frames X, which is a new restore.
+  const aimedRestoreRef = useRef<string | null>(null)
   useEffect(() => {
     if (layoutVersion > 0) return
-    const s = useCanvasStore.getState()
-    if (!isRestoredModelReady(s)) return
-    const key = getGraphIdentityKey(s.currentScenarioId, s.nodes, s.edges)
-    if (aimedIdentityRef.current === key) return
+    if (!isRestoredModelReady(useCanvasStore.getState())) return
+    const restoreKey = restoreIdentityKey(useCanvasStore.getState().currentScenarioId)
+    if (aimedRestoreRef.current === restoreKey) return
     const raf = requestAnimationFrame(() => {
-      aimedIdentityRef.current = key
+      // Re-read the guards at FIRE time. They were evaluated a frame ago, and a
+      // store write from a NON-DISCRETE context (a ResizeObserver, the
+      // `applyLayout` promise chain) can land in between without React having
+      // flushed this effect's cleanup first. Without this re-check the frame
+      // could frame a graph whose positions are about to be replaced — precisely
+      // the state `isRestoredModelReady` exists to refuse.
+      const now = useCanvasStore.getState()
+      if (now.layoutVersion > 0) return
+      if (!isRestoredModelReady(now)) return
+      if (restoreIdentityKey(now.currentScenarioId) !== restoreKey) return
+      aimedRestoreRef.current = restoreKey
       fitNow.current()
     })
     return () => cancelAnimationFrame(raf)
