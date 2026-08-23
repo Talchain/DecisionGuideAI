@@ -174,3 +174,64 @@ export function renderedLabelPx(declaredPx: number, zoom: number): number {
  * inspector copy is untouched.
  */
 export const CANVAS_LABEL_SCALE_VAR = '--canvas-label-scale'
+
+/**
+ * The fit options the PRODUCT CANVAS hands xyflow for the fit it queues AT
+ * MOUNT — `<ReactFlow fitView …>`.
+ *
+ * ⭐ WHY THIS EXISTS: THE MOUNT FIT WAS THE ONE PRODUCT-CHOSEN FIT WITH NO
+ * FLOOR, AND ON THE RESTORE ARM IT IS THE ONE THAT WINS.
+ *
+ * The doctrine at the top of this module says the product must never
+ * AUTOMATICALLY park the camera below `LABEL_LEGIBLE_ZOOM`, and lists the fits
+ * that honour it. Every IMPERATIVE fit does: `useFitViewOnLayoutVersion`'s
+ * three triggers, `ReactFlowGraph.handleFitView`, the command palette. The
+ * DECLARATIVE one did not, and nothing said so — because it does not spell a
+ * floor at all. Derived at the installed bytes (`@xyflow/system@0.0.76`):
+ *
+ *   - `<ReactFlow fitView>` sets `fitViewQueued: true` and `fitViewOptions` to
+ *     the `fitViewOptions` PROP (`@xyflow/react` 12.10.2 store init);
+ *   - the queued fit runs from `setNodes` / `updateNodeInternals` — i.e. only
+ *     ONCE THE NODES HAVE BEEN MEASURED (`getFitViewNodes` keeps only nodes
+ *     with a `measured.width`), which on a restore is AFTER the imperative
+ *     restore trigger's RAF has already fired;
+ *   - `fitViewport` then calls
+ *     `getViewportForBounds(bounds, w, h, options?.minZoom ?? minZoom, …)`.
+ *
+ * With the prop absent, `options` is `undefined`, so the fit's floor falls
+ * through to the canvas instance's `minZoom={0.1}` — a SECOND, LOWER floor for
+ * a fit the product chose, standing beside the one this module owns. That
+ * fall-through is the competing authority this constant supersedes; it is not
+ * a new rule beside `LABEL_LEGIBLE_ZOOM` but the missing consumer of it.
+ *
+ * MEASURED (fresh-guest journey witness, 21 Aug 2026, 1280x800): the restore
+ * arm settled at zoom **0.4279**, and the counter-scale is capped at
+ * `MAX_LABEL_COUNTER_SCALE` from `LABEL_LEGIBLE_ZOOM` down, so the 10px
+ * `edgeLabel` token rendered at `10 x 2 x 0.4279 = 8.56px` on 58 elements —
+ * against the 10px canvas floor. Below `LABEL_LEGIBLE_ZOOM` the counter-scale
+ * has nothing left to give; the only channel that can restore those pixels is
+ * the zoom the product parks at.
+ *
+ * ⚠ WHAT IT DELIBERATELY DOES NOT CARRY. Only the floor. No `padding` (the
+ * panel-aware `computeFitPadding()` reads the DOM at call time and the panels
+ * are not mounted when this object is read) and no `nodes` (the fit owner's
+ * `__ghost-option__` exclusion needs the live node list). Those stay xyflow's
+ * defaults exactly as before, so the ONLY semantic this changes is the floor —
+ * which is what makes the post-draft arm provably unaffected: its final frame
+ * comes from `useFitViewOnLayoutVersion`'s layout trigger, whose contract is
+ * untouched.
+ *
+ * ⚠ AND THE CONSEQUENCE, STATED PLAINLY: a model whose natural fit is below the
+ * floor is now CLAMPED, so it is framed larger than the pane and the overflow
+ * sits off-screen (xyflow re-centres on the clamped zoom). That is the
+ * deliberate trade this module's doctrine already makes — a readable partial
+ * view over an unreadable whole one — and the user's own zoom-out is untouched
+ * (the canvas keeps `minZoom={0.1}`).
+ *
+ * Frozen and module-level so its identity is stable: `fitViewOptions` is a
+ * tracked field in xyflow's `StoreUpdater`, and a fresh object each render
+ * would write to the store on every render.
+ */
+export const MOUNT_FIT_VIEW_OPTIONS: Readonly<{ minZoom: number }> = Object.freeze({
+  minZoom: LABEL_LEGIBLE_ZOOM,
+})
