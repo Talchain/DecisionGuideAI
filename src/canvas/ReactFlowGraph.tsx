@@ -72,7 +72,7 @@ import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
-import { LABEL_LEGIBLE_ZOOM } from './utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, MOUNT_FIT_VIEW_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -2221,6 +2221,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
             fitView
+            // THE MOUNT FIT'S FLOOR. `fitView` alone QUEUES a fit whose floor is
+            // `options?.minZoom ?? minZoom` (@xyflow/system 0.0.76 `fitViewport`),
+            // so with no options it fell through to the `minZoom` below — a second,
+            // lower floor for a fit the PRODUCT chooses, standing beside the one
+            // `utils/zoomLegibility.ts` owns. On a restore that queued fit is the
+            // one that WINS: it resolves only once nodes are measured, i.e. after
+            // the imperative restore trigger's RAF has already run. That is how the
+            // 21 Aug witness landed at 0.4279 zoom and 8.56px text. The `minZoom`
+            // below STAYS 0.1 — it is the USER's floor, and the asymmetry is
+            // deliberate: the user may choose the overview, the product may not
+            // choose it for them.
+            fitViewOptions={MOUNT_FIT_VIEW_OPTIONS}
             minZoom={0.1}
             maxZoom={4}
           >
