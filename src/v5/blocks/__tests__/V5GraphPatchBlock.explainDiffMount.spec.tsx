@@ -61,8 +61,12 @@ const applied: V5GraphPatchBlockType = {
 const jsonResponse = (body: unknown, ok = true) =>
   ({ ok, json: () => Promise.resolve(body) }) as unknown as Response
 
-beforeEach(() => cleanup())
-afterEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  cleanup()
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 /* ── THE MOUNT PATH ─────────────────────────────────────────────────────────── */
 describe('mount path: the dispatcher actually renders this card', () => {
