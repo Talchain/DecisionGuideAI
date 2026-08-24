@@ -193,8 +193,8 @@ export const SIGNAL_COPY = {
     emphasis: 'Connect the downside to the options it threatens, so the analysis can weigh it.',
   }),
   structuralSharedMechanism: (optionCount: number) => ({
-    lead: `All ${optionCount === 2 ? 'two' : String(optionCount)} options act through exactly the same factors.`,
-    emphasis: 'Options that differ only in degree give the analysis little to separate.',
+    lead: `All ${optionCount === 2 ? 'two' : String(optionCount)} options act through exactly the same parts of the model.`,
+    emphasis: 'These may be variations on one route rather than genuinely different approaches.',
   }),
   structuralNoExternalFactor: {
     lead: 'Nothing outside your control is modelled.',
@@ -203,7 +203,7 @@ export const SIGNAL_COPY = {
   structuralNoDownsideRationale:
     'Downside paths: an option connected only to benefits cannot lose. Linking each option to the harms it risks lets the analysis trade one against the other instead of ranking upside alone.',
   structuralSharedMechanismRationale:
-    'Mechanism diversity: when every option drives the same factors, they are settings of one lever rather than alternatives. A route that works through a different mechanism is what widens the decision.',
+    'Mechanism diversity: when every option acts on the same immediate parts of the model, they may be settings of one lever rather than alternatives. A route that works through a different mechanism is what widens the decision.',
   structuralNoExternalFactorRationale:
     'Controllability (Howard): separating what you decide from what you merely endure shows where choice actually operates, and stops a model that quietly assumes the world holds still.',
 } as const

@@ -57,21 +57,35 @@ export interface StructuralAbsence {
  *
  * Below two options the foundational signals (`sig_goal_missing`,
  * `sig_success_missing`, `sig_option_breadth`) are the right advice and already
- * fire; adding "your options all act through the same factors" to a one-option
+ * fire; adding "your options all act through the same parts" to a one-option
  * sketch is noise, and it would double-report what `sig_option_breadth` owns.
  */
 const MIN_OPTIONS_FOR_STRUCTURAL_CRITIQUE = 2
 
-function isExternalFactor(data: Record<string, unknown> | undefined): boolean {
+type KnownControllability = 'controllable' | 'observable' | 'external' | 'partial'
+
+function isKnownControllability(value: unknown): value is KnownControllability {
+  return (
+    value === 'controllable' ||
+    value === 'observable' ||
+    value === 'external' ||
+    value === 'partial'
+  )
+}
+
+function resolveKnownControllability(
+  data: Record<string, unknown> | undefined,
+): KnownControllability | null {
   // `category` takes precedence over `controllability` — the precedence is
   // declared at `domain/nodes.ts` (`FactorNodeDataSchema.category`: "Explicit
   // category from CEE analysis (takes precedence over derived controllability)").
-  const resolved = data?.category ?? data?.controllability
-  return resolved === 'external'
-}
-
-function hasControllabilitySignal(data: Record<string, unknown> | undefined): boolean {
-  return data?.category != null || data?.controllability != null
+  // Presence is not knowledge: `controllability: 'unknown'` must hold the
+  // finding closed, and an invalid explicit category must not silently fall
+  // back to a weaker derived field.
+  if (data?.category != null) {
+    return isKnownControllability(data.category) ? data.category : null
+  }
+  return isKnownControllability(data?.controllability) ? data.controllability : null
 }
 
 /** Forward-reachable node ids from `start`, following edge direction. */
@@ -186,21 +200,18 @@ export function computeStructuralAbsence(
   }
 
   // ── 3. no_external_factor ─────────────────────────────────────────────────
-  // PRECONDITION: at least one factor must carry a controllability signal. When
-  // no factor does, the field is simply unpopulated and absence is unknowable —
-  // "nothing outside your control is modelled" would be a claim about our own
-  // missing metadata, dressed as a claim about the user's thinking.
+  // PRECONDITION: every factor must carry a known controllability value. One
+  // unknown factor is enough to make the absence unknowable — it could be the
+  // external factor — so "nothing outside your control is modelled" would be
+  // a claim about our own missing metadata, dressed as a claim about the
+  // user's thinking.
   if (factorNodes.length > 0) {
-    const anySignal = factorNodes.some(n =>
-      hasControllabilitySignal(n.data as Record<string, unknown> | undefined),
+    const resolved = factorNodes.map(n =>
+      resolveKnownControllability(n.data as Record<string, unknown> | undefined),
     )
-    if (anySignal) {
-      const anyExternal = factorNodes.some(n =>
-        isExternalFactor(n.data as Record<string, unknown> | undefined),
-      )
-      if (!anyExternal) {
-        return { kind: 'no_external_factor', optionCount: optionIds.length }
-      }
+    const everyFactorKnown = resolved.every(value => value !== null)
+    if (everyFactorKnown && !resolved.includes('external')) {
+      return { kind: 'no_external_factor', optionCount: optionIds.length }
     }
   }
 

@@ -66,7 +66,7 @@ export interface SignalDef {
   detect: (input: SignalDetectionInput) => SignalDetection | null
 }
 
-/** Priority order is the array order: foundational, options, risks, estimates, reflective. */
+/** Priority order is the array order: foundational, structural, counts, estimates, reflective. */
 export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
   {
     signal_id: 'sig_goal_missing',
@@ -106,55 +106,13 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
           },
   },
   {
-    signal_id: 'sig_option_breadth',
-    surface: 'sharpen',
-    entityKind: 'option',
-    resolvedCopy: 'Options widened.',
-    detect: input => {
-      if (input.optionCount >= 3) return null
-      const copy =
-        input.optionCount <= 1
-          ? SIGNAL_COPY.optionBreadthOne
-          : SIGNAL_COPY.optionBreadth(input.optionCount)
-      return {
-        signal_id: 'sig_option_breadth',
-        copy: { lead: copy.lead, emphasis: copy.emphasis },
-        // CEE narrow-framing swap-in-place: same row, same signal slot,
-        // CEE's own text verbatim with attribution.
-        ceeOverride: input.narrowFramingDetail
-          ? { text: input.narrowFramingDetail, attribution: { kind: 'olumi' } }
-          : undefined,
-        rationale: SIGNAL_COPY.optionRationale,
-        entityKind: 'option',
-        action: { type: 'send_prompt', spark: SPARK_PROMPTS.widenOptions },
-        spark: SPARK_PROMPTS.widenOptions,
-      }
-    },
-  },
-  {
-    signal_id: 'sig_risk_count',
-    surface: 'sharpen',
-    entityKind: 'risk',
-    resolvedCopy: 'Risks captured.',
-    detect: input => {
-      if (input.riskCount >= 3) return null
-      const copy =
-        input.riskCount === 0
-          ? SIGNAL_COPY.riskNone
-          : SIGNAL_COPY.riskCount(input.riskCount, input.risksAllOlumi)
-      return {
-        signal_id: 'sig_risk_count',
-        copy: { lead: copy.lead, emphasis: copy.emphasis },
-        rationale: SIGNAL_COPY.riskRationale,
-        entityKind: 'risk',
-        action: { type: 'send_prompt', spark: SPARK_PROMPTS.preMortem },
-        spark: SPARK_PROMPTS.preMortem,
-      }
-    },
-  },
-  {
     signal_id: 'sig_structural_absence',
     surface: 'sharpen',
+    // The structural finding is the highest-value sharpen prompt: unlike the
+    // count-based rows below, it describes a gap in the model's reasoning.
+    // Registry order is render priority, so keeping it here guarantees that a
+    // live finding is visible within the default two-row cap.
+    //
     // Stable channel for the def. The DETECTION carries the entity kind of the
     // finding that actually fired (risk / option / factor), which is what the
     // row renders — this value only shapes a resolved row, and there is none.
@@ -204,6 +162,53 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
             action: { type: 'send_prompt', spark: SPARK_PROMPTS.pressureTestFrame },
             spark: SPARK_PROMPTS.pressureTestFrame,
           }
+      }
+    },
+  },
+  {
+    signal_id: 'sig_option_breadth',
+    surface: 'sharpen',
+    entityKind: 'option',
+    resolvedCopy: 'Options widened.',
+    detect: input => {
+      if (input.optionCount >= 3) return null
+      const copy =
+        input.optionCount <= 1
+          ? SIGNAL_COPY.optionBreadthOne
+          : SIGNAL_COPY.optionBreadth(input.optionCount)
+      return {
+        signal_id: 'sig_option_breadth',
+        copy: { lead: copy.lead, emphasis: copy.emphasis },
+        // CEE narrow-framing swap-in-place: same row, same signal slot,
+        // CEE's own text verbatim with attribution.
+        ceeOverride: input.narrowFramingDetail
+          ? { text: input.narrowFramingDetail, attribution: { kind: 'olumi' } }
+          : undefined,
+        rationale: SIGNAL_COPY.optionRationale,
+        entityKind: 'option',
+        action: { type: 'send_prompt', spark: SPARK_PROMPTS.widenOptions },
+        spark: SPARK_PROMPTS.widenOptions,
+      }
+    },
+  },
+  {
+    signal_id: 'sig_risk_count',
+    surface: 'sharpen',
+    entityKind: 'risk',
+    resolvedCopy: 'Risks captured.',
+    detect: input => {
+      if (input.riskCount >= 3) return null
+      const copy =
+        input.riskCount === 0
+          ? SIGNAL_COPY.riskNone
+          : SIGNAL_COPY.riskCount(input.riskCount, input.risksAllOlumi)
+      return {
+        signal_id: 'sig_risk_count',
+        copy: { lead: copy.lead, emphasis: copy.emphasis },
+        rationale: SIGNAL_COPY.riskRationale,
+        entityKind: 'risk',
+        action: { type: 'send_prompt', spark: SPARK_PROMPTS.preMortem },
+        spark: SPARK_PROMPTS.preMortem,
       }
     },
   },

@@ -182,6 +182,36 @@ describe('setup state', () => {
     expect(screen.getByTestId('pre-analysis-v3-sharpen-reveal')).toHaveTextContent('Show fewer')
   })
 
+  it('keeps a structural gap visible on first paint when count signals also fire', () => {
+    // This is the exact cap collision from the #829 review: two options and two
+    // risks make both count signals live, while both options act on the same
+    // immediate target. The structural finding must not sit third behind them.
+    useCanvasStore.setState({
+      edges: [edge('o1', 'f1'), edge('o2', 'f1'), edge('f1', 'r1'), edge('f1', 'g1')],
+    })
+
+    renderPanel()
+
+    const sharpen = screen.getByTestId('pre-analysis-v3-sharpen')
+    expect(sharpen).toHaveTextContent(
+      'All two options act through exactly the same parts of the model.',
+    )
+    expect(screen.getAllByTestId(/pre-analysis-v3-signal-/)).toHaveLength(2)
+    expect(screen.getByTestId('pre-analysis-v3-signal-sig_structural_absence')).toBeVisible()
+    expect(screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')).toBeVisible()
+    expect(screen.queryByTestId('pre-analysis-v3-signal-sig_risk_count')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(
+      screen.getAllByTestId(/pre-analysis-v3-signal-/).map(el => el.getAttribute('data-testid')),
+    ).toEqual([
+      'pre-analysis-v3-signal-sig_structural_absence',
+      'pre-analysis-v3-signal-sig_option_breadth',
+      'pre-analysis-v3-signal-sig_risk_count',
+      'pre-analysis-v3-signal-sig_estimates',
+    ])
+  })
+
   it('a live CEE row counts within the cap and never pushes the visible set beyond it', () => {
     useCanvasStore.setState({
       ceeAnalysisReady: {

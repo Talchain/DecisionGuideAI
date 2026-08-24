@@ -122,17 +122,17 @@ describe('computeStructuralAbsence — no_downside', () => {
 })
 
 describe('computeStructuralAbsence — shared_mechanism', () => {
-  it('fires when every option targets the identical factor set', () => {
+  it('fires when every option targets the identical set, regardless of target kind', () => {
     const nodes = [
       node('o1', 'option'),
       node('o2', 'option'),
-      node('f1', 'factor', { category: 'external' }),
+      node('x1', 'outcome'),
       node('r1', 'risk'),
     ]
     const edges = [
-      edge('e1', 'o1', 'f1'),
-      edge('e2', 'o2', 'f1'),
-      edge('e3', 'f1', 'r1'),
+      edge('e1', 'o1', 'x1'),
+      edge('e2', 'o2', 'x1'),
+      edge('e3', 'x1', 'r1'),
     ]
     expect(computeStructuralAbsence(nodes, edges)).toEqual({
       kind: 'shared_mechanism',
@@ -228,6 +228,38 @@ describe('computeStructuralAbsence — no_external_factor', () => {
       node('o2', 'option'),
       node('f1', 'factor'),
       node('f2', 'factor'),
+      node('r1', 'risk'),
+    ]
+    const edges = [
+      edge('e1', 'o1', 'f1'),
+      edge('e2', 'o2', 'f2'),
+      edge('e3', 'f1', 'r1'),
+    ]
+    expect(computeStructuralAbsence(nodes, edges)).toBeNull()
+  })
+
+  it("PRECONDITION: treats controllability 'unknown' as unknown, not as non-external", () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('f1', 'factor', { controllability: 'unknown' }),
+      node('f2', 'factor', { controllability: 'unknown' }),
+      node('r1', 'risk'),
+    ]
+    const edges = [
+      edge('e1', 'o1', 'f1'),
+      edge('e2', 'o2', 'f2'),
+      edge('e3', 'f1', 'r1'),
+    ]
+    expect(computeStructuralAbsence(nodes, edges)).toBeNull()
+  })
+
+  it('PRECONDITION: one unknown factor holds the whole absence claim closed', () => {
+    const nodes = [
+      node('o1', 'option'),
+      node('o2', 'option'),
+      node('f1', 'factor', { category: 'controllable' }),
+      node('f2', 'factor', { controllability: 'unknown' }),
       node('r1', 'risk'),
     ]
     const edges = [

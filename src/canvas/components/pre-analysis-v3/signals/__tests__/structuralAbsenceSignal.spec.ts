@@ -97,6 +97,14 @@ describe('sig_structural_absence — detection', () => {
     expect(detection!.copy.lead).toContain('4')
   })
 
+  it('describes shared targets without claiming they are factors', () => {
+    const detection = def().detect(
+      baseInput({ structuralAbsence: { kind: 'shared_mechanism', optionCount: 2 } }),
+    )
+    expect(`${detection!.copy.lead} ${detection!.rationale}`).not.toMatch(/\bfactors?\b/i)
+    expect(detection!.copy.lead).toContain('parts of the model')
+  })
+
   it('attaches a live spark action — no dead-end intents', () => {
     const detection = def().detect(
       baseInput({ structuralAbsence: { kind: 'no_downside', optionCount: 2 } }),
@@ -133,9 +141,10 @@ describe('sig_structural_absence — reaches the rendered row list', () => {
     expect(derived.sharpen.find(v => v.detection.signal_id === SIGNAL_ID)).toBeUndefined()
   })
 
-  it('holds a deterministic priority slot ahead of estimates', () => {
+  it('holds the first sharpen priority slot so it survives the default cap', () => {
     const ids = SIGNAL_REGISTRY.map(d => d.signal_id)
+    expect(ids.indexOf(SIGNAL_ID)).toBeLessThan(ids.indexOf('sig_option_breadth'))
+    expect(ids.indexOf(SIGNAL_ID)).toBeLessThan(ids.indexOf('sig_risk_count'))
     expect(ids.indexOf(SIGNAL_ID)).toBeLessThan(ids.indexOf('sig_estimates'))
-    expect(ids.indexOf(SIGNAL_ID)).toBeGreaterThan(ids.indexOf('sig_risk_count'))
   })
 })

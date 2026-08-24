@@ -66,6 +66,19 @@ describe('deriveSignalViews — lifecycle', () => {
     ])
   })
 
+  it('puts a live structural gap ahead of lower-value count signals', () => {
+    const derived = deriveSignalViews(
+      input({ structuralAbsence: { kind: 'shared_mechanism', optionCount: 2 } }),
+      {},
+    )
+    expect(derived.sharpen.map(v => v.detection.signal_id)).toEqual([
+      'sig_structural_absence',
+      'sig_option_breadth',
+      'sig_risk_count',
+      'sig_estimates',
+    ])
+  })
+
   it('ordering is stable when a deterministic signal clears', () => {
     const derived = deriveSignalViews(
       input({ optionCount: 3, biasFindingExplanation: 'A reflective check.' }),
