@@ -78,6 +78,13 @@ const MARGIN_FLOOR = {
   value: 78,
   unit: '%',
 }
+const REDUNDANCY_CAP = {
+  constraint_id: 'constraint_redundancy_max',
+  node_id: 'n_red',
+  label: 'Compulsory redundancy rounds',
+  operator: '<=' as const,
+  value: 1,
+}
 
 function seed(goalConstraints: unknown) {
   localStorage.clear()
@@ -104,6 +111,18 @@ function seed(goalConstraints: unknown) {
 
 function openBrief() {
   fireEvent.click(screen.getByTestId('brief-bar'))
+}
+
+/**
+ * Put the card in the POST-ANALYSIS state the mount gate guarantees
+ * (`OutputsDock.tsx:3155` only mounts it once there is a report). This is what
+ * makes `hasResult` true and therefore `autoExpand` false — i.e. the ordinary
+ * success path, collapsed.
+ */
+function withCompletedAnalysis() {
+  useCanvasStore.setState({
+    results: { status: 'complete', report: { summary: 'A leads on the modelled outcome.' } },
+  } as never)
 }
 
 describe('step 6 — the model shows the user the hard limit they stated', () => {
@@ -210,5 +229,99 @@ describe('step 6 — the model shows the user the hard limit they stated', () =>
       expect(row).toHaveTextContent('≤ 3')
       expect(row).not.toHaveTextContent('count')
     })
+  })
+})
+
+/**
+ * ⭐ THE CLOSURE CONDITION ITSELF — WITHOUT A CLICK.
+ *
+ * ── WHY THIS BLOCK EXISTS (the review finding, recorded) ────────────────────
+ * The first cut of this lane rendered the limits ONLY inside
+ * `{expanded && (…)}`. Post-analysis `hasResult` is structurally true, so
+ * `autoExpand` collapses to `state === 'blocked'` — meaning on the ORDINARY
+ * SUCCESS PATH (`state === 'ready'`) the card is COLLAPSED and the limit did
+ * not render at all. Every test above passed because each one calls
+ * `openBrief()` first.
+ *
+ * That is the exact criterion this lane used to disqualify `SuccessTarget`
+ * ("only inside the default-collapsed T3 Advanced accordion") applied to the
+ * rival and not to itself. A user who said "the budget cannot exceed £50,000"
+ * and got a successful analysis saw the word "constraints" and no £50,000.
+ *
+ * ── WHY NOT SIMPLY MOVE THE BLOCK OUT OF `expanded` ─────────────────────────
+ * Because that regresses the ratified ANSWER-FIRST gate: this card sits ABOVE
+ * the results region, and on deployed `4d1e650b` the verdict sentence already
+ * sat 573px down a 515px-tall region when this card auto-expanded. Adding the
+ * limits list to the collapsed card would push the verdict down again.
+ *
+ * The limit is therefore named in the collapsed `brief-bar` NOTE, which
+ * already renders and already occupies exactly one line.
+ */
+describe('the closure condition: a successful analysis shows the limit with NO click', () => {
+  beforeEach(() => {
+    seed(null)
+  })
+
+  it('names the stated limit on the COLLAPSED card, post-analysis, no interaction', () => {
+    seed([BUDGET_CAP])
+    withCompletedAnalysis()
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+
+    // Deliberately NO openBrief() — this is the whole point.
+    expect(screen.queryByTestId('stated-limits')).toBeNull()
+    expect(screen.getByTestId('brief-bar')).toHaveTextContent('Budget ≤ £50,000')
+  })
+
+  it('names the first limit and discloses the count of the rest', () => {
+    seed([BUDGET_CAP, MARGIN_FLOOR, REDUNDANCY_CAP])
+    withCompletedAnalysis()
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+
+    const bar = screen.getByTestId('brief-bar')
+    // One complete limit is always visible; the rest are counted, never
+    // truncated mid-value, so the bar stays exactly one line.
+    expect(bar).toHaveTextContent('Budget ≤ £50,000')
+    expect(bar).toHaveTextContent('+2 more')
+  })
+
+  it('POSITIVE CONTROL on the precondition: the card really is COLLAPSED here', () => {
+    // Pins `autoExpand === false` post-analysis as a DELIBERATE recorded fact.
+    // Without this, a future change to the default expansion would leave every
+    // other test in this file green while the user saw nothing.
+    seed([BUDGET_CAP])
+    withCompletedAnalysis()
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+
+    expect(screen.getByTestId('brief-bar')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('brief-dim-constraints')).toBeNull()
+  })
+
+  it('still shows nothing extra when there is no stated limit', () => {
+    seed(null)
+    withCompletedAnalysis()
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+
+    expect(screen.getByTestId('brief-bar')).toHaveTextContent(
+      'Goal, context, constraints and options',
+    )
+    expect(screen.queryByTestId('brief-bar-stated-limits')).toBeNull()
+  })
+
+  it('does NOT displace an urgent state note with a limit', () => {
+    // `blocked` says "Resolve it before relying on the read" — a safety
+    // instruction about trusting the result. A limit must never push that off
+    // the collapsed bar. (`blocked` also auto-expands, so the full list is
+    // visible there anyway.)
+    seed([BUDGET_CAP])
+    withCompletedAnalysis()
+    useCanvasStore.setState({
+      graphHealth: { issues: [{ severity: 'blocker' }] },
+    } as never)
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+
+    expect(screen.getByTestId('brief-bar')).toHaveTextContent(
+      'Resolve it before relying on the read',
+    )
+    expect(screen.getByTestId('brief-bar')).not.toHaveTextContent('+1 more')
   })
 })

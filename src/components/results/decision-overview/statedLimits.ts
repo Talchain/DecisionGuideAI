@@ -141,3 +141,32 @@ export function parseStatedLimitsKey(key: string): StatedLimit[] {
     return []
   }
 }
+
+/**
+ * The one-line form of the stated limits, for the COLLAPSED brief bar.
+ *
+ * ── WHY A SEPARATE, SHORTER FORM ────────────────────────────────────────────
+ * The expanded region can list every limit. The collapsed bar cannot: this
+ * card sits ABOVE the results region, and the ratified ANSWER-FIRST gate was
+ * won by getting the verdict back onto the first screenful (on deployed
+ * `4d1e650b` it sat 573px down a 515px-tall region). Anything added to the
+ * collapsed card pushes the verdict down again, so this must occupy exactly
+ * the ONE line the note already occupies.
+ *
+ * ── WHY FIRST-PLUS-COUNT RATHER THAN A TRUNCATED JOIN ───────────────────────
+ * Joining every limit and letting CSS truncate would cut a value mid-number —
+ * "Programme cost ≤ £50,0…" is worse than useless on a surface whose whole
+ * job is showing the user the figure they stated. Showing the first limit in
+ * FULL guarantees at least one complete, correct limit is always visible, and
+ * "+N more" discloses that there are others without ranking them: the order is
+ * the producer's extraction order and carries no claim about which limit
+ * matters most or which is binding.
+ *
+ * Returns null when there is nothing to say, so the caller keeps its existing
+ * note untouched.
+ */
+export function formatStatedLimitsNote(limits: readonly StatedLimit[]): string | null {
+  if (limits.length === 0) return null
+  const [first, ...rest] = limits
+  return rest.length === 0 ? first.text : `${first.text} · +${rest.length} more`
+}

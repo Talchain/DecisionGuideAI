@@ -33,7 +33,7 @@ import { computeSuccessState } from '../../../canvas/components/pre-analysis-v3/
 import { computeGraphFacts } from '../../../canvas/components/pre-analysis-v3/selectors/graphFacts'
 import { ActionsMenu } from './ActionsMenu'
 import { REVIEW_BRIEF_ASK } from './actionsCatalogue'
-import { parseStatedLimitsKey, selectStatedLimitsKey } from './statedLimits'
+import { formatStatedLimitsNote, parseStatedLimitsKey, selectStatedLimitsKey } from './statedLimits'
 
 export type BriefStateOverride = 'thin' | 'contradictory' | 'unverified'
 
@@ -395,6 +395,30 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
         ? { line: OVERVIEW_COPY.thin, note: OVERVIEW_COPY.thinLiveNote }
         : STATE_COPY[state]
 
+  // ⭐ THE CLOSURE CONDITION, ON THE COLLAPSED CARD.
+  //
+  // Post-analysis `hasResult` is structurally true, so `autoExpand` reduces to
+  // `state === 'blocked'` — on the ordinary success path this card is
+  // COLLAPSED. The limits list below lives inside `{expanded && …}`, so
+  // rendering ONLY there meant a user who said "the budget cannot exceed
+  // £50,000" and got a successful analysis saw the word "constraints" and no
+  // £50,000. (That is the same criterion this lane used to disqualify
+  // `SuccessTarget` for sitting in a default-collapsed accordion.)
+  //
+  // The limit is therefore named in the note that already renders collapsed,
+  // on the one line it already occupies — NOT by lifting the list out of
+  // `expanded`, which would push the verdict down and regress ANSWER-FIRST.
+  //
+  // ⚠ `ready` ONLY, and that is a deliberate honesty boundary, not an
+  // oversight. Every other state's note is doing more urgent work than an
+  // orientation line: `blocked`/`contradictory` say "Resolve it before relying
+  // on the read", `needs_input` points at the questions, `thin` reports the
+  // missing success measure. A limit must never displace a warning about
+  // whether the result can be trusted. `blocked` auto-expands anyway, so the
+  // full list is visible there; on `thin`/`needs_input` the limit stays one
+  // click away, which is disclosed rather than hidden.
+  const collapsedLimitsNote = state === 'ready' ? formatStatedLimitsNote(statedLimits) : null
+
   // UI-SEM-077 (+ V7 L2, values-not-labels): decision-classification pill
   // inference. No producer classification contract exists; the only honest
   // client-side input today is the decision node's brief timeframe
@@ -570,7 +594,13 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
         />
         <span className="min-w-0 flex-1">
           <span className={`${typography.panelHeader} block text-text-header`}>{copy.line}</span>
-          <span className={`${typography.panelMeta} block text-text-light`}>{copy.note}</span>
+          <span
+            className={`${typography.panelMeta} block text-text-light${collapsedLimitsNote ? ' truncate' : ''}`}
+            data-testid={collapsedLimitsNote ? 'brief-bar-stated-limits' : undefined}
+            title={collapsedLimitsNote ? statedLimits.map((l) => l.text).join(' · ') : undefined}
+          >
+            {collapsedLimitsNote ?? copy.note}
+          </span>
         </span>
         <ChevronDown
           size={16}
