@@ -409,6 +409,38 @@ describe('heldProposalRetirementKeys — the RETIREMENT question', () => {
     ])
   })
 
+  it('BINDS THE BOUND BY TURN IDENTITY — not "the first turn carrying a held proposal"', () => {
+    // ⚠ WRITTEN BECAUSE A MUTANT SURVIVED. Replacing the bound's predicate with
+    // a CONTENT one — `findIndex(m => m.blocks.some(b => b.type ===
+    // 'v5_held_proposal'))` — left 23 of 24 cases GREEN, the DISCRIMINATING
+    // CONTROL above included. With only two turns on screen, "the first turn
+    // carrying a held proposal" and "the acting turn's position" coincide at
+    // the boundary, so the control could not tell them apart: it was pinning
+    // the DIRECTION of the bound while saying nothing about what the bound is
+    // bound TO (trap 19 — a predicate another object satisfies).
+    //
+    // Three turns separate them. Content-binding resolves to index 0 and drops
+    // the MIDDLE turn; identity-binding sweeps to index 2 and keeps it. The
+    // middle key is the whole assertion.
+    const TURN_C = 'turn-ccc'
+    const messages = [
+      turn(TURN_A, [HANDLE_A]),
+      turn(TURN_B, [HANDLE_A]),
+      turn(TURN_C, [HANDLE_A]),
+    ]
+    expect(heldProposalRetirementKeys(messages, HANDLE_A, TURN_C)).toEqual([
+      heldProposalMountKey(TURN_C, HANDLE_A),
+      heldProposalMountKey(TURN_A, HANDLE_A),
+      heldProposalMountKey(TURN_B, HANDLE_A),
+    ])
+    // …and acting on the MIDDLE turn still excludes the last one, so the same
+    // fixture pins both edges of the bound.
+    expect(heldProposalRetirementKeys(messages, HANDLE_A, TURN_B)).toEqual([
+      heldProposalMountKey(TURN_B, HANDLE_A),
+      heldProposalMountKey(TURN_A, HANDLE_A),
+    ])
+  })
+
   it('an acting turn ABSENT from the transcript retires only itself', () => {
     // Ordering is unknowable when the acting turn cannot be located, so the
     // sweep does nothing and only the pressed card settles. The two harms are
