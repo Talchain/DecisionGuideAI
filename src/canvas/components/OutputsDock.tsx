@@ -56,6 +56,11 @@ import {
 import {
   WorkspaceShellCollapsedStrip,
   WorkspaceShellTabStrip,
+  DOCK_PANEL_DOM_ID,
+  DOCK_TABLIST_LABEL,
+  nextTabForKey,
+  railTabDomId,
+  tabDomId,
 } from './workspaceShell/WorkspaceShellTabStrip'
 import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
 import { useAnalysisRunState } from '../../components/results/analysisState/useAnalysisRunState'
@@ -2538,10 +2543,28 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         {effectiveIsOpen && <AssistantOpenedNotice />}
       </div>
 
+      {/* The collapsed rail is the SECOND instance of the dock's tab strip, and
+          it carries the same contract as the expanded one: which panel is
+          fronted is state the product knows, so it is published rather than
+          left to colour. The rail is icon-only, so its `aria-label` is the
+          ONLY label each control has — it is protected content and the tab
+          semantics are added around it, never in place of it.
+
+          The tablist is NESTED INSIDE the `<nav>` rather than replacing its
+          role — an explicit role replaces the implicit one, and the sibling
+          suites resolve this element with
+          `getByRole('navigation', { name: 'Outputs sections' })`. Putting the
+          role on the `<nav>` deleted the landmark and turned eighteen sibling
+          assertions RED against a green baseline. Landmark outside, widget
+          inside: both are true and nothing that binds here has to change. */}
       {!effectiveIsOpen && (
-        <nav
+        <nav aria-label={DOCK_TABLIST_LABEL}>
+        <div
           className="flex flex-col items-center gap-2 py-3"
-          aria-label="Outputs sections"
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label={DOCK_TABLIST_LABEL}
+          data-testid="outputs-dock-rail-tablist"
         >
           {OUTPUT_TABS.map(tab => {
             const Icon =
@@ -2558,6 +2581,17 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               <button
                 key={tab.id}
                 type="button"
+                id={railTabDomId(tab.id)}
+                role="tab"
+                aria-selected={effectiveActiveTab === tab.id}
+                tabIndex={effectiveActiveTab === tab.id ? 0 : -1}
+                data-testid={`outputs-dock-rail-tab-${tab.id}`}
+                onKeyDown={event => {
+                  const next = nextTabForKey(OUTPUT_TABS, effectiveActiveTab, event.key)
+                  if (!next) return
+                  event.preventDefault()
+                  handleTabClick(next.id)
+                }}
                 onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
@@ -2572,6 +2606,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               </button>
             )
           })}
+        </div>
         </nav>
       )}
 
@@ -2604,6 +2639,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             `SHELL_INHERITED_BODY_TYPOGRAPHY` in the shell contract. */}
       {effectiveIsOpen && (
         <div
+          // The body IS the tab panel the strip controls, so it says so. The
+          // label is derived from `effectiveActiveTab` — the same value the
+          // strip renders its selection from — so the panel cannot announce a
+          // tab the user has left. A hardcoded id here would go stale on the
+          // first tab change and nothing would notice.
+          id={DOCK_PANEL_DOM_ID}
+          role="tabpanel"
+          aria-labelledby={tabDomId(effectiveActiveTab)}
           className={`${shellBodyClassName(surfaceFor(effectiveActiveTab))} ${typography.panelBody} text-text-header`}
           data-testid="outputs-dock-body"
           data-shell-scroll-owner={surfaceFor(effectiveActiveTab).scroll}

@@ -29,6 +29,7 @@
  * ellipsise AND the two protected testids must be painted with a non-zero box.
  */
 
+import { useCallback, useRef } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
@@ -43,6 +44,64 @@ import type { WorkspaceSurfaceDescriptor } from './shellContract'
 const ROW_ICON_CONTROL =
   'inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ' +
   `${typography.panelMeta} text-text-header hover:bg-panel shrink-0`
+
+/**
+ * The DOM id of a dock tab, and of the panel they all control. Both halves of
+ * the `aria-controls` / `aria-labelledby` pair are built from THIS function, so
+ * the two can never drift into naming different elements — the failure mode a
+ * hand-written pair invites (CLAUDE.md trap 12).
+ *
+ * The rail's tabs (rendered by `OutputsDock` when the dock is collapsed) build
+ * their ids from `railTabDomId` instead. The two strips never co-render, but
+ * they are given distinct id-spaces anyway: a duplicate id is invisible to
+ * every test that queries by testid and silently breaks the one thing these
+ * attributes exist to do.
+ */
+export const tabDomId = (id: OutputTab): string => `outputs-dock-tab-${id}`
+export const railTabDomId = (id: OutputTab): string => `outputs-dock-rail-tab-${id}`
+export const DOCK_PANEL_DOM_ID = 'outputs-dock-panel'
+
+/** The accessible name shared by both strips. Written once, used by both. */
+export const DOCK_TABLIST_LABEL = 'Outputs sections'
+
+/**
+ * The WAI-ARIA tabs keyboard model, shared by the expanded strip and the rail.
+ *
+ * Left/Right (plus Home/End) move focus AND selection, wrapping at both ends —
+ * the same contract `HeroLensTabs` already implements for the analysis lens
+ * switcher. Returns the surface to front, or `null` when the key is not one
+ * this pattern owns.
+ *
+ * ⚠ IT RETURNS `null` RATHER THAN DEFAULTING TO A TAB, and that is the whole
+ * discrimination. A handler that answered "some tab" for every keystroke would
+ * satisfy an arrow-key test and destroy ordinary typing on the strip; the
+ * suite's opposite-direction twin pins that an unrelated key is inert.
+ */
+export function nextTabForKey<T extends { id: OutputTab }>(
+  surfaces: readonly T[],
+  activeTab: OutputTab,
+  key: string,
+): T | null {
+  if (surfaces.length === 0) return null
+  const current = surfaces.findIndex(s => s.id === activeTab)
+  // An active tab that is not in the strip is not a position to step from.
+  // Home/End are still well-defined, so they are answered before this bails.
+  switch (key) {
+    case 'Home':
+      return surfaces[0] ?? null
+    case 'End':
+      return surfaces[surfaces.length - 1] ?? null
+    case 'ArrowRight':
+    case 'ArrowLeft': {
+      if (current < 0) return null
+      const step = key === 'ArrowRight' ? 1 : -1
+      const next = (current + step + surfaces.length) % surfaces.length
+      return surfaces[next] ?? null
+    }
+    default:
+      return null
+  }
+}
 
 export interface WorkspaceShellTabStripProps {
   /** Presented surfaces, already filtered by flags, in strip order. */
@@ -106,18 +165,72 @@ export function WorkspaceShellTabStrip({
   resultsStale,
   factorsToVerify,
 }: WorkspaceShellTabStripProps) {
+  // Roving focus: moving selection with the keyboard must move focus with it,
+  // or the user's focus is left on a tab that is no longer selected and the
+  // next arrow key steps from the wrong place.
+  const tabRefs = useRef(new Map<OutputTab, HTMLButtonElement | null>())
+  const handleTabKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      const next = nextTabForKey(surfaces, activeTab, event.key)
+      if (!next) return
+      event.preventDefault()
+      onTabClick(next.id)
+      tabRefs.current.get(next.id)?.focus()
+    },
+    [surfaces, activeTab, onTabClick],
+  )
+
   return (
-    <div className="flex items-center gap-2 px-2 py-2" aria-label="Outputs sections">
+    // ⚠ THE OUTER WRAPPER NO LONGER CARRIES `aria-label`. It is a role-less
+    // `<div>`, and a generic container cannot take an accessible name — the
+    // attribute was silently inert, while duplicating the name the `<nav>`
+    // inside it already carried. Two elements claiming one name, one of them
+    // doing nothing. The name lives on the tablist, once.
+    <div className="flex items-center gap-2 px-2 py-2">
       <span className="sr-only" aria-live="polite">
         {surfaces.find(s => s.id === activeTab)?.label ?? ''}
       </span>
-      <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
+      {/* ⚠⚠ THE TABLIST IS A CHILD OF THE `<nav>`, NOT THE `<nav>` ITSELF, AND
+          THAT IS NOT A STYLE CHOICE — IT WAS MEASURED.
+
+          The first version of this change put `role="tablist"` ON the `<nav>`.
+          An explicit role REPLACES the implicit one, so the `navigation`
+          landmark ceased to exist — and eighteen assertions across three
+          sibling suites (`OutputsDock.dom`, `OutputsDock.runReturnsToOlumi`,
+          `OutputsDock.assistantOpenedAttribution`) resolve this element with
+          `getByRole('navigation', { name: 'Outputs sections' })`. All eighteen
+          went RED against a 73/73 green baseline at `463fc931`.
+
+          A landmark containing a tablist is the correct shape anyway: the
+          `<nav>` says "this region is how you move around the dock", the
+          tablist says "these three controls are a tab set". Both are true, and
+          nesting them keeps every existing binding working. */}
+      <nav className="flex flex-1 min-w-0" aria-label={DOCK_TABLIST_LABEL}>
+      <div
+        className="flex flex-1 min-w-0 gap-1"
+        role="tablist"
+        aria-label={DOCK_TABLIST_LABEL}
+        data-testid="outputs-dock-tablist"
+      >
         {surfaces.map(surface => {
           const isActive = activeTab === surface.id
           return (
             <button
               key={surface.id}
               type="button"
+              id={tabDomId(surface.id)}
+              role="tab"
+              // BOTH directions are published, never just the true one. An
+              // absent attribute on the inactive tabs would leave a user unable
+              // to tell "not selected" from "this control does not report
+              // selection at all" — which is the state the strip shipped in.
+              aria-selected={isActive}
+              aria-controls={DOCK_PANEL_DOM_ID}
+              tabIndex={isActive ? 0 : -1}
+              ref={el => {
+                tabRefs.current.set(surface.id, el)
+              }}
+              onKeyDown={handleTabKeyDown}
               onClick={() => onTabClick(surface.id)}
               // `min-w-0` is the load-bearing class: without it the button's
               // default `min-width: auto` floors it at min-content, and no
@@ -198,6 +311,7 @@ export function WorkspaceShellTabStrip({
             </button>
           )
         })}
+      </div>
       </nav>
       {/* ⭐ R4 — version history's home in this panel (#739). The trigger
           carries NO positioning of its own; layout belongs to this row, which
