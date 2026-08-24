@@ -778,7 +778,7 @@ function buildOptionInterventions(
     const factorLabel = resolveCanvasLabel(factorId, labels)
     if (factorLabel === null) return []
     const numeric = interventionTargetValue(rawValue)
-    const { displayValue } = unwrapInterventionValue(rawValue)
+    const { displayValue, source } = unwrapInterventionValue(rawValue)
     // A CEE-authored `display_value` wins the DISPLAY (the F.6 passthrough the
     // v1 rows already honoured); the numeric half is independent of it.
     const value = displayValue ?? (numeric === undefined ? null : formatSmartNumber(numeric))
@@ -788,6 +788,15 @@ function buildOptionInterventions(
         factorLabel,
         value,
         numericValue: numeric === undefined ? null : numeric,
+        /*
+         * ⭐ THE TARGET'S OWN STAMP, READ PER INTERVENTION (B1-a).
+         *
+         * ⚠ THE KEY IS OMITTED, NOT SET TO A PLACEHOLDER, when the record
+         * states no source. `provenanceSource: 'unknown'` or `: null` would
+         * both be a value the surface then has to special-case, and the surface
+         * that forgets to is the one that renders a guess. Absent is the fact.
+         */
+        ...(source === null ? {} : { provenanceSource: source }),
       },
     ]
   })

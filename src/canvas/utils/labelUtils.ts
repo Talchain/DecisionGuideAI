@@ -628,6 +628,40 @@ export interface UnwrappedIntervention {
   value: number | null
   /** CEE-authored human-readable label (trimmed), or null when absent. */
   displayValue: string | null
+  /**
+   * ⭐ THE PRODUCER'S OWN `source` STAMP FOR **THIS INTERVENTION** — the RAW
+   * literal (`'cee_hypothesis'`, `'brief_extraction'`, …), never a classified
+   * kind. `null` when the record does not state one.
+   *
+   * ⚠⚠ ADDED BECAUSE ITS ABSENCE HERE WAS THE WHOLE DEFECT (B1-a, deployed
+   * witness UI `88cb7e37` · CEE `d1da670`, 2026-08-24). Every render surface in
+   * the tree reads an intervention through this one function, so a field
+   * dropped here is a field no surface downstream can ever show. On the
+   * witnessed draw that meant a value CEE had invented — raw 22,500, no unit,
+   * `value_confidence: low`, and CEE's own reasoning saying *"this amount is
+   * not stated in the brief"* — rendered in the same control, the same
+   * typography and with no marker at all beside the user's own £45,000. **The
+   * only difference between a number Olumi invented and one the user wrote was
+   * the digits.**
+   *
+   * ⚠ THE LITERAL, NOT A KIND — the same rule `ModelRow.provenanceSource`
+   * states and for the same reason: `classifyValueProvenance` is the one
+   * authority, several literals classify to one kind, and an inverse map here
+   * would be a second hand-maintained mirror of the classifier (trap 12).
+   *
+   * ⚠ IT IS THE **INTERVENTION'S** STAMP, NOT THE OPTION'S. On the witnessed
+   * draw option `682a7e2d` carries `provenance: 'from_brief'` and an INVENTED
+   * target anyway, while its sibling target on the same option is the user's
+   * own £20,000. Reading provenance off the option node is right on two of that
+   * draw's three options and wrong on the third — a claim that passes on the
+   * wrong object (trap 19).
+   *
+   * ⚠ ONLY `source`. `reasoning` and `value_confidence` are deliberately NOT
+   * carried: `reasoning` is raw engine prose that this estate's surfaces put
+   * through `sanitiseDetail` before showing, and carrying a field no surface
+   * renders is dead weight that the next reader mistakes for a promise.
+   */
+  source: string | null
 }
 
 export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
@@ -650,7 +684,20 @@ export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
     }
   }
 
-  return { value, displayValue }
+  // The provenance stamp is independent of BOTH halves above — it may be
+  // present on an intervention whose value is null, and (as on the witnessed
+  // draw, where half the invented targets are `raw_value: 0`) on one whose
+  // value is falsy. Keyed on the string being non-blank, never on the value.
+  let source: string | null = null
+  if (raw != null && typeof raw === 'object' && 'source' in raw) {
+    const s = (raw as { source: unknown }).source
+    if (typeof s === 'string') {
+      const trimmed = s.trim()
+      if (trimmed.length > 0) source = trimmed
+    }
+  }
+
+  return { value, displayValue, source }
 }
 
 /**
