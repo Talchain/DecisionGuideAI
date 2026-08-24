@@ -1202,8 +1202,34 @@ export interface ResultsSectionDataReturn {
    * per-factor picture. `decisionVoi` above answers "what is resolving
    * everything worth"; this answers "which per-factor question went unanswered,
    * and did the producer say why".
+   *
+   * ⚠ OPTIONAL HERE, REQUIRED ON THE RENDER MODEL, AND THE ASYMMETRY IS
+   * DELIBERATE — MEASURED, NOT PREFERRED. `HeroEvidenceModel` keeps this field
+   * REQUIRED, which is where the "a silent surface looks like a working
+   * feature" argument actually bites: `buildHeroModel` constructs that object,
+   * so the compiler names every constructor and four were duly named and fixed.
+   *
+   * Making it required HERE buys nothing and costs a trust surface. The only
+   * producer of this interface is the hook itself, which always sets it; the
+   * six other "constructors" are test fixtures that ALREADY carry a baselined
+   * TS2739 for omitting `decisionVoi` and five siblings, so the
+   * compiler-names-every-constructor benefit was never being realised for them.
+   * Adding one more required member re-words that pre-existing diagnostic (its
+   * elided-property count moves), and those five messages render
+   * NON-DETERMINISTICALLY — proven by regenerating the identity baseline twice
+   * over one unchanged tree and diffing: 10 rows differed across exactly those
+   * files. That is the union-member ordering hazard this repo's typecheck gate
+   * documents in its own header. The consequence was concrete: the gate's
+   * self-test negative control ("on a clean tree the gate must be SILENT about
+   * added identities") went RED, which voids every "typecheck clean" claim on
+   * the branch — and regenerating the baseline could not fix it, because a
+   * non-deterministic identity cannot be baselined.
+   *
+   * So: required where it protects a user-visible surface, optional where it
+   * would only destabilise a gate. `buildHeroModel` coalesces fail-closed to
+   * `'not_attested'` — silence — exactly as it already does for its siblings.
    */
-  attributionSuppression: AttributionSuppressionVerdict
+  attributionSuppression?: AttributionSuppressionVerdict
   /**
    * P4 — the ONE assumed relationship worth pinning down next, or a named
    * refusal. The join between "which relationship is this result sensitive to"
