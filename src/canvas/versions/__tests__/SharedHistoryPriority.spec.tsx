@@ -13,8 +13,9 @@ vi.mock('../../../adapters/cee/modelVersions', async (importOriginal) => {
   }
 })
 
+const authState: { user: { id: string } | null } = { user: { id: USER } }
 vi.mock('../../../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: { id: USER } }),
+  useAuth: () => ({ user: authState.user }),
 }))
 
 import { WhatChangedPanel } from '../WhatChangedPanel'
@@ -23,6 +24,7 @@ import { useCanvasStore } from '../../store'
 beforeEach(() => {
   localStorage.clear()
   vi.clearAllMocks()
+  authState.user = { id: USER }
   useCanvasStore.setState({ currentScenarioId: SCENARIO, nodes: [], edges: [] } as never)
   listModelVersions.mockResolvedValue({
     status: 'list',
@@ -48,5 +50,23 @@ describe('Version history information hierarchy', () => {
     expect(screen.getByTestId('versions-storage-disclosure')).toHaveTextContent(
       /not authoritative shared history/i,
     )
+  })
+
+  it('keeps device checkpoints and sign-in guidance together for a purely local guest draft', () => {
+    authState.user = null
+    useCanvasStore.setState({ currentScenarioId: 'local-draft-1' } as never)
+    render(<WhatChangedPanel isOpen onClose={() => {}} />)
+
+    const shared = screen.getByText('Shared model history')
+    const local = screen.getByText('On this device — checkpoints')
+    expect(shared.compareDocumentPosition(local) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(screen.getByTestId('server-versions-local-draft-signin')).toHaveTextContent(
+      /only on this device.*sign in.*shared scenario/i,
+    )
+    expect(screen.getByTestId('versions-storage-disclosure')).toHaveTextContent(
+      /not authoritative shared history/i,
+    )
+    expect(screen.queryByRole('button', { name: /save shared version/i })).not.toBeInTheDocument()
+    expect(listModelVersions).not.toHaveBeenCalled()
   })
 })

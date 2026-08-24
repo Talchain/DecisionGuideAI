@@ -312,6 +312,20 @@ describe('ServerVersionsSection — guests (pin 5)', () => {
     expect(listModelVersions).not.toHaveBeenCalled()
     expect(restoreModelVersion).not.toHaveBeenCalled()
   })
+
+  it('explains that a purely local guest draft is device-only without offering shared actions', () => {
+    authState.user = null
+    useCanvasStore.setState({ currentScenarioId: 'local-draft-1' } as never)
+    render(<ServerVersionsSection />)
+
+    const guidance = screen.getByTestId('server-versions-local-draft-signin')
+    expect(guidance).toHaveTextContent(/only on this device/i)
+    expect(guidance).toHaveTextContent(/sign in.*shared scenario/i)
+    expect(guidance).toHaveTextContent(/checkpoints below remain only in this browser/i)
+    expect(screen.queryByRole('button', { name: /save shared version/i })).not.toBeInTheDocument()
+    expect(listModelVersions).not.toHaveBeenCalled()
+    expect(restoreModelVersion).not.toHaveBeenCalled()
+  })
 })
 
 describe('ServerVersionsSection — restore (pins 1–4)', () => {

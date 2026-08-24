@@ -148,8 +148,8 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
         </p>
 
         {/* The team's durable, authoritative history is the primary surface.
-            It renders an honest sign-in invitation for a server-addressable
-            guest and nothing for a purely local draft. */}
+            It renders honest sign-in/scope guidance for guests, including a
+            purely local draft, without offering a dead shared action. */}
         <ServerVersionsSection />
 
         <PanelSection title="On this device — checkpoints">

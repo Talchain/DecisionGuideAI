@@ -64,6 +64,9 @@ export const SERVER_VERSIONS_DISCLOSURE =
 export const SERVER_VERSIONS_SIGNIN =
   'Sign in to use the authoritative shared model history. The on-this-device checkpoints below still work in this browser.'
 
+export const SERVER_VERSIONS_LOCAL_DRAFT_SIGNIN =
+  'This draft is only on this device. Sign in and save it as a shared scenario before authoritative shared model history is available. The checkpoints below remain only in this browser.'
+
 /** V1 provenance is creation-mechanism metadata only, never actor evidence. */
 function legacyCreationLabel(provenance: string | null): string {
   switch (provenance) {
@@ -272,10 +275,23 @@ export function ServerVersionsSection() {
     return () => window.removeEventListener(VERSION_HISTORY_REFRESH_EVENT, onVerifiedMutation)
   }, [refresh, scenarioId])
 
-  // No server-addressable scenario ⇒ nothing to offer; the local history
-  // below is the whole story. Rendering a dead section would be an
-  // affordance that cannot keep its promise.
-  if (!addressable) return null
+  // A signed-in local draft has no server object this section can act on, so it
+  // stays absent. A guest still needs the acceptance-critical scope guidance:
+  // checkpoints work locally, but this draft is NOT already shared. Copy only
+  // — no dead save/restore action is rendered.
+  if (!addressable) {
+    if (signedIn) return null
+    return (
+      <PanelSection title="Shared model history">
+        <p
+          className={`${typography.panelBody} text-text-light`}
+          data-testid="server-versions-local-draft-signin"
+        >
+          {SERVER_VERSIONS_LOCAL_DRAFT_SIGNIN}
+        </p>
+      </PanelSection>
+    )
+  }
 
   if (!signedIn) {
     return (
