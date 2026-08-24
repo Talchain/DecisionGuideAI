@@ -365,16 +365,19 @@ export default function ScenarioListPage() {
 
   // Guest mode — offer sign-in (primary) and a guest path into the canvas
   // (secondary). Guest mode is the POC's primary flow and #/canvas works fully
-  // as guest, so this branch must never be a dead end. The guest copy
-  // deliberately promises nothing about persistence — the sign-in copy above
-  // it already frames signing in as the way to save.
+  // as guest, so this branch must never be a dead end. The copy distinguishes
+  // the product category from the persistence boundary: exploration works
+  // without an account; saving the workspace requires sign-in.
   if (!isPersistenceActive) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas p-8">
         <div className="text-center max-w-md">
-          <h1 className={`${typography.h3} text-text-header`}>Decisions</h1>
+          <h1 className={`${typography.h3} text-text-header`}>Strategic reasoning</h1>
           <p className={`${typography.body} text-text-body mt-4`}>
-            Sign in to save and manage your decisions.
+            Olumi turns messy strategic work into a living visual model while keeping your judgement visible.
+          </p>
+          <p className={`${typography.bodySmall} text-text-light mt-3`}>
+            Sign in to save your workspace, or explore without an account.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <button

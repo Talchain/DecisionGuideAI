@@ -1,8 +1,8 @@
 // src/poc/__tests__/guestGateCanvasTransition.spec.tsx
 //
-// THE FRESH GUEST'S FIRST CLICK. On the landing gate ("Sign in to save and
-// manage your decisions"), "Continue without an account" calls
-// `navigate('/canvas')` (src/pages/ScenarioListPage.tsx:387). The hash changes
+// THE FRESH GUEST'S FIRST CLICK. On the strategic-reasoning landing gate,
+// "Continue without an account" calls `navigate('/canvas')`
+// (src/pages/ScenarioListPage.tsx:390). The hash changes
 // immediately — and, before this spec, the GATE STAYED ON SCREEN for the whole
 // time the canvas chunk was downloading, with no spinner and no disabled
 // button. A fresh guest's first click appeared to do nothing.
