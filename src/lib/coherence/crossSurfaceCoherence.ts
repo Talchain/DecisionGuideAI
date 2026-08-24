@@ -413,15 +413,27 @@ export const COHERENCE_DISPOSITIONS: Readonly<Record<CoherencePairId, {
   CX5: {
     disposition: 'suppress_at_consumer',
     rationale:
-      'SAME QUESTION: can this factor flip the winner? `flip_thresholds.'
-      + 'no_flip_in_range: true` says no; `conditional_winners.winner_flips: true` '
-      + 'says yes, for the same `factor_id`. Both facts ride the SAME enrichment '
-      + 'object, so the consumer can act without any new plumbing.',
+      'SAME QUESTION — BUT ONLY UNDER ONE OF THE TWO REASONS THE BOOLEAN '
+      + 'COLLAPSES, and the pair\'s disposition is its ENFORCED limb. Under '
+      + '`structurally_invariant` the per-option slopes are identical, so the '
+      + 'per-sample winner is independent of the factor and `winner_flips` is a '
+      + 'sampling artefact: same question, one instrument provably unable to '
+      + 'discriminate, suppress. Under `no_effect_within_bounds` the slopes '
+      + 'genuinely differ and only the MEAN-configuration crossing sits outside '
+      + 'the domain, so a sampled bucket disagreement can be real: DIFFERENT '
+      + 'questions, `name_apart`, and suppressing it would withhold a finding ISL '
+      + 'computed. Per-limb dispositions in `CX5_LIMB_DISPOSITION`.',
     enforcedAt:
-      'src/canvas/stores/analysisSnapshotFactory.ts — `collectNoFlipFactorIds`, '
-      + 'joined on `factor_id`. Pinned by '
-      + '`analysisSnapshotFactory.scienceAttestation.spec.ts`, including the '
-      + 'opposite-direction twin (an ABSENT `no_flip_in_range` suppresses nothing).',
+      'src/canvas/stores/analysisSnapshotFactory.ts (`collectNoFlipFactorIds`) and '
+      + 'src/components/results/useResultsSectionData.ts (`confidence.'
+      + 'conditionalWinners`) — BOTH via `components/results/utils/'
+      + 'flipReasonVocabulary.collectStructurallyProvenNoFlipIds`, joined on the '
+      + 'factor id. ⚠ THE STRUCTURAL LIMB ONLY: the `no_effect_within_bounds` limb '
+      + 'is reported and deliberately NOT enforced. Pinned by '
+      + '`analysisSnapshotFactory.scienceAttestation.spec.ts`, '
+      + '`analysisSnapshotFactory.flipReasonNarrowing.spec.ts` and '
+      + '`useResultsSectionData.winnerFlipContradiction.spec.ts`, each carrying '
+      + 'both directions.',
   },
   CX6: {
     disposition: 'report_only',
@@ -500,6 +512,43 @@ export const CX3_LIMB_EXPRESSIBILITY: Readonly<Record<string, CoherenceExpressib
   never_run_with_usable_analysis: 'analysis_state_enforced',
   never_run_after_degraded_store_read: 'not_on_the_wire',
   never_run_over_visible_result_body: 'envelope',
+}
+
+/**
+ * CX5's two limbs do not share a disposition, and the pair-level field carries
+ * only the enforced one. Same precedent as `CX3_LIMB_EXPRESSIBILITY` above, and
+ * the same reason: collapsing them hides the only interesting fact about the
+ * pair.
+ *
+ * The split is forced by the PRODUCER. PLoT stamps one boolean,
+ * `no_flip_in_range: true`, from a SET of two reasons
+ * (`integrations/isl/adapters/factor-flip-values.ts:304` over `NO_EFFECT_REASONS`,
+ * `lib/flip-threshold-status.ts:75-78`), and the two are epistemically different
+ * objects — so a consumer keyed on the boolean is keyed on their union and
+ * necessarily gets one of the limbs wrong.
+ *
+ * ⚠ TWO OPPOSITE HARMS, TWO DISPOSITIONS (trap 22b). Enforcing both limbs
+ * withholds a finding ISL computed; enforcing neither leaves a falsehood on the
+ * screen. They are not two ends of one tunable window.
+ */
+export const CX5_LIMB_DISPOSITION: Readonly<Record<string, CoherenceDisposition>> = {
+  /**
+   * Slopes IDENTICAL (spread <= 1e-9) — an algebraic identity, topological in
+   * the graph, so it holds under every sampled edge draw. The per-sample winner
+   * is independent of the factor, so the median-split buckets behind
+   * `winner_flips` are two random halves of ONE sequence. Same question, one
+   * instrument unable to discriminate: SUPPRESS.
+   */
+  structurally_invariant_with_winner_flips: 'suppress_at_consumer',
+  /**
+   * Slopes GENUINELY DIFFER; only the crossing lies outside the domain at the
+   * MEAN edge configuration. Sampled draws move the crossing, so a bucket
+   * disagreement can be a real finding about the sampled distribution. The two
+   * members answer different questions and the residual tension is in the
+   * PRODUCER'S COPY ("within the tested range…"), which is CEE's to split on
+   * the reason — not a consumer suppression. Reported, never enforced here.
+   */
+  no_effect_within_bounds_with_winner_flips: 'name_apart',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -845,13 +894,30 @@ function detectCX5(input: CoherenceInput, out: CoherenceViolation[]): void {
     if (typeof w.factor_id !== 'string') continue
     const f = noFlipByFactor.get(w.factor_id)
     if (f === undefined) continue
+    // ⚠ D7b — ONE CODE PER LIMB. Detection is unchanged (the boolean still
+    // finds every pair), but the two reasons behind it get different
+    // dispositions (`CX5_LIMB_DISPOSITION`), so lumping them under one code
+    // would report a deliberate KEEP as if it were the enforced contradiction —
+    // and make the pair's `enforcedAt` claim false for half its findings.
+    const limb =
+      f.flip_reason === 'structurally_invariant'
+        ? 'structurally_invariant_with_winner_flips'
+        : f.flip_reason === 'no_effect_within_bounds'
+          ? 'no_effect_within_bounds_with_winner_flips'
+          : 'no_flip_in_range_with_winner_flips'
     out.push({
       pair: 'CX5',
-      code: 'no_flip_in_range_with_winner_flips',
+      code: limb,
       detail:
         `For factor '${w.factor_id}', flip_thresholds reports no_flip_in_range:true ` +
         `(reason '${f.flip_reason ?? 'unstated'}') while conditional_winners reports ` +
-        `winner_flips:true for the same factor. Both render on the Analysis tab.`,
+        `winner_flips:true for the same factor. Both render on the Analysis tab.` +
+        (limb === 'no_effect_within_bounds_with_winner_flips'
+          ? ` REPORTED, NOT ENFORCED: the slopes genuinely differ and only the` +
+            ` mean-configuration crossing lies outside the domain, so the sampled` +
+            ` bucket disagreement can be real. The residual tension is in the` +
+            ` producer's "within the tested range" copy.`
+          : ''),
       evidence: {
         factor_id: w.factor_id,
         factor_label: String(w.factor_label ?? f.factor_label ?? ''),

@@ -19,6 +19,10 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
+import {
+  collectStructurallyProvenNoFlipIds,
+  type FlipAttestationRowLike,
+} from '../../components/results/utils/flipReasonVocabulary'
 
 export interface BuildSnapshotParams {
   rawV2Response: V2RunResponse
@@ -213,25 +217,47 @@ function extractConditionalWinners(
   if (!Array.isArray(raw)) return []
 
   // ── D7 GATE 0: THE COHERENCE GATE'S CX5 FINDING, ACTED ON ────────────────
-  // `crossSurfaceCoherence` pair CX5 detects `flip_thresholds.no_flip_in_range:
-  // true` beside `conditional_winners.winner_flips: true` FOR THE SAME FACTOR —
-  // two producer statements about one factor that cannot both hold. Until now
+  // `crossSurfaceCoherence` pair CX5 detects a flip attestation beside
+  // `conditional_winners.winner_flips: true` FOR THE SAME FACTOR. Until #788
   // the gate only OBSERVED it: nothing consumed the finding, so a detector with
   // no consumer is instrumentation, not a guarantee.
   //
   // This is not hypothetical. The real capture
-  // `seeded-2026-08-17-w2d-analysis-turn.json` carries `no_flip_in_range: true`
-  // with `flip_reason: 'structurally_invariant'` for factors `71c6351d` and
+  // `seeded-2026-08-17-w2d-analysis-turn.json` carries
+  // `flip_reason: 'structurally_invariant'` for factors `71c6351d` and
   // `fcf3d740`, and `winner_flips: true` for those SAME two ids — and the
   // Compare tab rendered "…, Floating price contract takes over" for a factor
   // the same payload declares cannot flip at all.
   //
-  // WHY SUPPRESS RATHER THAN RECONCILE. The two statements are answering the
-  // SAME question ("can this factor flip the winner?") and giving opposite
-  // answers, which is what makes this actionable where CX1 is not. We cannot
-  // know which is right, and picking one would be inventing a finding. The
-  // honest move is the one this file already takes for a producer
-  // self-contradiction in the bucket ids: decline the claim.
+  // ⚠ D7b — NARROWED, AND THE NARROWING IS THE POINT. This gate first keyed on
+  // `no_flip_in_range === true`. That boolean is stamped by PLoT from the SET
+  // of BOTH attested reasons (`factor-flip-values.ts:304` over
+  // `NO_EFFECT_REASONS`, `flip-threshold-status.ts:75-78`), and the two reasons
+  // are epistemically different objects:
+  //
+  //   · `structurally_invariant` — slopes IDENTICAL (spread <= 1e-9). An
+  //     ALGEBRAIC identity, topological in the graph, so it holds under every
+  //     sampled edge draw. The per-sample winner is independent of the factor,
+  //     so the median-split buckets behind `winner_flips` are two random halves
+  //     of ONE sequence and their disagreement is sampling noise. SUPPRESS.
+  //   · `no_effect_within_bounds` — slopes GENUINELY DIFFER; only the crossing
+  //     sits outside the domain at the MEAN edge configuration. Sampled draws
+  //     move the crossing, so a bucket disagreement can be a real finding.
+  //     Suppressing it withholds science ISL computed. KEEP.
+  //
+  // So the gate reads the REASON, through the one module that owns the
+  // producer's vocabulary — never a second local copy of the token (trap 12).
+  // Reading the reason also WIDENS the gate in the direction that mattered:
+  // a row carrying the proof WITHOUT the boolean used to render here while the
+  // results panel's `selectFlipRisk` (which reads `flip_reason`) refused the
+  // same run — a fresh instance of the sibling-surface disagreement #788 set
+  // out to close.
+  //
+  // WHY SUPPRESS RATHER THAN RECONCILE, for the arm that is suppressed. Under
+  // the algebraic proof the two statements answer the SAME question ("can this
+  // factor flip the winner?") and one instrument provably cannot discriminate.
+  // Rendering both is the falsehood; declining the artefact is not withholding
+  // anything the producer coherently stated.
   const noFlipFactorIds = collectNoFlipFactorIds(response)
 
   return raw
@@ -292,33 +318,33 @@ function extractConditionalWinners(
 }
 
 /**
- * Factor ids whose `flip_thresholds` row asserts `no_flip_in_range: true`.
+ * Factor ids whose `flip_thresholds` row carries the ALGEBRAIC no-flip proof.
  *
- * Bound by IDENTITY (`factor_id`), never by `factor_label`: the two arrays are
- * joined on the id in the producer's own CX5 detector
- * (`crossSurfaceCoherence.ts:728-739`), and joining on a label would both miss
- * a real contradiction between two same-labelled factors and invent one
- * between two differently-labelled rows for the same factor.
+ * ⚠ D7b: the membership test is `collectStructurallyProvenNoFlipIds`, in
+ * `components/results/utils/flipReasonVocabulary` — the one module that owns
+ * the producer's flip vocabulary, and the module `selectFlipRisk` already
+ * consults for the RUN-LEVEL question. A local token literal here would be the
+ * hand-maintained mirror (trap 12) and, worse, a SECOND authority on what
+ * "attested" means (trap 21) — which is precisely the disagreement this gate
+ * exists to end. The two questions are named apart in that module's docblock;
+ * they are deliberately NOT the same predicate.
  *
- * ONLY `=== true` counts. The field is absent on both real captures that carry
- * a genuine flip (`flip_reason: 'found'`), and an ABSENT assertion is not a
- * negative one — treating absence as "no flip" would suppress every flip the
- * producer did compute, which is the mirror defect.
+ * Bound by IDENTITY, never by `factor_label`: the two arrays are joined on the
+ * id in the producer's own CX5 detector (`crossSurfaceCoherence.ts`), and a
+ * label join would both miss a real contradiction between two same-labelled
+ * factors and invent one between two differently-labelled rows for one factor.
+ *
+ * An ABSENT reason is not a negative one — an unknown token, a missing reason
+ * or a probe failure all fail the proof, so nothing the producer computed is
+ * withheld on the strength of a row that established nothing.
  */
 function collectNoFlipFactorIds(response: V2RunResponse): Set<string> {
-  const out = new Set<string>()
   const root = (response as unknown as Record<string, unknown> | undefined)?.flip_thresholds
   const nested = (response?.robustness as Record<string, unknown> | undefined)?.flip_thresholds
   const rows = Array.isArray(root) ? root : nested
-  if (!Array.isArray(rows)) return out
-  for (const r of rows) {
-    if (r && typeof r === 'object'
-      && (r as Record<string, unknown>).no_flip_in_range === true
-      && typeof (r as Record<string, unknown>).factor_id === 'string') {
-      out.add((r as Record<string, unknown>).factor_id as string)
-    }
-  }
-  return out
+  return collectStructurallyProvenNoFlipIds(
+    (Array.isArray(rows) ? rows : []) as FlipAttestationRowLike[],
+  )
 }
 
 /** Read one string member off a conditional-winner bucket. Absent ⇒ null. */

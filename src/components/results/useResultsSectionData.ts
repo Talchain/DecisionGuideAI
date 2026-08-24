@@ -66,6 +66,7 @@ import { mapM2BiasFindings } from './mapM2BiasFindings'
 import { mapDecisionQualityPrompts } from './utils/decisionQualityPrompts'
 import { humaniseCritique } from './utils/humaniseCritique'
 import { selectGoalProbability, type GoalProbabilityInput } from './utils/selectGoalProbability'
+import { collectStructurallyProvenNoFlipIds } from './utils/flipReasonVocabulary'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import {
   deriveNotAnalysedReason,
@@ -3447,9 +3448,33 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       //     and the flip claim stands without them. Never mint 0%.
       //   - identity absence (CEE's withheld-claim projection) is PRESERVED,
       //     so the card can render its neutral arm instead of nothing.
+      //
+      // ⚠ D7b — CX5, ENFORCED ON THIS SURFACE TOO, AND THIS IS THE ONE THE
+      // SETTLEMENT WITNESSED. `TriageActionCardsBody:916` renders these rows as
+      // `ConditionalWinnerCards` on the Analysis tab, where the SAME tab states
+      // the flip attestation from `recommendation.flipThresholds`. On a near-tie
+      // run they said opposite things about one factor — measured on the
+      // deployed build at 4/8 near-tie responses, 0/8 in the separated contrast
+      // control. #788 bound the Compare tab; this is its sibling surface.
+      //
+      // The predicate is `collectStructurallyProvenNoFlipIds` — the ALGEBRAIC
+      // proof only, never PLoT's `no_flip_in_range` boolean, which collapses
+      // that proof together with `no_effect_within_bounds` (a row compatible
+      // with a marginal flip, whose card must survive). The two questions and
+      // the derivation are in `flipReasonVocabulary`; do not restate the token
+      // here.
+      //
+      // ⚠ ONE AUTHORITY: the rows come from `recommendation.flipThresholds`,
+      // the memo that already adapts this array (label resolution, `node_id`
+      // normalisation, `flip_reason` carried verbatim). Re-reading the wire
+      // here would make this a SECOND adapter for one array — the two-choosers
+      // defect `selectFlipRisk`'s own header exists to forbid.
       conditionalWinners: (() => {
         const raw = safeArray((report as any)?.conditional_winners ?? (report as any)?.robustness?.conditional_winners)
         if (raw.length === 0) return undefined
+        const provenInertFactorIds = collectStructurallyProvenNoFlipIds(
+          recommendation.flipThresholds,
+        )
         // Wire rows are narrowed via `unknown` → typeof checks (no `as any`;
         // the trust-boundary cast budget in wave2-replay-gate.spec.ts is the
         // enforcement — typed narrowing is the pattern it exists to force).
@@ -3482,6 +3507,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const factorIdRaw = w.factor_id ?? w.node_id
           if (typeof factorLabelRaw !== 'string' || factorLabelRaw.length === 0) continue
           if (typeof factorIdRaw !== 'string' || factorIdRaw.length === 0) continue
+          // D7b CX5, by factor IDENTITY: this factor's own flip row proves it
+          // cannot move the winner, so its bucket disagreement is a sampling
+          // artefact and the card would contradict the same tab's attestation.
+          if (provenInertFactorIds.has(factorIdRaw)) continue
           const high = asRecord(w.high_bucket)
           const low = asRecord(w.low_bucket)
           if (!high || !low) continue
@@ -3601,7 +3630,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // quality, bias/quality/improvement guidance all read it); the CEE review
     // lands asynchronously after `report`, so omitting it froze the tier at
     // its pre-review value. The sibling `completeness` memo already lists it.
-  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1])
+    //
+    // D7b: `recommendation` is a genuine input — the conditional-winner
+    // projection reads `recommendation.flipThresholds` so the two surfaces
+    // decide from ONE adapted array. Listing it is a correctness dependency,
+    // not lint appeasement: with a stale closure the CX5 suppression would be
+    // computed from the previous run's flip evidence.
+  }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

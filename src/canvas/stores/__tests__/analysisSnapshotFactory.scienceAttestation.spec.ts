@@ -28,6 +28,25 @@
  * running it would say otherwise — a corpus that omits a value class the
  * contract admits is blind to it.
  *
+ * ⚠⚠ CORRECTED (D7b), BECAUSE THE SENTENCE ABOVE MISATTRIBUTES ONE OF THE
+ * THREE ZEROS AND WOULD BE INHERITED AS SETTLED FACT (trap 20). The
+ * `winner_flips: false` zero is **NOT** a corpus limitation — it is a property
+ * of the PRODUCER, derived at the ISL bytes at deployed `28fe0c95`:
+ *
+ *     robustness_analyzer_v2.py:5204  winner_flips = low.winner_id != high.winner_id
+ *     robustness_analyzer_v2.py:5206  if not winner_flips: continue      ← DROPPED
+ *     robustness_analyzer_v2.py:5226  winner_flips=True                  ← hardcoded
+ *
+ * Non-flipping factors are filtered out and the field is then stamped `True`
+ * on every surviving row; PLoT forwards it verbatim (`routes/v2/run.ts:801`,
+ * `:917`, with `:780` refusing a non-boolean). So `winner_flips: false` is
+ * **producer-unreachable end to end on this path**, and the census measured
+ * the producer rather than the corpus. GATE 1 remains defence in depth — the
+ * contract types the field REQUIRED `z.boolean()` and admits `false`, and a
+ * persisted or re-projected row is not bound by ISL's emitter — but it cannot
+ * discriminate on any payload ISL can currently produce, and that is the
+ * honest claim. The other two zeros ARE corpus limitations, unchanged.
+ *
  * Those three classes are consequently derived from the PRODUCER'S OWN
  * CONTRACT, not from anything this lane imagined, and each derivation is a
  * documented transformation applied to a REAL row (`CONTRACT_DERIVED` below):
@@ -132,13 +151,22 @@ describe('D7 opposite-direction twin — a value the producer DID compute still 
     // w2d's turn carries `leader_claim.permitted: false` and the producer
     // nonetheless shipped both bucket identities. That is coherence pair CX4's
     // question, NOT a reason for this factory to discard the rows: the CX5
-    // suppression below is keyed on `no_flip_in_range`, not on the leader
+    // suppression below is keyed on the flip attestation, not on the leader
     // verdict. Proven by removing only the CX5 trigger from the same capture —
     // the rows come back, so the suppression is CX5's doing and not a blanket
     // distrust of a withheld turn.
+    //
+    // ⚠ D7b — THE TRIGGER MOVED, AND THIS TEST MOVED WITH IT. It used to delete
+    // `no_flip_in_range`. That boolean is no longer the trigger: PLoT stamps it
+    // from the SET of BOTH attested reasons, so gating on it over-suppressed
+    // `no_effect_within_bounds` rows. The gate now reads `flip_reason`, so the
+    // honest trigger removal is to delete the REASON. Deleting the boolean
+    // alone would leave this test passing while measuring nothing — the exact
+    // vacuity a narrowing like this creates if the guards are not re-derived.
     const raw = clone(W2D)
     for (const r of raw.flip_thresholds as Array<Record<string, unknown>>) {
       delete r.no_flip_in_range
+      delete r.flip_reason
     }
     const s = snapshotOf(raw)
     expect(s.conditionalWinners.map(r => r.factorId)).toEqual(['71c6351d', 'fcf3d740'])
@@ -149,7 +177,7 @@ describe('D7 opposite-direction twin — a value the producer DID compute still 
 // THE COHERENCE GATE'S CX5 FINDING IS NOW ACTED ON, NOT MERELY DETECTED.
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('D7 — CX5: no_flip_in_range beside winner_flips suppresses the flip claim', () => {
+describe('D7 — CX5: an algebraic no-flip proof beside winner_flips suppresses the flip claim', () => {
   it('w2d is a REAL deployed instance: both factors are structurally invariant AND claim a flip', () => {
     // Stated first so the test below is measuring a real contradiction rather
     // than one this lane composed.
@@ -180,20 +208,43 @@ describe('D7 — CX5: no_flip_in_range beside winner_flips suppresses the flip c
     expect(snapshotOf(PROBE_A).conditionalWinners).toHaveLength(1)
   })
 
-  it('bound by factor IDENTITY — a no-flip row for a DIFFERENT factor suppresses nothing', () => {
+  // D7b: both cases below used to set `no_flip_in_range = true` on a row whose
+  // reason is `'found'`. Under the narrowed gate that combination triggers
+  // NOTHING, so they would have kept passing while proving nothing about the
+  // join — a guard agreeing with itself. The trigger is now the real one (the
+  // algebraic proof), and each pins its own precondition in-test so a future
+  // narrowing cannot hollow it out silently.
+  const proveInert = (row: Record<string, unknown>) => {
+    row.flip_reason = 'structurally_invariant'
+    row.flip_value = null
+    delete row.no_flip_in_range
+  }
+
+  it('bound by factor IDENTITY — a no-flip PROOF for a DIFFERENT factor suppresses nothing', () => {
     const raw = clone(PROBE_A)
     const flips = raw.flip_thresholds as Array<Record<string, unknown>>
-    flips.find(r => r.factor_id === 'fac_capacity')!.no_flip_in_range = true
-    // fac_capacity is asserted no-flip; fac_demand is the one with a
-    // conditional-winner row, and it is untouched.
+    proveInert(flips.find(r => r.factor_id === 'fac_capacity')!)
+    // PRECONDITION: the trigger really is armed on the OTHER factor, and the
+    // factor under test is untouched.
+    expect(flips.find(r => r.factor_id === 'fac_capacity')!.flip_reason)
+      .toBe('structurally_invariant')
+    expect(flips.find(r => r.factor_id === 'fac_demand')!.flip_reason).toBe('found')
     expect(snapshotOf(raw).conditionalWinners.map(r => r.factorId)).toEqual(['fac_demand'])
+  })
+
+  it('DISCRIMINATING TWIN — the same proof moved ONTO fac_demand DOES suppress it', () => {
+    // Without this, the case above shows only that something did not fire.
+    const raw = clone(PROBE_A)
+    const flips = raw.flip_thresholds as Array<Record<string, unknown>>
+    proveInert(flips.find(r => r.factor_id === 'fac_demand')!)
+    expect(snapshotOf(raw).conditionalWinners).toEqual([])
   })
 
   it('a matching LABEL with a different id does NOT suppress — the join is on the id', () => {
     const raw = clone(PROBE_A)
     const flips = raw.flip_thresholds as Array<Record<string, unknown>>
     const capacity = flips.find(r => r.factor_id === 'fac_capacity')!
-    capacity.no_flip_in_range = true
+    proveInert(capacity)
     capacity.factor_label = 'Customer demand' // same LABEL as fac_demand
     expect(snapshotOf(raw).conditionalWinners.map(r => r.factorId)).toEqual(['fac_demand'])
   })
