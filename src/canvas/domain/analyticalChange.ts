@@ -74,3 +74,84 @@ export function hasAnalyticalEdgeChange(oldEdge: Edge, updates: Partial<Edge>): 
   }
   return false
 }
+
+// ---------------------------------------------------------------------------
+// § Graph-level lift — the SAME taxonomy, asked of two complete graphs
+//
+// WHY THIS LIVES HERE AND NOT IN THE CONSUMER. The consumer that needs it
+// (`useGuidanceInvalidationOnEdit`) watches the canvas store and holds two
+// COMPLETE graphs, not an update partial. Writing the comparison there would
+// have made it a FOURTH authority on "did this edit change the analysis" —
+// alongside this file, `computeGraphHash`, and `applyPatch`'s raw path — and
+// the first version of that consumer did exactly that, via `diffSnapshots`,
+// which stringifies the WHOLE `data` object and therefore answered YES to a
+// label rename. It shipped a blanket `clearGuidanceItems()` on cosmetic edits.
+// Convergence rule: name the canonical owner and remove the competitor. This
+// file is the owner, so the lift belongs here and derives from the same
+// registry-backed `ANALYTICAL_*_FIELDS` as everything above.
+//
+// ⚠ ONE DELIBERATE DIFFERENCE FROM `hasAnalyticalNodeChange`, AND IT IS NOT A
+// NEW RULE. That function takes an UPDATE PARTIAL, so it can only ask
+// `field in newData` — a field DELETED from `data` is invisible to it, and it
+// cannot be otherwise, because an absent key in a partial means "not being
+// updated". Here both sides are complete objects, so absence is meaningful and
+// the comparison is symmetric. Same field list, same `deepEqual`, same source of
+// truth; only the direction of the question differs.
+// ---------------------------------------------------------------------------
+
+export interface AnalyticalGraphState {
+  readonly nodes: readonly Node[]
+  readonly edges: readonly Edge[]
+}
+
+function analyticalDataChanged(
+  fields: readonly string[],
+  prevData: unknown,
+  currData: unknown,
+): boolean {
+  const prev = (prevData ?? {}) as Record<string, unknown>
+  const curr = (currData ?? {}) as Record<string, unknown>
+  for (const field of fields) {
+    if (!deepEqual(prev[field], curr[field])) return true
+  }
+  return false
+}
+
+/**
+ * True when the graph moved in a way that invalidates an analysis authored
+ * against `prev` — i.e. an element was added or removed, or a surviving
+ * element's ANALYTICAL fields changed by value.
+ *
+ * FALSE for the cosmetic and transient classes this module has always excluded:
+ * position, `label`, `description`, `category`, `extractionType`, colour, and
+ * every `ephemeral` registry field (`_baseline_snapshot`, the derived
+ * goal-threshold caches). Those are a user tidying their model, not changing it,
+ * and a consumer that treats them as a change destroys work.
+ */
+export function hasAnalyticalGraphChange(
+  prev: AnalyticalGraphState,
+  curr: AnalyticalGraphState,
+): boolean {
+  if (prev.nodes.length !== curr.nodes.length) return true
+  if (prev.edges.length !== curr.edges.length) return true
+
+  const prevNodes = new Map(prev.nodes.map((n) => [n.id, n]))
+  for (const node of curr.nodes) {
+    const before = prevNodes.get(node.id)
+    if (!before) return true // an id that was not there is an add
+    // Node-level kind reclassification, the same signal the per-update
+    // function checks first.
+    if (before.type !== node.type) return true
+    if (analyticalDataChanged(ANALYTICAL_NODE_DATA_FIELDS, before.data, node.data)) return true
+  }
+
+  const prevEdges = new Map(prev.edges.map((e) => [e.id, e]))
+  for (const edge of curr.edges) {
+    const before = prevEdges.get(edge.id)
+    if (!before) return true
+    if (before.source !== edge.source || before.target !== edge.target) return true
+    if (analyticalDataChanged(ANALYTICAL_EDGE_FIELDS, before.data, edge.data)) return true
+  }
+
+  return false
+}

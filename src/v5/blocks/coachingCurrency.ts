@@ -117,14 +117,16 @@
  *     the user edits?" regardless of the limbs.
  *
  * The mechanism that actually keeps those surfaces clean is
- * `clearGuidanceItems()` at `useGraphEditEvents.ts:226`, which drops EVERY item
+ * `clearGuidanceItems()` (at `useGraphEditEvents.ts:293` when this was written;
+ * derive the line, do not trust it), which drops EVERY item
  * on any structural local edit, ahead of its own 1.5 s debounce — plus, on an
  * assistant turn, `setGuidanceItems()` replacing the whole list
  * (`useConversation.ts:3716`). The `rehydrateGuidance` half of the #670 argument
  * is sound; the `evictStaleItems` half is not.
  *
  * ⚠ AND THE SKIP THAT MECHANISM HAS. `useGraphEditEvents` returns early while
- * `_externalMutationActive > 0` (`:204-208`), BEFORE reaching the clear, so an
+ * `_externalMutationActive > 0` (`:245` at the time of writing — derive the
+ * line, do not trust it), BEFORE reaching the clear, so an
  * accepted assistant patch fires no `clearGuidanceItems()`. Investigated: it does
  * NOT produce a transient lie the user can SEE. Both external-mutation paths pair
  * the suppression with a prune in the SAME synchronous task — manual accept

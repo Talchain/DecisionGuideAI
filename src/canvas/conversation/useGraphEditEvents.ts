@@ -13,6 +13,7 @@ import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { isOrchestratorV2Enabled, isJourneyTabEnabled } from '../../flags'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { hasAnalyticalGraphChange } from '../domain/analyticalChange'
 import { appendEvent } from '../../services/scenarioService'
 import { resolveElementLabel } from './utils/resolveElementLabel'
 import type { WireSystemEvent } from './types'
@@ -420,4 +421,158 @@ export function useGraphEditEvents(
       accRef.current = null
     }
   }, [sendSystemEvent])
+}
+
+// ---------------------------------------------------------------------------
+// § useGuidanceInvalidationOnEdit — the coaching half, WITHOUT the wire half
+//
+// ⚠⚠ THE DEFECT THIS CLOSES (N-23, derived at the bytes in
+// `drainHostReachability.derived.spec.ts` and confirmed again at `4d1e650b`):
+// STALE COACHING SURVIVES A LOCAL STRUCTURAL EDIT. `clearGuidanceItems()` had
+// exactly ONE production caller — `useGraphEditEvents` above — and that hook's
+// only host is `DraftChat`, which `ReactFlowGraph.tsx:2484` mounts ONLY when
+// `aiPanelV2` is OFF. The flag is ON in every deployed context
+// (`flags.ts:358` `defaultValue: true`; `netlify.toml:57` `"true"` proves
+// STAGING only — it is under `[context.staging.environment]`, and production
+// inherits from `[build.environment]` alone, so the DEFAULT is what carries
+// this). So for every real user, the model can be
+// restructured underneath coaching that was minted against the PREVIOUS model,
+// and that coaching stands until the next assistant turn replaces the whole
+// list. Advice about a model the user has since changed is not merely stale —
+// it is confidently wrong on a surface whose entire job is to be trusted.
+//
+// ⭐ WHY THIS IS A SEPARATE HOOK AND NOT A RE-HOST OF THE ONE ABOVE.
+// A prior lane stopped at exactly this boundary and was right to. Mounting
+// `useGraphEditEvents` on the live path would ALSO switch on `direct_graph_edit`
+// wire emission for every user — a WIRE-BEHAVIOUR change (CEE starts receiving a
+// system event it currently never receives from a flag-ON user) smuggled in as a
+// UX fix. That is a different decision, with a different blast radius, and it is
+// not this lane's to take. So the two jobs are split by CONSTRUCTION rather than
+// by discipline: this hook takes NO `sendSystemEvent`, imports no transport, and
+// is therefore STRUCTURALLY INCAPABLE of emitting anything. The guard for that
+// is a source-level assertion in the spec, not a promise in this comment.
+//
+// ⚠⚠ THE "SINGLE AUTHORITY" CLAIM THAT USED TO SIT HERE IS WITHDRAWN — IT WAS
+// BOTH UNEARNED AND POINTED AT THE WRONG AUTHORITY, AND IT SHIPPED A LIVE
+// REGRESSION. It read:
+//
+//     "SINGLE AUTHORITY ON 'WHAT IS A STRUCTURAL CHANGE'. This deliberately
+//      reuses `takeSnapshot`/`diffSnapshots` from the emitter above rather than
+//      re-implementing the diff. … Position-only changes are excluded by
+//      `diffSnapshots` returning `null` — dragging a node must not wipe the
+//      user's coaching."
+//
+// Every sentence is true and the conclusion is still wrong, because the two
+// hooks ANSWER DIFFERENT QUESTIONS (CLAUDE.md trap 21). The emitter asks
+// *"what changed, so CEE can be told?"* — for which the whole `data` object is
+// the right granularity. This hook asks *"does this change invalidate an
+// ANALYSIS?"* — a question the codebase ALREADY OWNS, in
+// `domain/analyticalChange.ts`, whose registry (`analyticalNodeFields.ts`)
+// deliberately EXCLUDES `label`, `body`, `description`, `position` and colour as
+// cosmetic. Sharing the emitter's diff made this a FOURTH authority answering
+// that question differently.
+//
+// THE COST, measured: `serialiseNode` stringifies the WHOLE `data` object, so
+// `diffSnapshots` returned non-null for ANY `data` change and this hook answered
+// with a blanket `clearGuidanceItems()` — which also wipes the PERSISTED blob,
+// so the loss survived a reload. Renaming the goal, or editing a node's
+// description or category, destroyed every piece of the user's coaching. Dark at
+// base (the only caller was hosted where `aiPanelV2` is OFF, and it defaults
+// TRUE), and universal the moment this hook was mounted in the flag-ON branch.
+// The tell was two surfaces disagreeing on one gesture: the strip and the node
+// markers were destroyed while the transcript coaching card beside them still
+// reported `'current'`, because `coachingCurrency` asks the CANONICAL owner and
+// correctly treats `label` as cosmetic.
+//
+// SO: the authority for THIS question is `hasAnalyticalGraphChange`, which lives
+// in and derives from that canonical registry. `diffSnapshots` keeps the
+// emitter's question and is no longer consulted here. Position-only changes are
+// excluded because position is not a `data` field at all — not because a shared
+// helper happens to drop them.
+//
+// ⚠⚠ EXTERNAL MUTATIONS STAY SUPPRESSED — and the ORIGINAL VERSION OF THIS NOTE
+// WAS FALSIFIED BY REVIEW, which is why it now reads at this length.
+//
+// It said: "Accepting an assistant patch runs under
+// `beginExternalGraphMutation('patch_apply')` … a blanket clear here would
+// destroy the untargeted items that are legitimately still valid." That is TRUE
+// OF THE GUARDED WINDOW AND WAS FALSE OF THE TAIL. `ConversationPanel` CLOSED
+// the window (`:330`) and then called `mirrorAnalysisReadyAfterAccept()`
+// (`:335`), whose backfills write node `data` — so the tail arrived here
+// UNSUPPRESSED, and this hook's blanket clear fired twelve lines before the
+// deliberate `clearItemsByTargetIds(allIds)` at `:347`, which then no-opped on
+// an empty store. Three more producer writers had the same hole
+// (`applyDraftResult`, `reconcileAppliedGraph`, `mergeServerGraph`).
+//
+// The suppression is therefore load-bearing AND WAS NOT SUFFICIENT ON ITS OWN.
+// The writers have been guarded at source (see each one's note), and
+// `guidanceInvalidationProducerWrites.spec.tsx` drives the REAL producer
+// functions to prove it — because the argument above is exactly the kind that
+// reads correct and is wrong about which bytes execute.
+//
+// ⚠ NOT GATED ON `isOrchestratorV2Enabled()`, unlike the emitter above. That
+// flag governs a TRANSPORT; whether the user's coaching is honest about their
+// current model is not a transport concern. In the deployed posture the flag is
+// `"true"` (`netlify.toml:35`) so this is behaviour-identical there; where it is
+// OFF, this hook still keeps coaching honest instead of leaving the defect
+// standing for a reason unrelated to it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Clear all guidance the moment the user makes a local structural edit.
+ *
+ * Wire-free by construction: takes no transport, emits nothing, and touches
+ * only the canvas store (read) and the guidance store (clear).
+ */
+export function useGuidanceInvalidationOnEdit(): void {
+  /** The graph the surviving coaching is understood to describe. */
+  const baselineRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
+  const scenarioIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const state = useCanvasStore.getState()
+    baselineRef.current = { nodes: state.nodes, edges: state.edges }
+    scenarioIdRef.current = state.currentScenarioId
+
+    const unsubscribe = useCanvasStore.subscribe((curr, prev) => {
+      // Scenario switch — re-baseline and clear nothing. Guidance for the
+      // decision being LEFT is not invalidated by leaving it, and the store's
+      // own rehydration gate keys on `scenarioId` anyway.
+      if (curr.currentScenarioId !== scenarioIdRef.current) {
+        scenarioIdRef.current = curr.currentScenarioId
+        baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
+        return
+      }
+
+      // Same references — nothing moved.
+      if (curr.nodes === prev.nodes && curr.edges === prev.edges) return
+
+      // Patch-apply / hydration / envelope-apply. Re-baseline so the next real
+      // user edit diffs against the post-mutation graph rather than a stale one.
+      if (curr._externalMutationActive > 0) {
+        baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
+        return
+      }
+
+      const baseline = baselineRef.current
+      if (!baseline) {
+        baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
+        return
+      }
+
+      // ⭐ THE CANONICAL OWNER ANSWERS. A cosmetic edit — rename, description,
+      // category, a drag — advances the baseline and KEEPS the coaching. Only an
+      // analysis-affecting change invalidates it. See the withdrawal note above
+      // for what the previous predicate destroyed.
+      const analytical = hasAnalyticalGraphChange(baseline, { nodes: curr.nodes, edges: curr.edges })
+      baselineRef.current = { nodes: curr.nodes, edges: curr.edges }
+      if (!analytical) return
+
+      useGuidanceStore.getState().clearGuidanceItems()
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 }

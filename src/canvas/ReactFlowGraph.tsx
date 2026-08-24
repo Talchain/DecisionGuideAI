@@ -112,6 +112,7 @@ import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from './conversation/ConversationContext'
 import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
 import { StructuralDeleteDrainHost } from './conversation/StructuralDeleteDrainHost'
+import { GuidanceInvalidationHost } from './conversation/GuidanceInvalidationHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -2590,6 +2591,14 @@ export function MaybeConversationProvider({ children }: { children: import('reac
             the drain there alone shipped the capability dark. Same two-host
             shape as PanelApplyDrainHost above, for the same reason. */}
         <StructuralDeleteDrainHost />
+        {/* N-23 — guidance invalidation's flag-ON host. `clearGuidanceItems()`
+            had one production caller, inside `useGraphEditEvents`, whose only
+            host is DraftChat (mounted only when aiPanelV2 is OFF). With the flag
+            ON — every deployed context — stale coaching survived a local
+            structural edit. This host carries the coaching half ONLY: it takes
+            no transport, so it cannot switch on `direct_graph_edit` emission as
+            a side effect. */}
+        <GuidanceInvalidationHost />
         {children}
       </ConversationProvider>
     )

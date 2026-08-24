@@ -5100,11 +5100,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       return {
         nodes,
         edges,
+        // ⚠ NOT A USER EDIT — a delete being REVERTED. Counter raised in the SAME
+        // `set()` as the write (a later one arrives after the subscriber has
+        // already seen the change; mutant MUT-ORDER).
+        _externalMutationActive: s._externalMutationActive + 1,
         // The restored graph is the one the server still holds, so any retained
         // 'fresh' verdict is no longer confirmable against what is on screen.
         ...deriveGoalThresholdFromNode(nodes, s.outcomeNodeId),
       }
     })
+    set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
     markAnalysisFreshnessDirty(get, set)
   },
 
@@ -5846,12 +5851,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         }
       }).filter(Boolean) as typeof existingEdges
 
-      set({
+      // ⚠ NOT A USER EDIT — a clarifier PREVIEW being inserted. Same-`set()`
+      // suppression, for the reason in applyStructuralDeleteRevert.
+      set((s) => ({
         nodes: [...existingNodes, ...previewNodes],
         edges: [...existingEdges, ...previewEdges],
         clarifierPreviewNodeIds: previewNodes.map(n => n.id),
         clarifierPreviewEdgeIds: previewEdges.map(e => e.id),
-      })
+        _externalMutationActive: s._externalMutationActive + 1,
+      }))
+      set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
 
       // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
       if (import.meta.env.DEV) {
@@ -5960,12 +5969,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const state = get()
     const remainingNodes = state.nodes.filter(n => !state.clarifierPreviewNodeIds.includes(n.id))
     const remainingEdges = state.edges.filter(e => !state.clarifierPreviewEdgeIds.includes(e.id))
-    set({
+    // ⚠ NOT A USER EDIT — a clarifier preview being WITHDRAWN. Same-`set()`
+    // suppression, for the reason in applyStructuralDeleteRevert.
+    set((s) => ({
       nodes: remainingNodes,
       edges: remainingEdges,
       clarifierPreviewNodeIds: [],
       clarifierPreviewEdgeIds: [],
-    })
+      _externalMutationActive: s._externalMutationActive + 1,
+    }))
+    set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
   },
 
   exportLocal: () => {
