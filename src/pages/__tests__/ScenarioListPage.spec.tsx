@@ -49,6 +49,20 @@ function renderPage() {
   )
 }
 
+function expectStrategicReasoningEntry() {
+  expect(screen.getByRole('heading', { name: 'Strategic reasoning' })).toBeInTheDocument()
+  expect(
+    screen.getByText(
+      'Olumi turns messy strategic work into a living visual model while keeping your judgement visible.',
+    ),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByText('Sign in to save your workspace, or explore without an account.'),
+  ).toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Decisions' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/manage your decisions/i)).not.toBeInTheDocument()
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -303,10 +317,16 @@ describe('ScenarioListPage', () => {
     })
   })
 
-  it('shows sign-in message for guest users', () => {
+  it('frames the guest entry as strategic reasoning', () => {
     mockAuthValue = { user: { id: 'guest' }, authenticated: true }
     renderPage()
-    expect(screen.getByText('Sign in')).toBeTruthy()
+    expectStrategicReasoningEntry()
+  })
+
+  it('frames the signed-out entry as strategic reasoning', () => {
+    mockAuthValue = { user: null, authenticated: false }
+    renderPage()
+    expectStrategicReasoningEntry()
   })
 
   // -------------------------------------------------------------------------
