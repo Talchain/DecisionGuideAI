@@ -27,80 +27,19 @@
  * `OutputsDock.staleVerdictCopy.spec.tsx` (the real wiring, through the
  * deployed-flag surface). The two kinds of guard are not redundant.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
-
 import { describe, it, expect } from 'vitest'
 
-const SRC = join(process.cwd(), 'src')
+import { composerCallSites, runGateCallSites } from './helpers/derivedCallSites'
 
-/** Every `.ts`/`.tsx` file under `src/`, tests and stories excluded. */
-function productionSources(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) {
-      if (entry === '__tests__' || entry === 'node_modules') continue
-      productionSources(full, out)
-    } else if (/\.tsx?$/.test(entry) && !/\.(spec|test|stories)\.tsx?$/.test(entry)) {
-      out.push(full)
-    }
-  }
-  return out
-}
-
-/** Read the whole argument list of a call, balancing parens from the `(`. */
-function callArguments(text: string, openParenIndex: number): string {
-  let depth = 1
-  let i = openParenIndex + 1
-  while (i < text.length && depth > 0) {
-    if (text[i] === '(') depth++
-    else if (text[i] === ')') depth--
-    i++
-  }
-  return text.slice(openParenIndex + 1, i - 1)
-}
-
-function composerCallSites(): Array<{ file: string; args: string }> {
-  const found: Array<{ file: string; args: string }> = []
-  const pattern = /\bcomposeReadinessBlockedReason\s*\(/g
-  for (const file of productionSources(SRC)) {
-    // The composer's own module defines it; a definition is not a call site.
-    if (file.endsWith(join('canvas', 'utils', 'composeBlockedReason.ts'))) continue
-    const text = readFileSync(file, 'utf8')
-    let m: RegExpExecArray | null
-    while ((m = pattern.exec(text)) !== null) {
-      // Skip the import statement, which matches the bare identifier.
-      const lineStart = text.lastIndexOf('\n', m.index) + 1
-      const line = text.slice(lineStart, m.index)
-      if (/\bimport\b/.test(line)) continue
-      found.push({ file: relative(SRC, file), args: callArguments(text, m.index + m[0].length - 1) })
-    }
-  }
-  return found
-}
-
-/** Run-gate call sites, matched under the local alias both live callers use. */
-function runGateCallSites(): Array<{ file: string; args: string }> {
-  const found: Array<{ file: string; args: string }> = []
-  const pattern = /\bcanRunAnalysis(?:Util)?\s*\(\s*\{/g
-  for (const file of productionSources(SRC)) {
-    if (file.endsWith(join('canvas', 'utils', 'canRunAnalysis.ts'))) continue
-    const text = readFileSync(file, 'utf8')
-    let m: RegExpExecArray | null
-    while ((m = pattern.exec(text)) !== null) {
-      let depth = 1
-      let i = m.index + m[0].length
-      while (i < text.length && depth > 0) {
-        if (text[i] === '{') depth++
-        else if (text[i] === '}') depth--
-        i++
-      }
-      found.push({ file: relative(SRC, file), args: text.slice(m.index, i) })
-    }
-  }
-  return found
-}
-
+/**
+ * ⚠ SCANNER OWNERSHIP: this spec used to carry a verbatim copy of the source
+ * scan that `runGateCallSites.derived.spec.ts` also carried. Both copies
+ * matched their target symbol inside COMMENTS, so a prose mention of the gate
+ * in `SuggestedChips.tsx` was counted as a run-gate call site and this file's
+ * staleness assertion failed against a file that never calls the gate. One
+ * owner now: `helpers/derivedCallSites.ts`. Do not reintroduce a local copy —
+ * the duplication is what let a single defect survive two independent fixes.
+ */
 const COMPOSER_SITES = composerCallSites()
 const GATE_SITES = runGateCallSites()
 

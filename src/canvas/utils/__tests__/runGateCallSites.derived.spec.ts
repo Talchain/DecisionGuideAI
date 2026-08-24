@@ -29,57 +29,27 @@
  * end-to-end behaviour is pinned separately by `streamedDraftTurn.spec.ts`,
  * which drives the real store through a real streamed turn.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-const SRC = join(process.cwd(), 'src')
-
-/** Every `.ts`/`.tsx` file under `src/`, tests and stories excluded. */
-function productionSources(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) {
-      if (entry === '__tests__' || entry === 'node_modules') continue
-      productionSources(full, out)
-    } else if (/\.tsx?$/.test(entry) && !/\.(spec|test|stories)\.tsx?$/.test(entry)) {
-      out.push(full)
-    }
-  }
-  return out
-}
+import {
+  SRC,
+  blankComments,
+  runGateCallSites,
+} from './helpers/derivedCallSites'
 
 /**
- * Find every invocation of the run gate and return its argument-object text.
- *
- * Matches the local alias too (`canRunAnalysisUtil`), because both live callers
- * import it under that name — a matcher that only knew the exported name would
- * find zero call sites and this whole spec would pass by testing nothing.
+ * ⚠ THE SCANNER LIVES IN ONE PLACE NOW (`helpers/derivedCallSites.ts`).
+ * This spec previously defined its own copy, verbatim-duplicated into
+ * `blockedReasonStaleWiring.derived.spec.ts`. Both copies shared one defect —
+ * they matched the gate's name inside COMMENTS — so a prose reference in
+ * `SuggestedChips.tsx` was counted as a third call site and four tests failed
+ * against a file that never calls the gate. Fixing it in one copy would have
+ * left the other wrong. The helper is the canonical owner; this file consumes
+ * it and defines no scanner.
  */
-function runGateCallSites(): Array<{ file: string; args: string }> {
-  const found: Array<{ file: string; args: string }> = []
-  const pattern = /\bcanRunAnalysis(?:Util)?\s*\(\s*\{/g
-  for (const file of productionSources(SRC)) {
-    const text = readFileSync(file, 'utf8')
-    // The gate's own module defines and documents it; it is not a call site.
-    if (file.endsWith(join('canvas', 'utils', 'canRunAnalysis.ts'))) continue
-    let m: RegExpExecArray | null
-    while ((m = pattern.exec(text)) !== null) {
-      // Walk braces from the opening `{` to capture the whole argument object.
-      let depth = 1
-      let i = m.index + m[0].length
-      while (i < text.length && depth > 0) {
-        if (text[i] === '{') depth++
-        else if (text[i] === '}') depth--
-        i++
-      }
-      found.push({ file: relative(SRC, file), args: text.slice(m.index, i) })
-    }
-  }
-  return found
-}
-
 const CALL_SITES = runGateCallSites()
 
 describe('run-gate call sites — derived manifest', () => {
@@ -239,5 +209,64 @@ describe('the graph-write choke point consumes the persistence predicate (review
     const fn = source.slice(source.indexOf('async function persistGraphNow'))
     const body = fn.slice(0, fn.indexOf('\n}\n'))
     expect(body).toMatch(/saveGraphViaGatedPath\(/)
+  })
+})
+
+describe('the scanner ignores comments WITHOUT going blind to code', () => {
+  /**
+   * These pin the fix for the defect described at the top of
+   * `helpers/derivedCallSites.ts`. Each control is a DISCRIMINATING PAIR: the
+   * commented form must be invisible AND the executable form must still be
+   * seen, in the same fixture. A control that only proved "comments are
+   * ignored" would be satisfied by a scanner that had gone blind to
+   * everything, which is the failure mode that matters here — a scanner
+   * finding nothing makes every derived assertion in this file vacuous.
+   */
+  const find = (src: string) =>
+    (blankComments(src).match(/\bcanRunAnalysis(?:Util)?\s*\(\s*\{/g) ?? []).length
+
+  it('does not see the gate named in a LINE comment, but still sees a real call beside it', () => {
+    const src = [
+      '// `ConversationPanel` already computes `runGateResult = canRunAnalysis({...})`',
+      'const r = canRunAnalysisUtil({ readiness, draftStreamPhase })',
+    ].join('\n')
+    expect(find(src)).toBe(1)
+    // …and it is the executable one: the comment contributes nothing.
+    expect(find('// canRunAnalysis({ a })')).toBe(0)
+  })
+
+  it('does not see the gate named in a BLOCK comment or JSDoc', () => {
+    expect(find('/* canRunAnalysis({ a }) */')).toBe(0)
+    expect(find('/**\n * canRunAnalysisUtil({ a })\n */')).toBe(0)
+    // Discrimination, same shape: real code AFTER a block comment survives.
+    expect(find('/** canRunAnalysis({ a }) */\nconst r = canRunAnalysis({ b })')).toBe(1)
+  })
+
+  it('a `//` inside a STRING does not blank the rest of the line (blindness control)', () => {
+    // Without string tracking this URL would blank the call that follows it,
+    // silently removing a real call site from the manifest.
+    const src = `const u = 'https://example.test/x'; const r = canRunAnalysis({ readiness })`
+    expect(find(src)).toBe(1)
+  })
+
+  it('a regex literal containing a slash does not blank the rest of the line', () => {
+    const src = `const re = /https:\\/\\//; const r = canRunAnalysis({ readiness })`
+    expect(find(src)).toBe(1)
+  })
+
+  it('blanking preserves byte offsets, so argument slices stay aligned', () => {
+    const src = 'const a = 1 // canRunAnalysis({ x })\nconst b = 2'
+    const blanked = blankComments(src)
+    expect(blanked).toHaveLength(src.length)
+    expect(blanked.split('\n')).toHaveLength(src.split('\n').length)
+    expect(blanked.startsWith('const a = 1 ')).toBe(true)
+    expect(blanked).not.toMatch(/canRunAnalysis/)
+  })
+
+  it('CONTROL: the real manifest is non-empty, so the fix did not blind the scan', () => {
+    // The scanner-level twin of the file-level assertion above. If the comment
+    // fix had over-stripped, this is where it shows up as a zero rather than as
+    // a quietly-passing suite.
+    expect(CALL_SITES.length).toBeGreaterThan(0)
   })
 })
