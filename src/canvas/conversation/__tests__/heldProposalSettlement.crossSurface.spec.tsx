@@ -365,4 +365,62 @@ describe('heldProposalRetirementKeys — the RETIREMENT question', () => {
       heldProposalMountKey(TURN_B, HANDLE_B),
     ])
   })
+
+  // ── THE BOUND, AND ITS DISCRIMINATING TWIN ───────────────────────────────
+  // Round 2 scoped the MOUNT key by turn but left this sweep UNBOUNDED: it
+  // walked EVERY message and made no comparison against `actingTurnId`. The
+  // doc comment claimed otherwise ("Turns that arrive AFTERWARDS have no
+  // entry") — true only of turns that DO NOT EXIST YET. A later turn already
+  // in the transcript was swept in and settled with the earlier one.
+  //
+  // The three cases below are a DISCRIMINATING SET, not one assertion three
+  // ways: the first must flip RED→GREEN, the second must be GREEN on BOTH
+  // sides of the fix, and the third pins the unknown-ordering branch. A
+  // blanket "only ever retire the acting turn" would satisfy the first and
+  // BREAK the second, so the pair distinguishes ORDERING rather than simply
+  // retiring less (trap 19's RED/GREEN mutant-pair shape, at the unit).
+
+  it('is BOUNDED AT THE ACTING TURN — a LATER turn already on screen keeps its own offer', () => {
+    // The reproduction, at the unit. Turn 1 holds "remove the Pricing node";
+    // turn 2 re-mints the SAME handle for "rename it to List price". Both are
+    // on screen. The user tidies away the stale turn-1 card.
+    const messages = [turn(TURN_A, [HANDLE_A]), turn(TURN_B, [HANDLE_A])]
+    expect(heldProposalRetirementKeys(messages, HANDLE_A, TURN_A)).toEqual([
+      heldProposalMountKey(TURN_A, HANDLE_A),
+    ])
+    // …and the later turn's key is genuinely absent, not merely last — pinned
+    // explicitly so a reordering could never satisfy this by accident.
+    expect(heldProposalRetirementKeys(messages, HANDLE_A, TURN_A)).not.toContain(
+      heldProposalMountKey(TURN_B, HANDLE_A),
+    )
+  })
+
+  it('DISCRIMINATING CONTROL — settling the LATER card still retires the EARLIER one', () => {
+    // The other ordering, and the whole reason the bound is `<=` rather than
+    // "acting turn only". Turn 1's hold is ALREADY superseded server-side by
+    // turn 2 re-minting the handle (CEE §6.7 same-key supersession), so leaving
+    // it live is the original SENDABLE-5 lie that ends in a refusal.
+    // GREEN before the fix and GREEN after: this case is what stops the fix
+    // being a blanket retreat.
+    const messages = [turn(TURN_A, [HANDLE_A]), turn(TURN_B, [HANDLE_A])]
+    expect(heldProposalRetirementKeys(messages, HANDLE_A, TURN_B)).toEqual([
+      heldProposalMountKey(TURN_B, HANDLE_A),
+      heldProposalMountKey(TURN_A, HANDLE_A),
+    ])
+  })
+
+  it('an acting turn ABSENT from the transcript retires only itself', () => {
+    // Ordering is unknowable when the acting turn cannot be located, so the
+    // sweep does nothing and only the pressed card settles. The two harms are
+    // not symmetric and that is what picks the direction: a stale-live card
+    // costs one refusal that writes nothing, while a wrongly-retired card
+    // costs EVERY affordance — `heldProposalConsumedActionIds`
+    // (`suggestedActionChips.ts:50-61`) suppresses a turn's confirm/decline
+    // chip ids whenever a held_proposal block is present, settled or not, so
+    // there is no fallback anywhere on the turn.
+    const messages = [turn(TURN_A, [HANDLE_A]), turn(TURN_B, [HANDLE_A])]
+    expect(heldProposalRetirementKeys(messages, HANDLE_A, 'turn-never-rendered')).toEqual([
+      heldProposalMountKey('turn-never-rendered', HANDLE_A),
+    ])
+  })
 })

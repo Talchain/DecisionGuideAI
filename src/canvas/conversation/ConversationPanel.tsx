@@ -219,14 +219,17 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   // ── Held-proposal settlement handler (SENDABLE failure 5) ─────────
   // THE RETIREMENT QUESTION, answered here and only here: which copies does
-  // this settlement retire? Every copy ON SCREEN WHEN THE USER ACTS — both
-  // mounted surfaces, and every earlier turn that re-issued the same CEE hold
-  // handle. Each gets its own MOUNT key, so a turn that arrives LATER has no
-  // entry and mounts offerable, which is what keeps a freshly-issued proposal
-  // from inheriting a settlement the user made about a different change.
+  // this settlement retire? Every copy of the handle AT OR BEFORE the turn the
+  // user pressed — both mounted surfaces, and every earlier turn that re-issued
+  // the same CEE hold handle, all of which that turn's own hold has already
+  // superseded server-side. Each gets its own MOUNT key, so a LATER turn keeps
+  // its own offer and a freshly-issued proposal never inherits a settlement the
+  // user made about a different change.
   //
-  // The snapshot is deliberate: `messages` is read HERE, at settle time, not at
-  // render time. A turn that does not exist yet cannot be in it.
+  // `messages` is passed WHOLE and read at settle time, not at render time —
+  // and the bound lives in `heldProposalRetirementKeys`, which needs the full
+  // array to locate the acting turn's position. Slicing here instead would put
+  // the ordering decision in two places.
   //
   // `setPatchBlockState` is the existing single writer for card settlement
   // (graph-patch cards already use it) and the `held:` prefix keeps the two key

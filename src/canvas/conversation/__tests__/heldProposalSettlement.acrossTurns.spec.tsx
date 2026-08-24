@@ -389,4 +389,65 @@ describe('a held proposal is settled per TURN, not for all time', () => {
       expect(isLive(other)).toBe(true)
     }
   })
+
+  // ── THE ORDERING THAT WAS STILL OPEN AFTER ROUND 2 ────────────────────────
+  // `FRESH-DEAD` above settles turn 1 while turn 2 DOES NOT YET EXIST, then
+  // appends it. That ordering was already closed: a turn absent from the
+  // snapshot gets no key. The ordering below is the one that was not — BOTH
+  // turns already in the transcript, and the user settles the EARLIER card.
+  //
+  // It is the ordinary thing to do. The user asks to remove the Pricing node,
+  // changes their mind and asks to rename it instead, CEE re-mints the same
+  // handle (a target SLOT, deliberately), and then they scroll up and tidy the
+  // stale card away. Unbounded, that settlement swept forward onto the offer
+  // they actually want, and `heldProposalConsumedActionIds` had already
+  // suppressed the chip row for that turn — so there was no affordance left
+  // anywhere on it.
+  //
+  // Both settlements are exercised because they take DIFFERENT code paths in
+  // the card (`v5-held-proposal-dismiss` is local-only; `v5-held-proposal-
+  // confirm` also dispatches a chip), and only the shared retirement sweep is
+  // fixed here. The confirm case is the worse of the two: the later card reads
+  // `accepted` while the confirm the user never pressed targets a hold CEE has
+  // already superseded.
+
+  for (const [action, settledValue] of [
+    ['v5-held-proposal-dismiss', 'dismissed'],
+    ['v5-held-proposal-confirm', 'accepted'],
+  ] as const) {
+    it(`FRESH-DEAD, the ordering that was open — ${settledValue} on the EARLIER card leaves the LATER one live`, () => {
+      render(<TwoPanels initial={[REMOVE_TURN, RENAME_TURN]} />)
+
+      // PRECONDITION, pinned in-test (trap 13b): before the click, BOTH turns
+      // are live. Without this the post-click assertions could pass on a card
+      // that was never offerable in the first place.
+      for (const surface of ['surface-dock', 'surface-floating'] as const) {
+        expect(isLive(cardIn(surface, TURN_ONE, HANDLE))).toBe(true)
+        expect(isLive(cardIn(surface, TURN_TWO, HANDLE))).toBe(true)
+      }
+
+      fireEvent.click(
+        within(cardIn('surface-dock', TURN_ONE, HANDLE)).getByTestId(action),
+      )
+
+      for (const surface of ['surface-dock', 'surface-floating'] as const) {
+        // The card the user pressed retires — on BOTH surfaces. The stale-live
+        // harm stays closed.
+        const acted = cardIn(surface, TURN_ONE, HANDLE)
+        expect(acted).toHaveAttribute('data-settled', settledValue)
+        expect(isLive(acted)).toBe(false)
+
+        // …and the LATER offer, the change the user actually asked for, is
+        // untouched. This is the assertion that was RED.
+        const later = cardIn(surface, TURN_TWO, HANDLE)
+        expect(later).not.toHaveAttribute('data-settled')
+        expect(within(later).getByTestId('v5-held-proposal-heading')).toHaveTextContent(
+          HELD_PROPOSAL_HEADING,
+        )
+        expect(within(later).getByTestId('v5-held-proposal-actions')).toBeTruthy()
+        expect(within(later).getByTestId('v5-held-proposal-confirm')).not.toBeDisabled()
+        expect(within(later).getByTestId('v5-held-proposal-dismiss')).not.toBeDisabled()
+      }
+    })
+  }
 })

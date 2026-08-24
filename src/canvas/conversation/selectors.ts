@@ -151,9 +151,18 @@ export function resolvePatchBlockState(
  *
  * · RETIREMENT — "which mounted copies does settling this proposal retire?"
  *   Answered by {@link heldProposalRetirementKeys}, ONCE, at settle time.
- *   Every copy on screen when the user acts — both surfaces, and every earlier
- *   turn re-issuing the same handle — retires together. Turns that arrive
- *   AFTERWARDS have no entry, so they mount live.
+ *   Every copy of the handle AT OR BEFORE the acting turn — both surfaces, and
+ *   every earlier turn that re-issued it — retires together. Copies on LATER
+ *   turns keep their own offer, whether that turn was already on screen or
+ *   arrives afterwards.
+ *
+ *   ⚠ This sentence used to read "Turns that arrive AFTERWARDS have no entry",
+ *   which described the snapshot and not the sweep: the sweep walked EVERY
+ *   message and compared nothing against the acting turn, so a later turn
+ *   already in the transcript was retired with the earlier one. The comment
+ *   asserted the invariant the code did not implement — worth naming, because
+ *   a doc comment that states the intended predicate is exactly where a reader
+ *   stops checking (CLAUDE.md trap 12: the hand-maintained mirror).
  *
  * The invariant the pair implements, and the only one worth reading:
  *
@@ -226,7 +235,38 @@ export function resolveHeldProposalState(
  * WHY THE TRANSCRIPT IS SNAPSHOTTED RATHER THAN CONSULTED AT READ TIME: a turn
  * that does not exist yet cannot be in this list, and that absence is precisely
  * what keeps a freshly-issued offer live. Reading the transcript at render time
- * instead would settle later turns too — the defect being fixed.
+ * instead would settle later turns too.
+ *
+ * ── ⚠ AND WHY SNAPSHOTTING ALONE WAS NOT ENOUGH ────────────────────────────
+ * The snapshot excludes only turns that DO NOT EXIST YET. A later turn already
+ * in the transcript is settled anyway, and that is the ordinary case: the user
+ * asks to remove the Pricing node, changes their mind and asks to rename it,
+ * CEE re-mints the same handle, and both cards sit on screen. Tidying away the
+ * stale REMOVE card then retired the live RENAME card with it — the fresh-dead
+ * harm, reached by position in the transcript rather than by time.
+ *
+ * The sweep is therefore BOUNDED AT THE ACTING TURN'S POSITION. `messages` is
+ * the array the thread renders in order, so index IS on-screen order; this is
+ * the same ordering the reader can see, not a second notion of time.
+ *
+ *   · index <  acting — an EARLIER re-issue of the handle. Already superseded
+ *     server-side by the acting turn's own hold (CEE §6.7 same-key
+ *     supersession), so leaving it live is the stale-live lie. Retired.
+ *   · index == acting — the card the user pressed, on every surface. Retired.
+ *   · index >  acting — a LATER offer CEE has issued against the same target
+ *     slot. A change the user has not resolved. Left live.
+ *
+ * `actingTurnId` absent ⇒ no position to bound at, and the caller is a message
+ * with no id; the sweep stays unbounded, exactly as before.
+ *
+ * `actingTurnId` present but NOT LOCATABLE in `messages` ⇒ ordering is
+ * unknowable, so the sweep does nothing and only the pressed card retires. The
+ * two harms are not symmetric and that asymmetry picks the direction: a
+ * stale-live card costs one explicit CEE refusal that writes nothing, whereas a
+ * wrongly-retired card costs EVERY affordance on its turn —
+ * `heldProposalConsumedActionIds` (`suggestedActionChips.ts:50-61`) suppresses
+ * a turn's confirm/decline chip ids whenever a held_proposal block is present,
+ * settled or not, so there is no fallback for the card to fall back to.
  */
 export function heldProposalRetirementKeys(
   messages: readonly ConversationMessage[],
@@ -240,7 +280,15 @@ export function heldProposalRetirementKeys(
 
   if (actingTurnId !== undefined) add(heldProposalMountKey(actingTurnId, proposalId))
 
-  for (const message of messages) {
+  // The bound. `findIndex` returns -1 for an acting turn that is not on screen,
+  // which stops the sweep entirely — see the unlocatable case above.
+  const lastIndex =
+    actingTurnId === undefined
+      ? messages.length - 1
+      : messages.findIndex((message) => message.id === actingTurnId)
+
+  for (let i = 0; i <= lastIndex; i += 1) {
+    const message = messages[i]
     if (!message.blocks) continue
     for (const block of message.blocks) {
       if (block.type !== 'v5_held_proposal') continue
