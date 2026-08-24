@@ -135,6 +135,43 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
     )
   })
 
+  it('ON-LIST /bff/cee/scenarios/{uuid}/versions/compare forwards (deterministic model diff)', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, {
+      path: `/bff/cee/scenarios/${uuid}/versions/compare`,
+    })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe(
+      `https://cee-staging.onrender.com/assist/v1/scenarios/${uuid}/versions/compare`,
+    )
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+  })
+
+  it('OFF-LIST /bff/cee/scenarios/{uuid}/versions/compare/extra is exact and sends no key', async () => {
+    const uuid = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
+    const r = await invoke(ceeHandler as Handler, {
+      path: `/bff/cee/scenarios/${uuid}/versions/compare/extra`,
+    })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
+  // PR #826 compatibility. Applied-edit explain-diff remains a separate
+  // contract from authoritative model-version comparison.
+  it('ON-LIST /bff/cee/explain-diff forwards to /assist/v1/explain-diff WITH the injected key', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/explain-diff' })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/assist/v1/explain-diff')
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+    expect(r.status).toBe(200)
+  })
+
+  it('OFF-LIST /bff/cee/explain-diff/extra is exact and sends no key', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/explain-diff/extra' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('OFF-LIST /bff/cee/decision-review (a real LLM route the UI never calls) is 404 with NO key sent', async () => {
     const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/decision-review' })
     expect(r.status).toBe(404)

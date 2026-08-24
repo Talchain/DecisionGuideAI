@@ -40,11 +40,17 @@ const HASH_OLD = 'a'.repeat(64)
 const listModelVersions = vi.fn()
 const saveModelVersion = vi.fn()
 const restoreModelVersion = vi.fn()
-vi.mock('../../../adapters/cee/modelVersions', () => ({
-  listModelVersions: (...args: unknown[]) => listModelVersions(...args),
-  saveModelVersion: (...args: unknown[]) => saveModelVersion(...args),
-  restoreModelVersion: (...args: unknown[]) => restoreModelVersion(...args),
-}))
+const compareModelVersions = vi.fn()
+vi.mock('../../../adapters/cee/modelVersions', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../adapters/cee/modelVersions')>()
+  return {
+    ...original,
+    compareModelVersions: (...args: unknown[]) => compareModelVersions(...args),
+    listModelVersions: (...args: unknown[]) => listModelVersions(...args),
+    saveModelVersion: (...args: unknown[]) => saveModelVersion(...args),
+    restoreModelVersion: (...args: unknown[]) => restoreModelVersion(...args),
+  }
+})
 
 const reconcileAppliedGraph = vi.fn()
 vi.mock('../../utils/mergeAppliedGraph', () => ({
@@ -82,6 +88,42 @@ const TWO_VERSIONS = [
   }),
   serverVersion(),
 ]
+
+function comparedDiff() {
+  return {
+    schema: 'model_version_diff.v1' as const,
+    scenarioId: SCENARIO,
+    fromVersionId: VERSION_OLD,
+    toVersionId: VERSION_HEAD,
+    relation: 'different' as const,
+    fromFullHash: HASH_OLD,
+    toFullHash: HASH_HEAD,
+    analysisEquivalent: false,
+    categories: {
+      structure: [],
+      relationships: [],
+      values_uncertainty: [
+        {
+          path: 'nodes.factor-price.value',
+          changeKind: 'changed' as const,
+          entityKind: 'node' as const,
+          entityId: 'factor-price',
+          label: 'Price',
+          beforeDisplay: '0.5',
+          afterDisplay: '0.8',
+          summary: 'Price changed from 0.5 to 0.8.',
+          whyItMatters: 'This changes an analysis input.',
+        },
+      ],
+      evidence_provenance: [],
+      goals_constraints_options: [],
+      assumptions_claims: [],
+      presentation: [],
+      other_model_fields: [],
+    },
+    coverage: { knownUndetectable: [], knownUninterpretedPaths: [] },
+  }
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -281,6 +323,49 @@ describe('ServerVersionsSection — save', () => {
     await waitFor(() =>
       expect(screen.getByTestId('server-versions-message')).toHaveTextContent(/already/i),
     )
+  })
+})
+
+describe('ServerVersionsSection — deterministic shared comparison', () => {
+  it('compares the selected persisted ids and renders the typed server diff', async () => {
+    compareModelVersions.mockResolvedValue({
+      status: 'compared',
+      diff: comparedDiff(),
+      requestId: 'req-diff',
+    })
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+
+    fireEvent.click(screen.getByRole('button', { name: /^compare shared versions$/i }))
+
+    await waitFor(() => expect(compareModelVersions).toHaveBeenCalledTimes(1))
+    expect(compareModelVersions).toHaveBeenCalledWith(
+      SCENARIO,
+      expect.objectContaining({
+        userId: USER,
+        fromVersionId: VERSION_OLD,
+        toVersionId: VERSION_HEAD,
+      }),
+    )
+    expect(screen.getByText('Price changed from 0.5 to 0.8.')).toBeInTheDocument()
+    expect(screen.getByTestId('server-diff-attribution')).toHaveTextContent(
+      /change author: unknown.*record source: system/i,
+    )
+  })
+
+  it('does not substitute the browser-local checkpoint diff when the server comparison is unavailable', async () => {
+    compareModelVersions.mockResolvedValue({ status: 'unavailable' })
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+
+    fireEvent.click(screen.getByRole('button', { name: /^compare shared versions$/i }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('server-version-compare-message')).toHaveTextContent(
+        /no local checkpoint was substituted/i,
+      ),
+    )
+    expect(screen.queryByTestId('server-version-diff')).not.toBeInTheDocument()
   })
 })
 

@@ -6,6 +6,7 @@
  *   POST /assist/v1/scenarios/{id}/versions          → model_versions_list.v1
  *   POST /assist/v1/scenarios/{id}/versions/save     → model_version_save.v1
  *   POST /assist/v1/scenarios/{id}/versions/restore  → model_version_restore.v1
+ *   POST /assist/v1/scenarios/{id}/versions/compare  → model_version_diff.v1
  * reached from the browser as `/bff/cee/scenarios/{id}/versions[...]`.
  *
  * THE TRANSPORT RULES ARE scenarioGraph.ts's, INHERITED IN FULL — see that
@@ -46,7 +47,7 @@ const DEFAULT_TIMEOUT_MS = 8000
 
 export function modelVersionsUrl(
   scenarioId: string,
-  leaf?: 'save' | 'restore',
+  leaf?: 'save' | 'restore' | 'compare',
 ): string {
   const base = `${MODEL_VERSIONS_BASE}/scenarios/${encodeURIComponent(scenarioId)}/versions`
   return leaf === undefined ? base : `${base}/${leaf}`
@@ -70,6 +71,63 @@ export interface ServerVersionWriteOutcome {
   versionId: string
   versionNumber: number
   deduped: boolean
+}
+
+export type ModelVersionDiffEntityKind =
+  | 'model'
+  | 'node'
+  | 'edge'
+  | 'option'
+  | 'constraint'
+
+export type ModelVersionDiffChangeKind = 'added' | 'removed' | 'changed'
+
+export interface ModelVersionDiffChange {
+  entityKind: ModelVersionDiffEntityKind
+  entityId: string | null
+  label: string | null
+  path: string
+  changeKind: ModelVersionDiffChangeKind
+  beforeDisplay: string | null
+  afterDisplay: string | null
+  summary: string
+  whyItMatters: string
+}
+
+export const MODEL_VERSION_DIFF_CATEGORIES = [
+  'structure',
+  'relationships',
+  'values_uncertainty',
+  'evidence_provenance',
+  'goals_constraints_options',
+  'assumptions_claims',
+  'presentation',
+  'other_model_fields',
+] as const
+
+export type ModelVersionDiffCategory = (typeof MODEL_VERSION_DIFF_CATEGORIES)[number]
+export type ModelVersionDiffCategories = Record<ModelVersionDiffCategory, ModelVersionDiffChange[]>
+
+/**
+ * UI projection of the planned ModelVersionDiffV1 contract. It contains only
+ * deterministic server diff fields. The contract does not carry a trustworthy
+ * person display identity, so the UI labels change authorship Unknown rather
+ * than inferring it from provenance or the authenticated viewer.
+ */
+export interface ModelVersionDiffV1 {
+  schema: 'model_version_diff.v1'
+  scenarioId: string
+  fromVersionId: string
+  toVersionId: string
+  relation: 'identical' | 'different'
+  fromFullHash: string
+  toFullHash: string
+  analysisEquivalent: boolean
+  categories: ModelVersionDiffCategories
+  coverage: {
+    knownUndetectable: string[]
+    knownUninterpretedPaths: string[]
+  }
 }
 
 export type ListModelVersionsResult =
@@ -126,6 +184,17 @@ export type RestoreModelVersionResult =
   | { status: 'refused'; httpStatus: number }
   | { status: 'unusable' }
 
+export type CompareModelVersionsResult =
+  | { status: 'compared'; diff: ModelVersionDiffV1; requestId: string | null }
+  | { status: 'signInRequired' }
+  | { status: 'sameVersion' }
+  | { status: 'versionNotFound' }
+  | { status: 'notReadable' }
+  | { status: 'disabled' }
+  | { status: 'unavailable' }
+  | { status: 'refused'; httpStatus: number }
+  | { status: 'unusable' }
+
 interface CommonOptions {
   /** Supabase user id. Omitted for guests. */
   userId?: string | null
@@ -143,6 +212,11 @@ export interface RestoreOptions extends CommonOptions {
 export interface SaveOptions extends CommonOptions {
   label?: string
   expectedGraphIdentityHash?: string
+}
+
+export interface CompareOptions extends CommonOptions {
+  fromVersionId: string
+  toVersionId: string
 }
 
 function identityBody(userId: string | null | undefined): Record<string, unknown> {
@@ -275,6 +349,171 @@ function parseWriteOutcome(raw: unknown): ServerVersionWriteOutcome | null {
   }
 }
 
+const DIFF_ENTITY_KINDS: readonly ModelVersionDiffEntityKind[] = [
+  'model',
+  'node',
+  'edge',
+  'option',
+  'constraint',
+]
+const DIFF_CHANGE_KINDS: readonly ModelVersionDiffChangeKind[] = ['added', 'removed', 'changed']
+
+function hasExactKeys(row: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(row).sort()
+  const expected = [...keys].sort()
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index])
+}
+
+function nullableString(value: unknown): string | null | undefined {
+  if (value === null) return null
+  return typeof value === 'string' ? value : undefined
+}
+
+function parseDiffChange(raw: unknown): ModelVersionDiffChange | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (
+    !hasExactKeys(row, [
+      'path',
+      'change_kind',
+      'entity_kind',
+      'entity_id',
+      'label',
+      'before_display',
+      'after_display',
+      'summary',
+      'why_it_matters',
+    ])
+  ) {
+    return null
+  }
+  if (!DIFF_ENTITY_KINDS.includes(row.entity_kind as ModelVersionDiffEntityKind)) return null
+  if (!DIFF_CHANGE_KINDS.includes(row.change_kind as ModelVersionDiffChangeKind)) return null
+  if (typeof row.path !== 'string' || row.path.length === 0) return null
+  if (row.entity_id !== null && typeof row.entity_id !== 'string') return null
+  const label = nullableString(row.label)
+  const beforeDisplay = nullableString(row.before_display)
+  const afterDisplay = nullableString(row.after_display)
+  if (label === undefined || beforeDisplay === undefined || afterDisplay === undefined) return null
+  if (typeof row.summary !== 'string' || typeof row.why_it_matters !== 'string') return null
+  return {
+    entityKind: row.entity_kind as ModelVersionDiffEntityKind,
+    entityId: row.entity_id as string | null,
+    label,
+    path: row.path,
+    changeKind: row.change_kind as ModelVersionDiffChangeKind,
+    beforeDisplay,
+    afterDisplay,
+    summary: row.summary,
+    whyItMatters: row.why_it_matters,
+  }
+}
+
+function parseStringArray(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || raw.some((value) => typeof value !== 'string')) return null
+  return raw as string[]
+}
+
+function parseDiffCategories(raw: unknown): ModelVersionDiffCategories | null {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const row = raw as Record<string, unknown>
+  if (
+    Object.keys(row).length !== MODEL_VERSION_DIFF_CATEGORIES.length ||
+    MODEL_VERSION_DIFF_CATEGORIES.some((category) => !Object.prototype.hasOwnProperty.call(row, category))
+  ) {
+    return null
+  }
+  const parsed = {} as ModelVersionDiffCategories
+  for (const category of MODEL_VERSION_DIFF_CATEGORIES) {
+    const rawItems = row[category]
+    if (!Array.isArray(rawItems)) return null
+    const items: ModelVersionDiffChange[] = []
+    for (const rawItem of rawItems) {
+      const item = parseDiffChange(rawItem)
+      if (item === null) return null
+      items.push(item)
+    }
+    parsed[category] = items
+  }
+  return parsed
+}
+
+function parseModelVersionDiff(
+  raw: unknown,
+  expected: { scenarioId: string; fromVersionId: string; toVersionId: string },
+): ModelVersionDiffV1 | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (
+    !hasExactKeys(row, [
+      'schema',
+      'scenario_id',
+      'from_version_id',
+      'to_version_id',
+      'relation',
+      'from_full_hash',
+      'to_full_hash',
+      'analysis_equivalent',
+      'categories',
+      'coverage',
+      'request_id',
+    ])
+  ) {
+    return null
+  }
+  if (row.schema !== 'model_version_diff.v1') return null
+  if (
+    row.scenario_id !== expected.scenarioId ||
+    row.from_version_id !== expected.fromVersionId ||
+    row.to_version_id !== expected.toVersionId
+  ) {
+    return null
+  }
+  if (row.relation !== 'identical' && row.relation !== 'different') return null
+  if (typeof row.from_full_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.from_full_hash)) {
+    return null
+  }
+  if (typeof row.to_full_hash !== 'string' || !/^[a-f0-9]{64}$/i.test(row.to_full_hash)) {
+    return null
+  }
+  if (typeof row.analysis_equivalent !== 'boolean') return null
+  const categories = parseDiffCategories(row.categories)
+  if (categories === null) return null
+  if (row.coverage === null || typeof row.coverage !== 'object' || Array.isArray(row.coverage)) {
+    return null
+  }
+  const coverage = row.coverage as Record<string, unknown>
+  if (!hasExactKeys(coverage, ['known_undetectable', 'known_uninterpreted_paths'])) return null
+  const knownUndetectable = parseStringArray(coverage.known_undetectable)
+  const knownUninterpretedPaths = parseStringArray(coverage.known_uninterpreted_paths)
+  if (knownUndetectable === null || knownUninterpretedPaths === null) return null
+  if (row.request_id !== null && typeof row.request_id !== 'string') return null
+  if (
+    row.relation === 'identical' &&
+    (row.analysis_equivalent !== true ||
+      row.from_full_hash !== row.to_full_hash ||
+      MODEL_VERSION_DIFF_CATEGORIES.some((category) => categories[category].length > 0))
+  ) {
+    return null
+  }
+
+  return {
+    schema: 'model_version_diff.v1',
+    scenarioId: expected.scenarioId,
+    fromVersionId: expected.fromVersionId,
+    toVersionId: expected.toVersionId,
+    relation: row.relation,
+    fromFullHash: row.from_full_hash,
+    toFullHash: row.to_full_hash,
+    analysisEquivalent: row.analysis_equivalent,
+    categories,
+    coverage: {
+      knownUndetectable,
+      knownUninterpretedPaths,
+    },
+  }
+}
+
 /** List the scenario's server-side versions. Never throws. */
 export async function listModelVersions(
   scenarioId: string,
@@ -404,5 +643,46 @@ export async function restoreModelVersion(
         ? b.undo_version_id
         : null,
     requestId: typeof b.request_id === 'string' ? b.request_id : null,
+  }
+}
+
+/**
+ * Compare two STORED authoritative versions. Never sends graph bytes and never
+ * falls back to the browser-local checkpoint diff: an unavailable server diff
+ * is unknown, not permission to compare a different object and call it shared.
+ */
+export async function compareModelVersions(
+  scenarioId: string,
+  opts: CompareOptions,
+): Promise<CompareModelVersionsResult> {
+  if (opts.fromVersionId === opts.toVersionId) return { status: 'sameVersion' }
+
+  const payload = identityBody(opts.userId)
+  payload.from_version_id = opts.fromVersionId
+  payload.to_version_id = opts.toVersionId
+
+  const outcome = await postOnce(modelVersionsUrl(scenarioId, 'compare'), payload, opts)
+  if (outcome.kind === 'http') {
+    const code = detailsCode(outcome.body)
+    if (outcome.status === 401 && code === 'SIGN_IN_REQUIRED') return { status: 'signInRequired' }
+    if (outcome.status === 404 && code === 'VERSION_NOT_FOUND') return { status: 'versionNotFound' }
+  }
+  const refusal = sharedRefusal(outcome)
+  if (refusal) return refusal
+  const body = (outcome as { kind: 'ok'; body: unknown }).body
+  const diff = parseModelVersionDiff(body, {
+    scenarioId,
+    fromVersionId: opts.fromVersionId,
+    toVersionId: opts.toVersionId,
+  })
+  if (diff === null) {
+    logger.warn('model_versions.compare_unusable_response', { scenarioId })
+    return { status: 'unusable' }
+  }
+  const row = body as Record<string, unknown>
+  return {
+    status: 'compared',
+    diff,
+    requestId: typeof row.request_id === 'string' ? row.request_id : null,
   }
 }

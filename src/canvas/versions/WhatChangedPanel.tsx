@@ -15,7 +15,7 @@
  * (1) VOCABULARY (trap 21). "Version" and "analysis run" are different objects
  *     and this panel said neither. It now says what a version IS and what it is
  *     NOT, from `versionLabels.ts`, and its comparison section is titled
- *     "Changes between these versions" rather than the bare "What changed" it
+ *     "Changes between these checkpoints" rather than the bare "What changed" it
  *     shared with the run-over-run chip on the analysis surface.
  *
  * (2) NO PREMATURE INVITATION (ledger L-11). With fewer than two versions the
@@ -147,17 +147,25 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
           {VERSION_VS_RUN_DISCLOSURE}
         </p>
 
-        <PanelSection title="Save a version">
+        {/* The team's durable, authoritative history is the primary surface.
+            It renders an honest sign-in invitation for a server-addressable
+            guest and nothing for a purely local draft. */}
+        <ServerVersionsSection />
+
+        <PanelSection title="On this device — checkpoints">
+          <p className={`${typography.panelMeta} text-text-light`}>
+            A local safety history for this browser, not the authoritative shared model history.
+          </p>
           <div className="flex items-center gap-2">
             <label htmlFor="version-name" className="sr-only">
-              Version name
+              Checkpoint name
             </label>
             <input
               id="version-name"
               type="text"
               value={draftName}
               onChange={(event) => setDraftName(event.target.value)}
-              placeholder="Name this version"
+              placeholder="Name this checkpoint"
               className={`${typography.panelBody} flex-1 min-w-0 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body placeholder:text-text-light`}
             />
             <button
@@ -166,7 +174,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
               className={`${typography.panelBody} shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color`}
             >
               <Save className="w-3.5 h-3.5" />
-              Save version
+              Save checkpoint
             </button>
           </div>
           {saveError && (
@@ -186,7 +194,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             does, the comparison controls below do NOT (see `canCompare`). ── */}
         {versions.length === 0 && (
           <p className={`${typography.panelBody} text-text-light`} data-testid="versions-empty">
-            No versions yet. Save one to start a history of this model.
+            No device checkpoints yet. Save one to keep a local safety copy.
           </p>
         )}
 
@@ -195,12 +203,12 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             className={`${typography.panelBody} text-text-light`}
             data-testid="versions-single-capture"
           >
-            One version so far. Save a second to compare them.
+            One device checkpoint so far. Save a second to compare them.
           </p>
         )}
 
         {canCompare && (
-          <PanelSection title="Compare two versions">
+          <PanelSection title="Compare device checkpoints">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <label
@@ -247,10 +255,10 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
         )}
 
         {canCompare && changeset && (
-          <PanelSection title="Changes between these versions">
+          <PanelSection title="Changes between these checkpoints">
             {changeset.isEmpty ? (
               <p className={`${typography.panelBody} text-text-light`}>
-                No differences between these two versions.
+                No differences between these two checkpoints.
               </p>
             ) : (
               <ul className="space-y-1.5" data-testid="what-changed-list">
@@ -271,7 +279,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
         )}
 
         {versions.length > 0 && (
-          <PanelSection title="All versions">
+          <PanelSection title="All device checkpoints">
             <ul className="space-y-1">
               {versions.map((version) => {
                 const originLabel = versionOriginLabel(version.origin)
@@ -303,7 +311,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
                     </span>
                     <button
                       type="button"
-                      aria-label={`Delete version ${version.name}`}
+                      aria-label={`Delete checkpoint ${version.name}`}
                       onClick={() => removeVersion(version.id)}
                       className="shrink-0 p-1 rounded-md text-text-light hover:text-danger hover:bg-panel-hover"
                     >
@@ -316,13 +324,6 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
           </PanelSection>
         )}
 
-        {/* SHARED (server-side) versions — the durable half. Rendered after
-            the local sections: the local history above answers "what did I
-            change on this canvas?"; this is the team's restorable history of
-            the shared model itself (its own storage disclosure inside;
-            sign-in required, and it says so honestly). Renders nothing when
-            the scenario is not server-addressable. */}
-        <ServerVersionsSection />
       </PanelShell>
     </div>
   )

@@ -19,6 +19,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
+  compareModelVersions,
   listModelVersions,
   restoreModelVersion,
   saveModelVersion,
@@ -29,6 +30,8 @@ const SCENARIO = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const USER = '0f8a1b2c-3d4e-4f50-9a6b-7c8d9e0f1a2b'
 const VERSION_A = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
 const HASH_A = 'a'.repeat(64)
+const VERSION_B = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'
+const HASH_B = 'b'.repeat(64)
 
 function wireSummary(overrides: Record<string, unknown> = {}) {
   return {
@@ -45,6 +48,51 @@ function wireSummary(overrides: Record<string, unknown> = {}) {
     provenance: 'user_save',
     restored_from_version_id: null,
     created_at: '2026-08-17T10:00:00.000Z',
+    ...overrides,
+  }
+}
+
+function emptyDiffCategories() {
+  return {
+    structure: [],
+    relationships: [],
+    values_uncertainty: [],
+    evidence_provenance: [],
+    goals_constraints_options: [],
+    assumptions_claims: [],
+    presentation: [],
+    other_model_fields: [],
+  }
+}
+
+function wireDiff(overrides: Record<string, unknown> = {}) {
+  return {
+    schema: 'model_version_diff.v1',
+    scenario_id: SCENARIO,
+    from_version_id: VERSION_A,
+    to_version_id: VERSION_B,
+    relation: 'different',
+    from_full_hash: HASH_A,
+    to_full_hash: HASH_B,
+    analysis_equivalent: false,
+    categories: {
+      ...emptyDiffCategories(),
+      values_uncertainty: [
+        {
+          path: 'nodes.factor-price.observed_state.value',
+          change_kind: 'changed',
+          entity_kind: 'node',
+          entity_id: 'factor-price',
+          label: 'Price',
+          before_display: '0.5',
+          after_display: '0.8',
+          summary: 'Price changed from 0.5 to 0.8.',
+          why_it_matters: 'This changes an analysis input.',
+        },
+      ],
+    },
+    coverage: { known_undetectable: [], known_uninterpreted_paths: [] },
+    request_id: 'req-diff',
     ...overrides,
   }
 }
@@ -72,6 +120,9 @@ describe('modelVersionsUrl', () => {
     expect(modelVersionsUrl(SCENARIO)).toBe(`/bff/cee/scenarios/${SCENARIO}/versions`)
     expect(modelVersionsUrl(SCENARIO, 'restore')).toBe(
       `/bff/cee/scenarios/${SCENARIO}/versions/restore`,
+    )
+    expect(modelVersionsUrl(SCENARIO, 'compare')).toBe(
+      `/bff/cee/scenarios/${SCENARIO}/versions/compare`,
     )
   })
 })
@@ -354,6 +405,118 @@ describe('restoreModelVersion', () => {
       jsonResponse(503, { schema: 'error.v1', code: 'INTERNAL', message: 'down' }),
     )
     await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('compareModelVersions', () => {
+  it('POSTs only version identities and parses the fixed ModelVersionDiffV1 categories', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, wireDiff()))
+
+    const result = await compareModelVersions(SCENARIO, {
+      userId: USER,
+      fromVersionId: VERSION_A,
+      toVersionId: VERSION_B,
+    })
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchSpy.mock.calls[0]
+    expect(url).toBe(`/bff/cee/scenarios/${SCENARIO}/versions/compare`)
+    expect(JSON.parse(init.body)).toEqual({
+      user_id: USER,
+      from_version_id: VERSION_A,
+      to_version_id: VERSION_B,
+    })
+    expect(result.status).toBe('compared')
+    if (result.status !== 'compared') throw new Error('unreachable')
+    expect(result.diff.categories.values_uncertainty[0]).toMatchObject({
+      entityId: 'factor-price',
+      changeKind: 'changed',
+      beforeDisplay: '0.5',
+      afterDisplay: '0.8',
+    })
+    expect(result.requestId).toBe('req-diff')
+  })
+
+  it('short-circuits a same-version request without touching the network', async () => {
+    const result = await compareModelVersions(SCENARIO, {
+      userId: USER,
+      fromVersionId: VERSION_A,
+      toVersionId: VERSION_A,
+    })
+
+    expect(result.status).toBe('sameVersion')
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('fails closed on a wrong schema, mismatched identity or incomplete category coverage', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, wireDiff({ schema: 'other.v1' })))
+    expect(
+      (
+        await compareModelVersions(SCENARIO, {
+          userId: USER,
+          fromVersionId: VERSION_A,
+          toVersionId: VERSION_B,
+        })
+      ).status,
+    ).toBe('unusable')
+
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, wireDiff({ to_version_id: VERSION_A })))
+    expect(
+      (
+        await compareModelVersions(SCENARIO, {
+          userId: USER,
+          fromVersionId: VERSION_A,
+          toVersionId: VERSION_B,
+        })
+      ).status,
+    ).toBe('unusable')
+
+    const categories = emptyDiffCategories()
+    delete (categories as Partial<typeof categories>).evidence_provenance
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, wireDiff({ categories })))
+    expect(
+      (
+        await compareModelVersions(SCENARIO, {
+          userId: USER,
+          fromVersionId: VERSION_A,
+          toVersionId: VERSION_B,
+        })
+      ).status,
+    ).toBe('unusable')
+  })
+
+  it('does not accept an uncontracted actor field and therefore cannot infer a person', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, wireDiff({ attribution: { actor_type: 'human', actor_user_id: USER } })),
+    )
+
+    const result = await compareModelVersions(SCENARIO, {
+      userId: USER,
+      fromVersionId: VERSION_A,
+      toVersionId: VERSION_B,
+    })
+
+    expect(result.status).toBe('unusable')
+  })
+
+  it('maps a missing version without retrying', async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse(404, {
+        schema: 'error.v1',
+        code: 'NOT_FOUND',
+        message: 'gone',
+        details: { code: 'VERSION_NOT_FOUND' },
+      }),
+    )
+
+    const result = await compareModelVersions(SCENARIO, {
+      userId: USER,
+      fromVersionId: VERSION_A,
+      toVersionId: VERSION_B,
+    })
+
+    expect(result.status).toBe('versionNotFound')
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })

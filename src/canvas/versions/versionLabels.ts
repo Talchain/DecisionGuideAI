@@ -64,7 +64,7 @@ export function versionOriginSuffix(origin: VersionOrigin): string {
  * `ModelVersion` carries no results field at all (`types.ts`).
  */
 export const VERSION_VS_RUN_DISCLOSURE =
-  'A version is a snapshot of the model you authored — its nodes, connections and values. ' +
+  'A shared version is a durable state of the model your team authored. ' +
   'It is not an analysis run: versions never store results, and saving one does not run an analysis.'
 
 /**
@@ -73,4 +73,4 @@ export const VERSION_VS_RUN_DISCLOSURE =
  * it prevents (assuming a colleague can see your versions) is silent.
  */
 export const VERSION_STORAGE_DISCLOSURE =
-  'Versions are stored in this browser only. They are not shared with collaborators and are lost if you clear site data.'
+  'On-this-device checkpoints are stored in this browser only. They are not authoritative shared history, are not visible to collaborators, and are lost if you clear site data.'

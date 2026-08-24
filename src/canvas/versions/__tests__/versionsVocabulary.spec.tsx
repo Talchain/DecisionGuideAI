@@ -13,7 +13,7 @@
  * ⚠ SCOPE (trap 16): jsdom proves presence and text, never visibility.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import { WhatChangedPanel } from '../WhatChangedPanel'
@@ -23,12 +23,16 @@ import { appendVersion } from '../versionStorage'
 import { AUTO_CAPTURE_LABEL, VERSION_STORAGE_DISCLOSURE } from '../versionLabels'
 import type { VersionOrigin } from '../types'
 
+vi.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null }),
+}))
+
 function rfNode(id: string, label: string, data: Record<string, unknown> = {}): Node {
   return { id, type: 'factor', position: { x: 0, y: 0 }, data: { label, ...data } } as Node
 }
 
 function setGraph(nodes: Node[]): void {
-  useCanvasStore.setState({ nodes, edges: [] })
+  useCanvasStore.setState({ nodes, edges: [], currentScenarioId: 'local-checkpoint-test' } as never)
 }
 
 /**
@@ -56,8 +60,8 @@ function openPanel() {
 }
 
 function saveVersionNamed(name: string): void {
-  fireEvent.change(screen.getByLabelText('Version name'), { target: { value: name } })
-  fireEvent.click(screen.getByRole('button', { name: /save version/i }))
+  fireEvent.change(screen.getByLabelText('Checkpoint name'), { target: { value: name } })
+  fireEvent.click(screen.getByRole('button', { name: /save checkpoint/i }))
 }
 
 beforeEach(() => {
@@ -74,7 +78,7 @@ describe('vocabulary — a version is not an analysis run', () => {
     openPanel()
 
     const disclosure = screen.getByTestId('versions-vocabulary-disclosure')
-    expect(disclosure).toHaveTextContent(/snapshot of the model you authored/i)
+    expect(disclosure).toHaveTextContent(/durable state of the model your team authored/i)
     expect(disclosure).toHaveTextContent(/not an analysis run/i)
     expect(disclosure).toHaveTextContent(/versions never store results/i)
   })
@@ -93,7 +97,7 @@ describe('vocabulary — a version is not an analysis run', () => {
     setGraph([rfNode('n1', 'Price'), rfNode('n2', 'Volume')])
     saveVersionNamed('Two')
 
-    expect(screen.getByText('Changes between these versions')).toBeInTheDocument()
+    expect(screen.getByText('Changes between these checkpoints')).toBeInTheDocument()
     // The bare phrase the run-over-run chip owns must not appear as a heading
     // here — that collision is the defect.
     expect(screen.queryByText('What changed')).not.toBeInTheDocument()
@@ -115,7 +119,7 @@ describe('L-11 — no comparison offered before one can exist', () => {
     expect(screen.getByTestId('versions-empty')).toBeInTheDocument()
     expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('To')).not.toBeInTheDocument()
-    expect(screen.queryByText('Compare two versions')).not.toBeInTheDocument()
+    expect(screen.queryByText('Compare device checkpoints')).not.toBeInTheDocument()
   })
 
   it('offers no comparison controls with ONE version — the empty state is the only voice', () => {
@@ -126,8 +130,8 @@ describe('L-11 — no comparison offered before one can exist', () => {
     expect(screen.getByTestId('versions-single-capture')).toBeInTheDocument()
     expect(screen.queryByLabelText('From')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('To')).not.toBeInTheDocument()
-    expect(screen.queryByText('Compare two versions')).not.toBeInTheDocument()
-    expect(screen.queryByText('Changes between these versions')).not.toBeInTheDocument()
+    expect(screen.queryByText('Compare device checkpoints')).not.toBeInTheDocument()
+    expect(screen.queryByText('Changes between these checkpoints')).not.toBeInTheDocument()
   })
 
   it('DOES offer them with TWO versions — the discriminating twin', () => {
@@ -142,7 +146,7 @@ describe('L-11 — no comparison offered before one can exist', () => {
 
     expect(screen.getByLabelText('From')).toBeInTheDocument()
     expect(screen.getByLabelText('To')).toBeInTheDocument()
-    expect(screen.getByText('Compare two versions')).toBeInTheDocument()
+    expect(screen.getByText('Compare device checkpoints')).toBeInTheDocument()
     expect(screen.queryByTestId('versions-single-capture')).not.toBeInTheDocument()
   })
 })

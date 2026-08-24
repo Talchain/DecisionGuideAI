@@ -15,17 +15,21 @@ import { WhatChangedPanel } from '../WhatChangedPanel'
 import { useCanvasStore } from '../../store'
 import type { EdgeData } from '../../domain/edges'
 
+vi.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null }),
+}))
+
 function rfNode(id: string, label: string, data: Record<string, unknown> = {}): Node {
   return { id, type: 'factor', position: { x: 0, y: 0 }, data: { label, ...data } } as Node
 }
 
 function setGraph(nodes: Node[], edges: Edge<EdgeData>[] = []): void {
-  useCanvasStore.setState({ nodes, edges })
+  useCanvasStore.setState({ nodes, edges, currentScenarioId: 'local-checkpoint-test' } as never)
 }
 
 function saveVersionNamed(name: string): void {
-  fireEvent.change(screen.getByLabelText('Version name'), { target: { value: name } })
-  fireEvent.click(screen.getByRole('button', { name: /save version/i }))
+  fireEvent.change(screen.getByLabelText('Checkpoint name'), { target: { value: name } })
+  fireEvent.click(screen.getByRole('button', { name: /save checkpoint/i }))
 }
 
 beforeEach(() => {
@@ -54,13 +58,14 @@ describe('WhatChangedPanel', () => {
   it('invites a first save when no versions exist', () => {
     render(<WhatChangedPanel isOpen onClose={() => {}} />)
 
-    expect(screen.getByText(/no versions yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no device checkpoints yet/i)).toBeInTheDocument()
   })
 
   it('states the local-only storage limitation on screen', () => {
     render(<WhatChangedPanel isOpen onClose={() => {}} />)
 
     expect(screen.getByText(/stored in this browser only/i)).toBeInTheDocument()
+    expect(screen.getByText(/not authoritative shared history/i)).toBeInTheDocument()
   })
 
   it('saves a named version from the current canvas', () => {
@@ -111,7 +116,7 @@ describe('WhatChangedPanel', () => {
     saveVersionNamed('One')
     saveVersionNamed('Two')
 
-    expect(screen.getByText(/no differences between these two versions/i)).toBeInTheDocument()
+    expect(screen.getByText(/no differences between these two checkpoints/i)).toBeInTheDocument()
     expect(screen.queryByTestId('what-changed-list')).not.toBeInTheDocument()
   })
 
@@ -120,10 +125,10 @@ describe('WhatChangedPanel', () => {
     render(<WhatChangedPanel isOpen onClose={() => {}} />)
     saveVersionNamed('Disposable')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete version Disposable' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete checkpoint Disposable' }))
 
     expect(screen.queryByText('Disposable')).not.toBeInTheDocument()
-    expect(screen.getByText(/no versions yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no device checkpoints yet/i)).toBeInTheDocument()
   })
 
   it('surfaces a real save failure instead of pretending it worked', () => {

@@ -3,7 +3,7 @@
  * British English: visualisation, colour, initialise.
  *
  * ── WHAT THIS IS, AND HOW IT DIFFERS FROM THE LOCAL HISTORY ─────────────────
- * The rest of this panel (#739) is BROWSER-LOCAL: capture + compare of the
+ * The secondary part of this panel (#739) is BROWSER-LOCAL: capture + compare of the
  * canvas, localStorage, one device, honest about it. This section is the other
  * half: versions of the SERVER's shared model (`scenarios.graph` — the graph
  * every turn and every analysis is computed from), persisted by CEE in
@@ -26,7 +26,7 @@
  * ── GUESTS ──────────────────────────────────────────────────────────────────
  * Server-side versions require sign-in (DB-level: guest scenarios cannot own
  * durable rows — CEE's D3 Branch A ruling). Guests see the honest invitation,
- * and their LOCAL history above keeps working exactly as before. No network
+ * and their LOCAL checkpoints below keep working exactly as before. No network
  * call is spent to learn what we already know.
  */
 
@@ -37,11 +37,14 @@ import { typography } from '../../styles/typography'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCanvasStore } from '../store'
 import {
+  compareModelVersions,
   listModelVersions,
   restoreModelVersion,
   saveModelVersion,
+  type ModelVersionDiffV1,
   type ServerModelVersion,
 } from '../../adapters/cee/modelVersions'
+import { ServerVersionDiff, versionRecordSource } from './ServerVersionDiff'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { logger } from '../../lib/logger'
 
@@ -53,10 +56,10 @@ const GUEST_USER_ID = 'guest'
 
 /** Storage-scope disclosure — the shared counterpart of the local one. */
 export const SERVER_VERSIONS_DISCLOSURE =
-  'Shared versions are stored with the scenario. Anyone who can open this scenario can see and restore them, from any browser.'
+  'This is the authoritative shared model history. It is stored with the scenario, available from any browser, and restorable by people with access.'
 
 export const SERVER_VERSIONS_SIGNIN =
-  'Sign in to save shared versions. Version history for the shared model is available when you are signed in; the local history above still works in this browser.'
+  'Sign in to use the authoritative shared model history. The on-this-device checkpoints below still work in this browser.'
 
 /** Provenance, in the user's terms. Unknown values render as themselves. */
 function provenanceLabel(provenance: string | null): string | null {
@@ -95,6 +98,12 @@ type Phase =
   | { kind: 'disabled' }
   | { kind: 'failed' }
 
+type ComparePhase =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'ready'; diff: ModelVersionDiffV1 }
+  | { kind: 'failed'; message: string }
+
 export function ServerVersionsSection() {
   const { user } = useAuth()
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
@@ -109,6 +118,9 @@ export function ServerVersionsSection() {
   /** The server-named pre-restore snapshot — restore it to undo. */
   const [undoVersionId, setUndoVersionId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
+  const [compareFromId, setCompareFromId] = useState<string | null>(null)
+  const [compareToId, setCompareToId] = useState<string | null>(null)
+  const [comparePhase, setComparePhase] = useState<ComparePhase>({ kind: 'idle' })
   const mountedRef = useRef(true)
 
   const userId = user?.id ?? null
@@ -128,11 +140,19 @@ export function ServerVersionsSection() {
     const result = await listModelVersions(scenarioId, { userId })
     if (!mountedRef.current) return
     if (result.status === 'list') {
+      const toId =
+        result.versions.find((version) => version.id === result.currentVersionId)?.id ??
+        result.versions[0]?.id ??
+        null
+      const fromId = result.versions.find((version) => version.id !== toId)?.id ?? null
       setPhase({
         kind: 'ready',
         versions: result.versions,
         currentVersionId: result.currentVersionId,
       })
+      setCompareFromId(fromId)
+      setCompareToId(toId)
+      setComparePhase({ kind: 'idle' })
       return
     }
     if (result.status === 'disabled') {
@@ -153,13 +173,13 @@ export function ServerVersionsSection() {
   }, [addressable, signedIn, refresh])
 
   // No server-addressable scenario ⇒ nothing to offer; the local history
-  // above is the whole story. Rendering a dead section would be an
+  // below is the whole story. Rendering a dead section would be an
   // affordance that cannot keep its promise.
   if (!addressable) return null
 
   if (!signedIn) {
     return (
-      <PanelSection title="Shared versions">
+      <PanelSection title="Shared model history">
         <p
           className={`${typography.panelBody} text-text-light`}
           data-testid="server-versions-signin"
@@ -289,8 +309,55 @@ export function ServerVersionsSection() {
     }
   }
 
+  const handleCompare = async () => {
+    if (
+      typeof scenarioId !== 'string' ||
+      phase.kind !== 'ready' ||
+      compareFromId === null ||
+      compareToId === null
+    ) {
+      return
+    }
+    if (compareFromId === compareToId) {
+      setComparePhase({ kind: 'failed', message: 'Choose two different shared versions.' })
+      return
+    }
+    setComparePhase({ kind: 'loading' })
+    const result = await compareModelVersions(scenarioId, {
+      userId,
+      fromVersionId: compareFromId,
+      toVersionId: compareToId,
+    })
+    if (!mountedRef.current) return
+    switch (result.status) {
+      case 'compared':
+        setComparePhase({ kind: 'ready', diff: result.diff })
+        return
+      case 'sameVersion':
+        setComparePhase({ kind: 'failed', message: 'Choose two different shared versions.' })
+        return
+      case 'versionNotFound':
+        await refresh()
+        setComparePhase({
+          kind: 'failed',
+          message: 'One of those versions is no longer available. The history has been refreshed.',
+        })
+        return
+      case 'signInRequired':
+        setComparePhase({ kind: 'failed', message: 'Comparing shared versions requires sign-in.' })
+        return
+      default:
+        setComparePhase({
+          kind: 'failed',
+          message:
+            'A deterministic shared-model comparison is not available right now. No local checkpoint was substituted.',
+        })
+        return
+    }
+  }
+
   return (
-    <PanelSection title="Shared versions">
+    <PanelSection title="Shared model history">
       <p className={`${typography.panelMeta} text-text-light`} data-testid="server-versions-disclosure">
         {SERVER_VERSIONS_DISCLOSURE}
       </p>
@@ -386,11 +453,108 @@ export function ServerVersionsSection() {
             </p>
           )}
 
+          {phase.versions.length >= 2 && compareFromId !== null && compareToId !== null && (
+            <div className="space-y-2 rounded-md border border-panel-border p-2">
+              <p className={`${typography.panelBody} text-text-body font-medium`}>
+                Compare shared versions
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="server-version-from"
+                    className={`${typography.panelMeta} text-text-light w-10 shrink-0`}
+                  >
+                    From
+                  </label>
+                  <select
+                    id="server-version-from"
+                    value={compareFromId}
+                    disabled={comparePhase.kind === 'loading'}
+                    onChange={(event) => {
+                      setCompareFromId(event.target.value)
+                      setComparePhase({ kind: 'idle' })
+                    }}
+                    className={`${typography.panelBody} flex-1 min-w-0 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`}
+                  >
+                    {phase.versions.map((version) => (
+                      <option key={version.id} value={version.id}>
+                        v{version.versionNumber}
+                        {version.label === null ? '' : ` · ${version.label}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="server-version-to"
+                    className={`${typography.panelMeta} text-text-light w-10 shrink-0`}
+                  >
+                    To
+                  </label>
+                  <select
+                    id="server-version-to"
+                    value={compareToId}
+                    disabled={comparePhase.kind === 'loading'}
+                    onChange={(event) => {
+                      setCompareToId(event.target.value)
+                      setComparePhase({ kind: 'idle' })
+                    }}
+                    className={`${typography.panelBody} flex-1 min-w-0 px-2 py-1.5 rounded-md border border-panel-border bg-panel text-text-body`}
+                  >
+                    {phase.versions.map((version) => (
+                      <option key={version.id} value={version.id}>
+                        v{version.versionNumber}
+                        {version.label === null ? '' : ` · ${version.label}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={comparePhase.kind === 'loading' || compareFromId === compareToId}
+                onClick={() => void handleCompare()}
+                className={`${typography.panelBody} px-3 py-1.5 rounded-md border border-panel-border text-text-body hover:bg-panel-hover disabled:opacity-60`}
+              >
+                {comparePhase.kind === 'loading' ? 'Comparing…' : 'Compare shared versions'}
+              </button>
+              {comparePhase.kind === 'failed' && (
+                <p
+                  className={`${typography.panelBody} text-text-light`}
+                  role="status"
+                  data-testid="server-version-compare-message"
+                >
+                  {comparePhase.message}
+                </p>
+              )}
+              {comparePhase.kind === 'ready' && (() => {
+                const fromVersion = phase.versions.find(
+                  (version) => version.id === comparePhase.diff.fromVersionId,
+                )
+                const toVersion = phase.versions.find(
+                  (version) => version.id === comparePhase.diff.toVersionId,
+                )
+                return fromVersion !== undefined && toVersion !== undefined ? (
+                  <ServerVersionDiff
+                    diff={comparePhase.diff}
+                    fromVersion={fromVersion}
+                    toVersion={toVersion}
+                  />
+                ) : (
+                  <p className={`${typography.panelBody} text-text-light`} role="status">
+                    The compared versions are no longer in this history. Refresh and try again.
+                  </p>
+                )
+              })()}
+            </div>
+          )}
+
           {phase.versions.length > 0 && (
             <ul className="space-y-1">
               {phase.versions.map((version) => {
                 const isCurrent = version.id === phase.currentVersionId
                 const origin = provenanceLabel(version.provenance)
+                const recordSource = versionRecordSource(version.provenance)
                 const armed = armedVersionId === version.id
                 return (
                   <li
@@ -415,6 +579,12 @@ export function ServerVersionsSection() {
                             {origin}
                           </span>
                         )}
+                        <span
+                          className={`${typography.panelMeta} text-text-light ml-2 px-1.5 py-0.5 rounded border border-panel-border`}
+                          data-testid="server-version-record-source"
+                        >
+                          record: {recordSource}
+                        </span>
                         {isCurrent && (
                           <span
                             className={`${typography.panelMeta} text-text-light ml-2 px-1.5 py-0.5 rounded border border-panel-border`}

@@ -156,8 +156,14 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/versions$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/save$/,
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/restore$/,
+  // Deterministic comparison of two persisted model versions. Exact match;
+  // paired with the real-handler guard in bffProxyPathAllowlist.spec.ts.
+  /^\/assist\/v1\/scenarios\/[^/]+\/versions\/compare$/,
   /^\/assist\/v1\/decision-records\/commit$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
+  // PR #826 compatibility: applied-edit explain-diff uses this separate,
+  // exact route. It is not the model-version comparison contract above.
+  /^\/assist\/v1\/explain-diff$/,
 ]
 
 function isAllowedTarget(pathname: string): boolean {
