@@ -51,8 +51,19 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
   const rangeMax = prior?.range_max as number | undefined
 
   const hasRange = rangeMin != null && rangeMax != null
-  const mu = hasRange ? ((rangeMin + rangeMax) / 2).toFixed(2) : '—'
-  const sigma = hasRange ? ((rangeMax - rangeMin) / Math.sqrt(12)).toFixed(2) : '—'
+  /**
+   * Both moments are the UNIFORM's own: mean = (a+b)/2 (which is exactly ISL's
+   * central value for this factor, `robustness_analyzer_v2.py:1069-1075`) and
+   * sd = (b−a)/√12. `√12` is the closed form for U(a,b)'s standard deviation
+   * here — it is NOT a moment-match to a Normal, which is what the old copy
+   * claimed and what PLoT deleted.
+   *
+   * The em-dash placeholders these two carried are gone with them: they were
+   * only ever read inside the `hasRange` branch below, so the fallbacks were
+   * dead, and `Brief3Panels.spec.tsx` forbids U+2014 in rendered panel copy.
+   */
+  const mu = hasRange ? ((rangeMin + rangeMax) / 2).toFixed(2) : null
+  const sigma = hasRange ? ((rangeMax - rangeMin) / Math.sqrt(12)).toFixed(2) : null
 
   /**
    * DERIVED, not hardcoded. This field displayed the literal string 'uniform'
@@ -74,7 +85,7 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
       <AdvancedFieldGroup title="Prior distribution">
         <AdvancedField
           label="Distribution type"
-          value={distribution ?? '—'}
+          value={distribution ?? 'Not set'}
           type="readonly"
         />
         <AdvancedField
@@ -101,10 +112,17 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
           moments are kept (they are the Uniform's own mean and sd, and the mean
           is exactly ISL's central value for this factor); the distribution name
           is corrected to the one ISL actually samples.
+
+          No em-dash. `Brief3Panels.spec.tsx` forbids U+2014 in rendered panel
+          copy, and it CANNOT REACH THIS LINE — it scans the collapsed panel,
+          and `TechnicalDisclosure` is closed by default, the same blind spot
+          that hid this file's false compute claim from the honesty scan. The
+          rule is asserted on the EXPANDED surface by
+          `FactorExternalPanel.priorRangeHonesty.spec.tsx`.
         */}
         {hasRange && distribution === 'uniform' && (
           <p className={`${typography.panelMeta} text-text-light mt-1`}>
-            ISL samples Uniform({rangeMin!.toFixed(2)}, {rangeMax!.toFixed(2)}) — mean {mu}, sd {sigma}
+            ISL samples Uniform({rangeMin!.toFixed(2)}, {rangeMax!.toFixed(2)}); mean {mu}, sd {sigma}
           </p>
         )}
       </AdvancedFieldGroup>

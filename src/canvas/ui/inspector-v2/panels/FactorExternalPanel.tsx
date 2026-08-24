@@ -431,6 +431,14 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             edit can only fit one sentence, keep Q2: it is the one that governs
             what the reader is about to do.
 
+            ⚠ NO EM-DASH. `Brief3Panels.spec.tsx` ("Em-dash enforcement")
+            forbids U+2014 in rendered panel output, and it caught the first
+            draft of this sentence. Note its blind spot, which is the same one
+            that hid the contradiction this change fixes: it scans the
+            COLLAPSED panel, so nothing inside `TechnicalDisclosure` is subject
+            to it. The expanded-surface scan in this panel's own spec asserts
+            it there too.
+
             "your judgement" is deliberately avoided: a drafted prior arrives
             from CEE already populated, so the panel cannot establish who
             authored the range. And nothing here is in the imperative — an
@@ -443,7 +451,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             className={`${typography.panelMeta} text-text-light mt-2`}
             data-testid="factor-external-range-role"
           >
-            This range is what the model treats as the factor&rsquo;s plausible level &mdash; an analysis input, not a label. You cannot change it here yet: this inspector is read-only.
+            This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You cannot change it here yet, because this inspector is read-only.
           </p>
         </PrimaryControlCard>
 

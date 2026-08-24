@@ -322,14 +322,14 @@ describe('FactorExternalPanel — the range control states its actual role', () 
 
     // … and NEITHER fires on the honest copy, which is the whole discrimination.
     const HONEST =
-      'This range is what the model treats as the factor’s plausible level — an analysis input, not a label. You cannot change it here yet: this inspector is read-only.'
+      'This range is an analysis input, not a label: it is what the model treats as the factor’s plausible level. You cannot change it here yet, because this inspector is read-only.'
     expect(HONEST).not.toMatch(COMPUTE_PROMISE)
     expect(HONEST).not.toMatch(COMPUTE_DENIAL)
 
     // ⭐ AND THE TWIN THAT KEEPS DIRECTION 2 FROM OVER-REACHING. A true
     // statement about the SURFACE must survive it, or the guard would force the
     // panel back into silence about its own read-only state.
-    expect('You cannot change it here yet: this inspector is read-only.').not.toMatch(COMPUTE_DENIAL)
+    expect('You cannot change it here yet, because this inspector is read-only.').not.toMatch(COMPUTE_DENIAL)
     expect('These changes cannot yet be saved to the shared model.').not.toMatch(COMPUTE_DENIAL)
   })
 
@@ -495,7 +495,7 @@ describe('FactorExternalPanel — the range control states its actual role', () 
     // Those two moments are the UNIFORM's own, and the mean is exactly ISL's
     // central value for this factor (robustness_analyzer_v2.py:1069-1075) —
     // which is why they are kept while the distribution name is corrected.
-    expect(text).toContain('ISL samples Uniform(0.20, 0.60) — mean 0.40, sd 0.12')
+    expect(text).toContain('ISL samples Uniform(0.20, 0.60); mean 0.40, sd 0.12')
 
     // ⭐ THE DISTRIBUTION NAMED MUST BE THE ONE ISL SAMPLES. The old line said
     // Normal; ISL draws rng.uniform. Pinned NEGATIVELY as well, because a
@@ -505,6 +505,13 @@ describe('FactorExternalPanel — the range control states its actual role', () 
     expect(screen.getByTestId('factor-external-range-role').textContent)
       .toMatch(/analysis input/i)
     expect(text).not.toMatch(COMPUTE_DENIAL)
+
+    // ⭐ HOUSE STYLE, EXTENDED INTO THE BLIND SPOT. `Brief3Panels.spec.tsx`
+    // forbids U+2014 in rendered panel output and caught the first draft of the
+    // role note — but it scans the COLLAPSED panel, so `FactorExternalEditor`
+    // has never been subject to it. That is the same blind spot that hid the
+    // contradiction above, so the rule is asserted here on the expanded surface.
+    expect(text, 'em-dash in expanded panel output').not.toContain('—')
   })
 
   it('⭐ the model-detail line makes NO uniform-sampling claim for a non-uniform prior', async () => {
