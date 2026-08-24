@@ -12,6 +12,7 @@
 // compile error in this file rather than a silently divergent second shape.
 import type { VoiRanking } from '../voi/voiRanking'
 import type { DecisionVoiVerdict } from '../voi/decisionVoi'
+import type { AttributionSuppressionVerdict } from '../voi/attributionSuppression'
 import type { AssumedStrengthDecision } from '../strengthElicitation/selectAssumedStrengthToResolve'
 // The analysis-graph projection's reference shape, imported from the resolver
 // that consumes it rather than restated here — a second copy of a structural
@@ -320,6 +321,19 @@ export interface HeroEvidenceModel {
    * Required means the compiler names every constructor.
    */
   decisionVoi: DecisionVoiVerdict
+  /**
+   * Whether ISL WITHHELD the per-factor win-probability attribution for this
+   * run, passed through from the hook's `attributionSuppression`. A closed
+   * two-member enum, never the suppressed payload — `p_win_sensitivity` is in
+   * percentage points of win and the producer bars displaying it.
+   *
+   * REQUIRED for exactly the reason `decisionVoi` above is, and the reason
+   * bites hardest on a notice like this one: `'not_attested'` renders NOTHING,
+   * so an OPTIONAL field that every fixture omitted would look precisely like a
+   * working feature with nothing to show — a permanently silent surface under a
+   * green suite. Required means the compiler names every constructor.
+   */
+  attributionSuppression: AttributionSuppressionVerdict
   /**
    * P4 — the one ASSUMED relationship worth pinning down, or a named refusal.
    *

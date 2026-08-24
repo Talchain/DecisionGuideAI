@@ -366,6 +366,45 @@ export function HeroEvidenceDisclosure({
               <p className={`${typography.panelMeta} text-text-light`}>
                 {HERO_COPY.evidence.driversNote}
               </p>
+              {/*
+                THE WITHHELD PER-FACTOR ANSWER, SAID OUT LOUD.
+
+                The list below is ranked by effect on the ANALYSED OUTCOME.
+                ISL separately computes each factor's effect on an option's
+                CHANCE OF COMING OUT AHEAD (`p_win_sensitivity`) and, under
+                active correlation, SUPPRESSES it — "absent from the response,
+                not null" — naming what it withheld in
+                `correlation_model.suppressed_attributions`. Both halves have
+                been transported since the VOI family landed and read by
+                nothing, which is the contract's own two-states-one-byte defect
+                arriving from the consumer side.
+
+                IT SITS DIRECTLY UNDER `driversNote` BY DESIGN. That note is
+                what tells the reader what the ranking IS; this is what tells
+                them which per-factor question it does NOT answer. Separating
+                them would leave the caveat below a list the reader has already
+                finished interpreting.
+
+                WHAT DECIDES IT lives in `voi/attributionSuppression.ts`; the
+                sentence and its licence live in `heroCopy.ts`. Nothing is
+                decided here: this block renders ONE ratified string on ONE
+                member of a closed two-member enum, and `not_attested` renders
+                nothing at all rather than a placeholder — because an
+                unreadable disclosure is not a withholding claim.
+
+                NO MAGNITUDE, and not by restraint: the producer's own contract
+                text says "pp display is barred by PP_TOKEN doctrine". No value
+                from the suppressed payload is in scope at this site.
+              */}
+              {evidence.attributionSuppression === 'suppressed' && (
+                <p
+                  className={`${typography.panelMeta} flex items-start gap-1.5 text-text-light`}
+                  data-testid="hero-evidence-attribution-suppressed"
+                >
+                  <Info aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none text-info" />
+                  <span>{HERO_COPY.evidence.attributionSuppressed}</span>
+                </p>
+              )}
               {visibleDrivers.map((d) => {
                 const key = `driver-${d.rank}-${d.label}`
                 const grid = 'grid w-full grid-cols-[minmax(0,1fr)_5rem] items-center gap-2'

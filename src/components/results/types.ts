@@ -1375,6 +1375,44 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
    */
   decision_evpi?: number
   /**
+   * ISL's per-factor PERCENTAGE-POINT-OF-WIN deltas — the mapper's verbatim
+   * carry of `enrichment.p_win_sensitivity` (`src/v5/mapV5AnalysisToReport.ts`).
+   *
+   * `unknown[]` ON PURPOSE, and here it is the contract's own posture: the
+   * pinned schema types the rows `z.record(z.string(), z.unknown())` because the
+   * shape is owned by ISL. Nothing in this repo reads the ROWS — see the next
+   * field for why only their PRESENCE is read.
+   *
+   * ⚠ NO MAGNITUDE FROM THIS FIELD MAY EVER REACH THE DOM. The schema's own
+   * `.describe()` says so outright: "Transport only — pp display is barred by
+   * PP_TOKEN doctrine". `PP_TOKEN` (`__tests__/helpers/refutedEvpiClaimMatchers`)
+   * and `tests/contracts/no-evpi-display.contract.test.ts` enforce it.
+   */
+  p_win_sensitivity?: unknown[]
+  /**
+   * ISL's correlation disclosure — the mapper's verbatim carry of
+   * `enrichment.correlation_model`, typed OPEN by the contract
+   * (`z.object({}).passthrough()`, shape owned by ISL; observed member
+   * `suppressed_attributions`).
+   *
+   * ⭐ WHY THE PAIR IS DECLARED TOGETHER. The schema calls this field "the
+   * DISCRIMINATOR that makes an absent `p_win_sensitivity` readable as
+   * suppression rather than as 'not computed', which is why the family travels
+   * together: transporting the suppressed field's explanation without the
+   * explanation is the two-states-one-byte defect by construction." Reading
+   * either key alone reproduces exactly that defect.
+   *
+   * DECLARED FOR THE REASON `factor_evppi` AND `decision_evpi` ABOVE ARE, and
+   * this pair is the proof the reason is real: both keys were parsed, stored and
+   * read by NOTHING at UI staging `88cb7e37`, so the suppression verdict sat in
+   * the browser while the user was told nothing. Declaring the keys is what
+   * makes a mistyped read a compile error instead of a permanent silent gate.
+   *
+   * Classified — never formatted, never counted, never named — by
+   * `voi/attributionSuppression.ts`.
+   */
+  correlation_model?: Record<string, unknown>
+  /**
    * ISL `inference_warnings[]` — the enrichment-ROOT slot. Same reasoning as
    * `factor_evppi`: declared so readers do not cast, entries left `unknown`
    * because each reader validates the codes it cares about. Read it through

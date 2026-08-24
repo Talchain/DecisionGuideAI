@@ -84,6 +84,10 @@ import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
 import {
+  readAttributionSuppression,
+  type AttributionSuppressionVerdict,
+} from './voi/attributionSuppression'
+import {
   selectAssumedStrengthToResolve,
   type AssumedStrengthDecision,
 } from './strengthElicitation/selectAssumedStrengthToResolve'
@@ -1187,6 +1191,20 @@ export interface ResultsSectionDataReturn {
    */
   decisionVoi: DecisionVoiVerdict
   /**
+   * Whether ISL WITHHELD this run's per-factor win-probability attribution,
+   * classified by `voi/attributionSuppression.ts` from the `p_win_sensitivity` /
+   * `correlation_model` PAIR. Never the suppressed payload, never a count.
+   *
+   * WHY IT EXISTS AT ALL: both wire fields were transported and read by nothing,
+   * so a run whose per-factor attribution ISL deliberately declined to compute
+   * looked, on screen, exactly like a run where it was never relevant — while
+   * the Drivers list invited the reader to treat its ranking as the complete
+   * per-factor picture. `decisionVoi` above answers "what is resolving
+   * everything worth"; this answers "which per-factor question went unanswered,
+   * and did the producer say why".
+   */
+  attributionSuppression: AttributionSuppressionVerdict
+  /**
    * P4 — the ONE assumed relationship worth pinning down next, or a named
    * refusal. The join between "which relationship is this result sensitive to"
    * (producer `fragile_edges`) and "which strength is still unconfirmed"
@@ -1527,6 +1545,32 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    */
   const decisionVoi = useMemo(
     () => readDecisionVoi(report?.decision_evpi),
+    [report],
+  )
+
+  /**
+   * Whether ISL WITHHELD this run's per-factor win-probability attribution.
+   *
+   * One line, and every judgement in it lives in `voi/attributionSuppression.ts`
+   * (pure, unit-pinned against the producer's two `.describe()` paragraphs).
+   * This memo supplies the fields and nothing else: no threshold, no count, no
+   * coalescing, and NO magnitude — `p_win_sensitivity` is in percentage points
+   * of win and the producer's own contract text bars displaying it.
+   *
+   * BOTH FIELDS, NOT ONE. The contract calls `correlation_model` "the
+   * DISCRIMINATOR that makes an absent `p_win_sensitivity` readable as
+   * suppression rather than as 'not computed'", so reading either alone
+   * reproduces the two-states-one-byte defect it exists to close. The mapper
+   * already carries both verbatim (`mapV5AnalysisToReport.ts`), absence
+   * preserved, which is what makes the pair readable here at all.
+   *
+   * Deliberately NOT joined to `voiRanking` or `decisionVoi`. `factor_evppi`
+   * KEEPS BEING EMITTED under suppression — the producer says so — so these are
+   * independent states, and inferring one from another would invent a
+   * relationship ISL did not report.
+   */
+  const attributionSuppression = useMemo(
+    () => readAttributionSuppression(report?.correlation_model, report?.p_win_sensitivity),
     [report],
   )
 
@@ -3689,6 +3733,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReference,
       voiRanking,
       decisionVoi,
+      attributionSuppression,
       assumedStrength,
     }),
     [
@@ -3705,6 +3750,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReference,
       voiRanking,
       decisionVoi,
+      attributionSuppression,
       assumedStrength,
     ],
   )

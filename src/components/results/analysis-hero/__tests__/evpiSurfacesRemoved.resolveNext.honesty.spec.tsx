@@ -90,6 +90,7 @@ function heroEvidenceModel(partial: Partial<HeroEvidenceModel> = {}): HeroEviden
     resolveNext: partial.resolveNext ?? null,
     designationsWithheld: partial.designationsWithheld ?? false,
     decisionVoi: partial.decisionVoi ?? 'not_computed',
+    attributionSuppression: partial.attributionSuppression ?? 'not_attested',
     assumedStrength:
       partial.assumedStrength ?? { selected: null, refusalReason: 'no_fragile_edges', assumedFragileCount: 0 },
   }
