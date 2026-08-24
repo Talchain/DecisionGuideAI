@@ -136,6 +136,11 @@ import {
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import {
+  consumeModelVersionMutationReceipt,
+  modelVersionReceiptPresentation,
+  readModelVersionMutationReceipt,
+} from '../versions/modelVersionReceipt'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
@@ -5100,6 +5105,17 @@ export function useConversation(): UseConversationReturn {
                 .setGuidanceItems(phase3.guidanceItems.map(toStoreGuidanceItem))
             }
 
+            // C8-A: the optional top-level carrier was already admitted through
+            // responseParser's strict receipt overlay. Parse the nested receipt
+            // again at its named schema before granting full-graph authority;
+            // absence remains distinct from an invalid shape.
+            const rawModelVersionReceipt = target.response.model_version_receipt
+            const modelVersionReceipt =
+              rawModelVersionReceipt === undefined
+                ? null
+                : readModelVersionMutationReceipt(rawModelVersionReceipt)
+            let modelVersionReceiptVerified: boolean | null = null
+
             // Primary path: inline graph in response.draft_graph (CEE v0.8.0+).
             // Gated on canvas-empty + scenario-match only — NOT on stage bookkeeping.
             // This ensures draft_graph is applied even if applyV5State didn't emit
@@ -5152,7 +5168,12 @@ export function useConversation(): UseConversationReturn {
                   console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
                 }
               }
-            } else if (inlineGraph && inlineNodeCount > 0 && !canvasIsEmpty) {
+            } else if (
+              inlineGraph &&
+              inlineNodeCount > 0 &&
+              !canvasIsEmpty &&
+              modelVersionReceipt === null
+            ) {
               // POC Lane C (edit-journey display closure): applied-edit
               // receipt ingestion. CEE #414/#424 attach the FULL committed
               // post-mutation graph to applied-edit receipts via the same
@@ -5196,7 +5217,12 @@ export function useConversation(): UseConversationReturn {
                   )
                 }
               }
-            } else if (!inlineGraph && stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
+            } else if (
+              !inlineGraph &&
+              modelVersionReceipt === null &&
+              stateApply.applied.includes('stage:analyse') &&
+              canvasIsEmpty
+            ) {
               // Fallback path: draft_graph absent → re-fetch from Supabase.
               // Still gated on stage:analyse because without an inline graph, that
               // transition is the only signal that a graph was produced. Requires auth.
@@ -5242,6 +5268,19 @@ export function useConversation(): UseConversationReturn {
                   }
                 }
               })()
+            }
+
+            if (modelVersionReceipt !== null) {
+              // One canonical receipt-class reconcile owns full GraphV3. If a
+              // graph_patch already applied the same mutation, this settles as
+              // a no-op and emits no second pulse/history/success surface.
+              if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) return
+              const consumption = await consumeModelVersionMutationReceipt(
+                modelVersionReceipt,
+                { userId: v5UserId, expectedScenarioId: scenarioIdAtDispatch },
+              )
+              modelVersionReceiptVerified = consumption.status === 'verified'
+              if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) return
             }
 
             const mappedBlocks =
@@ -5296,11 +5335,19 @@ export function useConversation(): UseConversationReturn {
               store: useCanvasStore.getState(),
               existingBlocks: finalBlocks,
             })
-            const renderBlocks = [
+            const composedRenderBlocks = [
               ...finalBlocks,
               ...(receipt ? [receipt] : []),
               ...biasSignalBlocks,
             ]
+            const receiptPresentation = modelVersionReceiptPresentation(
+              modelVersionReceiptVerified,
+              target.response.assistant_text,
+              target.response.blocks.some((block) => block.type === 'graph_patch'),
+            )
+            const renderBlocks = receiptPresentation.suppressAppliedGraphPatch
+              ? composedRenderBlocks.filter((block) => block.type !== 'v5_graph_patch')
+              : composedRenderBlocks
 
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
             // UI additionally caps rendering at 3 in SuggestedChips (ruled
@@ -5374,7 +5421,7 @@ export function useConversation(): UseConversationReturn {
             addMessage({
               id: crypto.randomUUID(),
               role: 'assistant',
-              content: target.response.assistant_text,
+              content: receiptPresentation.content,
               ...(renderBlocks.length > 0 ? { blocks: renderBlocks } : {}),
               ...(actionChips.length > 0 ? { actionChips } : {}),
               ...(reasoning ? { reasoning } : {}),

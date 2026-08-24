@@ -30,9 +30,10 @@
  *   - 'typed_error': response contains a FATAL error block (severity 'error')
  *                    OR a BoundaryError OR a parse_error
  */
-import type { OlumiResponse, FailureTypeLiteral, BoundaryError } from '@talchain/schemas/boundary';
+import type { FailureTypeLiteral, BoundaryError } from '@talchain/schemas/boundary';
 
 import type { V5CallResult } from './v5Adapter';
+import type { OlumiResponseWithExtensions } from './responseParser'
 
 /**
  * Parse-failure metadata forwarded on typed_error targets that originated
@@ -67,9 +68,9 @@ export interface TypedErrorTransportMeta {
 }
 
 export type RenderTarget =
-  | { kind: 'text_only'; response: OlumiResponse }
-  | { kind: 'blocks'; response: OlumiResponse }
-  | { kind: 'empty'; response: OlumiResponse }
+  | { kind: 'text_only'; response: OlumiResponseWithExtensions }
+  | { kind: 'blocks'; response: OlumiResponseWithExtensions }
+  | { kind: 'empty'; response: OlumiResponseWithExtensions }
   | {
       kind: 'typed_error';
       code: FailureTypeLiteral;
@@ -142,13 +143,14 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
   // non-error blocks for the `blocks` target.
   const contentBlocks = resp.blocks.filter((b) => b.type !== 'error');
   const hasText = resp.assistant_text.trim().length > 0;
+  const hasModelVersionReceipt = resp.model_version_receipt !== undefined
 
   // Empty-response guard: no text, no non-error content blocks. Suggested
   // actions alone don't disqualify the empty state — chips rendered under a
   // blank text bubble look broken. The UI's empty-fallback renderer attaches
   // its own retry chip; any suggested_actions that arrived are preserved on
   // the OlumiResponse so callers can surface them explicitly if they choose.
-  if (!hasText && contentBlocks.length === 0) {
+  if (!hasText && contentBlocks.length === 0 && !hasModelVersionReceipt) {
     return { kind: 'empty', response: resp };
   }
 

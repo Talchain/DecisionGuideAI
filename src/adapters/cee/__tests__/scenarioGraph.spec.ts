@@ -209,7 +209,10 @@ describe('scenarioGraph — 200 semantics', () => {
     if (res.status !== 'graph') throw new Error('expected graph')
     expect(res.identity).toEqual({
       value: CEE_TOKEN,
+      algorithm: 'sha256',
       projectionVersion: 'identity.v1',
+      normaliserVersion: '1',
+      graphSchemaVersion: 'graph_v3',
     })
     // The object itself must never end up where the hash is expected.
     expect(typeof res.identity?.value).toBe('string')
@@ -236,6 +239,22 @@ describe('scenarioGraph — 200 semantics', () => {
   it('null identity envelope is carried as null, not fabricated', async () => {
     fetchSpy.mockResolvedValue(
       jsonResponse(200, okBody({ graph_identity_hash: null })),
+    )
+    const res = await fetchScenarioGraph(SCENARIO_ID)
+    if (res.status !== 'graph') throw new Error('expected graph')
+    expect(res.identity).toBeNull()
+  })
+
+  it.each([
+    'algorithm',
+    'projection_version',
+    'normaliser_version',
+    'graph_schema_version',
+  ])('refuses an incomplete identity regime missing %s', async (field) => {
+    const identity = envelope() as Record<string, unknown>
+    delete identity[field]
+    fetchSpy.mockResolvedValue(
+      jsonResponse(200, okBody({ graph_identity_hash: identity })),
     )
     const res = await fetchScenarioGraph(SCENARIO_ID)
     if (res.status !== 'graph') throw new Error('expected graph')

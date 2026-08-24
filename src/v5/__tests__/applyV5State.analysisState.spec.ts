@@ -22,6 +22,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import { modelVersionMutationReceiptFixture } from '../../test/fixtures/modelVersionMutationReceipt'
 
 import { applyV5State } from '../applyV5State'
 
@@ -76,6 +77,16 @@ describe('analysis_state ingest — the three-valued contract', () => {
     // verdict on the way in.
     expect(store.setAnalysisStateV1).toHaveBeenCalledWith(VALID_VERDICT)
     expect(result.applied).toContain('analysis_state:set')
+  })
+
+  it('keeps sibling analysis_state as sole freshness authority when a model receipt is present', () => {
+    const { store, result } = apply({
+      analysis_state: VALID_VERDICT,
+      model_version_receipt: modelVersionMutationReceiptFixture,
+    })
+    expect(store.setAnalysisStateV1).toHaveBeenCalledWith(VALID_VERDICT)
+    expect(result.applied).toContain('analysis_state:set')
+    expect(result.applied.some((entry) => entry.includes('model_version'))).toBe(false)
   })
 
   it('CLEARS the slice when the turn carries no analysis_state at all', () => {

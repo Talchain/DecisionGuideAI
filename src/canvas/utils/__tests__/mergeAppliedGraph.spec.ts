@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { modelVersionMutationReceiptFixture } from '../../../test/fixtures/modelVersionMutationReceipt'
 import { reconcileAppliedGraph } from '../mergeAppliedGraph'
 import { useCanvasStore } from '../../store'
 import { logger } from '../../../lib/logger'
@@ -64,6 +65,29 @@ beforeEach(() => {
 })
 
 describe('reconcileAppliedGraph', () => {
+  it('grants a strict model-version receipt the same canonical full-graph reconcile path', () => {
+    const receipt = modelVersionMutationReceiptFixture
+    const result = reconcileAppliedGraph(receipt)
+
+    expect(result.addedNodeCount).toBe(receipt.graph.nodes.length)
+    expect(result.removedNodeCount).toBe(EXISTING_NODES.length)
+    expect(result.removedEdgeCount).toBe(EXISTING_EDGES.length)
+    expect(useCanvasStore.getState().nodes).toEqual(
+      expect.arrayContaining(receipt.graph.nodes.map((node) => expect.objectContaining({ id: node.id }))),
+    )
+    expect(useCanvasStore.getState().nodes).not.toEqual(
+      expect.arrayContaining(EXISTING_NODES.map((node) => expect.objectContaining({ id: node.id }))),
+    )
+  })
+
+  it('does not bypass the unrelated-graph guard for an almost-receipt that fails strict parsing', () => {
+    const malformed = {
+      ...modelVersionMutationReceiptFixture,
+      full_hash: 'A'.repeat(64),
+    }
+    expect(reconcileAppliedGraph(malformed as never)).toEqual(counts())
+  })
+
   it('adds wire nodes/edges missing from the canvas and leaves existing elements untouched', () => {
     const result = reconcileAppliedGraph({
       nodes: [

@@ -28,6 +28,8 @@ beforeEach(() => {
     status: 'list',
     versions: [],
     currentVersionId: null,
+    contractVersion: 'v2',
+    nextCursor: null,
     requestId: 'req-list',
   })
 })

@@ -40,10 +40,10 @@
  * 1. `graph_identity_hash` is an ENVELOPE OBJECT — read `.value`. A consumer
  *    that treats the field itself as the hash compares objects and gets a
  *    permanent false "changed".
- * 2. The token is OPAQUE and CEE-ISSUED. Store it, compare CEE-to-CEE, gate on
- *    `.projection_version`, and NEVER recompute it locally — the normalisation
- *    and strip list are CEE's, are versioned so they can move, and have no
- *    client-side counterpart.
+ * 2. The token is OPAQUE and CEE-ISSUED. Store it, compare CEE-to-CEE, require
+ *    the complete algorithm/projection/normaliser/graph-schema regime, and
+ *    NEVER recompute it locally — those rules are CEE's, are versioned so they
+ *    can move, and have no client-side counterpart.
  * 3. `404` means NOT READABLE (absent ∪ not-yours ∪ oracle-unresolvable). It is
  *    NOT authoritative deletion and must never discard the local canvas.
  *    `503` means retry.
@@ -90,15 +90,18 @@ const DEFAULT_TIMEOUT_MS = 8000
 const GUEST_USER_ID = 'guest'
 
 /**
- * CEE's `identity.v1` envelope, reduced to the two fields a consumer may act on.
- * `value` is opaque; `projectionVersion` is the gate that makes a comparison
- * meaningful. Nothing here is ever computed on this side.
+ * CEE's `identity.v1` envelope. Every identity-regime field is retained so a
+ * version receipt can be verified against the exact server-owned regime.
+ * Nothing here is ever computed on this side.
  */
 export interface ScenarioGraphIdentity {
   /** CEE's token, VERBATIM. Compare CEE-to-CEE only. */
   readonly value: string
   /** `graph_identity_hash.projection_version` — never compare across values. */
   readonly projectionVersion: string
+  readonly algorithm: string
+  readonly normaliserVersion: string
+  readonly graphSchemaVersion: string
 }
 
 export type ScenarioGraphResult =
@@ -166,12 +169,31 @@ function readIdentityEnvelope(raw: unknown): ScenarioGraphIdentity | null {
   }
   const env = raw as Record<string, unknown>
   const value = env.value
+  const algorithm = env.algorithm
   const projectionVersion = env.projection_version
-  if (typeof value !== 'string' || value.length === 0) return null
-  if (typeof projectionVersion !== 'string' || projectionVersion.length === 0) {
+  const normaliserVersion = env.normaliser_version
+  const graphSchemaVersion = env.graph_schema_version
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    typeof algorithm !== 'string' ||
+    algorithm.length === 0 ||
+    typeof projectionVersion !== 'string' ||
+    projectionVersion.length === 0 ||
+    typeof normaliserVersion !== 'string' ||
+    normaliserVersion.length === 0 ||
+    typeof graphSchemaVersion !== 'string' ||
+    graphSchemaVersion.length === 0
+  ) {
     return null
   }
-  return { value, projectionVersion }
+  return {
+    value,
+    algorithm,
+    projectionVersion,
+    normaliserVersion,
+    graphSchemaVersion,
+  }
 }
 
 function parseOk(body: unknown): ScenarioGraphResult {

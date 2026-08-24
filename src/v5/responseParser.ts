@@ -51,6 +51,10 @@ import {
   type OlumiResponse,
   type BoundaryError,
 } from '@talchain/schemas/boundary';
+import {
+  ModelVersionMutationReceiptV1Schema,
+  type ModelVersionMutationReceiptV1,
+} from './modelVersionMutationReceipt'
 // Track C Step 1 (approved D-5): session-scoped dropped-content counter.
 // Counting only — never alters parse results or rendering. The per-turn
 // truth stays in the `unknown_blocks` sidecar below; the counter aggregates
@@ -205,6 +209,7 @@ export interface ActionTypeAliasRewrite {
  * schema in @talchain/schemas.
  */
 export type OlumiResponseWithExtensions = OlumiResponse & {
+  readonly model_version_receipt?: ModelVersionMutationReceiptV1
   readonly [ADDITIVE_EXTENSIONS_KEY]?: Readonly<Record<string, unknown>>;
 };
 
@@ -637,7 +642,7 @@ export const V5_PARSE_ERROR_KIND = 'parse_error' as const
 export type V5ParseErrorKind = typeof V5_PARSE_ERROR_KIND
 
 export type V5ParseResult =
-  | { kind: 'response'; response: OlumiResponse }
+  | { kind: 'response'; response: OlumiResponseWithExtensions }
   | { kind: 'boundary_error'; error: BoundaryError }
   | {
       kind: 'parse_error'
@@ -720,6 +725,30 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
   // so strict validation only sees the declared shape.
   const { known, extensions } = splitAdditiveExtensions(raw);
 
+  // C8-A integration overlay. The frozen receipt is newer than the honestly
+  // pinned 0.48.0 package, so validate this one named top-level field against
+  // its exact strict local mirror and attach it to the typed response surface.
+  // Every other undeclared field remains in the additive sidecar. Once a new
+  // schemas package version publishes this field, delete this overlay.
+  let modelVersionReceipt: ModelVersionMutationReceiptV1 | undefined
+  if (Object.prototype.hasOwnProperty.call(extensions, 'model_version_receipt')) {
+    const receipt = ModelVersionMutationReceiptV1Schema.safeParse(
+      extensions.model_version_receipt,
+    )
+    if (!receipt.success) {
+      return {
+        kind: 'parse_error',
+        reason: 'body did not match model_version_mutation_receipt.v1 schema',
+        http_status: res.status,
+        raw,
+        diagnosticHeaders: captureDiagnosticHeaders(res),
+        parse_failure_kind: 'schema_mismatch',
+      }
+    }
+    modelVersionReceipt = receipt.data
+    delete extensions.model_version_receipt
+  }
+
   // Tolerance step 2 (Phase 3 blocks-array fix): if `blocks` is an array,
   // classify each entry. Schema-known entries continue to strict validation;
   // Phase 3 whitelist entries get stashed in the sidecar; truly unknown
@@ -799,6 +828,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     const hasUnknownBlocks = unknownBlockCount > 0
     const hasQuarantined = Object.keys(quarantined).length > 0
     if (
+      modelVersionReceipt === undefined &&
       !hasTopLevelExt &&
       !hasPhase3 &&
       !hasAliasRewrites &&
@@ -846,7 +876,10 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
         Object.keys(raw as Record<string, unknown>).sort(),
       )
     }
-    const withExt: OlumiResponseWithExtensions = parsed.data
+    const withExt: OlumiResponseWithExtensions =
+      modelVersionReceipt === undefined
+        ? parsed.data
+        : { ...parsed.data, model_version_receipt: modelVersionReceipt }
     Object.defineProperty(withExt, ADDITIVE_EXTENSIONS_KEY, {
       value: Object.freeze(sidecar),
       enumerable: false,

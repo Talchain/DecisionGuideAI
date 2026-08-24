@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { OlumiResponseSchema, type OlumiResponse } from '@talchain/schemas/boundary';
 
 import { routeV5Response } from '../responseRouter';
+import { modelVersionMutationReceiptFixture } from '../../test/fixtures/modelVersionMutationReceipt'
 
 function baseResponse(overrides?: Partial<OlumiResponse>): OlumiResponse {
   return {
@@ -20,6 +21,17 @@ describe('routeV5Response', () => {
     const t = routeV5Response({ kind: 'response', response: baseResponse() });
     expect(t.kind).toBe('text_only');
   });
+
+  it('routes a receipt-only response through the consumable success path', () => {
+    const t = routeV5Response({
+      kind: 'response',
+      response: {
+        ...baseResponse({ assistant_text: '' }),
+        model_version_receipt: modelVersionMutationReceiptFixture,
+      },
+    })
+    expect(t.kind).toBe('text_only')
+  })
 
   // ----------------------------------------------------------------------
   // Severity-aware error-block routing (P0 fix, 2026-05).

@@ -120,7 +120,13 @@
  * the pre-merge state equals the last history snapshot.
  */
 
-import { CanonicalCommittedGraphReceiptSchema } from '@talchain/schemas/boundary'
+import {
+  CanonicalCommittedGraphReceiptSchema,
+} from '@talchain/schemas/boundary'
+import {
+  ModelVersionMutationReceiptV1Schema,
+  type ModelVersionMutationReceiptV1,
+} from '../../v5/modelVersionMutationReceipt'
 import { useCanvasStore } from '../store'
 import { validateNodesBatch } from '../domain/nodes'
 import { logger } from '../../lib/logger'
@@ -420,13 +426,15 @@ export function overlayEdge(
 }
 
 export function reconcileAppliedGraph(
-  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response
+  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response | ModelVersionMutationReceiptV1,
 ): ReconcileAppliedGraphResult {
-  const canonicalReceipt = canonicalReceiptFromAugmentedDraft(draftData)
+  const modelVersionReceipt = ModelVersionMutationReceiptV1Schema.safeParse(draftData)
+  const graphCarrier = modelVersionReceipt.success ? modelVersionReceipt.data.graph : draftData
+  const canonicalReceipt = canonicalReceiptFromAugmentedDraft(graphCarrier)
   const rawNodes: any[] =
-    (draftData as any)?.nodes ?? (draftData as any)?.graph?.nodes ?? []
+    (graphCarrier as any)?.nodes ?? (graphCarrier as any)?.graph?.nodes ?? []
   const rawEdges: any[] =
-    (draftData as any)?.edges ?? (draftData as any)?.graph?.edges ?? []
+    (graphCarrier as any)?.edges ?? (graphCarrier as any)?.graph?.edges ?? []
 
   const store = useCanvasStore.getState()
   const existingNodeIds = new Set(store.nodes.map((n) => n.id))
@@ -441,7 +449,7 @@ export function reconcileAppliedGraph(
   //
   // This guard is MORE load-bearing now than it was under the additive merge:
   // an unrelated graph would not merely graft, it would DELETE the real one.
-  if (store.nodes.length > 0 && rawNodes.length > 0) {
+  if (!modelVersionReceipt.success && store.nodes.length > 0 && rawNodes.length > 0) {
     const hasOverlap = rawNodes.some(
       (n: any) => n != null && typeof n.id === 'string' && existingNodeIds.has(n.id)
     )
@@ -475,8 +483,21 @@ export function reconcileAppliedGraph(
   // graph for this scenario (fresh draft, prior receipt, or DB hydration), in
   // which case nothing is removable — the fail-safe direction.
   const authoritative = store.lastAuthoritativeGraph
-  const ackNodeIds = new Set(authoritative?.nodeIds ?? [])
-  const ackEdgePairs = new Set(authoritative?.edgePairs ?? [])
+  // A strict C8-A receipt is a scenario-bound, complete GraphV3 snapshot.
+  // It acknowledges the entire currently rendered graph for removal even if
+  // the legacy lastAuthoritativeGraph cache is null or stale. Keeping the old
+  // cache gate here would make a valid restore unable to delete nodes and the
+  // canvas could never match the server receipt it subsequently verifies.
+  const ackNodeIds = modelVersionReceipt.success
+    ? new Set(store.nodes.map((node) => node.id))
+    : new Set(authoritative?.nodeIds ?? [])
+  const ackEdgePairs = modelVersionReceipt.success
+    ? new Set(
+        store.edges
+          .map((edge) => canvasEdgePairKey(edge))
+          .filter((key): key is string => key !== null),
+      )
+    : new Set(authoritative?.edgePairs ?? [])
 
   const removedNodeIds = new Set<string>()
   for (const n of store.nodes) {
@@ -638,9 +659,12 @@ export function reconcileAppliedGraph(
   // almost-canonical receipt fails closed and retains the prior store value.
   // fromProducerSync because both adoption and clearing are CEE's authoritative
   // post-state and must not self-dirty the freshness verdict this response set.
-  const receiptGoalConstraints = (draftData as { goal_constraints?: unknown }).goal_constraints
+  const receiptGoalConstraints = (graphCarrier as { goal_constraints?: unknown }).goal_constraints
   const canonicalExplicitClear =
-    canonicalReceipt.success && canonicalReceipt.data.goal_constraints.length === 0
+    (canonicalReceipt.success && canonicalReceipt.data.goal_constraints.length === 0) ||
+    (modelVersionReceipt.success &&
+      Array.isArray(receiptGoalConstraints) &&
+      receiptGoalConstraints.length === 0)
   if (
     (Array.isArray(receiptGoalConstraints) && receiptGoalConstraints.length > 0) ||
     canonicalExplicitClear

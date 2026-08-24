@@ -126,7 +126,13 @@ function serverGraphResult(): ScenarioGraphResult {
     graph: { nodes: TERMINAL_GRAPH.nodes, edges: TERMINAL_GRAPH.edges },
     briefText: null,
     notModelled: null,
-    identity: { value: 'srv-hash-1', projectionVersion: 'p1' },
+    identity: {
+      value: 'srv-hash-1',
+      algorithm: 'sha256',
+      projectionVersion: 'p1',
+      normaliserVersion: 'n1',
+      graphSchemaVersion: 'graph_v3',
+    },
     layoutPresent: false,
     requestId: 'req-recovery-1',
   }
