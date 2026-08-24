@@ -40,18 +40,24 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     isSavedExample: false,
     narrowFramingDetail: null,
     biasFindingExplanation: null,
+    structuralAbsence: null,
     ...overrides,
   }
 }
 
 describe('signal registry — exact id set (banned signals cannot exist)', () => {
-  it('contains exactly the six audited signals', () => {
+  it('contains exactly the seven audited signals', () => {
     expect(SIGNAL_REGISTRY.map(d => d.signal_id).sort()).toEqual([
       'sig_cee_bias',
       'sig_estimates',
       'sig_goal_missing',
       'sig_option_breadth',
       'sig_risk_count',
+      // Causal-structure absence — what the model's SHAPE does not contain.
+      // Added 2026-08-24; its own guards live in
+      // `signals/__tests__/structuralAbsenceSignal.spec.ts` and
+      // `selectors/__tests__/computeStructuralAbsence.spec.ts`.
+      'sig_structural_absence',
       'sig_success_missing',
     ])
   })

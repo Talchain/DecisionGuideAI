@@ -26,6 +26,7 @@ import { computeEstimateRanking } from '../selectors/computeEstimateRanking'
 import { computeGraphFacts, computeProvenanceCounts } from '../selectors/graphFacts'
 import { computeInfluenceCoverage } from '../selectors/computeInfluenceCoverage'
 import { computeLadder } from '../selectors/computeLadder'
+import { computeStructuralAbsence } from '../selectors/computeStructuralAbsence'
 import { computeSuccessState, type SuccessState } from '../selectors/computeSuccessState'
 import { buildEstimateRows, topUncalibrated } from '../selectors/buildEstimateRows'
 import { deriveSignalViews } from '../signals/deriveSignalViews'
@@ -299,6 +300,18 @@ export function usePreAnalysisModel(): PreAnalysisModel {
    */
   const isSavedExample = useMemo(() => resolveStarterId(nodes) != null, [nodes])
 
+  /**
+   * Causal-structure absence — the one thing the model's SHAPE does not contain.
+   *
+   * Keyed on the store's own nodes/edges, the same slices every other v3
+   * selector reads, so the panel and the canvas can never disagree about the
+   * structure being described.
+   */
+  const structuralAbsence = useMemo(
+    () => computeStructuralAbsence(nodes, edges),
+    [nodes, edges],
+  )
+
   const derived = useMemo(
     () =>
       deriveSignalViews(
@@ -313,10 +326,11 @@ export function usePreAnalysisModel(): PreAnalysisModel {
           isSavedExample,
           narrowFramingDetail,
           biasFindingExplanation,
+          structuralAbsence,
         },
         seen,
       ),
-    [facts, success.isSet, provenance.aiEstimatedCount, top, isSavedExample, narrowFramingDetail, biasFindingExplanation, seen],
+    [facts, success.isSet, provenance.aiEstimatedCount, top, isSavedExample, narrowFramingDetail, biasFindingExplanation, structuralAbsence, seen],
   )
 
   useEffect(() => {

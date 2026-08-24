@@ -15,6 +15,7 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     isSavedExample: false,
     narrowFramingDetail: null,
     biasFindingExplanation: null,
+    structuralAbsence: null,
     ...overrides,
   }
 }
