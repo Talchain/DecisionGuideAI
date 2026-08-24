@@ -374,10 +374,17 @@ export function HeroEvidenceDisclosure({
                 CHANCE OF COMING OUT AHEAD (`p_win_sensitivity`) and, under
                 active correlation, SUPPRESSES it — "absent from the response,
                 not null" — naming what it withheld in
-                `correlation_model.suppressed_attributions`. Both halves have
-                been transported since the VOI family landed and read by
-                nothing, which is the contract's own two-states-one-byte defect
-                arriving from the consumer side.
+                `correlation_model.suppressed_attributions` — an ATTRIBUTION-KIND
+                manifest, not a list of factors. Both keys have been CARRIED by
+                the mapper since the VOI family landed and read by nothing.
+
+                ⚠ SCOPE, STATED HONESTLY: this is a FAIL-CLOSED GUARD, not the
+                repair of a defect a user has seen. `correlation_model` is
+                emitted only when the request supplied `factor_correlations`,
+                and no code path in CEE or the UI populates that key — so the
+                chain is complete but UNFED at the current tips. The notice is
+                here so that the day a caller does supply correlations, the
+                withholding is said out loud instead of arriving silently.
 
                 IT SITS DIRECTLY UNDER `driversNote` BY DESIGN. That note is
                 what tells the reader what the ranking IS; this is what tells

@@ -174,6 +174,41 @@ describe('mapV5AnalysisToReport — VOI family transport (V7-C slice 1)', () => 
     expect(report).not.toHaveProperty('factor_evppi')
   })
 
+  /**
+   * ⚠ `p_win_sensitivity` IS NOT NARROWED LIKE ITS SIBLINGS, AND THE ASYMMETRY
+   * IS THE POINT.
+   *
+   * For `factor_evppi` a malformed value is dropped and the consequence is
+   * SILENCE — the reader's honest gate fires and no ranking renders. For
+   * `p_win_sensitivity` the consequence runs the other way: its ABSENCE is what
+   * the contract defines as the suppression signal ("absent from the response,
+   * not null"), so dropping a malformed value manufactures that signal and the
+   * Drivers view tells the user their win-probability attribution was withheld
+   * when in fact it arrived and was merely unreadable.
+   *
+   * So the key is carried VERBATIM whenever the producer sent one, and
+   * `voi/attributionSuppression.ts` — the single reader — treats any arrived
+   * value as "not suppressed". Absence still means absence: that is the one
+   * state the manifest is allowed to explain.
+   */
+  it('a malformed p_win_sensitivity is CARRIED, not dropped (its presence refutes the manifest)', () => {
+    const report = mapped({ p_win_sensitivity: { factor_id: 'fac_price' } })
+    expect(report).toHaveProperty('p_win_sensitivity')
+    expect(report.p_win_sensitivity).toEqual({ factor_id: 'fac_price' })
+  })
+
+  it('a null p_win_sensitivity is CARRIED — the contract says suppression is ABSENT, not null', () => {
+    const report = mapped({ p_win_sensitivity: null })
+    expect(report).toHaveProperty('p_win_sensitivity')
+    expect(report.p_win_sensitivity).toBeNull()
+  })
+
+  it('an ABSENT p_win_sensitivity stays absent — the only state the manifest may explain', () => {
+    const report = mapped({ correlation_model: CORRELATION_MODEL })
+    expect(report).not.toHaveProperty('p_win_sensitivity')
+    expect(report.correlation_model).toEqual(CORRELATION_MODEL)
+  })
+
   it('POSITIVE CONTROL: the harness sees the pre-existing keep-list keys too', () => {
     // Trap 13 — without this, "absence-preserving" above could be passing
     // because the mapper reads no enrichment at all in this fixture shape.

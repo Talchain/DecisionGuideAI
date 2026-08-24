@@ -1299,9 +1299,24 @@ export function mapV5AnalysisToReport(
     ? (enrichment!.factor_evppi as unknown[])
     : undefined
   const decisionEvpi = safeFiniteNumber(enrichment?.decision_evpi)
-  const pWinSensitivity = Array.isArray(enrichment?.p_win_sensitivity)
-    ? (enrichment!.p_win_sensitivity as unknown[])
-    : undefined
+  // ⚠ `p_win_sensitivity` IS NOT NARROWED LIKE ITS SIBLINGS, AND THE ASYMMETRY
+  // IS DELIBERATE — narrowing it fails OPEN.
+  //
+  // For `factor_evppi` above, dropping a malformed value costs SILENCE: the
+  // reader's honest gate fires and no ranking renders. For `p_win_sensitivity`
+  // the cost runs the other way. Its ABSENCE is what the contract defines as
+  // the suppression signal ("absent from the response, not null"), so a
+  // narrowing that turns malformed into absent MANUFACTURES that signal —
+  // `voi/attributionSuppression.ts` then reads the correlation manifest and the
+  // Drivers view tells the user their win-probability attribution was withheld
+  // when in truth it arrived and was merely unreadable.
+  //
+  // So: carried VERBATIM whenever the producer sent the key at all, absence
+  // still preserved. The single reader treats any arrived value — array,
+  // object, string, `null` — as "not suppressed", which is the fail-CLOSED
+  // direction for this field. Nothing reads the rows.
+  const pWinSensitivity: unknown =
+    enrichment !== undefined && enrichment !== null ? enrichment.p_win_sensitivity : undefined
   const correlationModel = isPlainObject(enrichment?.correlation_model)
     ? enrichment!.correlation_model
     : undefined
@@ -1494,7 +1509,9 @@ export function mapV5AnalysisToReport(
   // VOI family (V7-C slice 1) — see the derivation block above.
   if (factorEvppi) widened.factor_evppi = factorEvppi
   if (decisionEvpi !== undefined) widened.decision_evpi = decisionEvpi
-  if (pWinSensitivity) widened.p_win_sensitivity = pWinSensitivity
+  // Presence-preserving, not truthiness-preserving: `null` and `0` are arrived
+  // values and must reach the reader as such (see the derivation block above).
+  if (pWinSensitivity !== undefined) widened.p_win_sensitivity = pWinSensitivity
   if (correlationModel !== undefined) widened.correlation_model = correlationModel
   if (conditionalProbabilities !== undefined) {
     widened.conditional_probabilities = conditionalProbabilities

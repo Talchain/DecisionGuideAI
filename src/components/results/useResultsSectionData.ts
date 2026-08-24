@@ -1203,6 +1203,15 @@ export interface ResultsSectionDataReturn {
    * everything worth"; this answers "which per-factor question went unanswered,
    * and did the producer say why".
    *
+   * ⚠ AND THE SCOPE OF THAT, HONESTLY: no such run is reachable today.
+   * `correlation_model` is emitted only when the request supplied
+   * `factor_correlations`, and neither CEE nor the UI populates that key at
+   * their staging tips — so this is a FAIL-CLOSED GUARD for a state the current
+   * producer cannot reach, not a repair of something a user has hit. It reads
+   * the MEMBER (`p_win_sensitivity`), never the manifest's length, so it stays
+   * silent on the correlation-active runs that withheld only the OTHER
+   * attribution kinds.
+   *
    * ⚠ OPTIONAL HERE, REQUIRED ON THE RENDER MODEL, AND THE ASYMMETRY IS
    * DELIBERATE — MEASURED, NOT PREFERRED. `HeroEvidenceModel` keeps this field
    * REQUIRED, which is where the "a silent surface looks like a working
