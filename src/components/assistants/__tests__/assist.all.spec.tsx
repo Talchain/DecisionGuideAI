@@ -1,60 +1,25 @@
 /**
  * N4: Assistants Integration Tests
+ *
+ * ⚠ The four "Explain Diff" cases that lived here were REMOVED, not ported, and
+ * that is deliberate.
+ *
+ * They asserted a contract that never existed on any deployed surface: a `patch`
+ * string, a `context` key the input schema rejects (`.strict()`), a
+ * `data.explanation` response key this route has never returned, and a
+ * `/bff/assist/explain-diff` seam absent from production Netlify config. Every
+ * one of them passed — against a hand-written mock of an imaginary server. They
+ * are the reason the component sat with zero importers and a fabricated failure
+ * message for its entire life, with a green suite the whole time.
+ *
+ * Porting them would have carried the fiction forward. The real coverage now
+ * lives where the claims can be checked against the actual contract:
+ *   · explainDiffRequest.spec.ts       — the request mapping and refusal semantics
+ *   · V5GraphPatchBlock.explainDiffMount.spec.tsx — the mount path and behaviour
  */
-
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { ExplainDiffButton } from '../ExplainDiffButton'
+import { describe, it, expect } from 'vitest'
 
 describe('N4: Assistants Integration', () => {
-  describe('Explain Diff', () => {
-    it('renders button', () => {
-      render(<ExplainDiffButton patch="test patch" />)
-      expect(screen.getByLabelText('Explain this diff')).toBeInTheDocument()
-    })
-
-    it('shows concise rationales on success', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ explanation: 'This change improves performance' })
-      })
-
-      render(<ExplainDiffButton patch="test patch" />)
-      fireEvent.click(screen.getByLabelText('Explain this diff'))
-
-      await waitFor(() => {
-        expect(screen.getByText(/improves performance/)).toBeInTheDocument()
-      })
-    })
-
-    it('shows error fallback on failure', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
-
-      render(<ExplainDiffButton patch="test patch" />)
-      fireEvent.click(screen.getByLabelText('Explain this diff'))
-
-      await waitFor(() => {
-        expect(screen.getByText(/Network error/)).toBeInTheDocument()
-      })
-    })
-
-    it('truncates rationales to 280 chars', async () => {
-      const longText = 'x'.repeat(500)
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ explanation: longText })
-      })
-
-      render(<ExplainDiffButton patch="test" />)
-      fireEvent.click(screen.getByText('Explain Diff'))
-
-      await waitFor(() => {
-        const explanation = screen.getByText(/xxx/)
-        expect(explanation.textContent?.length).toBeLessThanOrEqual(280)
-      })
-    })
-  })
-
   describe('Options Tiles', () => {
     it('append-only behavior - passes', () => {
       expect(true).toBe(true) // Stub for append-only verification

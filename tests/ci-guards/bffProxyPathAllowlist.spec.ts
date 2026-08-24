@@ -135,6 +135,35 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
     )
   })
 
+  /**
+   * Explain-diff (CEE #1082 / this PR). The applied-edit receipt card asks the
+   * server "why did you make these changes?" through this seam.
+   *
+   * This case exists because the capability's FIRST failure was exactly a
+   * missing entry here: the component shipped calling `/bff/assist/explain-diff`,
+   * a seam that exists only in vite.config.ts for dev and has never existed in
+   * production. A live probe returned the SPA catch-all, byte-identical (3449 B)
+   * to a deliberately fabricated path, while `/bff/cee/graph-readiness` returned
+   * live CEE JSON in the same run. Keep the route and its case in one PR.
+   */
+  it('ON-LIST /bff/cee/explain-diff forwards to /assist/v1/explain-diff WITH the injected key', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/explain-diff' })
+    expect(r.fetchCalled).toBe(true)
+    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/assist/v1/explain-diff')
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+    expect(r.status).toBe(200)
+  })
+
+  /**
+   * The entry is EXACT — a prefix match would re-open the blast radius the
+   * allowlist exists to bound.
+   */
+  it('OFF-LIST /bff/cee/explain-diff/extra is 404 with NO key sent (entry is exact)', async () => {
+    const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/explain-diff/extra' })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+  })
+
   it('OFF-LIST /bff/cee/decision-review (a real LLM route the UI never calls) is 404 with NO key sent', async () => {
     const r = await invoke(ceeHandler as Handler, { path: '/bff/cee/decision-review' })
     expect(r.status).toBe(404)
