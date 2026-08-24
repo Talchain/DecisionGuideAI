@@ -26,6 +26,7 @@ import { useAnalysisTrust } from '../../canvas/hooks/useAnalysisTrust'
 import { claimStalenessVoice } from '../../canvas/conversation/stalenessVoice'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
+import { ExplainDiffButton } from '../../components/assistants/ExplainDiffButton'
 
 export interface V5GraphPatchBlockProps {
   block: V5GraphPatchBlockType
@@ -144,6 +145,26 @@ export function V5GraphPatchBlock({
         >
           Latest analysis is now out of date.
         </p>
+      )}
+
+      {/*
+        "Why these changes?" — the receipt is where the question actually arises.
+        The user has just watched their model change; this is the moment they ask
+        why, and it is the only surface in the product that knows WHICH change is
+        being asked about.
+
+        RENDERED ONLY FOR 'applied'. A 'noop' receipt means CEE looked and nothing
+        needed changing, so there is no diff to explain — and the route would
+        rightly answer 400 "patch has no changes to explain". Offering the button
+        there would advertise an action that terminates in refusal.
+
+        The answer shown is always CEE's; see ExplainDiffButton for the rules.
+      */}
+      {isApplied && (
+        <ExplainDiffButton
+          block={block}
+          graphSummary={{ node_count: nodes.length, edge_count: edges.length }}
+        />
       )}
     </div>
   )

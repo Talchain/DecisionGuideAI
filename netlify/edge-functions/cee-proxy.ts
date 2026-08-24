@@ -158,6 +158,17 @@ const ALLOWED_TARGETS: readonly RegExp[] = [
   /^\/assist\/v1\/scenarios\/[^/]+\/versions\/restore$/,
   /^\/assist\/v1\/decision-records\/commit$/,
   /^\/assist\/v1\/decision-records\/[^/]+\/outcome$/,
+  // Explain-diff (CEE #1082). Backs the "Why these changes?" affordance on the
+  // applied-edit receipt card. REQUIRES CEE #1082 to be serving — that PR adds
+  // /assist/v1/explain-diff; the handler previously existed ONLY on the legacy
+  // /assist/* surface, which this rewrite can never reach.
+  //
+  // Its ON-LIST and exact-match cases are in
+  // tests/ci-guards/bffProxyPathAllowlist.spec.ts, in this same PR — a missing
+  // entry here is precisely how this capability was dark: the component shipped
+  // calling /bff/assist/explain-diff, a seam that exists only in vite.config.ts
+  // for dev and has never existed in production.
+  /^\/assist\/v1\/explain-diff$/,
 ]
 
 function isAllowedTarget(pathname: string): boolean {
