@@ -85,6 +85,8 @@ import { V5CoachingBlock } from '../../v5/blocks/V5CoachingBlock'
 import { V5EvidenceBlock } from '../../v5/blocks/V5EvidenceBlock'
 import { V5ExerciseBlock } from '../../v5/blocks/V5ExerciseBlock'
 import { V5HeldProposalBlock } from '../../v5/blocks/V5HeldProposalBlock'
+import type { HeldProposalSettlement } from '../../v5/blocks/V5HeldProposalBlock'
+import { resolveHeldProposalState } from './selectors'
 import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
@@ -155,6 +157,18 @@ interface InlineBlocksProps {
   onPatchDismiss?: (patchId: string) => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /**
+   * Record a held proposal's settlement in the conversation's SHARED registry
+   * (`patchBlockStates`), keyed by the MOUNT key (turn + handle) for every
+   * copy on screen when the user acts. Absent ⇒ the card still
+   * sends its confirm/decline turn but cannot retire — see the state-ownership
+   * note in `V5HeldProposalBlock`. Every product host wires this.
+   */
+  onHeldProposalSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
   /** Word count of the turn's assistant_text — used by commentary collapse default logic */
   assistantTextWordCount?: number
   /**
@@ -181,6 +195,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   onPatchDismiss,
   onArtefactMessage,
   onProposalConfirm,
+  onHeldProposalSettle,
   assistantTextWordCount = 0,
   alreadyRendered,
   isLatestAssistantTurn = false,
@@ -449,6 +464,7 @@ export const InlineBlocks = memo(function InlineBlocks({
           onPatchDismiss={onPatchDismiss}
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
+          onHeldProposalSettle={onHeldProposalSettle}
           assistantTextWordCount={assistantTextWordCount}
           commentaryTextOverride={commentaryTextOverrides.get(index)}
           narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
@@ -525,6 +541,18 @@ interface BlockRendererProps {
   onPatchDismiss?: (patchId: string) => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /**
+   * Record a held proposal's settlement in the conversation's SHARED registry
+   * (`patchBlockStates`), keyed by the MOUNT key (turn + handle) for every
+   * copy on screen when the user acts. Absent ⇒ the card still
+   * sends its confirm/decline turn but cannot retire — see the state-ownership
+   * note in `V5HeldProposalBlock`. Every product host wires this.
+   */
+  onHeldProposalSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
   assistantTextWordCount?: number
   /**
    * ONE RENDER AUTHORITY: the surviving text for a `commentary` block whose
@@ -554,6 +582,7 @@ function BlockRenderer({
   onPatchDismiss,
   onArtefactMessage,
   onProposalConfirm,
+  onHeldProposalSettle,
   assistantTextWordCount = 0,
   commentaryTextOverride,
   narrativeDeliveredByTypedCard = false,
@@ -695,7 +724,22 @@ function BlockRenderer({
 
     // R8 (roadmap 2.27): held CEE mutation → honest confirm/dismiss card.
     case 'v5_held_proposal':
-      return <V5HeldProposalBlock block={block} />
+      // SENDABLE failure 5: settlement is read from and written to the ONE
+      // shared registry. The key is the MOUNT key — this turn plus this
+      // proposal — because a CEE hold handle names a target SLOT, not an offer
+      // instance, and is deliberately re-minted for a later offer against the
+      // same target (`selectors.ts` :: the two questions). Both surfaces render
+      // the same `message.id`, so they still share a key and still retire
+      // together; a LATER turn re-issuing the handle gets its own key and stays
+      // offerable, which is the half the handle-only key destroyed.
+      return (
+        <V5HeldProposalBlock
+          block={block}
+          turnId={turnId}
+          settledState={resolveHeldProposalState(turnId, block.proposal_id, patchBlockStates)}
+          onSettle={onHeldProposalSettle}
+        />
+      )
 
     case 'v5_unsupported':
       return <V5UnsupportedBlock block={block} />

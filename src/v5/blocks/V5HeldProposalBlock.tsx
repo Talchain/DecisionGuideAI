@@ -47,8 +47,8 @@
  * unresolvable confirm ref to the R7 unsupported card. Unknown `reason_code`
  * values degrade to the generic held sentence, never the raw code.
  */
-import { type ReactElement, useCallback, useMemo, useState } from 'react'
-import { Hand } from 'lucide-react'
+import { type ReactElement, useCallback, useMemo } from 'react'
+import { Check, Hand, X } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { dedupeRenderedText, splitRenderSegments } from '../../canvas/conversation/messageComposition'
@@ -57,18 +57,80 @@ import type {
   V5HeldProposalBlock as V5HeldProposalBlockType,
   V5HeldProposalAction,
 } from '../../canvas/conversation/types'
+import type { PatchBlockState } from '../../canvas/conversation/useConversation'
 import {
   heldProposalReasonText,
   HELD_PROPOSAL_HEADING,
+  HELD_PROPOSAL_SETTLED_HEADING,
   HELD_PROPOSAL_DISMISS_LABEL,
   HELD_PROPOSAL_CONFIRM_CLAMPED_LABEL,
   HELD_PROPOSAL_CONFIRMED_ACK,
   HELD_PROPOSAL_DISMISSED_ACK,
 } from './heldProposalReasonCopy'
 
+/** How this card is settled, if it is. `null` ⇒ still pending. */
+export type HeldProposalSettlement = 'accepted' | 'dismissed'
+
 export interface V5HeldProposalBlockProps {
   block: V5HeldProposalBlockType
+  /**
+   * This proposal's settlement, read from the conversation's SHARED registry
+   * (`patchBlockStates`, via `resolveHeldProposalState`). The card holds NO
+   * settlement state of its own — see the state-ownership note below.
+   *
+   * Absent ⇒ `'proposed'`, i.e. a pending card with live controls.
+   */
+  settledState?: PatchBlockState
+  /**
+   * The turn this card is mounted in. Reported back on settle so the host can
+   * retire THIS copy with certainty, whatever else it finds in the transcript.
+   */
+  turnId?: string
+  /**
+   * Record this proposal's settlement in the shared registry. Called with the
+   * PROPOSAL HANDLE and the MOUNT TURN, never a position or a label. The host
+   * owns which keys that writes — see `selectors.ts` :: the two questions.
+   */
+  onSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
 }
+
+/**
+ * ── STATE OWNERSHIP (SENDABLE failure 5, witnessed 2026-08-22) ──────────────
+ *
+ * This card used to own `settled` in a component-local `useState`. The canvas
+ * mounts TWO conversation surfaces at once — the dock (`OlumiTabBody`) and
+ * `FloatingOlumiPanel` — and both render the SAME message list from the SAME
+ * singleton `useConversationContext()`. So one held proposal is two or more
+ * React instances, and local state is invisible across them: confirming in one
+ * surface left the others headed "Waiting for your go-ahead", controls enabled,
+ * and a second press produced a refusal from CEE. Four such cards were
+ * witnessed live AFTER their deletions had been applied and persisted.
+ *
+ * The two authorities, named apart (CLAUDE.md trap 21):
+ *   · local `useState` answered "did the user click THIS React node?"
+ *   · everything else — the user, the other copies, CEE's hold registry —
+ *     asks "has this PROPOSAL been settled?"
+ * The second question subsumes the first entirely, so the first is deleted
+ * rather than reconciled. The canonical owner is `useConversation`'s
+ * `patchBlockStates`, the same registry `GraphPatchBlockRenderer` already uses.
+ *
+ * ⚠ The key is the MOUNT key — turn + handle (`selectors.ts ::
+ * heldProposalMountKey`) — NOT the bare handle. A CEE hold handle names a
+ * target SLOT and is deliberately re-minted for a later offer against the same
+ * target, so a handle-only key leaks a settlement forward onto a proposal the
+ * user has never seen and leaves it with no affordance at all. Which copies one
+ * settlement retires is a SEPARATE question, answered once at settle time by
+ * `heldProposalRetirementKeys`.
+ *
+ * ⚠ The refusal CEE returns on a stale confirm is deliberately NOT touched.
+ * It is the safe behaviour: it declines explicitly and writes nothing. This
+ * change removes the affordance that provokes it; it does not weaken the
+ * server-side guard behind it.
+ */
 
 /**
  * READABILITY OF THE THING BEING CONSENTED TO (scoreboard Q3, 16 Aug 2026).
@@ -154,9 +216,26 @@ export function resolveHeldConfirmCopy(action: V5HeldProposalAction): HeldConfir
   }
 }
 
-export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactElement {
+export function V5HeldProposalBlock({
+  block,
+  settledState = 'proposed',
+  turnId,
+  onSettle,
+}: V5HeldProposalBlockProps): ReactElement {
   const sendChip = useGuidanceStore((s) => s._sendChip)
-  const [settled, setSettled] = useState<null | 'accepted' | 'dismissed'>(null)
+
+  /**
+   * The card's ONLY notion of settlement, derived from the shared registry.
+   * `rejected` and `dismissed` are the registry's two decline spellings
+   * (`PatchBlockState`); both retire the card the same way, because from the
+   * user's side there is one decline.
+   */
+  const settled: HeldProposalSettlement | null =
+    settledState === 'accepted'
+      ? 'accepted'
+      : settledState === 'dismissed' || settledState === 'rejected'
+        ? 'dismissed'
+        : null
 
   const { confirm, decline } = block
 
@@ -196,8 +275,17 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
       confirm.message,
       confirm.action_type ? { action_type: confirm.action_type } : undefined,
     )
-    setSettled('accepted')
-  }, [settled, sendChip, confirmCopy.record, confirm.message, confirm.action_type])
+    onSettle?.(block.proposal_id, 'accepted', turnId)
+  }, [
+    settled,
+    sendChip,
+    onSettle,
+    block.proposal_id,
+    turnId,
+    confirmCopy.record,
+    confirm.message,
+    confirm.action_type,
+  ])
 
   const handleDismiss = useCallback(() => {
     if (settled) return
@@ -210,8 +298,8 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
         decline.action_type ? { action_type: decline.action_type } : undefined,
       )
     }
-    setSettled('dismissed')
-  }, [settled, sendChip, decline])
+    onSettle?.(block.proposal_id, 'dismissed', turnId)
+  }, [settled, sendChip, decline, onSettle, block.proposal_id, turnId])
 
   return (
     <div
@@ -223,9 +311,18 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
       className="rounded-xl border border-info/30 bg-panel p-4 space-y-2"
     >
       <div className="flex items-start gap-2">
-        <Hand size={16} className="flex-none mt-0.5 text-info" aria-hidden="true" />
+        {/* The icon carries the same claim as the heading: a settled card must
+            not still show the "held" hand. Lucide only, aria-hidden — the
+            heading is the accessible statement. */}
+        {settled === 'accepted' ? (
+          <Check size={16} className="flex-none mt-0.5 text-info" aria-hidden="true" />
+        ) : settled === 'dismissed' ? (
+          <X size={16} className="flex-none mt-0.5 text-text-light" aria-hidden="true" />
+        ) : (
+          <Hand size={16} className="flex-none mt-0.5 text-info" aria-hidden="true" />
+        )}
         <h3 className={typography.panelHeader} data-testid="v5-held-proposal-heading">
-          {HELD_PROPOSAL_HEADING}
+          {settled === null ? HELD_PROPOSAL_HEADING : HELD_PROPOSAL_SETTLED_HEADING}
         </h3>
       </div>
 
@@ -257,12 +354,19 @@ export function V5HeldProposalBlock({ block }: V5HeldProposalBlockProps): ReactE
         </p>
       )}
 
-      <p
-        className={`${typography.panelMeta} text-text-light`}
-        data-testid="v5-held-proposal-reason"
-      >
-        {heldProposalReasonText(block.reason_code)}
-      </p>
+      {/* WHY it is held — a present-tense claim ("...so it needs your go-ahead
+          before it is applied"), and therefore false once the user has given or
+          withheld that go-ahead. Withheld when settled rather than reworded:
+          the summary above still says WHAT was proposed, and the ack below says
+          what the user did, so nothing is lost and nothing is asserted twice. */}
+      {settled === null && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="v5-held-proposal-reason"
+        >
+          {heldProposalReasonText(block.reason_code)}
+        </p>
+      )}
 
       {settled === null ? (
         <div className="flex flex-wrap gap-2 pt-1" data-testid="v5-held-proposal-actions">

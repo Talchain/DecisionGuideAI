@@ -26,6 +26,7 @@ import { plot } from '../../adapters/plot'
 import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
+import { heldProposalRetirementKeys } from './selectors'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import { useOptionalConversationContext } from './ConversationContext'
 import { prefillInto } from './prefillTarget'
@@ -214,6 +215,32 @@ export const ConversationPanel = memo(function ConversationPanel({
       })
     },
     [sendMessage],
+  )
+
+  // ── Held-proposal settlement handler (SENDABLE failure 5) ─────────
+  // THE RETIREMENT QUESTION, answered here and only here: which copies does
+  // this settlement retire? Every copy of the handle AT OR BEFORE the turn the
+  // user pressed — both mounted surfaces, and every earlier turn that re-issued
+  // the same CEE hold handle, all of which that turn's own hold has already
+  // superseded server-side. Each gets its own MOUNT key, so a LATER turn keeps
+  // its own offer and a freshly-issued proposal never inherits a settlement the
+  // user made about a different change.
+  //
+  // `messages` is passed WHOLE and read at settle time, not at render time —
+  // and the bound lives in `heldProposalRetirementKeys`, which needs the full
+  // array to locate the acting turn's position. Slicing here instead would put
+  // the ordering decision in two places.
+  //
+  // `setPatchBlockState` is the existing single writer for card settlement
+  // (graph-patch cards already use it) and the `held:` prefix keeps the two key
+  // spaces disjoint inside the one map.
+  const handleHeldProposalSettle = useCallback(
+    (proposalId: string, settlement: 'accepted' | 'dismissed', turnId?: string) => {
+      for (const key of heldProposalRetirementKeys(messages, proposalId, turnId)) {
+        setPatchBlockState(key, settlement)
+      }
+    },
+    [messages, setPatchBlockState],
   )
 
   // Best-effort system-event dispatch: for background acks (patch_dismissed,
@@ -802,6 +829,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onRetry={retryLast}
         onArtefactMessage={handleArtefactMessage}
         onProposalConfirm={handleProposalConfirm}
+        onHeldProposalSettle={handleHeldProposalSettle}
         compact={compact}
         scrollListRef={scrollListRef}
         testId={threadTestId}

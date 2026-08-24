@@ -14,8 +14,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import { useState, type ReactElement } from 'react'
 
 import { V5HeldProposalBlock } from '../V5HeldProposalBlock'
+import type { PatchBlockState } from '../../../canvas/conversation/useConversation'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import {
   heldProposalReasonText,
@@ -35,6 +37,39 @@ const BLOCK: V5HeldProposalBlockType = {
 
 const STRUCTURAL_HELD_SENTENCE =
   'This reshapes your model, so it needs your go-ahead before it is applied.'
+
+/**
+ * SETTLEMENT IS NO LONGER THE CARD'S OWN STATE (SENDABLE failure 5).
+ *
+ * The card is now CONTROLLED: it reads settlement from the conversation's
+ * shared `patchBlockStates` registry and reports settlement back through
+ * `onSettle`, so every mounted surface retires the same proposal together.
+ * This harness is that registry in miniature — the tests below therefore pin
+ * the SHARED contract rather than a component-local `useState` that only ever
+ * spoke for one React instance.
+ *
+ * Cross-surface propagation itself is pinned separately, at the surface, in
+ * `canvas/conversation/__tests__/heldProposalSettlement.crossSurface.spec.tsx`.
+ */
+function Hosted({
+  block,
+  onSettleSpy,
+}: {
+  block: V5HeldProposalBlockType
+  onSettleSpy?: (proposalId: string, settlement: 'accepted' | 'dismissed') => void
+}): ReactElement {
+  const [state, setState] = useState<PatchBlockState>('proposed')
+  return (
+    <V5HeldProposalBlock
+      block={block}
+      settledState={state}
+      onSettle={(proposalId, settlement) => {
+        onSettleSpy?.(proposalId, settlement)
+        setState(settlement)
+      }}
+    />
+  )
+}
 
 beforeEach(() => {
   useGuidanceStore.setState({ _sendChip: null })
@@ -80,12 +115,16 @@ describe('V5HeldProposalBlock', () => {
 
   it('confirm dispatches the producer message through the _sendChip seam (single writer)', () => {
     const sendChip = vi.fn()
+    const onSettle = vi.fn()
     useGuidanceStore.setState({ _sendChip: sendChip })
-    render(<V5HeldProposalBlock block={BLOCK} />)
+    render(<Hosted block={BLOCK} onSettleSpy={onSettle} />)
 
     fireEvent.click(screen.getByTestId('v5-held-proposal-confirm'))
 
     expect(sendChip).toHaveBeenCalledTimes(1)
+    // Settlement is reported by PROPOSAL HANDLE, never by position or label,
+    // so every copy of this proposal can retire from one report.
+    expect(onSettle).toHaveBeenCalledWith('gmh_ab12cd34ef56', 'accepted')
     // ARITY EXTENDED (L-59): the seam now carries the producer's own
     // `action_type` as a third argument. These fixtures declare none, so the
     // value is `undefined` — i.e. this turn is byte-identical to the one that
@@ -102,7 +141,7 @@ describe('V5HeldProposalBlock', () => {
   it('does not double-dispatch on a second confirm click', () => {
     const sendChip = vi.fn()
     useGuidanceStore.setState({ _sendChip: sendChip })
-    render(<V5HeldProposalBlock block={BLOCK} />)
+    render(<Hosted block={BLOCK} />)
     const btn = screen.getByTestId('v5-held-proposal-confirm')
     fireEvent.click(btn)
     fireEvent.click(btn)
@@ -112,7 +151,7 @@ describe('V5HeldProposalBlock', () => {
   it('dismiss with no decline action is local-only (no turn sent)', () => {
     const sendChip = vi.fn()
     useGuidanceStore.setState({ _sendChip: sendChip })
-    render(<V5HeldProposalBlock block={BLOCK} />)
+    render(<Hosted block={BLOCK} />)
 
     fireEvent.click(screen.getByTestId('v5-held-proposal-dismiss'))
 
@@ -159,7 +198,7 @@ describe('V5HeldProposalBlock', () => {
 
   it('confirm still works after a host registers late (the affordance was not burned)', () => {
     useGuidanceStore.setState({ _sendChip: null })
-    render(<V5HeldProposalBlock block={BLOCK} />)
+    render(<Hosted block={BLOCK} />)
     fireEvent.click(screen.getByTestId('v5-held-proposal-confirm'))
 
     // A conversation host registers after the first (no-op) click. act() so the

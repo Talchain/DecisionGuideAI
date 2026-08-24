@@ -61,6 +61,23 @@ export function heldProposalReasonText(reasonCode: string): string {
 /** Card heading. States the situation, makes no claim about the change. */
 export const HELD_PROPOSAL_HEADING = 'Waiting for your go-ahead'
 
+/**
+ * Heading once the proposal is SETTLED (confirmed or dismissed, in this surface
+ * or any other).
+ *
+ * WHY A SECOND HEADING EXISTS. `HELD_PROPOSAL_HEADING` is a claim in the
+ * present tense: this change *is* waiting for you. Once the user has confirmed
+ * or dismissed, that claim is false, and it was measurably false on screen —
+ * SENDABLE failure 5 witnessed four cards still headed "Waiting for your
+ * go-ahead" after their changes had been applied and persisted. A settled card
+ * must stop asserting a state it is no longer in, and it must say so in the
+ * heading, because the heading is what a user scanning the transcript reads.
+ *
+ * It negates the pending heading directly rather than introducing a new noun,
+ * so the two states are legible as the same sentence in two tenses.
+ */
+export const HELD_PROPOSAL_SETTLED_HEADING = 'No longer waiting for your go-ahead'
+
 /** UI-owned dismiss affordance label (the confirm label is the producer's). */
 export const HELD_PROPOSAL_DISMISS_LABEL = 'Not now'
 
