@@ -126,7 +126,15 @@ export function resolvePatchBlockState(
  * carry-forward's same-key supersession rule retires the older one." The target
  * key collapses harder still: `mutationTargetKey`
  * (`graph-management/pending-projection.ts:98-121`) returns `node:<id>` for
- * `add_node`, `rename_node`, `update_node_field` AND `remove_node` alike.
+ * FIVE ops alike: `add_node`, `rename_node`, `update_node_field`,
+ * `remove_node` AND `add_option` (`pending-projection.ts:106-107`).
+ *
+ * ⚠ This enumeration is a HAND-MAINTAINED MIRROR of a CEE switch — the exact
+ * defect class trap 12 names — and it drifted within one PR: an independent
+ * review found it stating four while the producer collapsed five. It is kept
+ * because the collapse is the whole reason the handle names a SLOT, and a
+ * reader who believes it is four will mis-reason about `add_option`. Re-derive
+ * at `mutationTargetKey` before relying on the count; do not trust this line.
  *
  * So the handle names a SLOT — "the current hold against this target" — not an
  * OFFER INSTANCE. Re-issuance IS the supersession mechanism, not an accident,
