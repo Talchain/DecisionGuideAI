@@ -159,11 +159,16 @@ interface InlineBlocksProps {
   onProposalConfirm?: (proposalId: string) => void
   /**
    * Record a held proposal's settlement in the conversation's SHARED registry
-   * (`patchBlockStates`), keyed by the proposal HANDLE. Absent ⇒ the card still
+   * (`patchBlockStates`), keyed by the MOUNT key (turn + handle) for every
+   * copy on screen when the user acts. Absent ⇒ the card still
    * sends its confirm/decline turn but cannot retire — see the state-ownership
    * note in `V5HeldProposalBlock`. Every product host wires this.
    */
-  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
+  onHeldProposalSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
   /** Word count of the turn's assistant_text — used by commentary collapse default logic */
   assistantTextWordCount?: number
   /**
@@ -538,11 +543,16 @@ interface BlockRendererProps {
   onProposalConfirm?: (proposalId: string) => void
   /**
    * Record a held proposal's settlement in the conversation's SHARED registry
-   * (`patchBlockStates`), keyed by the proposal HANDLE. Absent ⇒ the card still
+   * (`patchBlockStates`), keyed by the MOUNT key (turn + handle) for every
+   * copy on screen when the user acts. Absent ⇒ the card still
    * sends its confirm/decline turn but cannot retire — see the state-ownership
    * note in `V5HeldProposalBlock`. Every product host wires this.
    */
-  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
+  onHeldProposalSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
   assistantTextWordCount?: number
   /**
    * ONE RENDER AUTHORITY: the surviving text for a `commentary` block whose
@@ -715,12 +725,18 @@ function BlockRenderer({
     // R8 (roadmap 2.27): held CEE mutation → honest confirm/dismiss card.
     case 'v5_held_proposal':
       // SENDABLE failure 5: settlement is read from and written to the ONE
-      // shared registry, keyed by the proposal handle, so every copy of this
-      // proposal — dock and floating panel are both mounted — retires together.
+      // shared registry. The key is the MOUNT key — this turn plus this
+      // proposal — because a CEE hold handle names a target SLOT, not an offer
+      // instance, and is deliberately re-minted for a later offer against the
+      // same target (`selectors.ts` :: the two questions). Both surfaces render
+      // the same `message.id`, so they still share a key and still retire
+      // together; a LATER turn re-issuing the handle gets its own key and stays
+      // offerable, which is the half the handle-only key destroyed.
       return (
         <V5HeldProposalBlock
           block={block}
-          settledState={resolveHeldProposalState(block.proposal_id, patchBlockStates)}
+          turnId={turnId}
+          settledState={resolveHeldProposalState(turnId, block.proposal_id, patchBlockStates)}
           onSettle={onHeldProposalSettle}
         />
       )

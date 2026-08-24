@@ -93,7 +93,7 @@ export function resolvePatchBlockState(
 }
 
 /**
- * SETTLEMENT KEY FOR A HELD PROPOSAL — bound by PROPOSAL IDENTITY.
+ * ═══ HELD-PROPOSAL SETTLEMENT: TWO QUESTIONS, NAMED APART ═══════════════════
  *
  * ── The defect this closes (SENDABLE failure 5, witnessed 2026-08-22) ───────
  * `V5HeldProposalBlock` owned its settled/unsettled state in a component-local
@@ -103,34 +103,98 @@ export function resolvePatchBlockState(
  * MORE React instances. Local state cannot cross an instance boundary, so
  * confirming in one surface left every other copy with live controls, an
  * unchanged "Waiting for your go-ahead" heading, and a confirm button that
- * re-fired into a refusal. The card was answering "did the user click THIS
- * React node?" while the user, the server and every other copy were asking
- * "has this PROPOSAL been settled?" — two authorities, similar names.
+ * re-fired into a refusal.
  *
  * There is exactly ONE settlement authority in this conversation:
  * `useConversation`'s `patchBlockStates` map (`PatchBlockState`), written via
  * `setPatchBlockState` and read by `resolvePatchBlockState` above. Held
  * proposals converge onto it rather than minting a second registry.
  *
- * ⚠ WHY THE KEY IS NOT `turnId:proposal_id`, unlike the graph-patch key.
- * A graph patch is identified by its position in a turn. A held proposal is a
- * CEE-minted hold HANDLE (`gmh_…`) whose lifecycle is owned SERVER-side, per
- * handle, across turns: confirming it retires the hold itself, not one turn's
- * view of it. Keying by turn would let the same handle read `proposed` in one
- * turn and `accepted` in another — precisely the split this closes. So the key
- * is the handle, and only the handle.
+ * ── ⚠ AND THE DEFECT THAT KEYING ON THE BARE HANDLE INTRODUCED ─────────────
+ * The first cut of this fix keyed settlement on the proposal handle ALONE,
+ * deliberately turn-independent. That merges two DIFFERENT questions (trap 21),
+ * and the merge is unsound because THE HANDLE IS NOT UNIQUE PER OFFER.
+ *
+ * Derived at the CEE bytes (`olumi-assistants-service` @ `d1da6706`,
+ * `src/orchestrator-v5/handlers/edit-graph-referee-gate.ts:696-702`):
+ *
+ *     gmHeldProposalRef(scenarioId, targetKey)
+ *       = `gmh_` + sha256(`${scenarioId}:${targetKey}`).slice(0, 12)
+ *
+ * No nonce, no turn, no timestamp — and its own comment says why: "A NEWER
+ * held offer for the SAME target gets the SAME handle, so the commit
+ * carry-forward's same-key supersession rule retires the older one." The target
+ * key collapses harder still: `mutationTargetKey`
+ * (`graph-management/pending-projection.ts:98-121`) returns `node:<id>` for
+ * `add_node`, `rename_node`, `update_node_field` AND `remove_node` alike.
+ *
+ * So the handle names a SLOT — "the current hold against this target" — not an
+ * OFFER INSTANCE. Re-issuance IS the supersession mechanism, not an accident,
+ * which is why the honest fix is here and not a nonce in CEE: a nonce would
+ * break the §6.7 same-key supersession contract the handle exists to serve.
+ *
+ * Keyed on the bare handle, a settlement therefore leaks forward in time onto a
+ * genuinely NEW offer: dismiss "remove the Pricing node", and CEE's later
+ * "rename the Pricing node" mounts already settled — no confirm, no dismiss,
+ * heading "No longer waiting for your go-ahead". The chip row cannot rescue it
+ * either, because `buildSuggestedActionChips` suppresses a held_proposal's
+ * confirm/decline ids on any turn carrying such a block, settled or not. ZERO
+ * affordance for a proposal CEE has freshly issued.
+ *
+ * ── THE TWO QUESTIONS ──────────────────────────────────────────────────────
+ * · MOUNT — "should THIS card instance render as settled?" Per turn, per
+ *   proposal. Answered by {@link heldProposalMountKey} /
+ *   {@link resolveHeldProposalState}. This is the same scoping the graph-patch
+ *   consent card has always used (`GraphPatchBlockRenderer`: `${turnId}:${patch_id}`),
+ *   and message ids are stable for the life of a message (`updateMessage`
+ *   patches by id and never rewrites it), so the scope is durable.
+ *
+ * · RETIREMENT — "which mounted copies does settling this proposal retire?"
+ *   Answered by {@link heldProposalRetirementKeys}, ONCE, at settle time.
+ *   Every copy on screen when the user acts — both surfaces, and every earlier
+ *   turn re-issuing the same handle — retires together. Turns that arrive
+ *   AFTERWARDS have no entry, so they mount live.
+ *
+ * The invariant the pair implements, and the only one worth reading:
+ *
+ *     A held proposal offers an affordance IF AND ONLY IF it is unresolved
+ *     ON THE TURN IT IS MOUNTED.
+ *
+ * Both directions are load-bearing and they are opposite harms: a resolved
+ * proposal still offering an action is a lie that ends in a refusal; an
+ * unresolved proposal offering none is a dead end. One predicate cannot guard
+ * both doors (trap 22b) — which is why there are two functions here, not one
+ * with a wider window.
+ *
+ * ⚠ NOT the remedy: "clear the key when a later turn re-issues the handle".
+ * Clearing frees the LATER card by RESURRECTING the earlier one, re-opening the
+ * stale-live harm in the other direction. Pinned as its own case in
+ * `__tests__/heldProposalSettlement.acrossTurns.spec.tsx`.
  *
  * The `held:` prefix keeps the two key spaces disjoint inside the one map, so
  * a `patch_id` can never collide with a `proposal_id`.
  */
 export const HELD_PROPOSAL_STATE_KEY_PREFIX = 'held:'
 
-export function heldProposalStateKey(proposalId: string): string {
-  return `${HELD_PROPOSAL_STATE_KEY_PREFIX}${proposalId}`
+/**
+ * THE MOUNT QUESTION. The registry key for one held-proposal card, scoped to
+ * the turn it is mounted in.
+ *
+ * `turnId` absent ⇒ the bare handle, mirroring `GraphPatchBlockRenderer`'s own
+ * fallback for a message with no id. Read and write must agree on this, so both
+ * sides go through here rather than composing the string themselves.
+ */
+export function heldProposalMountKey(
+  turnId: string | undefined,
+  proposalId: string,
+): string {
+  return turnId
+    ? `${HELD_PROPOSAL_STATE_KEY_PREFIX}${turnId}:${proposalId}`
+    : `${HELD_PROPOSAL_STATE_KEY_PREFIX}${proposalId}`
 }
 
 /**
- * Resolve a held proposal's settlement from the shared registry.
+ * Resolve a held proposal's settlement for the turn it is mounted in.
  *
  * Unlike `resolvePatchBlockState` there is no producer-supplied `status` to
  * consult: `HeldProposalBlockSchema` carries no status field, so the block
@@ -138,10 +202,55 @@ export function heldProposalStateKey(proposalId: string): string {
  * Absent ⇒ `'proposed'`, i.e. exactly today's behaviour for a fresh proposal.
  */
 export function resolveHeldProposalState(
+  turnId: string | undefined,
   proposalId: string,
   patchBlockStates: Map<string, PatchBlockState> | undefined,
 ): PatchBlockState {
-  return patchBlockStates?.get(heldProposalStateKey(proposalId)) ?? 'proposed'
+  return patchBlockStates?.get(heldProposalMountKey(turnId, proposalId)) ?? 'proposed'
+}
+
+/**
+ * THE RETIREMENT QUESTION. Every registry key that settling `proposalId` must
+ * write, derived from the transcript AS IT STANDS AT THIS MOMENT.
+ *
+ * Membership is by PROPOSAL IDENTITY (`block.proposal_id === proposalId`),
+ * never by summary, position or ordinal — the same handle deliberately carries
+ * different summaries on different turns, so any content predicate would bind
+ * to the wrong card (trap 19).
+ *
+ * `actingTurnId` is the turn whose card the user actually pressed. It is
+ * included unconditionally, so the card the user acted on retires even if it
+ * could not be found in `messages` — failing towards "the pressed card is
+ * settled", never towards leaving a live control over a resolved hold.
+ *
+ * WHY THE TRANSCRIPT IS SNAPSHOTTED RATHER THAN CONSULTED AT READ TIME: a turn
+ * that does not exist yet cannot be in this list, and that absence is precisely
+ * what keeps a freshly-issued offer live. Reading the transcript at render time
+ * instead would settle later turns too — the defect being fixed.
+ */
+export function heldProposalRetirementKeys(
+  messages: readonly ConversationMessage[],
+  proposalId: string,
+  actingTurnId?: string,
+): string[] {
+  const keys: string[] = []
+  const add = (key: string): void => {
+    if (!keys.includes(key)) keys.push(key)
+  }
+
+  if (actingTurnId !== undefined) add(heldProposalMountKey(actingTurnId, proposalId))
+
+  for (const message of messages) {
+    if (!message.blocks) continue
+    for (const block of message.blocks) {
+      if (block.type !== 'v5_held_proposal') continue
+      if (block.proposal_id !== proposalId) continue
+      add(heldProposalMountKey(message.id, proposalId))
+      break
+    }
+  }
+
+  return keys
 }
 
 function hasPendingPatch(

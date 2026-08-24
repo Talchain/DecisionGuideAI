@@ -24,13 +24,25 @@
  *                the change is waiting;
  *   · PENDING  → every copy still renders, still has live controls, and confirm
  *                still dispatches the producer's message end to end.
+ *
+ * ⚠ THE TIME AXIS IS A DIFFERENT FILE. Settlement is keyed on the MOUNT key
+ * (turn + handle), not the bare handle, because a CEE hold handle names a
+ * target SLOT and is re-minted for later offers against the same target. Both
+ * surfaces here share one `message.id`, so they share a key and this file's
+ * assertions are untouched by that scoping. What the scoping changes — a later
+ * turn re-issuing the same handle — is pinned in
+ * `heldProposalSettlement.acrossTurns.spec.tsx`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { useState, type ReactElement } from 'react'
 
 import { MessageBubble } from '../MessageBubble'
-import { heldProposalStateKey, resolveHeldProposalState } from '../selectors'
+import {
+  heldProposalMountKey,
+  heldProposalRetirementKeys,
+  resolveHeldProposalState,
+} from '../selectors'
 import type { PatchBlockState } from '../useConversation'
 import type { ConversationMessage, ConversationBlock } from '../types'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -76,10 +88,19 @@ function makeMsg(blocks: ConversationBlock[]): ConversationMessage {
  */
 function TwoSurfaces({ blocks }: { blocks: ConversationBlock[] }): ReactElement {
   const [states, setStates] = useState<Map<string, PatchBlockState>>(new Map())
-  const settle = (proposalId: string, settlement: 'accepted' | 'dismissed') => {
-    setStates((prev) => new Map(prev).set(heldProposalStateKey(proposalId), settlement))
-  }
   const message = makeMsg(blocks)
+  // The retirement derivation is PRODUCT code (`ConversationPanel` calls the
+  // same function with the same arguments). A fixture that composed the keys
+  // itself would be testing this file's idea of the wiring, not the wiring.
+  const settle = (proposalId: string, settlement: 'accepted' | 'dismissed', turnId?: string) => {
+    setStates((prev) => {
+      const next = new Map(prev)
+      for (const key of heldProposalRetirementKeys([message], proposalId, turnId)) {
+        next.set(key, settlement)
+      }
+      return next
+    })
+  }
   return (
     <>
       <div data-testid="surface-dock">
@@ -246,27 +267,102 @@ describe('held proposal settlement propagates across surfaces', () => {
   })
 })
 
-describe('heldProposalStateKey / resolveHeldProposalState', () => {
+describe('heldProposalMountKey / resolveHeldProposalState — the MOUNT question', () => {
+  const TURN_A = 'turn-aaa'
+  const TURN_B = 'turn-bbb'
+
   it('binds to the proposal HANDLE and namespaces it away from patch ids', () => {
     const states = new Map<string, PatchBlockState>([[HANDLE_A, 'accepted']])
     // A graph-patch entry under the BARE id must not settle a held proposal:
     // the two key spaces share one map and must not collide.
-    expect(resolveHeldProposalState(HANDLE_A, states)).toBe('proposed')
-    states.set(heldProposalStateKey(HANDLE_A), 'accepted')
-    expect(resolveHeldProposalState(HANDLE_A, states)).toBe('accepted')
+    expect(resolveHeldProposalState(TURN_A, HANDLE_A, states)).toBe('proposed')
+    states.set(heldProposalMountKey(TURN_A, HANDLE_A), 'accepted')
+    expect(resolveHeldProposalState(TURN_A, HANDLE_A, states)).toBe('accepted')
     // A different handle is a different proposal.
-    expect(resolveHeldProposalState(HANDLE_B, states)).toBe('proposed')
+    expect(resolveHeldProposalState(TURN_A, HANDLE_B, states)).toBe('proposed')
   })
 
-  it('is turn-independent — the same handle resolves identically for every turn', () => {
-    // Deliberate: a held proposal is a server-owned hold HANDLE, not a position
-    // in one turn. Keying by turn would let one handle read `proposed` in one
-    // turn and `accepted` in another, which is the split this closes.
+  it('is TURN-SCOPED — a settlement on one turn does not settle another turn', () => {
+    // ⚠ THIS TEST REPLACES ONE THAT ASSERTED THE OPPOSITE, AND THE REVERSAL IS
+    // THE POINT. The first cut of this fix pinned "turn-independent" as
+    // desired, reasoning that a CEE hold handle is owned server-side per handle
+    // across turns. That is true of the HOLD and false of the OFFER: the handle
+    // is `sha256(scenarioId:targetKey)` with no nonce, and re-minting it for a
+    // later offer against the same target IS the supersession mechanism
+    // (CEE `d1da6706`, edit-graph-referee-gate.ts:696). Turn-independence
+    // therefore carried a settlement forward onto a proposal the user had never
+    // seen and left it with no affordance at all — see
+    // `heldProposalSettlement.acrossTurns.spec.tsx`.
     const states = new Map<string, PatchBlockState>([
-      [heldProposalStateKey(HANDLE_A), 'accepted'],
+      [heldProposalMountKey(TURN_A, HANDLE_A), 'accepted'],
     ])
-    expect(heldProposalStateKey(HANDLE_A)).not.toContain(':turn')
-    expect(resolveHeldProposalState(HANDLE_A, states)).toBe('accepted')
-    expect(resolveHeldProposalState(HANDLE_A, undefined)).toBe('proposed')
+    expect(resolveHeldProposalState(TURN_A, HANDLE_A, states)).toBe('accepted')
+    expect(resolveHeldProposalState(TURN_B, HANDLE_A, states)).toBe('proposed')
+    expect(resolveHeldProposalState(TURN_A, HANDLE_A, undefined)).toBe('proposed')
+  })
+
+  it('falls back to the bare handle for a message with no id, on BOTH sides', () => {
+    // `GraphPatchBlockRenderer` has the same fallback. What matters is that the
+    // read and the write agree, so both go through the one helper.
+    const states = new Map<string, PatchBlockState>([
+      [heldProposalMountKey(undefined, HANDLE_A), 'dismissed'],
+    ])
+    expect(resolveHeldProposalState(undefined, HANDLE_A, states)).toBe('dismissed')
+    expect(heldProposalMountKey(undefined, HANDLE_A)).toBe(`held:${HANDLE_A}`)
+    expect(heldProposalMountKey(TURN_A, HANDLE_A)).toBe(`held:${TURN_A}:${HANDLE_A}`)
+  })
+})
+
+describe('heldProposalRetirementKeys — the RETIREMENT question', () => {
+  const TURN_A = 'turn-aaa'
+  const TURN_B = 'turn-bbb'
+
+  function turn(id: string, handles: string[]): ConversationMessage {
+    return {
+      id,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      blocks: handles.map((h) => heldBlock(h, `summary for ${h} on ${id}`)),
+    }
+  }
+
+  it('returns the mount key of EVERY turn on screen carrying that handle', () => {
+    const messages = [turn(TURN_A, [HANDLE_A]), turn(TURN_B, [HANDLE_A, HANDLE_B])]
+    expect(heldProposalRetirementKeys(messages, HANDLE_A)).toEqual([
+      heldProposalMountKey(TURN_A, HANDLE_A),
+      heldProposalMountKey(TURN_B, HANDLE_A),
+    ])
+  })
+
+  it('OPPOSITE DIRECTION — it returns nothing for a turn that does not carry the handle', () => {
+    // The half that keeps a freshly-issued proposal offerable: a turn absent
+    // from the snapshot gets no entry, so it mounts live. A version of this
+    // function that returned a bare-handle key would settle every future turn
+    // too — that is the defect being fixed, in one assertion.
+    const messages = [turn(TURN_A, [HANDLE_B])]
+    expect(heldProposalRetirementKeys(messages, HANDLE_A)).toEqual([])
+    expect(heldProposalRetirementKeys([], HANDLE_A)).toEqual([])
+  })
+
+  it('always includes the acting turn, even when the transcript does not show it', () => {
+    // Fail towards "the card the user pressed is settled", never towards
+    // leaving a live control over a hold the user has already resolved.
+    expect(heldProposalRetirementKeys([], HANDLE_A, TURN_A)).toEqual([
+      heldProposalMountKey(TURN_A, HANDLE_A),
+    ])
+    // …and it is not duplicated when the transcript does show it.
+    expect(heldProposalRetirementKeys([turn(TURN_A, [HANDLE_A])], HANDLE_A, TURN_A)).toEqual([
+      heldProposalMountKey(TURN_A, HANDLE_A),
+    ])
+  })
+
+  it('binds by proposal identity, not by summary or position', () => {
+    // The same handle deliberately carries DIFFERENT summaries on different
+    // turns, so any content predicate binds to the wrong card (trap 19).
+    const messages = [turn(TURN_A, [HANDLE_A]), turn(TURN_B, [HANDLE_B])]
+    expect(heldProposalRetirementKeys(messages, HANDLE_B)).toEqual([
+      heldProposalMountKey(TURN_B, HANDLE_B),
+    ])
   })
 })

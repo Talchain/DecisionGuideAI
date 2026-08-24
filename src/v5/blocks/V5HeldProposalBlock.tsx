@@ -82,11 +82,20 @@ export interface V5HeldProposalBlockProps {
    */
   settledState?: PatchBlockState
   /**
-   * Record this proposal's settlement in the shared registry. Called with the
-   * PROPOSAL HANDLE, never a position or a label, so every copy of the same
-   * proposal retires together.
+   * The turn this card is mounted in. Reported back on settle so the host can
+   * retire THIS copy with certainty, whatever else it finds in the transcript.
    */
-  onSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
+  turnId?: string
+  /**
+   * Record this proposal's settlement in the shared registry. Called with the
+   * PROPOSAL HANDLE and the MOUNT TURN, never a position or a label. The host
+   * owns which keys that writes — see `selectors.ts` :: the two questions.
+   */
+  onSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
 }
 
 /**
@@ -107,8 +116,15 @@ export interface V5HeldProposalBlockProps {
  *     asks "has this PROPOSAL been settled?"
  * The second question subsumes the first entirely, so the first is deleted
  * rather than reconciled. The canonical owner is `useConversation`'s
- * `patchBlockStates`, the same registry `GraphPatchBlockRenderer` already uses;
- * the key is the proposal HANDLE (`selectors.ts :: heldProposalStateKey`).
+ * `patchBlockStates`, the same registry `GraphPatchBlockRenderer` already uses.
+ *
+ * ⚠ The key is the MOUNT key — turn + handle (`selectors.ts ::
+ * heldProposalMountKey`) — NOT the bare handle. A CEE hold handle names a
+ * target SLOT and is deliberately re-minted for a later offer against the same
+ * target, so a handle-only key leaks a settlement forward onto a proposal the
+ * user has never seen and leaves it with no affordance at all. Which copies one
+ * settlement retires is a SEPARATE question, answered once at settle time by
+ * `heldProposalRetirementKeys`.
  *
  * ⚠ The refusal CEE returns on a stale confirm is deliberately NOT touched.
  * It is the safe behaviour: it declines explicitly and writes nothing. This
@@ -203,6 +219,7 @@ export function resolveHeldConfirmCopy(action: V5HeldProposalAction): HeldConfir
 export function V5HeldProposalBlock({
   block,
   settledState = 'proposed',
+  turnId,
   onSettle,
 }: V5HeldProposalBlockProps): ReactElement {
   const sendChip = useGuidanceStore((s) => s._sendChip)
@@ -258,12 +275,13 @@ export function V5HeldProposalBlock({
       confirm.message,
       confirm.action_type ? { action_type: confirm.action_type } : undefined,
     )
-    onSettle?.(block.proposal_id, 'accepted')
+    onSettle?.(block.proposal_id, 'accepted', turnId)
   }, [
     settled,
     sendChip,
     onSettle,
     block.proposal_id,
+    turnId,
     confirmCopy.record,
     confirm.message,
     confirm.action_type,
@@ -280,8 +298,8 @@ export function V5HeldProposalBlock({
         decline.action_type ? { action_type: decline.action_type } : undefined,
       )
     }
-    onSettle?.(block.proposal_id, 'dismissed')
-  }, [settled, sendChip, decline, onSettle, block.proposal_id])
+    onSettle?.(block.proposal_id, 'dismissed', turnId)
+  }, [settled, sendChip, decline, onSettle, block.proposal_id, turnId])
 
   return (
     <div

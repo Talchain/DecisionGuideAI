@@ -47,8 +47,13 @@ interface ChatMessageProps {
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
   /** SENDABLE failure 5 — record a held proposal's settlement in the shared
-   *  `patchBlockStates` registry so every mounted surface retires it together. */
-  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
+   *  `patchBlockStates` registry, for every copy on screen when the user acts:
+   *  both surfaces, and every earlier turn re-issuing the same handle. */
+  onHeldProposalSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
   /** AI panel v2 surface — render message body at panelBody (12px). */
   compact?: boolean
   /**

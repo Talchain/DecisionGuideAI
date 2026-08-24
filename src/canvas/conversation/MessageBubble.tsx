@@ -139,8 +139,13 @@ interface MessageBubbleProps {
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
   /** SENDABLE failure 5 — record a held proposal's settlement in the shared
-   *  `patchBlockStates` registry so every mounted surface retires it together. */
-  onHeldProposalSettle?: (proposalId: string, settlement: HeldProposalSettlement) => void
+   *  `patchBlockStates` registry, for every copy on screen when the user acts:
+   *  both surfaces, and every earlier turn re-issuing the same handle. */
+  onHeldProposalSettle?: (
+    proposalId: string,
+    settlement: HeldProposalSettlement,
+    turnId?: string,
+  ) => void
   /**
    * When true, render message body text with DS v5 panelBody (12px /
    * leading-relaxed) instead of the legacy body (16px / leading-relaxed).

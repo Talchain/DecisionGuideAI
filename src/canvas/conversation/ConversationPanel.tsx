@@ -26,7 +26,7 @@ import { plot } from '../../adapters/plot'
 import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
-import { heldProposalStateKey } from './selectors'
+import { heldProposalRetirementKeys } from './selectors'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import { useOptionalConversationContext } from './ConversationContext'
 import { prefillInto } from './prefillTarget'
@@ -218,19 +218,26 @@ export const ConversationPanel = memo(function ConversationPanel({
   )
 
   // ── Held-proposal settlement handler (SENDABLE failure 5) ─────────
-  // The card no longer owns whether it is settled. It reports the PROPOSAL
-  // HANDLE here and this writes the one shared registry, so the dock copy and
-  // the floating-panel copy of the same proposal retire together instead of
-  // one of them keeping live controls over a change that already happened.
+  // THE RETIREMENT QUESTION, answered here and only here: which copies does
+  // this settlement retire? Every copy ON SCREEN WHEN THE USER ACTS — both
+  // mounted surfaces, and every earlier turn that re-issued the same CEE hold
+  // handle. Each gets its own MOUNT key, so a turn that arrives LATER has no
+  // entry and mounts offerable, which is what keeps a freshly-issued proposal
+  // from inheriting a settlement the user made about a different change.
+  //
+  // The snapshot is deliberate: `messages` is read HERE, at settle time, not at
+  // render time. A turn that does not exist yet cannot be in it.
   //
   // `setPatchBlockState` is the existing single writer for card settlement
-  // (graph-patch cards already use it); `heldProposalStateKey` namespaces the
-  // handle so the two key spaces cannot collide inside the one map.
+  // (graph-patch cards already use it) and the `held:` prefix keeps the two key
+  // spaces disjoint inside the one map.
   const handleHeldProposalSettle = useCallback(
-    (proposalId: string, settlement: 'accepted' | 'dismissed') => {
-      setPatchBlockState(heldProposalStateKey(proposalId), settlement)
+    (proposalId: string, settlement: 'accepted' | 'dismissed', turnId?: string) => {
+      for (const key of heldProposalRetirementKeys(messages, proposalId, turnId)) {
+        setPatchBlockState(key, settlement)
+      }
     },
-    [setPatchBlockState],
+    [messages, setPatchBlockState],
   )
 
   // Best-effort system-event dispatch: for background acks (patch_dismissed,
