@@ -128,8 +128,39 @@ beforeEach(() => {
   }
 })
 
+/**
+ * ⚠ THE SHAPE ASSERTION CHANGED HERE; THE PROPERTY DID NOT.
+ *
+ * This pin previously asserted `getByText('ROOT_NODE_DEFAULT_VALUE,
+ * CONSTRAINT_TARGET_UNRELIABLE')` — one text node, the codes comma-joined. That
+ * string was never what ROADMAP 2.173 is about: the property is *"warnings that
+ * arrived at the ROOT slot reach the audit row"*, and the comma-join was merely
+ * the shape `ModelHealthSection` happened to render them in. When that row
+ * gained a per-code explanation (the codes-only row gave a reader an enum and no
+ * sentence, on the very surface `humaniseCritique` routes them to), the property
+ * held and the assertion broke — CLAUDE.md trap 19, an assertion bound to an
+ * incidental artefact rather than to its object.
+ *
+ * Rebound to the property: EVERY arrived code must be present in the audit
+ * warnings list, asserted per code, in the list itself rather than anywhere on
+ * the page. The "never messages" half of the original comment is not dropped —
+ * it is promoted from a comment to an assertion below, because it is the half
+ * that protects a user from ISL's raw diagnostic prose (it interpolates node
+ * ids: `"…root node 'fac-1'…"`).
+ */
+function expectAuditRowCarriesEveryCode() {
+  const list = screen.getByTestId('audit-inference-warnings')
+  for (const item of WARNING_ITEMS) {
+    // Bound by identity — this code, in the warnings list, not merely on the page.
+    expect(list.textContent, item.code).toContain(item.code)
+    // ...and the producer's raw diagnostic never reaches the surface.
+    expect(list.textContent, item.code).not.toContain(item.message)
+  }
+  expect(list.textContent).not.toContain('fac-1')
+}
+
 describe('ModelTabBody — inference_warnings dual read (ROADMAP 2.173)', () => {
-  it('ROOT-slot warnings render the ModelHealthSection banner and the codes-only audit row', () => {
+  it('ROOT-slot warnings render the ModelHealthSection banner and every arrived code in the audit row', () => {
     setReport({ inference_warnings: WARNING_ITEMS })
     renderModelTab()
 
@@ -137,11 +168,8 @@ describe('ModelTabBody — inference_warnings dual read (ROADMAP 2.173)', () => 
     expect(screen.getByTestId('root-node-warning')).toBeInTheDocument()
     expect(screen.getByText(/1 factor has no value set/)).toBeInTheDocument()
 
-    // Audit row: codes only, comma-joined — never messages
     expect(screen.getByText(/Inference warnings:/)).toBeInTheDocument()
-    expect(
-      screen.getByText('ROOT_NODE_DEFAULT_VALUE, CONSTRAINT_TARGET_UNRELIABLE'),
-    ).toBeInTheDocument()
+    expectAuditRowCarriesEveryCode()
   })
 
   it('LEGACY control: robustness-slot-only warnings still render both surfaces (second arm not dead)', () => {
@@ -149,9 +177,7 @@ describe('ModelTabBody — inference_warnings dual read (ROADMAP 2.173)', () => 
     renderModelTab()
 
     expect(screen.getByTestId('root-node-warning')).toBeInTheDocument()
-    expect(
-      screen.getByText('ROOT_NODE_DEFAULT_VALUE, CONSTRAINT_TARGET_UNRELIABLE'),
-    ).toBeInTheDocument()
+    expectAuditRowCarriesEveryCode()
   })
 
   it('ABSENCE control: no warnings in either slot → neither surface, audit block still renders', () => {

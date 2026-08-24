@@ -30,6 +30,7 @@ import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import type { CeeQualityDimensions } from '../../store'
 import { DetailToggleContext } from './DetailToggleContext'
+import { describeAuditInferenceWarnings } from './auditInferenceWarnings'
 import type { AutoNoiseProvenance } from '../../../components/results/types'
 
 /** Audit trail data from PLoT response */
@@ -110,6 +111,12 @@ function ModelHealthSectionInner({
       w => w?.code === 'ROOT_NODE_DEFAULT_VALUE'
     ).length
   }, [auditTrail?.inferenceWarnings])
+
+  // Audit-trail inference warnings: one row per code, sentence + code reference.
+  const inferenceWarningRows = useMemo(
+    () => describeAuditInferenceWarnings(auditTrail?.inferenceWarnings),
+    [auditTrail?.inferenceWarnings],
+  )
 
   // Repairs summary: aggregate by code
   const repairsSummary = useMemo(() => {
@@ -310,13 +317,36 @@ function ModelHealthSectionInner({
                 <span className={`${typography.panelMeta} text-text-body`}>{repairsSummary}</span>
               </div>
             )}
-            {/* Inference warnings */}
-            {auditTrail.inferenceWarnings && auditTrail.inferenceWarnings.length > 0 && (
+            {/* Inference warnings.
+                The CODE STAYS — `results/utils/humaniseCritique.ts`'s generic
+                fallback routes readers here for exactly that ("the raw code is
+                listed in the run's audit details"), and its own comment ratifies
+                that a machine code is correct content for an audit trail. What
+                this row used to be missing is the SENTENCE: it rendered the code
+                and nothing else, so a reader sent here to understand a
+                limitation arrived at a bare enum. `describeAuditInferenceWarnings`
+                resolves the sentence through that same owner — no copy is
+                authored here — and never echoes the producer's diagnostic
+                `message`, which interpolates raw node ids. */}
+            {inferenceWarningRows.length > 0 && (
               <div className="mt-2">
                 <span className={`${typography.panelMeta} text-text-light`}>Inference warnings: </span>
-                <span className={`${typography.panelMeta} text-text-body`}>
-                  {auditTrail.inferenceWarnings.map(w => w?.code ?? 'UNKNOWN').join(', ')}
-                </span>
+                <ul className="mt-1 space-y-1" data-testid="audit-inference-warnings">
+                  {inferenceWarningRows.map(row => (
+                    <li
+                      key={row.code ?? '__no_code__'}
+                      className={`${typography.panelMeta} text-text-body`}
+                      data-testid="audit-inference-warning-row"
+                    >
+                      {row.text}
+                      {row.code && (
+                        <span className="text-text-light">
+                          {` (${row.code}${row.count > 1 ? ` x${row.count}` : ''})`}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
