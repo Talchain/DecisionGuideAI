@@ -156,11 +156,41 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const robustness = useRobustness()
   const flipEntry = (robustness?.flip_thresholds as Array<{ node_id: string; alternative_winner_label?: string }> | undefined)
     ?.find(ft => ft.node_id === nodeId)
+  /**
+   * Contextual guidance — the factor's ANALYTICAL STATUS only.
+   *
+   * ⚠ THIS USED TO END IN A PROMISE THE COMPUTE DOES NOT KEEP. Tier 2 said
+   * *"Narrowing the range would sharpen the analysis."* and tier 3 said
+   * *"Providing an estimate helps the simulation account for this
+   * uncertainty."* Both were false, and the range control sits directly below
+   * them, so the panel read as an instruction to do something consequential.
+   * The range reaches no compute by any of its three carriers: the local write
+   * is autosaved to localStorage, the V1 mapper takes `data.prior` only when it
+   * is a NUMBER (`adapters/plot/v1/mapper.ts:175`) and this control writes the
+   * object form, and `prior_range_edit` is ratified carry-only — CEE persists a
+   * typed turn fact and writes no graph.
+   *
+   * What the range IS is now stated beside the control itself (the
+   * `factor-external-range-role` note below), which is where a user deciding
+   * whether to touch it is actually looking. This slot keeps only claims the
+   * panel can support: tier 1 reports a real robustness flip threshold, tier 2
+   * a real sensitivity rank, and tier 3 follows from the factor's declared TYPE
+   * (`category === 'external'`) — the entitlement standard coachingConfig's own
+   * header sets.
+   *
+   * ⚠ AND NONE OF THEM MAY BE AN INSTRUCTION. `InspectorRouter` wraps every
+   * panel in `<fieldset disabled>` beneath INSPECTOR_READ_ONLY_REASON
+   * (`InspectorRouter.tsx:326-340`), so on the deployed build this control is
+   * mounted and INERT. Copy telling the user to go and set something would
+   * layer a second false promise on the first. These tiers state what is true
+   * of the FACTOR; the role note states what the RANGE is; neither tells
+   * anyone to act.
+   */
   const externalGuidance = flipEntry?.alternative_winner_label
     ? `If ${String(node.data?.label ?? 'this factor')} is high, the result changes to ${flipEntry.alternative_winner_label}.`
     : isResultsMode && displayMetadata.sensitivityRank != null
-    ? 'This factor contributes significant uncertainty to your results. Narrowing the range would sharpen the analysis.'
-    : 'Providing an estimate helps the simulation account for this uncertainty.'
+    ? 'This factor contributes significant uncertainty to your results.'
+    : 'This factor is outside your control, so its level is uncertain.'
 
   return (
     <div>
@@ -235,7 +265,12 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         </StaleGuardBanner>
 
         {/* Contextual guidance */}
-        <p className={`${typography.panelBody} text-text-body mt-2`}>{externalGuidance}</p>
+        <p
+          className={`${typography.panelBody} text-text-body mt-2`}
+          data-testid="factor-external-guidance"
+        >
+          {externalGuidance}
+        </p>
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}
@@ -317,6 +352,38 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               </label>
             </div>
           )}
+
+          {/*
+            What this control actually does, stated where the control is.
+
+            It states what the range IS, not what pressing something would do.
+            The inspector is read-only on the deployed build (`<fieldset
+            disabled>` in InspectorRouter), so an instruction here could not be
+            carried out; and "your judgement" would claim an authorship the
+            panel cannot establish, because a drafted prior arrives from CEE
+            already populated.
+
+            The range is a JUDGEMENT the model records, not an analysis input —
+            see the note on `externalGuidance` above for the three carriers and
+            why none of them reaches the compute. The affordance stays because
+            the user's uncertainty is real information and `setPriorRange`
+            genuinely carries it (locally, and to CEE as a `prior_range_edit`
+            turn fact); what was wrong was the panel claiming it moved the maths.
+
+            The sentence form is NOT minted here. It is this surface's existing
+            vocabulary for exactly this distinction — `inspectorStrings.ts`
+            EDGE_LINK_NOTICES pairs "It does not affect analysis." with "It
+            affects analysis." — under the rule its own header sets for the
+            neighbouring provenance pill: a control that states a status "does
+            not change the analysis today ... and the copy must not imply it
+            does".
+          */}
+          <p
+            className={`${typography.panelMeta} text-text-light mt-2`}
+            data-testid="factor-external-range-role"
+          >
+            This range is a recorded judgement about the level. It does not affect analysis.
+          </p>
         </PrimaryControlCard>
 
         {/* Coaching — within Your input group, below the card */}
@@ -325,7 +392,19 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           panelType="factor-external"
           fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
           labelContext={{ label: String(node.data?.label ?? '') }}
-          actionLabel="Narrow the range"
+          /*
+           * NO `actionLabel` OVERRIDE, DELIBERATELY — the default is
+           * 'Ask about this'.
+           *
+           * This prop used to read `actionLabel="Narrow the range"`, on the
+           * button whose onClick is InspectorCoaching's `handleAsk` →
+           * `requestAsk` → prefill a chat question. It narrows nothing. That is
+           * the same defect InspectorCoaching's own header records (ledger
+           * L-18): "a control labelled as one semantic doing the other", and
+           * the rule it set is to label a control for what it does using the
+           * estate's existing word for the action class rather than minting a
+           * third vocabulary. The existing word is the component default.
+           */
         />
       </PanelGroup>
 

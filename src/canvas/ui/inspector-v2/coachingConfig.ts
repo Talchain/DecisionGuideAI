@@ -58,8 +58,18 @@ export const COACHING = {
   /** FactorObservablePanel: data freshness nudge */
   factorObservableData: 'If you have more recent data for this measurement, updating it would sharpen the analysis.',
 
-  /** FactorExternalPanel: uncertainty calibration nudge */
-  factorExternalUncertainty: 'This is a source of uncertainty. Even a rough estimate would significantly sharpen the analysis.',
+  /**
+   * FactorExternalPanel: uncertainty calibration nudge.
+   *
+   * ⚠ THIS USED TO END *"Even a rough estimate would significantly sharpen the
+   * analysis."* — a promise the compute does not keep. The external factor's
+   * range reaches no analysis input by any of its three carriers (see the note
+   * on `externalGuidance` in FactorExternalPanel). Per this file's own header,
+   * the entitled claim here follows from the factor's declared TYPE — that it
+   * IS a source of uncertainty — and the advice that follows must stay hedged
+   * to what recording a range actually accomplishes.
+   */
+  factorExternalUncertainty: 'This is a source of uncertainty. A recorded range makes that uncertainty explicit in the model.',
 
   /** OutcomePanel: model completeness nudge */
   outcomeCompleteness: 'Consider whether all the relevant factors driving this outcome are captured in the model.',
@@ -148,7 +158,7 @@ export interface CoachingContext {
  */
 const COACHING_TEMPLATES: Partial<Record<CoachingKey, string>> = {
   factorControllableEvidence: '{factorName} may benefit from an industry benchmark. Even a rough anchor would improve confidence.',
-  factorExternalUncertainty: '{factorName} is a source of uncertainty. Even a rough estimate would significantly sharpen the analysis.',
+  factorExternalUncertainty: '{factorName} is a source of uncertainty. A recorded range makes that uncertainty explicit in the model.',
   factorObservableData: 'If you have more recent data for {factorName}, updating it would sharpen the analysis.',
 }
 
