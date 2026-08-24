@@ -19,6 +19,10 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
+import {
+  collectStructurallyProvenNoFlipIds,
+  type FlipAttestationRowLike,
+} from '../../components/results/utils/flipReasonVocabulary'
 
 export interface BuildSnapshotParams {
   rawV2Response: V2RunResponse
@@ -79,17 +83,87 @@ function computeEvidenceCoverage(nodes: Node[]): string {
 // Factor sensitivity summary (top 5)
 // ---------------------------------------------------------------------------
 
+/**
+ * The producer's stated elasticity for one wire factor, sign preserved — or
+ * `null` where the producer stated none.
+ *
+ * ⚠ THIS IS THE ONLY PLACE IN THIS FILE THAT READS THE RAW `elasticity` FIELD,
+ * and that is the point of it. Four sites here each answered "did the producer
+ * score this factor?" for themselves, in four different spellings — `?? 0` in
+ * the sort, `typeof` + `Number.isFinite` in the summary map, a `filter` with a
+ * third spelling in the concentration denominator, and a bare `!== null` at the
+ * hero's percentage. Four spellings of one question are four chances to answer
+ * it differently, and `?? 0` was already answering it wrongly: it filed "not
+ * measured" under "measured as exactly zero", which is the strongest claim the
+ * field can make.
+ *
+ * The `elasticity` claim family is registered as FROZEN, SHRINK-ONLY DEBT with
+ * no estate-wide owner selector
+ * (`src/components/results/utils/elasticityClaimDebt.ts`). This is the
+ * file-local half of that convergence — one authority inside this file, leaving
+ * a single call site for the real owner to take over when it lands. It does not
+ * claim to BE that owner, and deliberately registers no `CLAIM_OWNERSHIP`:
+ * two modules registering one family is a hard RED in the walker's control 3a.
+ */
+function scoredElasticity(f: V2FactorSensitivity): number | null {
+  const stated = f.elasticity
+  return typeof stated === 'number' && Number.isFinite(stated) ? stated : null
+}
+
+/**
+ * Magnitude of a scored elasticity; absence propagates as `null` rather than
+ * collapsing to 0. The sign convention lives here once, instead of at each of
+ * the three sites that used to spell `Math.abs` beside their own null test.
+ */
+function elasticityMagnitude(f: V2FactorSensitivity): number | null {
+  const stated = scoredElasticity(f)
+  return stated === null ? null : Math.abs(stated)
+}
+
+/**
+ * The hero's "{n}% influence" for the top factor — `null` when there is no top
+ * factor, or when the producer did not score the one there is.
+ *
+ * Reads the ALREADY-ADAPTED summary rather than the wire, so the scored-ness
+ * decision is `scoredElasticity`'s, made once upstream, not re-litigated here.
+ * The `: 0` this replaces was the same fabrication the rest of this factory had
+ * already been cleaned of (`stability`, `fragileEdgeCount`, `seedUsed`,
+ * `runnerUpProbability`); it survived because it sits in the FACTOR-sensitivity
+ * trio rather than the robustness block, and each cleanup was scoped to the
+ * block in front of it.
+ */
+function topInfluencePercent(top: FactorSensitivitySummary | undefined): number | null {
+  const stated = top?.elasticity ?? null
+  return stated === null ? null : Math.round(Math.abs(stated) * 100)
+}
+
 function extractTopFactors(
   factors: V2FactorSensitivity[],
 ): FactorSensitivitySummary[] {
   return [...factors]
-    .sort((a, b) => Math.abs(b.elasticity ?? 0) - Math.abs(a.elasticity ?? 0))
+    // D7: an UNSCORED factor sorts LAST rather than being folded in among the
+    // genuinely-zero ones. `Math.abs(x ?? 0)` put "not measured" and "measured
+    // as exactly zero" in the same place, so `topFactors[0]` — the factor the
+    // hero invites the user to calibrate — could be a factor nobody scored.
+    .sort((a, b) => {
+      const av = elasticityMagnitude(a)
+      const bv = elasticityMagnitude(b)
+      if (av === null && bv === null) return 0
+      if (av === null) return 1
+      if (bv === null) return -1
+      return bv - av
+    })
     .slice(0, 5)
     .map(f => ({
       id: f.node_id ?? f.factor_id ?? '',
       label: f.factor_label ?? f.label ?? '',
-      elasticity: f.elasticity ?? 0,
-      rankFlipRate: f.rank_flip_rate ?? 0,
+      // D7 absence-preserving. `?? 0` here was the load-bearing mint: it fed
+      // `topElasticity`, `influenceConcentration` and the transition sentence
+      // "elasticity 0.00", all three of which read as measurements.
+      elasticity: scoredElasticity(f),
+      rankFlipRate: typeof f.rank_flip_rate === 'number' && Number.isFinite(f.rank_flip_rate)
+        ? f.rank_flip_rate
+        : null,
       attributionStability: f.attribution_stability ?? 'unknown',
     }))
 }
@@ -98,9 +172,24 @@ function extractTopFactors(
 // Influence concentration
 // ---------------------------------------------------------------------------
 
-function computeInfluenceConcentration(factors: V2FactorSensitivity[]): number {
-  if (factors.length === 0) return 0
-  const absElasticities = factors.map(f => Math.abs(f.elasticity ?? 0))
+/**
+ * D7 absence-preserving. Two distinct returns of `0` were fabrications and one
+ * was a real result, and the old signature could not tell them apart:
+ *   · no factors at all                 → NOTHING WAS MEASURED  → null
+ *   · factors present, none scored      → NOTHING WAS MEASURED  → null
+ *   · every scored elasticity is 0.0    → a genuine measurement → 0
+ * The third is preserved deliberately: this is the opposite-direction twin, and
+ * suppressing a computed 0 would be the same defect pointing the other way.
+ *
+ * Unscored factors are EXCLUDED from the denominator rather than counted as
+ * zero — counting them would deflate `max/sum` by exactly the number of
+ * measurements the producer declined to make.
+ */
+function computeInfluenceConcentration(factors: V2FactorSensitivity[]): number | null {
+  const absElasticities = factors
+    .map(elasticityMagnitude)
+    .filter((v): v is number => v !== null)
+  if (absElasticities.length === 0) return null
   const sum = absElasticities.reduce((a, b) => a + b, 0)
   if (sum === 0) return 0
   const max = Math.max(...absElasticities)
@@ -126,18 +215,151 @@ function extractConditionalWinners(
   const nested = (response?.robustness as Record<string, unknown> | undefined)?.conditional_winners
   const raw = Array.isArray(root) ? root : nested
   if (!Array.isArray(raw)) return []
+
+  // ── D7 GATE 0: THE COHERENCE GATE'S CX5 FINDING, ACTED ON ────────────────
+  // `crossSurfaceCoherence` pair CX5 detects a flip attestation beside
+  // `conditional_winners.winner_flips: true` FOR THE SAME FACTOR. Until #788
+  // the gate only OBSERVED it: nothing consumed the finding, so a detector with
+  // no consumer is instrumentation, not a guarantee.
+  //
+  // This is not hypothetical. The real capture
+  // `seeded-2026-08-17-w2d-analysis-turn.json` carries
+  // `flip_reason: 'structurally_invariant'` for factors `71c6351d` and
+  // `fcf3d740`, and `winner_flips: true` for those SAME two ids — and the
+  // Compare tab rendered "…, Floating price contract takes over" for a factor
+  // the same payload declares cannot flip at all.
+  //
+  // ⚠ D7b — NARROWED, AND THE NARROWING IS THE POINT. This gate first keyed on
+  // `no_flip_in_range === true`. That boolean is stamped by PLoT from the SET
+  // of BOTH attested reasons (`factor-flip-values.ts:304` over
+  // `NO_EFFECT_REASONS`, `flip-threshold-status.ts:75-78`), and the two reasons
+  // are epistemically different objects:
+  //
+  //   · `structurally_invariant` — slopes IDENTICAL (spread <= 1e-9). The
+  //     per-sample winner is independent of the factor, so the median-split
+  //     buckets behind `winner_flips` are two random halves of ONE sequence and
+  //     their disagreement is sampling noise. SUPPRESS.
+  //     ⚠ NOT "topological, so it holds under every sampled draw" — that
+  //     wording is withdrawn. ISL computes a NUMERICAL spread at ONE
+  //     configuration (the same MEAN one that disqualifies the token below).
+  //     The invariance rests on a MECHANISM — options are alternative values of
+  //     one decision node, so every option severs the same paths and the slopes
+  //     are the same expression — which covers the dominant case but not slopes
+  //     that merely coincide at the mean via different path products. Canonical
+  //     derivation and the residual class: `results/utils/flipReasonVocabulary.ts`
+  //     (`provesFactorCannotMoveWinner`). Disposition unchanged.
+  //   · `no_effect_within_bounds` — slopes GENUINELY DIFFER; only the crossing
+  //     sits outside the domain at the MEAN edge configuration. Sampled draws
+  //     move the crossing, so a bucket disagreement can be a real finding.
+  //     Suppressing it withholds science ISL computed. KEEP.
+  //
+  // So the gate reads the REASON, through the one module that owns the
+  // producer's vocabulary — never a second local copy of the token (trap 12).
+  // Reading the reason also WIDENS the gate in the direction that mattered:
+  // a row carrying the proof WITHOUT the boolean used to render here while the
+  // results panel's `selectFlipRisk` (which reads `flip_reason`) refused the
+  // same run — a fresh instance of the sibling-surface disagreement #788 set
+  // out to close.
+  //
+  // WHY SUPPRESS RATHER THAN RECONCILE, for the arm that is suppressed. Under
+  // the algebraic proof the two statements answer the SAME question ("can this
+  // factor flip the winner?") and one instrument provably cannot discriminate.
+  // Rendering both is the falsehood; declining the artefact is not withholding
+  // anything the producer coherently stated.
+  const noFlipFactorIds = collectNoFlipFactorIds(response)
+
   return raw
     .filter((w: Record<string, unknown>) => w && typeof w === 'object')
-    .map((w: Record<string, unknown>) => ({
-      factorId: String(w.factor_id ?? w.node_id ?? ''),
-      factorLabel: String(w.factor_label ?? w.label ?? ''),
-      winner: String(w.high_bucket && typeof w.high_bucket === 'object'
-        ? (w.high_bucket as Record<string, unknown>).winner_label ?? ''
-        : ''),
-      condition: w.split_value != null
-        ? `When ${String(w.factor_label ?? w.label ?? 'factor')} exceeds ${w.split_value}${w.split_unit ? ` ${w.split_unit}` : ''}`
-        : '',
-    }))
+    // ── D7 GATE 1: THE PRODUCER'S FLIP ATTESTATION ───────────────────────────
+    // `winner_flips` is a REQUIRED boolean in the contract
+    // (`EnrichmentConditionalWinnerSchema`, vendored 0.48.0) that admits
+    // `false`, and the producer's own doc states it says THAT the winner
+    // changes across the split, never WHICH option. This extractor read no
+    // attestation at all: it took `high_bucket.winner_label` and
+    // `deriveTransitions` rendered "…, {label} takes over" — a takeover claim
+    // minted from a bucket label, for a row the science may have attested does
+    // NOT flip. `ConditionalWinnerCards.tsx:86` (the results panel) already
+    // gates on this field; the Compare tab is the sibling surface that was left
+    // behind, so one payload produced a flip claim on one surface and not the
+    // other.
+    .filter((w: Record<string, unknown>) => w.winner_flips === true)
+    .filter((w: Record<string, unknown>) =>
+      !(typeof w.factor_id === 'string' && noFlipFactorIds.has(w.factor_id)))
+    // ── D7 GATE 2: A CLAIM NEEDS A THRESHOLD IT CAN STATE ────────────────────
+    // "flips at N" requires a finite N. A row without one cannot state the
+    // condition, and the old `: ''` arm produced the bare fragment ", X takes
+    // over" with no "when".
+    .filter((w: Record<string, unknown>) =>
+      typeof w.split_value === 'number' && Number.isFinite(w.split_value))
+    // ── D7 GATE 3: IDENTITY, NOT LABEL ───────────────────────────────────────
+    // When BOTH bucket identities are on the wire they are the discriminator,
+    // and they outrank the labels: two options can share one display label (a
+    // real flip a label filter cannot see) and a relabelled option is not a
+    // flip. Equal ids beside `winner_flips: true` is a producer
+    // self-contradiction (coherence pair CX5's shape) — the honest response is
+    // to decline the claim, not to reconcile it. When an id is ABSENT the
+    // producer has WITHHELD it, which is not a contradiction and is handled
+    // below by declining to NAME the option rather than dropping the row.
+    .filter((w: Record<string, unknown>) => {
+      const lo = bucketMember(w.low_bucket, 'winner_id')
+      const hi = bucketMember(w.high_bucket, 'winner_id')
+      if (lo === null || hi === null) return true
+      return lo !== hi
+    })
+    .map((w: Record<string, unknown>) => {
+      const highId = bucketMember(w.high_bucket, 'winner_id')
+      const highLabel = bucketMember(w.high_bucket, 'winner_label')
+      const factorLabel = String(w.factor_label ?? w.label ?? '')
+      return {
+        factorId: String(w.factor_id ?? w.node_id ?? ''),
+        factorLabel,
+        // Absence here means WITHHELD, per the contract's stated absence
+        // semantics ("It never means 'no option won'"). `String(... ?? '')`
+        // turned that withholding into an empty string that was then
+        // interpolated into a sentence.
+        winner: highLabel,
+        winnerId: highId,
+        lowWinnerId: bucketMember(w.low_bucket, 'winner_id'),
+        condition: `When ${factorLabel !== '' ? factorLabel : 'this factor'} exceeds ${w.split_value}${w.split_unit ? ` ${String(w.split_unit)}` : ''}`,
+      }
+    })
+}
+
+/**
+ * Factor ids whose `flip_thresholds` row carries the ALGEBRAIC no-flip proof.
+ *
+ * ⚠ D7b: the membership test is `collectStructurallyProvenNoFlipIds`, in
+ * `components/results/utils/flipReasonVocabulary` — the one module that owns
+ * the producer's flip vocabulary, and the module `selectFlipRisk` already
+ * consults for the RUN-LEVEL question. A local token literal here would be the
+ * hand-maintained mirror (trap 12) and, worse, a SECOND authority on what
+ * "attested" means (trap 21) — which is precisely the disagreement this gate
+ * exists to end. The two questions are named apart in that module's docblock;
+ * they are deliberately NOT the same predicate.
+ *
+ * Bound by IDENTITY, never by `factor_label`: the two arrays are joined on the
+ * id in the producer's own CX5 detector (`crossSurfaceCoherence.ts`), and a
+ * label join would both miss a real contradiction between two same-labelled
+ * factors and invent one between two differently-labelled rows for one factor.
+ *
+ * An ABSENT reason is not a negative one — an unknown token, a missing reason
+ * or a probe failure all fail the proof, so nothing the producer computed is
+ * withheld on the strength of a row that established nothing.
+ */
+function collectNoFlipFactorIds(response: V2RunResponse): Set<string> {
+  const root = (response as unknown as Record<string, unknown> | undefined)?.flip_thresholds
+  const nested = (response?.robustness as Record<string, unknown> | undefined)?.flip_thresholds
+  const rows = Array.isArray(root) ? root : nested
+  return collectStructurallyProvenNoFlipIds(
+    (Array.isArray(rows) ? rows : []) as FlipAttestationRowLike[],
+  )
+}
+
+/** Read one string member off a conditional-winner bucket. Absent ⇒ null. */
+function bucketMember(bucket: unknown, key: string): string | null {
+  if (!bucket || typeof bucket !== 'object') return null
+  const v = (bucket as Record<string, unknown>)[key]
+  return typeof v === 'string' && v !== '' ? v : null
 }
 
 function extractEdgeEValues(
@@ -535,10 +757,13 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
     influenceConcentration: computeInfluenceConcentration(factors),
     topCalibrationFactor: topCalibrationFactor?.label ?? '',
     topCalibrationFactorId: topCalibrationFactor?.id ?? '',
-    topElasticity: topFactors.length > 0
-      ? Math.round(Math.abs(topFactors[0].elasticity) * 100)
-      : 0,
-    rankFlipRate: topFactors.length > 0 ? topFactors[0].rankFlipRate : 0,
+    // D7 absence-preserving. Both lines had the identical `: 0` fabrication the
+    // rest of this factory had already been cleaned of (`stability`,
+    // `fragileEdgeCount`, `seedUsed`, `runnerUpProbability`). They survived
+    // because they are the FACTOR-sensitivity trio rather than the robustness
+    // block, and each cleanup was scoped to the block in front of it.
+    topElasticity: topInfluencePercent(topFactors[0]),
+    rankFlipRate: topFactors.length > 0 ? topFactors[0].rankFlipRate : null,
 
     goalProbability,
     jointGoalProbability,

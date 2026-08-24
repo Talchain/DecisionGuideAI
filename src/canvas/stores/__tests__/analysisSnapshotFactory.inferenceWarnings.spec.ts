@@ -126,7 +126,13 @@ describe('buildAnalysisSnapshot — inference_warnings root-wins dual read (ROAD
           factor_id: 'factor-1',
           factor_label: 'Factor One',
           split_value: 12,
-          high_bucket: { winner_label: 'Option B' },
+          // D7: contract-required `winner_flips` plus the bucket IDENTITIES the
+          // factory now binds to. This test asserts the two CALLERS agree for
+          // one enrichment; that coherence claim is only meaningful over a row
+          // the producer could actually emit.
+          winner_flips: true,
+          low_bucket: { winner_id: 'opt-a', winner_label: 'Option A' },
+          high_bucket: { winner_id: 'opt-b', winner_label: 'Option B' },
         },
       ],
       // Ids no node resolves — both paths degrade the label identically, so
@@ -165,6 +171,8 @@ describe('buildAnalysisSnapshot — inference_warnings root-wins dual read (ROAD
         factorId: 'factor-1',
         factorLabel: 'Factor One',
         winner: 'Option B',
+        winnerId: 'opt-b',
+        lowWinnerId: 'opt-a',
         condition: 'When Factor One exceeds 12',
       },
     ])

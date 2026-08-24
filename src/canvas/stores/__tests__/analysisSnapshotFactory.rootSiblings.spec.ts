@@ -77,7 +77,15 @@ const CW_ROOT = [
     factor_id: 'n1',
     factor_label: 'Factor One',
     split_value: 12,
-    high_bucket: { winner_label: 'Option B' },
+    // D7: `winner_flips` and the bucket IDENTITIES are added because the
+    // contract REQUIRES the first (`winner_flips: z.boolean()`) and the factory
+    // now binds the flip claim to it and to the ids. A row without them was
+    // never a legal payload, so this fixture was pinning SLOT PRECEDENCE with
+    // an illegal row. Precedence is still exactly what these tests measure —
+    // the row is merely now one the producer could actually emit.
+    winner_flips: true,
+    low_bucket: { winner_id: 'opt-a', winner_label: 'Option A' },
+    high_bucket: { winner_id: 'opt-b', winner_label: 'Option B' },
   },
 ]
 const CW_MAPPED = [
@@ -85,6 +93,8 @@ const CW_MAPPED = [
     factorId: 'n1',
     factorLabel: 'Factor One',
     winner: 'Option B',
+    winnerId: 'opt-b',
+    lowWinnerId: 'opt-a',
     condition: 'When Factor One exceeds 12',
   },
 ]
@@ -101,7 +111,14 @@ describe('buildAnalysisSnapshot — conditional_winners root-wins dual read (ROA
       conditional_winners: CW_ROOT,
       robustness: {
         conditional_winners: [
-          { factor_id: 'nested', factor_label: 'Nested', high_bucket: { winner_label: 'Loses' } },
+          {
+            factor_id: 'nested',
+            factor_label: 'Nested',
+            split_value: 3,
+            winner_flips: true,
+            low_bucket: { winner_id: 'opt-x', winner_label: 'Wins' },
+            high_bucket: { winner_id: 'opt-y', winner_label: 'Loses' },
+          },
         ],
       },
     })

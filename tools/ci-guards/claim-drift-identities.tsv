@@ -29,8 +29,8 @@
 # the same PR with `node tools/ci-guards/update-claim-drift-baseline.mjs` and say so in the PR body.
 #
 # Format: <count><TAB><family><TAB><path><TAB><field><TAB><canonicalised source line>
-# count=84
-# identities=78
+# count=80
+# identities=74
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? driver.sensitivity_score >= 0 ? 'positive' : 'negative'
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? normalizeImpact(driver.sensitivity_score)
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	const impact = driver.sensitivity_score !== undefined
@@ -65,16 +65,12 @@
 1	elasticity	src/canvas/analysis/assembleAnalysisInputsSummary.ts	elasticity	.sort((a, b) => Math.abs(b.elasticity) - Math.abs(a.elasticity))
 1	elasticity	src/canvas/analysis/assembleAnalysisInputsSummary.ts	elasticity	if (typeof fs.elasticity === 'number') return fs.elasticity
 1	elasticity	src/canvas/analysis/assembleAnalysisInputsSummary.ts	sensitivity_score	if (typeof fs.sensitivity_score === 'number') return fs.sensitivity_score
-1	elasticity	src/canvas/compare-tab/deriveTransitions.ts	elasticity	const change = Math.abs(factor.elasticity - prevElasticity) / Math.abs(prevElasticity)
-1	elasticity	src/canvas/compare-tab/deriveTransitions.ts	elasticity	const fromElasticity = new Map(fromFactors.map(f => [f.id, f.elasticity]))
-1	elasticity	src/canvas/compare-tab/deriveTransitions.ts	elasticity	return `Based on: ${toTop.label} remained the top influence factor (elasticity ${toTop.elasticity.toFixed(2)})`
+1	elasticity	src/canvas/compare-tab/deriveTransitions.ts	elasticity	return f.elasticity
 1	elasticity	src/canvas/components/ModelTabBody.tsx	elasticity	if (typeof f?.elasticity === 'number') elasticity.set(id, f.elasticity)
 1	elasticity	src/canvas/edges/StyledEdge.tsx	elasticity	const goalSens = src ? Math.abs(src.elasticity ?? src.sensitivity_score ?? src.importance_score ?? 0) : 1.0
 1	elasticity	src/canvas/hooks/useLensFilter.ts	elasticity	return f.elasticity ?? f.sensitivity_score ?? f.sensitivity ?? f.importance_score ?? 0
-1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	.sort((a, b) => Math.abs(b.elasticity ?? 0) - Math.abs(a.elasticity ?? 0))
-1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	? Math.round(Math.abs(topFactors[0].elasticity) * 100)
-1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	const absElasticities = factors.map(f => Math.abs(f.elasticity ?? 0))
-1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	elasticity: f.elasticity ?? 0,
+1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	const stated = f.elasticity
+1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	const stated = top?.elasticity ?? null
 1	elasticity	src/components/debug/utils/exportBundle.ts	sensitivity_score	const sensitivityVal = typeof match?.sensitivity_score === 'number' && Number.isFinite(match.sensitivity_score) ? match.sensitivity_score : null
 1	elasticity	src/components/debug/utils/exportBundle.ts	sensitivity_score	sensitivity: 'cee_embedded.analysis_result.enrichment.factor_sensitivity.sensitivity_score',
 1	elasticity	src/components/debug/utils/exportBundle.ts	sensitivity_score	sensitivity: 'payloads.plot_response.factor_sensitivity.sensitivity_score',

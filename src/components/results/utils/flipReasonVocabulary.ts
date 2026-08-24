@@ -75,6 +75,19 @@ export const ATTESTED_NO_FLIP_REASONS = [
 ] as const
 
 /**
+ * THE ONE TOKEN THAT IS AN ALGEBRAIC PROOF RATHER THAN A MEASURED SEARCH.
+ *
+ * PLoT's own words, `lib/flip-threshold-status.ts:44-49` read at staging
+ * `7e5d8a7d`: the per-option transmission slopes are IDENTICAL (spread
+ * <= 1e-9), so "no value of this factor can move the argmax"; ISL calls it
+ * "a MATHEMATICAL ATTESTATION, not a failed or timed-out probe".
+ *
+ * It is a SUBSET of {@link ATTESTED_NO_FLIP_REASONS}, and the distinction is
+ * the whole point — see {@link provesFactorCannotMoveWinner}.
+ */
+export const STRUCTURAL_NO_FLIP_PROOF = 'structurally_invariant'
+
+/**
  * Tokens KNOWN to mean the probe did not establish anything. Enumerated for
  * documentation and for the drift pin — NOT consulted by the predicates, which
  * are written as "not substantive" precisely so an unknown token needs no entry
@@ -153,6 +166,156 @@ export function isAttestedNoFlipReason(reason: string | null | undefined): boole
 export function isProbeFailureFlipReason(reason: string | null | undefined): boolean {
   if (isAttestedNoFlipReason(reason)) return false
   return reason !== FLIP_REASON_FOUND
+}
+
+/**
+ * ═════════════════════════════════════════════════════════════════════════
+ * THE SECOND PREDICATE — AND WHY IT MUST NEVER BE MERGED WITH THE FIRST
+ * ═════════════════════════════════════════════════════════════════════════
+ *
+ * TWO QUESTIONS, WRITTEN DOWN BEFORE ANYTHING WAS RECONCILED (trap 21):
+ *
+ *   Q1  "May this run state that NO factor reached a tipping point?"
+ *       → `isAttestedNoFlipReason`, consumed by `selectFlipRisk`
+ *         (`classifyFlipEvidence`, RUN-LEVEL: every row must attest).
+ *       → BOTH tokens qualify. `no_effect_within_bounds` genuinely IS an
+ *         attested absence over the tested range, and narrowing Q1 would make
+ *         the product name a flip risk it has no evidence for.
+ *
+ *   Q2  "May this factor's attestation be used to WITHHOLD a positive claim
+ *        another instrument computed about the same factor?"
+ *       → `provesFactorCannotMoveWinner`, consumed by the conditional-winner
+ *         suppression (PER-FACTOR).
+ *       → ONLY `structurally_invariant` qualifies.
+ *
+ * WHY Q2 IS STRICTLY NARROWER, derived at the producer rather than chosen:
+ *
+ *   · `structurally_invariant` — the per-option transmission slopes are
+ *     IDENTICAL. The per-sample winner is therefore independent of the factor,
+ *     and the median-split bucket comparison behind
+ *     `conditional_winners.winner_flips` is a comparison of two random halves
+ *     of ONE sequence — its disagreement rate is governed only by proximity to
+ *     a 50/50 win probability. Measured on the deployed build: 4/8 near-tie
+ *     responses assert both claims for one factor; 0/8 in the separated
+ *     contrast control.
+ *
+ *     ⚠⚠ WHAT ISL ACTUALLY COMPUTES — CORRECTED, AND THIS IS THE CANONICAL
+ *     STATEMENT THE SIBLING SITES POINT AT. This block previously said slope
+ *     equality "is a TOPOLOGICAL property of the graph ... so it holds under
+ *     EVERY sampled edge configuration, not merely at the mean". ISL COMPUTES
+ *     NO SUCH THING. Derived at `robustness_analyzer_v2.py` (ISL staging
+ *     `28fe0c9`): the candidate screen evaluates each option's goal at the
+ *     factor's MIN and MAX (`:6751-6756`), takes the affine coefficients
+ *     (`:6757`), and screens `spread = max(slopes) - min(slopes)` against
+ *     `FACTOR_FLIP_SLOPE_EPSILON = 1e-9` (`:6763`, `:6775`, `:6522`). Every one
+ *     of those evaluations runs against a SINGLE
+ *     `baseline_config = {edge: strength.mean * exists_probability}`
+ *     (`:6722-6724`). So it is a NUMERICAL equality test at ONE configuration —
+ *     and it is THE SAME MEAN CONFIGURATION the next bullet uses to
+ *     DISQUALIFY `no_effect_within_bounds`. The old wording granted one token a
+ *     sample-invariance guarantee while treating the identical premise as
+ *     disqualifying for the other.
+ *
+ *     ⭐ THE CONCLUSION STILL HOLDS — ON A NAMED MECHANISM, NOT ON THAT WORD.
+ *     In this product's graphs the options are alternative values of ONE
+ *     decision node, so every option severs the SAME set of causal paths from a
+ *     given factor to the goal. Each option's transmission slope is then the
+ *     SAME ALGEBRAIC EXPRESSION in the sampled edge strengths, and two equal
+ *     expressions stay equal at every draw, not merely at the mean. That — not
+ *     topology as such — is what makes the per-sample winner independent of the
+ *     factor, and it is why SUPPRESS is the right disposition.
+ *
+ *     ⚠ THE RESIDUAL CLASS THE MECHANISM DOES NOT COVER, recorded rather than
+ *     hidden. Two slopes can also coincide at the mean through DIFFERENT path
+ *     products — `0.5 × 0.4` and `0.2 × 1.0` both give `0.2` — which is not
+ *     far-fetched with the round-numbered strengths a drafted graph carries.
+ *     Those slopes are NOT the same expression, so they separate as soon as the
+ *     draws move, and for such a factor `winner_flips` could be a real finding
+ *     this gate suppresses. Nothing in ISL rules the class out: its own
+ *     `stability` field says the band is skipped for a `structurally_invariant`
+ *     row because computing one "would spend the compute the candidate screen
+ *     exists to save" (`src/models/response_v2.py:854-855`) — a COST decision,
+ *     not a proof of sample-invariance.
+ *
+ *     The disposition is UNCHANGED: the mechanism covers the dominant case, and
+ *     the residual class is both rare and the lesser harm (a withheld artefact,
+ *     not a stated falsehood). It is written down so it is visible if it ever
+ *     turns up in a capture.
+ *
+ *   · `no_effect_within_bounds` — the slopes GENUINELY DIFFER and the crossing
+ *     merely lies outside the domain AT THE MEAN edge configuration. Each
+ *     Monte-Carlo sample draws different strengths, so the crossing moves and
+ *     can fall inside the domain for a real share of draws. A bucket
+ *     disagreement there is a finding ISL computed. Withholding it is
+ *     over-suppression — the mirror harm.
+ *
+ * ⚠ PLoT'S BOOLEAN CANNOT CARRY THIS DISTINCTION. `no_flip_in_range: true` is
+ * stamped from the SET of both tokens (`factor-flip-values.ts:304` over
+ * `NO_EFFECT_REASONS`, `flip-threshold-status.ts:75-78`). A consumer that gates
+ * on the boolean gates on the union, which is exactly the over-suppression this
+ * predicate exists to end. Read the REASON.
+ *
+ * ⚠ TWO OPPOSITE HARMS, TWO PREDICATES (trap 22b). Over-suppression withholds
+ * real science; under-suppression states a falsehood. They are not two ends of
+ * one window and must never be tuned as if they were.
+ */
+
+/** Minimal row shape both consumers can satisfy without a shared row type. */
+export interface FlipAttestationRowLike {
+  factor_id?: string | null
+  node_id?: string | null
+  flip_value?: number | null
+  flip_reason?: string | null
+}
+
+/** True ⇔ `reason` is the algebraic proof (Q2's allow-list of exactly one). */
+export function isStructuralNoFlipProof(reason: string | null | undefined): boolean {
+  return reason === STRUCTURAL_NO_FLIP_PROOF
+}
+
+/**
+ * True ⇔ this row PROVES the factor cannot move the winner, and is therefore
+ * entitled to withhold a sibling surface's positive flip claim about it.
+ *
+ * Requires the proof token AND the absence of a numeric `flip_value`. PLoT
+ * cannot emit both (`isAttestedNoFlip` demands `flipValue === null`,
+ * `factor-flip-values.ts:365-367`), so the second clause is defence in depth —
+ * and its POLARITY is deliberate: an incoherent attestation fails toward NOT
+ * withholding, because for THIS question "we do not know" must never license a
+ * suppression. (Note the polarity is the OPPOSITE of `isAttestedNoFlipReason`'s
+ * for the same reason: there, failing safe means declining to assert an
+ * absence; here, failing safe means declining to hide a computed claim.)
+ */
+export function provesFactorCannotMoveWinner(
+  row: FlipAttestationRowLike | null | undefined,
+): boolean {
+  if (!row || typeof row !== 'object') return false
+  if (typeof row.flip_value === 'number') return false
+  return isStructuralNoFlipProof(row.flip_reason)
+}
+
+/**
+ * The factor ids whose flip rows carry the algebraic proof.
+ *
+ * Bound by IDENTITY, never by label (trap 19): a label join would both miss a
+ * real contradiction between two same-labelled factors and invent one between
+ * two differently-labelled rows for the same factor. `factor_id` is the wire
+ * spelling PLoT emits; `node_id` is the spelling the UI's adapted
+ * `FlipThreshold` carries (`normaliseFactorFields`: node_id > factor_id > id),
+ * so both are read and neither is preferred over a non-empty other.
+ */
+export function collectStructurallyProvenNoFlipIds(
+  rows: readonly FlipAttestationRowLike[] | null | undefined,
+): Set<string> {
+  const out = new Set<string>()
+  if (!Array.isArray(rows)) return out
+  for (const row of rows) {
+    if (!provesFactorCannotMoveWinner(row)) continue
+    for (const id of [row?.factor_id, row?.node_id]) {
+      if (typeof id === 'string' && id !== '') out.add(id)
+    }
+  }
+  return out
 }
 
 /** True ⇔ this build recognises the token at all. For the drift pin only. */

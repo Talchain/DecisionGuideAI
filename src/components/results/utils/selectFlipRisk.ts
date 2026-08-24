@@ -94,6 +94,37 @@
  *     genuinely does not distinguish the two cases.
  * The union is now derived from the producer and left OPEN, and every
  * predicate is written so an unrecognised token fails toward "we do not know".
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * ⚠ D7b — THERE IS A SECOND FLIP AUTHORITY, AND IT IS NOT THIS ONE. NAMED
+ * APART DELIBERATELY; DO NOT RECONCILE THEM (trap 21).
+ * ─────────────────────────────────────────────────────────────────────────
+ * This module answers a RUN-LEVEL question:
+ *
+ *     "May this run name a flip risk at all?"
+ *
+ * `flipReasonVocabulary.provesFactorCannotMoveWinner` answers a PER-FACTOR one:
+ *
+ *     "May this factor's attestation be used to WITHHOLD a positive claim
+ *      another instrument computed about the same factor?"
+ *      (the conditional-winner suppression, `analysisSnapshotFactory` +
+ *       `useResultsSectionData`)
+ *
+ * They use DIFFERENT allow-lists on purpose. This one admits BOTH attested
+ * tokens, because `no_effect_within_bounds` really is an attested absence over
+ * the tested range and narrowing it here would make the product name a flip
+ * risk it has no evidence for. The other admits only `structurally_invariant`,
+ * because only an algebraic identity licenses hiding a computed finding.
+ *
+ * Their fail-safe polarities are OPPOSITE for the same reason: here "we do not
+ * know" must not assert an absence, so an unknown token degrades to
+ * `no_producer_flip_data`; there "we do not know" must not hide a claim, so an
+ * unknown token suppresses nothing. Merging the two predicates — in either
+ * direction — trades one silent failure for the other (trap 22b).
+ *
+ * ⚠ AND NOTE WHAT THIS MODULE DOES NOT READ: `no_flip_in_range`. PLoT stamps
+ * that boolean from the SET of both reasons, so it cannot carry the
+ * distinction. A consumer keyed on it is keyed on the union. Read the reason.
  */
 
 import { THRESHOLDS } from '../../../lib/mappers/constants'

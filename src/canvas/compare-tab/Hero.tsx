@@ -90,7 +90,12 @@ function getHeroCopy(
         // zero, so this line could read "improve confidence by 0pp" on a
         // producer that simply sent nothing. The influence figure that remains
         // is elasticity-derived and is the basis for choosing this factor.
-        detail: `${latest.topElasticity}% influence`,
+        // D7: `topElasticity` is now `number | null`. `: 0` printed
+        // "0% influence" beside "Calibrate {factor}" — inviting the user to
+        // spend effort on a factor while stating it has none — for a run whose
+        // factors were simply never scored. Absence drops the clause; a
+        // producer-sent 0 still prints "0% influence".
+        detail: latest.topElasticity != null ? `${latest.topElasticity}% influence` : '',
       }
     }
     case 'noWinner': {
