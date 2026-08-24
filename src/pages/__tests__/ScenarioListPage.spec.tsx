@@ -57,7 +57,9 @@ function expectStrategicReasoningEntry() {
     ),
   ).toBeInTheDocument()
   expect(
-    screen.getByText('Sign in to save your workspace, or explore without an account.'),
+    screen.getByText(
+      'Sign in to create a saved workspace. Without an account, your work stays only in this browser.',
+    ),
   ).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Decisions' })).not.toBeInTheDocument()
   expect(screen.queryByText(/manage your decisions/i)).not.toBeInTheDocument()

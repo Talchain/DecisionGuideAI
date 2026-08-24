@@ -377,7 +377,7 @@ export default function ScenarioListPage() {
             Olumi turns messy strategic work into a living visual model while keeping your judgement visible.
           </p>
           <p className={`${typography.bodySmall} text-text-light mt-3`}>
-            Sign in to save your workspace, or explore without an account.
+            Sign in to create a saved workspace. Without an account, your work stays only in this browser.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <button
