@@ -533,11 +533,20 @@ export const CX3_LIMB_EXPRESSIBILITY: Readonly<Record<string, CoherenceExpressib
  */
 export const CX5_LIMB_DISPOSITION: Readonly<Record<string, CoherenceDisposition>> = {
   /**
-   * Slopes IDENTICAL (spread <= 1e-9) — an algebraic identity, topological in
-   * the graph, so it holds under every sampled edge draw. The per-sample winner
-   * is independent of the factor, so the median-split buckets behind
-   * `winner_flips` are two random halves of ONE sequence. Same question, one
-   * instrument unable to discriminate: SUPPRESS.
+   * Slopes IDENTICAL (spread <= 1e-9). The per-sample winner is independent of
+   * the factor, so the median-split buckets behind `winner_flips` are two
+   * random halves of ONE sequence. Same question, one instrument unable to
+   * discriminate: SUPPRESS.
+   *
+   * ⚠ "topological in the graph, so it holds under every sampled edge draw" is
+   * WITHDRAWN. ISL computes a NUMERICAL spread against `1e-9` at ONE
+   * configuration — the same MEAN configuration that disqualifies the limb
+   * below. The sample-invariance rests on a MECHANISM (options are alternative
+   * values of one decision node, so every option severs the same paths and the
+   * per-option slopes are the same algebraic expression), which does not cover
+   * slopes that merely coincide at the mean via different path products.
+   * Canonical derivation: `components/results/utils/flipReasonVocabulary.ts`.
+   * Disposition unchanged.
    */
   structurally_invariant_with_winner_flips: 'suppress_at_consumer',
   /**

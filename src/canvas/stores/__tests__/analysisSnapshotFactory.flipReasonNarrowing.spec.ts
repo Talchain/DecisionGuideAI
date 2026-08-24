@@ -19,12 +19,23 @@
  *   `structurally_invariant` means the per-option transmission slopes are
  *   IDENTICAL (spread <= 1e-9) — PLoT `lib/flip-threshold-status.ts:44-49`,
  *   read at staging `7e5d8a7d`: "no value of this factor can move the
- *   argmax". The slope equality is TOPOLOGICAL (which of the factor's causal
- *   paths each option's intervention severs), so it holds for EVERY sampled
- *   edge configuration, not just the mean one. The per-sample winner is
- *   therefore independent of the factor, the two buckets are two random
- *   halves of ONE sequence, and `winner_flips: true` is sampling noise whose
- *   only driver is how close the win probability sits to 0.5.
+ *   argmax". The per-sample winner is therefore independent of the factor, the
+ *   two buckets are two random halves of ONE sequence, and `winner_flips: true`
+ *   is sampling noise whose only driver is how close the win probability sits
+ *   to 0.5.
+ *
+ *   ⚠ CORRECTED: this header used to say the slope equality "is TOPOLOGICAL ...
+ *   so it holds for EVERY sampled edge configuration, not just the mean one".
+ *   ISL computes no such property — it screens a NUMERICAL slope spread against
+ *   `1e-9` at a single mean edge configuration
+ *   (`robustness_analyzer_v2.py:6722-6724`, `:6757`, `:6763`, `:6775`), the very
+ *   configuration the next paragraph treats as disqualifying. What carries the
+ *   invariance is a MECHANISM — options are alternative values of one decision
+ *   node, so each option severs the same causal paths and the per-option slopes
+ *   are the same algebraic expression. Canonical derivation, and the residual
+ *   class it does not cover (slopes coinciding at the mean via different path
+ *   products): `components/results/utils/flipReasonVocabulary.ts`. The
+ *   suppression direction, and every assertion below, is unchanged.
  *
  *   `no_effect_within_bounds` means the slopes GENUINELY DIFFER and the
  *   crossing merely lies outside the domain AT THE MEAN CONFIGURATION

@@ -27,12 +27,22 @@
  * ─────────────────────────────────────────────────────────────────────────
  * `structurally_invariant` (PLoT `lib/flip-threshold-status.ts:44-49`) is an
  * ALGEBRAIC attestation: the per-option transmission slopes are identical
- * (spread <= 1e-9), so "no value of this factor can move the argmax". The
- * equality is topological, so it holds under every sampled edge draw — which
+ * (spread <= 1e-9), so "no value of this factor can move the argmax" — which
  * makes the median-split bucket comparison behind `winner_flips` a comparison
  * of two random halves of ONE sequence. Its disagreement rate is governed only
  * by proximity to a 50/50 win probability. The flip attestation is therefore
  * authoritative and the bucket claim is an artefact.
+ *
+ * ⚠ CORRECTED: "the equality is topological, so it holds under every sampled
+ * edge draw" is withdrawn. ISL screens a NUMERICAL slope spread against `1e-9`
+ * at ONE mean edge configuration (`robustness_analyzer_v2.py:6722-6724`,
+ * `:6763`, `:6775`) — the same configuration named as disqualifying two
+ * paragraphs down. The invariance rests on a MECHANISM (options are alternative
+ * values of one decision node, so every option severs the same paths and the
+ * per-option slopes are the same algebraic expression), which leaves a residual
+ * class uncovered: slopes that coincide at the mean via different path
+ * products. Canonical derivation: `../utils/flipReasonVocabulary.ts`. The
+ * verdict below is unchanged.
  *
  * `no_effect_within_bounds` is NOT that: the slopes genuinely differ and the
  * crossing merely sits outside the domain at the MEAN edge configuration. Each

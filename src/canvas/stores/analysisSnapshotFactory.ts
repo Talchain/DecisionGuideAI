@@ -235,11 +235,19 @@ function extractConditionalWinners(
   // `NO_EFFECT_REASONS`, `flip-threshold-status.ts:75-78`), and the two reasons
   // are epistemically different objects:
   //
-  //   · `structurally_invariant` — slopes IDENTICAL (spread <= 1e-9). An
-  //     ALGEBRAIC identity, topological in the graph, so it holds under every
-  //     sampled edge draw. The per-sample winner is independent of the factor,
-  //     so the median-split buckets behind `winner_flips` are two random halves
-  //     of ONE sequence and their disagreement is sampling noise. SUPPRESS.
+  //   · `structurally_invariant` — slopes IDENTICAL (spread <= 1e-9). The
+  //     per-sample winner is independent of the factor, so the median-split
+  //     buckets behind `winner_flips` are two random halves of ONE sequence and
+  //     their disagreement is sampling noise. SUPPRESS.
+  //     ⚠ NOT "topological, so it holds under every sampled draw" — that
+  //     wording is withdrawn. ISL computes a NUMERICAL spread at ONE
+  //     configuration (the same MEAN one that disqualifies the token below).
+  //     The invariance rests on a MECHANISM — options are alternative values of
+  //     one decision node, so every option severs the same paths and the slopes
+  //     are the same expression — which covers the dominant case but not slopes
+  //     that merely coincide at the mean via different path products. Canonical
+  //     derivation and the residual class: `results/utils/flipReasonVocabulary.ts`
+  //     (`provesFactorCannotMoveWinner`). Disposition unchanged.
   //   · `no_effect_within_bounds` — slopes GENUINELY DIFFER; only the crossing
   //     sits outside the domain at the MEAN edge configuration. Sampled draws
   //     move the crossing, so a bucket disagreement can be a real finding.

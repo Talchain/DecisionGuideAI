@@ -190,15 +190,56 @@ export function isProbeFailureFlipReason(reason: string | null | undefined): boo
  * WHY Q2 IS STRICTLY NARROWER, derived at the producer rather than chosen:
  *
  *   · `structurally_invariant` — the per-option transmission slopes are
- *     IDENTICAL. Slope equality is a TOPOLOGICAL property of the graph (which
- *     of the factor's causal paths each option's intervention severs), so it
- *     holds under EVERY sampled edge configuration, not merely at the mean.
- *     The per-sample winner is therefore independent of the factor, and the
- *     median-split bucket comparison behind `conditional_winners.winner_flips`
- *     is a comparison of two random halves of ONE sequence — its disagreement
- *     rate is governed only by proximity to a 50/50 win probability. Measured
- *     on the deployed build: 4/8 near-tie responses assert both claims for one
- *     factor; 0/8 in the separated contrast control.
+ *     IDENTICAL. The per-sample winner is therefore independent of the factor,
+ *     and the median-split bucket comparison behind
+ *     `conditional_winners.winner_flips` is a comparison of two random halves
+ *     of ONE sequence — its disagreement rate is governed only by proximity to
+ *     a 50/50 win probability. Measured on the deployed build: 4/8 near-tie
+ *     responses assert both claims for one factor; 0/8 in the separated
+ *     contrast control.
+ *
+ *     ⚠⚠ WHAT ISL ACTUALLY COMPUTES — CORRECTED, AND THIS IS THE CANONICAL
+ *     STATEMENT THE SIBLING SITES POINT AT. This block previously said slope
+ *     equality "is a TOPOLOGICAL property of the graph ... so it holds under
+ *     EVERY sampled edge configuration, not merely at the mean". ISL COMPUTES
+ *     NO SUCH THING. Derived at `robustness_analyzer_v2.py` (ISL staging
+ *     `28fe0c9`): the candidate screen evaluates each option's goal at the
+ *     factor's MIN and MAX (`:6751-6756`), takes the affine coefficients
+ *     (`:6757`), and screens `spread = max(slopes) - min(slopes)` against
+ *     `FACTOR_FLIP_SLOPE_EPSILON = 1e-9` (`:6763`, `:6775`, `:6522`). Every one
+ *     of those evaluations runs against a SINGLE
+ *     `baseline_config = {edge: strength.mean * exists_probability}`
+ *     (`:6722-6724`). So it is a NUMERICAL equality test at ONE configuration —
+ *     and it is THE SAME MEAN CONFIGURATION the next bullet uses to
+ *     DISQUALIFY `no_effect_within_bounds`. The old wording granted one token a
+ *     sample-invariance guarantee while treating the identical premise as
+ *     disqualifying for the other.
+ *
+ *     ⭐ THE CONCLUSION STILL HOLDS — ON A NAMED MECHANISM, NOT ON THAT WORD.
+ *     In this product's graphs the options are alternative values of ONE
+ *     decision node, so every option severs the SAME set of causal paths from a
+ *     given factor to the goal. Each option's transmission slope is then the
+ *     SAME ALGEBRAIC EXPRESSION in the sampled edge strengths, and two equal
+ *     expressions stay equal at every draw, not merely at the mean. That — not
+ *     topology as such — is what makes the per-sample winner independent of the
+ *     factor, and it is why SUPPRESS is the right disposition.
+ *
+ *     ⚠ THE RESIDUAL CLASS THE MECHANISM DOES NOT COVER, recorded rather than
+ *     hidden. Two slopes can also coincide at the mean through DIFFERENT path
+ *     products — `0.5 × 0.4` and `0.2 × 1.0` both give `0.2` — which is not
+ *     far-fetched with the round-numbered strengths a drafted graph carries.
+ *     Those slopes are NOT the same expression, so they separate as soon as the
+ *     draws move, and for such a factor `winner_flips` could be a real finding
+ *     this gate suppresses. Nothing in ISL rules the class out: its own
+ *     `stability` field says the band is skipped for a `structurally_invariant`
+ *     row because computing one "would spend the compute the candidate screen
+ *     exists to save" (`src/models/response_v2.py:854-855`) — a COST decision,
+ *     not a proof of sample-invariance.
+ *
+ *     The disposition is UNCHANGED: the mechanism covers the dominant case, and
+ *     the residual class is both rare and the lesser harm (a withheld artefact,
+ *     not a stated falsehood). It is written down so it is visible if it ever
+ *     turns up in a capture.
  *
  *   · `no_effect_within_bounds` — the slopes GENUINELY DIFFER and the crossing
  *     merely lies outside the domain AT THE MEAN edge configuration. Each
