@@ -20,7 +20,7 @@
  * DS v4/5: bg-panel card, panel typography tokens only, Lucide, sentence
  * case, en-GB, no em dashes in prose.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { useCanvasStore } from '../../../canvas/store'
@@ -33,6 +33,7 @@ import { computeSuccessState } from '../../../canvas/components/pre-analysis-v3/
 import { computeGraphFacts } from '../../../canvas/components/pre-analysis-v3/selectors/graphFacts'
 import { ActionsMenu } from './ActionsMenu'
 import { REVIEW_BRIEF_ASK } from './actionsCatalogue'
+import { parseStatedLimitsKey, selectStatedLimitsKey } from './statedLimits'
 
 export type BriefStateOverride = 'thin' | 'contradictory' | 'unverified'
 
@@ -83,6 +84,11 @@ export const OVERVIEW_COPY = {
   // risks (L3-BROWSER-TRUTH §9 C7). The sentence must be unambiguously about
   // what the MODEL has set, which is the only thing `constraintCount` knows.
   constraintsNoteEmpty: 'Nothing set as a hard limit',
+  // ⭐ STEP 6. The possessive is load-bearing and earned: every limit under
+  // this heading is one the USER stated and CEE recorded verbatim, never a
+  // value Olumi derived. The heading makes NO claim about whether a limit is
+  // met — that verdict does not reach this surface (see the render site).
+  statedLimitsHeading: 'Your stated limits',
   optionsNoteEmpty: 'No options mapped yet',
   // V6-RESPEC §4: empty classification fields fold into ONE muted aggregate
   // chip ("+N to set") — collapsed shows what IS, never a per-field inventory
@@ -271,6 +277,21 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const optionCount = useCanvasStore((s) => s.nodes.filter((n) => n.type === 'option').length)
   const constraintCount = useCanvasStore((s) => s.goalConstraints?.length ?? 0)
+  // ⭐ STEP 6 of the hard-constraint chain — the user sees the limit they
+  // stated, not merely a count of how many were captured.
+  //
+  // This reads the SAME store slice `constraintCount` already counts, so there
+  // is no second constraint vocabulary and no second producer. What it shows is
+  // strictly the TRUSTWORTHY half of a constraint — label, operator, value,
+  // unit, all of them things the user said and CEE recorded. The DISTRUSTED
+  // half (`probability`, and PLoT's per-option `constraint_analysis`, still
+  // gated by `PLOT_PER_OPTION_CONSTRAINTS_SUSPECT`) is never read here.
+  // Selected as a PRIMITIVE string, never the array identity: this card is
+  // under a primitive-selector contract (primitiveSelectors.spec) so that a
+  // store write which rebuilds an equal-content constraints array — a node
+  // drag, a producer re-sync — does not re-commit the whole card.
+  const statedLimitsKey = useCanvasStore((s) => selectStatedLimitsKey(s.goalConstraints))
+  const statedLimits = useMemo(() => parseStatedLimitsKey(statedLimitsKey), [statedLimitsKey])
   const briefPresent = useCanvasStore((s) => Boolean(s.currentBriefText?.trim()))
   // Mirrors ResultsBody's UI-SEM-065 blocker read (graphHealth is the
   // engine-critique carrier; blocker severity never reaches uncertainties).
@@ -585,6 +606,39 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
               </button>
             ))}
           </div>
+
+          {/* ⭐ The limits the user actually stated.
+              Renders NOTHING when there are none, so a model with no hard
+              limit is byte-identical to before this shipped.
+
+              Deliberately silent about COMPLIANCE. Whether an option breaches
+              a limit is not derivable here: the browser holds no per-option
+              value on the constrained node, and PLoT's run-level
+              `constraints_status` is stripped on the CEE→UI hop (absent from
+              CEE compose.ts `P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP`). Saying
+              "not evaluated" would be just as false as saying "met" —
+              evaluation DOES happen upstream, its verdict simply does not
+              reach this surface. So this states the limit and claims nothing
+              else. See the lane report's CEE dependency. */}
+          {statedLimits.length > 0 && (
+            <div className="mt-2" data-testid="stated-limits">
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {OVERVIEW_COPY.statedLimitsHeading}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {statedLimits.map((limit) => (
+                  <li
+                    key={limit.id}
+                    data-testid={`stated-limit-${limit.id}`}
+                    className={`${typography.panelBody} truncate text-text-body`}
+                    title={limit.text}
+                  >
+                    {limit.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {state === 'needs_input' && questions.length > 0 && (
             <ul className="mt-2 space-y-1" data-testid="brief-questions">
