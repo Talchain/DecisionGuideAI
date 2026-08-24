@@ -79,15 +79,79 @@ function isNonEmptyString(v: unknown): v is string {
 }
 
 /**
+ * A code that cannot be mapped, used to obtain the generic sentence from its
+ * owner rather than copying the words. Asserted equivalent to other unmapped
+ * codes in the spec, so this sentinel cannot silently stop meaning "unmapped".
+ */
+const UNMAPPABLE_SENTINEL = '__OLUMI_AUDIT_UNMAPPED_SENTINEL__'
+
+/** Two labels that differ, used only to detect label dependence. */
+const PROBE_NODE = '__OLUMI_AUDIT_LABEL_PROBE__'
+const PROBE_LABEL_A = 'PROBE_LABEL_ALPHA'
+const PROBE_LABEL_B = 'PROBE_LABEL_BETA'
+
+function titleFor(code: string): string {
+  return humaniseCritique({ code, message: '' }).title
+}
+
+function titleUnderLabel(code: string, label: string): string {
+  return humaniseCritique(
+    { code, message: '', affectedNodes: [PROBE_NODE] },
+    new Map([[PROBE_NODE, label]]),
+  ).title
+}
+
+/**
+ * Does this code's copy DEPEND on a factor label?
+ *
+ * ⭐ DERIVED, NOT MIRRORED. The obvious implementation is to test the resolved
+ * title for `humaniseCritique`'s unresolved-label placeholder — but that
+ * constant is module-private, so naming it here would be a hand-maintained
+ * mirror of a string in another file (CLAUDE.md trap 12), silently wrong the
+ * day it is reworded. Instead the question is asked of the template directly:
+ * resolve it twice under two DIFFERENT labels. A label-free template returns
+ * the same sentence both times; a label-interpolating one cannot.
+ */
+function dependsOnAFactorLabel(code: string): boolean {
+  return titleUnderLabel(code, PROBE_LABEL_A) !== titleUnderLabel(code, PROBE_LABEL_B)
+}
+
+/**
  * Resolve one code to its user-facing sentence through the single owner of
  * these words.
  *
  * `humaniseCritique` renders the TITLE on both existing live surfaces, so the
  * title is what is reused here; passing an empty `message` and no
- * `userMessage`/`affectedNodes` is deliberate (see the file header).
+ * `userMessage` is deliberate (see the file header).
+ *
+ * ⚠ A MAPPED TEMPLATE IS NOT AUTOMATICALLY SAFE HERE, AND ASSUMING SO WAS THIS
+ * MODULE'S OWN DEFECT (found in adversarial review of the PR that introduced
+ * it). `humaniseCritique`'s header records that the ISL inference-warning
+ * templates all ignore the resolved label — true, and it is why they are safe.
+ * But `inference_warnings` also carries codes OUTSIDE that classified set, and
+ * three of them appear in this repo's own captured fixtures
+ * (`CONSTRAINT_TARGET_UNRELIABLE`, `EDGE_E_VALUE_NON_FINITE_DROPPED`,
+ * `EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE`). The first is one of the
+ * LABEL-INTERPOLATING templates, so with no factor context this row rendered
+ * *"This factor's success target can't be evaluated reliably"* — an audit trail
+ * naming no factor, while the producer's wire message named one.
+ *
+ * A sentence built around a factor the surface cannot identify is not an
+ * explanation, so it is refused in favour of the generic one. That matches what
+ * the caveat strip already does with the same input, and it is the same rule as
+ * the rest of this module: withhold rather than render a placeholder.
  */
 export function describeAuditInferenceWarningCode(code: string | null): string {
-  return humaniseCritique({ code: code ?? '', message: '' }).title
+  const generic = titleFor(UNMAPPABLE_SENTINEL)
+  const c = code ?? ''
+  if (c === '') return generic
+
+  const title = titleFor(c)
+  // Unmapped already resolves to the generic sentence — no probe needed, and
+  // probing would only emit two more unmapped-code warnings.
+  if (title === generic) return generic
+
+  return dependsOnAFactorLabel(c) ? generic : title
 }
 
 /**

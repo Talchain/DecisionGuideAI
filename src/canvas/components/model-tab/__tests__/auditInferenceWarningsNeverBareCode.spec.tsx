@@ -33,16 +33,31 @@
  * render copy that is NOT the generic fallback — an assertion a copied string
  * cannot make.
  *
- * ## Vocabulary is derived, not listed
+ * ## The corpus comes from the captures, not from this lane's head
  *
- * The ISL code list comes from the exported `ISL_INFERENCE_WARNING_KINDS`, so a
- * code added to that classification is swept here automatically. That map cannot
- * prove its own completeness (its header says so), which is why the last block
- * asserts the property over codes that DO NOT EXIST YET — drift can then cost
- * specificity, never a bare enum.
+ * ⚠ THE FIRST VERSION OF THE SWEEP BELOW COULD NOT FAIL, AND ADVERSARIAL REVIEW
+ * OF THIS PR CAUGHT IT. It swept `ISL_INFERENCE_WARNING_KINDS` and asserted no
+ * label placeholder — over a map whose own header says every template it
+ * classifies ignores the label BY CONSTRUCTION. A guard agreeing with itself
+ * (CLAUDE.md trap 13b), over a set chosen because it was the set this lane had
+ * in mind (trap 22).
+ *
+ * The sweep is now DERIVED FROM THE REPO'S OWN CAPTURES — every
+ * `inference_warnings` array in every JSON fixture under `src/` — which reaches
+ * three codes the classification does not contain, one of them
+ * (`CONSTRAINT_TARGET_UNRELIABLE`) label-interpolating. A CONTRAST CONTROL
+ * asserts the corpus still exceeds the classification, so tidying it back to the
+ * self-agreeing set fails loudly (trap 13e).
+ *
+ * Neither corpus can prove completeness, which is why the final block asserts
+ * the property over codes that DO NOT EXIST YET — drift can then cost
+ * specificity, never a bare enum and never a placeholder.
  */
 
 import { describe, it, expect, vi } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { render, screen } from '@testing-library/react'
 import { ModelHealthSection } from '../ModelHealthSection'
 import type { AuditTrailData } from '../ModelHealthSection'
@@ -205,22 +220,143 @@ describe('Model card audit trail — an inference warning renders its explanatio
   })
 })
 
-describe('Model card audit trail — the property, over the derived vocabulary and beyond it', () => {
-  const ISL_CODES = Object.keys(ISL_INFERENCE_WARNING_KINDS)
+/**
+ * The codes this repo has actually CAPTURED on the `inference_warnings` channel,
+ * derived by walking every JSON fixture under `src/`.
+ *
+ * ⭐⭐ WHY NOT `ISL_INFERENCE_WARNING_KINDS`. The first version of this guard
+ * swept that map — and could not fail. Its own header states that every template
+ * it classifies ignores the resolved label BY CONSTRUCTION, so a
+ * "no label placeholder" assertion over exactly that set is a guard agreeing
+ * with itself (CLAUDE.md trap 13b). The set was chosen because it was the set
+ * this lane had in mind, which is the definition of a corpus drawn from the
+ * author's own head (trap 22).
+ *
+ * The captures reach further than the classification does: three of the six
+ * codes below are NOT in that map, and one of them —
+ * `CONSTRAINT_TARGET_UNRELIABLE` — is a LABEL-INTERPOLATING template. That is
+ * the class the guard exists to catch, and it was invisible to the old sweep.
+ *
+ * The CONTRAST CONTROL below is what makes this corpus evidence rather than
+ * another self-agreeing set (trap 13e): it asserts the sweep reaches at least
+ * one code the classification does not contain. If someone later "tidies" this
+ * back to the classified set, that control fails.
+ */
+function deriveCapturedWarningCodes(): string[] {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const srcRoot = join(here, '..', '..', '..', '..')
+  const codes = new Set<string>()
 
-  it('sweeps a non-trivial ISL vocabulary (guards against an empty sweep passing vacuously)', () => {
-    expect(ISL_CODES.length).toBeGreaterThanOrEqual(20)
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue
+        walk(p)
+      } else if (entry.name.endsWith('.json')) {
+        let doc: unknown
+        try {
+          doc = JSON.parse(readFileSync(p, 'utf-8'))
+        } catch {
+          continue
+        }
+        const stack: unknown[] = [doc]
+        while (stack.length > 0) {
+          const o = stack.pop()
+          if (Array.isArray(o)) {
+            stack.push(...o)
+          } else if (o !== null && typeof o === 'object') {
+            for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+              if (k === 'inference_warnings' && Array.isArray(v)) {
+                for (const w of v) {
+                  const c = (w as { code?: unknown } | null)?.code
+                  if (typeof c === 'string' && c.length > 0) codes.add(c)
+                }
+              }
+              stack.push(v)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  walk(srcRoot)
+  return [...codes].sort()
+}
+
+describe('Model card audit trail — the property, over a CAPTURED corpus and beyond it', () => {
+  const CAPTURED_CODES = deriveCapturedWarningCodes()
+  const GENERIC = describeAuditInferenceWarningCode(null)
+
+  it('the sweep is non-empty (an empty corpus would pass every assertion below vacuously)', () => {
+    expect(CAPTURED_CODES.length).toBeGreaterThanOrEqual(6)
   })
 
-  it('gives every classified ISL code a sentence that is not the code', () => {
-    for (const code of ISL_CODES) {
-      const text = describeAuditInferenceWarningCode(code)
-      expect(text, code).not.toBe(code)
-      expect(text.length, code).toBeGreaterThan(code.length)
-      // No template may leak the unresolved-label placeholder onto this surface:
-      // PLoT forwards no affected nodes for this channel.
-      expect(text, code).not.toContain('This factor')
+  it('CONTRAST CONTROL: the corpus reaches codes the ISL classification does not contain', () => {
+    const unclassified = CAPTURED_CODES.filter(c => !(c in ISL_INFERENCE_WARNING_KINDS))
+    // Real absence, not a blind sweep: the classification is a real, non-empty
+    // set, and the captures still exceed it.
+    expect(Object.keys(ISL_INFERENCE_WARNING_KINDS).length).toBeGreaterThanOrEqual(20)
+    expect(unclassified.length).toBeGreaterThanOrEqual(1)
+    // Bound by identity to the code that exposed the old guard's blind spot.
+    expect(CAPTURED_CODES).toContain('CONSTRAINT_TARGET_UNRELIABLE')
+  })
+
+  it('the sentinel used to obtain the generic sentence still means "unmapped"', () => {
+    // If the sentinel ever became a real mapped code, every fallback assertion
+    // in this file would quietly start comparing against specific copy.
+    expect(GENERIC).toBe(describeAuditInferenceWarningCode('__A_DIFFERENT_UNMAPPED_CODE__'))
+  })
+
+  it('never renders a sentence built around a factor this surface cannot name', () => {
+    for (const code of CAPTURED_CODES) {
+      const rendered = describeAuditInferenceWarningCode(code)
+
+      expect(rendered, code).not.toBe(code)
+      // ⚠ NOT a length comparison. The first draft asserted the sentence was
+      // LONGER than the code and this sweep refuted it: the generic sentence is
+      // 33 characters and `EDGE_SENSITIVITY_UNAVAILABLE_V2_WIRE` is 36. Length
+      // was a proxy; the property is that the row is never a bare machine-code
+      // token, which is what this matches.
+      expect(rendered, code).not.toMatch(/^[A-Z0-9_]+$/)
+
+      // Ask the OWNER whether this code's copy depends on a factor label, by
+      // resolving it under two different labels — derived, so no placeholder
+      // string is mirrored here.
+      const underA = humaniseCritique(
+        { code, message: '', affectedNodes: ['__probe__'] },
+        new Map([['__probe__', 'PROBE_ALPHA']]),
+      ).title
+      const underB = humaniseCritique(
+        { code, message: '', affectedNodes: ['__probe__'] },
+        new Map([['__probe__', 'PROBE_BETA']]),
+      ).title
+
+      if (underA !== underB) {
+        // Label-dependent: the audit row has no factor context, so it must
+        // withhold the specific sentence rather than render a placeholder.
+        expect(rendered, `${code} is label-dependent`).toBe(GENERIC)
+      } else {
+        // Label-free: the specific sentence is safe and must be used.
+        expect(rendered, `${code} is label-free`).toBe(underA)
+      }
+      expect(rendered, code).not.toContain('PROBE_ALPHA')
+      expect(rendered, code).not.toContain('PROBE_BETA')
     }
+  })
+
+  it('CONSTRAINT_TARGET_UNRELIABLE specifically renders the generic sentence, not a placeholder', () => {
+    // The named case, bound by identity. Its template is label-interpolating,
+    // so with no factor context it produced "This factor's success target…" on
+    // an audit trail that names no factor.
+    expect(describeAuditInferenceWarningCode('CONSTRAINT_TARGET_UNRELIABLE')).toBe(GENERIC)
+  })
+
+  it('still gives a LABEL-FREE mapped code its specific copy (the fix withholds narrowly)', () => {
+    const specific = describeAuditInferenceWarningCode('ROOT_NODE_DEFAULT_VALUE')
+    expect(specific).not.toBe(GENERIC)
+    expect(specific).not.toBe('ROOT_NODE_DEFAULT_VALUE')
   })
 
   it('holds for codes that do not exist yet', () => {
