@@ -65,7 +65,7 @@ describe('assembleAnalysisInputsSummary', () => {
 
     expect(result).not.toBeNull()
     expect(result!.contract_version).toBe(ANALYSIS_INPUTS_CONTRACT_VERSION)
-    expect(result!.contract_version).toBe('1.0.0')
+    expect(result!.contract_version).toBe('1.1.0')
     expect(result!.recommendation.option_id).toBe('opt_a')
     expect(result!.recommendation.win_probability).toBe(0.65)
     expect(result!.options).toHaveLength(2)

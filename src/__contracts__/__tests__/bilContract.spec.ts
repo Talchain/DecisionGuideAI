@@ -15,8 +15,8 @@ describe('BIL Contract', () => {
     expect(BIL_CONTRACT_VERSION).toBe('1.1.0')
   })
 
-  it('ANALYSIS_INPUTS_CONTRACT_VERSION is 1.0.0', () => {
-    expect(ANALYSIS_INPUTS_CONTRACT_VERSION).toBe('1.0.0')
+  it('ANALYSIS_INPUTS_CONTRACT_VERSION is 1.1.0', () => {
+    expect(ANALYSIS_INPUTS_CONTRACT_VERSION).toBe('1.1.0')
   })
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ describe('BIL Contract', () => {
     const typed = fixture as unknown as AnalysisInputsSummary
 
     // contract_version
-    expect(typed.contract_version).toBe('1.0.0')
+    expect(typed.contract_version).toBe('1.1.0')
 
     // recommendation
     expect(typed.recommendation).toHaveProperty('option_id')
@@ -173,12 +173,21 @@ describe('BIL Contract', () => {
     expect(typed.constraints_status.length).toBeLessThanOrEqual(5)
     for (const c of typed.constraints_status) {
       expect(c).toHaveProperty('label')
-      expect(c).toHaveProperty('satisfied')
+      expect(c).toHaveProperty('status')
       expect(typeof c.label).toBe('string')
-      expect(typeof c.satisfied).toBe('boolean')
-      // probability is optional
+      expect(['likely_met', 'uncertain', 'likely_missed', 'unevaluated']).toContain(c.status)
+      // No fabricated boolean. `satisfied` was `prob_satisfied >= 0.5`, which
+      // reported an unevaluated constraint as breached; it had zero readers in
+      // any repo and was removed at 1.1.0.
+      expect(c).not.toHaveProperty('satisfied')
+      // probability is optional, and present ONLY when actually evaluated —
+      // an unevaluated constraint must carry no number at all.
       if ('probability' in c) {
         expect(typeof c.probability).toBe('number')
+        expect(Number.isFinite(c.probability)).toBe(true)
+        expect(c.status).not.toBe('unevaluated')
+      } else {
+        expect(c.status).toBe('unevaluated')
       }
     }
 
