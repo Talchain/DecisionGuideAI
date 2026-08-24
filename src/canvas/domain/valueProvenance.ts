@@ -181,6 +181,96 @@ export function classifyValueProvenance(
 }
 
 /**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⭐⭐ THE INTERVENTION VOCABULARY — A DIFFERENT FIELD WEARING THE SAME NAME
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * An option's `interventions[factorId].source` answers **HOW THIS TARGET WAS
+ * DETERMINED**. A node's `observed_state.source` answers **WHO PUT THIS VALUE
+ * HERE**. Two questions, two closed vocabularies, one field name — and the
+ * shared contract says so itself, at `edit-tool-ops.js:229-238` in the vendored
+ * 0.48.0 package:
+ *
+ *   *"`source` IS ONE OF ITS FIELDS (`cee-v3.ts:284` — an enum of
+ *   `brief_extraction | cee_hypothesis | user_specified`, meaning HOW THE
+ *   INTERVENTION WAS DETERMINED). That is a different field from node
+ *   `observed_state.source` wearing the same name, and CEE exempts it for
+ *   exactly this reason."*
+ *
+ * ⚠⚠ THIS IS WHY `cee_hypothesis` IS **NOT** IN `SOURCE_CLASSES`, AND ADDING IT
+ * WAS THE FIRST THING THIS LANE TRIED (B1-a, 2026-08-24). It typechecks, it
+ * makes the surface render the right words, and `sourceClassesCompleteness`
+ * REDs on it — correctly, because the guard's complement assertion exists to
+ * catch exactly this: a literal classified here that the contract's
+ * `OBSERVED_STATE_SOURCE_LITERALS` does not declare. Merging the two maps would
+ * have made `classifyValueProvenance('cee_hypothesis')` answer a question about
+ * a factor's observed value that no producer ever asks, and would have made the
+ * one guard that can see contract drift permanently unable to.
+ *
+ * The two vocabularies OVERLAP on `brief_extraction` and are otherwise
+ * disjoint, which is what makes the merge look harmless and is why it is not.
+ *
+ * ⚠ WHAT IS SHARED IS THE **KIND**, DELIBERATELY. Both classifiers return the
+ * same `ValueProvenanceKind`, so every surface keeps ONE taxonomy and ONE
+ * `Record<ValueProvenanceKind, …>` register. The concepts are named apart at the
+ * literal layer and joined at the kind layer — which is the shape CLAUDE.md
+ * trap 21 prescribes for two authorities answering different questions.
+ *
+ * ⚠ THE CONTRACT DOES NOT EXPORT THESE LITERALS. The vendored package "does not
+ * carry InterventionV3" (same comment, same file), so unlike `SOURCE_CLASSES`
+ * this map has NO canonical list to be checked against and no derivation is
+ * available. Stated rather than discovered later: the guard for this map is a
+ * HAND-WRITTEN CORPUS pinned to the contract's own quoted enum, which is the
+ * other half of trap 12d — where you cannot derive, a corpus is what notices the
+ * list is short. If a future schemas minor exports the intervention literals,
+ * replace the corpus with a derived guard and delete this paragraph.
+ */
+const INTERVENTION_SOURCE_CLASSES: Readonly<Record<string, ValueProvenanceKind>> = Object.freeze({
+  /** The target is the user's own figure, lifted from their brief. */
+  brief_extraction: 'brief',
+  /**
+   * ⭐ THE MODEL CHOSE THIS NUMBER. Witnessed on the deployed build (UI
+   * `88cb7e37` · CEE `d1da670`, fresh guest, 2026-08-24): every
+   * `cee_hypothesis` entry on that draw carried `value_confidence: 'low'` and
+   * the producer's own reasoning — *"Model-chosen intervention level; this
+   * amount is not stated in the brief"* — against `brief_extraction` siblings
+   * carrying `value_confidence: 'high'` and a reasoning quoting the user's own
+   * sentence verbatim. The class is the one the PRODUCER declares, not one
+   * inferred from the symptom (trap 13c).
+   */
+  cee_hypothesis: 'ai',
+  /** The human supplied the target. `'edited'`, and therefore user-owned. */
+  user_specified: 'edited',
+})
+
+/** Every intervention-source literal this map classifies — the corpus checks it. */
+export const INTERVENTION_PROVENANCE_SOURCES: readonly string[] = Object.freeze(
+  Object.keys(INTERVENTION_SOURCE_CLASSES),
+)
+
+/**
+ * Classify an `interventions[factorId].source` literal.
+ *
+ * Returns `null` — never a guessed class — for an unknown literal, for the same
+ * reason `classifyValueProvenance` does: a surface that renders `null` must fall
+ * back to its own honest silence. Guessing here would put "AI estimate" over a
+ * number the user typed, or the reverse, which is the defect this pair of
+ * classifiers exists to end.
+ *
+ * ⚠ DO NOT ROUTE AN `observed_state.source` THROUGH THIS FUNCTION, or an
+ * intervention source through its sibling. They overlap on one literal and
+ * would agree on it, which is precisely how a wrong call survives review.
+ */
+export function classifyInterventionProvenance(
+  source: string | null | undefined,
+): ValueProvenanceClass | null {
+  if (typeof source !== 'string') return null
+  const kind = INTERVENTION_SOURCE_CLASSES[source]
+  if (kind === undefined) return null
+  return { kind, userOwned: USER_OWNED_KINDS.has(kind) }
+}
+
+/**
  * Classify the NODE-LEVEL `data.provenance` value, whose vocabulary is a
  * different, smaller one (`CEEProvenance`).
  *

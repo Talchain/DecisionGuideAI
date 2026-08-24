@@ -246,6 +246,25 @@ export interface OptionInterventionField {
   factorLabel: string
   value: string | null
   numericValue: number | null
+  /**
+   * ⭐ WHO PUT **THIS TARGET** THERE — the RAW stamp the producer wrote
+   * (`'cee_hypothesis'`, `'brief_extraction'`, …), classified at the surface by
+   * the one authority, exactly as `ModelRow.provenanceSource` is.
+   *
+   * ⚠⚠ THIS IS THE INTERVENTION'S STAMP AND NOT THE OPTION'S, AND THE TWO
+   * GENUINELY DISAGREE. On the deployed witness draw (UI `88cb7e37`) option
+   * `682a7e2d` is `provenance: 'from_brief'` and carries an INVENTED target
+   * alongside a brief-extracted one. Sourcing this from the option node would
+   * be right on two of that draw's three options and wrong on the third, while
+   * looking correct in every screenshot anyone happened to take.
+   *
+   * ⚠ ABSENT MEANS THE RECORD DOES NOT SAY, and the surface must then say
+   * NOTHING. Not "AI estimate", not "From brief", and not the pill's "Not set"
+   * either — "Not set" is a claim about the VALUE, and the value is set. A
+   * default in any of those three directions is an invented provenance, which
+   * is the defect one level up from the one this field closes.
+   */
+  provenanceSource?: string
 }
 
 /**
