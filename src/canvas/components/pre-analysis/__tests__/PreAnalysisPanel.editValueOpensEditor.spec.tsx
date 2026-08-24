@@ -1,40 +1,7 @@
-/**
- * PreAnalysisPanel — the pre-analysis half of the SAME "Edit value" lie.
- *
- * ## The corrected premise this file records
- *
- * The brief for this work held that the post-analysis pencil lied while THIS
- * consumer was honest, and warned that a shared-label fix would therefore make
- * an honest consumer lie. Derived at the tree, that is false: both consumers
- * lie, by two different routes to the same dead end.
- *
- *   - post-analysis: `onEdit={onFocusNode}` → `useFocusCamera.handleFocusNode`
- *   - pre-analysis:  `onEdit={handleSetValueForGap}` → `selectNodeWithoutHistory`
- *                    + `focusNodeById` (which is `handleFocusNode` again)
- *
- * Neither dispatches `olumi:open-full-inspector`, and that event is the ONLY
- * way `showFullInspector` — local React state in `ReactFlowGraph` — is ever
- * raised. `InspectorModal` has exactly one mount site, gated on it. So
- * selection alone opens no editing surface anywhere in the app, and this
- * handler's own comment ("opens the inspector for a factor") described
- * something it never did.
- *
- * That is why the fix is ONE owner used by both consumers, rather than a
- * bespoke handler here: two consumers of one shared control must not resolve
- * the same label two different ways.
- *
- * ## Identity binding (CLAUDE.md trap 19)
- *
- * Two factor cards are on screen, both carrying the pencil. The discriminating
- * test clicks the SECOND and asserts the FIRST was not opened, so a mutant
- * that ignores its argument cannot survive.
- *
- * ⚠ SCOPE (CLAUDE.md trap 3): DOM-presence, call-argument and window-event
- * assertions only. jsdom cannot prove the inspector is visible.
- */
+/** PreAnalysisPanel — controls without a GraphV3 carrier do not mount. */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
+import { render, screen, within, cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
@@ -271,7 +238,7 @@ function withInspectorWatch<T>(fn: (count: () => number) => T): T {
   }
 }
 
-describe('PreAnalysisPanel — "Edit value" opens the editor it names', () => {
+describe('PreAnalysisPanel — local-only semantic actions fail closed', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUsePreAnalysisData.mockReturnValue(createMockData())
@@ -281,40 +248,19 @@ describe('PreAnalysisPanel — "Edit value" opens the editor it names', () => {
     cleanup()
   })
 
-  /**
-   * Precondition pin: the control exists on this surface at all. Without it,
-   * the behavioural tests below could pass vacuously on a panel that stopped
-   * rendering the card.
-   */
-  it('the pencil renders on the factor card', () => {
+  it('keeps the factor card visible but withholds its dead edit pencil', () => {
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    expect(
-      within(cardFor(FACTOR_B_LABEL)).getByRole('button', { name: 'Edit value' }),
-    ).toBeInTheDocument()
+    const card = cardFor(FACTOR_B_LABEL)
+    expect(card).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Edit value' })).not.toBeInTheDocument()
+    expect(within(card).queryByRole('spinbutton')).not.toBeInTheDocument()
   })
 
-  /**
-   * ⭐ THE PIN. RED at pristine: `handleSetValueForGap` selected the node and
-   * moved the camera, dispatching no inspector-raise signal at all.
-   */
-  it('clicking it RAISES THE INSPECTOR, not just the camera', () => {
+  it('raises no Inspector and mutates no selection while rendering the guidance', () => {
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     withInspectorWatch(count => {
-      fireEvent.click(within(cardFor(FACTOR_B_LABEL)).getByRole('button', { name: 'Edit value' }))
-      expect(count()).toBe(1)
+      expect(count()).toBe(0)
     })
-  })
-
-  /**
-   * ⭐ THE DISCRIMINATING HALF. Card B is deliberately second: a mutant that
-   * ignores its argument and opens `nodes[0]` satisfies the test above and
-   * must fail here.
-   */
-  it('opens THIS card’s factor, not the other card’s (discriminating pair)', () => {
-    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    fireEvent.click(within(cardFor(FACTOR_B_LABEL)).getByRole('button', { name: 'Edit value' }))
-
-    expect(mockSelectNodeWithoutHistory).toHaveBeenCalledWith(FACTOR_B_ID)
-    expect(mockSelectNodeWithoutHistory).not.toHaveBeenCalledWith(FACTOR_A_ID)
+    expect(mockSelectNodeWithoutHistory).not.toHaveBeenCalled()
   })
 })

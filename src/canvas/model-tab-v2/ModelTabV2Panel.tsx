@@ -47,6 +47,10 @@ import type { EdgeData } from '../domain/edges'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../mutations/mutationAuthority'
 import { ModelOutline } from './ModelOutline'
 import { ModelDetailRegion } from './ModelDetailRegion'
 import { RepairQueueList } from './RepairQueueList'
@@ -96,6 +100,17 @@ export interface ModelTabV2PanelProps {
  * discovery in a diff.
  */
 type MountedQueueId = Extract<RepairQueue['id'], 'confirm-estimates'>
+
+// B3 emergency policy: only receipt-bearing GraphV3 edits may mount as model
+// controls. These two paths are deliberate local-only writes at this tip, so
+// their existing code remains available for a future carrier but no affordance
+// can invoke it now.
+const FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation,
+)
+const OPTION_INTERVENTION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelOptionIntervention,
+)
 
 /** One active edit at a time — the row the user is currently changing. */
 interface ActiveEdit {
@@ -495,7 +510,7 @@ export function ModelTabV2Panel({
         Rendered only when the count is non-zero: a chip reading "0 to verify"
         is furniture, and the queue behind it would be empty.
       */}
-      {confirmItems.length > 0 && !inQueue && (
+      {FACTOR_CONFIRMATION_CONNECTED && confirmItems.length > 0 && !inQueue && (
         <button
           type="button"
           data-testid="model-tab-v2-chip-confirm-estimates"
@@ -506,7 +521,7 @@ export function ModelTabV2Panel({
         </button>
       )}
 
-      {inQueue ? (
+      {inQueue && FACTOR_CONFIRMATION_CONNECTED ? (
         <>
           <button
             type="button"
@@ -547,7 +562,7 @@ export function ModelTabV2Panel({
         onProposeEdit={proposeEdit}
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
-        onConfirmValueAsIs={confirmValueAsIs}
+        onConfirmValueAsIs={FACTOR_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}
       />
@@ -560,14 +575,14 @@ export function ModelTabV2Panel({
           tier={tier}
           onFocusOnCanvas={focusOnCanvas}
           interventionEdit={
-            interventionEdit && interventionEdit.optionId === selectedRow.id
+            OPTION_INTERVENTION_CONNECTED && interventionEdit && interventionEdit.optionId === selectedRow.id
               ? { factorId: interventionEdit.factorId, draft: interventionEdit.draft }
               : null
           }
-          onBeginInterventionEdit={beginInterventionEdit}
-          onInterventionDraftChange={changeInterventionDraft}
-          onCommitIntervention={commitIntervention}
-          onDiscardInterventionEdit={discardInterventionEdit}
+          onBeginInterventionEdit={OPTION_INTERVENTION_CONNECTED ? beginInterventionEdit : undefined}
+          onInterventionDraftChange={OPTION_INTERVENTION_CONNECTED ? changeInterventionDraft : undefined}
+          onCommitIntervention={OPTION_INTERVENTION_CONNECTED ? commitIntervention : undefined}
+          onDiscardInterventionEdit={OPTION_INTERVENTION_CONNECTED ? discardInterventionEdit : undefined}
         />
       )}
     </section>

@@ -6,9 +6,12 @@ import type { Node, Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { EdgeData } from '../../domain/edges'
 
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
+const storeSpies = vi.hoisted(() => ({
+  undo: vi.fn(),
+  redo: vi.fn(),
+  setViewMode: vi.fn(),
+  applyLayout: vi.fn(),
+}))
 
 vi.mock('../../ToastContext', () => ({
   useShowToast: () => vi.fn(),
@@ -23,11 +26,11 @@ vi.mock('../../store', () => {
     results: { status: 'idle', report: null },
     canUndo: () => false,
     canRedo: () => false,
-    undo: vi.fn(),
-    redo: vi.fn(),
+    undo: storeSpies.undo,
+    redo: storeSpies.redo,
     viewMode: 'standard' as const,
-    setViewMode: vi.fn(),
-    applyLayout: vi.fn(),
+    setViewMode: storeSpies.setViewMode,
+    applyLayout: storeSpies.applyLayout,
   }
   const mockStore = vi.fn((selector: any) => selector(mockState))
   mockStore.getState = () => mockState
@@ -45,328 +48,240 @@ vi.mock('../../stores/guidanceStore', () => ({
   },
 }))
 
-vi.mock('../../mutations/commitValidatedMutation', () => ({
-  commitValidatedMutation: vi.fn(async (_ops: any, localApply: () => void) => {
-    localApply()
-    return { success: true }
-  }),
-}))
-
 const onClose = vi.fn()
 const screenToFlowPosition = vi.fn((pos: any) => pos)
+
+const RETIRED_LOCAL_ACTIONS = [
+  'Add node',
+  'Paste',
+  'Undo',
+  'Redo',
+  'Set value',
+  'Add connected factor',
+  'Add outcome from this',
+  'Add risk from this',
+  'Mark as assumption',
+  'Cut',
+  'Duplicate',
+  'Reverse direction',
+  'Insert factor between',
+] as const
+
+function expectLocalSemanticActionsAbsent(): void {
+  for (const label of RETIRED_LOCAL_ACTIONS) {
+    expect(screen.queryByText(label), `${label} mounted without shared-model authority`).toBeNull()
+  }
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
 })
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+describe('CanvasContextMenu — shared-model authority', () => {
+  const paneTarget: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
 
-describe('CanvasContextMenu', () => {
-  describe('pane target', () => {
-    const target: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
+  it('keeps the readable pane tools and withholds every local semantic edit', () => {
+    render(
+      <CanvasContextMenu
+        target={paneTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
 
-    it('renders menu with role="menu"', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByRole('menu')).toBeInTheDocument()
-    })
+    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toBeInTheDocument()
+    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Auto-arrange')).toBeInTheDocument()
+    expect(screen.getByText('Switch to Detailed')).toBeInTheDocument()
+    expectLocalSemanticActionsAbsent()
+    expect(storeSpies.undo).not.toHaveBeenCalled()
+    expect(storeSpies.redo).not.toHaveBeenCalled()
+    expect(storeSpies.applyLayout).not.toHaveBeenCalled()
+  })
 
-    it('renders Add node and Paste items', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Add node')).toBeInTheDocument()
-      expect(screen.getByText('Paste')).toBeInTheDocument()
-    })
+  it('retains an accessible disabled presentation action without reviving Paste', () => {
+    render(
+      <CanvasContextMenu
+        target={paneTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    const arrange = screen.getByText('Auto-arrange').closest('button')
+    expect(arrange).toHaveAttribute('aria-disabled', 'true')
+    expect(arrange).not.toBeDisabled()
+    expect(screen.queryByText('Paste')).toBeNull()
+  })
 
-    it('renders Ask AI item', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Ask AI')).toBeInTheDocument()
-    })
+  it('opens the read-only Ask AI submenu with current DS and accessibility semantics', () => {
+    render(
+      <CanvasContextMenu
+        target={paneTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    const askAi = screen.getByText('Ask AI').closest('button')!
+    fireEvent.click(askAi)
 
-    it('uses DS v4 tokens — no emoji icons', () => {
+    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains('z-[101]'))
+    expect(submenu).toBeDefined()
+    expect(submenu).toHaveTextContent("What's missing from this model?")
+    expect(submenu!.className).toContain('border-panel-border')
+    const question = screen.getByText("What's missing from this model?").closest('button')!
+    expect(question).not.toHaveAttribute('aria-disabled')
+    expect(askAi.className).toContain('focus-visible:ring-primary/50')
+  })
+
+  it('keeps tooltip identity coherent on an available presentation control', () => {
+    vi.useFakeTimers()
+    try {
       const { container } = render(
-        <CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
+        <CanvasContextMenu
+          target={paneTarget}
+          onClose={onClose}
+          screenToFlowPosition={screenToFlowPosition}
+        />,
       )
-      const html = container.innerHTML
-      // Ensure no emoji characters used as icons
-      expect(html).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u)
-    })
-
-    it('has separator elements with role="separator"', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      const separators = screen.getAllByRole('separator')
-      expect(separators.length).toBeGreaterThan(0)
-    })
-  })
-
-  describe('node target (factor)', () => {
-    const node = {
-      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
-      data: { label: 'Revenue', kind: 'factor' },
-    } as Node
-    const target: NodeTarget = {
-      kind: 'node', nodeId: 'f1', nodeType: 'factor', node, screenPos: { x: 100, y: 100 },
+      const toggle = screen.getByText('Switch to Detailed').closest('button')!
+      fireEvent.mouseEnter(toggle)
+      act(() => { vi.advanceTimersByTime(350) })
+      const tooltip = container.querySelector('[role="tooltip"]')
+      expect(tooltip).not.toBeNull()
+      expect(tooltip!.id).toBe('tooltip-toggle-view-mode')
+      expect(toggle).toHaveAttribute('aria-describedby', 'tooltip-toggle-view-mode')
+    } finally {
+      vi.useRealTimers()
     }
-
-    it('renders full menu with Ask AI, Explore, Set value', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Ask AI')).toBeInTheDocument()
-      expect(screen.getByText('Explore')).toBeInTheDocument()
-      expect(screen.getByText('Set value')).toBeInTheDocument()
-    })
-
-    it('renders Mark as assumption', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Mark as assumption')).toBeInTheDocument()
-    })
-
-    it('renders clipboard actions', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Cut')).toBeInTheDocument()
-      expect(screen.getByText('Copy')).toBeInTheDocument()
-      expect(screen.getByText('Duplicate')).toBeInTheDocument()
-      expect(screen.getByText('Delete')).toBeInTheDocument()
-    })
   })
 
-  describe('node target (decision — reduced)', () => {
+  it('uses icon components rather than emoji and keeps structural separators', () => {
+    const { container } = render(
+      <CanvasContextMenu
+        target={paneTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    expect(container.innerHTML).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u)
+    expect(screen.getAllByRole('separator').length).toBeGreaterThan(0)
+  })
+
+  it('closes on Escape', () => {
+    render(
+      <CanvasContextMenu
+        target={paneTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('CanvasContextMenu — target-specific read and inspect tools', () => {
+  const factorNode = {
+    id: 'f1',
+    type: 'factor',
+    position: { x: 0, y: 0 },
+    data: { label: 'Revenue', kind: 'factor' },
+  } as Node
+  const factorTarget: NodeTarget = {
+    kind: 'node',
+    nodeId: 'f1',
+    nodeType: 'factor',
+    node: factorNode,
+    screenPos: { x: 100, y: 100 },
+  }
+
+  it('keeps factor explanation, exploration, copy and durable delete routes only', () => {
+    render(
+      <CanvasContextMenu
+        target={factorTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Explore')).toBeInTheDocument()
+    expect(screen.getByText('Copy')).toBeInTheDocument()
+    expect(screen.getByText('Delete')).toBeInTheDocument()
+    expectLocalSemanticActionsAbsent()
+  })
+
+  it('keeps organisational nodes readable without fabricating factor tools', () => {
     const node = {
-      id: 'd1', type: 'decision', position: { x: 0, y: 0 },
+      id: 'd1',
+      type: 'decision',
+      position: { x: 0, y: 0 },
       data: { label: 'Strategy', kind: 'decision' },
     } as Node
     const target: NodeTarget = {
-      kind: 'node', nodeId: 'd1', nodeType: 'decision', node, screenPos: { x: 100, y: 100 },
+      kind: 'node',
+      nodeId: 'd1',
+      nodeType: 'decision',
+      node,
+      screenPos: { x: 100, y: 100 },
     }
-
-    it('does NOT show Explore or Set value', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.queryByText('Explore')).not.toBeInTheDocument()
-      expect(screen.queryByText('Set value')).not.toBeInTheDocument()
-    })
+    render(
+      <CanvasContextMenu
+        target={target}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Copy')).toBeInTheDocument()
+    expect(screen.getByText('Delete')).toBeInTheDocument()
+    expect(screen.queryByText('Explore')).toBeNull()
+    expectLocalSemanticActionsAbsent()
   })
 
-  describe('edge target (causal)', () => {
-    const edge = { id: 'e1', source: 'f1', target: 'g1', type: 'styled', data: { ...DEFAULT_EDGE_DATA } } as Edge<EdgeData>
+  it('keeps causal edges explainable and durably deletable without local edge edits', () => {
+    const edge = {
+      id: 'e1',
+      source: 'f1',
+      target: 'g1',
+      type: 'styled',
+      data: { ...DEFAULT_EDGE_DATA },
+    } as Edge<EdgeData>
     const target: EdgeTarget = {
-      kind: 'edge', edgeId: 'e1', edge, isStructural: false, screenPos: { x: 100, y: 100 },
+      kind: 'edge',
+      edgeId: 'e1',
+      edge,
+      isStructural: false,
+      screenPos: { x: 100, y: 100 },
     }
-
-    it('renders edge menu with Ask AI, Mark as assumption, Delete', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Ask AI')).toBeInTheDocument()
-      expect(screen.getByText('Mark as assumption')).toBeInTheDocument()
-      expect(screen.getByText('Delete')).toBeInTheDocument()
-    })
+    render(
+      <CanvasContextMenu
+        target={target}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Delete')).toBeInTheDocument()
+    expectLocalSemanticActionsAbsent()
   })
 
-  describe('edge target (structural)', () => {
-    const edge = { id: 'e2', source: 'd1', target: 'o1', type: 'styled', data: { ...DEFAULT_EDGE_DATA } } as Edge<EdgeData>
-    const target: EdgeTarget = {
-      kind: 'edge', edgeId: 'e2', edge, isStructural: true, screenPos: { x: 100, y: 100 },
-    }
-
-    it('does NOT show Mark as assumption', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.queryByText('Mark as assumption')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('multi-select target', () => {
+  it('keeps multi-selection explainable and copyable without batch local mutation', () => {
     const target: MultiTarget = {
-      kind: 'multi', nodeIds: ['f1', 'g1'], edgeIds: ['e1'], screenPos: { x: 100, y: 100 },
+      kind: 'multi',
+      nodeIds: ['f1', 'g1'],
+      edgeIds: ['e1'],
+      screenPos: { x: 100, y: 100 },
     }
-
-    it('renders multi-select menu with clipboard actions', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.getByText('Ask AI')).toBeInTheDocument()
-      expect(screen.getByText('Cut')).toBeInTheDocument()
-      expect(screen.getByText('Copy')).toBeInTheDocument()
-      expect(screen.getByText('Delete')).toBeInTheDocument()
-    })
-  })
-
-  describe('keyboard navigation', () => {
-    const target: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
-
-    it('closes on Escape', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      fireEvent.keyDown(document, { key: 'Escape' })
-      expect(onClose).toHaveBeenCalled()
-    })
-  })
-
-  describe('disabled items', () => {
-    const target: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
-
-    it('Paste has aria-disabled when clipboard is empty', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      const paste = screen.getByText('Paste').closest('button')
-      expect(paste).toHaveAttribute('aria-disabled', 'true')
-    })
-
-    it('disabled items are NOT natively disabled (remain focusable)', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      const paste = screen.getByText('Paste').closest('button')
-      expect(paste).not.toBeDisabled()
-    })
-  })
-
-  describe('decision node does NOT show Mark as assumption', () => {
-    const node = {
-      id: 'd1', type: 'decision', position: { x: 0, y: 0 },
-      data: { label: 'Strategy', kind: 'decision' },
-    } as Node
-    const target: NodeTarget = {
-      kind: 'node', nodeId: 'd1', nodeType: 'decision', node, screenPos: { x: 100, y: 100 },
-    }
-
-    it('does NOT render Mark as assumption for decision nodes', () => {
-      render(<CanvasContextMenu target={target} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-      expect(screen.queryByText('Mark as assumption')).not.toBeInTheDocument()
-    })
-  })
-
-  // -------------------------------------------------------------------------
-  // Regression tests for visual fixes (P0.1, P0.2, P1.1)
-  // -------------------------------------------------------------------------
-
-  describe('visual fix regressions', () => {
-    const paneTarget: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
-
-    it('Decision glyph renders \u2B22 text (not a Lucide icon)', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      // Open Add node submenu by clicking
-      fireEvent.click(screen.getByText('Add node'))
-
-      // The Decision item should render the solid hexagon glyph as text, not an SVG icon
-      const decisionBtn = screen.getByText('Decision').closest('button')!
-      // Should contain the solid hexagon glyph character
-      expect(decisionBtn.textContent).toContain('\u2B22')
-      // Should NOT have an SVG element (Lucide icons render as SVG)
-      expect(decisionBtn.querySelector('svg')).toBeNull()
-    })
-
-    it('glyph spans use symbol font fallback stack', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      // Open Add node submenu
-      fireEvent.click(screen.getByText('Add node'))
-
-      // All glyph spans in the submenu should have fontFamily set
-      const decisionBtn = screen.getByText('Decision').closest('button')!
-      const glyphSpan = decisionBtn.querySelector('span[style]')
-      expect(glyphSpan).not.toBeNull()
-      expect(glyphSpan!.style.fontFamily).toContain('Apple Symbols')
-    })
-
-    it('submenu container has border-panel-border class', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      // Open Add node submenu
-      fireEvent.click(screen.getByText('Add node'))
-
-      // The submenu should have the border class (second role="menu" element)
-      const menus = screen.getAllByRole('menu')
-      const submenu = menus.find((m) => m.classList.contains('z-[101]'))
-      expect(submenu).toBeDefined()
-      expect(submenu!.classList.toString()).toContain('border-panel-border')
-    })
-
-    it('menu buttons use focus-visible ring (not browser default)', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      const addNodeBtn = screen.getByText('Add node').closest('button')!
-      expect(addNodeBtn.className).toContain('outline-none')
-      expect(addNodeBtn.className).toContain('focus-visible:ring-primary/50')
-    })
-
-    it('MenuTooltip id matches aria-describedby pattern (fake timers)', () => {
-      vi.useFakeTimers()
-      try {
-        const { container } = render(
-          <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-        )
-        // Hover over Paste (non-submenu item) to start tooltip timer
-        const pasteBtn = screen.getByText('Paste').closest('button')!
-        fireEvent.mouseEnter(pasteBtn)
-
-        // Advance past the 300ms tooltip delay — wrap in act() to flush React state updates
-        act(() => { vi.advanceTimersByTime(350) })
-
-        const tooltip = container.querySelector('[role="tooltip"]')
-        expect(tooltip).not.toBeNull()
-        // Tooltip must have an id matching tooltip-{itemId} pattern
-        expect(tooltip!.id).toBe('tooltip-paste')
-        // The button's aria-describedby must match
-        expect(pasteBtn.getAttribute('aria-describedby')).toBe('tooltip-paste')
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it('submenu content never contains parent tooltip text', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      // The "Add node" parent has tooltip "Create a new element on the canvas"
-      const parentTooltipText = 'Create a new element on the canvas'
-
-      // Open Add node submenu
-      fireEvent.click(screen.getByText('Add node'))
-
-      // Get the submenu container (z-[101])
-      const menus = screen.getAllByRole('menu')
-      const submenu = menus.find((m) => m.classList.contains('z-[101]'))
-      expect(submenu).toBeDefined()
-
-      // Submenu must NOT contain the parent's tooltip text
-      expect(submenu!.textContent).not.toContain(parentTooltipText)
-      // Submenu must contain only its own items (Factor, Risk, etc.)
-      expect(submenu!.textContent).toContain('Factor')
-      expect(submenu!.textContent).toContain('Decision')
-    })
-
-    it('enabled submenu items do NOT have aria-disabled attribute', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      // Open Add node submenu
-      fireEvent.click(screen.getByText('Add node'))
-
-      // All submenu items are enabled — none should have aria-disabled
-      const factorBtn = screen.getByText('Factor').closest('button')!
-      expect(factorBtn.hasAttribute('aria-disabled')).toBe(false)
-    })
-
-    it('Option appears between Outcome and Goal with square glyph and text-option color', () => {
-      render(
-        <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-      )
-      fireEvent.click(screen.getByText('Add node'))
-
-      // Option entry exists with square glyph
-      const optionBtn = screen.getByText('Option').closest('button')!
-      expect(optionBtn.textContent).toContain('\u25A0')
-
-      // Glyph span uses text-option color class
-      const glyphSpan = optionBtn.querySelector('span[style]')
-      expect(glyphSpan).not.toBeNull()
-      expect(glyphSpan!.className).toContain('text-option')
-
-      // Order: Outcome before Option before Goal
-      const menus = screen.getAllByRole('menu')
-      const submenu = menus.find((m) => m.classList.contains('z-[101]'))!
-      const labels = Array.from(submenu.querySelectorAll('button')).map((b) => b.textContent ?? '')
-      const outcomeIdx = labels.findIndex((l) => l.includes('Outcome'))
-      const optionIdx = labels.findIndex((l) => l.includes('Option'))
-      const goalIdx = labels.findIndex((l) => l.includes('Goal'))
-      expect(outcomeIdx).toBeLessThan(optionIdx)
-      expect(optionIdx).toBeLessThan(goalIdx)
-    })
+    render(
+      <CanvasContextMenu
+        target={target}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expect(screen.getByText('Copy')).toBeInTheDocument()
+    expect(screen.getByText('Delete')).toBeInTheDocument()
+    expectLocalSemanticActionsAbsent()
   })
 })

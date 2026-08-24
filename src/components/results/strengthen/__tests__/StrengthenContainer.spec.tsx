@@ -43,6 +43,7 @@ beforeEach(() => {
   try { sessionStorage.clear() } catch { /* jsdom */ }
   useGuidanceStore.setState({ guidanceItems: [], _dispatchAction: null, _sendMessage: null } as never)
   useAskOlumiStore.setState({ isOpen: false, context: '', draft: '', label: '', targetId: null })
+  useSuccessMeasureStore.setState({ isOpen: false })
   useCanvasStore.setState({
     currentStage: null,
     draftCoaching: null,
@@ -166,13 +167,16 @@ describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', (
     )
   })
 
-  it('the primary action opens the Define-success MODAL and marks in progress (Round-2 wiring; Olumi stays on the sparkle)', () => {
+  it('the primary action routes to an editable Olumi draft, never the local-only success modal', () => {
     const dispatch = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: dispatch } as never)
     render(<StrengthenContainer data={makeData({ goalThreshold: null })} />)
     fireEvent.click(screen.getByRole('button', { name: 'Define success' }))
-    // The primary DOES the thing: structured modal, not a dialogue dispatch.
-    expect(useSuccessMeasureStore.getState().isOpen).toBe(true)
+    const drawer = useAskOlumiStore.getState()
+    expect(drawer.isOpen).toBe(true)
+    expect(drawer.draft).toBe('Help me work through: Define what success looks like')
+    expect(drawer.source).toBe('chip')
+    expect(useSuccessMeasureStore.getState().isOpen).toBe(false)
     expect(dispatch).not.toHaveBeenCalled()
     expect(useStrengthenStore.getState().records['strengthen:success-measure'].status).toBe(
       'in_progress',

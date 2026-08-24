@@ -46,6 +46,7 @@ import { ModelHealthSection, type AuditTrailData } from './model-tab/ModelHealth
 import { normalizeAutoNoiseProvenance } from '../../components/results/types'
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
+import { DetailToggleContext } from './model-tab/DetailToggleContext'
 import { ModelFooter } from './model-tab/ModelFooter'
 import { StatusBar } from './model-tab/StatusBar'
 import { EntityBar } from './model-tab/EntityBar'
@@ -110,6 +111,23 @@ interface ModelTabBodyProps {
  * paying for.
  */
 const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
+/**
+ * B5 convergence: the duplicate legacy editor is not part of the mounted
+ * product. Its implementation remains in this bounded change only to minimise
+ * merge risk while B3 lands beside it; no visual, pointer or accessibility
+ * route can reach it. The connected v2 outline is the sole Model surface.
+ */
+const LEGACY_DETAILED_EDITOR_MOUNTED = false
+
+/** Assistant/pre-analysis section names → their connected v2 receiver. */
+const MODEL_SECTION_TARGET: Readonly<Record<string, string>> = {
+  goal: 'model-group-v2-goal',
+  options: 'model-group-v2-options',
+  factors: 'model-group-v2-factors',
+  relationships: 'model-group-v2-relationships',
+  risks: 'model-group-v2-outcomes-risks',
+  modelcard: 'model-group-v2-evidence-review',
+}
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
 const EMPTY_NODE_IDS = new Set<string>()
@@ -220,11 +238,10 @@ export const ModelTabBody = memo(function ModelTabBody({
   const pendingSection = useUIStore(s => s.pendingModelTabSection)
   useEffect(() => {
     if (!pendingSection) return
-    setOpenSection(pendingSection)
-    setV1Expanded(true)
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
-      const el = document.querySelector<HTMLElement>(`[data-testid="model-${pendingSection}-section"]`)
+      const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
+      const el = document.querySelector<HTMLElement>(`[data-testid="${target}"]`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
     useUIStore.getState().requestModelTabSection(null)
@@ -873,8 +890,31 @@ export const ModelTabBody = memo(function ModelTabBody({
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
       />
 
-      {/* ── The v1 stack, COLLAPSED BY DEFAULT ────────────────────────────── */}
-      {/* Present and expandable, never removed. See the `v1Expanded` note. */}
+      {/* Unique scientific transparency from the legacy stack, rehomed rather
+          than discarded. These are disclosures/audit facts, not a second
+          entity editor: automatic repairs, quality dimensions, simulation
+          metadata and warnings remain inspectable beside the one v2 route. */}
+      <DetailToggleContext.Provider value={{ showDetail: expertMode ?? false }}>
+        <div data-testid="model-scientific-transparency" className="space-y-3">
+          <ModelAdjustments
+            adjustments={modelAdjustments}
+            repairActions={modelRepairActions}
+          />
+          <ModelHealthSection
+            ceeQuality={ceeQuality}
+            auditTrail={auditTrail}
+            factorCount={grouped.factor.length}
+            edgeCount={causalEdges.length}
+            factorsToVerify={factorsToVerify}
+            onSendMessage={onSendMessage}
+            {...makeSectionProps('modelcard')}
+          />
+        </div>
+      </DetailToggleContext.Provider>
+
+      {/* B5: retained source, deliberately NOT mounted. The v2 outline above
+          is the sole visible/editable Model route. */}
+      {LEGACY_DETAILED_EDITOR_MOUNTED && (
       <section data-testid="model-tab-v1-stack" className="border-t border-panel-border pt-3">
         <button
           type="button"
@@ -996,6 +1036,7 @@ export const ModelTabBody = memo(function ModelTabBody({
       </ModelTabHeader>
         </div>
       </section>
+      )}
 
       {/* ── Streaming diagnostics (Shift+D) ───────────────────────────────── */}
       <StreamingDiagnostics

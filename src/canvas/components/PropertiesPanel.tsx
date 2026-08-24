@@ -32,6 +32,6 @@ export function PropertiesPanel() {
   if (edgeId) return wrapper(<EdgeInspector edgeId={edgeId} onClose={() => {}} />)
 
   return wrapper(
-    <p className={`${typography.body} text-gray-600`}>Select a node or edge to edit its details.</p>
+    <p className={`${typography.body} text-gray-600`}>Select a node or edge to inspect its details.</p>
   )
 }

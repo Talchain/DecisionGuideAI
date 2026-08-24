@@ -1,126 +1,75 @@
-/**
- * ModelTabBody — unit tests (Phase 2 coverage)
- *
- * Covers:
- *  - Source mapping: canonical value preserved through edit roundtrip
- *  - Attention banner: conditions (fragile / missing-source / defaulted)
- *  - Warning copy: accurate count in defaulted-edges warning
- *  - Factor sort: needs-attention items first
- *  - Edge sort: fragile edges first
- *  - Inline edit: Enter commits, Escape cancels, blur commits
- *  - Search filtering
- *  - Fragile badge visibility guard (post-analysis only)
- *  - Goal headline visibility
- */
+/** ModelTabBody — the sole connected Model route. */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
-import { ModelTabBody } from '../ModelTabBody'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
-import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
-
-// ── Mocks ────────────────────────────────────────────────────────────────────
+import { ModelTabBody } from '../ModelTabBody'
 
 vi.mock('../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
   focusEdgeById: vi.fn(),
 }))
-
 vi.mock('../../../telemetry/guidanceEvents', () => ({ trackGuidance: vi.fn() }))
 
-const mockUpdateNode = vi.fn()
-const mockUpdateEdge = vi.fn()
-let mockCeePipelineTrace: unknown = null
-
-const mockSetHighlightedNodes = vi.fn()
-const mockSetHighlightedEdges = vi.fn()
-
-// ROADMAP 2.121 slice 1: the section components commit through
-// `useNodeMutations` / `useEdgeMutations`, which read the element back out of
-// `useCanvasStore.getState()` before writing — that read is what stops a commit
-// resurrecting a stale render-time `data` blob. A test that drives an edit must
-// put the element here as well as passing it as a prop.
-const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: [] }
-
+const mockGraph: { nodes: Node[]; edges: Edge[] } = { nodes: [], edges: [] }
 function getMockState() {
   return {
     nodes: mockGraph.nodes,
     edges: mockGraph.edges,
-    updateNode: mockUpdateNode,
-    updateEdge: mockUpdateEdge,
-    ceePipelineTrace: mockCeePipelineTrace,
+    updateNode: vi.fn(),
+    updateEdge: vi.fn(),
+    ceePipelineTrace: null,
     highlightedNodes: new Set<string>(),
     highlightedEdges: new Set<string>(),
-    setHighlightedNodes: mockSetHighlightedNodes,
-    setHighlightedEdges: mockSetHighlightedEdges,
+    setHighlightedNodes: vi.fn(),
+    setHighlightedEdges: vi.fn(),
     currentScenarioId: null,
     currentStage: null,
     graphEditedSinceLastRun: false,
+    goalThreshold: null,
+    goalThresholdRepresentation: null,
   }
 }
-
 vi.mock('../../store', () => ({
   useCanvasStore: Object.assign(
-    vi.fn((selector: (s: any) => any) => selector(getMockState())),
+    vi.fn((selector: (state: unknown) => unknown) => selector(getMockState())),
     { getState: getMockState },
   ),
 }))
-
 vi.mock('../GraphTextView', () => ({
   SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeGoalNode(id = 'goal-1', label = 'Maximise Revenue'): Node {
-  return { id, type: 'goal', position: { x: 0, y: 0 }, data: { label } }
-}
-
-function makeFactorNode(
-  id: string,
-  label: string,
-  opts: { source?: string; value?: number; category?: string } = {}
-): Node {
-  return {
-    id,
+const nodes: Node[] = [
+  {
+    id: 'goal-1',
+    type: 'goal',
+    position: { x: 0, y: 0 },
+    data: { label: 'Protect gross margin' },
+  },
+  {
+    id: 'factor-budget',
     type: 'factor',
     position: { x: 0, y: 0 },
     data: {
-      label,
-      category: opts.category ?? 'observable',
-      observedState: {
-        value: opts.value ?? 0.5,
-        source: opts.source,
-      },
+      label: 'Migration budget',
+      category: 'observable',
+      observedState: { value: 0.5, raw_value: 20000, source: 'brief_extraction' },
     },
-  }
-}
-
-function makeEdge(
-  id: string,
-  source: string,
-  target: string,
-  opts: { weight?: number; strengthStd?: number; provenance?: string; direction?: string } = {}
-): Edge {
-  return {
-    id,
-    source,
-    target,
+  },
+  {
+    id: 'factor-adoption',
+    type: 'factor',
+    position: { x: 0, y: 0 },
     data: {
-      weight: opts.weight ?? 0.5,
-      strengthStd: opts.strengthStd ?? 0.125,
-      provenance: opts.provenance ?? 'assumption',
-      direction: opts.direction ?? 'positive',
-      // A characterised edge is a STAMPED edge — the RelationshipsSection card
-      // is provenance-gated, so an unstamped fixture renders "Not set" no
-      // matter what numbers it carries. ROADMAP 2.263 put `direction` under the
-      // same gate: unstamped, it renders "direction not stated".
-      ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user', direction: 'user' }),
+      label: 'Team adoption',
+      category: 'observable',
+      observedState: { value: 0.4, source: 'cee_inference' },
     },
-  }
-}
+  },
+]
 
-const DEFAULT_PROPS = {
+const props = {
   showDebug: false,
   hasDiagnostics: false,
   diagnostics: null,
@@ -131,659 +80,92 @@ const DEFAULT_PROPS = {
   robustness: null,
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+function renderTab(edges: Edge[] = []) {
+  mockGraph.nodes = nodes
+  mockGraph.edges = edges
+  return render(<ModelTabBody {...props} nodes={nodes} edges={edges} />)
+}
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  mockCeePipelineTrace = null
-})
-
-describe('Model card removed', () => {
-  it('does not render ModelCardLite in the model tab', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[makeGoalNode('g1', 'Pick the right vendor')]}
-        edges={[]}
-      />
-    )
-    expect(screen.queryByTestId('model-card-lite')).not.toBeInTheDocument()
+function copyJsonAndParse(edges: Edge[]) {
+  const writeText = vi.fn().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText },
+    configurable: true,
   })
-})
+  renderTab(edges)
+  fireEvent.click(screen.getByTestId('model-copy-json'))
+  expect(writeText).toHaveBeenCalledTimes(1)
+  return JSON.parse(writeText.mock.calls[0][0] as string)
+}
 
-describe('Goal headline', () => {
-  it('shows goal label when a goal node is present', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[makeGoalNode('g1', 'Pick the right vendor')]}
-        edges={[]}
-      />
-    )
-    // Scoped by identity: the v2 outline (mounted 16 Aug 2026) also renders
-    // this label, so an unscoped getByText would match two surfaces.
-    const goalSection = screen.getByTestId('model-goal-section')
-    expect(within(goalSection).getByText('Pick the right vendor')).toBeInTheDocument()
+beforeEach(() => { vi.clearAllMocks() })
+
+describe('connected Model surface', () => {
+  it('shows each entity exactly once on the v2 outline', () => {
+    renderTab()
+    expect(screen.getAllByText('Protect gross margin')).toHaveLength(1)
+    expect(screen.getAllByText('Migration budget')).toHaveLength(1)
+    expect(screen.getAllByText('Team adoption')).toHaveLength(1)
+    expect(screen.queryByTestId('model-tab-v1-stack')).not.toBeInTheDocument()
   })
 
-  it('hides goal section when no goal node', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[makeFactorNode('f1', 'Budget')]}
-        edges={[]}
-      />
-    )
-    expect(screen.queryByTestId('model-goal-section')).not.toBeInTheDocument()
-  })
-})
-
-describe('Source mapping — canonical value preserved', () => {
-  it('shows friendly display label in read mode for cee_inference', () => {
-    const nodes = [makeFactorNode('f1', 'Market size', { source: 'cee_inference' })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    // Display text shows friendly label — scoped to the v1 card by identity
-    // (the mounted v2 outline renders its own provenance pill for the row).
-    expect(within(screen.getByTestId('factor-card-f1')).getByText('AI estimate')).toBeInTheDocument()
+  it('the one search surface actually filters the outline', () => {
+    renderTab()
+    const search = screen.getByTestId('model-tab-v2-filter')
+    expect(search).toBeEnabled()
+    fireEvent.change(search, { target: { value: 'adoption' } })
+    expect(screen.getByTestId('model-row-v2-factor-adoption')).toBeInTheDocument()
+    expect(screen.queryByTestId('model-row-v2-factor-budget')).not.toBeInTheDocument()
   })
 
-  it('shows friendly display label for brief_extraction', () => {
-    const nodes = [makeFactorNode('f1', 'Budget', { source: 'brief_extraction' })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    expect(within(screen.getByTestId('factor-card-f1')).getByText('From brief')).toBeInTheDocument()
-  })
-
-  it('shows "Not set" pill when source is absent', () => {
-    const nodes = [makeFactorNode('f1', 'Cost', { source: undefined })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    // P0.5: showWhenAbsent defaults to true — "Not set" is shown to surface missing sources.
-    // Scoped to the v1 card: the v2 row renders its own "Not set" value text.
-    expect(within(screen.getByTestId('factor-card-f1')).getByText('Not set')).toBeInTheDocument()
-  })
-})
-
-// Attention banner and defaulted-edges warning tests removed —
-// AttentionBanner and StrengthenSection were moved to Analysis tab in tightening brief.
-
-describe('Inline edit — Enter/Escape/blur (value field)', () => {
-  // Use factor value field for inline edit tests
-
-  it('commits on blur', () => {
-    mockUpdateNode.mockClear()
-    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
-    mockGraph.nodes = nodes
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-
-    const displayEl = screen.getByTestId('factor-f1-value-display')
-    fireEvent.click(displayEl)
-
-    const input = screen.getByTestId('factor-f1-value')
-    fireEvent.change(input, { target: { value: '0.7' } })
-    fireEvent.blur(input)
-
-    expect(mockUpdateNode).toHaveBeenCalledWith(
-      'f1',
-      expect.objectContaining({
-        data: expect.objectContaining({
-          observedState: expect.objectContaining({ value: 0.7, source: 'user' }),
-        }),
-      })
-    )
-  })
-
-  it('commits on Enter', () => {
-    mockUpdateNode.mockClear()
-    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
-    mockGraph.nodes = nodes
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-
-    const displayEl = screen.getByTestId('factor-f1-value-display')
-    fireEvent.click(displayEl)
-
-    const input = screen.getByTestId('factor-f1-value')
-    fireEvent.change(input, { target: { value: '0.8' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-
-    expect(mockUpdateNode).toHaveBeenCalled()
-  })
-
-  it('cancels on Escape without calling updateNode', () => {
-    mockUpdateNode.mockClear()
-    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
-    mockGraph.nodes = nodes
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-
-    const displayEl = screen.getByTestId('factor-f1-value-display')
-    fireEvent.click(displayEl)
-
-    const input = screen.getByTestId('factor-f1-value')
-    fireEvent.change(input, { target: { value: '0.9' } })
-    fireEvent.keyDown(input, { key: 'Escape' })
-
-    expect(mockUpdateNode).not.toHaveBeenCalled()
-    // Display button should be back
-    expect(screen.getByTestId('factor-f1-value-display')).toBeInTheDocument()
-  })
-})
-
-describe('Search footer — an inert control must SAY it is inert', () => {
-  /*
-   * ⚠⚠ THE PREVIOUS TEST HERE ASSERTED ONLY `toBeInTheDocument()`, AND THAT IS
-   * HOW THIS SHIPPED. The search box was enabled, accepted keystrokes, and
-   * filtered NOTHING — `searchQuery` was declared in `ModelTabBody`, threaded to
-   * `ModelFooter`, and read by no consumer anywhere in `src/`. A presence
-   * assertion cannot tell a working control from furniture; the estate's other
-   * five search boxes each have a real filter, and a test shaped like this one
-   * would have passed for any of them equally.
-   *
-   * The control is now disabled WITH A STATED REASON — the pattern the Model tab
-   * already uses honestly for an unbuilt capability (`ModelRowView`'s "Editing
-   * is not connected yet"). These assertions bind to that, so wiring the filter
-   * without re-enabling the input goes red, and re-enabling it without a filter
-   * goes red too.
-   */
-  const renderFooter = () => {
-    const nodes = [makeFactorNode('f1', 'Market size', { source: 'user' })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    return screen.getByTestId('model-search')
-  }
-
-  it('renders the search input', () => {
-    expect(renderFooter()).toBeInTheDocument()
-  })
-
-  it('⚠ is DISABLED — it filters nothing, and must not invite typing', () => {
-    expect(renderFooter()).toBeDisabled()
-  })
-
-  it('⚠ states WHY, to the screen reader and on hover — not just visually', () => {
-    const search = renderFooter()
-    // The exact copy is the contract: an accessible name that says "search"
-    // and nothing else would leave a screen-reader user with no signal at all.
-    expect(search).toHaveAccessibleName(
-      'Search is not connected yet — the list cannot be filtered from here.',
-    )
-    expect(search).toHaveAttribute(
-      'title',
-      'Search is not connected yet — the list cannot be filtered from here.',
-    )
-  })
-
-  it('⚠ POSITIVE CONTROL — the copy buttons in the same footer are NOT disabled', () => {
-    // Otherwise "disabled" above could be satisfied by a footer that failed to
-    // render its controls at all, or by a blanket disable of the whole bar
-    // (trap 13 — an absence assertion needs a presence it can see).
-    renderFooter()
+  it('keeps copy actions, without restoring the inert duplicate search', () => {
+    renderTab()
     expect(screen.getByTestId('model-copy')).toBeEnabled()
     expect(screen.getByTestId('model-copy-json')).toBeEnabled()
-  })
-})
-
-describe('Fragile badge — post-analysis guard', () => {
-  const nodes = [
-    makeFactorNode('f1', 'Factor A'),
-    makeFactorNode('f2', 'Factor B'),
-  ]
-  const edge = makeEdge('e1', 'f1', 'f2')
-
-  it('does not show fragile badge pre-analysis', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={nodes}
-        edges={[edge]}
-        robustness={null}
-      />
-    )
-    expect(screen.queryByText('fragile')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('searchbox')).toHaveLength(1)
   })
 
-  it('shows fragile badge post-analysis when edge is fragile', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={nodes}
-        edges={[edge]}
-        robustness={{
-          fragileEdges: [{ edgeId: 'e1', switchProbability: 0.8 }],
-          robustEdges: [],
-          stabilityScore: 0.5,
-        }}
-      />
-    )
-    expect(screen.getByText('fragile')).toBeInTheDocument()
-  })
-
-  it('shows fragile badge when PLoT uses canonical from->to edge ID (not RF ID)', () => {
-    // PLoT returns canonical IDs like "fac_pmf->out_cac"; RF edge ID is "e-5"
-    // The lookup must match by source+target when string IDs differ
-    const rfEdge = makeEdge('e-5', 'fac_pmf', 'out_cac')
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[
-          makeFactorNode('fac_pmf', 'Product market fit'),
-          makeFactorNode('out_cac', 'Customer acquisition'),
-        ]}
-        edges={[rfEdge]}
-        robustness={{
-          fragileEdges: [{ edgeId: 'fac_pmf->out_cac', fromId: 'fac_pmf', toId: 'out_cac', switchProbability: 0.72 }],
-          robustEdges: [],
-          stabilityScore: 0.45,
-        }}
-      />
-    )
-    expect(screen.getByText('fragile')).toBeInTheDocument()
-  })
-})
-
-describe('Golden UI test — headline numbers regression guard', () => {
-  // Build a mixed graph: causal nodes + organisational (decision + options)
-  function makeDecisionNode(id = 'd1', label = 'Which vendor?'): Node {
-    return { id, type: 'decision', position: { x: 0, y: 0 }, data: { label } }
-  }
-
-  function makeOptionNode(id: string, label: string): Node {
-    return { id, type: 'option', position: { x: 0, y: 0 }, data: { label } }
-  }
-
-  function makeGoalNode(id: string, label: string): Node {
-    return { id, type: 'goal', position: { x: 0, y: 0 }, data: { label } }
-  }
-
-  const goalNode = makeGoalNode('g1', 'Maximise Revenue')
-  const f1 = makeFactorNode('f1', 'Market size', { source: 'brief_extraction' })
-  const f2 = makeFactorNode('f2', 'Churn rate', { source: 'cee_inference' })
-  const f3 = makeFactorNode('f3', 'Team size', { source: 'user' })
-  const decision = makeDecisionNode('d1', 'Which strategy?')
-  const optA = makeOptionNode('opt_a', 'Option A')
-  const optB = makeOptionNode('opt_b', 'Option B')
-
-  // Causal edges (between factors + goal)
-  const e1: Edge = {
-    id: 'e1', source: 'f1', target: 'g1',
-    data: { weight: 0.8, strengthStd: 0.1, provenance: 'user_study', direction: 'positive', beliefExists: 0.85, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
-  }
-  const e2: Edge = {
-    id: 'e2', source: 'f2', target: 'g1',
-    data: { weight: 0.6, strengthStd: 0.15, provenance: 'assumption', direction: 'negative', beliefExists: 0.90, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
-  }
-  // Organisational edges (to/from decision+options — excluded from causal)
-  const e3: Edge = { id: 'e3', source: 'd1', target: 'opt_a', data: {} }
-
-  const allNodes = [goalNode, f1, f2, f3, decision, optA, optB]
-  const allEdges = [e1, e2, e3]
-
-  // Connectivity and evidence coverage tests removed — ModelSummaryBar replaced by EntityBar.
-
-  it('edge likelihood % matches beliefExists * 100', () => {
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={allNodes}
-        edges={allEdges}
-      />
-    )
-    // Edge cards are collapsed by default — click to expand
-    fireEvent.click(screen.getByTestId('edge-card-e1'))
-    fireEvent.click(screen.getByTestId('edge-card-e2'))
-    // e1 beliefExists = 0.85 → 85%
-    // e2 beliefExists = 0.90 → 90%
-    // Both should appear as likelihood values
-    expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('85')
-    expect(screen.getByTestId('edge-e2-likelihood-display')).toHaveTextContent('90')
-  })
-
-  it('edge likelihood % reads beliefExists correctly', () => {
-    // Canvas store canonical name — CEE ingestion normalises to beliefExists
-    const edgeWithExistsProb: Edge = {
-      id: 'e-ep', source: 'f1', target: 'g1',
-      data: { weight: 0.7, strengthStd: 0.1, provenance: 'assumption', direction: 'positive', beliefExists: 0.73, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
-    }
-    render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[makeGoalNode('g1', 'Goal'), makeFactorNode('f1', 'Factor')]}
-        edges={[edgeWithExistsProb]}
-      />
-    )
-    // Edge cards are collapsed by default — click to expand
-    fireEvent.click(screen.getByTestId('edge-card-e-ep'))
-    // exists_probability = 0.73 → 73%; must NOT fall back to default 70%
-    expect(screen.getByTestId('edge-e-ep-likelihood-display')).toHaveTextContent('73')
-  })
-})
-
-// Attention banner source category split tests removed — component moved to Analysis tab.
-
-describe('External factor — range display', () => {
-  function makeExternalNode(id: string, label: string, priorMin?: number, priorMax?: number): Node {
-    return {
-      id,
-      type: 'factor',
-      position: { x: 0, y: 0 },
+  it('keeps explicit edge provenance attached to the F7 JSON clipboard payload', () => {
+    const stamped: Edge = {
+      id: 'edge-stamped',
+      source: 'factor-budget',
+      target: 'factor-adoption',
       data: {
-        label,
-        category: 'external',
-        ...(priorMin !== undefined && priorMax !== undefined
-          ? { prior: { range_min: priorMin, range_max: priorMax } }
-          : {}),
+        weight: 0.42,
+        weightSource: 'user',
+        beliefExists: 0.73,
+        beliefExistsSource: 'cee',
+        direction: 'positive',
+        provenance: 'user_study',
       },
     }
-  }
 
-  it('shows explicit prior range when set', () => {
-    const node = makeExternalNode('ef1', 'Customer churn rate', 0, 0.14)
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    // InlineEdit renders with -display suffix in read mode
-    expect(screen.getByTestId('factor-ef1-prior-min-display')).toBeInTheDocument()
-    expect(screen.queryByTestId('factor-ef1-default-range')).not.toBeInTheDocument()
+    const payload = copyJsonAndParse([stamped])
+    expect(payload.edges).toHaveLength(1)
+    expect(payload.edges[0]).toEqual(expect.objectContaining({
+      weight: 0.42,
+      weightSource: 'user',
+      beliefExists: 0.73,
+      beliefExistsSource: 'cee',
+      provenance: 'user_study',
+    }))
   })
 
-  it('shows "0 – 1 (uniform)" default range text when no prior is set', () => {
-    const node = makeExternalNode('ef2', 'Market growth rate')
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    expect(screen.getByTestId('factor-ef2-default-range')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-ef2-default-range')).toHaveTextContent('0 – 1 (uniform)')
-    // "No range specified" must not appear anywhere
-    expect(screen.queryByText(/No range specified/)).not.toBeInTheDocument()
-  })
-
-  it('shows Refine range pill when no prior is set', () => {
-    const node = makeExternalNode('ef3', 'Inflation rate')
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    expect(screen.getByTestId('factor-ef3-refine-range')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-ef3-refine-range')).toHaveTextContent('Refine range')
-  })
-
-  it('does not show Refine range pill when prior is already set', () => {
-    const node = makeExternalNode('ef4', 'Interest rate', 0.01, 0.1)
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    expect(screen.queryByTestId('factor-ef4-refine-range')).not.toBeInTheDocument()
-  })
-
-  it('shows synthesised prior from repair_summary when node has no explicit prior', () => {
-    mockCeePipelineTrace = {
-      repair_summary: {
-        deterministic_repairs: [
-          {
-            action: 'Reclassified unreachable factor "Customer churn rate" to external with synthesised prior [0, 0.14]',
-          },
-        ],
-      },
-    }
-    const node = makeExternalNode('ef5', 'Customer churn rate')
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    // Should show the synthesised range, not the default
-    expect(screen.getByTestId('factor-ef5-prior-min-display')).toHaveTextContent('0')
-    expect(screen.getByTestId('factor-ef5-prior-max-display')).toHaveTextContent('0.14')
-    expect(screen.queryByTestId('factor-ef5-default-range')).not.toBeInTheDocument()
-    // Should show "from model repair" provenance
-    expect(screen.getByText(/from model repair/)).toBeInTheDocument()
-  })
-
-  it('shows synthesised prior from structured node_id + synthesised_range fields', () => {
-    mockCeePipelineTrace = {
-      repair_summary: {
-        deterministic_repairs: [
-          {
-            node_id: 'ef6',
-            synthesised_range: [0.05, 0.25],
-            action: 'some repair action',
-          },
-        ],
-      },
-    }
-    const node = makeExternalNode('ef6', 'Market growth')
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    expect(screen.getByTestId('factor-ef6-prior-min-display')).toHaveTextContent('0.05')
-    expect(screen.getByTestId('factor-ef6-prior-max-display')).toHaveTextContent('0.25')
-  })
-})
-
-// Strengthen section and attention banner tests removed — components moved to Analysis tab.
-
-describe('Inline edit — hover affordance classes', () => {
-  it('has cursor-pointer, border-panel-border, and hover:border-info on display element', () => {
-    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    const displayEl = screen.getByTestId('factor-f1-value-display')
-    expect(displayEl.className).toContain('cursor-pointer')
-    expect(displayEl.className).toContain('border-panel-border')
-    expect(displayEl.className).toContain('hover:border-info')
-  })
-})
-
-describe('DS-1: All pills use outlined style (no filled backgrounds)', () => {
-  it('category badges use transparent bg and border-only style', () => {
-    const nodes = [
-      makeFactorNode('f1', 'Cost', { source: 'user', category: 'controllable' }),
-      makeFactorNode('f2', 'Weather', { source: 'user', category: 'external' }),
-    ]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    const badges = screen.getAllByText(/Controllable|External/)
-    for (const badge of badges) {
-      expect(badge.className).toContain('bg-transparent')
-      expect(badge.className).toContain('text-text-body')
-      expect(badge.className).not.toMatch(/bg-info-light|bg-warning-light|bg-factor-light/)
-    }
-  })
-
-  it('category badges use outlined style on relationship edge likelihood pill', () => {
-    const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
-    const edges = [
-      makeEdge('e1', 'f1', 'f2', { direction: 'positive', weight: 0.5, strengthStd: 0.1 }),
-    ]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // Semantic label for weight=0.5 positive = "Moderate positive effect" —
-    // scoped to the v1 edge summary (the v2 relationship row says it too).
-    expect(within(screen.getByTestId('edge-e1-summary')).getByText('Moderate positive effect')).toBeInTheDocument()
-  })
-})
-
-describe('DS-4: Likelihood bars use evaluative threshold colours', () => {
-  it('shows bg-danger for likelihood < 40%', () => {
-    const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
-    const edges: import('@xyflow/react').Edge[] = [{
-      id: 'e1', source: 'f1', target: 'f2',
-      data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3, ...edgeValueSourcePatch({ weight: 'user', beliefExists: 'user' }) },
-    }]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // Edge cards are collapsed by default — click to expand
-    fireEvent.click(screen.getByTestId('edge-card-e1'))
-    // 30% likelihood should use danger colour
-    expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('30')
-  })
-})
-
-describe('DS-5: No evidence per-card noise reduction', () => {
-  it('suppresses "No evidence" on every card when all edges lack evidence', () => {
-    const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' })]
-    const edges = [makeEdge('e1', 'f1', 'f2', { provenance: 'assumption' })]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // "No evidence" should NOT appear when all edges lack evidence
-    expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
-  })
-
-  it('in mixed evidence state, non-evidenced edges render no provenance row at all', () => {
-    const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' }), makeFactorNode('f3', 'C', { source: 'user' })]
-    const edges = [
-      makeEdge('e1', 'f1', 'f2', { provenance: 'user_study' }),
-      makeEdge('e2', 'f2', 'f3', { provenance: 'assumption' }),
-    ]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // "No evidence" label should never appear — absence of provenance row is the signal
-    expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
-    // Expand edge cards to see provenance rows
-    fireEvent.click(screen.getByTestId('edge-card-e1'))
-    // But evidence edge should still show its source
-    expect(screen.getByText(/Source: user_study/)).toBeInTheDocument()
-  })
-})
-
-describe('PD-1: Currency prefix formatting', () => {
-  it('displays currency symbol as prefix (£49 not 49 £)', () => {
-    const node: import('@xyflow/react').Node = {
-      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
-      data: {
-        label: 'Budget',
-        category: 'observable',
-        observedState: { raw_value: 49, unit: '£', source: 'user' },
-      },
-    }
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    // Scoped to the v1 card: the v2 row renders the same formatted value.
-    expect(within(screen.getByTestId('factor-card-f1')).getByText('£49')).toBeInTheDocument()
-  })
-})
-
-describe('PD-2: Smart value precision', () => {
-  it('displays integer values without decimals', () => {
-    const node: import('@xyflow/react').Node = {
-      id: 'f1', type: 'factor', position: { x: 0, y: 0 },
-      data: {
-        label: 'Binary factor',
-        category: 'observable',
-        observedState: { value: 0, source: 'user' },
-      },
-    }
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[node]} edges={[]} />)
-    // Should show "0" not "0.00"
-    const valueElements = screen.getAllByText('0')
-    expect(valueElements.length).toBeGreaterThan(0)
-    expect(screen.queryByText('0.00')).not.toBeInTheDocument()
-  })
-})
-
-describe('NF-1: Copy as JSON button', () => {
-  it('renders a JSON copy button', () => {
-    const nodes = [makeFactorNode('f1', 'Factor')]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
-    expect(screen.getByTestId('model-copy-json')).toBeInTheDocument()
-    expect(screen.getByTestId('model-copy-json')).toHaveTextContent('JSON')
-  })
-
-  // ── F7 ──────────────────────────────────────────────────────────────────
-  // The copied payload lands on the user's clipboard, where nothing
-  // downstream can tell a chosen 0.3 from `USER_EDGE_DEFAULTS.weight`. The
-  // numbers may still be exported — this is a data export, not a display
-  // surface — but the provenance has to travel with them.
-  describe('F7: the exported edge carries its provenance', () => {
-    function copyAndParse(edges: Edge[]) {
-      const writeText = vi.fn().mockResolvedValue(undefined)
-      Object.defineProperty(navigator, 'clipboard', {
-        value: { writeText },
-        configurable: true,
-      })
-      const nodes = [makeFactorNode('f1', 'A'), makeFactorNode('f2', 'B')]
-      render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-      fireEvent.click(screen.getByTestId('model-copy-json'))
-      expect(writeText).toHaveBeenCalledTimes(1)
-      return JSON.parse(writeText.mock.calls[0][0] as string)
+  it('exports unstamped default numbers as unsourced in the F7 JSON clipboard payload', () => {
+    const unstamped: Edge = {
+      id: 'edge-unstamped',
+      source: 'factor-budget',
+      target: 'factor-adoption',
+      data: { weight: 0.3, beliefExists: 0.8, direction: 'positive' },
     }
 
-    it('POSITIVE CONTROL: stamps a value somebody set', () => {
-      // makeEdge stamps 'user' on both fields.
-      const payload = copyAndParse([makeEdge('e1', 'f1', 'f2', { weight: 0.42 })])
-      expect(payload.edges).toHaveLength(1)
-      expect(payload.edges[0].weight).toBe(0.42)
-      expect(payload.edges[0].weightSource).toBe('user')
-    })
-
-    it('exports the number but marks it UNSOURCED when nothing set it', () => {
-      const unstamped: Edge = {
-        id: 'e1',
-        source: 'f1',
-        target: 'f2',
-        data: { weight: 0.3, beliefExists: 0.8, direction: 'positive' },
-      }
-      const payload = copyAndParse([unstamped])
-      // The row is still exported — the relationship is real…
-      expect(payload.edges).toHaveLength(1)
-      expect(payload.edges[0].weight).toBe(0.3)
-      // …and the consumer can now tell that nobody chose these numbers.
-      expect(payload.edges[0].weightSource).toBeNull()
-      expect(payload.edges[0].beliefExistsSource).toBeNull()
-    })
-  })
-})
-
-describe('DS v4 contract: section header icons are plain (no badge container)', () => {
-  it('section headers render correctly', () => {
-    const nodes = [makeFactorNode('f1', 'A', { source: 'user' }), makeFactorNode('f2', 'B', { source: 'user' })]
-    const edges = [makeEdge('e1', 'f1', 'f2')]
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
-    // Sections are now in new components — verify they render
-    expect(screen.getByTestId('model-factors-section')).toBeInTheDocument()
-    expect(screen.getByTestId('model-relationships-section')).toBeInTheDocument()
-  })
-})
-
-describe('DS v4 contract: pills use solid borders (no dashed)', () => {
-  it('Refine range pill does not use border-dashed', () => {
-    const externalFactor: import('@xyflow/react').Node = {
-      id: 'f2', type: 'factor', position: { x: 0, y: 0 },
-      data: { label: 'External', category: 'external', observedState: {} },
-    }
-    render(<ModelTabBody {...DEFAULT_PROPS} nodes={[externalFactor]} edges={[]} />)
-    const refineBtn = screen.getByTestId('factor-f2-refine-range')
-    expect(refineBtn.className).not.toMatch(/border-dashed/)
-  })
-})
-
-describe('Cross-section full-detail toggle integration', () => {
-  it('expertMode prop reveals detail panels across goal, factors, and relationships simultaneously', () => {
-    const goal = makeGoalNode('g1', 'Revenue target')
-    const factor = makeFactorNode('f1', 'Budget', { source: 'user', value: 0.6 })
-    const edge = makeEdge('e1', 'f1', 'g1', { weight: 0.5, direction: 'positive' })
-    const { rerender } = render(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[goal, factor]}
-        edges={[edge]}
-      />
-    )
-
-    // Detail panels should be absent by default (expertMode not set)
-    expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Current state')).not.toBeInTheDocument()
-    expect(screen.queryByText('Effect')).not.toBeInTheDocument()
-
-    // Enable expert mode via prop
-    rerender(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[goal, factor]}
-        edges={[edge]}
-        expertMode={true}
-      />
-    )
-
-    // Goal section shows detail panel without needing a click
-    expect(screen.getByText('Goal threshold')).toBeInTheDocument()
-
-    // Factor card expert panel requires card to be expanded first — click it
-    const factorCard = screen.getByTestId('factor-card-f1')
-    fireEvent.click(factorCard)
-    // Expert panel group headers replace old "Scientific parameters" header
-    expect(screen.getByText('Current state')).toBeInTheDocument()
-
-    // Edge card expert panel requires card expansion — click it
-    const edgeCard = screen.getByTestId('edge-card-e1')
-    fireEvent.click(edgeCard)
-    // Expert panel group headers replace old "Edge parameters" header
-    expect(screen.getByText('Effect')).toBeInTheDocument()
-
-    // Disable expert mode via prop — all detail panels should hide again
-    rerender(
-      <ModelTabBody
-        {...DEFAULT_PROPS}
-        nodes={[goal, factor]}
-        edges={[edge]}
-        expertMode={false}
-      />
-    )
-    expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Current state')).not.toBeInTheDocument()
+    const payload = copyJsonAndParse([unstamped])
+    expect(payload.edges).toHaveLength(1)
+    expect(payload.edges[0]).toEqual(expect.objectContaining({
+      weight: 0.3,
+      weightSource: null,
+      beliefExists: 0.8,
+      beliefExistsSource: null,
+    }))
   })
 })

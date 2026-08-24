@@ -77,6 +77,15 @@ import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
+import {
+  listenForFloatingOlumiRequests,
+  needsSingleExpandedPanel,
+  requestFloatingOlumiSurface,
+} from './panelComposition'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../mutations/mutationAuthority'
 import { dockWidthBounds, parseStoredDockWidth, resolveDockWidth } from './dockWidth'
 import {
   shouldAutoExpandDockForResponse,
@@ -123,7 +132,6 @@ import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { useScenario } from '../../hooks/useScenario'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { normaliseRawFactorValue, withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
@@ -892,7 +900,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       setState((prev) => ({ ...prev, activeTab: fallback }))
       useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
     }
-    openFloatingByUser('user')
+    requestFloatingOlumiSurface(() => openFloatingByUser('user'))
   }
 
   const transitionReceipt = useTransitionReceipt((s) => s.receipt)
@@ -1600,35 +1608,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     blockedReason: !canRunAnalysis && !isRunning ? runBlockedTooltip : null,
   })
 
-  // Triage card action handlers — same pattern as pre-analysis expertise (uses withObservedStateUpdate)
-  const handleTriageConfirm = useCallback((nodeId: string) => {
-    const { nodes, updateNode } = useCanvasStore.getState()
-    const node = nodes.find((n: { id: string }) => n.id === nodeId)
-    if (!node) return
-    updateNode(nodeId, {
-      data: withObservedStateUpdate(node.data, { source: 'user_confirmed' }),
-    })
-  }, [])
-
-  const handleTriageSetValue = useCallback((nodeId: string, rawValue: number) => {
-    const { nodes, updateNode } = useCanvasStore.getState()
-    const node = nodes.find((n: { id: string }) => n.id === nodeId)
-    if (!node) return
-    const nd = node.data as Record<string, unknown>
-    const existing = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
-    const cap = (existing.cap as number | null) ?? null
-    const normalised = normaliseRawFactorValue(rawValue, cap)
-    updateNode(nodeId, {
-      data: withObservedStateUpdate(node.data, {
-        raw_value: rawValue,
-        value: normalised,
-        source: 'user_override',
-      }),
-    })
-    // Parametric edit — observed state is read from graph nodes at request build time,
-    // not from ceeAnalysisReady. Option intervention mappings remain valid.
-  }, [])
-
   // Node value lookup for pre-filling triage card editors with current observed values.
   // Keyed by canvas numeric ID AND by node label (normalised to fac_ snake_case) so that
   // semantic IDs from PLoT evidence gaps (e.g. "fac_current_mrr") can also resolve.
@@ -2135,6 +2114,54 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const shellRef = useRef<HTMLElement | null>(null)
   const panelWidth = useMeasuredPanelWidth(shellRef)
 
+  /**
+   * One composition authority for the two supported thinking surfaces. At a
+   * width where the expanded dock + floating Olumi would squeeze the living
+   * model below its canonical legible viewport, the surface the user fronts
+   * wins and the other becomes its compact one-click affordance.
+   */
+  const constrainedCompositionNow = useCallback((): boolean => {
+    if (typeof window === 'undefined') return false
+    const dock = shellRef.current
+    const floating = useFloatingPanelState.getState()
+    if (!dock) return false
+    const dockRect = dock.getBoundingClientRect()
+    if (dockRect.width <= 0 || dockRect.height <= 0) return false
+    return needsSingleExpandedPanel({
+      viewportWidth: window.innerWidth,
+      dockInset: Math.max(0, window.innerWidth - dockRect.left),
+      floatingPanelWidth: floating.size.width,
+      dockExpanded: effectiveIsOpen,
+    })
+  }, [effectiveIsOpen])
+
+  // Expanding Outputs wins the constrained composition and minimises (never
+  // closes) floating Olumi. Re-run on viewport changes so resize and reload
+  // converge to the same state.
+  useEffect(() => {
+    const reconcile = () => {
+      const floating = useFloatingPanelState.getState()
+      if (!floating.isOpen || floating.isMinimised) return
+      if (constrainedCompositionNow()) floating.minimise()
+    }
+    reconcile()
+    window.addEventListener('resize', reconcile)
+    return () => window.removeEventListener('resize', reconcile)
+  }, [constrainedCompositionNow, floatingPanelIsOpen, floatingPanelMinimised, panelWidth])
+
+  // Choosing floating Olumi reverses that relationship: collapse Outputs,
+  // wait one frame for its usable rectangle to publish, then reveal/focus the
+  // floating surface. At roomy widths the request is deliberately untouched.
+  useEffect(() => {
+    return listenForFloatingOlumiRequests((reveal) => {
+      if (!constrainedCompositionNow()) return false
+      setState((prev) => ({ ...prev, isOpen: false }))
+      if (showResultsPanel) Promise.resolve().then(() => setShowResultsPanel(false))
+      window.requestAnimationFrame(reveal)
+      return true
+    })
+  }, [constrainedCompositionNow, setState, setShowResultsPanel, showResultsPanel])
+
   const toggleOpen = () => {
     // Derive nextIsOpen from what the user SEES right now (visual state),
     // not from state.isOpen. During first-use the rail is visible despite
@@ -2427,6 +2454,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       style={asideStyle}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
+      data-panel-composition={effectiveIsOpen ? 'expanded' : 'collapsed'}
       // ROADMAP 2.204: the honest "the user is engaged here" signal for the
       // post-run return. Capture phase on the dock ROOT, so any pointerdown,
       // keydown or wheel anywhere inside it counts — the tab strip, every
@@ -2992,7 +3020,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   <div data-testid="outputs-engine-critique">
                     <ValidationPanel
                       critique={mapCritiqueToValidation(report.run.critique)}
-                      onAutoFix={handleAutoFix}
+                      onAutoFix={hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.postRunAutoFix)
+                        ? handleAutoFix
+                        : undefined}
                     />
                   </div>
                 )}
@@ -3205,6 +3235,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     aria-busy={isRunning || undefined}
                     data-run-status={resultsStatus}
                   >
+                  {/* B3 authority gate: post-run cards previously wrote only
+                      React-Flow state and then offered Rerun. Withholding both
+                      mutation callbacks removes those controls; the canonical
+                      factor transaction remains available in Model. */}
                   <ResultsBody
                     resultsSectionData={resultsSectionData}
                     tornadoData={tornadoData}
@@ -3229,8 +3263,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     driversExpanded={driversExpanded}
                     onDriversExpandChange={setDriversExpanded}
                     onSendMessage={sendMessage}
-                    onConfirmFactor={handleTriageConfirm}
-                    onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
                     // ⛔ ROADMAP 2.651 — Paul's Ruling 3. This value NO LONGER

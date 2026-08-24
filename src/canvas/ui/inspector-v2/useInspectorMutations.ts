@@ -9,6 +9,7 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import type { MutationAuthority } from '../../mutations/mutationAuthority'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -95,6 +96,61 @@ export const EDITOR_WRITTEN_FIELDS = {
   node: [...new Set(Object.values(NODE_SETTER_FIELDS).flat())],
   edge: [...new Set(Object.values(EDGE_SETTER_FIELDS).flat())],
 } as const
+
+/**
+ * Product authority for a user-visible mutation.
+ *
+ * `server_graph` is the only class allowed to look like a model edit. A
+ * `server_fact` records a judgement without changing GraphV3 or analysis;
+ * `local_presentation` may change selection/layout only; `disabled` has no
+ * honest mounted write path yet.
+ */
+/**
+ * Exhaustive authority manifest for the Inspector's sanctioned setters.
+ *
+ * The setters themselves remain useful to producer/reconciliation code, but
+ * this table decides whether an Inspector control may expose them. Only the
+ * prior-range event has a server carrier here, and that carrier is a FACT — it
+ * deliberately does not update canonical GraphV3 or simulation inputs. The
+ * mounted emergency policy therefore keeps the Inspector read-only until a
+ * field has a receipt-bearing graph transaction (or a deliberately designed,
+ * explicitly fact-only UI).
+ */
+export const NODE_SETTER_AUTHORITY = {
+  setLabel: 'disabled',
+  setDescription: 'disabled',
+  setThreshold: 'disabled',
+  setObservedValue: 'disabled',
+  setIntervention: 'disabled',
+  removeIntervention: 'disabled',
+  setPriorRange: 'disabled',
+  setObservedRawValue: 'disabled',
+  setObservedUnit: 'disabled',
+  setObservedCap: 'disabled',
+  setObservedBaseline: 'disabled',
+  setObservedStd: 'disabled',
+  setObservedSource: 'disabled',
+  setCategory: 'disabled',
+  setExtractionType: 'disabled',
+  setFactorType: 'disabled',
+  setStateSpaceRange: 'disabled',
+  setUncertaintyDrivers: 'disabled',
+  setGoalCap: 'disabled',
+  setProbability: 'disabled',
+  setImpact: 'disabled',
+} as const satisfies Record<keyof typeof NODE_SETTER_FIELDS, MutationAuthority>
+
+export const EDGE_SETTER_AUTHORITY = {
+  setStrength: 'disabled',
+  setStd: 'disabled',
+  setExistsProbability: 'disabled',
+  setLabel: 'disabled',
+  setDirection: 'disabled',
+} as const satisfies Record<keyof typeof EDGE_SETTER_FIELDS, MutationAuthority>
+
+/** Receipt-bearing actions mounted elsewhere and intentionally preserved. */
+export const INSPECTOR_READ_ONLY_REASON =
+  'This inspector is read-only because these changes cannot yet be saved to the shared model. Use the Model tab for supported factor values or ask Olumi to change structure.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {

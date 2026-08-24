@@ -96,7 +96,7 @@ const BLOCKER_MESSAGE = 'Graph too large: 16 nodes (limit: 12)'
 const WARNING_MESSAGE = 'Edge weight normalised on Ramp-up time'
 
 const BLOCKER_CRITIQUE = [
-  { severity: 'BLOCKER', code: 'GRAPH_TOO_LARGE', message: BLOCKER_MESSAGE },
+  { severity: 'BLOCKER', code: 'GRAPH_TOO_LARGE', message: BLOCKER_MESSAGE, auto_fixable: true },
 ]
 const WARNING_ONLY_CRITIQUE = [
   { severity: 'WARNING', code: 'WEIGHTS_NORMALIZED', message: WARNING_MESSAGE },
@@ -218,6 +218,7 @@ describe('OutputsDock — staleness labels results, it does not hide the engine 
     renderDock()
     const panel = await findCritiquePanel()
     expect(within(panel).getByText(BLOCKER_MESSAGE)).toBeInTheDocument()
+    expect(within(panel).queryByText('Fix automatically')).not.toBeInTheDocument()
   }, 40_000)
 
   /**

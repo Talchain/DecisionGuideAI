@@ -380,19 +380,19 @@ describe('denormaliseInterventionValue', () => {
 describe('unwrapInterventionValue', () => {
   describe('null and undefined', () => {
     it('returns { value: null, displayValue: null } for undefined', () => {
-      expect(unwrapInterventionValue(undefined)).toEqual({ value: null, displayValue: null })
+      expect(unwrapInterventionValue(undefined)).toEqual({ value: null, displayValue: null, source: null })
     })
     it('returns { value: null, displayValue: null } for null', () => {
-      expect(unwrapInterventionValue(null)).toEqual({ value: null, displayValue: null })
+      expect(unwrapInterventionValue(null)).toEqual({ value: null, displayValue: null, source: null })
     })
   })
 
   describe('primitive number', () => {
     it('returns finite numbers with null displayValue', () => {
-      expect(unwrapInterventionValue(0.1)).toEqual({ value: 0.1, displayValue: null })
-      expect(unwrapInterventionValue(0)).toEqual({ value: 0, displayValue: null })
-      expect(unwrapInterventionValue(-7)).toEqual({ value: -7, displayValue: null })
-      expect(unwrapInterventionValue(1_000_000)).toEqual({ value: 1_000_000, displayValue: null })
+      expect(unwrapInterventionValue(0.1)).toEqual({ value: 0.1, displayValue: null, source: null })
+      expect(unwrapInterventionValue(0)).toEqual({ value: 0, displayValue: null, source: null })
+      expect(unwrapInterventionValue(-7)).toEqual({ value: -7, displayValue: null, source: null })
+      expect(unwrapInterventionValue(1_000_000)).toEqual({ value: 1_000_000, displayValue: null, source: null })
     })
     it('returns value:null for NaN', () => {
       expect(unwrapInterventionValue(NaN).value).toBeNull()
@@ -405,7 +405,7 @@ describe('unwrapInterventionValue', () => {
 
   describe('CEEInterventionV3 / UIInterventionValue object', () => {
     it('extracts .value when raw is a {value} object', () => {
-      expect(unwrapInterventionValue({ value: 0.1 })).toEqual({ value: 0.1, displayValue: null })
+      expect(unwrapInterventionValue({ value: 0.1 })).toEqual({ value: 0.1, displayValue: null, source: null })
     })
     it('extracts .value from a full CEEInterventionV3 shape', () => {
       const intervention = {
@@ -415,7 +415,12 @@ describe('unwrapInterventionValue', () => {
         value_confidence: 'high',
         reasoning: 'Extracted from "£25k marketing budget"',
       }
-      expect(unwrapInterventionValue(intervention)).toEqual({ value: 25000, displayValue: null })
+      // The `source` half is now CARRIED, not dropped. This case is the exact
+      // shape B1-a was written for: a CEE intervention whose `source` says where
+      // the number came from, read through the ONE unwrap every render surface
+      // uses. Before 2026-08-24 it arrived here and was discarded.
+      expect(unwrapInterventionValue(intervention))
+        .toEqual({ value: 25000, displayValue: null, source: 'brief_extraction' })
     })
     it('returns value:null when .value is missing', () => {
       expect(unwrapInterventionValue({ source: 'brief_extraction' }).value).toBeNull()
@@ -448,16 +453,16 @@ describe('unwrapInterventionValue', () => {
   describe('display_value extraction (CEE-authored labels)', () => {
     it('returns value and displayValue together from V3 object', () => {
       expect(unwrapInterventionValue({ value: 0.85, display_value: 'High', source: 'cee' }))
-        .toEqual({ value: 0.85, displayValue: 'High' })
+        .toEqual({ value: 0.85, displayValue: 'High', source: 'cee' })
     })
     it('returns displayValue:null when display_value absent', () => {
-      expect(unwrapInterventionValue({ value: 0.5 })).toEqual({ value: 0.5, displayValue: null })
+      expect(unwrapInterventionValue({ value: 0.5 })).toEqual({ value: 0.5, displayValue: null, source: null })
     })
     it('preserves displayValue even when .value is null', () => {
       // Renderers that tolerate null value (e.g. FactorNode comparison rows)
       // can still show the CEE string. Computation sites drop on value==null.
       expect(unwrapInterventionValue({ value: null, display_value: 'no change' }))
-        .toEqual({ value: null, displayValue: 'no change' })
+        .toEqual({ value: null, displayValue: 'no change', source: null })
     })
     it('returns displayValue:null for empty string display_value', () => {
       expect(unwrapInterventionValue({ value: 0.3, display_value: '' }).displayValue).toBeNull()
@@ -468,7 +473,7 @@ describe('unwrapInterventionValue', () => {
     })
     it('trims surrounding whitespace on display_value', () => {
       expect(unwrapInterventionValue({ value: 0.3, display_value: '  High  ' }))
-        .toEqual({ value: 0.3, displayValue: 'High' })
+        .toEqual({ value: 0.3, displayValue: 'High', source: null })
     })
     it('returns displayValue:null for non-string display_value', () => {
       expect(unwrapInterventionValue({ value: 0.3, display_value: 42 }).displayValue).toBeNull()

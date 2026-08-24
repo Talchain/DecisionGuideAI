@@ -22,6 +22,12 @@ import { CalibrateDrillIn } from '../CalibrateDrillIn'
 import type { EstimateRowModel } from '../../types'
 import { useCanvasStore } from '../../../../store'
 import { getObservedState } from '../../../../utils/observedStateHelpers'
+import { ConversationProvider } from '../../../../conversation/ConversationContext'
+
+vi.mock('../../../../../v5/v5Adapter', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, callV5Turn: vi.fn(() => new Promise(() => {})) }
+})
 
 const row: EstimateRowModel = {
   nodeId: 'f1',
@@ -54,6 +60,14 @@ function seedNode(): void {
   })
 }
 
+function renderDrill(activeRow: EstimateRowModel = row) {
+  return render(
+    <ConversationProvider>
+      <CalibrateDrillIn row={activeRow} onDone={vi.fn()} />
+    </ConversationProvider>,
+  )
+}
+
 /**
  * Type `text` into the drill-in and press Save. Returns the committed raw_value.
  * Unmounts + reseeds first so several inputs can be exercised in one `it`.
@@ -61,7 +75,7 @@ function seedNode(): void {
 function saveAndReadRawValue(text: string): unknown {
   cleanup()
   seedNode()
-  render(<CalibrateDrillIn row={row} onDone={vi.fn()} />)
+  renderDrill()
   fireEvent.change(screen.getByLabelText(`Your estimate for ${row.label}`), {
     target: { value: text },
   })
@@ -93,7 +107,7 @@ describe('CalibrateDrillIn — no fabricated numbers reach observedState', () =>
   })
 
   it('an ambiguous range ("grow from 200 to 400") commits NOTHING and hints', () => {
-    render(<CalibrateDrillIn row={row} onDone={vi.fn()} />)
+    renderDrill()
     fireEvent.change(screen.getByLabelText(`Your estimate for ${row.label}`), {
       target: { value: 'grow from 200 to 400' },
     })
@@ -112,7 +126,7 @@ describe('CalibrateDrillIn — no fabricated numbers reach observedState', () =>
   })
 
   it('unparseable text still hints and commits nothing (no silent no-op)', () => {
-    render(<CalibrateDrillIn row={row} onDone={vi.fn()} />)
+    renderDrill()
     fireEvent.change(screen.getByLabelText(`Your estimate for ${row.label}`), {
       target: { value: 'quite a lot' },
     })
@@ -146,7 +160,7 @@ describe('CalibrateDrillIn — no fabricated numbers reach observedState', () =>
       ],
       edges: [],
     })
-    render(<CalibrateDrillIn row={{ ...row, cap: 1000000 }} onDone={vi.fn()} />)
+    renderDrill({ ...row, cap: 1000000 })
     fireEvent.change(screen.getByLabelText(`Your estimate for ${row.label}`), {
       target: { value: '£500k' },
     })

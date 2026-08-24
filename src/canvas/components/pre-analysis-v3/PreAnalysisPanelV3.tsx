@@ -10,7 +10,7 @@
 import { memo, useCallback, useState } from 'react'
 import { CanvasErrorBoundary } from '../../ErrorBoundary'
 import { useShowToast } from '../../ToastContext'
-import { FOOTER_COPY } from './constants'
+import { FOOTER_COPY, SPARK_PROMPTS } from './constants'
 import { guardCeeText } from './signals/ceeTextGuard'
 import { usePreAnalysisModel } from './hooks/usePreAnalysisModel'
 import { useConversationActions } from './hooks/useConversationActions'
@@ -24,6 +24,11 @@ import { YourDecisionSection } from './model/YourDecisionSection'
 import { AdvancedSection } from './advanced/AdvancedSection'
 import { PanelFooter } from './footer/PanelFooter'
 import type { LadderStep, SignalView } from './types'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
+
+const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
+)
 
 export interface PreAnalysisPanelV3Props {
   onAnalyse: () => void
@@ -65,10 +70,12 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
     (step: LadderStep) => {
       switch (step.kind) {
         case 'set_goal':
-          document.getElementById(GOAL_INPUT_ID)?.focus()
+          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(GOAL_INPUT_ID)?.focus()
+          else sendPrompt(SPARK_PROMPTS.pressureTestFrame)
           break
         case 'set_success':
-          document.getElementById(SUCCESS_INPUT_ID)?.focus()
+          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+          else sendPrompt(SPARK_PROMPTS.defineSuccess)
           break
         case 'calibrate_top':
           if (step.targetFactorId) {
@@ -83,7 +90,7 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           break
       }
     },
-    [runOrExplain],
+    [runOrExplain, sendPrompt],
   )
 
   const handleSignalAction = useCallback(
@@ -92,10 +99,12 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
       if (!action) return
       switch (action.type) {
         case 'focus_goal_field':
-          document.getElementById(GOAL_INPUT_ID)?.focus()
+          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(GOAL_INPUT_ID)?.focus()
+          else sendPrompt(SPARK_PROMPTS.pressureTestFrame)
           break
         case 'focus_success_field':
-          document.getElementById(SUCCESS_INPUT_ID)?.focus()
+          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+          else sendPrompt(SPARK_PROMPTS.defineSuccess)
           break
         case 'open_estimates':
           setEstimateFocus(prev => ({
@@ -134,7 +143,10 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason }: PreAnalysi
           <GoalTargetNudge
             hasGoalNode={model.hero.goal != null}
             hasSuccessTarget={model.hero.success.isSet}
-            onSetTarget={() => document.getElementById(SUCCESS_INPUT_ID)?.focus()}
+            onSetTarget={() => {
+              if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+              else sendPrompt(SPARK_PROMPTS.defineSuccess)
+            }}
           />
         </div>
         <PanelHeader bars={model.bars} onAction={sendPrompt} />

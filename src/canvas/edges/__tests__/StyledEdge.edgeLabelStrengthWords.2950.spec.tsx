@@ -51,8 +51,8 @@
  *   3. Arguments captured by a store-boundary spy (`updateEdgeData`).
  * jsdom cannot prove VISIBILITY or layout (platform trap 3).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { Position } from '@xyflow/react'
@@ -69,7 +69,14 @@ const nodeKinds: Record<string, string> = {}
 
 // Stable spy — the store mock must NOT mint a fresh vi.fn per selector call, or
 // the popover-stamp assertions below would capture nothing.
-const { updateEdgeDataSpy } = vi.hoisted(() => ({ updateEdgeDataSpy: vi.fn() }))
+const { updateEdgeDataSpy, openEdgeStrengthEditorSpy } = vi.hoisted(() => ({
+  updateEdgeDataSpy: vi.fn(),
+  openEdgeStrengthEditorSpy: vi.fn(() => true),
+}))
+
+vi.mock('../../utils/openEdgeStrengthEditor', () => ({
+  openEdgeStrengthEditor: openEdgeStrengthEditorSpy,
+}))
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -421,59 +428,17 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
     expect(labelText(container).toLowerCase()).toContain('strength not set')
   })
 
-  // ── THE EDIT POPOVER SEAM: a user edit must become visible to the gate ────
-  //
-  // `EdgeEditPopover` live-previews on a 120 ms debounce, INCLUDING an initial
-  // fire with the SEED values the moment it opens. So the stamp has to be
-  // conditional on the value actually moving:
-  //   · stamp on every fire  → opening the popover launders the 0.5 default
-  //     into a user claim (the exact failure edgeValueProvenance.ts exists to
-  //     prevent) — the first test below REDs.
-  //   · never stamp          → the label says "not set" about a strength the
-  //     user just chose — the second test REDs.
+  // B3 retires the local edge-strength popover. Double-click remains a useful
+  // inspect route but cannot write semantic state without a canonical receipt.
+  describe('edge label → read-only strength inspection', () => {
+    it('routes the named edge to inspection without opening a slider or writing the store', () => {
+      const { container, queryByLabelText } = renderEdge(NO_STRENGTH_DATA)
 
-  describe('edge edit popover → weightSource stamp', () => {
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    function openPopover(container: HTMLElement) {
       fireEvent.doubleClick(labelEl(container))
-    }
 
-    it('does NOT stamp on the popover\'s untouched initial fire (no laundering on open)', () => {
-      const { container } = renderEdge(NO_STRENGTH_DATA)
-      openPopover(container)
-      act(() => {
-        vi.advanceTimersByTime(200)
-      })
-      // POSITIVE CONTROL for the absence: the initial fire itself happened.
-      expect(updateEdgeDataSpy).toHaveBeenCalled()
-      for (const [, data] of updateEdgeDataSpy.mock.calls) {
-        expect(data).not.toHaveProperty('weightSource')
-      }
-    })
-
-    it('stamps weightSource: "user" (and clears strength_mean) when the user moves the weight', () => {
-      const { container, getByLabelText } = renderEdge(NO_STRENGTH_DATA)
-      openPopover(container)
-      fireEvent.change(getByLabelText('Weight slider'), { target: { value: '0.9' } })
-      act(() => {
-        vi.advanceTimersByTime(200)
-      })
-      const stamped = updateEdgeDataSpy.mock.calls.filter(([, data]) => data?.weightSource === 'user')
-      expect(stamped.length, 'no stamped write reached the store').toBeGreaterThan(0)
-      const [edgeId, data] = stamped[stamped.length - 1]
-      // Bound by identity: the stamp lands on the edge under test.
-      expect(edgeId).toBe('e-under-test')
-      expect(data.weight).toBeCloseTo(0.9)
-      // A stale producer mean would keep speaking over the user's number —
-      // the resolver prefers it — so the write clears it (PreAnalysisPanel
-      // precedent, :1216).
-      expect(data).toHaveProperty('strength_mean', undefined)
+      expect(openEdgeStrengthEditorSpy).toHaveBeenCalledWith('e-under-test')
+      expect(queryByLabelText('Weight slider')).toBeNull()
+      expect(updateEdgeDataSpy).not.toHaveBeenCalled()
     })
   })
 })

@@ -18,6 +18,7 @@ import type { Node } from '@xyflow/react'
 import { PreAnalysisPanelV3 } from '../PreAnalysisPanelV3'
 import { SUCCESS_INPUT_ID } from '../hero/HeroSection'
 import { ToastProvider } from '../../../ToastContext'
+import { ConversationProvider } from '../../../conversation/ConversationContext'
 import { useCanvasStore } from '../../../store'
 import { useReadinessStore } from '../../../stores/readinessStore'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
@@ -29,6 +30,16 @@ import {
   selectOptionsNeedingValues,
 } from '../../../utils/composeBlockedReason'
 import type { GraphReadiness } from '../../../hooks/useGraphReadiness'
+
+vi.mock('../../../../v5/v5Adapter', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    // Hold canonical factor edits in flight. These panel tests assert the
+    // optimistic/display boundary; the receipt suite owns accept/refuse.
+    callV5Turn: vi.fn(() => new Promise(() => {})),
+  }
+})
 
 function node(
   id: string,
@@ -101,15 +112,21 @@ function seedReadiness(canRun = true, explanation = 'Looks consistent.') {
   })
 }
 
-function renderPanel(props: Partial<Parameters<typeof PreAnalysisPanelV3>[0]> = {}) {
+function renderPanel(
+  props: Partial<Parameters<typeof PreAnalysisPanelV3>[0]> = {},
+  withConversation = false,
+) {
+  const panel = (
+    <PreAnalysisPanelV3
+      onAnalyse={props.onAnalyse ?? vi.fn()}
+      isAnalysing={props.isAnalysing ?? false}
+      canRun={props.canRun ?? true}
+      blockedReason={props.blockedReason}
+    />
+  )
   return render(
     <ToastProvider>
-      <PreAnalysisPanelV3
-        onAnalyse={props.onAnalyse ?? vi.fn()}
-        isAnalysing={props.isAnalysing ?? false}
-        canRun={props.canRun ?? true}
-        blockedReason={props.blockedReason}
-      />
+      {withConversation ? <ConversationProvider>{panel}</ConversationProvider> : panel}
     </ToastProvider>,
   )
 }
@@ -133,7 +150,8 @@ describe('setup state', () => {
   it('renders the decision title, goal and the four bars', () => {
     renderPanel()
     expect(screen.getByText('Hire a tech lead or two developers?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Goal')).toHaveValue('Increase delivery output')
+    expect(screen.getByLabelText('Goal')).toHaveTextContent('Increase delivery output')
+    expect(screen.getByLabelText('Goal')).toHaveAttribute('aria-readonly', 'true')
     for (const key of ['frame', 'options', 'risks', 'estimates']) {
       expect(screen.getByTestId(`pre-analysis-v3-bar-${key}`)).toBeInTheDocument()
     }
@@ -200,38 +218,31 @@ describe('setup state', () => {
   })
 })
 
-describe('single source of truth — one success commit updates everything', () => {
-  it('typing writes nothing; blur commits once and bars, ladder, footer move together', () => {
+describe('goal and success authority', () => {
+  it('renders shared-model values read-only and routes the next step to Olumi', () => {
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _sendChip: sendChip })
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-
-    fireEvent.change(input, { target: { value: '25' } })
-    // Uncommitted: ladder and footer unchanged.
+    const success = screen.getByLabelText('Success measure')
+    expect(success).toHaveAttribute('aria-readonly', 'true')
+    expect(screen.getByTestId('pre-analysis-v3-authority-note')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save success' })).not.toBeInTheDocument()
     expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent(
       'Define what success means here',
     )
-
-    fireEvent.blur(input)
-
-    expect(useCanvasStore.getState().goalThreshold).toBe(25)
-    expect(screen.getByTestId('pre-analysis-v3-bar-frame')).toHaveAccessibleName(
-      'Frame: good. Decision, goal and success measure set',
+    fireEvent.click(screen.getByRole('button', { name: 'Act on best next step' }))
+    expect(sendChip).toHaveBeenCalledWith(
+      'Define success with Olumi',
+      'Help me define a measurable success target for this goal.',
     )
-    // The commit's invalidateAnalysisReady clears the seeded sensitivity, so
-    // ranking legitimately degrades to the degree fallback here; the invariant
-    // is that the ladder moved to a check-estimate rung in the same pass.
-    expect(screen.getByTestId('pre-analysis-v3-next-step')).toHaveTextContent(
-      /Check .+, it may matter most to the analysis\./,
-    )
-    expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(
-      'Checking top estimates usually sharpens the result',
-    )
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
 
   it('basics in place: success set shows display-scale value with Olumi attribution', () => {
     seedGraph({ successSet: true })
     renderPanel()
-    expect(screen.getByLabelText('Success measure')).toHaveValue('20%')
+    expect(screen.getByLabelText('Success measure')).toHaveTextContent('20%')
+    expect(screen.getByLabelText('Success measure')).toHaveAttribute('aria-readonly', 'true')
     expect(screen.getByTestId('pre-analysis-v3-hero')).toHaveTextContent('Olumi estimate')
   })
 
@@ -252,7 +263,7 @@ describe('single source of truth — one success commit updates everything', () 
       ],
     })
     renderPanel()
-    expect(screen.getByLabelText('Success measure')).toHaveValue('20%')
+    expect(screen.getByLabelText('Success measure')).toHaveTextContent('20%')
     const hero = screen.getByTestId('pre-analysis-v3-hero')
     expect(hero).toHaveTextContent('Your target')
     expect(hero).not.toHaveTextContent('Olumi estimate')
@@ -332,16 +343,16 @@ describe('signal resolution', () => {
  *
  * The drill-in's commit is a `factor_value_edit` turn, and the reviewed stamp
  * (`user_override` / `user_confirmed`) is written only when CEE's applied
- * `graph_patch` receipt comes back. This panel is rendered here with NO
- * ConversationProvider, so no turn is dispatched and no receipt can arrive:
- * the NUMBER moves (optimistic write) and the CLAIM does not. That is the
+ * `graph_patch` receipt comes back. This panel is rendered inside its
+ * production ConversationProvider, with the transport held in flight so no
+ * receipt can arrive: the NUMBER moves optimistically and the CLAIM does not. That is the
  * defect being closed — the old assertions passed against a stamp the engine
  * had never seen. The receipt path itself is driven end-to-end, against the
  * real dispatcher, in `model/__tests__/calibrateDrillInReceipt.spec.tsx`.
  */
 describe('calibrate flow (canonical observed-state writes)', () => {
   it('saving a value writes raw_value but withholds the reviewed stamp until a receipt', () => {
-    renderPanel()
+    renderPanel({}, true)
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Check Tech lead impact' }))
@@ -362,12 +373,14 @@ describe('calibrate flow (canonical observed-state writes)', () => {
     )
   })
 
-  it('confirm as is leaves the value alone and withholds user_confirmed until a receipt', () => {
+  it('does not mount local confirmation or unconfirmation controls', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Check Tech lead impact' }))
-    fireEvent.click(screen.getByTestId('pre-analysis-v3-confirm-as-is'))
+    expect(screen.queryByTestId('pre-analysis-v3-confirm-as-is')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-unconfirm')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-confirmation-note')).not.toBeInTheDocument()
 
     const f1 = useCanvasStore.getState().nodes.find(n => n.id === 'f1')!
     const observed = (f1.data as { observedState?: Record<string, unknown> }).observedState!
@@ -458,24 +471,22 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
     expect(screen.getByTestId('pre-analysis-v3-analyse')).toBeDisabled()
   })
 
-  it('unusable success input keeps the text and shows a format hint (no silent snap-back)', () => {
+  it('does not expose a local success input or parser', () => {
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-    fireEvent.change(input, { target: { value: 'better vibes' } })
-    fireEvent.blur(input)
-    expect(input).toHaveValue('better vibes')
-    expect(screen.getByText('Enter a number, like 20 or 15%')).toBeInTheDocument()
+    const value = screen.getByLabelText('Success measure')
+    expect(value).toHaveAttribute('aria-readonly', 'true')
+    expect(value.tagName).toBe('SPAN')
+    expect(screen.queryByRole('button', { name: 'Save success' })).not.toBeInTheDocument()
     expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
 
-  it('a dirty field shows a Save affordance; saving commits and confirms', () => {
+  it('shows one visible shared-model authority explanation instead of a dead Save affordance', () => {
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-    fireEvent.change(input, { target: { value: 'ship 25% faster' } })
-    const save = screen.getByRole('button', { name: 'Save success' })
-    fireEvent.click(save)
-    expect(useCanvasStore.getState().goalThreshold).toBe(25)
-    expect(screen.getByText('Saved')).toBeInTheDocument()
+    expect(screen.getAllByTestId('pre-analysis-v3-authority-note')).toHaveLength(1)
+    expect(screen.getByTestId('pre-analysis-v3-authority-note')).toHaveTextContent(
+      'Change this through the Model tab or ask Olumi so the shared model stays in sync.',
+    )
+    expect(screen.queryByRole('button', { name: 'Save success' })).not.toBeInTheDocument()
   })
 
   // ROADMAP 1.1 fix (Gate 3 blocker, acceptance-evidence/6b-goal-capture):
@@ -486,24 +497,21 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
   // add_constraint mechanism the working chat path already proves out
   // (6B evidence clause 3), silently (hidden: true — no chat bubble, since
   // the user already confirmed via the Hero's own Save button).
-  it('saving a success target also syncs it to CEE via a hidden add_constraint dispatch', () => {
+  it('the success coaching action drafts an Olumi request and never dispatches a hidden local write', () => {
     const dispatchAction = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-    fireEvent.change(input, { target: { value: 'ship 25% faster' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save success' }))
+    fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))
 
-    expect(dispatchAction).toHaveBeenCalledTimes(1)
-    const call = dispatchAction.mock.calls[0][0]
-    expect(call.action_type).toBe('add_constraint')
-    expect(call.source).toBe('chip')
-    expect(call.hidden).toBe(true)
-    expect(typeof call.parameters?.description).toBe('string')
-    expect(call.parameters.description.length).toBeGreaterThan(0)
-    // The descriptive text the user typed should ride along verbatim so
-    // Sonnet has the richest signal to interpret into a real constraint.
-    expect(call.message).toContain('ship 25% faster')
+    expect(dispatchAction).toHaveBeenCalledWith(expect.objectContaining({
+      label: 'Define success with Olumi',
+      message: 'Help me define a measurable success target for this goal.',
+      source: 'chip',
+      parameters: { spark_id: 'define_success' },
+    }))
+    expect(dispatchAction.mock.calls[0][0]).not.toHaveProperty('hidden', true)
+    expect(dispatchAction.mock.calls[0][0]).not.toHaveProperty('action_type', 'add_constraint')
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
 
   // Dress-rehearsal 2026-07-20 regression: the digit-strip parser turned
@@ -512,43 +520,33 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
   // which rendered as "Target: 50,012" on the goal node and
   // "5,001,200% likelihood" in the Model tab. The commit must extract the
   // currency amount the user actually stated — never digit-concatenate.
-  it('a descriptive sentence with a currency amount commits that amount, never digit-concatenation', () => {
+  it('the read-only success surface cannot fabricate a number from descriptive copy', () => {
     const dispatchAction = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-    fireEvent.change(input, {
-      target: { value: 'Reach £500k incremental ARR within 12 months of launch' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Save success' }))
-
-    expect(useCanvasStore.getState().goalThreshold).toBe(500000)
+    expect(screen.getByLabelText('Success measure')).toHaveAttribute('aria-readonly', 'true')
+    expect(screen.queryByRole('button', { name: 'Save success' })).not.toBeInTheDocument()
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
     const goal = useCanvasStore.getState().nodes.find(n => n.id === 'g1')
     const goalData = goal?.data as { success_threshold?: number; goal_threshold_unit?: string }
-    expect(goalData?.success_threshold).toBe(500000)
-    expect(goalData?.goal_threshold_unit).toBe('£')
-    // The committed value flows back down in the user's own unit.
-    expect(input).toHaveValue('£500,000')
-    // The verbatim sentence still rides to CEE.
-    expect(dispatchAction.mock.calls[0][0].message).toContain('£500k')
+    expect(goalData?.success_threshold).toBeUndefined()
+    expect(goalData?.goal_threshold_unit).toBeUndefined()
+    expect(dispatchAction).not.toHaveBeenCalled()
   })
 
-  it('a timeframe number is never fabricated into the target (fail closed with the hint)', () => {
+  it('withholds all local success mutation controls from keyboard and pointer discovery', () => {
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-    fireEvent.change(input, { target: { value: 'double revenue within 12 months' } })
-    fireEvent.blur(input)
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Save success/i })).not.toBeInTheDocument()
     expect(useCanvasStore.getState().goalThreshold).toBeNull()
-    expect(screen.getByText('Enter a number, like 20 or 15%')).toBeInTheDocument()
   })
 
-  it('does not throw when saving a success target with no _dispatchAction registered (graceful degradation)', () => {
+  it('degrades the Olumi success route to a visible toast when conversation guidance is unavailable', () => {
     useGuidanceStore.setState({ _dispatchAction: null } as any)
     renderPanel()
-    const input = screen.getByLabelText('Success measure')
-    fireEvent.change(input, { target: { value: '25' } })
-    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Save success' }))).not.toThrow()
-    expect(useCanvasStore.getState().goalThreshold).toBe(25)
+    expect(() => fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))).not.toThrow()
+    expect(screen.getByText('Olumi is unavailable right now. Open the Olumi panel and try again.')).toBeInTheDocument()
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
 
   it('rows without a value get an Add value affordance, no check tick, and the meta counts them', () => {
@@ -562,7 +560,7 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
       ],
       preAnalysisSensitivity: null,
     })
-    renderPanel()
+    renderPanel({}, true)
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /What this depends on/ }))
     expect(screen.getByTestId('pre-analysis-v3-add-value-f4')).toBeInTheDocument()
@@ -588,7 +586,10 @@ describe('Your decision — per-group collapse', () => {
 
     fireEvent.click(screen.getByTestId('pre-analysis-v3-groups-toggle-all'))
     expect(screen.getByTestId('pre-analysis-v3-estimate-f1')).toBeInTheDocument()
-    expect(screen.getByLabelText('Add another option')).toBeInTheDocument()
+    expect(screen.getByTestId('pre-analysis-v3-explore-options')).toHaveTextContent(
+      'Explore more options with Olumi',
+    )
+    expect(screen.queryByLabelText('Add another option')).not.toBeInTheDocument()
     expect(screen.getByTestId('pre-analysis-v3-groups-toggle-all')).toHaveTextContent('Collapse all')
 
     fireEvent.click(screen.getByTestId('pre-analysis-v3-groups-toggle-all'))
@@ -599,7 +600,10 @@ describe('Your decision — per-group collapse', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /Risks and upside/ }))
-    expect(screen.getByLabelText('Add a risk')).toBeInTheDocument()
+    expect(screen.getByTestId('pre-analysis-v3-explore-risks')).toHaveTextContent(
+      'Explore risks with Olumi',
+    )
+    expect(screen.queryByLabelText('Add a risk')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pre-analysis-v3-estimate-f1')).not.toBeInTheDocument()
   })
 })
@@ -919,12 +923,16 @@ describe('Success-target nudge (V3)', () => {
     expect(screen.queryByTestId('goal-target-nudge')).not.toBeInTheDocument()
   })
 
-  it('CTA reaches the V3 setter seam (focuses the inline success field)', () => {
-    // Same route handleLadderAct('set_success') / handleSignalAction(
-    // 'focus_success_field') use — focus the inline success field by id. No
-    // second editor.
+  it('CTA routes to Olumi and never focuses a local success editor', () => {
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _sendChip: sendChip })
     renderPanel()
     fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))
-    expect(document.getElementById(SUCCESS_INPUT_ID)).toHaveFocus()
+    expect(document.getElementById(SUCCESS_INPUT_ID)).not.toHaveFocus()
+    expect(document.getElementById(SUCCESS_INPUT_ID)).toHaveAttribute('aria-readonly', 'true')
+    expect(sendChip).toHaveBeenCalledWith(
+      'Define success with Olumi',
+      'Help me define a measurable success target for this goal.',
+    )
   })
 })

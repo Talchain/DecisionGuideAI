@@ -9,6 +9,11 @@
 import type { ImprovementItem } from './hooks/usePreAnalysisData'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
+import {
+  resolveAnalysisMetric,
+  type ResolvedAnalysisMetric,
+} from '@/components/results/driverDisplayModel'
+import { analysisMetricContextSentence } from '@/components/results/influenceScaleCopy'
 export interface TriageCardItem {
   key: string
   /** Canonical signal_id from Signal Registry v3 §7 (optional — deferred population). */
@@ -18,7 +23,7 @@ export interface TriageCardItem {
   /** One-line action-oriented subtitle shown below the title */
   subtitle: string | undefined
   category: TriageCardCategory
-  influence: number | null
+  analysisMetric: ResolvedAnalysisMetric | null
   action: TriageCardAction | undefined
   sourcePill: { label: string; borderClass: string } | null
 }
@@ -59,9 +64,9 @@ function deriveStructuralContext(item: ImprovementItem): string | undefined {
 }
 
 /**
- * Deterministic sensitivity-context subtitle — used only when CEE has no
- * richer coaching string. Priority: influence → graph degree. Every value
- * traces to data already in the envelope or the canvas graph.
+ * Deterministic metric-context subtitle, used only when CEE has no richer
+ * coaching string. Value of information and pre-analysis influence retain
+ * distinct bases and copy.
  *
  * ⛔ The EVPI rung between them is REMOVED. It emitted "Resolving could improve
  * confidence by {pp}pp" from `evpi_percentage_points` — a figure our own
@@ -72,8 +77,15 @@ function deriveStructuralContext(item: ImprovementItem): string | undefined {
 function deriveSensitivityContext(item: ImprovementItem): string | undefined {
   const ctx = item.sensitivityContext
   if (!ctx) return undefined
-  if (typeof ctx.voi === 'number' && ctx.voi > 0.5) {
-    return `Drives ${Math.round(ctx.voi * 100)}% of outcome variance`
+  const metric = resolveAnalysisMetric({
+    value: ctx.valueOfInformation,
+    basis: 'value_of_information',
+  }) ?? resolveAnalysisMetric({
+    value: ctx.factorInfluence,
+    basis: 'pre_analysis_influence',
+  })
+  if (metric && metric.value > 0.5) {
+    return analysisMetricContextSentence(metric)
   }
   if (typeof ctx.downstreamDegree === 'number' && ctx.downstreamDegree > 0) {
     const suffix = ctx.downstreamDegree === 1 ? 'relationship' : 'relationships'
@@ -104,7 +116,7 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
 
 export function mapImprovementToTriageCard(
   item: ImprovementItem,
-  influence: number | undefined,
+  analysisMetric: ResolvedAnalysisMetric | undefined,
 ): TriageCardItem {
   const action: TriageCardAction | undefined = item.action
     ? {
@@ -143,7 +155,7 @@ export function mapImprovementToTriageCard(
     detail: item.detail,
     subtitle,
     category: item.category as TriageCardCategory,
-    influence: influence ?? null,
+    analysisMetric: analysisMetric ?? null,
     action,
     sourcePill,
   }

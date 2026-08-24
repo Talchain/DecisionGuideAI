@@ -29,6 +29,10 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
 // The canonical "open the editor for this node" seam — see handleSetValueForGap.
 import { openNodeInspector } from '../../nodes/shared/openNodeInspector'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../../mutations/mutationAuthority'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
@@ -48,6 +52,10 @@ import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import type { TriageCardItem } from './mapImprovementToTriageCard'
+import {
+  resolveAnalysisMetric,
+  type ResolvedAnalysisMetric,
+} from '@/components/results/driverDisplayModel'
 import { filterRedundantBlockers } from './filterRedundantBlockers'
 import type { AiDiscussElement } from './buildAiDiscussPrompt'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
@@ -663,9 +671,9 @@ type MappedTriageCard = TriageCardItem & {
 type UnifiedQueueEntryProp = { card: MappedTriageCard; overlay: StrengthenOverlay | null }
 
 interface T1Handlers {
-  onConfirm: (targetId: string) => void
-  onEdit: (targetId: string) => void
-  onUpdateEdgeStrength: (edgeId: string, value: number) => void
+  onConfirm?: (targetId: string) => void
+  onEdit?: (targetId: string) => void
+  onUpdateEdgeStrength?: (edgeId: string, value: number) => void
   onHoverEnter: (type: 'node' | 'edge', id: string) => void
   onHoverLeave: () => void
   buildAiDiscuss: (entry: UnifiedQueueEntryProp) => React.ReactNode
@@ -673,6 +681,19 @@ interface T1Handlers {
   onBiasHoverEnter: (targetFactorId: string | null) => void
   onBiasHoverLeave: () => void
 }
+
+const PRE_ANALYSIS_FACTOR_VALUE_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisFactorValue,
+)
+const PRE_ANALYSIS_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisFactorConfirmation,
+)
+const PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength,
+)
+const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
+)
 
 // Pre-analysis-power-v1 Task 6 — disclosure verb override for the pre-analysis
 // panel's TriageCard call-sites. ExpandableCoachingText's default
@@ -819,7 +840,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                   detail={entry.card.detail}
                   subtitle={subtitle}
                   category={entry.card.category}
-                  influence={entry.card.influence}
+                  analysisMetric={entry.card.analysisMetric}
                   action={entry.card.action}
                   editorConfig={entry.card.editorConfig ?? null}
                   sourcePill={entry.card.sourcePill}
@@ -853,7 +874,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                     detail={entry.card.detail}
                     subtitle={subtitle}
                     category={entry.card.category}
-                    influence={entry.card.influence}
+                    analysisMetric={entry.card.analysisMetric}
                     action={entry.card.action}
                     editorConfig={entry.card.editorConfig ?? null}
                     sourcePill={entry.card.sourcePill}
@@ -1133,6 +1154,26 @@ export function PreAnalysisPanel({
     return entries.length > 0 ? new Map(entries) : undefined
   }, [preAnalysisSensitivity])
 
+  const factorMetricMap = useMemo(() => {
+    if (!factorInfluenceMap) return undefined
+    const metrics = new Map<string, ResolvedAnalysisMetric>()
+    for (const [id, value] of factorInfluenceMap) {
+      const metric = resolveAnalysisMetric({ value, basis: 'pre_analysis_influence' })
+      if (metric) metrics.set(id, metric)
+    }
+    return metrics.size > 0 ? metrics : undefined
+  }, [factorInfluenceMap])
+
+  const voiMetricMap = useMemo(() => {
+    if (!data.voiMap || data.voiMap.size === 0) return undefined
+    const metrics = new Map<string, ResolvedAnalysisMetric>()
+    for (const [id, value] of data.voiMap) {
+      const metric = resolveAnalysisMetric({ value, basis: 'value_of_information' })
+      if (metric) metrics.set(id, metric)
+    }
+    return metrics.size > 0 ? metrics : undefined
+  }, [data.voiMap])
+
   // Composite influence map: VoI takes precedence when available (post-analysis).
   // Used by expertise triage cards and triage sort so they reflect
   // the best available signal: VoI when present, factor_influence otherwise.
@@ -1140,11 +1181,21 @@ export function PreAnalysisPanel({
     if (data.voiMap && data.voiMap.size > 0) return data.voiMap
     return factorInfluenceMap
   }, [data.voiMap, factorInfluenceMap])
+  const compositeMetricMap = voiMetricMap ?? factorMetricMap
   const edgeInfluenceMap = useMemo(() => {
     if (!preAnalysisSensitivity?.edge_influence) return undefined
     const entries = Object.entries(preAnalysisSensitivity.edge_influence)
     return entries.length > 0 ? new Map(entries) : undefined
   }, [preAnalysisSensitivity])
+  const edgeMetricMap = useMemo(() => {
+    if (!edgeInfluenceMap) return undefined
+    const metrics = new Map<string, ResolvedAnalysisMetric>()
+    for (const [id, value] of edgeInfluenceMap) {
+      const metric = resolveAnalysisMetric({ value, basis: 'pre_analysis_influence' })
+      if (metric) metrics.set(id, metric)
+    }
+    return metrics.size > 0 ? metrics : undefined
+  }, [edgeInfluenceMap])
 
   // Pre-analysis-power-v1 Task 5: weightedInfluenceReviewed derivation
   // removed alongside the StickyFooter "N/M addressed" counter that was
@@ -1243,9 +1294,11 @@ export function PreAnalysisPanel({
   // handlers route through the same setHighlightedNodes/Edges store calls
   // as the legacy bias trigger render.
   const t1Handlers = useMemo<T1Handlers>(() => ({
-    onConfirm: handleConfirm,
-    onEdit: handleSetValueForGap,
-    onUpdateEdgeStrength: handleUpdateEdgeStrength,
+    onConfirm: PRE_ANALYSIS_FACTOR_CONFIRMATION_CONNECTED ? handleConfirm : undefined,
+    onEdit: PRE_ANALYSIS_FACTOR_VALUE_CONNECTED ? handleSetValueForGap : undefined,
+    onUpdateEdgeStrength: PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED
+      ? handleUpdateEdgeStrength
+      : undefined,
     onHoverEnter: handleHoverElement,
     onHoverLeave: handleHoverClear,
     buildAiDiscuss: (entry) => entry.card.aiDiscuss
@@ -1313,10 +1366,10 @@ export function PreAnalysisPanel({
   // Build editorConfig for factor items that need "Set value" inline editing
   type MappedCard = TriageCardItem & { editorConfig?: ScientificEditorProps | null; aiDiscuss?: AiDiscussElement }
   const mapItem = (item: typeof data.triageActions.top3[number]): MappedCard => {
-    const influence = item.focus?.type === 'edge'
-      ? edgeInfluenceMap?.get(item.focus.id)
-      : compositeInfluenceMap?.get(item.focus?.id ?? '')
-    const mapped = mapImprovementToTriageCard(item, influence)
+    const analysisMetric = item.focus?.type === 'edge'
+      ? edgeMetricMap?.get(item.focus.id)
+      : compositeMetricMap?.get(item.focus?.id ?? '')
+    const mapped = mapImprovementToTriageCard(item, analysisMetric)
 
     // P1-2: build the discuss-with-AI element from the item shape so the
     // sparkle button can pre-fill chat with a contextual prompt.
@@ -1357,7 +1410,12 @@ export function PreAnalysisPanel({
     // (CEE hint / deterministic derived context / generic fallback).
     const capHintSubtitle = resolveCapHintSubtitle(resolverInput, formatValueWithUnit)
     const subtitle = capHintSubtitle ?? mapped.subtitle
-    if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
+    if (
+      PRE_ANALYSIS_FACTOR_VALUE_CONNECTED &&
+      targetId &&
+      item.focus?.type === 'node' &&
+      (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')
+    ) {
       return {
         ...mapped,
         subtitle,
@@ -1490,8 +1548,9 @@ export function PreAnalysisPanel({
       )
     }
 
-    // 3. Overconfidence: top factor by influence is AI-sourced with no uncertainty_drivers
-    // Uses compositeInfluenceMap so VoI takes precedence over sensitivity when available.
+    // 3. Overconfidence: a top-ranked factor is AI-sourced with no uncertainty drivers.
+    // Ranking may use value of information or pre-analysis influence, but the
+    // prose deliberately makes no causal-share claim.
     if (compositeInfluenceMap && compositeInfluenceMap.size > 0) {
       let topFactorId: string | null = null
       let topInfluence = -1
@@ -1510,7 +1569,7 @@ export function PreAnalysisPanel({
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(
               { code: 'overconfidence' },
-              `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`,
+              `${label} is among the highest-priority factors to review but has no supporting evidence. Validate it before relying on it.`,
             )
           }
         }
@@ -1631,8 +1690,8 @@ export function PreAnalysisPanel({
   // a newly important item promotes automatically when state changes.
   //
   // Scoring:
-  //   - triage: VoI > factor_influence > 0 (via TriageCardItem.influence which is
-  //     the composite map value). Defaulted when no influence map exists.
+  //   - triage: value of information > pre-analysis influence > 0, with the
+  //     basis retained on TriageCardItem.analysisMetric.
   //   - option_quality: 0.9 (intervention overlap via same_levers) else 0.7
   //   - bias: CEE severity or fallback 'medium' (0.65)
   const hasIntervestionOverlap = data.qualityChecks.some(c => c.id === 'same_levers')
@@ -1642,8 +1701,7 @@ export function PreAnalysisPanel({
   // reads within the same render.
   const triageSignals: TriageSignal[] = reviewNextTriageAll.map((card, idx) => {
     const improvement = data.triageActions.top3[idx]
-    const influence = card.influence
-    const score = typeof influence === 'number' ? influence : -1
+    const score = card.analysisMetric?.value ?? -1
     return {
       kind: 'triage',
       id: `triage:${card.key}`,
@@ -1772,7 +1830,7 @@ export function PreAnalysisPanel({
   // edgeInfluenceMap, handleInlineEditValue) are tracked in the array below.
   // Adding mapItem itself would recreate the memo on every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.improvementsByCategory, data.contestedEdges, nodes, edges, compositeInfluenceMap, edgeInfluenceMap, triageCards])
+  }, [data.improvementsByCategory, data.contestedEdges, nodes, edges, compositeInfluenceMap, edgeInfluenceMap, compositeMetricMap, edgeMetricMap, triageCards])
 
   // Brief 5.8A D3b — strengthen overlay map. CEE coaching.strengthen_items
   // are matched onto triage cards by normalised exact label match (case-
@@ -2378,7 +2436,7 @@ export function PreAnalysisPanel({
               <AnalysisSettings
                 goalNodes={data.nodesByKind.goal}
                 selectedGoalNode={data.goalNode}
-                onGoalChange={handleGoalChange}
+                onGoalChange={GOAL_SUCCESS_EDIT_CONNECTED ? handleGoalChange : undefined}
               >
                 <SuccessTarget
                   goalNode={data.goalNode}
@@ -2387,10 +2445,10 @@ export function PreAnalysisPanel({
                   isThresholdAutoDerived={data.isThresholdAutoDerived}
                   isThresholdConfirmed={data.isThresholdConfirmed}
                   thresholdProvenance={data.thresholdProvenance}
-                  onThresholdChange={handleThresholdChange}
-                  onThresholdConfirm={handleThresholdConfirm}
-                  onThresholdEdit={handleThresholdEdit}
-                  onGoalChange={handleGoalChange}
+                  onThresholdChange={GOAL_SUCCESS_EDIT_CONNECTED ? handleThresholdChange : undefined}
+                  onThresholdConfirm={GOAL_SUCCESS_EDIT_CONNECTED ? handleThresholdConfirm : undefined}
+                  onThresholdEdit={GOAL_SUCCESS_EDIT_CONNECTED ? handleThresholdEdit : undefined}
+                  onGoalChange={GOAL_SUCCESS_EDIT_CONNECTED ? handleGoalChange : undefined}
                   goalThresholdRaw={data.goalThresholdRaw}
                   goalThresholdUnit={data.goalThresholdUnit}
                   thresholdSourceBadge={data.thresholdSourceBadge}

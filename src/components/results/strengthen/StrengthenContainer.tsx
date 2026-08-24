@@ -51,6 +51,7 @@ import { StrengthenPanel } from './StrengthenPanel'
 import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ScenarioStage } from '../../../types/scenario'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../canvas/mutations/mutationAuthority'
 
 /**
  * UI-SEM-076: producer stage → strengthen adaptive-priority taxonomy bridge.
@@ -232,9 +233,27 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     const rec = record.snapshot
     let ok = false
     if (rec.action.kind === 'open-modal') {
-      if (rec.action.modal === 'define-success') openDefineSuccess()
-      else if (rec.action.modal === 'decision-record') openDecisionRecord()
-      ok = rec.action.modal != null
+      if (rec.action.modal === 'define-success') {
+        if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)) {
+          openDefineSuccess()
+        } else {
+          // Keep the coaching action useful without opening the local-only
+          // success editor: hand the user into an editable Olumi draft. No
+          // graph claim or mutation happens until they explicitly send it.
+          openAskOlumi({
+            context: rec.whyNow,
+            draft: COPY.workThroughDraft(rec.title),
+            label: rec.title,
+            targetId: rec.targetId ?? undefined,
+            parameters: rec.action.parameters,
+            source: 'chip',
+          })
+        }
+        ok = true
+      } else if (rec.action.modal === 'decision-record') {
+        openDecisionRecord()
+        ok = true
+      }
     } else if (rec.action.kind === 'ai-dialogue') {
       ok = dispatchAiDialogue(record)
     } else if (rec.action.kind === 'canvas-focus' && rec.targetId) {

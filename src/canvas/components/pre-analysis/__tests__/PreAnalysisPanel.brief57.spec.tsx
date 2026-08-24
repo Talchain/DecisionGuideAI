@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { ImprovementItem, PreAnalysisData } from '../hooks/usePreAnalysisData'
@@ -264,13 +264,10 @@ describe('PreAnalysisPanel — Brief 5.7 D5 component-level render', () => {
 })
 
 // ───────────────────────────────────────────────────────────────────────────
-// D7 — Confirm action on AI-estimated factor mutates source to 'user_confirmed'
+// D7 — AI-estimated factor stays visible without false confirmation authority
 // ───────────────────────────────────────────────────────────────────────────
 describe('PreAnalysisPanel — Brief 5.7 D7 component-level render', () => {
-  it('renders a Confirm action and clicking it calls updateNode with source=user_confirmed', () => {
-    // Stage a factor node + a CEE-inferred verify item that has NO native
-    // action. The augmentation helper must add a `confirm` action so the
-    // TriageCard renders the Check-icon button.
+  it('renders the AI estimate and withholds the retired local Confirm action', () => {
     mockNodes = [
       {
         id: 'fac-1',
@@ -304,25 +301,14 @@ describe('PreAnalysisPanel — Brief 5.7 D7 component-level render', () => {
 
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
 
-    // Brief 5.8A D3b: AI-estimated factors now surface as triage cards in the
-    // unified queue inside the T1 Decision readiness card. No accordion to
-    // expand. The Confirm action button still appears via the augmentation
-    // helper; we look for it inside the T1 card.
+    // The estimate remains readable in the unified T1 queue, but B3 prevents
+    // a local source rewrite from masquerading as canonical confirmation.
     const t1Card = screen.getByTestId('t1-decision-readiness-card')
-    const confirmButton = within(t1Card).getByRole('button', {
+    expect(within(t1Card).getByText('Engineering velocity')).toBeInTheDocument()
+    expect(within(t1Card).getByText('AI estimate: 0.5')).toBeInTheDocument()
+    expect(within(t1Card).queryByRole('button', {
       name: /Confirm AI estimate/i,
-    })
-
-    fireEvent.click(confirmButton)
-
-    // updateNode must have been invoked with source set to 'user_confirmed'.
-    expect(mockUpdateNode).toHaveBeenCalledTimes(1)
-    const [nodeId, patch] = mockUpdateNode.mock.calls[0] as [string, { data: any }]
-    expect(nodeId).toBe('fac-1')
-    const observed = (patch.data?.observedState ?? patch.data?.observed_state) as
-      | Record<string, unknown>
-      | undefined
-    expect(observed).toBeDefined()
-    expect(observed!.source).toBe('user_confirmed')
+    })).toBeNull()
+    expect(mockUpdateNode).not.toHaveBeenCalled()
   })
 })

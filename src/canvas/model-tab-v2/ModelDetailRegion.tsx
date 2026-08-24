@@ -28,8 +28,70 @@
 
 import { typography } from '../../styles/typography'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import {
+  classifyInterventionProvenance,
+  type ValueProvenanceKind,
+} from '../domain/valueProvenance'
 import { KIND_LABEL } from './rowPresentation'
 import type { DetailField, DetailTier, ModelRow, ModelRowDetail } from './types'
+
+/**
+ * ⭐ WHO CHOSE THIS TARGET — this surface's register, TOTAL over the kind.
+ *
+ * ⚠ A SECOND REGISTER, AND THAT IS THE RATIFIED SHAPE, NOT A TRAP-12 MIRROR.
+ * `valueProvenance` owns the KIND and says so in its own header: *"This module
+ * owns the kind. Each surface keeps its own register (the Model tab is terse,
+ * the inspector writes sentences) but must be TOTAL over `ValueProvenanceKind`
+ * — a `Record<ValueProvenanceKind, …>` makes a missing kind a type error rather
+ * than a silent fallback."* A new kind cannot land here unlabelled.
+ *
+ * ⚠ WHY NOT `SourceProvenancePill`, WHICH SITS TEN LINES BELOW. That component
+ * takes a raw LITERAL and classifies it with `classifyValueProvenance` — the
+ * NODE `observed_state.source` vocabulary. An intervention's `source` is a
+ * different, three-member vocabulary wearing the same field name (see
+ * `valueProvenance`), so handing it `'cee_hypothesis'` renders **"Not set"** —
+ * a claim about the value, over a value that is set. The wording is kept
+ * identical to the pill's on purpose: same tab, same register, one voice.
+ */
+const INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind, string> = {
+  brief: 'From brief',
+  ai: 'AI estimate',
+  confirmed: 'Confirmed by you',
+  edited: 'User edited',
+  assumption: 'Your assumption',
+  human: 'Set by you',
+  panel: 'From your panel',
+}
+
+const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
+  brief: 'border-info/30',
+  ai: 'border-warning/30',
+  confirmed: 'border-success/30',
+  edited: 'border-success/30',
+  assumption: 'border-success/30',
+  human: 'border-success/30',
+  panel: 'border-info/30',
+}
+
+/**
+ * The mark that sits beside an intervention's number.
+ *
+ * ⚠ RENDERS **NOTHING** WHEN THE RECORD DOES NOT SAY. Not "Not set", not a
+ * neutral pill, not a dash. An unrecorded provenance is unknown, and unknown
+ * stays unknown — a default in any direction is an invented provenance, which
+ * is the defect one level up from the one this component closes.
+ */
+function InterventionProvenanceMark({ source }: { source: string | undefined }) {
+  const cls = classifyInterventionProvenance(source)
+  if (cls === null) return null
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${INTERVENTION_PROVENANCE_BORDER[cls.kind]} text-text-body ${typography.panelMeta}`}
+    >
+      {INTERVENTION_PROVENANCE_LABEL[cls.kind]}
+    </span>
+  )
+}
 
 export interface ModelDetailRegionProps {
   row: ModelRow
@@ -51,6 +113,22 @@ export interface ModelDetailRegionProps {
   /** Commit the draft through the write authority. */
   onCommitIntervention?: (factorId: string) => void
   onDiscardInterventionEdit?: () => void
+}
+
+/**
+ * Would "Where it came from" have anything under its heading?
+ *
+ * ⚠ ONE PREDICATE, MIRRORING THE THREE CHILDREN EXACTLY. Written as a separate
+ * function so the mirror is visible: if a fourth child is ever added to that
+ * section and not added here, the section can render empty again — which is the
+ * defect this predicate closes, wearing a fourth condition.
+ */
+function hasProvenanceContent(
+  provenanceSource: string | undefined,
+  detail: ModelRowDetail,
+): boolean {
+  const pillWouldRender = typeof provenanceSource === 'string' && provenanceSource !== ''
+  return pillWouldRender || detail.basis !== null || detail.adjustments.length > 0
 }
 
 /** Absence is rendered as absence — never as a zero, never as a blank cell. */
@@ -212,17 +290,12 @@ export function ModelDetailRegion({
                         Cancel
                       </button>
                     </>
-                  ) : (
+                  ) : editable ? (
                     <button
                       type="button"
-                      disabled={!editable}
                       data-testid={`model-detail-v2-intervention-${iv.factorId}-value`}
-                      title={editable ? 'Change this target' : undefined}
-                      aria-label={
-                        editable
-                          ? `Change the target for ${iv.factorLabel}`
-                          : `${iv.factorLabel}: ${iv.value ?? 'Not set'}`
-                      }
+                      title="Change this target"
+                      aria-label={`Change the target for ${iv.factorLabel}`}
                       onClick={() =>
                         onBeginInterventionEdit?.(
                           iv.factorId,
@@ -233,13 +306,49 @@ export function ModelDetailRegion({
                           iv.numericValue === null ? '' : String(iv.numericValue),
                         )
                       }
-                      className={`${typography.tabular} ${
-                        editable ? 'underline decoration-dotted' : 'text-text-light'
-                      }`}
+                      className={`${typography.tabular} underline decoration-dotted`}
                     >
                       {iv.value ?? 'Not set'}
                     </button>
+                  ) : (
+                    <span
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-value`}
+                      className={`${typography.tabular} text-text-light`}
+                    >
+                      {iv.value ?? 'Not set'}
+                    </span>
                   )}
+
+                  {/*
+                    ⭐ WHO CHOSE THIS NUMBER — ON THE SAME LINE AS THE NUMBER.
+
+                    ⚠⚠ THE DEFECT THIS CLOSES (B1-a, deployed witness UI
+                    `88cb7e37` · CEE `d1da670`, 2026-08-24). A target CEE had
+                    invented — raw 22,500, no unit, `value_confidence: low`, its
+                    own reasoning saying *"this amount is not stated in the
+                    brief"* — rendered here as a bare `0.45`, in the same
+                    control, the same typography and with no badge, tooltip,
+                    icon or unit, directly comparable with the user's own
+                    £45,000 rendered as a bare `0.9`. **The only difference
+                    between a number Olumi invented and one the user wrote was
+                    the digits.**
+
+                    ⚠ INLINE, NOT IN "Where it came from" AND NOT BEHIND A
+                    HOVER. A disclosure a user has to go and look for is a
+                    disclosure that arrives after they have already believed the
+                    number. It costs no extra interaction: it is in the same
+                    glance as the figure it qualifies.
+
+                    ⚠ IT CLASSIFIES THROUGH THE **INTERVENTION** VOCABULARY, not
+                    the node one the pill below uses. `cee_hypothesis` is not an
+                    `observed_state.source` literal and never was — see
+                    `InterventionProvenanceMark`.
+
+                    ⚠ NO STAMP ⇒ NOTHING RENDERS. Unknown stays unknown.
+                  */}
+                  <span data-testid={`model-detail-v2-intervention-${iv.factorId}-provenance`}>
+                    <InterventionProvenanceMark source={iv.provenanceSource} />
+                  </span>
                 </li>
               )
             })}
@@ -247,7 +356,25 @@ export function ModelDetailRegion({
         </section>
       )}
 
-      {/* 3 — Where it came from */}
+      {/*
+        3 — Where it came from.
+
+        ⚠ THE HEADING IS NOT RENDERED WHEN NOTHING WOULD SIT UNDER IT. On the
+        deployed build (UI `88cb7e37`) this section rendered on an OPTION as a
+        heading with an empty body: an option node carries no `observedState`,
+        so `row.provenanceSource` is absent and `basis` is `null`, and the pane
+        announced that provenance had been looked for and none exists — on the
+        one element whose provenance is the finding. That is the same rule
+        `FieldList` above already applies and the same rule this file states in
+        its own words: absence is rendered as absence, never as a blank cell.
+
+        ⚠ THE PREDICATE IS DERIVED FROM WHAT EACH CHILD ACTUALLY RENDERS, not
+        from "is the field present". `SourceProvenancePill` with
+        `showWhenAbsent={false}` renders nothing for an empty string, so a
+        `provenanceSource: ''` would satisfy `!== undefined` and reproduce the
+        empty heading this gate exists to remove.
+      */}
+      {(hasProvenanceContent(row.provenanceSource, detail)) && (
       <section data-testid="model-detail-v2-provenance">
         <h4 className={`${typography.label} text-text-header`}>Where it came from</h4>
         {row.provenanceSource !== undefined && (
@@ -271,6 +398,7 @@ export function ModelDetailRegion({
           </ul>
         )}
       </section>
+      )}
 
       {/* 4 — What it affects */}
       <section data-testid="model-detail-v2-affects">

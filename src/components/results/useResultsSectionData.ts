@@ -3234,7 +3234,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           confidence: typeof gap.confidence === 'number' && Number.isFinite(gap.confidence)
             ? gap.confidence
             : null,
-          voi: gap.voi_score ?? gap.voi ?? 0,
+          // Missing value of information is not a producer-attested zero.
+          voi: typeof (gap.voi_score ?? gap.voi) === 'number'
+            && Number.isFinite(gap.voi_score ?? gap.voi)
+            ? (gap.voi_score ?? gap.voi)
+            : null,
           evpi: typeof gap.evpi === 'number' ? gap.evpi : undefined,
           suggestion: gap.suggestion ?? '',
           targetNodeId: gap.target_node_id,

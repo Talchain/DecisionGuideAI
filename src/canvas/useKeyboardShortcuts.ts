@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from './store'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from './mutations/mutationAuthority'
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -132,16 +133,19 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
 
       // Get fresh state for each keydown - avoids stale closure issues
       const state = useCanvasStore.getState()
+      const canMutateSharedModel = hasServerGraphAuthority(
+        CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
+      )
 
       // Undo: Cmd/Ctrl + Z
-      if (cmdOrCtrl && event.key === 'z' && !event.shiftKey && state.canUndo()) {
+      if (canMutateSharedModel && cmdOrCtrl && event.key === 'z' && !event.shiftKey && state.canUndo()) {
         event.preventDefault()
         state.undo()
         return
       }
 
       // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
-      if ((cmdOrCtrl && event.key === 'z' && event.shiftKey) || (cmdOrCtrl && event.key === 'y')) {
+      if (canMutateSharedModel && ((cmdOrCtrl && event.key === 'z' && event.shiftKey) || (cmdOrCtrl && event.key === 'y'))) {
         if (state.canRedo()) {
           event.preventDefault()
           state.redo()
@@ -150,7 +154,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       }
 
       // Duplicate: Cmd/Ctrl + D
-      if (cmdOrCtrl && event.key === 'd') {
+      if (canMutateSharedModel && cmdOrCtrl && event.key === 'd') {
         event.preventDefault()
         state.duplicateSelected()
         return
@@ -171,14 +175,14 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       }
 
       // Cut: Cmd/Ctrl + X
-      if (cmdOrCtrl && event.key === 'x') {
+      if (canMutateSharedModel && cmdOrCtrl && event.key === 'x') {
         event.preventDefault()
         state.cutSelected()
         return
       }
 
       // Paste: Cmd/Ctrl + V
-      if (cmdOrCtrl && event.key === 'v') {
+      if (canMutateSharedModel && cmdOrCtrl && event.key === 'v') {
         event.preventDefault()
         state.pasteClipboard()
         return

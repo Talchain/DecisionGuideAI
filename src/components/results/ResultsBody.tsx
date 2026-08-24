@@ -37,6 +37,7 @@ import { FocusNowContainer } from '@/canvas/components/coaching-panel/focus-now'
 import { AnalysisHeroContainer, KeyQuestionCard } from './analysis-hero'
 import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -383,9 +384,13 @@ export const ResultsBody = memo(function ResultsBody({
       <>
           <SectionErrorBoundary section="Analysis">
             <AnalysisHeroContainer
-              onDefineSuccess={openDefineSuccess}
+              onDefineSuccess={hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)
+                ? openDefineSuccess
+                : undefined}
               data={resultsSectionData}
-              onApplyTarget={onApplyThreshold}
+              onApplyTarget={hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)
+                ? onApplyThreshold
+                : undefined}
               onFocusNode={onFocusNode}
               onConfirmFactor={runGatedOnConfirmFactor}
               fragileEdgeCount={fragileEdgeCount}

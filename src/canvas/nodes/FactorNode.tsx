@@ -646,7 +646,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const postAnalysisLayer2 = isPostAnalysis ? (
     <>
       {/* Influence & Confidence bars */}
-      {(influencePct != null && influencePct > 0 || confidencePct != null && confidencePct > 0) && (
+      {((influencePct != null && displayMetadata.influenceProvenance != null) || confidencePct != null && confidencePct > 0) && (
         <div className="space-y-1.5 mb-1">
           {/* Review fix 4: the detailed view renders the SAME display-model
               number as the Standard-view pill one level up, so it carries the
@@ -656,8 +656,8 @@ export const FactorNode = memo((props: NodeProps) => {
               role="progressbar" announces the value via aria-valuenow, so the
               name carries the basis only). Copy from the ONE shared module, so
               this row cannot drift from the pill or the panel. Fail-closed: no
-              provenance → generic wording, never a basis claim. */}
-          {influencePct != null && influencePct > 0 && (
+              provenance means no influence number is rendered. */}
+          {influencePct != null && displayMetadata.influenceProvenance != null && (
             <div
               className="flex items-center gap-1.5"
               title={influenceExplanation(displayMetadata.influenceProvenance)}

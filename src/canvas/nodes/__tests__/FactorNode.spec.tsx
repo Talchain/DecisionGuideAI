@@ -377,9 +377,13 @@ describe('FactorNode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
+      influenceProvenance: 'influence_score',
       confidence: 0.45,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
       inSensitivityAnalysis: true,
       achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
@@ -549,9 +553,13 @@ describe('FactorNode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
+      influenceProvenance: 'influence_score',
       confidence: 0.6,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
       inSensitivityAnalysis: true,
       achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
@@ -566,8 +574,9 @@ describe('FactorNode', () => {
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
-  // P5: Inferred factor shows science icon + confirm action (needs non-null valueDisplay)
-  it('inferred factor shows science icon and confirm action icon (P5)', () => {
+  // P5: Inferred factor keeps its science disclosure, but B3 withholds the
+  // local-only confirmation action because it has no canonical carrier.
+  it('inferred factor keeps science and inspect affordances while confirm value is withheld (P5)', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
       id: 'olumi-estimate', icon: Sparkles,
       tooltip: 'Olumi estimated this value. May not match reality.',
@@ -576,14 +585,14 @@ describe('FactorNode', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
-      // value=0 + factor_type='binary' produces non-null valueDisplay
-      // ("No salary in place"), enabling the confirm button.
+      // value=0 + factor_type='binary' produces a concrete contextual value.
       observedState: { value: 0, extractionType: 'inferred', factor_type: 'binary' },
     })
     // Science icon uses aria-label
     expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-    // ActionIcons confirm button uses title (requires valueDisplay !== null)
-    expect(screen.getByTitle('Confirm value')).toBeDefined()
+    expect(screen.queryByTitle('Confirm value')).toBeNull()
+    // Positive control: the canonical route to inspect and act remains mounted.
+    expect(screen.getByTitle('Open details for Salary')).toBeDefined()
   })
 
   // Graph v1.1 wireframe v4: external factors NEVER get amber treatment.
@@ -654,9 +663,13 @@ describe('FactorNode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
+      influenceProvenance: 'influence_score',
       confidence: 0.6,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
       inSensitivityAnalysis: true,
       achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
       stabilityPercentage: null,
       winRate: null,
       isResultsMode: true,
@@ -848,15 +861,11 @@ describe('FactorNode', () => {
       )
     })
 
-    it('no provenance stamp: fails closed to generic wording, claiming no basis', () => {
+    it('no provenance stamp: withholds the influence value and its scale claim', () => {
       renderDetailedWithProvenance(null, 0.6)
-      const bar = screen.getByRole('progressbar', { name: 'Influence' })
-      expect(bar.getAttribute('aria-valuenow')).toBe('60')
-      const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
-        'Influence: how much this factor affects the outcome'
-      )
-      expect(row?.getAttribute('title')).not.toContain('100%')
+      expect(screen.queryByRole('progressbar', { name: /Influence/ })).toBeNull()
+      expect(screen.queryByText('Influence')).toBeNull()
+      expect(screen.queryByText('60%')).toBeNull()
     })
   })
 })
@@ -992,8 +1001,9 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
-  // A17b: value=0 + extractionType=inferred → contextual text + science icon + confirm action
-  it('A17b: value=0 + extractionType=inferred shows contextual text, science icon, and confirm action', () => {
+  // A17b: value=0 + extractionType=inferred → contextual text + science icon;
+  // B3 withholds the local-only confirmation action.
+  it('A17b: inferred zero keeps contextual science and inspect affordances without confirm value', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
       id: 'olumi-estimate', icon: Sparkles,
       tooltip: 'Olumi estimated this value. May not match reality.',
@@ -1008,8 +1018,9 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
     expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-    // ActionIcons confirm button
-    expect(screen.getByTitle('Confirm value')).toBeDefined()
+    expect(screen.queryByTitle('Confirm value')).toBeNull()
+    // Positive control: the canonical details path is still available.
+    expect(screen.getByTitle('Open details for Item')).toBeDefined()
   })
 
   // A18: Tier labels removed — non-binary values without raw_value show no display text

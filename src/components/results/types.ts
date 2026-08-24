@@ -810,8 +810,8 @@ export interface EvidenceGapItem {
    * has to decide, and so a future `?? 0` is a visible act.
    */
   confidence: number | null
-  /** Value of Information (0-1) - higher = more impactful to investigate */
-  voi: number
+  /** Value of information (0-1), or null when the producer omitted it. */
+  voi: number | null
   /** ISL EVPI: expected value of perfect information (absolute units) — gated on presence */
   evpi?: number
   /**

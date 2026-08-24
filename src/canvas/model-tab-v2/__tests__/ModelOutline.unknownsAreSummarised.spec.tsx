@@ -116,18 +116,20 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     expect(screen.queryByTestId('model-group-v2-factors-unknown-summary')).toBeNull()
   })
 
-  it('the non-editable row contributes NOTHING to the "Not set" count', () => {
+  it('only an authority-connected unknown contributes a row-level "Not set" control', () => {
     /*
-     * The scope of this change, stated exactly. Four rows, three of them with no
-     * value: `fac_a` and `fac_b` are editable (so they keep "Not set" — live for
-     * `fac_a`, honestly disabled for `fac_b`, both of which are affordances or
-     * explanations), and `fac_c` is not editable at all, so it is silent.
-     * => exactly two "Not set", not three.
+     * Four rows, three with no value. Only `fac_a` has a connected edit carrier;
+     * `fac_b` is design-editable but has no authority, and `fac_c` is not
+     * editable at all. The group summary preserves all three unknowns while the
+     * outline exposes exactly one actionable row control.
      */
     renderOutline(FACTORS, new Set(['fac_a']))
     const outline = screen.getByTestId('model-outline-v2')
     const occurrences = (outline.textContent ?? '').split('Not set').length - 1
-    expect(occurrences).toBe(2)
+    expect(occurrences).toBe(1)
+    expect(screen.getByTestId('model-row-v2-fac_a-value')).toHaveTextContent('Not set')
+    expect(screen.getByTestId('model-row-v2-fac_b-value')).toHaveTextContent('')
+    expect(screen.getByTestId('model-row-v2-fac_c-value')).toHaveTextContent('')
   })
 
   it('the group summary carries the FULL unknown count, including the silent row', () => {

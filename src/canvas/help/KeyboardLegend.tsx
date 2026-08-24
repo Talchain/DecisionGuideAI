@@ -117,24 +117,15 @@ interface ShortcutSection {
 
 const SHORTCUT_SECTIONS: ShortcutSection[] = [
   {
-    title: 'Graph Operations',
+    title: 'Navigate and inspect',
     items: [
-      { keys: ['Double-click canvas'], description: 'Create node at cursor' },
-      { keys: ['Enter'], description: 'Commit inline edit' },
-      { keys: ['Esc'], description: 'Cancel inline edit / close prompts' },
+      { keys: ['Double-click node / edge'], description: 'Inspect details' },
+      { keys: ['Esc'], description: 'Close active prompts or panels' },
     ],
   },
   {
-    title: 'Quick Add Menu',
+    title: 'Workspace',
     items: [
-      { keys: ['Q'], description: 'Toggle quick-add mode' },
-      { keys: ['1…5'], description: 'Insert factors/risks while quick-add is active' },
-    ],
-  },
-  {
-    title: 'Editing and documents',
-    items: [
-      { keys: ['F2'], description: 'Rename document, node, or edge' },
       { keys: ['Cmd/Ctrl + D'], description: 'Toggle Documents drawer' },
       { keys: ['Cmd/Ctrl + K'], description: 'Jump to global search or command palette' },
     ],
@@ -144,20 +135,6 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
     items: [
       { keys: ['Cmd/Ctrl + Enter'], description: 'Run analysis' },
       { keys: ['Esc'], description: 'Stop run or close active overlay' },
-    ],
-  },
-  {
-    title: 'Weights and belief sliders',
-    items: [
-      { keys: ['Arrow keys'], description: 'Adjust weight / belief by 1%' },
-      { keys: ['Shift + Arrow'], description: 'Adjust weight / belief by 10%' },
-    ],
-  },
-  {
-    title: 'History',
-    items: [
-      { keys: ['Cmd/Ctrl + Z'], description: 'Undo last action' },
-      { keys: ['Cmd/Ctrl + Shift + Z'], description: 'Redo last undo' },
     ],
   },
   {

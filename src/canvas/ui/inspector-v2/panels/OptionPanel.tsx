@@ -115,7 +115,17 @@ export const OptionPanel = memo(function OptionPanel({
     const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     if (!raw) return []
     return Object.entries(raw).flatMap(([factorId, rawValue]) => {
-      const { value, displayValue } = unwrapInterventionValue(rawValue)
+      /*
+       * ⭐⭐ `source` IS THE THIRD NAME HERE, AND ITS ABSENCE WAS THE WHOLE
+       * DEFECT (B1-b). #827 made `unwrapInterventionValue` carry the producer's
+       * stamp; this surface did not take it, so `InterventionRow` had no
+       * provenance to show and rendered an invented target identically to a
+       * number the user wrote — on the Inspector, which is where the defect was
+       * witnessed. One destructure is the entire carry: the classification and
+       * the copy live at the row, per surface, as `valueProvenance`'s own header
+       * prescribes.
+       */
+      const { value, displayValue, source } = unwrapInterventionValue(rawValue)
       if (value == null) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
@@ -132,6 +142,19 @@ export const OptionPanel = memo(function OptionPanel({
         unit: obs?.unit as string | undefined,
         value,
         displayValue: displayValue ?? undefined,
+        /*
+         * ⚠ THE INTERVENTION'S OWN STAMP, NOT THE OPTION NODE'S, and the two
+         * genuinely disagree: on the witnessed draw option `682a7e2d` is
+         * `provenance: 'from_brief'` and carries an INVENTED target beside a
+         * brief-extracted one. Reading it off the option would be right on two
+         * of that draw's three options and wrong on the third, while looking
+         * correct in every screenshot anyone happened to take (trap 19).
+         *
+         * ⚠ `undefined`, NEVER a placeholder string. "unknown" or "" would be a
+         * value the row then has to special-case, and the row that forgets to is
+         * the one that renders a guess. Absent is the fact.
+         */
+        provenanceSource: source ?? undefined,
       }]
     })
   }, [node?.data, nodes])
@@ -317,6 +340,7 @@ export const OptionPanel = memo(function OptionPanel({
                 currentValue={iv.value}
                 displayValue={iv.displayValue}
                 unit={iv.unit}
+                provenanceSource={iv.provenanceSource}
                 onChange={v => mutations.setIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
                 disabled={false}

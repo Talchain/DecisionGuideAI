@@ -37,10 +37,12 @@ describe('KeyboardLegend', () => {
     it('renders headings and shortcuts when open', () => {
       render(<KeyboardLegend isOpen={true} onClose={() => {}} />)
       expect(screen.getByRole('dialog', { name: /keyboard legend/i })).toBeInTheDocument()
-      expect(screen.getByText('Graph Operations')).toBeInTheDocument()
+      expect(screen.getByText('Navigate and inspect')).toBeInTheDocument()
+      expect(screen.getByText('Workspace')).toBeInTheDocument()
       expect(screen.getByText('Run and analyse')).toBeInTheDocument()
-      expect(screen.getByText('Weights and belief sliders')).toBeInTheDocument()
       expect(screen.getByText('Cmd/Ctrl + Enter')).toBeInTheDocument()
+      expect(screen.queryByText('Weights and belief sliders')).not.toBeInTheDocument()
+      expect(screen.queryByText('Toggle quick-add mode')).not.toBeInTheDocument()
     })
 
     it('calls onClose when close button clicked', () => {

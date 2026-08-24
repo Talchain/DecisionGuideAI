@@ -113,6 +113,15 @@ import { ConversationProvider } from './conversation/ConversationContext'
 import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
 import { StructuralDeleteDrainHost } from './conversation/StructuralDeleteDrainHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+  SHARED_MODEL_AUTHORITY_COPY,
+} from './mutations/mutationAuthority'
+
+const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
+)
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { CogPopover } from './components/CogPopover'
@@ -1215,6 +1224,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // P0-8: Confirm connection to nearby node
   const handleConfirmConnect = useCallback(() => {
+    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+      showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
+      setConnectPrompt(null)
+      return
+    }
     if (connectPrompt) {
       const result = addEdge({
         source: connectPrompt.newNodeId,
@@ -1240,6 +1254,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Blueprint insertion handler
   // Brief 36 Fix: Use ref for getViewport to prevent dependency re-renders
   const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
+    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+      showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
+      return { nodeIdMap: new Map(), newNodes: [], newEdges: [], error: SHARED_MODEL_AUTHORITY_COPY }
+    }
     // Transform to goal-first graph
     const graph = blueprintToGraph(blueprint)
 
@@ -1824,6 +1842,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const onConnect = useCallback((connection: Connection) => {
+    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+      showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
+      return
+    }
     connectSucceededRef.current = true // Task 4b: Mark success before processing
     // Task 6a: Use user-specific defaults for manually created edges
     const result = useCanvasStore.getState().addEdge({ ...connection, data: USER_EDGE_DEFAULTS })
@@ -1840,6 +1862,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Graph Editing Experience Task 2c: Validate connections during drag
   const isValidConnection = useCallback((connection: Connection) => {
+    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) return false
     if (!connection.source || !connection.target) return false
     if (isSelfLoop(connection.source, connection.target)) return false
     const { nodes, edges, engineLimits } = useCanvasStore.getState()
@@ -2217,6 +2240,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             multiSelectionKeyCode={['Meta', 'Control']}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
+            nodesConnectable={CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
@@ -2268,10 +2292,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
            complaint reappearing on the control side. Toggling off
            `effectiveMode` makes the label a promise the click keeps. */
         onSelectClick={() => setInteractionMode(effectiveMode === 'select' ? 'hand' : 'select')}
-        onUndoClick={undo}
-        onRedoClick={redo}
-        canUndo={canUndo()}
-        canRedo={canRedo()}
+        onUndoClick={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? undo : () => {}}
+        onRedoClick={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? redo : () => {}}
+        canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
+        canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
       />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
@@ -2482,7 +2506,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             FF is on. */}
       <OutputsDock />
       {!isAiPanelV2Enabled() && <DraftChat />}
-      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost blueprintEventBus={blueprintEventBus} />}
+      {isAiPanelV2Enabled() && (
+        <FloatingOlumiPanelHost
+          blueprintEventBus={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? blueprintEventBus : undefined}
+        />
+      )}
 
       {/* Expanded lenses: contextual info panel overlay */}
       <LensInfoPanel />

@@ -14,6 +14,7 @@
  */
 
 import type { ReviewNextSignal, TriageSignal, OptionQualitySignal, BiasSignal } from './pickStartHere'
+import { analysisMetricPredicate } from '@/components/results/influenceScaleCopy'
 
 /**
  * Build the review-tier coaching line from the picked Start here signal,
@@ -28,9 +29,8 @@ export function getReviewNextCoachingLine(startHere: ReviewNextSignal | null): s
       const tri = startHere as TriageSignal
       // P1-3: never render a percentage when the score was defaulted.
       if (tri.defaultedScore) return null
-      const pct = Math.round(tri.score * 100)
-      if (pct <= 0) return null
-      return `${tri.card.title} drives ${pct}% of the result and hasn't been validated.`
+      if (!tri.card.analysisMetric) return null
+      return `${tri.card.title} ${analysisMetricPredicate(tri.card.analysisMetric)} and hasn't been validated.`
     }
     case 'option_quality': {
       const opt = startHere as OptionQualitySignal
@@ -84,11 +84,10 @@ export function isRedundantWithStartHere(
 
   // Substring containment: the Start here title (any non-trivial length)
   // appears inside the coaching line, OR vice versa. Covers the common case
-  // where the triage coaching line begins with the factor title
-  // ("Factor A drives 45%...") — suppress to avoid duplication.
+  // where the triage coaching line begins with the factor title and metric.
   // 5-char minimum avoids false positives for short common words (e.g. "Age"
   // matching "advantage", "Wage" matching "average") while still catching
-  // real factor-name duplicates like "Price" inside "Price drives 72%…".
+  // real factor-name duplicates inside a longer generated sentence.
   const MIN_TITLE_LEN = 5
   if (titleLower.length >= MIN_TITLE_LEN) {
     if (lineLower.includes(titleLower)) return true

@@ -87,4 +87,12 @@ describe('CanvasLabelScaleSync', () => {
     cleanup(); document.body.innerHTML = ''
     expect(Number(mountAt(0.5).host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))).toBe(2)
   })
+
+  it('quantises upward so a 10px label never falls below the 10px floor', () => {
+    const fittedZoom = 0.738624
+    const { host } = mountAt(fittedZoom)
+    const written = Number(host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))
+    expect(written).toBe(1.36)
+    expect(10 * written * fittedZoom).toBeGreaterThanOrEqual(10)
+  })
 })
