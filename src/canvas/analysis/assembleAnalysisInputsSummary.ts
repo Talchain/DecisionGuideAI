@@ -12,6 +12,7 @@ import type { V2RunResponse, V2OptionComparison, V2FactorSensitivity, V2Robustne
 import type { AnalysisInputsSummary } from '../../types/analysis-inputs-summary'
 import { ANALYSIS_INPUTS_CONTRACT_VERSION } from '../../types/analysis-inputs-summary'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
+import { getConstraintSatisfactionBand } from '../../types/constraints'
 
 const MAX_SERIALISED_BYTES = 2048
 const MAX_TOP_DRIVERS = 3
@@ -210,11 +211,24 @@ function buildConstraintsStatus(
   return constraints
     .filter(c => c.label != null && c.label !== '')
     .slice(0, max)
-    .map(c => ({
-      label: c.label,
-      satisfied: c.prob_satisfied >= 0.5,
-      ...(c.prob_satisfied != null ? { probability: c.prob_satisfied } : {}),
-    }))
+    .map(c => {
+      // `satisfied: c.prob_satisfied >= 0.5` used to sit here. It reported a
+      // constraint the science never evaluated as NOT SATISFIED (`null >= 0.5`
+      // and `undefined >= 0.5` are both false), and collapsed a probability
+      // into a binary at a threshold no other surface in this estate uses.
+      // The band reuses CONSTRAINT_CONFIDENCE_THRESHOLDS — the same 0.40/0.70
+      // the results panel shows the user — and keeps "not evaluated" as its own
+      // answer rather than folding it into "breached".
+      const band = getConstraintSatisfactionBand(c.prob_satisfied)
+      return {
+        label: c.label,
+        status: band,
+        // Omit the number whenever there is no evaluated number to report.
+        // Bound to the BAND, not to a second null-test, so the two can never
+        // disagree about whether this constraint was evaluated.
+        ...(band !== 'unevaluated' ? { probability: c.prob_satisfied } : {}),
+      }
+    })
 }
 
 function enforceByteLimit(result: AnalysisInputsSummary): AnalysisInputsSummary | null {
