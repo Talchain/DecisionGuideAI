@@ -109,12 +109,27 @@ export async function runProvisionalDeliverySchedule(deps: {
   readonly scenarioId: string
   readonly userId: string | null
   readonly signal: AbortSignal
-  readonly getStore: () => ScenarioAnalysisApplyStore
+  /**
+   * The applier's store view, read LAZILY per attempt.
+   *
+   * ⚠ OPTIONAL, AND THE DEFAULT IS THE POINT. When this was a required
+   * parameter the hook supplied its own inline expression, so PRODUCTION's
+   * store view had no test anywhere: every spec injected a substitute, and the
+   * one shape that shipped was the one nothing exercised. That is how the
+   * `currentResultsHash` defect survived a full mutant kit.
+   *
+   * Defaulting it means production has exactly ONE store view, tests can still
+   * inject, and `runProvisionalDeliverySchedule` called WITHOUT this parameter
+   * exercises the real thing — which is what
+   * `useProvisionalAnalysisDelivery.realStoreBinding.spec.ts` asserts.
+   */
+  readonly getStore?: () => ScenarioAnalysisApplyStore
   readonly read: typeof fetchScenarioGraph
   readonly wait: (ms: number, signal: AbortSignal) => Promise<void>
   readonly delays?: readonly number[]
 }): Promise<ProvisionalDeliveryOutcome> {
   const delays = deps.delays ?? PROVISIONAL_DELIVERY_DELAYS_MS
+  const getStore = deps.getStore ?? readProvisionalApplyStore
   let previous = 0
   for (const at of delays) {
     try {
@@ -146,7 +161,7 @@ export async function runProvisionalDeliverySchedule(deps: {
     const outcome = applyScenarioAnalysisRead({
       analysisState: result.analysisState,
       analysisResult: result.analysisResult,
-      store: deps.getStore(),
+      store: getStore(),
     })
     if (outcome.outcome === 'applied') {
       logger.debug('provisional_analysis_delivery.delivered', {
@@ -165,6 +180,42 @@ export async function runProvisionalDeliverySchedule(deps: {
     deadlineMs: PROVISIONAL_DELIVERY_DEADLINE_MS,
   })
   return 'deadline'
+}
+
+/**
+ * The applier's view of the LIVE canvas store.
+ *
+ * ⚠⚠ THIS FUNCTION EXISTS BECAUSE THE OBVIOUS ONE-LINER WAS DEAD IN PRODUCTION.
+ * It was `useCanvasStore.getState() as unknown as ScenarioAnalysisApplyStore`,
+ * and the double cast switched typechecking OFF across a shape that does not
+ * match: the canvas store carries the results hash at `results.hash`, NOT at
+ * the top level, and all three members of `ScenarioAnalysisApplyStore` are
+ * optional — so `currentResultsHash` silently resolved to `undefined`, the
+ * dedupe compared a string hash against `null`, and `alreadyHeld` was
+ * UNREACHABLE. The turn path has always spliced the value in for exactly this
+ * reason (`conversation/useConversation.ts:4783`).
+ *
+ * Two deliberate choices, both load-bearing:
+ *
+ *  1. NO CAST. The members are named explicitly and the return type is checked,
+ *     so a drift in either store action's signature REDs `tsc` instead of
+ *     passing silently. A cast here is what hid the defect for a whole PR.
+ *  2. NO SPREAD. `...getState()` handed the applier the ENTIRE canvas store,
+ *     including the graph slices that `applyScenarioAnalysisRead`'s own header
+ *     says belong to `serverGraphHydration`. Naming three members keeps that
+ *     boundary real rather than documented.
+ *
+ * Exported so its binding to the REAL store is provable — a spec that builds
+ * its own store literal can only ever confirm the author's model of the store,
+ * which is precisely how this shipped.
+ */
+export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
+  const s = useCanvasStore.getState()
+  return {
+    setAnalysisStateV1: s.setAnalysisStateV1,
+    resultsComplete: s.resultsComplete,
+    currentResultsHash: s.results?.hash ?? null,
+  }
 }
 
 function waitFor(ms: number, signal: AbortSignal): Promise<void> {
@@ -216,10 +267,6 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
       scenarioId,
       userId,
       signal: controller.signal,
-      // Read the store LAZILY, per attempt: the dedupe compares against
-      // `currentResultsHash` as it is when the answer arrives, not as it was
-      // when the wait was armed a minute earlier.
-      getStore: () => useCanvasStore.getState() as unknown as ScenarioAnalysisApplyStore,
       read: fetchScenarioGraph,
       wait: waitFor,
     }).then((outcome) => {

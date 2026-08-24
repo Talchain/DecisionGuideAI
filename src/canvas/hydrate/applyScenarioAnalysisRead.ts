@@ -88,12 +88,42 @@ import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
  * The kinds a FACT READ is entitled to report as an outcome. Exported so the
  * polling hook and the tests read the SAME set — one definition, three read
  * points, no mirror to drift (trap 12).
+ *
+ * ⚠ THIS LIST CANNOT BE DERIVED, AND THAT IS THE POINT. Which kinds a read may
+ * treat as terminal is a JUDGEMENT about what a fact read can prove (the
+ * per-kind reasoning is in this file's header) — there is no field in the
+ * contract that states it, so no derivation can produce it. What that judgement
+ * DOES owe is that it has been made for every kind the contract admits.
+ *
+ * A derived guard proves agreement and can never prove completeness (trap 12d).
+ * So the completeness check lives beside its twin below and is asserted against
+ * the contract's OWN exported vocabulary (`ANALYSIS_RUN_STATE_KINDS`) in
+ * `__tests__/applyScenarioAnalysisRead.contractPartition.spec.ts`: the two sets
+ * must PARTITION it exactly. A contract that gains a kind therefore REDs that
+ * spec instead of falling silently into the non-terminal default here — which
+ * is the safe direction, but a silent one, and silence is how a new state stops
+ * being noticed.
  */
 export const READ_TERMINAL_RUN_STATE_KINDS = [
   'complete_current',
   'complete_stale',
   'blocked',
   'refused',
+] as const
+
+/**
+ * The twin: kinds this applier has CONSCIOUSLY declined to treat as terminal.
+ *
+ * It is not used for control flow — `isReadTerminalRunState` is the only
+ * predicate — and it exists solely so "we have classified every kind" is a
+ * checkable claim rather than an assumption. Listing them here, next to the
+ * terminal set, is what lets the partition spec notice a kind that belongs to
+ * neither.
+ */
+export const READ_NON_TERMINAL_RUN_STATE_KINDS = [
+  'never_run',
+  'running',
+  'unknown_degraded',
 ] as const
 
 export type ReadTerminalRunStateKind = (typeof READ_TERMINAL_RUN_STATE_KINDS)[number]
@@ -177,6 +207,26 @@ export function applyScenarioAnalysisRead(
     input.store.resultsComplete({
       report,
       hash,
+      // ⚠ 'conversation' IS CORRECT HERE, and it was queried in review — so the
+      // reasoning is pinned rather than left to be re-litigated.
+      //
+      // The objection is that these results arrived on a READ leg, not a
+      // conversation turn. That is true of the TRANSPORT and irrelevant to this
+      // field, because the two answer different questions (trap 21):
+      //
+      //   `resultsSource` asks   "what CAUSED this analysis to exist?"
+      //   the read leg answers   "how did it REACH the client?"
+      //
+      // The store's own declaration scopes it to cause — "'direct' (Play
+      // button) or 'conversation' (envelope path)" (`canvas/store.ts:901`) —
+      // and its only consumer renders "Updated from conversation"
+      // (`OutputsDock.tsx:3114`) to explain results the user did not ask for by
+      // pressing Run. This run was scheduled BY the draft turn. So:
+      //   · 'conversation' → true, and the user gets the explanation.
+      //   · 'direct'       → a lie (claims the Play button) AND suppresses the
+      //                      indicator, so results would appear unannounced.
+      // A third value would need a product decision about that indicator's copy
+      // and is out of this lane's scope; it is not needed for honesty.
       resultsSource: 'conversation',
       // V5 carries no V2 envelope; pass null so the V2-shaped slots are
       // explicitly cleared rather than left to a stale prior write — the same
