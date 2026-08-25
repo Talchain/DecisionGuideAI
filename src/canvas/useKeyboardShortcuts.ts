@@ -22,6 +22,35 @@ export function isTextEntryElement(el: Element | null | undefined): boolean {
 }
 
 /**
+ * Controls for which Space is a native activation key.
+ *
+ * Hold-to-pan is window-scoped, so without this guard it prevents Space from
+ * clicking focused buttons and other controls anywhere around the canvas.
+ * Keep this separate from `isTextEntryElement`: text focus and native control
+ * activation have different pointer/shortcut semantics.
+ */
+export function isKeyboardActivationElement(el: Element | null | undefined): boolean {
+  if (!el || typeof el.closest !== 'function') return false
+  return el.closest([
+    'button',
+    'a[href]',
+    'select',
+    'summary',
+    '[role="button"]',
+    '[role="link"]',
+    '[role="checkbox"]',
+    '[role="radio"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    '[role="menuitem"]',
+    '[role="menuitemcheckbox"]',
+    '[role="menuitemradio"]',
+    '[role="option"]',
+    '[role="slider"]',
+  ].join(',')) !== null
+}
+
+/**
  * The mode the canvas is ACTUALLY behaving in right now.
  *
  * `spaceHeld` is a transient hold-to-pan override (Figma grammar): while the
@@ -241,6 +270,9 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       // A hold started with a modifier already down would never receive its
       // keyup on macOS, so it is refused rather than leaked.
       if (isSpaceKey(event) && !event.repeat) {
+        // Space belongs to the focused native/semantic control. Returning
+        // without preventDefault preserves the browser's activation click.
+        if (isKeyboardActivationElement(event.target as Element | null)) return
         event.preventDefault()
         if (event.metaKey || event.ctrlKey || event.altKey) return
         emitSpaceHeld(true)
