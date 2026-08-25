@@ -39,6 +39,7 @@ import {
   selectCrownComplianceReason,
   selectCrownComplianceVerdict,
   selectCrownComplianceDisclosure,
+  selectGoalConstraintCount,
 } from './crownCompliance'
 
 export type BriefStateOverride = 'thin' | 'contradictory' | 'unverified'
@@ -305,9 +306,17 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   // leaves the surface silent rather than guessing.
   const crownComplianceVerdict = useCanvasStore(selectCrownComplianceVerdict)
   const crownComplianceReason = useCanvasStore(selectCrownComplianceReason)
+  // ⭐ Gated on the constraints the USER SET, never on whether those constraints
+  // happened to be FORMATTABLE — see `selectGoalConstraintCount` for why those
+  // are two different questions and why the gap bites hardest on the one state
+  // (`not_assessed`) a malformed limit is most likely to produce.
+  const goalConstraintCount = useCanvasStore(selectGoalConstraintCount)
   const crownCompliance = useMemo(
-    () => selectCrownComplianceDisclosure(crownComplianceVerdict, crownComplianceReason),
-    [crownComplianceVerdict, crownComplianceReason],
+    () =>
+      goalConstraintCount > 0
+        ? selectCrownComplianceDisclosure(crownComplianceVerdict, crownComplianceReason)
+        : null,
+    [goalConstraintCount, crownComplianceVerdict, crownComplianceReason],
   )
   const briefPresent = useCanvasStore((s) => Boolean(s.currentBriefText?.trim()))
   // Mirrors ResultsBody's UI-SEM-065 blocker read (graphHealth is the
@@ -690,28 +699,38 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
                   </li>
                 ))}
               </ul>
-              {/* The producer's sentence, VERBATIM. `data-verdict` carries the
-                  exact enum so a test — and a support engineer reading the DOM
-                  — binds to the state by identity rather than by the prose or
-                  the colour, either of which another state could share. */}
-              {crownCompliance !== null && (
-                <div
-                  className="mt-1.5 flex items-start gap-1.5"
-                  data-testid="crown-compliance"
-                  data-verdict={crownCompliance.verdict}
-                  data-tone={crownCompliance.tone}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`mt-1 h-[7px] w-[7px] flex-none rounded-full ${
-                      CROWN_COMPLIANCE_DOT_TONE[crownCompliance.tone]
-                    }`}
-                  />
-                  <span className={`${typography.panelMeta} min-w-0 text-text-light`}>
-                    {crownCompliance.reason}
-                  </span>
-                </div>
-              )}
+            </div>
+          )}
+
+          {/* The producer's sentence, VERBATIM. `data-verdict` carries the exact
+              enum so a test — and a support engineer reading the DOM — binds to
+              the state by identity rather than by the prose or the colour,
+              either of which another state could share.
+
+              ⭐ A SIBLING OF THE LIMITS LIST, NOT A CHILD OF IT. Nesting it
+              inside `stated-limits` gated it on the limits being FORMATTABLE,
+              which silently suppressed the disclosure in exactly the case that
+              needs it most: a limit whose value is non-finite or whose operator
+              is empty is skipped by `selectStatedLimits`, and that is precisely
+              what produces `not_assessed` ("we could not check every limit you
+              set on this run"). Its own gate is `goalConstraintCount > 0`,
+              applied where the disclosure is built. */}
+          {crownCompliance !== null && (
+            <div
+              className="mt-1.5 flex items-start gap-1.5"
+              data-testid="crown-compliance"
+              data-verdict={crownCompliance.verdict}
+              data-tone={crownCompliance.tone}
+            >
+              <span
+                aria-hidden="true"
+                className={`mt-1 h-[7px] w-[7px] flex-none rounded-full ${
+                  CROWN_COMPLIANCE_DOT_TONE[crownCompliance.tone]
+                }`}
+              />
+              <span className={`${typography.panelMeta} min-w-0 text-text-light`}>
+                {crownCompliance.reason}
+              </span>
             </div>
           )}
 

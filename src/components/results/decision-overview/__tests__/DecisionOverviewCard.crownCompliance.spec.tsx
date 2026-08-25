@@ -294,3 +294,149 @@ describe('step 6 — the saved/hydrated report is the fallback seam', () => {
     expect(row).toHaveAttribute('data-verdict', 'compliant')
   })
 })
+
+/**
+ * ⭐ THE GATE IS "DID THE USER SET LIMITS", NOT "CAN WE FORMAT THEM".
+ *
+ * Review finding on this PR. The row was first gated on `statedLimits.length > 0`.
+ * `selectStatedLimits` (statedLimits.ts:96-98) SKIPS any constraint whose
+ * `value` is non-finite or whose `operator` is empty, so that gate silently
+ * suppressed the disclosure whenever the user's limit was unformattable — and
+ * `not_assessed` ("we could not check every limit you set on this run") is
+ * EXACTLY the state a malformed or withheld constraint produces. The gate was
+ * quietest precisely where the producer was speaking loudest.
+ *
+ * Both directions are pinned here, because widening naively would reopen the
+ * opposite falsehood.
+ */
+const MALFORMED_NON_FINITE = {
+  constraint_id: 'constraint_broken_value',
+  node_id: 'n_cost',
+  label: 'Programme cost',
+  operator: '<=' as const,
+  value: Number.NaN, // skipped by selectStatedLimits — unformattable
+  unit: '£',
+}
+const MALFORMED_EMPTY_OPERATOR = {
+  constraint_id: 'constraint_broken_operator',
+  node_id: 'n_margin',
+  label: 'Gross margin',
+  operator: '' as const, // skipped by selectStatedLimits
+  value: 78,
+  unit: '%',
+}
+
+describe('step 6 — a limit we cannot FORMAT is still a limit the user SET', () => {
+  beforeEach(() => {
+    seed({ goalConstraints: null })
+  })
+
+  it('⭐ non-finite value + not_assessed — the disclosure RENDERS, though no limit can be listed', () => {
+    seed({
+      goalConstraints: [MALFORMED_NON_FINITE],
+      rawRobustness: {
+        recommended_option_compliance: 'not_assessed',
+        recommended_option_compliance_reason: REASON.not_assessed,
+      },
+    })
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+    openBrief()
+
+    // PRECONDITION, pinned: this is genuinely the unformattable case — the
+    // limits region is ABSENT, so the assertion below is about the compliance
+    // gate and not about a card that happened to render limits anyway.
+    expect(screen.queryByTestId('stated-limits')).toBeNull()
+
+    const row = screen.getByTestId('crown-compliance')
+    expect(row).toHaveAttribute('data-verdict', 'not_assessed')
+    expect(row).toHaveTextContent(REASON.not_assessed)
+  })
+
+  it('⭐ empty operator + no_eligible_option — the withheld crown is still explained', () => {
+    seed({
+      goalConstraints: [MALFORMED_EMPTY_OPERATOR],
+      rawRobustness: {
+        recommended_option_compliance: 'no_eligible_option',
+        recommended_option_compliance_reason: REASON.no_eligible_option,
+      },
+    })
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+    openBrief()
+
+    expect(screen.queryByTestId('stated-limits')).toBeNull()
+    const row = screen.getByTestId('crown-compliance')
+    expect(row).toHaveAttribute('data-verdict', 'no_eligible_option')
+    expect(row).toHaveTextContent(REASON.no_eligible_option)
+  })
+
+  it('OPPOSITE-DIRECTION TWIN — a well-formed limit still renders BOTH the limit and the verdict', () => {
+    // Proves the widening did not trade the pairing away: where the limit CAN
+    // be shown, it is still shown beside the verdict. That pairing is the whole
+    // point of step 6.
+    renderWith({
+      recommended_option_compliance: 'not_assessed',
+      recommended_option_compliance_reason: REASON.not_assessed,
+    })
+    expect(screen.getByTestId('stated-limit-constraint_cost_max')).toHaveTextContent(
+      'Budget ≤ £50,000',
+    )
+    expect(screen.getByTestId('crown-compliance')).toHaveAttribute('data-verdict', 'not_assessed')
+  })
+})
+
+describe('step 6 — the auto-synthesised-constraint falsehood stays suppressed', () => {
+  beforeEach(() => {
+    seed({ goalConstraints: null })
+  })
+
+  /**
+   * ⚠ THE REASON THE GATE IS NOT SIMPLY "ALWAYS RENDER".
+   *
+   * PLoT synthesises a `'Goal target'` constraint (`auto_goal_threshold`,
+   * run.ts:6035-6042) from the goal node's threshold when the user set NO
+   * limits, and can then return `compliant` carrying "this option met every
+   * limit YOU SET" — about limits nobody set. That synthesis happens inside
+   * PLoT's run handler and never reaches this store, so `goalConstraints` is
+   * genuinely empty in that case and this gate keeps the sentence off screen.
+   *
+   * A PLoT-side fix for the wording is commissioned separately. Until it lands,
+   * THIS TEST IS LOAD-BEARING — deleting it reopens a producer falsehood.
+   */
+  it('⭐ NO user-set limits + compliant — renders NOTHING, even though a verdict arrived', () => {
+    seed({
+      goalConstraints: [],
+      rawRobustness: {
+        recommended_option_compliance: 'compliant',
+        recommended_option_compliance_reason: REASON.compliant,
+      },
+    })
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+    openBrief()
+
+    expect(screen.queryByTestId('crown-compliance')).toBeNull()
+  })
+
+  it('null goalConstraints + compliant — renders NOTHING', () => {
+    seed({
+      goalConstraints: null,
+      rawRobustness: {
+        recommended_option_compliance: 'compliant',
+        recommended_option_compliance_reason: REASON.compliant,
+      },
+    })
+    render(<DecisionOverviewCard title="Take £4m out of opex" />)
+    openBrief()
+
+    expect(screen.queryByTestId('crown-compliance')).toBeNull()
+  })
+
+  it('DISCRIMINATING CONTROL — the SAME verdict WITH a user-set limit does render', () => {
+    // Without this, the two nulls above could pass because the verdict is
+    // unrenderable for some unrelated reason rather than because of the gate.
+    renderWith({
+      recommended_option_compliance: 'compliant',
+      recommended_option_compliance_reason: REASON.compliant,
+    })
+    expect(screen.getByTestId('crown-compliance')).toHaveAttribute('data-verdict', 'compliant')
+  })
+})

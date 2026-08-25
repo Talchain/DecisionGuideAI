@@ -212,3 +212,39 @@ export function selectCrownComplianceVerdict(s: CrownComplianceStoreSlice): stri
 export function selectCrownComplianceReason(s: CrownComplianceStoreSlice): string | null {
   return readMember(s, 'recommended_option_compliance_reason')
 }
+
+/**
+ * How many constraints the user actually set — a PRIMITIVE count.
+ *
+ * ⭐ WHY THIS EXISTS RATHER THAN REUSING `statedLimits.length` (trap 21 — ONE
+ * PREDICATE ANSWERING TWO QUESTIONS). The compliance row was originally gated
+ * on `statedLimits.length > 0`. Those are different questions:
+ *
+ *   `statedLimits.length > 0`  answers "can we FORMAT and display the limits?"
+ *   this selector              answers "did the user set limits the producer
+ *                              could make a claim about?"
+ *
+ * They diverge in BOTH directions, and the gap is not hypothetical:
+ * `selectStatedLimits` (statedLimits.ts:96-98) SKIPS any constraint whose
+ * `value` is non-finite or whose `operator` is empty. So `statedLimits` can be
+ * EMPTY while `goalConstraints` is populated.
+ *
+ * ⚠ AND THE CORRELATION IS THE SHARP EDGE. `not_assessed` means "we could not
+ * check every limit you set on this run" — precisely the state a malformed or
+ * withheld constraint produces. Gating on `statedLimits` therefore suppressed
+ * the disclosure in exactly the case most likely to need it: the user's limit
+ * was unformattable, the producer said so, and the surface stayed silent.
+ *
+ * ⚠⚠ THE OTHER DIRECTION MUST BE PRESERVED, AND IT IS WHY THIS IS NOT SIMPLY
+ * "ALWAYS RENDER". PLoT auto-synthesises a `'Goal target'` constraint
+ * (`constraint_id: 'auto_goal_threshold'`, run.ts:6035-6042) from the goal
+ * node's threshold when the user set no limits, which can yield `compliant`
+ * carrying the reason "this option met every limit YOU SET" — about limits
+ * nobody set. That synthesis happens INSIDE PLoT's run handler and never
+ * reaches this store, so `goalConstraints` is genuinely empty in that case and
+ * this gate keeps the falsehood suppressed. A PLoT-side fix for the reason
+ * wording is commissioned separately; until it lands, this gate is load-bearing.
+ */
+export function selectGoalConstraintCount(s: { readonly goalConstraints?: unknown }): number {
+  return Array.isArray(s.goalConstraints) ? s.goalConstraints.length : 0
+}
