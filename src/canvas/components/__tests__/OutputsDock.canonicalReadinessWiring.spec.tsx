@@ -250,7 +250,17 @@ describe('the frozen capture, on the mounted control', () => {
     expect(footer).not.toHaveTextContent(FOOTER_COPY.notReady)
   }, 30_000)
 
-  it('AC2 — real blockers: DISABLED, and the tooltip NAMES one, not a constant', async () => {
+  it('AC2 — real blockers: DISABLED, and the tooltip carries the PRODUCER\'S OWN sentence', async () => {
+    // ⭐ A4, ON THE MOUNTED CONTROL. This is the strongest evidence short of a
+    // browser that `blocker.message` reaches the user: it is asserted on the
+    // rendered DOM attribute, through the real component tree and the real
+    // render seam (`gateBlockedSubline` → `vetBlockedReason` → `guardCeeText`),
+    // not on the composer's return value.
+    //
+    // The message is CEE's own spelling and NAMES ITS SCOPE, so the assertion
+    // still discriminates a derived sentence from a constant — and it now also
+    // proves the substituting guard left the producer's words alone.
+    const PRODUCER_MESSAGE = 'Choose the missing effect value for "Extend the free trial".'
     seedCapturedCanvas()
     useCanvasStore.setState({
       analysisStateV1: analysisState({
@@ -259,7 +269,7 @@ describe('the frozen capture, on the mounted control', () => {
           {
             code: 'OPTION_NOT_READY',
             category: 'options',
-            message: 'The option has no effect values.',
+            message: PRODUCER_MESSAGE,
             repairability: 'user_repairable',
             option_id: 'opt_extend',
             option_label: 'Extend the free trial',
@@ -276,18 +286,19 @@ describe('the frozen capture, on the mounted control', () => {
 
     const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
     expect(analyse).toBeDisabled()
-    expect(analyse).toHaveAttribute(
+    expect(analyse).toHaveAttribute('title', PRODUCER_MESSAGE)
+    // Never the generic sentence, never the discarded substitute, never the id.
+    expect(analyse).not.toHaveAttribute('title', BLOCKED_REASON_COPY.unspecified)
+    expect(analyse).not.toHaveAttribute(
       'title',
       BLOCKED_REASON_COPY.canonicalOneBlocker('Extend the free trial'),
     )
-    // Never the generic sentence, and never the raw identifier.
-    expect(analyse).not.toHaveAttribute('title', BLOCKED_REASON_COPY.unspecified)
     expect(analyse.getAttribute('title')).not.toContain('opt_extend')
+    // The remedy the user cannot perform is gone from the surface.
+    expect(analyse.getAttribute('title')).not.toContain('Ask in the chat')
 
     // One state, one story: the footer subline says the SAME thing as the title.
-    expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(
-      BLOCKED_REASON_COPY.canonicalOneBlocker('Extend the free trial'),
-    )
+    expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(PRODUCER_MESSAGE)
   }, 30_000)
 
   it('DISCRIMINATION — the two cases above differ ONLY in the producer verdict', async () => {

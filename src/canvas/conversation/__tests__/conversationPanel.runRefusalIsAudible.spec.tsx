@@ -90,13 +90,24 @@ function analysisState(
 
 const PRODUCER_READY = analysisState({ status: 'ready', blockers: [] })
 
+/**
+ * ⚠ THE MESSAGE NAMES ITS SCOPE, BECAUSE CEE'S REAL ONES DO (A4, 24 Aug 2026).
+ *
+ * It was `'The option has no effect values.'` — a placeholder that ignored its
+ * own `option_label`, which was harmless while the composed refusal was built
+ * from the label and discarded the message. Since A4 the refusal IS the message,
+ * rendered verbatim, so a placeholder here would put a placeholder on the
+ * surface this spec asserts against and the "names the blocker" test would fail
+ * for a fixture reason rather than a product one. Shaped on the producer's own
+ * spelling.
+ */
 const PRODUCER_BLOCKED = analysisState({
   status: 'not_ready',
   blockers: [
     {
       code: 'OPTION_NOT_READY',
       category: 'options',
-      message: 'The option has no effect values.',
+      message: 'Choose the missing effect value for "Extend the free trial".',
       repairability: 'user_repairable',
       option_id: 'n2',
       option_label: 'Extend the free trial',

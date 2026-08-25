@@ -95,10 +95,21 @@ const SIDE_CAR_PERMITS: GraphReadiness = {
 }
 
 function blocker(overrides: Partial<AnalysisBlocker> = {}): AnalysisBlocker {
+  const scope = overrides.option_label ?? overrides.factor_label
   return {
     code: 'OPTION_NOT_READY',
     category: 'options',
-    message: 'The option has no effect values.',
+    // ⚠ THE MESSAGE NAMES THE SCOPE, BECAUSE CEE'S REAL ONES DO (A4, 24 Aug).
+    // Since A4 the composed refusal IS `blocker.message`, rendered verbatim —
+    // so a fixture whose message ignored its own scope label would stop
+    // exercising the "the sentence DERIVES from the list" property these tests
+    // exist for, and would pass by naming nothing rather than by naming the
+    // right thing. Shaped on the producer's own spelling
+    // (`Choose the missing effect value for "Launch in Q1".`). An explicit
+    // `message` override still wins, via the spread below.
+    message: scope
+      ? `Choose the missing effect value for "${scope}".`
+      : 'The option has no effect values.',
     repairability: 'user_repairable',
     ...overrides,
   }
@@ -314,7 +325,7 @@ describe('AC2 — real blockers close the gate and NAME themselves', () => {
     expect(result.reason).toContain('Support headcount')
   })
 
-  it('two blockers name both; more than two publish the producer COUNT', () => {
+  it('two blockers name both; four name all four', () => {
     const two = gate({
       analysisReadiness: {
         status: 'not_ready',
@@ -327,24 +338,56 @@ describe('AC2 — real blockers close the gate and NAME themselves', () => {
     expect(two).toContain('Extend the free trial')
     expect(two).toContain('Hold the current price')
 
-    // Four unnameable blockers: the count is still drawn from the LIST, so it
-    // moves with the list. A constant cannot do that either.
+    // ⚠ AMENDED BY A4. This half used to assert that four blockers publish the
+    // COUNT ("4 parts of your model are not ready…"). That rung is now the
+    // DEGRADE, not the answer: the producer wrote a sentence for each blocker
+    // and the contract says render them. So the property under test moves from
+    // "the count moves with the list" to the stronger "EVERY scoped element the
+    // producer named reaches the user" — which a constant cannot satisfy either,
+    // and which the count rung could satisfy only by naming none of them.
+    const labels = ['Extend the free trial', 'Hold the current price', 'Bundle the tiers', 'Do nothing']
     const four = gate({
       analysisReadiness: {
         status: 'not_ready',
-        blockers: [blocker(), blocker(), blocker(), blocker()],
+        blockers: labels.map((option_label) => blocker({ option_label })),
       },
+    }).reason
+    for (const label of labels) {
+      expect(four, `the producer named "${label}" and the user never saw it`).toContain(label)
+    }
+    expect(four).not.toBe(BLOCKED_REASON_COPY.unspecified)
+  })
+
+  it('the COUNT rung is still reached — when no message can be rendered as written', () => {
+    // The degrade half of the pair above, kept because the count rung is still
+    // live and must still derive from the LIST rather than from a constant.
+    // Driven through the only door that now opens it: messages the render seam
+    // would rewrite (`\bnodes\b` is in `CEE_EXTRA_TERMS`), on blockers whose
+    // labels are equally unquotable, so neither the message nor the scope rungs
+    // can speak.
+    const unrenderable = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        blocker({
+          option_id: `opt_${i}`,
+          option_label: 'Rebuild the graph layer',
+          message: 'Two nodes in the decision graph need values.',
+        }),
+      )
+
+    const four = gate({
+      analysisReadiness: { status: 'not_ready', blockers: unrenderable(4) },
     }).reason
     const three = gate({
-      analysisReadiness: {
-        status: 'not_ready',
-        blockers: [blocker(), blocker(), blocker()],
-      },
+      analysisReadiness: { status: 'not_ready', blockers: unrenderable(3) },
     }).reason
+
     expect(four).toContain('4')
     expect(three).toContain('3')
     expect(four).not.toBe(three)
     expect(four).not.toBe(BLOCKED_REASON_COPY.unspecified)
+    // And the unrenderable prose never leaks on the way past.
+    expect(four).not.toContain('nodes')
+    expect(four).not.toContain('connections')
   })
 
   it('an unquotable label degrades to the count, never to a leaked identifier', () => {
@@ -749,12 +792,22 @@ describe('advisory blockers on a READY payload do not close the gate', () => {
 // substring another rung could satisfy.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** The actionable blocker AS CEE SHIPS IT, scoped to a quotable option. */
+/**
+ * The actionable blocker AS CEE SHIPS IT, scoped to a quotable option.
+ *
+ * ⚠ The message is DERIVED FROM THE SCOPE, not fixed (A4). It was a literal
+ * naming "Launch in Q1"; since the composed refusal is now the message itself,
+ * a fixed message would have made the TWO-ACTIONABLE twin below vacuous — both
+ * blockers would carry the same sentence, de-duplicate to one, and the twin
+ * would pass while naming only the first element. Exactly the "passes by naming
+ * FEWER things" failure its own comment warns about.
+ */
 function actionableBlocker(overrides: Partial<AnalysisBlocker> = {}): AnalysisBlocker {
+  const scope = overrides.option_label ?? 'Launch in Q1'
   return blocker({
     code: 'MISSING_OPTION_VALUE',
     category: 'option_values',
-    message: 'Choose the missing effect value for "Launch in Q1".',
+    message: `Choose the missing effect value for "${scope}".`,
     repairability: 'human_input_required',
     option_id: 'opt_launch_q1',
     option_label: 'Launch in Q1',
@@ -779,9 +832,10 @@ describe('the refusal names the blockers the gate actually decided on', () => {
     ])
 
     expect(result.allowed).toBe(false)
-    // Bound by IDENTITY through the factory: the one-blocker rung, quoting the
-    // ACTIONABLE element's own label.
-    expect(result.reason).toBe(BLOCKED_REASON_COPY.canonicalOneBlocker('Launch in Q1'))
+    // Bound by IDENTITY through the factory: the ACTIONABLE blocker's own
+    // producer-authored sentence, verbatim (A4 — was the synthesised
+    // `canonicalOneBlocker` rung until 24 Aug).
+    expect(result.reason).toBe(actionableBlocker().message)
     // And the advisory element is named NOWHERE — not in the primary sentence,
     // not in a `+N more` tail, not in any other blocking reason.
     expect(result.reason).not.toContain('Burn rate')
@@ -809,9 +863,15 @@ describe('the refusal names the blockers the gate actually decided on', () => {
     })
 
     expect(result.allowed).toBe(false)
+    // BOTH producer sentences, in the producer's own order. This is the half
+    // that REDs if the fix degrades to "name one thing" or "name the first
+    // thing" — including via de-duplication, which is why the factory derives
+    // its message from its scope.
     expect(result.reason).toBe(
-      BLOCKED_REASON_COPY.canonicalTwoBlockers('Launch in Q1', 'Hold until Q3'),
+      `${actionableBlocker().message} ${actionableBlocker({ option_label: 'Hold until Q3' }).message}`,
     )
+    expect(result.reason).toContain('Launch in Q1')
+    expect(result.reason).toContain('Hold until Q3')
   })
 
   it('ADVISORY-ONLY ON A `blocked` STATUS degrades to the non-committal rung', () => {

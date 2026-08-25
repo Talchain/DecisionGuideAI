@@ -119,7 +119,8 @@ import { useReadinessStore } from '../../stores/readinessStore'
 import { useUIStore } from '../../../stores/uiStore'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'
-import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
+import { composeAnalysisBlockedReason } from '../../utils/composeBlockedReason'
+import { actionableBlockers } from '../../utils/canRunAnalysis'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
 import { WORKSPACE_SURFACES, presentedSurfaces } from '../workspaceShell/shellContract'
 import { isAiPanelV2Enabled, isPreAnalysisV3Enabled } from '../../../flags'
@@ -127,11 +128,6 @@ import { isAiPanelV2Enabled, isPreAnalysisV3Enabled } from '../../../flags'
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-
-/** The witnessed sentence, DERIVED from the producer's own copy factory rather
- *  than re-typed — 4 blockers is what `composeAnalysisBlockedReason` turns into
- *  the count rung, and the count rung is what the fresh guest read on screen. */
-const WITNESSED_REASON = BLOCKED_REASON_COPY.canonicalManyBlockers(4)
 
 const OPTION_LABELS: Record<string, string> = {
   opt_extend: 'Extend the free trial',
@@ -177,19 +173,38 @@ function analysisState(readiness: AnalysisStateV1['readiness']): AnalysisStateV1
   } as AnalysisStateV1
 }
 
-/** Four blockers, each scoped to a named element — the shape that produces the
- *  witnessed count sentence. */
+/** Four blockers, each scoped to a named element.
+ *
+ *  ⚠ THE MESSAGES ARE CEE'S OWN SPELLING (A4, 24 Aug). They were placeholders
+ *  (`'no effect values'`) while the composed refusal ignored them; since A4 the
+ *  refusal IS the message, so a placeholder here would put a placeholder on the
+ *  surface this spec renders and assert it as the witnessed sentence. */
+const FOUR_BLOCKERS: AnalysisStateV1['readiness']['blockers'] = [
+  { code: 'OPTION_NOT_READY', category: 'options', message: `Choose the missing effect value for "${OPTION_LABELS.opt_extend}".`, repairability: 'user_repairable', option_id: 'opt_extend', option_label: OPTION_LABELS.opt_extend },
+  { code: 'OPTION_NOT_READY', category: 'options', message: `Choose the missing effect value for "${OPTION_LABELS.opt_hold}".`, repairability: 'user_repairable', option_id: 'opt_hold', option_label: OPTION_LABELS.opt_hold },
+  { code: 'OPTION_NOT_READY', category: 'options', message: `Choose the missing effect value for "${OPTION_LABELS.opt_bundle}".`, repairability: 'user_repairable', option_id: 'opt_bundle', option_label: OPTION_LABELS.opt_bundle },
+  { code: 'FACTOR_NOT_READY', category: 'factors', message: 'Set the observed value for "Support headcount".', repairability: 'user_repairable', factor_id: 'f1', factor_label: 'Support headcount' },
+]
+
 function fourBlockers(): AnalysisStateV1['readiness'] {
   return {
     status: 'not_ready',
-    blockers: [
-      { code: 'OPTION_NOT_READY', category: 'options', message: 'no effect values', repairability: 'user_repairable', option_id: 'opt_extend', option_label: OPTION_LABELS.opt_extend },
-      { code: 'OPTION_NOT_READY', category: 'options', message: 'no effect values', repairability: 'user_repairable', option_id: 'opt_hold', option_label: OPTION_LABELS.opt_hold },
-      { code: 'OPTION_NOT_READY', category: 'options', message: 'no effect values', repairability: 'user_repairable', option_id: 'opt_bundle', option_label: OPTION_LABELS.opt_bundle },
-      { code: 'FACTOR_NOT_READY', category: 'factors', message: 'no observed value', repairability: 'user_repairable', factor_id: 'f1', factor_label: 'Support headcount' },
-    ],
+    blockers: FOUR_BLOCKERS,
   } as AnalysisStateV1['readiness']
 }
+
+/**
+ * The witnessed sentence, DERIVED BY RUNNING THE PRODUCTION EXPRESSION rather
+ * than re-typed or named by rung (trap 12 — a hand-copied expectation drifts
+ * the first time the composer changes, and the drift reads as green).
+ *
+ * ⚠ It was `BLOCKED_REASON_COPY.canonicalManyBlockers(4)` until A4. That named
+ * the COUNT rung, which is now the DEGRADE rather than the answer — pinning it
+ * by name would have pinned the fallback and hidden the fix at exactly the
+ * surface this spec renders. This expression is the one `canRunAnalysis:718`
+ * evaluates, filter included.
+ */
+const WITNESSED_REASON = composeAnalysisBlockedReason(actionableBlockers(FOUR_BLOCKERS))
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
