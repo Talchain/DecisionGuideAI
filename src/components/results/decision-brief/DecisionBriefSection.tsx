@@ -49,10 +49,25 @@ function BriefGroup({ title, items, icon: Icon, expanded, testId }: BriefGroupPr
 
 export interface DecisionBriefSectionProps {
   brief: DecisionBriefViewModel
+  /**
+   * ⚠ THE PERMISSION, CONSUMED — NEVER DERIVED. This is `hasLeadingOption` from
+   * `deriveDecisionVerdict`, "the single boolean every surface must gate on
+   * before asserting OR denying a leading option", resolved once by the parent.
+   *
+   * It gates `robustnessCaveat`, which is a LEADER-RANKING member: CEE strips it
+   * on a withheld turn and its absence IS the withheld signal. The caveat's own
+   * presence must never be read as evidence that a ranking may be spoken about —
+   * that is how Authority 3 came to reconstruct a withheld leader and print
+   * "X is slightly ahead" beside CEE's "no option can be put forward yet".
+   *
+   * Required, not defaulted. A default of `true` would silently re-open the
+   * claim for every future caller — the mirror-that-reads-green failure mode.
+   */
+  leaderClaimPermitted: boolean
 }
 
 /** Store-free presentation, exported for focused and adversarial tests. */
-export function DecisionBriefSection({ brief }: DecisionBriefSectionProps) {
+export function DecisionBriefSection({ brief, leaderClaimPermitted }: DecisionBriefSectionProps) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
   /**
@@ -75,7 +90,10 @@ export function DecisionBriefSection({ brief }: DecisionBriefSectionProps) {
     { title: 'What could change', items: brief.whatWouldChange, icon: GitBranch, testId: 'decision-brief-change' },
   ].filter(group => group.items.length > 0)
 
-  if (groups.length === 0) return null
+  // A brief whose ONLY content is a caveat the verdict does not permit has
+  // nothing to show. Returning the shell would frame an empty card as a finding.
+  const caveatVisible = leaderClaimPermitted && brief.robustnessCaveat !== null
+  if (groups.length === 0 && !caveatVisible) return null
 
   return (
     <section
@@ -105,6 +123,15 @@ export function DecisionBriefSection({ brief }: DecisionBriefSectionProps) {
         ))}
       </dl>
 
+      {leaderClaimPermitted && brief.robustnessCaveat && (
+        <p
+          className={`${typography.panelMeta} mt-2 border-t border-panel-border pt-2 text-text-light`}
+          data-testid="decision-brief-robustness-caveat"
+        >
+          {brief.robustnessCaveat.text}
+        </p>
+      )}
+
       {groups.some(group => group.items.length > PREVIEW_ITEMS) && (
         <button
           type="button"
@@ -126,14 +153,19 @@ export function DecisionBriefSection({ brief }: DecisionBriefSectionProps) {
  * Reading it here avoids a second mapper and keeps this surface independent of
  * the existing leader/hero authority.
  */
-export function DecisionBriefSectionContainer() {
+export interface DecisionBriefSectionContainerProps {
+  /** See `DecisionBriefSectionProps.leaderClaimPermitted` — passed straight through. */
+  leaderClaimPermitted: boolean
+}
+
+export function DecisionBriefSectionContainer({ leaderClaimPermitted }: DecisionBriefSectionContainerProps) {
   const rawBrief = useCanvasStore(state => (
     (state.results.report as { decision_brief?: unknown } | null | undefined)?.decision_brief
   ))
   const brief = useMemo(() => readDecisionBriefViewModel(rawBrief), [rawBrief])
 
   if (!brief) return null
-  return <DecisionBriefSection brief={brief} />
+  return <DecisionBriefSection brief={brief} leaderClaimPermitted={leaderClaimPermitted} />
 }
 
 export default DecisionBriefSectionContainer

@@ -30,11 +30,24 @@ export interface DecisionBriefDefaultedView {
   note: string
 }
 
+/**
+ * The producer's own sentence about how far the ranking held, with the token
+ * that licenses it. ⚠ This is a LEADER-RANKING member: CEE strips it, alongside
+ * `headline` and `headline_banded`, on a withheld turn, and its absence IS the
+ * withheld signal. Rendering it is gated on the owned leader claim — see
+ * `DecisionBriefSection`. Never treat its presence as evidence a leader exists.
+ */
+export interface DecisionBriefRobustnessCaveatView {
+  text: string
+  basis: string
+}
+
 export interface DecisionBriefViewModel {
   topDrivers: DecisionBriefDriverView[]
   keyAssumptions: string[]
   whatWouldChange: string[]
   defaultedAssumptions: DecisionBriefDefaultedView[]
+  robustnessCaveat: DecisionBriefRobustnessCaveatView | null
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -169,6 +182,9 @@ export const DECISION_BRIEF_RENDERED_HERE = [
   'top_drivers',
   'what_would_change',
   'defaulted_assumptions',
+  // Moved out of DECLARED_DARK when it gained a renderer. The guard requires
+  // exactly-once classification, so this move is what forces the old entry to go.
+  'robustness_caveat',
 ] as const
 
 /** Read to decide whether the projection is a brief at all; never displayed. */
@@ -194,7 +210,6 @@ export const DECISION_BRIEF_DECLARED_DARK = {
     + 'neighbouring column; 0 of 1,620 captured briefs carry it while top_drivers is empty',
   headline: 'leader-designating prose; this surface never restores a leader',
   robustness: 'a producer verdict this surface has no licence to re-state as its own',
-  robustness_caveat: 'belongs with the robustness verdict, which is not rendered here',
   warnings: 'the canonical inference-warning strip above the brief is sole owner',
   warning_codes: 'machine codes; the human-readable strip above owns this surface',
   analysis_summary: 'band summary owned by the analysis hero, not by the brief',
@@ -279,6 +294,42 @@ function readDefaultedAssumptions(value: unknown): DecisionBriefDefaultedView[] 
 }
 
 /**
+ * The producer's caveat about the ranking, with its licensing token.
+ *
+ * `basis` is required: a caveat with no stated basis is an unattested claim about
+ * the user's ranking, and this surface has no licence to pass one on.
+ *
+ * ⚠ THE ANALYSIS GLOSSARY IS DELIBERATELY NOT A GUARD HERE — corrected to match the
+ * ruling #846 made on the sibling `defaulted_assumptions` reader, because I had made
+ * the same category error twice in one file.
+ *
+ * I gated this text on `containsBannedTerm`. `glossaryCheck` gates UI-GENERATED COPY;
+ * its own header says "we never rewrite user data, only the generated copy that names
+ * it", and `copyHygiene.spec.tsx` states outright that "producer-supplied strings are
+ * deliberately NOT scanned — they are rendered as data, never authored here". Two
+ * questions were sharing one predicate: "is Olumi authoring jargon in copy it wrote?"
+ * and "is this producer sentence safe to render verbatim?".
+ *
+ * The margin was one character and I read it the wrong way round. `perturbation` is a
+ * banned term; the producer writes "perturbations", which `\bperturbation\b` does not
+ * match. I pinned that near-miss as a case to PRESERVE the withholding. The correct
+ * reading is that a producer sentence should never have been withheld for a glossary
+ * word at all — a caveat suppressed because the analysis used an ordinary word is a
+ * silent loss of the one sentence telling the user how far to trust the ranking.
+ *
+ * What answers the real question is what remains: raw-identifier, length, blank/NUL,
+ * and the `basis` token.
+ */
+function readRobustnessCaveat(value: unknown): DecisionBriefRobustnessCaveatView | null {
+  if (!isRecord(value)) return null
+  const text = readNonBlankString(value.text, MAX_NOTE_LENGTH)
+  const basis = readNonBlankString(value.basis, MAX_LABEL_LENGTH)
+  if (text === null || basis === null) return null
+  if (containsRawIdentifier(text)) return null
+  return { text, basis }
+}
+
+/**
  * Parse the CEE-projected DecisionBriefV1 members that are licensed for this
  * surface. Missing or malformed categories do not suppress valid siblings.
  */
@@ -308,15 +359,17 @@ export function readDecisionBriefViewModel(raw: unknown): DecisionBriefViewModel
     true,
   )
   const defaultedAssumptions = readDefaultedAssumptions(raw.defaulted_assumptions)
+  const robustnessCaveat = readRobustnessCaveat(raw.robustness_caveat)
 
   if (
     topDrivers.length === 0
     && keyAssumptions.length === 0
     && whatWouldChange.length === 0
     && defaultedAssumptions.length === 0
+    && robustnessCaveat === null
   ) {
     return null
   }
 
-  return { topDrivers, keyAssumptions, whatWouldChange, defaultedAssumptions }
+  return { topDrivers, keyAssumptions, whatWouldChange, defaultedAssumptions, robustnessCaveat }
 }

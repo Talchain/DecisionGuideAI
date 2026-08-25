@@ -115,7 +115,10 @@ describe('decision_brief field coverage — derived from real captures', () => {
 
   it('what this surface renders is exactly what the view model exposes', () => {
     expect([...DECISION_BRIEF_RENDERED_HERE].sort()).toEqual([
-      'defaulted_assumptions', 'top_drivers', 'what_would_change',
+      // `robustness_caveat` moved here from DECLARED_DARK when it gained a
+      // renderer. The exactly-once rule is what forced the old entry to be
+      // removed rather than left behind as a stale second classification.
+      'defaulted_assumptions', 'robustness_caveat', 'top_drivers', 'what_would_change',
     ])
     expect([...DECISION_BRIEF_CONSUMED_AS_IDENTITY].sort()).toEqual([
       'brief_id', 'created_at', 'version',
