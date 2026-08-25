@@ -56,6 +56,15 @@
  * and (2) pulses the changed elements on the existing applied-edit surface, so
  * a number cannot move under the user unannounced. Neither fires on a pure
  * addition or a no-op. See the commit block below.
+ *
+ * ⚠ AND (3), ON A WIDER PREDICATE THAN (1)/(2) — A3: whenever this merge changes
+ * the graph AT ALL, it marks the analysis STALE. Without it the canvas showed
+ * the merged graph while the Analysis panel showed the pre-merge result labelled
+ * CURRENT, with the 2s pulse as the only signal. (1) and (2) answer "was the
+ * user's work destroyed / did a number move under their eyes", which only an
+ * OVERWRITE does; this answers "does the current freshness verdict still
+ * describe what is on the canvas", which an ADDITION breaks just as completely.
+ * Three questions, two predicates — deliberately. See the commit block below.
  */
 
 import { useCanvasStore } from '../store'
@@ -454,6 +463,53 @@ export function mergeServerGraphOnHydrate(
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
   }
+
+  // ── THE ANALYSIS NO LONGER DESCRIBES THIS CANVAS (A3) ─────────────────────
+  //
+  // THE DEFECT THIS CLOSES: this merge changed the canvas on reload and left
+  // the Analysis panel showing the PRE-MERGE result labelled CURRENT. The only
+  // signal the user got was the ~2s pulse below.
+  //
+  // Nothing upstream catches it, and each near-miss is worth naming because
+  // each one LOOKS like it would:
+  //   · `analysisFreshness.ts:455-458` compares `graph_hash_at_run` to
+  //     `current_graph_hash` — both fields of the SAME stored blob, so it is
+  //     comparing a value against itself and cannot see a canvas that moved
+  //     after the blob was restored;
+  //   · `validateCeeAnalysisReady` (`ceeAnalysisReadyValidation.ts:31`) compares
+  //     NODE IDS ONLY, so a VALUE-ONLY change passes and a stale result is
+  //     UPGRADED to `fresh` — and that upgrade runs BEFORE this merge;
+  //   · `resultsLoadHistorical` (`store.ts:4142`) sets `graphEditedSinceLastRun:
+  //     false` on every hydrate, and nothing flipped it back.
+  //
+  // ⚠ AND `pushHistory()` ABOVE IS NOT THIS. Measured at this tip: `pushToHistory`
+  // sets the LEGACY PAIR (`graphEditedSinceLastRun`/`analysisStateReady`) but
+  // NEVER `analysisFreshnessDirty` — and the freshness banners read the OVERLAY,
+  // not the pair. It also EARLY-RETURNS when the pre-merge state hashes equal to
+  // the last snapshot (`store.ts:1266-1273`), so even the pair's flip is
+  // incidental. That is the #344 shape exactly: one staleness system set, the
+  // other missed, shipping a false "analysis reflects the current model". Hence
+  // the EXPLICIT, ATOMIC 3-flag call — `markGraphStructurallyEdited` is the
+  // store's declared API for external mutators for this reason.
+  //
+  // ⚠ THE PREDICATE IS `changed`, NOT `overwroteExistingValues`, AND THE
+  // DIVERGENCE FROM THE TWO GATES EITHER SIDE OF IT IS DELIBERATE — DO NOT
+  // "TIDY" THESE INTO ONE. Three different questions share this block:
+  //   · pushHistory            — "is the user's work about to be destroyed?"
+  //                              Only an OVERWRITE destroys.
+  //   · pulseAppliedTargets    — "did a number move under the user's eyes?"
+  //                              Only an OVERWRITE moves one.
+  //   · THIS                   — "is the canvas graph now different from the
+  //                              graph the current freshness verdict was
+  //                              established against?" ANY change makes that
+  //                              verdict unsupported, an ADDITION included.
+  // Aligning the three would re-open the lie on the addition path.
+  //
+  // ⚠ NOT UNCONDITIONAL: marking every boot stale would be its own defect — a
+  // false stale on the commonest boot of all, the idempotent one. The
+  // `if (!changed) return result` above is what buys that, and both directions
+  // are pinned in `mergeServerGraph.staleness.spec.ts`.
+  useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────
   //
