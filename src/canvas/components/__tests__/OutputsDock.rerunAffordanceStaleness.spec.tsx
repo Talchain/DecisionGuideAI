@@ -93,8 +93,28 @@ vi.mock('../../conversation/useConversation', () => ({
 
 vi.mock('../pre-analysis', () => ({ PreAnalysisPanel: () => null }))
 
+// ⭐ A RUNNABLE READINESS VERDICT, AND IT IS LOAD-BEARING.
+//
+// The neighbouring specs mock this as `{ readiness: { state: 'ready' } }`,
+// which does NOT open the gate: `canRunAnalysis`'s side-car rung reads
+// `!readiness.can_run_analysis`, and `undefined` refuses. Under that mock the
+// footer's button is ALREADY disabled in every arm, for a readiness reason this
+// lane does not touch.
+//
+// That mattered. The first cut of the "marks, never gates" test below compared
+// enabledness across the freshness axis under that mock and PASSED — then a
+// mutant that re-attached `requiresRerun` to `actionDisabled` ALSO passed,
+// because both arms were disabled either way. The comparison held for the wrong
+// reason: a guard agreeing with itself (trap 13b). The gate must be OPEN for
+// "staleness does not close it" to be a claim about anything at all.
 vi.mock('../../hooks/useGraphReadiness', () => ({
-  useGraphReadiness: () => ({ readiness: { state: 'ready' } }),
+  useGraphReadiness: () => ({
+    readiness: { can_run_analysis: true, blockers: [], state: 'ready' },
+    stale: false,
+    verdictAtMs: 1,
+    error: null,
+    refresh: vi.fn(),
+  }),
 }))
 
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
@@ -343,14 +363,23 @@ describe('OutputsDock — the Rerun affordance states the staleness verdict', ()
     const stale = disabledUnder('stale')
     const fresh = disabledUnder('fresh')
 
-    // The pin is not vacuous: the two arms really are different states — if the
-    // label were identical the comparison below would hold for the wrong reason.
+    // PRECONDITION 1 — the two arms really are different states. Without this
+    // the comparison below could hold because nothing moved at all.
     expect(stale.name).toBe('Rerun — model changed')
     expect(fresh.name).toBe('Rerun')
 
-    // …and the enabledness is UNMOVED by that difference. Disabling the one
-    // control that fixes staleness would be a worse lie than the silence this
-    // lane removed.
+    // ⭐ PRECONDITION 2 — THE GATE IS OPEN. This is the assertion whose absence
+    // made the first cut of this test vacuous, proven by a surviving mutant:
+    // with the gate shut, "enabledness is identical" holds trivially because
+    // BOTH arms are disabled, and re-attaching a staleness lock changes
+    // nothing observable. Asserting the affordance is genuinely ENABLED is what
+    // gives the equality below its discriminating power.
+    expect(fresh.disabled).toBe(false)
+    expect(stale.disabled).toBe(false)
+
+    // …and the enabledness is UNMOVED by the freshness difference. Disabling
+    // the one control that fixes staleness would be a worse lie than the
+    // silence this lane removed.
     expect(stale.disabled).toBe(fresh.disabled)
     expect(stale.ariaDisabled).toBe(fresh.ariaDisabled)
   })
