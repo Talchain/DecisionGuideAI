@@ -57,20 +57,11 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 
   return (
     <nav aria-label="Viewport controls" className={styles.viewportControls}>
-      {/* Zoom group: out, read-out/reset, in */}
+      {/* Zoom group: read-out/reset, out, in */}
       <div className={styles.group}>
-        <Tooltip content="Zoom out (⌘-)">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Zoom out"
-            onClick={onZoomOut}
-          >
-            <ZoomOut className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        {/* Zoom percentage — click resets to 100% */}
+        {/* Zoom read-out — click resets to 100%. Leads the group rather than
+            sitting between the two zoom buttons: it is a state display you can
+            act on, not a third step in a -/+ sequence. */}
         <Tooltip content="Reset to 100%">
           <button
             type="button"
@@ -79,6 +70,17 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
             onClick={onZoomReset}
           >
             {zoomPct}
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Zoom out (⌘-)">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Zoom out"
+            onClick={onZoomOut}
+          >
+            <ZoomOut className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
 
