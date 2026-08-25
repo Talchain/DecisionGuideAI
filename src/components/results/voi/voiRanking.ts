@@ -55,6 +55,24 @@ export interface VoiLabelResolution {
   label: string
   /** True when the id maps to a canvas node that can be focused. */
   canFocus: boolean
+  /**
+   * True when the resolved node carries a value a user could actually review and
+   * replace — i.e. the Model tab will render an editor for it rather than the
+   * inert "Not set" span.
+   *
+   * ⚠ THIS IS NOT `canFocus`, AND THE DIFFERENCE IS A DEAD END. `canFocus` says a
+   * node exists. A node can exist and have NO editor, and sending a user to one is
+   * the shape this estate has already shipped once: an advertised action that
+   * terminates in nothing.
+   *
+   * It matters twice over here, because a rerun after editing an unset factor
+   * REFUSES (`baseline_scale_unresolved`, 3/3 on a fresh-guest journey). So an
+   * unset row cannot complete the loop even if it could be edited.
+   *
+   * Supplied by the caller, which owns the canvas nodes; decided by the single
+   * exported authority `factorHasConfirmableValue`, never re-spelled here.
+   */
+  canReviewValue: boolean
 }
 
 /** One ranking row — a label and a focus target. No magnitude, by construction. */
@@ -64,6 +82,8 @@ export interface VoiRankingRow {
   /** Resolved canvas node label. A row without one is dropped, never id-shaped. */
   label: string
   canFocus: boolean
+  /** See `VoiLabelResolution.canReviewValue`. Gates the review affordance only. */
+  canReviewValue: boolean
 }
 
 export interface VoiRanking {
@@ -280,6 +300,7 @@ export function buildVoiRanking({
       factorId,
       label: resolution.label,
       canFocus: resolution.canFocus,
+      canReviewValue: resolution.canReviewValue,
     }
     if (isResolvedRow) resolved.push(row)
     else belowResolution.push(row)

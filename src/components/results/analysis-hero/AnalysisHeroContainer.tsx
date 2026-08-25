@@ -26,6 +26,7 @@ import { HERO_COPY } from './heroCopy'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import { makeRowActionDispatcher } from './actOnIt/dispatchAction'
+import { useUIStore } from '../../../stores/uiStore'
 import {
   isReadyToBrief,
   rankActOnItRows,
@@ -87,6 +88,24 @@ export function AnalysisHeroContainer({
   // longer exists on the graph is a silent no-op, never a crash.
   const onFocusTarget = useCallback((targetId: string) => {
     focusModelTarget(targetId)
+  }, [])
+
+  /**
+   * THE ACT STEP — take the user to where this factor's value can be reviewed and
+   * replaced with their own judgement.
+   *
+   * ⚠ NOT the camera-focus handler. `focusModelTarget` moves the viewport and
+   * flashes the node; it opens no editor. `focusOnCanvasCopy.ts` is this estate's
+   * own ruling that a control labelled "Edit" on that handler was a FALSE PROMISE.
+   * The destination that actually edits is the MODEL TAB, so switch to it first —
+   * the one shipped results-to-Model-tab precedent (`TornadoChart`).
+   *
+   * The switch happens BEFORE the focus so the node is resolved on the surface the
+   * user is about to be looking at, which is the order that precedent uses.
+   */
+  const onReviewValue = useCallback((factorId: string) => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    focusModelTarget(factorId)
   }, [])
 
   // Chat availability. When the conversation panel is mounted it registers
@@ -169,6 +188,7 @@ export function AnalysisHeroContainer({
       onApplyTarget={onApplyTarget}
       onDefineSuccess={onDefineSuccess}
       onFocusTarget={onFocusTarget}
+      onReviewValue={onReviewValue}
       actOnItRows={actOnItRows}
       actOnItHiddenRows={actOnItHiddenRows}
       dispatchRowAction={dispatchRowAction}

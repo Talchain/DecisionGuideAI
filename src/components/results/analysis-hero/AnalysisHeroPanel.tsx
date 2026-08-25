@@ -62,6 +62,8 @@ export interface AnalysisHeroPanelProps {
   comparisonScope?: ComparisonScope | null
   /** Wave 2 (§6.5): canvas focus for quick links; absent = links inert-hidden. */
   onFocusTarget?: (targetId: string) => void
+  /** The ACT step — see `HeroEvidenceDisclosureProps.onReviewValue`. */
+  onReviewValue?: (factorId: string) => void
   /**
    * A rerun is in flight — disables the analysis-affecting target-apply
    * controls (committing a success target triggers a rerun). The hero
@@ -185,6 +187,7 @@ export function AnalysisHeroPanel({
   onApplyTarget,
   onDefineSuccess,
   onFocusTarget,
+  onReviewValue,
   actOnItRows = [],
   actOnItHiddenRows = [],
   dispatchRowAction,
@@ -543,7 +546,11 @@ export function AnalysisHeroPanel({
 
       {/* §6.6: one expandable evidence section between the summary pills and
           the footer — self-hides when the model has nothing to disclose. */}
-      <HeroEvidenceDisclosure evidence={model.evidence} onFocusTarget={onFocusTarget} />
+      <HeroEvidenceDisclosure
+        evidence={model.evidence}
+        onFocusTarget={onFocusTarget}
+        onReviewValue={onReviewValue}
+      />
 
       {/* P4: the one ASSUMED relationship worth pinning down. Its own block,
           NOT a view inside the disclosure above — that surface is gated on

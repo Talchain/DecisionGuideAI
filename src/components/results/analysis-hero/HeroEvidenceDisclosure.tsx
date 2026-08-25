@@ -52,6 +52,16 @@ type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs' | 'resolveNext'
 export interface HeroEvidenceDisclosureProps {
   evidence: HeroEvidenceModel
   onFocusTarget?: (targetId: string) => void
+  /**
+   * The ACT step. Takes the user to where this factor's value can be reviewed and
+   * replaced with their own judgement.
+   *
+   * ⚠ A SEPARATE PROMISE FROM `onFocusTarget`, deliberately. The crosshair focuses
+   * the canvas, which is honest and is kept. This estate has already ruled
+   * (`focusOnCanvasCopy.ts`) that a control labelled "Edit" wired to the
+   * camera-focus handler was a FALSE PROMISE — the two must not be conflated.
+   */
+  onReviewValue?: (factorId: string) => void
 }
 
 /**
@@ -83,6 +93,7 @@ function MagnitudeBar({ fraction, testId }: { fraction: number; testId: string }
 export function HeroEvidenceDisclosure({
   evidence,
   onFocusTarget,
+  onReviewValue,
 }: HeroEvidenceDisclosureProps) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<EvidenceView>('drivers')
@@ -619,19 +630,52 @@ export function HeroEvidenceDisclosure({
                         )
                         const grid =
                           'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2'
+                        // ⚠ THE ACT STEP, AND WHAT ITS WORDS MAY CLAIM.
+                        //
+                        // Gated on `canReviewValue`, never on `canFocus`: a node
+                        // can exist and have no editor, and the Model tab renders
+                        // an inert "Not set" for exactly those. An unset factor
+                        // ALSO makes the rerun refuse, so such a row cannot
+                        // complete the loop even if it could be edited.
+                        //
+                        // "Review this value" is provenance-NEUTRAL on purpose.
+                        // These rows are ranked by VALUE OF INFORMATION, not by
+                        // defaultedness — the number may be one the USER set — so
+                        // "review Olumi's estimate" would be false on exactly
+                        // those rows.
+                        //
+                        // And it promises no consequence. The destination accepts
+                        // input without checking plausibility, so nothing here may
+                        // say Olumi validates the number or that entering one
+                        // improves the analysis.
+                        const canReview = Boolean(r.canReviewValue && onReviewValue)
                         return (
                           <li key={`${r.factorId}-${i}`} data-testid="hero-resolve-next-row">
-                            {canFocus ? (
-                              <button
-                                type="button"
-                                onClick={() => onFocusTarget?.(r.factorId)}
-                                className={`${grid} rounded py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                              >
-                                {body}
-                              </button>
-                            ) : (
-                              <div className={`${grid} py-0.5`}>{body}</div>
-                            )}
+                            <div className="flex min-w-0 items-center gap-1">
+                              <div className="min-w-0 flex-1">
+                                {canFocus ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onFocusTarget?.(r.factorId)}
+                                    className={`${grid} rounded py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                                  >
+                                    {body}
+                                  </button>
+                                ) : (
+                                  <div className={`${grid} py-0.5`}>{body}</div>
+                                )}
+                              </div>
+                              {canReview && (
+                                <button
+                                  type="button"
+                                  onClick={() => onReviewValue?.(r.factorId)}
+                                  data-testid="hero-resolve-next-review"
+                                  className={`${typography.panelMeta} flex-none whitespace-nowrap rounded px-1.5 py-0.5 text-info transition-colors hover:bg-panel-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                                >
+                                  Review this value
+                                </button>
+                              )}
+                            </div>
                           </li>
                         )
                       })}

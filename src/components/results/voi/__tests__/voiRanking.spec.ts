@@ -46,7 +46,11 @@ const LABELS: Record<string, string> = {
 
 function resolveLabel(factorId: string) {
   const label = LABELS[factorId]
-  return label ? { label, canFocus: true } : null
+  // `canReviewValue: false` by default here: this suite is about RANKING and
+  // label resolution, not the review affordance. The rows it builds must still
+  // state an answer, because the field is required — a default of `true` would
+  // silently license the control for every future fixture.
+  return label ? { label, canFocus: true, canReviewValue: false } : null
 }
 
 /**

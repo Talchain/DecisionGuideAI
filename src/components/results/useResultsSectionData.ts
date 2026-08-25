@@ -88,6 +88,7 @@ import {
   readAttributionSuppression,
   type AttributionSuppressionVerdict,
 } from './voi/attributionSuppression'
+import { factorHasConfirmableValue } from '../../canvas/domain/valueProvenance'
 import {
   selectAssumedStrengthToResolve,
   type AssumedStrengthDecision,
@@ -1482,6 +1483,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ?? null
   }, [goalThreshold, goalNode, ceeAnalysisReady, goalThresholdCap])
 
+  /** Id -> node, for questions the label alone cannot answer. */
+  const nodeById = useMemo(() => {
+    const map = new Map<string, (typeof nodes)[number]>()
+    nodes.forEach((node) => { map.set(node.id, node) })
+    return map
+  }, [nodes])
+
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
     nodes.forEach((node) => {
@@ -1527,10 +1535,28 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // `false` directly. Do not read its render-level pin as live-path proof.
         resolveLabel: (factorId) => {
           const label = nodeLabelMap.get(factorId)
-          return label === undefined ? null : { label, canFocus: true }
+          if (label === undefined) return null
+          // ⚠ CAN THIS ROW ACTUALLY BE ACTED ON? `canFocus` only says the node
+          // exists. The Model tab renders an inert "Not set" span with NO editor
+          // when the value is not a finite number, so a review affordance on such
+          // a row would advertise an action that terminates in nothing.
+          //
+          // It matters twice: a rerun after editing an unset factor also REFUSES
+          // (`baseline_scale_unresolved`), so an unset row cannot complete the
+          // reasoning loop even if it could be edited.
+          //
+          // Decided by the ONE exported authority. `factorHasConfirmableValue` was
+          // created because five surfaces answered this question four ways; a
+          // sixth spelling here would be the defect it exists to end.
+          const node = nodeById.get(factorId)
+          return {
+            label,
+            canFocus: true,
+            canReviewValue: node ? factorHasConfirmableValue(node.data) : false,
+          }
         },
       }),
-    [report, nodeLabelMap],
+    [report, nodeLabelMap, nodeById],
   )
 
   /**

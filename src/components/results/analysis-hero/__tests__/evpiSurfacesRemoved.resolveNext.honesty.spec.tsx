@@ -103,7 +103,8 @@ function heroEvidenceModel(partial: Partial<HeroEvidenceModel> = {}): HeroEviden
  * positions and a TIE PAIR at ranks 2-3, plus TWO below-resolution rows.
  */
 function voiRankingFixture(partial: Partial<VoiRanking> = {}): VoiRanking {
-  const row = (factorId: string, label: string, canFocus = true) => ({ factorId, label, canFocus })
+  const row = (factorId: string, label: string, canFocus = true) =>
+    ({ factorId, label, canFocus, canReviewValue: false })
   return {
     resolved: partial.resolved ?? [
       row('n_market', 'Market receptivity'),
@@ -304,7 +305,7 @@ describe('Resolve next — a pp-bearing wire fixture reaches the DOM with no fig
     const resolveNext = buildVoiRanking({
       rows: report.factor_evppi,
       inferenceWarnings: report.inference_warnings,
-      resolveLabel: (id) => (LABELS[id] ? { label: LABELS[id], canFocus: true } : null),
+      resolveLabel: (id) => (LABELS[id] ? { label: LABELS[id], canFocus: true, canReviewValue: false } : null),
     })
     render(<HeroEvidenceDisclosure evidence={heroEvidenceModel({ resolveNext })} />)
     openDisclosureHeader()
