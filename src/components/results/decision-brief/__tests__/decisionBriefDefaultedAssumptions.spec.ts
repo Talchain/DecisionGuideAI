@@ -132,4 +132,26 @@ describe('one bad row cannot suppress valid siblings', () => {
     }))
     expect(vm?.topDrivers.map(d => d.label)).toEqual(['Churn Trend'])
   })
+
+  /**
+   * ⚠ ADDED AFTER A SURVIVING MUTANT. Mutating the null-row `break` to `return []`
+   * left the whole suite green, because the only malformed row in the fixture
+   * above is ID-SHAPED and is caught by the *second* break. The corpus therefore
+   * never exercised the first one. That is a gap in this kit, not an equivalent
+   * mutant — a non-string row behaves differently in general — so the case is
+   * added rather than the survivor being explained away.
+   */
+  it('truncates at a non-string row, keeping the valid rows before it', () => {
+    const vm = readDecisionBriefViewModel(brief({
+      what_would_change: ['Demand holds', 42 as unknown as string, 'Costs fall'],
+    }))
+    expect(vm?.whatWouldChange).toEqual(['Demand holds'])
+  })
+
+  it('truncates at a blank row, keeping the valid rows before it', () => {
+    const vm = readDecisionBriefViewModel(brief({
+      key_assumptions: ['Demand holds', '   ', 'Costs fall'],
+    }))
+    expect(vm?.keyAssumptions).toEqual(['Demand holds'])
+  })
 })
