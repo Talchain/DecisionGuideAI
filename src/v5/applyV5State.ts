@@ -57,6 +57,7 @@ import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
 import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import {
   useUIStore,
+  isModelTabSectionId,
   type OutputTab,
   type AssistantUiSurfaceActions,
 } from '../stores/uiStore'
@@ -862,8 +863,17 @@ export function applyV5State(
           assistantSurfaces.forceActivateOutputTab(uiTarget.id as OutputTab, 'assistant')
           applied.push(`ui_directive:open_panel:${String(uiTarget.id)}`)
         } else if (verb === 'open_section' && uiTarget.kind === 'model_section') {
-          uiDirectiveExecuted = true
-          assistantSurfaces.requestModelTabSection(String(uiTarget.id))
+          // ⚠ THE ID IS SERVER-SUPPLIED TEXT AND WAS PASSED THROUGH UNCHECKED.
+          // `requestModelTabSection`'s consumer coalesces an unknown key to the
+          // panel top (`ModelTabBody.tsx:243`), so an id the assistant invents —
+          // or one renamed on either side — used to front the dock and land the
+          // user nowhere in particular, while `applied` recorded a success. Fail
+          // CLOSED instead: an unrecognised section is not executed and not
+          // reported as applied.
+          if (isModelTabSectionId(uiTarget.id)) {
+            uiDirectiveExecuted = true
+            assistantSurfaces.requestModelTabSection(uiTarget.id)
+          }
           // Same attribution as open_panel: `open_section` fronts the dock on
           // the Model tab, so the same "who did this?" question is raised and
           // the same answer is owed. Stamped on the force-activate rather than

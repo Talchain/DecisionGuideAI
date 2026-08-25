@@ -21,7 +21,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
-import { useUIStore } from '../../stores/uiStore'
+import { useUIStore, type ModelTabSectionId } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 // THE ONE id → label policy. This container OUTLIVES the duplicate editor, so a
 // raw-id fallback here would have become permanent when the sections go — the
@@ -120,7 +120,7 @@ const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
 const LEGACY_DETAILED_EDITOR_MOUNTED = false
 
 /** Assistant/pre-analysis section names → their connected v2 receiver. */
-const MODEL_SECTION_TARGET: Readonly<Record<string, string>> = {
+const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, string>> = {
   goal: 'model-group-v2-goal',
   options: 'model-group-v2-options',
   factors: 'model-group-v2-factors',

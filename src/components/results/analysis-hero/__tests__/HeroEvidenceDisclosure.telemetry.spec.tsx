@@ -49,8 +49,8 @@ import { useCanvasStore } from '@/canvas/store'
 const DRIVER = heroDriverRow('undetermined', { rank: 1, label: 'Price', targetId: null })
 const FLIP = { text: 'If Price falls below 30, the other option leads.', targetId: null, switchMeta: null, magnitude: null }
 const RANKING = {
-  resolved: [{ factorId: 'fac_market', label: 'Market receptivity', canFocus: true }],
-  belowResolution: [{ factorId: 'fac_brand', label: 'Brand halo', canFocus: false }],
+  resolved: [{ factorId: 'fac_market', label: 'Market receptivity', canFocus: true, valueAffordance: 'none' as const }],
+  belowResolution: [{ factorId: 'fac_brand', label: 'Brand halo', canFocus: false, valueAffordance: 'none' as const }],
   someFactorsUnassessed: true,
 }
 

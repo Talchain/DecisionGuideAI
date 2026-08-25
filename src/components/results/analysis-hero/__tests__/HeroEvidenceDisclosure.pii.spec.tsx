@@ -113,10 +113,10 @@ function canaryEvidenceModel(): HeroEvidenceModel {
     ],
     resolveNext: {
       resolved: [
-        { factorId: 'factor-rank1', label: `${CANARY} rank one`, canFocus: true },
-        { factorId: 'factor-rank2', label: `${CANARY} rank two`, canFocus: false },
+        { factorId: 'factor-rank1', label: `${CANARY} rank one`, canFocus: true, valueAffordance: 'none' as const },
+        { factorId: 'factor-rank2', label: `${CANARY} rank two`, canFocus: false, valueAffordance: 'none' as const },
       ],
-      belowResolution: [{ factorId: 'factor-low', label: `${CANARY} below`, canFocus: false }],
+      belowResolution: [{ factorId: 'factor-low', label: `${CANARY} below`, canFocus: false, valueAffordance: 'none' as const }],
       someFactorsUnassessed: true,
     },
     designationsWithheld: false,

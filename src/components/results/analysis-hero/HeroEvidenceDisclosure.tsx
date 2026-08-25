@@ -52,6 +52,16 @@ type EvidenceView = 'drivers' | 'flipRisks' | 'tradeOffs' | 'resolveNext'
 export interface HeroEvidenceDisclosureProps {
   evidence: HeroEvidenceModel
   onFocusTarget?: (targetId: string) => void
+  /**
+   * The ACT step. Takes the user to where this factor's value can be reviewed and
+   * replaced with their own judgement.
+   *
+   * ⚠ A SEPARATE PROMISE FROM `onFocusTarget`, deliberately. The crosshair focuses
+   * the canvas, which is honest and is kept. This estate has already ruled
+   * (`focusOnCanvasCopy.ts`) that a control labelled "Edit" wired to the
+   * camera-focus handler was a FALSE PROMISE — the two must not be conflated.
+   */
+  onReviewValue?: (factorId: string) => void
 }
 
 /**
@@ -83,6 +93,7 @@ function MagnitudeBar({ fraction, testId }: { fraction: number; testId: string }
 export function HeroEvidenceDisclosure({
   evidence,
   onFocusTarget,
+  onReviewValue,
 }: HeroEvidenceDisclosureProps) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<EvidenceView>('drivers')
@@ -619,19 +630,107 @@ export function HeroEvidenceDisclosure({
                         )
                         const grid =
                           'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2'
+                        // ⚠ THE ACT STEP, AND WHAT ITS WORDS MAY CLAIM.
+                        //
+                        // ⚠⚠ THE PREMISE THIS BLOCK USED TO CARRY WAS FALSE, AND
+                        // THE CORRECTION MATTERS MORE THAN THE CONTROL.
+                        //
+                        // It said `ModelTabBody` "mounts BOTH `ModelTabV2Panel`
+                        // and the v1 `FactorsSection`", and therefore that which
+                        // editor a user gets "cannot be settled by reading source
+                        // — until it is driven". BOTH SENTENCES ARE WRONG, and the
+                        // second is the worse error: it recorded an UNKNOWN over a
+                        // question that is answered by a constant.
+                        //
+                        // `canvas/components/ModelTabBody.tsx:120`
+                        //   const LEGACY_DETAILED_EDITOR_MOUNTED = false
+                        // wraps the ENTIRE v1 stack at `:917`. V2 is the sole
+                        // mounted Model surface. There is no deployed flag in it,
+                        // nothing to drive, and no v1 rows for this control to land
+                        // on. The "which editor?" question is closed.
+                        //
+                        // That inverts the old conclusion. Because v2's F9
+                        // (`model-tab-v2/ModelRowView.tsx:419-425`) renders an
+                        // editor affordance even for a null value — "disabled only
+                        // because the authority is not frozen, never because the
+                        // value is missing" — withholding the act on valueless rows
+                        // was suppressing it on exactly the unknowns worth most.
+                        //
+                        // WHAT REPLACED THE GATE: the wording splits, the
+                        // visibility does not. `'review'` where the row will
+                        // display a value, `'set'` where it will not, `'none'` only
+                        // for ids that are not factor nodes. Two opposite harms,
+                        // two parameters (CLAUDE.md 22b) — a false promise and a
+                        // silent gap cannot share one window.
+                        //
+                        // ⚠ THE CONSEQUENCE STEP IS NOT PROMISED BY EITHER WORDING.
+                        // A rerun after editing can still refuse
+                        // (`baseline_scale_unresolved`); CEE #1103 is the fix and is
+                        // NOT merged. This is disclosed rather than gated: gating on
+                        // it would re-open the gap above, and the old gate's
+                        // `factorHasConfirmableValue` was only ever a PROXY for that
+                        // refusal — the refusal is about scale/frame, not finiteness.
+                        //
+                        // ⚠ AN UPSTREAM INVARIANT CARRIES PART OF THIS SAFETY, AND
+                        // NOTHING HERE PINS IT. The refusal class requires the
+                        // factor's options to carry normalised interventions — an
+                        // option-controlled lever — and ISL's `factor_evppi`
+                        // SUPPRESSES exactly that class (ISL `openapi.json`, stated
+                        // discriminatingly against EVPC, which does not suppress
+                        // them). So refusing rows do not reach this ranking at all.
+                        // If ISL ever stopped suppressing them, this surface would
+                        // begin offering acts that dead-end, and NO GUARD HERE WOULD
+                        // RED. Pinned in `resolveNextAct` §upstream; re-derive at
+                        // the producer before relying on it.
+                        //
+                        // "Review this value" is provenance-NEUTRAL on purpose.
+                        // These rows are ranked by VALUE OF INFORMATION, not by
+                        // defaultedness — the number may be one the USER set — so
+                        // "review Olumi's estimate" would be false on exactly
+                        // those rows.
+                        //
+                        // And neither wording promises a consequence. The
+                        // destination accepts input without checking plausibility,
+                        // so nothing here may say Olumi validates the number or that
+                        // entering one improves the analysis.
+                        // ⭐ ONE ACT, TWO HONEST WORDINGS. `'review'` means the
+                        // destination will display a value; `'set'` means it will
+                        // give an editor with nothing in it. Saying "review" over
+                        // an empty row would describe something that is not there,
+                        // and hiding the row entirely (the previous behaviour) hid
+                        // the act on the HIGHEST-information unknowns — see the
+                        // resolver in `useResultsSectionData.ts`.
+                        const affordance = onReviewValue ? r.valueAffordance : 'none'
+                        const actLabel =
+                          affordance === 'review' ? 'Review this value' : 'Set a value'
                         return (
                           <li key={`${r.factorId}-${i}`} data-testid="hero-resolve-next-row">
-                            {canFocus ? (
-                              <button
-                                type="button"
-                                onClick={() => onFocusTarget?.(r.factorId)}
-                                className={`${grid} rounded py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                              >
-                                {body}
-                              </button>
-                            ) : (
-                              <div className={`${grid} py-0.5`}>{body}</div>
-                            )}
+                            <div className="flex min-w-0 items-center gap-1">
+                              <div className="min-w-0 flex-1">
+                                {canFocus ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onFocusTarget?.(r.factorId)}
+                                    className={`${grid} rounded py-0.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                                  >
+                                    {body}
+                                  </button>
+                                ) : (
+                                  <div className={`${grid} py-0.5`}>{body}</div>
+                                )}
+                              </div>
+                              {affordance !== 'none' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onReviewValue?.(r.factorId)}
+                                  data-testid="hero-resolve-next-review"
+                                  data-affordance={affordance}
+                                  className={`${typography.panelMeta} flex-none whitespace-nowrap rounded px-1.5 py-0.5 text-info transition-colors hover:bg-panel-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                                >
+                                  {actLabel}
+                                </button>
+                              )}
+                            </div>
                           </li>
                         )
                       })}

@@ -26,6 +26,7 @@ import { HERO_COPY } from './heroCopy'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { ActOnItSection } from './actOnIt/ActOnItSection'
 import { makeRowActionDispatcher } from './actOnIt/dispatchAction'
+import { useUIStore } from '../../../stores/uiStore'
 import {
   isReadyToBrief,
   rankActOnItRows,
@@ -87,6 +88,41 @@ export function AnalysisHeroContainer({
   // longer exists on the graph is a silent no-op, never a crash.
   const onFocusTarget = useCallback((targetId: string) => {
     focusModelTarget(targetId)
+  }, [])
+
+  /**
+   * THE ACT STEP — take the user to where this factor's value can be reviewed and
+   * replaced with their own judgement.
+   *
+   * ⚠ NOT the camera-focus handler. `focusModelTarget` moves the viewport and
+   * flashes the node; it opens no editor. `focusOnCanvasCopy.ts` is this estate's
+   * own ruling that a control labelled "Edit" on that handler was a FALSE PROMISE.
+   * The destination that actually edits is the MODEL TAB, so switch to it first —
+   * the one shipped results-to-Model-tab precedent (`TornadoChart`).
+   *
+   * The switch happens BEFORE the focus so the node is resolved on the surface the
+   * user is about to be looking at, which is the order that precedent uses.
+   */
+  const onReviewValue = useCallback((factorId: string) => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    // ⚠ THE TAB SWITCH ALONE DOES NOT ARRIVE. `focusModelTarget` acts on the
+    // CANVAS store (select + fit camera); it has no effect on the outputs dock,
+    // so on its own this landed the user at the top of the Model outline with
+    // nothing selected — an act that advertises a destination it does not reach.
+    // ⚠ PASS THE KEY, NOT THE VALUE — I shipped the value here first and it was
+    // SILENT. `MODEL_SECTION_TARGET` (`ModelTabBody.tsx:123`) maps section NAMES
+    // to testids, and its consumer does
+    // `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'` (`:243`). Passing the
+    // testid misses the lookup, and the `??` lands the user at the panel top with
+    // nothing selected — verbatim the failure the eight lines above say this call
+    // was added to fix. Every other caller in the tree passes a name
+    // (`ContestedSection.tsx:96` → 'relationships').
+    //
+    // Pinned by `__tests__/reviewValueTargetsFactorsSection.spec.ts`, which asserts
+    // membership of the DERIVED key set rather than equality with a string — a
+    // rename would satisfy equality while pointing nowhere.
+    useUIStore.getState().requestModelTabSection('factors')
+    focusModelTarget(factorId)
   }, [])
 
   // Chat availability. When the conversation panel is mounted it registers
@@ -169,6 +205,7 @@ export function AnalysisHeroContainer({
       onApplyTarget={onApplyTarget}
       onDefineSuccess={onDefineSuccess}
       onFocusTarget={onFocusTarget}
+      onReviewValue={onReviewValue}
       actOnItRows={actOnItRows}
       actOnItHiddenRows={actOnItHiddenRows}
       dispatchRowAction={dispatchRowAction}
