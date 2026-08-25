@@ -17,6 +17,7 @@ import {
   readinessWillScaffold,
 } from '../../../utils/canRunAnalysis'
 import { useAnalysisReadinessAuthority } from '../../../state/analysisStateSelector'
+import { useAnalysisMayRun } from '../../../hooks/useAnalysisReady'
 import { composeAnalysisBlockedReason } from '../../../utils/composeBlockedReason'
 import { resolveStarterId } from '../../../starters/loadStarter'
 import { isReviewedByUser } from '../../pre-analysis/utils/isReviewedByUser'
@@ -223,6 +224,11 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // The producer's own readiness verdict for this turn. See `canRun` below.
   const analysisReadiness = useAnalysisReadinessAuthority()
 
+  // …and the producer's own ADMISSION verdict, which answers a different
+  // question ("will the run proceed if asked?") from a different slice. The two
+  // are separate on purpose — see `readinessObjectsToRun`.
+  const analysisMayRun = useAnalysisMayRun()
+
   // UI-SEM-091: runnable-via-scaffold. CEE (#612) rides a scaffold intent on
   // the readiness response; when it will draft the remaining options the graph
   // is runnable despite can_run_analysis being false. Both the footer and the
@@ -254,7 +260,12 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // an answer, so a panel that had one would otherwise report itself as still
   // waiting to hear.
   const nothingHasAnswered = readinessNothingHasAnswered(readiness, analysisReadiness)
-  const canRun = nothingHasAnswered ? null : !readinessObjectsToRun(readiness, analysisReadiness)
+  // ⭐ CEE's own admission verdict, from the `analysis_ready` slice. Without it
+  // this panel refuses a model CEE would analyse now — while the chat offers a
+  // live "Run analysis" chip on the same payload. See `readinessObjectsToRun`.
+  const canRun = nothingHasAnswered
+    ? null
+    : !readinessObjectsToRun(readiness, analysisReadiness, analysisMayRun)
 
   const ladder = useMemo(
     () =>

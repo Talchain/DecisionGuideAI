@@ -181,6 +181,7 @@ import {
   selectAnalysisReadinessAuthority,
   useAnalysisReadinessAuthority,
 } from '../state/analysisStateSelector'
+import { useAnalysisMayRun } from '../hooks/useAnalysisReady'
 // ROADMAP 2.635 (I-4) — read at DISPATCH time, not via a render-scope selector:
 // the whole point of the licence barrier is to see the store as it is when the
 // run actually goes out, not as it was when the gate was computed.
@@ -1128,6 +1129,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // is the cheapest possible reminder of which one decides. `canRunAnalysis`
   // applies the precedence; this surface never does.
   const analysisReadiness = useAnalysisReadinessAuthority()
+  // CEE's admission verdict for this turn — the same fact the chat chip gates
+  // on, so the two affordances cannot tell different stories about one payload.
+  const analysisMayRun = useAnalysisMayRun()
 
   // C1 review: the orphan-banner footer suppression is GONE. It rested on a
   // premise that is false at this ref — it claimed the footer would carry
@@ -1192,6 +1196,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     graphHealth: graphHealth ?? null,
     readiness,
     analysisReadiness,
+    // ⭐ CEE's own admission verdict — a DIFFERENT question from
+    // `analysisReadiness`, off a DIFFERENT slice. Without it this control
+    // refuses a model CEE would analyse now, while `SuggestedChips` offers a
+    // live "Run analysis" chip on the same payload. See `readinessObjectsToRun`.
+    //
+    // ⚠ Read through `useAnalysisMayRun`, NOT off `ceeAnalysisReadyForCopy`
+    // above: that value is documented as feeding the blocked-state COPY and
+    // never `allowed`, and quietly widening its remit would falsify its own
+    // comment. Same selector the chip gate uses, so one fact, one owner.
+    mayRun: analysisMayRun,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,
@@ -1291,6 +1305,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     const analysisReadinessAtDispatch = selectAnalysisReadinessAuthority(
       useCanvasStore.getState().analysisStateV1,
     )
+    // ⭐ Read at DISPATCH time for the same reason as the authority beside it:
+    // the flush is a real window and a fresh turn can land inside it. Closing
+    // over the render-scope `analysisMayRun` would answer with an admission
+    // verdict the store may already have replaced — and this barrier exists
+    // precisely to catch the state as it is when the run goes out.
+    const mayRunAtDispatch = useCanvasStore.getState().ceeAnalysisReady?.may_run
     if (
       verdictLicenceSuperseded(licensedByVerdict, {
         verdictAtMs: licenceAtDispatch.verdictAtMs,
@@ -1300,7 +1320,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       // argument this asks the SIDE-CAR about a run the PRODUCER licensed, so a
       // gate that correctly opened would be re-refused between the click and
       // the wire — the silent-death class, re-created by omission.
-      readinessObjectsToRun(licenceAtDispatch.readiness, analysisReadinessAtDispatch)
+      readinessObjectsToRun(
+        licenceAtDispatch.readiness,
+        analysisReadinessAtDispatch,
+        mayRunAtDispatch,
+      )
     ) {
       console.warn('[OutputsDock] run licence superseded before dispatch', {
         licensedByVerdictAtMs: licensedByVerdict.verdictAtMs,

@@ -180,6 +180,21 @@ export interface CanRunAnalysisParams {
    * is how an absence becomes a fabricated finding.
    */
   analysisReadiness?: AnalysisReadinessAuthority | null
+  /**
+   * ⭐ CEE's own admission verdict for this turn (`analysis_ready.may_run`) —
+   * *"will the run proceed if asked, right now?"*, which is ALSO true when it
+   * proceeds by excluding options the user left open.
+   *
+   * A SEPARATE PARAMETER, NOT A FIELD ON `AnalysisReadinessAuthority`: that type
+   * is projected from a `.strict()` schema that cannot carry it, and the value
+   * arrives on a different slice (`ceeAnalysisReady`) from a different key
+   * (`analysis_ready`, not `analysis_state`). Read it with `useAnalysisMayRun()`.
+   *
+   * `undefined` = a pre-`may_run` CEE. It is load-bearing and must never be
+   * collapsed to `false`; see `readinessObjectsToRun` for why the polarity is
+   * strict `=== true`.
+   */
+  mayRun?: boolean
   /** Whether there are critical/blocking actions */
   hasBlockers: boolean
   /** Number of nodes in graph */
@@ -425,6 +440,7 @@ export function actionableBlockers(
 export function readinessObjectsToRun(
   readiness: GraphReadiness | null | undefined,
   analysisReadiness?: AnalysisReadinessAuthority | null,
+  mayRun?: boolean,
 ): boolean {
   // ⭐ SUPERSESSION, APPLIED ONCE, HERE (19 Aug 2026).
   //
@@ -503,9 +519,58 @@ export function readinessObjectsToRun(
     // So the honest predicate refuses what is provably unrunnable and lets the
     // producer's itemised list decide the rest. Refusing on a status whose cause
     // we cannot name would re-create the original defect in a new spelling.
+    // ⭐ (c) `mayRun` — CEE'S OWN ADMISSION VERDICT, WAIVING (b) AND ONLY (b).
+    //
+    // THE DEFECT. `resolveRunAdmission` waives three blocker codes by EXCLUDING
+    // the incomplete option and running on the rest
+    // (`analysis-ready-core.ts:378-382` — MISSING_OPTION_VALUE,
+    // OPTION_NEEDS_ENCODING, OPTION_NEEDS_MAPPING). Those are `option_values` /
+    // `option_mapping`, so nothing is hard-blocked and the status stays
+    // `needs_user_input` — yet the blockers still ride the wire, and every one
+    // of them is ACTIONABLE here. So (b) counted them and this control refused a
+    // model CEE would have analysed that instant, while `SuggestedChips.tsx:267`
+    // rendered a live "Run analysis" chip on the very same payload. Two Olumi
+    // affordances contradicting each other on one screen.
+    //
+    // ⚠ THE UI CANNOT RECOVER THIS FROM THE AUTHORITY. CEE stamps
+    // `waived_by_exclusion: true` on the waived issue, but `@talchain/schemas`
+    // 0.48.0 types `AnalysisBlockerSchema` `.strict()` with exactly eight fields
+    // and `AnalysisReadinessSchema` `.strict()` with exactly `{status,
+    // blockers}` — neither can carry it, and no reading of `status` recovers it
+    // either (CEE measured ONE status carrying BOTH admission verdicts on the
+    // `live-4day-week` capture, `analysis-ready-helper.ts:1190-1194`). Hence a
+    // separate argument, sourced from the `analysis_ready` slice where CEE does
+    // publish it — the same value `admitsRunAffordance` already gates the chip
+    // on, so the two affordances now answer from one fact.
+    //
+    // ⭐⭐ WHY IT WAIVES (b) ALONE AND NOT `(a) || (b)`. The whole-predicate
+    // form is the obvious shape and it RE-OPENS THE DEFECT (a) EXISTS TO CLOSE,
+    // because `may_run` CAN GO STALE ACROSS A REFUSAL TURN:
+    //   · `buildAnalysisRefusalReadiness` (cee `analysis-ready-helper.ts:1488`)
+    //     emits `{status: 'blocked', options: [], goal_node_id: ''}` and sets NO
+    //     `may_run` — the field is written in exactly one place, `:1221`.
+    //   · That degenerate payload is REJECTED by our own normaliser
+    //     (`applyV5State.ts:233-234`), and `:1219` writes the slice only
+    //     `if (normalised)` — so `ceeAnalysisReady` KEEPS THE PREVIOUS TURN'S
+    //     value, stale `may_run: true` included, while `analysisStateV1` moves
+    //     to blocked.
+    // A waiver spanning (a) would then hand the user an ENABLED control one turn
+    // after CEE refused the run — verbatim the harm recorded at (a) above. The
+    // producer's refusal is not a blocker count and is not negotiable.
+    //
+    // ⚠ `=== true`, NOT `!== false`. ABSENCE means a pre-`may_run` CEE, never
+    // "no", so an omitted or malformed value must leave the refusal exactly as
+    // it is today — the two services stay deploy-order independent, and this
+    // change can only ever NARROW the refusal. Same polarity, same reasoning as
+    // `admitsRunAffordance` (`useAnalysisReady.ts:64-68`).
+    //
+    // ⚠ AND IT DOES NOT MOVE INTO `actionableBlockers`. The blocker is REAL and
+    // must stay itemised for every surface that lists impediments; waiving it
+    // there would delete it from those lists as well as from the gate. The
+    // waiver is about admission, not about actionability.
     return (
       analysisReadiness.status === ANALYSIS_READINESS_BLOCKED ||
-      actionableBlockers(analysisReadiness.blockers).length > 0
+      (actionableBlockers(analysisReadiness.blockers).length > 0 && mayRun !== true)
     )
   }
 
@@ -582,7 +647,10 @@ export const RUN_LICENCE_SUPERSEDED_REFUSAL =
  * @returns CanRunAnalysisResult with allowed status and reason
  */
 export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResult {
-  const { graphHealth, readiness, analysisReadiness = null, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  // ⚠ `mayRun` is deliberately NOT defaulted here. `undefined` is the signal
+  // "the producer did not say", and a default would erase the very distinction
+  // `readinessObjectsToRun` reads it for.
+  const { graphHealth, readiness, analysisReadiness = null, mayRun, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
 
@@ -687,7 +755,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // asserts a fact the panel's own counts could contradict.
   // ROADMAP 2.635 (I-5) — the rung's predicate is `readinessObjectsToRun`, so
   // the dispatch barrier can ask the SAME question without re-implementing it.
-  if (readinessObjectsToRun(readiness, analysisReadiness)) {
+  if (readinessObjectsToRun(readiness, analysisReadiness, mayRun)) {
     // ⭐ The reason comes from WHICHEVER AUTHORITY DECIDED, never from the other
     // one. A refusal explained by a verdict that did not make it is the
     // two-questions-one-name defect wearing the fix's clothes: the gate would

@@ -36,6 +36,7 @@ import { useThreadPersistence } from './hooks/useThreadPersistence'
 import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, recordInteractionEvent, recordUserAction, type InteractionStateSnapshot } from '../../lib/debug-state'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { useAnalysisReadinessAuthority } from '../state/analysisStateSelector'
+import { useAnalysisMayRun } from '../hooks/useAnalysisReady'
 import { BLOCKED_REASON_COPY } from '../utils/composeBlockedReason'
 import { useShowToastSafe } from '../ToastContext'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
@@ -558,17 +559,24 @@ export const ConversationPanel = memo(function ConversationPanel({
   // consulted different authorities on two surfaces is the two-surfaces-one-state
   // defect this file's own comments already record fixing twice.
   const analysisReadiness = useAnalysisReadinessAuthority()
+  // ⭐ …and CEE's ADMISSION verdict, for the same reason again — and with extra
+  // force on THIS surface: `SuggestedChips`, which renders inside this very
+  // panel, already gates its "Run analysis" chip on this exact value. A run
+  // gate here that ignored it would let one panel offer the run in the chat and
+  // refuse it in the composer, on one payload, at one moment.
+  const analysisMayRun = useAnalysisMayRun()
   const runGateResult = useMemo(() => canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
     readiness,
     analysisReadiness,
+    mayRun: analysisMayRun,
     hasBlockers,
     nodeCount,
     isRunning: isAnalysisRunning,
     analysisHeldOn: heldOn,
     draftStreamPhase,
     readinessStale,
-  }), [graphHealth, readiness, analysisReadiness, hasBlockers, nodeCount, isAnalysisRunning, heldOn, draftStreamPhase, readinessStale])
+  }), [graphHealth, readiness, analysisReadiness, analysisMayRun, hasBlockers, nodeCount, isAnalysisRunning, heldOn, draftStreamPhase, readinessStale])
 
   // In-flight takes priority over structural reasons: the composer button
   // is disabled for either cause, but the user-visible tooltip should explain
