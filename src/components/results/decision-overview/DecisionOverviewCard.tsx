@@ -34,6 +34,12 @@ import { computeGraphFacts } from '../../../canvas/components/pre-analysis-v3/se
 import { ActionsMenu } from './ActionsMenu'
 import { REVIEW_BRIEF_ASK } from './actionsCatalogue'
 import { formatStatedLimitsNote, parseStatedLimitsKey, selectStatedLimitsKey } from './statedLimits'
+import {
+  CROWN_COMPLIANCE_DOT_TONE,
+  selectCrownComplianceReason,
+  selectCrownComplianceVerdict,
+  selectCrownComplianceDisclosure,
+} from './crownCompliance'
 
 export type BriefStateOverride = 'thin' | 'contradictory' | 'unverified'
 
@@ -292,6 +298,17 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
   // drag, a producer re-sync — does not re-commit the whole card.
   const statedLimitsKey = useCanvasStore((s) => selectStatedLimitsKey(s.goalConstraints))
   const statedLimits = useMemo(() => parseStatedLimitsKey(statedLimitsKey), [statedLimitsKey])
+  // Step 6, second half — the PRODUCER's compliance verdict on the crown, read
+  // as two PRIMITIVES to keep the card's primitive-selector contract (U1), then
+  // composed. Fresh raw response wins over the saved/hydrated report; the
+  // narrowing is fail-closed, so an older producer or an unknown future token
+  // leaves the surface silent rather than guessing.
+  const crownComplianceVerdict = useCanvasStore(selectCrownComplianceVerdict)
+  const crownComplianceReason = useCanvasStore(selectCrownComplianceReason)
+  const crownCompliance = useMemo(
+    () => selectCrownComplianceDisclosure(crownComplianceVerdict, crownComplianceReason),
+    [crownComplianceVerdict, crownComplianceReason],
+  )
   const briefPresent = useCanvasStore((s) => Boolean(s.currentBriefText?.trim()))
   // Mirrors ResultsBody's UI-SEM-065 blocker read (graphHealth is the
   // engine-critique carrier; blocker severity never reaches uncertainties).
@@ -637,19 +654,25 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
             ))}
           </div>
 
-          {/* ⭐ The limits the user actually stated.
-              Renders NOTHING when there are none, so a model with no hard
+          {/* ⭐ The limits the user actually stated, and — since PLoT #338 —
+              the producer's verdict on whether the crowned option met them.
+
+              Renders NOTHING when there are no limits, so a model with no hard
               limit is byte-identical to before this shipped.
 
-              Deliberately silent about COMPLIANCE. Whether an option breaches
-              a limit is not derivable here: the browser holds no per-option
-              value on the constrained node, and PLoT's run-level
+              ⚠ THE "DELIBERATELY SILENT ABOUT COMPLIANCE" NOTE THAT STOOD HERE
+              IS WITHDRAWN, and precisely because its reasoning was sound. It
+              said compliance "is not derivable here" because PLoT's run-level
               `constraints_status` is stripped on the CEE→UI hop (absent from
-              CEE compose.ts `P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP`). Saying
-              "not evaluated" would be just as false as saying "met" —
-              evaluation DOES happen upstream, its verdict simply does not
-              reach this surface. So this states the limit and claims nothing
-              else. See the lane report's CEE dependency. */}
+              CEE compose.ts `P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP`). That is
+              still true OF `constraints_status`. It is NOT true of
+              `robustness.recommended_option_compliance`, which PLoT #338 emits
+              unconditionally and which CEE forwards because `robustness` is
+              itself a keep-list member carried WHOLE — verified at the CEE
+              bytes and at the deployed bundle. Nothing is derived on this
+              surface: the verdict and its sentence are both the producer's,
+              rendered verbatim. See `crownCompliance.ts` for the four things
+              this render must never do. */}
           {statedLimits.length > 0 && (
             <div className="mt-2" data-testid="stated-limits">
               <p className={`${typography.panelMeta} text-text-light`}>
@@ -667,6 +690,28 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
                   </li>
                 ))}
               </ul>
+              {/* The producer's sentence, VERBATIM. `data-verdict` carries the
+                  exact enum so a test — and a support engineer reading the DOM
+                  — binds to the state by identity rather than by the prose or
+                  the colour, either of which another state could share. */}
+              {crownCompliance !== null && (
+                <div
+                  className="mt-1.5 flex items-start gap-1.5"
+                  data-testid="crown-compliance"
+                  data-verdict={crownCompliance.verdict}
+                  data-tone={crownCompliance.tone}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-1 h-[7px] w-[7px] flex-none rounded-full ${
+                      CROWN_COMPLIANCE_DOT_TONE[crownCompliance.tone]
+                    }`}
+                  />
+                  <span className={`${typography.panelMeta} min-w-0 text-text-light`}>
+                    {crownCompliance.reason}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

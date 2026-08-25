@@ -571,6 +571,13 @@ export function mapV2ResponseToReportV1(
         // and falls back to this mapped slot, then normalises fail-closed.
         ...(typeof robustnessRaw?.display_verdict === 'string' ? { display_verdict: robustnessRaw.display_verdict } : {}),
         ...(typeof robustnessRaw?.display_verdict_reason === 'string' ? { display_verdict_reason: robustnessRaw.display_verdict_reason } : {}),
+        // Hard-constraint chain step 5 (producer PLoT #338): crown compliance
+        // verdict + producer reason pass through VERBATIM so saved/hydrated
+        // reports keep them — the render seam prefers the raw response and
+        // falls back to this mapped slot, then normalises fail-closed. Same
+        // treatment as `display_verdict` directly above.
+        ...(typeof robustnessRaw?.recommended_option_compliance === 'string' ? { recommended_option_compliance: robustnessRaw.recommended_option_compliance } : {}),
+        ...(typeof robustnessRaw?.recommended_option_compliance_reason === 'string' ? { recommended_option_compliance_reason: robustnessRaw.recommended_option_compliance_reason } : {}),
       }
     })() : undefined,
     // P0 Fix: Pass through robustness_status for gating logic
