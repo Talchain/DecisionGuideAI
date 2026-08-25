@@ -241,3 +241,172 @@ export function applyScenarioAnalysisRead(
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'applied', kind, resultsHydrated }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE BOOT LEG — A3 link 6. A STRICTLY NARROWER SET THAN THE POLLING LEG'S.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `hydrateCanvasFromServer` reads the scenario graph at boot, and that response
+// CARRIES CEE'S COMPOSED VERDICT — parsed at `adapters/cee/scenarioGraph.ts:296`
+// and, until now, dropped. The only consumer was the polling hook above, which
+// arms solely on a standing `running` verdict that `store.ts:6043` has just
+// nulled. So on every ordinary reload the verdict was fetched, validated and
+// thrown away.
+//
+// ⚠⚠ WHY THIS IS NOT SIMPLY `applyScenarioAnalysisRead` CALLED AT BOOT.
+// The two legs answer questions that differ in ONE decisive respect (trap 21):
+//
+//   the POLLING leg asks  "has the run I just watched start finished?"
+//                         → the canvas has not moved since that run was armed
+//   the BOOT leg asks     "what did CEE last say about a graph I am
+//                          simultaneously MERGING INTO THE CANVAS?"
+//
+// `AnalysisStateV1` carries NO graph hashes — derived at the vendored 0.48.0
+// bytes: `run_state.kind` IS the currency statement and there is no
+// `graph_hash_at_run`/`current_graph_hash` pair on it anywhere. The verdict is
+// CEE's statement about CEE'S OWN persisted graph, and at boot the canvas is a
+// MERGE of that graph onto the local one — local-only nodes survive, and the
+// client cannot prove the two are equal. It has no access to CEE's hash
+// function, and claiming otherwise is the two-hash-functions trap that
+// `store/analysisFreshness.ts:441-445` already refuses on the sibling path.
+//
+// ⚠⚠ AND THE HARM IS ASYMMETRIC, WHICH IS WHAT MAKES THE NARROWING NECESSARY
+// RATHER THAN MERELY CAUTIOUS. `canvas/state/analysisStateSelector.ts` is
+// FEATURE-DETECTED on this field: a non-null verdict takes the WIRE branch,
+// where `semantic` comes from `mapRunStateKindToSemantic(kind, hasReport)` and
+// THE LOCAL DIRTY OVERLAY IS NOT CONSULTED (`analysisStateSelector.ts:551-554`).
+//
+// So restoring `complete_current` at boot would yield `semantic: 'current'`,
+// `wireForcesStale: false`, `analysisChanged: false` — a green "Analysis
+// complete" rendered OVER A CANVAS #837 HAS JUST MARKED STALE. The naive
+// restore does not rescue #837; it SILENCES it. That is the same defect this
+// slice exists to fix, running backwards.
+//
+// Hence: FAIL-CLOSED BY CONSTRUCTION. This leg may only ever WITHHOLD currency,
+// never assert it. Every kind that makes a positive currency claim is declined,
+// and the decline is a NO-OP — never a write of `null`, which would itself be a
+// claim (`applyScenarioAnalysisRead`'s own "absence is not a state" rule).
+
+/**
+ * The kinds a BOOT read may restore. Each one WITHHOLDS currency, so restoring
+ * it can only ever downgrade what the product is willing to say — and a
+ * downgrade is safe against a canvas whose relationship to CEE's graph the
+ * client cannot establish.
+ *
+ * One line of reasoning per member, against the contract's own text:
+ *
+ *   `complete_stale`  CEE states the result is NO LONGER CURRENT and states the
+ *                     cause. This is the capture's case, and restoring it is
+ *                     strictly more informative than the local derivation it
+ *                     replaces — CEE knows WHY.
+ *   `blocked`         "THE MODEL IS NOT ANALYSABLE as it stands … no run was
+ *                     attempted." A statement about the model, and a model that
+ *                     was unanalysable for CEE is not made analysable by a
+ *                     client-side merge.
+ *   `refused`         CEE explicitly declines to vouch for the currency of any
+ *                     visible result. Restoring a refusal to vouch cannot
+ *                     over-claim.
+ *
+ * ⚠ THIS LIST CANNOT BE DERIVED, exactly as its polling-leg twin cannot: which
+ * kinds are safe to restore against an unverifiable canvas is a JUDGEMENT, and
+ * no field in the contract states it. What the judgement owes is that it has
+ * been made for every kind — asserted against the contract's own exported
+ * `ANALYSIS_RUN_STATE_KINDS` in
+ * `__tests__/bootAnalysisVerdict.contractPartition.spec.ts` (trap 12d).
+ */
+export const BOOT_RESTORABLE_RUN_STATE_KINDS = [
+  'complete_stale',
+  'blocked',
+  'refused',
+] as const
+
+/**
+ * The twin: kinds a BOOT read must NOT restore, and why each is declined.
+ *
+ *   `complete_current`   THE SAFETY DECLINE, and the reason this set exists
+ *                        separately from the polling leg's. It asserts currency
+ *                        the client cannot verify, and on the wire branch that
+ *                        assertion SILENCES #837's stale mark outright. Declined
+ *                        even though it is terminal and even though CEE means it.
+ *   `never_run`          Indistinguishable from in-flight on a read leg (H4).
+ *   `running`            A read cannot produce it today; if a future CEE gains
+ *                        an in-flight marker, a boot is not the leg that should
+ *                        adopt it — the polling hook is.
+ *   `unknown_degraded`   The absence of an outcome, not an outcome.
+ *
+ * Not used for control flow — `isBootRestorableRunState` is the only predicate.
+ * It exists so "we have classified every kind" is checkable rather than assumed.
+ */
+export const BOOT_DECLINED_RUN_STATE_KINDS = [
+  'complete_current',
+  'never_run',
+  'running',
+  'unknown_degraded',
+] as const
+
+export type BootRestorableRunStateKind = (typeof BOOT_RESTORABLE_RUN_STATE_KINDS)[number]
+
+export function isBootRestorableRunState(kind: string): kind is BootRestorableRunStateKind {
+  return (BOOT_RESTORABLE_RUN_STATE_KINDS as readonly string[]).includes(kind)
+}
+
+/**
+ * The store surface the boot leg may touch. DELIBERATELY ONE MEMBER, and
+ * narrower than `ScenarioAnalysisApplyStore` by one more than it looks.
+ *
+ * The polling leg writes RESULTS as well as the verdict, because a run it was
+ * watching has just produced them. A boot has no such warrant: results are
+ * already restored from the localStorage autosave by
+ * `store/restoreAnalysisFromAutosave.ts`, and adding a second writer for that
+ * one fact is the two-restorers defect this estate keeps paying for. So the
+ * boot leg restores the VERDICT ONLY and cannot reach `resultsComplete` at all
+ * — enforced by the type, not by a comment.
+ */
+export interface BootAnalysisVerdictStore {
+  readonly setAnalysisStateV1?: (verdict: AnalysisStateV1 | null) => void
+}
+
+export type BootAnalysisVerdictOutcome =
+  /** A currency-withholding verdict was restored. */
+  | { readonly outcome: 'restored'; readonly kind: BootRestorableRunStateKind }
+  /**
+   * Nothing was written — and NOTHING is the operative word: not `null`, which
+   * would replace a standing belief with a claim of ignorance.
+   *
+   * `asserts_currency` is kept DISTINCT from `not_restorable` deliberately. It
+   * is the one decline that turns away a verdict CEE genuinely stated and
+   * genuinely means, so it must be visible as its own fact in telemetry and in
+   * tests, rather than lumped in with the non-terminal kinds that say nothing.
+   */
+  | {
+      readonly outcome: 'declined'
+      readonly reason: 'no_verdict' | 'asserts_currency' | 'not_restorable'
+    }
+
+/**
+ * Restore a BOOT read's verdict, or decline to. Pure with respect to everything
+ * except the single store action it may call; never throws.
+ */
+export function applyBootAnalysisVerdict(input: {
+  readonly analysisState: AnalysisStateV1 | null
+  readonly store: BootAnalysisVerdictStore
+}): BootAnalysisVerdictOutcome {
+  const verdict = input.analysisState
+  // Absence is not a state — an older CEE, a graphless scenario and a verdict
+  // that failed the contract's validation all arrive here as `null`. `== null`
+  // for the same one-seam-past-the-guard reason as the polling leg.
+  if (verdict == null) return { outcome: 'declined', reason: 'no_verdict' }
+
+  const kind = verdict.run_state.kind
+  if (kind === 'complete_current') {
+    // THE SAFETY DECLINE. Named separately from the fall-through below so that
+    // a reader — and a mutant — can tell the two apart.
+    return { outcome: 'declined', reason: 'asserts_currency' }
+  }
+  if (!isBootRestorableRunState(kind)) {
+    return { outcome: 'declined', reason: 'not_restorable' }
+  }
+
+  input.store.setAnalysisStateV1?.(verdict)
+  return { outcome: 'restored', kind }
+}

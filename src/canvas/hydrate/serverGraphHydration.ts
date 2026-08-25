@@ -22,6 +22,7 @@ import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
+import { applyBootAnalysisVerdict } from './applyScenarioAnalysisRead'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -156,6 +157,47 @@ export async function hydrateCanvasFromServer(
     scenarioId,
     briefText: result.briefText,
     manifest: result.notModelled,
+  })
+
+  // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────
+  //
+  // `fetchScenarioGraph` parses CEE's composed `AnalysisStateV1` off the SAME
+  // body the graph came in (`adapters/cee/scenarioGraph.ts:296`), and this
+  // function used to drop it. Its only consumer was the provisional-delivery
+  // hook, which arms exclusively on a standing `running` verdict that
+  // `hydrateGraphSlice` has just nulled at boot (`store.ts:6043`) — so the
+  // verdict was fetched, validated against the contract, and discarded on every
+  // ordinary reload.
+  //
+  // ⚠ PLACED BEFORE THE `unchanged` SHORT-CIRCUIT, for the reason the
+  // context-integrity note above already establishes: that branch is the COMMON
+  // case on every re-boot of an existing scenario, and it is exactly when the
+  // user is most likely to open the panel. Restoring after it would leave the
+  // verdict absent for the very sessions this is meant to serve.
+  //
+  // ⚠ ORDERING AGAINST #837, WHICH WAS THE QUESTION TO SETTLE: the two writes
+  // are DISJOINT and neither can overwrite the other. `markGraphStructurallyEdited`
+  // (fired inside `mergeServerGraphOnHydrate`, `mergeServerGraph.ts:512`) writes
+  // `graphEditedSinceLastRun` / `analysisStateReady` / `analysisFreshnessDirty`;
+  // this writes `analysisStateV1` and nothing else. Pinned in BOTH directions in
+  // `__tests__/bootAnalysisVerdictRestore.spec.ts` rather than left to this
+  // comment — a disjointness that only a comment asserts is one refactor from
+  // being false.
+  //
+  // ⚠ AND IT MAY ONLY EVER WITHHOLD CURRENCY. `applyBootAnalysisVerdict`
+  // declines `complete_current` outright: on the selector's WIRE branch the
+  // local dirty overlay is not consulted, so restoring a currency claim here
+  // would render "Analysis complete" over a canvas the merge below is about to
+  // mark stale. See that function's header for the full derivation.
+  const verdictOutcome = applyBootAnalysisVerdict({
+    analysisState: result.analysisState,
+    store: { setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1 },
+  })
+  logger.debug('server_graph_hydration.boot_verdict', {
+    scenarioId,
+    outcome: verdictOutcome.outcome,
+    detail:
+      verdictOutcome.outcome === 'restored' ? verdictOutcome.kind : verdictOutcome.reason,
   })
 
   const stored = useCanvasStore.getState().serverGraphIdentity
