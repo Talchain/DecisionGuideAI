@@ -39,6 +39,7 @@
 import { useEffect, useRef } from 'react'
 
 import { useAuth } from '../../contexts/AuthContext'
+import { getSessionIdentity } from '../../lib/supabase'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { useCanvasStore } from '../store'
@@ -121,8 +122,14 @@ export function useImportRegistration(): void {
     let cancelled = false
 
     void (async () => {
+      // Token read at REQUEST time, not render time — tokens rotate, and this
+      // registration can fire long after the render that captured `userId`.
+      // `userId` stays the effect dependency; the identity SENT comes from the
+      // one shared accessor.
+      const identity = await getSessionIdentity()
       const result = await registerScenarioGraph(scenarioId, projected.graph, {
         userId,
+        accessToken: identity.accessToken,
         signal: controller.signal,
       })
       if (cancelled) return

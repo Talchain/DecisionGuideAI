@@ -52,6 +52,11 @@ export type HydrationOutcome =
 export interface HydrateFromServerOptions {
   /** Supabase user id, when signed in. Omitted for guests. */
   userId?: string | null
+  /**
+   * Supabase access token, when signed in. Travels the SAME route as `userId`
+   * so CEE can verify the caller rather than trust the body. Null for guests.
+   */
+  accessToken?: string | null
   signal?: AbortSignal
   retryDelayMs?: number
   /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
@@ -101,6 +106,7 @@ export async function hydrateCanvasFromServer(
 
   const result = await fetchScenarioGraph(scenarioId, {
     userId: opts.userId,
+    accessToken: opts.accessToken,
     signal: opts.signal,
     retryDelayMs: opts.retryDelayMs,
     timeoutMs: opts.timeoutMs,

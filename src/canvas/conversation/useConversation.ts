@@ -5626,6 +5626,10 @@ export function useConversation(): UseConversationReturn {
             const recovery = await recoverDraftFromServer({
               scenarioId: scenarioIdAtDispatch,
               userId: v5UserId,
+              // Same identity this turn was dispatched with — read once at
+              // dispatch, not re-read here, so the recovery read cannot be
+              // attributed to a different session than the turn it recovers.
+              accessToken: v5Identity.accessToken,
               turnClientId,
             })
             if (recovery === 'recovered') {

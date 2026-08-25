@@ -35,6 +35,7 @@ import { UploadCloud, RotateCcw } from 'lucide-react'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { useAuth } from '../../contexts/AuthContext'
+import { getSessionIdentity } from '../../lib/supabase'
 import { useCanvasStore } from '../store'
 import {
   listModelVersions,
@@ -125,7 +126,8 @@ export function ServerVersionsSection() {
 
   const refresh = useCallback(async () => {
     if (!addressable || !signedIn || typeof scenarioId !== 'string') return
-    const result = await listModelVersions(scenarioId, { userId })
+    const { accessToken } = await getSessionIdentity()
+    const result = await listModelVersions(scenarioId, { userId, accessToken })
     if (!mountedRef.current) return
     if (result.status === 'list') {
       setPhase({
@@ -175,8 +177,10 @@ export function ServerVersionsSection() {
     setBusy(true)
     setMessage(null)
     const label = draftLabel.trim()
+    const { accessToken } = await getSessionIdentity()
     const result = await saveModelVersion(scenarioId, {
       userId,
+      accessToken,
       ...(label.length > 0 ? { label } : {}),
     })
     if (!mountedRef.current) return
@@ -219,8 +223,10 @@ export function ServerVersionsSection() {
     // snapshot, so a concurrent change fails loudly instead of silently losing.
     const head =
       phase.versions.find((v) => v.id === phase.currentVersionId) ?? phase.versions[0]
+    const { accessToken } = await getSessionIdentity()
     const result = await restoreModelVersion(scenarioId, {
       userId,
+      accessToken,
       versionId,
       ...(head !== undefined ? { expectedGraphIdentityHash: head.graphIdentityHash } : {}),
     })

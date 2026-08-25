@@ -13,8 +13,9 @@
  * `VITE_CEE_BFF_BASE` (that var is dashboard-baked to an absolute PLoT URL;
  * resolving from it would leave the edge seam entirely and 404 on a service
  * that has never heard of versions — CLAUDE.md trap 18 in its live form).
- * Identity travels in the BODY (`user_id`), never a URL; the guest sentinel
- * is never sent as a user id.
+ * Identity travels as a VERIFIED TOKEN (`Authorization: Bearer …`), with the
+ * body `user_id` retained as the legacy fallback until CEE strips it. Never a
+ * URL; the guest sentinel is never sent as a user id, in either channel.
  *
  * WHAT THIS CLIENT NEVER SENDS: a graph. A version is a snapshot of the
  * SERVER's shared model — save versions `scenarios.graph` server-side, and
@@ -34,6 +35,7 @@
  */
 
 import { logger } from '../../lib/logger'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
 export const MODEL_VERSIONS_BASE = '/bff/cee'
@@ -129,6 +131,12 @@ export type RestoreModelVersionResult =
 interface CommonOptions {
   /** Supabase user id. Omitted for guests. */
   userId?: string | null
+  /**
+   * Supabase access token. Sent as `Authorization: Bearer …` so CEE derives
+   * identity from the verified `sub` instead of trusting the body. Null for
+   * guests, who have no session.
+   */
+  accessToken?: string | null
   signal?: AbortSignal
   timeoutMs?: number
 }
@@ -145,10 +153,22 @@ export interface SaveOptions extends CommonOptions {
   expectedGraphIdentityHash?: string
 }
 
+/**
+ * ONE identity rule, feeding BOTH the body field and the auth headers. Two
+ * copies of "is this a real user id" is how the body and the header start
+ * disagreeing about who the caller is.
+ */
+function sanitiseUserId(userId: string | null | undefined): string | null {
+  return typeof userId === 'string' && userId.length > 0 && userId !== GUEST_USER_ID
+    ? userId
+    : null
+}
+
 function identityBody(userId: string | null | undefined): Record<string, unknown> {
   const body: Record<string, unknown> = {}
-  if (typeof userId === 'string' && userId.length > 0 && userId !== GUEST_USER_ID) {
-    body.user_id = userId
+  const id = sanitiseUserId(userId)
+  if (id !== null) {
+    body.user_id = id
   }
   return body
 }
@@ -185,7 +205,15 @@ async function postOnce(
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Shared builder — see `src/v5/turnAuthHeaders.ts`. Guests: both values
+        // null, no header emitted, byte-identical to before.
+        ...buildTurnAuthHeaders({
+          userId: sanitiseUserId(opts.userId),
+          accessToken: opts.accessToken ?? null,
+        }),
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
     })

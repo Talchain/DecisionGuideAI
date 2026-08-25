@@ -131,6 +131,8 @@ function isGraph(outcome: HydrationOutcome): boolean {
 export interface AbsentGraphRetryDeps {
   readonly scenarioId: string
   readonly userId: string | null
+  /** Supabase access token, travelling the same route as `userId`. */
+  readonly accessToken: string | null
   readonly signal: AbortSignal
   /**
    * Re-entry point. This is `hydrateCanvasFromServer` in production — the whole
@@ -138,7 +140,7 @@ export interface AbsentGraphRetryDeps {
    */
   readonly hydrate: (
     scenarioId: string,
-    opts: { userId?: string | null; signal?: AbortSignal },
+    opts: { userId?: string | null; accessToken?: string | null; signal?: AbortSignal },
   ) => Promise<HydrationOutcome>
   /**
    * The clock, injected.
@@ -188,6 +190,7 @@ export async function runAbsentGraphRetrySchedule(
 
     const outcome = await deps.hydrate(deps.scenarioId, {
       userId: deps.userId,
+      accessToken: deps.accessToken,
       signal: deps.signal,
     })
     if (deps.signal.aborted) return 'aborted'

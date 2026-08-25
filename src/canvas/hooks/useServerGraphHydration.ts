@@ -41,6 +41,7 @@ import {
 } from '../hydrate/absentGraphRetry'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { logger } from '../../lib/logger'
+import { getSessionIdentity } from '../../lib/supabase'
 
 export function useServerGraphHydration(scenarioIdFromRoute?: string | null): void {
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
@@ -69,22 +70,35 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
     // Fire-and-forget by design: hydration is an improvement on what is already
     // on screen, never a precondition for it. `hydrateCanvasFromServer` never
     // rejects, so the canvas cannot be left mid-boot by a failure here.
-    void hydrateCanvasFromServer(scenarioId, {
-      userId: user?.id ?? null,
-      signal: controller.signal,
-    })
-      .then(async (outcome) => {
+    // ⚠ IDENTITY IS READ AT REQUEST TIME, NEVER CAPTURED AT RENDER TIME.
+    // `useAuth()` stays the effect's DEPENDENCY (re-hydrate when the signed-in
+    // user changes), but it must not be the source of the value we send: an
+    // access token ROTATES, so a token captured in a render can already be
+    // expired when this fire-and-forget effect's request goes out. And it is
+    // the same accessor the turn path uses (`useConversation` →
+    // `getSessionIdentity` → `buildTurnAuthHeaders`), so there is exactly one
+    // way to turn a session into identity in this codebase.
+    void (async (): Promise<void> => {
+      try {
+        const identity = await getSessionIdentity()
+
+        const outcome = await hydrateCanvasFromServer(scenarioId, {
+          userId: identity.userId,
+          accessToken: identity.accessToken,
+          signal: controller.signal,
+        })
         logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
 
         // ── THE RETURNING-GUEST WINDOW ────────────────────────────────────
         // `absent` alone means "exists, no graph YET". Everything else is a
         // settled answer and returns here unchanged, having cost exactly one
         // request — which is what keeps the 404 path byte-identical.
-        if (outcome !== 'absent') return outcome
+        if (outcome !== 'absent') return
 
         const retry = await runAbsentGraphRetrySchedule({
           scenarioId,
-          userId: user?.id ?? null,
+          userId: identity.userId,
+          accessToken: identity.accessToken,
           signal: controller.signal,
           hydrate: hydrateCanvasFromServer,
           wait: waitForRetry,
@@ -110,11 +124,10 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
         }
 
         logger.debug('server_graph_hydration.absent_retry', { scenarioId, retry })
-        return outcome
-      })
-      .finally(() => {
+      } finally {
         settled = true
-      })
+      }
+    })()
 
     return () => {
       controller.abort()
