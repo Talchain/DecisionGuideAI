@@ -297,19 +297,35 @@ function readDefaultedAssumptions(value: unknown): DecisionBriefDefaultedView[] 
  * The producer's caveat about the ranking, with its licensing token.
  *
  * `basis` is required: a caveat with no stated basis is an unattested claim about
- * the user's ranking, and this surface has no licence to pass one on. The text is
- * vetted for identity, not rewritten — same rule as the defaulted-assumption note.
+ * the user's ranking, and this surface has no licence to pass one on.
  *
- * Measured on every captured text: none trips the glossary guard, because
- * `\bperturbation\b` does not match the plural the producer actually writes. The
- * SINGULAR would trip it, so the margin is one character and the case is pinned.
+ * ⚠ THE ANALYSIS GLOSSARY IS DELIBERATELY NOT A GUARD HERE — corrected to match the
+ * ruling #846 made on the sibling `defaulted_assumptions` reader, because I had made
+ * the same category error twice in one file.
+ *
+ * I gated this text on `containsBannedTerm`. `glossaryCheck` gates UI-GENERATED COPY;
+ * its own header says "we never rewrite user data, only the generated copy that names
+ * it", and `copyHygiene.spec.tsx` states outright that "producer-supplied strings are
+ * deliberately NOT scanned — they are rendered as data, never authored here". Two
+ * questions were sharing one predicate: "is Olumi authoring jargon in copy it wrote?"
+ * and "is this producer sentence safe to render verbatim?".
+ *
+ * The margin was one character and I read it the wrong way round. `perturbation` is a
+ * banned term; the producer writes "perturbations", which `\bperturbation\b` does not
+ * match. I pinned that near-miss as a case to PRESERVE the withholding. The correct
+ * reading is that a producer sentence should never have been withheld for a glossary
+ * word at all — a caveat suppressed because the analysis used an ordinary word is a
+ * silent loss of the one sentence telling the user how far to trust the ranking.
+ *
+ * What answers the real question is what remains: raw-identifier, length, blank/NUL,
+ * and the `basis` token.
  */
 function readRobustnessCaveat(value: unknown): DecisionBriefRobustnessCaveatView | null {
   if (!isRecord(value)) return null
   const text = readNonBlankString(value.text, MAX_NOTE_LENGTH)
   const basis = readNonBlankString(value.basis, MAX_LABEL_LENGTH)
   if (text === null || basis === null) return null
-  if (containsRawIdentifier(text) || containsBannedTerm(text)) return null
+  if (containsRawIdentifier(text)) return null
   return { text, basis }
 }
 

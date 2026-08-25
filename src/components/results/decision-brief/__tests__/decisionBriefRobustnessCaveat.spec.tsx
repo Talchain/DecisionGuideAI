@@ -57,11 +57,33 @@ describe('robustness_caveat reaches the view model', () => {
     expect(vmWith({ robustness_caveat: { text: HELD } })?.robustnessCaveat).toBeNull()
   })
 
-  it('withholds a caveat whose text trips the glossary guard', () => {
-    // Measured: all 3 captured texts pass, because `\bperturbation\b` does not
-    // match the plural. The SINGULAR would trip it — a hair's breadth, so pinned.
-    const singular = 'This ranking held up under the perturbation tested.'
-    expect(vmWith({ robustness_caveat: caveat(singular) })?.robustnessCaveat).toBeNull()
+  /**
+   * ⚠ THIS TEST PINNED THE WRONG BEHAVIOUR AND IS INVERTED, not deleted.
+   *
+   * It asserted that a caveat whose text contains a glossary term is WITHHELD, and
+   * treated a one-character near-miss (`perturbation` banned, `perturbations` not)
+   * as a margin to defend. #846 settled the sibling reader the other way and the
+   * reasoning applies here identically: `glossaryCheck` gates UI-AUTHORED COPY, not
+   * producer prose. Withholding the producer's own sentence because the analysis
+   * used an ordinary word is a silent loss of the one line telling the user how far
+   * to trust the ranking.
+   *
+   * Now asserted in the honest direction: ordinary business vocabulary renders.
+   */
+  it('renders a caveat containing ordinary business vocabulary, never withholds it', () => {
+    for (const word of ['perturbation', 'variance', 'elasticity', 'intervention']) {
+      const text = `This ranking held up under the ${word} tested.`
+      expect(
+        vmWith({ robustness_caveat: caveat(text) })?.robustnessCaveat?.text,
+        `a producer sentence containing "${word}" must not be withheld`,
+      ).toBe(text)
+    }
+  })
+
+  it('still withholds a caveat whose text carries a raw identifier', () => {
+    // The guard that DOES answer the real question is unchanged.
+    const leaky = 'This ranking held up for deadbeefcafe1234 under the tests.'
+    expect(vmWith({ robustness_caveat: caveat(leaky) })?.robustnessCaveat).toBeNull()
   })
 })
 
