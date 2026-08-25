@@ -140,7 +140,12 @@ for (const vp of VPS) {
       const w = window as unknown as { useCanvasStore: { getState: () => Record<string, unknown> } }
       const report = (w.useCanvasStore.getState().results as { report?: unknown } | null)?.report ?? null
       const nodes = (w.useCanvasStore.getState().nodes ?? []) as Array<{ id: string, data?: { kind?: string } }>
-      const mod = (await import(/* @vite-ignore */ '/src/lib/decisionVerdict.ts')) as {
+      // Held in a VARIABLE, not a literal: this path exists only as a Vite
+      // dev-server URL, and a string literal here is a TS2307 — the remedy the
+      // sibling measure already documents, which I failed to apply to this
+      // second import while copying it correctly for the first.
+      const verdictModulePath = '/src/lib/decisionVerdict.ts'
+      const mod = (await import(/* @vite-ignore */ verdictModulePath)) as {
         deriveDecisionVerdict: (r: unknown, o?: unknown) => { hasLeadingOption: boolean }
       }
       return mod.deriveDecisionVerdict(report, {
