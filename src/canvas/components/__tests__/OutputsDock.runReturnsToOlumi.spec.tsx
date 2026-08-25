@@ -325,7 +325,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
 
     // The user makes their own choice mid-run: they click the Analysis tab.
     act(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
+      fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }))
     })
 
     landAnalysisTurn(rerender)
@@ -698,11 +698,11 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     try {
       const card = screen.getByTestId('v5-analysis-result')
       act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }))
       })
       expect(olumiTabIsFronted()).toBe(false)
       act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'Olumi' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Olumi' }))
       })
       expect(olumiTabIsFronted()).toBe(true)
 
@@ -788,7 +788,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
       // …and the user's own later click back to Olumi is THEIRS. Nothing may
       // ride in on it.
       act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'Olumi' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Olumi' }))
       })
       expect(olumiTabIsFronted()).toBe(true)
       expect(probe.calls.filter((c) => c.target === card)).toHaveLength(0)
@@ -817,10 +817,10 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
         fireEvent.wheel(screen.getByTestId('outputs-dock-body'))
       })
       act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'Analysis' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }))
       })
       act(() => {
-        fireEvent.click(screen.getByRole('button', { name: 'Olumi' }))
+        fireEvent.click(screen.getByRole('tab', { name: 'Olumi' }))
       })
 
       expect(olumiTabIsFronted()).toBe(true)

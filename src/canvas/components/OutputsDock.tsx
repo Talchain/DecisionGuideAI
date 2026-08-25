@@ -56,6 +56,10 @@ import {
 import {
   WorkspaceShellCollapsedStrip,
   WorkspaceShellTabStrip,
+  DOCK_PANEL_DOM_ID,
+  DOCK_TABLIST_LABEL,
+  railTabDomId,
+  tabDomId,
 } from './workspaceShell/WorkspaceShellTabStrip'
 import { AnalysisStateRegion } from '../../components/results/analysisState/AnalysisStateRegion'
 import { useAnalysisRunState } from '../../components/results/analysisState/useAnalysisRunState'
@@ -2538,10 +2542,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         {effectiveIsOpen && <AssistantOpenedNotice />}
       </div>
 
+      {/* The collapsed rail is the SECOND instance of the dock's tab strip, and
+          it carries the same contract as the expanded one: which panel is
+          fronted is state the product knows, so it is published rather than
+          left to colour. The rail is icon-only, so its `aria-label` is the
+          ONLY label each control has — it is protected content and the tab
+          semantics are added around it, never in place of it.
+
+          The tablist is NESTED INSIDE the `<nav>` rather than replacing its
+          role — an explicit role replaces the implicit one, and the sibling
+          suites resolve this element with
+          `getByRole('navigation', { name: 'Outputs sections' })`. Putting the
+          role on the `<nav>` deleted the landmark and turned eighteen sibling
+          assertions RED against a green baseline. Landmark outside, widget
+          inside: both are true and nothing that binds here has to change.
+
+          ⚠ WHAT THE RAIL DOES NOT TAKE FROM THE EXPANDED STRIP: roving
+          `tabIndex` and arrow-key traversal. The reason is on the button
+          below — read it before adding either. The short version is that the
+          rail's activation path expands the dock, so an arrow key would
+          unmount the rail rather than move along it, and a roving index
+          without traversal simply deletes two icons from the tab order. */}
       {!effectiveIsOpen && (
-        <nav
+        <nav aria-label={DOCK_TABLIST_LABEL}>
+        <div
           className="flex flex-col items-center gap-2 py-3"
-          aria-label="Outputs sections"
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label={DOCK_TABLIST_LABEL}
+          data-testid="outputs-dock-rail-tablist"
         >
           {OUTPUT_TABS.map(tab => {
             const Icon =
@@ -2558,6 +2587,34 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               <button
                 key={tab.id}
                 type="button"
+                id={railTabDomId(tab.id)}
+                role="tab"
+                aria-selected={effectiveActiveTab === tab.id}
+                // ⚠⚠ THE RAIL DELIBERATELY HAS NO ROVING `tabIndex`, AND THAT
+                // IS THE OPPOSITE OF THE EXPANDED STRIP THREE FILES OVER. Do
+                // not "make them consistent" without reading this.
+                //
+                // A roving `tabIndex` takes every non-selected tab OUT of the
+                // tab order, and is only honest when something puts focus back
+                // — the expanded strip pairs it with real arrow traversal
+                // (`WorkspaceShellTabStrip` holds refs and calls `.focus()` on
+                // the tab it moves to). The rail has no such mechanism, and it
+                // CANNOT have the obvious one: every rail activation runs
+                // through `handleTabClick`, which sets `isOpen: true` — so the
+                // first arrow key would UNMOUNT the rail and mount the
+                // expanded strip instead of stepping along it. Traversal that
+                // destroys the thing being traversed is not traversal.
+                //
+                // Adding the roving index without traversal made two of the
+                // three rail icons unreachable by keyboard, where before this
+                // change all three were plain Tab-reachable buttons. That is
+                // a `role="tab"` advertising a contract the rail does not
+                // honour — the same defect this change exists to remove, one
+                // level down. So the rail keeps `role="tab"` and
+                // `aria-selected` (which are TRUE — it really is a tab set and
+                // it really does know which panel is fronted) and keeps every
+                // icon in the natural tab order, exactly as at `463fc931`.
+                data-testid={`outputs-dock-rail-tab-${tab.id}`}
                 onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
@@ -2572,6 +2629,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               </button>
             )
           })}
+        </div>
         </nav>
       )}
 
@@ -2604,6 +2662,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             `SHELL_INHERITED_BODY_TYPOGRAPHY` in the shell contract. */}
       {effectiveIsOpen && (
         <div
+          // The body IS the tab panel the strip controls, so it says so. The
+          // label is derived from `effectiveActiveTab` — the same value the
+          // strip renders its selection from — so the panel cannot announce a
+          // tab the user has left. A hardcoded id here would go stale on the
+          // first tab change and nothing would notice.
+          id={DOCK_PANEL_DOM_ID}
+          role="tabpanel"
+          aria-labelledby={tabDomId(effectiveActiveTab)}
           className={`${shellBodyClassName(surfaceFor(effectiveActiveTab))} ${typography.panelBody} text-text-header`}
           data-testid="outputs-dock-body"
           data-shell-scroll-owner={surfaceFor(effectiveActiveTab).scroll}

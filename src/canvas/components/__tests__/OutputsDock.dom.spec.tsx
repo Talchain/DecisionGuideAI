@@ -194,7 +194,7 @@ describe('OutputsDock DOM', () => {
     // now pins the tab bar's exact contents and order, and cannot be satisfied
     // by an unrelated button that happens to share a word.
     const tabNav = screen.getByRole('navigation', { name: 'Outputs sections' })
-    const tabs = within(tabNav).getAllByRole('button')
+    const tabs = within(tabNav).getAllByRole('tab')
 
     // The TEMPORARY 'Alt view' tab (id 'altview') that sat directly after
     // Analysis is RETIRED with the V7 fork it hosted. Its ABSENCE from this
@@ -288,8 +288,8 @@ describe('OutputsDock DOM', () => {
 
     expect(screen.queryByTestId('outputs-dock-body')).toBeNull()
 
-    const resultsIcon = screen.getByRole('button', { name: 'Analysis' })
-    const modelIcon = screen.getByRole('button', { name: 'Model' })
+    const resultsIcon = screen.getByRole('tab', { name: 'Analysis' })
+    const modelIcon = screen.getByRole('tab', { name: 'Model' })
 
     expect(resultsIcon).toBeInTheDocument()
     expect(modelIcon).toBeInTheDocument()
@@ -297,7 +297,7 @@ describe('OutputsDock DOM', () => {
     // (`OutputsDock.tsx:2444`), so Compare's contract row closes both. Asserted
     // as an ABSENCE here, bound by the exact accessible name, so the rail
     // cannot quietly keep an affordance the strip dropped.
-    expect(screen.queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
 
     fireEvent.click(modelIcon)
 
@@ -314,7 +314,7 @@ describe('OutputsDock DOM', () => {
     // until 18 Aug 2026; Compare is hidden by contract now, and Model is the
     // remaining non-default surface — the case is about PERSISTENCE, and any
     // tab that is not the 'results' default exercises it identically.
-    const modelTab = screen.getByRole('button', { name: 'Model' })
+    const modelTab = screen.getByRole('tab', { name: 'Model' })
     fireEvent.click(modelTab)
 
     // Unmount and remount to verify persisted state
@@ -352,14 +352,14 @@ describe('OutputsDock DOM', () => {
     renderOutputsDock()
 
     // Switch to Model tab
-    const structureTab = screen.getByRole('button', { name: 'Model' })
+    const structureTab = screen.getByRole('tab', { name: 'Model' })
     fireEvent.click(structureTab)
 
     let params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBe('diagnostics')
 
     // Switch back to Results tab, which should clear the tab parameter
-    const resultsTab = screen.getByRole('button', { name: 'Analysis' })
+    const resultsTab = screen.getByRole('tab', { name: 'Analysis' })
     fireEvent.click(resultsTab)
 
     params = new URLSearchParams(window.location.search)
@@ -385,11 +385,11 @@ describe('OutputsDock DOM', () => {
 
     renderOutputsDock()
 
-    expect(screen.queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
     // Positive control (trap 13): the harness CAN see tab buttons and CAN read
     // this counter map — so the two absences below are the ruling's doing and
     // not a blind query or an uninitialised counter store.
-    expect(screen.getByRole('button', { name: 'Model' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Model' })).toBeInTheDocument()
     expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(0)
 
     // POSITIVE CONTROL (trap 13): a counter reading 0 is only evidence of an
@@ -436,7 +436,7 @@ describe('OutputsDock DOM', () => {
     renderOutputsDock()
 
     // Move away from Results tab
-    const structureTab = screen.getByRole('button', { name: 'Model' })
+    const structureTab = screen.getByRole('tab', { name: 'Model' })
     fireEvent.click(structureTab)
 
     const structureHeader = screen.getByText('Model', {
@@ -820,7 +820,7 @@ describe('P0 Engine: IdentifiabilityBadge', () => {
 
 
 function openStructureTab() {
-  const structureTab = screen.getByRole('button', { name: 'Model' })
+  const structureTab = screen.getByRole('tab', { name: 'Model' })
   fireEvent.click(structureTab)
 }
 
@@ -1095,7 +1095,7 @@ describe('I.2a: Secondary action button interaction', () => {
     renderOutputsDock()
 
     // Journey tab should NOT appear in the tab bar
-    expect(screen.queryByRole('button', { name: 'Journey' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()
 
     // Should fall back to Results
     const headerLabel = screen.getByText('Analysis', {
@@ -1190,7 +1190,7 @@ describe('I.2a: Secondary action button interaction', () => {
     // (dbf4092b Results→Analysis; 3c290f2f adds the leading Olumi tab), and
     // the same tighter nav-scoped query.
     const tabNav = screen.getByRole('navigation', { name: 'Outputs sections' })
-    const tabs = within(tabNav).getAllByRole('button')
+    const tabs = within(tabNav).getAllByRole('tab')
     // The FULL list, not just "Journey is absent" — an exact list also catches
     // a surface silently disappearing, which "not.toContain" never would.
     expect(tabs.map(tab => tab.textContent)).toEqual([
@@ -1205,10 +1205,10 @@ describe('I.2a: Secondary action button interaction', () => {
     // above) — so its absence here is proof the CONTRACT is what holds a tab
     // shut. Bound by identity below, and pinned in full by
     // `compareDeTab.contract.spec.tsx`.
-    expect(within(tabNav).queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument()
+    expect(within(tabNav).queryByRole('tab', { name: 'Compare' })).not.toBeInTheDocument()
     // Bound by IDENTITY to Journey, so a rename of some other tab cannot
     // satisfy this line (trap 19).
-    expect(within(tabNav).queryByRole('button', { name: 'Journey' })).not.toBeInTheDocument()
+    expect(within(tabNav).queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()
     // …and the contract, not the flag, is what is holding it shut. Without
     // this the case would pass just as well if the flag accessor had simply
     // broken, which is a different — and much worse — reason to be green.
@@ -1447,7 +1447,7 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     // property under test is "not Analysis", not "Compare".
     seedIdle(true)
     renderOutputsDock()
-    fireEvent.click(screen.getByRole('button', { name: 'Model' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
 
     startRun(true)
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
@@ -1469,7 +1469,7 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
   it('announces rerun failure honestly while the Model tab is fronted', () => {
     seedIdle(true)
     renderOutputsDock()
-    fireEvent.click(screen.getByRole('button', { name: 'Model' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
 
     startRun(true)
     settleRun('error')
@@ -1483,7 +1483,7 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     renderOutputsDock()
     // Was the Compare tab until 18 Aug 2026 (hidden by contract). Any fronted
     // tab that is NOT Analysis exercises the auto-switch this case is about.
-    fireEvent.click(screen.getByRole('button', { name: 'Model' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
 
     startRun(false)
     // The I.1 auto-switch yanked the dock to the Analysis tab, where the
