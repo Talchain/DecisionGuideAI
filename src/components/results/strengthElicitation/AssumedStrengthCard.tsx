@@ -19,21 +19,29 @@
  * FACTORS by value of information, this one names an EDGE whose strength is a
  * still unconfirmed.
  *
- * ── THE ACTION REACHES THE EDITOR, AND WRITES NOTHING ───────────────────────
- * The button calls `openEdgeStrengthEditor`, which selects the edge, stands the
- * dock down, centres the canvas and raises the inspector — so the control the
- * label promises is on screen when the click finishes.
+ * ── THE ACTION ASKS OLUMI, AND WRITES NOTHING LOCALLY ──────────────────────
+ * The button calls `openAskOlumi`, which opens the Ask-Olumi drawer with an
+ * EDITABLE prefilled instruction naming both endpoints and a value. Nothing is
+ * sent until the user clicks Send: opening the drawer dispatches nothing, and
+ * neither does Enter, Cmd-Enter, Ctrl-Enter or blur.
  *
- * An earlier cut called `focusModelTarget`, which only selects the edge and
- * centres the camera. That left a button labelled "Set this strength" that
- * panned to the edge and stopped, with the user still having to find and click
- * it: the label promised a capability the wiring did not deliver. Reaching the
- * editor is the whole point of the interaction, so the wiring was fixed rather
- * than the label lowered.
+ * ⚠ IT USED TO CALL `openEdgeStrengthEditor`, AND THAT IS WHY THIS PARAGRAPH
+ * CHANGED. That seam selects the edge, stands the dock down, centres the canvas
+ * and raises the Inspector — and every Inspector EDGE setter is `'disabled'`
+ * (`inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY), with the
+ * panel's own mounted copy saying the value "cannot yet be saved to the shared
+ * model". So the product's most prominent intervention arrived at a read-only
+ * panel. There is no user-facing edge editor to route to.
  *
- * It still writes NO graph state. The strength is set in the panel this opens,
- * by `useEdgeMutations.setStrength`, which remains the single writer of
- * `weight`/`weightSource`. A write here would be a second writer of that field.
+ * But OLUMI can change an edge: `update_edge` is a first-class op in the
+ * model-facing tool schema and CEE applies it through the canonical commit path.
+ * So the honest act is to ask. The label promises the ASK and never the outcome
+ * — a live trial showed the router elects this path, which is existence, not
+ * reliability.
+ *
+ * It still writes NO graph state from here. The canonical writer of
+ * `weight`/`weightSource` is unchanged; a write on this surface would be a
+ * second writer of that field.
  *
  * ── TYPOGRAPHY: THE SANCTIONED SCALE, NOT RAW UTILITIES ─────────────────────
  * This card first shipped with raw Tailwind size and weight utilities, which

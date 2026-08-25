@@ -128,10 +128,20 @@ export const ASSUMED_STRENGTH_ACTION = 'Ask Olumi to set this strength'
 /**
  * The drawer's context line — chrome, never sent. It carries the two things the
  * draft cannot: that the number is the user's to choose, and that the analysis
- * will not silently update itself.
+ * does not silently update itself.
+ *
+ * ⚠ "CAN CHANGE", NOT "WILL CHANGE". The button's own guard forbids `will` for a
+ * stated reason — this interaction promises the ASK, never the outcome, because
+ * the router electing the graph-edit path was shown by ONE live trial, which is
+ * existence and not reliability. The first cut of this constant said *"Olumi
+ * will change the model"* and shipped past that guard, because the guard was
+ * pointed at the BUTTON while this is the string the user reads at the moment
+ * they decide to send. The principle was right and its coverage was one
+ * constant wide. Both are fixed: the wording states capability, and the guard
+ * is now enumerated from the module's own exports.
  */
 export const ASSUMED_STRENGTH_ASK_CONTEXT =
-  'Replace the number with your own judgement before sending. Olumi will change the model; the analysis then needs rerunning.'
+  'Replace the number with your own judgement before sending. Olumi can change the model; the analysis then needs rerunning.'
 
 /**
  * The prefilled EDITABLE draft.

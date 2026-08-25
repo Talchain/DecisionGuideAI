@@ -97,7 +97,8 @@ const EXPECTED_MOUNTED_AUTHORITY = {
   analysisAssumedEdgeStrength: {
     authority: 'disabled',
     entrySurfaces: ['analysis assumed-strength card'],
-    requiredEvidence: 'finding remains visible; Set action does not mount',
+    requiredEvidence:
+      'finding remains visible; the mounted action ASKS Olumi (a conversation turn) and the surface itself writes no graph state',
   },
   canvasEdgeStrength: {
     authority: 'disabled',

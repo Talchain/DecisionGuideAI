@@ -13,7 +13,9 @@
  * declared solved.
  */
 import { describe, it, expect } from 'vitest'
-import {
+import * as copyModule from '../assumedStrengthCopy'
+
+const {
   ASSUMED_STRENGTH_ACTION,
   ASSUMED_STRENGTH_REFUSAL_COPY,
   ASSUMED_STRENGTH_TITLE,
@@ -21,7 +23,7 @@ import {
   assumedStrengthLead,
   assumedStrengthOthers,
   assumedStrengthWhy,
-} from '../assumedStrengthCopy'
+} = copyModule
 import type { AssumedStrengthSelection } from '../selectAssumedStrengthToResolve'
 
 const sel = (over: Partial<AssumedStrengthSelection> = {}): AssumedStrengthSelection => ({
@@ -34,25 +36,75 @@ const sel = (over: Partial<AssumedStrengthSelection> = {}): AssumedStrengthSelec
   ...over,
 })
 
-/** EVERY sentence this module can emit, enumerated from the types. */
-function allSentences(): string[] {
-  const out: string[] = [
-    ASSUMED_STRENGTH_TITLE,
-    ASSUMED_STRENGTH_ACTION,
-    ...Object.values(ASSUMED_STRENGTH_REFUSAL_COPY).filter((s): s is string => s !== null),
-  ]
+/**
+ * EVERY sentence this module can emit.
+ *
+ * ⚠ THIS USED TO BE A HAND-WRITTEN LIST, AND THE LIST IS HOW A CLAIM SHIPPED
+ * PAST ITS OWN GUARD. Two constants were added to the module —
+ * `ASSUMED_STRENGTH_ASK_CONTEXT` and `assumedStrengthAskDraft` — and neither was
+ * added here, so the honesty prohibitions below silently stopped covering the
+ * string the user reads at the moment they decide to send. The prohibition was
+ * correct; its enumeration was one constant short, and nothing went red.
+ *
+ * The arities differ, so the INVOCATIONS themselves cannot be derived. What can
+ * be derived is COMPLETENESS: the keys of this table are asserted equal to the
+ * module's own export list, so a new export cannot be omitted without a RED.
+ * That is the trap-12 shape — where you cannot derive, the mirror must fail loud
+ * on drift rather than assume good.
+ */
+const INVOCATIONS: Record<string, () => Array<string | null>> = {
+  ASSUMED_STRENGTH_TITLE: () => [ASSUMED_STRENGTH_TITLE],
+  ASSUMED_STRENGTH_ACTION: () => [ASSUMED_STRENGTH_ACTION],
+  ASSUMED_STRENGTH_ASK_CONTEXT: () => [copyModule.ASSUMED_STRENGTH_ASK_CONTEXT],
+  ASSUMED_STRENGTH_REFUSAL_COPY: () => Object.values(ASSUMED_STRENGTH_REFUSAL_COPY),
+  assumedStrengthLead: () => matrix().map(assumedStrengthLead),
+  assumedStrengthWhy: () => matrix().map(assumedStrengthWhy),
+  assumedStrengthAsk: () => matrix().map(assumedStrengthAsk),
+  assumedStrengthOthers: () => [0, 1, 2, 5].map(assumedStrengthOthers),
+  assumedStrengthAskDraft: () => matrix().map(copyModule.assumedStrengthAskDraft),
+}
+
+/** The full input matrix the templated sentences can be generated over. */
+function matrix(): AssumedStrengthSelection[] {
+  const out: AssumedStrengthSelection[] = []
   for (const strengthProvenance of ['ai_inferred', 'missing'] as const) {
     for (const alt of ['Consolidate', null]) {
-      const s = sel({ alternativeWinnerLabel: alt, strengthProvenance })
-      out.push(assumedStrengthLead(s), assumedStrengthWhy(s), assumedStrengthAsk(s))
+      out.push(sel({ alternativeWinnerLabel: alt, strengthProvenance }))
     }
-  }
-  for (const n of [0, 1, 2, 5]) {
-    const o = assumedStrengthOthers(n)
-    if (o !== null) out.push(o)
   }
   return out
 }
+
+function allSentences(): string[] {
+  return Object.values(INVOCATIONS)
+    .flatMap(fn => fn())
+    .filter((v): v is string => typeof v === 'string')
+}
+
+describe('the claim guard covers the WHOLE module, not a remembered subset', () => {
+  it('COMPLETENESS — every export of the copy module is enumerated here', () => {
+    // The assertion that would have caught G1. An export absent from
+    // INVOCATIONS is an export no prohibition below applies to.
+    expect(Object.keys(INVOCATIONS).sort()).toEqual(Object.keys(copyModule).sort())
+  })
+
+  it('the enumeration is non-empty and covers every export by name', () => {
+    expect(Object.keys(copyModule).length).toBeGreaterThanOrEqual(8)
+    expect(allSentences().length).toBeGreaterThanOrEqual(10)
+  })
+
+  it('REGRESSION — the drawer context line honours the ask-not-outcome rule', () => {
+    // The exact string and the exact regex that G1 slipped past.
+    expect(/\bwill\b|\bupdates?\b|\bdone\b/i.test(copyModule.ASSUMED_STRENGTH_ASK_CONTEXT)).toBe(
+      false,
+    )
+  })
+
+  it('EVERY emitted sentence honours the ask-not-outcome rule', () => {
+    const offenders = allSentences().filter(t => /\bwill\b|\bupdates?\b|\bdone\b/i.test(t))
+    expect(offenders).toEqual([])
+  })
+})
 
 describe('assumedStrengthCopy — the claim boundary, held mechanically', () => {
   it('enumerates a NON-EMPTY sentence set (this guard cannot pass vacuously)', () => {

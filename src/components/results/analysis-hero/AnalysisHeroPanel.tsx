@@ -9,9 +9,12 @@
  * model built by buildHeroModel — this component adds layout and copy
  * composition only.
  *
- * The ONE store import is `openAskOlumi` (paused-state resolution action —
- * an ACTION DISPATCH into the Ask-Olumi drawer, not a data read; the panel
- * still renders exclusively from its props).
+ * The ONE store import is `openAskOlumi` — an ACTION DISPATCH into the
+ * Ask-Olumi drawer, not a data read; the panel still renders exclusively from
+ * its props. It now has TWO call sites, not one: paused-state resolution, and
+ * the assumed-strength card's ask. It is deliberately the same seam for both —
+ * a second route into that drawer would be a second authority over what the
+ * user is about to send.
  *
  * Lens switching and row disclosure are LOCAL render state: no fetch, no
  * analysis rerun, no selector recomputation, and the row DOM persists across

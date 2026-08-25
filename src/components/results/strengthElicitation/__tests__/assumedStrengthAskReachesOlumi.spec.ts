@@ -36,6 +36,21 @@ describe('the assumed-strength act asks Olumi, and asks specifically', () => {
     // An explicit number: the vague form ("set X to low") did not reach the edit
     // path in the probe; the explicit form did.
     expect(/\d/.test(draft), `draft carries no explicit value: "${draft}"`).toBe(true)
+
+    // ⚠ AND IT IS IN THE INTERVAL THE CONSUMER ENFORCES. "a digit exists" was
+    // written against the failure mode in hand — a VAGUE draft ("set X to low")
+    // that the router declined — and a guard written against the failure mode
+    // instead of against the spec is how this estate has shipped a defect and
+    // then its exact inverse. PLoT's gate is `value < 0 || value > 1`, which is
+    // SIGN-SYMMETRIC, so `8`, `-3` and `0.52` all satisfied `/\d/` while only
+    // one of them is a strength. Measured before this was written: mutating the
+    // drafted value to 8, to -3 and to 0.52 each left the suite GREEN 20/20.
+    const values = [...draft.matchAll(/-?\d+(?:\.\d+)?/g)].map(m => Number(m[0]))
+    expect(values.length, `no parseable value in draft: "${draft}"`).toBeGreaterThan(0)
+    for (const v of values) {
+      expect(v, `drafted value ${v} is outside [0,1]: "${draft}"`).toBeGreaterThanOrEqual(0)
+      expect(v, `drafted value ${v} is outside [0,1]: "${draft}"`).toBeLessThanOrEqual(1)
+    }
   })
 
   it('DISCRIMINATES by selection — it is not a fixed string', () => {
