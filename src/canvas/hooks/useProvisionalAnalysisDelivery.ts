@@ -246,13 +246,40 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // the signal either way, and a store read keeps the change inside this file
     // instead of reaching into `serverGraphHydration`'s options.
     //
-    // `lastAuthoritativeGraph` — NOT `serverGraphIdentity`. Acceptance is
-    // defined structurally as "control reached the body that records
-    // `lastAuthoritativeGraph`" (`mergeServerGraph.ts:154-157`), whereas
-    // `serverGraphIdentity` is null BOTH when nothing was accepted and when an
-    // accepted merge carried no CEE token — which would decline on an honest
-    // canvas. `mergeAppliedGraph.ts:474-477` asks this same question of this
-    // same field.
+    // `lastAuthoritativeGraph` — NOT `serverGraphIdentity`. The latter is null
+    // BOTH when nothing was accepted AND when an accepted merge carried no CEE
+    // token, so it would decline on an honest canvas.
+    //
+    // ⚠⚠ BUT THIS FIELD IS NOT AN ACCEPTANCE FLAG, AND AN EARLIER VERSION OF
+    // THIS COMMENT SAID IT WAS. It claimed acceptance is "defined structurally"
+    // so the two "cannot drift apart". That is true of `mergeServerGraph` — the
+    // accepted path is exactly the body that records — and FALSE OF THE FIELD,
+    // which has THREE recorders and a seed. Derived at the bytes:
+    //
+    //   `mergeServerGraph.ts:412`    accepted server merge      ← genuine acceptance
+    //   `mergeAppliedGraph.ts:606`   applied-edit receipt
+    //   `applyDraftResult.ts:292`    a fresh DRAFT — records `identityFromCanvasGraph`
+    //                                of the LOCAL canvas, which CEE may never have seen
+    //   `store.ts:6084`              COLD-LOAD SEED, property-assignment form
+    //   `useConversation.ts:502`     nulled, and NOT on un-acceptance
+    //
+    // **A MERGE REFUSAL DOES NOT CLEAR IT.** So once any recorder has fired,
+    // this reads `true` and the guards below do not fire — reachable mid-session
+    // via draft → `recoverDraftFromServer` → refused merge → armed run.
+    //
+    // The field answers "which element identities may the reconciler remove?"
+    // (`mergeAppliedGraph.ts:474-477`: fresh draft, prior receipt, OR DB
+    // hydration — three sources, which is what I misread as one). This guard
+    // asks "does the canvas derive from a server-accepted graph?" Two questions,
+    // one name — trap 21, and I wrote the fused version.
+    //
+    // WHAT IT STILL BUYS: it is a genuine NECESSARY condition. `false` proves
+    // divergence, and every case it catches is caught correctly. It is not
+    // SUFFICIENT, so the guard is incomplete over its own defect class — pinned
+    // as KNOWN-OPEN in
+    // `hydrate/__tests__/provisionalDelivery.graphAcceptance.reachability.spec.ts`
+    // rather than left to this comment. Closing it needs new state meaning
+    // "derives from a server-accepted graph"; that is rowed, not done here.
     //
     // ⚠ AN EMPTY CANVAS IS NOT DIVERGENT. There is no local graph for a verdict
     // to misdescribe, and this is the case the zero-overlap guard itself calls

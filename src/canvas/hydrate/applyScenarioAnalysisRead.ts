@@ -186,16 +186,23 @@ export interface ScenarioAnalysisApplyStore {
    * predicate here would fuse two harms under one name, which is the mistake
    * this seam is being repaired for.
    *
-   * DERIVED FROM `lastAuthoritativeGraph`, and that choice is load-bearing.
-   * `mergeServerGraph.ts:154-157` defines acceptance STRUCTURALLY — "`accepted`
-   * is true exactly when control reaches the body that records
-   * `lastAuthoritativeGraph`" — so the two cannot drift apart. The obvious
-   * alternative, `serverGraphIdentity`, is WRONG here: it is `null` both when no
-   * merge was accepted AND when an accepted merge carried no CEE token
-   * (`serverGraphHydration.ts` stores `null` for an identity-empty graph), so it
-   * conflates "never accepted" with "accepted without a token" and would decline
-   * on an honest canvas. `mergeAppliedGraph.ts:474-477` already asks this same
-   * question of this same field.
+   * ⚠⚠ A NECESSARY CONDITION, NOT A SUFFICIENT ONE — AND AN EARLIER VERSION OF
+   * THIS DOC OVERSTATED IT. It said the source field's acceptance is "defined
+   * structurally … so the two cannot drift apart". True of `mergeServerGraph`,
+   * FALSE of the field it reads (see `useProvisionalAnalysisDelivery.ts`'s
+   * derivation: three recorders, a cold-load seed, and no clear on refusal).
+   *
+   * `false` PROVES divergence, and every case caught here is caught correctly.
+   * `true` does NOT prove acceptance. **So these guards are incomplete over
+   * their own defect class**, and the residual is pinned as KNOWN-OPEN in
+   * `__tests__/provisionalDelivery.graphAcceptance.reachability.spec.ts` rather
+   * than described in prose. A gap recorded in the suite is honest; a gap only a
+   * comment knows about is how a class silently reopens.
+   *
+   * The supplier still uses `lastAuthoritativeGraph` rather than
+   * `serverGraphIdentity`, which is `null` both when no merge was accepted AND
+   * when an accepted merge carried no CEE token — it would decline on an honest
+   * canvas, trading this gap for a worse one.
    *
    * `undefined` (an un-supplied store view) is treated as NOT divergent, so a
    * caller that never had this concept behaves exactly as it does today.

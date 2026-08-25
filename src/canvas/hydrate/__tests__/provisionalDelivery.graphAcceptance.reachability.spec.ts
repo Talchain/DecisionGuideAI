@@ -41,6 +41,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readdirSync, readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { useCanvasStore } from '../../store'
@@ -324,6 +326,107 @@ describe('⭐ THE OTHER DOOR — an honest canvas still receives its verdict', (
     })
     expect(out).toEqual({ outcome: 'applied', kind: 'blocked', resultsHydrated: false })
     expect(seen).toEqual(['w'])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠⚠ KNOWN-OPEN — THE GUARD IS INCOMPLETE OVER ITS OWN DEFECT CLASS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `graphAcceptedForCanvas` is derived from `lastAuthoritativeGraph`, which is
+// NOT an acceptance flag: it has three recorders plus a cold-load seed, and a
+// MERGE REFUSAL DOES NOT CLEAR IT. So once any recorder has fired, the guards
+// read `true` and do not fire — and the defect this file exists to close
+// survives on that path.
+//
+// This block PINS that gap as an executing test rather than a comment or a
+// skip. Its two halves fail in opposite directions on purpose:
+//   · the chain test REDs if someone CLOSES the gap without updating this pin
+//   · the derived-set test REDs if someone ADDS a recorder, growing the gap
+// A gap recorded in the suite is honest. A gap only prose knows about is how a
+// class silently reopens — which is exactly how this one got past my own review.
+describe('⚠ KNOWN-OPEN: a prior recorder defeats the guard (pinned, not fixed)', () => {
+  it('PINNED GAP — draft-then-refused-boot still DELIVERS the divergent verdict', async () => {
+    // Reproduces the reachable chain: a draft records `lastAuthoritativeGraph`
+    // from the LOCAL canvas (`applyDraftResult.ts:292`), then
+    // `recoverDraftFromServer` re-enters hydration mid-session
+    // (`useConversation.ts:5627`), the merge REFUSES, a run arms — and the
+    // guard cannot see that the canvas never derived from a server graph.
+    seedLocalCanvas({
+      lastAuthoritativeGraph: { nodeIds: ['local-1', 'local-2'], edgePairs: [] },
+    })
+    // The guard is DEFEATED — this is the gap, asserted rather than described.
+    expect(readProvisionalApplyStore().graphAcceptedForCanvas).toBe(true)
+
+    fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ analysis_state: SERVER_VERDICT })))
+    expect(await hydrateCanvasFromServer(SCENARIO_ID)).toBe('mergeRefused')
+    useCanvasStore.getState().setAnalysisStateV1(RUNNING_VERDICT)
+
+    // ⚠ THE PIN. Today this DELIVERS a verdict about a graph the user does not
+    // have. When the stronger fix lands, this line REDs — and that RED is the
+    // signal to delete this block, not to loosen it.
+    expect(await poll()).toBe('delivered')
+    expect(storedVerdict()?.run_state.kind).toBe('complete_stale')
+    expect(canvasIds()).toEqual(['local-1', 'local-2'])
+  })
+
+  it('CONTRAST — the same chain WITHOUT a prior recorder is correctly withheld', async () => {
+    // Proves the pin above is about the DEFEATER, not about the guard being
+    // broken outright. Same fixtures, same sequence, field never recorded.
+    await refusedBootThenNewRun()
+    expect(readProvisionalApplyStore().graphAcceptedForCanvas).toBe(false)
+    expect(await poll()).toBe('withheld')
+  })
+
+  it('⭐ the DEFEATER SET is DERIVED from the tree — REDs if a recorder is added', () => {
+    // NOT a hand-maintained list (trap 12). Scans src/ for every non-null write
+    // to `lastAuthoritativeGraph`, in BOTH syntactic forms — the call form and
+    // the property-assignment form that hid a writer from my own #849 sweep.
+    // ⚠ NOT `import.meta.url` — under vitest's transform it is not a `file:`
+    // URL and `fileURLToPath` throws, which reads as a RED about the codebase
+    // when it is really a RED about the probe. Anchored on cwd and asserted to
+    // exist, so a wrong root fails loudly instead of scanning nothing.
+    const srcRoot = join(process.cwd(), 'src') + '/'
+    expect(existsSync(srcRoot)).toBe(true)
+    const files: string[] = []
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name)
+        if (e.isDirectory()) {
+          if (e.name !== '__tests__' && e.name !== 'node_modules') walk(p)
+        } else if (/\.tsx?$/.test(e.name) && !/\.(spec|test)\.tsx?$/.test(e.name)) {
+          files.push(p)
+        }
+      }
+    }
+    walk(srcRoot)
+
+    const recorders = new Set<string>()
+    for (const f of files) {
+      const text = readFileSync(f, 'utf8')
+      // Strip line comments so prose mentioning the symbol cannot inflate the set.
+      const code = text.replace(/^\s*(\/\/|\*|\/\*).*$/gm, '')
+      const rel = f.slice(srcRoot.length)
+      // Form 1: the setter invoked with an argument (a non-null record).
+      if (/setLastAuthoritativeGraph\s*\(\s*[^)\s]/.test(code)) recorders.add(rel)
+      // Form 2: property assignment to something other than `null`.
+      if (/lastAuthoritativeGraph\s*=\s*(?!null)[A-Za-z{]/.test(code)) recorders.add(rel)
+    }
+
+    // POSITIVE CONTROL — the scan must SEE something, or the assertion below is
+    // vacuous and would pass against a broken walk (trap 13).
+    expect(files.length).toBeGreaterThan(200)
+    expect(recorders.size).toBeGreaterThan(0)
+
+    // THE PIN: exactly these four, three of which do NOT imply server acceptance.
+    expect([...recorders].sort()).toEqual(
+      [
+        'canvas/store.ts', //                 cold-load seed (property-assignment form)
+        'canvas/utils/applyDraftResult.ts', // a fresh DRAFT — CEE may never have seen it
+        'canvas/utils/mergeAppliedGraph.ts', // applied-edit receipt
+        'canvas/utils/mergeServerGraph.ts', //  the ONLY genuine server acceptance
+      ].sort(),
+    )
   })
 })
 
