@@ -632,11 +632,52 @@ export function HeroEvidenceDisclosure({
                           'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2'
                         // ⚠ THE ACT STEP, AND WHAT ITS WORDS MAY CLAIM.
                         //
-                        // Gated on `canReviewValue`, never on `canFocus`: a node
-                        // can exist and have no editor, and the Model tab renders
-                        // an inert "Not set" for exactly those. An unset factor
-                        // ALSO makes the rerun refuse, so such a row cannot
-                        // complete the loop even if it could be edited.
+                        // Gated on `canReviewValue`, never on `canFocus` — a node
+                        // can exist without being worth sending a user to.
+                        //
+                        // ⚠⚠ I FIRST JUSTIFIED THIS GATE WITH A REFUTED PREMISE,
+                        // and the correction matters more than the gate.
+                        //
+                        // I wrote that the Model tab "renders an inert Not set with
+                        // no editor" for valueless factors, as though that were true
+                        // of the Model tab. It is true of ONE OF ITS TWO EDITORS.
+                        //
+                        // `ModelTabBody` mounts BOTH `ModelTabV2Panel` and the v1
+                        // `FactorsSection`. On v2, `ModelRowView`'s F9 comment names
+                        // v1's inert cell as "the single most damning editing gap
+                        // today" and fixes it: "here a null value still renders an
+                        // editor affordance; it is disabled only because the authority
+                        // is not frozen, never because the value is missing." Live
+                        // witnesses agree — but they drove `model-row-v2-*` cells, so
+                        // they are evidence about V2 ONLY. Where v1 renders, my
+                        // original sentence is still literally true.
+                        //
+                        // ⚠ SO THE OPEN QUESTION IS NOT "was I wrong" BUT "WHICH
+                        // EDITOR DOES A REAL USER GET, AND CAN THEY GET v1?" A mount
+                        // is not a reach, and the deployed flag posture is not in this
+                        // repo — it cannot be settled by reading source, which is
+                        // exactly the mistake that produced the first version of this
+                        // comment. Until it is driven, loosening globally would ship
+                        // this control onto v1 rows where it lands on inert text: the
+                        // dead end this gate exists to prevent, created by acting on
+                        // evidence gathered from the other surface.
+                        //
+                        // ⚠ And the two cells share a `data-testid`, so a probe that
+                        // does not assert `tagName === 'BUTTON'` cannot tell the
+                        // editable cell from the inert one. That trap has already
+                        // produced a false negative elsewhere.
+                        //
+                        // THE GATE STANDS, ON THE OTHER REASON ONLY: a rerun after
+                        // editing an unset factor refuses (`baseline_scale_unresolved`,
+                        // 3/3), so such a row cannot complete the loop. The control is
+                        // therefore withheld where the intervention would dead-end at
+                        // the CONSEQUENCE step, not because it could not be acted on.
+                        //
+                        // ⚠ `factorHasConfirmableValue` is a PROXY for that condition,
+                        // not the condition itself — the refusal is about scale/frame,
+                        // not mere finiteness. When the refusal is fixed this gate must
+                        // be revisited deliberately, because it will then be suppressing
+                        // rows that can complete the loop, silently.
                         //
                         // "Review this value" is provenance-NEUTRAL on purpose.
                         // These rows are ranked by VALUE OF INFORMATION, not by
