@@ -365,9 +365,22 @@ export default function ScenarioListPage() {
 
   // Guest mode — offer sign-in (primary) and a guest path into the canvas
   // (secondary). Guest mode is the POC's primary flow and #/canvas works fully
-  // as guest, so this branch must never be a dead end. The copy distinguishes
-  // the product category from the persistence boundary: exploration works
-  // without an account; saving the workspace requires sign-in.
+  // as guest, so this branch must never be a dead end.
+  //
+  // ⚠ THE COPY MAKES NO CLAIM ABOUT WHERE GUEST WORK LIVES, deliberately.
+  // A previous version read "Without an account, your work stays only in this
+  // browser." Both halves were wrong at once:
+  //   · "stays" asserts persistence the product does not guarantee — there is a
+  //     settling window in which a guest's work is not yet durable;
+  //   · "only in this browser" is a PRIVACY claim, and it is false: a guest's
+  //     graph also exists server-side.
+  // The second is the worse half. A reader takes "only in this browser" to mean
+  // nothing leaves their machine, and that is not what happens.
+  //
+  // The remedy is not a more carefully hedged sentence about storage. First use
+  // should say what Olumi IS and how to begin; the storage boundary is System A's
+  // to define and is not settled enough to promise here. So the sign-in benefit
+  // is stated plainly and nothing is claimed about the guest path.
   if (!isPersistenceActive) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas p-8">
@@ -377,7 +390,7 @@ export default function ScenarioListPage() {
             Olumi turns messy strategic work into a living visual model while keeping your judgement visible.
           </p>
           <p className={`${typography.bodySmall} text-text-light mt-3`}>
-            Sign in to create a saved workspace. Without an account, your work stays only in this browser.
+            Sign in to create a saved workspace.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <button
