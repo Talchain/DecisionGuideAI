@@ -77,6 +77,7 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
       fragileEdgeRefs: [],
       resolveNext: null,
       decisionVoi: 'not_computed',
+      attributionSuppression: 'not_attested',
       // Same contract as the two above: the gallery names no assumption
       // unless a fixture supplies one, and the refusal renders nothing.
       assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },

@@ -85,6 +85,10 @@ import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
 import {
+  readAttributionSuppression,
+  type AttributionSuppressionVerdict,
+} from './voi/attributionSuppression'
+import {
   selectAssumedStrengthToResolve,
   type AssumedStrengthDecision,
 } from './strengthElicitation/selectAssumedStrengthToResolve'
@@ -1188,6 +1192,55 @@ export interface ResultsSectionDataReturn {
    */
   decisionVoi: DecisionVoiVerdict
   /**
+   * Whether ISL WITHHELD this run's per-factor win-probability attribution,
+   * classified by `voi/attributionSuppression.ts` from the `p_win_sensitivity` /
+   * `correlation_model` PAIR. Never the suppressed payload, never a count.
+   *
+   * WHY IT EXISTS AT ALL: both wire fields were transported and read by nothing,
+   * so a run whose per-factor attribution ISL deliberately declined to compute
+   * looked, on screen, exactly like a run where it was never relevant — while
+   * the Drivers list invited the reader to treat its ranking as the complete
+   * per-factor picture. `decisionVoi` above answers "what is resolving
+   * everything worth"; this answers "which per-factor question went unanswered,
+   * and did the producer say why".
+   *
+   * ⚠ AND THE SCOPE OF THAT, HONESTLY: no such run is reachable today.
+   * `correlation_model` is emitted only when the request supplied
+   * `factor_correlations`, and neither CEE nor the UI populates that key at
+   * their staging tips — so this is a FAIL-CLOSED GUARD for a state the current
+   * producer cannot reach, not a repair of something a user has hit. It reads
+   * the MEMBER (`p_win_sensitivity`), never the manifest's length, so it stays
+   * silent on the correlation-active runs that withheld only the OTHER
+   * attribution kinds.
+   *
+   * ⚠ OPTIONAL HERE, REQUIRED ON THE RENDER MODEL, AND THE ASYMMETRY IS
+   * DELIBERATE — MEASURED, NOT PREFERRED. `HeroEvidenceModel` keeps this field
+   * REQUIRED, which is where the "a silent surface looks like a working
+   * feature" argument actually bites: `buildHeroModel` constructs that object,
+   * so the compiler names every constructor and four were duly named and fixed.
+   *
+   * Making it required HERE buys nothing and costs a trust surface. The only
+   * producer of this interface is the hook itself, which always sets it; the
+   * six other "constructors" are test fixtures that ALREADY carry a baselined
+   * TS2739 for omitting `decisionVoi` and five siblings, so the
+   * compiler-names-every-constructor benefit was never being realised for them.
+   * Adding one more required member re-words that pre-existing diagnostic (its
+   * elided-property count moves), and those five messages render
+   * NON-DETERMINISTICALLY — proven by regenerating the identity baseline twice
+   * over one unchanged tree and diffing: 10 rows differed across exactly those
+   * files. That is the union-member ordering hazard this repo's typecheck gate
+   * documents in its own header. The consequence was concrete: the gate's
+   * self-test negative control ("on a clean tree the gate must be SILENT about
+   * added identities") went RED, which voids every "typecheck clean" claim on
+   * the branch — and regenerating the baseline could not fix it, because a
+   * non-deterministic identity cannot be baselined.
+   *
+   * So: required where it protects a user-visible surface, optional where it
+   * would only destabilise a gate. `buildHeroModel` coalesces fail-closed to
+   * `'not_attested'` — silence — exactly as it already does for its siblings.
+   */
+  attributionSuppression?: AttributionSuppressionVerdict
+  /**
    * P4 — the ONE assumed relationship worth pinning down next, or a named
    * refusal. The join between "which relationship is this result sensitive to"
    * (producer `fragile_edges`) and "which strength is still unconfirmed"
@@ -1528,6 +1581,32 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    */
   const decisionVoi = useMemo(
     () => readDecisionVoi(report?.decision_evpi),
+    [report],
+  )
+
+  /**
+   * Whether ISL WITHHELD this run's per-factor win-probability attribution.
+   *
+   * One line, and every judgement in it lives in `voi/attributionSuppression.ts`
+   * (pure, unit-pinned against the producer's two `.describe()` paragraphs).
+   * This memo supplies the fields and nothing else: no threshold, no count, no
+   * coalescing, and NO magnitude — `p_win_sensitivity` is in percentage points
+   * of win and the producer's own contract text bars displaying it.
+   *
+   * BOTH FIELDS, NOT ONE. The contract calls `correlation_model` "the
+   * DISCRIMINATOR that makes an absent `p_win_sensitivity` readable as
+   * suppression rather than as 'not computed'", so reading either alone
+   * reproduces the two-states-one-byte defect it exists to close. The mapper
+   * already carries both verbatim (`mapV5AnalysisToReport.ts`), absence
+   * preserved, which is what makes the pair readable here at all.
+   *
+   * Deliberately NOT joined to `voiRanking` or `decisionVoi`. `factor_evppi`
+   * KEEPS BEING EMITTED under suppression — the producer says so — so these are
+   * independent states, and inferring one from another would invent a
+   * relationship ISL did not report.
+   */
+  const attributionSuppression = useMemo(
+    () => readAttributionSuppression(report?.correlation_model, report?.p_win_sensitivity),
     [report],
   )
 
@@ -3724,6 +3803,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReference,
       voiRanking,
       decisionVoi,
+      attributionSuppression,
       assumedStrength,
     }),
     [
@@ -3740,6 +3820,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       sensitivityReference,
       voiRanking,
       decisionVoi,
+      attributionSuppression,
       assumedStrength,
     ],
   )

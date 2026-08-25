@@ -716,6 +716,7 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
         // provably has nothing to disclose.
         resolveNext: null,
         decisionVoi: 'not_computed',
+        attributionSuppression: 'not_attested',
         ...overrides,
       },
     }

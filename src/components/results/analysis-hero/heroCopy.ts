@@ -481,6 +481,61 @@ export const HERO_COPY = {
      * display-safe producer label exists, issues 219/221). */
     driversNote: 'Ranked by effect on the analysed outcome. Evidence quality is separate.',
     /**
+     * Drivers-view WITHHOLDING notice. Licensed by
+     * `voi/attributionSuppression.ts`'s `'suppressed'` verdict and by nothing
+     * else — see that module for the two verbatim contract paragraphs that are
+     * its entire warrant.
+     *
+     * ⭐ WHAT THIS SENTENCE IS FOR. The list above it is ranked by effect on the
+     * ANALYSED OUTCOME. ISL separately computes each factor's effect on an
+     * option's CHANCE OF COMING OUT AHEAD (`p_win_sensitivity`) and, under
+     * active correlation, SUPPRESSES it — "absent from the response, not null"
+     * — naming what it withheld in `correlation_model.suppressed_attributions`.
+     * Until now the UI transported both halves and said nothing, so a reader
+     * took the drivers list as the complete per-factor picture. This line says
+     * which per-factor question went unanswered and why.
+     *
+     * ⛔ WHAT IT MAY NOT DO, and every clause here is load-bearing:
+     *   · NO MAGNITUDE. Not a number, not a count of suppressed factors. The
+     *     producer's own instruction is "pp display is barred by PP_TOKEN
+     *     doctrine"; `PP_TOKEN` and `no-evpi-display.contract.test.ts` enforce
+     *     it. There is no digit in this string and there never may be.
+     *   · NO NAMES. ⚠ Corrected: `suppressed_attributions` does NOT name the
+     *     factors — its members are ATTRIBUTION KINDS from a closed four-member
+     *     vocabulary (`response_v2.py:1437-1440`). The factor NODE IDS sit one
+     *     field over, in `correlated_factors`, and THAT is the leak this clause
+     *     guards, backed by the neighbouring register's standing ban on
+     *     id-shaped names (`resolveNextCopy.partial`: "Never names WHICH
+     *     factors"). Nothing on the `correlation_model` object other than one
+     *     manifest membership is read at all.
+     *   · NO NO-EFFECT CLAIM. "can't be told apart" is a statement about this
+     *     model's ability to SEPARATE the contributions — the producer's own
+     *     reason for suppressing. It must never become "these factors don't
+     *     matter" or "have no effect", which the estimator did not establish
+     *     and, having declined to compute the attribution, cannot.
+     *   · NO DISPARAGEMENT OF THE LIST ABOVE IT. `factor_evppi` and the
+     *     outcome-effect ranking keep being emitted under suppression, so the
+     *     drivers shown remain exactly as sound as they were.
+     *
+     * ⚠ THE KNOWN LIMIT OF THE LAST SENTENCE ("The ranking above is
+     * unaffected"), recorded rather than hidden. Whenever this notice can fire,
+     * ISL has ALSO suppressed `factor_sensitivity` and `stability_thresholds`
+     * at the same gate (`robustness_analyzer_v2.py:2351-2360`) — the manifest
+     * members travel together under active correlation. The sentence survives
+     * only because PLoT's GRAPH-PRIMARY path re-derives driver order
+     * independently of ISL's per-factor attribution
+     * (`src/lib/driver-order.ts:504-520`). On the ISL-ONLY FALLBACK path PLoT
+     * itself sets `basis: 'none'` for exactly this reason (`:510-514`) — there
+     * is no ranking to be unaffected, so the clause is VACUOUS rather than
+     * false, and the deck renders no drivers to host it. Should a future basis
+     * consume ISL's per-factor attribution directly, this clause becomes false
+     * and must be re-derived before it ships again.
+     */
+    attributionSuppressed:
+      "How much each factor moves an option's chance of coming out ahead wasn't produced for " +
+      'this run — this analysis models these factors as moving together, so their separate ' +
+      "contributions can't be told apart. The ranking above is unaffected.",
+    /**
      * Flip-risks-view note (prototype copy).
      *
      * ROADMAP 1.267 — the flip PROBABILITIES are data; "the leading option"

@@ -1375,6 +1375,60 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
    */
   decision_evpi?: number
   /**
+   * ISL's per-factor PERCENTAGE-POINT-OF-WIN deltas — the mapper's verbatim
+   * carry of `enrichment.p_win_sensitivity` (`src/v5/mapV5AnalysisToReport.ts`).
+   *
+   * ⚠ `unknown`, NOT `unknown[]`, AND THE WIDTH IS LOAD-BEARING. The mapper
+   * carries this key VERBATIM whenever the producer sent one, because ABSENCE
+   * is what the contract defines as the suppression signal ("absent from the
+   * response, not null"). Narrowing a malformed value away here would turn
+   * present-but-unreadable into absent, manufacturing that signal — so the
+   * declaration has to admit every shape the open wire can carry, `null`
+   * included. Nothing in this repo reads the ROWS; only the key's PRESENCE is
+   * read, by `voi/attributionSuppression.ts`, which treats any arrived value as
+   * "not suppressed".
+   *
+   * ⚠ NO MAGNITUDE FROM THIS FIELD MAY EVER REACH THE DOM. The schema's own
+   * `.describe()` says so outright: "Transport only — pp display is barred by
+   * PP_TOKEN doctrine". `PP_TOKEN` (`__tests__/helpers/refutedEvpiClaimMatchers`)
+   * and `tests/contracts/no-evpi-display.contract.test.ts` enforce it.
+   */
+  p_win_sensitivity?: unknown
+  /**
+   * ISL's correlation disclosure — the mapper's verbatim carry of
+   * `enrichment.correlation_model`, typed OPEN by the contract
+   * (`z.object({}).passthrough()`, shape owned by ISL; observed member
+   * `suppressed_attributions`).
+   *
+   * ⭐ WHY THE PAIR IS DECLARED TOGETHER. The schema calls this field "the
+   * DISCRIMINATOR that makes an absent `p_win_sensitivity` readable as
+   * suppression rather than as 'not computed', which is why the family travels
+   * together: transporting the suppressed field's explanation without the
+   * explanation is the two-states-one-byte defect by construction." Reading
+   * either key alone reproduces exactly that defect.
+   *
+   * ⚠ THE HONEST SCOPE, AND IT IS NARROWER THAN THIS COMMENT ONCE CLAIMED. Both
+   * keys were parsed, stored and read by NOTHING — that part is true and is why
+   * they are declared here. But the earlier wording ("the suppression verdict
+   * sat in the browser while the user was told nothing") asserted the verdict
+   * had ARRIVED, and no evidence supports that. `correlation_model` is emitted
+   * only when the request supplied `factor_correlations`
+   * (`robustness_analyzer_v2.py:2903-2907`, `:2930`), PLoT forwards that key
+   * only from the caller's body (`src/routes/v2/run.ts:7162`), and NEITHER CEE
+   * NOR THE UI has a single occurrence of it. The chain is complete and UNFED,
+   * so this reader is a FAIL-CLOSED GUARD for a state the current producer
+   * cannot reach — not a repair of a defect a user has seen. See the PR body
+   * for the sweep and its scope.
+   *
+   * Declaring the keys is still what makes a mistyped read a compile error
+   * instead of a permanent silent gate — the reason `factor_evppi` and
+   * `decision_evpi` above are declared.
+   *
+   * Classified — never formatted, never counted, never named — by
+   * `voi/attributionSuppression.ts`.
+   */
+  correlation_model?: Record<string, unknown>
+  /**
    * ISL `inference_warnings[]` — the enrichment-ROOT slot. Same reasoning as
    * `factor_evppi`: declared so readers do not cast, entries left `unknown`
    * because each reader validates the codes it cares about. Read it through

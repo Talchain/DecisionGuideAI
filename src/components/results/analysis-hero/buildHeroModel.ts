@@ -1205,6 +1205,11 @@ export function buildHeroModel(
       // forbids: no numeric value is coalesced anywhere on this path.
       resolveNext: data.voiRanking ?? null,
       decisionVoi: data.decisionVoi ?? 'not_computed',
+      // Same PASSTHROUGH-ONLY posture and same fail-closed coalesce: the
+      // verdict is decided by `voi/attributionSuppression.ts` and re-deriving it
+      // here would be the hand-maintained mirror trap 12 warns about. Silence is
+      // the safe direction — a fabricated withholding claim is worse than none.
+      attributionSuppression: data.attributionSuppression ?? 'not_attested',
       // Same defensive-coalesce reasoning as the two above: at a callsite the
       // hook may not have run, and the safe direction is the refusal that
       // renders nothing — never a fabricated selection.
