@@ -365,7 +365,9 @@ export const ResultsBody = memo(function ResultsBody({
           licensed groups on first paint without rebuilding winner, freshness
           or Compare authority. */}
       <SectionErrorBoundary section="Decision brief">
-        <DecisionBriefSectionContainer />
+        <DecisionBriefSectionContainer
+          leaderClaimPermitted={resultsSectionData.recommendation.verdict?.hasLeadingOption === true}
+        />
       </SectionErrorBoundary>
 
       {/* ── P1-9 provenance: Model-Card-Lite entry point ───────────────────

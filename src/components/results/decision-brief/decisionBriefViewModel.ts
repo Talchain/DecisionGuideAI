@@ -30,11 +30,24 @@ export interface DecisionBriefDefaultedView {
   note: string
 }
 
+/**
+ * The producer's own sentence about how far the ranking held, with the token
+ * that licenses it. ⚠ This is a LEADER-RANKING member: CEE strips it, alongside
+ * `headline` and `headline_banded`, on a withheld turn, and its absence IS the
+ * withheld signal. Rendering it is gated on the owned leader claim — see
+ * `DecisionBriefSection`. Never treat its presence as evidence a leader exists.
+ */
+export interface DecisionBriefRobustnessCaveatView {
+  text: string
+  basis: string
+}
+
 export interface DecisionBriefViewModel {
   topDrivers: DecisionBriefDriverView[]
   keyAssumptions: string[]
   whatWouldChange: string[]
   defaultedAssumptions: DecisionBriefDefaultedView[]
+  robustnessCaveat: DecisionBriefRobustnessCaveatView | null
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -169,6 +182,9 @@ export const DECISION_BRIEF_RENDERED_HERE = [
   'top_drivers',
   'what_would_change',
   'defaulted_assumptions',
+  // Moved out of DECLARED_DARK when it gained a renderer. The guard requires
+  // exactly-once classification, so this move is what forces the old entry to go.
+  'robustness_caveat',
 ] as const
 
 /** Read to decide whether the projection is a brief at all; never displayed. */
@@ -194,7 +210,6 @@ export const DECISION_BRIEF_DECLARED_DARK = {
     + 'neighbouring column; 0 of 1,620 captured briefs carry it while top_drivers is empty',
   headline: 'leader-designating prose; this surface never restores a leader',
   robustness: 'a producer verdict this surface has no licence to re-state as its own',
-  robustness_caveat: 'belongs with the robustness verdict, which is not rendered here',
   warnings: 'the canonical inference-warning strip above the brief is sole owner',
   warning_codes: 'machine codes; the human-readable strip above owns this surface',
   analysis_summary: 'band summary owned by the analysis hero, not by the brief',
@@ -279,6 +294,26 @@ function readDefaultedAssumptions(value: unknown): DecisionBriefDefaultedView[] 
 }
 
 /**
+ * The producer's caveat about the ranking, with its licensing token.
+ *
+ * `basis` is required: a caveat with no stated basis is an unattested claim about
+ * the user's ranking, and this surface has no licence to pass one on. The text is
+ * vetted for identity, not rewritten — same rule as the defaulted-assumption note.
+ *
+ * Measured on every captured text: none trips the glossary guard, because
+ * `\bperturbation\b` does not match the plural the producer actually writes. The
+ * SINGULAR would trip it, so the margin is one character and the case is pinned.
+ */
+function readRobustnessCaveat(value: unknown): DecisionBriefRobustnessCaveatView | null {
+  if (!isRecord(value)) return null
+  const text = readNonBlankString(value.text, MAX_NOTE_LENGTH)
+  const basis = readNonBlankString(value.basis, MAX_LABEL_LENGTH)
+  if (text === null || basis === null) return null
+  if (containsRawIdentifier(text) || containsBannedTerm(text)) return null
+  return { text, basis }
+}
+
+/**
  * Parse the CEE-projected DecisionBriefV1 members that are licensed for this
  * surface. Missing or malformed categories do not suppress valid siblings.
  */
@@ -308,15 +343,17 @@ export function readDecisionBriefViewModel(raw: unknown): DecisionBriefViewModel
     true,
   )
   const defaultedAssumptions = readDefaultedAssumptions(raw.defaulted_assumptions)
+  const robustnessCaveat = readRobustnessCaveat(raw.robustness_caveat)
 
   if (
     topDrivers.length === 0
     && keyAssumptions.length === 0
     && whatWouldChange.length === 0
     && defaultedAssumptions.length === 0
+    && robustnessCaveat === null
   ) {
     return null
   }
 
-  return { topDrivers, keyAssumptions, whatWouldChange, defaultedAssumptions }
+  return { topDrivers, keyAssumptions, whatWouldChange, defaultedAssumptions, robustnessCaveat }
 }

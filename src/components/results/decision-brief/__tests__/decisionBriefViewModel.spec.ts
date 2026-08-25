@@ -52,6 +52,9 @@ describe('readDecisionBriefViewModel', () => {
       // Present and empty on this capture — the 25 Aug live wire carries the key
       // with zero entries, which is a real producer state, not an absence.
       defaultedAssumptions: [],
+      // The withheld projection strips this by design — its absence IS the
+      // withheld signal, so null here is the correct, meaningful value.
+      robustnessCaveat: null,
     })
 
     // The projection carries probabilities, but this reader has no field from
