@@ -545,18 +545,57 @@ export function readinessObjectsToRun(
     //
     // ⭐⭐ WHY IT WAIVES (b) ALONE AND NOT `(a) || (b)`. The whole-predicate
     // form is the obvious shape and it RE-OPENS THE DEFECT (a) EXISTS TO CLOSE,
-    // because `may_run` CAN GO STALE ACROSS A REFUSAL TURN:
-    //   · `buildAnalysisRefusalReadiness` (cee `analysis-ready-helper.ts:1488`)
-    //     emits `{status: 'blocked', options: [], goal_node_id: ''}` and sets NO
-    //     `may_run` — the field is written in exactly one place, `:1221`.
-    //   · That degenerate payload is REJECTED by our own normaliser
-    //     (`applyV5State.ts:233-234`), and `:1219` writes the slice only
-    //     `if (normalised)` — so `ceeAnalysisReady` KEEPS THE PREVIOUS TURN'S
-    //     value, stale `may_run: true` included, while `analysisStateV1` moves
-    //     to blocked.
+    // because `may_run` CAN GO STALE ACROSS A REFUSAL TURN.
+    //
+    // ⚠⚠ THE MECHANISM BELOW WAS RE-DERIVED 2026-08-26 AND THIS COMMENT NAMED
+    // THE WRONG BRANCH. The conclusion — that `may_run` can be a PREVIOUS
+    // turn's answer, so the waiver must not span (a) — is UNCHANGED and still
+    // correct. Only the route was wrong, and a comment naming the wrong
+    // mechanism is how the next lane inherits a wrong belief.
+    //
+    // ~~It said: the degenerate refusal payload is rejected by our normaliser,
+    // and `:1219` writes the slice only `if (normalised)`, so `ceeAnalysisReady`
+    // KEEPS THE PREVIOUS TURN'S value.~~ **That branch CLEARS, it does not
+    // preserve.** Derived at `applyV5State.ts:1228-1300`, there are FOUR
+    // branches and exactly one preserves:
+    //
+    //   1. `analysis_ready` present, normalises      → WRITE (unless the inline
+    //                                                  path owns it, `:1231`)
+    //   2. present, normaliser REJECTS               → `setCeeAnalysisReady(null)`
+    //                                                  — CLEARS ("clear stale
+    //                                                  store state from prior
+    //                                                  turns rather than leaving
+    //                                                  it to mislead")
+    //   3. ABSENT + response IS analyse-shaped       → `setCeeAnalysisReady(null)`
+    //                                                  — CLEARS
+    //   4. ABSENT + NOT analyse-shaped               → ⭐ NO WRITE. THE SLICE IS
+    //                                                  PRESERVED, stale
+    //                                                  `may_run: true` included.
+    //
+    // ⭐ BRANCH 4 IS THE SURVIVING STALENESS PATH, and it is deliberate, with
+    // its own recorded rationale: "Conversational turns preserve the existing
+    // slice — clearing would race a legit just-set value from a parallel turn."
+    // `responseIsAnalyseShaped` (`applyV5State.ts:1453`) is true ONLY for
+    // `stage === 'analyse'` or an `analysis_result` block — so an ordinary
+    // conversational or EDIT turn that carries no `analysis_ready` lands here
+    // and leaves the previous turn's admission verdict standing.
+    //
     // A waiver spanning (a) would then hand the user an ENABLED control one turn
     // after CEE refused the run — verbatim the harm recorded at (a) above. The
     // producer's refusal is not a blocker count and is not negotiable.
+    //
+    // ⚠ AND THE DEEPER POINT, WHICH THE BRANCH DETAIL CAN OBSCURE: this control
+    // is gated on `may_run` — CEE's ADMISSION verdict — and NOT on
+    // `can_run_analysis`, which lives on the readiness side-car. Two fields,
+    // two lifetimes, similar names (trap 21). `may_run` is turn-scoped and, via
+    // branch 4, can outlive the turn that produced it; `can_run_analysis` is
+    // the field that actually answers "may this model be analysed now". A
+    // control reading the one that does not answer its question is the design
+    // issue here — branch 4 is only the route by which it becomes visible.
+    // Behaviour is UNCHANGED by this comment; the repair is rowed, and it
+    // belongs in the slice's freshness (`applyV5State.ts`), NOT in this
+    // predicate — every surface consumes this answer, so fixing the input is
+    // safe where fixing the shared predicate is not.
     //
     // ⚠ `=== true`, NOT `!== false`. ABSENCE means a pre-`may_run` CEE, never
     // "no", so an omitted or malformed value must leave the refusal exactly as
