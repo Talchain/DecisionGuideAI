@@ -460,11 +460,26 @@ export function applyBootAnalysisVerdict(input: {
   //   restored `refused`  (readiness blocked) -> TRUE    Analyse DISABLED
   //
   // A verdict from a PREVIOUS session could therefore disable Analyse on a
-  // model that is analysable right now. That is a false block arriving by a
-  // route the parallel `mayRun` fix does not cover: this objects through clause
-  // (a) — `status: 'blocked'` with an EMPTY blocker list, the shape
-  // `buildAnalysisRefusalReadiness` emits — while that work addresses clause
-  // (b). Two fixes for one harm, each correct alone (trap 21).
+  // model that is analysable right now — a false block, and the mirror of the
+  // `complete_current` decline.
+  //
+  // ⚠ KNOWN COUPLING WITH PR #843 (`a4-analyse-control-false-block`), DISCLOSED
+  // RATHER THAN FIXED HERE. #843 adds a third optional `mayRun` parameter to
+  // `readinessObjectsToRun`. After it lands there are four real call sites and
+  // THIS IS THE ONLY ONE NOT SUPPLYING IT. On the class
+  // `status !== 'blocked'` AND actionable blockers AND CEE `may_run === true`,
+  // the Analyse control will be ENABLED while this restore still DECLINES.
+  //
+  // Direction is FAIL-SAFE — we withhold a verdict the product could have shown,
+  // never enable an action the gate would refuse — so it is a divergence, not a
+  // defect, and it is left for #843's owner to close by threading `mayRun` here
+  // (one seam, one writer). ⚠ It is SILENT: nothing reds in either merge order.
+  //
+  // ⚠ AND IT FALSIFIES A SENTENCE THAT USED TO SIT HERE. This comment claimed
+  // the harm objects through "clause (a)" while #843 addresses "clause (b)",
+  // implying the two are disjoint. After #843 that split no longer partitions
+  // the space: `mayRun` can waive clause (b) for payloads this leg still
+  // declines. Corrected rather than left to age.
   //
   // ⭐ WHY HERE AND NOT IN THE GATE. The gate is right to respect a stated
   // verdict; the mistake is restoring a claim we cannot verify. Fixing it at the
@@ -481,8 +496,16 @@ export function applyBootAnalysisVerdict(input: {
   // here would be a second authority for one question, and it would diverge on
   // the next change to either. `null` is passed for the side-car because
   // `readinessObjectsToRun` ignores its first argument entirely once the
-  // producer has spoken (`canRunAnalysis.ts:443`) — so this asks exactly the
-  // question the gate will ask, and nothing else. A `null` authority (not
+  // producer has spoken (`canRunAnalysis.ts:443`).
+  //
+  // ⚠ IT ASKS THE QUESTION THE GATE ASKS TODAY — NOT NECESSARILY TOMORROW'S.
+  // An earlier version of this sentence said "exactly the question the gate will
+  // ask, and nothing else". That is false the moment PR #843 lands: it adds a
+  // `mayRun` argument this call site does not supply, so the gate can answer
+  // "runnable" where this answers "objects". Importing the predicate guarantees
+  // ONE IMPLEMENTATION, not one ANSWER — a distinction worth keeping, because
+  // the first is what stops the two drifting in CODE and only the second would
+  // stop them drifting in BEHAVIOUR. A `null` authority (not
   // stated, or the UNSUPPLIED sentinel) yields `false`: an unstated readiness
   // cannot close the gate, and must not be read as if it had.
   if (readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict))) {
