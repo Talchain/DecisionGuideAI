@@ -23,6 +23,8 @@ import { projectAutosaveData, analysisSnapshotFromStore } from '../store/autosav
 import type { AutosaveProjectionSource } from '../store/autosaveProjection'
 import { EPHEMERAL_NODE_FIELDS, EPHEMERAL_EDGE_FIELDS } from '../domain/analyticalNodeFields'
 import { isCanvasShapedNode } from '../utils/normalisePersistedGraph'
+import { shouldPersistGraphForScenario } from '../stores/draftStore'
+import { flushWorkToAutosave } from '../persist/crashFlush'
 
 // The autosave hash now covers node/edge `data.*` BY DEFAULT (Codex P1-1) and
 // EXCLUDES only the small ephemeral denylist below (transient UI/session state +
@@ -65,6 +67,40 @@ function serializableData(
 
 const AUTOSAVE_INTERVAL_MS = 30 * 1000 // 30 seconds
 const DEBOUNCE_MS = 500 // Debounce writes to reduce localStorage contention
+
+/**
+ * May this hook's STORE-SCOPED writers persist the graph right now?
+ *
+ * ⚠ THE PREVIEW SKIP WAS ONLY EVER WIRED ON ONE SIDE. `applyDraftResult` skips
+ * its own immediate localStorage write for a streamed GRAPH_READY preview
+ * (`opts.skipAutosave`, applyDraftResult.ts:318) and its comment claims that
+ * "before then there is deliberately nothing on disk to restore, which is the
+ * honest state". That was false in this direction: the skip covers only the
+ * PAYLOAD-scoped write, while both writers in this file are STORE-scoped — they
+ * re-read the store at fire time — and neither knew the phase existed. A 30 s
+ * tick landing inside the settling window therefore persisted the preview
+ * anyway. `draftStreamPhase` is in-memory and does not survive a reload, so it
+ * came back UNMARKED with the run gate OPEN: exactly the fabrication state the
+ * skip exists to prevent, reached through the other door.
+ *
+ * ONE AUTHORITY, NOT A SECOND COPY. This delegates to
+ * `shouldPersistGraphForScenario` — the same derived read the SERVER-row choke
+ * point already consults (`persistGraphNow`, hooks/useScenario.ts:219). Adding a
+ * phase test of our own here would be the two-`generateGraphHash`-twins defect:
+ * two spellings of one rule, drifting apart in silence. A new phase is
+ * classified once, in `draftValuesAreUnsettled`'s compiler-checked switch.
+ *
+ * Read at FIRE time, never at registration/setup — the whole point is the phase
+ * as it is at the instant of the write.
+ *
+ * NOT applied to `applyDraftResult`'s payload-scoped write: that path makes an
+ * explicit per-call-site decision (`skipAutosave`) about a graph it was handed,
+ * and the TERMINAL apply must autosave the settled values immediately even
+ * while this scenario's phase is still being released.
+ */
+function mayPersistGraphNow(scenarioId: string | null): boolean {
+  return shouldPersistGraphForScenario(scenarioId)
+}
 
 /**
  * Compute a canonical hash of graph state for autosave dirty-detection.
@@ -218,6 +254,18 @@ export function useAutosave() {
     }
 
     writeTimerRef.current = setTimeout(() => {
+      // The streamed draft's values are still in progress — see
+      // `mayPersistGraphNow`. Checked HERE, inside the fired callback, rather
+      // than at the interval tick: the phase can settle during the debounce, and
+      // the only phase that matters is the one at the instant of the write.
+      //
+      // `lastSavedHashRef` is deliberately NOT advanced on this path, so the
+      // skipped content stays dirty and the first tick after the draft settles
+      // writes it. Declining is a deferral, not a drop.
+      if (!mayPersistGraphNow(currentScenarioId)) {
+        return
+      }
+
       // P1 Fix: Skip save if content hasn't changed
       if (currentHash === lastSavedHashRef.current) {
         return
@@ -297,4 +345,50 @@ export function useAutosave() {
       }
     }
   }, [currentHash, nodes.length, edges.length, debouncedSave])
+
+  // -----------------------------------------------------------------------
+  // THE CLOSE WINDOW — flush the graph before the page goes away
+  // -----------------------------------------------------------------------
+  // Between two ticks of the interval above, the newest work exists ONLY in the
+  // in-memory store: up to AUTOSAVE_INTERVAL_MS + DEBOUNCE_MS of edits that a
+  // reload or a tab close silently destroyed. `flushWorkToAutosave` was written
+  // for precisely this and is fully synchronous, but its only importer was
+  // `ErrorBoundary.tsx` — a React CRASH, not a close. Neither `beforeunload`
+  // handler in the tree closed it either: `useScenario.ts`'s is a navigation
+  // WARNING (`preventDefault` only, it writes nothing) and
+  // `useThreadPersistence.ts`'s carries the chat transcript, not the graph.
+  //
+  // ⚠ SYNCHRONOUS OR IT IS THEATRE. `beforeunload`/`pagehide` give no async
+  // guarantee — a promise, a `setTimeout` or an `await` here would simply not
+  // land. `flushWorkToAutosave` → `saveAutosave` → `localStorage.setItem` is
+  // synchronous end to end and completes inside the handler, which is the only
+  // reason this path can be trusted at all. Do not make it async.
+  //
+  // BOTH EVENTS, on purpose. `pagehide` is the reliable one (it fires on
+  // bfcache entry and on mobile teardown, where `beforeunload` often does not);
+  // `beforeunload` covers the desktop close/reload path. A double fire is free —
+  // `saveAutosave` early-returns on a byte-identical payload.
+  //
+  // Reusing the crash primitive rather than re-projecting here is deliberate:
+  // it already owns the shared `projectAutosaveData` projection, the structural
+  // plausibility gates, and the "never clobber a good autosave with an empty
+  // graph" rule. A second projection would be a hand-maintained mirror of the
+  // one above (CLAUDE.md trap 12). Its provider is registered at store MODULE
+  // INIT (store.ts:6146), not by the boundary, so it is safe outside one.
+  useEffect(() => {
+    const flushOnClose = () => {
+      // Registered once and read at FIRE time, so the listener stays correct
+      // across scenario switches without re-registering — and so the phase it
+      // tests is the phase at the moment of the close.
+      if (!mayPersistGraphNow(useCanvasStore.getState().currentScenarioId)) return
+      flushWorkToAutosave()
+    }
+
+    window.addEventListener('pagehide', flushOnClose)
+    window.addEventListener('beforeunload', flushOnClose)
+    return () => {
+      window.removeEventListener('pagehide', flushOnClose)
+      window.removeEventListener('beforeunload', flushOnClose)
+    }
+  }, [])
 }

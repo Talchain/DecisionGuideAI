@@ -315,6 +315,17 @@ export function applyDraftResult(
   // no Stop click needed. The terminal apply autosaves normally, so nothing is
   // lost once the values settle; before then there is deliberately nothing on
   // disk to restore, which is the honest state.
+  //
+  // ⚠ THAT LAST SENTENCE ONLY BECAME TRUE ON 2026-08-25, AND ONLY BECAUSE OF A
+  // GUARD THAT IS NOT IN THIS FILE. Skipping HERE covers just the
+  // PAYLOAD-scoped write. `hooks/useAutosave.ts` holds two STORE-scoped writers
+  // to the SAME localStorage slot — they re-read the store at fire time — and
+  // neither knew the phase existed, so a 30 s tick landing inside the settling
+  // window persisted the preview regardless of this skip. Both now consult
+  // `shouldPersistGraphForScenario` (see `mayPersistGraphNow` there), which is
+  // also what makes the close flush added alongside them safe. If you change
+  // the rule here, change it there: one skip alone has already proved it does
+  // not hold the line.
   if (!opts.skipAutosave) try {
     // Shared projection — previously this literal omitted ceeAnalysisReady and
     // selectedGoalNode. NOTE: this runs BEFORE setCeeAnalysisReady below, so
