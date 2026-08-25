@@ -140,6 +140,72 @@ function readTopDrivers(value: unknown): DecisionBriefDriverView[] {
 }
 
 /**
+ * ⭐ THE ANTI-DARK CLASSIFICATION — every member the producer sends must be
+ * accounted for, or the guard REDs.
+ *
+ * This estate's dominant loss class is working code no user can reach: the UI
+ * mappers rebuild payloads as key-by-key allow-lists, so a new producer field is
+ * DARK BY DEFAULT and fails silently with green suites at every other hop. A
+ * hand-maintained census of "fields we handle" would drift the same way.
+ *
+ * So the OBSERVED side is derived — `decisionBriefFieldCoverage.spec.ts` reads the
+ * committed live captures and takes the real union of `decision_brief` keys — and
+ * this is the DECIDED side. A member that appears on the wire and in none of these
+ * four sets is unclassified, and the guard names it and fails.
+ *
+ * The sets are composed into `DECISION_BRIEF_CLASSIFIED` rather than a fifth list
+ * being typed out, so a key cannot be classified twice or belong to none of them
+ * while still counting as handled. (Same shape as `decisionReviewAdapter`'s
+ * `V0_30_CONTENT_KEYS`, for the same reason: a guard that names examples tests the
+ * examples; a guard that iterates the list tests the rule.)
+ */
+export const DECISION_BRIEF_RENDERED_HERE = [
+  'top_drivers',
+  'what_would_change',
+  'defaulted_assumptions',
+] as const
+
+/** Read to decide whether the projection is a brief at all; never displayed. */
+export const DECISION_BRIEF_CONSUMED_AS_IDENTITY = [
+  'brief_id',
+  'created_at',
+  'version',
+] as const
+
+/** Reaches the user, but through a different consumer — must not render twice. */
+export const DECISION_BRIEF_OWNED_ELSEWHERE = {
+  options: 'id-to-label fallback in mapV5AnalysisToReport; the brief must not restate it',
+  headline_banded: 'leader-entitlement band consumed by decisionVerdict/useResultsSectionData',
+} as const
+
+/**
+ * Deliberately not rendered. A reason is REQUIRED — an entry here is a claim that
+ * a user loses nothing, and that claim should have to be written down.
+ */
+export const DECISION_BRIEF_DECLARED_DARK = {
+  key_assumptions:
+    'a SUBSET of top_drivers on every capture measured, so it can only restate the '
+    + 'neighbouring column; 0 of 1,620 captured briefs carry it while top_drivers is empty',
+  headline: 'leader-designating prose; this surface never restores a leader',
+  robustness: 'a producer verdict this surface has no licence to re-state as its own',
+  robustness_caveat: 'belongs with the robustness verdict, which is not rendered here',
+  warnings: 'the canonical inference-warning strip above the brief is sole owner',
+  warning_codes: 'machine codes; the human-readable strip above owns this surface',
+  analysis_summary: 'band summary owned by the analysis hero, not by the brief',
+  lineage: 'audit provenance, not user-facing on this surface',
+  graph_hash: 'identity for the run, shown nowhere as copy',
+  seed: 'simulation input, never user-facing',
+} as const
+
+/** Composed, never listed again. */
+export const DECISION_BRIEF_CLASSIFIED: readonly string[] = [
+  ...DECISION_BRIEF_RENDERED_HERE,
+  ...DECISION_BRIEF_CONSUMED_AS_IDENTITY,
+  ...Object.keys(DECISION_BRIEF_OWNED_ELSEWHERE),
+  ...Object.keys(DECISION_BRIEF_DECLARED_DARK),
+]
+
+/**
  * ⭐ The producer's own honesty prose about values it had to default.
  *
  * PROSE SAFETY (brief §6) — VET, NEVER REWRITE. The note interpolates a
