@@ -174,3 +174,46 @@ export function renderedLabelPx(declaredPx: number, zoom: number): number {
  * inspector copy is untouched.
  */
 export const CANVAS_LABEL_SCALE_VAR = '--canvas-label-scale'
+
+/**
+ * ⭐⭐ THE CEILING THE AUTO-FIT MUST NOT CROSS — the other end of the band.
+ *
+ * `LABEL_LEGIBLE_ZOOM` stops the product parking the camera somewhere too small
+ * to read. Nothing stopped the opposite, and the opposite shipped: on a fresh
+ * fundraising brief the layout engine threw, the product's own fit never ran,
+ * and the canvas kept xyflow's bare mount `fitView` — bounded only by the
+ * instance's `maxZoom={4}`. Framing one ~300px node in a 1092×878 canvas gave
+ * **328%**. The model was legible in the sense that a single enormous card is
+ * legible, and unusable in every sense that matters.
+ *
+ * A floor with no ceiling is half a band. The doctrine at the top of this module
+ * says the product must never AUTOMATICALLY choose an unreadable view; choosing
+ * an absurdly magnified one is the same failure pointing the other way.
+ *
+ * WHERE THE NUMBER COMES FROM, and why it is not a preference: this module
+ * already names the boundary — counter-scaling "never exceeds 1 once the user
+ * zooms in past 1:1 (magnification is then the user's own deliberate choice)".
+ * So 1:1 is exactly where the product stops compensating and the user takes
+ * over, and an AUTOMATIC fit has no business past it.
+ *
+ * ⚠⚠ THIS WAS WRITTEN AS `labelCounterScale(1)`, AND THAT WAS A FALSE CLAIM
+ * ABOUT OUR OWN VERIFICATION — withdrawn here rather than quietly deleted
+ * (CLAUDE.md trap 14). It read as "derived, so it moves with the contract". It
+ * moves with nothing: `labelCounterScale(z) = 1 / min(1, max(z, FLOOR))`, and
+ * `max(1, x) >= 1` for every `x`, so the expression is **1 for every possible
+ * input** — refuted by simulation across `{0.1 … 4}`, ten identical values. It
+ * also laundered a bare `1` past `zoomLegibilitySingleSource`, whose regex
+ * matches a numeric literal and cannot see a call expression.
+ *
+ * The VALUE was right and the JUSTIFICATION was not, which is the more dangerous
+ * half — a wrong number gets caught by a test, a wrong reason gets inherited. So
+ * the number is stated plainly below and the single-source spec now NAMES it as
+ * the second permitted constant: visible to the guard rather than hidden from it.
+ * That spec's rule was never "one number" — it is "no SECOND copy of a number
+ * that already has a home", and a floor and a ceiling are different quantities.
+ *
+ * As with the floor, this binds the PRODUCT's automatic fits only. Explicit user
+ * gestures — scroll-zoom, the zoom controls, the toolbar's fit button — stay
+ * unclamped by design.
+ */
+export const AUTO_FIT_MAX_ZOOM = 1

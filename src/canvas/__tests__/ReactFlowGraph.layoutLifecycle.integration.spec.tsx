@@ -25,7 +25,7 @@ import { useCanvasStore } from '../store'
 import { useInitialLayoutGuard } from '../hooks/useInitialLayoutGuard'
 import { useMeasureThenLayout } from '../hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
-import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
 
 let mockNodesInitialized = true
 let mockNodeLookup = new Map<string, { measured?: { width?: number; height?: number } }>()
@@ -181,7 +181,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     // fitView fired exactly once with the production contract — asserted
     // directly against the real useFitViewOnLayoutVersion hook output.
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, maxZoom: AUTO_FIT_MAX_ZOOM, duration: 400 })
 
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
     expect(useCanvasStore.getState().layoutInProgress).toBe(false)
@@ -252,6 +252,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     expect(fitViewSpy).toHaveBeenCalledWith({
       padding: FIT_PADDING,
       minZoom: LABEL_LEGIBLE_ZOOM,
+      maxZoom: AUTO_FIT_MAX_ZOOM,
       duration: 400,
     })
   })
@@ -293,7 +294,7 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const lockedFinal = final.find((n) => n.id === 'locked')
     expect(lockedFinal?.position).toEqual({ x: 0, y: 0 })
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, maxZoom: AUTO_FIT_MAX_ZOOM, duration: 400 })
   })
 
   it('scenario A→B switch lays out B when B is stacked and fires fitView once for B (acceptance #5 + #6)', async () => {
@@ -345,6 +346,6 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     // EXACTLY ONE MORE fit, and it is B's: the layout trigger's, after B was
     // laid out. A delta, not a total — see the note above.
     expect(fitViewSpy.mock.calls.length - fitsAfterA, 'B was not framed exactly once after its layout').toBe(1)
-    expect(fitViewSpy).toHaveBeenLastCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, duration: 400 })
+    expect(fitViewSpy).toHaveBeenLastCalledWith({ padding: FIT_PADDING, minZoom: LABEL_LEGIBLE_ZOOM, maxZoom: AUTO_FIT_MAX_ZOOM, duration: 400 })
   })
 })

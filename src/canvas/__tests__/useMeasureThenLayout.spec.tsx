@@ -17,7 +17,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useMeasureThenLayout } from '../hooks/useMeasureThenLayout'
 import { LAYOUT_MEASUREMENT_FALLBACK_MS } from '../utils/nodeLayoutConstants'
-import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
+import { handleLayoutWithRecovery, type LayoutAttemptResult } from '../layout/handleLayoutWithRecovery'
 
 let mockNodesInitialized = false
 let mockNodeLookup = new Map<string, { measured?: { width?: number; height?: number } }>()
@@ -32,7 +32,9 @@ vi.mock('@xyflow/react', () => ({
 // "routes through handleLayoutWithRecovery" test overrides this default
 // in-line.
 vi.mock('../layout/handleLayoutWithRecovery', () => ({
-  handleLayoutWithRecovery: vi.fn((fn: () => Promise<void> | void) => fn()),
+  handleLayoutWithRecovery: vi.fn((fn: () => Promise<LayoutAttemptResult>) => {
+    void fn()
+  }),
 }))
 
 const mockedRecovery = vi.mocked(handleLayoutWithRecovery)
@@ -65,7 +67,14 @@ describe('useMeasureThenLayout', () => {
     mockNodesInitialized = false
     mockNodeLookup = new Map()
     mockedRecovery.mockClear()
-    mockedRecovery.mockImplementation((fn: () => Promise<void> | void) => fn())
+    // The mock stands in for `handleLayoutWithRecovery`, so its parameter type
+    // must accept what the real one accepts. That signature now reports whether
+    // a layout actually happened (`LayoutAttemptResult`), so a `Promise<void>`
+    // annotation here no longer describes it — fixed at the source rather than
+    // absorbed into the typecheck baseline.
+    mockedRecovery.mockImplementation((fn: () => Promise<LayoutAttemptResult>) => {
+      void fn()
+    })
   })
 
   afterEach(() => {

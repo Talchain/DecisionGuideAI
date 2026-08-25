@@ -62,3 +62,28 @@ export function trackAutoFixSuccess(): void {
 export function trackAutoFixFailed(): void {
   track('sandbox.autofix.failed')
 }
+
+/**
+ * ⭐⭐ A LAYOUT FAILURE THAT THE PRODUCT SURVIVED IS STILL A FAILURE.
+ *
+ * The canvas now rescues a failed layout into a readable grid, which is the
+ * point — but it also means the screen no longer screams. The witnessed defect
+ * is INTERMITTENT (an independent journey drive on the same base produced a
+ * perfectly healthy canvas: 16 nodes, 16 unique positions, 0 at the origin),
+ * and the underlying error has never been captured. A rescue with no durable
+ * signal would make an already-elusive failure harder to observe, not easier —
+ * so survivability has to come with a trace an operator can count.
+ *
+ * ⚠ `track()` IS NOT THAT TRACE. It increments an in-memory counter and, in DEV
+ * only, writes one coded line to `console.debug`; it reaches nothing outside the
+ * tab and does not survive a reload. `trackEvent` is the durable half
+ * (`posthog.capture`), so this deliberately uses only that one — and it needs no
+ * change to `lib/telemetry.ts`'s closed `TelemetryEvent` union.
+ *
+ * Payload is a COUNT and a BOOLEAN. No labels, no values, no ids: the number of
+ * nodes involved is enough to tell a one-node blip from a whole model, and
+ * anything richer would put the user's own business content into analytics.
+ */
+export function trackLayoutFallbackApplied(nodeCount: number, rescued: boolean): void {
+  trackEvent('canvas_layout_fallback_applied', { node_count: nodeCount, rescued })
+}

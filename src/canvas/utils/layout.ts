@@ -242,13 +242,62 @@ export async function layoutGraph(
   applyCollisionGuard(positionMap, sizeMap, elkBoxW)
   applyGlobalTranslation(positionMap)
 
+  // ⭐⭐ NO NODE LEAVES A SUCCESSFUL LAYOUT SILENTLY UNPLACED.
+  //
+  // The write-back is a Map keyed by id, so a node absent from `positionMap`
+  // simply keeps whatever position it arrived with — and a freshly drafted node
+  // arrives at `{x:0, y:0}` (`applyDraftResult`'s sole `position` write). The
+  // result is a node sitting under the graph's top-left corner, on a layout
+  // that reported SUCCESS: no throw, no banner, nothing for the user to act on.
+  // Duplicate ids reach the same end by a different route — two nodes read one
+  // Map entry and land on one point — and are deduped only in the render memo,
+  // so the store keeps both.
+  //
+  // Both are reported by name rather than repaired blind. Repair is limited to
+  // the case with an unambiguous right answer: an unplaced UNLOCKED node is
+  // parked in a deterministic row below the laid-out graph, where it is visible
+  // and reachable. Duplicates are NOT repositioned — which node "should" win is
+  // an identity question this layer does not own, and guessing would move a
+  // node the user can see for reasons they cannot.
+  const unplaced: string[] = []
+  const seenIds = new Set<string>()
+  const duplicateIds = new Set<string>()
+  for (const node of nodes) {
+    if (seenIds.has(node.id)) duplicateIds.add(node.id)
+    seenIds.add(node.id)
+    const isNodeLocked = (node.data as Record<string, unknown> | undefined)?.locked === true
+    if (!isNodeLocked && !positionMap.has(node.id)) unplaced.push(node.id)
+  }
+
+  let maxY = 0
+  for (const pos of positionMap.values()) if (pos.y > maxY) maxY = pos.y
+
   const updatedNodes = nodes.map(node => {
     const newPos = positionMap.get(node.id)
     if (newPos && !((node.data as Record<string, unknown> | undefined)?.locked === true)) {
       return { ...node, position: newPos }
     }
+    const rescueIndex = unplaced.indexOf(node.id)
+    if (rescueIndex >= 0) {
+      return {
+        ...node,
+        position: { x: rescueIndex * (elkBoxW + LAYOUT_PADDING_X), y: maxY + elkBoxW },
+      }
+    }
     return node
   })
+
+  if (unplaced.length > 0 || duplicateIds.size > 0) {
+    console.warn(
+      '[CANVAS] layout write-back incomplete:',
+      JSON.stringify({
+        unplaced_node_ids: unplaced,
+        duplicate_node_ids: Array.from(duplicateIds),
+        placed: positionMap.size,
+        total: nodes.length,
+      }),
+    )
+  }
 
   return { nodes: updatedNodes, edges, layoutNodeWidth: nodeW }
 }

@@ -6,7 +6,7 @@ import { excludeNonModelNodes } from '../utils/fitTargets'
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
-import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
@@ -154,6 +154,11 @@ export function useFitViewOnLayoutVersion(): void {
       ...(nodes.length > 0 ? { nodes } : {}),
       padding: computeFitPadding(),
       minZoom: LABEL_LEGIBLE_ZOOM,
+      // ⭐ THE OTHER END OF THE BAND. A floor alone let a degenerate bounding
+      // box — one node, or a graph the layout engine never spread — frame at up
+      // to the instance's `maxZoom={4}`; the witnessed canvas sat at 328%.
+      // Automatic fits do not magnify; the user still can.
+      maxZoom: AUTO_FIT_MAX_ZOOM,
       duration: cameraDuration(400, reducedMotionRef.current),
     })
   })
