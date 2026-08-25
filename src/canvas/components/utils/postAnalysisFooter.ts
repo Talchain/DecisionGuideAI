@@ -60,6 +60,7 @@
 
 import type { RobustnessDisplayVerdict } from '@/components/results/types'
 import { everyEvidenceGapAddressed } from '@/components/results/utils/evidenceGapConfidenceDisplay'
+import type { FreshnessDisplaySemantic } from '@/canvas/store/analysisFreshness'
 
 export type PostFooterIcon = 'check' | 'warning' | 'unknown'
 
@@ -211,4 +212,135 @@ export function derivePostFooterMeta({
   }
   if (evidenceText) parts.push(evidenceText)
   return parts.length > 0 ? parts.join(' · ') : null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE RERUN AFFORDANCE'S LABEL (Core System A, exit A3, link 4).
+//
+// ⭐ WHAT WAS BROKEN. The run affordance never consulted freshness at ALL.
+// `canRunAnalysis` takes ten inputs and none of them is freshness; this
+// footer's action label was the literal `'Rerun'`; and this file's OWN status
+// half (`derivePostFooterStatus`) is a pure function of `robustnessVerdict`,
+// so it cannot speak about currency either. A user edited their model, the
+// analysis went stale, and the footer could render a green ✓ "Stable ranking"
+// beside an unqualified "Rerun" — while CEE's own answer sat composed at
+// `analysisStateSelector.ts` (`requiresRerun`) and was read by NOTHING.
+//
+// ⭐ THIS IS NOT A SEVENTH STALENESS COMPUTATION, and that distinction is the
+// whole design. The estate already carries six, three of which can disagree on
+// screen; adding one would BE the defect. This function DERIVES NOTHING about
+// freshness. It takes two members that `useAnalysisState()` has already
+// composed and maps them to a string. It reads no store slice, applies no
+// predicate to a graph hash, and cannot disagree with the strip above it,
+// because both bottom out in the same selector.
+//
+// ⚠ TWO MEMBERS, TWO QUESTIONS — NAMED APART ON PURPOSE (trap 21).
+//   · `requiresRerun` answers *"would a rerun move this user forward?"* It is
+//     the GATE: it alone decides whether the label is qualified at all. Under
+//     the wire branch it is CEE's own `requires_rerun`; under the derived
+//     branch it is the affordance rule the UI has always applied.
+//   · `semantic` answers *"what may I SAY about this result's currency?"* It is
+//     the WORDING only, and it is never allowed to re-open the gate.
+// The estate's chronic defect is two authorities silently answering different
+// questions under similar names. Here they answer different questions ON
+// PURPOSE, the split is stated, and the disagreement cell is decided below
+// rather than left to whichever happens to be read first.
+//
+// ⚠ `'model changed'` IS A POSITIVE CLAIM AND IS MINTED ONLY FROM `'changed'`.
+// `classifyFreshnessForDisplay`'s rule — "'changed' must never be claimed for a
+// CEE-sourced 'unknown'" — binds this surface too. So the DISAGREEMENT CELL
+// (`requiresRerun` true while `semantic` is `'current'` / `'none'`, reachable
+// when CEE sets `requires_rerun` on a `complete_current` run) falls to the
+// WEAKER cannot-confirm wording, never to the change claim. Degrading toward
+// the claim we can defend is the only safe direction: an unrecognised state is
+// precisely when the product has least right to assert what happened.
+//
+// ⚠ THE ABSENCE CELL, DECIDED AND DISCLOSED. `analysisStateV1` is
+// CLEAR-ON-ABSENCE while `analysisFreshness` is RETAIN-ON-ABSENCE, so a turn
+// carrying no `analysis_state` demotes this reader back to the retained legacy
+// verdict — and a retained `fresh` therefore yields the UNQUALIFIED label. That
+// is honest ONLY because the unqualified label asserts NOTHING about currency:
+// the demotion costs a warning we can no longer justify, and never manufactures
+// a false all-clear. Unknown does not render as current — it renders as
+// cannot-confirm, and `'none'` (nothing has run) renders as neither.
+//   And note what SURVIVES the demotion: the local dirty overlay is retained,
+//   so an edit-since-run still downgrades `fresh` → `unknown` → `cannot_confirm`
+//   → `requiresRerun`. The brief's own case — the user edited their model — is
+//   therefore marked even on a silent turn. Pinned in
+//   `OutputsDock.rerunAffordanceStaleness.spec.tsx`.
+//
+// ⛔ IT MARKS, IT NEVER GATES. Nothing here touches `actionDisabled`. A stale
+// analysis is RERUNNABLE, and disabling the one control that fixes staleness
+// would be a worse lie than the silence this replaced.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Label shown while a run is in flight. Unchanged — the run states itself. */
+export const RERUN_LABEL_RUNNING = 'Running analysis…'
+/** The unqualified label. Asserts nothing about currency, deliberately. */
+export const RERUN_LABEL_PLAIN = 'Rerun'
+/** The POSITIVE claim. Only a stated `'changed'` earns it. */
+export const RERUN_LABEL_CHANGED = 'Rerun — model changed'
+/** The weaker, always-defensible claim. Every other rerun-required state. */
+export const RERUN_LABEL_CANNOT_CONFIRM = "Rerun — can't confirm current"
+
+export interface RerunActionLabelInput {
+  /** A run in flight states itself and outranks every currency statement. */
+  isRunning: boolean
+  /**
+   * `useAnalysisState().requiresRerun` — THE GATE. Producer-composed; never
+   * re-derived here.
+   */
+  requiresRerun: boolean
+  /**
+   * `useAnalysisState().semantic` — THE WORDING ONLY. Never re-opens the gate.
+   */
+  semantic: FreshnessDisplaySemantic
+}
+
+/**
+ * The rerun affordance's label, which is ALSO its accessible name —
+ * `AnalysisFooter` leaves `actionAriaLabel` unset, so
+ * `aria-label={actionAriaLabel ?? actionLabel}` keeps the two identical. That
+ * is a property worth keeping: a button whose visible text and accessible name
+ * make different claims is the same divergence one layer down.
+ *
+ * Pure and total, so it is mutation-testable without a store.
+ */
+export function deriveRerunActionLabel({
+  isRunning,
+  requiresRerun,
+  semantic,
+}: RerunActionLabelInput): string {
+  // A run in flight is a run in flight, whatever the currency verdict says —
+  // the same precedence `useAnalysisRunState` applies one level up. Stating
+  // staleness over a run that is already fixing it would be noise.
+  if (isRunning) return RERUN_LABEL_RUNNING
+
+  // THE GATE. Not stale, or nothing to rerun for → say nothing about currency.
+  if (!requiresRerun) return RERUN_LABEL_PLAIN
+
+  // THE WORDING. Only a stated change earns the change claim.
+  switch (semantic) {
+    case 'changed':
+      return RERUN_LABEL_CHANGED
+    case 'cannot_confirm':
+      return RERUN_LABEL_CANNOT_CONFIRM
+    // ⚠ THE DISAGREEMENT CELL. `requiresRerun` says a rerun would help while
+    // the copy classification has no change to report. Both are true
+    // statements about different questions; the honest resolution is the
+    // weaker claim, never silence (the gate did fire) and never the positive
+    // one (nothing stated a change).
+    case 'current':
+    case 'none':
+      return RERUN_LABEL_CANNOT_CONFIRM
+    default: {
+      // RUNTIME FLOOR + COMPILE-TIME EXHAUSTIVENESS, the pair this repo uses
+      // wherever a producer enum can outgrow its pin. A semantic this build
+      // does not recognise degrades to cannot-confirm — never to a completion
+      // claim, and never to the change claim.
+      const unhandled: never = semantic
+      void unhandled
+      return RERUN_LABEL_CANNOT_CONFIRM
+    }
+  }
 }
