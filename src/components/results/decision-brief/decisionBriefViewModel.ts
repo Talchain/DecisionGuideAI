@@ -10,7 +10,6 @@
  */
 
 import { RAW_ID_PATTERN } from '@/canvas/conversation/friendlyOperation'
-import { containsBannedTerm } from '../utils/glossaryCheck'
 
 export interface DecisionBriefDriverView {
   /** Producer label, preserved verbatim. */
@@ -58,6 +57,13 @@ const MAX_WHAT_WOULD_CHANGE = 10
 const MAX_LABEL_LENGTH = 300
 const MAX_NOTE_LENGTH = 600
 const MAX_DEFAULTED_ASSUMPTIONS = 10
+/**
+ * How far to LOOK for qualifying rows — not how many to show. The cap above is the
+ * producer's contract on the output; this bounds the input scan so a hostile payload
+ * cannot force unbounded regex work. Set at 20x the declared maximum: generous enough
+ * that no realistic mix of `source` kinds starves the category, finite by construction.
+ */
+const MAX_DEFAULTED_SCAN = MAX_DEFAULTED_ASSUMPTIONS * 20
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -208,30 +214,55 @@ export const DECISION_BRIEF_CLASSIFIED: readonly string[] = [
 /**
  * ⭐ The producer's own honesty prose about values it had to default.
  *
- * PROSE SAFETY (brief §6) — VET, NEVER REWRITE. The note interpolates a
- * USER-AUTHORED factor label, and the analysis-surface glossary bans ordinary
- * business vocabulary (`variance`, `intervention`, `blocked`, `win rate`). The
- * repo's existing helper for this is `safeInterpolatedLabel`, which SUBSTITUTES
- * a fallback — and substituting into a producer sentence changes what the
- * producer said. So this reader proves the guard is an IDENTITY on the exact
- * string it is about to render, and WITHHOLDS the row when it is not. A withheld
- * row is an absence; a repaired row would be a fabrication.
+ * PROSE SAFETY (brief §6) — VET, NEVER REWRITE. The note is PRODUCER PROSE and the
+ * label is USER DATA; both are rendered verbatim, with no transform between wire and
+ * DOM. `safeInterpolatedLabel` is deliberately NOT used: substituting a fallback into
+ * the producer's sentence would change what the producer said. A row that cannot be
+ * shown unchanged is WITHHELD, never repaired — an absence, never a fabrication.
  *
- * Measured against every capture available: 0 of 17 distinct notes and 0 of 15
- * distinct factor labels trip the guard today. The collision is REACHABLE, not
- * live — "Budget Variance" is an entirely ordinary factor name — so it is pinned
- * by test rather than left to be discovered on a user's screen.
+ * ⚠ THE ANALYSIS GLOSSARY IS DELIBERATELY NOT A GUARD HERE, and this is the correction
+ * that matters most on this surface. It used to gate every row on
+ * `containsBannedTerm(factorLabel) || containsBannedTerm(note)`. Measured against 13
+ * realistic business factor labels, that withheld TEN — `Budget Variance`, `Win Rate`,
+ * `Price Elasticity`, `Blocked Pipeline Value`, `Government Intervention Risk`,
+ * `Knowledge Graph Coverage`, `Posterior Demand Estimate`, `Confidence Score Threshold`,
+ * `Winner Take All Share`, `Recommended Retail Price` — with no trace in the DOM and no
+ * withheld-count anywhere. The user lost the honesty disclosure BECAUSE they had named
+ * a factor normally, and the loss was invisible to them and to us.
  *
- * Unlike the ranked arrays above, this is an unordered SET of factors, so an
- * unusable row is skipped rather than ending a prefix: there is no rank to lie
- * about, and the remaining rows are each independently true.
+ * It was a category error. `glossaryCheck` gates UI-GENERATED COPY — its own header
+ * says "we never rewrite user data, only the generated copy that names it", and
+ * `analysis-hero/__tests__/copyHygiene.spec.tsx` states the rule outright:
+ * "Producer-supplied strings ... are deliberately NOT scanned — they are rendered as
+ * data, never authored here." Two questions were sharing one predicate: "is Olumi
+ * authoring jargon or a leader claim in copy it wrote?" (glossary — correct, and
+ * untouched at its seven other consumers) and "is this producer sentence safe to
+ * render verbatim?" (this surface). The second is answered in full by the guards that
+ * remain: raw-identifier, length, blank/NUL, and the `source` token.
+ *
+ * Nothing forced the gate. No spec scans this surface for banned terms, and the estate's
+ * one source scanner walks `src/canvas/components/pre-analysis-v3/` — a different
+ * subtree, and blind to runtime wire data by construction. The gate was also applied to
+ * `factorLabel`, which has ZERO production consumers: `DecisionBriefSection` renders
+ * `entry.note` alone. Rows were being withheld over a string no user could ever see.
+ *
+ * ⭐ CAP AFTER FILTER, NEVER BEFORE. This used to `slice(0, MAX)` and only then test
+ * `source`, so ten leading non-qualifying rows starved the category to zero while the
+ * SAME two valid rows rendered fine when placed first — pure ordering dependence, and
+ * the same "cap empties the list" defect already fixed in `readStringList`. The cap
+ * counts QUALIFYING rows; `MAX_DEFAULTED_SCAN` bounds the input scan separately.
+ *
+ * Unlike the ranked arrays above, this is an unordered SET of factors, so an unusable
+ * row is skipped rather than ending a prefix: there is no rank to lie about, and the
+ * remaining rows are each independently true.
  */
 function readDefaultedAssumptions(value: unknown): DecisionBriefDefaultedView[] {
   if (value == null) return []
   if (!Array.isArray(value)) return []
 
   const out: DecisionBriefDefaultedView[] = []
-  for (const item of value.slice(0, MAX_DEFAULTED_ASSUMPTIONS)) {
+  for (const item of value.slice(0, MAX_DEFAULTED_SCAN)) {
+    if (out.length >= MAX_DEFAULTED_ASSUMPTIONS) break
     if (!isRecord(item)) continue
     // The producer's own token for "we defaulted this". Anything else is a row
     // this surface has no licence to describe.
@@ -241,10 +272,6 @@ function readDefaultedAssumptions(value: unknown): DecisionBriefDefaultedView[] 
     const note = readNonBlankString(item.note, MAX_NOTE_LENGTH)
     if (factorLabel === null || note === null) continue
     if (containsRawIdentifier(factorLabel) || containsRawIdentifier(note)) continue
-
-    // The identity proof. Both the anchor and the whole rendered join must pass
-    // unchanged, or the row does not appear at all.
-    if (containsBannedTerm(factorLabel) || containsBannedTerm(note)) continue
 
     out.push({ factorLabel, note })
   }
