@@ -35,7 +35,7 @@
  * simply unhandled and "fixes" it.
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, type Mock } from 'vitest'
 import { ANALYSIS_RUN_STATE_KINDS } from '@talchain/schemas/boundary'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
@@ -47,9 +47,20 @@ import {
 
 type SetVerdictFn = NonNullable<BootAnalysisVerdictStore['setAnalysisStateV1']>
 
+/**
+ * ⚠ TYPED BY IDENTITY OFF THE STORE CONTRACT, NOT AS `ReturnType<typeof vi.fn>`.
+ * That widens to `Mock<any[], unknown>` while `vi.fn<Parameters<…>, …>` infers
+ * the real tuple, and vitest's `Mock` is INVARIANT in its argument tuple
+ * (`mock.calls` puts `TArgs` in both positions), so the two do not assign —
+ * TS2322, caught by the typecheck ratchet. Deriving both the declaration and
+ * the implementation from `BootAnalysisVerdictStore` fixes it at the source AND
+ * keeps `mock.calls[0]![0]` checked against the REAL parameter, which a widened
+ * `any[]` would have silently stopped checking. Same lesson as the sibling
+ * `applyScenarioAnalysisRead.spec.ts:73-83`.
+ */
 function makeStore(): {
   store: BootAnalysisVerdictStore
-  setAnalysisStateV1: ReturnType<typeof vi.fn>
+  setAnalysisStateV1: Mock<Parameters<SetVerdictFn>, ReturnType<SetVerdictFn>>
 } {
   const setAnalysisStateV1 = vi.fn<Parameters<SetVerdictFn>, ReturnType<SetVerdictFn>>(
     () => {},
