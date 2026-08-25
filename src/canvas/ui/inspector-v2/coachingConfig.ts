@@ -58,8 +58,28 @@ export const COACHING = {
   /** FactorObservablePanel: data freshness nudge */
   factorObservableData: 'If you have more recent data for this measurement, updating it would sharpen the analysis.',
 
-  /** FactorExternalPanel: uncertainty calibration nudge */
-  factorExternalUncertainty: 'This is a source of uncertainty. Even a rough estimate would significantly sharpen the analysis.',
+  /**
+   * FactorExternalPanel: uncertainty calibration nudge.
+   *
+   * ⚠ THIS LINE HAS BEEN WRONG TWICE, IN OPPOSITE DIRECTIONS.
+   * It first read *"Even a rough estimate would significantly sharpen the
+   * analysis."* — a promise about an edit the user cannot make. The correction
+   * then went too far the other way (*"A recorded range makes that uncertainty
+   * explicit in the model"*, written alongside a panel note denying any
+   * analytical effect at all), understating a field that IS an analysis input:
+   * `prior.{range_min,range_max}` passes `transformNodeToV2` untouched and is
+   * declared on CEE's graph contract as what ISL samples for external factors
+   * (`schemas/cee-v3.ts:184-185`).
+   *
+   * What is entitled here, per this file's own header: the factor's declared
+   * TYPE supports "source of uncertainty"; the field's declared role supports
+   * "analysis input". What is NOT entitled is any advice to go and set it —
+   * `NODE_SETTER_AUTHORITY.setPriorRange` is `'disabled'` and the Inspector is
+   * wrapped in a disabled fieldset, so the only action this card's button
+   * performs is `handleAsk`. The nudge therefore points at asking, which is
+   * exactly what the button does.
+   */
+  factorExternalUncertainty: 'This is a source of uncertainty. Its recorded range is an analysis input, so it is worth asking whether that range reflects what you know.',
 
   /** OutcomePanel: model completeness nudge */
   outcomeCompleteness: 'Consider whether all the relevant factors driving this outcome are captured in the model.',
@@ -148,7 +168,7 @@ export interface CoachingContext {
  */
 const COACHING_TEMPLATES: Partial<Record<CoachingKey, string>> = {
   factorControllableEvidence: '{factorName} may benefit from an industry benchmark. Even a rough anchor would improve confidence.',
-  factorExternalUncertainty: '{factorName} is a source of uncertainty. Even a rough estimate would significantly sharpen the analysis.',
+  factorExternalUncertainty: '{factorName} is a source of uncertainty. Its recorded range is an analysis input, so it is worth asking whether that range reflects what you know.',
   factorObservableData: 'If you have more recent data for {factorName}, updating it would sharpen the analysis.',
 }
 

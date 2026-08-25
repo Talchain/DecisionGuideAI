@@ -156,11 +156,56 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const robustness = useRobustness()
   const flipEntry = (robustness?.flip_thresholds as Array<{ node_id: string; alternative_winner_label?: string }> | undefined)
     ?.find(ft => ft.node_id === nodeId)
+  /**
+   * Contextual guidance — the factor's ANALYTICAL STATUS only.
+   *
+   * ⚠⚠ THIS SLOT HAS NOW CARRIED TWO DIFFERENT FALSE SENTENCES, FAILING IN
+   * OPPOSITE DIRECTIONS. Read both before editing it a third time.
+   *
+   * 1. It OVERPROMISED. Tier 2 said *"Narrowing the range would sharpen the
+   *    analysis."* and tier 3 said *"Providing an estimate helps the simulation
+   *    account for this uncertainty."* — an instruction to do something
+   *    consequential, sitting directly above a control that cannot be operated.
+   * 2. The first fix then UNDERPROMISED, and put the denial beside the control
+   *    where it did the most damage: *"It does not affect analysis."* That is
+   *    false about the FIELD. `prior.{range_min,range_max}` is a declared
+   *    analysis input — absent from `V2_NODE_BLOCKLIST` so it passes through
+   *    `transformNodeToV2` verbatim (adapter.ts:968-1017, which names `prior` in
+   *    its own comment), and declared on CEE's graph contract at
+   *    `schemas/cee-v3.ts:184-185` with the reason written beside it: "ISL needs
+   *    prior ranges to run Monte Carlo sampling on external factors." ISL draws
+   *    `rng.uniform(range_min, range_max)` on every Monte Carlo sample
+   *    (`robustness_analyzer_v2.py:1275`). The same panel already asserted as
+   *    much under "Show model detail", where `FactorExternalEditor` names the
+   *    distribution ISL samples from these very numbers — so the denial
+   *    contradicted a sibling line in its own component tree, invisibly,
+   *    because `TechnicalDisclosure` is closed by default.
+   *
+   * The two sentences answered DIFFERENT QUESTIONS under one form of words
+   * (trap 21): *"does this range affect the analysis?"* (yes) and *"will my
+   * edit here reach it?"* (no). Naming them apart is the whole fix — the role
+   * note below answers both, in that order, and neither this slot nor that one
+   * may collapse them again.
+   *
+   * What THIS slot keeps is only what the panel can derive: tier 1 a real
+   * robustness flip threshold, tier 2 a real sensitivity rank, tier 3 the
+   * factor's declared TYPE (`category === 'external'`) — the entitlement
+   * standard coachingConfig's own header sets.
+   *
+   * ⚠ AND NONE OF THEM MAY BE AN INSTRUCTION. `InspectorRouter` wraps every
+   * panel in an unconditional `<fieldset disabled>` beneath
+   * INSPECTOR_READ_ONLY_REASON (`InspectorRouter.tsx:334-340`, pinned by
+   * `InspectorRouter.spec.tsx` "semantic controls fail closed without GraphV3
+   * authority"), and `NODE_SETTER_AUTHORITY.setPriorRange` is `'disabled'`. On
+   * the deployed build this control is mounted and INERT. These tiers state
+   * what is true of the FACTOR; the role note states what the RANGE is and
+   * that it cannot be set here; neither tells anyone to act.
+   */
   const externalGuidance = flipEntry?.alternative_winner_label
     ? `If ${String(node.data?.label ?? 'this factor')} is high, the result changes to ${flipEntry.alternative_winner_label}.`
     : isResultsMode && displayMetadata.sensitivityRank != null
-    ? 'This factor contributes significant uncertainty to your results. Narrowing the range would sharpen the analysis.'
-    : 'Providing an estimate helps the simulation account for this uncertainty.'
+    ? 'This factor contributes significant uncertainty to your results.'
+    : 'This factor is outside your control, so its level is uncertain.'
 
   return (
     <div>
@@ -235,7 +280,12 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         </StaleGuardBanner>
 
         {/* Contextual guidance */}
-        <p className={`${typography.panelBody} text-text-body mt-2`}>{externalGuidance}</p>
+        <p
+          className={`${typography.panelBody} text-text-body mt-2`}
+          data-testid="factor-external-guidance"
+        >
+          {externalGuidance}
+        </p>
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}
@@ -317,6 +367,92 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               </label>
             </div>
           )}
+
+          {/*
+            ── TWO FACTS, IN THIS ORDER, AND NEITHER MAY BE DROPPED ───────────
+
+            A user looking at four quick-set buttons, a range bar and a pair of
+            min/max inputs is asking two questions, and they have DIFFERENT
+            answers. Every previous version of this copy answered one of them
+            and let the wording imply the other (trap 21), which is how the
+            same slot shipped a false promise and then its false denial:
+
+              Q1  "Does this range matter to the analysis?"   → YES.
+              Q2  "Will changing it HERE change my results?"  → NO.
+
+            Q1 is a fact about the FIELD, and it was derived end to end at the
+            bytes (PLoT `7e5d8a7`, ISL `28fe0c9`, fresh clones, contrast
+            controls firing):
+              · absent from `V2_NODE_BLOCKLIST`, so `transformNodeToV2` passes
+                it to PLoT verbatim (adapter.ts:968-1017, whose own comment
+                names `prior` as a field the blocklist exists to let through);
+              · declared on CEE's graph contract, `schemas/cee-v3.ts:184-185`,
+                under the line "ISL needs prior ranges to run Monte Carlo
+                sampling on external factors";
+              · declared on PLoT's node types (`engine-v3.ts:130-135, 254-259`),
+                validated in `graph-normaliser.ts:380-413`, and emitted into
+                `parameter_uncertainties` by `translator-v3.ts:842-847`;
+              · drawn by ISL on every Monte Carlo sample —
+                `robustness_analyzer_v2.py:1275`, `rng.uniform(range_min,
+                range_max)` — becoming the node's `base` in the structural
+                equation (`:1437-1466`), hence propagating into the goal
+                outcome, the option comparison and the sensitivity ranking.
+            None of that is inert, and "It does not affect analysis." was simply
+            false about it.
+
+            ⚠ WHY THE SENTENCE SAYS "the model's prior" AND NOT "your results
+            will change". PLoT's pass is GATED, and one gate is silent: a node
+            carrying `observed_state.value` skips the prior entirely
+            (`translator-v3.ts:744` — observed state wins, no warning), and the
+            entry is also dropped for a non-`external` category (`:746`), a
+            non-`uniform` distribution (`:748`) or a degenerate range (`:793`).
+            Asserting a guaranteed per-run effect would be the THIRD absolute
+            claim this slot has made, and it would be false on exactly those
+            branches. Stating the field's ROLE is true across the whole domain,
+            and it does not mirror a gate that lives in another service (trap
+            12 — a mirror of PLoT's precedence would invert the day PLoT
+            changes it).
+
+            Q2 is a fact about this SURFACE, and it is why the sentence is not
+            simply "It affects analysis." The inspector is read-only:
+            `InspectorRouter` wraps every panel in an unconditional `<fieldset
+            disabled>` (InspectorRouter.tsx:334-340), and this repo's own
+            authority manifest records the verdict directly —
+            `NODE_SETTER_AUTHORITY.setPriorRange: 'disabled'`. No affordance on
+            this panel can write the field. Even the local write would not
+            settle it: `setPriorRange` updates the store and emits
+            `prior_range_edit`, which CEE persists as a typed turn FACT and
+            which writes no graph.
+
+            ⚠ DO NOT COMPRESS THIS TO ONE ABSOLUTE CLAIM. Two have been tried —
+            "narrowing the range would sharpen the analysis" and "it does not
+            affect analysis" — and both were false, in opposite directions,
+            because each collapsed Q1 and Q2 into a single verdict. If a future
+            edit can only fit one sentence, keep Q2: it is the one that governs
+            what the reader is about to do.
+
+            ⚠ NO EM-DASH. `Brief3Panels.spec.tsx` ("Em-dash enforcement")
+            forbids U+2014 in rendered panel output, and it caught the first
+            draft of this sentence. Note its blind spot, which is the same one
+            that hid the contradiction this change fixes: it scans the
+            COLLAPSED panel, so nothing inside `TechnicalDisclosure` is subject
+            to it. The expanded-surface scan in this panel's own spec asserts
+            it there too.
+
+            "your judgement" is deliberately avoided: a drafted prior arrives
+            from CEE already populated, so the panel cannot establish who
+            authored the range. And nothing here is in the imperative — an
+            instruction on a surface that cannot carry it would be another
+            false promise. The vocabulary is borrowed, not minted: "read-only"
+            from INSPECTOR_READ_ONLY_REASON, which the reader has already met at
+            the top of this panel.
+          */}
+          <p
+            className={`${typography.panelMeta} text-text-light mt-2`}
+            data-testid="factor-external-range-role"
+          >
+            This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You cannot change it here yet, because this inspector is read-only.
+          </p>
         </PrimaryControlCard>
 
         {/* Coaching — within Your input group, below the card */}
@@ -325,7 +461,19 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           panelType="factor-external"
           fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
           labelContext={{ label: String(node.data?.label ?? '') }}
-          actionLabel="Narrow the range"
+          /*
+           * NO `actionLabel` OVERRIDE, DELIBERATELY — the default is
+           * 'Ask about this'.
+           *
+           * This prop used to read `actionLabel="Narrow the range"`, on the
+           * button whose onClick is InspectorCoaching's `handleAsk` →
+           * `requestAsk` → prefill a chat question. It narrows nothing. That is
+           * the same defect InspectorCoaching's own header records (ledger
+           * L-18): "a control labelled as one semantic doing the other", and
+           * the rule it set is to label a control for what it does using the
+           * estate's existing word for the action class rather than minting a
+           * third vocabulary. The existing word is the component default.
+           */
         />
       </PanelGroup>
 
