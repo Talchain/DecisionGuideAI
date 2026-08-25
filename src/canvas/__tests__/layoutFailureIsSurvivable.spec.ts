@@ -508,3 +508,79 @@ describe('a survived failure is still a reported failure', () => {
     vi.doUnmock('../../lib/posthog')
   })
 })
+
+/**
+ * ⭐⭐ THE SENTRY HALF IS PINNED — it was the one signal nothing held down.
+ *
+ * ⚠ MEASURED, NOT SUSPECTED: deleting the ENTIRE `captureError` call from the
+ * layout catch left the whole suite green (target 0 assertions, against a
+ * contrast control of 2 for the posthog half, which had discriminating tests
+ * from the day it shipped). A surviving mutant on an observability call is not
+ * a cosmetic gap — it is the exact thing the founder is being asked to enable.
+ * `VITE_SENTRY_DSN` is currently unset on staging (measured at the deployed
+ * bytes: `VITE_SENTRY_DSN:void 0`, with `MODE` already `"production"`), so a
+ * tidy-up between now and the variable being set would mean the DSN gets
+ * switched on over a call site that no longer exists — observability enabled on
+ * nothing, with every test still green.
+ *
+ * Two signals, two readers, and now both are pinned: posthog answers HOW OFTEN
+ * (`canvas_layout_fallback_applied`), Sentry answers WHAT THREW.
+ */
+describe('the layout failure reaches the error sink, not just the console', () => {
+  it('captures the throw with a stable label and redaction-safe context', async () => {
+    const captureError = vi.fn()
+    vi.doMock('../../lib/monitoring', () => ({ captureError, captureErrorDetail: vi.fn() }))
+    vi.doMock('../utils/layout', () => ({
+      layoutGraph: vi.fn(async () => {
+        throw new Error('ELK exploded')
+      }),
+    }))
+    vi.resetModules()
+    const { useCanvasStore: store } = await import('../store')
+    store.getState().resetCanvas()
+    store.setState({ nodes: originStack(6), edges: [] })
+
+    await expect(store.getState().applyLayout()).rejects.toThrow(/ELK exploded/)
+
+    expect(captureError).toHaveBeenCalledTimes(1)
+    const [err, context] = captureError.mock.calls[0]!
+    // The ERROR itself, not a stringified husk — a sink needs the stack.
+    expect(err).toBeInstanceOf(Error)
+    expect((err as Error).message).toMatch(/ELK exploded/)
+    // The label is the grouping key an operator filters on; pin it by value so
+    // a rename is a visible decision rather than a silent loss of the series.
+    expect(context).toMatchObject({ label: 'canvas.layout.failed', nodeCount: 6 })
+    // ⚠ REDACTION IS PINNED BY SHAPE, NOT BY GOOD INTENTIONS. The context may
+    // carry a grouping key, a COUNT and an IDENTITY — and nothing else. If a
+    // later change starts attaching node labels, units or values, the user's
+    // own business content goes to a third-party monitoring service, and this
+    // assertion is what stops it landing quietly.
+    expect(Object.keys(context as object).sort()).toEqual([
+      'label',
+      'nodeCount',
+      'scenarioId',
+    ])
+    vi.doUnmock('../../lib/monitoring')
+  })
+
+  it('⭐ DISCRIMINATING TWIN — a SUCCESSFUL layout captures nothing', async () => {
+    // Without this the test above would pass on a call that fired
+    // unconditionally, which would bury every real failure in noise.
+    const captureError = vi.fn()
+    vi.doMock('../../lib/monitoring', () => ({ captureError, captureErrorDetail: vi.fn() }))
+    vi.doMock('../utils/layout', () => ({
+      layoutGraph: vi.fn(async (nodes: { id: string }[]) => ({
+        nodes: nodes.map((n, i) => ({ ...n, position: { x: i * 400, y: 0 } })),
+        layoutNodeWidth: 320,
+      })),
+    }))
+    vi.resetModules()
+    const { useCanvasStore: store } = await import('../store')
+    store.getState().resetCanvas()
+    store.setState({ nodes: originStack(4), edges: [] })
+
+    await store.getState().applyLayout()
+    expect(captureError).not.toHaveBeenCalled()
+    vi.doUnmock('../../lib/monitoring')
+  })
+})
