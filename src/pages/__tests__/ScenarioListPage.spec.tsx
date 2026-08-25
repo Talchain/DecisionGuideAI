@@ -38,6 +38,7 @@ vi.mock('../../services/scenarioService', () => ({
 }))
 
 import ScenarioListPage from '../ScenarioListPage'
+import { GUEST_STORAGE_CLAIM_PATTERNS } from '../../test/guestStorageClaims'
 
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -354,13 +355,10 @@ describe('ScenarioListPage', () => {
     renderPage()
     const text = document.body.textContent ?? ''
     expect(text.length, 'nothing rendered — this assertion would be vacuous').toBeGreaterThan(0)
-    for (const banned of [
-      /only in this browser/i,
-      /stays? (?:only )?(?:on|in) (?:this|your) (?:browser|device|computer)/i,
-      /never leaves/i,
-      /stored only locally/i,
-      /we (?:do not|don't) (?:store|keep|save)/i,
-    ]) {
+    // Patterns come from the shared definition swept repo-wide — NOT a second
+    // copy here. Two copies of an absence assertion's own definition is trap 13
+    // with a delay fuse: narrow one and the other keeps passing.
+    for (const banned of GUEST_STORAGE_CLAIM_PATTERNS) {
       expect(text, `first-use copy must claim nothing about where work lives; matched ${banned}`)
         .not.toMatch(banned)
     }
