@@ -106,8 +106,54 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     // so that boundary was documented rather than real. Bind it by identity to
     // the exact member set.
     expect(Object.keys(view).sort()).toEqual(
-      ['currentResultsHash', 'resultsComplete', 'setAnalysisStateV1'].sort(),
+      [
+        'currentResultsHash',
+        // ⚠ ADDED BY THE DIVERGENCE GUARDS, AND THIS SPEC CORRECTLY OBJECTED.
+        // The applier now needs ONE more fact — whether the canvas on screen
+        // derives from a server graph we accepted — so the member set genuinely
+        // changed and this expectation had to move with it. Recorded rather
+        // than quietly widened: the whole point of an identity binding is that
+        // adding a member is a decision someone makes on purpose.
+        'graphAcceptedForCanvas',
+        'resultsComplete',
+        'setAnalysisStateV1',
+      ].sort(),
     )
+  })
+
+  it('⭐ the new member is a DERIVED BOOLEAN — no graph slice crosses the boundary', () => {
+    // This is the guard the member-set assertion above was really protecting,
+    // now made explicit. `graphAcceptedForCanvas` is derived FROM a graph slice
+    // (`lastAuthoritativeGraph`), and the boundary it must respect is that the
+    // SLICE ITSELF never crosses — the applier gets an answer, not the graph.
+    //
+    // A future edit that "simplifies" this by handing over `lastAuthoritativeGraph`
+    // (or `nodes`) would satisfy a looser key check and REDs here instead.
+    const view = readProvisionalApplyStore()
+    expect(typeof view.graphAcceptedForCanvas).toBe('boolean')
+    for (const value of Object.values(view)) {
+      expect(Array.isArray(value)).toBe(false)
+    }
+  })
+
+  it('⭐ it tracks the REAL store, both ways — not a constant', () => {
+    // Trap 13b: a guard whose discrimination is unpinned. Asserting only `true`
+    // (or only `false`) would pass against a hardcoded literal. Drive the actual
+    // store fields both ways and require the derived answer to MOVE.
+    useCanvasStore.setState({
+      lastAuthoritativeGraph: null,
+      nodes: [{ id: 'local-1', type: 'factor', position: { x: 0, y: 0 }, data: {} }] as never,
+    } as never)
+    expect(readProvisionalApplyStore().graphAcceptedForCanvas).toBe(false)
+
+    useCanvasStore.setState({
+      lastAuthoritativeGraph: { nodeIds: ['server-a'], edgePairs: [] },
+    } as never)
+    expect(readProvisionalApplyStore().graphAcceptedForCanvas).toBe(true)
+
+    // An EMPTY canvas is not divergent — nothing local for a verdict to misdescribe.
+    useCanvasStore.setState({ lastAuthoritativeGraph: null, nodes: [] as never } as never)
+    expect(readProvisionalApplyStore().graphAcceptedForCanvas).toBe(true)
   })
 
   it('⭐ carries `currentResultsHash` sourced from the REAL store at `results.hash`', () => {

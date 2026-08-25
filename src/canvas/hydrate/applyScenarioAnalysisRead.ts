@@ -139,7 +139,68 @@ export function isReadTerminalRunState(kind: string): kind is ReadTerminalRunSta
  * a wider type would let a later edit reach the graph slices, which belong to
  * `serverGraphHydration`.
  */
+/**
+ * ── THE TWO DIVERGENCE HARMS, PARAMETERISED SEPARATELY ─────────────────────
+ *
+ * Two sets, not one predicate. Today both decline on the same FACT (a canvas
+ * that derives from no accepted server graph), and they are still kept apart,
+ * because they answer different questions and will not necessarily move
+ * together. A single `DIVERGENT_DECLINED_KINDS` would make "relax the currency
+ * rule" and "relax the block rule" the same edit — and the second is far more
+ * dangerous than the first.
+ *
+ * Their union is asserted EQUAL to `READ_TERMINAL_RUN_STATE_KINDS` in
+ * `__tests__/`, derived from the contract rather than mirrored here, so a new
+ * terminal kind cannot land in neither set and slip through unclassified
+ * (trap 12d: derivation proves agreement, a corpus proves completeness).
+ */
+
+/** MISINFORMS: a freshness claim about a graph the user does not have. */
+export const DIVERGENT_DECLINED_CURRENCY_KINDS = [
+  'complete_current',
+  'complete_stale',
+] as const
+
+/**
+ * REMOVES THE USER'S ACTION: an analysability claim about a graph the user does
+ * not have. The boot leg declines these outright, merge or no merge; here there
+ * is no merge at all, so its justification applies at least as strongly.
+ */
+export const DIVERGENT_DECLINED_BLOCK_KINDS = ['blocked', 'refused'] as const
+
+function isDivergentCurrencyClaim(kind: string): boolean {
+  return (DIVERGENT_DECLINED_CURRENCY_KINDS as readonly string[]).includes(kind)
+}
+
+function isDivergentBlockClaim(kind: string): boolean {
+  return (DIVERGENT_DECLINED_BLOCK_KINDS as readonly string[]).includes(kind)
+}
+
 export interface ScenarioAnalysisApplyStore {
+  /**
+   * Whether the canvas on screen DERIVES FROM a server graph we accepted.
+   *
+   * ⚠ A FACT, NOT A POLICY. It answers one question — "is what the user is
+   * looking at the graph CEE is talking about?" — and the two guards below turn
+   * it into two different decisions. Deliberately not named `mayApply`: a
+   * predicate here would fuse two harms under one name, which is the mistake
+   * this seam is being repaired for.
+   *
+   * DERIVED FROM `lastAuthoritativeGraph`, and that choice is load-bearing.
+   * `mergeServerGraph.ts:154-157` defines acceptance STRUCTURALLY — "`accepted`
+   * is true exactly when control reaches the body that records
+   * `lastAuthoritativeGraph`" — so the two cannot drift apart. The obvious
+   * alternative, `serverGraphIdentity`, is WRONG here: it is `null` both when no
+   * merge was accepted AND when an accepted merge carried no CEE token
+   * (`serverGraphHydration.ts` stores `null` for an identity-empty graph), so it
+   * conflates "never accepted" with "accepted without a token" and would decline
+   * on an honest canvas. `mergeAppliedGraph.ts:474-477` already asks this same
+   * question of this same field.
+   *
+   * `undefined` (an un-supplied store view) is treated as NOT divergent, so a
+   * caller that never had this concept behaves exactly as it does today.
+   */
+  readonly graphAcceptedForCanvas?: boolean
   readonly setAnalysisStateV1?: (verdict: AnalysisStateV1 | null) => void
   readonly resultsComplete?: (params: {
     report: ReturnType<typeof mapV5AnalysisToReport>
@@ -159,6 +220,37 @@ export type ScenarioAnalysisApplyOutcome =
   | { readonly outcome: 'notYet'; readonly reason: 'no_verdict' | 'non_terminal_kind' }
   /** A terminal verdict whose result we already hold. Stop polling; no rewrite. */
   | { readonly outcome: 'alreadyHeld'; readonly kind: ReadTerminalRunStateKind }
+  /**
+   * A terminal verdict WITHHELD because it does not describe the graph on
+   * screen. Nothing was written — not `null`, for the same reason as the
+   * `no_verdict` path: a standing belief must not be replaced by a claim of
+   * ignorance.
+   *
+   * ⚠ THE TWO REASONS ARE SEPARATE ON PURPOSE AND MUST STAY SEPARATE. They are
+   * two different harms with two different truth conditions, and fusing them
+   * under one name is exactly how this estate has repeatedly bought one defect
+   * while selling another (trap 21):
+   *
+   *   `divergent_currency_claim`  MISINFORMS. A freshness statement about a
+   *                               graph the user never had, asserted over the
+   *                               one they are looking at.
+   *   `divergent_block_claim`     REMOVES THE USER'S ACTION. Strictly worse —
+   *                               this file's own boot leg says so: "a false
+   *                               currency claim misinforms, a false block
+   *                               REMOVES THE USER'S ACTION."
+   *
+   * Distinct in telemetry and in tests, so a future relaxation of one cannot
+   * silently relax the other.
+   *
+   * SETTLES THE CALLER. Polling again cannot help: divergence is a property of
+   * the canvas, not of the answer's timing, so a re-read would return the same
+   * verdict against the same divergent canvas until the deadline expired.
+   */
+  | {
+      readonly outcome: 'declined'
+      readonly kind: ReadTerminalRunStateKind
+      readonly reason: 'divergent_currency_claim' | 'divergent_block_claim'
+    }
 
 export interface ApplyScenarioAnalysisReadInput {
   readonly analysisState: AnalysisStateV1 | null
@@ -191,6 +283,47 @@ export function applyScenarioAnalysisRead(
     // THE H4 GUARD. `never_run` lands here, and this early return is the
     // difference between the capability and a regression.
     return { outcome: 'notYet', reason: 'non_terminal_kind' }
+  }
+
+  // ── ⚠⚠ THE DIVERGENCE GUARDS — DOES THIS VERDICT DESCRIBE THE GRAPH ON
+  //       SCREEN? ────────────────────────────────────────────────────────────
+  //
+  // THE DEFECT THEY CLOSE, established by exercising the real modules end to
+  // end (`__tests__/provisionalDelivery.graphAcceptance.reachability.spec.ts`):
+  // this leg applied CEE's verdict with NO acceptance gate of any kind. Its own
+  // header's safety argument is that "the canvas has not moved since that run
+  // was armed" — and a REFUSED BOOT falsifies exactly that. After
+  // `mergeRefused` the canvas holds the user's graph and CEE holds a different
+  // one, and this leg READS the server graph but never merges it, so nothing
+  // reconciles them before the verdict lands.
+  //
+  // The sequence is: refused boot → a NEW run arms this leg → the poll delivers
+  // CEE's verdict about ITS graph as the wire authority over the user's own.
+  // Boot alone cannot arm it (`running` is boot-declined), which is why this
+  // needed its own repair rather than riding the boot fix.
+  //
+  // ⚠ SCOPE, CARRIED WITH THE FIX: reachable IN CODE, conditional on a refused
+  // boot, which has NOT been observed live. Given a refused boot the harm
+  // follows; that refused boots reach real users is unproven.
+  //
+  // ⚠ PLACED BEFORE THE RESULTS HYDRATION BELOW, AND THAT IS A DECISION.
+  // Declining the verdict while still writing the REPORT would show the user
+  // analysis output computed on a graph they do not have — the same lie with a
+  // bigger surface. A divergent read writes NOTHING: no verdict, no results.
+  //
+  // ⚠ FAIL-OPEN ON ABSENCE, deliberately. `graphAcceptedForCanvas === undefined`
+  // (a store view predating this field) is NOT treated as divergence: inventing
+  // a decline for a caller that never had the concept would be a regression, and
+  // the one production caller supplies it.
+  if (input.store.graphAcceptedForCanvas === false) {
+    // TWO GUARDS, NOT ONE BRANCH WITH TWO LABELS. Each names its own harm and
+    // owns its own kind-set, so relaxing one cannot silently relax the other.
+    if (isDivergentBlockClaim(kind)) {
+      return { outcome: 'declined', kind, reason: 'divergent_block_claim' }
+    }
+    if (isDivergentCurrencyClaim(kind)) {
+      return { outcome: 'declined', kind, reason: 'divergent_currency_claim' }
+    }
   }
 
   // ── Results FIRST (see the header) ────────────────────────────────────────
