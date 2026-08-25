@@ -24,6 +24,7 @@ import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
+import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
 
 interface LegendRow {
   label: string
@@ -201,14 +202,16 @@ export function CanvasLegendPopover() {
       <button
         type="button"
         onClick={toggle}
-        className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
+        /* Shared with the LeftSidebar and the rest of this toolbar; open takes
+           the same active treatment the sidebar's lens menu uses. */
+        className={open ? toolbarStyles.iconButtonActive : toolbarStyles.iconButton}
         aria-label="How to read this"
         aria-haspopup="dialog"
         aria-expanded={open}
         title="How to read this"
         data-testid="btn-canvas-legend"
       >
-        <HelpCircle size={16} aria-hidden="true" />
+        <HelpCircle className={toolbarStyles.icon} aria-hidden="true" />
       </button>
 
       {open && (
