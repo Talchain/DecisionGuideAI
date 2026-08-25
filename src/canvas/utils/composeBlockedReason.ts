@@ -41,6 +41,7 @@ import {
   containsBannedTerm,
   safeInterpolatedLabel,
 } from '../../components/results/utils/glossaryCheck'
+import { isSafeCeeText } from '../components/pre-analysis-v3/signals/ceeTextGuard'
 
 /** An option CEE graded as not-yet-ready, with the label the user sees. */
 export interface OptionNeedingValues {
@@ -155,17 +156,44 @@ export const BLOCKED_REASON_COPY = {
    * sentence because it is the right SHAPE is how this module acquired the
    * false claims its header records.
    *
-   * ⚠ AND THEY DO NOT QUOTE `blocker.message`. That is producer PROSE, and this
-   * module's founding rule is that user-facing copy is composed from STRUCTURED
-   * fields, never derived from the engine's sentences — parsing or passing
-   * through prose is the same hand-maintained mirror in a new place. What is
-   * quoted is `option_label` / `factor_label`: the user's OWN words about their
-   * own decision, vetted by `safeDisplayLabel` exactly as the option rungs vet
-   * theirs.
+   * ⚠⚠ THESE ARE NOW THE FALLBACK, NOT THE FIRST ANSWER (A4, 24 Aug 2026).
    *
-   * The claim each one makes is deliberately thin — the element is not ready,
-   * and the chat can say what it needs. It is true for every blocker category
-   * the contract admits, which is what qualifies it to stand for all of them.
+   * This block used to read "AND THEY DO NOT QUOTE `blocker.message`. That is
+   * producer PROSE, and this module's founding rule is that user-facing copy is
+   * composed from STRUCTURED fields, never derived from the engine's sentences."
+   * That rule was written against `readiness.confidence_explanation` and CEE's
+   * old refusal line — UNTYPED prose with no contract behind it — and it was
+   * right about those. It is WRONG about `blocker.message`, and the module was
+   * standing in direct contradiction to the contract it imports:
+   *
+   *   `AnalysisBlockerSchema.message` (`@talchain/schemas/boundary` 0.48.0)
+   *   "The producer-authored, user-facing sentence for this blocker, rendered
+   *    VERBATIM. CEE owns all user-facing language; a consumer must not
+   *    rewrite, summarise, truncate for meaning, or SYNTHESISE A SUBSTITUTE
+   *    WHEN IT DISLIKES THE WORDING."
+   *
+   * `message` is not "the engine's prose" in the sense this module banned. It
+   * is a CONTRACTED, typed, `.min(1)` field whose whole declared purpose is to
+   * be rendered — the structured field for "what to say", exactly as
+   * `option_label` is the structured field for "what to call it". Refusing it
+   * was not caution; it was the consumer overriding the producer on the one
+   * question the contract assigns to the producer.
+   *
+   * And the substitute was ACTIVELY WRONG, which is what made this a defect
+   * rather than a preference: "Ask in the chat what it needs" names a remedy
+   * the user cannot perform. The typed readiness arm is gated on
+   * `isReadinessChipClick`, so TYPING in the chat does not reach it — the
+   * sentence points at a path only a chip opens. A dead end of exactly the kind
+   * POC-DONE's PC1 bans, printed in place of the producer's real instruction
+   * ("Choose the missing effect value for …"), which was in scope the whole
+   * time and was discarded.
+   *
+   * SO THE ORDER IS NOW: the producer's own sentences first (see
+   * `producerAuthoredReason`), and these rungs when — and only when — the
+   * producer's messages cannot be rendered as they were written. They keep
+   * their old job of being a LESS SPECIFIC TRUE CLAIM, which is the only thing
+   * this module ever allowed a degrade to be. Their thinness is what qualifies
+   * them for that: each is true for every blocker category the contract admits.
    */
   /** One blocker, scoped to an element we can quote by name. */
   canonicalOneBlocker: (label: string) =>
@@ -413,6 +441,82 @@ export function composeReadinessBlockedReason(
 }
 
 /**
+ * The producer's own repair guidance, ready to render — or `null` when it
+ * cannot ship as written.
+ *
+ * ── WHY THE VET IS `isSafeCeeText` AND NOT `containsBannedTerm` (MEASURED) ──
+ * `safeDisplayLabel` vets LABELS against the canonical glossary. That is the
+ * wrong instrument here, and the gap is not theoretical — it was measured at
+ * this tip before this function was written:
+ *
+ *   'Choose the missing effect value for "Move billing to edge computing".'
+ *     containsBannedTerm → false   (the canonical list carries no bare "edge")
+ *     isSafeCeeText      → false   (`CEE_EXTRA_TERMS` does)
+ *     guardCeeText(…)    → '…for "Move billing to connection computing".'
+ *
+ * A message admitted by the canonical glossary alone still reaches the render
+ * seam's SUBSTITUTING guard, and the user's own option label comes out as an
+ * option that exists on no canvas — the precise corruption `vetBlockedReason`'s
+ * header records, reproduced on the producer's sentence instead of on ours.
+ *
+ * ── AND THIS IS HOW THE GUARD IS BYPASSED — BY MAKING IT AN IDENTITY ────────
+ * `guardCeeText` returns its input UNCHANGED when `isSafeCeeText(text)` is true
+ * (`ceeTextGuard.ts:112`). So vetting with the seam's OWN predicate is not a
+ * route around the guard, it is a proof that the guard has nothing to do:
+ * everything this function returns passes through `vetBlockedReason`'s
+ * `foreign` arm byte-for-byte.
+ *
+ * That is deliberately preferred over threading a provenance flag from here to
+ * the render seam. The string reaches SIX surfaces — `PanelFooter`'s subline
+ * and its disabled control's `title`, `AnalysisReadinessBar`, the ⌘Enter toast
+ * (`PreAnalysisPanelV3:61`, which calls `guardCeeText` DIRECTLY and never sees
+ * `vetBlockedReason`), the legacy `StickyFooter`, `derivePostFooterMeta` and
+ * `getRunButtonAriaLabel` — and three of those render the string RAW with no
+ * guard at all. A provenance channel would have to reach every one of them, and
+ * a surface that forgot it would silently get the corrupting arm. Making the
+ * TEXT safe is the only answer that cannot be forgotten by a call site, and it
+ * also survives `canRunAnalysis`'s ` (+N more issues)` concatenation, which
+ * destroys any structure a channel could have carried.
+ *
+ * ── WHAT IS VETTED IS EXACTLY WHAT SHIPS (A1, one level up) ─────────────────
+ * The JOIN is vetted, not the parts. Two individually-safe messages can form a
+ * banned phrase across the seam between them ("…the confidence" + "score is…"),
+ * which is the same class as A1's truncate-then-vet finding: check the bytes
+ * that ship, not the bytes you started with.
+ *
+ * ── ALL OR NOTHING ─────────────────────────────────────────────────────────
+ * One unusable message degrades the WHOLE sentence to the scope rungs. Two
+ * reasons, both inherited: rendering the safe subset would understate the work
+ * outstanding by exactly the entries declined (A2's rule), and mixing the
+ * producer's prose with ours in one sentence attributes our words to the
+ * producer — the failure this module exists to end, with the authorship
+ * reversed.
+ *
+ * Order is the producer's own array order: deterministic, and not ours to
+ * choose. NOTHING is truncated and nothing is summarised — the contract forbids
+ * both, so a list too long for one line degrades whole rather than being cut.
+ * The single list-level transformation is EXACT de-duplication: every sentence
+ * returned is byte-identical to a message the producer wrote, no message is
+ * altered, and repeating one verbatim conveys nothing the first rendering did
+ * not while reading as a defect.
+ */
+function producerAuthoredReason(blockers: readonly AnalysisBlocker[]): string | null {
+  const sentences: string[] = []
+  for (const blocker of blockers) {
+    // The TYPE says `string` and the schema says `.min(1)`, but this function is
+    // exported and total: a type is not a runtime guarantee. An unusable message
+    // is a DEGRADE, never a synthesised stand-in for what the producer meant.
+    const message = typeof blocker.message === 'string' ? blocker.message.trim() : ''
+    if (message.length === 0) return null
+    if (!sentences.includes(message)) sentences.push(message)
+  }
+  if (sentences.length === 0) return null
+
+  const joined = sentences.join(' ')
+  return isSafeCeeText(joined) ? joined : null
+}
+
+/**
  * Compose the refusal from the PRODUCER's own readiness blockers.
  *
  * The counterpart to `composeReadinessBlockedReason`, for the authority that
@@ -427,12 +531,18 @@ export function composeReadinessBlockedReason(
  * The guard below returns the non-committal rung rather than inventing a cause,
  * but the real protection is `readinessObjectsToRun`, which never asks.
  *
- * Scope labels only, never `blocker.message`: see the rung docs above.
+ * ⭐ THE PRODUCER'S OWN SENTENCES FIRST (A4). `blocker.message` is contracted to
+ * be rendered VERBATIM; the scope-label rungs below are the DEGRADE, reached
+ * only when those sentences cannot ship as written. See `producerAuthoredReason`
+ * for the vet, and the rung docs above for why the old order was a defect.
  */
 export function composeAnalysisBlockedReason(
   blockers: readonly AnalysisBlocker[],
 ): string {
   if (blockers.length === 0) return BLOCKED_REASON_COPY.unspecified
+
+  const authored = producerAuthoredReason(blockers)
+  if (authored !== null) return authored
 
   // `option_label` and `factor_label` are the two scopes the contract carries.
   // Read in that order because an option is the more actionable of the two and
