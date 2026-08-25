@@ -26,6 +26,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { fetchScenarioGraph } from '../scenarioGraph'
 import { registerScenarioGraph } from '../registerScenarioGraph'
@@ -78,31 +81,38 @@ afterEach(() => {
  */
 const ROUTES: ReadonlyArray<{
   readonly name: string
+  /** The exported adapter function this row exercises — the derived guard's key. */
+  readonly fn: string
   readonly ok: unknown
   readonly call: (opts: { userId: string | null; accessToken: string | null }) => Promise<unknown>
 }> = [
   {
     name: 'fetchScenarioGraph (read)',
+    fn: 'fetchScenarioGraph',
     ok: { schema: 'scenario_graph.v1', scenario_id: SCENARIO_ID, graph: { nodes: [], edges: [] } },
     call: (o) => fetchScenarioGraph(SCENARIO_ID, { ...o, retryDelayMs: 0 }),
   },
   {
     name: 'registerScenarioGraph (write)',
+    fn: 'registerScenarioGraph',
     ok: { schema: 'scenario_graph_registration.v1', registered: true, node_count: 0, edge_count: 0 },
     call: (o) => registerScenarioGraph(SCENARIO_ID, { nodes: [], edges: [] }, { ...o, retryDelayMs: 0 }),
   },
   {
     name: 'listModelVersions (read)',
+    fn: 'listModelVersions',
     ok: { schema: 'model_versions_list.v1', versions: [] },
     call: (o) => listModelVersions(SCENARIO_ID, o),
   },
   {
     name: 'saveModelVersion (write)',
+    fn: 'saveModelVersion',
     ok: { schema: 'model_version_save.v1', version: {} },
     call: (o) => saveModelVersion(SCENARIO_ID, o),
   },
   {
     name: 'restoreModelVersion (write)',
+    fn: 'restoreModelVersion',
     ok: { schema: 'model_version_restore.v1' },
     call: (o) => restoreModelVersion(SCENARIO_ID, { ...o, versionId: 'v1' }),
   },
@@ -202,4 +212,57 @@ describe('identity classes the signed-in/guest pair is blind to', () => {
       expect(sentHeaders().Authorization).toBe(`Bearer ${OTHER_TOKEN}`)
     })
   }
+})
+
+/**
+ * ── THE ROUTE TABLE ABOVE IS HAND-MAINTAINED, AND THAT IS THE DEFECT ───────
+ *
+ * A sixth scenario-route adapter added later would get NO coverage here, and
+ * nothing would go red — the table would simply be short, and a short list
+ * reads exactly like a complete one. This estate's dominant defect.
+ *
+ * Review found this shape live: `useProvisionalAnalysisDelivery.ts` was a
+ * SIXTH `fetchScenarioGraph` call site with no token, invisible to the grep
+ * that found the other five because it passes the adapter by reference
+ * (`read: fetchScenarioGraph`) rather than calling it by name.
+ *
+ * So the completeness check is DERIVED FROM SOURCE rather than written down.
+ * The rule: in these three adapter modules, an exported `async function` is a
+ * request-issuing route (each module has exactly one `await fetch(` and the
+ * only other exports are synchronous `*Url` builders). Every one of them must
+ * appear in ROUTES.
+ *
+ * ⚠ Derivation proves AGREEMENT, never completeness (CLAUDE.md trap 12d): this
+ *   guard catches a route the table forgot, and CANNOT catch a request issued
+ *   from somewhere other than these three modules. That is what the
+ *   `accessToken`-manifest check in review is for. Both are needed; neither
+ *   supersedes the other.
+ */
+describe('the route table cannot silently go short', () => {
+  const ADAPTERS = ['scenarioGraph.ts', 'registerScenarioGraph.ts', 'modelVersions.ts']
+
+  function exportedAsyncFunctions(): string[] {
+    const dir = path.dirname(fileURLToPath(import.meta.url))
+    const names: string[] = []
+    for (const file of ADAPTERS) {
+      const src = readFileSync(path.join(dir, '..', file), 'utf8')
+      for (const m of src.matchAll(/^export async function (\w+)/gm)) names.push(m[1])
+    }
+    return names
+  }
+
+  it('POSITIVE CONTROL — the deriver can actually see functions', () => {
+    // Without this, an extractor that silently returned [] would make the
+    // assertion below pass by testing nothing (CLAUDE.md trap 13).
+    const found = exportedAsyncFunctions()
+    expect(found.length).toBeGreaterThanOrEqual(5)
+    expect(found).toContain('fetchScenarioGraph')
+  })
+
+  it('every request-issuing adapter export is covered by ROUTES', () => {
+    const covered = new Set(ROUTES.map((r) => r.fn))
+    const missing = exportedAsyncFunctions().filter((n) => !covered.has(n))
+    // Named, not counted: the failure message must say WHICH route is uncovered.
+    expect(missing).toEqual([])
+  })
 })

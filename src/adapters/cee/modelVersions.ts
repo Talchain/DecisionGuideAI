@@ -36,6 +36,7 @@
 
 import { logger } from '../../lib/logger'
 import { sanitiseUserId } from '../../lib/guestIdentity'
+import { isSignInRequired } from './signInRefusal'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
@@ -82,6 +83,12 @@ export type ListModelVersionsResult =
     }
   /** 404 — absent ∪ not-yours ∪ oracle-unresolvable. NEVER deletion. */
   | { status: 'notReadable' }
+  /**
+   * 401 sign-in refusal. LIST had no such branch before: a guest listing was
+   * an empty list, so the only 401 reachable here was one the UI could not
+   * produce. Sending a token makes an expired one reachable on every call.
+   */
+  | { status: 'signInRequired' }
   /** 503 VERSIONS_DISABLED — versioning is off on this service. */
   | { status: 'disabled' }
   /** 503 (plain) — unknown, try again. */
@@ -234,10 +241,15 @@ function sharedRefusal(
   | { status: 'disabled' }
   | { status: 'unavailable' }
   | { status: 'refused'; httpStatus: number }
+  | { status: 'signInRequired' }
   | { status: 'unusable' }
   | null {
   if (outcome.kind === 'transportFailure') return { status: 'unusable' }
   if (outcome.kind === 'ok') return null
+  // BEFORE the status switch: a sign-in refusal is a 401, and the generic 401
+  // arm below would otherwise swallow it into `refused` — which the callers
+  // render as "try again", on a response CEE marks `retryable: false`.
+  if (isSignInRequired(outcome.status, outcome.body)) return { status: 'signInRequired' }
   const code = detailsCode(outcome.body)
   switch (outcome.status) {
     case 404:
@@ -352,7 +364,6 @@ export async function saveModelVersion(
 
   if (outcome.kind === 'http') {
     const code = detailsCode(outcome.body)
-    if (outcome.status === 401 && code === 'SIGN_IN_REQUIRED') return { status: 'signInRequired' }
     if (outcome.status === 409) return { status: 'conflict' }
     if (outcome.status === 422 && code === 'NOTHING_TO_SAVE') return { status: 'nothingToSave' }
   }
@@ -386,7 +397,6 @@ export async function restoreModelVersion(
 
   if (outcome.kind === 'http') {
     const code = detailsCode(outcome.body)
-    if (outcome.status === 401 && code === 'SIGN_IN_REQUIRED') return { status: 'signInRequired' }
     if (outcome.status === 409) return { status: 'conflict' }
     if (outcome.status === 404 && code === 'VERSION_NOT_FOUND') return { status: 'versionNotFound' }
     if (outcome.status === 503 && code === 'RESTORE_INCOMPLETE') return { status: 'incomplete' }

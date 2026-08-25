@@ -62,6 +62,7 @@ import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { logger } from '../../lib/logger'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { isSignInRequired } from './signInRefusal'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
 
 /**
@@ -157,6 +158,13 @@ export type ScenarioGraphResult =
   | { status: 'notReadable' }
   /** 503 after every attempt — unknown, try again. NEVER an empty canvas. */
   | { status: 'unavailable' }
+  /**
+   * 401 and CEE says the token is the problem. Distinct from `refused`
+   * BECAUSE THE RECOVERY IS DIFFERENT: signing in fixes this and retrying
+   * cannot (CEE sets `retryable: false`). Collapsing the two is how a signed-in
+   * user got a silent hydration failure and no prompt.
+   */
+  | { status: 'signInRequired' }
   /** 401 / 403 / 429 — a stable refusal; not retried. */
   | { status: 'refused'; httpStatus: number }
   /** Transport failure, unparseable body, or a shape that contradicts itself. */
@@ -415,6 +423,20 @@ export async function fetchScenarioGraph(
       response.status === 403 ||
       response.status === 429
     ) {
+      // Checked BEFORE the generic arm: the body distinguishes "your token is
+      // bad" from "you are not allowed", and only the first is recoverable by
+      // the user. Reading the body is safe here — a refusal body is small and
+      // the failure mode of an unparseable one is the generic refusal below.
+      let body: unknown = null
+      try {
+        body = await response.json()
+      } catch {
+        body = null
+      }
+      if (isSignInRequired(response.status, body)) {
+        logger.warn('scenario_graph.sign_in_required', { attempt })
+        return { status: 'signInRequired' }
+      }
       return { status: 'refused', httpStatus: response.status }
     }
 

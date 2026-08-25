@@ -183,12 +183,25 @@ export function ServerVersionsSection() {
     // ⚠ BOTH FIELDS FROM ONE READ. These three handlers are user-initiated
     //    and have no AbortController and no cancellation, so the gap between
     //    the click and the request is the widest in this change: `userId` would
-    //    be bound from the render closure, and `getSessionIdentity()` performs
-    //    a NETWORK REFRESH on an expired token, stretching that gap from
-    //    microseconds to hundreds of milliseconds with `autoRefreshToken` and
-    //    multi-tab both on. Two of these three are WRITES. Reading both fields
-    //    from the same session object closes the window by construction rather
-    //    than by guard.
+    //    be bound from the render closure while the token is read fresh.
+    //
+    //    VERIFIED at the dependency's bytes (@supabase/gotrue-js 2.62.2,
+    //    `GoTrueClient.js:778-787`): `getSession()` compares
+    //    `expires_at <= Date.now()/1000` and, when expired, performs a NETWORK
+    //    REFRESH — so the token returned is fresh, never the stale one, and a
+    //    refresh FAILURE yields `session: null`, i.e. a guest-shaped request
+    //    with no headers rather than a 401-bait one.
+    //
+    //    ⚠ THE ONE CASE THAT CHECK DOES NOT COVER: the comparison is HARD, with
+    //      no margin on this path (`EXPIRY_MARGIN` is referenced only in the
+    //      background `_recoverAndRefresh`, not in `getSession()`), so a token
+    //      expiring moments from now is returned as-is and can expire in
+    //      flight. `autoRefreshToken: true` mitigates it in practice. No claim
+    //      is made about the margin's VALUE — only about where it is and is
+    //      not referenced.
+    //
+    //    Two of these three handlers are WRITES. Reading both fields from the
+    //    same session object closes the mismatch window by construction.
     const identity = await getSessionIdentity()
     const result = await saveModelVersion(scenarioId, {
       userId: identity.userId,

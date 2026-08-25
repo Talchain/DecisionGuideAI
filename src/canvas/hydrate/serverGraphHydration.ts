@@ -42,6 +42,13 @@ export type HydrationOutcome =
   | 'notReadable'
   /** 503 through every attempt. Canvas untouched. */
   | 'unavailable'
+  /**
+   * CEE refused the caller's TOKEN (401 `sign_in_required`). Canvas untouched.
+   * Distinct from `'refused'` because the recovery differs: signing in fixes
+   * this and retrying cannot. Kept separate so a caller cannot accidentally
+   * render "try again" over a session that has expired.
+   */
+  | 'signInRequired'
   /** 401 / 403 / 429. Canvas untouched. */
   | 'refused'
   /** Transport failure or a shape we cannot act on. Canvas untouched. */
@@ -125,6 +132,8 @@ export async function hydrateCanvasFromServer(
         return 'notReadable'
       case 'unavailable':
         return 'unavailable'
+      case 'signInRequired':
+        return 'signInRequired'
       case 'refused':
         return 'refused'
       default:

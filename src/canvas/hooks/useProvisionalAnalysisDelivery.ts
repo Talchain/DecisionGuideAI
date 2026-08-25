@@ -73,6 +73,7 @@ import { useEffect, useRef } from 'react'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
+import { getSessionIdentity } from '../../lib/supabase'
 import { logger } from '../../lib/logger'
 import { useCanvasStore } from '../store'
 import {
@@ -122,6 +123,13 @@ export type ProvisionalDeliveryOutcome =
 export async function runProvisionalDeliverySchedule(deps: {
   readonly scenarioId: string
   readonly userId: string | null
+  /**
+   * Supabase access token, travelling the SAME route as `userId` and read from
+   * the SAME session object. Required, not optional: this schedule re-enters
+   * the scenario-graph read, so a caller that forgot the token would silently
+   * make every re-ask anonymous. The compiler is the guard.
+   */
+  readonly accessToken: string | null
   readonly signal: AbortSignal
   /**
    * The applier's store view, read LAZILY per attempt.
@@ -156,6 +164,7 @@ export async function runProvisionalDeliverySchedule(deps: {
 
     const result = await deps.read(deps.scenarioId, {
       userId: deps.userId ?? undefined,
+      accessToken: deps.accessToken,
       signal: deps.signal,
     })
     if (deps.signal.aborted) return 'aborted'
@@ -350,16 +359,26 @@ export function useProvisionalAnalysisDelivery(scenarioIdFromRoute?: string | nu
     const controller = new AbortController()
     let settled = false
 
-    void runProvisionalDeliverySchedule({
-      scenarioId,
-      userId,
-      signal: controller.signal,
-      read: fetchScenarioGraph,
-      wait: waitFor,
-    }).then((outcome) => {
+    // ⚠ IDENTITY READ AT REQUEST TIME, BOTH FIELDS FROM ONE SESSION OBJECT.
+    // `useAuth()` stays the effect DEPENDENCY (re-arm when the signed-in user
+    // changes) but is not what is sent: it is React state, populated
+    // asynchronously and defaulting to the literal 'guest', and an access
+    // token rotates. This schedule is armed on a run and fires up to its whole
+    // delay ladder later, so the gap between the render that captured a user id
+    // and the request that carries it is one of the widest in the app.
+    void (async (): Promise<void> => {
+      const identity = await getSessionIdentity()
+      const outcome = await runProvisionalDeliverySchedule({
+        scenarioId,
+        userId: identity.userId,
+        accessToken: identity.accessToken,
+        signal: controller.signal,
+        read: fetchScenarioGraph,
+        wait: waitFor,
+      })
       settled = true
       logger.debug('provisional_analysis_delivery.outcome', { scenarioId, outcome })
-    })
+    })()
 
     return () => {
       controller.abort()

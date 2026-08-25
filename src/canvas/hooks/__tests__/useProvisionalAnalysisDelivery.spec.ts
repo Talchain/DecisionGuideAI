@@ -97,6 +97,9 @@ describe('H3 — the wait is bounded and expiry invents nothing', () => {
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      // Required, not optional: this schedule re-enters the graph read, so a
+      // caller that forgot the token would silently make every re-ask anonymous.
+      accessToken: null,
       signal: new AbortController().signal,
       getStore: () => h.store,
       read: read as never,
@@ -115,6 +118,7 @@ describe('H3 — the wait is bounded and expiry invents nothing', () => {
     await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: new AbortController().signal,
       getStore: () => h.store,
       read: (async () => graphResult(verdict({ kind: 'never_run' }))) as never,
@@ -150,6 +154,7 @@ describe('H4 — a non-terminal read keeps waiting; a terminal one settles', () 
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: new AbortController().signal,
       getStore: () => h.store,
       read: read as never,
@@ -176,6 +181,7 @@ describe('H4 — a non-terminal read keeps waiting; a terminal one settles', () 
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: new AbortController().signal,
       getStore: () => h.store,
       read: read as never,
@@ -192,6 +198,7 @@ describe('H4 — a non-terminal read keeps waiting; a terminal one settles', () 
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: new AbortController().signal,
       getStore: () => h.store,
       read: read as never,
@@ -211,6 +218,7 @@ describe('it yields immediately on abort', () => {
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: controller.signal,
       getStore: () => h.store,
       read: read as never,
@@ -232,6 +240,7 @@ describe('it yields immediately on abort', () => {
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: controller.signal,
       getStore: () => h.store,
       read: read as never,
@@ -253,6 +262,7 @@ describe('the store is read LAZILY, per attempt', () => {
     await runProvisionalDeliverySchedule({
       scenarioId: SCENARIO,
       userId: null,
+      accessToken: null,
       signal: new AbortController().signal,
       getStore,
       read: (async () => graphResult(verdict({ kind: 'never_run' }))) as never,

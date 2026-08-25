@@ -63,10 +63,12 @@ vi.mock('../../../contexts/AuthContext', () => ({
  * These three handlers are user-initiated, have no AbortController and no
  * cancellation, and two of them are WRITES. Binding the body id from the render
  * closure and then awaiting a token read means the two can come from different
- * sessions: `getSessionIdentity()` performs a NETWORK REFRESH on an expired
- * token, so the gap is hundreds of milliseconds with `autoRefreshToken` and
- * multi-tab both on. Reading both fields from ONE session object closes that
- * by construction. `useAuth` remains the signed-in GATE only.
+ * sessions — verified at the dependency's bytes (@supabase/gotrue-js 2.62.2,
+ * `GoTrueClient.js:778-787`): `getSession()` performs a NETWORK REFRESH when
+ * `expires_at <= now`, so the read is not free. The comparison is HARD, with no
+ * margin on this path, so a token expiring moments from now is returned as-is.
+ * Reading both fields from ONE session object closes the mismatch window by
+ * construction. `useAuth` remains the signed-in GATE only.
  *
  * `importOriginal` spread, not a hand-listed factory: a factory REPLACES the
  * module and every other `lib/supabase` export would silently vanish.
