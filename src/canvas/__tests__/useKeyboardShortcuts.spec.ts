@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import {
   useKeyboardShortcuts,
+  isKeyboardActivationElement,
   isTextEntryElement,
   resolveEffectiveInteractionMode,
   shouldReleaseTextFocusOnCanvasPointerDown,
@@ -104,6 +105,26 @@ describe('useKeyboardShortcuts — interaction mode', () => {
 
       expect(onSpaceHeld).not.toHaveBeenCalled()
       document.body.removeChild(input)
+    })
+
+    it('leaves Space activation to focused native and semantic controls', () => {
+      renderHook(() => useKeyboardShortcuts({ onSpaceHeld }))
+      const button = document.createElement('button')
+      const label = document.createElement('span')
+      button.appendChild(label)
+      document.body.appendChild(button)
+
+      const event = new KeyboardEvent('keydown', {
+        key: ' ',
+        code: 'Space',
+        bubbles: true,
+        cancelable: true,
+      })
+      label.dispatchEvent(event)
+
+      expect(event.defaultPrevented).toBe(false)
+      expect(onSpaceHeld).not.toHaveBeenCalled()
+      document.body.removeChild(button)
     })
   })
 
@@ -243,6 +264,28 @@ describe('isTextEntryElement', () => {
     expect(isTextEntryElement(document.createElement('div'))).toBe(false)
     expect(isTextEntryElement(null)).toBe(false)
     expect(isTextEntryElement(undefined)).toBe(false)
+  })
+})
+
+describe('isKeyboardActivationElement', () => {
+  it('recognises native activation controls and their descendants', () => {
+    const button = document.createElement('button')
+    const child = document.createElement('span')
+    button.appendChild(child)
+    expect(isKeyboardActivationElement(button)).toBe(true)
+    expect(isKeyboardActivationElement(child)).toBe(true)
+
+    const link = document.createElement('a')
+    link.href = '/analysis'
+    expect(isKeyboardActivationElement(link)).toBe(true)
+  })
+
+  it('recognises semantic controls without classifying ordinary canvas content', () => {
+    const semanticButton = document.createElement('div')
+    semanticButton.setAttribute('role', 'button')
+    expect(isKeyboardActivationElement(semanticButton)).toBe(true)
+    expect(isKeyboardActivationElement(document.createElement('div'))).toBe(false)
+    expect(isKeyboardActivationElement(null)).toBe(false)
   })
 })
 
