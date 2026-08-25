@@ -105,6 +105,14 @@ export function AnalysisHeroContainer({
    */
   const onReviewValue = useCallback((factorId: string) => {
     useUIStore.getState().setActiveOutputTab('diagnostics')
+    // ⚠ THE TAB SWITCH ALONE DOES NOT ARRIVE. `focusModelTarget` acts on the
+    // CANVAS store (select + fit camera); it has no effect on the outputs dock,
+    // so on its own this landed the user at the top of the Model outline with
+    // nothing selected — an act that advertises a destination it does not reach.
+    // `requestModelTabSection` is the estate's existing cross-panel deep-link
+    // (`ContestedSection.tsx:96` uses it for 'relationships'); the factors group
+    // id is declared at `ModelTabBody.tsx:126`.
+    useUIStore.getState().requestModelTabSection('model-group-v2-factors')
     focusModelTarget(factorId)
   }, [])
 

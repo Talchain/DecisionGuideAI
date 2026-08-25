@@ -43,8 +43,11 @@ import { render, screen, within, fireEvent } from '@testing-library/react'
 import { HeroEvidenceDisclosure } from '../HeroEvidenceDisclosure'
 import type { HeroEvidenceModel } from '../heroTypes'
 
-const row = (factorId: string, label: string, canReviewValue = true) =>
-  ({ factorId, label, canFocus: true, canReviewValue })
+const row = (
+  factorId: string,
+  label: string,
+  valueAffordance: 'review' | 'set' | 'none' = 'review',
+) => ({ factorId, label, canFocus: true, valueAffordance })
 
 function model(partial: Partial<HeroEvidenceModel> = {}): HeroEvidenceModel {
   return {
@@ -106,9 +109,56 @@ describe('the ACT control appears on a resolvable row', () => {
     expect(onReviewValue).toHaveBeenCalledWith('fac_churn')
   })
 
-  it('does not offer it on a row whose value cannot be reviewed', () => {
-    renderResolveNext([row('fac_unset', 'Unset Factor', /* canReviewValue */ false)])
+  /*
+   * ⭐ THE CAPABILITY THIS PR EXISTS FOR, and it used to be SUPPRESSED here.
+   *
+   * The previous version of this case asserted that a valueless row offered
+   * NOTHING, on the premise that the Model tab renders an inert "Not set" with no
+   * editor. That premise describes the V1 editor, which is not mounted
+   * (`ModelTabBody.tsx:120` LEGACY_DETAILED_EDITOR_MOUNTED = false). V2 renders an
+   * editor for a null value, so the act was being withheld on precisely the
+   * unknowns whose value-of-information is HIGHEST.
+   *
+   * ⚠ AND THE OLD ASSERTION WOULD STILL PASS TODAY, FOR THE WRONG REASON: it
+   * queried /review this value/, which a 'set' row legitimately does not match. A
+   * test that survives the behaviour reversing is not evidence about it — so this
+   * asserts the act is PRESENT and the wording is correct, in both directions.
+   */
+  it('OFFERS THE ACT on a valueless row, worded "set" — never "review"', () => {
+    const onReviewValue = renderResolveNext([row('fac_unset', 'Unset Factor', 'set')])
+    // Present: the act exists where the editor exists.
+    const act = screen.getByRole('button', { name: /set a value/i })
+    // Absent: "review" would describe a value that is not there.
     expect(screen.queryByRole('button', { name: /review this value/i })).toBeNull()
+    fireEvent.click(act)
+    expect(onReviewValue).toHaveBeenCalledWith('fac_unset')
+  })
+
+  it('WORDS IT "review" only where the row will display a value', () => {
+    renderResolveNext([row('fac_priced', 'Priced Factor', 'review')])
+    expect(screen.getByRole('button', { name: /review this value/i })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /set a value/i })).toBeNull()
+  })
+
+  /*
+   * `'none'` is reserved for ids that are not factor nodes. The write authority
+   * returns 'not_encodable' for those (`useModelEditAuthority.ts:247`), so an act
+   * here would be an enabled button that does nothing — the one class that still
+   * gets silence, and it gets it by KIND, never for want of a value.
+   */
+  it('offers nothing at all when the id is not a factor node', () => {
+    renderResolveNext([row('goal_1', 'A Goal', 'none')])
+    expect(screen.queryByTestId('hero-resolve-next-review')).toBeNull()
+  })
+
+  it('DISCRIMINATES BY ROW, not globally — one row may set while another reviews', () => {
+    renderResolveNext([
+      row('fac_priced', 'Priced Factor', 'review'),
+      row('fac_unset', 'Unset Factor', 'set'),
+    ])
+    const rows = screen.getAllByTestId('hero-resolve-next-row')
+    expect(within(rows[0]).getByTestId('hero-resolve-next-review').dataset.affordance).toBe('review')
+    expect(within(rows[1]).getByTestId('hero-resolve-next-review').dataset.affordance).toBe('set')
   })
 
   it('does not offer it when no handler is wired', () => {

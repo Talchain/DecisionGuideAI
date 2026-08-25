@@ -219,3 +219,40 @@ export function deriveFactorInfluenceMap(report: unknown): Map<string, number> |
   }
   return map.size > 0 ? map : undefined
 }
+
+/**
+ * Will the MOUNTED Model row actually DISPLAY a value for this factor?
+ *
+ * ⚠ THIS IS NOT `factorHasConfirmableValue`, AND CONFLATING THEM SHIPPED A FALSE
+ * PROMISE. That predicate answers "may the authority stamp a confirmation?" and
+ * reads `observedState.value` (MODEL scale). This one answers "will the user SEE
+ * a value when they arrive?" and goes through `getPrimaryValue`, which reads only
+ * `raw_value` (USER-UNIT). The two diverge on a real, staging-witnessed class:
+ * a capped factor stores `{value: 0.7}` with NO `raw_value`, so the authority
+ * accepts it and the row shows nothing.
+ *
+ * ⚠ NEITHER FIELD ALONE IS A GATE. `valueProvenance.ts` warns that gating on
+ * `raw_value` "refuses a whole class of factors the authority would have
+ * accepted — an UNDER-count, the exact mirror of the over-count". That warning is
+ * correct, which is why this predicate does NOT gate anything: it only chooses
+ * between the "review" and "set" wordings. Nothing is hidden on its account.
+ *
+ * Composed from `getPrimaryValue` itself rather than restating its rule, so it
+ * cannot drift from what the row renders. The narrowing mirrors
+ * `model-tab-v2/adapters.ts` `narrowObservedState` for exactly the two fields
+ * `getPrimaryValue` reads; `__tests__/factorDisplaysValue.spec.ts` pins the two
+ * against a shared corpus so a change to either REDs.
+ */
+export function factorDisplaysValue(data: unknown): boolean {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  if (!obs) return false
+  const raw = obs.raw_value
+  const unit = obs.unit
+  return (
+    getPrimaryValue({
+      raw_value: typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined,
+      unit: typeof unit === 'string' ? unit : undefined,
+    }) !== null
+  )
+}

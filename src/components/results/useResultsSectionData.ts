@@ -88,7 +88,8 @@ import {
   readAttributionSuppression,
   type AttributionSuppressionVerdict,
 } from './voi/attributionSuppression'
-import { factorHasConfirmableValue } from '../../canvas/domain/valueProvenance'
+import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
+import { factorDisplaysValue } from '../../canvas/components/model-tab/utils'
 import {
   selectAssumedStrengthToResolve,
   type AssumedStrengthDecision,
@@ -1536,23 +1537,57 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         resolveLabel: (factorId) => {
           const label = nodeLabelMap.get(factorId)
           if (label === undefined) return null
-          // ⚠ CAN THIS ROW ACTUALLY BE ACTED ON? `canFocus` only says the node
-          // exists. The Model tab renders an inert "Not set" span with NO editor
-          // when the value is not a finite number, so a review affordance on such
-          // a row would advertise an action that terminates in nothing.
+          // ⭐ WHAT MAY THIS ROW HONESTLY OFFER? Three states, not one boolean.
           //
-          // It matters twice: a rerun after editing an unset factor also REFUSES
-          // (`baseline_scale_unresolved`), so an unset row cannot complete the
-          // reasoning loop even if it could be edited.
+          // ⚠⚠ THE PREVIOUS VERSION OF THIS BLOCK GATED ON A FALSE PREMISE, and
+          // the correction is the whole point of the change. It read: "the Model
+          // tab renders an inert 'Not set' span with NO editor when the value is
+          // not a finite number", and therefore HID the affordance on every
+          // valueless factor. That sentence describes the V1 editor, which is
+          // NOT MOUNTED — `canvas/components/ModelTabBody.tsx:120`
+          // `const LEGACY_DETAILED_EDITOR_MOUNTED = false` switches the entire v1
+          // stack off at `:917`. V2 is the sole mounted Model surface, and its F9
+          // comment (`model-tab-v2/ModelRowView.tsx:419-425`) says the opposite:
+          // "here a null value still renders an editor affordance; it is disabled
+          // only because the authority is not frozen, never because the value is
+          // missing."
           //
-          // Decided by the ONE exported authority. `factorHasConfirmableValue` was
-          // created because five surfaces answered this question four ways; a
-          // sixth spelling here would be the defect it exists to end.
+          // So the old gate suppressed the act on precisely the rows whose
+          // value-of-information is HIGHEST — the unknowns with no value yet.
+          // That was the defect, not the safety.
+          //
+          // TWO OPPOSITE HARMS, TWO PARAMETERS (CLAUDE.md 22b). Offering "review"
+          // where the destination displays nothing is a FALSE PROMISE; offering
+          // nothing where an editor exists is a SILENT GAP. They cannot share one
+          // window, so the wording splits instead of the visibility:
+          //   · `factorDisplaysValue` — will the row SHOW a value? -> "review"
+          //   · otherwise, an editor still exists ->                 "set"
+          // Nothing is hidden for want of a value. `'none'` is reserved for ids
+          // that are not factor nodes at all, which have no editor by kind.
+          //
+          // ⚠ NODE KIND IS CHECKED HERE because the write authority checks it one
+          // line above the predicate this used to borrow
+          // (`useModelEditAuthority.ts:247` returns `'not_encodable'` for a
+          // non-factor). A surface that offers what the authority will decline is
+          // an enabled button that does nothing.
+          //
+          // ⚠ WHAT THE RERUN DOES IS NOT PROMISED HERE. A rerun after editing can
+          // still refuse (`baseline_scale_unresolved`); CEE #1103 is the fix and
+          // is not merged. The copy therefore claims no analytical consequence —
+          // see the strings in `HeroEvidenceDisclosure`. This is disclosed, not
+          // silently gated: suppressing the act instead would re-open the gap
+          // above, and an honest act that may not yet change the analysis beats a
+          // hidden one that never can.
           const node = nodeById.get(factorId)
+          const isFactor = node ? resolveNodeTypeLiteral(node) === 'factor' : false
           return {
             label,
             canFocus: true,
-            canReviewValue: node ? factorHasConfirmableValue(node.data) : false,
+            valueAffordance: !isFactor
+              ? ('none' as const)
+              : factorDisplaysValue(node?.data)
+                ? ('review' as const)
+                : ('set' as const),
           }
         },
       }),

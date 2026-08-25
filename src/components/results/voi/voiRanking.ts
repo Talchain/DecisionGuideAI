@@ -56,23 +56,39 @@ export interface VoiLabelResolution {
   /** True when the id maps to a canvas node that can be focused. */
   canFocus: boolean
   /**
-   * True when the resolved node carries a value a user could actually review and
-   * replace — i.e. the Model tab will render an editor for it rather than the
-   * inert "Not set" span.
+   * WHAT THE USER CAN HONESTLY BE OFFERED FOR THIS FACTOR, in three states.
    *
-   * ⚠ THIS IS NOT `canFocus`, AND THE DIFFERENCE IS A DEAD END. `canFocus` says a
-   * node exists. A node can exist and have NO editor, and sending a user to one is
-   * the shape this estate has already shipped once: an advertised action that
-   * terminates in nothing.
+   * ⚠ THIS REPLACES A BOOLEAN `canReviewValue`, AND THE REASON IS THAT ONE
+   * PREDICATE WAS GUARDING TWO OPPOSITE HARMS (CLAUDE.md 22b). Offering "review"
+   * where the destination displays nothing is a FALSE PROMISE; withholding every
+   * affordance where nothing is stated is a SILENT GAP on exactly the rows whose
+   * value-of-information is highest. A false positive that INVENTS an action and
+   * one that DROPS an action cannot share a single window.
    *
-   * It matters twice over here, because a rerun after editing an unset factor
-   * REFUSES (`baseline_scale_unresolved`, 3/3 on a fresh-guest journey). So an
-   * unset row cannot complete the loop even if it could be edited.
+   * ⚠ THE PREMISE THE BOOLEAN RESTED ON WAS FALSE, and the correction is why
+   * `'set'` exists. I wrote that the Model tab renders "an inert Not set span
+   * with no editor", and hid the control wherever no value was stated. That is
+   * true of the V1 editor — which is NOT MOUNTED:
+   * `canvas/components/ModelTabBody.tsx:120` `const
+   * LEGACY_DETAILED_EDITOR_MOUNTED = false` switches the entire v1 stack off at
+   * `:917`. V2 is the sole mounted Model surface, and its F9 comment
+   * (`model-tab-v2/ModelRowView.tsx:419-425`) states the opposite of my premise:
+   * "here a null value still renders an editor affordance; it is disabled only
+   * because the authority is not frozen, never because the value is missing."
    *
-   * Supplied by the caller, which owns the canvas nodes; decided by the single
-   * exported authority `factorHasConfirmableValue`, never re-spelled here.
+   * So a valueless factor CAN be given a value on the surface a user actually
+   * loads. Hiding its affordance was the gap, not the safety.
+   *
+   *   'review' — the destination will DISPLAY a value: offer to review/replace it.
+   *   'set'    — the destination gives an editor but nothing is stated yet: offer
+   *              to set one. Never call this "review"; there is nothing to review.
+   *   'none'   — no editor is reachable for this id: offer nothing.
+   *
+   * Supplied by the caller, which owns the canvas nodes. `'review'` vs `'set'` is
+   * decided by the destination's OWN projection, so the copy cannot drift from
+   * what the user will find when they arrive.
    */
-  canReviewValue: boolean
+  valueAffordance: 'review' | 'set' | 'none'
 }
 
 /** One ranking row — a label and a focus target. No magnitude, by construction. */
@@ -82,8 +98,8 @@ export interface VoiRankingRow {
   /** Resolved canvas node label. A row without one is dropped, never id-shaped. */
   label: string
   canFocus: boolean
-  /** See `VoiLabelResolution.canReviewValue`. Gates the review affordance only. */
-  canReviewValue: boolean
+  /** See `VoiLabelResolution.valueAffordance`. Chooses the act, never the order. */
+  valueAffordance: 'review' | 'set' | 'none'
 }
 
 export interface VoiRanking {
@@ -300,7 +316,7 @@ export function buildVoiRanking({
       factorId,
       label: resolution.label,
       canFocus: resolution.canFocus,
-      canReviewValue: resolution.canReviewValue,
+      valueAffordance: resolution.valueAffordance,
     }
     if (isResolvedRow) resolved.push(row)
     else belowResolution.push(row)

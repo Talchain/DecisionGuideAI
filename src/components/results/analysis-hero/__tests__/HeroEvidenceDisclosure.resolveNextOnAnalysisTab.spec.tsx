@@ -87,10 +87,10 @@ import { useUIStore } from '@/stores/uiStore'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
-const CHURN = { factorId: 'fac_churn', label: 'Customer churn rate', canFocus: true, canReviewValue: false }
-const DEMAND = { factorId: 'fac_demand', label: 'Enterprise market demand', canFocus: true, canReviewValue: false }
-const MARKET = { factorId: 'fac_market', label: 'Market receptivity', canFocus: true, canReviewValue: false }
-const COMPETITOR = { factorId: 'fac_comp', label: 'Competitor response', canFocus: true, canReviewValue: false }
+const CHURN = { factorId: 'fac_churn', label: 'Customer churn rate', canFocus: true, valueAffordance: 'none' as const }
+const DEMAND = { factorId: 'fac_demand', label: 'Enterprise market demand', canFocus: true, valueAffordance: 'none' as const }
+const MARKET = { factorId: 'fac_market', label: 'Market receptivity', canFocus: true, valueAffordance: 'none' as const }
+const COMPETITOR = { factorId: 'fac_comp', label: 'Competitor response', canFocus: true, valueAffordance: 'none' as const }
 
 /**
  * THE STATE THIS SLICE EXISTS FOR — rows arrived, were validated and
