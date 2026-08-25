@@ -109,10 +109,19 @@ export function AnalysisHeroContainer({
     // CANVAS store (select + fit camera); it has no effect on the outputs dock,
     // so on its own this landed the user at the top of the Model outline with
     // nothing selected — an act that advertises a destination it does not reach.
-    // `requestModelTabSection` is the estate's existing cross-panel deep-link
-    // (`ContestedSection.tsx:96` uses it for 'relationships'); the factors group
-    // id is declared at `ModelTabBody.tsx:126`.
-    useUIStore.getState().requestModelTabSection('model-group-v2-factors')
+    // ⚠ PASS THE KEY, NOT THE VALUE — I shipped the value here first and it was
+    // SILENT. `MODEL_SECTION_TARGET` (`ModelTabBody.tsx:123`) maps section NAMES
+    // to testids, and its consumer does
+    // `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'` (`:243`). Passing the
+    // testid misses the lookup, and the `??` lands the user at the panel top with
+    // nothing selected — verbatim the failure the eight lines above say this call
+    // was added to fix. Every other caller in the tree passes a name
+    // (`ContestedSection.tsx:96` → 'relationships').
+    //
+    // Pinned by `__tests__/reviewValueTargetsFactorsSection.spec.ts`, which asserts
+    // membership of the DERIVED key set rather than equality with a string — a
+    // rename would satisfy equality while pointing nowhere.
+    useUIStore.getState().requestModelTabSection('factors')
     focusModelTarget(factorId)
   }, [])
 

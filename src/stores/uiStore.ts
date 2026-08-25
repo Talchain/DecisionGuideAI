@@ -79,6 +79,45 @@ function isOverlaySurfaceId(value: unknown): value is OverlaySurfaceId {
   )
 }
 
+/**
+ * The Model tab's addressable sections, BY NAME.
+ *
+ * ⚠ THIS TYPE EXISTS BECAUSE A CALLER PASSED THE TESTID INSTEAD OF THE NAME AND
+ * NOTHING FAILED. `MODEL_SECTION_TARGET` (`canvas/components/ModelTabBody.tsx`)
+ * maps these names to testids and its consumer coalesces an unknown key to the
+ * panel top, so a wrong string degrades SILENTLY — the user lands at the top of
+ * the outline with nothing selected. Typing the parameter turns that into a
+ * compile error at the call site.
+ *
+ * `MODEL_SECTION_TARGET` is declared as `Record<ModelTabSectionId, string>`, so
+ * the two cannot drift in EITHER direction: a name added here without a target
+ * fails to compile, and a target added there without a name fails to compile.
+ * That is the mutual binding a hand-maintained list never has (CLAUDE.md trap 12).
+ */
+export const MODEL_TAB_SECTION_IDS = [
+  'goal',
+  'options',
+  'factors',
+  'relationships',
+  'risks',
+  'modelcard',
+] as const
+
+/** Derived FROM the array above — never a second hand-written list. */
+export type ModelTabSectionId = (typeof MODEL_TAB_SECTION_IDS)[number]
+
+/**
+ * Runtime narrowing for ids that arrive from OUTSIDE the type system — i.e. the
+ * assistant's `open_section` directive, whose id is server-supplied text. An
+ * unknown id must be REFUSED here rather than passed on, because the consumer
+ * coalesces a miss to the panel top: the assistant would appear to act, the dock
+ * would front, and the user would land nowhere in particular.
+ */
+export function isModelTabSectionId(value: unknown): value is ModelTabSectionId {
+  return typeof value === 'string'
+    && (MODEL_TAB_SECTION_IDS as readonly string[]).includes(value)
+}
+
 export interface UIStoreState {
   /** Current active tab in the OutputsDock (synced bidirectionally) */
   activeOutputTab: OutputTab
@@ -94,7 +133,7 @@ export interface UIStoreState {
    * focus + auto-expand on its next render. Cleared by the consumer once it
    * has acted. Null when no navigation is pending.
    */
-  pendingModelTabSection: string | null
+  pendingModelTabSection: ModelTabSectionId | null
   /** Which transient overlay surface is raised right now. Null when none. */
   activeOverlaySurface: OverlaySurfaceId | null
   /** Who raised it. Null exactly when no surface is raised.
@@ -187,7 +226,7 @@ export interface UIStoreActions {
   /** Close the active right panel */
   closeRightPanel: () => void
   /** Request the Model tab to focus + auto-expand a section on next render. */
-  requestModelTabSection: (sectionId: string | null) => void
+  requestModelTabSection: (sectionId: ModelTabSectionId | null) => void
   /**
    * USER-driven overlay control: open a surface, or pass null to close.
    * The user may always both raise and lower. This is the action a click,
@@ -255,7 +294,7 @@ export interface AssistantUiSurfaceActions {
    * this, so `useUIStore.getState()` still satisfies the interface.
    */
   forceActivateOutputTab: (tab: OutputTab, origin: 'assistant') => void
-  requestModelTabSection: (sectionId: string) => void
+  requestModelTabSection: (sectionId: ModelTabSectionId) => void
   requestOverlaySurface: (surface: OverlaySurfaceId) => boolean
 }
 

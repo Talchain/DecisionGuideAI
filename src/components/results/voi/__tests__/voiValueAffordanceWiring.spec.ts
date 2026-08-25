@@ -75,8 +75,48 @@ describe('valueAffordance is decided by the destination\'s own projection', () =
         + 'resolver used to borrow, so offering an act there is a button that does nothing.',
     ).toBe(true)
 
+    /*
+     * ⭐ THE GUARD MUST BITE, NOT MATCH ONE SPELLING.
+     *
+     * The first version of this assertion was `/valueAffordance:\s*'(review|set|none)'\s*,/`
+     * — and it was EVADED BY THE IDIOM THIS FILE'S OWN SUBJECT USES. The resolver
+     * writes `('none' as const)`; the regex required a bare quoted literal followed
+     * by a comma, so a parenthesised `as const`, a double-quoted value, or a final
+     * property with no trailing comma all slipped past. The mutant that motivated
+     * this whole spec would have survived if written in the house style.
+     *
+     * So the pattern is widened AND SELF-TESTED: the corpus below is spellings a
+     * constant could plausibly take, and the guard must catch EVERY one. If a
+     * future edit narrows the pattern, the corpus REDs rather than the guard
+     * silently ceasing to discriminate (CLAUDE.md 13b — a control whose power is
+     * unpinned at rest).
+     */
+    const CONSTANT_SPELLINGS = [
+      "valueAffordance: 'review',",
+      "valueAffordance: 'set',",
+      'valueAffordance: "none",',
+      "valueAffordance: 'none' as const,",
+      "valueAffordance: ('none' as const),",
+      "valueAffordance:   'review'  ,",
+      "valueAffordance: 'set'",
+      "valueAffordance: ('review' as const)",
+    ]
+    const CONSTANT_RE = /valueAffordance\s*:\s*\(?\s*['"](?:review|set|none)['"]/
+
+    for (const spelling of CONSTANT_SPELLINGS) {
+      expect(
+        CONSTANT_RE.test(spelling),
+        `the anti-constant guard does not catch \`${spelling}\` — it would let a `
+          + 'hard-coded affordance through in that spelling, which is how the '
+          + 'original mutant survived.',
+      ).toBe(true)
+    }
+
+    // A DERIVED value must NOT trip it — otherwise the guard is unfalsifiable.
+    expect(CONSTANT_RE.test("valueAffordance: factorDisplaysValue(node?.data) ? 'review' : 'set',")).toBe(false)
+
     expect(
-      /valueAffordance:\s*'(?:review|set|none)'\s*,/.test(block),
+      CONSTANT_RE.test(block),
       'valueAffordance must be derived, never a literal. A constant `review` promises a '
         + 'value the row may not display; a constant `set` tells a user to set one that '
         + 'is already there. Both are false statements about their own model.',

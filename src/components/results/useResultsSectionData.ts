@@ -1565,11 +1565,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // Nothing is hidden for want of a value. `'none'` is reserved for ids
           // that are not factor nodes at all, which have no editor by kind.
           //
-          // ⚠ NODE KIND IS CHECKED HERE because the write authority checks it one
-          // line above the predicate this used to borrow
-          // (`useModelEditAuthority.ts:247` returns `'not_encodable'` for a
-          // non-factor). A surface that offers what the authority will decline is
-          // an enabled button that does nothing.
+          // ⚠ NODE KIND IS CHECKED HERE, and the reason is defensive rather than
+          // borrowed. `useModelEditAuthority.ts:247` — the `'not_encodable'` guard
+          // for a non-factor — belongs to `proposeFactorConfirmation`, NOT to
+          // `proposeFactorValue` (`:146`), which performs no kind check of its own.
+          // (The earlier version of this comment cited `:247` as though it guarded
+          // the value writer; corrected in review.) So this check is not mirroring
+          // an existing refusal — it is the only kind gate on this path, which is
+          // why it stays: `resolveNodeTypeLiteral` returns null for an unrecognised
+          // id, so an unknown id fails CLOSED to `'none'` and offers nothing.
           //
           // ⚠ WHAT THE RERUN DOES IS NOT PROMISED HERE. A rerun after editing can
           // still refuse (`baseline_scale_unresolved`); CEE #1103 is the fix and
