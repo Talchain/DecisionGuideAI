@@ -114,7 +114,10 @@ describe('DecisionOverviewCard — ready state (live)', () => {
 
   it('collapsed and quiet: meta label, title, framing-has-the-basics line', () => {
     render(<DecisionOverviewCard title="Launch decision" />)
-    expect(screen.getByText('Decision overview')).toBeInTheDocument()
+    // Meta label generalised — this card is shown for whatever the user brought,
+    // which is often a challenge with no options named. Pinned in
+    // `results/__tests__/coreSurfacesDoNotPresumeADecision.spec.ts`.
+    expect(screen.getByText('Overview')).toBeInTheDocument()
     expect(screen.getByText('Launch decision')).toBeInTheDocument()
     expect(screen.getByText('Framing has the basics')).toBeInTheDocument()
     // Collapsed by default: dimension chips hidden until expanded.
