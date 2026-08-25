@@ -57,7 +57,7 @@ function expectStrategicReasoningEntry() {
       'Olumi turns messy strategic work into a living visual model while keeping your judgement visible.',
     ),
   ).toBeInTheDocument()
-  expect(screen.getByText('Sign in to create a saved workspace.')).toBeInTheDocument()
+  expect(screen.getByText('Sign up to keep your models across devices.')).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Decisions' })).not.toBeInTheDocument()
   expect(screen.queryByText(/manage your decisions/i)).not.toBeInTheDocument()
 }

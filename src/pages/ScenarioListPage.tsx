@@ -367,6 +367,14 @@ export default function ScenarioListPage() {
   // (secondary). Guest mode is the POC's primary flow and #/canvas works fully
   // as guest, so this branch must never be a dead end.
   //
+  // ⚠⚠ AND MY OWN REPLACEMENT WAS FALSE TOO. #841 put "Sign in to create a saved
+  // workspace." here. The mechanism is now settled: a guest's model is stored on
+  // OLUMI'S SERVERS and re-fetched every load from a 36-byte UUID pointer — so it
+  // is ALREADY saved, and an invitation to sign in "to save" tells the user their
+  // work is at risk when it is not. I fixed one falsehood and shipped another in
+  // the same sentence, which is why the licensed wording is now pinned centrally
+  // rather than reasoned out per surface.
+  //
   // ⚠ THE COPY MAKES NO CLAIM ABOUT WHERE GUEST WORK LIVES, deliberately.
   // A previous version read "Without an account, your work stays only in this
   // browser." Both halves were wrong at once:
@@ -390,7 +398,7 @@ export default function ScenarioListPage() {
             Olumi turns messy strategic work into a living visual model while keeping your judgement visible.
           </p>
           <p className={`${typography.bodySmall} text-text-light mt-3`}>
-            Sign in to create a saved workspace.
+            Sign up to keep your models across devices.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <button
