@@ -39,6 +39,7 @@ import { WhatIWasGivenSection } from './contextIntegrity/WhatIWasGivenSection'
 import { openDefineSuccess, HowComputedTrigger } from './modals'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '@/canvas/mutations/mutationAuthority'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
+import { DecisionBriefSectionContainer } from './decision-brief'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -311,15 +312,6 @@ export const ResultsBody = memo(function ResultsBody({
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
-      {/* ── P1-9 provenance: Model-Card-Lite entry point ───────────────────
-          Sits above every number it explains so "where did that number come
-          from?" is answerable without hunting. Gated on results being on
-          screen — a method note for an analysis that has not run would be
-          explaining numbers that do not exist. */}
-      <HowComputedTrigger
-        hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
-      />
-
       {/* ══ V7 ASSESSMENT SCAFFOLD — GONE, NOT MOVED (adjudicated) ═════════
           HISTORY, because the intermediate state confused readers twice: the
           V7 top group (`V7TopMatter`) + "Current view" divider — the
@@ -365,6 +357,26 @@ export const ResultsBody = memo(function ResultsBody({
           a flag arm ships dark on the posture that matters). BLOCKER rows
           keep their own surface (ValidationPanel via OutputsDock). */}
       <CritiqueWarningStrip critiques={resultsSectionData.confidence.humanisedCritiques} />
+
+      {/* C11 Decision Brief intelligence — the strategic-reading entry point
+          for the producer's already-transported projected brief. Canonical
+          warnings stay above it so caveats qualify the claims they govern;
+          method, run delta, and the taller cockpit follow. This keeps the
+          licensed groups on first paint without rebuilding winner, freshness
+          or Compare authority. */}
+      <SectionErrorBoundary section="Decision brief">
+        <DecisionBriefSectionContainer />
+      </SectionErrorBoundary>
+
+      {/* ── P1-9 provenance: Model-Card-Lite entry point ───────────────────
+          Sits above every numeric analysis surface it explains so "where did
+          that number come from?" is answerable without hunting. The brief
+          above renders labels/prose only. Gated on results being on screen —
+          a method note for an analysis that has not run would be explaining
+          numbers that do not exist. */}
+      <HowComputedTrigger
+        hasResults={(resultsSectionData.recommendation.allOptions?.length ?? 0) > 0}
+      />
 
       {/* Seamlessness R6 / ROADMAP 2.1 slice 1: run-over-run delta chip.
           Client-side diff of the two most recent stored runs; self-hides on
