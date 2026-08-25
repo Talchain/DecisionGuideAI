@@ -98,7 +98,7 @@ describe('guest storage claims', () => {
    * matching one, it has grown too broad and this fails.
    */
   it('licensed sentences are not caught by any ban', () => {
-    expect(GUEST_STORAGE_CLAIMS_LICENSED.length).toBeGreaterThan(3)
+    expect(GUEST_STORAGE_CLAIMS_LICENSED.length).toBeGreaterThanOrEqual(3)
     for (const sentence of GUEST_STORAGE_CLAIMS_LICENSED) {
       const hit = findGuestStorageClaim(sentence)
       expect(hit, `a licensed sentence was banned: "${sentence}" matched ${hit}`).toBeNull()
@@ -114,7 +114,11 @@ describe('guest storage claims', () => {
     ['the sentence I shipped in #841', 'Sign in to create a saved workspace.'],
     ['clearing data deletes the POINTER, not the model', 'Clearing your browser data deletes your work.'],
     ['locality', 'Your work never leaves your device.'],
-    ['exclusivity', 'Only you can see this.'],
+    ['exclusivity of audience', 'Only you can see this.'],
+    // ⚠ Pinned as TRUE earlier this session, then withdrawn: the mechanism proved
+    // the local-pointer route, not that it is the ONLY route. The scenario UUID
+    // travels in a URL path and is sufficient by itself.
+    ['exclusivity of ROUTE — unproven, not false-by-measurement', 'This browser is the only way back to this model.'],
   ])('bans a claim that is false under the settled mechanism: %s', (_why, sentence) => {
     expect(findGuestStorageClaim(sentence), `should have been banned: "${sentence}"`).toBeTruthy()
   })

@@ -53,6 +53,11 @@ export const GUEST_STORAGE_CLAIM_PATTERNS: readonly RegExp[] = [
   /we (?:do not|don't) (?:store|keep|save)/i,
   /nothing (?:is )?(?:sent|uploaded)/i,
   /only you can see/i,
+  // Exclusivity of ROUTE, not just of storage. Unproven: the scenario UUID
+  // travels in a URL path and is sufficient on its own, so a bookmark or history
+  // entry may be another way back.
+  /only way (?:back|to get back)/i,
+  /(?:can )?only (?:be )?(?:reached|accessed|opened) (?:from|in) this browser/i,
 
   // ⚠ THE THREE A REASONABLE PERSON WOULD WRITE, and I wrote one of them.
   // "sign in to save your work" — it is ALREADY saved. Signing in adds an
@@ -81,14 +86,32 @@ export function stripComments(source: string): string {
  * If a pattern ever starts matching one of these it has grown too broad, and the
  * spec fails — a ban list with no sanctioned counterpart drifts towards
  * forbidding everything and nobody notices, because over-blocking reads as safe.
+ *
+ * ⚠⚠ TWO SENTENCES WERE REMOVED FROM THIS LIST AFTER BEING PINNED, and the reason
+ * generalises. "this browser is the only way back" and "clearing this browser's
+ * site data loses your way back" both assert EXCLUSIVITY OF ROUTE. The mechanism
+ * work proved the local-pointer route; it did not prove it is the ONLY one. The
+ * scenario UUID also travels in a URL path and is by itself sufficient to retrieve
+ * the model, so a bookmark, a copied link or browser history may be another way
+ * back. Proving one route exists is not proving no other does — and I pinned the
+ * stronger claim because the weaker one had been demonstrated.
+ *
+ * ⭐ THE STANDING RULE THIS PRODUCES: ban false privacy and locality claims;
+ * AVOID POSITIVE STORAGE-LOCATION CLAIMS ALTOGETHER unless a surface genuinely
+ * requires one. If first-use copy works without explaining storage at all, that is
+ * the better copy. Nothing here needs the user to hold a model of our persistence.
+ *
+ * ⚠ AND A BEHAVIOURAL RULE NO REGEX CAN CARRY, recorded here because this is where
+ * the next implementer will look: DO NOT SHOW "Saved" UNTIL SERVER PERSISTENCE HAS
+ * ACTUALLY COMPLETED. The write-back lags the model appearing on screen by 30-90
+ * seconds, so a "Saved" indicator that fires on render is false for that whole
+ * window. It needs positive evidence of completion, not a render event.
  */
 export const GUEST_STORAGE_CLAIMS_LICENSED: readonly string[] = [
-  'Saved to Olumi.',
-  'Close the tab and come back in this browser.',
-  "Clearing this browser's site data loses your way back.",
+  // Benefit framing, no storage-location claim, no exclusivity claim.
   'Sign up to keep your models across devices.',
-  "Saved to Olumi. You're not signed in, so this browser is the only way back to "
-  + 'this model — clearing its data will lose your link to it.',
+  'Describe a decision you are facing.',
+  'Start reasoning without an account.',
 ]
 
 /** The first banned pattern this text matches, or null. */
