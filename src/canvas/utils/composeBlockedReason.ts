@@ -382,6 +382,57 @@ function promiseIsLicensed(readiness: GraphReadiness | null | undefined): boolea
  * hand-remembered argument is the trap-12 mirror; a derived guard on top of a
  * safe default is not.
  */
+/**
+ * The producer's own repair guidance from the GRAPH-readiness verdict, ready to
+ * render — or `null` when it cannot ship as written.
+ *
+ * ⚠ WHY THIS EXISTS. The panel has two authorities. When the ANALYSIS authority
+ * is present, `composeAnalysisBlockedReason` names the producer's blockers and
+ * the user is told exactly what is missing. When it is ABSENT, the footer falls
+ * to this composer — which read `options_ready`, `goal_node_valid` and
+ * `options_total`, and if none of those rungs matched, said "Olumi needs
+ * something more from this model … ask in the chat and it will explain what is
+ * missing".
+ *
+ * ⭐ It was holding the answer while it said that. `GraphReadiness.improvements`
+ * carries the producer's own `action` strings — "Choose the missing effect value
+ * for X on Y" — and nothing in this module ever read them. The panel discarded
+ * named, structured, user-readable remedies and sent the user elsewhere for
+ * them. Witnessed mounted with three such actions in the payload.
+ *
+ * ⚠ DELIBERATELY THE SAME SHAPE AS `producerAuthoredReason`, NOT A SECOND RULE.
+ * Same degrade-to-null on any unusable entry, same de-duplication, same join,
+ * and the SAME vet: `isSafeCeeText`, never `guardCeeText`. That choice is not
+ * stylistic — the sibling's header records it measured: the substituting guard
+ * rewrites a user's own quoted option label into one that exists on no canvas
+ * ("Move billing to edge computing" -> "… to connection computing"). Producer
+ * prose is VETTED here and rewritten nowhere.
+ *
+ * ⚠ AND IT NAMES ALL OF THEM. Truncating to the first would understate the work
+ * outstanding by exactly the number withheld — the defect this module's A2 rung
+ * already forbids for counts.
+ */
+function producerAuthoredImprovement(
+  readiness: GraphReadiness | null | undefined,
+): string | null {
+  const improvements = readiness?.improvements
+  if (!Array.isArray(improvements) || improvements.length === 0) return null
+
+  const sentences: string[] = []
+  for (const improvement of improvements) {
+    // The type says `string`, but this path is fed by a network payload and a
+    // type is not a runtime guarantee. One unusable entry degrades the WHOLE
+    // sentence rather than publishing a partial list that reads as complete.
+    const action = typeof improvement?.action === 'string' ? improvement.action.trim() : ''
+    if (action.length === 0) return null
+    if (!sentences.includes(action)) sentences.push(action)
+  }
+  if (sentences.length === 0) return null
+
+  const joined = sentences.join(' ')
+  return isSafeCeeText(joined) ? joined : null
+}
+
 export function composeReadinessBlockedReason(
   readiness: GraphReadiness | null | undefined,
   optionsNeedingValues: readonly OptionNeedingValues[] = [],
@@ -436,7 +487,21 @@ export function composeReadinessBlockedReason(
     return BLOCKED_REASON_COPY.tooFewOptions
   }
 
-  // 4. Nothing specific enough to name. Say exactly that, and nothing more.
+  // 4. Nothing the STRUCTURED fields can name — but the verdict may still carry
+  //    the producer's own repair guidance, and until now this rung discarded it.
+  //
+  //    Ordered last on purpose: the rungs above compose OUR sentence from the
+  //    verdict's typed fields and are preferred where they match, because they
+  //    are the ones this module can guarantee. This is the step before giving
+  //    up, not a new preference over them.
+  //
+  //    ⚠ It cannot outrank the stale short-circuit either: that returns at the
+  //    top of this function, so a stale verdict's improvements — which describe
+  //    a graph the user has already changed — never reach here.
+  const authoredImprovement = producerAuthoredImprovement(readiness)
+  if (authoredImprovement !== null) return authoredImprovement
+
+  // 5. Now there is genuinely nothing specific to name. Say exactly that.
   return BLOCKED_REASON_COPY.unspecified
 }
 
