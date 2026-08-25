@@ -37,6 +37,7 @@
 import type { AnalysisBlocker } from '@talchain/schemas/boundary'
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
+import { IMPROVEMENT_ACTION_PLACEHOLDER } from './improvementActionPlaceholder'
 import {
   containsBannedTerm,
   safeInterpolatedLabel,
@@ -425,6 +426,14 @@ function producerAuthoredImprovement(
     // sentence rather than publishing a partial list that reads as complete.
     const action = typeof improvement?.action === 'string' ? improvement.action.trim() : ''
     if (action.length === 0) return null
+    // ⚠ THE STORE FABRICATES ON THIS FIELD. An improvement that arrived with no
+    // `action` and no `recommendation` is mapped to a synthesised line so the
+    // improvements LIST still has a row. It is non-empty, so the check above
+    // passes it — and this rung claims the sentence is the PRODUCER naming what
+    // is missing, which that line is not. Refused by IDENTITY against the
+    // store's own constant: a copied literal would keep passing the day the
+    // wording changes, an import cannot.
+    if (action === IMPROVEMENT_ACTION_PLACEHOLDER) return null
     if (!sentences.includes(action)) sentences.push(action)
   }
   if (sentences.length === 0) return null
