@@ -21,6 +21,28 @@ vi.mock('../../../contexts/AuthContext', () => ({
 }))
 
 /**
+ * The identity the hook SENDS comes from `getSessionIdentity`, not from
+ * `useAuth` — deliberately. `useAuth` stays the effect's DEPENDENCY (re-hydrate
+ * when the signed-in user changes), but an access token rotates, so the value
+ * on the wire must be read at request time. Taking both fields from ONE atomic
+ * read is what guarantees the body `user_id` and the `Authorization` header
+ * describe the same session; splitting them across two sources is two answers
+ * to one identity question.
+ *
+ * `importOriginal` spread, not a hand-listed factory: a `vi.mock` factory
+ * REPLACES the module, so every other export this module has would silently
+ * vanish (CLAUDE.md trap 12).
+ */
+let sessionIdentity: { userId: string | null; accessToken: string | null } = {
+  userId: null,
+  accessToken: null,
+}
+vi.mock('../../../lib/supabase', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getSessionIdentity: async () => sessionIdentity,
+}))
+
+/**
  * Typed through a factory rather than `ReturnType<typeof vi.spyOn>`, which
  * widens to `MockInstance<unknown[], unknown>` and does not accept the real
  * spy — the typecheck gate caught that as a genuine new error.
@@ -33,6 +55,7 @@ let spy: ReturnType<typeof spyOnHydrate>
 
 beforeEach(() => {
   user = { id: 'guest' }
+  sessionIdentity = { userId: null, accessToken: null }
   spy = spyOnHydrate()
 })
 
@@ -110,10 +133,28 @@ describe('useServerGraphHydration — StrictMode (A6)', () => {
 })
 
 describe('useServerGraphHydration — identity', () => {
-  it('passes the auth user id through', async () => {
+  it('passes the signed-in user id through', async () => {
     user = { id: 'user-42' }
+    sessionIdentity = { userId: 'user-42', accessToken: 'token-42' }
     renderHook(() => useServerGraphHydration(A))
     await waitFor(() => expect(spy).toHaveBeenCalled())
     expect((spy.mock.calls[0][1] as any).userId).toBe('user-42')
+  })
+
+  it('passes the access token through, so CEE can verify rather than trust', async () => {
+    user = { id: 'user-42' }
+    sessionIdentity = { userId: 'user-42', accessToken: 'token-42' }
+    renderHook(() => useServerGraphHydration(A))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    expect((spy.mock.calls[0][1] as any).accessToken).toBe('token-42')
+  })
+
+  it('sends NO token for a guest — the opposite-direction twin', async () => {
+    user = { id: 'guest' }
+    sessionIdentity = { userId: null, accessToken: null }
+    renderHook(() => useServerGraphHydration(A))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    expect((spy.mock.calls[0][1] as any).accessToken).toBeNull()
+    expect((spy.mock.calls[0][1] as any).userId).toBeNull()
   })
 })
