@@ -169,43 +169,82 @@ export async function hydrateCanvasFromServer(
   // verdict was fetched, validated against the contract, and discarded on every
   // ordinary reload.
   //
-  // ⚠ PLACED BEFORE THE `unchanged` SHORT-CIRCUIT, for the reason the
-  // context-integrity note above already establishes: that branch is the COMMON
-  // case on every re-boot of an existing scenario, and it is exactly when the
-  // user is most likely to open the panel. Restoring after it would leave the
-  // verdict absent for the very sessions this is meant to serve.
-  //
-  // ⚠ ORDERING AGAINST #837, WHICH WAS THE QUESTION TO SETTLE: the two writes
-  // are DISJOINT and neither can overwrite the other. `markGraphStructurallyEdited`
-  // (fired inside `mergeServerGraphOnHydrate`, `mergeServerGraph.ts:512`) writes
-  // `graphEditedSinceLastRun` / `analysisStateReady` / `analysisFreshnessDirty`;
-  // this writes `analysisStateV1` and nothing else. Pinned in BOTH directions in
-  // `__tests__/bootAnalysisVerdictRestore.spec.ts` rather than left to this
-  // comment — a disjointness that only a comment asserts is one refactor from
-  // being false.
-  //
   // ⚠ AND IT MAY ONLY EVER WITHHOLD CURRENCY. `applyBootAnalysisVerdict`
   // declines `complete_current` outright: on the selector's WIRE branch the
   // local dirty overlay is not consulted, so restoring a currency claim here
   // would render "Analysis complete" over a canvas the merge below is about to
   // mark stale. See that function's header for the full derivation.
-  const verdictOutcome = applyBootAnalysisVerdict({
-    analysisState: result.analysisState,
-    store: { setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1 },
-  })
-  logger.debug('server_graph_hydration.boot_verdict', {
-    scenarioId,
-    outcome: verdictOutcome.outcome,
-    detail:
-      verdictOutcome.outcome === 'restored' ? verdictOutcome.kind : verdictOutcome.reason,
-  })
+  //
+  // ⚠ ORDERING AGAINST #837: the two writes are DISJOINT and neither can
+  // overwrite the other. `markGraphStructurallyEdited` (fired inside
+  // `mergeServerGraphOnHydrate`, `mergeServerGraph.ts:512`) writes
+  // `graphEditedSinceLastRun` / `analysisStateReady` / `analysisFreshnessDirty`;
+  // this writes `analysisStateV1` and nothing else. Pinned in BOTH directions in
+  // `__tests__/bootAnalysisVerdictRestore.spec.ts` rather than left to this
+  // comment — a disjointness that only a comment asserts is one refactor from
+  // being false.
+  const restoreVerdict = (): void => {
+    const verdictOutcome = applyBootAnalysisVerdict({
+      analysisState: result.analysisState,
+      store: { setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1 },
+    })
+    logger.debug('server_graph_hydration.boot_verdict', {
+      scenarioId,
+      outcome: verdictOutcome.outcome,
+      detail:
+        verdictOutcome.outcome === 'restored'
+          ? verdictOutcome.kind
+          : verdictOutcome.reason,
+    })
+  }
 
+  // ── ⚠⚠ THE VERDICT IS GATED ON GRAPH ACCEPTANCE, AND THAT IS THE WHOLE POINT ──
+  //
+  // THE DEFECT THIS CLOSES, live on staging at `01755479`: this call used to sit
+  // HERE, unconditionally, fifty lines above the `merge.accepted` gate below. So
+  // on every boot where the MERGE REFUSED, CEE's verdict was still written into
+  // `analysisStateV1` — and that field is FEATURE-DETECTED by the selector: a
+  // non-null value takes the WIRE branch, where the local dirty overlay is not
+  // consulted (`analysisStateSelector.ts:551-554`).
+  //
+  // The refused graph's verdict therefore became AUTHORITATIVE over the user's
+  // OWN local graph — the one the refusal exists to protect — and the product
+  // told them "Model changed since this analysis" about a model that analysis
+  // never ran on. A System-A truth defect: a false assertion about the user's
+  // own model, which is worse than silence.
+  //
+  // Reachable through three of the merge's four refusal reasons (the fourth,
+  // `unusableShape`, is filtered earlier by the adapter — measured, and pinned
+  // as such in `__tests__/bootVerdictGraphAcceptance.spec.ts`):
+  //   `zeroOverlap`         two unrelated graphs — the verdict describes THEIRS
+  //   `importUnregistered`  the canvas holds an import the server has NEVER seen
+  //   `emptyServerGraph`    a verdict about a graph CEE does not have
+  //
+  // ⚠ THE FIX IS NOT "MOVE IT BELOW `merge.accepted`" — THAT WOULD BREAK THE
+  // COMMONEST BOOT OF ALL. The `unchanged` short-circuit returns BEFORE the
+  // merge runs, so a literal reordering would drop the verdict on every re-boot
+  // of an unmoved scenario — precisely the sessions the original placement note
+  // was right to worry about, and precisely when a user is most likely to open
+  // the panel.
+  //
+  // `unchanged` IS an accepted path, and the reason is structural rather than
+  // conventional: the identity token it matches on is recorded ONLY after a
+  // merge was accepted (the `!merge.accepted` return below precedes the
+  // `setServerGraphIdentity` call). A token match is therefore PROOF OF A PRIOR
+  // ACCEPTANCE of that exact server graph, under that exact projection version.
+  //
+  // So the rule is ACCEPTANCE, not position: restore at each of the two exits
+  // that represent an accepted graph, and at neither refusal. Both directions
+  // are pinned — the refusal-negative AND the accepted-positive — because one
+  // predicate here guards two opposite harms, and a fix aimed only at the lie
+  // would re-open #842's gap on the way past.
   const stored = useCanvasStore.getState().serverGraphIdentity
   if (isSameServerGraph(stored, result.identity)) {
     // The server has not moved since we last hydrated, so there is nothing to
     // apply. Skipping is not merely an optimisation: re-merging would roll a
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
+    restoreVerdict()
     return 'unchanged'
   }
 
@@ -244,8 +283,27 @@ export async function hydrateCanvasFromServer(
       scenarioId,
       reason: merge.refusedReason,
     })
+    // ⚠ NOTHING is written to `analysisStateV1` here — and NOTHING is the
+    // operative word, not `null`. Writing `null` would replace whatever belief
+    // the user's session already holds with a claim of ignorance, which is a
+    // second falsehood rather than the absence of the first
+    // (`applyScenarioAnalysisRead.ts:402-405` makes the same distinction on the
+    // decline side). The refusal simply does not touch this seam.
     return 'mergeRefused'
   }
+
+  // THE ACCEPTED EXIT. The graph this verdict describes is now on the canvas,
+  // so the verdict is a true statement about what the user is looking at.
+  //
+  // Deliberately AFTER the merge, which inverts the previous order and is the
+  // half of this change that had to be re-measured rather than reasoned about:
+  // `mergeServerGraphOnHydrate` fires #837's `markGraphStructurallyEdited`, so
+  // that write now lands FIRST. The two remain disjoint — the mark writes
+  // `graphEditedSinceLastRun` / `analysisStateReady` / `analysisFreshnessDirty`
+  // and this writes `analysisStateV1` — and the disjointness is pinned in both
+  // orders in `__tests__/bootAnalysisVerdictRestore.spec.ts`, which is what
+  // makes that a measurement instead of this comment's opinion.
+  restoreVerdict()
 
   // Store CEE's token VERBATIM — after the merge, so a throw could not leave a
   // token recorded for a graph that was never applied. `null` when CEE issued
