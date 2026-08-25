@@ -41,8 +41,27 @@
  * second authority for one question — this estate's most repeated defect.
  *
  * ⚠ AND THE LESSON THAT PRODUCED THIS FILE: the original guard was correct and
- * POINTED AT THE WRONG BYTES. Hence the two identity tests at the end, which
- * assert the gate inspects `readiness` and not `run_state`.
+ * POINTED AT THE WRONG BYTES. Hence the identity tests at the end.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠⚠ AND THE LESSON THIS FILE THEN LEARNED ABOUT ITSELF
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `gateObjects` below is BYTE-IDENTICAL to the guard it tests. That makes this
+ * suite able to prove the guard is PRESENT (mutant M4: delete it, six tests
+ * RED) and structurally UNABLE to prove the guard asks the RIGHT QUESTION — a
+ * guard agreeing with itself (trap 13b), because the oracle was derived from
+ * the implementation rather than from the spec the consumer parses.
+ *
+ * It was wrong in exactly that way: a `blocked` verdict with a READY readiness
+ * passed this gate and still degraded the product, because that harm travels
+ * via `run_state.kind`, which the gate never reads. This file's earlier
+ * `blocked`/`refused` cases PINNED THE DEFECTIVE PAYLOAD AS CORRECT.
+ *
+ * The consumer-level invariant now lives in
+ * `bootVerdictNoDisplayRegression.spec.ts`, whose oracle is
+ * `composeAnalysisState`. THIS file keeps a narrower and still-real job: the
+ * run-gate guard, which remains live and necessary because a `complete_stale`
+ * verdict can itself carry a blocking readiness.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -105,24 +124,29 @@ describe('PRECONDITIONS — the oracle is the gate, and it discriminates', () =>
 })
 
 describe('⭐ RED-FIRST — a verdict that would close the Analyse gate is DECLINED', () => {
-  it('⭐ restored `blocked` (readiness "blocked") is declined and writes NOTHING', () => {
+  it('⚠ `blocked` is declined by the KIND rule, which now runs FIRST', () => {
+    // ⚠ THIS ASSERTED `closes_run_gate` UNTIL `blocked` LEFT THE RESTORABLE SET.
+    // The reason moved because the ORDER matters: the kind rule precedes the
+    // gate rule, so a kind that may never be restored is refused on its own
+    // terms rather than incidentally, by a readiness that happens to object.
+    // Relying on the gate to catch it was the defect — a `blocked` verdict with
+    // a READY readiness sails straight past the gate.
     const { store, setAnalysisStateV1 } = makeStore()
     const verdict = v(BLOCKED, GATE_CLOSING, { blocked_unusable: true })
-    // Bind the premise: this verdict genuinely closes the gate, per the gate.
-    expect(gateObjects(verdict)).toBe(true)
-
-    const outcome = applyBootAnalysisVerdict({ analysisState: verdict, store })
-    expect(outcome).toEqual({ outcome: 'declined', reason: 'closes_run_gate' })
+    expect(applyBootAnalysisVerdict({ analysisState: verdict, store })).toEqual({
+      outcome: 'declined',
+      reason: 'not_restorable',
+    })
     expect(setAnalysisStateV1).not.toHaveBeenCalled()
   })
 
-  it('⭐ restored `refused` (readiness "blocked") is declined and writes NOTHING', () => {
+  it('⚠ `refused` likewise — declined by kind, not by readiness', () => {
     const { store, setAnalysisStateV1 } = makeStore()
     const verdict = v(REFUSED, GATE_CLOSING)
-    expect(gateObjects(verdict)).toBe(true)
-
-    const outcome = applyBootAnalysisVerdict({ analysisState: verdict, store })
-    expect(outcome).toEqual({ outcome: 'declined', reason: 'closes_run_gate' })
+    expect(applyBootAnalysisVerdict({ analysisState: verdict, store })).toEqual({
+      outcome: 'declined',
+      reason: 'not_restorable',
+    })
     expect(setAnalysisStateV1).not.toHaveBeenCalled()
   })
 
@@ -180,15 +204,22 @@ describe('⭐ BOTH DIRECTIONS — the capability must survive the new guard', ()
     expect(setAnalysisStateV1.mock.calls[0]![0]).toBe(verdict)
   })
 
-  it('`blocked` / `refused` with a non-objecting readiness still restore — the guard is not a set narrowing', () => {
-    // Proves the new rule keys on the GATE, not on the kind. If it had been
-    // implemented as "drop the refusal-shaped kinds", these would decline.
+  it('⚠⚠ `blocked` / `refused` are declined EVEN WITH A NON-OBJECTING READINESS', () => {
+    // ⭐ THIS TEST ASSERTED THE OPPOSITE, AND THE OPPOSITE WAS THE DEFECT. It
+    // read "these still restore — the guard is not a set narrowing", which
+    // PINNED THE DEFECTIVE PAYLOAD AS CORRECT BEHAVIOUR: a `blocked` verdict
+    // whose readiness is READY passes the gate guard and still degrades the
+    // product, because the harm travels via `run_state.kind`.
+    //
+    // The premise is kept and inverted rather than deleted — the readiness
+    // genuinely does not object, which is precisely why the gate guard could
+    // never have caught this and why the narrowing was the right remedy.
     for (const runState of [BLOCKED, REFUSED]) {
       const { store, setAnalysisStateV1 } = makeStore()
       const verdict = v(runState, READY, { blocked_unusable: runState === BLOCKED })
       expect(gateObjects(verdict)).toBe(false)
-      expect(applyBootAnalysisVerdict({ analysisState: verdict, store }).outcome).toBe('restored')
-      expect(setAnalysisStateV1).toHaveBeenCalledTimes(1)
+      expect(applyBootAnalysisVerdict({ analysisState: verdict, store }).outcome).toBe('declined')
+      expect(setAnalysisStateV1).not.toHaveBeenCalled()
     }
   })
 
@@ -214,10 +245,16 @@ describe('⭐ IDENTITY — the guard inspects the member the GATE inspects', () 
     expect(b.outcome).toBe('declined')
   })
 
-  it('holding `readiness` CONSTANT, changing ONLY `run_state` does NOT change it — for restorable kinds', () => {
-    // The discriminating twin. Together with the test above this pins WHICH
-    // member decides: `readiness` does, `run_state.kind` does not (beyond the
-    // restorable-set membership the other spec already covers).
+  it('⭐ holding `readiness` CONSTANT, changing ONLY `run_state` DOES change it — both members decide', () => {
+    // ⭐ THIS ALSO ASSERTED THE OPPOSITE, AND THE COMMENT BESIDE IT — "`readiness`
+    // decides, `run_state.kind` does not" — was TRUE OF THE GUARD AND FALSE OF
+    // THE PRODUCT. That sentence is the whole defect in one line.
+    //
+    // The corrected truth is that TWO members decide, for two different reasons:
+    //   · `run_state.kind` decides MEMBERSHIP — may this kind ever be restored?
+    //   · `readiness`      decides ADMISSIBILITY — would this instance close the
+    //                      Analyse gate?
+    // Neither subsumes the other, which is why both guards exist.
     const outcomes = [STALE, BLOCKED, REFUSED].map(
       (rs) =>
         applyBootAnalysisVerdict({
@@ -225,6 +262,6 @@ describe('⭐ IDENTITY — the guard inspects the member the GATE inspects', () 
           store: makeStore().store,
         }).outcome,
     )
-    expect(outcomes).toEqual(['restored', 'restored', 'restored'])
+    expect(outcomes).toEqual(['restored', 'declined', 'declined'])
   })
 })

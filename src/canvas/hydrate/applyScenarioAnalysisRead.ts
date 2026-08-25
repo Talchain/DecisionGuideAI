@@ -284,52 +284,78 @@ export function applyScenarioAnalysisRead(
 // restore does not rescue #837; it SILENCES it. That is the same defect this
 // slice exists to fix, running backwards.
 //
-// Hence: FAIL-CLOSED BY CONSTRUCTION. This leg may only ever WITHHOLD currency,
-// never assert it. Every kind that makes a positive currency claim is declined,
-// and the decline is a NO-OP — never a write of `null`, which would itself be a
-// claim (`applyScenarioAnalysisRead`'s own "absence is not a state" rule).
+// ⚠⚠ THE RULE WAS FIRST WRITTEN AS "MAY ONLY EVER WITHHOLD CURRENCY, NEVER
+// ASSERT IT", AND THAT UNIVERSAL WAS FALSE — refuted by independent review.
+// It is true of `complete_stale`. It was NOT true of `blocked` / `refused`,
+// which withhold currency and ASSERT SOMETHING ELSE: that the model is not
+// analysable. See BOOT_RESTORABLE_RUN_STATE_KINDS for the measured chain by
+// which that assertion replaced the freshness notice with a refusal banner.
+//
+// THE CORRECTED RULE, and it is narrower AND stronger: this leg restores only a
+// verdict that CANNOT BE FALSIFIED BY THE BOOT MERGE. The decline is a NO-OP —
+// never a write of `null`, which would itself be a claim (this file's own
+// "absence is not a state" rule).
 
 /**
- * The kinds a BOOT read may restore. Each one WITHHOLDS currency, so restoring
- * it can only ever downgrade what the product is willing to say — and a
- * downgrade is safe against a canvas whose relationship to CEE's graph the
- * client cannot establish.
+ * The ONE kind a BOOT read may restore.
  *
- * One line of reasoning per member, against the contract's own text:
+ * ⭐ THE TEST IS MONOTONICITY, NOT "DOES IT WITHHOLD CURRENCY". Restore a
+ * verdict only if NOTHING THE BOOT MERGE DOES CAN FALSIFY IT.
  *
- *   `complete_stale`  CEE states the result is NO LONGER CURRENT and states the
- *                     cause. This is the capture's case, and restoring it is
- *                     strictly more informative than the local derivation it
- *                     replaces — CEE knows WHY.
- *   `blocked`         "THE MODEL IS NOT ANALYSABLE as it stands … no run was
- *                     attempted." A statement about the model, and a model that
- *                     was unanalysable for CEE is not made analysable by a
- *                     client-side merge.
- *   `refused`         CEE explicitly declines to vouch for the currency of any
- *                     visible result. Restoring a refusal to vouch cannot
- *                     over-claim.
+ *   `complete_stale`  SAFE, and provably so. Staleness is MONOTONE: a stale
+ *                     result cannot become current without a new run, and a new
+ *                     run produces a new verdict. So no merge, and no local
+ *                     edit, can make this claim false in the interval between
+ *                     CEE composing it and the client reading it. It also
+ *                     carries CEE's `cause` (e.g. `graph_changed`) — a REASON
+ *                     the local derivation cannot produce at all.
  *
- * ⚠ THIS LIST CANNOT BE DERIVED, exactly as its polling-leg twin cannot: which
- * kinds are safe to restore against an unverifiable canvas is a JUDGEMENT, and
- * no field in the contract states it. What the judgement owes is that it has
+ * ⚠⚠ `blocked` AND `refused` WERE HERE AND WERE REMOVED — independent review,
+ * and the removal costs the stated capability NOTHING (the whole
+ * cannot-confirm → changed win is carried by `complete_stale`).
+ *
+ * They are NOT monotone: they assert the model is not ANALYSABLE, and the boot
+ * merge can falsify exactly that by supplying the values CEE was refusing over.
+ * Worse, the harm does not travel through `readiness` — where the run-gate guard
+ * below looks — but through `run_state.kind`, measured hop by hop:
+ *
+ *   `analysisStateSelector.ts:632-633`   wireKind === 'blocked' forces
+ *                                        `ceeAnalysisReadyStatus: 'blocked'`
+ *                                        ⚠ REGARDLESS of `readiness.status`
+ *   `deriveAnalysisDisplayState.ts:106`  EXPLICIT_NOT_READY_STATUSES is every
+ *                                        status except `ready`, and `:79-81`
+ *                                        says those "MUST override a prior
+ *                                        populated report"
+ *
+ * So a CONTRACT-VALID `blocked` verdict with a perfectly READY readiness sailed
+ * past the run-gate guard, restored, and turned the freshness notice into a
+ * not-ready/refusal banner over a model that HAS a report — strictly LESS
+ * information than no verdict at all, on the one surface this slice exists to
+ * improve. Pinned in `__tests__/bootVerdictNoDisplayRegression.spec.ts` against
+ * the CONSUMER, not against this guard.
+ *
+ * ⚠ THIS LIST CANNOT BE DERIVED: which kinds survive the boot merge is a
+ * JUDGEMENT no contract field states. What the judgement owes is that it has
  * been made for every kind — asserted against the contract's own exported
  * `ANALYSIS_RUN_STATE_KINDS` in
  * `__tests__/bootAnalysisVerdict.contractPartition.spec.ts` (trap 12d).
  */
-export const BOOT_RESTORABLE_RUN_STATE_KINDS = [
-  'complete_stale',
-  'blocked',
-  'refused',
-] as const
+export const BOOT_RESTORABLE_RUN_STATE_KINDS = ['complete_stale'] as const
 
 /**
  * The twin: kinds a BOOT read must NOT restore, and why each is declined.
  *
- *   `complete_current`   THE SAFETY DECLINE, and the reason this set exists
- *                        separately from the polling leg's. It asserts currency
- *                        the client cannot verify, and on the wire branch that
- *                        assertion SILENCES #837's stale mark outright. Declined
- *                        even though it is terminal and even though CEE means it.
+ *   `complete_current`   Asserts CURRENCY the client cannot verify, and on the
+ *                        wire branch that assertion SILENCES #837's stale mark
+ *                        outright. Declined though terminal and though CEE
+ *                        means it.
+ *   `blocked`            Asserts the model is NOT ANALYSABLE — which the boot
+ *                        merge can falsify by supplying the missing values. And
+ *                        it reaches the display through `run_state.kind`, not
+ *                        through `readiness`, so the run-gate guard cannot see
+ *                        it. See the restorable set above for the measured chain.
+ *   `refused`            Same shape: a previous session's refusal to analyse,
+ *                        asserted as current, over a model that may now be fine.
  *   `never_run`          Indistinguishable from in-flight on a read leg (H4).
  *   `running`            A read cannot produce it today; if a future CEE gains
  *                        an in-flight marker, a boot is not the leg that should
@@ -341,6 +367,8 @@ export const BOOT_RESTORABLE_RUN_STATE_KINDS = [
  */
 export const BOOT_DECLINED_RUN_STATE_KINDS = [
   'complete_current',
+  'blocked',
+  'refused',
   'never_run',
   'running',
   'unknown_degraded',

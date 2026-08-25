@@ -74,19 +74,34 @@ describe('the boot-restorable partition tracks the CONTRACT, not a copy of it', 
     }
   })
 
-  it('⭐ boot ⊂ read-terminal, and `complete_current` is EXACTLY the difference', () => {
+  it('⭐ boot ⊂ read-terminal, and the difference is NAMED — three kinds, one reason each', () => {
     // THE SAFETY ARGUMENT, PINNED. The boot leg may restore only kinds the
-    // polling leg already considers terminal — it can never be MORE permissive
-    // — and the one kind it additionally refuses is the one that asserts
-    // currency the client cannot verify.
+    // polling leg already considers terminal — never MORE permissive — and the
+    // kinds it ADDITIONALLY refuses are refused because THE BOOT MERGE CAN
+    // FALSIFY THEM in the interval between CEE composing the verdict and the
+    // client reading it:
+    //
+    //   `complete_current`  asserts CURRENCY the client cannot verify
+    //   `blocked`           asserts the model is NOT ANALYSABLE — and the merge
+    //                       may supply the very values CEE refused over
+    //   `refused`           same shape: a previous session's refusal, asserted
+    //                       as still true
+    //
+    // Only `complete_stale` survives, because staleness is MONOTONE: it cannot
+    // become false without a new run, and a new run yields a new verdict.
+    //
+    // ⚠ THIS ASSERTION EARNED ITS KEEP. It RED-ed when `blocked` / `refused`
+    // were removed from the boot set, forcing this reasoning to be restated
+    // rather than silently widened — which is exactly what a partition guard is
+    // for (trap 12d).
     const terminal = [...READ_TERMINAL_RUN_STATE_KINDS]
     const boot = [...BOOT_RESTORABLE_RUN_STATE_KINDS]
 
-    // Subset: nothing restorable at boot is outside the terminal set.
     expect(boot.filter((k) => !(terminal as readonly string[]).includes(k))).toEqual([])
-    // STRICT subset, and the difference is named — not merely non-empty.
     const difference = terminal.filter((k) => !(boot as readonly string[]).includes(k))
-    expect(difference).toEqual(['complete_current'])
+    expect(difference).toEqual(['complete_current', 'blocked', 'refused'])
+    // STRICTLY smaller, stated separately so a future widening to equality REDs.
+    expect(boot.length).toBeLessThan(terminal.length)
   })
 
   it('`complete_current` is NEVER boot-restorable — the assertion the whole leg rests on', () => {

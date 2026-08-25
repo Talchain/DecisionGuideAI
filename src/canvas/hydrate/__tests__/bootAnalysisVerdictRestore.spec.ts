@@ -182,7 +182,7 @@ function storedVerdict(): AnalysisStateV1 | null {
   return useCanvasStore.getState().analysisStateV1 ?? null
 }
 
-describe('boot restores a currency-WITHHOLDING verdict CEE already sent', () => {
+describe('boot restores ONLY a verdict the boot merge cannot falsify', () => {
   it('POSITIVE CONTROL — the fixture verdict actually PARSES at the adapter', async () => {
     // Without this the whole file is vacuous: a verdict that fails
     // `AnalysisStateV1Schema.safeParse` arrives as `null`, and "the store holds
@@ -235,7 +235,7 @@ describe('boot restores a currency-WITHHOLDING verdict CEE already sent', () => 
     expect(storedVerdict()?.run_state.kind).toBe('complete_stale')
   })
 
-  it('a `blocked` verdict restores — the model is not analysable, and that is provable from a read', async () => {
+  it('⚠ a `blocked` verdict is DECLINED — the boot merge can falsify "not analysable"', async () => {
     fetchSpy.mockResolvedValue(
       jsonResponse(
         200,
@@ -254,10 +254,16 @@ describe('boot restores a currency-WITHHOLDING verdict CEE already sent', () => 
       ),
     )
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(storedVerdict()?.run_state.kind).toBe('blocked')
+    // ⚠ WAS `toBe('blocked')` UNTIL INDEPENDENT REVIEW REFUTED IT. Restoring a
+    // `blocked` verdict forces `ceeAnalysisReadyStatus: 'blocked'` at
+    // `analysisStateSelector.ts:632-633` REGARDLESS of readiness, which
+    // `deriveAnalysisDisplayState` turns into a not-ready/refusal banner that
+    // OVERRIDES a populated report — strictly less information than no verdict,
+    // on the surface this slice exists to improve.
+    expect(storedVerdict()).toBeNull()
   })
 
-  it('a `refused` verdict restores — the currency of any visible result is explicitly not vouched for', async () => {
+  it('⚠ a `refused` verdict is DECLINED — a previous session`s refusal is not evidence about now', async () => {
     fetchSpy.mockResolvedValue(
       jsonResponse(
         200,
@@ -267,7 +273,7 @@ describe('boot restores a currency-WITHHOLDING verdict CEE already sent', () => 
       ),
     )
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(storedVerdict()?.run_state.kind).toBe('refused')
+    expect(storedVerdict()).toBeNull()
   })
 })
 
