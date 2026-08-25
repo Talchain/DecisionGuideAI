@@ -57,6 +57,7 @@
  */
 
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { logger } from '../../lib/logger'
@@ -90,8 +91,6 @@ const DEFAULT_RETRY_DELAY_MS = 400
  */
 const DEFAULT_TIMEOUT_MS = 8000
 
-/** The guest sentinel `AuthContext` mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 /**
  * CEE's `identity.v1` envelope, reduced to the two fields a consumer may act on.
@@ -341,12 +340,7 @@ export async function fetchScenarioGraph(
   //
   // Guests have no session, so both values are null, no auth header is emitted
   // and the request is byte-identical to before this change.
-  const identityUserId =
-    typeof opts.userId === 'string' &&
-    opts.userId.length > 0 &&
-    opts.userId !== GUEST_USER_ID
-      ? opts.userId
-      : null
+  const identityUserId = sanitiseUserId(opts.userId)
 
   const body: Record<string, unknown> = {}
   if (identityUserId !== null) {

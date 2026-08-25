@@ -21,6 +21,7 @@
  */
 
 import { logger } from '../../lib/logger'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /**
@@ -45,8 +46,6 @@ const DEFAULT_RETRY_DELAY_MS = 400
  */
 const DEFAULT_TIMEOUT_MS = 10000
 
-/** The guest sentinel `AuthContext` mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 export interface RegisteredGraphIdentity {
   /** CEE's opaque `identity.v1` token, VERBATIM. Compare CEE-to-CEE only. */
@@ -131,12 +130,7 @@ export async function registerScenarioGraph(
   //     ownership of what they register.
   //
   // Guests have no session: both values null, no auth header, byte-identical.
-  const identityUserId =
-    typeof opts.userId === 'string' &&
-    opts.userId.length > 0 &&
-    opts.userId !== GUEST_USER_ID
-      ? opts.userId
-      : null
+  const identityUserId = sanitiseUserId(opts.userId)
 
   const body: Record<string, unknown> = { graph }
   if (identityUserId !== null) {

@@ -149,7 +149,21 @@ describe('useServerGraphHydration — identity', () => {
     expect((spy.mock.calls[0][1] as any).accessToken).toBe('token-42')
   })
 
-  it('sends NO token for a guest — the opposite-direction twin', async () => {
+  /**
+   * ⚠⚠ THIS TEST IS THE ONLY THING PINNING THE IDENTITY SOURCE. DO NOT DELETE
+   *    IT AS A DUPLICATE OF THE TWO ABOVE.
+   *
+   *    Measured, not argued: mutating the hook back to reading `useAuth()`
+   *    leaves BOTH positive tests GREEN, because they set `user` and
+   *    `sessionIdentity` to the SAME value and therefore cannot tell the two
+   *    sources apart. Only this case makes them disagree — `user` is
+   *    `{ id: 'guest' }` while the session is empty — so only this case goes
+   *    RED. The three assertions are stronger than the one they replaced, but
+   *    the DISCRIMINATION rests on this one alone.
+   *
+   *    If you need to change it, replace the discriminator before removing it.
+   */
+  it('sends NO token for a guest — and is the SOLE source-discriminator', async () => {
     user = { id: 'guest' }
     sessionIdentity = { userId: null, accessToken: null }
     renderHook(() => useServerGraphHydration(A))

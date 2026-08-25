@@ -36,6 +36,8 @@ const USER_ID = '99999999-8888-4777-8666-555555555555'
 
 /** A JWT-shaped token. Distinctive so an assertion cannot match by accident. */
 const ACCESS_TOKEN = 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJzMy1zcGVjIn0.c2lnbmF0dXJl'
+/** A token from a DIFFERENT session — distinct bytes, so a mix-up is visible. */
+const OTHER_TOKEN = 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJvdGhlci1zZXNzIn0.b3RoZXJzaWc'
 
 let fetchSpy: ReturnType<typeof vi.fn>
 
@@ -155,6 +157,49 @@ describe('scenario routes — a guest is byte-identical to before this change', 
 
       expect(sentBody().user_id).toBeUndefined()
       expect(sentHeaders()['X-User-Id']).toBeUndefined()
+    })
+  }
+})
+
+/**
+ * ── THE TWO CLASSES THE SIGNED-IN / GUEST PAIR CANNOT SEE ──────────────────
+ *
+ * The pair above varies both fields together: (id + token) or (null + null).
+ * That is structurally blind to every input where the two DISAGREE — and
+ * disagreement is exactly what the call sites were fixed to prevent, so the
+ * corpus has to be able to observe it or the fix is unguarded at rest.
+ *
+ * Neither class is a defect in the adapter. The adapter is a transport and
+ * cannot know which session a value came from. They are pinned so the wire is
+ * documented, and so a future change to either channel has to face them.
+ */
+describe('identity classes the signed-in/guest pair is blind to', () => {
+  for (const route of ROUTES) {
+    it(`${route.name}: a real id with NO token sends the body id and no header`, async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(200, route.ok))
+
+      // The pre-#851 world, and the world any signed-in user is in whenever
+      // the token read fails or the session has gone. CEE resolves this as
+      // `service_legacy`, where the body id is the only identity — which is
+      // precisely the channel the CEE-side strip will close.
+      await route.call({ userId: USER_ID, accessToken: null })
+
+      expect(sentBody().user_id).toBe(USER_ID)
+      expect(sentHeaders().Authorization).toBeUndefined()
+    })
+
+    it(`${route.name}: a real id with ANOTHER session's token sends both verbatim`, async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(200, route.ok))
+
+      await route.call({ userId: USER_ID, accessToken: OTHER_TOKEN })
+
+      // Both go out as given. The adapter does not and cannot arbitrate; the
+      // guarantee that these two never disagree lives at the CALL SITE, which
+      // is why every call site reads both fields from one session object.
+      // CEE is the arbiter: with the flag on, the verified `sub` wins and the
+      // body id is ignored, so a mismatch is telemetry and not a privilege.
+      expect(sentBody().user_id).toBe(USER_ID)
+      expect(sentHeaders().Authorization).toBe(`Bearer ${OTHER_TOKEN}`)
     })
   }
 })

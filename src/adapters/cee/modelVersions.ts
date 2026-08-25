@@ -35,13 +35,12 @@
  */
 
 import { logger } from '../../lib/logger'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
 export const MODEL_VERSIONS_BASE = '/bff/cee'
 
-/** The guest sentinel `AuthContext` mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 /** Per-attempt deadline — same bound and rationale as scenarioGraph.ts. */
 const DEFAULT_TIMEOUT_MS = 8000
@@ -151,17 +150,6 @@ export interface RestoreOptions extends CommonOptions {
 export interface SaveOptions extends CommonOptions {
   label?: string
   expectedGraphIdentityHash?: string
-}
-
-/**
- * ONE identity rule, feeding BOTH the body field and the auth headers. Two
- * copies of "is this a real user id" is how the body and the header start
- * disagreeing about who the caller is.
- */
-function sanitiseUserId(userId: string | null | undefined): string | null {
-  return typeof userId === 'string' && userId.length > 0 && userId !== GUEST_USER_ID
-    ? userId
-    : null
 }
 
 function identityBody(userId: string | null | undefined): Record<string, unknown> {

@@ -31,6 +31,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 import { UploadCloud, RotateCcw } from 'lucide-react'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
@@ -49,8 +50,6 @@ import { logger } from '../../lib/logger'
 /** A scenario CEE can address is a UUID (scenarios.id is a uuid column). */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The guest sentinel AuthContext mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 /** Storage-scope disclosure — the shared counterpart of the local one. */
 export const SERVER_VERSIONS_DISCLOSURE =
@@ -114,7 +113,7 @@ export function ServerVersionsSection() {
 
   const userId = user?.id ?? null
   const signedIn =
-    typeof userId === 'string' && userId.length > 0 && userId !== GUEST_USER_ID
+    sanitiseUserId(userId) !== null
   const addressable = typeof scenarioId === 'string' && UUID_RE.test(scenarioId)
 
   useEffect(() => {
@@ -126,8 +125,12 @@ export function ServerVersionsSection() {
 
   const refresh = useCallback(async () => {
     if (!addressable || !signedIn || typeof scenarioId !== 'string') return
-    const { accessToken } = await getSessionIdentity()
-    const result = await listModelVersions(scenarioId, { userId, accessToken })
+    // Both fields from ONE read — see the note on `handleSave` below.
+    const identity = await getSessionIdentity()
+    const result = await listModelVersions(scenarioId, {
+      userId: identity.userId,
+      accessToken: identity.accessToken,
+    })
     if (!mountedRef.current) return
     if (result.status === 'list') {
       setPhase({
@@ -177,10 +180,19 @@ export function ServerVersionsSection() {
     setBusy(true)
     setMessage(null)
     const label = draftLabel.trim()
-    const { accessToken } = await getSessionIdentity()
+    // ⚠ BOTH FIELDS FROM ONE READ. These three handlers are user-initiated
+    //    and have no AbortController and no cancellation, so the gap between
+    //    the click and the request is the widest in this change: `userId` would
+    //    be bound from the render closure, and `getSessionIdentity()` performs
+    //    a NETWORK REFRESH on an expired token, stretching that gap from
+    //    microseconds to hundreds of milliseconds with `autoRefreshToken` and
+    //    multi-tab both on. Two of these three are WRITES. Reading both fields
+    //    from the same session object closes the window by construction rather
+    //    than by guard.
+    const identity = await getSessionIdentity()
     const result = await saveModelVersion(scenarioId, {
-      userId,
-      accessToken,
+      userId: identity.userId,
+      accessToken: identity.accessToken,
       ...(label.length > 0 ? { label } : {}),
     })
     if (!mountedRef.current) return
@@ -223,10 +235,11 @@ export function ServerVersionsSection() {
     // snapshot, so a concurrent change fails loudly instead of silently losing.
     const head =
       phase.versions.find((v) => v.id === phase.currentVersionId) ?? phase.versions[0]
-    const { accessToken } = await getSessionIdentity()
+    // Both fields from ONE read — see the note on `handleSave`.
+    const identity = await getSessionIdentity()
     const result = await restoreModelVersion(scenarioId, {
-      userId,
-      accessToken,
+      userId: identity.userId,
+      accessToken: identity.accessToken,
       versionId,
       ...(head !== undefined ? { expectedGraphIdentityHash: head.graphIdentityHash } : {}),
     })

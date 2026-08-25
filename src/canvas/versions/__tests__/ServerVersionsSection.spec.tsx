@@ -56,6 +56,30 @@ vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: authState.user }),
 }))
 
+/**
+ * The identity these handlers SEND comes from `getSessionIdentity`, not from
+ * `useAuth` — deliberately, and this spec's file is where that matters most.
+ *
+ * These three handlers are user-initiated, have no AbortController and no
+ * cancellation, and two of them are WRITES. Binding the body id from the render
+ * closure and then awaiting a token read means the two can come from different
+ * sessions: `getSessionIdentity()` performs a NETWORK REFRESH on an expired
+ * token, so the gap is hundreds of milliseconds with `autoRefreshToken` and
+ * multi-tab both on. Reading both fields from ONE session object closes that
+ * by construction. `useAuth` remains the signed-in GATE only.
+ *
+ * `importOriginal` spread, not a hand-listed factory: a factory REPLACES the
+ * module and every other `lib/supabase` export would silently vanish.
+ */
+const sessionState: { userId: string | null; accessToken: string | null } = {
+  userId: USER,
+  accessToken: 'token-for-USER',
+}
+vi.mock('../../../lib/supabase', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getSessionIdentity: async () => sessionState,
+}))
+
 import { ServerVersionsSection } from '../ServerVersionsSection'
 import { useCanvasStore } from '../../store'
 
@@ -86,6 +110,8 @@ const TWO_VERSIONS = [
 beforeEach(() => {
   vi.clearAllMocks()
   authState.user = { id: USER }
+  sessionState.userId = USER
+  sessionState.accessToken = 'token-for-USER'
   useCanvasStore.setState({ currentScenarioId: SCENARIO } as never)
   listModelVersions.mockResolvedValue({
     status: 'list',
@@ -135,6 +161,8 @@ describe('ServerVersionsSection — list', () => {
 describe('ServerVersionsSection — guests (pin 5)', () => {
   it('invites sign-in and never calls the network', () => {
     authState.user = null
+    sessionState.userId = null
+    sessionState.accessToken = null
     render(<ServerVersionsSection />)
 
     expect(screen.getByTestId('server-versions-signin')).toBeInTheDocument()
