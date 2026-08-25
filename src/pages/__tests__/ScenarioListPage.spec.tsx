@@ -59,31 +59,6 @@ function expectStrategicReasoningEntry() {
   expect(screen.getByText('Sign in to create a saved workspace.')).toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Decisions' })).not.toBeInTheDocument()
   expect(screen.queryByText(/manage your decisions/i)).not.toBeInTheDocument()
-
-  // ⚠ REGRESSION PIN. The sentence this replaces was
-  //   "Without an account, your work stays only in this browser."
-  // and it was asserted VERBATIM by this very helper, so the guard cemented the
-  // untruth: correcting the copy REDded the suite, and leaving it green required
-  // keeping a false claim on the first screen a user ever sees.
-  //
-  // Both halves were wrong. "stays" promises persistence across a settling window
-  // in which the work is not yet durable. "only in this browser" is a PRIVACY
-  // claim and is false — a guest's graph also exists server-side.
-  //
-  // Pinned by SHAPE rather than by the one string, so it cannot come back under
-  // another wording. Each pattern is checked against the whole rendered document.
-  for (const banned of [
-    /only in this browser/i,
-    /stays? (?:only )?(?:on|in) (?:this|your) (?:browser|device|computer)/i,
-    /never leaves/i,
-    /stored only locally/i,
-    /we (?:do not|don't) (?:store|keep|save)/i,
-  ]) {
-    expect(
-      document.body.textContent ?? '',
-      `first-use copy must claim nothing about where guest work lives; matched ${banned}`,
-    ).not.toMatch(banned)
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -350,6 +325,45 @@ describe('ScenarioListPage', () => {
     mockAuthValue = { user: null, authenticated: false }
     renderPage()
     expectStrategicReasoningEntry()
+  })
+
+  /**
+   * ⚠ THE REGRESSION PIN LIVES IN ITS OWN TEST, AND THAT IS THE POINT.
+   *
+   * It was first written inside `expectStrategicReasoningEntry`, AFTER the
+   * exact-copy assertions. Measured: a mutant restoring the false sentence never
+   * reached it — `getByText` throws on the changed string first, so the pin only
+   * ran when the copy was already correct, in which case it could never fire. A
+   * guard whose only path to execution is the case it is not guarding is a guard
+   * that reads green forever.
+   *
+   * Here it renders independently and asserts over the whole document, so it
+   * fires on the claim itself regardless of what else changed.
+   *
+   * What it guards: the previous copy read "Without an account, your work stays
+   * only in this browser." "stays" promises persistence across a settling window
+   * in which the work is not yet durable, and "only in this browser" is a PRIVACY
+   * claim that is false — a guest's graph also exists server-side. Pinned by SHAPE
+   * so it cannot return under another wording.
+   */
+  it.each([
+    ['guest', { user: { id: 'guest' }, authenticated: true }],
+    ['signed out', { user: null, authenticated: false }],
+  ] as const)('claims nothing about where a %s user\'s work is stored', (_who, auth) => {
+    mockAuthValue = auth as typeof mockAuthValue
+    renderPage()
+    const text = document.body.textContent ?? ''
+    expect(text.length, 'nothing rendered — this assertion would be vacuous').toBeGreaterThan(0)
+    for (const banned of [
+      /only in this browser/i,
+      /stays? (?:only )?(?:on|in) (?:this|your) (?:browser|device|computer)/i,
+      /never leaves/i,
+      /stored only locally/i,
+      /we (?:do not|don't) (?:store|keep|save)/i,
+    ]) {
+      expect(text, `first-use copy must claim nothing about where work lives; matched ${banned}`)
+        .not.toMatch(banned)
+    }
   })
 
   // -------------------------------------------------------------------------
