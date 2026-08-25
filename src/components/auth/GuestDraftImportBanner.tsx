@@ -55,9 +55,17 @@ export function GuestDraftImportBanner() {
         <p className={`${typography.label} text-text-header`}>
           Save your draft to your account
         </p>
+        {/*
+          ⚠ NO CLAIM ABOUT WHERE THE UNSAVED DRAFT LIVES. This read
+          "otherwise it stays only in this browser", the same sentence removed
+          from the entry screen in #841 and false for the same reason: a guest's
+          graph also exists server-side, so "only in this browser" tells the user
+          nothing leaves their machine when it does. The actionable half was
+          always the true half, and it is what remains.
+        */}
         <p className={`${typography.bodySmall} mt-1 text-text-body`}>
-          You built a draft before signing in. Save it to keep working on it —
-          otherwise it stays only in this browser.
+          You built a draft before signing in. Save it to your account to keep
+          working on it.
         </p>
         {error && (
           <p className={`${typography.bodySmall} mt-2 text-danger`} role="alert">
