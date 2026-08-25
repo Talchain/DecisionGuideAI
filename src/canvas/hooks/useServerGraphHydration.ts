@@ -18,12 +18,28 @@
  * A→B hydrates B while a re-render of A does not re-request. An in-flight read
  * is aborted when the id changes: the answer would describe the previous
  * scenario, and `hydrateCanvasFromServer` refuses it anyway.
+ *
+ * ⚠ "ONCE PER SCENARIO" HAD A MEASURED COST, AND IT IS WHY THE RE-ASK BELOW
+ * EXISTS. The server write-back completes 30–90s AFTER the model first appears
+ * on screen, so a guest who returns inside that window got `graph_present:false`
+ * — and because the read fired exactly once, the canvas stayed empty FOR THE
+ * LIFE OF THE PAGE while their model sat intact on the server (journey-witnessed
+ * 2026-08-25, 5 trials, build `55807813`; a plain reload recovered it every
+ * time). `absent` is the ONE outcome that is a "not yet" rather than an answer,
+ * so it — and only it — arms a bounded re-ask. Every other outcome, the 404
+ * included, still fires exactly once and behaves byte-identically to before.
+ * See `hydrate/absentGraphRetry.ts` for the schedule and the allow-list.
  */
 
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
 import { hydrateCanvasFromServer } from '../hydrate/serverGraphHydration'
+import {
+  runAbsentGraphRetrySchedule,
+  waitForRetry,
+} from '../hydrate/absentGraphRetry'
+import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { logger } from '../../lib/logger'
 
 export function useServerGraphHydration(scenarioIdFromRoute?: string | null): void {
@@ -45,16 +61,60 @@ export function useServerGraphHydration(scenarioIdFromRoute?: string | null): vo
     const controller = new AbortController()
     let settled = false
 
+    // Any stage from a previous scenario stops describing this one the moment
+    // we begin. Cleared here rather than on unmount so a route change A→B never
+    // leaves B looking at A's notice even for a frame.
+    useServerGraphRetryStore.getState().clear()
+
     // Fire-and-forget by design: hydration is an improvement on what is already
     // on screen, never a precondition for it. `hydrateCanvasFromServer` never
     // rejects, so the canvas cannot be left mid-boot by a failure here.
     void hydrateCanvasFromServer(scenarioId, {
       userId: user?.id ?? null,
       signal: controller.signal,
-    }).then((outcome) => {
-      settled = true
-      logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
     })
+      .then(async (outcome) => {
+        logger.debug('server_graph_hydration.outcome', { scenarioId, outcome })
+
+        // ── THE RETURNING-GUEST WINDOW ────────────────────────────────────
+        // `absent` alone means "exists, no graph YET". Everything else is a
+        // settled answer and returns here unchanged, having cost exactly one
+        // request — which is what keeps the 404 path byte-identical.
+        if (outcome !== 'absent') return outcome
+
+        const retry = await runAbsentGraphRetrySchedule({
+          scenarioId,
+          userId: user?.id ?? null,
+          signal: controller.signal,
+          hydrate: hydrateCanvasFromServer,
+          wait: waitForRetry,
+          // The stage is keyed by scenario, so a late write cannot describe a
+          // decision the user has since left (`serverGraphRetryStore` header).
+          onStage: (stage) =>
+            useServerGraphRetryStore.getState().setRetryStage({ scenarioId, stage }),
+        })
+
+        // A graph arrived, or the scenario turned out to be something other
+        // than "not written back yet". Either way there is nothing to say, so
+        // retract whatever the schedule put up. `exhausted` is deliberately NOT
+        // cleared — that stage IS the honest terminal message.
+        //
+        // ⚠ GATED ON THIS EFFECT STILL OWNING THE CANVAS. Without the abort
+        // check this is a RACE, and StrictMode's dev double-mount hits it every
+        // time: effect 1 is torn down, its schedule returns `'aborted'`, and its
+        // clear would wipe the `'retrying'` stage EFFECT 2 had already armed —
+        // leaving a re-asking canvas with no notice at all. The replacement
+        // effect clears on entry, so an aborted chain has nothing to tidy.
+        if (!controller.signal.aborted && retry !== 'exhausted') {
+          useServerGraphRetryStore.getState().clear()
+        }
+
+        logger.debug('server_graph_hydration.absent_retry', { scenarioId, retry })
+        return outcome
+      })
+      .finally(() => {
+        settled = true
+      })
 
     return () => {
       controller.abort()
