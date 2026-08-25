@@ -19,7 +19,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
-import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
 
 const fitViewSpy = vi.fn()
 
@@ -90,11 +90,20 @@ describe('useFitViewOnLayoutVersion', () => {
     })
 
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
-    // The legibility floor joined this contract on 25 Jul 2026 — see
-    // autoFitLegibility.spec.tsx for why it exists and what guards it.
+    // The legibility floor joined this contract on 25 Jul 2026, and the CEILING
+    // joined it on 25 Aug 2026 — see autoFitLegibility.spec.tsx for why each
+    // exists and what guards it. A floor with no ceiling let a degenerate
+    // bounding box frame at up to the instance's `maxZoom={4}`; the witnessed
+    // canvas sat at 328%.
+    //
+    // ⭐ This is an EXACT-OBJECT assertion on purpose: it is what makes a
+    // silently ADDED or DROPPED fit option fail here rather than pass
+    // unnoticed. That is exactly how it behaved — this test caught the new
+    // option on CI. Keep it exact.
     expect(fitViewSpy).toHaveBeenCalledWith({
       padding: FIT_PADDING,
       minZoom: LABEL_LEGIBLE_ZOOM,
+      maxZoom: AUTO_FIT_MAX_ZOOM,
       duration: 400,
     })
 
@@ -202,6 +211,7 @@ describe('useFitViewOnLayoutVersion', () => {
       // ONE contract: everything except the measured padding must be identical,
       // so the two triggers cannot drift into two different fits.
       expect(refitArgs.minZoom).toBe(layoutFitArgs.minZoom)
+      expect(refitArgs.maxZoom).toBe(layoutFitArgs.maxZoom)
       expect(refitArgs.duration).toBe(layoutFitArgs.duration)
       expect(refitArgs.padding).toEqual(currentPadding)
 

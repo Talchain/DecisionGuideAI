@@ -28,6 +28,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 import { isLodZoom, LOD_ZOOM_THRESHOLD } from '../components/LodSync'
+import { AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
 
 const fitViewSpy = vi.fn()
 
@@ -115,5 +116,50 @@ describe('the post-layout auto-fit is floored at the legibility threshold', () =
     const options = captureAutoFitOptions()
     expect(options.padding).toBe(FIT_PADDING)
     expect(options.duration).toBe(400)
+  })
+})
+
+/**
+ * ⭐⭐ THE CEILING — the other end of the band this file already guards.
+ *
+ * The floor above stops the product parking the camera too small to read.
+ * Nothing stopped the opposite, and the opposite shipped: on a fresh
+ * fundraising brief the layout engine threw, the product's fit never ran, and
+ * the canvas kept xyflow's bare mount `fitView` — bounded only by the instance's
+ * `maxZoom={4}`. Framing one ~300px node in a 1092×878 canvas gave **328%**.
+ *
+ * These assertions are written the same way as the floor's, and for the same
+ * stated reason: a DROPPED ceiling must not pass silently, so the value is fed
+ * through the same predicate the product uses rather than compared to a literal
+ * copied from the other module.
+ */
+describe('the auto-fit asks for a ceiling as well as a floor', () => {
+  beforeEach(() => {
+    fitViewSpy.mockReset()
+  })
+
+  it('passes a finite numeric maxZoom (a DROPPED ceiling must not pass silently)', () => {
+    const options = captureAutoFitOptions()
+    expect(typeof options.maxZoom).toBe('number')
+    expect(Number.isFinite(options.maxZoom as number)).toBe(true)
+  })
+
+  it('the ceiling is the module constant, bound by identity rather than by value', () => {
+    // Binding to `AUTO_FIT_MAX_ZOOM` and not to `1`: if the constant's own
+    // derivation ever moves, this follows it instead of pinning a stale number
+    // — and a hand-typed `maxZoom: 1` at the call site would fail here.
+    const options = captureAutoFitOptions()
+    expect(options.maxZoom).toBe(AUTO_FIT_MAX_ZOOM)
+  })
+
+  it('the ceiling refuses the witnessed 328% and stays above the floor', () => {
+    const options = captureAutoFitOptions()
+    const ceiling = options.maxZoom as number
+    const floor = options.minZoom as number
+    // The incident's own number, kept as the case this exists to prevent.
+    expect(ceiling).toBeLessThan(3.28)
+    // …and the band is a band: a ceiling at or below the floor would clamp
+    // every fit to one zoom, which is a different bug wearing this fix's face.
+    expect(ceiling).toBeGreaterThan(floor)
   })
 })

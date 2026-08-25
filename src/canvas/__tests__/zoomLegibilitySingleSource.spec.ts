@@ -31,9 +31,21 @@ const CANVAS_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const EXCLUDED_DIR_NAMES = new Set(['__tests__', '__fixtures__', '__helpers__', '__mocks__'])
 
-/** The one file allowed to state the number, and the one name it may use. */
+/** The one file allowed to state a zoom number, and the names it may use.
+ *
+ * ⚠ `AUTO_FIT_MAX_ZOOM` JOINED THIS SET DELIBERATELY, 26 Aug 2026. It first
+ * shipped as `labelCounterScale(1)`, which READ as derived and was not: the
+ * expression evaluates to 1 for every input, so it was a bare `1` wearing a
+ * derivation — and it slipped past the check below because this regex matches a
+ * numeric literal and cannot see a call expression. Naming it here makes it
+ * visible to the guard instead of hidden from it.
+ *
+ * The rule this file enforces is NOT "one number" — it is "no SECOND copy of a
+ * number that already has a home". These two are different quantities: a
+ * legibility floor and a magnification ceiling. What must never appear is a
+ * third file restating either. */
 const SINGLE_SOURCE_FILE = 'utils/zoomLegibility.ts'
-const SINGLE_SOURCE_NAME = 'LABEL_LEGIBLE_ZOOM'
+const SINGLE_SOURCE_NAMES = ['LABEL_LEGIBLE_ZOOM', 'AUTO_FIT_MAX_ZOOM']
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = []
@@ -120,7 +132,10 @@ describe('one legibility number under src/canvas', () => {
     // …and the one permitted statement really is there, under the expected
     // name. Without this the rule would also be "satisfied" by deleting the
     // constant entirely.
-    expect(singleSourceDeclarations).toHaveLength(1)
-    expect(singleSourceDeclarations[0]).toMatch(new RegExp(`^${SINGLE_SOURCE_NAME} = `))
+    // Both permitted constants must really be there, under their expected
+    // names. Without this the rule would also be "satisfied" by deleting one.
+    expect(singleSourceDeclarations).toHaveLength(SINGLE_SOURCE_NAMES.length)
+    const declaredNames = singleSourceDeclarations.map((d) => d.split(' = ')[0]).sort()
+    expect(declaredNames).toEqual([...SINGLE_SOURCE_NAMES].sort())
   })
 })

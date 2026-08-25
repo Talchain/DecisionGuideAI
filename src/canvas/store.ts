@@ -20,7 +20,7 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
 } from '../components/results/utils/selectGoalProbability'
-import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
+import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
@@ -70,6 +70,13 @@ import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { identityFromCanvasGraph } from './utils/graphIdentity'
+// Static import, deliberately: this runs in the LAYOUT FAILURE path, so it must
+// not depend on a dynamic import that can fail alongside the layout engine it
+// is rescuing (the `./utils/layout` import above is dynamic and is one of the
+// things that can throw here).
+import { placeNodesDeterministically } from './utils/fallbackPlacement'
+import type { LayoutAttemptResult } from './layout/handleLayoutWithRecovery'
+import { captureError } from '../lib/monitoring'
 import { buildPersistedGraph, readPersistedGoalConstraints } from './utils/persistedGraph'
 import {
   markGraphImported,
@@ -847,7 +854,13 @@ interface CanvasState {
   saveSnapshot: () => boolean
   importCanvas: (json: string) => boolean
   exportCanvas: () => string
-  applyLayout: (opts?: { skipHistory?: boolean; requestId?: number }) => Promise<void>
+  /**
+   * ⚠ RESOLVES WITHOUT LAYING OUT ON THREE PATHS — the return says which.
+   * `{laidOut:false}` means this call did nothing (superseded, or re-entered);
+   * `{laidOut:true}` means it committed. `handleLayoutWithRecovery` needs the
+   * distinction or it clears the failure banner over an unchanged graph.
+   */
+  applyLayout: (opts?: { skipHistory?: boolean; requestId?: number }) => Promise<LayoutAttemptResult>
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
   resetCanvas: () => void
@@ -3064,7 +3077,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // latest, a newer setPendingLayout(true) has already superseded this
     // request. Drop before doing any work.
     if (opts?.requestId !== undefined && opts.requestId !== get().layoutRequestId) {
-      return
+      return { laidOut: false }
     }
 
     // Re-entry guard + synchronous claim. The claim must happen IN THE
@@ -3074,7 +3087,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // "Re-layout" twice within a microtask, or two call sites trigger in
     // the same tick). Without this, both calls would push history, run
     // layoutGraph, and commit — double-bumping layoutVersion.
-    if (get().layoutInProgress) return
+    // ⚠ ALSO A 'LAID NOTHING OUT' EXIT. The review named the pre-await and
+    // post-await guards; this re-entry guard is the third, and it resolves the
+    // same way — silently, having committed nothing.
+    if (get().layoutInProgress) return { laidOut: false }
     set({ layoutInProgress: true })
 
     // Capture the layout generation we're committing against. Taken AFTER
@@ -3128,7 +3144,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // This guard fires for manual calls too (no opts.requestId): the
       // generation snapshot above captures the rid at start regardless of
       // whether the caller passed one.
-      if (!isCurrentGen()) return
+      if (!isCurrentGen()) return { laidOut: false }
 
       layoutOptions.setLayoutNodeWidth(layoutNodeWidth)
       set({
@@ -3136,15 +3152,94 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         layoutVersion: get().layoutVersion + 1,
         pendingLayout: false,
       })
+      return { laidOut: true }
     } catch (err) {
       console.error('[CANVAS] Layout failed:', err)
+      // ⭐⭐ THE RESCUE REMOVES THIS DEFECT'S ONLY LOUD SIGNAL, SO IT MUST ADD ONE.
+      //
+      // Before the grid below existed, a failed layout announced itself with an
+      // unusable canvas — which is plausibly the only reason this was ever
+      // reported at all. Afterwards it is a tidy grid and a small banner. The
+      // failure is INTERMITTENT (an independent journey drive on the same base
+      // produced a perfectly healthy canvas) and its root cause has never been
+      // captured, so trading away the loudness without a durable sink would make
+      // an elusive defect harder to diagnose, not easier.
+      //
+      // ⚠ NOTHING ELSE ON THIS PATH REACHES A SINK. `console.error` is the tab's
+      // console. `handleLayoutWithRecovery`'s `console.warn` is DEV-only and it
+      // SWALLOWS the rejection, so `main.tsx`'s `unhandledrejection` never fires
+      // — and that only pushes to an in-memory array. `captureError` is the one
+      // real sink, and `store.ts` did not import it.
+      //
+      // ⚠ NOT `captureErrorDetail`. That is a DIFFERENT symbol in this file — a
+      // client-side ring buffer, not the Sentry sink — and a `captureError` grep
+      // here matches it. Two names, one prefix, different destinations.
+      //
+      // ⚠⚠ AND THE SINK IS NOT LIVE ON STAGING YET — measured at the DEPLOYED
+      // BYTES (26 Aug 2026), not inferred from YAML. The staging bundle inlines
+      // `VITE_SENTRY_DSN: void 0`, and `resolveMonitoringConfig` computes
+      // `sentry: isProdLike && !!dsn`, so this call currently falls to
+      // `logger.error('[Monitoring] Error (Sentry disabled): …')` — a console
+      // line, not a sink. `MODE` is already `"production"` there, so the DSN is
+      // the ONLY missing half. The wiring is correct and starts reporting the
+      // moment the variable is set; until then this is the APPEARANCE of
+      // observability, and saying so here is the point — a later reader must not
+      // inherit "we capture layout failures" as a fact about staging.
+      // (Probe was contrast-controlled: the same chunk carries a baked
+      // `supabase.co` value and the `[Monitoring] Error (Sentry disabled)`
+      // string, so a zero for the DSN is a measurement, not a blind spot.)
+      //
+      // Context is a COUNT and an IDENTITY, never labels or values: enough to
+      // tell a one-node blip from a whole model and to correlate with a
+      // scenario, without putting the user's business content into monitoring.
+      captureError(err instanceof Error ? err : new Error(String(err)), {
+        label: 'canvas.layout.failed',
+        nodeCount: get().nodes.length,
+        scenarioId: get().currentScenarioId ?? undefined,
+      })
       // Clear pendingLayout on failure so the measurement effect does not
       // retrigger when layoutInProgress flips false (would be an infinite
       // retry loop). BUT only if the generation hasn't changed — if a
       // newer request superseded us, leave pendingLayout=true so the
       // newer request runs.
       if (isCurrentGen()) {
-        set({ pendingLayout: false })
+        // ⭐⭐ LEAVE A READABLE GRAPH, NOT AN ORIGIN STACK.
+        //
+        // Until this existed the catch touched NO coordinates, and
+        // `applyDraftResult` seeds every drafted node at `{x:0, y:0}` (its sole
+        // `position` write) — so any rejection left the user with every node
+        // piled on one point under a "Layout failed" banner. Witnessed on a
+        // fresh fundraising brief, with the canvas at 328% zoom because the
+        // product's own fit never runs without a successful layout and the bare
+        // mount `fitView` is bounded only by the instance's `maxZoom={4}`.
+        //
+        // ⚠ `layoutVersion` IS DELIBERATELY NOT BUMPED. That counter means "the
+        // product laid this graph out and owns the camera for it". A grid is a
+        // rescue, not a layout, and bumping it would make the error path claim
+        // a quality it did not deliver — while also firing the LAYOUT camera
+        // trigger, whose contract is "a layout just completed".
+        //
+        // The camera still gets aimed, and without weakening any guard: with
+        // real positions and `pendingLayout` false, the hook's RESTORE trigger
+        // becomes eligible on its own terms — it refuses an origin stack
+        // through `graphNeedsInitialLayout`, which is exactly what the grid
+        // defeats. Breaking the stack is the whole mechanism.
+        //
+        // `placeNodesDeterministically` returns its input BY REFERENCE when the
+        // graph does not need rescuing, so a failure on an already-laid-out
+        // graph changes nothing at all.
+        const before = get().nodes
+        const rescued = placeNodesDeterministically(before)
+        set({ pendingLayout: false, nodes: rescued })
+        // ⚠ THE RESCUE MUST NOT MAKE THE FAILURE HARDER TO SEE. The banner still
+        // fires (this catch rethrows, and `handleLayoutWithRecovery` surfaces
+        // it), but the banner is transient and the canvas now looks fine — so
+        // an intermittent failure would leave no trace an operator could count.
+        // `rescued !== before` is a by-reference comparison: the placement
+        // returns its input unchanged when the graph did not need rescuing, so
+        // this reports whether coordinates actually moved, not merely that the
+        // catch ran.
+        trackLayoutFallbackApplied(before.length, rescued !== before)
       }
       // Rethrow so callers can provide user-facing error feedback
       throw err
