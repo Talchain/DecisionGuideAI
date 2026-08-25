@@ -389,6 +389,26 @@ describe('a malformed row at index 0 (ranked categories)', () => {
     expect(vm?.keyAssumptions).toEqual([])
   })
 
+  /**
+   * ⚠ ADDED AFTER A SURVIVING MUTANT (`isRecord` break -> continue, readTopDrivers).
+   * The driver case below uses a row that IS a record and merely fails the sensitivity
+   * check — so it hits the SECOND break and never exercised the isRecord one. Exactly
+   * the gap the previous change hit in `readStringList`, reproduced here in the driver
+   * reader. A non-record row behaves differently in general, so the case is added
+   * rather than the survivor being explained away.
+   */
+  it('discards the ranked drivers when the first driver row is not an object at all', () => {
+    const vm = readDecisionBriefViewModel(brief({
+      top_drivers: [
+        null as unknown as Record<string, unknown>,
+        { factor_label: 'Churn Trend', sensitivity: 0.9, direction: 'positive' },
+      ],
+      what_would_change: ['Demand holds'],
+    }))
+    expect(vm?.topDrivers).toEqual([])
+    expect(JSON.stringify(vm ?? {})).not.toContain('Churn Trend')
+  })
+
   it('discards the ranked drivers when the FIRST driver row is malformed', () => {
     const vm = readDecisionBriefViewModel(brief({
       top_drivers: [
@@ -411,6 +431,24 @@ describe('a malformed row at index 0 (ranked categories)', () => {
     const vm = readDecisionBriefViewModel(brief({
       defaulted_assumptions: [
         { not: 'a row' } as unknown as Record<string, unknown>,
+        defaulted('Available Growth Budget'),
+        defaulted('Current ARR'),
+      ],
+    }))
+    expect(vm?.defaultedAssumptions.map(d => d.factorLabel))
+      .toEqual(['Available Growth Budget', 'Current ARR'])
+  })
+
+  /**
+   * ⚠ ALSO ADDED AFTER A SURVIVING MUTANT (`isRecord` continue -> break, defaulted set).
+   * The contrast case above leads with `{ not: 'a row' }`, which IS a record — it is
+   * skipped by the `source` guard, so the isRecord branch went untested and flipping it
+   * to `break` left the suite green. This case leads with a genuine non-record.
+   */
+  it('does NOT discard the unordered defaulted set when its first row is not an object', () => {
+    const vm = readDecisionBriefViewModel(brief({
+      defaulted_assumptions: [
+        null as unknown as Record<string, unknown>,
         defaulted('Available Growth Budget'),
         defaulted('Current ARR'),
       ],
