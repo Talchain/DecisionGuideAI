@@ -33,7 +33,10 @@ describe('DecisionBriefSection', () => {
   it('shows every licensed group and its first producer item without opening a disclosure', () => {
     render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted />)
 
-    expect(screen.getByRole('heading', { name: 'Decision brief' })).toBeInTheDocument()
+    // Heading generalised: a user who brought a strategic challenge was being
+    // told they had a "Decision brief". Pinned in
+    // `results/__tests__/coreSurfacesDoNotPresumeADecision.spec.ts`.
+    expect(screen.getByRole('heading', { name: 'Behind this result' })).toBeInTheDocument()
     expect(screen.getByText('What matters')).toBeInTheDocument()
     expect(screen.getByText('What Olumi assumed')).toBeInTheDocument()
     expect(screen.getByText('What could change')).toBeInTheDocument()

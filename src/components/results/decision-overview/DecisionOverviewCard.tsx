@@ -47,8 +47,21 @@ export type BriefStateOverride = 'thin' | 'contradictory' | 'unverified'
 type BriefState = 'ready' | 'needs_input' | 'unassessed' | 'blocked' | BriefStateOverride
 
 export const OVERVIEW_COPY = {
-  metaLabel: 'Decision overview',
-  titleFallback: 'Draft decision',
+  // ⭐ NEITHER LABEL MAY PRESUME A DECISION. This card is the ORIENTATION
+  // surface — it shows the title, framing quality and Olumi's framing question,
+  // and no analysis outcomes. It is shown for whatever the user brought, which
+  // is often a broad strategic challenge with no alternatives named yet.
+  //
+  // Both strings were witnessed mounted on a fundraising CHALLENGE: the product
+  // told the user they had a "Draft decision" under a "Decision overview".
+  //
+  // `metaLabel` is deliberately the bare generic rather than "Challenge
+  // overview": this card must read correctly when there genuinely IS a decision
+  // too, and swapping one presumption for its mirror is the same defect.
+  // `titleFallback` says what is true when Olumi has not derived a name yet —
+  // it is untitled, and it is a draft.
+  metaLabel: 'Overview',
+  titleFallback: 'Untitled draft',
   ready: 'Framing has the basics',
   readyNote: 'Goal, context, constraints and options',
   needsInput: 'Olumi needs a little more from you',

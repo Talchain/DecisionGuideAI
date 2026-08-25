@@ -104,8 +104,24 @@ export function DecisionBriefSection({ brief, leaderClaimPermitted }: DecisionBr
       <div className="flex items-start gap-2">
         <BookOpenText size={16} className="mt-0.5 shrink-0 text-info" aria-hidden="true" />
         <div className="min-w-0 flex-1">
+          {/*
+            ⭐ NOT "Decision brief". A user who brought a strategic CHALLENGE —
+            "How can I accelerate securing pre-seed investment?" — was being told
+            they had a decision brief. Witnessed mounted on exactly that session.
+
+            The heading now describes what the section CONTAINS, which is true
+            whether or not the user is deciding anything: the groups below are
+            "What matters", "What Olumi assumed", "What could change". It also
+            avoids stuttering a fourth "What ..." above those three.
+
+            ⚠ Scope: this is a user-facing label only. `decision-brief-*` testids,
+            the directory name and the view-model type keep their legacy names —
+            renaming internals here has no user value and would churn every
+            consumer (founder's ruling: fix mounted Core language contextually,
+            do not globally rename internals).
+          */}
           <h3 id={`${detailsId}-heading`} className={`${typography.panelHeader} text-text-header`}>
-            Decision brief
+            Behind this result
           </h3>
           <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>
             Top drivers, the values Olumi assumed, and what could change.
