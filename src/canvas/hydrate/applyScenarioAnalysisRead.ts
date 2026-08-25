@@ -83,6 +83,8 @@
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
+import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
+import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 
 /**
  * The kinds a FACT READ is entitled to report as an outcome. Exported so the
@@ -380,7 +382,11 @@ export type BootAnalysisVerdictOutcome =
    */
   | {
       readonly outcome: 'declined'
-      readonly reason: 'no_verdict' | 'asserts_currency' | 'not_restorable'
+      readonly reason:
+        | 'no_verdict'
+        | 'asserts_currency'
+        | 'not_restorable'
+        | 'closes_run_gate'
     }
 
 /**
@@ -405,6 +411,54 @@ export function applyBootAnalysisVerdict(input: {
   }
   if (!isBootRestorableRunState(kind)) {
     return { outcome: 'declined', reason: 'not_restorable' }
+  }
+
+  // ── ⚠⚠ THE GATE GUARD, AND IT IS THE MIRROR OF THE `complete_current` ONE ──
+  //
+  // THE DEFECT IT CLOSES, and it was live in this function's first cut: every
+  // rule above reasons about `run_state.kind`, and THE RUN GATE DOES NOT READ
+  // `run_state` AT ALL. `selectAnalysisReadinessAuthority` (:809 of the
+  // selector) reads `readiness.status` / `readiness.blockers` and hands them to
+  // `readinessObjectsToRun`, which objects on
+  // `status === 'blocked' || actionableBlockers(blockers).length > 0`.
+  //
+  // So `readiness` RIDES ALONG on every verdict this function restores, and
+  // reaches the Analyse control on three mounted surfaces
+  // (`usePreAnalysisModel.ts:257`, `OutputsDock.tsx:1130,1303`,
+  // `ConversationPanel.tsx:560`). Measured before this guard existed:
+  //
+  //   verdict null (pre-restore)              -> false   Analyse ENABLED
+  //   restored `blocked`  (readiness blocked) -> TRUE    Analyse DISABLED
+  //   restored `refused`  (readiness blocked) -> TRUE    Analyse DISABLED
+  //
+  // A verdict from a PREVIOUS session could therefore disable Analyse on a
+  // model that is analysable right now. That is a false block arriving by a
+  // route the parallel `mayRun` fix does not cover: this objects through clause
+  // (a) — `status: 'blocked'` with an EMPTY blocker list, the shape
+  // `buildAnalysisRefusalReadiness` emits — while that work addresses clause
+  // (b). Two fixes for one harm, each correct alone (trap 21).
+  //
+  // ⭐ WHY HERE AND NOT IN THE GATE. The gate is right to respect a stated
+  // verdict; the mistake is restoring a claim we cannot verify. Fixing it at the
+  // gate would teach the gate to distrust its own authority, and the seam has
+  // one writer. So the decline lives on the RESTORE side.
+  //
+  // ⭐ SYMMETRY, which is the actual principle: `complete_current` is declined
+  // because the client cannot verify a CURRENCY claim. A previous session's
+  // REFUSAL is equally unverifiable, and worse in consequence — a false currency
+  // claim misinforms, a false block REMOVES THE USER'S ACTION. Fail-closed has to
+  // point both ways or it is just caution in one direction.
+  //
+  // ⚠ THE PREDICATE IS IMPORTED, NEVER MIRRORED. Re-deriving "would this object?"
+  // here would be a second authority for one question, and it would diverge on
+  // the next change to either. `null` is passed for the side-car because
+  // `readinessObjectsToRun` ignores its first argument entirely once the
+  // producer has spoken (`canRunAnalysis.ts:443`) — so this asks exactly the
+  // question the gate will ask, and nothing else. A `null` authority (not
+  // stated, or the UNSUPPLIED sentinel) yields `false`: an unstated readiness
+  // cannot close the gate, and must not be read as if it had.
+  if (readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict))) {
+    return { outcome: 'declined', reason: 'closes_run_gate' }
   }
 
   input.store.setAnalysisStateV1?.(verdict)
