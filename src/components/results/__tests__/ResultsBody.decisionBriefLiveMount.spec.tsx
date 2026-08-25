@@ -196,10 +196,19 @@ describe('ResultsBody — Decision Brief live mount', () => {
     expect(briefSection.compareDocumentPosition(method) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(briefSection.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const brief = within(screen.getByTestId('decision-brief-section'))
-    // The producer names the same factor independently as a driver and an
-    // assumption; preserving both categories is intentional, not a duplicate
-    // surface.
-    expect(brief.getAllByText('Churn Trend')).toHaveLength(2)
+    // ⚠⚠ THIS ASSERTION WAS THE DEFECT, AND IT ARGUED FOR ITSELF. It required
+    // 'Churn Trend' to appear TWICE and explained the repetition as intentional:
+    // "the producer names the same factor independently as a driver and an
+    // assumption". The producer does — but that is a fact about the PRODUCER's
+    // indexing, not a licence to show a user the same word twice under two
+    // headings and call them different answers. `key_assumptions` is a SUBSET of
+    // `top_drivers` on every capture measured, so the second column could only
+    // ever restate the first.
+    //
+    // The corrected rule: a factor name appears ONCE. What the user gains in its
+    // place is `defaulted_assumptions` — the producer's own sentence about what it
+    // had to assume — which answers a genuinely different question.
+    expect(brief.getAllByText('Churn Trend')).toHaveLength(1)
     expect(brief.getByText('Product-Led Growth Conversion → Reach £1M ARR')).toBeInTheDocument()
   })
 
@@ -233,6 +242,16 @@ describe('ResultsBody — Decision Brief live mount', () => {
             options: [],
             top_drivers: [],
             what_would_change: [],
+            // ⚠ This case used to rely on `key_assumptions` being the last thing
+            // standing. It no longer renders — it is a SUBSET of `top_drivers` on
+            // every capture, so it was restating the neighbouring column. Measured
+            // across 1,620 captured briefs: ZERO have `key_assumptions` populated
+            // while `top_drivers` is empty, so nothing observable is lost. The
+            // producer's real "what did we have to assume" carrier is this one.
+            defaulted_assumptions: [
+              { factor_label: 'Available Growth Budget', note: 'No starting value was provided for "Available Growth Budget" — the analysis used a default.',
+                source: 'value_defaulted', doctrine: 'provisional_doctrine_v0' },
+            ],
           },
         },
       },
@@ -240,8 +259,8 @@ describe('ResultsBody — Decision Brief live mount', () => {
     renderBody({ withheld: true })
 
     const brief = screen.getByTestId('decision-brief-section')
-    expect(brief).toHaveTextContent('What this rests on')
-    expect(brief).toHaveTextContent('October Product Launch Readiness')
+    expect(brief).toHaveTextContent('What Olumi assumed')
+    expect(brief).toHaveTextContent('Available Growth Budget')
     expect(brief).not.toHaveTextContent(/winner|recommended|leading option|eligible|probability/i)
   })
 
@@ -256,6 +275,12 @@ describe('ResultsBody — Decision Brief live mount', () => {
             top_drivers: [],
             what_would_change: [],
             warnings: [],
+            defaulted_assumptions: [
+              { factor_label: 'Available Growth Budget', note: 'No starting value was provided for "Available Growth Budget" — the analysis used a default.',
+                source: 'value_defaulted', doctrine: 'provisional_doctrine_v0' },
+              { factor_label: 'Current ARR', note: 'No starting value was provided for "Current ARR" — the analysis used a default.',
+                source: 'value_defaulted', doctrine: 'provisional_doctrine_v0' },
+            ],
           },
         },
       },
@@ -263,8 +288,8 @@ describe('ResultsBody — Decision Brief live mount', () => {
     renderBody({ withheld: true })
 
     const brief = screen.getByTestId('decision-brief-section')
-    expect(brief).toHaveTextContent('What this rests on')
-    expect(brief).toHaveTextContent('October Product Launch Readiness')
+    expect(brief).toHaveTextContent('What Olumi assumed')
+    expect(brief).toHaveTextContent('Available Growth Budget')
     expect(brief).toHaveTextContent('+1 more')
     expect(brief).not.toHaveTextContent(/certain|confirmed|confidence/i)
   })

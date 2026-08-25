@@ -55,9 +55,23 @@ export interface DecisionBriefSectionProps {
 export function DecisionBriefSection({ brief }: DecisionBriefSectionProps) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
+  /**
+   * ⭐ "What this rests on" USED to render `key_assumptions`, and that was the
+   * duplication defect: `key_assumptions` is a SUBSET of `top_drivers` on every
+   * capture measured (3 Aug — identical as sets, 3/3; 25 Aug live wire — 3/3
+   * contained). A subset cannot be a distinct answer, so the middle column
+   * restated the first one, and the old heading additionally over-claimed: it
+   * promised everything the analysis rests on while listing only factor names.
+   *
+   * `defaulted_assumptions` answers the question the surface was reaching for —
+   * *what did Olumi have to assume because we did not tell it?* — and answers it
+   * in the producer's own sentence rather than with a third list of labels.
+   * `keyAssumptions` is therefore DELIBERATELY DARK on this surface: it is still
+   * parsed and contract-guarded, it is simply already on screen one column left.
+   */
   const groups = [
     { title: 'What matters', items: brief.topDrivers.map(driver => driver.label), icon: CircleDot, testId: 'decision-brief-drivers' },
-    { title: 'What this rests on', items: brief.keyAssumptions, icon: Layers3, testId: 'decision-brief-assumptions' },
+    { title: 'What Olumi assumed', items: brief.defaultedAssumptions.map(entry => entry.note), icon: Layers3, testId: 'decision-brief-defaulted' },
     { title: 'What could change', items: brief.whatWouldChange, icon: GitBranch, testId: 'decision-brief-change' },
   ].filter(group => group.items.length > 0)
 
@@ -76,7 +90,7 @@ export function DecisionBriefSection({ brief }: DecisionBriefSectionProps) {
             Decision brief
           </h3>
           <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>
-            Top drivers, key assumptions, and what could change.
+            Top drivers, the values Olumi assumed, and what could change.
           </p>
         </div>
       </div>

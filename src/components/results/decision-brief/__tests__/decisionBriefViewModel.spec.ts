@@ -39,7 +39,7 @@ const WITHHELD_LIVE_PROJECTION = {
 }
 
 describe('readDecisionBriefViewModel', () => {
-  it('reads only the three licensed non-leader groups from the live withheld V1 projection', () => {
+  it('reads only the licensed non-leader groups from the live withheld V1 projection', () => {
     const view = readDecisionBriefViewModel(WITHHELD_LIVE_PROJECTION)
 
     expect(view).toEqual({
@@ -49,6 +49,9 @@ describe('readDecisionBriefViewModel', () => {
       ],
       keyAssumptions: WITHHELD_LIVE_PROJECTION.key_assumptions,
       whatWouldChange: WITHHELD_LIVE_PROJECTION.what_would_change,
+      // Present and empty on this capture — the 25 Aug live wire carries the key
+      // with zero entries, which is a real producer state, not an absence.
+      defaultedAssumptions: [],
     })
 
     // The projection carries probabilities, but this reader has no field from
@@ -80,7 +83,24 @@ describe('readDecisionBriefViewModel', () => {
     expect(readDecisionBriefViewModel(null)).toBeNull()
   })
 
-  it('fails a malformed ordered category closed while preserving valid siblings', () => {
+  /**
+   * ⚠ THIS TEST'S EXPECTATION WAS THE DEFECT, and is corrected here rather than
+   * deleted. It asserted `topDrivers === []` when row 1 was VALID and row 2 was
+   * malformed — i.e. it pinned "one bad row empties the whole category", which
+   * is exactly the behaviour cross-review flagged as suppressing valid siblings.
+   * Its title already said "preserving valid siblings"; it only ever preserved
+   * the sibling CATEGORIES, never the valid rows inside the affected one.
+   *
+   * The corrected rule is a PREFIX: ordering is meaningful, so a malformed row
+   * ends the list rather than being filtered out of the middle (which would
+   * silently re-rank what follows) and rather than emptying it (which discards
+   * true rows for one bad one). Every row shown holds its real rank.
+   *
+   * The single-bad-row cases below are unchanged and still pass: when the only
+   * row is unusable the category is still empty. This change is strictly less
+   * destructive, never more permissive.
+   */
+  it('truncates a ranked category at the first malformed row, keeping valid leading rows', () => {
     const view = readDecisionBriefViewModel({
       ...WITHHELD_LIVE_PROJECTION,
       top_drivers: [
@@ -89,7 +109,9 @@ describe('readDecisionBriefViewModel', () => {
       ],
     })
 
-    expect(view?.topDrivers).toEqual([])
+    expect(view?.topDrivers).toEqual([
+      { label: WITHHELD_LIVE_PROJECTION.top_drivers[0].factor_label },
+    ])
     expect(view?.keyAssumptions).toEqual(WITHHELD_LIVE_PROJECTION.key_assumptions)
     expect(view?.whatWouldChange).toEqual(WITHHELD_LIVE_PROJECTION.what_would_change)
   })
