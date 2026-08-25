@@ -37,7 +37,8 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '@/canvas/mutations/mutationAuthority'
-import { openNodeInspector } from '@/canvas/nodes/shared/openNodeInspector'
+import { focusModelTarget } from '@/canvas/utils/focusHelpers'
+import { useUIStore } from '@/stores/uiStore'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
@@ -253,8 +254,13 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
  * happened to inject. `PreAnalysisPanel`, the other consumer of this
  * component, injects this same helper for the same control.
  *
- * Fail-closed and silent on a node that is not on the canvas, inherited from
- * `openNodeInspector`: a stale target must never open an empty inspector.
+ * Fail-closed and silent on a node that is not on the canvas — now inherited
+ * from `focusModelTarget` rather than `openNodeInspector`, since the act was
+ * re-pointed at the Model tab. Same contract, different helper: a stale target
+ * must never open an empty surface. (⚠ `PreAnalysisPanel`, the other consumer
+ * of this component, still injects the Inspector helper for its own control —
+ * that surface is read-only for the reason given below and is NOT in this
+ * change's scope.)
  *
  * Module-level so the reference is stable across renders of a memoised tree.
  */
@@ -264,8 +270,52 @@ const POST_RUN_VALUE_EDIT_CONNECTED = hasServerGraphAuthority(
 const POST_RUN_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.postRunFactorConfirmation,
 )
+/**
+ * ⭐ THE "EDIT" ACT — RE-POINTED FROM THE INSPECTOR TO THE ONE SURFACE THAT WRITES.
+ *
+ * It used to call `openNodeInspector`, which selects the node and raises
+ * `InspectorModal`. The Inspector CANNOT SAVE. `inspector-v2/useInspectorMutations.ts`
+ * carries its own authority manifest — `NODE_SETTER_AUTHORITY` (:119) and
+ * `EDGE_SETTER_AUTHORITY` (:143) — and EVERY setter in both is `'disabled'`,
+ * `setObservedValue` included. The module says so in a mounted constant:
+ *
+ *   INSPECTOR_READ_ONLY_REASON = 'This inspector is read-only because these
+ *   changes cannot yet be saved to the shared model. Use the Model tab for
+ *   supported factor values …'
+ *
+ * So this control advertised an edit and delivered a read-only panel. It is the
+ * same dead end the resolve-next act was corrected for, on a different surface.
+ *
+ * ⚠ THIS IS NOT A FLAG FLIP, AND DELIBERATELY SO. `postRunFactorValue` stays
+ * `'disabled'` below and that is HONEST: it governs the post-run INLINE editor
+ * (`onSetValue`, which writes through a path with no working writer), and the
+ * Inspector is read-only for a second, independent reason. Flipping it would
+ * assert a capability neither surface has. What changes is the DESTINATION.
+ *
+ * Navigation is not a mutation, so this is not governed by
+ * `CANONICAL_EDIT_AUTHORITY` at all — the same reason the resolve-next act
+ * consults no key. The destination is Model tab v2, whose editor reaches
+ * `useModelEditAuthority.proposeFactorValue` → `factor_value_edit`, which CEE
+ * handles as `'mutating'`. That is the only UI path in the product that ends in
+ * a saved change.
+ *
+ * ⚠ Residual, stated not buried: the write is `'local_only'` when no
+ * conversation panel is mounted to supply `sendSystemEvent`. Pre-existing on the
+ * destination and identical for every existing Model-tab user; not introduced
+ * here, and not witnessed live by this change.
+ */
 const openValueEditor = (nodeId: string): void => {
-  openNodeInspector(nodeId)
+  useUIStore.getState().setActiveOutputTab('diagnostics')
+  // ⚠ PASS THE KEY, NOT THE VALUE. `MODEL_SECTION_TARGET`
+  // (`canvas/components/ModelTabBody.tsx:123`) maps section NAMES to testids,
+  // and the consumer at `:243` does `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'`.
+  // Passing the testid misses the lookup and the `??` SILENTLY lands the user at
+  // the panel top with nothing selected — exactly the failure this call exists to
+  // fix. Caught in review on the sibling PR after I wrote it there first; pinned
+  // below by `triageEditActRoutesToFactors.spec.ts`, which asserts the argument is
+  // a KEY of that map rather than any string that happens to look right.
+  useUIStore.getState().requestModelTabSection('factors')
+  focusModelTarget(nodeId)
 }
 
 // ── Section 2: Result checks (Brief 5.8B D2c — flip-risk extracted) ─────────
@@ -995,7 +1045,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
                       sourcePill={item.sourcePill}
                       passiveLabels={item.passiveLabels}
                       onConfirm={POST_RUN_FACTOR_CONFIRMATION_CONNECTED ? onConfirm : undefined}
-                      onEdit={POST_RUN_VALUE_EDIT_CONNECTED ? openValueEditor : undefined}
+                      onEdit={openValueEditor}
                       onHoverEnter={onHoverEnter}
                       onHoverLeave={onHoverLeave}
                     />
@@ -1012,7 +1062,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
               onConfirm={POST_RUN_FACTOR_CONFIRMATION_CONNECTED ? onConfirm : undefined}
-              onEdit={POST_RUN_VALUE_EDIT_CONNECTED ? openValueEditor : undefined}
+              onEdit={openValueEditor}
             />
           )}
         </div>

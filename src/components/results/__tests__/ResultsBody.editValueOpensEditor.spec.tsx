@@ -245,12 +245,43 @@ describe('ResultsBody — local-only value actions fail closed', () => {
     localStorage.clear()
   })
 
-  it('keeps both action cards visible while withholding the dead pencil', () => {
+  /*
+   * ⭐ THE PENCIL IS NO LONGER DEAD, AND THAT IS THE CHANGE.
+   *
+   * This case asserted the pencil was WITHHELD, on the correct premise that its
+   * destination could not save: it called `openNodeInspector`, and the Inspector
+   * is read-only by its own policy — `inspector-v2/useInspectorMutations.ts`
+   * `NODE_SETTER_AUTHORITY` (:119) and `EDGE_SETTER_AUTHORITY` (:143) are every
+   * setter `'disabled'`, and `INSPECTOR_READ_ONLY_REASON` says so in user-facing
+   * copy: "these changes cannot yet be saved to the shared model. Use the Model
+   * tab for supported factor values."
+   *
+   * The act now goes where that copy points. Withholding it was right while it
+   * dead-ended; it is wrong now that it reaches the one path that writes.
+   *
+   * ⚠ NOTE WHAT IS NOT CHANGED, because it is the honest half: the INLINE editor
+   * and Confirm stay withheld (next two cases), because those genuinely have no
+   * working carrier. Only the NAVIGATION was re-pointed.
+   */
+  it('MOUNTS the pencil and routes it to the Model tab factors section', () => {
     renderBody()
     expect(cardFor(GAP_LABEL)).toBeInTheDocument()
     expect(cardFor(ACTION_LABEL)).toBeInTheDocument()
-    expect(within(cardFor(ACTION_LABEL)).queryByRole('button', { name: 'Edit value' }))
-      .not.toBeInTheDocument()
+
+    const pencil = within(cardFor(ACTION_LABEL)).getByRole('button', { name: 'Edit value' })
+
+    // No inspector raise — the dead destination must not be reached even once.
+    withInspectorWatch(count => {
+      pencil.click()
+      expect(count(), 'the act must not raise the read-only Inspector').toBe(0)
+    })
+
+    // ⚠ Assert the SECTION KEY, not merely that something was requested. The
+    // consumer coalesces an unknown key to the panel top
+    // (`ModelTabBody.tsx:243`), so a wrong string routes silently — which is
+    // exactly the defect caught on the sibling PR.
+    expect(useUIStore.getState().pendingModelTabSection).toBe('factors')
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
   })
 
   it('withholds the inline editor even when a caller supplies local callbacks', () => {
