@@ -17,6 +17,12 @@ import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+// ROADMAP 2.1271 — deliver the auto-run's provisional analysis without another
+// turn. Mounted HERE, beside boot hydration, deliberately: the trigger is the
+// draft turn's own `running` verdict in the store, so the hook needs no
+// conversation context, and keeping it out of `useConversation` decouples a
+// server-driven delivery from the message loop entirely.
+import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAnalysisDelivery'
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
 
@@ -81,6 +87,8 @@ export default function CanvasMVP() {
   // Supabase writes, whereas this read goes through CEE, which holds the
   // service credential the browser deliberately does not have.
   useServerGraphHydration(scenarioIdFromRoute)
+  // Inert until CEE reports a provisional run in flight for this scenario.
+  useProvisionalAnalysisDelivery(scenarioIdFromRoute)
 
   // ROADMAP 2.467: register a locally-imported graph with CEE so the analysis
   // describes the model on screen. Mounted BESIDE the hydration hook on

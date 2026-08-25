@@ -128,6 +128,13 @@ function serverGraphResult(): ScenarioGraphResult {
     notModelled: null,
     identity: { value: 'srv-hash-1', projectionVersion: 'p1' },
     layoutPresent: false,
+    // ROADMAP 2.1271 — the recovery read carries the same analysis keys as
+    // every other scenario-graph read. `null` on both is the honest fixture
+    // here: this suite is about GRAPH recovery on stream loss, and it asserts
+    // nothing about analysis state. Present rather than optional so a consumer
+    // cannot silently forget the field (the parser always supplies it).
+    analysisState: null,
+    analysisResult: null,
     requestId: 'req-recovery-1',
   }
 }
