@@ -348,10 +348,17 @@ describe('⭐ THE OTHER DOOR — an honest canvas still receives its verdict', (
 describe('⚠ KNOWN-OPEN: a prior recorder defeats the guard (pinned, not fixed)', () => {
   it('PINNED GAP — draft-then-refused-boot still DELIVERS the divergent verdict', async () => {
     // Reproduces the reachable chain: a draft records `lastAuthoritativeGraph`
-    // from the LOCAL canvas (`applyDraftResult.ts:292`), then
-    // `recoverDraftFromServer` re-enters hydration mid-session
-    // (`useConversation.ts:5627`), the merge REFUSES, a run arms — and the
-    // guard cannot see that the canvas never derived from a server graph.
+    // (`applyDraftResult.ts:292`), then `recoverDraftFromServer` re-enters
+    // hydration mid-session (`useConversation.ts:5627`), the merge REFUSES, a
+    // run arms — and the guard cannot see that the canvas never derived from an
+    // ACCEPTED server graph.
+    //
+    // ⚠ PRECISION, because an earlier version of this comment got it wrong: the
+    // draft is NOT "the local canvas CEE has never seen". Its nodes come from
+    // `draftData`, so CEE authored it. The distinction that matters is DRAFTED
+    // vs ACCEPTED — CEE drafted this graph but never accepted it as the
+    // scenario's authoritative server graph, and only the latter licenses a
+    // verdict about it.
     seedLocalCanvas({
       lastAuthoritativeGraph: { nodeIds: ['local-1', 'local-2'], edgePairs: [] },
     })

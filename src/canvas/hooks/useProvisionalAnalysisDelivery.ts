@@ -256,11 +256,26 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // accepted path is exactly the body that records — and FALSE OF THE FIELD,
     // which has THREE recorders and a seed. Derived at the bytes:
     //
-    //   `mergeServerGraph.ts:412`    accepted server merge      ← genuine acceptance
+    //   RECORDERS (non-null):
+    //   `mergeServerGraph.ts:412`    accepted server merge  ← the ONLY genuine
+    //                                server acceptance
     //   `mergeAppliedGraph.ts:606`   applied-edit receipt
-    //   `applyDraftResult.ts:292`    a fresh DRAFT — records `identityFromCanvasGraph`
-    //                                of the LOCAL canvas, which CEE may never have seen
+    //   `applyDraftResult.ts:292`    a fresh DRAFT. ⚠ NOT "the local canvas CEE
+    //                                has never seen" — an earlier version of this
+    //                                comment said that and it is FALSE at the
+    //                                bytes: `nodes`/`edges` are mapped from
+    //                                `draftData` (`:209`,`:212`) and applied as a
+    //                                wholesale replacement, so at the instant of
+    //                                recording the canvas IS CEE's own draft. The
+    //                                accurate distinction is narrower and still
+    //                                decisive: CEE DRAFTED it, but never ACCEPTED
+    //                                it as this scenario's authoritative SERVER
+    //                                graph. A draft still defeats the guard.
     //   `store.ts:6084`              COLD-LOAD SEED, property-assignment form
+    //
+    //   NULLERS (all fail-safe — they can only make the guard MORE cautious):
+    //   `store.ts:1439`              scenario reset
+    //   `store.ts:1999`              initial state
     //   `useConversation.ts:502`     nulled, and NOT on un-acceptance
     //
     // **A MERGE REFUSAL DOES NOT CLEAR IT.** So once any recorder has fired,

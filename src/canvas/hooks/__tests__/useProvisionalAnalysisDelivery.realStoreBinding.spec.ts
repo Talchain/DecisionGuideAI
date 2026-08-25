@@ -127,8 +127,22 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
     // (`lastAuthoritativeGraph`), and the boundary it must respect is that the
     // SLICE ITSELF never crosses — the applier gets an answer, not the graph.
     //
-    // A future edit that "simplifies" this by handing over `lastAuthoritativeGraph`
-    // (or `nodes`) would satisfy a looser key check and REDs here instead.
+    // ⚠ WHAT THIS TEST ACTUALLY CATCHES — measured, not assumed, because the
+    // first version of this comment OVERSTATED it and was false.
+    //
+    // It claimed a future edit handing over `lastAuthoritativeGraph` "REDs
+    // here". IT DOES NOT: that field is an OBJECT, and the `Array.isArray`
+    // loop below only catches ARRAYS (i.e. `nodes`). Leaking the object REDs
+    // the MEMBER-SET IDENTITY BINDING in the test above, not this one.
+    //
+    // So the two tests split the work and neither covers both:
+    //   leak `nodes`                  → REDs here AND the member-set test
+    //   leak `lastAuthoritativeGraph` → REDs the member-set test ONLY
+    //
+    // Recorded rather than quietly corrected: a false guarantee in a test is
+    // worse than no guarantee, because the next reader trusts it. This PR
+    // corrected exactly that defect class one file over, and then reproduced it
+    // here in the same commit — which is how ordinary the failure is.
     const view = readProvisionalApplyStore()
     expect(typeof view.graphAcceptedForCanvas).toBe('boolean')
     for (const value of Object.values(view)) {
