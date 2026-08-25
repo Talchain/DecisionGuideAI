@@ -183,9 +183,21 @@ export function WorkspaceShellTabStrip({
   return (
     // ⚠ THE OUTER WRAPPER NO LONGER CARRIES `aria-label`. It is a role-less
     // `<div>`, and a generic container cannot take an accessible name — the
-    // attribute was silently inert, while duplicating the name the `<nav>`
-    // inside it already carried. Two elements claiming one name, one of them
-    // doing nothing. The name lives on the tablist, once.
+    // attribute was silently inert while duplicating a name the elements
+    // inside it already carried. An inert claim is the thing removed here.
+    //
+    // ⚠ WHAT IS *NOT* REMOVED, AND IS NOT AN OVERSIGHT: the name appears
+    // TWICE below, on the `<nav>` and again on the `role="tablist"` child.
+    // That is deliberate and both are load-bearing — they are two different
+    // things to a screen-reader user. The `<nav>` is the LANDMARK ("this
+    // region is how you move around the dock"), reachable from a landmark
+    // list and resolved by eighteen sibling assertions as
+    // `getByRole('navigation', { name: 'Outputs sections' })`. The tablist is
+    // the WIDGET ("these controls are a tab set"), and a tablist with no
+    // accessible name is announced bare. Unlike the wrapper, BOTH of these
+    // elements have a role that can hold a name, so neither claim is inert.
+    // `noRolelessContainerClaimsTheStripName` pins exactly this distinction —
+    // it explicitly exempts `NAV` and fails only on a role-less claimant.
     <div className="flex items-center gap-2 px-2 py-2">
       <span className="sr-only" aria-live="polite">
         {surfaces.find(s => s.id === activeTab)?.label ?? ''}

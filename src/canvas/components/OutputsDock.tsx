@@ -58,7 +58,6 @@ import {
   WorkspaceShellTabStrip,
   DOCK_PANEL_DOM_ID,
   DOCK_TABLIST_LABEL,
-  nextTabForKey,
   railTabDomId,
   tabDomId,
 } from './workspaceShell/WorkspaceShellTabStrip'
@@ -2556,7 +2555,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           `getByRole('navigation', { name: 'Outputs sections' })`. Putting the
           role on the `<nav>` deleted the landmark and turned eighteen sibling
           assertions RED against a green baseline. Landmark outside, widget
-          inside: both are true and nothing that binds here has to change. */}
+          inside: both are true and nothing that binds here has to change.
+
+          ⚠ WHAT THE RAIL DOES NOT TAKE FROM THE EXPANDED STRIP: roving
+          `tabIndex` and arrow-key traversal. The reason is on the button
+          below — read it before adding either. The short version is that the
+          rail's activation path expands the dock, so an arrow key would
+          unmount the rail rather than move along it, and a roving index
+          without traversal simply deletes two icons from the tab order. */}
       {!effectiveIsOpen && (
         <nav aria-label={DOCK_TABLIST_LABEL}>
         <div
@@ -2584,14 +2590,31 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 id={railTabDomId(tab.id)}
                 role="tab"
                 aria-selected={effectiveActiveTab === tab.id}
-                tabIndex={effectiveActiveTab === tab.id ? 0 : -1}
+                // ⚠⚠ THE RAIL DELIBERATELY HAS NO ROVING `tabIndex`, AND THAT
+                // IS THE OPPOSITE OF THE EXPANDED STRIP THREE FILES OVER. Do
+                // not "make them consistent" without reading this.
+                //
+                // A roving `tabIndex` takes every non-selected tab OUT of the
+                // tab order, and is only honest when something puts focus back
+                // — the expanded strip pairs it with real arrow traversal
+                // (`WorkspaceShellTabStrip` holds refs and calls `.focus()` on
+                // the tab it moves to). The rail has no such mechanism, and it
+                // CANNOT have the obvious one: every rail activation runs
+                // through `handleTabClick`, which sets `isOpen: true` — so the
+                // first arrow key would UNMOUNT the rail and mount the
+                // expanded strip instead of stepping along it. Traversal that
+                // destroys the thing being traversed is not traversal.
+                //
+                // Adding the roving index without traversal made two of the
+                // three rail icons unreachable by keyboard, where before this
+                // change all three were plain Tab-reachable buttons. That is
+                // a `role="tab"` advertising a contract the rail does not
+                // honour — the same defect this change exists to remove, one
+                // level down. So the rail keeps `role="tab"` and
+                // `aria-selected` (which are TRUE — it really is a tab set and
+                // it really does know which panel is fronted) and keeps every
+                // icon in the natural tab order, exactly as at `463fc931`.
                 data-testid={`outputs-dock-rail-tab-${tab.id}`}
-                onKeyDown={event => {
-                  const next = nextTabForKey(OUTPUT_TABS, effectiveActiveTab, event.key)
-                  if (!next) return
-                  event.preventDefault()
-                  handleTabClick(next.id)
-                }}
                 onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id

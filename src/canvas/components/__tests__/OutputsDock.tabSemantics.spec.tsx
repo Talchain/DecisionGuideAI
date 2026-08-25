@@ -364,6 +364,43 @@ describe('the workspace dock publishes which panel is active (affordance sweep c
   })
 
   /**
+   * SELECTION AND FOCUS ARE TWO CLAIMS, AND ONLY ONE OF THEM WAS PINNED.
+   *
+   * The case above proves the arrow key moves the SELECTION. It says nothing
+   * about focus — and because the strip roves `tabIndex`, the newly-selected
+   * tab is the only one left in the tab order, so a user whose focus stayed
+   * behind on the now-`tabIndex={-1}` tab is stranded: the next arrow key
+   * steps from the wrong place and Tab leaves the strip entirely. The line
+   * that prevents this is `tabRefs.current.get(next.id)?.focus()` in
+   * `WorkspaceShellTabStrip`, and deleting it left the suite fully green.
+   *
+   * ⚠ THE PRECONDITION IS PINNED IN-TEST AND IS LOAD-BEARING. Focus is put on
+   * `olumi` explicitly (`fireEvent.click` does not focus in jsdom) and the
+   * target is asserted NOT to hold focus first. Without that, this case would
+   * pass on a tree where focus never moved at all — or worse, one where focus
+   * happened to start on the destination — which is a guard agreeing with
+   * itself rather than observing the roving-focus behaviour.
+   */
+  it('arrowRightMovesFocusAndNotOnlySelectionAlongTheExpandedStrip', async () => {
+    renderDock()
+    await expandDock()
+    fireEvent.click(screen.getByTestId(EXPANDED.olumi))
+    await waitFor(() => {
+      expect(screen.getByTestId(EXPANDED.olumi)).toHaveAttribute('aria-selected', 'true')
+    })
+
+    screen.getByTestId(EXPANDED.olumi).focus()
+    expect(screen.getByTestId(EXPANDED.olumi)).toHaveFocus()
+    expect(screen.getByTestId(EXPANDED.results)).not.toHaveFocus()
+
+    fireEvent.keyDown(screen.getByTestId(EXPANDED.olumi), { key: 'ArrowRight' })
+
+    await waitFor(() => {
+      expect(screen.getByTestId(EXPANDED.results)).toHaveFocus()
+    })
+  })
+
+  /**
    * OPPOSITE-DIRECTION TWIN of the arrow-key case.
    *
    * A handler that moved selection on ANY keystroke would satisfy the case
