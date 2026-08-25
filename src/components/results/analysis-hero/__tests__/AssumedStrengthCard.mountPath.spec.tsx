@@ -12,11 +12,13 @@
  * `AnalysisHeroPanel` must RED here, not merely in a unit test of the card.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { useAskOlumiStore } from '../../coaching/askOlumiStore'
+import { OPEN_FULL_INSPECTOR_EVENT } from '../../../../canvas/utils/openEdgeStrengthEditor'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { makeHeroData } from '../__fixtures__/hero.fixtures'
 import type { AssumedStrengthDecision } from '../../strengthElicitation/selectAssumedStrengthToResolve'
-import { ASSUMED_STRENGTH_REFUSAL_COPY } from '../../strengthElicitation/assumedStrengthCopy'
+import { ASSUMED_STRENGTH_ACTION, ASSUMED_STRENGTH_REFUSAL_COPY } from '../../strengthElicitation/assumedStrengthCopy'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -117,14 +119,48 @@ describe('§0 the elicitation is on the DEFAULT Analysis tab', () => {
     expect(screen.getByTestId('assumed-strength-others').textContent).toContain('2 other')
   })
 
-  it('0.4 keeps the measured relationship visible but withholds the local-only strength editor', () => {
+  /*
+   * ⭐ THE ACT IS NOW OFFERED, AND THAT IS THE CHANGE.
+   *
+   * This case asserted the button was WITHHELD, on the correct premise that its
+   * destination could not save: it opened the Inspector, whose EDGE_SETTER_AUTHORITY
+   * is every setter `'disabled'`. The product's most prominent intervention — panel
+   * top level, zero clicks — therefore ended in nothing, which is why it was hidden.
+   *
+   * It now asks Olumi, who CAN change an edge (`update_edge` is first-class in the
+   * model-facing tool schema and CEE applies it canonically). So the premise has
+   * inverted and the case must assert the new behaviour rather than be deleted.
+   *
+   * ⚠ Still asserted: the act must NOT raise the read-only Inspector.
+   */
+  it('0.4 keeps the measured relationship visible AND offers the ask', () => {
     renderAnalysisTab(SELECTED)
     expect(screen.getByTestId('assumed-strength-card')).toHaveAttribute(
       'data-edge-id',
       'e_demand_rev',
     )
     expect(screen.getByTestId('assumed-strength-why')).toHaveTextContent('35%')
-    expect(screen.queryByTestId('assumed-strength-action')).toBeNull()
+
+    const act = screen.getByTestId('assumed-strength-action')
+    expect(act).toHaveTextContent(ASSUMED_STRENGTH_ACTION)
+
+    let inspectorRaises = 0
+    const onRaise = () => { inspectorRaises += 1 }
+    window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, onRaise)
+    try {
+      fireEvent.click(act)
+    } finally {
+      window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, onRaise)
+    }
+    expect(inspectorRaises, 'the act must not raise the read-only Inspector').toBe(0)
+
+    // The drawer opened with a request that names BOTH endpoints — the shape the
+    // router elects. Asserted on the store, not on prose.
+    const ask = useAskOlumiStore.getState()
+    expect(ask.isOpen).toBe(true)
+    expect(ask.draft).toContain('Customer demand')
+    expect(ask.draft).toContain('Revenue growth')
+    expect(ask.targetId).toBe('e_demand_rev')
   })
 
   it('0.5 a speaking refusal renders its sentence and NO card', () => {

@@ -59,18 +59,22 @@ import {
   assumedStrengthOthers,
   assumedStrengthWhy,
 } from './assumedStrengthCopy'
-import type { AssumedStrengthDecision } from './selectAssumedStrengthToResolve'
+import type { AssumedStrengthDecision, AssumedStrengthSelection } from './selectAssumedStrengthToResolve'
 import { typography } from '../../../styles/typography'
 
 export interface AssumedStrengthCardProps {
   decision: AssumedStrengthDecision
   /**
-   * Open the edge-strength editor for a canvas edge id. Injected so the card
-   * stays presentational and the test can assert the ARGUMENT rather than a
-   * side effect. Absent ⇒ the card still names the assumption but renders no
-   * button, rather than a button that does nothing.
+   * Act on the selected assumed strength. Receives the WHOLE selection, not
+   * just an edge id, because the act now composes a request that names both
+   * endpoints verbatim — and a handler given only an id would have to look the
+   * labels up again, which is a second authority for the same fact.
+   *
+   * Injected so the card stays presentational and the test can assert the
+   * ARGUMENT rather than a side effect. Absent ⇒ the card still names the
+   * assumption but renders no button, rather than a button that does nothing.
    */
-  onResolve?: (edgeId: string) => void
+  onResolve?: (selection: AssumedStrengthSelection) => void
 }
 
 function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardProps) {
@@ -122,7 +126,7 @@ function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardPro
           type="button"
           className={`${typography.panelBody} text-accent underline underline-offset-2`}
           data-testid="assumed-strength-action"
-          onClick={() => onResolve(selected.edgeId)}
+          onClick={() => onResolve(selected)}
         >
           {ASSUMED_STRENGTH_ACTION}
         </button>

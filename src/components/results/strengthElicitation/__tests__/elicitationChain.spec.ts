@@ -199,7 +199,16 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } as never,
     })
 
-    render(createElement(AssumedStrengthCard, { decision, onResolve: openEdgeStrengthEditor }))
+    // ⚠ THE PRODUCT NO LONGER WIRES THIS CARD TO THIS HANDLER. The panel now routes
+    // the act to the Ask-Olumi drawer, because the Inspector cannot save an edge
+    // strength (EDGE_SETTER_AUTHORITY: every setter 'disabled'). The adapter below
+    // keeps this spec exercising `openEdgeStrengthEditor` itself — which retains
+    // other callers (`ConnRow`, `NodeQuickActions`) — rather than deleting
+    // coverage of a helper that is still live elsewhere.
+    render(createElement(AssumedStrengthCard, {
+      decision,
+      onResolve: sel => openEdgeStrengthEditor(sel.edgeId),
+    }))
     fireEvent.click(screen.getByTestId('assumed-strength-action'))
 
     const routed = useCanvasStore.getState()
@@ -284,7 +293,16 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } as never,
     })
 
-    render(createElement(AssumedStrengthCard, { decision, onResolve: openEdgeStrengthEditor }))
+    // ⚠ THE PRODUCT NO LONGER WIRES THIS CARD TO THIS HANDLER. The panel now routes
+    // the act to the Ask-Olumi drawer, because the Inspector cannot save an edge
+    // strength (EDGE_SETTER_AUTHORITY: every setter 'disabled'). The adapter below
+    // keeps this spec exercising `openEdgeStrengthEditor` itself — which retains
+    // other callers (`ConnRow`, `NodeQuickActions`) — rather than deleting
+    // coverage of a helper that is still live elsewhere.
+    render(createElement(AssumedStrengthCard, {
+      decision,
+      onResolve: sel => openEdgeStrengthEditor(sel.edgeId),
+    }))
     fireEvent.click(screen.getByTestId('assumed-strength-action'))
     render(createElement(
       ReactFlowProvider,

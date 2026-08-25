@@ -108,7 +108,51 @@ export function assumedStrengthOthers(assumedFragileCount: number): string | nul
  * a focus-only jump again, this label becomes a promise the product does not
  * keep, and the honest move is to change the wiring back, not this string.
  */
-export const ASSUMED_STRENGTH_ACTION = 'Set this strength'
+/**
+ * ⭐ "ASK OLUMI TO", NOT "SET". The button used to read "Set this strength" and
+ * pointed at `openEdgeStrengthEditor` -> the Inspector, whose every edge setter
+ * is `'disabled'` (`inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY)
+ * and whose own mounted copy says it "cannot yet be saved to the shared model".
+ * So the product's MOST PROMINENT intervention — zero clicks, panel top level,
+ * carrying the most specific sentence Olumi produces — terminated in nothing.
+ *
+ * There is no user-facing edge editor to route to; there is no v2 edge surface.
+ * But OLUMI can change an edge: `update_edge` is a first-class op in the
+ * model-facing tool schema and CEE applies it through the canonical commit path.
+ * So the honest act is to ask, and the wording says exactly that. It promises
+ * the ASK, never the outcome — a single live trial proved the router elects this
+ * path, which is existence, not reliability.
+ */
+export const ASSUMED_STRENGTH_ACTION = 'Ask Olumi to set this strength'
+
+/**
+ * The drawer's context line — chrome, never sent. It carries the two things the
+ * draft cannot: that the number is the user's to choose, and that the analysis
+ * will not silently update itself.
+ */
+export const ASSUMED_STRENGTH_ASK_CONTEXT =
+  'Replace the number with your own judgement before sending. Olumi will change the model; the analysis then needs rerunning.'
+
+/**
+ * The prefilled EDITABLE draft.
+ *
+ * ⚠ THE PHRASING IS EVIDENCE-LED, NOT STYLE. A live probe showed the router
+ * elects the graph-edit path for an explicit, fully-specified instruction naming
+ * both endpoints and a number, and does NOT elect it for a vague one ("set X to
+ * low" returned a clarifying question instead). So the draft names both labels
+ * verbatim and carries an explicit value.
+ *
+ * ⚠ AND IT DOES NOT STATE A "BEFORE". The selection carries no current numeric
+ * strength — only whether it is Olumi's estimate or unset — so asserting one
+ * would be inventing it. `0.8` is a starting point the user edits, and the
+ * context line says so; it is not a claim about what the value is now.
+ */
+export function assumedStrengthAskDraft(s: {
+  fromLabel: string
+  toLabel: string
+}): string {
+  return `Change the strength of the link from ${s.fromLabel} to ${s.toLabel} to 0.8.`
+}
 
 /**
  * REFUSALS. Each names a DIFFERENT fact, and none of them denies anything.

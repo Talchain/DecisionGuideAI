@@ -35,8 +35,10 @@ import { typography } from '@/styles/typography'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { HeroEvidenceDisclosure } from './HeroEvidenceDisclosure'
 import { AssumedStrengthCard } from '../strengthElicitation/AssumedStrengthCard'
-import { openEdgeStrengthEditor } from '../../../canvas/utils/openEdgeStrengthEditor'
-import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../canvas/mutations/mutationAuthority'
+import {
+  ASSUMED_STRENGTH_ASK_CONTEXT,
+  assumedStrengthAskDraft,
+} from '../strengthElicitation/assumedStrengthCopy'
 import { HERO_COPY } from './heroCopy'
 import { HeroLensTabs, tabId } from './HeroLensTabs'
 import { HeroOptionRow, HERO_ROW_GRID, HERO_ROW_TRACK_SPAN } from './HeroOptionRow'
@@ -558,11 +560,46 @@ export function AnalysisHeroPanel({
           common case on live captures, so nesting this would hide it exactly
           when it is the only thing we have to offer. Self-hides on a refusal
           that has no honest sentence. */}
+      {/*
+        ⭐ THE PRODUCT'S MOST PROMINENT INTERVENTION USED TO END IN NOTHING.
+        This card sits at panel top level — zero clicks, outside the evidence
+        collapse — and says the most specific thing Olumi produces. Its button was
+        gated on `analysisAssumedEdgeStrength` and pointed at
+        `openEdgeStrengthEditor`, which raises the Inspector. The Inspector CANNOT
+        SAVE: `inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY (:143)
+        is every setter `'disabled'`, and its own mounted copy says these changes
+        "cannot yet be saved to the shared model".
+
+        ⚠ THE FLAG IS UNCHANGED AND STILL HONEST. `analysisAssumedEdgeStrength`
+        stays `'disabled'` because the DIRECT-manipulation route genuinely is dead.
+        What changed is the destination, not the permission — and asking the
+        assistant is not a graph mutation by this surface, so no key here governs
+        it. Flipping the flag would assert a capability that does not exist;
+        building a second edge editor would create a fourth editing authority.
+
+        WHERE IT GOES INSTEAD: Olumi can change an edge even though the user
+        cannot. `update_edge` is first-class in the model-facing tool schema and
+        CEE applies it through the canonical commit path. So the act opens the
+        Ask-Olumi drawer with a PREFILLED, EDITABLE draft — the estate's existing
+        pattern, deliberately never an invisible auto-send: the user sees and owns
+        the request before it goes.
+
+        ⚠ WHAT THIS DOES NOT CLAIM. One live trial proved the router elects the
+        edit path for a fully-specified instruction — existence, not reliability.
+        The copy promises the ask, never the outcome. And the edit response carries
+        no before/after receipt today, which is why the drawer says the analysis
+        will need rerunning rather than implying it refreshes itself.
+      */}
       <AssumedStrengthCard
         decision={model.evidence.assumedStrength}
-        onResolve={hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.analysisAssumedEdgeStrength)
-          ? openEdgeStrengthEditor
-          : undefined}
+        onResolve={selection => {
+          openAskOlumi({
+            context: ASSUMED_STRENGTH_ASK_CONTEXT,
+            draft: assumedStrengthAskDraft(selection),
+            label: 'Set relationship strength',
+            targetId: selection.edgeId,
+          })
+        }}
       />
 
       {/* ── WHAT TO ACT ON NEXT ──────────────────────────────────────────
