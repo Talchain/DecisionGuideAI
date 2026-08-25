@@ -17,12 +17,64 @@
  * into the entry bundle). Instead the store registers a snapshot provider at
  * module init (see store.ts, next to the window.useCanvasStore exposure), and
  * the boundary calls flushWorkToAutosave() through this tiny module.
+ *
+ * ⚠ AND IT DOES NOT PERSIST AN UNSETTLED STREAMED DRAFT. `applyDraftResult`
+ * skips its payload-scoped write during a streamed GRAPH_READY preview
+ * (`opts.skipAutosave`) and #835 closed the two store-scoped writers in
+ * `useAutosave`. This module was the remaining door: a React crash inside the
+ * ~25 s settling window wrote the preview to `olumi-canvas-autosave`, and
+ * because `draftStreamPhase` is in-memory it came back after the reload
+ * UNMARKED, with the run gate OPEN — the exact fabrication the skip exists to
+ * prevent, reached through a third path.
+ *
+ * DECLINING DOES NOT EVEN COST THE WORK — it PROTECTS it. This looks like a
+ * fabrication-vs-data-loss trade and is not one, because of what is actually in
+ * the store during `settling`: the streamed preview, which has already REPLACED
+ * whatever was on the canvas. And `saveAutosave` is a whole-object REPLACE, not
+ * a merge. So the unguarded flush was not merely writing something unsettled —
+ * it was OVERWRITING the last good pre-draft autosave with it. Declining keeps
+ * that last good snapshot intact. Hand-authored work made BEFORE the draft is
+ * unaffected either way: `drafting` is classified settled, so edits still flush
+ * right up until GRAPH_READY lands.
+ *
+ * The server copy then covers the draft itself: CEE lets the turn finish when
+ * the client hangs up and commits the drafted graph (verified at CEE
+ * `4a064e60`, `routes/streamed-turn-sse.ts` — the turn is dispatched via
+ * `app.inject`, no socket reference crosses into it, and an integration test
+ * destroys a real TCP socket and asserts the commit still lands). The scenario
+ * id survives in its own ungated key (`olumi-canvas-current-scenario-id`), and
+ * boot hydration is wired unconditionally at `CanvasMVP.tsx:89`, so the reload
+ * the boundary offers reads that committed graph back. ⚠ Scope: that holds for
+ * the V5 turn routes, not for `POST /assist/v1/draft-graph`, which does abort
+ * on socket close; and the fence can still refuse a `superseded` write. So
+ * treat server recovery as the common case, not a guarantee — which is why the
+ * argument above is built on the local REPLACE, which needs no server at all.
+ *
+ * And the decline is honest by construction: this
+ * function returns false, `ErrorBoundary` stores that as `workFlushed`, and
+ * the "your work is auto-saved" promise is gated on it. Writing anyway would
+ * be a lie the user cannot detect. Marking the row instead was designed and
+ * DECLINED: the autosave payload is unversioned and the tree's only versioning
+ * mechanism is dead code that fails open.
+ *
+ * THE GATE LIVES HERE, NOT AT THE CALL SITES. `shouldPersistGraphForScenario`
+ * is the single derived authority, and its own header refuses to become "a
+ * list of call sites to keep in step" — guarding each importer would leave the
+ * next one to inherit the defect in silence. Inside the primitive it also
+ * tests the id the write is genuinely scoped to (see the resolution below),
+ * which a caller-side guard cannot do without re-deriving the same fallback.
+ * `useAutosave` keeps its own consult: two consults of ONE authority is defence
+ * in depth, unlike two spellings of one rule (trap 12).
+ *
+ * Importing `stores/draftStore` does not violate the dependency shape above:
+ * it is a 373-line leaf whose only import is `zustand` — not the canvas store.
  */
 
 import { saveAutosave, getCurrentScenarioId } from '../store/scenarios'
 import type { AutosaveData } from '../store/scenarios'
 import { projectAutosaveData } from '../store/autosaveProjection'
 import type { AutosaveProjectionSource } from '../store/autosaveProjection'
+import { shouldPersistGraphForScenario } from '../stores/draftStore'
 
 /**
  * What the store's registered provider must hand back.
@@ -122,7 +174,13 @@ function isPlausibleEdge(e: unknown, keptNodeIds: Set<string>): boolean {
  * - EMPTY graph (after filtering) → false WITHOUT writing: an empty store must
  *   never clobber the last good autosave (the crash may have emptied the
  *   store — the stale autosave is then strictly better than the "fresh"
- *   nothing).
+ *   nothing);
+ * - UNSETTLED streamed draft on this scenario → false WITHOUT writing, for the
+ *   same "a stale truth beats a fresh fabrication" reason (see the header).
+ *
+ * The returned boolean is load-bearing, not diagnostic: `ErrorBoundary` gates
+ * its "your work is auto-saved" promise on it, so every `false` above is a
+ * promise correctly NOT made.
  */
 export function flushWorkToAutosave(): boolean {
   try {
@@ -136,6 +194,18 @@ export function flushWorkToAutosave(): boolean {
     const edges = snapshot.edges.filter((e) => isPlausibleEdge(e, keptNodeIds))
     if (nodes.length === 0 && edges.length === 0) return false
 
+    // THE SCENARIO THIS WRITE LANDS ON. Resolved ONCE, and BEFORE the gate, so
+    // the phase is tested against exactly the row `saveAutosave` is about to
+    // occupy — including the case where the store has no id and the
+    // localStorage fallback supplies it.
+    const scenarioId = snapshot.scenarioId ?? getCurrentScenarioId()
+
+    // ⚠ NEVER PERSIST AN UNSETTLED STREAMED DRAFT — see the header for why a
+    // decline beats both writing and marking. Read at FLUSH time, never at
+    // registration: the phase that matters is the one at the instant of the
+    // crash.
+    if (!shouldPersistGraphForScenario(scenarioId)) return false
+
     // Spread FIRST so any field added to CrashSnapshot flows through without a
     // second edit here; the explicit members below are the ones this path
     // deliberately overrides (filtered graph, scenario-id fallback).
@@ -143,7 +213,7 @@ export function flushWorkToAutosave(): boolean {
       ...snapshot,
       nodes: nodes as AutosaveData['nodes'],
       edges: edges as AutosaveData['edges'],
-      scenarioId: snapshot.scenarioId ?? getCurrentScenarioId(),
+      scenarioId,
       // Boundary cast — see CrashSnapshot doc: restore validates before use.
       ceeAnalysisReady: (snapshot.ceeAnalysisReady ?? undefined) as AutosaveData['ceeAnalysisReady'],
     }
