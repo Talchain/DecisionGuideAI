@@ -338,6 +338,29 @@ export interface V2RobustnessActual {
    */
   display_verdict?: string
   display_verdict_reason?: string
+  /**
+   * CROWN COMPLIANCE (hard-constraint chain step 5; producer PLoT #338,
+   * staging `e19ac506`) — may the crowned option be badged as leading, given
+   * the limits the user actually stated? Emitted UNCONDITIONALLY on every
+   * /v2/run (`routes/v2/run.ts:3608-3609`), so ABSENCE here means an older
+   * producer build, never "no limits".
+   *
+   * Producer enum (`routes/v2/crown-eligibility.ts`):
+   *   not_applicable | compliant | uncertain | unverified | not_assessed |
+   *   no_eligible_option
+   * Typed `string` (not the union) at the trust boundary — same tagged
+   * passthrough convention as `display_verdict` / `level` / `label` above,
+   * and for the same reason: the vendored @talchain/schemas pin (0.48.0) does
+   * not know these members, and a future producer value must not crash an old
+   * UI build. `normaliseCrownCompliance` narrows FAIL-CLOSED at the render
+   * seam.
+   *
+   * The reason is the producer's own claim-safe phrase and is rendered
+   * VERBATIM — never re-authored here
+   * (`contracts/isl-to-ui.contract.ts:281`).
+   */
+  recommended_option_compliance?: string
+  recommended_option_compliance_reason?: string
   /** Tipping-point analysis: how much each factor must change to flip the recommendation */
   flip_thresholds?: Array<{
     node_id?: string

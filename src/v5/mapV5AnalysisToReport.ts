@@ -1221,6 +1221,35 @@ export function mapV5AnalysisToReport(
               ),
             }
           : {}),
+        // Hard-constraint chain step 5 (producer PLoT #338, staging
+        // `e19ac506`): the crown's compliance verdict + its producer-owned
+        // reason, both carried VERBATIM. This is the `display_verdict` story
+        // immediately above, one field over and one month later — ON-WIRE
+        // (CEE keep-lists `robustness` WHOLE at compose.ts:723, and the
+        // projection at :1079 is a shallow keep plus a deep DENY-strip, so
+        // additive members ride through) and dropped HERE, one hop before any
+        // renderer could read it.
+        //
+        // Transport only: every producer state is carried, including
+        // `not_applicable`. Deciding which states are worth showing is the
+        // RENDERER's job (`crownCompliance.ts`) — a mapper that filtered here
+        // would hide a producer fact and make absence indistinguishable from a
+        // state this lane happened to find uninteresting.
+        ...(safeString(robustnessRaw.recommended_option_compliance) !== undefined
+          ? {
+              recommended_option_compliance: safeString(
+                robustnessRaw.recommended_option_compliance,
+              ),
+            }
+          : {}),
+        ...(safeString(robustnessRaw.recommended_option_compliance_reason) !==
+        undefined
+          ? {
+              recommended_option_compliance_reason: safeString(
+                robustnessRaw.recommended_option_compliance_reason,
+              ),
+            }
+          : {}),
       }
     : undefined
 
