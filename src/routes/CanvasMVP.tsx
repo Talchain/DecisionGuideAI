@@ -17,6 +17,7 @@ import { getScenario } from '../canvas/store/scenarios'
 import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNotice'
 // ROADMAP 2.1271 — deliver the auto-run's provisional analysis without another
 // turn. Mounted HERE, beside boot hydration, deliberately: the trigger is the
 // draft turn's own `running` verdict in the store, so the hook needs no
@@ -260,6 +261,17 @@ export default function CanvasMVP() {
             onCanvasInteraction={handleCanvasInteraction}
           />
         </main>
+
+        {/*
+          The boot re-ask's honest interim state. Mounted at the ROUTE, beside
+          the hook that drives it, and NOT inside the first-use hero: the hero
+          mounts only under `isAiPanelV2Enabled()`, and binding a notice to a
+          surface the deployed flags can switch off is how row 2.466's badge
+          shipped dark twice (CLAUDE.md trap 3b). Self-gating and prop-less —
+          it renders only while a re-ask is live or exhausted, only for the
+          scenario on screen, and only while the canvas is empty.
+        */}
+        <ServerGraphRetryNotice />
 
         {/* Templates Panel */}
         <Suspense fallback={null}>
