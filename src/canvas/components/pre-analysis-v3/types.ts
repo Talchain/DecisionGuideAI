@@ -67,6 +67,8 @@ export type PanelSignalId =
   | 'sig_risk_count'
   | 'sig_estimates'
   | 'sig_cee_bias'
+  /** Causal-structure absence — see `selectors/computeStructuralAbsence.ts`. */
+  | 'sig_structural_absence'
 
 export type BarKey = 'frame' | 'options' | 'risks' | 'estimates'
 

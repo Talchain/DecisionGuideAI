@@ -15,6 +15,7 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     isSavedExample: false,
     narrowFramingDetail: null,
     biasFindingExplanation: null,
+    structuralAbsence: null,
     ...overrides,
   }
 }
@@ -62,6 +63,19 @@ describe('deriveSignalViews — lifecycle', () => {
       'sig_risk_count',
       'sig_estimates',
       'sig_cee_bias',
+    ])
+  })
+
+  it('puts a live structural gap ahead of lower-value count signals', () => {
+    const derived = deriveSignalViews(
+      input({ structuralAbsence: { kind: 'shared_mechanism', optionCount: 2 } }),
+      {},
+    )
+    expect(derived.sharpen.map(v => v.detection.signal_id)).toEqual([
+      'sig_structural_absence',
+      'sig_option_breadth',
+      'sig_risk_count',
+      'sig_estimates',
     ])
   })
 

@@ -179,6 +179,33 @@ export const SIGNAL_COPY = {
     'Checking estimates: replacing the highest-influence estimates with your judgement usually helps the analysis. Influence comes from a quick structural pass of your model.',
   ceeBiasRationale:
     'A reflective check from Olumi, based on the structure of your model. Worth a thought, not a verdict.',
+  /**
+   * Structural absence — what the model's SHAPE does not contain.
+   *
+   * These three read the causal structure, not counts, so they say something
+   * the presence signals above cannot. Each one only ever fires when its
+   * precondition holds (see `selectors/computeStructuralAbsence.ts`), so every
+   * lead below is a statement about the user's model, never about a field we
+   * failed to populate.
+   */
+  structuralNoDownside: (optionCount: number) => ({
+    lead: `Nothing bad happens on any of your ${optionCount === 2 ? 'two' : String(optionCount)} options.`,
+    emphasis: 'Connect the downside to the options it threatens, so the analysis can weigh it.',
+  }),
+  structuralSharedMechanism: (optionCount: number) => ({
+    lead: `All ${optionCount === 2 ? 'two' : String(optionCount)} options act through exactly the same parts of the model.`,
+    emphasis: 'These may be variations on one route rather than genuinely different approaches.',
+  }),
+  structuralNoExternalFactor: {
+    lead: 'Nothing outside your control is modelled.',
+    emphasis: 'Naming what you do not control shows which outcomes you can actually move.',
+  },
+  structuralNoDownsideRationale:
+    'Downside paths: an option connected only to benefits cannot lose. Linking each option to the harms it risks lets the analysis trade one against the other instead of ranking upside alone.',
+  structuralSharedMechanismRationale:
+    'Mechanism diversity: when every option acts on the same immediate parts of the model, they may be settings of one lever rather than alternatives. A route that works through a different mechanism is what widens the decision.',
+  structuralNoExternalFactorRationale:
+    'Controllability (Howard): separating what you decide from what you merely endure shows where choice actually operates, and stops a model that quietly assumes the world holds still.',
 } as const
 
 /**

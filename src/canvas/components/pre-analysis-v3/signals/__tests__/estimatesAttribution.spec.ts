@@ -40,6 +40,7 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     topUncalibrated: { id: 'f_snowflake', label: 'Snowflake-Native Build Adoption' },
     narrowFramingDetail: null,
     biasFindingExplanation: null,
+    structuralAbsence: null,
     isSavedExample: false,
     ...overrides,
   }

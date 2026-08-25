@@ -12,6 +12,7 @@
  */
 
 import { SIGNAL_COPY, SPARK_PROMPTS } from '../constants'
+import type { StructuralAbsence } from '../selectors/computeStructuralAbsence'
 import type { PanelSignalId, SignalDetection } from '../types'
 
 export interface SignalDetectionInput {
@@ -36,6 +37,16 @@ export interface SignalDetectionInput {
   narrowFramingDetail: string | null
   /** First analysis_ready bias finding explanation, verbatim — null when not live. */
   biasFindingExplanation: string | null
+  /**
+   * Highest-priority causal-structure absence, or null when none is detected
+   * OR no check could honestly run. Computed by
+   * `selectors/computeStructuralAbsence.ts` from nodes + edges only.
+   *
+   * Required, not optional: this signal claims something about the SHAPE of the
+   * user's model, and an omitted field defaulting to `null` would silently turn
+   * "we did not look" into "we looked and found nothing" at the next call site.
+   */
+  structuralAbsence: StructuralAbsence | null
 }
 
 export type SignalSurface = 'hero' | 'sharpen'
@@ -55,7 +66,7 @@ export interface SignalDef {
   detect: (input: SignalDetectionInput) => SignalDetection | null
 }
 
-/** Priority order is the array order: foundational, options, risks, estimates, reflective. */
+/** Priority order is the array order: foundational, structural, counts, estimates, reflective. */
 export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
   {
     signal_id: 'sig_goal_missing',
@@ -93,6 +104,66 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
             action: { type: 'focus_success_field' },
             spark: SPARK_PROMPTS.defineSuccess,
           },
+  },
+  {
+    signal_id: 'sig_structural_absence',
+    surface: 'sharpen',
+    // The structural finding is the highest-value sharpen prompt: unlike the
+    // count-based rows below, it describes a gap in the model's reasoning.
+    // Registry order is render priority, so keeping it here guarantees that a
+    // live finding is visible within the default two-row cap.
+    //
+    // Stable channel for the def. The DETECTION carries the entity kind of the
+    // finding that actually fired (risk / option / factor), which is what the
+    // row renders — this value only shapes a resolved row, and there is none.
+    entityKind: 'option',
+    // ⚠ DELIBERATELY NULL — no quiet confirmation, by the registry's own rule.
+    // `computeStructuralAbsence` returns null BOTH when no absence is found AND
+    // when no check could honestly run (too few options, no downside modelled,
+    // no controllability metadata). A confirmation line cannot tell those apart,
+    // so "Model structure checked." would assert a pass that was never measured
+    // every time a precondition simply stopped holding.
+    resolvedCopy: null,
+    detect: input => {
+      const absence = input.structuralAbsence
+      if (!absence) return null
+      switch (absence.kind) {
+        case 'no_downside': {
+          const copy = SIGNAL_COPY.structuralNoDownside(absence.optionCount)
+          return {
+            signal_id: 'sig_structural_absence',
+            copy: { lead: copy.lead, emphasis: copy.emphasis },
+            rationale: SIGNAL_COPY.structuralNoDownsideRationale,
+            entityKind: 'risk',
+            action: { type: 'send_prompt', spark: SPARK_PROMPTS.findRisks },
+            spark: SPARK_PROMPTS.findRisks,
+          }
+        }
+        case 'shared_mechanism': {
+          const copy = SIGNAL_COPY.structuralSharedMechanism(absence.optionCount)
+          return {
+            signal_id: 'sig_structural_absence',
+            copy: { lead: copy.lead, emphasis: copy.emphasis },
+            rationale: SIGNAL_COPY.structuralSharedMechanismRationale,
+            entityKind: 'option',
+            action: { type: 'send_prompt', spark: SPARK_PROMPTS.widenOptions },
+            spark: SPARK_PROMPTS.widenOptions,
+          }
+        }
+        case 'no_external_factor':
+          return {
+            signal_id: 'sig_structural_absence',
+            copy: {
+              lead: SIGNAL_COPY.structuralNoExternalFactor.lead,
+              emphasis: SIGNAL_COPY.structuralNoExternalFactor.emphasis,
+            },
+            rationale: SIGNAL_COPY.structuralNoExternalFactorRationale,
+            entityKind: 'factor',
+            action: { type: 'send_prompt', spark: SPARK_PROMPTS.pressureTestFrame },
+            spark: SPARK_PROMPTS.pressureTestFrame,
+          }
+      }
+    },
   },
   {
     signal_id: 'sig_option_breadth',
