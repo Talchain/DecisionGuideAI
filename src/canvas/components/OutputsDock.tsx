@@ -171,7 +171,11 @@ import type { MappedRobustness } from '../../lib/mappers/types'
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
-import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
+import {
+  derivePostFooterStatus,
+  derivePostFooterMeta,
+  deriveRerunActionLabel,
+} from './utils/postAnalysisFooter'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import {
   selectAnalysisReadinessAuthority,
@@ -973,7 +977,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Byte-identical when CEE states no verdict: the selector's derived branch IS
   // `resolveDisplayedFreshness` over the same two store fields (plus the orphan
   // fold the strip already applied).
-  const displayedFreshness = useAnalysisState().displayedFreshness
+  // ⭐ ONE CALL, THREE MEMBERS (A3 link 4). `requiresRerun` and `semantic` join
+  // `displayedFreshness` on the SAME composition — the rerun affordance's label
+  // therefore cannot disagree with the strip above it, because neither of them
+  // derives the fact. `requiresRerun` had NO product reader before this: CEE
+  // composed its verdict on every turn and nothing consumed it.
+  const composedAnalysisState = useAnalysisState()
+  const displayedFreshness = composedAnalysisState.displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
   // Brief step 6 — the composed run state that decides WHICH truth-state
   // banner this surface may render. It derives nothing new: it maps the
@@ -3368,7 +3378,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
                     metaPlacement="stacked"
-                    actionLabel={isRunning ? 'Running analysis…' : 'Rerun'}
+                    // ⭐ A3 LINK 4 — the affordance states the staleness verdict
+                    // instead of the hardcoded 'Rerun' that stood here. The
+                    // label is ALSO the accessible name (`AnalysisFooter`
+                    // leaves `actionAriaLabel` unset). It MARKS, it does not
+                    // gate: `actionDisabled` below is untouched, because a
+                    // stale analysis is rerunnable and disabling the one
+                    // control that fixes it would be a worse lie than silence.
+                    actionLabel={deriveRerunActionLabel({
+                      isRunning,
+                      requiresRerun: composedAnalysisState.requiresRerun,
+                      semantic: composedAnalysisState.semantic,
+                    })}
                     actionVariant="secondary"
                     onAction={handleRunAnalysis}
                     actionDisabled={isRunning || !canRunAnalysis}
