@@ -93,6 +93,25 @@ const TURN_CURRENT = verdict({
   computed_at: '2026-08-25T10:00:00.000Z',
 })
 
+/**
+ * ⭐ THE ORDINARY JOURNEY'S BOOT STATE, and it is NOT a null slice.
+ *
+ * `restoreAnalysisFromAutosave` calls `resultsLoadHistorical`, which sets
+ * `{ freshness: 'unknown', freshnessReason: 'hydrated_without_capture' }` AND
+ * `analysisFreshnessDirty: false` (`store.ts:4156-4157`). A deployed-staging
+ * capture (runs m1+m2, across a deploy boundary) read exactly that row after
+ * reload: *"Cannot confirm whether this analysis is current."*
+ *
+ * So on the journey a real user takes — analyse, edit, reload — boot is
+ * CANNOT-CONFIRM, not silence. The null-slice `'none'` case below is the
+ * NARROWER one: a scenario CEE has an analysis for while the client holds no
+ * autosaved report (cleared storage, another device, a shared link).
+ */
+const BOOT_HYDRATED: AnalysisFreshnessState = {
+  freshness: 'unknown',
+  freshnessReason: 'hydrated_without_capture',
+}
+
 /** What the live capture measured on turn 1: `fresh` / `graph_hash_match`. */
 const TURN1_FRESH: AnalysisFreshnessState = {
   freshness: 'fresh',
@@ -218,5 +237,54 @@ describe('⭐ BOTH DIRECTIONS — the restored verdict must not become a STUCK "
     const cleared = compose({ analysisState: null, freshness: TURN1_FRESH, dirty: false })
     expect(cleared.authority).toBe('derived')
     expect(cleared.semantic).toBe('current')
+  })
+})
+
+describe('⭐ THE ORDINARY JOURNEY — what the restore is actually worth there', () => {
+  it('PRECONDITION — boot after an autosaved analysis reads CANNOT-CONFIRM, not silence', () => {
+    // Matches the deployed capture's post-reload row exactly. Pinned so the
+    // claim below is measured against the real boot state, not a convenient one.
+    const booted = compose({ analysisState: null, freshness: BOOT_HYDRATED, dirty: false })
+    expect(booted.authority).toBe('derived')
+    expect(booted.semantic).toBe('cannot_confirm')
+  })
+
+  it('⭐ the restore upgrades CANNOT-CONFIRM to CHANGED — precision, not breaking silence', () => {
+    // ⚠ THIS IS THE HONEST CLAIM, and it is smaller than "none -> changed".
+    // The product already said something true at boot; the restore replaces the
+    // client's own admission of ignorance with the producer's specific verdict,
+    // one turn earlier than CEE would otherwise supply it.
+    const before = compose({ analysisState: null, freshness: BOOT_HYDRATED, dirty: false })
+    const after = compose({
+      analysisState: RESTORED_STALE,
+      freshness: BOOT_HYDRATED,
+      dirty: false,
+    })
+    expect(before.semantic).toBe('cannot_confirm')
+    expect(after.semantic).toBe('changed')
+    expect(after.authority).toBe('wire')
+  })
+
+  it('the NARROWER none-case is real but is NOT the ordinary journey', () => {
+    // Both states exist; they differ by whether an autosaved analysis was
+    // restored. Asserted together so neither can be quietly read as the other.
+    const noAnalysis = compose({ analysisState: null, freshness: null, dirty: false })
+    const withAnalysis = compose({ analysisState: null, freshness: BOOT_HYDRATED, dirty: false })
+    expect(noAnalysis.semantic).toBe('none')
+    expect(withAnalysis.semantic).toBe('cannot_confirm')
+    expect(noAnalysis.semantic).not.toBe(withAnalysis.semantic)
+  })
+
+  it('⚠ AND CEE RE-ASSERTS THE TRUTH ON THE NEXT TURN REGARDLESS — bounding the win', () => {
+    // The capture saw `analysis_ready.freshness = "stale"` on the ordinary turn
+    // after reload, in both runs. So post-turn-1 the product is honest whether
+    // or not this PR exists: the restore's value is EARLIER truth in the
+    // boot -> turn-1 window, plus robustness if that turn is ever silent.
+    const afterCeeStale = compose({
+      analysisState: null,
+      freshness: { freshness: 'stale', freshnessReason: 'graph_hash_diverged' },
+      dirty: false,
+    })
+    expect(afterCeeStale.semantic).toBe('changed')
   })
 })
