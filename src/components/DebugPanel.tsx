@@ -400,7 +400,15 @@ export function DebugPanel() {
     <div
       style={{
         position: 'fixed',
-        bottom: 200, // clears vertical viewport controls panel: 12 (bottom-3) + 8+8 (py-2) + 5×28 (buttons) + 6×4 (gap-1) + 1 (separator) = 193px + 7px clearance
+        // Clears CanvasViewportControls, which now shares the LeftSidebar's floating-
+        // toolbar metrics (CanvasFloatingToolbar.module.css). MEASURED in a real browser
+        // at 1280x800, not computed: the toolbar's own height is 320px and it is anchored
+        // 12px off the bottom, so its top edge sits 332px up. 338 leaves 6px.
+        // ⚠ This is a hand-maintained mirror of another component's height, and it was
+        // ALREADY stale before the toolbars were aligned — it read 200px against a
+        // measured 263px, its comment counting 5 buttons and 1 separator where the
+        // toolbar has 7 and 2. Re-measure it here rather than re-deriving the sum.
+        bottom: 338,
         left: 12,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',

@@ -8,7 +8,7 @@ import {
   MousePointer2,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
-import styles from './LeftSidebar.module.css'
+import styles from './CanvasFloatingToolbar.module.css'
 import { LensDropdown } from '../../canvas/components/LensDropdown'
 import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { useCanvasStore } from '../../canvas/store'

@@ -1,8 +1,22 @@
 /**
- * CanvasViewportControls — bottom-left vertical floating pill with zoom, fit-view, and auto-arrange.
+ * CanvasViewportControls — bottom-left vertical floating toolbar with zoom,
+ * fit-view, auto-arrange, density and the "how to read this" legend.
  *
  * Reads zoom level reactively from the @xyflow/react store.
  * All action handlers are passed as props from ReactFlowGraph.
+ *
+ * ⚠ VISUAL TREATMENT IS NOT OWNED HERE. This toolbar and the LeftSidebar
+ * ("Canvas tools") are the canvas's two left-edge floating toolbars and must
+ * read as one UI system; they had drifted to different widths, radii, button
+ * sizes, gaps, divider widths and hover grammars. The surface, groups, buttons,
+ * dividers and icon sizing all come from `CanvasFloatingToolbar.module.css`,
+ * whose values ARE the LeftSidebar's — shared rather than copied so the two
+ * cannot drift apart again. Nothing about which controls live here, how they
+ * are grouped, or what they do changed with that alignment.
+ *
+ * The three groups below are the same three the two hand-drawn `<div>`
+ * separators used to delimit (zoom · layout · help); the dividers are now drawn
+ * by `.group:not(:last-child)::after`, at the sidebar's width.
  */
 
 import { memo } from 'react'
@@ -11,6 +25,7 @@ import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
 import { useLayoutStore, densityOf } from '../../canvas/layoutStore'
+import styles from './CanvasFloatingToolbar.module.css'
 
 interface CanvasViewportControlsProps {
   onZoomIn: () => void
@@ -41,102 +56,91 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   }
 
   return (
-    <nav
-      aria-label="Viewport controls"
-      className="fixed bottom-3 left-3 flex flex-col items-center w-9 border border-border-default bg-panel/95 backdrop-blur-[8px] rounded-full py-2 gap-1"
-      style={{
-        /* z-index: matches sidebar rail — see DS v5 z-index scale (pending) */
-        zIndex: 1100,
-        boxShadow: 'var(--shadow-1)',
-      }}
-    >
-      {/* Zoom out */}
-      <Tooltip content="Zoom out (⌘-)">
-        <button
-          type="button"
-          className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
-          aria-label="Zoom out"
-          onClick={onZoomOut}
-        >
-          <ZoomOut size={16} aria-hidden="true" />
-        </button>
-      </Tooltip>
+    <nav aria-label="Viewport controls" className={styles.viewportControls}>
+      {/* Zoom group: out, read-out/reset, in */}
+      <div className={styles.group}>
+        <Tooltip content="Zoom out (⌘-)">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Zoom out"
+            onClick={onZoomOut}
+          >
+            <ZoomOut className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
 
-      {/* Zoom percentage — click resets to 100% */}
-      <Tooltip content="Reset to 100%">
-        <button
-          type="button"
-          className="w-7 h-7 inline-flex items-center justify-center text-xs text-text-light hover:text-text-body hover:underline transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
-          aria-label={`Zoom level ${zoomPct}. Click to reset to 100%`}
-          onClick={onZoomReset}
-        >
-          {zoomPct}
-        </button>
-      </Tooltip>
+        {/* Zoom percentage — click resets to 100% */}
+        <Tooltip content="Reset to 100%">
+          <button
+            type="button"
+            className={`${styles.textButton} text-xs text-text-light hover:text-text-body hover:underline`}
+            aria-label={`Zoom level ${zoomPct}. Click to reset to 100%`}
+            onClick={onZoomReset}
+          >
+            {zoomPct}
+          </button>
+        </Tooltip>
 
-      {/* Zoom in */}
-      <Tooltip content="Zoom in (⌘+)">
-        <button
-          type="button"
-          className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
-          aria-label="Zoom in"
-          onClick={onZoomIn}
-        >
-          <ZoomIn size={16} aria-hidden="true" />
-        </button>
-      </Tooltip>
+        <Tooltip content="Zoom in (⌘+)">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Zoom in"
+            onClick={onZoomIn}
+          >
+            <ZoomIn className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
 
-      {/* Separator */}
-      <div
-        className="h-px w-4 bg-border-default"
-        aria-hidden="true"
-      />
+      {/* Layout group: fit to view, auto-arrange, density */}
+      <div className={styles.group}>
+        <Tooltip content="Fit to view (⌘0)">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Fit to view"
+            onClick={onFitView}
+          >
+            <Maximize2 className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
 
-      {/* Fit to view */}
-      <Tooltip content="Fit to view (⌘0)">
-        <button
-          type="button"
-          className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
-          aria-label="Fit to view"
-          onClick={onFitView}
-        >
-          <Maximize2 size={16} aria-hidden="true" />
-        </button>
-      </Tooltip>
+        <Tooltip content="Auto-arrange (⇧A)">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Auto-arrange"
+            onClick={onAutoArrange}
+          >
+            <LayoutGrid className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
 
-      {/* Auto-arrange */}
-      <Tooltip content="Auto-arrange (⇧A)">
-        <button
-          type="button"
-          className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
-          aria-label="Auto-arrange"
-          onClick={onAutoArrange}
-        >
-          <LayoutGrid size={16} aria-hidden="true" />
-        </button>
-      </Tooltip>
+        {/* D4: layout density — comfortable ⇄ compact (tighter tier spacing).
+            Pressed takes the sidebar's active treatment, the same grammar its
+            own mode toggles use. */}
+        <Tooltip content={density === 'compact' ? 'Comfortable spacing' : 'Compact spacing'}>
+          <button
+            type="button"
+            className={density === 'compact' ? styles.iconButtonActive : styles.iconButton}
+            aria-label={`Layout density: ${density}. Switch to ${nextDensity}.`}
+            aria-pressed={density === 'compact'}
+            data-testid="layout-density-toggle"
+            onClick={toggleDensity}
+          >
+            {density === 'compact'
+              ? <Rows3 className={styles.icon} aria-hidden="true" />
+              : <Rows4 className={styles.icon} aria-hidden="true" />}
+          </button>
+        </Tooltip>
+      </div>
 
-      {/* D4: layout density — comfortable ⇄ compact (tighter tier spacing) */}
-      <Tooltip content={density === 'compact' ? 'Comfortable spacing' : 'Compact spacing'}>
-        <button
-          type="button"
-          className="w-7 h-7 inline-flex items-center justify-center rounded-full text-text-light hover:text-text-body transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
-          aria-label={`Layout density: ${density}. Switch to ${nextDensity}.`}
-          aria-pressed={density === 'compact'}
-          data-testid="layout-density-toggle"
-          onClick={toggleDensity}
-        >
-          {density === 'compact'
-            ? <Rows3 size={16} aria-hidden="true" />
-            : <Rows4 size={16} aria-hidden="true" />}
-        </button>
-      </Tooltip>
-
-      {/* Separator */}
-      <div className="h-px w-4 bg-border-default" aria-hidden="true" />
-
-      {/* "How to read this" legend — presentational disclosure (click / keyboard to open) */}
-      <CanvasLegendPopover />
+      {/* Help group: "How to read this" legend — presentational disclosure. */}
+      <div className={styles.group}>
+        <CanvasLegendPopover />
+      </div>
     </nav>
   )
 })
