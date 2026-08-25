@@ -67,6 +67,35 @@
  * prevent: "the Analyse control would turn ENABLED one turn after CEE refused
  * the run. The user clicks, and is refused again."
  *
+ * ── AND CLAUSE (a) DOES NOT CARRY THE FALSE-BLOCK ANYWAY: A PROOF ───────────
+ * The question was put directly — can CEE emit `status: 'blocked'` on a turn
+ * where `resolveRunAdmission` returned `willProceed: true`? Derived at CEE
+ * `4a064e60`, read-only. **It cannot.** `may_run` and `status` are taken from
+ * ONE assessment in ONE expression (`analysis-ready-helper.ts:1218-1221`:
+ * `payload = admission.assessment.analysisReady`, `may_run =
+ * admission.willProceed`), so the two can only be paired as that assessment
+ * produced them. Inside the assessor `status: 'blocked'` has exactly two
+ * writers (`:1130` and `:1136`), and there are exactly two `willProceed: true`
+ * returns (`analysis-ready-core.ts:493` and `:562`):
+ *
+ *   · `:493` fires when `strict.status !== 'unrecoverable'`, which by
+ *     `readinessResultFrom:148` means `assessment.safeToAnalyse === true`,
+ *     which by `analysis-ready-helper.ts:1144` is DEFINED as
+ *     `blockingIssues.length === 0 && analysisReady.status === 'ready'`.
+ *     The status is therefore `'ready'` by construction.
+ *   · `:562` fires only when every blocking issue is waivable by exclusion
+ *     (`:538`), i.e. every code is one of the three, i.e. every category is
+ *     `option_values` / `option_mapping`. Writer 1 (`:1130`) needs
+ *     `hardBlocked` — some issue in `graph_structure` / `numeric_integrity` /
+ *     `internal` — and those category sets are DISJOINT, so it cannot fire.
+ *     Writer 2 (`:1136`) needs `!semantic`, but this path already asserted
+ *     `wireOptions.length > 0` at `:500-503`, so it cannot fire either.
+ *
+ * `status: 'blocked'` and `may_run: true` are therefore MUTUALLY EXCLUSIVE on
+ * any single payload. Guarding clause (a) with `mayRun` would be a no-op on a
+ * same-turn payload — and, on a cross-turn STALE one, actively harmful for the
+ * reason above. A4-5 pins that boundary in the only direction the UI can see.
+ *
  * ── WHAT EACH TEST BELOW IS FOR ─────────────────────────────────────────────
  * The suite fails in BOTH directions, because a gate guards two opposite harms:
  *   · A4-1 / A4-2 RED at pristine — the false block, and the two affordances
