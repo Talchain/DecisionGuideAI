@@ -15,9 +15,8 @@
  * value changed here moves both toolbars, which is the only way they stay
  * members of the same UI system.
  *
- * What each consumer still owns: its EDGE ANCHOR (`top` vs `bottom`) and its
- * `pointer-events` posture — both behavioural, and both deliberately left as
- * they already were.
+ * What each consumer still owns: its EDGE ANCHOR (`top` vs `bottom`). Nothing
+ * else — the two toolbars are now identical in look AND in feel.
  */
 
 .surface {
@@ -31,6 +30,14 @@
   justify-content: flex-start;
   z-index: 1100;
   gap: 6px;
+  /* ⚠ THE SIDEBAR USED TO BE `none` HERE, AND THAT LEAKED CLICKS. A click on
+     its padding — the 8px either side of a button, and the gaps between them —
+     passed straight through the visible white panel to the canvas beneath, so a
+     drag begun on the toolbar's edge PANNED THE GRAPH. Witnessed with
+     elementFromPoint: the sidebar's padding strips returned the canvas element,
+     the lower toolbar's returned the toolbar. An opaque surface should not move
+     what is behind it, so both now absorb. */
+  pointer-events: auto;
   /* Floating panel style - fit content height */
   height: fit-content;
   background: rgba(255, 255, 255, 0.95);
@@ -44,16 +51,11 @@
   composes: surface;
   /* Position below topbar with some spacing */
   top: calc(var(--topbar-h) + 1rem);
-  /* Unchanged: the container lets clicks through, the buttons take them back. */
-  pointer-events: none;
 }
 
 .viewportControls {
   composes: surface;
   bottom: 12px;
-  /* Unchanged from the pre-alignment lower toolbar, which took pointer events
-     on the container. Not a visual property, so alignment does not touch it. */
-  pointer-events: auto;
 }
 
 .group {
@@ -117,8 +119,14 @@
   border-color: var(--info);
 }
 
+/**
+ * Disabled — undo and redo spend most of a fresh canvas here, so this opacity
+ * sets how the WHOLE upper toolbar reads, not just one button. At 0.35 it read
+ * as a faded panel next to the lower one rather than as two live controls among
+ * four; 0.5 still says "not available" without dimming the toolbar it sits in.
+ */
 .iconButton:disabled {
-  opacity: 0.35;
+  opacity: 0.5;
   cursor: not-allowed;
   pointer-events: none;
 }
