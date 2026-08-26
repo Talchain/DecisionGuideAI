@@ -10,6 +10,7 @@
  */
 
 import { memo, useState, useCallback, type ReactNode } from 'react'
+import { optionsWereAssessed } from '../domain/optionAssessment'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
 import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
@@ -167,6 +168,27 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       // Only mark incomplete if analysisReady exists AND contains this option with empty interventions.
       // When analysisReady is null (cleared as stale), don't flag options as incomplete.
       if (!ceeAnalysisReady) return false
+
+      // ⛔ AND ONLY WHEN THE ANALYSIS ACTUALLY ASSESSED THEM.
+      //
+      // PRESENCE of `ceeAnalysisReady` used to be a sufficient licence for this
+      // claim, because `normaliseV5AnalysisReady` rejected any payload with an
+      // empty `goal_node_id` or empty `options` — and a blocked refusal was
+      // exactly that shape. The guard WAS the status check.
+      //
+      // CEE now carries model identity on refusals, so a blocked payload
+      // ADMITS: non-empty `options`, each unvalued one carrying
+      // `interventions: {}`, with `status: 'blocked'`. Without this line every
+      // unvalued option on a blocked run renders a dashed "incomplete" border —
+      // a claim about the user's model that nothing established, because CEE
+      // refused BEFORE projecting interventions.
+      //
+      // `optionsWereAssessed` is named for the QUESTION rather than this fix:
+      // empty `interventions` means "assessed, changes nothing" OR "never
+      // assessed", and the next consumer needs something to read rather than a
+      // bare `status !== 'blocked'` here.
+      if (!optionsWereAssessed(ceeAnalysisReady.status)) return false
+
       const ceeOption = ceeAnalysisReady.options?.find(opt => opt.id === id)
       if (!ceeOption) return false // Option not in analysisReady — not necessarily incomplete
       return !ceeOption.interventions || Object.keys(ceeOption.interventions).length === 0
