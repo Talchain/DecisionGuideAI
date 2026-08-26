@@ -26,9 +26,15 @@
  *     `top_option_id`. Its sole attachment site (`:3634`) assigns the block
  *     WHOLE or omits it. No partial shape exists in the producer, and PLoT
  *     never deletes the member from an existing block.
- *  2. CONTRACT (`@talchain/schemas` 0.40.0, `boundary/enrichment.js`).
+ *  2. CONTRACT — read in THE VERSION THIS REPO PINS, which is the only one that
+ *     can bind its behaviour: `file:./vendor/talchain-schemas-0.48.0.tgz`.
  *     `EnrichmentNearTieSchema` declares `top_option_id: z.string()` —
- *     REQUIRED. The BLOCK is `.optional()`; the MEMBER is not.
+ *     REQUIRED (`boundary/enrichment.js:447`) — while the BLOCK is
+ *     `.optional()` (`:486`). Block optional, member not.
+ *     ⚠ An earlier draft of this note cited 0.40.0, which is the version a
+ *     SIBLING repo vendors. The reading was identical and the conclusion
+ *     unchanged, but a contract citation naming a version this repo does not
+ *     resolve is doctrine the next reader would trust and could not reproduce.
  *  3. CAPTURES. Three real dated captures in this repo carry all six keys
  *     including the identity — `golden-path-staging-2026-04-05.json` (at BOTH
  *     the `plot_response` and `cee_request` boundaries, so it survives the
@@ -132,6 +138,58 @@ describe('S8b — a stripped leader identity is WITHHELD, not silence', () => {
     expect(verdict.separation).toBe('tied')
     expect(verdict.hasLeadingOption).toBe(false)
     expect(verdict.source).toBe('producer_near_tie')
+  })
+
+  /* ─────────── THE WHOLLY-ABSENT SHAPE — PINNED AS-IS, AND NAMED ───────────
+   *
+   * `near_tie` has FOUR reachable shapes, not two, and the gate above only
+   * names the first two. The other two are pinned here so the suite describes
+   * the whole input space rather than the half this change touched:
+   *
+   *   present WITH identity    → names   (`producer_near_tie`)   — above
+   *   present WITHOUT identity → withholds                       — above
+   *   WHOLLY ABSENT, no band   → withholds                       — here
+   *   WHOLLY ABSENT, valid band→ NAMES via `producer_band`       — here
+   *
+   * ⭐ THE THIRD ROW IS CONDITIONAL, NOT ABSOLUTE, and that distinction is the
+   * reason these two cases exist. An absent `near_tie` withholds only when the
+   * BAND is absent too. So on an entitled-but-stale turn — where CEE's prose
+   * correctly names the leader — the UI may well AGREE via the band, and the
+   * divergence that shape appears to imply is narrower than it looks.
+   *
+   * ⛔ THESE PIN CURRENT BEHAVIOUR. They are not an endorsement of it. Whether
+   * the UI SHOULD withhold when the producer has no fresh separation to report
+   * is a real question and a separate one; it is rowed, not settled here.
+   * Changing row 3 would be a behaviour change needing its own evidence.
+   */
+
+  it('WHOLLY ABSENT + no band: no producer signal at all ⇒ no claim', () => {
+    const verdict = deriveDecisionVerdict({
+      option_probabilities: OPTION_PROBABILITIES,
+      robustness: {},
+      decision_brief: { top_drivers: [] } as unknown as DecisionVerdictReportLike['decision_brief'],
+    } as DecisionVerdictReportLike)
+    expect(verdict.hasLeadingOption).toBe(false)
+    expect(verdict.separation).toBe('unknown')
+    expect(verdict.source).toBe('none')
+  })
+
+  it('WHOLLY ABSENT + a valid matching band: the BAND still names the leader', () => {
+    // ⭐ The band is the OTHER authority, and it was ALREADY strict:
+    // `normalizeHeadlineBanded` returns null without a non-empty
+    // `leader_option_id`, and the gate requires that id to be `top1`. Only
+    // `near_tie` carried a permissive arm — so this change makes the two
+    // authorities CONSISTENT rather than adding a new rule.
+    const verdict = deriveDecisionVerdict({
+      option_probabilities: OPTION_PROBABILITIES,
+      robustness: {},
+      decision_brief: {
+        headline_banded: { band: 'clearly_ahead', leader_option_id: HIRE, robustness_gated: false },
+      } as unknown as DecisionVerdictReportLike['decision_brief'],
+    } as DecisionVerdictReportLike)
+    expect(verdict.hasLeadingOption).toBe(true)
+    expect(verdict.source).toBe('producer_band')
+    expect(verdict.leaderId).toBe(HIRE)
   })
 
   it('IDENTITY MISMATCH is still refused (the recovered-session hazard is unchanged)', () => {

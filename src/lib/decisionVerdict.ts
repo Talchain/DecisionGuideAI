@@ -338,7 +338,8 @@ export function deriveDecisionVerdict(
   // from the producer: `computeNearTie` (PLoT `routes/v2/run.ts:2045`) returns
   // `NearTieInfoV3 | undefined` and every non-undefined exit sets
   // `top_option_id`; its sole attachment site assigns the block WHOLE or omits
-  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.40.0) declares
+  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.48.0 — the version
+  // THIS repo pins, `file:./vendor/talchain-schemas-0.48.0.tgz`) declares
   // `top_option_id: z.string()` — REQUIRED, while the BLOCK is `.optional()`.
   // Three real captures in this repo carry all six keys. So a `near_tie`
   // arriving without its identity is CONTRACT-INVALID, and the only thing that
