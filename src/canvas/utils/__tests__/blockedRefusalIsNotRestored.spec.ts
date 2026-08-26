@@ -46,7 +46,7 @@ const payload = (status?: string): CEEAnalysisReady =>
     goal_node_id: GOAL_ID,
     options: [{ id: OPTION_ID, label: 'Rebuild', interventions: {} }],
     ...(status === undefined ? {} : { status }),
-  }) as unknown as CEEAnalysisReady
+  }) as CEEAnalysisReady
 
 describe('a blocked refusal is not restored', () => {
   it('PRECONDITION — the fixture would OTHERWISE validate, so a rejection is the status doing it', () => {
@@ -113,6 +113,38 @@ describe('a blocked refusal is not written to sessionStorage', () => {
     useCanvasStore.getState().setCeeAnalysisReady(payload('blocked') as never)
     expect(sessionStorage.getItem(KEY)).toBeNull()
     expect(sessionStorage.getItem(IDS)).toBeNull()
+  })
+
+  /*
+   * ⛔ THE OPPOSITE-DIRECTION QUESTION ON THE CLEAR, asked and answered.
+   *
+   * Clearing a PRIOR entry is surface nobody specified — it was added because a
+   * session that stored a genuine verdict and then received a refusal would
+   * otherwise restore the stale verdict on reload. Good additions are where
+   * unreviewed surface enters, so it gets the same scrutiny as the part that
+   * was asked for: IS THERE ANY ARM WHERE A PRIOR VERDICT SHOULD SURVIVE?
+   *
+   * The answer rests on blast radius, and it is narrow: this touches
+   * sessionStorage ONLY. The live store value is still set — a blocked payload
+   * remains readable in-session, which is what consumers gate on — and analysis
+   * RESULTS live in separate fields the setter never reaches. So nothing a user
+   * is currently looking at is lost.
+   *
+   * What changes is only what survives a RELOAD, and there the alternative is
+   * restoring a readiness verdict that CEE has explicitly superseded with a
+   * refusal. That is the same class as the sibling precedent, not a new
+   * judgement.
+   */
+  it('⛔ IN-SESSION NOTHING IS LOST — the live value is still set on a refusal', async () => {
+    const { useCanvasStore } = await import('../../store')
+    useCanvasStore.getState().setCeeAnalysisReady(payload('blocked') as never)
+
+    // The store value is PRESENT (consumers gate on `status`, per #871) …
+    const live = useCanvasStore.getState().ceeAnalysisReady
+    expect(live, 'the live value must survive — only persistence is withheld').not.toBeNull()
+    expect(live?.status).toBe('blocked')
+    // … while the persisted copy is not.
+    expect(sessionStorage.getItem(KEY)).toBeNull()
   })
 
   it('⛔ OPPOSITE DIRECTION — a genuine verdict is still written', async () => {
