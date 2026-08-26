@@ -1,8 +1,7 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
+import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 
-/** The first-use hero's own entry copy — exported so its guard reads the real string. */
-export const FIRST_USE_PLACEHOLDER =
-  "Describe the decision or challenge you’re working through, any options you’re weighing, and what a good outcome looks like."
+
 import { createPortal } from 'react-dom'
 import { AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'

@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { FIRST_USE_PLACEHOLDER } from '../FirstUseComposer'
+import { FIRST_USE_PLACEHOLDER } from '../firstUsePlaceholder'
 import { render, screen, waitFor } from '@testing-library/react'
 import { OlumiTabBody } from '../OlumiTabBody'
 import { ConversationProvider } from '../../conversation/ConversationContext'

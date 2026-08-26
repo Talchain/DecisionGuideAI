@@ -39,7 +39,7 @@ import { renderHook } from '@testing-library/react'
 import { useBriefSignals, detectGoal } from '../hooks/useBriefSignals'
 import { useStageAwarePlaceholder } from '../../hooks/useStageAwarePlaceholder'
 import { STAGE_PLACEHOLDERS } from '../zones/ChatComposer'
-import { FIRST_USE_PLACEHOLDER } from '../../components/FirstUseComposer'
+import { FIRST_USE_PLACEHOLDER } from '../../components/firstUsePlaceholder'
 
 const BRIEF = 'We need to decide how to grow revenue next year.'
 

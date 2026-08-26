@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect } from 'react'
 // while `FirstUseComposer` passes it as a placeholder ATTRIBUTE, so a grep for
 // one shape does not find the other. Bound to the shared constant so the two
 // cannot drift apart again.
-import { FIRST_USE_PLACEHOLDER } from './FirstUseComposer'
+import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 import { ExternalLink } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
