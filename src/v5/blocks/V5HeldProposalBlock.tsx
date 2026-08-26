@@ -67,6 +67,7 @@ import {
   HELD_PROPOSAL_CONFIRMED_ACK,
   HELD_PROPOSAL_DISMISSED_ACK,
 } from './heldProposalReasonCopy'
+import { PANEL_LIST_BULLET } from '../../canvas/conversation/panelLists'
 
 /** How this card is settled, if it is. `null` ⇒ still pending. */
 export type HeldProposalSettlement = 'accepted' | 'dismissed'
@@ -334,7 +335,7 @@ export function V5HeldProposalBlock({
           already on screen, so a tooltip would be a second copy of it. */}
       {consentLines.length > 1 ? (
         <ul
-          className={`${typography.panelBody} list-disc pl-4 space-y-1 break-words`}
+          className={`${typography.panelBody} ${PANEL_LIST_BULLET} break-words`}
           data-testid="v5-held-proposal-summary"
           data-consent-line-count={consentLines.length}
         >

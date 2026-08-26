@@ -17,6 +17,7 @@ import { memo, useState } from 'react'
 import { ChevronDown, ChevronRight, ClipboardCheck, Wrench } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ModelReceiptData } from '../adapters/modelCardAdapter'
+import { PANEL_LIST_STACK } from './panelLists'
 
 // ---------------------------------------------------------------------------
 // § 1 — Readiness label (neutral; demoted to the "Model details" disclosure)
@@ -134,7 +135,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
           {adjustmentsExpanded && (
             <ul
               id="receipt-adjustments"
-              className="mt-1 space-y-0.5 pl-4"
+              className={`mt-1 ${PANEL_LIST_STACK}`}
               role="list"
             >
               {data.adjustments.map((a, i) => (
