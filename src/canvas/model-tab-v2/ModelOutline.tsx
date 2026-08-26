@@ -26,6 +26,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
+import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
 import { ModelGroupActions } from './ModelGroupActions'
@@ -180,15 +181,105 @@ function SectionWriterNotice({
 }
 
 /**
- * How many of these rows state no value.
+ * ⭐ THE COUNT WAS RIGHT AND THE SENTENCE NAMED THE OTHER AXIS.
  *
- * `primaryValue === null` is the projection's OWN definition of "nothing is
- * stated" (`types.ts`: *"`null` means nothing is stated — which is a fact to
- * render, never a zero to invent"*). Reading that same field is what keeps the
- * group heading and the value cells from drifting apart.
+ * The COUNT is `primaryValue === null`, i.e. `getPrimaryValue`, i.e.
+ * **`raw_value` is undefined** — "nobody has SUPPLIED a number". That is a
+ * useful, honest count and it is unchanged here.
+ *
+ * The sentence it carried — *"N of M have no value yet"* — is the OTHER
+ * question, and it was false. Measured on a live signed-in journey
+ * (`20260826T082826Z-fresh-extended-17c4a0`, quartet UI `d0e24ccc` /
+ * CEE `c24bfe3`), the persisted graph held:
+ *
+ *   Sales Rep Adoption Rate   value 0.6   raw_value —      display "High (0.6)"
+ *   CRM Feature Fit           value —     raw_value —      display "0.25 to 0.75"
+ *
+ * Both counted as "have no value yet". The first HAS a value — Olumi estimated
+ * it — and the product had already computed the words for it. Four inches away
+ * the context pack said "one factor has no value", because CEE's `has_value`
+ * reads `value`. Neither surface was lying; together they were incoherent, and
+ * that incoherence sent an expert lane chasing a regression that did not exist.
+ *
+ * ⚠ THE TWO PREDICATES ARE DELIBERATELY SEPARATE AND STAY SEPARATE.
+ * `valueProvenance.ts:389` says so in as many words — *"NOT THE SAME QUESTION AS
+ * `no-value` (trap 21) … named apart on purpose rather than aligned."* This is
+ * not a call to align them. It is the copy finally naming the one it counts,
+ * and reading the OTHER from the predicate that already exists rather than
+ * re-deriving half of it — the exact correction `ModelRowView`'s confirm chip
+ * received when it read `primaryValue !== null` to answer a `value` question.
+ *
+ * `null` renders nothing: a group where every row is set states nothing rather
+ * than announcing a zero.
  */
-function unknownCount(rows: readonly ModelRow[]): number {
-  return rows.reduce((n, r) => (r.primaryValue === null ? n + 1 : n), 0)
+function unsetSummary(rows: readonly ModelRow[]): string | null {
+  // `primaryValue === null` is the projection's OWN definition of "nothing is
+  // stated" (`types.ts`: *"`null` means nothing is stated — which is a fact to
+  // render, never a zero to invent"*). Reading that same field is what keeps
+  // this heading and the value cells from drifting apart — the reason the count
+  // itself is untouched.
+  const unset = rows.filter(r => r.primaryValue === null)
+  if (unset.length === 0) return null
+
+  // Read from the SHARED predicate (`factorIsConfirmable`, surfaced as this
+  // attention reason) — never a second local answer to "has Olumi estimated
+  // this?", which is how the confirm chip went wrong.
+
+  // ⛔⛔ NO UMBRELLA CLAIM — THE FOURTH ATTEMPT, AND THE FIRST THAT IS NOT AN
+  // ADJECTIVE. Three previous heads each characterised the whole `unset`
+  // population, and each was FALSE for a class the corpus behind it excluded:
+  //
+  //   "have no value yet"        FALSE for a band  (cell shows "Olumi: 0.25 to 0.75")
+  //   "not set by your team"     FALSE for a user-set factor with no `raw_value`
+  //                              (measured: typing 0.8 persists {value, source:'user'})
+  //   "without a figure"         FALSE for a numeric estimate — `estimateText` is
+  //                              CEE's `display_value` with only an EMPTINESS check,
+  //                              and the estate's fixtures carry '£20,000' (11×),
+  //                              '£30k', '£49', '3 months', '20%', '0.7'. A row can
+  //                              render "Olumi: £20,000" under a heading calling it
+  //                              figureless.
+  //
+  // ⚠ THE POPULATION IS HETEROGENEOUS, SO NO ADJECTIVE CAN BE TRUE OF IT. Three
+  // rounds is past the point where one more wording is a fix rather than the
+  // next refutation, so this states the COMPOSITION instead of characterising it:
+  // three DISJOINT buckets, each clause independently true, and nothing asserted
+  // about the whole.
+  //
+  // ⚠ AND THE BUCKETS READ WHAT THE CELL READS. "Olumi has something here" is
+  // answered by `estimateText` — the very field `ModelRowView` renders — NOT by a
+  // second predicate over the same question. `factorIsConfirmable` answers a
+  // different one ("is there a value to RATIFY?"), which is why a band satisfies
+  // this and not that. The heading's job is to be consistent with the cell beside
+  // it, so it reads the cell's own field.
+  const yours = unset.filter(
+    r => classifyValueProvenance(r.provenanceSource)?.userOwned === true,
+  ).length
+  // ⚠ TWO FACTS, ONE QUESTION — NOT TWO PREDICATES OVER IT. Olumi can have
+  // something here in two independently-owned ways, and a row may carry either
+  // without the other:
+  //   · `estimateText`         — CEE sent display text, and the CELL RENDERS IT.
+  //   · `unconfirmed-estimate` — `factorIsConfirmable`: a numeric value to
+  //                              RATIFY, which a band does not satisfy and a
+  //                              text-less numeric estimate does.
+  // Bucketing on only the first calls a ratifiable estimate "no value yet";
+  // only the second calls a band that. Neither fact is re-derived here — both
+  // are read from their existing owners, and their union is the one question
+  // this clause asks.
+  const fromOlumi = unset.filter(
+    r =>
+      classifyValueProvenance(r.provenanceSource)?.userOwned !== true &&
+      (r.estimateText !== undefined ||
+        (Array.isArray(r.attention) && r.attention.includes('unconfirmed-estimate'))),
+  ).length
+  const nothing = unset.length - yours - fromOlumi
+
+  const clauses = [
+    nothing > 0 ? `${nothing} with no value yet` : null,
+    fromOlumi > 0 ? `${fromOlumi} estimated by Olumi` : null,
+    yours > 0 ? `you set ${yours}` : null,
+  ].filter((c): c is string => c !== null)
+
+  return clauses.join(' · ')
 }
 
 export function ModelOutline({
@@ -262,12 +353,12 @@ export function ModelOutline({
               would be its own wall — chrome that always renders states nothing
               about the data.
             */}
-            {unknownCount(group.rows) > 0 && (
+            {unsetSummary(group.rows) !== null && (
               <span
                 data-testid={`model-group-v2-${group.id}-unknown-summary`}
                 className={`${typography.panelMeta} text-text-light ml-2`}
               >
-                {unknownCount(group.rows)} of {group.rows.length} have no value yet
+                {unsetSummary(group.rows)}
               </span>
             )}
           </button>
