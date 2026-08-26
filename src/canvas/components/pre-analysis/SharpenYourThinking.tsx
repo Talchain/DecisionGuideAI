@@ -204,7 +204,7 @@ export function SharpenYourThinking(props: SharpenYourThinkingProps) {
             className="flex flex-col gap-1 p-2.5 border border-panel-border rounded-[10px]"
             data-testid={card.testId}
           >
-            <span className={`text-[10px] text-text-light`}>{card.label}</span>
+            <span className={`${typography.panelMeta} text-text-light`}>{card.label}</span>
             <p className={`${typography.panelBody} text-text-body leading-snug`}>
               {card.question}
             </p>

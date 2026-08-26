@@ -459,7 +459,7 @@ export function ModelTabV2Panel({
       className="flex flex-col gap-2 border border-panel-border rounded-lg p-2"
     >
       <header className="flex items-center gap-2 flex-wrap">
-        <h3 className={`${typography.h5} text-text-header`}>Model outline</h3>
+        <h3 className={`${typography.panelHeader} text-text-header`}>Model outline</h3>
         <input
           data-testid="model-tab-v2-filter"
           type="search"

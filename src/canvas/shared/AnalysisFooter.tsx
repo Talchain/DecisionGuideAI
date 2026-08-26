@@ -81,7 +81,7 @@ export function AnalysisFooter({
                 stays verbatim. Pinned by AnalysisFooter.metaWrap.spec.tsx. */}
             {metaText ? (
               <span
-                className="text-[10px] text-text-light leading-snug whitespace-normal break-words"
+                className={`${typography.panelMeta} text-text-light whitespace-normal break-words`}
                 data-testid="sticky-footer-meta"
               >
                 {metaText}
