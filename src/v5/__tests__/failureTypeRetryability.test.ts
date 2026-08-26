@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import type { BoundaryError, FailureTypeLiteral } from '@talchain/schemas/boundary'
 import {
+  resolveIngressViolationGuidance,
   isRetryable,
   checkRetryableAgreement,
   extractReason,
@@ -589,3 +590,79 @@ describe('resolveFailureBaseCopy — DERIVED over the whole vendored table', () 
 // instruction) lives in failureTypeRetryability.drift.spec.ts — it needs a
 // module mock, and vi.mock is hoisted file-wide, which would corrupt the
 // verbatim-copy expectations above.
+
+/**
+ * THE REFUSAL CODE ARRIVES IN TWO CASINGS, AND THIS READER COMPARED WITH `===`.
+ *
+ * Measured at this tip: the upper-case spelling reaches 4 files, the lower 10.
+ * The estate's shared predicate already folds case
+ * (`adapters/cee/signInRefusal.ts`: `detailsCode(body)?.toLowerCase() === …`),
+ * so the two readers were answering one question in two ways — and this one
+ * missed the upper-case envelope.
+ *
+ * ⚠ WHY THE `validator` FALLBACK DOES NOT COVER IT: its own docstring scopes it
+ * as a secondary signal "for envelopes that omit the code". An envelope that
+ * CARRIES the code — in the other casing — and no validator therefore falls
+ * through to generic rephrase guidance, which tells the user to reword a message
+ * when signing in is what is actually required.
+ */
+describe('the auth class is recognised in either casing', () => {
+  // The rephrase copy is module-private, so it is pinned here by its value —
+  // and the PRECONDITION case below proves this fixture is the real fallback
+  // rather than a string that merely looks like it.
+  const REPHRASE = 'Please rephrase your message and try again.'
+  const bothCasings = ['sign_in_required', 'SIGN_IN_REQUIRED'] as const
+
+  it.each(bothCasings)('classifies `details.code: %s` as the auth class', (code) => {
+    const guidance = resolveIngressViolationGuidance({ details: { code } } as never)
+    expect(guidance).not.toBe(REPHRASE)
+  })
+
+  /*
+   * ⛔ BOTH DIRECTIONS, because a corpus that tests only the direction just
+   * fixed is a guard watching one door. Folding case closes a false NEGATIVE;
+   * the opposite-direction harm is a false POSITIVE — classifying a non-auth
+   * refusal as auth and telling the user to sign in when rewording is what is
+   * needed. Each non-auth code is asserted in BOTH casings so a future widening
+   * REDs rather than passing quietly.
+   */
+  const nonAuthCodes = ['something_else', 'SOMETHING_ELSE', 'rate_limited', 'RATE_LIMITED']
+
+  it.each(nonAuthCodes)('DISCRIMINATING — `%s` still takes the rephrase path', (code) => {
+    const guidance = resolveIngressViolationGuidance({ details: { code } } as never)
+    expect(guidance).toBe(REPHRASE)
+  })
+
+  it('PRECONDITION — the fixtures are what this test needs them to be', () => {
+    // (a) the two casings are genuinely different strings, so the fold is real;
+    expect(bothCasings[0]).not.toBe(bothCasings[1])
+    expect(bothCasings[0].toLowerCase()).toBe(bothCasings[1].toLowerCase())
+    // (b) REPHRASE really IS the fallback this function returns with no
+    //     envelope — otherwise every `not.toBe(REPHRASE)` above is vacuous.
+    expect(resolveIngressViolationGuidance(undefined)).toBe(REPHRASE)
+  })
+
+  /*
+   * ⭐ THE BLAST-RADIUS MANIFEST, pinned rather than argued.
+   *
+   * The case fold lives in `extractDetailsCode`, which changes what EVERY
+   * consumer of it sees — so the fix is only safe if there is exactly one, and
+   * that one compares against the lower-case constant. Measured: ONE call site
+   * (`:411`), and the extractor is MODULE-PRIVATE, so no consumer outside this
+   * file is possible by construction (contrast: the file has 10 exports).
+   *
+   * This case pins the structural half — if the extractor is ever exported, the
+   * manifest stops being closed and this RED is the notice.
+   */
+  it('BLAST RADIUS — the case fold cannot reach a consumer that expects upper case', async () => {
+    const fs = await import('node:fs/promises')
+    const src = await fs.readFile('src/v5/failureTypeRetryability.ts', 'utf8')
+    // exactly one call site, and it is the auth predicate
+    const callSites = [...src.matchAll(/extractDetailsCode\(/g)].length
+    expect(callSites, 'declaration + one call site').toBe(2)
+    // and it is not exported, so the manifest is closed
+    expect(/export\s+function\s+extractDetailsCode/.test(src)).toBe(false)
+    // contrast: the file really does export things, so the check above is not vacuous
+    expect((src.match(/^export /gm) ?? []).length).toBeGreaterThan(5)
+  })
+})

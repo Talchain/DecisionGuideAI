@@ -21,6 +21,8 @@
  */
 
 import { logger } from '../../lib/logger'
+import { sanitiseUserId } from '../../lib/guestIdentity'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /**
  * The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see the header.
@@ -44,8 +46,6 @@ const DEFAULT_RETRY_DELAY_MS = 400
  */
 const DEFAULT_TIMEOUT_MS = 10000
 
-/** The guest sentinel `AuthContext` mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 export interface RegisteredGraphIdentity {
   /** CEE's opaque `identity.v1` token, VERBATIM. Compare CEE-to-CEE only. */
@@ -75,6 +75,12 @@ export type RegisterScenarioGraphResult =
 
 export interface RegisterScenarioGraphOptions {
   readonly userId?: string | null
+  /**
+   * Supabase access token. Sent as `Authorization: Bearer …` so CEE DERIVES
+   * identity from the verified `sub` rather than trusting the body. Null for
+   * guests — see the identity note in `registerScenarioGraph`.
+   */
+  readonly accessToken?: string | null
   readonly signal?: AbortSignal
   readonly timeoutMs?: number
   readonly retryDelayMs?: number
@@ -108,17 +114,34 @@ export async function registerScenarioGraph(
 ): Promise<RegisterScenarioGraphResult> {
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
 
-  // Identity travels in the BODY: with `CEE_REQUIRE_USER_JWT` off, CEE's
-  // ownership pre-flight reads `user_id` from the request extensions, and it
-  // must be a UUID — the guest sentinel is not one and is never sent as one.
+  // ── IDENTITY: the TOKEN is the authority; the body is the legacy fallback ──
+  //
+  // ⚠ AN EARLIER VERSION OF THIS COMMENT SAID `CEE_REQUIRE_USER_JWT` IS OFF.
+  //   IT IS ON — measured at the deployed boot log and on the wire. With a
+  //   token present CEE verifies it and derives identity from the `sub`; with
+  //   none it resolves `service_legacy`, where the body `user_id` is the only
+  //   identity. That fallback is why this call kept working while the comment
+  //   was wrong, and it is why the body field is still sent.
+  //
+  //   ⚠ THIS ROUTE IS A WRITE, and until CEE strips caller-asserted identity
+  //     the body field is forgeable by an unauthenticated caller. Sending the
+  //     token is the half that makes the strip safe to land; do not delete the
+  //     body field here before that strip is deployed, or signed-in users lose
+  //     ownership of what they register.
+  //
+  // Guests have no session: both values null, no auth header, byte-identical.
+  const identityUserId = sanitiseUserId(opts.userId)
+
   const body: Record<string, unknown> = { graph }
-  if (
-    typeof opts.userId === 'string' &&
-    opts.userId.length > 0 &&
-    opts.userId !== GUEST_USER_ID
-  ) {
-    body.user_id = opts.userId
+  if (identityUserId !== null) {
+    body.user_id = identityUserId
   }
+
+  // ONE builder, shared with the turn path (`src/v5/turnAuthHeaders.ts`).
+  const authHeaders = buildTurnAuthHeaders({
+    userId: identityUserId,
+    accessToken: opts.accessToken ?? null,
+  })
 
   const url = scenarioGraphRegisterUrl(scenarioId)
   const payload = JSON.stringify(body)
@@ -137,7 +160,7 @@ export async function registerScenarioGraph(
     try {
       response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: payload,
         signal: attemptController.signal,
       })

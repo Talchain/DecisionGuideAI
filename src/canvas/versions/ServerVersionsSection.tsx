@@ -31,10 +31,12 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 import { UploadCloud, RotateCcw } from 'lucide-react'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
 import { useAuth } from '../../contexts/AuthContext'
+import { getSessionIdentity } from '../../lib/supabase'
 import { useCanvasStore } from '../store'
 import {
   listModelVersions,
@@ -48,8 +50,6 @@ import { logger } from '../../lib/logger'
 /** A scenario CEE can address is a UUID (scenarios.id is a uuid column). */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The guest sentinel AuthContext mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 /** Storage-scope disclosure — the shared counterpart of the local one. */
 export const SERVER_VERSIONS_DISCLOSURE =
@@ -113,7 +113,7 @@ export function ServerVersionsSection() {
 
   const userId = user?.id ?? null
   const signedIn =
-    typeof userId === 'string' && userId.length > 0 && userId !== GUEST_USER_ID
+    sanitiseUserId(userId) !== null
   const addressable = typeof scenarioId === 'string' && UUID_RE.test(scenarioId)
 
   useEffect(() => {
@@ -125,7 +125,12 @@ export function ServerVersionsSection() {
 
   const refresh = useCallback(async () => {
     if (!addressable || !signedIn || typeof scenarioId !== 'string') return
-    const result = await listModelVersions(scenarioId, { userId })
+    // Both fields from ONE read — see the note on `handleSave` below.
+    const identity = await getSessionIdentity()
+    const result = await listModelVersions(scenarioId, {
+      userId: identity.userId,
+      accessToken: identity.accessToken,
+    })
     if (!mountedRef.current) return
     if (result.status === 'list') {
       setPhase({
@@ -175,8 +180,32 @@ export function ServerVersionsSection() {
     setBusy(true)
     setMessage(null)
     const label = draftLabel.trim()
+    // ⚠ BOTH FIELDS FROM ONE READ. These three handlers are user-initiated
+    //    and have no AbortController and no cancellation, so the gap between
+    //    the click and the request is the widest in this change: `userId` would
+    //    be bound from the render closure while the token is read fresh.
+    //
+    //    VERIFIED at the dependency's bytes (@supabase/gotrue-js 2.62.2,
+    //    `GoTrueClient.js:778-787`): `getSession()` compares
+    //    `expires_at <= Date.now()/1000` and, when expired, performs a NETWORK
+    //    REFRESH — so the token returned is fresh, never the stale one, and a
+    //    refresh FAILURE yields `session: null`, i.e. a guest-shaped request
+    //    with no headers rather than a 401-bait one.
+    //
+    //    ⚠ THE ONE CASE THAT CHECK DOES NOT COVER: the comparison is HARD, with
+    //      no margin on this path (`EXPIRY_MARGIN` is referenced only in the
+    //      background `_recoverAndRefresh`, not in `getSession()`), so a token
+    //      expiring moments from now is returned as-is and can expire in
+    //      flight. `autoRefreshToken: true` mitigates it in practice. No claim
+    //      is made about the margin's VALUE — only about where it is and is
+    //      not referenced.
+    //
+    //    Two of these three handlers are WRITES. Reading both fields from the
+    //    same session object closes the mismatch window by construction.
+    const identity = await getSessionIdentity()
     const result = await saveModelVersion(scenarioId, {
-      userId,
+      userId: identity.userId,
+      accessToken: identity.accessToken,
       ...(label.length > 0 ? { label } : {}),
     })
     if (!mountedRef.current) return
@@ -219,8 +248,11 @@ export function ServerVersionsSection() {
     // snapshot, so a concurrent change fails loudly instead of silently losing.
     const head =
       phase.versions.find((v) => v.id === phase.currentVersionId) ?? phase.versions[0]
+    // Both fields from ONE read — see the note on `handleSave`.
+    const identity = await getSessionIdentity()
     const result = await restoreModelVersion(scenarioId, {
-      userId,
+      userId: identity.userId,
+      accessToken: identity.accessToken,
       versionId,
       ...(head !== undefined ? { expectedGraphIdentityHash: head.graphIdentityHash } : {}),
     })

@@ -301,6 +301,9 @@ describe('⭐ the DEFAULT store view — what production actually runs', () => {
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: 'scn_1',
       userId: null,
+      // Required, not optional: this schedule re-enters the graph read, so a
+      // caller that forgot the token would silently make every re-ask anonymous.
+      accessToken: null,
       signal: new AbortController().signal,
       // ⭐ NO `getStore`. This is the production configuration.
       read: async () => TERMINAL_READ as never,
@@ -321,6 +324,7 @@ describe('⭐ the DEFAULT store view — what production actually runs', () => {
     const outcome = await runProvisionalDeliverySchedule({
       scenarioId: 'scn_1',
       userId: null,
+      accessToken: null,
       signal: new AbortController().signal,
       read: async () => TERMINAL_READ as never,
       wait: async () => {},

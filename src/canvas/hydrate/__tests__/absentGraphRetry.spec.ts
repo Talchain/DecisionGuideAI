@@ -81,6 +81,10 @@ function deps(h: Harness, extra: Record<string, unknown> = {}) {
   return {
     scenarioId: SCENARIO,
     userId: null,
+    // Required, not optional, and deliberately so: the schedule re-enters the
+    // hydration path, so a caller that forgets the token would silently make
+    // every re-ask anonymous. The compiler is the guard.
+    accessToken: null,
     signal: new AbortController().signal,
     hydrate: h.hydrate,
     wait: h.wait,

@@ -13,8 +13,9 @@
  * `VITE_CEE_BFF_BASE` (that var is dashboard-baked to an absolute PLoT URL;
  * resolving from it would leave the edge seam entirely and 404 on a service
  * that has never heard of versions — CLAUDE.md trap 18 in its live form).
- * Identity travels in the BODY (`user_id`), never a URL; the guest sentinel
- * is never sent as a user id.
+ * Identity travels as a VERIFIED TOKEN (`Authorization: Bearer …`), with the
+ * body `user_id` retained as the legacy fallback until CEE strips it. Never a
+ * URL; the guest sentinel is never sent as a user id, in either channel.
  *
  * WHAT THIS CLIENT NEVER SENDS: a graph. A version is a snapshot of the
  * SERVER's shared model — save versions `scenarios.graph` server-side, and
@@ -34,12 +35,13 @@
  */
 
 import { logger } from '../../lib/logger'
+import { sanitiseUserId } from '../../lib/guestIdentity'
+import { isSignInRequired } from './signInRefusal'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
 export const MODEL_VERSIONS_BASE = '/bff/cee'
 
-/** The guest sentinel `AuthContext` mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 /** Per-attempt deadline — same bound and rationale as scenarioGraph.ts. */
 const DEFAULT_TIMEOUT_MS = 8000
@@ -81,6 +83,12 @@ export type ListModelVersionsResult =
     }
   /** 404 — absent ∪ not-yours ∪ oracle-unresolvable. NEVER deletion. */
   | { status: 'notReadable' }
+  /**
+   * 401 sign-in refusal. LIST had no such branch before: a guest listing was
+   * an empty list, so the only 401 reachable here was one the UI could not
+   * produce. Sending a token makes an expired one reachable on every call.
+   */
+  | { status: 'signInRequired' }
   /** 503 VERSIONS_DISABLED — versioning is off on this service. */
   | { status: 'disabled' }
   /** 503 (plain) — unknown, try again. */
@@ -129,6 +137,12 @@ export type RestoreModelVersionResult =
 interface CommonOptions {
   /** Supabase user id. Omitted for guests. */
   userId?: string | null
+  /**
+   * Supabase access token. Sent as `Authorization: Bearer …` so CEE derives
+   * identity from the verified `sub` instead of trusting the body. Null for
+   * guests, who have no session.
+   */
+  accessToken?: string | null
   signal?: AbortSignal
   timeoutMs?: number
 }
@@ -147,8 +161,9 @@ export interface SaveOptions extends CommonOptions {
 
 function identityBody(userId: string | null | undefined): Record<string, unknown> {
   const body: Record<string, unknown> = {}
-  if (typeof userId === 'string' && userId.length > 0 && userId !== GUEST_USER_ID) {
-    body.user_id = userId
+  const id = sanitiseUserId(userId)
+  if (id !== null) {
+    body.user_id = id
   }
   return body
 }
@@ -185,7 +200,15 @@ async function postOnce(
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Shared builder — see `src/v5/turnAuthHeaders.ts`. Guests: both values
+        // null, no header emitted, byte-identical to before.
+        ...buildTurnAuthHeaders({
+          userId: sanitiseUserId(opts.userId),
+          accessToken: opts.accessToken ?? null,
+        }),
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
     })
@@ -218,10 +241,15 @@ function sharedRefusal(
   | { status: 'disabled' }
   | { status: 'unavailable' }
   | { status: 'refused'; httpStatus: number }
+  | { status: 'signInRequired' }
   | { status: 'unusable' }
   | null {
   if (outcome.kind === 'transportFailure') return { status: 'unusable' }
   if (outcome.kind === 'ok') return null
+  // BEFORE the status switch: a sign-in refusal is a 401, and the generic 401
+  // arm below would otherwise swallow it into `refused` — which the callers
+  // render as "try again", on a response CEE marks `retryable: false`.
+  if (isSignInRequired(outcome.status, outcome.body)) return { status: 'signInRequired' }
   const code = detailsCode(outcome.body)
   switch (outcome.status) {
     case 404:
@@ -336,7 +364,6 @@ export async function saveModelVersion(
 
   if (outcome.kind === 'http') {
     const code = detailsCode(outcome.body)
-    if (outcome.status === 401 && code === 'SIGN_IN_REQUIRED') return { status: 'signInRequired' }
     if (outcome.status === 409) return { status: 'conflict' }
     if (outcome.status === 422 && code === 'NOTHING_TO_SAVE') return { status: 'nothingToSave' }
   }
@@ -370,7 +397,6 @@ export async function restoreModelVersion(
 
   if (outcome.kind === 'http') {
     const code = detailsCode(outcome.body)
-    if (outcome.status === 401 && code === 'SIGN_IN_REQUIRED') return { status: 'signInRequired' }
     if (outcome.status === 409) return { status: 'conflict' }
     if (outcome.status === 404 && code === 'VERSION_NOT_FOUND') return { status: 'versionNotFound' }
     if (outcome.status === 503 && code === 'RESTORE_INCOMPLETE') return { status: 'incomplete' }

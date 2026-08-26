@@ -180,6 +180,10 @@ function poll() {
   return runProvisionalDeliverySchedule({
     scenarioId: SCENARIO_ID,
     userId: null,
+    // Required since the schedule began carrying a verified token. `null` is
+    // the honest value for this fixture — it exercises the unauthenticated
+    // shape deliberately, and stating it beats inheriting it by omission.
+    accessToken: null,
     signal: new AbortController().signal,
     read: fetchScenarioGraph,
     wait: immediate,

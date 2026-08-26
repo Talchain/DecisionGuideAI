@@ -50,6 +50,8 @@ export interface RecoverDraftArgs {
   scenarioId: string | null
   /** Supabase user id when signed in; null/'guest' handled by the adapter. */
   userId?: string | null
+  /** Supabase access token when signed in; travels the same route as `userId`. */
+  accessToken?: string | null
   /**
    * The `client_turn_id` of the turn that marked the draft unsettled. Phase
    * release is keyed on it — identity, not coincidence.
@@ -68,6 +70,7 @@ export async function recoverDraftFromServer(
 ): Promise<DraftRecoveryOutcome> {
   const hydration = await hydrateCanvasFromServer(args.scenarioId, {
     userId: args.userId,
+    accessToken: args.accessToken,
   })
   logger.debug('draft_recovery.outcome', {
     scenarioId: args.scenarioId,

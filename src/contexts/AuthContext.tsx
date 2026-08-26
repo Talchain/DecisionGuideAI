@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import { GUEST_USER_ID } from '../lib/guestIdentity'
 import { useNavigate } from 'react-router-dom';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, getProfile } from '../lib/supabase';
@@ -468,7 +469,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   }, [pendingUser]);
 
   const value = React.useMemo((): AuthContextType => ({
-    user: session?.user ?? ({ id: 'guest', email: 'guest@poc' } as User),
+    user: session?.user ?? ({ id: GUEST_USER_ID, email: 'guest@poc' } as User),
     profile: session?.profile ?? null,
     // Never true: a guest is ready immediately, and AuthGuard must not spin.
     loading: false,

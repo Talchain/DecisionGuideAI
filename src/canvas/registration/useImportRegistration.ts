@@ -39,6 +39,7 @@
 import { useEffect, useRef } from 'react'
 
 import { useAuth } from '../../contexts/AuthContext'
+import { getSessionIdentity } from '../../lib/supabase'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { useCanvasStore } from '../store'
@@ -121,8 +122,18 @@ export function useImportRegistration(): void {
     let cancelled = false
 
     void (async () => {
+      // ⚠ BOTH FIELDS COME FROM THE SAME READ, and that is the whole point.
+      //    `useAuth().user.id` is React state — populated asynchronously by
+      //    `onAuthStateChange` and defaulting to the literal 'guest' — so
+      //    pairing it with a freshly-read token can put a body id and an
+      //    Authorization header from DIFFERENT sessions on one request.
+      //    `getSessionIdentity()` reads one session object, so the two cannot
+      //    disagree. `userId` (from `useAuth`) remains the effect DEPENDENCY;
+      //    it is not what is sent.
+      const identity = await getSessionIdentity()
       const result = await registerScenarioGraph(scenarioId, projected.graph, {
-        userId,
+        userId: identity.userId,
+        accessToken: identity.accessToken,
         signal: controller.signal,
       })
       if (cancelled) return

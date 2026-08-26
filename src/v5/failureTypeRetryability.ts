@@ -372,10 +372,25 @@ const AUTH_REASON_VERIFIER_DOWN = 'verification_unavailable'
 
 const SCENARIO_OWNERSHIP_REASON_PREFIX = 'scenario_ownership'
 
-/** Read `details.code` off a BoundaryError. Fail closed: absent/non-string → ''. */
+/**
+ * Read `details.code` off a BoundaryError. Fail closed: absent/non-string → ''.
+ *
+ * ⚠ NORMALISED TO LOWER CASE, because the code arrives in BOTH casings and this
+ * comparison is `===`. The estate's shared predicate already does exactly this
+ * (`adapters/cee/signInRefusal.ts`: `detailsCode(body)?.toLowerCase() ===
+ * 'sign_in_required'`), so this is the same rule applied at the second reader
+ * rather than a new one — the two were answering one question in two ways.
+ *
+ * Measured at this tip: the upper-case spelling reaches 4 files and the lower 10.
+ * Without the fold, an envelope carrying the upper-case code and NO `validator`
+ * misses the auth branch and takes generic rephrase guidance — telling the user
+ * to reword a message when what is actually needed is to sign in. The
+ * `validator` clause below is documented as a secondary signal "for envelopes
+ * that omit the code", so it cannot be relied on to cover this.
+ */
 function extractDetailsCode(err: BoundaryError): string {
   const code = (err.details as { code?: unknown } | undefined)?.code
-  return typeof code === 'string' ? code : ''
+  return typeof code === 'string' ? code.toLowerCase() : ''
 }
 
 /** Read `details.auth_reason`. Fail closed: absent/non-string → ''. */

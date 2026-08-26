@@ -57,9 +57,12 @@
  */
 
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import { sanitiseUserId } from '../../lib/guestIdentity'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { logger } from '../../lib/logger'
+import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { isSignInRequired } from './signInRefusal'
 import { parseNotModelled, type NotModelledManifest } from './notModelled'
 
 /**
@@ -89,8 +92,6 @@ const DEFAULT_RETRY_DELAY_MS = 400
  */
 const DEFAULT_TIMEOUT_MS = 8000
 
-/** The guest sentinel `AuthContext` mints; never a Supabase user id. */
-const GUEST_USER_ID = 'guest'
 
 /**
  * CEE's `identity.v1` envelope, reduced to the two fields a consumer may act on.
@@ -157,6 +158,13 @@ export type ScenarioGraphResult =
   | { status: 'notReadable' }
   /** 503 after every attempt — unknown, try again. NEVER an empty canvas. */
   | { status: 'unavailable' }
+  /**
+   * 401 and CEE says the token is the problem. Distinct from `refused`
+   * BECAUSE THE RECOVERY IS DIFFERENT: signing in fixes this and retrying
+   * cannot (CEE sets `retryable: false`). Collapsing the two is how a signed-in
+   * user got a silent hydration failure and no prompt.
+   */
+  | { status: 'signInRequired' }
   /** 401 / 403 / 429 — a stable refusal; not retried. */
   | { status: 'refused'; httpStatus: number }
   /** Transport failure, unparseable body, or a shape that contradicts itself. */
@@ -165,6 +173,12 @@ export type ScenarioGraphResult =
 export interface FetchScenarioGraphOptions {
   /** Supabase user id. Omitted for guest/unowned scenarios. */
   userId?: string | null
+  /**
+   * Supabase access token. Sent as `Authorization: Bearer …` so CEE can DERIVE
+   * identity from the verified `sub` instead of trusting the body. Null for
+   * guests, who have no session — see the identity note in `fetchScenarioGraph`.
+   */
+  accessToken?: string | null
   signal?: AbortSignal
   /** Backoff between 503 retries. Tests pass 0. */
   retryDelayMs?: number
@@ -317,17 +331,37 @@ export async function fetchScenarioGraph(
 ): Promise<ScenarioGraphResult> {
   const retryDelayMs = opts.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
 
-  // Identity travels in the BODY: with `CEE_REQUIRE_USER_JWT` off (staging),
-  // CEE's ownership pre-flight reads `user_id` from the request extensions.
-  // The guest sentinel is not a Supabase id and must never be sent as one.
+  // ── IDENTITY: the TOKEN is the authority; the body is the legacy fallback ──
+  //
+  // ⚠ AN EARLIER VERSION OF THIS COMMENT SAID `CEE_REQUIRE_USER_JWT` IS OFF ON
+  //   STAGING. IT IS ON — measured at the deployed boot log (`require_user_jwt:
+  //   true`) and on the wire (a JWT-shaped invalid Bearer answers 401
+  //   `validator: "user_jwt"`, a branch only reachable with the flag on).
+  //
+  // What that changes: when we send a token, CEE verifies it and DERIVES
+  // identity from the `sub`, ignoring any body `user_id`. When we send none,
+  // CEE resolves `service_legacy` and the body `user_id` is the ONLY identity —
+  // which is why this call kept working while the comment was wrong, and why
+  // the body field is still sent here. It is not redundant yet: CEE's strip of
+  // caller-asserted identity on these routes lands only after this half is
+  // deployed and a signed-in user is witnessed resolving `verified`.
+  //
+  // Guests have no session, so both values are null, no auth header is emitted
+  // and the request is byte-identical to before this change.
+  const identityUserId = sanitiseUserId(opts.userId)
+
   const body: Record<string, unknown> = {}
-  if (
-    typeof opts.userId === 'string' &&
-    opts.userId.length > 0 &&
-    opts.userId !== GUEST_USER_ID
-  ) {
-    body.user_id = opts.userId
+  if (identityUserId !== null) {
+    body.user_id = identityUserId
   }
+
+  // ONE builder, shared with the turn path (`src/v5/turnAuthHeaders.ts`) — a
+  // second way of turning a session into headers is how two answers to one
+  // identity question get into a codebase.
+  const authHeaders = buildTurnAuthHeaders({
+    userId: identityUserId,
+    accessToken: opts.accessToken ?? null,
+  })
 
   const url = scenarioGraphUrl(scenarioId)
 
@@ -348,7 +382,7 @@ export async function fetchScenarioGraph(
     try {
       response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(body),
         signal: attemptController.signal,
       })
@@ -389,6 +423,20 @@ export async function fetchScenarioGraph(
       response.status === 403 ||
       response.status === 429
     ) {
+      // Checked BEFORE the generic arm: the body distinguishes "your token is
+      // bad" from "you are not allowed", and only the first is recoverable by
+      // the user. Reading the body is safe here — a refusal body is small and
+      // the failure mode of an unparseable one is the generic refusal below.
+      let body: unknown = null
+      try {
+        body = await response.json()
+      } catch {
+        body = null
+      }
+      if (isSignInRequired(response.status, body)) {
+        logger.warn('scenario_graph.sign_in_required', { attempt })
+        return { status: 'signInRequired' }
+      }
       return { status: 'refused', httpStatus: response.status }
     }
 
