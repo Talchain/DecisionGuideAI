@@ -96,6 +96,20 @@ export const PROVISIONAL_DELIVERY_DEADLINE_MS =
 export type ProvisionalDeliveryOutcome =
   | 'delivered'
   | 'already_held'
+  /**
+   * A terminal verdict arrived and was WITHHELD because it does not describe
+   * the graph on screen. Settles the schedule: divergence is a property of the
+   * canvas, not of the answer's timing, so re-reading cannot change it.
+   *
+   * ⚠ SILENT TODAY, AND KNOWINGLY SO. Four of the five outcomes here are
+   * already `logger.debug` with no UI state, and the missing delivery receipt
+   * is a known, separately-rowed gap. This adds one case to an existing silence
+   * rather than creating a new silent-failure class — the distinction that
+   * separates a strict improvement from trap 23. Telling the user their canvas
+   * and the analysed model have diverged is the right answer and is rowed with
+   * the receipt, because either alone leaves the other half silent.
+   */
+  | 'withheld'
   | 'deadline'
   | 'aborted'
   | 'unreadable'
@@ -172,6 +186,16 @@ export async function runProvisionalDeliverySchedule(deps: {
       return 'delivered'
     }
     if (outcome.outcome === 'alreadyHeld') return 'already_held'
+    if (outcome.outcome === 'declined') {
+      // The REASON is logged, never collapsed: the two harms must stay
+      // distinguishable in telemetry or the next reader sees one rule.
+      logger.debug('provisional_analysis_delivery.withheld', {
+        scenarioId: deps.scenarioId,
+        kind: outcome.kind,
+        reason: outcome.reason,
+      })
+      return 'withheld'
+    }
     // `notYet` — the H4 path. NOTHING was written; keep waiting.
   }
   // H3: the bound expired. Write nothing; leave CEE's verdict standing.
@@ -215,6 +239,69 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     setAnalysisStateV1: s.setAnalysisStateV1,
     resultsComplete: s.resultsComplete,
     currentResultsHash: s.results?.hash ?? null,
+    // ── Does the canvas on screen derive from a server graph we ACCEPTED? ──
+    //
+    // Read STRAIGHT FROM THE STORE here rather than threaded down from the
+    // hydration path: this leg is structurally blind to acceptance, so it needs
+    // the signal either way, and a store read keeps the change inside this file
+    // instead of reaching into `serverGraphHydration`'s options.
+    //
+    // `lastAuthoritativeGraph` — NOT `serverGraphIdentity`. The latter is null
+    // BOTH when nothing was accepted AND when an accepted merge carried no CEE
+    // token, so it would decline on an honest canvas.
+    //
+    // ⚠⚠ BUT THIS FIELD IS NOT AN ACCEPTANCE FLAG, AND AN EARLIER VERSION OF
+    // THIS COMMENT SAID IT WAS. It claimed acceptance is "defined structurally"
+    // so the two "cannot drift apart". That is true of `mergeServerGraph` — the
+    // accepted path is exactly the body that records — and FALSE OF THE FIELD,
+    // which has THREE recorders and a seed. Derived at the bytes:
+    //
+    //   RECORDERS (non-null):
+    //   `mergeServerGraph.ts:412`    accepted server merge  ← the ONLY genuine
+    //                                server acceptance
+    //   `mergeAppliedGraph.ts:606`   applied-edit receipt
+    //   `applyDraftResult.ts:292`    a fresh DRAFT. ⚠ NOT "the local canvas CEE
+    //                                has never seen" — an earlier version of this
+    //                                comment said that and it is FALSE at the
+    //                                bytes: `nodes`/`edges` are mapped from
+    //                                `draftData` (`:209`,`:212`) and applied as a
+    //                                wholesale replacement, so at the instant of
+    //                                recording the canvas IS CEE's own draft. The
+    //                                accurate distinction is narrower and still
+    //                                decisive: CEE DRAFTED it, but never ACCEPTED
+    //                                it as this scenario's authoritative SERVER
+    //                                graph. A draft still defeats the guard.
+    //   `store.ts:6084`              COLD-LOAD SEED, property-assignment form
+    //
+    //   NULLERS (all fail-safe — they can only make the guard MORE cautious):
+    //   `store.ts:1439`              scenario reset
+    //   `store.ts:1999`              initial state
+    //   `useConversation.ts:502`     nulled, and NOT on un-acceptance
+    //
+    // **A MERGE REFUSAL DOES NOT CLEAR IT.** So once any recorder has fired,
+    // this reads `true` and the guards below do not fire — reachable mid-session
+    // via draft → `recoverDraftFromServer` → refused merge → armed run.
+    //
+    // The field answers "which element identities may the reconciler remove?"
+    // (`mergeAppliedGraph.ts:474-477`: fresh draft, prior receipt, OR DB
+    // hydration — three sources, which is what I misread as one). This guard
+    // asks "does the canvas derive from a server-accepted graph?" Two questions,
+    // one name — trap 21, and I wrote the fused version.
+    //
+    // WHAT IT STILL BUYS: it is a genuine NECESSARY condition. `false` proves
+    // divergence, and every case it catches is caught correctly. It is not
+    // SUFFICIENT, so the guard is incomplete over its own defect class — pinned
+    // as KNOWN-OPEN in
+    // `hydrate/__tests__/provisionalDelivery.graphAcceptance.reachability.spec.ts`
+    // rather than left to this comment. Closing it needs new state meaning
+    // "derives from a server-accepted graph"; that is rowed, not done here.
+    //
+    // ⚠ AN EMPTY CANVAS IS NOT DIVERGENT. There is no local graph for a verdict
+    // to misdescribe, and this is the case the zero-overlap guard itself calls
+    // "the whole point of the feature" — it hydrates in full. Treating it as
+    // divergent would withhold the verdict on a fresh scenario, which is the
+    // over-fix that closes the lie by opening a gap.
+    graphAcceptedForCanvas: s.lastAuthoritativeGraph !== null || s.nodes.length === 0,
   }
 }
 
