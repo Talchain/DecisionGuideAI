@@ -30,6 +30,12 @@ import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
 import { ModelGroupActions } from './ModelGroupActions'
 import { GROUP_ACTIONS, type GroupAction, type GroupActionContext } from './groupActions'
+import {
+  discussActionFor,
+  rowsThisSectionCannotResolve,
+  sectionWriterNoticeText,
+  SECTION_WRITER_NOTICE_TESTID,
+} from './sectionWriterNotice'
 import { GROUP_TITLE } from './rowPresentation'
 import {
   MODEL_GROUP_IDS,
@@ -123,6 +129,54 @@ export function outlineLayout(
     })),
     unknownGroupRowIds,
   }
+}
+
+/**
+ * One sentence for a section that DISPLAYS a blocker it cannot clear.
+ *
+ * ⚠ SILENT BY DEFAULT, on the same reasoning as the unknown summary above: a
+ * notice that always renders is chrome, and chrome states nothing about the
+ * data. This appears only where there is genuinely a blocked row with no
+ * writer, and RETIRES ITSELF the moment one is connected — the predicate reads
+ * the same `editConnectedIds` the row's value cell reads, so the notice cannot
+ * outlive its cause or disagree with the control beside it.
+ */
+function SectionWriterNotice({
+  group,
+  rows,
+  editConnectedIds,
+  actionsWillRender,
+}: {
+  group: ModelGroupId
+  rows: readonly ModelRow[]
+  editConnectedIds?: ReadonlySet<string>
+  /**
+   * ⚠ WHETHER THE ACTION ROW ACTUALLY RENDERS — not whether an action is
+   * DEFINED. `ModelGroupActions` returns `null` when it has no `onAction`, so a
+   * host that omits the handler shows no buttons at all. Without this the
+   * notice would say *Use "Discuss the options with Olumi" below* with no such
+   * control below it — naming a control the user cannot find, which is exactly
+   * the circularity this notice exists to avoid, merely relocated.
+   *
+   * Found by a FIXTURE GAP, not by inspection: the first version of the spec
+   * omitted `onGroupAction`, the button did not render, and the assertion that
+   * the notice quotes the BUTTON's own text failed. The test was right.
+   */
+  actionsWillRender: boolean
+}) {
+  const blocked = rowsThisSectionCannotResolve(rows, editConnectedIds)
+  const discuss = discussActionFor(GROUP_ACTIONS[group])
+  // No blocked row, no affordance defined, or no affordance on screen: say
+  // nothing. A notice pointing at an absent control is worse than silence.
+  if (blocked.length === 0 || discuss === null || !actionsWillRender) return null
+  return (
+    <p
+      data-testid={SECTION_WRITER_NOTICE_TESTID(group)}
+      className={`${typography.caption} text-text-light px-4 py-1`}
+    >
+      {sectionWriterNoticeText(blocked.length, discuss.label)}
+    </p>
+  )
 }
 
 /**
@@ -253,6 +307,20 @@ export function ModelOutline({
                   ))}
                 </ul>
               )}
+              {/*
+                ⭐ THE SECTION NAMES WHAT CAN RESOLVE WHAT IT IS DISPLAYING.
+                Rendered immediately ABOVE the actions, so the sentence and the
+                control it names are in one glance — a notice that points at a
+                button the user has to go and find is a notice that arrives too
+                late. See `sectionWriterNotice.ts` for why this is a notice and
+                not an edit control: there is no writer to give it.
+              */}
+              <SectionWriterNotice
+                group={group.id}
+                rows={group.rows}
+                editConnectedIds={editConnectedIds}
+                actionsWillRender={typeof onGroupAction === 'function'}
+              />
               {/*
                 THE ACTIONS RENDER EVEN WHEN THE GROUP IS EMPTY, and that is the
                 point of putting them here. "Add a factor" is at its most useful
