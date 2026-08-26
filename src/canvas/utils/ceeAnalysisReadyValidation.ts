@@ -10,7 +10,13 @@ import type { Node } from '@xyflow/react'
 
 export interface ValidationResult {
   isValid: boolean
-  reason?: 'missing_goal' | 'missing_option_nodes' | 'node_ids_changed' | 'empty_options'
+  reason?:
+    | 'missing_goal'
+    | 'missing_option_nodes'
+    | 'node_ids_changed'
+    | 'empty_options'
+    /** A blocked refusal: identity-bearing, but not a readiness verdict to restore. */
+    | 'blocked_refusal'
   details?: string
 }
 
@@ -35,6 +41,28 @@ export function validateCeeAnalysisReady(
 ): ValidationResult {
   if (!ceeAnalysisReady || !ceeAnalysisReady.options?.length) {
     return { isValid: false, reason: 'empty_options' }
+  }
+
+  // ⛔ A BLOCKED REFUSAL IS NOT A RESTORABLE READINESS VERDICT.
+  //
+  // The check above USED to cover this by accident: a blocked refusal carried
+  // `options: []`, so `empty_options` rejected it and nothing was ever
+  // restored. CEE now carries model identity on refusals — correctly, because a
+  // refusal that cannot name the model is one a user cannot act on — so the
+  // payload has non-empty options and this validator ADMITS it.
+  //
+  // ⭐ THE ARGUMENT IS ALREADY IN THIS CODEBASE, ABOUT ITS SIBLING.
+  // `store.ts`'s `setAnalysisRefusalNotice` is deliberately a bare `set` with no
+  // sessionStorage write, and says why: doing so "would restore a refusal into a
+  // session where no analysis was refused". The refusal's EXPLANATION is
+  // withheld from persistence for exactly this reason — so restoring the
+  // refusal's PAYLOAD leaves a user holding the evidence of a refusal with no
+  // account of it, on a fresh tab where nothing was refused.
+  //
+  // One seam, three sources: this validator gates the sessionStorage restore,
+  // the autosave projection and the graph-load path alike.
+  if (ceeAnalysisReady.status === 'blocked') {
+    return { isValid: false, reason: 'blocked_refusal' }
   }
 
   // Check goal node exists

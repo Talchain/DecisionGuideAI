@@ -4947,9 +4947,27 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         )
       }
       // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
+      //
+      // ⛔ EXCEPT A BLOCKED REFUSAL, which is not a readiness verdict and must
+      // not survive a reload. `setAnalysisRefusalNotice` below states the rule
+      // for its sibling in as many words — persisting it "would restore a
+      // refusal into a session where no analysis was refused" — and after CEE
+      // began carrying model identity on refusals, this payload is exactly that
+      // shape. Restoring it hands the user the refusal's EVIDENCE on a fresh tab
+      // while its EXPLANATION is deliberately withheld.
+      //
+      // `validateCeeAnalysisReady` rejects the same condition on the way back
+      // in, so this is belt-and-braces: not writing it is cheaper than relying
+      // on every restore path to check.
+      const isBlockedRefusal = analysisReady.status === 'blocked'
       try {
-        sessionStorage.setItem('olumi-cee-analysis-ready', JSON.stringify(analysisReady))
-        sessionStorage.setItem('olumi-cee-analysis-ready-node-ids', JSON.stringify(nodeIds))
+        if (isBlockedRefusal) {
+          sessionStorage.removeItem('olumi-cee-analysis-ready')
+          sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
+        } else {
+          sessionStorage.setItem('olumi-cee-analysis-ready', JSON.stringify(analysisReady))
+          sessionStorage.setItem('olumi-cee-analysis-ready-node-ids', JSON.stringify(nodeIds))
+        }
       } catch {}
     } else {
       logConstraintClearIfPresent(get, 'setCeeAnalysisReady(null)')
