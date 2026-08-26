@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2252
+# count=2251
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -340,7 +340,6 @@
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValue' is declared but its value is never read.
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValueCompact' is declared but its value is never read.
 1	src/canvas/components/RecoveryBanner.tsx	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
-1	src/canvas/components/RecoveryBanner.tsx	TS2322	Type '{ options: { id: string; label: string; status: "needs_encoding" | "needs_user_mapping" | "ready"; interventions: Record<string, unknown>; user_questions?: string[] | undefined; unresolved_targets?: string[] | undefined; }[]; goal_node_id: string; suggested_seed?: string | undefined; status?: string | undefined; use...' is not assignable to type 'CEEAnalysisReady | null | undefined'.
 1	src/canvas/components/RecoveryBanner.tsx	TS2741	Property 'anchorPosition' is missing in type '{ nodeIds: Set<string>; edgeIds: Set<string>; }' but required in type '{ nodeIds: Set<string>; edgeIds: Set<string>; anchorPosition: { x: number; y: number; } | null; }'.
 1	src/canvas/components/RiskAdjustedDisplay.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/RiskAdjustedDisplay.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.

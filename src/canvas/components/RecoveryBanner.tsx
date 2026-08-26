@@ -10,6 +10,8 @@ import { useState, useEffect } from 'react'
 import { AlertCircle, X } from 'lucide-react'
 import { loadAutosave, clearAutosave, hasUnsavedWork } from '../store/scenarios'
 import { useCanvasStore } from '../store'
+import { validateCeeAnalysisReady } from '../utils/ceeAnalysisReadyValidation'
+import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { typography } from '../../styles/typography'
 
 const DISMISSED_KEY = 'autosave-recovery-dismissed'
@@ -58,6 +60,43 @@ export function RecoveryBanner() {
       }
     }
 
+    // ⛔ THE RESTORE IS GATED, NOT PASSED THROUGH.
+    //
+    // `validateCeeAnalysisReady` is the one seam that decides whether a
+    // persisted readiness verdict may re-enter a session. Its own header names
+    // three sources it gates; this component was a FOURTH, and it wrote
+    // `autosaveData.ceeAnalysisReady` straight into the store. The sharpest
+    // thing that walked through was a BLOCKED REFUSAL: CEE now carries model
+    // identity on refusals, so the payload has non-empty options and the old
+    // `empty_options` check no longer rejects it by accident — a user would be
+    // handed the evidence of a refusal with no account of it, in a session
+    // where nothing was refused.
+    //
+    // ⚠ This component is currently UNMOUNTED (`ReactFlowGraph.tsx:2344`
+    // `{/* RecoveryBanner removed */}`); boot auto-recovers instead and routes
+    // readiness through `restoreCeeAnalysisReady`, which validates. The gate is
+    // here so that REMOUNTING it cannot silently reopen the bypass — the
+    // failure mode is a component coming back without its guard, and a comment
+    // elsewhere asserting the guard runs is not one.
+    //
+    // Boundary cast at the call: AutosaveData's inline shape declares
+    // `status?: string` where `CEEAnalysisReady` narrows it. Node ids are
+    // derived from the recovered graph itself, at parity with
+    // `ReactFlowGraph.restoreCeeAnalysisReady`'s `loadSource === 'autosave'`
+    // branch, which snapshots `autosave.nodes.map(n => n.id)` the same way.
+    const restoredReady = (autosaveData.ceeAnalysisReady ?? null) as CEEAnalysisReady | null
+    const readyValidation = validateCeeAnalysisReady(
+      restoredReady,
+      autosaveData.nodes.map((n) => n.id),
+      autosaveData.nodes
+    )
+    if (!readyValidation.isValid && import.meta.env.DEV) {
+      console.warn(
+        '[RecoveryBanner] Dropped ceeAnalysisReady on restore:',
+        readyValidation.reason
+      )
+    }
+
     // ⚠ NOT A USER EDIT — RECOVERING THE USER'S OWN UNSAVED WORK. Without this
     // window `useGuidanceInvalidationOnEdit` reads the restore as the user
     // rebuilding their model from nothing and destroys the coaching that
@@ -76,8 +115,11 @@ export function RecoveryBanner() {
       isDirty: true, // Mark as dirty since recovered work is unsaved
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set() },
-      // V3: Restore analysis_ready and goal selection from autosave
-      ceeAnalysisReady: autosaveData.ceeAnalysisReady ?? null,
+      // V3: Restore analysis_ready and goal selection from autosave — only when
+      // the gate above admits it. An invalid verdict CLEARS rather than
+      // inheriting: a stale or refused readiness left in place would be read as
+      // belonging to the graph the user is being handed back.
+      ceeAnalysisReady: readyValidation.isValid ? restoredReady : null,
       selectedGoalNode: goalNodeId,
     })
     useCanvasStore.setState({ _externalMutationActive: Math.max(0, suppressed - 1) })

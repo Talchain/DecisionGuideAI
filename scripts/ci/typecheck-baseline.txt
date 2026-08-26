@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2252
+# count=2251
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -141,7 +141,7 @@
 1	src/canvas/components/OutputsDock.stories.tsx
 27	src/canvas/components/PreAnalysisGuidance.tsx
 2	src/canvas/components/RangeDisplay.tsx
-3	src/canvas/components/RecoveryBanner.tsx
+2	src/canvas/components/RecoveryBanner.tsx
 2	src/canvas/components/RiskAdjustedDisplay.tsx
 2	src/canvas/components/RiskProfileBadge.tsx
 6	src/canvas/components/RiskProfileSelector.tsx
