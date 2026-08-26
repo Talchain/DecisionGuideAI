@@ -39,6 +39,7 @@ import { renderHook } from '@testing-library/react'
 import { useBriefSignals, detectGoal } from '../hooks/useBriefSignals'
 import { useStageAwarePlaceholder } from '../../hooks/useStageAwarePlaceholder'
 import { STAGE_PLACEHOLDERS } from '../zones/ChatComposer'
+import { FIRST_USE_PLACEHOLDER } from '../../components/FirstUseComposer'
 
 const BRIEF = 'We need to decide how to grow revenue next year.'
 
@@ -50,6 +51,17 @@ function tip(kind: 'goal' | 'options'): string {
 
 const firstUseLine = () => renderHook(() => useStageAwarePlaceholder()).result.current
 
+/** The FIRST-USE hero's own copy — it passes an explicit prop, so the hook never reaches it. */
+const heroLine = () => FIRST_USE_PLACEHOLDER
+
+/**
+ * The PROPERTY: a decision and a challenge are offered as ALTERNATIVE things the
+ * user can bring. The alternation is what a verb cannot satisfy.
+ */
+function admitsBoth(s: string): boolean {
+  return /\bdecision\s+or\s+challenge\b/i.test(s)
+}
+
 /** Decision must be named, and named FIRST — the testable form of "not demoted". */
 function decisionLeads(s: string): boolean {
   const l = s.toLowerCase()
@@ -59,21 +71,50 @@ function decisionLeads(s: string): boolean {
 describe('the entry copy invites a challenge as well as a decision', () => {
   it('PRECONDITION — every string under test is real and non-empty', () => {
     // A blank satisfies every "does not match" assertion below.
-    for (const s of [STAGE_PLACEHOLDERS.frame, tip('goal'), tip('options'), firstUseLine()]) {
+    for (const s of [STAGE_PLACEHOLDERS.frame, tip('goal'), tip('options'), firstUseLine(), heroLine()]) {
       expect(s.length).toBeGreaterThan(15)
     }
   })
 
-  it('⭐ ADMITS A CHALLENGE — on all three entry surfaces', () => {
-    expect(STAGE_PLACEHOLDERS.frame).toMatch(/\bchallenge\b/i)
-    expect(tip('goal')).toMatch(/\bchallenge\b/i)
-    expect(firstUseLine()).toMatch(/\bchallenge\b/i)
+  /*
+   * ⛔⛔ THIS ASSERTION USED TO BE `/\bchallenge\b/i` AND IT PINNED NOTHING.
+   *
+   * "Challenge" is a VERB as well as a noun. Independent review reworded all
+   * three surfaces back to decision-only framing — *"…and any assumption you
+   * want to challenge"* — and the spec stayed 7/7 GREEN, regression control
+   * included. The word was present; the INVITATION was gone. A different speech
+   * act entirely, satisfying the same regex.
+   *
+   * The property is that the copy offers a decision and a challenge as
+   * ALTERNATIVE THINGS THE USER CAN BRING, so it is the ALTERNATION that is
+   * pinned, not the word. `admitsBoth` is exercised against the reviewer's own
+   * attack strings below, so its discrimination is proven in-test rather than
+   * assumed — the guard has to reject the thing that beat its predecessor.
+   */
+  it('⭐ ADMITS A CHALLENGE AS A THING YOU BRING — on all four entry surfaces', () => {
+    for (const s of [STAGE_PLACEHOLDERS.frame, tip('goal'), firstUseLine(), heroLine()]) {
+      expect(admitsBoth(s), `does not offer both: "${s}"`).toBe(true)
+    }
+  })
+
+  it('⛔ THE GUARD REJECTS THE REWORDING THAT BEAT ITS PREDECESSOR', () => {
+    // Verbatim shapes from the review that passed the old `/\bchallenge\b/i`.
+    const attacks = [
+      'Describe your decision, the options you\u2019re weighing, and any assumption you want to challenge.',
+      'State the decision you need to make, and challenge your own assumptions.',
+      'Describe your decision\u2026 then challenge it.',
+    ]
+    for (const a of attacks) {
+      expect(/\bchallenge\b/i.test(a), 'precondition: the OLD guard passes this').toBe(true)
+      expect(admitsBoth(a), `attack slipped through: "${a}"`).toBe(false)
+    }
   })
 
   it('⛔ REGRESSION CONTROL — a decision is still named, and still leads', () => {
     expect(decisionLeads(STAGE_PLACEHOLDERS.frame)).toBe(true)
     expect(decisionLeads(tip('goal'))).toBe(true)
     expect(decisionLeads(firstUseLine())).toBe(true)
+    expect(decisionLeads(heroLine())).toBe(true)
   })
 
   it('⛔ NEVER DEMANDS OPTIONS FROM A USER WHO HAS NONE', () => {

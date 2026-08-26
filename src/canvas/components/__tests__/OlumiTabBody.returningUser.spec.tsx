@@ -7,7 +7,10 @@
  * you write a brief, the product drafts a 19-node model and coaches you on it,
  * you close the tab, you come back. The model returns in full — and the chat
  * shows `data-testid="olumi-tab-empty"` carrying
- * "Describe your decision, goal, options, and any assumptions, risks or
+ * ⚠ The literal was retyped here and inverted when the hero copy widened to admit
+ * a challenge (CEE #1110 accepts open strategic challenges). Now bound to the
+ * EXPORTED constant, so the assertion cannot drift from the component again.
+ * Formerly: "Describe your decision, goal, options, and any assumptions, risks or
  * constraints you're aware of." That element is a factual claim that the user
  * has never been here, and it is false.
  *
@@ -24,6 +27,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { FIRST_USE_PLACEHOLDER } from '../FirstUseComposer'
 import { render, screen, waitFor } from '@testing-library/react'
 import { OlumiTabBody } from '../OlumiTabBody'
 import { ConversationProvider } from '../../conversation/ConversationContext'
@@ -95,7 +99,7 @@ describe('returning user — the chat pane after a reload', () => {
       expect(screen.getByTestId('olumi-tab-empty')).toBeInTheDocument()
     })
     expect(
-      screen.getByText(/Describe your decision, goal, options/i),
+      screen.getByText(FIRST_USE_PLACEHOLDER),
     ).toBeInTheDocument()
   })
 
@@ -109,7 +113,7 @@ describe('returning user — the chat pane after a reload', () => {
       expect(screen.queryByTestId('olumi-tab-empty')).not.toBeInTheDocument()
     })
     expect(
-      screen.queryByText(/Describe your decision, goal, options/i),
+      screen.queryByText(FIRST_USE_PLACEHOLDER),
     ).not.toBeInTheDocument()
   })
 

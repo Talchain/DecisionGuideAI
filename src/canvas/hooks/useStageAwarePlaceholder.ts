@@ -58,8 +58,14 @@ export function useStageAwarePlaceholder(): string {
   if (nodeCount > 0) {
     return 'Ask about this model…'
   }
-  // ⭐ "OR CHALLENGE" — the empty-canvas line, i.e. the FIRST-USE composer
-  // (`FirstUseComposer` via `ReactFlowGraph`) and the dock's persistent strip.
+  // ⭐ "OR CHALLENGE" — the empty-canvas line.
+  //
+  // ⚠ AND IT IS NOT THE FIRST-USE HERO, WHICH AN EARLIER VERSION OF THIS COMMENT
+  // CLAIMED. `AIInputBar` resolves `placeholder ?? stagePlaceholder`, so an
+  // explicit prop WINS — and `FirstUseComposer` passes its own. This hook feeds
+  // the dock's `PersistentInputStrip`; the hero carries its own copy and was
+  // fixed there. Proven by execution: the hero's spec passed GREEN asserting the
+  // OLD copy while this hook already returned the new line.
   // CEE #1110 (`aa134eac`, live on deployed `c24bfe37`) accepts open strategic
   // challenges, so asking only for a decision steered users away from a
   // capability the product ships. "Decision" stays FIRST: #1110's own

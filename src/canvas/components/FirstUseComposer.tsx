@@ -1,4 +1,8 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
+
+/** The first-use hero's own entry copy — exported so its guard reads the real string. */
+export const FIRST_USE_PLACEHOLDER =
+  "Describe the decision or challenge you’re working through, any options you’re weighing, and what a good outcome looks like."
 import { createPortal } from 'react-dom'
 import { AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -340,8 +344,16 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
           variant="welcome"
           onCogClick={onCogClick}
           hideChevron
-          placeholder="Describe your decision, goal, options, and any assumptions, risks or constraints you’re aware of."
-          ariaLabel="Describe your decision"
+          /*
+           * ⭐ THIS SURFACE PASSES ITS OWN COPY, SO THE HOOK CHANGE NEVER REACHED IT.
+           * `AIInputBar` resolves `placeholder ?? stagePlaceholder` — an explicit
+           * prop WINS — so widening `useStageAwarePlaceholder` left the FIRST-USE
+           * screen, the most prominent entry surface there is, still demanding a
+           * decision. Correcting only the claim about it would have made the
+           * change accurate and left the defect where it matters most.
+           */
+          placeholder={FIRST_USE_PLACEHOLDER}
+          ariaLabel="Describe your decision or challenge"
           testId="first-use-input-bar"
           onAfterSend={handleAfterSend}
         />
