@@ -43,12 +43,29 @@
  * 12 of 22 turn exits that supply no readiness payload. It gets its own
  * assertion below, never a row in a table.
  *
- * ── Why the corpus is DERIVED ──────────────────────────────────────────────
+ * ── Why the corpus is DERIVED, and EXACTLY WHAT THAT BUYS ─────────────────
  * `EXPECTED` is a `Record<AnalysisReadyStatus, …>`, so a status added to the
  * producer union is a COMPILE error until someone decides which rung it means,
- * and the runtime key check REDs if the type is widened without the map. That
- * is what stops this recurring — a new status can no longer default silently
- * into `needs_input`, which is exactly how `'blocked'` got here.
+ * and the runtime key check REDs if the type is widened without the map. A new
+ * status can therefore no longer default silently into `needs_input`, which is
+ * exactly how `'blocked'` got here.
+ *
+ * ⚠⚠ AND HERE IS THE LIMIT OF THAT, WRITTEN DOWN BECAUSE I CLAIMED MORE AND WAS
+ * WRONG WITHIN THE HOUR. The first version of this spec treated union
+ * exhaustiveness as making the CLASSIFICATION safe. It does not, and the proof
+ * is the case two tests below: keying on `status === 'blocked'` alone passed
+ * every row of this table while fabricating a blocking issue on every legacy
+ * reload.
+ *
+ *   EXHAUSTIVENESS OVER THE STATUS UNION IS NOT EXHAUSTIVENESS OVER THE
+ *   CARRIERS THAT PRODUCE A STATUS. A corpus cannot catch a carrier it never
+ *   sends, and every payload this table sends is a well-formed refusal.
+ *
+ * So this table pins that each status maps to its rung. It says NOTHING about
+ * whether a given payload is the carrier its status implies — that is the
+ * `blocked_reason` discriminator's job, pinned separately, and it is the half
+ * that actually decides truthfulness. Do not cite this table as evidence the
+ * predicate is safe.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
