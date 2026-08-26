@@ -2838,7 +2838,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                             <summary className={`${typography.code} text-text-light cursor-pointer`}>
                               Debug info
                             </summary>
-                            <div className={`${typography.code} text-text-light mt-1 text-xs`}>
+                            <div className={`${typography.code} text-text-light mt-1`}>
                               Code: {error.code} | Request ID: {error.request_id || 'n/a'}
                             </div>
                           </details>
@@ -2899,7 +2899,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       aria-live="polite"
                       data-testid="outputs-error-banner"
                     >
-                      <div className={`${typography.body} font-medium ${
+                      <div className={`${typography.panelHeader} ${
                         friendlyError.severity === 'error'
                           ? 'text-danger'
                           : friendlyError.severity === 'warning'
@@ -2984,7 +2984,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           <summary className={`${typography.code} text-text-light cursor-pointer`}>
                             Debug info
                           </summary>
-                          <div className={`${typography.code} text-text-light mt-1 text-xs`}>
+                          <div className={`${typography.code} text-text-light mt-1`}>
                             Code: {error.code} | Request ID: {error.request_id || 'n/a'}
                           </div>
                         </details>
@@ -3602,7 +3602,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           >
             <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
-              <span className={`${typography.body} text-text-header`}>Generating comparison...</span>
+              <span className={`${typography.panelBody} text-text-header`}>Generating comparison...</span>
             </div>
           </div>
         )}
