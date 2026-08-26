@@ -137,8 +137,13 @@ function mayPersistGraphNow(scenarioId: string | null): boolean {
  * `scenarios.graph` holds either React-Flow-shaped bytes (`position`, `data`,
  * edge `source`/`target`) or CEE/GraphV3 bytes (`kind`/`label` top-level, edge
  * `from`/`to`, and NO `position`, `data`, `id`, `source` or `target` on edges).
- * `useScenario.loadScenario` hydrates that column into the canvas store VERBATIM,
- * so BOTH shapes reach this function. Before the fix the edge half read only
+ * `useScenario.loadScenario` USED TO hydrate that column into the canvas store
+ * VERBATIM, so both shapes reached this function. It no longer does — it
+ * normalises through `normalisePersistedGraph` first (`useScenario.ts:699`), and
+ * this sentence read "hydrates … VERBATIM" in the present tense for a fortnight
+ * after that stopped being true. The dual-shape reads below are now DEFENCE IN
+ * DEPTH for a store that should hold one shape, not the primary mechanism; the
+ * primary mechanism is the boundary. Before that fix the edge half read only
  * `e.source`, so a CEE-written row projected `undefined` endpoints and the
  * comparator threw `undefined.localeCompare(...)` DURING RENDER — React's error
  * boundary then took the whole canvas (0 nodes) on every reload of a
@@ -157,14 +162,50 @@ function mayPersistGraphNow(scenarioId: string | null): boolean {
  * problem — `canvas/utils/mergeServerGraph.ts` already resolves endpoints as
  * `e.from ?? e.source` on the server-hydration path.
  *
- * ⚠ RESIDUAL, deliberately not closed here: for a CEE-shaped node the analytical
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE FORMER RESIDUAL — NOW CLOSED AT THE BOUNDARY, WHERE IT SAID IT BELONGED
+ * ─────────────────────────────────────────────────────────────────────────────
+ * This block used to record an open gap: for a CEE-shaped node the analytical
  * payload (`observed_state`, `display_value`, `category`, `interventions`) lives
- * at the TOP LEVEL, not under `data`, so it is not covered by the `data.*`
- * hash-by-default rule and an edit to it would not flip this hash. That is a
- * symptom of CEE-shaped objects being in the store at all; the fix belongs at the
- * hydration boundary (see the lane report / ROADMAP 2.1096), not in this
- * projector, which would otherwise become a fourth hand-mirrored copy of the
- * CEE→React-Flow mapping.
+ * at the TOP LEVEL, not under `data`, so it escaped the `data.*` hash-by-default
+ * rule — an edit would not flip this hash, the save would skip, and the edit was
+ * lost on reload. It correctly refused to patch that here (which would have
+ * minted a fourth hand-mirrored CEE→React-Flow mapping) and named the hydration
+ * boundary as the right home.
+ *
+ * The boundary now delivers it, for BOTH CEE classes. It could not before: the
+ * shape discriminator tested `'position' in n` alone, so the **19 staging rows
+ * that are GraphV3 AND carry geometry** (census 2026-08-26) were waved through
+ * unprojected and hit this function with no `data` at all — `label` collapsing
+ * to `''`, `kind` to `undefined`, and the entire analytical payload invisible to
+ * the dirty gate. `isCanvasShapedNode` no longer rests on `'position' in n`.
+ *
+ * ⚠ CORRECTED IN PLACE, NOT DELETED (2026-08-26). This sentence used to say the
+ * predicate "discriminates on the React Flow envelope (`data`), which is a
+ * property of the shape rather than an observation about what CEE currently
+ * emits". That was true of the FIRST commit of this fix and is now false: review
+ * found the envelope test is still a NEGATIVE test against a schema that permits
+ * the thing — `NodeV3Schema` is `.passthrough()`, so a CEE node carrying `data`
+ * is contract-PERMITTED, merely unobserved, which is the very admissibility that
+ * let `position` through and caused this P0. The predicate was re-pointed at the
+ * CONTRACT-REQUIRED CEE marker instead: a node with top-level `kind` AND `label`
+ * (neither is `.optional()` on `NodeV3Schema`) is CEE whatever else it carries,
+ * and the envelope test survives only as a stated-contingent second limb. The
+ * full derivation is in `canvas/utils/normalisePersistedGraph.ts`.
+ *
+ * The correction is left visible rather than quietly swapped out, because a
+ * stale mechanism sentence is exactly what this module's own history shows
+ * going unnoticed: nothing tests a comment, it reads as settled fact, and the
+ * next reader inherits it. This one was stale by a SINGLE COMMIT and was caught
+ * by a human reading it, not by any gate.
+ *
+ * ⚠ `position` REMAINS IN THIS HASH ON PURPOSE. This is the one authority in the
+ * estate that SHOULD see geometry: a node move is a real change that must reach
+ * the layout sidecar. Do not "align" it with the analysis-staleness owner
+ * (`domain/analyticalChange.ts`), which classifies position as cosmetic — they
+ * answer different questions (CLAUDE.md trap 21) and a shared window would break
+ * one of them. Pinned both ways in
+ * `useAutosave.geometryBearingCeeRowDirtyGate.p0.spec.ts`.
  */
 export function computeGraphHash(nodes: any[], edges: any[]): string {
   const canonical = {
