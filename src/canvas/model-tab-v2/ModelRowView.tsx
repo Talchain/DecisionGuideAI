@@ -447,10 +447,40 @@ function ValueCell({
    * plus one marker, which is the difference between stating a fact and
    * shouting it.
    */
+  /*
+   * ⭐ OLUMI'S OWN TEXT, BESIDE THE AFFORDANCE — NEVER INSTEAD OF IT.
+   *
+   * `estimateText` is present only on rows nobody has SET, and it carries what
+   * CEE computed for them — including, on the row that matters most, a RANGE
+   * ("0.25 to 0.75"). The product was holding that band and showing nothing.
+   *
+   * ⚠ THE INVERSE HARM IS THE ONE TO PRICE, AND IT DECIDES THIS SHAPE. If the
+   * cell rendered the estimate ALONE, a user would read it as a value that IS
+   * set — while the affordance correctly still asks them to set one, and the
+   * row would contradict its own button. So both axes render together: the
+   * control keeps saying "Not set" and does what it always did, and Olumi's
+   * text sits beside it, attributed, in secondary type. Nothing here re-derives
+   * a value; this component still renders what the projection handed it.
+   *
+   * It is NOT a "Not set" wall: that rule exists because N identical inert
+   * strings drown the outline. These strings are distinct per row and each one
+   * is a fact the product computed.
+   */
+  const estimate =
+    display === null && row.estimateText !== undefined ? (
+      <span
+        data-testid={`${testid}-estimate`}
+        className={`${typography.caption} text-text-light ml-2`}
+      >
+        Olumi: {row.estimateText}
+      </span>
+    ) : null
+
   if (!row.editable || !editorAvailable) {
     return (
       <span data-testid={testid} className={typography.tabular}>
         {display ?? ''}
+        {estimate}
       </span>
     )
   }
@@ -468,6 +498,7 @@ function ValueCell({
       }}
     >
       {display ?? 'Not set'}
+      {estimate}
     </button>
   )
 }
