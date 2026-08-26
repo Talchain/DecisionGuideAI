@@ -130,29 +130,25 @@
 }
 
 /**
- * The zoom read-out — a text control with no counterpart on the upper toolbar,
- * so it takes the shared button's BOX (32px tall, full content width, same
- * transition and focus ring) without the chrome that would box in a number.
- * Deliberately not given `.iconButton`'s border/background: it is a label you
- * can click, and drawing a 32px circle around "400%" would clip it.
+ * The zoom read-out — the toolbar's one text control, and the only element that
+ * displays state rather than performing an action. It takes the shared circle
+ * anyway, because it IS a control: clicking it resets to 100%, and a bare
+ * number was the one thing here that did not look clickable.
+ *
+ * ⚠ THE UNIT IS DELIBERATELY NOT ON THE FACE. Measured in Inter at the shipped
+ * size, "400%" — the widest value the canvas can reach at maxZoom 4 — is 33.8px
+ * against the circle's 30px of usable width, and still 31.2px at 11px. A
+ * legible circle and the "%" are mutually exclusive at this column width;
+ * widening the column would break alignment with the sidebar. "400" is 22.7px.
+ * The unit is carried by the tooltip and the accessible name instead, so it is
+ * available on hover and to assistive technology, just not painted twice.
+ *
+ * Tabular figures so the number holds still as it changes.
  */
-.textButton {
-  width: 100%;
-  height: 32px;
-  border: 0;
-  background: none;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 120ms ease;
-  pointer-events: auto;
-}
-
-.textButton:focus-visible {
-  outline: 2px solid var(--info);
-  outline-offset: 2px;
+.readout {
+  composes: iconButton;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .icon {
