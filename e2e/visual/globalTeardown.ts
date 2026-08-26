@@ -48,7 +48,10 @@ export default function globalTeardown(): void {
       `[visreg] COMPLETENESS GUARD FAILED: ZERO screenshots were captured.\n` +
         `  Expected ${expected.length}: ${expected.join(', ')}\n` +
         `  This run measured nothing. It must not be reported as a pass — the most likely\n` +
-        `  causes are that the app failed to boot, or that no test matched.`,
+        `  causes are that the app failed to boot, or that no test matched.\n` +
+        `  NOTE: a stale-reference cascade no longer lands here. captureState records\n` +
+        `  coverage in a \`finally\`, so a state that ran and FAILED its comparison still\n` +
+        `  counts as captured. If you are reading this, the states genuinely did not run.`,
     )
   }
 
