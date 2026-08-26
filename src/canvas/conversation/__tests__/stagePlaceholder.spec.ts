@@ -7,17 +7,21 @@
 
 import { describe, it, expect } from 'vitest'
 import type { ScenarioStage } from '../../../types/scenario'
+import { STAGE_PLACEHOLDERS } from '../zones/ChatComposer'
 
-// Mirror the map from ChatComposer — tested independently to avoid
-// rendering the full component tree (canvas store deps make that expensive).
-const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
-  frame:    'Describe your decision, the options you\u2019re weighing, and what a good outcome looks like.',
-  ideate:   'Explore options, add factors, or challenge assumptions...',
-  evaluate: 'Ask about the results, challenge assumptions, or refine the model...',
-  decide:   'Challenge the recommendation, or generate your brief...',
-  optimise: 'Plan your next steps...',
-}
-
+/*
+ * ⚠ THIS WAS A HAND-MAINTAINED MIRROR AND IT HAD ALREADY DRIFTED.
+ *
+ * It copied the map with the note "tested independently to avoid rendering the
+ * full component tree", and by the time the entry copy changed its `decide`
+ * entry read "Challenge the RECOMMENDATION…" while the product said "Challenge
+ * the RESULT…". A spec that copies the data tests its own copy: it passed
+ * green through an entry-copy change it exists to guard, and it would have gone
+ * on asserting a placeholder the product does not have.
+ *
+ * Now IMPORTED. The map is the map, so drift is impossible rather than merely
+ * discouraged (trap 12 — derive, do not mirror).
+ */
 const DEFAULT_PLACEHOLDER = STAGE_PLACEHOLDERS.frame
 
 const ALL_STAGES: ScenarioStage[] = ['frame', 'ideate', 'evaluate', 'decide', 'optimise']
