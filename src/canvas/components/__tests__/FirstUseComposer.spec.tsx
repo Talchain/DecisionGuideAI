@@ -16,6 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { FIRST_USE_PLACEHOLDER } from '../firstUsePlaceholder'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
@@ -311,9 +312,14 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
 
     // The guidance copy lives in the textarea's placeholder (round-8) —
     // the textarea is the visual home of the guidance prompt.
-    expect(
-      screen.getByPlaceholderText(/Describe your decision, goal, options, and any assumptions, risks or constraints/i),
-    ).toBeInTheDocument()
+    //
+    // ⚠ PREMISE UPDATED, AND BOUND TO THE CONSTANT RATHER THAN RETYPED. The
+    // literal was inverted when the hero copy widened to admit a challenge (CEE
+    // #1110 accepts open strategic challenges, so entry copy demanding a
+    // decision steered users away from a shipped capability). Retyping it here
+    // is what let the sibling `OlumiTabBody` guard drift in the first place, so
+    // this reads the same exported constant the component renders.
+    expect(screen.getByPlaceholderText(FIRST_USE_PLACEHOLDER)).toBeInTheDocument()
     // No legacy standalone guidance <p>.
     expect(screen.queryByTestId('first-use-guidance')).toBeNull()
     // The previous verbose copy must NOT leak through.

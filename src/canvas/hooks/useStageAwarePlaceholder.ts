@@ -21,7 +21,7 @@ import { useAnalysisTrust } from './useAnalysisTrust'
  *   3. Analysis exists, can't confirm → "Ask about this analysis..."
  *      (cannot-confirm / no freshness verdict — never claims "latest")
  *   4. Model exists                   → "Ask about this model..."
- *   5. No model                       → "Describe your decision..."
+ *   5. No model                       → "Describe your decision or challenge..."
  *
  * ── L-17: THE SELECTION BRANCH IS GONE, DELIBERATELY ───────────────────────
  * This hook used to return "Ask about [label]…" whenever one element was
@@ -58,5 +58,18 @@ export function useStageAwarePlaceholder(): string {
   if (nodeCount > 0) {
     return 'Ask about this model…'
   }
-  return 'Describe your decision…'
+  // ⭐ "OR CHALLENGE" — the empty-canvas line.
+  //
+  // ⚠ AND IT IS NOT THE FIRST-USE HERO, WHICH AN EARLIER VERSION OF THIS COMMENT
+  // CLAIMED. `AIInputBar` resolves `placeholder ?? stagePlaceholder`, so an
+  // explicit prop WINS — and `FirstUseComposer` passes its own. This hook feeds
+  // the dock's `PersistentInputStrip`; the hero carries its own copy and was
+  // fixed there. Proven by execution: the hero's spec passed GREEN asserting the
+  // OLD copy while this hook already returned the new line.
+  // CEE #1110 (`aa134eac`, live on deployed `c24bfe37`) accepts open strategic
+  // challenges, so asking only for a decision steered users away from a
+  // capability the product ships. "Decision" stays FIRST: #1110's own
+  // regression control is "Should we expand into the US this year?", kept
+  // undegraded, and this copy must not cost what that change protected.
+  return 'Describe your decision or challenge…'
 }

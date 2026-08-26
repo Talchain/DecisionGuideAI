@@ -38,8 +38,15 @@ const complete = () => useCanvasStore.setState({ results: { status: 'complete' }
 const setFresh = () => useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
 
 describe('useStageAwarePlaceholder', () => {
-  it('no model → "Describe your decision…"', () => {
-    expect(placeholder()).toBe('Describe your decision…')
+  /*
+   * ⚠ PREMISE INVERTED — and the reason this was missed is the lesson. The
+   * change's own corpus was scoped to `src/canvas/conversation/**`, while this
+   * SECOND consumer lives in `src/canvas/hooks/__tests__/`. A suite that cannot
+   * see a directory returns the same clean green as one that looked and found
+   * nothing. Caught by CI, not by the sweep.
+   */
+  it('no model → "Describe your decision or challenge…"', () => {
+    expect(placeholder()).toBe('Describe your decision or challenge…')
   })
 
   it('model exists, no analysis → "Ask about this model…"', () => {

@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { STAGE_PLACEHOLDERS } from '../zones/ChatComposer'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { createRef } from 'react'
 import { ChatComposer } from '../zones/ChatComposer'
@@ -112,7 +113,15 @@ function makeConversation(overrides: Record<string, any> = {}) {
   } as any
 }
 
-const PLACEHOLDER = 'Describe your decision, the options you\'re weighing, and what a good outcome looks like.'
+/*
+ * ⚠ PREMISE INVERTED — the string changed, the guard did not.
+ * CEE #1110 (`aa134eac`, live on deployed `c24bfe37`) accepts open strategic
+ * challenges, so entry copy demanding decision syntax steered users away from a
+ * capability the product ships. Rewritten rather than deleted: rendering the
+ * real placeholder into the real textarea is exactly what this case is for, and
+ * it is now imported rather than retyped so it cannot drift again.
+ */
+const PLACEHOLDER = STAGE_PLACEHOLDERS.frame
 
 describe('ChatComposer', () => {
   beforeEach(() => {

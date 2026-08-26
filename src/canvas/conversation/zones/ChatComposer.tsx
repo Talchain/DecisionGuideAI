@@ -69,8 +69,31 @@ interface ChatComposerProps {
   runBlockedReason?: string
 }
 
-const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
-  frame:    'Describe your decision, the options you\'re weighing, and what a good outcome looks like.',
+/**
+ * ⭐ THE FRAMING PLACEHOLDER INVITES A CHALLENGE, NOT ONLY A DECISION.
+ *
+ * `frame` is the first line a fresh user reads, and the fallback for any stage
+ * (`STAGE_PLACEHOLDERS[stage] ?? STAGE_PLACEHOLDERS.frame`). It used to read
+ * *"Describe your decision, THE options you're weighing…"* — which asks for
+ * decision syntax and presupposes that options already exist.
+ *
+ * CEE #1110 (`aa134eac`, live on deployed CEE `c24bfe37`) accepts open
+ * strategic challenges: a statement of a problem with no decision verb and no
+ * trailing `?` drafts a model because the classifier says `start_model` — its
+ * own control case is *"Our enterprise renewal rates have been sliding for
+ * three quarters and leadership disagrees about why."* So the runtime had been
+ * widened and the entry copy still steered users into the narrow form the fix
+ * existed to remove: the product talking people out of a capability it ships.
+ *
+ * ⚠ AND THE DECISION CASE MUST STAY FIRST-CLASS. #1110's own regression control
+ * is *"Should we expand into the US this year?"*, kept undegraded. Copy that
+ * de-emphasised decisions to make room for challenges would undo the thing that
+ * made that change safe. "Decision" leads; "challenge" joins it; and `any`
+ * options replaces `the` options so a user who has none is not told they are
+ * missing something.
+ */
+export const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
+  frame:    'Describe the decision or challenge you\'re working through, any options you\'re weighing, and what a good outcome looks like.',
   ideate:   'Explore options, add factors, or challenge assumptions...',
   evaluate: 'Ask about the results, challenge assumptions, or refine the model...',
   decide:   'Challenge the result, or generate your brief...',

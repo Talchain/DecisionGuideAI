@@ -1,4 +1,10 @@
 import { memo, useCallback, useEffect } from 'react'
+// ⭐ THE FIFTH ENTRY SURFACE, and it had its OWN copy of the string.
+// Found by a spec, not by the sweep: this renders the first-use line as TEXT
+// while `FirstUseComposer` passes it as a placeholder ATTRIBUTE, so a grep for
+// one shape does not find the other. Bound to the shared constant so the two
+// cannot drift apart again.
+import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 import { ExternalLink } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useConversationContext } from '../conversation/ConversationContext'
@@ -92,7 +98,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
         {floatOutIcon}
         <div className="flex flex-1 items-center justify-center px-6 py-6">
           <p className={typo('panelBody', 'text-text-light text-center max-w-xs')}>
-            Describe your decision, goal, options, and any assumptions, risks or constraints you’re aware of.
+            {FIRST_USE_PLACEHOLDER}
           </p>
         </div>
       </div>

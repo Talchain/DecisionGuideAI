@@ -57,9 +57,16 @@ describe('L-17 — a selection no longer writes a fake sentence into the compose
     expect(result.current).toBe('Ask about this model…')
   })
 
-  it('still says "Describe your decision…" on an empty canvas', () => {
+  /*
+   * ⚠ PREMISE INVERTED. The empty-canvas line now admits a challenge as well as
+   * a decision — CEE #1110 accepts open strategic challenges and this is the
+   * FIRST-USE composer's placeholder. What this case actually guards is that a
+   * SELECTION does not write a fake sentence here; that is unchanged and still
+   * asserted. Only the expected neutral string moved.
+   */
+  it('still says the neutral empty-canvas line on an empty canvas', () => {
     const { result } = renderHook(() => useStageAwarePlaceholder())
-    expect(result.current).toBe('Describe your decision…')
+    expect(result.current).toBe('Describe your decision or challenge…')
   })
 })
 
