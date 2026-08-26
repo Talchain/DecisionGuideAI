@@ -11,10 +11,26 @@
   padding: 0 8px 0 12px;
   gap: 2px;
 
-  background: var(--bg-panel, #FEFEFE);
+  /**
+   * The canvas toolbars' surface, value for value — see
+   * `CanvasFloatingToolbar.module.css`. All three of these float over the same
+   * canvas, and the header was the only one made of different material: 12px
+   * corners against 16px, opaque against translucent, and a flatter shadow that
+   * sat it lower than the panels beside it.
+   *
+   * ⚠ THE BLUR IS TAKEN KNOWINGLY AND IS NOT VISIBLE TODAY. Rendered against
+   * the real canvas, 95%-white over a near-white background and white node
+   * cards is imperceptible — the visible half of this change is the radius and
+   * the shadow. It is here so the header states the SAME surface as the
+   * toolbars rather than a fourth near-copy of it, and so it stays right if the
+   * canvas background ever stops being near-white. Do not "tidy" it away as a
+   * no-op: that is the drift this file has already been through once.
+   */
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--border-default, #EEE6D8);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .topBarLeft {
