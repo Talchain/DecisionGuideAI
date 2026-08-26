@@ -173,3 +173,43 @@ describe('a canvas the user has arranged is untouched — the guard that makes t
     expect(nodes.find((n) => n.id === 'n1')!.position).toEqual({ x: 40, y: 500 })
   })
 })
+
+/**
+ * ⭐⭐ THE LAYOUT REQUEST INVALIDATES ONE ALREADY IN FLIGHT.
+ *
+ * ⚠ THE HALF THAT WAS SILENTLY MISSING. `setPendingLayout(true)` is
+ * `set({ pendingLayout: true, layoutRequestId: get().layoutRequestId + 1 })` —
+ * the bump is half of what it does. The hydration wrote only the FIELD, which
+ * looked equivalent and was not: the raw write was the ONLY one in `src/`
+ * outside the setter's own body, against 7 producers that use the setter.
+ *
+ * Without the bump, a layout that started BEFORE this hydration still passes
+ * `applyLayout`'s post-await commit guard — its generation never moved — and
+ * commits its stale snapshot over the graph we just merged. Measured on the
+ * unfixed build: `nodeCount: 0, layoutVersion: 1` — AN EMPTY CANVAS REPORTED AS
+ * A SUCCESSFUL LAYOUT. The same defect class the rest of this file closes, one
+ * line over, and nothing would have gone red when it shipped.
+ */
+describe('the hydration invalidates a layout already in flight', () => {
+  it('⭐ bumps layoutRequestId in the same write as the nodes', () => {
+    emptyCanvas()
+    const before = useCanvasStore.getState().layoutRequestId
+    mergeServerGraphOnHydrate(serverGraph(15))
+    const after = useCanvasStore.getState()
+    expect(after.layoutRequestId).toBeGreaterThan(before)
+    // Both halves, together — a bump without the request, or a request without
+    // the bump, are each the defect this pins.
+    expect(after.pendingLayout).toBe(true)
+  })
+
+  it('⭐ DISCRIMINATING TWIN — a non-empty hydration does NOT bump it', () => {
+    // The bump must be as narrowly scoped as the placement branch itself.
+    // Bumping on every hydration would invalidate layouts the user's own
+    // arranged canvas legitimately has in flight — the same over-wide failure
+    // M2 catches for the placement.
+    canvasWithUserArrangement()
+    const before = useCanvasStore.getState().layoutRequestId
+    mergeServerGraphOnHydrate(serverGraph(4))
+    expect(useCanvasStore.getState().layoutRequestId).toBe(before)
+  })
+})

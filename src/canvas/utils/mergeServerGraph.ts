@@ -369,9 +369,19 @@ export function mergeServerGraphOnHydrate(
   //
   // So this branch is safe BY CONSTRUCTION: it fires only when the canvas was
   // empty, so there is no arrangement it can damage. The nodes keep the origin
-  // `mapDraftNodeToCanvas` gives them, which makes `graphNeedsInitialLayout`
-  // return TRUE on its own terms, and `setPendingLayout(true)` is the same
-  // request `useInitialLayoutGuard` already makes — the designed path, unchanged.
+  // `mapDraftNodeToCanvas` gives them, and the layout is requested directly in
+  // the commit below — the same request `useInitialLayoutGuard` makes, on the
+  // designed path, unchanged.
+  //
+  // ⚠ AN EARLIER VERSION OF THIS SENTENCE SAID the origin placement "makes
+  // `graphNeedsInitialLayout` return TRUE on its own terms". THAT IS FALSE AT
+  // n = 1 — the predicate returns `false` for `unlocked.length <= 1`, so a
+  // single-node hydration is NOT self-describing as needing layout. Corrected
+  // in place rather than deleted, because the consequence is worth carrying:
+  // the request below is what makes this work, and `useInitialLayoutGuard` is
+  // therefore NOT a safety net for a one-node hydration — if that request were
+  // ever swallowed, nothing else would ask. At n >= 2 the predicate does agree,
+  // which is exactly why the false sentence read as true.
   const hydratingEmptyCanvas = store.nodes.length === 0 && addedNodes.length > 0
 
   // Deterministic placement, right of the existing bounding box — never a
@@ -502,7 +512,34 @@ export function mergeServerGraphOnHydrate(
       // `setPendingLayout` call would leave a frame in which the canvas holds an
       // origin stack that nothing has asked to lay out, and the camera's restore
       // trigger reads exactly that state.
-      ...(hydratingEmptyCanvas ? { pendingLayout: true } : {}),
+      //
+      // ⚠⚠ AND `layoutRequestId` MOVES WITH IT, WHICH THE RAW FIELD WRITE ALONE
+      // DID NOT. `setPendingLayout(true)` is `set({ pendingLayout: true,
+      // layoutRequestId: get().layoutRequestId + 1 })` — the bump is half of
+      // what it does, and writing only the field silently dropped it. Complete
+      // manifest, contrast-controlled: this was the ONLY raw `pendingLayout:
+      // true` in `src/` outside the setter's own body, against 7 producers that
+      // use the setter.
+      //
+      // The bump is what INVALIDATES A LAYOUT ALREADY IN FLIGHT. Without it,
+      // `applyLayout`'s post-await commit guard (`isCurrentGen()`) still passes
+      // — its generation never moved — so a layout that started BEFORE this
+      // hydration commits its stale snapshot over the graph we just merged.
+      // Measured: hold a layout open across the hydration and the final state
+      // is `nodeCount: 0, layoutVersion: 1` — AN EMPTY CANVAS REPORTED AS A
+      // SUCCESSFUL LAYOUT. That is the same defect class this whole branch
+      // exists to close, one line over.
+      //
+      // ⚠ NOT a separate `setPendingLayout()` call: that reintroduces exactly
+      // the intermediate frame the paragraph above exists to prevent. Read
+      // fresh at write time rather than from the `store` snapshot captured at
+      // entry, so a bump landing during the merge is not overwritten.
+      ...(hydratingEmptyCanvas
+        ? {
+            pendingLayout: true,
+            layoutRequestId: useCanvasStore.getState().layoutRequestId + 1,
+          }
+        : {}),
     })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
