@@ -398,10 +398,31 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
    * ('unknown') is an ABSENCE and explicitly "NOT a synonym for `blocked`",
    * emitted on the 12 of 22 turn exits that supply no readiness payload.
    * Widening this to any non-ready status would tell most users their model is
-   * broken. Pinned in both directions by
-   * `DecisionOverviewCard.refusalIsBlocked.spec.tsx`.
+   * broken.
+   *
+   * ⚠⚠ AND NOT `status === 'blocked'` ALONE EITHER — THAT WAS THIS FIX'S OWN
+   * FIRST VERSION AND IT WOULD HAVE FABRICATED THE INVERSE HARM. **TWO DISTINCT
+   * `status: 'blocked'` CARRIERS EXIST**, derived at the CEE bytes and recorded
+   * in `canvas/store/analysisRefusalNotice.ts:39-55`. Only one is a refusal:
+   *
+   *   REFUSAL  `buildAnalysisRefusalReadiness()` — ALWAYS carries a non-empty
+   *            `blocked_reason`.
+   *   LEGACY   `synthesiseFreshnessOnlyAnalysisReady()` — `status: 'blocked'`
+   *            with NO `blocked_reason`, a freshness carrier emitted on
+   *            legacy/unparseable RELOADS. It says nothing about a refusal.
+   *
+   * So the discriminator is the PRESENCE OF A NON-EMPTY `blocked_reason`, never
+   * `status` alone — the same discriminator the refusal notice uses, not a
+   * second rule invented here (Paul's standing convergence rule: name the
+   * canonical owner, do not add a parallel predicate). Keying on status alone
+   * would announce "The model has a blocking issue" on every legacy reload.
+   *
+   * Both directions pinned by `DecisionOverviewCard.refusalIsBlocked.spec.tsx`,
+   * including the legacy carrier as its own case.
    */
-  const isBlocked = hasBlockerCritique || analysisReady?.status === 'blocked'
+  const isBlocked =
+    hasBlockerCritique ||
+    (analysisReady?.status === 'blocked' && (analysisReady.blocked_reason ?? '').trim().length > 0)
 
   // UI-SEM-079: framing-quality derivation.
   //

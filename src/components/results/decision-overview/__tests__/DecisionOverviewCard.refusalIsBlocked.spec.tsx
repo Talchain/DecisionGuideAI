@@ -121,6 +121,19 @@ describe('Decision overview: a refusal reads as blocked, not as the user owing i
     expect(bar, 'an ABSENCE is not a verdict — it must never render as blocked').not.toMatch(BLOCKED_LINE)
   })
 
+  it('THE SECOND CARRIER: a legacy freshness payload must not fabricate a blocking issue', () => {
+    // ⚠ THIS CAUGHT THIS FIX'S OWN FIRST VERSION. Two distinct `status:
+    // 'blocked'` carriers exist (`analysisRefusalNotice.ts:39-55`, derived at
+    // the CEE bytes): the REFUSAL always carries a non-empty `blocked_reason`;
+    // `synthesiseFreshnessOnlyAnalysisReady()` carries `status: 'blocked'` with
+    // NONE, on legacy/unparseable RELOADS, and says nothing about a refusal.
+    // Keying on status alone announced "The model has a blocking issue" on
+    // every one of those reloads — the exact inverse harm this spec exists to
+    // prevent, introduced by the fix for the first one.
+    const bar = mount({ status: 'blocked', goal_node_id: '', options: [], bias_findings: [] })
+    expect(bar, 'a freshness carrier with no blocked_reason is not a refusal').not.toMatch(BLOCKED_LINE)
+  })
+
   it('no CEE assessment at all stays in the quiet no-claim state', () => {
     expect(mount(null)).toMatch(UNASSESSED_LINE)
   })
@@ -141,7 +154,15 @@ describe('Decision overview: a refusal reads as blocked, not as the user owing i
     ).toEqual([...ANALYSIS_READY_STATUSES].sort())
 
     for (const status of ANALYSIS_READY_STATUSES) {
-      const bar = mount({ status, options: [{ id: 'o1' }], goal_node_id: 'g1' })
+      // A real refusal always carries a non-empty `blocked_reason` — that is
+      // the discriminator, not the status. The legacy carrier that does NOT is
+      // its own case below.
+      const bar = mount({
+        status,
+        options: [{ id: 'o1' }],
+        goal_node_id: 'g1',
+        ...(status === 'blocked' ? { blocked_reason: 'validation_failed' } : {}),
+      })
       const want = EXPECTED[status]
       expect(bar.match(BLOCKED_LINE) !== null, `status '${status}' -> blocked?`).toBe(want === 'blocked')
       expect(bar.match(NEEDS_INPUT_LINE) !== null, `status '${status}' -> needs_input?`).toBe(want === 'needs_input')
