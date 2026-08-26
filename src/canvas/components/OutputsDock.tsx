@@ -1228,7 +1228,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
   // The producer's sentences BEHIND that tooltip, from the same filter the gate
   // decided on (`actionableBlockers`), so the footer can render them one per
-  // line instead of ~1,425 characters joined into a single meta paragraph.
+  // line instead of the join is UNBOUNDED and nothing truncates it.
   //
   // ⚠ NOT ASSUMED TO MATCH. `runBlockedTooltip` is `blockingReasons[0]`, which
   // is not necessarily this composition — another blocker can come first.

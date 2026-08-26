@@ -2,7 +2,7 @@
  * THE FOOTER RENDERS THE PRODUCER'S SENTENCES ONE PER LINE.
  *
  * Every blocker CEE names arrived joined by spaces into one `panelMeta` line —
- * ten of them is ~1,425 characters of unbroken small text. Nothing is truncated
+ * the join is UNBOUNDED and nothing truncates it. Nothing is truncated
  * or summarised: the SAME bytes render one per line.
  *
  * ⚠ THE ONE-BLOCKER TWIN IS PART OF THE CONTRACT. A list of one renders a

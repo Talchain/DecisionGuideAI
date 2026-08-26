@@ -3,7 +3,7 @@
  *
  * `composeAnalysisBlockedReason` joined every producer sentence with a space
  * into ONE string, rendered in a `panelMeta` line and a `title` attribute. On a
- * ten-blocker graph that is ~1,425 characters in a single meta paragraph.
+ * the join is UNBOUNDED and nothing truncates it.
  *
  * ⛔ THE FIX IS NOT TRUNCATION. The no-truncation contract
  * (`composeBlockedReason.ts`) exists so we never attribute our words to the

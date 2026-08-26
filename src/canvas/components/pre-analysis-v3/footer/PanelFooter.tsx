@@ -107,7 +107,7 @@ export const PanelFooter = memo(function PanelFooter({
         </p>
         {/* THE PRODUCER'S SENTENCES ARE A LIST, NOT A PARAGRAPH. Every blocker
             CEE names arrived here joined by spaces into one `panelMeta` line —
-            ten of them is ~1,425 characters of unbroken small text. Nothing is
+            the join is UNBOUNDED and nothing truncates it. Nothing is
             truncated or summarised (the contract forbids both, so we never put
             our words in the producer's mouth); the SAME bytes render one per
             line, and `display.subline` stays their exact join for the tooltip.

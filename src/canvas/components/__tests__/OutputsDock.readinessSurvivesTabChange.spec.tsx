@@ -429,7 +429,17 @@ describe('the witnessed defect — following the advice removes the control', ()
     render(<Wrapper><OutputsDock /></Wrapper>)
 
     await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
-    expectFooterCarriesEveryProducerSentence(screen.getByTestId('pre-analysis-v3-footer'))
+    const beforeFooter = screen.getByTestId('pre-analysis-v3-footer')
+    expectFooterCarriesEveryProducerSentence(beforeFooter)
+    // ⛔ READ THE DOM, NOT THE FIXTURE. An earlier version asserted
+    // `reason === WITNESSED_SENTENCES.join(' ')` — but
+    // `composeAnalysisBlockedReason` IS `analysisBlockedSentences(b).join(' ')`,
+    // so BOTH SIDES were fixture constants and the footer was never read. It
+    // passed with NO producer at all, and a wrong-ORDER render left it green.
+    const renderedSentences = Array.from(beforeFooter.querySelectorAll('li')).map(
+      li => li.textContent ?? '',
+    )
+    expect(renderedSentences.length).toBeGreaterThan(1)
 
     clickOlumiTab()
     expect(olumiIsFronted()).toBe(true)
@@ -451,7 +461,7 @@ describe('the witnessed defect — following the advice removes the control', ()
     // the join of exactly the sentences the Analysis surface was showing, in
     // that order. That is a stronger claim than substring-containment, because
     // it pins the SET and the ORDER rather than mere presence.
-    expect(reason).toBe(WITNESSED_SENTENCES.join(' '))
+    expect(reason).toBe(renderedSentences.join(' '))
 
     // …and a run control the user can see the state of, still honest.
     const barAnalyse = screen.getByTestId('analysis-readiness-bar-analyse')
