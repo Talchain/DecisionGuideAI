@@ -43,7 +43,10 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   onAutoArrange,
 }: CanvasViewportControlsProps) {
   const zoom = useStore(s => s.transform[2])
-  const zoomPct = `${Math.round(zoom * 100)}%`
+  // The face shows the number; the unit rides the tooltip and the accessible
+  // name (see `.readout` — "400%" does not fit the shared circle legibly).
+  const zoomWhole = String(Math.round(zoom * 100))
+  const zoomPct = `${zoomWhole}%`
 
   // D4: comfortable/compact density is derived from the persisted tier spacing.
   const layerSpacing = useLayoutStore(s => s.layerSpacing)
@@ -61,15 +64,17 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
       <div className={styles.group}>
         {/* Zoom read-out — click resets to 100%. Leads the group rather than
             sitting between the two zoom buttons: it is a state display you can
-            act on, not a third step in a -/+ sequence. */}
+            act on, not a third step in a -/+ sequence. It wears the shared
+            circle for the same reason — it is a control, and a bare number
+            was the one thing here that did not look like one. */}
         <Tooltip content="Reset to 100%">
           <button
             type="button"
-            className={`${styles.textButton} text-xs text-text-light hover:text-text-body hover:underline`}
+            className={styles.readout}
             aria-label={`Zoom level ${zoomPct}. Click to reset to 100%`}
             onClick={onZoomReset}
           >
-            {zoomPct}
+            {zoomWhole}
           </button>
         </Tooltip>
 
