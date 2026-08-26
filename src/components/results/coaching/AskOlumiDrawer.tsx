@@ -37,7 +37,12 @@ export function AskOlumiDrawer() {
   const isOpen = useAskOlumiStore((s) => s.isOpen)
   const context = useAskOlumiStore((s) => s.context)
   const draft = useAskOlumiStore((s) => s.draft)
-  const label = useAskOlumiStore((s) => s.label)
+  // ⚠ `label` IS NO LONGER READ HERE. It was this component's only reader, so
+  // after R4 `askOlumiStore.label` has ONE WRITER AND ZERO READERS. The field
+  // is left in place deliberately: ~10 call sites pass it, and removing it is a
+  // wide change unrelated to this fix. A write-only field has no blast radius —
+  // it is inert, not dangerous — so it is ROWED for a later tidy rather than
+  // swept up here.
   const targetId = useAskOlumiStore((s) => s.targetId)
   const parameters = useAskOlumiStore((s) => s.parameters)
   const source = useAskOlumiStore((s) => s.source)
@@ -92,7 +97,27 @@ export function AskOlumiDrawer() {
       void dispatchAction({
         action_type: 'discuss',
         parameters,
-        label,
+        // ⭐ THE SENT TEXT IS THE DISPLAY TEXT — the user authored it.
+        //
+        // This used to pass the chip's caption (`label`), so a user who was told
+        // to "replace the number with your own judgement", did so, and sent it,
+        // saw the transcript record *"Set relationship strength"*. The record
+        // dropped their own words at exactly the point the product asked them to
+        // author something, and the shared model is meant to be a living record
+        // of the team's reasoning.
+        //
+        // The discriminator lives HERE and not in `dispatchAction`, because
+        // `displayText` answers "what should the bubble show for a chip?" and a
+        // caption is the RIGHT answer for a genuine chip click where the user
+        // typed nothing. This drawer is the surface that knows the text was
+        // authored. Two questions, one name — kept apart rather than aligned.
+        //
+        // Inert for everything except display, derived at the bytes and pinned
+        // by `AskOlumiDrawer.recordsUserWords.spec.tsx`: routing never reads it
+        // on this path (the keyword scan runs only in dispatchAction's
+        // `!action_type` arm, and this always sets `action_type`), and
+        // `buildChipMeta` reads `label` zero times.
+        label: text,
         message: text,
         source,
       })
