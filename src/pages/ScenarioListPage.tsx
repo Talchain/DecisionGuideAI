@@ -115,7 +115,34 @@ function formatLastActivity(events: ScenarioEvent[] | null | undefined, updatedA
     case 'graph_drafted':
       return `Model drafted with ${details.node_count ?? '?'} factors`
     case 'brief_generated':
-      return 'Decision brief generated'
+      /*
+       * ⭐ "BRIEF", NOT "DECISION BRIEF" — AND THIS IS A TRUTHFULNESS FIX, NOT A
+       * VOCABULARY ONE.
+       *
+       * The event kind is `brief_generated`. The word "Decision" was added HERE,
+       * by this surface, to an artefact whose own name does not carry it.
+       *
+       * ⚠ AND SINCE CEE #1110 (`aa134eac`, live on deployed `c24bfe37`) IT IS
+       * SOMETIMES FALSE. That change made the runtime accept OPEN STRATEGIC
+       * CHALLENGES — a statement of a problem with no decision verb drafts a
+       * model. A user who brought one has no decision, so a card telling them
+       * their "Decision brief" is ready names something they never had. Before
+       * #1110 every scenario was a decision and this string was merely
+       * inconsistent; it is now capable of being wrong.
+       *
+       * Its own siblings already agree: this switch's `graph_drafted` and
+       * `patch_accepted` arms say "Model …", and `renderTimeline`'s neighbouring
+       * `brief_shared` says plain "Brief shared" — the same artefact, two lines
+       * apart, without the word.
+       *
+       * ⚠ SCOPE. One user-facing string on a mounted landing page. NOT a rename
+       * of the internal `decision_brief` carrier, which is the producer's name
+       * for its own payload and must keep it; and NOT `renderTimeline.ts`'s
+       * identical line, which serves the Journey surface — derived dark at this
+       * tip (`VITE_FEATURE_JOURNEY_TAB` absent from the build config, contrast:
+       * 41 other `VITE_` keys present), so changing it would be invisible work.
+       */
+      return 'Brief generated'
     case 'patch_accepted':
       return `Model updated — ${details.summary ?? 'changes applied'}`
     case 'stage_changed':
