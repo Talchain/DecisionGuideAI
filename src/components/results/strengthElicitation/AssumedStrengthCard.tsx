@@ -1,6 +1,7 @@
 /**
- * The elicitation surface: names ONE assumed relationship and routes the user to
- * the existing edge-strength editor.
+ * The elicitation surface: names ONE assumed relationship and offers to ask
+ * Olumi to set its strength. There is no user-facing edge editor to route to —
+ * see "THE ACTION ASKS OLUMI" below for why the destination changed.
  *
  * This component AUTHORS NOTHING. Every sentence comes from `assumedStrengthCopy`
  * (templated from derived facts), and the only judgement it makes is
