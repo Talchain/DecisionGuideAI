@@ -10,6 +10,7 @@
  * thin wrapper useGraphReadiness() for backward compatibility.
  */
 import { create } from 'zustand'
+import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
 import type {
@@ -846,7 +847,7 @@ async function fetchReadiness(): Promise<void> {
         improvements: Array.isArray(data.improvements)
           ? data.improvements.map((imp: any): GraphImprovement => ({
               category: imp.category || 'general',
-              action: imp.action || imp.recommendation || 'Review this area',
+              action: imp.action || imp.recommendation || IMPROVEMENT_ACTION_PLACEHOLDER,
               current_gap: imp.current_gap || '',
               quality_impact:
                 typeof imp.quality_impact === 'number'

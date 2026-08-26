@@ -37,6 +37,7 @@
 import type { AnalysisBlocker } from '@talchain/schemas/boundary'
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
+import { IMPROVEMENT_ACTION_PLACEHOLDER } from './improvementActionPlaceholder'
 import {
   containsBannedTerm,
   safeInterpolatedLabel,
@@ -382,6 +383,55 @@ function promiseIsLicensed(readiness: GraphReadiness | null | undefined): boolea
  * hand-remembered argument is the trap-12 mirror; a derived guard on top of a
  * safe default is not.
  */
+/**
+ * The producer's own repair guidance from the GRAPH-readiness verdict, ready to
+ * render — or `null` when it cannot ship as written.
+ *
+ * ⚠ WHY THIS EXISTS. The panel has two authorities. When the ANALYSIS authority
+ * is present, `composeAnalysisBlockedReason` names the producer's blockers and
+ * the user is told exactly what is missing. When it is ABSENT, the footer falls
+ * to this composer — which read `options_ready`, `goal_node_valid` and
+ * `options_total`, and if none of those rungs matched, said "Olumi needs
+ * something more from this model … ask in the chat and it will explain what is
+ * missing".
+ *
+ * ⭐ It was holding the answer while it said that. `GraphReadiness.improvements`
+ * carries the producer's own `action` strings — "Choose the missing effect value
+ * for X on Y" — and nothing in this module ever read them. The panel discarded
+ * named, structured, user-readable remedies and sent the user elsewhere for
+ * them. Witnessed mounted with three such actions in the payload.
+ *
+ * ⚠ DELIBERATELY THE SAME SHAPE AS `producerAuthoredReason`, NOT A SECOND RULE.
+ * Same degrade-to-null on any unusable entry, same de-duplication, same join,
+ * and the SAME vet: `isSafeCeeText`, never `guardCeeText`. That choice is not
+ * stylistic — the sibling's header records it measured: the substituting guard
+ * rewrites a user's own quoted option label into one that exists on no canvas
+ * ("Move billing to edge computing" -> "… to connection computing"). Producer
+ * prose is VETTED here and rewritten nowhere.
+ *
+ * ⚠ AND IT NAMES ALL OF THEM. Truncating to the first would understate the work
+ * outstanding by exactly the number withheld — the defect this module's A2 rung
+ * already forbids for counts.
+ */
+function producerAuthoredImprovement(
+  readiness: GraphReadiness | null | undefined,
+): string | null {
+  const improvements = readiness?.improvements
+  if (!Array.isArray(improvements) || improvements.length === 0) return null
+
+  // The ONLY rule specific to this authority: the STORE FABRICATES on this
+  // field. An improvement that arrived with neither `action` nor
+  // `recommendation` is mapped to a synthesised line so the improvements LIST
+  // still renders a row — non-empty, and therefore not caught by the shared
+  // emptiness degrade. Mapped to `undefined` so the shared body degrades the
+  // WHOLE sentence, which is what a fabricated entry deserves.
+  return composeProducerAuthoredSentences(
+    improvements.map(improvement =>
+      improvement?.action === IMPROVEMENT_ACTION_PLACEHOLDER ? undefined : improvement?.action,
+    ),
+  )
+}
+
 export function composeReadinessBlockedReason(
   readiness: GraphReadiness | null | undefined,
   optionsNeedingValues: readonly OptionNeedingValues[] = [],
@@ -423,7 +473,20 @@ export function composeReadinessBlockedReason(
     // after a failed cross-check would be a specific numeric claim built on
     // evidence this function had, in the line above, declared stale.
     const count = verdictNotReadyCount(readiness) ?? (trustNames ? optionsNeedingValues.length : 0)
-    if (count <= 0) return BLOCKED_REASON_COPY.unspecified
+    if (count <= 0) {
+      // ⚠ THE SECOND PATH TO `unspecified`, AND IT USED TO SKIP THE PRODUCER.
+      // Reaching here means the client's option list and the verdict's own
+      // arithmetic DISAGREE (`optionsNeedingValues` non-empty, verdict count
+      // zero) — the two come from different stores, which is the skew
+      // `verifyAgainstVerdict` exists for. Returning the non-committal rung is
+      // the right answer to the DISAGREEMENT, but it was also discarding the
+      // producer's own repair actions, which are carried on the SAME readiness
+      // object as the count and are therefore consistent with it. Naming them is
+      // a LESS SPECIFIC TRUE claim from the same authority, which is this
+      // module's standing rule; `unspecified` remains the floor.
+      const authoredAtSkew = producerAuthoredImprovement(readiness)
+      return authoredAtSkew ?? BLOCKED_REASON_COPY.unspecified
+    }
     return BLOCKED_REASON_COPY.manyOptions(count, canRunAfter)
   }
 
@@ -436,7 +499,21 @@ export function composeReadinessBlockedReason(
     return BLOCKED_REASON_COPY.tooFewOptions
   }
 
-  // 4. Nothing specific enough to name. Say exactly that, and nothing more.
+  // 4. Nothing the STRUCTURED fields can name — but the verdict may still carry
+  //    the producer's own repair guidance, and until now this rung discarded it.
+  //
+  //    Ordered last on purpose: the rungs above compose OUR sentence from the
+  //    verdict's typed fields and are preferred where they match, because they
+  //    are the ones this module can guarantee. This is the step before giving
+  //    up, not a new preference over them.
+  //
+  //    ⚠ It cannot outrank the stale short-circuit either: that returns at the
+  //    top of this function, so a stale verdict's improvements — which describe
+  //    a graph the user has already changed — never reach here.
+  const authoredImprovement = producerAuthoredImprovement(readiness)
+  if (authoredImprovement !== null) return authoredImprovement
+
+  // 5. Now there is genuinely nothing specific to name. Say exactly that.
   return BLOCKED_REASON_COPY.unspecified
 }
 
@@ -500,20 +577,52 @@ export function composeReadinessBlockedReason(
  * altered, and repeating one verbatim conveys nothing the first rendering did
  * not while reading as a defect.
  */
-function producerAuthoredReason(blockers: readonly AnalysisBlocker[]): string | null {
+/**
+ * ⭐ THE ONE COMPOSER for producer-authored refusal prose. Both authorities —
+ * `analysisReadiness.blockers[].message` and `graph-readiness
+ * improvements[].action` — are the same rule over a different field, so they are
+ * the same BODY over a mapped field rather than two implementations that happen
+ * to agree today.
+ *
+ * ⚠ THEY WERE TWO, AND THE COPY HAD ALREADY LOST A GUARD. The improvement path
+ * was written as "deliberately the same shape, not a second rule" — which is the
+ * sentence that lets a mirror ship. Measured: deleting `isSafeCeeText` from the
+ * improvement path ONLY survived all 359 tests, and under that mutant
+ * `'Add an edge from "Pilot" to "Cash Burn Rate".'` reaches the render seam raw,
+ * where `guardCeeText` rewrites it to
+ * `'Add an connection from "Pilot" to "Cash Burn Rate".'` — the exact corruption
+ * this module's own header exists to record. One body cannot drift from itself.
+ *
+ * The rule, in one place:
+ *  · DEGRADE WHOLE — one unusable entry degrades the entire sentence rather than
+ *    publishing a partial list that reads as complete. A type is not a runtime
+ *    guarantee, and these values arrive over a network.
+ *  · DE-DUPLICATE — an exactly-repeated sentence is rendered once.
+ *  · VET THE JOIN, NOT THE PARTS — a phrase can be formed ACROSS the seam
+ *    between two individually-safe sentences, so the vetted string is the one
+ *    that ships.
+ *  · INVENT NOTHING — the return value is the producer's own text and nothing
+ *    else. No prefix, no framing, no connective of ours.
+ */
+function composeProducerAuthoredSentences(
+  values: readonly (string | undefined)[],
+): string | null {
   const sentences: string[] = []
-  for (const blocker of blockers) {
-    // The TYPE says `string` and the schema says `.min(1)`, but this function is
-    // exported and total: a type is not a runtime guarantee. An unusable message
-    // is a DEGRADE, never a synthesised stand-in for what the producer meant.
-    const message = typeof blocker.message === 'string' ? blocker.message.trim() : ''
-    if (message.length === 0) return null
-    if (!sentences.includes(message)) sentences.push(message)
+  for (const value of values) {
+    const text = typeof value === 'string' ? value.trim() : ''
+    if (text.length === 0) return null
+    if (!sentences.includes(text)) sentences.push(text)
   }
   if (sentences.length === 0) return null
 
   const joined = sentences.join(' ')
   return isSafeCeeText(joined) ? joined : null
+}
+
+function producerAuthoredReason(blockers: readonly AnalysisBlocker[]): string | null {
+  // The TYPE says `string` and the schema says `.min(1)`; the shared body still
+  // re-checks at runtime, because a type is not a runtime guarantee here.
+  return composeProducerAuthoredSentences(blockers.map(blocker => blocker.message))
 }
 
 /**
