@@ -369,17 +369,56 @@ export function DecisionOverviewCard({ title, stateOverride }: DecisionOverviewC
     return items.reduce((best, i) => (compareGuidanceDisplayOrder(i, best) < 0 ? i : best), items[0])
   })
 
-  // UI-SEM-079: framing-quality derivation. Only ready / needs-input arrive
-  // from the wire (analysis_ready.status); the two non-ready qualities are
-  // derived from the honest signals that exist today: a blocker-severity
-  // engine critique -> blocked (danger; "resolve before relying on the
-  // read"), a missing success measure -> thin (warning; the one
-  // clarification is named, never the prototype's broader claim). With NO
-  // CEE assessment the card stays in the quiet no-claim unassessed state.
-  // Remove when CEE/PLoT provide a producer framing_quality signal.
+  /**
+   * BLOCKED IS A CONCLUSION WITH TWO INDEPENDENT REASONS, AND IT USED TO READ
+   * ONLY ONE OF THEM.
+   *
+   * `hasBlockerCritique` is named for its CARRIER (`graphHealth.issues`) and
+   * was used directly in the ladder as if it answered the CONCLUSION "is this
+   * blocked?". It does not. It answers "does the local engine critique hold a
+   * blocker-severity issue?" — which is one reason to be blocked, not the set
+   * of them.
+   *
+   * ⚠ THE ONE IT MISSED WAS A CEE REFUSAL. `analysis_ready.status: 'blocked'`
+   * means the producer refused — "a validation failure prevents analysis",
+   * carrying `blocked_reason`, and reachable WITH POPULATED OPTIONS
+   * (`adapters/cee/types.ts:443-455`), so it arrives NON-NULL. It therefore
+   * missed `!analysisReady`, missed the critique carrier, and fell to
+   * `status !== 'ready'` — answering the product's own refusal with
+   * "Olumi needs a little more from you". False, and actionable-sounding.
+   * `blocked` is also the only state exempt from post-analysis auto-collapse,
+   * so the refusal was mis-attributed AND folded away.
+   *
+   * Both carriers are INDEPENDENTLY SUFFICIENT, so this is a missing disjunct,
+   * not two authorities to reconcile — reading either one alone drops real
+   * blocked cases. Naming the conclusion apart from its evidence is what stops
+   * the next reason being added to a carrier-named variable and disappearing.
+   *
+   * ⚠ NOT `status !== 'ready'`, deliberately: `ANALYSIS_READY_STATUS_UNSUPPLIED`
+   * ('unknown') is an ABSENCE and explicitly "NOT a synonym for `blocked`",
+   * emitted on the 12 of 22 turn exits that supply no readiness payload.
+   * Widening this to any non-ready status would tell most users their model is
+   * broken. Pinned in both directions by
+   * `DecisionOverviewCard.refusalIsBlocked.spec.tsx`.
+   */
+  const isBlocked = hasBlockerCritique || analysisReady?.status === 'blocked'
+
+  // UI-SEM-079: framing-quality derivation.
+  //
+  // ⚠ THIS COMMENT USED TO OPEN "Only ready / needs-input arrive from the wire
+  // (analysis_ready.status)". That was TRUE WHEN WRITTEN and became false when
+  // `'blocked'` joined `ANALYSIS_READY_STATUSES` — and because it sat directly
+  // above the ladder, it is the sentence that made the refusal case look
+  // already handled. Corrected rather than deleted: the stale reassurance is
+  // the more instructive half of the defect.
+  //
+  // Today: `ready`, the three `needs_*` variants and `blocked` all arrive from
+  // the wire; `thin` is still derived here (a missing success measure), and
+  // with NO CEE assessment the card stays in the quiet no-claim unassessed
+  // state. Remove when CEE/PLoT provide a producer framing_quality signal.
   const liveState: BriefState = !analysisReady
     ? 'unassessed'
-    : hasBlockerCritique
+    : isBlocked
       ? 'blocked'
       : analysisReady.status !== 'ready'
         ? 'needs_input'
