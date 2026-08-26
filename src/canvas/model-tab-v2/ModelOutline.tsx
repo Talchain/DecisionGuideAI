@@ -224,58 +224,62 @@ function unsetSummary(rows: readonly ModelRow[]): string | null {
   // Read from the SHARED predicate (`factorIsConfirmable`, surfaced as this
   // attention reason) — never a second local answer to "has Olumi estimated
   // this?", which is how the confirm chip went wrong.
-  const estimated = unset.filter(
-    r => Array.isArray(r.attention) && r.attention.includes('unconfirmed-estimate'),
-  ).length
 
-  // ⛔ AUTHORSHIP IS A THIRD QUESTION, AND THE COUNT CANNOT ANSWER IT.
+  // ⛔⛔ NO UMBRELLA CLAIM — THE FOURTH ATTEMPT, AND THE FIRST THAT IS NOT AN
+  // ADJECTIVE. Three previous heads each characterised the whole `unset`
+  // population, and each was FALSE for a class the corpus behind it excluded:
   //
-  // The first cut of this said "not set by your team", attributing the whole
-  // `unset` population to authorship. `unset` is `raw_value === undefined`, and
-  // that does NOT imply the team did not set the value. Measured end-to-end on
-  // a real edit: `buildFactorValueEditEvent` attaches `raw_value` only
-  // `if (inUserUnits)`, which is false for a factor carrying `value` with no
-  // `raw_value` — so typing 0.8 into such a factor persists
-  // `{value: 0.8, source: 'user'}` and the row comes back
-  // `{primaryValue: null, provenanceSource: 'user'}`.
+  //   "have no value yet"        FALSE for a band  (cell shows "Olumi: 0.25 to 0.75")
+  //   "not set by your team"     FALSE for a user-set factor with no `raw_value`
+  //                              (measured: typing 0.8 persists {value, source:'user'})
+  //   "without a figure"         FALSE for a numeric estimate — `estimateText` is
+  //                              CEE's `display_value` with only an EMPTINESS check,
+  //                              and the estate's fixtures carry '£20,000' (11×),
+  //                              '£30k', '£49', '3 months', '20%', '0.7'. A row can
+  //                              render "Olumi: £20,000" under a heading calling it
+  //                              figureless.
   //
-  // The heading therefore told the user that the factor they had JUST TYPED was
-  // not set by them — an untruth directly contradicting the action the surface
-  // exists to invite. Not a regression (the old string was false for that class
-  // too) but a more specific one.
+  // ⚠ THE POPULATION IS HETEROGENEOUS, SO NO ADJECTIVE CAN BE TRUE OF IT. Three
+  // rounds is past the point where one more wording is a fix rather than the
+  // next refutation, so this states the COMPOSITION instead of characterising it:
+  // three DISJOINT buckets, each clause independently true, and nothing asserted
+  // about the whole.
   //
-  // So authorship is DERIVED from the shared taxonomy rather than asserted, and
-  // it is a THIRD independently-owned axis: `unset` keeps `getPrimaryValue`, the
-  // estimate clause keeps `factorIsConfirmable`, and this reads
-  // `classifyValueProvenance().userOwned`. Three questions, three predicates,
-  // none aligned (`valueProvenance.ts:389` — "named apart on purpose").
+  // ⚠ AND THE BUCKETS READ WHAT THE CELL READS. "Olumi has something here" is
+  // answered by `estimateText` — the very field `ModelRowView` renders — NOT by a
+  // second predicate over the same question. `factorIsConfirmable` answers a
+  // different one ("is there a value to RATIFY?"), which is why a band satisfies
+  // this and not that. The heading's job is to be consistent with the cell beside
+  // it, so it reads the cell's own field.
   const yours = unset.filter(
     r => classifyValueProvenance(r.provenanceSource)?.userOwned === true,
   ).length
+  // ⚠ TWO FACTS, ONE QUESTION — NOT TWO PREDICATES OVER IT. Olumi can have
+  // something here in two independently-owned ways, and a row may carry either
+  // without the other:
+  //   · `estimateText`         — CEE sent display text, and the CELL RENDERS IT.
+  //   · `unconfirmed-estimate` — `factorIsConfirmable`: a numeric value to
+  //                              RATIFY, which a band does not satisfy and a
+  //                              text-less numeric estimate does.
+  // Bucketing on only the first calls a ratifiable estimate "no value yet";
+  // only the second calls a band that. Neither fact is re-derived here — both
+  // are read from their existing owners, and their union is the one question
+  // this clause asks.
+  const fromOlumi = unset.filter(
+    r =>
+      classifyValueProvenance(r.provenanceSource)?.userOwned !== true &&
+      (r.estimateText !== undefined ||
+        (Array.isArray(r.attention) && r.attention.includes('unconfirmed-estimate'))),
+  ).length
+  const nothing = unset.length - yours - fromOlumi
 
-  // ⭐ "WITHOUT A FIGURE" — and this head is what makes the sentence true beside
-  // the value cell rather than in spite of it.
-  //
-  // `raw_value` is the value in the USER'S OWN UNITS — a figure. The old head,
-  // "have no value yet", was false in two directions at once: a factor Olumi had
-  // estimated HAS a value, and a factor carrying a producer BAND
-  // ("0.25 to 0.75") has one too. Since the row cell now renders that band
-  // verbatim ("Olumi: 0.25 to 0.75"), "have no value yet" would sit directly
-  // above a visible value — the exact untruth this function's own header exists
-  // to abolish, re-created one element up.
-  //
-  // A band is not a figure. A normalised level on a frame is not a figure
-  // either. "Without a figure" is true of every member of `unset`, so the
-  // heading and the cell can both be right at once — and it needs NO second
-  // answer to "has Olumi estimated this?", which would have been a fourth
-  // predicate over the same question.
-  const head = `${unset.length} of ${rows.length} without a figure`
   const clauses = [
-    estimated > 0 ? `Olumi estimated ${estimated}` : null,
+    nothing > 0 ? `${nothing} with no value yet` : null,
+    fromOlumi > 0 ? `${fromOlumi} estimated by Olumi` : null,
     yours > 0 ? `you set ${yours}` : null,
   ].filter((c): c is string => c !== null)
 
-  return clauses.length === 0 ? head : `${head} · ${clauses.join(' · ')}`
+  return clauses.join(' · ')
 }
 
 export function ModelOutline({

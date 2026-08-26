@@ -92,6 +92,16 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
    * they had just typed was not theirs. The head is now "without a figure" for
    * EVERY case, so this string changes here too.
    *
+   * ⛔⛔ AND A THIRD TIME, WHICH IS THE POINT AT WHICH THE APPROACH CHANGED.
+   * "Without a figure" was itself refuted: `estimateText` is CEE's
+   * `display_value` gated only on emptiness, and the estate's fixtures carry
+   * '£20,000' (11×), '£30k', '3 months', '20%'. A row can render
+   * "Olumi: £20,000" beneath a heading calling it figureless.
+   *
+   * Three heads, three classes each corpus excluded. The population is
+   * HETEROGENEOUS, so no adjective is true of it — the summary now states its
+   * COMPOSITION in disjoint buckets and asserts nothing about the whole.
+   *
    * Rewritten rather than deleted: what this case guards — that the heading
    * counts and states the unset population at all — is unchanged and still worth
    * pinning. Only the expected wording moved.
@@ -101,7 +111,7 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     // Bound by identity to the FACTORS group's own summary node, not by
     // searching the document for a number another group could also render.
     const summary = screen.getByTestId('model-group-v2-factors-unknown-summary')
-    expect(summary).toHaveTextContent('3 of 4 without a figure')
+    expect(summary).toHaveTextContent('3 with no value yet')
   })
 
   it('a row that is NOT EDITABLE AT ALL prints nothing either', () => {
@@ -159,6 +169,6 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     const outline = screen.getByTestId('model-outline-v2')
     expect(
       within(outline).getByTestId('model-group-v2-factors-unknown-summary'),
-    ).toHaveTextContent('3 of 4 without a figure')
+    ).toHaveTextContent('3 with no value yet')
   })
 })

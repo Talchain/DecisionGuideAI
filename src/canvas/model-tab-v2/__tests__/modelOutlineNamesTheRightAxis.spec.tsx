@@ -78,24 +78,28 @@ describe('the group heading names the axis it counts', () => {
     const out = summaryText([setRow('a'), estimatedRow('b'), setRow('c'), emptyRow('d')])
     expect(out).not.toContain('have no value yet')
     // Exact: the sentence is the whole claim, so containment would miss anything ADDED.
-    expect(out).toBe('2 of 4 without a figure · Olumi estimated 1')
+    expect(out).toBe('1 with no value yet · 1 estimated by Olumi')
   })
 
   it('still says "no value yet" when NOTHING has been estimated — the honest case is preserved', () => {
     const out = summaryText([setRow('a'), emptyRow('b'), emptyRow('c')])
-    expect(out).toBe('2 of 3 without a figure')
+    expect(out).toBe('2 with no value yet')
   })
 
   it('counts every estimate, not just the first', () => {
     const out = summaryText([estimatedRow('a'), estimatedRow('b'), emptyRow('c')])
-    expect(out).toBe('3 of 3 without a figure · Olumi estimated 2')
+    expect(out).toBe('1 with no value yet · 2 estimated by Olumi')
   })
 
   it('THE COUNT IS UNCHANGED — this fix is the sentence, never the arithmetic', () => {
     // The measured shape: 2 of 4 unset. If a later edit "fixes" the count by
     // folding in estimates, this REDs — which is the whole point of the split.
     const out = summaryText([setRow('a'), estimatedRow('b'), setRow('c'), emptyRow('d')])
-    expect(out).toMatch(/^2 of 4 /)
+    // The COUNT is now expressed as a disjoint decomposition, so the guard is
+    // that the buckets still SUM to the unset population — folding estimates
+    // into `unset` would change that total.
+    const nums = [...(out ?? '').matchAll(/(\d+)/g)].map(m => Number(m[1]))
+    expect(nums.reduce((a, b) => a + b, 0)).toBe(2)
   })
 
   /*
@@ -209,7 +213,75 @@ describe('the group heading names the axis it counts', () => {
     expect(cell).toBe('Olumi: 0.25 to 0.75')
     // … and the heading above it does not deny that a value exists.
     expect(heading).not.toMatch(/no value/i)
-    expect(heading).toContain('without a figure')
+    expect(heading).toBe('1 estimated by Olumi')
+  })
+
+  /*
+   * ⛔⛔ THE THIRD REFUTED HEAD, AND WHY THERE IS NO LONGER A HEAD.
+   *
+   * `estimateText` is CEE's `display_value` through `readFactorDisplayValue`,
+   * gated only on EMPTINESS — it is NOT restricted to bands and qualitative
+   * text. The estate's own fixtures carry '£20,000' (11 occurrences), '£30k',
+   * '£49', '3 months', '20%', '0.7'. So "without a figure" was false the moment
+   * a row rendered "Olumi: £20,000" beneath it.
+   *
+   * Three heads, three classes each corpus excluded. The population is
+   * HETEROGENEOUS, so no adjective can be true of it — which is why this states
+   * the composition rather than characterising it.
+   */
+  it('⛔ a NUMERIC estimate is never called figureless — the third refutation, pinned', () => {
+    const numeric = row({
+      id: 'n',
+      label: 'Annual CRM Licence Cost',
+      primaryValue: null,
+      attention: ['no-value'],
+      estimateText: '£20,000',
+    })
+    const out = summaryText([numeric])
+    expect(out).not.toMatch(/without a figure/i)
+    expect(out).not.toMatch(/no value/i)
+    expect(out).toBe('1 estimated by Olumi')
+  })
+
+  /*
+   * ⚠ THE OVERLAP CASE, ADDED AFTER A MUTANT SURVIVED. The first disjointness
+   * test used three rows that each satisfied exactly ONE bucket condition, so
+   * removing the `userOwned !== true` exclusion from Olumi's bucket — which
+   * makes the buckets overlap — changed nothing and passed. A disjointness test
+   * whose fixture cannot produce an overlap asserts nothing about disjointness.
+   *
+   * This row is BOTH user-owned AND carries `estimateText`, which is a real
+   * shape: a user can set a value on a factor CEE has also sent display text
+   * for. It must be counted ONCE, as theirs.
+   */
+  it('DISJOINT — a row that satisfies TWO conditions is counted once, as the user\'s', () => {
+    const both = row({
+      id: 'both',
+      label: 'User set, Olumi also has text',
+      primaryValue: null,
+      attention: ['no-value', 'unconfirmed-estimate'],
+      provenanceSource: 'user',
+      estimateText: '£20,000',
+    })
+    const out = summaryText([both, emptyRow('x')])
+    expect(out).toBe('1 with no value yet · you set 1')
+    // and the buckets still sum to the unset population — not 3 from 2 rows.
+    const nums = [...(out ?? '').matchAll(/(\d+)/g)].map(m => Number(m[1]))
+    expect(nums.reduce((a, b) => a + b, 0)).toBe(2)
+  })
+
+  it('DISJOINT — every unset row lands in exactly one bucket, and they sum', () => {
+    // Without this, a row could be counted twice (or dropped) and each clause
+    // would still read as true on its own.
+    const out = summaryText([
+      emptyRow('a'),
+      row({ id: 'b', primaryValue: null, attention: ['no-value'], estimateText: '£20,000' }),
+      row({ id: 'c', primaryValue: null, attention: ['no-value'], provenanceSource: 'user' }),
+      setRow('d'),
+    ])
+    const nums = [...(out ?? '').matchAll(/(\d+)/g)].map(m => Number(m[1]))
+    expect(nums.reduce((a, b) => a + b, 0)).toBe(3)
+    expect(out).toBe('1 with no value yet · 1 estimated by Olumi · you set 1')
   })
 
   it('renders NOTHING when every row is set — a group states no zero', () => {

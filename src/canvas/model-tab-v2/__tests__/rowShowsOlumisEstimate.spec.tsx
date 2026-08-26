@@ -135,8 +135,14 @@ describe('the row shows what Olumi computed for a value nobody has set', () => {
     expect(screen.getByTestId('model-row-v2-f1-value-estimate').textContent).toBe(
       `Olumi: ${RANGE}`,
     )
-    expect(screen.getByTestId('model-group-v2-factors-unknown-summary').textContent).toContain(
-      '1 of 1',
+    // ⚠ PREMISE UPDATED — and this case is why the heading changed at all.
+    // It asserted the heading's "N of M" prefix. Adjudication found this exact
+    // pairing was the cross-PR defect: the cell renders Olumi's band while the
+    // heading called the row valueless. The heading now states its composition
+    // in disjoint buckets, so it names this row as Olumi's rather than as empty
+    // — which is the consistency this case was always really about.
+    expect(screen.getByTestId('model-group-v2-factors-unknown-summary').textContent).toBe(
+      '1 estimated by Olumi',
     )
   })
 
