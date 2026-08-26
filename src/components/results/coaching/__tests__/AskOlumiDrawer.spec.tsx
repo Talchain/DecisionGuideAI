@@ -48,6 +48,19 @@ describe('AskOlumiDrawer', () => {
     expect((screen.getByTestId('ask-olumi-draft') as HTMLTextAreaElement).value).toBe('My own words')
   })
 
+  /**
+   * ⚠ THIS TEST'S PREMISE INVERTED (R4). It asserted `label: 'Review risk'`
+   * alongside `message: 'Edited ask'` — i.e. it PINNED the defect: the user
+   * authored a sentence and the transcript recorded the chip's caption instead.
+   * The assertion was a faithful description of the behaviour when it was
+   * written; the behaviour was wrong.
+   *
+   * Rewritten rather than deleted, because what it covers — that Send dispatches
+   * a conversation-typed turn, toasts and closes — is still worth pinning, and
+   * deleting a test whose expectation changed loses the coverage along with the
+   * expectation. The display-text half now asserts the corrected behaviour and
+   * is owned in full by `AskOlumiDrawer.recordsUserWords.spec.tsx`.
+   */
   it('Send dispatches a conversation-typed turn with the EDITED draft, toasts, and closes', () => {
     const dispatch = vi.fn()
     useGuidanceStore.setState({ _dispatchAction: dispatch } as never)
@@ -59,7 +72,8 @@ describe('AskOlumiDrawer', () => {
       expect.objectContaining({
         action_type: 'discuss',
         message: 'Edited ask',
-        label: 'Review risk',
+        // The user's own words, not the chip caption 'Review risk' — see R4.
+        label: 'Edited ask',
         parameters: { classification: 'risk' },
         source: 'chip',
       }),
