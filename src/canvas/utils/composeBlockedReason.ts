@@ -604,9 +604,9 @@ export function composeReadinessBlockedReason(
  *  · INVENT NOTHING — the return value is the producer's own text and nothing
  *    else. No prefix, no framing, no connective of ours.
  */
-function composeProducerAuthoredSentences(
+function composeProducerAuthoredSentenceList(
   values: readonly (string | undefined)[],
-): string | null {
+): readonly string[] | null {
   const sentences: string[] = []
   for (const value of values) {
     const text = typeof value === 'string' ? value.trim() : ''
@@ -615,14 +615,28 @@ function composeProducerAuthoredSentences(
   }
   if (sentences.length === 0) return null
 
+  // STILL VET THE JOIN, even though the LIST is what ships to the panel. A
+  // phrase can form across the seam between two individually-safe sentences,
+  // so the join remains the vetted string and a rejection withholds the WHOLE
+  // list — never a subset. Rendering the parts is strictly safer than
+  // rendering the join: the cross-seam adjacency never reaches the reader.
   const joined = sentences.join(' ')
-  return isSafeCeeText(joined) ? joined : null
+  return isSafeCeeText(joined) ? sentences : null
 }
 
-function producerAuthoredReason(blockers: readonly AnalysisBlocker[]): string | null {
+/** The joined form. Derived from the list, so the two cannot disagree. */
+function composeProducerAuthoredSentences(
+  values: readonly (string | undefined)[],
+): string | null {
+  return composeProducerAuthoredSentenceList(values)?.join(' ') ?? null
+}
+
+function producerAuthoredSentences(
+  blockers: readonly AnalysisBlocker[],
+): readonly string[] | null {
   // The TYPE says `string` and the schema says `.min(1)`; the shared body still
   // re-checks at runtime, because a type is not a runtime guarantee here.
-  return composeProducerAuthoredSentences(blockers.map(blocker => blocker.message))
+  return composeProducerAuthoredSentenceList(blockers.map(blocker => blocker.message))
 }
 
 /**
@@ -645,12 +659,12 @@ function producerAuthoredReason(blockers: readonly AnalysisBlocker[]): string | 
  * only when those sentences cannot ship as written. See `producerAuthoredReason`
  * for the vet, and the rung docs above for why the old order was a defect.
  */
-export function composeAnalysisBlockedReason(
+export function analysisBlockedSentences(
   blockers: readonly AnalysisBlocker[],
-): string {
-  if (blockers.length === 0) return BLOCKED_REASON_COPY.unspecified
+): readonly string[] {
+  if (blockers.length === 0) return [BLOCKED_REASON_COPY.unspecified]
 
-  const authored = producerAuthoredReason(blockers)
+  const authored = producerAuthoredSentences(blockers)
   if (authored !== null) return authored
 
   // `option_label` and `factor_label` are the two scopes the contract carries.
@@ -663,16 +677,32 @@ export function composeAnalysisBlockedReason(
     .filter((label): label is string => label !== null)
 
   if (blockers.length === 1 && labelled.length === 1) {
-    return BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])
+    return [BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])]
   }
   if (blockers.length === 2 && labelled.length === 2) {
-    return BLOCKED_REASON_COPY.canonicalTwoBlockers(labelled[0], labelled[1])
+    return [BLOCKED_REASON_COPY.canonicalTwoBlockers(labelled[0], labelled[1])]
   }
   // A2's rule, inherited: the count published is the VERDICT's own list length,
   // never the length of the sub-list we managed to quote. Publishing the latter
   // would understate the work outstanding by exactly the number of entries we
   // could not name.
-  return BLOCKED_REASON_COPY.canonicalManyBlockers(blockers.length)
+  return [BLOCKED_REASON_COPY.canonicalManyBlockers(blockers.length)]
+}
+
+/**
+ * The joined form — DERIVED from `analysisBlockedSentences`, never composed
+ * separately.
+ *
+ * ⭐ THAT DERIVATION IS THE POINT. The Analyse button's tooltip and readiness
+ * bar consume this string while the pre-analysis panel renders the list; if the
+ * two were composed independently they could disagree about what the producer
+ * said, and one surface would be quietly wrong. One array behind both makes the
+ * union byte-identical BY CONSTRUCTION rather than by a test that can drift.
+ */
+export function composeAnalysisBlockedReason(
+  blockers: readonly AnalysisBlocker[],
+): string {
+  return analysisBlockedSentences(blockers).join(' ')
 }
 
 // ══════════════════════════════════════════════════════════════════════════
