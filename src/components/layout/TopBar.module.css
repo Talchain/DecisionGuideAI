@@ -35,7 +35,7 @@
   align-items: center;
 }
 
-.logoLink:focus {
+.logoLink:focus-visible {
   outline: 2px solid var(--info);
   outline-offset: 2px;
   border-radius: 4px;
@@ -76,7 +76,16 @@
   flex-shrink: 0;
 }
 
-/* Compact icon buttons for pill design */
+/**
+ * THE header button. Share and menu below are the same control and now say so
+ * rather than repeating it — three byte-identical copies of one button is how
+ * the two canvas toolbars drifted apart, and this file had the same shape.
+ *
+ * Deliberately NOT the canvas toolbars' bordered circle: 6px rounded squares
+ * are right for a dense 45px horizontal bar, where circles would read heavy.
+ * What IS shared with them is the part a user feels — the 32px box, the 16px
+ * icon, and the focus/disabled grammar below.
+ */
 .iconButton {
   display: flex;
   align-items: center;
@@ -91,7 +100,9 @@
   background: transparent;
   color: var(--text-body, #3F3F3E);
   cursor: pointer;
-  transition: all 150ms;
+  /* Was `all 150ms`, which animates layout properties too. Enumerated, at the
+     canvas toolbars' 120ms. */
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .iconButton:hover:not(:disabled) {
@@ -99,8 +110,22 @@
   color: var(--text-header, #262626);
 }
 
+/**
+ * ⚠ THIS FILE HAD NO `:focus-visible` RULE AT ALL — the only focus style was
+ * `.logoLink:focus`. Every control in the header therefore fell back to the
+ * browser default ring while the canvas toolbars draw an explicit one. That is
+ * an accessibility gap, not a styling preference. Same rule as
+ * `CanvasFloatingToolbar.module.css`.
+ */
+.iconButton:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+/* 0.5, matching the canvas toolbars — 0.4 read fainter than the same state
+   does twelve pixels below it. */
 .iconButton:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -131,57 +156,14 @@
   text-decoration: underline;
 }
 
-/* Share button - icon only in pill */
+/* Share and menu ARE the header button. Both class names are kept so no call
+   site moves; they now inherit every rule above, focus and disabled included. */
 .shareButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-body, #3F3F3E);
-  cursor: pointer;
-  transition: all 150ms;
+  composes: iconButton;
 }
 
-.shareButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
-  color: var(--text-header, #262626);
-}
-
-.shareButton svg {
-  width: 16px;
-  height: 16px;
-}
-
-
-/* Menu button */
 .menuButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-body, #3F3F3E);
-  cursor: pointer;
-  transition: all 150ms;
-}
-
-.menuButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
-  color: var(--text-header, #262626);
-}
-
-.menuButton svg {
-  width: 16px;
-  height: 16px;
+  composes: iconButton;
 }
 
 .menuDropdown {
@@ -193,7 +175,7 @@
   top: calc(100% + 8px);
   right: 0;
   min-width: 220px;
-  background: white;
+  background: var(--bg-panel, #FEFEFE);
   border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
@@ -213,12 +195,17 @@
   background: transparent;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 150ms;
+  transition: background 120ms ease;
   color: var(--text-body, #3F3F3E);
 }
 
 .dropdownMenuButton:hover {
   background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.dropdownMenuButton:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
 }
 
 .dropdownMenuButton svg {
