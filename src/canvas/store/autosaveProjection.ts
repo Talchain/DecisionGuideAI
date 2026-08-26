@@ -96,9 +96,22 @@ export interface AutosaveStoreSlice {
   currentScenarioId: string | null
   /**
    * The store's `CEEAnalysisReady` is a WIDER union than AutosaveData's inline
-   * shape. Kept opaque here and cast at the boundary: the restore path
-   * (RecoveryBanner → validateCeeAnalysisReady) validates before use, so the
-   * cast is safe by construction. Same justification as crashFlush's.
+   * shape. Kept opaque here and cast at the boundary: every restore path
+   * validates before use, so the cast is safe by construction. Same
+   * justification as crashFlush's.
+   *
+   * The MOUNTED reader is `ReactFlowGraph.restoreCeeAnalysisReady`
+   * (`ReactFlowGraph.tsx:234`, called on boot at `:1689`), which runs
+   * `validateCeeAnalysisReady`. `RecoveryBanner` is a second reader that is
+   * currently unmounted (`ReactFlowGraph.tsx:2344`) and now runs the same
+   * validator in its own click handler.
+   *
+   * ⚠ This sentence used to name `RecoveryBanner → validateCeeAnalysisReady` as
+   * the justification while RecoveryBanner called NEITHER seam — true of the
+   * mounted product (the banner was unmounted) and false of the repo, so
+   * remounting the component would have walked around the guard by way of a
+   * comment saying it did not. Name the path you mean and check it still calls
+   * what you say it calls.
    */
   ceeAnalysisReady: unknown
   /**

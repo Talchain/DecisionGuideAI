@@ -303,4 +303,85 @@ describe('RecoveryBanner (P0-2)', () => {
     // Banner SHOULD re-appear in new session
     expect(screen.getByTestId('autosave-recovery-banner')).toBeInTheDocument()
   })
+
+  // -------------------------------------------------------------------------
+  // THE RESTORE IS GATED BY validateCeeAnalysisReady
+  //
+  // `handleRecover` used to write `autosaveData.ceeAnalysisReady` straight into
+  // the store while `autosaveProjection.ts` asserted the opposite in a comment
+  // ("RecoveryBanner → validateCeeAnalysisReady validates before use"). The
+  // component is unmounted today, so the claim was true of the mounted product
+  // and false of the repo — remounting it would have reopened the bypass.
+  //
+  // ⭐ THE PAIR IS THE POINT. Test 1 alone passes against a fix that drops
+  // EVERYTHING; test 2 alone passes against no fix at all. Only both together
+  // bind to the validator's DECISION rather than to the field's presence.
+  // -------------------------------------------------------------------------
+  describe('ceeAnalysisReady restore is gated by validateCeeAnalysisReady', () => {
+    const GOAL = { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }
+    const OPTION = { id: 'opt_1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'A' } }
+
+    /** A readiness verdict the validator ADMITS: options present, goal + option nodes present. */
+    const validReady = (status?: string) => ({
+      options: [
+        { id: 'opt_1', label: 'A', status: 'ready' as const, interventions: {} },
+      ],
+      goal_node_id: 'goal_1',
+      ...(status ? { status } : {}),
+    })
+
+    const restoreWith = (ceeAnalysisReady: unknown) => {
+      vi.mocked(scenarios.hasUnsavedWork).mockReturnValue(true)
+      vi.mocked(scenarios.loadAutosave).mockReturnValue({
+        timestamp: Date.now(),
+        scenarioId: 'test-scenario',
+        nodes: [GOAL, OPTION],
+        edges: [],
+        ceeAnalysisReady,
+      } as never)
+
+      render(<RecoveryBanner />)
+      fireEvent.click(screen.getByTestId('btn-recover-autosave'))
+
+      const calls = (useCanvasStore as any).setState.mock.calls
+      // Precondition (trap 13): the handler really ran and really wrote the graph.
+      // Without this, both assertions below would pass against a no-op handler.
+      expect(calls.length, 'precondition: handleRecover wrote to the store').toBeGreaterThan(0)
+      const payload = calls[0][0]
+      expect(payload.nodes, 'precondition: the restore carried the graph').toEqual([GOAL, OPTION])
+      return payload
+    }
+
+    it('DROPS a blocked refusal instead of restoring it into the session', () => {
+      // A refusal is identity-bearing but is not a readiness verdict. CEE now
+      // puts model identity on refusals, so `options` is non-empty and the old
+      // `empty_options` check no longer rejects it by accident.
+      const payload = restoreWith(validReady('blocked'))
+
+      expect(
+        payload.ceeAnalysisReady,
+        'a blocked refusal must not be restored into a session where nothing was refused',
+      ).toBeNull()
+    })
+
+    it('TWIN — still restores a readiness verdict the validator admits', () => {
+      // The opposite-direction twin. A fix that simply stopped restoring
+      // `ceeAnalysisReady` would satisfy the test above and silently destroy the
+      // feature; this is what makes that fix RED.
+      const admitted = validReady('ready')
+      const payload = restoreWith(admitted)
+
+      expect(
+        payload.ceeAnalysisReady,
+        'a valid verdict must survive the gate — dropping everything is not the fix',
+      ).toEqual(admitted)
+    })
+
+    it('DROPS a verdict whose goal node is absent from the recovered graph', () => {
+      const orphaned = { ...validReady('ready'), goal_node_id: 'goal_missing' }
+      const payload = restoreWith(orphaned)
+
+      expect(payload.ceeAnalysisReady, 'missing_goal must not restore').toBeNull()
+    })
+  })
 })
