@@ -317,17 +317,40 @@ export function deriveDecisionVerdict(
   const gapPp = Math.round(gap * 100)
 
   // ── Authority 1: PLoT's own near-tie verdict ────────────────────────────
-  // The producer already answered "is there a clear leader?" — honour it.
-  // Applied only when it is silent about which option is on top, or names the
-  // SAME leader: a producer claim about option X must never be re-pointed at
-  // option Y (the recovered-session identity hazard).
-  // Identity gate: both producer signals describe the WIN-PROBABILITY RANK-1
-  // option (`near_tie.top_option_id`, `headline_banded.leader_option_id`), so
-  // they are checked against `top1`, not against the possibly-overridden
-  // `leaderId`. A producer claim about option X is never re-pointed at
-  // option Y (the recovered-session identity hazard).
+  // The producer already answered "is there a clear leader?" — honour it, but
+  // only when it NAMES the option it is talking about, and that option is the
+  // win-probability rank-1 (`top1`). A producer claim about option X must never
+  // be re-pointed at option Y (the recovered-session identity hazard).
+  //
+  // ⚠⚠ THIS GATE USED TO ACCEPT A MISSING IDENTITY, AND THAT TURNED CEE'S ACT
+  // OF WITHHOLDING INTO A PERMISSION. It read
+  //   `nearTie.topOptionId == null || nearTie.topOptionId === top1.id`
+  // where the `== null` arm was meant to let a producer stay SILENT about which
+  // option leads. But CEE's withheld projection is documented "KEEP THE FACT,
+  // DROP THE IDENTITIES": on a withheld turn it strips `top_option_id` while
+  // `is_tie` and `gap` ship unchanged. The stripped identity SATISFIED the
+  // permissive arm, `is_tie: false` reached the "a leading option exists" branch
+  // below, and the UI named a leader on the exact payload CEE had just withheld.
+  // Measured by execution against CEE's own withheld bytes: `hasLeadingOption:
+  // true`, `separation: 'clear'`. The act of withholding licensed the claim.
+  //
+  // ⭐ A MISSING IDENTITY IS NOT SILENCE — IT IS A FOOTPRINT. It cannot come
+  // from the producer: `computeNearTie` (PLoT `routes/v2/run.ts:2045`) returns
+  // `NearTieInfoV3 | undefined` and every non-undefined exit sets
+  // `top_option_id`; its sole attachment site assigns the block WHOLE or omits
+  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.48.0 — the version
+  // THIS repo pins, `file:./vendor/talchain-schemas-0.48.0.tgz`) declares
+  // `top_option_id: z.string()` — REQUIRED, while the BLOCK is `.optional()`.
+  // Three real captures in this repo carry all six keys. So a `near_tie`
+  // arriving without its identity is CONTRACT-INVALID, and the only thing that
+  // produces one is a downstream stripper — CEE withholding. Requiring a
+  // positive match is therefore not a heuristic that might over-suppress: this
+  // gate now reads exactly "did CEE withhold?".
+  //
+  // Pinned by `__tests__/withheldIdentityGate.spec.ts`, whose OVER-SUPPRESSION
+  // CONTROL fails if this is ever tightened into a blanket refusal.
   const nearTie = readNearTie(report.robustness?.near_tie ?? report.robustness?.nearTie)
-  const nearTieApplies = nearTie != null && (nearTie.topOptionId == null || nearTie.topOptionId === top1.id)
+  const nearTieApplies = nearTie != null && nearTie.topOptionId === top1.id
 
   const band = normalizeHeadlineBanded(
     report.decision_brief?.headline_banded ?? rawHeadlineBanded,

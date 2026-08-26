@@ -54,13 +54,38 @@ const OPTION_PROBABILITIES = {
 }
 
 /**
- * WITHHELD, post-CEE-#711: `leading_option_id` nulled and the comparative
- * members of `decision_brief` dropped, while the per-option win probabilities
- * keep riding the wire — the DATA is not withheld, only the CLAIM.
+ * WITHHELD, post-CEE-#711: the comparative members of `decision_brief` dropped
+ * while the per-option win probabilities keep riding the wire — the DATA is not
+ * withheld, only the CLAIM.
+ *
+ * ⚠⚠ THIS FIXTURE WAS WRONG IN BOTH DIRECTIONS AND IS NOW DERIVED FROM CEE'S
+ * OWN TEST, NOT FROM THIS LANE'S MODEL OF CEE.
+ *
+ * It used to read `robustness: { recommended_option_id: HIGH_ID }` with NO
+ * `near_tie`. CEE's withheld projection does the EXACT OPPOSITE of both halves:
+ * its rule is "KEEP THE FACT, DROP THE IDENTITIES", so it DROPS
+ * `recommended_option_id` and KEEPS `near_tie` carrying `is_tie` and `gap` with
+ * the identity stripped. Transcribed from
+ * `compose/__tests__/withheld-structured-designation.drift.test.ts`, which
+ * asserts `recommended_option_id` → undefined (:283),
+ * `near_tie.top_option_id` → undefined (:285), `near_tie.is_tie` → false (:294)
+ * and `near_tie.gap` → 0.44 (:295).
+ *
+ * ⭐ THE COST OF THE OLD SHAPE WAS A WHOLE SUITE OF FALSE GREENS. Because it
+ * omitted the `near_tie` CEE actually sends, it could not reach the branch where
+ * `deriveDecisionVerdict`'s identity gate accepted a MISSING identity as
+ * silence — so the suite was green about a payload the product never sends,
+ * while the real one made the UI name a leader on a withheld turn. A fixture
+ * you wrote yourself is not evidence about the wire.
  */
 export const WITHHELD_REPORT: DecisionVerdictReportLike = {
   option_probabilities: OPTION_PROBABILITIES,
-  robustness: { recommended_option_id: HIGH_ID },
+  robustness: {
+    // `recommended_option_id` is DROPPED on a withheld turn — it is an identity.
+    // `near_tie` is KEPT and projected recursively: the tie FACT ships, the
+    // identities (`top_option_id`, `second_option_id`, `tied_option_ids`) go.
+    near_tie: { is_tie: false, gap: 0.44, threshold: 0.1 },
+  } as unknown as DecisionVerdictReportLike['robustness'],
   decision_brief: {
     // A non-comparative member CEE deliberately KEEPS, so the fixture cannot
     // pass merely because the brief is absent whole.
