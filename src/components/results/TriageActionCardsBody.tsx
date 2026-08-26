@@ -29,10 +29,15 @@ import {
 import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
-// The canonical "open the editor for this node" seam. Imported here for the
-// same reason `AnalysisHeroPanel` imports `openEdgeStrengthEditor`: a surface
-// in the OutputsDock cannot reach the inspector any other way. See
-// `openValueEditor` below.
+// The canonical "open the editor for this node" seam: a surface in the
+// OutputsDock cannot reach the inspector any other way. See `openValueEditor`
+// below.
+//
+// ⚠ This used to cite `AnalysisHeroPanel`'s `openEdgeStrengthEditor` import as
+// the precedent. That import is GONE — the assumed-strength card now asks Olumi
+// instead, because the Inspector's edge setters are all `'disabled'` and the
+// route arrived at a read-only panel. The precedent is withdrawn, not moved:
+// before citing this seam for an EDGE, check the setter authority first.
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
