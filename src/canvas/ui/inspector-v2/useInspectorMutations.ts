@@ -9,7 +9,6 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
-import type { MutationAuthority } from '../../mutations/mutationAuthority'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -98,55 +97,44 @@ export const EDITOR_WRITTEN_FIELDS = {
 } as const
 
 /**
- * Product authority for a user-visible mutation.
+ * ⭐ THE INSPECTOR'S READ-ONLY POLICY LIVES IN ITS ENFORCEMENT, NOT IN A TABLE.
  *
- * `server_graph` is the only class allowed to look like a model edit. A
- * `server_fact` records a judgement without changing GraphV3 or analysis;
- * `local_presentation` may change selection/layout only; `disabled` has no
- * honest mounted write path yet.
- */
-/**
- * Exhaustive authority manifest for the Inspector's sanctioned setters.
+ * Two authority manifests used to sit here — `NODE_SETTER_AUTHORITY` (21 keys)
+ * and `EDGE_SETTER_AUTHORITY` (5), every value `'disabled'`. They were DELETED
+ * on 26 Aug 2026 because they had **zero code consumers**: outside their own
+ * definition and `mutationAuthority.spec.ts`, every reference to either was a
+ * COMMENT. Nothing branched on them. A table nothing reads cannot drift — and
+ * cannot enforce either; it was a hand-maintained mirror of a decision that is
+ * actually made somewhere else.
  *
- * The setters themselves remain useful to producer/reconciliation code, but
- * this table decides whether an Inspector control may expose them. Only the
- * prior-range event has a server carrier here, and that carrier is a FACT — it
- * deliberately does not update canonical GraphV3 or simulation inputs. The
- * mounted emergency policy therefore keeps the Inspector read-only until a
- * field has a receipt-bearing graph transaction (or a deliberately designed,
- * explicitly fact-only UI).
+ * WHERE IT IS ACTUALLY MADE: `InspectorRouter` wraps every panel — node
+ * (`InspectorRouter.tsx:334`) and edge (`:221`) — in an unconditional
+ * `<fieldset disabled data-authority="disabled">`, beneath a note rendering
+ * `INSPECTOR_READ_ONLY_REASON` and bound to it by `aria-describedby`.
+ *
+ * ⭐ THE FIELDSET IS STRICTLY STRONGER THAN THE MANIFESTS WERE. It disables
+ * every descendant control structurally, so a setter added tomorrow is inert
+ * without anyone remembering to classify it. The manifests could only record a
+ * decision after the fact; the fieldset makes it. Their one real contribution —
+ * a completeness check that every setter was classified — is replaced by a
+ * DOM-level claim that no control escapes the boundary, which holds however
+ * many setters exist.
+ *
+ * The setters below remain exported because producer/reconciliation code uses
+ * them; being callable in code has never been what made a control reachable to
+ * a user, and the fieldset is what decides that.
+ *
+ * ⚠ DO NOT REINTRODUCE A CLASSIFICATION TABLE HERE. If you want to know why a
+ * control is inert, read the fieldset and the notice; both are pinned by
+ * `__tests__/inspectorAuthorityBinding.spec.tsx`, which fails if the boundary,
+ * the copy, or the aria binding between them is removed — per region, so a
+ * break in one is not masked by the other.
+ *
+ * ⚠ AND NOTE WHICH QUESTION THIS IS. `CANONICAL_EDIT_AUTHORITY`
+ * (`canvas/mutations/mutationAuthority.ts`) answers a DIFFERENT one — see its
+ * header. It governs whether a control may LOOK like a shared-model edit. This
+ * file governs whether the Inspector's controls are reachable at all.
  */
-export const NODE_SETTER_AUTHORITY = {
-  setLabel: 'disabled',
-  setDescription: 'disabled',
-  setThreshold: 'disabled',
-  setObservedValue: 'disabled',
-  setIntervention: 'disabled',
-  removeIntervention: 'disabled',
-  setPriorRange: 'disabled',
-  setObservedRawValue: 'disabled',
-  setObservedUnit: 'disabled',
-  setObservedCap: 'disabled',
-  setObservedBaseline: 'disabled',
-  setObservedStd: 'disabled',
-  setObservedSource: 'disabled',
-  setCategory: 'disabled',
-  setExtractionType: 'disabled',
-  setFactorType: 'disabled',
-  setStateSpaceRange: 'disabled',
-  setUncertaintyDrivers: 'disabled',
-  setGoalCap: 'disabled',
-  setProbability: 'disabled',
-  setImpact: 'disabled',
-} as const satisfies Record<keyof typeof NODE_SETTER_FIELDS, MutationAuthority>
-
-export const EDGE_SETTER_AUTHORITY = {
-  setStrength: 'disabled',
-  setStd: 'disabled',
-  setExistsProbability: 'disabled',
-  setLabel: 'disabled',
-  setDirection: 'disabled',
-} as const satisfies Record<keyof typeof EDGE_SETTER_FIELDS, MutationAuthority>
 
 /** Receipt-bearing actions mounted elsewhere and intentionally preserved. */
 export const INSPECTOR_READ_ONLY_REASON =
