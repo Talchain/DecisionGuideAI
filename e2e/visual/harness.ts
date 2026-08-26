@@ -386,6 +386,22 @@ export async function clearNotifications(page: Page): Promise<void> {
 export async function minimiseFloatingOlumiPanel(page: Page): Promise<void> {
   const panel = page.getByTestId('floating-olumi-panel')
   if ((await panel.count()) === 0) return
+
+  // ⚠ ALREADY-MINIMISED IS NOT A FAILURE, AND THIS TOOK OUT TWO STATES.
+  // The absent-panel guard above tests `count() === 0`, i.e. not in the DOM at
+  // all. It does not cover the case that actually happened: the panel's default
+  // changed to start minimised, so the panel AND its minimise control are both
+  // in the DOM and both hidden. `activateByKeyboard` then waited 20s for a
+  // control that resolves 23 times and is hidden every time, and `graph at
+  // default zoom` failed at BOTH viewports without ever reaching a capture.
+  //
+  // The postcondition this function exists for is the one asserted below — the
+  // panel is not covering the graph. When it is already hidden that is already
+  // true, so there is nothing to do and nothing to assert that is not already
+  // asserted. Note this returns ONLY on a genuinely hidden panel: a VISIBLE
+  // panel still takes the full path, so a broken minimise control still REDs.
+  if (await panel.isHidden()) return
+
   await activateByKeyboard(page, 'floating-olumi-panel-minimise')
   await expect(panel, 'floating Olumi panel did not minimise — it would occlude the graph').toBeHidden({ timeout: 10_000 })
 }
@@ -663,22 +679,41 @@ export async function captureState(
     })
   }
 
-  await expect(target).toHaveScreenshot(`${name}.png`, {
-    maxDiffPixelRatio: MAX_DIFF_PIXEL_RATIO,
-    threshold: PIXEL_THRESHOLD,
-    animations: 'disabled',
-    caret: 'hide',
-    scale: 'css',
-    ...(opts.clip ? {} : { fullPage: false }),
-  })
+  // ⚠ THE MANIFEST RECORDS COVERAGE, NOT CORRECTNESS, AND THE `finally` IS THE
+  // WHOLE POINT. This state has now mounted, been stabilised and been
+  // photographed; whether the photograph MATCHES is the assertion's business,
+  // not the completeness guard's.
+  //
+  // It used to record only on the happy path, one line below the assertion, and
+  // that conflated the two questions with a cascading consequence: when the
+  // references went stale, all ten comparisons failed, not one `recordCapture`
+  // ran, the manifest was empty, and the guard reported
+  // "ZERO screenshots were captured — the app failed to boot, or no test
+  // matched". Neither was true. The app booted perfectly and every test matched.
+  //
+  // That message sent two separate readers hunting a boot failure that did not
+  // exist, and the real diagnosis — ten stale references — was invisible behind
+  // it. Recorded here instead, the same run reports "10/10 captured" with ten
+  // failed comparisons, which is what actually happened and points straight at
+  // the references.
+  try {
+    await expect(target).toHaveScreenshot(`${name}.png`, {
+      maxDiffPixelRatio: MAX_DIFF_PIXEL_RATIO,
+      threshold: PIXEL_THRESHOLD,
+      animations: 'disabled',
+      caret: 'hide',
+      scale: 'css',
+      ...(opts.clip ? {} : { fullPage: false }),
+    })
+  } finally {
+    recordCapture(name)
+  }
 
   if (blessing) {
     const ref = assertReferenceIsSubstantive(name, expectedSize)
     // eslint-disable-next-line no-console
     console.log(`[visreg] blessed ${name}: ${ref.bytes}B, ${ref.distinctColours} quantised colours`)
   }
-
-  recordCapture(name)
 }
 
 /** Everything the artefact should say about how a run was configured. */
