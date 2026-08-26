@@ -31,21 +31,30 @@ const readinessWith = (improvements: unknown[]): GraphReadiness => ({
 } as unknown as GraphReadiness)
 
 describe('the blocked reason names the producer\'s own remedies', () => {
-  it('names a single improvement rather than deferring to the chat', () => {
+  /*
+   * ⭐ EXACT EQUALITY, NOT `toContain` — INVENT NOTHING IS A CLAIM ABOUT THE WHOLE
+   * STRING. Measured before this was written: making the composer return
+   * `` `Olumi needs: ${joined}` `` SURVIVED all 359 tests, because every
+   * assertion here was `toContain` / `not.toBe(unspecified)`. A UI prefix welded
+   * onto producer prose shipped green — "a nicer-sounding sentence" passing
+   * unobserved, which is the exact thing the producer-verbatim rule exists to
+   * prevent. A containment assertion cannot see anything ADDED; only equality can.
+   */
+  it('names a single improvement — and emits the producer text and NOTHING else', () => {
     const out = composeReadinessBlockedReason(readinessWith([{ action: ACTION_A }]))
-    expect(out).toContain('Cash runway consumed')
+    expect(out).toBe(ACTION_A)
     expect(out).not.toBe(BLOCKED_REASON_COPY.unspecified)
   })
 
   it('names ALL of them — withholding some understates the work outstanding', () => {
     const out = composeReadinessBlockedReason(readinessWith([{ action: ACTION_A }, { action: ACTION_B }]))
-    expect(out).toContain('Cash runway consumed')
-    expect(out).toContain('discount hard to win logos back')
+    // The join is exactly the producer's sentences and the single separator.
+    expect(out).toBe(`${ACTION_A} ${ACTION_B}`)
   })
 
   it('de-duplicates rather than repeating one remedy', () => {
     const out = composeReadinessBlockedReason(readinessWith([{ action: ACTION_A }, { action: ACTION_A }]))
-    expect(out.split('Cash runway consumed').length - 1).toBe(1)
+    expect(out).toBe(ACTION_A)
   })
 
   /*
@@ -99,8 +108,36 @@ describe('the blocked reason names the producer\'s own remedies', () => {
     const out = composeReadinessBlockedReason(
       readinessWith([{ action: ACTION_A }, { action: IMPROVEMENT_ACTION_PLACEHOLDER }]),
     )
-    expect(out).not.toContain(IMPROVEMENT_ACTION_PLACEHOLDER)
-    expect(out).not.toContain(ACTION_A)
+    expect(out).toBe(BLOCKED_REASON_COPY.unspecified)
+  })
+
+  /**
+   * G3 — THE OTHER PATH TO `unspecified`. `composeReadinessBlockedReason` has TWO
+   * exits to the non-committal rung and only the final one consulted the
+   * producer. When the client's option list and the verdict's arithmetic
+   * disagree — `optionsNeedingValues` non-empty, `options_total - options_ready`
+   * zero — it returned the generic sentence at the EARLIER exit while holding
+   * the producer's repair action.
+   *
+   * The two inputs come from DIFFERENT STORES, so the skew is structurally
+   * reachable rather than hypothetical. Naming the improvement there is a less
+   * specific TRUE claim from the same readiness object the count came from.
+   */
+  it('names the producer even when the option list and the verdict disagree', () => {
+    const readiness = { ...readinessWith([{ action: ACTION_A }]), options_ready: 2, options_total: 2 }
+    const out = composeReadinessBlockedReason(readiness, [
+      { id: 'o1', label: 'Rebuild' },
+    ] as never)
+    expect(out).toBe(ACTION_A)
+  })
+
+  it('DISCRIMINATING — that skew still floors at the generic sentence with no usable improvement', () => {
+    // Without this, "always return something specific" would satisfy the case
+    // above while inventing a cause at exactly the moment the inputs disagree.
+    const readiness = { ...readinessWith([]), options_ready: 2, options_total: 2 }
+    const out = composeReadinessBlockedReason(readiness, [
+      { id: 'o1', label: 'Rebuild' },
+    ] as never)
     expect(out).toBe(BLOCKED_REASON_COPY.unspecified)
   })
 
