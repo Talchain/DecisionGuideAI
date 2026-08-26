@@ -28,10 +28,27 @@
  * either — "the engine was busy, nothing is wrong with your model" is one of
  * the reachable reasons, and a danger tone would contradict its own sentence.
  *
- * SEPARATE FROM THE READINESS SURFACES BY DESIGN. `DecisionOverviewCard`'s
- * `liveState` derivation is untouched: a cleared `ceeAnalysisReady` correctly
- * yields 'unassessed'/collapsed there (verified against a deployed-UI trace,
- * 2026-08-14). This notice is a sibling element, not a state of that card.
+ * SEPARATE FROM THE READINESS SURFACES BY DESIGN. This notice is a sibling
+ * element, not a state of that card.
+ *
+ * ⚠ CORRECTED 26 Aug 2026 — THE NARROW CLAIM WAS TRUE AND THE REASSURANCE
+ * AROUND IT WENT STALE, WHICH IS WHY IT IS CORRECTED HERE RATHER THAN TIDIED
+ * AWAY. This paragraph said `DecisionOverviewCard`'s `liveState` derivation was
+ * "untouched", because a CLEARED `ceeAnalysisReady` yields 'unassessed' there —
+ * verified against a deployed-UI trace of 2026-08-14. That specific sentence is
+ * STILL TRUE.
+ *
+ * What it did not cover is the case that has since become reachable: a refusal
+ * that is NOT cleared. `analysis_ready.status: 'blocked'` arrives NON-NULL and
+ * with populated options (`adapters/cee/types.ts:443-455`), so it never reaches
+ * the 'unassessed' branch this claim was checked against — it fell through to
+ * 'needs_input', and the card told the user they owed input for the product's
+ * own refusal. Fixed at `DecisionOverviewCard.tsx` (`isBlocked`), pinned in
+ * both directions by `DecisionOverviewCard.refusalIsBlocked.spec.tsx`.
+ *
+ * The date is load-bearing: the trace predates refusals carrying readiness
+ * identity, so it is a control pinned to a posture that has since moved. A
+ * reassurance whose evidence has an expiry needs the expiry written next to it.
  */
 import { useCanvasStore } from '@/canvas/store'
 import { typography } from '@/styles/typography'
