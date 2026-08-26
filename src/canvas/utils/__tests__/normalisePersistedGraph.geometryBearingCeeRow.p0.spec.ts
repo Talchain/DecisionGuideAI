@@ -137,9 +137,19 @@ describe('P0: a geometry-bearing CEE row must still be projected to canvas shape
     ).toHaveLength(15)
   })
 
-  it('POST-CONDITION: no node in the output is still in the un-projected shape', () => {
-    // Assert the invariant rather than narrate it (Finding A). This REDs if a
-    // SECOND shape ever reaches the store, whatever route it arrives by.
+  it('POST-CONDITION: no node in THIS FUNCTION’S OUTPUT is still un-projected', () => {
+    // ⚠ SCOPE, stated exactly. This asserts a post-condition over the RETURN
+    // VALUE of `normalisePersistedGraph` for the fixtures under test. It proves
+    // the projector projects.
+    //
+    // It CANNOT observe ROUTES. Review measured that directly: severing the
+    // call at `useScenario.ts:699` left this spec 15/15 GREEN, because a caller
+    // that never invokes this function is invisible to a test of this
+    // function's output. An earlier version of this comment claimed it REDs
+    // "whatever route it arrives by" — false, and false in the same way as the
+    // docstring this whole PR exists to correct.
+    //
+    // Routes are watched by `hydrationRouteNormalisation.sourceScan.spec.ts`.
     const { nodes } = normalisePersistedGraph(GEOMETRY_BEARING_ROW)
 
     const unProjected = nodes.filter(
@@ -220,6 +230,53 @@ describe('the mandatory opposite-direction twin: projecting must not LOSE anythi
   it('does not leave geometry loose inside `data` (it is not an analytical field)', () => {
     const { nodes } = normalisePersistedGraph(GEOMETRY_BEARING_ROW)
     expect(nodes.filter((n: any) => 'position' in n.data)).toHaveLength(0)
+  })
+})
+
+describe('the discriminator rests on a CONTRACT-REQUIRED marker, not an observed absence', () => {
+  it('every node in the real capture carries the required `kind` and `label`', () => {
+    // `NodeV3Schema` declares both without `.optional()`, so any node that
+    // validates as GraphV3 must have them. This pins that the corpus agrees
+    // with the contract the predicate now relies on.
+    expect(
+      REAL_CEE_NODES.filter(
+        (n) => typeof n.kind === 'string' && typeof n.label === 'string',
+      ),
+    ).toHaveLength(15)
+  })
+
+  it('a CEE node carrying `data` is still NOT canvas-shaped (NodeV3 is .passthrough())', () => {
+    // The class the previous envelope-only test would have mis-classified.
+    // Contract-PERMITTED, merely unobserved — exactly how `position` arrived.
+    const passthroughCeeNode = {
+      id: 'fac_x',
+      kind: 'factor',
+      label: 'Passthrough factor',
+      position: { x: 10, y: 20 },
+      data: { label: 'stale canvas copy', someCanvasField: 1 },
+    }
+    expect(isCanvasShapedNode(passthroughCeeNode)).toBe(false)
+  })
+
+  it('projects that hybrid without nesting the canvas payload as `data.data`', () => {
+    const hybrid = {
+      id: 'fac_x',
+      kind: 'factor',
+      label: 'Contract label',
+      category: 'external',
+      position: { x: 10, y: 20 },
+      data: { someCanvasField: 1, label: 'stale canvas copy' },
+    }
+    const { nodes } = normalisePersistedGraph({ nodes: [hybrid], edges: [] })
+    const out: any = nodes[0]
+
+    expect(out.data.data).toBeUndefined()
+    // the canvas payload survives…
+    expect(out.data.someCanvasField).toBe(1)
+    // …but the CONTRACT-REQUIRED top-level value wins the collision
+    expect(out.data.label).toBe('Contract label')
+    expect(out.data.kind).toBe('factor')
+    expect(out.position).toEqual({ x: 10, y: 20 })
   })
 })
 

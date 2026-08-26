@@ -60,11 +60,26 @@
  * (CLAUDE.md trap 13d — a corpus that omits a class the contract admits cannot
  * certify the code over that class).
  *
- * A shape predicate must therefore test what makes a node THAT SHAPE — the
- * React Flow `data` envelope — not a field one writer happens not to send yet.
- * The invariant is now ASSERTED rather than narrated: see the POST-CONDITION
- * test in `normalisePersistedGraph.geometryBearingCeeRow.p0.spec.ts`, which REDs
- * if any second shape reaches the store by any route.
+ * A shape predicate must therefore test what makes a node THAT SHAPE, not a
+ * field one writer happens not to send yet — see `isCanvasShapedNode` for the
+ * contract-required marker it uses instead.
+ *
+ * ⚠ WHAT THE GUARDS DO AND DO NOT COVER — stated exactly, because an earlier
+ * draft of this header claimed the post-condition test *"REDs if any second
+ * shape reaches the store by ANY ROUTE"*, and review MEASURED that false: it
+ * severed the call at `useScenario.ts:699` and the spec stayed 15/15 green.
+ * **That sentence was a contingent claim stated as settled fact — the precise
+ * defect this module exists to close, re-armed in the header of its own fix.**
+ *   · `normalisePersistedGraph.geometryBearingCeeRow.p0.spec.ts` asserts a
+ *     post-condition over THIS FUNCTION'S OUTPUT for the fixtures under test.
+ *     It proves the projector projects. It cannot see ROUTES at all: a caller
+ *     that never calls this function is invisible to it.
+ *   · `hydrationRouteNormalisation.sourceScan.spec.ts` is what watches routes.
+ *     It derives every `hydrateGraphSlice` caller from source and requires each
+ *     to normalise or be a REGISTERED KNOWN GAP.
+ * Neither is a claim about deployed data. Together they cover "the projector is
+ * correct" and "every route reaches it"; they do not cover a store already
+ * populated before this change shipped.
  *
  * ⚠ SHAPE IS NORMALISED; LAYOUT IS PRESERVED. A projected node keeps whatever
  * geometry the row carried (`mapDraftNodeToCanvas` hardcodes `{x: 0, y: 0}`,
@@ -98,21 +113,53 @@ import { DEFAULT_EDGE_DATA, type EdgeData } from '../domain/edges'
  * the exact P0 this module exists to retire, re-entering through its own front
  * door.
  *
- * The discriminator is now the REACT FLOW ENVELOPE — `data` — because that is a
- * property of the SHAPE rather than an observation about what CEE happens to
- * emit. Derived, not asserted: the captured wire row
- * (`cee-persisted-graph-wire-2026-08-12.json`, 15 nodes) carries `data` on
- * **0/15** nodes, while a canvas node keeps its entire payload there. A writer
- * that starts emitting geometry cannot silently defeat this the way it defeated
- * the geometry test.
+ * ── THE TEST IS A POSITIVE, CONTRACT-GUARANTEED CEE MARKER ─────────────────
+ * The first version of this fix discriminated on the React Flow ENVELOPE
+ * (`data`). That is a real improvement on `'position' in n` — it is a property
+ * of the shape rather than a claim about a producer — but review found it is
+ * still a NEGATIVE test against a contract that does not forbid the thing:
+ * `NodeV3Schema` is **`.passthrough()`** (`@talchain/schemas/dist/graph.js:256`,
+ * `.passthrough()` at :273), so a CEE node carrying `data` is contract-
+ * PERMITTED, merely unobserved — **the very same admissibility that let
+ * `position` through.** Shipping that would have re-armed this defect's own
+ * mechanism one level along.
  *
- * `position` is still REQUIRED, so a payload-bearing object that is not a
- * canvas node cannot slip through on `data` alone. Both must hold. Presence
- * (not truthiness) keeps a legitimate `{x: 0, y: 0}` on the canvas-shaped side.
+ * So the CEE side is now identified by what the contract REQUIRES. On
+ * `NodeV3Schema`, `id`, `kind` and `label` carry no `.optional()`: any node that
+ * validates as GraphV3 **must** have `kind` and `label` at the top level. That
+ * is guaranteed by the schema, not observed in a sample — the difference
+ * between *"the data has not done this yet"* and *"the data cannot."*
+ *
+ * A canvas node keeps `kind`/`label` inside `data`; the top level is React
+ * Flow's own `{id, type, position, data}`. So the two shapes are separated by a
+ * marker each one is REQUIRED to carry, in opposite places.
+ *
+ * ⚠ THE ENVELOPE TEST IS KEPT AS THE SECOND LIMB, and its contingency is stated
+ * rather than implied away: it is what a node must present once it is NOT
+ * CEE-marked, and `position` presence (not truthiness) keeps a legitimate
+ * `{x: 0, y: 0}` on the canvas side. It is a sufficient test for the shapes this
+ * estate writes today; it is not a contract guarantee, because React Flow does
+ * not require `data`. If a canvas writer ever emits a node without `data`, this
+ * limb sends it through the projector — which preserves its geometry and gives
+ * it an envelope, so the failure mode is conservative rather than lossy.
  */
 export function isCanvasShapedNode(n: unknown): boolean {
   if (typeof n !== 'object' || n === null) return false
-  const node = n as { position?: unknown; data?: unknown }
+  const node = n as {
+    position?: unknown
+    data?: unknown
+    kind?: unknown
+    label?: unknown
+  }
+
+  // (1) POSITIVE, CONTRACT-REQUIRED CEE MARKER. `NodeV3Schema` requires BOTH,
+  // so this cannot be defeated by a producer starting to emit an extra field —
+  // it can only be defeated by CEE ceasing to emit a REQUIRED one.
+  if (typeof node.kind === 'string' && typeof node.label === 'string') {
+    return false
+  }
+
+  // (2) Otherwise the node must present the React Flow envelope.
   if (!('position' in node)) return false
   return typeof node.data === 'object' && node.data !== null
 }
@@ -185,6 +232,19 @@ export function normalisePersistedGraph(graph: unknown): NormalisedGraph {
     const persistedPosition = readPersistedPosition(n)
 
     if (persistedPosition) mapped.position = persistedPosition
+
+    // A CEE-MARKED NODE THAT ALSO CARRIES `data`. `NodeV3Schema` is
+    // `.passthrough()`, so this is contract-PERMITTED — and the lesson of this
+    // whole change is that "permitted but unobserved" is exactly the class that
+    // eventually arrives (trap 13d). The mapper's `...rest` would nest it as
+    // `data.data`, hiding the canvas payload from every `data.*` consumer.
+    // Flatten it UNDERNEATH the CEE values: the top-level fields are the ones
+    // the contract requires, so they win a collision.
+    const nested = mapped.data?.data
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      mapped.data = { ...nested, ...mapped.data }
+      delete mapped.data.data
+    }
 
     // `...rest` deposits any geometry the row carried into `data`. Strip it:
     // layout is presentation, and a duplicate copy inside `data` would ride
