@@ -22,6 +22,10 @@ const REAL = [
 const renderShut = (sentences?: readonly string[]) =>
   render(
     <PanelFooter
+      // The RESTING value only. `deriveReadinessDisplay` overrides it entirely
+      // while the gate is shut, which is the state under test — so this must not
+      // be mistaken for the source of the subline being asserted below.
+      footer={{ dot: 'success', headline: 'Ready', subline: 'resting' }}
       onAnalyse={() => {}}
       isAnalysing={false}
       canRun={false}
