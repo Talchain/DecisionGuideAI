@@ -302,3 +302,99 @@ describe('the other direction: a genuine React Flow row must not be touched', ()
     expect((nodes[1] as any).position).toEqual({ x: 7, y: 8 })
   })
 })
+
+describe('the EDGE of the identity guarantee — pinned, because it was stated too wide', () => {
+  // GATE 3 of the re-review. The module header promised byte-identity for "a row
+  // already in React Flow shape", unqualified. That is a claim about every canvas
+  // node this estate could write — structurally the same kind of claim as the
+  // "`scenarios.graph` carries no geometry" sentence that produced this P0.
+  //
+  // These are the two classes the corpus lacked. NEITHER has a writer today
+  // (measured: no `src/` writer mints top-level `kind`+`label` on a canvas node;
+  // the client write to `scenarios.graph` is gated shut at
+  // `clientGraphWritePolicy.ts:55-57`), which is precisely why nothing had ever
+  // measured them. They are pinned so the behaviour is RECORDED rather than
+  // described — a header sentence is not a measurement, and this PR exists
+  // because one was read as though it were.
+
+  const HYBRID_CANVAS_NODE = {
+    id: 'n1',
+    type: 'factor',
+    kind: 'factor',
+    label: 'A',
+    position: { x: 5, y: 6 },
+    data: { kind: 'factor', label: 'A', userEditedValue: 42 },
+  }
+
+  it('a canvas node carrying the CEE markers is classified CEE by limb (1)', () => {
+    expect(isCanvasShapedNode(HYBRID_CANVAS_NODE)).toBe(false)
+  })
+
+  it('LOSES object identity — so a reference-equality pin would move', () => {
+    const { nodes } = normalisePersistedGraph({
+      nodes: [HYBRID_CANVAS_NODE],
+      edges: [],
+    })
+    expect(nodes[0]).not.toBe(HYBRID_CANVAS_NODE)
+  })
+
+  // ⚠ Which of these carries the classification discrimination, measured: a
+  // mutant disabling limb (1) for ALL nodes REDs the two tests above and leaves
+  // the two below GREEN — content survives whether or not the node is
+  // re-projected, so only the IDENTITY assertion can observe the classification.
+  // The content tests are pinning that projection is not LOSSY, a different
+  // question, and they are kept for that and not mistaken for the other.
+  it('PRESERVES content: geometry, the canvas payload, and no `data.data` nesting', () => {
+    const { nodes } = normalisePersistedGraph({
+      nodes: [HYBRID_CANVAS_NODE],
+      edges: [],
+    })
+    const out = nodes[0] as any
+    // Geometry kept rather than reset to the mapper's hardcoded {0, 0}.
+    expect(out.position).toEqual({ x: 5, y: 6 })
+    // An arbitrary canvas-only payload survives the round trip.
+    expect(out.data.userEditedValue).toBe(42)
+    expect(out.data.label).toBe('A')
+    expect(out.data.kind).toBe('factor')
+    // The canvas payload is flattened, not hidden one level down.
+    expect(out.data.data).toBeUndefined()
+  })
+
+  it('binds by IDENTITY: it is THIS node that survives, not merely some node', () => {
+    // A value predicate ('some node has userEditedValue 42') could be satisfied
+    // by a different node; find by id first, then assert on it (CLAUDE.md 19).
+    const { nodes } = normalisePersistedGraph({
+      nodes: [
+        HYBRID_CANVAS_NODE,
+        { id: 'other', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'B' } },
+      ],
+      edges: [],
+    })
+    const mine = (nodes as any[]).find((n) => n.id === 'n1')
+    expect(mine).toBeDefined()
+    expect(mine.data.userEditedValue).toBe(42)
+    expect(mine.position).toEqual({ x: 5, y: 6 })
+  })
+
+  it("limb (2)'s stated contingency: a canvas node with NO `data` projects conservatively", () => {
+    // The header claims this failure mode is "conservative rather than lossy".
+    // It was true and unmeasured; this is the measurement.
+    const NO_DATA_CANVAS_NODE = { id: 'n2', type: 'goal', position: { x: 7, y: 8 } }
+    expect(isCanvasShapedNode(NO_DATA_CANVAS_NODE)).toBe(false)
+
+    const { nodes } = normalisePersistedGraph({
+      nodes: [NO_DATA_CANVAS_NODE],
+      edges: [],
+    })
+    const out = nodes[0] as any
+    expect(out.id).toBe('n2')
+    expect(out.position).toEqual({ x: 7, y: 8 }) // geometry preserved
+    expect(out.data).toBeTruthy() // envelope added
+    expect(out.data.kind).toBe('goal')
+    // ⚠ The one lossy-looking detail, pinned so it is not discovered as a
+    // surprise: the mapper leaves a `label` KEY present and undefined, because
+    // the source node had no label to carry. Present-and-undefined, not absent.
+    expect('label' in out.data).toBe(true)
+    expect(out.data.label).toBeUndefined()
+  })
+})

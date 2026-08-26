@@ -178,9 +178,26 @@ function mayPersistGraphNow(scenarioId: string | null): boolean {
  * that are GraphV3 AND carry geometry** (census 2026-08-26) were waved through
  * unprojected and hit this function with no `data` at all — `label` collapsing
  * to `''`, `kind` to `undefined`, and the entire analytical payload invisible to
- * the dirty gate. `isCanvasShapedNode` now discriminates on the React Flow
- * envelope (`data`), which is a property of the shape rather than an observation
- * about what CEE currently emits.
+ * the dirty gate. `isCanvasShapedNode` no longer rests on `'position' in n`.
+ *
+ * ⚠ CORRECTED IN PLACE, NOT DELETED (2026-08-26). This sentence used to say the
+ * predicate "discriminates on the React Flow envelope (`data`), which is a
+ * property of the shape rather than an observation about what CEE currently
+ * emits". That was true of the FIRST commit of this fix and is now false: review
+ * found the envelope test is still a NEGATIVE test against a schema that permits
+ * the thing — `NodeV3Schema` is `.passthrough()`, so a CEE node carrying `data`
+ * is contract-PERMITTED, merely unobserved, which is the very admissibility that
+ * let `position` through and caused this P0. The predicate was re-pointed at the
+ * CONTRACT-REQUIRED CEE marker instead: a node with top-level `kind` AND `label`
+ * (neither is `.optional()` on `NodeV3Schema`) is CEE whatever else it carries,
+ * and the envelope test survives only as a stated-contingent second limb. The
+ * full derivation is in `canvas/utils/normalisePersistedGraph.ts`.
+ *
+ * The correction is left visible rather than quietly swapped out, because a
+ * stale mechanism sentence is exactly what this module's own history shows
+ * going unnoticed: nothing tests a comment, it reads as settled fact, and the
+ * next reader inherits it. This one was stale by a SINGLE COMMIT and was caught
+ * by a human reading it, not by any gate.
  *
  * ⚠ `position` REMAINS IN THIS HASH ON PURPOSE. This is the one authority in the
  * estate that SHOULD see geometry: a node move is a real change that must reach

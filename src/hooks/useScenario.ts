@@ -693,9 +693,14 @@ export function useScenario(): UseScenarioReturn {
       // CEE-shaped objects into a store whose every consumer assumes React Flow,
       // crashing `reseedIds` inside `hydrateGraphSlice` and then `computeGraphHash`
       // during render — a blank canvas on every reload of a CEE-drafted decision.
-      // A React-Flow-shaped row is passed through unchanged (same objects by
-      // reference); the DEFAULT_EDGE_DATA backfill this path always applied is
-      // preserved inside the normaliser.
+      // A row whose nodes classify as canvas-shaped is passed through unchanged
+      // (same objects by reference); the DEFAULT_EDGE_DATA backfill this path
+      // always applied is preserved inside the normaliser.
+      // ⚠ "Canvas-shaped" is the predicate's ANSWER, not a synonym for "React
+      // Flow shaped" (narrowed 2026-08-26): a canvas node that also carries
+      // top-level `kind`+`label`, or none at all, is re-projected — content
+      // preserved, object identity not. No writer produces either today; see
+      // `normalisePersistedGraph`'s header for the bound and what would break it.
       const normalised = normalisePersistedGraph(row.graph)
       const graphNodes = normalised.nodes as Parameters<
         ReturnType<typeof useCanvasStore.getState>['hydrateGraphSlice']

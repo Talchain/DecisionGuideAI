@@ -87,12 +87,38 @@
  * shape defect by discarding the user's layout would swap one silent loss for
  * another.
  *
- * ⚠ IDENTITY FOR ALREADY-CANVAS-SHAPED INPUT. A row already in React Flow shape
- * must come through byte-identical — those rows reload correctly today
- * (witnessed 2/2) and every existing autosave/history pin depends on their
- * projection not moving. `normalisePersistedGraph` returns the SAME node objects
- * by reference in that case; only the documented `DEFAULT_EDGE_DATA` backfill,
- * which `loadScenario` already performed, is applied to edges.
+ * ⚠ IDENTITY FOR ALREADY-CANVAS-SHAPED INPUT — AND THE EXACT EDGE OF THE CLAIM.
+ * A node that `isCanvasShapedNode` classifies as canvas-shaped comes through by
+ * reference: `normalisePersistedGraph` returns the SAME object, so every
+ * existing autosave/history pin sees an unmoved projection. Those rows reload
+ * correctly today (witnessed 2/2). Only the documented `DEFAULT_EDGE_DATA`
+ * backfill, which `loadScenario` already performed, is applied to edges.
+ *
+ * ⚠⚠ THE GUARANTEE IS ABOUT THE PREDICATE, NOT ABOUT "ANY REACT FLOW ROW"
+ * (narrowed 2026-08-26). This paragraph used to promise byte-identity for *"a
+ * row already in React Flow shape"*, unqualified — a claim about every canvas
+ * node this estate could ever write, which is structurally the SAME KIND of
+ * claim as the *"`scenarios.graph` carries no geometry"* sentence above: the one
+ * the data refuted, and the one that produced this P0. Wider margin, same shape.
+ * Measured rather than assumed:
+ *   · A canvas node that ALSO carries top-level `kind` + `label` is classified
+ *     CEE by limb (1) and is RE-PROJECTED. **Identity is lost; content is not**
+ *     — geometry kept, arbitrary `data` payload kept, nothing nested as
+ *     `data.data`.
+ *   · A canvas node with NO `data` is likewise projected: geometry kept, an
+ *     envelope added, a `label` key left present-and-undefined.
+ * BOUND ON THE RESIDUAL: neither class exists today. Two independent sweeps of
+ * `src/` (with firing contrast controls) find no writer that mints a canvas node
+ * with both top-level markers — every canvas-node origin puts them inside
+ * `data`, `mapDraftNodeToCanvas` destructures them OUT of the top level, and the
+ * client write to `scenarios.graph` is gated shut unconditionally at
+ * `clientGraphWritePolicy.ts:55-57`. WHAT WOULD CREATE ONE: any new writer that
+ * spreads a node's `data` up to the top level, or a CEE→canvas merge that keeps
+ * both copies. If you are writing that, the projection is content-preserving,
+ * but object identity — and therefore any pin resting on reference equality —
+ * will move. Both classes are pinned by fixture in
+ * `normalisePersistedGraph.geometryBearingCeeRow.p0.spec.ts`, so this is a
+ * recorded measurement rather than another description.
  */
 
 import type { Edge } from '@xyflow/react'
@@ -133,6 +159,21 @@ import { DEFAULT_EDGE_DATA, type EdgeData } from '../domain/edges'
  * A canvas node keeps `kind`/`label` inside `data`; the top level is React
  * Flow's own `{id, type, position, data}`. So the two shapes are separated by a
  * marker each one is REQUIRED to carry, in opposite places.
+ *
+ * ⚠ THOSE TWO HALVES ARE NOT THE SAME STRENGTH, and were previously written as
+ * if they were. *"A CEE node carries top-level `kind`+`label`"* is GUARANTEED —
+ * `NodeV3Schema` marks neither `.optional()`. *"A canvas node keeps them inside
+ * `data`"* is an OBSERVATION ABOUT THIS ESTATE'S WRITERS: React Flow's node type
+ * does not forbid extra top-level keys, exactly as `.passthrough()` does not
+ * forbid `data` on a CEE node. Stating the observation in the same flat voice as
+ * the contract fact is how the `'position' in n` rule came to look safe — the
+ * asymmetry is the whole lesson of this change, so it is spelled out rather than
+ * left for the next reader to notice. It holds today (measured: no writer in
+ * `src/` mints both markers at the top level), and the consequence if it ever
+ * lapses is stated under IDENTITY FOR ALREADY-CANVAS-SHAPED INPUT above:
+ * re-projection, content-preserving, identity not preserved. The limb resting on
+ * the contract can be relied on; the limb resting on an observation must be
+ * re-derived whenever a canvas writer changes.
  *
  * ⚠ THE ENVELOPE TEST IS KEPT AS THE SECOND LIMB, and its contingency is stated
  * rather than implied away: it is what a node must present once it is NOT
