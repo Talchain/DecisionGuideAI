@@ -120,13 +120,14 @@ import { useConversation } from '../conversation/useConversation'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
+  actionableBlockers,
   readinessObjectsToRun,
   verdictLicenceSuperseded,
   RUN_LICENCE_SUPERSEDED_REFUSAL,
   type ReadinessVerdictLicence,
 } from '../utils/canRunAnalysis'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
-import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
+import { selectOptionsNeedingValues, analysisBlockedSentences } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
@@ -1225,6 +1226,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  // The producer's sentences BEHIND that tooltip, from the same filter the gate
+  // decided on (`actionableBlockers`), so the footer can render them one per
+  // line instead of the join is UNBOUNDED and nothing truncates it.
+  //
+  // ⚠ NOT ASSUMED TO MATCH. `runBlockedTooltip` is `blockingReasons[0]`, which
+  // is not necessarily this composition — another blocker can come first.
+  // `deriveReadinessDisplay` therefore uses this array ONLY when it joins byte
+  // for byte to the vetted string it is rendering beside, and withholds it
+  // otherwise. Supplying a non-matching array here is safe by construction.
+  const runBlockedSentences = useMemo(
+    () =>
+      analysisReadiness
+        ? analysisBlockedSentences(actionableBlockers(analysisReadiness.blockers))
+        : undefined,
+    [analysisReadiness],
+  )
   // ── INPUTS FOR THE SHELL-HOSTED READINESS BAR ──────────────────────────────
   // Both are DERIVED THROUGH THE PANEL'S OWN OWNER (`readinessDisplay.ts`), not
   // restated here. `usePreAnalysisModel` builds the identical two values from
@@ -3045,6 +3062,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           isAnalysing={isRunning}
                           canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
+                          blockedSentences={runBlockedSentences}
                         />
                       </Suspense>
                     </div>

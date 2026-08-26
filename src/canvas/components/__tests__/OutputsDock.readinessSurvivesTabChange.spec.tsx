@@ -119,7 +119,7 @@ import { useReadinessStore } from '../../stores/readinessStore'
 import { useUIStore } from '../../../stores/uiStore'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'
-import { composeAnalysisBlockedReason } from '../../utils/composeBlockedReason'
+import { composeAnalysisBlockedReason, analysisBlockedSentences } from '../../utils/composeBlockedReason'
 import { actionableBlockers } from '../../utils/canRunAnalysis'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
 import { WORKSPACE_SURFACES, presentedSurfaces } from '../workspaceShell/shellContract'
@@ -205,6 +205,38 @@ function fourBlockers(): AnalysisStateV1['readiness'] {
  * evaluates, filter included.
  */
 const WITNESSED_REASON = composeAnalysisBlockedReason(actionableBlockers(FOUR_BLOCKERS))
+
+/**
+ * The SAME producer sentences, unjoined — one `<li>` each in the footer.
+ *
+ * ⚠ `expect(footer).toHaveTextContent(WITNESSED_REASON)` NO LONGER WORKS AND
+ * MUST NOT BE RESTORED. The footer renders the producer's sentences one per
+ * line, and sibling `<li>` elements concatenate with NO SEPARATOR — so the
+ * container's `textContent` is `"A.B."` where the joined string is `"A. B."`.
+ *
+ * ⛔ AND BE PRECISE ABOUT WHAT THE BYTE-IDENTITY GUARANTEE COVERS, because the
+ * PR that split this rendering stated it too broadly. It holds for the ARRAY
+ * and the JOINED STRING —
+ *   `analysisBlockedSentences(b).join(' ') === composeAnalysisBlockedReason(b)`
+ * — true by construction. **It was never a claim about rendered `textContent`.**
+ * The Analyse button's `title` is still the joined string (it is built from
+ * `gateBlockedSubline`, not from the DOM), which is why `:382` below is
+ * unaffected.
+ *
+ * ⭐ Asserting each sentence INDIVIDUALLY is stronger than substring-containment
+ * on one blob: a render that dropped a sentence and joined the rest would
+ * satisfy the old assertion for the sentences it kept, and REDs here.
+ */
+const WITNESSED_SENTENCES = analysisBlockedSentences(actionableBlockers(FOUR_BLOCKERS))
+
+function expectFooterCarriesEveryProducerSentence(footer: HTMLElement): void {
+  // Pin the fixture's own discriminating power: a one-sentence corpus could not
+  // observe a dropped sentence at all.
+  expect(WITNESSED_SENTENCES.length).toBeGreaterThan(1)
+  for (const sentence of WITNESSED_SENTENCES) {
+    expect(footer).toHaveTextContent(sentence)
+  }
+}
 
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
@@ -380,7 +412,7 @@ describe('the witnessed defect — following the advice removes the control', ()
     const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
     expect(analyse).toBeDisabled()
     expect(analyse).toHaveAttribute('title', WITNESSED_REASON)
-    expect(screen.getByTestId('pre-analysis-v3-footer')).toHaveTextContent(WITNESSED_REASON)
+    expectFooterCarriesEveryProducerSentence(screen.getByTestId('pre-analysis-v3-footer'))
 
     clickOlumiTab()
 
@@ -397,8 +429,17 @@ describe('the witnessed defect — following the advice removes the control', ()
     render(<Wrapper><OutputsDock /></Wrapper>)
 
     await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
-    const beforeText = screen.getByTestId('pre-analysis-v3-footer').textContent ?? ''
-    expect(beforeText).toContain(WITNESSED_REASON)
+    const beforeFooter = screen.getByTestId('pre-analysis-v3-footer')
+    expectFooterCarriesEveryProducerSentence(beforeFooter)
+    // ⛔ READ THE DOM, NOT THE FIXTURE. An earlier version asserted
+    // `reason === WITNESSED_SENTENCES.join(' ')` — but
+    // `composeAnalysisBlockedReason` IS `analysisBlockedSentences(b).join(' ')`,
+    // so BOTH SIDES were fixture constants and the footer was never read. It
+    // passed with NO producer at all, and a wrong-ORDER render left it green.
+    const renderedSentences = Array.from(beforeFooter.querySelectorAll('li')).map(
+      li => li.textContent ?? '',
+    )
+    expect(renderedSentences.length).toBeGreaterThan(1)
 
     clickOlumiTab()
     expect(olumiIsFronted()).toBe(true)
@@ -412,7 +453,15 @@ describe('the witnessed defect — following the advice removes the control', ()
     const reason = screen.getByTestId('analysis-readiness-bar-reason').textContent ?? ''
     expect(reason.length).toBeGreaterThan(20)
     expect(reason).toBe(WITNESSED_REASON)
-    expect(beforeText).toContain(reason)
+    // ⭐ CROSS-SURFACE IDENTITY, at the granularity the two surfaces now use.
+    // The footer renders the producer's sentences one per line and the bar
+    // renders their JOIN, so `beforeText.toContain(reason)` can no longer hold
+    // — sibling `<li>` textContent has no separator. The property it was
+    // guarding is unchanged and is asserted here directly: the bar's string IS
+    // the join of exactly the sentences the Analysis surface was showing, in
+    // that order. That is a stronger claim than substring-containment, because
+    // it pins the SET and the ORDER rather than mere presence.
+    expect(reason).toBe(renderedSentences.join(' '))
 
     // …and a run control the user can see the state of, still honest.
     const barAnalyse = screen.getByTestId('analysis-readiness-bar-analyse')

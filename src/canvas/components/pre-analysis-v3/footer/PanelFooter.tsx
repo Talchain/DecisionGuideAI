@@ -38,6 +38,8 @@ interface PanelFooterProps {
   canRun: boolean
   /** Advisory tooltip when canRun; the blocked explanation when not. */
   blockedReason?: string
+  /** The producer's sentences behind `blockedReason` — see `ReadinessDisplay.sublineSentences`. */
+  blockedSentences?: readonly string[]
   /**
    * ROADMAP 2.332 / 2.339 — non-null only when the readiness CHECK failed.
    * Never gates the run; it replaces the footer's claim about the check.
@@ -58,6 +60,7 @@ export const PanelFooter = memo(function PanelFooter({
   isAnalysing,
   canRun,
   blockedReason,
+  blockedSentences,
   readinessCheck = null,
   nothingHasAnswered = false,
 }: PanelFooterProps) {
@@ -74,6 +77,7 @@ export const PanelFooter = memo(function PanelFooter({
     isAnalysing,
     canRun,
     blockedReason,
+    blockedSentences,
     nothingHasAnswered,
     resting: footer,
   })
@@ -101,7 +105,27 @@ export const PanelFooter = memo(function PanelFooter({
         >
           {display.headline}
         </p>
-        <p className={`${typography.panelMeta} text-text-light`}>{display.subline}</p>
+        {/* THE PRODUCER'S SENTENCES ARE A LIST, NOT A PARAGRAPH. Every blocker
+            CEE names arrived here joined by spaces into one `panelMeta` line —
+            the join is UNBOUNDED and nothing truncates it. Nothing is
+            truncated or summarised (the contract forbids both, so we never put
+            our words in the producer's mouth); the SAME bytes render one per
+            line, and `display.subline` stays their exact join for the tooltip.
+            ⚠ ONE sentence stays a sentence: a list of one renders a bullet
+            where prose belonged, which would be a regression in the common
+            small case bought with a fix for the large one. */}
+        {display.sublineSentences !== undefined && display.sublineSentences.length > 1 ? (
+          <ul
+            className={`${typography.panelMeta} text-text-light list-disc space-y-0.5 pl-4`}
+            data-testid="pre-analysis-v3-footer-subline-list"
+          >
+            {display.sublineSentences.map((sentence, index) => (
+              <li key={`${index}:${sentence}`}>{sentence}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className={`${typography.panelMeta} text-text-light`}>{display.subline}</p>
+        )}
       </div>
       {/* The check can be retried without touching the run. Deliberately NOT a
           gate: the verdict is the server's, and this asks it again — it never
