@@ -426,6 +426,17 @@ export type RecognisedAnalysisReadyStatus =
  * When present in CEE response, this contains analysis-ready options
  * with resolved interventions that can be directly used for V2RunRequest.
  */
+/**
+ * A readiness payload that is NOT a refusal — see `canvas/domain/usableAnalysisReady`.
+ *
+ * ⚠ This type is for DERIVED READS ONLY. The store's `ceeAnalysisReady` field is
+ * deliberately NOT typed with it: that field really does hold `status: 'blocked'`
+ * at runtime, so narrowing it would be a claim the writer does not honour.
+ */
+export interface UsableCEEAnalysisReady extends Omit<CEEAnalysisReady, 'status'> {
+  status?: Exclude<AnalysisReadyStatus, 'blocked'>
+}
+
 export interface CEEAnalysisReady {
   /** Options with resolved interventions */
   options: CEEOptionV3[]
