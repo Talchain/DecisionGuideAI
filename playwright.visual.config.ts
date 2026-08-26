@@ -57,6 +57,31 @@ export default defineConfig({
   // darwin and linux, so a darwin reference compared on linux is a guaranteed
   // false positive. Keeping them in separate directories makes "there is no
   // linux baseline yet" a visible, nameable state instead of a mystery diff.
+  //
+  // ⚠⚠ AND PLATFORM IS NOT FINE-GRAINED ENOUGH — THESE ARE EFFECTIVELY SCOPED
+  // PER FONT SET. TWO LINUX HOSTS ARE NOT INTERCHANGEABLE. Measured 26 Aug 2026,
+  // not assumed: `fresh draft` was blessed at 06c616c5 inside
+  // `mcr.microsoft.com/playwright:v1.57.0-jammy` and compared against the CI
+  // runner's own capture of THE SAME COMMIT —
+  //
+  //     1280x800   63046 / 1024000 px   6.157%
+  //     1440x900   69905 / 1296000 px   5.394%
+  //     tolerance                       0.050%
+  //
+  // — two orders of magnitude out. The cause is one glyph: the container renders
+  // an ellipsis as `···` where the CI runner renders `…`. Node sizes are
+  // MEASURED FROM RENDERED TEXT, those measurements drive layout, and layout
+  // drives `fitView`, which landed at 56 in the container against 51 in CI. So
+  // one font substitution moves every node on the canvas, and nearly all of
+  // those pixels are downstream of it.
+  //
+  // CONSEQUENCE, and it is not optional: linux references must be generated ON
+  // THE CI RUNNER, never on a local container that merely reports
+  // `process.platform === 'linux'`. The job in `staging-full-tests.yml` does
+  // exactly this when no linux references are committed — it blesses, uploads
+  // them as an artifact for review, and never commits. Delete the stale ones to
+  // invoke it. A container-blessed reference would turn today's honest red into
+  // a permanent, inexplicable one.
   snapshotPathTemplate: 'e2e/visual/references/{platform}/{arg}{ext}',
 
   use: {
