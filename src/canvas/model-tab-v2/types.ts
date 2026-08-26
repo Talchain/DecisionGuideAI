@@ -156,6 +156,34 @@ export interface ModelRow {
    */
   primaryValue: string | null
   /**
+   * ⭐ CEE'S OWN DISPLAY TEXT, FOR A ROW THE USER HAS NOT SET — and ONLY then.
+   *
+   * `primaryValue` is `raw_value`: what a person SUPPLIED. When nobody has,
+   * Olumi has often still computed something and written the words for it. On a
+   * live signed-in journey (`20260826T082826Z-fresh-extended-17c4a0`) the
+   * persisted graph carried, on rows the outline rendered as blank:
+   *
+   *   Sales Rep Adoption Rate   display_value "High (0.6)"     value 0.6
+   *   CRM Feature Fit for B2B   display_value "0.25 to 0.75"   value —
+   *
+   * The second is a RANGE — the product computed a band of uncertainty, holds
+   * it, and showed the user neither the band nor anything else.
+   *
+   * ⚠ THIS SITS BESIDE `primaryValue` AND NEVER REPLACES IT (trap 21, the third
+   * time on this seam). Two questions: *what should this row SHOW?* and *what
+   * does this row still NEED from the user?* They have different answers on a
+   * row with an estimate and no `raw_value`, which is exactly the row that
+   * matters. So DISPLAY reads this; the AFFORDANCE — `attention`, the editor
+   * button, `valueAffordance` — keeps reading `primaryValue`, untouched.
+   *
+   * Populated ONLY when `primaryValue === null`, so a CEE string can never mask
+   * a value the user actually set. That is the same direction as the canonical
+   * priority chain (`FactorDisplayInput.display_value`: a fresh `raw_value` with
+   * a meaningful unit outranks `display_value`), enforced structurally here
+   * rather than re-implemented.
+   */
+  estimateText?: string
+  /**
    * The RAW provenance stamp as the model recorded it (`'brief_extraction'`,
    * `'cee_inference'`, `'user_confirmed'`, …) — NOT a classified kind.
    *

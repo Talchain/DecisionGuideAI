@@ -115,6 +115,7 @@
  */
 
 import type { Edge, Node } from '@xyflow/react'
+import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
 import type { EdgeData } from '../domain/edges'
 import type { ObservedState } from '../domain/nodes'
@@ -443,7 +444,24 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         group: KIND_GROUP[kind],
         label,
         primaryValue: value,
+        // ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`.
+        // Read through `readFactorDisplayValue`, the SHARED reader that already
+        // honours CEE's wire shape (top-level `display_value` first, then
+        // `observedState.display_value`). Measured on the live journey: 11 of 11
+        // occurrences are TOP-LEVEL and zero are nested, so a nested-only read
+        // would have found nothing. Not re-implemented here — `FactorNode`, the
+        // inspector-v2 panels and the debug bundle already share it, and the
+        // Model tab was the one surface not on it.
+        ...(value === null
+          ? (() => {
+              const text = readFactorDisplayValue(data)
+              return text === undefined ? {} : { estimateText: text }
+            })()
+          : {}),
         provenanceSource: typeof obs?.source === 'string' ? obs.source : undefined,
+        // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
+        // still reads `value` (i.e. `raw_value`). A row with an estimate and no
+        // supplied value must still ask for one.
         attention: attentionForFactor(data, value),
         editable: true,
       })
