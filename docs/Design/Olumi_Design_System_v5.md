@@ -1152,7 +1152,7 @@ Both phases use the same set of patterns. All differences are in content, not tr
 | Border tokens | Semantic only (`border-panel-border`, `border-{colour}/30`), no legacy |
 | Typography colour | Semantic only (`text-text-header`, `text-text-body`, `text-text-light`), no legacy |
 | Icons | Lucide only, no unicode emoji |
-| Card radius | `rounded-lg` (12px) consistently |
+| Card radius | `rounded-md` (12px) — §6.2 panel override; `rounded-lg` (20px) is the OUTSIDE-panel value |
 | Count badges | Outlined pill (§8.5), state-based colour (§8.6) |
 | Improvement tiers | Section header + count badge for grouping, not left-border colour |
 
