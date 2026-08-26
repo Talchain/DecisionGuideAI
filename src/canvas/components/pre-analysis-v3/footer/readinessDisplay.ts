@@ -103,6 +103,20 @@ export interface ReadinessDisplay {
   readonly dot: ReadinessDot
   readonly headline: string
   readonly subline: string
+  /**
+   * The SAME text as `subline`, unjoined — one entry per producer sentence.
+   *
+   * Present only on the gate-shut arm, and only when the vetted string is
+   * BYTE-IDENTICAL to this array's own join. A surface may render these as a
+   * list; every other surface keeps reading `subline`. Because both come from
+   * one derivation in one call, the bar and the footer cannot tell different
+   * stories about one state.
+   *
+   * ⚠ ABSENT is the safe default and means "render `subline`". It is absent
+   * whenever the vet substituted UI copy for the producer's text — see the
+   * equality guard in `deriveReadinessDisplay`.
+   */
+  readonly sublineSentences?: readonly string[]
 }
 
 /** The resting value for a surface that has no `PreAnalysisModel`. See the
@@ -224,6 +238,17 @@ export interface ReadinessDisplayInput {
   readonly canRun: boolean
   /** The gate's own reason. Read only while the gate is shut. */
   readonly blockedReason?: string
+  /**
+   * The producer's sentences BEHIND `blockedReason` — `analysisBlockedSentences`,
+   * from the same call that produced the string.
+   *
+   * Optional and additive: a caller that supplies nothing gets exactly today's
+   * behaviour. Supplying an array that does not join to `blockedReason` is not
+   * an error — it is simply not used (the guard below), because a mismatch means
+   * something composed one of them separately and neither can be trusted to
+   * speak for the other.
+   */
+  readonly blockedSentences?: readonly string[]
   /** `readinessNothingHasAnswered(...)`, from the same two authorities the gate reads. */
   readonly nothingHasAnswered: boolean
   /** What this surface says when none of the arms above fire. */
@@ -240,10 +265,24 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
     return { dot: 'success', headline: FOOTER_COPY.running, subline: FOOTER_COPY.runningSub }
   }
   if (!input.canRun) {
+    const subline = gateBlockedSubline(input.blockedReason)
+    // ⛔ BYTE-IDENTITY ENFORCED AT THE POINT OF USE, NEVER ASSUMED.
+    // `gateBlockedSubline` runs `vetBlockedReason`, which does not merely accept
+    // or reject — it SUBSTITUTES a composed fallback for producer text it will
+    // not pass. Handing the array through regardless would render our fallback
+    // in the bar and the producer's sentences in the footer: two surfaces
+    // telling different stories about one state. So the list is carried only
+    // when the vetted string IS its join, and withheld otherwise.
+    const sentences =
+      input.blockedSentences !== undefined &&
+      input.blockedSentences.join(' ') === subline
+        ? input.blockedSentences
+        : undefined
     return {
       dot: 'muted',
       headline: FOOTER_COPY.notReady,
-      subline: gateBlockedSubline(input.blockedReason),
+      subline,
+      ...(sentences !== undefined ? { sublineSentences: sentences } : {}),
     }
   }
   if (input.nothingHasAnswered) {
