@@ -26,6 +26,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
+import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
 import { ModelGroupActions } from './ModelGroupActions'
@@ -227,10 +228,54 @@ function unsetSummary(rows: readonly ModelRow[]): string | null {
     r => Array.isArray(r.attention) && r.attention.includes('unconfirmed-estimate'),
   ).length
 
-  const head = `${unset.length} of ${rows.length}`
-  return estimated === 0
-    ? `${head} have no value yet`
-    : `${head} not set by your team · Olumi estimated ${estimated}`
+  // ⛔ AUTHORSHIP IS A THIRD QUESTION, AND THE COUNT CANNOT ANSWER IT.
+  //
+  // The first cut of this said "not set by your team", attributing the whole
+  // `unset` population to authorship. `unset` is `raw_value === undefined`, and
+  // that does NOT imply the team did not set the value. Measured end-to-end on
+  // a real edit: `buildFactorValueEditEvent` attaches `raw_value` only
+  // `if (inUserUnits)`, which is false for a factor carrying `value` with no
+  // `raw_value` — so typing 0.8 into such a factor persists
+  // `{value: 0.8, source: 'user'}` and the row comes back
+  // `{primaryValue: null, provenanceSource: 'user'}`.
+  //
+  // The heading therefore told the user that the factor they had JUST TYPED was
+  // not set by them — an untruth directly contradicting the action the surface
+  // exists to invite. Not a regression (the old string was false for that class
+  // too) but a more specific one.
+  //
+  // So authorship is DERIVED from the shared taxonomy rather than asserted, and
+  // it is a THIRD independently-owned axis: `unset` keeps `getPrimaryValue`, the
+  // estimate clause keeps `factorIsConfirmable`, and this reads
+  // `classifyValueProvenance().userOwned`. Three questions, three predicates,
+  // none aligned (`valueProvenance.ts:389` — "named apart on purpose").
+  const yours = unset.filter(
+    r => classifyValueProvenance(r.provenanceSource)?.userOwned === true,
+  ).length
+
+  // ⭐ "WITHOUT A FIGURE" — and this head is what makes the sentence true beside
+  // the value cell rather than in spite of it.
+  //
+  // `raw_value` is the value in the USER'S OWN UNITS — a figure. The old head,
+  // "have no value yet", was false in two directions at once: a factor Olumi had
+  // estimated HAS a value, and a factor carrying a producer BAND
+  // ("0.25 to 0.75") has one too. Since the row cell now renders that band
+  // verbatim ("Olumi: 0.25 to 0.75"), "have no value yet" would sit directly
+  // above a visible value — the exact untruth this function's own header exists
+  // to abolish, re-created one element up.
+  //
+  // A band is not a figure. A normalised level on a frame is not a figure
+  // either. "Without a figure" is true of every member of `unset`, so the
+  // heading and the cell can both be right at once — and it needs NO second
+  // answer to "has Olumi estimated this?", which would have been a fourth
+  // predicate over the same question.
+  const head = `${unset.length} of ${rows.length} without a figure`
+  const clauses = [
+    estimated > 0 ? `Olumi estimated ${estimated}` : null,
+    yours > 0 ? `you set ${yours}` : null,
+  ].filter((c): c is string => c !== null)
+
+  return clauses.length === 0 ? head : `${head} · ${clauses.join(' · ')}`
 }
 
 export function ModelOutline({

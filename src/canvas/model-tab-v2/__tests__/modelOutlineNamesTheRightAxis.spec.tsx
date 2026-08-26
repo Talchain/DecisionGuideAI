@@ -30,6 +30,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ModelOutline } from '../ModelOutline'
+import { toModelRows } from '../adapters'
 import type { ModelRow } from '../types'
 
 const row = (over: Partial<ModelRow>): ModelRow =>
@@ -40,6 +41,7 @@ const row = (over: Partial<ModelRow>): ModelRow =>
     label: 'A factor',
     primaryValue: null,
     attention: [],
+    provenanceSource: undefined,
     editable: true,
     ...over,
   }) as ModelRow
@@ -76,17 +78,17 @@ describe('the group heading names the axis it counts', () => {
     const out = summaryText([setRow('a'), estimatedRow('b'), setRow('c'), emptyRow('d')])
     expect(out).not.toContain('have no value yet')
     // Exact: the sentence is the whole claim, so containment would miss anything ADDED.
-    expect(out).toBe('2 of 4 not set by your team · Olumi estimated 1')
+    expect(out).toBe('2 of 4 without a figure · Olumi estimated 1')
   })
 
   it('still says "no value yet" when NOTHING has been estimated — the honest case is preserved', () => {
     const out = summaryText([setRow('a'), emptyRow('b'), emptyRow('c')])
-    expect(out).toBe('2 of 3 have no value yet')
+    expect(out).toBe('2 of 3 without a figure')
   })
 
   it('counts every estimate, not just the first', () => {
     const out = summaryText([estimatedRow('a'), estimatedRow('b'), emptyRow('c')])
-    expect(out).toBe('3 of 3 not set by your team · Olumi estimated 2')
+    expect(out).toBe('3 of 3 without a figure · Olumi estimated 2')
   })
 
   it('THE COUNT IS UNCHANGED — this fix is the sentence, never the arithmetic', () => {
@@ -94,6 +96,120 @@ describe('the group heading names the axis it counts', () => {
     // folding in estimates, this REDs — which is the whole point of the split.
     const out = summaryText([setRow('a'), estimatedRow('b'), setRow('c'), emptyRow('d')])
     expect(out).toMatch(/^2 of 4 /)
+  })
+
+  /*
+   * ⛔ THE AUTHORSHIP GATE. The first cut said "not set by your team" about the
+   * whole `unset` population. Measured end-to-end: editing a factor that carries
+   * `value` with no `raw_value` persists `{value: 0.8, source: 'user'}` — the row
+   * comes back `{primaryValue: null, provenanceSource: 'user'}`, so the heading
+   * told the user the factor they had JUST TYPED was not set by them.
+   *
+   * Authorship is now DERIVED from the shared taxonomy, never asserted over the
+   * count. A third axis, deliberately not aligned with the other two.
+   */
+  it('⛔ NEVER tells the user a value THEY set is not theirs', () => {
+    const userSet = row({
+      id: 'u',
+      label: 'User typed this',
+      primaryValue: null,
+      attention: ['no-value'],
+      provenanceSource: 'user',
+    })
+    const out = summaryText([userSet, emptyRow('b')])
+    // ⚠ ASSERTS ONLY THE AUTHORSHIP AXIS. An exact full-string match here would
+    // also fail on any head-wording change, making this case indistinguishable
+    // from the head guard — measured: two different mutants failed the identical
+    // six cases, so the kit proved sensitivity without specificity.
+    expect(out).not.toMatch(/not set by your team/i)
+    expect(out).toMatch(/\byou set 1\b/)
+  })
+
+  it('DISCRIMINATING — a producer value is NOT credited to the user', () => {
+    // Without this, "userOwned everything" satisfies the case above while
+    // inventing authorship the taxonomy does not support.
+    const inferred = row({
+      id: 'i',
+      label: 'Olumi inferred this',
+      primaryValue: null,
+      attention: ['no-value'],
+      provenanceSource: 'cee_inference',
+    })
+    const out = summaryText([inferred, emptyRow('b')])
+    // Authorship axis only — see the note above.
+    expect(out).not.toMatch(/you set/i)
+  })
+
+  /*
+   * ⭐ THE CROSS-PR GAP (#867 × #866), closed by the HEAD WORDING rather than by
+   * widening the count.
+   *
+   * #867 renders a producer BAND in the value cell ("Olumi: 0.25 to 0.75") for a
+   * factor with no numeric `observedState.value`. `factorIsConfirmable` requires
+   * a finite value, so such a row is NOT `unconfirmed-estimate` and the estimate
+   * clause does not fire. Under the old head that produced "1 of 1 have no value
+   * yet" DIRECTLY ABOVE a visible value.
+   *
+   * Widening the count to `|| estimateText !== undefined` would have been a
+   * SECOND answer to "has Olumi estimated this?" — the shape this file refused
+   * in the first place. A band is simply not a figure, so the head is true and
+   * the cell is true, together.
+   */
+  it('⭐ a producer BAND does not make the heading claim there is no value', () => {
+    const band = row({
+      id: 'band',
+      label: 'CRM Feature Fit',
+      primaryValue: null,
+      attention: ['no-value'],
+      estimateText: '0.25 to 0.75',
+    })
+    const out = summaryText([band])
+    // HEAD axis only, so this case discriminates a head-wording regression from
+    // an authorship one.
+    expect(out).not.toMatch(/no value/i)
+    expect(out).not.toMatch(/you set/i)
+  })
+
+  /*
+   * ⭐⭐ THE CROSS-PR INTERACTION, PROVEN AS ONE RENDER RATHER THAN TWO CLAIMS.
+   *
+   * The heading and the value cell were built in separate PRs and each was
+   * reviewed against base in isolation, so neither review could see the pair.
+   * Independent adjudication found the gap: the cell renders a producer band for
+   * a factor with no numeric value, while the heading's estimate clause requires
+   * `factorIsConfirmable`, which needs a finite one — so the old head said
+   * "have no value yet" DIRECTLY ABOVE a visible value.
+   *
+   * This drives the REAL adapter, so it fails if either side regresses, and it
+   * asserts the two elements are consistent WITH EACH OTHER rather than each
+   * being separately defensible.
+   */
+  it('⭐⭐ heading and cell do not contradict each other on a band-only factor', () => {
+    const rows = toModelRows({
+      nodes: [
+        {
+          id: 'band',
+          type: 'factor',
+          data: { label: 'CRM Feature Fit', kind: 'factor', display_value: '0.25 to 0.75' },
+        },
+      ],
+      edges: [],
+    } as never)
+
+    // PRECONDITION — the real adapter really did produce the shape the gap needs:
+    // a band in the cell and NO confirmable estimate for the heading.
+    expect(rows[0].estimateText).toBe('0.25 to 0.75')
+    expect(rows[0].attention).not.toContain('unconfirmed-estimate')
+
+    render(<ModelOutline rows={rows} tier="plain" />)
+    const heading = screen.getByTestId('model-group-v2-factors-unknown-summary').textContent ?? ''
+    const cell = screen.getByTestId('model-row-v2-band-value-estimate').textContent ?? ''
+
+    // The cell shows Olumi's band …
+    expect(cell).toBe('Olumi: 0.25 to 0.75')
+    // … and the heading above it does not deny that a value exists.
+    expect(heading).not.toMatch(/no value/i)
+    expect(heading).toContain('without a figure')
   })
 
   it('renders NOTHING when every row is set — a group states no zero', () => {

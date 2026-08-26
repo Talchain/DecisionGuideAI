@@ -77,12 +77,31 @@ function renderOutline(rows: readonly ModelRow[], editConnectedIds?: ReadonlySet
 }
 
 describe('B4 · unknown values are summarised at the group, not repeated down the list', () => {
+  /*
+   * ⚠ PREMISE UPDATED TWICE, AND THE SECOND TIME MATTERS MORE THAN THE FIRST.
+   *
+   * The first change named the axis the count measures. It deliberately left
+   * this string byte-identical, and this spec passing unchanged was offered as
+   * proof the honest case had not been swallowed.
+   *
+   * ⛔ THAT PROOF NO LONGER HOLDS, and saying so is the point. Independent review
+   * found the head clause made an AUTHORSHIP claim the count cannot support:
+   * `raw_value === undefined` does not mean the team did not set the value, and
+   * measured end-to-end, a user typing into a factor with no `raw_value`
+   * persists `{value, source: 'user'}` — so the heading told them the factor
+   * they had just typed was not theirs. The head is now "without a figure" for
+   * EVERY case, so this string changes here too.
+   *
+   * Rewritten rather than deleted: what this case guards — that the heading
+   * counts and states the unset population at all — is unchanged and still worth
+   * pinning. Only the expected wording moved.
+   */
   it('the group heading states how many rows have no value yet', () => {
     renderOutline(FACTORS, new Set<string>())
     // Bound by identity to the FACTORS group's own summary node, not by
     // searching the document for a number another group could also render.
     const summary = screen.getByTestId('model-group-v2-factors-unknown-summary')
-    expect(summary).toHaveTextContent('3 of 4 have no value yet')
+    expect(summary).toHaveTextContent('3 of 4 without a figure')
   })
 
   it('a row that is NOT EDITABLE AT ALL prints nothing either', () => {
@@ -140,6 +159,6 @@ describe('B4 · unknown values are summarised at the group, not repeated down th
     const outline = screen.getByTestId('model-outline-v2')
     expect(
       within(outline).getByTestId('model-group-v2-factors-unknown-summary'),
-    ).toHaveTextContent('3 of 4 have no value yet')
+    ).toHaveTextContent('3 of 4 without a figure')
   })
 })
