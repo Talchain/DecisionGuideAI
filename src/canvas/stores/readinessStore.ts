@@ -10,7 +10,7 @@
  * thin wrapper useGraphReadiness() for backward compatibility.
  */
 import { create } from 'zustand'
-import { isAnalysisRefusal } from '../domain/usableAnalysisReady'
+import { isBlockedCarrier } from '../domain/usableAnalysisReady'
 import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
@@ -390,7 +390,7 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
   // refusal (ARM B) populates `options` on purpose, so the shape guard was
   // satisfied by exactly the payload it needed to exclude. Sending it would
   // hand CEE's readiness authority its own refusal back as an assessment.
-  if (!isAnalysisRefusal(ceeAnalysisReady) && ceeAnalysisReady?.options?.length) {
+  if (!isBlockedCarrier(ceeAnalysisReady) && ceeAnalysisReady?.options?.length) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { model_adjustments: _strip, ...analysisReadyForPayload } =
       ceeAnalysisReady as Record<string, unknown>

@@ -35,22 +35,49 @@ import type { CEEAnalysisReady, UsableCEEAnalysisReady } from '../../adapters/ce
 /**
  * Type predicate: this payload is not a refusal.
  *
- * A predicate rather than a cast — the narrowing is then something the compiler
- * checks, not something this module asserts.
+ * ⚠ CORRECTED. An earlier draft of this comment said the narrowing is "something
+ * the compiler checks, not something this module asserts". **That is backwards.**
+ * TypeScript does not verify a type-predicate's BODY — it takes `x is T` on
+ * trust and propagates it. A predicate is therefore exactly as much an assertion
+ * as a cast; it is preferable only because the assertion sits in ONE named place
+ * with a test around it, instead of at every call site. The guarantee here is
+ * the test below it, never the compiler.
  */
 export function isUsableAnalysisReady(
   analysisReady: CEEAnalysisReady,
 ): analysisReady is UsableCEEAnalysisReady {
-  return !isAnalysisRefusal(analysisReady)
+  return !isBlockedCarrier(analysisReady)
 }
 
 /**
- * THE discriminator. Structurally typed on purpose: several consumers hold only
- * a narrow projection of the payload, and they must not each re-spell
- * `status === 'blocked'` — one literal, one module, so a change to what counts
- * as a refusal cannot land in some readers and miss others.
+ * "Is this payload a readiness verdict at all?" — FALSE for every `blocked`
+ * carrier, and NOT a claim that CEE refused.
+ *
+ * ⚠⚠ RENAMED FROM `isAnalysisRefusal`, AND THE OLD NAME WAS A FALSE CLAIM.
+ * TWO DISTINCT `status: 'blocked'` CARRIERS EXIST, derived at the CEE bytes and
+ * recorded at `canvas/store/analysisRefusalNotice.ts:39-55`:
+ *
+ *   REFUSAL  `buildAnalysisRefusalReadiness()` — ALWAYS a non-empty
+ *            `blocked_reason`. CEE refused.
+ *   LEGACY   `synthesiseFreshnessOnlyAnalysisReady()` — `status:'blocked'`,
+ *            NO `blocked_reason`, emitted on legacy/unparseable RELOADS. It
+ *            "says nothing about a refusal".
+ *
+ * ⭐ SO THE PREDICATE'S BEHAVIOUR WAS RIGHT AND ITS NAME WAS WRONG — the
+ * sharpest form of this estate's recurring defect, because nothing in a test
+ * can see it. For THIS question both carriers are correctly excluded: neither
+ * is a verdict a consumer may act on. But `isAnalysisRefusal` ASSERTED that a
+ * legacy freshness carrier is a refusal, which is false, and any reader who
+ * adopted it for the refusal question would have fabricated "this analysis did
+ * not run" on every legacy reload.
+ *
+ * ⛔ THE REFUSAL QUESTION IS A DIFFERENT QUESTION AND IT IS NOT ANSWERED HERE.
+ * Its owner is `analysisRefusalNotice.ts`, and its discriminator is the PRESENCE
+ * OF A NON-EMPTY `blocked_reason`, never `status` alone. Do not use this
+ * predicate for it, and do not "align" the two — they are two questions, and
+ * naming them apart is the fix (trap 21), not reconciling their answers.
  */
-export function isAnalysisRefusal(
+export function isBlockedCarrier(
   analysisReady: { status?: string } | null | undefined,
 ): boolean {
   return analysisReady?.status === 'blocked'
