@@ -335,10 +335,49 @@ export function mergeServerGraphOnHydrate(
   )
   const addedNodes = missingRawNodes.map((n: any) => mapDraftNodeToCanvas(n))
 
+  // ⭐⭐ AN EMPTY CANVAS IS A HYDRATION, NOT AN ADDITION — SO IT GETS A LAYOUT.
+  //
+  // THE DEFECT THIS CLOSES, driven and measured: a user reloading a saved
+  // scenario with no local autosave (new device, cleared storage, incognito, or
+  // a scenario first opened elsewhere) got all 15 nodes in ONE VERTICAL LINE —
+  // unique `x` of 260, `y` stepping by exactly 140.
+  //
+  // With nothing on the canvas EVERY server node is "added", so all of them fell
+  // through the placement below — a constant pair whose own comment says it
+  // exists to drop "a few added nodes beside an existing bounding box" and
+  // "never a re-layout of nodes the user has already arranged". It was being
+  // applied to the ONE case it explicitly disclaims, and with no existing nodes
+  // `Math.max(...[])` has nothing to take, so `baseX` collapses to `0 + 260`.
+  //
+  // ⚠ AND THE PRODUCT COULD NOT SEE IT. `graphNeedsInitialLayout` asks
+  // `xSpread < 40 && ySpread < 40`; a column has xSpread 0 but ySpread ~1960, so
+  // it returns FALSE — no layout is triggered — and the camera then confidently
+  // frames the line. Fifteen nodes in a row is not a laid-out graph, but nothing
+  // in the product disagreed.
+  //
+  // ⚠ THE PREDICATE IS NOT THE PLACE TO FIX THIS, and loosening it was
+  // considered and REJECTED: a user CAN deliberately arrange nodes in a column,
+  // and a geometric test cannot tell their column from ours. That fix would
+  // destroy real work to repair ours — this bug wastes a layout, that one would
+  // delete an arrangement.
+  //
+  // ⭐ The predicate asks a GEOMETRIC question when the real one is PROVENANCE:
+  // did WE place these, or did the USER arrange them? That answer is already in
+  // hand HERE — `store.nodes.length === 0` means there was nothing to preserve.
+  // No flag is recorded, because recording one would be a second source of truth
+  // for a fact this site can already see.
+  //
+  // So this branch is safe BY CONSTRUCTION: it fires only when the canvas was
+  // empty, so there is no arrangement it can damage. The nodes keep the origin
+  // `mapDraftNodeToCanvas` gives them, which makes `graphNeedsInitialLayout`
+  // return TRUE on its own terms, and `setPendingLayout(true)` is the same
+  // request `useInitialLayoutGuard` already makes — the designed path, unchanged.
+  const hydratingEmptyCanvas = store.nodes.length === 0 && addedNodes.length > 0
+
   // Deterministic placement, right of the existing bounding box — never a
   // re-layout of nodes the user has already arranged. Same constants as the
   // receipt path, imported from it.
-  if (addedNodes.length > 0) {
+  if (addedNodes.length > 0 && !hydratingEmptyCanvas) {
     const xs = mergedNodes.map((n: any) => n.position?.x ?? 0)
     const ys = mergedNodes.map((n: any) => n.position?.y ?? 0)
     const baseX = (xs.length ? Math.max(...xs) : 0) + ADDED_COLUMN_X_GAP
@@ -459,6 +498,11 @@ export function mergeServerGraphOnHydrate(
     useCanvasStore.setState({
       nodes: [...mergedNodes, ...addedNodes] as any,
       edges: [...mergedEdges, ...addedEdges] as any,
+      // Requested in the SAME write as the nodes it describes: a separate
+      // `setPendingLayout` call would leave a frame in which the canvas holds an
+      // origin stack that nothing has asked to lay out, and the camera's restore
+      // trigger reads exactly that state.
+      ...(hydratingEmptyCanvas ? { pendingLayout: true } : {}),
     })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
