@@ -201,6 +201,25 @@ describe('ResultsBody — coverage disclosure, mounted', () => {
     expect(strip.textContent).toContain('CRM Adoption and Usability')
   })
 
+  it('says NOTHING when an option carries no usable id, rather than reporting a shrunken set', () => {
+    // PINS THE GUARD A MUTANT FOUND UNPINNED. Reverting `return null` to
+    // `continue` drops the unnameable participant, and the two that remain are
+    // both 3 of 3 — so the strip renders COMPLETE for a comparison that had a
+    // third option nobody could account for. That is the same fabrication this
+    // PR exists to remove, reached through the id door instead of the count
+    // door. The reading must abort, not shrink.
+    const all = { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 }
+    seed([
+      { label: 'Option A', interventions: { [SWITCHING]: 0.4 } },
+      { id: 'opt_b', label: 'Option B', interventions: { ...all } },
+      { id: 'opt_c', label: 'Option C', interventions: { ...all } },
+    ])
+    renderBody()
+
+    expect(screen.queryByTestId('results-coverage-disclosure')).toBeNull()
+    expect(document.body.textContent).not.toContain('Every option has all its effects set')
+  })
+
   it('says NOTHING rather than something partial when an option cannot be named', () => {
     // A comparison that silently omits a participant can turn uneven into even,
     // and incomplete into complete. Honest by silence — and never the raw id.

@@ -28,6 +28,22 @@
  * the challenger" is exactly as unearned as "it would win if you set these",
  * and this module is the wrong place to explain anything.
  *
+ * ⛔ THE HEDGE IS ADJACENCY-ONLY, AND THAT IS THE ACCEPTED SCOPE. Nothing here
+ * gates the leader treatment — not the ordering, not `data-leader`, not the
+ * heavier border — and the producer's own summary renders ABOVE this strip,
+ * unchanged. The provisional register is carried by the words in
+ * `UNEVEN_DETAIL` sitting beside the ranking, and by nothing else. A reader
+ * should not infer any stronger coupling than that.
+ *
+ * ⚠ A `rankingIsProvisional` predicate was exported here to key exactly that
+ * gating. It acquired ZERO production consumers — one occurrence repo-wide, its
+ * own definition, against contrast controls that fired — while its header
+ * called it "the load-bearing call". A false label on an unreferenced function,
+ * inside the module written to stop the product claiming things that are not
+ * true. Deleted rather than wired: gating leader emphasis is a product-surface
+ * decision and does not belong in a fabrication fix. If that decision is ever
+ * taken, the predicate is `kind !== 'complete'` and THIS is the place for it.
+ *
  * ⚠ IT IS NOT A CONFIDENCE SIGNAL, AND MUST NOT BE WORDED AS ONE.
  * `uncertaintyCalibration` already renders beside the same sentence and keys on
  * `robustness.level` — a DIFFERENT AXIS. Robustness measures how the result
@@ -166,26 +182,6 @@ export function deriveOptionCoverage(
   return { kind, modelFactorIds: factorIds, perOption }
 }
 
-/**
- * True when the ranking must be stated provisionally.
- *
- * ⚠ DELIBERATELY NOT KEYED ON ROBUSTNESS, and this is the load-bearing call.
- * Paul's ruling allows stronger leader language "only when the ranking is
- * sufficiently robust to the missing information". `robustness.level` is on the
- * wire and looks like that signal — IT IS NOT. It measures sensitivity to the
- * values that were SAMPLED, and an unset effect is never sampled, so it carries
- * no information about the missing values at all. Using it to license a
- * definitive "winner" would claim the compute tested something it did not.
- *
- * Nothing currently on the wire certifies robustness to values that were never
- * set, so the honest reading of the ruling is the conservative one: while
- * coverage is uneven, the ranking is provisional. If a producer-side signal for
- * that ever ships, THIS is the predicate to widen — one place, not a second
- * rule beside it.
- */
-export function rankingIsProvisional(reading: CoverageReading | null): boolean {
-  return reading !== null && reading.kind !== 'complete'
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Disclosure copy

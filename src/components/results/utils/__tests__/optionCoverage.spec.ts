@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   deriveOptionCoverage,
-  rankingIsProvisional,
   buildCoverageDisclosure,
   type CoverageOption,
 } from '../optionCoverage'
@@ -170,30 +169,6 @@ describe('deriveOptionCoverage', () => {
     const bareRead = reading!.perOption.find((o) => o.optionId === 'opt_bare')!
     expect(bareRead.setFactorIds).toEqual([])
     expect(bareRead.unsetFactorIds).toEqual([SWITCHING, LICENCE, ADOPTION])
-  })
-})
-
-describe('rankingIsProvisional', () => {
-  it('is true exactly when coverage is uneven', () => {
-    const uneven = deriveOptionCoverage([CHALLENGER, BASELINE], MODEL_FACTORS)
-    expect(rankingIsProvisional(uneven)).toBe(true)
-
-    const evenChallenger: CoverageOption = {
-      ...CHALLENGER,
-      interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.2 },
-    }
-    // Matching counts are NOT completeness, so the ranking stays provisional.
-    const even = deriveOptionCoverage([evenChallenger, BASELINE], MODEL_FACTORS)
-    expect(rankingIsProvisional(even)).toBe(true)
-
-    const all = (id: string): CoverageOption => ({
-      id, label: `Option ${id.toUpperCase()}`, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
-    })
-    expect(rankingIsProvisional(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS))).toBe(false)
-  })
-
-  it('is false when there is no reading, rather than throwing', () => {
-    expect(rankingIsProvisional(null)).toBe(false)
   })
 })
 

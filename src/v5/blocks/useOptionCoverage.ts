@@ -82,8 +82,30 @@ export function useOptionCoverage(): CoverageReading | null {
       // ⚠ NOT `continue`. Dropping a participant shrinks the denominator, and a
       // shrunken participant set can read COMPLETE when the analysis actually
       // had an option we could not account for — Gate 1's fabrication through a
-      // different door. The denominator must be the options the analysis HAD,
-      // never the options we could name. If one is unusable, say nothing.
+      // different door. So if one is unusable, say nothing.
+      //
+      // ⛔ WHAT THIS GUARANTEES, STATED NARROWLY — AND AN EARLIER VERSION OF
+      // THIS COMMENT OVERCLAIMED IT. It said "the denominator must be the
+      // options the analysis HAD, never the options we could name". This hook
+      // cannot honour that. It guarantees only that THIS HOOK never shrinks the
+      // set it was handed; it says nothing about whether that set is the one
+      // the analysis had.
+      //
+      // On the V5 wire path it demonstrably is not: `normaliseV5AnalysisReady`
+      // (`src/v5/applyV5State.ts:229`, sole call site `:1228`) already drops any
+      // option carrying neither `id` nor `option_id` BEFORE this hook is
+      // reached, so the participant is gone with nothing downstream able to see
+      // it. Measured against the compiled module:
+      //     [A 1of3, B 3of3, C 3of3]  ->  uneven
+      //     [B 3of3, C 3of3]          ->  complete, "Every option has all its
+      //                                   effects set"
+      // Residual, rowed as ROADMAP 2.1334. Closing it needs the NORMALISER to
+      // report what it dropped — a different seam, and deliberately not widened
+      // from here.
+      //
+      // The guard below is still load-bearing on the paths that reach this hook
+      // UNNORMALISED — scenario restore, crash-flush recovery and RecoveryBanner
+      // all assign `ceeAnalysisReady` without passing through the normaliser.
       if (typeof raw.id !== 'string' || raw.id.length === 0) return null
       // ⚠ AN OPTION WITH NO HONEST LABEL STOPS THE WHOLE DISCLOSURE.
       // This previously fell back to `raw.id` and printed an internal token at a
