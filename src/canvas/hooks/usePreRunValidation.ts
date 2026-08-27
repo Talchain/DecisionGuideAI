@@ -1022,12 +1022,3 @@ export function usePreRunValidation(): ValidationResult {
 
   return validation
 }
-
-/**
- * Simple boolean check for whether analysis can run.
- * Useful for button disabled state.
- */
-export function useCanRunAnalysis(): boolean {
-  const validation = usePreRunValidation()
-  return validation.canRun
-}

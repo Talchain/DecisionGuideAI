@@ -123,18 +123,32 @@ StyledEdge has complex ReactFlow dependencies (useReactFlow, getBezierPath) requ
 
 ## Section E — Gap summary
 
+> **⚠ WITHDRAWN 2026-08-27 — E1, E2 and E5–E10 were never covered.**
+> All eight were marked ✅ PASS on the evidence of `PreAnalysisGuidance.gaps.spec.ts`. That spec never
+> imported `PreAnalysisGuidance.tsx`: it re-implemented the gap logic as a private `computeGapItems`
+> replica and asserted against the copy. Transpiled and run standalone with **no component on disk** it
+> reports **19 passed / 0 failed**, and `PreAnalysisGuidance` appears 0 times in its bundled output
+> against 20 occurrences of the replica. At `48b567db`, the last commit before both files were deleted,
+> `gapItems` and `voiScore` existed **only** in those two files — so no other test ever reached the
+> component's own logic. **This is not coverage that rotted; it is coverage that never existed.**
+> Both files were deleted in PR #900. The rows are withdrawn rather than removed so the original claim
+> stays on the record.
+> E3 (CODE VERIFIED), E4 (MANUAL) and J6 also describe the now-deleted component, and the Section E counts
+> in the Summary table above (line 18) and the test-inventory row for this spec are correspondingly
+> overstated — flagged, not rewritten.
+
 | # | Scenario | Status | Notes |
 |---|----------|--------|-------|
-| E1 | 3 missing baselines + goal missing target → 4 items | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E1` |
-| E2 | totalCount=0 but gaps > 0 → gap section still renders | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E2` — `if (totalCount === 0 && gapItems.length === 0)` requires BOTH |
+| E1 | 3 missing baselines + goal missing target → 4 items | ❌ WITHDRAWN | Never covered — see note above |
+| E2 | totalCount=0 but gaps > 0 → gap section still renders | ❌ WITHDRAWN | Never covered — see note above |
 | E3 | 0 gaps + totalCount>0 → gap section hidden | ✅ CODE VERIFIED | `gapItems.length > 0` gate in JSX |
 | E4 | Click gap item → node selected AND inspector opens | ⚠️ MANUAL | `selectNodeWithoutHistory` + `focusNodeById` called on click; inspector higher-level |
-| E5 | Post-analysis missing baseline → warning icon, warning colour | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E5` |
-| E6 | source='engine' → "Unconfirmed estimate" | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E6` |
-| E7 | source='cee_inference' → "Unconfirmed estimate" | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E7` |
-| E8 | External factors NOT shown as gaps | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E8` |
-| E9 | Pre-analysis ranking by edge count | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E9` |
-| E10 | Post-analysis ranking by VoI score | ✅ PASS | `PreAnalysisGuidance.gaps.spec.ts:E10` |
+| E5 | Post-analysis missing baseline → warning icon, warning colour | ❌ WITHDRAWN | Never covered — see note above |
+| E6 | source='engine' → "Unconfirmed estimate" | ❌ WITHDRAWN | Never covered — see note above |
+| E7 | source='cee_inference' → "Unconfirmed estimate" | ❌ WITHDRAWN | Never covered — see note above |
+| E8 | External factors NOT shown as gaps | ❌ WITHDRAWN | Never covered — see note above |
+| E9 | Pre-analysis ranking by edge count | ❌ WITHDRAWN | Never covered — see note above |
+| E10 | Post-analysis ranking by VoI score | ❌ WITHDRAWN | Never covered — see note above |
 
 ---
 
