@@ -48,9 +48,13 @@
  *      ⚠ THAT IS NOT "STRONGER", AND THE FIRST VERSION OF THIS NOTE INVITED
  *      EXACTLY THAT READING (corrected 27 Aug 2026, measured). The two guards
  *      catch DIFFERENT things and NEITHER supersedes the other:
- *        · Gut the constant and the two PRE-EXISTING substring guards RED.
+ *        · Gut the constant and exactly two guards RED, and BOTH are
+ *          PRE-EXISTING — `InspectorRouter.spec.tsx:347` and
+ *          `FactorExternalPanel.priorRangeHonesty.spec.tsx:705`. This file's
+ *          17 stay GREEN. (Measured at this tip, applied-check 1, controls 0.)
  *        · Reword the constant to INVERT its meaning — "You may freely edit
- *          anything here" — and all 53 cases stay GREEN, this file's included,
+ *          anything here" — and every one of the 68 cases across the six specs
+ *          that reference the constant stays GREEN, this file's 17 included,
  *          because an equality-to-the-constant check moves WITH the constant.
  *      An identity check pins the WIRING; a substring check pins a fragment of
  *      the MEANING, and this file is the weaker of the two on meaning.
