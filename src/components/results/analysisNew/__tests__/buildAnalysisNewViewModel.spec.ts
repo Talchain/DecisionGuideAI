@@ -281,6 +281,32 @@ describe('staleness (§20)', () => {
   })
 })
 
+describe('withheld fields (ROADMAP 2.1273) — never read, never rendered', () => {
+  it('renders neither recommendation stability nor ranking stability, on any fixture', () => {
+    // ⛔ PLoT WITHHOLDS `recommendation_stability`: ISL derives it as the
+    // leader's win probability RELABELLED, carrying "zero independent
+    // information". `ranking_stability` was never emitted. Printing either
+    // beside the honest win probability is the same quantity twice, the second
+    // time under a name implying an independent robustness measurement.
+    //
+    // An earlier draft of the comparative insight printed BOTH. The estate-wide
+    // `withheldFieldReadBan.spec.ts` caught it; this case makes the surface
+    // answerable for it in its own suite too.
+    for (const fixture of [genuineDecision(), highUncertainty(), openStrategicChallenge()]) {
+      const text = JSON.stringify(build(fixture))
+      expect(text).not.toMatch(/stability/i)
+    }
+  })
+
+  it('still renders the HONEST statistic it was standing beside', () => {
+    // The discriminating half: without this, deleting the whole comparative
+    // insight would satisfy the case above and prove nothing.
+    const vm = build(genuineDecision())
+    const comparative = vm.keyInsights.insights.find((i) => i.id === 'insight:comparative')!
+    expect(comparative.inspect.map((r) => r.label)).toContain('Win probability')
+  })
+})
+
 describe('the refuted EVPI-in-percentage-points display', () => {
   it('is absent from every rendered row', () => {
     const vm = build(highUncertainty())

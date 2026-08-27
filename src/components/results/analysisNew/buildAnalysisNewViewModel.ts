@@ -27,6 +27,13 @@
  *  6. NO EVPI IN PERCENTAGE POINTS, EVER. `evpi_percentage_points` is refuted
  *     upstream (tests/contracts/no-evpi-display.contract.test.ts). Whole-
  *     decision VOI crosses this boundary as a VERDICT only, never a number.
+ *  7. NO WITHHELD-FIELD READS. `recommendation_stability` and
+ *     `ranking_stability` are never read here. PLoT withholds the first (ISL
+ *     derives it as the leader's win probability RELABELLED — "zero independent
+ *     information") and never emitted the second. Rendering either produces a
+ *     fabricated SECOND statistic beside the honest one.
+ *     `__tests__/withheldFieldReadBan.spec.ts` enforces this estate-wide and
+ *     caught exactly that here before it shipped.
  */
 
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -188,10 +195,9 @@ function buildKeyInsights(
       implication: rec.robustnessVerdictReason ?? '',
       groundedIn: 'the robustness verdict from the simulation',
       marker: staleMarker,
-      inspect: rows(
-        row('Ranking stability', pctOrNull(conf.rankingStability)),
-        row('Structured level', rec.robustnessLevel),
-      ),
+      // ⛔ `ranking_stability` IS NOT RENDERED — see the withheld-field note on
+      // the comparative insight below. PLoT never emitted it at all.
+      inspect: rows(row('Structured level', rec.robustnessLevel)),
     })
   }
 
@@ -263,11 +269,23 @@ function buildKeyInsights(
       groundedIn: 'the option comparison',
       marker: staleMarker,
       targetId: leader.id,
-      inspect: rows(
-        row('Win probability', winPct),
-        row('Determined by', rec.determinedBy),
-        row('Recommendation stability', pctOrNull(rec.recommendationStability)),
-      ),
+      // ⛔⛔ NEITHER `recommendation_stability` NOR `ranking_stability` IS
+      // RENDERED ANYWHERE ON THIS SURFACE, AND THIS IS NOT AN OVERSIGHT.
+      //
+      // PLoT deliberately WITHHOLDS `robustness.recommendation_stability`: ISL
+      // derives it as `option_wins[winner] / n_samples` — the leader's win
+      // probability RELABELLED, carrying (the producer's words) "zero
+      // independent information". `ranking_stability` was never emitted at all.
+      //
+      // An earlier draft of this list printed BOTH `Win probability` and
+      // `Recommendation stability` — the SAME quantity twice, once honestly and
+      // once under a name implying an independent robustness measurement. That
+      // is a fabricated second statistic, and it is exactly what
+      // `withheldFieldReadBan.spec.ts` exists to stop; it caught this before
+      // the surface shipped. A hydrated pre-withdrawal payload can still carry
+      // a legacy value, so reading the field at all is the hazard, not just
+      // rendering a fresh one.
+      inspect: rows(row('Win probability', winPct), row('Determined by', rec.determinedBy)),
       intervention: interventionFor(recommendations, leader.id),
     })
   }
