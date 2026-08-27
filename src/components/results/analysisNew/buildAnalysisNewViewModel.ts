@@ -36,6 +36,7 @@
  *     caught exactly that here before it shipped.
  */
 
+import { truncateAtWordBoundary } from '../../../utils/text'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type {
   ConditionalWinner,
@@ -410,7 +411,13 @@ function buildUncertainty(
     if (!text) continue
     findings.push({
       id: `uncertainty:${u.code}`,
-      headline: u.threshold ? `${u.threshold.variable} could tip the result` : text.slice(0, 80),
+      headline: u.threshold
+        ? `${u.threshold.variable} could tip the result`
+        // A bare `.slice(0, 80)` cut these mid-word — measured at the DOM, two
+        // distinct items landing on exactly 80 characters. The reader was left
+        // with a condition and no way to tell a cut string from a finished one.
+        // The full sentence still rides `implication` below.
+        : truncateAtWordBoundary(text, 80),
       implication: u.suggestion || text,
       // Same union as the drivers' direction. `mixed`/`unknown` get the
       // direction-free phrasing rather than a guessed one.
