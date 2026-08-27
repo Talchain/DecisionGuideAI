@@ -118,7 +118,6 @@
 2	src/canvas/components/ComparisonTable.tsx
 1	src/canvas/components/ConformalPrediction.tsx
 1	src/canvas/components/DecisionQuality.tsx
-1	src/canvas/components/DecisionReadinessBadge.tsx
 1	src/canvas/components/DecisionSummary.tsx
 6	src/canvas/components/DraftChat.tsx
 1	src/canvas/components/DraftGuidancePanel.tsx

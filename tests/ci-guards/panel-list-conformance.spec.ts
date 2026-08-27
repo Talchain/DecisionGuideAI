@@ -114,4 +114,5 @@ describe('AI panel list conformance', () => {
     expect(values[1]).not.toContain('list-disc')
     expect(values[2]).not.toContain('list-disc')
   })
+
 })

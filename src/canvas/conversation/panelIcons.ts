@@ -33,10 +33,10 @@
  * inside one panel. This is conformance, not preference.
  *
  * ── NOT FIXED HERE, AND DELIBERATELY ─────────────────────────────────────────
- * Eight raw `<svg>` glyphs are hand-drawn where the DS says Lucide only — the
- * thumbs up/down in `FeedbackRow`, two different hand-built `X` marks, an arrow
- * in `EmptyState`. Replacing them changes what the glyph LOOKS like, not just its
- * size, so it needs its own visual review rather than riding along here.
+ * Five hand-drawn glyphs turned out to be copies of Lucide's own path data and
+ * were swapped for the components themselves — no visual delta. THREE raw `<svg>`
+ * remain and are not drift: the panel's chrome shape, and two bespoke dashed
+ * connector arrows Lucide has no equivalent for.
  */
 
 /** Dense rows, inline chips, chevrons. The panel default — 33 of 80 icons. */

@@ -105,7 +105,6 @@ import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
-import { deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
@@ -130,7 +129,6 @@ import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { selectOptionsNeedingValues, analysisBlockedSentences } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
-import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
 // success-measure/scenario-key lookups left with the retired chip parameter —
 // only the goal-node resolver is still used (the atomic target commit).
@@ -1565,13 +1563,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [nodes, edges, applyAutoFixChanges])
 
-  const canonicalBands = report?.run?.bands ?? null
-  // #353: `.results` must be optional-chained too — a Supabase-hydrated
-  // report can lack the bands block entirely (the hydration invariant checks
-  // only `status === 'complete' && report`), and the unguarded read
-  // hard-crashed the whole canvas. Fail closed to null (verdict below
-  // already treats null as "no value"); never fabricate a number.
-  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results?.likely ?? null
+  // ⛔ REMOVED (A5, cascade): `canonicalBands` and `mostLikelyValue`.
+  //
+  // Neither had any other reader. The full chain was
+  //   canonicalBands → mostLikelyValue → verdict → readinessFromConfidence
+  //   → decisionReadiness → `hasDecisionReadiness: !!decisionReadiness`
+  // inside a `verboseDebug(...)` call. Five derivations terminating in a boolean
+  // coerced for a debug line. Removing the mapper at the end of that chain left
+  // every link unread, and the compiler named them one at a time (TS6133).
+  //
+  // ⚠ IF YOU EVER REINSTATE A BANDS READ HERE, KEEP #353's GUARD: `.results` must
+  // be optional-chained too — a Supabase-hydrated report can lack the bands block
+  // entirely (the hydration invariant checks only `status === 'complete' && report`),
+  // and the unguarded read hard-crashed the whole canvas. Fail closed to null;
+  // never fabricate a number.
   // Lane 3 (SF2): the retained report keeps RENDERING through every status —
   // resultsStart/resultsAnalysing/resultsError/resultsCancelled all preserve
   // `results.report` by contract ("so UI doesn't flash empty"), but the old
@@ -1585,17 +1590,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'
 
-  // Phase 1A.1: Compute verdict for VerdictCard
-  // Use baseline from framing or default to 0 ("do nothing" scenario)
-  const baselineValue = framing?.baseline ?? 0
-
-  const verdict = mostLikelyValue !== null
-    ? deriveVerdict({
-        outcomeValue: mostLikelyValue,
-        baselineValue,
-        goalDirection,
-      })
-    : null
+  // ⛔ REMOVED (A5, cascade): `baselineValue` and `verdict` (`deriveVerdict(...)`).
+  //
+  // The comment here read "Compute verdict for VerdictCard", but no VerdictCard
+  // consumed it: after `readinessFromConfidence` was deleted above, `verdict` had
+  // ZERO readers and the compiler said so (TS6133). Its last surviving use was the
+  // `verdict?.verdict === 'supports'` argument to the dead confidence→readiness
+  // mapper — i.e. this computation was already orphaned by an earlier change and
+  // was being kept alive solely by a value nothing rendered.
 
   // Legacy CEE types (deprecated)
   const ceeTrace = runMeta.ceeTrace ?? null
@@ -1605,18 +1607,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Phase 1 Section 3: CEE degraded state (non-blocking overlay behaviour)
   const ceeDegraded = ceeTrace?.degraded === true || ceeTraceV1?.id_mismatch === true
 
-  // Sprint N P0.1: Decision readiness derived from confidence when available
-  const readinessFromConfidence = report?.confidence
-    ? mapConfidenceToReadiness(
-        {
-          level: report.confidence.level.toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
-          reason: report.confidence.why,
-        },
-        verdict?.verdict === 'supports'
-      )
-    : null
-
-  const decisionReadiness = report?.decision_readiness || readinessFromConfidence
+  // ⛔ REMOVED (A5): `readinessFromConfidence` / `decisionReadiness`, and the
+  // `mapConfidenceToReadiness` import that fed them.
+  //
+  // It was a DEAD COMPUTATION. `decisionReadiness` had exactly two occurrences in
+  // this file: its own definition, and `hasDecisionReadiness: !!decisionReadiness`
+  // inside the `verboseDebug('[TrustSignals] OutputsDock', …)` call below. It
+  // reached no surface — the boolean was coerced for a debug line and discarded.
+  // So this was not a lightly-used readiness authority competing with the gate; it
+  // was a second readiness NOTION that no user could ever see.
+  //
+  // The one gate authority is `readinessObjectsToRun` (utils/canRunAnalysis.ts),
+  // where the CEE producer verdict SUPERSEDES the side-car rather than being OR'd
+  // with it — converged 19 Aug 2026 and pinned in both directions by
+  // `utils/__tests__/canonicalReadinessAuthority.spec.ts`. Nothing here fed it.
+  //
+  // ⚠ Do not reintroduce a confidence→readiness mapper as a fallback. Two mappers
+  // of this name existed (this one, and a twin inside the never-mounted
+  // `DecisionReadinessBadge.tsx`) with DIFFERENT signatures and DIFFERENT logic —
+  // one keyed on `level.toUpperCase()`, the other lowercased and took an extra
+  // parameter. Both are deleted. If a confidence-derived readiness is ever wanted
+  // on screen, it belongs behind the canonical authority, not beside it.
   // ⛔ REMOVED (ROADMAP 2.1273): `const recommendationStability = report?.robustness
   // ?.recommendation_stability ?? report?.robustness?.ranking_stability`, and the
   // `stability:` argument it fed to `derivePostFooterMeta`.
@@ -1712,8 +1723,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   verboseDebug('[TrustSignals] OutputsDock', {
     isPreRun,
     hasReport: !!report,
-    hasDecisionReadiness: !!decisionReadiness,
-    fromConfidence: !!readinessFromConfidence,
     hasGraphQuality: !!report?.graph_quality,
     hasInsights: !!report?.insights,
   })
