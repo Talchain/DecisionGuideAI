@@ -7,7 +7,8 @@
  *
  *   · `CanvasErrorBoundary` (src/canvas/ErrorBoundary.tsx) knew about chunk
  *     errors, auto-reloaded once, and offered "Reload editor".
- *   · `BootErrorBoundary` (src/main.tsx) — which catches the FIRST chunk that
+ *   · `BootErrorBoundary` (then inline in src/main.tsx, now src/BootErrorBoundary.tsx)
+ *     — which catches the FIRST chunk that
  *     can fail, the top-level `AppPoC` lazy import — was chunk-BLIND. It
  *     rendered "Render Error ❌ / Something went wrong. Please refresh the page
  *     or contact support.": not true (nothing failed to render, the build
@@ -38,7 +39,7 @@ const SRC = join(REPO_ROOT, 'src')
 const OWNER = 'lib/staleBuildRecovery.ts'
 
 /** The boundaries that must CONSUME it rather than re-derive it. */
-const CONSUMERS = ['main.tsx', 'canvas/ErrorBoundary.tsx']
+const CONSUMERS = ['BootErrorBoundary.tsx', 'canvas/ErrorBoundary.tsx']
 
 /**
  * A fragment of the browser-message detector. If this string appears in a
@@ -77,7 +78,7 @@ describe('stale-build recovery — one detector, one sentence, one reload guard'
   it('POSITIVE CONTROL: the sweep sees the corpus at all (an empty sweep proves nothing)', () => {
     // If the walker breaks, every assertion below passes vacuously.
     expect(CORPUS.length).toBeGreaterThan(500)
-    expect(CORPUS.map(([rel]) => rel)).toContain('main.tsx')
+    expect(CORPUS.map(([rel]) => rel)).toContain('BootErrorBoundary.tsx')
     expect(CORPUS.map(([rel]) => rel)).toContain('canvas/ErrorBoundary.tsx')
   })
 
@@ -104,11 +105,15 @@ describe('stale-build recovery — one detector, one sentence, one reload guard'
   })
 
   it('the boot boundary offers a way forward, not just a diagnosis', () => {
-    const main = CORPUS.find(([rel]) => rel === 'main.tsx')![1]
-    // The pre-fix boot boundary rendered a dead end. The reload action is what
-    // makes the notice actionable, and it must come from the shared module.
-    expect(main).toContain('STALE_BUILD_ACTION_COPY')
-    expect(main).toContain('STALE_BUILD_NOTICE_COPY')
+    const boundary = CORPUS.find(([rel]) => rel === 'BootErrorBoundary.tsx')![1]
+    // ⚠ THIS ASSERTION IS DELIBERATELY WEAK, AND SAYS SO. A mutant that made
+    // the notice branch unreachable (`if (false)`) passed the earlier version
+    // of this test, because the literals stayed in the file. Presence of copy
+    // is not coverage of the branch that renders it — the load-bearing evidence
+    // is src/__tests__/BootErrorBoundary.staleBuild.spec.tsx, which MOUNTS the
+    // boundary and drives a real chunk error. This only pins provenance.
+    expect(boundary).toContain('STALE_BUILD_ACTION_COPY')
+    expect(boundary).toContain('STALE_BUILD_NOTICE_COPY')
   })
 
   it('no boundary claims the SERVER failed when the build simply moved', () => {

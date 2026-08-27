@@ -1,17 +1,16 @@
 // src/main.tsx
 import './index.css';
 import { captureParticipantTokenFromUrl } from './collab/participantToken';
-import { Suspense, lazy, Component, ReactNode } from 'react';
+import { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
-import {
-  attemptStaleBuildReload,
-  isChunkLoadError,
-  reloadForCurrentBuild,
-  STALE_BUILD_ACTION_COPY,
-  STALE_BUILD_NOTICE_COPY,
-} from './lib/staleBuildRecovery';
+// The boundary around the top-level AppPoC chunk — i.e. the one a mid-session
+// deploy lands on. Extracted so it can be MOUNTED by a test; while it lived
+// here, main.tsx's self-booting IIFE made it unrenderable and the only
+// available assertion was that its copy appeared in this file, which a mutant
+// that made the branch unreachable passed straight through.
+import { BootErrorBoundary } from './BootErrorBoundary';
 
 declare global {
   interface Window {
@@ -114,82 +113,6 @@ function Shell() {
 // Lazy-load the heavy app after Shell commits
 const AppPoC = lazy(() => import('./poc/AppPoC'));
 
-class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
-  componentDidCatch(error: Error, info: any) {
-    window.__SAFE_DEBUG__!.fatal = String(error?.stack || error);
-    log('error-boundary:caught', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: info?.componentStack?.slice(0, 600),
-      isChunkLoadError: isChunkLoadError(error)
-    });
-
-    // THIS boundary catches the FIRST chunk that can fail — the top-level
-    // `AppPoC` lazy import — so a mid-session deploy lands here, not on the
-    // canvas boundary. It used to render "Render Error ❌ / Something went
-    // wrong. Please refresh the page or contact support.": untrue (nothing
-    // failed to render, the build moved) and a dead end. One rate-limited
-    // reload, from the same module the canvas boundary uses.
-    if (isChunkLoadError(error)) {
-      attemptStaleBuildReload();
-    }
-  }
-  render() {
-    if (this.state.error && isChunkLoadError(this.state.error)) {
-      // Reached when the automatic reload was already spent (see the guard
-      // window). The next reload is the user's decision — the product does not
-      // silently retry forever.
-      return (
-        <div style={{ padding: 16, background: '#eff6ff', color: '#1e3a8a',
-                      fontFamily: 'ui-sans-serif,system-ui,sans-serif', fontSize: 14,
-                      borderRadius: 8, lineHeight: 1.6 }}>
-          <strong style={{ display: 'block', marginBottom: 6 }}>Olumi was updated</strong>
-          <p style={{ margin: '0 0 12px' }}>{STALE_BUILD_NOTICE_COPY}</p>
-          <button
-            type="button"
-            onClick={reloadForCurrentBuild}
-            style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #1d4ed8',
-                     background: '#1d4ed8', color: '#fff', fontSize: 14, cursor: 'pointer' }}
-          >
-            {STALE_BUILD_ACTION_COPY}
-          </button>
-        </div>
-      );
-    }
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 12, background: '#fee', color: '#900',
-                      fontFamily: 'ui-monospace,monospace', fontSize: 13, borderRadius: 8 }}>
-          <strong>Render Error ❌</strong>
-          {/* Only show error details in DEV to avoid exposing stack traces in production */}
-          {import.meta.env.DEV ? (
-            <>
-              <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8, fontSize: 12 }}>
-                {this.state.error.message}
-              </pre>
-              {this.state.error.stack && (
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{ cursor: 'pointer', opacity: 0.75 }}>Stack trace</summary>
-                  <pre style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-                    {this.state.error.stack}
-                  </pre>
-                </details>
-              )}
-            </>
-          ) : (
-            <p style={{ marginTop: 8 }}>
-              Something went wrong. Please refresh the page or contact support.
-            </p>
-          )}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 (function boot() {
   try {
     // ⭐ FIRST STATEMENT OF BOOT, DELIBERATELY. A participant's bearer token
@@ -237,7 +160,7 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     // Phase 2: upgrade to full app (next microtask is enough; avoids extra layout thrash)
     queueMicrotask(() => {
       root.render(
-        <BootErrorBoundary>
+        <BootErrorBoundary onError={log}>
           <Suspense fallback={<Shell />}>
             <AppPoC />
           </Suspense>
