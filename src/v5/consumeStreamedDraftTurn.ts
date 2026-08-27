@@ -324,6 +324,17 @@ export async function consumeStreamedDraftTurn(
           // avoid blaming the server for a client fault. Keyed on real node
           // identities, so an empty or malformed graph does NOT count as a
           // delivery. Nothing below reads it; render behaviour is unchanged.
+          //
+          // ⚠ RECORDED ASYMMETRY (review, 2026-08-27), deliberately NOT
+          // "fixed" here: `nodeIdentities` drops `''` and the string
+          // `'undefined'` but NOT `'null'`, so `{nodes: [{id: null}]}` reads as
+          // a delivery. Harmless for THIS claim — a node object on the wire is
+          // still evidence that something arrived, and "could not display it"
+          // stays true of it. It would matter if this predicate were ever
+          // reused as a strict validity check, which it is not. Named here
+          // rather than silently tightened, because `nodeIdentities` is shared
+          // and changing its filter would change identity comparisons that have
+          // nothing to do with this claim.
           if (!graphFrameArrived && nodeIdentities(frame.graph).length > 0) {
             graphFrameArrived = true
           }
