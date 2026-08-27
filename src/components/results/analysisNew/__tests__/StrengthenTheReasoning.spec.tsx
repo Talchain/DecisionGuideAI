@@ -50,6 +50,31 @@ describe('what / why / do it (§14)', () => {
     )
   })
 
+  // ROADMAP 2.1328 — the producer's body rides BOTH `signal` and `whyNow`
+  // whenever it sends no `signal` of its own, which is every item except one
+  // deterministic nudge. The spec above uses a fixture where the two DIFFER, so
+  // it pins the JOIN and is silent about the DEDUPE. These two pin the call site.
+  //
+  // ⚠ ASSERTED BY OCCURRENCE COUNT, NOT `toHaveTextContent`. jest-dom matches on
+  // SUBSTRING, so `toHaveTextContent(BODY)` PASSES on "BODY BODY" — the intuitive
+  // assertion is vacuous against precisely the defect it would be written for.
+  it('prints the sentence ONCE when signal and whyNow are the same string', () => {
+    const BODY = 'One factor carries most of the influence. The conclusion rests almost entirely on it.'
+    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:dup', signal: BODY, whyNow: BODY })]} />)
+    const why = screen.getByTestId('analysis-new-strengthen-why').textContent ?? ''
+    expect(why.split(BODY).length - 1).toBe(1)
+    expect(why.trim()).toBe(BODY)
+  })
+
+  it('still joins signal and whyNow when they DIFFER — the dedupe must not swallow real prose', () => {
+    const SIGNAL = 'One factor carries most of the influence.'
+    const WHY = 'It matters now because the leading option is close.'
+    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:join', signal: SIGNAL, whyNow: WHY })]} />)
+    const why = screen.getByTestId('analysis-new-strengthen-why').textContent ?? ''
+    expect(why.split(SIGNAL).length - 1).toBe(1)
+    expect(why.split(WHY).length - 1).toBe(1)
+  })
+
   it('routes the primary action through the existing Ask-Olumi drawer, prefilled and NOT auto-sent', () => {
     render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-action'))
