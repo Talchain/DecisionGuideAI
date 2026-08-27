@@ -127,7 +127,6 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
     title: 'Workspace',
     items: [
       { keys: ['Cmd/Ctrl + D'], description: 'Toggle Documents drawer' },
-      { keys: ['Cmd/Ctrl + K'], description: 'Jump to global search or command palette' },
     ],
   },
   {

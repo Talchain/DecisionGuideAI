@@ -114,3 +114,24 @@ describe('KeyboardLegend', () => {
     })
   })
 })
+
+describe('KeyboardLegend advertises only shortcuts that have a live handler', () => {
+  // Derived at staging a7e119ef: the ONLY `(metaKey||ctrlKey) && key === 'k'` handler in src/
+  // lives in canvas/palette/usePalette.ts, whose sole non-test importer is
+  // canvas/palette/CommandPalette.tsx -- a twin with zero non-test importers. The MOUNTED
+  // palette (canvas/components/CommandPalette.tsx, ReactFlowGraph.tsx:48) cannot be opened:
+  // setShowCommandPalette is referenced exactly twice and never set true. The live canvas
+  // shortcut hook (useCanvasKeyboardShortcuts.ts) binds no 'k'.
+  it('does not advertise Cmd/Ctrl + K, which no live handler implements', () => {
+    render(<KeyboardLegend isOpen={true} onClose={() => {}} />)
+
+    // Positive control, same render: Cmd/Ctrl + D IS advertised and IS live
+    // (useCanvasKeyboardShortcuts.ts -- "Toggle Documents drawer"). Without this the
+    // absence assertions below would also pass on an empty or non-rendering legend.
+    expect(screen.getByText('Cmd/Ctrl + D')).toBeInTheDocument()
+    expect(screen.getByText('Toggle Documents drawer')).toBeInTheDocument()
+
+    expect(screen.queryByText('Cmd/Ctrl + K')).not.toBeInTheDocument()
+    expect(screen.queryByText('Jump to global search or command palette')).not.toBeInTheDocument()
+  })
+})
