@@ -29,14 +29,6 @@ export const ROBUSTNESS_LEVEL_LABELS = {
   very_low: ROBUSTNESS_BADGE_LABELS.very_low,
 } as const
 
-/** Robustness level colors for badges */
-export const ROBUSTNESS_LEVEL_COLOURS = {
-  high: 'green',
-  medium: 'amber',
-  moderate: 'amber',
-  low: 'orange',
-  very_low: 'red',
-} as const
 
 // =============================================================================
 // Threshold Constants
@@ -50,10 +42,16 @@ export const ROBUSTNESS_LEVEL_COLOURS = {
 // insensitive, all file types. Contrast control in the same sweep:
 // `ROBUSTNESS_LEVEL_LABELS` returned 11 consumers, so the probe discriminates.
 //
-// ⚠ NOTE FOR WHOEVER PRUNES THIS FILE NEXT: `ROBUSTNESS_LEVEL_COLOURS` and
-// `SWITCH_PROBABILITY_THRESHOLD` also read ZERO consumers, but they were already
-// dead BEFORE this PR — they are not residue from this deletion and are
-// deliberately left alone here rather than absorbed into an unrelated train.
+// ⛔ ALSO REMOVED (delete-first batch 2): `ROBUSTNESS_LEVEL_COLOURS` and
+// `SWITCH_PROBABILITY_THRESHOLD`. #894 measured both as dead and deliberately left
+// them rather than absorb pre-existing drift into its evidence; this is that follow-up.
+//
+// ⚠ `SWITCH_PROBABILITY_THRESHOLD` was a DIVERGENT mirror, not a duplicate. Its comment
+// claimed "only edges with switch_probability > this value are shown" and it held 0.3,
+// while the value that actually decides is `THRESHOLDS.FRAGILE_EDGE_FILTER = 0.15`
+// (src/lib/mappers/constants.ts:23, Spec 6.3 / UI-SEM-013) — the two disagreed by 2x.
+// Wiring the local one up to "remove a duplicate" would have doubled the filter and
+// silently hidden half the fragile edges. If you need this threshold, import THRESHOLDS.
 
 /**
  * Epsilon for baseline delta display.
@@ -61,11 +59,6 @@ export const ROBUSTNESS_LEVEL_COLOURS = {
  */
 export const BASELINE_DELTA_EPSILON = 0.05
 
-/**
- * Switch probability threshold for filtering fragile edges.
- * Only edges with switch_probability > this value are shown.
- */
-export const SWITCH_PROBABILITY_THRESHOLD = 0.3
 
 // =============================================================================
 // Robustness Level Helpers
