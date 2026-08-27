@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2251
+# count=2250
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -273,7 +273,6 @@
 1	src/canvas/components/ComparisonTable.tsx	TS7015	Element implicitly has an 'any' type because index expression is not of type 'number'.
 1	src/canvas/components/ConformalPrediction.tsx	TS2345	Argument of type 'CEEAnalysisReady | null' is not assignable to parameter of type '{ options: Record<string, unknown>[]; } | null'.
 1	src/canvas/components/DecisionQuality.tsx	TS6133	'hasIssues' is declared but its value is never read.
-1	src/canvas/components/DecisionReadinessBadge.tsx	TS6133	'ConfidenceLevel' is declared but its value is never read.
 1	src/canvas/components/DecisionSummary.tsx	TS2345	Argument of type 'CEEAnalysisReady | null' is not assignable to parameter of type '{ options: Record<string, unknown>[]; } | null'.
 2	src/canvas/components/DraftChat.tsx	TS18047	'draftData' is possibly 'null'.
 1	src/canvas/components/DraftChat.tsx	TS2339	Property 'analysis_ready' does not exist on type 'CEEDraftResponse | CEEv2Response'.
