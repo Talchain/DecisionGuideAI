@@ -197,7 +197,16 @@ describe('hero badge after a re-run that flips the leader', () => {
     expect(within(leaderRow).getByTestId('hero-row-number')).toHaveTextContent('1')
   })
 
-  it('the FILLED badge’s numeral is its own row’s position (the witnessed contradiction)', () => {
+  it('the FILLED badge’s numeral is its own row’s position', () => {
+    // ⚠ TITLED "(the witnessed contradiction)" until measured: THIS FIXTURE
+    // DOES NOT REPRODUCE THE WITNESSED ARTEFACT. `mean` is held constant
+    // across runs, so the leader cannot flip — the filled row here is
+    // position 2 reading "1", not the leader reading "2" that was witnessed.
+    // What this case genuinely pins is the INVARIANT (whichever row is
+    // filled, its numeral is its own position), which the artefact would
+    // violate. Refixturing is rowed, not done here: `outcome.mean` decides
+    // which lenses are available and therefore which row is filled, so moving
+    // it needs its own RED-first and a full battery re-run.
     renderFlipped()
     // The filled badge is the leader treatment (`bg-primary`, HeroOptionRow).
     // Before the fix it was filled leader-blue while carrying an ordinal from
@@ -205,8 +214,12 @@ describe('hero badge after a re-run that flips the leader', () => {
     //
     // ⚠ THIS ASSERTION WAS WRITTEN WRONG FIRST AND PASSED AT PRISTINE, which
     // is why it is phrased this way. The original said "the filled badge
-    // reads 1" — but the DEFAULT lens is Goal fit, whose leader is opt_a on
-    // ROW 2, and opt_a's frozen ordinal happens to be 1. The test passed on a
+    // reads 1" — but this fixture renders on the OUTCOME lens, whose leader
+    // is opt_a on ROW 2, and opt_a's frozen ordinal happens to be 1. (An
+    // earlier revision said "Goal fit". `buildHeroModel.ts:1121` is
+    // `defaultLens: goalAvailable ? 'goal' : 'outcome'`, and this fixture
+    // supplies no goal threshold — so the general claim was right and the
+    // one about THIS fixture was wrong.) The test passed on a
     // different object than the one it was written for (trap 19), with its
     // positive control firing happily. Binding is now positional and derived:
     // whichever row is filled, its numeral must equal ITS OWN position.
@@ -262,7 +275,15 @@ describe('hero badge after a re-run that flips the leader', () => {
     // run. If a future "harmonisation" makes them equal, this REDs — which is
     // the whole reason it is written as an inequality rather than as two
     // separate equalities.
-    expect(rank).not.toEqual(identity)
+    //
+    // ⚠ THIS COMPARISON WAS A TAUTOLOGY AND THE COMMENT ABOVE CREDITED IT
+    // WITH A BINDING IT DID NOT HAVE. It read `expect(rank).not.toEqual(
+    // identity)` — comparing "1" against "Option 2", two strings that can
+    // never be equal under ANY mutation, including the harmonisation it
+    // claims to catch. Measured: under the harmonisation mutant the case
+    // fails on the NEXT line, and this one passed. Comparing like with like
+    // is what makes it bite.
+    expect(identity).not.toBe(`Option ${rank}`)
     expect(rank).toBe(String(chart.rows[0].index))
     expect(identity).toBe(`Option ${chart.rows[0].stableNumber}`)
   })

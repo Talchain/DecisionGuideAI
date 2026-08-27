@@ -154,9 +154,14 @@ const MIXED = [
 afterEach(() => {
   cleanup()
   // `registerOptionNumbering` is append-only and the store is a module
-  // singleton, so a seeded test would otherwise leak its numbering into every
-  // sibling — and the leak is SILENT (siblings assert absence of ordinals,
-  // which a stale numbering map would quietly start contradicting).
+  // singleton, so a seeded test can leak its numbering into every sibling,
+  // and such a leak is SILENT (siblings assert absence of ordinals, which a
+  // stale numbering map would quietly start contradicting).
+  //
+  // ⚠ PROPHYLACTIC, NOT A LIVE FIX — measured: with this reset removed, NO
+  // sibling in this file currently REDs. An earlier revision of this comment
+  // read as though the leak were live. It is not; it is one seeded test away
+  // from being live, which is why the reset stays.
   useCanvasStore.setState({ optionNumbering: {} })
 })
 
