@@ -333,6 +333,25 @@ describe('Netlify hashed-asset 404 precedence', () => {
     expect(findSpaRouteDefects(readFileSync(REDIRECTS_PATH, 'utf8'))).toEqual([])
   })
 
+  it('REAL: the 404 page can actually render under the site CSP', () => {
+    // The `csp-nonce` edge function declares `/assets/*` in its excludedPath,
+    // so when this page is served for a missing asset it gets NO nonce. An
+    // inline <script> would be blocked by the site CSP and the page would
+    // render blank at the one moment it has a job to do. Inline <style> is
+    // fine — the CSP allows `style-src 'unsafe-inline'`.
+    const rules = parseRedirects(readFileSync(REDIRECTS_PATH, 'utf8'))
+    const assetRule = rules.find((r) => r.from === '/assets/*')
+    expect(assetRule, 'no /assets/* rule to check').toBeDefined()
+
+    const page = readFileSync(join(REPO_ROOT, 'public', assetRule!.to), 'utf8')
+    // Strip HTML comments first, so the explanatory note in the page itself
+    // (which names the tag it forbids) cannot satisfy or trip this check.
+    const markup = page.replace(/<!--[\s\S]*?-->/g, '')
+    expect(markup, 'the 404 page must carry no inline script').not.toMatch(/<script/i)
+    // Positive control: the stripper must not have eaten the whole document.
+    expect(markup).toMatch(/<body/i)
+  })
+
   it('REAL: the 404 rule points at a file that exists', () => {
     // A rule whose target is absent is a rule that 404s with whatever Netlify
     // decides to render — not a claim we can make about the product.

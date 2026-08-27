@@ -4,6 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Not found · Olumi</title>
+    <!--
+      ⚠ NO INLINE <script> IN THIS FILE, EVER.
+
+      This page is the target of the `/assets/* /404.html 404` rule in
+      public/_redirects. The `csp-nonce` edge function declares `/assets/*` in
+      its excludedPath list, so when this page is served for a missing asset it
+      gets NO nonce injection — an inline script would be blocked by the site
+      CSP and the page would render blank at the one moment it has a job to do.
+      Inline <style> is fine: the CSP allows `style-src 'unsafe-inline'`.
+      Pinned by tests/ci-guards/netlify-asset-404-precedence.spec.ts.
+    -->
     <style>
       :root { color-scheme: light dark; }
       body {
