@@ -31,13 +31,14 @@ const CHUNK_MESSAGE =
 
 describe('BootErrorBoundary — the surface a mid-session deploy lands on', () => {
   const reload = vi.fn()
-  let consoleError: ReturnType<typeof vi.spyOn>
+  let restoreConsole: () => void = () => {}
 
   beforeEach(() => {
     reload.mockClear()
     sessionStorage.clear()
     // React logs the caught error; silence it so the run stays readable.
-    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    restoreConsole = () => spy.mockRestore()
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: { ...window.location, reload, hash: '#/canvas' },
@@ -45,7 +46,7 @@ describe('BootErrorBoundary — the surface a mid-session deploy lands on', () =
   })
 
   afterEach(() => {
-    consoleError.mockRestore()
+    restoreConsole()
     cleanup()
   })
 

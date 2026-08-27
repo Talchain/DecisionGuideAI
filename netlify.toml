@@ -1,5 +1,23 @@
+# ⭐ /version.json ALSO CARRIES THE IMMUTABLE DEPLOY PERMALINK.
+#
+# `staging--olumi.netlify.app` is the BRANCH ALIAS and it MOVES: it re-points at
+# whatever deployed last, so an acceptance drive that starts on one build can
+# finish on another and never know. That has already confounded a measurement.
+#
+# Netlify sets both, and they are different things:
+#   DEPLOY_PRIME_URL = https://staging--olumi.netlify.app        (mutable alias)
+#   DEPLOY_URL       = https://<DEPLOY_ID>--olumi.netlify.app    (IMMUTABLE, per deploy)
+#   DEPLOY_ID        = the id DEPLOY_URL starts with
+#
+# Recording DEPLOY_URL here makes the permalink DERIVABLE from the product
+# itself — `curl .../version.json | jq -r .deploy_url` — instead of requiring a
+# Netlify dashboard or an API token nobody driving the product has. Drive THAT
+# host and a mid-run deploy cannot move the ground under the measurement.
+#
+# Both splices are empty-safe: a local build with neither variable set still
+# emits valid JSON (verified by executing the fragment with and without them).
 [build]
-  command = "npm run build:ci && node scripts/assert-entry.cjs && echo '{\"commit\":\"'$(git rev-parse HEAD)'\",\"short\":\"'$(git rev-parse --short HEAD)'\",\"branch\":\"'$(git rev-parse --abbrev-ref HEAD)'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > dist/version.json"
+  command = "npm run build:ci && node scripts/assert-entry.cjs && echo '{\"commit\":\"'$(git rev-parse HEAD)'\",\"short\":\"'$(git rev-parse --short HEAD)'\",\"branch\":\"'$(git rev-parse --abbrev-ref HEAD)'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\",\"deploy_id\":\"'\"$DEPLOY_ID\"'\",\"deploy_url\":\"'\"$DEPLOY_URL\"'\"}' > dist/version.json"
   publish = "dist"
 
 [build.environment]
