@@ -18,6 +18,7 @@ import {
   genuineDecision,
   highUncertainty,
   makeData,
+  makeDriver,
   openStrategicChallenge,
 } from './analysisNewFixtures'
 
@@ -108,7 +109,7 @@ describe('robustness (§4) — display-safe verdict only', () => {
     // 'not_assessed', the producer's own stated absence, read as a measurement.
     // Turning "we did not measure this" into a verdict is the single worst
     // thing this surface could do, so it gets its own case.
-    const headlineFor = (verdict: string) =>
+    const insightFor = (verdict: string) =>
       build(
         makeData({
           recommendation: {
@@ -116,14 +117,25 @@ describe('robustness (§4) — display-safe verdict only', () => {
             robustnessVerdictReason: 'Producer reason.',
           },
         }),
-      ).keyInsights.insights.find((i) => i.id === 'insight:robustness')?.headline
+      ).keyInsights.insights.find((i) => i.id === 'insight:robustness')
+    const headlineFor = (verdict: string) => insightFor(verdict)?.headline
 
     expect(headlineFor('robust')).toBe('This result holds up under uncertainty')
     expect(headlineFor('moderate')).toBe('This result holds up, but not strongly')
     expect(headlineFor('fragile')).toBe('This result is sensitive to uncertainty')
-    // Absence renders NOTHING — not a fourth headline, and certainly not the
-    // fragile one.
-    expect(headlineFor('not_assessed')).toBeUndefined()
+
+    // ⚠⚠ ASSERT THE ROW IS ABSENT, NOT THAT ITS HEADLINE IS UNDEFINED — and the
+    // difference is the whole case. A mutant that drops the vocabulary lookup
+    // from the guard still PUSHES an insight for 'not_assessed'; its headline is
+    // merely `undefined`, so `?.headline` reads undefined either way and the
+    // weaker assertion passed on a row that would render a BLANK HEADLINE to a
+    // user. Caught by the mutation battery, not by review.
+    expect(insightFor('not_assessed')).toBeUndefined()
+    // …and the three that DO render each have a real, non-empty headline, so
+    // "absent" and "present but blank" can never be confused here again.
+    for (const v of ['robust', 'moderate', 'fragile']) {
+      expect(insightFor(v)?.headline, `${v} rendered a blank headline`).toBeTruthy()
+    }
     // …and the three that do render are genuinely distinct, so a future
     // collapse back to a binary split REDs here.
     expect(new Set([headlineFor('robust'), headlineFor('moderate'), headlineFor('fragile')]).size).toBe(3)
@@ -140,6 +152,36 @@ describe('influence basis (§16) — displayProvenance decides, not taste', () =
     // of the outcome the normalised basis does not license.
     expect(d.implication).not.toMatch(/\d+%/)
     expect(d.groundedIn).toBe('factor sensitivity, ranked within this run')
+  })
+
+  it('renders a DIRECTION only for the two members that are one — never for mixed or unknown', () => {
+    // ⚠ The producer's union is positive | negative | mixed | unknown, and the
+    // last two are NOT directions. A surface that falls back to "lowers" for
+    // them invents a direction the producer explicitly declined to resolve.
+    // This case was absent until the mutation battery found a fallback mutant
+    // surviving: nothing asserted on a mixed-direction row at all.
+    const implicationFor = (direction: string) =>
+      build(
+        makeData({
+          drivers: {
+            drivers: [
+              makeDriver({ factorKey: 'f_x', factorLabel: 'X', direction: direction as never }),
+            ],
+          },
+        }),
+      ).drivers.findings[0].implication
+
+    expect(implicationFor('positive')).toContain('raises the outcome')
+    expect(implicationFor('negative')).toContain('lowers the outcome')
+    // Neither of the two real direction verbs may appear for an unresolved one.
+    for (const undecided of ['mixed', 'unknown']) {
+      const text = implicationFor(undecided)
+      expect(text, `${undecided} was rendered as a direction`).toContain('moves the outcome')
+      expect(text).not.toContain('raises')
+      expect(text).not.toContain('lowers')
+    }
+    // An absent direction is the same case as an unresolved one.
+    expect(implicationFor(undefined as never)).toContain('moves the outcome')
   })
 
   it('states structural influence numerically ONLY on the producer influence scale', () => {
