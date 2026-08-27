@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2249
+# count=2219
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -153,9 +153,6 @@
 1	src/adapters/plot/mockAdapter.ts	TS2353	Object literal may only specify known properties, and 'category' does not exist in type 'TemplateDetail'.
 1	src/adapters/plot/mockAdapter.ts	TS6196	'StreamEvent' is declared but never used.
 1	src/adapters/plot/reconnection.ts	TS6133	'reject' is declared but its value is never read.
-1	src/adapters/plot/v1/limitsManager.ts	TS18048	'apiLimits.edges' is possibly 'undefined'.
-1	src/adapters/plot/v1/limitsManager.ts	TS18048	'apiLimits.nodes' is possibly 'undefined'.
-1	src/adapters/plot/v1/limitsManager.ts	TS2322	Type 'boolean' is not assignable to type 'void'.
 1	src/adapters/plot/v1/reportNormalizer.ts	TS2339	Property 'conservative' does not exist on type '{ summary?: { conservative?: number | undefined; likely?: number | undefined; optimistic?: number | undefined; units?: string | undefined; } | undefined; }'.
 1	src/adapters/plot/v1/reportNormalizer.ts	TS2339	Property 'likely' does not exist on type '{ summary?: { conservative?: number | undefined; likely?: number | undefined; optimistic?: number | undefined; units?: string | undefined; } | undefined; }'.
 1	src/adapters/plot/v1/reportNormalizer.ts	TS2339	Property 'most_likely' does not exist on type '{ summary?: { conservative?: number | undefined; likely?: number | undefined; optimistic?: number | undefined; units?: string | undefined; } | undefined; }'.
@@ -321,21 +318,6 @@
 1	src/canvas/components/ModelQualityScore.tsx	TS6133	'Info' is declared but its value is never read.
 1	src/canvas/components/ModelTabBody.tsx	TS6133	'SectionErrorBoundary' is declared but its value is never read.
 1	src/canvas/components/OutputsDock.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2322	Type '{}' is not assignable to type 'string'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2322	Type '{}[] | undefined' is not assignable to type 'string[] | undefined'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'bias_findings' does not exist on type 'CeeDecisionReviewPayload'.
-3	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'code' does not exist on type 'ValidationIssue'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'current_value' does not exist on type 'string'.
-3	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'edge_id' does not exist on type 'string'.
-2	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'message' does not exist on type 'string'.
-3	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'node_id' does not exist on type 'string'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'reason' does not exist on type 'string'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'source' does not exist on type 'string'.
-2	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'suggested_action' does not exist on type 'string'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'suggested_value' does not exist on type 'string'.
-1	src/canvas/components/PreAnalysisGuidance.tsx	TS2339	Property 'title' does not exist on type 'ValidationIssue'.
-3	src/canvas/components/PreAnalysisGuidance.tsx	TS2551	Property 'edgeId' does not exist on type 'ValidationIssue'. Did you mean 'edgeIds'?
-3	src/canvas/components/PreAnalysisGuidance.tsx	TS2551	Property 'nodeId' does not exist on type 'ValidationIssue'. Did you mean 'nodeIds'?
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValue' is declared but its value is never read.
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValueCompact' is declared but its value is never read.
 1	src/canvas/components/RecoveryBanner.tsx	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.

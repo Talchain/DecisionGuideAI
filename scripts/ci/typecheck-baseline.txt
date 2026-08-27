@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2249
+# count=2219
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -79,7 +79,6 @@
 1	src/adapters/plot/index.ts
 3	src/adapters/plot/mockAdapter.ts
 1	src/adapters/plot/reconnection.ts
-3	src/adapters/plot/v1/limitsManager.ts
 5	src/adapters/plot/v1/reportNormalizer.ts
 2	src/adapters/plot/v1/templateNormalizer.ts
 12	src/adapters/plot/v2/__tests__/adapter.spec.ts
@@ -138,7 +137,6 @@
 5	src/canvas/components/ModelQualityScore.tsx
 1	src/canvas/components/ModelTabBody.tsx
 1	src/canvas/components/OutputsDock.stories.tsx
-27	src/canvas/components/PreAnalysisGuidance.tsx
 2	src/canvas/components/RangeDisplay.tsx
 2	src/canvas/components/RecoveryBanner.tsx
 2	src/canvas/components/RiskAdjustedDisplay.tsx
