@@ -762,9 +762,6 @@
   margin: 0 0 8px;
   color: var(--text-body, #4A4642);
 }
-.answerBullets {
-  margin: 4px 0 6px;
-}
 .answerDetail {
   margin-top: 8px;
   color: var(--text-body, #4A4642);

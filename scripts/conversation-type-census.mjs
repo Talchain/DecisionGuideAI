@@ -35,7 +35,39 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const SCOPE_DIRS = ['src/canvas/conversation', 'src/v5/blocks']
+/*
+ * ⚠⚠ THIS SCOPE WAS TWO DIRECTORIES AND THE PANEL RENDERS FROM MANY MORE — the
+ * census reported "4 distinct sizes, zero raw hits" while SEVEN sizes rendered
+ * in the panel column. Derived 26 Aug 2026 by walking the import closure from
+ * the panel's own roots (`FloatingOlumiPanel`, `OlumiTabBody`,
+ * `ConversationPanel`, `ChatThread`): 698 rendering files, of which 92 were in
+ * scope. The guard was not wrong about what it measured; it measured a
+ * DIRECTORY and was read as measuring the PANEL.
+ *
+ * Added below: the panel's own hosts and the surfaces that render in the same
+ * dock column and were governed by neither this census nor
+ * `check-ds-compliance`'s `panel-typography-scoped` class.
+ *
+ * ⛔ WHAT IS STILL NOT GOVERNED, STATED SO THE NEXT READER DOES NOT INHERIT MY
+ * ERROR: `src/canvas/components` at large — 315 files carrying 232 off-scale
+ * hits (16px x199, 20px x11, 18px x10, 10px x8, plus 28/30/36). That is the
+ * canvas and its modals, not the panel column, and it needs its own scale
+ * decision before it can be brought under an absolute-list census. Do not read
+ * a green census as "the app has three type sizes".
+ */
+const SCOPE_DIRS = [
+  'src/canvas/conversation',
+  'src/v5/blocks',
+  'src/canvas/components/pre-analysis',
+  'src/canvas/shared',
+  'src/canvas/model-tab-v2',
+]
+/** Panel/dock hosts that are single files rather than directories. */
+const SCOPE_FILES = [
+  'src/canvas/components/FloatingOlumiPanel.tsx',
+  'src/canvas/components/OlumiTabBody.tsx',
+  'src/canvas/components/OutputsDock.tsx',
+]
 const TYPOGRAPHY_TS = 'src/styles/typography.ts'
 const EXCLUDE_DIR_NAMES = new Set(['__tests__', 'tests', '__fixtures__'])
 
@@ -141,8 +173,27 @@ function classesToTraits(classString, context) {
 // ---------------------------------------------------------------------------
 // Mechanism 1 + 2 + 4: TS/TSX files
 // ---------------------------------------------------------------------------
+/**
+ * ⚠ COMMENTS ARE NOT USAGE, AND THIS COUNTED THEM. `FloatingOlumiPanel.tsx:1352`
+ * is a JSX comment explaining that compact mode swaps `typography.body` (16px)
+ * for `typography.panelBody` — prose ABOUT a token, not a use of one. The census
+ * reported a 16px size the panel does not render, which is the same class of
+ * false positive `check-ds-compliance` already strips for (see its
+ * `stripComments` note: a class written in a JSDoc block ships nothing).
+ *
+ * Deliberately line-preserving: the census reports file:line, so blanking must
+ * not shift them.
+ */
+function stripComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .split('\n')
+    .map((l) => l.replace(/(^|[^:])\/\/.*$/, (mm, p1) => p1 + ' '.repeat(mm.length - p1.length)))
+    .join('\n')
+}
+
 function scanTsx(file, tokens) {
-  const src = readFileSync(file, 'utf8')
+  const src = stripComments(readFileSync(file, 'utf8'))
 
   // Fail loud on dynamically-composed size classes.
   for (const m of src.matchAll(/text-\$\{/g)) {
@@ -279,7 +330,10 @@ function scanCss(file) {
 // Run
 // ---------------------------------------------------------------------------
 const tokens = parseTypographyTokens()
-const files = SCOPE_DIRS.flatMap((d) => walk(path.join(ROOT, d)))
+const files = [
+  ...SCOPE_DIRS.flatMap((d) => walk(path.join(ROOT, d))),
+  ...SCOPE_FILES.map((f) => path.join(ROOT, f)),
+]
 for (const f of files) {
   if (f.endsWith('.css')) scanCss(f)
   else scanTsx(f, tokens)
@@ -318,6 +372,15 @@ const summary = {
   sizes: [...sizes.keys()].map(Number).sort((a, b) => a - b),
   weights: [...weights.keys()].map(Number).sort((a, b) => a - b),
   lineHeights: [...lineHeights.keys()].sort(),
+  /*
+   * Which MECHANISM produced each line-height. Exposed because the guard admits
+   * `leading-none` for buttons and must refuse it for prose — an assertion that
+   * only saw the VALUE could not tell those apart, and would have to widen the
+   * whole rule to let one control through.
+   */
+  lineHeightMechanisms: Object.fromEntries(
+    [...lineHeights.entries()].map(([lh, hs]) => [lh, [...new Set(hs.map((h) => h.mechanism))].sort()]),
+  ),
   counts: { sizes: sizes.size, weights: weights.size, lineHeights: lineHeights.size },
   rawMechanismHits: {
     // raw = not token-/var-mediated; the sweep drives these to the pinned floor

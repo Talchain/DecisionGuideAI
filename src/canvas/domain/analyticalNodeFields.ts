@@ -148,14 +148,20 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
     //  · It called the field "user-editable in isolation on the live path ...
     //    routed live via InspectorRouter". That is now false: `InspectorRouter`
     //    wraps every panel in an unconditional `<fieldset disabled>`
-    //    (InspectorRouter.tsx:334-340) and this file's neighbour states the
-    //    authority directly — `NODE_SETTER_AUTHORITY.setPriorRange: 'disabled'`
-    //    (useInspectorMutations.ts:127).
+    //    (InspectorRouter.tsx:334-340), and that fieldset is the whole
+    //    enforcement.
+    //    ⚠ A second clause here cited `NODE_SETTER_AUTHORITY.setPriorRange:
+    //    'disabled'` (useInspectorMutations.ts:127) as a corroborating
+    //    authority. That manifest was DELETED on 26 Aug 2026 (PR #886) as an
+    //    unenforced mirror with ZERO CODE CONSUMERS — it RECORDED the verdict,
+    //    it never MADE it. The claim above is unchanged and was never resting
+    //    on it; only the citation is gone, and the line number it carried now
+    //    points at unrelated code.
     // `purposes: ['stale']` was and remains CORRECT and load-bearing: it is what
     // routes a prior change into hasAnalyticalNodeChange → the freshness verdict
     // behind "Model changed since this analysis". Nothing about the purposes
     // changes here; only the prose describing where the field goes.
-    note: "A factor's prior belief range {distribution, range_min, range_max} — analysis-affecting: it rides the V2 adapter's blocklist passthrough to PLoT (prior is deliberately NOT in V2_NODE_BLOCKLIST) and is declared on CEE's graph contract (schemas/cee-v3.ts) as the input ISL samples for external factors. NOT read by the V1 mapper, which takes `prior` only in its legacy NUMBER form. NOT user-editable today: the External-factor inspector mounts setPriorRange but InspectorRouter's unconditional disabled fieldset makes it inert, and NODE_SETTER_AUTHORITY.setPriorRange is 'disabled'. Consumers: staleness (hasAnalyticalNodeChange), V2 adapter. Persisted by hash-by-default.",
+    note: "A factor's prior belief range {distribution, range_min, range_max} — analysis-affecting: it rides the V2 adapter's blocklist passthrough to PLoT (prior is deliberately NOT in V2_NODE_BLOCKLIST) and is declared on CEE's graph contract (schemas/cee-v3.ts) as the input ISL samples for external factors. NOT read by the V1 mapper, which takes `prior` only in its legacy NUMBER form. NOT user-editable today: the External-factor inspector mounts setPriorRange but InspectorRouter's unconditional disabled fieldset makes it inert. Consumers: staleness (hasAnalyticalNodeChange), V2 adapter. Persisted by hash-by-default.",
   },
   {
     field: 'kind',

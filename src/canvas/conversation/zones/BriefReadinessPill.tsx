@@ -7,6 +7,8 @@
  */
 
 import type { BriefReadiness } from '../hooks/useBriefSignals'
+import { ChevronUp, ChevronDown } from 'lucide-react'
+import { ICON_DENSE, ICON_STROKE } from '../panelIcons'
 import { typography } from '../../../styles/typography'
 
 const READINESS_CONFIG: Record<BriefReadiness, { label: string; dotColor: string; borderColor: string }> = {
@@ -52,16 +54,9 @@ export function BriefReadinessPill({ readiness, expanded, onToggle }: BriefReadi
         aria-hidden="true"
       />
       <span>{config.label}</span>
-      <svg
-        width="10" height="10" viewBox="0 0 24 24" fill="none"
-        aria-hidden="true"
-        className="flex-shrink-0"
-        style={{ stroke: 'var(--text-light, #6E6B6B)', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }}
-      >
-        {expanded
-          ? <path d="M18 15l-6-6-6 6" />
-          : <path d="M6 9l6 6 6-6" />}
-      </svg>
+      {expanded
+            ? <ChevronUp size={ICON_DENSE} strokeWidth={ICON_STROKE} className="flex-shrink-0" style={{ stroke: 'var(--text-light, #6E6B6B)' }} aria-hidden="true" />
+            : <ChevronDown size={ICON_DENSE} strokeWidth={ICON_STROKE} className="flex-shrink-0" style={{ stroke: 'var(--text-light, #6E6B6B)' }} aria-hidden="true" />}
     </button>
   )
 }

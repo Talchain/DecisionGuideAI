@@ -347,7 +347,7 @@ describe('workspace shell — OutputsDock burn-down pins (exact, both directions
   const PINNED: Record<string, number> = {
     'dock-width-literal': 0,
     'off-scale-spacing': 6,
-    'raw-typography': 9,
+    'raw-typography': 6,
     'sticky-bottom-in-body': 0,
     'viewport-breakpoint': 0,
   }
@@ -515,13 +515,13 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/components/EvidenceCoverage.tsx': 2,
     'src/canvas/components/GraphTextView.tsx': 8,
     'src/canvas/components/IdentifiabilityBadge.tsx': 1,
-    'src/canvas/components/OutputsDock.tsx': 9,
+    'src/canvas/components/OutputsDock.tsx': 6,
     'src/canvas/components/SectionErrorBoundary.tsx': 7,
     'src/canvas/components/ValidationPanel.tsx': 4,
     'src/canvas/components/WarningBanner.tsx': 1,
     'src/canvas/components/WhatChangedChip.tsx': 1,
-    'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx': 5,
-    'src/canvas/components/pre-analysis/SharpenYourThinking.tsx': 3,
+    'src/canvas/components/pre-analysis/PreAnalysisPanel.tsx': 4,
+    'src/canvas/components/pre-analysis/SharpenYourThinking.tsx': 2,
     'src/canvas/conversation/InlineBlocks.tsx': 1,
     'src/canvas/conversation/ModelReceiptBlock.tsx': 1,
     'src/canvas/conversation/zones/BriefGuidanceStrip.tsx': 1,
@@ -529,7 +529,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/conversation/zones/ChatComposer.tsx': 1,
     'src/canvas/conversation/zones/ChatThread.tsx': 1,
     'src/canvas/conversation/zones/ComposerTools.tsx': 1,
-    'src/canvas/shared/AnalysisFooter.tsx': 2,
+    'src/canvas/shared/AnalysisFooter.tsx': 1,
     'src/canvas/ui/inspector/StrengthBar.tsx': 1,
     'src/components/Tooltip.tsx': 1,
     'src/styles/typography.ts': 38,
@@ -588,6 +588,8 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // measuring almost nothing, which is how this kind of ratchet dies.
     const files = Object.keys(RAW_TYPOGRAPHY_BY_FILE).length
     const total = Object.values(RAW_TYPOGRAPHY_BY_FILE).reduce((a, b) => a + b, 0)
+    // 26 Aug 2026 (AI-panel type scale): 113 -> 107, as six off-scale sizes in
+    // four dock-column files became panel tokens. See the census scope widening.
     // 18 Aug 2026 (B4): 37 -> 30 files, 134 -> 113 occurrences, as the seven
     // `model-tab/**` entries above burned to zero. These two numbers are a
     // hand-maintained mirror OF THE MAP and must be lowered in the same PR as
@@ -595,7 +597,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // entries turned the ratchet green and turned THIS assertion red, so the
     // pair cannot be quietly hollowed out from either end.
     expect(files).toBe(30)
-    expect(total).toBe(113)
+    expect(total).toBe(107)
   })
 })
 
@@ -762,6 +764,34 @@ describe('the shell contract itself holds together', () => {
     expect(declared.size).toBeGreaterThan(1)
     for (const value of declared) {
       expect(dock, `no render arm for footerBar '${value}'`).toContain(`case '${value}':`)
+    }
+  })
+
+  it('every PRESENTED surface has a body render arm in the shell host', () => {
+    // ⭐ THE MISSING HALF OF THE FOOTER GUARD ABOVE, AND THE MORE IMPORTANT ONE.
+    // A surface can be declared `presentedAsTab: true`, type-check cleanly, get
+    // its tab painted in the strip — and render an EMPTY BODY, because nothing
+    // ties the declaration to a `effectiveActiveTab === '<id>'` arm in the host.
+    // That is the Journey defect exactly: a tab that opens onto nothing, the
+    // product advertising an action that terminates in nothing. It was
+    // unguarded until 27 Aug 2026, when adding a fourth presented surface made
+    // the omission cheap to close.
+    //
+    // Deliberately a SOURCE-TEXT scan of the host, not a render: this asserts
+    // the ARM EXISTS for every presented id, which no mounted test can do
+    // without driving every surface.
+    const dock = readFileSync(path.join(REPO, SHELL_HOST), 'utf8')
+    const presented = presentedSurfaces().map(s => s.id)
+    // Positive control: the scan must be able to SEE an arm it is looking for,
+    // or every assertion below passes on a file it failed to read (trap 13).
+    expect(dock.length, 'the shell host read as empty').toBeGreaterThan(1000)
+    expect(presented.length).toBeGreaterThan(1)
+    for (const id of presented) {
+      expect(
+        dock,
+        `surface '${id}' is presented as a tab but the shell host has no ` +
+          `\`effectiveActiveTab === '${id}'\` body arm — it would open onto nothing`,
+      ).toContain(`effectiveActiveTab === '${id}'`)
     }
   })
 

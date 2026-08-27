@@ -91,6 +91,8 @@ import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
+import { PANEL_LIST_BULLET } from './panelLists'
+import { ICON_DENSE } from './panelIcons'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1348,7 +1350,7 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
             }`}
             data-testid="apply-to-model-chip"
           >
-            <Wand2 size={11} aria-hidden="true" />
+            <Wand2 size={ICON_DENSE} aria-hidden="true" />
             Apply to model
           </button>
         </div>
@@ -1506,9 +1508,9 @@ function CommentarySections({ sections }: { sections: import('./types').Commenta
             </p>
           )}
           {section.items && section.items.length > 0 && (
-            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+            <ul className={`mt-1 ${PANEL_LIST_BULLET}`}>
               {section.items.map((item, j) => (
-                <li key={j} className={typography.panelBody} style={{ color: 'var(--text-body)', marginBottom: 2 }}>
+                <li key={j} className={typography.panelBody} style={{ color: 'var(--text-body)' }}>
                   {item}
                 </li>
               ))}

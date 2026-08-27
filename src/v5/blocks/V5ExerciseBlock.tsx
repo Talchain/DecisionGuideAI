@@ -38,6 +38,7 @@ import type {
   V5BlockTargetRef,
   V5ExerciseBlock as V5ExerciseBlockType,
 } from '../../canvas/conversation/types'
+import { PANEL_LIST_BULLET } from '../../canvas/conversation/panelLists'
 
 export interface V5ExerciseBlockProps {
   block: V5ExerciseBlockType
@@ -114,7 +115,7 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
           )}
           {block.warning_signs && block.warning_signs.length > 0 && (
             <ul
-              className={`${typography.panelBody} list-disc pl-5 space-y-1`}
+              className={`${typography.panelBody} ${PANEL_LIST_BULLET}`}
               data-testid="v5-exercise-warning-signs"
             >
               {block.warning_signs.map((sign, i) => (

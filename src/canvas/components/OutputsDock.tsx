@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -105,7 +105,6 @@ import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
 import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
-import { deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
@@ -120,16 +119,16 @@ import { useConversation } from '../conversation/useConversation'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
+  actionableBlockers,
   readinessObjectsToRun,
   verdictLicenceSuperseded,
   RUN_LICENCE_SUPERSEDED_REFUSAL,
   type ReadinessVerdictLicence,
 } from '../utils/canRunAnalysis'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
-import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
+import { selectOptionsNeedingValues, analysisBlockedSentences } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
-import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
 // success-measure/scenario-key lookups left with the retired chip parameter —
 // only the goal-node resolver is still used (the atomic target commit).
@@ -150,6 +149,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
+import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
@@ -246,7 +246,7 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
     // 'altview' is deliberately absent: the retired V7 comparison tab must not
     // rehydrate from a session persisted before its retirement — an unknown id
     // falls through to null and the dock opens on its default tab.
-    if (tab === 'results' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
+    if (tab === 'results' || tab === 'analysisNew' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
       return tab
     }
     return null
@@ -1225,6 +1225,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
+  // The producer's sentences BEHIND that tooltip, from the same filter the gate
+  // decided on (`actionableBlockers`), so the footer can render them one per
+  // line instead of the join is UNBOUNDED and nothing truncates it.
+  //
+  // ⚠ NOT ASSUMED TO MATCH. `runBlockedTooltip` is `blockingReasons[0]`, which
+  // is not necessarily this composition — another blocker can come first.
+  // `deriveReadinessDisplay` therefore uses this array ONLY when it joins byte
+  // for byte to the vetted string it is rendering beside, and withholds it
+  // otherwise. Supplying a non-matching array here is safe by construction.
+  const runBlockedSentences = useMemo(
+    () =>
+      analysisReadiness
+        ? analysisBlockedSentences(actionableBlockers(analysisReadiness.blockers))
+        : undefined,
+    [analysisReadiness],
+  )
   // ── INPUTS FOR THE SHELL-HOSTED READINESS BAR ──────────────────────────────
   // Both are DERIVED THROUGH THE PANEL'S OWN OWNER (`readinessDisplay.ts`), not
   // restated here. `usePreAnalysisModel` builds the identical two values from
@@ -1547,13 +1563,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [nodes, edges, applyAutoFixChanges])
 
-  const canonicalBands = report?.run?.bands ?? null
-  // #353: `.results` must be optional-chained too — a Supabase-hydrated
-  // report can lack the bands block entirely (the hydration invariant checks
-  // only `status === 'complete' && report`), and the unguarded read
-  // hard-crashed the whole canvas. Fail closed to null (verdict below
-  // already treats null as "no value"); never fabricate a number.
-  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results?.likely ?? null
+  // ⛔ REMOVED (A5, cascade): `canonicalBands` and `mostLikelyValue`.
+  //
+  // Neither had any other reader. The full chain was
+  //   canonicalBands → mostLikelyValue → verdict → readinessFromConfidence
+  //   → decisionReadiness → `hasDecisionReadiness: !!decisionReadiness`
+  // inside a `verboseDebug(...)` call. Five derivations terminating in a boolean
+  // coerced for a debug line. Removing the mapper at the end of that chain left
+  // every link unread, and the compiler named them one at a time (TS6133).
+  //
+  // ⚠ IF YOU EVER REINSTATE A BANDS READ HERE, KEEP #353's GUARD: `.results` must
+  // be optional-chained too — a Supabase-hydrated report can lack the bands block
+  // entirely (the hydration invariant checks only `status === 'complete' && report`),
+  // and the unguarded read hard-crashed the whole canvas. Fail closed to null;
+  // never fabricate a number.
   // Lane 3 (SF2): the retained report keeps RENDERING through every status —
   // resultsStart/resultsAnalysing/resultsError/resultsCancelled all preserve
   // `results.report` by contract ("so UI doesn't flash empty"), but the old
@@ -1567,17 +1590,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const goalDirection = getGoalDirection(framing, nodes)
   const isError = resultsStatus === 'error'
 
-  // Phase 1A.1: Compute verdict for VerdictCard
-  // Use baseline from framing or default to 0 ("do nothing" scenario)
-  const baselineValue = framing?.baseline ?? 0
-
-  const verdict = mostLikelyValue !== null
-    ? deriveVerdict({
-        outcomeValue: mostLikelyValue,
-        baselineValue,
-        goalDirection,
-      })
-    : null
+  // ⛔ REMOVED (A5, cascade): `baselineValue` and `verdict` (`deriveVerdict(...)`).
+  //
+  // The comment here read "Compute verdict for VerdictCard", but no VerdictCard
+  // consumed it: after `readinessFromConfidence` was deleted above, `verdict` had
+  // ZERO readers and the compiler said so (TS6133). Its last surviving use was the
+  // `verdict?.verdict === 'supports'` argument to the dead confidence→readiness
+  // mapper — i.e. this computation was already orphaned by an earlier change and
+  // was being kept alive solely by a value nothing rendered.
 
   // Legacy CEE types (deprecated)
   const ceeTrace = runMeta.ceeTrace ?? null
@@ -1587,18 +1607,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Phase 1 Section 3: CEE degraded state (non-blocking overlay behaviour)
   const ceeDegraded = ceeTrace?.degraded === true || ceeTraceV1?.id_mismatch === true
 
-  // Sprint N P0.1: Decision readiness derived from confidence when available
-  const readinessFromConfidence = report?.confidence
-    ? mapConfidenceToReadiness(
-        {
-          level: report.confidence.level.toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
-          reason: report.confidence.why,
-        },
-        verdict?.verdict === 'supports'
-      )
-    : null
-
-  const decisionReadiness = report?.decision_readiness || readinessFromConfidence
+  // ⛔ REMOVED (A5): `readinessFromConfidence` / `decisionReadiness`, and the
+  // `mapConfidenceToReadiness` import that fed them.
+  //
+  // It was a DEAD COMPUTATION. `decisionReadiness` had exactly two occurrences in
+  // this file: its own definition, and `hasDecisionReadiness: !!decisionReadiness`
+  // inside the `verboseDebug('[TrustSignals] OutputsDock', …)` call below. It
+  // reached no surface — the boolean was coerced for a debug line and discarded.
+  // So this was not a lightly-used readiness authority competing with the gate; it
+  // was a second readiness NOTION that no user could ever see.
+  //
+  // The one gate authority is `readinessObjectsToRun` (utils/canRunAnalysis.ts),
+  // where the CEE producer verdict SUPERSEDES the side-car rather than being OR'd
+  // with it — converged 19 Aug 2026 and pinned in both directions by
+  // `utils/__tests__/canonicalReadinessAuthority.spec.ts`. Nothing here fed it.
+  //
+  // ⚠ Do not reintroduce a confidence→readiness mapper as a fallback. Two mappers
+  // of this name existed (this one, and a twin inside the never-mounted
+  // `DecisionReadinessBadge.tsx`) with DIFFERENT signatures and DIFFERENT logic —
+  // one keyed on `level.toUpperCase()`, the other lowercased and took an extra
+  // parameter. Both are deleted. If a confidence-derived readiness is ever wanted
+  // on screen, it belongs behind the canonical authority, not beside it.
   // ⛔ REMOVED (ROADMAP 2.1273): `const recommendationStability = report?.robustness
   // ?.recommendation_stability ?? report?.robustness?.ranking_stability`, and the
   // `stability:` argument it fed to `derivePostFooterMeta`.
@@ -1694,8 +1723,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   verboseDebug('[TrustSignals] OutputsDock', {
     isPreRun,
     hasReport: !!report,
-    hasDecisionReadiness: !!decisionReadiness,
-    fromConfidence: !!readinessFromConfidence,
     hasGraphQuality: !!report?.graph_quality,
     hasInsights: !!report?.insights,
   })
@@ -2610,6 +2637,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             const Icon =
               tab.id === 'results'
                 ? BarChart3
+                : tab.id === 'analysisNew'
+                ? FlaskConical
                 : tab.id === 'compare'
                 ? Shuffle
                 : tab.id === 'journey'
@@ -2821,7 +2850,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                             <summary className={`${typography.code} text-text-light cursor-pointer`}>
                               Debug info
                             </summary>
-                            <div className={`${typography.code} text-text-light mt-1 text-xs`}>
+                            <div className={`${typography.code} text-text-light mt-1`}>
                               Code: {error.code} | Request ID: {error.request_id || 'n/a'}
                             </div>
                           </details>
@@ -2882,7 +2911,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       aria-live="polite"
                       data-testid="outputs-error-banner"
                     >
-                      <div className={`${typography.body} font-medium ${
+                      <div className={`${typography.panelHeader} ${
                         friendlyError.severity === 'error'
                           ? 'text-danger'
                           : friendlyError.severity === 'warning'
@@ -2967,7 +2996,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           <summary className={`${typography.code} text-text-light cursor-pointer`}>
                             Debug info
                           </summary>
-                          <div className={`${typography.code} text-text-light mt-1 text-xs`}>
+                          <div className={`${typography.code} text-text-light mt-1`}>
                             Code: {error.code} | Request ID: {error.request_id || 'n/a'}
                           </div>
                         </details>
@@ -3045,6 +3074,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           isAnalysing={isRunning}
                           canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
+                          blockedSentences={runBlockedSentences}
                         />
                       </Suspense>
                     </div>
@@ -3424,6 +3454,29 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
               </div>
             )}
+            {effectiveActiveTab === 'analysisNew' && (
+              // ⭐ TEMPORARY comparison surface (Paul, 27 Aug 2026): the SAME
+              // analysis run, laid out around the reasoning. The existing
+              // Analysis branch above is untouched.
+              //
+              // SINGLE DATA AUTHORITY, AND IT IS THE POINT OF THE EXPERIMENT:
+              // every expression below is the SAME one `ResultsBody` receives
+              // in the `results` branch — the same `resultsSectionData`
+              // instance, the same sample/seed/hash reads, the same focus
+              // handler, the same freshness derivation. Never a re-derivation.
+              // If these two lists ever diverge, the two tabs stop being a
+              // presentation comparison and the whole experiment is void.
+              <AnalysisNewTabBody
+                resultsSectionData={resultsSectionData}
+                isPreRun={isPreRun}
+                isRunning={isRunning}
+                nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                seedUsed={(report as any)?.meta?.seed}
+                responseHash={results?.hash}
+                onFocusNode={handleFocusResultNode}
+                isStale={analysisNotConfirmedFresh}
+              />
+            )}
             {effectiveActiveTab === 'compare' && (
               // 2.581 — ONE expert mode for the product. The Compare pill used
               // to own a separate `feature.compareExpert` state, so the only
@@ -3584,7 +3637,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           >
             <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
-              <span className={`${typography.body} text-text-header`}>Generating comparison...</span>
+              <span className={`${typography.panelBody} text-text-header`}>Generating comparison...</span>
             </div>
           </div>
         )}

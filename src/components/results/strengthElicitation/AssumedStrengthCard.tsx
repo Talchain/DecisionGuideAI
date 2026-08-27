@@ -28,10 +28,13 @@
  *
  * ⚠ IT USED TO CALL `openEdgeStrengthEditor`, AND THAT IS WHY THIS PARAGRAPH
  * CHANGED. That seam selects the edge, stands the dock down, centres the canvas
- * and raises the Inspector — and every Inspector EDGE setter is `'disabled'`
- * (`inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY), with the
+ * and raises the Inspector — which is read-only, because `InspectorRouter`
+ * wraps every panel in an unconditional `<fieldset disabled>`, with the
  * panel's own mounted copy saying the value "cannot yet be saved to the shared
- * model". So the product's most prominent intervention arrived at a read-only
+ * model". (This cited the `EDGE_SETTER_AUTHORITY` manifest in
+ * `inspector-v2/useInspectorMutations.ts`; deleted 27 Aug 2026, PR #886, as an
+ * unenforced mirror. The re-point stands on the fieldset, which is what
+ * actually enforces it.) So the product's most prominent intervention arrived at a read-only
  * panel. There is no user-facing edge editor to route to.
  *
  * But OLUMI can change an edge: `update_edge` is a first-class op in the

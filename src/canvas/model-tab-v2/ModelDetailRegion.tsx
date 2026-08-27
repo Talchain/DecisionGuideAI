@@ -205,7 +205,7 @@ export function ModelDetailRegion({
     >
       {/* 1 — What this is */}
       <section data-testid="model-detail-v2-what">
-        <h3 className={`${typography.h5} text-text-header`}>{row.label}</h3>
+        <h3 className={`${typography.panelHeader} text-text-header`}>{row.label}</h3>
         <p className={`${typography.caption} text-text-light`}>{KIND_LABEL[row.kind]}</p>
         {detail.description !== null && (
           <p

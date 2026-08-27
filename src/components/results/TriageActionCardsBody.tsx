@@ -279,10 +279,18 @@ const POST_RUN_FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
  * ⭐ THE "EDIT" ACT — RE-POINTED FROM THE INSPECTOR TO THE ONE SURFACE THAT WRITES.
  *
  * It used to call `openNodeInspector`, which selects the node and raises
- * `InspectorModal`. The Inspector CANNOT SAVE. `inspector-v2/useInspectorMutations.ts`
- * carries its own authority manifest — `NODE_SETTER_AUTHORITY` (:119) and
- * `EDGE_SETTER_AUTHORITY` (:143) — and EVERY setter in both is `'disabled'`,
- * `setObservedValue` included. The module says so in a mounted constant:
+ * `InspectorModal`. The Inspector CANNOT SAVE: `InspectorRouter` wraps every
+ * panel — node and edge — in an unconditional `<fieldset disabled>`, so
+ * `setObservedValue` is inert along with every other setter.
+ *
+ * ⚠ THIS PARAGRAPH USED TO REST ON TWO AUTHORITY MANIFESTS INSTEAD —
+ * `NODE_SETTER_AUTHORITY` (:119) and `EDGE_SETTER_AUTHORITY` (:143) in
+ * `inspector-v2/useInspectorMutations.ts`. Both were DELETED on 27 Aug 2026
+ * (PR #886): they had zero code consumers, so they RECORDED a decision the
+ * fieldset MAKES. Those two line numbers now point at unrelated code. The
+ * conclusion below is unchanged; only the citation is.
+ *
+ * The module says so in a mounted constant:
  *
  *   INSPECTOR_READ_ONLY_REASON = 'This inspector is read-only because these
  *   changes cannot yet be saved to the shared model. Use the Model tab for

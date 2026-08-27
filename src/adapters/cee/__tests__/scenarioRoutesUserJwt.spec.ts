@@ -101,7 +101,10 @@ const ROUTES: ReadonlyArray<{
   {
     name: 'listModelVersions (read)',
     fn: 'listModelVersions',
-    ok: { schema: 'model_versions_list.v1', versions: [] },
+    // v2 since CEE 4c29c5b5. This case asserts the REQUEST HEADERS, so the
+    // body only has to be a 200 — but a stale contract label here would be
+    // the next reader's false evidence about the wire.
+    ok: { schema: 'model_versions_list.v2', versions: [] },
     call: (o) => listModelVersions(SCENARIO_ID, o),
   },
   {
@@ -113,7 +116,7 @@ const ROUTES: ReadonlyArray<{
   {
     name: 'restoreModelVersion (write)',
     fn: 'restoreModelVersion',
-    ok: { schema: 'model_version_restore.v1' },
+    ok: { schema: 'model_version_restore.v2' },
     call: (o) => restoreModelVersion(SCENARIO_ID, { ...o, versionId: 'v1' }),
   },
 ]

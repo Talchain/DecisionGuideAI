@@ -10,6 +10,7 @@
  * thin wrapper useGraphReadiness() for backward compatibility.
  */
 import { create } from 'zustand'
+import { isBlockedCarrier } from '../domain/usableAnalysisReady'
 import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
@@ -250,7 +251,12 @@ export const WATCHED_ROOTS = [
 export interface ReadinessPayloadInputs {
   nodes: Node[]
   edges: Edge[]
-  ceeAnalysisReady: { options?: unknown[] } | null | undefined
+  /**
+   * ⚠ CARRIES `status` DELIBERATELY. This was `{ options?: unknown[] }`, which is
+   * structurally blind to the only honest discriminator — see the refusal guard
+   * in `buildReadinessPayload`.
+   */
+  ceeAnalysisReady: { options?: unknown[]; status?: string } | null | undefined
   currentBriefText: string | null | undefined
   /**
    * The saved scenario this canvas IS, or `null`/`undefined` when it is not
@@ -379,7 +385,12 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
     payload.brief = currentBriefText
   }
 
-  if (ceeAnalysisReady?.options?.length) {
+  // A REFUSAL IS NOT A READINESS ASSESSMENT. The guard here was
+  // `options?.length` alone — a SHAPE check, and CEE's identity-preserving
+  // refusal (ARM B) populates `options` on purpose, so the shape guard was
+  // satisfied by exactly the payload it needed to exclude. Sending it would
+  // hand CEE's readiness authority its own refusal back as an assessment.
+  if (!isBlockedCarrier(ceeAnalysisReady) && ceeAnalysisReady?.options?.length) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { model_adjustments: _strip, ...analysisReadyForPayload } =
       ceeAnalysisReady as Record<string, unknown>

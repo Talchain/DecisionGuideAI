@@ -226,7 +226,7 @@ export function RepairQueueList({
   return (
     <section data-testid={`repair-queue-v2-${q}`} className="flex flex-col gap-2 p-2">
       <header>
-        <h3 className={`${typography.h5} text-text-header`}>{queue.title}</h3>
+        <h3 className={`${typography.panelHeader} text-text-header`}>{queue.title}</h3>
         {/*
           The two counts are reported SEPARATELY and deliberately. Deferring does
           not reduce the number of real gaps in the model — only the number

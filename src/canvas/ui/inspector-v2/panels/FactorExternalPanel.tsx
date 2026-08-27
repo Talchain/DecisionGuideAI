@@ -196,8 +196,13 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
    * panel in an unconditional `<fieldset disabled>` beneath
    * INSPECTOR_READ_ONLY_REASON (`InspectorRouter.tsx:334-340`, pinned by
    * `InspectorRouter.spec.tsx` "semantic controls fail closed without GraphV3
-   * authority"), and `NODE_SETTER_AUTHORITY.setPriorRange` is `'disabled'`. On
-   * the deployed build this control is mounted and INERT. These tiers state
+   * authority"). On the deployed build this control is mounted and INERT.
+   *
+   * ⚠ THIS ALSO CITED `NODE_SETTER_AUTHORITY.setPriorRange` AS A SECOND
+   * AUTHORITY. That manifest was DELETED on 27 Aug 2026 (PR #886) because it
+   * had zero code consumers — it RECORDED the verdict, it never MADE it. The
+   * fieldset above is the whole enforcement and always was, so nothing about
+   * this control's inertness changed with the deletion. These tiers state
    * what is true of the FACTOR; the role note states what the RANGE is and
    * that it cannot be set here; neither tells anyone to act.
    */
@@ -416,10 +421,14 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             Q2 is a fact about this SURFACE, and it is why the sentence is not
             simply "It affects analysis." The inspector is read-only:
             `InspectorRouter` wraps every panel in an unconditional `<fieldset
-            disabled>` (InspectorRouter.tsx:334-340), and this repo's own
-            authority manifest records the verdict directly —
-            `NODE_SETTER_AUTHORITY.setPriorRange: 'disabled'`. No affordance on
-            this panel can write the field. Even the local write would not
+            disabled>` (InspectorRouter.tsx:334-340). No affordance on
+            this panel can write the field.
+
+            ⚠ A second clause here cited "this repo's own authority manifest"
+            (`NODE_SETTER_AUTHORITY.setPriorRange: 'disabled'`). It was deleted
+            on 27 Aug 2026 (PR #886) as an unenforced mirror — zero code
+            consumers — so the fieldset is now the only citation, which is what
+            it always was in fact. Q2's claim is unchanged. Even the local write would not
             settle it: `setPriorRange` updates the store and emits
             `prior_range_edit`, which CEE persists as a typed turn FACT and
             which writes no graph.

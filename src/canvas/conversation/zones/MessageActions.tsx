@@ -35,6 +35,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, RefreshCw } from 'lucide-react'
+import { ICON_STROKE } from '../panelIcons'
 
 /** 44px touch target (DS v5 §8.11) — unchanged; the fix is where it sits, not its size. */
 export const ACTION_BAR_HEIGHT_PX = 44
@@ -159,7 +160,7 @@ function ActionButton({
         "
         aria-hidden="true"
       >
-        <Icon className="w-3 h-3" strokeWidth={1.8} />
+        <Icon className="w-3 h-3" strokeWidth={ICON_STROKE} />
       </span>
     </button>
   )

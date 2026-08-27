@@ -112,9 +112,29 @@ export function detectGoal(text: string): boolean {
 // Coaching tips per element
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * ⭐ THE TIPS ADMIT A CHALLENGE, AND STILL WELCOME A DECISION.
+ *
+ * `goal` demanded decision syntax and `options` demanded at least two
+ * alternatives — from a user who may legitimately have neither. CEE #1110
+ * (`aa134eac`, live on deployed `c24bfe37`) accepts open strategic challenges,
+ * so this copy was steering users away from a capability the product ships.
+ *
+ * ⚠ THE DECISION CASE IS NOT DEMOTED. #1110's own regression control is
+ * *"Should we expand into the US this year?"*, and it was kept undegraded
+ * precisely so generalising would not cost decision reasoning. "Decision" leads
+ * in both strings for that reason, and `options` still names "two or more" —
+ * it is now CONDITIONAL rather than an instruction, which is the whole change.
+ *
+ * ⚠ NOT TOUCHED, AND DELIBERATELY: `SCAFFOLD_LABELS`' *"the decision i'm facing
+ * is:"* is a DETECTION constant, not user-facing copy. Rewriting it for
+ * vocabulary consistency would stop recognising users who type that phrase —
+ * an internal construct renamed for cosmetic reasons, which is the exact move
+ * the founder's language ruling forbids. Pinned by the spec.
+ */
 const COACHING_TIPS: Record<BriefElementKind, string> = {
-  goal:        'State the decision you need to make and what you want to achieve.',
-  options:     'List at least two alternatives you are considering.',
+  goal:        'State the decision or challenge you\'re working through, and what you want to achieve.',
+  options:     'If you\'re weighing specific alternatives, name them — two or more.',
   metric:      'Include a measurable outcome with a number or percentage.',
   constraints: 'Mention any limits such as budget, timeline, or resources.',
   risks:       'Note potential risks or downsides you want to avoid.',

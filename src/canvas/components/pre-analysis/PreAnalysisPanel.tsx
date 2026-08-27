@@ -862,7 +862,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
           <div className="flex flex-col gap-1" data-testid="t1-also-consider">
-            <p className={`text-[10px] font-semibold text-text-light`}>Also consider</p>
+            <p className={`${typography.panelMeta} font-semibold text-text-light`}>Also consider</p>
             <div className="flex flex-col">
               {alsoConsider.map((entry) => {
                 const subtitle = entry.overlay?.detail ?? entry.card.subtitle

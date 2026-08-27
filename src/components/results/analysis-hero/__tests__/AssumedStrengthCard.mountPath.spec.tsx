@@ -123,8 +123,11 @@ describe('§0 the elicitation is on the DEFAULT Analysis tab', () => {
    * ⭐ THE ACT IS NOW OFFERED, AND THAT IS THE CHANGE.
    *
    * This case asserted the button was WITHHELD, on the correct premise that its
-   * destination could not save: it opened the Inspector, whose EDGE_SETTER_AUTHORITY
-   * is every setter `'disabled'`. The product's most prominent intervention — panel
+   * destination could not save: it opened the Inspector, which `InspectorRouter`
+   * wraps in an unconditional `<fieldset disabled>`. (The premise was originally
+   * cited to `EDGE_SETTER_AUTHORITY`; that manifest was deleted 27 Aug 2026,
+   * PR #886, as an unenforced mirror with zero code consumers. The premise is
+   * unchanged.) The product's most prominent intervention — panel
    * top level, zero clicks — therefore ended in nothing, which is why it was hidden.
    *
    * It now asks Olumi, who CAN change an edge (`update_edge` is first-class in the

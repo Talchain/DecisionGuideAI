@@ -47,6 +47,7 @@ import {
   modelBuildingNoticesSummary,
   type ModelBuildingNoticesView,
 } from './modelBuildingNotices'
+import { PANEL_LIST_STACK } from './panelLists'
 
 export interface ModelBuildingNoticesNoticeProps {
   notices: ModelBuildingNoticesView
@@ -86,7 +87,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
 
       {expanded && (
         <div id="model-building-notices-detail" className="mt-1 pl-4 space-y-1">
-          <ul className="space-y-1" role="list">
+          <ul className={PANEL_LIST_STACK} role="list">
             {notices.rows.map((row) => (
               <li
                 key={row.kind}

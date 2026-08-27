@@ -5,12 +5,6 @@ import {
   hasServerGraphAuthority,
   type MutationAuthority,
 } from '../mutationAuthority'
-import {
-  EDGE_SETTER_AUTHORITY,
-  EDGE_SETTER_FIELDS,
-  NODE_SETTER_AUTHORITY,
-  NODE_SETTER_FIELDS,
-} from '../../ui/inspector-v2/useInspectorMutations'
 
 /**
  * Frozen, independently-written audit contract from Brief B3. This is
@@ -145,21 +139,32 @@ describe('mutation authority is exhaustive and fail-closed', () => {
     }
   })
 
-  it('classifies every Inspector setter, with no unowned write surface', () => {
-    expect(Object.keys(NODE_SETTER_AUTHORITY).sort()).toEqual(Object.keys(NODE_SETTER_FIELDS).sort())
-    expect(Object.keys(EDGE_SETTER_AUTHORITY).sort()).toEqual(Object.keys(EDGE_SETTER_FIELDS).sort())
-  })
-
-  it('mounts no Inspector semantic setter as a GraphV3 edit', () => {
-    expect(Object.values(NODE_SETTER_AUTHORITY)).not.toContain('server_graph')
-    expect(Object.values(NODE_SETTER_AUTHORITY)).toEqual(
-      expect.arrayContaining(Array(Object.keys(NODE_SETTER_AUTHORITY).length).fill('disabled')),
-    )
-    expect(Object.values(EDGE_SETTER_AUTHORITY)).toEqual(
-      expect.arrayContaining(Array(Object.keys(EDGE_SETTER_AUTHORITY).length).fill('disabled')),
-    )
-    expect(NODE_SETTER_AUTHORITY.setPriorRange).toBe('disabled')
-  })
+  /**
+   * ⭐ TWO TESTS WERE REMOVED HERE ON 26 Aug 2026, AND THE PROPERTY THEY NAMED
+   * DID NOT GO WITH THEM.
+   *
+   * They asserted over `NODE_SETTER_AUTHORITY` / `EDGE_SETTER_AUTHORITY` —
+   * that every Inspector setter was classified, and that none was classified
+   * `'server_graph'`. Those two tables were the only readers of themselves:
+   * outside this file and their own definition, every reference was a comment
+   * or a documentation string, and none was a consumer. So the tests proved a
+   * hand-maintained list agreed with itself, which is not the same as proving
+   * the Inspector is read-only.
+   *
+   * ⚠ This read "every reference was a COMMENT" until 27 Aug 2026. That was
+   * false — `canvas/domain/analyticalNodeFields.ts:158` names the table in a
+   * runtime string literal that ships to browsers. The claim the deletion
+   * rests on is the narrow one: zero code CONSUMERS.
+   *
+   * What actually keeps it read-only is `InspectorRouter`'s unconditional
+   * `<fieldset disabled>` around every panel. That is now pinned, per region
+   * and by identity, in
+   * `canvas/ui/inspector-v2/__tests__/inspectorAuthorityBinding.spec.tsx`:
+   * the boundary exists, the notice renders `INSPECTOR_READ_ONLY_REASON`
+   * (the CONSTANT, not a substring of it), `aria-describedby` resolves to that
+   * notice, and no editing control inside the boundary is effectively enabled.
+   * Those hold however many setters exist, so no key list can fall behind.
+   */
 
   it('preserves only the receipt-bearing model actions as shared-model edits', () => {
     const graphEdits = Object.entries(CANONICAL_EDIT_AUTHORITY)

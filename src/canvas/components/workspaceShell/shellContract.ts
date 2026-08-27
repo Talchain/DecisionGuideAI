@@ -352,6 +352,42 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     presentedAsTab: true,
     hiddenReason: '',
   },
+  /**
+   * TEMPORARY comparison surface (Paul, 27 Aug 2026) — "Analysis (New)".
+   *
+   * A SECOND, SEPARATE Analysis tab rendering the SAME analysis run through a
+   * reasoning-led IA (Key insights · Strengthen the reasoning · Drivers and
+   * dynamics · Uncertainty and gaps), so the existing Analysis surface and this
+   * one can be compared directly on one scenario. `results` above is UNCHANGED
+   * and stays the default tab; this row is purely additive.
+   *
+   * Sits directly after `results` so the two surfaces under comparison are
+   * adjacent in the strip — the same placement rule the retired 'Alt view'
+   * comparison tab used (PR #673). Unflagged, per the standing no-dark-launch
+   * ruling: a flag here would add a second posture to reason about for a
+   * surface whose whole purpose is to be looked at.
+   *
+   * `footerBar: 'reanalyse'` DELIBERATELY. The Rerun control and the stale
+   * warning are then rendered BY THE SHELL, from the SAME `handleRunAnalysis`
+   * the Model surface uses — so this experiment introduces no second run
+   * authority and no second staleness owner. `AnalysisFooter` mounts on the
+   * `results` branch only, so without this declaration the surface would have
+   * no re-run control at all, which is the exact defect this field exists to
+   * fix.
+   *
+   * `scroll`/`padding: 'self'` because the surface owns a narrower inner
+   * content measure than the shell gutter provides (the dock's outer width is
+   * unchanged — see the width note in `AnalysisNewTabBody.tsx`).
+   */
+  analysisNew: {
+    id: 'analysisNew',
+    label: 'Analysis (New)',
+    footerBar: 'reanalyse',
+    scroll: 'self',
+    padding: 'self',
+    presentedAsTab: true,
+    hiddenReason: '',
+  },
   compare: {
     id: 'compare',
     label: 'Compare',
@@ -439,6 +475,10 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
 export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
   'olumi',
   'results',
+  // Directly after 'results' so the two surfaces under comparison are adjacent
+  // in the strip (Paul, 27 Aug 2026 — the same placement rule the retired
+  // 'Alt view' comparison tab used).
+  'analysisNew',
   'compare',
   'diagnostics',
   'journey',
@@ -461,9 +501,12 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
  * it was written when five surfaces were presented and was never re-read. Do
  * not restate the count in words. Derive it: `presentedSurfaces().length`.
  *
- * Was 4 until 18 Aug 2026; 3 since Compare's row was hidden by contract.
+ * Was 4 until 18 Aug 2026; 3 since Compare's row was hidden by contract; 4
+ * again since 27 Aug 2026, when the temporary 'Analysis (New)' comparison
+ * surface was added beside Analysis. It returns to 3 when that experiment
+ * retires — re-record it here in the same change, deliberately.
  */
-export const MAX_PRESENTED_SURFACES = 3
+export const MAX_PRESENTED_SURFACES = 4
 
 /**
  * The surfaces offered as tabs, in strip order.

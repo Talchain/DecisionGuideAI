@@ -182,7 +182,7 @@ export function ModelRowView({
         <span
           data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
           title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
-          className={`${typography.edgeLabel} text-text-light whitespace-nowrap`}
+          className={`${typography.panelMeta} text-text-light whitespace-nowrap`}
         >
           {GOAL_LABEL_FROM_BRIEF_COPY.pill}
         </span>

@@ -28,6 +28,8 @@ interface CensusSummary {
   sizes: number[]
   weights: number[]
   lineHeights: string[]
+  /** line-height -> the mechanisms that produced it, so buttons can be told from prose. */
+  lineHeightMechanisms: Record<string, string[]>
   counts: { sizes: number; weights: number; lineHeights: number }
   rawMechanismHits: {
     tailwindSize: number
@@ -64,9 +66,33 @@ describe('conversation-panel type-scale census (F3)', () => {
     expect(census.weights).toEqual([400, 500, 600])
   })
 
-  it('line-heights collapse to 1.375 / 1.5 / 1.625', () => {
+  /**
+   * ⚠ `1` IS ADMITTED, AND ONLY FROM THE BUTTON TOKENS — the scope widening
+   * (26 Aug 2026) brought `typography.button` / `buttonSmall` into the census,
+   * and both carry `leading-none`. That is correct for a button: the rule
+   * exists to keep PROSE rhythm consistent, and a single-line control is not
+   * prose.
+   *
+   * ⛔ SO IT IS NOT ENOUGH TO ADD '1' TO THE LIST. A bare widening would also
+   * admit `leading-none` on a paragraph, which is the harm this case exists to
+   * prevent — the inverse defect, bought by fixing the first one. The prose
+   * line-heights stay closed, and `1` must arrive via a button token or the
+   * assertion fails naming the mechanism that produced it.
+   */
+  it('line-heights collapse to 1.375 / 1.5 / 1.625 — plus leading-none on BUTTONS only', () => {
+    const PROSE = ['1.375', '1.5', '1.625']
+    const BUTTON_TOKENS = ['button', 'buttonSmall']
     for (const lh of census.lineHeights) {
-      expect(['1.375', '1.5', '1.625']).toContain(lh)
+      if (PROSE.includes(lh)) continue
+      expect(lh, `unexpected line-height ${lh} — prose must use ${PROSE.join(' / ')}`).toBe('1')
+      const mechanisms = census.lineHeightMechanisms[lh] ?? []
+      const nonButton = mechanisms.filter(
+        (m: string) => !BUTTON_TOKENS.some((t) => m === `token(${t})`),
+      )
+      expect(
+        nonButton,
+        `line-height 1 is admitted for buttons only; these are not buttons: ${nonButton.join(', ')}`,
+      ).toEqual([])
     }
   })
 

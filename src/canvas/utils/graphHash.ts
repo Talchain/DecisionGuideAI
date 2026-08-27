@@ -9,8 +9,32 @@ import type { Node, Edge } from '@xyflow/react'
 import { getEdgeKey } from '../domain/edgeUtils'
 
 /**
- * Generate a stable hash for the current graph state
- * Includes node IDs, types, labels, positions and edge connections
+ * Generate a stable hash for the current graph state.
+ *
+ * COVERS, exactly: node ids · node `type` · `data.label` · `data.probability` ·
+ * `data.confidence` · edge keys · edge `data.confidence` / `weight` / `belief`.
+ *
+ * ⚠ IT DOES NOT COVER `position`, AND THAT IS DELIBERATE. This docstring
+ * previously read *"Includes node IDs, types, labels, positions and edge
+ * connections"* — false since at least the current history, and false in the
+ * dangerous direction. This hash answers *"has the ANALYTICAL content changed?"*:
+ * it is written to `p_hashes.graph_hash` and compared against CEE's own graph
+ * hash, so it must describe the model, not the picture. Identity is analytical;
+ * geometry is presentation.
+ *
+ * A reader who trusted the old sentence had two ways to go wrong, and both were
+ * live: conclude that moving a node already invalidates an analysis (it does
+ * not, and nothing here would tell them otherwise), or "correct" the code to
+ * match the comment — which would make every drag re-hash the model, fork this
+ * definition from CEE's, and make every scenario read as changed. A stale
+ * comment that invites a harmful fix is worse than no comment.
+ *
+ * The authority for *"is the autosave dirty?"* is a DIFFERENT hash with a
+ * different answer — `useAutosave.computeGraphHash` — and it SHOULD see
+ * geometry, because a node move must be persisted to the layout sidecar. The
+ * authority for *"does this change invalidate an analysis?"* is
+ * `domain/analyticalChange.ts`, whose registry classifies `position` as
+ * cosmetic. Three questions, three owners; do not collapse them.
  *
  * Used for:
  * - Deduplicating graph readiness fetches

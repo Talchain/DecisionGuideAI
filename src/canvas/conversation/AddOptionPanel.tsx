@@ -21,6 +21,7 @@ import { formatValueWithUnit } from '../utils/formatValueWithUnit'
 import { MAX_ADD_OPTION_INTERVENTIONS } from '../../v5/chipParameters'
 import { ADD_OPTION_REFUSAL_COPY } from './addOptionRequest'
 import type { AddOptionChange, AddOptionFactorTarget } from './addOptionRequest'
+import { PANEL_LIST_CONTROLS } from './panelLists'
 
 export interface AddOptionPanelProps {
   /** Label extracted from the user's message — a prefill, always editable. */
@@ -178,7 +179,7 @@ export function AddOptionPanel({
               Optional. Tick a factor and give it the value this option would produce — up to{' '}
               {MAX_ADD_OPTION_INTERVENTIONS}.
             </p>
-            <ul className="mb-5 space-y-2" data-testid="add-option-factor-list">
+            <ul className={`mb-5 ${PANEL_LIST_CONTROLS}`} data-testid="add-option-factor-list">
               {factors.map((factor) => {
                 const row = rows[factor.id] ?? { checked: false, text: '' }
                 const invalid = row.checked && invalidIds.includes(factor.id)

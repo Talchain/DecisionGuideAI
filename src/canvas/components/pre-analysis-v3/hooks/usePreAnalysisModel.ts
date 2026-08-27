@@ -26,6 +26,10 @@ import { computeContestedRows, type ContestedRowModel } from '../selectors/compu
 import { computeEstimateRanking } from '../selectors/computeEstimateRanking'
 import { computeGraphFacts, computeProvenanceCounts } from '../selectors/graphFacts'
 import { computeInfluenceCoverage } from '../selectors/computeInfluenceCoverage'
+import {
+  projectAuthoredEntities,
+  type AuthoredEntity,
+} from '../selectors/projectAuthoredEntities'
 import { computeLadder } from '../selectors/computeLadder'
 import { computeStructuralAbsence } from '../selectors/computeStructuralAbsence'
 import { computeSuccessState, type SuccessState } from '../selectors/computeSuccessState'
@@ -69,8 +73,22 @@ export interface PreAnalysisModel {
     checkableCount: number
     needsValueCount: number
   }
-  options: Array<{ nodeId: string; label: string }>
-  risks: Array<{ nodeId: string; label: string; attribution: Attribution }>
+  /**
+   * ⭐ ONE PROJECTION FOR BOTH NAMED-ENTITY SLICES (`projectAuthoredEntities`).
+   *
+   * `options` used to be `{nodeId, label}` while `risks` beside it carried an
+   * attribution — two adjacent memos over the same node array, one reading
+   * CEE's `provenance` stamp and one not. An option Olumi invented therefore
+   * rendered identically to one the user named, on a product whose premise is
+   * that the humans are the authors.
+   *
+   * Both are now `AuthoredEntity`, whose `attribution` is NON-OPTIONAL: a slice
+   * that adopts the type cannot omit the field. That is a strong convention,
+   * not a structural guarantee — a future slice declining the type compiles
+   * clean (measured). Reach for `AuthoredEntity` for any named-entity slice.
+   */
+  options: AuthoredEntity[]
+  risks: AuthoredEntity[]
   /**
    * ROADMAP 2.376 — connections CEE's two validation passes disagreed about, as words.
    *
@@ -371,42 +389,12 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     }
   }, [draftCoaching, analysisReady])
 
-  const options = useMemo(
-    () =>
-      nodes
-        .filter(n => {
-          const kind = (n.data as Record<string, unknown> | undefined)?.kind ?? n.type
-          return kind === 'option'
-        })
-        .map(n => ({
-          nodeId: n.id,
-          label:
-            typeof (n.data as Record<string, unknown>)?.label === 'string'
-              ? ((n.data as Record<string, unknown>).label as string)
-              : n.id,
-        })),
-    [nodes],
-  )
+  // Both slices, one projection. The authorship question is asked ONCE, in
+  // `projectAuthoredEntities` — not restated per slice, which is how options
+  // came to be silent about it while risks directly below were not.
+  const options = useMemo(() => projectAuthoredEntities(nodes, 'option'), [nodes])
 
-  const risks = useMemo(
-    () =>
-      nodes
-        .filter(n => {
-          const kind = (n.data as Record<string, unknown> | undefined)?.kind ?? n.type
-          return kind === 'risk'
-        })
-        .map(n => {
-          const data = n.data as Record<string, unknown>
-          return {
-            nodeId: n.id,
-            label: typeof data?.label === 'string' ? (data.label as string) : n.id,
-            attribution: (data?.provenance === 'ai_inferred'
-              ? { kind: 'olumi' }
-              : { kind: 'person', displayName: 'You' }) as Attribution,
-          }
-        }),
-    [nodes],
-  )
+  const risks = useMemo(() => projectAuthoredEntities(nodes, 'risk'), [nodes])
 
   // ROADMAP 2.376 — contested connections. Keyed on the store's own nodes/edges so one
   // commit (a resolve in the Model tab, a re-draft) updates this section in the same pass as
