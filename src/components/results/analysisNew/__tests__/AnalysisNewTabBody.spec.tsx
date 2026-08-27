@@ -198,3 +198,55 @@ describe('progressive disclosure on the real surface (§24E)', () => {
     expect(screen.getAllByTestId('analysis-new-deeper-group').length).toBeGreaterThan(0)
   })
 })
+
+describe('the empty state never contradicts the surface above it', () => {
+  /**
+   * A run whose ONLY insight candidate is the hinge, on a model where the
+   * glance also states a condition — so the ladder produces something and then
+   * everything it produced is deduped away. That is the exact shape in which
+   * "No insight is grounded well enough to lead with yet" becomes false: the
+   * insight WAS grounded, it is simply being stated above.
+   */
+  const allDeduped = () =>
+    ({
+      ...genuineDecision(),
+      recommendation: {
+        ...genuineDecision().recommendation,
+        flipThresholdsStatus: 'computed',
+        flipThresholds: [
+          { label: 'Timeframe', node_id: 'n_t', current_value: 2, flip_value: 3, flip_reason: 'found' },
+        ],
+      },
+      confidence: {
+        ...genuineDecision().confidence,
+        topFragileEdge: {
+          fromId: 'f_a',
+          fromLabel: 'Timeframe',
+          toId: 'g',
+          toLabel: 'Goal',
+          alternativeWinnerLabel: 'Other',
+          switchProbability: 0.4,
+        },
+      },
+    }) as unknown as ResultsSectionDataReturn
+
+  it('says NOTHING about key insights when everything it found is stated above', () => {
+    // Witnessed on a real run: Key insights printed "No insight is grounded well
+    // enough to lead with yet" while the glance directly above stated grounded
+    // insights. An empty list with a non-zero candidate count means "shown
+    // above", not "none found".
+    renderBody(allDeduped())
+    expect(screen.getByTestId('analysis-new-glance-condition')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-key-insights-empty')).toBeNull()
+  })
+
+  it('KEEPS the honest empty message for a run that genuinely produced none', () => {
+    // The discriminating twin — without it, deleting the empty state outright
+    // would satisfy the case above and lose a truthful message. Here the ladder
+    // finds nothing at all, so "none grounded yet" is exactly true.
+    renderBody(genuineDecision())
+    expect(screen.getByTestId('analysis-new-key-insights-empty')).toHaveTextContent(
+      'No insight is grounded well enough to lead with yet.',
+    )
+  })
+})

@@ -577,8 +577,22 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   const status = data.recommendation.flipThresholdsStatus
   if (status && status !== 'computed' && status !== 'partial_no_effect') return null
   const rows = data.recommendation.flipThresholds ?? []
+  // ⚠ THE PRODUCER'S OWN WORD FOR "I DETERMINED A FLIP" IS `flip_reason:
+  // 'found'`, AND IT IS WHAT THIS GATES ON. Derived from a real payload:
+  // 3 of 4 rows came back `no_flip_in_range: true` with reasons
+  // 'no_effect_within_bounds' and 'structurally_invariant'. Those were skipped
+  // only because their `flip_value` also happened to be null — a row carrying
+  // BOTH a value and `no_flip_in_range` would have rendered a tipping point the
+  // producer had explicitly said it did not find. Checking the value alone was
+  // right by luck, not by construction.
   const usable = rows.find(
-    (t) => t && typeof t.flip_value === 'number' && typeof t.label === 'string' && t.label.length > 0,
+    (t) =>
+      t &&
+      typeof t.flip_value === 'number' &&
+      typeof t.label === 'string' &&
+      t.label.length > 0 &&
+      (t as { no_flip_in_range?: boolean }).no_flip_in_range !== true &&
+      (t.flip_reason === undefined || t.flip_reason === 'found'),
   )
   if (!usable) return null
   // ⚠ A BARE NUMBER WITH NO UNIT IS UNINTERPRETABLE, AND IT SHIPPED THAT WAY IN

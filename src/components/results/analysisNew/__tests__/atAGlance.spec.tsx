@@ -285,3 +285,36 @@ describe('one signal, one primary surface', () => {
     expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:hinge')
   })
 })
+
+describe('the flip gate honours the producer\'s own verdict on the row', () => {
+  const cond = (row: Record<string, unknown>) =>
+    buildAnalysisNewViewModel({
+      data: makeData({
+        recommendation: { flipThresholdsStatus: 'computed' as never, flipThresholds: [row] as never },
+      }),
+      recommendations: [],
+      recommendationCandidateCount: 0,
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    }).atAGlance.condition
+
+  const FOUND = { label: 'Price', node_id: 'n', current_value: 0, flip_value: 1, flip_reason: 'found' }
+
+  it('renders a row the producer says it FOUND', () => {
+    expect(cond(FOUND)).not.toBeNull()
+  })
+
+  it('refuses a row flagged no_flip_in_range even when it carries a value', () => {
+    // Derived from a real payload: 3 of 4 rows came back no_flip_in_range with
+    // a null value, so a value-only check passed by luck. This is the case that
+    // luck does not cover.
+    expect(cond({ ...FOUND, no_flip_in_range: true })).toBeNull()
+  })
+
+  it("refuses a row whose reason is not 'found'", () => {
+    for (const reason of ['no_effect_within_bounds', 'structurally_invariant']) {
+      expect(cond({ ...FOUND, flip_reason: reason }), reason).toBeNull()
+    }
+  })
+})
