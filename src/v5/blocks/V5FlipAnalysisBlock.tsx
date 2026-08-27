@@ -21,6 +21,7 @@ import { typography } from '../../styles/typography'
 import type { V5FlipAnalysisBlock as V5FlipAnalysisBlockType } from '../../canvas/conversation/types'
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
+import { PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 
 export interface V5FlipAnalysisBlockProps {
   block: V5FlipAnalysisBlockType
@@ -54,7 +55,7 @@ export function V5FlipAnalysisBlock({ block }: V5FlipAnalysisBlockProps): ReactE
       <h3 className={typography.panelHeader}>Flip analysis</h3>
       <p className={typography.panelBody}>{block.narrative}</p>
       {block.flip_scenarios.length > 0 && (
-        <ul className={`${typography.panelMeta} space-y-1`} role="list">
+        <ul className={`${typography.panelMeta} ${PANEL_LIST_STACK}`} role="list">
           {scenarios.map(({ scenario: s, label }, i) => (
             <li
               // The id remains the React key and the test id — a machine

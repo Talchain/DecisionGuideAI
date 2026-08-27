@@ -91,6 +91,7 @@ import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
+import { PANEL_LIST_BULLET } from './panelLists'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1506,9 +1507,9 @@ function CommentarySections({ sections }: { sections: import('./types').Commenta
             </p>
           )}
           {section.items && section.items.length > 0 && (
-            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+            <ul className={`mt-1 ${PANEL_LIST_BULLET}`}>
               {section.items.map((item, j) => (
-                <li key={j} className={typography.panelBody} style={{ color: 'var(--text-body)', marginBottom: 2 }}>
+                <li key={j} className={typography.panelBody} style={{ color: 'var(--text-body)' }}>
                   {item}
                 </li>
               ))}
