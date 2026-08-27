@@ -461,6 +461,16 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   const conf = data.confidence
   const groups: AnalysisNewViewModel['deeper']['groups'] = []
 
+  // ⚠⚠ NO RUN, NO DESCRIPTION OF A RUN. Every group below is titled as a claim
+  // about a run ("This run", "What this run covered", "Provenance"), and some of
+  // the fields feeding them carry NON-NULL DEFAULTS when nothing has been
+  // computed. Mounted pre-run this printed "Analysis status: computed" and
+  // "Result completeness: full" directly beneath "No analysis has run yet for
+  // this model" — the surface contradicting itself, from producer defaults
+  // rather than from producer statements. `rows()` cannot catch it: the values
+  // are present, they are just not about anything.
+  if (inputs.isPreRun) return { groups: [] }
+
   const run = rows(
     row('Run identity', inputs.responseHash),
     row('Simulations', inputs.nSamples != null ? String(inputs.nSamples) : null),
@@ -733,17 +743,43 @@ export function buildAnalysisNewViewModel(
   const { data, recommendations, recommendationCandidateCount, isStale } = inputs
   const glance = buildAtAGlance(data, recommendations)
 
+  /**
+   * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
+   * applied to every run-derived section rather than to one of them.
+   *
+   * Key insights, the glance, drivers and uncertainty are all readings OF AN
+   * ANALYSIS. Strengthen is not: it is derived from the MODEL, which exists
+   * before any run, which is why a real grounded recommendation ("Define what
+   * success looks like", sourced from the goal having no threshold) correctly
+   * appears on the mounted pre-run surface and is deliberately left alone here.
+   *
+   * ⚠ THE FAILURE MODE THIS CLOSES IS NOT HYPOTHETICAL-ONLY. `useResultsSectionData`
+   * hands back non-null defaults, so "no findings pre-run" was a property of the
+   * DATA rather than of this adapter — true on the runs that happened to be
+   * driven, and unguaranteed. Gating here makes it a property of the code, and
+   * the pre-run assertions in `AnalysisNewTabBody.spec.tsx` bind to it.
+   */
+  const preRun = inputs.isPreRun
+
   return {
     status: buildStatus(inputs),
-    atAGlance: glance,
-    keyInsights: dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
+    atAGlance: preRun
+      ? { headline: null, winShare: null, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
+      : glance,
+    keyInsights: preRun
+      ? { insights: [], candidateCount: 0 }
+      : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
     strengthen: {
       interventions: recommendations.slice(0, STRENGTHEN_CAP),
       candidateCount: recommendationCandidateCount,
       scienceGrounding: inputs.scienceGrounding ?? {},
     },
-    drivers: buildDrivers(data, recommendations),
-    uncertainty: buildUncertainty(data, recommendations),
+    drivers: preRun
+      ? { findings: [], totalCount: 0, influenceIsSetRelative: false, referenceOptionLabel: null }
+      : buildDrivers(data, recommendations),
+    uncertainty: preRun
+      ? { findings: [], totalCount: 0, evidenceAssessed: false, decisionVoi: 'not_computed' as const }
+      : buildUncertainty(data, recommendations),
     deeper: buildDeeper(inputs),
   }
 }

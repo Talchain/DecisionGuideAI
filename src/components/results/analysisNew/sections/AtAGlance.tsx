@@ -1,10 +1,27 @@
 /**
  * Analysis (New) — "At a glance": the 5-to-10-second strategic read.
  *
- * ⭐ DESIGNED NATIVELY FOR 320px, WHICH IS THE MEASURED CONTENT WIDTH (dock
- * 416 → body 414 → measure 360 → 40px gutters). Measured on the mounted build
- * at 1024 / 1440 / 1920 viewports: the dock is 416px at all three, so there is
- * no wider state to design for and no responsive variant to serve.
+ * ⭐ DESIGNED FOR A 238–320px CONTENT MEASURE — A RANGE, NOT A NUMBER.
+ *
+ * ⚠⚠ THIS PARAGRAPH PREVIOUSLY SAID "the dock is 416px at all three viewports,
+ * so there is no wider state to design for and no responsive variant to serve".
+ * THAT WAS WRONG, AND IT WAS THE CONSTRAINT THIS WHOLE COMPONENT CITES. The
+ * dock is USER-RESIZABLE AND RESPONSIVE: `dockWidth.ts` sets DOCK_MIN_WIDTH 280
+ * and DOCK_RESPONSIVE_MAX_WIDTH 416, an explicit user drag wins over both, and
+ * the drag bounds run to 480. 416 is the CEILING of the responsive default, not
+ * a fixed width — and the surface was found rendering at a dock of 333px during
+ * the acceptance drive, which is how the error surfaced at all.
+ *
+ * Derived at the mounted build on a real completed run:
+ *
+ *     dock 280 → content 238    dock 333 → content 291
+ *     dock 416 → content 320    dock 480 → content 320  (capped by max-w-360)
+ *
+ * No horizontal overflow and no clipped producer prose at any of them. The
+ * design survives, so nothing here changes in behaviour — but the REASON it
+ * survives is the `max-w-[360px]` cap plus fluid rows, NOT a fixed dock, and a
+ * future change reasoning from "it is always 320" would be reasoning from a
+ * measurement that was never true.
  *
  * ── WHAT THE CONCEPT MOCK-UPS PROPOSED AND THIS DOES NOT ───────────────────
  *  · A left-to-right `drivers → influence → outcome` diagram. Dropped. Every
@@ -88,30 +105,53 @@ export function AtAGlance({
           One word, visible. The producer's scope sentence rides as the title
           so it is available on focus/hover without spending a row. */}
       {glance.verdict ? (
-        <p
-          className={`${typography.panelMeta} ${TONE_CLASS[glance.verdict.tone]} flex items-center gap-1.5`}
-          data-testid={`${testId}-verdict`}
-          data-verdict-tone={glance.verdict.tone}
-          title={glance.verdict.reason}
-        >
-          {glance.verdict.tone === 'stable' ? (
-            <CheckCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          ) : (
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          )}
+        <div data-testid={`${testId}-verdict`} data-verdict-tone={glance.verdict.tone}>
           {/* Evidence and trust share ONE line: the win share is the most
               informative number on the surface and the verdict is how much to
               rely on it, so they belong together and cost one row, not two. */}
-          {glance.winShare ? (
-            <span className="text-text-body" data-testid={`${testId}-win-share`}>
-              {glance.winShare} ·{' '}
-            </span>
-          ) : null}
-          {glance.verdict.label}
+          <p
+            className={`${typography.panelMeta} ${TONE_CLASS[glance.verdict.tone]} flex items-center gap-1.5`}
+            data-testid={`${testId}-verdict-line`}
+          >
+            {glance.verdict.tone === 'stable' ? (
+              <CheckCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            )}
+            {glance.winShare ? (
+              <span className="text-text-body" data-testid={`${testId}-win-share`}>
+                {glance.winShare} ·{' '}
+              </span>
+            ) : null}
+            {glance.verdict.label}
+          </p>
+          {/* ⚠⚠ THE REASON GETS ITS OWN WRAPPING LINE, AND THIS IS A TRUTH
+              REQUIREMENT, NOT A LAYOUT PREFERENCE. It was inline with a
+              `truncate`. Measured on a real run at the 320px measure, the
+              producer sent 131 characters into 190px of space — 696px of text
+              in a 190px box, so roughly three quarters of the sentence was
+              invisible, and what remained INVERTED IT:
+
+                full     "none of the factors we could test changed which
+                          option leads on its own, BUT this result scored low
+                          on our other robustness checks"
+                on screen "none of the factors we could te…"
+
+              The visible fragment reads as reassurance; the sentence is a
+              warning. A truncated LABEL is a cosmetic loss — the reader knows
+              a name was shortened and a title attribute recovers it. A
+              truncated SENTENCE is a different object: it silently produces a
+              new, shorter, well-formed claim the producer never made. Never
+              clip producer prose. */}
           {glance.verdict.reason ? (
-            <span className="text-text-light truncate"> — {glance.verdict.reason}</span>
+            <p
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`${testId}-verdict-reason`}
+            >
+              {glance.verdict.reason}
+            </p>
           ) : null}
-        </p>
+        </div>
       ) : null}
 
       {/* ── WHAT MATTERS MOST ──────────────────────────────────────────────
@@ -140,23 +180,36 @@ export function AtAGlance({
             </span>
           </div>
 
+      {/* ⚠⚠ ONE DRIVER GETS NO BAR, AND THIS IS AN HONESTY RULE, NOT A TASTE ONE.
+          `fraction` is the driver's magnitude over the STRONGEST magnitude in
+          the run, so with a single driver it is 1 BY CONSTRUCTION — the bar
+          renders full whether the producer measured a dominant influence or a
+          negligible one. Witnessed on a real run: one non-zero driver at
+          contribution 0.5 drew a full-width bar. A rank comparison needs
+          something to rank against; with one row the bar is a shape that
+          asserts a magnitude it does not carry. The label alone is the whole
+          truth available, so the label alone is what renders. */}
           <ul className="mt-1 space-y-1 list-none p-0 m-0">
             {glance.drivers.map((d) => {
               const focusable = Boolean(d.targetId && onFocusTarget)
+              const comparable = glance.drivers.length > 1
               const Row = (
                 <>
                   <span className="min-w-0 flex-1 truncate text-left" title={d.label}>
                     {d.label}
                   </span>
-                  <span
-                    className="h-1.5 w-[104px] shrink-0 rounded-full bg-panel-hover overflow-hidden"
-                    aria-hidden="true"
-                  >
+                  {comparable ? (
                     <span
-                      className="block h-full rounded-full bg-info"
-                      style={{ width: `${Math.round(d.fraction * 100)}%` }}
-                    />
-                  </span>
+                      className="h-1.5 w-[104px] shrink-0 rounded-full bg-panel-hover overflow-hidden"
+                      aria-hidden="true"
+                      data-testid={`${testId}-driver-bar`}
+                    >
+                      <span
+                        className="block h-full rounded-full bg-info"
+                        style={{ width: `${Math.round(d.fraction * 100)}%` }}
+                      />
+                    </span>
+                  ) : null}
                 </>
               )
               return (

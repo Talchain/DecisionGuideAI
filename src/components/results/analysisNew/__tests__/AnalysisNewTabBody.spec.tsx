@@ -250,3 +250,65 @@ describe('the empty state never contradicts the surface above it', () => {
     )
   })
 })
+
+/**
+ * ⭐⭐ THE PRE-RUN SURFACE, PINNED AT WHAT A MOUNTED BUILD ACTUALLY SHOWED.
+ *
+ * These four assertions exist because the pre-run state was never DRIVEN until
+ * the acceptance drive, and every one of them describes something the surface
+ * really printed above the sentence "No analysis has run yet for this model":
+ *
+ *   · three bare section headings with nothing under them (~77px of furniture);
+ *   · "A second reading of the same analysis run…", asserting a run;
+ *   · "Analysis status: computed" and "Result completeness: full", from
+ *     producer DEFAULTS rather than producer statements.
+ *
+ * Ninety-nine tests were green throughout. None of them rendered this state,
+ * which is the whole lesson: a state nobody mounts is a state nobody tests.
+ */
+describe('pre-run: nothing on screen describes a run that has not happened', () => {
+  it('renders no section heading that has nothing under it', () => {
+    renderBody(openStrategicChallenge(), { isPreRun: true })
+
+    // Bind by identity to the three sections that carry no pre-run content.
+    // A heading with no findings and no honest empty message must not render
+    // AT ALL — the section element is the assertion, not its text, because a
+    // heading IS the claim that something sits beneath it.
+    for (const id of [
+      'analysis-new-key-insights',
+      'analysis-new-drivers',
+      'analysis-new-uncertainty',
+    ]) {
+      expect(screen.queryByTestId(id), `${id} rendered an empty heading`).toBeNull()
+    }
+
+    // POSITIVE CONTROL — without this the three nulls above would also pass on
+    // a surface that failed to render anything at all.
+    expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
+  })
+
+  it('does not claim to be a second reading of a run that has not happened', () => {
+    renderBody(openStrategicChallenge(), { isPreRun: true })
+    expect(screen.queryByTestId('analysis-new-intro')).toBeNull()
+
+    // Contrast control: the same line IS correct once a run exists, so the
+    // rule is "gated on a run", never "deleted".
+    cleanup()
+    renderBody(openStrategicChallenge())
+    expect(screen.getByTestId('analysis-new-intro')).toBeInTheDocument()
+  })
+
+  it('describes no run identity, status or completeness before a run', () => {
+    const { container } = renderBody(openStrategicChallenge(), { isPreRun: true })
+    expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
+
+    // The exact strings the mounted build printed. Bound literally, because
+    // these came from non-null DEFAULTS: a structural assertion about groups
+    // would pass again the moment another defaulting field is added.
+    const text = (container.textContent ?? '').toLowerCase()
+    for (const lie of ['analysis status', 'result completeness', 'run identity']) {
+      expect(text, `pre-run surface still says "${lie}"`).not.toContain(lie)
+    }
+  })
+})

@@ -318,3 +318,110 @@ describe('the flip gate honours the producer\'s own verdict on the row', () => {
     }
   })
 })
+
+/**
+ * ⭐⭐ THE PRODUCER'S REASON IS NEVER CLIPPED — a TRUTH pin, not a layout one.
+ *
+ * Measured on a real completed run at the 320px content measure: the reason was
+ * rendered inline with `truncate`, and the producer's 131 characters were given
+ * 190px. 696px of text in a 190px box — roughly three quarters invisible. What
+ * survived REVERSED THE MEANING:
+ *
+ *   producer   "none of the factors we could test changed which option leads
+ *               on its own, BUT this result scored low on our other
+ *               robustness checks"
+ *   on screen  "none of the factors we could te…"
+ *
+ * The fragment reads as reassurance. The sentence is a warning.
+ *
+ * ⚠ WHY THIS IS PINNED STRUCTURALLY RATHER THAN VISUALLY. jsdom has no layout,
+ * so it cannot see a clip (trap 3) — asserting the text is "present" would pass
+ * happily on the clipped version, since the DOM held the whole string all along.
+ * What jsdom IS authoritative about is the MECHANISM that produced the clip: a
+ * single-line ancestor with an overflow class. So the assertion binds there.
+ *
+ * A truncated LABEL is a cosmetic loss and stays permitted — the reader can see
+ * a name was shortened, and a title attribute recovers it. A truncated SENTENCE
+ * silently manufactures a shorter, well-formed claim the producer never made.
+ */
+describe("the producer's reason is rendered whole, never clipped", () => {
+  const withReason = () => {
+    const g = glanceOf(genuineDecision())
+    return {
+      ...g,
+      verdict: {
+        tone: 'sensitive' as const,
+        label: 'Sensitive',
+        reason:
+          'none of the factors we could test changed which option leads on its own, but this result scored low on our other robustness checks',
+      },
+    }
+  }
+
+  it('gives the reason its own element, outside the single-line verdict row', () => {
+    render(<AtAGlance glance={withReason()} />)
+    const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
+    const line = screen.getByTestId('analysis-new-glance-verdict-line')
+
+    expect(reason.textContent).toBe(withReason().verdict.reason)
+    // The defect in one assertion: the reason must not live inside the row that
+    // is constrained to one line.
+    expect(line.contains(reason)).toBe(false)
+  })
+
+  it('carries no truncating class on the reason or any of its ancestors', () => {
+    const { container } = render(<AtAGlance glance={withReason()} />)
+    const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
+
+    const clipping: string[] = []
+    for (let el: HTMLElement | null = reason; el && el !== container; el = el.parentElement) {
+      const cls = el.className
+      if (typeof cls === 'string' && /\b(truncate|text-ellipsis|whitespace-nowrap|line-clamp-\d+)\b/.test(cls)) {
+        clipping.push(`${el.dataset.testid ?? el.tagName}: ${cls}`)
+      }
+    }
+    expect(clipping, `producer prose sits inside a clipping container:\n${clipping.join('\n')}`).toEqual([])
+  })
+
+  it('still permits a driver LABEL to truncate — the two are different objects', () => {
+    // Contrast control. Without it this rule would read as "never truncate
+    // anything", which would cost the fixed bar track its comparability.
+    const { container } = render(<AtAGlance glance={glanceOf(genuineDecision())} />)
+    expect(container.querySelector('.truncate'), 'no label truncation left to distinguish from prose').not.toBeNull()
+  })
+})
+
+/**
+ * ⭐ A BAR IS A COMPARISON. WITH ONE ROW THERE IS NOTHING TO COMPARE.
+ *
+ * `fraction` is magnitude ÷ the run's strongest magnitude, so a lone driver is
+ * 1 by construction and its bar renders FULL whatever the producer measured.
+ * Witnessed on a real run: a single non-zero driver at contribution 0.5 drew a
+ * full-width bar, which reads as "maximum influence" and is a magnitude claim
+ * the encoding cannot support.
+ *
+ * The pair below is the discrimination — one alone would not show the rule is
+ * about COMPARABILITY rather than about hiding bars.
+ */
+describe('the influence bar appears only when it compares something', () => {
+  const withDrivers = (n: number) => ({
+    ...glanceOf(genuineDecision()),
+    drivers: Array.from({ length: n }, (_, i) => ({
+      id: `d${i}`,
+      label: `Driver ${i}`,
+      fraction: i === 0 ? 1 : 0.4,
+      targetId: null,
+    })),
+  })
+
+  it('draws no bar for a single driver', () => {
+    render(<AtAGlance glance={withDrivers(1)} />)
+    expect(screen.getAllByTestId('analysis-new-glance-driver')).toHaveLength(1)
+    expect(screen.queryByTestId('analysis-new-glance-driver-bar')).toBeNull()
+  })
+
+  it('draws a bar for every driver once two or more can be ranked', () => {
+    render(<AtAGlance glance={withDrivers(3)} />)
+    expect(screen.getAllByTestId('analysis-new-glance-driver-bar')).toHaveLength(3)
+  })
+})

@@ -23,6 +23,27 @@
  * spec that pretended otherwise would be worse than none. Height and width are
  * witnessed in a real browser; what is mechanised here is TEXT REDUNDANCY,
  * which jsdom is authoritative about.
+ *
+ * ⚠⚠ WHAT THIS GUARD IS AND IS NOT VALIDATED BY — corrected after measuring it,
+ * because the first version of this note claimed the wrong evidence.
+ *
+ * It was written believing a mutant that restores the de-duplication would turn
+ * it RED. IT DOES NOT, at any threshold. The original defect was closed by
+ * DELETING the robustness and comparative insight branches outright, so no
+ * input reachable through the adapter can reproduce it — the mutant that
+ * disables `dedupeAgainstGlance` is caught by that function's own unit test,
+ * and this census stays green throughout. A guard whose stated justification is
+ * a state the code can no longer enter is decoration (trap 13b).
+ *
+ * What it IS validated against is the FORWARD risk, which is the one that
+ * matters now: a section restating the glance's producer prose. Mutated so a
+ * key insight's implication carries the glance verdict's reason, this file goes
+ * RED by name. That is a realistic regression — the deleted branches are not.
+ *
+ * Stated precisely, so the next session inherits the scope and not the
+ * generalisation: this census proves NO SECTION RESTATES ANOTHER'S PROSE on the
+ * assembled surface. It proves nothing about the defect that prompted it, which
+ * is now unreachable by construction.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -61,9 +82,22 @@ function visibleSentences(root: HTMLElement): string[] {
   root.querySelectorAll('p, span, h3, li, dd, dt, button').forEach((el) => {
     if (el.querySelector('p, span, h3, li, dd, dt, button')) return
     const t = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
-    // Short fragments are furniture (counts, chevrons, one-word chips), not
-    // claims about the user's situation.
-    if (t.length >= 25) out.push(t.toLowerCase())
+    // ⚠ CENSUS CLAIMS, NOT LABELS — corrected at a real mounted run.
+    //
+    // Length alone was the wrong discriminator. On a run with a single non-zero
+    // driver, "Peak Season Demand Pressure" (27 chars) appears in the glance's
+    // "what matters most" AND as the row of its own Drivers section — and that
+    // is CORRECT: the second occurrence carries new content ("Structural
+    // influence 100%; lowers the outcome") and the repeated label is how a
+    // reader connects a summary to its detail. Cross-referencing a name is not
+    // restating a claim.
+    //
+    // The defect this census exists for was always a SENTENCE said twice. A
+    // claim needs a subject and a predicate, so it runs to five words or more;
+    // a label is a noun phrase. "Cost Efficiency Achieved is the hinge" (six
+    // words) stays in scope, which is the case that matters — a headline IS a
+    // claim even without a full stop.
+    if (t.length >= 25 && t.split(' ').length >= 5) out.push(t.toLowerCase())
   })
   return out
 }

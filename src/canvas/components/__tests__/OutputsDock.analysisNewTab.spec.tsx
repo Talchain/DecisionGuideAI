@@ -127,6 +127,28 @@ function renderDock() {
   return result
 }
 
+/**
+ * ⚠⚠ SECTION C ASSERTS A COMPLETED-RUN STRUCTURE, SO IT MUST MOUNT A COMPLETED
+ * RUN. It did not, and that is why these three cases had to change.
+ *
+ * The harness store is empty, so `OutputsDock` derives `isPreRun = true`. The
+ * cases below passed anyway, because an empty section used to render its
+ * heading over nothing. Once the surface stopped printing headings with nothing
+ * beneath them — a defect found by driving the pre-run state on a real build —
+ * the four headings vanished and these assertions failed.
+ *
+ * The assertions were right about the IA and wrong about the state they were
+ * making it in: "the four sections appear in this order" is a claim about a
+ * surface showing an analysis. So the fix is to establish the precondition, not
+ * to relax the claim. `hasCompletedFirstRun` is exactly the flag `isPreRun`
+ * negates (`OutputsDock.tsx:719`), which is why it is set HERE rather than a
+ * whole result being faked: the sections' post-run empty states are real copy
+ * and render real headings, so the structure is genuinely exercised.
+ */
+function seedCompletedRun() {
+  useCanvasStore.setState({ hasCompletedFirstRun: true } as never)
+}
+
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
     Object.defineProperty(window, 'matchMedia', {
@@ -172,6 +194,13 @@ beforeEach(() => {
   // writes a `?tab=` deep link. Without this reset the first case's click leaks
   // into every later mount and misattributes their failures.
   window.history.replaceState({}, '', '/')
+  // ⚠ SAME LEAK CLASS AS THE URL ABOVE. `hasCompletedFirstRun` is store state
+  // with no per-test reset, so `seedCompletedRun()` in one case would silently
+  // put every LATER case into the post-run branch — and a pre-run assertion
+  // that only passes because an earlier test seeded a run is order-dependent
+  // and passes for the wrong reason. Reset it, so each case states its own
+  // precondition.
+  useCanvasStore.setState({ hasCompletedFirstRun: false } as never)
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 } as never)
   useFloatingPanelState.setState({ isOpen: false, isMinimised: false, source: 'user' } as never)
 })
@@ -310,6 +339,7 @@ describe('B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT', () => {
 
 describe('C · THE FOUR-SECTION STRUCTURE', () => {
   it('renders Key insights, Strengthen the reasoning, Drivers and dynamics, Uncertainty and gaps — in that order', () => {
+    seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
 
@@ -328,6 +358,7 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
     // material is the FIFTH of eleven named sections in `ResultsBody` (below
     // Decision brief, Analysis hero, Key question and What I was given), plus
     // the warning strips and status furniture above it. Here it is second.
+    seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     const body = screen.getByTestId('analysis-new-tab-body')
@@ -339,6 +370,7 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
   })
 
   it('every section is a labelled landmark with a real heading', () => {
+    seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     for (const testId of [

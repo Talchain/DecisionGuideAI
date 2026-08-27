@@ -32,9 +32,15 @@ export interface AnalysisNewSectionProps {
   /** First-use explanation. Lives in the heading's title, never as a resting row. */
   subtitle?: string
   /**
-   * What to say when there is nothing. Absent = render the heading and nothing
-   * else, which is the right answer when an empty message would add no
-   * comprehension (§19).
+   * What to say when there is nothing.
+   *
+   * ⚠ ABSENT MEANS THE WHOLE SECTION DISAPPEARS — heading included. An earlier
+   * version rendered the heading alone, on the reasoning that a heading costs
+   * little. MOUNTED PRE-RUN, THAT WAS WRONG: three bare headings stacked up
+   * ("Key insights", "Drivers and dynamics", "Uncertainty and gaps"), ~19px
+   * each, each one promising content and delivering none. A heading is a claim
+   * that there is something under it. When there is nothing and nothing
+   * truthful to say about the nothing, the honest render is no render.
    */
   emptyMessage?: string | null
   onFocusTarget?: (targetId: string) => void
@@ -54,6 +60,11 @@ export function AnalysisNewSection({
   testId,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
+
+  // Nothing to show, and nothing truthful to say about its absence: render
+  // NOTHING, not a heading over empty space (§19, corrected at the mount).
+  if (findings.length === 0 && !emptyMessage) return null
+
   const limit = preview ?? findings.length
   const visible = expanded ? findings : findings.slice(0, limit)
   const hidden = findings.length - visible.length
