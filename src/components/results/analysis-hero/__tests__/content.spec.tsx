@@ -587,22 +587,82 @@ describe('AnalysisHeroPanel — content', () => {
     },
   )
 })
-describe('Wave 2: stable number badges', () => {
-  it('row badges show the identity-anchored ordinal, surviving a rank flip', () => {
+/**
+ * ⚠ REWRITTEN — THE BEHAVIOUR CHANGED ON PURPOSE, THE ASSERTIONS WERE NOT
+ * WEAKENED TO GO GREEN.
+ *
+ * The first case here used to be titled *"row badges show the identity-
+ * anchored ordinal, surviving a rank flip"* and asserted badge "2" on display
+ * row 1. It was a correct description of what the code did and a correct
+ * pin of the DEFECT: the badge is a RANK affordance (filled for the leader,
+ * and `showOrdinal`'s own doc says it "ranks ALL of them"), so pointing it at
+ * an ordinal frozen on the first run made one 24×24 element carry a fill
+ * saying "leads now" and a numeral saying "led first".
+ *
+ * The badge now states RANK. IDENTITY did not go away — it is rendered as the
+ * TEXT `Option N`, the treatment OptionCards and the canvas OptionNode already
+ * use — so the same property this block was written to protect (an option's
+ * number survives a rank flip) is still asserted below, on the element that
+ * now carries it. The re-run half is driven end-to-end through the real hook
+ * and the real PLoT V2 mapper in `rerunFlipNumbering.rankCoherence.spec.tsx`;
+ * the cross-surface half is on the mount path in
+ * `../../__tests__/ResultsBody.crossSurfaceOptionNumbering.spec.tsx`.
+ *
+ * Net: two assertions became five, and the no-numbering case gained an
+ * honest-absence assertion it never had.
+ */
+describe('Wave 2: rank badges and identity chips', () => {
+  it('the BADGE states display rank, even when a numbering map disagrees with it', () => {
     const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
     const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
     const model = buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 })
     expect(model.kind).toBe('chart')
     renderPanel(model as HeroChartModel)
-    // First row is opt_b (display rank 1) but keeps its stable ordinal 2.
-    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('2')
-    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('1')
+    // First row is opt_b — display rank 1, frozen ordinal 2. The badge says 1.
+    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('1')
+    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('2')
   })
 
-  it('without a numbering map the badge falls back to the display rank', () => {
+  it('the IDENTITY chip carries the identity-anchored ordinal, surviving the same rank flip', () => {
+    const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
+    const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
+    const model = buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 })
+    renderPanel(model as HeroChartModel)
+    // Same run, same rows: opt_b is displayed first and is still Option 2.
+    expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-identity')).toHaveTextContent('Option 2')
+    expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-identity')).toHaveTextContent('Option 1')
+  })
+
+  it('rank and identity are on SEPARATE elements, so neither can overwrite the other', () => {
+    const a = makeOption({ ...OPTION_A, winProbability: 0.3 })
+    const b = makeOption({ ...OPTION_B, winProbability: 0.7 })
+    const model = buildHeroModel(makeHeroData({ options: [a, b] }), { opt_a: 1, opt_b: 2 })
+    renderPanel(model as HeroChartModel)
+    const row = screen.getByTestId('hero-option-row-1')
+    expect(within(row).getByTestId('hero-row-number')).not.toBe(
+      within(row).getByTestId('hero-row-identity'),
+    )
+    expect(within(row).getByTestId('hero-row-number').textContent?.trim()).toBe('1')
+    expect(within(row).getByTestId('hero-row-identity').textContent?.trim()).toBe('Option 2')
+  })
+
+  it('without a numbering map the badge still states the display rank', () => {
     renderPanel(chartModel())
     expect(within(screen.getByTestId('hero-option-row-1')).getByTestId('hero-row-number')).toHaveTextContent('1')
     expect(within(screen.getByTestId('hero-option-row-2')).getByTestId('hero-row-number')).toHaveTextContent('2')
+  })
+
+  it('without a numbering map NO identity chip is drawn — an absent number is never fabricated', () => {
+    // NEW. `stableNumber` is null for an unregistered id precisely so display
+    // cannot mint a colliding one (analysisDisplaySelector, review S3). Since
+    // the badge now always reads rank, a chip synthesised from rank would read
+    // "Option 1" beside badge "1" and look authoritative while naming an
+    // identity nothing assigned.
+    renderPanel(chartModel())
+    expect(screen.queryAllByTestId('hero-row-identity')).toHaveLength(0)
+    // POSITIVE CONTROL — without it this passes just as happily if the rows
+    // stop rendering at all.
+    expect(screen.getAllByTestId('hero-row-number').length).toBeGreaterThan(0)
   })
 })
 describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
