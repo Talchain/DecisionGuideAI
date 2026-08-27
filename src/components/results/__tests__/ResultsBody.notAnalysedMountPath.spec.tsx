@@ -50,6 +50,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { useCanvasStore } from '../../../canvas/store'
 import type {
   ConfidenceSectionData,
   DecisionResultData,
@@ -150,7 +151,19 @@ const MIXED = [
   EXCLUDED_OPTION,
 ]
 
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  // `registerOptionNumbering` is append-only and the store is a module
+  // singleton, so a seeded test can leak its numbering into every sibling,
+  // and such a leak is SILENT (siblings assert absence of ordinals, which a
+  // stale numbering map would quietly start contradicting).
+  //
+  // ⚠ PROPHYLACTIC, NOT A LIVE FIX — measured: with this reset removed, NO
+  // sibling in this file currently REDs. An earlier revision of this comment
+  // read as though the leak were live. It is not; it is one seeded test away
+  // from being live, which is why the reset stays.
+  useCanvasStore.setState({ optionNumbering: {} })
+})
 
 describe('ResultsBody — the not-analysed card on the mount path', () => {
   it('PRECONDITION: the options block is mounted and the ranked chrome is on screen', () => {
@@ -199,6 +212,46 @@ describe('ResultsBody — the not-analysed card on the mount path', () => {
     const analysedRow = document.querySelector(`[data-option-id="${ANALYSED_A}"]`)
     expect(analysedRow).not.toBeNull()
     expect(within(analysedRow as HTMLElement).getByTestId('hero-row-number')).toHaveTextContent('1')
+  })
+
+  it('NO-RANK covers the hero IDENTITY CHIP, not just the badge', () => {
+    // ⭐ THE BADGE HALF ABOVE IS NOT THE WHOLE SURFACE. `hero-row-number` is
+    // gated on `showOrdinal` (= `!designationsWithheld && row.isRanked`); the
+    // `hero-row-identity` chip beside it is a SECOND place an ordinal can
+    // appear in the same row, and it was gated on `stableNumber != null`
+    // alone. Registration covers `allOptions` — not-analysed options included
+    // — so `stableNumber` is non-null for every row and the chip rendered
+    // `Option 3` next to a card that deliberately renders no ordinal at all.
+    //
+    // This is the seventh-guard failure `NotAnalysedOptionCard`'s header
+    // predicted in prose ("every future stat row added to that card would have
+    // to remember the eighth guard") arriving on the OTHER surface, where the
+    // fork does not protect it. Pinning the chip by its own testid so a future
+    // ordinal-bearing element in this row cannot inherit the badge's pin.
+    // ⚠ THE SEED IS LOAD-BEARING AND ITS ABSENCE IS SILENT. `stableNumberFor`
+    // is all-or-nothing: with no `optionNumbering` in the store EVERY row's
+    // `stableNumber` is null, no chip renders anywhere, and an absence
+    // assertion here would pass while testing nothing. Registration in
+    // production covers `allOptions` — the excluded option included — so this
+    // seeds all three, which is what makes `Option 3` reachable on the
+    // excluded row at all. The positive control below is what proves the seed
+    // took; the first draft of this test failed on that control, not on the
+    // claim, which is how the vacuity was caught.
+    useCanvasStore.getState().registerOptionNumbering([ANALYSED_A, ANALYSED_B, EXCLUDED])
+
+    renderBody(MIXED)
+    const excludedRow = document.querySelector(`[data-option-id="${EXCLUDED}"]`)
+    expect(excludedRow).not.toBeNull()
+    expect(within(excludedRow as HTMLElement).queryByTestId('hero-row-identity')).toBeNull()
+
+    // POSITIVE CONTROL — the chip must still render for an option that WAS
+    // scored. Without this the absence above passes when the chip is deleted
+    // outright, which would silently undo the identity this PR exists to add.
+    const analysedRow = document.querySelector(`[data-option-id="${ANALYSED_A}"]`)
+    expect(analysedRow).not.toBeNull()
+    expect(
+      within(analysedRow as HTMLElement).getByTestId('hero-row-identity'),
+    ).toHaveTextContent(/^Option \d+$/)
   })
 
   it('the WinGauge draws no segment for it', () => {

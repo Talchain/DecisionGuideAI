@@ -40,15 +40,39 @@ export interface HeroOptionRowProps {
   /** Layout-only outcome domain; null hides outcome bars. */
   outcomeDomain: { min: number; max: number } | null
   /**
-   * ROADMAP 1.267: whether to draw the ordinal number token.
+   * ROADMAP 1.267: whether to draw the RANK token.
    *
-   * The token reads `stableNumber ?? index`, and on a first run both are
-   * seeded from the probability order — so "1" IS `rank == 1`, an ordinal
-   * DESIGNATION rather than a measurement. On a withheld run it is omitted
-   * entirely; the row keeps its label, readout, bar and disclosure.
+   * ⚠⚠ THIS DOC CARRIED A FALSE PREMISE AND THE BADGE WAS BUILT ON IT.
+   * It used to read: *"The token reads `stableNumber ?? index`, and on a first
+   * run both are seeded from the probability order — so '1' IS `rank == 1`."*
+   * The first clause is true only of a FIRST RUN. It was written from the case
+   * in hand rather than from the spec, and on a RE-RUN THAT FLIPS THE LEADER
+   * it is false: `optionNumbering` is append-only, so `stableNumber` stays
+   * frozen at the first run's ranking while `index` re-ranks — and
+   * `stableNumber ?? index` made the FROZEN one win whenever the row set was
+   * fully registered. The new leader's badge came out filled leader-blue
+   * carrying the numeral 2.
+   *
+   * The token now reads `row.index` — the CURRENT display rank, the same
+   * quantity as the list order, the leader fill and the "Highest on this view"
+   * cue. IDENTITY did not disappear: it is rendered as TEXT (`Option N`)
+   * beside the label, the treatment `OptionCards.tsx:732-738` already uses.
+   * One element, one question.
+   *
+   *  ⚠ NOT the canvas node's glyph, though earlier revisions of these
+   * comments said so: `canvas/nodes/OptionNode.tsx:1206-1213` draws the BARE
+   * NUMERAL in a bordered box and carries `Option N` as its `aria-label`
+   * only. The two surfaces agree on the ACCESSIBLE NAME and deliberately
+   * differ in glyph (a canvas node has no room for the word). Corrected
+   * rather than deleted, because the aria agreement is the stronger property.
+   *
+   * On a withheld run the token is omitted entirely; the row keeps its label,
+   * readout, bar, disclosure — and its IDENTITY text, because withholding
+   * suppresses DESIGNATIONS, not identity (OptionCards gates its rank swatch
+   * on `!neutralised` and its identity chip on nothing but `stableNumber`).
    *
    * Separate from `isLeader` on purpose: `isLeader` removes the CROWN (which
-   * marks ONE row), this removes the NUMBERING (which ranks ALL of them).
+   * marks ONE row), this removes the RANK NUMBERING (which ranks ALL of them).
    * A withheld run must lose both, and one flag could not express that.
    */
   showOrdinal: boolean
@@ -219,17 +243,25 @@ export function HeroOptionRow({
 
   const rowGrid = (
     <>
-      {/* Row 1: badge · label · readout · chevron. Badge geometry follows
-          the prototype (24×24, 7px radius); leader = filled info-blue with
-          white numeral, others outlined.
+      {/* Row 1: badge · (identity + label) · readout · chevron. Badge geometry
+          follows the prototype (24×24, 7px radius); leader = filled info-blue
+          with white numeral, others outlined.
 
-          ROADMAP 1.267: on a withheld run the numeral is a DESIGNATION
-          (`stableNumber ?? index` is seeded from the probability order, so
-          "1" is `rank == 1`) and is not drawn. The 1.5rem grid cell is still
-          occupied by an empty placeholder — the row grid is
-          `grid-cols-[1.5rem_…]`, so omitting the element outright would slide
-          the label into the badge column and silently re-lay-out every row.
-          Suppress the claim, not the layout. */}
+          ⭐ THE BADGE STATES RANK, AND ONLY RANK (`row.index`).
+          It used to render `row.stableNumber ?? row.index`, which meant the
+          FROZEN first-run ordinal won on every fully-registered row set. After
+          a re-run that flipped the leader, this one 24×24 element was filled
+          leader-blue AND carried the numeral 2 — its FILL answering "who leads
+          now?" and its NUMERAL answering "who led first?", while the list
+          order and the "Highest on this view" cue both said 1. Three
+          authorities, one element. See
+          `__tests__/rerunFlipNumbering.rankCoherence.spec.tsx`.
+
+          ROADMAP 1.267: on a withheld run the RANK numeral is a DESIGNATION
+          and is not drawn. The 1.5rem grid cell is still occupied by an empty
+          placeholder — the row grid is `grid-cols-[1.5rem_…]`, so omitting the
+          element outright would slide the label into the badge column and
+          silently re-lay-out every row. Suppress the claim, not the layout. */}
       {showOrdinal ? (
         <span
           aria-hidden="true"
@@ -240,20 +272,66 @@ export function HeroOptionRow({
               : `border ${HERO_TOKEN_BORDER} bg-transparent text-text-body`
           }`}
         >
-          {row.stableNumber ?? row.index}
+          {row.index}
         </span>
       ) : (
         <span aria-hidden="true" className="h-6 w-6 flex-none" />
       )}
-      <span
-        id={labelId}
-        ref={labelRef}
-        title={row.label}
-        data-testid="hero-row-label"
-        className={`${typography.panelBody} min-w-0 break-words text-left text-text-header line-clamp-2`}
-      >
-        {row.label}
-        {isLeader && <span className="sr-only"> ({HERO_COPY.srLeader})</span>}
+      {/* IDENTITY, as TEXT — the treatment OptionCards (`:732-738`)
+          already uses, adopted verbatim rather than invented
+          here. It is what keeps the badge fix from buying a cross-surface
+          disagreement: without it the same option would read "1" in the
+          cockpit and "Option 2" on the card below. (The canvas node draws a bare
+          `2` with `aria-label="Option 2"` — accessible-name agreement, not
+          glyph agreement; "and on its canvas node" was wrong about the glyph.)
+          Pinned on the real mount path in
+          `../../__tests__/ResultsBody.crossSurfaceOptionNumbering.spec.tsx`.
+
+          ⚠ `showOrdinal` IS A CONJUNCTION OF TWO QUESTIONS AND THIS CHIP
+          ANSWERS ONLY ONE OF THEM. It is
+          `!designationsWithheld && row.isRanked` (AnalysisHeroPanel), and
+          `heroTypes.ts` states the distinction explicitly: withholding is
+          PER-RUN (*"may this run designate a leader?"*), `isRanked` is PER-ROW
+          (*"was this option scored?"*).
+
+          NOT gated on `designationsWithheld`: withholding suppresses
+          DESIGNATIONS, and an option's identity is not one — `OptionCards`
+          gates its rank swatch on `!neutralised` and its identity chip on
+          nothing but the number, and this converges on that.
+
+          GATED on `row.isRanked`: an option that took no part in the
+          comparison has no ordinal to state. `NotAnalysedOptionCard` renders
+          the same option on the same screen with *"No rank swatch and no
+          'Option N' … the gap is the point"* under Paul's NO-RANK ruling
+          (14 Aug 2026). An ungated chip here says `Option 3` beside a card
+          that deliberately says nothing — and `heroTypes.ts` names that exact
+          case as *"the case that shipped an ordinal it had no basis for"*.
+          An earlier revision of this comment said an un-analysed option keeps
+          its identity "for the same reason" as a withheld one. THAT WAS FALSE:
+          it collapsed the two questions the type doc keeps apart.
+
+          `labelId`/`labelRef` stay on the LABEL span alone — the clamp
+          measurement and the detail region's accessible name must keep
+          describing the option name, not the name plus a chip. */}
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+        {row.stableNumber != null && row.isRanked && (
+          <span
+            data-testid="hero-row-identity"
+            className={`${typography.panelMeta} flex-none text-text-light`}
+          >
+            Option {row.stableNumber}
+          </span>
+        )}
+        <span
+          id={labelId}
+          ref={labelRef}
+          title={row.label}
+          data-testid="hero-row-label"
+          className={`${typography.panelBody} min-w-0 break-words text-left text-text-header line-clamp-2`}
+        >
+          {row.label}
+          {isLeader && <span className="sr-only"> ({HERO_COPY.srLeader})</span>}
+        </span>
       </span>
 
       <span
