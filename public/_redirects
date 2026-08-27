@@ -35,5 +35,34 @@
 /poc           /poc.html                                               200
 /fixtures/*    /fixtures/:splat                                        200
 
+# Immutable, content-hashed build output — MUST 404 WHEN ABSENT.
+#
+# Vite emits `/assets/<name>-<hash>.js|.css` and every deploy retires the
+# previous deploy's hashes. Without this rule the catch-all below answers a
+# retired chunk with the SPA index — HTTP 200, content-type text/html — so a
+# browser that loaded the app BEFORE a deploy fails its next lazy import with
+# "Expected a JavaScript module script but the server responded with a MIME
+# type of text/html", and the feature is dead in that tab until a reload.
+# Nothing 404s, so no status-code monitor can see it. Measured on staging at
+# 07a807a3: three once-deployed chunk paths and a deliberately fabricated one
+# all returned 200 text/html; hardNotFound was 0 across an 81-path crawl.
+#
+# ⚠ UNFORCED ON PURPOSE. Netlify shadowing means an unforced rule does not
+# apply when a real file exists at the path, so assets that WERE built are
+# still served normally and only absent ones reach this rule — Netlify
+# documents exactly this pattern ("the 404 pages will only be returned for
+# nonexistent assets under the above paths"). Adding `!` would force it,
+# defeat shadowing, and 404 EVERY asset, i.e. take the site down.
+#
+# It lives HERE and not in netlify.toml for the ordering reason at the top of
+# this file: a netlify.toml [[redirects]] rule for this path would be dead on
+# arrival, outranked by the catch-all — the same duplicate-declaration shape
+# that made /bff/cee/* unreachable for months.
+#
+# tests/ci-guards/netlify-asset-404-precedence.spec.ts derives the prefix from
+# vite.config.ts `assetsDir` and fails if this rule is missing, mis-statused,
+# forced, or sitting below the catch-all.
+/assets/*      /404.html                                               404
+
 # SPA catch-all (MUST BE LAST - catches all unmatched routes)
 /*             /index.html                                             200

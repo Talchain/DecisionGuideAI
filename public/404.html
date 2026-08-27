@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Not found · Olumi</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      main { max-width: 34rem; padding: 2rem; text-align: left; }
+      h1 { font-size: 1.25rem; margin: 0 0 0.75rem; }
+      p { margin: 0 0 0.75rem; }
+      a { color: #1d4ed8; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0f172a; color: #e2e8f0; }
+        a { color: #93c5fd; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>That file isn’t here.</h1>
+      <p>
+        This address points at a build file that no longer exists. Olumi gives every build
+        its own filenames, so links to files from an earlier build stop resolving once a new
+        one is published.
+      </p>
+      <p><a href="/">Open the current build</a></p>
+    </main>
+  </body>
+</html>

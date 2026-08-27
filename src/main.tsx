@@ -5,6 +5,13 @@ import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
+import {
+  attemptStaleBuildReload,
+  isChunkLoadError,
+  reloadForCurrentBuild,
+  STALE_BUILD_ACTION_COPY,
+  STALE_BUILD_NOTICE_COPY,
+} from './lib/staleBuildRecovery';
 
 declare global {
   interface Window {
@@ -115,10 +122,42 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     log('error-boundary:caught', {
       error: error.message,
       stack: error.stack,
-      componentStack: info?.componentStack?.slice(0, 600)
+      componentStack: info?.componentStack?.slice(0, 600),
+      isChunkLoadError: isChunkLoadError(error)
     });
+
+    // THIS boundary catches the FIRST chunk that can fail — the top-level
+    // `AppPoC` lazy import — so a mid-session deploy lands here, not on the
+    // canvas boundary. It used to render "Render Error ❌ / Something went
+    // wrong. Please refresh the page or contact support.": untrue (nothing
+    // failed to render, the build moved) and a dead end. One rate-limited
+    // reload, from the same module the canvas boundary uses.
+    if (isChunkLoadError(error)) {
+      attemptStaleBuildReload();
+    }
   }
   render() {
+    if (this.state.error && isChunkLoadError(this.state.error)) {
+      // Reached when the automatic reload was already spent (see the guard
+      // window). The next reload is the user's decision — the product does not
+      // silently retry forever.
+      return (
+        <div style={{ padding: 16, background: '#eff6ff', color: '#1e3a8a',
+                      fontFamily: 'ui-sans-serif,system-ui,sans-serif', fontSize: 14,
+                      borderRadius: 8, lineHeight: 1.6 }}>
+          <strong style={{ display: 'block', marginBottom: 6 }}>Olumi was updated</strong>
+          <p style={{ margin: '0 0 12px' }}>{STALE_BUILD_NOTICE_COPY}</p>
+          <button
+            type="button"
+            onClick={reloadForCurrentBuild}
+            style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #1d4ed8',
+                     background: '#1d4ed8', color: '#fff', fontSize: 14, cursor: 'pointer' }}
+          >
+            {STALE_BUILD_ACTION_COPY}
+          </button>
+        </div>
+      );
+    }
     if (this.state.error) {
       return (
         <div style={{ padding: 12, background: '#fee', color: '#900',

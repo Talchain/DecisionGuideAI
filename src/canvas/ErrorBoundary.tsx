@@ -2,6 +2,17 @@ import { Component, ReactNode } from 'react'
 import { XCircle, AlertTriangle, ChevronRight } from 'lucide-react'
 import { captureError } from '../lib/monitoring'
 import { flushWorkToAutosave } from './persist/crashFlush'
+import {
+  attemptStaleBuildReload,
+  ensureRouteHash,
+  isChunkLoadError,
+  STALE_BUILD_NOTICE_COPY,
+} from '../lib/staleBuildRecovery'
+
+// Re-exported so existing consumers (and ErrorBoundary.recovery.spec.tsx, which
+// reads it off this module's namespace) keep working. The DEFINITION lives in
+// src/lib/staleBuildRecovery.ts — one detector, one sentence, one guard.
+export { isChunkLoadError }
 
 interface Props {
   children: ReactNode
@@ -36,46 +47,11 @@ const GITHUB_ISSUES_URL = 'https://github.com/Talchain/DecisionGuideAI/issues/ne
 const RECURRING_ERROR_THRESHOLD = 3
 const RECURRING_ERROR_WINDOW_MS = 5000
 
-// Stale-chunk auto-recovery: a failed dynamic import after a mid-session deploy
-// is fixed by exactly one reload (the new index.html references the new chunks).
-// One automatic reload, rate-limited via sessionStorage so a genuinely broken
-// deploy cannot produce a reload loop — within the window the user gets the
-// normal error panel with the manual "Reload editor" button instead.
-const CHUNK_RELOAD_GUARD_KEY = 'olumi-chunk-reload-at'
-const CHUNK_RELOAD_GUARD_WINDOW_MS = 5 * 60 * 1000
-
-/**
- * Detect a failed-lazy-chunk error (deploy race / stale index.html). Message
- * shapes across browsers: Chrome "Failed to fetch dynamically imported module",
- * Firefox "error loading dynamically imported module", Safari "Importing a
- * module script failed", plus webpack-era "Loading chunk N failed" kept for
- * safety.
- */
-export function isChunkLoadError(error: Error | null): boolean {
-  if (!error) return false
-  const message = `${error.name ?? ''} ${error.message ?? ''}`
-  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Failed to load module script|Loading chunk [\w-]+ failed|ChunkLoadError/i.test(
-    message
-  )
-}
-
-/**
- * HashRouter guard: reload must land back on the SAME route. location.reload()
- * preserves the hash, but the recorded replaceState-desync gotcha means the
- * visible hash can have been dropped by earlier history writes — and a guest
- * reloading WITHOUT a route hash lands on the sign-in gate, which reads as
- * total data loss. If the hash is not a route, pin it to the canvas before
- * reloading.
- */
-function ensureRouteHash(): void {
-  try {
-    if (!window.location.hash || !window.location.hash.startsWith('#/')) {
-      window.location.hash = '#/canvas'
-    }
-  } catch {
-    // Fail-soft: reloading with the current URL is still better than nothing.
-  }
-}
+// Stale-chunk auto-recovery, the detector and the reload guard now live in
+// src/lib/staleBuildRecovery.ts — see the import above. They moved because the
+// BOOT boundary (src/main.tsx) catches the first chunk that can fail and was
+// chunk-blind while this copy sat here, so the deploy race that most reliably
+// breaks a loaded session was the one case the machinery never saw.
 
 export class CanvasErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -115,25 +91,8 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
     // Stale-chunk auto-recovery: one reload fixes a deploy race. Rate-limited
     // so a broken deploy shows the error panel instead of reload-looping.
-    if (isChunkLoadError(error) && typeof window !== 'undefined') {
-      let lastAttempt = 0
-      try {
-        lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY)) || 0
-      } catch {
-        // sessionStorage unavailable → treat as recently attempted (no auto
-        // reload) rather than risking an unguarded loop.
-        lastAttempt = Date.now()
-      }
-      if (Date.now() - lastAttempt > CHUNK_RELOAD_GUARD_WINDOW_MS) {
-        try {
-          sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, String(Date.now()))
-          ensureRouteHash()
-          // Defer past the commit phase — never reload mid-render.
-          setTimeout(() => window.location.reload(), 0)
-        } catch {
-          // Fall through to the normal error panel.
-        }
-      }
+    if (isChunkLoadError(error)) {
+      attemptStaleBuildReload()
     }
 
     // Track error count for recurring error detection
@@ -305,6 +264,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
   render() {
     const isRecurring = this.state.errorCount >= RECURRING_ERROR_THRESHOLD
+    const isStaleBuild = isChunkLoadError(this.state.error)
 
     // If error was dismissed, render children but show a warning banner
     if (this.state.hasError && this.state.dismissed) {
@@ -338,11 +298,20 @@ export class CanvasErrorBoundary extends Component<Props, State> {
                 <XCircle className="w-6 h-6 text-danger" aria-hidden="true" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-text-header">Something went wrong</h2>
+                {/* A stale build is not a crash, and must not be reported as
+                    one. The auto-reload above has already been attempted and
+                    rate-limited, so reaching this panel with a chunk error
+                    means the user's own decision is what comes next — which is
+                    exactly what the sentence offers. */}
+                <h2 className="text-xl font-bold text-text-header">
+                  {isStaleBuild ? 'Olumi was updated' : 'Something went wrong'}
+                </h2>
                 <p className="text-sm text-text-body">
-                  {isRecurring
-                    ? 'A critical error keeps occurring. Please reload the page.'
-                    : 'The canvas encountered an unexpected error'}
+                  {isStaleBuild
+                    ? STALE_BUILD_NOTICE_COPY
+                    : isRecurring
+                      ? 'A critical error keeps occurring. Please reload the page.'
+                      : 'The canvas encountered an unexpected error'}
                 </p>
               </div>
             </div>
