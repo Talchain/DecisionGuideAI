@@ -208,6 +208,13 @@ describe('OutputsDock DOM', () => {
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
+      // TEMPORARY comparison surface (Paul, 27 Aug 2026) — a second Analysis
+      // tab rendering the SAME run through a reasoning-led IA, placed directly
+      // after Analysis so the two are adjacent. Added to this EXACT list rather
+      // than the list being loosened: an exact, ordered list is what catches a
+      // surface silently appearing OR disappearing, and loosening it to make
+      // room for the experiment would retire the guard along with it.
+      'Analysis (New)',
       'Model',
     ])
   })
@@ -1196,6 +1203,13 @@ describe('I.2a: Secondary action button interaction', () => {
     expect(tabs.map(tab => tab.textContent)).toEqual([
       'Olumi',
       'Analysis',
+      // TEMPORARY comparison surface (Paul, 27 Aug 2026) — a second Analysis
+      // tab rendering the SAME run through a reasoning-led IA, placed directly
+      // after Analysis so the two are adjacent. Added to this EXACT list rather
+      // than the list being loosened: an exact, ordered list is what catches a
+      // surface silently appearing OR disappearing, and loosening it to make
+      // room for the experiment would retire the guard along with it.
+      'Analysis (New)',
       'Model',
     ])
     // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and

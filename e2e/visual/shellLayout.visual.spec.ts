@@ -38,6 +38,16 @@ import {
   seedStarterDraft,
   waitForVisualQuiescence,
 } from './harness'
+// ⚠ DERIVED, NOT RE-STATED. The tab count below used to be a hardcoded `4`
+// with the comment "Olumi, Analysis, Compare, Model". Compare left the strip
+// by contract on 18 Aug 2026 and this pin was never re-recorded, so it has
+// been asserting 4 against a strip of 3 ever since — a stale pin on an
+// advisory job, which is the quietest place for one to rot. Worse, the NEXT
+// surface added would have made it pass again for entirely the wrong reason: a
+// broken alarm going green is harder to notice than one going red.
+// `MAX_PRESENTED_SURFACES` is the recorded budget, and `compareDeTab.contract
+// .spec.tsx` DT-4 is what holds it honest against the Record.
+import { MAX_PRESENTED_SURFACES } from '../../src/canvas/components/workspaceShell/shellContract'
 
 const STARTER = 'build-vs-buy' as const
 
@@ -211,8 +221,13 @@ test.describe('workspace shell — layout, measured', () => {
       const navBox = await boxOf(page, 'nav[aria-label="Outputs sections"]')
       const tabs = nav.locator('button')
       const tabCount = await tabs.count()
-      // Journey is hidden by contract, so four surfaces are presented.
-      expect(tabCount, 'four presented surfaces: Olumi, Analysis, Compare, Model').toBe(4)
+      // Journey and Compare are hidden by contract; the presented set is
+      // whatever the shell contract records, and this asserts the strip lays
+      // out exactly that many.
+      expect(
+        tabCount,
+        `the strip must lay out exactly the recorded budget (${MAX_PRESENTED_SURFACES} presented surfaces)`,
+      ).toBe(MAX_PRESENTED_SURFACES)
       for (let i = 0; i < tabCount; i++) {
         const t = await tabs.nth(i).boundingBox()
         expect(t, `tab ${i} is not laid out`).not.toBeNull()

@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -151,6 +151,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
+import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
@@ -247,7 +248,7 @@ export function readPersistedActiveDockTab(): OutputsDockTab | null {
     // 'altview' is deliberately absent: the retired V7 comparison tab must not
     // rehydrate from a session persisted before its retirement — an unknown id
     // falls through to null and the dock opens on its default tab.
-    if (tab === 'results' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
+    if (tab === 'results' || tab === 'analysisNew' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
       return tab
     }
     return null
@@ -2627,6 +2628,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             const Icon =
               tab.id === 'results'
                 ? BarChart3
+                : tab.id === 'analysisNew'
+                ? FlaskConical
                 : tab.id === 'compare'
                 ? Shuffle
                 : tab.id === 'journey'
@@ -3441,6 +3444,29 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   />
                 )}
               </div>
+            )}
+            {effectiveActiveTab === 'analysisNew' && (
+              // ⭐ TEMPORARY comparison surface (Paul, 27 Aug 2026): the SAME
+              // analysis run, laid out around the reasoning. The existing
+              // Analysis branch above is untouched.
+              //
+              // SINGLE DATA AUTHORITY, AND IT IS THE POINT OF THE EXPERIMENT:
+              // every expression below is the SAME one `ResultsBody` receives
+              // in the `results` branch — the same `resultsSectionData`
+              // instance, the same sample/seed/hash reads, the same focus
+              // handler, the same freshness derivation. Never a re-derivation.
+              // If these two lists ever diverge, the two tabs stop being a
+              // presentation comparison and the whole experiment is void.
+              <AnalysisNewTabBody
+                resultsSectionData={resultsSectionData}
+                isPreRun={isPreRun}
+                isRunning={isRunning}
+                nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                seedUsed={(report as any)?.meta?.seed}
+                responseHash={results?.hash}
+                onFocusNode={handleFocusResultNode}
+                isStale={analysisNotConfirmedFresh}
+              />
             )}
             {effectiveActiveTab === 'compare' && (
               // 2.581 — ONE expert mode for the product. The Compare pill used

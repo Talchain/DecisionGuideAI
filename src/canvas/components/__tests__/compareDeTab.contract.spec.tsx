@@ -96,7 +96,7 @@ describe('Compare is de-tabbed by contract (Fable, 18 Aug 2026)', () => {
     expect(ids).not.toContain('compare')
     // CONTRAST CONTROL in the same run — absence is only evidence when the
     // things that must be present read present (trap 13e).
-    expect(ids).toEqual(['olumi', 'results', 'diagnostics'])
+    expect(ids).toEqual(['olumi', 'results', 'analysisNew', 'diagnostics'])
     // ⚠ 120s, and the number is deliberate, not padding. Importing OutputsDock
     // cold through `resetModules` + `doMock` pulls a very large module graph:
     // measured 27.1s on this machine, and the 5s default fired BEFORE any
@@ -113,7 +113,7 @@ describe('Compare is de-tabbed by contract (Fable, 18 Aug 2026)', () => {
   }, 120_000)
 
   it('DT-3: presentedSurfaces() drops compare and keeps the other three, in strip order', () => {
-    expect(presentedSurfaces().map(s => s.id)).toEqual(['olumi', 'results', 'diagnostics'])
+    expect(presentedSurfaces().map(s => s.id)).toEqual(['olumi', 'results', 'analysisNew', 'diagnostics'])
   })
 
   it('DT-4: the strip budget moved WITH the Record, not independently of it', () => {
@@ -126,7 +126,10 @@ describe('Compare is de-tabbed by contract (Fable, 18 Aug 2026)', () => {
     // this pins it in both directions: it REDs if a surface is presented AND
     // if one is hidden without the budget being re-recorded.
     expect(MAX_PRESENTED_SURFACES).toBe(presentedSurfaces().length)
-    expect(MAX_PRESENTED_SURFACES).toBe(3)
+    // 3 while Compare was hidden and nothing replaced it; 4 since the
+    // temporary 'Analysis (New)' comparison surface joined the strip
+    // (27 Aug 2026). Re-record deliberately when that experiment retires.
+    expect(MAX_PRESENTED_SURFACES).toBe(4)
   })
 
   it('DT-5: compare keeps its ORDER slot and its Record row — hidden, not retired', () => {

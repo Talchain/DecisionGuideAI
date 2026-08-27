@@ -17,7 +17,17 @@ import { create } from 'zustand'
  * `'altview'` (the TEMPORARY V7 comparison tab) was RETIRED with the
  * V7-vs-Current adjudication and is deliberately not a member.
  */
-export type OutputTab = 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
+/**
+ * The dock tab ids.
+ *
+ * `'analysisNew'` is the TEMPORARY Analysis (New) comparison surface (Paul,
+ * 27 Aug 2026): a second, separate Analysis tab rendering the SAME analysis run
+ * through a reasoning-led information architecture, so the two can be compared
+ * directly on one scenario. `'results'` (Analysis) is unchanged and remains the
+ * default. Retires when the comparison is decided — see
+ * `components/results/analysisNew/AnalysisNewTabBody.tsx`.
+ */
+export type OutputTab = 'results' | 'analysisNew' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
 
 /**
  * Right-panel modes. Only one right-side panel can be open at a time.
