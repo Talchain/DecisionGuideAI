@@ -41,7 +41,7 @@
  * `option_comparison` (the chain the pills already use).
  *
  * Design tokens (DS v5 §21.2):
- *   - Card frame: bg-panel + rounded-xl + border-panel-border
+ *   - Card frame: bg-panel + rounded-md + border-panel-border
  *   - Card header: typography.panelHeader (14px semibold)
  *   - Body: typography.panelBody (12px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
@@ -348,7 +348,7 @@ function V5AnalysisResultBlockImpl({
       data-testid="v5-analysis-result"
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
-      className="rounded-xl border border-panel-border bg-panel p-4 space-y-3"
+      className="rounded-md border border-panel-border bg-panel p-4 space-y-3"
     >
       <h3
         className={typography.panelHeader}

@@ -102,7 +102,7 @@ export function Accordion({
 
   return (
     <section
-      className={`border border-panel-border rounded-xl overflow-hidden ${className}`}
+      className={`border border-panel-border rounded-md overflow-hidden ${className}`}
       data-testid={testId}
       aria-labelledby={headingId}
     >

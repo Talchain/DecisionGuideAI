@@ -126,7 +126,7 @@ type Tone = 'danger' | 'info'
  * an uncategorised card looks precisely as it always did.
  */
 const CONTAINER_BASE: Record<'default' | 'bias_signal', string> = {
-  default: 'rounded-xl border bg-panel p-4 space-y-2',
+  default: 'rounded-md border bg-panel p-4 space-y-2',
   bias_signal: 'bg-panel border rounded-lg px-4 py-3 space-y-2',
 }
 

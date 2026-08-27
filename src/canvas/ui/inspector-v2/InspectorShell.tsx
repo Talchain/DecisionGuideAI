@@ -1,6 +1,6 @@
 /**
  * InspectorShell — 340px panel shell for all inspector panels
- * DS v4: bg-panel, rounded-xl, shadow-1, border-panel-border
+ * DS v4: bg-panel, rounded-md, shadow-1, border-panel-border
  * Header: type label with shape icon at top, then element name below.
  * Header is the drag surface when dragHandlers are provided.
  */
@@ -87,7 +87,7 @@ export const InspectorShell = memo(function InspectorShell({
 
   return (
     <div
-      className={`w-[340px] bg-panel rounded-xl shadow-1 overflow-hidden font-sans ${!confidenceLevel ? 'border border-panel-border' : ''}`}
+      className={`w-[340px] bg-panel rounded-md shadow-1 overflow-hidden font-sans ${!confidenceLevel ? 'border border-panel-border' : ''}`}
       style={shellBorder ? { border: shellBorder } : undefined}
       role="region"
       aria-label="Inspector panel"

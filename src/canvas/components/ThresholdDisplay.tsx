@@ -137,7 +137,7 @@ export const ThresholdDisplay = memo(function ThresholdDisplay({
   if (thresholds.length === 0) {
     return (
       <div
-        className="p-4 bg-sand-50 border border-sand-200 rounded-xl"
+        className="p-4 bg-sand-50 border border-sand-200 rounded-md"
         data-testid="threshold-display-empty"
       >
         <div className="flex items-center gap-3">
@@ -155,7 +155,7 @@ export const ThresholdDisplay = memo(function ThresholdDisplay({
 
   return (
     <div
-      className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden"
+      className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden"
       data-testid="threshold-display"
     >
       {/* Header */}

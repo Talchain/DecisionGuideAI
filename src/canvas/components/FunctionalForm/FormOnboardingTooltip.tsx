@@ -103,7 +103,7 @@ export const FormOnboardingTooltip = memo(function FormOnboardingTooltip({
   return (
     <div
       data-testid="form-onboarding-tooltip"
-      className="fixed bottom-6 right-6 w-80 bg-white rounded-xl border border-sand-200 shadow-xl z-50"
+      className="fixed bottom-6 right-6 w-80 bg-white rounded-md border border-sand-200 shadow-xl z-50"
       role="dialog"
       aria-label="Understanding relationship forms"
     >

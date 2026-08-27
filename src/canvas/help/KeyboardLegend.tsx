@@ -167,7 +167,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
     >
       <div
         ref={panelRef}
-        className="bg-white rounded-xl shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none"
+        className="bg-white rounded-md shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none"
         tabIndex={-1}
         onClick={event => event.stopPropagation()}
       >

@@ -203,7 +203,7 @@ export function ActionsSignal({ maxCollapsed = 3, defaultExpanded = false }: Act
   // Loading state
   if (loading && totalCount === 0) {
     return (
-      <div className="p-4 bg-sand-50 border border-sand-200 rounded-xl">
+      <div className="p-4 bg-sand-50 border border-sand-200 rounded-md">
         <div className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 text-sand-500 animate-spin" />
           <span className={`${typography.body} text-sand-600`}>Checking for improvements...</span>
@@ -217,7 +217,7 @@ export function ActionsSignal({ maxCollapsed = 3, defaultExpanded = false }: Act
   const hasMore = !isExpanded && totalCount > maxCollapsed
 
   return (
-    <div className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden" data-testid="actions-signal">
+    <div className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden" data-testid="actions-signal">
       {/* Header - always visible */}
       <button
         type="button"

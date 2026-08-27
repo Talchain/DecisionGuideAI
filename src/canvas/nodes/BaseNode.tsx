@@ -357,7 +357,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         <span
           aria-hidden="true"
           data-testid={`assistant-focus-node-halo-${id}`}
-          className="pointer-events-none absolute -inset-1 z-[1] rounded-xl border-2 border-info ring-2 ring-info/30 ring-offset-1"
+          className="pointer-events-none absolute -inset-1 z-[1] rounded-md border-2 border-info ring-2 ring-info/30 ring-offset-1"
         />
       )}
 

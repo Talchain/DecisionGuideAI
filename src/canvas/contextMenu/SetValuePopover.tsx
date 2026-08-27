@@ -81,7 +81,7 @@ export function SetValuePopover({ nodeId, anchorPos, onConfirm, onClose }: SetVa
   return (
     <div
       ref={popoverRef}
-      className="fixed z-[101] w-[240px] rounded-xl border border-panel-border bg-panel p-3 shadow-2"
+      className="fixed z-[101] w-[240px] rounded-md border border-panel-border bg-panel p-3 shadow-2"
       style={{ left: x, top: y }}
     >
       <p className={`${typography.panelMeta} mb-2 text-text-light`}>

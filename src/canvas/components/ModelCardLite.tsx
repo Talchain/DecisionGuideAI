@@ -90,7 +90,7 @@ export const ModelCardLite = memo(function ModelCardLite({ data }: ModelCardLite
 
   return (
     <section
-      className="bg-panel border border-panel-border rounded-xl shadow-s1 p-3 mb-3"
+      className="bg-panel border border-panel-border rounded-md shadow-s1 p-3 mb-3"
       aria-label="Model card"
       onClick={handleViewDetails}
     >

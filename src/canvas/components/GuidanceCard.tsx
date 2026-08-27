@@ -111,7 +111,7 @@ export function GuidanceCard({ item, onClick, onAutoFix, autoFixStatus = 'idle' 
 
   return (
     <div
-      className={`p-4 rounded-xl cursor-pointer hover:shadow-md transition-all ${severityStyles[item.severity]}`}
+      className={`p-4 rounded-md cursor-pointer hover:shadow-md transition-all ${severityStyles[item.severity]}`}
       onClick={onClick}
       role="article"
       aria-label={`${item.type} guidance: ${item.title}`}

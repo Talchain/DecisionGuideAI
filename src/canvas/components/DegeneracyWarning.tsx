@@ -45,7 +45,7 @@ export function DegeneracyWarning({
   if (check.isBackendBlocker) {
     return (
       <div
-        className="p-4 bg-carrot-50 border-2 border-carrot-300 rounded-xl"
+        className="p-4 bg-carrot-50 border-2 border-carrot-300 rounded-md"
         role="alert"
         aria-live="polite"
         data-testid="degeneracy-warning-blocker"
@@ -106,7 +106,7 @@ export function DegeneracyWarning({
 
   return (
     <div
-      className="p-4 bg-banana-50 border border-banana-200 rounded-xl"
+      className="p-4 bg-banana-50 border border-banana-200 rounded-md"
       role="alert"
       aria-live="polite"
       data-testid="degeneracy-warning"

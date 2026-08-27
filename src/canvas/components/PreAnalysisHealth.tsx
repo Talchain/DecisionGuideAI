@@ -182,7 +182,7 @@ export function PreAnalysisHealth({
   // Loading state
   if (loading && !readiness) {
     return (
-      <div className="p-4 bg-sand-50 border border-sand-200 rounded-xl">
+      <div className="p-4 bg-sand-50 border border-sand-200 rounded-md">
         <div className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 text-sand-500 animate-spin" aria-hidden="true" />
           <span className={`${typography.body} text-sand-600`}>
@@ -196,7 +196,7 @@ export function PreAnalysisHealth({
   // Error state with fallback display
   if (error && !readiness) {
     return (
-      <div className="p-4 bg-carrot-50 border border-carrot-200 rounded-xl">
+      <div className="p-4 bg-carrot-50 border border-carrot-200 rounded-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-carrot-600" aria-hidden="true" />
@@ -229,7 +229,7 @@ export function PreAnalysisHealth({
   return (
     <div className="space-y-4" data-testid="pre-analysis-health">
       {/* Quality Tier Header */}
-      <div className={`p-4 ${config.bgColor} border ${config.borderColor} rounded-xl`}>
+      <div className={`p-4 ${config.bgColor} border ${config.borderColor} rounded-md`}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <TierIcon
@@ -335,7 +335,7 @@ function ImprovementSection({ title, priority, improvements, onFocus }: Improvem
   const config = priorityConfig[priority]
 
   return (
-    <div className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden">
+    <div className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden">
       <div className="px-4 py-2 bg-sand-50 border-b border-sand-200">
         <span className={`${typography.label} ${config.textColor}`}>{title}</span>
       </div>

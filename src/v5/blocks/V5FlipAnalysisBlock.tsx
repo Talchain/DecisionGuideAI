@@ -50,7 +50,7 @@ export function V5FlipAnalysisBlock({ block }: V5FlipAnalysisBlockProps): ReactE
   return (
     <div
       data-testid="v5-flip-analysis"
-      className="rounded-xl border border-panel-border bg-panel p-4 space-y-2"
+      className="rounded-md border border-panel-border bg-panel p-4 space-y-2"
     >
       <h3 className={typography.panelHeader}>Flip analysis</h3>
       <p className={typography.panelBody}>{block.narrative}</p>

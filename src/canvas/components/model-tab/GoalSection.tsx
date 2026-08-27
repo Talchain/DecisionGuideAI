@@ -137,7 +137,7 @@ function GoalSectionInner({ goalNode, onSendMessage, goalFitRows }: GoalSectionP
 
   return (
     <div
-      className="bg-panel border border-panel-border rounded-xl p-3"
+      className="bg-panel border border-panel-border rounded-md p-3"
       data-testid="model-goal-section"
     >
       {/* Header: diamond icon + label */}

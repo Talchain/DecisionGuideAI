@@ -71,7 +71,7 @@ export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
       data-severity={block.severity}
       data-freshness={block.freshness}
       data-currency={currency}
-      className={`rounded-xl border ${SEVERITY_BORDER[block.severity]} bg-panel p-4 space-y-2`}
+      className={`rounded-md border ${SEVERITY_BORDER[block.severity]} bg-panel p-4 space-y-2`}
     >
       <div className="flex items-start gap-2">
         <Icon

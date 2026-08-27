@@ -101,7 +101,7 @@ export function V5GraphPatchBlock({
     // assert friendly text via the per-row testids below.
     <div
       data-testid="v5-change-receipt"
-      className="rounded-xl border border-panel-border bg-panel p-4 space-y-2"
+      className="rounded-md border border-panel-border bg-panel p-4 space-y-2"
     >
       <div className="flex items-center gap-2">
         <span

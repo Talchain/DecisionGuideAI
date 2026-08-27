@@ -309,7 +309,7 @@ export function V5HeldProposalBlock({
       data-mutation-class={block.mutation_class}
       data-reason-code={block.reason_code}
       data-settled={settled ?? undefined}
-      className="rounded-xl border border-info/30 bg-panel p-4 space-y-2"
+      className="rounded-md border border-info/30 bg-panel p-4 space-y-2"
     >
       <div className="flex items-start gap-2">
         {/* The icon carries the same claim as the heading: a settled card must

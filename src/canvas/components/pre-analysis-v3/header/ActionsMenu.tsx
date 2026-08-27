@@ -101,7 +101,7 @@ export const ActionsMenu = memo(function ActionsMenu({ onAction }: ActionsMenuPr
           role="menu"
           aria-label="Actions"
           onKeyDown={onMenuKeyDown}
-          className="absolute right-0 top-full z-40 mt-2 w-60 rounded-xl border border-panel-border bg-panel p-1 shadow-lg"
+          className="absolute right-0 top-full z-40 mt-2 w-60 rounded-md border border-panel-border bg-panel p-1 shadow-lg"
         >
           {ACTIONS_MENU.map((item, index) => (
             <button

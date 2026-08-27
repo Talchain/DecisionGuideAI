@@ -73,7 +73,7 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
       data-exercise-kind={block.exercise_kind}
       data-freshness={block.freshness}
       data-currency={currency}
-      className="rounded-xl border border-info/30 bg-panel p-4 space-y-2"
+      className="rounded-md border border-info/30 bg-panel p-4 space-y-2"
     >
       {/*
         0.37.0 (ROADMAP 2.490 slice 2) — the decision-science attribution.

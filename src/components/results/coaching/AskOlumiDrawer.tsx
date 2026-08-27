@@ -169,7 +169,7 @@ export function AskOlumiDrawer() {
           data-testid="ask-olumi-drawer"
           role="dialog"
           aria-label="Work through it with Olumi"
-          className="fixed bottom-[18px] right-[18px] z-[25] w-[min(370px,calc(100vw-36px))] rounded-xl border border-panel-border bg-panel shadow-2"
+          className="fixed bottom-[18px] right-[18px] z-[25] w-[min(370px,calc(100vw-36px))] rounded-md border border-panel-border bg-panel shadow-2"
         >
           <div className="flex items-center gap-2 px-[11px] pt-2.5">
             <h2 className={`${typography.panelHeader} flex-1 text-text-header`}>

@@ -117,7 +117,7 @@ export function ThinkingModePopover({ isOpen, onClose, anchorRef }: ThinkingMode
           <div
             key={label}
             aria-disabled="true"
-            className="flex items-start gap-3 rounded-xl border border-panel-border px-3 py-2.5 opacity-50 pointer-events-none select-none"
+            className="flex items-start gap-3 rounded-md border border-panel-border px-3 py-2.5 opacity-50 pointer-events-none select-none"
           >
             <div className="mt-0.5 shrink-0 w-7 h-7 rounded-lg bg-canvas flex items-center justify-center">
               <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
