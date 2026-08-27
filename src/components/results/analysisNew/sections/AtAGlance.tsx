@@ -99,9 +99,17 @@ export function AtAGlance({
           ) : (
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           )}
+          {/* Evidence and trust share ONE line: the win share is the most
+              informative number on the surface and the verdict is how much to
+              rely on it, so they belong together and cost one row, not two. */}
+          {glance.winShare ? (
+            <span className="text-text-body" data-testid={`${testId}-win-share`}>
+              {glance.winShare} ·{' '}
+            </span>
+          ) : null}
           {glance.verdict.label}
           {glance.verdict.reason ? (
-            <span className="text-text-light truncate">— {glance.verdict.reason}</span>
+            <span className="text-text-light truncate"> — {glance.verdict.reason}</span>
           ) : null}
         </p>
       ) : null}

@@ -80,9 +80,15 @@ describe('F · the three scenario classes (§24F)', () => {
   })
 
   it('GENUINE DECISION — comparative material appears, phrased as "currently scores higher"', () => {
+    // Stated ONCE, by "At a glance". It used to appear here AND as a key
+    // insight one viewport below — measured on a real run, all three insights
+    // were restatements of the glance.
     renderBody(genuineDecision())
-    expect(screen.getByTestId('analysis-new-key-insights')).toHaveTextContent(
+    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent(
       'Raise price currently scores higher',
+    )
+    expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
+      'currently scores higher',
     )
   })
 
@@ -162,10 +168,9 @@ describe('staleness contextualises without dominating (§20)', () => {
     expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
       'The model has changed since this analysis ran.',
     )
-    // One line, not a banner stack: the findings are still on screen.
-    expect(
-      within(screen.getByTestId('analysis-new-key-insights')).getAllByTestId('analysis-new-key-insights-row').length,
-    ).toBeGreaterThan(0)
+    // One line, not a banner stack: the read is still on screen.
+    expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-glance-headline')).toBeInTheDocument()
   })
 })
 

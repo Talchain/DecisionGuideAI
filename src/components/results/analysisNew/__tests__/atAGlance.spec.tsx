@@ -119,11 +119,26 @@ describe('could change if — a tipping point, gated on the honesty field', () =
 
   const ROW = { label: 'Two-month timeframe', node_id: 'n_time', current_value: 2, flip_value: 3 }
 
-  it('renders when the producer computed one', () => {
-    expect(withFlip('computed', ROW)).toEqual({
-      text: 'Two-month timeframe passes 3',
+  it('renders when the producer computed one, with its unit', () => {
+    expect(withFlip('computed', { ...ROW, unit: '%' })).toEqual({
+      text: 'Two-month timeframe passes 3%',
       targetId: 'n_time',
     })
+  })
+
+  it('pairs the flip value with the current one when the producer sent NO unit', () => {
+    // Witnessed on a real run before this was fixed: "Price increase for new
+    // customers passes 1" — a bare number on the model's own scale, which the
+    // reader cannot place. `current_value` is the reference, from the same row.
+    expect(withFlip('computed', ROW)!.text).toBe('Two-month timeframe moves from 2 to 3')
+  })
+
+  it('states the condition WITHOUT a number when neither a unit nor a baseline exists', () => {
+    // No baseline means no direction of travel — printing a lone figure would
+    // imply one the producer never supplied.
+    expect(withFlip('computed', { ...ROW, current_value: null })!.text).toBe(
+      'Two-month timeframe changes materially',
+    )
   })
 
   it('renders NOTHING when the producer could not determine a flip', () => {
@@ -174,5 +189,99 @@ describe('the whole region collapses honestly', () => {
   it('renders nothing at all when no producer supplied any of it', () => {
     const { container } = render(<AtAGlance glance={glanceOf(makeData())} />)
     expect(container.querySelector('[data-testid="analysis-new-glance"]')).toBeNull()
+  })
+})
+
+describe('one signal, one primary surface', () => {
+  const vmOf = (data: ResultsSectionDataReturn) =>
+    buildAnalysisNewViewModel({
+      data,
+      recommendations: [],
+      recommendationCandidateCount: 0,
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    })
+
+  it('drops the insights the glance already states', () => {
+    // Measured on a real run: all three key insights restated the glance.
+    const vm = vmOf(genuineDecision())
+    expect(vm.atAGlance.headline).toBeTruthy()
+    expect(vm.atAGlance.verdict).toBeTruthy()
+    const ids = vm.keyInsights.insights.map((i) => i.id)
+    expect(ids).not.toContain('insight:comparative')
+    expect(ids).not.toContain('insight:robustness')
+  })
+
+  it('KEEPS the comparative insight when the glance did NOT state it', () => {
+    // ⭐ THE DISCRIMINATING HALF. Suppression is keyed to what the glance
+    // actually rendered — a blanket id filter would delete this finding on
+    // exactly the runs where the list is the only place it could appear.
+    const withheld = vmOf(decisionWithLeaderWithheld())
+    expect(withheld.atAGlance.headline).toBeNull()
+    // The comparative insight is absent here for its OWN reason (no
+    // entitlement), so assert the mechanism on robustness instead: the glance
+    // has no verdict, therefore the insight survives.
+    const noVerdict = vmOf(
+      makeData({
+        recommendation: {
+          robustnessVerdict: undefined as never,
+          coachingHeadline: 'What this run found',
+          coachingDecisionStatement: 'A statement.',
+        },
+      }),
+    )
+    expect(noVerdict.atAGlance.verdict).toBeNull()
+    expect(noVerdict.keyInsights.insights.map((i) => i.id)).toContain('insight:executive-summary')
+  })
+
+  it('suppresses the hinge insight when the glance already states a condition, and still reports the RUN count', () => {
+    // The hinge is the ONE remaining dedupe path: it comes from a DIFFERENT
+    // producer than the glance condition (`topFragileEdge` vs `flipThresholds`),
+    // so both can exist on the same run and the duplicate must be removed.
+    const both = makeData({
+      recommendation: {
+        flipThresholdsStatus: 'computed' as never,
+        flipThresholds: [
+          { label: 'Timeframe', node_id: 'n_t', current_value: 2, flip_value: 3 },
+        ] as never,
+      },
+      confidence: {
+        topFragileEdge: {
+          fromId: 'f_a',
+          fromLabel: 'Timeframe',
+          toId: 'g',
+          toLabel: 'Goal',
+          alternativeWinnerLabel: 'Other',
+          switchProbability: 0.4,
+        },
+      },
+    })
+    const vm = vmOf(both)
+    expect(vm.atAGlance.condition, 'the glance must state a condition for this case to mean anything').not.toBeNull()
+    expect(vm.keyInsights.insights.map((i) => i.id)).not.toContain('insight:hinge')
+    // The count still reports what the RUN produced — a cap disclosure that
+    // shrinks silently is worse than no disclosure.
+    expect(vm.keyInsights.candidateCount).toBeGreaterThan(vm.keyInsights.insights.length)
+  })
+
+  it('KEEPS the hinge insight when the glance states NO condition', () => {
+    // The discriminating twin: without a glance condition the hinge is the only
+    // place that finding appears, and a blanket id filter would delete it.
+    const hingeOnly = makeData({
+      confidence: {
+        topFragileEdge: {
+          fromId: 'f_a',
+          fromLabel: 'Timeframe',
+          toId: 'g',
+          toLabel: 'Goal',
+          alternativeWinnerLabel: 'Other',
+          switchProbability: 0.4,
+        },
+      },
+    })
+    const vm = vmOf(hingeOnly)
+    expect(vm.atAGlance.condition).toBeNull()
+    expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:hinge')
   })
 })

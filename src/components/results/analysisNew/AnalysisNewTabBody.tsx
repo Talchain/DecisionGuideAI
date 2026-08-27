@@ -146,7 +146,17 @@ export function AnalysisNewTabBody({
         <AnalysisNewSection
           title={COPY.sections.keyInsights}
           findings={vm.keyInsights.insights}
-          emptyMessage={vm.status.isPreRun ? null : COPY.empty.keyInsights}
+          // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
+          // when the run DID produce insights and the glance is simply stating
+          // them — witnessed on a real run, where the glance carried all three
+          // and this line then contradicted the surface directly above it. An
+          // empty list with a non-zero candidate count means "shown above", so
+          // the section renders nothing at all rather than a claim that is not
+          // true. The honest empty state survives for a run that genuinely
+          // produced none.
+          emptyMessage={
+            vm.status.isPreRun || vm.keyInsights.candidateCount > 0 ? null : COPY.empty.keyInsights
+          }
           onFocusTarget={focusTarget}
           onRunIntervention={runIntervention}
           testId="analysis-new-key-insights"

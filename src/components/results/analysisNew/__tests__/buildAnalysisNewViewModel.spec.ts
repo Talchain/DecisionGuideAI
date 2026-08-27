@@ -53,10 +53,11 @@ const build = (
 
 describe('leader entitlement (§13) — recommendation.verdict.hasLeadingOption', () => {
   it('names a leader ONLY when the verdict entitles it, and never says "wins"', () => {
+    // The comparative read moved to "At a glance" — it is the surface that
+    // states it now, so that is where the entitlement is asserted. The
+    // vocabulary sweep below still covers the WHOLE view model.
     const vm = build(genuineDecision())
-    const comparative = vm.keyInsights.insights.find((i) => i.id === 'insight:comparative')
-    expect(comparative, 'a genuine decision with an entitled verdict must offer the comparative insight').toBeDefined()
-    expect(comparative!.headline).toBe('Raise price currently scores higher')
+    expect(vm.atAGlance.headline).toBe('Raise price currently scores higher')
     // The forbidden vocabulary, checked across the WHOLE surface rather than
     // just this row — a leader claim leaking through another section would be
     // the same defect in a different place.
@@ -73,72 +74,49 @@ describe('leader entitlement (§13) — recommendation.verdict.hasLeadingOption'
     // leader — which is exactly the conflation the single verdict exists to
     // prevent.
     const vm = build(decisionWithLeaderWithheld())
-    expect(vm.keyInsights.insights.map((i) => i.id)).not.toContain('insight:comparative')
+    expect(vm.atAGlance.headline).toBeNull()
+    expect(vm.atAGlance.winShare, 'a win share with no entitled leader is a number about a withheld option').toBeNull()
   })
 
   it('an open strategic challenge produces insights WITHOUT any option framing', () => {
     const vm = build(openStrategicChallenge())
-    expect(vm.keyInsights.insights.length).toBeGreaterThan(0)
-    expect(vm.keyInsights.insights.map((i) => i.id)).not.toContain('insight:comparative')
-    // The section is NOT empty just because there is no decision — that is the
-    // failure mode a decision-first ladder produces.
-    expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:robustness')
+    expect(vm.atAGlance.headline).toBeNull()
+    // The surface is NOT empty just because there is no decision — that is the
+    // failure mode a decision-first ladder produces. The glance leads with
+    // drivers, and the ladder still carries the structural findings.
+    expect(vm.atAGlance.drivers.length).toBeGreaterThan(0)
     expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:dominant-factor')
   })
 })
 
 describe('robustness (§4) — display-safe verdict only', () => {
   it("renders the producer's own reason verbatim and never authors robustness prose", () => {
-    const vm = build(openStrategicChallenge())
-    const r = vm.keyInsights.insights.find((i) => i.id === 'insight:robustness')!
-    expect(r.implication).toBe(
+    // Robustness is stated by "At a glance" now — one surface, and it is the
+    // one that carries the producer's sentence.
+    expect(build(openStrategicChallenge()).atAGlance.verdict?.reason).toBe(
       'Small changes in supplier lead time change which direction looks better.',
     )
   })
 
-  it('omits the robustness insight entirely when no display-safe verdict arrived', () => {
-    // `robustnessLevel` alone must NOT produce a headline — it is structured
-    // data, not a display-safe verdict.
-    const vm = build(makeData({ recommendation: { robustnessLevel: 'low' } }))
-    expect(vm.keyInsights.insights.map((i) => i.id)).not.toContain('insight:robustness')
+  it('says nothing about robustness when no display-safe verdict arrived', () => {
+    // `robustnessLevel` alone must NOT produce a verdict — it is structured
+    // data, not a display-safe one.
+    expect(build(makeData({ recommendation: { robustnessLevel: 'low' } })).atAGlance.verdict).toBeNull()
   })
 
   it('covers ALL FOUR vocabulary members distinctly, and turns none of them into a claim it did not receive', () => {
-    // ⭐ THE BREADTH CASE. `RobustnessDisplayVerdict` has four members and an
-    // earlier draft split them binary — so 'moderate' read as "sensitive" and
-    // 'not_assessed', the producer's own stated absence, read as a measurement.
-    // Turning "we did not measure this" into a verdict is the single worst
-    // thing this surface could do, so it gets its own case.
-    const insightFor = (verdict: string) =>
-      build(
-        makeData({
-          recommendation: {
-            robustnessVerdict: verdict as never,
-            robustnessVerdictReason: 'Producer reason.',
-          },
-        }),
-      ).keyInsights.insights.find((i) => i.id === 'insight:robustness')
-    const headlineFor = (verdict: string) => insightFor(verdict)?.headline
+    // ⭐ THE BREADTH CASE, now against the glance's word map. Four members; a
+    // binary split made 'moderate' read as sensitive and turned 'not_assessed'
+    // — the producer's own stated absence — into a measurement.
+    const wordFor = (verdict: string) =>
+      build(makeData({ recommendation: { robustnessVerdict: verdict as never, robustnessVerdictReason: 'r' } }))
+        .atAGlance.verdict
 
-    expect(headlineFor('robust')).toBe('This result holds up under uncertainty')
-    expect(headlineFor('moderate')).toBe('This result holds up, but not strongly')
-    expect(headlineFor('fragile')).toBe('This result is sensitive to uncertainty')
-
-    // ⚠⚠ ASSERT THE ROW IS ABSENT, NOT THAT ITS HEADLINE IS UNDEFINED — and the
-    // difference is the whole case. A mutant that drops the vocabulary lookup
-    // from the guard still PUSHES an insight for 'not_assessed'; its headline is
-    // merely `undefined`, so `?.headline` reads undefined either way and the
-    // weaker assertion passed on a row that would render a BLANK HEADLINE to a
-    // user. Caught by the mutation battery, not by review.
-    expect(insightFor('not_assessed')).toBeUndefined()
-    // …and the three that DO render each have a real, non-empty headline, so
-    // "absent" and "present but blank" can never be confused here again.
-    for (const v of ['robust', 'moderate', 'fragile']) {
-      expect(insightFor(v)?.headline, `${v} rendered a blank headline`).toBeTruthy()
-    }
-    // …and the three that do render are genuinely distinct, so a future
-    // collapse back to a binary split REDs here.
-    expect(new Set([headlineFor('robust'), headlineFor('moderate'), headlineFor('fragile')]).size).toBe(3)
+    expect(wordFor('robust')?.label).toBe('Stable')
+    expect(wordFor('moderate')?.label).toBe('Mixed')
+    expect(wordFor('fragile')?.label).toBe('Sensitive')
+    expect(wordFor('not_assessed')).toBeNull()
+    expect(new Set(['robust', 'moderate', 'fragile'].map((v) => wordFor(v)!.label)).size).toBe(3)
   })
 })
 
@@ -234,7 +212,9 @@ describe('coverage is not readiness (§17)', () => {
     const vm = build(highUncertainty())
     expect(vm.uncertainty.findings.length).toBeGreaterThan(0)
     expect(vm.drivers.findings.length).toBeGreaterThan(0)
-    expect(vm.keyInsights.insights.length).toBeGreaterThan(0)
+    // The glance still has a read to give even on a fragile, partial run.
+    expect(vm.atAGlance.verdict).not.toBeNull()
+    expect(vm.atAGlance.drivers.length).toBeGreaterThan(0)
   })
 })
 
@@ -341,11 +321,9 @@ describe('withheld fields (ROADMAP 2.1273) — never read, never rendered', () =
   })
 
   it('still renders the HONEST statistic it was standing beside', () => {
-    // The discriminating half: without this, deleting the whole comparative
-    // insight would satisfy the case above and prove nothing.
-    const vm = build(genuineDecision())
-    const comparative = vm.keyInsights.insights.find((i) => i.id === 'insight:comparative')!
-    expect(comparative.inspect.map((r) => r.label)).toContain('Win probability')
+    // The discriminating half: without this, deleting the win share outright
+    // would satisfy the absence case above and prove nothing.
+    expect(build(genuineDecision()).atAGlance.winShare).toBe('Ahead in 69% of simulated futures')
   })
 })
 

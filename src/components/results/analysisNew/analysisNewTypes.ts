@@ -262,6 +262,12 @@ export interface GlanceCondition {
 export interface AtAGlance {
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
+  /**
+   * The evidence behind the read, as a sentence. Gated on the SAME entitlement
+   * as `headline` — a win share with no entitled leader is a number about an
+   * option the producer declined to put forward.
+   */
+  winShare: string | null
   verdict: GlanceVerdict | null
   drivers: GlanceDriver[]
   /**
