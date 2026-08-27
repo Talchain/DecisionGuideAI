@@ -316,7 +316,7 @@ function V5AnalysisResultBlockImpl({
   // cannot speak to values that were never sampled, so it is exactly the case
   // where the calibration is least earned. The registers are kept apart on
   // purpose; neither is worded as the other.
-  const coverageReading = useOptionCoverage()
+  const coverageReading = useOptionCoverage(block.computed_against_hash)
   const coverageLabels = useCanvasNodeLabels()
   const coverage = useMemo(
     () => buildCoverageDisclosure(coverageReading, (id) => resolveCanvasLabel(id, coverageLabels)),

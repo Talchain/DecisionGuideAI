@@ -219,6 +219,15 @@ export interface V5AnalysisResultBlock {
   leading_option_id: string | null
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
+  /**
+   * The graph hash this run computed against, carried from the wire.
+   *
+   * A transcript block is a HISTORIC record, and anything rendered inside it
+   * that reads LIVE store state describes today rather than the run. This lets
+   * a block say which graph it was about, so a live-state derivation can refuse
+   * to speak for a run it does not describe.
+   */
+  computed_against_hash?: string
 }
 
 export interface V5GraphPatchBlock {

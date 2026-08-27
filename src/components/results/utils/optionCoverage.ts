@@ -75,8 +75,32 @@ export interface OptionCoverage {
 }
 
 export interface CoverageReading {
-  /** `uneven` when the options do not all set the same NUMBER of effects. */
-  readonly kind: 'even' | 'uneven'
+  /**
+   * THREE states, not two, and the distinction is the correctness of the whole
+   * disclosure.
+   *
+   * ⚠ THIS WAS `'even' | 'uneven'` AND IT FABRICATED. `kind` was
+   * `min(counts) === max(counts)` — an equality over COUNTS — and it selected
+   * copy claiming "Every option has all its effects set". Those are different
+   * claims: two options at 2 of 3 AGREE, and neither is COMPLETE. Measured
+   * against the compiled module, both-2-of-3, disjoint singles with 4 of 6 cells
+   * empty, and both-zero-of-3 all read `even` and were indistinguishable from a
+   * genuinely complete model.
+   *
+   * ⭐ AND THE FEATURE'S OWN REMEDY PRODUCED THE FABRICATION, which is what made
+   * it serious. On the captured run the strip asks the user to set the missing
+   * licence cost. They set it. Both options reach 2 of 3. The old predicate
+   * flipped to `even` and the product declared the model COMPLETE — while
+   * adoption, which this module's own header calls "exactly the case that
+   * matters", was still empty on both.
+   *
+   * The invariant had been written against the failure mode in hand rather than
+   * against the claim the copy makes. **Completeness is a claim about the
+   * denominator; agreement between counts is not evidence for it.** "The counts
+   * match" must never be spoken as "nothing is missing" — the mirror image of
+   * the honest-at-zero rule this module already follows.
+   */
+  readonly kind: 'complete' | 'even-incomplete' | 'uneven'
   /** The denominator, echoed back so a consumer can never restate it differently. */
   readonly modelFactorIds: readonly string[]
   readonly perOption: readonly OptionCoverage[]
@@ -118,7 +142,11 @@ export function deriveOptionCoverage(
   })
 
   const counts = perOption.map((o) => o.setFactorIds.length)
-  const kind = Math.min(...counts) === Math.max(...counts) ? 'even' : 'uneven'
+  const kind: CoverageReading['kind'] = perOption.every((o) => o.unsetFactorIds.length === 0)
+    ? 'complete'
+    : Math.min(...counts) === Math.max(...counts)
+      ? 'even-incomplete'
+      : 'uneven'
 
   return { kind, modelFactorIds: factorIds, perOption }
 }
@@ -141,7 +169,7 @@ export function deriveOptionCoverage(
  * rule beside it.
  */
 export function rankingIsProvisional(reading: CoverageReading | null): boolean {
-  return reading !== null && reading.kind === 'uneven'
+  return reading !== null && reading.kind !== 'complete'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,15 +186,20 @@ export function rankingIsProvisional(reading: CoverageReading | null): boolean {
  * British English. No em dashes in UI strings.
  */
 export interface CoverageDisclosure {
-  readonly kind: 'even' | 'uneven'
+  readonly kind: 'complete' | 'even-incomplete' | 'uneven'
   readonly headline: string
   readonly detail: string
   /** Per option, the factors it leaves unset. Empty for an even reading. */
   readonly unsetByOption: readonly { readonly label: string; readonly unsetLabels: readonly string[] }[]
 }
 
-const EVEN_HEADLINE = 'Every option has all its effects set'
-const EVEN_DETAIL = 'This comparison rests on a complete model.'
+// ⚠ COMPLETE is the ONLY state that may claim completeness. `EVEN_INCOMPLETE`
+// exists because "the counts match" and "nothing is missing" are different
+// facts, and collapsing them is what let the product call a model complete
+// while a factor sat empty on every option.
+const COMPLETE_HEADLINE = 'Every option has all its effects set'
+const COMPLETE_DETAIL = 'This comparison rests on a complete model.'
+const EVEN_INCOMPLETE_HEADLINE = 'The same effects are unset on every option'
 const UNEVEN_HEADLINE = 'Not every option is equally specified'
 
 /**
@@ -194,10 +227,10 @@ export function buildCoverageDisclosure(
 ): CoverageDisclosure | null {
   if (reading === null) return null
 
-  if (reading.kind === 'even') {
+  if (reading.kind === 'complete') {
     // Honest at zero is SAID, not encoded as an absence. Rendering nothing here
     // would make "no disclosure" and "nothing to disclose" indistinguishable.
-    return { kind: 'even', headline: EVEN_HEADLINE, detail: EVEN_DETAIL, unsetByOption: [] }
+    return { kind: 'complete', headline: COMPLETE_HEADLINE, detail: COMPLETE_DETAIL, unsetByOption: [] }
   }
 
   const total = reading.modelFactorIds.length
@@ -219,8 +252,8 @@ export function buildCoverageDisclosure(
     .filter((o) => o.unsetLabels.length > 0)
 
   return {
-    kind: 'uneven',
-    headline: UNEVEN_HEADLINE,
+    kind: reading.kind,
+    headline: reading.kind === 'uneven' ? UNEVEN_HEADLINE : EVEN_INCOMPLETE_HEADLINE,
     detail: `${counts}. ${UNEVEN_DETAIL}`,
     unsetByOption,
   }

@@ -34,7 +34,27 @@ import {
  * IS one of those dark consumers. Its usage is therefore evidence about the
  * TYPE, never about the runtime value; the normaliser is.
  */
-export function useOptionCoverage(): CoverageReading | null {
+/**
+ * ⚠ GATED ON THE RUN THIS BLOCK REPORTS, and that gate is what makes it
+ * legitimate to render live state inside a historic record at all.
+ *
+ * Coverage is derived from LIVE store state, and an analysis-result block is a
+ * TRANSCRIPT ENTRY. Ungated, every past block showed TODAY's coverage — a block
+ * reporting one run would describe a different graph — and the strip vanished
+ * silently whenever `invalidateAnalysisReady` fired, reachable from ~22 edit
+ * paths. A strip whose entire job is "what was this analysis based on?" must not
+ * answer with today's state.
+ *
+ * So it speaks only when the block's own `computed_against_hash` matches the
+ * graph the live slice describes, and otherwise says nothing.
+ *
+ * ⚠ THE LIMIT, STATED: saying nothing on a historic block is NOT the
+ * honest-at-zero disclosure this module makes elsewhere — it is this surface
+ * having nothing it can honestly say. Staleness already has an owner, and a
+ * second authority on "the model has changed since this ran" is exactly what
+ * this module refuses to become. Rowed, not answered here.
+ */
+export function useOptionCoverage(computedAgainstHash?: string): CoverageReading | null {
   const nodes = useCanvasStore(
     (s: { nodes?: Array<{ id: string; type?: string; data?: unknown }> }) => s.nodes,
   )
@@ -42,11 +62,18 @@ export function useOptionCoverage(): CoverageReading | null {
     (s: {
       ceeAnalysisReady?: {
         options?: Array<{ id?: unknown; label?: unknown; interventions?: unknown }>
+        current_graph_hash?: unknown
       } | null
     }) => s.ceeAnalysisReady,
   )
 
   return useMemo(() => {
+    // The block must be about the graph the live slice describes, or this
+    // derivation speaks for a run it does not describe.
+    const liveHash = analysisReady?.current_graph_hash
+    if (typeof computedAgainstHash !== 'string' || computedAgainstHash.length === 0) return null
+    if (typeof liveHash !== 'string' || liveHash !== computedAgainstHash) return null
+
     const factorIds: string[] = []
     for (const node of nodes ?? []) {
       if (resolveNodeTypeLiteral(node) === 'factor') factorIds.push(node.id)
@@ -58,9 +85,18 @@ export function useOptionCoverage(): CoverageReading | null {
       // against — and reporting it under a positional placeholder would be the
       // value-predicate binding that lets a claim land on the wrong object.
       if (typeof raw.id !== 'string' || raw.id.length === 0) continue
+      // ⚠ AN OPTION WITH NO HONEST LABEL STOPS THE WHOLE DISCLOSURE.
+      // This previously fell back to `raw.id` and printed an internal token at a
+      // user surface ("5f6f5e36 has 1 of 3 set."), which is the exact pattern
+      // R-4 removed from this very component and which the module's own factor
+      // rule already refuses. Dropping just that option is not an option either:
+      // a comparison that silently omits a participant can turn uneven into
+      // even. So the honest answer is to say NOTHING rather than to say
+      // something partial about an option we cannot name.
+      if (typeof raw.label !== 'string' || raw.label.length === 0) return null
       options.push({
         id: raw.id,
-        label: typeof raw.label === 'string' ? raw.label : raw.id,
+        label: raw.label,
         interventions:
           raw.interventions !== null && typeof raw.interventions === 'object'
             ? (raw.interventions as Record<string, unknown>)
@@ -69,5 +105,5 @@ export function useOptionCoverage(): CoverageReading | null {
     }
 
     return deriveOptionCoverage(options, factorIds)
-  }, [nodes, analysisReady])
+  }, [nodes, analysisReady, computedAgainstHash])
 }

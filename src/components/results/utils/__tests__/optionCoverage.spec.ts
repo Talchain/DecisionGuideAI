@@ -85,16 +85,51 @@ describe('deriveOptionCoverage', () => {
     expect(reading!.modelFactorIds).toContain(ADOPTION)
   })
 
-  it('reports even coverage when both options set the same number of effects', () => {
+  // ⚠ THIS TEST ONCE ASSERTED `kind === 'even'` ON THIS FIXTURE AND THE COPY
+  // CLAIMED "Every option has all its effects set". Adoption is unset on BOTH
+  // options here, so that was a fabrication the suite was pinning: the invariant
+  // had been written against the failure mode in hand (uneven counts) rather
+  // than against the claim the copy makes (completeness).
+  it('does NOT call matching counts complete when a factor is unset on every option', () => {
     const evenChallenger: CoverageOption = {
       ...CHALLENGER,
       interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.2 },
     }
     const reading = deriveOptionCoverage([evenChallenger, BASELINE], MODEL_FACTORS)
-    expect(reading!.kind).toBe('even')
-    // Honest at zero is SAID, not encoded as an absence: an even reading is a
-    // real reading with real contents, never null.
+    expect(reading!.kind).toBe('even-incomplete')
     expect(reading!.perOption).toHaveLength(2)
+  })
+
+  it('calls it complete only when every option sets every factor', () => {
+    const all = (id: string): CoverageOption => ({
+      id, label: id, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
+    })
+    expect(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS)!.kind).toBe('complete')
+  })
+
+  // ⭐ THE REACHABLE PATH THAT MADE THE OLD PREDICATE SERIOUS: the feature's own
+  // remedy produced the fabrication. The strip asks the user to set the missing
+  // licence cost; they set it; both options reach 2 of 3; the old predicate
+  // flipped to `even` and the product declared the model COMPLETE while adoption
+  // sat empty on both.
+  it('does not flip to complete when the user resolves only the asymmetry', () => {
+    const repaired: CoverageOption = {
+      ...CHALLENGER,
+      interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5 },
+    }
+    const reading = deriveOptionCoverage([repaired, BASELINE], MODEL_FACTORS)
+    expect(reading!.kind).not.toBe('complete')
+    expect(reading!.perOption.every((o) => o.unsetFactorIds.includes(ADOPTION))).toBe(true)
+  })
+
+  it('does not call disjoint or empty coverage complete', () => {
+    const onlyA: CoverageOption = { id: 'a', label: 'a', interventions: { [SWITCHING]: 1 } }
+    const onlyB: CoverageOption = { id: 'b', label: 'b', interventions: { [LICENCE]: 1 } }
+    expect(deriveOptionCoverage([onlyA, onlyB], MODEL_FACTORS)!.kind).toBe('even-incomplete')
+
+    const noneA: CoverageOption = { id: 'a', label: 'a', interventions: {} }
+    const noneB: CoverageOption = { id: 'b', label: 'b', interventions: {} }
+    expect(deriveOptionCoverage([noneA, noneB], MODEL_FACTORS)!.kind).toBe('even-incomplete')
   })
 
   it('echoes the caller-supplied denominator and never invents one', () => {
@@ -132,8 +167,14 @@ describe('rankingIsProvisional', () => {
       ...CHALLENGER,
       interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.2 },
     }
+    // Matching counts are NOT completeness, so the ranking stays provisional.
     const even = deriveOptionCoverage([evenChallenger, BASELINE], MODEL_FACTORS)
-    expect(rankingIsProvisional(even)).toBe(false)
+    expect(rankingIsProvisional(even)).toBe(true)
+
+    const all = (id: string): CoverageOption => ({
+      id, label: id, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
+    })
+    expect(rankingIsProvisional(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS))).toBe(false)
   })
 
   it('is false when there is no reading, rather than throwing', () => {
@@ -185,18 +226,29 @@ describe('buildCoverageDisclosure', () => {
     expect(flat).toContain('CRM Adoption and Usability')
   })
 
-  it('SAYS the even case rather than rendering nothing', () => {
+  it('SAYS the complete case rather than rendering nothing', () => {
+    const all = (id: string): CoverageOption => ({
+      id, label: id, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
+    })
+    const d = buildCoverageDisclosure(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS), labelFor)!
+    expect(d.kind).toBe('complete')
+    expect(d.headline).toBe('Every option has all its effects set')
+    expect(d.unsetByOption).toEqual([])
+  })
+
+  it('NEVER claims completeness on a model that merely has matching counts', () => {
     const evenChallenger: CoverageOption = {
       ...CHALLENGER,
       interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.2 },
     }
     const d = buildCoverageDisclosure(
-      deriveOptionCoverage([evenChallenger, BASELINE], MODEL_FACTORS),
-      labelFor,
+      deriveOptionCoverage([evenChallenger, BASELINE], MODEL_FACTORS), labelFor,
     )!
-    expect(d.kind).toBe('even')
-    expect(d.headline).toBe('Every option has all its effects set')
-    expect(d.unsetByOption).toEqual([])
+    expect(d.kind).toBe('even-incomplete')
+    expect(d.headline).not.toBe('Every option has all its effects set')
+    expect(d.detail).not.toMatch(/complete model/i)
+    // and it must still name what is missing
+    expect(d.unsetByOption.flatMap((o) => o.unsetLabels)).toContain('CRM Adoption and Usability')
   })
 
   it('returns null when there is no reading', () => {
