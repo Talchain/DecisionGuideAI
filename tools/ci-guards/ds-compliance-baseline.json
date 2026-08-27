@@ -9,7 +9,7 @@
     "legacy-tailwind-token": {
       "mode": "ratchet",
       "description": "Legacy colour tokens (sand/ink/paper/sun/mint/sky/carrot/lilac) as Tailwind classes",
-      "total": 2165,
+      "total": 2153,
       "byFile": {
         "src/canvas/components/DebugDrawer.tsx": 66,
         "src/canvas/components/RecommendationCard/RobustnessBlock.tsx": 65,
@@ -76,7 +76,6 @@
         "src/canvas/components/RangeDisplay.tsx": 13,
         "src/components/assistants/DraftStreamPanel.tsx": 13,
         "src/canvas/components/ContextBar.tsx": 12,
-        "src/canvas/components/DecisionReadinessBadge.tsx": 12,
         "src/components/HelpTooltip.tsx": 12,
         "src/components/EngineAuditPanel.tsx": 11,
         "src/components/JobsProgressPanel.tsx": 11,
@@ -745,24 +744,6 @@
           "file": "src/canvas/components/DecisionQuality.tsx",
           "token": "border-sand",
           "sample": "<div className=\"bg-paper-50 border-t border-sand-200 px-4 py-4 space-y-4\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReadinessBadge.tsx :: bg-paper": {
-          "count": 5,
-          "file": "src/canvas/components/DecisionReadinessBadge.tsx",
-          "token": "bg-paper",
-          "sample": "className: 'text-success bg-paper-50 border border-sand-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReadinessBadge.tsx :: border-sand": {
-          "count": 5,
-          "file": "src/canvas/components/DecisionReadinessBadge.tsx",
-          "token": "border-sand",
-          "sample": "className: 'text-success bg-paper-50 border border-sand-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionReadinessBadge.tsx :: text-ink": {
-          "count": 2,
-          "file": "src/canvas/components/DecisionReadinessBadge.tsx",
-          "token": "text-ink",
-          "sample": "<span className=\"text-ink-900/40\">"
         },
         "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-mint": {
           "count": 2,

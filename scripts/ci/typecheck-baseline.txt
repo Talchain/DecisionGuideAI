@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2251
+# count=2250
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -118,7 +118,6 @@
 2	src/canvas/components/ComparisonTable.tsx
 1	src/canvas/components/ConformalPrediction.tsx
 1	src/canvas/components/DecisionQuality.tsx
-1	src/canvas/components/DecisionReadinessBadge.tsx
 1	src/canvas/components/DecisionSummary.tsx
 6	src/canvas/components/DraftChat.tsx
 1	src/canvas/components/DraftGuidancePanel.tsx
