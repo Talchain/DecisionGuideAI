@@ -79,8 +79,15 @@ describe('AI panel icon scale', () => {
     // Each of these produced a wrong count when it was missing. If a spelling
     // legitimately drops to zero, delete its line here DELIBERATELY; do not let
     // the scanner quietly stop looking for it.
+    //
+    // `svgAttr` was removed deliberately: the last square raw `<svg>` ICON became
+    // a Lucide component, so no icon is sized that way any more. The three raw
+    // `<svg>` that remain are the chrome shape and two dashed arrows, all
+    // non-square (`width="14" height="8"`), so none is an icon-size hit. The
+    // scanner still READS the spelling — this line records that it now finds
+    // none, which is the difference between "gone" and "unobserved".
     const spellings = new Set(iconHits().filter((h) => h.px !== null).map((h) => h.spelling))
-    expect([...spellings].sort()).toEqual(['sizeProp', 'svgAttr', 'tailwind'])
+    expect([...spellings].sort()).toEqual(['sizeProp', 'tailwind'])
   })
 
   it('every icon is 12, 14 or 16px', () => {
@@ -98,13 +105,15 @@ describe('AI panel icon scale', () => {
   })
 
   it('pins the hand-drawn <svg> glyphs — a DECLARED debt that may shrink, never grow', () => {
-    // DS v5 §17: Lucide only. These are hand-built glyphs (thumbs, two different
-    // X marks, an arrow). Replacing them changes what the glyph LOOKS like, so it
-    // needs its own visual review — but a NEW one must not slip in meanwhile.
+    // DS v5 §17: Lucide only. Five hand-built glyphs were replaced with the
+    // Lucide components whose path data they had been copying (ThumbsUp,
+    // ThumbsDown, two X marks, ChevronUp/Down) — a swap with no visual delta.
+    // THREE remain and are NOT drift: the panel's own chrome shape, and two
+    // bespoke dashed connector arrows that Lucide has no equivalent for.
     const raw = FILES.reduce(
       (n, f) => n + (readFileSync(resolve(root, f), 'utf8').match(/<svg\b/g)?.length ?? 0),
       0,
     )
-    expect(raw, 'a new hand-drawn <svg> appeared — use Lucide (DS v5 §17)').toBeLessThanOrEqual(8)
+    expect(raw, 'a new hand-drawn <svg> appeared — use Lucide (DS v5 §17)').toBeLessThanOrEqual(3)
   })
 })

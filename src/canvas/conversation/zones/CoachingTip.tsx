@@ -7,6 +7,8 @@
  */
 
 import { Sparkles } from 'lucide-react'
+import { X } from 'lucide-react'
+import { ICON_DENSE, ICON_STROKE } from '../panelIcons'
 import { typography } from '../../../styles/typography'
 
 interface CoachingTipProps {
@@ -34,10 +36,7 @@ export function CoachingTip({ tip, onDismiss }: CoachingTipProps) {
         aria-label="Dismiss tip"
         className="flex-shrink-0 flex items-center bg-transparent border-none p-0.5 text-text-light hover:text-text-body transition-colors duration-100 cursor-pointer"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
+        <X size={ICON_DENSE} strokeWidth={ICON_STROKE} aria-hidden="true" />
       </button>
 
       <style>{`
