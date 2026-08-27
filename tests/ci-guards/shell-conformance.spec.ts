@@ -767,6 +767,34 @@ describe('the shell contract itself holds together', () => {
     }
   })
 
+  it('every PRESENTED surface has a body render arm in the shell host', () => {
+    // ⭐ THE MISSING HALF OF THE FOOTER GUARD ABOVE, AND THE MORE IMPORTANT ONE.
+    // A surface can be declared `presentedAsTab: true`, type-check cleanly, get
+    // its tab painted in the strip — and render an EMPTY BODY, because nothing
+    // ties the declaration to a `effectiveActiveTab === '<id>'` arm in the host.
+    // That is the Journey defect exactly: a tab that opens onto nothing, the
+    // product advertising an action that terminates in nothing. It was
+    // unguarded until 27 Aug 2026, when adding a fourth presented surface made
+    // the omission cheap to close.
+    //
+    // Deliberately a SOURCE-TEXT scan of the host, not a render: this asserts
+    // the ARM EXISTS for every presented id, which no mounted test can do
+    // without driving every surface.
+    const dock = readFileSync(path.join(REPO, SHELL_HOST), 'utf8')
+    const presented = presentedSurfaces().map(s => s.id)
+    // Positive control: the scan must be able to SEE an arm it is looking for,
+    // or every assertion below passes on a file it failed to read (trap 13).
+    expect(dock.length, 'the shell host read as empty').toBeGreaterThan(1000)
+    expect(presented.length).toBeGreaterThan(1)
+    for (const id of presented) {
+      expect(
+        dock,
+        `surface '${id}' is presented as a tab but the shell host has no ` +
+          `\`effectiveActiveTab === '${id}'\` body arm — it would open onto nothing`,
+      ).toContain(`effectiveActiveTab === '${id}'`)
+    }
+  })
+
   it('the shell renders the footer bar OUTSIDE the flag-gated stack', () => {
     // Hosting it inside the aiPanelV2 block would make the Model tab's only
     // re-run control vanish on rollback — a worse defect than the one fixed.
