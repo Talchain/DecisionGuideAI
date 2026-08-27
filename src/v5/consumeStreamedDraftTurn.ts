@@ -94,12 +94,42 @@ export type StreamedDraftOutcome =
       terminalError: boolean
       /** Non-null when the preview and the terminal graph disagree on identity. */
       identityDrift: IdentityDrift | null
+      /**
+       * Did a GRAPH_READY frame carrying a CONSUMABLE graph arrive on the wire?
+       *
+       * ⚠ THIS IS NOT `renderedGraph !== null`, AND THE GAP BETWEEN THEM IS A
+       * MEASURED DEFECT. `renderedGraph` is non-null only when the render
+       * callback ACCEPTED the frame; a callback that THROWS (the scenario
+       * guard, any canvas-side failure) sets it back to null — leaving a
+       * delivered model indistinguishable from a stream that delivered
+       * nothing. On 2026-08-26 a mounted client consumed 15 chunks / 110,343
+       * bytes, saw all four stages, reached COMPLETE, rendered ZERO nodes and
+       * told the user "Olumi did not return a model for this decision" — a
+       * statement about the SERVER that the wire refutes.
+       *
+       * ⚠ "CONSUMABLE" IS DELIBERATELY STRICTER THAN `!!frame.graph`, AND
+       * STRICTER THAN "BYTES ARRIVED". `parseStageFrame` admits `graph` for
+       * ANY non-null non-array object, so `{}` and `{nodes: []}` both survive
+       * it — and answering TRUE for those would fabricate a delivery in the
+       * opposite direction, which is a worse defect than the one being fixed.
+       * The predicate is `nodeIdentities(frame.graph).length > 0`: this
+       * module's own canonical identity extractor, which drops empty and
+       * `'undefined'` ids, so a malformed graph cannot satisfy it. One
+       * definition, no second hand-rolled shape to drift (trap 12).
+       *
+       * Render behaviour is UNCHANGED by this field — it is an observation
+       * only, and the `onGraphReady` call still fires on exactly the condition
+       * it fired on before.
+       */
+      graphFrameArrived: boolean
     }
   | {
       kind: 'abandoned'
       reason: StreamAbandonReason
       detail: string
       renderedGraph: StageGraph | null
+      /** See the `complete` arm. Reported on every exit, not just the happy one. */
+      graphFrameArrived: boolean
     }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +306,8 @@ export async function consumeStreamedDraftTurn(
 ): Promise<StreamedDraftOutcome> {
   let renderedGraph: StageGraph | null = null
   let renderAttempted = false
+  // The DELIVERY observation, kept separate from the RENDER outcome on purpose.
+  let graphFrameArrived = false
 
   try {
     for await (const frame of frames) {
@@ -285,6 +317,27 @@ export async function consumeStreamedDraftTurn(
           break
 
         case 'GRAPH_READY': {
+          // ── THE DELIVERY OBSERVATION ─────────────────────────────────────
+          // Recorded BEFORE the render guard and independently of its outcome,
+          // because "the server sent us a model" and "we managed to draw it"
+          // are different facts and a failure surface needs the first one to
+          // avoid blaming the server for a client fault. Keyed on real node
+          // identities, so an empty or malformed graph does NOT count as a
+          // delivery. Nothing below reads it; render behaviour is unchanged.
+          //
+          // ⚠ RECORDED ASYMMETRY (review, 2026-08-27), deliberately NOT
+          // "fixed" here: `nodeIdentities` drops `''` and the string
+          // `'undefined'` but NOT `'null'`, so `{nodes: [{id: null}]}` reads as
+          // a delivery. Harmless for THIS claim — a node object on the wire is
+          // still evidence that something arrived, and "could not display it"
+          // stays true of it. It would matter if this predicate were ever
+          // reused as a strict validity check, which it is not. Named here
+          // rather than silently tightened, because `nodeIdentities` is shared
+          // and changing its filter would change identity comparisons that have
+          // nothing to do with this claim.
+          if (!graphFrameArrived && nodeIdentities(frame.graph).length > 0) {
+            graphFrameArrived = true
+          }
           // Render on arrival. `renderAttempted` — not `renderedGraph` — guards
           // the repeat, so a callback that threw is not retried on a duplicate
           // frame and quietly succeeds the second time.
@@ -321,6 +374,7 @@ export async function consumeStreamedDraftTurn(
             renderedGraph,
             terminalError,
             identityDrift,
+            graphFrameArrived,
           }
         }
 
@@ -337,10 +391,17 @@ export async function consumeStreamedDraftTurn(
       reason: 'no_terminal_frame',
       detail: 'stream ended without a terminal frame',
       renderedGraph,
+      graphFrameArrived,
     }
   } catch (e) {
     if (e instanceof StreamAbandonedError) {
-      return { kind: 'abandoned', reason: e.reason, detail: e.message, renderedGraph }
+      return {
+        kind: 'abandoned',
+        reason: e.reason,
+        detail: e.message,
+        renderedGraph,
+        graphFrameArrived,
+      }
     }
     const err = e as Error
     return {
@@ -348,6 +409,7 @@ export async function consumeStreamedDraftTurn(
       reason: err?.name === 'AbortError' ? 'aborted' : 'transport',
       detail: err?.message ?? 'unknown stream failure',
       renderedGraph,
+      graphFrameArrived,
     }
   }
 }

@@ -34,11 +34,39 @@
  *    does not say the work is gone, and cannot read as "loading forever":
  *    the schedule is bounded and this string is replaced when it expires.
  *
- *  · on exhaustion — "Olumi did not return a model for this decision." This is
- *    the literal, complete truth: we asked eight times over 100 seconds and got
- *    no model. It deliberately does NOT say "your model could not be loaded",
- *    which presupposes one exists, nor anything about saving. The action offered
- *    is the one MEASURED to work every time: a plain reload.
+ *  · on exhaustion, WITH NO MODEL EVER DELIVERED — "Olumi did not return a
+ *    model for this decision." Still the literal truth of that case: we asked
+ *    eight times over 100 seconds and got no model. It deliberately does NOT
+ *    say "your model could not be loaded", which presupposes one exists, nor
+ *    anything about saving.
+ *
+ *  · on exhaustion, AFTER A MODEL WAS DELIVERED ON THE DRAFT STREAM — "Olumi
+ *    returned a model for this decision, but this page could not display it."
+ *
+ * ⚠⚠ THE SECOND STRING EXISTS BECAUSE THE FIRST WAS MEASURED FALSE (2026-08-26).
+ * The re-ask's evidence is the SCENARIO-GRAPH READ ONLY. It is blind to the
+ * DRAFT STREAM, which is a different transport carrying the same model — so a
+ * client could watch 15 chunks / 110,343 bytes arrive, see DRAFTING,
+ * GRAPH_READY, COACHING_READY and COMPLETE, render ZERO nodes, and then assert
+ * that OLUMI had not returned a model. Direct HTTP to the same server completed
+ * 14/14. The server was not at fault and the sentence blamed it.
+ *
+ * A product that blames the server for its own bug is worse than one that says
+ * nothing, so the notice is now given the ONE distinction that makes an honest
+ * sentence possible: did a model ARRIVE (`draftStreamGraphDeliveredFor`), as
+ * opposed to did we manage to DRAW it. Note what the fix is NOT: the copy was
+ * not made vaguer. Both sentences are specific, and each is true of exactly the
+ * case that selects it.
+ *
+ * ⚠ THE DELIVERY PREDICATE IS NODE-KEYED, NOT BYTE-KEYED. A malformed or empty
+ * GRAPH_READY graph yields no node identities, counts as NO delivery, and gets
+ * the "did not return a model" sentence — because a claim that Olumi returned a
+ * model on the strength of rubbish on the wire would be this same fabrication
+ * pointing the other way.
+ *
+ * In BOTH cases the action offered is the one MEASURED to work every time: a
+ * plain reload. No retry and no timeout change — in the delivered case the model
+ * demonstrably reached the browser already.
  *
  * Neither string forecasts, gives a completion proximity, or compares — so it
  * would pass the narration-honesty invariants if it were ever moved under them.
@@ -59,6 +87,7 @@
  *    and this unmounts, with no store write needed to retract it.
  */
 import { useCanvasStore } from '../store'
+import { useDraftStore, draftStreamGraphDeliveredFor } from '../stores/draftStore'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { typography } from '../../styles/typography'
 
@@ -67,9 +96,25 @@ export const SERVER_GRAPH_RETRY_NOTICE_TESTID = 'server-graph-retry-notice'
 /** Present tense, about this client's own behaviour. No storage claim. */
 export const SERVER_GRAPH_RETRY_LOOKING_COPY = 'Looking for your model…'
 
-/** What actually happened, stated completely. Presupposes nothing. */
+/**
+ * What actually happened when NOTHING was delivered. Presupposes nothing.
+ *
+ * ⚠ Only honest when this client saw no model arrive on ANY transport. The
+ * re-ask alone cannot establish that — see `draftStreamGraphDeliveredFor`.
+ */
 export const SERVER_GRAPH_RETRY_EXHAUSTED_COPY =
   'Olumi did not return a model for this decision.'
+
+/**
+ * What actually happened when a model WAS delivered and this client could not
+ * put it on screen (M3, measured 2026-08-26).
+ *
+ * States a CLIENT failure, because that is what it was. It does not assert a
+ * server failure, and it does not imply success — the user still has no model
+ * on screen, which is why the reload is still offered.
+ */
+export const SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY =
+  'Olumi returned a model for this decision, but this page could not display it.'
 
 /** The action measured to recover it every time. */
 export const SERVER_GRAPH_RETRY_ACTION_COPY = 'Reload the page'
@@ -79,6 +124,11 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
   const noticeScenarioId = useServerGraphRetryStore((s) => s.scenarioId)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const nodeCount = useCanvasStore((s) => s.nodes.length)
+  // Scenario-keyed at the point of use, exactly like GATE 2 below: an
+  // observation about another decision must never pick this decision's words.
+  const modelWasDelivered = useDraftStore((s) =>
+    draftStreamGraphDeliveredFor(s, currentScenarioId ?? null),
+  )
 
   // GATE 1 — nothing to say.
   if (stage === 'idle') return null
@@ -103,6 +153,10 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
     <div
       data-testid={SERVER_GRAPH_RETRY_NOTICE_TESTID}
       data-stage={stage}
+      // Which of the two exhaustion facts is being stated. Exposed so the
+      // deployed-build re-drive can assert the CLAIM, not just the presence of
+      // a strip — the acceptance condition is about which sentence is true.
+      data-model-delivered={modelWasDelivered ? 'true' : 'false'}
       role="status"
       aria-live="polite"
       className="pointer-events-auto absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
@@ -114,7 +168,11 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
         />
       )}
       <span className={`${typography.panelMeta} text-text-body`}>
-        {exhausted ? SERVER_GRAPH_RETRY_EXHAUSTED_COPY : SERVER_GRAPH_RETRY_LOOKING_COPY}
+        {exhausted
+          ? modelWasDelivered
+            ? SERVER_GRAPH_RETRY_UNDISPLAYABLE_COPY
+            : SERVER_GRAPH_RETRY_EXHAUSTED_COPY
+          : SERVER_GRAPH_RETRY_LOOKING_COPY}
       </span>
       {exhausted && (
         <button
