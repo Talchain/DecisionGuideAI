@@ -99,7 +99,7 @@ export function useOptionCoverage(): CoverageReading | null {
       //     [A 1of3, B 3of3, C 3of3]  ->  uneven
       //     [B 3of3, C 3of3]          ->  complete, "Every option has all its
       //                                   effects set"
-      // Residual, rowed as ROADMAP 2.1334. Closing it needs the NORMALISER to
+      // Residual, rowed as ROADMAP 2.1335. Closing it needs the NORMALISER to
       // report what it dropped — a different seam, and deliberately not widened
       // from here.
       //
