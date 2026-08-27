@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2219
+# count=2217
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -29,7 +29,6 @@
 1	e2e/graph.smoke.spec.ts
 1	e2e/guide/01-critical-path.spec.ts
 1	e2e/guide/02-safety-guarantees.spec.ts
-1	e2e/guide/03-trust-features.spec.ts
 1	e2e/jobs-progress.spec.ts
 3	e2e/palette.spec.ts
 6	e2e/perf/drag-zoom-300.spec.ts
@@ -51,7 +50,6 @@
 1	e2e/smoke/diagnostics.spec.ts
 1	e2e/smoke/elk-layout.spec.ts
 1	e2e/smoke/import-export-json.spec.ts
-1	e2e/unified/ui-pack.screenshots.spec.ts
 3	e2e/webvitals.spec.ts
 1	integration/integration-check.ts
 2	netlify/edge-functions/cee-proxy.ts
