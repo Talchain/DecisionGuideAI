@@ -43,6 +43,7 @@
  * would no longer be about information architecture.
  */
 
+import { strengthenWhyLine } from '../analysisNewCopy'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -108,8 +109,7 @@ export function StrengthenTheReasoning({
 
               {/* WHY — the signal that fired, then why it matters now. */}
               <p className={`${typography.panelBody} text-text-body`} data-testid={`${testId}-why`}>
-                {rec.signal}
-                {rec.whyNow ? ` ${rec.whyNow}` : ''}
+                {strengthenWhyLine(rec.signal, rec.whyNow)}
               </p>
 
               {/* DO IT — the one practical instruction. */}

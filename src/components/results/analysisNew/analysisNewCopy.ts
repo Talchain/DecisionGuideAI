@@ -91,3 +91,32 @@ export const ANALYSIS_NEW_COPY = {
     measuredZero: 'Resolving the open unknowns was measured as not changing this decision.',
   },
 } as const
+
+/**
+ * The WHY line: the signal that fired, then why it matters now — rendered ONCE.
+ *
+ * `strengthen/buildRecommendations.ts:259-260` puts the producer's body on BOTH
+ * fields by design (`signal: item.signal ?? item.body`, `whyNow: item.body`), and
+ * a producer `signal` is carried today only on one deterministic nudge — so for
+ * every other item, bias cards included, the two fields hold the SAME string.
+ * That file's own comment records who was supposed to handle it: "The PANEL
+ * dedupes display: an open row renders the body once, in full, never clamp +
+ * full copy." The old panel does. This surface concatenated unconditionally and
+ * printed the sentence twice (measured at the DOM: 413 characters for a
+ * ~205-character sentence, while the same sentence appeared exactly once on the
+ * old tab in the same DOM at the same moment).
+ *
+ * The dedupe belongs HERE, at the consumer that skipped the contract — not in
+ * `buildRecommendations`, which is correct as written for a consumer that
+ * dedupes. A producer that is right for its existing consumer must not be bent
+ * to suit a new one.
+ *
+ * ⚠ EXACT equality, deliberately. A fuzzy or prefix match would be this
+ * surface making a judgement about whether two producer strings "mean the same",
+ * which is not a call it can make honestly. The measured defect is literal
+ * identity; anything looser is a guess.
+ */
+export function strengthenWhyLine(signal: string, whyNow?: string): string {
+  if (!whyNow || whyNow === signal) return signal
+  return `${signal} ${whyNow}`
+}
