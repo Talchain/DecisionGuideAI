@@ -325,7 +325,9 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
 
   it('puts Strengthen the reasoning near the TOP, not at the end', () => {
     // The placement IS the experiment. On the existing Analysis tab the same
-    // material sits roughly eleventh, below the option comparison.
+    // material is the FIFTH of eleven named sections in `ResultsBody` (below
+    // Decision brief, Analysis hero, Key question and What I was given), plus
+    // the warning strips and status furniture above it. Here it is second.
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     const body = screen.getByTestId('analysis-new-tab-body')

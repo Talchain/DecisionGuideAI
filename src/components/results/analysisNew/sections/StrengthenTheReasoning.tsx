@@ -4,8 +4,17 @@
  * ⭐ THIS IS THE SECTION THE EXPERIMENT EXISTS TO TEST. It is second from the
  * top and it is the only section given a stronger visual treatment, because the
  * claim under test is that Olumi does not merely analyse a situation — it tells
- * a team how to improve the reasoning itself. In the existing Analysis tab the
- * same material sits roughly eleventh, below the option comparison.
+ * a team how to improve the reasoning itself.
+ *
+ * ⚠ THE COMPARISON, STATED PRECISELY RATHER THAN RHETORICALLY. Derived from
+ * `ResultsBody.tsx` at this tip, the existing Analysis tab's named sections run:
+ * Decision brief · Analysis (hero) · Key question · What I was given ·
+ * **Strengthen your model** · Options comparison · Drivers · Tornado · Your next
+ * steps · Advanced · Adjustments. So the same material is FIFTH of eleven — and
+ * it also sits below the warning strips and status furniture the dock renders
+ * above `ResultsBody`. Here it is SECOND. That placement delta is the
+ * experiment; an earlier draft of this comment said "roughly eleventh", which
+ * was a guess dressed as a measurement.
  *
  * ⚠⚠ NOTHING HERE IS AUTHORED. Every row is a `Recommendation` emitted by
  * `buildRecommendations` — the existing, producer-grounded engine — and every
