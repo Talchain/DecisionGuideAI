@@ -61,8 +61,6 @@ import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
-import { buildCoverageDisclosure } from '../../components/results/utils/optionCoverage'
-import { useOptionCoverage } from './useOptionCoverage'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 
 export interface V5AnalysisResultBlockProps {
@@ -305,24 +303,6 @@ function V5AnalysisResultBlockImpl({
   const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
   const uncertaintyCopy = calibrateUncertaintyCopy(uncertaintyInputs)
 
-  // ROADMAP 2.1326 — what the comparison was actually based on.
-  //
-  // A SECOND UI-composed qualifier now sits beside the producer's sentence, and
-  // it keys on a DIFFERENT AXIS from the first. `uncertaintyCopy` reads
-  // `robustness` — how the result holds up as the values that ARE set are
-  // varied. This reads coverage — which values were set at all. They can
-  // therefore disagree on one screen ("This result looks fairly confident."
-  // beside two empty cells) and THAT DISAGREEMENT IS INFORMATION: robustness
-  // cannot speak to values that were never sampled, so it is exactly the case
-  // where the calibration is least earned. The registers are kept apart on
-  // purpose; neither is worded as the other.
-  const coverageReading = useOptionCoverage(block.computed_against_hash)
-  const coverageLabels = useCanvasNodeLabels()
-  const coverage = useMemo(
-    () => buildCoverageDisclosure(coverageReading, (id) => resolveCanvasLabel(id, coverageLabels)),
-    [coverageReading, coverageLabels],
-  )
-
   // ROADMAP 1.267 — WHO leads and WHETHER anyone does are different questions.
   //
   // The leader treatment below (first position, `data-leader`, the heavier
@@ -387,22 +367,6 @@ function V5AnalysisResultBlockImpl({
         >
           {uncertaintyCopy.text}
         </p>
-      )}
-
-      {coverage && (
-        <div data-testid="v5-analysis-result-coverage" data-coverage-kind={coverage.kind}>
-          <p className={typography.panelMeta}><strong>{coverage.headline}</strong></p>
-          <p className={`${typography.panelMeta} text-text-light`}>{coverage.detail}</p>
-          {coverage.unsetByOption.length > 0 && (
-            <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-coverage-unset">
-              {coverage.unsetByOption.map((o) => (
-                <li key={o.label} className={`${typography.panelMeta} text-text-light`}>
-                  {o.label}: no effect set on {o.unsetLabels.join(', ')}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       )}
 
       {hasProbs && (

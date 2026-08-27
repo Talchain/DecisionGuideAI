@@ -9,6 +9,10 @@
  * - Storybook stories (with fixture data)
  */
 
+import { useOptionCoverage } from '../../v5/blocks/useOptionCoverage'
+import { buildCoverageDisclosure } from './utils/optionCoverage'
+import { useCanvasNodeLabels } from '../../v5/blocks/useCanvasLabels'
+import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { useRef, useMemo, memo, useState } from 'react'
 import { useCanvasStore } from '../../canvas/store'
 import { typography } from '../../styles/typography'
@@ -123,6 +127,13 @@ export const ResultsBody = memo(function ResultsBody({
 }: ResultsBodyProps) {
   // UI-SEM-065 input: engine blocker/approximate critiques live on
   // graphHealth (ValidationPanel's source), not on confidence.uncertainties.
+  const coverageReading = useOptionCoverage()
+  const coverageLabels = useCanvasNodeLabels()
+  const coverage = useMemo(
+    () => buildCoverageDisclosure(coverageReading, id => resolveCanvasLabel(id, coverageLabels)),
+    [coverageReading, coverageLabels],
+  )
+
   const engineDegradedCritique = useCanvasStore(s =>
     (s.graphHealth?.issues ?? []).some(
       (i: { severity?: string; code?: string }) => i.code === 'GRAPH_TOO_LARGE' || i.severity === 'blocker',
@@ -661,6 +672,30 @@ export const ResultsBody = memo(function ResultsBody({
               isNormalised={resultsSectionData.recommendation.isNormalised}
             />
             {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
+
+            {/* ROADMAP 2.1326 — what this comparison was actually based on.
+                Adjacent to the ranking it qualifies, on a LIVE panel where
+                reading live store state is the correct authority rather than a
+                hazard to be gated. */}
+            {coverage && (
+              <div
+                className="mt-3"
+                data-testid="results-coverage-disclosure"
+                data-coverage-kind={coverage.kind}
+              >
+                <p className={typography.panelMeta}><strong>{coverage.headline}</strong></p>
+                <p className={`${typography.panelMeta} text-text-light`}>{coverage.detail}</p>
+                {coverage.unsetByOption.length > 0 && (
+                  <ul className="mt-1" data-testid="results-coverage-unset">
+                    {coverage.unsetByOption.map(o => (
+                      <li key={o.label} className={`${typography.panelMeta} text-text-light`}>
+                        {o.label}: no effect set on {o.unsetLabels.join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </SectionErrorBoundary>
       )}

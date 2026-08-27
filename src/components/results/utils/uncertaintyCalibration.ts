@@ -22,10 +22,22 @@
  * interpolates raw upstream text, so there is nothing here for the
  * internal-token / raw-message leak guards to catch.
  *
- * Pure function — shared by both surfaces that render this calibration:
- * DecisionConfidencePanel (results panel headline) and V5AnalysisResultBlock
- * (conversational analysis_result block), each responsible for extracting
- * the primitive inputs from their own (differently-shaped) data.
+ * Pure function. ONE production importer today: V5AnalysisResultBlock, the
+ * conversational analysis_result block.
+ *
+ * ⚠ THIS SAID "shared by both surfaces… DecisionConfidencePanel (results panel
+ * headline) and V5AnalysisResultBlock". `DecisionConfidencePanel` DOES NOT
+ * EXIST — no file, every remaining mention is a comment, and
+ * `TriageActionCardsBody.tsx` records that it was "extracted from" it. The
+ * component was refactored away and this sentence was left describing the
+ * estate as it had been.
+ *
+ * Recorded rather than quietly deleted, because the cost was measured: a lane
+ * asking "does this calibration have a live, non-transcript surface?" read this
+ * comment, went looking for that panel, and nearly answered a placement
+ * question wrongly on the strength of it. A stale comment naming a deleted
+ * component is the hand-maintained mirror at its most convincing — it reads as
+ * architectural fact. Derive the importer set; do not trust this line either.
  */
 
 export type UncertaintyTier = 'confident' | 'moderate' | 'tentative'

@@ -102,7 +102,7 @@ describe('deriveOptionCoverage', () => {
 
   it('calls it complete only when every option sets every factor', () => {
     const all = (id: string): CoverageOption => ({
-      id, label: id, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
+      id, label: `Option ${id.toUpperCase()}`, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
     })
     expect(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS)!.kind).toBe('complete')
   })
@@ -123,12 +123,12 @@ describe('deriveOptionCoverage', () => {
   })
 
   it('does not call disjoint or empty coverage complete', () => {
-    const onlyA: CoverageOption = { id: 'a', label: 'a', interventions: { [SWITCHING]: 1 } }
-    const onlyB: CoverageOption = { id: 'b', label: 'b', interventions: { [LICENCE]: 1 } }
+    const onlyA: CoverageOption = { id: 'a', label: 'Option A', interventions: { [SWITCHING]: 1 } }
+    const onlyB: CoverageOption = { id: 'b', label: 'Option B', interventions: { [LICENCE]: 1 } }
     expect(deriveOptionCoverage([onlyA, onlyB], MODEL_FACTORS)!.kind).toBe('even-incomplete')
 
-    const noneA: CoverageOption = { id: 'a', label: 'a', interventions: {} }
-    const noneB: CoverageOption = { id: 'b', label: 'b', interventions: {} }
+    const noneA: CoverageOption = { id: 'a', label: 'Option A', interventions: {} }
+    const noneB: CoverageOption = { id: 'b', label: 'Option B', interventions: {} }
     expect(deriveOptionCoverage([noneA, noneB], MODEL_FACTORS)!.kind).toBe('even-incomplete')
   })
 
@@ -144,13 +144,28 @@ describe('deriveOptionCoverage', () => {
     expect(baseline.setFactorIds).toEqual([SWITCHING, LICENCE])
   })
 
+  it('says NOTHING when an option cannot be honestly named', () => {
+    // ⚠ THE GUARD CAUGHT THIS SPEC'S OWN FIXTURES. Three tests here used the id
+    // as the label — the exact laziness the guard forbids — and went red. The
+    // fixtures were wrong, not the guard.
+    //
+    // It lives in the MODULE rather than a caller because there is now more than
+    // one caller, and an option we cannot name aborts the WHOLE reading rather
+    // than being dropped: omitting a participant can turn uneven into even and
+    // incomplete into COMPLETE.
+    const unnameable: CoverageOption = { id: '5f6f5e36', label: '5f6f5e36', interventions: {} }
+    expect(deriveOptionCoverage([unnameable, BASELINE], MODEL_FACTORS)).toBeNull()
+    const unlabelled = { id: 'opt_x', label: '', interventions: {} } as CoverageOption
+    expect(deriveOptionCoverage([unlabelled, BASELINE], MODEL_FACTORS)).toBeNull()
+  })
+
   it('says nothing when there is nothing honest to say', () => {
     expect(deriveOptionCoverage([CHALLENGER], MODEL_FACTORS)).toBeNull()
     expect(deriveOptionCoverage([CHALLENGER, BASELINE], [])).toBeNull()
   })
 
   it('treats a missing or null interventions map as no effects set', () => {
-    const bare: CoverageOption = { id: 'opt_bare', label: 'bare', interventions: null }
+    const bare: CoverageOption = { id: 'opt_bare', label: 'A bare option', interventions: null }
     const reading = deriveOptionCoverage([bare, BASELINE], MODEL_FACTORS)
     const bareRead = reading!.perOption.find((o) => o.optionId === 'opt_bare')!
     expect(bareRead.setFactorIds).toEqual([])
@@ -172,7 +187,7 @@ describe('rankingIsProvisional', () => {
     expect(rankingIsProvisional(even)).toBe(true)
 
     const all = (id: string): CoverageOption => ({
-      id, label: id, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
+      id, label: `Option ${id.toUpperCase()}`, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
     })
     expect(rankingIsProvisional(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS))).toBe(false)
   })
@@ -228,7 +243,7 @@ describe('buildCoverageDisclosure', () => {
 
   it('SAYS the complete case rather than rendering nothing', () => {
     const all = (id: string): CoverageOption => ({
-      id, label: id, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
+      id, label: `Option ${id.toUpperCase()}`, interventions: { [SWITCHING]: 0.4, [LICENCE]: 0.5, [ADOPTION]: 0.6 },
     })
     const d = buildCoverageDisclosure(deriveOptionCoverage([all('a'), all('b')], MODEL_FACTORS), labelFor)!
     expect(d.kind).toBe('complete')

@@ -65,9 +65,6 @@ export function mapV5Block(
         leading_option_id: block.leading_option_id,
         ...(block.win_probabilities ? { win_probabilities: block.win_probabilities } : {}),
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
-        ...(typeof (block as { computed_against_hash?: unknown }).computed_against_hash === 'string'
-          ? { computed_against_hash: (block as { computed_against_hash: string }).computed_against_hash }
-          : {}),
       }
     case 'graph_patch':
       return {

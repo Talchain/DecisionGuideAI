@@ -118,6 +118,21 @@ export function deriveOptionCoverage(
   if (options.length < 2) return null
   if (modelFactorIds.length === 0) return null
 
+  // ⚠ THE LABEL GUARD LIVES HERE, NOT IN THE CALLER, and the reason is that
+  // there is now more than one caller. It was in the hook, and the module would
+  // still have printed "5f6f5e36 has 1 of 3 set." if handed an id-shaped label —
+  // one call site away from reinstating the raw id it had just removed, while
+  // FACTOR labels were already guarded internally. An asymmetric guard is a
+  // guard with a door in it.
+  //
+  // An option we cannot name aborts the WHOLE reading rather than being dropped:
+  // a comparison that silently omits a participant can turn uneven into even,
+  // and — worse — can turn incomplete into COMPLETE. Honest by silence.
+  for (const option of options) {
+    if (typeof option.label !== 'string' || option.label.length === 0) return null
+    if (option.label === option.id) return null
+  }
+
   // Dedupe the denominator without reordering it: a repeated factor id would
   // inflate every option's total and make an even model read as uneven.
   const factorIds: string[] = []

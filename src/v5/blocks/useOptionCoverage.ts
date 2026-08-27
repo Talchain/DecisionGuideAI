@@ -35,26 +35,28 @@ import {
  * TYPE, never about the runtime value; the normaliser is.
  */
 /**
- * ⚠ GATED ON THE RUN THIS BLOCK REPORTS, and that gate is what makes it
- * legitimate to render live state inside a historic record at all.
+ * ⭐ THIS IS FOR A LIVE PANEL, AND THAT IS WHY IT NEEDS NO GATE.
  *
- * Coverage is derived from LIVE store state, and an analysis-result block is a
- * TRANSCRIPT ENTRY. Ungated, every past block showed TODAY's coverage — a block
- * reporting one run would describe a different graph — and the strip vanished
- * silently whenever `invalidateAnalysisReady` fired, reachable from ~22 edit
- * paths. A strip whose entire job is "what was this analysis based on?" must not
- * answer with today's state.
+ * An earlier round rendered this inside the conversational analysis-result
+ * block and then tried to make that safe. It could not be: coverage is derived
+ * from LIVE store state and a transcript entry is a HISTORIC record, so every
+ * past block showed today's coverage, and the strip vanished silently on the
+ * many paths that invalidate readiness. Two successive gates were built for
+ * that and both were wrong — the second was measured failing on a real capture
+ * where the graph hash was identical across two turns while coverage went from
+ * every cell set to none.
  *
- * So it speaks only when the block's own `computed_against_hash` matches the
- * graph the live slice describes, and otherwise says nothing.
+ * The answer was not a third gate. **A guard is the wrong instrument when the
+ * real problem is that the derivation is in the wrong kind of surface.** On a
+ * live results panel, reading live state is not a hazard to be fenced — it is
+ * the correct authority, because the panel is ABOUT the current model.
  *
- * ⚠ THE LIMIT, STATED: saying nothing on a historic block is NOT the
- * honest-at-zero disclosure this module makes elsewhere — it is this surface
- * having nothing it can honestly say. Staleness already has an owner, and a
- * second authority on "the model has changed since this ran" is exactly what
- * this module refuses to become. Rowed, not answered here.
+ * So: mount this only on surfaces that are about the model as it stands now.
+ * If it is ever wanted beside a historic record, the honest shape is for that
+ * record to carry its own answer, not for this hook to guess whether today's
+ * state still describes it.
  */
-export function useOptionCoverage(computedAgainstHash?: string): CoverageReading | null {
+export function useOptionCoverage(): CoverageReading | null {
   const nodes = useCanvasStore(
     (s: { nodes?: Array<{ id: string; type?: string; data?: unknown }> }) => s.nodes,
   )
@@ -62,18 +64,11 @@ export function useOptionCoverage(computedAgainstHash?: string): CoverageReading
     (s: {
       ceeAnalysisReady?: {
         options?: Array<{ id?: unknown; label?: unknown; interventions?: unknown }>
-        current_graph_hash?: unknown
       } | null
     }) => s.ceeAnalysisReady,
   )
 
   return useMemo(() => {
-    // The block must be about the graph the live slice describes, or this
-    // derivation speaks for a run it does not describe.
-    const liveHash = analysisReady?.current_graph_hash
-    if (typeof computedAgainstHash !== 'string' || computedAgainstHash.length === 0) return null
-    if (typeof liveHash !== 'string' || liveHash !== computedAgainstHash) return null
-
     const factorIds: string[] = []
     for (const node of nodes ?? []) {
       if (resolveNodeTypeLiteral(node) === 'factor') factorIds.push(node.id)
@@ -84,7 +79,12 @@ export function useOptionCoverage(computedAgainstHash?: string): CoverageReading
       // Identity is required. An option with no usable id cannot be reported
       // against — and reporting it under a positional placeholder would be the
       // value-predicate binding that lets a claim land on the wrong object.
-      if (typeof raw.id !== 'string' || raw.id.length === 0) continue
+      // ⚠ NOT `continue`. Dropping a participant shrinks the denominator, and a
+      // shrunken participant set can read COMPLETE when the analysis actually
+      // had an option we could not account for — Gate 1's fabrication through a
+      // different door. The denominator must be the options the analysis HAD,
+      // never the options we could name. If one is unusable, say nothing.
+      if (typeof raw.id !== 'string' || raw.id.length === 0) return null
       // ⚠ AN OPTION WITH NO HONEST LABEL STOPS THE WHOLE DISCLOSURE.
       // This previously fell back to `raw.id` and printed an internal token at a
       // user surface ("5f6f5e36 has 1 of 3 set."), which is the exact pattern
@@ -93,6 +93,8 @@ export function useOptionCoverage(computedAgainstHash?: string): CoverageReading
       // a comparison that silently omits a participant can turn uneven into
       // even. So the honest answer is to say NOTHING rather than to say
       // something partial about an option we cannot name.
+      // Mirrors `deriveOptionCoverage`'s own guard, which is the authority; this
+      // is the earliest honest exit, not a second rule.
       if (typeof raw.label !== 'string' || raw.label.length === 0) return null
       options.push({
         id: raw.id,
@@ -105,5 +107,5 @@ export function useOptionCoverage(computedAgainstHash?: string): CoverageReading
     }
 
     return deriveOptionCoverage(options, factorIds)
-  }, [nodes, analysisReady, computedAgainstHash])
+  }, [nodes, analysisReady])
 }
