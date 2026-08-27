@@ -28,6 +28,7 @@ import { EstimateRow } from './EstimateRow'
 import { SUCCESS_INPUT_ID } from '../hero/HeroSection'
 import type { NodeType } from '../../../domain/nodes'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
+import type { AuthoredEntity } from '../selectors/projectAuthoredEntities'
 import type { SparkPrompt } from '../types'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../../mutations/mutationAuthority'
 
@@ -113,6 +114,35 @@ const Group = memo(function Group({
           {children}
         </>
       )}
+    </div>
+  )
+})
+
+/**
+ * EntityRow — one named entity (an option or a risk) and WHO AUTHORED IT.
+ *
+ * ⭐ ONE ROW FOR BOTH GROUPS. The Options group used to render a bare label
+ * while the Risks group directly below rendered the same shape PLUS an
+ * authorship pill, so an option Olumi invented was visually indistinguishable
+ * from one the user named. Both groups now render through here, which is what
+ * stops the asymmetry returning: the pill is no longer a per-group decision,
+ * and a group added later gets it by using this row.
+ *
+ * The person case renders NO pill on purpose. Disclosure marks what Olumi
+ * authored; badging the user's own words back at them is noise, not honesty.
+ */
+const EntityRow = memo(function EntityRow({ entity }: { entity: AuthoredEntity }) {
+  return (
+    <div
+      data-testid={`pre-analysis-v3-entity-${entity.nodeId}`}
+      className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5"
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span className={`${typography.panelBody} truncate text-text-body`}>{entity.label}</span>
+        {entity.attribution.kind === 'olumi' && (
+          <Pill variant="default" size="small">{ATTRIBUTION_COPY.olumiAuthored}</Pill>
+        )}
+      </span>
     </div>
   )
 })
@@ -304,11 +334,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
         onToggle={toggleGroup}
       >
         {model.options.map(option => (
-          <div key={option.nodeId} className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className={`${typography.panelBody} truncate text-text-body`}>{option.label}</span>
-            </span>
-          </div>
+          <EntityRow key={option.nodeId} entity={option} />
         ))}
         {V3_STRUCTURAL_ADD_CONNECTED ? (
           <AddRow
@@ -342,14 +368,7 @@ export const YourDecisionSection = memo(function YourDecisionSection({
         onToggle={toggleGroup}
       >
         {model.risks.map(risk => (
-          <div key={risk.nodeId} className="ml-6 grid min-h-7 grid-cols-[1fr_auto] items-center gap-2 py-0.5">
-            <span className="flex min-w-0 items-center gap-2">
-              <span className={`${typography.panelBody} truncate text-text-body`}>{risk.label}</span>
-              {risk.attribution.kind === 'olumi' && (
-                <Pill variant="default" size="small">Olumi</Pill>
-              )}
-            </span>
-          </div>
+          <EntityRow key={risk.nodeId} entity={risk} />
         ))}
         {V3_STRUCTURAL_ADD_CONNECTED ? (
           <AddRow

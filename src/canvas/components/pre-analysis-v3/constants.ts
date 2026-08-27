@@ -239,6 +239,15 @@ export const CONTESTED_COPY = {
 } as const
 
 export const ATTRIBUTION_COPY = {
+  /**
+   * The authorship marker on a named entity Olumi put in the model (an option
+   * or a risk stamped `provenance: 'ai_inferred'`). One string for both
+   * groups, because one row component renders both — see `EntityRow`.
+   *
+   * ⚠ This is the string ALREADY ON THE DEPLOYED BUILD for risks; it is lifted
+   * here verbatim, not reworded. Changing it changes a live surface.
+   */
+  olumiAuthored: 'Olumi',
   olumiNoticed: 'Olumi noticed',
   olumiPrefix: 'Olumi:',
   olumiEstimate: 'Olumi estimate',
