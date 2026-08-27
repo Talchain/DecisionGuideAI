@@ -105,6 +105,31 @@ export interface DraftState {
    * `idle`) or a new turn starts (phase `drafting`).
    */
   draftStreamCoachingLanded: boolean
+  /**
+   * The scenario for which a GRAPH_READY frame CARRYING A GRAPH arrived on the
+   * draft stream during this session — or null if no such frame ever arrived.
+   *
+   * ⚠ THIS IS NOT `draftStreamPhase`, AND THE DIFFERENCE IS THE WHOLE POINT.
+   * The phase is RELEASED to `idle` on every settled exit, including the
+   * healthy COMPLETE (`runStreamedDraftTurn`'s final `setDraftStreamPhase`).
+   * So after a turn ends, the phase can no longer answer "did the server
+   * deliver a model on this turn?" — and that is exactly the question a
+   * failure surface has to answer before it may blame the server.
+   *
+   * Deliberately NOT cleared by `setDraftStreamPhase`: it records an
+   * OBSERVATION about this session, not an ownership. It is keyed by scenario
+   * for the reason `contextIntegrityStore`'s header records as a P0 — an
+   * unkeyed observation renders over a DIFFERENT decision — and it is read
+   * only through `draftStreamGraphDeliveredFor`, which refuses to answer for
+   * anybody else.
+   *
+   * ⚠ HAS A READER AND MUST KEEP ONE: `ServerGraphRetryNotice` chooses between
+   * two different factual claims on it. If a future change drops it, that
+   * surface goes back to asserting a SERVER failure on turns where the server
+   * demonstrably delivered — the M3 defect (measured 2026-08-26: 15 chunks,
+   * 110,343 bytes, all four stages, COMPLETE, 0 nodes rendered).
+   */
+  draftStreamGraphDeliveredScenarioId: string | null
 }
 
 export interface DraftActions {
@@ -136,6 +161,16 @@ export interface DraftActions {
    */
   markDraftStreamCoachingLanded: (turnId: string) => void
   /**
+   * Record that a GRAPH_READY frame carrying a graph arrived for `scenarioId`.
+   *
+   * `scenarioId` is REQUIRED and non-null by type, for the same reason
+   * `setRetryStage`'s is: an observation this store cannot attribute to a
+   * decision is an observation no surface may act on. The caller drops the
+   * record rather than passing a placeholder — failing toward "we cannot say
+   * the server delivered", which is the direction that cannot fabricate.
+   */
+  markDraftStreamGraphDelivered: (scenarioId: string) => void
+  /**
    * Reset every field to initial values.
    *
    * ⚠ THE DOC COMMENT HERE USED TO CLAIM "Called from canvas-store resetCanvas".
@@ -162,6 +197,7 @@ const initialDraftState: DraftState = {
   draftStreamTurnId: null,
   draftStreamScenarioId: null,
   draftStreamCoachingLanded: false,
+  draftStreamGraphDeliveredScenarioId: null,
 }
 
 export const useDraftStore = create<DraftState & DraftActions>((set) => ({
@@ -239,6 +275,10 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
     set((state) =>
       state.draftStreamTurnId === turnId ? { draftStreamCoachingLanded: true } : {},
     )
+  },
+
+  markDraftStreamGraphDelivered: (scenarioId) => {
+    set({ draftStreamGraphDeliveredScenarioId: scenarioId })
   },
 
   resetDraft: () => {
@@ -370,4 +410,40 @@ export function streamedPreviewStandingFor(
 ): boolean {
   if (state.draftStreamTurnId !== turnClientId) return false
   return draftStreamPhaseFor(state, currentScenarioId) === 'settling'
+}
+
+/**
+ * Did a draft stream DELIVER a model for this scenario in this session?
+ *
+ * ⚠ THE PREDICATE IS "ARRIVED", NOT "RENDERED", AND CONFLATING THE TWO IS THE
+ * DEFECT THIS EXISTS TO END. `consumeStreamedDraftTurn` now reports both:
+ * `renderedGraph` is non-null only when the render callback ACCEPTED the
+ * frame, while `graphFrameArrived` is true the moment a GRAPH_READY frame
+ * carrying a VALIDATED graph is read off the wire. A callback that THROWS (the
+ * scenario guard, any canvas-side failure) leaves `renderedGraph` null —
+ * indistinguishable, from the outside, from a stream that delivered nothing.
+ *
+ * That indistinguishability is what let `ServerGraphRetryNotice` tell a user
+ * "Olumi did not return a model for this decision" about a turn that delivered
+ * 110 KB and reached COMPLETE. Separating the two facts is the whole change.
+ *
+ * ⚠ IT IS ALSO NOT "BYTES ARRIVED". The frame parser (`streamedDraftFrames`)
+ * admits a GRAPH_READY frame's graph only when it VALIDATES; a malformed graph
+ * yields no `frame.graph`, so this stays false and the surface goes on saying
+ * no model was returned. A predicate keyed on payload size or a substring
+ * would answer true for rubbish, which would be a worse defect than the one
+ * being fixed.
+ *
+ * Scenario-keyed like `draftStreamPhaseFor`, and for the same reason: an
+ * observation about decision A must never speak for decision B. A null on
+ * either side is "cannot attribute", which answers false — a surface may not
+ * claim a delivery it cannot pin to the decision on screen.
+ */
+export function draftStreamGraphDeliveredFor(
+  state: Pick<DraftState, 'draftStreamGraphDeliveredScenarioId'>,
+  currentScenarioId: string | null,
+): boolean {
+  if (state.draftStreamGraphDeliveredScenarioId === null) return false
+  if (currentScenarioId === null || currentScenarioId === undefined) return false
+  return state.draftStreamGraphDeliveredScenarioId === currentScenarioId
 }

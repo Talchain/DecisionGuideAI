@@ -735,6 +735,26 @@ async function runStreamedDraftTurn(args: {
     },
   })
 
+  // ═══ THE DELIVERY RECORD (M3 — the client that blamed the server) ═════════
+  // Recorded here, ONCE, for EVERY outcome — abandoned and complete alike —
+  // because this is the only point that has seen the whole stream and still
+  // knows which scenario dispatched it.
+  //
+  // ⚠ IT MUST NOT BE DERIVED FROM `draftStreamPhase`. That phase is RELEASED to
+  // `idle` on every settled exit, the healthy COMPLETE included, so by the time
+  // a failure surface asks "did the server send us a model?" the phase has
+  // forgotten. On 2026-08-26 that amnesia produced the defect this closes: a
+  // mounted client took 110,343 bytes across all four stages, reached COMPLETE,
+  // rendered zero nodes, and told the user OLUMI had not returned a model.
+  //
+  // Attribution is `scenarioIdAtDispatch` — the same key the phase uses and the
+  // same key `ServerGraphRetryNotice` compares against. A null id is dropped
+  // rather than defaulted: an unattributable delivery is one no surface may
+  // claim, and dropping fails toward the older, more cautious sentence.
+  if (outcome.graphFrameArrived && scenarioIdAtDispatch !== null) {
+    useDraftStore.getState().markDraftStreamGraphDelivered(scenarioIdAtDispatch)
+  }
+
   if (outcome.kind === 'abandoned') {
     if (outcome.reason === 'aborted' || signal.aborted) {
       // ═══ ADVERSARIAL REVIEW F1 — the abort hole ═══════════════════════════
