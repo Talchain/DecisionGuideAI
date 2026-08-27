@@ -9,6 +9,7 @@
 import { forwardRef } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Tooltip } from '../../components/Tooltip'
+import { ICON_STANDALONE, ICON_STROKE } from '../panelIcons'
 
 interface IconButtonProps {
   icon: LucideIcon
@@ -40,8 +41,9 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         `}
       >
         <Icon
-          className={`w-[18px] h-[18px] flex-shrink-0 ${disabled ? 'text-text-light' : 'text-text-light group-hover:text-text-body'}`}
-          strokeWidth={1.8}
+          className={`flex-shrink-0 ${disabled ? 'text-text-light' : 'text-text-light group-hover:text-text-body'}`}
+          size={ICON_STANDALONE}
+          strokeWidth={ICON_STROKE}
           aria-hidden="true"
         />
       </button>

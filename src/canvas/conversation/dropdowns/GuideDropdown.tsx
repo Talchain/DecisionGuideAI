@@ -133,7 +133,7 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
               className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-full text-text-light hover:bg-panel-hover transition-colors"
               aria-label="Dismiss"
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              <svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
             </button>
             <span className="pr-5">{HELP_TEXT}</span>
           </div>

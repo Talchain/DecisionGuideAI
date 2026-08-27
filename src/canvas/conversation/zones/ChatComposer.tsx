@@ -31,6 +31,7 @@ import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
 import { typography } from '../../../styles/typography'
 import type { ScenarioStage } from '../../../types/scenario'
+import { ICON_DENSE, ICON_STANDALONE, ICON_STROKE } from '../panelIcons'
 
 // ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
 export type GenerateState = 'disabled' | 'active' | 'loading'
@@ -318,7 +319,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             }}
             data-testid="composer-attach-button"
           >
-            <Paperclip className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+            <Paperclip className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -334,7 +335,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             }}
             data-testid="composer-voice-button"
           >
-            <Mic className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+            <Mic className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
           </button>
           {showRunAnalysis && (
             <button
@@ -358,7 +359,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               }}
               data-testid="run-analysis-chip"
             >
-              <Play className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+              <Play className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
             </button>
           )}
 
@@ -411,8 +412,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               data-testid="stop-button"
             >
               <Square
-                className="w-[14px] h-[14px]"
-                strokeWidth={2.2}
+                size={ICON_STANDALONE}
+                strokeWidth={ICON_STROKE}
                 fill="var(--text-body, #2A2A2A)"
                 style={{ stroke: 'var(--text-body, #2A2A2A)' }}
                 aria-hidden="true"
@@ -439,8 +440,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               data-testid="send-button"
             >
               <ArrowUp
-                className="w-[15px] h-[15px]"
-                strokeWidth={2.2}
+                size={ICON_STANDALONE}
+                strokeWidth={ICON_STROKE}
                 style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #6E6B6B)' }}
                 aria-hidden="true"
               />
@@ -516,7 +517,8 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
         />
       ) : (
         <Play
-          className="w-[11px] h-[11px] flex-shrink-0"
+          size={ICON_DENSE}
+            className="flex-shrink-0"
           strokeWidth={2}
           style={{ stroke: isActive ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #6E6B6B)' }}
           aria-hidden="true"

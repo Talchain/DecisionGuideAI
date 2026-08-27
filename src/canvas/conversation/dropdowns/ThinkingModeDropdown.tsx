@@ -11,6 +11,7 @@ import { NodeShape } from '../primitives/NodeShape'
 import type { NodeType } from '../../domain/nodes'
 import { FlipDropdown } from '../../../components/ui/FlipDropdown'
 import { typography } from '../../../styles/typography'
+import { ICON_STROKE } from '../panelIcons'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mode definitions
@@ -66,7 +67,7 @@ export function ThinkingModeChip({ selectedMode, onClick }: ThinkingModeChipProp
       data-testid="thinking-mode-chip"
     >
       <span>{mode.label}</span>
-      <ChevronDown className="w-3.5 h-3.5 text-text-light" strokeWidth={1.8} aria-hidden="true" />
+      <ChevronDown className="w-3.5 h-3.5 text-text-light" strokeWidth={ICON_STROKE} aria-hidden="true" />
     </button>
   )
 }

@@ -92,6 +92,7 @@ import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 import { PANEL_LIST_BULLET } from './panelLists'
+import { ICON_DENSE } from './panelIcons'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1349,7 +1350,7 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
             }`}
             data-testid="apply-to-model-chip"
           >
-            <Wand2 size={11} aria-hidden="true" />
+            <Wand2 size={ICON_DENSE} aria-hidden="true" />
             Apply to model
           </button>
         </div>
