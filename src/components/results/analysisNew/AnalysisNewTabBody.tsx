@@ -20,9 +20,12 @@
  * the property `canvas/components/__tests__/OutputsDock.analysisNewTab.spec.tsx`
  * pins ("switching tabs issues NO network request and mutates NO canonical state").
  *
- * ⚠ ON WIDTH (§11), STATED AS A LIMITATION RATHER THAN SOLVED. The dock's outer
- * width is 416px, fixed by the workspace shell and asserted at every viewport by
- * `e2e/visual/shellLayout.visual.spec.ts`. Varying it per surface is a
+ * ⚠ ON WIDTH (§11), STATED AS A LIMITATION RATHER THAN SOLVED — and CORRECTED
+ * at the mounted build. This said "the dock's outer width is 416px, fixed by the
+ * workspace shell". It is NOT fixed: `dockWidth.ts` makes it responsive between
+ * DOCK_MIN_WIDTH 280 and DOCK_RESPONSIVE_MAX_WIDTH 416, with a persisted user
+ * drag overriding both up to 480. The content measure therefore ranges 238–320px
+ * and this surface is verified across it. Varying the dock per surface remains a
  * shell-level change that would alter the existing Analysis tab's container, so
  * it is deliberately NOT done. The narrower, calmer treatment is scoped to this
  * tab's INNER content measure — wider gutters, a capped measure, and far fewer
@@ -37,6 +40,7 @@ import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
+import { AtAGlance } from './sections/AtAGlance'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
@@ -108,9 +112,16 @@ export function AnalysisNewTabBody({
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
       <div className="px-5 py-4 space-y-5 max-w-[360px] mx-auto">
-        <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-intro">
-          {COPY.tabIntro}
-        </p>
+        {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
+            "A second reading of the same analysis run" is true of this tab and
+            false of this model when nothing has run — mounted pre-run it sat
+            directly above "No analysis has run yet for this model", which is
+            the surface contradicting itself in two consecutive lines. */}
+        {vm.status.isPreRun ? null : (
+          <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-intro">
+            {COPY.tabIntro}
+          </p>
+        )}
 
         {/* ── STATUS ────────────────────────────────────────────────────────
             Contextualises the content; never dominates it (§20). One line,
@@ -138,11 +149,24 @@ export function AnalysisNewTabBody({
           </p>
         ) : null}
 
+        {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
+        <AtAGlance glance={vm.atAGlance} onFocusTarget={focusTarget} />
+
         {/* ── 1. KEY INSIGHTS ─────────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.keyInsights}
           findings={vm.keyInsights.insights}
-          emptyMessage={vm.status.isPreRun ? null : COPY.empty.keyInsights}
+          // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
+          // when the run DID produce insights and the glance is simply stating
+          // them — witnessed on a real run, where the glance carried all three
+          // and this line then contradicted the surface directly above it. An
+          // empty list with a non-zero candidate count means "shown above", so
+          // the section renders nothing at all rather than a claim that is not
+          // true. The honest empty state survives for a run that genuinely
+          // produced none.
+          emptyMessage={
+            vm.status.isPreRun || vm.keyInsights.candidateCount > 0 ? null : COPY.empty.keyInsights
+          }
           onFocusTarget={focusTarget}
           onRunIntervention={runIntervention}
           testId="analysis-new-key-insights"

@@ -53,6 +53,10 @@ import type {
   ContextualIntervention,
   InspectRow,
   ScienceGrounding,
+  AtAGlance,
+  GlanceCondition,
+  GlanceDriver,
+  GlanceVerdict,
 } from './analysisNewTypes'
 
 /** §2 of the brief: "a very small number of high-value insights". */
@@ -62,6 +66,8 @@ const STRENGTHEN_CAP = 3
 /** Level-1 rows before "Show more". */
 const DRIVER_PREVIEW = 3
 const UNCERTAINTY_PREVIEW = 3
+/** Driver rows in the glance. Three is the existing `topDrivers` convention. */
+const GLANCE_DRIVER_COUNT = 3
 
 export interface AnalysisNewViewModelInputs {
   data: ResultsSectionDataReturn
@@ -170,37 +176,16 @@ function buildKeyInsights(
     })
   }
 
-  // 2. Robustness — the display-safe verdict only, with the producer's own
-  //    reason rendered verbatim. Rule 3.
-  //
-  // ⚠⚠ THE VOCABULARY HAS FOUR MEMBERS AND A BINARY SPLIT OVER IT IS A
-  // FABRICATION. An earlier draft here read `=== 'robust' ? "holds up" :
-  // "is sensitive"`, which is correct for exactly one of the four:
-  //   · 'moderate'     → rendered as "sensitive", overstating fragility;
-  //   · 'not_assessed' → the producer's own STATED ABSENCE ("robustness not
-  //     computed"), rendered as a claim that the result IS sensitive.
-  // The last one is the worst thing this surface could do: turn "we did not
-  // measure this" into a measurement. `not_assessed` therefore produces NO
-  // insight at all — absence is not a verdict (CLAUDE.md trap 22: the defect
-  // lives in the BREADTH of a predicate, not in the case you had in mind).
-  const ROBUSTNESS_HEADLINE: Record<string, string> = {
-    robust: 'This result holds up under uncertainty',
-    moderate: 'This result holds up, but not strongly',
-    fragile: 'This result is sensitive to uncertainty',
-  }
-  if (rec.robustnessVerdict && ROBUSTNESS_HEADLINE[rec.robustnessVerdict]) {
-    out.push({
-      id: 'insight:robustness',
-      headline: ROBUSTNESS_HEADLINE[rec.robustnessVerdict],
-      // The producer authors this sentence. The UI never authors robustness prose.
-      implication: rec.robustnessVerdictReason ?? '',
-      groundedIn: 'the robustness verdict from the simulation',
-      marker: staleMarker,
-      // ⛔ `ranking_stability` IS NOT RENDERED — see the withheld-field note on
-      // the comparative insight below. PLoT never emitted it at all.
-      inspect: rows(row('Structured level', rec.robustnessLevel)),
-    })
-  }
+  // 2. ⛔ ROBUSTNESS AND THE COMPARATIVE READ ARE NOT INSIGHTS ANY MORE.
+  //    "At a glance" renders both, under EXACTLY the conditions these branches
+  //    used to fire on — so once the glance shipped they were unreachable, and
+  //    on a real run all three key insights turned out to be restatements of
+  //    the glance one viewport above. Rather than keep two representations and
+  //    suppress one, the glance is simply the single surface: it states the
+  //    verdict WITH the producer's own reason, and the leader sentence with the
+  //    same entitlement gate. `ROBUSTNESS_HEADLINE`'s four-way mapping moved to
+  //    `VERDICT_WORD` there. Deleting these here is what keeps "one signal, one
+  //    primary surface" true in the code rather than only in a filter.
 
   // 3. Strategic tension: the leading option DEPENDS on a factor's value.
   //    A genuine "it depends" finding, and the most reasoning-shaped thing the
@@ -255,41 +240,11 @@ function buildKeyInsights(
     })
   }
 
-  // 6. COMPARATIVE — LAST, and only when the single verdict entitles it.
-  //    Rule 1. "Currently scores higher", never "wins".
-  const leader = rec.recommendedOption
-  if (rec.verdict?.hasLeadingOption === true && leader && !rec.isSingleOption) {
-    const winPct = pctOrNull(leader.winProbability ?? rec.winProbability)
-    out.push({
-      id: 'insight:comparative',
-      headline: `${leader.label} currently scores higher`,
-      implication: winPct
-        ? `It comes out ahead in ${winPct} of simulated futures.`
-        : 'It comes out ahead across the simulated futures.',
-      detail: rec.nearTie ? 'The top options are close enough that this ordering is not settled.' : undefined,
-      groundedIn: 'the option comparison',
-      marker: staleMarker,
-      targetId: leader.id,
-      // ⛔⛔ NEITHER `recommendation_stability` NOR `ranking_stability` IS
-      // RENDERED ANYWHERE ON THIS SURFACE, AND THIS IS NOT AN OVERSIGHT.
-      //
-      // PLoT deliberately WITHHOLDS `robustness.recommendation_stability`: ISL
-      // derives it as `option_wins[winner] / n_samples` — the leader's win
-      // probability RELABELLED, carrying (the producer's words) "zero
-      // independent information". `ranking_stability` was never emitted at all.
-      //
-      // An earlier draft of this list printed BOTH `Win probability` and
-      // `Recommendation stability` — the SAME quantity twice, once honestly and
-      // once under a name implying an independent robustness measurement. That
-      // is a fabricated second statistic, and it is exactly what
-      // `withheldFieldReadBan.spec.ts` exists to stop; it caught this before
-      // the surface shipped. A hydrated pre-withdrawal payload can still carry
-      // a legacy value, so reading the field at all is the hazard, not just
-      // rendering a fresh one.
-      inspect: rows(row('Win probability', winPct), row('Determined by', rec.determinedBy)),
-      intervention: interventionFor(recommendations, leader.id),
-    })
-  }
+  // 6. ⛔ THE COMPARATIVE READ IS NOT AN INSIGHT EITHER — the glance states it,
+  //    and its most informative part (the win share) now rides the glance's own
+  //    trust line rather than a duplicate card a viewport below. Nothing was
+  //    lost: `winShare` in `buildAtAGlance` is the same `winProbability`, on the
+  //    same entitlement gate, with the same "never says wins" vocabulary.
 
   // Insights with no implication sentence say nothing — drop rather than
   // render a headline with an empty body.
@@ -506,6 +461,16 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   const conf = data.confidence
   const groups: AnalysisNewViewModel['deeper']['groups'] = []
 
+  // ⚠⚠ NO RUN, NO DESCRIPTION OF A RUN. Every group below is titled as a claim
+  // about a run ("This run", "What this run covered", "Provenance"), and some of
+  // the fields feeding them carry NON-NULL DEFAULTS when nothing has been
+  // computed. Mounted pre-run this printed "Analysis status: computed" and
+  // "Result completeness: full" directly beneath "No analysis has run yet for
+  // this model" — the surface contradicting itself, from producer defaults
+  // rather than from producer statements. `rows()` cannot catch it: the values
+  // are present, they are just not about anything.
+  if (inputs.isPreRun) return { groups: [] }
+
   const run = rows(
     row('Run identity', inputs.responseHash),
     row('Simulations', inputs.nSamples != null ? String(inputs.nSamples) : null),
@@ -565,6 +530,147 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   return { groups }
 }
 
+// ── AT A GLANCE ─────────────────────────────────────────────────────────────
+
+/** Producer enum → one user-facing word. Content strategy, not new truth. */
+const VERDICT_WORD: Record<string, { tone: GlanceVerdict['tone']; label: string }> = {
+  robust: { tone: 'stable', label: 'Stable' },
+  moderate: { tone: 'mixed', label: 'Mixed' },
+  fragile: { tone: 'sensitive', label: 'Sensitive' },
+  // 'not_assessed' is DELIBERATELY ABSENT — the producer's stated absence must
+  // render no chip at all, never a fourth word that reads as a measurement.
+}
+
+/** Drivers, capped, with a within-run comparable magnitude. */
+function glanceDrivers(data: ResultsSectionDataReturn): {
+  drivers: GlanceDriver[]
+  setRelative: boolean
+} {
+  const rows = (data.drivers.drivers ?? []).filter((d) => d.zeroReason == null)
+  const setRelative = rows.length > 0 && rows.some((d) => d.displayProvenance !== 'influence_score')
+  const magnitude = (d: (typeof rows)[number]) =>
+    d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0
+  // ⚠ THE BAR IS SCALED TO THE STRONGEST DRIVER IN THIS RUN, NOT TO 1.0 AND NOT
+  // TO A SUM. Scaling to a sum would render each bar as a SHARE OF THE OUTCOME —
+  // a claim neither basis licenses, and the exact misreading the earlier
+  // "41% / 22% / 15%" concept invited (they sum to 78%, which reads as
+  // "the rest is something else"). A within-run maximum makes the bars a RANK
+  // COMPARISON, which is all either basis supports.
+  const top = Math.max(...rows.map(magnitude), 0)
+  return {
+    setRelative,
+    drivers: rows.slice(0, GLANCE_DRIVER_COUNT).map((d) => ({
+      id: d.factorKey,
+      label: d.factorLabel,
+      fraction: top > 0 ? Math.max(0.04, magnitude(d) / top) : 0,
+      // Fail-closed focus pre-gate, the pattern `analysis-hero` established:
+      // an unfocusable row yields null and renders as text, never a dead link.
+      targetId: d.canFocus ? (d.matchedNodeId ?? d.factorKey) : null,
+    })),
+  }
+}
+
+/**
+ * "Could change if" — the TIPPING POINT, from `flipThresholds`.
+ *
+ * ⚠ GATED ON `flipThresholdsStatus`, WHICH IS THE HONESTY FIELD. 'unavailable'
+ * and 'unresolved' mean the producer could not determine a flip; rendering a
+ * row anyway would convert a technical non-result into an apparent finding.
+ * 'all_no_effect' means it looked and found none — also no row.
+ *
+ * ⚠ AND IT IS NOT DERIVED FROM INFLUENCE. Influence ranks what moves the
+ * outcome; this names the value at which the ORDERING changes. They are
+ * different quantities and putting the influence leader here under a different
+ * name would be the same signal shown twice.
+ */
+function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null {
+  const status = data.recommendation.flipThresholdsStatus
+  if (status && status !== 'computed' && status !== 'partial_no_effect') return null
+  const rows = data.recommendation.flipThresholds ?? []
+  // ⚠ THE PRODUCER'S OWN WORD FOR "I DETERMINED A FLIP" IS `flip_reason:
+  // 'found'`, AND IT IS WHAT THIS GATES ON. Derived from a real payload:
+  // 3 of 4 rows came back `no_flip_in_range: true` with reasons
+  // 'no_effect_within_bounds' and 'structurally_invariant'. Those were skipped
+  // only because their `flip_value` also happened to be null — a row carrying
+  // BOTH a value and `no_flip_in_range` would have rendered a tipping point the
+  // producer had explicitly said it did not find. Checking the value alone was
+  // right by luck, not by construction.
+  const usable = rows.find(
+    (t) =>
+      t &&
+      typeof t.flip_value === 'number' &&
+      typeof t.label === 'string' &&
+      t.label.length > 0 &&
+      (t as { no_flip_in_range?: boolean }).no_flip_in_range !== true &&
+      (t.flip_reason === undefined || t.flip_reason === 'found'),
+  )
+  if (!usable) return null
+  // ⚠ A BARE NUMBER WITH NO UNIT IS UNINTERPRETABLE, AND IT SHIPPED THAT WAY IN
+  // THE FIRST MOUNTED WITNESS: "Price increase for new customers passes 1" — one
+  // what? The producer sends `unit` only sometimes; when it does not, the value
+  // sits on the model's own scale and needs a reference point to mean anything.
+  // `current_value` is that reference and comes from the same producer row, so
+  // pairing them invents nothing. When even that is absent, the direction of
+  // travel is unknowable (Codex B3: a defaulted 0 fabricated a flip DIRECTION),
+  // so the row states the condition without a number rather than printing one
+  // the reader cannot place.
+  const unit = typeof usable.unit === 'string' ? usable.unit : ''
+  const fmt = (n: number) => (unit === '%' ? `${n}%` : `${unit}${n}`)
+  const flip = fmt(usable.flip_value as number)
+  const current = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
+  const text = unit
+    ? `${usable.label} passes ${flip}`
+    : current
+      ? `${usable.label} moves from ${current} to ${flip}`
+      : `${usable.label} changes materially`
+  return {
+    text,
+    targetId: typeof usable.node_id === 'string' && usable.node_id.length > 0 ? usable.node_id : null,
+  }
+}
+
+function buildAtAGlance(
+  data: ResultsSectionDataReturn,
+  recommendations: Recommendation[],
+): AtAGlance {
+  const rec = data.recommendation
+  const { drivers, setRelative } = glanceDrivers(data)
+
+  // The synthesis is the LEADER SENTENCE when the single verdict entitles one,
+  // and otherwise nothing. There is no UI-generated strategic conclusion here:
+  // absent an entitlement, the glance leads with the drivers instead.
+  const leader = rec.recommendedOption
+  const headline =
+    rec.verdict?.hasLeadingOption === true && leader && !rec.isSingleOption
+      ? `${leader.label} currently scores higher`
+      : null
+
+  const word = rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
+  // The single most informative number on the surface, and it is only licensed
+  // alongside an entitled leader — so it is gated on the SAME condition as the
+  // headline, never rendered on its own.
+  const winPct = headline ? pctOrNull(leader?.winProbability ?? rec.winProbability) : null
+
+  return {
+    headline,
+    winShare: winPct ? `Ahead in ${winPct} of simulated futures` : null,
+    verdict: word
+      ? {
+          tone: word.tone,
+          label: word.label,
+          // The SCOPE of the claim is the producer's sentence, verbatim. This
+          // surface never composes one ("across most tested uncertainty" was a
+          // coverage claim nothing computes).
+          ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}),
+        }
+      : null,
+    drivers,
+    influenceIsSetRelative: setRelative,
+    condition: glanceCondition(data),
+    primaryInterventionId: recommendations[0]?.id ?? null,
+  }
+}
+
 // ── STATUS ──────────────────────────────────────────────────────────────────
 
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
@@ -582,23 +688,98 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
   }
 }
 
+/**
+ * ⭐ ONE SIGNAL, ONE PRIMARY SURFACE.
+ *
+ * ⚠ MEASURED ON A REAL COMPLETED RUN, NOT THEORISED. With "At a glance" above
+ * it, ALL THREE key insights were restatements of what the glance had just
+ * said, roughly one viewport apart:
+ *
+ *   glance verdict   "Sensitive — small changes could flip this result"
+ *   key insight #1   "This result is sensitive to uncertainty /
+ *                     small changes could flip this result"
+ *
+ *   glance headline  "Status Quo … currently scores higher"
+ *   key insight #3   "Status Quo … currently scores higher"
+ *
+ *   glance condition "Could change if Price increase … moves from 0 to 1"
+ *   key insight #2   "Price increase for new customers is the hinge"
+ *
+ * Key insights was therefore contributing nothing — the section existed, took
+ * vertical space, and told the reader only what they had already read. The
+ * glance is the PRIMARY surface for these three, so they leave the list.
+ *
+ * ⚠ SUPPRESSION IS KEYED TO WHAT THE GLANCE ACTUALLY RENDERED, not to the
+ * insight ids alone. When the producer withholds the leader the glance shows no
+ * headline — and the comparative insight then belongs in the list, because
+ * nothing above is saying it. A blanket id filter would silently delete a
+ * finding on exactly the runs where it is the only place it appears.
+ */
+function dedupeAgainstGlance(
+  section: { insights: AnalysisNewFinding[]; candidateCount: number },
+  glance: AtAGlance,
+): { insights: AnalysisNewFinding[]; candidateCount: number } {
+  const shown = new Set<string>()
+  // Robustness and the comparative read are no longer produced as insights at
+  // all — the glance is their only surface. The hinge IS still produced, from a
+  // DIFFERENT producer than the glance condition (`topFragileEdge` vs
+  // `flipThresholds`), so it is suppressed only when the glance actually
+  // rendered a condition.
+  if (glance.condition) shown.add('insight:hinge')
+  if (shown.size === 0) return section
+  return {
+    insights: section.insights.filter((i) => !shown.has(i.id)),
+    // The candidate count still reports what the RUN produced, not what
+    // survived deduplication — the cap disclosure must not shrink silently.
+    candidateCount: section.candidateCount,
+  }
+}
+
 // ── THE ADAPTER ─────────────────────────────────────────────────────────────
 
 export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, recommendationCandidateCount, isStale } = inputs
+  const glance = buildAtAGlance(data, recommendations)
+
+  /**
+   * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
+   * applied to every run-derived section rather than to one of them.
+   *
+   * Key insights, the glance, drivers and uncertainty are all readings OF AN
+   * ANALYSIS. Strengthen is not: it is derived from the MODEL, which exists
+   * before any run, which is why a real grounded recommendation ("Define what
+   * success looks like", sourced from the goal having no threshold) correctly
+   * appears on the mounted pre-run surface and is deliberately left alone here.
+   *
+   * ⚠ THE FAILURE MODE THIS CLOSES IS NOT HYPOTHETICAL-ONLY. `useResultsSectionData`
+   * hands back non-null defaults, so "no findings pre-run" was a property of the
+   * DATA rather than of this adapter — true on the runs that happened to be
+   * driven, and unguaranteed. Gating here makes it a property of the code, and
+   * the pre-run assertions in `AnalysisNewTabBody.spec.tsx` bind to it.
+   */
+  const preRun = inputs.isPreRun
 
   return {
     status: buildStatus(inputs),
-    keyInsights: buildKeyInsights(data, recommendations, isStale),
+    atAGlance: preRun
+      ? { headline: null, winShare: null, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
+      : glance,
+    keyInsights: preRun
+      ? { insights: [], candidateCount: 0 }
+      : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
     strengthen: {
       interventions: recommendations.slice(0, STRENGTHEN_CAP),
       candidateCount: recommendationCandidateCount,
       scienceGrounding: inputs.scienceGrounding ?? {},
     },
-    drivers: buildDrivers(data, recommendations),
-    uncertainty: buildUncertainty(data, recommendations),
+    drivers: preRun
+      ? { findings: [], totalCount: 0, influenceIsSetRelative: false, referenceOptionLabel: null }
+      : buildDrivers(data, recommendations),
+    uncertainty: preRun
+      ? { findings: [], totalCount: 0, evidenceAssessed: false, decisionVoi: 'not_computed' as const }
+      : buildUncertainty(data, recommendations),
     deeper: buildDeeper(inputs),
   }
 }

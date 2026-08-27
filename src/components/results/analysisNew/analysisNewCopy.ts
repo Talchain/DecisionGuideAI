@@ -19,6 +19,7 @@ export const ANALYSIS_NEW_COPY = {
     'A second reading of the same analysis run, laid out around the reasoning. Nothing here is re-computed.',
 
   sections: {
+    atAGlance: 'At a glance',
     keyInsights: 'Key insights',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
@@ -51,6 +52,24 @@ export const ANALYSIS_NEW_COPY = {
     groundedIn: 'Grounded in',
     moreDrivers: (n: number) => `Show ${n} more`,
     moreUncertainty: (n: number) => `Show ${n} more`,
+  },
+
+  /** At a glance. Every string here is furniture — none describes the analysis. */
+  glance: {
+    whatMattersMost: 'What matters most',
+    couldChangeIf: 'Could change if',
+    /**
+     * ⚠ THE BASIS CAPTION IS A TRUTH CLAIM, NOT A LEGEND, which is why it is
+     * visible rather than hover-only. "Relative influence" says the bars rank
+     * within THIS run; "Influence" says they sit on the producer's own scale.
+     * A reader who mistakes the first for the second reads a rank as a share.
+     */
+    basisRelative: 'Relative influence',
+    basisAbsolute: 'Influence',
+    basisRelativeExplain:
+      'Each bar is scaled against the strongest factor in this run, so the bars rank the factors against each other. They are not shares of the outcome.',
+    basisAbsoluteExplain:
+      "Each bar shows the producer's own structural influence score, scaled against the strongest factor in this run.",
   },
 
   markers: {

@@ -80,9 +80,15 @@ describe('F · the three scenario classes (§24F)', () => {
   })
 
   it('GENUINE DECISION — comparative material appears, phrased as "currently scores higher"', () => {
+    // Stated ONCE, by "At a glance". It used to appear here AND as a key
+    // insight one viewport below — measured on a real run, all three insights
+    // were restatements of the glance.
     renderBody(genuineDecision())
-    expect(screen.getByTestId('analysis-new-key-insights')).toHaveTextContent(
+    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent(
       'Raise price currently scores higher',
+    )
+    expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
+      'currently scores higher',
     )
   })
 
@@ -162,10 +168,9 @@ describe('staleness contextualises without dominating (§20)', () => {
     expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
       'The model has changed since this analysis ran.',
     )
-    // One line, not a banner stack: the findings are still on screen.
-    expect(
-      within(screen.getByTestId('analysis-new-key-insights')).getAllByTestId('analysis-new-key-insights-row').length,
-    ).toBeGreaterThan(0)
+    // One line, not a banner stack: the read is still on screen.
+    expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-glance-headline')).toBeInTheDocument()
   })
 })
 
@@ -191,5 +196,119 @@ describe('progressive disclosure on the real surface (§24E)', () => {
     expect(screen.queryByTestId('analysis-new-deeper-group')).toBeNull()
     fireEvent.click(screen.getByTestId('analysis-new-deeper-toggle'))
     expect(screen.getAllByTestId('analysis-new-deeper-group').length).toBeGreaterThan(0)
+  })
+})
+
+describe('the empty state never contradicts the surface above it', () => {
+  /**
+   * A run whose ONLY insight candidate is the hinge, on a model where the
+   * glance also states a condition — so the ladder produces something and then
+   * everything it produced is deduped away. That is the exact shape in which
+   * "No insight is grounded well enough to lead with yet" becomes false: the
+   * insight WAS grounded, it is simply being stated above.
+   */
+  const allDeduped = () =>
+    ({
+      ...genuineDecision(),
+      recommendation: {
+        ...genuineDecision().recommendation,
+        flipThresholdsStatus: 'computed',
+        flipThresholds: [
+          { label: 'Timeframe', node_id: 'n_t', current_value: 2, flip_value: 3, flip_reason: 'found' },
+        ],
+      },
+      confidence: {
+        ...genuineDecision().confidence,
+        topFragileEdge: {
+          fromId: 'f_a',
+          fromLabel: 'Timeframe',
+          toId: 'g',
+          toLabel: 'Goal',
+          alternativeWinnerLabel: 'Other',
+          switchProbability: 0.4,
+        },
+      },
+    }) as unknown as ResultsSectionDataReturn
+
+  it('says NOTHING about key insights when everything it found is stated above', () => {
+    // Witnessed on a real run: Key insights printed "No insight is grounded well
+    // enough to lead with yet" while the glance directly above stated grounded
+    // insights. An empty list with a non-zero candidate count means "shown
+    // above", not "none found".
+    renderBody(allDeduped())
+    expect(screen.getByTestId('analysis-new-glance-condition')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-key-insights-empty')).toBeNull()
+  })
+
+  it('KEEPS the honest empty message for a run that genuinely produced none', () => {
+    // The discriminating twin — without it, deleting the empty state outright
+    // would satisfy the case above and lose a truthful message. Here the ladder
+    // finds nothing at all, so "none grounded yet" is exactly true.
+    renderBody(genuineDecision())
+    expect(screen.getByTestId('analysis-new-key-insights-empty')).toHaveTextContent(
+      'No insight is grounded well enough to lead with yet.',
+    )
+  })
+})
+
+/**
+ * ⭐⭐ THE PRE-RUN SURFACE, PINNED AT WHAT A MOUNTED BUILD ACTUALLY SHOWED.
+ *
+ * These four assertions exist because the pre-run state was never DRIVEN until
+ * the acceptance drive, and every one of them describes something the surface
+ * really printed above the sentence "No analysis has run yet for this model":
+ *
+ *   · three bare section headings with nothing under them (~77px of furniture);
+ *   · "A second reading of the same analysis run…", asserting a run;
+ *   · "Analysis status: computed" and "Result completeness: full", from
+ *     producer DEFAULTS rather than producer statements.
+ *
+ * Ninety-nine tests were green throughout. None of them rendered this state,
+ * which is the whole lesson: a state nobody mounts is a state nobody tests.
+ */
+describe('pre-run: nothing on screen describes a run that has not happened', () => {
+  it('renders no section heading that has nothing under it', () => {
+    renderBody(openStrategicChallenge(), { isPreRun: true })
+
+    // Bind by identity to the three sections that carry no pre-run content.
+    // A heading with no findings and no honest empty message must not render
+    // AT ALL — the section element is the assertion, not its text, because a
+    // heading IS the claim that something sits beneath it.
+    for (const id of [
+      'analysis-new-key-insights',
+      'analysis-new-drivers',
+      'analysis-new-uncertainty',
+    ]) {
+      expect(screen.queryByTestId(id), `${id} rendered an empty heading`).toBeNull()
+    }
+
+    // POSITIVE CONTROL — without this the three nulls above would also pass on
+    // a surface that failed to render anything at all.
+    expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
+  })
+
+  it('does not claim to be a second reading of a run that has not happened', () => {
+    renderBody(openStrategicChallenge(), { isPreRun: true })
+    expect(screen.queryByTestId('analysis-new-intro')).toBeNull()
+
+    // Contrast control: the same line IS correct once a run exists, so the
+    // rule is "gated on a run", never "deleted".
+    cleanup()
+    renderBody(openStrategicChallenge())
+    expect(screen.getByTestId('analysis-new-intro')).toBeInTheDocument()
+  })
+
+  it('describes no run identity, status or completeness before a run', () => {
+    const { container } = renderBody(openStrategicChallenge(), { isPreRun: true })
+    expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
+
+    // The exact strings the mounted build printed. Bound literally, because
+    // these came from non-null DEFAULTS: a structural assertion about groups
+    // would pass again the moment another defaulting field is added.
+    const text = (container.textContent ?? '').toLowerCase()
+    for (const lie of ['analysis status', 'result completeness', 'run identity']) {
+      expect(text, `pre-run surface still says "${lie}"`).not.toContain(lie)
+    }
   })
 })
