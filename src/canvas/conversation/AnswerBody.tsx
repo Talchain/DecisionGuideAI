@@ -24,6 +24,7 @@ import { safeRichText } from '../utils/safeRichText'
 import styles from './Conversation.module.css'
 import { dedupeRenderedText } from './messageComposition'
 import type { AnswerShape } from './answerShape'
+import { PANEL_LIST_BULLET } from './panelLists'
 
 /**
  * UI-SEM-090: clamp the producer's bullet list to at most MAX_BULLETS at the
@@ -138,7 +139,7 @@ export const AnswerBody = memo(function AnswerBody({
         />
       )}
       {bulletHtml.length > 0 && (
-        <ul className={`${bodyType} ${styles.answerBullets}`} data-testid="answer-bullets">
+        <ul className={`${bodyType} ${PANEL_LIST_BULLET}`} data-testid="answer-bullets">
           {bulletHtml.map((html, i) => (
             <li
               key={i}

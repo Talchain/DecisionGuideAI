@@ -61,6 +61,7 @@ import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
+import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -150,7 +151,7 @@ function FactorList({
   return (
     <div data-testid={sectionTestId}>
       <p className={`${typography.panelMeta} text-text-light font-medium`}>{title}</p>
-      <ul className="list-disc pl-4">
+      <ul className={PANEL_LIST_BULLET}>
         {factors.map((f, i) => (
           <li
             // Index key: the LLM can legitimately repeat a factor string, and
@@ -449,7 +450,7 @@ function V5AnalysisResultBlockImpl({
           )}
 
           {review030.story_headlines.length > 0 && (
-            <ul className="space-y-1" data-testid="v5-analysis-result-story-headlines">
+            <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-story-headlines">
               {review030.story_headlines.map((h) => {
                 // R-4: the shared null-refusing policy. `null` means no honest
                 // label exists for this id — the label and its separator are
@@ -524,7 +525,7 @@ function V5AnalysisResultBlockImpl({
           )}
 
           {review030.scenario_contexts.length > 0 && (
-            <ul className="space-y-1" data-testid="v5-analysis-result-scenario-contexts">
+            <ul className={PANEL_LIST_STACK} data-testid="v5-analysis-result-scenario-contexts">
               {review030.scenario_contexts.map((s) => (
                 <li
                   key={s.id}

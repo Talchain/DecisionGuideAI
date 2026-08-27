@@ -3,9 +3,32 @@
  *
  * Server contract: olumi-assistants-service `assist.v1.scenario-versions.ts`
  * (the Model Management wiring slice):
- *   POST /assist/v1/scenarios/{id}/versions          → model_versions_list.v1
+ *   POST /assist/v1/scenarios/{id}/versions          → model_versions_list.v2
  *   POST /assist/v1/scenarios/{id}/versions/save     → model_version_save.v1
- *   POST /assist/v1/scenarios/{id}/versions/restore  → model_version_restore.v1
+ *   POST /assist/v1/scenarios/{id}/versions/restore  → model_version_restore.v2
+ *
+ * ⚠ LIST AND RESTORE ARE v2; SAVE IS STILL v1. That is not an inconsistency to
+ * tidy — it is the server's actual posture, derived at CEE staging
+ * `3c3d3d53` (== deployed `/healthz` build `3c3d3d5`),
+ * `assist.v1.scenario-versions.ts:115-118`. Changing save would break the one
+ * leg that works.
+ *
+ * THE v2 BUMP MOVED THE SHAPE, NOT ONLY THE LABEL. On restore, the top-level
+ * `graph`, `version` and `undo_version_id` are GONE; they now live inside a
+ * nested `receipt` (`model_version_mutation_receipt.v1`), and the version
+ * ordinal is spelled `sequence` there, not `version_number`. On list, rows are
+ * `version_id`/`sequence`/`full_hash` with structured `actor`/`creation`/
+ * `lineage`, not `id`/`version_number`/`graph_identity_hash`/`provenance`.
+ *
+ * v2-ONLY, DELIBERATELY — NOT a compatibility path. A whole-repo sweep of CEE
+ * at that SHA finds ZERO `model_versions_list.v1` / `model_version_restore.v1`
+ * literals (contrast controls in the same sweep: 7 v2 literals, 2
+ * `model_version_save.v1`), and the route does no content negotiation — it
+ * sends one hardcoded discriminator per response. There is no live v1 producer
+ * for these two calls, so accepting v1 would be a branch with nothing to serve
+ * it, and this file would carry a compatibility path with no deletion
+ * condition. If a v1 producer is ever demonstrated, that is the moment to add
+ * one — with its deletion condition written beside it.
  * reached from the browser as `/bff/cee/scenarios/{id}/versions[...]`.
  *
  * THE TRANSPORT RULES ARE scenarioGraph.ts's, INHERITED IN FULL — see that
@@ -59,7 +82,21 @@ export interface ServerModelVersion {
   id: string
   versionNumber: number
   label: string | null
-  /** 'user_save' | 'commit' | 'pre_restore' | 'restore' — rendered, not branched on. */
+  /**
+   * v2 `creation.kind`: 'initial' | 'committed_mutation' | 'restore' |
+   * 'variant_creation' | 'variant_promotion' | 'unknown' — rendered, not
+   * branched on.
+   *
+   * ⚠ THE VOCABULARY CHANGED WITH v2. v1 spelled this
+   * 'user_save' | 'commit' | 'pre_restore' | 'restore' as a flat string; v2
+   * has no such field and models creation as a discriminated union. These are
+   * two different vocabularies answering two different questions, so this
+   * carries `creation.kind` VERBATIM rather than inventing a translation back
+   * to the retired v1 words. Safe to do because a sweep of `src` (excluding
+   * tests) finds NO consumer of this field or of `restoredFromVersionId`
+   * outside this adapter — nothing renders or branches on either today. Any
+   * future renderer must be written against the v2 words above.
+   */
   provenance: string | null
   restoredFromVersionId: string | null
   /** ISO timestamp from the server row. */
@@ -265,30 +302,80 @@ function sharedRefusal(
   }
 }
 
-function parseSummary(raw: unknown): ServerModelVersion | null {
+/**
+ * One `model_versions_list.v2` row → `ServerModelVersion`.
+ *
+ * Field mapping derived from CEE `history-v2.ts` (the wire schema) and
+ * `assist.v1.scenario-versions.ts:169-241` (`summaryV2()`, the row→wire map):
+ *   version_id → id · sequence → versionNumber · full_hash → graphIdentityHash
+ *   creation.kind → provenance · creation.source_version_id →
+ *   restoredFromVersionId (absent on the `initial`/`committed_mutation`/
+ *   `unknown` arms of the union, which is why it is read defensively).
+ * Returns null on anything that does not match, so the caller can fail CLOSED.
+ */
+function parseSummaryV2(raw: unknown): ServerModelVersion | null {
   if (raw === null || typeof raw !== 'object') return null
   const row = raw as Record<string, unknown>
-  const id = row.id
-  const versionNumber = row.version_number
+  const id = row.version_id
+  const versionNumber = row.sequence
   const createdAt = row.created_at
-  const hash = row.graph_identity_hash
+  const hash = row.full_hash
   if (typeof id !== 'string' || id.length === 0) return null
   if (typeof versionNumber !== 'number' || !Number.isInteger(versionNumber)) return null
   if (typeof createdAt !== 'string' || createdAt.length === 0) return null
   if (typeof hash !== 'string' || hash.length === 0) return null
+
+  const creation =
+    row.creation !== null && typeof row.creation === 'object'
+      ? (row.creation as Record<string, unknown>)
+      : null
+  const creationKind = typeof creation?.kind === 'string' ? creation.kind : null
+  const sourceVersionId =
+    typeof creation?.source_version_id === 'string' &&
+    (creation.source_version_id as string).length > 0
+      ? (creation.source_version_id as string)
+      : null
+
   return {
     id,
     versionNumber,
     label: typeof row.label === 'string' && row.label.length > 0 ? row.label : null,
-    provenance:
-      typeof row.provenance === 'string' && row.provenance.length > 0 ? row.provenance : null,
-    restoredFromVersionId:
-      typeof row.restored_from_version_id === 'string' &&
-      row.restored_from_version_id.length > 0
-        ? row.restored_from_version_id
-        : null,
+    provenance: creationKind !== null && creationKind.length > 0 ? creationKind : null,
+    restoredFromVersionId: sourceVersionId,
     createdAt,
     graphIdentityHash: hash,
+  }
+}
+
+/**
+ * `receipt` → `ServerVersionWriteOutcome`, for RESTORE v2 only.
+ *
+ * DELIBERATELY NOT `parseWriteOutcome`. That function answers "what did the
+ * v1 SAVE envelope's `version` block say?" (`version_number`); this one
+ * answers "what does the v2 restore RECEIPT say?" (`sequence`). Two questions,
+ * two readers — collapsing them into one would be the same
+ * similar-names/different-questions defect this codebase has paid for before.
+ *
+ * `deduped` is FALSE by construction: the v2 restore wire has no replay
+ * signal. CEE computes `replayed` and only LOGS it
+ * (`assist.v1.scenario-versions.ts`, restore handler); the response schema is
+ * `.strict()` and CEE's own route test pins the exact top-level key set
+ * ["analysis_state","receipt","request_id","restored","scenario_id","schema"].
+ * Reporting `false` is the honest read of a signal that is not on the wire —
+ * it is never used to CLAIM a replay happened, only to withhold the claim that
+ * one did. The caller (ServerVersionsSection) then falls through to its
+ * `changedNothing` branch, which says the server restored and invites a reload
+ * rather than asserting nothing changed. Vaguer, still true, fails safe.
+ */
+function parseReceiptWriteOutcome(raw: unknown): ServerVersionWriteOutcome | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const receipt = raw as Record<string, unknown>
+  if (typeof receipt.version_id !== 'string' || receipt.version_id.length === 0) return null
+  if (typeof receipt.sequence !== 'number' || !Number.isInteger(receipt.sequence)) return null
+  return {
+    versionId: receipt.version_id,
+    versionNumber: receipt.sequence,
+    deduped: false,
   }
 }
 
@@ -318,7 +405,7 @@ export async function listModelVersions(
 
   if (body === null || typeof body !== 'object') return { status: 'unusable' }
   const b = body as Record<string, unknown>
-  if (b.schema !== 'model_versions_list.v1') {
+  if (b.schema !== 'model_versions_list.v2') {
     logger.warn('model_versions.unexpected_schema', { schema: String(b.schema) })
     return { status: 'unusable' }
   }
@@ -326,7 +413,7 @@ export async function listModelVersions(
 
   const versions: ServerModelVersion[] = []
   for (const raw of b.versions) {
-    const parsed = parseSummary(raw)
+    const parsed = parseSummaryV2(raw)
     // Fail CLOSED on a malformed row: a silently shortened history would
     // misrepresent what exists to be restored.
     if (parsed === null) {
@@ -407,14 +494,25 @@ export async function restoreModelVersion(
 
   if (body === null || typeof body !== 'object') return { status: 'unusable' }
   const b = body as Record<string, unknown>
-  if (b.schema !== 'model_version_restore.v1') return { status: 'unusable' }
+  if (b.schema !== 'model_version_restore.v2') return { status: 'unusable' }
   if (b.restored !== true) return { status: 'unusable' }
-  const version = parseWriteOutcome(b.version)
+
+  // v2 nests the mutation outcome in `receipt`. Everything the caller applies
+  // is read from THERE — never from the top level, which no longer carries it.
+  const receipt =
+    b.receipt !== null && typeof b.receipt === 'object'
+      ? (b.receipt as Record<string, unknown>)
+      : null
+  if (receipt === null) {
+    logger.warn('model_versions.restore_without_receipt_refused', { scenarioId })
+    return { status: 'unusable' }
+  }
+  const version = parseReceiptWriteOutcome(receipt)
   if (version === null) return { status: 'unusable' }
 
   // The graph is what the reconcile applies. A restore claim WITHOUT the
   // graph must never be applied blind — refuse the shape instead.
-  const graph = b.graph
+  const graph = receipt.graph
   if (graph === null || typeof graph !== 'object') {
     logger.warn('model_versions.restore_without_graph_refused', { scenarioId })
     return { status: 'unusable' }
@@ -423,11 +521,12 @@ export async function restoreModelVersion(
   return {
     status: 'restored',
     graph,
-    deduped: b.deduped === true,
+    // See `parseReceiptWriteOutcome`: v2 carries no replay signal on the wire.
+    deduped: false,
     version,
     undoVersionId:
-      typeof b.undo_version_id === 'string' && b.undo_version_id.length > 0
-        ? b.undo_version_id
+      typeof receipt.undo_version_id === 'string' && receipt.undo_version_id.length > 0
+        ? receipt.undo_version_id
         : null,
     requestId: typeof b.request_id === 'string' ? b.request_id : null,
   }
