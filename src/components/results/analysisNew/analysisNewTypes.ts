@@ -201,9 +201,76 @@ export interface AnalysisNewStatus {
 
 export interface AnalysisNewViewModel {
   status: AnalysisNewStatus
+  atAGlance: AtAGlance
   keyInsights: KeyInsightsSection
   strengthen: StrengthenSection
   drivers: DriversSection
   uncertainty: UncertaintySection
   deeper: DeeperAnalysisSection
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AT A GLANCE — the 5-to-10-second strategic read
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * The trust qualification, as a VISIBLE state plus a producer-authored reason.
+ *
+ * ⚠ THE SPLIT IS THE POINT. `tone`/`label` is essential analytical state and
+ * stays visible; the SCOPE of the claim ("across the simulated range") is the
+ * producer's own sentence and is rendered verbatim beneath, never composed
+ * here. An earlier concept read "Robust across most tested uncertainty" — a
+ * COVERAGE claim ("most") that nothing computes. The producer says what it
+ * tested; this surface does not summarise it.
+ */
+export interface GlanceVerdict {
+  tone: 'stable' | 'mixed' | 'sensitive'
+  /** One word, user-facing. Content-strategy rename of the producer enum. */
+  label: string
+  /** `robustness.display_verdict_reason`, VERBATIM. Absent when not sent. */
+  reason?: string
+}
+
+/** One driver row: a label, a comparable magnitude, and a focus target. */
+export interface GlanceDriver {
+  id: string
+  label: string
+  /** 0-1 against the STRONGEST driver in this run — a within-run comparison. */
+  fraction: number
+  /**
+   * Focus target, or null when the producer named none / it is not on the
+   * canvas. Null renders as text, never as a dead affordance — the
+   * fail-closed pre-gate the analysis-hero prototype already established.
+   */
+  targetId: string | null
+}
+
+/**
+ * "Could change if" — a TIPPING POINT, a different analytical dimension from
+ * the influence ranking above it.
+ *
+ * ⚠ NEVER DERIVED FROM INFLUENCE. Influence ranks what moves the outcome;
+ * this names the value at which the ORDERING changes. Conflating them would
+ * put the same signal on screen twice under two names. Sourced from
+ * `flipThresholds` and gated on `flipThresholdsStatus`.
+ */
+export interface GlanceCondition {
+  text: string
+  targetId: string | null
+}
+
+export interface AtAGlance {
+  /** The current read. Absent when no producer licenses a synthesis. */
+  headline: string | null
+  verdict: GlanceVerdict | null
+  drivers: GlanceDriver[]
+  /**
+   * TRUE when the bars are set-relative (`normalised_elasticity`) rather than
+   * the producer's absolute influence scale. Drives the basis caption, which
+   * is a truth claim and therefore visible, not hover-only.
+   */
+  influenceIsSetRelative: boolean
+  condition: GlanceCondition | null
+  /** The single highest-priority engine recommendation, or null. */
+  primaryInterventionId: string | null
 }

@@ -53,6 +53,10 @@ import type {
   ContextualIntervention,
   InspectRow,
   ScienceGrounding,
+  AtAGlance,
+  GlanceCondition,
+  GlanceDriver,
+  GlanceVerdict,
 } from './analysisNewTypes'
 
 /** §2 of the brief: "a very small number of high-value insights". */
@@ -62,6 +66,8 @@ const STRENGTHEN_CAP = 3
 /** Level-1 rows before "Show more". */
 const DRIVER_PREVIEW = 3
 const UNCERTAINTY_PREVIEW = 3
+/** Driver rows in the glance. Three is the existing `topDrivers` convention. */
+const GLANCE_DRIVER_COUNT = 3
 
 export interface AnalysisNewViewModelInputs {
   data: ResultsSectionDataReturn
@@ -565,6 +571,112 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   return { groups }
 }
 
+// ── AT A GLANCE ─────────────────────────────────────────────────────────────
+
+/** Producer enum → one user-facing word. Content strategy, not new truth. */
+const VERDICT_WORD: Record<string, { tone: GlanceVerdict['tone']; label: string }> = {
+  robust: { tone: 'stable', label: 'Stable' },
+  moderate: { tone: 'mixed', label: 'Mixed' },
+  fragile: { tone: 'sensitive', label: 'Sensitive' },
+  // 'not_assessed' is DELIBERATELY ABSENT — the producer's stated absence must
+  // render no chip at all, never a fourth word that reads as a measurement.
+}
+
+/** Drivers, capped, with a within-run comparable magnitude. */
+function glanceDrivers(data: ResultsSectionDataReturn): {
+  drivers: GlanceDriver[]
+  setRelative: boolean
+} {
+  const rows = (data.drivers.drivers ?? []).filter((d) => d.zeroReason == null)
+  const setRelative = rows.length > 0 && rows.some((d) => d.displayProvenance !== 'influence_score')
+  const magnitude = (d: (typeof rows)[number]) =>
+    d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0
+  // ⚠ THE BAR IS SCALED TO THE STRONGEST DRIVER IN THIS RUN, NOT TO 1.0 AND NOT
+  // TO A SUM. Scaling to a sum would render each bar as a SHARE OF THE OUTCOME —
+  // a claim neither basis licenses, and the exact misreading the earlier
+  // "41% / 22% / 15%" concept invited (they sum to 78%, which reads as
+  // "the rest is something else"). A within-run maximum makes the bars a RANK
+  // COMPARISON, which is all either basis supports.
+  const top = Math.max(...rows.map(magnitude), 0)
+  return {
+    setRelative,
+    drivers: rows.slice(0, GLANCE_DRIVER_COUNT).map((d) => ({
+      id: d.factorKey,
+      label: d.factorLabel,
+      fraction: top > 0 ? Math.max(0.04, magnitude(d) / top) : 0,
+      // Fail-closed focus pre-gate, the pattern `analysis-hero` established:
+      // an unfocusable row yields null and renders as text, never a dead link.
+      targetId: d.canFocus ? (d.matchedNodeId ?? d.factorKey) : null,
+    })),
+  }
+}
+
+/**
+ * "Could change if" — the TIPPING POINT, from `flipThresholds`.
+ *
+ * ⚠ GATED ON `flipThresholdsStatus`, WHICH IS THE HONESTY FIELD. 'unavailable'
+ * and 'unresolved' mean the producer could not determine a flip; rendering a
+ * row anyway would convert a technical non-result into an apparent finding.
+ * 'all_no_effect' means it looked and found none — also no row.
+ *
+ * ⚠ AND IT IS NOT DERIVED FROM INFLUENCE. Influence ranks what moves the
+ * outcome; this names the value at which the ORDERING changes. They are
+ * different quantities and putting the influence leader here under a different
+ * name would be the same signal shown twice.
+ */
+function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null {
+  const status = data.recommendation.flipThresholdsStatus
+  if (status && status !== 'computed' && status !== 'partial_no_effect') return null
+  const rows = data.recommendation.flipThresholds ?? []
+  const usable = rows.find(
+    (t) => t && typeof t.flip_value === 'number' && typeof t.label === 'string' && t.label.length > 0,
+  )
+  if (!usable) return null
+  const unit = usable.unit ? `${usable.unit}` : ''
+  const value = unit === '%' ? `${usable.flip_value}%` : `${unit}${usable.flip_value}`
+  return {
+    text: `${usable.label} passes ${value}`,
+    targetId: typeof usable.node_id === 'string' && usable.node_id.length > 0 ? usable.node_id : null,
+  }
+}
+
+function buildAtAGlance(
+  data: ResultsSectionDataReturn,
+  recommendations: Recommendation[],
+): AtAGlance {
+  const rec = data.recommendation
+  const { drivers, setRelative } = glanceDrivers(data)
+
+  // The synthesis is the LEADER SENTENCE when the single verdict entitles one,
+  // and otherwise nothing. There is no UI-generated strategic conclusion here:
+  // absent an entitlement, the glance leads with the drivers instead.
+  const leader = rec.recommendedOption
+  const headline =
+    rec.verdict?.hasLeadingOption === true && leader && !rec.isSingleOption
+      ? `${leader.label} currently scores higher`
+      : null
+
+  const word = rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
+
+  return {
+    headline,
+    verdict: word
+      ? {
+          tone: word.tone,
+          label: word.label,
+          // The SCOPE of the claim is the producer's sentence, verbatim. This
+          // surface never composes one ("across most tested uncertainty" was a
+          // coverage claim nothing computes).
+          ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}),
+        }
+      : null,
+    drivers,
+    influenceIsSetRelative: setRelative,
+    condition: glanceCondition(data),
+    primaryInterventionId: recommendations[0]?.id ?? null,
+  }
+}
+
 // ── STATUS ──────────────────────────────────────────────────────────────────
 
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
@@ -591,6 +703,7 @@ export function buildAnalysisNewViewModel(
 
   return {
     status: buildStatus(inputs),
+    atAGlance: buildAtAGlance(data, recommendations),
     keyInsights: buildKeyInsights(data, recommendations, isStale),
     strengthen: {
       interventions: recommendations.slice(0, STRENGTHEN_CAP),

@@ -29,6 +29,8 @@ export interface AnalysisNewSectionProps {
    * user must read to interpret it correctly (e.g. set-relative influence).
    */
   caveat?: string | null
+  /** First-use explanation. Lives in the heading's title, never as a resting row. */
+  subtitle?: string
   /**
    * What to say when there is nothing. Absent = render the heading and nothing
    * else, which is the right answer when an empty message would add no
@@ -45,6 +47,7 @@ export function AnalysisNewSection({
   findings,
   preview,
   caveat,
+  subtitle,
   emptyMessage,
   onFocusTarget,
   onRunIntervention,
@@ -57,9 +60,22 @@ export function AnalysisNewSection({
 
   return (
     <section className="space-y-1" data-testid={testId} aria-labelledby={`${testId}-heading`}>
-      <h3 id={`${testId}-heading`} className={`${typography.panelHeader} text-text-header`}>
-        {title}
-      </h3>
+      {/* ⚠ THE HEADER IS THE COUNT, AND THE COUNT REPLACES THE SUBCOPY.
+          "Top findings from the analysis" / "Recommended next steps" answered a
+          first-use question permanently, on every visit, for every user — four
+          such lines cost ~64px of a ~590px panel before a single finding was
+          shown. A count is the one thing that changes per run, so it is the one
+          thing worth the row. The explanation moves to the heading's `title`. */}
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 id={`${testId}-heading`} className={`${typography.panelHeader} text-text-header`} title={subtitle}>
+          {title}
+        </h3>
+        {findings.length > 0 ? (
+          <span className={`${typography.panelMeta} text-text-light shrink-0`} data-testid={`${testId}-count`}>
+            {findings.length}
+          </span>
+        ) : null}
+      </div>
 
       {caveat ? (
         <p className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-caveat`}>

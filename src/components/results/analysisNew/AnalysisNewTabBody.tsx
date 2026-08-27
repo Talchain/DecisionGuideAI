@@ -37,6 +37,7 @@ import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
+import { AtAGlance } from './sections/AtAGlance'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
@@ -137,6 +138,9 @@ export function AnalysisNewTabBody({
             {vm.status.statusNote}
           </p>
         ) : null}
+
+        {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
+        <AtAGlance glance={vm.atAGlance} onFocusTarget={focusTarget} />
 
         {/* ── 1. KEY INSIGHTS ─────────────────────────────────────────────── */}
         <AnalysisNewSection
