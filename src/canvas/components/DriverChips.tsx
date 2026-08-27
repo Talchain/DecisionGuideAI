@@ -408,7 +408,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   // Empty state: show informative message instead of returning null
   if (driverList.length === 0) {
     return (
-      <div className="p-4 bg-paper-50 rounded-xl border border-sand-200">
+      <div className="p-4 bg-paper-50 rounded-md border border-sand-200">
         <div className="flex items-center gap-2 mb-3">
           <div className="p-1.5 bg-panel rounded-lg">
             <Zap className="w-4 h-4 text-warning" aria-hidden="true" />
@@ -430,7 +430,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   return (
     <div
       ref={chipsRef}
-      className="space-y-3 p-4 bg-paper-50 rounded-xl border border-sand-200"
+      className="space-y-3 p-4 bg-paper-50 rounded-md border border-sand-200"
       role="list"
       aria-label="Key drivers"
       tabIndex={0}

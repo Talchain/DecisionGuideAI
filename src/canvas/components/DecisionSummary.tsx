@@ -357,7 +357,7 @@ export function DecisionSummary({
 
   return (
     <div
-      className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden shadow-sm"
+      className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden shadow-sm"
       data-testid="decision-summary"
     >
       {/* Objective section - what we're trying to achieve */}

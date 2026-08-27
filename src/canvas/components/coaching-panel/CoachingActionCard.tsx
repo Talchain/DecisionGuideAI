@@ -48,7 +48,7 @@ export function CoachingActionCard({ signal, isOpen, onToggle }: CoachingActionC
 
   return (
     <div
-      className="overflow-hidden rounded-xl border border-panel-border bg-panel"
+      className="overflow-hidden rounded-md border border-panel-border bg-panel"
       data-testid="coaching-card"
       data-signal-id={signal.signal_id}
       data-move={signal.move}

@@ -223,7 +223,7 @@ export function ValidationPanel({ critique, onAutoFix, onDismiss }: ValidationPa
   }
 
   return (
-    <div className="bg-paper-50 rounded-xl border border-sand-200 overflow-hidden">
+    <div className="bg-paper-50 rounded-md border border-sand-200 overflow-hidden">
       {/* Render each severity section */}
       {(['blocker', 'warning', 'info'] as const).map(severity => {
         const items = visibleGrouped[severity]

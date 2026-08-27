@@ -1430,7 +1430,7 @@ export function DraftChat() {
               ) : null}
 
               {draft && (
-                <div className="p-3 bg-paper-50 border border-sand-200 rounded-xl space-y-2" data-testid="draft-submitted-brief">
+                <div className="p-3 bg-paper-50 border border-sand-200 rounded-md space-y-2" data-testid="draft-submitted-brief">
                   <p className={`${typography.panelMeta} uppercase tracking-wide text-ink-500`}>
                     Submitted brief
                   </p>
@@ -1471,7 +1471,7 @@ export function DraftChat() {
                     ? 'Describe the changes you want... e.g., Rebuild this model with fewer factors, clearer options, and stronger evidence for market size.'
                     : "Describe your decision... e.g., We're deciding whether to expand into the European market. Key factors include regulatory costs, market size, and competition..."}
                   className={`
-                    ${typography.body} w-full p-3 pb-12 rounded-xl border border-sand-200
+                    ${typography.body} w-full p-3 pb-12 rounded-md border border-sand-200
                     focus:border-sand-200 focus:outline-none focus:ring-0 focus:shadow-none
                     resize-none
                     placeholder:text-ink-400

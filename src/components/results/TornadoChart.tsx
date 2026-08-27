@@ -377,7 +377,7 @@ export function TornadoChart({
 
   return (
     <div
-      className="p-3.5 bg-panel border border-panel-border rounded-xl shadow-1"
+      className="p-3.5 bg-panel border border-panel-border rounded-md shadow-1"
       data-testid="tornado-chart"
       onPointerLeave={() => {
         // Release any stuck drag when pointer leaves the chart

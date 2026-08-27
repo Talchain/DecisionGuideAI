@@ -205,7 +205,7 @@ export function ModalShell({
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid={testId}
-        className="max-h-[90vh] w-[min(430px,100%)] overflow-auto rounded-xl border border-panel-border bg-panel p-[13px] shadow-2"
+        className="max-h-[90vh] w-[min(430px,100%)] overflow-auto rounded-md border border-panel-border bg-panel p-[13px] shadow-2"
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">

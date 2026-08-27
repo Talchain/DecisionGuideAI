@@ -235,7 +235,7 @@ const ProsConsList = memo(({
   }, [displayOptions, handleOptionsChange]);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+    <div className="bg-white rounded-md shadow-lg p-6 mb-6">
       <Header
         className="mb-8"
         canUndo={canUndo}

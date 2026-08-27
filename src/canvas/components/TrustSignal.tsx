@@ -121,7 +121,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
   // Empty state
   if (!metrics) {
     return (
-      <div className="p-4 bg-sand-50 border border-sand-200 rounded-xl">
+      <div className="p-4 bg-sand-50 border border-sand-200 rounded-md">
         <div className="flex items-center gap-3">
           <Shield className="h-5 w-5 text-sand-400 flex-shrink-0" />
           <div>
@@ -139,7 +139,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
   if (isAnalysisIncomplete) {
     const IncompleteIcon = incompleteConfig.icon
     return (
-      <div className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden" data-testid="trust-signal-incomplete">
+      <div className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden" data-testid="trust-signal-incomplete">
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
@@ -187,7 +187,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
   const TierIcon = config.icon
 
   return (
-    <div className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden" data-testid="trust-signal">
+    <div className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden" data-testid="trust-signal">
       {/* Header - always visible */}
       <button
         type="button"

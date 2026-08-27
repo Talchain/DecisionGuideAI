@@ -752,7 +752,7 @@ export const FactorNode = memo((props: NodeProps) => {
       {constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
       {isAffectedByHover && (
         <div
-          className="absolute -inset-1 rounded-xl border-2 border-info pointer-events-none -z-10"
+          className="absolute -inset-1 rounded-md border-2 border-info pointer-events-none -z-10"
           style={{ boxShadow: '0 0 12px var(--info)' }}
         />
       )}

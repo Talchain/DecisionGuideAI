@@ -62,7 +62,7 @@ function SkeletonBlock({ lines = 3, className = '' }: SkeletonBlockProps) {
 export function HeadlineResultSkeleton() {
   return (
     <div
-      className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden animate-pulse"
+      className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden animate-pulse"
       data-testid="headline-skeleton"
       aria-hidden="true"
     >
@@ -117,7 +117,7 @@ export function HeadlineResultSkeleton() {
 export function TrustReadinessSkeleton() {
   return (
     <div
-      className="bg-paper-50 border border-sand-200 rounded-xl p-4 animate-pulse"
+      className="bg-paper-50 border border-sand-200 rounded-md p-4 animate-pulse"
       data-testid="trust-skeleton"
       aria-hidden="true"
     >
@@ -145,7 +145,7 @@ export function TrustReadinessSkeleton() {
 export function DriversInsightSkeleton() {
   return (
     <div
-      className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden animate-pulse"
+      className="bg-paper-50 border border-sand-200 rounded-md overflow-hidden animate-pulse"
       data-testid="drivers-skeleton"
       aria-hidden="true"
     >
@@ -210,7 +210,7 @@ export function KeyInsightSkeleton() {
 export function NextStepsSkeleton() {
   return (
     <div
-      className="bg-paper-50 border border-sand-200 rounded-xl p-4 animate-pulse"
+      className="bg-paper-50 border border-sand-200 rounded-md p-4 animate-pulse"
       data-testid="next-steps-skeleton"
       aria-hidden="true"
     >

@@ -39,7 +39,7 @@ export function V5ExplanationBlock({ block }: V5ExplanationBlockProps): ReactEle
   return (
     <div
       data-testid="v5-explanation"
-      className="rounded-xl border border-panel-border bg-panel p-4 space-y-2"
+      className="rounded-md border border-panel-border bg-panel p-4 space-y-2"
     >
       <h3 className={typography.panelHeader}>Explanation</h3>
       <p className={typography.panelBody} data-testid="v5-explanation-narrative">

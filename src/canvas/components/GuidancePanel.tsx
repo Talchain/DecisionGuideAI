@@ -271,7 +271,7 @@ export function GuidancePanel() {
           role="option"
           aria-selected={focusedIndex === index}
           tabIndex={focusedIndex === index ? 0 : -1}
-          className={focusedIndex === index ? 'ring-2 ring-info/60 ring-offset-2 rounded-xl' : ''}
+          className={focusedIndex === index ? 'ring-2 ring-info/60 ring-offset-2 rounded-md' : ''}
           onFocus={() => setFocusedIndex(index)}
         >
           <GuidanceCard item={item} onClick={() => handleFocusItem(item)} />

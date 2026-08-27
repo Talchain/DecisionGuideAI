@@ -199,7 +199,7 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
-        className="fixed z-[100] min-w-[220px] max-w-[320px] rounded-xl border border-panel-border bg-panel py-2 shadow-2"
+        className="fixed z-[100] min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
         style={{ left: position.x, top: position.y }}
       >
         {items.map((entry, i) => {

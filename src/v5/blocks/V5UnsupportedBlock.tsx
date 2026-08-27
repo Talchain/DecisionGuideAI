@@ -34,7 +34,7 @@ export function V5UnsupportedBlock({ block }: V5UnsupportedBlockProps): ReactEle
       /* THE operator channel for this card, and the reason the visible pill
          could go. Paired with the DEV console.warn above. */
       data-block-type={block.blockType}
-      className="rounded-xl border border-text-light/30 bg-panel p-4 space-y-1"
+      className="rounded-md border border-text-light/30 bg-panel p-4 space-y-1"
     >
       {/* ⚠ NO WIRE KIND ON SCREEN. This used to render `block.blockType` in a
           pill — `v5_flip_analysis` above a polite sentence, i.e. the product

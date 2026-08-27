@@ -105,7 +105,7 @@ export function DecisionQuality({
 
   return (
     <div
-      className={`rounded-xl border ${config.borderColor} overflow-hidden`}
+      className={`rounded-md border ${config.borderColor} overflow-hidden`}
       data-testid="decision-quality"
     >
       {/* Header - always visible */}
