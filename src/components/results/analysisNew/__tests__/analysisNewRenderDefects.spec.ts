@@ -37,7 +37,14 @@ describe('strengthenWhyLine — the sentence is printed once', () => {
 
 describe('truncateAtWordBoundary — never cuts a word in half', () => {
   const TEXT =
-    'If the adoption rate changes significantly then the ordering of the two options changes with it'
+    // ⚠ THE WORD 'two' WAS REMOVED FROM THIS FIXTURE DELIBERATELY, and the reason
+  // is the whole point of the test. With it, the string is 95 chars, `keep` is
+  // 79, and TEXT[79] is a SPACE — so a HARD cut lands on a word boundary BY
+  // COINCIDENCE, and a mutant deleting the word-boundary logic entirely stayed
+  // GREEN. The assertion was correct and could not fail. Without 'two',
+  // TEXT[79] is 'n', the hard cut yields "…cha…" and the boundary cut yields
+  // "…options…", so the two are distinguishable and the mutant bites.
+  'If the adoption rate changes significantly then the ordering of the options changes with it'
 
   it('does not end mid-word, and marks that it was cut', () => {
     const out = truncateAtWordBoundary(TEXT, 80)

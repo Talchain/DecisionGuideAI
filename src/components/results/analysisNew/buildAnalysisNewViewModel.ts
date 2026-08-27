@@ -416,7 +416,24 @@ function buildUncertainty(
         // A bare `.slice(0, 80)` cut these mid-word — measured at the DOM, two
         // distinct items landing on exactly 80 characters. The reader was left
         // with a condition and no way to tell a cut string from a finished one.
-        // The full sentence still rides `implication` below.
+        //
+        // ⚠ THIS COMMENT ONCE READ "The full sentence still rides `implication`
+        // below." THAT WAS FALSE, and it was the stated justification for
+        // cutting at all. Measured against a complete field manifest:
+        // `implication` is `u.suggestion || text`, and `u.suggestion` is present
+        // on every row as the constant string "Review this assumption" — so the
+        // implication carries a REMEDY and never the sentence. `detail` is
+        // undefined and `inspect` is numeric. NO FIELD CARRIES THE FULL TEXT.
+        //
+        // So this truncation is lossy, and the loss is not recoverable anywhere
+        // on the page. What changed here makes the cut HONEST — whole words, and
+        // an ellipsis so a reader can tell a cut string from a finished one. It
+        // does NOT recover the lost reasoning. Whether a headline should be cut
+        // at all when nothing else carries the sentence is a product question,
+        // rowed as 2.1330 and deliberately not answered here.
+        //
+        // Measured for `uncertainty:SENSITIVE_ASSUMPTION`. A finding type
+        // carrying no `suggestion` could still render its full text.
         : truncateAtWordBoundary(text, 80),
       implication: u.suggestion || text,
       // Same union as the drivers' direction. `mixed`/`unknown` get the
