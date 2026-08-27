@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2217
+# count=2196
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -260,9 +260,6 @@
 2	src/canvas/compare/EdgeDiffTable.tsx	TS2322	Type '{ weight: {}; belief: {}; provenance: unknown; } | undefined' is not assignable to type '{ weight: number; belief: number; provenance?: string | undefined; } | undefined'.
 2	src/canvas/compare/EdgeDiffTable.tsx	TS2362	The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
 2	src/canvas/compare/EdgeDiffTable.tsx	TS2363	The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
-1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
-1	src/canvas/components/AdvancedSettingsPanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
-1	src/canvas/components/AdvancedSettingsPanel.tsx	TS6133	'isLast' is declared but its value is never read.
 7	src/canvas/components/CompareView.tsx	TS2339	Property 'summary' does not exist on type 'ReportV1'.
 1	src/canvas/components/ComparisonTable.tsx	TS6133	'TrendingUp' is declared but its value is never read.
 1	src/canvas/components/ComparisonTable.tsx	TS7015	Element implicitly has an 'any' type because index expression is not of type 'number'.
@@ -320,8 +317,6 @@
 1	src/canvas/components/RangeDisplay.tsx	TS6133	'formatOutcomeValueCompact' is declared but its value is never read.
 1	src/canvas/components/RecoveryBanner.tsx	TS2322	Type 'Edge[]' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/components/RecoveryBanner.tsx	TS2741	Property 'anchorPosition' is missing in type '{ nodeIds: Set<string>; edgeIds: Set<string>; }' but required in type '{ nodeIds: Set<string>; edgeIds: Set<string>; anchorPosition: { x: number; y: number; } | null; }'.
-1	src/canvas/components/RiskAdjustedDisplay.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
-1	src/canvas/components/RiskAdjustedDisplay.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/components/RiskProfileBadge.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/RiskProfileBadge.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/components/RiskProfileSelector.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
@@ -330,10 +325,6 @@
 1	src/canvas/components/RiskProfileSelector.tsx	TS6133	'useState' is declared but its value is never read.
 1	src/canvas/components/RiskProfileSelector.tsx	TS7006	Parameter 'choice' implicitly has an 'any' type.
 1	src/canvas/components/RiskProfileSelector.tsx	TS7053	Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ high: { bg: string; text: string; label: string; }; medium: { bg: string; text: string; label: string; }; low: { bg: string; text: string; label: string; }; }'.
-1	src/canvas/components/RiskTolerancePanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
-1	src/canvas/components/RiskTolerancePanel.tsx	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
-1	src/canvas/components/RiskTolerancePanel.tsx	TS6133	'RiskProfileBadge' is declared but its value is never read.
-1	src/canvas/components/RiskTolerancePanel.tsx	TS6133	'handleEdit' is declared but its value is never read.
 3	src/canvas/components/ScenarioComparison.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
 1	src/canvas/components/SectionErrorBoundary.tsx	TS6133	'section' is declared but its value is never read.
 1	src/canvas/components/ThresholdDisplay.tsx	TS2367	This comparison appears to be unintentional because the types '"cancelled" | "connecting" | "error" | "idle" | "preparing" | "streaming"' and '"success"' have no overlap.
@@ -361,7 +352,6 @@
 1	src/canvas/components/__tests__/RiskProfileBadge.spec.tsx	TS2305	Module '"../../../adapters/plot/types"' has no exported member 'RiskProfile'.
 2	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
 5	src/canvas/components/__tests__/RiskProfileSelector.spec.tsx	TS2339	Property 'getRiskQuestions' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
-1	src/canvas/components/__tests__/RiskTolerancePanel.spec.tsx	TS2305	Module '"../../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/components/__tests__/StarterProvenanceBanner.spec.tsx	TS2322	Type 'MockInstance<[], void>' is not assignable to type 'MockInstance<unknown[], unknown>'.
 1	src/canvas/components/__tests__/StarterProvenanceBanner.spec.tsx	TS2322	Type 'MockInstance<[message?: string | undefined], boolean>' is not assignable to type 'MockInstance<unknown[], unknown>'.
 1	src/canvas/components/__tests__/Tooltip.spec.tsx	TS6133	'waitFor' is declared but its value is never read.
@@ -752,8 +742,6 @@
 1	src/canvas/validation/__tests__/graphGuardrails.spec.ts	TS6133	'assessEdgeDeletion' is declared but its value is never read.
 1	src/components/Analysis/AnalysisContent.tsx	TS6133	'React' is declared but its value is never read.
 1	src/components/Analysis/utils/formatAnalysis.tsx	TS6133	'BarChart' is declared but its value is never read.
-1	src/components/BiasesCarousel/BiasCard.tsx	TS6133	'React' is declared but its value is never read.
-1	src/components/BiasesCarousel/index.tsx	TS6133	'React' is declared but its value is never read.
 1	src/components/ContractInspector.tsx	TS2322	Type 'unknown' is not assignable to type 'ReactNode'.
 1	src/components/DebugPanel.tsx	TS6133	'handleCornerResizeStart' is declared but its value is never read.
 1	src/components/DebugPanel.tsx	TS6133	'handlePanelDragStart' is declared but its value is never read.
@@ -955,14 +943,6 @@
 1	src/components/debug/utils/exportBundle.ts	TS2352	Conversion of type 'ResultsState' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 2	src/components/debug/utils/exportBundle.ts	TS2352	Conversion of type 'V5AnalysisFactState' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/components/debug/utils/exportBundle.ts	TS6133	'findLatestV5TurnEntry' is declared but its value is never read.
-2	src/components/decisions/DecisionEdit.tsx	TS2322	Type 'null | string[]' is not assignable to type 'string[] | undefined'.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'React' is declared but its value is never read.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'Users' is declared but its value is never read.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'createDecision' is declared but its value is never read.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'decisionId' is declared but its value is never read.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'saveDecisionAnalysis' is declared but its value is never read.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'useRef' is declared but its value is never read.
-1	src/components/decisions/DecisionEdit.tsx	TS6133	'user' is declared but its value is never read.
 1	src/components/layout/KebabMenu.tsx	TS2322	Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'LegacyRef<HTMLDivElement> | undefined'.
 1	src/components/results/AdvancedSection.tsx	TS6133	'expertMode' is declared but its value is never read.
 1	src/components/results/DriversSection.tsx	TS2339	Property '__OLUMI_DEBUG' does not exist on type 'Window & typeof globalThis'.
