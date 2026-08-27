@@ -37,7 +37,7 @@ const Gauge = memo(function Gauge({ bar }: { bar: BarModel }) {
   const lit = litSegments(bar.fill, GAUGE_SEGMENTS)
   return (
     <div
-      className="flex items-end gap-[2px]"
+      className="flex items-end gap-0.5"
       aria-hidden="true"
       data-testid={`pre-analysis-v3-gauge-${bar.key}`}
       data-lit={lit}

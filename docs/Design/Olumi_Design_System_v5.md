@@ -380,6 +380,15 @@ Never remove outline. Focus indicators must always be visible.
 
 Coloured borders communicate state or type. Neutral borders separate content. Every surface type has one correct border treatment.
 
+> ⚠ **Radius in this table is shorthand, not the rule.** The `rounded-lg` written below
+> means "the card radius", and the card radius is **context-dependent** — see §6.2:
+> *"Cards inside panels use `md` (12px). Cards outside panels use `lg` (20px)."*
+> Read literally, this table contradicts §6.2 for every in-panel card, and that
+> ambiguity is the reason `--radius-lg` was overridden to 14px — a value neither
+> section asks for. **§6.2 is the rule; this column is a reminder that a card has a
+> border AND a radius.** The code migration that follows from this is still owed and
+> is tracked separately; nothing here changes what ships today.
+
 | Surface type | Border treatment | Example |
 |-------------|-----------------|---------|
 | **Panel section cards** (options, factors, assumptions, quality, improvements) | Full border, all sides: `border border-{colour}/30 rounded-lg` | `border border-option/30` |

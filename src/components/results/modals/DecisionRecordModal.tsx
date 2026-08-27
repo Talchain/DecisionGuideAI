@@ -332,7 +332,7 @@ export function DecisionRecordModal() {
       >
         <p
           data-testid="decision-record-note"
-          className={`mt-[10px] rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
+          className={`mt-2.5 rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
         >
           {DECISION_RECORD_COPY.persistenceNote}
         </p>

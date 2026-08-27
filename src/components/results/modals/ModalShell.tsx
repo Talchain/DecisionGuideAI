@@ -30,6 +30,7 @@ import {
 import { X } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
+import { ICON_STANDALONE } from '../../../canvas/conversation/panelIcons'
 
 const TOAST_MS = 1800
 
@@ -220,7 +221,7 @@ export function ModalShell({
             onClick={onClose}
             className="flex h-7 w-7 flex-none items-center justify-center rounded-lg border border-panel-border bg-transparent text-info hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
           >
-            <X size={15} aria-hidden="true" />
+            <X size={ICON_STANDALONE} aria-hidden="true" />
           </button>
         </div>
         {children}

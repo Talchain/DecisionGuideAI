@@ -15,6 +15,7 @@ import Tooltip from '../../../components/Tooltip'
 import { typography } from '@/styles/typography'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
+import { ICON_DENSE } from '../../conversation/panelIcons'
 
 /** Goal constraint — accepts CEEGoalConstraint shape */
 interface GoalConstraint {
@@ -388,7 +389,7 @@ export function SuccessTarget({
         {constraintFeasibilityWarning && (
           <Tooltip delay={300} content="Target is near the upper range of what the model predicts. Consider whether this is achievable.">
             <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 shrink-0`}>
-              <AlertTriangle size={10} className="text-warning shrink-0" />
+              <AlertTriangle size={ICON_DENSE} className="text-warning shrink-0" />
               Near range limit
             </span>
           </Tooltip>

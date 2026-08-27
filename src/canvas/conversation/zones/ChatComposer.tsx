@@ -433,7 +433,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
                 marginBottom: 2,
                 transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
                 background: composer.canSend ? 'var(--primary, #277A9D)' : 'var(--bg-panel-hover, #FEF9F3)',
-                border: composer.canSend ? 'none' : '1px solid var(--border-default, #E8E5E1)',
+                border: composer.canSend ? 'none' : '1px solid var(--border-default, #EEE6D8)',
                 boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
                 cursor: composer.canSend ? 'pointer' : 'default',
               }}
