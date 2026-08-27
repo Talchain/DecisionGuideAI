@@ -110,9 +110,12 @@ export function assumedStrengthOthers(assumedFragileCount: number): string | nul
  */
 /**
  * ⭐ "ASK OLUMI TO", NOT "SET". The button used to read "Set this strength" and
- * pointed at `openEdgeStrengthEditor` -> the Inspector, whose every edge setter
- * is `'disabled'` (`inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY)
- * and whose own mounted copy says it "cannot yet be saved to the shared model".
+ * pointed at `openEdgeStrengthEditor` -> the Inspector, which is read-only
+ * because `InspectorRouter` wraps every panel in an unconditional
+ * `<fieldset disabled>`, and whose own mounted copy says it "cannot yet be
+ * saved to the shared model". (This cited the `EDGE_SETTER_AUTHORITY` manifest
+ * in `inspector-v2/useInspectorMutations.ts`; deleted 27 Aug 2026, PR #886 —
+ * zero code consumers. The reason the button was re-pointed is unchanged.)
  * So the product's MOST PROMINENT intervention — zero clicks, panel top level,
  * carrying the most specific sentence Olumi produces — terminated in nothing.
  *

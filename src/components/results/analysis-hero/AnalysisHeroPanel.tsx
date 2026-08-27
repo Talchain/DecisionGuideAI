@@ -569,9 +569,13 @@ export function AnalysisHeroPanel({
         collapse — and says the most specific thing Olumi produces. Its button was
         gated on `analysisAssumedEdgeStrength` and pointed at
         `openEdgeStrengthEditor`, which raises the Inspector. The Inspector CANNOT
-        SAVE: `inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY (:143)
-        is every setter `'disabled'`, and its own mounted copy says these changes
-        "cannot yet be saved to the shared model".
+        SAVE: `InspectorRouter` wraps every panel in an unconditional
+        `<fieldset disabled>`, and its own mounted copy says these changes
+        "cannot yet be saved to the shared model". (This cited
+        `inspector-v2/useInspectorMutations.ts` EDGE_SETTER_AUTHORITY (:143);
+        that manifest was deleted 27 Aug 2026, PR #886, as an unenforced mirror
+        with zero code consumers, and the line number now points at unrelated
+        code. The claim itself is unchanged.)
 
         ⚠ THE FLAG IS UNCHANGED AND STILL HONEST. `analysisAssumedEdgeStrength`
         stays `'disabled'` because the DIRECT-manipulation route genuinely is dead.

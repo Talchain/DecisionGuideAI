@@ -74,9 +74,11 @@ export const COACHING = {
    * What is entitled here, per this file's own header: the factor's declared
    * TYPE supports "source of uncertainty"; the field's declared role supports
    * "analysis input". What is NOT entitled is any advice to go and set it —
-   * `NODE_SETTER_AUTHORITY.setPriorRange` is `'disabled'` and the Inspector is
-   * wrapped in a disabled fieldset, so the only action this card's button
-   * performs is `handleAsk`. The nudge therefore points at asking, which is
+   * the Inspector is wrapped in an unconditional disabled fieldset, so the
+   * only action this card's button performs is `handleAsk`. (This sentence
+   * also cited `NODE_SETTER_AUTHORITY.setPriorRange`; that manifest was
+   * deleted on 27 Aug 2026, PR #886, as an unenforced mirror with zero code
+   * consumers. The fieldset is the enforcement.) The nudge therefore points at asking, which is
    * exactly what the button does.
    */
   factorExternalUncertainty: 'This is a source of uncertainty. Its recorded range is an analysis input, so it is worth asking whether that range reflects what you know.',

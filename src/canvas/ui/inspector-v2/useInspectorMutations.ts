@@ -9,7 +9,6 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
-import type { MutationAuthority } from '../../mutations/mutationAuthority'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -98,55 +97,82 @@ export const EDITOR_WRITTEN_FIELDS = {
 } as const
 
 /**
- * Product authority for a user-visible mutation.
+ * ⭐ THE INSPECTOR'S READ-ONLY POLICY LIVES IN ITS ENFORCEMENT, NOT IN A TABLE.
  *
- * `server_graph` is the only class allowed to look like a model edit. A
- * `server_fact` records a judgement without changing GraphV3 or analysis;
- * `local_presentation` may change selection/layout only; `disabled` has no
- * honest mounted write path yet.
- */
-/**
- * Exhaustive authority manifest for the Inspector's sanctioned setters.
+ * Two authority manifests used to sit here — `NODE_SETTER_AUTHORITY` (21 keys)
+ * and `EDGE_SETTER_AUTHORITY` (5), every value `'disabled'`. They were DELETED
+ * on 26 Aug 2026 because they had **zero code consumers**: outside their own
+ * definition and `mutationAuthority.spec.ts`, every reference to either was a
+ * comment or a documentation string, and NONE WAS A CONSUMER. Nothing branched
+ * on them. A table nothing reads cannot drift — and cannot enforce either; it
+ * was a hand-maintained mirror of a decision that is actually made somewhere
+ * else.
  *
- * The setters themselves remain useful to producer/reconciliation code, but
- * this table decides whether an Inspector control may expose them. Only the
- * prior-range event has a server carrier here, and that carrier is a FACT — it
- * deliberately does not update canonical GraphV3 or simulation inputs. The
- * mounted emergency policy therefore keeps the Inspector read-only until a
- * field has a receipt-bearing graph transaction (or a deliberately designed,
- * explicitly fact-only UI).
+ * ⚠ THAT SENTENCE SAID "every reference … was a COMMENT" UNTIL 27 Aug 2026,
+ * AND THAT WAS FALSE — corrected after an independent review found the
+ * counter-example. `canvas/domain/analyticalNodeFields.ts:158` names
+ * `NODE_SETTER_AUTHORITY.setPriorRange` inside a RUNTIME STRING LITERAL, in a
+ * file imported by `useAutosave`, `graphChangeDiff`, `analyticalChange` and
+ * `useGraphEditEvents` — so it ships to browsers. The narrow claim the
+ * deletion actually rests on ("zero code CONSUMERS": nothing branches on
+ * either table) is true and was always the load-bearing one; "a COMMENT" was a
+ * careless widening of it. **The distinction matters because a string that
+ * ships is prose the PRODUCT carries, not prose the repo carries** — this
+ * deletion converts that literal from true to false, and repairing it is a
+ * separate owned follow-up, deliberately not done here because you cannot
+ * write "the table was deleted" before it is.
+ *
+ * WHERE IT IS ACTUALLY MADE: `InspectorRouter` wraps every panel — node
+ * (`InspectorRouter.tsx:334`) and edge (`:221`) — in an unconditional
+ * `<fieldset disabled data-authority="disabled">`, beneath a note rendering
+ * `INSPECTOR_READ_ONLY_REASON` and bound to it by `aria-describedby`.
+ *
+ * ⭐ THE FIELDSET IS STRUCTURAL WHERE THE MANIFESTS WERE CLERICAL. It disables
+ * every descendant FORM CONTROL — `button`, `input`, `select`, `textarea` —
+ * without anyone remembering to classify it. The manifests could only record a
+ * decision after the fact; the fieldset makes it. Their one real contribution —
+ * a completeness check that every setter was classified — is replaced by a
+ * DOM-level claim that no control escapes the boundary, which holds however
+ * many setters exist.
+ *
+ * ⚠ THIS PARAGRAPH SAID "STRICTLY STRONGER … a setter added tomorrow is inert"
+ * UNTIL 27 Aug 2026. AN INDEPENDENT REVIEW REFUTED IT BY EXECUTION, so the
+ * scope is now stated exactly. `<fieldset disabled>` inerts form-associated
+ * descendants ONLY. It does NOT inert a `[role="button"]` div, a
+ * `[contenteditable]`, or an `a[href]`. Measured inside this very boundary:
+ * one such div (`EmptyDescriptionPrompt`, `tabindex=0`) takes focus, fires its
+ * handler and opens an editor, while the two real `<button>`s beside it are
+ * disabled in the same run. "A setter added tomorrow is inert" is therefore
+ * true of a form control and false of a div with a click handler — which is
+ * exactly the kind of control someone adds without thinking of it as a setter.
+ *
+ * ⭐ THE BOUND ON THAT FINDING, CARRIED EXACTLY AND NOT UPGRADED: **NO WRITE
+ * ESCAPES.** The `<textarea>` that opens is itself inside the fieldset and
+ * natively disabled, and the review explicitly DECLINED to claim user
+ * reachability, because the store write it exercised came from a synthetic
+ * `fireEvent.change` that bypasses the browser's own gating. So this is a
+ * recorded SCOPE LIMIT of the mechanism, not a known user-facing defect. Do
+ * not cite it as one; do not widen it without measuring it yourself. The exact
+ * set of non-inerted controls is pinned in
+ * `__tests__/inspectorAuthorityBinding.spec.tsx`
+ * (`NOT_INERTED_BY_THE_FIELDSET_NODE`), so it REDs if it grows or shrinks
+ * rather than living only in this comment.
+ *
+ * The setters below remain exported because producer/reconciliation code uses
+ * them; being callable in code has never been what made a control reachable to
+ * a user, and the fieldset is what decides that.
+ *
+ * ⚠ DO NOT REINTRODUCE A CLASSIFICATION TABLE HERE. If you want to know why a
+ * control is inert, read the fieldset and the notice; both are pinned by
+ * `__tests__/inspectorAuthorityBinding.spec.tsx`, which fails if the boundary,
+ * the copy, or the aria binding between them is removed — per region, so a
+ * break in one is not masked by the other.
+ *
+ * ⚠ AND NOTE WHICH QUESTION THIS IS. `CANONICAL_EDIT_AUTHORITY`
+ * (`canvas/mutations/mutationAuthority.ts`) answers a DIFFERENT one — see its
+ * header. It governs whether a control may LOOK like a shared-model edit. This
+ * file governs whether the Inspector's controls are reachable at all.
  */
-export const NODE_SETTER_AUTHORITY = {
-  setLabel: 'disabled',
-  setDescription: 'disabled',
-  setThreshold: 'disabled',
-  setObservedValue: 'disabled',
-  setIntervention: 'disabled',
-  removeIntervention: 'disabled',
-  setPriorRange: 'disabled',
-  setObservedRawValue: 'disabled',
-  setObservedUnit: 'disabled',
-  setObservedCap: 'disabled',
-  setObservedBaseline: 'disabled',
-  setObservedStd: 'disabled',
-  setObservedSource: 'disabled',
-  setCategory: 'disabled',
-  setExtractionType: 'disabled',
-  setFactorType: 'disabled',
-  setStateSpaceRange: 'disabled',
-  setUncertaintyDrivers: 'disabled',
-  setGoalCap: 'disabled',
-  setProbability: 'disabled',
-  setImpact: 'disabled',
-} as const satisfies Record<keyof typeof NODE_SETTER_FIELDS, MutationAuthority>
-
-export const EDGE_SETTER_AUTHORITY = {
-  setStrength: 'disabled',
-  setStd: 'disabled',
-  setExistsProbability: 'disabled',
-  setLabel: 'disabled',
-  setDirection: 'disabled',
-} as const satisfies Record<keyof typeof EDGE_SETTER_FIELDS, MutationAuthority>
 
 /** Receipt-bearing actions mounted elsewhere and intentionally preserved. */
 export const INSPECTOR_READ_ONLY_REASON =

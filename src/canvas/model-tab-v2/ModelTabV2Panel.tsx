@@ -145,16 +145,34 @@ export function ModelTabV2Panel({
    * the branch above is structurally exclusive and the spec pins the outline rows
    * absent in queue mode, with a before-click contrast control.
    *
-   * What is NOT yet true is the SURFACE. `ModelTabBody.tsx` renders
-   * `FactorsSection` unconditionally, outside this panel, in the same scroll — so
-   * a queued factor appears in the queue AND in its v1 factor card. The
-   * consolidation's invariant *"there is only ever one rendering of a row"* is a
-   * goal at this tip, not an achieved state, and it stays that way until the
-   * duplicate section stack is deleted.
+   * ⚠⚠ THE PARAGRAPH THAT USED TO SIT HERE IS FALSE AND IS CORRECTED BELOW
+   * (26 Aug 2026). It read: *"`ModelTabBody.tsx` renders `FactorsSection`
+   * unconditionally, outside this panel, in the same scroll — so a queued
+   * factor appears in the queue AND in its v1 factor card."* **It does not.**
    *
-   * A spec that renders THIS COMPONENT can never see that (trap 3b — bound to a
-   * component, not to the surface the deployed tab mounts), which is exactly how
-   * the overstatement passed a green suite.
+   * `ModelTabBody.tsx:120` declares `const LEGACY_DETAILED_EDITOR_MOUNTED =
+   * false`, and `:917` gates the ENTIRE v1 section stack behind it
+   * (`{LEGACY_DETAILED_EDITOR_MOUNTED && (<section data-testid="model-tab-v1-stack">…)}`).
+   * esbuild folds the constant, so Goal/Options/Factors/Relationships/Risks are
+   * dead-code-eliminated — they are not merely hidden, they are not shipped.
+   * Verified at the DEPLOYED bundle (staging `f287c012`, 81 chunks crawled):
+   * `factor-card-`, `factors-add-cta`, `attribution-stability-pill` and
+   * `range-derivation-badge` all read ZERO, while positive controls in the same
+   * sweep fired (`option-card-` ×2 — both from live RESULTS components —
+   * `model-scientific-transparency`, `model-tab-v2-panel`). So this panel IS
+   * the sole rendering of a row, and the consolidation invariant HOLDS.
+   *
+   * ⚠ HOW THE FALSE VERSION SURVIVED, because that is the reusable part: the
+   * JSX for those sections really does sit at `ModelTabBody.tsx:972`/`:981`
+   * with no local condition. Reading the call site WITHOUT its enclosing guard
+   * at `:917` produces exactly the sentence above — and a later reader who
+   * greps for `<FactorsSection` reproduces the same mistake. A comment that
+   * describes a mount MUST name the guard, not just the call site.
+   *
+   * A spec that renders THIS COMPONENT can never settle either version (trap 3b
+   * — bound to a component, not to the surface the deployed tab mounts), which
+   * is why the deployed-bundle sweep above, not a green suite, is the evidence
+   * cited here. Re-derive it rather than inheriting this paragraph.
    */
   const [activeQueue, setActiveQueue] = useState<MountedQueueId | null>(null)
   /**

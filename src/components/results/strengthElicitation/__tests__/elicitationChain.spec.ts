@@ -201,7 +201,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
 
     // ⚠ THE PRODUCT NO LONGER WIRES THIS CARD TO THIS HANDLER. The panel now routes
     // the act to the Ask-Olumi drawer, because the Inspector cannot save an edge
-    // strength (EDGE_SETTER_AUTHORITY: every setter 'disabled'). The adapter below
+    // strength — `InspectorRouter` wraps every panel in an unconditional
+    // `<fieldset disabled>`. (This cited `EDGE_SETTER_AUTHORITY: every setter
+    // 'disabled'`; that manifest was deleted 27 Aug 2026, PR #886, as an
+    // unenforced mirror with zero code consumers.) The adapter below
     // keeps this spec exercising `openEdgeStrengthEditor` itself — which retains
     // other callers (`ConnRow`, `NodeQuickActions`) — rather than deleting
     // coverage of a helper that is still live elsewhere.
@@ -295,7 +298,10 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
 
     // ⚠ THE PRODUCT NO LONGER WIRES THIS CARD TO THIS HANDLER. The panel now routes
     // the act to the Ask-Olumi drawer, because the Inspector cannot save an edge
-    // strength (EDGE_SETTER_AUTHORITY: every setter 'disabled'). The adapter below
+    // strength — `InspectorRouter` wraps every panel in an unconditional
+    // `<fieldset disabled>`. (This cited `EDGE_SETTER_AUTHORITY: every setter
+    // 'disabled'`; that manifest was deleted 27 Aug 2026, PR #886, as an
+    // unenforced mirror with zero code consumers.) The adapter below
     // keeps this spec exercising `openEdgeStrengthEditor` itself — which retains
     // other callers (`ConnRow`, `NodeQuickActions`) — rather than deleting
     // coverage of a helper that is still live elsewhere.

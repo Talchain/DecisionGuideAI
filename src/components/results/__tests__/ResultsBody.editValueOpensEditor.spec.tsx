@@ -250,11 +250,16 @@ describe('ResultsBody — local-only value actions fail closed', () => {
    *
    * This case asserted the pencil was WITHHELD, on the correct premise that its
    * destination could not save: it called `openNodeInspector`, and the Inspector
-   * is read-only by its own policy — `inspector-v2/useInspectorMutations.ts`
-   * `NODE_SETTER_AUTHORITY` (:119) and `EDGE_SETTER_AUTHORITY` (:143) are every
-   * setter `'disabled'`, and `INSPECTOR_READ_ONLY_REASON` says so in user-facing
-   * copy: "these changes cannot yet be saved to the shared model. Use the Model
-   * tab for supported factor values."
+   * is read-only by its own policy — `InspectorRouter` wraps every panel in an
+   * unconditional `<fieldset disabled>`, and `INSPECTOR_READ_ONLY_REASON` says
+   * so in user-facing copy: "these changes cannot yet be saved to the shared
+   * model. Use the Model tab for supported factor values."
+   *
+   * ⚠ THE PREMISE WAS ORIGINALLY CITED TO TWO MANIFESTS —
+   * `inspector-v2/useInspectorMutations.ts` `NODE_SETTER_AUTHORITY` (:119) and
+   * `EDGE_SETTER_AUTHORITY` (:143). Both were deleted on 27 Aug 2026 (PR #886)
+   * as unenforced mirrors with zero code consumers, and those line numbers now
+   * point at unrelated code. The premise itself is unchanged and still true.
    *
    * The act now goes where that copy points. Withholding it was right while it
    * dead-ended; it is wrong now that it reaches the one path that writes.
