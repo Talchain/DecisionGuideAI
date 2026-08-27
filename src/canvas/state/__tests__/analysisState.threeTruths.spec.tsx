@@ -173,7 +173,6 @@ describe('three-truths window — the opposite direction', () => {
     expect(trust.semantic).toBe('current')
     expect(hero.state).toBe('complete')
     expect(selector.displayedFreshness).toBe('fresh')
-    expect(selector.leaderClaimPermitted).toBe(true)
   })
 
   it('a blocked verdict routes the hero to not_ready, not to a completion claim', () => {

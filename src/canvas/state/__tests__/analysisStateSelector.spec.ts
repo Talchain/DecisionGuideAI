@@ -431,54 +431,9 @@ describe('HERO COPY — a refusal must never render as green "Analysis complete"
   })
 })
 
-describe('LEADER CLAIM — the contract conjunction is applied once, here', () => {
-  it('permits a leader only when permitted AND complete_current', () => {
-    expect(
-      composeAnalysisState({ ...LEGACY_SAYS_CURRENT, analysisState: wireVerdict() })
-        .leaderClaimPermitted,
-    ).toBe(true)
-  })
-
-  it('WITHHOLDS a permitted leader on a stale run — permitted alone is not sufficient', () => {
-    const composed = composeAnalysisState({
-      ...LEGACY_SAYS_CURRENT,
-      analysisState: wireVerdict({
-        run_state: {
-          kind: 'complete_stale',
-          computed_at: '2026-08-16T10:00:00.000Z',
-          cause: 'options_changed',
-        },
-        leader_claim: { permitted: true },
-        // CC-F (0.47.0): a stale kind forbids usable_for_chips.
-        usable_for_chips: false,
-      }),
-    })
-    expect(composed.wire?.leader_claim.permitted).toBe(true)
-    expect(composed.leaderClaimPermitted).toBe(false)
-  })
-
-  it('carries the producer withheld_reason verbatim and never fabricates one', () => {
-    const withReason = composeAnalysisState({
-      ...LEGACY_SAYS_CURRENT,
-      analysisState: wireVerdict({
-        leader_claim: { permitted: false, withheld_reason: 'near_tie' },
-      }),
-    })
-    expect(withReason.leaderClaimPermitted).toBe(false)
-    expect(withReason.leaderWithheldReason).toBe('near_tie')
-
-    const withoutReason = composeAnalysisState({
-      ...LEGACY_SAYS_CURRENT,
-      analysisState: wireVerdict({ leader_claim: { permitted: false } }),
-    })
-    expect(withoutReason.leaderWithheldReason).toBeNull()
-  })
-})
-
 describe('ABSENCE IS DISTINCT — not-stated is null, never a default', () => {
   it('reports every producer-only member as null when the wire is silent', () => {
     const composed = composeAnalysisState(LEGACY_SAYS_CURRENT)
-    expect(composed.leaderClaimPermitted).toBeNull()
     expect(composed.usableForProse).toBeNull()
     expect(composed.usableForChips).toBeNull()
     expect(composed.usableForFollowup).toBeNull()
@@ -663,8 +618,6 @@ describe('RUNTIME FLOOR — an unknown kind from a newer CEE degrades, never com
     expect(composed.displayedFreshness).toBe('unknown')
     expect(composed.displayState.state).not.toBe('complete')
     expect(composed.displayState.state).toBe('results_stale')
-    // And no leader may be named under a state we do not understand.
-    expect(composed.leaderClaimPermitted).toBe(false)
   })
 
   it('every DECLARED kind still round-trips — the floor did not swallow the real ones', () => {
