@@ -53,7 +53,7 @@ export function BriefReadinessPill({ readiness, expanded, onToggle }: BriefReadi
       />
       <span>{config.label}</span>
       <svg
-        width="10" height="10" viewBox="0 0 24 24" fill="none"
+        width="12" height="12" viewBox="0 0 24 24" fill="none"
         aria-hidden="true"
         className="flex-shrink-0"
         style={{ stroke: 'var(--text-light, #6E6B6B)', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }}

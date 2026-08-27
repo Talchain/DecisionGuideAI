@@ -17,6 +17,7 @@ import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { scrollToField } from './utils/scrollToField'
 import { beginInteractionChain } from '../../lib/debug-state'
+import { ICON_STATUS } from './panelIcons'
 
 const FOCUS_DEBOUNCE_MS = 150
 
@@ -48,10 +49,10 @@ function categoryIcon(cat: GuidanceItem['category']) {
   switch (cat) {
     case 'must_fix':
     case 'should_fix':
-      return <AlertTriangle size={11} aria-hidden="true" />
+      return <AlertTriangle size={ICON_STATUS} aria-hidden="true" />
     case 'could_fix':
     case 'technique':
-      return <Lightbulb size={11} aria-hidden="true" />
+      return <Lightbulb size={ICON_STATUS} aria-hidden="true" />
   }
 }
 

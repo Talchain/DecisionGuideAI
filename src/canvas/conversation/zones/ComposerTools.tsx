@@ -17,6 +17,7 @@ import { NodeShape } from '../primitives/NodeShape'
 import type { NodeType } from '../../domain/nodes'
 import { typography } from '../../../styles/typography'
 import { FlipDropdown } from '../../../components/ui/FlipDropdown'
+import { ICON_STROKE } from '../panelIcons'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared types and copy (formerly in GuideDropdown / ThinkingModeDropdown)
@@ -124,7 +125,7 @@ export function ComposerTools({
         }}
         data-testid="composer-tools-trigger"
       >
-        <Settings className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+        <Settings className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
       </button>
 
       <FlipDropdown

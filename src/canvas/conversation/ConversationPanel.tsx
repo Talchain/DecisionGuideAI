@@ -41,6 +41,7 @@ import { BLOCKED_REASON_COPY } from '../utils/composeBlockedReason'
 import { useShowToastSafe } from '../ToastContext'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+import { ICON_STROKE } from './panelIcons'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -818,7 +819,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           }}
           data-testid="chat-panel-collapse"
         >
-          <ChevronsRight className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+          <ChevronsRight className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
         </button>
       </div>
       )}
