@@ -173,7 +173,7 @@
      hardcoded, in src/styles/__tests__/brand-tokens.spec.ts — that test fails
      if this value, or any of those ground tokens, moves below AA.
      Light shade kept for canvas node fills and selection backgrounds. */
-  --info-rgb: 39 122 157;
+  --info-rgb: 200 60 40;
   --info: rgb(var(--info-rgb));
   --info-light-rgb: 186 215 228;
   --info-light: rgb(var(--info-light-rgb));
