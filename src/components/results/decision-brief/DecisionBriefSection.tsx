@@ -3,6 +3,7 @@ import { BookOpenText, CircleDot, GitBranch, Layers3 } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
 import { typography } from '@/styles/typography'
 import { readDecisionBriefViewModel, type DecisionBriefViewModel } from './decisionBriefViewModel'
+import { ICON_STATUS } from '../../../canvas/conversation/panelIcons'
 
 interface BriefGroupProps {
   title: string
@@ -22,7 +23,7 @@ function BriefGroup({ title, items, icon: Icon, expanded, testId }: BriefGroupPr
   return (
     <div className="min-w-0" data-testid={testId}>
       <dt className={`${typography.panelMeta} flex items-center gap-1.5 text-text-light`}>
-        <Icon size={13} className="shrink-0 text-info" aria-hidden="true" />
+        <Icon size={ICON_STATUS} className="shrink-0 text-info" aria-hidden="true" />
         <span>{title}</span>
       </dt>
       <dd className="mt-1.5 min-w-0">

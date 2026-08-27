@@ -2061,7 +2061,7 @@
   font-weight: var(--conv-type-weight-medium);
   color: var(--text-body, #262626);
   background: transparent;
-  border: 1px solid var(--border-default, #E4E2E0);
+  border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 9999px;
   padding: 4px 10px;
   cursor: pointer;
@@ -2099,7 +2099,7 @@
   margin: 0;
   padding: 8px 12px;
   background: var(--bg-panel, #FEFEFE);
-  border: 1px solid var(--border-default, #E4E2E0);
+  border: 1px solid var(--border-default, #EEE6D8);
   border-radius: 8px;
   display: flex;
   flex-direction: column;

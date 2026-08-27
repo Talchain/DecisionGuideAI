@@ -11,6 +11,7 @@ import { useCanvasStore } from '../store'
 import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
 import { InspectorRouter } from '../ui/inspector-v2'
+import { ICON_STANDALONE } from '../conversation/panelIcons'
 
 /** Feature flag: when true, uses the new per-type inspector panels */
 const USE_INSPECTOR_V2 = true
@@ -216,7 +217,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
           className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
           aria-label="Close inspector"
         >
-          <X size={18} />
+          <X size={ICON_STANDALONE} />
         </button>
       </div>
 

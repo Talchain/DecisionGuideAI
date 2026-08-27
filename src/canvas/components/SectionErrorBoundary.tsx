@@ -129,7 +129,7 @@ function SectionErrorFallback({
             <div className="mt-1 rounded bg-black/5 p-2 text-xs font-mono text-text-light max-h-40 overflow-y-auto">
               <p className="font-semibold text-danger">{error.message}</p>
               {componentStack && (
-                <pre className="mt-1 whitespace-pre-wrap break-all text-[10px] leading-tight">
+                <pre className="mt-1 whitespace-pre-wrap break-all leading-tight">
                   {componentStack}
                 </pre>
               )}

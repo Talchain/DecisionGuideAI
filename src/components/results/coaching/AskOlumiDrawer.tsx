@@ -30,6 +30,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { MODEL_LIMIT_CAVEAT } from '../utils/modelLimitCaveat'
 import { typography } from '../../../styles/typography'
 import { useAskOlumiStore } from './askOlumiStore'
+import { ICON_STANDALONE } from '../../../canvas/conversation/panelIcons'
 
 const TOAST_MS = 1800
 
@@ -170,7 +171,7 @@ export function AskOlumiDrawer() {
           aria-label="Work through it with Olumi"
           className="fixed bottom-[18px] right-[18px] z-[25] w-[min(370px,calc(100vw-36px))] rounded-xl border border-panel-border bg-panel shadow-2"
         >
-          <div className="flex items-center gap-2 px-[11px] pt-[10px]">
+          <div className="flex items-center gap-2 px-[11px] pt-2.5">
             <h2 className={`${typography.panelHeader} flex-1 text-text-header`}>
               Work through it with Olumi
             </h2>
@@ -180,10 +181,10 @@ export function AskOlumiDrawer() {
               onClick={close}
               className="rounded-lg p-1 text-text-light hover:bg-panel-hover hover:text-text-header"
             >
-              <X size={15} aria-hidden="true" />
+              <X size={ICON_STANDALONE} aria-hidden="true" />
             </button>
           </div>
-          <div className="px-[11px] pb-[10px] pt-2">
+          <div className="px-[11px] pb-2.5 pt-2">
             {showContextLine && (
               <p
                 data-testid="ask-olumi-context"

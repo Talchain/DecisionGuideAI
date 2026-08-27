@@ -1047,7 +1047,7 @@ export function DraftChat() {
           >
             <div
               className="w-[34px] h-[34px] flex-shrink-0 rounded-full flex items-center justify-center bg-panel-hover text-text-light"
-              style={{ border: '1px solid var(--border-default, #E8E5E1)' }}
+              style={{ border: '1px solid var(--border-default, #EEE6D8)' }}
               aria-hidden="true"
             >
               <ChevronUp className="w-4 h-4" />

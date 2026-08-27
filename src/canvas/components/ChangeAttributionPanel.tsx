@@ -171,7 +171,7 @@ function ChangeItem({
                 key={nodeId}
                 type="button"
                 onClick={() => onFocusElement(nodeId)}
-                className={`${typography.code} text-[10px] px-1.5 py-0.5 rounded bg-sand-100 text-ink-600 hover:bg-info-100 hover:text-info-700 transition-colors`}
+                className={`${typography.code} px-1.5 py-0.5 rounded bg-sand-100 text-ink-600 hover:bg-info-100 hover:text-info-700 transition-colors`}
               >
                 {nodeId.slice(0, 8)}
               </button>
@@ -288,7 +288,7 @@ export function ChangeAttributionPanel({
                 <Tooltip key={source} content={`${count} ${config.label.toLowerCase()}`}>
                   <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${config.className} bg-opacity-10`}>
                     <SourceIcon className={`w-3 h-3 ${config.className}`} />
-                    <span className={`${typography.code} text-[10px] ${config.className}`}>
+                    <span className={`${typography.code} ${config.className}`}>
                       {count}
                     </span>
                   </div>

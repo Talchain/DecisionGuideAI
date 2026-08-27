@@ -982,7 +982,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // Chip surface = the panel token, matching the sibling edge-label
               // chips (bg-panel) so it no longer glares on a dark canvas. Inline
               // CSS-var idiom mirrors the other token refs in this file
-              // (e.g. the leader line's var(--border-default, #d4d4d8)); the
+              // (e.g. the leader line's var(--border-default, #EEE6D8)); the
               // hex is only a var() fallback, not a live literal.
               backgroundColor: 'var(--bg-panel, #FEFEFE)',
               padding: '0 3px',
@@ -1059,7 +1059,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           y1={labelY}
           x2={labelX + labelOffsetX}
           y2={labelY + labelOffsetY}
-          stroke="var(--border-default, #d4d4d8)"
+          stroke="var(--border-default, #EEE6D8)"
           strokeWidth={1}
           data-testid="edge-label-leader"
         />

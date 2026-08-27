@@ -82,6 +82,7 @@ import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
+import { ICON_DENSE } from '../../conversation/panelIcons'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
 
@@ -496,7 +497,7 @@ function StatusBanner({
           className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover disabled:opacity-50 cursor-pointer`}
           data-testid="status-banner-retry"
         >
-          <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
+          <RefreshCw size={ICON_DENSE} className={isRetrying ? 'animate-spin' : ''} />
           {isRetrying ? 'Retrying' : 'Retry'}
         </button>
       )}

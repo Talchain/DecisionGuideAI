@@ -12,6 +12,7 @@ import {
   dismissAssistantFocus,
   useAssistantFocusStore,
 } from '../stores/assistantFocusStore'
+import { ICON_STANDALONE } from '../conversation/panelIcons'
 
 export const AssistantFocusChip = memo(function AssistantFocusChip() {
   const target = useAssistantFocusStore((state) => state.target)
@@ -44,7 +45,7 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
       data-focus-id={target.id}
       data-focus-kind={target.kind}
     >
-      <Sparkles size={15} className="shrink-0 text-info" aria-hidden="true" />
+      <Sparkles size={ICON_STANDALONE} className="shrink-0 text-info" aria-hidden="true" />
       <span className="truncate text-sm text-text-body">
         Olumi focus: <strong className="font-medium">{target.label}</strong>
       </span>
@@ -55,7 +56,7 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
         aria-label={`Dismiss Olumi focus on ${target.label}`}
         title="Dismiss focus"
       >
-        <X size={15} aria-hidden="true" />
+        <X size={ICON_STANDALONE} aria-hidden="true" />
       </button>
     </div>
   )
