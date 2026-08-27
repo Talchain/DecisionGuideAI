@@ -103,22 +103,60 @@ export const EDITOR_WRITTEN_FIELDS = {
  * and `EDGE_SETTER_AUTHORITY` (5), every value `'disabled'`. They were DELETED
  * on 26 Aug 2026 because they had **zero code consumers**: outside their own
  * definition and `mutationAuthority.spec.ts`, every reference to either was a
- * COMMENT. Nothing branched on them. A table nothing reads cannot drift — and
- * cannot enforce either; it was a hand-maintained mirror of a decision that is
- * actually made somewhere else.
+ * comment or a documentation string, and NONE WAS A CONSUMER. Nothing branched
+ * on them. A table nothing reads cannot drift — and cannot enforce either; it
+ * was a hand-maintained mirror of a decision that is actually made somewhere
+ * else.
+ *
+ * ⚠ THAT SENTENCE SAID "every reference … was a COMMENT" UNTIL 27 Aug 2026,
+ * AND THAT WAS FALSE — corrected after an independent review found the
+ * counter-example. `canvas/domain/analyticalNodeFields.ts:158` names
+ * `NODE_SETTER_AUTHORITY.setPriorRange` inside a RUNTIME STRING LITERAL, in a
+ * file imported by `useAutosave`, `graphChangeDiff`, `analyticalChange` and
+ * `useGraphEditEvents` — so it ships to browsers. The narrow claim the
+ * deletion actually rests on ("zero code CONSUMERS": nothing branches on
+ * either table) is true and was always the load-bearing one; "a COMMENT" was a
+ * careless widening of it. **The distinction matters because a string that
+ * ships is prose the PRODUCT carries, not prose the repo carries** — this
+ * deletion converts that literal from true to false, and repairing it is a
+ * separate owned follow-up, deliberately not done here because you cannot
+ * write "the table was deleted" before it is.
  *
  * WHERE IT IS ACTUALLY MADE: `InspectorRouter` wraps every panel — node
  * (`InspectorRouter.tsx:334`) and edge (`:221`) — in an unconditional
  * `<fieldset disabled data-authority="disabled">`, beneath a note rendering
  * `INSPECTOR_READ_ONLY_REASON` and bound to it by `aria-describedby`.
  *
- * ⭐ THE FIELDSET IS STRICTLY STRONGER THAN THE MANIFESTS WERE. It disables
- * every descendant control structurally, so a setter added tomorrow is inert
+ * ⭐ THE FIELDSET IS STRUCTURAL WHERE THE MANIFESTS WERE CLERICAL. It disables
+ * every descendant FORM CONTROL — `button`, `input`, `select`, `textarea` —
  * without anyone remembering to classify it. The manifests could only record a
  * decision after the fact; the fieldset makes it. Their one real contribution —
  * a completeness check that every setter was classified — is replaced by a
  * DOM-level claim that no control escapes the boundary, which holds however
  * many setters exist.
+ *
+ * ⚠ THIS PARAGRAPH SAID "STRICTLY STRONGER … a setter added tomorrow is inert"
+ * UNTIL 27 Aug 2026. AN INDEPENDENT REVIEW REFUTED IT BY EXECUTION, so the
+ * scope is now stated exactly. `<fieldset disabled>` inerts form-associated
+ * descendants ONLY. It does NOT inert a `[role="button"]` div, a
+ * `[contenteditable]`, or an `a[href]`. Measured inside this very boundary:
+ * one such div (`EmptyDescriptionPrompt`, `tabindex=0`) takes focus, fires its
+ * handler and opens an editor, while the two real `<button>`s beside it are
+ * disabled in the same run. "A setter added tomorrow is inert" is therefore
+ * true of a form control and false of a div with a click handler — which is
+ * exactly the kind of control someone adds without thinking of it as a setter.
+ *
+ * ⭐ THE BOUND ON THAT FINDING, CARRIED EXACTLY AND NOT UPGRADED: **NO WRITE
+ * ESCAPES.** The `<textarea>` that opens is itself inside the fieldset and
+ * natively disabled, and the review explicitly DECLINED to claim user
+ * reachability, because the store write it exercised came from a synthetic
+ * `fireEvent.change` that bypasses the browser's own gating. So this is a
+ * recorded SCOPE LIMIT of the mechanism, not a known user-facing defect. Do
+ * not cite it as one; do not widen it without measuring it yourself. The exact
+ * set of non-inerted controls is pinned in
+ * `__tests__/inspectorAuthorityBinding.spec.tsx`
+ * (`NOT_INERTED_BY_THE_FIELDSET_NODE`), so it REDs if it grows or shrinks
+ * rather than living only in this comment.
  *
  * The setters below remain exported because producer/reconciliation code uses
  * them; being callable in code has never been what made a control reachable to

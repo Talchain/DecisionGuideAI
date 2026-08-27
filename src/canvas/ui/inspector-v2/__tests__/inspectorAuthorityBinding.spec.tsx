@@ -6,29 +6,56 @@
  * `NODE_SETTER_AUTHORITY` (21 keys) and `EDGE_SETTER_AUTHORITY` (5), every
  * value `'disabled'`. They were DELETED because they had **zero code
  * consumers**: every reference to either, outside their own definition and
- * `mutationAuthority.spec.ts`, was a COMMENT. Nothing branched on them, so
- * nothing could drift from them — and a table that cannot drift also cannot
- * enforce. Contrast control at the time of deletion: `useNodeMutations` /
- * `useEdgeMutations` were imported by 30+ files, so the sweep that returned
- * zero for the tables was demonstrably able to see consumers.
+ * `mutationAuthority.spec.ts`, was a comment or a documentation string, and
+ * NONE WAS A CONSUMER. Nothing branched on them, so nothing could drift from
+ * them — and a table that cannot drift also cannot enforce. Contrast control
+ * at the time of deletion: `useNodeMutations` / `useEdgeMutations` were
+ * imported by 30+ files, so the sweep that returned zero for the tables was
+ * demonstrably able to see consumers.
+ *
+ * ⚠ "was a COMMENT" is what this said until 27 Aug 2026, and it was false:
+ * `canvas/domain/analyticalNodeFields.ts:158` names the table in a RUNTIME
+ * STRING LITERAL that ships to browsers. The narrow claim — zero code
+ * CONSUMERS — is true and is the one the deletion rests on. See
+ * `useInspectorMutations.ts` for the full correction.
  *
  * The ACTUAL enforcement was, and remains, structural: `InspectorRouter` wraps
  * every panel — node and edge — in an unconditional
  * `<fieldset disabled data-authority="disabled">`, beneath a note carrying
- * `INSPECTOR_READ_ONLY_REASON`. That is strictly STRONGER than the manifests
- * were: a fieldset disables every descendant control, so a NEW setter added
- * tomorrow is inert without anyone remembering to classify it. The manifests
- * could only ever record a decision; the fieldset makes it.
+ * `INSPECTOR_READ_ONLY_REASON`. That is STRUCTURAL where the manifests were
+ * clerical: a fieldset disables every descendant FORM CONTROL, so a NEW setter
+ * added tomorrow is inert without anyone remembering to classify it — provided
+ * it is a form control. The manifests could only ever record a decision; the
+ * fieldset makes it.
+ *
+ * ⚠ THIS SAID "strictly STRONGER … every descendant control" UNTIL
+ * 27 Aug 2026, AND EXECUTION REFUTED IT. `<fieldset disabled>` inerts
+ * form-associated descendants only — not a `[role="button"]` div, not a
+ * `[contenteditable]`, not an `a[href]`. The exact scope, the measured
+ * counter-example, and the BOUND on it (**no write escapes**, and user
+ * reachability was explicitly NOT claimed) are in `useInspectorMutations.ts`
+ * and pinned below as `NOT_INERTED_BY_THE_FIELDSET_NODE`.
  *
  * ⚠ WHAT THE PRE-EXISTING GUARD DID NOT COVER, and why deleting the tables
  * without this file would have left the fieldset UNEXPLAINED — an unexplained
  * enforcement being the next thing someone tidies away:
  *
  *   1. `InspectorRouter.spec.tsx` asserts the notice contains the SUBSTRING
- *      `'cannot yet be saved to the shared model'`. That is a hand-copied
- *      mirror of the copy: inline the constant as a literal, or reword the
- *      constant around that fragment, and it still passes. Here the expectation
- *      IS the imported constant, so the copy and its guard cannot diverge.
+ *      `'cannot yet be saved to the shared model'` — a hand-copied mirror of
+ *      the copy. Here the expectation IS the imported constant, so the copy
+ *      and its guard cannot diverge by hand-copying.
+ *
+ *      ⚠ THAT IS NOT "STRONGER", AND THE FIRST VERSION OF THIS NOTE INVITED
+ *      EXACTLY THAT READING (corrected 27 Aug 2026, measured). The two guards
+ *      catch DIFFERENT things and NEITHER supersedes the other:
+ *        · Gut the constant and the two PRE-EXISTING substring guards RED.
+ *        · Reword the constant to INVERT its meaning — "You may freely edit
+ *          anything here" — and all 53 cases stay GREEN, this file's included,
+ *          because an equality-to-the-constant check moves WITH the constant.
+ *      An identity check pins the WIRING; a substring check pins a fragment of
+ *      the MEANING, and this file is the weaker of the two on meaning.
+ *      **Keep both. Do not delete the substring guards on the strength of this
+ *      file** — that is precisely the tidy-up this note exists to prevent.
  *   2. NOTHING asserted the ARIA BINDING. Delete `aria-describedby` from the
  *      fieldset and every pre-existing test stays green while the boundary
  *      stops being announced to a screen reader — the control is inert and the
@@ -41,16 +68,28 @@
  *      has defeated one before), so each case below finds a real focusable
  *      control INSIDE the boundary and asserts the DOM reports it disabled.
  *
- * ── BINDING BY IDENTITY, AND THE DISCRIMINATING PAIR ────────────────────────
+ * ── WHAT MAKES THE MUTANT PAIR DISCRIMINATING ───────────────────────────────
  * `InspectorRouter` has TWO independent boundary regions — the edge branch
- * (`InspectorRouter.tsx:221`) and the node branch (`:334`). Every assertion
- * below names WHICH region it is about and resolves it through that region's
- * own rendered panel, never through a bare
- * `document.querySelector('fieldset')` that either region could satisfy.
- * That is what makes the mutant pair discriminating: breaking ONE region must
+ * (`InspectorRouter.tsx:221`) and the node branch (`:334`). Breaking ONE must
  * RED only that region's cases and leave the other GREEN. A single biting
- * mutant would prove only sensitivity to *something*; the pair proves
- * sensitivity to the named region.
+ * mutant proves only sensitivity to *something*; the pair proves sensitivity
+ * to the named region, and the pair has been run.
+ *
+ * ⚠ BUT NOT BY THE MECHANISM THIS COMMENT ORIGINALLY CLAIMED (corrected
+ * 27 Aug 2026). It said each assertion resolves its region "never through a
+ * bare `document.querySelector('fieldset')` that either region could satisfy"
+ * — and `readBoundary()` below is exactly a bare document-level query. The
+ * discrimination is REAL, and it comes from the FIXTURE, not from the
+ * selector: each `describe` seeds the store with only nodes or only an edge
+ * and renders `InspectorRouter` with only `nodeId` or only `edgeId`, so
+ * exactly one branch is ever mounted and the document holds exactly one
+ * boundary. `readBoundary()` throws if there is none, which is what stops the
+ * query being vacuous rather than any scoping in the selector.
+ *
+ * State the real mechanism, because it is what a future edit will get wrong:
+ * the discrimination lives in the PER-`describe` FIXTURE and would be LOST by
+ * a refactor that rendered both regions in one test. If you ever do that,
+ * scope the queries to the rendered region instead of to `document`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -230,34 +269,140 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
  * `NODE_SETTER_FIELDS` / `EDGE_SETTER_FIELDS` appeared in the corresponding
  * manifest — a completeness check over the PROSE. What actually matters is
  * that no Inspector control escapes the boundary, and that is a property of
- * the DOM, not of a table: the assertions below hold no matter how many
- * setters exist, which is precisely why they cannot go stale the way a
- * hand-maintained key list did.
+ * the DOM, not of a table.
  *
- * ⚠⚠ AND THE INSTRUMENT TRAP THIS FILE HIT WHILE BEING WRITTEN, KEPT BECAUSE
- * THE NEXT PERSON WILL HIT IT TOO. The first version of these two cases
- * filtered on the RAW DOM PROPERTY `(el as HTMLInputElement).disabled`. It
- * FAILED, reporting two enabled `<input type="range">` inside a fieldset that
- * is unambiguously `disabled` — because **jsdom reflects the `disabled`
- * ATTRIBUTE and does not propagate a `<fieldset disabled>` to its
- * descendants' property.** In a real browser those inputs are inert; in jsdom
- * the property says otherwise.
+ * ⚠⚠ AND THE FIRST VERSION OF THIS BLOCK COULD NOT OBSERVE THAT PROPERTY AT
+ * ALL. Corrected 27 Aug 2026 after an independent review MEASURED it, and the
+ * measurement is kept here because it is the whole reason the shape below is
+ * what it is:
  *
- * So the raw property is not an actionability check — it is a check on where
- * the attribute happens to be written. `expect(el).toBeDisabled()` IS
- * ancestor-aware (jest-dom walks up for a disabled fieldset), which is why the
- * per-region cases above passed while this block failed on the same DOM. The
- * helper below derives effective disabled-ness explicitly rather than trusting
- * either reflection, so the assertion means what it says.
+ *   Mutant M5 added an enabled `<input aria-label="ESCAPED_EDITOR" />` to the
+ *   `InspectorShell` HEADER — inside the Inspector, OUTSIDE the fieldset.
+ *   Applied-check scoped to `src/`: exactly 1 file, 1 insertion.
+ *   The suite stayed **12/12 GREEN**.
  *
- * Had it been left as written, the "fix" would have looked like removing the
- * assertion or narrowing it past the sliders — weakening a guard to match a
- * broken probe.
+ * The mechanism: both cases built their candidate set from
+ * `fieldset.querySelectorAll(...)`, so every member had the disabled fieldset
+ * as an ancestor and `isEffectivelyDisabled` was true BY CONSTRUCTION.
+ * `escaped` could only be non-empty if the fieldset itself lost `disabled` —
+ * which the sibling case "makes every control inside the boundary genuinely
+ * inert" already measures. It was a DUPLICATE of its sibling wearing the name
+ * of the guard it replaced. **A guard that cannot fail in the way its name
+ * claims is worse than no guard, because it retires the question.**
+ *
+ * ── WHAT THE CASES BELOW ACTUALLY ASSERT ────────────────────────────────────
+ * The escape question is a claim about the WHOLE Inspector, so it is asked of
+ * the whole rendered region and not of the boundary's own subtree:
+ *
+ *   escaped = (every control in the Inspector region)
+ *           − (everything inside the boundary)
+ *           − (the deliberately-outside set, pinned by identity below)
+ *
+ * and `escaped` must be empty. That REDs on M5, and on the realistic version
+ * of M5: `InspectorRouter` passes no `onLabelChange`, so `EditableLabel`
+ * renders a bare `<span>` (`EditableLabel.tsx:124-130`). Wire that prop and a
+ * `<button data-testid="inspector-rename-trigger">` appears in the header,
+ * outside the fieldset, opening an `<input>` that writes the label — i.e.
+ * `setLabel`, which was a key of the deleted `NODE_SETTER_AUTHORITY`. That is
+ * the escape class the manifest was nominally about, and this is the guard
+ * that would catch it.
+ *
+ * The selector is widened past form controls on purpose — `[role="button"]`,
+ * `[contenteditable]` and `a[href]` are how a write surface arrives WITHOUT
+ * being a form control, and the section below records why that distinction is
+ * load-bearing here.
  */
+
+/** The Inspector's outermost rendered element — `InspectorShell.tsx:88-94`. */
+const INSPECTOR_REGION = '[role="region"][aria-label="Inspector panel"]'
+
+/**
+ * Anything a user can press, type into, or follow. Deliberately wider than
+ * `input, select, textarea` — see `NOT_INERTED_BY_THE_FIELDSET` below.
+ */
+const EDITING_SELECTOR =
+  'input, select, textarea, button, [role="button"], [contenteditable], a[href]'
+
+/** The four element types `<fieldset disabled>` actually inerts, per the HTML spec. */
+const NATIVELY_DISABLEABLE = 'button, input, select, textarea'
+
+/**
+ * Chrome that sits OUTSIDE the boundary ON PURPOSE. None of these writes the
+ * model: they navigate, dismiss, or toggle presentation.
+ *
+ * ⚠ A SUBTRACTION LIST IS A HAND-MAINTAINED MIRROR (trap 12), so it is fenced
+ * two ways: every entry MUST match at least one element (a renamed or removed
+ * affordance REDs here instead of silently widening the guard), and every
+ * match MUST resolve outside the boundary (so an allowlisted identity cannot
+ * be reused INSIDE the fieldset to launder a control past the escape check).
+ * Identity only — a value predicate another element could satisfy is trap 19.
+ */
+const DELIBERATELY_OUTSIDE: ReadonlyArray<{ selector: string; why: string }> = [
+  { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
+  { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
+  { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
+  { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
+]
+
+function describeControl(el: Element): string {
+  const id =
+    el.getAttribute('data-testid') ??
+    el.getAttribute('aria-label') ??
+    (el.textContent ?? '').trim().slice(0, 40)
+  return `<${el.tagName.toLowerCase()}> ${id}`
+}
+
+/**
+ * Every control in the Inspector that is neither inside the boundary nor
+ * deliberately outside it. Non-empty means a write surface has escaped.
+ */
+function escapedControls(): string[] {
+  const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)
+  if (!region) throw new Error('PRECONDITION FAILED: no Inspector region rendered')
+  const fieldset = document.querySelector<HTMLElement>('fieldset[data-authority="disabled"]')
+  if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
+
+  const allowed = new Set<Element>()
+  for (const { selector } of DELIBERATELY_OUTSIDE) {
+    const matches = Array.from(region.querySelectorAll(selector))
+    // Fails loud rather than quietly excusing one control fewer.
+    expect(matches.length, `deliberately-outside entry matched nothing: ${selector}`)
+      .toBeGreaterThan(0)
+    for (const match of matches) {
+      expect(
+        fieldset.contains(match),
+        `deliberately-outside entry resolved INSIDE the boundary: ${selector}`,
+      ).toBe(false)
+      allowed.add(match)
+    }
+  }
+
+  return Array.from(region.querySelectorAll<HTMLElement>(EDITING_SELECTOR))
+    .filter(el => !fieldset.contains(el) && !allowed.has(el))
+    .map(describeControl)
+}
+
 function isEffectivelyDisabled(el: HTMLElement): boolean {
   if ((el as HTMLInputElement).disabled) return true
   // Walk ancestors for a disabled <fieldset>, which natively disables every
-  // descendant control (outside its first <legend>).
+  // descendant FORM CONTROL (outside its first <legend>).
+  //
+  // ⚠ THE INSTRUMENT TRAP THIS FILE HIT WHILE BEING WRITTEN, kept because the
+  // next person will hit it too. The first version filtered on the RAW DOM
+  // PROPERTY `(el as HTMLInputElement).disabled` alone. It FAILED, reporting
+  // two enabled `<input type="range">` inside a fieldset that is unambiguously
+  // `disabled` — because jsdom reflects the `disabled` ATTRIBUTE and does not
+  // propagate a `<fieldset disabled>` to its descendants' property. In a real
+  // browser those inputs are inert; in jsdom the property says otherwise. So
+  // the raw property is not an actionability check, it is a check on where the
+  // attribute happens to be written. Had it been left as written, the "fix"
+  // would have looked like removing the assertion or narrowing it past the
+  // sliders — weakening a guard to match a broken probe.
+  //
+  // ⚠ AND THE LIMIT OF THIS HELPER, WHICH IS A FACT ABOUT THE PLATFORM AND NOT
+  // A BUG IN THE HELPER: it is only sound for `NATIVELY_DISABLEABLE` elements.
+  // Callers must not hand it a `[role="button"]` div — see the pinned set
+  // below, which is where that case is recorded instead.
   let ancestor: HTMLElement | null = el.parentElement
   while (ancestor) {
     if (ancestor.tagName === 'FIELDSET' && ancestor.hasAttribute('disabled')) return true
@@ -266,51 +411,120 @@ function isEffectivelyDisabled(el: HTMLElement): boolean {
   return false
 }
 
+/** Controls inside the boundary that `<fieldset disabled>` does NOT inert. */
+function notInertedInsideBoundary(): string[] {
+  const fieldset = document.querySelector<HTMLElement>('fieldset[data-authority="disabled"]')
+  if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
+  return Array.from(fieldset.querySelectorAll<HTMLElement>(EDITING_SELECTOR))
+    .filter(el => !el.matches(NATIVELY_DISABLEABLE))
+    .map(describeControl)
+}
+
 describe('Inspector read-only policy — no control escapes the boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     cleanup()
   })
 
-  it('leaves no effectively-enabled editing control anywhere in the node panel', () => {
-    // ⚠ NOT the risk fixture used above. The risk panel renders only <button>
-    // controls, so this completeness claim over input/select/textarea was
-    // VACUOUS against it — caught by the precondition below, which is the
-    // whole reason the precondition is written as an assertion rather than a
-    // comment. A controllable factor renders a real number input, so the
-    // claim has something to be true ABOUT.
+  it('leaves no editing control outside the boundary in the node panel', () => {
+    // ⚠ NOT the risk fixture used above. A controllable factor renders a real
+    // number input inside the boundary, so the boundary has something to be
+    // true ABOUT rather than only buttons.
     setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
-
-    const { fieldset } = readBoundary()
-    const editing = Array.from(
-      fieldset.querySelectorAll<HTMLElement>('input, select, textarea'),
-    )
-    // Precondition: a completeness claim over an empty set is vacuous.
-    expect(editing.length).toBeGreaterThan(0)
-
-    const escaped = editing.filter(el => !isEffectivelyDisabled(el))
-    expect(escaped.map(el => el.getAttribute('aria-label') ?? el.tagName)).toEqual([])
+    expect(escapedControls()).toEqual([])
   })
 
-  it('leaves no effectively-enabled editing control anywhere in the edge panel', () => {
+  it('leaves no editing control outside the boundary in the edge panel', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    expect(escapedControls()).toEqual([])
+  })
 
+  it('leaves no effectively-enabled FORM CONTROL inside the node boundary', () => {
+    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     const { fieldset } = readBoundary()
-    const editing = Array.from(
-      fieldset.querySelectorAll<HTMLElement>('input, select, textarea'),
+    const formControls = Array.from(
+      fieldset.querySelectorAll<HTMLElement>(NATIVELY_DISABLEABLE),
     )
-    expect(editing.length).toBeGreaterThan(0)
+    // Precondition: a completeness claim over an empty set is vacuous.
+    expect(formControls.length).toBeGreaterThan(0)
+    expect(formControls.filter(el => !isEffectivelyDisabled(el)).map(describeControl)).toEqual([])
+  })
 
-    const escaped = editing.filter(el => !isEffectivelyDisabled(el))
-    expect(escaped.map(el => el.getAttribute('aria-label') ?? el.tagName)).toEqual([])
+  it('leaves no effectively-enabled FORM CONTROL inside the edge boundary', () => {
+    setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    const { fieldset } = readBoundary()
+    const formControls = Array.from(
+      fieldset.querySelectorAll<HTMLElement>(NATIVELY_DISABLEABLE),
+    )
+    expect(formControls.length).toBeGreaterThan(0)
+    expect(formControls.filter(el => !isEffectivelyDisabled(el)).map(describeControl)).toEqual([])
+  })
+
+  /**
+   * ⭐ THE KNOWN SCOPE LIMIT OF `<fieldset disabled>`, PINNED SO THE SUITE CAN
+   * SEE IT RATHER THAN ONLY THIS COMMENT.
+   *
+   * A fieldset inerts FORM CONTROLS. It does not inert a `[role="button"]`
+   * div, a `[contenteditable]`, or an `a[href]`. An independent review
+   * measured one such div inside this boundary — `EmptyDescriptionPrompt`,
+   * `tabindex=0` — taking focus, firing its handler and opening an editor,
+   * while the two real `<button>`s beside it were disabled in the same run.
+   *
+   * ⚠ THE BOUND ON THAT FINDING, CARRIED EXACTLY AND NOT UPGRADED: **NO WRITE
+   * ESCAPES.** The `<textarea>` that opens is itself inside the fieldset and
+   * natively disabled. The review explicitly DECLINED to claim user
+   * reachability, because the store write it exercised came from a synthetic
+   * `fireEvent.change` that bypasses the browser's own gating. So this is a
+   * recorded scope limit of the MECHANISM, not a known user-facing defect —
+   * do not cite it as one, and do not widen it without measuring it yourself.
+   *
+   * The set is pinned EXACTLY, so it REDs if it GROWS (a new non-form control
+   * appears inside the boundary and needs adjudicating) or SHRINKS (someone
+   * made one inert, and this note plus the sentence in
+   * `useInspectorMutations.ts` should be updated to say so). A gap recorded in
+   * the suite is honest; a gap visible only to a comment is how it gets lost.
+   */
+  const NOT_INERTED_BY_THE_FIELDSET_NODE = [
+    '<div> What is this factor and why does it matter?',
+  ]
+
+  it('pins EXACTLY which controls the fieldset does not inert (node panel)', () => {
+    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(notInertedInsideBoundary()).toEqual(NOT_INERTED_BY_THE_FIELDSET_NODE)
+  })
+
+  it('pins EXACTLY which controls the fieldset does not inert (edge panel)', () => {
+    setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+    expect(notInertedInsideBoundary()).toEqual([])
+  })
+
+  it('POSITIVE CONTROL: the escape check can SEE an escape', () => {
+    // Without this, `escapedControls()` returning `[]` unconditionally would
+    // make both escape cases pass while observing nothing (trap 13 — an
+    // absence probe must be shown capable of detecting a presence). This is
+    // the M5 shape, injected directly: an enabled control inside the Inspector
+    // region and outside the boundary.
+    setStoreState(CONTROLLABLE_FACTOR_FIXTURE)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(escapedControls()).toEqual([])
+
+    const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)!
+    const escapee = document.createElement('input')
+    escapee.setAttribute('aria-label', 'ESCAPED_EDITOR')
+    region.appendChild(escapee)
+    expect(escapedControls()).toEqual(['<input> ESCAPED_EDITOR'])
+
+    escapee.remove()
+    expect(escapedControls()).toEqual([])
   })
 
   it('POSITIVE CONTROL: the helper reports an ungoverned control as NOT disabled', () => {
-    // Without this, `isEffectivelyDisabled` returning `true` unconditionally
-    // would make both cases above pass while observing nothing (trap 13 — an
-    // absence probe needs to be shown capable of detecting a presence).
     const loose = document.createElement('input')
     document.body.appendChild(loose)
     expect(isEffectivelyDisabled(loose)).toBe(false)

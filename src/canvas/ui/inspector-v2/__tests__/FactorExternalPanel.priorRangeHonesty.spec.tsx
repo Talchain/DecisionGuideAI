@@ -73,8 +73,12 @@
  *   · `InspectorRouter` wraps EVERY panel in an unconditional
  *     `<fieldset disabled data-authority="disabled">`
  *     (InspectorRouter.tsx:334-340), beneath INSPECTOR_READ_ONLY_REASON.
- *   · `NODE_SETTER_AUTHORITY.setPriorRange` is `'disabled'`
- *     (useInspectorMutations.ts:127) — the repo's own authority manifest.
+ *   ⚠ A second bullet stood here: "`NODE_SETTER_AUTHORITY.setPriorRange` is
+ *     `'disabled'` (useInspectorMutations.ts:127) — the repo's own authority
+ *     manifest". That manifest was DELETED on 27 Aug 2026 (PR #886) — zero
+ *     code consumers, an unenforced mirror — and the line number it cited now
+ *     points at unrelated code. Q2 rests on the fieldset bullet above, which
+ *     is the enforcement and was always the half doing the work.
  *   · Even the write would not settle it: `setPriorRange` updates the store and
  *     emits `prior_range_edit`, which CEE persists as a typed turn FACT and
  *     which writes no graph (useInspectorMutations.ts:293-295).

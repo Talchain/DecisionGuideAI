@@ -146,9 +146,15 @@ describe('mutation authority is exhaustive and fail-closed', () => {
    * They asserted over `NODE_SETTER_AUTHORITY` / `EDGE_SETTER_AUTHORITY` —
    * that every Inspector setter was classified, and that none was classified
    * `'server_graph'`. Those two tables were the only readers of themselves:
-   * outside this file and their own definition, every reference was a COMMENT.
-   * So the tests proved a hand-maintained list agreed with itself, which is
-   * not the same as proving the Inspector is read-only.
+   * outside this file and their own definition, every reference was a comment
+   * or a documentation string, and none was a consumer. So the tests proved a
+   * hand-maintained list agreed with itself, which is not the same as proving
+   * the Inspector is read-only.
+   *
+   * ⚠ This read "every reference was a COMMENT" until 27 Aug 2026. That was
+   * false — `canvas/domain/analyticalNodeFields.ts:158` names the table in a
+   * runtime string literal that ships to browsers. The claim the deletion
+   * rests on is the narrow one: zero code CONSUMERS.
    *
    * What actually keeps it read-only is `InspectorRouter`'s unconditional
    * `<fieldset disabled>` around every panel. That is now pinned, per region
