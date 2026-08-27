@@ -516,7 +516,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/components/GraphTextView.tsx': 8,
     'src/canvas/components/IdentifiabilityBadge.tsx': 1,
     'src/canvas/components/OutputsDock.tsx': 6,
-    'src/canvas/components/SectionErrorBoundary.tsx': 7,
+    'src/canvas/components/SectionErrorBoundary.tsx': 6,
     'src/canvas/components/ValidationPanel.tsx': 4,
     'src/canvas/components/WarningBanner.tsx': 1,
     'src/canvas/components/WhatChangedChip.tsx': 1,
@@ -597,7 +597,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // entries turned the ratchet green and turned THIS assertion red, so the
     // pair cannot be quietly hollowed out from either end.
     expect(files).toBe(30)
-    expect(total).toBe(107)
+    expect(total).toBe(106)
   })
 })
 
