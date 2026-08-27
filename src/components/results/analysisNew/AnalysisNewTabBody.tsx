@@ -107,7 +107,7 @@ export function AnalysisNewTabBody({
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
-      <div className="px-5 py-4 space-y-5 max-w-[360px] mx-auto">
+      <div className="px-5 py-4 space-y-5 max-w-[280px] mx-auto">
         <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-intro">
           {COPY.tabIntro}
         </p>
