@@ -6,6 +6,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { X } from 'lucide-react'
+import { ICON_DENSE, ICON_STROKE } from '../panelIcons'
 import { Layout, HelpCircle, Sparkles } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { FlipDropdown } from '../../../components/ui/FlipDropdown'
@@ -133,7 +135,7 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
               className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-full text-text-light hover:bg-panel-hover transition-colors"
               aria-label="Dismiss"
             >
-              <svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              <X size={ICON_DENSE} strokeWidth={ICON_STROKE} aria-hidden="true" />
             </button>
             <span className="pr-5">{HELP_TEXT}</span>
           </div>
