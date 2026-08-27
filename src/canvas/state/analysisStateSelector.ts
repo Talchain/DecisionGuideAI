@@ -252,23 +252,6 @@ export interface ComposedAnalysisState {
   /** Where the visible result came from (unchanged classifier). */
   readonly source: AnalysisStateSource
   /**
-   * Whether a ranked leader / ordinal / "best option" may render.
-   *
-   * The contract's licence is a CONJUNCTION and it is applied HERE, once:
-   * `leader_claim.permitted` AND `run_state.kind === 'complete_current'`. A
-   * permitted claim about a stale run is still a claim about a run that no
-   * longer describes the model.
-   *
-   * `null` = NOT STATED (no wire verdict this turn). A consumer must not read
-   * null as `true`. Withholding drops the DESIGNATION and keeps the DATA: win
-   * probabilities remain showable when this is false.
-   */
-  readonly leaderClaimPermitted: boolean | null
-  /** Producer's reason for withholding, or null. Never fabricated. */
-  readonly leaderWithheldReason: string | null
-  /** Producer's separation statement, or null. Absence is NOT "no separation". */
-  readonly leaderSeparation: string | null
-  /**
    * SCOPE: THE RESULT AS A WHOLE. Null when not computed — never "not robust".
    */
   readonly robustnessAggregateLevel: string | null
@@ -664,11 +647,6 @@ export function composeAnalysisState(
   )
 
   // ── Producer-only members. NULL means NOT STATED — never a default. ────────
-  const leaderClaimPermitted =
-    wire === null
-      ? null
-      : // The contract's conjunction, applied once, here.
-        wire.leader_claim.permitted && wire.run_state.kind === 'complete_current'
 
   return {
     authority,
@@ -680,9 +658,6 @@ export function composeAnalysisState(
     displayState,
     resultsTab,
     source: source ?? 'none',
-    leaderClaimPermitted,
-    leaderWithheldReason: wire?.leader_claim.withheld_reason ?? null,
-    leaderSeparation: wire?.leader_claim.separation ?? null,
     robustnessAggregateLevel: wire?.robustness.aggregate_level ?? null,
     factorsThatFlipLeader: wire?.robustness.factors_that_flip_leader ?? null,
     readinessStatus: wire?.readiness.status ?? null,

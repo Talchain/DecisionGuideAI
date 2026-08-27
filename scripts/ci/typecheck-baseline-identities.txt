@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2251
+# count=2250
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -771,7 +771,6 @@
 4	src/canvas/utils/templatePreview.ts	TS2339	Property 'target' does not exist on type 'BlueprintEdge'.
 1	src/canvas/utils/templatePreview.ts	TS6196	'LayoutEdge' is declared but never used.
 1	src/canvas/validation/__tests__/graphGuardrails.spec.ts	TS6133	'assessEdgeDeletion' is declared but its value is never read.
-1	src/canvas/validation/graphPreflight.ts	TS2322	Type '"STRENGTH_OUT_OF_RANGE"' is not assignable to type '"BAD_INPUT" | "LIMIT_EXCEEDED" | "MISSING_FIELD"'.
 1	src/components/Analysis/AnalysisContent.tsx	TS6133	'React' is declared but its value is never read.
 1	src/components/Analysis/utils/formatAnalysis.tsx	TS6133	'BarChart' is declared but its value is never read.
 1	src/components/BiasesCarousel/BiasCard.tsx	TS6133	'React' is declared but its value is never read.
