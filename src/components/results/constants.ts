@@ -42,11 +42,18 @@ export const ROBUSTNESS_LEVEL_COLOURS = {
 // Threshold Constants
 // =============================================================================
 
-/**
- * Minimum recommendation stability required to show "Good foundation" message.
- * Below this threshold, even with no fragile edges, we show a low-confidence warning.
- */
-export const MIN_STABLE_RECOMMENDATION_STABILITY = 0.6
+// ⛔ REMOVED (A5): `MIN_STABLE_RECOMMENDATION_STABILITY = 0.6`.
+//
+// `utils/stabilityReadiness.ts` was its ONLY consumer, and that module is deleted
+// in this PR (zero references repo-wide). Verified after the deletion: the symbol
+// had no occurrence anywhere in the repo except its own definition — case
+// insensitive, all file types. Contrast control in the same sweep:
+// `ROBUSTNESS_LEVEL_LABELS` returned 11 consumers, so the probe discriminates.
+//
+// ⚠ NOTE FOR WHOEVER PRUNES THIS FILE NEXT: `ROBUSTNESS_LEVEL_COLOURS` and
+// `SWITCH_PROBABILITY_THRESHOLD` also read ZERO consumers, but they were already
+// dead BEFORE this PR — they are not residue from this deletion and are
+// deliberately left alone here rather than absorbed into an unrelated train.
 
 /**
  * Epsilon for baseline delta display.
