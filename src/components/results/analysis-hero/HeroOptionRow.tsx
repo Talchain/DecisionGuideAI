@@ -56,8 +56,15 @@ export interface HeroOptionRowProps {
    * The token now reads `row.index` — the CURRENT display rank, the same
    * quantity as the list order, the leader fill and the "Highest on this view"
    * cue. IDENTITY did not disappear: it is rendered as TEXT (`Option N`)
-   * beside the label, the treatment `OptionCards.tsx:732-738` and
-   * `canvas/nodes/OptionNode.tsx` already use. One element, one question.
+   * beside the label, the treatment `OptionCards.tsx:732-738` already uses.
+   * One element, one question.
+   *
+   *  ⚠ NOT the canvas node's glyph, though earlier revisions of these
+   * comments said so: `canvas/nodes/OptionNode.tsx:1206-1213` draws the BARE
+   * NUMERAL in a bordered box and carries `Option N` as its `aria-label`
+   * only. The two surfaces agree on the ACCESSIBLE NAME and deliberately
+   * differ in glyph (a canvas node has no room for the word). Corrected
+   * rather than deleted, because the aria agreement is the stronger property.
    *
    * On a withheld run the token is omitted entirely; the row keeps its label,
    * readout, bar, disclosure — and its IDENTITY text, because withholding
@@ -270,25 +277,44 @@ export function HeroOptionRow({
       ) : (
         <span aria-hidden="true" className="h-6 w-6 flex-none" />
       )}
-      {/* IDENTITY, as TEXT — the treatment OptionCards (`:732-738`) and the
-          canvas OptionNode already use, adopted verbatim rather than invented
+      {/* IDENTITY, as TEXT — the treatment OptionCards (`:732-738`)
+          already uses, adopted verbatim rather than invented
           here. It is what keeps the badge fix from buying a cross-surface
           disagreement: without it the same option would read "1" in the
-          cockpit and "Option 2" on the card below and on its canvas node.
+          cockpit and "Option 2" on the card below. (The canvas node draws a bare
+          `2` with `aria-label="Option 2"` — accessible-name agreement, not
+          glyph agreement; "and on its canvas node" was wrong about the glyph.)
           Pinned on the real mount path in
           `../../__tests__/ResultsBody.crossSurfaceOptionNumbering.spec.tsx`.
 
-          Gated ONLY on `stableNumber != null`, never on `showOrdinal`:
-          withholding suppresses DESIGNATIONS, and an option's identity is not
-          one (OptionCards gates its rank swatch on `!neutralised` and its
-          identity chip on nothing but the number). An un-analysed option keeps
-          its identity for the same reason.
+          ⚠ `showOrdinal` IS A CONJUNCTION OF TWO QUESTIONS AND THIS CHIP
+          ANSWERS ONLY ONE OF THEM. It is
+          `!designationsWithheld && row.isRanked` (AnalysisHeroPanel), and
+          `heroTypes.ts` states the distinction explicitly: withholding is
+          PER-RUN (*"may this run designate a leader?"*), `isRanked` is PER-ROW
+          (*"was this option scored?"*).
+
+          NOT gated on `designationsWithheld`: withholding suppresses
+          DESIGNATIONS, and an option's identity is not one — `OptionCards`
+          gates its rank swatch on `!neutralised` and its identity chip on
+          nothing but the number, and this converges on that.
+
+          GATED on `row.isRanked`: an option that took no part in the
+          comparison has no ordinal to state. `NotAnalysedOptionCard` renders
+          the same option on the same screen with *"No rank swatch and no
+          'Option N' … the gap is the point"* under Paul's NO-RANK ruling
+          (14 Aug 2026). An ungated chip here says `Option 3` beside a card
+          that deliberately says nothing — and `heroTypes.ts` names that exact
+          case as *"the case that shipped an ordinal it had no basis for"*.
+          An earlier revision of this comment said an un-analysed option keeps
+          its identity "for the same reason" as a withheld one. THAT WAS FALSE:
+          it collapsed the two questions the type doc keeps apart.
 
           `labelId`/`labelRef` stay on the LABEL span alone — the clamp
           measurement and the detail region's accessible name must keep
           describing the option name, not the name plus a chip. */}
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-        {row.stableNumber != null && (
+        {row.stableNumber != null && row.isRanked && (
           <span
             data-testid="hero-row-identity"
             className={`${typography.panelMeta} flex-none text-text-light`}

@@ -30,7 +30,8 @@
  *   - the badge (a RANK affordance — it is filled for the leader and its own
  *     `showOrdinal` doc says it "ranks ALL of them") carries `row.index`;
  *   - IDENTITY is rendered as TEXT, `Option N`, exactly as
- *     `OptionCards.tsx:732-738` and `canvas/nodes/OptionNode.tsx` already do.
+ *     `OptionCards.tsx:732-738` already does (the canvas node agrees on the
+ *     accessible name only — see the correction at the assertion below).
  * No third convention was invented; the hero converged on the existing one.
  *
  * ## State class
@@ -238,8 +239,15 @@ describe('hero badge after a re-run that flips the leader', () => {
     renderFlipped()
     const leaderRow = screen.getByTestId('hero-option-row-1')
     // opt_b was second on run 1, so its identity is Option 2 — permanently.
-    // Same string OptionCards.tsx:737 and OptionNode render for this id, so a
-    // reader moving between surfaces sees one identity, not two numbers.
+    // Same string OptionCards.tsx:737 renders for this id, so a reader moving
+    // between those two surfaces sees one identity, not two numbers.
+    // ⚠ NOT the canvas node's glyph, though earlier revisions of these
+    // comments said so: `canvas/nodes/OptionNode.tsx:1206-1213` draws the
+    // BARE NUMERAL in a bordered box and carries `Option N` as its
+    // `aria-label` only. The two surfaces agree on the ACCESSIBLE NAME and
+    // deliberately differ in glyph (a canvas node has no room for the word).
+    // Corrected rather than deleted, because the aria agreement is the
+    // stronger property.
     expect(within(leaderRow).getByTestId('hero-row-identity')).toHaveTextContent('Option 2')
     const secondRow = screen.getByTestId('hero-option-row-2')
     expect(within(secondRow).getByTestId('hero-row-identity')).toHaveTextContent('Option 1')
