@@ -29,7 +29,7 @@
 // This file takes the third path and needs no privileged credential.
 
 import { createHash } from 'node:crypto'
-import type { Page, Locator } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
 export const ORIGIN = process.env.CORE_UI_URL ?? 'https://staging--olumi.netlify.app'
