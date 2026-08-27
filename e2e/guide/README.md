@@ -17,13 +17,38 @@ Tests safety mechanisms and guardrails:
 - Pre-run checklist gating
 - Post-run read-only state
 
-### 03-trust-features.spec.ts
-Tests trust & verification features:
-- Bias mitigation panel
-- Provenance with document citations
-- Severity-styled critiques
-- Verification badges
-- Confidence levels
+### 03-trust-features.spec.ts — DELETED 27 Aug 2026, deliberately not replaced
+It claimed to test bias mitigation, provenance with document citations,
+severity-styled critiques, verification badges and confidence levels. **It
+tested none of them, and it announced that it had.**
+
+All five tests imported `expect`, never called it, and ended with an
+unconditional `console.log('GATES: PASS — …')`. They passed whatever the
+product did, and printed a verdict they had not computed into the CI log — so
+the provenance step of the Core journey read as covered while nothing was ever
+asserted.
+
+Derived at `1091fd4d` before deleting, which is why they were not repaired in
+place:
+
+- Every `localStorage` key they set up to establish "post-run" state —
+  `__MOCK_POST_RUN`, `__MOCK_CITATIONS`, `__MOCK_CRITIQUES`,
+  `__MOCK_VERIFICATIONS`, `feature.copilotVariant` — has **zero readers in
+  `src/`** (contrast in the same sweep: `sandbox.model` 10, `olumi.expertMode`
+  15, `guestId` 12). The state they claimed to arrange never existed.
+- The testids they hunted, `bias-mitigation` and `provenance-panel`, have
+  **zero occurrences in `src/`**. The real surfaces exist under different names
+  (`t1-bias-block`, `right-panel-provenance`, `model-detail-v2-provenance`) and
+  on the canvas route, not on `/#/sandbox` where these tests navigated.
+- The remaining three bound by loose predicates — `getByText(/confidence/i)`,
+  `[data-severity]`, `[data-testid*="verification"]` — which any number of
+  unrelated elements satisfy.
+
+Making them assert would therefore have meant writing new tests against
+different surfaces on a different route: inventing coverage, not repairing an
+instrument. **A file that honestly covers nothing is safer than one that claims
+to cover something.** If these features need e2e coverage, they need a spec
+written against the canvas route and the testids that actually exist.
 
 ### 04-canvas-features.spec.ts
 Tests Guide-specific canvas enhancements:
