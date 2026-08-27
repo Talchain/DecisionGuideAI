@@ -24,6 +24,10 @@ import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter
 import { parseV5Response } from '../../v5/responseParser'
 import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
 import { streamStageFrames } from '../../v5/streamedDraftFrames'
+import {
+  responseBelongsToDispatchingScenario,
+  recordScenarioFenceDiscard,
+} from './scenarioResponseFence'
 import { consumeStreamedDraftTurn, reconcileTerminalPreview } from '../../v5/consumeStreamedDraftTurn'
 import { routeV5Response } from '../../v5/responseRouter'
 import { getTimeoutMs } from '../../v5/getTimeoutMs'
@@ -716,7 +720,22 @@ async function runStreamedDraftTurn(args: {
       // THROWING (rather than returning) is load-bearing — the consumer records
       // `renderedGraph: null` only when the callback throws, and a silent return
       // would leave it believing a graph is on screen when none is.
-      if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) {
+      const liveScenarioIdAtGraphReady = useCanvasStore.getState().currentScenarioId
+      if (
+        !responseBelongsToDispatchingScenario(liveScenarioIdAtGraphReady, scenarioIdAtDispatch)
+      ) {
+        // ⚠ THIS DISCARD IS NOT INDEPENDENTLY RECOVERABLE. The catch in
+        // `consumeStreamedDraftTurn` says a canvas-side failure "must not cost
+        // the user the whole turn" because "the terminal ingest below still
+        // runs" — true for an ordinary throw, FALSE here, because the terminal
+        // fence asks the SAME question and will refuse the same response. See
+        // `scenarioResponseFence`'s header.
+        recordScenarioFenceDiscard({
+          site: 'graph_ready_preview',
+          liveScenarioId: liveScenarioIdAtGraphReady,
+          scenarioIdAtDispatch,
+          carriedGraph: true,
+        })
         throw new PreviewNotApplicableError('scenario changed during the streamed draft')
       }
       // The frame carries no `analysis_ready`, so `applyDraftResult`'s existing
@@ -4847,10 +4866,23 @@ export function useConversation(): UseConversationReturn {
           // applyV5State (including assistant focus/camera), Phase 3 writes,
           // and graph receipt ingestion: same element ids may legitimately
           // exist in two scenarios and must not bridge their authority.
-          if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) {
-            if (import.meta.env.DEV) {
-              console.warn('[sendTurn V5] Scenario changed before response; discarding')
-            }
+          const liveScenarioIdAtResponse = useCanvasStore.getState().currentScenarioId
+          if (
+            !responseBelongsToDispatchingScenario(liveScenarioIdAtResponse, scenarioIdAtDispatch)
+          ) {
+            // ⚠ WAS DEV-ONLY, WHICH MADE THIS SILENT ON EVERY DEPLOYED BUILD.
+            // `import.meta.env.DEV` is false in production, so a client that
+            // dropped a complete 110 KB model emitted nothing whatsoever — and
+            // the surface above it went on to blame the SERVER. `logger.warn`
+            // ships (prod log level defaults to `warn`), and `carriedGraph`
+            // separates "discarded a response" from "discarded a MODEL", which
+            // is the only one that explains a canvas rendering zero nodes.
+            recordScenarioFenceDiscard({
+              site: 'terminal_response',
+              liveScenarioId: liveScenarioIdAtResponse,
+              scenarioIdAtDispatch,
+              carriedGraph: resultCarriesDraftGraph(v5Result),
+            })
             return
           }
 
@@ -5187,7 +5219,25 @@ export function useConversation(): UseConversationReturn {
             // this branch does not re-run and no second receipt is emitted.
             let draftAppliedThisTurn = false
             if (inlineGraph && inlineNodeCount > 0 && canvasIsEmpty) {
-              if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+              const liveScenarioIdAtInlineApply = useCanvasStore.getState().currentScenarioId
+              if (
+                !responseBelongsToDispatchingScenario(
+                  liveScenarioIdAtInlineApply,
+                  scenarioIdAtDispatch,
+                )
+              ) {
+                // The apply gate for a REAL graph on an EMPTY canvas — i.e. the
+                // last rung at which a complete model can still reach the user.
+                // Recorded for the same reason as the fence: dropping a model
+                // here is precisely what a canvas rendering zero nodes after a
+                // complete stream looks like from the outside.
+                recordScenarioFenceDiscard({
+                  site: 'inline_draft_apply',
+                  liveScenarioId: liveScenarioIdAtInlineApply,
+                  scenarioIdAtDispatch,
+                  carriedGraph: true,
+                })
+              } else {
                 // ROADMAP 2.122 — when this apply is RESOLVING this turn's own
                 // GRAPH_READY preview, the preview already pushed the pre-draft
                 // state to history. Pushing again would put the intermediate
@@ -5225,7 +5275,12 @@ export function useConversation(): UseConversationReturn {
               // then wrote that 100 back over CEE's committed 250. Layout
               // stays canvas-owned throughout — CEE's node schema has no
               // position field. See reconcileAppliedGraph's header.
-              if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+              if (
+                responseBelongsToDispatchingScenario(
+                  useCanvasStore.getState().currentScenarioId,
+                  scenarioIdAtDispatch,
+                )
+              ) {
                 const merged = reconcileAppliedGraph(inlineGraph as any)
                 if (
                   import.meta.env.DEV &&
@@ -5266,10 +5321,20 @@ export function useConversation(): UseConversationReturn {
                   }
                   // Staleness guard: user may have switched scenarios while the
                   // DB fetch was in-flight. Discard if the active scenario changed.
-                  if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) {
-                    if (import.meta.env.DEV) {
-                      console.warn('[sendTurn V5] graph re-fetch: scenario changed during fetch, discarding')
-                    }
+                  const liveScenarioIdAfterRefetch =
+                    useCanvasStore.getState().currentScenarioId
+                  if (
+                    !responseBelongsToDispatchingScenario(
+                      liveScenarioIdAfterRefetch,
+                      scenarioIdAtDispatch,
+                    )
+                  ) {
+                    recordScenarioFenceDiscard({
+                      site: 'db_refetch_staleness',
+                      liveScenarioId: liveScenarioIdAfterRefetch,
+                      scenarioIdAtDispatch,
+                      carriedGraph: true,
+                    })
                     return
                   }
                   const graphData = row.graph as any
