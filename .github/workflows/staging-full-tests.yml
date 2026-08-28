@@ -730,6 +730,23 @@ jobs:
       - name: No credentials in the emitted bundle (value-shape scan)
         run: pnpm run ci:guard:bundle-credentials
 
+      # The instrument this protects is the reason the fence in #913 can be
+      # witnessed at all. Until 2026-08-28 every method of `src/lib/logger.ts`
+      # compiled to `(...e)=>{gate("warn")}` in production — gate evaluated, call
+      # stripped — so a fence that FIRED and one that did not were
+      # indistinguishable on a deployed build.
+      #
+      # ⚠ WIRED HERE, IN THE `build` JOB, ON PURPOSE. A source-level spec cannot
+      # see a build-time strip: a jsdom test asserting the logger emits passed
+      # green throughout the whole defect. Only an assertion against the emitted
+      # artefact can hold it closed, and only a step inside a job the required
+      # check depends on can block a merge.
+      #   Derived 2026-08-28:
+      #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+      #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      - name: Application logger still emits in the built bundle
+        run: pnpm run ci:guard:logger-emits
+
   # ── Gate (single required check for branch protection) ───────────────
   gate:
     name: Staging Gate

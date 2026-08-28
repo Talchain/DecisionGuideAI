@@ -456,6 +456,12 @@ jobs:
       - name: No credentials in the emitted bundle (value-shape scan)
         run: pnpm run ci:guard:bundle-credentials
 
+      # Parity with its sibling above. The BLOCKING copy is in
+      # staging-full-tests.yml's `build` job — nothing in this workflow is a
+      # required check, so a guard living only here would advise and never block.
+      - name: Application logger still emits in the built bundle
+        run: pnpm run ci:guard:logger-emits
+
       # Reds if src/lib/flagEnv.ts has fallen behind src/flags.ts — a missing
       # key would make that flag silently resolve to its defaultValue.
       - name: flagEnv freshness (derived from src/flags.ts + netlify.toml)
