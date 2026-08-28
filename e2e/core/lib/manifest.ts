@@ -142,6 +142,26 @@ export function assertRunCompleteness(
     return
   }
 
+  // A GREEN RUN MUST STATE WHAT IT DOES NOT LICENCE.
+  // The completeness guard printed only on FAILURE or under CORE_PARTIAL, so a fully green run
+  // said nothing about the suite's known limits -- and a reader citing "Core E2E: success" would
+  // never open the specs. E5's own header records, with mutation evidence, that its wire
+  // assertion is MISDIRECTED: it filters on the unanchored `/scenarios/<id>/graph`, the READ
+  // path, while the write is `/graph/register`. Measured: aborting the graph route left E5
+  // GREEN. So a run in which the persistence WRITE was never attempted passes. Not repaired
+  // here deliberately -- separating read from write changes what the spec asserts about the
+  // product -- but a green must not be readable as evidence it did not earn.
+  // eslint-disable-next-line no-console
+  console.log(
+    `[core] EVIDENCE LIMITS OF A GREEN RUN -- cite these, not the exit code:\n` +
+    `  E5 licences ONLY "an authenticated model survived a browser-storage wipe and reload".\n` +
+    `     It does NOT licence "the persistence write succeeded": its wire filter matches the\n` +
+    `     READ path, so a run where the write was never attempted also passes. See the spec\n` +
+    `     header for the mutation proof. Do not cite E5 as write evidence.\n` +
+    `  Coverage: this suite executes ${actual.length} of 9 Core acceptance criteria; the rest\n` +
+    `     are UNSTAFFED, not passing.`,
+  )
+
   const missing = expected.filter((n) => !actual.includes(n))
   const unexpected = actual.filter((n) => !expected.includes(n))
   const duplicates = actual.filter((n, i) => actual.indexOf(n) !== i)
