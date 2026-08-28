@@ -8,9 +8,17 @@
 //    missing it SAYS SO, names the gap on the right node, tells the user what to do,
 //    and does not offer an analysis it cannot honestly run."
 //
-// A product that marks a node as needing input while inviting you to Analyse is
-// lying on one of the two surfaces. So is one that says "not ready" while naming no
-// gap and no next step. Both shapes go RED here.
+// A product that marks a node as needing input while inviting you to Analyse WITH NO
+// QUALIFICATION ANYWHERE is lying on one of the two surfaces. So is one that stops the
+// user while naming no gap and no next step. Both shapes go RED here.
+//
+// ⚠ WHAT THIS SPEC DELIBERATELY DOES NOT DEMAND, corrected 2026-08-28 after it failed
+// on honest behaviour: it does NOT require that a gap BLOCK the analysis. An unset
+// success threshold does not block — the producer synthesises one and returns a real
+// run with goal-fit claims suppressed — so "Analysis available" plus a provisional
+// caveat is a TRUE report, not a defect. Requiring the headline to say "not ready"
+// made this spec satisfiable by making the product lie, which is the one outcome a
+// falsification engine must never reward.
 //
 // ⚠ ON "TWO HONEST SURFACES, TWO DEFINITIONS". Before treating any disagreement as a
 // defect, ask which definition each surface uses. This spec therefore does NOT
@@ -98,30 +106,84 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     ).toContain(gapNode)
 
     // ---- TRUTHFULNESS: the dock must not offer what it cannot honour ----------
+    //
+    // ⛔⛔ THIS SECTION USED TO DEMAND THAT THE PRODUCT LIE, AND IT IS WORTH SAYING SO
+    // PLAINLY, BECAUSE IT IS THE WORST DEFECT THIS SUITE CAN CARRY.
+    // It read ONLY the headline and required it to match /not ready|needs|incomplete|
+    // before/, and separately required Analyse to be DISABLED. But an unset success
+    // threshold is not a blocking gap: the producer synthesises one
+    // (`auto_goal_threshold`) and returns a real analysis with goal-fit claims
+    // suppressed, so the product has an honest resting arm for exactly this state
+    // (`usePreAnalysisModel.ts:469-474`): an AMBER dot, headline "Analysis available",
+    // and the subline "First pass will be provisional until success is defined"
+    // (`constants.ts:311`). That is true, precise, and useful.
+    // The old assertions failed on it — and would have gone GREEN if someone had
+    // "fixed" the footer by making the headline claim the model was not ready. A test
+    // that rewards dishonesty inside a falsification engine is worse than no test.
+    //
+    // WHAT IS ASSERTED NOW is the COUPLING, which cannot be satisfied by lying on
+    // either surface. Two shapes are honest, and exactly one must hold:
+    //   BLOCKING    — Analyse is disabled AND the surface says why.
+    //   PROCEEDING  — Analyse is enabled AND the surface QUALIFIES the result.
+    // The dishonest shape is: Analyse enabled, gap present, and NOTHING anywhere
+    // qualifying what the user is about to get. Making the headline lie now breaks
+    // the blocking branch instead of satisfying it, because that branch also requires
+    // the button to be disabled.
+    //
+    // ⚠ AND THE SURFACE THIS READS HAD TO BE MADE ADDRESSABLE FIRST. The subline's
+    // single-sentence branch (`PanelFooter.tsx`) carried NO testid, so on precisely
+    // the honest arm above, the only surface bearing the truth was invisible here.
+    // Reading just the headline is what made the old assertion look reasonable.
     const headline = (await textOf(page, 'pre-analysis-v3-footer-headline')).join(' ')
+    const subline = [
+      ...(await textOf(page, 'pre-analysis-v3-footer-subline')),
+      ...(await textOf(page, 'pre-analysis-v3-footer-subline-list')),
+    ].join(' ')
+    const surface = `${headline} ${subline}`.trim()
+
     expect(
       headline.length,
       '[E2] a gap exists and the readiness footer says nothing at all',
     ).toBeGreaterThan(0)
-    expect(
-      /not ready|needs|incomplete|before/i.test(headline),
-      `[E2] node ${gapNode} is missing a required input, yet the readiness headline reads ` +
-      `"${headline}" — it does not report the model as anything other than ready.`,
-    ).toBe(true)
 
-    // The load-bearing one: an ENABLED Analyse button beside an unmet requirement is
-    // the product promising an analysis it has just said it cannot honestly run.
+    // NON-VACUITY: if neither subline testid resolves, the qualification branch below
+    // could never be satisfied and this spec would silently collapse into the old
+    // headline-only assertion. Fail loudly instead of degrading quietly.
+    expect(
+      subline.length,
+      '[E2] the readiness SUBLINE resolved empty. On the ready-but-success-unset arm the ' +
+      'subline is the only surface carrying the qualification, so with it missing this spec ' +
+      'cannot tell an honest "provisional" state from an unqualified promise. Check the ' +
+      'pre-analysis-v3-footer-subline testid still exists on BOTH the single-sentence and ' +
+      'list branches of PanelFooter.',
+    ).toBeGreaterThan(0)
+
     const analyse = await measureControl(page, 'pre-analysis-v3-analyse')
     expect(
       analyse.w > 0 && analyse.h > 0,
       `[E2] the Analyse affordance resolved at ${analyse.w}x${analyse.h} — a testid, not a control`,
     ).toBe(true)
+    const analyseDisabled = analyse.disabledSelf || analyse.disabledByAncestorFieldset
+      || analyse.ariaDisabled || analyse.matchesDisabledPseudo
+
+    // "Reports the gap" covers both honest vocabularies: the blocking one, and the
+    // proceeding-with-a-caveat one. Deliberately a property of the WHOLE readiness
+    // surface, not of the headline alone.
+    const reportsGap = /not ready|needs|incomplete|before|provisional|until success/i.test(surface)
+
     expect(
-      analyse.disabledSelf || analyse.disabledByAncestorFieldset || analyse.ariaDisabled
-        || analyse.matchesDisabledPseudo,
-      `[E2] the readiness surface reports "${headline}" and flags node ${gapNode} as missing a ` +
-      `required input, yet Analyse is ENABLED. The product is offering an analysis it has just ` +
-      `told the user it is not ready to run.`,
+      analyseDisabled || reportsGap,
+      `[E2] node ${gapNode} is flagged as missing a required input and Analyse is ENABLED, yet ` +
+      `the readiness surface reads "${surface}" — it neither blocks the run nor qualifies what ` +
+      `the user is about to get. The product is offering an unqualified analysis over an unmet ` +
+      `requirement. (Either shape would be honest: block it, or say the first pass is ` +
+      `provisional. Saying nothing is not one of them.)`,
+    ).toBe(true)
+
+    expect(
+      reportsGap,
+      `[E2] node ${gapNode} is flagged as missing a required input and Analyse is DISABLED, but ` +
+      `the readiness surface reads "${surface}" — the user is stopped and not told why.`,
     ).toBe(true)
 
     // ---- A GAP NAMED WITHOUT GUIDANCE IS A DEAD END --------------------------
