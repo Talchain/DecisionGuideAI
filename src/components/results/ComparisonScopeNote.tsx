@@ -15,7 +15,15 @@
  *
  * ## The `surface` prop is REQUIRED on purpose
  *
- * All three mounts can be on screen at once, so a single shared testid would
+ * ⚠ `'analysisNew'` was ADDED (28 Aug 2026, ROADMAP 2.1340) for the experimental
+ * Analysis (New) tab's win share, which is a set-dependent comparative value and
+ * therefore takes `withDetail` under the rule below. The addition is purely
+ * additive — no existing mount's behaviour, markup or testid changes — and it
+ * deliberately reuses this component rather than re-rendering the copy, because
+ * a fourth spelling of the scope sentence is the mirror this module exists to
+ * prevent.
+ *
+ * All mounts can be on screen at once, so a single shared testid would
  * make every query ambiguous and force tests to bind positionally — the exact
  * bind-by-predicate defect trap 19 exists to stop. Naming the surface keeps
  * every assertion bound to the surface it is a claim about.
@@ -55,7 +63,7 @@ export interface ComparisonScopeNoteProps {
    */
   scope: ComparisonScope | null | undefined
   /** Which mounted surface this instance qualifies — see the header. */
-  surface: 'hero' | 'comparative' | 'options' | 'goal'
+  surface: 'hero' | 'comparative' | 'options' | 'goal' | 'analysisNew'
   /**
    * Render the consequence line as well. Off by default: the compact surfaces
    * have room for the scope sentence only, and a truncated second line is
