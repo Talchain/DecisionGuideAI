@@ -54,6 +54,20 @@ export interface PreAnalysisModel {
   hero: {
     decisionTitle: string | null
     /**
+     * Whether the model actually contains a decision node.
+     *
+     * ⭐ ONE FACT, TWO SURFACES. The hero heading and YourDecisionSection both
+     * render decision-shaped chrome; before this existed each rendered it
+     * UNCONDITIONALLY. They must not be able to disagree about whether a
+     * decision exists, so neither re-reads the graph — both consume this.
+     *
+     * ⚠ NOT the same question as `decisionPresent` in the bars memo below,
+     * which also accepts brief text. That one asks 'has the user given us
+     * enough to frame?'; this one asks 'is there a decision node?'. Naming
+     * them apart is deliberate — see trap 21.
+     */
+    hasDecision: boolean
+    /**
      * `fromBrief` is CEE's own `provenance: 'from_brief'` stamp, resolved by the
      * ONE predicate (`goalLabelIsUnconfirmedBriefExtract`) rather than re-read
      * from the node here — so the surface consumes a decision, not a field.
@@ -510,6 +524,7 @@ export function usePreAnalysisModel(): PreAnalysisModel {
       : undefined
     return {
       decisionTitle: briefTitle && briefTitle.length > 0 ? briefTitle : decisionLabel ?? null,
+      hasDecision: facts.decisionNode != null,
       goal: facts.goalNode
         ? {
             nodeId: facts.goalNode.id,

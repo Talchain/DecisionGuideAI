@@ -250,9 +250,16 @@ export const YourDecisionSection = memo(function YourDecisionSection({
     `${model.estimates.rows.length} ${model.estimates.rows.length === 1 ? 'estimate' : 'estimates'}`,
   ].join(' · ')
 
+  // Same claim as the hero hexagon, one section down: this title asserted a
+  // decision node unconditionally. It reads the SAME fact the hero does
+  // (`model.hero.hasDecision`) so the two cannot disagree on one screen. The
+  // testid is deliberately unchanged — a stable affordance hook, not a claim
+  // about content.
+  const title = model.hero.hasDecision ? PANEL_COPY.yourDecisionTitle : PANEL_COPY.yourModelTitle
+
   return (
     <PanelDisclosure
-      title={PANEL_COPY.yourDecisionTitle}
+      title={title}
       meta={meta}
       open={open}
       onOpenChange={setOpen}

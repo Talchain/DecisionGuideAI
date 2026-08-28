@@ -87,6 +87,13 @@ export const PANEL_COPY = {
   sharpenTitle: 'Sharpen your thinking',
   sharpenMeta: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
   yourDecisionTitle: 'Your decision',
+  /**
+   * Used when the model has NO decision node. CEE used to 422 any graph
+   * without one, so 'Your decision' was unconditionally true; once
+   * decision-free models reach the UI it becomes a claim about a node that
+   * does not exist. A model that maps a situation is still a model.
+   */
+  yourModelTitle: 'Your model',
   showMore: (n: number) => `Show ${n} more`,
   showFewer: 'Show fewer',
   expandAll: 'Expand all',
@@ -467,6 +474,8 @@ export const HERO_COPY = {
   successPlaceholder: 'What would count as success?',
   goalPlaceholder: 'What outcome do you want?',
   decisionFallback: 'Your decision',
+  /** Heading when there is no decision node AND no brief text to show. */
+  situationFallback: 'Your model',
   saveSuccess: 'Save success measure',
   pressureTestDecision: 'Ask Olumi: is this the right question, and does it fit your wider goals?',
   pressureTestGoal: 'Olumi can help reframe this as the outcome you want, so every option is comparable',
