@@ -83,6 +83,14 @@ export const ANALYSIS_NEW_COPY = {
     groundedIn: 'Grounded in',
     moreDrivers: (n: number) => `Show ${n} more`,
     moreUncertainty: (n: number) => `Show ${n} more`,
+    /**
+     * ⚠ NAMED APART FROM THE TWO ABOVE THOUGH THE STRING IS THE SAME TODAY.
+     * These answer three different questions — "more findings", "more
+     * uncertainties", "more options the run left out" — and folding them into
+     * one constant is how a later edit makes one of them speak for a set it
+     * does not describe (CLAUDE.md trap 21). Same words, different claims.
+     */
+    moreExcluded: (n: number) => `Show ${n} more`,
   },
 
   /** At a glance. Every string here is furniture — none describes the analysis. */

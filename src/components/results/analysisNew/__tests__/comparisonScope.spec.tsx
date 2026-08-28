@@ -51,15 +51,16 @@
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
-import { AtAGlance } from '../sections/AtAGlance'
+import { AtAGlance, EXCLUDED_OPTION_VISIBLE_CAP } from '../sections/AtAGlance'
 import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy } from '../../utils/notAnalysedCopy'
+import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import type { OptionResult } from '../../types'
 import { genuineDecision } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -369,5 +370,88 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
     render(<AtAGlance glance={glance} />)
     expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
     expect(screen.getByTestId('analysis-new-glance-verdict')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 5 · THE EXCLUDED-OPTION BLOCK IS BOUNDED.
+ *
+ * ⭐ WHY THESE EXIST, AND WHY NO EXISTING SPEC COULD SEE THE DEFECT. Every
+ * fixture in this file carries exactly ONE excluded option, so the block's
+ * growth with the option count was not expressible by the corpus — textbook
+ * CLAUDE.md trap 22. It was found by MEASURING the assembled surface in a real
+ * browser: at 280px with six excluded options the first section row sat at
+ * 850px against a ~769px dock, i.e. a reader could reach NO navigation at all
+ * without scrolling.
+ *
+ * ⚠ SCOPE, STATED PRECISELY. These pin what THIS file owns: the number of
+ * consequence rows rendered at rest. They pin NOTHING about
+ * `ComparisonScopeNote`, which names every excluded option in one sentence and
+ * is genuinely unbounded — that component is shared with the existing Analysis
+ * tab and is reported, not changed here.
+ */
+describe('5 · the excluded-option consequence rows are bounded, and nothing is lost', () => {
+  const manyExcluded = (n: number) => [
+    option({ id: 'o_kept', label: 'The one that was analysed', winProbability: 0.6 }),
+    ...Array.from({ length: n }, (_, i) =>
+      option({
+        id: `o_out_${i}`,
+        label: `Excluded option ${i}`,
+        notAnalysed: true,
+        notAnalysedReason: 'not_returned',
+      }),
+    ),
+  ]
+
+  it('renders at most the cap at rest, however many options were excluded', () => {
+    for (const n of [3, 12, 30]) {
+      cleanup()
+      render(<AtAGlance glance={glanceOf(withOptions(manyExcluded(n)))} />)
+      const rows = screen.getAllByTestId('analysis-new-glance-excluded-option')
+      expect(rows, `n=${n}: the block grows with the option count`).toHaveLength(
+        EXCLUDED_OPTION_VISIBLE_CAP,
+      )
+    }
+  })
+
+  it('the control names how many more there are, and opening it reveals ALL of them', () => {
+    render(<AtAGlance glance={glanceOf(withOptions(manyExcluded(9)))} />)
+    const more = screen.getByTestId('analysis-new-glance-excluded-more')
+    // Derived from the cap, never a typed-in number that drifts when it moves.
+    expect(more).toHaveTextContent(
+      ANALYSIS_NEW_COPY.disclosure.moreExcluded(9 - EXCLUDED_OPTION_VISIBLE_CAP),
+    )
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(more)
+
+    // NOTHING IS DROPPED — the whole point of a disclosure over a truncation.
+    expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(9)
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    // Bound by IDENTITY, not by count: the LAST option is the one a truncation
+    // would lose, so it is the one asserted present by its own id.
+    expect(
+      screen.getAllByTestId('analysis-new-glance-excluded-option').at(-1)!.dataset.optionId,
+    ).toBe('o_out_8')
+  })
+
+  it('shows no control at all when everything already fits', () => {
+    // The discriminating twin: a control that always renders would pass the
+    // case above while advertising a disclosure over nothing.
+    render(<AtAGlance glance={glanceOf(withOptions(manyExcluded(EXCLUDED_OPTION_VISIBLE_CAP)))} />)
+    expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(
+      EXCLUDED_OPTION_VISIBLE_CAP,
+    )
+    expect(screen.queryByTestId('analysis-new-glance-excluded-more')).toBeNull()
+  })
+
+  it('the COUNT is never behind the control — the note states it whatever the cap does', () => {
+    // ⚠ THE 2.1340 GUARANTEE, pinned against this cap. Capping the consequence
+    // rows must not put "how many were left out" behind a click.
+    render(<AtAGlance glance={glanceOf(withOptions(manyExcluded(30)))} />)
+    const scope = deriveComparisonScope(manyExcluded(30))!
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toHaveTextContent(
+      COMPARISON_SCOPE_COPY.sentence(scope),
+    )
   })
 })

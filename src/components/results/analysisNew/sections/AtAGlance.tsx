@@ -61,6 +61,7 @@
  * definition of the basis. That is the split the brief asks for.
  */
 
+import { useState } from 'react'
 import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
@@ -112,6 +113,43 @@ export interface AtAGlanceProps {
   testId?: string
 }
 
+/**
+ * How many excluded options are named before the rest go behind a disclosure.
+ *
+ * ⚠⚠ WHY THIS CAP EXISTS, MEASURED NOT ASSUMED. The excluded-option list was
+ * UNBOUNDED and rendered ABOVE every section row. Measured in a real browser on
+ * a partial-scope run with six excluded options: at 416px the first section row
+ * sat at 684px and the last at 928px; at 280px the first sat at 850px. The
+ * dock's usable height is ~769px, so at 280px A USER COULD REACH NO SECTION ROW
+ * AT ALL without scrolling — the surface's entire navigation was below the fold,
+ * pushed there by a block that names options the run did not analyse.
+ *
+ * ⚠⚠ AND THE JUSTIFICATION I FIRST WROTE HERE WAS FALSE — corrected at the DOM
+ * before it shipped. It said "this is the only place an unanalysed option is
+ * NAMED". It is not. `ComparisonScopeNote` directly above names EVERY excluded
+ * option in its sentence ("Comparing 1 of your 31 options — <every label>"), so
+ * these rows RE-NAME options the note has already named. The division of labour
+ * the builder documents is real but was only half-implemented: the note owns
+ * WHO, these rows own the CONSEQUENCE, and they were repeating the WHO to carry
+ * it.
+ *
+ * ⛔ THE FIX IS A DISCLOSURE, NEVER A TRUNCATION — but for the consequence, not
+ * the names. `notAnalysedReasonCopy` collapses to exactly TWO sanctioned
+ * sentences, so N excluded options render N copies of one of two strings. The
+ * cap bounds that repetition; the names remain complete in the note above, and
+ * the count is never behind this control.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, AND MUST NOT. The dominant growth is the NOTE, not
+ * these rows: measured at 280px, the note alone is 229px at 3 excluded options
+ * and 741px at 30 — genuinely unbounded. `ComparisonScopeNote` is SHARED with
+ * the existing Analysis tab, which this experiment may not alter, so it is
+ * reported rather than changed here. This cap bounds only what this file owns.
+ *
+ * Two, not three: two rows plus the note is what fits above the first section
+ * row at 280px, the width the defect was worst at.
+ */
+export const EXCLUDED_OPTION_VISIBLE_CAP = 2
+
 export function AtAGlance({
   glance,
   onFocusTarget,
@@ -120,6 +158,7 @@ export function AtAGlance({
   onRunIntervention,
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
+  const [showAllExcluded, setShowAllExcluded] = useState(false)
   const hasAnything =
     glance.headline || glance.verdict || glance.drivers.length > 0 || glance.condition
   if (!hasAnything) return null
@@ -239,7 +278,10 @@ export function AtAGlance({
               words — "no rank and no probability". The scope sentence above
               names who was left out; this states the consequence for them, and
               the two are different claims. */}
-          {glance.comparisonScope.excluded.map((o) => (
+          {(showAllExcluded
+            ? glance.comparisonScope.excluded
+            : glance.comparisonScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)
+          ).map((o) => (
             <p
               key={o.id}
               className={`${typography.panelMeta} text-text-light mt-1`}
@@ -253,6 +295,26 @@ export function AtAGlance({
               {o.reasonCopy}
             </p>
           ))}
+          {/* ⚠ A CONTROL, NOT A DECLARATION — the difference from the driver
+              cap below, which declares its overflow and offers no route because
+              the Drivers section IS the route. Here the consequence sentence
+              has no other home on this surface, so this one must open. (The
+              NAMES do have another home — the note above carries them all.) */}
+          {glance.comparisonScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
+            <button
+              type="button"
+              onClick={() => setShowAllExcluded((v) => !v)}
+              aria-expanded={showAllExcluded}
+              className={`${typography.panelMeta} text-text-light mt-1 rounded underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-excluded-more`}
+            >
+              {showAllExcluded
+                ? COPY.disclosure.collapse
+                : COPY.disclosure.moreExcluded(
+                    glance.comparisonScope.excluded.length - EXCLUDED_OPTION_VISIBLE_CAP,
+                  )}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
