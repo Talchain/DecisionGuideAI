@@ -61,6 +61,20 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     // ---- IDENTITY: the gap markers describe the SAME node ---------------------
     // Bound by node id, never by "some node has a pill" — a different node
     // satisfying the predicate is exactly the defect this rule exists to stop.
+    // ⚠⚠ THIS ONE IS A TAUTOLOGY, AND ITS FAILURE MESSAGE BELOW DESCRIBES SOMETHING
+    // THAT CANNOT HAPPEN. Derived at the bytes 2026-08-28:
+    //   `overlay-missing-threshold-node`  BaseNode.tsx:292
+    //   `needs-input-pill` (StatusPill.tsx:33)  BaseNode.tsx:378
+    // Both are gated on the SAME `isIncomplete` (BaseNode.tsx:153), in the SAME
+    // component, in the SAME render. For a goal node both reduce to
+    // `isPreRunMode && !isGoalDefined(goalThreshold, goalConstraints)`. So the two
+    // markers cannot name different nodes, and no product change short of editing
+    // that one expression can make this assertion red.
+    //
+    // It is LEFT IN PLACE rather than deleted: it is cheap, and it would go red if
+    // those markers were ever split onto different derivations — which is a real
+    // future risk and the only thing it can actually detect. What it must NOT be is
+    // cited as evidence that two independent surfaces agree. They are one surface.
     const needsInput = await owningNodeIds(page, 'needs-input-pill')
     expect(
       needsInput,
@@ -69,6 +83,13 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
       `most one of them can be right, and a user is being pointed at the wrong node.`,
     ).toContain(gapNode)
 
+    // This one is NOT a tautology, and the difference from the assertion above is
+    // worth stating so the two are not dismissed together. `goal-node-no-target-chip`
+    // comes from a DIFFERENT component (GoalNode.tsx:341, rendered at :389/:394) and
+    // is gated on `!hasThreshold` — whereas the markers above are gated on
+    // `!isGoalDefined(goalThreshold, goalConstraints)`, which ALSO considers
+    // constraints. A goal carrying constraints but no threshold separates them, so
+    // these two surfaces genuinely can disagree and this assertion can genuinely fail.
     const noTarget = await owningNodeIds(page, 'goal-node-no-target-chip')
     expect(
       noTarget,

@@ -329,6 +329,19 @@ export const readTurnStreams = (page: Page): Promise<TurnStream[]> =>
  * NON-VACUITY IS ENFORCED. "No unfinished streams" is trivially true of a run that
  * observed no streams at all, so zero observed turns is a hard error: a blind
  * interceptor and a genuinely silent app produce identical output.
+ *
+ * ⚠⚠ SCOPE — THIS FIXES ONE SPEC, NOT THE SUITE. Only `draftAsGuest` calls this, and
+ * only E2 uses `draftAsGuest`. E1 waits on `waitForStableLayout`, and E5 still waits
+ * on `waitForSettledDraft` — the PHRASE-LIST detector, i.e. the same inferred-idle
+ * class that produced the withdrawn 33–61% draft-failure rate. That detector is
+ * currently correct BY COINCIDENCE: the draft overlay's own copy escalates out of its
+ * case-sensitive match set at t>=20s ("Still drafting…", lowercase d), and what keeps
+ * it true is a co-rendered "Generating…" stage pill owned by a DIFFERENT component
+ * that nothing pins. Unmount or restyle that pill and the ancestor defect returns with
+ * no red anywhere.
+ *
+ * So the accurate statement is "E2 now waits for the terminal event", NOT "the suite
+ * waits correctly". Migrating E1 and E5 onto this wait is rowed, not done here.
  */
 export async function waitForDraftTurnComplete(
   page: Page, { timeoutMs = 300_000, pollMs = 2_000 } = {},

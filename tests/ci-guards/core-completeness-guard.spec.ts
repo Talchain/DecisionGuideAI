@@ -4,11 +4,23 @@
 // =============================================================================
 //
 // System E (`playwright.core.config.ts`) drives the deployed build in a real
-// browser. It is advisory and scheduled — it does NOT run on every pull request,
-// because a mounted-browser suite against a mutable target is not a merge gate.
+// browser. It is ADVISORY BUT NOT OPTIONAL-TO-RUN, and the distinction is the whole
+// point: the `Core E2E · System E (advisory)` job in `staging-full-tests.yml` runs on
+// EVERY pull request into `staging` and every push to `staging`, and NOTHING schedules
+// it. It is `continue-on-error` and absent from the `Staging Gate` aggregator's
+// `needs`, so a red there is loud and does not block a merge — a mounted-browser suite
+// against a mutable target is not a merge gate.
 //
-// That is a deliberate trade, and it leaves one thing that MUST still be checked on
-// every PR: the completeness guard's own arithmetic. This suite's whole claim is
+// ⚠ THIS PARAGRAPH PREVIOUSLY SAID "advisory and scheduled — it does NOT run on every
+// pull request". BOTH HALVES WERE FALSE at the commit that introduced them: nothing
+// scheduled it, and it does run on every PR. (`schedule:` could not have worked here
+// anyway — GitHub fires it only on the default branch, `main`.) It is corrected rather
+// than deleted because of WHERE it sat: this is the falsification engine describing
+// itself, and the next person deciding whether to trust a green run reads exactly this
+// line. A false label on a guard is what teaches people to stop looking.
+//
+// What that posture leaves is one thing that MUST be checked on the merge path itself:
+// the completeness guard's own arithmetic. This suite's whole claim is
 // "a run that measured nothing cannot report success", and that claim shipped FALSE.
 //
 // WHAT SHIPPED, AND WHY IT WAS INVISIBLE. `EXPECTED_CORE_SPECS` declared seven names

@@ -17,6 +17,39 @@
 // `POST /bff/cee/scenarios/<id>/graph` returns 404 — a guest's graph is never
 // persisted server-side. E5's first assertion re-measures that AUTHENTICATED,
 // because that 404 is the whole premise and an inherited premise is not evidence.
+//
+// =============================================================================
+// ⛔ WHAT A GREEN E5 DOES AND DOES NOT LICENCE — READ BEFORE CITING THIS SPEC
+// =============================================================================
+// A GREEN E5 LICENCES exactly one claim: an authenticated model was still there
+// after browser storage was wiped and the page reloaded. That claim is genuinely
+// tested, and it is the headline claim.
+//
+// A GREEN E5 DOES NOT LICENCE the claim that the persistence WRITE succeeded, and
+// must never be cited as evidence that it did. The wire assertion below is
+// MISDIRECTED, derived at the bytes 2026-08-28:
+//
+//   `/bff/cee/scenarios/<id>/graph`           is the READ  path
+//   `/bff/cee/scenarios/<id>/graph/register`  is the WRITE  (src/adapters/cee/
+//                                             registerScenarioGraph.ts:35)
+//
+// The filter below is the UNANCHORED regex `/\/scenarios\/[^/]+\/graph/`, which
+// matches BOTH — so "a graph write was attempted" is satisfied by a READ, and the
+// `404` check tests the READ path's refusal, not the write's. A run in which the
+// write was NEVER ATTEMPTED therefore passes this spec.
+//
+// PROVEN, not inferred (mutation, contrast-controlled, 2026-08-28):
+//   mutant: abort `**/scenarios/**/graph`  → graphWrites=1 statuses=THREW
+//                                            nodes=15 survived=15  → E5 PASSED
+//   clean:                                 → graphWrites=6 statuses=200
+//                                            nodes=16 survived=16  → E5 PASSED
+// The mutation demonstrably applied and the spec stayed green, so this is a
+// measured non-discrimination, not a suspicion.
+//
+// NOT REPAIRED HERE, DELIBERATELY: separating read from write changes what this
+// spec asserts about the product, and that is a scoped decision rather than a
+// drive-by edit. It is rowed. Until it is fixed, a green here is evidence about
+// SURVIVAL and about nothing upstream of it.
 
 import { test, expect } from '@playwright/test'
 import {
