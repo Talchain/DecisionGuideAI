@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { FIRST_USE_PLACEHOLDER } from './firstUsePlaceholder'
 
 
@@ -286,6 +286,76 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
     return registerFloatingFocus(() => inputBarRef.current?.focus())
   }, [shouldRender])
 
+  // ⭐ THE DOCK OVERLAYS THIS SURFACE, SO ITS WIDTH IS PART OF OUR GEOMETRY.
+  // This composer is `position: fixed` at zIndex 300; the outputs dock is
+  // `position: fixed` at zIndex 900 over the same area. Centring on the full
+  // viewport therefore parks the composer's right-hand end — INCLUDING ITS
+  // SEND BUTTON — underneath the dock, where it stops receiving pointer
+  // events. Measured on the deployed build with the dock open: at 1440x900
+  // 11% of the Send button was hit-testable; at 1280x800 (the DS v5 desktop
+  // minimum) it was 0% — a first-time user could not submit their brief.
+  //
+  // `measureDockInset()` is the estate's single authority for how much room
+  // the dock occupies, and FloatingOlumiPanel already solves this identical
+  // problem with it. Derived, not hand-copied: if the dock's width changes,
+  // or the user drags it, this follows.
+  //
+  // ⚠ WHY A DOM SIGNAL AND NOT A STORE SUBSCRIPTION — asked in review, derived
+  // rather than argued. NOTHING in the app carries the dock's RENDERED INSET
+  // reactively. `useCanvasStore`'s `showResultsPanel` is open/closed only; the
+  // WIDTH lives in the `--dock-right-expanded` CSS variable, rewritten on every
+  // drag; and the inset is width PLUS the shell's edge gap. Reconstructing it
+  // from those three would duplicate the arithmetic `measureDockInset()` already
+  // owns — a hand-maintained mirror of exactly the kind this estate keeps
+  // paying for. So the inset is still read through that one authority.
+  //
+  // `showResultsPanel` IS subscribed below, though, so the effect re-runs at the
+  // React level on open/close and the fix does not rest on a DOM attribute
+  // alone. It cannot replace the observers: it does not change on a width drag.
+  const dockOpen = useCanvasStore((s) => s.showResultsPanel)
+  const [dockInset, setDockInset] = useState(0)
+  useEffect(() => {
+    if (!shouldRender) return
+    if (typeof window === 'undefined') return
+
+    const sync = () => setDockInset(measureDockInset())
+    sync()
+
+    // ⚠ A ResizeObserver on the dock element is NOT sufficient and the first
+    // cut of this fix shipped that way: measured on the dev build, the inset
+    // stayed pinned at the collapsed 52px while the dock sat expanded at 428
+    // (`min(960px, -84px + 100vw)` — 52 + 32 baked into the style). The dock
+    // is not guaranteed to be mounted when this effect first runs, so the
+    // observer can be attached to nothing and never fire.
+    //
+    // Observe the signal the dock ACTUALLY EMITS instead: it writes
+    // `--dock-right-offset` onto documentElement's style attribute on every
+    // collapse, expand and width drag (OutputsDock's own effect). A
+    // MutationObserver on that attribute therefore cannot miss a change, and
+    // it does not care whether the dock has mounted yet. The ResizeObserver
+    // is kept as a second, independent trigger; `resize` covers a viewport
+    // change that leaves the dock's own box untouched.
+    const styleObserver = new MutationObserver(sync)
+    styleObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style'],
+    })
+
+    const dock = document.querySelector('aside[aria-label="Outputs dock"]')
+    const ro =
+      typeof ResizeObserver !== 'undefined' && dock ? new ResizeObserver(sync) : null
+    if (dock && ro) ro.observe(dock)
+    window.addEventListener('resize', sync)
+    return () => {
+      styleObserver.disconnect()
+      ro?.disconnect()
+      window.removeEventListener('resize', sync)
+    }
+    // `dockOpen` is a dependency, not a value read inside — re-running the
+    // effect on open/close re-measures and re-attaches to a dock that may have
+    // mounted since.
+  }, [shouldRender, dockOpen])
+
   if (!shouldRender) return null
   if (typeof document === 'undefined') return null
 
@@ -301,9 +371,14 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
         // viewport - 2*margin on narrow ones. The container itself is
         // invisible (no bg, no border, no shadow) — it only provides
         // positioning context for the logo + composer.
-        width: `min(${PANEL_WIDTH}px, calc(100vw - ${PANEL_MARGIN * 2}px))`,
+        // Folded into ONE subtraction on purpose: with no dock this emits
+        // `calc(100vw - 32px)` — byte-identical to the string this surface
+        // has always produced, so the responsive-width contract pinned by
+        // FirstUseComposer.spec.tsx keeps holding unchanged rather than
+        // being loosened to accommodate this fix.
+        width: `min(${PANEL_WIDTH}px, calc(100vw - ${dockInset + PANEL_MARGIN * 2}px))`,
         // Horizontal centre when there's room; left margin on narrow viewports.
-        left: `max(${PANEL_MARGIN}px, calc(50% - ${PANEL_WIDTH / 2}px))`,
+        left: `max(${PANEL_MARGIN}px, calc((100vw - ${dockInset}px) / 2 - ${PANEL_WIDTH / 2}px))`,
         // Vertical centre via transform — content height is unknown because
         // the composer grows on type. translateY(-50%) keeps the centre
         // stable regardless of how tall the composer becomes.
