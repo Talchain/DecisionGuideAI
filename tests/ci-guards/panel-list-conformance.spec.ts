@@ -69,6 +69,8 @@ function panelLists(): Array<{ file: string; line: number; tag: string }> {
   return found
 }
 
+import { PANEL_LIST_BULLET } from '../../src/canvas/conversation/panelLists'
+
 const CONSTANTS = ['PANEL_LIST_BULLET', 'PANEL_LIST_STACK', 'PANEL_LIST_CONTROLS']
 
 describe('AI panel list conformance', () => {
@@ -99,6 +101,67 @@ describe('AI panel list conformance', () => {
       ))
       .map((l) => `${l.file}:${l.line}`)
     expect(strays, 'list styling appended beside the constant — put it in panelLists.ts instead').toEqual([])
+  })
+
+  it('the MARKDOWN prose lists agree with PANEL_LIST_BULLET on marker and indent', () => {
+    // ⚠ THE SECOND LIST PATH, AND UNTIL NOW IT WAS ENFORCED BY LUCK.
+    // The assistant's message bodies are rendered markdown: their `<ul>` carries
+    // NO className at all and takes its styling from `Conversation.module.css`.
+    // Measured in the browser on deployed staging 28 Aug: `list-style: disc`,
+    // `padding-left: 16px` — byte-for-byte what `PANEL_LIST_BULLET` specifies.
+    //
+    // Nothing pinned that. The guard above cannot see these lists (they have no
+    // constant to check), so either side could have moved and the panel would
+    // have started rendering two different ideas of a bullet with every test
+    // still green. This asserts the agreement DERIVED FROM BOTH SOURCES — the
+    // CSS module and the constant — rather than restating either.
+    const css = readFileSync(resolve(root, 'src/canvas/conversation/Conversation.module.css'), 'utf8')
+    const block = (selector: string) => {
+      const m = css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`))
+      expect(m, `no rule found for \`${selector}\` — the module was restructured`).toBeTruthy()
+      return m![1]
+    }
+    const shared = block('.markdownContent ul,\n.markdownContent ol')
+    const ulOnly = block('.markdownContent ul')
+
+    // `pl-4` IS 16px. Derived from the constant, not hardcoded beside it.
+    const plStep = /\bpl-(\d+)\b/.exec(PANEL_LIST_BULLET)
+    expect(plStep, 'PANEL_LIST_BULLET no longer carries a pl-* step').toBeTruthy()
+    const expectedPadding = `${Number(plStep![1]) * 4}px`
+    expect(shared, `markdown lists must indent by ${expectedPadding}, as PANEL_LIST_BULLET does`)
+      .toMatch(new RegExp(`padding-left:\\s*${expectedPadding}\\s*;`))
+
+    // `list-disc` IS `list-style-type: disc`.
+    expect(PANEL_LIST_BULLET).toContain('list-disc')
+    expect(ulOnly, 'markdown lists must carry the disc marker, as PANEL_LIST_BULLET does')
+      .toMatch(/list-style-type:\s*disc\s*;/)
+  })
+
+  it('PINS THE ONE REAL DIVERGENCE — prose rhythm is 2px, the constant is 4px', () => {
+    // ⚠ THIS IS A DECLARED DIFFERENCE, NOT AN ASSERTION THAT IT IS RIGHT.
+    // `Conversation.module.css` spaces list items with `li { margin-bottom: 2px }`;
+    // `PANEL_LIST_BULLET` uses `space-y-1`, which is 4px. So the two paths agree
+    // on marker and indent and DISAGREE on rhythm — and 2px is not on the DS
+    // spacing scale (4·8·12·16·20·24·32·40·48·56·64) at all.
+    //
+    // It is pinned rather than fixed because closing it is a VISIBLE change to
+    // every list the assistant writes, and this lane has already built and
+    // reverted three convergences that turned out to be deliberate. Converging
+    // it needs a look, not a guess — and re-blessing the panel's visual
+    // references, which do pass and would go red.
+    //
+    // ⭐ THE POINT OF PINNING IT: this test REDs if either value moves, in EITHER
+    // direction. If someone converges them, this fails and they delete it
+    // deliberately. If someone widens the gap, this fails and they explain why.
+    // A gap recorded in the suite is honest; a gap invisible to it is how the
+    // first one survived unnoticed.
+    const css = readFileSync(resolve(root, 'src/canvas/conversation/Conversation.module.css'), 'utf8')
+    const li = css.match(/\.markdownContent li\s*\{([^}]*)\}/)
+    expect(li, 'no `.markdownContent li` rule — the module was restructured').toBeTruthy()
+    expect(li![1], 'prose list rhythm moved; reconcile with PANEL_LIST_BULLET or update this pin')
+      .toMatch(/margin-bottom:\s*2px\s*;/)
+    expect(PANEL_LIST_BULLET, 'constant rhythm moved; reconcile with the prose path')
+      .toContain('space-y-1')
   })
 
   it('the three constants remain distinct — two names for one spelling is not a scale', () => {
