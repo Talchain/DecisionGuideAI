@@ -36,7 +36,38 @@ export const ANALYSIS_NEW_COPY = {
   empty: {
     keyInsights: 'No insight is grounded well enough to lead with yet.',
     strengthen: 'No high-priority reasoning intervention identified yet.',
+    /**
+     * ⚠⚠ THE DRIVERS EMPTY STATE SPLITS THREE WAYS, AND COLLAPSING IT WAS A
+     * LIVE FALSEHOOD. This sentence used to be the ONLY one, so a run whose
+     * factors all came back with a producer `zero_reason` — i.e. the run DID
+     * return influence and measured it at zero — was told the run returned
+     * nothing, in the same words as a run that genuinely returned nothing.
+     * The two states were indistinguishable on screen.
+     *
+     * TRUTH CONDITION: no factor row was returned at all, and the producer did
+     * not say it skipped the analysis.
+     */
     drivers: 'This run did not return factor influence.',
+    /**
+     * TRUTH CONDITION: at least one factor row WAS returned and every returned
+     * row carries a producer `zero_reason`.
+     *
+     * The zero-ness is the PRODUCER's, not this adapter's inference:
+     * `types.ts:1081` defines the codes as "explains why influence is ZERO for
+     * intervention factors", so a row bearing one is a row the producer scored
+     * at zero. `intervention_override`, `disconnected` and `zero_outcome_diff`
+     * differ in WHY, and this sentence deliberately does not characterise the
+     * why — the per-row badges (`DriversSection.ZERO_REASON_BADGE_LABELS`) own
+     * that, and three reasons cannot share one summary without one of them
+     * being described wrongly.
+     */
+    driversAllZero: 'This run returned factor influence, and every factor came back at zero.',
+    /**
+     * TRUTH CONDITION: `driversStatus === 'skipped'` — the producer's own word
+     * for "I did not look". Distinct from 'unavailable'/'error', which mean it
+     * tried and we have nothing, and which keep the sentence above.
+     */
+    driversNotComputed: 'Factor influence was not computed for this run.',
     /** Used ONLY when the producer assessed evidence and found nothing. */
     uncertaintyAssessed: 'Nothing was flagged as consequentially uncertain on this run.',
     /** Used when the producer never assessed. Different fact, different words. */
@@ -88,6 +119,19 @@ export const ANALYSIS_NEW_COPY = {
      * (keep reading) feel like an error state.
      */
     stale: 'The model has changed since this analysis ran.',
+    /**
+     * ⚠ COVERAGE, NOT READINESS. Says the RESULT is incomplete; never that
+     * analysis may not run — `RunAdmission` owns readiness and this surface
+     * does not speak for it.
+     *
+     * ⚠ NOT THE SAME STRING AS `markers.provisional`, AND DELIBERATELY SO.
+     * `markers.provisional` ('Provisional') is a ROW-LEVEL badge, consumed by
+     * `DisclosureRow`, that qualifies one value. This is a SURFACE-LEVEL
+     * statement about the whole run. Two different claims at two different
+     * levels: naming them apart is what stops a later reader folding them into
+     * one and making the badge speak for the run (CLAUDE.md trap 21).
+     */
+    provisional: 'This analysis is partial — some results are missing.',
   },
 
   /**
@@ -106,7 +150,30 @@ export const ANALYSIS_NEW_COPY = {
 
   /** Whole-decision value of information. Verdict only — the units are unsafe. */
   decisionVoi: {
-    measuredNonZero: 'Resolving the open unknowns could still change this decision.',
+    /**
+     * ⚠⚠ THIS SENTENCE ANSWERS TO A CEILING IT DOES NOT OWN, AND IT BREACHED IT.
+     *
+     * It shipped as 'Resolving the open unknowns could still change this
+     * decision.' The verdict behind it is `readDecisionVoi` in
+     * `../voi/decisionVoi.ts` — `Number.isFinite(raw) && raw !== 0` — and that
+     * module's register (`../voi/resolveNextCopy.ts`) documents in terms what
+     * the verdict does NOT license: `decision_evpi` arrives with no noise
+     * floor, no CI and no `n_samples`, so a small positive value is not
+     * distinguishable from estimator noise. "Could still change this decision"
+     * is exactly the significance claim that ceiling forbids.
+     *
+     * The wording below is the owner's own LICENSED framing — the absence of a
+     * zero measurement, attributed to the whole decision rather than to the
+     * factors listed above it. It is deliberately NOT `RESOLVE_NEXT_COPY
+     * .decisionNotZero` verbatim: that sentence's second half scopes a
+     * per-factor RANKING which does not exist on this surface, so importing it
+     * would import a claim about something not on screen.
+     *
+     * Guarded by `__tests__/analysisNewCopyCeiling.spec.ts`, which imports the
+     * ceiling from the owner rather than restating it.
+     */
+    measuredNonZero:
+      'Measured for the decision as a whole, this run did not come back at zero.',
     measuredZero: 'Resolving the open unknowns was measured as not changing this decision.',
   },
 } as const

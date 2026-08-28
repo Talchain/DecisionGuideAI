@@ -425,3 +425,85 @@ describe('the influence bar appears only when it compares something', () => {
     expect(screen.getAllByTestId('analysis-new-glance-driver-bar')).toHaveLength(3)
   })
 })
+
+/**
+ * ⭐ "COULD CHANGE IF" — WHAT THE NUMBER LOOKS LIKE, not whether it is gated.
+ *
+ * Two defects measured by EXECUTION on the deployed build (post-merge review of
+ * #909), both on the same two lines:
+ *
+ *   (1) NO ROUNDING ANYWHERE. `flip_value` arrives at full float precision and
+ *       was printed raw — "Customer demand passes 0.361111%". Six decimal
+ *       places of estimator noise, presented as precision, on the surface whose
+ *       whole claim is a five-to-ten-second read.
+ *   (2) EVERY NON-'%' UNIT WAS PREFIXED. Correct for a currency; wrong for a
+ *       SCALE NAME, which rendered as "Customer demand passes index0.361111".
+ *
+ * ⚠ THE CORPUS ABOVE EXCLUDED THE CLASS THAT BREAKS (trap 22c). The existing
+ * cases pin `unit: '%'` only; 'index' and 'scale' — both observed in this
+ * repo's capture fixtures — had zero references in this directory. So these
+ * cases are written from the OBSERVED UNIT SET, not from the shape of the fix.
+ */
+describe('could change if — the value is printed at a precision a reader can use', () => {
+  const conditionFor = (unit: unknown, over: Record<string, unknown> = {}) =>
+    glanceOf(
+      makeData({
+        recommendation: {
+          flipThresholdsStatus: 'computed' as never,
+          flipThresholds: [
+            {
+              label: 'Customer demand',
+              node_id: 'n_demand',
+              current_value: 0.2,
+              flip_value: 0.361111,
+              ...(unit === undefined ? {} : { unit }),
+              ...over,
+            },
+          ] as never,
+        },
+      }),
+    ).condition
+
+  it('PRECONDITION — the fixture value is one no reader could use unrounded', () => {
+    // If this ever stops having more than two decimals the cases below stop
+    // discriminating and start passing for free.
+    expect(String(0.361111).split('.')[1].length).toBeGreaterThan(2)
+  })
+
+  it('a percentage is rounded, not printed at float precision', () => {
+    expect(conditionFor('%')!.text).toBe('Customer demand passes 0.36%')
+  })
+
+  it('a currency keeps its symbol AND is rounded', () => {
+    expect(conditionFor('£')!.text).toBe('Customer demand passes £0.36')
+  })
+
+  /**
+   * ⭐ THE TWIN THAT MATTERS. 'index' and 'scale' NAME the scale the number sits
+   * on; they are not printable units, and prefixing produced literal garbage.
+   * The honest fallback is this function's OWN stated rule for a unit it cannot
+   * print: state the reference point instead, which is interpretable.
+   */
+  it.each(['index', 'scale'])('a scale NAME (%s) is never prefixed onto the number', (unit) => {
+    const text = conditionFor(unit)!.text
+    expect(text).not.toContain(`${unit}0.36`)
+    expect(text).not.toContain(unit)
+    expect(text).toBe('Customer demand moves from 0.2 to 0.36')
+  })
+
+  it('an absent unit still pairs the value with its reference point, rounded on BOTH ends', () => {
+    expect(conditionFor(undefined)!.text).toBe('Customer demand moves from 0.2 to 0.36')
+  })
+
+  it('a whole number carries no invented decimal places', () => {
+    // Rounding must not become "always two decimals": "passes 3.00%" would be
+    // fabricated precision in the other direction.
+    expect(conditionFor('%', { flip_value: 3 })!.text).toBe('Customer demand passes 3%')
+  })
+
+  it('still states the condition WITHOUT a number when neither a printable unit nor a baseline exists', () => {
+    expect(conditionFor('index', { current_value: null })!.text).toBe(
+      'Customer demand changes materially',
+    )
+  })
+})

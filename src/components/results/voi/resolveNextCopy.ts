@@ -48,6 +48,46 @@
  *     ratified wording rather than mirroring it inexactly.
  */
 
+/**
+ * ⭐⭐ THE DECISION-LEVEL HONESTY CEILING, IN MACHINE-READABLE FORM.
+ *
+ * The prose ceiling lives on `decisionNotZero` below: `decision_evpi` arrives
+ * with no noise floor, no CI and no `n_samples` of its own, so a small positive
+ * value is NOT distinguishable from estimator noise. "The run did not come back
+ * at zero" is a statement about the returned value and is supported. Any
+ * sentence asserting that the value MEANS something — that there is value, that
+ * the decision could change — is a significance claim the wire cannot support.
+ *
+ * ⚠ WHY IT MOVED HERE FROM `resolveNextCopy.spec.ts`. It was a `const` local to
+ * that spec, so it constrained exactly ONE copy register. `analysisNewCopy.ts`
+ * then authored a SECOND sentence off the SAME verdict source (`readDecisionVoi`
+ * in `decisionVoi.ts`) — 'Resolving the open unknowns could still change this
+ * decision' — which is precisely the claim this ceiling exists to forbid, and
+ * no guard anywhere could see it. A doctrine limit that only one consumer can
+ * import is a limit the next consumer will breach without noticing.
+ *
+ * ⚠ THIS LIST MAY BE EXTENDED, NEVER TRIMMED TO FIT A SENTENCE SOMEONE WANTS TO
+ * SHIP. Extending it is a tightening and is argued for in the diff; removing a
+ * pattern widens what the product may assert about a number it cannot resolve.
+ */
+export const UNLICENSED_SIGNIFICANCE_CLAIMS: readonly RegExp[] = [
+  /there (?:is|may be|could be) (?:real )?value/i,
+  /worth learning more/i,
+  /would improve/i,
+  /significant/i,
+  /material(?:ly)?\b/i,
+  /you should (?:resolve|learn|investigate)/i,
+  /more precision would/i,
+  /(?:high|low|moderate) (?:value|information)/i,
+  // ⚠ ADDED 2026-08-28. The eight patterns above did NOT match 'could still
+  // change this decision', which is the same significance claim in the product's
+  // own vocabulary — the list was SHORT, and the shipped breach proved it. A
+  // ceiling that cannot see the breach that happened is not yet a ceiling.
+  // `decisionNotZero` and `decisionZero` are both checked against this and both
+  // pass: neither predicts what the decision would do.
+  /(?:could|may|might|would)(?: still)? change (?:this|the|your) (?:decision|choice|call)/i,
+]
+
 export const RESOLVE_NEXT_COPY = {
   /** View-chip label, on both hosts. */
   tab: 'Resolve next',

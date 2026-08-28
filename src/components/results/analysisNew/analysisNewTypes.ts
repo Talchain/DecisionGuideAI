@@ -19,6 +19,7 @@
  * property that makes a wrong row diagnosable rather than merely wrong.
  */
 
+import type { DriversSectionData } from '../types'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 
 /**
@@ -138,6 +139,14 @@ export interface StrengthenSection {
   scienceGrounding: Record<string, ScienceGrounding>
 }
 
+/**
+ * The producer's driver-analysis status. Structurally identical to
+ * `DriversSectionData['driversStatus']` in `../types` and kept as an alias so
+ * the tokens have ONE spelling: a hand-copied union is the mirror defect
+ * (CLAUDE.md trap 12) and this one would drift silently.
+ */
+export type DriversStatus = DriversSectionData['driversStatus']
+
 export interface DriversSection {
   findings: AnalysisNewFinding[]
   /**
@@ -153,6 +162,32 @@ export interface DriversSection {
   /** The option sensitivities were computed against, when disclosed. */
   referenceOptionLabel: string | null
   totalCount: number
+  /**
+   * The PRODUCER's own word for whether driver analysis happened at all —
+   * `data.drivers.driversStatus`, passed through, never re-derived here.
+   *
+   * ⚠ THIS ANSWERS "DID WE GET DRIVERS", AND IT IS NOT THE SAME QUESTION AS
+   * `suppressedZeroCount` BELOW (CLAUDE.md trap 21). Two authorities that look
+   * like they disagree usually answer different questions, and collapsing them
+   * is how one sentence came to cover two opposite states.
+   *
+   * ⚠ AND IT IS NOT SUFFICIENT ON ITS OWN. `useResultsSectionData.ts:3235`
+   * DEFAULTS `drivers_status` to 'computed' when the field is absent on the V5
+   * path, so 'computed' does NOT imply rows were returned. A zero claim keyed
+   * on this alone would be false on exactly that run.
+   */
+  driversStatus: DriversStatus
+  /**
+   * How many returned rows THIS SURFACE dropped because the producer marked
+   * them zero (`zeroReason != null`).
+   *
+   * ⚠ THIS ANSWERS "WERE THE ONES WE GOT ALL ZERO". It is this adapter's own
+   * bookkeeping about its own filter — not a second status concept — and it is
+   * what licenses saying the run measured influence and found none: a row
+   * carries a `zero_reason` only when the producer scored it at zero
+   * (`types.ts` — "explains why influence is ZERO for intervention factors").
+   */
+  suppressedZeroCount: number
 }
 
 export interface UncertaintySection {

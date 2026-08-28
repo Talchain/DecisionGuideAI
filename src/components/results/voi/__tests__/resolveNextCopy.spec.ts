@@ -23,7 +23,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { findBannedTerm } from '@/test/glossaryBannedTerms'
-import { RESOLVE_NEXT_COPY as R } from '../resolveNextCopy'
+import { RESOLVE_NEXT_COPY as R, UNLICENSED_SIGNIFICANCE_CLAIMS } from '../resolveNextCopy'
 import {
   NO_EFFECT_CLAIM_PHRASES,
   HISTORICAL_NO_EFFECT_OVERCLAIM,
@@ -148,16 +148,9 @@ describe('register hygiene', () => {
    * Nothing in the glossary, trust-word, digit or L61 sweeps above would catch
    * that sentence; only this test would.
    */
-  const UNLICENSED_SIGNIFICANCE_CLAIMS = [
-    /there (?:is|may be|could be) (?:real )?value/i,
-    /worth learning more/i,
-    /would improve/i,
-    /significant/i,
-    /material(?:ly)?\b/i,
-    /you should (?:resolve|learn|investigate)/i,
-    /more precision would/i,
-    /(?:high|low|moderate) (?:value|information)/i,
-  ]
+  // ⭐ The list now lives on the OWNER MODULE (`resolveNextCopy.ts`) and is
+  // imported, not copied — a second consumer authored a breaching sentence
+  // off the same verdict source while this list was local to this file.
 
   it.each(UNLICENSED_SIGNIFICANCE_CLAIMS)(
     'the decision-level sentences make no unlicensed significance claim: %s',

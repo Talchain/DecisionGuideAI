@@ -315,6 +315,14 @@ function buildDrivers(
   const influenceIsSetRelative =
     drivers.length > 0 && drivers.some((d) => d.displayProvenance !== 'influence_score')
 
+  // ⚠⚠ THE ROWS DROPPED HERE ARE NOT NOTHING, AND SAYING THEY WERE WAS A LIVE
+  // FALSEHOOD. A row carrying `zeroReason` is a row the PRODUCER measured and
+  // scored at zero (`types.ts` — the codes "explain why influence is ZERO").
+  // Filtering them is right — a zero-influence factor is not a driver — but
+  // the count has to survive the filter, because the empty state below it has
+  // to tell "we measured, and it was zero" apart from "we got nothing", and an
+  // empty `findings` array cannot.
+  const suppressedZero = drivers.filter((d) => d.zeroReason != null)
   const findings = drivers
     .filter((d) => d.zeroReason == null)
     .map((d) => driverFinding(d, influenceIsSetRelative, recommendations))
@@ -324,6 +332,10 @@ function buildDrivers(
     influenceIsSetRelative,
     referenceOptionLabel: data.sensitivityReference?.optionLabel ?? null,
     totalCount: findings.length,
+    // Passed through, never re-derived: the producer's word for whether driver
+    // analysis happened at all.
+    driversStatus: data.drivers.driversStatus,
+    suppressedZeroCount: suppressedZero.length,
   }
 }
 
@@ -614,8 +626,29 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   // travel is unknowable (Codex B3: a defaulted 0 fabricated a flip DIRECTION),
   // so the row states the condition without a number rather than printing one
   // the reader cannot place.
-  const unit = typeof usable.unit === 'string' ? usable.unit : ''
-  const fmt = (n: number) => (unit === '%' ? `${n}%` : `${unit}${n}`)
+  // ⚠⚠ TWO DEFECTS MEASURED BY EXECUTION ON THE DEPLOYED BUILD (#909 review).
+  //  (1) NOTHING WAS ROUNDED. `flip_value` arrives at full float precision and
+  //      was printed raw: "Customer demand passes 0.361111%". Six decimal
+  //      places of estimator noise, shown as precision, on the surface whose
+  //      entire claim is a five-to-ten-second read.
+  //  (2) EVERY NON-'%' UNIT WAS PREFIXED. Units observed across this repo's
+  //      captures are '%', '£', 'index' and 'scale'. Prefixing is right for a
+  //      currency and wrong for a SCALE NAME, which rendered literally as
+  //      "Customer demand passes index0.361111".
+  // 'index'/'scale' are not units at all — they NAME the scale the number sits
+  // on — so the printable set is closed to '%' and currency symbols, and
+  // anything else falls through to the `current -> flip` form. That is not a
+  // new rule: it is THIS function's own stated rule for a unit it cannot print,
+  // applied to a unit that is unprintable rather than only to one that is
+  // absent. The reference point is what makes the number placeable.
+  const rawUnit = typeof usable.unit === 'string' ? usable.unit : ''
+  const CURRENCY_SYMBOLS = ['£', '$', '€', '¥']
+  const unit = rawUnit === '%' || CURRENCY_SYMBOLS.includes(rawUnit) ? rawUnit : ''
+  // At most two decimals, and NO invented ones: `Math.round(x*100)/100` through
+  // `String` leaves a whole number whole, so "passes 3%" never becomes the
+  // fabricated "passes 3.00%".
+  const num = (n: number) => String(Math.round(n * 100) / 100)
+  const fmt = (n: number) => (unit === '%' ? `${num(n)}%` : `${unit}${num(n)}`)
   const flip = fmt(usable.flip_value as number)
   const current = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
   const text = unit
@@ -775,7 +808,20 @@ export function buildAnalysisNewViewModel(
       scienceGrounding: inputs.scienceGrounding ?? {},
     },
     drivers: preRun
-      ? { findings: [], totalCount: 0, influenceIsSetRelative: false, referenceOptionLabel: null }
+      ? {
+          findings: [],
+          totalCount: 0,
+          influenceIsSetRelative: false,
+          referenceOptionLabel: null,
+          // ⚠ PRE-RUN, THE PRODUCER'S STATUS IS A DEFAULT, NOT A STATEMENT —
+          // `useResultsSectionData` hands back 'computed' when nothing has run.
+          // Reading it through here would let the surface describe a run that
+          // never happened, which is the defect `buildDeeper` documents. The
+          // pre-run branch renders no empty message at all, so 'unavailable' is
+          // inert here and is the honest token for "we have nothing".
+          driversStatus: 'unavailable' as const,
+          suppressedZeroCount: 0,
+        }
       : buildDrivers(data, recommendations),
     uncertainty: preRun
       ? { findings: [], totalCount: 0, evidenceAssessed: false, decisionVoi: 'not_computed' as const }

@@ -26,8 +26,22 @@ import {
   decisionWithLeaderWithheld,
   genuineDecision,
   highUncertainty,
+  makeData,
+  makeDriver,
   openStrategicChallenge,
 } from './analysisNewFixtures'
+import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
+
+/** The adapter under the same inputs `renderBody` gives the component. */
+const vmOf = (data: ResultsSectionDataReturn) =>
+  buildAnalysisNewViewModel({
+    data,
+    recommendations: [],
+    recommendationCandidateCount: 0,
+    isPreRun: false,
+    isRunning: false,
+    isStale: false,
+  })
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const renderBody = (
@@ -310,5 +324,163 @@ describe('pre-run: nothing on screen describes a run that has not happened', () 
     for (const lie of ['analysis status', 'result completeness', 'run identity']) {
       expect(text, `pre-run surface still says "${lie}"`).not.toContain(lie)
     }
+  })
+})
+
+
+/**
+ * ⭐⭐ THE DRIVERS EMPTY STATE — TWO OPPOSITE HARMS THAT CANNOT SHARE ONE
+ * SENTENCE (post-merge review of #909).
+ *
+ * Harm A (shipped): a run whose factors all came back with a producer
+ * `zero_reason` was told "This run did not return factor influence." It DID
+ * return it — and measured it at zero. Harm B is the mirror: telling a user we
+ * measured zero on a run where we genuinely received nothing. One sentence
+ * cannot be honest about both, so every case below has its opposite-direction
+ * twin, and the twin asserts the OTHER sentence is absent as well as the right
+ * one present.
+ *
+ * ⚠ REACHABILITY IS PRODUCER-BOUNDED, NOT FIXTURE-ASSERTED (trap 16-inverse).
+ * `zeroReason` originates at the wire — `mapV5AnalysisToReport.ts:300` reads
+ * `entry.zero_reason`, `useResultsSectionData.ts:394` types it — and
+ * `useResultsSectionData.ts:2730` sets `driversStatus: driverItems.length > 0 ?
+ * 'computed' : driversStatus`, so rows carrying a zero reason arrive WITH
+ * `driversStatus: 'computed'`. That combination is the live state, not one
+ * these fixtures invented.
+ */
+describe('the drivers empty state distinguishes "measured at zero" from "we got nothing"', () => {
+  /**
+   * ⚠ PRECONDITION PINNED IN-TEST. A fixture that silently stopped producing
+   * suppressed rows would make every assertion below pass for the wrong reason
+   * (trap 13b: a discriminator whose discrimination depends on an unpinned
+   * fixture). So each builder asserts the state it claims to be in, at the
+   * ADAPTER, before the render is trusted.
+   */
+  const allFactorsZero = () =>
+    makeData({
+      drivers: {
+        driversStatus: 'computed',
+        drivers: [
+          makeDriver({ factorKey: 'f_a', factorLabel: 'Supplier lead time', zeroReason: 'zero_outcome_diff' }),
+          makeDriver({ factorKey: 'f_b', factorLabel: 'Channel mix', zeroReason: 'disconnected' }),
+        ],
+      },
+    })
+
+  const nothingReturned = () =>
+    makeData({ drivers: { driversStatus: 'unavailable', drivers: [] } })
+
+  const skipped = () => makeData({ drivers: { driversStatus: 'skipped', drivers: [] } })
+
+  const emptyText = () => screen.getByTestId('analysis-new-drivers-empty').textContent
+
+  it('PRECONDITION — the two fixtures differ in exactly the way the split depends on', () => {
+    const zero = allFactorsZero()
+    const none = nothingReturned()
+    // Provably suppressed: rows present, every one carrying a producer reason…
+    expect(zero.drivers.drivers).toHaveLength(2)
+    expect(zero.drivers.drivers.every((d) => d.zeroReason != null)).toBe(true)
+    // …and provably NOT returned on the twin. If these two ever coincide the
+    // tests below stop discriminating, and this is where that shows up.
+    expect(none.drivers.drivers).toHaveLength(0)
+    // Both reach the SAME empty render path — which is why one sentence for
+    // both was invisible until now.
+    expect(vmOf(zero).drivers.findings).toHaveLength(0)
+    expect(vmOf(none).drivers.findings).toHaveLength(0)
+  })
+
+  it('MEASURED AT ZERO — says the run returned influence, and NOT that it returned none', () => {
+    renderBody(allFactorsZero())
+    expect(emptyText()).toBe(COPY.empty.driversAllZero)
+    // The twin half: the false sentence must be gone, not merely joined.
+    expect(emptyText()).not.toBe(COPY.empty.drivers)
+  })
+
+  it('TWIN — GENUINELY NOTHING RETURNED keeps "did not return", and never claims a zero', () => {
+    renderBody(nothingReturned())
+    expect(emptyText()).toBe(COPY.empty.drivers)
+    expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
+  })
+
+  /**
+   * ⭐ THE OTHER DIRECTION, AND THE REASON `driversStatus === 'computed'` IS NOT
+   * THE PREDICATE. On the V5 path `useResultsSectionData.ts:3235` DEFAULTS
+   * `drivers_status` to 'computed' when the field is absent, so 'computed' does
+   * NOT imply rows were returned. Keying the zero sentence on the status alone
+   * would manufacture the mirror falsehood on exactly this run.
+   */
+  it('TWIN — "computed" with NO rows must not be dressed up as a measured zero', () => {
+    const data = makeData({ drivers: { driversStatus: 'computed', drivers: [] } })
+    expect(data.drivers.drivers).toHaveLength(0)
+    renderBody(data)
+    expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
+    expect(emptyText()).toBe(COPY.empty.drivers)
+  })
+
+  it('SKIPPED is the producer saying it did not look — a third fact, not either of the two above', () => {
+    renderBody(skipped())
+    expect(emptyText()).toBe(COPY.empty.driversNotComputed)
+    expect(emptyText()).not.toBe(COPY.empty.drivers)
+    expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
+  })
+
+  /**
+   * ⚠ IDENTITY, NOT TEXT. `analysis-new-uncertainty-empty` renders a sentence
+   * from the same COPY object one section below; asserting on a bare
+   * `getByText` would let the uncertainty section satisfy a drivers assertion.
+   * The testid binds each assertion to the section that owns it.
+   */
+  it('binds to the DRIVERS section, not to whichever section happens to carry the words', () => {
+    renderBody(allFactorsZero())
+    const drivers = screen.getByTestId('analysis-new-drivers')
+    expect(within(drivers).getByTestId('analysis-new-drivers-empty')).toHaveTextContent(
+      COPY.empty.driversAllZero,
+    )
+  })
+})
+
+/**
+ * ⭐ A PARTIAL ANALYSIS SAYS SO ON THE SURFACE.
+ *
+ * `status.isProvisional` was computed at `buildAnalysisNewViewModel.ts:685` and
+ * read by NONE of the six render components (contrast control at the time:
+ * `isStale`, 4 hits in this component alone). The only disclosure was the bare
+ * enum "partial" inside `Deeper analysis`, which `useState(false)` keeps
+ * COLLAPSED by default — so on a 5-to-10-second surface a partial result was
+ * presented exactly like a complete one.
+ */
+describe('a partial analysis carries a provisional marker on the surface', () => {
+  const partialRun = () =>
+    makeData({
+      recommendation: { ...genuineDecision().recommendation },
+      completeness: { status: 'partial', missing: ['robustness_level'], reasons: [] },
+    })
+
+  it('PRECONDITION — the fixture is provably provisional and its twin provably is not', () => {
+    expect(vmOf(partialRun()).status.isProvisional).toBe(true)
+    expect(vmOf(genuineDecision()).status.isProvisional).toBe(false)
+  })
+
+  it('renders the marker when the result is partial', () => {
+    renderBody(partialRun())
+    expect(screen.getByTestId('analysis-new-status-provisional')).toHaveTextContent(
+      COPY.status.provisional,
+    )
+  })
+
+  it('TWIN — a complete run carries NO provisional marker', () => {
+    renderBody(genuineDecision())
+    expect(screen.queryByTestId('analysis-new-status-provisional')).toBeNull()
+  })
+
+  it('is not the row-level badge wearing a different hat', () => {
+    // `markers.provisional` ('Provisional') qualifies ONE value inside a
+    // DisclosureRow. This is a claim about the whole run. If they ever collapse
+    // into one string, the badge starts speaking for the run.
+    expect(COPY.status.provisional).not.toBe(COPY.markers.provisional)
+  })
+
+  it('states COVERAGE, never READINESS — it does not speak for RunAdmission', () => {
+    expect(COPY.status.provisional).not.toMatch(/\bready|readiness|cannot run|not ready\b/i)
   })
 })
