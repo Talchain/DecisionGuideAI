@@ -143,7 +143,7 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
     // The defect was not "the scope is missing from the panel" — it was that a
     // reader of the number never reaches the scope. Adjacency IS the fix, so it
     // is what gets pinned: both inside the glance, scope after the share.
-    const { container } = render(<AtAGlance glance={glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))} />)
+    render(<AtAGlance glance={glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))} />)
     const glanceEl = screen.getByTestId('analysis-new-glance')
     const share = screen.getByTestId('analysis-new-glance-win-share')
     const scopeEl = screen.getByTestId('analysis-new-glance-scope')
@@ -153,8 +153,49 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
     expect(
       share.compareDocumentPosition(scopeEl) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
-    // And nothing collapsible sits between them.
-    expect(container.querySelector('[data-testid$="-scope"] details')).toBeNull()
+    // ⚠ A DEAD ASSERTION WAS REMOVED HERE, and the removal is the point.
+    // It read `container.querySelector('[data-testid$="-scope"] details')` and
+    // asserted null — but this component renders ZERO `details` elements, so it
+    // could not fail for ANY implementation, and it was blind to a collapsible
+    // ancestor or a CSS/state-based collapse. It read as coverage of "not
+    // behind disclosure" while proving nothing (trap 13b — a guard agreeing
+    // with itself). The adjacency property is carried by the
+    // compareDocumentPosition pair above, which a mutant does bite. Found by
+    // independent review.
+  })
+})
+
+describe('1b · no claim on screen, no qualification of it', () => {
+  it('renders no scope note when the producer withheld the leader entitlement', () => {
+    // ⚠ FOUND BY INDEPENDENT REVIEW OF THIS CHANGE, and it was a real state,
+    // not a hypothetical: one analysed option, one not, and no entitled leader
+    // produced "Comparing 1 of your 2 options — Beta was left out. Ranks and
+    // comparative percentages describe those 1 only." with NO rank and NO
+    // percentage anywhere on the surface. The scope sentence exists to qualify
+    // the share; with no share it qualifies nothing, and `deriveComparisonScope`
+    // returns null in the analogous state for exactly this reason.
+    const base = genuineDecision()
+    const data = {
+      ...base,
+      recommendation: {
+        ...base.recommendation,
+        allOptions: [
+          option({ id: 'o_a', label: 'Alpha', winProbability: 0.55 }),
+          option({ id: 'o_b', label: 'Beta', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+        ],
+        // The producer declined to put a leader forward.
+        verdict: { hasLeadingOption: false },
+      },
+    } as ResultsSectionDataReturn
+    const glance = glanceOf(data)
+
+    // The scope is still PARTIAL — the suppression is not a reclassification.
+    expect(glance.comparisonScope.kind).toBe('partial')
+    expect(glance.winShare).toBeNull()
+
+    render(<AtAGlance glance={glance} />)
+    expect(screen.queryByTestId('comparison-scope-note-analysisNew')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-excluded-option')).toBeNull()
   })
 })
 
@@ -193,12 +234,41 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
     expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
   })
 
-  it('renders no share when the option set is empty', () => {
+  it('classifies an empty option set as unresolved', () => {
+    // ⚠ SCOPE OF THIS CASE, STATED HONESTLY. It previously also asserted the
+    // share was withheld — but with no options there is no `recommendedOption`,
+    // so the PRE-EXISTING `headline &&` gate already nulls the share and that
+    // half passed without the scope gate existing at all (proven: the mutant
+    // that deletes the scope conjunct REDs the other two case-3 tests and
+    // leaves this one green). The CLASSIFICATION is what this case establishes
+    // and it does bite; the withholding is established by the cases above and
+    // below. Found by independent review.
     const glance = glanceOf(withOptions([]))
     expect(glance.comparisonScope.kind).toBe('unresolved')
-    expect(glance.winShare).toBeNull()
-    render(<AtAGlance glance={glance} />)
-    expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
+  })
+
+  it('never names an excluded option by its raw node id', () => {
+    // ⚠ THIS GUARD EXISTED AND WAS UNPINNED — a mutant removing the
+    // `label !== id` conjunct left all seven tests green (independent review).
+    // `useResultsSectionData` sets `label: node.data?.label || nodeId`, so an
+    // unlabelled option arrives carrying its OWN ID as a well-formed string.
+    // Without the guard the glance renders "79b5d7c0 — Not analysed…" directly
+    // under the win share: a raw internal identifier presented as the name of
+    // the user's option. Falling back to the scope sentence's COUNT ("1 was
+    // left out") is honest; inventing a name is not.
+    const glance = glanceOf(
+      withOptions([
+        option({ id: 'o_real', label: 'Moving to a 3PL', winProbability: 0.6 }),
+        option({ id: '79b5d7c0', label: '79b5d7c0', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      ]),
+    )
+    expect(glance.comparisonScope.kind).toBe('partial')
+
+    const { container } = render(<AtAGlance glance={glance} />)
+    expect(screen.queryByTestId('analysis-new-glance-excluded-option')).toBeNull()
+    expect(container.textContent).not.toContain('79b5d7c0')
+    // The exclusion is still disclosed — by count, via the sanctioned register.
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
   })
 
   it('withholding the share does not withhold the rest of the read', () => {
