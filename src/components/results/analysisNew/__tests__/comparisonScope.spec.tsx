@@ -165,17 +165,24 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
   })
 })
 
-describe('1b · no claim on screen, no qualification of it', () => {
-  it('renders no scope note when the producer withheld the leader entitlement', () => {
-    // ⚠ FOUND BY INDEPENDENT REVIEW OF THIS CHANGE, and it was a real state,
-    // not a hypothetical: one analysed option, one not, and no entitled leader
-    // produced "Comparing 1 of your 2 options — Beta was left out. Ranks and
-    // comparative percentages describe those 1 only." with NO rank and NO
-    // percentage anywhere on the surface. The scope sentence exists to qualify
-    // the share; with no share it qualifies nothing, and `deriveComparisonScope`
-    // returns null in the analogous state for exactly this reason.
+describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
+  /**
+   * ⚠⚠ THIS BLOCK REPLACES A TEST THAT PINNED A DEFECT.
+   *
+   * Its first version asserted that withholding the leader entitlement removed
+   * the scope note. Independent review showed that was the WRONG property and
+   * that pinning it had introduced a regression against the previous head: a
+   * leader determined by EXPECTED OUTCOME carries a null win probability, so the
+   * surface named a leader among 2 of 3 options and asserted the ordering held
+   * while disclosing NOTHING about the third.
+   *
+   * The surface makes three set-dependent claims — the headline superlative, the
+   * win share, and the robustness ordering verdict. Any one of them needs the
+   * scope. Only a glance carrying NONE of them may say nothing.
+   */
+  const partialWith = (over: Partial<Record<string, unknown>>): ResultsSectionDataReturn => {
     const base = genuineDecision()
-    const data = {
+    return {
       ...base,
       recommendation: {
         ...base.recommendation,
@@ -183,19 +190,101 @@ describe('1b · no claim on screen, no qualification of it', () => {
           option({ id: 'o_a', label: 'Alpha', winProbability: 0.55 }),
           option({ id: 'o_b', label: 'Beta', notAnalysed: true, notAnalysedReason: 'not_returned' }),
         ],
-        // The producer declined to put a leader forward.
-        verdict: { hasLeadingOption: false },
+        ...over,
       },
     } as ResultsSectionDataReturn
-    const glance = glanceOf(data)
+  }
 
-    // The scope is still PARTIAL — the suppression is not a reclassification.
-    expect(glance.comparisonScope.kind).toBe('partial')
+  it('DISCLOSES on an ordering verdict with no percentage (regression: expected-outcome leader)', () => {
+    // Row E. `determinedBy: 'expected_outcome'` yields an entitled leader with a
+    // NULL win probability — reachable by construction from useResultsSectionData.
+    const glance = glanceOf(
+      partialWith({
+        winProbability: undefined,
+        allOptions: [
+          option({ id: 'o_a', label: 'Alpha', winProbability: undefined }),
+          option({ id: 'o_b', label: 'Beta', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+        ],
+        recommendedOption: option({ id: 'o_a', label: 'Alpha', winProbability: undefined }),
+        verdict: { leaderId: 'o_a', hasLeadingOption: true },
+        determinedBy: 'expected_outcome',
+      }),
+    )
+    expect(glance.winShare, 'precondition: no percentage on this run').toBeNull()
+    expect(glance.headline, 'precondition: a superlative IS made').toBeTruthy()
+    expect(glance.comparativeClaim).toBe('order')
+
+    render(<AtAGlance glance={glance} />)
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-glance-excluded-option')).toBeInTheDocument()
+  })
+
+  it('DISCLOSES on a robustness verdict alone, with no leader named', () => {
+    // Row B. No headline, no share — but "the ordering held" is a claim about
+    // an ordering over the analysed subset.
+    const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false } }))
+    expect(glance.headline).toBeNull()
     expect(glance.winShare).toBeNull()
+    expect(glance.verdict, 'precondition: an ordering verdict IS rendered').toBeTruthy()
+    expect(glance.comparativeClaim).toBe('order')
+
+    render(<AtAGlance glance={glance} />)
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
+  })
+
+  it('an ORDER claim takes the sentence alone — no "comparative percentages" line', () => {
+    // `ComparisonScopeNote`'s own rule. `detail` would describe a magnitude that
+    // is not on screen — an untruth in the opposite direction.
+    const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false } }))
+    render(<AtAGlance glance={glance} />)
+    const note = screen.getByTestId('comparison-scope-note-analysisNew')
+    const scope = deriveComparisonScope([
+      option({ id: 'o_a', label: 'Alpha', winProbability: 0.55 }),
+      option({ id: 'o_b', label: 'Beta', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+    ])!
+    // Positive control: the sentence IS there, so the absence below is a real
+    // discrimination and not a query that matched nothing.
+    expect(note).toHaveTextContent(COMPARISON_SCOPE_COPY.sentence(scope))
+    expect(note.textContent).not.toContain(COMPARISON_SCOPE_COPY.detail(scope))
+  })
+
+  it('a share that never RENDERS does not license the percentages line', () => {
+    // ⚠ FOUND BY A SURVIVING MUTANT, not by inspection. Dropping the
+    // `verdictBlock &&` conjunct from `shareOnScreen` changed nothing in the
+    // suite — so the suite could not tell "the model holds a share" from "a
+    // share is on screen", which are different facts here: AtAGlance renders
+    // the share INSIDE the verdict block, so a run with no robustness verdict
+    // shows no percentage even though `winShare` is populated.
+    //
+    // Treating that as a 'value' claim would print "ranks and comparative
+    // percentages describe those N only" with no percentage anywhere — the
+    // round-1 defect in miniature, and the reason the gate reads what RENDERS.
+    const glance = glanceOf(
+      partialWith({ robustnessVerdict: undefined, robustnessVerdictReason: undefined }),
+    )
+    expect(glance.winShare, 'precondition: the model DOES hold a share').toBeTruthy()
+    expect(glance.verdict, 'precondition: nothing renders it').toBeNull()
+    expect(glance.comparativeClaim).toBe('order')
+
+    render(<AtAGlance glance={glance} />)
+    expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
+    const note = screen.getByTestId('comparison-scope-note-analysisNew')
+    expect(note.textContent).not.toContain('comparative percentages')
+  })
+
+  it('says NOTHING only when no set-dependent claim is made at all', () => {
+    const glance = glanceOf(
+      partialWith({ verdict: { hasLeadingOption: false }, robustnessVerdict: undefined, robustnessVerdictReason: undefined }),
+    )
+    expect(glance.headline).toBeNull()
+    expect(glance.winShare).toBeNull()
+    expect(glance.verdict).toBeNull()
+    expect(glance.comparativeClaim).toBe('none')
 
     render(<AtAGlance glance={glance} />)
     expect(screen.queryByTestId('comparison-scope-note-analysisNew')).toBeNull()
-    expect(screen.queryByTestId('analysis-new-glance-excluded-option')).toBeNull()
+    // The scope is still classified partial — suppression is not reclassification.
+    expect(glance.comparisonScope.kind).toBe('partial')
   })
 })
 

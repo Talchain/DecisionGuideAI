@@ -60,6 +60,7 @@ import type {
   GlanceDriver,
   GlanceVerdict,
   GlanceComparisonScope,
+  GlanceComparativeClaim,
 } from './analysisNewTypes'
 
 /** §2 of the brief: "a very small number of high-value insights". */
@@ -729,20 +730,33 @@ function buildAtAGlance(
       ? pctOrNull(leader?.winProbability ?? rec.winProbability)
       : null
 
+  const winShare = winPct ? `Ahead in ${winPct} of simulated futures` : null
+  const verdictBlock = word
+    ? { tone: word.tone, label: word.label, ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}) }
+    : null
+
+  // ⚠⚠ WHAT THE SURFACE ACTUALLY PUTS ON SCREEN, computed from the SAME fields
+  // the components render from — so the gate and the render cannot disagree.
+  //
+  // `AtAGlance` renders the share only inside the verdict block, so a run with
+  // a share and no verdict shows no percentage; and a leader determined by
+  // EXPECTED OUTCOME carries a null win probability, so it shows a superlative
+  // and an ordering verdict with no percentage at all. Both are set-dependent
+  // claims and both need the scope disclosure. Gating on the share alone
+  // suppressed it on exactly those runs.
+  const shareOnScreen = Boolean(verdictBlock && winShare)
+  const comparativeClaim: GlanceComparativeClaim = shareOnScreen
+    ? 'value'
+    : headline || verdictBlock
+      ? 'order'
+      : 'none'
+
   return {
     headline,
-    winShare: winPct ? `Ahead in ${winPct} of simulated futures` : null,
+    winShare,
     comparisonScope,
-    verdict: word
-      ? {
-          tone: word.tone,
-          label: word.label,
-          // The SCOPE of the claim is the producer's sentence, verbatim. This
-          // surface never composes one ("across most tested uncertainty" was a
-          // coverage claim nothing computes).
-          ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}),
-        }
-      : null,
+    comparativeClaim,
+    verdict: verdictBlock,
     drivers,
     influenceIsSetRelative: setRelative,
     condition: glanceCondition(data),
@@ -843,7 +857,7 @@ export function buildAnalysisNewViewModel(
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
-      ? { headline: null, winShare: null, comparisonScope: { kind: 'unresolved' as const }, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
+      ? { headline: null, winShare: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
       : glance,
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }

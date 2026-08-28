@@ -170,18 +170,38 @@ export function AtAGlance({
           win share is a set-dependent VALUE, and its header states such
           surfaces take `COMPARISON_SCOPE_COPY.detail`. The component owns the
           suppression rule too — it renders nothing on a whole-set run. */}
-      {/* ⚠ AND GATED ON THERE BEING A CLAIM TO QUALIFY — found by independent
-          review of this very change, measured: with `hasLeadingOption: false`,
-          one option analysed and one not, the surface rendered "Comparing 1 of
-          your 2 options — Beta was left out. Ranks and comparative percentages
-          describe those 1 only." with NO rank and NO percentage anywhere on it.
-          A qualification of a number that is not on screen is a sentence about
-          nothing, and it is exactly the state `deriveComparisonScope`'s own
-          header says it returns null to avoid. The share is the claim; no
-          share, no qualification. */}
-      {glance.comparisonScope.kind === 'partial' && glance.winShare ? (
+      {/* ⚠⚠ GATED ON A SET-DEPENDENT CLAIM BEING ON SCREEN — AND THAT IS NOT THE
+          SAME AS THE PERCENTAGE BEING ON SCREEN. Two rounds of independent
+          review landed here, and the intermediate answer was WORSE than the
+          original:
+
+            round 1  no gate      -> "Ranks and comparative percentages describe
+                                     those 1 only" rendered with no rank and no
+                                     percentage anywhere. A sentence about nothing.
+            round 2  gate on the  -> a leader determined by EXPECTED OUTCOME has a
+                     win share       null win probability, so the surface named a
+                                     leader among 2 of 3 options and asserted the
+                                     ordering held, disclosing NOTHING about the
+                                     third. A REGRESSION on the very defect this
+                                     change exists to fix.
+
+          The property is "is a set-dependent claim on screen?", and this surface
+          makes three: the headline superlative, the win share, and the
+          robustness ordering verdict. `comparativeClaim` is derived once in the
+          builder from the same fields these components render from, so the gate
+          and the render cannot drift apart the way they just did.
+
+          `withDetail` follows `ComparisonScopeNote`'s OWN rule: a set-dependent
+          VALUE takes the consequence line; set-dependent ORDER takes the neutral
+          sentence alone, because "comparative percentages" would then describe a
+          magnitude that is not on screen. */}
+      {glance.comparisonScope.kind === 'partial' && glance.comparativeClaim !== 'none' ? (
         <div data-testid={`${testId}-scope`}>
-          <ComparisonScopeNote scope={glance.comparisonScope.scope} surface="analysisNew" withDetail />
+          <ComparisonScopeNote
+            scope={glance.comparisonScope.scope}
+            surface="analysisNew"
+            withDetail={glance.comparativeClaim === 'value'}
+          />
           {/* The excluded option says what it IS, in the estate's sanctioned
               words — "no rank and no probability". The scope sentence above
               names who was left out; this states the consequence for them, and

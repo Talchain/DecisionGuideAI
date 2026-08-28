@@ -326,6 +326,34 @@ export interface GlanceExcludedOption {
  * two questions under one name, where the fail-open answer is right for one and
  * a falsehood for the other. Named apart here so a consumer must choose.
  */
+/**
+ * WHICH KIND of set-dependent claim this glance actually puts on screen — and
+ * therefore how much of the scope register is true of it.
+ *
+ * ⚠⚠ DERIVED ONCE, IN THE BUILDER, BESIDE `comparisonScope`. The first attempt
+ * gated the disclosure on the win share alone and INTRODUCED A REGRESSION: a
+ * leader determined by expected outcome carries a null win probability, so the
+ * surface named a leader among 2 of 3 options and asserted the ordering held,
+ * with nothing anywhere about the third. Trap 21 one level up — the gate
+ * answered "is the percentage present?" while the property is "is a
+ * set-dependent claim present?". This surface makes THREE: the headline
+ * superlative, the win share, and the robustness ordering verdict.
+ *
+ * The split follows `ComparisonScopeNote`'s OWN documented rule, not taste:
+ * set-dependent VALUES take `COMPARISON_SCOPE_COPY.detail` ("ranks and
+ * comparative percentages describe those N only"), while set-dependent ORDER
+ * over invariant values takes the neutral sentence alone — `detail` there would
+ * be an untruth in the opposite direction, describing a magnitude that is not
+ * on screen as set-dependent.
+ */
+export type GlanceComparativeClaim =
+  /** The win share RENDERS. `detail` is true of it. */
+  | 'value'
+  /** A superlative or an ordering verdict renders, but no percentage. Sentence only. */
+  | 'order'
+  /** Nothing set-dependent is on screen. Qualify nothing. */
+  | 'none'
+
 export type GlanceComparisonScope =
   /** Every option the user has was in the comparison. The share needs no qualifier. */
   | { kind: 'whole_set' }
@@ -354,6 +382,16 @@ export interface AtAGlance {
    * must see the other.
    */
   comparisonScope: GlanceComparisonScope
+  /**
+   * What kind of set-dependent claim is actually rendered. Gates the scope
+   * disclosure AND chooses how much of the register is true of it.
+   *
+   * ⚠ Derived from the SAME model fields the components render from, so the
+   * gate and the render cannot drift — an earlier version read the model's
+   * `winShare` while the share additionally required `verdict`, and the two
+   * disagreed on a reachable state.
+   */
+  comparativeClaim: GlanceComparativeClaim
   verdict: GlanceVerdict | null
   drivers: GlanceDriver[]
   /**
