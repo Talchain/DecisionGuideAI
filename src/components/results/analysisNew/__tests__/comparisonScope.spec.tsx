@@ -383,9 +383,13 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
  *
  * ⚠ Stated that way deliberately, after a review refuted the looser sentence
  * this once carried ("every fixture carries exactly one excluded option"). One
- * fixture does carry TWO — the unresolved-candidate-set case — but there
- * `deriveComparisonScope` returns null and the block never renders at all, so
- * it could not observe the growth either. The claim that matters is about ROWS
+ * fixture does carry TWO — the unresolved-candidate-set case — but the block
+ * never renders at all there, so it could not observe the growth either.
+ * (⚠ Mechanism named precisely after a review corrected it: the operative guard
+ * is the builder's own `analysedCount === 0 -> unresolved` short-circuit at
+ * `buildAnalysisNewViewModel.ts:891`, which fires FIRST — `deriveComparisonScope`
+ * is never reached on that path, so citing it was the wrong reason for a right
+ * outcome.) The claim that matters is about ROWS
  * RENDERED, not options present, and the loose version invited a check that
  * disproves it. It was found by MEASURING the assembled surface in a real
  * browser: at 280px with six excluded options the first section row sat at
@@ -579,6 +583,37 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     expect(
       screen.getAllByTestId('analysis-new-glance-excluded-option')[0].dataset.optionId,
     ).toBe('o_next_0')
+  })
+
+  it('the reset survives ids that contain the separator — no key collision', () => {
+    // ⚠ THE CASE A REVIEW DEMONSTRATED AGAINST THE FIRST IMPLEMENTATION, which
+    // joined ids with '|': `[a, b, 'c|d']` and `[a, 'b|c', d]` both flatten to
+    // `a|b|c|d`, so the reset silently did not fire across a genuine change of
+    // option set. The failure direction was a MISSED reset, never a crash — the
+    // worst kind, because the surface looks fine and the guard is simply absent.
+    const setOne = [
+      option({ id: 'o_kept', label: 'Analysed', winProbability: 0.6 }),
+      option({ id: 'a', label: 'Option A', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      option({ id: 'b', label: 'Option B', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      option({ id: 'c|d', label: 'Option C-D', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+    ]
+    const setTwo = [
+      option({ id: 'o_kept', label: 'Analysed', winProbability: 0.6 }),
+      option({ id: 'a', label: 'Option A', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      option({ id: 'b|c', label: 'Option B-C', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      option({ id: 'd', label: 'Option D', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+    ]
+
+    const { rerender } = render(<AtAGlance glance={glanceOf(withOptions(setOne))} />)
+    fireEvent.click(screen.getByTestId('analysis-new-glance-excluded-more'))
+    expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(3)
+
+    rerender(<AtAGlance glance={glanceOf(withOptions(setTwo))} />)
+
+    expect(
+      screen.getAllByTestId('analysis-new-glance-excluded-option'),
+      'the key collided, so the reset did not fire on a different option set',
+    ).toHaveLength(EXCLUDED_OPTION_VISIBLE_CAP)
   })
 
   it('the COUNT is never behind the control — the note states it whatever the cap does', () => {

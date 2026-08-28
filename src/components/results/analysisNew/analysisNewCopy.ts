@@ -84,11 +84,14 @@ export const ANALYSIS_NEW_COPY = {
     moreDrivers: (n: number) => `Show ${n} more`,
     moreUncertainty: (n: number) => `Show ${n} more`,
     /**
-     * ⚠ NAMED APART FROM THE TWO ABOVE THOUGH THE STRING IS THE SAME TODAY.
-     * They answer different questions — "more uncertainties" vs "more options
-     * the run left out" — and folding them into one constant is how a later
-     * edit makes one speak for a set it does not describe (CLAUDE.md trap 21).
-     * Same words, different claims.
+     * ⚠ NAMED APART FROM `moreUncertainty` ABOVE THOUGH THE STRING IS THE SAME
+     * TODAY. They answer different questions — "more uncertainties" vs "more
+     * options the run left out" — and folding them into one constant is how a
+     * later edit makes one speak for a set it does not describe (CLAUDE.md trap
+     * 21). Same words, different claims.
+     *
+     * (`moreDrivers` is a THIRD constant here but not the same shape: it is a
+     * DECLARATION, not a control's label, and its string already differs.)
      *
      * ⚠ ACCURACY NOTE, since the first version of this comment said "three
      * different questions": `moreUncertainty` currently has ZERO call sites

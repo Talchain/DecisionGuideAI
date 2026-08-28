@@ -134,8 +134,12 @@ export interface AtAGlanceProps {
  *       ALSO FALSE, and loosely enough to mislead. `ComparisonScope
  *       .excludedLabels` is documented at `goalAnchorCopy.ts:343-349` as MAY BE
  *       SHORTER than `total - analysed`: an option with no usable label — or one
- *       whose label is merely its own node id — is dropped from the sentence,
- *       which falls back to reporting it by COUNT.
+ *       whose label is merely its own node id — is dropped from the sentence.
+ *       ⚠ And the fallback is ALL-OR-NOTHING (`goalAnchorCopy.ts:459-461`): the
+ *       count phrasing fires only when NO excluded option is nameable, so in a
+ *       MIXED set a dropped option is named nowhere and the reader recovers it
+ *       only by arithmetic from "1 of your 7". That is a real gap in the note,
+ *       and it belongs to the note's owner — not something this cap creates.
  *
  * THE EXACT CLAIM, which is what the cap's safety rests on: the note names every
  * excluded option THESE ROWS NAME. That holds because the builder applies the
@@ -185,9 +189,17 @@ export function AtAGlance({
   // Reset during render on a changing identity rather than in an effect: an
   // effect would paint the tall block for one frame before collapsing it, which
   // is the defect briefly happening rather than not happening.
+  // ⚠ `JSON.stringify`, NOT `join('|')`. A review DEMONSTRATED the collision:
+  // ids `[a, b, 'c|d']` and `[a, 'b|c', d]` both join to `a|b|c|d`, so the reset
+  // silently does not fire across a genuine change of option set — the exact
+  // defect this exists to close. The failure direction is a MISSED reset, never
+  // a crash, and option ids are UUIDs today so it may well be unreachable — but
+  // "the separator cannot appear in the data" is an assumption about a producer
+  // this file does not own, and encoding removes the class rather than betting
+  // on it.
   const excludedKey =
     glance.comparisonScope.kind === 'partial'
-      ? glance.comparisonScope.excluded.map((o) => o.id).join('|')
+      ? JSON.stringify(glance.comparisonScope.excluded.map((o) => o.id))
       : ''
   const [seenExcludedKey, setSeenExcludedKey] = useState(excludedKey)
   if (seenExcludedKey !== excludedKey) {
