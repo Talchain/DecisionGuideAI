@@ -38,6 +38,7 @@ import { openAskOlumi } from '../coaching/askOlumiStore'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
+import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { AtAGlance } from './sections/AtAGlance'
@@ -56,6 +57,26 @@ export interface AnalysisNewTabBodyProps {
   responseHash?: string
   /** OutputsDock's canvas-focus handler, shared with the existing tab. */
   onFocusNode?: (nodeId: string) => void
+}
+
+/**
+ * Which honest sentence the Drivers section shows when it has no findings.
+ *
+ * Split out so the three truth conditions sit together and can be read as a
+ * set, rather than as a ternary chain inside JSX. Each returns the string whose
+ * documented truth condition (`analysisNewCopy.ts`) the run actually satisfies.
+ */
+function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
+  // Pre-run: nothing has been returned OR not returned. No claim either way.
+  if (vm.status.isPreRun) return null
+  // The producer sent rows and scored every one of them at zero.
+  if (vm.drivers.suppressedZeroCount > 0) return COPY.empty.driversAllZero
+  // The producer's own word for "I did not look" — distinct from having looked
+  // and come back with nothing.
+  if (vm.drivers.driversStatus === 'skipped') return COPY.empty.driversNotComputed
+  // 'unavailable' / 'error' / a 'computed' that returned no rows all reduce to
+  // the same fact, and this sentence states exactly it.
+  return COPY.empty.drivers
 }
 
 export function AnalysisNewTabBody({
@@ -143,6 +164,21 @@ export function AnalysisNewTabBody({
             {COPY.status.stale}
           </p>
         ) : null}
+        {/* ⚠ A PARTIAL RESULT SAYS SO HERE, NOT ONLY IN A COLLAPSED REGION.
+            `status.isProvisional` was computed and read by NONE of the six
+            render components; the sole disclosure was the bare enum "partial"
+            inside `Deeper analysis`, which opens collapsed. On a surface whose
+            claim is a five-to-ten-second read, that is a partial result
+            presented exactly like a complete one. */}
+        {vm.status.isProvisional ? (
+          <p
+            className={`${typography.panelMeta} text-warning`}
+            role="status"
+            data-testid="analysis-new-status-provisional"
+          >
+            {COPY.status.provisional}
+          </p>
+        ) : null}
         {vm.status.statusNote ? (
           <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-status-note">
             {vm.status.statusNote}
@@ -195,7 +231,20 @@ export function AnalysisNewTabBody({
                 ? `${COPY.coverage.referencePrefix} ${vm.drivers.referenceOptionLabel}.`
                 : null
           }
-          emptyMessage={vm.status.isPreRun ? null : COPY.empty.drivers}
+          // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
+          // A LIVE FALSEHOOD. A run whose factors all came back with a producer
+          // `zero_reason` DID return influence and measured it at zero, and was
+          // told the run returned nothing — in the same words as a run that
+          // genuinely returned nothing. The two were indistinguishable.
+          //
+          // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
+          // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
+          // 'computed' when absent on the V5 path, so 'computed' does NOT imply
+          // rows were returned; keying the zero claim on it would manufacture
+          // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
+          // the sufficient one — it is non-zero only because the producer sent a
+          // row it had scored at zero.
+          emptyMessage={driversEmptyMessage(vm)}
           onFocusTarget={focusTarget}
           onRunIntervention={runIntervention}
           testId="analysis-new-drivers"
