@@ -84,6 +84,7 @@ describe('goalLabelIsUnconfirmedBriefExtract — the one predicate', () => {
 describe('the mounted Analysis Goal field tells the truth', () => {
   const heroWith = (provenance: string | undefined) => ({
     decisionTitle: 'A decision',
+    hasDecision: true,
     goal: {
       nodeId: GOAL_ID,
       label: 'We need a direction before the January board meeting',

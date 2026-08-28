@@ -36,6 +36,9 @@ import {
   SHARED_MODEL_AUTHORITY_COPY,
 } from '../../../mutations/mutationAuthority'
 
+/** Identity hook for the decision hexagon — it must be assertable by name. */
+export const HERO_DECISION_SHAPE_TESTID = 'pre-analysis-v3-hero-decision-shape'
+
 export const GOAL_INPUT_ID = 'pre-analysis-v3-goal'
 export const SUCCESS_INPUT_ID = 'pre-analysis-v3-success'
 
@@ -164,14 +167,31 @@ export const HeroSection = memo(function HeroSection({
   return (
     <div className="px-4 py-4" data-testid="pre-analysis-v3-hero">
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex-none">
-          <NodeShapeIndicator nodeKind="decision" size={14} />
-        </span>
+        {/*
+          ⭐ THE HEXAGON IS A CLAIM, SO IT IS CONDITIONAL.
+          This shape and the `decisionFallback` heading below both asserted a
+          decision node UNCONDITIONALLY. That was safe only while CEE hard-422'd
+          any graph without one; the moment decision-free models reach the UI, a
+          user who asked to map a situation RATHER than pick an answer gets a
+          decision hexagon pointing at nothing. A model with no decision is
+          still a model — it is named as one, not given an empty decision slot.
+        */}
+        {hero.hasDecision && (
+          <span className="mt-0.5 flex-none" data-testid={HERO_DECISION_SHAPE_TESTID}>
+            <NodeShapeIndicator nodeKind="decision" size={14} />
+          </span>
+        )}
         <h1
           className={`${typography.panelHeader} line-clamp-2 min-w-0 flex-1 text-text-header`}
           title={hero.decisionTitle ?? undefined}
         >
-          {hero.decisionTitle ?? HERO_COPY.decisionFallback}
+          {/*
+            `decisionTitle` is the user's own brief text when they wrote one, so
+            it stays honest with or without a decision node — it is only the
+            FALLBACK that names the thing, and that is what has to change.
+          */}
+          {hero.decisionTitle ??
+            (hero.hasDecision ? HERO_COPY.decisionFallback : HERO_COPY.situationFallback)}
         </h1>
         <Tooltip content={HERO_COPY.pressureTestDecision} delay={300}>
           <PanelIconButton
