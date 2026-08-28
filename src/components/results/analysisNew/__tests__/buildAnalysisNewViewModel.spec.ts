@@ -488,6 +488,28 @@ describe('identity survives a reorder — for the population that has a discrimi
     expect(new Set(ids).size, 'they must still be unique').toBe(ids.length)
     expect(ids.every((id) => /:\d+$/.test(id)), 'these fall back to POSITION').toBe(true)
   })
+
+  it('handles an EMPTY affectedNodes array, not just a missing one', () => {
+    // ⚠ THE SUBTLE HALF, and the one a reader of the producer would miss.
+    // `useResultsSectionData.ts:3197` ALWAYS assigns `affectedNodes` — but as
+    // `[fromId, toId].filter(Boolean)`, and `parseEdgeId` returns `{}` for any
+    // edge id that does not split on '::' into two non-empty parts. So the
+    // array arrives EMPTY on a real producer path. "The field is always
+    // assigned" is not "the field always discriminates", and a key built from
+    // `affectedNodes.join('>')` on an empty array would collapse two rows to
+    // one id.
+    const emptyNodes = makeData({
+      confidence: {
+        uncertainties: [
+          { code: 'SENSITIVE_ASSUMPTION', message: 'A.', displayText: 'A.', affectedNodes: [] },
+          { code: 'SENSITIVE_ASSUMPTION', message: 'B.', displayText: 'B.', affectedNodes: [] },
+        ],
+      } as never,
+    })
+    const ids = build(emptyNodes).uncertainty.findings.map((f) => f.id)
+    expect(ids.length).toBe(2)
+    expect(new Set(ids).size, 'an empty discriminator must not collapse two rows').toBe(2)
+  })
 })
 
 describe('engine diagnostics are not strategic uncertainty', () => {

@@ -450,12 +450,28 @@ function buildUncertainty(
    * which is exactly what the producer deduped on — and `threshold.variable`.
    * Those describe the finding, so they survive a reorder.
    *
-   * ⚠ THE POSITIONAL FALLBACK IS REACHABLE AND IS NOT CLAIMED TO BE STABLE.
-   * A row with a bare `code` and nothing else has no producer discriminator to
-   * offer; two such rows are indistinguishable to us, and position is all that
-   * exists. Reorder-stability is claimed for rows that carry a discriminator,
-   * NOT for the surface in general — see the reorder pin, which asserts the
-   * property on the population that has one.
+   * ⚠ THE POSITIONAL FALLBACK IS NECESSARY, AND HERE IS THE DERIVATION —
+   * because the obvious review question is "can it be removed?", and the answer
+   * is NO. Derived from the COMPLETE manifest: `uncertainties` has exactly TWO
+   * producer sites in `useResultsSectionData.ts`, and BOTH can emit a row with
+   * zero discriminators.
+   *
+   *  1. `:2829` — critiques. `code: w.code || 'UNKNOWN'` and
+   *     `affectedNodes: w.node_id ? [w.node_id] : undefined`, with no
+   *     `threshold` set on this branch. A critique carrying neither a `code`
+   *     nor a `node_id` therefore yields `{ code: 'UNKNOWN', affectedNodes:
+   *     undefined }` — and two of them are indistinguishable to us.
+   *
+   *  2. `:3197` — SENSITIVE_ASSUMPTION. It looks safe because it always SETS
+   *     `affectedNodes`, but the value is `[fromId, toId].filter(Boolean)`, and
+   *     `parseEdgeId` returns `{}` for any edge id that does not split on `::`
+   *     into two non-empty parts. Both ids can therefore be undefined and the
+   *     array arrives EMPTY. `.filter(Boolean)` is the subtle half — "the field
+   *     is always assigned" is not "the field always discriminates".
+   *
+   * So reorder-stability is claimed for the population that CARRIES a
+   * discriminator, never for the surface, and the fallback stays until the
+   * producer supplies a per-row key. Both zero-discriminator states are pinned.
    */
   const uncertaintyKey = (u: UncertaintyItem, i: number): string => {
     const parts = [
