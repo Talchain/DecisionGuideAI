@@ -17,16 +17,20 @@
  * different object — which "overwrites the working model for everyone with
  * access". A worse claim, and a destructive write.
  *
- * ⭐ NOR COULD THE COPY BE MADE HONEST ABOUT A LOCAL REVERT. `undo()` mutates
- * nodes/edges, which `useScenario`'s subscription observes and — when
- * `isPersistenceActive(authenticated, user)` holds — debounces into a REAL
- * server write. That predicate is `authenticated && user && id !== 'guest'`.
- * So the same button is a local revert for a guest and a server-persisted write
- * for a signed-in user, while the toast's display condition (ANY labelled
- * history push) is wider than either. A notice whose truth condition is
- * narrower than its display condition is the same defect one layer down, so no
- * single scope sentence was available. The action goes; the factual notice of
- * what happened stays.
+ * ⚠⚠ A SECOND REASON WAS OFFERED HERE AND IS WITHDRAWN AS FALSE. It claimed
+ * `undo()` reaches a REAL server write for a signed-in user, via
+ * `useScenario`'s subscription and `isPersistenceActive`. It does not:
+ * `persistGraphNow` checks `clientCanWriteReadableGraph()` before calling
+ * `saveGraphViaGatedPath`, which checks it again before the
+ * `apply_patch_and_log` RPC — the declared choke point — and
+ * `clientGraphWritePolicy.ts` returns a hard `false`. **No client graph write
+ * happens for anyone**, so undo is local for every caller. The chain was traced
+ * correctly and stopped one hop short, and the claim asserted the client can
+ * persist the graph, which is the belief behind the 13 Aug P0 — so it is
+ * corrected in place rather than quietly deleted.
+ *
+ * The removal rests on the canonical-counterpart reason above, which that
+ * correction leaves untouched.
  *
  * ── WHY THIS PIN ENUMERATES ELEVEN PATHS ────────────────────────────────────
  * The over-wide DISPLAY CONDITION is the defect. A pin scoped to the deletion

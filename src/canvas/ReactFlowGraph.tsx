@@ -1009,7 +1009,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
     if (reconnecting) {
       completeReconnect(node.id)
-      showToast('Connector updated — press ⌘Z to undo.', 'success')
+      // ⚠ NO SHORTCUT IS NAMED — same reason as the delete notice in
+      // `ui/EdgeInspector.tsx`. ⌘Z is gated off by the canvas mutation
+      // authority, so this was a live instruction to press a dead key.
+      showToast('Connector updated.', 'success')
     } else {
       // S.1: One click, full context — open full inspector immediately
       setShowFullInspector(true)

@@ -165,7 +165,15 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
 
   const handleDelete = useCallback(() => {
     deleteEdge(edgeId)
-    showToast('Connector deleted — press ⌘Z to undo.', 'success')
+    // ⚠ NO SHORTCUT IS NAMED. This read "press ⌘Z to undo." and ⌘Z does not
+    // undo: `useKeyboardShortcuts` gates its undo branch on
+    // `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)`,
+    // an authority fixed at `'disabled'`. Nothing else redeems the promise —
+    // the context menu strips its undo/redo entries and the left-rail buttons
+    // are permanently disabled. This path is LIVE (edge click → InspectorModal,
+    // mounted at `ReactFlowGraph.tsx`, → EdgeInspector → "Delete connector"),
+    // so it was a live instruction to press a key that does nothing.
+    showToast('Connector deleted.', 'success')
     onClose()
   }, [edgeId, deleteEdge, showToast, onClose])
 

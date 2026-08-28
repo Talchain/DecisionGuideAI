@@ -24,18 +24,24 @@
  * write. (`structuralDeleteWithServerHash` is `'server_graph'` but has zero
  * consumers — unenforced policy, not a live canonical delete path.)
  *
- * ⭐⭐ AND THE FALLBACK — "keep the button, make the copy true" — WAS REFUSED ON
- * MEASUREMENT, which is the part worth remembering. `undo()` mutates
- * nodes/edges; `useScenario`'s subscription observes exactly that and, when
- * `isPersistenceActive(authenticated, user)` holds, debounces it into a REAL
- * server write. That predicate is `authenticated && !!user && id !== 'guest'`.
- * So the SAME button is a local revert for a guest and a server-persisted write
- * for a signed-in user — while this hook's display condition is ANY labelled
- * history push, which is wider than either. No single scope sentence ("this
- * browser only", "won't survive a reload") is true on every path it is shown
- * on, and a notice whose truth condition is narrower than its display condition
- * is the same defect one layer down. So the action goes and the factual notice
- * of what happened stays.
+ * ⚠⚠ A WITHDRAWN SECOND REASON, LEFT HERE ON PURPOSE BECAUSE IT WAS WRONG IN A
+ * DANGEROUS DIRECTION. This comment used to add: "`undo()` mutates nodes/edges;
+ * `useScenario`'s subscription debounces that into a REAL server write when
+ * `isPersistenceActive` holds, so the same button is a local revert for a guest
+ * and a server-persisted write for a signed-in user." **That is false at this
+ * tip, and it asserts the client can persist the graph — the exact belief
+ * behind the 13 Aug P0.** The chain was traced correctly and stopped one hop
+ * short: `persistGraphNow` checks `clientCanWriteReadableGraph()` BEFORE
+ * calling `saveGraphViaGatedPath`, and that function checks it again before the
+ * `apply_patch_and_log` RPC — the declared choke point, "the only place in any
+ * live path where `p_graph` reaches" it. `clientGraphWritePolicy.ts` returns a
+ * hard `false`. **No client graph write happens for anyone.** Undo is local for
+ * every caller.
+ *
+ * The removal stands on the reason above it, which is untouched by this: the
+ * entry has no canonical counterpart, so there is nothing correct to point an
+ * Undo at. Do not restore the button on the strength of "but it is only local
+ * anyway" — local is precisely what has no return leg.
  *
  * ⚠ WHAT IS *NOT* CLAIMED, so nobody re-derives it from this comment: the undo
  * STACK is never persisted anywhere, but the undone GRAPH STATE does survive a
