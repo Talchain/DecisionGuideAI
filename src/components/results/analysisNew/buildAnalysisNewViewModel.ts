@@ -108,6 +108,45 @@ const pctOrNull = (v: number | null | undefined): string | null =>
 const conf100OrNull = (v: number | null | undefined): string | null =>
   typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v)}%` : null
 
+/**
+ * A THRESHOLD VALUE, at the precision the producer licenses.
+ *
+ * ⚠⚠ THE PRODUCER LICENSES NONE, AND THAT IS THE WHOLE JUSTIFICATION.
+ * `split_value` (`EnrichmentConditionalWinnerSchema`) and `flip_value`
+ * (`EnrichmentFlipThresholdSchema`) are both bare `z.number()` — no declared
+ * precision, no scale, no significant-figure count. They are Monte Carlo
+ * quantities, so their trailing digits are estimator noise; printing them is a
+ * resolution claim the producer never made. This surface has now shipped that
+ * defect TWICE, once per field: `Customer demand passes 0.361111%` (#909
+ * review) and `Above 0.3007492161730507, …` (the 28 Aug independent audit).
+ * ⭐ ONE RULE, ONE HELPER — the second occurrence happened because the first
+ * fix lived inside `glanceCondition` where the sibling site could not reach it.
+ *
+ * Two decimals is not taste: three independent consumers of the SAME producer
+ * fields already display them at two or fewer (`model-tab/OptionsSection.tsx`
+ * via `formatSmartNumber`, `ConditionalWinnerCards.tsx` via `toLocaleString`,
+ * and `glanceCondition` here).
+ *
+ * ⚠ AND IT NEVER INVENTS: `Math.round(x*100)/100` through `String` leaves a
+ * whole number whole, so "passes 3%" never becomes the fabricated "passes
+ * 3.00%".
+ *
+ * ⚠⚠ ROUNDING MAY DROP PRECISION; IT MAY NEVER CHANGE THE CLAIM. A bare
+ * `z.number()` admits magnitudes below the rounding step, and `Math.round` maps
+ * them to `0` — turning "the ordering changes at 0.0004" into "the ordering
+ * changes at zero", which is a different, actionable, false statement. Written
+ * against the CONTRACT rather than against the value in hand (trap 13d): below
+ * the step, fall back to significant figures.
+ */
+const formatThresholdValue = (n: number): string => {
+  const rounded = Math.round(n * 100) / 100
+  if (rounded !== 0 || n === 0) return String(rounded)
+  const sig = n.toPrecision(2)
+  // An exponent-form string has no trailing zeros to strip and stripping would
+  // corrupt it, so it is returned as the engine produced it.
+  return sig.includes('e') ? sig : sig.replace(/0+$/, '').replace(/\.$/, '')
+}
+
 const rows = (...maybe: Array<InspectRow | null>): InspectRow[] =>
   maybe.filter((r): r is InspectRow => r !== null)
 
@@ -199,16 +238,20 @@ function buildKeyInsights(
     const high = cw.high_bucket?.winner_label
     const low = cw.low_bucket?.winner_label
     const namesBoth = Boolean(high && low && high !== low)
+    // ⚠ THE SPLIT IS A THRESHOLD, AND IT WAS PRINTED RAW AT ALL THREE SITES
+    // BELOW — sixteen significant figures on the deployed build `a9fc1564`,
+    // found by the 28 Aug independent audit. See `formatThresholdValue`.
+    const splitValue = formatThresholdValue(cw.split_value)
     out.push({
       id: `insight:conditional-winner:${cw.factor_id}`,
       headline: `The answer turns on ${cw.factor_label}`,
       implication: namesBoth
-        ? `Above ${cw.split_value}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
-        : `The preferred direction changes around ${cw.split_value}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
+        ? `Above ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
+        : `The preferred direction changes around ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
       groundedIn: 'the conditional-winner split from the simulation',
       marker: staleMarker,
       targetId: cw.factor_id,
-      inspect: rows(row('Split value', String(cw.split_value)), row('Factor', cw.factor_label)),
+      inspect: rows(row('Split value', splitValue), row('Factor', cw.factor_label)),
       intervention: interventionFor(recommendations, cw.factor_id),
     })
   }
@@ -648,11 +691,15 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   const rawUnit = typeof usable.unit === 'string' ? usable.unit : ''
   const CURRENCY_SYMBOLS = ['£', '$', '€', '¥']
   const unit = rawUnit === '%' || CURRENCY_SYMBOLS.includes(rawUnit) ? rawUnit : ''
-  // At most two decimals, and NO invented ones: `Math.round(x*100)/100` through
-  // `String` leaves a whole number whole, so "passes 3%" never becomes the
-  // fabricated "passes 3.00%".
-  const num = (n: number) => String(Math.round(n * 100) / 100)
-  const fmt = (n: number) => (unit === '%' ? `${num(n)}%` : `${unit}${num(n)}`)
+  // ⚠ THE RULE THAT USED TO BE INLINE HERE NOW LIVES IN `formatThresholdValue`,
+  // AND THAT MOVE IS THE POINT. It was written for THIS field, the sibling
+  // conditional-winner split never got it, and the identical defect shipped a
+  // second time. A rule that only one of two threshold sites can reach is a
+  // rule this surface does not have.
+  const fmt = (n: number) => {
+    const v = formatThresholdValue(n)
+    return unit === '%' ? `${v}%` : `${unit}${v}`
+  }
   const flip = fmt(usable.flip_value as number)
   const current = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
   const text = unit

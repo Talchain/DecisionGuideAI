@@ -77,14 +77,18 @@ const TONE_CLASS: Record<string, string> = {
 export interface AtAGlanceProps {
   glance: AtAGlanceModel
   onFocusTarget?: (targetId: string) => void
-  onOpenDrivers?: () => void
+  // ⛔ NO `onOpenDrivers`. It existed as an optional "somewhere to go anyway"
+  // fallback for the "Could change if" row, NOTHING EVER PASSED IT (zero
+  // passers in `src/`, measured with a contrast control), and its only effect
+  // was to keep that row rendering as a button wired to `undefined`. A prop
+  // that turns a fail-closed gate into a fail-open one by being absent is not
+  // a fallback; it is the defect.
   testId?: string
 }
 
 export function AtAGlance({
   glance,
   onFocusTarget,
-  onOpenDrivers,
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
   const hasAnything =
@@ -308,25 +312,69 @@ export function AtAGlance({
 
       {/* ── COULD CHANGE IF ────────────────────────────────────────────────
           A tipping point, not a ranking. Present only when the producer
-          computed one. */}
+          computed one.
+
+          ⚠⚠ THIS ROW ADVERTISED AN ACTION IT COULD NOT HONOUR, and it shipped
+          that way on the deployed build `a9fc1564` (28 Aug independent audit).
+          It rendered as a `<button>` UNCONDITIONALLY, falling back to an
+          `onOpenDrivers` prop that had ZERO passers anywhere in `src/` — three
+          occurrences, all inside this file (declaration, destructure, use);
+          contrast control in the same sweep, `onFocusTarget`, resolves in
+          thirteen files. So a run whose flip-threshold row carried no
+          `node_id` drew a focusable, chevron-bearing, hover-styled control
+          wired to `undefined`. That state is reachable, not hypothetical:
+          `node_id` is not in `EnrichmentFlipThresholdSchema` at all, and
+          `useResultsSectionData` defaults it to `''`.
+
+          The dead prop is DELETED rather than gated, so the branch cannot be
+          reopened by someone reading the gate as a live fallback. The rule is
+          the one the driver rows above already apply — and it is the same
+          sentence: no target, no affordance. */}
       {glance.condition ? (
-        <button
-          type="button"
-          onClick={
-            glance.condition.targetId && onFocusTarget
-              ? () => onFocusTarget(glance.condition!.targetId!)
-              : onOpenDrivers
-          }
-          className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-          data-testid={`${testId}-condition`}
-        >
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
-            {glance.condition.text}
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
-        </button>
+        (() => {
+          const focusable = Boolean(glance.condition.targetId && onFocusTarget)
+          const Row = (
+            <>
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
+                {glance.condition!.text}
+              </span>
+              {/* The chevron is part of the AFFORDANCE, not of the sentence —
+                  it promises somewhere to go, so it goes with the button. */}
+              {focusable ? (
+                <ChevronRight
+                  className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </>
+          )
+          // The row keeps its own testid and the AFFORDANCE carries a separate
+          // one, exactly as the driver rows above — so a test can assert "the
+          // sentence is here and the control is not" by identity rather than by
+          // inspecting a tag name.
+          return (
+            <div data-testid={`${testId}-condition`}>
+              {focusable ? (
+                <button
+                  type="button"
+                  onClick={() => onFocusTarget!(glance.condition!.targetId!)}
+                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  data-testid={`${testId}-condition-focus`}
+                >
+                  {Row}
+                </button>
+              ) : (
+                // Fail-closed: no target, no affordance. Plain text beats a
+                // control that does nothing.
+                <p className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5`}>
+                  {Row}
+                </p>
+              )}
+            </div>
+          )
+        })()
       ) : null}
     </section>
   )
