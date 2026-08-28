@@ -95,8 +95,14 @@ function pushLabelled(label: string): unknown[] {
 const LABELLED_PATHS: ReadonlyArray<readonly [string, string]> = [
   ['add node (store.ts:2138)', 'Added factor'],
   ['add connected node (store.ts:2151)', 'Added connected factor'],
-  ['batch update default (store.ts:2245)', 'Batch updated 3 nodes'],
-  ['AI backfill explicit label (applyDraftResult.ts:610)', 'backfill-interventions'],
+  // ⚠ NO LIVE PRODUCER — retained deliberately, and labelled as such so nobody
+  // reads it as one. `batchUpdateNodes` used to default to this shape and now
+  // pushes UNLABELLED, because its only caller is the AI backfill and its tag
+  // is internal. Kept because the hook is producer-agnostic: it must offer no
+  // action for ANY label reaching it, including one a future caller reintroduces.
+  ['batch update default shape (no live producer since this change)', 'Batch updated 3 nodes'],
+  // Likewise historical: the internal tag that used to reach users verbatim.
+  ['AI backfill tag, formerly shown verbatim (applyDraftResult.ts:610)', 'backfill-interventions'],
   ['connect (store.ts:2578)', 'Connected Price → Demand'],
   ['delete selection (store.ts:2676)', 'Deleted 1 element'],
   ['delete node (store.ts:2734)', 'Deleted Price'],
