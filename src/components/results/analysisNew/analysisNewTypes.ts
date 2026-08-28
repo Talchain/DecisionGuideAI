@@ -312,21 +312,6 @@ export interface GlanceExcludedOption {
 }
 
 /**
- * Can the win share be read at all, and if so does it need qualifying?
- *
- * ⚠⚠ THIS TYPE EXISTS BECAUSE `deriveComparisonScope` RETURNS `null` FOR TWO
- * DIFFERENT QUESTIONS, AND ONLY ONE OF THEM LICENSES AN UNQUALIFIED NUMBER.
- * Its documented say-nothing states are: (1) nothing excluded, (2) nothing
- * analysed, (3) empty input. State 1 means *the share describes every option
- * you have* — show it bare. States 2 and 3 mean *we cannot establish what the
- * share ranges over* — and a percentage whose candidate set is unknown is the
- * ambiguous number this whole change exists to stop.
- *
- * Reading that one `null` as "no note needed" is CLAUDE.md trap 21 exactly:
- * two questions under one name, where the fail-open answer is right for one and
- * a falsehood for the other. Named apart here so a consumer must choose.
- */
-/**
  * WHICH KIND of set-dependent claim this glance actually puts on screen — and
  * therefore how much of the scope register is true of it.
  *
@@ -354,6 +339,21 @@ export type GlanceComparativeClaim =
   /** Nothing set-dependent is on screen. Qualify nothing. */
   | 'none'
 
+/**
+ * Can the win share be read at all, and if so does it need qualifying?
+ *
+ * ⚠⚠ THIS TYPE EXISTS BECAUSE `deriveComparisonScope` RETURNS `null` FOR TWO
+ * DIFFERENT QUESTIONS, AND ONLY ONE OF THEM LICENSES AN UNQUALIFIED NUMBER.
+ * Its documented say-nothing states are: (1) nothing excluded, (2) nothing
+ * analysed, (3) empty input. State 1 means *the share describes every option
+ * you have* — show it bare. States 2 and 3 mean *we cannot establish what the
+ * share ranges over* — and a percentage whose candidate set is unknown is the
+ * ambiguous number this whole change exists to stop.
+ *
+ * Reading that one `null` as "no note needed" is CLAUDE.md trap 21 exactly:
+ * two questions under one name, where the fail-open answer is right for one and
+ * a falsehood for the other. Named apart here so a consumer must choose.
+ */
 export type GlanceComparisonScope =
   /** Every option the user has was in the comparison. The share needs no qualifier. */
   | { kind: 'whole_set' }

@@ -272,13 +272,80 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     expect(note.textContent).not.toContain('comparative percentages')
   })
 
-  it('says NOTHING only when no set-dependent claim is made at all', () => {
+  it('DISCLOSES on a flip condition alone (round-3 review: the third variant)', () => {
+    // ⚠ ROW F, found by the THIRD review pass. "Could change if — Price passes 1"
+    // is a candidate-set-dependent claim: `goalAnchorCopy.ts` lists the flip
+    // thresholds among the quantities defined OVER THE CANDIDATE SET. Nothing
+    // couples it to the leader entitlement or the robustness verdict, so it can
+    // render alone — and the previous gate suppressed the scope on exactly that
+    // run.
+    const glance = glanceOf(
+      partialWith({
+        verdict: { hasLeadingOption: false },
+        robustnessVerdict: undefined,
+        robustnessVerdictReason: undefined,
+        flipThresholdsStatus: 'computed',
+        flipThresholds: [
+          { label: 'Price', node_id: 'n', current_value: 0, flip_value: 1, flip_reason: 'found' },
+        ],
+      }),
+    )
+    expect(glance.headline, 'precondition: no superlative').toBeNull()
+    expect(glance.verdict, 'precondition: no ordering verdict').toBeNull()
+    expect(glance.condition, 'precondition: a flip condition IS rendered').toBeTruthy()
+    expect(glance.comparativeClaim).toBe('order')
+
+    render(<AtAGlance glance={glance} />)
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
+  })
+
+  it("'none' means the glance is PROVABLY EMPTY, not 'none of a list I wrote'", () => {
+    // ⭐ THE GUARD THAT ENDS THE SEQUENCE. Three rounds each found one more
+    // set-dependent element, because `comparativeClaim` enumerated them and
+    // nothing failed loud when the next was added (trap 12). The default is now
+    // inverted: anything on the glance discloses the scope, so a NEW element
+    // added later is covered without anyone remembering to list it.
+    //
+    // This case pins the inversion itself — if someone re-narrows 'none' to a
+    // list, a glance that renders drivers and nothing else will stop
+    // disclosing, and this REDs.
     const glance = glanceOf(
       partialWith({ verdict: { hasLeadingOption: false }, robustnessVerdict: undefined, robustnessVerdictReason: undefined }),
     )
     expect(glance.headline).toBeNull()
+    expect(glance.verdict).toBeNull()
+    expect(glance.condition).toBeNull()
+    expect(glance.drivers.length, 'precondition: drivers DO render').toBeGreaterThan(0)
+    // Drivers are about factors, not options — but the glance is not empty, so
+    // the surface still says an option was left out rather than staying silent.
+    expect(glance.comparativeClaim).toBe('order')
+
+    render(<AtAGlance glance={glance} />)
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
+  })
+
+  it('says NOTHING only when the glance renders nothing at all', () => {
+    const base = genuineDecision()
+    const glance = glanceOf({
+      ...base,
+      recommendation: {
+        ...base.recommendation,
+        allOptions: [
+          option({ id: 'o_a', label: 'Alpha', winProbability: 0.55 }),
+          option({ id: 'o_b', label: 'Beta', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+        ],
+        verdict: { hasLeadingOption: false },
+        robustnessVerdict: undefined,
+        robustnessVerdictReason: undefined,
+      },
+      drivers: { drivers: [] },
+    } as ResultsSectionDataReturn)
+
+    expect(glance.headline).toBeNull()
     expect(glance.winShare).toBeNull()
     expect(glance.verdict).toBeNull()
+    expect(glance.condition).toBeNull()
+    expect(glance.drivers).toHaveLength(0)
     expect(glance.comparativeClaim).toBe('none')
 
     render(<AtAGlance glance={glance} />)

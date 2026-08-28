@@ -744,10 +744,33 @@ function buildAtAGlance(
   // and an ordering verdict with no percentage at all. Both are set-dependent
   // claims and both need the scope disclosure. Gating on the share alone
   // suppressed it on exactly those runs.
+  const condition = glanceCondition(data)
   const shareOnScreen = Boolean(verdictBlock && winShare)
+
+  // ⚠⚠ THE DEFAULT IS INVERTED ON PURPOSE, AND THAT IS THE WHOLE POINT.
+  //
+  // Three rounds of independent review each found ONE more member of "things
+  // this glance renders that depend on the candidate set" — the headline
+  // superlative, then the ordering verdict, then the flip condition ("Could
+  // change if…", which `goalAnchorCopy.ts` itself lists among the quantities
+  // defined OVER THE CANDIDATE SET). Enumerating them is a hand-maintained
+  // mirror (trap 12), and the sequence had no reason to stop: nothing failed
+  // loud when the next element was added, and each round traded noise for
+  // SILENCE — which is the defect this change exists to close.
+  //
+  // So `'none'` no longer means "none of the claims I listed". It means the
+  // glance is PROVABLY EMPTY. Anything renders ⇒ the scope is disclosed. A new
+  // element added later is covered by default and fails toward telling the
+  // user an option was left out, rather than toward saying nothing.
+  //
+  // `'value'` stays narrow, because `COMPARISON_SCOPE_COPY.detail` names
+  // percentages specifically and must not describe a magnitude that is absent.
+  const glanceRendersSomething = Boolean(
+    headline || verdictBlock || condition || drivers.length > 0,
+  )
   const comparativeClaim: GlanceComparativeClaim = shareOnScreen
     ? 'value'
-    : headline || verdictBlock
+    : glanceRendersSomething
       ? 'order'
       : 'none'
 
@@ -759,7 +782,7 @@ function buildAtAGlance(
     verdict: verdictBlock,
     drivers,
     influenceIsSetRelative: setRelative,
-    condition: glanceCondition(data),
+    condition,
     primaryInterventionId: recommendations[0]?.id ?? null,
   }
 }
