@@ -4,9 +4,23 @@
  *
  * ── THE DEFECT, MEASURED ON THE DEPLOYED BUILD (`a9fc1564`, 28 Aug 2026) ─────
  * Driven as a guest in a controlled-state profile with a real strategic brief
- * — detailed and quantified, and it STILL produced seven blockers, because a
- * brief never states option→factor effects. So this is the normal first-run
- * path, not an edge case. In the Olumi tab at the default 416px dock:
+ * — detailed and quantified, and it STILL produced seven blockers, because the
+ * brief did not state option→factor effects.
+ *
+ * ⚠ STATE THAT AT ITS ACTUAL STRENGTH: this is an OBSERVED REACHABLE STATE, and
+ * its FREQUENCY IS UNKNOWN. An earlier draft of this header called it "the
+ * normal first-run path, not an edge case", which the evidence does not carry —
+ * a second drive with a comparable brief produced an ANALYSABLE model with no
+ * readiness bar at all and 70% of the conversation visible. The drafter
+ * sometimes sets those effects and sometimes does not, and how often is a
+ * question for whoever owns draft readiness, not one this lane answered.
+ *
+ * ⚠ AND CONDITIONAL DOES NOT MEAN LOW PRIORITY. Frequency unknown, impact
+ * severe when it occurs — which is why the bound below is GENERIC rather than
+ * tuned to seven blockers, and why it is worth having even if the state turns
+ * out to be uncommon.
+ *
+ * In the Olumi tab at the default 416px dock, in that state:
  *
  *   analysis-readiness-bar            465px  — 60% of the panel's 772px
  *   chat-thread (the conversation)    132px  — 17%, holding 1,615px of content
