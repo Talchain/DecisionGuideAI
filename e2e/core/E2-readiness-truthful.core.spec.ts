@@ -21,6 +21,19 @@
 // NON-VACUITY: the precondition is PINNED IN-TEST. A conditional guard whose
 // condition never fires is a tautology with no red anywhere, so this spec asserts
 // the gap EXISTS before asserting anything about how it is reported.
+//
+// ⭐⭐ WHY THE PREAMBLE IS THE LOAD-BEARING PART OF THIS SPEC.
+// Analyse is disabled WHILE THE DRAFT IS STREAMING, whatever the readiness state.
+// So if this spec ran mid-stream, its central assertion — "a gap exists and Analyse
+// is disabled" — would be satisfied by a transient, and a product that regressed to
+// ENABLE Analyse after settling despite a missing threshold would still print PASS.
+// The one defect E2 exists to catch would be invisible to it.
+// MEASURED on build 18727b64, 2026-08-28: the old preamble returned at ~t=30-40s
+// with the turn stream still open and the product's own copy saying it was still
+// drafting; the terminal frame did not arrive until t≈75s.
+// `draftAsGuest` now waits for that TERMINAL FRAME, so everything below is asserted
+// against a FINISHED model and "disabled because streaming" is excluded by
+// construction rather than by luck.
 
 import { test, expect } from '@playwright/test'
 import { draftAsGuest, owningNodeIds, textOf, measureControl } from './lib/harness'

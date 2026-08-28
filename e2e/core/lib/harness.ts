@@ -210,25 +210,164 @@ export async function mintWitnessUser(sb: SupabaseResolution, label: string): Pr
 
 export interface WireCall { url: string; method: string; status: number | string }
 
+/**
+ * A draft turn's stream, observed from OUTSIDE the app.
+ *
+ * `ended` is the response body closing. `sawTerminal` is a frame with
+ * `"status":"complete"` — the producer's own terminal event
+ * (`src/v5/streamedDraftFrames.ts`: `if (frame.status === 'complete') sawTerminal = true`,
+ * and a close without one raises `StreamAbandonedError('no_terminal_frame')`).
+ */
+export interface TurnStream {
+  url: string; method: string; status: number | string
+  startedAt: number; endedAt: number | null
+  ended: boolean; sawTerminal: boolean; isStream: boolean; bytes: number
+}
+
 export async function installWireInterceptor(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    ;(window as unknown as { __WIRE__: unknown[] }).__WIRE__ = []
+    const W = window as unknown as {
+      __WIRE__: unknown[]; __TURNS__: unknown[]; __CORE_FETCH_WRAPPED__?: boolean
+    }
+    // Idempotent: a spec may install this AND call a helper that installs it too.
+    // Two registrations would mean two wrappers and every call recorded twice.
+    if (W.__CORE_FETCH_WRAPPED__) return
+    W.__CORE_FETCH_WRAPPED__ = true
+    W.__WIRE__ = []
+    W.__TURNS__ = []
+
+    // The draft turn, and ONLY the draft turn. `/turn/stop` must not match, and a
+    // future `/turn/<something-else>` must not silently start counting.
+    const isDraftTurn = (u: string): boolean => /\/proxy\/v\d+\/turn(\/stream)?(\?|$)/.test(u)
+
     const orig = window.fetch
     window.fetch = async (...args: Parameters<typeof fetch>) => {
       const a0 = args[0] as unknown
       const url = typeof a0 === 'string' ? a0 : ((a0 as Request)?.url ?? String(a0))
       const method =
         ((args[1] as RequestInit | undefined)?.method) ?? ((a0 as Request)?.method) ?? 'GET'
+      let r: Response
       try {
-        const r = await orig(...args)
-        ;(window as unknown as { __WIRE__: unknown[] }).__WIRE__.push({ url, method, status: r.status })
-        return r
+        r = await orig(...args)
       } catch (e) {
-        ;(window as unknown as { __WIRE__: unknown[] }).__WIRE__.push({ url, method, status: 'THREW' })
+        W.__WIRE__.push({ url, method, status: 'THREW' })
         throw e
       }
+      W.__WIRE__.push({ url, method, status: r.status })
+
+      if (isDraftTurn(url)) {
+        const rec = {
+          url, method, status: r.status, startedAt: Date.now(), endedAt: null as number | null,
+          ended: false, sawTerminal: false, isStream: /\/turn\/stream(\?|$)/.test(url), bytes: 0,
+        }
+        W.__TURNS__.push(rec)
+        // ⚠ `clone()`, NOT `tee()` + a rebuilt Response. The app must receive the
+        // EXACT object `fetch` returned; reconstructing it risks dropping something
+        // the consumer reads. The clone is drained continuously here, so it cannot
+        // apply backpressure to the branch the app is reading.
+        // MEASURED 2026-08-28 on build 18727b64: with this clone installed the app
+        // still drafted a complete 16-node model, so the observation is passive.
+        try {
+          const probe = r.clone()
+          const body = probe.body
+          if (!body) { rec.ended = true; rec.endedAt = Date.now() }
+          else {
+            void (async () => {
+              const reader = body.getReader()
+              const dec = new TextDecoder()
+              let buf = ''
+              for (;;) {
+                const { done, value } = await reader.read()
+                if (done) break
+                rec.bytes += value?.length ?? 0
+                buf += dec.decode(value, { stream: true })
+                if (/"status"\s*:\s*"complete"/.test(buf)) rec.sawTerminal = true
+                // Bound memory. Tested BEFORE truncating, and the retained tail is
+                // far longer than the token, so a match cannot straddle the cut.
+                if (buf.length > 262_144) buf = buf.slice(-4_096)
+              }
+              rec.ended = true; rec.endedAt = Date.now()
+            })().catch(() => { rec.ended = true; rec.endedAt = Date.now() })
+          }
+        } catch { rec.ended = true; rec.endedAt = Date.now() }
+      }
+      return r
     }
   })
+}
+
+export const readTurnStreams = (page: Page): Promise<TurnStream[]> =>
+  page.evaluate(() => ((window as unknown as { __TURNS__?: TurnStream[] }).__TURNS__ ?? []))
+
+/**
+ * ⭐⭐ WAIT FOR THE TERMINAL EVENT, NOT FOR AN INFERRED IDLE STATE.
+ *
+ * THE DEFECT THIS REPLACES. `draftAsGuest` used to be `waitForModel` +
+ * `waitForStableLayout`, and NEITHER consults the draft's working state:
+ * `waitForModel` returns as soon as any node exists, and `waitForStableLayout`
+ * keys only on `nodeCount|distinctX|maxColumnOccupancy`. MEASURED on build
+ * 18727b64, 2026-08-28, at exactly E2's assertion point:
+ *
+ *   t=30s  nodes=16  headline="Not ready for analysis yet"  Analyse DISABLED
+ *          the product's own copy says "still drafting"
+ *          the turn stream is STILL OPEN — ended=false, terminal frame not seen
+ *   t=75s  the stream closes with its terminal frame (74.7s, 44,473 bytes)
+ *
+ * So E2 fired roughly forty-five seconds before the draft finished, and its
+ * load-bearing assertion — Analyse disabled — was satisfiable by a TRANSIENT.
+ * Analyse is disabled while streaming ANYWAY, so had the product regressed to
+ * enable Analyse after settling despite a missing threshold, E2 would still have
+ * printed PASS. The spec could not tell "disabled because a threshold is missing"
+ * from "disabled because the draft is still streaming".
+ *
+ * ⚠ AND NOTE WHICH DIRECTION THIS MUST NOT BE FIXED IN. This suite's ancestor keyed
+ * a settle detector on an inferred idle state, tore the context down mid-stream, and
+ * manufactured a 33–61% draft-failure rate that had to be withdrawn after being
+ * reported. The answer to "we settled too early" is not a longer sleep or a wider
+ * phrase list — both are still inferences. It is the producer's own terminal event.
+ *
+ * NON-VACUITY IS ENFORCED. "No unfinished streams" is trivially true of a run that
+ * observed no streams at all, so zero observed turns is a hard error: a blind
+ * interceptor and a genuinely silent app produce identical output.
+ */
+export async function waitForDraftTurnComplete(
+  page: Page, { timeoutMs = 300_000, pollMs = 2_000 } = {},
+): Promise<TurnStream[]> {
+  const deadline = Date.now() + timeoutMs
+  let seen: TurnStream[] = []
+  for (;;) {
+    seen = await readTurnStreams(page)
+    if (seen.length > 0 && seen.every((t) => t.ended)) break
+    if (Date.now() >= deadline) break
+    await page.waitForTimeout(pollMs)
+  }
+
+  expect(
+    seen.length,
+    `[core] ZERO draft turn streams were observed. Every claim about the draft having FINISHED ` +
+    `would be unsupported — an interceptor that installed too late and an app that never called ` +
+    `the turn endpoint produce identical output. Install the interceptor BEFORE the first ` +
+    `navigation, and check the turn route has not moved off /proxy/v{n}/turn[/stream].`,
+  ).toBeGreaterThan(0)
+
+  const unfinished = seen.filter((t) => !t.ended)
+  expect(
+    unfinished.map((t) => t.url),
+    `[core] the draft turn stream never closed within ${Math.round(timeoutMs / 1000)}s. Asserting ` +
+    `on the model now would measure a MID-STREAM transient and report it as the product.`,
+  ).toEqual([])
+
+  // A stream that closed without its terminal frame is exactly what the producer
+  // calls `no_terminal_frame` — an abandoned draft, not a finished one.
+  const abandoned = seen.filter((t) => t.isStream && !t.sawTerminal)
+  expect(
+    abandoned.map((t) => `${t.url} (${t.bytes}B in ${(t.endedAt ?? 0) - t.startedAt}ms)`),
+    `[core] a draft turn stream CLOSED WITHOUT A TERMINAL FRAME. The producer treats this as ` +
+    `StreamAbandonedError('no_terminal_frame'), so the model on screen is a partial draft and ` +
+    `anything asserted about it describes an interrupted stream, not the product.`,
+  ).toEqual([])
+
+  return seen
 }
 
 export const readWire = (page: Page): Promise<WireCall[]> =>
@@ -437,7 +576,8 @@ export async function layoutHealth(page: Page): Promise<{
  * consecutive reads, which is a property of the DOM rather than a fixed sleep.
  */
 export async function waitForStableLayout(
-  page: Page, { stableSamples = 3, intervalMs = 2_000, timeoutMs = 180_000 } = {},
+  page: Page,
+  { stableSamples = 3, intervalMs = 2_000, timeoutMs = 180_000, throwOnTimeout = false } = {},
 ): Promise<{ nodeCount: number; distinctX: number; nodesPerColumn: number; maxColumnOccupancy: number }> {
   const deadline = Date.now() + timeoutMs
   let last = ''
@@ -453,6 +593,20 @@ export async function waitForStableLayout(
       last = sig
     }
     await page.waitForTimeout(intervalMs)
+  }
+  // ⚠ THE DEFAULT IS `return latest`, DELIBERATELY, AND IT IS NOT THE SAFE OPTION.
+  // A caller that reads the returned health and asserts on it (E1) gets a real
+  // measurement plus its own assertion, so a never-settling layout still goes red
+  // there. A caller that DISCARDS the result silently accepts a layout that never
+  // settled — which is why `draftAsGuest` passes `throwOnTimeout`.
+  if (throwOnTimeout) {
+    throw new Error(
+      `[core] the layout never settled within ${Math.round(timeoutMs / 1000)}s ` +
+      `(last: nodes=${latest.nodeCount} distinctX=${latest.distinctX} ` +
+      `maxCol=${latest.maxColumnOccupancy}). The draft turn had already delivered its terminal ` +
+      `frame, so this is not "still arriving" — the graph is genuinely not converging, and any ` +
+      `assertion made now describes a moving target.`,
+    )
   }
   return latest
 }
@@ -483,8 +637,19 @@ export function assertLayoutReadable(
   ).toBeLessThanOrEqual(Math.ceil(l.nodeCount / 2))
 }
 
-/** Guest → composer → brief → settled model. The shared preamble for E2/E3/E4/E7. */
+/**
+ * Guest → composer → brief → FINISHED model. The shared preamble for E2/E3/E4/E7.
+ *
+ * The order is load-bearing:
+ *   1. install the interceptor BEFORE the first navigation, or it observes nothing;
+ *   2. wait for the model to MOUNT (nodes exist — necessary, nowhere near sufficient);
+ *   3. wait for the draft turn's TERMINAL FRAME — the producer's own end-of-work
+ *      event, which is why this is not another inferred idle state;
+ *   4. only then let the layout settle, and re-read the ids, because nodes arriving
+ *      after step 2 are part of the model a spec is about to make claims about.
+ */
 export async function draftAsGuest(page: Page, brief = CORE_BRIEF): Promise<string[]> {
+  await installWireInterceptor(page)
   const fresh = await freshGuest(page)
   expect(fresh.keysAfterClear, '[core] the fresh-guest clear did not land').toHaveLength(0)
   assertNoHydratedModel(fresh.keysAfterEntry, 'the fresh-guest entry')
@@ -492,8 +657,11 @@ export async function draftAsGuest(page: Page, brief = CORE_BRIEF): Promise<stri
   await submitBrief(page, brief)
   const ids = await waitForModel(page)
   expect(ids.length, '[core] no model mounted — the preamble failed before the spec began').toBeGreaterThan(2)
-  await waitForStableLayout(page)
-  return ids
+  await waitForDraftTurnComplete(page)
+  await waitForStableLayout(page, { throwOnTimeout: true })
+  // Re-read AFTER the terminal frame: `waitForModel` returns at first paint, and the
+  // ids it saw are a snapshot of a model that was still being written.
+  return renderedNodeIds(page)
 }
 
 /** The node id that owns a given testid, via the DOM ancestor — identity, not position. */
@@ -621,8 +789,28 @@ export async function waitForSettledDraft(
       }
     } else { stable = 0; prev = sig }
   }
+  // ⚠ DIAGNOSTIC ONLY — the settle CONDITION above is deliberately untouched.
+  // "The draft never settled" is what this function can see; it is not always what
+  // happened, and reporting the wrong cause is how a red becomes a red people learn
+  // to ignore. MEASURED 2026-08-28 on builds 18727b64 and 966bb267: when E5 runs as
+  // the third draft of a suite run, this timeout fired while the PRODUCT ITSELF was
+  // displaying "Olumi did not return a model for this decision." — an explicit
+  // product-side failure, not a slow draft. The timeout was telling the truth about
+  // its own instrument and a falsehood about the run.
+  const visibleFailure = await page.evaluate(() => {
+    const t = document.body.innerText
+    const m = t.match(/[^.\n]*did not return a model[^.\n]*\.?|[^.\n]*something went wrong[^.\n]*\.?/i)
+    return m ? m[0].trim().slice(0, 200) : ''
+  }).catch(() => '')
+
   throw new Error(
     `[core] the draft never settled within ${Math.round(timeoutMs / 1000)}s ` +
-    `(last: generating=${last.generating} nodes=${last.nodes} zeroEst=${last.zeroEst}).`,
+    `(last: generating=${last.generating} nodes=${last.nodes} zeroEst=${last.zeroEst}).` +
+    (visibleFailure
+      ? `\n  ⚠ THE PRODUCT IS DISPLAYING A FAILURE, so this is NOT a slow draft:\n` +
+        `    "${visibleFailure}"\n` +
+        `    Treat this as a product/service finding, not as a harness timeout to be waited out.`
+      : `\n  The product displayed no failure message, so this really is a draft that did not ` +
+        `arrive or did not converge.`),
   )
 }

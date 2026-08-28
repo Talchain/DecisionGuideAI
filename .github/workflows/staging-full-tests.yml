@@ -30,6 +30,14 @@ on:
     branches: [ staging ]
   pull_request:
     branches: [ staging ]
+  # Manual runs, so System E can be pointed at an immutable SHA-pinned deploy URL
+  # rather than the mutable staging alias when a verdict has to be attributable.
+  workflow_dispatch:
+    inputs:
+      core_ui_url:
+        description: 'Target for the Core E2E suite (default: the staging alias)'
+        required: false
+        default: 'https://staging--olumi.netlify.app'
 
 permissions:
   contents: read
@@ -444,6 +452,143 @@ jobs:
             echo 'Failed comparisons upload `-expected` / `-actual` / `-diff` images in the'
             echo '`visual-regression-report` artifact. Adjudicate the image, do not guess from a ratio.'
             echo 'To accept a change: `scripts/visual/rebless.sh`, review, and commit the references on their own.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── System E · the Core PoC mounted-browser suite ─────────────────────
+  #
+  # WHY THIS JOB EXISTS AT ALL. System E shipped with no npm script and no CI job.
+  # Its pull request reported "14/14 CI success" — a figure that was true and
+  # entirely silent about these specs, because CI had never executed one of them.
+  # A falsification engine that never runs falsifies nothing; it is a suite that
+  # exists. This job is the difference between the two.
+  #
+  # ⚠ ADVISORY ON PURPOSE. `continue-on-error: true`, and deliberately ABSENT from
+  # the "Staging Gate" aggregator's `needs` at the end of this file — the same
+  # posture, for the same reason, as `visual-regression` above. A mounted-browser
+  # suite driving a MUTABLE deployed target is not a merge gate: putting a flaky
+  # gate on the merge path is worse than having no gate, and the standing ruling is
+  # to keep the small Core E suite and never revive the broad historical Playwright
+  # estate. Promoting it is a separate, later decision, to be taken once its
+  # false-positive rate has been OBSERVED rather than assumed.
+  #
+  # ⚠⚠ READ WHAT A RESULT HERE IS ABOUT, BEFORE READING THE COLOUR.
+  # This job drives the DEPLOYED staging build. On a pull request that build is NOT
+  # this branch's code — it is whatever staging was serving when the job ran. So:
+  #   - a RED here is a claim about the DEPLOYED product, not about the diff;
+  #   - a GREEN here is NOT evidence that this PR is safe;
+  #   - the exception, and the case that motivated the job, is a PR that changes
+  #     `e2e/core/**` or `playwright.core.config.ts` — there the suite under test IS
+  #     the diff, and this job is the only thing that executes it.
+  # The step summary prints the served build so the result is attributable at all.
+  #
+  # NOT SCHEDULED, and that is a fact about GitHub rather than a preference:
+  # `schedule:` fires only on the default branch (`main`), so a cron added here
+  # would not run these specs until they reach main. Running on every push to
+  # `staging` and every PR into it gives a signal now; `workflow_dispatch` covers
+  # an ad-hoc run against a pinned target.
+  #
+  # IT CANNOT REPORT SUCCESS HAVING EXECUTED NOTHING. `globalSetup` fails if the
+  # declared spec set has drifted from the files on disk, and `globalTeardown`
+  # fails on a zero-ran run — unconditionally, including under `CORE_PARTIAL=1`.
+  # Both are pinned by `tests/ci-guards/core-completeness-guard.spec.ts`, which
+  # runs in the REQUIRED suite above, so the guard is protected even though the
+  # browser suite is advisory.
+  core-e2e:
+    name: Core E2E · System E (advisory)
+    needs: install
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Chromium (Playwright)
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The target is a MUTABLE ALIAS. Record what it is serving BEFORE the run so
+      # the result is attributable to a build; `globalTeardown`'s build-drift guard
+      # fails the run if it moves underneath the specs.
+      - name: Record the deployed target
+        id: target
+        env:
+          CORE_UI_URL: ${{ github.event.inputs.core_ui_url || 'https://staging--olumi.netlify.app' }}
+        run: |
+          set -o pipefail
+          echo "url=$CORE_UI_URL" >> "$GITHUB_OUTPUT"
+          BUILD=$(curl -fsS --max-time 30 "$CORE_UI_URL/version.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(JSON.parse(s).commit??"unknown")}catch{process.stdout.write("unparseable")}})')
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Target $CORE_UI_URL is serving $BUILD (workflow ref is ${{ github.sha }} — these are NOT the same thing)"
+
+      - name: Run System E
+        env:
+          CORE_UI_URL: ${{ steps.target.outputs.url }}
+        run: pnpm run e2e:core
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-e2e-report
+          path: |
+            playwright-report-core/
+            test-results/core/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Core E2E · System E (advisory — does not block merges)'
+            echo ''
+            # Single-quoted ON PURPOSE: these values are substituted by Actions
+            # before the shell sees them, and a backtick inside DOUBLE quotes is
+            # command substitution — bash would try to EXECUTE the URL.
+            echo 'Target: `${{ steps.target.outputs.url }}`'
+            echo ''
+            echo 'Served build: `${{ steps.target.outputs.build }}`'
+            echo ''
+            echo 'Workflow ref: `${{ github.sha }}`'
+            echo ''
+            echo '⚠ The served build and the workflow ref are different things. On a pull'
+            echo 'request the deployed target is NOT this branch — a result here is a claim'
+            echo 'about the deployed product, unless the diff touches `e2e/core/**`.'
+            echo ''
+            if [ -f test-results/core/spec-manifest.json ]; then
+              echo 'Specs this run actually executed (recorded at spec START, not at pass):'
+              echo ''
+              echo '```json'
+              cat test-results/core/spec-manifest.json
+              echo '```'
+            else
+              echo '⚠ No spec manifest — this run recorded nothing. `globalSetup` did not'
+              echo 'complete, so the failure is upstream of the specs.'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── Full test suite (sharded 4-way) ───────────────────────────────────
