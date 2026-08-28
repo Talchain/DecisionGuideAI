@@ -35,6 +35,7 @@ import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { isGoalDefined } from '../../utils/isGoalDefined'
+import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -374,11 +375,44 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
           factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
-          / GoalNoTargetPre. Decision/option keep the warning border only. */}
+          / GoalNoTargetPre. Decision/option keep the warning border only.
+
+          ⭐ THE GOAL SENTENCE STATES A CONSEQUENCE, NEVER A GATE (28 Aug 2026).
+          It read "Set a success threshold to enable analysis" — and NOTHING gates
+          analysis on a threshold.
+
+          `isIncomplete`'s goal arm and `canRunAnalysis` answer DIFFERENT questions
+          and are CORRECTLY different. This marker asks "before results exist, does
+          this goal node carry a success target?" — completeness, one node. The run
+          gate (`canRunAnalysis` → `readinessObjectsToRun`) asks "has an authority
+          stated this model cannot be analysed now?" — admissibility, whole model,
+          producer-decided; it never reads node data at all. Aligning them is banned
+          by `readinessObjectsToRun`'s own header, which spends ~80 lines forbidding
+          exactly the parallel UI-side rule a threshold check would create. The gate
+          is right; this sentence was false.
+
+          What actually happens with no target: the run SUCCEEDS. The producer
+          synthesises `auto_goal_threshold` and returns a real analysis with goal-fit
+          claims honestly suppressed (GoalNode.tsx, crownCompliance.ts,
+          goalThresholdResolvers.ts). Then `results.status === 'complete'` clears
+          `isPreRunMode` and this pill vanishes with nothing set — the product
+          silently retracted its own claim rather than ever being contradicted.
+          `StatusPill` reuses `title` as `aria-label`, so a screen-reader user
+          received ONLY the false sentence: that is the path this fixes.
+
+          The replacement is IMPORTED, not re-typed. It is the string the
+          pre-analysis footer already ships for this exact state, and a re-typed
+          variant is invisible to every runtime check (that module's copy is also
+          scanned by the glossary guard). Both surfaces answer one question —
+          "success is undefined, what follows?" — so a single string is correct
+          here rather than a two-questions-one-name conflation. The ACTION is not
+          duplicated: GoalNode co-renders its "No target set" chip in exactly this
+          state (GoalNode.tsx `{!hasThreshold && !isPostAnalysis && ...}`), and that
+          chip carries both the action and its own aria-label. */}
       {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
         <StatusPill
           label="Needs input"
-          title={nodeType === 'goal' ? 'Set a success threshold to enable analysis' : 'Missing required input'}
+          title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
         />
       )}
 
