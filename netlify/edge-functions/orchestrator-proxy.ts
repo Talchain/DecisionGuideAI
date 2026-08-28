@@ -66,15 +66,40 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> | 
  * SECURITY (item 13) — EXPLICIT UPSTREAM PATH ALLOWLIST.
  *
  * Matched against the REWRITTEN `/orchestrate/*` target (query stripped) BEFORE the
- * caller-auth key is injected. Off-list ⇒ 404, no key forwarded. CEE mounts exactly
- * the turn family under `/orchestrate/*`; anything else must not become an
- * authenticated call. `v\d+` covers the live v2 path and the legacy v1 reference.
+ * caller-auth key is injected. Off-list ⇒ 404, no key forwarded.
+ *
+ * ── RETIRED / EMPTIED 2026-08-28 — ANONYMOUS SCENARIO-OWNERSHIP TAKEOVER ────────
+ * This proxy injects `ASSIST_API_KEY` for any allowed-Origin visitor, so a
+ * JWT-less browser request reached CEE `/orchestrate/v2/turn{,/stop}` as a
+ * key-authed `service_legacy` caller. On that path CEE takes scenario ownership
+ * from the caller-supplied BODY `user_id`
+ * (`route-v2-preflight.ts::authorizeScenarioOwnership`:
+ * `effectiveUserId = claimedUserId` whenever `identity.mode !== 'verified'`), so
+ * an anonymous caller who supplied a victim's `user_id` could act on the victim's
+ * OWNED scenario. WITNESSED at the wire 2026-08-28 against
+ * `https://staging--olumi.netlify.app/bff/orchestrate/v2/turn`: the anonymous
+ * exploit turn returned HTTP 200 on a scenario owned by another user, while the
+ * discriminating control (same request, a different `user_id`) was refused 422
+ * `scenario_owned_by_other_user`. (By contrast the `/proxy/v5/turn*` and all
+ * `/assist/v1/scenarios/*` rungs already refuse caller-asserted identity.)
+ *
+ * The allowlist is emptied rather than the mount removed because the fix must
+ * hold regardless of how this function is mounted — it is bound BOTH by
+ * `netlify.toml` AND by the inline `export const config` below. With the list
+ * empty, `isAllowedTarget` is false for every path, so this function forwards
+ * NOTHING and injects the key NOWHERE: it degrades to a CORS/404 responder.
+ *
+ * The live product does not use this seam. The V5 turn path posts to the
+ * baked-absolute `https://cee-staging.onrender.com/proxy/v5/turn`; the only
+ * `/bff/orchestrate/*` caller is the dead V4 block in `useConversation.ts`,
+ * reachable ONLY when `VITE_ENABLE_V5_ORCHESTRATOR !== 'true'` — and staging
+ * bakes it `'true'`.
+ *
+ * ⚠ DO NOT RE-POPULATE without first making identity un-spoofable on this seam
+ * (verified-JWT only, no body-`user_id` ownership). `bffProxyPathAllowlist.spec.ts`
+ * asserts these routes now 404 with NO key, so a re-add fails that guard loudly.
  */
-const ALLOWED_TARGETS: readonly RegExp[] = [
-  /^\/orchestrate\/v\d+\/turn$/,
-  /^\/orchestrate\/v\d+\/turn\/stream$/,
-  /^\/orchestrate\/v\d+\/turn\/stop$/,
-]
+const ALLOWED_TARGETS: readonly RegExp[] = []
 
 function isAllowedTarget(pathname: string): boolean {
   return ALLOWED_TARGETS.some((re) => re.test(pathname))

@@ -193,31 +193,58 @@ describe('cee-proxy path allowlist (/bff/cee/* → /assist/v1/*)', () => {
   })
 })
 
-/* ── /bff/orchestrate/* → /orchestrate/* — the three turn routes ───────────── */
-describe('orchestrator-proxy path allowlist (/bff/orchestrate/* → /orchestrate/*)', () => {
-  it('ON-LIST /bff/orchestrate/v2/turn forwards WITH the injected key', async () => {
+/* ── /bff/orchestrate/* → /orchestrate/* — RETIRED, the whole seam now 404s ──── */
+/**
+ * ⚠ SECURITY — ANONYMOUS SCENARIO-OWNERSHIP TAKEOVER (witnessed 2026-08-28).
+ *
+ * This proxy injects `ASSIST_API_KEY` for any allowed-Origin visitor, so a
+ * JWT-less browser request reached CEE `/orchestrate/v2/turn{,/stop}` as a
+ * key-authed `service_legacy` caller. On that path CEE derives scenario ownership
+ * from the caller-supplied BODY `user_id`
+ * (`route-v2-preflight.ts::authorizeScenarioOwnership`), so an anonymous caller
+ * who asserted a victim's `user_id` could act on the victim's OWNED scenario.
+ *
+ * WITNESSED at the wire against `.../bff/orchestrate/v2/turn`: the anonymous
+ * exploit turn returned HTTP 200 on a scenario owned by user A, while the
+ * discriminating control — the SAME anonymous request carrying a DIFFERENT
+ * `user_id` — was refused 422 `scenario_owned_by_other_user`, and a control with
+ * NO `user_id` was refused 422 `scenario_requires_authenticated_owner`.
+ *
+ * The fix empties `ALLOWED_TARGETS`, so the proxy now forwards NOTHING and injects
+ * the key NOWHERE (mount-agnostic: this function is bound BOTH by netlify.toml AND
+ * by its own inline `export const config`). These cases FLIPPED from ON-LIST-
+ * forwards to 404-with-NO-key — they are RED against the pre-fix allowlist and are
+ * the regression guard: re-populating the allowlist (re-opening the hole) REDs
+ * here loudly. The live product is unaffected — the V5 turn path posts to the
+ * baked-absolute `/proxy/v5/turn`, and the only `/bff/orchestrate/*` caller is the
+ * dead V4 block, off whenever `VITE_ENABLE_V5_ORCHESTRATOR === 'true'` (staging).
+ */
+describe('orchestrator-proxy is RETIRED (/bff/orchestrate/* → 404, NO key)', () => {
+  it('EXPLOIT ROUTE /bff/orchestrate/v2/turn is 404 with NO key sent (ownership hole closed)', async () => {
     const r = await invoke(orchestratorHandler as Handler, {
       path: '/bff/orchestrate/v2/turn',
     })
-    expect(r.fetchCalled).toBe(true)
-    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/orchestrate/v2/turn')
-    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBeFalsy()
   })
 
-  it('ON-LIST /bff/orchestrate/v2/turn/stream forwards', async () => {
-    const r = await invoke(orchestratorHandler as Handler, {
-      path: '/bff/orchestrate/v2/turn/stream',
-    })
-    expect(r.fetchCalled).toBe(true)
-    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/orchestrate/v2/turn/stream')
-  })
-
-  it('ON-LIST /bff/orchestrate/v2/turn/stop forwards', async () => {
+  it('EXPLOIT ROUTE /bff/orchestrate/v2/turn/stop is 404 with NO key sent', async () => {
     const r = await invoke(orchestratorHandler as Handler, {
       path: '/bff/orchestrate/v2/turn/stop',
     })
-    expect(r.fetchCalled).toBe(true)
-    expect(r.calledUrl).toBe('https://cee-staging.onrender.com/orchestrate/v2/turn/stop')
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBeFalsy()
+  })
+
+  it('/bff/orchestrate/v2/turn/stream is 404 with NO key sent', async () => {
+    const r = await invoke(orchestratorHandler as Handler, {
+      path: '/bff/orchestrate/v2/turn/stream',
+    })
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBeFalsy()
   })
 
   it('OFF-LIST /bff/orchestrate/v2/turn/replay is 404 with NO key sent', async () => {
@@ -455,20 +482,20 @@ describe('traversal check is scoped to the PATH, not the query string (D3)', () 
   })
 })
 
-describe('orchestrator v1 turn family is allowed (pins the v\\d+ regex against a tightening)', () => {
-  // turnService.ts builds `/bff/orchestrate/v1/turn` and derives `/stream` from it.
+describe('orchestrator v1 turn family is ALSO retired (empty allowlist covers every version)', () => {
+  // The legacy V4 builder (turnService.ts) built `/bff/orchestrate/v1/turn`; that
+  // block is dead on staging (VITE_ENABLE_V5_ORCHESTRATOR === 'true'). Emptying the
+  // allowlist retires the v1 family alongside v2 — the `v\d+` regex is gone, so no
+  // version forwards. These pin that the retirement is version-agnostic.
   it.each([
-    ['/bff/orchestrate/v1/turn', 'https://cee-staging.onrender.com/orchestrate/v1/turn'],
-    [
-      '/bff/orchestrate/v1/turn/stream',
-      'https://cee-staging.onrender.com/orchestrate/v1/turn/stream',
-    ],
-    ['/bff/orchestrate/v1/turn/stop', 'https://cee-staging.onrender.com/orchestrate/v1/turn/stop'],
-  ])('ON-LIST %s forwards WITH the injected key', async (path, expectedUrl) => {
+    ['/bff/orchestrate/v1/turn'],
+    ['/bff/orchestrate/v1/turn/stream'],
+    ['/bff/orchestrate/v1/turn/stop'],
+  ])('%s is 404 with NO key sent', async (path) => {
     const r = await invoke(orchestratorHandler as Handler, { path })
-    expect(r.fetchCalled).toBe(true)
-    expect(r.calledUrl).toBe(expectedUrl)
-    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBe(FAKE_KEY)
+    expect(r.status).toBe(404)
+    expect(r.fetchCalled).toBe(false)
+    expect(r.requestHeaders?.get('X-Olumi-Assist-Key')).toBeFalsy()
   })
 })
 
