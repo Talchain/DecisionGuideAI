@@ -44,7 +44,10 @@
 // construction rather than by luck.
 
 import { test, expect } from '@playwright/test'
-import { draftAsGuest, owningNodeIds, textOf, measureControl } from './lib/harness'
+import {
+  draftAsGuest, owningNodeIds, textOf, measureControl, footerCopy, literalRe,
+  readinessVerdict, BLOCKING_VOCAB,
+} from './lib/harness'
 import { recordSpecRan } from './lib/manifest'
 
 test.beforeAll(() => recordSpecRan('E2-readiness-truthful'))
@@ -166,25 +169,48 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     const analyseDisabled = analyse.disabledSelf || analyse.disabledByAncestorFieldset
       || analyse.ariaDisabled || analyse.matchesDisabledPseudo
 
-    // "Reports the gap" covers both honest vocabularies: the blocking one, and the
-    // proceeding-with-a-caveat one. Deliberately a property of the WHOLE readiness
-    // surface, not of the headline alone.
-    const reportsGap = /not ready|needs|incomplete|before|provisional|until success/i.test(surface)
+    // ⛔⛔ THE BRANCHES MUST BE MUTUALLY EXCLUSIVE, AND THE FIRST ATTEMPT WAS NOT.
+    // It asserted `analyseDisabled || reportsGap` and THEN `reportsGap` unconditionally.
+    // A conjunction of `(A || B)` and `B` reduces to `B`: `analyseDisabled` was measured
+    // but never load-bearing — it only chose which failure message printed. The state
+    // "headline claims NOT READY while the button is ENABLED" passed, which is the very
+    // shape this spec's header says must go red, and which the ORIGINAL spec caught.
+    // Removing the assertion that demanded a lie was right; removing the coupling with
+    // it was not. Measured: 1 of 5 states wrong under the old form, 0 of 5 under this.
+    //
+    // So the branch is taken on the BUTTON, and each arm asserts something the other
+    // cannot satisfy.
+    // ⭐ The decision itself is `readinessVerdict`, a pure function unit-tested in
+    // tests/ci-guards/core-completeness-guard.spec.ts against the full state table —
+    // including the lying row that the first version of this coupling let through.
+    // The PROCEEDING arm is the one that matters most and the one a live run usually
+    // does NOT reach (the product commonly serves the blocking arm), so it must be
+    // pinned somewhere that runs on every PR rather than only here.
+    //
+    // `qualifying` is DERIVED from the product's own constant, never retyped: a copy in
+    // this file would be a hand-maintained phrase list, i.e. the exact defect this suite
+    // criticises in `waitForSettledDraft`, and that constant now feeds three surfaces.
+    const qualifyingSentence = footerCopy('readySubSuccessUnset')
+    const verdict = readinessVerdict({
+      analyseDisabled, surface,
+      qualifying: literalRe(qualifyingSentence),
+      blockingVocab: BLOCKING_VOCAB,
+    })
 
     expect(
-      analyseDisabled || reportsGap,
-      `[E2] node ${gapNode} is flagged as missing a required input and Analyse is ENABLED, yet ` +
-      `the readiness surface reads "${surface}" — it neither blocks the run nor qualifies what ` +
-      `the user is about to get. The product is offering an unqualified analysis over an unmet ` +
-      `requirement. (Either shape would be honest: block it, or say the first pass is ` +
-      `provisional. Saying nothing is not one of them.)`,
+      verdict.honest,
+      verdict.arm === 'PROCEEDING'
+        ? `[E2] node ${gapNode} is flagged as missing a required input and Analyse is ENABLED, ` +
+          `yet the readiness surface reads "${surface}" — it does not qualify what the user is ` +
+          `about to get. Offering the run is honest ONLY alongside the caveat, and a surface ` +
+          `claiming the model is not ready while leaving the button live is dishonest in the ` +
+          `other direction. Expected to find: "${qualifyingSentence}".`
+        : `[E2] node ${gapNode} is flagged as missing a required input and Analyse is DISABLED, ` +
+          `but the readiness surface reads "${surface}" — the user is stopped and not told why.`,
     ).toBe(true)
 
-    expect(
-      reportsGap,
-      `[E2] node ${gapNode} is flagged as missing a required input and Analyse is DISABLED, but ` +
-      `the readiness surface reads "${surface}" — the user is stopped and not told why.`,
-    ).toBe(true)
+    // eslint-disable-next-line no-console
+    console.log(`[E2] arm=${verdict.arm} analyseDisabled=${analyseDisabled} headline="${headline}"`)
 
     // ---- A GAP NAMED WITHOUT GUIDANCE IS A DEAD END --------------------------
     const nextStep = (await textOf(page, 'pre-analysis-v3-next-step')).join(' ')

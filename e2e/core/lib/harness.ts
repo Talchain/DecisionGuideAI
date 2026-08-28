@@ -29,10 +29,87 @@
 // This file takes the third path and needs no privileged credential.
 
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
 export const ORIGIN = process.env.CORE_UI_URL ?? 'https://staging--olumi.netlify.app'
+
+export const FOOTER_COPY_SOURCE = 'src/canvas/components/pre-analysis-v3/constants.ts'
+
+/**
+ * Read one `FOOTER_COPY` string FROM THE PRODUCT'S OWN SOURCE. Never retyped here.
+ *
+ * ⚠ WHY NOT JUST `import { FOOTER_COPY }`. Measured 2026-08-28: importing that module
+ * into a Playwright spec dies in its transform — `constants.ts` pulls
+ * `composeBlockedReason` -> `ceeTextGuard`, and that chain throws
+ * `ReferenceError: exports is not defined in ES module scope`. A real import would be
+ * better and is the right fix if that chain is ever untangled; this is the honest
+ * second-best, and it keeps ONE source of truth rather than a second copy.
+ *
+ * ⭐ WHY DERIVE AT ALL. Hand-writing the expected sentence would reintroduce exactly
+ * the hand-maintained phrase list this suite criticises in `waitForSettledDraft` — and
+ * that constant now feeds three surfaces (the footer, `BaseNode`, and this spec), so a
+ * copy here would be the one that silently goes stale.
+ *
+ * FAILS LOUD, never assume-good: a key it cannot find is a hard error, because a
+ * silently-empty expectation would make every assertion built on it vacuous.
+ */
+export function footerCopy(key: string, source = FOOTER_COPY_SOURCE): string {
+  const src = readFileSync(source, 'utf8')
+  const m = new RegExp(`^\\s*${key}:\\s*'((?:[^'\\\\]|\\\\.)*)'`, 'm').exec(src)
+  if (!m || m[1].length === 0) {
+    throw new Error(
+      `[core] FOOTER_COPY.${key} could not be derived from ${source}. Either the key was ` +
+      `renamed or the literal is no longer a single-quoted string on one line. This is a HARD ` +
+      `ERROR on purpose: an expectation derived from an empty string passes against anything.`,
+    )
+  }
+  return m[1]
+}
+
+/** Regex-escape, so a derived sentence is matched literally. */
+export const literalRe = (s: string): RegExp =>
+  new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+
+/**
+ * ⭐⭐ THE READINESS COUPLING, AS A PURE FUNCTION — because getting it wrong is not
+ * hypothetical: the first version of it shipped and was wrong.
+ *
+ * That version asserted `(analyseDisabled || reportsGap)` and then `reportsGap`
+ * unconditionally. `(A || B) ∧ B` reduces to `B`, so `analyseDisabled` was measured but
+ * never load-bearing — it only chose which failure message printed — and the state
+ * "surface claims NOT READY while the button is ENABLED" passed. That is a lie, it is
+ * the shape E2 exists to catch, and the ORIGINAL spec caught it.
+ *
+ * It lives here, pure and separately tested, for one reason: the branch that matters
+ * most is the PROCEEDING one, and the deployed product usually serves the BLOCKING arm,
+ * so a live run does not exercise it. A truth table run once by hand is not a guard —
+ * this is, and `tests/ci-guards/core-completeness-guard.spec.ts` runs it on every PR.
+ *
+ * Two shapes are honest and the arms are MUTUALLY EXCLUSIVE, selected by the button:
+ *   PROCEEDING (enabled)  — the run is on offer, so the surface must QUALIFY it.
+ *   BLOCKING   (disabled) — the user is stopped, so the surface must say WHY.
+ */
+export interface ReadinessInput {
+  analyseDisabled: boolean
+  surface: string
+  /** DERIVED from the product's own constant — see `footerCopy`. */
+  qualifying: RegExp
+  /** CEE-authored copy varies per run, so this arm has no constant to derive from. */
+  blockingVocab: RegExp
+}
+
+export interface ReadinessVerdict { arm: 'BLOCKING' | 'PROCEEDING'; honest: boolean }
+
+export function readinessVerdict(i: ReadinessInput): ReadinessVerdict {
+  return i.analyseDisabled
+    ? { arm: 'BLOCKING', honest: i.blockingVocab.test(i.surface) }
+    : { arm: 'PROCEEDING', honest: i.qualifying.test(i.surface) }
+}
+
+/** The blocking arm's vocabulary. A mirror, confined to the arm with no constant. */
+export const BLOCKING_VOCAB = /not ready|needs|incomplete|before|provisional|until success/i
 
 /**
  * The commit the TARGET is currently serving.

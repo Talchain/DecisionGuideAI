@@ -42,6 +42,9 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
 import {
+  footerCopy, literalRe, readinessVerdict, BLOCKING_VOCAB,
+} from '../../e2e/core/lib/harness'
+import {
   assertDeclaredSpecsExist,
   assertRunCompleteness,
   CORE_SPEC_DIR,
@@ -157,6 +160,84 @@ describe('System E · the declared list is DERIVED-CHECKED against the files on 
   it('THROWS rather than silently passing when the spec dir does not exist', () => {
     expect(() => assertDeclaredSpecsExist(join(tmpdir(), 'core-manifest-does-not-exist')))
       .toThrow(/DECLARED BUT NO FILE/)
+  })
+})
+
+describe('System E · footerCopy derives from the product, and fails loud', () => {
+  // E2's proceeding-arm assertion is built from this. If it ever returned an empty
+  // string, `literalRe('')` would match everything and that assertion would pass
+  // against a surface saying nothing at all — vacuous, silently. So the deriver's
+  // failure mode is pinned here, in the required suite.
+  it('derives the real qualifying sentence from the product source', () => {
+    const s = footerCopy('readySubSuccessUnset')
+    expect(s.length, '[core] footerCopy returned an empty string — every expectation ' +
+      'built on it would be vacuous').toBeGreaterThan(10)
+    expect(s).toBe('First pass will be provisional until success is defined')
+  })
+
+  it('THROWS on a key that does not exist, rather than returning empty', () => {
+    expect(() => footerCopy('noSuchFooterKey')).toThrow(/could not be derived/)
+  })
+
+  it('THROWS when the source file is missing, rather than returning empty', () => {
+    expect(() => footerCopy('readySubSuccessUnset', join(tmpdir(), 'no-such-constants.ts')))
+      .toThrow()
+  })
+
+  // The escaper must match the sentence literally — a regex metacharacter in the
+  // copy must not silently widen what counts as "qualified".
+  it('literalRe matches the sentence literally and not a near-miss', () => {
+    const re = literalRe(footerCopy('readySubSuccessUnset'))
+    expect(re.test('Analysis available First pass will be provisional until success is defined')).toBe(true)
+    expect(re.test('Not ready for analysis yet')).toBe(false)
+    expect(literalRe('a.c').test('abc')).toBe(false)
+  })
+})
+
+describe('System E · the readiness coupling cannot be satisfied by a lie', () => {
+  // ⛔ THE REGRESSION PIN FOR THE DEFECT THAT SHIPPED IN THIS PR.
+  // The first coupling asserted `(analyseDisabled || reportsGap)` and then `reportsGap`
+  // unconditionally. `(A || B) AND B` reduces to `B`, so the button state was measured
+  // but never load-bearing, and the LYING row below passed. Every row here is checked
+  // on every PR, because the PROCEEDING arm is the one a live run usually cannot reach.
+  const QUAL = literalRe(footerCopy('readySubSuccessUnset'))
+  const v = (analyseDisabled: boolean, surface: string) =>
+    readinessVerdict({ analyseDisabled, surface, qualifying: QUAL, blockingVocab: BLOCKING_VOCAB })
+  const CAVEAT = footerCopy('readySubSuccessUnset')
+
+  it('HONEST proceeding — enabled, and the surface qualifies the run', () => {
+    const r = v(false, `Analysis available ${CAVEAT}`)
+    expect(r.arm).toBe('PROCEEDING')
+    expect(r.honest).toBe(true)
+  })
+
+  it('HONEST blocking — disabled, and the surface says why', () => {
+    const r = v(true, 'Not ready for analysis yet Set a success threshold')
+    expect(r.arm).toBe('BLOCKING')
+    expect(r.honest).toBe(true)
+  })
+
+  // ⭐ THE ROW THE OLD FORMULATION GOT WRONG. It is a lie in the opposite direction
+  // from the one E2 originally hunted: the surface claims the model is not ready while
+  // the product leaves the run on offer.
+  it('DISHONEST — claims "not ready" while the button is ENABLED', () => {
+    const r = v(false, 'Not ready for analysis yet')
+    expect(r.arm).toBe('PROCEEDING')
+    expect(r.honest).toBe(false)
+  })
+
+  it('DISHONEST — enabled and the surface says nothing qualifying', () => {
+    expect(v(false, 'Analysis available').honest).toBe(false)
+  })
+
+  it('DISHONEST — disabled and the surface never says why', () => {
+    expect(v(true, 'Analysis available').honest).toBe(false)
+  })
+
+  // Non-vacuity: the qualifying pattern must be a real sentence, not an empty regex
+  // that matches everything and makes the PROCEEDING arm unfailable.
+  it('the derived qualifying pattern cannot match an arbitrary surface', () => {
+    expect(QUAL.test('some unrelated readiness copy')).toBe(false)
   })
 })
 
