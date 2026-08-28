@@ -38,6 +38,8 @@
 
 import { truncateAtWordBoundary } from '../../../utils/text'
 import type { Recommendation } from '../strengthen/strengthenTypes'
+import { deriveComparisonScope } from '../utils/goalAnchorCopy'
+import { notAnalysedReasonCopy } from '../utils/notAnalysedCopy'
 import type {
   ConditionalWinner,
   DriverItem,
@@ -57,6 +59,7 @@ import type {
   GlanceCondition,
   GlanceDriver,
   GlanceVerdict,
+  GlanceComparisonScope,
 } from './analysisNewTypes'
 
 /** §2 of the brief: "a very small number of high-value insights". */
@@ -678,15 +681,58 @@ function buildAtAGlance(
       ? `${leader.label} currently scores higher`
       : null
 
+  // ── SCOPE: what does the win share range over? ────────────────────────────
+  //
+  // ⚠⚠ THE DEFECT THIS CLOSES, MEASURED AT A CONTROLLED CAPTURE (ROADMAP 2.1340).
+  // This surface rendered "Ahead in 60% of simulated futures" while the run had
+  // compared TWO of the user's THREE options. The existing Analysis tab says so
+  // on the same run; this one said nothing, anywhere. The number is not wrong —
+  // it is a true statement about a candidate set the reader never learns, and a
+  // reader takes it as "of my three".
+  //
+  // ⛔ NO SECOND PREDICATE. "Was this option in the comparison?" is owned by
+  // `notAnalysedOptions.ts` and surfaced as `notAnalysed`; `deriveComparisonScope`
+  // COUNTS that flag. This function counts nothing itself — it only splits that
+  // owner's `null` into the two questions it answers (see GlanceComparisonScope).
+  const allOptions = rec.allOptions ?? []
+  const analysedCount = allOptions.filter((o) => o.notAnalysed !== true).length
+  const comparisonScope: GlanceComparisonScope =
+    allOptions.length === 0 || analysedCount === 0
+      ? { kind: 'unresolved' }
+      : (() => {
+          const scope = deriveComparisonScope(allOptions)
+          if (!scope) return { kind: 'whole_set' as const }
+          return {
+            kind: 'partial' as const,
+            scope,
+            // Named with the SANCTIONED copy, never re-worded here. An option
+            // whose label is missing is dropped rather than invented — the
+            // scope sentence still reports it by count.
+            excluded: allOptions
+              .filter((o) => o.notAnalysed === true)
+              .map((o) => ({
+                id: o.id,
+                label: typeof o.label === 'string' ? o.label.trim() : '',
+                reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+              }))
+              .filter((o) => o.label.length > 0 && o.label !== o.id),
+          }
+        })()
+
   const word = rec.robustnessVerdict ? VERDICT_WORD[rec.robustnessVerdict] : undefined
   // The single most informative number on the surface, and it is only licensed
   // alongside an entitled leader — so it is gated on the SAME condition as the
   // headline, never rendered on its own.
-  const winPct = headline ? pctOrNull(leader?.winProbability ?? rec.winProbability) : null
+  // Gated twice: on the leader entitlement AND on scope being establishable.
+  const winPct =
+    headline && comparisonScope.kind !== 'unresolved'
+      ? pctOrNull(leader?.winProbability ?? rec.winProbability)
+      : null
 
   return {
     headline,
     winShare: winPct ? `Ahead in ${winPct} of simulated futures` : null,
+    comparisonScope,
     verdict: word
       ? {
           tone: word.tone,
@@ -797,7 +843,7 @@ export function buildAnalysisNewViewModel(
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
-      ? { headline: null, winShare: null, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
+      ? { headline: null, winShare: null, comparisonScope: { kind: 'unresolved' as const }, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
       : glance,
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }

@@ -21,6 +21,7 @@
 
 import type { DriversSectionData } from '../types'
 import type { Recommendation } from '../strengthen/strengthenTypes'
+import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
 /**
  * How confident the SURFACE is entitled to sound — never an "AI confidence".
@@ -294,6 +295,45 @@ export interface GlanceCondition {
   targetId: string | null
 }
 
+/**
+ * One option the run did not analyse, ready to render with the SANCTIONED copy.
+ *
+ * ⚠ `reasonCopy` is `notAnalysedReasonCopy(...)` — the estate's single source
+ * for what the results panel says about an unanalysed option. It is carried as
+ * a resolved string rather than as a reason code so that no component can
+ * re-decide the wording, and so the two sentences (`no_interventions` vs
+ * `not_returned`) cannot silently collapse into one at a new call site.
+ */
+export interface GlanceExcludedOption {
+  id: string
+  label: string
+  /** `notAnalysedReasonCopy(reason)`, verbatim. States "no rank and no probability". */
+  reasonCopy: string
+}
+
+/**
+ * Can the win share be read at all, and if so does it need qualifying?
+ *
+ * ⚠⚠ THIS TYPE EXISTS BECAUSE `deriveComparisonScope` RETURNS `null` FOR TWO
+ * DIFFERENT QUESTIONS, AND ONLY ONE OF THEM LICENSES AN UNQUALIFIED NUMBER.
+ * Its documented say-nothing states are: (1) nothing excluded, (2) nothing
+ * analysed, (3) empty input. State 1 means *the share describes every option
+ * you have* — show it bare. States 2 and 3 mean *we cannot establish what the
+ * share ranges over* — and a percentage whose candidate set is unknown is the
+ * ambiguous number this whole change exists to stop.
+ *
+ * Reading that one `null` as "no note needed" is CLAUDE.md trap 21 exactly:
+ * two questions under one name, where the fail-open answer is right for one and
+ * a falsehood for the other. Named apart here so a consumer must choose.
+ */
+export type GlanceComparisonScope =
+  /** Every option the user has was in the comparison. The share needs no qualifier. */
+  | { kind: 'whole_set' }
+  /** Some options were excluded. The share is TRUE ONLY alongside this scope. */
+  | { kind: 'partial'; scope: ComparisonScope; excluded: GlanceExcludedOption[] }
+  /** The candidate set cannot be established. The share is WITHHELD, not qualified. */
+  | { kind: 'unresolved' }
+
 export interface AtAGlance {
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
@@ -301,8 +341,19 @@ export interface AtAGlance {
    * The evidence behind the read, as a sentence. Gated on the SAME entitlement
    * as `headline` — a win share with no entitled leader is a number about an
    * option the producer declined to put forward.
+   *
+   * ⚠ AND GATED A SECOND TIME, ON SCOPE. Null when `comparisonScope.kind` is
+   * `'unresolved'`: a percentage is a claim about a candidate set, so with no
+   * establishable set there is no claim to make. Suppressing beats qualifying
+   * here — "60%, of we-cannot-say-what" is not a smaller version of the truth.
    */
   winShare: string | null
+  /**
+   * What the win share ranges over. Rendered BESIDE the number, never behind
+   * disclosure: it changes what the number means, so a reader who sees one
+   * must see the other.
+   */
+  comparisonScope: GlanceComparisonScope
   verdict: GlanceVerdict | null
   drivers: GlanceDriver[]
   /**

@@ -63,6 +63,8 @@
 
 import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
+import { ComparisonScopeNote } from '../../ComparisonScopeNote'
+import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 
@@ -151,6 +153,44 @@ export function AtAGlance({
               {glance.verdict.reason}
             </p>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* ── WHAT THE SHARE RANGES OVER ─────────────────────────────────────
+          ⚠⚠ BESIDE THE NUMBER, NEVER BEHIND DISCLOSURE (ROADMAP 2.1340).
+          Measured at a controlled capture: this surface showed "Ahead in 60% of
+          simulated futures" on a run that compared TWO of the user's THREE
+          options, while the existing Analysis tab disclosed the scope on the
+          same run. The percentage is not wrong; it is a true statement about a
+          candidate set the reader never learns, and the reader supplies the
+          wrong one. Scope and number must not be readable independently, so
+          this sits directly under the trust line rather than in `Deeper`.
+
+          `withDetail` is the shared component's own rule, not a preference: a
+          win share is a set-dependent VALUE, and its header states such
+          surfaces take `COMPARISON_SCOPE_COPY.detail`. The component owns the
+          suppression rule too — it renders nothing on a whole-set run. */}
+      {glance.comparisonScope.kind === 'partial' ? (
+        <div data-testid={`${testId}-scope`}>
+          <ComparisonScopeNote scope={glance.comparisonScope.scope} surface="analysisNew" withDetail />
+          {/* The excluded option says what it IS, in the estate's sanctioned
+              words — "no rank and no probability". The scope sentence above
+              names who was left out; this states the consequence for them, and
+              the two are different claims. */}
+          {glance.comparisonScope.excluded.map((o) => (
+            <p
+              key={o.id}
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid={`${testId}-excluded-option`}
+              data-option-id={o.id}
+            >
+              <span className="text-text-header">{o.label}</span>
+              {' — '}
+              {NOT_ANALYSED_BADGE}
+              {'. '}
+              {o.reasonCopy}
+            </p>
+          ))}
         </div>
       ) : null}
 
