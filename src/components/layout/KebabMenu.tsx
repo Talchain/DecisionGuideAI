@@ -302,12 +302,29 @@ export function KebabMenu({
           does not — so it is the one most likely to be reached with a real
           conversation in play, and it was the one that named the fewest
           consequences. The other two sheets already list the conversation; this
-          now matches them, and all three now say what undo can and cannot
-          restore (it cannot restore a localStorage delete). */}
+          now matches them.
+
+          ⚠⚠ IT THEN PROMISED A RECOVERY THAT DOES NOT EXIST, and this is the
+          most destructive control in the top bar. The message used to end
+          "Undo (Ctrl+Z / Cmd+Z) can bring the graph back. The conversation
+          cannot be recovered." — a contrast that inverted the truth for the
+          half a user is most likely to act on. Every route it implied is shut:
+
+            · ⌘Z / Ctrl+Z are dead on the canvas. `useKeyboardShortcuts` gates
+              the undo and redo branches on `hasServerGraphAuthority(
+              CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)`, and that
+              authority is `'disabled'`.
+            · `resetCanvas` pushes an UNLABELLED history entry, so the history
+              toast never announces it either — that toast fires only on a label.
+            · `resetCanvas` calls `scenarios.clearAutosave()`, destroying the
+              localStorage copy the canvas would otherwise reload from.
+
+          So the graph cannot be brought back by any route the product offers.
+          Do not restore a recovery promise here unless one exists. */}
       {showResetConfirm && (
         <ConfirmDialog
           title="Reset canvas?"
-          message="This will remove all nodes and connections, any analysis results, and the AI assistant conversation. Undo (Ctrl+Z / Cmd+Z) can bring the graph back. The conversation cannot be recovered."
+          message="This will remove all nodes and connections, any analysis results, and the AI assistant conversation. This cannot be undone."
           confirmLabel="Reset"
           cancelLabel="Cancel"
           onConfirm={handleConfirmReset}
