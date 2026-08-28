@@ -299,6 +299,20 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
   // the dock occupies, and FloatingOlumiPanel already solves this identical
   // problem with it. Derived, not hand-copied: if the dock's width changes,
   // or the user drags it, this follows.
+  //
+  // ⚠ WHY A DOM SIGNAL AND NOT A STORE SUBSCRIPTION — asked in review, derived
+  // rather than argued. NOTHING in the app carries the dock's RENDERED INSET
+  // reactively. `useCanvasStore`'s `showResultsPanel` is open/closed only; the
+  // WIDTH lives in the `--dock-right-expanded` CSS variable, rewritten on every
+  // drag; and the inset is width PLUS the shell's edge gap. Reconstructing it
+  // from those three would duplicate the arithmetic `measureDockInset()` already
+  // owns — a hand-maintained mirror of exactly the kind this estate keeps
+  // paying for. So the inset is still read through that one authority.
+  //
+  // `showResultsPanel` IS subscribed below, though, so the effect re-runs at the
+  // React level on open/close and the fix does not rest on a DOM attribute
+  // alone. It cannot replace the observers: it does not change on a width drag.
+  const dockOpen = useCanvasStore((s) => s.showResultsPanel)
   const [dockInset, setDockInset] = useState(0)
   useEffect(() => {
     if (!shouldRender) return
@@ -337,7 +351,10 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
       ro?.disconnect()
       window.removeEventListener('resize', sync)
     }
-  }, [shouldRender])
+    // `dockOpen` is a dependency, not a value read inside — re-running the
+    // effect on open/close re-measures and re-attaches to a dock that may have
+    // mounted since.
+  }, [shouldRender, dockOpen])
 
   if (!shouldRender) return null
   if (typeof document === 'undefined') return null
