@@ -1,10 +1,16 @@
 // src/main.tsx
 import './index.css';
 import { captureParticipantTokenFromUrl } from './collab/participantToken';
-import { Suspense, lazy, Component, ReactNode } from 'react';
+import { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
+// The boundary around the top-level AppPoC chunk — i.e. the one a mid-session
+// deploy lands on. Extracted so it can be MOUNTED by a test; while it lived
+// here, main.tsx's self-booting IIFE made it unrenderable and the only
+// available assertion was that its copy appeared in this file, which a mutant
+// that made the branch unreachable passed straight through.
+import { BootErrorBoundary } from './BootErrorBoundary';
 
 declare global {
   interface Window {
@@ -107,50 +113,6 @@ function Shell() {
 // Lazy-load the heavy app after Shell commits
 const AppPoC = lazy(() => import('./poc/AppPoC'));
 
-class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
-  componentDidCatch(error: Error, info: any) {
-    window.__SAFE_DEBUG__!.fatal = String(error?.stack || error);
-    log('error-boundary:caught', {
-      error: error.message,
-      stack: error.stack,
-      componentStack: info?.componentStack?.slice(0, 600)
-    });
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 12, background: '#fee', color: '#900',
-                      fontFamily: 'ui-monospace,monospace', fontSize: 13, borderRadius: 8 }}>
-          <strong>Render Error ❌</strong>
-          {/* Only show error details in DEV to avoid exposing stack traces in production */}
-          {import.meta.env.DEV ? (
-            <>
-              <pre style={{ whiteSpace: 'pre-wrap', marginTop: 8, fontSize: 12 }}>
-                {this.state.error.message}
-              </pre>
-              {this.state.error.stack && (
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{ cursor: 'pointer', opacity: 0.75 }}>Stack trace</summary>
-                  <pre style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-                    {this.state.error.stack}
-                  </pre>
-                </details>
-              )}
-            </>
-          ) : (
-            <p style={{ marginTop: 8 }}>
-              Something went wrong. Please refresh the page or contact support.
-            </p>
-          )}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 (function boot() {
   try {
     // ⭐ FIRST STATEMENT OF BOOT, DELIBERATELY. A participant's bearer token
@@ -198,7 +160,7 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     // Phase 2: upgrade to full app (next microtask is enough; avoids extra layout thrash)
     queueMicrotask(() => {
       root.render(
-        <BootErrorBoundary>
+        <BootErrorBoundary onError={log}>
           <Suspense fallback={<Shell />}>
             <AppPoC />
           </Suspense>
