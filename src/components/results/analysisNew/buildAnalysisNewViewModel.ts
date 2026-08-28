@@ -465,13 +465,27 @@ function buildUncertainty(
    *  2. `:3197` — SENSITIVE_ASSUMPTION. It looks safe because it always SETS
    *     `affectedNodes`, but the value is `[fromId, toId].filter(Boolean)`, and
    *     `parseEdgeId` returns `{}` for any edge id that does not split on `::`
-   *     into two non-empty parts. Both ids can therefore be undefined and the
-   *     array arrives EMPTY. `.filter(Boolean)` is the subtle half — "the field
-   *     is always assigned" is not "the field always discriminates".
+   *     into two non-empty parts, so both ids can be undefined and the array is
+   *     then EMPTY. `.filter(Boolean)` is the subtle half — "the field is
+   *     always assigned" is not "the field always discriminates".
+   *
+   * ⚠ SCOPE OF THAT CLAIM, STATED EXACTLY. This establishes that both states
+   * are REACHABLE BY CONSTRUCTION from the producer code. It does NOT establish
+   * that either has occurred in a captured payload — no capture has been
+   * inspected for them. "Reachable" is the claim; "observed" is not, and the
+   * difference is the one this estate keeps getting wrong in the other
+   * direction (asserting absence from a partial look).
    *
    * So reorder-stability is claimed for the population that CARRIES a
-   * discriminator, never for the surface, and the fallback stays until the
-   * producer supplies a per-row key. Both zero-discriminator states are pinned.
+   * discriminator, never for the surface. Both zero-discriminator states are
+   * pinned.
+   *
+   * ⚠⚠ AND THE FALLBACK IS DEBT, NOT A RESOLUTION. It prevents COLLISIONS —
+   * two rows can no longer share one id — but it cannot preserve identity
+   * across a reorder for those rows, so `DisclosureRow`'s open state can still
+   * follow the position rather than the finding. The real fix is a
+   * producer-issued stable finding id. Until then this is the honest floor,
+   * not the answer.
    */
   const uncertaintyKey = (u: UncertaintyItem, i: number): string => {
     const parts = [

@@ -493,9 +493,15 @@ describe('identity survives a reorder — for the population that has a discrimi
     // ⚠ THE SUBTLE HALF, and the one a reader of the producer would miss.
     // `useResultsSectionData.ts:3197` ALWAYS assigns `affectedNodes` — but as
     // `[fromId, toId].filter(Boolean)`, and `parseEdgeId` returns `{}` for any
-    // edge id that does not split on '::' into two non-empty parts. So the
-    // array arrives EMPTY on a real producer path. "The field is always
-    // assigned" is not "the field always discriminates", and a key built from
+    // edge id that does not split on '::' into two non-empty parts, so both ids
+    // can be undefined and the array is then EMPTY.
+    //
+    // ⚠ REACHABLE BY CONSTRUCTION, NOT OBSERVED IN A CAPTURE. No producer
+    // payload has been inspected for this state; what is established is that
+    // the producer code can emit it. The weaker claim is the true one.
+    //
+    // "The field is always assigned" is not "the field always discriminates",
+    // and a key built from
     // `affectedNodes.join('>')` on an empty array would collapse two rows to
     // one id.
     const emptyNodes = makeData({
