@@ -61,7 +61,7 @@
  * definition of the basis. That is the split the brief asks for.
  */
 
-import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
@@ -83,12 +83,41 @@ export interface AtAGlanceProps {
   // was to keep that row rendering as a button wired to `undefined`. A prop
   // that turns a fail-closed gate into a fail-open one by being absent is not
   // a fallback; it is the defect.
+  /**
+   * How many non-zero drivers the RUN produced, before the glance's cap.
+   * ⚠ Passed because the glance shows at most three and, until now, said
+   * nothing about the rest — measured on the deployed build, one driver shown
+   * with several more in the run and no disclosure anywhere. A cap that does
+   * not declare itself reads as a complete list.
+   */
+  driverTotal?: number
+  /**
+   * The engine's top-priority recommendation, rendered as ONE row.
+   *
+   * ⚠⚠ THIS WAS DELIBERATELY DROPPED AND IS DELIBERATELY BACK. The reason it
+   * was dropped is recorded in this file's header: "Strengthen the reasoning"
+   * renders the SAME recommendation immediately below, so the row would be the
+   * identical action twice about 120px apart. That reasoning was correct AND IT
+   * WAS CONDITIONAL — on Strengthen being EXPANDED beneath the glance. It no
+   * longer is: the sections are collapsed rows now, per the design. With the
+   * condition gone the duplication is gone, and without this row the single
+   * most action-shaped thing the surface produces would sit behind a click on
+   * the surface whose whole claim is a five-to-ten-second read.
+   *
+   * Nothing here is authored: the label is the ENGINE's `action.label` and the
+   * line beneath is its own `signal`/`whyNow`.
+   */
+  primaryIntervention?: { id: string; label: string; why: string } | null
+  onRunIntervention?: (recommendationId: string) => void
   testId?: string
 }
 
 export function AtAGlance({
   glance,
   onFocusTarget,
+  driverTotal,
+  primaryIntervention,
+  onRunIntervention,
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
   const hasAnything =
@@ -307,6 +336,20 @@ export function AtAGlance({
               )
             })}
           </ul>
+          {/* ⚠ THE CAP DECLARES ITSELF. `driverTotal` is the run's non-zero
+              driver count; the glance renders at most three. Silence here reads
+              as "these are all of them", which is a claim the cap does not
+              license. Not a control — the Drivers row below opens the full
+              list, and a second route to the same place would be two
+              affordances for one action. */}
+          {typeof driverTotal === 'number' && driverTotal > glance.drivers.length ? (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid={`${testId}-drivers-more`}
+            >
+              {COPY.glance.moreDrivers(driverTotal - glance.drivers.length)}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -375,6 +418,32 @@ export function AtAGlance({
             </div>
           )
         })()
+      ) : null}
+
+      {/* ── THE ONE ACTION ────────────────────────────────────────────────
+          Last in the glance, so the read runs: what it says · how much to
+          rely on it · what matters · what would change it · what to do. */}
+      {primaryIntervention && onRunIntervention ? (
+        <button
+          type="button"
+          onClick={() => onRunIntervention(primaryIntervention.id)}
+          className="w-full flex items-start gap-2 rounded-lg border border-info/30 bg-panel px-3 py-2 text-left hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          data-testid={`${testId}-primary-intervention`}
+          data-recommendation-id={primaryIntervention.id}
+        >
+          <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className={`${typography.panelBody} text-text-header block`}>
+              {primaryIntervention.label}
+            </span>
+            {primaryIntervention.why ? (
+              <span className={`${typography.panelMeta} text-text-light block mt-0.5`}>
+                {primaryIntervention.why}
+              </span>
+            ) : null}
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+        </button>
       ) : null}
     </section>
   )

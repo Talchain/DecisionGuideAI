@@ -32,6 +32,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
+import { AlertTriangle, MessageSquare, Star, TrendingUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openAskOlumi } from '../coaching/askOlumiStore'
@@ -132,7 +133,7 @@ export function AnalysisNewTabBody({
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
-      <div className="px-5 py-4 space-y-5 max-w-[360px] mx-auto">
+      <div className="px-5 py-4 space-y-4 max-w-[360px] mx-auto">
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
             false of this model when nothing has run — mounted pre-run it sat
@@ -150,10 +151,19 @@ export function AnalysisNewTabBody({
             declared by this surface's `footerBar: 'reanalyse'` in the shell
             contract — the SAME control and the SAME handler the Model tab
             uses, so no second run authority exists. */}
+        {/* ⚠⚠ PRE-RUN NOW SAYS WHAT THIS PANEL IS. Removing the intro that
+            asserted a run was correct — it sat above "No analysis has run yet"
+            and contradicted it — but nothing replaced the ORIENTATION, and a
+            first-time user landing here had strictly less to go on than on the
+            existing Analysis tab, which states what the panel reports on AND
+            offers a route forward. Witnessed on the deployed build at
+            `a9fc1564`. This says what the panel is WITHOUT asserting a run, so
+            the original defect stays closed. */}
         {vm.status.isPreRun ? (
-          <p className={`${typography.panelBody} text-text-light`} data-testid="analysis-new-status-pre-run">
-            {COPY.status.preRun}
-          </p>
+          <div className="space-y-1" data-testid="analysis-new-status-pre-run">
+            <p className={`${typography.panelBody} text-text-body`}>{COPY.status.preRun}</p>
+            <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
+          </div>
         ) : null}
         {vm.status.isStale ? (
           <p
@@ -186,7 +196,25 @@ export function AnalysisNewTabBody({
         ) : null}
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
-        <AtAGlance glance={vm.atAGlance} onFocusTarget={focusTarget} />
+        {/* ⚠ `driverTotal` is the RUN's non-zero driver count, not the
+            glance's capped list — the glance shows at most three and must say
+            so. `primaryIntervention` is the ENGINE's top recommendation,
+            passed rather than re-derived: this surface never mints one. */}
+        <AtAGlance
+          glance={vm.atAGlance}
+          onFocusTarget={focusTarget}
+          driverTotal={vm.drivers.totalCount}
+          primaryIntervention={
+            vm.strengthen.interventions[0]
+              ? {
+                  id: vm.strengthen.interventions[0].id,
+                  label: vm.strengthen.interventions[0].action.label,
+                  why: vm.strengthen.interventions[0].signal,
+                }
+              : null
+          }
+          onRunIntervention={runIntervention}
+        />
 
         {/* ── 1. KEY INSIGHTS ─────────────────────────────────────────────── */}
         <AnalysisNewSection
@@ -205,6 +233,7 @@ export function AnalysisNewTabBody({
           }
           onFocusTarget={focusTarget}
           onRunIntervention={runIntervention}
+          icon={Star}
           testId="analysis-new-key-insights"
         />
 
@@ -214,6 +243,7 @@ export function AnalysisNewTabBody({
         <StrengthenTheReasoning
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}
+          icon={MessageSquare}
         />
 
         {/* ── 3. DRIVERS AND DYNAMICS ─────────────────────────────────────── */}
@@ -247,6 +277,7 @@ export function AnalysisNewTabBody({
           emptyMessage={driversEmptyMessage(vm)}
           onFocusTarget={focusTarget}
           onRunIntervention={runIntervention}
+          icon={TrendingUp}
           testId="analysis-new-drivers"
         />
 
@@ -269,6 +300,7 @@ export function AnalysisNewTabBody({
           }
           onFocusTarget={focusTarget}
           onRunIntervention={runIntervention}
+          icon={AlertTriangle}
           testId="analysis-new-uncertainty"
         />
 

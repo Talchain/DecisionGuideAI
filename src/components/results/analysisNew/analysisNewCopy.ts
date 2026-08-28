@@ -95,6 +95,8 @@ export const ANALYSIS_NEW_COPY = {
      * within THIS run; "Influence" says they sit on the producer's own scale.
      * A reader who mistakes the first for the second reads a rank as a share.
      */
+    /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
+    moreDrivers: (n: number) => `+ ${n} more driver${n === 1 ? '' : 's'} in this run`,
     basisRelative: 'Relative influence',
     basisAbsolute: 'Influence',
     basisRelativeExplain:
@@ -111,6 +113,14 @@ export const ANALYSIS_NEW_COPY = {
 
   status: {
     preRun: 'No analysis has run yet for this model.',
+    /**
+     * ⚠ SAYS WHAT THE PANEL IS, AND ASSERTS NO RUN. `tabIntro` cannot serve
+     * pre-run — it says "a second reading of the same analysis run", which is
+     * false when none has happened, and it shipped sitting directly above the
+     * sentence saying so. This is the orientation without the assertion.
+     */
+    preRunWhatThisIs:
+      'When one has, this panel reads it back around the reasoning: what to notice, how to strengthen it, what is driving it, and what is still uncertain.',
     running: 'Analysis is running.',
     /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is
