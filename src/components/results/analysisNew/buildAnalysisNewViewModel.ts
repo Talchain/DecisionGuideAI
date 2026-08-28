@@ -68,6 +68,7 @@ const KEY_INSIGHT_CAP = 4
 /** §2: "1–3 prioritised reasoning interventions". */
 const STRENGTHEN_CAP = 3
 /** Level-1 rows before "Show more". */
+const KEY_INSIGHT_PREVIEW = 3
 const DRIVER_PREVIEW = 3
 const UNCERTAINTY_PREVIEW = 3
 /** Driver rows in the glance. Three is the existing `topDrivers` convention. */
@@ -1055,6 +1056,7 @@ export function buildAnalysisNewViewModel(
 
 export const ANALYSIS_NEW_LIMITS = {
   KEY_INSIGHT_CAP,
+  KEY_INSIGHT_PREVIEW,
   STRENGTHEN_CAP,
   DRIVER_PREVIEW,
   UNCERTAINTY_PREVIEW,

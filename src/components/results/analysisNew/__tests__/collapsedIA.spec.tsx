@@ -91,14 +91,21 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     const count = screen.getByTestId('analysis-new-uncertainty-count')
     expect(count).toBeInTheDocument()
     // Bound to the SECTION, not to whichever element carries a number.
+    // ⚠ FIVE — three same-code uncertainties plus two assumptions, which DO
+    // belong to this section. NOT eight: the fixture's three inference warnings
+    // are engine diagnostics and render in "Deeper analysis and evidence" now.
+    // The row promises exactly what a reader will find behind it.
     expect(within(screen.getByTestId('analysis-new-uncertainty')).getByTestId('analysis-new-uncertainty-count'))
-      .toHaveTextContent('6')
+      .toHaveTextContent('5')
 
-    // And it is the ACTUAL list length, not a remembered number: open it and
-    // count the rows.
+    // And it is the ACTUAL list length, not a remembered number — which is the
+    // whole reason the count is derived. A count that misreports reads as "you
+    // have seen everything" when you have not. Open the row (level 1), then
+    // reveal the rest (level 2), and the rows must total the promised five.
     fireEvent.click(screen.getByTestId('analysis-new-uncertainty-toggle'))
+    expect(screen.getAllByTestId('analysis-new-uncertainty-row')).toHaveLength(3)
     fireEvent.click(screen.getByTestId('analysis-new-uncertainty-show-more'))
-    expect(screen.getAllByTestId('analysis-new-uncertainty-row')).toHaveLength(6)
+    expect(screen.getAllByTestId('analysis-new-uncertainty-row')).toHaveLength(5)
   })
 
   it('renders NO count rather than a zero when a section is empty', () => {

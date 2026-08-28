@@ -220,6 +220,7 @@ export function AnalysisNewTabBody({
         <AnalysisNewSection
           title={COPY.sections.keyInsights}
           findings={vm.keyInsights.insights}
+          preview={ANALYSIS_NEW_LIMITS.KEY_INSIGHT_PREVIEW}
           // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
           // when the run DID produce insights and the glance is simply stating
           // them — witnessed on a real run, where the glance carried all three

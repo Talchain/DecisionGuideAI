@@ -22,10 +22,14 @@
  * the surface — so the header lives here and both call it.
  *
  * ⚠ SENTENCE CASE, DELIBERATELY, AND IT IS A DEVIATION FROM THE MOCK-UP. The
- * concept sets these titles in capitals; the Design System v5 guard forbids the
- * `uppercase` utility in `src/` and small caps are not in the panel scale
- * (`analysisNewCopy.ts` records the same constraint for the same reason). The
- * ratchet is the authority, so the titles stay sentence case.
+ * concept sets these titles in capitals. The Design System v5 ratchet forbids
+ * that text-transform utility anywhere in `src/`, and small caps are not in the
+ * panel scale — `analysisNewCopy.ts` records the same constraint for the same
+ * reason. The ratchet is the authority, so the titles stay sentence case.
+ *
+ * (This note itself tripped the guard on its first draft, by naming the banned
+ * utility in prose: the check is a text scan and cannot tell a comment from a
+ * class. Worth knowing before you explain a DS decision in a header.)
  *
  * ⚠ THE COUNT IS DERIVED BY THE CALLER FROM ITS ACTUAL LIST, never passed as a
  * remembered number. A collapsed row is a PROMISE about what is behind it, and a
@@ -74,8 +78,20 @@ export function SectionShell({
     <section
       className="border-b border-panel-border last:border-b-0"
       data-testid={testId}
+      // ⚠ STILL A LABELLED LANDMARK. Turning the section header into a
+      // disclosure control must not cost the landmark its name — the dock's own
+      // spec pins `aria-labelledby`, and it was right to: a screen-reader user
+      // navigating by landmark would otherwise meet four unnamed regions.
+      aria-labelledby={`${testId}-heading`}
       data-section-open={open ? 'true' : 'false'}
     >
+      {/* ⚠ HEADING WRAPS BUTTON — the WAI-ARIA accordion pattern, and the
+          reason is that BOTH facts are true at once: this is a heading in the
+          document outline AND a control that expands a region. Making it only
+          a button deletes it from the heading map; making it only a heading
+          deletes the control. The button carries the interaction, the `h3`
+          carries the structure. */}
+      <h3 id={`${testId}-heading`} className="m-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -93,7 +109,12 @@ export function SectionShell({
             <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden={true} />
           </span>
         ) : null}
-        <span className={`${typography.panelHeader} text-text-header min-w-0 flex-1`}>{title}</span>
+        <span
+          className={`${typography.panelHeader} text-text-header min-w-0 flex-1`}
+          data-testid={`${testId}-title`}
+        >
+          {title}
+        </span>
         {count != null ? (
           <span
             className={`${typography.panelMeta} text-text-light shrink-0`}
@@ -108,6 +129,7 @@ export function SectionShell({
           <ChevronRight className="w-4 h-4 shrink-0 text-text-light" aria-hidden={true} />
         )}
       </button>
+      </h3>
 
       {open ? (
         <div id={regionId} className="pb-3" data-testid={`${testId}-region`}>
