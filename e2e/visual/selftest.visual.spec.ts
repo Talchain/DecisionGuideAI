@@ -182,8 +182,24 @@ test.describe('visual harness self-test — proves the instrument can fail', () 
 
     // Each perturbation gets its own context, so none can contaminate the next.
     const cases: Array<{ label: string; css?: string }> = [
-      // 1. NOISE FLOOR — unmodified.
-      { label: 'noise floor (unmodified)' },
+      // 1. DRIFT FROM REFERENCE — unmodified capture, compared to the committed
+      //    reference. ⚠ THIS IS NOT A NOISE MEASUREMENT AND MUST NOT BE LABELLED
+      //    AS ONE. It was called "noise floor" until 28 Aug 2026, and that one
+      //    word produced three wrong diagnoses in a row — twice by the same
+      //    reader — because "noise floor 4.2%" reads as "this runner renders
+      //    nondeterministically", which implies the harness is broken at the
+      //    instrument and that re-blessing cannot help. Both implications are
+      //    false, and the data said so plainly: FOUR runs across FOUR commits
+      //    reported 55049/1296000 pixels, IDENTICAL TO THE PIXEL. Noise does not
+      //    repeat to the pixel. The capture was perfectly deterministic and the
+      //    REFERENCE was stale — a fit-view zoom shift (51→53 and 58→60), which
+      //    a re-bless fixes in one commit.
+      //
+      //    It is a valid noise PROXY only while the reference is current, and it
+      //    silently stops being one the moment the reference drifts — which is
+      //    exactly when someone is reading it to find out what is wrong.
+      //    The name now says what is measured; the reading is unchanged.
+      { label: 'drift from reference (unmodified)' },
       // 2. PANEL WIDTH +35% — width derived above from the live dock. This is
       //    the regression class of the 15-PR wave.
       {
@@ -227,15 +243,22 @@ test.describe('visual harness self-test — proves the instrument can fail', () 
       'utf8',
     )
 
-    const [noise, panelWidth, footerOverlap] = results
+    const [drift, panelWidth, footerOverlap] = results
 
-    // The noise floor must be an order of magnitude UNDER the tolerance,
-    // otherwise ordinary rendering variation will start reddening the gate and
-    // the harness gets muted.
+    // An unmodified capture must land an order of magnitude UNDER the tolerance.
+    // If it does not, EITHER ordinary rendering variation has grown (and the
+    // gate will produce false positives and get muted) OR the reference is
+    // stale. The message names both, because it cannot tell them apart and the
+    // reader must: a figure that REPEATS EXACTLY across runs is a stale
+    // reference, not noise — re-bless it. A figure that WANDERS between runs is
+    // genuine nondeterminism, and re-blessing will not help.
     expect(
-      noise.diffRatio,
-      `noise floor ${noise.diffRatio} is not comfortably below the tolerance ${MAX_DIFF_PIXEL_RATIO}; ` +
-        `the harness would produce false positives and be switched off`,
+      drift.diffRatio,
+      `an unmodified capture differs from the committed reference by ${drift.diffRatio}, ` +
+        `which is not comfortably below the tolerance ${MAX_DIFF_PIXEL_RATIO}.\n` +
+        `  · IDENTICAL across runs  → the REFERENCE IS STALE. Look at the diff, then re-bless.\n` +
+        `  · VARIES between runs    → genuine rendering nondeterminism; re-blessing will NOT fix it.\n` +
+        `Compare this number against a previous run before diagnosing.`,
     ).toBeLessThan(MAX_DIFF_PIXEL_RATIO / REQUIRED_MARGIN)
 
     // Both real regressions must be an order of magnitude OVER it.
