@@ -85,6 +85,24 @@ export interface AnalysisReadinessBarProps {
   canRun: boolean
   /** OutputsDock's `runBlockedTooltip`. Only read while the gate is shut. */
   blockedReason?: string
+  /**
+   * OutputsDock's `runBlockedSentences` — the producer's sentences BEHIND
+   * `blockedReason`, from the same call that produced the string.
+   *
+   * ⚠ ADDITIVE, AND THE DEFAULT IS TODAY'S BEHAVIOUR. Omit it and this surface
+   * renders the joined paragraph exactly as it always has. It is not this
+   * component that decides the array is trustworthy: `deriveReadinessDisplay`
+   * carries it through ONLY when its join equals the VETTED subline, because
+   * `vetBlockedReason` can SUBSTITUTE a composed fallback for producer text it
+   * will not pass. Handing it straight to the markup would put our fallback in
+   * one surface and the producer's sentences in the other.
+   *
+   * `PanelFooter` — the other reader of the same `deriveReadinessDisplay`, fed
+   * the same two values from the same component — has taken this since #883.
+   * This bar taking it too is what stops the two pre-run surfaces telling one
+   * state in two shapes.
+   */
+  blockedSentences?: readonly string[]
   /** OutputsDock's `isRunning`. */
   isAnalysing: boolean
   /**
@@ -104,6 +122,7 @@ export function AnalysisReadinessBar({
   preRunWithModel,
   canRun,
   blockedReason,
+  blockedSentences,
   isAnalysing,
   readinessCheck = null,
   nothingHasAnswered,
@@ -125,6 +144,7 @@ export function AnalysisReadinessBar({
     isAnalysing,
     canRun,
     blockedReason,
+    blockedSentences,
     nothingHasAnswered,
     resting: RESTING_AVAILABLE,
   })
@@ -148,10 +168,39 @@ export function AnalysisReadinessBar({
         <p className={`${typography.panelBody} text-text-header`} data-testid="analysis-readiness-bar-headline">
           {display.headline}
         </p>
-        {display.subline && (
-          <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-readiness-bar-reason">
-            {display.subline}
-          </p>
+        {/* THE PRODUCER'S SENTENCES ARE A LIST, NOT A PARAGRAPH — the same shape
+            `PanelFooter` has rendered since #883, on the surface that was still
+            joining them. Witnessed on deployed staging `236bb14a`, 28 Aug 2026:
+            603 characters of four concatenated question-pairs in one unbroken
+            line. The join is UNBOUNDED and nothing truncates it.
+            Nothing is truncated or summarised — the contract forbids both, so
+            we never put our words in the producer's mouth. The SAME bytes
+            render one per line, and `display.subline` stays their exact join
+            for the disabled control's `title` below.
+            ⚠ ONE sentence stays a sentence: a list of one renders a bullet
+            where prose belonged, which would be a regression in the common
+            small case bought with a fix for the large one.
+            ⚠ THE CLASSES MIRROR `PanelFooter` EXACTLY, deliberately. These two
+            surfaces state one thing and must look like one thing; matching the
+            neighbour beats matching `PANEL_LIST_BULLET`, which governs the
+            conversation surface and carries `space-y-1` rather than the footer's
+            `space-y-0.5`. Converging those two rhythms is a separate, visible
+            change and wants the visual harness. */}
+        {display.sublineSentences !== undefined && display.sublineSentences.length > 1 ? (
+          <ul
+            className={`${typography.panelMeta} text-text-light list-disc space-y-0.5 pl-4`}
+            data-testid="analysis-readiness-bar-reason-list"
+          >
+            {display.sublineSentences.map((sentence, index) => (
+              <li key={`${index}:${sentence}`}>{sentence}</li>
+            ))}
+          </ul>
+        ) : (
+          display.subline && (
+            <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-readiness-bar-reason">
+              {display.subline}
+            </p>
+          )
         )}
       </div>
       {/* The check can be retried without touching the run. Deliberately NOT a

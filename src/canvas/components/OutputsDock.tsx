@@ -3580,6 +3580,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                       preRunWithModel={isPreRun && nodes.length > 0}
                       canRun={canRunAnalysis}
                       blockedReason={runBlockedTooltip}
+                      /* The SAME pair `PreAnalysisPanelV3` receives above, from
+                         the same two expressions in this file. That identity is
+                         the point: the bar and the footer are two views of one
+                         state, and the sentences were reaching only one of
+                         them. */
+                      blockedSentences={runBlockedSentences}
                       isAnalysing={isRunning}
                       readinessCheck={readinessCheckForBar}
                       nothingHasAnswered={readinessUnanswered}
