@@ -13,10 +13,12 @@
  * hid reads as "you have seen everything" when you have not.
  */
 
+import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { DisclosureRow } from '../DisclosureRow'
+import { SectionShell } from './SectionShell'
 import type { AnalysisNewFinding } from '../analysisNewTypes'
 
 export interface AnalysisNewSectionProps {
@@ -45,6 +47,8 @@ export interface AnalysisNewSectionProps {
   emptyMessage?: string | null
   onFocusTarget?: (targetId: string) => void
   onRunIntervention?: (recommendationId: string) => void
+  /** Row icon. Furniture — it never encodes a value. */
+  icon?: LucideIcon
   testId: string
 }
 
@@ -57,6 +61,7 @@ export function AnalysisNewSection({
   emptyMessage,
   onFocusTarget,
   onRunIntervention,
+  icon,
   testId,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
@@ -70,26 +75,19 @@ export function AnalysisNewSection({
   const hidden = findings.length - visible.length
 
   return (
-    <section className="space-y-1" data-testid={testId} aria-labelledby={`${testId}-heading`}>
-      {/* ⚠ THE HEADER IS THE COUNT, AND THE COUNT REPLACES THE SUBCOPY.
-          "Top findings from the analysis" / "Recommended next steps" answered a
-          first-use question permanently, on every visit, for every user — four
-          such lines cost ~64px of a ~590px panel before a single finding was
-          shown. A count is the one thing that changes per run, so it is the one
-          thing worth the row. The explanation moves to the heading's `title`. */}
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 id={`${testId}-heading`} className={`${typography.panelHeader} text-text-header`} title={subtitle}>
-          {title}
-        </h3>
-        {findings.length > 0 ? (
-          <span className={`${typography.panelMeta} text-text-light shrink-0`} data-testid={`${testId}-count`}>
-            {findings.length}
-          </span>
-        ) : null}
-      </div>
-
+    <SectionShell
+      title={title}
+      icon={icon}
+      // ⚠ THE COUNT IS THE ACTUAL LIST LENGTH, and it is `null` — no number at
+      // all — when the section is empty. A collapsed row reading "0" invites a
+      // click on nothing; the honest empty section still opens to its sentence,
+      // which is a claim about the run and must stay reachable.
+      count={findings.length > 0 ? findings.length : null}
+      subtitle={subtitle}
+      testId={testId}
+    >
       {caveat ? (
-        <p className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-caveat`}>
+        <p className={`${typography.panelMeta} text-text-light pb-1`} data-testid={`${testId}-caveat`}>
           {caveat}
         </p>
       ) : null}
@@ -102,7 +100,7 @@ export function AnalysisNewSection({
         ) : null
       ) : (
         <>
-          <div className="mt-1">
+          <div>
             {visible.map((f) => (
               <DisclosureRow
                 key={f.id}
@@ -118,7 +116,7 @@ export function AnalysisNewSection({
               type="button"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
-              className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-1`}
               data-testid={`${testId}-show-more`}
             >
               {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreDrivers(hidden)}
@@ -126,6 +124,6 @@ export function AnalysisNewSection({
           ) : null}
         </>
       )}
-    </section>
+    </SectionShell>
   )
 }

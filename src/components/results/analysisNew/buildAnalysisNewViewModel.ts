@@ -68,6 +68,7 @@ const KEY_INSIGHT_CAP = 4
 /** §2: "1–3 prioritised reasoning interventions". */
 const STRENGTHEN_CAP = 3
 /** Level-1 rows before "Show more". */
+const KEY_INSIGHT_PREVIEW = 3
 const DRIVER_PREVIEW = 3
 const UNCERTAINTY_PREVIEW = 3
 /** Driver rows in the glance. Three is the existing `topDrivers` convention. */
@@ -530,14 +531,40 @@ function buildUncertainty(
       // sentence twice. Truthfulness and non-repetition are one requirement.
       headline: headlineText,
       implication: headlineText === text ? '' : text,
-      // Same union as the drivers' direction. `mixed`/`unknown` get the
-      // direction-free phrasing rather than a guessed one. A producer
-      // suggestion that says something the sentence does not is additive here;
-      // the generic constant is dropped rather than promoted.
+      // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather
+      // than promoted". THAT WAS FALSE — there is no generic-suggestion
+      // detection here and never was. The only predicate is
+      // `suggestion !== text && !threshold`, so on the producer's ORDINARY
+      // fragile-edge emission (`useResultsSectionData.ts:3197` — the literal
+      // 'Review this assumption', no threshold) all three conjuncts hold and the
+      // constant is DEMOTED TO `detail` on every such row. Independent review
+      // executed it: 3/3 on `manyFragileEdges`, contrast control 0/1.
+      //
+      // The comment is corrected rather than the code, because the CODE IS
+      // RIGHT and the comment described an intent that was never built:
+      //  · the original defect was the constant DISPLACING the finding in
+      //    `implication`. It no longer does — the sentence owns that slot.
+      //  · `detail` is level-2, behind disclosure, so a remedy there costs
+      //    nothing in the first viewport and is genuinely useful when opened.
+      //  · and "detect the generic one" has no honest implementation: it would
+      //    mean hardcoding a producer literal here, which is the
+      //    hand-maintained mirror this estate keeps paying for (trap 12).
+      //
+      // So: a producer suggestion rides `detail` when it differs from the
+      // sentence. Same union as the drivers' direction — `mixed`/`unknown` get
+      // the direction-free phrasing rather than a guessed one.
       detail: u.suggestion && u.suggestion !== text && !u.threshold
         ? u.suggestion
         : u.threshold
-        ? `The ordering changes around ${u.threshold.value}${
+        // ⚠ THROUGH `formatThresholdValue`, NOT RAW. This is the third
+        // threshold-printing site and it was interpolating `.value` directly —
+        // exactly the shape #925 fixed at the other two after the deployed
+        // build printed a 16-significant-figure split. LATENT rather than live:
+        // it bites only if the producer emits `fragile_edges[].threshold`,
+        // which rides a `.passthrough()` carrier, so it is possible and
+        // unpinned. Routed through the shared helper so a rule the surface
+        // already has reaches the site that lacked it.
+        ? `The ordering changes around ${formatThresholdValue(u.threshold.value)}${
             u.threshold.direction === 'positive'
               ? ' — above it, the ordering differs'
               : u.threshold.direction === 'negative'
@@ -1055,6 +1082,7 @@ export function buildAnalysisNewViewModel(
 
 export const ANALYSIS_NEW_LIMITS = {
   KEY_INSIGHT_CAP,
+  KEY_INSIGHT_PREVIEW,
   STRENGTHEN_CAP,
   DRIVER_PREVIEW,
   UNCERTAINTY_PREVIEW,

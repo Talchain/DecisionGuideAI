@@ -343,8 +343,17 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
 
+    // ⚠ THE ORDER CLAIM IS UNCHANGED; ONLY THE BINDING IS TIGHTER. Each section
+    // header is now a collapsed disclosure row, so the `h3` legitimately
+    // contains the title AND the count ("Key insights 3, button, collapsed" is
+    // what a screen reader should say). Reading raw `textContent` would fold
+    // the count into the title and fail on a change that is correct. Binding to
+    // the title element keeps this an exact claim about WHICH sections appear
+    // and in WHAT order (CLAUDE.md trap 19).
     const body = screen.getByTestId('analysis-new-tab-body')
-    const headings = Array.from(body.querySelectorAll('h3')).map((h) => h.textContent)
+    const headings = Array.from(body.querySelectorAll('h3')).map(
+      (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
+    )
     expect(headings).toEqual([
       ANALYSIS_NEW_COPY.sections.keyInsights,
       ANALYSIS_NEW_COPY.sections.strengthen,
@@ -361,8 +370,12 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
+    // Same tightened binding as the case above — the heading row now carries a
+    // count alongside the title, and the placement claim is about the TITLE.
     const body = screen.getByTestId('analysis-new-tab-body')
-    const headings = Array.from(body.querySelectorAll('h3')).map((h) => h.textContent)
+    const headings = Array.from(body.querySelectorAll('h3')).map(
+      (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
+    )
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(1)
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),

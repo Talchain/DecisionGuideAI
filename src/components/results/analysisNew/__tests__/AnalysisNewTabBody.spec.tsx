@@ -59,6 +59,32 @@ const renderBody = (
     />,
   )
 
+/**
+ * ⚠ THE SECTIONS ARE COLLAPSED ROWS NOW (the IA the design asks for), so a case
+ * asserting content INSIDE a section opens it first. Every assertion below is
+ * unchanged in what it claims — only the navigation to the content is new.
+ *
+ * ⚠ AND THAT MATTERS MOST FOR THE ABSENCE CASES. `queryByTestId(...)` is null
+ * both when a section is COLLAPSED and when the content genuinely is not there,
+ * so an absence assertion made against a closed section passes vacuously
+ * (CLAUDE.md trap 13). Opening the section first is what keeps those cases
+ * meaningful — they are the ones that would otherwise rot silently.
+ */
+const openSection = (testId: string) => {
+  const toggle = screen.queryByTestId(`${testId}-toggle`)
+  if (toggle) fireEvent.click(toggle)
+}
+
+/** Open every section, for cases that assert across the whole surface. */
+const openAllSections = () => {
+  for (const id of [
+    'analysis-new-key-insights',
+    'analysis-new-strengthen',
+    'analysis-new-drivers',
+    'analysis-new-uncertainty',
+  ]) openSection(id)
+}
+
 beforeEach(() => {
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)
 })
@@ -67,6 +93,7 @@ afterEach(() => cleanup())
 describe('the surface renders real content on a completed run', () => {
   it('shows all four sections with findings, not just headings', () => {
     renderBody(openStrategicChallenge())
+    openAllSections()
 
     const insights = screen.getByTestId('analysis-new-key-insights')
     expect(within(insights).getAllByTestId('analysis-new-key-insights-row').length).toBeGreaterThan(0)
@@ -86,6 +113,7 @@ describe('the surface renders real content on a completed run', () => {
 describe('F · the three scenario classes (§24F)', () => {
   it('OPEN STRATEGIC CHALLENGE — no forced winner or option framing', () => {
     renderBody(openStrategicChallenge())
+    openAllSections()
     const body = screen.getByTestId('analysis-new-tab-body')
     expect(body.textContent).not.toMatch(/\bwins\b|\bwinner\b|scores higher/i)
     // …and it is NOT empty: a decision-first IA would have nothing to say here.
@@ -116,6 +144,7 @@ describe('F · the three scenario classes (§24F)', () => {
 
   it('HIGH UNCERTAINTY — uncertainty is prominent and the analysis is NOT presented as blocked', () => {
     renderBody(highUncertainty())
+    openAllSections()
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
     expect(within(uncertainty).getAllByTestId('analysis-new-uncertainty-row').length).toBeGreaterThan(0)
     expect(uncertainty).toHaveTextContent('Customer adoption')
@@ -143,12 +172,14 @@ describe('empty states say what was NOT established (§19)', () => {
       confidence: { ...openStrategicChallenge().confidence, evidenceGapsAssessed: false },
     } as ResultsSectionDataReturn
     renderBody(unassessed)
+    openAllSections()
     expect(screen.getByTestId('analysis-new-uncertainty-empty')).toHaveTextContent(
       COPY.empty.uncertaintyUnassessed,
     )
 
     cleanup()
     renderBody(openStrategicChallenge())
+    openAllSections()
     expect(screen.getByTestId('analysis-new-uncertainty-empty')).toHaveTextContent(
       COPY.empty.uncertaintyAssessed,
     )
@@ -164,6 +195,7 @@ describe('empty states say what was NOT established (§19)', () => {
   // reaches the screen through the real hook and the real engine.
   it('a grounded intervention reaches the screen through the real engine', () => {
     renderBody(openStrategicChallenge())
+    openAllSections()
     const items = screen.getAllByTestId('analysis-new-strengthen-item')
     expect(items.length).toBeGreaterThan(0)
     expect(items.length).toBeLessThanOrEqual(3)
@@ -191,9 +223,15 @@ describe('staleness contextualises without dominating (§20)', () => {
 describe('progressive disclosure on the real surface (§24E)', () => {
   it('holds grounding and inspect behind two levels, and reveals them on request', () => {
     renderBody(openStrategicChallenge())
+    openSection('analysis-new-drivers')
     expect(screen.queryByTestId('analysis-new-drivers-grounding')).toBeNull()
 
-    fireEvent.click(within(screen.getByTestId('analysis-new-drivers')).getAllByTestId('analysis-new-drivers-toggle')[0])
+    // ⚠ `-toggle` now names BOTH the section row and each finding row, so a
+    // positional [0] binds to the SECTION header this test has just opened —
+    // the wrong control (CLAUDE.md trap 19, bind by identity not position).
+    // The finding's toggle is the last one inside the section.
+    const driverToggles = within(screen.getByTestId('analysis-new-drivers')).getAllByTestId('analysis-new-drivers-toggle')
+    fireEvent.click(driverToggles[driverToggles.length - 1])
     expect(screen.getByTestId('analysis-new-drivers-grounding')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-new-drivers-inspect')).toBeNull()
 
@@ -250,6 +288,7 @@ describe('the empty state never contradicts the surface above it', () => {
     // insights. An empty list with a non-zero candidate count means "shown
     // above", not "none found".
     renderBody(allDeduped())
+    openAllSections()
     expect(screen.getByTestId('analysis-new-glance-condition')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-new-key-insights-empty')).toBeNull()
   })
@@ -259,6 +298,7 @@ describe('the empty state never contradicts the surface above it', () => {
     // would satisfy the case above and lose a truthful message. Here the ladder
     // finds nothing at all, so "none grounded yet" is exactly true.
     renderBody(genuineDecision())
+    openSection('analysis-new-key-insights')
     expect(screen.getByTestId('analysis-new-key-insights-empty')).toHaveTextContent(
       'No insight is grounded well enough to lead with yet.',
     )
@@ -391,6 +431,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
 
   it('MEASURED AT ZERO — says the run returned influence, and NOT that it returned none', () => {
     renderBody(allFactorsZero())
+    openAllSections()
     expect(emptyText()).toBe(COPY.empty.driversAllZero)
     // The twin half: the false sentence must be gone, not merely joined.
     expect(emptyText()).not.toBe(COPY.empty.drivers)
@@ -398,6 +439,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
 
   it('TWIN — GENUINELY NOTHING RETURNED keeps "did not return", and never claims a zero', () => {
     renderBody(nothingReturned())
+    openAllSections()
     expect(emptyText()).toBe(COPY.empty.drivers)
     expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
   })
@@ -413,12 +455,14 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
     const data = makeData({ drivers: { driversStatus: 'computed', drivers: [] } })
     expect(data.drivers.drivers).toHaveLength(0)
     renderBody(data)
+    openAllSections()
     expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
     expect(emptyText()).toBe(COPY.empty.drivers)
   })
 
   it('SKIPPED is the producer saying it did not look — a third fact, not either of the two above', () => {
     renderBody(skipped())
+    openAllSections()
     expect(emptyText()).toBe(COPY.empty.driversNotComputed)
     expect(emptyText()).not.toBe(COPY.empty.drivers)
     expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
@@ -432,6 +476,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
    */
   it('binds to the DRIVERS section, not to whichever section happens to carry the words', () => {
     renderBody(allFactorsZero())
+    openAllSections()
     const drivers = screen.getByTestId('analysis-new-drivers')
     expect(within(drivers).getByTestId('analysis-new-drivers-empty')).toHaveTextContent(
       COPY.empty.driversAllZero,

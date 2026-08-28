@@ -83,12 +83,31 @@ export const ANALYSIS_NEW_COPY = {
     groundedIn: 'Grounded in',
     moreDrivers: (n: number) => `Show ${n} more`,
     moreUncertainty: (n: number) => `Show ${n} more`,
+    /**
+     * ⚠ NAMED APART FROM `moreUncertainty` ABOVE THOUGH THE STRING IS THE SAME
+     * TODAY. They answer different questions — "more uncertainties" vs "more
+     * options the run left out" — and folding them into one constant is how a
+     * later edit makes one speak for a set it does not describe (CLAUDE.md trap
+     * 21). Same words, different claims.
+     *
+     * (`moreDrivers` is a THIRD constant here but not the same shape: it is a
+     * DECLARATION, not a control's label, and its string already differs.)
+     *
+     * ⚠ ACCURACY NOTE, since the first version of this comment said "three
+     * different questions": `moreUncertainty` currently has ZERO call sites
+     * repo-wide, so it answers none. It is kept rather than deleted because the
+     * uncertainty list has the same overflow shape, but do not read this
+     * grouping as evidence that all three are live.
+     */
+    moreExcluded: (n: number) => `Show ${n} more`,
   },
 
   /** At a glance. Every string here is furniture — none describes the analysis. */
   glance: {
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
+    /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
+    moreDrivers: (n: number) => `+ ${n} more driver${n === 1 ? '' : 's'} in this run`,
     /**
      * ⚠ THE BASIS CAPTION IS A TRUTH CLAIM, NOT A LEGEND, which is why it is
      * visible rather than hover-only. "Relative influence" says the bars rank
@@ -111,6 +130,14 @@ export const ANALYSIS_NEW_COPY = {
 
   status: {
     preRun: 'No analysis has run yet for this model.',
+    /**
+     * ⚠ SAYS WHAT THE PANEL IS, AND ASSERTS NO RUN. `tabIntro` cannot serve
+     * pre-run — it says "a second reading of the same analysis run", which is
+     * false when none has happened, and it shipped sitting directly above the
+     * sentence saying so. This is the orientation without the assertion.
+     */
+    preRunWhatThisIs:
+      'When one has, this panel reads it back around the reasoning: what to notice, how to strengthen it, what is driving it, and what is still uncertain.',
     running: 'Analysis is running.',
     /**
      * ⚠ SAYS THE MODEL MOVED, NOT THAT THE RESULT IS WRONG. A stale result is

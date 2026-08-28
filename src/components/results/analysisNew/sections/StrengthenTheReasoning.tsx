@@ -43,7 +43,9 @@
  * would no longer be about information architecture.
  */
 
+import type { LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
+import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -59,6 +61,8 @@ export interface StrengthenTheReasoningProps {
    * and the row then carries no grounding badge at all.
    */
   scienceGrounding?: Record<string, ScienceGrounding>
+  /** Row icon. Furniture — it never encodes a value. */
+  icon?: LucideIcon
   testId?: string
 }
 
@@ -79,14 +83,16 @@ const STRENGTH_LABEL: Record<string, string> = {
 export function StrengthenTheReasoning({
   interventions,
   scienceGrounding = {},
+  icon,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
   return (
-    <section className="space-y-2" data-testid={testId} aria-labelledby={`${testId}-heading`}>
-      <h3 id={`${testId}-heading`} className={`${typography.panelHeader} text-text-header`}>
-        {COPY.sections.strengthen}
-      </h3>
-
+    <SectionShell
+      title={COPY.sections.strengthen}
+      icon={icon}
+      count={interventions.length > 0 ? interventions.length : null}
+      testId={testId}
+    >
       {interventions.length === 0 ? (
         // ⚠ STATES WHAT WAS NOT FOUND, NOT THAT NOTHING IS WRONG. "Your
         // reasoning looks solid" would be a claim nobody measured.
@@ -191,6 +197,6 @@ export function StrengthenTheReasoning({
           ))}
         </ul>
       )}
-    </section>
+    </SectionShell>
   )
 }

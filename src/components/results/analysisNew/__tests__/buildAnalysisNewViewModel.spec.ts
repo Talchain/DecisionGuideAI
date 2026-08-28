@@ -224,9 +224,15 @@ describe('humanised producer text (§4)', () => {
     const vm = build(highUncertainty())
     expect(JSON.stringify(vm)).not.toContain('RAW_TOKEN_SHOULD_NOT_RENDER')
     expect(
-      // The producer's SPECIFIC suggestion still reaches the screen — it is
-      // additive to the finding now (it rides `detail`), never a replacement
-      // for it. A generic constant is dropped instead of promoted.
+      // The producer's suggestion still reaches the screen — additive on
+      // `detail`, never a replacement for the finding.
+      //
+      // ⚠ THIS COMMENT USED TO END "a generic constant is dropped instead of
+      // promoted". FALSE, and it was the spec twin of the same false claim in
+      // the builder: there is no generic detection, so the producer's constant
+      // 'Review this assumption' is DEMOTED to `detail` on every fragile-edge
+      // row. Corrected rather than implemented — see the builder for why
+      // detecting it would mean hardcoding a producer literal.
       vm.uncertainty.findings.some((f) =>
         [f.headline, f.implication, f.detail ?? ''].some((field) =>
           field.includes('Test the adoption assumption'),
@@ -468,6 +474,20 @@ describe('identity survives a reorder — for the population that has a discrimi
     // (both lists yield :0,:1,:2) while binding a different row each time. So
     // assert the id travels WITH its content.
     const first = build(forward).uncertainty.findings.find((f) => f.id.startsWith('uncertainty:'))!
+    // ⚠ PIN THE PRECONDITION THIS LOOKUP DEPENDS ON. Finding the row by
+    // `headline` is a VALUE PREDICATE, and trap 19 is that another object can
+    // satisfy one. It is correct today only because these headlines happen to
+    // be distinct — a fact nothing asserted, so a fixture edit giving two rows
+    // the same headline would silently turn this into a match against the wrong
+    // row while staying green.
+    const headlines = build(forward).uncertainty.findings
+      .filter((f) => f.id.startsWith('uncertainty:'))
+      .map((f) => f.headline)
+    expect(
+      new Set(headlines).size,
+      'headlines must be unique or the lookup below can match the wrong row',
+    ).toBe(headlines.length)
+
     const same = build(reversed).uncertainty.findings.find((f) => f.headline === first.headline)!
     expect(same.id).toBe(first.id)
   })
@@ -548,5 +568,66 @@ describe('influence never mixes two bases (types.ts:638-644)', () => {
     expect(noBasis, 'fixture must carry a driver with no displayInfluence').toBeTruthy()
     expect(noBasis!.implication).not.toMatch(/Structural influence \d/)
     expect(noBasis!.inspect.find((r) => r.label === 'Influence')).toBeUndefined()
+  })
+})
+
+describe('the producer suggestion, pinned to what the code ACTUALLY does', () => {
+  /**
+   * ⚠ THESE EXIST BECAUSE A COMMENT AND A SPEC BOTH DESCRIBED BEHAVIOUR THE
+   * CODE DID NOT IMPLEMENT, and independent review caught it by executing the
+   * path rather than reading it. Both claimed the producer's generic constant
+   * was "dropped rather than promoted"; there is no generic detection, so it is
+   * DEMOTED TO `detail` on every fragile-edge row.
+   *
+   * The prose is now correct. These pin the behaviour so prose and code cannot
+   * drift apart again silently — which is the only durable fix for that class.
+   */
+  it('demotes the producer suggestion to detail — it does not drop it', () => {
+    const vm = build(manyFragileEdges())
+    const rows = vm.uncertainty.findings.filter((f) => f.id.startsWith('uncertainty:'))
+    expect(rows.length, 'no fragile-edge rows — vacuous').toBeGreaterThan(1)
+    // The producer sends this literal on every such row (useResultsSectionData:3197).
+    for (const f of rows) expect(f.detail).toBe('Review this assumption')
+    // And it is NOT in the slot the finding owns.
+    for (const f of rows) expect(f.implication).not.toBe('Review this assumption')
+  })
+
+  it('drops any suggestion when a threshold owns the detail slot', () => {
+    // The discriminating twin: `detail` has one slot and the threshold sentence
+    // wins it, so a suggestion is dropped there — which is the only case in
+    // which anything is dropped at all.
+    const withThreshold = makeData({
+      confidence: {
+        uncertainties: [{
+          code: 'SENSITIVE_ASSUMPTION',
+          message: 'Long enough to exceed the label cut so the sentence rides the implication slot properly.',
+          displayText: 'Long enough to exceed the label cut so the sentence rides the implication slot properly.',
+          suggestion: 'Review this assumption',
+          threshold: { variable: 'Customer demand', direction: 'positive' as const, value: 0.3007492161730507 },
+        }],
+      } as never,
+    })
+    const f = build(withThreshold).uncertainty.findings[0]
+    expect(f.detail).not.toBe('Review this assumption')
+    expect(f.detail).toContain('The ordering changes around')
+  })
+
+  it('formats the threshold value rather than printing the raw float', () => {
+    // ⚠ The third threshold-printing site. #925 fixed the other two after the
+    // deployed build showed a 16-significant-figure split; this one was still
+    // interpolating `.value` raw and no spec pinned it.
+    const withThreshold = makeData({
+      confidence: {
+        uncertainties: [{
+          code: 'SENSITIVE_ASSUMPTION',
+          message: 'Long enough to exceed the label cut so the sentence rides the implication slot properly.',
+          displayText: 'Long enough to exceed the label cut so the sentence rides the implication slot properly.',
+          threshold: { variable: 'Customer demand', direction: 'positive' as const, value: 0.3007492161730507 },
+        }],
+      } as never,
+    })
+    const detail = build(withThreshold).uncertainty.findings[0].detail ?? ''
+    expect(detail, 'the raw float reached the surface').not.toContain('0.3007492161730507')
+    expect(detail).toContain('0.3')
   })
 })

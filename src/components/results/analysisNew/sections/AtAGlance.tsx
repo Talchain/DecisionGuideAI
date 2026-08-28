@@ -61,7 +61,8 @@
  * definition of the basis. That is the split the brief asks for.
  */
 
-import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
@@ -83,14 +84,128 @@ export interface AtAGlanceProps {
   // was to keep that row rendering as a button wired to `undefined`. A prop
   // that turns a fail-closed gate into a fail-open one by being absent is not
   // a fallback; it is the defect.
+  /**
+   * How many non-zero drivers the RUN produced, before the glance's cap.
+   * ⚠ Passed because the glance shows at most three and, until now, said
+   * nothing about the rest — measured on the deployed build, one driver shown
+   * with several more in the run and no disclosure anywhere. A cap that does
+   * not declare itself reads as a complete list.
+   */
+  driverTotal?: number
+  /**
+   * The engine's top-priority recommendation, rendered as ONE row.
+   *
+   * ⚠⚠ THIS WAS DELIBERATELY DROPPED AND IS DELIBERATELY BACK. The reason it
+   * was dropped is recorded in this file's header: "Strengthen the reasoning"
+   * renders the SAME recommendation immediately below, so the row would be the
+   * identical action twice about 120px apart. That reasoning was correct AND IT
+   * WAS CONDITIONAL — on Strengthen being EXPANDED beneath the glance. It no
+   * longer is: the sections are collapsed rows now, per the design. With the
+   * condition gone the duplication is gone, and without this row the single
+   * most action-shaped thing the surface produces would sit behind a click on
+   * the surface whose whole claim is a five-to-ten-second read.
+   *
+   * Nothing here is authored: the label is the ENGINE's `action.label` and the
+   * line beneath is its own `signal`/`whyNow`.
+   */
+  primaryIntervention?: { id: string; label: string; why: string } | null
+  onRunIntervention?: (recommendationId: string) => void
   testId?: string
 }
+
+/**
+ * How many excluded options are named before the rest go behind a disclosure.
+ *
+ * ⚠⚠ WHY THIS CAP EXISTS, MEASURED NOT ASSUMED. The excluded-option list was
+ * UNBOUNDED and rendered ABOVE every section row. Measured in a real browser on
+ * a partial-scope run with six excluded options: at 416px the first section row
+ * sat at 684px and the last at 928px; at 280px the first sat at 850px. The
+ * dock's usable height is ~769px, so at 280px A USER COULD REACH NO SECTION ROW
+ * AT ALL without scrolling — the surface's entire navigation was below the fold,
+ * pushed there by a block that names options the run did not analyse.
+ *
+ * ⚠⚠ AND THE JUSTIFICATION HERE HAS NOW BEEN WRONG TWICE — both corrected
+ * before shipping, the second time by an independent reviewer, and the exact
+ * wording is the point.
+ *
+ *   v1  "this is the only place an unanalysed option is NAMED"
+ *       FALSE. `ComparisonScopeNote` directly above names them too.
+ *   v2  "the note names EVERY excluded option"
+ *       ALSO FALSE, and loosely enough to mislead. `ComparisonScope
+ *       .excludedLabels` is documented at `goalAnchorCopy.ts:343-349` as MAY BE
+ *       SHORTER than `total - analysed`: an option with no usable label — or one
+ *       whose label is merely its own node id — is dropped from the sentence.
+ *       ⚠ And the fallback is ALL-OR-NOTHING (`goalAnchorCopy.ts:459-461`): the
+ *       count phrasing fires only when NO excluded option is nameable, so in a
+ *       MIXED set a dropped option is named nowhere and the reader recovers it
+ *       only by arithmetic from "1 of your 7". That is a real gap in the note,
+ *       and it belongs to the note's owner — not something this cap creates.
+ *
+ * THE EXACT CLAIM, which is what the cap's safety rests on: the note names every
+ * excluded option THESE ROWS NAME. That holds because the builder applies the
+ * SAME nameable-label predicate (`buildAnalysisNewViewModel.ts:909`) that
+ * `deriveComparisonScope` does (`goalAnchorCopy.ts:397-416`), so an option the
+ * note cannot name renders no row here either. ⚠ Those two filters are one
+ * predicate spelled twice — a mirror (trap 12) — and their agreement is pinned
+ * in `comparisonScope.spec.tsx` §5 precisely because this cap now depends on it.
+ *
+ * The division of labour the builder documents is real but was only
+ * half-implemented: the note owns WHO, these rows own the CONSEQUENCE, and they
+ * were repeating the WHO to carry it.
+ *
+ * ⛔ THE FIX IS A DISCLOSURE, NEVER A TRUNCATION — but for the consequence, not
+ * the names. `notAnalysedReasonCopy` collapses to exactly TWO sanctioned
+ * sentences, so N excluded options render N copies of one of two strings. The
+ * cap bounds that repetition; the names remain complete in the note above, and
+ * the count is never behind this control.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, AND MUST NOT. The dominant growth is the NOTE, not
+ * these rows: measured at 280px, the note alone is 229px at 3 excluded options
+ * and 741px at 30 — genuinely unbounded. `ComparisonScopeNote` is SHARED with
+ * the existing Analysis tab, which this experiment may not alter, so it is
+ * reported rather than changed here. This cap bounds only what this file owns.
+ *
+ * Two, not three: two rows plus the note is what fits above the first section
+ * row at 280px, the width the defect was worst at.
+ */
+export const EXCLUDED_OPTION_VISIBLE_CAP = 2
 
 export function AtAGlance({
   glance,
   onFocusTarget,
+  driverTotal,
+  primaryIntervention,
+  onRunIntervention,
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
+  const [showAllExcluded, setShowAllExcluded] = useState(false)
+
+  // ⚠ THE DISCLOSURE MUST NOT SURVIVE A CHANGE OF OPTION SET, and it did.
+  // `AtAGlance` stays MOUNTED across analysis runs, so an expanded disclosure
+  // persisted into the next run's excluded options — reinstating the unbounded
+  // block this cap exists to bound, for the rest of the session, on a set the
+  // user never opened. Found by an independent review; nothing tested it.
+  //
+  // Reset during render on a changing identity rather than in an effect: an
+  // effect would paint the tall block for one frame before collapsing it, which
+  // is the defect briefly happening rather than not happening.
+  // ⚠ `JSON.stringify`, NOT `join('|')`. A review DEMONSTRATED the collision:
+  // ids `[a, b, 'c|d']` and `[a, 'b|c', d]` both join to `a|b|c|d`, so the reset
+  // silently does not fire across a genuine change of option set — the exact
+  // defect this exists to close. The failure direction is a MISSED reset, never
+  // a crash, and option ids are UUIDs today so it may well be unreachable — but
+  // "the separator cannot appear in the data" is an assumption about a producer
+  // this file does not own, and encoding removes the class rather than betting
+  // on it.
+  const excludedKey =
+    glance.comparisonScope.kind === 'partial'
+      ? JSON.stringify(glance.comparisonScope.excluded.map((o) => o.id))
+      : ''
+  const [seenExcludedKey, setSeenExcludedKey] = useState(excludedKey)
+  if (seenExcludedKey !== excludedKey) {
+    setSeenExcludedKey(excludedKey)
+    setShowAllExcluded(false)
+  }
   const hasAnything =
     glance.headline || glance.verdict || glance.drivers.length > 0 || glance.condition
   if (!hasAnything) return null
@@ -210,7 +325,10 @@ export function AtAGlance({
               words — "no rank and no probability". The scope sentence above
               names who was left out; this states the consequence for them, and
               the two are different claims. */}
-          {glance.comparisonScope.excluded.map((o) => (
+          {(showAllExcluded
+            ? glance.comparisonScope.excluded
+            : glance.comparisonScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)
+          ).map((o) => (
             <p
               key={o.id}
               className={`${typography.panelMeta} text-text-light mt-1`}
@@ -224,6 +342,27 @@ export function AtAGlance({
               {o.reasonCopy}
             </p>
           ))}
+          {/* ⚠ A CONTROL, NOT A DECLARATION — the difference from the driver
+              cap below, which declares its overflow and offers no route because
+              the Drivers section IS the route. Here the consequence sentence
+              has no other home on this surface, so this one must open. (The
+              NAMES have another home — the note above, for every option it can
+              name; see the header for why that is not all of them.) */}
+          {glance.comparisonScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
+            <button
+              type="button"
+              onClick={() => setShowAllExcluded((v) => !v)}
+              aria-expanded={showAllExcluded}
+              className={`${typography.panelMeta} text-text-light mt-1 rounded underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-excluded-more`}
+            >
+              {showAllExcluded
+                ? COPY.disclosure.collapse
+                : COPY.disclosure.moreExcluded(
+                    glance.comparisonScope.excluded.length - EXCLUDED_OPTION_VISIBLE_CAP,
+                  )}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -307,6 +446,20 @@ export function AtAGlance({
               )
             })}
           </ul>
+          {/* ⚠ THE CAP DECLARES ITSELF. `driverTotal` is the run's non-zero
+              driver count; the glance renders at most three. Silence here reads
+              as "these are all of them", which is a claim the cap does not
+              license. Not a control — the Drivers row below opens the full
+              list, and a second route to the same place would be two
+              affordances for one action. */}
+          {typeof driverTotal === 'number' && driverTotal > glance.drivers.length ? (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1`}
+              data-testid={`${testId}-drivers-more`}
+            >
+              {COPY.glance.moreDrivers(driverTotal - glance.drivers.length)}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -375,6 +528,32 @@ export function AtAGlance({
             </div>
           )
         })()
+      ) : null}
+
+      {/* ── THE ONE ACTION ────────────────────────────────────────────────
+          Last in the glance, so the read runs: what it says · how much to
+          rely on it · what matters · what would change it · what to do. */}
+      {primaryIntervention && onRunIntervention ? (
+        <button
+          type="button"
+          onClick={() => onRunIntervention(primaryIntervention.id)}
+          className="w-full flex items-start gap-2 rounded-lg border border-info/30 bg-panel px-3 py-2 text-left hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          data-testid={`${testId}-primary-intervention`}
+          data-recommendation-id={primaryIntervention.id}
+        >
+          <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            <span className={`${typography.panelBody} text-text-header block`}>
+              {primaryIntervention.label}
+            </span>
+            {primaryIntervention.why ? (
+              <span className={`${typography.panelMeta} text-text-light block mt-0.5`}>
+                {primaryIntervention.why}
+              </span>
+            ) : null}
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
+        </button>
       ) : null}
     </section>
   )

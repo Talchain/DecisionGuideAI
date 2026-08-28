@@ -21,6 +21,19 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 
+/**
+ * ⚠ THE SECTION IS A COLLAPSED ROW NOW, so every case opens it before asserting.
+ * The assertions themselves are UNCHANGED — what each one claims about the
+ * rendered content is exactly what it claimed before. Only the navigation to
+ * that content is new. Loosening an assertion to accommodate the new IA would
+ * have been the wrong repair.
+ */
+const renderOpen = (ui: React.ReactElement) => {
+  const result = render(ui)
+  fireEvent.click(screen.getByTestId('analysis-new-strengthen-toggle'))
+  return result
+}
+
 const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
   ({
     helpType: 'challenge',
@@ -37,7 +50,7 @@ const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
 
 describe('what / why / do it (§14)', () => {
   it('renders all three, from the engine’s own fields', () => {
-    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
     expect(screen.getByText('Run a premortem on this plan')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-new-strengthen-why')).toHaveTextContent(
       'One factor carries most of the influence. The conclusion rests almost entirely on it.',
@@ -60,7 +73,7 @@ describe('what / why / do it (§14)', () => {
   // assertion is vacuous against precisely the defect it would be written for.
   it('prints the sentence ONCE when signal and whyNow are the same string', () => {
     const BODY = 'One factor carries most of the influence. The conclusion rests almost entirely on it.'
-    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:dup', signal: BODY, whyNow: BODY })]} />)
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:dup', signal: BODY, whyNow: BODY })]} />)
     const why = screen.getByTestId('analysis-new-strengthen-why').textContent ?? ''
     expect(why.split(BODY).length - 1).toBe(1)
     expect(why.trim()).toBe(BODY)
@@ -69,14 +82,14 @@ describe('what / why / do it (§14)', () => {
   it('still joins signal and whyNow when they DIFFER — the dedupe must not swallow real prose', () => {
     const SIGNAL = 'One factor carries most of the influence.'
     const WHY = 'It matters now because the leading option is close.'
-    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:join', signal: SIGNAL, whyNow: WHY })]} />)
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:join', signal: SIGNAL, whyNow: WHY })]} />)
     const why = screen.getByTestId('analysis-new-strengthen-why').textContent ?? ''
     expect(why.split(SIGNAL).length - 1).toBe(1)
     expect(why.split(WHY).length - 1).toBe(1)
   })
 
   it('routes the primary action through the existing Ask-Olumi drawer, prefilled and NOT auto-sent', () => {
-    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-action'))
     expect(openAskOlumi).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -90,7 +103,7 @@ describe('what / why / do it (§14)', () => {
   })
 
   it('routes canvas focus through the existing fail-closed helper', () => {
-    render(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-focus'))
     expect(focusModelTarget).toHaveBeenCalledWith('f_leadtime')
   })
@@ -100,7 +113,7 @@ describe('science grounding (§15) — the producer attests, or nothing does', (
   const item = rec({ id: 'strengthen:phase3:g1' })
 
   it('renders the grounding line ONLY when the producer attested a claim for THIS row', () => {
-    render(
+    renderOpen(
       <StrengthenTheReasoning
         interventions={[item]}
         scienceGrounding={{
@@ -120,12 +133,12 @@ describe('science grounding (§15) — the producer attests, or nothing does', (
     // The discriminating half. The row's title literally says "premortem", so a
     // surface that labelled grounding from the WORDING rather than from the
     // attestation would pass the case above and fail this one.
-    render(<StrengthenTheReasoning interventions={[item]} scienceGrounding={{}} />)
+    renderOpen(<StrengthenTheReasoning interventions={[item]} scienceGrounding={{}} />)
     expect(screen.queryByTestId('analysis-new-strengthen-science-grounding')).toBeNull()
   })
 
   it('does not borrow another row’s attestation', () => {
-    render(
+    renderOpen(
       <StrengthenTheReasoning
         interventions={[item]}
         scienceGrounding={{ 'strengthen:phase3:SOMEONE_ELSE': { claimId: 'DSK-B-999' } }}
@@ -135,7 +148,7 @@ describe('science grounding (§15) — the producer attests, or nothing does', (
   })
 
   it('drops an unrecognised strength token rather than passing it through as copy', () => {
-    render(
+    renderOpen(
       <StrengthenTheReasoning
         interventions={[item]}
         scienceGrounding={{ 'strengthen:phase3:g1': { claimId: 'DSK-B-003', strength: 'wildly_conclusive' } }}
@@ -149,7 +162,7 @@ describe('science grounding (§15) — the producer attests, or nothing does', (
 
 describe('the empty state (§19)', () => {
   it('states what was not found, and makes no claim that the reasoning is sound', () => {
-    render(<StrengthenTheReasoning interventions={[]} />)
+    renderOpen(<StrengthenTheReasoning interventions={[]} />)
     const empty = screen.getByTestId('analysis-new-strengthen-empty')
     expect(empty).toHaveTextContent('No high-priority reasoning intervention identified yet.')
     expect(empty.textContent).not.toMatch(/solid|healthy|good|no issues|looks fine/i)
