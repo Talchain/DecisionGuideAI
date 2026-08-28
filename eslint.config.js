@@ -38,6 +38,13 @@ export default [
     // out of the generated trace bundles and has to work out they are not
     // theirs. A red nobody caused is a red everyone learns to ignore.
     'playwright-report-visual/**',
+    // ⭐ AND SYSTEM E DID IT AGAIN, with the same directory-per-config pattern:
+    // `playwright.core.config.ts` -> `playwright-report-core/`. MEASURED
+    // 2026-08-28: `pnpm run e2e:core` followed by `pnpm run lint` produced
+    // 1038 errors — the SAME figure as the note above, because it is the same
+    // generated trace bundles. The warning directly above did not prevent it;
+    // only the ignore entry does. A comment is not a guard.
+    'playwright-report-core/**',
     'test-results/**',
     '.github/**',
     '.claude/**',

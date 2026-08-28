@@ -124,7 +124,20 @@ export const PanelFooter = memo(function PanelFooter({
             ))}
           </ul>
         ) : (
-          <p className={`${typography.panelMeta} text-text-light`}>{display.subline}</p>
+          // The multi-sentence branch above has carried a testid since it was written;
+          // this single-sentence branch never did, so the subline was addressable only
+          // when there happened to be more than one sentence. That mattered: on the
+          // ready-but-success-unset arm the subline is the ONLY surface carrying the
+          // qualification ("First pass will be provisional until success is defined"),
+          // and E2 could not see it — so the honest state read to the suite as a
+          // headline saying "Analysis available" beside an unmet requirement, and
+          // nothing else.
+          <p
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid="pre-analysis-v3-footer-subline"
+          >
+            {display.subline}
+          </p>
         )}
       </div>
       {/* The check can be retried without touching the run. Deliberately NOT a
