@@ -130,6 +130,35 @@ export interface DraftState {
    * 110,343 bytes, all four stages, COMPLETE, 0 nodes rendered).
    */
   draftStreamGraphDeliveredScenarioId: string | null
+
+  /**
+   * The scenario ON SCREEN when this client's own scenario fence discarded a
+   * response that WAS CARRYING A GRAPH.
+   *
+   * ⚠ WHY THIS IS NOT COVERED BY `draftStreamGraphDeliveredScenarioId`, which is
+   * the whole reason it exists (P0, 2026-08-29). The delivery field is keyed on
+   * the DISPATCHING scenario. The one case where a model arrived and could not be
+   * shown is exactly the case where the dispatching id and the live id DISAGREE —
+   * so `draftStreamGraphDeliveredFor` answers FALSE precisely when the honest
+   * "we could not display it" sentence is the true one, and the surface falls
+   * through to blaming the server. The M3 honesty fix was defeated by the same
+   * key mismatch it was written to catch.
+   *
+   * Keyed on the LIVE id, deliberately: this is an observation about the decision
+   * the user is looking at ("something arrived for you and this page dropped it"),
+   * not about the turn that asked for it.
+   *
+   * ⚠ THE CROSS-DECISION QUESTION IS ALREADY ANSWERED UPSTREAM, do not re-solve
+   * it here. A genuine A→B user switch also trips the fence, and this field would
+   * then hold B — but `ServerGraphRetryNotice`'s GATE 2 renders nothing unless the
+   * notice's own scenario equals the live one, so the sentence cannot appear on a
+   * decision the notice does not already own. Adding a second attribution rule
+   * here would be two questions under one name (trap 21).
+   *
+   * ⚠ HAS A READER AND MUST KEEP ONE — see the sibling field above. If this loses
+   * its reader, the server-blaming sentence returns for every fence discard.
+   */
+  draftStreamGraphDiscardedByFenceScenarioId: string | null
 }
 
 export interface DraftActions {
@@ -160,6 +189,8 @@ export interface DraftActions {
    * preempted turn) must not move a newer turn's narration.
    */
   markDraftStreamCoachingLanded: (turnId: string) => void
+  /** Record that this client's fence dropped a response carrying a graph, for the decision on screen. */
+  markDraftStreamGraphDiscardedByFence: (scenarioId: string | null) => void
   /**
    * Record that a GRAPH_READY frame carrying a graph arrived for `scenarioId`.
    *
@@ -198,6 +229,7 @@ const initialDraftState: DraftState = {
   draftStreamScenarioId: null,
   draftStreamCoachingLanded: false,
   draftStreamGraphDeliveredScenarioId: null,
+  draftStreamGraphDiscardedByFenceScenarioId: null,
 }
 
 export const useDraftStore = create<DraftState & DraftActions>((set) => ({
@@ -279,6 +311,10 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
 
   markDraftStreamGraphDelivered: (scenarioId) => {
     set({ draftStreamGraphDeliveredScenarioId: scenarioId })
+  },
+
+  markDraftStreamGraphDiscardedByFence: (scenarioId) => {
+    set({ draftStreamGraphDiscardedByFenceScenarioId: scenarioId })
   },
 
   resetDraft: () => {
@@ -446,4 +482,26 @@ export function draftStreamGraphDeliveredFor(
   if (state.draftStreamGraphDeliveredScenarioId === null) return false
   if (currentScenarioId === null || currentScenarioId === undefined) return false
   return state.draftStreamGraphDeliveredScenarioId === currentScenarioId
+}
+
+/**
+ * Did THIS CLIENT drop a model that had already arrived, for the decision on screen?
+ *
+ * The sibling predicate above asks whether a model was DELIVERED to the turn that
+ * asked for it. This one asks whether one was THROWN AWAY in front of the user.
+ * They are different questions and they disagree in exactly the case that matters:
+ * when the fence fires, the dispatching and live ids differ BY DEFINITION, so the
+ * delivery predicate answers false and only this one can see what happened.
+ *
+ * Same null discipline as its sibling, for the same reason: a null on either side
+ * is "cannot attribute", which answers false. A surface may not describe an event
+ * it cannot pin to the decision in front of the user.
+ */
+export function draftStreamGraphDiscardedByFenceFor(
+  state: Pick<DraftState, 'draftStreamGraphDiscardedByFenceScenarioId'>,
+  currentScenarioId: string | null,
+): boolean {
+  if (state.draftStreamGraphDiscardedByFenceScenarioId === null) return false
+  if (currentScenarioId === null || currentScenarioId === undefined) return false
+  return state.draftStreamGraphDiscardedByFenceScenarioId === currentScenarioId
 }

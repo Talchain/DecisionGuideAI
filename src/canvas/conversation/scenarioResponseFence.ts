@@ -51,6 +51,7 @@
  * instead of by inspection; it does not pretend to answer it.
  */
 import { logger } from '../../lib/logger'
+import { useDraftStore } from '../stores/draftStore'
 
 /**
  * Does a response belong to the scenario that dispatched it?
@@ -115,4 +116,31 @@ export function recordScenarioFenceDiscard(input: {
     scenarioIdAtDispatch: input.scenarioIdAtDispatch ?? null,
     carriedGraph: input.carriedGraph,
   })
+
+  // ── AND MAKE IT SAYABLE, not merely loggable (P0, 2026-08-29) ──────────────
+  //
+  // A log the user cannot read does not stop the product lying to them.
+  // `ServerGraphRetryNotice` was still reaching the sentence "Olumi did not
+  // return a model for this decision" on precisely these turns, because its
+  // delivery predicate is keyed on the DISPATCHING scenario and the fence only
+  // fires when that disagrees with the live one. The M3 honesty fix was defeated
+  // by the same key mismatch it exists to catch.
+  //
+  // ⚠ RECORDED HERE, IN THE ONE FUNNEL, NOT AT THE FOUR CALL SITES. Four call
+  // sites would be a hand-maintained mirror of "places a model can be dropped"
+  // (trap 12), and the fifth would be added without this. Every site already
+  // passes through this function; that is what makes it the right home.
+  //
+  // ⚠ `carriedGraph` GATES IT, and the distinction is the point: discarding a
+  // response is ordinary, discarding a MODEL is what leaves the canvas empty and
+  // sends the user to a failure surface. Only the second earns a sentence.
+  //
+  // ⛔ THIS DOES NOT WEAKEN THE FENCE AND CANNOT. It runs AFTER the discard
+  // decision, records an observation, and returns nothing. No caller branches on
+  // it. The response is still refused.
+  if (input.carriedGraph) {
+    useDraftStore.getState().markDraftStreamGraphDiscardedByFence(
+      input.liveScenarioId ?? null,
+    )
+  }
 }

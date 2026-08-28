@@ -665,6 +665,38 @@ export function useScenario(): UseScenarioReturn {
       }
       const eventId = crypto.randomUUID()
       const row = await scenarioService.createScenario(user.id, eventId, title)
+      // ── P0 (2026-08-29): SEED THE STORE WITH THE ID WE ALREADY HOLD ──────────
+      //
+      // Without this line the canvas learns its own scenario id only when
+      // `loadScenario`'s Supabase round-trip resolves (~283 ms later, at
+      // `:739`'s `hydrateGraphSlice({ currentScenarioId: row.id })`). For that
+      // window `currentScenarioId` is null, and a Send inside it takes
+      // `useConversation.ts:4562-4571`'s lazy-UUID branch and MINTS A COMPETING
+      // ID. The turn then dispatches under the minted id, the hydration lands
+      // under this one, and both scenario fences discard a complete model —
+      // after which `ServerGraphRetryNotice` blames the server for it.
+      //
+      // MEASURED, not inferred (E5 trace, run 33214479408, staging build
+      // e8252496): route `#/scenario/46609760…` at ~14.98 s, Send at 15.16 s,
+      // dispatch under minted `7957639a…`, two discards with `carriedGraph:
+      // true`. `46609760…` is a Supabase row id, and this function is one of
+      // only two places in the client that ever holds one — the other is
+      // `loadScenario`. This one had it first and threw it away.
+      //
+      // ⚠ DELIBERATELY BEFORE `navigate`. The route change is what mounts
+      // CanvasMVP and starts the hydration this is racing; seeding after it
+      // would reopen the window it closes.
+      //
+      // Safe against the two effects that watch this field, both checked:
+      //   · the scenario-switch effect (`useConversation.ts:2838`) takes its
+      //     `wasNull` branch on a null→id transition and RETURNS before any
+      //     conversation reset — and this fix REMOVES the second, genuine
+      //     minted→row transition that currently fires the real switch path
+      //     mid-turn.
+      //   · `useAutosave`'s write is debounced 500 ms (`useAutosave.ts:69`),
+      //     which is longer than the read this replaces, so the hydrated graph
+      //     is in the store before the first write fires.
+      useCanvasStore.setState({ currentScenarioId: row.id })
       navigate(`/scenario/${row.id}`)
       return row.id
     },
