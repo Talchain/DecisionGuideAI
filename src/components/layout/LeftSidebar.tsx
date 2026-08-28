@@ -107,7 +107,18 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        <Tooltip content="Undo (⌘Z)">
+        {/* ⚠ NO KEYBOARD SHORTCUT IS NAMED HERE, AND THAT IS THE POINT.
+            These tooltips read "Undo (⌘Z)" / "Redo (⌘⇧Z)" while both buttons
+            are PERMANENTLY disabled and both shortcuts are dead:
+            `ReactFlowGraph` passes `canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED
+            && canUndo()}` and `useKeyboardShortcuts` gates its undo and redo
+            branches on the same constant — `hasServerGraphAuthority(
+            CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)`, an authority
+            fixed at `'disabled'`. The tooltip is still reachable on a disabled
+            button because `Tooltip` attaches its hover reference to a WRAPPER
+            div, so this was a live promise of a key that does nothing.
+            Do not re-add a shortcut here until the shortcut works. */}
+        <Tooltip content="Undo">
           <button
             type="button"
             className={styles.iconButton}
@@ -119,7 +130,8 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        <Tooltip content="Redo (⌘⇧Z)">
+        {/* Same reasoning as the Undo tooltip above. */}
+        <Tooltip content="Redo">
           <button
             type="button"
             className={styles.iconButton}

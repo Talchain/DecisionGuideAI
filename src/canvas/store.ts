@@ -822,10 +822,19 @@ interface CanvasState {
    * no-op (zero history entries) when no node actually changes. Preserves
    * identity for untouched nodes. Use for backfills / coordinated updates
    * that should undo/redo together.
+   *
+   * ⚠ `sourceTag` IS AN INTERNAL TAG AND MUST NEVER BE USED AS USER COPY. It
+   * was named `label` and passed straight through to the history entry's label,
+   * which `useHistoryToast` shows to the user verbatim — so the only caller's
+   * tag, the literal string `'backfill-interventions'`, was being displayed as
+   * a toast. This producer is, per the note at the implementation, exclusively
+   * the CEE intervention backfill and NOT a user model edit, so it now pushes
+   * an UNLABELLED entry: the state stays in history and undoes together, and
+   * nothing is announced as though the user had done it.
    */
   batchUpdateNodes: (
     updates: Array<{ id: string; data: Partial<Node['data']> }>,
-    label?: string,
+    sourceTag?: string,
   ) => { updatedCount: number }
   updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
   updateEdgeData: (id: string, data: Partial<EdgeData>) => void
@@ -2218,7 +2227,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
-  batchUpdateNodes: (updates, label) => {
+  batchUpdateNodes: (updates, _sourceTag) => {
     if (!updates.length) return { updatedCount: 0 }
     const currentNodes = get().nodes
     // Build an index once; avoid nested find() and O(N*M) lookups.
@@ -2242,7 +2251,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     if (changedCount === 0) return { updatedCount: 0 }
 
-    pushToHistory(get, set, label ?? `Batch updated ${changedCount} node${changedCount !== 1 ? 's' : ''}`)
+    // UNLABELLED deliberately — `_sourceTag` is an internal tag, never user
+    // copy, and this producer is not a user edit. See the interface note.
+    // A labelled entry here surfaces in `useHistoryToast` verbatim.
+    pushToHistory(get, set)
     set(() => ({ nodes: nextNodes }))
     // NOTE (freshness overlay): batchUpdateNodes is, today, exclusively the CEE
     // intervention-backfill producer (applyDraftResult / mirrorAnalysisReady). It
