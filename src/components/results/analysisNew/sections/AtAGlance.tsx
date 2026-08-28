@@ -124,14 +124,30 @@ export interface AtAGlanceProps {
  * AT ALL without scrolling — the surface's entire navigation was below the fold,
  * pushed there by a block that names options the run did not analyse.
  *
- * ⚠⚠ AND THE JUSTIFICATION I FIRST WROTE HERE WAS FALSE — corrected at the DOM
- * before it shipped. It said "this is the only place an unanalysed option is
- * NAMED". It is not. `ComparisonScopeNote` directly above names EVERY excluded
- * option in its sentence ("Comparing 1 of your 31 options — <every label>"), so
- * these rows RE-NAME options the note has already named. The division of labour
- * the builder documents is real but was only half-implemented: the note owns
- * WHO, these rows own the CONSEQUENCE, and they were repeating the WHO to carry
- * it.
+ * ⚠⚠ AND THE JUSTIFICATION HERE HAS NOW BEEN WRONG TWICE — both corrected
+ * before shipping, the second time by an independent reviewer, and the exact
+ * wording is the point.
+ *
+ *   v1  "this is the only place an unanalysed option is NAMED"
+ *       FALSE. `ComparisonScopeNote` directly above names them too.
+ *   v2  "the note names EVERY excluded option"
+ *       ALSO FALSE, and loosely enough to mislead. `ComparisonScope
+ *       .excludedLabels` is documented at `goalAnchorCopy.ts:343-349` as MAY BE
+ *       SHORTER than `total - analysed`: an option with no usable label — or one
+ *       whose label is merely its own node id — is dropped from the sentence,
+ *       which falls back to reporting it by COUNT.
+ *
+ * THE EXACT CLAIM, which is what the cap's safety rests on: the note names every
+ * excluded option THESE ROWS NAME. That holds because the builder applies the
+ * SAME nameable-label predicate (`buildAnalysisNewViewModel.ts:909`) that
+ * `deriveComparisonScope` does (`goalAnchorCopy.ts:397-416`), so an option the
+ * note cannot name renders no row here either. ⚠ Those two filters are one
+ * predicate spelled twice — a mirror (trap 12) — and their agreement is pinned
+ * in `comparisonScope.spec.tsx` §5 precisely because this cap now depends on it.
+ *
+ * The division of labour the builder documents is real but was only
+ * half-implemented: the note owns WHO, these rows own the CONSEQUENCE, and they
+ * were repeating the WHO to carry it.
  *
  * ⛔ THE FIX IS A DISCLOSURE, NEVER A TRUNCATION — but for the consequence, not
  * the names. `notAnalysedReasonCopy` collapses to exactly TWO sanctioned
@@ -159,6 +175,25 @@ export function AtAGlance({
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
+
+  // ⚠ THE DISCLOSURE MUST NOT SURVIVE A CHANGE OF OPTION SET, and it did.
+  // `AtAGlance` stays MOUNTED across analysis runs, so an expanded disclosure
+  // persisted into the next run's excluded options — reinstating the unbounded
+  // block this cap exists to bound, for the rest of the session, on a set the
+  // user never opened. Found by an independent review; nothing tested it.
+  //
+  // Reset during render on a changing identity rather than in an effect: an
+  // effect would paint the tall block for one frame before collapsing it, which
+  // is the defect briefly happening rather than not happening.
+  const excludedKey =
+    glance.comparisonScope.kind === 'partial'
+      ? glance.comparisonScope.excluded.map((o) => o.id).join('|')
+      : ''
+  const [seenExcludedKey, setSeenExcludedKey] = useState(excludedKey)
+  if (seenExcludedKey !== excludedKey) {
+    setSeenExcludedKey(excludedKey)
+    setShowAllExcluded(false)
+  }
   const hasAnything =
     glance.headline || glance.verdict || glance.drivers.length > 0 || glance.condition
   if (!hasAnything) return null
@@ -299,7 +334,8 @@ export function AtAGlance({
               cap below, which declares its overflow and offers no route because
               the Drivers section IS the route. Here the consequence sentence
               has no other home on this surface, so this one must open. (The
-              NAMES do have another home — the note above carries them all.) */}
+              NAMES have another home — the note above, for every option it can
+              name; see the header for why that is not all of them.) */}
           {glance.comparisonScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
             <button
               type="button"

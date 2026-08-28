@@ -85,10 +85,16 @@ export const ANALYSIS_NEW_COPY = {
     moreUncertainty: (n: number) => `Show ${n} more`,
     /**
      * ⚠ NAMED APART FROM THE TWO ABOVE THOUGH THE STRING IS THE SAME TODAY.
-     * These answer three different questions — "more findings", "more
-     * uncertainties", "more options the run left out" — and folding them into
-     * one constant is how a later edit makes one of them speak for a set it
-     * does not describe (CLAUDE.md trap 21). Same words, different claims.
+     * They answer different questions — "more uncertainties" vs "more options
+     * the run left out" — and folding them into one constant is how a later
+     * edit makes one speak for a set it does not describe (CLAUDE.md trap 21).
+     * Same words, different claims.
+     *
+     * ⚠ ACCURACY NOTE, since the first version of this comment said "three
+     * different questions": `moreUncertainty` currently has ZERO call sites
+     * repo-wide, so it answers none. It is kept rather than deleted because the
+     * uncertainty list has the same overflow shape, but do not read this
+     * grouping as evidence that all three are live.
      */
     moreExcluded: (n: number) => `Show ${n} more`,
   },
@@ -97,14 +103,14 @@ export const ANALYSIS_NEW_COPY = {
   glance: {
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
+    /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
+    moreDrivers: (n: number) => `+ ${n} more driver${n === 1 ? '' : 's'} in this run`,
     /**
      * ⚠ THE BASIS CAPTION IS A TRUTH CLAIM, NOT A LEGEND, which is why it is
      * visible rather than hover-only. "Relative influence" says the bars rank
      * within THIS run; "Influence" says they sit on the producer's own scale.
      * A reader who mistakes the first for the second reads a rank as a share.
      */
-    /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
-    moreDrivers: (n: number) => `+ ${n} more driver${n === 1 ? '' : 's'} in this run`,
     basisRelative: 'Relative influence',
     basisAbsolute: 'Influence',
     basisRelativeExplain:
