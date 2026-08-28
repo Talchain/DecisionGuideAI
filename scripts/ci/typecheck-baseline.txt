@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2196
+# count=2195
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -46,7 +46,6 @@
 4	e2e/share-allowlist.spec.ts
 1	e2e/share-cap-negative.spec.ts
 4	e2e/smoke/a11y.spec.ts
-1	e2e/smoke/chunk-failure.spec.ts
 1	e2e/smoke/diagnostics.spec.ts
 1	e2e/smoke/elk-layout.spec.ts
 1	e2e/smoke/import-export-json.spec.ts
