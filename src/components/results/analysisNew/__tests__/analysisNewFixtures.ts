@@ -249,3 +249,92 @@ export function evidenceGapWithNullConfidence(): ResultsSectionDataReturn {
     },
   })
 }
+
+// ── 4. MANY FRAGILE EDGES ───────────────────────────────────────────────────
+/**
+ * ⭐ THE CLASS THE REST OF THIS CORPUS COULD NOT EXPRESS, AND IT IS THE COMMON
+ * CASE, NOT AN EDGE CASE.
+ *
+ * Every other fixture here carries AT MOST ONE uncertainty, so two defects were
+ * structurally invisible to 147 passing tests (CLAUDE.md trap 22 — a corpus that
+ * omits a value class the contract admits cannot certify the code over it).
+ *
+ * ⚠ THE SHAPE IS DERIVED FROM THE PRODUCER, NOT INVENTED.
+ * `useResultsSectionData.ts:3197` pushes a row per DEDUPED FRAGILE EDGE inside a
+ * `forEach`, and every one carries the LITERAL `code: 'SENSITIVE_ASSUMPTION'`
+ * and the LITERAL constant `suggestion: 'Review this assumption'`. So on any run
+ * with several fragile edges the producer emits N rows sharing one code and one
+ * suggestion. Measured on the deployed build at `a9fc1564` (guest run, 3-option
+ * 3PL fulfilment brief): SIX uncertainty rows, THREE of them
+ * `uncertainty:SENSITIVE_ASSUMPTION`.
+ *
+ * The three texts below are the real ones from that capture, kept verbatim
+ * because their LENGTH is the point — each exceeds the 80-character headline cut
+ * and each cuts before its verb.
+ */
+export function manyFragileEdges(): ResultsSectionDataReturn {
+  const sensitive = (from: string, to: string) => ({
+    code: 'SENSITIVE_ASSUMPTION',
+    message: `If "${from} → ${to}" changes significantly, the comparison could land differently.`,
+    displayText: `If "${from} → ${to}" changes significantly, the comparison could land differently.`,
+    // ⚠ THE CONSTANT. The producer sends this same remedy on every row, so
+    // `implication` never carries the sentence — which is what makes a headline
+    // cut unrecoverable anywhere on the page.
+    suggestion: 'Review this assumption',
+    affectedNodes: [from, to],
+    severity: 'warning' as const,
+    eValue: 1.4,
+  })
+
+  return makeData({
+    recommendation: {
+      robustnessVerdict: 'fragile',
+      robustnessVerdictReason:
+        'none of the factors we could test changed which option leads on its own, but this result scored low on our other robustness checks',
+    },
+    drivers: {
+      drivers: [
+        makeDriver({ factorKey: 'f_volatility', factorLabel: 'Peak Season Demand Volatility', direction: 'negative' }),
+        // ⚠ NO `displayInfluence`. `types.ts` says the live pipeline always
+        // sets it and that consumers must NOT fall back to
+        // `influenceScore ?? normalisedInfluence`, which mixes an absolute
+        // producer scale with a set-relative one. Present so the fail-weakly
+        // path is exercised rather than assumed.
+        makeDriver({
+          factorKey: 'f_nobasis',
+          factorLabel: 'Factor with no comparable basis',
+          rank: 2,
+          direction: 'positive',
+          displayInfluence: undefined,
+          displayProvenance: undefined,
+        }),
+      ],
+    },
+    confidence: {
+      evidenceGapsAssessed: true,
+      robustnessStatus: 'computed',
+      uncertainties: [
+        sensitive('Peak Season Throughput', 'getting through peak season without dropping below our 95 percent accuracy commitment, at lower cost'),
+        sensitive('Peak Fulfilment Capacity', 'Peak Season Throughput'),
+        sensitive('Cost Savings Achieved', 'getting through peak season without dropping below our 95 percent accuracy commitment, at lower cost'),
+      ],
+      // ⚠ TWO ASSUMPTIONS ABOUT ONE TARGET. The producer's `target` is a node
+      // reference, not a row key, so nothing stops it repeating — and an id of
+      // `assumption:${a.target}` collapses them. Present so the fix is PINNED
+      // rather than merely plausible.
+      assumptions: [
+        { target: 'f_volatility', message: 'Demand volatility is modelled as stationary across the season.', severity: 'medium' as const },
+        { target: 'f_volatility', message: 'Volatility is assumed independent of fulfilment capacity.', severity: 'medium' as const },
+      ],
+      // Distinct codes on the real capture, IDENTICAL headline — but nothing in
+      // the contract requires the codes to differ, and every one of these rows
+      // renders the SAME headline, so a collision would be invisible on screen.
+      // The repeated code is deliberate for that reason.
+      inferenceWarnings: [
+        { code: 'EDGE_E_VALUE_NON_FINITE_DROPPED', affected_nodes: [], message: '2 edge E-value entries were omitted from edge_e_values.' },
+        { code: 'ROOT_NODE_DEFAULT_VALUE', affected_nodes: ['e4ec3415'], message: "No observed value provided for root node 'e4ec3415'; defaulted to 0.0." },
+        { code: 'ROOT_NODE_DEFAULT_VALUE', affected_nodes: ['b71c02aa'], message: "No observed value provided for root node 'b71c02aa'; defaulted to 0.0." },
+      ],
+    } as Partial<ConfidenceSectionData>,
+  })
+}

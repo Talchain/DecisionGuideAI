@@ -307,7 +307,15 @@ function driverFinding(
   recommendations: Recommendation[],
 ): AnalysisNewFinding {
   const target = d.matchedNodeId ?? d.factorKey
-  const influence = d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence
+  // ⚠⚠ NO FALLBACK OFF `displayInfluence`, AND THE CONTRACT SAYS SO IN TERMS.
+  // `types.ts:638-644`: "Consumers must render/sort this, not
+  // `influenceScore ?? normalisedInfluence`, which mixes bases under partial
+  // producer coverage." The old chain did exactly the banned thing — an absolute
+  // producer score and a set-relative elasticity through one `pct()` as if they
+  // were one quantity. The live pipeline always sets `displayInfluence`; the
+  // chain existed for legacy fixtures, and a fixture must not dictate production
+  // semantics. Absent, the honest render is no number (rule 4).
+  const influence = d.displayInfluence
   // ⚠ THE PRODUCER'S DOMAIN IS `positive | negative | mixed | unknown`, and the
   // last two are NOT a direction. `'moves'` is the honest verb for them: a
   // factor whose direction the producer declined to resolve must not be
@@ -324,7 +332,7 @@ function driverFinding(
     // ⚠ Rule 2. Under a set-relative basis this says "among the strongest in
     // this run" — a RANK claim. It never says "drives N% of the outcome",
     // which would be an absolute causal share the basis does not license.
-    implication: setRelative
+    implication: setRelative || influence == null
       ? `Among the strongest influences in this run; ${directionWord} the outcome.`
       : `Structural influence ${pct(influence)}; ${directionWord} the outcome.`,
     detail:
@@ -420,39 +428,115 @@ function buildUncertainty(
 
   // 1. Consequential uncertainties first — these carry a threshold or an
   //    E-value, i.e. they are quantified, not merely noted.
-  for (const u of conf.uncertainties ?? []) {
+  /**
+   * A finding's identity, from the producer's OWN discriminating fields.
+   *
+   * ⚠⚠ THE DEFECT: `useResultsSectionData.ts:3197` pushes a row PER DEDUPED
+   * FRAGILE EDGE inside a `forEach`, and every one carries the LITERAL
+   * `code: 'SENSITIVE_ASSUMPTION'`. So `uncertainty:${u.code}` was the SAME
+   * string for every fragile edge in the run. Measured at the deployed DOM on
+   * `a9fc1564`: three rendered rows all carrying
+   * `data-finding-id="uncertainty:SENSITIVE_ASSUMPTION"`, with
+   * `AnalysisNewSection` rendering `key={f.id}`.
+   *
+   * ⚠⚠ AND POSITION IS NOT THE ANSWER. An index makes the ids unique — which
+   * silences the duplicate-key defect — and REINTRODUCES the harm it closes:
+   * reorder the producer's list and the same finding acquires a different id,
+   * so `DisclosureRow`'s open/inspect state migrates to the wrong row. That is
+   * the very failure duplicate keys can cause.
+   *
+   * `UncertaintyItem` carries real discriminators: `affectedNodes` — for a
+   * SENSITIVE_ASSUMPTION these are `[fromId, toId]`, i.e. the fragile EDGE,
+   * which is exactly what the producer deduped on — and `threshold.variable`.
+   * Those describe the finding, so they survive a reorder.
+   *
+   * ⚠ THE POSITIONAL FALLBACK IS NECESSARY, AND HERE IS THE DERIVATION —
+   * because the obvious review question is "can it be removed?", and the answer
+   * is NO. Derived from the COMPLETE manifest: `uncertainties` has exactly TWO
+   * producer sites in `useResultsSectionData.ts`, and BOTH can emit a row with
+   * zero discriminators.
+   *
+   *  1. `:2829` — critiques. `code: w.code || 'UNKNOWN'` and
+   *     `affectedNodes: w.node_id ? [w.node_id] : undefined`, with no
+   *     `threshold` set on this branch. A critique carrying neither a `code`
+   *     nor a `node_id` therefore yields `{ code: 'UNKNOWN', affectedNodes:
+   *     undefined }` — and two of them are indistinguishable to us.
+   *
+   *  2. `:3197` — SENSITIVE_ASSUMPTION. It looks safe because it always SETS
+   *     `affectedNodes`, but the value is `[fromId, toId].filter(Boolean)`, and
+   *     `parseEdgeId` returns `{}` for any edge id that does not split on `::`
+   *     into two non-empty parts, so both ids can be undefined and the array is
+   *     then EMPTY. `.filter(Boolean)` is the subtle half — "the field is
+   *     always assigned" is not "the field always discriminates".
+   *
+   * ⚠ SCOPE OF THAT CLAIM, STATED EXACTLY. This establishes that both states
+   * are REACHABLE BY CONSTRUCTION from the producer code. It does NOT establish
+   * that either has occurred in a captured payload — no capture has been
+   * inspected for them. "Reachable" is the claim; "observed" is not, and the
+   * difference is the one this estate keeps getting wrong in the other
+   * direction (asserting absence from a partial look).
+   *
+   * So reorder-stability is claimed for the population that CARRIES a
+   * discriminator, never for the surface. Both zero-discriminator states are
+   * pinned.
+   *
+   * ⚠⚠ AND THE FALLBACK IS DEBT, NOT A RESOLUTION. It prevents COLLISIONS —
+   * two rows can no longer share one id — but it cannot preserve identity
+   * across a reorder for those rows, so `DisclosureRow`'s open state can still
+   * follow the position rather than the finding. The real fix is a
+   * producer-issued stable finding id. Until then this is the honest floor,
+   * not the answer.
+   */
+  const uncertaintyKey = (u: UncertaintyItem, i: number): string => {
+    const parts = [
+      u.code,
+      u.affectedNodes?.length ? u.affectedNodes.join('>') : '',
+      u.threshold?.variable ?? '',
+    ].filter((part) => part.length > 0)
+    return parts.length > 1 ? `uncertainty:${parts.join(':')}` : `uncertainty:${u.code}:${i}`
+  }
+
+  const uncertaintyRows = conf.uncertainties ?? []
+  for (let i = 0; i < uncertaintyRows.length; i++) {
+    const u = uncertaintyRows[i]
     const text = humanised(u)
     if (!text) continue
+    // A threshold row gets the producer's own variable as its label; everything
+    // else gets the sentence cut to a label length.
+    const headlineText = u.threshold
+      ? `${u.threshold.variable} could tip the result`
+      : truncateAtWordBoundary(text, 80)
     findings.push({
-      id: `uncertainty:${u.code}`,
-      headline: u.threshold
-        ? `${u.threshold.variable} could tip the result`
-        // A bare `.slice(0, 80)` cut these mid-word — measured at the DOM, two
-        // distinct items landing on exactly 80 characters. The reader was left
-        // with a condition and no way to tell a cut string from a finished one.
-        //
-        // ⚠ THIS COMMENT ONCE READ "The full sentence still rides `implication`
-        // below." THAT WAS FALSE, and it was the stated justification for
-        // cutting at all. Measured against a complete field manifest:
-        // `implication` is `u.suggestion || text`, and `u.suggestion` is present
-        // on every row as the constant string "Review this assumption" — so the
-        // implication carries a REMEDY and never the sentence. `detail` is
-        // undefined and `inspect` is numeric. NO FIELD CARRIES THE FULL TEXT.
-        //
-        // So this truncation is lossy, and the loss is not recoverable anywhere
-        // on the page. What changed here makes the cut HONEST — whole words, and
-        // an ellipsis so a reader can tell a cut string from a finished one. It
-        // does NOT recover the lost reasoning. Whether a headline should be cut
-        // at all when nothing else carries the sentence is a product question,
-        // rowed as 2.1330 and deliberately not answered here.
-        //
-        // Measured for `uncertainty:SENSITIVE_ASSUMPTION`. A finding type
-        // carrying no `suggestion` could still render its full text.
-        : truncateAtWordBoundary(text, 80),
-      implication: u.suggestion || text,
+      id: uncertaintyKey(u, i),
+      // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
+      // BE SAID TWICE.
+      //
+      // The defect was never the cut. It was that the cut sentence existed
+      // NOWHERE ELSE: `implication` was `u.suggestion || text`, and the producer
+      // sends `suggestion` as the CONSTANT 'Review this assumption' on every
+      // fragile-edge row, so a generic remedy DISPLACED the finding and the
+      // reasoning left the page. Measured on the deployed build at `a9fc1564`:
+      // three rows cut at 80 characters, EACH BEFORE ITS VERB — the reader got
+      // the condition and never the consequence — under the identical body.
+      //
+      // So the cut stays as a LABEL (a truncated label is a loss the reader can
+      // see; 300 characters of header type would trade truthfulness for the
+      // density problem this surface exists to solve) and the FULL sentence
+      // rides `implication`, where no constant can displace it.
+      //
+      // ⚠ THE BODY IS EMPTY WHEN THE HEADLINE ALREADY IS THE WHOLE SENTENCE. A
+      // first draft carried `text` unconditionally and the first-viewport census
+      // caught it: an uncertainty shorter than the cut rendered the identical
+      // sentence twice. Truthfulness and non-repetition are one requirement.
+      headline: headlineText,
+      implication: headlineText === text ? '' : text,
       // Same union as the drivers' direction. `mixed`/`unknown` get the
-      // direction-free phrasing rather than a guessed one.
-      detail: u.threshold
+      // direction-free phrasing rather than a guessed one. A producer
+      // suggestion that says something the sentence does not is additive here;
+      // the generic constant is dropped rather than promoted.
+      detail: u.suggestion && u.suggestion !== text && !u.threshold
+        ? u.suggestion
+        : u.threshold
         ? `The ordering changes around ${u.threshold.value}${
             u.threshold.direction === 'positive'
               ? ' — above it, the ordering differs'
@@ -462,7 +546,6 @@ function buildUncertainty(
           }.`
         : undefined,
       groundedIn: 'the sensitivity and critique analysis',
-      marker: u.factorConfidence == null ? undefined : undefined,
       targetId: u.affectedNodes?.[0],
       inspect: rows(
         row('Severity', u.severity),
@@ -478,9 +561,19 @@ function buildUncertainty(
   for (const g of conf.evidenceGaps ?? []) findings.push(evidenceGapFinding(g, recommendations))
 
   // 3. Producer-owned assumptions from the ledger.
-  for (const a of conf.assumptions ?? []) {
+  const assumptionRows = conf.assumptions ?? []
+  for (let i = 0; i < assumptionRows.length; i++) {
+    const a = assumptionRows[i]
     findings.push({
-      id: `assumption:${a.target ?? a.message.slice(0, 40)}`,
+      // Same rule as the uncertainties: the producer's fields first. An
+      // `AssumptionItem` is `{ severity, message, target? }` — target alone
+      // collapses two assumptions about one factor, so the message is what
+      // actually distinguishes them. ⚠ A 60-character prefix CAN still collide
+      // on two assumptions that share an opening clause; the index is appended
+      // so identity is unique by construction rather than by hope, and the
+      // reorder-stability claim is made only for the uncertainties, which have
+      // a real producer discriminator.
+      id: `assumption:${a.target ?? 'untargeted'}:${a.message.slice(0, 60)}:${i}`,
       headline: a.target ? `Assumption about ${a.target}` : 'Assumption in the model',
       implication: a.message,
       groundedIn: 'the assumption ledger',
@@ -490,19 +583,27 @@ function buildUncertainty(
     })
   }
 
-  // 4. Model-gap warnings the producer raised about its own inference.
-  for (const w of conf.inferenceWarnings ?? []) {
-    const message = (w as { message?: string; description?: string }).message
-      ?? (w as { description?: string }).description
-    if (!message) continue
-    findings.push({
-      id: `inference-warning:${(w as { code?: string }).code ?? message.slice(0, 32)}`,
-      headline: 'The model has a gap the analysis had to work around',
-      implication: message,
-      groundedIn: 'an inference warning from the engine',
-      inspect: [],
-    })
-  }
+  // 4. ⛔ INFERENCE WARNINGS ARE ENGINE DIAGNOSTICS AND NO LONGER RENDER HERE.
+  //    They move to `Deeper analysis and evidence` (`buildDeeper`).
+  //
+  //    ⚠⚠ MEASURED ON THE DEPLOYED BUILD AT `a9fc1564`, a real guest run. THREE
+  //    of the six rows in this section were inference warnings, all rendering
+  //    the IDENTICAL headline "The model has a gap the analysis had to work
+  //    around", with bodies carrying RAW INTERNAL NODE IDS straight through:
+  //
+  //      "No observed value provided for root node 'e4ec3415'; defaulted to 0.0"
+  //      "Goal node 'a6a496f8' is scored from its forward-propagated outcome…"
+  //
+  //    An opaque engine id is not a sentence for a reader, and "Uncertainty and
+  //    gaps" is where a user looks for STRATEGIC uncertainty — what might change
+  //    the answer — not for the engine's account of its own workarounds.
+  //
+  //    ⛔ AND THEY ARE NOT REWRITTEN. Regexing an opaque id out of free producer
+  //    prose would be this surface authoring a producer sentence, which is the
+  //    fabrication boundary. `InferenceWarning.affected_labels` is present only
+  //    sometimes, so no reliable structured resolution exists here. Demoting is
+  //    honest; rewriting would not be. User-readable labels are a producer
+  //    change, not a UI one.
 
   return {
     findings,
@@ -564,6 +665,20 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   )
   if (coverage.length) groups.push({ title: 'What this run covered', rows: coverage })
 
+  // ⚠ THE ENGINE'S ACCOUNT OF ITS OWN WORKAROUNDS. Moved here from "Uncertainty
+  // and gaps" (see `buildUncertainty` step 4): diagnostics, carrying raw node
+  // ids the producer does not humanise, three of them rendering one headline on
+  // a real run. Real provenance, kept available one level down where technical
+  // material belongs, and never rewritten.
+  const inferenceRows = (conf.inferenceWarnings ?? [])
+    .map((w) => {
+      const message = (w as { message?: string; description?: string }).message
+        ?? (w as { description?: string }).description
+      return message ? { label: (w as { code?: string }).code ?? 'Model gap', value: message } : null
+    })
+    .filter((r): r is { label: string; value: string } => r !== null)
+  if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
+
   const provenance = rows(
     row(
       'Sensitivities measured against',
@@ -607,8 +722,9 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
 } {
   const rows = (data.drivers.drivers ?? []).filter((d) => d.zeroReason == null)
   const setRelative = rows.length > 0 && rows.some((d) => d.displayProvenance !== 'influence_score')
-  const magnitude = (d: (typeof rows)[number]) =>
-    d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0
+  // Same contract rule as `driverFinding`: `displayInfluence` or nothing. A bar
+  // drawn from a mixed basis ranks across two different scales.
+  const magnitude = (d: (typeof rows)[number]) => d.displayInfluence ?? 0
   // ⚠ THE BAR IS SCALED TO THE STRONGEST DRIVER IN THIS RUN, NOT TO 1.0 AND NOT
   // TO A SUM. Scaling to a sum would render each bar as a SHARE OF THE OUTCOME —
   // a claim neither basis licenses, and the exact misreading the earlier

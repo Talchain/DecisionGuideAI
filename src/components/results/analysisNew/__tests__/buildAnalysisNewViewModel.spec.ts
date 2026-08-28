@@ -19,6 +19,7 @@ import {
   highUncertainty,
   makeData,
   makeDriver,
+  manyFragileEdges,
   openStrategicChallenge,
 } from './analysisNewFixtures'
 
@@ -223,7 +224,14 @@ describe('humanised producer text (§4)', () => {
     const vm = build(highUncertainty())
     expect(JSON.stringify(vm)).not.toContain('RAW_TOKEN_SHOULD_NOT_RENDER')
     expect(
-      vm.uncertainty.findings.some((f) => f.implication.includes('Test the adoption assumption')),
+      // The producer's SPECIFIC suggestion still reaches the screen — it is
+      // additive to the finding now (it rides `detail`), never a replacement
+      // for it. A generic constant is dropped instead of promoted.
+      vm.uncertainty.findings.some((f) =>
+        [f.headline, f.implication, f.detail ?? ''].some((field) =>
+          field.includes('Test the adoption assumption'),
+        ),
+      ),
     ).toBe(true)
   })
 })
@@ -332,5 +340,213 @@ describe('the refuted EVPI-in-percentage-points display', () => {
     const vm = build(highUncertainty())
     expect(JSON.stringify(vm)).not.toMatch(/percentage point/i)
     expect(JSON.stringify(vm)).not.toMatch(/evpiPp|evpi_percentage_points/)
+  })
+})
+
+describe('finding identity (CLAUDE.md trap 19) — one row, one id', () => {
+  /**
+   * ⚠ DERIVED FROM THE PRODUCER, NOT IMAGINED. `useResultsSectionData.ts:3197`
+   * pushes a row PER DEDUPED FRAGILE EDGE, each carrying the literal
+   * `code: 'SENSITIVE_ASSUMPTION'`. An id minted as `uncertainty:${code}` is
+   * therefore identical across every one of them.
+   *
+   * Measured on the deployed build at `a9fc1564`: three rendered rows all
+   * carrying `data-finding-id="uncertainty:SENSITIVE_ASSUMPTION"`. That makes
+   * the React key ambiguous (so `DisclosureRow`'s open state can attach to the
+   * wrong row on any reorder) and makes the surface's own identity-binding
+   * doctrine unenforceable — a test binding a row by id binds to three.
+   */
+  it('gives same-code uncertainties distinct ids', () => {
+    const vm = build(manyFragileEdges())
+    const sensitive = vm.uncertainty.findings.filter((f) => f.id.startsWith('uncertainty:'))
+    expect(sensitive.length, 'fixture must emit several same-code rows or this is vacuous').toBeGreaterThan(1)
+    expect(new Set(sensitive.map((f) => f.id)).size).toBe(sensitive.length)
+  })
+
+  it('gives every finding on the surface a unique id, across all producers', () => {
+    const vm = build(manyFragileEdges())
+    const ids = [
+      ...vm.keyInsights.insights,
+      ...vm.drivers.findings,
+      ...vm.uncertainty.findings,
+    ].map((f) => f.id)
+    expect(ids.length, 'no findings — this assertion would be vacuous').toBeGreaterThan(3)
+    const dupes = ids.filter((id, i) => ids.indexOf(id) !== i)
+    expect(dupes, `duplicate finding ids: ${dupes.join(', ')}`).toEqual([])
+  })
+})
+
+describe('producer prose is never cut (ROADMAP 2.1330)', () => {
+  /**
+   * ⚠ THE LOSS IS UNRECOVERABLE ANYWHERE ON THE PAGE, WHICH IS WHY A CUT HERE
+   * IS NOT COSMETIC. `implication` is `u.suggestion || text`, and the producer
+   * sends `suggestion` as the CONSTANT 'Review this assumption' on every
+   * fragile-edge row — so the implication carries a remedy, never the sentence.
+   * `detail` is undefined and `inspect` is numeric. Measured on the deployed
+   * build: three rows cut at 80 characters, each BEFORE ITS VERB, each with the
+   * identical body 'Review this assumption'.
+   */
+  it('carries each uncertainty sentence in full somewhere on the finding', () => {
+    const data = manyFragileEdges()
+    const vm = build(data)
+    const texts = (data.confidence.uncertainties ?? []).map((u) => u.displayText || u.message)
+    expect(texts.length).toBeGreaterThan(0)
+    for (const text of texts) {
+      expect(text.length, 'fixture text must exceed the cut or this is vacuous').toBeGreaterThan(80)
+      const carried = vm.uncertainty.findings.some((f) =>
+        [f.headline, f.implication, f.detail ?? ''].some((field) => field.includes(text)),
+      )
+      expect(carried, `no field carries the full sentence: "${text.slice(0, 60)}…"`).toBe(true)
+    }
+  })
+
+  it('never states the same sentence as both headline and body', () => {
+    // ⚠ THE OTHER SIDE OF THE SAME RULE, and it is not hypothetical: the first
+    // draft of this fix carried the full text unconditionally and an
+    // uncertainty shorter than the cut rendered it TWICE. Truthfulness and
+    // non-repetition are one requirement, not two, and a fix for either that
+    // breaks the other is not a fix.
+    for (const data of [manyFragileEdges(), highUncertainty()]) {
+      const vm = build(data)
+      expect(vm.uncertainty.findings.length).toBeGreaterThan(0)
+      for (const f of vm.uncertainty.findings) {
+        if (f.implication) expect(f.implication).not.toBe(f.headline)
+      }
+    }
+  })
+
+  it('keeps the headline a LABEL rather than growing it into the whole sentence', () => {
+    // The density half. A fix that simply stopped cutting would put 300
+    // characters of header type at the top of every row.
+    const vm = build(manyFragileEdges())
+    const long = vm.uncertainty.findings.filter((f) => f.implication.length > 80)
+    expect(long.length, 'no long findings — this case would be vacuous').toBeGreaterThan(0)
+    for (const f of long) expect(f.headline.length).toBeLessThanOrEqual(85)
+  })
+})
+
+describe('identity survives a reorder — for the population that has a discriminator', () => {
+  /**
+   * ⭐ THE PROPERTY THAT SEPARATES A REAL FIX FROM A SILENCED WARNING.
+   *
+   * An index makes ids unique and REINTRODUCES the harm: reorder the producer's
+   * list and the same finding acquires a different id, so `DisclosureRow`'s open
+   * and inspect state migrates to the wrong row — the exact failure duplicate
+   * keys could cause. This is the case that would have caught that, and it is
+   * the reason the ids are built from `affectedNodes` / `threshold.variable`.
+   */
+  /**
+   * ⚠ THE SCOPE OF THIS CLAIM, STATED SO IT IS NOT READ WIDER THAN IT IS.
+   * Reorder-stability is asserted for uncertainties that carry a producer
+   * DISCRIMINATOR (`affectedNodes` or `threshold.variable`) — which is the
+   * measured SENSITIVE_ASSUMPTION population, one row per fragile edge. A row
+   * bearing only a bare `code` still falls back to position, because the
+   * producer has given us nothing to tell two such rows apart; that fallback is
+   * REACHABLE and is not claimed to be stable. Do not generalise this case into
+   * "the surface has reorder-stable identity".
+   */
+  it('gives a finding the SAME id wherever it sits in the producer list', () => {
+    const forward = manyFragileEdges()
+    const reversed = {
+      ...forward,
+      confidence: {
+        ...forward.confidence,
+        uncertainties: [...(forward.confidence.uncertainties ?? [])].reverse(),
+      },
+    } as typeof forward
+
+    const idsOf = (d: typeof forward) =>
+      build(d).uncertainty.findings.filter((f) => f.id.startsWith('uncertainty:')).map((f) => f.id)
+
+    const a = idsOf(forward)
+    const b = idsOf(reversed)
+    expect(a.length, 'no uncertainties — vacuous').toBeGreaterThan(1)
+    // Same SET of identities, and every one still distinct.
+    expect(new Set(a).size).toBe(a.length)
+    expect([...a].sort()).toEqual([...b].sort())
+    // The discriminating half: an INDEX-based id would satisfy the line above
+    // (both lists yield :0,:1,:2) while binding a different row each time. So
+    // assert the id travels WITH its content.
+    const first = build(forward).uncertainty.findings.find((f) => f.id.startsWith('uncertainty:'))!
+    const same = build(reversed).uncertainty.findings.find((f) => f.headline === first.headline)!
+    expect(same.id).toBe(first.id)
+  })
+
+  it('states plainly which rows fall back to position, rather than implying none do', () => {
+    // The honest half. A row with only a `code` has no producer discriminator,
+    // so its id ends in an index — and a reviewer must be able to see that from
+    // the test suite rather than having to read the builder to discover it.
+    const bare = makeData({
+      confidence: {
+        uncertainties: [
+          { code: 'LONE', message: 'One.', displayText: 'One.' },
+          { code: 'LONE', message: 'Two.', displayText: 'Two.' },
+        ],
+      } as never,
+    })
+    const ids = build(bare).uncertainty.findings.map((f) => f.id)
+    expect(new Set(ids).size, 'they must still be unique').toBe(ids.length)
+    expect(ids.every((id) => /:\d+$/.test(id)), 'these fall back to POSITION').toBe(true)
+  })
+
+  it('handles an EMPTY affectedNodes array, not just a missing one', () => {
+    // ⚠ THE SUBTLE HALF, and the one a reader of the producer would miss.
+    // `useResultsSectionData.ts:3197` ALWAYS assigns `affectedNodes` — but as
+    // `[fromId, toId].filter(Boolean)`, and `parseEdgeId` returns `{}` for any
+    // edge id that does not split on '::' into two non-empty parts, so both ids
+    // can be undefined and the array is then EMPTY.
+    //
+    // ⚠ REACHABLE BY CONSTRUCTION, NOT OBSERVED IN A CAPTURE. No producer
+    // payload has been inspected for this state; what is established is that
+    // the producer code can emit it. The weaker claim is the true one.
+    //
+    // "The field is always assigned" is not "the field always discriminates",
+    // and a key built from
+    // `affectedNodes.join('>')` on an empty array would collapse two rows to
+    // one id.
+    const emptyNodes = makeData({
+      confidence: {
+        uncertainties: [
+          { code: 'SENSITIVE_ASSUMPTION', message: 'A.', displayText: 'A.', affectedNodes: [] },
+          { code: 'SENSITIVE_ASSUMPTION', message: 'B.', displayText: 'B.', affectedNodes: [] },
+        ],
+      } as never,
+    })
+    const ids = build(emptyNodes).uncertainty.findings.map((f) => f.id)
+    expect(ids.length).toBe(2)
+    expect(new Set(ids).size, 'an empty discriminator must not collapse two rows').toBe(2)
+  })
+})
+
+describe('engine diagnostics are not strategic uncertainty', () => {
+  it('keeps inference warnings OUT of "Uncertainty and gaps"', () => {
+    // Measured on the deployed build: three of six rows were inference
+    // warnings, all with the identical headline and bodies carrying raw node
+    // ids ("root node 'e4ec3415'").
+    const vm = build(manyFragileEdges())
+    expect(vm.uncertainty.findings.some((f) => f.id.startsWith('inference-warning:'))).toBe(false)
+    expect(JSON.stringify(vm.uncertainty)).not.toContain('e4ec3415')
+  })
+
+  it('keeps them AVAILABLE in Deeper analysis rather than deleting them', () => {
+    // The discriminating twin. Demoting is honest; dropping producer provenance
+    // on the floor is not.
+    const vm = build(manyFragileEdges(), [], { responseHash: 'run_x' })
+    const group = vm.deeper.groups.find((g) => g.title === 'Model gaps the analysis worked around')
+    expect(group, 'the warnings were dropped, not demoted').toBeTruthy()
+    expect(group!.rows.length).toBe(3)
+  })
+})
+
+describe('influence never mixes two bases (types.ts:638-644)', () => {
+  it('claims no percentage for a driver the producer gave no comparable basis', () => {
+    // `types.ts` tells consumers NOT to fall back to
+    // `influenceScore ?? normalisedInfluence`. Absence suppresses the claim; it
+    // does not resurrect a basis the contract bans.
+    const vm = build(manyFragileEdges())
+    const noBasis = vm.drivers.findings.find((f) => f.id === 'driver:f_nobasis')
+    expect(noBasis, 'fixture must carry a driver with no displayInfluence').toBeTruthy()
+    expect(noBasis!.implication).not.toMatch(/Structural influence \d/)
+    expect(noBasis!.inspect.find((r) => r.label === 'Influence')).toBeUndefined()
   })
 })
