@@ -84,8 +84,8 @@ export class BootErrorBoundary extends Component<Props, State> {
           data-testid="stale-build-notice"
           style={{
             padding: 16,
-            background: 'var(--info-light, #eff6ff)',
-            color: 'var(--text-primary, #1e3a8a)',
+            background: 'var(--info-light, #BAD7E4)',
+            color: 'var(--text-primary, #262626)',
             fontFamily: 'ui-sans-serif,system-ui,sans-serif',
             fontSize: 14,
             borderRadius: 8,
@@ -100,9 +100,9 @@ export class BootErrorBoundary extends Component<Props, State> {
             style={{
               padding: '6px 14px',
               borderRadius: 6,
-              border: '1px solid var(--info, #1d4ed8)',
-              background: 'var(--info, #1d4ed8)',
-              color: 'var(--text-on-color, #fff)',
+              border: '1px solid var(--info, #277A9D)',
+              background: 'var(--info, #277A9D)',
+              color: 'var(--text-on-color, #FFFFFF)',
               fontSize: 14,
               cursor: 'pointer',
             }}
@@ -119,8 +119,8 @@ export class BootErrorBoundary extends Component<Props, State> {
           data-testid="boot-render-error"
           style={{
             padding: 12,
-            background: 'var(--danger-light, #fee)',
-            color: 'var(--danger, #900)',
+            background: 'var(--danger-light, #FFB393)',
+            color: 'var(--text-primary, #262626)',
             fontFamily: 'ui-monospace,monospace',
             fontSize: 13,
             borderRadius: 8,
