@@ -448,20 +448,29 @@ describe('the witnessed defect — following the advice removes the control', ()
     expect(bar).toHaveAttribute('data-blocked', 'true')
     expect(bar).toHaveTextContent(FOOTER_COPY.notReady)
 
-    // SAME SENTENCE, not merely a plausible one: the string on the chat surface
-    // is the string the Analysis surface was showing a moment earlier.
-    const reason = screen.getByTestId('analysis-readiness-bar-reason').textContent ?? ''
-    expect(reason.length).toBeGreaterThan(20)
-    expect(reason).toBe(WITNESSED_REASON)
-    // ⭐ CROSS-SURFACE IDENTITY, at the granularity the two surfaces now use.
-    // The footer renders the producer's sentences one per line and the bar
-    // renders their JOIN, so `beforeText.toContain(reason)` can no longer hold
-    // — sibling `<li>` textContent has no separator. The property it was
-    // guarding is unchanged and is asserted here directly: the bar's string IS
-    // the join of exactly the sentences the Analysis surface was showing, in
-    // that order. That is a stronger claim than substring-containment, because
-    // it pins the SET and the ORDER rather than mere presence.
-    expect(reason).toBe(renderedSentences.join(' '))
+    // SAME SENTENCES, not merely plausible ones: what the chat surface shows is
+    // what the Analysis surface was showing a moment earlier.
+    const barReason = screen.getByTestId('analysis-readiness-bar-reason')
+    expect(barReason.textContent?.length ?? 0).toBeGreaterThan(20)
+
+    // ⭐ CROSS-SURFACE IDENTITY. UPDATED when the bar stopped joining the
+    // producer's sentences into one 603-character paragraph and began rendering
+    // them one per line, as the footer already did.
+    //
+    // ⚠ THE PROPERTY IS UNCHANGED AND THE ASSERTION IS STRICTLY STRONGER. The
+    // previous version read the bar's `<p>` and compared it to
+    // `renderedSentences.join(' ')` — a claim about the SET and the ORDER,
+    // expressed through a join because a join was all the bar rendered. Both
+    // surfaces now render the same structure, so the two lists are compared
+    // DIRECTLY: same sentences, same order, no join to launder a difference
+    // through. A wrong-order or dropped-sentence render still REDs here, which
+    // is what this test exists for.
+    const barSentences = Array.from(barReason.querySelectorAll('li')).map(li => li.textContent ?? '')
+    expect(barSentences).toEqual(renderedSentences)
+    // …and the JOIN is still pinned, on the surface that still uses one: the
+    // disabled control's `title` (asserted below) is `display.subline`, the
+    // producer's exact join. Nothing is truncated or summarised by the split.
+    expect(barSentences.join(' ')).toBe(WITNESSED_REASON)
 
     // …and a run control the user can see the state of, still honest.
     const barAnalyse = screen.getByTestId('analysis-readiness-bar-analyse')

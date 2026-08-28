@@ -180,27 +180,39 @@ export function AnalysisReadinessBar({
             ⚠ ONE sentence stays a sentence: a list of one renders a bullet
             where prose belonged, which would be a regression in the common
             small case bought with a fix for the large one.
-            ⚠ THE CLASSES MIRROR `PanelFooter` EXACTLY, deliberately. These two
-            surfaces state one thing and must look like one thing; matching the
-            neighbour beats matching `PANEL_LIST_BULLET`, which governs the
-            conversation surface and carries `space-y-1` rather than the footer's
-            `space-y-0.5`. Converging those two rhythms is a separate, visible
-            change and wants the visual harness. */}
-        {display.sublineSentences !== undefined && display.sublineSentences.length > 1 ? (
-          <ul
-            className={`${typography.panelMeta} text-text-light list-disc space-y-0.5 pl-4`}
-            data-testid="analysis-readiness-bar-reason-list"
-          >
-            {display.sublineSentences.map((sentence, index) => (
-              <li key={`${index}:${sentence}`}>{sentence}</li>
-            ))}
-          </ul>
-        ) : (
-          display.subline && (
-            <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-readiness-bar-reason">
-              {display.subline}
-            </p>
-          )
+            ⚠ `space-y-1`, NOT `PanelFooter`'s `space-y-0.5`. Mirroring the
+            neighbour exactly was the first instinct and the shell's
+            zero-tolerance conformance guard refused it: 2px is off the DS
+            spacing scale (4·8·12·16·20·24·32·40·48·56·64), and this module
+            admits no exceptions. 4px is both the scale value and
+            `PANEL_LIST_BULLET`'s rhythm, so the bar now agrees with the
+            conversation surface instead. `PanelFooter`'s 2px is the outlier —
+            it sits outside the shell module, which is the only reason it
+            survives. Converging it is a separate, visible change. */}
+        {display.subline && (
+          // ⚠ ONE TESTID SPANS BOTH BRANCHES, AND THAT IS THE POINT. Putting it
+          // on the `<p>` alone made `analysis-readiness-bar-reason` addressable
+          // ONLY in the one-sentence case — the exact mirror of the defect
+          // `PanelFooter`'s own comment records (there the SINGLE-sentence
+          // branch was the unaddressable one). A sibling spec that had pinned
+          // "the reason survives the tab change" went red, correctly, because
+          // the reason had become unfindable in the case it was written for.
+          // The wrapper renders only when there IS a subline, so
+          // `queryByTestId(...)` still returns null when nothing is refusing.
+          <div data-testid="analysis-readiness-bar-reason">
+            {display.sublineSentences !== undefined && display.sublineSentences.length > 1 ? (
+              <ul
+                className={`${typography.panelMeta} text-text-light list-disc space-y-1 pl-4`}
+                data-testid="analysis-readiness-bar-reason-list"
+              >
+                {display.sublineSentences.map((sentence, index) => (
+                  <li key={`${index}:${sentence}`}>{sentence}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className={`${typography.panelMeta} text-text-light`}>{display.subline}</p>
+            )}
+          </div>
         )}
       </div>
       {/* The check can be retried without touching the run. Deliberately NOT a
