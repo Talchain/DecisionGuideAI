@@ -337,3 +337,183 @@ describe('ServerVersionsSection — honest degraded states', () => {
     await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIN 6 — THE MUTATION ID IS FRESH PER GESTURE, AND THAT IS A SAFETY PROPERTY.
+//
+// CEE's restore RPC resolves replay BEFORE the CAS, and says so in its own
+// header (supabase/migrations/20260824200000_c8_atomic_model_version_restore
+// .sql:311-314): "A successful original call may legitimately be retried after
+// later graph changes; it returns the original operation receipt and performs
+// no writes."
+//
+// So an id REUSED for a genuinely-new restore of the SAME version — the user
+// restores v1, edits, then restores v1 again — returns HTTP 200,
+// `restored: true`, and a real-looking receipt WHILE THE SERVER'S WORKING
+// GRAPH IS NOT REVERTED. The wire cannot tell: `replayed` is computed and only
+// LOGGED, and the response schema is `.strict()` without it. That is a
+// fabricated success, strictly worse than the honest 422 this PR removes.
+//
+// A per-versionId memoisation is therefore NOT a harmless optimisation, and
+// this is the pin that forbids it. The two gestures below share a TARGET, so
+// only genuine per-gesture freshness passes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+describe('ServerVersionsSection — restore identity (pin 6)', () => {
+  function restoredResponse() {
+    return {
+      status: 'restored',
+      graph: { nodes: [{ id: 'n1', label: 'Take the job', kind: 'option' }], edges: [] },
+      deduped: false,
+      version: { versionId: 'dddddddd-4444-4444-8444-dddddddddddd', versionNumber: 3, deduped: false },
+      undoVersionId: UNDO_VERSION,
+      requestId: 'req-2',
+    }
+  }
+
+  async function restoreVersionOnce() {
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm restore/i }))
+  }
+
+  it('PIN 6 — two restores of the SAME version carry DIFFERENT, UUID-shaped mutation ids', async () => {
+    restoreModelVersion.mockResolvedValue(restoredResponse())
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+
+    await restoreVersionOnce()
+    await waitFor(() => expect(restoreModelVersion).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    await restoreVersionOnce()
+    await waitFor(() => expect(restoreModelVersion).toHaveBeenCalledTimes(2))
+
+    const first = restoreModelVersion.mock.calls[0][1] as { mutationId: string; versionId: string }
+    const second = restoreModelVersion.mock.calls[1][1] as { mutationId: string; versionId: string }
+
+    // Precondition, pinned IN-TEST: both gestures really did target the SAME
+    // version. Without this the "ids differ" assertion could pass merely
+    // because the two calls were different restores (trap 13b).
+    expect(first.versionId).toBe(VERSION_OLD)
+    expect(second.versionId).toBe(VERSION_OLD)
+
+    expect(first.mutationId).toMatch(UUID_V4_RE)
+    expect(second.mutationId).toMatch(UUID_V4_RE)
+    expect(second.mutationId).not.toBe(first.mutationId)
+  })
+
+  it('sends the CAS expectation as an explicit key, never omitted', async () => {
+    restoreModelVersion.mockResolvedValue(restoredResponse())
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+
+    await restoreVersionOnce()
+    await waitFor(() => expect(restoreModelVersion).toHaveBeenCalledTimes(1))
+
+    const opts = restoreModelVersion.mock.calls[0][1] as Record<string, unknown>
+    expect(Object.prototype.hasOwnProperty.call(opts, 'expectedGraphIdentityHash')).toBe(true)
+    expect(opts.expectedGraphIdentityHash).toBe(HASH_HEAD)
+  })
+
+  it('refuses to restore when it does not know the current state — and never guesses null', async () => {
+    // `null` is NOT an opt-out: CEE's CAS is `IS DISTINCT FROM`
+    // (…restore_atomic_v1.sql:360-367, "NULL is a meaningful expected absence
+    // … without a bypass"), so null ASSERTS the model is currently empty. With
+    // no head we have not observed that, and asserting it yields 409
+    // VERSION_STALE — rendering "the model changed" over a model that did not.
+    restoreModelVersion.mockResolvedValue(restoredResponse())
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+
+    // Drive to the only reachable no-head state: an undo is offered while the
+    // refreshed list came back empty.
+    listModelVersions.mockResolvedValue({
+      status: 'list',
+      versions: [],
+      currentVersionId: null,
+      requestId: 'req-empty',
+    })
+    await restoreVersionOnce()
+    await waitFor(() => expect(screen.getByTestId('server-restore-undo')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('server-versions-empty')).toBeInTheDocument())
+
+    restoreModelVersion.mockClear()
+    fireEvent.click(screen.getByTestId('server-restore-undo'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('server-versions-message')).toHaveTextContent(/nothing was changed/i),
+    )
+    // The whole point: no request is sent on a state we cannot assert.
+    expect(restoreModelVersion).not.toHaveBeenCalled()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIN 7 — A REFUSAL THAT A RETRY CANNOT FIX MUST NOT INVITE ONE.
+//
+// This is the defect that made the whole surface dishonest: a DETERMINISTIC,
+// PERMANENT 422 rendered as "The version could not be restored right now.
+// Nothing was changed." — literally true, and read by every user as "try
+// again". A mutant that puts a retry invitation back on any of these arms
+// must go RED here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('ServerVersionsSection — terminal refusals say so (pin 7)', () => {
+  async function refuseWith(result: Record<string, unknown>) {
+    restoreModelVersion.mockResolvedValue(result)
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm restore/i }))
+    await waitFor(() => expect(screen.getByTestId('server-versions-message')).toBeInTheDocument())
+    return screen.getByTestId('server-versions-message').textContent ?? ''
+  }
+
+  it('a version that cannot be restored is named as permanent, not as "right now"', async () => {
+    const text = await refuseWith({ status: 'versionNotRestorable' })
+    expect(text).toMatch(/nothing was changed/i)
+    expect(text).toMatch(/will not help/i)
+    expect(text).not.toMatch(/try again|right now/i)
+  })
+
+  it("a payload the server rejected is named as Olumi's fault, and does not invite a retry", async () => {
+    const text = await refuseWith({ status: 'payloadRejected' })
+    expect(text).toMatch(/nothing was changed/i)
+    expect(text).toMatch(/will not help/i)
+    expect(text).not.toMatch(/try again|right now/i)
+  })
+
+  it('a reused restore identity never renders as "the model changed"', async () => {
+    const text = await refuseWith({ status: 'mutationIdReused' })
+    expect(text).toMatch(/nothing was changed/i)
+    expect(text).not.toMatch(/model changed since you looked/i)
+    expect(text).not.toMatch(/try again/i)
+  })
+
+  it('never tells a SIGNED-IN user that restoring requires sign-in', async () => {
+    // The section only renders at all when `signedIn` is true, so this copy
+    // was false on every occasion it could ever be shown. The honest split is
+    // on the identity we ACTUALLY SENT: a lapsed session is the user's to fix,
+    // a refusal carrying a real user id is ours.
+    const text = await refuseWith({ status: 'signInRequired' })
+    expect(text).not.toMatch(/requires sign-in/i)
+    expect(text).toMatch(/nothing was changed/i)
+  })
+})
+
+describe('ServerVersionsSection — the confirm names the blast radius', () => {
+  it('says who else is affected and what recomputes, before the write', async () => {
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+
+    const confirm = screen.getByTestId('server-restore-confirm')
+    expect(confirm).toHaveTextContent(/everyone who can open this scenario/i)
+    expect(confirm).toHaveTextContent(/analyses/i)
+    // The undo promise must stay, and it is TRUE: the RPC snapshots the
+    // working graph as a `pre_restore` version before replacing it
+    // (…restore_atomic_v1.sql:389-410).
+    expect(confirm).toHaveTextContent(/so you can undo/i)
+  })
+})

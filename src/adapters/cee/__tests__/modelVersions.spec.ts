@@ -63,6 +63,8 @@ const ANALYSIS_HASH = 'd'.repeat(64)
 const SNAPSHOT_VERSION = 'cccccccc-3333-4333-8333-cccccccccccc'
 const RESTORED_VERSION = 'dddddddd-4444-4444-8444-dddddddddddd'
 const MUTATION_ID = 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee'
+/** Request-side id for the pre-C8-A cases below, which predate the field. */
+const LEGACY_MUTATION_ID = '11111111-7777-4777-8777-111111111111'
 
 /** A v2 summary exactly as CEE's `summaryV2()` emits it for its default row
  *  (actor_kind null + authored_by null ⇒ {kind:'unknown'}; creation_kind null
@@ -382,6 +384,7 @@ describe('restoreModelVersion', () => {
     const result = await restoreModelVersion(SCENARIO, {
       userId: USER,
       versionId: VERSION_A,
+      mutationId: LEGACY_MUTATION_ID,
       expectedGraphIdentityHash: HASH_A,
     })
 
@@ -412,7 +415,12 @@ describe('restoreModelVersion', () => {
       }),
     )
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
     ).toBe('versionNotFound')
 
     fetchSpy.mockResolvedValueOnce(
@@ -424,7 +432,12 @@ describe('restoreModelVersion', () => {
       }),
     )
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
     ).toBe('conflict')
 
     fetchSpy.mockResolvedValueOnce(
@@ -433,11 +446,27 @@ describe('restoreModelVersion', () => {
         code: 'INTERNAL',
         message: 'partial',
         details: { code: 'RESTORE_INCOMPLETE', version_recorded: true },
+        // CONVERTED 2026-08-29, ORIGINAL PRESERVED per this file's convention:
+        //     ).toBe('incomplete')
+        // That producer no longer exists. Swept whole-repo at CEE staging
+        // `f18d941b`: `RESTORE_INCOMPLETE` appears 3 times, ALL comments in
+        // `tests/integration/c4-canonical-state-restore.contract.test.ts`, and
+        // ZERO times in `src/` (contrast controls, same run: VERSION_STALE 2
+        // files, MUTATION_ID_REUSED 2, VERSION_NOT_FOUND 1,
+        // RESTORE_PAYLOAD_INVALID 1; fabricated marker 0). CEE's C8 atomic RPC
+        // removed the partial-restore state, so a 503 that is not
+        // VERSIONS_DISABLED is now plainly `unavailable`. The fixture is KEPT
+        // (not deleted) so the arm stays covered if that code ever returns.
       }),
     )
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
-    ).toBe('incomplete')
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
+    ).toBe('unavailable')
   })
 
   // CONVERTED v1 → v2, AND RE-AIMED. Original fixture was a v1 envelope with
@@ -461,7 +490,12 @@ describe('restoreModelVersion', () => {
       }),
     )
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
     ).toBe('unusable')
   })
 
@@ -480,7 +514,12 @@ describe('restoreModelVersion', () => {
       }),
     )
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
     ).toBe('unusable')
   })
 
@@ -488,7 +527,12 @@ describe('restoreModelVersion', () => {
     fetchSpy.mockResolvedValue(
       jsonResponse(503, { schema: 'error.v1', code: 'INTERNAL', message: 'down' }),
     )
-    await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })
+    await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })
@@ -601,6 +645,7 @@ describe('restoreModelVersion — v2', () => {
     const result = await restoreModelVersion(SCENARIO, {
       userId: USER,
       versionId: VERSION_A,
+      mutationId: LEGACY_MUTATION_ID,
       expectedGraphIdentityHash: HASH_A,
     })
 
@@ -618,7 +663,12 @@ describe('restoreModelVersion — v2', () => {
     ;(body.receipt as Record<string, unknown>).graph = null
     fetchSpy.mockResolvedValue(jsonResponse(200, body))
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
     ).toBe('unusable')
   })
 
@@ -627,7 +677,116 @@ describe('restoreModelVersion — v2', () => {
     delete body.receipt
     fetchSpy.mockResolvedValue(jsonResponse(200, body))
     expect(
-      (await restoreModelVersion(SCENARIO, { userId: USER, versionId: VERSION_A })).status,
+      (await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: LEGACY_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })).status,
     ).toBe('unusable')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE C8-A CONTRACT SKEW — restore has been 100% non-functional since 26 Aug.
+//
+// CEE commit `4c29c5b5` ("C8-A integration", 26 Aug) made two changes to
+// `RestoreBodySchema` that this adapter was never updated for. Derived at the
+// bytes, CEE staging `f18d941b`, `src/routes/assist.v1.scenario-versions.ts`
+// :224-229:
+//     version_id:                   z.string().uuid()
+//     mutation_id:                  z.string().uuid()      ← ADDED, REQUIRED
+//     label:                        z.string().min(1).max(200).optional()
+//     expected_graph_identity_hash: Sha256Hex.nullable()   ← was .optional()
+//
+// `.nullable()` is a REQUIRED KEY WITH A NULLABLE VALUE, not an optional one.
+// The route hands the key through unconditionally (:934-941,
+// `expected_graph_identity_hash: body.expected_graph_identity_hash`), so an
+// OMITTED key arrives as `undefined` and `.nullable()` rejects it — 422
+// `RESTORE_PAYLOAD_INVALID`. That is the whole defect.
+//
+// ⚠ THE REQUEST MUTATION ID IS DELIBERATELY *NOT* `MUTATION_ID`. That constant
+// is the RECEIPT's id in the response fixture above. Asserting the request
+// carries a DISTINCT constant is what makes these tests bind to the outgoing
+// bytes rather than passing on a value the fixture already supplies — the
+// "guard agreeing with itself" shape (CLAUDE.md trap 13b/19).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const REQUEST_MUTATION_ID = 'ffffffff-6666-4666-8666-ffffffffffff'
+
+describe('restoreModelVersion — the C8-A required fields reach the wire', () => {
+  it('sends mutation_id as the caller minted it, bound to the OUTGOING body', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, restoreBodyV2()))
+
+    await restoreModelVersion(SCENARIO, {
+      userId: USER,
+      versionId: VERSION_A,
+      mutationId: REQUEST_MUTATION_ID,
+      expectedGraphIdentityHash: HASH_A,
+    })
+
+    const [, init] = fetchSpy.mock.calls[0]
+    const sent = JSON.parse(init.body)
+    // Identity-bound: the REQUEST's id, never the receipt fixture's.
+    expect(sent.mutation_id).toBe(REQUEST_MUTATION_ID)
+    expect(sent.mutation_id).not.toBe(MUTATION_ID)
+  })
+
+  it('sends expected_graph_identity_hash as a REQUIRED key, present even when null', async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(200, restoreBodyV2()))
+
+    await restoreModelVersion(SCENARIO, {
+      userId: USER,
+      versionId: VERSION_A,
+      mutationId: REQUEST_MUTATION_ID,
+      expectedGraphIdentityHash: null,
+    })
+
+    const [, init] = fetchSpy.mock.calls[0]
+    const sent = JSON.parse(init.body)
+    // The KEY must exist. `.nullable()` rejects `undefined`, and an omitted
+    // JSON key IS `undefined` at the server — this is the 422 being fixed.
+    expect(Object.prototype.hasOwnProperty.call(sent, 'expected_graph_identity_hash')).toBe(true)
+    expect(sent.expected_graph_identity_hash).toBeNull()
+  })
+})
+
+describe('restoreModelVersion — deterministic refusals are not reported as transient', () => {
+  /** Every arm here is PERMANENT until something other than a retry changes. */
+  async function refuse(status: number, code: string) {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(status, { schema: 'error.v1', code: 'BAD_INPUT', message: 'no', details: { code } }),
+    )
+    return (
+      await restoreModelVersion(SCENARIO, {
+        userId: USER,
+        versionId: VERSION_A,
+        mutationId: REQUEST_MUTATION_ID,
+        expectedGraphIdentityHash: HASH_A,
+      })
+    ).status
+  }
+
+  it('separates MUTATION_ID_REUSED from the CAS conflict — both are 409', async () => {
+    // CEE emits TWO different 409s on this route: VERSION_STALE (:475-486,
+    // recoverable by refreshing) and MUTATION_ID_REUSED (:1213-1222, a client
+    // fault that a retry with the same id repeats forever). Collapsing them
+    // renders "The model changed since you looked" over a model that did not.
+    expect(await refuse(409, 'MUTATION_ID_REUSED')).toBe('mutationIdReused')
+    expect(await refuse(409, 'VERSION_STALE')).toBe('conflict')
+  })
+
+  it('names a version that cannot be restored at all, rather than "right now"', async () => {
+    // 422 VERSION_GRAPH_INCOMPATIBLE (empty_graph) and 422
+    // GRAPH_INVARIANT_VIOLATION are properties of the STORED VERSION. No
+    // number of retries changes either.
+    expect(await refuse(422, 'VERSION_GRAPH_INCOMPATIBLE')).toBe('versionNotRestorable')
+    expect(await refuse(422, 'GRAPH_INVARIANT_VIOLATION')).toBe('versionNotRestorable')
+  })
+
+  it('names a rejected payload as a fault in this app, not a transient server state', async () => {
+    // This is the 422 the C8-A skew produced. If it ever returns it is OUR
+    // bug, and "try again" would be a lie.
+    expect(await refuse(422, 'RESTORE_PAYLOAD_INVALID')).toBe('payloadRejected')
   })
 })

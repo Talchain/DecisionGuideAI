@@ -45,16 +45,26 @@
  * restore copies the STORED version's graph server-side. The request schemas
  * have nowhere to put client bytes, and this client never tries.
  *
- * WRITES ARE NEVER AUTO-RETRIED. Retrying a partial restore is SAFE (no
- * data loss either way) but it is the USER's decision, surfaced through the
- * typed `incomplete` / `conflict` outcomes, never the transport's — and the
- * mechanism matters (measured, review of #744): a retry with the SAME
- * expected head hash answers 409 (the server's own pre-restore machinery
- * already moved the head), so a bare transport retry would spin on
- * conflicts. A retry AFTER re-reading the list (fresh head hash) completes
- * the restore, at the cost of two more appended version rows per attempt.
- * The section refreshes the list on `incomplete`/`conflict` for exactly
- * this reason.
+ * WRITES ARE NEVER AUTO-RETRIED. Retrying is the USER's decision, surfaced
+ * through the typed outcomes, never the transport's — and the mechanism
+ * matters (measured, review of #744): a retry with the SAME expected head
+ * hash answers 409 (the server's own pre-restore machinery already moved the
+ * head), so a bare transport retry would spin on conflicts. A retry AFTER
+ * re-reading the list (fresh head hash) completes the restore. The section
+ * refreshes the list on `conflict` for exactly this reason.
+ *
+ * ⚠ THE `incomplete` OUTCOME WAS REMOVED, NOT RENAMED (2026-08-29). It mapped
+ * 503 + `RESTORE_INCOMPLETE`, the partial-restore state that existed before
+ * CEE's C8 atomic RPC. Swept whole-repo at CEE staging `f18d941b`:
+ * `RESTORE_INCOMPLETE` appears THREE times, all of them COMMENTS in
+ * `tests/integration/c4-canonical-state-restore.contract.test.ts`, and ZERO
+ * times in `src/` (contrast controls in the same run: VERSION_STALE 2 files,
+ * MUTATION_ID_REUSED 2 files, VERSION_NOT_FOUND 1, RESTORE_PAYLOAD_INVALID 1;
+ * fabricated marker 0). One RPC now owns graph + undo + version + head + event,
+ * so there is no partial state left to report. Its copy said "restoring the
+ * version again will complete it" — which, against a server that resolves
+ * replay BEFORE the CAS, would have been an outright lie. Deleting provably
+ * dead code is not hiding; leaving that sentence reachable would have been.
  */
 
 import { logger } from '../../lib/logger'
@@ -158,13 +168,29 @@ export type RestoreModelVersionResult =
       requestId: string | null
     }
   | { status: 'signInRequired' }
+  /** 409 VERSION_STALE — the model moved. RECOVERABLE: refresh, then retry. */
   | { status: 'conflict' }
   | { status: 'versionNotFound' }
-  /** The version row was recorded but the working graph write failed. A
-   *  retry completes it ONLY with a re-read head hash (a same-hash retry
-   *  409s; a refreshed retry appends two more version rows and lands the
-   *  graph — no data loss either way). See the header. */
-  | { status: 'incomplete' }
+  /**
+   * 409 MUTATION_ID_REUSED — this restore identity was already spent on a
+   * DIFFERENT target. Deterministic: repeating the same request repeats the
+   * same 409 forever. Distinct from `conflict` because the model did not
+   * change, and saying it did would be a false statement about the model.
+   */
+  | { status: 'mutationIdReused' }
+  /**
+   * 422 VERSION_GRAPH_INCOMPATIBLE ∪ GRAPH_INVARIANT_VIOLATION — a property of
+   * the STORED VERSION (empty graph / structural violation), not of this
+   * attempt. Permanent for that version; another version may restore fine.
+   */
+  | { status: 'versionNotRestorable' }
+  /**
+   * 422 RESTORE_PAYLOAD_INVALID — the server rejected OUR bytes. This is the
+   * arm the 26 Aug C8-A skew sat on for three days while the UI told users
+   * the restore "could not be restored right now". It is a fault in this
+   * client, it is deterministic, and it must never invite a retry.
+   */
+  | { status: 'payloadRejected' }
   | { status: 'notReadable' }
   | { status: 'disabled' }
   | { status: 'unavailable' }
@@ -186,8 +212,29 @@ interface CommonOptions {
 
 export interface RestoreOptions extends CommonOptions {
   versionId: string
-  /** The head identity hash the user was shown — the CAS expectation. */
-  expectedGraphIdentityHash?: string
+  /**
+   * The head identity hash the user was shown — the CAS expectation.
+   *
+   * ⚠ REQUIRED KEY, NULLABLE VALUE — deliberately not `?:`. CEE spells it
+   * `Sha256Hex.nullable()` (`assist.v1.scenario-versions.ts:228`) and hands
+   * the key through UNCONDITIONALLY (:934-941), so an omitted key arrives as
+   * `undefined` and is REJECTED. An optional field here is exactly how this
+   * surface broke: `?:` let the call site drop the key with no diagnostic.
+   * Required-and-nullable makes the omission a compile error instead.
+   *
+   * `null` is NOT an opt-out. The CAS is `IS DISTINCT FROM`
+   * (`20260824200000_c8_atomic_model_version_restore.sql:360-367`, "NULL is a
+   * meaningful expected absence … without a bypass"), so null ASSERTS that
+   * the model is currently empty and 409s when it is not. Only pass null when
+   * that absence has actually been observed.
+   */
+  expectedGraphIdentityHash: string | null
+  /**
+   * The idempotency key for ONE restore gesture. FRESH PER GESTURE — see the
+   * minting site in `ServerVersionsSection.handleRestore` for why reuse is a
+   * correctness hazard rather than an optimisation.
+   */
+  mutationId: string
   label?: string
 }
 
@@ -473,9 +520,11 @@ export async function restoreModelVersion(
 ): Promise<RestoreModelVersionResult> {
   const payload = identityBody(opts.userId)
   payload.version_id = opts.versionId
-  if (opts.expectedGraphIdentityHash !== undefined) {
-    payload.expected_graph_identity_hash = opts.expectedGraphIdentityHash
-  }
+  // UNCONDITIONAL, both of them. A conditional spread is what shipped the
+  // 26 Aug defect: CEE requires these KEYS, and a key omitted by a `?:` guard
+  // is indistinguishable at the server from one deliberately left out.
+  payload.mutation_id = opts.mutationId
+  payload.expected_graph_identity_hash = opts.expectedGraphIdentityHash
   if (typeof opts.label === 'string' && opts.label.trim().length > 0) {
     payload.label = opts.label.trim().slice(0, 200)
   }
@@ -484,9 +533,29 @@ export async function restoreModelVersion(
 
   if (outcome.kind === 'http') {
     const code = detailsCode(outcome.body)
-    if (outcome.status === 409) return { status: 'conflict' }
+    // ⚠ TWO DIFFERENT 409s ON THIS ROUTE, and they answer different
+    // questions. VERSION_STALE (route :475-486) means the model moved —
+    // recoverable. MUTATION_ID_REUSED (:1213-1222) means this identity was
+    // already spent on another target — the model did NOT move, and rendering
+    // "the model changed" over it would be a false statement about the model.
+    // Read the code BEFORE the status, or the first arm swallows the second.
+    if (outcome.status === 409) {
+      return code === 'MUTATION_ID_REUSED'
+        ? { status: 'mutationIdReused' }
+        : { status: 'conflict' }
+    }
     if (outcome.status === 404 && code === 'VERSION_NOT_FOUND') return { status: 'versionNotFound' }
-    if (outcome.status === 503 && code === 'RESTORE_INCOMPLETE') return { status: 'incomplete' }
+    // Deterministic 422s. Without these three the caller falls to `unusable`,
+    // whose copy reads as transient — the exact defect this PR exists to fix.
+    if (
+      outcome.status === 422 &&
+      (code === 'VERSION_GRAPH_INCOMPATIBLE' || code === 'GRAPH_INVARIANT_VIOLATION')
+    ) {
+      return { status: 'versionNotRestorable' }
+    }
+    if (outcome.status === 422 && code === 'RESTORE_PAYLOAD_INVALID') {
+      return { status: 'payloadRejected' }
+    }
   }
   const refusal = sharedRefusal(outcome)
   if (refusal) return refusal

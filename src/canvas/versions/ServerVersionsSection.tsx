@@ -55,6 +55,95 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export const SERVER_VERSIONS_DISCLOSURE =
   'Shared versions are stored with the scenario. Anyone who can open this scenario can see and restore them, from any browser.'
 
+/**
+ * A fresh restore identity, one per GESTURE.
+ *
+ * ⚠ WHY FRESHNESS IS A SAFETY PROPERTY, NOT AN OPTIMISATION. CEE's restore RPC
+ * resolves replay BEFORE the CAS and says so itself
+ * (`20260824200000_c8_atomic_model_version_restore.sql:311-314`): "A successful
+ * original call may legitimately be retried after later graph changes; it
+ * returns the original operation receipt and performs no writes."
+ *
+ * So a REUSED id on a genuinely-new restore of the same version — restore v1,
+ * edit, restore v1 again — returns HTTP 200, `restored: true` and a real
+ * receipt WHILE THE SERVER'S WORKING GRAPH IS NEVER REVERTED. The wire cannot
+ * tell: CEE computes `replayed` and only LOGS it, and the response schema is
+ * `.strict()` without it. We would then reconcile the canvas to the old graph
+ * and tell the user "the shared model and this canvas now show that version",
+ * which would be false about the shared model. A fabricated success is worse
+ * than the honest 422 this PR removes.
+ *
+ * DO NOT hoist this, memoise it per versionId, or derive it from
+ * (scenarioId, versionId). The append path's `deterministicMutationId` is NOT
+ * a precedent: there a `turn_id` already identifies the logical mutation, and
+ * a restore gesture has no such pre-existing identity. Reuse is correct only
+ * WITHIN one gesture, and there is no in-gesture retry to serve — `postOnce`
+ * issues exactly one fetch. The user clicking Restore again is a NEW gesture
+ * and must get a NEW id. If an automatic retry of a timed-out restore is ever
+ * added, THAT retry reuses this id; nothing else ever does.
+ *
+ * Shape follows `conversation/systemEvents.ts:51-61` — the only UUID-valid
+ * fallback in this tree. Deliberately NOT `utils/idempotency.ts`, whose
+ * fallback returns `idk_<hex>_<hex>` and would fail CEE's `z.string().uuid()`,
+ * reproducing this very defect somewhere far harder to see.
+ */
+function newRestoreMutationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16)
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+/**
+ * ── OUTCOME COPY ────────────────────────────────────────────────────────────
+ * Every string here begins "Nothing was changed" because on every one of these
+ * arms nothing was. The rule they exist to enforce: NO STRING MAY IMPLY A
+ * RETRY WILL HELP WHERE THE FAILURE IS DETERMINISTIC. The old single default
+ * ("The version could not be restored right now. Nothing was changed.") was
+ * literally true and read as transient — it was the copy shown for three days
+ * while restore was 100% broken by a contract skew no retry could clear.
+ */
+
+/** We hold no observed head, so we cannot state the CAS expectation. */
+export const RESTORE_NO_KNOWN_HEAD =
+  'Nothing was changed. Olumi cannot tell which state this shared model is in, so it will not replace it. Reload the page to see the current shared model and its versions.'
+
+/** A property of the STORED VERSION. Permanent for that version. */
+export const RESTORE_VERSION_NOT_RESTORABLE =
+  'That version cannot be restored: its stored model is empty or structurally invalid. Nothing was changed, and repeating this will not help. Restore a different version.'
+
+/**
+ * Our bytes were refused. `payloadRejected` and `mutationIdReused` stay
+ * DISTINCT statuses — they are different diagnoses and are logged apart — but
+ * they share this string because the user's question ("what can I do?") has
+ * one honest answer: nothing, this is ours to fix. That is one question with
+ * one answer, not two questions collapsed under one name.
+ */
+export const RESTORE_CLIENT_FAULT =
+  'Nothing was changed. Olumi sent this server a request it rejected, so this is a fault in Olumi and not in your model. Repeating it will not help — please report it.'
+
+/** The identity we SENT was empty: the session lapsed between render and click. */
+export const RESTORE_SESSION_ENDED =
+  'Nothing was changed. Your session has ended. Sign in again, then restore.'
+
+/**
+ * We sent a real user id and were still refused as signed-out. Telling a
+ * signed-in user that this "requires sign-in" is simply false, and it was the
+ * copy shown to any signed-in user on a scenario with no owner row.
+ */
+export const RESTORE_REFUSED_WHILE_SIGNED_IN =
+  'Nothing was changed. The server refused this restore as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
+
+export const SAVE_SESSION_ENDED =
+  'Nothing was saved. Your session has ended. Sign in again, then save.'
+
+export const SAVE_REFUSED_WHILE_SIGNED_IN =
+  'Nothing was saved. The server refused this save as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
+
 export const SERVER_VERSIONS_SIGNIN =
   'Sign in to save shared versions. Version history for the shared model is available when you are signed in; the local history above still works in this browser.'
 
@@ -222,7 +311,13 @@ export function ServerVersionsSection() {
         setMessage('There is no model content to version yet. Add to your model, then save.')
         return
       case 'signInRequired':
-        setMessage('Saving shared versions requires sign-in.')
+        // Same split as the restore arm. This is the branch a SIGNED-IN user
+        // hits on a scenario with no owner row (CEE raises MV001
+        // "requires sign-in" when `scenarios.user_id` is NULL), so the old
+        // copy was shown precisely to people who were already signed in.
+        setMessage(
+          identity.userId === null ? SAVE_SESSION_ENDED : SAVE_REFUSED_WHILE_SIGNED_IN,
+        )
         return
       case 'conflict':
         setMessage('The model changed since you last loaded it. Refresh and try again.')
@@ -239,22 +334,45 @@ export function ServerVersionsSection() {
 
   const handleRestore = async (versionId: string) => {
     if (typeof scenarioId !== 'string' || phase.kind !== 'ready') return
-    setBusy(true)
-    setMessage(null)
-    setArmedVersionId(null)
 
     // The CAS expectation is the CURRENT head's identity hash — the state the
     // list showed the user. The server chains it through its own pre-restore
     // snapshot, so a concurrent change fails loudly instead of silently losing.
     const head =
       phase.versions.find((v) => v.id === phase.currentVersionId) ?? phase.versions[0]
+
+    setArmedVersionId(null)
+
+    // ⚠ NO HEAD ⇒ NO CALL. We must send `expected_graph_identity_hash`, and
+    // `null` is NOT an opt-out: CEE's CAS is `IS DISTINCT FROM`, so null
+    // ASSERTS "this model is currently empty" and 409s when it is not — which
+    // this panel would then render as "the model changed since you looked",
+    // a false statement about a model that did not change. Omitting the key
+    // is worse still: that is the 422 this PR exists to fix. With nothing
+    // observed we can make no claim, so we refuse and say so. (Reachable only
+    // when an undo is offered while the refreshed list came back empty; the
+    // undo target still exists server-side, which is why the copy points at a
+    // reload rather than declaring it lost.)
+    if (head === undefined) {
+      logger.warn('server_versions.restore_refused_no_known_head', { scenarioId, versionId })
+      setMessage(RESTORE_NO_KNOWN_HEAD)
+      return
+    }
+
+    setBusy(true)
+    setMessage(null)
+
+    // Fresh, per gesture. See `newRestoreMutationId` for why this must not be
+    // hoisted, memoised or derived.
+    const mutationId = newRestoreMutationId()
     // Both fields from ONE read — see the note on `handleSave`.
     const identity = await getSessionIdentity()
     const result = await restoreModelVersion(scenarioId, {
       userId: identity.userId,
       accessToken: identity.accessToken,
       versionId,
-      ...(head !== undefined ? { expectedGraphIdentityHash: head.graphIdentityHash } : {}),
+      mutationId,
+      expectedGraphIdentityHash: head.graphIdentityHash,
     })
     if (!mountedRef.current) return
     setBusy(false)
@@ -296,21 +414,29 @@ export function ServerVersionsSection() {
         setMessage('The model changed since you looked. The list has been refreshed — try again.')
         await refresh()
         return
-      case 'incomplete':
-        // Refresh BEFORE inviting a retry: a retry with the stale head hash
-        // answers 409 (the server's pre-restore machinery already moved the
-        // head — measured in review); with the refreshed head it completes.
-        setMessage(
-          'The restore did not complete: the version was recorded but the working model was not updated. The list has been refreshed — restoring the version again will complete it. No work is lost.',
-        )
+      case 'mutationIdReused':
+      case 'payloadRejected':
+        logger.warn('server_versions.restore_refused_client_fault', {
+          scenarioId,
+          status: result.status,
+        })
+        setMessage(RESTORE_CLIENT_FAULT)
+        return
+      case 'versionNotRestorable':
+        setMessage(RESTORE_VERSION_NOT_RESTORABLE)
         await refresh()
         return
       case 'versionNotFound':
-        setMessage('That version is no longer available.')
+        setMessage('That version is no longer available. Nothing was changed.')
         await refresh()
         return
       case 'signInRequired':
-        setMessage('Restoring shared versions requires sign-in.')
+        // Split on the identity we ACTUALLY SENT, not on `useAuth`. A lapsed
+        // session is the user's to fix; a refusal carrying a real user id is
+        // ours, and "requires sign-in" would be false to their face.
+        setMessage(
+          identity.userId === null ? RESTORE_SESSION_ENDED : RESTORE_REFUSED_WHILE_SIGNED_IN,
+        )
         return
       case 'disabled':
         setPhase({ kind: 'disabled' })
@@ -473,8 +599,9 @@ export function ServerVersionsSection() {
                         data-testid="server-restore-confirm"
                       >
                         <p className={`${typography.panelBody} text-text-body`}>
-                          Replace the current shared model with v{version.versionNumber}? The
-                          current state is saved first, so you can undo.
+                          Replace the current shared model with v{version.versionNumber}?
+                          Everyone who can open this scenario sees the change, and analyses
+                          recompute from it. The current state is saved first, so you can undo.
                         </p>
                         <div className="flex items-center gap-2">
                           <button
