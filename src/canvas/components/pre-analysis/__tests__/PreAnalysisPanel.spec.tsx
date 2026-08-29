@@ -435,7 +435,10 @@ describe('PreAnalysisPanel', () => {
         evidenceQuality: { level: 'high', ratio: 0.8, nonAiCount: 4, totalCount: 5 },
         reviewedFactorsCount: 3,
         totalReviewableFactorsCount: 5,
-        ceeQuality: { structure: 8 },
+        // `overall` is the one score CEE always sends and the only required
+        // field on `CeeQualityDimensions`; the others are optional because the
+        // producer's own schema makes them optional.
+        ceeQuality: { overall: 8, structure: 8 },
         successThreshold: 0.7,
       }))
 

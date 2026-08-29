@@ -71,11 +71,35 @@ interface ModelHealthSectionProps {
 
 // ── Quality score row ──────────────────────────────────────────────────────────
 
-function QualityRow({ label, score }: { label: string; score: number }) {
+/**
+ * One quality sub-score.
+ *
+ * ⚠ `score` IS OPTIONAL AND THE UNSCORED ARM IS FIRST-CLASS, not a fallthrough.
+ * Every dimension is `.optional()` in CEE's own schema, and `causality` is one
+ * CEE does not compute at all — it renamed the field to `structural_proxy`
+ * because the number measures structural completeness, not causal validity.
+ * Ingestion used to hide that by filling the gap with `overall`, so this row
+ * printed a colour bar and a digit for an assessment nobody made.
+ *
+ * The bar is a PRE-ATTENTIVE verdict — read before the number and rarely
+ * re-examined — so an unscored dimension must not render one. There is
+ * deliberately no `score = 0` path: zero is a legitimate score and would paint
+ * red, which is a different lie.
+ */
+function QualityRow({ label, score }: { label: string; score?: number }) {
+  const testId = `quality-row-${label.toLowerCase()}`
+  if (typeof score !== 'number' || !Number.isFinite(score)) {
+    return (
+      <div className="flex items-center gap-2" data-testid={testId}>
+        <span className={`${typography.panelMeta} text-text-light w-20 shrink-0`}>{label}</span>
+        <span className={`${typography.panelMeta} text-text-light italic`}>Not scored</span>
+      </div>
+    )
+  }
   const pct = Math.min(100, Math.max(0, (score / 10) * 100))
   const barColour = score >= 7 ? 'bg-success' : score >= 4 ? 'bg-warning' : 'bg-danger'
   return (
-    <div className="flex items-center gap-2" data-testid={`quality-row-${label.toLowerCase()}`}>
+    <div className="flex items-center gap-2" data-testid={testId}>
       <span className={`${typography.panelMeta} text-text-light w-20 shrink-0`}>{label}</span>
       <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
         <div
@@ -251,6 +275,17 @@ function ModelHealthSectionInner({
               <QualityRow label="Coverage" score={ceeQuality.coverage} />
               <QualityRow label="Safety" score={ceeQuality.safety} />
             </div>
+            {/* Says WHY causality is unscored rather than leaving a bare gap.
+                Kept OUTSIDE the row so the row itself carries no digit — the
+                spec asserts that, because a digit in this line would read as
+                the score. */}
+            {ceeQuality.causality == null && (
+              <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
+                Olumi scores how complete and well-formed your model is. It does not
+                score whether the causal claims in it are true — that needs evidence
+                you and your team supply.
+              </p>
+            )}
           </div>
         )}
 

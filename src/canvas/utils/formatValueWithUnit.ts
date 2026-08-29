@@ -33,9 +33,40 @@ export function qualitativeLabel(v: number): string {
 
 /** Locale-aware number formatter with thousand separators for values ≥ 1000. */
 const NUMBER_FMT = new Intl.NumberFormat('en-GB')
+
+/**
+ * Values below 1000 — every strength, probability, ratio and rescaled
+ * coefficient — bounded to four decimal places.
+ *
+ * ⚠ THIS BRANCH WAS `String(n)`, AND THE GUARD WAS INVERTED RELATIVE TO RISK:
+ * large values (typically a user's own round figure) were formatted, small ones
+ * went out at full float width. Measured on a 104-edge corpus from five dated
+ * append-only staging captures, **30 of 104 shipped causal-edge means carry more
+ * than four decimal places** — e.g. `0.24782608695652172`. They are minted by a
+ * rescale (CEE `repair/graph-enforcement.ts:257-263`, a raw float division) and
+ * nothing rounds them after: UI ingest clamps but does not round
+ * (`applyDraftResult.ts:98`), so all seventeen significant figures reached the
+ * screen. Seventeen figures assert a precisely-known quantity for an estimate
+ * that is not stable even in its ORDERING between two independent passes
+ * (Spearman rho 0.325 global, 0.077 on one brief).
+ *
+ * FOUR is the measurement's own threshold, so this removes exactly the class
+ * measured as wrong and nothing else — and it is deliberately GENEROUS, because
+ * this helper renders user-scale figures as often as model-derived ones and a
+ * tighter bound would round away precision the user actually supplied.
+ *
+ * The `>= 1000` branch is untouched: en-GB defaults to three fraction digits
+ * there, so widening it would ADD a digit — the wrong direction — and no
+ * measurement implicates it.
+ *
+ * SCOPE: this changes how precisely a number is CLAIMED, never which number is
+ * shown, whether it is shown, or anything that is stored.
+ */
+const BOUNDED_FMT = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 4 })
+
 export function formatNumber(n: number): string {
   if (Math.abs(n) >= 1000) return NUMBER_FMT.format(n)
-  return String(n)
+  return BOUNDED_FMT.format(n)
 }
 
 /**

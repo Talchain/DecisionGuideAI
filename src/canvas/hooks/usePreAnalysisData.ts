@@ -70,9 +70,13 @@ export interface NormalisedAction {
  * Quality scores from CEE
  */
 export interface QualityScores {
-  structure: number
-  coverage: number
-  safety: number
+  // Optional for the same reason as `CeeQualityDimensions`: each of these is
+  // `.optional()` in CEE's own quality schema, so "the producer did not score
+  // this" is a state that must be representable. It previously was not, and
+  // ingestion filled the gap with `overall` — see `readCeeQualityDimensions`.
+  structure?: number
+  coverage?: number
+  safety?: number
 }
 
 /**
@@ -458,12 +462,29 @@ export function getLimitingFactor(
     return { label: 'Model quality unknown', hasActiveIssues: false }
   }
 
-  const dimensions = [
+  // ⚠ RANK ONLY WHAT THE PRODUCER SCORED.
+  //
+  // This read `quality.structure/coverage/safety` as three numbers and returned
+  // the lowest. Ingestion used to guarantee all three existed by copying
+  // `overall` into each absent one — so when CEE sent only `overall`, all three
+  // were EQUAL and `sort` returned the first, making the panel say
+  // "Structure is limiting factor" on every such model. A stable, confident,
+  // wholly manufactured diagnosis, and the uniformity is the tell (CLAUDE.md
+  // trap 20: when a per-item query answers identically for every item, suspect
+  // the query). Absence now survives ingestion, so it must be handled here.
+  const dimensions: Array<{ name: string; score?: number }> = [
     { name: 'Structure', score: quality.structure },
     { name: 'Coverage', score: quality.coverage },
     { name: 'Validation', score: quality.safety },
   ]
-  const lowest = dimensions.sort((a, b) => a.score - b.score)[0]
+  const scored = dimensions.filter(
+    (d): d is { name: string; score: number } =>
+      typeof d.score === 'number' && Number.isFinite(d.score),
+  )
+  if (scored.length === 0) {
+    return { label: 'Model quality unknown', hasActiveIssues: false }
+  }
+  const lowest = [...scored].sort((a, b) => a.score - b.score)[0]
   return { label: `${lowest.name} is limiting factor`, hasActiveIssues: false }
 }
 

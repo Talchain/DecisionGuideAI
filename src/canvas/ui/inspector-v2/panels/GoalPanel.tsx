@@ -424,8 +424,47 @@ export const GoalPanel = memo(function GoalPanel({
                       )}
                       {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
                       {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
+                        // ⚠ BIND BY ID, NOT BY LABEL (CLAUDE.md trap 19).
+                        //
+                        // This was `cp.constraint_a_label === (c.label ?? '')`.
+                        // `ConditionalProbability.constraint_a_id` is REQUIRED
+                        // (`types/constraints.ts`) and this very block already
+                        // reads it for the React key three lines below, while
+                        // `CEEGoalConstraint.label` is optional and its own doc
+                        // says it is "genuinely absent in practice". So `?? ''`
+                        // made every UNLABELLED constraint match every row whose
+                        // `constraint_a_label` was also empty — `'' === ''` —
+                        // and printed "If … is met, probability of … changes to
+                        // N%" under a constraint the producer never conditioned
+                        // on. Two constraints sharing a label both claimed one
+                        // row, so at least one was false. This is the sibling of
+                        // the #959 `FactorNode.constraintTooltip` defect, in the
+                        // same feature, including the empty-label case #959
+                        // excluded explicitly.
+                        //
+                        // THE LABEL LEG SURVIVES, UNIQUENESS-GATED, AND THAT IS
+                        // DELIBERATE. No `conditional_probabilities` payload has
+                        // ever been witnessed in this repo — a fixture sweep for
+                        // `constraint_a_id` returns ZERO, and so does the
+                        // contrast term `joint_probability` — so PLoT's id-space
+                        // is NOT established here. An id-ONLY join could drop
+                        // every line if PLoT mints its own ids, and silently
+                        // removing a working surface to fix an attribution bug
+                        // is the "hide it" move, not a fix. The ladder is
+                        // strictly additive: every match that is correct today
+                        // still fires, and only the two provably-wrong ones stop.
+                        const constraintIdentity = c.constraint_id ?? c.id
+                        const label = typeof c.label === 'string' ? c.label.trim() : ''
+                        const labelIsUnique =
+                          label.length > 0 &&
+                          goalConstraints.filter(
+                            other => (typeof other.label === 'string' ? other.label.trim() : '') === label,
+                          ).length === 1
                         const related = conditionalProbabilities.filter(
-                          cp => (cp.constraint_a_label === (c.label ?? ''))
+                          cp => (
+                            (constraintIdentity != null && cp.constraint_a_id === constraintIdentity)
+                            || (labelIsUnique && cp.constraint_a_label === label)
+                          )
                             && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
                         )
                         if (related.length === 0) return null
