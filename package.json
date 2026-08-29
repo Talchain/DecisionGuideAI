@@ -99,6 +99,7 @@
     "ci:guard:bundle-env": "node scripts/ci/assert-bundle-env-allowlist.mjs",
     "ci:guard:bundle-credentials": "node scripts/ci/assert-no-bundle-credentials.mjs",
     "ci:guard:logger-emits": "node scripts/ci/assert-logger-emits.mjs",
+    "ci:guard:validators-deterministic": "node scripts/ci/assert-validators-deterministic.mjs",
     "generate:schemas-version": "node scripts/generate-schemas-version.mjs",
     "ci:guard:schemas-version": "node scripts/generate-schemas-version.mjs --check"
   },
