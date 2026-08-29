@@ -87,7 +87,11 @@
  *    and this unmounts, with no store write needed to retract it.
  */
 import { useCanvasStore } from '../store'
-import { useDraftStore, draftStreamGraphDeliveredFor } from '../stores/draftStore'
+import {
+  useDraftStore,
+  draftStreamGraphDeliveredFor,
+  draftStreamGraphDiscardedByFenceFor,
+} from '../stores/draftStore'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { typography } from '../../styles/typography'
 
@@ -99,8 +103,17 @@ export const SERVER_GRAPH_RETRY_LOOKING_COPY = 'Looking for your model…'
 /**
  * What actually happened when NOTHING was delivered. Presupposes nothing.
  *
- * ⚠ Only honest when this client saw no model arrive on ANY transport. The
- * re-ask alone cannot establish that — see `draftStreamGraphDeliveredFor`.
+ * ⚠ Only honest when this client saw no model arrive on ANY transport AND did
+ * not discard one itself. The re-ask alone cannot establish either — see
+ * `draftStreamGraphDeliveredFor` and `draftStreamGraphDiscardedByFenceFor`.
+ *
+ * ⚠ THE SECOND CONJUNCT WAS ADDED AFTER THIS SENTENCE SHIPPED AND WAS STILL
+ * FALSE (P0, 2026-08-29). The delivery predicate alone is keyed on the
+ * DISPATCHING scenario, and a fence discard happens only when that disagrees
+ * with the live one — so on the exact turns where a model arrived and this
+ * client dropped it, the guard written to prevent this sentence could not see
+ * it. Measured in run 33214479408: two discards carrying a graph, and this
+ * sentence on screen.
  */
 export const SERVER_GRAPH_RETRY_EXHAUSTED_COPY =
   'Olumi did not return a model for this decision.'
@@ -126,9 +139,22 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   // Scenario-keyed at the point of use, exactly like GATE 2 below: an
   // observation about another decision must never pick this decision's words.
-  const modelWasDelivered = useDraftStore((s) =>
+  const modelArrivedForThisTurn = useDraftStore((s) =>
     draftStreamGraphDeliveredFor(s, currentScenarioId ?? null),
   )
+  // The second way a model can have arrived and still not be on screen — and the
+  // ONLY way it can have happened on the turn this notice is most likely to be
+  // describing. See the field's header: when the fence fires, the dispatching and
+  // live ids differ by definition, so the predicate above is structurally unable
+  // to see it and answers false.
+  const modelDiscardedByThisClient = useDraftStore((s) =>
+    draftStreamGraphDiscardedByFenceFor(s, currentScenarioId ?? null),
+  )
+  // ⚠ THE TRUTH CONDITION FOR THE SERVER-BLAMING SENTENCE, stated once.
+  // `SERVER_GRAPH_RETRY_EXHAUSTED_COPY` asserts the SERVER returned nothing. That
+  // is only honest when this client saw no model arrive on ANY transport AND did
+  // not throw one away itself. Either observation refutes it.
+  const modelWasDelivered = modelArrivedForThisTurn || modelDiscardedByThisClient
 
   // GATE 1 — nothing to say.
   if (stage === 'idle') return null
