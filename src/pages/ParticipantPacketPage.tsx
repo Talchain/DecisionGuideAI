@@ -1130,6 +1130,32 @@ export function RevealBody({
            */
           const canApply =
             apply !== undefined && row.responses.some((r) => r.value !== null)
+          /**
+           * ⭐ THE TWO FACTS THE DIVERGENCE SENTENCE IS ALLOWED TO STATE, and
+           * they are DIFFERENT NUMBERS. `answered` counts people who gave a
+           * number; `distinctAnswers` counts the numbers themselves.
+           *
+           * ⚠ THE DEFECT THIS REPLACES. The sentence below used to be gated on
+           * `answered > 1` alone and then asserted that those people "gave
+           * different answers" — so two participants who gave the SAME number
+           * were told on screen that they had disagreed, immediately above
+           * CEE's own `aligned` headline saying they had not. The comment above
+           * it claimed it showed "how many distinct views there are"; the code
+           * counted heads. Nothing in the suite could see it: `reveal-
+           * disagreement` had one occurrence in `src/` — its own definition —
+           * so no fixture ever put two equal values on this screen.
+           *
+           * ⚠ AND THE NULLS COME OUT FIRST, which is not incidental. A decline
+           * arrives as `value: null`, so a Set built over the raw values scores
+           * one answer plus one decline as two distinct "answers" and claims a
+           * disagreement with somebody who said nothing — the same defect one
+           * step along, and the shape the obvious repair has.
+           */
+          const answeredValues = row.responses
+            .map((r) => r.value)
+            .filter((v): v is number => v !== null)
+          const answered = answeredValues.length
+          const distinctAnswers = new Set(answeredValues).size
           return (
           <section key={`${row.target.kind}:${row.target.id}`} data-testid={`reveal-target-${row.target.id}`} className={`${CARD} mt-6`}>
             {/* The owner's own words for this target. A heading that read
@@ -1248,19 +1274,40 @@ export function RevealBody({
               ))}
             </ul>
 
-            {/* ⭐ THE DISAGREEMENT AFFORDANCE. It states the SPREAD as a fact —
-                how many distinct views there are and that they were not
-                combined. It never names a winner, never averages, and never
-                calls anything resolved: there is no aggregate on this page at
-                any nesting level, by construction. */}
-            {row.responses.filter((r) => r.value !== null).length > 1 && (
+            {/* ⭐ THE DIVERGENCE AFFORDANCE. It states TWO DERIVED COUNTS as
+                facts — how many people answered, and how many distinct answers
+                they gave — and nothing else. It never names a winner, never
+                averages, and never calls anything resolved: there is no
+                aggregate on this page at any nesting level, by construction.
+
+                ⚠ The apply clause is gated on `apply`, for the same reason
+                every other apply claim in this component is: this page is
+                rendered on BOTH journeys, and a participant has no model here
+                and no button to press. CEE keeps `DISSENT_SURVIVES_APPLY` and
+                `POSITIONS_NOT_COMBINED` as two separate constants for exactly
+                this — one is a promise about a mutation, the other a claim
+                about the display, and only the second is true of every reader. */}
+            {answered > 1 && (
               <p
                 data-testid={`reveal-disagreement-${row.target.id}`}
                 className={`${typography.bodySmall} mt-3 text-text-light`}
               >
-                {row.responses.filter((r) => r.value !== null).length} people gave different
-                answers here. They are kept as they were given &mdash; applying one to your model
-                does not remove the others.
+                {distinctAnswers > 1 ? (
+                  <>
+                    {answered} people answered, with {distinctAnswers} different answers between
+                    them. They are kept as they were given
+                    {canApply ? (
+                      <> &mdash; applying one to your model does not remove the others.</>
+                    ) : (
+                      <>, and are not combined into a single number.</>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {answered} people answered, and gave the same answer. It is still shown once
+                    for each of them, as each person gave it.
+                  </>
+                )}
               </p>
             )}
 
