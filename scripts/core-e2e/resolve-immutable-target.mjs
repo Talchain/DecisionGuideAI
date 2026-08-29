@@ -235,9 +235,19 @@ const sleepReal = (ms) => new Promise((r) => setTimeout(r, ms))
  * decides what a failure means, and a throw here would collapse "transient blip"
  * and "permanently wrong" into one outcome.
  */
-async function readVersion(target, fetchImpl) {
+async function readVersion(target, fetchImpl, timeoutMs = 30_000) {
   try {
-    const r = await fetchImpl(`${normaliseTarget(target)}/version.json`, { cache: 'no-store' })
+    // ⚠ PER-REQUEST TIMEOUT, OR THE "BOUNDED" WAIT IS NOT BOUNDED. Found by using this
+    // script rather than by reading it: `fetch` has no default timeout, and the budget
+    // is only consulted BETWEEN samples — so one stalled connection hangs the resolver
+    // past any budget, and a hang looks exactly like a slow deploy. `AbortSignal` is
+    // only attached when the runtime provides it, so an injected `fetchImpl` in a test
+    // is unaffected.
+    const init = { cache: 'no-store' }
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      init.signal = AbortSignal.timeout(timeoutMs)
+    }
+    const r = await fetchImpl(`${normaliseTarget(target)}/version.json`, init)
     const text = await r.text()
     return { status: r.status, fields: r.ok ? readVersionFields(text) : null }
   } catch (e) {
@@ -257,6 +267,7 @@ export async function resolveImmutableTarget({
   expectedCommit = '',
   budgetMs = 600_000,
   pollMs = 10_000,
+  fetchTimeoutMs = 30_000,
   fetchImpl = fetch,
   sleep = sleepReal,
   now = () => Date.now(),
@@ -270,7 +281,7 @@ export async function resolveImmutableTarget({
   // "immutable" is a claim about change over time, not a claim that the URL exists
   // or that it holds the build somebody thinks it holds.
   if (isImmutableTarget(target)) {
-    const { status, fields } = await readVersion(target, fetchImpl)
+    const { status, fields } = await readVersion(target, fetchImpl, fetchTimeoutMs)
     // ⚠ HONEST NOTE ON WHICH LIMBS BITE HERE. There is no separate alias sample on
     // this path, so `matched` and `pin` are the same object and the commit-equality
     // limb is trivially satisfied — it is NOT evidence on this path. The two limbs
@@ -300,13 +311,13 @@ export async function resolveImmutableTarget({
   let last = 'no sample taken'
   for (;;) {
     samples += 1
-    const { status, fields, error } = await readVersion(target, fetchImpl)
+    const { status, fields, error } = await readVersion(target, fetchImpl, fetchTimeoutMs)
     const c = classifySample(fields, expected)
 
     if (c.verdict === 'accept') {
       log(`[core] alias resolved after ${samples} sample(s): ${c.reason}`)
       const pinUrl = fields.deployUrl
-      const p = await readVersion(pinUrl, fetchImpl)
+      const p = await readVersion(pinUrl, fetchImpl, fetchTimeoutMs)
       const verified = assertPinVerified({
         pinUrl,
         matched: fields,
@@ -378,6 +389,7 @@ if (isMain) {
     expectedCommit: process.env.CORE_EXPECT_COMMIT || '',
     budgetMs: Number(process.env.CORE_RESOLVE_BUDGET_MS || 600_000),
     pollMs: Number(process.env.CORE_RESOLVE_POLL_MS || 10_000),
+    fetchTimeoutMs: Number(process.env.CORE_RESOLVE_FETCH_TIMEOUT_MS || 30_000),
     log: (m) => process.stderr.write(`${m}\n`),
   }).catch((e) => {
     process.stderr.write(`${e.message}\n`)

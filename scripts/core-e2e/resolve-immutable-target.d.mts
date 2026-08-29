@@ -99,6 +99,10 @@ export declare function resolveImmutableTarget(options?: {
   expectedCommit?: string
   budgetMs?: number
   pollMs?: number
+  /** Per-request cap. Without it the budget is only checked BETWEEN samples, so one
+   *  stalled connection escapes it entirely and a hang is indistinguishable from a
+   *  slow deploy. */
+  fetchTimeoutMs?: number
   fetchImpl?: (url: string, init?: unknown) => Promise<{
     ok: boolean
     status: number
