@@ -16,6 +16,8 @@
 //   updateNode(id, { data: patch })                  // writes to both keys
 // ============================================================================
 
+import { classifyValueProvenance } from '../domain/valueProvenance'
+
 /** Shape of observed_state on factor nodes */
 export interface ObservedStateData {
   value?: number
@@ -61,7 +63,8 @@ export function hasObservedState(nodeData: unknown): boolean {
 
 /**
  * Check whether a factor node has actual observed data — i.e., the observed_state
- * object is present AND its `value` field is a number (not null or undefined).
+ * object is present, its `value` field is a number, AND no producer has stamped
+ * that number as the model's own invention.
  *
  * Evidence gap badge semantics:
  * - `observedState === null`      → no data (badge shows)
@@ -70,6 +73,48 @@ export function hasObservedState(nodeData: unknown): boolean {
  * - `observedState.value === 1`   → valid data (badge hidden)
  * - `observedState.value === 0.5` → valid data (badge hidden)
  * - `observedState.value == null` → no value yet (badge shows)
+ * - `observedState.source` stamped `ai` → NOT data (badge shows) — see below
+ *
+ * ⭐⭐ WHY THE SOURCE STAMP IS PART OF THIS PREDICATE (2026-08-29).
+ *
+ * CEE defaults a factor with no stated value to a neutral number and records
+ * that it did so: `adapters/llm/normalisation.ts` writes the value and
+ * `observed_state.source = 'cee_inference'` / `extractionType: 'inferred'`.
+ * Witnessed on the deployed staging build (UI `489f5fc5`, deploy permalink
+ * `6a931cc56bd89d0008ecab16`): three controllable factors on the shipped
+ * market-entry starter carried `{ value: 0, source: 'cee_inference' }` and a
+ * fourth carried `{ value: 0.5, … }`.
+ *
+ * This predicate asked only `typeof value === 'number'`, so all four answered
+ * TRUE — and `EvidenceGapBadge`, whose tooltip reads *"No observed data for
+ * X"*, was suppressed on precisely the factors that have none. **The predicate
+ * that decides whether to say "no observed data" was satisfied by the
+ * placeholder that means there is no observed data.** Proven by a
+ * within-render discriminating pair on the deployed build: three
+ * `cee_inference` controllables rendered no badge; the same node with its
+ * `observed_state` removed rendered one.
+ *
+ * ⚠ POSITIVE EVIDENCE ONLY — THE POLARITY IS THE DESIGN, NOT AN ACCIDENT. CEE's
+ * `cee/provenance/factor-value-provenance.ts` records getting this backwards:
+ * written fail-closed, a factor carrying a perfectly real number with NO stamp
+ * landed in the invented tier, and the caller then replaced real information
+ * with an assertion of ignorance it did not have. A gap wrongly hidden costs a
+ * tester a look; a gap wrongly INVENTED tells them a number they supplied is
+ * not theirs, which is the worse harm. So an absent or unrecognised `source`
+ * keeps the previous answer, and both directions are pinned in
+ * `__tests__/observedStateHelpers.spec.ts`.
+ *
+ * ⚠ THE STAMP, NOT THE MAGNITUDE. A genuinely user-stated 0.5 is indistinguishable
+ * from CEE's placeholder by value (CLAUDE.md trap 19), which is why the test is
+ * `source`. The classification is delegated to `classifyValueProvenance` — the
+ * estate's ONE authority for "who put this number here" — rather than re-typed
+ * here, so the literal set cannot drift from it (trap 12).
+ *
+ * ⚠ NOT THE SAME QUESTION AS `isFactorNeedsInput` (trap 21). This asks *"is
+ * there evidence behind this number?"*; that one asks *"must a human act on this
+ * factor before we run?"*. They are deliberately left with different answers on
+ * a stamped estimate: the amber call-to-action firing on every drafted factor
+ * would be uniform, and a uniform signal carries no information.
  *
  * Note: the pipeline does not produce `observedState.value === ''` (string). The
  * `value` field is always typed as `number | undefined`. Treating empty-string as
@@ -79,7 +124,9 @@ export function hasObservedData(nodeData: unknown): boolean {
   const obs = getObservedState(nodeData)
   // Empty object returned when key is absent — no keys means no data
   if (Object.keys(obs).length === 0) return false
-  return typeof obs.value === 'number'
+  if (typeof obs.value !== 'number') return false
+  const stamped = classifyValueProvenance(typeof obs.source === 'string' ? obs.source : null)
+  return stamped?.kind !== 'ai'
 }
 
 /**
