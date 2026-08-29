@@ -121,6 +121,20 @@ export function RecoveryBanner() {
       // belonging to the graph the user is being handed back.
       ceeAnalysisReady: readyValidation.isValid ? restoredReady : null,
       selectedGoalNode: goalNodeId,
+      // ⚠ THE RESTORED GRAPH IS NOT THE GRAPH THE FRESHNESS SLICE DESCRIBES.
+      // `analysisFreshness` is a separate slice from `ceeAnalysisReady` and is
+      // NOT restored here, so without this a retained CEE 'fresh' verdict —
+      // authored against the graph being replaced — survives the swap and the
+      // Results panel tells the user the analysis reflects the recovered model.
+      // It does not, and we cannot confirm it does.
+      //
+      // Set INLINE in the same `set()` as the graph write rather than via
+      // `markAnalysisFreshnessDirty()` afterwards, for the reason the store
+      // documents for undo/redo's atomic graph swap: a later call leaves a
+      // frame in which the graph has changed and the verdict still reads
+      // 'fresh', which is the very claim being corrected. The overlay only ever
+      // DOWNGRADES fresh → cannot-confirm; it never fabricates 'stale'.
+      analysisFreshnessDirty: true,
     })
     useCanvasStore.setState({ _externalMutationActive: Math.max(0, suppressed - 1) })
 

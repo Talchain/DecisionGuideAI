@@ -7,6 +7,7 @@ import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
 import { useCanvasStore } from './store'
+import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
@@ -1394,8 +1395,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     if (!pendingBlueprint) return
 
     // Remove all nodes/edges from existing template
-    const store = useCanvasStore.getState()
-    store.pushHistory()
 
     // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
     const currentNodes = nodesRef.current
@@ -1406,10 +1405,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       remainingNodeIds.has(e.source) && remainingNodeIds.has(e.target)
     )
 
-    useCanvasStore.setState({
+    // Committed through the ONE commit that also invalidates the
+    // analysis-freshness overlay. A bare setState here tore the outgoing
+    // template out of the graph while a retained CEE 'fresh' verdict stayed on
+    // screen, so the Results panel claimed the analysis reflected a model whose
+    // nodes had just been deleted. Pushes the same single history frame the
+    // explicit `store.pushHistory()` above used to.
+    commitGraphMutation(() => ({
       nodes: remainingNodes,
-      edges: remainingEdges
-    })
+      edges: remainingEdges,
+    }))
 
     // Insert new blueprint (Sprint 2: Handle limit errors)
     const result = insertBlueprint(pendingBlueprint)

@@ -12,6 +12,7 @@ import { useCallback } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useCanvasStore } from '../store'
+import { commitGraphMutation } from '../mutations/commitGraphMutation'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { checkLimits, formatLimitError } from '../utils/limitGuard'
@@ -128,11 +129,15 @@ export function useBlueprintInsert() {
       return newEdge
     })
     
-    // Batch update store
-    store.pushHistory()
-    useCanvasStore.setState(state => ({
-      nodes: [...state.nodes, ...newNodes],
-      edges: [...state.edges, ...newEdges]
+    // Batch update store through the ONE commit that also invalidates the
+    // analysis-freshness overlay. A bare setState here left a retained CEE
+    // 'fresh' verdict standing over a graph that had just gained a whole
+    // blueprint, so the Results panel claimed the analysis reflected a model
+    // it had never seen. `commitGraphMutation` pushes the same single history
+    // frame `store.pushHistory()` did.
+    commitGraphMutation((current) => ({
+      nodes: [...current.nodes, ...newNodes],
+      edges: [...current.edges, ...newEdges],
     }))
 
     return { nodeIdMap, newNodes, newEdges }
