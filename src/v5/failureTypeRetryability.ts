@@ -313,6 +313,24 @@ const INGRESS_NO_ACCESS_GUIDANCE =
 const INGRESS_SIGN_IN_GUIDANCE =
   "You'll need to sign in to continue — nothing was wrong with your message. Please sign in, then send it again."
 
+/**
+ * The scenario is gone and is not coming back. CEE refuses a turn that would
+ * resurrect a deleted scenario, so this refusal is CORRECT — the server-fault
+ * copy this reason used to fall through to was false in both halves ("our
+ * side isn't working", and a wait that can never succeed).
+ *
+ * Same construction as the no-access row above: states plainly what happened,
+ * exonerates the message explicitly, blames nobody, prescribes no retry, and
+ * names actions that can actually change the outcome. No apology — the copy
+ * says what happened rather than performing regret.
+ *
+ * Deliberately does NOT restate CEE's `details.recovery.suggestion`, which
+ * renders above this line when present; this stands alone for the envelope
+ * that arrives without a recovery block.
+ */
+const INGRESS_SCENARIO_DELETED_GUIDANCE =
+  'This decision has been deleted, so nothing more can be saved to it — nothing you typed was the problem. Start a new decision, or open a different one from your list.'
+
 const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
   'scenario_preflight',
   'turn_commit',
@@ -327,15 +345,17 @@ const INGRESS_SERVER_STATE_VALIDATORS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * `scenario_preflight` is NOT one failure. Its reason is a closed 3-member
- * union (`build-turn-context.ts:1227-1235`) whose members need three
- * DIFFERENT copies, and CEE names the reason precisely so the UI can tell
- * them apart:
+ * `scenario_preflight` is NOT one failure. Its reason is a closed 4-member
+ * union (`build-turn-context.ts:2192-2202`, CEE staging tip e7b9bc45) whose
+ * members need four DIFFERENT copies, and CEE names the reason precisely so
+ * the UI can tell them apart:
  *
  *   scenario_ownership_unverifiable        the oracle is down      → OUR FAULT
  *   scenario_requires_authenticated_owner  anonymous caller, owned scenario
  *                                          (IDOR fail-closed)      → SIGN IN
  *   scenario_owned_by_other_user           cross-tenant attempt    → NO ACCESS
+ *   scenario_deleted                       turn would resurrect a
+ *                                          deleted scenario       → IT'S GONE
  *
  * Collapsing these into the server-fault copy — as this module did until the
  * F1 review — tells a user whose access was CORRECTLY refused that our
@@ -348,6 +368,7 @@ const OWNERSHIP_REASON_GUIDANCE: Record<string, string> = {
   scenario_ownership_unverifiable: INGRESS_SERVER_FAULT_GUIDANCE,
   scenario_requires_authenticated_owner: INGRESS_SIGN_IN_GUIDANCE,
   scenario_owned_by_other_user: INGRESS_NO_ACCESS_GUIDANCE,
+  scenario_deleted: INGRESS_SCENARIO_DELETED_GUIDANCE,
 }
 
 const INGRESS_SIGN_IN_VALIDATOR = 'user_jwt'
