@@ -13,6 +13,7 @@
       "nodeCount": 19,
       "edgeCount": 39,
       "optionCount": 4,
+      "interventionCount": 24,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
         "ceeBuild": "cb54320",
@@ -23,6 +24,12 @@
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/vendor-selection.capture.json",
         "captureSha256": "83ce8f226f79500eef8fa04a5dc91e4c26997adbd191a294615cdf7d7120a2e8",
+        "displayValuesRederived": {
+          "reason": "capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string",
+          "artefact": "docs/evidence/starters/rederived-analysis-ready.json",
+          "ceeSha": "92e4c14d7a791afc37737e01ab17da25d2bd4508",
+          "rederivedAt": "2026-08-29"
+        },
         "note": "RECAPTURED — original brief, 19n/39e/4opt, 56.7s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"Data Team Capacity\" was a token-subset of risk \"Data Team Capacity Strain\"."
       }
     },
@@ -34,6 +41,7 @@
       "nodeCount": 18,
       "edgeCount": 32,
       "optionCount": 3,
+      "interventionCount": 12,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
         "ceeBuild": "cb54320",
@@ -44,6 +52,12 @@
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/market-entry.capture.json",
         "captureSha256": "38f1901e04d420fbed666096a2476f83cd830b32d566a3f530b8e62c980c2a23",
+        "displayValuesRederived": {
+          "reason": "capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string",
+          "artefact": "docs/evidence/starters/rederived-analysis-ready.json",
+          "ceeSha": "92e4c14d7a791afc37737e01ab17da25d2bd4508",
+          "rederivedAt": "2026-08-29"
+        },
         "note": "RECAPTURED — original brief, 18n/32e/3opt, 56.8s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"UK Financial Services Deepening\" was a token-subset of the option of the same name. Also drafts far more reliably on cb54320 (2/2) than the 1/5 recorded on 1b9d596."
       }
     },
@@ -55,6 +69,7 @@
       "nodeCount": 19,
       "edgeCount": 37,
       "optionCount": 4,
+      "interventionCount": 14,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
         "ceeBuild": "1b9d596",
@@ -65,6 +80,12 @@
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/build-vs-buy.capture.json",
         "captureSha256": "c8b6cb0a801207dc886350af3e3121965df80977a3c5c5401b5e7c2ba43c156a",
+        "displayValuesRederived": {
+          "reason": "capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string",
+          "artefact": "docs/evidence/starters/rederived-analysis-ready.json",
+          "ceeSha": "92e4c14d7a791afc37737e01ab17da25d2bd4508",
+          "rederivedAt": "2026-08-29"
+        },
         "note": "NOT recaptured — probe idx 12, 19n/37e/4opt, 59.1s, coaching complete. The only original capture already free of label collisions, so it is left exactly as it was rather than re-rolled for tidiness."
       }
     },
@@ -76,6 +97,7 @@
       "nodeCount": 16,
       "edgeCount": 25,
       "optionCount": 4,
+      "interventionCount": 8,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
         "ceeBuild": "cb54320",
@@ -86,6 +108,12 @@
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/headcount-allocation.capture.json",
         "captureSha256": "e76efae944e70af5d5ad2f74fe53668c6b0045645e9a79b07f71d38635599fbd",
+        "displayValuesRederived": {
+          "reason": "capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string",
+          "artefact": "docs/evidence/starters/rederived-analysis-ready.json",
+          "ceeSha": "92e4c14d7a791afc37737e01ab17da25d2bd4508",
+          "rederivedAt": "2026-08-29"
+        },
         "note": "RECAPTURED — original brief, 16n/25e/4opt, 53.3s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal \"Achieve ARR Growth by Q3\" strictly contained outcome \"ARR Growth by Q3\". 1 of 3 fresh draws was collision-free."
       }
     },
@@ -97,6 +125,7 @@
       "nodeCount": 15,
       "edgeCount": 30,
       "optionCount": 4,
+      "interventionCount": 12,
       "provenance": {
         "source": "POST https://cee-staging.onrender.com/assist/v1/draft-graph",
         "ceeBuild": "cb54320",
@@ -107,6 +136,12 @@
         "coachingStatus": "complete",
         "captureFile": "docs/evidence/starters/raw/pricing-model.capture.json",
         "captureSha256": "1fdbe700b34dc2433ca02daaaa8b86f1c76a1de2b8dd1adfb9d984c7953a4136",
+        "displayValuesRederived": {
+          "reason": "capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string",
+          "artefact": "docs/evidence/starters/rederived-analysis-ready.json",
+          "ceeSha": "92e4c14d7a791afc37737e01ab17da25d2bd4508",
+          "rederivedAt": "2026-08-29"
+        },
         "note": "RECAPTURED — original brief, 15n/30e/4opt, 50.4s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal strictly contained outcome \"Net Revenue Retention\". 1 of 3 fresh draws was collision-free."
       }
     }

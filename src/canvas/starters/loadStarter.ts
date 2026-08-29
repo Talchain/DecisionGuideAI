@@ -33,6 +33,20 @@ export interface StarterProvenance {
   coachingStatus: string | null
   captureFile: string
   captureSha256: string
+  /**
+   * Disclosed, not hidden: the shipped graph is the captured graph, but its
+   * `analysis_ready` display STRINGS were re-derived through CEE's post-#944
+   * guarded transform, because the captures predate the `sitsAtObservedState`
+   * fix and every option borrowed its factor's baseline string. Values, nodes,
+   * edges and counts are the capture's own — the build script asserts no number
+   * moved. See `scripts/build-starter-fixtures.mjs`.
+   */
+  displayValuesRederived: {
+    reason: string
+    artefact: string
+    ceeSha: string
+    rederivedAt: string
+  }
   note: string
 }
 
@@ -47,6 +61,12 @@ export interface StarterSummary {
   nodeCount: number
   edgeCount: number
   optionCount: number
+  /**
+   * Total option×factor interventions. Pinned by the integrity spec so the
+   * display-coherence guards cannot go vacuous — an absence assertion over an
+   * empty collection passes for free, so the collection's size is pinned too.
+   */
+  interventionCount: number
   provenance: StarterProvenance
 }
 

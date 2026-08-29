@@ -939,7 +939,7 @@
           "fac_eng_headcount": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           }
         },
         "extraction_metadata": {
@@ -953,7 +953,7 @@
             "normalised_value": 0
           },
           "fac_eng_headcount": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           }
         }
@@ -967,7 +967,7 @@
           "fac_ae_headcount": {
             "value": 0.75,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "High (0.75)"
           },
           "fac_eng_headcount": {
             "value": 0,
@@ -982,7 +982,7 @@
         },
         "intervention_details": {
           "fac_ae_headcount": {
-            "display_value": "Low (0)",
+            "display_value": "High (0.75)",
             "normalised_value": 0.75
           },
           "fac_eng_headcount": {
@@ -1000,12 +1000,12 @@
           "fac_ae_headcount": {
             "value": 0.5,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Moderate (0.5)"
           },
           "fac_eng_headcount": {
             "value": 0.5,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Moderate (0.5)"
           }
         },
         "extraction_metadata": {
@@ -1015,11 +1015,11 @@
         },
         "intervention_details": {
           "fac_ae_headcount": {
-            "display_value": "Low (0)",
+            "display_value": "Moderate (0.5)",
             "normalised_value": 0.5
           },
           "fac_eng_headcount": {
-            "display_value": "Low (0)",
+            "display_value": "Moderate (0.5)",
             "normalised_value": 0.5
           }
         }

@@ -26,9 +26,48 @@
  * is exactly the hand-maintained mirror that would go stale on the next
  * recapture (CLAUDE.md trap 12).
  *
- * The ONLY transformation applied is deletion of two purely diagnostic
- * top-level keys (see STRIPPED_KEYS). Nothing is rewritten, reordered, padded
- * or invented — a hand-written graph would be a fabricated demo.
+ * TWO transformations are applied, both mechanical and both re-derivable:
+ *
+ *  1. Deletion of two purely diagnostic top-level keys (see STRIPPED_KEYS).
+ *  2. Overlay of the RE-DERIVED `analysis_ready` display strings (see
+ *     REDERIVED below). Display strings only — every numeric value is asserted
+ *     unchanged, and the assertion fails the build if one moves.
+ *
+ * Nothing else is rewritten, reordered, padded or invented — a hand-written
+ * graph would be a fabricated demo.
+ *
+ * ⚠ WHY TRANSFORMATION 2 EXISTS (2026-08-29). The captures predate CEE #944
+ * (2026-08-14, "stop showing every option the status quo"), which added the
+ * `sitsAtObservedState` guard to `buildInterventionDetail`. Before that guard,
+ * every option that touched a factor BORROWED the factor's own baseline
+ * `display_value` — so an option's receipt described the status quo wearing the
+ * option's name. Measured across the five captures: **27 of 70 interventions**
+ * carried a display string that contradicted their own value, in ALL FIVE
+ * starters.
+ *
+ * On the deployed canvas that renders as a no-op ("Low (0) → Low (0)" for an
+ * option that moves the factor 0 → 1) or, worse, as a sign inversion —
+ * `fac_adoption_friction` read "Very high (0.8)" on options setting it to 0.1,
+ * and `fac_build_indicator` read "No in-house build pursued" on the option that
+ * builds in-house. A starter is the first model a colleague ever opens.
+ *
+ * THE FIX IS NOT A RECAPTURE. The defect is a transform artefact, not model
+ * content: all 55 shared intervention values agree exactly between the V3 option
+ * nodes and `analysis_ready`, and the factor nodes' own display strings are
+ * correct (they genuinely describe the baseline). Only the strings CEE
+ * synthesised into `analysis_ready` were wrong. So the display strings were
+ * re-derived by running CEE's OWN `buildInterventionDetail` — at a named SHA,
+ * offline, no LLM and no credentials — over the committed V3 factor nodes and
+ * intervention values. No node, edge, option, count or brief changes, so no
+ * starter can come back worse. A fresh recapture would also have carried a ~45%
+ * per-draw chance of reintroducing the near-duplicate label collision the
+ * 2026-07-28 recapture existed to clear.
+ *
+ * ⚠ THE SOURCE CAPTURES ARE UNTOUCHED AND STAY UNTOUCHED. They are dated
+ * records of what a build actually emitted (CLAUDE.md trap 14b: a capture
+ * corpus is evidence, append-only). The re-derivation is committed BESIDE them
+ * as a separate artefact, so both the original defect and the correction remain
+ * inspectable.
  *
  *   node scripts/build-starter-fixtures.mjs           # write fixtures + manifest
  *   node scripts/build-starter-fixtures.mjs --check   # verify committed output matches
@@ -44,6 +83,13 @@ const RAW_DIR = join(ROOT, 'docs/evidence/starters/raw')
 const OUT_DIR = join(ROOT, 'src/canvas/starters/data')
 const MANIFEST = join(ROOT, 'src/canvas/starters/starters.manifest.json')
 const BRIEFS = join(ROOT, 'docs/evidence/starters/briefs.json')
+/**
+ * Re-derived `analysis_ready` display strings, produced by CEE's own
+ * `buildInterventionDetail` run offline over the committed captures. Generated,
+ * never hand-edited — see the header for why it exists and `_provenance` inside
+ * the file for the CEE SHA it was produced at.
+ */
+const REDERIVED = join(ROOT, 'docs/evidence/starters/rederived-analysis-ready.json')
 
 /**
  * Purely diagnostic top-level keys removed from the shipped fixture.
@@ -164,9 +210,67 @@ function deriveCardCopy(id, nodes) {
   return { title, summary }
 }
 
+/** Unwrap an intervention entry, which is a bare number or a `{ value }` object. */
+function interventionValue(entry) {
+  return typeof entry === 'number' ? entry : entry?.value
+}
+
+/**
+ * Overlay the re-derived display strings onto one starter's `analysis_ready`.
+ *
+ * DISPLAY ONLY. Every numeric value is asserted equal to the captured value
+ * before the overlay is accepted, so this can correct a string and can never
+ * move a number. A missing option or factor is an error, not a silent skip —
+ * a partial overlay would leave some receipts on the pre-#944 borrow and read
+ * green (CLAUDE.md trap 12: a mirror must fail loud on drift).
+ */
+function overlayRederivedDisplayValues(id, analysisReady, rederivedForStarter) {
+  if (!rederivedForStarter) fail(`${id}: no re-derived analysis_ready entry`)
+  const seen = new Set()
+  for (const option of analysisReady.options ?? []) {
+    const derived = rederivedForStarter[option.id]
+    if (!derived) fail(`${id}: re-derivation has no entry for option "${option.id}"`)
+    seen.add(option.id)
+
+    for (const [factorId, capturedEntry] of Object.entries(option.interventions ?? {})) {
+      const capturedValue = interventionValue(capturedEntry)
+      if (typeof capturedValue !== 'number') continue
+      const derivedEntry = derived.interventions?.[factorId]
+      if (derivedEntry === undefined) fail(`${id}/${option.id}: re-derivation is missing factor "${factorId}"`)
+      const derivedValue = interventionValue(derivedEntry)
+      // THE LOAD-BEARING ASSERTION: the re-derivation is display-only.
+      if (derivedValue !== capturedValue) {
+        fail(`${id}/${option.id}/${factorId}: re-derivation moved a VALUE (${capturedValue} → ${derivedValue}); it may only change display strings`)
+      }
+      const derivedDetail = derived.intervention_details?.[factorId]
+      if (!derivedDetail) fail(`${id}/${option.id}: re-derivation is missing intervention_details for "${factorId}"`)
+      if (derivedDetail.normalised_value !== capturedValue) {
+        fail(`${id}/${option.id}/${factorId}: re-derived intervention_details.normalised_value (${derivedDetail.normalised_value}) ≠ captured value (${capturedValue})`)
+      }
+      // The two mirrors must carry the SAME string — they did in the capture
+      // (0 divergences) and a fix that split them would be a new defect.
+      const ivDisplay = typeof derivedEntry === 'object' ? derivedEntry.display_value : undefined
+      if (ivDisplay !== undefined && ivDisplay !== derivedDetail.display_value) {
+        fail(`${id}/${option.id}/${factorId}: re-derived mirrors disagree (${JSON.stringify(ivDisplay)} vs ${JSON.stringify(derivedDetail.display_value)})`)
+      }
+    }
+
+    option.interventions = derived.interventions
+    option.intervention_details = derived.intervention_details
+  }
+  for (const optionId of Object.keys(rederivedForStarter)) {
+    if (!seen.has(optionId)) fail(`${id}: re-derivation carries option "${optionId}" that the capture does not`)
+  }
+}
+
 function build() {
   if (!existsSync(BRIEFS)) fail(`missing ${BRIEFS}`)
   const briefs = JSON.parse(readFileSync(BRIEFS, 'utf8')).briefs
+  if (!existsSync(REDERIVED)) fail(`missing ${REDERIVED}`)
+  const rederivedFile = JSON.parse(readFileSync(REDERIVED, 'utf8'))
+  const rederived = rederivedFile.starters
+  const rederivedProvenance = rederivedFile._provenance ?? {}
+  if (!rederivedProvenance.ceeSha) fail(`${REDERIVED}: no _provenance.ceeSha — the re-derivation must name the CEE build that produced it`)
 
   const manifestEntries = []
   const fixtures = new Map()
@@ -190,16 +294,27 @@ function build() {
     const brief = briefs[s.id]
     if (typeof brief !== 'string' || brief.length < 50) fail(`${s.id}: missing/short brief in briefs.json`)
 
-    // --- The one transformation: delete the diagnostic keys ---
+    // --- Transformation 1: delete the diagnostic keys ---
     const fixture = { ...capture }
     for (const k of STRIPPED_KEYS) delete fixture[k]
 
-    // Prove the strip did not touch anything load-bearing.
+    // Prove the strip did not touch anything load-bearing. Runs BEFORE the
+    // overlay so it still measures a pure deletion — checking it afterwards
+    // would fold two transformations into one assertion and see neither.
     for (const k of Object.keys(capture)) {
       if (STRIPPED_KEYS.includes(k)) continue
       if (JSON.stringify(capture[k]) !== JSON.stringify(fixture[k])) {
         fail(`${s.id}: key "${k}" changed during strip — the transformation is not a pure deletion`)
       }
+    }
+
+    // --- Transformation 2: overlay the re-derived display strings ---
+    // Deep-cloned first: `fixture` is a SHALLOW copy of `capture`, so mutating
+    // `fixture.analysis_ready` in place would also rewrite the parsed capture
+    // that the assertions above and the counts below are derived from.
+    if (fixture.analysis_ready) {
+      fixture.analysis_ready = JSON.parse(JSON.stringify(fixture.analysis_ready))
+      overlayRederivedDisplayValues(s.id, fixture.analysis_ready, rederived[s.id])
     }
 
     const { title, summary } = deriveCardCopy(s.id, capture.nodes)
@@ -219,6 +334,11 @@ function build() {
       nodeCount: capture.nodes.length,
       edgeCount: capture.edges.length,
       optionCount: options.length,
+      // Total option×factor interventions. Derived, and pinned by the integrity
+      // spec so the display-coherence guards cannot go vacuous: stripping
+      // display strings to satisfy an absence assertion moves this count and
+      // REDs (see starters.integrity.spec.ts, the coverage pin).
+      interventionCount: options.reduce((n, o) => n + Object.keys(o.interventions ?? {}).length, 0),
       provenance: {
         source: 'POST https://cee-staging.onrender.com/assist/v1/draft-graph',
         // Per-starter, not a shared constant: the set spans two CEE builds
@@ -231,6 +351,16 @@ function build() {
         coachingStatus: outcome.coaching_status ?? null,
         captureFile: `docs/evidence/starters/raw/${s.capture}`,
         captureSha256: sha256(rawBytes),
+        // Disclosed on the record: the shipped graph is the captured graph, but
+        // its analysis_ready display STRINGS were re-derived through CEE's
+        // post-#944 guarded transform. Values, nodes, edges and counts are the
+        // capture's own. See the script header.
+        displayValuesRederived: {
+          reason: 'capture predates CEE #944 (sitsAtObservedState); every option borrowed the factor baseline display string',
+          artefact: 'docs/evidence/starters/rederived-analysis-ready.json',
+          ceeSha: rederivedProvenance.ceeSha,
+          rederivedAt: rederivedProvenance.rederivedAt,
+        },
         note: s.note,
       },
     })

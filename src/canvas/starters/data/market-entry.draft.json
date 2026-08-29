@@ -1082,7 +1082,7 @@
           "fac_germany": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_nordics": {
             "value": 0,
@@ -1106,7 +1106,7 @@
         },
         "intervention_details": {
           "fac_germany": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_nordics": {
@@ -1139,7 +1139,7 @@
           "fac_nordics": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_uk_deepdive": {
             "value": 0,
@@ -1162,7 +1162,7 @@
             "normalised_value": 0
           },
           "fac_nordics": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_uk_deepdive": {
@@ -1196,7 +1196,7 @@
           "fac_uk_deepdive": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_localisation_cost": {
             "value": 0.5,
@@ -1219,7 +1219,7 @@
             "normalised_value": 0
           },
           "fac_uk_deepdive": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_localisation_cost": {
