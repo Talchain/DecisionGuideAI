@@ -1219,17 +1219,17 @@
           "fac_build_indicator": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "No in-house build pursued in-house build not active)  "
+            "display_value": "Very high (1)"
           },
           "fac_eng_capacity": {
             "value": 0.9,
             "source": "brief_extraction",
-            "display_value": "Moderate engineering allocation (2 of 4 engineers)"
+            "display_value": "Very high (0.9)"
           },
           "fac_dev_time": {
             "value": 0.85,
             "source": "brief_extraction",
-            "display_value": "Moderate delivery timeline"
+            "display_value": "Very high (0.85)"
           }
         },
         "extraction_metadata": {
@@ -1239,15 +1239,15 @@
         },
         "intervention_details": {
           "fac_build_indicator": {
-            "display_value": "No in-house build pursued in-house build not active)  ",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_eng_capacity": {
-            "display_value": "Moderate engineering allocation (2 of 4 engineers)",
+            "display_value": "Very high (0.9)",
             "normalised_value": 0.9
           },
           "fac_dev_time": {
-            "display_value": "Moderate delivery timeline",
+            "display_value": "Very high (0.85)",
             "normalised_value": 0.85
           }
         }
@@ -1322,12 +1322,12 @@
           "fac_stripe_indicator": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "No Stripe extension pursued"
+            "display_value": "Very high (1)"
           },
           "fac_eng_capacity": {
             "value": 0.55,
             "source": "brief_extraction",
-            "display_value": "Moderate engineering allocation (2 of 4 engineers)"
+            "display_value": "High (0.55)"
           },
           "fac_dev_time": {
             "value": 0.5,
@@ -1342,11 +1342,11 @@
         },
         "intervention_details": {
           "fac_stripe_indicator": {
-            "display_value": "No Stripe extension pursued",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_eng_capacity": {
-            "display_value": "Moderate engineering allocation (2 of 4 engineers)",
+            "display_value": "High (0.55)",
             "normalised_value": 0.55
           },
           "fac_dev_time": {
@@ -1364,17 +1364,17 @@
           "fac_vendor_indicator": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "No vendor solution adopted"
+            "display_value": "Very high (1)"
           },
           "fac_eng_capacity": {
             "value": 0.2,
             "source": "brief_extraction",
-            "display_value": "Moderate engineering allocation (2 of 4 engineers)"
+            "display_value": "Low (0.2)"
           },
           "fac_dev_time": {
             "value": 0.2,
             "source": "brief_extraction",
-            "display_value": "Moderate delivery timeline"
+            "display_value": "Low (0.2)"
           }
         },
         "extraction_metadata": {
@@ -1384,15 +1384,15 @@
         },
         "intervention_details": {
           "fac_vendor_indicator": {
-            "display_value": "No vendor solution adopted",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_eng_capacity": {
-            "display_value": "Moderate engineering allocation (2 of 4 engineers)",
+            "display_value": "Low (0.2)",
             "normalised_value": 0.2
           },
           "fac_dev_time": {
-            "display_value": "Moderate delivery timeline",
+            "display_value": "Low (0.2)",
             "normalised_value": 0.2
           }
         }

@@ -1229,7 +1229,7 @@
           "fac_rudderstack": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_snowflake_build": {
             "value": 0,
@@ -1260,7 +1260,7 @@
             "normalised_value": 0
           },
           "fac_rudderstack": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_snowflake_build": {
@@ -1293,7 +1293,7 @@
           "fac_segment": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_rudderstack": {
             "value": 0,
@@ -1325,7 +1325,7 @@
         },
         "intervention_details": {
           "fac_segment": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_rudderstack": {
@@ -1372,7 +1372,7 @@
           "fac_snowflake_build": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_annual_cost": {
             "value": 0.5,
@@ -1402,7 +1402,7 @@
             "normalised_value": 0
           },
           "fac_snowflake_build": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_annual_cost": {

@@ -1092,17 +1092,17 @@
           "fac_usage_exposure": {
             "value": 1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (1)"
           },
           "fac_adoption_friction": {
             "value": 0.1,
             "source": "brief_extraction",
-            "display_value": "Very high (0.8)"
+            "display_value": "Low (0.1)"
           },
           "fac_enterprise_revenue_risk": {
             "value": 0.8,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Very high (0.8)"
           }
         },
         "extraction_metadata": {
@@ -1112,15 +1112,15 @@
         },
         "intervention_details": {
           "fac_usage_exposure": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (1)",
             "normalised_value": 1
           },
           "fac_adoption_friction": {
-            "display_value": "Very high (0.8)",
+            "display_value": "Low (0.1)",
             "normalised_value": 0.1
           },
           "fac_enterprise_revenue_risk": {
-            "display_value": "Low (0)",
+            "display_value": "Very high (0.8)",
             "normalised_value": 0.8
           }
         }
@@ -1134,17 +1134,17 @@
           "fac_usage_exposure": {
             "value": 0.5,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Moderate (0.5)"
           },
           "fac_adoption_friction": {
             "value": 0.4,
             "source": "brief_extraction",
-            "display_value": "Very high (0.8)"
+            "display_value": "Moderate (0.4)"
           },
           "fac_enterprise_revenue_risk": {
             "value": 0.4,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Moderate (0.4)"
           }
         },
         "extraction_metadata": {
@@ -1154,15 +1154,15 @@
         },
         "intervention_details": {
           "fac_usage_exposure": {
-            "display_value": "Low (0)",
+            "display_value": "Moderate (0.5)",
             "normalised_value": 0.5
           },
           "fac_adoption_friction": {
-            "display_value": "Very high (0.8)",
+            "display_value": "Moderate (0.4)",
             "normalised_value": 0.4
           },
           "fac_enterprise_revenue_risk": {
-            "display_value": "Low (0)",
+            "display_value": "Moderate (0.4)",
             "normalised_value": 0.4
           }
         }
@@ -1176,17 +1176,17 @@
           "fac_usage_exposure": {
             "value": 0.3,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Moderate (0.3)"
           },
           "fac_adoption_friction": {
             "value": 0.6,
             "source": "brief_extraction",
-            "display_value": "Very high (0.8)"
+            "display_value": "High (0.6)"
           },
           "fac_enterprise_revenue_risk": {
             "value": 0.1,
             "source": "brief_extraction",
-            "display_value": "Low (0)"
+            "display_value": "Low (0.1)"
           }
         },
         "extraction_metadata": {
@@ -1196,15 +1196,15 @@
         },
         "intervention_details": {
           "fac_usage_exposure": {
-            "display_value": "Low (0)",
+            "display_value": "Moderate (0.3)",
             "normalised_value": 0.3
           },
           "fac_adoption_friction": {
-            "display_value": "Very high (0.8)",
+            "display_value": "High (0.6)",
             "normalised_value": 0.6
           },
           "fac_enterprise_revenue_risk": {
-            "display_value": "Low (0)",
+            "display_value": "Low (0.1)",
             "normalised_value": 0.1
           }
         }
