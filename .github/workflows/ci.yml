@@ -462,6 +462,18 @@ jobs:
       - name: Application logger still emits in the built bundle
         run: pnpm run ci:guard:logger-emits
 
+      # Mirrors the same step in staging-full-tests.yml's `build` job. THAT one
+      # is the blocking copy — "Staging Gate" is the only required check on
+      # `staging` and nothing here is required. This copy exists so a PR that
+      # never targets `staging` still gets told, rather than being surprised
+      # later.
+      #
+      # `build:ci` runs `generate:validators`, and `src/generated/validators.js`
+      # is committed, so a non-deterministic generator dirties the tree on every
+      # build — which a `Generated at: <clock>` header did until 2026-08-29.
+      - name: Generated validators are deterministic and up to date
+        run: pnpm run ci:guard:validators-deterministic
+
       # Reds if src/lib/flagEnv.ts has fallen behind src/flags.ts — a missing
       # key would make that flag silently resolve to its defaultValue.
       - name: flagEnv freshness (derived from src/flags.ts + netlify.toml)
