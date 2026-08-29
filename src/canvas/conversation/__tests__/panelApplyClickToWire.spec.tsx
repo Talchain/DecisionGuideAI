@@ -171,14 +171,14 @@ describe('panel apply — click to wire', () => {
     // rather than the wire assertions failing for an unrelated reason and
     // sending a reader to look at the adapter.
     render(<PanelHarness />)
-    expect(screen.getByText('Use Grace’s 0.85')).toBeTruthy()
-    expect(screen.getByText('Use Nadia’s 0.4')).toBeTruthy()
+    expect(screen.getByText('Use Grace’s 85%')).toBeTruthy()
+    expect(screen.getByText('Use Nadia’s 40%')).toBeTruthy()
     // Both rows keep their button — the minority position is never retired.
     expect(screen.getByTestId(`reveal-apply-${TARGET_ID}-${NADIA_ID}`)).toBeTruthy()
   })
 
-  it('⭐ clicking "Use Grace’s 0.85" puts applied_from ON THE WIRE', async () => {
-    const wire = (await clickApplyThenDrain('Use Grace’s 0.85')) as Record<string, unknown>
+  it('⭐ clicking "Use Grace’s 85%" puts applied_from ON THE WIRE', async () => {
+    const wire = (await clickApplyThenDrain('Use Grace’s 85%')) as Record<string, unknown>
 
     expect(wire, 'no turn reached the wire at all').not.toBeNull()
     expect(wire.kind).toBe('factor_value_edit')
@@ -199,7 +199,7 @@ describe('panel apply — click to wire', () => {
     // participant id but resolved it from the first response would pass the
     // previous test and fail this one — the same confound the deploy witness
     // had to plant Grace at index 0 to expose.
-    const wire = (await clickApplyThenDrain('Use Nadia’s 0.4')) as Record<string, unknown>
+    const wire = (await clickApplyThenDrain('Use Nadia’s 40%')) as Record<string, unknown>
 
     expect(wire.value).toBe(0.4)
     expect(wire.applied_from).toEqual({
@@ -223,7 +223,15 @@ describe('panel apply — click to wire', () => {
     // CEE compares the applied value to its own record with `Object.is` and
     // refuses on any difference, so a re-rounded number anywhere in this chain
     // would refuse every apply server-side while looking right on screen.
-    const wire = (await clickApplyThenDrain('Use Grace’s 0.85')) as Record<string, unknown>
+    //
+    // ⭐ AND SINCE THE PANEL SURFACES BEGAN WRITING CHANCES AS PERCENTAGES,
+    // THIS TEST IS THE SEAM THAT PROVES DISPLAY IS NOT PAYLOAD. Note the two
+    // numbers deliberately disagreeing: the button a user clicks READS "85%",
+    // and the value that reaches the wire IS `0.85`. If `formatPanelValue`
+    // ever leaked past the label into `onApply`, the selector below would
+    // still find the button and this assertion would fail — which is exactly
+    // the direction the failure should point.
+    const wire = (await clickApplyThenDrain('Use Grace’s 85%')) as Record<string, unknown>
     expect(Object.is(wire.value, 0.85)).toBe(true)
   })
 })
