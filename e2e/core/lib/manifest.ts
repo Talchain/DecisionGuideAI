@@ -178,6 +178,87 @@ export function assertRunCompleteness(
   }
 }
 
+/**
+ * Does this string NAME A BUILD, or is it a placeholder standing in for one?
+ *
+ * ⭐ A POSITIVE PREDICATE, NOT A SENTINEL LIST. The tempting form is
+ * `build !== 'unknown' && build !== 'unreachable'` — a hand-maintained mirror of
+ * `deployedBuild`'s failure vocabulary, which goes stale the first time a third
+ * sentinel is added and goes stale SILENTLY, in the direction of passing. Asking
+ * "does this look like a commit?" instead cannot rot: any new placeholder anyone
+ * invents fails it automatically, because placeholders are words and commits are hex.
+ */
+export const namesABuild = (build: string): boolean => /^[0-9a-f]{7,40}$/i.test(build)
+
+/**
+ * Is this target a Netlify deploy permalink — i.e. an address whose content cannot
+ * change under a running suite?
+ *
+ * ⚠ THIS IS A SECOND IMPLEMENTATION OF ONE RULE, AND THAT IS A DEBT, NOT A DESIGN.
+ * The resolver (`scripts/core-e2e/resolve-immutable-target.mjs`) must be plain Node —
+ * it runs BEFORE Playwright exists, so it cannot be TypeScript — while this file is
+ * compiled by the typecheck gate and cannot import an untyped `.mjs` without adding a
+ * fresh error to a ratcheted file. Two runtimes, one rule.
+ *
+ * The estate's rule for a mirror it cannot delete is that the mirror must FAIL LOUD on
+ * drift rather than assume-good, so the two are pinned against each other on a shared
+ * corpus — positives AND negatives — by
+ * `tests/ci-guards/core-build-attribution.spec.ts`, which imports BOTH and asserts
+ * they agree. If either side is edited alone, that spec goes red in the required
+ * suite. A comment asking the next person to remember would not have.
+ */
+export const targetIsImmutable = (url: string): boolean =>
+  /^https:\/\/([0-9a-f]{8,64})--([a-z0-9][a-z0-9-]*)\.netlify\.app\/?$/.test(String(url ?? '').trim())
+
+/**
+ * The run must be able to NAME the build it measured — at both ends.
+ *
+ * ⚠ THIS IS STRICTLY STRONGER THAN WHAT IT REPLACED, WHICH IS THE POINT. The guard
+ * shipped as:
+ *
+ *     if (started !== 'unknown' && ended !== 'unreachable' && started !== ended) throw
+ *
+ * Read the two leading conjuncts as what they are: an OFF SWITCH. If `globalSetup`
+ * could not read `/version.json`, `started` is 'unknown' and the whole guard is
+ * skipped — so the single case where the run has NO IDEA which build it measured is
+ * the case that passes. Same on the other side: if the target became unreachable by
+ * teardown, `ended` is 'unreachable' and the guard is skipped again.
+ *
+ * A green run that cannot name its build is the exact false witness this suite exists
+ * to prevent, so both are now hard failures. Nothing that previously FAILED can now
+ * pass: the drift limb is unchanged and two former passes became failures.
+ */
+export function assertAttributableBuild(started: string, ended: string): void {
+  if (!namesABuild(started)) {
+    throw new Error(
+      `[core] RUN CANNOT NAME ITS BUILD: globalSetup recorded "${started}" instead of a commit.\n` +
+      `  The target's /version.json was unreadable when the run began, so nothing this run\n` +
+      `  measured can be attributed to a build. A pass here would be a verdict about an\n` +
+      `  unknown product, which is worse than no verdict at all.\n` +
+      `  This used to be SKIPPED — 'unknown' disabled the drift guard entirely.`,
+    )
+  }
+  if (!namesABuild(ended)) {
+    throw new Error(
+      `[core] TARGET UNREADABLE AT TEARDOWN: expected a commit, got "${ended}".\n` +
+      `  The run began on ${started} but cannot confirm it ENDED there, so it cannot rule out\n` +
+      `  a mid-run deploy. Unconfirmed is not the same as unchanged, and must not be reported\n` +
+      `  as a verdict. An immutable deploy URL that stops answering is a hard failure, never a\n` +
+      `  skip and never a pass.`,
+    )
+  }
+  if (started !== ended) {
+    throw new Error(
+      `[core] BUILD DRIFTED MID-RUN: started on ${started}, ended on ${ended}.\n` +
+      `  The specs in this run did not all measure the same build, so the result is\n` +
+      `  unattributable and must not be reported as a verdict about either one.\n` +
+      `  Point CORE_UI_URL at an immutable SHA-pinned deploy URL and re-run:\n` +
+      `    node scripts/core-e2e/resolve-immutable-target.mjs\n` +
+      `  resolves one from the commit under test and refuses rather than falling back.`,
+    )
+  }
+}
+
 export function resetManifest(build: string): void {
   mkdirSync(dirname(MANIFEST_PATH), { recursive: true })
   writeFileSync(MANIFEST_PATH, JSON.stringify({ ran: [], buildAtStart: build }, null, 2))

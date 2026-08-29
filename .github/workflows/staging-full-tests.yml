@@ -498,7 +498,11 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     continue-on-error: true
-    timeout-minutes: 30
+    # 30 -> 45. The resolve step now waits up to 15 minutes for Netlify to publish the
+    # pushed commit (the one-commit lag is the normal case, not an edge case), and the
+    # suite itself runs ~5 minutes after a ~3 minute install. 30 left no headroom for a
+    # slow Netlify build, and a job killed by its own timeout looks like a hang.
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -530,34 +534,47 @@ jobs:
       - name: Install Chromium (Playwright)
         run: pnpm exec playwright install --with-deps chromium
 
-      # The target is a MUTABLE ALIAS. Record what it is serving BEFORE the run so
-      # the result is attributable to a build; `globalTeardown`'s build-drift guard
-      # fails the run if it moves underneath the specs.
-      - name: Record the deployed target
+      # ⭐⭐ RESOLVE AN IMMUTABLE TARGET BEFORE THE BROWSER STARTS.
+      #
+      # THE DEFECT THIS REPLACES, MEASURED 2026-08-29. This step used to read the
+      # MUTABLE ALIAS once and hand it straight to the run. All 13 Core E2E jobs ever
+      # executed on `staging` failed; TWELVE failed on `BUILD DRIFTED MID-RUN`, and
+      # every one of the twelve STARTED ON THE PREVIOUS COMMIT and ended on the pushed
+      # one. The push that starts this workflow also starts the Netlify build, so by
+      # the time this step ran the alias still served the old build, and Netlify
+      # published underneath the specs. EIGHT of those runs were 3/3 green — about a
+      # build that did not contain the push. The suite has never measured its own commit.
+      #
+      # THE ONE-COMMIT LAG IS THE NORMAL CASE, so the resolver WAITS for the expected
+      # commit, pins the immutable Netlify permalink out of the same /version.json body
+      # that carried it, VERIFIES that permalink answers and identifies itself, and
+      # FAILS rather than falling back. Full argument in the script header.
+      #
+      # `CORE_EXPECT_COMMIT` is set ONLY for a push to `staging`, where `github.sha` IS
+      # the commit Netlify builds. On a pull_request `github.sha` is a merge commit
+      # Netlify never deploys, so demanding it would time out every time; there the
+      # resolver pins whatever is live instead — attribution without targeting, which
+      # is exactly what a PR result is worth (see the header above this job).
+      - name: Resolve an immutable target
         id: target
         env:
           CORE_UI_URL: ${{ github.event.inputs.core_ui_url || 'https://staging--olumi.netlify.app' }}
+          CORE_EXPECT_COMMIT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/staging') && github.sha || '' }}
+          CORE_RESOLVE_BUDGET_MS: '900000'
+          CORE_RESOLVE_POLL_MS: '10000'
         run: |
           set -o pipefail
-          echo "url=$CORE_UI_URL" >> "$GITHUB_OUTPUT"
-          # ⭐ NAME THE IMMUTABLE ARTEFACT, NOT JUST THE ALIAS. The default target is a
-          # MUTABLE alias, and `globalTeardown`'s drift guard only compares start-vs-end
-          # WITHIN one run — it cannot tell you which build a PREVIOUS run measured. For a
-          # suite whose entire value is that a green is trustworthy, "which build was this
-          # green about?" must be answerable from the run itself, afterwards, by someone
-          # who was not there. `version.json` serves `deploy_id` and `deploy_url`, so the
-          # run can record the immutable Netlify deploy it actually drove.
-          V=$(curl -fsS --max-time 30 "$CORE_UI_URL/version.json") || V=''
-          read_field() { printf '%s' "$V" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s)['$1']??'unknown'))}catch{process.stdout.write('unparseable')}})"; }
-          BUILD=$(read_field commit); DEPLOY_ID=$(read_field deploy_id); DEPLOY_URL=$(read_field deploy_url)
-          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
-          echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
-          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
-          echo "Target $CORE_UI_URL is serving commit $BUILD, deploy $DEPLOY_ID ($DEPLOY_URL)"
-          echo "Workflow ref is ${{ github.sha }} — NOT the same thing as the build measured."
+          # Writes url/build/short/deploy_id to $GITHUB_OUTPUT itself, and exits
+          # non-zero with the reason if it cannot name a build. No `|| true`: an
+          # unresolvable target must stop the job, not start a run nobody may cite.
+          node scripts/core-e2e/resolve-immutable-target.mjs > /dev/null
+          echo "Workflow ref is ${{ github.sha }} — the same as the build measured ONLY on a push to staging."
 
       - name: Run System E
         env:
+          # The IMMUTABLE deploy permalink, not the alias. `globalTeardown`'s drift
+          # guard stays fully armed against it — on this target it can no longer fire,
+          # which is the point: the guard becomes a proof instead of a sample.
           CORE_UI_URL: ${{ steps.target.outputs.url }}
         run: pnpm run e2e:core
 
@@ -583,17 +600,22 @@ jobs:
             # command substitution — bash would try to EXECUTE the URL.
             echo '| what | value |'
             echo '| --- | --- |'
-            echo '| Target (mutable alias) | `${{ steps.target.outputs.url }}` |'
+            echo '| **Target driven (IMMUTABLE)** | `${{ steps.target.outputs.url }}` |'
             echo '| **Build measured** | `${{ steps.target.outputs.build }}` |'
-            echo '| **Immutable deploy** | `${{ steps.target.outputs.deploy_id }}` |'
-            echo '| Re-drive this exact build | ${{ steps.target.outputs.deploy_url }} |'
-            echo '| Workflow ref (NOT what was measured) | `${{ github.sha }}` |'
+            echo '| Deploy id | `${{ steps.target.outputs.deploy_id }}` |'
+            echo '| Workflow ref | `${{ github.sha }}` |'
             echo ''
-            echo '⚠ The build measured and the workflow ref are different things, and on a'
-            echo 'pull request they are almost never the same: the deployed target is NOT this'
-            echo 'branch. A result here is a claim about the DEPLOYED product, unless the diff'
-            echo 'touches `e2e/core/**`. The immutable deploy URL above is what makes a green'
-            echo 'from this run checkable later — the alias will have moved on.'
+            echo 'The target is a Netlify deploy PERMALINK, resolved before the browser started'
+            echo 'and verified to serve that build. It cannot move, so "the build measured" above'
+            echo 'is the build every spec in this run drove — and the URL still serves it, so a'
+            echo 'green here is re-checkable months later. That was not true while this job drove'
+            echo 'the `staging--olumi.netlify.app` alias: 12 of the 13 runs before this change'
+            echo 'straddled a deploy, every one of them starting on the PREVIOUS commit.'
+            echo ''
+            echo '⚠ On a PULL REQUEST the build measured is NOT this branch — it is whatever'
+            echo 'staging was serving, pinned. A result is a claim about the DEPLOYED product,'
+            echo 'unless the diff touches `e2e/core/**`. On a push to `staging` they are the same'
+            echo 'commit, because the resolver waits for that commit specifically.'
             echo ''
             if [ -f test-results/core/spec-manifest.json ]; then
               echo 'Specs this run actually executed (recorded at spec START, not at pass):'
