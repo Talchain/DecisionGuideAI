@@ -388,9 +388,31 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           <>
             {/* ===== PRE-ANALYSIS ===== */}
 
-            {/* Triage line — single most important next action */}
+            {/* Triage line — single most important next action.
+                ⚠ IT MUST WRAP, NOT TRUNCATE, and that is not a style preference.
+                This carried `truncate` (`white-space: nowrap` + ellipsis) and
+                shipped 37-41% cut on every starter measured — deployed staging
+                `384a2b4f`, 29 Aug 2026:
+
+                  "Top gap: validate Platform Engineer Headco…"   38% hidden
+                  "Top gap: validate Vendor Solution Adoption"    38% hidden
+                  "Top gap: validate Snowflake-Native Build …"    41% hidden
+
+                The full string occurred EXACTLY ONCE in the DOM with no
+                unclipped instance anywhere — no `title`, no `aria-label`
+                carrying it, and opening the node's details did not restate it.
+                So the product's single most action-guiding sentence was cut
+                before it named the thing to go and fix, with nowhere to recover
+                it. An ellipsis with somewhere to go is a caveat; an ellipsis
+                with nowhere to go is hiding.
+
+                Wrapping is bounded, so this cannot grow without limit: the
+                label is already shortened to 40 chars by `truncateAtWord`
+                above, capping the line near 59 characters — two lines at this
+                measure. `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any
+                node text starts overflowing its box again. */}
             {triageLine && (
-              <div className={`${typography.edgeLabel} text-text-body mt-1 truncate`}>
+              <div className={`${typography.edgeLabel} text-text-body mt-1`}>
                 {triageLine}
               </div>
             )}
