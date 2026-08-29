@@ -44,9 +44,17 @@ export const STARTER_LOAD_FAILED_MESSAGE =
  * - The heading says these are saved examples. A starter is NOT a live
  *   computation and the UI must never imply it was just generated — see
  *   StarterProvenanceBanner for the on-canvas disclosure and the redraft.
- * - `T` is advertised because it was verified at the bytes
- *   (useCanvasKeyboardShortcuts.ts — `e.key === 't'` opens the panel). No other
- *   shortcut is advertised.
+ * - NO KEYBOARD SHORTCUT IS ADVERTISED. This strip used to close with "Press T
+ *   for all templates", true when written. It is not true now:
+ *   `useCanvasKeyboardShortcuts.ts` returns early on
+ *   `!CANVAS_SEMANTIC_MUTATIONS_CONNECTED` — `hasServerGraphAuthority
+ *   ('disabled')`, permanently false — and answers `T` with
+ *   SHARED_MODEL_AUTHORITY_COPY, a toast about editing the shared model. The
+ *   panel never opens. While the strip itself was dark the false promise was
+ *   invisible; restoring the strip would have made it live on a teammate's
+ *   first screen, so it was deleted in the same change. Advertise a key again
+ *   only after re-deriving that it works AT THE TIP — the last such
+ *   verification was correct and went stale underneath the sentence.
  */
 export function StarterDecisions() {
   // Re-entrancy latch for handlePick. A ref, not state: it must flip
@@ -154,11 +162,6 @@ export function StarterDecisions() {
           </button>
         ))}
       </div>
-
-      {/* `T` verified at the bytes before being advertised. */}
-      <p className={`mt-3 text-center ${typography.caption} text-text-light`}>
-        Press <kbd className="rounded border border-panel-border px-1 font-sans">T</kbd> for all templates
-      </p>
     </div>
   )
 }

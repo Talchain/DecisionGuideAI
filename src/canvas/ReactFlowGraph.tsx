@@ -211,6 +211,24 @@ interface ReactFlowGraphProps {
   blueprintEventBus?: BlueprintEventBus
   onCanvasInteraction?: () => void
   enableGhostSuggestions?: boolean
+  /**
+   * ⭐ Does this mount offer the first-run starter strip? Default NO, so a
+   * mount that says nothing gets no starters BY CONSTRUCTION.
+   *
+   * Only `CanvasMVP` — the primary canvas, the one surface with a genuine
+   * first-run journey — may pass this. `PlotWorkspace`, `CanvasIsolationTest`
+   * and the sandbox `CopilotCanvas` must never show saved-example cards, and
+   * `components/__tests__/starterStripMountPath.spec.ts` REDs if any of them
+   * starts to (or if CanvasMVP stops).
+   *
+   * ⛔ DO NOT ROUTE THIS THROUGH `CANVAS_SEMANTIC_MUTATIONS_CONNECTED` or any
+   * other authority-table read. That is exactly how the strip shipped dark:
+   * the old `blueprintEventBus` proxy was passed as
+   * `CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? blueprintEventBus : undefined`, the
+   * constant is permanently false, and five real enterprise models reached
+   * nobody. Mount identity and mutation authority are different questions.
+   */
+  showStarters?: boolean
 }
 
 /**
@@ -419,7 +437,7 @@ const NODE_DRAG_THRESHOLD = 2
 const SELECT_MODE_PAN_BUTTONS = [1]
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
-const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
+const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false, showStarters = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -2516,9 +2534,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <OutputsDock />
       {!isAiPanelV2Enabled() && <DraftChat />}
       {isAiPanelV2Enabled() && (
-        <FloatingOlumiPanelHost
-          blueprintEventBus={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? blueprintEventBus : undefined}
-        />
+        <FloatingOlumiPanelHost showStarters={showStarters} />
       )}
 
       {/* Expanded lenses: contextual info panel overlay */}
@@ -2619,7 +2635,7 @@ export function MaybeConversationProvider({ children }: { children: import('reac
  * The Dock-back action uses forceActivateOutputTab so the dock activates
  * the Olumi tab even when the global activeOutputTab is already 'olumi'.
  */
-function FloatingOlumiPanelHost({ blueprintEventBus }: { blueprintEventBus?: BlueprintEventBus }) {
+function FloatingOlumiPanelHost({ showStarters }: { showStarters?: boolean }) {
   const close = useFloatingPanelState((s) => s.close)
   const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
   const handleDock = useCallback(() => {
@@ -2633,7 +2649,7 @@ function FloatingOlumiPanelHost({ blueprintEventBus }: { blueprintEventBus?: Blu
   return (
     <>
       <FloatingOlumiPanel onDock={handleDock} onCogClick={handleCogClick} />
-      <FirstUseComposer onCogClick={handleCogClick} blueprintEventBus={blueprintEventBus} />
+      <FirstUseComposer onCogClick={handleCogClick} showStarters={showStarters} />
       {/* Saved-example disclosure + live re-draft. Self-gates on starter
           provenance in the graph, so it costs nothing on every other canvas.
           Mounted HERE (inside the conversation provider) because the re-draft

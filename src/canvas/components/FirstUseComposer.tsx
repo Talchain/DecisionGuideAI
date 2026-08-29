@@ -16,22 +16,35 @@ import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
-import type { BlueprintEventBus } from '../ReactFlowGraph'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
   onCogClick: (anchorEl: HTMLElement) => void
   /**
-   * Presence of the blueprint bus is the "this is the PRIMARY canvas mount"
-   * signal, and it gates the starter strip.
+   * ⭐ Does THIS mount offer the first-run starter strip? Default NO.
    *
-   * It no longer feeds the strip: starters are pre-drafted CEE graphs applied
-   * through `applyStarter`, not blueprint emits (P1-2). The gate is retained
-   * deliberately — only the primary canvas passes a bus; PlotWorkspace and the
-   * sandbox canvas pass none, and those mounts must not offer a first-run
-   * starter strip. Dropping the gate would newly surface starter cards on both.
+   * ── WHY THIS IS AN EXPLICIT PROP AND NOT A PROXY ──────────────────────────
+   * It used to be `blueprintEventBus?: BlueprintEventBus`, and presence of the
+   * bus was read as "this is the PRIMARY canvas mount". The bus stopped feeding
+   * the strip at P1-2 (starters are pre-drafted CEE graphs applied through
+   * `applyStarter`, not blueprint emits) but the gate was kept as a proxy —
+   * only the canvas passed a bus, and PlotWorkspace and the sandbox canvas
+   * must not offer a first-run strip.
+   *
+   * The proxy then broke, silently and completely. `ReactFlowGraph` passed the
+   * bus down as
+   *     `CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? blueprintEventBus : undefined`
+   * and that constant is `hasServerGraphAuthority('disabled')` — a COMPILE-TIME
+   * FALSE. Every mount, the canvas included, received `undefined`, so five real
+   * 15–19-node enterprise models shipped in the bundle and reached no user at
+   * all. A gate about *may this control look like a shared-model edit* had been
+   * wired to a gate about *which mount am I*: two questions, one boolean.
+   *
+   * The constraint the old gate protected is real and is now pinned properly —
+   * `__tests__/starterStripMountPath.spec.ts` REDs if any mount other than
+   * CanvasMVP passes this prop, and if CanvasMVP stops passing it.
    */
-  blueprintEventBus?: BlueprintEventBus
+  showStarters?: boolean
 }
 
 /** Hero container sizing — round-11 UX correction.
@@ -95,7 +108,7 @@ const REPOSITION_EDGE_MARGIN = 16
  * Reduced motion: the auto-reposition fires synchronously without the
  * 300ms slide delay.
  */
-export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blueprintEventBus }: FirstUseComposerProps) {
+export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, showStarters = false }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const { messages, isThinking, lastSendFailure, draft, setDraft } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
@@ -464,14 +477,38 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, blu
           <p className="text-sm text-text-body m-0">{heroFailureCopy(lastSendFailure)}</p>
         </div>
       ) : null}
+      {/* ⭐ THE BRIEF GUIDANCE, KEPT ON SCREEN WHILE THE BRIEF IS WRITTEN.
+          FIRST_USE_PLACEHOLDER is the only coaching this screen gives — it
+          names the three things a good brief contains. As a placeholder
+          ATTRIBUTE the browser removes it on the first keystroke, i.e. exactly
+          when the user is acting on it, and a thin brief produces a thin model
+          the tester then blames the product for.
+
+          Shown once the placeholder is no longer visible, so the guidance is
+          continuously available across the whole interaction and the identical
+          sentence is never printed twice. `draft.length` (not `.trim()`) is
+          the right test: a native placeholder hides on ANY character,
+          whitespace included, so this mirrors what the user can actually see.
+
+          Deliberately NOT a minimum, a counter, or a send block — sending
+          still needs only `draft.trim().length > 0`. It is guidance, not a
+          gate. Hidden while generating: the brief is already committed. */}
+      {!isGenerating && draft.length > 0 ? (
+        <p
+          data-testid="first-use-brief-guidance"
+          className="w-full max-w-2xl text-center text-sm text-text-light m-0"
+        >
+          {FIRST_USE_PLACEHOLDER}
+        </p>
+      ) : null}
       {/* Starter decisions — the second way in, COMPLEMENTING the composer
           above (type, or pick a worked example). Suppressed during the
           generating window: the user has already committed a brief, so
           offering to replace it would be noise. Renders nothing at all when
-          none of the featured templates resolve, leaving the hero exactly as
-          it was. Gated on the bus so mounts without an insert pipeline never
-          show cards that cannot work. */}
-      {!isGenerating && blueprintEventBus ? <StarterDecisions /> : null}
+          the manifest is empty, leaving the hero exactly as it was. Gated on
+          the EXPLICIT mount opt-in — see the `showStarters` prop doc for the
+          proxy this replaced and how it shipped the strip dark. */}
+      {!isGenerating && showStarters ? <StarterDecisions /> : null}
     </div>,
     document.body,
   )
