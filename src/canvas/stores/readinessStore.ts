@@ -14,6 +14,7 @@ import { isBlockedCarrier } from '../domain/usableAnalysisReady'
 import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceholder'
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
+import { FactorCategory } from '@talchain/schemas'
 import type {
   GraphReadiness,
   GraphReadinessLevel,
@@ -305,6 +306,65 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
         }
         if (typeof data?.value === 'number') {
           node.data = { value: data.value }
+        }
+        // ── Factor category: the classification the readiness authority reads ──
+        //
+        // CEE raises the "this option needs a value" blocker for a factor only
+        // when an option could plausibly move it, and it reads `category` to
+        // decide. An ABSENT category is treated as `controllable` — the
+        // conservative default, and the right one for a factor nobody has
+        // classified.
+        //
+        // This projection dropped the field, so EVERY factor arrived looking
+        // controllable, including the ones the model itself had classified as
+        // `external`. The user was then asked to "choose which option changes
+        // Labour Market Conditions and by how much" — a demand to set a value
+        // on something the product had already decided nobody controls.
+        // Measured on four real captured models: restoring this one field, and
+        // nothing else, moved each from `can_run=false` with 3-6 issues to
+        // `can_run=true` with 0.
+        //
+        // The fix belongs HERE, not in CEE: making CEE stop defaulting absent
+        // categories to controllable would LOWER the readiness bar and mask
+        // genuinely unclassified factors. The information was never missing —
+        // the canvas holds it (`FactorNodeDataSchema.category`), the draft
+        // adapter carries it and INFERS it when the model omits it
+        // (`inferMissingCategories`), and the inspector lets the user set it.
+        // Restoring dropped information is honest; loosening the check is not.
+        //
+        // TOP-LEVEL, derived from the producer rather than chosen: CEE's own
+        // wire nodes carry `category` at the top level (`inferMissingCategories`
+        // writes `node.category`), and `mapDraftNodeToCanvas` spreads the wire
+        // rest into canvas `data` — so wire is flat, canvas is nested, and this
+        // converts back. It is also where both siblings sit (`observed_state`,
+        // `interventions`).
+        //
+        // Producer-owned passthrough: carried only when supplied, never
+        // invented, never defaulted, never recomputed — and specifically NOT
+        // back-filled from `controllability`, whose enum admits `partial` and
+        // `unknown`, which the category enum does not. That would be a new
+        // judgement, not a restoration.
+        //
+        // ⚠ VALIDATED, AND THE VALIDATION IS LOAD-BEARING — NOT A TIDINESS
+        // CHECK. CEE's request `Graph` is `.passthrough()`, so an UNDECLARED
+        // key would ride along harmlessly — but `category` is DECLARED, as
+        // `FactorCategory.optional()` (CEE `src/schemas/graph.ts:292`,
+        // re-declared at `cee-v3.ts:168`). A declared field is VALIDATED: any
+        // value outside the three-member enum fails `safeParse` and returns
+        // HTTP 400 `CEE_VALIDATION_FAILED` for the WHOLE request. Forwarding
+        // an unvalidated string would therefore convert a wrong-question
+        // defect into a total readiness outage — strictly worse than the bug
+        // being fixed. An out-of-enum value is dropped instead, which leaves
+        // CEE's conservative absent-category default in force: the safe
+        // direction, and exactly the behaviour we have today.
+        //
+        // The allowlist is DERIVED, never hand-listed: `FactorCategory` is the
+        // shared contract's own enum — the same declaration CEE validates
+        // against — so this guard cannot drift from the values the server will
+        // accept. A hand-copied list here would be the mirror defect that has
+        // cost this estate repeatedly.
+        if (nodeKind === 'factor' && FactorCategory.safeParse(data?.category).success) {
+          node.category = data.category
         }
         // F4 (A1 GO 21 Jul — CEE widen merged + deploy-verified live): send factor
         // observed_state so /assist/v1/graph-readiness can report
