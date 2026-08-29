@@ -94,10 +94,20 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
     vi.mocked(useAuth).mockReturnValue(AUTHED as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('the row that names this constraint by id still renders', () => {
+  it('an UNLABELLED constraint still gets the row that names it by id', () => {
+    // ⚠ THE LABEL LEG CANNOT SATISFY THIS TEST, AND THAT IS THE POINT.
+    // The first draft of this case gave the constraint the same label as the
+    // row, and mutant M1 (kill the id leg entirely) left it GREEN — it was
+    // passing through the label leg while claiming to prove id binding, which
+    // is CLAUDE.md trap 13b exactly. The constraint now carries NO label, so
+    // the uniqueness-gated label leg is dead by construction and only
+    // `constraint_a_id` can produce this row. M1 now REDs it.
+    //
+    // It is also the positive twin of the unlabelled-constraint harm: binding
+    // by id must ADD the correct row, not merely remove the wrong one.
     setStore({
       goalConstraints: [
-        { constraint_id: 'c1', node_id: 'f1', operator: '>=' as const, value: 5, label: 'Churn rate', probability: 0.8 },
+        { constraint_id: 'c1', node_id: 'f1', operator: '>=' as const, value: 200000, probability: 0.8 },
       ],
       results: {
         status: 'complete',
@@ -105,7 +115,7 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
           conditional_probabilities: [
             {
               constraint_a_id: 'c1',
-              constraint_a_label: 'Churn rate',
+              constraint_a_label: '',
               constraint_b_id: 'c9',
               constraint_b_label: 'Margin floor',
               conditional_probability: 0.9,
