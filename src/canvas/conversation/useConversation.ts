@@ -5240,6 +5240,15 @@ export function useConversation(): UseConversationReturn {
     // subsequent patches don't include it, so late chunks cannot clear it.
     const stoppedMsgId = streamingMsgIdRef.current
     if (stoppedMsgId) {
+      // DO NOT reintroduce a generic "Thinking…" sentinel here. Removal of the
+      // 3s stream-silence timer that assigned one to this field IS
+      // the fix (hotfix item 6): a generic sentinel says nothing true about what
+      // the turn is doing and outlives the state it claims to describe.
+      // `aiPanelTranche1Hotfix.spec.tsx` reads this file and pins BOTH halves —
+      // the prohibition and this note. The note moved here (from the V4 branch
+      // deleted on 2026-08-29) so it sits on the surviving V5 write site rather
+      // than vanishing with the code it used to annotate: a regression barrier
+      // documented next to code that no longer exists protects nothing.
       updateMessage(stoppedMsgId, {
         stoppedByUser: true,
         isStreaming: false,
