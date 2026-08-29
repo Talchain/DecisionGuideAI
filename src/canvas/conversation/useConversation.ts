@@ -137,6 +137,7 @@ import {
   responseAppliedFactorEdit,
   revertOptimisticFactorEdit,
   OPTIMISTIC_FACTOR_EDIT_NOTICE,
+  buildInterruptedFactorEditNotice,
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
@@ -3094,6 +3095,66 @@ export function useConversation(): UseConversationReturn {
     [addMessage],
   )
 
+  /**
+   * The turn carrying a value edit was ABORTED, so no reply ever existed.
+   *
+   * ⚠ THIS IS THE ONLY GENUINELY SILENT DISCARD PATH, and it is the one the
+   * deployed build takes. Measured on staging `9308a30c` (guest, one scenario
+   * id, no fork): the user sets a factor, clicks Analyse, and the wire shows
+   * TWO `/proxy/v5/turn` POSTs back to back with ONE response — the analysis
+   * completed, so the turn that got no reply was the edit. Its request was
+   * cancelled by `abortRef.current?.abort()`, which every V5 dispatch runs
+   * unconditionally before installing its own controller. The catch block then
+   * gates the whole optimistic resolution on `!isAbort`, so NEITHER arm ran:
+   * no revert, no confirm, no sentence. The preempting turn's own graph apply
+   * wrote CEE's value over the user's, and the analysis went on to name that
+   * exact factor as the decision's biggest lever, at 92% confidence, over a
+   * number the user had replaced. The transcript was 7,982 characters and said
+   * nothing about any of it.
+   *
+   * The other two discard paths are not silent and are deliberately untouched:
+   * a typed refusal ships an `OPTIMISTIC_FACTOR_EDIT_NOTICE` sentence, and a
+   * 200 with no receipt reverts beside CEE's own explanatory prose.
+   *
+   * ⚠ IT MUST NOT REVERT. The cancel was CLIENT-side; CEE may well have taken
+   * the edit, and there are no committed bytes either way. Discarding the
+   * user's number on that guess is the data-loss direction of the same harm.
+   *
+   * ⚠ TWO PRECONDITIONS, BOTH BINDING BY IDENTITY — the same pair
+   * `revertOptimisticFactorEdit` stands down on, for the same reasons:
+   *   · the node must still EXIST. A cleared transcript, a new draft or a
+   *     scenario load all abort in flight, and a sentence about a factor that
+   *     is no longer on the canvas is noise pointing at nothing.
+   *   · the node must still hold `sentValue`. If a newer edit has moved it on,
+   *     that edit owns the surface and will resolve itself; warning about the
+   *     superseded one describes a number no longer on screen.
+   *
+   * NO `markAnalysisFreshnessDirty` CALL, DELIBERATELY, AND IT WAS MEASURED:
+   * the optimistic write is itself an analytical `updateNode`, so the flag is
+   * already dirty on every path through here — an assertion on it passed at
+   * pristine in BOTH directions. Adding the call would be a no-op dressed as a
+   * remedy. See the spec header for the refutation.
+   */
+  const resolveInterruptedOptimisticFactorEdit = useCallback(
+    (edit: OptimisticFactorEdit) => {
+      const node = useCanvasStore.getState().nodes.find((n) => n.id === edit.nodeId)
+      if (!node) return
+      const data = (node.data ?? {}) as Record<string, unknown>
+      const observed = (data.observedState ?? data.observed_state ?? {}) as Record<string, unknown>
+      if (observed.value !== edit.sentValue) return
+
+      const label = typeof data.label === 'string' ? data.label : null
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content: buildInterruptedFactorEditNotice(label),
+        timestamp: new Date(),
+      })
+    },
+    [addMessage],
+  )
+
   /** Update an existing message in-place by id (used by streaming path) */
   const updateMessage = useCallback((id: string, patch: Partial<ConversationMessage>) => {
     setMessages((prev) => {
@@ -4949,6 +5010,26 @@ export function useConversation(): UseConversationReturn {
           if (opts.optimisticFactorEdit && systemEvent?.type === 'factor_value_edit') {
             resolveFailedOptimisticFactorEdit(opts.optimisticFactorEdit, undefined)
           }
+        }
+        // ⚠ THE ABORT ARM — the branch above is `!isAbort`, and that exclusion
+        // is what let a user's number vanish without a word on the deployed
+        // build. An abort is not a failure, which is why it is excluded there;
+        // but it is also not a RESOLUTION, and a value edit that resolves
+        // neither way leaves the canvas holding a number nothing will ever
+        // reconcile. See `resolveInterruptedOptimisticFactorEdit` for the wire
+        // evidence and for why this may not revert.
+        //
+        // Its twin `structural_delete` is deliberately NOT handled here: this
+        // lane measured the value-edit path and only that one, and a delete's
+        // honest copy is a different claim about a different optimistic write.
+        // Naming it rather than silently widening the fix.
+        if (
+          isAbort &&
+          mode === 'system' &&
+          opts.optimisticFactorEdit &&
+          systemEvent?.type === 'factor_value_edit'
+        ) {
+          resolveInterruptedOptimisticFactorEdit(opts.optimisticFactorEdit)
         }
         if (import.meta.env.DEV && !isAbort) {
           console.warn('[sendTurn V5] Dispatch error:', err)

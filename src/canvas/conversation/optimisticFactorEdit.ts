@@ -589,6 +589,43 @@ export const OPTIMISTIC_FACTOR_EDIT_NOTICE = {
 
 export type OptimisticFactorEditNoticeKey = keyof typeof OPTIMISTIC_FACTOR_EDIT_NOTICE
 
+/**
+ * The turn carrying this edit was ABORTED — cancelled client-side by whatever
+ * the user did next — so no reply ever existed to resolve it against.
+ *
+ * ⚠ A SEPARATE SENTENCE FROM `unconfirmed_server`, AND NOT A TIDY-UP. That copy
+ * says "It's still on your canvas". Here that promise expires within seconds:
+ * the turn that cancelled this one applies its own graph on return, and CEE's
+ * value — the one it holds precisely BECAUSE this edit never landed — is
+ * written over the user's. Measured on staging `9308a30c`: the row went from
+ * "Not set · User edited" to "Not set · Olumi: Moderate (0.5) · AI estimate"
+ * across the analysis. A sentence that told the user their number was safe on
+ * the canvas would be false by the time they read it.
+ *
+ * ⚠ IT NAMES THE FACTOR, and that is load-bearing rather than decorative. The
+ * measured canvas carried five factors; an unnamed sentence tells the user
+ * something went wrong and leaves them to find out which of five it was.
+ *
+ * ⚠ WHAT IT DELIBERATELY DOES NOT OFFER: a way back. For a guest there is
+ * none — server versions refuse outright (`store-adapter.ts` → MV001
+ * `ModelVersionSignInRequiredError`), and local version history, though it
+ * works, is never written automatically: the only non-test caller of
+ * `saveVersion` is a manual save button. A user who never pressed it has
+ * nothing to restore, so the copy stops at the two things that ARE true and
+ * available — check the factor, and set it again.
+ */
+export function buildInterruptedFactorEditNotice(label: string | null | undefined): string {
+  const named =
+    typeof label === 'string' && label.trim().length > 0
+      ? `your change to ${label.trim()}`
+      : 'your change to that factor'
+  return (
+    `I couldn't confirm ${named} with the saved model — the turn carrying it was interrupted ` +
+    `before the model replied, so the model may still hold its previous value. Check that ` +
+    `factor before you rely on any analysis, and set the value again if you need it counted.`
+  )
+}
+
 /** What `revertOptimisticFactorEdit` did, for tests and DEV logging. */
 export type RevertOutcome = 'reverted' | 'node_gone' | 'value_moved_on'
 
