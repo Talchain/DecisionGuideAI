@@ -222,9 +222,6 @@ describe("the model's own number is marked, and marked as the model's", () => {
   })
 })
 
-function svgText(): string {
-  return screen.getByTestId(`spread-strip-${TARGET}`).textContent ?? ''
-}
 
 describe('⭐ THE STANDING PROHIBITION: the picture may not draw an aggregate', () => {
   /**

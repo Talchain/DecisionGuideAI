@@ -132,14 +132,29 @@ export function SpreadStrip({
     .join(' ')
 
   return (
+    /**
+     * ⚠ THE SCROLL FLOOR, AND IT WAS FOUND IN A BROWSER, NOT IN jsdom.
+     *
+     * A `viewBox` scales its TEXT along with its geometry. At the card's
+     * desktop width the 13-unit labels land at ~15px and read well; rendered in
+     * a 552px-wide viewport they measured **~9px**, and on a phone they would
+     * be smaller still — illegible exactly where a participant reads the
+     * reveal. jsdom lays nothing out, so every test in this repo was green
+     * about a picture nobody could read (trap 3).
+     *
+     * A larger `fontSize` cannot fix it: sized for a phone it is grotesque on a
+     * projector, and vice versa. So the strip keeps a MINIMUM WIDTH and the
+     * container scrolls — the labels stay legible at every viewport, and the
+     * page itself never scrolls sideways.
+     */
+    <div className="mt-3 overflow-x-auto">
     <svg
       data-testid={`spread-strip-${targetId}`}
       role="img"
       aria-label={described}
       viewBox={`0 0 ${VIEW_W} ${height}`}
-      // Scales down on a phone and up on a projector without reflowing the
-      // geometry, which is why the layout is computed in viewBox units.
-      className="mt-3 block w-full"
+      // Grows with the card up to the projector, never shrinks below legible.
+      className="block w-full min-w-[520px]"
       preserveAspectRatio="xMidYMid meet"
     >
       {/* ── the model's own number, above the axis ─────────────────────────
@@ -244,7 +259,8 @@ export function SpreadStrip({
               y2={rowY - 10}
               stroke="currentColor"
               strokeWidth={1}
-              opacity={0.35}
+              // 0.35 vanished at projector distance in the browser check.
+              opacity={0.45}
             />
             <text x={px} y={rowY} textAnchor={anchor} fill="currentColor" fontSize={13}>
               {p.display_label} {short(p.value)}
@@ -253,6 +269,7 @@ export function SpreadStrip({
         )
       })}
     </svg>
+    </div>
   )
 }
 

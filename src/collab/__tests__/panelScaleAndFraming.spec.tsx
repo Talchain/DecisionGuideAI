@@ -67,7 +67,10 @@ function jsonResponse(body: unknown, status = 200): StubResponse {
 }
 
 beforeEach(() => {
-  fetchMock = vi.fn(async () =>
+  // The signature is explicit so the mock's type matches the declaration:
+  // `vi.fn(async () => ...)` infers `Mock<[], ...>` and will not assign to a
+  // fetch-shaped mock that takes (input, init).
+  fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
     jsonResponse({ round_id: ROUND, participants: [], graph_version_ref: 'gv-1' }, 201),
   )
   vi.stubGlobal('fetch', fetchMock)
