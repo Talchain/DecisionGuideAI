@@ -426,14 +426,50 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     expect(textarea.style.maxHeight).toBe('232px')
   })
 
+  /**
+   * ⚠ THIS TEST IS RUN IN BOTH MOUNT CONFIGURATIONS ON PURPOSE.
+   *
+   * It previously rendered only the starter-less hero and asserted that EVERY
+   * button in the surface is Settings or Send. That was true of the surface the
+   * TEST built and false of the one a user loads: on the canvas the hero also
+   * holds five starter cards, which are `<button>`s with no aria-label. The
+   * assertion would have stayed green forever while the real first screen
+   * violated it — a guard bound to a configuration the deployed path does not
+   * use (CLAUDE.md trap 3b, the defect this estate has shipped twice).
+   *
+   * The invariant that actually matters is unchanged and is asserted in both
+   * configurations: NO PROMPT-SUGGESTION CHIPS. Starter cards are not chips —
+   * they open a real saved model rather than seeding canned text into the
+   * composer — so they are allowed, and allowed BY IDENTITY (a card per
+   * manifest id), never by loosening the predicate to "some extra buttons".
+   */
   it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const controlButtons = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll('button')).filter(
+        (b) => !b.getAttribute('data-testid')?.startsWith('starter-decision-'),
+      )
+
+    // ── configuration 1: every mount that does NOT offer starters ──────────
+    const { unmount } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     expect(screen.queryByTestId('suggested-chips')).toBeNull()
-    // Defensive: no buttons claiming to seed a prompt suggestion. The hero
-    // has only the AIInputBar's cog + send buttons.
-    const dialog = screen.getByTestId('first-use-composer')
-    const buttons = dialog.querySelectorAll('button')
-    const labels = Array.from(buttons).map((b) => b.getAttribute('aria-label') ?? '')
+    let labels = controlButtons(screen.getByTestId('first-use-composer')).map(
+      (b) => b.getAttribute('aria-label') ?? '',
+    )
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels.every((l) => /^(Settings|Send)$/.test(l))).toBe(true)
+    unmount()
+
+    // ── configuration 2: THE CANVAS — the surface a new teammate loads ─────
+    render(<FirstUseComposer onCogClick={() => {}} showStarters />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('suggested-chips')).toBeNull()
+    const hero = screen.getByTestId('first-use-composer')
+    // The starter cards are present and accounted for BY IDENTITY, so the
+    // filter above cannot quietly excuse an unexpected button.
+    for (const starter of startersManifest.starters) {
+      expect(hero.querySelector(`[data-testid="starter-decision-${starter.id}"]`)).not.toBeNull()
+    }
+    labels = controlButtons(hero).map((b) => b.getAttribute('aria-label') ?? '')
+    expect(labels.length).toBeGreaterThan(0)
     expect(labels.every((l) => /^(Settings|Send)$/.test(l))).toBe(true)
   })
 
