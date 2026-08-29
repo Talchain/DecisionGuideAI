@@ -131,7 +131,7 @@ describe('Non-Olumi strip is redirect-only', () => {
   })
 
   it('renders the redirect placeholder (no textarea) on non-Olumi tabs', () => {
-    render(<PersistentInputStrip isOlumiTabActive={false} onOpenFloating={() => {}} onCogClick={() => {}} />, {
+    render(<PersistentInputStrip isOlumiTabActive={false} onOpenFloating={() => {}} />, {
       wrapper: Wrapper,
     })
     expect(screen.getByTestId('persistent-strip-composer-redirect')).toBeInTheDocument()
@@ -140,7 +140,7 @@ describe('Non-Olumi strip is redirect-only', () => {
 
   it('clicking anywhere on the redirect strip opens the floating panel', () => {
     const onOpenFloating = vi.fn()
-    render(<PersistentInputStrip isOlumiTabActive={false} onOpenFloating={onOpenFloating} onCogClick={() => {}} />, {
+    render(<PersistentInputStrip isOlumiTabActive={false} onOpenFloating={onOpenFloating} />, {
       wrapper: Wrapper,
     })
     fireEvent.click(screen.getByTestId('persistent-strip-composer-redirect'))
@@ -159,7 +159,7 @@ describe('Non-Olumi strip is redirect-only', () => {
     render(
       <>
         <Capture />
-        <PersistentInputStrip isOlumiTabActive={false} onOpenFloating={onOpenFloating} onCogClick={() => {}} />
+        <PersistentInputStrip isOlumiTabActive={false} onOpenFloating={onOpenFloating} />
       </>,
       { wrapper: Wrapper },
     )

@@ -124,7 +124,7 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
     }
     messagesMockState.messages = [{ id: 'u1', role: 'user' }]
 
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
 
     const notice = screen.getByTestId('first-use-send-failure')
     expect(notice.textContent).toMatch(/didn’t get through|didn't get through/)
@@ -138,7 +138,7 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
   })
 
   it('no notice when there is no failure', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('first-use-send-failure')).toBeNull()
   })
 
@@ -150,7 +150,7 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
     }
     thinkingMockState.isThinking = true
 
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('first-use-send-failure')).toBeNull()
   })
 
@@ -160,7 +160,7 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
       retryable: true,
       inputText: 'brief',
     }
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const notice = screen.getByTestId('first-use-send-failure')
     expect(notice.getAttribute('aria-live')).toBeNull()
     expect(notice.getAttribute('role')).not.toBe('alert')
@@ -174,7 +174,7 @@ describe('FirstUseComposer — send-failure notice at the point of failure', () 
       retryable: true,
       inputText: 'brief that CEE rejected',
     }
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const notice = screen.getByTestId('first-use-send-failure')
     expect(notice.textContent).toMatch(/couldn’t be processed|couldn't be processed/)
   })

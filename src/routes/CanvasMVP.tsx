@@ -15,7 +15,6 @@ import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
 import { DebugTray } from '../components/DebugTray'
 import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
-import { buildShareLink } from '../canvas/utils/shareLink'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
 import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNotice'
@@ -199,51 +198,58 @@ export default function CanvasMVP() {
     }
   }, [currentScenarioId, saveCurrentScenario, scenarioTitle])
 
+  /**
+   * ⭐ 29 Aug 2026 — THE LOCAL-DEVICE FALLBACK IS GONE.
+   *
+   * This handler used to have three outcomes and only one of them was true:
+   *
+   *   1. persisted  → `createSharedBrief()` mints a row and returns a slug
+   *                   served by `/brief/:slug`. REAL. Kept.
+   *   2. guest      → `buildShareLink(hash)` → `#/canvas?run=<hash>`, which
+   *                   resolves only against the SENDER's device history
+   *                   (`shareLink.ts`: "local-device only"). The clipboard
+   *                   write succeeded, so it looked like a share — and the
+   *                   recipient opened an EMPTY canvas. The failure landed on
+   *                   a second person who had no way to understand it.
+   *   3. no results → `console.warn` and return. A silently dead click.
+   *
+   * (2) and (3) are removed rather than reworded: there is no link that can
+   * carry a guest canvas to another machine, so there was nothing honest to
+   * say. The button itself is now gated on the persisted case in `TopBar`
+   * (`shareScenarioId`), so (3) is unreachable from the UI; the guard below is
+   * the belt-and-braces for any other caller.
+   */
   const handleShare = useCallback(async () => {
+    if (!isPersistenceActive || !currentScenarioId) {
+      // Not reachable from the bar (the control is hidden), so this is a
+      // programming error rather than a user-facing state — say so loudly in
+      // the console and do nothing, rather than inventing a link.
+      console.warn('[CanvasMVP] Share invoked without a persisted scenario — no link exists to copy')
+      return
+    }
     try {
-      // C.1b: If Supabase persistence is active, create a shared brief via RPC
-      if (isPersistenceActive) {
-        const result = await createSharedBrief()
-        if (result) {
-          const url = `${window.location.origin}/#/brief/${result.slug}`
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(url).catch(() => {
-              // eslint-disable-next-line no-alert
-              window.prompt('Copy this link', url)
-            })
-          } else {
-            // eslint-disable-next-line no-alert
-            window.prompt('Copy this link', url)
-          }
-          return
-        }
-        // If createSharedBrief returned null (no scenarioId), fall through to local share
-      }
-
-      // Local share fallback (guest mode)
-      const { results } = useCanvasStore.getState()
-      const hash = results.hash
-      if (!hash) {
-        console.warn('[CanvasMVP] Cannot share scenario: no results hash available')
+      const result = await createSharedBrief()
+      if (!result) {
+        // eslint-disable-next-line no-alert
+        window.alert("We couldn't create a share link for this decision. Please try again shortly.")
         return
       }
-      const link = buildShareLink(hash)
+      const url = `${window.location.origin}/#/brief/${result.slug}`
       if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(link).catch(() => {
+        await navigator.clipboard.writeText(url).catch(() => {
           // eslint-disable-next-line no-alert
-          window.prompt('Copy this link', link)
+          window.prompt('Copy this link', url)
         })
       } else {
         // eslint-disable-next-line no-alert
-        window.prompt('Copy this link', link)
+        window.prompt('Copy this link', url)
       }
     } catch (error) {
       console.error('[CanvasMVP] Failed to generate share link', error)
-      // User-friendly: if brief creation fails, show a message
       // eslint-disable-next-line no-alert
-      window.alert('Generate a decision brief first before sharing.')
+      window.alert("We couldn't create a share link for this decision. Please try again shortly.")
     }
-  }, [isPersistenceActive, createSharedBrief])
+  }, [isPersistenceActive, currentScenarioId, createSharedBrief])
 
   return (
     // ToastProvider at route level so surfaces OUTSIDE ReactFlowGraph
@@ -265,6 +271,10 @@ export default function CanvasMVP() {
         // mint refuses guest scenarios (no immutable model version to pin),
         // and the owner route sits behind AuthGuard.
         panelScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
+        // SHARE: same condition — a shared brief needs a persisted scenario to
+        // point at. Guest/unsaved hides the control rather than copying a link
+        // that opens empty on the recipient's machine.
+        shareScenarioId={isPersistenceActive && currentScenarioId ? currentScenarioId : null}
       />
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

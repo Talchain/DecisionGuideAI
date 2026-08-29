@@ -129,7 +129,7 @@ describe('FloatingOlumiPanel — the identity it gives its thread', () => {
 
   it('LINK 3 — hands its ConversationPanel the FLOATING identity, never the canonical one', () => {
     useFloatingPanelState.getState().open('user')
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
 
     // Pin the precondition in-test: if the panel did not render a
     // ConversationPanel at all, the assertions below would pass vacuously

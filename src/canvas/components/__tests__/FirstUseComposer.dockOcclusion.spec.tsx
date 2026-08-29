@@ -116,7 +116,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 }
 
 function renderComposer() {
-  render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+  render(<FirstUseComposer />, { wrapper: Wrapper })
   return screen.getByTestId('first-use-composer')
 }
 

@@ -110,7 +110,7 @@ beforeEach(() => {
 describe('floating-density scope', () => {
   it('floating panel wraps ConversationPanel in a .floating-density container', () => {
     useFloatingPanelState.getState().open('user')
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
     expect(cp).toBeTruthy()
     // Walk up — at least one ancestor must carry the `floating-density` class.
@@ -133,7 +133,7 @@ describe('floating-density scope', () => {
     // FloatingOlumiPanel passes it. Without this, message body text
     // stays at 16px even when surrounded by tighter chrome.
     useFloatingPanelState.getState().open('user')
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
     expect(cp).toBeTruthy()
     expect(cp.getAttribute('data-compact')).toBe('true')

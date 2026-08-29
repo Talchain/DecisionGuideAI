@@ -191,7 +191,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
       position: null,
       size: { width: 400, height: 500 },
     } as never)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
 
     // PRECONDITION, PINNED IN-TEST: we really are on the yielding side of the
     // boundary. Without this the transition below could be a no-op and every
@@ -242,7 +242,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
         position: null,
         size: { width: 400, height: 500 },
       } as never)
-      const { unmount } = render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+      const { unmount } = render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
       act(() => {
         mountGraphNode('dec-1', { left: 120, top: 180, width: 220, height: 90 })
         canvasStore.setState({ nodes: [{ id: 'dec-1', type: 'decision' }], layoutVersion: 1 })
@@ -284,7 +284,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
       position: null,
       size: { width: 400, height: 500 },
     } as never)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
 
     const panel = panelEl()
     expect(panel, 'PRECONDITION: the panel is mounted while the model settles').not.toBeNull()
@@ -334,7 +334,7 @@ describe('FloatingOlumiPanel — the store and the DOM agree about where the pan
       position: { x: 300, y: 120 },
       size: { width: 400, height: 500 },
     } as never)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const panel = panelEl()!
     expect(panel.style.left, 'PRECONDITION: the layout effect has placed the panel').not.toBe('')
 

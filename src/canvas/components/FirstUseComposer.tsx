@@ -19,7 +19,6 @@ import { StarterDecisions } from './StarterDecisions'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
-  onCogClick: (anchorEl: HTMLElement) => void
   /**
    * ⭐ Does THIS mount offer the first-run starter strip? Default NO.
    *
@@ -108,7 +107,7 @@ const REPOSITION_EDGE_MARGIN = 16
  * Reduced motion: the auto-reposition fires synchronously without the
  * 300ms slide delay.
  */
-export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, showStarters = false }: FirstUseComposerProps) {
+export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = false }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const { messages, isThinking, lastSendFailure, draft, setDraft } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
@@ -429,7 +428,6 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick, sho
         <AIInputBar
           ref={inputBarRef}
           variant="welcome"
-          onCogClick={onCogClick}
           hideChevron
           /*
            * ⭐ THIS SURFACE PASSES ITS OWN COPY, SO THE HOOK CHANGE NEVER REACHED IT.

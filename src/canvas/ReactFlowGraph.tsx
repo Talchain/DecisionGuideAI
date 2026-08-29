@@ -126,7 +126,6 @@ const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
 )
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
-import { CogPopover } from './components/CogPopover'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
 import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
@@ -2527,7 +2526,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             aiPanelV2 is OFF. Under FF on, the floating-first Olumi surfaces
             replace it.
           - FloatingOlumiPanelHost mounts FloatingOlumiPanel + FirstUseComposer
-            + CogPopover (with shared cog state); only renders when FF is on.
+            only renders when FF is on.
           - The whole tree is wrapped in MaybeConversationProvider so the
             single useConversation() singleton lives at the canvas root when
             FF is on. */}
@@ -2631,31 +2630,25 @@ export function MaybeConversationProvider({ children }: { children: import('reac
 }
 
 /**
- * Mounts FloatingOlumiPanel + FirstUseComposer + a shared CogPopover.
+ * Mounts FloatingOlumiPanel + FirstUseComposer.
  * The Dock-back action uses forceActivateOutputTab so the dock activates
  * the Olumi tab even when the global activeOutputTab is already 'olumi'.
  */
 function FloatingOlumiPanelHost({ showStarters }: { showStarters?: boolean }) {
   const close = useFloatingPanelState((s) => s.close)
-  const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
   const handleDock = useCallback(() => {
     useUIStore.getState().forceActivateOutputTab('olumi')
     close()
   }, [close])
-  const handleCogClick = useCallback((anchorEl: HTMLElement) => {
-    setCogAnchor((prev) => (prev === anchorEl ? null : anchorEl))
-  }, [])
-  const handleCogClose = useCallback(() => setCogAnchor(null), [])
   return (
     <>
-      <FloatingOlumiPanel onDock={handleDock} onCogClick={handleCogClick} />
-      <FirstUseComposer onCogClick={handleCogClick} showStarters={showStarters} />
+      <FloatingOlumiPanel onDock={handleDock} />
+      <FirstUseComposer showStarters={showStarters} />
       {/* Saved-example disclosure + live re-draft. Self-gates on starter
           provenance in the graph, so it costs nothing on every other canvas.
           Mounted HERE (inside the conversation provider) because the re-draft
           sends a real turn through useConversationContext. */}
       <StarterProvenanceBanner />
-      <CogPopover isOpen={cogAnchor !== null} anchorEl={cogAnchor} onClose={handleCogClose} />
     </>
   )
 }

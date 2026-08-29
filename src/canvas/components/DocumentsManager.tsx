@@ -190,14 +190,14 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
           <input
             type="file"
             multiple
-            accept=".pdf,.txt,.md,.csv"
+            accept=".txt,.md,.csv"
             onChange={handleFileChange}
             className="hidden"
             data-testid="documents-file-input"
           />
         </label>
         <p className={`${typography.caption} text-ink-900 mt-2`}>
-          Supports: PDF, TXT, MD, CSV (max 1MB each, 25K chars total)
+          Supports: TXT, MD, CSV (max 1MB each, 25K chars total)
         </p>
       </div>
 
@@ -210,7 +210,8 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
             </div>
             <p className={`${typography.body} font-medium`}>No documents yet</p>
             <p className={`mt-1 ${typography.caption} text-ink-900`}>
-              Attach research, specs, or data Olumi should consider.
+              Kept in this browser for your own reference. Olumi does not read
+              them yet &mdash; put anything it should consider into the chat.
             </p>
           </div>
         ) : filteredAndSorted.length === 0 ? (

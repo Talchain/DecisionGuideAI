@@ -42,6 +42,21 @@ interface TopBarProps {
    * model version to pin), so showing the entry would be a control that lies.
    */
   panelScenarioId?: string | null
+  /**
+   * SHARE: when a PERSISTED scenario is on the canvas, its id — and the bar
+   * shows the Share control. Null/absent hides it, and that is the whole fix.
+   *
+   * A guest (or unsaved) canvas has no server-side brief to point at, so the
+   * old fallback copied `#/canvas?run=<hash>` — a hash that only resolves
+   * against the SENDER's device history (`shareLink.ts`: "local-device only").
+   * The copy SUCCEEDED, so it read as a working share, and the empty canvas
+   * turned up on a SECOND person's screen. Before a run there was no hash at
+   * all and the click did nothing but `console.warn`.
+   *
+   * Same shape and same reasoning as `panelScenarioId` above: a control that
+   * cannot do what it says is not shown.
+   */
+  shareScenarioId?: string | null
 }
 
 export const TopBar = ({
@@ -54,6 +69,7 @@ export const TopBar = ({
   saveError,
   isPersisted = false,
   panelScenarioId = null,
+  shareScenarioId = null,
 }: TopBarProps) => {
   const [showSavedPill, setShowSavedPill] = useState(false)
 
@@ -386,17 +402,25 @@ export const TopBar = ({
           </Tooltip>
         )}
 
-        {/* Share button */}
-        <Tooltip content="Generate shareable link">
-          <button
-            type="button"
-            onClick={onShare}
-            className={styles.shareButton}
-            aria-label="Share decision"
-          >
-            <Share2 size={14} aria-hidden="true" />
-          </button>
-        </Tooltip>
+        {/* ⭐ SHARE — ONLY WHEN THE LINK CARRIES THE DECISION (29 Aug 2026).
+            Gated exactly like "Ask your team" above: a guest or unsaved canvas
+            has no shared brief to link to, and the old fallback copied a
+            device-local hash that opened EMPTY for the recipient. The tooltip
+            now states what the link carries, because "Generate shareable link"
+            was equally true of the link that carried nothing. */}
+        {shareScenarioId != null && shareScenarioId !== '' && (
+          <Tooltip content="Copy a link to this decision's brief — anyone with the link can open it">
+            <button
+              type="button"
+              onClick={onShare}
+              className={styles.shareButton}
+              aria-label="Copy link to decision brief"
+              data-testid="topbar-share"
+            >
+              <Share2 size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
 
         {/* ⭐ VERSION HISTORY — THE REAL CONTROL (R4, Paul, 16 Aug 2026).
             This button used to be a LIE: it said "coming soon" and fired an

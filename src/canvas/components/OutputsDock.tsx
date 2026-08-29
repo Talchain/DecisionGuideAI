@@ -77,7 +77,6 @@ import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isPreAnal
 import { OlumiTabBody } from './OlumiTabBody'
 import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
-import { CogPopover } from './CogPopover'
 import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { dockHostsOlumi } from './olumiSurface'
@@ -912,12 +911,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
 
   const transitionReceipt = useTransitionReceipt((s) => s.receipt)
-  // Cog popover anchor — strip footer-stack only.
-  const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
-  const handleCogClick = useCallback((anchorEl: HTMLElement) => {
-    setCogAnchor((prev) => (prev === anchorEl ? null : anchorEl))
-  }, [])
-  const handleCogClose = useCallback(() => setCogAnchor(null), [])
 
   // Factors needing user verification (for Model tab badge)
   const factorsToVerify = useMemo(
@@ -3623,12 +3616,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
-              onCogClick={handleCogClick}
-            />
-            <CogPopover
-              isOpen={cogAnchor !== null}
-              anchorEl={cogAnchor}
-              onClose={handleCogClose}
             />
           </div>
         ) : null}

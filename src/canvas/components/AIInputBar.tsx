@@ -9,7 +9,7 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react'
-import { ArrowUp, ChevronUp, Settings, Square } from 'lucide-react'
+import { ArrowUp, ChevronUp, Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
@@ -47,7 +47,6 @@ export interface AIInputBarProps {
   disabled?: boolean
   /** Click handler for the cog icon. Owner decides whether it opens a popover.
    *  Receives the button element so the popover can anchor to it. */
-  onCogClick?: (anchorEl: HTMLElement) => void
   /** Click handler for the chevron icon (strip only). Opens floating panel. */
   onChevronClick?: () => void
   /** Hides the chevron icon (used by floating + first-use + welcome + docked-tab variants). */
@@ -127,7 +126,6 @@ export const AIInputBar = memo(
       variant,
       placeholder,
       disabled = false,
-      onCogClick,
       onChevronClick,
       hideChevron = false,
       textareaId,
@@ -413,8 +411,6 @@ export const AIInputBar = memo(
     // hero composer feels generous; other variants stay compact.
     const sendBtnSize = isWelcome ? 'w-8 h-8' : 'w-7 h-7'
     const sendIconSize = isWelcome ? 'w-4 h-4' : 'w-3.5 h-3.5'
-    const cogBtnSize = isWelcome ? 'w-8 h-8' : 'w-7 h-7'
-    const cogIconSize = isWelcome ? 'w-4 h-4' : 'w-4 h-4'
     // Stack inset: the cog/send cluster sits inside the right edge of the
     // textarea. Welcome variant gives more breathing room. Strip variant
     // (round-16) bumps the right inset from 6px to 16px so that when the
@@ -488,23 +484,6 @@ export const AIInputBar = memo(
             </div>
           )}
           <div className={`absolute ${stackInset} flex flex-col items-center ${stackGap}`}>
-            {onCogClick ? (
-              <button
-                type="button"
-                onClick={(e) => onCogClick(e.currentTarget)}
-                disabled={inputDisabled}
-                aria-disabled={inputDisabled}
-                // Round-9: visible filled circle to match the send button's
-                // affordance. Distinct fill (panel-hover, a subtle neutral)
-                // so the cog reads as a SECONDARY action vs. the send
-                // button's accent fill (bg-info).
-                className={`inline-flex items-center justify-center ${cogBtnSize} rounded-full bg-panel-hover text-text-light hover:text-text-body hover:bg-panel-border focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
-                aria-label="Settings"
-                data-testid={`${testId ?? `ai-input-bar-${variant}`}-cog`}
-              >
-                <Settings className={cogIconSize} aria-hidden="true" />
-              </button>
-            ) : null}
             {/* Send / Stop — ONE control in this slot, never two (ROADMAP
                 2.134). Mirrors `ChatComposer`'s own swap, which is the shape
                 PR 525's abort path was written against. Send is `disabled` for

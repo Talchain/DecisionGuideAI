@@ -146,7 +146,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     // canvas instead — left = (1440-400-400)/2 = 320.
     const dock = mountStubDock({ width: 388, right: 12 })
     useFloatingPanelState.getState().open('user')
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     expect(panel).toBeTruthy()
     const left = parseFloat(panel.style.left)
@@ -169,7 +169,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 1200, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     const left = parseFloat(panel.style.left)
     const width = parseFloat(panel.style.width)
@@ -192,7 +192,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 1000, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     // Initial layout with rail-width dock: panel right (1400) <= rail
     // left (1388)? Actually 1400 > 1388 — clamp moves panel left to
@@ -236,7 +236,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 100, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     // After the layout effect runs, the store is minimised and the restore
     // pill is shown. Run-path convergence: the full panel now stays MOUNTED
     // but display:none while minimised (keeping ConversationPanel's
@@ -278,7 +278,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: null,
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().isMinimised).toBe(true)
     // The pill is placed from live geometry, so the store's `position` is no
     // longer load-bearing for it — it stays null here, and that is fine.
@@ -307,7 +307,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 100, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().isMinimised).toBe(false)
     expect(document.querySelector('[data-testid="floating-olumi-panel"]')).toBeTruthy()
     dock.unmount()
@@ -338,7 +338,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 600, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().isMinimised).toBe(false)
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     const left = parseFloat(panel.style.left)
@@ -367,7 +367,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 1300, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     // The stale x=1300 is the PANEL's restore memory and is deliberately not
     // touched. What matters is where the PILL renders.
     expect(useFloatingPanelState.getState().position).toEqual({ x: 1300, y: 100 })
@@ -401,7 +401,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 1300, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
 
     Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
     act(() => { window.dispatchEvent(new Event('resize')) })
@@ -432,7 +432,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 900, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
 
     Object.defineProperty(window, 'innerWidth', { value: 836, configurable: true })
     act(() => { window.dispatchEvent(new Event('resize')) })
@@ -465,7 +465,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 1300, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const pillBefore = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
     // At rail width the dock left = 1388, so the corner dock sits just inside it.
     expect(parseFloat(pillBefore.style.left) + 84).toBeLessThanOrEqual(1388)
@@ -495,7 +495,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       position: { x: 1000, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
-    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     const left = parseFloat(panel.style.left)
     const width = parseFloat(panel.style.width)

@@ -1,6 +1,16 @@
 /**
  * LINK-TRACK R1 item 7 — THE PILOT'S AUTH ROUTE HAD NO FRONT DOOR.
  *
+ * ⚠ READ FIRST (29 Aug 2026): the paragraphs below describe the page AS IT WAS
+ * when these cases were written, and are kept as the record of what was
+ * measured then — not edited to match today. Since then the magic-link and
+ * Google controls have been REMOVED (neither could complete on staging:
+ * no SMTP, and `"google": false` at `GET /auth/v1/settings`). Password sign-in
+ * is now the only route, and its absence-twin lives in
+ * `LoginPage.onlyWorkingRoutes.spec.tsx`. Three cases here exercised the
+ * removed controls and were deleted with them; every password case is intact
+ * and untouched.
+ *
  * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
  * Password sign-in works on staging's Supabase project and is the pilot's
  * ratified auth route (BRIEF-LINK-TRACK-R1 item 7). The login page offered
@@ -47,8 +57,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
-const mockSignInWithMagicLink = vi.fn()
-const mockSignInWithGoogle = vi.fn()
 const mockSignInWithPassword = vi.fn()
 /**
  * Whether the provider has adopted a real session yet. Mutable because the
@@ -59,8 +67,6 @@ let mockAuthenticated = false
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({
     authenticated: mockAuthenticated,
-    signInWithMagicLink: mockSignInWithMagicLink,
-    signInWithGoogle: mockSignInWithGoogle,
     signInWithPassword: mockSignInWithPassword,
   }),
 }))
@@ -108,8 +114,6 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockAuthenticated = false
-    mockSignInWithMagicLink.mockResolvedValue({ error: null })
-    mockSignInWithGoogle.mockResolvedValue({ error: null })
     mockSignInWithPassword.mockResolvedValue({ error: null })
   })
 
@@ -152,32 +156,6 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
    * between the two routes, which is real; it does NOT pin trimming, and no
    * test reachable through a `type="email"` field can.
    */
-  it('hands BOTH routes the same email for the same typed input', async () => {
-    // ⚠ TWO RENDERS, deliberately. Either successful submit now LEAVES the
-    // form — password sign-in goes to the signed-in state, magic link to
-    // `link-sent` — so no single render can exercise both routes. Feeding the
-    // same typed input to two fresh renders pins exactly the property that
-    // matters: the two routes must not disagree about who is signing in.
-    const TYPED = 'Owner@Example.com'
-
-    const first = renderLogin()
-    fillCredentials(TYPED, 'pw')
-    await submitPassword()
-    first.unmount()
-
-    renderLogin()
-    fireEvent.change(screen.getByPlaceholderText('you@example.com'), { target: { value: TYPED } })
-    await act(async () => {
-      fireEvent.submit(screen.getByTestId('magic-link-form'))
-    })
-
-    const passwordEmail = mockSignInWithPassword.mock.calls[0][0]
-    const magicLinkEmail = mockSignInWithMagicLink.mock.calls[0][0]
-    expect(mockSignInWithPassword).toHaveBeenCalledTimes(1)
-    expect(mockSignInWithMagicLink).toHaveBeenCalledTimes(1)
-    expect(passwordEmail).toBe(magicLinkEmail)
-  })
-
   it('sends NOTHING and shows the email error when the address is malformed', async () => {
     renderLogin()
     fillCredentials('not-an-email', 'pw')
@@ -419,58 +397,6 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
    * form-owner rules, Enter in a text control submits the form it is
    * associated with, and association is exactly what was missing.
    */
-  /**
-   * ── THE DIRECTION WORD IN THE oauth-failed COPY (round-1 N2, round-2 blocker)
-   * This sentence has now been wrong TWICE, in both directions, and each time it
-   * was a claim about LAYOUT asserted from someone's memory of the JSX. Round 1:
-   * *"use the email link above"* after that button moved below. Round 2's
-   * correction: *"the password form above"* — wrong the same way, and worse,
-   * because it sent an owner whose Google sign-in had just failed to look
-   * upward for the pilot's ONLY working control.
-   *
-   * So the direction is now MEASURED, not read: `compareDocumentPosition` on
-   * the rendered DOM, with a positive control proving the probe can tell the two
-   * directions apart. The container is `flex flex-col`, so DOM order is visual
-   * order. Move either form and this REDs, which is the point — the copy cannot
-   * silently drift away from the layout a third time.
-   */
-  it('the oauth-failed copy names a direction the DOM actually agrees with', async () => {
-    mockSignInWithGoogle.mockResolvedValue({
-      error: Object.assign(new Error('Unsupported provider'), { status: 400 }),
-    })
-    renderLogin()
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /continue with google/i }))
-    })
-
-    const message = screen.getByTestId('oauth-failed-message')
-    const heading = screen.getByRole('heading', { name: /sign in to olumi/i })
-
-    /** Measured relationship of `el` to the message, in reading order. */
-    const relativeToMessage = (el: Element): 'above' | 'below' =>
-      // eslint-disable-next-line no-bitwise
-      message.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING ? 'below' : 'above'
-
-    // POSITIVE CONTROL FIRST: the probe must be able to return 'above'.
-    // Without this, a probe that answered 'below' for everything would satisfy
-    // the assertions beneath it while measuring nothing (trap 13).
-    expect(
-      relativeToMessage(heading),
-      'the position probe cannot distinguish the two directions — it never returns "above"',
-    ).toBe('above')
-
-    expect(relativeToMessage(screen.getByTestId('owner-password-form'))).toBe('below')
-    expect(relativeToMessage(screen.getByTestId('magic-link-form'))).toBe('below')
-
-    // Both controls the sentence points at are BELOW it, so the copy may say
-    // "below" and must not say "above".
-    const copy = (message.textContent ?? '').toLowerCase()
-    expect(copy, 'the copy claims a control is above this message; both are below').not.toMatch(
-      /\babove\b/,
-    )
-    expect(copy).toMatch(/\bbelow\b/)
-  })
-
   it('the shared email field is OWNED by the password form, so Enter has somewhere to go', () => {
     renderLogin()
     const emailField = screen.getByPlaceholderText('you@example.com') as HTMLInputElement
@@ -478,15 +404,6 @@ describe('LINK-R1 item 7 — owner password sign-in', () => {
 
     expect(emailField.form, 'the email field belongs to no form — Enter is a dead key').not.toBeNull()
     expect(emailField.form).toBe(passwordForm)
-  })
-
-  it('leaves the magic-link route intact and reachable', async () => {
-    // The password form is the pilot route; it must not be added by deleting
-    // the other one (trap 13b — the fix must not pass by removing a control).
-    renderLogin()
-    expect(screen.getByTestId('magic-link-form')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /send magic link/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument()
   })
 
   it('offers NO sign-up and NO password reset — both would be controls with nothing behind them', () => {

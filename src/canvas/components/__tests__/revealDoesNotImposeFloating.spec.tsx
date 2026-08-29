@@ -133,7 +133,7 @@ const IMPOSING = { source: 'system-first-use' as FloatingPanelSource, userReposi
  */
 function mountPanelIn(state: { source: FloatingPanelSource; userRepositioned: boolean; isMinimised: boolean }) {
   useFloatingPanelState.setState({ isOpen: true, ...state })
-  const utils = render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+  const utils = render(<FloatingOlumiPanel onDock={() => {}} />, { wrapper: Wrapper })
   expect(
     document.querySelector('[data-testid="floating-olumi-panel"]'),
     'PRECONDITION: the panel must be mounted and not yielding, or focusFloating() is answering a different question',
@@ -278,7 +278,7 @@ describe('the focus channel stops lying about being on screen (UX gate 7a)', () 
     expect(useFloatingPanelState.getState().userChoseFloating, 'the click IS the choice').toBe(true)
 
     act(() => { useFloatingPanelState.getState().minimise() })
-    rerender(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />)
+    rerender(<FloatingOlumiPanel onDock={() => {}} />)
     expect(
       focusFloating(),
       'a user who chose floating must not be silently relocated to the dock on the next reveal',
@@ -296,7 +296,7 @@ describe('the focus channel stops lying about being on screen (UX gate 7a)', () 
     act(() => {
       useFloatingPanelState.getState().setPosition({ x: 100, y: 100 }) // flips userRepositioned
     })
-    rerender(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />)
+    rerender(<FloatingOlumiPanel onDock={() => {}} />)
     expect(focusFloating(), 'a dragged panel is a user-owned surface again').toBe(true)
   })
 
