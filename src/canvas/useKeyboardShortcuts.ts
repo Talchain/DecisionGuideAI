@@ -110,6 +110,61 @@ function isSpaceKey(event: KeyboardEvent): boolean {
  */
 const HOLD_INVALIDATING_MODIFIERS = new Set(['Meta', 'Control', 'Alt', 'OS'])
 
+/**
+ * ⭐ THE ASYMMETRY THIS CLOSES, measured on the deployed build `daf6537a`.
+ *
+ * `CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations` is `'disabled'` — a
+ * COMPILE-TIME CONSTANT, not a flag — so every branch below that reads
+ * `canMutateSharedModel` is permanently inert. Meanwhile Delete/Backspace
+ * carries no such gate. A user can therefore remove a node from their model
+ * and then press the one key everybody reaches for, and get NOTHING: no
+ * revert, no refusal, no message. Witnessed in a browser at the deployed
+ * tip — `store.canUndo()` was `true`, `history.past.length` stayed 1, and
+ * `history.future` stayed empty, with no toast of any kind.
+ *
+ * ⚠ THIS DOES NOT RE-ENABLE UNDO, AND MUST NOT BE CHANGED INTO SOMETHING
+ * THAT DOES. `useHistoryToast`'s header records why the Undo action was
+ * removed rather than rewired: a canvas history entry has no canonical
+ * counterpart, and pointing it at `restoreModelVersion` would restore a
+ * DIFFERENT object and "overwrite the working model for everyone with
+ * access". Local undo has no return leg. That ruling stands.
+ *
+ * What changed is only that the gesture is ANSWERED instead of swallowed,
+ * and answered with a route that genuinely exists: a durable delete reaches
+ * CEE as a `structural_delete` turn, whose commit mints a
+ * `committed_mutation` model version (`orchestrator-v5/commit.ts`
+ * `buildAtomicCommittedModelVersion`), which `ServerVersionsSection` lists
+ * and restores. "Version history" is rendered and ENABLED on the canvas in
+ * two places while Undo sits disabled beside it — the recovery was already
+ * there, with nothing connecting the moment of loss to it.
+ *
+ * ⚠ THE COPY DELIBERATELY SAYS "CHECK", NOT "YOUR VERSION IS THERE". The
+ * version is minted when the turn COMMITS, not when the key is pressed, and
+ * a guest or a purely local scratch graph gets no server version at all.
+ * Asserting a restore point exists would be the confident-wrongness this
+ * estate pays for; pointing at a real, reachable panel is true in every
+ * state.
+ */
+export const CANVAS_UNDO_UNAVAILABLE_NOTICE =
+  "Undo isn't available on the canvas. Check Version history to restore an earlier version of this model."
+
+/**
+ * True for the gestures a user makes when they mean "put that back":
+ * Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y.
+ *
+ * Bound to the MODIFIED forms only. A bare `z` is a canvas key like any
+ * other and must keep falling through — swallowing it would be the same
+ * defect in the opposite direction.
+ */
+export function isUndoRedoGesture(key: string, cmdOrCtrl: boolean): boolean {
+  if (!cmdOrCtrl) return false
+  const lowered = key.toLowerCase()
+  return lowered === 'z' || lowered === 'y'
+}
+
+/** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
+const UNDO_NOTICE_QUIET_MS = 3000
+
 interface KeyboardShortcutOptions {
   /** Callback to set interaction mode (select/hand) for V/H shortcuts */
   onModeChange?: (mode: InteractionMode) => void
@@ -125,6 +180,9 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
   // it the release paths below (modifiers, blur, visibilitychange) would fire
   // `false` repeatedly at a consumer that is already false.
   const spaceHeldRef = useRef(false)
+  // Last time the "undo isn't available" notice was emitted, so a held or
+  // repeatedly-pressed ⌘Z produces one message rather than a column of them.
+  const lastUndoNoticeAtRef = useRef(0)
   // Fix: Use getState() inside handler to avoid dependency array issues.
   // Previously, all 12 action functions were in the dependency array, but
   // Zustand selectors return new function references on every render,
@@ -165,6 +223,26 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       const canMutateSharedModel = hasServerGraphAuthority(
         CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
       )
+
+      // Answer the recovery gesture rather than swallowing it. Runs BEFORE the
+      // undo/redo branches and fires only when they are inert, so the day
+      // `canvasSemanticMutations` becomes `'server_graph'` this branch stops
+      // firing on its own and real undo takes over — no second place to
+      // remember to update.
+      if (!canMutateSharedModel && isUndoRedoGesture(event.key, cmdOrCtrl)) {
+        event.preventDefault()
+        if (!event.repeat && Date.now() - lastUndoNoticeAtRef.current > UNDO_NOTICE_QUIET_MS) {
+          lastUndoNoticeAtRef.current = Date.now()
+          if (typeof window !== 'undefined') {
+            // The canvas's canonical toast bridge — the same one the store's
+            // delete refusal uses, listened to in ReactFlowGraph.
+            window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+              detail: { message: CANVAS_UNDO_UNAVAILABLE_NOTICE, level: 'info' },
+            }))
+          }
+        }
+        return
+      }
 
       // Undo: Cmd/Ctrl + Z
       if (canMutateSharedModel && cmdOrCtrl && event.key === 'z' && !event.shiftKey && state.canUndo()) {
