@@ -78,6 +78,32 @@ export interface BeliefElicitationFieldProps {
   onAccept: (value: number) => void
   /** Surface-specific test id on the wrapper. */
   testId: string
+  /**
+   * ⭐ HOW BIG THE FIELD IS, because the two hosts are not the same kind of
+   * screen and one size was wrong for one of them.
+   *
+   * `compact` (the DEFAULT, and byte-identical to what shipped) is the
+   * inspector/drill-in size: `h-7 w-56` — 28px tall, 224px wide — correct for a
+   * dense panel sitting beside a canvas on a desktop.
+   *
+   * `comfortable` is for a full-width page that a participant meets on a
+   * PHONE. The packet page's own standard for every other input on it is
+   * `min-h-[44px]` at 16px (its `FIELD` recipe, and the platform tap-target
+   * floor); the shared field was 28px and 224px against it, on the single most
+   * important input in the collaboration journey — the one an invited colleague
+   * has to hit, first try, on a train.
+   *
+   * ⚠ A VARIANT, NOT A REPLACEMENT. Changing the class outright would have
+   * resized `FactorControllablePanel` and `CalibrateDrillIn` too — two dense
+   * canvas surfaces nobody asked to change, whose layout is not this lane's to
+   * move. Defaulting to `compact` keeps them byte-identical.
+   */
+  size?: 'compact' | 'comfortable'
+}
+
+const FIELD_SIZE: Readonly<Record<'compact' | 'comfortable', string>> = {
+  compact: 'h-7 w-56 px-2',
+  comfortable: 'min-h-[44px] w-full px-4 py-3 text-base',
 }
 
 export function BeliefElicitationField({
@@ -88,6 +114,7 @@ export function BeliefElicitationField({
   elicitation,
   onAccept,
   testId,
+  size = 'compact',
 }: BeliefElicitationFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [announcement, setAnnouncement] = useState('')
@@ -160,7 +187,8 @@ export function BeliefElicitationField({
       <input
         ref={inputRef}
         aria-label={describeInWordsFieldLabel(label)}
-        className={`${typography.panelBody} h-7 w-56 rounded-lg border border-panel-border bg-panel px-2 text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
+        data-size={size}
+        className={`${typography.panelBody} ${FIELD_SIZE[size]} rounded-lg border border-panel-border bg-panel text-text-header outline-none placeholder:text-text-light focus:border-info focus:ring-2 focus:ring-info/20`}
         placeholder="e.g. pretty likely"
         value={phrase}
         onChange={e => onPhraseChange(e.target.value)}
