@@ -126,6 +126,7 @@ import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { getSessionIdentity } from '../../lib/supabase'
 import { trackEvent } from '../../lib/posthog'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
+import { buildRequestIdHeaders, generateRequestId } from '../../types/requestId'
 import {
   confirmOptimisticFactorEdit,
   describeRebaseDivergence,
@@ -3653,7 +3654,63 @@ export function useConversation(): UseConversationReturn {
         // guard. A single call avoids two getSession() round-trips per turn.
         const v5Identity = await getSessionIdentity()
         const v5UserId = v5Identity.userId
-        const v5Headers: Record<string, string> = buildTurnAuthHeaders(v5Identity)
+        // ═══════════════════════════════════════════════════════════════════
+        // HOP ZERO — the browser ORIGINATES this send's correlation id
+        // ═══════════════════════════════════════════════════════════════════
+        //
+        // The estate propagates ONE id across CEE -> PLoT -> ISL
+        // (`cee/plot-client.ts` -> `plot/createServer.ts` -> `plot/isl/client.ts`
+        // -> `isl/utils/tracing.py`), but the browser sent none, so
+        // `getOrGenerateRequestId` MINTED it inside CEE. Anything that died
+        // BEFORE CEE — the edge, a CORS refusal, a network drop — had no id
+        // anywhere in the estate, and no browser-side event could be joined to a
+        // server log line. This is that missing first hop.
+        //
+        // ── SCOPE: ONE ID PER SEND, NOT PER FETCH ────────────────────────
+        // Minted ONCE here and threaded through this single `v5Headers` object
+        // to every HTTP call this send makes — the streamed draft
+        // (`openV5TurnStream`), its buffered fallback, and the non-streamed
+        // turn. Deliberately NOT the shape at `adapters/cee/client.ts`, which
+        // mints inside `fetchWithBase`, i.e. once per HTTP call, so a turn
+        // making three calls correlates nothing.
+        //
+        // ── WHY NOT `turnClientId`, WHICH WOULD BE TIDIER ────────────────
+        // Because CEE has no trace-only id: `getOrGenerateRequestId` feeds
+        // `context.request_id`, and 29 commit sites in
+        // `orchestrator-v5/turn-executor.ts` pass `turn_id: context.request_id`
+        // into an append RPC keyed
+        // `INSERT … ON CONFLICT (scenario_id, turn_id) DO NOTHING`. Whatever the
+        // browser sends here therefore BECOMES a commit key.
+        //
+        // `turnClientId` is reused on purpose: `retryLast` re-sends with the
+        // SAME `client_turn_id` and its own comment says it RELIES on CEE keying
+        // the commit per-request so the retry writes a second row. Had we sent
+        // it, a retry would hit the conflict, skip the row AND the graph write,
+        // and still report success — `graphPersisted` is derived from whether a
+        // write was INTENDED, not whether one landed. A silent divergence
+        // between the response and durable state, on the recovery path, is a far
+        // worse defect than the untraced request this fixes.
+        //
+        // A fresh id per send keeps retries distinguishable in the logs, which
+        // is what you want when diagnosing one, and leaves CEE's commit
+        // behaviour byte-for-byte as it is today. Pinned by the retry case in
+        // `useConversation.turnCorrelationHeader.spec.ts`.
+        //
+        // ── NO NEW GENERATOR ─────────────────────────────────────────────
+        // `generateRequestId` already exists in `types/requestId.ts` and already
+        // serves `useAsk`. The estate has four `generateCorrelationId`
+        // definitions; this adds no fifth.
+        //
+        // Provisioning verified at the deployed wire 2026-08-29, not inferred:
+        // an OPTIONS preflight to `/proxy/v5/turn`, `/turn/stream` and
+        // `/turn/stop` on `cee-staging.onrender.com` returns an
+        // `access-control-allow-headers` list containing `X-Request-Id`
+        // (contrast control: a fabricated header name returned the IDENTICAL
+        // list, proving a fixed server allowlist rather than a reflection).
+        const v5Headers: Record<string, string> = {
+          ...buildTurnAuthHeaders(v5Identity),
+          ...buildRequestIdHeaders(generateRequestId()),
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // ROADMAP 2.122 / 1.204 M1 — THE STREAMED COLD DRAFT

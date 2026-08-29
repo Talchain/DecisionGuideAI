@@ -2198,7 +2198,22 @@ describe('login 3.4 — V5 turn auth headers', () => {
 
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     const opts = mockCallV5Turn.mock.calls[0][1] as { headers?: Record<string, string> }
-    expect(opts.headers).toEqual({})
+    // ⚠ ASSERTS THE ABSENCE OF *AUTH* HEADERS, NOT AN EMPTY OBJECT.
+    //
+    // This was `toEqual({})`. That spelling said "no auth headers for a guest"
+    // only for as long as auth was the ONLY thing `v5Headers` carried — it was
+    // a whole-object pin standing in for a two-key claim, so the first
+    // unrelated header to join the turn broke it while the property it names
+    // was still perfectly true. It broke exactly that way when hop-zero
+    // correlation (`X-Request-Id`) was added: guests must still send no
+    // identity, and they don't.
+    //
+    // Named keys, so the pin now fails for its own reason and for no other.
+    // The correlation header is deliberately NOT enumerated here — it is
+    // pinned by `useConversation.turnCorrelationHeader.spec.ts`, and listing it
+    // in both places would make this a mirror of that suite (trap 12).
+    expect(opts.headers).not.toHaveProperty('X-User-Id')
+    expect(opts.headers).not.toHaveProperty('Authorization')
   })
 })
 
