@@ -280,11 +280,15 @@ export function DraftChat() {
       setShowDraftChat(true)
     }
 
-    // A.5+: When orchestrator V2 is enabled, route initial brief through the
-    // orchestrator conversation path (POST /orchestrate/v1/turn) instead of
-    // the legacy /bff/cee/draft-graph endpoint.
+    // A.5+: When orchestrator V2 is enabled, route the initial brief through the
+    // conversation path instead of the legacy /bff/cee/draft-graph endpoint.
+    // ⚠ This comment and the log below used to name `/orchestrate/v1/turn`. That
+    // was FALSE by the time it was read: `sendMessage` dispatches through the V5
+    // turn path, and the V4 client naming that endpoint was deleted 2026-08-29.
+    // A log line that names a dead endpoint is the false-label trap — it teaches
+    // the next reader to look in a place nothing goes.
     if (isOrchV2) {
-      console.info('[handleDraft] orchestrator V2 path — routing brief to /orchestrate/v1/turn')
+      console.info('[handleDraft] conversation path — routing brief through the V5 turn')
       setLastDraftDescription(description)
       const briefText = description
       setDescription('')

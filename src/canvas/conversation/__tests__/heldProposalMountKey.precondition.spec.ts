@@ -294,11 +294,52 @@ describe('MOUNT-KEY PRECONDITION — a message id is never rewritten', () => {
     expect(updateMessagePatchArgs('/* updateMessage(a, { id: 1 }) */')).toEqual([])
   })
 
-  it('the instrument is not blind — it finds the call sites it is meant to read', () => {
+  it('the instrument is not blind — it reads EVERY call the source contains', () => {
     // Magnitude, not just sign (trap 13e): a probe that found two call sites
     // would report the same clean "no rewrites" as one that found twenty.
+    //
+    // ⚠ DERIVED, NOT REMEMBERED. This assertion was `total >= 15` — a
+    // hand-maintained magnitude. Deleting the V4 orchestration path on
+    // 2026-08-29 took `useConversation.ts` from 7034 to 5414 lines and the true
+    // count from 15 to 6, and the guard went red. Quietly re-baselining `15` to
+    // `6` was the wrong repair: a floor nobody can re-defend is exactly the
+    // hand-maintained mirror this file's own header warns about (trap 12), and
+    // the next deletion would have silently walked it toward zero.
+    //
+    // What must actually be true is not "the source contains N calls" — that is
+    // a fact about product code, and product code is allowed to change. It is
+    // that the BALANCED-SCAN PARSER reads every call the source contains. So
+    // count the occurrences independently, with a different implementation
+    // (regex) over the same comment/stripped text the parser consumed, and
+    // require exact agreement. That is a completeness check with no number in
+    // it, so it cannot drift.
+    //
+    // SCOPE, precisely (trap 20): this proves the parser is not dropping calls
+    // it can see. It does NOT prove the STRIPPER is well-behaved — an over-
+    // blanking stripper would hide calls from both implementations alike. The
+    // raw-vs-stripped assertion below is what makes that visible.
     const total = callSites.reduce((n, r) => n + r.args.length, 0)
-    expect(total).toBeGreaterThanOrEqual(15)
+
+    const independentStripped = callSites.reduce(
+      (n, r) => n + (stripCommentsAndStrings(readFileSync(r.file, 'utf8')).match(/updateMessage\(/g) ?? []).length,
+      0,
+    )
+    // Positive control: the probe sees SOMETHING. A zero here means the scan is
+    // blind (file moved, symbol renamed, stripper over-blanking) and every
+    // "no rewrites" verdict below would be vacuous.
+    expect(total).toBeGreaterThan(0)
+    // Completeness: it sees EVERYTHING it can see.
+    expect(total).toBe(independentStripped)
+
+    // Stripper sanity: the raw file must mention `updateMessage(` at least as
+    // often as the stripped one. If the stripper ever blanked live code, the
+    // stripped count would collapse while raw stayed high — visible here rather
+    // than passing as a clean, smaller-but-plausible number.
+    const rawMentions = callSites.reduce(
+      (n, r) => n + (readFileSync(r.file, 'utf8').match(/updateMessage\(/g) ?? []).length,
+      0,
+    )
+    expect(rawMentions).toBeGreaterThanOrEqual(total)
     // Derived scope, not a mirrored list: `useConversation.ts` is the only
     // file that calls it today. If a second one appears this REDs, which is the
     // point — a new writer is exactly what this guard exists to notice.

@@ -51,6 +51,28 @@ export default defineConfig({
     reporters: ['default'],
     css: false,
     setupFiles: ['tests/setup/rtl.ts'],
+    // ── V5 endpoint: configured for the whole suite, at CONFIG level ──────────
+    // `src/v5/v5Adapter.ts::resolveEndpoint` FAILS CLOSED — absent or blank
+    // config throws rather than silently selecting the retired
+    // `/bff/orchestrate/*` family, which is closed at the Netlify edge.
+    // Deployed staging always bakes this, so "configured" is the realistic
+    // state and the suite reproduces it.
+    //
+    // ⚠ THIS LIVES HERE, NOT ONLY IN THE SETUP FILE, AND THAT DISTINCTION WAS
+    // MEASURED. Assigning it in `tests/setup/rtl.ts` worked locally and did NOT
+    // hold in CI: `useConversation.deferredSystemSends.spec.ts` passed locally
+    // and failed on shard 2 with `expected +0 to be 1` — the turn never
+    // dispatched, because the spec leaves `getV5Endpoint` unmocked and the
+    // throw fired before dispatch. Reproduced exactly by disabling the setup
+    // assignment locally. `test.env` populates `import.meta.env` before any
+    // module is transformed or evaluated, so it cannot lose that race.
+    //
+    // Specs that are ABOUT resolution (src/v5/__tests__/v5Adapter.test.ts)
+    // delete the key in their own hooks to exercise the unconfigured branch,
+    // so this does not make the fail-closed path untested.
+    env: {
+      VITE_V5_ENDPOINT: 'https://cee.test/proxy/v5/turn',
+    },
     restoreMocks: true,
     clearMocks: true,
     mockReset: true,

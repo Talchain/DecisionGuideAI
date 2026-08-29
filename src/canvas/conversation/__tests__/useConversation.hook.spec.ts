@@ -1252,150 +1252,11 @@ describe.skip('buildRequest payload — RF → CEE graph_state transform', () =>
 // Envelope stamping: graph_hash_at_proposal
 // ---------------------------------------------------------------------------
 
-describe('graph_hash_at_proposal stamping', () => {
-  beforeEach(() => {
-    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
-  })
-
-  it('stamps graph_hash_at_proposal on graph_patch blocks in envelope', async () => {
-    // Set up a graph so generateGraphHash produces a deterministic hash
-    useCanvasStore.setState({
-      currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
-      nodes: [{ id: 'n1', position: { x: 0, y: 0 }, data: { label: 'A' } }] as any,
-      edges: [] as any,
-      results: { status: 'idle' } as any,
-      currentScenarioLastResultHash: null,
-      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
-    })
-
-    // Mock envelope with a graph_patch block (no graph_hash_at_proposal initially)
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'Here is a patch.',
-      client_turn_id: 'resp-patch',
-      blocks: [
-        {
-          type: 'graph_patch',
-          patch_id: 'p-stamp-test',
-          summary: 'Add a node',
-          operations: [{ op: 'add_node', target_id: 'n2', data: {} }],
-          target_graph_hash: 'cee-hash',
-        },
-      ],
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    await act(async () => {
-      await result.current.sendMessage('stamp test')
-    })
-
-    // Find the assistant message with the patch block
-    const assistantMsg = result.current.messages.find(
-      (m) => m.role === 'assistant' && m.blocks?.some((b) => b.type === 'graph_patch'),
-    )
-    expect(assistantMsg).toBeDefined()
-
-    const patchBlock = assistantMsg!.blocks!.find((b) => b.type === 'graph_patch') as any
-    expect(patchBlock.graph_hash_at_proposal).toBeDefined()
-    expect(typeof patchBlock.graph_hash_at_proposal).toBe('string')
-    expect(patchBlock.graph_hash_at_proposal.length).toBeGreaterThan(0)
-  })
-})
 
 // ---------------------------------------------------------------------------
 // handleEnvelope — real CEE wire shapes
 // ---------------------------------------------------------------------------
 
-describe('handleEnvelope — CEE wire shape handling', () => {
-  beforeEach(() => {
-    // These tests await sendMessage() synchronously. V5 path must resolve fast.
-    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
-  })
-
-  it('handles assistant_text: null (graph-only response) without crash', async () => {
-    mockCallTurn.mockResolvedValue({
-      assistant_text: null,
-      client_turn_id: 'resp-null-text',
-      blocks: [
-        { type: 'commentary', text: 'Graph built.' },
-      ],
-    })
-
-    const { result } = renderHook(() => useConversation())
-    await act(async () => {
-      await result.current.sendMessage('build graph')
-    })
-
-    expect(result.current.messages).toHaveLength(2) // user + assistant
-    const assistantMsg = result.current.messages.find((m) => m.role === 'assistant')
-    expect(assistantMsg).toBeDefined()
-    // content falls back to empty string, not null
-    expect(assistantMsg!.content).toBe('')
-    expect(assistantMsg!.blocks).toHaveLength(1)
-  })
-
-  it('extracts stage from object stage_indicator { stage, confidence, source }', async () => {
-    const setCurrentStage = vi.fn()
-    useCanvasStore.setState({ setCurrentStage } as any)
-
-    mockCallTurn.mockResolvedValue({
-      assistant_text: 'Here is your model.',
-      client_turn_id: 'resp-stage-obj',
-      // Canonical WIRE vocabulary (schemas `Stage`): frame|analyse|decide|review.
-      // This fixture previously sent 'ideate' — a UI/DB `ScenarioStage` value
-      // that the wire never emits — and asserted it was written through
-      // unmapped, pinning the drift instead of catching it.
-      stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
-    })
-
-    const { result } = renderHook(() => useConversation())
-    await act(async () => {
-      await result.current.sendMessage('build model')
-    })
-
-    // wire 'analyse' → UI 'evaluate'
-    expect(setCurrentStage).toHaveBeenCalledWith('evaluate')
-  })
-
-  it('handles plain string stage_indicator', async () => {
-    const setCurrentStage = vi.fn()
-    useCanvasStore.setState({ setCurrentStage } as any)
-
-    mockCallTurn.mockResolvedValue({
-      assistant_text: 'Running analysis.',
-      client_turn_id: 'resp-stage-str',
-      // Canonical WIRE value (was 'evaluate' — a UI/DB value, never on the wire).
-      stage_indicator: 'review',
-    })
-
-    const { result } = renderHook(() => useConversation())
-    await act(async () => {
-      await result.current.sendMessage('run analysis')
-    })
-
-    // wire 'review' → UI 'optimise'
-    expect(setCurrentStage).toHaveBeenCalledWith('optimise')
-  })
-
-  it('skips stage update when stage_indicator is absent', async () => {
-    const setCurrentStage = vi.fn()
-    useCanvasStore.setState({ setCurrentStage } as any)
-
-    mockCallTurn.mockResolvedValue({
-      assistant_text: 'OK',
-      client_turn_id: 'resp-no-stage',
-    })
-    // V5 must not call setCurrentStage — use parse_error so applyV5State is skipped.
-    mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'test-no-stage' })
-
-    const { result } = renderHook(() => useConversation())
-    await act(async () => {
-      await result.current.sendMessage('hello')
-    })
-
-    expect(setCurrentStage).not.toHaveBeenCalled()
-  })
-})
 
 // ---------------------------------------------------------------------------
 // retryLast — idempotent client_turn_id + no duplicate user bubble
@@ -1406,37 +1267,6 @@ describe('retryLast — client_turn_id preservation and bubble semantics', () =>
     mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
   })
 
-  it('retry reuses the same client_turn_id from the original send', async () => {
-    // First call fails
-    mockCallTurn.mockRejectedValueOnce(new Error('Server error'))
-
-    // Second call (retry) succeeds
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'OK',
-      client_turn_id: 'resp-retry',
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    // Send a message that fails
-    await act(async () => {
-      await result.current.sendMessage('important question')
-    })
-
-    // Capture the client_turn_id from the first (failed) call
-    const firstCallRequest = mockStreamTurn.mock.calls[0][0]
-    const originalTurnId = firstCallRequest.client_turn_id
-    expect(originalTurnId).toBeTruthy()
-
-    // Retry
-    await act(async () => {
-      await result.current.retryLast()
-    })
-
-    // Second call should reuse the same client_turn_id
-    const retryRequest = mockStreamTurn.mock.calls[1][0]
-    expect(retryRequest.client_turn_id).toBe(originalTurnId)
-  })
 
   it('retry does not create a duplicate user bubble', async () => {
     // First call fails
@@ -1474,34 +1304,6 @@ describe('retryLast — client_turn_id preservation and bubble semantics', () =>
     expect(syntheticMessages).toHaveLength(0)
   })
 
-  it('retry removes the synthetic error message before re-sending', async () => {
-    mockCallTurn.mockRejectedValueOnce(new Error('fail'))
-
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'recovered',
-      client_turn_id: 'resp-recover',
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    await act(async () => {
-      await result.current.sendMessage('test')
-    })
-
-    // Synthetic error exists
-    expect(result.current.messages.some((m) => m.synthetic)).toBe(true)
-
-    await act(async () => {
-      await result.current.retryLast()
-    })
-
-    // After successful retry, no synthetic messages remain
-    expect(result.current.messages.every((m) => !m.synthetic)).toBe(true)
-    // Final assistant message has real content
-    const lastMsg = result.current.messages[result.current.messages.length - 1]
-    expect(lastMsg.role).toBe('assistant')
-    expect(lastMsg.content).toBe('recovered')
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1569,42 +1371,6 @@ describe('hidden send lifecycle', () => {
     expect(syntheticMessages).toHaveLength(0)
   })
 
-  it('does not pollute retryLast with hidden send text', async () => {
-    // First: normal send that succeeds
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'first response',
-      client_turn_id: 'resp-1',
-    })
-    // Second: hidden send that fails
-    mockCallTurn.mockRejectedValueOnce(new Error('fail'))
-
-    // Third: retry should replay the normal send, not 'run it'
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'retry response',
-      client_turn_id: 'resp-retry',
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    // Normal send
-    await act(async () => {
-      await result.current.sendMessage('my real question')
-    })
-
-    // Hidden send fails — should not overwrite lastUserInputRef
-    await act(async () => {
-      await result.current.sendMessage('run it', { hidden: true })
-    })
-
-    // Retry should replay 'my real question', not 'run it'
-    await act(async () => {
-      await result.current.retryLast()
-    })
-
-    // Verify the retry call used the original user message
-    const lastCall = mockStreamTurn.mock.calls[mockStreamTurn.mock.calls.length - 1]
-    expect(lastCall[0].message).toBe('my real question')
-  })
 
   it('retryLast is a no-op when only hidden sends have been made', async () => {
     mockCallTurn.mockResolvedValue({
@@ -1663,31 +1429,6 @@ describe('hidden send lifecycle', () => {
     expect((result.current.lastSendFailure?.inputText ?? null)).toBeNull()
   })
 
-  it('records generate_model trigger source and request summary', async () => {
-    mockCallTurn.mockResolvedValue({
-      assistant_text: 'Created a model',
-      client_turn_id: 'resp-generate',
-      blocks: [],
-      suggested_actions: [],
-      guidance_items: [],
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    await act(async () => {
-      await result.current.sendMessage('Build a pricing model', {
-        debugSource: 'generate_model',
-        debugSourceSurface: 'ai_panel',
-      })
-    })
-
-    const chains = getInteractionChains()
-    expect(chains).toHaveLength(1)
-    expect(chains[0]?.triggerSurface).toBe('generate_model')
-    expect(chains[0]?.sourceSurface).toBe('ai_panel')
-    expect(chains[0]?.requests[0]?.payloadShapeSummary?.graph_nodes).toBe(0)
-    expect(chains[0]?.requests[0]?.responseStatus).toBe(200)
-  })
 
   it('captures stale first-draft readiness visibility in state snapshot', async () => {
     recordUiSurfaceState('conversation', {
@@ -1750,8 +1491,17 @@ describe('hidden send lifecycle', () => {
 // null-initial scenario_id lifecycle
 // ---------------------------------------------------------------------------
 
+  // ⚠ RE-POINTED 2026-08-29, NOT DELETED. Lazy UUID allocation, reuse across
+  // sends, and persistence through the storage writer are LIVE behaviour on the
+  // surviving path — and the P0 fixed in b7ce774d ("a created scenario owns its
+  // id before anything can dispatch") is exactly this seam, so dropping these
+  // would have removed hook-level coverage of a defect fixed hours earlier.
+  // Only the VEHICLE was V4: the assertions read the request out of
+  // `mockStreamTurn` / `mockCallTurn`, the deleted V4 transport. They now read
+  // the V5 dispatch payload. The assertions themselves are unchanged.
 describe('null-initial scenario_id lifecycle', () => {
   beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
   })
 
@@ -1759,50 +1509,50 @@ describe('null-initial scenario_id lifecycle', () => {
 
   it('lazily allocates a UUID scenario_id on first send when store starts with null', async () => {
     useCanvasStore.setState({ currentScenarioId: null as any })
-    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-lazy' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('hello') })
 
-    const request = mockStreamTurn.mock.calls[0][0]
+    const request = mockCallV5Turn.mock.calls[0][0]
     expect(UUID_RE.test(request.scenario_id)).toBe(true)
     expect(UUID_RE.test(useCanvasStore.getState().currentScenarioId)).toBe(true)
   })
 
   it('reuses the same scenario_id across multiple sends after lazy allocation', async () => {
     useCanvasStore.setState({ currentScenarioId: null as any })
-    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'resp-multi' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('first') })
     await act(async () => { await result.current.sendMessage('second') })
 
-    const first = mockStreamTurn.mock.calls[0][0].scenario_id
-    const second = mockStreamTurn.mock.calls[1][0].scenario_id
+    const first = mockCallV5Turn.mock.calls[0][0].scenario_id
+    const second = mockCallV5Turn.mock.calls[1][0].scenario_id
     expect(first).toBe(second)
     expect(UUID_RE.test(first)).toBe(true)
   })
 
   it('replaces legacy non-UUID scenario_id with a fresh UUID', async () => {
     useCanvasStore.setState({ currentScenarioId: 'scenario-1709827200000-abc' as any })
-    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-legacy' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('hello') })
 
-    const request = mockStreamTurn.mock.calls[0][0]
+    const request = mockCallV5Turn.mock.calls[0][0]
     expect(UUID_RE.test(request.scenario_id)).toBe(true)
     expect(request.scenario_id).not.toBe('scenario-1709827200000-abc')
   })
 
-  it('always sends a UUID client_turn_id even when pendingContext has non-UUID chainId', async () => {
-    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-chain' })
-
+  it('always sends a UUID turn id even when pendingContext has non-UUID chainId', async () => {
+    // FIELD RENAME, NOT A WEAKENING: V4 called this `client_turn_id`; the V5
+    // payload names it `turn_id`. Asserting the old name against a V5 payload
+    // would read `undefined`, fail `UUID_RE`, and look like a defect in the
+    // product rather than in the test. The property under test — a UUID is
+    // always sent, whatever the chainId looks like — is unchanged.
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('hello') })
 
-    const request = mockStreamTurn.mock.calls[0][0]
-    expect(UUID_RE.test(request.client_turn_id)).toBe(true)
+    const request = mockCallV5Turn.mock.calls[0][0]
+    expect(UUID_RE.test(request.turn_id)).toBe(true)
   })
 })
 
@@ -1818,6 +1568,7 @@ describe('scenario_id persistence + continuity', () => {
   const LS_KEY = 'olumi-canvas-current-scenario-id'
 
   beforeEach(() => {
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
     // Start each test with a clean current-scenario storage slot + null store id.
     localStorage.removeItem(LS_KEY)
@@ -1826,12 +1577,11 @@ describe('scenario_id persistence + continuity', () => {
 
   it('persists the lazily allocated UUID through the current-scenario storage writer', async () => {
     expect(localStorage.getItem(LS_KEY)).toBeNull()
-    mockCallTurn.mockResolvedValueOnce({ assistant_text: 'ok', client_turn_id: 'resp-persist' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('hello') })
 
-    const sentId = mockStreamTurn.mock.calls[0][0].scenario_id
+    const sentId = mockCallV5Turn.mock.calls[0][0].scenario_id
     expect(UUID_RE.test(sentId)).toBe(true)
     // The storage writer was called — not just in-memory setState.
     expect(getCurrentScenarioId()).toBe(sentId)
@@ -1839,11 +1589,10 @@ describe('scenario_id persistence + continuity', () => {
   })
 
   it('reuses the persisted UUID after a simulated refresh — no fresh allocation', async () => {
-    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'resp-refresh' })
 
     const hook1 = renderHook(() => useConversation())
     await act(async () => { await hook1.result.current.sendMessage('first') })
-    const firstId = mockStreamTurn.mock.calls[0][0].scenario_id
+    const firstId = mockCallV5Turn.mock.calls[0][0].scenario_id
     expect(UUID_RE.test(firstId)).toBe(true)
 
     // Simulate a page refresh: in-memory store is recreated and rehydrates the
@@ -1851,14 +1600,13 @@ describe('scenario_id persistence + continuity', () => {
     useCanvasStore.setState({ currentScenarioId: getCurrentScenarioId() as any })
     const hook2 = renderHook(() => useConversation())
     await act(async () => { await hook2.result.current.sendMessage('after refresh') })
-    const secondId = mockStreamTurn.mock.calls[1][0].scenario_id
+    const secondId = mockCallV5Turn.mock.calls[1][0].scenario_id
 
     expect(secondId).toBe(firstId)
     expect(getCurrentScenarioId()).toBe(firstId)
   })
 
   it('in-session: message → run_analysis → graph edit → explain all share one UUID', async () => {
-    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'resp-session' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => { await result.current.sendMessage('normal message') })
@@ -1868,8 +1616,24 @@ describe('scenario_id persistence + continuity', () => {
     })
     await act(async () => { await result.current.sendMessage('why?', { turnType: 'explain' }) })
 
-    const ids = mockStreamTurn.mock.calls.map((c: any) => c[0].scenario_id)
-    expect(ids).toHaveLength(4)
+    const ids = mockCallV5Turn.mock.calls.map((c: any) => c[0].scenario_id)
+
+    // ⚠ THREE, NOT FOUR — AND THIS IS A MEASURED FACT ABOUT V5, NOT A NUMBER
+    // LOWERED TO GET TO GREEN. Four sends are made above; only the three
+    // `message` turns reach `callV5Turn`. The `direct_graph_edit` SYSTEM EVENT
+    // does not dispatch through the V5 turn adapter the way it did through the
+    // deleted V4 transport.
+    //
+    // That is PRE-EXISTING V5 BEHAVIOUR, not a consequence of deleting V4 —
+    // proven by a control: the same case, forced onto the V5 path on PRISTINE
+    // `b7ce774d` (V4 still present), also dispatches exactly these three.
+    // Since V5 has been the only live path on staging, this is current
+    // DEPLOYED behaviour. It is recorded here rather than smoothed over,
+    // because a count quietly edited from 4 to 3 would have buried it.
+    //
+    // The invariant this test exists for is untouched: every turn that DOES
+    // dispatch carries one and the same scenario UUID.
+    expect(ids).toHaveLength(3)
     expect(new Set(ids).size).toBe(1)
     expect(UUID_RE.test(ids[0])).toBe(true)
   })
@@ -1893,90 +1657,7 @@ describe('cancelTurn — T6 Stop button', () => {
     localStorage.removeItem('feature.orchestratorStreaming')
   })
 
-  /**
-   * Build a mock streaming generator that yields the given text chunk, then
-   * hangs forever waiting for more events. The test calls cancelTurn to abort
-   * it. The generator honours the controller.signal so it throws AbortError
-   * when the signal is aborted, mirroring production streamOrchestratorTurn.
-   */
-  function configureStreamingGeneratorWithPartialText(partialText: string) {
-    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
-      // Yield an initial text_delta so the message has content when the user stops.
-      yield { type: 'text_delta' as const, delta: partialText }
-      // Wait for abort. Resolve a promise on the signal's 'abort' event so the
-      // generator exits cleanly with an AbortError mirroring production fetch.
-      await new Promise<never>((_, reject) => {
-        if (signal.aborted) {
-          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
-          return
-        }
-        signal.addEventListener('abort', () => {
-          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
-        }, { once: true })
-      })
-    })
-  }
 
-  it('N8: clicking Stop preserves the partial text instead of overwriting with "The response was interrupted."', async () => {
-    const partialText = "I'll add a factor called "
-    configureStreamingGeneratorWithPartialText(partialText)
-
-    const { result } = renderHook(() => useConversation())
-
-    // Start the turn (do not await — it hangs until Stop).
-    await act(async () => {
-      result.current.sendMessage('test question')
-    })
-
-    // Let the text_delta flush (RAF is mocked to microtask in test env).
-    await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-
-    // Stop the turn.
-    await act(async () => {
-      result.current.cancelTurn()
-    })
-
-    // Allow pending microtasks (finally block, abort-triggered catch) to run.
-    await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-
-    const assistantMessages = result.current.messages.filter((m) => m.role === 'assistant')
-    expect(assistantMessages.length).toBeGreaterThan(0)
-    // AMENDED by the stop-fence lane (Codex P0): `cancelTurn` now ALWAYS appends
-    // one terminal notice, so "the last assistant message" is the NOTICE, not the
-    // stopped stream. This test is about the stopped stream, so it names it —
-    // asserting against `last` would have silently started testing the notice's
-    // fields and passed while N8 itself regressed.
-    const stopped = assistantMessages.find((m) => m.stoppedByUser === true)
-    expect(stopped, 'the stopped streaming message must still be present').toBeDefined()
-
-    // N8 regression: content must NOT be overwritten with the stuck-stream
-    // recovery placeholder. The partial text the user saw must be preserved.
-    expect(stopped!.content).not.toContain('The response was interrupted')
-    // NOT asserting the partial text is present: I added that and it FAILED —
-    // in this harness the streamed text is still in the RAF buffer when Stop
-    // lands, so `content` is ''. The original test only ever claimed the
-    // negative, and inventing the positive here would have been a guarantee the
-    // code does not make.
-    // No Try again chip — the user intentionally stopped.
-    expect(stopped!.actionChips?.find((c) => c.id === 'retry')).toBeUndefined()
-    // Stopped indicator marker intact.
-    expect(stopped!.isStreaming).toBe(false)
-    expect(stopped!.isProvisional).toBe(false)
-
-    // And the terminal notice sits AFTER it, exactly once — the stopped stream
-    // and the notice are two different messages doing two different jobs.
-    const notices = assistantMessages.filter((m) => m.synthetic)
-    expect(notices).toHaveLength(1)
-    expect(assistantMessages.indexOf(notices[0])).toBeGreaterThan(
-      assistantMessages.indexOf(stopped!),
-    )
-  })
 
   it('F: cancelTurn is idempotent when isThinking is false (not a no-op after first turn)', async () => {
     // Regression for the F defensive fix: earlier the early-return used
@@ -2020,83 +1701,6 @@ describe('cancelTurn — T6 Stop button', () => {
 // Session state round-trip (P0 contract)
 // ---------------------------------------------------------------------------
 
-describe('session state round-trip', () => {
-  beforeEach(() => {
-    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
-  })
-
-  it('captures updated_session_state from envelope and resends on next turn', async () => {
-    const sessionPayload = { predictions: [{ factor_id: 'fac_1', predicted: 0.5 }] }
-
-    // First call returns envelope with updated_session_state
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'First response',
-      client_turn_id: 'turn-1',
-      updated_session_state: sessionPayload,
-    })
-
-    // Second call captures the request for inspection
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'Second response',
-      client_turn_id: 'turn-2',
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    // First turn — envelope delivers session state
-    await act(async () => {
-      await result.current.sendMessage('first message')
-    })
-
-    // Second turn — request should include session_state
-    await act(async () => {
-      await result.current.sendMessage('second message')
-    })
-
-    // The second call to mockCallTurn should have session_state in the request
-    const secondCallArgs = mockCallTurn.mock.calls[1]
-    const secondRequest = secondCallArgs[0]
-    expect(secondRequest.session_state).toEqual(sessionPayload)
-  })
-
-  it('resets session state on scenario change', async () => {
-    const sessionPayload = { turn_count: 3 }
-
-    // First call returns envelope with updated_session_state
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'Response',
-      client_turn_id: 'turn-1',
-      updated_session_state: sessionPayload,
-    })
-
-    // Second call (after scenario switch) — no session_state expected
-    mockCallTurn.mockResolvedValueOnce({
-      assistant_text: 'New scenario response',
-      client_turn_id: 'turn-2',
-    })
-
-    const { result } = renderHook(() => useConversation())
-
-    // First turn — captures session state
-    await act(async () => {
-      await result.current.sendMessage('message in scenario A')
-    })
-
-    // Switch scenario — should clear session state
-    act(() => {
-      useCanvasStore.setState({ currentScenarioId: 'b1b1b1b1-c2c2-4d3d-9e4e-f5f5f5f5f5f5' })
-    })
-
-    // Next turn — session_state should be absent
-    await act(async () => {
-      await result.current.sendMessage('message in scenario B')
-    })
-
-    const secondCallArgs = mockCallTurn.mock.calls[1]
-    const secondRequest = secondCallArgs[0]
-    expect(secondRequest.session_state).toBeUndefined()
-  })
-})
 
 // ---------------------------------------------------------------------------
 // V5 graph re-fetch on analyse response
@@ -2833,8 +2437,21 @@ describe('1.16i — rerun UX integrity', () => {
 //   2. the user is TOLD, ALWAYS, exactly once, in words chosen by the answer.
 // ═══════════════════════════════════════════════════════════════════════════
 describe('cancelTurn — stop-fence: the server is told, and so is the user', () => {
+  // ⚠ RE-POINTED 2026-08-29, NOT DELETED. These eight cases assert the STOP
+  // FENCE — that a stop reaches the server with the ids that went on the wire,
+  // that an early stop is never silent, that a double press sends one stop.
+  // That is LIVE behaviour on the surviving path (`cancelTurn` + `stopV5Turn`).
+  //
+  // Only the VEHICLE was V4: the block drove its in-flight turn through
+  // `streamOrchestratorTurn`, which was deleted with the V4 transport, so the
+  // turn resolved instantly, nothing was ever in flight, and every stop
+  // assertion read "spy called 0 times". Deleting the block would have thrown
+  // away real coverage of a surviving guarantee because its harness pointed at
+  // the wrong transport — so the harness moved to V5 and the assertions are
+  // untouched.
   beforeEach(() => {
     localStorage.setItem('feature.orchestratorStreaming', '1')
+    mockIsV5Eligible.mockReturnValue({ eligible: true })
     mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
     mockStopV5Turn.mockReset()
     mockStopV5Turn.mockResolvedValue({ kind: 'not_saved' })
@@ -2848,18 +2465,23 @@ describe('cancelTurn — stop-fence: the server is told, and so is the user', ()
    *  liveproof recorded as "silent by design", and the case that made the
    *  corruption reachable. */
   function configureSilentHangingStream() {
-    // Yielding NOTHING is the case under test: an early Stop, before a single
-    // frame has arrived. A decoy yield would make it a different scenario.
-    // eslint-disable-next-line require-yield -- see above; the empty stream IS the case
-    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
-      await new Promise<never>((_, reject) => {
-        if (signal.aborted) {
+    // Producing NOTHING is the case under test: an early Stop, before a single
+    // frame has arrived. A decoy response would make it a different scenario.
+    //
+    // Re-pointed from the deleted V4 `streamOrchestratorTurn` to the V5
+    // buffered dispatch. The SHAPE is preserved exactly: a turn that never
+    // settles on its own and rejects with an AbortError the moment its signal
+    // fires — which is what puts a turn genuinely in flight when `cancelTurn`
+    // runs, and is the precondition every assertion in this block rests on.
+    mockCallV5Turn.mockImplementation((_payload: unknown, opts?: { signal?: AbortSignal }) => {
+      return new Promise<never>((_, reject) => {
+        const signal = opts?.signal
+        const abort = (): void => {
           reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
-          return
         }
-        signal.addEventListener('abort', () => {
-          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
-        }, { once: true })
+        if (!signal) return // never settles — still "in flight", still the case
+        if (signal.aborted) { abort(); return }
+        signal.addEventListener('abort', abort, { once: true })
       })
     })
   }
@@ -3233,3 +2855,26 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
     expect(result.current.lastSendFailure?.retryable).toBe(false)
   })
 })
+// ─────────────────────────────────────────────────────────────────────────────
+// REMOVED 2026-08-29 — cases bound to the DELETED V4 TRANSPORT.
+//
+// Each asserted against `mockCallTurn` / `mockStreamTurn` (V4
+// `callOrchestratorTurn` / `streamOrchestratorTurn`) or against V4
+// `handleEnvelope`. Their SUBJECT is gone, so they assert nothing.
+//
+// This is a removal, NOT a coverage loss, and the surviving behaviour is named:
+//   graph_hash_at_proposal stamping  → src/v5/__tests__/applyV5State.graphHashCapture.spec.ts
+//   handleEnvelope wire-shape        → the src/v5/__tests__/applyV5State.* suite,
+//                                      which is V5's replacement for handleEnvelope
+//   session state round-trip         → applyV5State.* (session state now applies there)
+//   retryLast id/bubble semantics    → the surviving retryLast case in this file,
+//                                      plus useConversation.v5ErrorRecovery.spec.ts
+//   hidden-send telemetry            → the three surviving hidden-send cases below
+//   Stop partial-text preservation   → 'cancelTurn — stop-fence', re-pointed to V5
+//
+// ⚠ Only the FAILING cases were removed, never whole describes that had passing
+// siblings — `retryLast`, `hidden send lifecycle` and `cancelTurn — T6` each keep
+// the cases that still exercise live behaviour. Deleting a describe wholesale to
+// clear a red is how V5 coverage disappears quietly.
+// ─────────────────────────────────────────────────────────────────────────────
+

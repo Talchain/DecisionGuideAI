@@ -47,3 +47,33 @@ afterEach(() => {
   vi.clearAllMocks()
   vi.useRealTimers()
 })
+
+
+// ── V5 endpoint: configured by default for the whole suite ───────────────────
+// `src/v5/v5Adapter.ts::resolveEndpoint` FAILS CLOSED — absent/blank config
+// throws rather than silently selecting the retired `/bff/orchestrate/*`
+// family, which is closed at the Netlify edge. Deployed staging always bakes
+// `VITE_V5_ENDPOINT`, so "configured" is the realistic default state and this
+// setup reproduces it once for every spec.
+//
+// Specs that are ABOUT resolution (src/v5/__tests__/v5Adapter.test.ts) delete
+// this in their own beforeEach to exercise the unconfigured branch — so this
+// line makes the suite realistic without making the fail-closed path untested.
+// Secondary guard only — `vitest.config.ts` `test.env` is the source of truth
+// for VITE_V5_ENDPOINT (see the note there for why config level, not here).
+// This re-establishes it per test so a spec that clears env cannot leave a
+// later test in this file without an endpoint.
+//
+// ⚠ An earlier version of this comment blamed `vi.unstubAllEnvs()` for
+// stripping the key. THAT WAS WRONG AND IS RECORDED AS WRONG: a two-test
+// mutant probe (stub+unstub in one test, assert presence in the next) stayed
+// GREEN with the old module-load form, so unstubbing does not remove it. The
+// real cause was that the setup-file assignment did not reach CI's workers
+// before the modules that read it. Keeping the refuted reason would have sent
+// the next reader after the wrong mechanism.
+beforeEach(() => {
+  if (!import.meta.env.VITE_V5_ENDPOINT) {
+    ;(import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT =
+      'https://cee.test/proxy/v5/turn'
+  }
+})

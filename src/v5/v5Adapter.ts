@@ -10,10 +10,41 @@
  * Consumes @talchain/schemas@0.7.0 — payload is a discriminated union on
  * `kind: 'message' | 'system_event'`.
  *
- * Endpoint resolution priority:
- *   1. VITE_V5_ENDPOINT (explicit override, used in tests and dev)
- *   2. `${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn`
- *   3. `/bff/orchestrate/v2/turn` (Netlify edge proxy — production default)
+ * Endpoint resolution — FAIL CLOSED, single source.
+ *
+ * `VITE_V5_ENDPOINT` is the ONLY source. Absent, blank or non-string ⇒ throw
+ * `V5EndpointNotConfiguredError`. There is deliberately no fallback.
+ *
+ * ── WHY THERE IS NO FALLBACK (2026-08-29) ─────────────────────────────────────
+ * This resolver used to fall back to `${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn`
+ * and then to `/bff/orchestrate/v2/turn`. BOTH rungs now point at a route that is
+ * deliberately closed or actively unsafe:
+ *
+ *   - `/bff/orchestrate/*` was CLOSED at the Netlify edge on 2026-08-28
+ *     (`orchestrator-proxy.ts`: `ALLOWED_TARGETS = []`) after a wire-witnessed
+ *     anonymous scenario-ownership takeover. PROBED 2026-08-29 against
+ *     `https://staging--olumi.netlify.app` with an allowed Origin:
+ *     `/bff/orchestrate/v2/turn` ⇒ 404 `{"error":"Not found"}` (the edge-block
+ *     sentinel), while the off-prefix control returned SPA HTML and the live
+ *     control `/bff/cee/graph-readiness` reached CEE (400 `cee.error.v1`).
+ *   - `${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn` is WORSE: it addresses CEE
+ *     directly, bypassing the very edge block that is the remedy, and lands on
+ *     the route carrying the ownership defect.
+ *
+ * So a missing variable used to silently select a closed endpoint (an outage) or
+ * the vulnerable one (a security regression). Neither is a safe default, and the
+ * failure was invisible: Vite CONSTANT-FOLDS this function at build time, so the
+ * rung is chosen when the bundle is built, from dashboard state nobody can see.
+ * Measured in the deployed bundle at b7ce774d: `resolveEndpoint` had folded to a
+ * single `return "https://cee-staging.onrender.com/proxy/v5/turn"` and the string
+ * `/bff/orchestrate/v2/turn` appeared ZERO times — clearing one dashboard
+ * variable would have changed what the NEXT build baked, with nothing to catch it.
+ *
+ * Throwing is safe here: this runs on TURN DISPATCH, never at module load or
+ * first paint, so a misconfiguration surfaces as a turn error the UI already
+ * renders — not a blank screen. `scripts/ci/assert-v5-endpoint-configured.mjs`
+ * additionally fails the BUILD when the variable is absent, so the runtime throw
+ * is the second line of defence, not the first.
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
@@ -27,12 +58,31 @@ import {
 
 export type V5CallResult = V5ParseResult;
 
+/**
+ * Thrown when no V5 endpoint is configured. Named so callers and tests can bind
+ * to the identity rather than to message text.
+ */
+export class V5EndpointNotConfiguredError extends Error {
+  constructor() {
+    super(
+      'VITE_V5_ENDPOINT is not configured. The V5 orchestration endpoint has no ' +
+        'fallback: the legacy /bff/orchestrate/* family is closed at the edge and ' +
+        'must never be selected implicitly. Set VITE_V5_ENDPOINT and redeploy.',
+    );
+    this.name = 'V5EndpointNotConfiguredError';
+  }
+}
+
 function resolveEndpoint(): string {
-  const override = import.meta.env?.VITE_V5_ENDPOINT as string | undefined;
-  if (override && override.length > 0) return override;
-  const base = import.meta.env?.VITE_ORCHESTRATOR_BASE as string | undefined;
-  if (base && base.length > 0) return `${base}/orchestrate/v2/turn`;
-  return '/bff/orchestrate/v2/turn';
+  // ⚠ Correct for ABSENT, not merely for falsy. `undefined`, `null`, `''` and a
+  // whitespace-only value are all "not configured" and take the SAME branch —
+  // the defect class this replaces was an exact-match predicate where absent and
+  // explicitly-false behaved identically but only one of them was intended.
+  const override: unknown = import.meta.env?.VITE_V5_ENDPOINT;
+  if (typeof override === 'string' && override.trim().length > 0) {
+    return override.trim();
+  }
+  throw new V5EndpointNotConfiguredError();
 }
 
 export interface V5CallOptions {

@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { callV5Turn } from '../v5Adapter';
+import { callV5Turn, V5EndpointNotConfiguredError, __internals } from '../v5Adapter';
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
 // ---------------------------------------------------------------------------
@@ -23,6 +23,11 @@ vi.mock('../../lib/payload-trace-store', () => ({
   recordResponsePayload: (...args: unknown[]) => mockRecordResponse(...args),
 }))
 
+// ── Explicit endpoint for every case that is not ABOUT endpoint resolution ───
+// `resolveEndpoint()` now FAILS CLOSED, so there is no implicit default to lean
+// on. 43 cases in this file used to depend on that default without saying so —
+// which is precisely the defect the fail-closed change exists to remove, showing
+// up one level down in the tests. Configure it explicitly, once, here.
 const validPayload: OrchestratorTurnPayload = {
   kind: 'message',
   turn_id: '11111111-1111-4111-8111-111111111111',
@@ -43,7 +48,7 @@ describe('callV5Turn', () => {
     vi.restoreAllMocks();
   });
 
-  it('posts to /bff/orchestrate/v2/turn by default and returns parsed response', async () => {
+  it('posts to the configured endpoint and returns parsed response', async () => {
     const body = {
       response_version: 2,
       assistant_text: 'ok',
@@ -62,7 +67,7 @@ describe('callV5Turn', () => {
     expect(res.kind).toBe('response');
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toContain('/orchestrate/v2/turn');
+    expect(url).toContain('/proxy/v5/turn');
     expect(init.method).toBe('POST');
     expect(init.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(init.body as string)).toEqual(validPayload);
@@ -195,7 +200,7 @@ describe('callV5Turn — payload trace capture', () => {
 
     expect(mockRecordRequest).toHaveBeenCalledOnce()
     const reqCall = mockRecordRequest.mock.calls[0][0]
-    expect(reqCall.endpoint).toContain('/orchestrate/v2/turn')
+    expect(reqCall.endpoint).toContain('/proxy/v5/turn')
     expect(reqCall.method).toBe('POST')
     expect(reqCall.body).toEqual(validPayload)
     expect(typeof reqCall.id).toBe('string')
@@ -354,20 +359,59 @@ describe('callV5Turn — endpoint resolution', () => {
     expect(fetchImpl.mock.calls[0][0]).toBe('https://example.test/custom/v2');
   });
 
-  it('falls back to VITE_ORCHESTRATOR_BASE + /orchestrate/v2/turn', async () => {
+  // ── FAIL CLOSED ────────────────────────────────────────────────────────────
+  // The two rungs these cases used to pin (VITE_ORCHESTRATOR_BASE, then a
+  // literal `/bff/orchestrate/v2/turn`) are GONE. Both addressed the
+  // `/orchestrate/*` family, which is closed at the Netlify edge; the first
+  // additionally bypassed that block by addressing CEE directly. A missing
+  // variable must now be LOUD, never a silent legacy selection.
+  //
+  // Each case asserts the error IDENTITY (the class), not message text, and
+  // asserts NO FETCH WAS ATTEMPTED — a throw that still dialled the closed
+  // endpoint first would satisfy a message-only assertion while leaving the
+  // defect in place.
+
+  it('THROWS rather than falling back to VITE_ORCHESTRATOR_BASE', async () => {
     (import.meta.env as Record<string, unknown>).VITE_ORCHESTRATOR_BASE = 'https://cee.example';
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 500 }),
-    );
-    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
-    expect(fetchImpl.mock.calls[0][0]).toBe('https://cee.example/orchestrate/v2/turn');
+    const fetchImpl = vi.fn();
+    await expect(
+      callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch }),
+    ).rejects.toBeInstanceOf(V5EndpointNotConfiguredError);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('defaults to /bff/orchestrate/v2/turn when no env overrides set', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({}), { status: 500 }),
-    );
-    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
-    expect(fetchImpl.mock.calls[0][0]).toBe('/bff/orchestrate/v2/turn');
+  // ⚠ ABSENT vs EXPLICITLY-BLANK must behave IDENTICALLY. The predicate this
+  // replaces was an exact-string match, under which "absent" and "set to
+  // something falsy" silently diverged. Table-driven so a future narrowing to
+  // one case cannot pass.
+  it.each([
+    ['absent (key deleted)', undefined],
+    ['empty string', ''],
+    ['whitespace only', '   '],
+  ])('THROWS when VITE_V5_ENDPOINT is %s — no fetch attempted', async (_label, value) => {
+    if (value === undefined) {
+      delete (import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT;
+    } else {
+      (import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT = value;
+    }
+    const fetchImpl = vi.fn();
+    await expect(
+      callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch }),
+    ).rejects.toBeInstanceOf(V5EndpointNotConfiguredError);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('never resolves to any /orchestrate/ endpoint, whatever the env holds', () => {
+    // Property form: the resolver has ONE source. Nothing in the environment
+    // can steer it back onto the retired family.
+    (import.meta.env as Record<string, unknown>).VITE_ORCHESTRATOR_BASE = 'https://cee.example';
+    (import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT = 'https://cee.test/proxy/v5/turn';
+    expect(__internals.resolveEndpoint()).toBe('https://cee.test/proxy/v5/turn');
+    expect(__internals.resolveEndpoint()).not.toContain('/orchestrate/');
+  });
+
+  it('trims a padded value rather than sending a URL with whitespace', () => {
+    (import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT = '  https://cee.test/proxy/v5/turn  ';
+    expect(__internals.resolveEndpoint()).toBe('https://cee.test/proxy/v5/turn');
   });
 });
