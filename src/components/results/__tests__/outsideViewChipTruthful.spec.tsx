@@ -54,7 +54,9 @@ import { inferLoadingHint } from '@/canvas/conversation/useConversation'
 const PROMISES_RETRIEVAL = /research|fetch|look ?up|search|retriev|external source|citation|sources\b/i
 
 describe('the outside-view chip is truthful about what it can do', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
   it('(a) the chip label makes no retrieval promise', () => {
     const card = buildOutsideViewCard({ winnerLabel: 'Option A', alternativeLabel: 'Option B' })
@@ -70,6 +72,8 @@ describe('the outside-view chip is truthful about what it can do', () => {
         winnerLabel="Option A"
         alternativeLabel="Option B"
         onSendMessage={() => {}}
+        designationsWithheld={false}
+        flipThresholds={null}
       />,
     )
     // Positive control: the card and its chip mounted, so the assertions below
@@ -97,6 +101,8 @@ describe('the outside-view chip is truthful about what it can do', () => {
         winnerLabel="Option A"
         alternativeLabel="Option B"
         onSendMessage={() => {}}
+        designationsWithheld={false}
+        flipThresholds={null}
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Take an outside view' }))

@@ -17,6 +17,19 @@
  * The three groups below are the same three the two hand-drawn `<div>`
  * separators used to delimit (zoom · layout · help); the dividers are now drawn
  * by `.group:not(:last-child)::after`, at the sidebar's width.
+ *
+ * ⛔ NO KEYBOARD SHORTCUT IS ADVERTISED HERE EXCEPT `⇧A` (29 Aug 2026).
+ * "Zoom out (⌘-)", "Zoom in (⌘+)" and "Fit to view (⌘0)" were removed: no
+ * handler for `-`, `+`, `=` or `0` exists anywhere in `src`. Those are the
+ * BROWSER's zoom keys, so a user following our instruction scaled the whole
+ * page — we were teaching a gesture that visibly breaks the app. The buttons
+ * themselves were never at fault and are unchanged.
+ * `⇧A` STAYS because it is real and ungated (`useCanvasKeyboardShortcuts.ts`
+ * :208 calls `onAutoArrange()` with no authority guard — unlike `T`, which is
+ * swallowed by `CANVAS_SEMANTIC_MUTATIONS_CONNECTED`). Do not "tidy" it away
+ * with the others: `CanvasViewportControls.shortcutHonesty.spec.tsx` case (b)
+ * exists to go red if you do. Advertise a key here only with a test that
+ * fails when its handler stops working.
  */
 
 import { memo } from 'react'
@@ -78,7 +91,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
           </button>
         </Tooltip>
 
-        <Tooltip content="Zoom out (⌘-)">
+        <Tooltip content="Zoom out">
           <button
             type="button"
             className={styles.iconButton}
@@ -89,7 +102,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
           </button>
         </Tooltip>
 
-        <Tooltip content="Zoom in (⌘+)">
+        <Tooltip content="Zoom in">
           <button
             type="button"
             className={styles.iconButton}
@@ -103,7 +116,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 
       {/* Layout group: fit to view, auto-arrange, density */}
       <div className={styles.group}>
-        <Tooltip content="Fit to view (⌘0)">
+        <Tooltip content="Fit to view">
           <button
             type="button"
             className={styles.iconButton}
