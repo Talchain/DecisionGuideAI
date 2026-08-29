@@ -19,6 +19,10 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useCanvasStore } from '../canvas/store'
+// Its own leaf module, not a `canvas/store` export: specs here replace that
+// module wholesale, and a hand-listed `vi.mock` factory would have to mirror
+// its export list. See the module header.
+import { createIdleResults } from '../canvas/store/idleResults'
 import * as scenarioService from '../services/scenarioService'
 import type { ScenarioStage, AnalysisProvenance, AnalysisStatus } from '../types/scenario'
 import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
@@ -787,6 +791,22 @@ export function useScenario(): UseScenarioReturn {
         lastSavedAt: new Date(row.updated_at).getTime(),
         analysisStateReady: false,
         rawV2Response: null,
+        // The REPORT and its delta baseline are per-scenario in exactly the
+        // sense the two fields above are, and were the two that leaked. Only
+        // the `analysis_status === 'ready'` overlay below ever wrote `results`,
+        // so switching to a scenario that has never been analysed (status
+        // 'none'/'running'/'failed') left the PREVIOUS scenario's completed
+        // report on screen under the new scenario's name — and
+        // `autosaveProjection` could persist it there. Cleared here, before the
+        // overlay, so a scenario that DOES have an analysis still gets its own.
+        //
+        // ⚠ Deliberately NOT done inside `hydrateGraphSlice` /
+        // DECISION_CONTEXT_CLEAR: that path also serves non-switch boot
+        // restores, where clearing would blank a fresh analysis on reload.
+        // Both directions are pinned in
+        // canvas/store/__tests__/loadScenarioClearsPreviousAnalysis.spec.ts.
+        results: createIdleResults(),
+        previousReport: null,
       })
 
       if (mountedRef.current) {
