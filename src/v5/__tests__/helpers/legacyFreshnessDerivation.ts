@@ -22,10 +22,27 @@
  * pure derivation that consumes both the wire-side freshness signal and
  * the local edit signal, and exposes a memoised hook the surfaces share.
  *
- * Distinct from `analysisDisplayState.ts` in this same folder, which
- * gates outcome rendering when BLOCKER-level issues exist (a different
- * concern). Both can be true at once: a stale analysis with a blocking
- * issue would render this freshness state AND the blocking gate.
+ * ⚠ The paragraph that used to sit here contrasted this derivation with
+ * `analysisDisplayState.ts` "in this same folder", which it said gated outcome
+ * rendering when BLOCKER-level issues exist. Both halves had gone stale. That
+ * module lived in `src/lib/`, not this folder (this helper was relocated away
+ * from it), and it was DELETED on 2026-08-29 because nothing could reach it.
+ *
+ * Derived at the bytes before deleting it: it shipped WITH a live consumer in
+ * `canvas/components/OutputsDock.tsx` (b77d3611, 2025-12-29). The JSX that
+ * rendered its blocking message was removed on 2026-01-13 (bd0b6df4), so from
+ * that date the gate decided nothing a user could see. The import and its
+ * `useMemo` went on 2026-03-11 (18cf8ed8), after which it had ZERO importers
+ * anywhere in the tree — static, dynamic, aliased or re-exported — for the
+ * five months to deletion.
+ *
+ * NOTHING REPLACED IT, and the deletion removed no safety net: it removed a
+ * module that ADVERTISED one ("single source of truth for what UI elements
+ * should be shown") that had not executed since March. A reader who found it
+ * reasonably assumed the gate was live — a bug was filed against behaviour it
+ * could not produce. `canvas/utils/deriveAnalysisDisplayState.ts` is a DIFFERENT
+ * concern (analysis readiness/staleness copy) that merely exported a type of
+ * the same name; that collision is why this note spells out paths.
  *
  * Order of precedence:
  *   1. Wire freshness wins. CEE's `analysis_ready.freshness` is computed
