@@ -3,7 +3,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { describe, it, expect } from 'vitest'
-import { isFactorNeedsInput } from '../observedStateHelpers'
+import { hasObservedData, isFactorNeedsInput } from '../observedStateHelpers'
+import {
+  VALUE_PROVENANCE_SOURCES,
+  classifyValueProvenance,
+} from '../../domain/valueProvenance'
 
 const REPO_ROOT = resolve(__dirname, '../../../..')
 
@@ -154,5 +158,132 @@ describe('isFactorNeedsInput', () => {
         observedState: { value: 0 },
       }),
     ).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// hasObservedData — a value the MODEL invented is not observed data
+// ---------------------------------------------------------------------------
+//
+// WHY. CEE defaults a factor with no stated value to a neutral number and
+// stamps it (`adapters/llm/normalisation.ts` → `observed_state.source =
+// 'cee_inference'`, `extractionType: 'inferred'`). Witnessed on the deployed
+// staging build (UI `489f5fc5`, permalink deploy `6a931cc56bd89d0008ecab16`,
+// 2026-08-29): three controllable factors on the shipped market-entry starter
+// carried `{ value: 0, source: 'cee_inference', extractionType: 'inferred' }`
+// and a fourth carried `{ value: 0.5, … }`.
+//
+// `hasObservedData` asked only `typeof value === 'number'`, so every one of
+// them answered TRUE — and `EvidenceGapBadge`, whose tooltip reads *"No
+// observed data for X"*, was suppressed on exactly the factors that have none.
+// The predicate that decides whether to say "no observed data" was satisfied by
+// the placeholder that means there IS no observed data.
+//
+// ⚠ POSITIVE EVIDENCE ONLY, AND THE POLARITY IS THE WHOLE DESIGN. CEE's own
+// `factor-value-provenance.ts` records getting this backwards: written
+// fail-closed, a factor carrying a perfectly real number with no stamp landed
+// in the invented tier, and the caller replaced real information with an
+// assertion of ignorance it did not have. So this suppresses ONLY where a
+// producer positively stamped the value as the model's own estimate. An absent
+// or unrecognised `source` keeps the previous answer.
+//
+// ⚠ THE LITERALS ARE DERIVED, NEVER HAND-LISTED. `classifyValueProvenance` is
+// the estate's one classification authority for "who put this number here"
+// (`canvas/domain/valueProvenance.ts`); re-typing its `ai` members here would be
+// the hand-maintained mirror that module exists to end.
+describe('hasObservedData ignores a value the model stamped as its own estimate', () => {
+  const AI_SOURCES = VALUE_PROVENANCE_SOURCES.filter(
+    (s) => classifyValueProvenance(s)?.kind === 'ai',
+  )
+  const NON_AI_SOURCES = VALUE_PROVENANCE_SOURCES.filter(
+    (s) => classifyValueProvenance(s)?.kind !== 'ai',
+  )
+
+  it('POSITIVE CONTROL: the derived source sets are non-empty and disjoint', () => {
+    // Without this, both `it.each` blocks below can pass by iterating nothing —
+    // a zero-case table is green and proves absolutely nothing.
+    expect(AI_SOURCES.length).toBeGreaterThan(0)
+    expect(NON_AI_SOURCES.length).toBeGreaterThan(0)
+    expect(AI_SOURCES).toContain('cee_inference')
+    expect(NON_AI_SOURCES).toContain('brief_extraction')
+    expect(AI_SOURCES.filter((s) => NON_AI_SOURCES.includes(s))).toEqual([])
+  })
+
+  // ── The defect. Bound by IDENTITY to the producer's own stamp, never to the
+  //    magnitude — a genuinely stated 0.5 must not satisfy this (trap 19).
+  it.each(AI_SOURCES)(
+    'returns FALSE for a number stamped `%s` — the model invented it',
+    (source) => {
+      expect(
+        hasObservedData({
+          observedState: { value: 0.5, source, extractionType: 'inferred' },
+        }),
+      ).toBe(false)
+    },
+  )
+
+  it('returns FALSE for the exact shape witnessed on the deployed starter', () => {
+    // fac_germany, market-entry starter, deploy 6a931cc56bd89d0008ecab16.
+    expect(
+      hasObservedData({
+        observedState: {
+          value: 0,
+          source: 'cee_inference',
+          extractionType: 'inferred',
+          factor_type: 'other',
+          uncertainty_drivers: ['Not provided'],
+        },
+      }),
+    ).toBe(false)
+  })
+
+  // ── THE OPPOSITE-DIRECTION TWIN. A fix that stops hiding gaps must not start
+  //    inventing them. Every non-`ai` stamp, and the unstamped case, must still
+  //    read as observed — otherwise the badge claims "no observed data" over a
+  //    number the user supplied, which is the worse of the two harms.
+  it.each(NON_AI_SOURCES)(
+    'TWIN: returns TRUE for a number stamped `%s` — a person or the brief owns it',
+    (source) => {
+      expect(hasObservedData({ observedState: { value: 0.5, source } })).toBe(true)
+    },
+  )
+
+  it('TWIN: returns TRUE for a number with NO source stamp at all', () => {
+    // Absent evidence is not evidence of invention. This is the polarity CEE's
+    // own provenance module got wrong first time; it is pinned, not assumed.
+    expect(hasObservedData({ observedState: { value: 0.5 } })).toBe(true)
+  })
+
+  it('TWIN: returns TRUE for a number carrying an UNRECOGNISED source literal', () => {
+    expect(
+      hasObservedData({ observedState: { value: 0.5, source: 'some_future_writer' } }),
+    ).toBe(true)
+  })
+
+  it('TWIN: a user-confirmed 0.5 is observed even though the default is also 0.5', () => {
+    // The magnitude is identical to CEE's placeholder. Only the stamp separates
+    // them, which is exactly why the stamp — not the number — is the predicate.
+    expect(
+      hasObservedData({ observedState: { value: 0.5, source: 'user_confirmed' } }),
+    ).toBe(true)
+  })
+
+  // ── Pre-existing behaviour that must not move.
+  it('still returns FALSE when observed_state is absent entirely', () => {
+    expect(hasObservedData({})).toBe(false)
+    expect(hasObservedData(undefined)).toBe(false)
+  })
+
+  it('still returns FALSE when a stamped observed_state carries no numeric value', () => {
+    expect(hasObservedData({ observedState: { source: 'user_confirmed' } })).toBe(false)
+  })
+
+  it('reads the snake_case spelling the CEE/PLoT wire uses', () => {
+    expect(
+      hasObservedData({ observed_state: { value: 0.5, source: 'cee_inference' } }),
+    ).toBe(false)
+    expect(
+      hasObservedData({ observed_state: { value: 0.5, source: 'brief_extraction' } }),
+    ).toBe(true)
   })
 })
