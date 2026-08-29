@@ -4,6 +4,8 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from './store'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from './mutations/mutationAuthority'
+import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
+import { isPersistenceSessionActive } from '../lib/persistenceSession'
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -144,9 +146,67 @@ const HOLD_INVALIDATING_MODIFIERS = new Set(['Meta', 'Control', 'Alt', 'OS'])
  * Asserting a restore point exists would be the confident-wrongness this
  * estate pays for; pointing at a real, reachable panel is true in every
  * state.
+ *
+ * ── ⭐⭐ THE HALF THAT SENTENCE STILL GOT WRONG (29 Aug 2026) ────────────────
+ * The paragraph above saw the hazard and then wrote one sentence for both
+ * readers anyway. "Check Version history to restore an earlier version of this
+ * model" is not merely silent about the guest case — it TELLS the guest their
+ * model can be restored there, and it cannot be.
+ *
+ * Measured on the deployed build `9308a30c`, driven as a guest, controls in the
+ * same read: `restoreBtns: []`, positive control `delete-version buttons: 2`,
+ * `document.hidden: false`. A guest's Version history offers Save version ·
+ * Delete version · Compare two versions. There is no restore on the surface at
+ * all, because restore lives in `ServerVersionsSection` — the SHARED half — and
+ * that section renders nothing without a server-addressable scenario, and the
+ * sign-in invitation without an identity.
+ *
+ * So the notice is now conditioned on which list the reader actually has, from
+ * the ONE definition in `versions/sharedVersionsAvailability` that
+ * `ServerVersionsSection` itself uses:
+ *   · shared list on offer  → restore is real, and the reader is told so. That
+ *     direction is mandatory: trading a false promise for a HIDDEN capability
+ *     would be the same defect pointing the other way.
+ *   · local list only       → say plainly what that list does (save, compare)
+ *     and that it does not restore. It is a caveat, not a removal — the gesture
+ *     is still answered, which was the point of answering it.
+ *
+ * ⚠ NEITHER STRING PROMISES A PARTICULAR RESTORE POINT, and the shared one
+ * keeps "Check" for exactly the reason the paragraph above gives: a reader with
+ * the capability may still have an EMPTY shared list (nothing minted yet, or a
+ * scenario created unowned — `scenarios.user_id` NULL mints no `model_versions`
+ * rows). The panel is honest about that in place.
  */
-export const CANVAS_UNDO_UNAVAILABLE_NOTICE =
-  "Undo isn't available on the canvas. Check Version history to restore an earlier version of this model."
+
+/**
+ * The reader whose Version history is the BROWSER-LOCAL list only — a guest, or
+ * any canvas whose scenario CEE cannot address. Save, delete and compare; no
+ * restore, deliberately (`WhatChangedPanel`'s header records why).
+ */
+export const CANVAS_UNDO_LOCAL_ONLY_NOTICE =
+  "Undo isn't available on the canvas. Version history saves and compares versions of this model in this browser — it can't restore them."
+
+/**
+ * The reader who has the SHARED list, where restore genuinely exists (confirm,
+ * server-side pre-restore snapshot, and an "Undo restore" afterwards).
+ */
+export const CANVAS_UNDO_SHARED_RESTORE_NOTICE =
+  "Undo isn't available on the canvas. Check Version history — you can restore an earlier shared version of this model there."
+
+/**
+ * Which sentence is TRUE for the reader pressing the key, right now.
+ *
+ * Reads the same two facts `ServerVersionsSection` gates on, through the same
+ * module, so the notice cannot promise a control the panel will not render.
+ */
+export function canvasUndoUnavailableNotice(): string {
+  return canRestoreSharedVersions({
+    signedIn: isPersistenceSessionActive(),
+    scenarioId: useCanvasStore.getState().currentScenarioId,
+  })
+    ? CANVAS_UNDO_SHARED_RESTORE_NOTICE
+    : CANVAS_UNDO_LOCAL_ONLY_NOTICE
+}
 
 /**
  * True for the gestures a user makes when they mean "put that back":
@@ -237,7 +297,10 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
             // The canvas's canonical toast bridge — the same one the store's
             // delete refusal uses, listened to in ReactFlowGraph.
             window.dispatchEvent(new CustomEvent('topbar:show-toast', {
-              detail: { message: CANVAS_UNDO_UNAVAILABLE_NOTICE, level: 'info' },
+              // Selected at PRESS TIME, never bound at module scope: sign-in
+              // and the scenario id both change during a session, and a
+              // constant captured once would go stale into a false promise.
+              detail: { message: canvasUndoUnavailableNotice(), level: 'info' },
             }))
           }
         }

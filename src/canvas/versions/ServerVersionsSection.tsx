@@ -31,7 +31,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { sanitiseUserId } from '../../lib/guestIdentity'
 import { UploadCloud, RotateCcw } from 'lucide-react'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
@@ -47,9 +46,14 @@ import {
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { logger } from '../../lib/logger'
-
-/** A scenario CEE can address is a UUID (scenarios.id is a uuid column). */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// ⚠ THE ADDRESSABILITY AND IDENTITY GATES ARE NOT DEFINED HERE ANY MORE.
+// The undo-gesture notice must promise restore ONLY where this section will
+// actually offer it, so both read the SAME definition. A local copy of the
+// UUID regex is how the notice and the panel start disagreeing (trap 12).
+import {
+  isRestoreCapableIdentity,
+  isScenarioServerAddressable,
+} from './sharedVersionsAvailability'
 
 
 /** Storage-scope disclosure — the shared counterpart of the local one. */
@@ -319,9 +323,8 @@ export function ServerVersionsSection() {
   const mountedRef = useRef(true)
 
   const userId = user?.id ?? null
-  const signedIn =
-    sanitiseUserId(userId) !== null
-  const addressable = typeof scenarioId === 'string' && UUID_RE.test(scenarioId)
+  const signedIn = isRestoreCapableIdentity(userId)
+  const addressable = isScenarioServerAddressable(scenarioId)
 
   useEffect(() => {
     mountedRef.current = true
