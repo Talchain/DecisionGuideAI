@@ -24,6 +24,10 @@ import {
   isUndoRedoGesture,
   CANVAS_UNDO_LOCAL_ONLY_NOTICE,
 } from '../useKeyboardShortcuts'
+import {
+  __resetPersistenceSessionForTests,
+} from '../../lib/persistenceSession'
+import { useCanvasStore } from '../store'
 
 /**
  * Spread the original module rather than hand-listing its exports: a
@@ -64,6 +68,14 @@ describe('undo gesture is answered, not swallowed', () => {
 
   beforeEach(() => {
     authorityValue.current = 'disabled'
+    // ⚠ PIN THIS FILE'S OWN PRECONDITION rather than inheriting a default.
+    // Every case below expects the LOCAL-ONLY notice, which is only correct
+    // for a reader with no server identity and no addressable scenario. Left
+    // implicit, these assertions would flip silently the day a default moves —
+    // a guard that agrees with itself. Which sentence each reader class gets is
+    // pinned separately in `undoNoticeReaderClass.spec.ts`.
+    __resetPersistenceSessionForTests()
+    useCanvasStore.setState({ currentScenarioId: null })
     toasts = captureToasts()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-29T12:00:00Z'))
@@ -72,6 +84,7 @@ describe('undo gesture is answered, not swallowed', () => {
   afterEach(() => {
     toasts.dispose()
     vi.useRealTimers()
+    __resetPersistenceSessionForTests()
   })
 
   // ── direction 1: the gesture must be ANSWERED ────────────────────────────
