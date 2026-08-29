@@ -20,10 +20,15 @@
  * other:
  *   · too GENEROUS — a reader with only the local list is promised a restore
  *     that does not exist (the shipped defect);
- *   · too MEAN — a reader who genuinely CAN restore is not told, which hides a
- *     built, deployed capability behind a dead-end message. Under the standing
- *     ruling (caveat, never hide) that is the same defect pointing the other
- *     way, so every "local" case below has its "shared" twin.
+ *   · too MEAN — a reader with the shared list is left with a dead-end message
+ *     and never pointed at the surface that holds their model's shared
+ *     versions. Under the standing ruling (caveat, never hide) that is the same
+ *     defect pointing the other way, so every "local" case below has its
+ *     "shared" twin.
+ *
+ * ⚠ THE TWIN ORIGINALLY ASSERTED THE READER IS TOLD "you can restore". That was
+ * refuted at the wire — see "the shared notice does not promise a restore that
+ * is currently refused" below for the measurement and the upgrade trigger.
  *
  * ── NO MOCKED IDENTITY ──────────────────────────────────────────────────────
  * Both facts are driven through their REAL modules — `setPersistenceSessionActive`
@@ -38,7 +43,7 @@ import {
   useKeyboardShortcuts,
   canvasUndoUnavailableNotice,
   CANVAS_UNDO_LOCAL_ONLY_NOTICE,
-  CANVAS_UNDO_SHARED_RESTORE_NOTICE,
+  CANVAS_UNDO_SHARED_VERSIONS_NOTICE,
 } from '../useKeyboardShortcuts'
 import {
   setPersistenceSessionActive,
@@ -152,29 +157,56 @@ describe('the undo notice is true for the reader who receives it', () => {
 
   // ── direction 2: THE TWIN — DO NOT HIDE A CAPABILITY THAT DOES EXIST ──────
 
-  it('TWIN: SIGNED IN with an addressable scenario IS told restore exists', () => {
-    // Mandatory counterpart. Trading the false promise for a hidden capability
-    // would be the same defect pointing the other way.
+  it('TWIN: SIGNED IN with an addressable scenario IS pointed at the shared list', () => {
+    // Mandatory counterpart. Leaving this reader with the local-only sentence
+    // would tell them their model's shared versions do not exist — trading the
+    // false promise for a hidden surface, the same defect pointing the other way.
     asReader({ signedIn: true, scenarioId: ADDRESSABLE_SCENARIO_ID })
     renderHook(() => useKeyboardShortcuts())
     pressUndo()
-    expect(toasts.messages).toEqual([CANVAS_UNDO_SHARED_RESTORE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_SHARED_VERSIONS_NOTICE])
   })
 
-  it('TWIN: the shared notice names restore, and the two notices are different strings', () => {
-    expect(CANVAS_UNDO_SHARED_RESTORE_NOTICE.toLowerCase()).toContain('restore an earlier shared version')
-    expect(CANVAS_UNDO_SHARED_RESTORE_NOTICE).not.toEqual(CANVAS_UNDO_LOCAL_ONLY_NOTICE)
+  it('TWIN: the shared reader is pointed at the shared list, and the two notices differ', () => {
+    expect(CANVAS_UNDO_SHARED_VERSIONS_NOTICE.toLowerCase()).toContain('shared versions')
+    expect(CANVAS_UNDO_SHARED_VERSIONS_NOTICE).not.toEqual(CANVAS_UNDO_LOCAL_ONLY_NOTICE)
+  })
+
+  it('the shared notice does not promise a restore that is currently refused', () => {
+    /**
+     * ⚠ THE TWIN'S PREMISE WAS REFUTED AT THE WIRE, so the twin's obligation
+     * changed rather than being dropped. Driven against the pinned immutable
+     * deploy permalink `6a932774ead2e80008a48712--olumi.netlify.app`
+     * (`/version.json` commit asserted `9308a30c`), discriminating pair on two
+     * independent scenarios and users:
+     *   · the deployed UI's exact request bytes → HTTP 422
+     *     `RESTORE_PAYLOAD_INVALID`, nothing restored;
+     *   · the same call plus `mutation_id`      → HTTP 200, `restored: true`,
+     *     `receipt.graph` with 12 nodes / 17 edges.
+     * CEE made `mutation_id` required on 26 Aug; the UI has never sent it
+     * (deployed-bundle crawl: 0 occurrences across 82 chunks, contrast controls
+     * non-zero in the same run). Restore is refused for EVERY reader today.
+     *
+     * ⭐ THIS TEST IS THE UPGRADE TRIGGER. When the restore request carries
+     * `mutation_id` and an end-to-end restore is witnessed on the deployed
+     * build, rewrite this case deliberately and quote the new witness — do not
+     * delete it quietly.
+     */
+    const lowered = CANVAS_UNDO_SHARED_VERSIONS_NOTICE.toLowerCase()
+    expect(lowered).not.toContain('you can restore')
+    expect(lowered).not.toContain('to restore')
+    expect(lowered).not.toContain('restore an earlier')
   })
 
   it('TWIN: both notices still name Version history — the panel that exists', () => {
     // Neither reader class may be left with a bare dead end. This is what stops
     // a future "simplification" reducing either string to "not available".
     expect(CANVAS_UNDO_LOCAL_ONLY_NOTICE).toContain('Version history')
-    expect(CANVAS_UNDO_SHARED_RESTORE_NOTICE).toContain('Version history')
+    expect(CANVAS_UNDO_SHARED_VERSIONS_NOTICE).toContain('Version history')
   })
 
   it('TWIN: both notices still answer the gesture — neither is silence', () => {
-    for (const notice of [CANVAS_UNDO_LOCAL_ONLY_NOTICE, CANVAS_UNDO_SHARED_RESTORE_NOTICE]) {
+    for (const notice of [CANVAS_UNDO_LOCAL_ONLY_NOTICE, CANVAS_UNDO_SHARED_VERSIONS_NOTICE]) {
       expect(notice).toContain("Undo isn't available on the canvas")
     }
   })
@@ -189,7 +221,7 @@ describe('the undo notice is true for the reader who receives it', () => {
     expect(canvasUndoUnavailableNotice()).toBe(CANVAS_UNDO_LOCAL_ONLY_NOTICE)
 
     asReader({ signedIn: true, scenarioId: ADDRESSABLE_SCENARIO_ID })
-    expect(canvasUndoUnavailableNotice()).toBe(CANVAS_UNDO_SHARED_RESTORE_NOTICE)
+    expect(canvasUndoUnavailableNotice()).toBe(CANVAS_UNDO_SHARED_VERSIONS_NOTICE)
 
     // …and back, so this cannot pass on a one-way latch.
     asReader({ signedIn: false, scenarioId: ADDRESSABLE_SCENARIO_ID })

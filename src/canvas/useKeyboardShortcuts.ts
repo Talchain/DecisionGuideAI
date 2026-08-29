@@ -187,11 +187,48 @@ export const CANVAS_UNDO_LOCAL_ONLY_NOTICE =
   "Undo isn't available on the canvas. Version history saves and compares versions of this model in this browser — it can't restore them."
 
 /**
- * The reader who has the SHARED list, where restore genuinely exists (confirm,
- * server-side pre-restore snapshot, and an "Undo restore" afterwards).
+ * The reader who has the SHARED list.
+ *
+ * ── ⚠⚠ WHY THIS DOES NOT SAY "YOU CAN RESTORE" (measured 29 Aug 2026) ────────
+ * This lane's first draft of this string DID say it, on the strength of the
+ * Restore button being built, deployed and reachable. A wire-level drive
+ * against the pinned immutable deploy permalink
+ * `6a932774ead2e80008a48712--olumi.netlify.app` (`/version.json` commit
+ * asserted `9308a30c`) refuted it, with a discriminating pair on two
+ * independent scenarios and users:
+ *
+ *   · ARM A — the deployed UI's EXACT request bytes (`user_id`, `version_id`,
+ *     `expected_graph_identity_hash`) → **HTTP 422 `RESTORE_PAYLOAD_INVALID`**,
+ *     no receipt, nothing restored.
+ *   · ARM B — the same call plus `mutation_id` → HTTP 200
+ *     `model_version_restore.v2`, `restored: true`, `receipt.graph` carrying
+ *     **12 nodes / 17 edges** and `creation.kind: "restore"`.
+ *
+ * CEE made `mutation_id` REQUIRED on 26 Aug (`assist.v1.scenario-versions.ts`,
+ * `4c29c5b5`); the UI adapter was written against the 17 Aug schema and has
+ * never sent it. Confirmed at the DEPLOYED BUNDLE, not the tree: a crawl of 82
+ * chunks found `mutation_id` 0 times while the contrast controls fired in the
+ * same run (`expected_graph_identity_hash` 2, `version_id` 16,
+ * `undo_version_id` 3, fabricated marker 0).
+ *
+ * So restore is refused for EVERY reader today. Promising it here would ship a
+ * second false promise in the act of fixing the first, which is precisely the
+ * failure this file is being edited for.
+ *
+ * ⚠ AND IT DOES NOT SAY "RESTORE IS BROKEN" EITHER. A transient defect written
+ * into permanent user-facing copy is a hand-maintained mirror (trap 12) that
+ * goes stale the day it is fixed and that nobody is scheduled to come back to.
+ * This sentence is true both before and after the repair.
+ *
+ * ⭐ UPGRADE CONDITION, so the stronger sentence is not simply lost: when the
+ * restore request carries `mutation_id` and an end-to-end restore is witnessed
+ * on the deployed build, this string may name restore again — and at that point
+ * `undoNoticeReaderClass.spec.ts` §"the shared notice does not promise a
+ * restore that is currently refused" is the test to rewrite, deliberately, with
+ * the new witness quoted.
  */
-export const CANVAS_UNDO_SHARED_RESTORE_NOTICE =
-  "Undo isn't available on the canvas. Check Version history — you can restore an earlier shared version of this model there."
+export const CANVAS_UNDO_SHARED_VERSIONS_NOTICE =
+  "Undo isn't available on the canvas. Check Version history — it's where this model's shared versions are kept."
 
 /**
  * Which sentence is TRUE for the reader pressing the key, right now.
@@ -204,7 +241,7 @@ export function canvasUndoUnavailableNotice(): string {
     signedIn: isPersistenceSessionActive(),
     scenarioId: useCanvasStore.getState().currentScenarioId,
   })
-    ? CANVAS_UNDO_SHARED_RESTORE_NOTICE
+    ? CANVAS_UNDO_SHARED_VERSIONS_NOTICE
     : CANVAS_UNDO_LOCAL_ONLY_NOTICE
 }
 
