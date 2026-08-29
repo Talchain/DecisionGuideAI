@@ -223,7 +223,7 @@ export function WorkspaceShellTabStrip({
           together and were measured separately on deployed staging
           (29 Aug 2026), across the dock's full drag range:
 
-            dock width          shipped        wrap only      wrap + px-1.5
+            dock width          shipped        wrap only      wrap + px-1
             280 (minimum)   1 row, 55px lost   3 rows, 0     3 rows, 0
             320             1 row, 40px lost   2 rows, 0     2 rows, 0
             360             1 row, 24px lost   2 rows, 0     2 rows, 0
@@ -237,10 +237,15 @@ export function WorkspaceShellTabStrip({
 
           But wrap ALONE regresses the DEFAULT width to two rows: the four
           labels need 276px inside 289px, and once the 12px of gaps are added
-          the fit is sub-pixel marginal, so one tab reflows. Reclaiming 4px per
-          tab from the horizontal padding (below) restores a genuine ~29px of
-          slack, which is what keeps the default on one row. Neither change
-          alone gets both ends of the range. */}
+          the fit is sub-pixel marginal, so one tab reflows. Reclaiming padding
+          (below) restores genuine slack, which is what keeps the default on one
+          row. Neither change alone gets both ends of the range.
+
+          ⚠ AND THE DEFAULT WIDTH DOES NOT VISIBLY TIGHTEN, which is the reason
+          this is safe: `flex-auto` GROWS the tabs to fill the row, so the
+          padding only lowers each tab's min-content floor. Measured at 416px,
+          rendered tab widths are 47/62/99/70 against the shipped 48/62/98/70 —
+          the strip looks the same and simply stops clipping. */}
       <div
         className="flex flex-1 min-w-0 gap-1 flex-wrap"
         role="tablist"
@@ -283,10 +288,13 @@ export function WorkspaceShellTabStrip({
               // PROPORTIONALLY only when the content genuinely does not fit.
               title={surface.label}
               data-testid={`outputs-dock-tab-${surface.id}`}
-              // `px-1.5`, not `px-2`: 4px per tab, 16px across the strip. That
-              // is what buys the default dock width its slack — see the
-              // measured table above the tablist. Not a cosmetic tightening.
-              className={`flex-auto min-w-0 px-1.5 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              // ⚠ `px-1`, and it must stay ON THE DESIGN-SYSTEM SPACING SCALE
+              // (4·8·12·16·20·24·32·40·48·56·64px). The first attempt used
+              // `px-1.5` — 6px — and `tests/ci-guards/shell-conformance.spec.ts`
+              // correctly REDs it: the shell module is zero-tolerance for
+              // off-scale spacing. 4px is on the scale AND buys more slack than
+              // 6px did, so there was never a trade to make here.
+              className={`flex-auto min-w-0 px-1 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
                   ? 'text-info border-b-2 border-info'
                   : 'text-text-header hover:bg-panel border-b-2 border-transparent'
