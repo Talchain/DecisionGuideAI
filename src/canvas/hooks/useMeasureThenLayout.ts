@@ -46,14 +46,47 @@ export function useMeasureThenLayout(): void {
   // Deadline (ms since epoch) for the fallback timer; survives effect re-runs.
   const fallbackDeadlineRef = useRef<number | null>(null)
 
+  // True while a committed layout is known to have been computed against
+  // DEFAULT_NODE_HEIGHT for at least one node. Cleared by the corrective pass
+  // below, and by any later layout that ran with complete measurement.
+  const laidOutWithFallbackRef = useRef(false)
+
   useEffect(() => {
+    const measured = allUnlockedNodesMeasured(storeNodes, nodeLookup)
+
     const decision = evaluateMeasurementGate({
       pendingLayout,
       layoutInProgress,
       nodesInitialized,
       storeNodes,
-      allUnlockedNodesMeasured: allUnlockedNodesMeasured(storeNodes, nodeLookup),
+      allUnlockedNodesMeasured: measured,
     })
+
+    // ⭐ THE FALLBACK LAYOUT IS NOT THE FINAL ANSWER.
+    //
+    // When the fallback timer fires, `layoutGraph` runs against
+    // DEFAULT_NODE_HEIGHT for every unmeasured node. It sizes each canonical
+    // row as (tallest card in the row + layerSpacing), so a uniform fallback
+    // height produces a uniform row band, and every card taller than that band
+    // overlaps the row beneath it. Before this correction that state was
+    // TERMINAL: nothing re-ran layout when the real heights landed a moment
+    // later, so the graph stayed overlapped until the user found Auto-arrange.
+    //
+    // The moment measurement completes, lay out once more against real heights.
+    // Guarded on `!pendingLayout` because a pending request means the ordinary
+    // path below is already about to lay out with those same measurements — the
+    // flag is cleared there rather than corrected here, so the two cannot both
+    // fire for one arrival.
+    if (
+      laidOutWithFallbackRef.current &&
+      measured &&
+      !layoutInProgress &&
+      !pendingLayout
+    ) {
+      laidOutWithFallbackRef.current = false
+      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true }))
+      return
+    }
 
     if (decision === 'idle' || decision === 'blocked') {
       fallbackDeadlineRef.current = null
@@ -64,6 +97,8 @@ export function useMeasureThenLayout(): void {
 
     if (decision === 'run-now') {
       fallbackDeadlineRef.current = null
+      // This layout has real heights, so there is nothing left to correct.
+      laidOutWithFallbackRef.current = false
       handleLayoutWithRecovery(() =>
         applyLayout({ skipHistory: true, requestId: capturedId }),
       )
@@ -77,12 +112,18 @@ export function useMeasureThenLayout(): void {
     }
     const remaining = Math.max(0, fallbackDeadlineRef.current - Date.now())
     const timer = setTimeout(() => {
-      if (import.meta.env.DEV) {
-        console.warn(
-          '[layout] proceeding with fallback heights — some nodes not yet measured',
-        )
-      }
+      // Deliberately NOT DEV-gated. This warning marks a layout computed
+      // against DEFAULT_NODE_HEIGHT, which is the state that produced the
+      // shipped canvas overlap. It was DEV-only, so production was silent
+      // about a permanently broken layout — which is how it survived to a
+      // deployed build. The corrective pass below should follow it; a
+      // fallback warning with no correction after it is the signal to chase.
+      console.warn(
+        '[layout] proceeding with fallback heights — some nodes not yet measured',
+      )
       fallbackDeadlineRef.current = null
+      // Committed against fallback heights — mark it for correction.
+      laidOutWithFallbackRef.current = true
       handleLayoutWithRecovery(() =>
         applyLayout({ skipHistory: true, requestId: capturedId }),
       )
