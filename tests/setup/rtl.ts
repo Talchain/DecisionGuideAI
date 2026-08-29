@@ -47,3 +47,19 @@ afterEach(() => {
   vi.clearAllMocks()
   vi.useRealTimers()
 })
+
+
+// ── V5 endpoint: configured by default for the whole suite ───────────────────
+// `src/v5/v5Adapter.ts::resolveEndpoint` FAILS CLOSED — absent/blank config
+// throws rather than silently selecting the retired `/bff/orchestrate/*`
+// family, which is closed at the Netlify edge. Deployed staging always bakes
+// `VITE_V5_ENDPOINT`, so "configured" is the realistic default state and this
+// setup reproduces it once for every spec.
+//
+// Specs that are ABOUT resolution (src/v5/__tests__/v5Adapter.test.ts) delete
+// this in their own beforeEach to exercise the unconfigured branch — so this
+// line makes the suite realistic without making the fail-closed path untested.
+if (!import.meta.env.VITE_V5_ENDPOINT) {
+  ;(import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT =
+    'https://cee.test/proxy/v5/turn'
+}

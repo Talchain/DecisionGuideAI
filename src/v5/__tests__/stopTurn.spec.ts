@@ -20,6 +20,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { stopV5Turn, getV5StopEndpoint } from '../stopTurn'
+import { V5EndpointNotConfiguredError } from '../v5Adapter'
 
 // ---------------------------------------------------------------------------
 // Payload trace store mock — spy on recording calls without real Zustand.
@@ -60,10 +61,15 @@ describe('getV5StopEndpoint — derived, not mirrored', () => {
     expect(getV5StopEndpoint()).toBe('https://cee-staging.onrender.com/proxy/v5/turn/stop')
   })
 
-  it('works on the Netlify edge rung too — both siblings exist server-side', () => {
+  it('FAILS CLOSED when no endpoint is configured — never a /bff/orchestrate/* sibling', () => {
+    // Was: asserted this resolved to '/bff/orchestrate/v2/turn/stop'. That rung
+    // is retired — `/bff/orchestrate/*` is closed at the edge, so deriving a
+    // /stop sibling from it produced a URL that cannot work. The stop endpoint
+    // is derived from the turn endpoint, so it inherits the fail-closed
+    // behaviour; this pins that it does, by identity.
     vi.stubEnv('VITE_V5_ENDPOINT', '')
     vi.stubEnv('VITE_ORCHESTRATOR_BASE', '')
-    expect(getV5StopEndpoint()).toBe('/bff/orchestrate/v2/turn/stop')
+    expect(() => getV5StopEndpoint()).toThrow(V5EndpointNotConfiguredError)
   })
 
   it('does not double the slash on a trailing-slash endpoint', () => {
