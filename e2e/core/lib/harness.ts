@@ -32,6 +32,10 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
+import {
+  crawlBundle, makeHttpChunkFetcher, assertCrawlIntegrity, assertControlsFired,
+  BUNDLE_CONTROLS,
+} from './bundleCrawl'
 
 export const ORIGIN = process.env.CORE_UI_URL ?? 'https://staging--olumi.netlify.app'
 
@@ -147,21 +151,6 @@ export const sha256Prefix = (s: string, n = 16): string =>
 // supabase config in the deployed UI" — a confident absence from a blind
 // instrument. An absence claim must first prove it can see a presence.
 
-// ⚠ MATCHES `assets/x.js` WITH OR WITHOUT A LEADING SLASH, and `./x.js`.
-// The deployed entry chunk references siblings as "assets/AppPoC-….js" — NO leading slash.
-// A leading-slash-only pattern crawls 1 chunk of 83 and reports a confident false absence.
-// The golden-journey harness carries a comment warning about exactly this; I copied the comment
-// and reimplemented the bug. A WARNING IS NOT A GUARD — the positive control is.
-const ASSET_RE = /["'(]([^"'()\s]*[A-Za-z0-9._-]+\.js)["')]/g
-
-const toAssetPath = (p: string): string | null => {
-  if (p.startsWith('http')) { try { return new URL(p).pathname } catch { return null } }
-  if (p.startsWith('/')) return p
-  if (p.startsWith('./')) return `/assets/${p.slice(2)}`
-  if (p.includes('assets/')) return `/${p.replace(/^\.?\//, '')}`
-  return `/assets/${p}`
-}
-
 export interface SupabaseResolution {
   restBase: string
   key: string
@@ -182,60 +171,44 @@ export async function resolveSupabase(maxChunks = 400, timeoutMs = 120_000): Pro
     }
   }
 
-  const deadline = Date.now() + timeoutMs
-  const seen = new Set<string>()
-  const queue: string[] = []
-  const add = (p: string) => {
-    const path = toAssetPath(p)
-    if (path && path.endsWith('.js') && !seen.has(path)) { seen.add(path); queue.push(path) }
-  }
+  const html = await (await fetch(`${ORIGIN}/`, { cache: 'no-store' })).text()
+
+  const crawl = await crawlBundle(html, makeHttpChunkFetcher(ORIGIN), {
+    maxChunks, deadlineAt: Date.now() + timeoutMs,
+  })
+
+  // ORDER IS THE FIX: was the crawl sound, before asking what it found.
+  assertCrawlIntegrity(crawl)
+  const reports = assertControlsFired(crawl)
 
   let host: string | null = null
   let key: string | null = null
-  const controlChunks: string[] = []
-  let fetched = 0
-
-  const html = await (await fetch(`${ORIGIN}/`, { cache: 'no-store' })).text()
-  for (const m of html.matchAll(ASSET_RE)) add(m[1])
-
-  while (queue.length && fetched < maxChunks && Date.now() < deadline) {
-    const p = queue.shift() as string
-    fetched++
-    let body: string
-    try {
-      const r = await fetch(`${ORIGIN}${p}`, { cache: 'no-store' })
-      if (!r.ok) continue
-      body = await r.text()
-    } catch { continue }
-    for (const m of body.matchAll(ASSET_RE)) add(m[1])
+  for (const body of crawl.bodies.values()) {
     if (!host) { const h = body.match(/https:\/\/[a-z0-9]+\.supabase\.co/); if (h) host = h[0] }
     if (!key) {
       const k = body.match(/sb_publishable_[A-Za-z0-9_-]{10,}/)
         || body.match(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/)
       if (k) key = k[0]
     }
-    // POSITIVE CONTROL — a string the bundle is known to spell.
-    if (body.includes('v5_handler_facts')) controlChunks.push(p)
+    if (host && key) break
   }
 
-  if (controlChunks.length === 0) {
-    throw new Error(
-      `[core] BUNDLE CRAWL POSITIVE CONTROL DID NOT FIRE: "v5_handler_facts" appears in none of ` +
-      `the ${fetched} chunks crawled (of ${seen.size} discovered). The crawler is blind, so NO ` +
-      `presence or absence claim may be made from it — including "there is no Supabase config".`,
-    )
-  }
   if (!host || !key) {
     throw new Error(
-      `[core] crawl saw ${fetched} chunks and the control FIRED (${controlChunks.join(', ')}), but ` +
-      `${!host ? 'no supabase host' : 'no publishable key'} was found — the config shape has moved.`,
+      `[core] crawl read ${crawl.bodies.size} of ${crawl.discovered.length} discovered chunks with ` +
+      `every control FIRING (${reports.map((r) => `${r.term}×${r.chunks.length}`).join(', ')}), but ` +
+      `${!host ? 'no supabase host' : 'no publishable key'} was found. The crawl is sound, so this is ` +
+      `a real absence: the config SHAPE has moved.`,
     )
   }
 
+  const control = reports.find((r) => r.term === BUNDLE_CONTROLS[0].term)
   return {
     restBase: host, key, keySha256: sha256Prefix(key),
-    chunksFetched: fetched, controlChunks,
-    source: `deployed UI bundle at ${ORIGIN} (${fetched} chunks crawled)`,
+    chunksFetched: crawl.bodies.size, controlChunks: control?.chunks ?? [],
+    source: `deployed UI bundle at ${ORIGIN} (${crawl.bodies.size} chunks read of ` +
+      `${crawl.discovered.length} discovered; controls ` +
+      `${reports.map((r) => `${r.term}×${r.chunks.length}`).join(', ')})`,
   }
 }
 
