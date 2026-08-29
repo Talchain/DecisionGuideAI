@@ -5,7 +5,10 @@ import {
   evaluateMeasurementGate,
   allUnlockedNodesMeasured,
 } from '../utils/measureLayoutGate'
-import { LAYOUT_MEASUREMENT_FALLBACK_MS } from '../utils/nodeLayoutConstants'
+import {
+  LAYOUT_MEASUREMENT_FALLBACK_MS,
+  HEIGHT_GROWTH_TOLERANCE_PX,
+} from '../utils/nodeLayoutConstants'
 import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { logger } from '../../lib/logger'
 
@@ -52,8 +55,45 @@ export function useMeasureThenLayout(): void {
   // below, and by any later layout that ran with complete measurement.
   const laidOutWithFallbackRef = useRef(false)
 
+  // The measured height each node had when the last layout was committed.
+  // `layoutGraph` sizes every canonical row as (tallest card in that row +
+  // layerSpacing), so once a card is TALLER than the height that row was
+  // computed against, it overlaps the row beneath. Recording the heights is
+  // what makes that detectable without re-running the layout to find out.
+  const laidOutHeightsRef = useRef<Map<string, number>>(new Map())
+
   useEffect(() => {
     const measured = allUnlockedNodesMeasured(storeNodes, nodeLookup)
+
+    /** Measured height per unlocked node, right now. */
+    const currentHeights = (): Map<string, number> => {
+      const out = new Map<string, number>()
+      for (const node of storeNodes) {
+        if ((node.data as Record<string, unknown> | undefined)?.locked === true) continue
+        const h = nodeLookup.get(node.id)?.measured?.height
+        if (typeof h === 'number' && h > 0) out.set(node.id, h)
+      }
+      return out
+    }
+
+    /**
+     * Has any node grown TALLER than the height the committed layout was
+     * computed against?
+     *
+     * GROWTH ONLY, and the asymmetry is the whole point. A card that grew
+     * overflows its row band and overlaps the row beneath — a real defect. A
+     * card that SHRANK leaves extra whitespace, which is untidy and harms
+     * nobody. Re-laying out on both would move the model under a reader for no
+     * gain, and a model that re-arranges itself while you are reading it is a
+     * worse defect than the overlap this exists to prevent.
+     */
+    const grownNodeId = (heights: Map<string, number>): string | null => {
+      for (const [id, h] of heights) {
+        const was = laidOutHeightsRef.current.get(id)
+        if (was !== undefined && h - was > HEIGHT_GROWTH_TOLERANCE_PX) return id
+      }
+      return null
+    }
 
     const decision = evaluateMeasurementGate({
       pendingLayout,
@@ -85,8 +125,39 @@ export function useMeasureThenLayout(): void {
       !pendingLayout
     ) {
       laidOutWithFallbackRef.current = false
+      laidOutHeightsRef.current = currentHeights()
       handleLayoutWithRecovery(() => applyLayout({ skipHistory: true }))
       return
+    }
+
+    // ⭐ THE SAME DEFECT ARRIVES THROUGH A SECOND DOOR, AFTER ANALYSIS.
+    //
+    // The correction above handles a layout computed before the cards had
+    // measured. It does nothing when the heights change LATER — and analysis
+    // changes them: results add content to option and factor cards, so they
+    // grow while their positions do not. Measured on an analysed model:
+    // 5 overlapping pairs, up to 160x54px.
+    //
+    // Nothing in the analysis path asks for a re-layout. Enumerated at
+    // `origin/staging`: `applyScenarioAnalysisRead.ts` contains zero
+    // `setPendingLayout`/`applyLayout` calls, against two in
+    // `applyDraftResult.ts` as a contrast control. So the graph keeps a
+    // geometry computed for cards that no longer exist at that size.
+    //
+    // This corrects on GROWTH against the recorded heights, which subsumes
+    // both doors under one rule — the row band was sized for a shorter card,
+    // whatever made it taller.
+    if (measured && !layoutInProgress && !pendingLayout && laidOutHeightsRef.current.size > 0) {
+      const heights = currentHeights()
+      const grown = grownNodeId(heights)
+      if (grown !== null) {
+        // Record BEFORE dispatching. The heights are already settled, so if the
+        // layout is superseded mid-flight the recorded set still describes what
+        // is on screen — and a node cannot re-trigger on the same growth.
+        laidOutHeightsRef.current = heights
+        handleLayoutWithRecovery(() => applyLayout({ skipHistory: true }))
+        return
+      }
     }
 
     if (decision === 'idle' || decision === 'blocked') {
@@ -100,6 +171,7 @@ export function useMeasureThenLayout(): void {
       fallbackDeadlineRef.current = null
       // This layout has real heights, so there is nothing left to correct.
       laidOutWithFallbackRef.current = false
+      laidOutHeightsRef.current = currentHeights()
       handleLayoutWithRecovery(() =>
         applyLayout({ skipHistory: true, requestId: capturedId }),
       )

@@ -329,6 +329,22 @@ export const CANVAS_MARGIN = 24
  */
 export const LAYOUT_MEASUREMENT_FALLBACK_MS = 500
 
+/**
+ * How much taller a card must become, against the height the committed layout
+ * was computed for, before that layout is treated as stale.
+ *
+ * Sub-pixel and single-pixel drift is ordinary: fonts settle, scrollbars
+ * appear, `measured.height` is rounded. A threshold of 0 would re-lay out the
+ * model on that noise, moving it under a reader for no reason. 4px is below
+ * anything a user notices as overlap (the smallest real overlap measured on an
+ * analysed model was 54px) and far above measurement jitter.
+ *
+ * ⚠ GROWTH ONLY. A card that shrank leaves whitespace and harms nobody; a card
+ * that grew overflows its row band and covers the row beneath. The two are not
+ * symmetric and must not share one threshold.
+ */
+export const HEIGHT_GROWTH_TOLERANCE_PX = 4
+
 // ─── Semantic tiers ──────────────────────────────────────────────────────────
 
 /**
