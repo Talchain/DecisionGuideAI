@@ -46,7 +46,6 @@ import {
   readStructuralDeleteReceipt,
   revertStructuralDelete,
   STRUCTURAL_DELETE_NOTICE,
-  STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES,
   type StructuralDeleteIntent,
   type StructuralDeleteNoticeKey,
 } from '../mutations/structuralDelete'
@@ -134,8 +133,11 @@ import {
   mergeOptimisticFactorEdit,
   responseAppliedFactorEdit,
   revertOptimisticFactorEdit,
+  OPTIMISTIC_FACTOR_EDIT_NOTICE,
   type OptimisticFactorEdit,
+  type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
+import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import {
@@ -2936,9 +2938,10 @@ export function useConversation(): UseConversationReturn {
         //
         // A fence category or an unknown one is still NOT in the set: it gets
         // the honest cannot-confirm line rather than a promise we cannot keep.
-        const provenNoWrite = STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES.has(
-          outcome.conflictCategory ?? '',
-        )
+        // Through the SHARED predicate, which `factor_value_edit` also calls —
+        // the two optimistic writers must not be able to disagree about which
+        // categories carry a no-write guarantee.
+        const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
         shouldRevert = provenNoWrite
         notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
       } else {
@@ -2971,6 +2974,100 @@ export function useConversation(): UseConversationReturn {
           timestamp: new Date(),
         })
       }
+    },
+    [addMessage],
+  )
+
+  /**
+   * Resolve an optimistic `factor_value_edit` against a turn that FAILED.
+   *
+   * THE TRUST DEFECT THIS CLOSES, and it is the same one `resolveStructuralDelete`
+   * closes for the other optimistic writer. The value was written to the canvas
+   * BEFORE the turn was sent, so an unresolved failure leaves the product showing
+   * a number the server never took — and because the analyse path is
+   * UI → CEE → PLoT → ISL with **CEE reloading its own persisted graph**, the
+   * user's next run is computed from a DIFFERENT number than the one on their
+   * screen, with nothing anywhere saying so.
+   *
+   * ⚠ AND IT SURVIVES A RELOAD. `saveAutosave` writes
+   * `localStorage['olumi-canvas-autosave']` with no hash check, and the boot path
+   * restores from it and fetches no graph — so the refused number comes back.
+   * (The Supabase half is shut: `clientCanWriteReadableGraph()` is a hard
+   * `false`. It would not have helped anyway — `apply_patch_and_log`'s only
+   * predicate is `user_id = auth.uid()`; `p_hashes` is recorded on the event and
+   * never compared, so there is no CAS on that path to unshut into.) That is why
+   * the revert FLUSHES the autosave rather than waiting for the timer.
+   *
+   * ⚠ WHY THIS EXISTS AT ALL, given the pristine comment said failures were "the
+   * deferral buffer's business": `enqueueDeferredSystemSend` has exactly ONE call
+   * site — the in-flight defer branch — so an IMMEDIATE send that fails is never
+   * enqueued. Nothing retried it and nothing reverted it. The claim was true of
+   * the queue and false of the path most edits actually take.
+   *
+   * ── TWO HARMS, TWO PARAMETERS ────────────────────────────────────────────
+   * Failing to revert a proven-no-write is a LIE; reverting a write that DID or
+   * MIGHT have landed is DATA LOSS. They cannot share one predicate:
+   *
+   *   · REVERT only on a `conflict_category` the PRODUCER guarantees wrote
+   *     nothing (`isProvenNoWriteConflict` — the same closed set the delete
+   *     uses, and `retryable: false` by CEE's own envelope, so no retry is
+   *     being pre-empted).
+   *   · EVERYTHING ELSE keeps the value and says we could not confirm. That
+   *     includes the untyped HTTP 500 (`INTERNAL_ERROR`,
+   *     `system_event_commit_failed`) which is what a contended commit actually
+   *     returns today — measured at the live probe recorded in
+   *     `calibrateDrillInReceipt.spec.tsx:487-497`. It carries no
+   *     `conflict_category` and no no-write guarantee, so the honest move is a
+   *     notice plus `markAnalysisFreshnessDirty`, never a revert.
+   *
+   * ⚠ THE FRESHNESS FLAG IS SET EXPLICITLY ONLY ON THE UNCONFIRMED ARM — but
+   * the revert arm ALSO ends up dirty, and not saying so here would be a false
+   * statement in the one comment a reader trusts. `revertOptimisticFactorEdit`
+   * writes through `store.updateNode`, whose analytical-change branch calls
+   * `invalidateAnalysisReady` → `markAnalysisFreshnessDirty` (`store.ts:1768`).
+   * That is pre-existing and applies equally to the long-standing 200-refusal
+   * revert; it is not introduced here. It is also conservative rather than
+   * wrong: the flag only ever DOWNGRADES a retained 'fresh' verdict to
+   * cannot-confirm and never fabricates 'stale', and a graph that has just been
+   * mutated is fairly described as no-longer-confirmable. Left alone
+   * deliberately — suppressing it would be a behaviour change to a trust
+   * surface, well outside this lane.
+   */
+  const resolveFailedOptimisticFactorEdit = useCallback(
+    (edit: OptimisticFactorEdit, conflictCategory: string | undefined) => {
+      let notice: OptimisticFactorEditNoticeKey
+
+      if (isProvenNoWriteConflict(conflictCategory)) {
+        const revertOutcome = revertOptimisticFactorEdit(edit)
+        // The copy promises the previous value is back. If the revert stood
+        // down — the node is gone, or a newer edit moved the value on — that
+        // promise is false, so it is withheld rather than shipped beside a
+        // canvas it does not describe. Staying silent here also avoids talking
+        // about a superseded edit while a newer one owns the surface.
+        if (revertOutcome !== 'reverted') {
+          if (import.meta.env.DEV) {
+            console.warn(
+              `[sendTurn] proven no-write for ${edit.nodeId}; revert stood down (${revertOutcome})`,
+            )
+          }
+          return
+        }
+        notice = 'proven_no_write'
+      } else {
+        // No committed bytes either way. Keep the user's number, say so, and
+        // stop the analysis reporting itself fresh against a value the engine
+        // may not hold.
+        notice = 'unconfirmed_server'
+        useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+      }
+
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content: OPTIMISTIC_FACTOR_EDIT_NOTICE[notice],
+        timestamp: new Date(),
+      })
     },
     [addMessage],
   )
@@ -3857,63 +3954,91 @@ export function useConversation(): UseConversationReturn {
         if (
           optimisticEdit &&
           systemEvent?.type === 'factor_value_edit' &&
-          target.kind !== 'typed_error' &&
           activeV5TurnIdRef.current === turnClientId
         ) {
-          const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId)
-          if (!applied) {
-            const outcome = revertOptimisticFactorEdit(optimisticEdit)
-            if (import.meta.env.DEV) {
-              console.warn(
-                `[sendTurn] CEE did not apply the edit to ${optimisticEdit.nodeId}; optimistic write ${outcome}`,
-              )
-            }
+          // ⚠ THE `target.kind !== 'typed_error'` EXCLUSION THAT USED TO BE IN
+          // THIS CONDITION IS GONE, DELIBERATELY — it is the whole defect.
+          //
+          // It was justified on the grounds that "failures are the deferral
+          // buffer's business (it retries and, at the attempt cap, raises an
+          // honest transcript notice). Reverting here would race that." That is
+          // true of a DEFERRED send and false of an IMMEDIATE one:
+          // `enqueueDeferredSystemSend` has exactly one call site (the in-flight
+          // defer branch), so an immediate send that fails is never enqueued —
+          // nothing retried it, nothing reverted it, and there was no race to
+          // lose. The canvas simply kept a number the server had refused.
+          //
+          // A 409 IS the outcome this event most needs to resolve, exactly as
+          // it is for the delete above. See `resolveFailedOptimisticFactorEdit`
+          // for why only a PROVEN no-write reverts and everything else — the
+          // untyped 500 included — keeps the value and says so.
+          //
+          // ⚠ A BRANCH, NOT AN EARLY `return` — the rest of `sendTurn` still
+          // has to run for a typed error (the failure bubble, the run-slot
+          // settle, the `finally` that releases the in-flight lock). Returning
+          // from here would resolve the optimistic write correctly and break
+          // everything downstream of it.
+          if (target.kind === 'typed_error') {
+            resolveFailedOptimisticFactorEdit(
+              optimisticEdit,
+              extractConflictCategory(target.boundaryError),
+            )
           } else {
-            // ROADMAP 2.304 — the OTHER half of the same decision. The
-            // reviewed stamp ("checked by you") is a claim about what the
-            // ENGINE holds, so it is written here, against the receipt, and
-            // nowhere else. Callers that pass no stamp (Model tab, inspector)
-            // are unaffected: `confirmOptimisticFactorEdit` returns
-            // 'no_stamp' and writes nothing.
-            const outcome = confirmOptimisticFactorEdit(optimisticEdit)
-            if (import.meta.env.DEV && outcome === 'value_moved_on') {
-              console.warn(
-                `[sendTurn] receipt for ${optimisticEdit.nodeId} arrived after the value moved on; reviewed stamp withheld`,
-              )
-            }
+            const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId)
+            if (!applied) {
+              const outcome = revertOptimisticFactorEdit(optimisticEdit)
+              if (import.meta.env.DEV) {
+                console.warn(
+                  `[sendTurn] CEE did not apply the edit to ${optimisticEdit.nodeId}; optimistic write ${outcome}`,
+                )
+              }
+            } else {
+              // ROADMAP 2.304 — the OTHER half of the same decision. The
+              // reviewed stamp ("checked by you") is a claim about what the
+              // ENGINE holds, so it is written here, against the receipt, and
+              // nowhere else. Callers that pass no stamp (Model tab, inspector)
+              // are unaffected: `confirmOptimisticFactorEdit` returns
+              // 'no_stamp' and writes nothing.
+              const outcome = confirmOptimisticFactorEdit(optimisticEdit)
+              if (import.meta.env.DEV && outcome === 'value_moved_on') {
+                console.warn(
+                  `[sendTurn] receipt for ${optimisticEdit.nodeId} arrived after the value moved on; reviewed stamp withheld`,
+                )
+              }
 
-            // ROADMAP 2.312 — THE SILENT REBASE, said out loud.
-            //
-            // The canvas does not hydrate from the server on boot (measured:
-            // the whole boot manifest fetches no graph), so the number the
-            // user typed over can be one the engine stopped holding. The
-            // receipt is the first and only moment the engine's OWN base for
-            // this edit becomes visible to the client — so it is the moment
-            // the divergence is checkable, and it is checked here.
-            //
-            // AFTER the confirm, deliberately. The value and its "checked by
-            // you" stamp are both TRUE — the engine applied the number the
-            // user chose — so neither is withheld. What was untrue is the
-            // implicit claim that the canvas matched the engine, and that is
-            // what this corrects. Reverting instead would swap a silent wrong
-            // base for a silently discarded edit.
-            //
-            // `detectSilentRebase` reports only what it can prove and returns
-            // null otherwise, so the common case (canvas in step with the
-            // engine) adds no message and no behaviour change at all.
-            const divergence = detectSilentRebase(optimisticEdit, target.response)
-            if (divergence) {
-              const factorLabel = String(
-                useCanvasStore.getState().nodes.find((n) => n.id === divergence.nodeId)?.data
-                  ?.label ?? divergence.nodeId,
-              )
-              addMessage({
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                synthetic: true,
-                timestamp: new Date(),
-                content: describeRebaseDivergence(divergence, factorLabel),
-              })
+              // ROADMAP 2.312 — THE SILENT REBASE, said out loud.
+              //
+              // The canvas does not hydrate from the server on boot (measured:
+              // the whole boot manifest fetches no graph), so the number the
+              // user typed over can be one the engine stopped holding. The
+              // receipt is the first and only moment the engine's OWN base for
+              // this edit becomes visible to the client — so it is the moment
+              // the divergence is checkable, and it is checked here.
+              //
+              // AFTER the confirm, deliberately. The value and its "checked by
+              // you" stamp are both TRUE — the engine applied the number the
+              // user chose — so neither is withheld. What was untrue is the
+              // implicit claim that the canvas matched the engine, and that is
+              // what this corrects. Reverting instead would swap a silent wrong
+              // base for a silently discarded edit.
+              //
+              // `detectSilentRebase` reports only what it can prove and returns
+              // null otherwise, so the common case (canvas in step with the
+              // engine) adds no message and no behaviour change at all.
+              const divergence = detectSilentRebase(optimisticEdit, target.response)
+              if (divergence) {
+                const factorLabel = String(
+                  useCanvasStore.getState().nodes.find((n) => n.id === divergence.nodeId)?.data
+                    ?.label ?? divergence.nodeId,
+                )
+                addMessage({
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  synthetic: true,
+                  timestamp: new Date(),
+                  content: describeRebaseDivergence(divergence, factorLabel),
+                })
+              }
             }
           }
         }
@@ -4754,6 +4879,24 @@ export function useConversation(): UseConversationReturn {
               kind: 'transport',
             })
           }
+          // The same treatment for the OTHER optimistic writer, and for the
+          // same reason: an unresolved value edit leaves the canvas showing a
+          // number the model may not hold. No category, so it can only take
+          // the cannot-confirm arm — the value stands (nothing was read, so
+          // reverting would be as unfounded as keeping it) and the analysis is
+          // dirtied so it cannot report itself fresh.
+          //
+          // ⚠ DISCLOSED, NOT PINNED. `callV5Turn` rethrows only `AbortError`,
+          // and aborts are excluded from this branch, so a network failure
+          // never arrives here — it arrives as a typed_error and is resolved
+          // above. This line is reachable only by a non-abort throw from
+          // inside `sendTurn` itself, which the harness cannot drive. It
+          // mirrors the `structural_delete` arm immediately above it (equally
+          // unpinned, and pre-existing) and it adds no new claim: it can only
+          // route to machinery four tests already cover.
+          if (opts.optimisticFactorEdit && systemEvent?.type === 'factor_value_edit') {
+            resolveFailedOptimisticFactorEdit(opts.optimisticFactorEdit, undefined)
+          }
         }
         if (import.meta.env.DEV && !isAbort) {
           console.warn('[sendTurn V5] Dispatch error:', err)
@@ -4915,7 +5058,41 @@ export function useConversation(): UseConversationReturn {
         // Accepted. Only now is it safe to forget.
         deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
         publishPendingEditCount()
-      } catch {
+      } catch (err) {
+        // ── A PROVEN NO-WRITE IS NOT A RETRYABLE FAILURE — DROP IT ──────────
+        //
+        // `sendTurn` has ALREADY resolved this edit: the value was reverted to
+        // what the server holds and the user was told so. Falling through to
+        // the retry path below would then contradict every part of that:
+        //
+        //   · it re-sends the SAME value against the SAME stale
+        //     `base_graph_hash`, which refuses identically — forever, in a loop
+        //     of the product's own making (CEE marks this class
+        //     `retryable: false`; the same futile-retry trap is documented on
+        //     `STRUCTURAL_DELETE_NOTICE.base_hash_diverged`);
+        //   · it RE-DIRTIES analysis freshness, but the revert just restored
+        //     agreement with the engine — so that would manufacture a "model
+        //     changed" banner for a model that did not change;
+        //   · and at the attempt cap it adds `noticeForUnsentEdit` — a SECOND
+        //     message ("re-enter it to try again") beside the first, telling
+        //     the user to redo an edit whose value is no longer on screen.
+        //
+        // The category rides on the error already (`SystemEventSendError`
+        // carries `conflictCategory` for exactly this reason), so this reads
+        // the producer's own verdict rather than re-deriving it.
+        const conflictCategory =
+          err instanceof SystemEventSendError ? err.conflictCategory : undefined
+        if (isProvenNoWriteConflict(conflictCategory)) {
+          deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
+          publishPendingEditCount()
+          if (import.meta.env.DEV) {
+            console.warn(
+              `[sendTurn] deferred send ${next.key} refused with a proven no-write (${conflictCategory}); reverted and dropped, not retried`,
+            )
+          }
+          return
+        }
+
         // A GENUINE failure (network / 4xx / 5xx / parse) of a DEFERRED edit.
         //
         // This rejection has NO listener: the panel's promise already resolved

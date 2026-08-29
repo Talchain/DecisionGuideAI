@@ -495,16 +495,25 @@ describe('typed-error posture on this path — pins CURRENT behaviour, inherited
     expect(
       screen.queryByText(/wasn't saved because a newer change/i),
     ).not.toBeInTheDocument()
-    // The optimistic write SURVIVES a typed error. ⚠ This pins CURRENT
-    // BEHAVIOUR — it is NOT a design guarantee, and an earlier version of this
-    // comment wrongly called it one. The stated justification ("failures are
-    // the deferral buffer's business") holds only for a DEFERRED send:
-    // `enqueueDeferredSystemSend` has exactly one call site
-    // (`useConversation.ts:3978`, the in-flight defer branch), so an IMMEDIATE
-    // send that fails is never enqueued and nothing retries or reverts it. That
-    // gap is disclosed in #560 and is pre-existing across all three
-    // value-committing surfaces; when it is fixed, THIS assertion is the one to
-    // change — it must not be read as a guarantee defending the current state.
+    // The optimistic write SURVIVES this typed error.
+    //
+    // ⚠ THE REASON CHANGED, THE ASSERTION DID NOT — and that is why this note
+    // is rewritten rather than left standing. The gap it used to describe IS
+    // NOW CLOSED: `useConversation` no longer excludes `typed_error` from
+    // optimistic-edit resolution, so a 409 whose `details.conflict_category`
+    // carries CEE's own no-write guarantee now REVERTS the value and says so
+    // (`useConversation.optimisticFactorEditConflict.spec.ts`).
+    //
+    // This case still keeps the value because `FENCE_409` is a `turn_fence_…`
+    // verdict, which is deliberately NOT in
+    // `PROVEN_NO_WRITE_CONFLICT_CATEGORIES`: a fence tells us the turn was
+    // refused, never that no bytes landed, so reverting on it would be data
+    // loss on a guess. So this is now the OPPOSITE-DIRECTION TWIN of the fix —
+    // load-bearing, and it must keep passing.
+    //
+    // What DID change on this path, and is not asserted here: an unconfirmed
+    // outcome now raises a cannot-confirm notice and marks analysis freshness
+    // dirty, instead of passing in silence.
     expect(observedNow().value).toBe(NEW_MODEL)
     // The completion claim still requires a receipt, which never arrived — this
     // half IS the 2.304 guarantee, and it holds in the failure direction too.

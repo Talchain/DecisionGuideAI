@@ -475,27 +475,19 @@ export function revertStructuralDelete(
  * the resolver to revert the canvas and to promise, in
  * `STRUCTURAL_DELETE_NOTICE.base_hash_diverged`, that nothing was removed.
  *
- * ⚠ DERIVED FROM THE PRODUCER, ONE ENTRY PER STATED GUARANTEE (CEE
- * `293da078`) — never from what a category NAME suggests:
- *
- *   · `BASE_HASH_DIVERGED` — `system-events/structural-delete.ts:475-484`.
- *     The stale gate refuses before any target is resolved; the refusal path
- *     writes no graph and no turn row.
- *   · `rpc_cas_conflict`   — `session/supabase-store.ts:309-318` (v3) and
- *     `:1070-1079` (v4). The atomic in-transaction CAS raises SQLSTATE OLGC1
- *     and the store throws `GraphStaleWriteError`, whose message is the
- *     guarantee: *"Atomic in-transaction CAS: the whole turn rolled back,
- *     nothing clobbered."*
- *
- * ⚠ THIS IS A CLOSED SET AND MUST STAY ONE. A category absent from it — a
- * turn-fence verdict, or any future category — is an UNKNOWN, and an unknown
- * takes `unconfirmed_server`. Reverting on an unknown would assert "these are
- * still in your model" with no evidence, which is exactly as unfounded as
- * leaving them deleted. Add a member only with the producer line that states
- * the guarantee, and pin its opposite-direction twin.
+ * ⚠ NO LONGER A PRIVATE SET — IT IS THE SHARED ONE, BY REFERENCE.
+ * `factor_value_edit` is the second optimistic writer to need exactly this
+ * question answered, and two writers each carrying their own copy of a
+ * producer-derived set is the differently-drifting-twins defect: the next
+ * category CEE adds would land in one copy and not the other, and the writer
+ * left behind would go on asserting a state the server declined, silently,
+ * under a green suite. The single definition — with the full producer
+ * derivation for each member, and the reasons the set must stay closed — lives
+ * at `v5/provenNoWriteConflict.ts`. This alias is kept because the name reads
+ * correctly at this call site and because the delete's own conflict spec binds
+ * to it; it is an ALIAS, not a copy, so a drift is not expressible.
  */
-export const STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> =
-  new Set(['BASE_HASH_DIVERGED', 'rpc_cas_conflict'])
+export { PROVEN_NO_WRITE_CONFLICT_CATEGORIES as STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES } from '../../v5/provenNoWriteConflict'
 
 /**
  * The one honest sentence for a delete whose fate we could not confirm, keyed by

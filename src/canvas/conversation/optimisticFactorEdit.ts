@@ -473,6 +473,60 @@ export function describeRebaseDivergence(
   )
 }
 
+/**
+ * The one honest sentence for a value edit whose turn FAILED, keyed by OUTCOME
+ * rather than composed at each site — the same shape, and for the same reason,
+ * as `STRUCTURAL_DELETE_NOTICE`.
+ *
+ * ⚠ THESE FILL A SILENCE, THEY DO NOT COMPETE WITH CEE'S OWN PROSE. A 200
+ * refusal ("Value 25 months exceeds the factor's cap of 6 months. I haven't
+ * changed anything.") renders through the normal `assistant_text` branch and is
+ * resolved by `responseAppliedFactorEdit` — untouched by any of this. A typed
+ * error and a transport failure render NO bubble in system mode; that silence
+ * is what these three fill, and until they existed the canvas simply kept a
+ * number the server had declined.
+ */
+export const OPTIMISTIC_FACTOR_EDIT_NOTICE = {
+  /**
+   * The server PROVED it wrote nothing (a `conflict_category` in the closed
+   * `PROVEN_NO_WRITE_CONFLICT_CATEGORIES` set, `retryable: false` by CEE's own
+   * envelope). The previous value is back, so the copy may say so.
+   *
+   * ⚠ THE REMEDY IS DERIVED FROM WHAT ACTUALLY REFRESHES THE BASE, and the two
+   * more obvious instructions are both affordances terminating in refusal —
+   * exactly as documented for the delete's twin in `STRUCTURAL_DELETE_NOTICE`:
+   * a bare retry re-sends the SAME `base_graph_hash` and refuses identically,
+   * forever; and a reload hydrates from localStorage with no CEE turn, so the
+   * base hash is null and the next edit is unresolvable in the same way. What
+   * DOES refresh it is a turn — `applyV5State` captures the top-level
+   * `graph_hash` off every response — so the copy asks for the one thing that
+   * works, and it works in-session with no reload at all.
+   */
+  proven_no_write:
+    "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this decision and I'll re-sync with the saved model, then you can make the change again.",
+  /**
+   * The turn reached the server and failed there, but nothing states the write
+   * did not land — the untyped 500 a contended commit actually returns, an
+   * unknown conflict category, a fence verdict. We hold no committed bytes, so
+   * "couldn't confirm" is the only claim the evidence supports, and the value
+   * stands because discarding it would be data loss on a guess.
+   *
+   * ⚠ THIS COVERS THE NETWORK FAILURE TOO, AND THERE IS DELIBERATELY NO
+   * SEPARATE "didn't reach the server" COPY. Its twin
+   * `STRUCTURAL_DELETE_NOTICE.unconfirmed_transport` has one, and copying that
+   * here would have been a fresh untruth of exactly the class this module
+   * exists to remove: `callV5Turn` rethrows ONLY `AbortError` and converts
+   * every other fetch failure into a typed error, so a network failure arrives
+   * here indistinguishable from a lost response — and the client genuinely
+   * cannot tell "never left the browser" from "reached CEE, reply lost".
+   * "Couldn't confirm" is the strongest claim the evidence supports for both.
+   */
+  unconfirmed_server:
+    "I couldn't confirm that your change reached the saved model. It's still on your canvas, but the model may hold a different number — ask me what the model currently has before you rely on the analysis.",
+} as const
+
+export type OptimisticFactorEditNoticeKey = keyof typeof OPTIMISTIC_FACTOR_EDIT_NOTICE
+
 /** What `revertOptimisticFactorEdit` did, for tests and DEV logging. */
 export type RevertOutcome = 'reverted' | 'node_gone' | 'value_moved_on'
 
@@ -599,6 +653,29 @@ export function revertOptimisticFactorEdit(edit: OptimisticFactorEdit): RevertOu
     } as never)
   } finally {
     store.endExternalGraphMutation?.()
+  }
+
+  // PERSIST THE REVERT NOW — the same flush `confirmOptimisticFactorEdit` does
+  // on 'stamped', and here it is load-bearing rather than a nicety.
+  //
+  // The optimistic write is DURABLE, not session-only: `saveAutosave` writes
+  // `localStorage['olumi-canvas-autosave']` with no hash check, and the boot
+  // path restores from it and fetches no graph (2.312). So the refused number
+  // is already in the slot, and an in-memory-only revert would be undone by the
+  // next reload — the user would see the server's value blink back to the one
+  // it refused. Flushing here closes that window instead of waiting for the
+  // 30 s timer.
+  //
+  // ⚠ ONLY ON THE 'reverted' PATH. The early returns above wrote nothing, so
+  // persisting on them would record a change this function just declined to
+  // make. Through the canonical projection, like every other writer, and
+  // best-effort like its sibling call site: a quota failure must not turn a
+  // successful revert into a thrown error.
+  try {
+    saveAutosave(projectAutosaveData(autosaveSourceFromStore(useCanvasStore.getState())))
+  } catch {
+    // Non-critical: the in-memory revert is already applied; the periodic
+    // autosave remains the fallback writer.
   }
   return 'reverted'
 }
