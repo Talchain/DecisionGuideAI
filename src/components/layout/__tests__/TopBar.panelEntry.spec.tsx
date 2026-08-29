@@ -52,6 +52,32 @@ describe('TopBar blind-panel entry point', () => {
     expect(byName).toBe(screen.getByTestId('topbar-panel-link'))
   })
 
+  /**
+   * ⭐ A VISIBLE TEXT LABEL, NOT ONLY AN ACCESSIBLE ONE (29 Aug 2026).
+   *
+   * This control was a bare 14px `Users` glyph whose only label was an
+   * `aria-label` and a hover tooltip. It is one of just two entry points to
+   * blind panel elicitation — everyone answers privately, then compare — which
+   * is the most differentiated capability in the product.
+   *
+   * On Monday the team open the product from a link, alone, with nobody to
+   * point at anything. An unlabelled icon is not a discoverable control: a
+   * tooltip needs a hover the user has no reason to attempt, and an
+   * `aria-label` is read by screen readers only. The test above already passed
+   * on the `aria-label` ALONE, which is exactly why it could not see this —
+   * accessible name and visible name are different claims, and only the second
+   * one is what a sighted user scanning a toolbar actually gets.
+   *
+   * ⚠ SCOPE, honestly stated: jsdom proves the text is in the DOM. It cannot
+   * prove it is on screen (this file's header makes the same caveat about the
+   * control itself). The visibility rung belongs to the browser witness.
+   */
+  it('carries a VISIBLE text label, not just an accessible one', () => {
+    renderTopBar('scn-entry-1')
+    const link = screen.getByTestId('topbar-panel-link')
+    expect(link).toHaveTextContent('Ask your team')
+  })
+
   it('percent-encodes the scenario id in the href', () => {
     renderTopBar('a b')
     expect(screen.getByTestId('topbar-panel-link')).toHaveAttribute(

@@ -84,6 +84,16 @@ export function buildOutsideViewCard({
   return {
     question: `For decisions like this, does ${winnerLabel} usually outperform ${alternativeLabel}?`,
     context: 'Outside views often catch assumptions you have stopped questioning.',
-    chipLabel: 'Research this',
+    // ⚠ WAS 'Research this' (relabelled 29 Aug 2026). There is no research
+    // tool — it was deleted on 22 Jul 2026 and CEE answers "I can't fetch
+    // external sources" — so the old label advertised an action that
+    // reliably terminated in refusal. This is ROADMAP 2.816's defect, and
+    // 2.816's own words allow exactly two honest fixes: remove the CTA, or
+    // build the producer. A third became available once the prompt was read
+    // properly: the QUESTION is a base-rate question the model answers from
+    // its own knowledge, so only the retrieval PROMISE was ever false.
+    // The capability stays; the lie goes. Pinned by
+    // `outsideViewChipTruthful.spec.tsx`.
+    chipLabel: 'Take an outside view',
   }
 }

@@ -160,7 +160,20 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   // Single-open accordion: in default mode, only one section open at a time.
   // In expert mode (showDetail), sections manage their own state independently.
-  const [openSection, setOpenSection] = useState<string | null>('factors')
+  // ⭐ THE MODEL CARD OPENS ON ARRIVAL (29 Aug 2026), and this is where the
+  // non-expert (CONTROLLED) path decides it — `makeSectionProps` below hands
+  // the Accordion `isExpanded: openSection === sectionId`, which makes the
+  // section's own `defaultExpanded` inert.
+  //
+  // ⚠ WHY THIS CLOSES NOTHING, which is the only reason it is safe in a
+  // single-open group: the previous value `'factors'` names a section that is
+  // NOT MOUNTED. `FactorsSection` and every other `makeSectionProps` consumer
+  // (options/factors/relationships/risks, and the second ModelHealthSection)
+  // live inside the `LEGACY_DETAILED_EDITOR_MOUNTED &&` block below, and that
+  // constant is `false`. So the live tree has exactly ONE member of this
+  // group — the Model card — and it was the one member the initial state
+  // never named, i.e. the group could only ever render fully closed.
+  const [openSection, setOpenSection] = useState<string | null>('modelcard')
 
   // ── The v1 stack's disclosure (2026-08-20) ──────────────────────────────────
   //

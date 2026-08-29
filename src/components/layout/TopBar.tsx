@@ -362,11 +362,22 @@ export const TopBar = ({
           <Tooltip content="Ask your team — everyone answers privately, then compare">
             <a
               href={ownerPanelHash(panelScenarioId)}
-              className={styles.iconButton}
+              className={`${styles.iconButton} ${styles.labelledButton}`}
+              // ⚠ THE `aria-label` STAYS EVEN THOUGH THE TEXT IS NOW VISIBLE,
+              // and it must keep MATCHING the visible text: it is what makes
+              // the accessible name stable if the label is ever shortened, and
+              // an accessible name that disagrees with the visible one breaks
+              // voice control ("click Ask your team").
               aria-label="Ask your team"
               data-testid="topbar-panel-link"
             >
               <Users size={14} aria-hidden="true" />
+              {/* ⭐ VISIBLE LABEL (29 Aug 2026). This was a bare 14px glyph
+                  labelled only by `aria-label` and the tooltip above — and it
+                  is one of two entry points to blind panel elicitation, the
+                  most differentiated capability we ship. Unsupervised, nobody
+                  hovers an unexplained icon to find out what it does. */}
+              <span>Ask your team</span>
             </a>
           </Tooltip>
         )}

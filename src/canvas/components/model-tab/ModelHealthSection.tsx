@@ -170,7 +170,18 @@ function ModelHealthSectionInner({
       title="Model card"
       tierLabel={headerSummary}
       tierVariant={headerSummary ? 'fair' : undefined}
-      defaultExpanded={false}
+      // ⭐ OPEN ON ARRIVAL (29 Aug 2026). The card carries the seed, the
+      // sample count, the VOI method and an explicit "Not reported by this
+      // run" for everything the engines did not report — the product's
+      // honesty story about its own compute, and it shipped shut.
+      //
+      // ⚠ THIS LINE ALONE DOES NOT OPEN THE CARD. It governs only the
+      // UNCONTROLLED path (expert mode, where `makeSectionProps` returns
+      // `{}`). With expert mode off the host passes `isExpanded`, the
+      // Accordion is CONTROLLED, and this prop is inert — the initial
+      // `openSection` state in `ModelTabBody` decides. Both paths are
+      // pinned separately by `ModelTabBody.modelCardOpen.spec.tsx`.
+      defaultExpanded
       isExpanded={isExpanded}
       onExpandChange={onExpandChange}
       testId="model-health-section"

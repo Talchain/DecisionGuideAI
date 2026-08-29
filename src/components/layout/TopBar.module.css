@@ -150,6 +150,27 @@
   height: 16px;
 }
 
+/**
+ * ⭐ A TOP-BAR CONTROL THAT CARRIES ITS NAME ON SCREEN (29 Aug 2026).
+ *
+ * Composed WITH `.iconButton` (`className={`${styles.iconButton}
+ * ${styles.labelledButton}`}`), so hover, `:focus-visible`, `:disabled` and
+ * the 16px icon sizing are inherited rather than restated — there is exactly
+ * one definition of what a top-bar control looks like.
+ *
+ * ⚠ MUST STAY BELOW `.iconButton`: the two selectors have equal specificity,
+ * so the `width` override below wins on SOURCE ORDER alone. Moving this block
+ * above `.iconButton` silently restores the 32px square and clips the label.
+ */
+.labelledButton {
+  width: auto;
+  gap: 6px;
+  padding: 0 10px;
+  /* The label is a name, not prose — it must never wrap the header row. */
+  white-space: nowrap;
+  text-decoration: none;
+}
+
 /* Save status indicator (lightweight text, not a button) */
 .saveStatus {
   display: inline-flex;

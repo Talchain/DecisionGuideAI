@@ -102,8 +102,12 @@ describe('buildOutsideViewCard', () => {
     )
   })
 
-  it('chip label is "Research this"', () => {
+  // ⚠ WAS "Research this" until 29 Aug 2026. Relabelled because the research
+  // tool was deleted on 22 Jul 2026, so the old label promised a retrieval
+  // that always terminated in refusal (ROADMAP 2.816's defect class).
+  it('chip label is "Take an outside view" — and promises no retrieval', () => {
     const card = buildOutsideViewCard({ winnerLabel: 'X', alternativeLabel: 'Y' })
-    expect(card.chipLabel).toBe('Research this')
+    expect(card.chipLabel).toBe('Take an outside view')
+    expect(card.chipLabel).not.toMatch(/research|fetch|sources/i)
   })
 })
