@@ -520,13 +520,36 @@ export const COMPARISON_SCOPE_COPY = {
    * untouched here; that is the ROADMAP 2.1340 guarantee and it is pinned
    * against this cap in the owner spec.
    *
-   * ⚠ USER-REACHABLE ON BOTH ANALYSIS TABS, deliberately. Capping is a
-   * DISCLOSURE rather than a drop because every excluded option stays NAMED on
-   * every surface that mounts this note — derived at the bytes, not assumed:
-   * `OptionCards` renders a `NotAnalysedOptionCard` for each one
-   * UNCONDITIONALLY (its NO-RANK RULING appends them past the TOP_N
-   * truncation), and it is co-mounted in `ResultsBody` with the WinGauge and
-   * hero notes; the Analysis (New) glance names them behind its own control.
+   * ⚠⚠ USER-REACHABLE ON BOTH ANALYSIS TABS, AND THE TWO TABS DIFFER. An earlier
+   * version of this paragraph claimed every excluded option stays NAMED on
+   * every surface that mounts this note. An independent review REFUTED that,
+   * and it is worth stating why the wrong version was so easy to write: I
+   * verified co-mounting INSIDE `ResultsBody` and never asked whether
+   * `ResultsBody` is mounted. A co-mount read in source proves a code path
+   * exists; it says nothing about whether that surface is on screen.
+   *
+   * The manifest, re-derived with a contrast control — FIVE mounts in four
+   * files (`WinGauge` carries two, `goal` and `comparative`):
+   *
+   *   WinGauge:398 goal · WinGauge:516 comparative · OptionCards:1292 ·
+   *   AnalysisHeroPanel:399 · AtAGlance:300
+   *
+   * ON THE ANALYSIS TAB the claim HOLDS. All four of the first mounts live in
+   * `ResultsBody`, alongside `OptionCards`, which renders a
+   * `NotAnalysedOptionCard` for every excluded option UNCONDITIONALLY — its
+   * NO-RANK RULING appends them past the TOP_N truncation. Stronger than a
+   * co-mount reading: `deriveComparisonScope` returns non-null only at total
+   * >= 2, and `useResultsSectionData` sets `isSingleOption = length <= 1`, so
+   * the note's own render condition IMPLIES the option block's guard.
+   *
+   * ON ANALYSIS (NEW) IT DOES NOT. That is a SEPARATE DOCK TAB
+   * (`OutputsDock.tsx:3457`), so `ResultsBody` and its cards are not mounted at
+   * all; `AtAGlance` is the only namer there and it caps too. This surface
+   * therefore names fewer options AT REST than it used to. That reduction is
+   * accepted deliberately and the reasoning, with its measurements, is recorded
+   * on `EXCLUDED_OPTION_VISIBLE_CAP` in `AtAGlance.tsx` — the short version is
+   * that the count is never hidden, every name is one click away, and the
+   * alternative was a note reaching 771px against a ~769px dock.
    */
   excludedClause: (scope: ComparisonScope): string => {
     const missing = scope.total - scope.analysed
