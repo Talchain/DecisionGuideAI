@@ -113,7 +113,11 @@ describe('the blocker list survives the gate summary suffix', () => {
 
     // Bound by IDENTITY — the exact sentence for each option/factor pair, not a
     // count and not a substring another line could satisfy.
-    expect(d.sublineSentences).toEqual([VALIDATION_VETTED, KEEP_SENTENCE, MIGRATE_SENTENCE])
+    expect(d.sublineSentences?.map((i) => i.text)).toEqual([
+      VALIDATION_VETTED,
+      KEEP_SENTENCE,
+      MIGRATE_SENTENCE,
+    ])
   })
 
   it('THE FIX, stated as the user experiences it: the option/factor pairs are named', () => {
@@ -121,8 +125,8 @@ describe('the blocker list survives the gate summary suffix', () => {
       const r = gate({ withValidationError: true })
       return [r.reason, r.blockedListing] as const
     })())
-    expect(d.sublineSentences).toContain(KEEP_SENTENCE)
-    expect(d.sublineSentences).toContain(MIGRATE_SENTENCE)
+    expect(d.sublineSentences?.map((i) => i.text)).toContain(KEEP_SENTENCE)
+    expect(d.sublineSentences?.map((i) => i.text)).toContain(MIGRATE_SENTENCE)
   })
 
   it('THE VALIDATION ERROR IS NOT TRADED AWAY FOR THE VALUES', () => {
@@ -133,13 +137,13 @@ describe('the blocker list survives the gate summary suffix', () => {
       const r = gate({ withValidationError: true })
       return [r.reason, r.blockedListing] as const
     })())
-    expect(d.sublineSentences).toContain(VALIDATION_VETTED)
+    expect(d.sublineSentences?.map((i) => i.text)).toContain(VALIDATION_VETTED)
   })
 
   it('NO REGRESSION: the single-authority state still renders exactly its two sentences', () => {
     const result = gate({ withValidationError: false })
     const d = display(result.reason, result.blockedListing)
-    expect(d.sublineSentences).toEqual([KEEP_SENTENCE, MIGRATE_SENTENCE])
+    expect(d.sublineSentences?.map((i) => i.text)).toEqual([KEEP_SENTENCE, MIGRATE_SENTENCE])
   })
 
   it('THE SUMMARY LINE IS UNCHANGED — this lane withheld a list, it did not reword anything', () => {
@@ -181,7 +185,10 @@ describe('the blocker list survives the gate summary suffix', () => {
     expect(unsafe).not.toBe(BLOCKED_REASON_FALLBACK)
 
     const summary = `${unsafe} (+1 more issue)`
-    const d = display(summary, { summary, sentences: [unsafe, KEEP_SENTENCE] })
+    const d = display(summary, {
+      summary,
+      sentences: [{ text: unsafe }, { text: KEEP_SENTENCE }],
+    })
     expect(d.sublineSentences).toBeUndefined()
   })
 

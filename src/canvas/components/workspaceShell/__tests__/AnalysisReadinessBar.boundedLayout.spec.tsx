@@ -81,7 +81,7 @@ const renderBar = (sentences: readonly string[]) =>
       canRun={false}
       isAnalysing={false}
       blockedReason={sentences.join(' ')}
-      blockedListing={{ summary: sentences.join(' '), sentences }}
+      blockedListing={{ summary: sentences.join(' '), sentences: sentences.map((text) => ({ text })) }}
       nothingHasAnswered={false}
       onAnalyse={() => {}}
     />,
@@ -156,7 +156,7 @@ describe('AnalysisReadinessBar — bounded, and the run control is out of the se
         canRun={false}
         isAnalysing={false}
         blockedReason={one.join(' ')}
-        blockedListing={{ summary: one.join(' '), sentences: one }}
+        blockedListing={{ summary: one.join(' '), sentences: one.map((text) => ({ text })) }}
         nothingHasAnswered={false}
         onAnalyse={() => {}}
       />,

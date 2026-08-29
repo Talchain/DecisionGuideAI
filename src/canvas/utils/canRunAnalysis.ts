@@ -41,10 +41,14 @@ import type { AnalysisBlocker } from '@talchain/schemas/boundary'
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import {
-  analysisBlockedSentences,
+  analysisBlockedItems,
   composeReadinessBlockedReason,
+  type GateBlockedItem,
   type OptionNeedingValues,
 } from './composeBlockedReason'
+
+/** Re-exported so the gate's consumers have one import for the listing shape. */
+export type { GateBlockedItem }
 import {
   ANALYSIS_HELD_NOTICE as HELD_NOTICE,
   type ClientInjectedProvenance,
@@ -139,13 +143,14 @@ export interface GateBlockedListing {
    */
   readonly summary: string
   /**
-   * Every blocking reason as ONE renderable sentence, in the gate's order. The
+   * Every blocking reason as ONE renderable item, in the gate's order. The
    * readiness reason — itself a join of the producer's sentences — is expanded
    * into those sentences, so the list is itemised to the grain the user acts at.
    * Never truncated, never re-ordered, never summarised.
    */
-  readonly sentences: readonly string[]
+  readonly sentences: readonly GateBlockedItem[]
 }
+
 
 export interface CanRunAnalysisResult {
   /** Whether analysis can be run */
@@ -770,7 +775,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // (`'Analysis is currently running'` vs `'Analysis in progress'`), so a listing
   // there would assert a correspondence that does not hold. They are all
   // single-blocker states, which render as a sentence rather than a list anyway.
-  const blockingSentences: string[] = []
+  const blockingSentences: GateBlockedItem[] = []
 
   // 1. Check if already running
   if (isRunning) {
@@ -834,7 +839,9 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     for (const blocker of validationBlockers) {
       const message = blocker.message || blocker.code || blocker.type || 'Validation error'
       blockingReasons.push(message)
-      blockingSentences.push(message)
+      // No scope: `graphHealth.issues` carries no node id on this shape, so a
+      // validation line is deliberately plain rather than linked to a guess.
+      blockingSentences.push({ text: message })
     }
   }
 
@@ -844,7 +851,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     // Only add if we haven't already captured from validation
     if (blockingReasons.length === 0) {
       blockingReasons.push('Critical issues need to be resolved')
-      blockingSentences.push('Critical issues need to be resolved')
+      blockingSentences.push({ text: 'Critical issues need to be resolved' })
     }
   }
 
@@ -910,13 +917,13 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     // warning about. `composeAnalysisBlockedReason` is DEFINED as
     // `analysisBlockedSentences(...).join(' ')`, so taking the array and joining
     // it here is byte-identical to the previous call and leaves one owner.
-    const composedSentences = analysisReadiness
-      ? analysisBlockedSentences(actionableBlockers(analysisReadiness.blockers))
-      : [composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)]
-    const composed = composedSentences.join(' ')
+    const composedItems: readonly GateBlockedItem[] = analysisReadiness
+      ? analysisBlockedItems(actionableBlockers(analysisReadiness.blockers))
+      : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
+    const composed = composedItems.map((item) => item.text).join(' ')
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)
-      blockingSentences.push(...composedSentences)
+      blockingSentences.push(...composedItems)
     }
   }
 

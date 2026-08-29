@@ -79,7 +79,7 @@
 
 import { FOOTER_COPY } from '../constants'
 import { vetBlockedReason, BLOCKED_REASON_FALLBACK } from '../../../utils/vetBlockedReason'
-import type { GateBlockedListing } from '../../../utils/canRunAnalysis'
+import type { GateBlockedItem, GateBlockedListing } from '../../../utils/canRunAnalysis'
 
 /**
  * The readiness CHECK's own failure facts.
@@ -105,7 +105,9 @@ export interface ReadinessDisplay {
   readonly headline: string
   readonly subline: string
   /**
-   * The SAME text as `subline`, unjoined — one entry per producer sentence.
+   * The SAME text as `subline`, unjoined — one entry per blocking line, each
+   * carrying the producer's scope where one exists so a surface can offer to
+   * take the user to it (see `GateBlockedItem`).
    *
    * Present only on the gate-shut arm, and only when the vetted string is
    * BYTE-IDENTICAL to this array's own join. A surface may render these as a
@@ -117,7 +119,7 @@ export interface ReadinessDisplay {
    * whenever the vet substituted UI copy for the producer's text — see the
    * equality guard in `deriveReadinessDisplay`.
    */
-  readonly sublineSentences?: readonly string[]
+  readonly sublineSentences?: readonly GateBlockedItem[]
 }
 
 /** The resting value for a surface that has no `PreAnalysisModel`. See the
@@ -300,15 +302,17 @@ export interface ReadinessDisplayInput {
 function vettedBlockerList(
   listing: GateBlockedListing | undefined,
   blockedReason: string | undefined,
-): readonly string[] | undefined {
+): readonly GateBlockedItem[] | undefined {
   if (listing === undefined) return undefined
   // (1) Provenance. `blockedReason` is what this surface is about to render;
   // the listing must be the itemisation OF THAT STRING, not of some other call.
   if (listing.summary !== blockedReason) return undefined
-  // (2) Vet integrity, per sentence.
-  const vetted = listing.sentences.map(vetBlockedReason)
+  // (2) Vet integrity, per sentence. The scope rides through untouched — it is
+  // an id, never rendered as prose, and the vet is about prose.
+  const vetted = listing.sentences.map((item) => ({ ...item, text: vetBlockedReason(item.text) }))
   const degraded = vetted.some(
-    (text, i) => text === BLOCKED_REASON_FALLBACK && listing.sentences[i] !== BLOCKED_REASON_FALLBACK,
+    (item, i) =>
+      item.text === BLOCKED_REASON_FALLBACK && listing.sentences[i].text !== BLOCKED_REASON_FALLBACK,
   )
   return degraded ? undefined : vetted
 }

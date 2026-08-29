@@ -33,6 +33,7 @@ import { render, screen } from '@testing-library/react'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { AnalysisReadinessBar } from '../AnalysisReadinessBar'
+import { useCanvasStore } from '../../../store'
 
 /** The shape actually witnessed on staging — not an invented fixture. */
 const REAL = [
@@ -48,7 +49,11 @@ const renderShut = (sentences?: readonly string[]) =>
       canRun={false}
       isAnalysing={false}
       blockedReason={(sentences ?? REAL).join(' ')}
-      blockedListing={sentences ? { summary: sentences.join(' '), sentences } : undefined}
+      blockedListing={
+        sentences
+          ? { summary: sentences.join(' '), sentences: sentences.map((text) => ({ text })) }
+          : undefined
+      }
       nothingHasAnswered={false}
       onAnalyse={() => {}}
     />,
@@ -99,6 +104,34 @@ describe('AnalysisReadinessBar — producer sentences render as a list', () => {
     expect(screen.getByTestId('analysis-readiness-bar-reason')).toHaveTextContent(REAL.join(' '))
   })
 
+  it('EACH LINE IS A DEEP-LINK when its node is on the canvas — the wiring, not just the component', () => {
+    // `BlockerLine` has its own spec; this asserts the BAR actually renders
+    // through it, so the affordance cannot exist on one pre-run surface and not
+    // the other — the two-surfaces-one-state defect this file was written for.
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'opt_keep', position: { x: 0, y: 0 }, data: { label: 'keep what we have' } },
+      ] as never,
+    })
+    render(
+      <AnalysisReadinessBar
+        preRunWithModel
+        canRun={false}
+        isAnalysing={false}
+        blockedReason={REAL.join(' ')}
+        blockedListing={{
+          summary: REAL.join(' '),
+          sentences: [{ text: REAL[0], scope: { id: 'opt_keep' } }, { text: REAL[1] }],
+        }}
+        nothingHasAnswered={false}
+        onAnalyse={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('blocker-option-link-opt_keep')).toHaveTextContent(REAL[0])
+    // TWIN, in the same render: the unscoped line stays plain text.
+    expect(screen.getByText(REAL[1]).tagName).not.toBe('BUTTON')
+  })
+
   it('EVERY RENDER SITE PASSES THE SENTENCES — the prop cannot exist unplugged', () => {
     // ⚠ THIS TEST EXISTS BECAUSE A MUTANT SURVIVED. Deleting
     // `blockedListing={runBlockedListing}` from `OutputsDock` left all seven
@@ -145,7 +178,7 @@ describe('AnalysisReadinessBar — producer sentences render as a list', () => {
         canRun={false}
         isAnalysing={false}
         blockedReason="A vetted fallback that is not the listing's summary."
-        blockedListing={{ summary: REAL.join(' '), sentences: REAL }}
+        blockedListing={{ summary: REAL.join(' '), sentences: REAL.map((text) => ({ text })) }}
         nothingHasAnswered={false}
         onAnalyse={() => {}}
       />,

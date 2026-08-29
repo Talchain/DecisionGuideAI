@@ -66,6 +66,7 @@ import {
   type ReadinessDot,
 } from '../pre-analysis-v3/footer/readinessDisplay'
 import type { GateBlockedListing } from '../../utils/canRunAnalysis'
+import { BlockerLine } from '../pre-analysis-v3/footer/BlockerLine'
 
 /** The shell's copy of the panel's dot palette, keyed off the shared type so a
  *  new dot cannot be added in one place and missed here. */
@@ -277,8 +278,10 @@ export function AnalysisReadinessBar({
                   data-testid="analysis-readiness-bar-reason-list"
                   tabIndex={0}
                 >
-                  {display.sublineSentences.map((sentence, index) => (
-                    <li key={`${index}:${sentence}`}>{sentence}</li>
+                  {display.sublineSentences.map((item, index) => (
+                    <li key={`${index}:${item.text}`}>
+                      <BlockerLine item={item} />
+                    </li>
                   ))}
                 </ul>
               ) : (

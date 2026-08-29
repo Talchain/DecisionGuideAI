@@ -22,6 +22,7 @@ import { Button } from '../../../../components/ui'
 import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
 import { deriveReadinessDisplay, describeReadinessCheck, gateBlockedSubline } from './readinessDisplay'
+import { BlockerLine } from './BlockerLine'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 import type { GateBlockedListing } from '../../../utils/canRunAnalysis'
 
@@ -120,8 +121,10 @@ export const PanelFooter = memo(function PanelFooter({
             className={`${typography.panelMeta} text-text-light list-disc space-y-0.5 pl-4`}
             data-testid="pre-analysis-v3-footer-subline-list"
           >
-            {display.sublineSentences.map((sentence, index) => (
-              <li key={`${index}:${sentence}`}>{sentence}</li>
+            {display.sublineSentences.map((item, index) => (
+              <li key={`${index}:${item.text}`}>
+                <BlockerLine item={item} />
+              </li>
             ))}
           </ul>
         ) : (

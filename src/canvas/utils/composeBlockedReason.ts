@@ -690,6 +690,59 @@ export function analysisBlockedSentences(
 }
 
 /**
+ * One blocking line, with the producer's own scope for it when there is one.
+ *
+ * `scope` exists so a surface can offer to TAKE THE USER TO the thing the line
+ * is about, instead of making them hunt an option/factor pair on the canvas by
+ * hand — the affordance the retired `pre-analysis/BlockersSection` had and the
+ * v3 footer dropped.
+ *
+ * ⚠ IT IS THE PRODUCER'S ID, NOT A CANVAS NODE ID, AND THE TWO ARE NOT THE SAME
+ * CLAIM. Nothing here knows whether a node with that id is on the user's canvas.
+ * A surface MUST resolve it against the live graph and fall back to plain text
+ * when it does not resolve — offering a control that goes nowhere is the
+ * "advertises an action that terminates in refusal" defect, not a convenience.
+ */
+export interface GateBlockedItem {
+  /** The renderable sentence, exactly as its author wrote it. */
+  readonly text: string
+  /** Option first — it is the more actionable scope and the one the user named. */
+  readonly scope?: { readonly id?: string; readonly label?: string }
+}
+
+/**
+ * The same lines as `analysisBlockedSentences`, each carrying the producer's own
+ * scope where — and ONLY where — that scope is unambiguous.
+ *
+ * ⭐ DERIVED FROM THE SENTENCE LIST, NOT COMPOSED BESIDE IT.
+ * `items.map(i => i.text)` is `analysisBlockedSentences(...)` by construction, so
+ * the linked list and the rendered text cannot drift apart. Composing the two
+ * separately is the mirror this module's own header was written about.
+ *
+ * ⚠ A LINE THAT STANDS FOR SEVERAL BLOCKERS GETS NO SCOPE, and that is the whole
+ * care here. Two rungs produce such lines: the de-duplication above (two
+ * blockers, one identical sentence) and the DEGRADE rungs, where one sentence
+ * summarises the whole list. Attaching one blocker's id to a line that speaks
+ * for several would send the user to an arbitrary one of them while looking
+ * exactly as authoritative as a correct link. So the scope attaches only when
+ * EXACTLY ONE blocker authored that exact text, and every other line stays plain.
+ */
+export function analysisBlockedItems(
+  blockers: readonly AnalysisBlocker[],
+): readonly GateBlockedItem[] {
+  return analysisBlockedSentences(blockers).map((text) => {
+    const authors = blockers.filter((b) => (b.message ?? '').trim() === text)
+    if (authors.length !== 1) return { text }
+    const author = authors[0]
+    // Option first — the more actionable scope, and the one the user chose the
+    // words for. Same order `analysisBlockedSentences` reads them in.
+    const id = author.option_id ?? author.factor_id
+    const label = author.option_label ?? author.factor_label
+    return id === undefined && label === undefined ? { text } : { text, scope: { id, label } }
+  })
+}
+
+/**
  * The joined form — DERIVED from `analysisBlockedSentences`, never composed
  * separately.
  *

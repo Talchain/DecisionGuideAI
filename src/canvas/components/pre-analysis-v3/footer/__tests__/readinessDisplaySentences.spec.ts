@@ -54,7 +54,9 @@ const shutGate = (sentences?: readonly string[], reason?: string) =>
     // a different `reason` is therefore a genuine provenance mismatch, which is
     // exactly what the withholding cases below need to exercise.
     blockedListing:
-      sentences === undefined ? undefined : { summary: sentences.join(' '), sentences },
+      sentences === undefined
+        ? undefined
+        : { summary: sentences.join(' '), sentences: sentences.map((text) => ({ text })) },
     nothingHasAnswered: false,
     resting: { dot: 'success', headline: 'x', subline: '' },
   })
@@ -66,7 +68,7 @@ describe('deriveReadinessDisplay — producer sentences survive as a list', () =
   })
 
   it('carries the sentences when the listing summary IS the reason beside it', () => {
-    expect(shutGate(REAL).sublineSentences).toEqual(REAL)
+    expect(shutGate(REAL).sublineSentences?.map((i) => i.text)).toEqual(REAL)
   })
 
   it('THE SINGLE-REASON CONSEQUENCE: subline is exactly the sentences’ join', () => {
@@ -74,7 +76,7 @@ describe('deriveReadinessDisplay — producer sentences survive as a list', () =
     // blocking reason. Asserted as a consequence of provenance, not as the rule.
     const d = shutGate(REAL)
     expect(d.sublineSentences).toBeDefined()
-    expect(d.sublineSentences!.join(' ')).toBe(d.subline)
+    expect(d.sublineSentences!.map((i) => i.text).join(' ')).toBe(d.subline)
   })
 
   it('WITHHOLDS the list when the string and the listing disagree — a mismatch is never trusted', () => {
@@ -99,13 +101,13 @@ describe('deriveReadinessDisplay — producer sentences survive as a list', () =
     const vetted = vetBlockedReason(raw)
     expect(vetted).not.toBe(raw)
     expect(vetted).not.toBe(BLOCKED_REASON_FALLBACK)
-    expect(shutGate([raw, REAL[0]]).sublineSentences).toEqual([vetted, REAL[0]])
+    expect(shutGate([raw, REAL[0]]).sublineSentences?.map((i) => i.text)).toEqual([vetted, REAL[0]])
   })
 
   it('THE ONE-BLOCKER TWIN: one sentence carries as one item', () => {
     const d = shutGate([REAL[0]])
-    expect(d.sublineSentences).toEqual([REAL[0]])
-    expect(d.sublineSentences!.join(' ')).toBe(d.subline)
+    expect(d.sublineSentences?.map((i) => i.text)).toEqual([REAL[0]])
+    expect(d.sublineSentences!.map((i) => i.text).join(' ')).toBe(d.subline)
   })
 
   it('no listing supplied → no list, and the string is unchanged from today', () => {
