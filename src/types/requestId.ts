@@ -122,3 +122,64 @@ export function extractServerRequestId(
 
   return undefined
 }
+
+// =============================================================================
+// Outbound correlation header (hop zero)
+// =============================================================================
+
+/**
+ * The request-id header the UI SENDS.
+ *
+ * ── WHY THIS NAME, OF THE THREE CEE ACCEPTS ───────────────────────────────
+ * `cee/src/utils/request-id.ts::getOrGenerateRequestId` reads, in priority
+ * order, `x-request-id` → `x-cee-request-id` → `x-correlation-id`, and mints a
+ * fresh UUID when none is present or valid. All three would "work". This one is
+ * chosen because:
+ *
+ *  1. It is FIRST in that ladder, so it can never be shadowed by another
+ *     header a proxy or a sibling client happens to add.
+ *  2. `x-correlation-id` is ALREADY in use in this repo with PER-FETCH scope —
+ *     `adapters/cee/client.ts:636` and `adapters/assistants/http.ts:85` each
+ *     mint a fresh UUID inside the fetch helper, i.e. once per HTTP call.
+ *     Reusing that name for a TURN-scoped id would put two different scopes
+ *     under one name, which is CLAUDE.md trap 21 and the estate's chronic
+ *     defect. Keeping the names apart keeps the concepts apart.
+ *  3. `X-CEE-Request-ID` is what CEE answers WITH (see `extractServerRequestId`
+ *     above), so using it outbound would blur request and response direction.
+ *  4. It is the name the rest of the chain already propagates
+ *     (CEE → PLoT → ISL), the name this UI already READS back off a turn
+ *     response, and the name `useAsk` already sends.
+ *
+ * Provisioning verified at the deployed wire 2026-08-29, not inferred:
+ *  - `netlify/edge-functions/orchestrator-proxy.ts` ALLOWED_FORWARD_HEADERS
+ *    contains `x-request-id`;
+ *  - an OPTIONS preflight to `https://cee-staging.onrender.com/proxy/v5/turn`,
+ *    `/turn/stream` and `/turn/stop` returns an
+ *    `access-control-allow-headers` list containing `X-Request-Id`.
+ *    (Contrast control in the same probe: a fabricated header name returned the
+ *    IDENTICAL list, which proves the list is a fixed server allowlist rather
+ *    than a reflection of what was asked for — so the hit is real.)
+ */
+export const REQUEST_ID_HEADER = 'X-Request-Id'
+
+/**
+ * Build the outbound correlation header for a turn.
+ *
+ * Deliberately takes an id rather than generating one: the caller owns TURN
+ * scope, and minting here would produce one id per fetch — the very shape this
+ * exists to replace. There is no new generator; `generateRequestId` above
+ * remains the single one in this module.
+ *
+ * Returns an EMPTY object when the id is not a SafeRequestId, so the caller can
+ * always spread the result unconditionally. Emitting an invalid id would be
+ * worse than emitting none: CEE logs `Invalid request ID rejected` and mints
+ * its own anyway, so the trace stays broken AND gains a warn line per turn.
+ * The predicate is `isValidRequestId` — the same rule CEE applies, kept as one
+ * definition rather than a second copy (CLAUDE.md trap 12).
+ */
+export function buildRequestIdHeaders(
+  requestId: string | null | undefined,
+): Record<string, string> {
+  if (!isValidRequestId(requestId)) return {}
+  return { [REQUEST_ID_HEADER]: requestId }
+}
