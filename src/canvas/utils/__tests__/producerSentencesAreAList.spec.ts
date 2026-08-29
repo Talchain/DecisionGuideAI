@@ -18,6 +18,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
+  analysisBlockedItems,
   analysisBlockedSentences,
   composeAnalysisBlockedReason,
 } from '../composeBlockedReason'
@@ -93,5 +94,53 @@ describe('analysisBlockedSentences — the union is byte-identical to the joined
     const anyProducer = out.some(s => s === 'The graph is fine.' || s === 'Nothing to do.')
     const allProducer = out.length === 2
     expect(anyProducer === allProducer || out.length === 1).toBe(true)
+  })
+})
+
+/**
+ * A SCOPE IS A NAVIGATION PROMISE, SO IT ATTACHES ONLY WHERE IT IS UNAMBIGUOUS.
+ *
+ * `analysisBlockedItems` pairs each rendered line with the producer's own scope
+ * so a surface can offer to take the user to it. Two rungs produce lines that
+ * stand for SEVERAL blockers — the de-duplication of an exactly repeated
+ * sentence, and every degrade rung, where one sentence summarises the whole
+ * list. Attaching one blocker's id to such a line would send the user to an
+ * arbitrary one of them while looking exactly as authoritative as a correct
+ * link, which is the harm the affordance was added to remove.
+ *
+ * ⚠ Written because a mutant SURVIVED: relaxing the check from "exactly one
+ * author" to "at least one author" changed nothing any test could see.
+ */
+describe('analysisBlockedItems — scope attaches only to an unambiguous line', () => {
+  it('THE TEXT IS THE SENTENCE LIST, byte for byte — one owner, not two', () => {
+    const blockers = REAL.map(blocker)
+    expect(analysisBlockedItems(blockers).map((i) => i.text)).toEqual([
+      ...analysisBlockedSentences(blockers),
+    ])
+  })
+
+  it('a line authored by EXACTLY ONE blocker carries that blocker’s scope', () => {
+    const items = analysisBlockedItems(REAL.map(blocker))
+    // Bound by identity: the scope on the line for REAL[0] is blocker 0's.
+    expect(items[0]).toEqual({ text: REAL[0], scope: { id: 'opt-0', label: undefined } })
+  })
+
+  it('TWIN: a DE-DUPLICATED line — two blockers, one identical sentence — carries NO scope', () => {
+    const twins = [blocker(REAL[0], 0), blocker(REAL[0], 1)]
+    const items = analysisBlockedItems(twins)
+    // PRECONDITION: the fixture really does collapse to one line, or the case
+    // below is asserting nothing.
+    expect(items).toHaveLength(1)
+    expect(items[0].scope).toBeUndefined()
+  })
+
+  it('TWIN: a DEGRADE-RUNG line — one sentence standing for two blockers — carries NO scope', () => {
+    // Blank messages force the scope-label rung, which summarises the list.
+    const unusable = [blocker('', 0), blocker('', 1)]
+    const items = analysisBlockedItems(unusable)
+    expect(items).toHaveLength(1)
+    // PRECONDITION: this really is the degrade rung, not the producer's text.
+    expect(items[0].text).not.toBe(REAL[0])
+    expect(items[0].scope).toBeUndefined()
   })
 })
