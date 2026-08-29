@@ -49,6 +49,8 @@
  * V2 mapper, and by the live capture above.
  */
 
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -410,14 +412,39 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
  * bounding is pinned by its owner spec.
  */
 describe('5 · the excluded-option consequence rows are bounded, and nothing is lost', () => {
+  it('the cap is BOUND to the register, not merely equal to it', () => {
+    // ⭐⭐ THE PIN BELOW CLAIMED TO CATCH A RE-SPLIT AND DID NOT — a review
+    // demonstrated that replacing the binding with the literal `2` leaves the
+    // whole suite green, because a value comparison cannot tell a binding from
+    // a coincidence. A guard whose stated guarantee exceeds what it checks is
+    // the defect class this PR exists to remove, so it is fixed rather than
+    // reworded.
+    //
+    // This reads the SOURCE, which is the only place the distinction exists.
+    // Text-scanning a source file is a blunt instrument and normally the wrong
+    // one, but the property here is literally syntactic: "this constant is
+    // defined by reference to that one".
+    const src = readFileSync(
+      resolve(__dirname, '../sections/AtAGlance.tsx'),
+      'utf8',
+    )
+    // POSITIVE CONTROL — a path typo or a moved file would make the assertion
+    // below pass against an empty string on some matchers, and would certainly
+    // make it meaningless.
+    expect(src.length, 'AtAGlance source not read — this guard is vacuous').toBeGreaterThan(1000)
+    expect(src).toContain('export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP')
+  })
+
   it('this surface and the scope note name THE SAME number of options', () => {
     // ⭐⭐ THE ANTI-CIRCLE PIN. These were two independent integers, each
     // justified by the other surface's completeness: the note named them all so
     // capping the rows lost nothing, and the rows named them so capping the note
     // lost nothing. Bounding the note made the first justification false and
     // NEITHER suite could see it — a circle built out of two constants
-    // (CLAUDE.md trap 21). They are now one number; this fails if anyone splits
-    // them again.
+    // (CLAUDE.md trap 21). They are now one number. ⚠ NOTE WHAT THIS ONE
+    // CHECKS: it catches the two DIVERGING, not the binding being replaced by an
+    // equal literal — that is the sibling test above, and the two are not
+    // interchangeable.
     expect(EXCLUDED_OPTION_VISIBLE_CAP).toBe(EXCLUDED_LABEL_NAME_CAP)
   })
 
@@ -425,7 +452,8 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // ⭐⭐ THE ONE ASSERTION IN THIS BLOCK THAT IS *NOT* DERIVED, AND THAT IS THE
     // POINT. Every other pin here reads `EXCLUDED_OPTION_VISIBLE_CAP`, so the
     // constant and its guards move together: an independent review measured
-    // that changing the cap 2 -> 3 or 2 -> 1 left 13 files / 237 tests GREEN.
+    // that changing this cap left the whole surrounding suite GREEN — every
+    // other assertion derives from the constant, so they move with it.
     // A derived guard proves the copies AGREE; it can never prove the value is
     // RIGHT (CLAUDE.md trap 12d).
     //
@@ -609,11 +637,16 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // `a|b|c|d`, so the reset silently did not fire across a genuine change of
     // option set. The failure direction was a MISSED reset, never a crash — the
     // worst kind, because the surface looks fine and the guard is simply absent.
-    // ⚠ FOUR excluded, not three: the sets must EXCEED the cap or no disclosure
-    // control renders and the test cannot observe a failure to reset at all.
-    // (It was three until the cap moved 2 -> 3, at which point it silently
-    // stopped exercising the control — a fixture that stops discriminating when
-    // a constant moves, which is exactly trap 13b.)
+    // ⚠ FOUR excluded, comfortably above the cap. A set at or below the cap
+    // renders no disclosure control, so the test could not observe a failure to
+    // reset at all — a fixture that silently stops discriminating when a
+    // constant moves (trap 13b).
+    //
+    // ⚠ An earlier version of this comment said the cap "moved 2 -> 3". IT NEVER
+    // DID in any committed state; that was a working-tree experiment of mine
+    // while choosing the value, and I wrote my own scratch history into the
+    // record as though it were the repo's. It also called the failure silent,
+    // which is wrong: `getByTestId` THROWS when the control is absent.
     const setOne = [
       option({ id: 'o_kept', label: 'Analysed', winProbability: 0.6 }),
       option({ id: 'a', label: 'Option A', notAnalysed: true, notAnalysedReason: 'not_returned' }),
@@ -648,7 +681,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // Analysis (New) is a SEPARATE DOCK TAB (`OutputsDock.tsx:3457`), so
     // `ResultsBody`/`OptionCards` — which name every excluded option on the
     // Analysis tab — are NOT mounted here. This surface is therefore the ONLY
-    // namer, and after bounding both it names 3 at rest where it once named 9.
+    // namer, and after bounding both it names 2 at rest where it once named 9.
     //
     // What must remain true for that trade to be honest, and what this asserts:
     //   1. the COUNT is on screen, never behind the control;

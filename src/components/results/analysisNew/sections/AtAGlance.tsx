@@ -140,10 +140,12 @@ export interface AtAGlanceProps {
  * That is a real reduction and it is accepted deliberately, because:
  *
  *   - the COUNT is never behind anything ("Comparing 1 of your 10 options —
- *     A and B and 7 others were left out");
+ *     A, B and 7 others were left out");
  *   - every name is one click away, on a control adjacent to the sentence;
- *   - the alternative was a note that reached 771px at 30 excluded options
- *     against a ~769px dock, pushing every navigation row off the surface.
+ *   - the alternative was a note that grew without limit, reaching 741px at 30
+ *     excluded options against a ~769px dock and pushing every navigation row
+ *     off the surface. (Measurements live on `EXCLUDED_LABEL_NAME_CAP`; this
+ *     one figure is quoted because it is the reason for the trade.)
  *
  * A reduction in names-at-rest traded for a bounded, navigable surface with the
  * count always visible. If that trade is ever judged wrong, raise the shared

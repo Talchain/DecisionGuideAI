@@ -444,13 +444,32 @@ function joinLabels(labels: readonly string[]): string {
  * neither suite could see it — a circle built out of two constants (CLAUDE.md
  * trap 21). Binding them removes the circle instead of re-arguing it.
  *
- * CHOSEN BY MEASUREMENT, NOT TASTE. Measured in a real browser on the Analysis
- * (New) surface at 280px (the narrowest dock width), partial-scope run, with
- * both consumers reading this constant:
+ * ⭐ THE MEASUREMENTS LIVE HERE AND NOWHERE ELSE. Every other file that needs a
+ * figure points at this block rather than restating it — a number copied into a
+ * second comment is a hand-maintained mirror (CLAUDE.md trap 12), and this PR
+ * proved it: a standalone-harness figure was quoted alongside an in-panel one as
+ * though they measured the same thing, and it had already propagated into a
+ * second file before a review caught it.
  *
- *            note height   panel height   last nav row   (fold ~769px)
- *   cap 2        61px          835px          784px       15px over
- *   cap 3        91px          930px          879px      110px over
+ * ALL FIGURES BELOW ARE IN-PANEL — measured on the real Analysis (New) surface,
+ * 280px (the narrowest dock width), partial-scope run. An isolated harness reads
+ * ~30px taller because it cannot reproduce the surface's `withDetail` gating, so
+ * its numbers are NOT comparable and must not be quoted here.
+ *
+ * What the unbounded note did, by excluded-option count:
+ *
+ *   excluded      3       12       30
+ *   note        76px    287px    741px      <- against a ~769px usable dock
+ *
+ * What it does now, and the cap that was chosen from it:
+ *
+ *            note   panel   last nav row   (fold ~769px)
+ *   cap 2     61px   835px      784px       15px over
+ *   cap 3     91px   930px      879px      110px over
+ *
+ * The note is now 61px at EVERY count above — the growth is gone, not reduced.
+ * At 416px (the default dock width) the whole surface fits the first viewport
+ * even at 30 excluded: panel 745px, last nav row 694px.
  *
  * Both values fix the honesty defect identically — that is independent of the
  * number — and both are bounded (the panel is the same height at 6 excluded
@@ -506,10 +525,11 @@ export const COMPARISON_SCOPE_COPY = {
    *    Thirty were left out. Nothing signalled that the clause was partial, so a
    *    reader takes five as the answer.
    *
-   * 2. LENGTH. It grew without limit. Measured in a real browser at 280px inside
-   *    the Analysis (New) dock: 229px tall at 3 excluded options, 440px at 12,
-   *    741px at 30, against a ~769px usable dock height — the note alone could
+   * 2. LENGTH. It grew without limit — 76px at 3 excluded options, 287px at 12,
+   *    741px at 30, against a ~769px usable dock height. The note alone could
    *    consume the whole first viewport and push every navigation row below it.
+   *    (Figures and their measurement conditions are recorded ONCE, on
+   *    `EXCLUDED_LABEL_NAME_CAP`. Do not restate them anywhere else.)
    *
    * ⛔ THE OVERFLOW IS COUNTED FROM `total - analysed`, NEVER FROM
    * `excludedLabels.length`. Counting from the label list would silently drop
@@ -549,7 +569,8 @@ export const COMPARISON_SCOPE_COPY = {
    * accepted deliberately and the reasoning, with its measurements, is recorded
    * on `EXCLUDED_OPTION_VISIBLE_CAP` in `AtAGlance.tsx` — the short version is
    * that the count is never hidden, every name is one click away, and the
-   * alternative was a note reaching 771px against a ~769px dock.
+   * alternative was a note reaching 741px against a ~769px dock (figures on
+   * `EXCLUDED_LABEL_NAME_CAP` above; do not restate them).
    */
   excludedClause: (scope: ComparisonScope): string => {
     const missing = scope.total - scope.analysed

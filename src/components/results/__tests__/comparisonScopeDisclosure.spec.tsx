@@ -315,10 +315,12 @@ describe('comparison-scope disclosure — a subset result says which options it 
    *    Thirty were left out. A reader takes the clause as exhaustive because
    *    nothing signals that it is partial.
    *
-   * 2. LENGTH. The clause grew without limit. Measured in a real browser at
-   *    280px inside the Analysis (New) dock: 229px tall at 3 excluded options,
-   *    440px at 12, 741px at 30 — against a ~769px usable dock height. The note
-   *    alone could consume the entire first viewport.
+   * 2. LENGTH. The clause grew without limit — reaching 741px at 30 excluded
+   *    options against a ~769px usable dock, i.e. the note alone could consume
+   *    the entire first viewport. The full measurement table and its conditions
+   *    live on `EXCLUDED_LABEL_NAME_CAP`; they are deliberately NOT restated
+   *    here, because this PR shipped two different numbers for one measurement
+   *    by copying them into a second comment.
    *
    * ⛔ THE COUNT IS NOT CAPPED AND MUST NEVER BE. `phrase` carries "N of your M"
    * and is untouched by any of this — that is the ROADMAP 2.1340 guarantee.
@@ -344,9 +346,10 @@ describe('comparison-scope disclosure — a subset result says which options it 
       // ⭐⭐ THE ONE ASSERTION HERE THAT IS NOT DERIVED, AND THAT IS THE POINT.
       // Every other pin reads `EXCLUDED_LABEL_NAME_CAP`, so the constant and its
       // guards move together: a derived guard proves the copies AGREE, never
-      // that the value is RIGHT (CLAUDE.md trap 12d). Measured: cap 3 -> 4 REDs
-      // only one case here, and only by an arithmetic coincidence in its
-      // fixture — not by design. This is the designed guard.
+      // that the value is RIGHT (CLAUDE.md trap 12d). Measured: moving the shared
+      // cap REDs a couple of other cases here, but only by arithmetic
+      // coincidence in their fixtures — not by design. This is the designed
+      // guard.
       //
       // The value's justification is a BROWSER MEASUREMENT at 280px, recorded on
       // the constant. jsdom cannot check that (trap 3), so what this pin does is
