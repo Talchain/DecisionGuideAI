@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow, hasClearInfluenceLeader } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
@@ -731,8 +731,10 @@ export const OptionNode = memo((props: NodeProps) => {
     // drivers panel ranked 4th at 17% (live 2026-07-13). Rows come from the
     // SHARED extractor so the coverage verdict cannot skew per surface. The
     // copy may claim "#1 driver" ONLY when the chosen lever IS the policy's
-    // global #1 (shared tie-break, non-zero); otherwise it is honestly the
-    // option's biggest lever.
+    // global #1 (non-zero) AND that #1 is CLEAR OF ITS RUNNER-UP; otherwise it
+    // is honestly the option's biggest lever, or — when that is tied too — a
+    // stated tie. "Shared tie-break" used to mean the comparator's hidden
+    // elasticity/key fallback, which RESOLVES a tie rather than reporting one.
     const rows = sensitivity
       .map((f: unknown) => extractPolicyRow(f))
       .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
@@ -747,24 +749,47 @@ export const OptionNode = memo((props: NodeProps) => {
         key: r.key,
       }))
       .sort(compareByDisplayModel)
-    const globalTopId = ranked[0] && ranked[0].value > 0 ? ranked[0].id : null
 
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventionKeys = new Set(Object.keys(ceeOption?.interventions ?? {}))
+    const nodeById = new Map(nodes.map(n => [n.id, n]))
 
-    for (const f of ranked) {
-      if (interventionKeys.has(f.id)) {
-        const factorNode = nodes.find(n => n.id === f.id)
-        if (factorNode) {
-          return {
-            id: f.id,
-            label: cleanFactorLabel((factorNode.data?.label as string) ?? '') || ((factorNode.data?.label as string) ?? ''),
-            isGlobalTop: globalTopId !== null && f.id === globalTopId,
-          }
-        }
-      }
+    // The levers this card could actually name: ranked order, intersected with
+    // this option's interventions and the factors present on canvas to link to.
+    // This was a break-out-of-loop; naming the SET is what makes the
+    // option-scoped claim below checkable for a tie at all.
+    const optionLevers = ranked.filter(f => interventionKeys.has(f.id) && nodeById.has(f.id))
+    const chosen = optionLevers[0]
+    if (!chosen) return null
+    const factorNode = nodeById.get(chosen.id)
+
+    // ⚠ BOTH CLAIMS ARE COMPARATIVE, SO BOTH YIELD TO A TIE — over DIFFERENT
+    // SETS, because they are different claims. "the #1 driver" ranks this
+    // factor against EVERY factor; "its biggest lever" ranks it only against
+    // the levers this option pulls. Ranking a tie is what put a crown on the
+    // alphabetically-first of five identical factors (see
+    // `hasClearInfluenceLeader`), and a factor clear of the GLOBAL runner-up is
+    // clear in any subset containing it, so `global_top` can never be reached
+    // while the option-scoped claim would itself be a tie.
+    //
+    // ⚠ AND THE TIE BRANCH SAYS SO RATHER THAN GOING QUIET. Deleting the
+    // superlative would leave the reader with no idea the ranking was
+    // meaningless; the honest surface states the tie, which is the fact the
+    // crown was concealing.
+    const claim: 'global_top' | 'option_top' | 'tied' =
+      chosen.value > 0
+      && chosen.id === ranked[0]?.id
+      && hasClearInfluenceLeader(ranked.map(f => f.value))
+        ? 'global_top'
+        : hasClearInfluenceLeader(optionLevers.map(f => f.value))
+          ? 'option_top'
+          : 'tied'
+
+    return {
+      id: chosen.id,
+      label: cleanFactorLabel((factorNode?.data?.label as string) ?? '') || ((factorNode?.data?.label as string) ?? ''),
+      claim,
     }
-    return null
   }, [isPostAnalysis, isRecommended, resultsReport, ceeAnalysisReady, props.id, nodes])
 
   // Goal probability for warning.
@@ -1249,7 +1274,11 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {winsVia.label.length > 22 ? `${winsVia.label.slice(0, 22)}...` : winsVia.label}
             </button>
-            {winsVia.isGlobalTop ? ', the #1 driver' : ', its biggest lever'}
+            {winsVia.claim === 'global_top'
+              ? ', the #1 driver'
+              : winsVia.claim === 'option_top'
+                ? ', its biggest lever'
+                : ', tied for its biggest lever'}
           </p>
         )}
 

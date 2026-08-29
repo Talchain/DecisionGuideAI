@@ -278,6 +278,36 @@ export function compareByDisplayModel(
 export const INFLUENCE_TIE_EPSILON = 0.01
 
 /**
+ * Does this set of display values have a SINGLE leader — a top clear of its
+ * runner-up by more than `INFLUENCE_TIE_EPSILON`?
+ *
+ * ⚠ EXTRACTED, NOT INVENTED (2026-08-29). This predicate already existed,
+ * inlined inside `resolveDriverSemanticLabels`, where it correctly withheld the
+ * panel's "biggest" crown at a tie. `OptionNode`'s "the #1 driver" claim
+ * carried NO tie notion at all — so on a degenerate draft the leader node
+ * crowned a factor the panel beside it was simultaneously describing as one of
+ * several with "similar influence". Measured 2026-08-29 by executing ISL at
+ * `28fe0c95`: 5 of 18 fresh drafts come back fully degenerate (every AI causal
+ * edge at |mean| 0.5), and on such a draft five factors resolve to an IDENTICAL
+ * display value — at which point `compareByDisplayModel` falls through value
+ * and elasticity to `key.localeCompare`, and the crown goes to whichever factor
+ * sorts first ALPHABETICALLY. Across 20 varied-magnitude reconstructions of
+ * each degenerate draft the "biggest lever" was undetermined in 5 of 5.
+ *
+ * A crown is a COMPARATIVE claim and a tie cannot support one. Both surfaces
+ * now ask this one function, so neither can drift into its own idea of a tie.
+ *
+ * A single-member set has no runner-up, so its member is trivially clear. An
+ * empty set has no leader to be clear.
+ */
+export function hasClearInfluenceLeader(values: ReadonlyArray<number>): boolean {
+  if (values.length === 0) return false
+  const safe = values.map((v) => (Number.isFinite(v) ? v : 0))
+  const max = Math.max(...safe)
+  return safe.filter((v) => max - v <= INFLUENCE_TIE_EPSILON).length === 1
+}
+
+/**
  * Resolve every driver's semantic label FROM THE DISPLAY VALUES THEMSELVES.
  *
  * ⚠ WHY THIS LIVES HERE AND TAKES THE WHOLE SET. The badge used to be derived
@@ -310,9 +340,10 @@ export function resolveDriverSemanticLabels(
 
   const values = entries.map((e) => (Number.isFinite(e.value) ? e.value : 0))
   const max = Math.max(...values)
-  // Clear of the runner-up, or there is no runner-up at all.
-  const contendersAtTop = values.filter((v) => max - v <= INFLUENCE_TIE_EPSILON).length
-  const topIsUnique = contendersAtTop === 1
+  // Clear of the runner-up, or there is no runner-up at all. The predicate is
+  // `hasClearInfluenceLeader` above — shared with the leader node's "#1 driver"
+  // claim, so the crown and that claim cannot disagree about what a tie is.
+  const topIsUnique = hasClearInfluenceLeader(values)
 
   entries.forEach((entry, i) => {
     const value = values[i]
