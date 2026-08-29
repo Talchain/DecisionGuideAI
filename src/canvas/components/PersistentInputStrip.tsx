@@ -20,7 +20,6 @@ interface PersistentInputStripProps {
    *  should focus the floating panel's textarea. */
   onFocusFloating?: () => void
   /** Click handler for the cog icon (Attach / Voice / Depth menu). */
-  onCogClick: (anchorEl: HTMLElement) => void
 }
 
 /**
@@ -46,7 +45,6 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   isOlumiTabActive,
   onOpenFloating,
   onFocusFloating,
-  onCogClick,
 }: PersistentInputStripProps) {
   const floatingIsOpen = useFloatingPanelState((s) => s.isOpen)
   // Round-15: when the floating panel is collapsed to a pill, isOpen
@@ -144,7 +142,6 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
       <AIInputBar
         ref={inputBarRef}
         variant="strip"
-        onCogClick={onCogClick}
         onChevronClick={onOpenFloating}
       />
     </div>

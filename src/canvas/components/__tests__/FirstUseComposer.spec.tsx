@@ -155,7 +155,7 @@ beforeEach(() => {
  * subsequent 0→N+ node transition.
  */
 function driveUserSubmittedViaFirstUse(): { rerender: (ui: React.ReactElement) => void } {
-  const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+  const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
   expect(useFloatingPanelState.getState().isOpen).toBe(true)
   expect(useFloatingPanelState.getState().source).toBe('system-first-use')
   const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
@@ -177,7 +177,7 @@ describe('FirstUseComposer — auto-reposition fires the transition receipt (gap
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
 
     // Receipt is not yet shown — the 300 ms setTimeout has not fired.
     expect(useTransitionReceipt.getState().receipt).toBeNull()
@@ -243,7 +243,7 @@ describe('FirstUseComposer — auto-reposition fires the transition receipt (gap
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     act(() => {
       vi.advanceTimersByTime(500)
     })
@@ -270,7 +270,7 @@ describe('FirstUseComposer — reduced motion (gap #3)', () => {
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
 
     // No setTimeout means all side effects commit synchronously: receipt
     // shows, Analysis tab activated, floating panel stays open and is
@@ -289,7 +289,7 @@ describe('FirstUseComposer — responsive width (P1.2)', () => {
     // (min(...) for width, max(...) for left, transform-based vertical
     // centring) rather than computed pixels because jsdom does not
     // evaluate CSS clamp() at runtime.
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
     const style = dialog.getAttribute('style') ?? ''
     expect(style).toMatch(/width:\s*min\(/i)
@@ -308,7 +308,7 @@ describe('FirstUseComposer — responsive width (P1.2)', () => {
 
 describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
   it('uses the guidance copy as the textarea placeholder and is content-fit (no min-height floor)', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
 
     // The guidance copy lives in the textarea's placeholder (round-8) —
@@ -379,7 +379,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     // floating on the canvas. The dialog wrapper must therefore NOT carry
     // the bg-panel/border/shadow utilities, and the ambient drift shapes
     // are gone.
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
     const cls = dialog.className
     expect(cls).not.toMatch(/\bbg-panel\b/)
@@ -392,7 +392,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
   it('does NOT render the legacy "What are you deciding?" heading (round-11 strips chrome)', () => {
     // Round-11: heading removed so the hero is just logo + composer.
     // The dialog's aria-label still describes the surface for screen readers.
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('first-use-heading')).toBeNull()
     // Defensive: the heading text must not leak through some other element.
     expect(screen.queryByText('What are you deciding?')).toBeNull()
@@ -402,7 +402,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
   })
 
   it('renders the Olumi logo above the composer', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer')
     const img = dialog.querySelector('img[src*="olumi-logo"]') as HTMLImageElement | null
     expect(img).not.toBeNull()
@@ -415,7 +415,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
   })
 
   it('uses the welcome variant of AIInputBar with a three-line rest height so the icon stack fits', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
     // Round-12: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (3) + 16 = 70px.
     // The absolutely-positioned cog + send icon stack is 68px tall
@@ -450,7 +450,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
       )
 
     // ── configuration 1: every mount that does NOT offer starters ──────────
-    const { unmount } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { unmount } = render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('suggested-chips')).toBeNull()
     let labels = controlButtons(screen.getByTestId('first-use-composer')).map(
       (b) => b.getAttribute('aria-label') ?? '',
@@ -460,7 +460,7 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     unmount()
 
     // ── configuration 2: THE CANVAS — the surface a new teammate loads ─────
-    render(<FirstUseComposer onCogClick={() => {}} showStarters />, { wrapper: Wrapper })
+    render(<FirstUseComposer showStarters />, { wrapper: Wrapper })
     expect(screen.queryByTestId('suggested-chips')).toBeNull()
     const hero = screen.getByTestId('first-use-composer')
     // The starter cards are present and accounted for BY IDENTITY, so the
@@ -473,9 +473,18 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     expect(labels.every((l) => /^(Settings|Send)$/.test(l))).toBe(true)
   })
 
-  it('keeps the cog button inside the input field (welcome-cog invariant)', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
-    expect(screen.getByTestId('first-use-input-bar-cog')).toBeInTheDocument()
+  /**
+   * ⚠ THE WELCOME-COG INVARIANT IS RETIRED (29 Aug 2026), not relocated. The
+   * cog opened "Assistant options", whose three items were permanently
+   * disabled and whose two mount sites passed neither prop that could make
+   * any of them functional. Inverted here rather than deleted, so the control
+   * cannot quietly return without this failing.
+   */
+  it('ships no cog button — the menu behind it was permanently dead', () => {
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('first-use-input-bar-cog')).toBeNull()
+    // CONTRAST: the bar itself rendered.
+    expect(screen.getByTestId('first-use-input-bar-send')).toBeInTheDocument()
   })
 })
 
@@ -487,14 +496,14 @@ describe('FirstUseComposer — generating animation (round-12)', () => {
   // visual evidence that Olumi is drafting their model.
 
   it('does NOT render the indicator at rest (no submit, isThinking=false)', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('first-use-thinking')).toBeNull()
     expect(screen.queryByTestId('thinking-indicator')).toBeNull()
   })
 
   it('renders the indicator while isThinking is true and the canvas is still empty', () => {
     thinkingMockState.isThinking = true
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     // The wrapper carries an aria-live region so AT users hear the
     // status; the inner indicator (from src/canvas/conversation/zones/
     // ThinkingIndicator.tsx) carries the 6 pulsing shapes.
@@ -507,7 +516,7 @@ describe('FirstUseComposer — generating animation (round-12)', () => {
   it('hides the indicator once the first graph appears (nodeCount > 0 → hero unmounts entirely)', () => {
     thinkingMockState.isThinking = true
     canvasMockState.nodes = [{ id: 'n1' }]
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
     // Hero itself unmounts when nodeCount > 0 — the shouldRender gate
     // returns false. So neither the wrapper nor the indicator render.
     expect(screen.queryByTestId('first-use-composer')).toBeNull()
@@ -516,10 +525,10 @@ describe('FirstUseComposer — generating animation (round-12)', () => {
 
   it('hides the indicator when isThinking flips back to false on the same render', () => {
     thinkingMockState.isThinking = true
-    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.getByTestId('first-use-thinking')).toBeInTheDocument()
     thinkingMockState.isThinking = false
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     expect(screen.queryByTestId('first-use-thinking')).toBeNull()
   })
 })
@@ -538,7 +547,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     // would land in on first navigation; whether the next event is "user
     // sends a brief" or "scenario hydration completes" is what we want to
     // distinguish.
-    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
     expect(useFloatingPanelState.getState().source).toBe('system-first-use')
 
@@ -546,7 +555,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     act(() => {
       vi.advanceTimersByTime(500)
     })
@@ -567,7 +576,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     // this on scenario resume. The shouldRender check in FirstUseComposer
     // filters synthetic messages out via realMessageCount.
     messagesMockState.messages = [{ id: 'boundary-0', role: 'assistant', synthetic: true }]
-    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     // Auto-open still fires because realMessageCount === 0 (synthetic filtered).
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
     expect(useFloatingPanelState.getState().source).toBe('system-first-use')
@@ -577,7 +586,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     act(() => {
       vi.advanceTimersByTime(500)
     })
@@ -595,7 +604,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     // only fires from AIInputBar.handleSend in this composer instance,
     // never from message-array mutation.
     vi.useFakeTimers()
-    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
 
     // Step 1: thread hydration completes first — historical user + assistant
@@ -607,14 +616,14 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
         { id: 'hist-1', role: 'assistant' },
       ]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
 
     // Step 2: graph hydration completes — nodes appear. This is the 0→N+
     // transition that the auto-dock effect watches.
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     act(() => {
       vi.advanceTimersByTime(500)
     })
@@ -632,7 +641,7 @@ describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (r
     act(() => {
       canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     // 300ms slide trigger + 16ms rAF + 450ms owner-clear → 800ms total to
     // observe the full reposition completion.
     act(() => {
@@ -669,20 +678,20 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
     // panel was previously opened by the user (so source='user').
     canvasMockState.nodes = [{ id: 'n1' }, { id: 'n2' }]
     useFloatingPanelState.getState().open('user')
-    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().source).toBe('user')
 
     // Transient: nodes briefly clear (scenario switch / import).
     act(() => {
       canvasMockState.nodes = []
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     // ...then repopulate before the 500ms debounce expires.
     act(() => {
       vi.advanceTimersByTime(200)
       canvasMockState.nodes = [{ id: 'n3' }]
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     act(() => {
       vi.advanceTimersByTime(500)
     })
@@ -698,14 +707,14 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
     // Initial state: canvas has nodes, floating was opened by user.
     canvasMockState.nodes = [{ id: 'n1' }]
     useFloatingPanelState.getState().open('user')
-    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const { rerender } = render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(useFloatingPanelState.getState().source).toBe('user')
 
     // Intentional canvas reset: nodes clear and stay cleared.
     act(() => {
       canvasMockState.nodes = []
     })
-    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    rerender(<FirstUseComposer />)
     // Past the debounce window with zero nodes still live.
     act(() => {
       vi.advanceTimersByTime(600)
@@ -733,7 +742,7 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
    * pins that the prop actually decides what renders.
    */
   it('⭐ renders the starter strip when the mount opts in (showStarters)', () => {
-    render(<FirstUseComposer onCogClick={() => {}} showStarters />, { wrapper: Wrapper })
+    render(<FirstUseComposer showStarters />, { wrapper: Wrapper })
 
     expect(screen.getByTestId('starter-decisions')).toBeInTheDocument()
     // Bound BY IDENTITY to the generated manifest — a card per real starter —
@@ -758,7 +767,7 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
     // be absent BEFORE asserting it is absent.
     expect(startersManifest.starters.length).toBeGreaterThan(0)
 
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
 
     expect(screen.queryByTestId('starter-decisions')).toBeNull()
     expect(screen.queryByText(/a real decision Olumi has modelled/i)).toBeNull()
@@ -788,7 +797,7 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
    * sends. Just the sentence, still on screen when it is being acted on.
    */
   it('⭐ the brief guidance survives the first keystroke', () => {
-    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
 
     const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
     // Precondition: while empty, the placeholder carries the guidance and the

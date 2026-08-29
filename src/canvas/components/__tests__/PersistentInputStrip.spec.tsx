@@ -70,7 +70,7 @@ describe('PersistentInputStrip', () => {
 
   describe('composer mode — floating closed', () => {
     it('renders a textarea when floating is closed (composer mode)', () => {
-      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
       expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
@@ -78,7 +78,7 @@ describe('PersistentInputStrip', () => {
     })
 
     it('round-16: strip variant has 3-line min (70px) and 8-line max (160px) so cog+send fit and composer grows', () => {
-      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
       const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
@@ -98,15 +98,14 @@ describe('PersistentInputStrip', () => {
       // the default `right-1.5` (6px) inset. Round-16 bumps the strip
       // variant's stackInset to `right-4` (16px) so the icons sit clear
       // of the scrollbar.
-      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
-      const cog = screen.getByTestId('ai-input-bar-strip-cog')
       const send = screen.getByTestId('ai-input-bar-strip-send')
-      // The icon stack is the absolutely-positioned div wrapping both
-      // buttons. Both icons share the same parent stack container.
-      const stack = cog.parentElement as HTMLElement
-      expect(stack).toBe(send.parentElement)
+      // The icon stack is the absolutely-positioned div wrapping the control
+      // buttons. The cog that used to share it was removed on 29 Aug 2026
+      // (permanently-disabled menu); the inset property is unchanged.
+      const stack = send.parentElement as HTMLElement
       // Tailwind class assertion — `right-4` corresponds to a 16px inset.
       expect(stack.className).toMatch(/\bright-4\b/)
     })
@@ -117,7 +116,7 @@ describe('PersistentInputStrip', () => {
       act(() => {
         useFloatingPanelState.getState().open('user')
       })
-      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
       expect(screen.getByTestId('persistent-strip-status')).toBeInTheDocument()
@@ -134,7 +133,6 @@ describe('PersistentInputStrip', () => {
           isOlumiTabActive
           onOpenFloating={() => {}}
           onFocusFloating={onFocusFloating}
-          onCogClick={() => {}}
         />,
         { wrapper: Wrapper },
       )
@@ -153,7 +151,7 @@ describe('PersistentInputStrip', () => {
         useFloatingPanelState.getState().open('user')
         useFloatingPanelState.getState().minimise()
       })
-      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />, {
         wrapper: Wrapper,
       })
       // Status mode must NOT render — the strip must give the user a
@@ -174,14 +172,14 @@ describe('PersistentInputStrip', () => {
         useFloatingPanelState.getState().minimise()
       })
       const { rerender } = render(
-        <PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />,
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />,
         { wrapper: Wrapper },
       )
       expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
       act(() => {
         useFloatingPanelState.getState().restore()
       })
-      rerender(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />)
+      rerender(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />)
       expect(screen.getByTestId('persistent-strip-status')).toBeInTheDocument()
       expect(screen.queryByRole('textbox')).toBeNull()
     })
@@ -200,7 +198,7 @@ describe('PersistentInputStrip', () => {
       render(
         <>
           <Capture />
-          <PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />
+          <PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} />
         </>,
         { wrapper: Wrapper },
       )
@@ -247,7 +245,7 @@ describe('docked Olumi focus channel', () => {
   it('registers in composer mode and focuses the strip textarea', () => {
     render(
       <Wrapper>
-        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} onCogClick={vi.fn()} />
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} />
       </Wrapper>,
     )
     // POSITIVE CONTROL — we are in composer mode, not some other branch.
@@ -266,7 +264,6 @@ describe('docked Olumi focus channel', () => {
         <PersistentInputStrip
           isOlumiTabActive={false}
           onOpenFloating={vi.fn()}
-          onCogClick={vi.fn()}
         />
       </Wrapper>,
     )
@@ -280,7 +277,7 @@ describe('docked Olumi focus channel', () => {
     })
     render(
       <Wrapper>
-        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} onCogClick={vi.fn()} />
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} />
       </Wrapper>,
     )
     expect(screen.getByTestId('persistent-strip-status')).toBeInTheDocument()
@@ -293,7 +290,7 @@ describe('docked Olumi focus channel', () => {
     })
     render(
       <Wrapper>
-        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} onCogClick={vi.fn()} />
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={vi.fn()} />
       </Wrapper>,
     )
     expect(focusDockedOlumi()).toBe(false)

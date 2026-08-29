@@ -1,12 +1,38 @@
 /**
- * Login page — owner password + magic link + Google OAuth.
+ * Login page — owner password sign-in. That is the whole front door.
+ *
+ * ── 29 Aug 2026: THE TWO ROUTES THAT COULD NOT COMPLETE ARE GONE ───────────
+ * Unattended team testing starts Monday. A colleague picks a route with nobody
+ * beside them to say "not that one", so a route that cannot complete is not a
+ * rough edge — it is a dead end with no recovery. Both removals were measured
+ * at the DEPLOYED staging Supabase project, not inferred from config:
+ *
+ *   · "Send magic link" — the project has no SMTP, so the link is never
+ *     delivered. This file's own header has said so since #667; the
+ *     `send-failed` state existed only because of it.
+ *
+ *   · "Continue with Google" — `GET /auth/v1/settings` reports
+ *     `"google": false`, and `GET /auth/v1/authorize?provider=google` answers
+ *     `400 {"error_code":"validation_failed","msg":"Unsupported provider:
+ *     provider is not enabled"}`.
+ *
+ *     ⚠ AND THE STATE WRITTEN TO CATCH THAT COULD NEVER FIRE. supabase-js
+ *     resolves `signInWithOAuth` with `{error: null}` and navigates the
+ *     browser ITSELF — the deployed bundle carries
+ *     `Ub()&&!t.skipBrowserRedirect&&window.location.assign(r),{data:{…},error:null}`
+ *     — so `handleGoogleClick` never saw an error, `oauth-failed` was
+ *     unreachable, and the click EJECTED the user out of Olumi onto a raw JSON
+ *     400 page. Worse than a dead button: it left the product.
+ *
+ * Nobody loses a way in. Account creation is open and auto-confirming at the
+ * API (`disable_signup:false`, `mailer_autoconfirm:true`), so an owner is
+ * provisioned without any email round-trip.
+ *
+ * The `expired-link` banner STAYS: links already sitting in an inbox can still
+ * be clicked, and `/auth/callback` still routes them here.
  *
  * ── LINK-TRACK R1 item 7 (11 Aug 2026) ─────────────────────────────────────
- * Password sign-in is the PILOT'S auth route (ratified). Magic link is the
- * route that does not currently work: staging's Supabase project has no SMTP,
- * which is why the `send-failed` state exists on this page at all. A pilot
- * owner sent a link today lands on a form whose only controls are ones they
- * have no way to complete.
+ * Password sign-in is the PILOT'S auth route (ratified).
  *
  * The password form is deliberately minimal and deliberately INCOMPLETE:
  *   · NO sign-up. Owners are pre-provisioned; the absence of a self-serve
@@ -15,10 +41,10 @@
  *     that cannot send an email is the guarantee-theatre this track exists to
  *     remove.
  *
- * The email field is SHARED by both routes. It sits outside both forms — a
- * second email input would be a second source of truth for the one value both
- * submissions send — and is associated with the PASSWORD form by `form=`, so
- * it has an owner and implicit submission has somewhere to go (see below).
+ * The email field is associated with the password form by `form=`, so it has an
+ * owner and implicit submission has somewhere to go (see below). It kept that
+ * `form=` when the second route was removed: the association is what makes
+ * `Enter` work, not a consequence of there having been two routes.
  *
  * ── ROUND 2 (11 Aug 2026): THREE THINGS THIS PAGE GOT WRONG ────────────────
  * All three were measured by the #667 adversarial review, by execution.
@@ -49,8 +75,7 @@
  *    so implicit submission had nothing to submit. It is now owned by the
  *    password form — the pilot's working route — via `form="owner-password-form"`.
  *
- * States: default → submitting → link-sent → rate-limited → invalid-email
- *         → expired-link → send-failed → oauth-failed
+ * States: default → rate-limited → invalid-email → expired-link
  *         → password-submitting → password-failed → password-server-fault
  *         → password-signed-in
  * Shows identical message for invited and non-invited emails (prevents enumeration).
@@ -58,19 +83,15 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
-import { Mail, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 
 type PageState =
   | 'default'
-  | 'submitting'
-  | 'link-sent'
   | 'rate-limited'
   | 'invalid-email'
   | 'expired-link'
-  | 'send-failed'
-  | 'oauth-failed'
   | 'password-submitting'
   | 'password-failed'
   | 'password-server-fault'
@@ -81,17 +102,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 /**
  * Is this failure OURS rather than a fact about the address?
  *
- * The link-sent state exists to make a registered and an unregistered address
- * indistinguishable — that is worth protecting and is untouched here. But it
- * was catching everything, including a 500 from a Supabase project with no
- * SMTP configured, which is what staging returns today for an address that
- * DOES exist. Reporting that as "your link is on its way" is a lie the user
- * cannot detect and cannot act on.
- *
- * A 5xx is returned identically for every address, so naming it leaks nothing.
- * The predicate is written against the SPEC (5xx = server fault) rather than
- * against the single failure mode in hand, so a different server fault is
- * classified correctly the first time it appears.
+ * A 5xx is returned identically for every address, so naming it leaks nothing
+ * — unlike a 400, which IS address-correlated and stays byte-identical for a
+ * wrong password and an unknown address. The predicate is written against the
+ * SPEC (5xx = server fault) rather than against the single failure mode in
+ * hand, so a different server fault is classified correctly the first time it
+ * appears.
  */
 function isServerFault(error: unknown): boolean {
   const status = (error as { status?: unknown } | null)?.status
@@ -106,7 +122,7 @@ function isRateLimited(error: unknown): boolean {
 }
 
 export default function LoginPage() {
-  const { signInWithMagicLink, signInWithGoogle, signInWithPassword, authenticated } = useAuth()
+  const { signInWithPassword, authenticated } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -116,7 +132,6 @@ export default function LoginPage() {
   const [pageState, setPageState] = useState<PageState>(() =>
     searchParams.get('error') === 'expired' ? 'expired-link' : 'default',
   )
-  const [resendCooldown, setResendCooldown] = useState(0)
   /**
    * A password sign-in on THIS page has just succeeded.
    *
@@ -153,13 +168,6 @@ export default function LoginPage() {
     goToApp()
   }, [signedInHere, authenticated, goToApp])
 
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown <= 0) return
-    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000)
-    return () => clearTimeout(t)
-  }, [resendCooldown])
-
   const handleEmailBlur = useCallback(() => {
     if (email && !EMAIL_RE.test(email)) {
       setPageState('invalid-email')
@@ -167,51 +175,6 @@ export default function LoginPage() {
       setPageState('default')
     }
   }, [email, pageState])
-
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = email.trim()
-    if (!EMAIL_RE.test(trimmed)) {
-      setPageState('invalid-email')
-      return
-    }
-
-    setPageState('submitting')
-    const { error } = await signInWithMagicLink(trimmed)
-
-    if (error) {
-      if (isRateLimited(error)) {
-        setPageState('rate-limited')
-      } else if (isServerFault(error)) {
-        // Ours, not theirs. Never dressed up as a sent link.
-        setPageState('send-failed')
-      } else {
-        // Show generic link-sent for all other errors (including "user not found")
-        // to prevent email enumeration.
-        setPageState('link-sent')
-        setResendCooldown(60)
-      }
-      return
-    }
-
-    setPageState('link-sent')
-    setResendCooldown(60)
-  }, [email, signInWithMagicLink])
-
-  const handleResend = useCallback(async () => {
-    const trimmed = email.trim()
-    if (!EMAIL_RE.test(trimmed)) return
-    setPageState('submitting')
-    // The resend path used to ignore its result entirely, so a resend into a
-    // broken mailer always claimed success — the same defect as the first send.
-    const { error } = await signInWithMagicLink(trimmed)
-    if (error && isServerFault(error)) {
-      setPageState('send-failed')
-      return
-    }
-    setPageState('link-sent')
-    setResendCooldown(60)
-  }, [email, signInWithMagicLink])
 
   const handlePasswordSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -264,13 +227,6 @@ export default function LoginPage() {
     setPageState('password-signed-in')
   }, [email, password, signInWithPassword])
 
-  const handleGoogleClick = useCallback(async () => {
-    // The result used to be discarded, so a disabled provider produced a button
-    // that visibly did nothing whatsoever.
-    const { error } = await signInWithGoogle()
-    if (error) setPageState('oauth-failed')
-  }, [signInWithGoogle])
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-[400px] rounded-[20px] bg-panel p-6 shadow-1">
@@ -308,30 +264,8 @@ export default function LoginPage() {
               Continue
             </button>
           </div>
-        ) : pageState === 'link-sent' ? (
-          /* ---- Link-sent state ---- */
-          <div className="mt-6 flex flex-col items-center gap-4 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-panel">
-              <Mail className="h-6 w-6 text-info" />
-            </div>
-            <p className={`${typography.body} text-text-body`}>
-              If this email is registered, you'll receive a sign-in link shortly.
-            </p>
-            <button
-              type="button"
-              disabled={resendCooldown > 0}
-              onClick={handleResend}
-              className={`${typography.button} rounded-pill px-6 py-3 transition-all duration-fast ${
-                resendCooldown > 0
-                  ? 'cursor-not-allowed text-text-light'
-                  : 'text-info hover:bg-info-light'
-              }`}
-            >
-              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend link'}
-            </button>
-          </div>
         ) : (
-          /* ---- Default / submitting / invalid-email / rate-limited ---- */
+          /* ---- Default / invalid-email / rate-limited ---- */
           <>
             <p className={`${typography.body} text-text-light mb-6`}>
               Sign in with the password your Olumi contact gave you
@@ -361,7 +295,7 @@ export default function LoginPage() {
                     }
                   }}
                   onBlur={handleEmailBlur}
-                  disabled={pageState === 'submitting' || pageState === 'password-submitting'}
+                  disabled={pageState === 'password-submitting'}
                   className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
                     pageState === 'invalid-email'
                       ? 'border-danger'
@@ -376,36 +310,6 @@ export default function LoginPage() {
                 {pageState === 'rate-limited' && (
                   <p className={`${typography.bodySmall} text-danger mt-1`}>
                     Please wait a moment before trying again.
-                  </p>
-                )}
-                {pageState === 'send-failed' && (
-                  /* Deliberately says nothing about whether the address is
-                     registered — this text is identical for every address, so
-                     it cannot be used to enumerate accounts. */
-                  <p className={`${typography.bodySmall} text-danger mt-1`} role="alert">
-                    We couldn&rsquo;t send the sign-in email. This is a problem on our
-                    side, not with your address &mdash; nothing was sent. Please try
-                    again later or ask your Olumi contact.
-                  </p>
-                )}
-                {pageState === 'oauth-failed' && (
-                  /* ⚠ THE DIRECTION WORD IS LOAD-BEARING AND HAS NOW BEEN WRONG
-                     TWICE. This message renders INSIDE the email-field div,
-                     which closes above the password form — so BOTH controls it
-                     points at are below it. Round 1 said "the email link above"
-                     after that button moved below; round 2's correction then
-                     said "the password form above", which was wrong the same
-                     way. The container is `flex flex-col`, so DOM order IS
-                     visual order, and the spec measures it with
-                     `compareDocumentPosition` rather than reading this comment:
-                     move either form and the pin REDs. */
-                  <p
-                    className={`${typography.bodySmall} text-danger mt-1`}
-                    role="alert"
-                    data-testid="oauth-failed-message"
-                  >
-                    We couldn&rsquo;t start Google sign-in. Please use the password
-                    form or the email link below, or ask your Olumi contact.
                   </p>
                 )}
               </div>
@@ -431,7 +335,7 @@ export default function LoginPage() {
                         setPageState('default')
                       }
                     }}
-                    disabled={pageState === 'submitting' || pageState === 'password-submitting'}
+                    disabled={pageState === 'password-submitting'}
                     data-testid="owner-password-input"
                     className={`w-full min-h-[44px] rounded-md border bg-panel px-4 py-3 ${typography.body} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-info/50 ${
                       pageState === 'password-failed'
@@ -472,7 +376,7 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={pageState === 'submitting' || pageState === 'password-submitting' || password.length === 0}
+                  disabled={pageState === 'password-submitting' || password.length === 0}
                   data-testid="owner-password-submit"
                   className={`${typography.button} flex items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 text-text-on-color shadow-1 transition-all duration-fast hover:bg-primary-hover hover:-translate-y-px active:bg-primary-active active:translate-y-0 disabled:bg-primary-disabled disabled:cursor-not-allowed disabled:translate-y-0`}
                 >
@@ -488,46 +392,6 @@ export default function LoginPage() {
               </form>
             </div>
 
-            {/* Divider */}
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-[rgba(38,38,38,0.16)]" />
-              <span className={`${typography.bodySmall} text-text-light`}>or</span>
-              <div className="h-px flex-1 bg-[rgba(38,38,38,0.16)]" />
-            </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-4"
-              data-testid="magic-link-form"
-            >
-              <button
-                type="submit"
-                disabled={pageState === 'submitting' || pageState === 'password-submitting'}
-                className={`${typography.button} flex items-center justify-center gap-2 rounded-pill border border-[rgba(38,38,38,0.16)] bg-transparent px-6 py-3 text-text-body transition-all duration-fast hover:bg-panel-hover hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0`}
-              >
-                {pageState === 'submitting' ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending…
-                  </>
-                ) : (
-                  'Send magic link'
-                )}
-              </button>
-            </form>
-
-            <div className="h-4" />
-
-            {/* Google OAuth */}
-            <button
-              type="button"
-              onClick={handleGoogleClick}
-              disabled={pageState === 'submitting' || pageState === 'password-submitting'}
-              className={`${typography.button} flex w-full items-center justify-center gap-2 rounded-pill border border-[rgba(38,38,38,0.16)] bg-transparent px-6 py-3 text-text-body transition-all duration-fast hover:bg-panel-hover hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0`}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
           </>
         )}
 
@@ -537,28 +401,5 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
-  )
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path
-        d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"
-        fill="#4285F4"
-      />
-      <path
-        d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"
-        fill="#34A853"
-      />
-      <path
-        d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-        fill="#EA4335"
-      />
-    </svg>
   )
 }

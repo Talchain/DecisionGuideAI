@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useImperativeHandle, useEffect, useMemo, useRef, forwardRef, memo } from 'react'
-import { ArrowUp, Paperclip, Mic, Play, Square } from 'lucide-react'
+import { ArrowUp, Paperclip, Play, Square } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useStagePill } from '../../hooks/useStagePill'
 import { useCanvasStore } from '../../store'
@@ -320,22 +320,6 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             data-testid="composer-attach-button"
           >
             <Paperclip className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            disabled
-            aria-label="Voice input (coming soon)"
-            title="Voice input (coming soon)"
-            className="composer-icon-btn flex-shrink-0 flex items-center justify-center"
-            style={{
-              width: 34, height: 34, borderRadius: '50%',
-              marginBottom: 2, background: 'transparent',
-              border: 'none', color: 'var(--text-light, #6E6B6B)',
-              cursor: 'not-allowed', opacity: 0.5, transition: 'all 150ms',
-            }}
-            data-testid="composer-voice-button"
-          >
-            <Mic className="w-4 h-4" strokeWidth={ICON_STROKE} aria-hidden="true" />
           </button>
           {showRunAnalysis && (
             <button

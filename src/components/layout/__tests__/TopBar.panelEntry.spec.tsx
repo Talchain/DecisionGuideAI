@@ -86,11 +86,24 @@ describe('TopBar blind-panel entry point', () => {
     )
   })
 
-  it('is absent without a persisted scenario — with the Share control as the positive control', () => {
+  it('is absent without a persisted scenario — with version history as the positive control', () => {
     renderTopBar(null)
     expect(screen.queryByTestId('topbar-panel-link')).toBeNull()
-    // POSITIVE CONTROL: the bar itself rendered; absence is not an empty page.
-    expect(screen.getByRole('button', { name: /share decision/i })).toBeInTheDocument()
+    /**
+     * POSITIVE CONTROL: the bar itself rendered; absence is not an empty page.
+     *
+     * ⚠ THIS CONTROL WAS THE SHARE BUTTON UNTIL 29 Aug 2026, AND IT DECAYED
+     * THE MOMENT SHARE GAINED THE SAME GATE THIS TEST IS ABOUT. Share is now
+     * hidden without a persisted scenario too, so on the `null` render it
+     * proved nothing — it would have gone absent for exactly the reason the
+     * assertion above expects, and the test would have started passing while
+     * measuring an empty bar.
+     *
+     * The replacement is deliberately a control with a DIFFERENT gating
+     * condition from the subject: version history is unconditional in this
+     * bar, so it cannot co-vary with `panelScenarioId`.
+     */
+    expect(screen.getByTestId('topbar-versions-trigger')).toBeInTheDocument()
   })
 
   it('is absent when the prop is not passed at all (every existing call site)', () => {

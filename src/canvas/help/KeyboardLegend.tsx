@@ -126,14 +126,14 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
   {
     title: 'Workspace',
     items: [
-      { keys: ['Cmd/Ctrl + D'], description: 'Toggle Documents drawer' },
+      { keys: ['Cmd/Ctrl + D'], description: 'Open Documents drawer' },
     ],
   },
   {
     title: 'Run and analyse',
     items: [
       { keys: ['Cmd/Ctrl + Enter'], description: 'Run analysis' },
-      { keys: ['Esc'], description: 'Stop run or close active overlay' },
+      { keys: ['Esc'], description: 'Close active overlay' },
     ],
   },
   {

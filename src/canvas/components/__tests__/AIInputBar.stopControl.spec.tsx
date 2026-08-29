@@ -144,7 +144,7 @@ function queryStop(): HTMLElement | null {
 }
 
 function renderBar() {
-  render(<AIInputBar variant="first-use" hideChevron testId="gen" onCogClick={() => {}} />, {
+  render(<AIInputBar variant="first-use" hideChevron testId="gen" />, {
     wrapper: Wrapper,
   })
 }

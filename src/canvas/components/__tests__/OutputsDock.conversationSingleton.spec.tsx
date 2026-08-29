@@ -464,7 +464,7 @@ describe('Olumi tab click while floating is open', () => {
 
     const { container } = render(
       <Wrapper>
-        <FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />
+        <FloatingOlumiPanel onDock={() => {}} />
       </Wrapper>,
     )
 

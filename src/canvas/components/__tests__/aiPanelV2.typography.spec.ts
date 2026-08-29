@@ -27,7 +27,6 @@ const AI_PANEL_V2_FILES = [
   'src/canvas/components/SelectionPill.tsx',
   'src/canvas/components/FloatingOlumiPanel.tsx',
   'src/canvas/components/FirstUseComposer.tsx',
-  'src/canvas/components/CogPopover.tsx',
   'src/canvas/components/OlumiTabBody.tsx',
 ] as const
 

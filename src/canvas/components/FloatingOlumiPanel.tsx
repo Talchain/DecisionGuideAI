@@ -38,7 +38,6 @@ interface FloatingOlumiPanelProps {
    *  active tab to 'olumi' and ensure the dock is open. */
   onDock: () => void
   /** Called when the user clicks the cog icon in the floating composer. */
-  onCogClick: (anchorEl: HTMLElement) => void
 }
 
 const MIN_WIDTH = 320
@@ -596,7 +595,7 @@ export function measureTopInset(): number {
  * Z-index: 300. Below popovers (400) and modals so a CogPopover or modal
  * stays on top.
  */
-export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onCogClick }: FloatingOlumiPanelProps) {
+export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: FloatingOlumiPanelProps) {
   const conversation = useConversationContext()
   // Subscribe to primitive slices to avoid re-render churn (returning a new
   // object from a selector breaks Zustand's referential equality check).
@@ -1370,7 +1369,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
              the note beside these constants in `zones/ChatThread.tsx`. */
           threadTestId={THREAD_TESTID_FLOATING}
         />
-        <AIInputBar ref={inputBarRef} variant="floating" onCogClick={onCogClick} hideChevron />
+        <AIInputBar ref={inputBarRef} variant="floating" hideChevron />
       </div>
 
       {/* Four corner resize handles. Each is a 12×12 hit area at the panel
