@@ -429,6 +429,21 @@ function joinLabels(labels: readonly string[]): string {
 }
 
 /**
+ * How many excluded options are NAMED before the rest are counted.
+ *
+ * Exported so guards derive it rather than restating it — but note that a
+ * derived guard proves the copies agree and can never prove the VALUE is right
+ * (CLAUDE.md trap 12d), so the owner spec also pins this number directly with
+ * its measurement as the stated reason.
+ *
+ * Three, chosen by measurement rather than taste: at 280px — the narrowest dock
+ * width — three names plus the overflow phrase is what holds the note to a
+ * height that leaves the surrounding surface navigable. If you change it,
+ * re-measure at 280px and update the figures in `excludedClause`'s header.
+ */
+export const EXCLUDED_LABEL_NAME_CAP = 3
+
+/**
  * The comparison-set register — ONE spelling of "these numbers compare N of
  * your M options", for every surface that renders a comparative figure.
  *
@@ -453,14 +468,57 @@ export const COMPARISON_SCOPE_COPY = {
    * Who is outside the set. Falls back to the COUNT when no excluded option
    * carries a usable label — reporting "1 was left out" is honest; inventing
    * "Untitled option" is not.
+   *
+   * ⭐⭐ THE NAMES ARE CAPPED AND THE REMAINDER IS COUNTED. This closes two
+   * defects that shared one cause, both measured before the fix.
+   *
+   * 1. HONESTY, and it is the more serious of the two. `excludedLabels` MAY BE
+   *    SHORTER than `total - analysed` (see its own doc), so on a mixed set this
+   *    clause NAMED the nameable ones and said nothing about the rest, while
+   *    reading as a complete list:
+   *      "Comparing 1 of your 31 options — Alpha, Bravo, Charlie, Delta and
+   *       Echo were left out."
+   *    Thirty were left out. Nothing signalled that the clause was partial, so a
+   *    reader takes five as the answer.
+   *
+   * 2. LENGTH. It grew without limit. Measured in a real browser at 280px inside
+   *    the Analysis (New) dock: 229px tall at 3 excluded options, 440px at 12,
+   *    741px at 30, against a ~769px usable dock height — the note alone could
+   *    consume the whole first viewport and push every navigation row below it.
+   *
+   * ⛔ THE OVERFLOW IS COUNTED FROM `total - analysed`, NEVER FROM
+   * `excludedLabels.length`. Counting from the label list would silently drop
+   * every option that carries no usable label — i.e. it would reproduce defect 1
+   * inside the fix for it.
+   *
+   * ⛔ THE COUNT ITSELF IS NEVER CAPPED. `phrase` carries "N of your M" and is
+   * untouched here; that is the ROADMAP 2.1340 guarantee and it is pinned
+   * against this cap in the owner spec.
+   *
+   * ⚠ USER-REACHABLE ON BOTH ANALYSIS TABS, deliberately. Capping is a
+   * DISCLOSURE rather than a drop because every excluded option stays NAMED on
+   * every surface that mounts this note — derived at the bytes, not assumed:
+   * `OptionCards` renders a `NotAnalysedOptionCard` for each one
+   * UNCONDITIONALLY (its NO-RANK RULING appends them past the TOP_N
+   * truncation), and it is co-mounted in `ResultsBody` with the WinGauge and
+   * hero notes; the Analysis (New) glance names them behind its own control.
    */
   excludedClause: (scope: ComparisonScope): string => {
     const missing = scope.total - scope.analysed
     if (scope.excludedLabels.length === 0) {
       return missing === 1 ? '1 was left out' : `${missing} were left out`
     }
-    const verb = scope.excludedLabels.length === 1 ? 'was' : 'were'
-    return `${joinLabels(scope.excludedLabels)} ${verb} left out`
+    const named = scope.excludedLabels.slice(0, EXCLUDED_LABEL_NAME_CAP)
+    const others = missing - named.length
+    if (others <= 0) {
+      // `<= 0` rather than `=== 0`: if the contract above were ever violated and
+      // more labels arrived than options were missing, printing "-2 others" is a
+      // worse failure than falling back to the plain list.
+      const verb = named.length === 1 ? 'was' : 'were'
+      return `${joinLabels(named)} ${verb} left out`
+    }
+    // Always plural: at least one name plus at least one other is two things.
+    return `${joinLabels([...named, `${others} other${others === 1 ? '' : 's'}`])} were left out`
   },
 
   /**

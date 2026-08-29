@@ -57,7 +57,11 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import { WinGauge } from '../WinGauge'
-import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../utils/goalAnchorCopy'
+import {
+  COMPARISON_SCOPE_COPY,
+  EXCLUDED_LABEL_NAME_CAP,
+  deriveComparisonScope,
+} from '../utils/goalAnchorCopy'
 import type { OptionResult } from '../types'
 
 // ── Identity anchors. Every query binds to these, never to prose. ──────────
@@ -294,6 +298,117 @@ describe('comparison-scope disclosure — a subset result says which options it 
       for (const verb of ['worse', 'lost', 'weaker', 'beaten', 'behind', 'ruled out', 'rejected']) {
         expect(text.toLowerCase()).not.toContain(verb)
       }
+    })
+  })
+
+  /**
+   * ⭐⭐ THE NAMES ARE BOUNDED, AND THE CLAUSE STOPS READING AS EXHAUSTIVE.
+   *
+   * Two defects, one cause, both measured before this block existed.
+   *
+   * 1. HONESTY. `excludedLabels` MAY BE SHORTER than `total - analysed` — an
+   *    option with no usable label, or one labelled with its own node id, is
+   *    dropped from the list. The clause then NAMED FIVE and said nothing about
+   *    the other twenty-five, while reading as a complete list:
+   *      "Comparing 1 of your 31 options — Alpha, Bravo, Charlie, Delta and
+   *       Echo were left out."
+   *    Thirty were left out. A reader takes the clause as exhaustive because
+   *    nothing signals that it is partial.
+   *
+   * 2. LENGTH. The clause grew without limit. Measured in a real browser at
+   *    280px inside the Analysis (New) dock: 229px tall at 3 excluded options,
+   *    440px at 12, 741px at 30 — against a ~769px usable dock height. The note
+   *    alone could consume the entire first viewport.
+   *
+   * ⛔ THE COUNT IS NOT CAPPED AND MUST NEVER BE. `phrase` carries "N of your M"
+   * and is untouched by any of this — that is the ROADMAP 2.1340 guarantee.
+   * Only the NAMES are bounded, and the overflow is counted from `total -
+   * analysed`, NOT from `excludedLabels.length`, so unnameable options are
+   * counted in it rather than vanishing.
+   *
+   * ⚠ THIS IS A DELIBERATE CHANGE TO THE EXISTING ANALYSIS TAB. Every excluded
+   * option remains NAMED on every user-reachable surface that mounts this note:
+   * `OptionCards` renders a `NotAnalysedOptionCard` for each one unconditionally
+   * (its NO-RANK RULING appends them past the TOP_N truncation), and the
+   * Analysis (New) glance names them behind its own disclosure. Capping here is
+   * therefore a DISCLOSURE, not a drop. Derived at the bytes, not assumed.
+   */
+  describe('COMPARISON_SCOPE_COPY.excludedClause — bounded names, honest overflow', () => {
+    /** `total`/`analysed` are the run's; `excludedLabels` only the nameable. */
+    const scopeOf = (analysedCount: number, total: number, labels: string[]) =>
+      ({ analysed: analysedCount, total, excludedLabels: labels }) as ReturnType<
+        typeof deriveComparisonScope
+      > & object
+
+    it('the cap is 3, and moving it requires re-measuring rather than re-running this suite', () => {
+      // ⭐⭐ THE ONE ASSERTION HERE THAT IS NOT DERIVED, AND THAT IS THE POINT.
+      // Every other pin reads `EXCLUDED_LABEL_NAME_CAP`, so the constant and its
+      // guards move together: a derived guard proves the copies AGREE, never
+      // that the value is RIGHT (CLAUDE.md trap 12d). Measured: cap 3 -> 4 REDs
+      // only one case here, and only by an arithmetic coincidence in its
+      // fixture — not by design. This is the designed guard.
+      //
+      // The value's justification is a BROWSER MEASUREMENT at 280px, recorded on
+      // the constant. jsdom cannot check that (trap 3), so what this pin does is
+      // stop the cap drifting SILENTLY. Changing it means re-measuring.
+      expect(EXCLUDED_LABEL_NAME_CAP).toBe(3)
+    })
+
+    it('names at most the cap, then counts the remainder', () => {
+      const labels = Array.from({ length: 30 }, (_, i) => `Option ${i}`)
+      const clause = COMPARISON_SCOPE_COPY.excludedClause(scopeOf(1, 31, labels))
+
+      const named = labels.filter((l) => clause.includes(l))
+      expect(named).toHaveLength(EXCLUDED_LABEL_NAME_CAP)
+      // Bound to the FIRST n by identity — order is the producer's arrival order.
+      expect(named).toEqual(labels.slice(0, EXCLUDED_LABEL_NAME_CAP))
+      expect(clause).toContain(`${30 - EXCLUDED_LABEL_NAME_CAP} others`)
+    })
+
+    it('counts UNNAMEABLE options into the overflow rather than losing them', () => {
+      // ⭐ THE HONESTY CASE. 30 left out, only 5 nameable. Before this change the
+      // clause named all five and read as the complete list.
+      const clause = COMPARISON_SCOPE_COPY.excludedClause(
+        scopeOf(1, 31, ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo']),
+      )
+      // 30 missing − 3 named = 27, NOT 5 − 3 = 2. Deriving the overflow from the
+      // label list would silently drop the 25 that carry no usable label.
+      expect(clause).toContain(`${30 - EXCLUDED_LABEL_NAME_CAP} others`)
+      expect(clause).not.toContain(`${5 - EXCLUDED_LABEL_NAME_CAP} others`)
+    })
+
+    it('says nothing about others when every excluded option is named', () => {
+      // The discriminating twin: a clause that ALWAYS appended an overflow would
+      // pass both cases above while lying on the ordinary two-option run.
+      const clause = COMPARISON_SCOPE_COPY.excludedClause(scopeOf(2, 4, ['Alpha', 'Bravo']))
+      expect(clause).toBe('Alpha and Bravo were left out')
+      expect(clause).not.toContain('other')
+    })
+
+    it('keeps singular agreement when exactly one more is unnamed', () => {
+      // 5 options, 1 analysed -> 4 missing; 3 named -> exactly 1 other.
+      // (My first draft of this used 6 options and asserted "1 other" against an
+      // actual 2 — the test was wrong, not the code. Left noted because the
+      // arithmetic here is the whole point of the case.)
+      const clause = COMPARISON_SCOPE_COPY.excludedClause(
+        scopeOf(1, 5, ['Alpha', 'Bravo', 'Charlie', 'Delta']),
+      )
+      expect(clause).toContain('1 other')
+      expect(clause).not.toContain('1 others')
+      expect(clause).toBe('Alpha, Bravo, Charlie and 1 other were left out')
+    })
+
+    it('the COUNT is never capped — the phrase still states the whole run', () => {
+      // ⛔ The 2.1340 guarantee, pinned against this cap.
+      const scope = scopeOf(1, 31, Array.from({ length: 30 }, (_, i) => `Option ${i}`))
+      expect(COMPARISON_SCOPE_COPY.phrase(scope)).toBe('Comparing 1 of your 31 options')
+      expect(COMPARISON_SCOPE_COPY.sentence(scope)).toContain('Comparing 1 of your 31 options')
+    })
+
+    it('leaves the no-usable-label fallback exactly as it was', () => {
+      // The pre-existing path must not acquire an overflow clause of its own.
+      expect(COMPARISON_SCOPE_COPY.excludedClause(scopeOf(1, 31, []))).toBe('30 were left out')
+      expect(COMPARISON_SCOPE_COPY.excludedClause(scopeOf(3, 4, []))).toBe('1 was left out')
     })
   })
 
