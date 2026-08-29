@@ -33,6 +33,7 @@ import { useCanvasStore } from '../store'
 import { useMeasureThenLayout } from '../hooks/useMeasureThenLayout'
 import { LAYOUT_MEASUREMENT_FALLBACK_MS } from '../utils/nodeLayoutConstants'
 import { handleLayoutWithRecovery, type LayoutAttemptResult } from '../layout/handleLayoutWithRecovery'
+import { logger } from '../../lib/logger'
 
 let mockNodesInitialized = false
 let mockNodeLookup = new Map<string, { measured?: { width?: number; height?: number } }>()
@@ -47,6 +48,10 @@ vi.mock('../layout/handleLayoutWithRecovery', () => ({
   handleLayoutWithRecovery: vi.fn((fn: () => Promise<LayoutAttemptResult>) => {
     void fn()
   }),
+}))
+
+vi.mock('../../lib/logger', () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
 const mockedRecovery = vi.mocked(handleLayoutWithRecovery)
@@ -141,6 +146,39 @@ describe('a fallback layout is corrected once real heights arrive', () => {
       applySpy.mock.calls.length,
       'no fallback was used, so nothing needs correcting',
     ).toBe(1)
+  })
+
+  /**
+   * ⚠ THE SIGNAL MUST SURVIVE THE PRODUCTION BUILD, AND A RAW `console.warn`
+   * DOES NOT.
+   *
+   * `vite.config.ts:160` sets `build.terserOptions.compress.drop_console`,
+   * which is NOT mode-gated, and `:193` drops console for production too. Both
+   * match a call whose callee is a member chain rooted at the global identifier
+   * `console`, so a raw `console.warn` here compiles to nothing.
+   *
+   * Measured at the BUILT BUNDLE, both arms, 29 Aug 2026 — same source, same
+   * build command, only this call changed:
+   *
+   *     console.warn(...)  → 'proceeding with fallback heights' in 0 chunks
+   *     logger.warn(...)   → 'proceeding with fallback heights' in 1 chunk
+   *
+   * with the contrast control ('Auto-arranged layout.') present in both arms
+   * and a fabricated control absent from both, so the probe is shown to
+   * discriminate rather than merely to agree with itself.
+   *
+   * `logger` roots its sink at `globalThis`, which neither stripper matches.
+   * This test binds the CALL, so swapping it back to `console.warn` REDs here
+   * rather than silently shipping a fallback that reports nothing.
+   */
+  it('reports the fallback through logger, which survives the production console strip', () => {
+    seedTwoNodes()
+    renderHook(() => useMeasureThenLayout())
+    act(() => { vi.advanceTimersByTime(LAYOUT_MEASUREMENT_FALLBACK_MS) })
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[layout] proceeding with fallback heights — some nodes not yet measured',
+    )
   })
 
   it('corrects at most once — a later re-render does not keep re-laying out', () => {
