@@ -15,6 +15,7 @@ import type { PayloadHistoryEntry, PayloadSnapshot, ISLTestResponse, ISLTestSumm
 import { CEEClient } from '../../adapters/cee/client'
 import { usePayloadTraceStore } from '../../lib/payload-trace-store'
 import { useCanvasStore } from '../../canvas/store'
+import { commitGraphMutation } from '../../canvas/mutations/commitGraphMutation'
 import { DEFAULT_EDGE_DATA } from '../../canvas/domain/edges'
 import { unwrapInterventionValue } from '../../canvas/utils/labelUtils'
 import type { Edge } from '@xyflow/react'
@@ -1625,10 +1626,18 @@ export function PayloadLabTab({ lastISLPayload, onRunTest, initialPayload, onPay
     })
 
     const state = useCanvasStore.getState()
-    useCanvasStore.setState({
-      nodes: [...state.nodes, ...nodes],
-      edges: [...state.edges, ...edges],
-    })
+    // Through the ONE commit that also invalidates the analysis-freshness
+    // overlay. A developer surface, but it appends real nodes and edges to the
+    // real store, so a retained 'fresh' verdict would survive them exactly as
+    // it did on the product routes. `pushHistory: false` keeps this path's
+    // existing behaviour (it never pushed a frame).
+    commitGraphMutation(
+      (current) => ({
+        nodes: [...current.nodes, ...nodes],
+        edges: [...current.edges, ...edges],
+      }),
+      { pushHistory: false },
+    )
 
     // Defer layout via measurement-aware lifecycle. ReactFlowGraph runs
     // applyLayout once nodes are measured and layoutVersion drives fitView.
