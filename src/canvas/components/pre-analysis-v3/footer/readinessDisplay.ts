@@ -78,7 +78,8 @@
  */
 
 import { FOOTER_COPY } from '../constants'
-import { vetBlockedReason } from '../../../utils/vetBlockedReason'
+import { vetBlockedReason, BLOCKED_REASON_FALLBACK } from '../../../utils/vetBlockedReason'
+import type { GateBlockedItem, GateBlockedListing } from '../../../utils/canRunAnalysis'
 
 /**
  * The readiness CHECK's own failure facts.
@@ -104,7 +105,9 @@ export interface ReadinessDisplay {
   readonly headline: string
   readonly subline: string
   /**
-   * The SAME text as `subline`, unjoined — one entry per producer sentence.
+   * The SAME text as `subline`, unjoined — one entry per blocking line, each
+   * carrying the producer's scope where one exists so a surface can offer to
+   * take the user to it (see `GateBlockedItem`).
    *
    * Present only on the gate-shut arm, and only when the vetted string is
    * BYTE-IDENTICAL to this array's own join. A surface may render these as a
@@ -116,7 +119,7 @@ export interface ReadinessDisplay {
    * whenever the vet substituted UI copy for the producer's text — see the
    * equality guard in `deriveReadinessDisplay`.
    */
-  readonly sublineSentences?: readonly string[]
+  readonly sublineSentences?: readonly GateBlockedItem[]
 }
 
 /** The resting value for a surface that has no `PreAnalysisModel`. See the
@@ -239,20 +242,79 @@ export interface ReadinessDisplayInput {
   /** The gate's own reason. Read only while the gate is shut. */
   readonly blockedReason?: string
   /**
-   * The producer's sentences BEHIND `blockedReason` — `analysisBlockedSentences`,
-   * from the same call that produced the string.
+   * The ITEMISED form of `blockedReason`, from the gate call that produced it —
+   * `CanRunAnalysisResult.blockedListing`.
    *
    * Optional and additive: a caller that supplies nothing gets exactly today's
-   * behaviour. Supplying an array that does not join to `blockedReason` is not
-   * an error — it is simply not used (the guard below), because a mismatch means
-   * something composed one of them separately and neither can be trusted to
-   * speak for the other.
+   * behaviour. Supplying a listing whose `summary` is not the `blockedReason`
+   * beside it is not an error — it is simply not used (the guard below), because
+   * a mismatch means something composed one of them separately and neither can
+   * be trusted to speak for the other.
    */
-  readonly blockedSentences?: readonly string[]
+  readonly blockedListing?: GateBlockedListing
   /** `readinessNothingHasAnswered(...)`, from the same two authorities the gate reads. */
   readonly nothingHasAnswered: boolean
   /** What this surface says when none of the arms above fire. */
   readonly resting: ReadinessDisplay
+}
+
+/**
+ * The blocker list a shut-gate surface may render, or `undefined` to withhold it.
+ *
+ * ── TWO OPPOSITE HARMS, AND WHY THEY NOW HAVE TWO CHECKS ───────────────────
+ * Withholding the list leaves a user told there is a problem and not told what
+ * to supply. Rendering a list that does not belong to the summary beside it is
+ * worse: a wrong list looks authoritative. Both are live, and until this change
+ * ONE byte-equality answered both — `sentences.join(' ') === subline`.
+ *
+ * ⚠ THAT SINGLE WINDOW COULD NOT HOLD BOTH, AND THE MEASUREMENT IS THE POINT.
+ * The gate appends a generated `" (+N more issues)"` to `reason` the moment a
+ * second blocker exists, and it also vets the string, which may substitute a
+ * banned term IN PLACE ("Edge" → "Connection"). Either alone broke the equality,
+ * so a model with a validation error AND missing option values rendered exactly
+ * one line —
+ *
+ *   Connection from "Speed" to "Revenue" has no effect direction (+1 more issue)
+ *
+ * — and dropped every "Choose the missing effect value for X on Y." beneath it.
+ * The list vanished precisely when it carried the most to act on.
+ *
+ * So the questions are separated, and each is answered by the thing that can
+ * actually answer it:
+ *
+ *  1. PROVENANCE — did this list and this string come from one computation?
+ *     Answered by BYTES THE PRODUCER PUBLISHED (`listing.summary`), never by
+ *     parsing the suffix back out of user-visible prose. A regex over copy would
+ *     be a mirror of the gate's composition and would drift the first time the
+ *     wording moved.
+ *  2. VET INTEGRITY — is every line safe to render as written? Answered per
+ *     sentence. Rendering the parts is strictly safer than rendering the join
+ *     (`composeBlockedReason`'s own rule: a banned phrase can form ACROSS a seam
+ *     that separate list items never create), and an in-place glossary
+ *     substitution is a legitimate pass. A DEGRADE is not: it replaces a
+ *     producer sentence with our non-committal fallback, and a fallback bullet
+ *     sitting among real ones is a claim we cannot support. One degrade
+ *     withholds the WHOLE list — never a subset, which would understate the work
+ *     outstanding by exactly the lines we could not vet.
+ *
+ * ⚠ ORDER IS THE GATE'S AND IS NOT A RANKING — see `GateBlockedListing`.
+ */
+function vettedBlockerList(
+  listing: GateBlockedListing | undefined,
+  blockedReason: string | undefined,
+): readonly GateBlockedItem[] | undefined {
+  if (listing === undefined) return undefined
+  // (1) Provenance. `blockedReason` is what this surface is about to render;
+  // the listing must be the itemisation OF THAT STRING, not of some other call.
+  if (listing.summary !== blockedReason) return undefined
+  // (2) Vet integrity, per sentence. The scope rides through untouched — it is
+  // an id, never rendered as prose, and the vet is about prose.
+  const vetted = listing.sentences.map((item) => ({ ...item, text: vetBlockedReason(item.text) }))
+  const degraded = vetted.some(
+    (item, i) =>
+      item.text === BLOCKED_REASON_FALLBACK && listing.sentences[i].text !== BLOCKED_REASON_FALLBACK,
+  )
+  return degraded ? undefined : vetted
 }
 
 /** Pure and total. The ladder in this module's header, in that order. */
@@ -266,18 +328,7 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
   }
   if (!input.canRun) {
     const subline = gateBlockedSubline(input.blockedReason)
-    // ⛔ BYTE-IDENTITY ENFORCED AT THE POINT OF USE, NEVER ASSUMED.
-    // `gateBlockedSubline` runs `vetBlockedReason`, which does not merely accept
-    // or reject — it SUBSTITUTES a composed fallback for producer text it will
-    // not pass. Handing the array through regardless would render our fallback
-    // in the bar and the producer's sentences in the footer: two surfaces
-    // telling different stories about one state. So the list is carried only
-    // when the vetted string IS its join, and withheld otherwise.
-    const sentences =
-      input.blockedSentences !== undefined &&
-      input.blockedSentences.join(' ') === subline
-        ? input.blockedSentences
-        : undefined
+    const sentences = vettedBlockerList(input.blockedListing, input.blockedReason)
     return {
       dot: 'muted',
       headline: FOOTER_COPY.notReady,

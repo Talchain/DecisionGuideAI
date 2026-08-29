@@ -14,8 +14,8 @@
  *
  * `PanelFooter` — the OTHER surface reading the SAME `deriveReadinessDisplay`,
  * fed the SAME two values from the SAME component (`OutputsDock`
- * `runBlockedTooltip` / `runBlockedSentences`) — has rendered these as a list
- * since #883. The bar never received `blockedSentences` at all, so it had no
+ * `runBlockedTooltip` / `runBlockedListing`) — has rendered these as a list
+ * since #883. The bar never received the listing at all, so it had no
  * array to render even had it wanted one. **Two surfaces, one concept, fixed in
  * one place** — CLAUDE.md trap 21.
  *
@@ -33,6 +33,7 @@ import { render, screen } from '@testing-library/react'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { AnalysisReadinessBar } from '../AnalysisReadinessBar'
+import { useCanvasStore } from '../../../store'
 
 /** The shape actually witnessed on staging — not an invented fixture. */
 const REAL = [
@@ -48,7 +49,11 @@ const renderShut = (sentences?: readonly string[]) =>
       canRun={false}
       isAnalysing={false}
       blockedReason={(sentences ?? REAL).join(' ')}
-      blockedSentences={sentences}
+      blockedListing={
+        sentences
+          ? { summary: sentences.join(' '), sentences: sentences.map((text) => ({ text })) }
+          : undefined
+      }
       nothingHasAnswered={false}
       onAnalyse={() => {}}
     />,
@@ -99,9 +104,37 @@ describe('AnalysisReadinessBar — producer sentences render as a list', () => {
     expect(screen.getByTestId('analysis-readiness-bar-reason')).toHaveTextContent(REAL.join(' '))
   })
 
+  it('EACH LINE IS A DEEP-LINK when its node is on the canvas — the wiring, not just the component', () => {
+    // `BlockerLine` has its own spec; this asserts the BAR actually renders
+    // through it, so the affordance cannot exist on one pre-run surface and not
+    // the other — the two-surfaces-one-state defect this file was written for.
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'opt_keep', position: { x: 0, y: 0 }, data: { label: 'keep what we have' } },
+      ] as never,
+    })
+    render(
+      <AnalysisReadinessBar
+        preRunWithModel
+        canRun={false}
+        isAnalysing={false}
+        blockedReason={REAL.join(' ')}
+        blockedListing={{
+          summary: REAL.join(' '),
+          sentences: [{ text: REAL[0], scope: { id: 'opt_keep' } }, { text: REAL[1] }],
+        }}
+        nothingHasAnswered={false}
+        onAnalyse={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('blocker-option-link-opt_keep')).toHaveTextContent(REAL[0])
+    // TWIN, in the same render: the unscoped line stays plain text.
+    expect(screen.getByText(REAL[1]).tagName).not.toBe('BUTTON')
+  })
+
   it('EVERY RENDER SITE PASSES THE SENTENCES — the prop cannot exist unplugged', () => {
     // ⚠ THIS TEST EXISTS BECAUSE A MUTANT SURVIVED. Deleting
-    // `blockedSentences={runBlockedSentences}` from `OutputsDock` left all seven
+    // `blockedListing={runBlockedListing}` from `OutputsDock` left all seven
     // assertions above GREEN, because they render this component directly and
     // never traverse the wiring. That is this estate's dominant defect —
     // capability built and not plugged in — reproduced in miniature inside the
@@ -120,7 +153,7 @@ describe('AnalysisReadinessBar — producer sentences render as a list', () => {
     for (const rel of files) {
       const src = readFileSync(resolve(root, rel), 'utf8')
       for (const m of src.matchAll(/<AnalysisReadinessBar\b([\s\S]*?)\/>/g)) {
-        sites.push({ file: rel, passes: /\bblockedSentences=/.test(m[1]) })
+        sites.push({ file: rel, passes: /\bblockedListing=/.test(m[1]) })
       }
     }
     // PRECONDITION: a scan that finds nothing would pass vacuously for ever.
@@ -144,8 +177,8 @@ describe('AnalysisReadinessBar — producer sentences render as a list', () => {
         preRunWithModel
         canRun={false}
         isAnalysing={false}
-        blockedReason="A vetted fallback that is not the array's join."
-        blockedSentences={REAL}
+        blockedReason="A vetted fallback that is not the listing's summary."
+        blockedListing={{ summary: REAL.join(' '), sentences: REAL.map((text) => ({ text })) }}
         nothingHasAnswered={false}
         onAnalyse={() => {}}
       />,

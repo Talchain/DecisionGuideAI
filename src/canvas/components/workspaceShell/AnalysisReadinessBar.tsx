@@ -65,6 +65,8 @@ import {
   type ReadinessCheckFacts,
   type ReadinessDot,
 } from '../pre-analysis-v3/footer/readinessDisplay'
+import type { GateBlockedListing } from '../../utils/canRunAnalysis'
+import { BlockerLine } from '../pre-analysis-v3/footer/BlockerLine'
 
 /** The shell's copy of the panel's dot palette, keyed off the shared type so a
  *  new dot cannot be added in one place and missed here. */
@@ -86,14 +88,15 @@ export interface AnalysisReadinessBarProps {
   /** OutputsDock's `runBlockedTooltip`. Only read while the gate is shut. */
   blockedReason?: string
   /**
-   * OutputsDock's `runBlockedSentences` — the producer's sentences BEHIND
-   * `blockedReason`, from the same call that produced the string.
+   * OutputsDock's `runBlockedListing` — the ITEMISED form of `blockedReason`,
+   * from the same gate call that produced the string.
    *
    * ⚠ ADDITIVE, AND THE DEFAULT IS TODAY'S BEHAVIOUR. Omit it and this surface
    * renders the joined paragraph exactly as it always has. It is not this
-   * component that decides the array is trustworthy: `deriveReadinessDisplay`
-   * carries it through ONLY when its join equals the VETTED subline, because
-   * `vetBlockedReason` can SUBSTITUTE a composed fallback for producer text it
+   * component that decides the list is trustworthy: `deriveReadinessDisplay`
+   * carries it through only when the listing's PUBLISHED summary is the very
+   * `blockedReason` beside it, and only after vetting each sentence — because
+   * `vetBlockedReason` can substitute a composed fallback for producer text it
    * will not pass. Handing it straight to the markup would put our fallback in
    * one surface and the producer's sentences in the other.
    *
@@ -102,7 +105,7 @@ export interface AnalysisReadinessBarProps {
    * This bar taking it too is what stops the two pre-run surfaces telling one
    * state in two shapes.
    */
-  blockedSentences?: readonly string[]
+  blockedListing?: GateBlockedListing
   /** OutputsDock's `isRunning`. */
   isAnalysing: boolean
   /**
@@ -122,7 +125,7 @@ export function AnalysisReadinessBar({
   preRunWithModel,
   canRun,
   blockedReason,
-  blockedSentences,
+  blockedListing,
   isAnalysing,
   readinessCheck = null,
   nothingHasAnswered,
@@ -144,7 +147,7 @@ export function AnalysisReadinessBar({
     isAnalysing,
     canRun,
     blockedReason,
-    blockedSentences,
+    blockedListing,
     nothingHasAnswered,
     resting: RESTING_AVAILABLE,
   })
@@ -275,8 +278,10 @@ export function AnalysisReadinessBar({
                   data-testid="analysis-readiness-bar-reason-list"
                   tabIndex={0}
                 >
-                  {display.sublineSentences.map((sentence, index) => (
-                    <li key={`${index}:${sentence}`}>{sentence}</li>
+                  {display.sublineSentences.map((item, index) => (
+                    <li key={`${index}:${item.text}`}>
+                      <BlockerLine item={item} />
+                    </li>
                   ))}
                 </ul>
               ) : (

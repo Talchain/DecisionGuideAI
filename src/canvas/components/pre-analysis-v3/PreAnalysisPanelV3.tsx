@@ -17,6 +17,7 @@ import { useConversationActions } from './hooks/useConversationActions'
 import { useSensitivityRanking } from './hooks/useSensitivityRanking'
 import { GoalTargetNudge } from '../pre-analysis/GoalTargetNudge'
 import { PanelHeader } from './header/PanelHeader'
+import type { GateBlockedListing } from '../../utils/canRunAnalysis'
 import { HeroSection, GOAL_INPUT_ID, SUCCESS_INPUT_ID } from './hero/HeroSection'
 import { SharpenSection } from './sharpen/SharpenSection'
 import { ContestedSection } from './contested/ContestedSection'
@@ -40,11 +41,11 @@ export interface PreAnalysisPanelV3Props {
    * gating); the blocked explanation when canRun is false.
    */
   blockedReason?: string
-  /** The producer's sentences behind `blockedReason` — see `ReadinessDisplay.sublineSentences`. */
-  blockedSentences?: readonly string[]
+  /** The itemised form of `blockedReason` — see `GateBlockedListing`. */
+  blockedListing?: GateBlockedListing
 }
 
-function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedSentences }: PreAnalysisPanelV3Props) {
+function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListing }: PreAnalysisPanelV3Props) {
   const model = usePreAnalysisModel()
   const { sendPrompt } = useConversationActions()
   const showToast = useShowToast()
@@ -180,7 +181,7 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedSente
         isAnalysing={isAnalysing}
         canRun={canRun}
         blockedReason={blockedReason}
-        blockedSentences={blockedSentences}
+        blockedListing={blockedListing}
         // ROADMAP 2.332 / 2.339 — when the readiness CHECK failed, this footer
         // is the surface that used to claim "Analysis available" about a model
         // nothing had assessed. It says so instead. Run authority is unchanged.
