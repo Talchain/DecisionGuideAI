@@ -158,8 +158,16 @@ describe('inferLoadingHint', () => {
     expect(inferLoadingHint('analyse my options', 3)).toBe('Analysing your options\u2026')
   })
 
-  it('returns "Researching…" for research keywords', () => {
-    expect(inferLoadingHint('find evidence on this', 3)).toBe('Researching evidence\u2026')
+  // ⛔ INVERTED 29 Aug 2026. This case used to assert 'Researching evidence…'.
+  // The research tool was deleted on 22 Jul 2026 and CEE answers "I can't
+  // fetch external sources", so that hint described a retrieval that never
+  // happened — on every path, including a user typing this exact sentence.
+  // The branch is gone and these fall through to the honest default. This
+  // case is kept, inverted, rather than deleted: it is the guard that REDs if
+  // the hint is ever reinstated without a research producer behind it.
+  it('research keywords no longer claim a retrieval the product cannot perform', () => {
+    expect(inferLoadingHint('find evidence on this', 3)).toBe('Thinking\u2026')
+    expect(inferLoadingHint('research the base rates', 3)).toBe('Thinking\u2026')
   })
 
   it('returns "Thinking…" as default fallback', () => {

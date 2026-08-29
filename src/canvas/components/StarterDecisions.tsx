@@ -55,6 +55,13 @@ export const STARTER_LOAD_FAILED_MESSAGE =
  *   first screen, so it was deleted in the same change. Advertise a key again
  *   only after re-deriving that it works AT THE TIP — the last such
  *   verification was correct and went stale underneath the sentence.
+ *   ⭐ AND IT NOW HAS ONE: `StarterDecisions.spec.tsx` asserts the absence
+ *   with the strip proven mounted as its positive control. That is the point
+ *   — a verification recorded in PROSE does not re-run itself, which is
+ *   exactly how the previous sentence here ("`T` is advertised because it
+ *   was verified at the bytes") stayed on the page long after it stopped
+ *   being true. Advertise a key again only with a test that goes RED when
+ *   its handler stops working.
  */
 export function StarterDecisions() {
   // Re-entrancy latch for handlePick. A ref, not state: it must flip

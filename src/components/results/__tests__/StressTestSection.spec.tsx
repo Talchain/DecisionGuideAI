@@ -82,7 +82,17 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       expect(screen.getByTestId('accordion-stress-test')).toBeInTheDocument()
     })
 
-    it('preview line names the top sensitive factor when threshold met', () => {
+    // ⚠ THESE TWO CASES NOW COLLAPSE THE SECTION FIRST, and that is a real
+    // consequence, not a test convenience: the section DEFAULT-EXPANDS as of
+    // 29 Aug 2026, and `Accordion` renders `previewLine` only while collapsed.
+    // So on first render a user sees the full content instead of the preview,
+    // and the preview is what they get back if they close the section. The
+    // collapse below is the precondition these assertions need in order to
+    // have a subject at all — without it they would assert on an absent node.
+    const collapse = () =>
+      fireEvent.click(screen.getByRole('button', { name: /Stress-test your decision/ }))
+
+    it('preview line names the top sensitive factor when threshold met (collapsed)', () => {
       render(
         <StressTestSection
           drivers={[TOP_FACTOR]}
@@ -93,6 +103,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
         
           flipThresholds={null}/>,
       )
+      collapse()
       const preview = screen.getByTestId('stress-test-preview')
       expect(preview).toHaveTextContent('Customer churn rate')
       expect(preview).toHaveTextContent('Should its influence be revisited?')
@@ -110,6 +121,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
         
           flipThresholds={null}/>,
       )
+      collapse()
       const preview = screen.getByTestId('stress-test-preview')
       expect(preview).toHaveTextContent('Review your key assumptions')
       expect(preview).not.toHaveTextContent('Low impact')
@@ -302,7 +314,8 @@ describe('StressTestSection — Brief 5.8B D4', () => {
       expect(card).toHaveTextContent(
         'Outside views often catch assumptions you have stopped questioning.',
       )
-      expect(card).toHaveTextContent('Research this')
+      // Relabelled 29 Aug 2026 — see `outsideViewChipTruthful.spec.tsx`.
+      expect(card).toHaveTextContent('Take an outside view')
     })
   })
 

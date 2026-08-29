@@ -753,7 +753,15 @@ export const ResultsBody = memo(function ResultsBody({
       {tornadoData.rows.length > 0 && tornadoData.expectedOutcome != null && (
         <Accordion
           title="What could change the result"
-          defaultExpanded={false}
+          // ⭐ OPEN ON ARRIVAL (29 Aug 2026). This section holds the rank-flip
+          // rates and the fragile edges with their alternative winner — the
+          // strongest decision science on the tab — and it shipped COLLAPSED, so
+          // a tester read a recommendation and never saw what would overturn it.
+          // Nothing new is built here; what was already correct is now findable.
+          // Pinned by `decisionScienceDefaultOpen.spec.tsx`, whose third case
+          // keeps this a CALL-SITE default rather than a change to the shared
+          // `Accordion` primitive (which would expand every accordion at once).
+          defaultExpanded
           badgeCount={tornadoData.rows.length}
           testId="accordion-tornado"
         >

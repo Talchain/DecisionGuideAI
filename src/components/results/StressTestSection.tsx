@@ -338,7 +338,13 @@ export const StressTestSection = memo(function StressTestSection({
   return (
     <Accordion
       title="Stress-test your decision"
-      defaultExpanded={false}
+      // ⭐ OPEN ON ARRIVAL (29 Aug 2026) — same ruling as the tornado section.
+      // The two challenge cards below (disconfirmation and the outside view)
+      // are the tab's only prompts to argue against the recommendation, and
+      // they shipped behind a closed header. NOTE the `previewLine` prop is
+      // rendered ONLY while collapsed, so expanding by default does not hide
+      // anything — it replaces the one-line preview with the full content.
+      defaultExpanded
       testId="accordion-stress-test"
       rightContent={totalCount > 0 ? <span>{totalCount}</span> : undefined}
       previewLine={
@@ -385,7 +391,13 @@ export const StressTestSection = memo(function StressTestSection({
             card={outsideView}
             testId="stress-test-outside-view"
             onSendMessage={onSendMessage}
-            promptBuilder={() => `Research how ${winnerLabel} typically performs versus ${alternativeLabel} for decisions like this one.`}
+            // ⚠ THE WORD "Research" WAS THE LOAD-BEARING LIE HERE, TWICE OVER:
+            // it instructed a retrieval the estate cannot perform, and it also
+            // matched `inferLoadingHint`, so the spinner announced
+            // "Researching evidence…" while an ordinary chat turn ran. The
+            // question itself is unchanged in substance — a base rate the model
+            // answers from its own knowledge.
+            promptBuilder={() => `Take an outside view: for decisions like this one, does ${winnerLabel} usually outperform ${alternativeLabel}? What do typical outcomes suggest I might be missing?`}
           />
         </div>
         )}

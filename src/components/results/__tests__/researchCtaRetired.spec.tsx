@@ -47,8 +47,13 @@
  * if a refactor drops all chips. Only then is the Research CTA's absence
  * asserted, and it is bound BY IDENTITY to the exact generated accessible name
  * (`Research ${DOMINANT_LABEL}`), never to a substring another control could
- * satisfy — `StressTestSection`'s unrelated "Research this" chip is a live
- * example of a label a loose `^Research` predicate would collide with.
+ * satisfy. ⚠ The example this paragraph used to cite —
+ * `StressTestSection`'s unrelated "Research this" chip — is GONE as of
+ * 29 Aug 2026: it was relabelled "Take an outside view" for exactly the
+ * reason this file exists (see `outsideViewChipTruthful.spec.tsx`), so the
+ * estate no longer has a second `^Research` label to collide with. The
+ * bind-by-identity rule below is unchanged and still the reason this file
+ * asserts the exact generated name rather than a prefix.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, within } from '@testing-library/react'

@@ -206,3 +206,57 @@ describe('StarterDecisions', () => {
     })
   })
 })
+
+/**
+ * THE `T` SHORTCUT IS NOT ADVERTISED, BECAUSE `T` NO LONGER OPENS ANYTHING.
+ *
+ * ## The defect this pins
+ *
+ * The strip carried *"Press **T** for all templates"*, and this file's own
+ * header justified it: *"`T` is advertised because it was verified at the
+ * bytes (useCanvasKeyboardShortcuts.ts — `e.key === 't'` opens the panel)."*
+ *
+ * That verification was TRUE WHEN WRITTEN and has since gone stale — the
+ * hand-maintained-mirror defect, in the comment that exists to prevent it.
+ * The handler gained an earlier return:
+ *
+ *   useCanvasKeyboardShortcuts.ts — `if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED)
+ *   { onShowToast?.(SHARED_MODEL_AUTHORITY_COPY, 'info'); return }`
+ *
+ * and `CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations` is `'disabled'`
+ * (`mutations/mutationAuthority.ts:70`), so `hasServerGraphAuthority` is false
+ * and the guard ALWAYS fires. Pressing `T` therefore answers with
+ * *"Change this through the Model tab or ask Olumi so the shared model stays
+ * in sync."* — a message about editing authority, addressed to a user who
+ * asked for templates. The panel never opens.
+ *
+ * On Monday the team open this unsupervised and press the key we printed.
+ *
+ * ## Why the hint goes rather than the guard
+ *
+ * The guard is a deliberate ruling about who may mutate the shared model, not
+ * a defect. The dishonest half is the advertisement, so the advertisement is
+ * what is removed — the same resolution ROADMAP 2.816 required of the
+ * Research CTA. Re-add the hint in the same change that makes `T` open the
+ * panel, never before.
+ *
+ * ## Why the positive control is not optional (trap 13)
+ *
+ * An absence assertion over an unmounted component passes for the wrong
+ * reason. The strip self-gates on `hasGraph`, so it is entirely possible to
+ * assert "no templates hint" against a component that rendered nothing at
+ * all. The control below proves the strip is on screen first.
+ */
+describe('StarterDecisions — no dead keyboard advertisement', () => {
+  it('does not advertise `T`, while the strip itself is demonstrably mounted', () => {
+    render(<StarterDecisions />)
+
+    // Positive control: the strip rendered its cards, so the absence below is
+    // a fact about the hint and not about an absent component.
+    expect(screen.getByTestId('starter-decisions')).toBeInTheDocument()
+    expect(screen.getAllByTestId(/^starter-decision-/).length).toBeGreaterThan(0)
+
+    expect(screen.queryByText(/for all templates/i)).toBeNull()
+    expect(screen.queryByText(/press/i)).toBeNull()
+  })
+})
