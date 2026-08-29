@@ -259,6 +259,14 @@ export default function CanvasMVP() {
           <ReactFlowGraph
             blueprintEventBus={blueprintEventBus}
             onCanvasInteraction={handleCanvasInteraction}
+            /* ⭐ THE ONLY MOUNT THAT MAY OFFER STARTERS. This route is the
+               primary canvas and the one surface with a real first-run
+               journey: an empty graph, the welcome hero, and a teammate who
+               has never seen the product. PlotWorkspace, CanvasIsolationTest
+               and the sandbox canvas deliberately say nothing here and get no
+               strip by default — pinned by
+               canvas/components/__tests__/starterStripMountPath.spec.ts. */
+            showStarters
           />
         </main>
 

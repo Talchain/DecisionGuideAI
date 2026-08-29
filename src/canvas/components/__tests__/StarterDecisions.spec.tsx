@@ -89,6 +89,40 @@ describe('StarterDecisions', () => {
       expect(STARTERS.length).toBeLessThanOrEqual(5)
     })
 
+    /**
+     * ⭐ THE STRIP ADVERTISES NO SHORTCUT, BECAUSE THE ONLY ONE IT EVER
+     * ADVERTISED IS DEAD.
+     *
+     * The strip used to close with "Press T for all templates". `T` was
+     * verified at the bytes when it was written — and has since stopped
+     * working: `useCanvasKeyboardShortcuts.ts` now returns early on
+     * `!CANVAS_SEMANTIC_MUTATIONS_CONNECTED` (a permanently-false constant,
+     * `hasServerGraphAuthority('disabled')`) and answers the keypress with
+     * SHARED_MODEL_AUTHORITY_COPY — a toast about editing the shared model,
+     * which has nothing to do with templates. The panel never opens.
+     *
+     * While the strip itself was dark this was invisible. Restoring the strip
+     * would have made it a live false promise on a teammate's FIRST screen,
+     * which is why the deletion ships in the same change as the restore.
+     *
+     * Bound to rendered TEXT rather than to the source line, so it REDs
+     * whichever way the promise comes back.
+     */
+    it('⭐ advertises no keyboard shortcut — `T` no longer opens the panel', () => {
+      render(<StarterDecisions />)
+      const strip = screen.getByTestId('starter-decisions')
+      // Precondition pin (trap 13b): the strip really did render cards, so
+      // these absence assertions are about a populated strip and cannot pass
+      // by the strip being empty.
+      expect(screen.getByTestId(`starter-decision-${STARTERS[0].id}`)).toBeInTheDocument()
+
+      expect(strip).not.toHaveTextContent(/for all templates/i)
+      expect(strip).not.toHaveTextContent(/press\s+t\b/i)
+      // No <kbd> promise of any key, by structure rather than by wording —
+      // a reworded shortcut hint would slip past a text-only assertion.
+      expect(strip.querySelector('kbd')).toBeNull()
+    })
+
     it('card copy is the graph’s own decision/goal labels — never authored strings', () => {
       render(<StarterDecisions />)
       for (const s of STARTERS) {

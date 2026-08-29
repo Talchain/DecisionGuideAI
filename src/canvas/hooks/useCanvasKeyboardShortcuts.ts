@@ -118,10 +118,14 @@ export function useCanvasKeyboardShortcuts({
     }
 
     // T: Open Templates panel
-    // 'T' with shiftKey false is CapsLock — the first-run screen advertises
-    // this key ("Press T for all templates"), so it must work with CapsLock
-    // on. Shift+T stays excluded via !e.shiftKey; typing in inputs stays
-    // inert via the target guard above.
+    // 'T' with shiftKey false is CapsLock, so both cases are accepted;
+    // Shift+T stays excluded via !e.shiftKey, and typing in inputs stays inert
+    // via the target guard above.
+    // ⚠ NO SURFACE ADVERTISES THIS KEY ANY MORE. The first-run strip used to
+    // say "Press T for all templates"; that sentence was deleted because this
+    // branch cannot reach the panel — CANVAS_SEMANTIC_MUTATIONS_CONNECTED is
+    // `hasServerGraphAuthority('disabled')`, permanently false, so every press
+    // falls into the toast below. Re-advertise only if that changes.
     if ((e.key === 't' || e.key === 'T') && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
       if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {

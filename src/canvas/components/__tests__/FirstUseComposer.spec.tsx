@@ -121,6 +121,7 @@ import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { useUIStore } from '../../../stores/uiStore'
 import { useTransitionReceipt } from '../../hooks/useTransitionReceipt'
 import { __resetTemplateListCacheForTests } from '../../blueprints/loadTemplateBlueprint'
+import startersManifest from '../../starters/starters.manifest.json'
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>
@@ -680,28 +681,93 @@ describe('FirstUseComposer — canvas reset debounce (round-3 robustness)', () =
     expect(useFloatingPanelState.getState().source).toBe('system-first-use')
   })
 
-  // The starter strip is gated on the blueprintEventBus PROP. Emitting on a
-  // bus with zero listeners returns {} and looks exactly like success, so a
-  // mount without an insert pipeline (PlotWorkspace?rf=1, the sandbox canvas,
-  // and this very spec) must show NO cards rather than cards that dead-click.
-  // This test renders without the prop — the default for every mount that
-  // doesn't wire the bus — and pins that the strip is entirely absent.
-  it('renders NO starter strip when no blueprintEventBus prop is provided', () => {
+  /**
+   * ⭐ THE STRIP'S GATE, AND WHY IT IS AN EXPLICIT PROP.
+   *
+   * It used to be "did this mount hand me a `blueprintEventBus`?" — a proxy for
+   * "am I the primary canvas?". `ReactFlowGraph` then passed that bus through
+   * `CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? blueprintEventBus : undefined`, and
+   * that constant is `hasServerGraphAuthority('disabled')` → permanently false.
+   * So the proxy read `undefined` on EVERY mount, including the canvas, and
+   * five real enterprise models reached nobody. Two different questions were
+   * sharing one boolean (CLAUDE.md trap 21).
+   *
+   * `showStarters` answers exactly one question, and only CanvasMVP passes it.
+   * `starterStripMountPath.spec.ts` pins which mounts may say it; this pair
+   * pins that the prop actually decides what renders.
+   */
+  it('⭐ renders the starter strip when the mount opts in (showStarters)', () => {
+    render(<FirstUseComposer onCogClick={() => {}} showStarters />, { wrapper: Wrapper })
+
+    expect(screen.getByTestId('starter-decisions')).toBeInTheDocument()
+    // Bound BY IDENTITY to the generated manifest — a card per real starter —
+    // not by "some cards appeared". A strip that rendered one placeholder
+    // would satisfy a count-free check.
+    for (const starter of startersManifest.starters) {
+      expect(screen.getByTestId(`starter-decision-${starter.id}`)).toBeInTheDocument()
+    }
+  })
+
+  it('renders NO starter strip when showStarters is absent (every non-canvas mount)', () => {
     // Reset the module-scope template-list cache first: without this, a strip
     // mounted by an EARLIER test (under a gate-removal mutation) primes the
     // cache, restoreMocks clears the spy between tests, and this test's strip
     // would serve from cache without touching the spy — the pin would pass
-    // vacuously against the exact mutation it exists to catch. Verified by
-    // running the mutation: full-file green, single-test red, before this line.
+    // vacuously against the exact mutation it exists to catch.
     __resetTemplateListCacheForTests()
+
+    // ⚠ PRECONDITION PIN (trap 13b). `StarterDecisions` returns null when the
+    // manifest is empty, so every absence assertion below would pass for the
+    // wrong reason if the manifest ever emptied. Assert there is something to
+    // be absent BEFORE asserting it is absent.
+    expect(startersManifest.starters.length).toBeGreaterThan(0)
+
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
 
     expect(screen.queryByTestId('starter-decisions')).toBeNull()
-    expect(screen.queryByText(/start from an example/i)).toBeNull()
-    expect(screen.queryByText(/for all templates/i)).toBeNull()
-    // The bite: without a bus the strip must not even MOUNT — a mounted strip
-    // fetches the template list, so this assertion goes RED if the gate is
-    // removed (the DOM assertions above alone cannot see an unresolved fetch).
-    expect(plotTemplatesSpy).not.toHaveBeenCalled()
+    expect(screen.queryByText(/a real decision Olumi has modelled/i)).toBeNull()
+    // The bite, bound by identity to a real starter id. The previous version of
+    // this test asserted `plotTemplatesSpy` was never called — but P1-2 stopped
+    // the strip fetching a template list at all, so that assertion had decayed
+    // into one that cannot fail (trap 13b: a guard agreeing with itself). A
+    // named card cannot decay the same way: it exists iff the strip mounted.
+    for (const starter of startersManifest.starters) {
+      expect(screen.queryByTestId(`starter-decision-${starter.id}`)).toBeNull()
+    }
+  })
+
+  /**
+   * ⭐ THE ONLY COACHING THE FIRST SCREEN GIVES — AND IT USED TO VANISH ON THE
+   * FIRST KEYSTROKE.
+   *
+   * `FIRST_USE_PLACEHOLDER` is the one sentence that tells a new user what a
+   * good brief contains: the decision, the options, what a good outcome looks
+   * like. It shipped as a placeholder ATTRIBUTE, so the browser removed it the
+   * moment a character was typed — i.e. precisely when the user was writing the
+   * brief it describes. A thin brief produces a thin model, and the tester
+   * blames the product.
+   *
+   * The guidance now persists below the composer while the user types. NOT a
+   * minimum, NOT a counter, NOT a send block — `draft.trim().length > 0` still
+   * sends. Just the sentence, still on screen when it is being acted on.
+   */
+  it('⭐ the brief guidance survives the first keystroke', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+
+    const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
+    // Precondition: while empty, the placeholder carries the guidance and the
+    // persistent helper stays out of the way (no duplicate sentence on screen).
+    expect(textarea).toHaveAttribute('placeholder', FIRST_USE_PLACEHOLDER)
+    expect(screen.queryByTestId('first-use-brief-guidance')).toBeNull()
+
+    act(() => {
+      fireEvent.change(textarea, { target: { value: 'Should we move to usage-based pricing' } })
+    })
+
+    // The placeholder is now invisible to the user (text present in the box).
+    // The guidance must still be readable, verbatim — same constant, so the
+    // two surfaces cannot drift apart.
+    const guidance = screen.getByTestId('first-use-brief-guidance')
+    expect(guidance).toHaveTextContent(FIRST_USE_PLACEHOLDER)
   })
 })
