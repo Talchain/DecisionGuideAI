@@ -256,7 +256,141 @@ export const GROUP_LABELS = {
   impact:          'Impact',
   comparison:      'Comparison',
   whatThisChanges: 'What this option changes',
+  /**
+   * The header for a value group when the record does not say who put the
+   * number there. It attributes NOTHING, deliberately — see
+   * `getInputGroupLabel` below for why neither "Your input" nor an Olumi
+   * attribution is available in that state.
+   */
+  inputUnattributed: 'Value',
 } as const
+
+/**
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE "Your input" HEADER, RESOLVED AGAINST WHO ACTUALLY PUT THE VALUE THERE
+ * ─────────────────────────────────────────────────────────────────────────────
+ * `GROUP_LABELS.input` was passed UNCONDITIONALLY at all seven panel sites, so
+ * every factor, goal and risk panel headed a group "Your input" over whatever
+ * was inside it — including Olumi's own estimates. Measured on the deployed
+ * product: **"Your input: 140"** on a value the user never supplied, in a panel
+ * that simultaneously said "Estimated by Olumi" twice.
+ *
+ * False attribution is the worst class this estate has. An invented fact
+ * carrying apparent provenance is worse than an ordinary wrong number, because
+ * nothing downstream can tell it apart.
+ *
+ * ⚠ THE HEADER IS NOT DELETED, AND THAT IS THE RULING, NOT AN OVERSIGHT
+ * (Paul, 29 Aug 2026 — "I'd rather caveat them"). Dropping the header would
+ * trade a false label for no label; the group would get quieter and less
+ * truthful at once. It is made HONEST ABOUT ITSELF instead.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠⚠ TWO OPPOSITE HARMS, AND THEY CANNOT SHARE ONE WINDOW
+ * ─────────────────────────────────────────────────────────────────────────────
+ *   · INVENTED AUTHORSHIP — "Your input" over Olumi's estimate. The reported
+ *     defect: it credits the user with a number they never gave.
+ *   · STRIPPED AUTHORSHIP — an Olumi attribution over a number the user DID
+ *     supply. `utils/observedStateHelpers.ts` records this estate getting
+ *     exactly this backwards once already, and its verdict stands: *"a gap
+ *     wrongly INVENTED tells them a number they supplied is not theirs, which
+ *     is the worse harm."*
+ *
+ * A single predicate flipping between "Your input" and an attribution commits
+ * one harm or the other on every value the record does not stamp. So there are
+ * THREE arms, not two, and the third claims nothing:
+ *
+ *   POSITIVE EVIDENCE the value is the user's        → 'Your input'
+ *   POSITIVE EVIDENCE it is somebody else's          → 'Value'
+ *   NO EVIDENCE EITHER WAY, and a value on screen    → 'Value'
+ *   NO EVIDENCE, and NOTHING in the group yet        → 'Your input'
+ *
+ * The second and third arms answer alike ON PURPOSE — see INPUT_GROUP_LABEL
+ * below. The header does not re-attribute; the pill inside the group already
+ * does, and two attribution registers over one number is how they drift.
+ *
+ * The last arm is not a lapse: over an empty editor reading "No value set.
+ * Click to enter", "Your input" is a PROMPT, not an attribution — there is no
+ * number to misattribute, and this is the ordinary needs-input state.
+ *
+ * ⚠ NAMED RESIDUAL, not hidden: how often a real CEE draft leaves
+ * `observed_state.source` unstamped is UNMEASURED here. Both
+ * `mergeServerGraph.provenance.spec.ts` and `mergeAppliedGraph.spec.ts` carry
+ * unstamped-value fixtures, so the class is real; its FREQUENCY on the wire is
+ * not established, and if it is common this header reads 'Value' more often
+ * than 'Your input'. That is honest in every one of those cases, but it is a
+ * visible change and it deserves a live witness rather than an assumption.
+ *
+ * ⚠ SCOPE — THREE OF THE SEVEN SITES, and the other four are NOT covered.
+ * `observed_state.source` exists only on the three FACTOR panels (External,
+ * Observable, Controllable), which is also where the reported defect was seen.
+ * GoalPanel, DecisionPanel, EdgePanel and RiskPanel pass this header over
+ * content with no `observed_state` behind it at all, and at least DecisionPanel
+ * carries the same falsehood by a different route (its "Your input" group holds
+ * a read-only option list and model-computed win probabilities). EdgePanel has
+ * its own separate `edgeValueSource` vocabulary — a DIFFERENT question under a
+ * similar name (CLAUDE.md trap 21), not a drop-in. Those four are left
+ * unchanged and NAMED rather than guessed at.
+ */
+const INPUT_GROUP_LABEL: Record<ValueProvenanceKind, string> = {
+  // The four user-owned kinds. The twin obligation: a group that genuinely IS
+  // the user's input must still say so.
+  confirmed:  GROUP_LABELS.input,
+  edited:     GROUP_LABELS.input,
+  assumption: GROUP_LABELS.input,
+  human:      GROUP_LABELS.input,
+  // ─────────────────────────────────────────────────────────────────────────
+  // ⭐⭐ THE HEADER STOPS CLAIMING; IT DOES NOT RE-ATTRIBUTE. Measured, not
+  // chosen: the first version of this record answered each non-user-owned kind
+  // with that kind's own attribution — 'From your brief' for `brief`,
+  // "Olumi's estimate" for `ai`, "From your panel" for `panel`. Two existing
+  // guards REDed on it, both correctly, and both for the same root cause:
+  //
+  //   · Brief3Panels.spec.tsx  — "Found multiple elements with the text: From
+  //     your brief". The header duplicated the pill's sentence verbatim.
+  //   · panelAttributionNaming.spec.tsx — the pill had resolved the author to
+  //     "From Grace's panel answer" while my header still read the unnamed
+  //     "From your panel", which that spec exists to keep off the surface.
+  //
+  // The defect was not the copy. It was creating a SECOND ATTRIBUTION AUTHORITY
+  // beside `getProvenanceLabel`/`getExtractionLabel`, over the same number, in
+  // the same panel — two registers answering one question, which is how they
+  // drift apart (CLAUDE.md traps 12 and 21). The pill is the estate's one
+  // attribution surface and it is already INSIDE this group, carrying the name
+  // where a name exists. So the header answers only the question it owns —
+  // *is this the user's own input?* — and where the answer is no it says
+  // nothing further.
+  //
+  // ⚠ THIS IS NOT HIDING (Paul, 29 Aug). Nothing leaves the user's reach: the
+  // attribution stays rendered, in the same group, one element down, and in its
+  // fullest available form. What is removed is a false claim, not information.
+  //
+  // ⚠ THE COST, NAMED: the header is less informative than "Olumi's estimate"
+  // would have been. That is the price of one authority instead of two, and it
+  // is the right way round — an uninformative true header costs a tester a
+  // glance downward; a competing one costs them a wrong belief about who
+  // authored a number.
+  brief: GROUP_LABELS.inputUnattributed,
+  ai:    GROUP_LABELS.inputUnattributed,
+  panel: GROUP_LABELS.inputUnattributed,
+}
+
+/**
+ * The honest header for a panel's value group.
+ *
+ * @param source   the node's `observed_state.source` literal, if any
+ * @param hasValue whether the group currently shows a value at all
+ */
+export function getInputGroupLabel(
+  source: string | null | undefined,
+  hasValue: boolean,
+): string {
+  const cls = classifyValueProvenance(source)
+  // `classifyValueProvenance` returns null — never a guessed class — for an
+  // absent or unrecognised literal. Guessing here is precisely how "Estimated
+  // by Olumi" ended up over a confirmed value.
+  if (cls) return INPUT_GROUP_LABEL[cls.kind]
+  return hasValue ? GROUP_LABELS.inputUnattributed : GROUP_LABELS.input
+}
 
 // ─── Inline section labels (v6.2 subordinate rows) ────────────────
 export const INLINE_LABELS = {

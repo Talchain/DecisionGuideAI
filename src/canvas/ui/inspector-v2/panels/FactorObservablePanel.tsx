@@ -21,6 +21,7 @@ import {
   getProvenanceLabel,
   getExtractionLabel,
   GROUP_LABELS,
+  getInputGroupLabel,
   INLINE_LABELS,
   DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
@@ -212,7 +213,10 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}
-      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+      {/* The header is a CLAIM about who supplied this number, not a static
+          caption. "Your input" over an Olumi estimate is false attribution —
+          see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
+      <PanelGroup kind="input" label={getInputGroupLabel(source, displayValue != null)}>
         <PrimaryControlCard>
           {/* CEE-canonical display text above value */}
           {canonicalDisplayText && (

@@ -22,6 +22,7 @@ import { unwrapInterventionValue, classifyUnit } from '../../../utils/labelUtils
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   GROUP_LABELS,
+  getInputGroupLabel,
   DESCRIPTION_PLACEHOLDERS,
   EMPTY_STATES,
   getExtractionLabel,
@@ -471,7 +472,10 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}
-      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+      {/* The header is a CLAIM about who supplied this number, not a static
+          caption. "Your input" over an Olumi estimate is false attribution —
+          see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
+      <PanelGroup kind="input" label={getInputGroupLabel(source, (rawValue ?? value) != null)}>
         <PrimaryControlCard>
           {canonicalDisplayText && (
             <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
