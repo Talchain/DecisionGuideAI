@@ -418,15 +418,43 @@ export const FactorNode = memo((props: NodeProps) => {
   const goalConstraints = useCanvasStore(state => state.goalConstraints)
   const constraintTooltip = useMemo(() => {
     if (!isGraphBadgesEnabled() || !goalConstraints?.length) return null
-    // `label` is optional on the wire — guard before comparing, or a valid
-    // unlabelled constraint throws here and takes the node render with it.
+    // ⭐ BIND BY IDENTITY, NOT BY LABEL STRING (CLAUDE.md trap 19).
+    //
+    // `node_id` is the field the producer writes and the field PLoT's preflight
+    // resolves against `graph.nodes` (a label there is CONSTRAINT_TARGET_NOT_FOUND).
+    // `label` is OPTIONAL on the wire and "genuinely absent in practice"
+    // (adapters/cee/types.ts) — matching on it meant a constraint carrying a
+    // perfectly good `node_id` and no label produced NO BADGE, and the user's
+    // own stated limit never appeared on the graph.
+    //
+    // ⚠ THE LABEL LEG IS A FALLBACK, NOT A SECOND CHANNEL. Two opposite harms
+    // sit under this predicate and cannot share one window: a constraint that
+    // DOES reference this factor showing nothing, and a constraint that does
+    // NOT showing a limit the user never set on it. A constraint carrying a
+    // `node_id` has already answered the question — its label is not consulted,
+    // or a label collision between two factors badges the wrong one. Label
+    // matching survives only for constraints with no `node_id` at all: legacy
+    // persisted graphs minted before GoalPanel captured node ids. GoalPanel
+    // keeps the identical fallback for the identical reason
+    // (`constrainedTargets`, panels/GoalPanel.tsx:229-237).
     const target = cleanedLabel.toLowerCase().trim()
-    const matching = goalConstraints.filter(c =>
-      c.label?.toLowerCase().trim() === target
-    )
+    const matching = goalConstraints.filter(c => {
+      if (c.node_id) return c.node_id === props.id
+      // `label` is optional on the wire — guard before comparing, or a valid
+      // unlabelled constraint throws here and takes the node render with it.
+      // The empty case is excluded explicitly: `'' === ''` would otherwise
+      // badge every unnamed factor from every unlabelled legacy constraint.
+      const l = c.label?.toLowerCase().trim()
+      return !!l && !!target && l === target
+    })
     if (matching.length === 0) return null
-    return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '-'}`).join('; ')
-  }, [goalConstraints, cleanedLabel])
+    // An unlabelled constraint has no name of its own; the factor it binds to
+    // is the honest one to print. `${c.label}` alone rendered "undefined" here
+    // the moment such a constraint could match at all.
+    return matching
+      .map(c => `Constrained: ${c.label ?? cleanedLabel} ${c.operator} ${c.value ?? '-'}`)
+      .join('; ')
+  }, [goalConstraints, cleanedLabel, props.id])
 
   // Anchoring detection (Detailed, pre-analysis)
   const anchoringMessage = useMemo(() => {

@@ -14,6 +14,7 @@ import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
+  getInputGroupLabel,
   INLINE_LABELS,
   DESCRIPTION_PLACEHOLDERS,
   getExtractionLabel,
@@ -294,7 +295,10 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}
-      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+      {/* The header is a CLAIM about who supplied this number, not a static
+          caption. "Your input" over an Olumi estimate is false attribution —
+          see getInputGroupLabel (inspectorStrings.ts) for both directions. */}
+      <PanelGroup kind="input" label={getInputGroupLabel(source, (obs?.raw_value ?? obs?.value) != null)}>
         <PrimaryControlCard>
           {canonicalDisplayText && (
             <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
