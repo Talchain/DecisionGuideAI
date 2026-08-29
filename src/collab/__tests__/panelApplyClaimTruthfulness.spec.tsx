@@ -144,7 +144,9 @@ describe('panel apply — the claim is truthful about what has actually happened
     expect(status.textContent).not.toContain('now uses')
     expect(status.textContent).toContain('is being applied')
     expect(status.textContent).toContain('Grace')
-    expect(status.textContent).toContain('0.85')
+    // Percentages since `formatPanelValue` landed. The property is that the
+    // claim NAMES THE NUMBER it is applying — unchanged.
+    expect(status.textContent).toContain('85%')
   })
 
   it("⭐ names the other panellists' answers in the same breath", async () => {
@@ -152,7 +154,7 @@ describe('panel apply — the claim is truthful about what has actually happened
     const status = await screen.findByTestId(`reveal-applied-${TARGET_ID}`)
     // Applying Grace's number must never read as the panel having agreed.
     expect(status.textContent).toContain('Ada')
-    expect(status.textContent).toContain('0.2')
+    expect(status.textContent).toContain('20%')
     expect(status.textContent).toContain('still recorded below')
   })
 

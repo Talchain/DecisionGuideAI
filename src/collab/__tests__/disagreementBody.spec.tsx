@@ -178,11 +178,17 @@ describe('positions', () => {
   it('renders the range as two endpoints, never as one number', () => {
     render(<DisagreementBody view={view()} />)
     const spread = screen.getByTestId(`disagreement-spread-${TARGET_ID}`)
-    expect(spread).toHaveTextContent('0.2')
-    expect(spread).toHaveTextContent('0.85')
+    // Written as percentages since `formatPanelValue` landed — the PROPERTY
+    // pinned here is unchanged (both endpoints named, never one number
+    // standing in for them), only the numeral spelling is.
+    expect(spread).toHaveTextContent('20%')
+    expect(spread).toHaveTextContent('85%')
     // ⚠ 0.525 is the midpoint of this fixture. Its appearance anywhere would
-    // mean the surface had invented a number nobody in the room said.
+    // mean the surface had invented a number nobody in the room said. Asserted
+    // in BOTH spellings, because the display rule now has two and a midpoint
+    // smuggled in as "52.5%" would otherwise pass.
     expect(document.body.textContent).not.toContain('0.525')
+    expect(document.body.textContent).not.toContain('52.5%')
   })
 
   it('never renders aggregate language', () => {

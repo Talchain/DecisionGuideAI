@@ -257,7 +257,9 @@ describe('W-F3: the participant can tell their contribution landed', () => {
     const confirmation = screen.getByTestId(`packet-confirmation-${TARGET_X}`)
     expect(confirmation).toHaveTextContent('Your answer is in.')
     // WHAT: the value and the participant's own words, verbatim.
-    expect(screen.getByTestId(`packet-confirmation-value-${TARGET_X}`)).toHaveTextContent('0.25')
+    // 0.25 renders as 25% since `formatPanelValue` landed; the property —
+    // the confirmation states WHAT was recorded — is unchanged.
+    expect(screen.getByTestId(`packet-confirmation-value-${TARGET_X}`)).toHaveTextContent('25%')
     expect(screen.getByTestId(`packet-confirmation-value-${TARGET_X}`)).toHaveTextContent(WORDS)
     // PRIVACY: the clause the witness said was missing.
     expect(confirmation).toHaveTextContent(/private until the round closes/i)

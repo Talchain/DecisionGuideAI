@@ -64,6 +64,7 @@ import {
   rememberOpenRound,
   type OpenRoundRecord,
 } from '../collab/openRoundRecord'
+import { COLLAB_PRODUCT_NAME } from '../collab/branding'
 import { typography } from '../styles/typography'
 import { RevealBody, type RevealApplyState } from './ParticipantPacketPage'
 
@@ -72,6 +73,13 @@ const COLUMN = 'mx-auto w-full max-w-[680px]'
 const CARD = 'rounded-[20px] border border-panel-border bg-panel p-6 shadow-1 sm:p-8'
 const FIELD =
   'w-full min-h-[44px] rounded-md border border-panel-border bg-panel px-4 py-3 text-text-body placeholder:text-text-light transition-colors duration-fast focus:border-info focus:outline-none focus:ring-2 focus:ring-info/50'
+
+/**
+ * Placeholder names for the participant fields. A LIST rather than two
+ * literals, because the form now takes N people and a third field reading
+ * "Ada" again would look like a duplicate rather than an empty row.
+ */
+const PERSON_PLACEHOLDERS: readonly string[] = ['Ada', 'Grace', 'Priya', 'Rahim', 'Mei']
 
 /**
  * ⚠ DERIVED FROM THE SEAM, NOT RETYPED. `ownerSignInRequired()` is the one
@@ -334,11 +342,23 @@ export default function PanelSetupPage(): JSX.Element {
   // mount: the prefill SEEDS the form and is then the owner's to edit — a
   // later location change must never stomp what they have typed.
   const [prefill] = useState(() => readPanelPrefill(location.search))
-  const [targetId, setTargetId] = useState(() => prefill?.factorId ?? '')
-  const [targetLabel, setTargetLabel] = useState(() => prefill?.label ?? '')
+  /**
+   * ⭐ N FACTORS AND N PEOPLE. The wire has always accepted both — `mintRound`
+   * takes `targets[]` and `participants[]`, CEE stores a target MANIFEST, and a
+   * three-target round has been minted and revealed successfully. This FORM was
+   * the only limit: it hard-coded a single-element `targets` array and exactly
+   * two name fields, so the product capped a demo at one question and two
+   * colleagues while every layer beneath it was general.
+   *
+   * Seeded at one target and two people because that is the shape of the common
+   * case and an empty form is a worse first screen than a small one. Rows are
+   * added, never required.
+   */
+  const [targets, setTargets] = useState<Array<{ id: string; label: string }>>(() => [
+    { id: prefill?.factorId ?? '', label: prefill?.label ?? '' },
+  ])
   const [contextNote, setContextNote] = useState('')
-  const [nameA, setNameA] = useState('')
-  const [nameB, setNameB] = useState('')
+  const [names, setNames] = useState<string[]>(() => ['', ''])
   const [minted, setMinted] = useState<MintedRound | null>(null)
   const [reveal, setReveal] = useState<RevealView | null>(null)
   const [disagreement, setDisagreement] = useState<DisagreementView | null>(null)
@@ -369,22 +389,32 @@ export default function PanelSetupPage(): JSX.Element {
       const result = await mintRound(accessToken, {
         scenarioId: scenarioId ?? '',
         contextNote: contextNote.trim() === '' ? null : contextNote,
-        targets: [
-          {
-            target: { kind: 'factor', id: targetId.trim() },
-            label: targetLabel.trim() === '' ? targetId.trim() : targetLabel.trim(),
+        // Empty rows are DROPPED, not sent: an owner who added a row and
+        // changed their mind must not mint a nameless target, and a round is
+        // easier to add a row to than to un-mint.
+        targets: targets
+          .map((t) => ({ id: t.id.trim(), label: t.label.trim() }))
+          .filter((t) => t.id !== '')
+          .map((t) => ({
+            target: { kind: 'factor' as const, id: t.id },
+            label: t.label === '' ? t.id : t.label,
             description: null,
             // The prefilled unit is IDENTITY-BOUND to the prefilled factor: it
             // arrived describing THAT factor's scale, so it rides only while
             // the target id still names it. An owner who retargets the round
             // by editing the id gets `null` — a unit that followed them to a
             // different factor would be a false claim about that factor.
-            unit: prefill !== null && targetId.trim() === prefill.factorId ? prefill.unit : null,
-          },
-        ],
-        participants: [{ display_name: nameA.trim() }, { display_name: nameB.trim() }].filter(
-          (p) => p.display_name !== '',
-        ),
+            //
+            // ⚠ AND THE BINDING IS BY ID, NOT BY ROW POSITION. With several
+            // targets the prefilled factor may be moved, or a row added above
+            // it; matching on the id means the unit follows the FACTOR it
+            // describes and cannot be inherited by a sibling that merely sits
+            // where it used to.
+            unit: prefill !== null && t.id === prefill.factorId ? prefill.unit : null,
+          })),
+        participants: names
+          .map((n) => ({ display_name: n.trim() }))
+          .filter((p) => p.display_name !== ''),
       })
       setMinted(result)
       // Remember the non-secret half so navigating away no longer strands the
@@ -401,7 +431,7 @@ export default function PanelSetupPage(): JSX.Element {
     } finally {
       setBusyAction(null)
     }
-  }, [scenarioId, targetId, targetLabel, contextNote, nameA, nameB, prefill])
+  }, [scenarioId, targets, contextNote, names, prefill])
 
   // Parameterised by round id because there are now TWO callers: the fresh
   // mint on screen, and the recovery banner's RECORDED round.
@@ -580,7 +610,14 @@ export default function PanelSetupPage(): JSX.Element {
     )
   }
 
-  const targetIdHasSpaces = targetId.trim() !== '' && /\s/.test(targetId.trim())
+  /** Row helpers. Small, local, and named so the JSX below stays readable. */
+  const setTargetAt = (i: number, patch: Partial<{ id: string; label: string }>): void =>
+    setTargets((prev) => prev.map((t, n) => (n === i ? { ...t, ...patch } : t)))
+  const setNameAt = (i: number, value: string): void =>
+    setNames((prev) => prev.map((n, k) => (k === i ? value : n)))
+
+  /** At least one factor is named — the same gate as before, generalised. */
+  const anyTargetNamed = targets.some((t) => t.id.trim() !== '')
 
   return (
     <main data-testid="panel-setup-page" className={PAGE_SHELL}>
@@ -588,7 +625,7 @@ export default function PanelSetupPage(): JSX.Element {
         <div className={CARD}>
           <p className={`${typography.label} flex items-center gap-2 text-info`}>
             <Users className="h-4 w-4" aria-hidden="true" />
-            Blind panel
+            {COLLAB_PRODUCT_NAME} &middot; Blind panel
           </p>
           <h1 className={`${typography.h2} mt-3 text-text-header`}>
             Ask your team, without anchoring them
@@ -656,64 +693,122 @@ export default function PanelSetupPage(): JSX.Element {
                   you open the round.
                 </p>
               )}
-              <div>
-                <label
-                  htmlFor="panel-target-id-input"
-                  className={`${typography.label} block text-text-header`}
-                >
-                  Which factor should they estimate?
-                </label>
-                <input
-                  id="panel-target-id-input"
-                  data-testid="panel-target-id"
-                  className={`${FIELD} ${typography.body} mt-2`}
-                  value={targetId}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-describedby="panel-target-id-hint"
-                  onChange={(e) => setTargetId(e.target.value)}
-                  placeholder="factor-churn-risk"
-                />
-                <p
-                  id="panel-target-id-hint"
-                  data-testid="panel-target-id-hint"
-                  className={`${typography.bodySmall} mt-2 text-text-light`}
-                >
-                  The factor&rsquo;s id in your model, for example{' '}
-                  <span className="text-text-body">factor-churn-risk</span>.
-                </p>
-                {targetIdHasSpaces && (
-                  <p
-                    data-testid="panel-target-id-warning"
-                    className={`${typography.bodySmall} mt-2 text-warning`}
+              {/* ⭐ ONE ROW PER FACTOR. The first row keeps the original
+                  test ids so every existing binding still holds — this is an
+                  ADDITIVE change to a form that worked, not a rewrite of it. */}
+              {targets.map((t, i) => {
+                const idTestId = i === 0 ? 'panel-target-id' : `panel-target-id-${i}`
+                const labelTestId = i === 0 ? 'panel-target-label' : `panel-target-label-${i}`
+                const hasSpaces = t.id.trim() !== '' && /\s/.test(t.id.trim())
+                return (
+                  <div
+                    key={`target-row-${i}`}
+                    data-testid={`panel-target-row-${i}`}
+                    className={i === 0 ? '' : 'border-t border-panel-border pt-6'}
                   >
-                    Factor ids do not usually contain spaces. If you meant to describe the factor
-                    to your panel, use the next field instead.
-                  </p>
-                )}
-              </div>
+                    <div>
+                      <label
+                        htmlFor={`${idTestId}-input`}
+                        className={`${typography.label} block text-text-header`}
+                      >
+                        {i === 0
+                          ? 'Which factor should they estimate?'
+                          : `Factor ${i + 1}`}
+                      </label>
+                      <input
+                        id={`${idTestId}-input`}
+                        data-testid={idTestId}
+                        className={`${FIELD} ${typography.body} mt-2`}
+                        value={t.id}
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-describedby={i === 0 ? 'panel-target-id-hint' : undefined}
+                        onChange={(e) => setTargetAt(i, { id: e.target.value })}
+                        placeholder="factor-churn-risk"
+                      />
+                      {i === 0 && (
+                        <p
+                          id="panel-target-id-hint"
+                          data-testid="panel-target-id-hint"
+                          className={`${typography.bodySmall} mt-2 text-text-light`}
+                        >
+                          The factor&rsquo;s id in your model, for example{' '}
+                          <span className="text-text-body">factor-churn-risk</span>.
+                        </p>
+                      )}
+                      {hasSpaces && (
+                        <p
+                          data-testid={
+                            i === 0 ? 'panel-target-id-warning' : `panel-target-id-warning-${i}`
+                          }
+                          className={`${typography.bodySmall} mt-2 text-warning`}
+                        >
+                          Factor ids do not usually contain spaces. If you meant to describe the
+                          factor to your panel, use the next field instead.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-6">
+                      <label
+                        htmlFor={`${labelTestId}-input`}
+                        className={`${typography.label} block text-text-header`}
+                      >
+                        How should it be described to them?
+                      </label>
+                      <input
+                        id={`${labelTestId}-input`}
+                        data-testid={labelTestId}
+                        className={`${FIELD} ${typography.body} mt-2`}
+                        value={t.label}
+                        onChange={(e) => setTargetAt(i, { label: e.target.value })}
+                        aria-describedby={i === 0 ? 'panel-target-label-hint' : undefined}
+                        placeholder="Churn risk after a price rise"
+                      />
+                      {i === 0 && (
+                        <p
+                          id="panel-target-label-hint"
+                          className={`${typography.bodySmall} mt-2 text-text-light`}
+                        >
+                          This is the wording your panel sees. Leave it blank and they see the id
+                          above.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Removal is offered only for rows the owner ADDED. The
+                        first row is the round's reason for existing. */}
+                    {i > 0 && (
+                      <div className="mt-3">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          data-testid={`panel-target-remove-${i}`}
+                          onClick={() =>
+                            setTargets((prev) => prev.filter((_, n) => n !== i))
+                          }
+                          disabled={busyAction !== null}
+                        >
+                          Remove this factor
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
 
               <div>
-                <label
-                  htmlFor="panel-target-label-input"
-                  className={`${typography.label} block text-text-header`}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="panel-add-target"
+                  onClick={() => setTargets((prev) => [...prev, { id: '', label: '' }])}
+                  disabled={busyAction !== null}
                 >
-                  How should it be described to them?
-                </label>
-                <input
-                  id="panel-target-label-input"
-                  data-testid="panel-target-label"
-                  className={`${FIELD} ${typography.body} mt-2`}
-                  value={targetLabel}
-                  onChange={(e) => setTargetLabel(e.target.value)}
-                  aria-describedby="panel-target-label-hint"
-                  placeholder="Churn risk after a price rise"
-                />
-                <p
-                  id="panel-target-label-hint"
-                  className={`${typography.bodySmall} mt-2 text-text-light`}
-                >
-                  This is the wording your panel sees. Leave it blank and they see the id above.
+                  Add another factor
+                </Button>
+                <p className={`${typography.bodySmall} mt-2 text-text-light`}>
+                  Everyone is asked about every factor, in the same order, blind.
                 </p>
               </div>
 
@@ -739,42 +834,65 @@ export default function PanelSetupPage(): JSX.Element {
                 <legend className={`${typography.label} px-1 text-text-header`}>
                   Who is answering?
                 </legend>
+                {/* ⭐ ONE FIELD PER PERSON, N OF THEM. The first two keep their
+                    original test ids (`panel-name-a` / `panel-name-b`), so the
+                    two-person journey every existing spec drives is unchanged.
+                    Blind elicitation gets MORE useful with more people, and the
+                    wire accepted them all along. */}
                 <div className="mt-2 grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="panel-name-a-input"
-                      className={`${typography.label} block text-text-header`}
-                    >
-                      First person&rsquo;s name
-                    </label>
-                    <input
-                      id="panel-name-a-input"
-                      data-testid="panel-name-a"
-                      className={`${FIELD} ${typography.body} mt-2`}
-                      value={nameA}
-                      onChange={(e) => setNameA(e.target.value)}
-                      placeholder="Ada"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="panel-name-b-input"
-                      className={`${typography.label} block text-text-header`}
-                    >
-                      Second person&rsquo;s name
-                    </label>
-                    <input
-                      id="panel-name-b-input"
-                      data-testid="panel-name-b"
-                      className={`${FIELD} ${typography.body} mt-2`}
-                      value={nameB}
-                      onChange={(e) => setNameB(e.target.value)}
-                      placeholder="Grace"
-                    />
-                  </div>
+                  {names.map((name, i) => {
+                    const testId =
+                      i === 0 ? 'panel-name-a' : i === 1 ? 'panel-name-b' : `panel-name-${i}`
+                    const ordinal =
+                      i === 0 ? 'First' : i === 1 ? 'Second' : i === 2 ? 'Third' : `Person ${i + 1}`
+                    return (
+                      <div key={`name-row-${i}`}>
+                        <label
+                          htmlFor={`${testId}-input`}
+                          className={`${typography.label} block text-text-header`}
+                        >
+                          {i <= 2 ? `${ordinal} person\u2019s name` : ordinal}
+                        </label>
+                        <input
+                          id={`${testId}-input`}
+                          data-testid={testId}
+                          className={`${FIELD} ${typography.body} mt-2`}
+                          value={name}
+                          onChange={(e) => setNameAt(i, e.target.value)}
+                          placeholder={PERSON_PLACEHOLDERS[i % PERSON_PLACEHOLDERS.length]}
+                        />
+                        {/* The first two are the round's shape; anything beyond
+                            them the owner added and may take back. */}
+                        {i > 1 && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            data-testid={`panel-name-remove-${i}`}
+                            className="mt-2"
+                            onClick={() => setNames((prev) => prev.filter((_, k) => k !== i))}
+                            disabled={busyAction !== null}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="mt-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    data-testid="panel-add-name"
+                    onClick={() => setNames((prev) => [...prev, ''])}
+                    disabled={busyAction !== null}
+                  >
+                    Add another person
+                  </Button>
                 </div>
                 <p className={`${typography.bodySmall} mt-3 text-text-light`}>
-                  Names are what everyone sees beside each answer when the round closes.
+                  Names are what everyone sees beside each answer when the round closes. Blank
+                  ones are ignored.
                 </p>
               </fieldset>
 
@@ -782,11 +900,11 @@ export default function PanelSetupPage(): JSX.Element {
                 <Button
                   data-testid="panel-mint"
                   onClick={handleMint}
-                  disabled={busyAction !== null || targetId.trim() === ''}
+                  disabled={busyAction !== null || !anyTargetNamed}
                 >
                   Open the round
                 </Button>
-                {targetId.trim() === '' && (
+                {!anyTargetNamed && (
                   <span
                     data-testid="panel-mint-hint"
                     className={`${typography.bodySmall} text-text-light`}

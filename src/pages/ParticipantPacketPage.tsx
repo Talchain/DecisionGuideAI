@@ -54,12 +54,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, KeyRound, Loader2, Lock, Users } from 'lucide-react'
 
 import { BeliefElicitationField } from '../canvas/components/BeliefElicitationField'
 import { useBeliefElicitation } from '../canvas/hooks/useBeliefElicitation'
 import { Button } from '../components/ui/Button'
 import { DisagreementBody } from '../collab/DisagreementBody'
+import { COLLAB_PRODUCT_NAME } from '../collab/branding'
+import { formatPanelValue } from '../collab/formatPanelValue'
 import {
   attachEvidence,
   CollabRequestError,
@@ -590,7 +592,7 @@ function TargetCard({
                   : 'Your answer is in.'}
               </strong>{' '}
               <span data-testid={`packet-confirmation-value-${target.target.id}`}>
-                You answered {confirmation.value}
+                You answered {formatPanelValue(confirmation.value)}
                 {confirmation.words !== null && (
                   <em> &mdash; &ldquo;{confirmation.words}&rdquo;</em>
                 )}
@@ -635,6 +637,9 @@ function TargetCard({
           elicitation={elicitation}
           onAccept={commit}
           testId={`packet-belief-${target.target.id}`}
+          // The participant is on a phone, on a full-width page whose every
+          // other input is 44px. See the prop's docstring.
+          size="comfortable"
         />
       </div>
 
@@ -947,7 +952,39 @@ export default function ParticipantPacketPage(): JSX.Element {
     <main data-testid="participant-packet-page" className={PAGE_SHELL}>
       <div className={COLUMN}>
         <header className={CARD}>
-          <h1 className={`${typography.h2} text-text-header`}>You have been asked for your view</h1>
+          {/* ⭐ WHOSE PRODUCT THIS IS, SAID ONCE, AT THE TOP.
+              This page is the FIRST — and for most panellists the ONLY — screen
+              of Olumi they will ever see, reached by a bare link from a chat
+              client. It carried no product name anywhere: an invitee opened an
+              unbranded page that said "You have been asked for your view" and
+              had nothing to tell them what had asked, or on whose behalf. */}
+          <p className={`${typography.label} flex items-center gap-2 text-info`}>
+            <Users className="h-4 w-4" aria-hidden="true" />
+            {COLLAB_PRODUCT_NAME} &middot; Blind panel
+          </p>
+          <h1 className={`${typography.h2} mt-3 text-text-header`}>
+            You have been asked for your view
+          </h1>
+          {/* ⚠ THE QUESTION, FROM THE WIRE — and note what is NOT claimed here.
+              The packet carries no sender name and no decision title:
+              `OPEN_PACKET_ALLOWED_KEYS` (CEE `collab/types.ts`) is a CLOSED key
+              set asserted strict, and neither exists on it. So the heading
+              names what the panel was actually asked about — the owner's own
+              target labels, which the participant is about to answer — and
+              invents no "Priya has asked you about X". A fabricated sender on
+              the one screen whose entire promise is provenance would be the
+              worst possible place for one. */}
+          {packet.targets.length > 0 && (
+            <p
+              data-testid="packet-asked-about"
+              className={`${typography.body} mt-2 text-text-body`}
+            >
+              On:{' '}
+              <strong className="font-semibold text-text-header">
+                {packet.targets.map((t) => t.label).join(' · ')}
+              </strong>
+            </p>
+          )}
           <p data-testid="packet-self-name" className={`${typography.body} mt-2 text-text-body`}>
             Answering as <strong className="font-semibold text-text-header">{packet.self.display_name}</strong>
           </p>
@@ -1100,7 +1137,15 @@ export function RevealBody({
   return (
     <main data-testid="collab-reveal" className={PAGE_SHELL}>
       <div className="mx-auto w-full max-w-[820px]">
-        <h1 className={`${typography.h2} text-text-header`}>Everyone&rsquo;s answers</h1>
+        {/* Branded here too: the reveal is a SEPARATE arrival for a
+            participant — they come back to a link days later — and it is the
+            screen most likely to be screen-shared with people who have never
+            seen the product at all. */}
+        <p className={`${typography.label} flex items-center gap-2 text-info`}>
+          <Users className="h-4 w-4" aria-hidden="true" />
+          {COLLAB_PRODUCT_NAME} &middot; Blind panel
+        </p>
+        <h1 className={`${typography.h2} mt-3 text-text-header`}>Everyone&rsquo;s answers</h1>
         <p className={`${typography.body} mt-3 text-text-body`}>
           These are the answers as they were given, each in the words the person used. They are
           shown side by side and are not combined into a single number.
@@ -1167,7 +1212,7 @@ export function RevealBody({
             </h2>
             {row.model_value_at_version !== null && (
               <p className={`${typography.bodySmall} mt-1 text-text-light`}>
-                The model held {row.model_value_at_version} for this when the round opened.
+                The model held {formatPanelValue(row.model_value_at_version)} for this when the round opened.
               </p>
             )}
             {/* ⭐ THE CITATION, DISCLOSED BEFORE THE CLICK — ONE SENTENCE PER
@@ -1217,7 +1262,7 @@ export function RevealBody({
                     <span className="text-text-light"> chose not to answer this one.</span>
                   ) : (
                     <>
-                      <span data-testid={`reveal-value-${r.participant_id}`}> {r.value}</span>
+                      <span data-testid={`reveal-value-${r.participant_id}`}> {formatPanelValue(r.value)}</span>
                       {r.expression_raw !== null && r.expression_raw !== '' && (
                         <em data-testid={`reveal-words-${r.participant_id}`}>
                           {' '}
@@ -1263,8 +1308,8 @@ export function RevealBody({
                             className="rounded-md border border-panel-border px-3 py-1.5 text-sm font-medium text-text-header hover:bg-panel-hover disabled:opacity-50"
                           >
                             {apply.applyingKey === `${row.target.id}:${r.participant_id}`
-                              ? `Using ${r.display_label}\u2019s ${r.value}\u2026`
-                              : `Use ${r.display_label}\u2019s ${r.value}`}
+                              ? `Using ${r.display_label}\u2019s ${formatPanelValue(r.value)}\u2026`
+                              : `Use ${r.display_label}\u2019s ${formatPanelValue(r.value)}`}
                           </button>
                         </div>
                       )}
@@ -1340,10 +1385,10 @@ export function RevealBody({
                   const head =
                     applied === undefined
                       ? `Your model is being updated for \u201c${label}\u201d.`
-                      : `${applied.display_label}\u2019s ${applied.value} is being applied to \u201c${label}\u201d in your model.`
+                      : `${applied.display_label}\u2019s ${formatPanelValue(applied.value)} is being applied to \u201c${label}\u201d in your model.`
                   const tail = ' Open your model to see it.'
                   if (others.length === 0) return `${head}${tail}`
-                  const names = others.map((o) => `${o.display_label}\u2019s ${o.value}`).join(', ')
+                  const names = others.map((o) => `${o.display_label}\u2019s ${formatPanelValue(o.value)}`).join(', ')
                   return `${head} ${names} ${others.length === 1 ? 'is' : 'are'} still recorded below.${tail}`
                 })()}
               </p>

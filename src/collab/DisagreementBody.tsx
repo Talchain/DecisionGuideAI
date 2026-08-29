@@ -19,13 +19,23 @@
  * ── AND WHAT THIS COMPONENT MUST NEVER GROW ───────────────────────────────
  * No mean, no midpoint, no "recommended", no consensus line, no ordering of
  * people by how well-supported their view looks. `spread` is rendered as two
- * attributed endpoints and a distance, never as a single number standing in for
- * the positions. A lone dissenter renders exactly like anyone else.
+ * attributed endpoints and a distance — as a sentence AND, since the strip
+ * landed, as a picture — never as a single number standing in for the
+ * positions. A lone dissenter renders exactly like anyone else.
+ *
+ * ⚠ THE PICTURE IS HELD TO A STRICTER VERSION OF THAT RULE, NOT A LOOSER ONE.
+ * A drawn average is more persuasive than a written one, so `SpreadStrip` may
+ * carry no mean line, no midpoint tick, no shaded band and no box plot — only
+ * the two real endpoints, one dot per person at their own number, and the
+ * model's own value marked as the model's. Its header states the rule; this
+ * one names it too, because the temptation arrives at THIS call site.
  */
 
 import { AlertTriangle, ExternalLink, Quote } from 'lucide-react'
 
 import { typography } from '../styles/typography'
+import { formatPanelValue } from './formatPanelValue'
+import { SpreadSection } from './SpreadStrip'
 import type {
   DisagreementEvidence,
   DisagreementTarget,
@@ -125,20 +135,23 @@ function TargetSection({ row }: { row: DisagreementTarget }): JSX.Element {
 
       {row.model_value_at_version !== null && (
         <p className={`${typography.bodySmall} mt-1 text-text-light`}>
-          The model held {row.model_value_at_version} for this when the round opened.
+          The model held {formatPanelValue(row.model_value_at_version)} for this when the round opened.
         </p>
       )}
 
       {row.spread !== null && (
-        // TWO ENDPOINTS AND A DISTANCE. Deliberately not "the average is X" and
-        // deliberately not a single bar with a midpoint marker: both would put a
-        // number on screen that nobody in the room actually said.
-        <p
-          data-testid={`disagreement-spread-${row.target.id}`}
-          className={`${typography.bodySmall} mt-1 text-text-light`}
-        >
-          The answers run from {row.spread.low} to {row.spread.high}.
-        </p>
+        // TWO ENDPOINTS AND A DISTANCE, now DRAWN as well as stated.
+        // Deliberately still not "the average is X" and still not a bar with a
+        // midpoint marker: both would put a number on screen that nobody in the
+        // room actually said, and a drawn one is the more persuasive of the two.
+        // `SpreadSection` keeps the sentence and the picture together so no
+        // caller can mount the picture without the words.
+        <SpreadSection
+          targetId={row.target.id}
+          spread={row.spread}
+          positions={row.positions}
+          modelValue={row.model_value_at_version}
+        />
       )}
 
       <ul className="mt-4 space-y-3">
@@ -154,7 +167,7 @@ function TargetSection({ row }: { row: DisagreementTarget }): JSX.Element {
               <span className="text-text-light"> chose not to answer this one.</span>
             ) : (
               <>
-                <span data-testid={`disagreement-value-${p.participant_id}`}> {p.value}</span>
+                <span data-testid={`disagreement-value-${p.participant_id}`}> {formatPanelValue(p.value)}</span>
                 {/* ⭐ THE STATED BASIS IS THE POINT OF THIS SURFACE. Where the
                     reveal shows it as an aside, here it is the thing being
                     compared — and its ABSENCE is called out, because a position
