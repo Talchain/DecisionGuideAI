@@ -237,6 +237,16 @@ describe('UI ↔ V5 system event parity', () => {
       // This is a reader-only adoption lane, so it must not invent a UI emitter;
       // a separately reviewed product/transport lane owns that future decision.
       'edge_strength_edit',
+      // 0.50.0 — the DIRECT-EDIT structural vocabulary. Reader-only adoption:
+      // this pin bump makes the UI a READER of these members, and deliberately
+      // does NOT invent an emitter. The UI's own emission vocabulary
+      // (WIRE_SYSTEM_EVENT_TYPES) is a source-literal array that this bump does
+      // not touch, and the canvas add affordance that would need them is gated
+      // by CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd === 'disabled'.
+      // Wiring an emitter is a separate, separately reviewed product lane.
+      'structural_add',
+      'structural_add_edge',
+      'structural_rename',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -271,6 +281,6 @@ describe('UI ↔ V5 system event parity', () => {
       (c) => c.kind === 'system_event',
     ).length
     expect(uiEmittedCount).toBe(8)
-    expect(V5_EVENT_KINDS).toHaveLength(13)
+    expect(V5_EVENT_KINDS).toHaveLength(16)
   })
 })

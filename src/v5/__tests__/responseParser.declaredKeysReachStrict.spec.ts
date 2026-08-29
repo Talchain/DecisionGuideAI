@@ -45,6 +45,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { OlumiResponseSchema } from '@talchain/schemas/boundary'
+import { maximalModelVersionMutationReceiptInitial } from '@talchain/schemas/fixtures'
 
 import { parseV5Response, ADDITIVE_EXTENSIONS_KEY } from '../responseParser'
 
@@ -137,6 +138,16 @@ const SCHEMA_VALID_SAMPLES: Readonly<Record<string, unknown>> = {
   // would pass neither. This one carries two distinct kinds summing to 3 = 3.
   // Verified by executing `ModelBuildingNoticesSchema.safeParse` (VALID), with a
   // negative control setting `total_count: 2` (INVALID — the sum rule), so the
+  // 0.50.0-new (C8 model-version contracts). DERIVED FROM THE PRODUCER, not
+  // hand-rolled: this is the contract's OWN published maximal fixture for
+  // `ModelVersionMutationReceiptV1Schema`, so the sample cannot drift from the
+  // schema it is meant to exercise (trap 13c — an oracle written from the
+  // consumer's reading of what a receipt "ought" to look like would be a
+  // perfect score on the wrong exam). Verified by execution against
+  // OlumiResponseSchema in the exact BASE_PAYLOAD context, with a negative
+  // control corrupting `version_number` to prove the sample actually reaches
+  // the receipt schema rather than passing vacuously.
+  model_version_receipt: maximalModelVersionMutationReceiptInitial,
   // refinement is known to be exercised.
   model_building_notices: {
     total_count: 3,
