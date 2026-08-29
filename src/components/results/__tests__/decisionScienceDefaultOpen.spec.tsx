@@ -15,15 +15,28 @@
  * Nothing here is a new capability. Both sections were already built, already
  * mounted and already correct — they were simply unfindable.
  *
- * ## Why the third case is not padding (standing brief §3)
+ * ## Why cases (c) and (d) are not padding (standing brief §3)
  *
  * The two assertions above are satisfied by TWO different implementations:
  * the intended one (flip these two call sites), and the wrong one (flip
  * `defaultExpanded`'s default in the shared `Accordion` primitive, which
- * would silently expand every accordion in the product). Case (c) is the
- * discriminating half of the pair — `accordion-drivers` is a sibling built
- * from the SAME primitive and is deliberately left collapsed, so a change to
- * the primitive REDs here while the intended change stays green.
+ * would silently expand accordions all over the product).
+ *
+ * ⚠ CASE (c) ALONE DOES NOT CATCH THAT, AND AN EARLIER VERSION OF THIS
+ * COMMENT CLAIMED IT DID. Measured, not assumed: mutating the primitive's
+ * `defaultExpanded = false` to `true` left all three of (a)/(b)/(c) GREEN.
+ * The reason is that `accordion-drivers` passes `defaultExpanded={false}`
+ * EXPLICITLY (`ResultsBody.tsx:722`), so the parameter default never governs
+ * it — a default is only reachable where the prop is OMITTED. The claim was
+ * exactly the kind a green suite never contradicts, and only the mutant found
+ * it.
+ *
+ * So the two cases divide the work:
+ *   (c) proves the change is SCOPED — a sibling section on the same tab is
+ *       still collapsed, i.e. the panel was not blanket-expanded;
+ *   (d) proves the PRIMITIVE's default is untouched, by rendering an
+ *       Accordion that omits the prop, which is the only construction the
+ *       default actually reaches.
  *
  * Binding is by testid — the accordion's own identity — never by position or
  * by "the first expanded region", either of which another section could
@@ -32,6 +45,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ResultsBody } from '../ResultsBody'
+import { Accordion } from '../Accordion'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { TornadoRow } from '../TornadoChart'
 import type {
@@ -181,11 +195,24 @@ describe('the decision science is open on arrival', () => {
     expect(headerOf('accordion-stress-test')).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('(c) DISCRIMINATOR — a sibling built from the same primitive stays collapsed', () => {
+  it('(c) SCOPE — a sibling section on the same tab is still collapsed', () => {
     renderBody()
     // Positive control: the sibling mounted at all, so its collapsed reading
     // is a fact about the accordion and not about a section that never rendered.
     expect(screen.getByTestId('accordion-drivers')).toBeInTheDocument()
     expect(headerOf('accordion-drivers')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('(d) PRIMITIVE — an Accordion that omits the prop still defaults to collapsed', () => {
+    // The ONLY construction the parameter default governs. Everything else on
+    // this tab passes `defaultExpanded` explicitly, which is precisely why the
+    // other three cases cannot see a change to the primitive.
+    render(
+      <Accordion title="Untouched default" testId="accordion-default-probe">
+        <p>body</p>
+      </Accordion>,
+    )
+    expect(screen.getByTestId('accordion-default-probe')).toBeInTheDocument()
+    expect(headerOf('accordion-default-probe')).toHaveAttribute('aria-expanded', 'false')
   })
 })
