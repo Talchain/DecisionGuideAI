@@ -30,7 +30,7 @@
  * Expected values: src/test/fixtures/golden-expectations.ts
  */
 
-import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2EdgeSensitivity, V2FactorSensitivity } from './types'
+import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2CritiqueSeverity, V2EdgeSensitivity, V2FactorSensitivity } from './types'
 import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
@@ -804,17 +804,47 @@ function mapContributionToStrength(contribution: number): 'low' | 'medium' | 'hi
 }
 
 /**
- * Map V2 critique severity to V1 format.
+ * Map V2 critique severity to the canonical V1 severity space.
+ *
+ * This is the SINGLE authority for that translation — both call sites in this
+ * file route through it, and no consumer downstream re-derives severity from
+ * the raw wire value.
+ *
+ * The pinned ISL contract declares FOUR severities (`info | warning | error |
+ * blocker`) and PLoT forwards all four verbatim, but the canonical V1 space
+ * has three. `error` therefore has no exact slot.
+ *
+ * `error` maps to WARNING and deliberately NOT to BLOCKER: PLoT sets
+ * `blocks_analysis: c.severity === 'blocker'`, so an `error` critique does not
+ * block analysis. Promoting it would make the product assert a blocker the
+ * science never declared — a worse failure than under-reporting one. WARNING
+ * is the closest bucket that overstates nothing.
+ *
+ * An unrecognised severity stays INFO — we never manufacture severity we
+ * cannot support — but it is recorded as a data-shape anomaly so contract
+ * drift is visible rather than silent. The lowercase normalisation guards the
+ * untyped wire; every producer we know of already sends lowercase.
  */
-function mapCritiqueSeverity(severity: 'blocker' | 'warning' | 'info'): 'BLOCKER' | 'WARNING' | 'INFO' {
-  switch (severity) {
+function mapCritiqueSeverity(
+  severity: V2CritiqueSeverity | string | undefined | null
+): 'BLOCKER' | 'WARNING' | 'INFO' {
+  const normalised = typeof severity === 'string' ? severity.trim().toLowerCase() : ''
+
+  switch (normalised) {
     case 'blocker':
       return 'BLOCKER'
+    case 'error':
     case 'warning':
       return 'WARNING'
     case 'info':
       return 'INFO'
     default:
+      recordDataShapeAnomaly(
+        'responseMapper.mapCritiqueSeverity',
+        'critique.severity',
+        'blocker | error | warning | info',
+        severity
+      )
       return 'INFO'
   }
 }

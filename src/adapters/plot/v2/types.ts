@@ -243,11 +243,26 @@ export interface V2FactorSensitivity {
 }
 
 /**
+ * Critique severity as it arrives on the v2 wire.
+ *
+ * These are the FOUR members declared by the pinned ISL contract
+ * (plot-lite-service `tests/fixtures/isl-pinned/isl-openapi.json`,
+ * `components.schemas.CritiqueV2.properties.severity.enum`), which PLoT
+ * forwards verbatim — see `mapISLCritiquesToV2` in
+ * plot-lite-service `src/routes/v2/run.ts`, whose own `CritiqueSeverityV3`
+ * union carries the same four.
+ *
+ * `error` was missing here, so it fell through `mapCritiqueSeverity`'s
+ * default and was silently presented to the user as `INFO`.
+ */
+export type V2CritiqueSeverity = 'blocker' | 'error' | 'warning' | 'info'
+
+/**
  * V2 critique item.
  */
 export interface V2Critique {
   code: string
-  severity: 'blocker' | 'warning' | 'info'
+  severity: V2CritiqueSeverity
   message: string
   /** Humanised message for user-facing UI (preferred over raw `message`) */
   user_message?: string
