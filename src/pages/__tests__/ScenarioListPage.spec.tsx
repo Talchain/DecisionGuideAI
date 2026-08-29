@@ -57,7 +57,16 @@ function expectStrategicReasoningEntry() {
       'Olumi turns messy strategic work into a living visual model while keeping your judgement visible.',
     ),
   ).toBeInTheDocument()
-  expect(screen.getByText('Sign up to keep your models across devices.')).toBeInTheDocument()
+  // ⚠ WAS: 'Sign up to keep your models across devices.' — withdrawn 29 Aug
+  // because there is no sign-up route to send anyone to. Pinned in BOTH
+  // directions: the honest sentences must be present AND the invitation must be
+  // gone, so a revert cannot restore the falsehood under a green suite.
+  expect(
+    screen.getByText(
+      'This is an invite-only pilot. Sign in if you have an account.',
+    ),
+  ).toBeInTheDocument()
+  expect(screen.queryByText(/sign up/i)).not.toBeInTheDocument()
   expect(screen.queryByRole('heading', { name: 'Decisions' })).not.toBeInTheDocument()
   expect(screen.queryByText(/manage your decisions/i)).not.toBeInTheDocument()
 }

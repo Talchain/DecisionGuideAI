@@ -424,8 +424,37 @@ export default function ScenarioListPage() {
           <p className={`${typography.body} text-text-body mt-4`}>
             Olumi turns messy strategic work into a living visual model while keeping your judgement visible.
           </p>
+          {/* ⚠⚠ THIS SENTENCE USED TO INVITE AN ACTION THE PRODUCT CANNOT
+              PERFORM. It read "Sign up to keep your models across devices."
+              There is no sign-up: the route table is `/login`, `/auth/callback`,
+              `/brief/:slug`, `/panel/:round_id` plus the AuthGuard block
+              (`poc/AppPoC.tsx`), with no `/signup` and no `/register`, and
+              `AuthContext`'s `signUp` is a `legacyNoOp` since password auth was
+              removed. `LoginPage` states the reality — "This is an invite-only
+              pilot" — and deliberately ships NO sign-up and NO password reset
+              ("Owners are pre-provisioned; the absence of a self-serve path is a
+              decision, not an oversight"). So the arrival screen was sending an
+              unguided colleague to look for a door that is not there, while the
+              page they landed on said the opposite.
+
+              ⚠ AND WHAT THIS COPY DELIBERATELY STILL DOES NOT SAY. The obvious
+              replacement — "without an account your work stays only in this
+              browser" — is FALSE and is BANNED by `test/guestStorageClaims.ts`.
+              The mechanism is settled and server-side: a guest's model lives on
+              Olumi's servers and is re-fetched every load from a 36-byte UUID
+              pointer. That module's standing rule is to avoid positive
+              storage-location claims altogether, so this says nothing about
+              storage and names only what a guest demonstrably does not get.
+
+              Both losses are derived from the gate, not guessed: TopBar renders
+              "Ask your team" only for `panelScenarioId`, and the share control
+              only for `shareScenarioId`, and CanvasMVP passes each as
+              `isPersistenceActive && currentScenarioId ? … : null`. */}
           <p className={`${typography.bodySmall} text-text-light mt-3`}>
-            Sign up to keep your models across devices.
+            This is an invite-only pilot. Sign in if you have an account.
+          </p>
+          <p className={`${typography.caption} text-text-light mt-2`}>
+            Without one you can still build a model, but “Ask your team” and shareable links are unavailable.
           </p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <button
