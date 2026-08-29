@@ -109,7 +109,26 @@ export function stripComments(source: string): string {
  */
 export const GUEST_STORAGE_CLAIMS_LICENSED: readonly string[] = [
   // Benefit framing, no storage-location claim, no exclusivity claim.
-  'Sign up to keep your models across devices.',
+  //
+  // ⚠⚠ 'Sign up to keep your models across devices.' WAS LICENSED HERE AND HAS
+  // BEEN WITHDRAWN FROM THE PRODUCT — and the reason matters more than the edit.
+  // It was storage-clean, which is the only question this guard asks, and it
+  // passed. It was false anyway: there is no sign-up route (`poc/AppPoC.tsx`
+  // has none; `AuthContext.signUp` is a `legacyNoOp`), and `LoginPage` ships
+  // "This is an invite-only pilot" with no self-serve path by decision. So the
+  // arrival screen invited an action the product cannot perform, for eleven
+  // days, past a green sweep.
+  //
+  // ⭐ THE LESSON FOR WHOEVER EXTENDS THIS FILE: a licensed sentence is
+  // certified against THIS guard's question — "does it claim where a guest's
+  // work lives?" — and against nothing else. Passing here is not a finding that
+  // the copy is true. The next falsehood class (a control or route the copy
+  // implies but the product does not have) needs its own derivation, and no
+  // widening of these patterns would have caught this one.
+  //
+  // Its replacements are licensed below: both are storage-silent by design.
+  'This is an invite-only pilot. Sign in if you have an account.',
+  'Without one you can still build a model, but “Ask your team” and shareable links are unavailable.',
   'Describe a decision you are facing.',
   'Start reasoning without an account.',
 ]
