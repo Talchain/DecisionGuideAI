@@ -129,6 +129,59 @@ export const NON_BLOCKING_CEE_TYPES: ReadonlySet<string> = new Set([
   'constraint_dropped',
 ])
 
+/**
+ * CEE blocker types that mean "this option→factor pair has no magnitude" —
+ * the factor IS connected; only the effect VALUE is absent.
+ *
+ * Derived from the producer enum `AnalysisBlockerType`
+ * (`olumi-assistants-service/src/schemas/analysis-ready.ts`):
+ *   missing_value | ambiguous_value | missing_connection | constraint_dropped
+ * The first two are value-family; `missing_connection` genuinely is a missing
+ * connection; `constraint_dropped` is filtered out above as informational.
+ *
+ * DRIFT DIRECTION IS DELIBERATE. This is a cross-repo list with no shared
+ * contract to derive from (`analysis_ready` is a `.passthrough()` object), so
+ * it can go stale. An unrecognised type therefore keeps the PRE-EXISTING
+ * remedy rather than a guessed one — it is no worse than before the split was
+ * fixed, and it still shows the producer's own sentence, so a drifted entry
+ * degrades to "true but less specific" rather than "confidently wrong".
+ */
+const VALUE_FAMILY_CEE_TYPES: ReadonlySet<string> = new Set([
+  'missing_value',
+  'ambiguous_value',
+])
+
+/**
+ * The remedy offered for a CEE blocker.
+ *
+ * For the value family, `retry_draft` is both DESTRUCTIVE (it discards options
+ * the user added in chat — ROADMAP 2.924) and FUTILE (re-drafting cannot
+ * supply a magnitude the model omitted; the omission is a per-draw property of
+ * the draft grammar's optional slots). `configure_option` routes to the
+ * product's existing working path — the same action OPTIONS_NEED_MAPPING and
+ * EMPTY_INTERVENTIONS already emit — and it is also what the producer itself
+ * suggests (`suggested_action: 'add_value'`).
+ */
+function ceeBlockerRemedy(ceeBlocker: {
+  factor_id: string
+  factor_label?: string
+  option_id?: string
+  option_label?: string
+  blocker_type?: string
+}): NonNullable<ValidationBlocker['action']> {
+  const factorLabel = ceeBlocker.factor_label ?? ceeBlocker.factor_id
+  if (VALUE_FAMILY_CEE_TYPES.has(ceeBlocker.blocker_type ?? '') && ceeBlocker.option_id) {
+    const optionLabel = (ceeBlocker.option_label ?? '').trim()
+    return {
+      type: 'configure_option',
+      label: optionLabel ? `Configure "${optionLabel}"` : 'Configure options',
+      optionId: ceeBlocker.option_id,
+      nodeId: ceeBlocker.factor_id,
+    }
+  }
+  return { type: 'retry_draft', label: factorLabel }
+}
+
 export interface ValidationResult {
   /** Whether analysis can proceed */
   canRun: boolean
@@ -880,13 +933,20 @@ export function validateBeforeRun(
       }
     }
 
-    // Add blocking CEE blockers
+    // Add blocking CEE blockers.
+    //
+    // `message` is the producer's own per-pair question — see the field note in
+    // `adapters/cee/types.ts`. Carrying it verbatim is the whole point: CEE has
+    // already composed a sentence naming the option AND the factor, and the
+    // recovery loop that answers it binds (CEE #1213). Substituting our own
+    // words for it is how the product came to describe a missing VALUE as a
+    // missing CONNECTION.
     for (const ceeBlocker of blockingCeeBlockers) {
       allBlockers.push({
         code: 'CEE_BLOCKER',
-        message: ceeBlocker.reason,
+        message: ceeBlocker.message,
         affectedIds: [ceeBlocker.factor_id],
-        action: { type: 'retry_draft', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
+        action: ceeBlockerRemedy(ceeBlocker),
       })
     }
 
@@ -894,7 +954,7 @@ export function validateBeforeRun(
     for (const ceeBlocker of informationalCeeBlockers) {
       allInformationalBlockers.push({
         code: 'CONSTRAINT_DROPPED',
-        message: ceeBlocker.reason,
+        message: ceeBlocker.message,
         affectedIds: [ceeBlocker.factor_id],
         action: { type: 'info', label: ceeBlocker.factor_label ?? ceeBlocker.factor_id },
       })

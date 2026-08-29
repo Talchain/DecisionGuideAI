@@ -1222,14 +1222,14 @@ describe('blockers preservation', () => {
       options: [makeCEEOptionV3('opt1', 'ready', { factor_price: { value: 100 } })],
       goal_node_id: 'outcome_revenue',
       blockers: [
-        { factor_id: 'factor_a', reason: 'Missing observed value', factor_label: 'Factor A' },
-        { factor_id: 'factor_b', reason: 'No causal path', option_id: 'opt1' },
+        { factor_id: 'factor_a', message: 'Missing observed value', factor_label: 'Factor A' },
+        { factor_id: 'factor_b', message: 'No causal path', option_id: 'opt1' },
       ],
     }
 
     expect(analysisReady.blockers).toHaveLength(2)
     expect(analysisReady.blockers![0].factor_id).toBe('factor_a')
-    expect(analysisReady.blockers![1].reason).toBe('No causal path')
+    expect(analysisReady.blockers![1].message).toBe('No causal path')
 
     const response = makeCEEv3Response(analysisReady)
     expect(hasAnalysisReady(response)).toBe(true)

@@ -170,10 +170,29 @@ const BLOCKER_DISPLAY: Record<string, BlockerDisplayMeta> = {
     suggestedActions: ['Retry draft'],
   },
 
-  // CEE-provided blockers
+  /**
+   * CEE-provided blockers (`analysis_ready.blockers[]`).
+   *
+   * The producer covers FOUR types — missing_value, ambiguous_value,
+   * missing_connection, constraint_dropped — and this static copy described
+   * only the third. For the dominant type (`missing_value`: 17 of 17 blocker
+   * objects on the wire against deployed CEE `f18d941`) it was FALSE twice
+   * over: the factor IS connected, and an option DOES affect it — only the
+   * effect magnitude is absent.
+   *
+   * The description below is now a FALLBACK only. The real description is the
+   * producer's own per-pair sentence, passed through in `enrichBlocker` — the
+   * same treatment ANALYSIS_BLOCKED and ANALYSIS_NOT_READY already get. Static
+   * copy cannot be true of four different causes at once; the producer's
+   * sentence is true of whichever one fired.
+   *
+   * The static `suggestedActions` below are TRUE of the connection family and
+   * are the only family that reaches them — the value family replaces them
+   * with its own remedy label in `enrichBlocker`.
+   */
   CEE_BLOCKER: {
-    title: 'Factor not connected',
-    description: 'This factor influences outcomes but no option directly affects it.',
+    title: 'Needs your input',
+    description: 'The model needs more information about this factor before analysis can run.',
     severity: 'warning',
     supportsRetry: true,
     suggestedActions: ['Connect it to an option', 'Remove if not relevant'],
@@ -223,6 +242,36 @@ const BLOCKER_SORT_ORDER: Record<string, number> = {
 
 const DEFAULT_SORT_ORDER = 50
 
+/**
+ * The CEE blocker card's title — ONE writer, used by both `enrichBlocker` and
+ * `hydrateBlockerLabels`.
+ *
+ * ⚠ WHY THIS IS A FUNCTION AND NOT TWO LITERALS: the title was previously
+ * composed in BOTH places, and hydration runs SECOND. A fix applied to
+ * `enrichBlocker` alone was therefore overwritten by hydration on every card
+ * whose factor label resolves — i.e. the normal case — and would have shipped
+ * dark. Keep this the only place the sentence exists.
+ *
+ * The discriminator is the REMEDY TYPE, which `usePreRunValidation` derives
+ * from the producer's `blocker_type`. `configure_option` means the value
+ * family (the factor is connected; the option's effect magnitude is missing);
+ * anything else keeps the connection wording, which is true for
+ * `missing_connection`.
+ */
+function ceeBlockerTitle(blocker: ValidationBlocker, factorLabel?: string): string {
+  const isValueFamily = blocker.action?.type === 'configure_option'
+  // The value family's remedy label names the OPTION ('Configure "…"'), not the
+  // factor, so its factor name only becomes available at hydration. Until then
+  // the title stays generic rather than naming the wrong thing.
+  if (!factorLabel) {
+    return isValueFamily ? 'Needs an effect value' : 'Needs your input'
+  }
+  const displayLabel = looksLikeId(factorLabel) ? prettifyId(factorLabel) : factorLabel
+  return isValueFamily
+    ? `"${displayLabel}" needs an effect value`
+    : `"${displayLabel}" is not connected`
+}
+
 // ── Public API ───────────────────────────────────────────────────
 
 /**
@@ -236,14 +285,39 @@ export function enrichBlocker(blocker: ValidationBlocker): EnrichedBlocker {
     description: blocker.message || UNKNOWN_BLOCKER.description,
   }
 
-  // CEE_BLOCKER: use factor label from action.label for contextual title
-  // Prettify if the label looks like a raw ID (e.g., "fac_keeping_monthly_churn")
-  if (blocker.code === 'CEE_BLOCKER' && blocker.action?.label) {
-    const rawLabel = blocker.action.label
-    const displayLabel = looksLikeId(rawLabel) ? prettifyId(rawLabel) : rawLabel
+  // CEE_BLOCKER: the producer's own per-pair sentence IS the card body. It
+  // names the option and the factor and states the actual ask, and the chat
+  // loop that answers it binds (CEE #1213). The static description is only a
+  // fallback for a blocker that somehow carries no message — the same
+  // pass-through ANALYSIS_BLOCKED and ANALYSIS_NOT_READY already have.
+  if (blocker.code === 'CEE_BLOCKER' && blocker.message) {
     display = {
       ...display,
-      title: `"${displayLabel}" is not connected`,
+      description: blocker.message,
+    }
+  }
+
+  // CEE_BLOCKER: contextual title. `action.label` is the FACTOR label for the
+  // connection family only — the value family carries an option-scoped remedy
+  // label, so its factor name arrives at `hydrateBlockerLabels` instead.
+  if (blocker.code === 'CEE_BLOCKER') {
+    const factorLabel =
+      blocker.action?.type === 'configure_option' ? undefined : blocker.action?.label
+    display = {
+      ...display,
+      title: ceeBlockerTitle(blocker, factorLabel),
+    }
+  }
+
+  // CEE_BLOCKER value family: the remedy carries the discrimination, so the
+  // destructive Retry Draft button must not render. BlockersSection gates that
+  // button on `display.supportsRetry` (keyed by CODE), not on the blocker's
+  // own action — changing the action alone would leave the button in place.
+  if (blocker.code === 'CEE_BLOCKER' && blocker.action?.type === 'configure_option') {
+    display = {
+      ...display,
+      supportsRetry: false,
+      suggestedActions: [blocker.action.label],
     }
   }
 
@@ -362,9 +436,13 @@ export function hydrateBlockerLabels(
     const nodeLabel = node?.label
     if (!nodeLabel || looksLikeId(nodeLabel)) return enriched
 
+    // ⚠ Hydration runs AFTER enrichment and overwrites the title, so it must
+    // compose it through the SAME writer — a fix applied only in
+    // `enrichBlocker` is silently undone here on every card whose label
+    // resolves.
     const title = enriched.blocker.code === 'CONSTRAINT_DROPPED'
       ? `Constraint not applied: "${nodeLabel}"`
-      : `"${nodeLabel}" is not connected`
+      : ceeBlockerTitle(enriched.blocker, nodeLabel)
 
     return {
       ...enriched,

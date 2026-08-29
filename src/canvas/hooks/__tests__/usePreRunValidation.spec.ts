@@ -707,6 +707,22 @@ describe('validateBeforeRun', () => {
   // M3: CEE-provided blockers merge with graph-derived blockers
   // ===========================================================================
 
+  /**
+   * ⚠ FIXTURE FIELD RENAMED 2026-08-29: `reason` → `message`.
+   *
+   * These fixtures previously spelled the blocker sentence `reason`, a field
+   * NO producer writes. CEE authors `message` (`AnalysisBlocker` in
+   * `olumi-assistants-service/src/schemas/analysis-ready.ts`) — confirmed on
+   * the wire against deployed CEE `f18d941`: 17 of 17 blocker objects carried
+   * `message`, 0 of 17 carried `reason`.
+   *
+   * That is why the split survived: every fixture in this suite encoded the
+   * CONSUMER's model of the producer rather than the producer, so the suite
+   * stayed green while the real payload arrived `undefined`. These are ordinary
+   * fixtures, not a historic capture corpus — correcting them to the producer's
+   * shape is the point. Do not re-derive a fixture's field names from this
+   * file; take them from a capture.
+   */
   describe('CEE blockers merge', () => {
     it('adds CEE blockers to validation result', () => {
       const nodes: Node[] = [
@@ -720,7 +736,7 @@ describe('validateBeforeRun', () => {
         'ready'
       )
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_b', reason: 'No causal path to goal', factor_label: 'Factor B' },
+        { factor_id: 'factor_b', message: 'No causal path to goal', factor_label: 'Factor B' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -749,7 +765,7 @@ describe('validateBeforeRun', () => {
         'ready'
       )
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_a', reason: 'CEE: richer context', factor_label: 'Factor A' },
+        { factor_id: 'factor_a', message: 'CEE: richer context', factor_label: 'Factor A' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -779,9 +795,9 @@ describe('validateBeforeRun', () => {
         'ready'
       )
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_x', reason: 'First reason' },
-        { factor_id: 'factor_x', reason: 'Duplicate (dropped)' },
-        { factor_id: 'factor_y', reason: 'Different factor' },
+        { factor_id: 'factor_x', message: 'First reason' },
+        { factor_id: 'factor_x', message: 'Duplicate (dropped)' },
+        { factor_id: 'factor_y', message: 'Different factor' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -822,7 +838,7 @@ describe('validateBeforeRun', () => {
         'ready'
       )
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_market', reason: 'No option targets this factor', factor_label: 'Market Conditions' },
+        { factor_id: 'factor_market', message: 'No option targets this factor', factor_label: 'Market Conditions' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -844,7 +860,7 @@ describe('validateBeforeRun', () => {
         'ready'
       )
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_price', reason: 'No option targets this factor', factor_label: 'Price' },
+        { factor_id: 'factor_price', message: 'No option targets this factor', factor_label: 'Price' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -865,7 +881,7 @@ describe('validateBeforeRun', () => {
         'ready'
       )
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_unknown', reason: 'No option targets this factor' },
+        { factor_id: 'factor_unknown', message: 'No option targets this factor' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -924,7 +940,7 @@ describe('validateBeforeRun', () => {
       )
       // CEE reports external factor as unreachable
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_regulation', reason: 'No option targets this factor', factor_label: 'Regulation' },
+        { factor_id: 'factor_regulation', message: 'No option targets this factor', factor_label: 'Regulation' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -952,7 +968,7 @@ describe('validateBeforeRun', () => {
       )
       // CEE reports controllable factor as unreachable
       ceeAnalysisReady.blockers = [
-        { factor_id: 'factor_marketing', reason: 'No option targets this factor', factor_label: 'Marketing Spend' },
+        { factor_id: 'factor_marketing', message: 'No option targets this factor', factor_label: 'Marketing Spend' },
       ]
 
       const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
@@ -990,8 +1006,8 @@ describe('validateBeforeRun', () => {
     it('constraint_dropped blockers do NOT set canRun to false', () => {
       const cee = makeReadyCEE()
       cee.blockers = [
-        { factor_id: 'constraint_budget_limit', reason: 'No matching factor', blocker_type: 'constraint_dropped' },
-        { factor_id: 'constraint_time_limit', reason: 'No matching factor', blocker_type: 'constraint_dropped' },
+        { factor_id: 'constraint_budget_limit', message: 'No matching factor', blocker_type: 'constraint_dropped' },
+        { factor_id: 'constraint_time_limit', message: 'No matching factor', blocker_type: 'constraint_dropped' },
       ]
 
       const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
@@ -1005,7 +1021,7 @@ describe('validateBeforeRun', () => {
     it('real CEE blockers still set canRun to false', () => {
       const cee = makeReadyCEE()
       cee.blockers = [
-        { factor_id: 'factor_price', reason: 'No causal path', blocker_type: 'missing_value' },
+        { factor_id: 'factor_price', message: 'No causal path', blocker_type: 'missing_value' },
       ]
 
       const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
@@ -1019,8 +1035,8 @@ describe('validateBeforeRun', () => {
     it('mix of constraint_dropped + real blockers: only real blockers count', () => {
       const cee = makeReadyCEE()
       cee.blockers = [
-        { factor_id: 'constraint_budget', reason: 'No matching factor', blocker_type: 'constraint_dropped' },
-        { factor_id: 'factor_price', reason: 'No causal path' }, // no blocker_type = blocking
+        { factor_id: 'constraint_budget', message: 'No matching factor', blocker_type: 'constraint_dropped' },
+        { factor_id: 'factor_price', message: 'No causal path' }, // no blocker_type = blocking
       ]
 
       const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)
@@ -1035,7 +1051,7 @@ describe('validateBeforeRun', () => {
     it('CEE status ready + constraint_dropped only → canRun true', () => {
       const cee = makeReadyCEE()
       cee.blockers = [
-        { factor_id: 'constraint_max_headcount', reason: 'Unmatched constraint', blocker_type: 'constraint_dropped' },
+        { factor_id: 'constraint_max_headcount', message: 'Unmatched constraint', blocker_type: 'constraint_dropped' },
       ]
 
       const result = validateBeforeRun('goal_revenue', baseNodes, [], cee)

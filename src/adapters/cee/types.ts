@@ -537,9 +537,33 @@ export interface CEEAnalysisReady {
     factor_id: string
     factor_label?: string
     option_id?: string
-    reason: string
-    /** CEE blocker classification — e.g. 'constraint_dropped' for phantom constraints */
+    /** Human-readable option label, when the blocker is scoped to one option */
+    option_label?: string
+    /**
+     * CEE's own actionable, per-pair sentence — the question the product is
+     * asking the user, naming BOTH the option and the factor.
+     *
+     * ⚠ THE PRODUCER WRITES `message`, NEVER `reason`. This field was declared
+     * as `reason` until 2026-08-29, so every CEE blocker arrived `undefined`
+     * and the card fell back to static copy asserting a cause that was false
+     * for the dominant blocker type. Measured on the wire against deployed CEE
+     * `f18d941`: across 6 drafts spanning 3 brief classes, 17 of 17 blocker
+     * objects carried `message` and 0 of 17 carried `reason`.
+     *
+     * Producer of record: `olumi-assistants-service/src/schemas/analysis-ready.ts`
+     * (`AnalysisBlocker`), minted in `src/cee/transforms/analysis-ready.ts`.
+     * `analysis_ready` is a `.passthrough()` object undeclared in the shared
+     * contract, so NO schema pin at either end can catch a divergence here —
+     * the only guard is a fixture taken from the wire.
+     */
+    message: string
+    /**
+     * CEE blocker classification. Producer enum (`AnalysisBlockerType`):
+     * 'missing_value' | 'ambiguous_value' | 'missing_connection' | 'constraint_dropped'.
+     */
     blocker_type?: string
+    /** Producer's suggested remedy — e.g. 'add_value', 'add_edge'. */
+    suggested_action?: string
   }>
   /**
    * Decision-specific coaching summary from CEE (coaching.summary).
