@@ -22,6 +22,9 @@ import {
 } from '../components/results/utils/selectGoalProbability'
 import { trackResultsViewed, trackIssuesOpened, trackLayoutFallbackApplied } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun } from './store/runHistory'
+// The "no analysis on screen" state, shared with the Supabase switch boundary in
+// `hooks/useScenario`. See that module's header for why it is not defined here.
+import { createIdleResults } from './store/idleResults'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import {
@@ -269,6 +272,7 @@ export interface ResultsState {
   /** The `runEpoch` of the run that produced the error currently held. */
   errorEpoch?: number
 }
+
 
 /**
  * ROADMAP 2.1127 — the `reportEpoch` stamped on a report RESTORED from history
@@ -4426,6 +4430,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastRunAt: scenario.last_run_at ?? null,
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
       previousReport: null, // A1: Clear stale deltas on scenario switch
+      // The previous scenario's REPORT goes with its deltas. Without this, a
+      // switch to a scenario that has never been analysed — or whose run this
+      // browser's history no longer holds — left the previous decision's
+      // completed report on screen, attributed to the one just opened:
+      // `tryRestoreResultsFromHistory` below returns early on a falsy or
+      // unmatched hash and clears nothing. When history DOES hold the run,
+      // `resultsLoadHistorical` overlays this idle state a few lines down, so
+      // a restorable report is not lost.
+      results: createIdleResults(),
       // Scenario switch always invalidates analysis freshness. If run history
       // is found below, resultsLoadHistorical will overlay (also sets false/null).
       // Without this, switching to a scenario with no last_result_hash leaves

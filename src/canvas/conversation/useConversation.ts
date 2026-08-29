@@ -9,6 +9,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
 import { setCurrentScenarioId } from '../store/scenarios'
+// Session identity without React context — see that module's header for why it
+// is neither `useAuth()` nor a canvas-store field.
+import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
@@ -157,6 +160,16 @@ import {
 
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
+
+/**
+ * What a signed-in user is told when a send arrives with no decision open.
+ *
+ * Exported so the spec asserts the SHIPPED string rather than a copy of it — a
+ * test that restates the copy passes for ever while the product says something
+ * else (CLAUDE.md trap 12).
+ */
+export const NO_SCENARIO_OPEN_NOTICE =
+  'Open or create a decision first — then I can work on it with you. Your decisions are on the Decisions page.'
 
 /**
  * Detect assistant text that should NOT be stored in conversation history.
@@ -3518,6 +3531,36 @@ export function useConversation(): UseConversationReturn {
       // turns — including after a page refresh / re-init — reuse the same ID.
       let currentScenarioId = useCanvasStore.getState().currentScenarioId
       if (!currentScenarioId || !isUUID(currentScenarioId)) {
+        // ⚠ REFUSED FOR A SIGNED-IN SESSION. The mint is correct for a GUEST,
+        // whose decisions are local and who has no decision list to open from.
+        // For a persisted user it manufactures a decision they never asked for:
+        // any route to `currentScenarioId === null` — deleting the active
+        // scenario is one — makes the next Send allocate a fresh UUID, and
+        // CEE's own rule ("scenario absent + no admitted turn → CREATE") then
+        // legitimately creates that row. The user silently acquires a second
+        // decision, and the one they were working in is not the one they are
+        // now talking to.
+        //
+        // A signed-in user always has a real way to get a real scenario (the
+        // Decisions page), so refusing costs them nothing and inventing one
+        // costs them their place. Say so rather than failing silently.
+        if (isPersistenceSessionActive()) {
+          if (import.meta.env.DEV) {
+            console.warn('[sendTurn V5] Refused to mint a scenario_id for a persisted session')
+          }
+          if (mode === 'user' && !hidden) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: NO_SCENARIO_OPEN_NOTICE,
+              timestamp: new Date(),
+            })
+          }
+          if (userBubbleIdForTurn) {
+            updateMessage(userBubbleIdForTurn, { deliveryState: 'failed' })
+          }
+          releaseInFlightLockIfOwned(); return
+        }
         const newId = crypto.randomUUID()
         if (import.meta.env.DEV) {
           console.warn('[sendTurn V5] Allocated fresh scenario_id:', newId)

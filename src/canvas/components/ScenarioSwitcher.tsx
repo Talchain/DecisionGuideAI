@@ -62,12 +62,38 @@ interface ScenarioSwitcherProps {
    * that mount answers a kebab rename request.
    */
   onRename?: (name: string) => void
+  /**
+   * ⭐ DOES THIS SESSION PERSIST TO THE SERVER? (the canonical
+   * `lib/persistenceActive` predicate, threaded down from `CanvasMVP` through
+   * the TopBar's `isPersisted`.)
+   *
+   * When true, this control's SCENARIO-COLLECTION half is hidden, because every
+   * part of it is wrong for a signed-in user — not merely redundant:
+   *
+   *   LIST   `loadScenarios()` reads localStorage only, and a persisted
+   *          session's decisions live in Supabase with no localStorage row, so
+   *          the list shows the wrong set (empty, or stale guest records).
+   *   SWITCH `store.loadScenario` is the localStorage load path and finds no
+   *          record for a Supabase decision.
+   *   DELETE `store.deleteScenario` removes a localStorage record — it deletes
+   *          a local artefact, not the user's decision, while reporting success.
+   *
+   * Hiding them leaves `ScenarioListPage` as the single switch/delete surface:
+   * ONE owner, rather than a second steering wheel connected to nothing. The
+   * NAME/RENAME half is correct on both paths (it commits through `onRename` to
+   * the framing title) and is deliberately kept.
+   *
+   * Defaults to FALSE so the guest/toolbar mounts — the sessions these controls
+   * are actually for, where localStorage IS the store of record — are unchanged.
+   */
+  isPersisted?: boolean
 }
 
 export function ScenarioSwitcher({
   dropdownPosition = 'above',
   displayName,
   onRename,
+  isPersisted = false,
 }: ScenarioSwitcherProps = {}) {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isDirty = useCanvasStore(s => s.isDirty)
@@ -412,15 +438,20 @@ export function ScenarioSwitcher({
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(currentScenarioId)}
-                        className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-panel-hover rounded transition-colors`}
-                        type="button"
-                        role="menuitem"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {/* Deletes a localStorage RECORD. On a persisted session
+                          that is not the user's decision — see `isPersisted`.
+                          The Decisions page owns delete there. */}
+                      {!isPersisted && (
+                        <button
+                          onClick={() => handleDelete(currentScenarioId)}
+                          className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-panel-hover rounded transition-colors`}
+                          type="button"
+                          role="menuitem"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -447,7 +478,18 @@ export function ScenarioSwitcher({
               className="hidden"
             />
 
-            {/* Scenario list */}
+            {/* Scenario list — localStorage-backed, and therefore the WRONG set
+                for a persisted session (see `isPersisted`). Replaced there by a
+                pointer to the surface that does own decisions, so the control
+                disappearing does not read as something broken. */}
+            {isPersisted ? (
+              <div
+                className={`px-4 py-3 ${typography.body} text-gray-500`}
+                data-testid="scenario-switcher-persisted-notice"
+              >
+                Your decisions are on the Decisions page.
+              </div>
+            ) : (
             <div className="max-h-64 overflow-y-auto">
               {scenarios.length === 0 ? (
                 <div className={`px-4 py-3 ${typography.body} text-gray-500 text-center`}>
@@ -522,6 +564,7 @@ export function ScenarioSwitcher({
                 </>
               )}
             </div>
+            )}
           </div>
         )}
       </div>

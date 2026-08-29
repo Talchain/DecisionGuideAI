@@ -564,15 +564,88 @@ describe('scenarioService', () => {
   // -----------------------------------------------------------------------
 
   describe('deleteScenario', () => {
-    it('calls DELETE on scenarios table', async () => {
-      const eqFn = vi.fn().mockResolvedValue({ error: null })
+    /**
+     * Build the `.delete().eq().select()` chain, with `select` resolving to the
+     * rows PostgREST reports as affected.
+     */
+    function armDelete(result: { data: unknown; error: unknown }) {
+      const selectFn = vi.fn().mockResolvedValue(result)
+      const eqFn = vi.fn().mockReturnValue({ select: selectFn })
       const deleteFn = vi.fn().mockReturnValue({ eq: eqFn })
-      mockFrom.mockReturnValue({ delete: deleteFn, select: vi.fn(), insert: mockInsert, update: mockUpdate })
+      mockFrom.mockReturnValue({
+        delete: deleteFn,
+        select: vi.fn(),
+        insert: mockInsert,
+        update: mockUpdate,
+      })
+      return { selectFn, eqFn, deleteFn }
+    }
+
+    it('calls DELETE on scenarios table', async () => {
+      const { eqFn } = armDelete({ data: [{ id: 'scenario-1' }], error: null })
 
       await service.deleteScenario('scenario-1')
 
       expect(mockFrom).toHaveBeenCalledWith('scenarios')
       expect(eqFn).toHaveBeenCalledWith('id', 'scenario-1')
+    })
+
+    /**
+     * ⚠ THE DEFECT. A bare `DELETE … .eq('id', …)` with no `.select()` cannot
+     * distinguish "one row deleted" from "zero rows deleted": PostgREST answers
+     * 204 with `error === null` either way. An RLS denial or a stale token
+     * therefore returned SUCCESS, `ScenarioListPage` removed the row from the
+     * list on that success, and the scenario reappeared on the next
+     * `fetchScenarios` — which fires on tab focus. The tester is told the
+     * decision is deleted and watches it come back.
+     *
+     * A delete that cannot fail is not a delete.
+     */
+    it('throws DELETE_FAILED when the delete affected no rows', async () => {
+      armDelete({ data: [], error: null })
+
+      await expect(service.deleteScenario('scenario-1')).rejects.toMatchObject({
+        code: 'DELETE_FAILED',
+      })
+    })
+
+    it('throws DELETE_FAILED when PostgREST returns no rows at all', async () => {
+      // `.select()` can answer `data: null` rather than `[]`; both mean "nothing
+      // was affected" and both must fail closed.
+      armDelete({ data: null, error: null })
+
+      await expect(service.deleteScenario('scenario-1')).rejects.toBeInstanceOf(
+        ScenarioPersistenceError,
+      )
+    })
+
+    it('asks PostgREST which rows it actually deleted', async () => {
+      // Binds the mechanism, not just the outcome: without a `.select()` the
+      // affected-row count is not in the response and the assertions above
+      // could never be satisfied by any implementation.
+      const { selectFn } = armDelete({ data: [{ id: 'scenario-1' }], error: null })
+
+      await service.deleteScenario('scenario-1')
+
+      expect(selectFn).toHaveBeenCalledWith('id')
+    })
+
+    // ── opposite-direction twins: a real delete must still succeed ──────────
+
+    it('resolves when exactly the requested scenario was deleted', async () => {
+      // Bound by IDENTITY — the row returned is the row asked for, not merely
+      // "some row came back".
+      armDelete({ data: [{ id: 'scenario-1' }], error: null })
+
+      await expect(service.deleteScenario('scenario-1')).resolves.toBeUndefined()
+    })
+
+    it('still propagates a genuine Supabase error as DELETE_FAILED', async () => {
+      armDelete({ data: null, error: { message: 'permission denied' } })
+
+      await expect(service.deleteScenario('scenario-1')).rejects.toMatchObject({
+        code: 'DELETE_FAILED',
+      })
     })
   })
 

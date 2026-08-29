@@ -9,6 +9,7 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintEventBus } from '../canvas/blueprints/eventBus'
 import { ToastProvider } from '../canvas/ToastContext'
 import { useCanvasStore } from '../canvas/store'
+import { setPersistenceSessionActive } from '../lib/persistenceSession'
 import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
 import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
 import { DebugTray } from '../components/DebugTray'
@@ -64,6 +65,19 @@ export default function CanvasMVP() {
     isPersistenceActive,
     createSharedBrief,
   } = useScenario()
+
+  // ⭐ THE SINGLE WRITER of `lib/persistenceSession`.
+  //
+  // `useConversation` needs this predicate to refuse minting a fresh scenario
+  // UUID for a signed-in user (which CEE then legitimately creates, handing the
+  // tester a phantom second decision). It cannot call `useAuth()` itself — ~150
+  // specs render that hook without an AuthProvider. So the value is derived
+  // HERE, from the canonical `lib/persistenceActive` predicate `useScenario`
+  // already computed, and published from exactly one place. If a second writer
+  // ever appears, that is the drift (trap 12).
+  useEffect(() => {
+    setPersistenceSessionActive(isPersistenceActive)
+  }, [isPersistenceActive])
 
   // C.1a: Hydrate from Supabase when navigating to /scenario/:id
   const hydratedRef = useRef<string | null>(null)

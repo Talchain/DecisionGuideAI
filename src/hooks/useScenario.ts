@@ -19,7 +19,14 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useCanvasStore } from '../canvas/store'
+// Its own leaf module, not a `canvas/store` export: specs here replace that
+// module wholesale, and a hand-listed `vi.mock` factory would have to mirror
+// its export list. See the module header.
+import { createIdleResults } from '../canvas/store/idleResults'
 import * as scenarioService from '../services/scenarioService'
+// The localStorage pointers a Supabase delete must also clear, or a deleted
+// decision is restored from them on the next reload. See `deleteScenario`.
+import * as scenarios from '../canvas/store/scenarios'
 import type { ScenarioStage, AnalysisProvenance, AnalysisStatus } from '../types/scenario'
 import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
 import type { Edge } from '@xyflow/react'
@@ -787,6 +794,22 @@ export function useScenario(): UseScenarioReturn {
         lastSavedAt: new Date(row.updated_at).getTime(),
         analysisStateReady: false,
         rawV2Response: null,
+        // The REPORT and its delta baseline are per-scenario in exactly the
+        // sense the two fields above are, and were the two that leaked. Only
+        // the `analysis_status === 'ready'` overlay below ever wrote `results`,
+        // so switching to a scenario that has never been analysed (status
+        // 'none'/'running'/'failed') left the PREVIOUS scenario's completed
+        // report on screen under the new scenario's name — and
+        // `autosaveProjection` could persist it there. Cleared here, before the
+        // overlay, so a scenario that DOES have an analysis still gets its own.
+        //
+        // ⚠ Deliberately NOT done inside `hydrateGraphSlice` /
+        // DECISION_CONTEXT_CLEAR: that path also serves non-switch boot
+        // restores, where clearing would blank a fresh analysis on reload.
+        // Both directions are pinned in
+        // canvas/store/__tests__/loadScenarioClearsPreviousAnalysis.spec.ts.
+        results: createIdleResults(),
+        previousReport: null,
       })
 
       if (mountedRef.current) {
@@ -886,11 +909,29 @@ export function useScenario(): UseScenarioReturn {
   const deleteScenario = useCallback(
     async (id: string): Promise<void> => {
       if (!isPersistenceActive) return
+      // Throws on failure — including a delete that affected ZERO rows, which
+      // used to report success. Nothing below runs for a decision the server
+      // still holds: wiping local pointers for a failed delete would strand a
+      // decision the user can no longer reach.
       await scenarioService.deleteScenario(id)
 
       // If we deleted the active scenario, clear the store reference
       if (useCanvasStore.getState().currentScenarioId === id) {
         useCanvasStore.setState({ currentScenarioId: null })
+        // ⚠ AND THE TWO POINTERS THAT SURVIVE A RELOAD, or the deleted decision
+        // comes straight back. Clearing only the in-memory id left:
+        //   olumi-canvas-current-scenario-id — the store seeds `currentScenarioId`
+        //     from it at boot, and `ReactFlowGraph` restores that scenario on a
+        //     UUID-FORMAT check with no existence test;
+        //   olumi-canvas-autosave — the init effect PREFERS this record whenever
+        //     it is newer than the saved one, and it carries the graph itself.
+        // CEE #1192 stopped the SERVER resurrecting a deleted scenario; this is
+        // the client half of the same harm and that fix does not reach it.
+        //
+        // Guarded by the identity check above, so deleting some OTHER decision
+        // never disturbs the one still open.
+        scenarios.clearCurrentScenarioId()
+        scenarios.clearAutosave()
       }
     },
     [isPersistenceActive],
