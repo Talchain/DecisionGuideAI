@@ -218,8 +218,31 @@ export function WorkspaceShellTabStrip({
           tablist says "these three controls are a tab set". Both are true, and
           nesting them keeps every existing binding working. */}
       <nav className="flex flex-1 min-w-0" aria-label={DOCK_TABLIST_LABEL}>
+      {/* ⭐ `flex-wrap` IS THE FLOOR UNDER LABEL LEGIBILITY, AND IT IS NOT
+          SUFFICIENT ON ITS OWN — the two changes here are load-bearing
+          together and were measured separately on deployed staging
+          (29 Aug 2026), across the dock's full drag range:
+
+            dock width          shipped        wrap only      wrap + px-1.5
+            280 (minimum)   1 row, 55px lost   3 rows, 0     3 rows, 0
+            320             1 row, 40px lost   2 rows, 0     2 rows, 0
+            360             1 row, 24px lost   2 rows, 0     2 rows, 0
+            416 (default)   1 row,  3px lost   2 rows, 0     1 row,  0
+
+          `flex-auto min-w-0` shrinks every label together with NO legible
+          floor, so the strip degrades by shaving all four at once rather than
+          by reflowing. At the minimum dock width the Model tab rendered ZERO
+          characters. Wrapping converts that failure into an extra row, which
+          costs a little header height and never costs a name.
+
+          But wrap ALONE regresses the DEFAULT width to two rows: the four
+          labels need 276px inside 289px, and once the 12px of gaps are added
+          the fit is sub-pixel marginal, so one tab reflows. Reclaiming 4px per
+          tab from the horizontal padding (below) restores a genuine ~29px of
+          slack, which is what keeps the default on one row. Neither change
+          alone gets both ends of the range. */}
       <div
-        className="flex flex-1 min-w-0 gap-1"
+        className="flex flex-1 min-w-0 gap-1 flex-wrap"
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -260,7 +283,10 @@ export function WorkspaceShellTabStrip({
               // PROPORTIONALLY only when the content genuinely does not fit.
               title={surface.label}
               data-testid={`outputs-dock-tab-${surface.id}`}
-              className={`flex-auto min-w-0 px-2 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              // `px-1.5`, not `px-2`: 4px per tab, 16px across the strip. That
+              // is what buys the default dock width its slack — see the
+              // measured table above the tablist. Not a cosmetic tightening.
+              className={`flex-auto min-w-0 px-1.5 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
                   ? 'text-info border-b-2 border-info'
                   : 'text-text-header hover:bg-panel border-b-2 border-transparent'

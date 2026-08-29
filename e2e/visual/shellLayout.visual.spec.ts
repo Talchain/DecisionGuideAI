@@ -239,6 +239,53 @@ test.describe('workspace shell — layout, measured', () => {
         expect(t!.width, `tab "${label}" collapsed to nothing`).toBeGreaterThan(8)
       }
 
+      // ── 2b. NO TAB LABEL IS TRUNCATED AT THE DEFAULT DOCK WIDTH ───────────
+      // The checks above measure the BOX and were fully green while every
+      // label was being shaved: a tab can be 48px wide — neither overflowing
+      // nor "collapsed to nothing" — while its label reads "Olu…". Width is
+      // not legibility, and the defect this catches lived precisely in that
+      // gap.
+      //
+      // Measured on deployed staging, 29 Aug 2026, across the dock's drag
+      // range, characters actually visible per label:
+      //
+      //   dock 280 (min)  O…    An…     Anal…        (Model: NOTHING)
+      //   dock 320        Ol…   Anal…   Analysi…     M…
+      //   dock 360        Olu…  Analy…  Analysis (…  Mo…
+      //   dock 416 (def)  Olumi Analysis Analysis (Ne…  Model
+      //
+      // `flex-auto min-w-0` shrinks all four together with no legible floor,
+      // so at the default width the strip needed 276px inside 289px — 13px of
+      // slack — and STILL clipped, because the tabs share space by content
+      // proportion rather than by need.
+      //
+      // Asserted on the LABEL span, which is the element carrying `truncate`;
+      // the button around it never overflows and so can never report this.
+      for (let i = 0; i < tabCount; i++) {
+        const label = await tabs.nth(i).getAttribute('title')
+        const clipped = await tabs.nth(i).evaluate(el => {
+          const span = el.querySelector('.truncate') as HTMLElement | null
+          if (!span) return { found: false, lost: 0, text: '' }
+          return {
+            found: true,
+            lost: span.scrollWidth - span.clientWidth,
+            text: span.textContent ?? '',
+          }
+        })
+        // Positive control on the instrument: if the label span cannot be
+        // resolved, this assertion would pass vacuously for every tab.
+        expect(
+          clipped.found,
+          `tab "${label}" has no .truncate label span — this check would pass vacuously`,
+        ).toBe(true)
+        expect(
+          clipped.lost,
+          `tab "${label}" is truncated by ${clipped.lost}px at ${vp.name} — it renders ` +
+            `"${clipped.text}" clipped. A tester cannot tell two Analysis tabs apart when ` +
+            `both collapse to a stub.`,
+        ).toBeLessThanOrEqual(1)
+      }
+
       // The controls to the right of the nav must all be inside the dock —
       // the overflow symptom was tabs sliding UNDER these.
       for (const control of ['[data-testid="dock-versions-trigger"]', '[data-testid="dock-collapse-control"]']) {
