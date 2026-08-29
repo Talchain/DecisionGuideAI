@@ -36,6 +36,15 @@ const dispatched: Array<Record<string, unknown>> = []
 let resolveInFlight: ((v: unknown) => void) | null = null
 /** When set, every dispatch AFTER the first (the lock-holder) rejects. */
 let failFlushDispatch = false
+/**
+ * When set, every dispatch AFTER the first answers a typed 409 `GRAPH_DIVERGED`
+ * carrying this `details.conflict_category`. Distinct from `failFlushDispatch`
+ * (a transport throw) because the two must NOT be treated alike: a category in
+ * `PROVEN_NO_WRITE_CONFLICT_CATEGORIES` is CEE stating it wrote nothing, which
+ * is `retryable: false` and must DROP the entry, while a transport failure is
+ * an unknown that must KEEP it queued.
+ */
+let flushConflictCategory: string | null = null
 
 vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
@@ -49,6 +58,24 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
         await new Promise((res) => { resolveInFlight = res })
       } else if (failFlushDispatch) {
         throw new TypeError('Failed to fetch')
+      } else if (flushConflictCategory) {
+        return {
+          kind: 'boundary_error',
+          error: {
+            error: 'GRAPH_DIVERGED',
+            boundary: 'B1',
+            direction: 'egress',
+            validator: 'turn_commit',
+            details: {
+              phase: 'commit',
+              failure_type: 'GRAPH_DIVERGED',
+              event_kind: 'factor_value_edit',
+              conflict_category: flushConflictCategory,
+            },
+            request_id: 'req_flush_conflict',
+            retryable: false,
+          },
+        }
       }
       return { ok: true, response: { assistant_text: 'ok', blocks: [] } }
     }),
@@ -117,6 +144,7 @@ beforeEach(() => {
   dispatched.length = 0
   resolveInFlight = null
   failFlushDispatch = false
+  flushConflictCategory = null
   useCanvasStore.setState({
     currentScenarioId: SCENARIO,
     nodes: [],
@@ -263,6 +291,72 @@ describe('system-mode sends blocked by the in-flight lock', () => {
     useCanvasStore.setState({ pendingEmittedEdits: 0 } as never)
     act(() => { useCanvasStore.getState().clearAnalysisFreshnessDirty?.() })
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+  })
+})
+
+describe('a DEFERRED edit refused with a PROVEN no-write is reverted and DROPPED', () => {
+  /**
+   * Where the revert and the retry could contradict each other.
+   *
+   * Once `sendTurn` has reverted the value and told the user so, the deferral
+   * buffer must NOT go on to retry the entry. A retry re-sends the same value
+   * against the same stale `base_graph_hash` and refuses identically — forever
+   * — and at the attempt cap `noticeForUnsentEdit` adds a SECOND message
+   * telling the user to "re-enter it to try again", about a value that is no
+   * longer on their screen. CEE marks this class `retryable: false`.
+   *
+   * ⚠ THE PRECONDITION IS PINNED IN-TEST. Asserting the absence of retry copy
+   * proves nothing unless the edit genuinely went through the buffer — a test
+   * that never queued anything would pass for the wrong reason (a guard
+   * agreeing with itself). So `pendingEmittedEdits` is asserted to be 1 BEFORE
+   * the flush, which is only true of a queued edit, and 0 after.
+   */
+  it('drops the queued entry rather than retrying a refusal CEE marked non-retryable', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+    // PRECONDITION: the edit is genuinely QUEUED, not dispatched. Without this
+    // the assertions below would hold vacuously.
+    expect(
+      useCanvasStore.getState().pendingEmittedEdits,
+      'precondition: the edit must be sitting in the deferral buffer',
+    ).toBe(1)
+    expect(dispatchedEdits(), 'precondition: not on the wire yet').toHaveLength(0)
+
+    flushConflictCategory = 'rpc_cas_conflict'
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+
+    // It WAS dispatched — so the drop is a decision about a real refusal, not
+    // an edit that never left.
+    expect(dispatchedEdits(), 'the queued edit did reach the transport').toHaveLength(1)
+    // …and then dropped, not re-queued for a retry that cannot work.
+    expect(
+      useCanvasStore.getState().pendingEmittedEdits,
+      'a proven no-write is resolved, not pending — the value was reverted',
+    ).toBe(0)
+  })
+
+  it('OPPOSITE TWIN: an UNKNOWN category is still an unknown — the entry stays queued', async () => {
+    const { result } = renderHook(() => useConversation())
+    act(() => { void result.current.sendMessage('run the analysis') })
+    await flush()
+
+    await act(async () => { await result.current.sendSystemEvent(edit('fac_a', 0.5, 25000)) })
+    expect(useCanvasStore.getState().pendingEmittedEdits).toBe(1)
+
+    // Same envelope, same 409, ONLY the category differs — which is exactly the
+    // discrimination under test. Nothing here states the write did not land, so
+    // the hold must survive: dropping it would lose an edit the server may
+    // never have seen.
+    flushConflictCategory = 'some_future_conflict_category'
+    await act(async () => { resolveInFlight?.(undefined); await flush() })
+
+    expect(
+      useCanvasStore.getState().pendingEmittedEdits,
+      'the hold must survive an unknown outcome — the server may not have this edit',
+    ).toBeGreaterThan(0)
   })
 })
 
