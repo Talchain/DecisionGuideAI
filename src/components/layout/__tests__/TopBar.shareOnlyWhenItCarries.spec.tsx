@@ -53,9 +53,19 @@ function renderBar(extra: Record<string, unknown> = {}) {
 }
 
 describe('TopBar share control', () => {
+  /**
+   * ⚠ THESE BIND BY `data-testid`, NOT BY ACCESSIBLE NAME, AND THAT IS THE
+   * WHOLE POINT — MEASURED, NOT ASSUMED. The first version of this file
+   * queried `getByRole('button', { name: /share/i })`. A discriminating mutant
+   * (render the button unconditionally) left it fully GREEN: the control's
+   * accessible name is now "Copy link to decision brief", which contains no
+   * "share", so the absence assertion could never have observed the button it
+   * was written to exclude. It was a guard agreeing with itself, and only the
+   * mutant pair showed it. Binding by identity is what makes the mutant bite.
+   */
   it('is ABSENT for a guest / unsaved canvas — the link would carry nothing', () => {
     renderBar({ shareScenarioId: null })
-    expect(screen.queryByRole('button', { name: /share/i })).toBeNull()
+    expect(screen.queryByTestId('topbar-share')).toBeNull()
   })
 
   it('is ABSENT when the scenario id is an empty string', () => {
@@ -63,7 +73,7 @@ describe('TopBar share control', () => {
     // scenario, and `''` is falsy-but-present in a way a `!= null` check alone
     // would wave through.
     renderBar({ shareScenarioId: '' })
-    expect(screen.queryByRole('button', { name: /share/i })).toBeNull()
+    expect(screen.queryByTestId('topbar-share')).toBeNull()
   })
 
   it('is PRESENT for a persisted scenario — the twin, so absence is not vacuous', () => {
