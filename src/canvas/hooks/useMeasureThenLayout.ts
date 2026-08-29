@@ -7,6 +7,7 @@ import {
 } from '../utils/measureLayoutGate'
 import { LAYOUT_MEASUREMENT_FALLBACK_MS } from '../utils/nodeLayoutConstants'
 import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
+import { logger } from '../../lib/logger'
 
 /**
  * Measure-then-layout effect (D2 of the layout-stabilisation brief).
@@ -112,13 +113,22 @@ export function useMeasureThenLayout(): void {
     }
     const remaining = Math.max(0, fallbackDeadlineRef.current - Date.now())
     const timer = setTimeout(() => {
-      // Deliberately NOT DEV-gated. This warning marks a layout computed
-      // against DEFAULT_NODE_HEIGHT, which is the state that produced the
-      // shipped canvas overlap. It was DEV-only, so production was silent
-      // about a permanently broken layout — which is how it survived to a
-      // deployed build. The corrective pass below should follow it; a
-      // fallback warning with no correction after it is the signal to chase.
-      console.warn(
+      // ⚠ `logger.warn`, NOT `console.warn`, and the difference is the whole
+      // point of this line. Production strips console CALL EXPRESSIONS twice,
+      // and the terser stanza is not mode-gated (`vite.config.ts:160`
+      // `drop_console: true` applies to every `vite build`). Both match a
+      // callee rooted at the global identifier `console`, so a raw
+      // `console.warn` here compiles to NOTHING — the signal marking a layout
+      // computed against DEFAULT_NODE_HEIGHT, which is the state that produced
+      // the shipped canvas overlap, would be silent in exactly the build where
+      // it matters. Measured at the BUILT BUNDLE, same source, same build,
+      // only this call changed: console.warn → 0 chunks carry the message,
+      // logger.warn → 1 chunk does. `logger` roots its sink at `globalThis`,
+      // which neither stripper matches.
+      //
+      // The corrective pass above should follow this line; a fallback warning
+      // with no correction after it is the signal to chase.
+      logger.warn(
         '[layout] proceeding with fallback heights — some nodes not yet measured',
       )
       fallbackDeadlineRef.current = null
