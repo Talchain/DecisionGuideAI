@@ -234,6 +234,10 @@ export const TopBar = ({
           dropdownPosition="below"
           displayName={scenarioTitle}
           onRename={onTitleChange}
+          // A persisted session's decisions live in Supabase; this control's
+          // list/switch/delete read and write localStorage, so they steer the
+          // wrong collection there. `ScenarioListPage` is the single owner.
+          isPersisted={isPersisted}
         />
 
         {/* Dirty indicator (localStorage mode only) */}

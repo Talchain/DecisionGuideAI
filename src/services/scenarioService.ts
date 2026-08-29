@@ -509,16 +509,38 @@ export async function appendEvent(
 // ---------------------------------------------------------------------------
 
 export async function deleteScenario(scenarioId: string): Promise<void> {
-  const { error } = await supabase
+  // ⚠ `.select('id')` IS LOAD-BEARING, NOT DECORATION. A bare
+  // `DELETE … .eq('id', …)` cannot tell "one row deleted" from "zero rows
+  // deleted": PostgREST answers 204 with `error === null` for both, so an RLS
+  // denial or a stale token returned SUCCESS. `ScenarioListPage` then removed
+  // the row from its list on that success and the scenario reappeared on the
+  // next `fetchScenarios` — which fires on tab focus. The user is told the
+  // decision is gone and watches it come back.
+  //
+  // Requesting the affected rows is what makes the outcome observable at all;
+  // asserting on them is what makes the delete able to fail.
+  const { data, error } = await supabase
     .from('scenarios')
     .delete()
     .eq('id', scenarioId)
+    .select('id')
 
   if (error) {
     throw new ScenarioPersistenceError(
       `Failed to delete scenario: ${error.message}`,
       'DELETE_FAILED',
       error,
+    )
+  }
+
+  // Fail CLOSED on an absent or empty affected-row set. `data` can be `null`
+  // rather than `[]`; both mean nothing was deleted, and reporting success for
+  // either is the defect above.
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new ScenarioPersistenceError(
+      `Failed to delete scenario: no rows were deleted (${scenarioId}). ` +
+        'The decision may belong to another account, or your session may have expired.',
+      'DELETE_FAILED',
     )
   }
 }

@@ -24,6 +24,9 @@ import { useCanvasStore } from '../canvas/store'
 // its export list. See the module header.
 import { createIdleResults } from '../canvas/store/idleResults'
 import * as scenarioService from '../services/scenarioService'
+// The localStorage pointers a Supabase delete must also clear, or a deleted
+// decision is restored from them on the next reload. See `deleteScenario`.
+import * as scenarios from '../canvas/store/scenarios'
 import type { ScenarioStage, AnalysisProvenance, AnalysisStatus } from '../types/scenario'
 import { hydrateAnalysisFromV2Response } from './hydrateAnalysis'
 import type { Edge } from '@xyflow/react'
@@ -906,11 +909,29 @@ export function useScenario(): UseScenarioReturn {
   const deleteScenario = useCallback(
     async (id: string): Promise<void> => {
       if (!isPersistenceActive) return
+      // Throws on failure — including a delete that affected ZERO rows, which
+      // used to report success. Nothing below runs for a decision the server
+      // still holds: wiping local pointers for a failed delete would strand a
+      // decision the user can no longer reach.
       await scenarioService.deleteScenario(id)
 
       // If we deleted the active scenario, clear the store reference
       if (useCanvasStore.getState().currentScenarioId === id) {
         useCanvasStore.setState({ currentScenarioId: null })
+        // ⚠ AND THE TWO POINTERS THAT SURVIVE A RELOAD, or the deleted decision
+        // comes straight back. Clearing only the in-memory id left:
+        //   olumi-canvas-current-scenario-id — the store seeds `currentScenarioId`
+        //     from it at boot, and `ReactFlowGraph` restores that scenario on a
+        //     UUID-FORMAT check with no existence test;
+        //   olumi-canvas-autosave — the init effect PREFERS this record whenever
+        //     it is newer than the saved one, and it carries the graph itself.
+        // CEE #1192 stopped the SERVER resurrecting a deleted scenario; this is
+        // the client half of the same harm and that fix does not reach it.
+        //
+        // Guarded by the identity check above, so deleting some OTHER decision
+        // never disturbs the one still open.
+        scenarios.clearCurrentScenarioId()
+        scenarios.clearAutosave()
       }
     },
     [isPersistenceActive],
