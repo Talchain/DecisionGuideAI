@@ -124,7 +124,25 @@ vi.mock('../../../flags', async (importOriginal) => {
   }
 })
 
+/** What the server answers a Stop with. Set per case; all three are driven. */
+let stopKind: 'not_saved' | 'already_saved' | 'unconfirmed' = 'not_saved'
+vi.mock('../../../v5/stopTurn', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, stopV5Turn: vi.fn(async () => ({ kind: stopKind })) }
+})
+
 import { useConversation } from '../useConversation'
+import {
+  EARLY_STOP_NOT_SAVED_NOTICE,
+  EARLY_STOP_ALREADY_SAVED_NOTICE,
+  EARLY_STOP_UNCONFIRMED_NOTICE,
+} from '../../components/DraftLoadingAnimation'
+
+const STOP_NOTICE_BY_KIND = {
+  not_saved: EARLY_STOP_NOT_SAVED_NOTICE,
+  already_saved: EARLY_STOP_ALREADY_SAVED_NOTICE,
+  unconfirmed: EARLY_STOP_UNCONFIRMED_NOTICE,
+} as const
 
 const SCENARIO = 'c3c3c3c3-d4d4-4e5e-8f6f-a7a7a7a7a7a7'
 
@@ -336,7 +354,22 @@ describe('a factor edit whose turn is ABORTED must not vanish in silence', () =>
 // ---------------------------------------------------------------------------
 
 describe('the interrupted edit is not REVERTED — we hold no committed bytes', () => {
-  it("OPPOSITE TWIN: the user's number stands, because CEE may well have taken it", async () => {
+  /**
+   * ⚠ TITLE CORRECTED AFTER REVIEW — it used to read "the user's number
+   * stands", which OVERSOLD what this pins. It passes because the harness's
+   * preempting reply carries no graph (`replies` is empty, so the stub answers
+   * `{assistant_text:'ok', blocks:[]}`). It therefore demonstrates that THIS ARM
+   * does not revert; it demonstrates nothing about survival in production,
+   * where the same lane's own staging reading shows the row flipping to
+   * "Olumi: Moderate (0.5) · AI estimate" once the preempting turn's graph
+   * apply lands.
+   *
+   * ⭐ SO THE SCOPE OF THE WHOLE FIX, PLAINLY: THIS ADDS AN APOLOGY, NOT A
+   * RESCUE. The user is told their number could not be confirmed. The number
+   * itself is still liable to be overwritten by the turn that interrupted it.
+   * Saying that here rather than letting a green test title imply otherwise.
+   */
+  it('OPPOSITE TWIN: the arm itself does not revert — there are no committed bytes either way', async () => {
     await driveInterruptedEdit()
 
     // The request was cancelled CLIENT-side. Nothing was read back, so
@@ -375,5 +408,139 @@ describe('the interrupted edit is not REVERTED — we hold no committed bytes', 
 
     expect(observedOn(TARGET_ID).value).toBe(0.95)
     expect(noticesOf(result as never)).not.toContain(buildInterruptedFactorEditNotice(TARGET_LABEL))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DIRECTION 3 — THE STOP SEAM. Found by the independent review of #962, BY
+// EXECUTION, and it is the arm's real cost rather than a hypothetical.
+//
+// All three stop notices open "You stopped this draft". None of them is about a
+// value edit, and on a stopped `factor_value_edit` turn there IS no draft in
+// flight — `isThinking` is set by the edit turn itself, and the Stop button
+// renders on `isThinking` alone. So the product answered a question nobody
+// asked, and answered it falsely: EARLY_STOP_NOT_SAVED_NOTICE promises "Your
+// canvas is unchanged" while the user's optimistic 0.8 is sitting on it, and
+// EARLY_STOP_UNCONFIRMED_NOTICE tells the user to RELOAD — which would discard
+// the very unpersisted value the edit notice has just told them to go and check.
+//
+// The reviewer's probe, at the arm as first shipped:
+//
+//   PROBE_NOTICE_COUNT=2
+//   [0] "You stopped this draft, and it was cancelled before it was saved.
+//        Your canvas is unchanged — start a new draft when you are ready."
+//   [1] "I couldn't confirm your change to Migration investment (one-off capex)
+//        … set the value again if you need it counted."
+//   PROBE_CANVAS_VALUE=0.8      <- so [0] is FALSE
+//
+// ── WHICH NOTICE FIRES, AND WHY THAT AND NOT A COPY TWEAK ─────────────────
+//
+// The two sentences answer DIFFERENT QUESTIONS: the stop notice answers "what
+// happened to the DRAFT you stopped?", the edit notice answers "what happened
+// to the VALUE you set?". On this turn the first question has no subject. So
+// the fix is not to caveat the draft copy into truthfulness, nor to concatenate
+// two sentences — it is that `cancelTurn` emits the notice matching the KIND of
+// turn it stopped. Exactly one notice per stop, as `cancelTurn`'s own invariant
+// requires, and it is the one with a subject.
+//
+// ⚠ AND THE TWIN THAT MAKES THAT SAFE, which is the whole risk of this change:
+// suppressing the draft notice must NEVER produce silence. `cancelTurn`'s own
+// comment states the rule — "a Stop the user pressed is never silent". So the
+// suppression is conditional on the edit notice ACTUALLY speaking, decided by
+// the same single predicate both sites read, captured synchronously before the
+// abort. When the edit stands down (node gone, value moved on) the draft stop
+// notice fires exactly as it does today.
+// ---------------------------------------------------------------------------
+
+async function driveStoppedEdit(
+  kind: 'not_saved' | 'already_saved' | 'unconfirmed',
+  opts?: { movedOnTo?: number; deleteNode?: boolean },
+) {
+  stopKind = kind
+  holdFirstTurn = true
+  const { result } = renderHook(() => useConversation())
+
+  const pre = useCanvasStore.getState().nodes.find((n) => n.id === TARGET_ID)!.data
+  const undo = captureOptimisticFactorEdit(TARGET_ID, SENT_MODEL, pre)!
+  writeOptimistically(TARGET_ID, SENT_MODEL, SENT_RAW)
+
+  act(() => {
+    void result.current.sendSystemEvent(editEvent(), { optimisticFactorEdit: undo }).catch(() => undefined)
+  })
+  await flush()
+  expect(dispatched.length, 'the edit turn is in flight, not queued').toBe(1)
+
+  if (opts?.movedOnTo !== undefined) writeOptimistically(TARGET_ID, opts.movedOnTo, opts.movedOnTo * CAP)
+  if (opts?.deleteNode) {
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.filter((n) => n.id !== TARGET_ID),
+    } as never)
+  }
+
+  act(() => {
+    result.current.cancelTurn()
+  })
+  await flush()
+  return result
+}
+
+describe('Stop during an in-flight factor edit — exactly ONE notice, and it has a subject', () => {
+  it.each(['not_saved', 'already_saved', 'unconfirmed'] as const)(
+    'stop outcome %s: the value-edit notice speaks and the draft notice stands down',
+    async (kind) => {
+      const result = await driveStoppedEdit(kind)
+      const notices = noticesOf(result as never)
+
+      // RED before the fix: TWO notices, the draft one first and false.
+      expect(notices).toHaveLength(1)
+      expect(notices[0]).toBe(buildInterruptedFactorEditNotice(TARGET_LABEL))
+      expect(notices).not.toContain(STOP_NOTICE_BY_KIND[kind])
+    },
+  )
+
+  it('never claims the canvas is unchanged while the user’s value is sitting on it', async () => {
+    const result = await driveStoppedEdit('not_saved')
+
+    // PRECONDITION, PINNED IN-TEST: the value really IS on the canvas, so the
+    // claim under test really would be false. Without this the assertion passes
+    // on a canvas that happens to be empty.
+    expect(observedOn(TARGET_ID).value).toBe(SENT_MODEL)
+    expect(noticesOf(result as never).join(' ')).not.toMatch(/canvas is unchanged/i)
+  })
+
+  it('never tells the user to reload, which would discard the unpersisted value', async () => {
+    const result = await driveStoppedEdit('unconfirmed')
+
+    expect(observedOn(TARGET_ID).value).toBe(SENT_MODEL)
+    // EARLY_STOP_UNCONFIRMED_NOTICE says "reload to see what your canvas holds".
+    // The optimistic write is in the autosave slot only when something flushed
+    // it, and this arm deliberately flushes nothing — so a reload is the one
+    // instruction that can destroy what the other notice just asked them to check.
+    expect(noticesOf(result as never).join(' ')).not.toMatch(/reload/i)
+  })
+})
+
+describe('the stop suppression is conditional — a Stop the user pressed is NEVER silent', () => {
+  it('OPPOSITE TWIN: when the value has MOVED ON, the draft stop notice fires as it does today', async () => {
+    const result = await driveStoppedEdit('not_saved', { movedOnTo: 0.95 })
+    const notices = noticesOf(result as never)
+
+    // The edit notice stands down (a newer edit owns the surface), so the
+    // suppression must stand down with it. Silence here would be the defect
+    // this whole PR exists to remove, reintroduced by its own fix.
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+  })
+
+  it('OPPOSITE TWIN: when the NODE IS GONE, the draft stop notice fires as it does today', async () => {
+    // ⚠ THIS CASE EXISTS BECAUSE THE REVIEW FOUND `if (!node) return` WAS A
+    // SURVIVING MUTANT — the comment claimed TWO preconditions binding by
+    // identity and only one of them was pinned by anything. A comment asserting
+    // a guard no test holds is how the next reader is misled.
+    const result = await driveStoppedEdit('already_saved', { deleteNode: true })
+    const notices = noticesOf(result as never)
+
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toBe(EARLY_STOP_ALREADY_SAVED_NOTICE)
   })
 })

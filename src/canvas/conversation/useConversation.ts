@@ -138,6 +138,7 @@ import {
   revertOptimisticFactorEdit,
   OPTIMISTIC_FACTOR_EDIT_NOTICE,
   buildInterruptedFactorEditNotice,
+  optimisticFactorEditStillStands,
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
@@ -2496,6 +2497,20 @@ export function useConversation(): UseConversationReturn {
   // Updated at dispatch time at every sendTurn site; read in the response
   // handler to decide whether the arriving response is the current turn.
   const activeV5TurnIdRef = useRef<string | null>(null)
+  /**
+   * The optimistic factor edit carried by the turn CURRENTLY in flight, if any.
+   *
+   * Exists for ONE reader: `cancelTurn`, which must know — synchronously, before
+   * it aborts anything — whether the turn it is stopping carries a value edit.
+   * All three stop notices open "You stopped this draft", and on a stopped
+   * `factor_value_edit` turn there is no draft: the edit turn set `isThinking`
+   * itself. Without this ref `cancelTurn` cannot tell the two turn kinds apart
+   * and answers a question that has no subject.
+   *
+   * Written at dispatch, cleared by REFERENCE IDENTITY in the finally, so a
+   * newer turn's edit is never cleared by an older turn's late exit.
+   */
+  const inFlightOptimisticFactorEditRef = useRef<OptimisticFactorEdit | null>(null)
   // 1.16i: client turn id of the in-flight run_analysis turn, when one is.
   // Set at V5 run dispatch, cleared in that turn's finally. Read by the
   // swallow guard so a run re-click neither preempt-aborts the running
@@ -3120,14 +3135,22 @@ export function useConversation(): UseConversationReturn {
    * the edit, and there are no committed bytes either way. Discarding the
    * user's number on that guess is the data-loss direction of the same harm.
    *
-   * ⚠ TWO PRECONDITIONS, BOTH BINDING BY IDENTITY — the same pair
-   * `revertOptimisticFactorEdit` stands down on, for the same reasons:
+   * ⚠ TWO PRECONDITIONS, BOTH BINDING BY IDENTITY, AND BOTH NOW PINNED — the
+   * same pair `revertOptimisticFactorEdit` stands down on, for the same reasons:
    *   · the node must still EXIST. A cleared transcript, a new draft or a
    *     scenario load all abort in flight, and a sentence about a factor that
    *     is no longer on the canvas is noise pointing at nothing.
    *   · the node must still hold `sentValue`. If a newer edit has moved it on,
    *     that edit owns the surface and will resolve itself; warning about the
    *     superseded one describes a number no longer on screen.
+   * (The review found the node-gone half was a SURVIVING mutant — the comment
+   * claimed two guards and only one was held by a test. Both are now driven,
+   * through the stop seam's twins, which need the distinction to be real.)
+   *
+   * ⭐ THE PRECONDITION LIVES IN `optimisticFactorEditStillStands`, NOT HERE,
+   * because `cancelTurn` has to ask the identical question to decide whether to
+   * stand its own notice down. Two copies would be two questions wearing one
+   * name.
    *
    * NO `markAnalysisFreshnessDirty` CALL, DELIBERATELY, AND IT WAS MEASURED:
    * the optimistic write is itself an analytical `updateNode`, so the flag is
@@ -3137,12 +3160,10 @@ export function useConversation(): UseConversationReturn {
    */
   const resolveInterruptedOptimisticFactorEdit = useCallback(
     (edit: OptimisticFactorEdit) => {
-      const node = useCanvasStore.getState().nodes.find((n) => n.id === edit.nodeId)
-      if (!node) return
-      const data = (node.data ?? {}) as Record<string, unknown>
-      const observed = (data.observedState ?? data.observed_state ?? {}) as Record<string, unknown>
-      if (observed.value !== edit.sentValue) return
+      if (!optimisticFactorEditStillStands(edit)) return
 
+      const node = useCanvasStore.getState().nodes.find((n) => n.id === edit.nodeId)
+      const data = (node?.data ?? {}) as Record<string, unknown>
       const label = typeof data.label === 'string' ? data.label : null
       addMessage({
         id: crypto.randomUUID(),
@@ -3450,6 +3471,13 @@ export function useConversation(): UseConversationReturn {
       // reads this ref, not lastUserInputRef, so hidden/system responses
       // are not dropped just because the user did not type.
       activeV5TurnIdRef.current = turnClientId
+      // Same stamping moment, for the same reason: `cancelTurn` runs
+      // synchronously off a click and cannot await anything to find out what it
+      // is stopping.
+      inFlightOptimisticFactorEditRef.current =
+        opts.mode === 'system' && systemEvent?.type === 'factor_value_edit'
+          ? (opts.optimisticFactorEdit ?? null)
+          : null
       // Stop-fence: capture the stop identity HERE, at the point every turn kind
       // passes through, not only in the V5 branch. The V5 branch refines it below
       // once `currentScenarioId` is definitively resolved (it can MINT a scenario
@@ -5044,6 +5072,12 @@ export function useConversation(): UseConversationReturn {
         // a new source of truth — the line above sets the same value and the
         // effect will set it again; this only removes the one-render lag.
         isThinkingRef.current = false
+        // Clear BY REFERENCE IDENTITY, never unconditionally: a preempted
+        // turn's late finally must not wipe the newer turn's edit out from
+        // under `cancelTurn`. Same ownership rule as the run slot below.
+        if (inFlightOptimisticFactorEditRef.current === opts.optimisticFactorEdit) {
+          inFlightOptimisticFactorEditRef.current = null
+        }
         useDraftStore.getState().setIsGenerating(false)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase
         // (abort, timeout, thrown dispatch, a `return` from the abort guard).
@@ -5596,6 +5630,32 @@ export function useConversation(): UseConversationReturn {
     // defence-in-depth check against programmatic callers.
     if (!isThinkingRef.current) return
 
+    // ── WHICH NOTICE THIS STOP OWES THE USER ────────────────────────────────
+    //
+    // Captured HERE, synchronously, before the abort — because both facts it
+    // depends on are about to change: the abort clears the in-flight turn, and
+    // the edit's own resolution runs in `sendTurn`'s catch a tick later.
+    //
+    // All three `EARLY_STOP_*` notices open "You stopped this draft". On a
+    // stopped `factor_value_edit` turn there IS no draft — that turn set
+    // `isThinking` itself, and the Stop button renders on `isThinking` alone —
+    // so emitting one answers a question with no subject, and answers it
+    // falsely: `NOT_SAVED` promises "Your canvas is unchanged" while the user's
+    // optimistic number is sitting on it, and `UNCONFIRMED` says "reload",
+    // which would discard that unpersisted value outright. Found by the
+    // independent review of #962, by execution, as a contradictory PAIR of
+    // notices once the interrupted-edit arm landed.
+    //
+    // ⚠ CONDITIONAL ON THE EDIT NOTICE ACTUALLY SPEAKING, and that is the whole
+    // safety of it. This function's own rule is that a Stop the user pressed is
+    // never silent. `optimisticFactorEditStillStands` is the SAME predicate the
+    // resolution arm reads, so the two cannot disagree — if the edit has stood
+    // down (node gone, value moved on), so does this suppression, and the draft
+    // notice fires exactly as it does today.
+    const inFlightEdit = inFlightOptimisticFactorEditRef.current
+    const valueEditNoticeWillSpeak =
+      inFlightEdit !== null && optimisticFactorEditStillStands(inFlightEdit)
+
     // Sync the ref IMMEDIATELY so a second synchronous cancelTurn call (e.g.
     // double-click) observes the updated value and bails (G). setIsThinking(false)
     // only updates the mirror ref on the next commit phase via its useEffect.
@@ -5680,7 +5740,7 @@ export function useConversation(): UseConversationReturn {
       // No wire identity means the turn never reached dispatch (or the scenario
       // id was absent), so there is nothing the server could tombstone. Still
       // say something — a Stop the user pressed is never silent.
-      emitStopNotice(EARLY_STOP_UNCONFIRMED_NOTICE)
+      if (!valueEditNoticeWillSpeak) emitStopNotice(EARLY_STOP_UNCONFIRMED_NOTICE)
       return
     }
     // ⚠ NO `has(...)` EARLY RETURN HERE, AND THE HISTORY MATTERS — AMENDMENT A2
@@ -5765,6 +5825,7 @@ export function useConversation(): UseConversationReturn {
       // R-16: copy chosen by TABLE lookup — `EARLY_STOP_NOTICE_BY_OUTCOME`
       // (module scope) is `Record<TurnStopOutcomeKind, string>`, so a fourth
       // outcome kind is a compile error here, never a silent fallthrough.
+      if (valueEditNoticeWillSpeak) return
       emitStopNotice(EARLY_STOP_NOTICE_BY_OUTCOME[result.kind])
     })
   }, [updateMessage, cleanupStreamRefs, addMessage])

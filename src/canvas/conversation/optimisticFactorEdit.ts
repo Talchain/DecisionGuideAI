@@ -614,6 +614,28 @@ export type OptimisticFactorEditNoticeKey = keyof typeof OPTIMISTIC_FACTOR_EDIT_
  * nothing to restore, so the copy stops at the two things that ARE true and
  * available — check the factor, and set it again.
  */
+/**
+ * Does this edit's number still stand, unchanged, on the node it named?
+ *
+ * ⭐ ONE DEFINITION, TWO READERS, AND THAT IS THE POINT. It decides both whether
+ * `resolveInterruptedOptimisticFactorEdit` speaks AND whether `cancelTurn`
+ * stands its draft-stop notice down — and those two must never disagree, because
+ * a disagreement in either direction is a defect the review already caught once:
+ * both speaking is the contradictory pair, neither speaking is silence on a Stop
+ * the user pressed. Two copies of this predicate would be two questions wearing
+ * one name, which is exactly how the estate's worst seams have been built.
+ *
+ * The two stand-down reasons are the same pair `revertOptimisticFactorEdit`
+ * uses, for the same reasons: a node that is gone cannot be checked, and a value
+ * that has moved on belongs to a newer edit that will resolve itself.
+ */
+export function optimisticFactorEditStillStands(edit: OptimisticFactorEdit): boolean {
+  const node = useCanvasStore.getState().nodes.find((n) => n.id === edit.nodeId)
+  if (!node) return false
+  const observed = (readObservedState(node.data) ?? {}) as Record<string, unknown>
+  return observed.value === edit.sentValue
+}
+
 export function buildInterruptedFactorEditNotice(label: string | null | undefined): string {
   const named =
     typeof label === 'string' && label.trim().length > 0
