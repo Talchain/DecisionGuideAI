@@ -55,6 +55,31 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
   }
 })
 
+// ⚠ THE STREAMED-DRAFT OPEN IS MOCKED SO THE FALLBACK IS DETERMINISTIC.
+//
+// Without this the V5 send attempts a REAL `openV5TurnStream` fetch, which
+// fails in jsdom ("streamed turn could not be opened: fetch failed") and only
+// THEN falls back to the buffered turn. That adds unbounded async hops before
+// `dispatched` is populated, and it is timing-dependent: this file passed on a
+// developer machine (14/14, twice, including under CI's exact env values) and
+// failed on CI shard 2, where the deferred-flush assertions read an empty array
+// because the fallback had not landed yet.
+//
+// That variance is a consequence of deleting V4: the old path dispatched
+// through a mocked `turnService` with no network attempt at all, so the extra
+// stream-open hop simply did not exist. The fix is to remove the real fetch,
+// not to widen a wait — a longer flush would still be a race, just a race that
+// usually wins, which is the kind of green that stops meaning anything.
+vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    openV5TurnStream: async () => {
+      throw new TypeError('Failed to fetch')
+    },
+  }
+})
+
 vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return { ...actual, isOrchestratorV2Enabled: () => true, isOrchestratorStreamingEnabled: () => false }
