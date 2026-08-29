@@ -23,6 +23,7 @@ import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
 import { deriveReadinessDisplay, describeReadinessCheck, gateBlockedSubline } from './readinessDisplay'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
+import type { GateBlockedListing } from '../../../utils/canRunAnalysis'
 
 const DOT_CLASSES: Record<PreAnalysisModel['footer']['dot'], string> = {
   muted: 'bg-text-light',
@@ -38,8 +39,8 @@ interface PanelFooterProps {
   canRun: boolean
   /** Advisory tooltip when canRun; the blocked explanation when not. */
   blockedReason?: string
-  /** The producer's sentences behind `blockedReason` — see `ReadinessDisplay.sublineSentences`. */
-  blockedSentences?: readonly string[]
+  /** The itemised form of `blockedReason` — see `GateBlockedListing`. */
+  blockedListing?: GateBlockedListing
   /**
    * ROADMAP 2.332 / 2.339 — non-null only when the readiness CHECK failed.
    * Never gates the run; it replaces the footer's claim about the check.
@@ -60,7 +61,7 @@ export const PanelFooter = memo(function PanelFooter({
   isAnalysing,
   canRun,
   blockedReason,
-  blockedSentences,
+  blockedListing,
   readinessCheck = null,
   nothingHasAnswered = false,
 }: PanelFooterProps) {
@@ -77,7 +78,7 @@ export const PanelFooter = memo(function PanelFooter({
     isAnalysing,
     canRun,
     blockedReason,
-    blockedSentences,
+    blockedListing,
     nothingHasAnswered,
     resting: footer,
   })

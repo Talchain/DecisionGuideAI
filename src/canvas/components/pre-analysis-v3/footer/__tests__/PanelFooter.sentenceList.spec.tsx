@@ -30,7 +30,9 @@ const renderShut = (sentences?: readonly string[]) =>
       isAnalysing={false}
       canRun={false}
       blockedReason={(sentences ?? REAL).join(' ')}
-      blockedSentences={sentences}
+      // The gate publishes the summary beside the list so this surface can
+      // prove they came from one computation — see `GateBlockedListing`.
+      blockedListing={sentences ? { summary: sentences.join(' '), sentences } : undefined}
     />,
   )
 

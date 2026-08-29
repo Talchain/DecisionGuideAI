@@ -119,14 +119,13 @@ import { useConversation } from '../conversation/useConversation'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
-  actionableBlockers,
   readinessObjectsToRun,
   verdictLicenceSuperseded,
   RUN_LICENCE_SUPERSEDED_REFUSAL,
   type ReadinessVerdictLicence,
 } from '../utils/canRunAnalysis'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
-import { selectOptionsNeedingValues, analysisBlockedSentences } from '../utils/composeBlockedReason'
+import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
@@ -1225,22 +1224,25 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   )
   const canRunAnalysis = runGateResult.allowed
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
-  // The producer's sentences BEHIND that tooltip, from the same filter the gate
-  // decided on (`actionableBlockers`), so the footer can render them one per
-  // line instead of the join is UNBOUNDED and nothing truncates it.
+  // ⭐ THE ITEMISED FORM OF THAT TOOLTIP, FROM THE GATE ITSELF — no longer a
+  // second derivation in this file.
   //
-  // ⚠ NOT ASSUMED TO MATCH. `runBlockedTooltip` is `blockingReasons[0]`, which
-  // is not necessarily this composition — another blocker can come first.
-  // `deriveReadinessDisplay` therefore uses this array ONLY when it joins byte
-  // for byte to the vetted string it is rendering beside, and withholds it
-  // otherwise. Supplying a non-matching array here is safe by construction.
-  const runBlockedSentences = useMemo(
-    () =>
-      analysisReadiness
-        ? analysisBlockedSentences(actionableBlockers(analysisReadiness.blockers))
-        : undefined,
-    [analysisReadiness],
-  )
+  // ⚠ THIS USED TO RE-COMPOSE THE SENTENCES OFF `analysisReadiness` while the
+  // gate composed the string, and the defect that cost was exactly the one two
+  // expressions of one fact always cost. `runBlockedTooltip` is the gate's
+  // `reason`, which carries a generated `" (+N more issues)"` suffix as soon as
+  // a second blocker exists — so on a model with a validation error AND missing
+  // option values the two values disagreed, `deriveReadinessDisplay` correctly
+  // refused to trust either to speak for the other, and the user was shown one
+  // collapsed line with none of the values named. It also covered only the
+  // READINESS blockers, so a naive fix would have rendered those and silently
+  // dropped the validation error from the same list.
+  //
+  // The gate now publishes both shapes of its own blocking set
+  // (`GateBlockedListing`), with the summary string beside the list, so the
+  // surfaces can PROVE the two came from one computation rather than compare
+  // their bytes and hope.
+  const runBlockedListing = runGateResult.blockedListing
   // ── INPUTS FOR THE SHELL-HOSTED READINESS BAR ──────────────────────────────
   // Both are DERIVED THROUGH THE PANEL'S OWN OWNER (`readinessDisplay.ts`), not
   // restated here. `usePreAnalysisModel` builds the identical two values from
@@ -3074,7 +3076,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                           isAnalysing={isRunning}
                           canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
-                          blockedSentences={runBlockedSentences}
+                          blockedListing={runBlockedListing}
                         />
                       </Suspense>
                     </div>
@@ -3585,7 +3587,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                          the point: the bar and the footer are two views of one
                          state, and the sentences were reaching only one of
                          them. */
-                      blockedSentences={runBlockedSentences}
+                      blockedListing={runBlockedListing}
                       isAnalysing={isRunning}
                       readinessCheck={readinessCheckForBar}
                       nothingHasAnswered={readinessUnanswered}

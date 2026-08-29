@@ -41,7 +41,7 @@ import type { AnalysisBlocker } from '@talchain/schemas/boundary'
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import {
-  composeAnalysisBlockedReason,
+  analysisBlockedSentences,
   composeReadinessBlockedReason,
   type OptionNeedingValues,
 } from './composeBlockedReason'
@@ -104,6 +104,49 @@ export const DRAFT_VALUES_SETTLING_REFUSAL =
 export const DRAFT_VALUES_UNSETTLED_REFUSAL =
   'Drafting ended before this model\u2019s values arrived, so they are not final. Start a new draft to analyse it.'
 
+/**
+ * The blocking set in the TWO shapes a surface needs, from ONE computation.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ * A blocked surface shows either a single SUMMARY line (a tooltip, an aria
+ * label, a one-line subline) or an ITEMISED list, one blocker per line. Those
+ * are two renderings of one fact, and until this type they were built in two
+ * places: the gate composed `reason` here, while `OutputsDock` separately
+ * composed the sentences off `analysisReadiness`. Two expressions, one fact —
+ * and the surface that held both had no way to prove they were about the same
+ * state, so it fell back to comparing their bytes and withheld the list
+ * whenever they differed for ANY cause. `reason` carries a generated
+ * `" (+N more issues)"` suffix the moment a second blocker exists, so that
+ * comparison failed exactly when the user had the most to fix.
+ *
+ * Both fields are now produced by the same pass over the same array, and the
+ * summary is published rather than re-derived, so a consumer can PROVE the two
+ * values it holds came from one computation instead of inferring it from prose.
+ *
+ * ⚠ `sentences` IS NOT A RANKING AND MUST NEVER BECOME ONE. It is the gate's
+ * own construction order — validation issues in graph-health order, then the
+ * producer's readiness blockers in the producer's order. Nothing here knows
+ * which blocker is worth resolving first, and the quantity that would answer
+ * that (EVPPI) structurally cannot: ISL excludes levers from it by design and
+ * readiness blockers ARE levers, so the two sets are disjoint. Sorting or
+ * grouping this list by anything that reads as importance would be a fabricated
+ * priority wearing a scientific costume.
+ */
+export interface GateBlockedListing {
+  /**
+   * Byte-identical to `CanRunAnalysisResult.reason`, published so a consumer
+   * can check provenance without parsing user-visible text.
+   */
+  readonly summary: string
+  /**
+   * Every blocking reason as ONE renderable sentence, in the gate's order. The
+   * readiness reason — itself a join of the producer's sentences — is expanded
+   * into those sentences, so the list is itemised to the grain the user acts at.
+   * Never truncated, never re-ordered, never summarised.
+   */
+  readonly sentences: readonly string[]
+}
+
 export interface CanRunAnalysisResult {
   /** Whether analysis can be run */
   allowed: boolean
@@ -111,8 +154,32 @@ export interface CanRunAnalysisResult {
   reason?: string
   /** Detailed reasons for blocking (for tooltips/debug) */
   blockingReasons?: string[]
+  /**
+   * The same refusal, itemised — see `GateBlockedListing`. Present exactly when
+   * `reason` is, and always about the same blocking set.
+   */
+  blockedListing?: GateBlockedListing
   /** Warning message (when allowed but suboptimal) */
   warning?: string
+}
+
+/**
+ * The summary line, from the blocking reasons. ONE expression — the gate
+ * composes `reason` with it and `GateBlockedListing.summary` publishes the
+ * result, so no consumer has to reconstruct the suffix by pattern-matching the
+ * prose it is embedded in.
+ *
+ * ⚠ The count is of REASONS, not of `GateBlockedListing.sentences`. A readiness
+ * refusal is ONE reason that decomposes into several sentences, and counting
+ * sentences here would silently rewrite the summary of every single-authority
+ * refusal — today's most common blocked state — from the producer's full text
+ * to its first sentence plus a count. The two units are different on purpose.
+ */
+export function composeGateBlockedSummary(reasons: readonly string[]): string {
+  const primary = reasons[0]
+  const additionalCount = reasons.length - 1
+  if (additionalCount <= 0) return primary
+  return `${primary} (+${additionalCount} more ${additionalCount === 1 ? 'issue' : 'issues'})`
 }
 
 export interface GraphHealthState {
@@ -692,6 +759,18 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   const { graphHealth, readiness, analysisReadiness = null, mayRun, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
+  // The ITEMISED twin of `blockingReasons`, filled in the same pass so the two
+  // cannot describe different sets — see `GateBlockedListing`. Every reason
+  // contributes itself, EXCEPT the readiness refusal, which contributes the
+  // producer's own sentences (it is a join of them). Order is `blockingReasons`'
+  // order and carries no ranking.
+  //
+  // ⚠ The early returns below do NOT publish a listing, and that is deliberate:
+  // several of them state a `reason` that is not their `blockingReasons[0]`
+  // (`'Analysis is currently running'` vs `'Analysis in progress'`), so a listing
+  // there would assert a correspondence that does not hold. They are all
+  // single-blocker states, which render as a sentence rather than a list anyway.
+  const blockingSentences: string[] = []
 
   // 1. Check if already running
   if (isRunning) {
@@ -755,6 +834,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     for (const blocker of validationBlockers) {
       const message = blocker.message || blocker.code || blocker.type || 'Validation error'
       blockingReasons.push(message)
+      blockingSentences.push(message)
     }
   }
 
@@ -764,6 +844,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     // Only add if we haven't already captured from validation
     if (blockingReasons.length === 0) {
       blockingReasons.push('Critical issues need to be resolved')
+      blockingSentences.push('Critical issues need to be resolved')
     }
   }
 
@@ -821,29 +902,35 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     // the ACTIONABLE subset, so the sentence named blockers the gate had just
     // ruled out. `actionableBlockers` is the one filter both now read — see its
     // header for the sentence that shipped.
-    const composed = analysisReadiness
-      ? composeAnalysisBlockedReason(actionableBlockers(analysisReadiness.blockers))
-      : composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)
+    //
+    // ⭐ THE SENTENCES AND THE STRING COME FROM ONE ARRAY, HERE. Until this
+    // change `OutputsDock` re-derived the sentence list off `analysisReadiness`
+    // for the footer while this line composed the string for the tooltip — two
+    // expressions of one fact, which is the mirror this file's own comments keep
+    // warning about. `composeAnalysisBlockedReason` is DEFINED as
+    // `analysisBlockedSentences(...).join(' ')`, so taking the array and joining
+    // it here is byte-identical to the previous call and leaves one owner.
+    const composedSentences = analysisReadiness
+      ? analysisBlockedSentences(actionableBlockers(analysisReadiness.blockers))
+      : [composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale)]
+    const composed = composedSentences.join(' ')
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)
+      blockingSentences.push(...composedSentences)
     }
   }
 
   // Determine result
   if (blockingReasons.length > 0) {
-    // Format the primary reason
-    const primaryReason = blockingReasons[0]
-    const additionalCount = blockingReasons.length - 1
-
-    let reason = primaryReason
-    if (additionalCount > 0) {
-      reason += ` (+${additionalCount} more ${additionalCount === 1 ? 'issue' : 'issues'})`
-    }
+    // The summary is composed by the shared expression, and PUBLISHED beside the
+    // itemised list rather than left to be reconstructed downstream.
+    const reason = composeGateBlockedSummary(blockingReasons)
 
     return {
       allowed: false,
       reason,
       blockingReasons,
+      blockedListing: { summary: reason, sentences: blockingSentences },
     }
   }
 
