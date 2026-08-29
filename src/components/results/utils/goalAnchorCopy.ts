@@ -436,12 +436,37 @@ function joinLabels(labels: readonly string[]): string {
  * (CLAUDE.md trap 12d), so the owner spec also pins this number directly with
  * its measurement as the stated reason.
  *
- * Three, chosen by measurement rather than taste: at 280px — the narrowest dock
- * width — three names plus the overflow phrase is what holds the note to a
- * height that leaves the surrounding surface navigable. If you change it,
- * re-measure at 280px and update the figures in `excludedClause`'s header.
+ * ⭐⭐ TWO, AND IT IS ALSO THE ANALYSIS (NEW) ROW CAP — one number, two
+ * consumers, deliberately. They were two independent integers and each was
+ * justified by the OTHER surface's completeness: the note named them all, so
+ * capping the glance's rows lost nothing; the rows named them, so capping the
+ * note lost nothing. Bounding the note made the first justification false, and
+ * neither suite could see it — a circle built out of two constants (CLAUDE.md
+ * trap 21). Binding them removes the circle instead of re-arguing it.
+ *
+ * CHOSEN BY MEASUREMENT, NOT TASTE. Measured in a real browser on the Analysis
+ * (New) surface at 280px (the narrowest dock width), partial-scope run, with
+ * both consumers reading this constant:
+ *
+ *            note height   panel height   last nav row   (fold ~769px)
+ *   cap 2        61px          835px          784px       15px over
+ *   cap 3        91px          930px          879px      110px over
+ *
+ * Both values fix the honesty defect identically — that is independent of the
+ * number — and both are bounded (the panel is the same height at 6 excluded
+ * options as at 30). Two wins because it comes within 15px of holding the whole
+ * strategic read and navigation in the first viewport where three misses by
+ * 110px, and because the marginal value of a third name AT REST is small when
+ * the count is always on screen and one click reveals every name.
+ *
+ * It also leaves the Analysis (New) row cap exactly where its own measurement
+ * put it, so this change is not a height regression at any option count.
+ *
+ * If you change it, RE-MEASURE at 280px on a partial-scope run and update this
+ * table. Pinned directly in the owner spec, because every other guard derives
+ * from this constant and would move with it (trap 12d).
  */
-export const EXCLUDED_LABEL_NAME_CAP = 3
+export const EXCLUDED_LABEL_NAME_CAP = 2
 
 /**
  * The comparison-set register — ONE spelling of "these numbers compare N of

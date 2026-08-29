@@ -340,7 +340,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
         typeof deriveComparisonScope
       > & object
 
-    it('the cap is 3, and moving it requires re-measuring rather than re-running this suite', () => {
+    it('the cap is 2, and moving it requires re-measuring rather than re-running this suite', () => {
       // ⭐⭐ THE ONE ASSERTION HERE THAT IS NOT DERIVED, AND THAT IS THE POINT.
       // Every other pin reads `EXCLUDED_LABEL_NAME_CAP`, so the constant and its
       // guards move together: a derived guard proves the copies AGREE, never
@@ -351,7 +351,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
       // The value's justification is a BROWSER MEASUREMENT at 280px, recorded on
       // the constant. jsdom cannot check that (trap 3), so what this pin does is
       // stop the cap drifting SILENTLY. Changing it means re-measuring.
-      expect(EXCLUDED_LABEL_NAME_CAP).toBe(3)
+      expect(EXCLUDED_LABEL_NAME_CAP).toBe(2)
     })
 
     it('names at most the cap, then counts the remainder', () => {
@@ -390,16 +390,26 @@ describe('comparison-scope disclosure — a subset result says which options it 
     })
 
     it('keeps singular agreement when exactly one more is unnamed', () => {
-      // 5 options, 1 analysed -> 4 missing; 3 named -> exactly 1 other.
-      // (My first draft of this used 6 options and asserted "1 other" against an
-      // actual 2 — the test was wrong, not the code. Left noted because the
-      // arithmetic here is the whole point of the case.)
-      const clause = COMPARISON_SCOPE_COPY.excludedClause(
-        scopeOf(1, 5, ['Alpha', 'Bravo', 'Charlie', 'Delta']),
-      )
+      // ⚠ DERIVED FROM THE CAP, not written as a literal. Two earlier drafts of
+      // this case hardcoded the arithmetic and both broke the moment the cap
+      // moved — once wrongly (I asserted "1 other" against an actual 2, and the
+      // TEST was wrong, not the code). The construction below yields exactly one
+      // unnamed option at any cap: 1 analysed + cap named + 1 other.
+      const total = 1 + EXCLUDED_LABEL_NAME_CAP + 1
+      const labels = Array.from({ length: EXCLUDED_LABEL_NAME_CAP + 1 }, (_, i) => `Label ${i}`)
+      const clause = COMPARISON_SCOPE_COPY.excludedClause(scopeOf(1, total, labels))
+
+      // PRECONDITION: the construction really does leave exactly one over, so
+      // this case cannot pass by testing a different arithmetic than it names.
+      expect(total - 1 - EXCLUDED_LABEL_NAME_CAP).toBe(1)
       expect(clause).toContain('1 other')
       expect(clause).not.toContain('1 others')
-      expect(clause).toBe('Alpha, Bravo, Charlie and 1 other were left out')
+      expect(clause).toBe(
+        `${labels.slice(0, EXCLUDED_LABEL_NAME_CAP).join(', ')} and 1 other were left out`.replace(
+          /^([^,]+), and/,
+          '$1 and',
+        ),
+      )
     })
 
     it('a capped note can never be the ONLY place an excluded option appears', () => {

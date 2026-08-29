@@ -58,7 +58,11 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance, EXCLUDED_OPTION_VISIBLE_CAP } from '../sections/AtAGlance'
-import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../../utils/goalAnchorCopy'
+import {
+  COMPARISON_SCOPE_COPY,
+  EXCLUDED_LABEL_NAME_CAP,
+  deriveComparisonScope,
+} from '../../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import type { OptionResult } from '../../types'
@@ -396,13 +400,27 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
  * 850px against a ~769px dock, i.e. a reader could reach NO navigation at all
  * without scrolling.
  *
- * ⚠ SCOPE, STATED PRECISELY. These pin what THIS file owns: the number of
- * consequence rows rendered at rest. They pin NOTHING about
- * `ComparisonScopeNote`, which names every excluded option in one sentence and
- * is genuinely unbounded — that component is shared with the existing Analysis
- * tab and is reported, not changed here.
+ * ⚠ SCOPE, STATED PRECISELY — AND CORRECTED. This block used to say the note
+ * "names every excluded option in one sentence and is genuinely unbounded ...
+ * reported, not changed here". The note HAS since been bounded
+ * (`goalAnchorCopy.ts`, `EXCLUDED_LABEL_NAME_CAP`), so that sentence became
+ * false the moment it shipped, and the cap below now reads the SAME constant
+ * rather than being a second number justified by the note's completeness.
+ * These pin the number of consequence rows rendered at rest; the note's own
+ * bounding is pinned by its owner spec.
  */
 describe('5 · the excluded-option consequence rows are bounded, and nothing is lost', () => {
+  it('this surface and the scope note name THE SAME number of options', () => {
+    // ⭐⭐ THE ANTI-CIRCLE PIN. These were two independent integers, each
+    // justified by the other surface's completeness: the note named them all so
+    // capping the rows lost nothing, and the rows named them so capping the note
+    // lost nothing. Bounding the note made the first justification false and
+    // NEITHER suite could see it — a circle built out of two constants
+    // (CLAUDE.md trap 21). They are now one number; this fails if anyone splits
+    // them again.
+    expect(EXCLUDED_OPTION_VISIBLE_CAP).toBe(EXCLUDED_LABEL_NAME_CAP)
+  })
+
   it('the cap is 2, and moving it requires re-measuring rather than re-running this suite', () => {
     // ⭐⭐ THE ONE ASSERTION IN THIS BLOCK THAT IS *NOT* DERIVED, AND THAT IS THE
     // POINT. Every other pin here reads `EXCLUDED_OPTION_VISIBLE_CAP`, so the
@@ -411,12 +429,12 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // A derived guard proves the copies AGREE; it can never prove the value is
     // RIGHT (CLAUDE.md trap 12d).
     //
-    // The value's justification is a BROWSER MEASUREMENT recorded on the
-    // constant itself: two rows plus the scope note is what fits above the
-    // first section row at 280px. jsdom cannot check that (trap 3), so this
-    // pin cannot verify the reason — what it does is make the cap unable to
-    // drift SILENTLY. If you are changing it, re-measure at 280px on a
-    // partial-scope run and update the constant's header with the new figures.
+    // The value's justification is a BROWSER MEASUREMENT, and it now lives with
+    // the SHARED constant in `goalAnchorCopy.ts` rather than here, because this
+    // surface no longer owns a number of its own. jsdom cannot check a layout
+    // claim (trap 3), so what this pin does is make the cap unable to drift
+    // SILENTLY. If you are changing it, re-measure at 280px on a partial-scope
+    // run and update the constant's header with the new figures.
     expect(EXCLUDED_OPTION_VISIBLE_CAP).toBe(2)
   })
 
@@ -591,22 +609,29 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // `a|b|c|d`, so the reset silently did not fire across a genuine change of
     // option set. The failure direction was a MISSED reset, never a crash — the
     // worst kind, because the surface looks fine and the guard is simply absent.
+    // ⚠ FOUR excluded, not three: the sets must EXCEED the cap or no disclosure
+    // control renders and the test cannot observe a failure to reset at all.
+    // (It was three until the cap moved 2 -> 3, at which point it silently
+    // stopped exercising the control — a fixture that stops discriminating when
+    // a constant moves, which is exactly trap 13b.)
     const setOne = [
       option({ id: 'o_kept', label: 'Analysed', winProbability: 0.6 }),
       option({ id: 'a', label: 'Option A', notAnalysed: true, notAnalysedReason: 'not_returned' }),
       option({ id: 'b', label: 'Option B', notAnalysed: true, notAnalysedReason: 'not_returned' }),
       option({ id: 'c|d', label: 'Option C-D', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      option({ id: 'e', label: 'Option E', notAnalysed: true, notAnalysedReason: 'not_returned' }),
     ]
     const setTwo = [
       option({ id: 'o_kept', label: 'Analysed', winProbability: 0.6 }),
       option({ id: 'a', label: 'Option A', notAnalysed: true, notAnalysedReason: 'not_returned' }),
       option({ id: 'b|c', label: 'Option B-C', notAnalysed: true, notAnalysedReason: 'not_returned' }),
       option({ id: 'd', label: 'Option D', notAnalysed: true, notAnalysedReason: 'not_returned' }),
+      option({ id: 'e', label: 'Option E', notAnalysed: true, notAnalysedReason: 'not_returned' }),
     ]
 
     const { rerender } = render(<AtAGlance glance={glanceOf(withOptions(setOne))} />)
     fireEvent.click(screen.getByTestId('analysis-new-glance-excluded-more'))
-    expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(3)
+    expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(4)
 
     rerender(<AtAGlance glance={glanceOf(withOptions(setTwo))} />)
 
@@ -614,6 +639,57 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
       screen.getAllByTestId('analysis-new-glance-excluded-option'),
       'the key collided, so the reset did not fire on a different option set',
     ).toHaveLength(EXCLUDED_OPTION_VISIBLE_CAP)
+  })
+
+  it('AT REST this tab names the cap and no more, and the COUNT plus a route are always visible', () => {
+    // ⭐⭐ THE ACCEPTED POSITION, PINNED — because it is a deliberate reduction
+    // and the kind that quietly becomes an accident.
+    //
+    // Analysis (New) is a SEPARATE DOCK TAB (`OutputsDock.tsx:3457`), so
+    // `ResultsBody`/`OptionCards` — which name every excluded option on the
+    // Analysis tab — are NOT mounted here. This surface is therefore the ONLY
+    // namer, and after bounding both it names 3 at rest where it once named 9.
+    //
+    // What must remain true for that trade to be honest, and what this asserts:
+    //   1. the COUNT is on screen, never behind the control;
+    //   2. a route to the remaining names is on screen;
+    //   3. taking that route reveals ALL of them.
+    const options = [
+      option({ id: 'o_kept', label: 'The analysed one', winProbability: 0.6 }),
+      ...Array.from({ length: 9 }, (_, i) =>
+        option({
+          id: `o_out_${i}`,
+          label: `Excluded option ${i}`,
+          notAnalysed: true,
+          notAnalysedReason: 'not_returned',
+        }),
+      ),
+    ]
+    render(<AtAGlance glance={glanceOf(withOptions(options))} />)
+
+    // 1 — the count, from the owner, never re-typed here.
+    const scope = deriveComparisonScope(options)!
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toHaveTextContent(
+      COMPARISON_SCOPE_COPY.phrase(scope),
+    )
+
+    // At rest: exactly the shared cap, bound by identity not by count alone.
+    const atRest = screen
+      .getAllByTestId('analysis-new-glance-excluded-option')
+      .map((r) => r.dataset.optionId)
+    expect(atRest).toEqual(['o_out_0', 'o_out_1'])
+
+    // 2 — the route exists.
+    const more = screen.getByTestId('analysis-new-glance-excluded-more')
+
+    // 3 — and it reaches every one of them, including the last, which is the
+    // one a truncation would lose.
+    fireEvent.click(more)
+    const expanded = screen
+      .getAllByTestId('analysis-new-glance-excluded-option')
+      .map((r) => r.dataset.optionId)
+    expect(expanded).toHaveLength(9)
+    expect(expanded.at(-1)).toBe('o_out_8')
   })
 
   it('the COUNT is never behind the control — the note states it whatever the cap does', () => {

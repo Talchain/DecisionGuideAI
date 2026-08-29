@@ -66,6 +66,7 @@ import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
+import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 
@@ -114,61 +115,41 @@ export interface AtAGlanceProps {
 }
 
 /**
- * How many excluded options are named before the rest go behind a disclosure.
+ * How many excluded options this surface NAMES at rest, before the rest go
+ * behind the disclosure control.
  *
- * ⚠⚠ WHY THIS CAP EXISTS, MEASURED NOT ASSUMED. The excluded-option list was
- * UNBOUNDED and rendered ABOVE every section row. Measured in a real browser on
- * a partial-scope run with six excluded options: at 416px the first section row
- * sat at 684px and the last at 928px; at 280px the first sat at 850px. The
- * dock's usable height is ~769px, so at 280px A USER COULD REACH NO SECTION ROW
- * AT ALL without scrolling — the surface's entire navigation was below the fold,
- * pushed there by a block that names options the run did not analyse.
+ * ⭐⭐ IT IS THE REGISTER'S CONSTANT, NOT A SECOND NUMBER — and that is the fix
+ * for a defect this file shipped, found by an independent review.
  *
- * ⚠⚠ AND THE JUSTIFICATION HERE HAS NOW BEEN WRONG TWICE — both corrected
- * before shipping, the second time by an independent reviewer, and the exact
- * wording is the point.
+ * The original value here was justified by the scope note above being COMPLETE:
+ * "the note names every excluded option THESE ROWS name", so capping the rows
+ * lost nothing. Bounding the note (`goalAnchorCopy.ts`) made that sentence
+ * FALSE, and the two caps then formed a circle — each one's safety resting on
+ * the other's completeness, with neither suite able to see it. That is the
+ * two-authorities-under-similar-names pattern (CLAUDE.md trap 21) built out of
+ * two integers.
  *
- *   v1  "this is the only place an unanalysed option is NAMED"
- *       FALSE. `ComparisonScopeNote` directly above names them too.
- *   v2  "the note names EVERY excluded option"
- *       ALSO FALSE, and loosely enough to mislead. `ComparisonScope
- *       .excludedLabels` is documented at `goalAnchorCopy.ts:343-349` as MAY BE
- *       SHORTER than `total - analysed`: an option with no usable label — or one
- *       whose label is merely its own node id — is dropped from the sentence.
- *       ⚠ And the fallback is ALL-OR-NOTHING (`goalAnchorCopy.ts:459-461`): the
- *       count phrasing fires only when NO excluded option is nameable, so in a
- *       MIXED set a dropped option is named nowhere and the reader recovers it
- *       only by arithmetic from "1 of your 7". That is a real gap in the note,
- *       and it belongs to the note's owner — not something this cap creates.
+ * Binding them to ONE constant removes the circle rather than re-arguing it:
+ * the note and these rows now name THE SAME options, and cannot drift.
  *
- * THE EXACT CLAIM, which is what the cap's safety rests on: the note names every
- * excluded option THESE ROWS NAME. That holds because the builder applies the
- * SAME nameable-label predicate (`buildAnalysisNewViewModel.ts:909`) that
- * `deriveComparisonScope` does (`goalAnchorCopy.ts:397-416`), so an option the
- * note cannot name renders no row here either. ⚠ Those two filters are one
- * predicate spelled twice — a mirror (trap 12) — and their agreement is pinned
- * in `comparisonScope.spec.tsx` §5 precisely because this cap now depends on it.
+ * ⚠⚠ THE ACCEPTED POSITION ON THIS TAB, STATED RATHER THAN IMPLIED. Analysis
+ * (New) is a separate dock tab (`OutputsDock.tsx:3457`), so `ResultsBody` and
+ * its `OptionCards` are NOT mounted here — the option cards that name every
+ * excluded option on the Analysis tab do not exist on this one. Measured at 9
+ * excluded options, this surface names 2 AT REST where it previously named 9.
+ * That is a real reduction and it is accepted deliberately, because:
  *
- * The division of labour the builder documents is real but was only
- * half-implemented: the note owns WHO, these rows own the CONSEQUENCE, and they
- * were repeating the WHO to carry it.
+ *   - the COUNT is never behind anything ("Comparing 1 of your 10 options —
+ *     A and B and 7 others were left out");
+ *   - every name is one click away, on a control adjacent to the sentence;
+ *   - the alternative was a note that reached 771px at 30 excluded options
+ *     against a ~769px dock, pushing every navigation row off the surface.
  *
- * ⛔ THE FIX IS A DISCLOSURE, NEVER A TRUNCATION — but for the consequence, not
- * the names. `notAnalysedReasonCopy` collapses to exactly TWO sanctioned
- * sentences, so N excluded options render N copies of one of two strings. The
- * cap bounds that repetition; the names remain complete in the note above, and
- * the count is never behind this control.
- *
- * ⚠ WHAT THIS DOES NOT FIX, AND MUST NOT. The dominant growth is the NOTE, not
- * these rows: measured at 280px, the note alone is 229px at 3 excluded options
- * and 741px at 30 — genuinely unbounded. `ComparisonScopeNote` is SHARED with
- * the existing Analysis tab, which this experiment may not alter, so it is
- * reported rather than changed here. This cap bounds only what this file owns.
- *
- * Two, not three: two rows plus the note is what fits above the first section
- * row at 280px, the width the defect was worst at.
+ * A reduction in names-at-rest traded for a bounded, navigable surface with the
+ * count always visible. If that trade is ever judged wrong, raise the shared
+ * constant — do not re-split it into two.
  */
-export const EXCLUDED_OPTION_VISIBLE_CAP = 2
+export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP
 
 export function AtAGlance({
   glance,
