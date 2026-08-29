@@ -208,9 +208,26 @@ describe('the setup form takes N factors and N people', () => {
 })
 
 describe('the product names itself on the surfaces an outsider reaches', () => {
+  /**
+   * ⚠⚠ THE LITERAL, NOT THE CONSTANT — AND THIS FILE SHIPPED THE BUG FIRST.
+   *
+   * These assertions were written as `toContain(COLLAB_PRODUCT_NAME)`, which is
+   * a guard agreeing with itself: mutant M7 set the constant to `''`, every
+   * surface rendered no product name at all, and **all 37 tests stayed green**,
+   * because `toContain('')` is true of every string. The test derived its
+   * expectation from the exact thing it was supposed to be checking.
+   *
+   * So the rendered text is asserted against the LITERAL, and the constant is
+   * pinned separately. A rename now has to change both, deliberately — which is
+   * the point of a name a stranger reads.
+   */
+  it('the constant is a real name, not an empty string', () => {
+    expect(COLLAB_PRODUCT_NAME).toBe('Olumi')
+  })
+
   it("the owner's setup page carries the product name", () => {
     renderSetup()
-    expect(document.body.textContent).toContain(COLLAB_PRODUCT_NAME)
+    expect(document.body.textContent).toContain('Olumi')
   })
 })
 
@@ -257,7 +274,8 @@ describe("the participant's first screen says what it is and what it is about", 
     )
 
     await screen.findByTestId('participant-packet-page')
-    expect(document.body.textContent).toContain(COLLAB_PRODUCT_NAME)
+    // The LITERAL — see the note above on mutant M7.
+    expect(document.body.textContent).toContain('Olumi')
   })
 
   it('names what the panel was asked about, from the wire', async () => {
