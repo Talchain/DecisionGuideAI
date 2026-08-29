@@ -373,6 +373,10 @@ describe('comparison-scope disclosure — a subset result says which options it 
       )
       // 30 missing − 3 named = 27, NOT 5 − 3 = 2. Deriving the overflow from the
       // label list would silently drop the 25 that carry no usable label.
+      // PRECONDITION FIRST. Asserting only the correct figure would also pass if
+      // the clause stopped rendering entirely; asserting only the absence of the
+      // wrong one would pass on an empty string. Both, plus non-emptiness.
+      expect(clause.length, 'the clause rendered nothing — both assertions below would be vacuous').toBeGreaterThan(20)
       expect(clause).toContain(`${30 - EXCLUDED_LABEL_NAME_CAP} others`)
       expect(clause).not.toContain(`${5 - EXCLUDED_LABEL_NAME_CAP} others`)
     })
@@ -396,6 +400,54 @@ describe('comparison-scope disclosure — a subset result says which options it 
       expect(clause).toContain('1 other')
       expect(clause).not.toContain('1 others')
       expect(clause).toBe('Alpha, Bravo, Charlie and 1 other were left out')
+    })
+
+    it('a capped note can never be the ONLY place an excluded option appears', () => {
+      // ⭐⭐ THE PROPERTY THE WHOLE CAP RESTS ON, PINNED AS AN IMPLICATION rather
+      // than left as a co-mount someone read in source once.
+      //
+      // Capping the NAMES is a disclosure and not a drop only because the option
+      // cards name every excluded option on the same screen. A source reading
+      // proves the code path EXISTS; it cannot prove the producer can never feed
+      // one without the other. So the claim is derived instead from the two
+      // conditions themselves:
+      //
+      //   note renders        <=>  deriveComparisonScope(...) !== null
+      //                       =>   >=1 excluded AND >=1 analysed
+      //                       =>   allOptions.length >= 2
+      //   options block gates on  !isSingleOption && allOptions.length > 1
+      //   and `useResultsSectionData:2211` sets isSingleOption = length <= 1
+      //
+      // so the note's own render condition IMPLIES the block's guard. The other
+      // `isSingleOption: true` branch (:1719) is the no-run case and ships
+      // `allOptions: []`, which makes the scope null — no note there either.
+      //
+      // This asserts the arithmetic half, which is the half that could silently
+      // change: if `deriveComparisonScope` ever returned non-null for a set of
+      // fewer than two options, the options block would be gated off while the
+      // note still rendered, and the cap WOULD become a drop.
+      const sets: OptionResult[][] = [
+        [],
+        [analysed(KEEP_A, 0.62)],
+        [excluded(DROPPED, DROPPED_LABEL)],
+        [excluded(DROPPED, DROPPED_LABEL), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)],
+        subsetOptions(),
+        fullSetOptions(),
+        [...subsetOptions(), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)],
+      ]
+
+      let nonNull = 0
+      for (const set of sets) {
+        const scope = deriveComparisonScope(set)
+        if (!scope) continue
+        nonNull++
+        // The guard `ResultsBody` uses, restated as the implication it must satisfy.
+        expect(set.length, `a note would render over ${set.length} option(s)`).toBeGreaterThan(1)
+        expect(set.length <= 1, 'isSingleOption would gate the option cards off').toBe(false)
+      }
+      // POSITIVE CONTROL — a loop that never entered its body would pass this
+      // test while asserting nothing at all (trap 13).
+      expect(nonNull, 'no set produced a scope — this implication is vacuous').toBeGreaterThan(0)
     })
 
     it('the COUNT is never capped — the phrase still states the whole run', () => {
