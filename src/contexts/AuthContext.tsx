@@ -8,6 +8,7 @@ import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
 import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
+import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
 import { setSentryUser, clearSentryUser } from '../lib/monitoring';
 import { identifyUser, resetPostHog, trackEvent } from '../lib/posthog';
 
@@ -20,6 +21,22 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   authenticated: boolean;
+  /**
+   * This browser held a stored session and it could NOT be restored — the
+   * refresh was rejected, errored, or never came back.
+   *
+   * ⚠ A DIFFERENT QUESTION FROM `loading`, AND FROM `authenticated`. Under the
+   * optional-auth posture `authenticated` is permanently `true` (a guest counts
+   * as authenticated so every route stays reachable), and `loading` answers
+   * "am I still resolving?". Neither can express "I tried to bring you back and
+   * failed", which is the state a returning user must be TOLD about rather than
+   * being dropped silently onto the arrival screen for someone who has never
+   * signed in. Two harms, two names — do not collapse them into one flag.
+   *
+   * `false` for a visitor who never had a session: nothing was attempted, so
+   * nothing failed.
+   */
+  sessionRestoreFailed: boolean;
   signInWithMagicLink: (email: string) => Promise<{ error: unknown }>;
   signInWithGoogle: () => Promise<{ error: unknown }>;
   /**
@@ -45,6 +62,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   authenticated: false,
+  sessionRestoreFailed: false,
   signInWithMagicLink: async () => ({ error: new Error('AuthContext not initialized') }),
   signInWithGoogle: async () => ({ error: new Error('AuthContext not initialized') }),
   signInWithPassword: async () => ({ error: new Error('AuthContext not initialized') }),
@@ -223,6 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile: null,
       loading: false,
       authenticated: true,
+      sessionRestoreFailed: false,
       signInWithMagicLink: async () => ({ error: null }),
       signInWithGoogle: async () => ({ error: null }),
       signInWithPassword: async () => ({ error: null }),
@@ -321,6 +340,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = React.useMemo((): AuthContextType => ({
     ...state,
 
+    // The real-auth path routes an unrestorable session through AuthGuard ->
+    // /login, which is already a clear signed-out destination. Nothing is
+    // silently swallowed here, so there is no separate state to report.
+    sessionRestoreFailed: false,
+
     signInWithMagicLink: callSignInWithMagicLink,
     signInWithGoogle: callSignInWithGoogle,
     signInWithPassword: callSignInWithPassword,
@@ -371,6 +395,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * How long to wait for a stored session to resolve before showing the
+ * signed-out state.
+ *
+ * Generous on purpose: a real token refresh on a slow connection is well
+ * inside this, so a legitimate returning user is never bounced by it. It is a
+ * backstop against a call that never returns, not a latency budget.
+ */
+const STORED_SESSION_RESTORE_TIMEOUT_MS = 10_000;
+
 // ---------------------------------------------------------------------------
 // OPTIONAL AUTH — the guest posture, with a real front door
 // ---------------------------------------------------------------------------
@@ -401,6 +435,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 // network request, so a guest pays nothing. `AuthContext` already imported the
 // Supabase client at module scope in guest builds, so no new code enters the
 // bundle either.
+//
+// ⚠ THAT ARGUMENT IS ABOUT COST, AND IT WAS READ AS AN ARGUMENT ABOUT TIME.
+// "A guest pays nothing" is true of bandwidth and bundle size and says nothing
+// about WHEN the call answers — it is still a promise, and for a returning user
+// with an expired token it is a network round-trip. The provider used to bridge
+// that gap by guessing "guest", which is the defect fixed below. Nothing here
+// may WAIT on this call before deciding what a guest sees; `hasStoredSupabaseSession()`
+// is what makes that possible, because it answers in the same tick.
 function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
@@ -411,9 +453,34 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   } | null>(null);
   const [pendingUser, setPendingUser] = React.useState<User | null>(null);
 
+  // ── "IS THERE ANYTHING TO WAIT FOR?", ANSWERED ON THE FIRST RENDER ──────
+  // Read ONCE, synchronously, via a lazy initialiser — the answer has to be in
+  // hand before the first commit or it cannot prevent the flash it exists to
+  // prevent. `false` for anyone who has never signed in, which is the pilot's
+  // main audience, and they then take exactly the path they took before.
+  const [expectingStoredSession] = React.useState(hasStoredSupabaseSession);
+
+  // ⚠ THE GUEST'S VALUE IS `true` FROM THE VERY FIRST RENDER — a guest has
+  // nothing to resolve, so there is no window in which `loading` is true, no
+  // frame of AuthGuard's spinner, and no added delay. That is the hard
+  // constraint on this whole change and it is asserted per render in
+  // `__tests__/AuthContext.storedSessionResolution.spec.tsx`.
+  const [sessionResolved, setSessionResolved] = React.useState(!expectingStoredSession);
+
+  // Scoped, deliberately, to the INITIAL restore. See the field's doc comment.
+  const [restoreFailed, setRestoreFailed] = React.useState(false);
+
   useEffect(() => {
     let cancelled = false;
     let cleanup: (() => void) | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const settle = (failed: boolean) => {
+      if (cancelled) return;
+      if (timeout !== undefined) clearTimeout(timeout);
+      setSessionResolved(true);
+      setRestoreFailed(failed);
+    };
 
     const adopt = (s: Session | null) => {
       if (cancelled) return;
@@ -429,23 +496,58 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       setPendingUser(u);
     };
 
+    // ── THE SILENCE MUST NOT BE RELOCATED ──────────────────────────────────
+    // The defect being fixed is a user left with no answer. Making them wait
+    // for `getSession()` re-creates it the moment that call does not come back
+    // — a hung refresh, a captive portal, a blocked host — only now behind a
+    // spinner that never ends, which is worse than the wrong screen. So the
+    // wait is BOUNDED: past this, we stop claiming to know less than we do and
+    // show the signed-out state. If the session arrives later it is still
+    // adopted, and the UI corrects itself.
+    //
+    // Armed only when there is something to wait for, so a guest never has a
+    // timer at all.
+    if (expectingStoredSession) {
+      timeout = setTimeout(() => {
+        if (cancelled) return;
+        authLogger.debug('INIT', 'Stored session did not resolve in time; showing signed-out state');
+        settle(true);
+      }, STORED_SESSION_RESTORE_TIMEOUT_MS);
+    }
+
     (async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        adopt(data?.session ?? null);
-        const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => adopt(s));
+        const { data, error } = await supabase.auth.getSession();
+        const restored = data?.session ?? null;
+        adopt(restored);
+        // Failed ONLY if this browser held a session and we could not bring it
+        // back. A visitor who never had one has not failed at anything, and
+        // must not be told they have.
+        settle(!restored && expectingStoredSession);
+        if (error) {
+          authLogger.debug('INIT', 'Stored session could not be restored', error);
+        }
+        const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+          adopt(s);
+          // A later auth event is a real event — a sign-in, a sign-out, a
+          // successful refresh — not the initial restore this flag describes.
+          settle(false);
+        });
         cleanup = () => sub?.subscription?.unsubscribe?.();
       } catch (error) {
         // A guest build must never fail to boot because auth is unavailable.
         authLogger.debug('INIT', 'Optional auth unavailable; staying a guest', error);
+        // ...but a user who WAS signed in is owed the failure, not silence.
+        settle(expectingStoredSession);
       }
     })();
 
     return () => {
       cancelled = true;
+      if (timeout !== undefined) clearTimeout(timeout);
       cleanup?.();
     };
-  }, []);
+  }, [expectingStoredSession]);
 
   // Deferred profile fetch, mirroring the real path: never chained inside the
   // auth-state callback.
@@ -471,8 +573,22 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
   const value = React.useMemo((): AuthContextType => ({
     user: session?.user ?? ({ id: GUEST_USER_ID, email: 'guest@poc' } as User),
     profile: session?.profile ?? null,
-    // Never true: a guest is ready immediately, and AuthGuard must not spin.
-    loading: false,
+    // ⚠ THIS WAS HARDCODED `false`, AND THAT IS THE DEFECT THIS PROVIDER
+    // SHIPPED. The old comment read "Never true: a guest is ready immediately,
+    // and AuthGuard must not spin" — the second half is right and still holds,
+    // the FIRST half quietly generalised "a guest" into "everyone". With no way
+    // to say "I don't know yet", every reload handed a signed-in owner
+    // `user.id === 'guest'` first, so `isPersistenceActive` was false and
+    // ScenarioListPage rendered the arrival screen for someone who has never
+    // signed in — then flipped to their real hub once `getSession()` answered.
+    // Harmless-looking as a flash; indistinguishable from being silently logged
+    // out when the token needs a refresh and the refresh fails.
+    //
+    // It is now true ONLY while a session we know is stored is being restored.
+    // A guest resolves before the first commit, so this is `false` on their
+    // every render and AuthGuard still never spins for them.
+    loading: !sessionResolved,
+    sessionRestoreFailed: restoreFailed,
     // A guest counts as authenticated so every route stays reachable — that is
     // what makes signing in OPTIONAL rather than merely available.
     authenticated: true,
@@ -498,6 +614,8 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
         resetPostHog();
         setSession(null);
         setPendingUser(null);
+        // A deliberate sign-out is not a failed restore.
+        setRestoreFailed(false);
         await supabase.auth.signOut({ scope: 'local' });
         navigate('/', { replace: true });
         return { error: null };
@@ -506,7 +624,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
         return { error };
       }
     },
-  }), [session, navigate]);
+  }), [session, navigate, sessionResolved, restoreFailed]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
