@@ -385,6 +385,51 @@ describe('a genuine scenario switch still clears the restored answer', () => {
     expect(useCanvasStore.getState().previousReport).toBeNull()
   })
 
+  it('a record with NO scenarioId restores the answer UNSTAMPED, and the load still clears it', async () => {
+    // ⭐ THE BRANCH THE PR'S OWN COMMENT MAKES A PROMISE ABOUT and nothing else
+    // reaches: `autosave?.scenarioId ?? null`. A pre-`scenarioId` record, or a
+    // guest one that never had an id, must still restore the ANSWER — and must
+    // NOT be given a fabricated identity, because a fabricated id is exactly
+    // what would let a stranger's report be preserved under this scenario's
+    // name. Uncovered, that promise is guarantee-theatre.
+    const runHash = runV5AnalysisOnScenario(SCENARIO_A)
+    const stored = persistAutosave()
+    expect(stored.scenarioId).toBe(SCENARIO_A)
+
+    // Strip the id the way a record written before the field existed looks.
+    const { scenarioId: _dropped, ...withoutScenarioId } = stored
+    saveAutosave(withoutScenarioId as AutosaveData)
+    expect(loadAutosave()?.scenarioId).toBeUndefined()
+
+    useCanvasStore.getState().reset()
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 },
+      currentScenarioId: null,
+      v5AnalysisFact: null,
+      nodes: [],
+      edges: [],
+    } as never)
+    const restored = restoreAnalysisFromAutosave(
+      loadAutosave(),
+      useCanvasStore.getState().resultsLoadHistorical,
+    )
+
+    // The ANSWER comes back …
+    expect(restored).toBe(true)
+    expect(useCanvasStore.getState().results.hash).toBe(runHash)
+    // … with NO identity invented for it.
+    expect(heldStamp()).toBeNull()
+
+    setScenarioRow(SCENARIO_A, deployedShapedRow(SCENARIO_A))
+    const { result } = renderHook(() => useScenario())
+    await act(async () => {
+      await result.current.loadScenario(SCENARIO_A)
+    })
+
+    // Fail-CLOSED: an unstamped restore keeps the pre-#982 clear-on-load.
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
   it('an UNSTAMPED completed report is still cleared by any load — the gate fails CLOSED', async () => {
     // The stamp is the ONLY thing that preserves. A report the store holds for
     // reasons this gate cannot vouch for (a palette pick, an in-session run)
