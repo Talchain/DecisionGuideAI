@@ -45,6 +45,7 @@ import {
 } from '../../adapters/cee/modelVersions'
 import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
+import { findRestoredInterventionMismatches } from './restoreInterventionAudit'
 import { logger } from '../../lib/logger'
 // ⚠ THE ADDRESSABILITY AND IDENTITY GATES ARE NOT DEFINED HERE ANY MORE.
 // The undo-gesture notice must promise restore ONLY where this section will
@@ -116,6 +117,24 @@ function newRestoreMutationId(): string {
 /** We hold no observed head, so we cannot state the CAS expectation. */
 export const RESTORE_NO_KNOWN_HEAD =
   'Nothing was changed. Olumi cannot tell which state this shared model is in, so it will not replace it. Reload the page to see the current shared model and its versions.'
+
+/**
+ * The server restored, the apply ran, and the canvas STILL does not carry every
+ * option value the restored graph states.
+ *
+ * This must never be reachable by the mechanism it was written for — a stale
+ * `ceeAnalysisReady` overwriting the applied values — because `handleRestore`
+ * now retires that snapshot before the apply. It stays because the check is a
+ * POST-CONDITION, not a description of one bug: any future write that lands on
+ * top of a restore lands here, loudly, instead of under a success message.
+ *
+ * The copy points at a reload deliberately and narrowly. A reload IS a real
+ * recovery for this state — the restored graph is already committed
+ * server-side, so a fresh load renders it — but it is a containment, not the
+ * promise, which is why this arm does not claim the canvas was restored.
+ */
+export const RESTORE_CANVAS_VALUES_NOT_APPLIED =
+  'Restored on the server, but this canvas did not take every value from that version. Reload the page to see the restored model. Please report this.'
 
 /** A property of the STORED VERSION. Permanent for that version. */
 export const RESTORE_VERSION_NOT_RESTORABLE =
@@ -525,12 +544,66 @@ export function ServerVersionsSection() {
 
     switch (result.status) {
       case 'restored': {
+        // ⚠⚠ RETIRE THE PRE-RESTORE READY SNAPSHOT **BEFORE** THE APPLY. THIS
+        // ORDERING IS THE FIX; AFTER THE APPLY IS TOO LATE.
+        //
+        // `reconcileAppliedGraph` commits the restored graph and then, still
+        // inside itself (`mergeAppliedGraph.ts:746-749`), reads the CURRENT
+        // store `ceeAnalysisReady` and calls
+        // `backfillInterventionsOntoOptionNodes`. That backfill REPLACES a
+        // differing interventions map rather than filling gaps
+        // (`applyDraftResult.ts:569-594` → `batchUpdateNodes` at `:609`). On a
+        // restore the snapshot still in the store came from a turn BEFORE the
+        // restore, so it describes the model the user has just replaced — and
+        // it wins. Measured on the deployed build (UI 138d9560): two real
+        // mounted-store transitions 3ms apart, `0.2 → restored 0.7` through the
+        // reconcile's setState, then `0.7 → 0.2` back through
+        // `batchUpdateNodes`, while the panel reported success.
+        //
+        // WHY INVALIDATE RATHER THAN SUPPLY A MATCHING SNAPSHOT. Both of the
+        // obvious sources fail, and the second fails dangerously:
+        //   · the response's top-level `analysis_state` carries `run_state`,
+        //     `readiness`, `leader_claim`, `requires_rerun` … and NO
+        //     `options[]` at all, so it cannot express a ready snapshot;
+        //   · `graph.analysis_ready` DOES carry `options[].interventions` — and
+        //     CONTRADICTS the restored nodes. On the capture behind this fix,
+        //     option 70180763 is `0.3 user_specified` at the node root and
+        //     `0.7 cee_hypothesis` in the embedded `analysis_ready`. Adopting
+        //     it would have overwritten the restored value with a different
+        //     wrong one and called that a matching snapshot. The reconcile
+        //     already strips it (`mergeAppliedGraph.ts:179`).
+        // So the honest state after a restore is "no ready snapshot", not a
+        // fabricated one. That is also what the server itself says on this very
+        // response: `run_state.kind = 'complete_stale'`, `requires_rerun: true`.
+        //
+        // The canonical setter, not a raw `setState`: its null branch clears
+        // the readiness fields AND removes the `olumi-cee-analysis-ready`
+        // sessionStorage keys, so a reload cannot rehydrate the stale snapshot
+        // and replay this on the cold path (`store.ts:4997-5004`).
+        //
+        // SCOPE — this is the RESTORE path only, deliberately. The reconcile's
+        // other caller (`useConversation.ts:4516`, the applied-edit receipt)
+        // gets its `ceeAnalysisReady` from the SAME turn, so its backfill is
+        // legitimate and load-bearing (a newly added option node needs
+        // `data.interventions` mirrored onto it). Restore is the only caller
+        // whose graph and whose ready snapshot come from different responses.
+        // Nothing is deleted or weakened for the other callers.
+        useCanvasStore.getState().setCeeAnalysisReady(null)
+
         // The receipt-class apply: adds + updates + deletions in one history
         // entry, layout preserved, removals gated on acknowledged elements.
         const applied = reconcileAppliedGraph(
           // The restore payload carries only `graph`; the reconcile reads
           // `.graph.nodes/.graph.edges` on exactly this shape.
           { graph: result.graph } as unknown as Parameters<typeof reconcileAppliedGraph>[0],
+        )
+
+        // The success claim is EARNED, not assumed. The counts below say the
+        // apply DID something; only this says it did the right thing, and it is
+        // the only check that can observe a write landing on top of the apply.
+        const mismatches = findRestoredInterventionMismatches(
+          result.graph,
+          useCanvasStore.getState().nodes,
         )
         const changedNothing =
           applied.addedNodeCount === 0 &&
@@ -540,7 +613,26 @@ export function ServerVersionsSection() {
           applied.removedNodeCount === 0 &&
           applied.removedEdgeCount === 0
         setUndoVersionId(result.undoVersionId)
-        if (result.deduped) {
+        if (mismatches.length > 0) {
+          // FIRST, ahead of every other arm including `deduped`: if the canvas
+          // does not carry the restored values, no other sentence about this
+          // restore is safe to print. A deduped restore whose values disagree
+          // is not "nothing changed" — it is the same failure with a calmer
+          // face.
+          logger.warn('server_versions.restore_values_not_applied', {
+            scenarioId,
+            mismatchCount: mismatches.length,
+            // Ids and numbers only — no labels, no user prose.
+            sample: mismatches.slice(0, 5).map((m) => ({
+              optionId: m.optionId,
+              targetNodeId: m.targetNodeId,
+              restored: m.restored,
+              onCanvas: m.onCanvas,
+              missingFromCanvas: m.missingFromCanvas,
+            })),
+          })
+          setMessage(RESTORE_CANVAS_VALUES_NOT_APPLIED)
+        } else if (result.deduped) {
           setMessage('The model is already at that version — nothing changed.')
         } else if (changedNothing) {
           // Honest about ambiguity: the server restored, but the canvas
