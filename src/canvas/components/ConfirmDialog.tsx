@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { XCircle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
@@ -36,7 +37,33 @@ export function ConfirmDialog({
     }
   }, [onCancel])
 
-  return (
+  /*
+   * ⭐ PORTALLED TO `document.body`, AND THAT IS LOAD-BEARING, NOT TIDINESS.
+   *
+   * This overlay is `position: fixed; inset-0`, which fills the VIEWPORT only
+   * while no ancestor establishes a containing block for fixed descendants.
+   * `TopBar.module.css` sets `backdrop-filter: blur(8px)` on the floating pill
+   * — and backdrop-filter does exactly that, invisibly: unlike `transform` it
+   * leaves no trace in the layout, so nobody adding a modal thinks to look for
+   * it.
+   *
+   * `KebabMenu` renders this dialog inside that pill, so `inset-0` resolved to
+   * the pill's own box. Measured on deployed staging at 1280x800, guest, on two
+   * consecutive builds — the defect is older than either of them:
+   *
+   *     deploy 6a93f806   "Reset canvas?"        overlay 477x43   card top  -73
+   *     deploy 6a94047c   "Start a new model?"   overlay 411x43   card top -112
+   *
+   * A 43px-tall overlay centring a ~270px card puts the TITLE AND FIRST LINE
+   * above the fold. On the most destructive control in the top bar, the half a
+   * user loses is the half that says what is about to be destroyed.
+   *
+   * `BottomSheet` already portals for the same reason; this is that idiom, not
+   * a new one. Pinned by `ConfirmDialog.portal.spec.tsx` (structure) and
+   * `e2e/visual/confirmDialogWithinViewport.visual.spec.ts` (the browser
+   * property) — neither is sufficient alone.
+   */
+  return createPortal(
     <div
       className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
@@ -75,6 +102,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

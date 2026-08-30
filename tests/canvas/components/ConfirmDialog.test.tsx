@@ -68,7 +68,7 @@ describe('ConfirmDialog', () => {
 
   it('calls onCancel when backdrop clicked', () => {
     const onCancel = vi.fn()
-    const { container } = render(
+    render(
       <ConfirmDialog
         title="Replace flow?"
         message="This will replace the existing flow."
@@ -76,9 +76,14 @@ describe('ConfirmDialog', () => {
         onCancel={onCancel}
       />
     )
-    
-    const backdrop = container.querySelector('[role="dialog"]')
-    fireEvent.click(backdrop!)
+
+    // Located through `screen`, not the render container: the dialog is
+    // portalled to `document.body` so that an ancestor's `backdrop-filter`
+    // cannot capture its fixed overlay (see ConfirmDialog.tsx). A
+    // container-scoped query returns null and this test's CLAIM — backdrop
+    // click cancels — is unchanged.
+    const backdrop = screen.getByRole('dialog')
+    fireEvent.click(backdrop)
     
     expect(onCancel).toHaveBeenCalled()
   })
