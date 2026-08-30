@@ -76,6 +76,7 @@ import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
+import { GHOST_TIERS, withGhostTiers } from './utils/ghostTiers'
 import { LABEL_LEGIBLE_ZOOM } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -500,7 +501,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       connectable: false,
     }
 
-    return [...nodes, ghostNode]
+    /*
+     * ⭐ THE FRONTIER EXISTS ON EVERY TIER, NOT ONLY ON OPTIONS.
+     *
+     * The options ghost was the most reasoning-shaped affordance already on the
+     * canvas — an open door that asks Olumi to help you think of something the
+     * model does not contain — and it existed on one tier of four. The graph
+     * showed what IS there and had no way to represent what might be missing,
+     * which is where the thinking actually happens.
+     *
+     * These are invitations, not assessments: the product does not claim a risk
+     * is missing, it just leaves the door open where one would go. Each is
+     * excluded from the fit and from every model count by the shared `__ghost-`
+     * prefix, so they cannot inflate what the graph appears to contain.
+     */
+    return withGhostTiers([...nodes, ghostNode], GHOST_TIERS.filter((t) => t.siblingType !== 'option'))
   }, [nodes, resultsStatus, viewMode])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see

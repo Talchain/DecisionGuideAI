@@ -13,6 +13,7 @@ import { RiskNode } from './RiskNode'
 import { OutcomeNode } from './OutcomeNode'
 import { ActionNode } from './ActionNode'
 import { GhostOptionNode } from './GhostOptionNode'
+import { GhostTierNode } from './GhostTierNode'
 
 /**
  * React Flow node types registry
@@ -32,4 +33,5 @@ export const nodeTypes: NodeTypes = {
   // renderer was removed (honesty sweep). See NodeTypeEnum JSDoc. Re-add a renderer
   // here only alongside a design review that introduces constraint-node emission.
   'ghost-option': GhostOptionNode,
+  'ghost-tier': GhostTierNode,
 }
