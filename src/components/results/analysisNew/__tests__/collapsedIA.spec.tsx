@@ -126,7 +126,7 @@ describe('the glance declares its own cap', () => {
     render(
       <AtAGlance
         glance={{
-          headline: null,
+          headline: null, leaderLabel: null, winPercentLabel: null, winFraction: null,
           winShare: null,
           comparisonScope: { kind: 'whole_set' },
           comparativeClaim: 'none',
@@ -154,7 +154,7 @@ describe('the glance declares its own cap', () => {
     render(
       <AtAGlance
         glance={{
-          headline: null,
+          headline: null, leaderLabel: null, winPercentLabel: null, winFraction: null,
           winShare: null,
           comparisonScope: { kind: 'whole_set' },
           comparativeClaim: 'none',

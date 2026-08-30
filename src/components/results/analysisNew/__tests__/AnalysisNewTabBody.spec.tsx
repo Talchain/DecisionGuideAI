@@ -121,14 +121,18 @@ describe('F · the three scenario classes (§24F)', () => {
       .toBeGreaterThan(0)
   })
 
-  it('GENUINE DECISION — comparative material appears, phrased as "currently scores higher"', () => {
+  it('GENUINE DECISION — the leading option is named once, as the answer', () => {
     // Stated ONCE, by "At a glance". It used to appear here AND as a key
     // insight one viewport below — measured on a real run, all three insights
     // were restatements of the glance.
+    //
+    // ⚠ THE HEADLINE IS NOW THE OPTION'S NAME, NOT THE SENTENCE (30 Aug 2026).
+    // "…currently scores higher" is composed in the PRESENT tense and is false
+    // on a stale run, so the surface typesets the subject as the answer and
+    // carries the tense in an eyebrow it can reframe. The claim under test is
+    // unchanged: the leader is named here, and not restated below.
     renderBody(genuineDecision())
-    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent(
-      'Raise price currently scores higher',
-    )
+    expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
     expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
       'currently scores higher',
     )
@@ -343,14 +347,18 @@ describe('pre-run: nothing on screen describes a run that has not happened', () 
   })
 
   it('does not claim to be a second reading of a run that has not happened', () => {
+    // ⚠ THE GATE BECAME A DELETION (30 Aug 2026). The preamble was correct once
+    // a run existed, so this pin originally required it in that state. It is now
+    // gone in BOTH states: a panel that describes itself before doing its job
+    // spends the top of the first viewport on nothing the reader came for. The
+    // claim this test defends — the surface never asserts a run that has not
+    // happened — is unchanged and now holds by construction.
     renderBody(openStrategicChallenge(), { isPreRun: true })
     expect(screen.queryByTestId('analysis-new-intro')).toBeNull()
 
-    // Contrast control: the same line IS correct once a run exists, so the
-    // rule is "gated on a run", never "deleted".
     cleanup()
     renderBody(openStrategicChallenge())
-    expect(screen.getByTestId('analysis-new-intro')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-intro')).toBeNull()
   })
 
   it('describes no run identity, status or completeness before a run', () => {

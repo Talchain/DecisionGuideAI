@@ -114,7 +114,11 @@ describe('no claim is stated twice on the assembled surface', () => {
 
       // POSITIVE CONTROL: an empty census would pass this trivially, and that is
       // exactly how a composition guard rots (trap 13).
-      expect(sentences.length, 'the surface rendered almost no prose — this census is vacuous').toBeGreaterThan(2)
+      // ⚠ FLOOR LOWERED 2 -> 1 (30 Aug 2026). The first viewport was rebuilt to
+      // carry its meaning in typography and visual encoding rather than in
+      // sentences, so the prose count legitimately fell to 2. The guard's job is
+      // to stop an EMPTY census passing trivially; it is not a prose quota.
+      expect(sentences.length, 'the surface rendered almost no prose — this census is vacuous').toBeGreaterThan(1)
 
       const seen = new Map<string, number>()
       for (const s of sentences) seen.set(s, (seen.get(s) ?? 0) + 1)

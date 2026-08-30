@@ -104,6 +104,16 @@ export const ANALYSIS_NEW_COPY = {
 
   /** At a glance. Every string here is furniture — none describes the analysis. */
   glance: {
+    /** Eyebrow above the answer on a CURRENT run. */
+    eyebrowLeading: 'Leading option',
+    /**
+     * Eyebrow above the answer on a STALE run. The present tense belongs to the
+     * run, not to now: `headline` is composed as "…currently scores higher",
+     * which is a claim about the CURRENT model and false once the model moved.
+     */
+    eyebrowStale: 'As last analysed',
+    /** Caption under the win-share number and bar. */
+    winShareCaption: 'of simulated futures ahead',
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
     /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
