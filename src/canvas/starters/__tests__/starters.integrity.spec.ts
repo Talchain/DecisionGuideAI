@@ -20,6 +20,7 @@
 import { describe, it, expect } from 'vitest'
 import { STARTERS, loadStarterPayload, getStarter } from '../loadStarter'
 import { findNearDuplicateLabels, formatCollision } from '../nearDuplicateLabels'
+import { findTextDefects, formatTextDefect } from '../malformedText'
 
 interface DraftFixture {
   nodes: Array<{ id: string; kind: string; label: string; display_value?: string; observed_state?: { value?: number } }>
@@ -239,6 +240,56 @@ describe('starter fixtures', () => {
       expect(rows.filter((r) => r.displayValue !== undefined)).toHaveLength(meta.interventionCount)
       expect(rows.filter((r) => r.detailDisplayValue !== undefined)).toHaveLength(meta.interventionCount)
     })
+
+    /**
+     * FIRST-VIEW TEXT IS WELL FORMED.
+     *
+     * ⚠ THIS IS THE ASSERTION WHOSE ABSENCE LET THE SECOND DEFECT SHIP, in the
+     * same field family and past the three guards above. `build-vs-buy` shipped
+     *
+     *   "No in-house build pursued in-house build not active)  "
+     *
+     * on `fac_build_indicator` — doubled phrasing, an orphan closing bracket and
+     * a trailing double space — rendering on the option card as
+     * `In-house build… → No in-house build pursued in-house build not active)   → Very high (1)`.
+     *
+     * WHY THE EXISTING GUARDS COULD NOT SEE IT, which is the reason this one is
+     * shaped differently. The borrow guard asks *does an option borrow the
+     * factor's baseline while MOVING it* — and `opt_status_quo` genuinely sits at
+     * the observed state, so its borrow is CORRECT. The parenthetical guard asks
+     * *does a numeric parenthetical disagree with its value* — and this string has
+     * no numeric parenthetical to disagree with anything. Both are guards about
+     * whether a string is the RIGHT string; neither asks whether it is a
+     * WELL-FORMED string. Those are two different questions under similar names
+     * (CLAUDE.md trap 21), and the second had no owner.
+     *
+     * SCOPE, stated so a later reader does not widen it by accident: node labels,
+     * a factor's own `display_value`, and the two intervention display mirrors —
+     * the short strings a reader meets on the first view of the model. Long
+     * coaching prose is deliberately excluded; a rule loose enough to judge a
+     * paragraph fails on legitimate writing.
+     */
+    it('every first-view display string is well formed (no orphan brackets, doubled phrases or stray whitespace)', async () => {
+      const g = (await loadStarterPayload(id)) as DraftFixture
+      const malformed: string[] = []
+
+      const inspect = (where: string, text: string | undefined) => {
+        if (text === undefined) return
+        const defects = findTextDefects(text)
+        if (defects.length) malformed.push(formatTextDefect(where, text, defects))
+      }
+
+      for (const n of g.nodes) {
+        inspect(`node ${n.id} label`, n.label)
+        inspect(`node ${n.id} display_value`, n.display_value)
+      }
+      for (const r of interventionRows(g)) {
+        inspect(`${r.optionLabel} · ${r.factorId} · interventions`, r.displayValue)
+        inspect(`${r.optionLabel} · ${r.factorId} · intervention_details`, r.detailDisplayValue)
+      }
+
+      expect(malformed).toEqual([])
+    })
   })
 
   /**
@@ -283,6 +334,8 @@ describe('starter fixtures', () => {
     })
 
     it('does NOT fire on genuinely distinct labels (the rule is not "always red")', () => {
+      // (see the malformed-text control block below for the same pairing on the
+      // first-view text detector)
       // A detector that flagged everything would pass the three tests above and
       // still be useless — it would just make the per-starter assertion
       // unsatisfiable. These are real labels from the shipped fixtures.
@@ -294,6 +347,68 @@ describe('starter fixtures', () => {
           node('d', 'risk', 'Localisation Cost Overrun'),
         ]),
       ).toEqual([])
+    })
+  })
+
+  /**
+   * POSITIVE CONTROL for the first-view text guard (CLAUDE.md trap 13: an
+   * absence assertion must first prove it can see a presence).
+   *
+   * `findTextDefects` returning `[]` unconditionally would silently convert the
+   * per-starter assertion into an assertion about nothing. Each rule is
+   * exercised against the shape it was written for, and the shipped exemplar is
+   * pinned verbatim — this is the string a colleague actually read on the option
+   * card, so a detector that stops seeing it has stopped doing its job.
+   *
+   * The last case is the load-bearing half: a detector that flagged everything
+   * would pass all the fire-tests above and merely make the per-starter
+   * assertion unsatisfiable. Those are the real, clean strings from the shipped
+   * fixtures, INCLUDING the two sibling indicators that came out of the very
+   * same capture — which is what proves the defect is one string and not the
+   * producer.
+   */
+  describe('the first-view text detector can SEE a malformation', () => {
+    it('fires on the exact string build-vs-buy shipped', () => {
+      const rules = findTextDefects('No in-house build pursued in-house build not active)  ').map((d) => d.rule)
+      expect(rules).toContain('REPEATED_RUN')
+      expect(rules).toContain('UNBALANCED_BRACKETS')
+      expect(rules).toContain('MULTIPLE_SPACES')
+      expect(rules).toContain('EDGE_WHITESPACE')
+    })
+
+    it('fires on an UNTERMINATED bracket — the opposite direction to the shipped defect', () => {
+      // THE OPPOSITE-DIRECTION TWIN. The shipped string had a spare CLOSER. A
+      // rule written from that symptom alone would be blind to a spare OPENER,
+      // which is the mid-token truncation shape. Both must red.
+      const rules = findTextDefects('Time to live (quarters').map((d) => d.rule)
+      expect(rules).toContain('UNTERMINATED_BRACKET')
+      expect(rules).toContain('UNBALANCED_BRACKETS')
+    })
+
+    it('fires on an EMPTY parenthetical — the empty-substitution shape', () => {
+      expect(findTextDefects('Very high ()').map((d) => d.rule)).toContain('EMPTY_BRACKETS')
+    })
+
+    it('fires on an EMPTY string', () => {
+      expect(findTextDefects('   ').map((d) => d.rule)).toEqual(['EMPTY'])
+    })
+
+    it('does NOT fire on the clean strings the same capture produced', () => {
+      // `No Stripe extension pursued` and `No vendor solution adopted` are the
+      // two sibling indicator factors of the malformed one — same producer, same
+      // run, same shape, both well formed. `Time to Live (Quarters)` is a real
+      // shipped label whose parenthetical is balanced and must not be flagged.
+      for (const clean of [
+        'No Stripe extension pursued',
+        'No vendor solution adopted',
+        'Time to Live (Quarters)',
+        'Moderate engineering allocation (2 of 4 engineers)',
+        'Very high (1)',
+        'Moderate delivery timeline',
+        '0.4 to 0.9',
+      ]) {
+        expect(findTextDefects(clean)).toEqual([])
+      }
     })
   })
 })

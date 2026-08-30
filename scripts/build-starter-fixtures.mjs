@@ -26,12 +26,14 @@
  * is exactly the hand-maintained mirror that would go stale on the next
  * recapture (CLAUDE.md trap 12).
  *
- * TWO transformations are applied, both mechanical and both re-derivable:
+ * THREE transformations are applied, all mechanical and all re-derivable:
  *
  *  1. Deletion of two purely diagnostic top-level keys (see STRIPPED_KEYS).
  *  2. Overlay of the RE-DERIVED `analysis_ready` display strings (see
  *     REDERIVED below). Display strings only — every numeric value is asserted
  *     unchanged, and the assertion fails the build if one moves.
+ *  3. Repair of MALFORMED captured display strings (see CAPTURE_TEXT_REPAIRS).
+ *     Exact-match, declared one string at a time, with the hit count pinned.
  *
  * Nothing else is rewritten, reordered, padded or invented — a hand-written
  * graph would be a fabricated demo.
@@ -54,8 +56,13 @@
  * THE FIX IS NOT A RECAPTURE. The defect is a transform artefact, not model
  * content: all 55 shared intervention values agree exactly between the V3 option
  * nodes and `analysis_ready`, and the factor nodes' own display strings are
- * correct (they genuinely describe the baseline). Only the strings CEE
- * synthesised into `analysis_ready` were wrong. So the display strings were
+ * correct in the sense this transformation cares about — they genuinely describe
+ * the baseline rather than an option. (⚠ CORRECTED 2026-08-30: that sentence
+ * originally read "the factor nodes' own display strings are correct" full stop,
+ * and ONE of them is not — see transformation 3. It described the right thing
+ * and claimed too much, which is why the malformation survived this rebuild.)
+ * Only the strings CEE synthesised into `analysis_ready` were wrong. So the
+ * display strings were
  * re-derived by running CEE's OWN `buildInterventionDetail` — at a named SHA,
  * offline, no LLM and no credentials — over the committed V3 factor nodes and
  * intervention values. No node, edge, option, count or brief changes, so no
@@ -106,6 +113,111 @@ const REDERIVED = join(ROOT, 'docs/evidence/starters/rederived-analysis-ready.js
  * in a client bundle.
  */
 const STRIPPED_KEYS = ['trace', '_timings']
+
+/**
+ * TRANSFORMATION 3 — repair of MALFORMED captured display strings.
+ *
+ * WHAT THIS IS FOR. A capture can contain a string that is not merely the wrong
+ * string but a BROKEN one: doubled phrasing, a bracket that never opened,
+ * whitespace at the edges. Transformation 2 cannot see those — it asks whether a
+ * receipt describes the right thing, not whether it is well formed. Two
+ * different questions under similar names, and the second had no owner until a
+ * colleague read one on the first screen of a starter.
+ *
+ * THE ONE ENTRY BELOW, and why it is a repair rather than a recapture. In
+ * `build-vs-buy` (capture 2026-07-24, CEE 1b9d596) the factor
+ * `fac_build_indicator` carried
+ *
+ *   "No in-house build pursued in-house build not active)  "
+ *
+ * The same capture's two SIBLING indicator factors, produced by the same code
+ * path in the same run at the same observed value of 0, are clean:
+ *
+ *   fac_stripe_indicator  →  "No Stripe extension pursued"
+ *   fac_vendor_indicator  →  "No vendor solution adopted"
+ *
+ * Two of three clean on the identical path is what makes this a single
+ * degenerate draw rather than a producer defect — and CEE at f18d941b contains
+ * no "not active" template anywhere in `src/` (positive control: `display_value`
+ * appears in 83 files; fabricated contrast: 0). So there is nothing upstream to
+ * fix and nothing to regenerate.
+ *
+ * THE REPLACEMENT IS THE STRING'S OWN FIRST CLAUSE. `"No in-house build
+ * pursued"` is true of the observed value (0), is the form both siblings take,
+ * and is exactly what the dropped tail said a second time — `in-house build not
+ * active` carries no information the retained clause does not, and it arrived
+ * with an orphan `)`. Nothing is hidden, suppressed or shortened into silence:
+ * the string still states the same fact, once, in the producer's own words.
+ *
+ * ⚠ THE SOURCE CAPTURE IS NOT EDITED. Like transformation 2, the repair lives
+ * here and the capture stays a verbatim record of what CEE actually emitted
+ * (CLAUDE.md trap 14b). Both the defect and the correction stay inspectable.
+ *
+ * ⚠ EXACT MATCH AND A PINNED COUNT, both directions. The repair is bound to the
+ * literal source string, never to a predicate like "strings with unbalanced
+ * brackets" — a predicate would silently rewrite a future string nobody
+ * reviewed. `hits` is asserted EQUAL to `expectedHits`, so this fails loud if a
+ * recapture removes the string (a stale repair no-opping silently is CLAUDE.md
+ * trap 15) and equally if it ever appears somewhere new.
+ */
+const CAPTURE_TEXT_REPAIRS = [
+  {
+    starter: 'build-vs-buy',
+    from: 'No in-house build pursued in-house build not active)  ',
+    to: 'No in-house build pursued',
+    // 1 × the factor node's own baseline `display_value`, plus 2 × the
+    // `opt_status_quo` mirrors, which borrow the baseline CORRECTLY (that option
+    // does sit at the observed value of 0) and so inherited the corruption.
+    expectedHits: 3,
+    reason:
+      'degenerate LLM draw in the 2026-07-24 capture: doubled phrasing, orphan closing bracket, trailing double space',
+  },
+]
+
+/**
+ * Apply the declared repairs to every `display_value` in one built fixture.
+ *
+ * Walks the whole object rather than naming paths, so a repair reaches the
+ * factor node AND both `analysis_ready` mirrors without three hand-maintained
+ * path constants that could drift apart (CLAUDE.md trap 12). The exact-match
+ * requirement is what keeps that breadth safe.
+ */
+function repairCapturedText(id, fixture) {
+  const repairs = CAPTURE_TEXT_REPAIRS.filter((r) => r.starter === id)
+  if (repairs.length === 0) return
+  const hits = new Map(repairs.map((r) => [r.from, 0]))
+
+  const walk = (node) => {
+    if (Array.isArray(node)) {
+      node.forEach(walk)
+      return
+    }
+    if (node === null || typeof node !== 'object') return
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'display_value' && typeof value === 'string' && hits.has(value)) {
+        const repair = repairs.find((r) => r.from === value)
+        hits.set(value, hits.get(value) + 1)
+        node[key] = repair.to
+      } else {
+        walk(value)
+      }
+    }
+  }
+  walk(fixture)
+
+  for (const r of repairs) {
+    const n = hits.get(r.from)
+    if (n !== r.expectedHits) {
+      fail(
+        `${id}: text repair ${JSON.stringify(r.from)} matched ${n} display_value(s), expected exactly ${r.expectedHits}. ` +
+          `If a recapture fixed this string upstream, DELETE the repair entry; if it spread, review the new sites before raising the count.`,
+      )
+    }
+    // Non-vacuity: the replacement must actually differ, or the entry is a no-op
+    // dressed as a fix.
+    if (r.to === r.from) fail(`${id}: text repair replacement is identical to the source string`)
+  }
+}
 
 /**
  * The five starters, each pinned to the ONE capture it is derived from.
@@ -317,6 +429,16 @@ function build() {
       overlayRederivedDisplayValues(s.id, fixture.analysis_ready, rederived[s.id])
     }
 
+    // --- Transformation 3: repair malformed captured display strings ---
+    // Runs LAST so it also covers the strings transformation 2 just overlaid —
+    // `opt_status_quo` correctly borrows the factor baseline, so the re-derived
+    // artefact inherited the corruption from the same origin field.
+    // `nodes` is deep-cloned for the same reason `analysis_ready` was: `fixture`
+    // is a SHALLOW copy of `capture`, and repairing in place would rewrite the
+    // parsed capture that deriveCardCopy and the manifest counts read below.
+    if (Array.isArray(fixture.nodes)) fixture.nodes = JSON.parse(JSON.stringify(fixture.nodes))
+    repairCapturedText(s.id, fixture)
+
     const { title, summary } = deriveCardCopy(s.id, capture.nodes)
 
     fixtures.set(s.id, JSON.stringify(fixture, null, 2) + '\n')
@@ -361,6 +483,16 @@ function build() {
           ceeSha: rederivedProvenance.ceeSha,
           rederivedAt: rederivedProvenance.rederivedAt,
         },
+        // Disclosed on the record, per starter, and DERIVED from the repair
+        // table rather than written by hand — a starter with no repair carries
+        // an empty list rather than a missing key, so "none" is stated rather
+        // than inferred from a silence.
+        textRepairs: CAPTURE_TEXT_REPAIRS.filter((r) => r.starter === s.id).map((r) => ({
+          from: r.from,
+          to: r.to,
+          occurrences: r.expectedHits,
+          reason: r.reason,
+        })),
         note: s.note,
       },
     })

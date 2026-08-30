@@ -34,7 +34,7 @@
         ]
       },
       "category": "controllable",
-      "display_value": "No in-house build pursued in-house build not active)  ",
+      "display_value": "No in-house build pursued",
       "provenance": "ai_inferred"
     },
     {
@@ -1261,7 +1261,7 @@
           "fac_build_indicator": {
             "value": 0,
             "source": "brief_extraction",
-            "display_value": "No in-house build pursued in-house build not active)  "
+            "display_value": "No in-house build pursued"
           },
           "fac_vendor_indicator": {
             "value": 0,
@@ -1292,7 +1292,7 @@
         "is_baseline": true,
         "intervention_details": {
           "fac_build_indicator": {
-            "display_value": "No in-house build pursued in-house build not active)  ",
+            "display_value": "No in-house build pursued",
             "normalised_value": 0
           },
           "fac_vendor_indicator": {
