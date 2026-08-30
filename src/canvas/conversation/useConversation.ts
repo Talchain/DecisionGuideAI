@@ -137,6 +137,8 @@ import {
   responseAppliedFactorEdit,
   revertOptimisticFactorEdit,
   OPTIMISTIC_FACTOR_EDIT_NOTICE,
+  buildInterruptedFactorEditNotice,
+  optimisticFactorEditStillStands,
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
@@ -2495,6 +2497,20 @@ export function useConversation(): UseConversationReturn {
   // Updated at dispatch time at every sendTurn site; read in the response
   // handler to decide whether the arriving response is the current turn.
   const activeV5TurnIdRef = useRef<string | null>(null)
+  /**
+   * The optimistic factor edit carried by the turn CURRENTLY in flight, if any.
+   *
+   * Exists for ONE reader: `cancelTurn`, which must know — synchronously, before
+   * it aborts anything — whether the turn it is stopping carries a value edit.
+   * All three stop notices open "You stopped this draft", and on a stopped
+   * `factor_value_edit` turn there is no draft: the edit turn set `isThinking`
+   * itself. Without this ref `cancelTurn` cannot tell the two turn kinds apart
+   * and answers a question that has no subject.
+   *
+   * Written at dispatch, cleared by REFERENCE IDENTITY in the finally, so a
+   * newer turn's edit is never cleared by an older turn's late exit.
+   */
+  const inFlightOptimisticFactorEditRef = useRef<OptimisticFactorEdit | null>(null)
   // 1.16i: client turn id of the in-flight run_analysis turn, when one is.
   // Set at V5 run dispatch, cleared in that turn's finally. Read by the
   // swallow guard so a run re-click neither preempt-aborts the running
@@ -3094,6 +3110,90 @@ export function useConversation(): UseConversationReturn {
     [addMessage],
   )
 
+  /**
+   * The turn carrying a value edit was ABORTED, so no reply ever existed.
+   *
+   * ⚠ THIS IS THE SILENT DISCARD PATH THE DEPLOYED BUILD TAKES. It is NOT the
+   * only one, and this comment said it was — corrected after the #962 review
+   * REFUTED that claim by execution, with a contrast control firing in the same
+   * run. The other silent path is the pre-dispatch refusal at `:3636` below: a
+   * signed-in session whose `currentScenarioId` is null refuses to mint, and its
+   * notice is gated `mode === 'user' && !hidden`, so a SYSTEM `factor_value_edit`
+   * returns before dispatch, before `setIsThinking(true)` and before the try —
+   * no resolution arm, no notice, optimistic value standing. Measured:
+   * `dispatched = 0`, `messages = 0`, canvas `{"value":0.8,…,"source":"user"}`,
+   * with a guest contrast control reading `dispatched = 1`. Left UNFIXED and
+   * rowed rather than closed blind: the honest sentence there is about a
+   * decision that is not open, not about a turn that was interrupted, and
+   * inventing that copy is a separate change with its own review. Naming it
+   * here so the next reader does not inherit a false absence claim — that is
+   * how this estate teaches itself to stop looking.
+   *
+   * Measured on staging `9308a30c` (guest, one scenario
+   * id, no fork): the user sets a factor, clicks Analyse, and the wire shows
+   * TWO `/proxy/v5/turn` POSTs back to back with ONE response — the analysis
+   * completed, so the turn that got no reply was the edit. Its request was
+   * cancelled by `abortRef.current?.abort()`, which every V5 dispatch runs
+   * unconditionally before installing its own controller. The catch block then
+   * gates the whole optimistic resolution on `!isAbort`, so NEITHER arm ran:
+   * no revert, no confirm, no sentence. The preempting turn's own graph apply
+   * wrote CEE's value over the user's, and the analysis went on to name that
+   * exact factor as the decision's biggest lever, at 92% confidence, over a
+   * number the user had replaced. The transcript was 7,982 characters and said
+   * nothing about any of it.
+   *
+   * The two POST-REPLY discard paths are not silent and are deliberately
+   * untouched: a typed refusal ships an `OPTIMISTIC_FACTOR_EDIT_NOTICE`
+   * sentence, and a 200 with no receipt reverts beside CEE's own explanatory
+   * prose. (These two were the whole of "the other paths" in the pristine
+   * comment, which is how the pre-dispatch refusal above went uncounted — it
+   * never reaches a reply, so a scan that starts at the reply cannot see it.)
+   *
+   * ⚠ IT MUST NOT REVERT. The cancel was CLIENT-side; CEE may well have taken
+   * the edit, and there are no committed bytes either way. Discarding the
+   * user's number on that guess is the data-loss direction of the same harm.
+   *
+   * ⚠ TWO PRECONDITIONS, BOTH BINDING BY IDENTITY, AND BOTH NOW PINNED — the
+   * same pair `revertOptimisticFactorEdit` stands down on, for the same reasons:
+   *   · the node must still EXIST. A cleared transcript, a new draft or a
+   *     scenario load all abort in flight, and a sentence about a factor that
+   *     is no longer on the canvas is noise pointing at nothing.
+   *   · the node must still hold `sentValue`. If a newer edit has moved it on,
+   *     that edit owns the surface and will resolve itself; warning about the
+   *     superseded one describes a number no longer on screen.
+   * (The review found the node-gone half was a SURVIVING mutant — the comment
+   * claimed two guards and only one was held by a test. Both are now driven,
+   * through the stop seam's twins, which need the distinction to be real.)
+   *
+   * ⭐ THE PRECONDITION LIVES IN `optimisticFactorEditStillStands`, NOT HERE,
+   * because `cancelTurn` has to ask the identical question to decide whether to
+   * stand its own notice down. Two copies would be two questions wearing one
+   * name.
+   *
+   * NO `markAnalysisFreshnessDirty` CALL, DELIBERATELY, AND IT WAS MEASURED:
+   * the optimistic write is itself an analytical `updateNode`, so the flag is
+   * already dirty on every path through here — an assertion on it passed at
+   * pristine in BOTH directions. Adding the call would be a no-op dressed as a
+   * remedy. See the spec header for the refutation.
+   */
+  const resolveInterruptedOptimisticFactorEdit = useCallback(
+    (edit: OptimisticFactorEdit) => {
+      if (!optimisticFactorEditStillStands(edit)) return
+
+      const node = useCanvasStore.getState().nodes.find((n) => n.id === edit.nodeId)
+      const data = (node?.data ?? {}) as Record<string, unknown>
+      const label = typeof data.label === 'string' ? data.label : null
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        content: buildInterruptedFactorEditNotice(label),
+        timestamp: new Date(),
+      })
+    },
+    [addMessage],
+  )
+
   /** Update an existing message in-place by id (used by streaming path) */
   const updateMessage = useCallback((id: string, patch: Partial<ConversationMessage>) => {
     setMessages((prev) => {
@@ -3389,6 +3489,13 @@ export function useConversation(): UseConversationReturn {
       // reads this ref, not lastUserInputRef, so hidden/system responses
       // are not dropped just because the user did not type.
       activeV5TurnIdRef.current = turnClientId
+      // Same stamping moment, for the same reason: `cancelTurn` runs
+      // synchronously off a click and cannot await anything to find out what it
+      // is stopping.
+      inFlightOptimisticFactorEditRef.current =
+        opts.mode === 'system' && systemEvent?.type === 'factor_value_edit'
+          ? (opts.optimisticFactorEdit ?? null)
+          : null
       // Stop-fence: capture the stop identity HERE, at the point every turn kind
       // passes through, not only in the V5 branch. The V5 branch refines it below
       // once `currentScenarioId` is definitively resolved (it can MINT a scenario
@@ -3911,6 +4018,47 @@ export function useConversation(): UseConversationReturn {
         if (controller.signal.aborted) {
           if (import.meta.env.DEV) {
             console.warn('[sendTurn V5] Response arrived after abort; discarding')
+          }
+          // ⚠ THE SECOND ABORT EXIT, AND IT BYPASSES THE `catch` ENTIRELY.
+          //
+          // `cancelTurn` stands its stop notice down on a PREDICTION that the
+          // catch's abort arm will speak instead. The predicate the two share
+          // cannot disagree — but a reader that is never REACHED cannot agree
+          // either, and this `return` is how it is not reached. `callV5Turn`
+          // awaits `fetch()` (headers) and `parseV5Response(res)` (body) as two
+          // separate awaits (`v5Adapter.ts:119`, `:198`), so a Stop landing
+          // between them on an already-buffered `factor_value_edit` receipt
+          // leaves `res.json()` resolving normally: the promise RESOLVES, the
+          // signal reads aborted, and we return from here.
+          //
+          // Measured on the review's probe, both arms, same driver: PR head
+          // `c62e1bfe` emitted ZERO notices with the optimistic `0.8` still on
+          // the canvas, where merge base `e38b8e96` emitted one. A PR whose
+          // whole purpose is that an aborted edit must not vanish in silence
+          // made the silence MORE complete — green CI could not see it, because
+          // nothing in the suite drove a non-`catch` exit.
+          //
+          // Safe to call unconditionally on this arm: the guard above is
+          // definitionally an abort, and `resolveInterruptedOptimisticFactorEdit`
+          // self-gates on `optimisticFactorEditStillStands` — the same predicate
+          // `cancelTurn` read to suppress, so the two still cannot disagree.
+          //
+          // ⚠ THE SCENARIO FENCE `return` BELOW DELIBERATELY DOES NOT GET THIS
+          // CALL, and that is a decision rather than an omission. There the
+          // response is COMPLETE and belongs to a scenario the user has left;
+          // the predicate reads the LIVE canvas, so on the id collision the
+          // fence's own comment warns about ("same element ids may legitimately
+          // exist in two scenarios and must not bridge their authority") it
+          // would emit a sentence about the old scenario's factor into the new
+          // scenario's transcript. That is the bridge the fence exists to stop.
+          // The edit in the departed scenario therefore stays unresolved —
+          // named, rowed, not silently widened.
+          if (
+            mode === 'system' &&
+            opts.optimisticFactorEdit &&
+            systemEvent?.type === 'factor_value_edit'
+          ) {
+            resolveInterruptedOptimisticFactorEdit(opts.optimisticFactorEdit)
           }
           return
         }
@@ -4950,6 +5098,26 @@ export function useConversation(): UseConversationReturn {
             resolveFailedOptimisticFactorEdit(opts.optimisticFactorEdit, undefined)
           }
         }
+        // ⚠ THE ABORT ARM — the branch above is `!isAbort`, and that exclusion
+        // is what let a user's number vanish without a word on the deployed
+        // build. An abort is not a failure, which is why it is excluded there;
+        // but it is also not a RESOLUTION, and a value edit that resolves
+        // neither way leaves the canvas holding a number nothing will ever
+        // reconcile. See `resolveInterruptedOptimisticFactorEdit` for the wire
+        // evidence and for why this may not revert.
+        //
+        // Its twin `structural_delete` is deliberately NOT handled here: this
+        // lane measured the value-edit path and only that one, and a delete's
+        // honest copy is a different claim about a different optimistic write.
+        // Naming it rather than silently widening the fix.
+        if (
+          isAbort &&
+          mode === 'system' &&
+          opts.optimisticFactorEdit &&
+          systemEvent?.type === 'factor_value_edit'
+        ) {
+          resolveInterruptedOptimisticFactorEdit(opts.optimisticFactorEdit)
+        }
         if (import.meta.env.DEV && !isAbort) {
           console.warn('[sendTurn V5] Dispatch error:', err)
         }
@@ -4963,6 +5131,12 @@ export function useConversation(): UseConversationReturn {
         // a new source of truth — the line above sets the same value and the
         // effect will set it again; this only removes the one-render lag.
         isThinkingRef.current = false
+        // Clear BY REFERENCE IDENTITY, never unconditionally: a preempted
+        // turn's late finally must not wipe the newer turn's edit out from
+        // under `cancelTurn`. Same ownership rule as the run slot below.
+        if (inFlightOptimisticFactorEditRef.current === opts.optimisticFactorEdit) {
+          inFlightOptimisticFactorEditRef.current = null
+        }
         useDraftStore.getState().setIsGenerating(false)
         // ROADMAP 2.122 — every-exit settle for the streamed draft phase
         // (abort, timeout, thrown dispatch, a `return` from the abort guard).
@@ -5515,6 +5689,53 @@ export function useConversation(): UseConversationReturn {
     // defence-in-depth check against programmatic callers.
     if (!isThinkingRef.current) return
 
+    // ── WHICH NOTICE THIS STOP OWES THE USER ────────────────────────────────
+    //
+    // Captured HERE, synchronously, before the abort — because both facts it
+    // depends on are about to change: the abort clears the in-flight turn, and
+    // the edit's own resolution runs in `sendTurn`'s catch a tick later.
+    //
+    // All three `EARLY_STOP_*` notices open "You stopped this draft". On a
+    // stopped `factor_value_edit` turn there IS no draft — that turn set
+    // `isThinking` itself, and the Stop button renders on `isThinking` alone —
+    // so emitting one answers a question with no subject, and answers it
+    // falsely: `NOT_SAVED` promises "Your canvas is unchanged" while the user's
+    // optimistic number is sitting on it, and `UNCONFIRMED` says "reload",
+    // which would discard that unpersisted value outright. Found by the
+    // independent review of #962, by execution, as a contradictory PAIR of
+    // notices once the interrupted-edit arm landed.
+    //
+    // ⚠ CONDITIONAL ON THE EDIT NOTICE ACTUALLY SPEAKING, and that is the whole
+    // safety of it. This function's own rule is that a Stop the user pressed is
+    // never silent. `optimisticFactorEditStillStands` is the SAME predicate the
+    // resolution arm reads, so the two cannot disagree — if the edit has stood
+    // down (node gone, value moved on), so does this suppression, and the draft
+    // notice fires exactly as it does today.
+    //
+    // ⚠⚠ AND THE LIMIT OF THAT ARGUMENT, WHICH IS WHERE IT FAILED ONCE. One
+    // predicate read by two sites secures the PREDICATE and says nothing about
+    // whether the second reader is ever REACHED. It was not: `sendTurn` has two
+    // returns inside its `try` that bypass the `catch`, and on the first of them
+    // — the response that RESOLVES after the abort — this suppression stood
+    // alone and the user got NOTHING (measured: PR head 0 notices, merge base 1).
+    // That arm now calls the resolution too. Any future early return added
+    // between dispatch and the catch inherits the same obligation: the
+    // suppression is a promise that some other site will speak.
+    //
+    // ⚠ IT CANNOT BE OUTCOME-AWARE, BY CONSTRUCTION, and that is a real cost
+    // rather than a detail. This is captured BEFORE `stopV5Turn` resolves, so
+    // the server's answer is discarded unconditionally. On `already_saved` the
+    // suppressed sentence carried a FACT — the turn had committed — and the
+    // replacement is an unconditional hedge ("the model may still hold its
+    // previous value"). Not a lie, but strictly less information on one of the
+    // three outcomes. Deliberate: making it outcome-aware means deferring the
+    // whole decision into the `stopV5Turn` continuation, where the edit may
+    // already have been resolved by the abort arm, and the ordering of those
+    // two is not currently guaranteed.
+    const inFlightEdit = inFlightOptimisticFactorEditRef.current
+    const valueEditNoticeWillSpeak =
+      inFlightEdit !== null && optimisticFactorEditStillStands(inFlightEdit)
+
     // Sync the ref IMMEDIATELY so a second synchronous cancelTurn call (e.g.
     // double-click) observes the updated value and bails (G). setIsThinking(false)
     // only updates the mirror ref on the next commit phase via its useEffect.
@@ -5599,7 +5820,27 @@ export function useConversation(): UseConversationReturn {
       // No wire identity means the turn never reached dispatch (or the scenario
       // id was absent), so there is nothing the server could tombstone. Still
       // say something — a Stop the user pressed is never silent.
-      emitStopNotice(EARLY_STOP_UNCONFIRMED_NOTICE)
+      //
+      // ⚠ THIS BRANCH IS UNREACHABLE AT THIS TIP, AND THE SUPPRESSION GUARD ON
+      // THE LINE BELOW IS INERT — labelled rather than left reading as one of
+      // two protections, which is the pattern #534 removed from this file twice.
+      // Demonstrated in the #962 review by execution, not by argument: with
+      // `currentScenarioId: null` at dispatch — the only route to a null
+      // identity — the V5 branch MINTS and refines `inFlightTurnIdentityRef` at
+      // the dispatch-time capture, which runs BEFORE `setIsThinking(true)`; and
+      // the persisted-session route returns before `setIsThinking(true)` too.
+      // So `identity` cannot be null while `isThinkingRef.current` is true, and
+      // `cancelTurn` returns on that ref at its first line. The probe read
+      // `mintedScenarioId` non-null, `stopV5Turn calls = 1`, notice count = 1 —
+      // the identity arm, not this one. Mutant M6a (delete the guard below)
+      // SURVIVED 12/12 for exactly this reason.
+      //
+      // Scope of the unreachability claim, stated precisely: no other route to
+      // a null identity was constructible. It is kept rather than deleted
+      // because the emit is a real fallback if a future dispatch path ever
+      // reaches `setIsThinking(true)` without an identity — but nothing pins the
+      // guard, so no reader should read it as a guarantee.
+      if (!valueEditNoticeWillSpeak) emitStopNotice(EARLY_STOP_UNCONFIRMED_NOTICE)
       return
     }
     // ⚠ NO `has(...)` EARLY RETURN HERE, AND THE HISTORY MATTERS — AMENDMENT A2
@@ -5684,6 +5925,7 @@ export function useConversation(): UseConversationReturn {
       // R-16: copy chosen by TABLE lookup — `EARLY_STOP_NOTICE_BY_OUTCOME`
       // (module scope) is `Record<TurnStopOutcomeKind, string>`, so a fourth
       // outcome kind is a compile error here, never a silent fallthrough.
+      if (valueEditNoticeWillSpeak) return
       emitStopNotice(EARLY_STOP_NOTICE_BY_OUTCOME[result.kind])
     })
   }, [updateMessage, cleanupStreamRefs, addMessage])

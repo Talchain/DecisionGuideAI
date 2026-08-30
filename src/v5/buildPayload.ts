@@ -615,9 +615,24 @@ function adaptDirectGraphEdit(
  * onto the wrong factor. Every field is taken verbatim from the emitter or
  * omitted.
  *
- * Fail CLOSED to `null` (a RETRYABLE unencodable, surfaced by the caller)
- * whenever the identity or the value is missing or non-finite. `null` is a
- * visible "nothing happened"; a fabricated value is a silent wrong mutation.
+ * Fail CLOSED to `null` whenever the identity or the value is missing or
+ * non-finite. A fabricated value would be a silent wrong mutation, so refusing
+ * to encode is the right call at this hop.
+ *
+ * ⚠ THIS COMMENT USED TO SAY `null` WAS "a RETRYABLE unencodable, surfaced by
+ * the caller". FALSE FOR THIS EVENT — corrected at the bytes after the #962
+ * review. Nothing surfaces it: for `factor_value_edit` a refusal here means the
+ * turn is never built and the caller sees a resolved promise, which is the same
+ * silence this PR's sibling defect was about.
+ *
+ * It is currently UNREACHABLE rather than guarded, and the distinction matters
+ * because only one of those survives a refactor: `buildFactorValueEditEvent`
+ * guarantees a `target_id` and a finite `value`, and returns `null` BEFORE any
+ * optimistic write happens, so no edit can reach this function malformed today.
+ * That is a property of the four call sites, not of this function — if a fifth
+ * emitter ever builds the payload by hand, this returns `null` and the user's
+ * value disappears with nothing said. Rowed rather than fixed blind: a guard
+ * added here now could not be pinned by any driver that exists.
  *
  * ABSENCE IS MEANINGFUL for `raw_value` and `unit` — the contract states that a
  * missing `raw_value` means "the client did not state a user-unit magnitude"
