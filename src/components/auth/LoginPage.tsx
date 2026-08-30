@@ -85,6 +85,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { capturePendingGuestClaim } from '../../lib/pendingGuestClaim'
 import { typography } from '../../styles/typography'
 
 type PageState =
@@ -223,6 +224,23 @@ export default function LoginPage() {
     // then hand the owner to the app (see the effect above: this page routes,
     // because nothing else does).
     setPassword('')
+
+    // Record the guest model this visitor was working on, BEFORE routing.
+    //
+    // Ordering is load-bearing and the reason is easy to get backwards: signing
+    // in does NOT disturb `olumi-canvas-current-scenario-id` — nothing on this
+    // path writes it. What destroys it is the DESTINATION: `goToApp()` below
+    // lands on a route that opens or creates a scenario, and both rewrite the
+    // live pointer (`canvas/store.ts:4654`, `canvas/store/scenarios.ts:344`).
+    // Capturing after navigation would read the wrong id, or none.
+    //
+    // Recording only. No claim is attempted, no request is sent, and a visitor
+    // who never signs in never reaches this line — the guest path is untouched.
+    // See `lib/pendingGuestClaim.ts` for why the copy is worth keeping on its
+    // own: the guest row stays claimable indefinitely, so the id is the only
+    // thing that can be lost.
+    capturePendingGuestClaim()
+
     setSignedInHere(true)
     setPageState('password-signed-in')
   }, [email, password, signInWithPassword])
