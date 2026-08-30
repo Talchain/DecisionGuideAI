@@ -76,8 +76,38 @@ export interface UIInterventionValue {
    * - 'brief_extraction': Extracted from the decision brief text
    * - 'user_specified': Explicitly set by user
    * - 'cee_hypothesis': Inferred by CEE based on context
+   *
+   * ⭐⭐ ABSENT MEANS **THE RECORD DOES NOT SAY**, AND THAT IS A LEGITIMATE
+   * STATE — the fourth one, alongside the three literals. It is OPTIONAL for
+   * exactly that reason.
+   *
+   * CEE's `analysis_ready` carries interventions in either the nested V3 object
+   * form `{value, source, …}` or a BARE FLATTENED NUMBER, and a bare number
+   * carries no provenance at all. Every adapter here used to answer that by
+   * inventing one, and they did not agree on which: `ceeOptionToUIOption` and
+   * `normaliseOptionFromCEE` stamped `'brief_extraction'` ("From your brief"),
+   * while `normaliseOptionFromLegacyNode` stamped `'user_specified'` ("you set
+   * this") — on numbers that `backfillInterventionsOntoOptionNodes` had written
+   * onto the canvas straight out of CEE's own draft. One upstream shape, two
+   * opposite attributions, neither with any evidence behind it.
+   *
+   * The standing invariant this restores: *explicit user fact → PRESERVE IT ·
+   * defensible Olumi estimate → the estimate WITH its provenance · genuinely
+   * unknown → UNKNOWN.* No path may convert the third into a claim because a
+   * downstream surface would like a badge to render.
+   *
+   * ⚠ THE CONSUMER CONTRACT IS ALREADY WRITTEN FOR THIS.
+   * `classifyInterventionProvenance(undefined)` returns `null`, and the honest
+   * readers render nothing on `null` (`ModelDetailRegion.tsx:85`,
+   * `InterventionRow.tsx:179`). Canvas node data has said the same thing for
+   * longer: `canvas/domain/nodes.ts:185` already declares this field
+   * `.optional()`. This type was the one place still insisting on an answer.
+   *
+   * ⚠ DO NOT "FIX" AN ABSENT SOURCE BY DEFAULTING IT. If you need a source that
+   * is not on the record, the value's provenance has been lost upstream — go
+   * and find where, rather than restating the guess one layer down.
    */
-  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  source?: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
 
   /**
    * Information about how this intervention was matched to a node.
@@ -183,13 +213,20 @@ export function normaliseOptionFromCEE(ceeOption: CEEOptionV3): UIOption {
     status: ceeOption.status,
     interventions: Object.fromEntries(
       Object.entries(ceeOption.interventions).map(([nodeId, iv]) => {
-        // Handle both nested (V3) and flattened (analysis_ready) formats
+        // Handle both nested (V3) and flattened (analysis_ready) formats.
+        //
+        // ⚠ THE FLATTENED FORM CARRIES NO PROVENANCE, SO NEITHER DOES THE
+        // OUTPUT. This branch used to stamp `'brief_extraction'` — telling the
+        // user a number CEE had merely produced came out of their own brief.
+        // See `UIInterventionValue.source` for the full account; the short
+        // version is that a bare number is silent about who chose it, and the
+        // adapter must be silent too.
         const isNumber = typeof iv === 'number'
         return [
           nodeId,
           {
             value: isNumber ? iv : iv.value,
-            source: isNumber ? 'brief_extraction' : iv.source,
+            ...(isNumber || iv.source === undefined ? {} : { source: iv.source }),
             target_match: isNumber ? undefined : iv.target_match,
             value_confidence: isNumber ? undefined : iv.value_confidence,
             reasoning: isNumber ? undefined : iv.reasoning,
@@ -225,9 +262,25 @@ export function normaliseOptionFromLegacyNode(
         if (validNodeIds && !validNodeIds.has(nodeId)) {
           continue
         }
+        // ⚠⚠ NO `source` — AND THIS IS THE SHARPEST INSTANCE OF THE CLASS.
+        // `node.data.interventions` is written VERBATIM out of CEE's own
+        // `analysis_ready` by `backfillInterventionsOntoOptionNodes`
+        // (`applyDraftResult.ts` — `interventions: optEntry.interventions`), so
+        // when CEE sends the flattened form these bare numbers are the MODEL's,
+        // not the user's. Stamping `'user_specified'` here put "you set this"
+        // (`InterventionDisplay.formatSource`) under every drafted intervention
+        // in the node inspector, on the live render path
+        // `NodeInspector.tsx:153 → :787/:838`.
+        //
+        // ⚠ THE MAP IS ALSO WRITTEN BY THE USER'S OWN MAPPING FORM, and that is
+        // exactly why guessing cannot work: `UserMappingForm` stamps a true
+        // `'user_specified'`, `NodeInspector`'s save then FLATTENS the map to
+        // bare numbers (`newInterventions[nId] = iv.value`), and the two origins
+        // become indistinguishable on disk. Silence is the only honest answer
+        // available here. Restoring the user's signal means preserving it at the
+        // WRITE — rowed, and not something this reader can invent back.
         interventions[nodeId] = {
           value,
-          source: 'user_specified',
           target_match: {
             node_id: nodeId,
             match_type: 'exact_id',
@@ -239,11 +292,12 @@ export function normaliseOptionFromLegacyNode(
     }
   }
 
-  // Fallback to node's own value if no explicit interventions
+  // Fallback to node's own value if no explicit interventions.
+  // Same reasoning as above: `node.data.value` records a number, never who
+  // chose it. A legacy option node carrying a drafted value is the common case.
   if (!hasValidInterventions && typeof node.data.value === 'number') {
     interventions[node.id] = {
       value: node.data.value,
-      source: 'user_specified',
       target_match: {
         node_id: node.id,
         match_type: 'exact_id',
