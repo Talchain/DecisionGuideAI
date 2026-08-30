@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { useReactFlow } from '@xyflow/react'
+import { useReactFlow, getNodesBounds } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { excludeNonModelNodes } from '../utils/fitTargets'
+import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from '../utils/cameraComfort'
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
@@ -129,11 +130,15 @@ export function useFitViewOnLayoutVersion(): void {
   const restorePendingLayout = useCanvasStore((s) => s.pendingLayout)
   const restoreLayoutInProgress = useCanvasStore((s) => s.layoutInProgress)
   const restoreScenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const { fitView, getNodes } = useReactFlow()
+  const { fitView, getNodes, getViewport, setViewport } = useReactFlow()
   const fitViewRef = useRef(fitView)
   fitViewRef.current = fitView
   const getNodesRef = useRef(getNodes)
   getNodesRef.current = getNodes
+  const getViewportRef = useRef(getViewport)
+  getViewportRef.current = getViewport
+  const setViewportRef = useRef(setViewport)
+  setViewportRef.current = setViewport
 
   // F1: the post-layout auto-fit fires on every layout change, so honour
   // reduced-motion here too (mirrored to a ref to keep the effect deps = only
@@ -147,19 +152,57 @@ export function useFitViewOnLayoutVersion(): void {
   // bounds drifted before `dockWidth.ts` existed).
   const fitNow = useRef(() => {
     const nodes = getNodesRef.current ? excludeNonModelNodes(getNodesRef.current()) : []
+    const padding = computeFitPadding()
+    const duration = cameraDuration(400, reducedMotionRef.current)
+
+    // ⭐⭐ WHEN THE FIT WOULD CLAMP, ANCHOR THE VIEW TO THE MODEL'S TOP.
+    //
+    // xyflow honours `minZoom` by clamping AND RE-CENTRING, so a model taller
+    // than the frame is cropped equally at both ends — and the two ends are not
+    // equally valuable. Measured on the five shipped starters (30 Aug 2026),
+    // `build-vs-buy`'s first view contained NO decision and NOT ONE of its four
+    // options: eight factor cards and nothing else. Top-anchoring recovers the
+    // decision on all three starters that lose it. Full table and the trade in
+    // `cameraComfort.topAnchoredViewportWhenClamped`.
+    //
+    // ⚠ NULL WHENEVER THE MODEL ALREADY FITS, so this changes nothing except in
+    // the state where the camera was already cropping. It also never zooms out:
+    // going below the legibility floor stays the user's choice, not ours.
+    //
+    // ⚠ THE FRAME IS THE FIT'S, NOT THE GATE'S — this file's sibling documents
+    // exactly this fork. `computeFitPadding()` is what the fit frames into;
+    // `FocusCamera.insets` is the wider no-churn GATE frame, widened by
+    // companion occlusion. Using the gate frame here would anchor against a box
+    // the fit never targets. `readFocusCamera` is consulted ONLY for the pane
+    // measurement.
+    const cam = readFocusCamera(getViewportRef.current)
+    if (nodes.length > 0 && cam) {
+      const anchored = topAnchoredViewportWhenClamped(
+        getNodesBounds(nodes),
+        cam.paneWidth,
+        cam.paneHeight,
+        paddingToInsets(padding),
+        LABEL_LEGIBLE_ZOOM,
+      )
+      if (anchored) {
+        setViewportRef.current(anchored, { duration })
+        return
+      }
+    }
+
     fitViewRef.current({
       // Only constrain the target set when there IS one: an empty `nodes` array
       // would frame nothing, so absent/unavailable nodes fall back to xyflow's
       // fit-everything, i.e. exactly the previous behaviour.
       ...(nodes.length > 0 ? { nodes } : {}),
-      padding: computeFitPadding(),
+      padding,
       minZoom: LABEL_LEGIBLE_ZOOM,
       // ⭐ THE OTHER END OF THE BAND. A floor alone let a degenerate bounding
       // box — one node, or a graph the layout engine never spread — frame at up
       // to the instance's `maxZoom={4}`; the witnessed canvas sat at 328%.
       // Automatic fits do not magnify; the user still can.
       maxZoom: AUTO_FIT_MAX_ZOOM,
-      duration: cameraDuration(400, reducedMotionRef.current),
+      duration,
     })
   })
 

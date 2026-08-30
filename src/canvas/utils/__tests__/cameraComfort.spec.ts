@@ -22,6 +22,7 @@ import {
   COMFORT_SLACK_PX,
   DEFAULT_NODE_WIDTH,
   DEFAULT_NODE_HEIGHT,
+  topAnchoredViewportWhenClamped,
 } from '../cameraComfort'
 
 const PANE_W = 1000
@@ -263,5 +264,81 @@ describe('readFocusCamera — the live camera measurement bridge', () => {
     expect(
       nodesComfortablyVisible([inTheClear], camera.viewport, camera.paneWidth, camera.paneHeight, camera.insets),
     ).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// TOP-ANCHORING A CLAMPED VIEW
+//
+// Measured 30 Aug 2026 on the five shipped starters: every auto-fit clamps at
+// the legibility floor, and xyflow re-centres on the clamped zoom — so a model
+// taller than the frame is cropped equally at both ends. On `build-vs-buy` that
+// left NO decision and NOT ONE of four options in the first view.
+// ---------------------------------------------------------------------------
+describe('topAnchoredViewportWhenClamped', () => {
+  const INSETS = { top: 20, right: 20, bottom: 20, left: 20 }
+  const PANE_W = 1000
+  const PANE_H = 800
+  // frame = 960 x 760
+
+  it('returns null when the model already fits — the correction must not touch it', () => {
+    // 900x700 inside a 960x760 frame fits at zoom 1, well above the floor.
+    expect(
+      topAnchoredViewportWhenClamped({ x: 0, y: 0, width: 900, height: 700 }, PANE_W, PANE_H, INSETS, 0.5),
+    ).toBeNull()
+  })
+
+  it('returns null at exactly the floor — the boundary belongs to the fit', () => {
+    // 1920x1520 needs exactly 0.5 to fit: zoomToFit === floor, not below it.
+    expect(
+      topAnchoredViewportWhenClamped({ x: 0, y: 0, width: 1920, height: 1520 }, PANE_W, PANE_H, INSETS, 0.5),
+    ).toBeNull()
+  })
+
+  it('⭐ pins the model TOP inside the frame when the fit would clamp', () => {
+    // 1000x4000 at the 0.5 floor is 2000px tall against a 760px frame.
+    const v = topAnchoredViewportWhenClamped(
+      { x: 0, y: 0, width: 1000, height: 4000 }, PANE_W, PANE_H, INSETS, 0.5,
+    )
+    expect(v).not.toBeNull()
+    expect(v!.zoom).toBe(0.5)
+    // The model's top edge lands exactly on the frame's top inset...
+    expect(v!.y).toBe(INSETS.top)
+    // ...which is ABOVE where a centred fit would put it. That is the change.
+    const centredY = INSETS.top + (760 - 4000 * 0.5) / 2
+    expect(v!.y).toBeGreaterThan(centredY)
+  })
+
+  it('honours a non-zero bounds origin rather than assuming the graph starts at 0', () => {
+    const v = topAnchoredViewportWhenClamped(
+      { x: 300, y: 500, width: 1000, height: 4000 }, PANE_W, PANE_H, INSETS, 0.5,
+    )
+    // y = inset - boundsY*zoom, so the model's own top still lands on the inset.
+    expect(v!.y).toBe(INSETS.top - 500 * 0.5)
+  })
+
+  it('centres horizontally, as the fit does — this changes the vertical only', () => {
+    const v = topAnchoredViewportWhenClamped(
+      { x: 0, y: 0, width: 500, height: 4000 }, PANE_W, PANE_H, INSETS, 0.5,
+    )
+    // 500 wide at 0.5 = 250px in a 960px frame -> centred with 355 each side.
+    expect(v!.x).toBe(INSETS.left + (960 - 250) / 2)
+  })
+
+  it('never zooms out to fit more in — the floor is the product\'s limit, not the user\'s', () => {
+    const v = topAnchoredViewportWhenClamped(
+      { x: 0, y: 0, width: 1000, height: 40000 }, PANE_W, PANE_H, INSETS, 0.5,
+    )
+    // However tall the model, the zoom is the floor and never below it.
+    expect(v!.zoom).toBe(0.5)
+  })
+
+  it('returns null on an unmeasurable pane or degenerate bounds — fail to the existing fit', () => {
+    expect(topAnchoredViewportWhenClamped({ x: 0, y: 0, width: 1000, height: 4000 }, 0, PANE_H, INSETS, 0.5)).toBeNull()
+    expect(topAnchoredViewportWhenClamped({ x: 0, y: 0, width: 0, height: 4000 }, PANE_W, PANE_H, INSETS, 0.5)).toBeNull()
+    expect(
+      topAnchoredViewportWhenClamped({ x: 0, y: 0, width: 1000, height: 4000 }, PANE_W, PANE_H,
+        { top: 500, right: 20, bottom: 500, left: 20 }, 0.5),
+    ).toBeNull()
   })
 })

@@ -363,6 +363,71 @@ export function countNodesOutsideFrame(
   return nodes.reduce((n, node) => (nodeInsideFrame(node, viewport, frame) ? n : n + 1), 0)
 }
 
+/**
+ * Where to put the camera when the model CANNOT be shown whole and legibly.
+ *
+ * ⭐⭐ THE MEASUREMENT THIS EXISTS FOR (Chromium, 1280x800, warm, the five
+ * shipped starters, 30 Aug 2026). Every starter's auto-fit clamps at
+ * `LABEL_LEGIBLE_ZOOM`, and xyflow then RE-CENTRES on the clamped zoom — so it
+ * crops the top and the bottom equally. What that costs, by node kind:
+ *
+ *     starter               framing        decision  option  factor  outcome
+ *     build-vs-buy          centred (now)     0/1      0/4     8/8      0/2
+ *                           top-anchored      1/1      4/4     4/8      0/2
+ *     vendor-selection      centred (now)     0/1      4/4     8/8      2/2
+ *                           top-anchored      1/1      4/4     8/8      0/2
+ *     market-entry          centred (now)     0/1      3/3     8/8      2/2
+ *                           top-anchored      1/1      3/3     8/8      0/2
+ *
+ * **On `build-vs-buy` the current first view contains no decision and not one
+ * of the four options — eight factor cards and nothing else.** A colleague
+ * opening that starter alone forms a view of a decision model without seeing
+ * the decision, the goal, or any risk that qualifies it.
+ *
+ * Top-anchoring recovers the decision on all three starters that lose it and
+ * every option on build-vs-buy. It costs two outcome nodes on two starters and
+ * four factor cards on one. That trade is deliberate: the decision and its
+ * options are what the model is ABOUT, and factors are the supporting detail.
+ *
+ * ⚠ IT RETURNS null WHENEVER THE MODEL ALREADY FITS, and that is the whole
+ * safety argument. The correction applies ONLY where the fit is clamped — i.e.
+ * only where the camera was already cropping — so a model that fits legibly is
+ * framed exactly as it is today. The blast radius is the broken case.
+ *
+ * ⚠ AND IT DOES NOT ZOOM OUT. Going below the floor to fit more in is the
+ * user's choice and not the product's (`zoomLegibility.ts`); this changes only
+ * WHERE the clamped view sits, never how large it is. `ModelExtentNotice` still
+ * states what is out of view and offers the overview.
+ */
+export function topAnchoredViewportWhenClamped(
+  bounds: { x: number; y: number; width: number; height: number },
+  paneWidth: number,
+  paneHeight: number,
+  insets: ComfortInsets,
+  floorZoom: number,
+): ViewportLike | null {
+  if (!(paneWidth > 0) || !(paneHeight > 0)) return null
+  if (!(bounds.width > 0) || !(bounds.height > 0)) return null
+
+  const frameW = paneWidth - insets.left - insets.right
+  const frameH = paneHeight - insets.top - insets.bottom
+  if (frameW <= 0 || frameH <= 0) return null
+
+  // The zoom an unclamped fit would choose. Above the floor, xyflow's own fit
+  // frames the whole model and there is nothing to correct.
+  const zoomToFit = Math.min(frameW / bounds.width, frameH / bounds.height)
+  if (zoomToFit >= floorZoom) return null
+
+  // Clamped. Keep the zoom the product already chose, centre horizontally as
+  // the fit does, and pin the model's TOP inside the frame instead of its
+  // middle.
+  const zoom = floorZoom
+  const scaledW = bounds.width * zoom
+  const x = insets.left + Math.max(0, (frameW - scaledW) / 2) - bounds.x * zoom
+  const y = insets.top - bounds.y * zoom
+  return { x, y, zoom }
+}
+
 export interface FocusCamera {
   viewport: ViewportLike
   paneWidth: number
