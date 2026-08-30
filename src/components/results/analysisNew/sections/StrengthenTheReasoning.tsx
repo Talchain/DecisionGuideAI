@@ -127,52 +127,53 @@ export function StrengthenTheReasoning({
                     attributes; only its POSITION and weight changed. It sits
                     beside the title as a chip, where it qualifies the
                     recommendation at the moment the reader meets it. */}
-                <div className="flex items-start justify-between gap-2">
-                  <p className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}>
-                    {rec.title}
-                    {/* ⭐ WHICH ONE TO ACT ON FIRST. Three recommendations that
-                        render identically ask the reader to rank them — which is
-                        the producer's job, and it already did it: `category` is
-                        its own four-value verdict. Same ramp and same labels as
-                        the existing Strengthen panel, IMPORTED rather than
-                        copied (a second colour map would be the mirror defect).
+                {/* ⭐ THE TITLE GETS THE FULL WIDTH; THE QUALIFIERS SHARE A ROW
+                    BENEATH IT. Mounted at the 280px dock floor, a chip in the
+                    title's right slot squeezed the heading into a ~150px column
+                    — "Define what / success looks like" wrapped mid-phrase and
+                    the severity badge was pushed onto a line of its own. Two
+                    chips competing with a heading for one row does not fit the
+                    narrowest width this product supports.
 
-                        INLINE, not a third flex child: the right slot holds the
-                        grounding chip, and at 280px two right-aligned chips
-                        collide. Absent when the producer sent no category — an
-                        unranked recommendation is not a low-priority one. */}
+                    They are also the same KIND of thing: how urgent this is, and
+                    what licenses it. Reading them as a pair beneath the title is
+                    what they are. */}
+                <p className={`${typography.panelHeader} text-text-header m-0`}>{rec.title}</p>
+
+                {rec.category || grounding ? (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {rec.category ? (
                       <span
-                        className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border bg-transparent px-1.5 align-middle ${SEVERITY_BADGE_CLASS[rec.category]}`}
+                        className={`${typography.panelMeta} inline-flex items-center rounded-pill border bg-transparent px-1.5 ${SEVERITY_BADGE_CLASS[rec.category]}`}
                         data-testid={`${testId}-severity`}
                         data-category={rec.category}
                       >
                         {STRENGTHEN_COPY.severityLabel[rec.category]}
                       </span>
                     ) : null}
-                  </p>
-                  {grounding ? (
-                    <span
-                      className={`${typography.panelMeta} shrink-0 inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info`}
-                      data-testid={`${testId}-science-grounding`}
-                      data-dsk-claim-id={grounding.claimId}
-                      {...(grounding.protocolId
-                        ? { 'data-dsk-protocol-id': grounding.protocolId }
-                        : {})}
-                      title={`Grounded in the decision-science knowledge base${
-                        strengthLabel ? ` · ${strengthLabel}` : ''
-                      }.`}
-                    >
-                      <FlaskConical className="w-3 h-3" aria-hidden={true} />
-                      {strengthLabel ?? COPY.strengthen.groundedChip}
-                      <span className="sr-only">
-                        {`Grounded in the decision-science knowledge base${
+                    {grounding ? (
+                      <span
+                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info`}
+                        data-testid={`${testId}-science-grounding`}
+                        data-dsk-claim-id={grounding.claimId}
+                        {...(grounding.protocolId
+                          ? { 'data-dsk-protocol-id': grounding.protocolId }
+                          : {})}
+                        title={`Grounded in the decision-science knowledge base${
                           strengthLabel ? ` · ${strengthLabel}` : ''
                         }.`}
+                      >
+                        <FlaskConical className="w-3 h-3" aria-hidden={true} />
+                        {strengthLabel ?? COPY.strengthen.groundedChip}
+                        <span className="sr-only">
+                          {`Grounded in the decision-science knowledge base${
+                            strengthLabel ? ` · ${strengthLabel}` : ''
+                          }.`}
+                        </span>
                       </span>
-                    </span>
-                  ) : null}
-                </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <p
                   className={`${typography.panelBody} text-text-body mt-1 mb-0`}
