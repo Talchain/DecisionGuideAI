@@ -70,9 +70,13 @@ export interface NormalisedAction {
  * Quality scores from CEE
  */
 export interface QualityScores {
-  structure: number
-  coverage: number
-  safety: number
+  // Optional for the same reason as `CeeQualityDimensions`: each of these is
+  // `.optional()` in CEE's own quality schema, so "the producer did not score
+  // this" is a state that must be representable. It previously was not, and
+  // ingestion filled the gap with `overall` — see `readCeeQualityDimensions`.
+  structure?: number
+  coverage?: number
+  safety?: number
 }
 
 /**
@@ -458,12 +462,50 @@ export function getLimitingFactor(
     return { label: 'Model quality unknown', hasActiveIssues: false }
   }
 
-  const dimensions = [
+  // ⚠ RANK ONLY WHAT THE PRODUCER SCORED.
+  //
+  // This read `quality.structure/coverage/safety` as three numbers and returned
+  // the lowest. Ingestion used to guarantee all three existed by copying
+  // `overall` into each absent one — so when CEE sent only `overall`, all three
+  // were EQUAL and `sort` returned the first, producing "Structure is limiting
+  // factor" on every such model: a stable, confident, wholly manufactured
+  // diagnosis, and the uniformity is the tell (CLAUDE.md trap 20: when a
+  // per-item query answers identically for every item, suspect the query).
+  // Absence now survives ingestion, so it must be handled here.
+  //
+  // ⚠⚠ SCOPE, CORRECTED — AND THE CORRECTION MATTERS MORE THAN THE FIX.
+  // An earlier version of this comment said the defect made "THE PANEL SAY"
+  // that sentence. **No panel says it, and none ever did.** Derived src-wide,
+  // nothing excluded (`limitingFactor|limiting factor|LimitingFactor`): 20 hits
+  // — 10 in this file, 10 in test mocks, every one of those setting
+  // `limitingFactor: null`. **Zero components.** The string "is limiting
+  // factor" is never rendered anywhere.
+  //
+  // `limitingFactor` is returned from this hook and HAS NO READER. The shipped
+  // pre-analysis hook is the one live consumer of this module
+  // (`components/pre-analysis/hooks/usePreAnalysisData.ts:1170-1176`) and it
+  // destructures `allIssues`, `canRun`, `hasBlockers`, `isLoading` — not this.
+  // That consumption is the contrast control for the sweep: the probe
+  // demonstrably sees a reader where one exists, and reads zero here.
+  //
+  // So this is a LATENT defect in a value with no current reader — blast radius
+  // zero by construction (CLAUDE.md trap 10). The handling below is still worth
+  // having, because the field is one wiring change away from a screen. But a
+  // claim of user-visible harm would be a fabrication, and this file is exactly
+  // where a later session would inherit it as fact (trap 20).
+  const dimensions: Array<{ name: string; score?: number }> = [
     { name: 'Structure', score: quality.structure },
     { name: 'Coverage', score: quality.coverage },
     { name: 'Validation', score: quality.safety },
   ]
-  const lowest = dimensions.sort((a, b) => a.score - b.score)[0]
+  const scored = dimensions.filter(
+    (d): d is { name: string; score: number } =>
+      typeof d.score === 'number' && Number.isFinite(d.score),
+  )
+  if (scored.length === 0) {
+    return { label: 'Model quality unknown', hasActiveIssues: false }
+  }
+  const lowest = [...scored].sort((a, b) => a.score - b.score)[0]
   return { label: `${lowest.name} is limiting factor`, hasActiveIssues: false }
 }
 

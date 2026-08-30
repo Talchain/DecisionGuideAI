@@ -206,13 +206,13 @@ function tryRestoreResultsFromHistory(
 }
 
 // CEE quality dimensions from draft-graph response
-export interface CeeQualityDimensions {
-  overall: number    // 1-10 scale
-  structure: number  // 1-10 scale
-  coverage: number   // 1-10 scale
-  causality: number  // 1-10 scale
-  safety: number     // 1-10 scale
-}
+// CEE quality sub-scores. Declared in `canvas/utils/ceeQualityDimensions.ts`
+// beside `readCeeQualityDimensions`, the ONE reader — the shape and the rule
+// that fills it must not be able to drift apart. Imported AND re-exported here
+// because this is where every existing consumer already imports it from, and
+// this file uses it in its own action signatures.
+import type { CeeQualityDimensions } from './utils/ceeQualityDimensions'
+export type { CeeQualityDimensions }
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'

@@ -15,6 +15,7 @@ import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
+import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
 import { hasAnalysisReady } from '../../adapters/cee/types'
@@ -442,16 +443,14 @@ export function applyDraftResult(
     })
   }
 
-  // Store quality dimensions
-  const quality = (draftData as any).quality
-  if (quality && typeof quality.overall === 'number') {
-    useCanvasStore.getState().setCeeQuality({
-      overall: quality.overall ?? 5,
-      structure: quality.structure ?? quality.overall ?? 5,
-      coverage: quality.coverage ?? quality.overall ?? 5,
-      causality: quality.causality ?? quality.overall ?? 5,
-      safety: quality.safety ?? quality.overall ?? 5,
-    })
+  // Store quality dimensions. ⚠ ONE READER, SHARED WITH `DraftChat` — this was
+  // a hand-mirrored pair and both copies carried the same fabrication:
+  // `causality: quality.causality ?? quality.overall`, on a field CEE does not
+  // emit and deliberately renamed away (see `readCeeQualityDimensions`). Absent
+  // means absent; nothing is borrowed from a neighbouring dimension.
+  const quality = readCeeQualityDimensions((draftData as any).quality)
+  if (quality) {
+    useCanvasStore.getState().setCeeQuality(quality)
   }
 
   // Store pipeline trace if present

@@ -45,7 +45,11 @@ import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveP
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
 import { clearConfirmationWithdrawal } from '../utils/hydrateProvenance'
 import { unwrapInterventionValue, classifyUnit } from '../utils/labelUtils'
-import { formatValueWithUnit, formatNumber } from '../utils/formatValueWithUnit'
+import {
+  formatValueWithUnit,
+  formatNumber,
+  DOUBLE_ROUND_TRIP_SIGNIFICANT_DIGITS,
+} from '../utils/formatValueWithUnit'
 
 /**
  * Everything needed to undo one optimistic value write, captured BEFORE it.
@@ -450,22 +454,80 @@ export function detectSilentRebase(
  * ("Your model currently has monthly observability spend set to £3,300" while
  * the Model tab said £4,000). So that is the remedy named.
  */
+
+/**
+ * Precision rungs for a CONTRAST, walked only when the house rendering collapses
+ * two proven-different magnitudes into one string.
+ *
+ * ⭐ THE INVARIANT, written against the SPEC and not against the bound that
+ * exposed it:
+ *
+ *     THE PRECISION AT WHICH A DIFFERENCE IS DETECTED AND THE PRECISION AT
+ *     WHICH IT IS DISPLAYED MUST NEVER DISAGREE.
+ *
+ * `sameMagnitude` (`:305-307`) proves a difference at a RELATIVE `1e-9`. Every
+ * display path this sentence can take is coarser than that by construction —
+ * `formatNumber` bounds to four fraction digits below 1000, and en-GB's default
+ * to three at and above it — so a PROVEN divergence could render as one string
+ * and the sentence refuted itself:
+ *
+ *   "The engine applied your change to Team morale on top of 0.1235,
+ *    not the 0.1235 shown on your canvas."
+ *
+ * That is the same harm the header above records ("on top of low") reached by a
+ * second mechanism: there a QUALITATIVE collapse, here a PRECISION one. The
+ * previous guard keys on `classifyUnit`, so it could not see this one — which
+ * is why the remedy here is structural rather than a third special case. It
+ * holds for any future display bound, on either basis, at any magnitude.
+ *
+ * WHY SIGNIFICANT DIGITS RATHER THAN FRACTION DIGITS. Model-scale magnitudes
+ * cluster near zero, where fraction digits run out first: `0.00004` and
+ * `0.00002` both render "0" at four fraction digits but distinctly at four
+ * SIGNIFICANT ones, and readably so.
+ *
+ * TERMINATION IS PROVEN, NOT HOPED FOR. Seventeen significant decimal digits
+ * uniquely determine an IEEE-754 double, so two distinct finite doubles are
+ * guaranteed to differ at the final rung — and `detectSilentRebase` has already
+ * established the two are distinct before this function is ever called (both
+ * bases pass `Number.isFinite` at `readNumeric`, and `sameMagnitude` returns
+ * null when they match). There is deliberately no fallback below this ladder:
+ * anything it cannot separate is the same double, which nothing could separate,
+ * and a dead branch pretending otherwise would be the theatre this module
+ * exists to avoid.
+ *
+ * The ladder starts ABOVE the house rendering's own resolution and climbs in
+ * small steps, so a widened sentence shows the LEAST extra precision that tells
+ * the truth rather than seventeen figures every time.
+ */
+const DIVERGENCE_PRECISION_RUNGS: readonly number[] = [
+  5, 6, 7, 8, 9, 10, 12, 14, DOUBLE_ROUND_TRIP_SIGNIFICANT_DIGITS,
+]
+
 export function describeRebaseDivergence(
   divergence: RebaseDivergence,
   factorLabel: string,
 ): string {
-  const render = (n: number): string => {
+  const render = (n: number, significantDigits?: number): string => {
     // Model scale wears no unit, so it never goes near the unit-aware helper.
-    if (divergence.basis !== 'raw_value') return formatNumber(n)
+    if (divergence.basis !== 'raw_value') return formatNumber(n, significantDigits)
     // Otherwise: only hand it to the formatter when the formatter's qualitative
     // branch CANNOT fire — i.e. when the unit is a real one. Same predicate the
     // formatter consults, not a copy of its output.
     const { kind } = classifyUnit(divergence.unit ?? null)
-    if (kind === 'none' || kind === 'placeholder') return formatNumber(n)
-    return formatValueWithUnit(n, divergence.unit)
+    if (kind === 'none' || kind === 'placeholder') return formatNumber(n, significantDigits)
+    return formatValueWithUnit(n, divergence.unit, significantDigits)
   }
-  const shown = render(divergence.shownBase)
-  const server = render(divergence.serverBase)
+
+  let shown = render(divergence.shownBase)
+  let server = render(divergence.serverBase)
+  // ⚠ THE HOUSE RENDERING CAN COLLAPSE A PROVEN DIVERGENCE INTO ONE STRING.
+  // See DIVERGENCE_PRECISION_RUNGS. Widen ONLY when it has — every sentence
+  // that already distinguishes its two magnitudes is left byte-identical.
+  for (const digits of DIVERGENCE_PRECISION_RUNGS) {
+    if (shown !== server) break
+    shown = render(divergence.shownBase, digits)
+    server = render(divergence.serverBase, digits)
+  }
   return (
     `The engine applied your change to ${factorLabel} on top of ${server}, ` +
     `not the ${shown} shown on your canvas. ` +

@@ -199,4 +199,71 @@ describe('ModelSnapshot — click-to-inspector', () => {
     fireEvent.click(screen.getByText('Revenue Target'))
     expect(onFocusNode).toHaveBeenCalledWith('goal_revenue')
   })
+
+  // ===========================================================================
+  // The compact quality list lists THE DIMENSIONS THAT WERE SCORED
+  // ===========================================================================
+  //
+  // This surface had no test for the quality list at all, which is how it came
+  // to be described by a doc sentence that was true of the OTHER consumer.
+  // `ceeQualityDimensions.ts` now states the split per surface; these two cases
+  // pin it, in both directions, so the split cannot drift back into a claim.
+  //
+  // ⚠ The absence case ALONE would be satisfied by the whole block failing to
+  // render — the classic vacuous absence assertion. Each case therefore asserts
+  // the dimensions that ARE expected in the SAME read as the one that is not.
+
+  /**
+   * The whole compact quality line, whitespace-normalised.
+   *
+   * Read as ONE string rather than by per-label queries: the line is a run of
+   * middot-joined spans ("· Structure 8"), so a label query matches a fragment
+   * of a span and tells you nothing about whether the SCORE next to it rendered.
+   * Reading the line binds each assertion to the sentence a user actually sees.
+   */
+  const qualityLine = (): string =>
+    (screen.getByText(/Quality:/).closest('p')?.textContent ?? '').replace(/\s+/g, ' ').trim()
+
+  it('omits an unscored dimension from the compact quality list, and shows the rest', () => {
+    render(
+      <ModelSnapshot
+        nodesByKind={makeNodesByKind()}
+        edgeCount={0}
+        // The shape every real payload produces: CEE emits no `causality` at
+        // all (it renamed the field to `structural_proxy`), so ingestion leaves
+        // it absent rather than substituting `overall`.
+        ceeQuality={{ overall: 9, structure: 8, coverage: 10, safety: 8 }}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('model-snapshot-accordion'))
+
+    // Bound to the exact rendered line — positive evidence and the absence in
+    // ONE read, so "the block never rendered" cannot satisfy this.
+    expect(qualityLine()).toBe('Quality: 9/10 · Structure 8 · Coverage 10 · Safety 8')
+
+    // ...and the unscored dimension is absent rather than fabricated. It is NOT
+    // labelled "Not scored" here: that caveat lives on the Model card, which is
+    // the surface that also explains why. See `ceeQualityDimensions.ts`.
+    expect(qualityLine()).not.toContain('Causality')
+    expect(screen.queryByText('Not scored')).not.toBeInTheDocument()
+  })
+
+  it('still renders a dimension the producer DID score', () => {
+    // THE OPPOSITE-DIRECTION TWIN. Without it, the case above passes for a
+    // component that has stopped rendering the dimension list entirely — the
+    // guard would agree with itself. This one becomes live for free if roadmap
+    // B5.28b ever defines a real causality score.
+    render(
+      <ModelSnapshot
+        nodesByKind={makeNodesByKind()}
+        edgeCount={0}
+        ceeQuality={{ overall: 9, structure: 8, causality: 6, coverage: 10, safety: 8 }}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('model-snapshot-accordion'))
+
+    expect(qualityLine()).toBe(
+      'Quality: 9/10 · Structure 8 · Causality 6 · Coverage 10 · Safety 8',
+    )
+  })
 })

@@ -424,16 +424,96 @@ export const GoalPanel = memo(function GoalPanel({
                       )}
                       {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
                       {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
+                        // ⚠ BIND BY ID, NOT BY LABEL (CLAUDE.md trap 19).
+                        //
+                        // This was `cp.constraint_a_label === (c.label ?? '')`.
+                        // `ConditionalProbability.constraint_a_id` is REQUIRED
+                        // (`types/constraints.ts`) and this very block already
+                        // reads it for the React key three lines below, while
+                        // `CEEGoalConstraint.label` is optional and its own doc
+                        // says it is "genuinely absent in practice". So `?? ''`
+                        // made every UNLABELLED constraint match every row whose
+                        // `constraint_a_label` was also empty — `'' === ''` —
+                        // and printed "If … is met, probability of … changes to
+                        // N%" under a constraint the producer never conditioned
+                        // on. Two constraints sharing a label both claimed one
+                        // row, so at least one was false. This is the sibling of
+                        // the #959 `FactorNode.constraintTooltip` defect, in the
+                        // same feature, including the empty-label case #959
+                        // excluded explicitly.
+                        //
+                        // THE LABEL LEG SURVIVES, UNIQUENESS-GATED, AND THAT IS
+                        // DELIBERATE. No `conditional_probabilities` payload has
+                        // ever been witnessed in this repo — a fixture sweep for
+                        // `constraint_a_id` returns ZERO, and so does the
+                        // contrast term `joint_probability` — so PLoT's id-space
+                        // is NOT established here. An id-ONLY join could drop
+                        // every line if PLoT mints its own ids, and silently
+                        // removing a working surface to fix an attribution bug
+                        // is the "hide it" move, not a fix. The ladder is
+                        // strictly additive: every match that is correct today
+                        // still fires, and only the two provably-wrong ones stop.
+                        const constraintIdentity = c.constraint_id ?? c.id
+                        const label = typeof c.label === 'string' ? c.label.trim() : ''
+                        const labelIsUnique =
+                          label.length > 0 &&
+                          goalConstraints.filter(
+                            other => (typeof other.label === 'string' ? other.label.trim() : '') === label,
+                          ).length === 1
                         const related = conditionalProbabilities.filter(
-                          cp => (cp.constraint_a_label === (c.label ?? ''))
+                          cp => (
+                            (constraintIdentity != null && cp.constraint_a_id === constraintIdentity)
+                            || (labelIsUnique && cp.constraint_a_label === label)
+                          )
                             && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
                         )
                         if (related.length === 0) return null
+
+                        // ⚠ A CONSTRAINT'S NAME FOR PROSE IS NOT ITS RAW LABEL.
+                        // `constraint_a_label` / `constraint_b_label` are
+                        // required `string`s but are genuinely EMPTY in practice
+                        // — the same optional-label reality the id join above
+                        // exists for — and this sentence used them raw, so an
+                        // unlabelled constraint rendered:
+                        //
+                        //   "If  is met, probability of  changes to 90%"
+                        //
+                        // A sentence naming nothing. Inherited, not introduced
+                        // by the id join (the old `'' === ''` leg reached the
+                        // same case), but the join is what makes it INTENTIONAL,
+                        // so it is fixed here rather than left pinned.
+                        //
+                        // Resolve through `goalConstraints` — the SAME array
+                        // these rows are built from — and fall back to the SAME
+                        // positional name the row header renders
+                        // (`Constraint ${i + 1}`), so the prose and the row it
+                        // sits under can never disagree about what a constraint
+                        // is called. Only when a referent is not in that array
+                        // at all do we fall back to the payload's own label.
+                        const proseName = (identity: string, payloadLabel: string): string => {
+                          const idx = goalConstraints.findIndex(
+                            gc => (gc.constraint_id ?? gc.id) === identity,
+                          )
+                          if (idx >= 0) {
+                            const own = typeof goalConstraints[idx].label === 'string'
+                              ? goalConstraints[idx].label!.trim()
+                              : ''
+                            return own.length > 0 ? own : `Constraint ${idx + 1}`
+                          }
+                          const fromPayload = typeof payloadLabel === 'string' ? payloadLabel.trim() : ''
+                          // Last resort: a referent this panel does not hold and
+                          // the producer did not name. Say that, rather than
+                          // leaving a gap the reader will fill with the wrong
+                          // constraint — an unnamed thing is honest, a
+                          // mis-attributed one is not.
+                          return fromPayload.length > 0 ? fromPayload : 'an unnamed constraint'
+                        }
+
                         return (
                           <div className="mt-1 space-y-0.5">
                             {related.map(cp => (
                               <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
-                                If {cp.constraint_a_label} is met, probability of {cp.constraint_b_label} changes to {Math.round(cp.conditional_probability * 100)}%
+                                If {proseName(cp.constraint_a_id, cp.constraint_a_label)} is met, probability of {proseName(cp.constraint_b_id, cp.constraint_b_label)} changes to {Math.round(cp.conditional_probability * 100)}%
                               </p>
                             ))}
                           </div>

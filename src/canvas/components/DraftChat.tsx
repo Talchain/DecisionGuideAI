@@ -19,6 +19,7 @@ import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveP
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from '../utils/draftIngestion'
+import { readCeeQualityDimensions } from '../utils/ceeQualityDimensions'
 import { validateBrief } from '../utils/briefValidation'
 import { formatCEEError } from '../utils/formatCEEError'
 import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
@@ -790,18 +791,14 @@ export function DraftChat() {
       metadataPatch.ceePipelineTrace = pipelineTrace
     }
 
-    // Store quality dimensions from CEE response
-    const rawQuality = (draftData as any).quality
-    if (rawQuality && typeof rawQuality.overall === 'number') {
-      metadataPatch.ceeQuality = {
-        overall: rawQuality.overall ?? 5,
-        structure: rawQuality.structure ?? rawQuality.overall ?? 5,
-        coverage: rawQuality.coverage ?? rawQuality.overall ?? 5,
-        causality: rawQuality.causality ?? rawQuality.overall ?? 5,
-        safety: rawQuality.safety ?? rawQuality.overall ?? 5,
-      }
+    // Store quality dimensions from CEE response. ⚠ ONE READER, SHARED WITH
+    // `applyDraftResult` — see `readCeeQualityDimensions` for what the producer
+    // actually sends and why `causality` may never be manufactured here.
+    const ceeQuality = readCeeQualityDimensions((draftData as any).quality)
+    if (ceeQuality) {
+      metadataPatch.ceeQuality = ceeQuality
       if (import.meta.env.DEV) {
-        console.warn('[DraftChat] Stored CEE quality dimensions:', rawQuality)
+        console.warn('[DraftChat] Stored CEE quality dimensions:', ceeQuality)
       }
     }
 

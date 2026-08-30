@@ -345,4 +345,140 @@ describe('describeRebaseDivergence', () => {
     )
     expect(msg).not.toContain('£')
   })
+
+  // ===========================================================================
+  // A PROVEN DIVERGENCE MUST NEVER RENDER AS TWO IDENTICAL STRINGS
+  // ===========================================================================
+  //
+  // THE INVARIANT, written against the SPEC rather than against the bound that
+  // exposed it:
+  //
+  //     the precision at which a difference is DETECTED and the precision at
+  //     which it is DISPLAYED must never disagree.
+  //
+  // `sameMagnitude` (`optimisticFactorEdit.ts:305-307`) proves a difference at a
+  // RELATIVE 1e-9. Every display path this sentence can take is coarser than
+  // that by construction, so a proven divergence could collapse into one string
+  // and the sentence refuted itself:
+  //
+  //     "…applied on top of 0.1235, not the 0.1235 shown on your canvas."
+  //
+  // That is the SAME HARM the module header already records (the qualitative
+  // collapse, "on top of low") reached by a second mechanism, which is why these
+  // cases are written over the whole domain — both bases, both formatting paths,
+  // and the `>= 1000` branch — instead of over the one bound that produced it.
+  //
+  // ⚠ WHY THE PRE-EXISTING SUITE COULD NOT SEE THIS. Every `basis: 'value'`
+  // fixture above is ONE decimal place (0.8/0.7, 0.6/0.4). A bound at four
+  // decimal places is invisible to all of them by construction — the corpus
+  // EXCLUDED the entire class of magnitudes the defect lives in (CLAUDE.md trap
+  // 22b). These fixtures are at the precision where the harm is, which is the
+  // only reason they can observe it.
+
+  /**
+   * Pull the two magnitudes back out of the sentence, ANCHORED to the copy.
+   *
+   * ⚠ NOT a bare number-scrape. The sentence contains its own comma
+   * ("…on top of X, not the Y shown…") and a scrape whose character class
+   * admits commas extracts `["0.1235,", "0.1235"]` — two strings that differ by
+   * the sentence's punctuation, so `not.toBe` passes and the guard certifies
+   * nothing. Anchoring on the surrounding copy binds each capture to its ROLE
+   * (server base / shown base) rather than to its position in a number list.
+   */
+  const magnitudesIn = (msg: string): { server: string; shown: string } => {
+    const m = msg.match(/on top of (.+?), not the (.+?) shown on your canvas\./)
+    if (!m) throw new Error(`sentence did not match the expected copy: ${msg}`)
+    return { server: m[1], shown: m[2] }
+  }
+
+  it.each([
+    // label, shownBase, serverBase, basis, unit, expected { server, shown }
+    [
+      'model scale, differing in the fifth decimal place',
+      0.12345, 0.123456, 'value' as const, undefined,
+      { server: '0.12346', shown: '0.12345' },
+    ],
+    [
+      // Fraction digits run out first near zero — both of these render "0" at
+      // four of them. Significant digits keep them apart AND keep them readable.
+      'model scale, both magnitudes below the display bound',
+      0.00002, 0.00004, 'value' as const, undefined,
+      { server: '0.00004', shown: '0.00002' },
+    ],
+    [
+      'the raw basis with no unit, differing in the fifth decimal place',
+      0.12345, 0.123456, 'raw_value' as const, undefined,
+      { server: '0.12346', shown: '0.12345' },
+    ],
+    [
+      'the raw basis with a placeholder unit',
+      0.12345, 0.123456, 'raw_value' as const, 'scale',
+      { server: '0.12346', shown: '0.12345' },
+    ],
+    [
+      // NOT introduced by the four-decimal bound: the >= 1000 branch has always
+      // been en-GB's three-fraction-digit default. Included because the
+      // invariant is about the DETECTOR/DISPLAY gap, not about one constant —
+      // 1e-5 apart clears the relative epsilon (4e-6 at this magnitude), so
+      // this is a proven divergence that a real unit must still show as two.
+      // The unit must survive the widening: distinctness bought by dropping the
+      // "£" would be a fabricated magnitude, which is a worse lie than a blur.
+      'the >= 1000 branch wearing a real unit',
+      4000.00002, 4000.00001, 'raw_value' as const, '£',
+      { server: '£4,000.00001', shown: '£4,000.00002' },
+    ],
+  ])('never renders a proven divergence as two identical strings — %s', (
+    _label, shownBase, serverBase, basis, unit, expected,
+  ) => {
+    // Bind the precondition IN-TEST: this fixture must be something the detector
+    // would actually call a divergence, or the case proves nothing about the
+    // renderer (a guard whose precondition nothing pins is a tautology).
+    expect(Math.abs(shownBase - serverBase)).toBeGreaterThan(
+      1e-9 * Math.max(1, Math.abs(shownBase), Math.abs(serverBase)),
+    )
+
+    const msg = describeRebaseDivergence(
+      { nodeId: TARGET, shownBase, serverBase, basis, ...(unit ? { unit } : {}) },
+      'Team morale',
+    )
+    const { server, shown } = magnitudesIn(msg)
+    expect(server, `server base rendered as "${server}"`).not.toBe(shown)
+    // The self-refuting shape, pinned directly as well as via the pair above.
+    expect(msg).not.toMatch(/on top of (\S+), not the \1 shown/)
+    // ...and bound BY IDENTITY, not merely "these two differ": a renderer that
+    // widened to seventeen figures, or dropped the unit, or swapped the two
+    // roles would satisfy `not.toBe` and still be wrong. Each string is the
+    // LEAST precision at which its own magnitude separates from the other.
+    expect({ server, shown }).toEqual(expected)
+  })
+
+  it('leaves a sentence that already distinguishes its two magnitudes exactly as it was', () => {
+    // THE OPPOSITE-DIRECTION TWIN. A renderer that bought distinctness by
+    // widening every sentence would trade a self-refutation for seventeen
+    // significant figures in ordinary copy. Precision is escalated ONLY when the
+    // house rendering collapses, so every sentence that reads correctly today
+    // must read identically after.
+    expect(magnitudesIn(
+      describeRebaseDivergence(
+        { nodeId: TARGET, shownBase: 0.8, serverBase: 0.7, basis: 'value' },
+        'Spend',
+      ),
+    )).toEqual({ server: '0.7', shown: '0.8' })
+
+    expect(magnitudesIn(
+      describeRebaseDivergence(
+        { nodeId: TARGET, shownBase: 4000, serverBase: 3500, basis: 'raw_value', unit: '£' },
+        'Spend',
+      ),
+    )).toEqual({ server: '£3,500', shown: '£4,000' })
+
+    // And the bound this PR added is still doing its job where it belongs: a
+    // seventeen-figure float that is NOT part of a collapse stays bounded.
+    expect(magnitudesIn(
+      describeRebaseDivergence(
+        { nodeId: TARGET, shownBase: 0.24782608695652172, serverBase: 0.9, basis: 'value' },
+        'Spend',
+      ),
+    )).toEqual({ server: '0.9', shown: '0.2478' })
+  })
 })
