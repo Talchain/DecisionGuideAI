@@ -44,6 +44,7 @@ import {
   saveModelVersion,
   type ServerModelVersion,
 } from '../../adapters/cee/modelVersions'
+import type { SignInRefusalCause } from '../../adapters/cee/signInRefusal'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import { logger } from '../../lib/logger'
 
@@ -126,23 +127,90 @@ export const RESTORE_VERSION_NOT_RESTORABLE =
 export const RESTORE_CLIENT_FAULT =
   'Nothing was changed. Olumi sent this server a request it rejected, so this is a fault in Olumi and not in your model. Repeating it will not help — please report it.'
 
-/** The identity we SENT was empty: the session lapsed between render and click. */
+/**
+ * CEE told us the TOKEN was the problem (`sessionLapsed`). Its own words:
+ * *"recovery is signing in"*. Worded for the whole arm — missing, invalid AND
+ * expired — rather than for `expired_token` alone, because an invalid token is
+ * not literally an ended session and the string must be true across every
+ * `auth_reason` that reaches it.
+ */
 export const RESTORE_SESSION_ENDED =
-  'Nothing was changed. Your session has ended. Sign in again, then restore.'
+  'Nothing was changed. Your session is no longer valid. Sign in again, then restore.'
 
 /**
- * We sent a real user id and were still refused as signed-out. Telling a
- * signed-in user that this "requires sign-in" is simply false, and it was the
- * copy shown to any signed-in user on a scenario with no owner row.
+ * The refusal was NOT about our token. Either the scenario has no owner row
+ * (MV001: `scenarios.user_id IS NULL` — a property of the SCENARIO, which is
+ * why a fully signed-in user hits it), or Olumi cannot verify sign-ins at all
+ * right now. Different diagnoses — they are classified apart and logged apart —
+ * but the user's question ("what can I do?") has ONE honest answer on both:
+ * nothing, this is ours. Same reasoning as `RESTORE_CLIENT_FAULT` above; one
+ * question with one answer, not two questions collapsed under one name.
+ *
+ * ⚠ It must NOT say "sign in again" on either arm. On the unowned-scenario arm
+ * the user is already signed in; on the unverifiable arm a fresh token fails to
+ * verify exactly as the old one did, so the instruction would simply loop.
  */
 export const RESTORE_REFUSED_WHILE_SIGNED_IN =
   'Nothing was changed. The server refused this restore as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
 
 export const SAVE_SESSION_ENDED =
-  'Nothing was saved. Your session has ended. Sign in again, then save.'
+  'Nothing was saved. Your session is no longer valid. Sign in again, then save.'
 
 export const SAVE_REFUSED_WHILE_SIGNED_IN =
   'Nothing was saved. The server refused this save as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
+
+/**
+ * ⚠ THE OUTCOME IS GENUINELY UNKNOWN, AND SAYING SO IS THE ONLY HONEST MOVE.
+ *
+ * CEE commits graph + undo + version + head + event in ONE RPC
+ * (`assist.v1.scenario-versions.ts:1181-1195`) and egress-validates AFTERWARDS:
+ * `:1243-1253` parses the response and, on failure, returns `unavailable(…)` —
+ * a 503 raised when the write has ALREADY COMMITTED. This client maps that to
+ * `unavailable`. A transport timeout (`unusable`) has the same shape from here:
+ * the server may have committed and the answer never arrived.
+ *
+ * The v2 receipt is `.strict()` and carries no replay signal, so the client
+ * cannot recover the outcome — which is exactly why it must not assert one.
+ * "Nothing was changed" on these arms is a false claim, and it is the dangerous
+ * direction: read as transient, the user retries with a FRESH mutation id, the
+ * server cannot see a replay, and a second restore buries their pre-restore
+ * snapshot one version deeper.
+ *
+ * Under the no-hiding ruling, *"we could not confirm this — here is the current
+ * state"* is legitimate. Refusing to guess is not the same as hiding, provided
+ * we say so and then show the truth: this arm refreshes the list.
+ */
+export const RESTORE_OUTCOME_UNKNOWN =
+  'Olumi could not confirm whether that restore completed, so it will not claim either way. The versions list has been refreshed to show the shared model as it now stands — check it before restoring again.'
+
+/**
+ * The sign-in refusal's copy, chosen by the arm CEE ACTUALLY SENT.
+ *
+ * ⚠ NEVER BY `identity.userId`, AND THE REASON IS NOT A PREFERENCE. The
+ * `sessionLapsed` arm is reachable only when a token was presented, i.e. only
+ * when a session existed, so `userId !== null` is TRUE ON EVERY OCCURRENCE of
+ * it. A split on our own session object therefore sends 100% of that arm to the
+ * "a fault in Olumi, not something a retry can fix" copy — false, and it
+ * withholds the one remedy the producer names (`buildSignInRequiredError`:
+ * *"recovery is signing in"*). The client's state is a tautology here; the
+ * wire is the evidence.
+ *
+ * No `default`. The union is exhaustive, so a new cause is a COMPILE error
+ * ("lacks ending return statement") rather than a silently mis-worded notice —
+ * the fail-loud direction for a mapping that must never quietly widen.
+ */
+function signInRefusalCopy(
+  cause: SignInRefusalCause,
+  copy: { lapsed: string; olumiFault: string },
+): string {
+  switch (cause) {
+    case 'sessionLapsed':
+      return copy.lapsed
+    case 'signInUnverifiable':
+    case 'scenarioUnowned':
+      return copy.olumiFault
+  }
+}
 
 export const SERVER_VERSIONS_SIGNIN =
   'Sign in to save shared versions. Version history for the shared model is available when you are signed in; the local history above still works in this browser.'
@@ -311,12 +379,14 @@ export function ServerVersionsSection() {
         setMessage('There is no model content to version yet. Add to your model, then save.')
         return
       case 'signInRequired':
-        // Same split as the restore arm. This is the branch a SIGNED-IN user
-        // hits on a scenario with no owner row (CEE raises MV001
-        // "requires sign-in" when `scenarios.user_id` is NULL), so the old
-        // copy was shown precisely to people who were already signed in.
+        // Same split as the restore arm, and for the same reason: on the arm
+        // CEE sends when the TOKEN failed, `identity.userId` is non-null by
+        // construction, so branching on it would blame Olumi every time.
         setMessage(
-          identity.userId === null ? SAVE_SESSION_ENDED : SAVE_REFUSED_WHILE_SIGNED_IN,
+          signInRefusalCopy(result.cause, {
+            lapsed: SAVE_SESSION_ENDED,
+            olumiFault: SAVE_REFUSED_WHILE_SIGNED_IN,
+          }),
         )
         return
       case 'conflict':
@@ -431,18 +501,42 @@ export function ServerVersionsSection() {
         await refresh()
         return
       case 'signInRequired':
-        // Split on the identity we ACTUALLY SENT, not on `useAuth`. A lapsed
-        // session is the user's to fix; a refusal carrying a real user id is
-        // ours, and "requires sign-in" would be false to their face.
+        // Split on the ARM CEE SENT — never on `useAuth`, and never on the
+        // identity we happened to send. See `signInRefusalCopy`: the client's
+        // own session is a tautology on the arm where signing in is the remedy.
         setMessage(
-          identity.userId === null ? RESTORE_SESSION_ENDED : RESTORE_REFUSED_WHILE_SIGNED_IN,
+          signInRefusalCopy(result.cause, {
+            lapsed: RESTORE_SESSION_ENDED,
+            olumiFault: RESTORE_REFUSED_WHILE_SIGNED_IN,
+          }),
         )
         return
       case 'disabled':
         setPhase({ kind: 'disabled' })
         return
-      default:
+      // PROVABLY PRE-COMMIT. The route decides identity → UUID → EXISTENCE →
+      // ownership → body BEFORE the RPC, so a 404 (`notReadable`) or a
+      // 401/403/429 (`refused`) is refused with nothing written. Here the claim
+      // is EARNED, and withholding it would be its own dishonesty — vagueness
+      // about a state we do know.
+      case 'notReadable':
+      case 'refused':
         setMessage('The version could not be restored right now. Nothing was changed.')
+        return
+      // OUTCOME UNKNOWN — see `RESTORE_OUTCOME_UNKNOWN`. `unavailable` covers
+      // CEE's post-commit egress 503, `unusable` a transport failure that may
+      // have raced a commit, and `default` anything this client has not
+      // classified, which is unknown by definition. Refresh, so the sentence is
+      // followed by the truth rather than by a guess.
+      case 'unavailable':
+      case 'unusable':
+      default:
+        logger.warn('server_versions.restore_outcome_unknown', {
+          scenarioId,
+          status: result.status,
+        })
+        setMessage(RESTORE_OUTCOME_UNKNOWN)
+        await refresh()
         return
     }
   }
@@ -600,8 +694,10 @@ export function ServerVersionsSection() {
                       >
                         <p className={`${typography.panelBody} text-text-body`}>
                           Replace the current shared model with v{version.versionNumber}?
-                          Everyone who can open this scenario sees the change, and analyses
-                          recompute from it. The current state is saved first, so you can undo.
+                          Everyone who can open this scenario sees the change, and any
+                          analysis results you already have go out of date — nothing
+                          re-runs on its own, so you will need to analyse again. The
+                          current state is saved first, so you can undo.
                         </p>
                         <div className="flex items-center gap-2">
                           <button

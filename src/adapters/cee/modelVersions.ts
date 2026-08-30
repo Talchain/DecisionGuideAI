@@ -69,7 +69,7 @@
 
 import { logger } from '../../lib/logger'
 import { sanitiseUserId } from '../../lib/guestIdentity'
-import { isSignInRequired } from './signInRefusal'
+import { classifySignInRefusal, type SignInRefusalCause } from './signInRefusal'
 import { buildTurnAuthHeaders } from '../../v5/turnAuthHeaders'
 
 /** The same-origin Netlify edge path. NOT `VITE_CEE_BFF_BASE` — see header. */
@@ -135,7 +135,7 @@ export type ListModelVersionsResult =
    * an empty list, so the only 401 reachable here was one the UI could not
    * produce. Sending a token makes an expired one reachable on every call.
    */
-  | { status: 'signInRequired' }
+  | { status: 'signInRequired'; cause: SignInRefusalCause }
   /** 503 VERSIONS_DISABLED — versioning is off on this service. */
   | { status: 'disabled' }
   /** 503 (plain) — unknown, try again. */
@@ -145,7 +145,7 @@ export type ListModelVersionsResult =
 
 export type SaveModelVersionResult =
   | { status: 'saved'; version: ServerVersionWriteOutcome }
-  | { status: 'signInRequired' }
+  | { status: 'signInRequired'; cause: SignInRefusalCause }
   | { status: 'conflict' }
   | { status: 'nothingToSave' }
   | { status: 'notReadable' }
@@ -167,7 +167,7 @@ export type RestoreModelVersionResult =
       undoVersionId: string | null
       requestId: string | null
     }
-  | { status: 'signInRequired' }
+  | { status: 'signInRequired'; cause: SignInRefusalCause }
   /** 409 VERSION_STALE — the model moved. RECOVERABLE: refresh, then retry. */
   | { status: 'conflict' }
   | { status: 'versionNotFound' }
@@ -325,7 +325,7 @@ function sharedRefusal(
   | { status: 'disabled' }
   | { status: 'unavailable' }
   | { status: 'refused'; httpStatus: number }
-  | { status: 'signInRequired' }
+  | { status: 'signInRequired'; cause: SignInRefusalCause }
   | { status: 'unusable' }
   | null {
   if (outcome.kind === 'transportFailure') return { status: 'unusable' }
@@ -333,7 +333,14 @@ function sharedRefusal(
   // BEFORE the status switch: a sign-in refusal is a 401, and the generic 401
   // arm below would otherwise swallow it into `refused` — which the callers
   // render as "try again", on a response CEE marks `retryable: false`.
-  if (isSignInRequired(outcome.status, outcome.body)) return { status: 'signInRequired' }
+  // ⚠ THE CAUSE TRAVELS WITH THE STATUS. Two different CEE producers answer
+  // this one refusal and they mean opposite things to a user — one is fixed by
+  // signing in, the other cannot be. Flattening them here would leave the
+  // consumer nothing to branch on but its own session object, which is a
+  // tautology on the JWT arm (see `classifySignInRefusal`). Recover the
+  // discriminator at the wire or it is not recoverable at all.
+  const signInCause = classifySignInRefusal(outcome.status, outcome.body)
+  if (signInCause !== null) return { status: 'signInRequired', cause: signInCause }
   const code = detailsCode(outcome.body)
   switch (outcome.status) {
     case 404:

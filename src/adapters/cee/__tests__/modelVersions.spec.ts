@@ -790,3 +790,85 @@ describe('restoreModelVersion — deterministic refusals are not reported as tra
     expect(await refuse(422, 'RESTORE_PAYLOAD_INVALID')).toBe('payloadRejected')
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE SIGN-IN REFUSAL CARRIES ITS CAUSE THROUGH THE TYPED OUTCOME.
+//
+// Two structurally different CEE producers both answer 401 sign_in_required,
+// and they mean opposite things to a user. If the adapter flattens them, the
+// consumer has nothing left to branch on but its OWN session object — and that
+// re-split is wrong 100% of the time on the JWT arm, because that arm is
+// reachable only when a token was presented, i.e. only when a session exists.
+// The discriminator must survive the adapter or it is not recoverable at all.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('the sign-in refusal keeps its cause across all three calls', () => {
+  /** VERBATIM from the wire — deployed staging, invalid Bearer, 401. */
+  const JWT_REFUSAL = {
+    error: 'INGRESS_CONTRACT_VIOLATION',
+    boundary: 'B1',
+    direction: 'ingress',
+    validator: 'user_jwt',
+    details: {
+      reason: 'sign_in_required',
+      code: 'sign_in_required',
+      recoverable: true,
+      auth_reason: 'expired_token',
+    },
+    request_id: '17cfcd04-f272-43cc-8c6c-89befe2622fd',
+    retryable: false,
+  }
+
+  /** The guest/MV001 form — `assist.v1.scenario-versions.ts:462-473`. */
+  const GUEST_REFUSAL = {
+    schema: 'error.v1',
+    code: 'UNAUTHENTICATED',
+    details: { code: 'SIGN_IN_REQUIRED' },
+  }
+
+  async function restoreAgainst(body: unknown) {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(401, body))
+    return restoreModelVersion(SCENARIO, {
+      userId: USER,
+      versionId: VERSION_A,
+      mutationId: REQUEST_MUTATION_ID,
+      expectedGraphIdentityHash: HASH_A,
+    })
+  }
+
+  it('restore: a lapsed session and an unowned scenario are DIFFERENT outcomes', async () => {
+    // The discriminating pair. Either assertion alone would pass against an
+    // adapter that stamped one constant cause on every sign-in refusal.
+    expect(await restoreAgainst(JWT_REFUSAL)).toEqual({
+      status: 'signInRequired',
+      cause: 'sessionLapsed',
+    })
+    expect(await restoreAgainst(GUEST_REFUSAL)).toEqual({
+      status: 'signInRequired',
+      cause: 'scenarioUnowned',
+    })
+  })
+
+  it('restore: an unverifiable sign-in is neither of the other two', async () => {
+    expect(
+      await restoreAgainst({
+        ...JWT_REFUSAL,
+        details: { ...JWT_REFUSAL.details, auth_reason: 'verification_unavailable' },
+      }),
+    ).toEqual({ status: 'signInRequired', cause: 'signInUnverifiable' })
+  })
+
+  it('save and list carry the cause too — one refusal helper, three callers', async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(401, JWT_REFUSAL))
+    expect(await saveModelVersion(SCENARIO, { userId: USER })).toEqual({
+      status: 'signInRequired',
+      cause: 'sessionLapsed',
+    })
+
+    fetchSpy.mockResolvedValueOnce(jsonResponse(401, GUEST_REFUSAL))
+    expect(await listModelVersions(SCENARIO, { userId: USER })).toEqual({
+      status: 'signInRequired',
+      cause: 'scenarioUnowned',
+    })
+  })
+})

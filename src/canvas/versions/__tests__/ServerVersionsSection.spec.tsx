@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 
 const SCENARIO = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
 const USER = '0f8a1b2c-3d4e-4f50-9a6b-7c8d9e0f1a2b'
@@ -461,6 +461,12 @@ describe('ServerVersionsSection — restore identity (pin 6)', () => {
 
 describe('ServerVersionsSection — terminal refusals say so (pin 7)', () => {
   async function refuseWith(result: Record<string, unknown>) {
+    // Several cases below drive TWO arms in one test (a twin pair, or a loop
+    // over the arms that share an answer). Without this, the second render
+    // stacks a second section into the same document and every `getBy*`
+    // throws on multiple matches — which reads as a failure of the arm rather
+    // than of the harness.
+    cleanup()
     restoreModelVersion.mockResolvedValue(result)
     render(<ServerVersionsSection />)
     await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
@@ -493,27 +499,122 @@ describe('ServerVersionsSection — terminal refusals say so (pin 7)', () => {
 
   it('never tells a SIGNED-IN user that restoring requires sign-in', async () => {
     // The section only renders at all when `signedIn` is true, so this copy
-    // was false on every occasion it could ever be shown. The honest split is
-    // on the identity we ACTUALLY SENT: a lapsed session is the user's to fix,
-    // a refusal carrying a real user id is ours.
-    const text = await refuseWith({ status: 'signInRequired' })
+    // was false on every occasion it could ever be shown. MV001's condition is
+    // `scenarios.user_id IS NULL` — a property of the SCENARIO, not the caller.
+    const text = await refuseWith({ status: 'signInRequired', cause: 'scenarioUnowned' })
     expect(text).not.toMatch(/requires sign-in/i)
     expect(text).toMatch(/nothing was changed/i)
+    expect(text).toMatch(/fault in olumi/i)
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // THE OPPOSITE-DIRECTION TWIN. The test above watches ONE door: that we never
+  // say "requires sign-in" to a signed-in user. A guard that answered "a fault
+  // in Olumi, not something a retry can fix" for EVERY sign-in refusal passes it
+  // — and is wrong on the arm where signing in is the whole remedy.
+  //
+  // The `sessionLapsed` arm is reachable only when a token was PRESENTED, i.e.
+  // only when a session existed, so a split on the CLIENT's own `userId` sends
+  // 100% of this arm to the Olumi-fault copy. Both directions, or neither.
+  // ───────────────────────────────────────────────────────────────────────────
+  it('TWIN — a lapsed session says SIGN IN AGAIN, and never blames Olumi', async () => {
+    const text = await refuseWith({ status: 'signInRequired', cause: 'sessionLapsed' })
+    expect(text).toMatch(/sign in again/i)
+    expect(text).not.toMatch(/fault in olumi/i)
+  })
+
+  it('TWIN — an unverifiable sign-in does NOT send the user round the loop', async () => {
+    // CEE's JWKS is unusable; a fresh token fails to verify exactly as the old
+    // one did. "Sign in again" here is a false instruction, not a rough edge.
+    const text = await refuseWith({ status: 'signInRequired', cause: 'signInUnverifiable' })
+    expect(text).toMatch(/fault in olumi/i)
+    expect(text).not.toMatch(/sign in again/i)
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // "NOTHING WAS CHANGED" IS A CLAIM ABOUT THE SERVER, AND ON TWO ARMS WE
+  // CANNOT MAKE IT.
+  //
+  // CEE commits graph + undo + version + head + event in ONE RPC
+  // (`assist.v1.scenario-versions.ts:1181-1195`), and THEN egress-validates:
+  //   :1243-1253  const outcome = AtomicRestoreRouteResponseSchema.safeParse(…)
+  //               if (!outcome.success) return unavailable(…)   ← 503, POST-COMMIT
+  // which this client maps to `unavailable` (`modelVersions.ts:341-342`). A
+  // transport timeout (`unusable`) is the same shape: the server may have
+  // committed and the answer never arrived. The v2 receipt is `.strict()` with
+  // no replay signal, so the client genuinely cannot recover the outcome —
+  // which is precisely why it must not assert one.
+  //
+  // Second-order harm this closes: read as transient, the user retries with a
+  // FRESH mutation id, the server cannot see a replay, and a second restore
+  // buries their pre-restore snapshot one version deeper.
+  // ───────────────────────────────────────────────────────────────────────────
+  it('an unknown outcome is reported as unknown, never as "nothing was changed"', async () => {
+    for (const status of ['unavailable', 'unusable']) {
+      listModelVersions.mockClear()
+      const text = await refuseWith({ status })
+      expect(text, status).not.toMatch(/nothing was changed/i)
+      expect(text, status).toMatch(/could not confirm/i)
+      // …and the user is shown the true state rather than left with the claim.
+      await waitFor(() => expect(listModelVersions.mock.calls.length).toBeGreaterThan(1))
+    }
+  })
+
+  it('TWIN — arms that are provably pre-commit DO still say nothing was changed', async () => {
+    // 404 and 401/403/429 are refused in the route's pre-flight, before the
+    // RPC (`identity → UUID → EXISTENCE → ownership → body → operation`), so
+    // withholding the claim there would be its own dishonesty — vagueness
+    // about a state we do know. Without this twin, "never claim anything" would
+    // pass the test above and lose real information.
+    for (const result of [{ status: 'notReadable' }, { status: 'refused', httpStatus: 403 }]) {
+      const text = await refuseWith(result)
+      expect(text, result.status).toMatch(/nothing was changed/i)
+    }
   })
 })
 
 describe('ServerVersionsSection — the confirm names the blast radius', () => {
-  it('says who else is affected and what recomputes, before the write', async () => {
+  it('says who else is affected and what happens to existing analyses', async () => {
     render(<ServerVersionsSection />)
     await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
     fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
 
     const confirm = screen.getByTestId('server-restore-confirm')
     expect(confirm).toHaveTextContent(/everyone who can open this scenario/i)
-    expect(confirm).toHaveTextContent(/analyses/i)
+    expect(confirm).toHaveTextContent(/analys/i)
     // The undo promise must stay, and it is TRUE: the RPC snapshots the
     // working graph as a `pre_restore` version before replacing it
     // (…restore_atomic_v1.sql:389-410).
     expect(confirm).toHaveTextContent(/so you can undo/i)
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // NOTHING RECOMPUTES. A restore INVALIDATES.
+  //
+  // Derived at the producer, not inferred from the symptom:
+  //   · …c8_atomic_model_version_restore.sql:460-472 stamps
+  //     `analysis_invalidated_at := now()` in the one working-state UPDATE, and
+  //     its column comment (:175-176) reads "DB-stamped chronology guard:
+  //     analysis facts at/before the latest restore are stale even when hashes
+  //     match again."
+  //   · `scenario-graph-analysis-read.ts:139-192` READS prior facts and derives
+  //     FRESHNESS. It runs no analysis.
+  //   · this client never reads `analysis_state` at all (the only occurrence in
+  //     `modelVersions.ts` is a comment listing CEE's key set), and this section
+  //     starts no analysis run.
+  // A consent dialog for a destructive shared write must describe what happens,
+  // not a happier thing that does not.
+  // ───────────────────────────────────────────────────────────────────────────
+  it('does NOT promise a recompute that nothing performs', async () => {
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+
+    const text = screen.getByTestId('server-restore-confirm').textContent ?? ''
+    expect(text).not.toMatch(/recompute|recomputed|recalculat|re-?run automatically/i)
+    // …and says the true thing in its place, so this is not satisfied by
+    // deleting the sentence and telling the user nothing.
+    expect(text).toMatch(/out of date|no longer apply/i)
+    expect(text).toMatch(/again/i)
   })
 })
