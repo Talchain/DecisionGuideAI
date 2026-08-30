@@ -76,9 +76,81 @@ export const PriorDistributionSchema = z.object({
   distribution: z.string().optional(),
   range_min: z.number().optional(),
   range_max: z.number().optional(),
+  /**
+   * CEE's marker that this range is IGNORANCE, not an estimate. See
+   * `isUnquantifiedPrior` below — declared permissively here (`boolean`) and
+   * read strictly there (`=== true`), deliberately: a parse must never reject a
+   * node because a producer wrote `false`, and a surface must never treat
+   * anything but a literal `true` as a claim.
+   */
+  prior_is_unquantified: z.boolean().optional(),
 }).passthrough()
 export const PriorSchema = z.union([z.number().min(0).max(1), PriorDistributionSchema])
 export type Prior = z.infer<typeof PriorSchema>
+
+/**
+ * The field name, declared ONCE for the whole UI.
+ *
+ * ⚠ IT IS DECLARED HERE RATHER THAN IMPORTED, AND THAT IS A CORRECTED PREMISE.
+ * The intent was to import the spelling from the shared contract. It is not
+ * there: the UI pins `@talchain/schemas@0.48.0` (`vendor/`), and unpacking that
+ * tarball on 30 Aug 2026 found the field in ZERO files — positive control
+ * `range_min` in 13, fabricated control in 0, so the probe both sees and
+ * refuses. The pin must NOT move (CEE is on 0.50.0; a skew is a hard 422 on the
+ * whole turn), so the UI owns the spelling itself, in one place, with a test
+ * asserting the exact string. Replace this with the contract import when the
+ * pin next moves.
+ *
+ * CEE's twin: `cee/provenance/unquantified-factor.ts`
+ * `PRIOR_IS_UNQUANTIFIED_FIELD`.
+ */
+export const PRIOR_IS_UNQUANTIFIED_FIELD = 'prior_is_unquantified'
+
+/**
+ * Is this prior an explicit statement of IGNORANCE rather than an estimate?
+ *
+ * ── THE PRINCIPLE, AND IT IS THE WHOLE REASON THIS FUNCTION EXISTS ──────────
+ *
+ * **A RANGE IS NOT SELF-DESCRIBING.** `{range_min: 0, range_max: 1}` from a
+ * genuine external prior and the same pair from ignorance are BYTE-IDENTICAL
+ * and mean opposite things. Only a provenance flag can tell them apart.
+ *
+ * CEE PR #1223 stops substituting a placeholder `0.5` for a factor the brief
+ * gave no number for; the factor now arrives with `uniform(0,1)` carrying this
+ * flag — the one range over the unit interval that asserts nothing.
+ *
+ * ⚠ NEVER DISCRIMINATE ON THE RANGE. Two corpora, measured 30 Aug 2026, return
+ * OPPOSITE verdicts on a range predicate: #1223's own corpus holds genuine
+ * unflagged `uniform(0,1)` priors (`fac_nrr`, `fac_legal_clearance`) that a
+ * range test would wrongly suppress, while all 14 priors across the five
+ * shipped starters are narrowed and none sits at exactly (0,1) — so a range
+ * discriminator would have shown no false positives there and PASSED REVIEW.
+ * No corpus can prove a range predicate unambiguous; it can only fail to have
+ * found the counterexample yet.
+ *
+ * ── POSITIVE EVIDENCE ONLY ──────────────────────────────────────────────────
+ *
+ * Returns true ONLY on a literal `true`. Not `!== false`, not truthiness, not
+ * "has a prior". Every one of those is wider than the spec, and this predicate
+ * SUPPRESSES a numeric display — so a widened version would hide a genuine
+ * estimate. Written against the spec (*"a prior is ignorance when, and only
+ * when, it says so"*), never against the failing input.
+ *
+ * ⚠ NAMED APART FROM CEE'S TWIN (CLAUDE.md trap 21). CEE's
+ * `factorIsExplicitlyUnquantified` takes a NODE and answers *"may the validator
+ * relax its value gate?"*. This takes a PRIOR and answers *"may a surface
+ * present this as an estimate?"*. Different subjects, different questions —
+ * kept under different names so they cannot be conflated.
+ *
+ * ⭐ ONE OWNER, CONSUMED BY BOTH SURFACES. `isFactorNeedsInput`
+ * (`utils/observedStateHelpers.ts`, the amber StatusPill + "Help me estimate
+ * this" chip) and `NodeInspector`'s `describePrior` are the same defect on two
+ * surfaces, not two unrelated fixes. They call this; they do not re-type it.
+ */
+export function isUnquantifiedPrior(prior: unknown): boolean {
+  if (typeof prior !== 'object' || prior === null) return false
+  return (prior as Record<string, unknown>)[PRIOR_IS_UNQUANTIFIED_FIELD] === true
+}
 
 /**
  * Base node data schema (v3)

@@ -4,11 +4,11 @@ import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import type { EvidenceGapEscalation } from './EvidenceGapBadge'
 import { ConstraintBadge } from './ConstraintBadge'
-import { NODE_REGISTRY, type ObservedState } from '../domain/nodes'
+import { NODE_REGISTRY, isUnquantifiedPrior, type ObservedState } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
+import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { classifyUnit, cleanFactorLabel, compactFactorLabel, formatInterventionValue, formatRawValueWithUnit, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatInterventionChange } from '../utils/interventionDisplay'
@@ -331,6 +331,29 @@ export const FactorNode = memo((props: NodeProps) => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
     const rangeMin = prior?.range_min
     const rangeMax = prior?.range_max
+    // ⭐⭐ AN IGNORANCE PRIOR IS NOT A RANGE TO PRINT.
+    //
+    // ⚠ THIS ARM IS REACHABLE, AND MY FIRST READING SAID IT WAS NOT. I traced
+    // two writers of the flagged prior (`normalisation.ts`,
+    // `deterministic-sweep.ts`), found both on the CONTROLLABLE arm, and
+    // deferred this site as unreachable. There is a THIRD writer:
+    // `unified-pipeline/stages/repair/unreachable-factors.ts` sets
+    // `node.category = "external"` (:446) and then writes
+    // `buildUnquantifiedPrior()` (:750) — SAME node, SAME loop iteration, no
+    // intervening scope (verified at CEE `8a4564e5`). So an EXTERNAL factor
+    // does carry the flag, and CEE's own comment there names this surface:
+    // *"instead of printing a bare `Range: 0 to 1`"*.
+    //
+    // ⚠ AND THE HARM IS WORSE THAN AN UNFIXED SIBLING. `Range: 0 to 1` is
+    // PRE-EXISTING here; what the honest-unknown sentence adds is a
+    // CONTRADICTION BESIDE IT — the node saying "No estimate yet" and
+    // "Range: 0 to 1" at once, the second being exactly the claim the first was
+    // written to replace. Suppressing the range is what stops the pair
+    // co-rendering, and that pairing is pinned in the spec.
+    //
+    // Suppressing the LINE is not hiding the STATE: the honest sentence and the
+    // evidence-gap badge both render on this node and say what is true.
+    if (isUnquantifiedPrior(prior)) return null
     // Both endpoints must be finite numbers: `!range_min` truthiness would
     // drop the line for range_min === 0 (a perfectly good lower bound), and
     // Infinity/NaN must never render ("Range: Infinity to …").
@@ -422,7 +445,51 @@ export const FactorNode = memo((props: NodeProps) => {
   // FactorNeedsPre): all of value/raw_value/display_value null AND non-external.
   const needsInput = isFactorNeedsInput(props.data)
 
-  const externalWithPrior = nodeCategory === 'external' && props.data?.prior != null
+  // ⭐⭐ WHAT DOES THIS NODE SAY ABOUT ITS OWN NUMBER? ONE decision, ordered.
+  //
+  // Two populations that must NOT share a sentence (CLAUDE.md trap 21):
+  //   'unquantified' — no number exists at all. CEE PR #1223 stops
+  //                    substituting a placeholder `0.5` and sends an ignorance
+  //                    prior instead, so the honest claim is that there is no
+  //                    estimate yet.
+  //   'placeholder'  — a number exists and Olumi invented it.
+  //
+  // ⚠ ORDER IS LOAD-BEARING, AND SO IS THE SECOND CONJUNCT ON EACH ARM.
+  // CEE's sweep deletes `data.value` but explicitly PRESERVES `extractionType`
+  // (`deterministic-sweep.ts`: `extractionType: existingType ?? 'inferred'`).
+  // So `isInferred` can be TRUE on a factor carrying no number — under which
+  // the placeholder sentence does not merely go dark, it becomes FALSE: it
+  // asserts a placeholder that no longer exists. Measured at pristine, this
+  // exact render produced "Olumi's placeholder — no evidence yet." over a
+  // factor with no value. The specific fact wins.
+  //
+  // ⚠ AND THE OPPOSITE-DIRECTION HARM, WHICH IS THE WORSE ONE. `hasAnyStatedValue`
+  // guards the 'unquantified' arm so an ignorance prior can never talk over a
+  // number a PERSON supplied afterwards — telling a user the value they set is
+  // not there is the harm `observedStateHelpers` already records as worse than
+  // a gap wrongly hidden. Both arms are pinned, both directions, in
+  // `__tests__/FactorNode.unquantifiedPrior.spec.tsx`.
+  //
+  // Written against the SPEC — *"a factor carrying an ignorance prior has no
+  // estimate; say that, and do not describe a placeholder"* — so it is correct
+  // whether or not `observed_state` survives CEE's V3 transform, a CEE-side
+  // fact this lane could not settle.
+  const valueVoice: 'unquantified' | 'placeholder' | null = useMemo(() => {
+    if (isUnquantifiedPrior(props.data?.prior) && !hasAnyStatedValue(props.data)) return 'unquantified'
+    if (isInferred && !factorValueHasEvidence) return 'placeholder'
+    return null
+  }, [props.data, isInferred, factorValueHasEvidence])
+
+  // An external factor's prior is its evidence, so it earns the badge's silence
+  // — UNLESS the prior is an explicit statement of ignorance, which is the
+  // absence of evidence rather than a quiet form of it. Same owner, same
+  // discrimination, as `isFactorNeedsInput`'s exemption: the flag, never the
+  // range. `unreachable-factors.ts` reclassifies a factor to `external` and
+  // writes the flagged prior in one pass, so this arm is genuinely reached.
+  const externalWithPrior =
+    nodeCategory === 'external'
+    && props.data?.prior != null
+    && !isUnquantifiedPrior(props.data.prior)
   const showEvidenceGapBadge =
     isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
 
@@ -670,9 +737,29 @@ export const FactorNode = memo((props: NodeProps) => {
           analysis." Saying it twice costs a line and adds nothing.
           Shortened by REWRITING, never by truncating or eliding — an ellipsis
           with nowhere to go would be hiding, and going silent would be worse. */}
-      {isInferred && isHighPriority && !factorValueHasEvidence && (
+      {valueVoice === 'placeholder' && isHighPriority && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           Olumi&rsquo;s placeholder &mdash; no evidence yet.
+        </p>
+      )}
+      {/* ⭐ THE STATE #1223 CREATES, AND IT MUST NOT BE SILENT.
+          Before #1223 a factor with no stated number was handed `0.5` and the
+          line above described it. #1223 sends no number at all — strictly more
+          honest upstream, and it would have made the node say LESS about a
+          factor that is MORE openly unknown. A capability closing, not a
+          regression fixed: this state could not previously arise.
+          WORDING. Short, because height is the scarcest resource on this canvas
+          (every shipped starter clamps at the 0.50 legibility floor and every
+          one is HEIGHT-bound). It carries the same substance as CEE's own
+          sentence — "its value was left fully open rather than narrowed to a
+          figure we cannot support" — so the product says ONE thing about this
+          state across chat and canvas. It obeys the same C1 ruling as CEE's:
+          no bracket notation, not the word "unquantified", and no disowned
+          figure. The ACTION half is not repeated for the same reason the line
+          above omits it — the evidence-gap badge already carries it. */}
+      {valueVoice === 'unquantified' && isHighPriority && (
+        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
+          No estimate yet &mdash; left open, not guessed.
         </p>
       )}
       {/* The other two `inferred` populations — a value a PERSON owns, and one
