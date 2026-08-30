@@ -156,7 +156,7 @@ export function AtAGlance({
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
       {ribbon.length > 0 ? (
         <div
-          className="flex items-start gap-1.5 rounded-md bg-warning/10 px-2 py-1.5"
+          className="flex items-start gap-1.5 border-l-2 border-warning/50 pl-2"
           role="status"
           data-testid={`${testId}-ribbon`}
         >
@@ -220,27 +220,27 @@ export function AtAGlance({
             </span>
           </div>
 
+          {glance.winPercentLabel ? (
+            <p className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}>
+              {COPY.glance.winShareCaption}
+            </p>
+          ) : null}
           {glance.winFraction !== null ? (
-            <>
+            <span
+              className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
+              aria-hidden="true"
+              data-testid={`${testId}-win-bar`}
+            >
               <span
-                className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
-                aria-hidden="true"
-                data-testid={`${testId}-win-bar`}
-              >
-                <span
-                  className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
-                  style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
-                />
-              </span>
-              <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`}>
-                {COPY.glance.winShareCaption}
-              </p>
-            </>
+                className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
+                style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
+              />
+            </span>
           ) : null}
 
           {glance.verdict.reason ? (
             <p
-              className={`${typography.panelMeta} ${TONE_CLASS[glance.verdict.tone]} mt-1 mb-0`}
+              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
               data-testid={`${testId}-verdict-reason`}
             >
               {glance.verdict.reason}
