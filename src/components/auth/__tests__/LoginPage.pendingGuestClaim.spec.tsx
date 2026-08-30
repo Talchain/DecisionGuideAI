@@ -28,7 +28,7 @@
  * localStorage rather than a mock, so they test the wiring and the storage
  * contract together — a mock would pass even if the key were wrong.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -68,6 +68,16 @@ beforeEach(() => {
   localStorage.clear()
   mockAuthenticated = false
   mockSignInWithPassword.mockResolvedValue({ error: null })
+})
+
+/**
+ * The storage-unavailable case stubs `Storage.prototype.setItem`, which is
+ * GLOBAL. Without this, the stub outlives the file and a sibling spec sharing
+ * the worker gets a localStorage that throws — see the twin note in
+ * `lib/__tests__/pendingGuestClaim.spec.ts` for the run that measured it.
+ */
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('LoginPage — pending guest claim capture', () => {

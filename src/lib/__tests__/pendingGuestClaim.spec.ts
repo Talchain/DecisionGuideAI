@@ -27,7 +27,7 @@
  * pending capture: that would discard the first guest model — the exact harm
  * this module exists to prevent, reintroduced by the module meant to prevent it.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import {
   PENDING_GUEST_CLAIM_KEY,
@@ -43,6 +43,20 @@ const SECOND_SCENARIO = '9f8b7a6c-1234-4def-8abc-0123456789ab'
 
 beforeEach(() => {
   localStorage.clear()
+  vi.restoreAllMocks()
+})
+
+/**
+ * ⚠ RESTORING ONLY IN `beforeEach` LEAVES THE LAST TEST'S MOCKS INSTALLED.
+ * The storage-unavailable case below stubs `Storage.prototype`, which is
+ * GLOBAL — so once this file's final test has run, a sibling spec sharing the
+ * worker inherits a localStorage that throws. Measured, not theorised: this
+ * file was green in isolation and in `src/lib/__tests__` (1454/1454), and a
+ * combined run with `src/components/auth` failed one unrelated
+ * `diagnostic-bundle` case. `beforeEach` protects THIS file; only `afterEach`
+ * protects everyone else.
+ */
+afterEach(() => {
   vi.restoreAllMocks()
 })
 

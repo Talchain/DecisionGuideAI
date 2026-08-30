@@ -41,6 +41,8 @@
  * nothing a guest sees — a visitor who never signs in never reaches it.
  */
 
+import { latestScenarioTrail } from './scenarioTrail'
+
 /** Distinct from the live pointer by construction — see WRITE-ONCE above. */
 export const PENDING_GUEST_CLAIM_KEY = 'olumi.pendingGuestClaim.v1'
 
@@ -92,7 +94,15 @@ export function capturePendingGuestClaim(): string | null {
   const pending = readPendingGuestClaim()
   if (pending !== null) return pending
 
-  const current = readKey(CURRENT_SCENARIO_KEY)
+  // The live pointer first; the trail when it has already been lost.
+  //
+  // ONE MECHANISM, TWO TRIGGERS. A colleague who hits "Start new model" and
+  // THEN signs in has no live pointer — `clearCurrentScenarioId` emptied the
+  // slot. Without this fallback the sign-in capture would find nothing and the
+  // guest model would still be stranded, so the two triggers would need two
+  // fixes. `scenarioTrail` recorded the id at the moment it was displaced, and
+  // reading it here is what makes this a single mechanism.
+  const current = readKey(CURRENT_SCENARIO_KEY) ?? latestScenarioTrail()
   if (!current || !UUID_RE.test(current)) return null
 
   try {

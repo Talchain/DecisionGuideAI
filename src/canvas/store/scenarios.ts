@@ -16,6 +16,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import type { ReportV1 } from '../../adapters/plot/types'
 import { buildPersistedGraph, type PersistedGraph } from '../utils/persistedGraph'
+import { recordScenarioTrail } from '../../lib/scenarioTrail'
 
 export interface ScenarioFraming {
   title?: string          // Decision or question
@@ -262,6 +263,14 @@ export function setCurrentScenarioId(id: string): void {
   }
 
   try {
+    // Record the id being DISPLACED, before it is gone. This slot is the only
+    // route back to a model, and switching models overwrites it — see
+    // `lib/scenarioTrail.ts` for why the row itself survives and only the key
+    // is lost. Recording, not recovering: nothing here changes what happens
+    // next.
+    const displaced = localStorage.getItem(CURRENT_SCENARIO_KEY)
+    if (displaced && displaced !== id) recordScenarioTrail(displaced)
+
     localStorage.setItem(CURRENT_SCENARIO_KEY, id)
   } catch (error) {
     console.error('[scenarios] Failed to set current scenario ID:', error)
@@ -277,6 +286,14 @@ export function clearCurrentScenarioId(): void {
   }
 
   try {
+    // "Start new model" lands here, and it is the trigger that fires on the
+    // GUEST path — the one colleagues actually walk. The dialog says the reset
+    // "cannot be undone", which is true of what the product offers and false of
+    // what the data allows: the server row survives with `user_id = NULL` and
+    // stays retrievable by this id. Keep the id.
+    const cleared = localStorage.getItem(CURRENT_SCENARIO_KEY)
+    if (cleared) recordScenarioTrail(cleared)
+
     localStorage.removeItem(CURRENT_SCENARIO_KEY)
   } catch (error) {
     console.error('[scenarios] Failed to clear current scenario ID:', error)
