@@ -563,6 +563,30 @@ describe('pre-run never carries a staleness claim', () => {
     )
   })
 
+  it('⭐ NO staleness claim on a fresh completed run — the default state', () => {
+    // ⚠ THIS CASE WAS MISSING AND A REVIEWER'S MUTANT FOUND THE HOLE. Dropping
+    // the `isStale` conjunct — leaving the gate as `!isPreRun` — SURVIVED all
+    // 30 tests, because nothing here asserted the line is ABSENT in the
+    // surface's own default state. Its effect is to print "The model has
+    // changed since this analysis ran" on EVERY completed run, including a
+    // fresh one.
+    //
+    // That is the fabrication direction, and it is worse than the
+    // contradiction this PR fixes: a self-contradiction at least tells the
+    // reader something is wrong, while a confident false staleness claim tells
+    // them something untrue and looks fine doing it.
+    //
+    // The general lesson, which is why this comment is long: my corpus tested
+    // the two states where the line SHOULD appear or is contradictory, and
+    // never the state where it should simply be quiet. Check what a corpus
+    // EXCLUDES, not what it covers.
+    renderBody(genuineDecision(), { isPreRun: false, isStale: false })
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+    // Pinned in-test: this really is a displayed run, so the absence above is
+    // the gate's doing and not an empty panel.
+    expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
+  })
+
   it('pre-run without staleness is unchanged', () => {
     renderBody(genuineDecision(), { isPreRun: true, isStale: false })
     expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
