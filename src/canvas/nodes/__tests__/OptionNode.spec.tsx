@@ -2657,3 +2657,95 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// PRE-ANALYSIS DELTA ROWS — the card shortens the LABEL and never the VALUE,
+// and the shortened label is recoverable.
+//
+// WHY THESE EXIST. Measured in Chromium at 1280x800 on the five shipped
+// starters (30 Aug 2026): every starter's auto-fit clamps at the 0.50
+// legibility floor, so `--canvas-label-scale` is 2 and an 11px label renders
+// at 22px inside a 244px card — about 19 characters a line. The old markup put
+// each delta in an `inline-flex` pill sized to the card's content box with
+// `gap-0.5` (2px) between the label and its value, which produced two defects:
+// pills wrapping to as many as SIX lines inside a rounded border, and
+// "Germany market entry" running into "Low (0) → Very high (1)" so it read as
+// "market entryLow (0)".
+//
+// The whole suite passed 76/76 both before and after that markup was replaced,
+// which is the point: nothing bound to it. These do.
+// ---------------------------------------------------------------------------
+describe('OptionNode — pre-analysis delta rows', () => {
+  /** Two factors, so a mutant can be aimed at ONE of them (trap 19). */
+  const twoFactorStore = () =>
+    makeStoreState({
+      ceeAnalysisReady: {
+        options: [{ id: 'option-1', interventions: { 'factor-long': 0.8, 'factor-short': 0.9 } }],
+      },
+      nodes: [
+        { id: 'factor-long', data: { label: 'Enterprise Revenue Cannibalization Risk', observedState: { unit: 'fraction', value: 0.4 } } },
+        { id: 'factor-short', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.5 } } },
+      ],
+    }) as any
+
+  beforeEach(() => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(twoFactorStore()))
+  })
+
+  it('shortens a long factor label on the card', () => {
+    renderOption()
+    // compactFactorLabel(…, 22) truncates at a word boundary and ellipsises.
+    expect(screen.getByText('Enterprise revenue…')).toBeInTheDocument()
+    // ⚠ Note the casing: the fixture supplies "Enterprise Revenue
+    // Cannibalization Risk" and the card paints "Enterprise revenue…".
+    // Sentence-casing happens UPSTREAM of this component, so a test written
+    // against the fixture's own string silently misses (it did, first run).
+    // The uncompacted string is NOT what the card paints.
+    expect(screen.queryByText('Enterprise revenue cannibalization risk')).toBeNull()
+  })
+
+  it('leaves a short factor label alone — the shortening is not indiscriminate', () => {
+    renderOption()
+    expect(screen.getByText('Budget')).toBeInTheDocument()
+  })
+
+  it('⭐ makes the shortened label recoverable on the row itself', () => {
+    // Paul, 29 Aug: ellipsis WITH recovery is a caveat; ellipsis with nowhere
+    // to go is hiding. This is the binding constraint on the whole change.
+    renderOption()
+    const shortened = screen.getByText('Enterprise revenue…')
+    const row = shortened.closest('li')
+    expect(row).not.toBeNull()
+    expect(row!.getAttribute('title')).toContain('Enterprise revenue cannibalization risk')
+  })
+
+  it('⭐ never shortens the VALUE, however long it is', () => {
+    renderOption()
+    // 40% → 80% for the long factor; the value renders complete and verbatim.
+    expect(screen.getByText('40% → 80%')).toBeInTheDocument()
+    expect(screen.getByText('50% → 90%')).toBeInTheDocument()
+  })
+
+  it('⭐ renders the label and its value as SEPARATE elements, so they cannot run together', () => {
+    // The defect this pins: at 2px of separation, "Germany market entry" and
+    // "Low (0) → Very high (1)" read as one string, "market entryLow (0)".
+    renderOption()
+    const label = screen.getByText('Enterprise revenue…')
+    const value = screen.getByText('40% → 80%')
+    expect(label).not.toBe(value)
+    expect(label.contains(value)).toBe(false)
+    expect(value.contains(label)).toBe(false)
+    // Both are block-level, so they occupy their own lines rather than flowing.
+    expect(label.className).toContain('block')
+    expect(value.className).toContain('block')
+  })
+
+  it('binds each row to its own factor — two changes produce two rows', () => {
+    renderOption()
+    const rows = document.querySelectorAll('li[title]')
+    expect(rows.length).toBe(2)
+    const titles = [...rows].map(r => r.getAttribute('title') ?? '')
+    expect(titles.some(t => t.startsWith('Enterprise revenue cannibalization risk'))).toBe(true)
+    expect(titles.some(t => t.startsWith('Budget'))).toBe(true)
+  })
+})
