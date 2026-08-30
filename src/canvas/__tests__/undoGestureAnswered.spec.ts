@@ -22,8 +22,12 @@ import { renderHook } from '@testing-library/react'
 import {
   useKeyboardShortcuts,
   isUndoRedoGesture,
-  CANVAS_UNDO_UNAVAILABLE_NOTICE,
+  CANVAS_UNDO_LOCAL_ONLY_NOTICE,
 } from '../useKeyboardShortcuts'
+import {
+  __resetPersistenceSessionForTests,
+} from '../../lib/persistenceSession'
+import { useCanvasStore } from '../store'
 
 /**
  * Spread the original module rather than hand-listing its exports: a
@@ -64,6 +68,14 @@ describe('undo gesture is answered, not swallowed', () => {
 
   beforeEach(() => {
     authorityValue.current = 'disabled'
+    // ⚠ PIN THIS FILE'S OWN PRECONDITION rather than inheriting a default.
+    // Every case below expects the LOCAL-ONLY notice, which is only correct
+    // for a reader with no server identity and no addressable scenario. Left
+    // implicit, these assertions would flip silently the day a default moves —
+    // a guard that agrees with itself. Which sentence each reader class gets is
+    // pinned separately in `undoNoticeReaderClass.spec.ts`.
+    __resetPersistenceSessionForTests()
+    useCanvasStore.setState({ currentScenarioId: null })
     toasts = captureToasts()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-29T12:00:00Z'))
@@ -72,6 +84,7 @@ describe('undo gesture is answered, not swallowed', () => {
   afterEach(() => {
     toasts.dispose()
     vi.useRealTimers()
+    __resetPersistenceSessionForTests()
   })
 
   // ── direction 1: the gesture must be ANSWERED ────────────────────────────
@@ -80,31 +93,37 @@ describe('undo gesture is answered, not swallowed', () => {
     renderHook(() => useKeyboardShortcuts())
     press('z', { ctrlKey: true })
     // Identity, not a substring predicate another message could satisfy.
-    expect(toasts.messages).toEqual([CANVAS_UNDO_UNAVAILABLE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
   })
 
   it('the notice names Version history — the recovery that actually exists', () => {
     // Pins the ROUTE, so a future edit cannot quietly reduce this to a bare
     // "not available" dead end. `ServerVersionsSection` renders under this name.
-    expect(CANVAS_UNDO_UNAVAILABLE_NOTICE).toContain('Version history')
+    //
+    // ⚠ THE CASES IN THIS FILE ALL RUN AS THE DEFAULT READER — guest, no
+    // scenario id — which is why they expect the LOCAL-ONLY notice. Which
+    // sentence each reader class gets is pinned in
+    // `undoNoticeReaderClass.spec.ts`; this file pins that the gesture is
+    // ANSWERED at all, and stays deliberately about that one question.
+    expect(CANVAS_UNDO_LOCAL_ONLY_NOTICE).toContain('Version history')
   })
 
   it('⌘⇧Z (redo) is answered too', () => {
     renderHook(() => useKeyboardShortcuts())
     press('z', { ctrlKey: true, shiftKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_UNAVAILABLE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
   })
 
   it('⌘Y (redo, Windows idiom) is answered too', () => {
     renderHook(() => useKeyboardShortcuts())
     press('y', { ctrlKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_UNAVAILABLE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
   })
 
   it('uppercase Z (⌘⇧Z on some layouts) is answered', () => {
     renderHook(() => useKeyboardShortcuts())
     press('Z', { ctrlKey: true, shiftKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_UNAVAILABLE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
   })
 
   // ── direction 2: the OPPOSITE-DIRECTION TWINS ────────────────────────────
@@ -165,7 +184,7 @@ describe('undo gesture is answered, not swallowed', () => {
     press('z', { ctrlKey: true })
     press('z', { ctrlKey: true, repeat: true })
     press('z', { ctrlKey: true, repeat: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_UNAVAILABLE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
   })
 
   it('TWIN: a second press inside the quiet window is suppressed, and a later one is not', () => {
@@ -173,13 +192,13 @@ describe('undo gesture is answered, not swallowed', () => {
     press('z', { ctrlKey: true })
     vi.setSystemTime(new Date('2026-08-29T12:00:01Z')) // 1s — inside the window
     press('z', { ctrlKey: true })
-    expect(toasts.messages).toEqual([CANVAS_UNDO_UNAVAILABLE_NOTICE])
+    expect(toasts.messages).toEqual([CANVAS_UNDO_LOCAL_ONLY_NOTICE])
 
     vi.setSystemTime(new Date('2026-08-29T12:00:10Z')) // 10s — outside it
     press('z', { ctrlKey: true })
     expect(toasts.messages).toEqual([
-      CANVAS_UNDO_UNAVAILABLE_NOTICE,
-      CANVAS_UNDO_UNAVAILABLE_NOTICE,
+      CANVAS_UNDO_LOCAL_ONLY_NOTICE,
+      CANVAS_UNDO_LOCAL_ONLY_NOTICE,
     ])
   })
 })

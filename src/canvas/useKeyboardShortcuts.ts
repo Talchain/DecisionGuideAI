@@ -4,6 +4,8 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from './store'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from './mutations/mutationAuthority'
+import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
+import { isPersistenceSessionActive } from '../lib/persistenceSession'
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -138,15 +140,126 @@ const HOLD_INVALIDATING_MODIFIERS = new Set(['Meta', 'Control', 'Alt', 'OS'])
  * two places while Undo sits disabled beside it — the recovery was already
  * there, with nothing connecting the moment of loss to it.
  *
- * ⚠ THE COPY DELIBERATELY SAYS "CHECK", NOT "YOUR VERSION IS THERE". The
- * version is minted when the turn COMMITS, not when the key is pressed, and
- * a guest or a purely local scratch graph gets no server version at all.
- * Asserting a restore point exists would be the confident-wrongness this
- * estate pays for; pointing at a real, reachable panel is true in every
- * state.
+ * ⚠ THE COPY DELIBERATELY POINTS AT THE PANEL, NEVER AT A PARTICULAR RESTORE
+ * POINT ("your version is there"). The version is minted when the turn
+ * COMMITS, not when the key is pressed, and a guest or a purely local scratch
+ * graph gets no server version at all. Asserting a restore point exists would
+ * be the confident-wrongness this estate pays for; pointing at a real,
+ * reachable panel is true in every state.
+ *
+ * ── ⭐⭐ THE HALF THAT SENTENCE STILL GOT WRONG (29 Aug 2026) ────────────────
+ * The paragraph above saw the hazard and then wrote one sentence for both
+ * readers anyway. "Check Version history to restore an earlier version of this
+ * model" is not merely silent about the guest case — it TELLS the guest their
+ * model can be restored there, and it cannot be.
+ *
+ * Measured on the deployed build `9308a30c`, driven as a guest, controls in the
+ * same read: `restoreBtns: []`, positive control `delete-version buttons: 2`,
+ * `document.hidden: false`. A guest's Version history offers Save version ·
+ * Delete version · Compare two versions. There is no restore on the surface at
+ * all, because restore lives in `ServerVersionsSection` — the SHARED half — and
+ * that section renders nothing without a server-addressable scenario, and the
+ * sign-in invitation without an identity.
+ *
+ * So the notice is now conditioned on which list the reader actually has, from
+ * the ONE definition in `versions/sharedVersionsAvailability` that
+ * `ServerVersionsSection` itself uses:
+ *   · shared list on offer  → restore is real, and the reader is told so. That
+ *     direction is mandatory: trading a false promise for a HIDDEN capability
+ *     would be the same defect pointing the other way.
+ *   · local list only       → say plainly what that list does (save, compare)
+ *     and that it does not restore. It is a caveat, not a removal — the gesture
+ *     is still answered, which was the point of answering it.
+ *
+ * ⚠ NEITHER STRING PROMISES A PARTICULAR RESTORE POINT, for exactly the reason
+ * the paragraph above gives: a reader with the capability may still have an
+ * EMPTY shared list (nothing minted yet, or a scenario created unowned —
+ * `scenarios.user_id` NULL mints no `model_versions` rows). The panel is honest
+ * about that in place.
+ *
+ * ⚠ AND THE TWO HARMS CANNOT SHARE ONE WINDOW. Promising a recovery the reader
+ * cannot perform and denying one they can are OPPOSITE failures of the same
+ * predicate, and this file has now shipped a draft of each. `canRestoreShared
+ * Versions` is the only thing separating them, which is why the spec carries
+ * both directions as a pair rather than one direction plus a comment.
  */
-export const CANVAS_UNDO_UNAVAILABLE_NOTICE =
-  "Undo isn't available on the canvas. Check Version history to restore an earlier version of this model."
+
+/**
+ * The reader whose Version history is the BROWSER-LOCAL list only — a guest, or
+ * any canvas whose scenario CEE cannot address. Save, delete and compare; no
+ * restore, deliberately (`WhatChangedPanel`'s header records why).
+ */
+export const CANVAS_UNDO_LOCAL_ONLY_NOTICE =
+  "Undo isn't available on the canvas. Version history saves and compares versions of this model in this browser — it can't restore them."
+
+/**
+ * The reader who has the SHARED list. This sentence NAMES RESTORE.
+ *
+ * ── ⚠⚠ IT DID NOT, FOR ONE DAY, AND THAT WITHDRAWAL IS NOW ITSELF WITHDRAWN ──
+ * An earlier draft of this string named restore; a wire-level drive refuted it
+ * (ARM A — the deployed UI's exact request bytes — answered HTTP 422
+ * `RESTORE_PAYLOAD_INVALID`, because CEE made `mutation_id` REQUIRED on 26 Aug
+ * in `assist.v1.scenario-versions.ts` `4c29c5b5` and the UI had never sent it),
+ * so the string was weakened to *"it's where this model's shared versions are
+ * kept"* — true, and silent about the recovery.
+ *
+ * **#965 closed that skew** (`ede23d98`): `mutation_id` is minted fresh per
+ * gesture and sent unconditionally, and `expected_graph_identity_hash` is a
+ * required-and-nullable field rather than an optional one. So the weakened
+ * sentence became an UNDERSTATEMENT — it answers "how do I put that back?" by
+ * describing a filing cabinet. **A caveat that has outlived its cause is not a
+ * safe default: under the no-hiding ruling, withholding a capability the reader
+ * has is the same defect as promising one they have not, pointing the other
+ * way.** Re-measured at the deployed staging bundle `0022e607` (immutable
+ * permalink `6a93908c4187570008865ea3--olumi.netlify.app`, `/version.json`
+ * commit asserted), controls in the same read: `mutation_id` **1 chunk**
+ * (`VersionsPanelHost`) where the 29 Aug crawl found **0**; contrast controls
+ * `expected_graph_identity_hash` 2 and `undo_version_id` 3; fabricated marker 0;
+ * positive control — the old false-promise string — 1 chunk in `ReactFlowGraph`,
+ * i.e. still live for guests at the time of writing.
+ *
+ * ⚠ WHAT IS **NOT** ESTABLISHED, STATED PLAINLY: no end-to-end restore has been
+ * witnessed on the deployed build. #965's own report says so ("No live wire
+ * witness … A deploy-verify should drive one Restore end to end"). The evidence
+ * here is COMPOSED — the server's ARM B (HTTP 200, `restored: true`, a receipt
+ * of 12 nodes / 17 edges, two independent scenarios and users) plus the client
+ * half now measured in the deployed bundle. That composition is why this
+ * sentence points at the panel rather than asserting an outcome, and why the
+ * journey witness is owed and named in the PR.
+ *
+ * ⚠ IT STILL SAYS "OPEN", NOT "YOUR VERSION IS THERE". A reader with the
+ * capability may have an EMPTY shared list — nothing minted yet, or a scenario
+ * created unowned (`scenarios.user_id` NULL mints no `model_versions` rows).
+ * The panel is honest about that in place. The infinitive names what the panel
+ * is FOR without asserting a restore point exists.
+ *
+ * ⭐ AND THE GUARD, BECAUSE THE PREVIOUS "UPGRADE CONDITION" WAS A COMMENT THAT
+ * FIRED ON NOTHING. This promise is backed by the request the client actually
+ * builds, and `undoNoticeReaderClass.spec.ts` §"the shared notice's promise is
+ * backed by the request the client actually sends" DERIVES that rather than
+ * restating it: it drives `restoreModelVersion` through a stub fetch and reds if
+ * the body stops carrying the fields CEE requires. Delete
+ * `payload.mutation_id = opts.mutationId` from the adapter and this sentence
+ * goes red. Its limit is stated where it lives: it cannot see CEE ADDING a
+ * requirement, only the client dropping one.
+ */
+export const CANVAS_UNDO_SHARED_VERSIONS_NOTICE =
+  "Undo isn't available on the canvas. Open Version history to restore an earlier shared version of this model."
+
+/**
+ * Which sentence is TRUE for the reader pressing the key, right now.
+ *
+ * Reads the same two facts `ServerVersionsSection` gates on, through the same
+ * module, so the notice cannot promise a control the panel will not render.
+ */
+export function canvasUndoUnavailableNotice(): string {
+  return canRestoreSharedVersions({
+    signedIn: isPersistenceSessionActive(),
+    scenarioId: useCanvasStore.getState().currentScenarioId,
+  })
+    ? CANVAS_UNDO_SHARED_VERSIONS_NOTICE
+    : CANVAS_UNDO_LOCAL_ONLY_NOTICE
+}
 
 /**
  * True for the gestures a user makes when they mean "put that back":
@@ -237,7 +350,10 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
             // The canvas's canonical toast bridge — the same one the store's
             // delete refusal uses, listened to in ReactFlowGraph.
             window.dispatchEvent(new CustomEvent('topbar:show-toast', {
-              detail: { message: CANVAS_UNDO_UNAVAILABLE_NOTICE, level: 'info' },
+              // Selected at PRESS TIME, never bound at module scope: sign-in
+              // and the scenario id both change during a session, and a
+              // constant captured once would go stale into a false promise.
+              detail: { message: canvasUndoUnavailableNotice(), level: 'info' },
             }))
           }
         }
