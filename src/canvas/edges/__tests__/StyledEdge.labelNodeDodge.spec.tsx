@@ -254,20 +254,73 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
   // long label wrap to a second line) without widening the resolver's box
   // would silently under-clear every dodge, re-opening the clipping bug for
   // exactly the long labels that triggered it ("Moderate boost (uncertain)").
+  //
+  // ⚠ THE INVARIANT CHANGED OWNER; IT DID NOT RELAX. The single-line
+  // ellipsis used to sit on the label CONTAINER, which is a flex box — there
+  // text-overflow computes to a hard clip, so long labels were cut mid-word
+  // ("Moderate drag (unc") instead of ellipsised. It now sits on the label
+  // TEXT span. Both halves are pinned below, because the 160×22 assumption
+  // needs both: the container may not wrap or exceed the box, and the text
+  // may not wrap and must shorten to fit. Drop either and the resolver's box
+  // stops describing the rendered label.
   describe('the rendered label stays inside the box the resolver clears for', () => {
     const labelStyle = (container: HTMLElement) =>
       (container.querySelector('[role="note"]') as HTMLElement).style
 
-    it('the label is capped at the resolver\'s assumed width and never wraps', () => {
+    // Bound by test id, never by its text: the label row also renders a
+    // provenance dot span, so a text- or position-based selector could start
+    // reading a different span without failing.
+    const labelTextStyle = (container: HTMLElement) => {
+      const span = container.querySelector(
+        '[role="note"] [data-testid="edge-influence-label-text"]',
+      ) as HTMLElement | null
+      expect(span).not.toBeNull()
+      return span!.style
+    }
+
+    it('the container is capped at the resolver\'s assumed width and cannot become two lines', () => {
       const { container } = render(<StyledEdge {...edgeProps as any} />)
       const style = labelStyle(container)
-      // Width cap === the resolver's box width (2 × half-extent)
-      expect(style.maxWidth).toBe(`${LABEL_HALF_WIDTH * 2}px`)
-      // …and a long label is ellipsised on ONE line rather than wrapping to a
+      // ⚠ These two literals are written INDEPENDENTLY of the constants they
+      // pin. StyledEdge now DERIVES its cap from LABEL_HALF_WIDTH, so an
+      // assertion phrased as `LABEL_HALF_WIDTH * 2` would read the same
+      // constant as the code and could never fail — a guard agreeing with
+      // itself. 160 is the rendered cap; 80 is the half-extent the resolver
+      // clears. Changing the geometry REDs here, where the coupling is
+      // explained, rather than passing silently.
+      expect(style.maxWidth).toBe('160px')
+      expect(LABEL_HALF_WIDTH).toBe(80)
+      // The row is a flex line that may not wrap — this is what holds the
+      // ±LABEL_HALF_HEIGHT (single-line) half of the assumption now that
+      // white-space no longer sits here — and anything past the cap is
+      // clipped away rather than growing the box.
+      expect(style.display).toBe('flex')
+      expect(style.flexWrap).toBe('nowrap')
+      expect(style.overflow).toBe('hidden')
+    })
+
+    it('the label TEXT carries the single-line ellipsis, so a long label shortens instead of wrapping', () => {
+      const { container } = render(<StyledEdge {...edgeProps as any} />)
+      const style = labelTextStyle(container)
+      // A long label is ellipsised on ONE line rather than wrapping to a
       // second, which would break the ±LABEL_HALF_HEIGHT assumption.
       expect(style.whiteSpace).toBe('nowrap')
       expect(style.overflow).toBe('hidden')
       expect(style.textOverflow).toBe('ellipsis')
+      // Without this the flex item's automatic minimum pins it to its own
+      // text width, the ellipsis never engages, and the row pushes past the
+      // ±LABEL_HALF_WIDTH cap — the clipping bug in its original form.
+      // Read numerically so the assertion pins ZERO, not React's spelling of
+      // it ('0' unitless vs '0px'); an absent value parses to NaN and REDs.
+      expect(parseFloat(style.minWidth)).toBe(0)
+    })
+
+    // The regression in one assertion: put the ellipsis back on the flex
+    // container and it silently becomes a hard clip again, while every
+    // width/height assertion above still passes.
+    it('the ellipsis is NOT declared on the flex container, where it computes to a clip', () => {
+      const { container } = render(<StyledEdge {...edgeProps as any} />)
+      expect(labelStyle(container).textOverflow).toBe('')
     })
 
     it('a long label text does not widen the rendered box beyond the assumption', () => {
@@ -279,7 +332,11 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       )
       // Same cap regardless of text length: jsdom does not lay text out, so
       // the enforceable invariant is the cap itself, not a measured width.
-      expect(labelStyle(container).maxWidth).toBe(`${LABEL_HALF_WIDTH * 2}px`)
+      expect(labelStyle(container).maxWidth).toBe('160px') // independent literal, as above
+      // …and at that length the shortening machinery is still on the text,
+      // so the extra characters ellipsise rather than widen the row.
+      expect(labelTextStyle(container).textOverflow).toBe('ellipsis')
+      expect(parseFloat(labelTextStyle(container).minWidth)).toBe(0)
       expect(LABEL_HALF_HEIGHT).toBe(11) // ~22px tall single line (padding included)
     })
   })

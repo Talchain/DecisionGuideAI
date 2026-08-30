@@ -732,12 +732,12 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    const pill = screen.getByText('Influence 100%')
+    const pill = screen.getByText('Relative influence 100%')
     expect(pill.getAttribute('title')).toBe(
       'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
     expect(pill.getAttribute('aria-label')).toBe(
-      'Influence 100%, relative to the strongest factor. The top driver always shows 100%'
+      'Relative influence 100%, scaled against the strongest factor. The top driver always shows 100%'
     )
   })
 
@@ -774,14 +774,14 @@ describe('FactorNode', () => {
 
     it('Standard view: renders the MetricPills influence + confidence pills', () => {
       setup('standard')
-      expect(screen.getByText('Influence 80%')).toBeDefined()
+      expect(screen.getByText('Influence score 80%')).toBeDefined()
       expect(screen.getByText('Confidence 45%')).toBeDefined()
     })
 
     it('Detailed view: the duplicate pills are gone; the labelled bars remain', () => {
       setup('expert')
       // The pills (single "Influence NN%" / "Confidence NN%" nodes) are suppressed…
-      expect(screen.queryByText('Influence 80%')).toBeNull()
+      expect(screen.queryByText('Relative influence 80%')).toBeNull()
       expect(screen.queryByText('Confidence 45%')).toBeNull()
       // …while the Layer-2 bars still carry the numbers (label + value separate).
       expect(screen.getByText('Influence')).toBeDefined()

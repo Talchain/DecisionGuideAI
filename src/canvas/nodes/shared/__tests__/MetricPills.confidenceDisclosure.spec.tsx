@@ -62,7 +62,7 @@ describe('MetricPills — confidence disclosure travels with the number', () => 
         confidenceIsDefaulted
       />,
     )
-    expect(screen.getByText('Influence 80%')).toBeDefined()
+    expect(screen.getByText('Influence score 80%')).toBeDefined()
     expect(screen.queryByTestId('metric-pill-confidence')).toBeNull()
     expect(screen.queryByTestId('metric-pill-confidence-default-estimate')).toBeNull()
   })
