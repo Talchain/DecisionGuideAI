@@ -32,7 +32,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
-import { AlertTriangle, MessageSquare, Star, TrendingUp } from 'lucide-react'
+import { AlertTriangle, Wrench, Star, TrendingUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { openAskOlumi } from '../coaching/askOlumiStore'
@@ -249,7 +249,7 @@ export function AnalysisNewTabBody({
         <StrengthenTheReasoning
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}
-          icon={MessageSquare}
+          icon={Wrench}
         />
 
         {/* ── 3. DRIVERS AND DYNAMICS ─────────────────────────────────────── */}

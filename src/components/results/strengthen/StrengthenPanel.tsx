@@ -40,7 +40,13 @@ import type { GuidanceCategory } from '../../../canvas/stores/guidanceStore'
 /** Stage 2 — severity badge treatment per producer `category`. Sensible
  * visual hierarchy (danger → warning → info → muted); the badge itself is
  * rendered ONLY when the producer sent a category (absent = no badge). */
-const SEVERITY_BADGE_CLASS: Record<GuidanceCategory, string> = {
+/**
+ * ⚠ EXPORTED, NOT COPIED (30 Aug 2026). Analysis (New)'s Strengthen section
+ * renders the same four-value producer category and needs the same ramp. A
+ * second hand-maintained copy of a colour map is the mirror defect this estate
+ * pays for repeatedly — one map, one home. No behaviour change here.
+ */
+export const SEVERITY_BADGE_CLASS: Record<GuidanceCategory, string> = {
   must_fix: 'border-danger/40 text-danger',
   should_fix: 'border-warning/40 text-warning',
   could_fix: 'border-info/40 text-info',

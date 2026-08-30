@@ -103,6 +103,10 @@ export const ANALYSIS_NEW_COPY = {
   },
 
   /** At a glance. Every string here is furniture — none describes the analysis. */
+  strengthen: {
+    /** Chip text when the producer attested grounding but named no strength. */
+    groundedChip: 'Decision science',
+  },
   glance: {
     /** Eyebrow above the answer on a CURRENT run. */
     eyebrowLeading: 'Leading option',
