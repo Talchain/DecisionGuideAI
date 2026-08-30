@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, ViewportPortal, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
