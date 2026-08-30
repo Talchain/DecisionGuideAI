@@ -501,8 +501,15 @@ describe('ServerVersionsSection — terminal refusals say so (pin 7)', () => {
     // The section only renders at all when `signedIn` is true, so this copy
     // was false on every occasion it could ever be shown. MV001's condition is
     // `scenarios.user_id IS NULL` — a property of the SCENARIO, not the caller.
+    //
+    // ⚠ THE PRECONDITION IS PINNED IN-TEST (trap 13b). This assertion is only
+    // about a SIGNED-IN user if the request actually carried an identity; a
+    // fixture that quietly lost one would leave it passing about somebody else.
+    expect(sessionState.userId).toBe(USER)
+    expect(sessionState.accessToken).not.toBeNull()
     const text = await refuseWith({ status: 'signInRequired', cause: 'scenarioUnowned' })
     expect(text).not.toMatch(/requires sign-in/i)
+    expect(text).not.toMatch(/sign in again/i)
     expect(text).toMatch(/nothing was changed/i)
     expect(text).toMatch(/fault in olumi/i)
   })
@@ -566,10 +573,170 @@ describe('ServerVersionsSection — terminal refusals say so (pin 7)', () => {
     // withholding the claim there would be its own dishonesty — vagueness
     // about a state we do know. Without this twin, "never claim anything" would
     // pass the test above and lose real information.
+    expect(sessionState.userId).toBe(USER)
     for (const result of [{ status: 'notReadable' }, { status: 'refused', httpStatus: 403 }]) {
       const text = await refuseWith(result)
       expect(text, result.status).toMatch(/nothing was changed/i)
+      // …and a signed-in user is never sent to a sign-in screen they are
+      // already past. This is the opposite-direction twin of pin 8 below.
+      expect(text, result.status).not.toMatch(/sign in again/i)
     }
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIN 8 — THE LAPSED SESSION. The one state this panel could not see.
+//
+// ⚠ WHY IT EXISTS. `useAuth().user` is React state; a Supabase session can die
+// under a still-mounted panel. `getSessionIdentity()` then returns
+// `{userId: null, accessToken: null}` (`lib/supabase.ts:99-102`), so the
+// request goes out GUEST-SHAPED — no `Authorization`, no `user_id` — while the
+// panel still renders because its gate reads the stale `useAuth` value.
+//
+// ⚠ WHY THE SUITE COULD NOT SEE IT BEFORE. Every test in this file ran with
+// `sessionState = {userId: USER, accessToken: 'token-for-USER'}`. A sweep for
+// `accessToken: null` over the three touched specs returned ZERO. The suite was
+// structurally incapable of observing a lapsed session, so a guard written
+// against one would have been theatre.
+//
+// ⚠ WHAT CEE ACTUALLY SENDS, derived at staging `f18d941b` — this is why the
+// component, and not `classifySignInRefusal`, is where the identity is read:
+//
+//   · `resolveUserIdentity` returns `service_legacy` for a TOKEN-LESS request
+//     (`user-identity.ts:107-118`) — it does NOT refuse. So no `user_jwt` arm.
+//   · `preflightEnsureScenario` enforces ownership ONLY when the scenario has a
+//     stored owner, and refuses `userId === null` on an OWNED one
+//     (`build-turn-context.ts`, `scenario_requires_authenticated_owner`) →
+//     the route's family `refuse()` → **404** → this client's `notReadable`.
+//   · On an UNOWNED scenario the same caller PASSES that carve-out, reaches the
+//     RPC, and gets MV001 → the UPPER `SIGN_IN_REQUIRED` **401** →
+//     `scenarioUnowned`.
+//
+// So `scenarioUnowned` is reachable by a signed-in caller AND by a lapsed one,
+// with byte-identical bodies: `classifySignInRefusal` reads the response and
+// the response carries no such field. The CLIENT is the only party that knows,
+// and it knows exactly — it is the identity it just sent.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('ServerVersionsSection — a lapsed session is told so (pin 8)', () => {
+  /** The panel still mounts: `useAuth` lags. The REQUEST carries nothing. */
+  function lapseTheSession() {
+    sessionState.userId = null
+    sessionState.accessToken = null
+  }
+
+  async function restoreAndRead(result: Record<string, unknown>) {
+    cleanup()
+    restoreModelVersion.mockResolvedValue(result)
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /restore version 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm restore/i }))
+    await waitFor(() => expect(screen.getByTestId('server-versions-message')).toBeInTheDocument())
+    // PRECONDITION, PINNED IN-TEST: the request this assertion is about really
+    // did go out without an identity. Without this, a fixture regression would
+    // leave the test green while measuring a signed-in caller.
+    expect(restoreModelVersion.mock.calls.at(-1)?.[1]).toMatchObject({
+      userId: null,
+      accessToken: null,
+    })
+    return screen.getByTestId('server-versions-message').textContent ?? ''
+  }
+
+  async function saveAndRead(result: Record<string, unknown>) {
+    cleanup()
+    saveModelVersion.mockResolvedValue(result)
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /save shared version/i }))
+    await waitFor(() => expect(screen.getByTestId('server-versions-message')).toBeInTheDocument())
+    expect(saveModelVersion.mock.calls.at(-1)?.[1]).toMatchObject({
+      userId: null,
+      accessToken: null,
+    })
+    return screen.getByTestId('server-versions-message').textContent ?? ''
+  }
+
+  it('RESTORE / 401 unowned — says the session ended, and never that the user is signed in', async () => {
+    lapseTheSession()
+    const text = await restoreAndRead({ status: 'signInRequired', cause: 'scenarioUnowned' })
+    expect(text).toMatch(/nothing was changed/i)
+    expect(text).toMatch(/sign in again/i)
+    expect(text).not.toMatch(/while you are signed in/i)
+    expect(text).not.toMatch(/fault in olumi/i)
+  })
+
+  it('RESTORE / 404 owned — the arm a lapsed session actually reaches names the lapse', async () => {
+    // The `notReadable` 404 is what `scenario_requires_authenticated_owner`
+    // produces, i.e. the COMMON case: most scenarios have an owner. Left as
+    // "could not be restored right now" it reads as transient on a refusal that
+    // no retry can clear — the exact defect this file's copy rule bans.
+    lapseTheSession()
+    const text = await restoreAndRead({ status: 'notReadable' })
+    expect(text).toMatch(/nothing was changed/i)
+    expect(text).toMatch(/sign in again/i)
+    expect(text).not.toMatch(/right now/i)
+  })
+
+  it('RESTORE — the arms whose OWN body settles the session are untouched by the identity', async () => {
+    // `sessionLapsed` and `signInUnverifiable` both carry `validator:
+    // "user_jwt"`, which CEE reaches ONLY when a token was presented. Their
+    // copy must not move when the client's identity does — otherwise the
+    // identity has quietly become a second authority over an answer the wire
+    // already gave, which is how two predicates start to disagree (trap 21).
+    lapseTheSession()
+    const lapsed = await restoreAndRead({ status: 'signInRequired', cause: 'sessionLapsed' })
+    expect(lapsed).toMatch(/sign in again/i)
+    expect(lapsed).not.toMatch(/fault in olumi/i)
+    const unverifiable = await restoreAndRead({
+      status: 'signInRequired',
+      cause: 'signInUnverifiable',
+    })
+    expect(unverifiable).toMatch(/fault in olumi/i)
+    expect(unverifiable).not.toMatch(/sign in again/i)
+  })
+
+  it('RESTORE — an outcome we cannot confirm stays unconfirmed, lapsed session or not', async () => {
+    // The identity says who we are, never what the server did. A lapsed session
+    // must not convert "we could not confirm this" into a claim.
+    lapseTheSession()
+    const text = await restoreAndRead({ status: 'unavailable' })
+    expect(text).toMatch(/could not confirm/i)
+    expect(text).not.toMatch(/nothing was changed/i)
+  })
+
+  it('SAVE — the same two arms, the same answer', async () => {
+    lapseTheSession()
+    const unowned = await saveAndRead({ status: 'signInRequired', cause: 'scenarioUnowned' })
+    expect(unowned).toMatch(/sign in again/i)
+    expect(unowned).not.toMatch(/while you are signed in/i)
+    const notReadable = await saveAndRead({ status: 'notReadable' })
+    expect(notReadable).toMatch(/sign in again/i)
+    expect(notReadable).not.toMatch(/try again/i)
+  })
+
+  it('TWIN — a SIGNED-IN save keeps its own copy on both arms', async () => {
+    // The opposite door. A guard that answered "your session ended" for every
+    // refusal would pass every test above and be wrong for everyone else.
+    expect(sessionState.userId).toBe(USER)
+    cleanup()
+    saveModelVersion.mockResolvedValue({ status: 'signInRequired', cause: 'scenarioUnowned' })
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /save shared version/i }))
+    await waitFor(() => expect(screen.getByTestId('server-versions-message')).toBeInTheDocument())
+    const unowned = screen.getByTestId('server-versions-message').textContent ?? ''
+    expect(unowned).toMatch(/fault in olumi/i)
+    expect(unowned).not.toMatch(/sign in again/i)
+
+    cleanup()
+    saveModelVersion.mockResolvedValue({ status: 'notReadable' })
+    render(<ServerVersionsSection />)
+    await waitFor(() => expect(screen.getAllByTestId('server-version-row')).toHaveLength(2))
+    fireEvent.click(screen.getByRole('button', { name: /save shared version/i }))
+    await waitFor(() => expect(screen.getByTestId('server-versions-message')).toBeInTheDocument())
+    const notReadable = screen.getByTestId('server-versions-message').textContent ?? ''
+    expect(notReadable).toMatch(/try again/i)
+    expect(notReadable).not.toMatch(/sign in again/i)
   })
 })
 

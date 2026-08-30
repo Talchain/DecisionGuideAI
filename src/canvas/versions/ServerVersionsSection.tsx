@@ -149,6 +149,15 @@ export const RESTORE_SESSION_ENDED =
  * ⚠ It must NOT say "sign in again" on either arm. On the unowned-scenario arm
  * the user is already signed in; on the unverifiable arm a fresh token fails to
  * verify exactly as the old one did, so the instruction would simply loop.
+ *
+ * ⚠⚠ "WHILE YOU ARE SIGNED IN" IS A CLAIM ABOUT THE CALLER, AND ONLY ONE OF
+ *   THE TWO ARMS THAT SHARE THIS STRING CAN SUPPORT IT FROM THE WIRE. The
+ *   unverifiable arm carries `validator: "user_jwt"`, which CEE reaches only
+ *   when a token was presented — there the claim is a tautology and therefore
+ *   safe. The unowned-scenario arm is the UPPER `SIGN_IN_REQUIRED`, whose body
+ *   carries nothing about the caller at all, and a lapsed session reaches it
+ *   guest-shaped. So this string is only ever selected once the CALLER's own
+ *   identity has been consulted — see `signInRefusalCopy`.
  */
 export const RESTORE_REFUSED_WHILE_SIGNED_IN =
   'Nothing was changed. The server refused this restore as signed-out while you are signed in — a fault in Olumi, not something a retry can fix.'
@@ -184,16 +193,55 @@ export const RESTORE_OUTCOME_UNKNOWN =
   'Olumi could not confirm whether that restore completed, so it will not claim either way. The versions list has been refreshed to show the shared model as it now stands — check it before restoring again.'
 
 /**
- * The sign-in refusal's copy, chosen by the arm CEE ACTUALLY SENT.
+ * Did the request we are reporting on CARRY a signed-in identity?
  *
- * ⚠ NEVER BY `identity.userId`, AND THE REASON IS NOT A PREFERENCE. The
- * `sessionLapsed` arm is reachable only when a token was presented, i.e. only
- * when a session existed, so `userId !== null` is TRUE ON EVERY OCCURRENCE of
- * it. A split on our own session object therefore sends 100% of that arm to the
- * "a fault in Olumi, not something a retry can fix" copy — false, and it
- * withholds the one remedy the producer names (`buildSignInRequiredError`:
- * *"recovery is signing in"*). The client's state is a tautology here; the
- * wire is the evidence.
+ * ⚠ THIS IS NOT A NEW IDENTITY PREDICATE. It is `sanitiseUserId(…) !== null` —
+ * the SAME expression, from the same owner, that this panel's own `signedIn`
+ * gate uses below, applied to a DIFFERENT OBJECT: the identity we actually sent
+ * on this request, rather than the `useAuth` value we rendered with. Those two
+ * objects disagreeing is the whole subject of pin 8. When #961 lands
+ * `isRestoreCapableIdentity`, both call sites move to it together; there must
+ * never be two functions answering "does this reader have a server identity?"
+ *
+ * `getSessionIdentity` returns `{userId, accessToken}` both-or-neither
+ * (`lib/supabase.ts:99-106`: a failed refresh yields `{null, null}`), so the id
+ * and the token cannot disagree here and one of them is the whole question.
+ */
+function requestCarriedIdentity(identity: { userId: string | null }): boolean {
+  return sanitiseUserId(identity.userId) !== null
+}
+
+/**
+ * The sign-in refusal's copy, chosen by the arm CEE ACTUALLY SENT — and, on the
+ * ONE arm whose body cannot settle it, by the identity we actually sent.
+ *
+ * ⚠ THE TWO `user_jwt` ARMS NEVER CONSULT THE CLIENT, AND THE REASON IS NOT A
+ * PREFERENCE. `sessionLapsed` and `signInUnverifiable` both carry
+ * `validator: "user_jwt"`, which `resolveUserIdentity` reaches only when a JWT
+ * candidate was PRESENTED — a token-less request resolves `service_legacy` and
+ * is never refused there (`user-identity.ts:107-118`, CEE staging `f18d941b`).
+ * So on those arms `userId !== null` is TRUE ON EVERY OCCURRENCE: a split on our
+ * own session object would send 100% of `sessionLapsed` to the "a fault in
+ * Olumi" copy — false, and it withholds the one remedy the producer names
+ * (`buildSignInRequiredError`: *"recovery is signing in"*). There the client's
+ * state is a tautology and the wire is the whole evidence.
+ *
+ * ⚠⚠ `scenarioUnowned` IS THE ARM WHERE THAT REASONING DOES NOT HOLD, AND
+ *   ASSUMING IT DID SHIPPED THE MIRROR DEFECT. It is the UPPER
+ *   `SIGN_IN_REQUIRED` (`assist.v1.scenario-versions.ts:462-473`), raised from
+ *   SQLSTATE MV001 whose condition is `scenarios.user_id IS NULL` — a property
+ *   of the SCENARIO. `preflightEnsureScenario` enforces ownership ONLY on an
+ *   OWNED scenario, so an unowned one admits a token-less caller too, and BOTH
+ *   of these reach this arm with byte-identical bodies:
+ *
+ *     · a fully signed-in user, on an unowned scenario   → "you are signed in"
+ *     · a LAPSED session, on an unowned scenario         → "sign in again"
+ *
+ *   The response carries no field that tells them apart. Asserting either from
+ *   the body alone is a confident claim on evidence that cannot support one —
+ *   so this arm, and only this arm, reads the identity the request carried.
+ *   That is not a third guess: it is the exact fact, held by the only party
+ *   that has it.
  *
  * No `default`. The union is exhaustive, so a new cause is a COMPILE error
  * ("lacks ending return statement") rather than a silently mis-worded notice —
@@ -201,14 +249,16 @@ export const RESTORE_OUTCOME_UNKNOWN =
  */
 function signInRefusalCopy(
   cause: SignInRefusalCause,
+  carriedIdentity: boolean,
   copy: { lapsed: string; olumiFault: string },
 ): string {
   switch (cause) {
     case 'sessionLapsed':
       return copy.lapsed
     case 'signInUnverifiable':
-    case 'scenarioUnowned':
       return copy.olumiFault
+    case 'scenarioUnowned':
+      return carriedIdentity ? copy.olumiFault : copy.lapsed
   }
 }
 
@@ -379,14 +429,31 @@ export function ServerVersionsSection() {
         setMessage('There is no model content to version yet. Add to your model, then save.')
         return
       case 'signInRequired':
-        // Same split as the restore arm, and for the same reason: on the arm
+        // Same split as the restore arm, and for the same reason: on the arms
         // CEE sends when the TOKEN failed, `identity.userId` is non-null by
-        // construction, so branching on it would blame Olumi every time.
+        // construction, so branching on it would blame Olumi every time — while
+        // on `scenarioUnowned` it is the only thing that CAN tell a lapsed
+        // session from a signed-in one.
         setMessage(
-          signInRefusalCopy(result.cause, {
+          signInRefusalCopy(result.cause, requestCarriedIdentity(identity), {
             lapsed: SAVE_SESSION_ENDED,
             olumiFault: SAVE_REFUSED_WHILE_SIGNED_IN,
           }),
+        )
+        return
+      // THE 404/403 ARM A LAPSED SESSION ACTUALLY REACHES, and the reason this
+      // case exists at all. A token-less request on an OWNED scenario resolves
+      // `service_legacy`, fails `preflightEnsureScenario` with
+      // `scenario_requires_authenticated_owner`, and is answered by the route's
+      // family `refuse()` — a 404, not the 401 above. Since most scenarios have
+      // an owner, that is the COMMON lapsed path, and "Try again" on it invites
+      // a retry that cannot succeed. For everyone else this arm is unchanged.
+      case 'notReadable':
+      case 'refused':
+        setMessage(
+          requestCarriedIdentity(identity)
+            ? 'The version could not be saved right now. Try again.'
+            : SAVE_SESSION_ENDED,
         )
         return
       case 'conflict':
@@ -501,11 +568,13 @@ export function ServerVersionsSection() {
         await refresh()
         return
       case 'signInRequired':
-        // Split on the ARM CEE SENT — never on `useAuth`, and never on the
-        // identity we happened to send. See `signInRefusalCopy`: the client's
-        // own session is a tautology on the arm where signing in is the remedy.
+        // Split on the ARM CEE SENT — never on `useAuth`. On the two `user_jwt`
+        // arms the client's own session is a tautology and the wire is the
+        // whole evidence; on `scenarioUnowned` the wire is silent about the
+        // caller and the identity we SENT is the only thing that knows. See
+        // `signInRefusalCopy` for why those are different questions.
         setMessage(
-          signInRefusalCopy(result.cause, {
+          signInRefusalCopy(result.cause, requestCarriedIdentity(identity), {
             lapsed: RESTORE_SESSION_ENDED,
             olumiFault: RESTORE_REFUSED_WHILE_SIGNED_IN,
           }),
@@ -519,9 +588,25 @@ export function ServerVersionsSection() {
       // 401/403/429 (`refused`) is refused with nothing written. Here the claim
       // is EARNED, and withholding it would be its own dishonesty — vagueness
       // about a state we do know.
+      //
+      // ⚠ AND THIS IS THE ARM A LAPSED SESSION ACTUALLY LANDS ON, WHICH IS WHY
+      //   IT IS NOT A SINGLE STRING. Derived at CEE staging `f18d941b`: a
+      //   token-less request resolves `service_legacy` rather than being
+      //   refused (`user-identity.ts:107-118`), then fails ownership on an
+      //   OWNED scenario (`preflightEnsureScenario` →
+      //   `scenario_requires_authenticated_owner`) and is answered by the
+      //   route's family `refuse()` — a 404, NOT the 401 handled above. Most
+      //   scenarios have an owner, so this is the COMMON lapsed path, and
+      //   "could not be restored right now" reads as transient on a refusal
+      //   that no retry can clear. The pre-commit claim is kept on BOTH
+      //   branches: `RESTORE_SESSION_ENDED` also opens "Nothing was changed."
       case 'notReadable':
       case 'refused':
-        setMessage('The version could not be restored right now. Nothing was changed.')
+        setMessage(
+          requestCarriedIdentity(identity)
+            ? 'The version could not be restored right now. Nothing was changed.'
+            : RESTORE_SESSION_ENDED,
+        )
         return
       // OUTCOME UNKNOWN — see `RESTORE_OUTCOME_UNKNOWN`. `unavailable` covers
       // CEE's post-commit egress 503, `unusable` a transport failure that may
