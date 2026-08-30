@@ -199,20 +199,26 @@ export const RESTORE_OUTCOME_UNKNOWN =
 /**
  * Did the request we are reporting on CARRY a signed-in identity?
  *
- * ⚠ THIS IS NOT A NEW IDENTITY PREDICATE. It is `sanitiseUserId(…) !== null` —
- * the SAME expression, from the same owner, that this panel's own `signedIn`
- * gate uses below, applied to a DIFFERENT OBJECT: the identity we actually sent
- * on this request, rather than the `useAuth` value we rendered with. Those two
- * objects disagreeing is the whole subject of pin 8. When #961 lands
- * `isRestoreCapableIdentity`, both call sites move to it together; there must
- * never be two functions answering "does this reader have a server identity?"
+ * ⚠ THIS IS NOT A NEW IDENTITY PREDICATE, AND AS OF THIS COMMIT THAT IS TRUE BY
+ * DELEGATION RATHER THAN BY ASSERTION. #965 wrote it as `sanitiseUserId(…) !==
+ * null` and recorded the intent — *"when #961 lands `isRestoreCapableIdentity`,
+ * both call sites move to it together"*. This is that move. What remains here is
+ * a NAME for applying the one predicate to a DIFFERENT OBJECT: the identity we
+ * actually sent on this request, rather than the `useAuth` value we rendered
+ * with. Those two objects disagreeing is the whole subject of pin 8.
+ *
+ * ⚠ THE REBASE THAT PROMPTED THIS DID NOT CONFLICT. #965 added this function
+ * and #961 removed the `sanitiseUserId` import in non-overlapping hunks, so git
+ * merged them cleanly into a tree that does not compile (`TS2304`). No test
+ * could see it — the specs that cover this file mock the module. It was caught
+ * by running the required check's FULL step sequence rather than its tests.
  *
  * `getSessionIdentity` returns `{userId, accessToken}` both-or-neither
  * (`lib/supabase.ts:99-106`: a failed refresh yields `{null, null}`), so the id
  * and the token cannot disagree here and one of them is the whole question.
  */
 function requestCarriedIdentity(identity: { userId: string | null }): boolean {
-  return sanitiseUserId(identity.userId) !== null
+  return isRestoreCapableIdentity(identity.userId)
 }
 
 /**

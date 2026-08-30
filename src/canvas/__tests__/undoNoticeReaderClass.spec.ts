@@ -26,9 +26,15 @@
  *     defect pointing the other way, so every "local" case below has its
  *     "shared" twin.
  *
- * ⚠ THE TWIN ORIGINALLY ASSERTED THE READER IS TOLD "you can restore". That was
- * refuted at the wire — see "the shared notice does not promise a restore that
- * is currently refused" below for the measurement and the upgrade trigger.
+ * ⚠ AND THE TWIN'S OBLIGATION HAS NOW MOVED TWICE, WHICH IS THE POINT OF
+ * KEEPING BOTH DIRECTIONS RATHER THAN ONE PLUS A COMMENT. It first asserted the
+ * shared reader is told "you can restore"; a wire drive refuted that (ARM A,
+ * the deployed UI's exact bytes → HTTP 422 `RESTORE_PAYLOAD_INVALID`), so it
+ * was weakened. **#965 (`ede23d98`) then closed the skew**, `mutation_id` is now
+ * in the deployed bundle (measured at `0022e607` with controls firing), and the
+ * weakened sentence had become an UNDERSTATEMENT — the "too MEAN" harm above.
+ * So it names restore again. Note what moved: the FACT, not the standard. The
+ * two harms never shared a window at any point.
  *
  * ── NO MOCKED IDENTITY ──────────────────────────────────────────────────────
  * Both facts are driven through their REAL modules — `setPersistenceSessionActive`
@@ -168,34 +174,118 @@ describe('the undo notice is true for the reader who receives it', () => {
   })
 
   it('TWIN: the shared reader is pointed at the shared list, and the two notices differ', () => {
-    expect(CANVAS_UNDO_SHARED_VERSIONS_NOTICE.toLowerCase()).toContain('shared versions')
+    // "shared version", not "shared versions": the sentence names ONE earlier
+    // version to restore, and the panel's own section is titled "Shared
+    // versions". Matching the stem covers both spellings without pinning a
+    // plural the copy has no reason to keep.
+    expect(CANVAS_UNDO_SHARED_VERSIONS_NOTICE.toLowerCase()).toContain('shared version')
     expect(CANVAS_UNDO_SHARED_VERSIONS_NOTICE).not.toEqual(CANVAS_UNDO_LOCAL_ONLY_NOTICE)
   })
 
-  it('the shared notice does not promise a restore that is currently refused', () => {
+  it('the shared notice NAMES restore — the capability the reader has', () => {
     /**
-     * ⚠ THE TWIN'S PREMISE WAS REFUTED AT THE WIRE, so the twin's obligation
-     * changed rather than being dropped. Driven against the pinned immutable
-     * deploy permalink `6a932774ead2e80008a48712--olumi.netlify.app`
-     * (`/version.json` commit asserted `9308a30c`), discriminating pair on two
-     * independent scenarios and users:
-     *   · the deployed UI's exact request bytes → HTTP 422
-     *     `RESTORE_PAYLOAD_INVALID`, nothing restored;
-     *   · the same call plus `mutation_id`      → HTTP 200, `restored: true`,
-     *     `receipt.graph` with 12 nodes / 17 edges.
-     * CEE made `mutation_id` required on 26 Aug; the UI has never sent it
-     * (deployed-bundle crawl: 0 occurrences across 82 chunks, contrast controls
-     * non-zero in the same run). Restore is refused for EVERY reader today.
+     * ⚠ THIS CASE REPLACES ITS OWN NEGATION, DELIBERATELY. It previously read
+     * "the shared notice does not promise a restore that is currently refused",
+     * because CEE made `mutation_id` required on 26 Aug
+     * (`assist.v1.scenario-versions.ts` `4c29c5b5`) and the UI had never sent
+     * it, so ARM A — the deployed UI's exact request bytes — answered HTTP 422
+     * `RESTORE_PAYLOAD_INVALID` while ARM B (the same call plus `mutation_id`)
+     * answered HTTP 200, `restored: true`, `receipt.graph` 12 nodes / 17 edges.
      *
-     * ⭐ THIS TEST IS THE UPGRADE TRIGGER. When the restore request carries
-     * `mutation_id` and an end-to-end restore is witnessed on the deployed
-     * build, rewrite this case deliberately and quote the new witness — do not
-     * delete it quietly.
+     * #965 (`ede23d98`) closed that skew. Re-measured at the DEPLOYED staging
+     * bundle `0022e607` (immutable permalink
+     * `6a93908c4187570008865ea3--olumi.netlify.app`, `/version.json` commit
+     * asserted), controls in the same read: `mutation_id` 1 chunk where the
+     * 29 Aug crawl found 0 · contrasts `expected_graph_identity_hash` 2,
+     * `undo_version_id` 3 · fabricated marker 0 · positive control (the old
+     * false-promise string) 1 chunk.
+     *
+     * So the weakened sentence became an UNDERSTATEMENT, and under the standing
+     * ruling withholding a capability the reader HAS is the same defect as
+     * promising one they have not. The obligation flipped with the fact.
      */
     const lowered = CANVAS_UNDO_SHARED_VERSIONS_NOTICE.toLowerCase()
-    expect(lowered).not.toContain('you can restore')
-    expect(lowered).not.toContain('to restore')
-    expect(lowered).not.toContain('restore an earlier')
+    expect(lowered).toContain('restore')
+    // …and still does not assert a particular restore POINT exists. A reader
+    // with the capability may legitimately have an empty shared list.
+    expect(lowered).not.toContain('your version is')
+    expect(lowered).not.toContain('your changes are')
+  })
+
+  it("the shared notice's promise is backed by the request the client actually sends", async () => {
+    /**
+     * ⭐⭐ THIS IS THE GUARD THAT REPLACES THE DEAD "UPGRADE TRIGGER".
+     *
+     * The trigger this supersedes was a COMMENT plus an assertion about our own
+     * copy. It fired on nothing: restore's capability could change in either
+     * direction and no test anywhere would move. A mechanism that reads as a
+     * safeguard and cannot fire is worse than none, because it stops anyone
+     * looking.
+     *
+     * This one DERIVES the promise's backing instead of restating it. The
+     * sentence above says "restore"; that is only true while the client sends
+     * the fields CEE requires. So drive the real `restoreModelVersion` through
+     * a stub fetch, read the body it actually builds, and red if a required key
+     * stops arriving. Delete `payload.mutation_id = opts.mutationId` from
+     * `adapters/cee/modelVersions.ts` and this case goes RED with the copy named
+     * in the failure.
+     *
+     * ⚠ ITS LIMIT, STATED RATHER THAN LEFT TO BE DISCOVERED: it sees the CLIENT
+     * DROPPING a requirement. It cannot see CEE ADDING one — which is precisely
+     * how the 26 Aug skew happened, and no in-repo guard can. That gap is
+     * covered by a deploy-verify driving one restore end to end, which is named
+     * as owed in the PR rather than pretended away here.
+     */
+    const { restoreModelVersion } = await import('../../adapters/cee/modelVersions')
+
+    let sentBody: Record<string, unknown> | null = null
+    const stubFetch = vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+      sentBody = JSON.parse(String(init?.body ?? '{}'))
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ schema: 'model_version_restore.v2', restored: true, graph: {} }),
+        headers: { get: () => null },
+      } as unknown as Response
+    })
+    const realFetch = globalThis.fetch
+    globalThis.fetch = stubFetch as unknown as typeof fetch
+    try {
+      await restoreModelVersion('3f1a7c2e-8b44-4d19-9a05-6e2c1d8f4b70', {
+        userId: '9d1e4f60-2c77-4a51-b0d3-5e8a1c2b7f44',
+        accessToken: 'stub-token-not-a-credential',
+        versionId: 'a1b2c3d4-1111-2222-3333-444455556666',
+        mutationId: 'c0ffee00-1111-2222-3333-444455556666',
+        expectedGraphIdentityHash: 'a'.repeat(64),
+      })
+    } finally {
+      globalThis.fetch = realFetch
+    }
+
+    // The instrument must have run at all — an empty capture is a hard error,
+    // never a pass (a body that was never built satisfies every `not.toBe`).
+    expect(stubFetch).toHaveBeenCalledTimes(1)
+    expect(sentBody).not.toBeNull()
+    const body = sentBody as unknown as Record<string, unknown>
+
+    // The two keys CEE's RestoreBodySchema requires. `mutation_id` is the one
+    // whose absence produced the 422; `expected_graph_identity_hash` is a
+    // REQUIRED key with a nullable value, so presence is the assertion, not
+    // truthiness.
+    expect(Object.keys(body)).toContain('mutation_id')
+    expect(Object.keys(body)).toContain('expected_graph_identity_hash')
+    expect(body.mutation_id).toBe('c0ffee00-1111-2222-3333-444455556666')
+
+    // …and the binding itself: the notice may only name restore while the above
+    // holds. Stated as the implication, so the failure message says WHY.
+    const promisesRestore = CANVAS_UNDO_SHARED_VERSIONS_NOTICE.toLowerCase().includes('restore')
+    const backed =
+      Object.keys(body).includes('mutation_id') &&
+      Object.keys(body).includes('expected_graph_identity_hash')
+    expect(
+      { promisesRestore, backed },
+      'the shared undo notice names restore, so the restore request must carry the fields CEE requires',
+    ).toEqual({ promisesRestore: true, backed: true })
   })
 
   it('TWIN: both notices still name Version history — the panel that exists', () => {

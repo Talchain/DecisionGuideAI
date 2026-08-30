@@ -140,12 +140,12 @@ const HOLD_INVALIDATING_MODIFIERS = new Set(['Meta', 'Control', 'Alt', 'OS'])
  * two places while Undo sits disabled beside it — the recovery was already
  * there, with nothing connecting the moment of loss to it.
  *
- * ⚠ THE COPY DELIBERATELY SAYS "CHECK", NOT "YOUR VERSION IS THERE". The
- * version is minted when the turn COMMITS, not when the key is pressed, and
- * a guest or a purely local scratch graph gets no server version at all.
- * Asserting a restore point exists would be the confident-wrongness this
- * estate pays for; pointing at a real, reachable panel is true in every
- * state.
+ * ⚠ THE COPY DELIBERATELY POINTS AT THE PANEL, NEVER AT A PARTICULAR RESTORE
+ * POINT ("your version is there"). The version is minted when the turn
+ * COMMITS, not when the key is pressed, and a guest or a purely local scratch
+ * graph gets no server version at all. Asserting a restore point exists would
+ * be the confident-wrongness this estate pays for; pointing at a real,
+ * reachable panel is true in every state.
  *
  * ── ⭐⭐ THE HALF THAT SENTENCE STILL GOT WRONG (29 Aug 2026) ────────────────
  * The paragraph above saw the hazard and then wrote one sentence for both
@@ -171,11 +171,17 @@ const HOLD_INVALIDATING_MODIFIERS = new Set(['Meta', 'Control', 'Alt', 'OS'])
  *     and that it does not restore. It is a caveat, not a removal — the gesture
  *     is still answered, which was the point of answering it.
  *
- * ⚠ NEITHER STRING PROMISES A PARTICULAR RESTORE POINT, and the shared one
- * keeps "Check" for exactly the reason the paragraph above gives: a reader with
- * the capability may still have an EMPTY shared list (nothing minted yet, or a
- * scenario created unowned — `scenarios.user_id` NULL mints no `model_versions`
- * rows). The panel is honest about that in place.
+ * ⚠ NEITHER STRING PROMISES A PARTICULAR RESTORE POINT, for exactly the reason
+ * the paragraph above gives: a reader with the capability may still have an
+ * EMPTY shared list (nothing minted yet, or a scenario created unowned —
+ * `scenarios.user_id` NULL mints no `model_versions` rows). The panel is honest
+ * about that in place.
+ *
+ * ⚠ AND THE TWO HARMS CANNOT SHARE ONE WINDOW. Promising a recovery the reader
+ * cannot perform and denying one they can are OPPOSITE failures of the same
+ * predicate, and this file has now shipped a draft of each. `canRestoreShared
+ * Versions` is the only thing separating them, which is why the spec carries
+ * both directions as a pair rather than one direction plus a comment.
  */
 
 /**
@@ -187,48 +193,58 @@ export const CANVAS_UNDO_LOCAL_ONLY_NOTICE =
   "Undo isn't available on the canvas. Version history saves and compares versions of this model in this browser — it can't restore them."
 
 /**
- * The reader who has the SHARED list.
+ * The reader who has the SHARED list. This sentence NAMES RESTORE.
  *
- * ── ⚠⚠ WHY THIS DOES NOT SAY "YOU CAN RESTORE" (measured 29 Aug 2026) ────────
- * This lane's first draft of this string DID say it, on the strength of the
- * Restore button being built, deployed and reachable. A wire-level drive
- * against the pinned immutable deploy permalink
- * `6a932774ead2e80008a48712--olumi.netlify.app` (`/version.json` commit
- * asserted `9308a30c`) refuted it, with a discriminating pair on two
- * independent scenarios and users:
+ * ── ⚠⚠ IT DID NOT, FOR ONE DAY, AND THAT WITHDRAWAL IS NOW ITSELF WITHDRAWN ──
+ * An earlier draft of this string named restore; a wire-level drive refuted it
+ * (ARM A — the deployed UI's exact request bytes — answered HTTP 422
+ * `RESTORE_PAYLOAD_INVALID`, because CEE made `mutation_id` REQUIRED on 26 Aug
+ * in `assist.v1.scenario-versions.ts` `4c29c5b5` and the UI had never sent it),
+ * so the string was weakened to *"it's where this model's shared versions are
+ * kept"* — true, and silent about the recovery.
  *
- *   · ARM A — the deployed UI's EXACT request bytes (`user_id`, `version_id`,
- *     `expected_graph_identity_hash`) → **HTTP 422 `RESTORE_PAYLOAD_INVALID`**,
- *     no receipt, nothing restored.
- *   · ARM B — the same call plus `mutation_id` → HTTP 200
- *     `model_version_restore.v2`, `restored: true`, `receipt.graph` carrying
- *     **12 nodes / 17 edges** and `creation.kind: "restore"`.
+ * **#965 closed that skew** (`ede23d98`): `mutation_id` is minted fresh per
+ * gesture and sent unconditionally, and `expected_graph_identity_hash` is a
+ * required-and-nullable field rather than an optional one. So the weakened
+ * sentence became an UNDERSTATEMENT — it answers "how do I put that back?" by
+ * describing a filing cabinet. **A caveat that has outlived its cause is not a
+ * safe default: under the no-hiding ruling, withholding a capability the reader
+ * has is the same defect as promising one they have not, pointing the other
+ * way.** Re-measured at the deployed staging bundle `0022e607` (immutable
+ * permalink `6a93908c4187570008865ea3--olumi.netlify.app`, `/version.json`
+ * commit asserted), controls in the same read: `mutation_id` **1 chunk**
+ * (`VersionsPanelHost`) where the 29 Aug crawl found **0**; contrast controls
+ * `expected_graph_identity_hash` 2 and `undo_version_id` 3; fabricated marker 0;
+ * positive control — the old false-promise string — 1 chunk in `ReactFlowGraph`,
+ * i.e. still live for guests at the time of writing.
  *
- * CEE made `mutation_id` REQUIRED on 26 Aug (`assist.v1.scenario-versions.ts`,
- * `4c29c5b5`); the UI adapter was written against the 17 Aug schema and has
- * never sent it. Confirmed at the DEPLOYED BUNDLE, not the tree: a crawl of 82
- * chunks found `mutation_id` 0 times while the contrast controls fired in the
- * same run (`expected_graph_identity_hash` 2, `version_id` 16,
- * `undo_version_id` 3, fabricated marker 0).
+ * ⚠ WHAT IS **NOT** ESTABLISHED, STATED PLAINLY: no end-to-end restore has been
+ * witnessed on the deployed build. #965's own report says so ("No live wire
+ * witness … A deploy-verify should drive one Restore end to end"). The evidence
+ * here is COMPOSED — the server's ARM B (HTTP 200, `restored: true`, a receipt
+ * of 12 nodes / 17 edges, two independent scenarios and users) plus the client
+ * half now measured in the deployed bundle. That composition is why this
+ * sentence points at the panel rather than asserting an outcome, and why the
+ * journey witness is owed and named in the PR.
  *
- * So restore is refused for EVERY reader today. Promising it here would ship a
- * second false promise in the act of fixing the first, which is precisely the
- * failure this file is being edited for.
+ * ⚠ IT STILL SAYS "OPEN", NOT "YOUR VERSION IS THERE". A reader with the
+ * capability may have an EMPTY shared list — nothing minted yet, or a scenario
+ * created unowned (`scenarios.user_id` NULL mints no `model_versions` rows).
+ * The panel is honest about that in place. The infinitive names what the panel
+ * is FOR without asserting a restore point exists.
  *
- * ⚠ AND IT DOES NOT SAY "RESTORE IS BROKEN" EITHER. A transient defect written
- * into permanent user-facing copy is a hand-maintained mirror (trap 12) that
- * goes stale the day it is fixed and that nobody is scheduled to come back to.
- * This sentence is true both before and after the repair.
- *
- * ⭐ UPGRADE CONDITION, so the stronger sentence is not simply lost: when the
- * restore request carries `mutation_id` and an end-to-end restore is witnessed
- * on the deployed build, this string may name restore again — and at that point
- * `undoNoticeReaderClass.spec.ts` §"the shared notice does not promise a
- * restore that is currently refused" is the test to rewrite, deliberately, with
- * the new witness quoted.
+ * ⭐ AND THE GUARD, BECAUSE THE PREVIOUS "UPGRADE CONDITION" WAS A COMMENT THAT
+ * FIRED ON NOTHING. This promise is backed by the request the client actually
+ * builds, and `undoNoticeReaderClass.spec.ts` §"the shared notice's promise is
+ * backed by the request the client actually sends" DERIVES that rather than
+ * restating it: it drives `restoreModelVersion` through a stub fetch and reds if
+ * the body stops carrying the fields CEE requires. Delete
+ * `payload.mutation_id = opts.mutationId` from the adapter and this sentence
+ * goes red. Its limit is stated where it lives: it cannot see CEE ADDING a
+ * requirement, only the client dropping one.
  */
 export const CANVAS_UNDO_SHARED_VERSIONS_NOTICE =
-  "Undo isn't available on the canvas. Check Version history — it's where this model's shared versions are kept."
+  "Undo isn't available on the canvas. Open Version history to restore an earlier shared version of this model."
 
 /**
  * Which sentence is TRUE for the reader pressing the key, right now.
