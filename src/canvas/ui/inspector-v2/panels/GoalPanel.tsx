@@ -468,11 +468,52 @@ export const GoalPanel = memo(function GoalPanel({
                             && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
                         )
                         if (related.length === 0) return null
+
+                        // ⚠ A CONSTRAINT'S NAME FOR PROSE IS NOT ITS RAW LABEL.
+                        // `constraint_a_label` / `constraint_b_label` are
+                        // required `string`s but are genuinely EMPTY in practice
+                        // — the same optional-label reality the id join above
+                        // exists for — and this sentence used them raw, so an
+                        // unlabelled constraint rendered:
+                        //
+                        //   "If  is met, probability of  changes to 90%"
+                        //
+                        // A sentence naming nothing. Inherited, not introduced
+                        // by the id join (the old `'' === ''` leg reached the
+                        // same case), but the join is what makes it INTENTIONAL,
+                        // so it is fixed here rather than left pinned.
+                        //
+                        // Resolve through `goalConstraints` — the SAME array
+                        // these rows are built from — and fall back to the SAME
+                        // positional name the row header renders
+                        // (`Constraint ${i + 1}`), so the prose and the row it
+                        // sits under can never disagree about what a constraint
+                        // is called. Only when a referent is not in that array
+                        // at all do we fall back to the payload's own label.
+                        const proseName = (identity: string, payloadLabel: string): string => {
+                          const idx = goalConstraints.findIndex(
+                            gc => (gc.constraint_id ?? gc.id) === identity,
+                          )
+                          if (idx >= 0) {
+                            const own = typeof goalConstraints[idx].label === 'string'
+                              ? goalConstraints[idx].label!.trim()
+                              : ''
+                            return own.length > 0 ? own : `Constraint ${idx + 1}`
+                          }
+                          const fromPayload = typeof payloadLabel === 'string' ? payloadLabel.trim() : ''
+                          // Last resort: a referent this panel does not hold and
+                          // the producer did not name. Say that, rather than
+                          // leaving a gap the reader will fill with the wrong
+                          // constraint — an unnamed thing is honest, a
+                          // mis-attributed one is not.
+                          return fromPayload.length > 0 ? fromPayload : 'an unnamed constraint'
+                        }
+
                         return (
                           <div className="mt-1 space-y-0.5">
                             {related.map(cp => (
                               <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
-                                If {cp.constraint_a_label} is met, probability of {cp.constraint_b_label} changes to {Math.round(cp.conditional_probability * 100)}%
+                                If {proseName(cp.constraint_a_id, cp.constraint_a_label)} is met, probability of {proseName(cp.constraint_b_id, cp.constraint_b_label)} changes to {Math.round(cp.conditional_probability * 100)}%
                               </p>
                             ))}
                           </div>

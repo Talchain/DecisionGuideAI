@@ -82,9 +82,15 @@ interface ModelHealthSectionProps {
  * printed a colour bar and a digit for an assessment nobody made.
  *
  * The bar is a PRE-ATTENTIVE verdict — read before the number and rarely
- * re-examined — so an unscored dimension must not render one. There is
- * deliberately no `score = 0` path: zero is a legitimate score and would paint
- * red, which is a different lie.
+ * re-examined — so an unscored dimension must not render one.
+ *
+ * There is deliberately no special `score = 0` path. ⚠ The stated reason used
+ * to be "zero is a legitimate score and would paint red" — that cites a case
+ * the contract forbids: every dimension is `z.number().min(1).max(10)` at the
+ * producer (CEE `src/schemas/cee-v3.ts:792-798`), so zero cannot arrive. The
+ * real reason is the honest one: this row branches on ABSENCE, not on
+ * smallness, and a zero that somehow did arrive is a number the producer sent
+ * and must be shown as one rather than quietly reclassified as "not scored".
  */
 function QualityRow({ label, score }: { label: string; score?: number }) {
   const testId = `quality-row-${label.toLowerCase()}`

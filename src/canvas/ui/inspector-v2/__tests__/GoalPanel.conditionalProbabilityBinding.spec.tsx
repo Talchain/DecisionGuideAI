@@ -126,7 +126,21 @@ describe('GoalPanel — conditional probabilities bind by constraint id, not by 
       },
     })
     const { getAllByText } = renderPanel()
-    expect(getAllByText(CONDITIONAL_SENTENCE)).toHaveLength(1)
+    const rows = getAllByText(CONDITIONAL_SENTENCE)
+    expect(rows).toHaveLength(1)
+
+    // ⚠ AND THE SENTENCE MUST NAME SOMETHING. Binding the row by id put a row
+    // on screen whose conditioning constraint has no label, and the copy is
+    // `If {constraint_a_label} is met, …` — so it read
+    //
+    //   "If  is met, probability of Margin floor changes to 90%"
+    //
+    // A sentence naming nothing, which this case would otherwise have PINNED as
+    // intended. The panel now falls back to the same positional name the row
+    // header above it renders, so prose and row agree.
+    expect(rows[0].textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'If Constraint 1 is met, probability of Margin floor changes to 90%',
+    )
   })
 
   it('an UNLABELLED constraint is not given a row whose conditioning constraint is a different one', () => {

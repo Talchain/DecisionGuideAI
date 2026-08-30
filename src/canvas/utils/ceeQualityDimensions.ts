@@ -64,10 +64,35 @@ export interface CeeQualityDimensions {
   /**
    * ⚠ CEE DOES NOT COMPUTE THIS AND CURRENTLY NEVER WILL — it renamed the field
    * to `structural_proxy` precisely because the number measures structural
-   * completeness rather than causal validity. Kept in the shape, and rendered as
-   * "Not scored", so the surface states that fact rather than quietly dropping
-   * a dimension the user was previously shown. It becomes live for free if
-   * roadmap B5.28b ever defines a real one.
+   * completeness rather than causal validity. Kept in the shape so it becomes
+   * live for free if roadmap B5.28b ever defines a real one.
+   *
+   * ⚠⚠ WHAT EACH SURFACE DOES WITH THE ABSENCE — STATED PER SURFACE, because an
+   * earlier version of this note claimed "rendered as 'Not scored'" over the
+   * whole domain and that is true of ONE of the two consumers:
+   *
+   *   `model-tab/ModelHealthSection.tsx:274,282-288` — the FULL card. Renders a
+   *     "Not scored" row and, beneath the sub-scores, the sentence saying why:
+   *     Olumi scores completeness, not whether the causal claims are true. This
+   *     is the surface that owes the explanation, and it gives it.
+   *
+   *   `pre-analysis/ModelSnapshot.tsx:245-249` — the COMPACT middot list
+   *     ("Quality: 9/10 · Structure 8 · Coverage 10 · Safety 8"). Renders
+   *     NOTHING for an absent dimension, and deliberately: that list's own
+   *     contract — its per-dimension `!= null` guards, which predate this change
+   *     and could never fire while ingestion back-filled every gap — is "the
+   *     dimensions that were scored". Causality is not special-cased there; it
+   *     takes the same path `structure`/`coverage`/`safety` take when CEE omits
+   *     them.
+   *
+   * That omission is not the NO-HIDING ruling's "quietly dropping a dimension".
+   * What left that list is a FABRICATION — `overall`'s number under a fourth
+   * label — and the fact it concealed is stated in full one surface over. But
+   * the distinction is only honest if it is written down, so: the compact list
+   * carries the scores, the Model card carries the caveat. If that ever stops
+   * being true — if the card's explanatory line is removed, or the snapshot
+   * becomes the only quality surface a user sees — then the snapshot owes the
+   * caveat and this note is the record of why.
    */
   causality?: number
   safety?: number
