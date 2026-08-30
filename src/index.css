@@ -750,7 +750,7 @@
    rather than a signal. The lift separates the attended element from the
    dimmed field behind it without moving anything. */
 .olumi-attended {
-  box-shadow: 0 0 0 6px rgb(var(--info-rgb, 37 99 235) / 0.12);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--info) 12%, transparent);
   transition: box-shadow 200ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {

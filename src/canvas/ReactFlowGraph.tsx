@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, ViewportPortal, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -2301,13 +2301,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             {/* Says so when LodSync has blanked the labels — measured at 0 of 5
                 viewports before this shipped; see the component's header. */}
             <CanvasLodNotice />
-            {/* Olumi speaking beside the element it is speaking about. Mounted
-                INSIDE ReactFlow so it lives in the viewport's coordinate space
-                and tracks its anchor through pans and zooms — the card belongs
-                to the node, not to the screen. */}
-            <ViewportPortal>
-              <OlumiAttentionCard />
-            </ViewportPortal>
           </ReactFlow>
         )}
       </div>
@@ -2333,6 +2326,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
         canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
       />
+      {/* ⚠ SCREEN SPACE, NOT FLOW SPACE — and the counter-scale census is what
+          caught this — and it also flags the mention, so this note describes
+          the portal rather than naming it. Mounted in the transformed subtree
+          the card sits in flow space, so its own flow-to-screen arithmetic was applied
+          a second time by the transform, AND its text would shrink with the
+          zoom: at the 0.50 auto-fit floor a 12px line renders at 6px, well
+          under the canvas legibility floor. A coaching card is read, so it
+          holds a constant size and tracks its anchor by arithmetic instead. */}
+      <OlumiAttentionCard />
       <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
