@@ -203,9 +203,14 @@ export function extractOptionsFromNodes(
         // (metadata, key order, identity) — the predicate above has already
         // proved its `.value` is a finite number.
         if (typeof rawValue === 'number') {
+          // No `source` — same reason as `normaliseOptionFromLegacyNode`: a bare
+          // number in `node.data.interventions` may be the user's own mapping OR
+          // CEE's draft written there by `backfillInterventionsOntoOptionNodes`,
+          // and nothing on disk distinguishes them. `'user_specified'` here was
+          // the third of three DIFFERENT inventions this repo made from the one
+          // unattributed shape.
           interventions[key] = {
             value: rawValue,
-            source: 'user_specified',
             target_match: {
               node_id: key,
               match_type: 'exact_id',
@@ -794,13 +799,24 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
     status: normaliseOptionStatus(ceeOption.status),
     interventions: Object.fromEntries(
       Object.entries(ceeOption.interventions).map(([nodeId, iv]) => {
-        // CEE may return interventions as just numbers or as objects with metadata
+        // CEE may return interventions as just numbers or as objects with metadata.
+        //
+        // ⚠⚠ A BARE NUMBER CARRIES NO PROVENANCE, SO NONE IS EMITTED. This
+        // branch used to stamp `'brief_extraction'` purely because the value had
+        // arrived unwrapped — which the inspector renders as "From your brief"
+        // (`getExtractionLabel`), attributing a number CEE chose to the user's
+        // own words. `undefined` is the honest fourth state and every honest
+        // reader renders silence for it (`classifyInterventionProvenance`
+        // returns `null`). See `UIInterventionValue.source`.
+        //
+        // This is the LIVE half of the pair: reached from
+        // `usePreRunValidation.ts:469` on every pre-run validation pass.
         const isNumber = typeof iv === 'number'
         return [
           nodeId,
           {
             value: isNumber ? iv : iv.value,
-            source: isNumber ? 'brief_extraction' : iv.source,
+            ...(isNumber || iv.source === undefined ? {} : { source: iv.source }),
             target_match: isNumber ? undefined : iv.target_match,
             value_confidence: isNumber ? undefined : iv.value_confidence,
             reasoning: isNumber ? undefined : iv.reasoning,

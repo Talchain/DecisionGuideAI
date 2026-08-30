@@ -68,15 +68,25 @@ describe('extractOptionsFromNodes', () => {
     expect(options[0].id).toBe('opt1')
     expect(options[0].label).toBe('Option A')
     expect(options[0].status).toBe('ready')
+    // ⚠ THIS ASSERTION USED TO PIN `source: 'user_specified'`, AND THAT WAS THE
+    // DEFECT, NOT THE CONTRACT. `node.data.interventions` is written verbatim
+    // out of CEE's own `analysis_ready` by
+    // `backfillInterventionsOntoOptionNodes`, so a bare number there is just as
+    // likely to be the model's draft as the user's mapping — nothing on disk
+    // distinguishes them. The value arrived unattributed and it leaves
+    // unattributed; `interventionProvenanceNotInvented.spec.ts` carries the
+    // full account and the opposite-direction twin.
+    //
+    // Everything else about the shape is unchanged and still pinned.
     expect(options[0].interventions.factor1).toEqual({
       value: 10,
-      source: 'user_specified',
       target_match: {
         node_id: 'factor1',
         match_type: 'exact_id',
         confidence: 'high',
       },
     })
+    expect(options[0].interventions.factor1.source).toBeUndefined()
   })
 
   it('extracts options from nodes with type=option (legacy)', () => {
@@ -146,7 +156,11 @@ describe('extractOptionsFromNodes', () => {
   })
 
   it('handles UIInterventionValue format', () => {
-    const interventionValue: UIInterventionValue = {
+    // Foreign literal on purpose — `'cee_mapped'` is not a member of the
+    // intervention source vocabulary and never has been. This was already a
+    // baselined TS2322; the cast fixes it at source rather than leaving a
+    // re-worded copy of it in the drift. Runtime value unchanged.
+    const interventionValue = {
       value: 42,
       source: 'cee_mapped',
       target_match: {
@@ -154,7 +168,7 @@ describe('extractOptionsFromNodes', () => {
         match_type: 'semantic',
         confidence: 'medium',
       },
-    }
+    } as unknown as UIInterventionValue
 
     const nodes: Node[] = [
       makeNode('opt1', {
@@ -231,7 +245,12 @@ describe('uiOptionToV2Option', () => {
       status: 'ready',
       interventions: {
         factor1: { value: 100, source: 'user_specified' } as UIInterventionValue,
-        factor2: { value: 200, source: 'cee_mapped' } as UIInterventionValue,
+        // `'cee_mapped'` is not, and never was, a member of the intervention
+        // source vocabulary — the fixture exercises flattening over a FOREIGN
+        // literal on purpose. Kept byte-identical at runtime; the cast now goes
+        // through `unknown` because `source` became optional and TS no longer
+        // considers the two shapes comparable enough for a direct assertion.
+        factor2: { value: 200, source: 'cee_mapped' } as unknown as UIInterventionValue,
       },
       source: 'legacy_node',
     }
@@ -523,7 +542,9 @@ describe('buildV2Request', () => {
         id: 'provided_opt',
         label: 'Provided Option',
         status: 'ready',
-        interventions: { f1: { value: 99, source: 'cee_mapped' } as UIInterventionValue },
+        // Foreign literal on purpose — see the note in 'flattens
+        // UIInterventionValue to simple numbers'. Runtime value unchanged.
+        interventions: { f1: { value: 99, source: 'cee_mapped' } as unknown as UIInterventionValue },
         source: 'cee',
       },
     ]

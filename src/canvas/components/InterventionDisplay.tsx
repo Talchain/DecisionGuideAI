@@ -82,8 +82,24 @@ function formatValue(value: number, unit?: string): string {
 
 /**
  * Format the source of an intervention value.
+ *
+ * ⚠ RETURNS `null` WHEN THE RECORD DOES NOT SAY, AND THE CALLER RENDERS
+ * NOTHING. Not "unknown", not a neutral pill, not the raw literal. An
+ * unattributed intervention value is one whose provenance was never recorded —
+ * `UIInterventionValue.source` is optional for exactly that reason — and every
+ * label this function could reach for would be a claim the record cannot
+ * support. Silence is the honest output.
+ *
+ * ⚠ THIS SWITCH IS A HAND-MAINTAINED RIVAL TO `classifyInterventionProvenance`
+ * (`canvas/domain/valueProvenance.ts`), which is the estate's ONE classification
+ * authority for this vocabulary and which the two other intervention surfaces
+ * (`InterventionRow`, `ModelDetailRegion`) already use. It keeps its own
+ * lower-case register ("from brief" vs "From your brief"), so folding it in
+ * changes rendered text on a live surface and owes a human look. ROWED as a
+ * follow-up rather than smuggled into a truth fix. What is fixed here is only
+ * the part that was LYING: the absent case.
  */
-function formatSource(source: UIInterventionValue['source']): string {
+function formatSource(source: UIInterventionValue['source']): string | null {
   switch (source) {
     case 'brief_extraction':
       return 'from brief'
@@ -92,12 +108,13 @@ function formatSource(source: UIInterventionValue['source']): string {
     case 'cee_hypothesis':
       return 'inferred'
     default:
-      return source
+      return null
   }
 }
 
 /**
- * Get CSS class for source badge.
+ * Get CSS class for source badge. Only ever called for a source that
+ * `formatSource` resolved to a label — the absent case renders no badge at all.
  */
 function getSourceClass(source: UIInterventionValue['source']): string {
   switch (source) {
@@ -159,7 +176,13 @@ export function InterventionDisplay({
             <span
               key={nodeId}
               className="inline-flex items-center gap-1 px-2 py-0.5 bg-sand-100 rounded text-xs"
-              title={`${label} → ${formatValue(intervention.value, unit)} (${formatSource(intervention.source)})`}
+              // The provenance clause is APPENDED, never a fixed slot: an
+              // unattributed value simply has no clause, rather than a
+              // parenthesised "(undefined)" or an invented word.
+              title={
+                `${label} → ${formatValue(intervention.value, unit)}` +
+                (formatSource(intervention.source) ? ` (${formatSource(intervention.source)})` : '')
+              }
             >
               <span className="text-ink-600 truncate max-w-[80px]">{label}</span>
               <ArrowRight className="h-3 w-3 text-ink-400" />
@@ -213,13 +236,18 @@ export function InterventionDisplay({
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span
-                  className={`${typography.caption} px-1.5 py-0.5 rounded ${getSourceClass(
-                    intervention.source
-                  )}`}
-                >
-                  {formatSource(intervention.source)}
-                </span>
+                {/* No badge at all when the record does not say who chose this
+                    number — see formatSource. A neutral pill would still be a
+                    statement, and the thing being fixed here is a statement. */}
+                {formatSource(intervention.source) && (
+                  <span
+                    className={`${typography.caption} px-1.5 py-0.5 rounded ${getSourceClass(
+                      intervention.source
+                    )}`}
+                  >
+                    {formatSource(intervention.source)}
+                  </span>
+                )}
                 {intervention.value_confidence === 'low' && (
                   <span
                     className="text-banana-500"
