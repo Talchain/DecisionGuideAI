@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { classifyValueProvenance } from '../domain/valueProvenance'
+import { isUnquantifiedPrior } from '../domain/nodes'
 
 /** Shape of observed_state on factor nodes */
 export interface ObservedStateData {
@@ -141,6 +142,19 @@ export function hasObservedData(nodeData: unknown): boolean {
  *
  * Both call sites must agree on this predicate, otherwise a node can show the
  * "Help me estimate this" chip without the amber border (or vice-versa).
+ *
+ * ⭐⭐ THE PRIOR EXEMPTION NOW REFUSES AN IGNORANCE PRIOR (CEE PR #1223).
+ *
+ * CEE stops substituting a placeholder `0.5` for a factor the brief gave no
+ * number for. It now sends `prior: uniform(0,1)` carrying
+ * `prior_is_unquantified: true`. Both bounds are non-null, so the exemption
+ * below fired — and the amber "needs your judgement" affordance stayed dark on
+ * precisely the factors that need it most.
+ *
+ * ⚠ THE DISCRIMINATOR IS THE FLAG, NEVER THE RANGE — see `isUnquantifiedPrior`
+ * for the two corpora that return opposite verdicts on a range predicate. A
+ * genuine unflagged `uniform(0,1)` prior keeps its exemption, and that twin is
+ * pinned in this file's spec.
  */
 export function isFactorNeedsInput(nodeData: unknown): boolean {
   const data = nodeData as {
@@ -148,14 +162,37 @@ export function isFactorNeedsInput(nodeData: unknown): boolean {
     prior?: { range_min?: number; range_max?: number }
   } | undefined
   if (data?.category === 'external') return false
-  // A prior range counts as user-supplied evidence — same exemption the legacy
-  // BaseNode incomplete check applied.
-  if (data?.prior?.range_min != null && data?.prior?.range_max != null) return false
+  if (priorCountsAsEvidence(data?.prior)) return false
+  return hasAnyStatedValue(nodeData) === false
+}
+
+/**
+ * Does this prior stand in for a value the user would otherwise have to supply?
+ *
+ * A complete range does — that is the exemption the legacy BaseNode incomplete
+ * check applied, and it is written for genuine external priors. An explicit
+ * statement of ignorance does NOT: it is the absence of an estimate, recorded
+ * honestly, and treating it as evidence is how the absence disappears.
+ */
+function priorCountsAsEvidence(prior: { range_min?: number; range_max?: number } | undefined): boolean {
+  if (isUnquantifiedPrior(prior)) return false
+  return prior?.range_min != null && prior?.range_max != null
+}
+
+/**
+ * Does this factor carry a value in ANY of the three carriers a value can
+ * arrive in?
+ *
+ * Extracted so the triple has ONE owner: `isFactorNeedsInput` and FactorNode's
+ * "what does this node say about its own number" decision both ask it, and a
+ * second hand-listed copy is the drift this estate keeps paying for
+ * (CLAUDE.md trap 12). `display_value` is CEE-authored copy and `raw_value` is
+ * the pre-normalisation figure; either alone means the user is not being asked
+ * for anything.
+ */
+export function hasAnyStatedValue(nodeData: unknown): boolean {
   const obs = getObservedState(nodeData)
-  const valueMissing = obs.value == null
-  const rawMissing = obs.raw_value == null
-  const displayMissing = obs.display_value == null
-  return valueMissing && rawMissing && displayMissing
+  return obs.value != null || obs.raw_value != null || obs.display_value != null
 }
 
 /**

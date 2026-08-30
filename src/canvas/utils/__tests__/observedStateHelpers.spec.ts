@@ -159,6 +159,81 @@ describe('isFactorNeedsInput', () => {
       }),
     ).toBe(false)
   })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AN IGNORANCE PRIOR IS NOT EVIDENCE, SO IT MUST NOT INHERIT THE EXEMPTION
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // The prior exemption above exists because "a prior range counts as
+  // user-supplied evidence". CEE PR #1223 stops substituting a placeholder
+  // `0.5` and instead sends `prior: uniform(0,1)` carrying
+  // `prior_is_unquantified: true`. Both bounds are non-null, so the exemption
+  // fired — and the amber "needs your judgement" affordance stayed dark on
+  // precisely the factors that need it.
+  //
+  // ⚠ THE DISCRIMINATOR IS THE FLAG, NEVER THE RANGE. `{0,1}` from a genuine
+  // external prior and `{0,1}` from ignorance are byte-identical and mean
+  // opposite things. The twin case below is what proves this predicate
+  // discriminates on PROVENANCE rather than on arithmetic — it is the case a
+  // "suppress the exemption when the range is (0,1)" fix gets wrong.
+
+  it('⭐ #1223 SHAPE — an ignorance prior does NOT exempt: needs input', () => {
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior: { distribution: 'uniform', range_min: 0, range_max: 1, prior_is_unquantified: true },
+      }),
+    ).toBe(true)
+  })
+
+  it('⭐ THE TWIN — a GENUINE uniform(0,1) prior WITHOUT the flag keeps the exemption', () => {
+    // Byte-identical to the case above except for the flag. #1223's own corpus
+    // holds real unflagged uniform(0,1) priors (`fac_nrr`,
+    // `fac_legal_clearance`), and `fac_weather` in the walk-582 export fixture
+    // is another. A range predicate suppresses all of them.
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior: { distribution: 'uniform', range_min: 0, range_max: 1 },
+      }),
+    ).toBe(false)
+  })
+
+  it('POSITIVE CONTROL — a genuine NARROWED prior is unchanged (drawn from the shipped starters)', () => {
+    // All 14 priors across the five shipped starters are narrowed (0.4–0.9,
+    // 0.25–0.75, 0.3–0.8 …). This is the population the exemption was written
+    // for and it must not move.
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior: { distribution: 'uniform', range_min: 0.4, range_max: 0.9 },
+      }),
+    ).toBe(false)
+  })
+
+  it('an ignorance prior does NOT override a value the USER supplied', () => {
+    // Opposite-direction harm, and the worse one: telling a person the value
+    // they supplied is not there. The flag describes the PRIOR; it says nothing
+    // about a value that arrived afterwards.
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior: { distribution: 'uniform', range_min: 0, range_max: 1, prior_is_unquantified: true },
+        observedState: { value: 0.42, source: 'user_override' },
+      }),
+    ).toBe(false)
+  })
+
+  it('the flag is read on the PRIOR, not on the node (a node-level flag exempts nothing)', () => {
+    // Positive evidence only, and bound to the carrier CEE actually writes.
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior_is_unquantified: true,
+        prior: { distribution: 'uniform', range_min: 0.4, range_max: 0.9 },
+      } as Record<string, unknown>),
+    ).toBe(false)
+  })
 })
 
 // ---------------------------------------------------------------------------

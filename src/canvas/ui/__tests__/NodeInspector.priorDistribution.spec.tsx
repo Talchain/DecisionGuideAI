@@ -119,6 +119,79 @@ describe('NodeInspector — distribution-form priors render honestly (2.468a)', 
     expect(container.textContent).not.toContain('NaN')
   })
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // AN IGNORANCE PRIOR IS NOT A MEASUREMENT, AND IT IS NOT SELF-DESCRIBING
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // ⚠ THIS IS THE THIRD TIME THIS FUNCTION HAS HAD FORM. 2.495 (above) fixed a
+  // one-sided bound that rendered "30 to 1 on 0–1 scale". That hardening was
+  // written against MALFORMED ranges and has no notion of a WELL-FORMED range
+  // that means "we know nothing": on `{0, 1, prior_is_unquantified: true}` all
+  // four limbs pass and `normalised` is `true` — arithmetically correct and
+  // semantically the opposite of the truth. The widest possible range,
+  // presented with a scale claim that makes it read as a measurement.
+  //
+  // CEE's `unquantified-factor.ts:145-152` forbids showing that bracket to a
+  // user in so many words, and its own sentence carries the substance reused
+  // here so the product says ONE thing about this state.
+  //
+  // ⭐ The `fac_weather` case ABOVE is the opposite-direction twin and is now
+  // doing double duty: a genuine uniform(0,1) prior with no flag, byte-copied
+  // from the walk-582 export fixture, which must keep rendering as the range it
+  // is. It is the case a "handle {0,1}" fix gets wrong.
+
+  /**
+   * Byte-copy of `fac_weather` above, with ONLY the #1223 flag added — the
+   * shape `buildUnquantifiedPrior()` emits, read at PR head `aa330ffe`
+   * (30 Aug 2026). Kept as a separate constant: the captured fixture is a dated
+   * record and is append-only, never edited to cover a new case.
+   */
+  // ⚠ THE ID DELIBERATELY DOES NOT CONTAIN THE WORD THIS TEST SWEEPS FOR.
+  // The inspector's ADVANCED section renders the raw node id, so an id of
+  // `fac_unquantified` made the leak assertion below fail against the
+  // FIXTURE'S OWN NAME rather than against product copy — an assertion
+  // answering a question about itself.
+  const FAC_UNQUANTIFIED = {
+    ...FAC_WEATHER,
+    id: 'fac_support_headcount',
+    data: {
+      ...FAC_WEATHER.data,
+      label: 'Support headcount',
+      prior: { ...FAC_WEATHER.data.prior, prior_is_unquantified: true },
+    },
+  }
+
+  it('⭐ #1223 SHAPE — an ignorance prior says there is no estimate, and makes NO numeric or scale claim', () => {
+    setStore([FAC_UNQUANTIFIED])
+    const { container } = render(<NodeInspector nodeId="fac_support_headcount" onClose={() => {}} />)
+
+    // Identity: this render is THE node under test.
+    expect(screen.getByText('Support headcount')).toBeDefined()
+
+    const text = container.textContent ?? ''
+    // The honest claim, in both prior rows.
+    expect(text).toMatch(/No estimate yet/i)
+    // The bracket a user must never be shown — in either row's phrasing.
+    expect(text).not.toContain('0 to 1')
+    expect(text).not.toContain('Between 0 and 1')
+    expect(text).not.toContain('on 0–1 scale')
+    // Not a probability either.
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(text).not.toContain('NaN')
+    // Internal language must not leak (CEE's C1 ruling: no bracket notation, no
+    // the word UNQUANTIFIED, no disowned figure).
+    expect(text).not.toMatch(/unquantified/i)
+    expect(text).not.toContain('[0, 1]')
+  })
+
+  it('⭐ THE TWIN, PINNED IN-TEST — the two priors differ ONLY by the flag', () => {
+    // Without this, a green result above could be the fixture's failure rather
+    // than the predicate's doing (trap 13b). `fac_weather` renders its range
+    // (asserted in its own case above); this one must not.
+    const { prior_is_unquantified: _flag, ...unflagged } = FAC_UNQUANTIFIED.data.prior as Record<string, unknown>
+    expect(unflagged).toEqual(FAC_WEATHER.data.prior)
+  })
+
   it('POSITIVE CONTROL — numeric prior still renders percent in both rows (proves the surface renders values the NaN sweep could see)', () => {
     setStore([
       {

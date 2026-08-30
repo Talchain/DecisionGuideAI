@@ -7,7 +7,7 @@
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { AlertTriangle, Check, Pencil } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { NODE_REGISTRY } from '../domain/nodes'
+import { NODE_REGISTRY, isUnquantifiedPrior } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { Tooltip } from '../components/Tooltip'
@@ -72,8 +72,42 @@ function formatNormalisedRangeEnd(v: number): string {
 type PriorDisplay =
   | { kind: 'percent'; fraction: number; text: string }
   | { kind: 'range'; rangeMin: number; rangeMax: number; normalised: boolean }
+  | { kind: 'unquantified' }
+
+/** The KPI row's compact form. */
+const NO_ESTIMATE_SHORT = 'No estimate yet'
+/**
+ * The Assumptions block's full sentence, carrying the same substance as CEE's
+ * `unquantifiedFactorSentence` so the product says ONE thing about this state
+ * across chat and inspector. Obeys the same C1 ruling: no bracket notation,
+ * not the word "unquantified", and never the figure being disowned.
+ */
+const NO_ESTIMATE_SENTENCE =
+  'No estimate yet — left fully open rather than narrowed to a figure we cannot support'
 
 function describePrior(prior: unknown): PriorDisplay | null {
+  // ⭐⭐ CHECKED FIRST, AND THE ORDER IS THE FIX.
+  //
+  // ⚠ THIS FUNCTION HAS FORM, AND THIS IS ITS THIRD INSTANCE. 2.495 (below)
+  // hardened `normalised` from a one-sided bound — which rendered "30 to 1 on
+  // 0–1 scale" — into four limbs. That hardening was written against MALFORMED
+  // ranges and has no notion of a WELL-FORMED range that means "we know
+  // nothing": on CEE's ignorance prior all four limbs pass and `normalised` is
+  // `true`. Arithmetically correct, semantically the opposite of the truth —
+  // the widest possible range, wearing a scale claim that makes it read as a
+  // measurement.
+  //
+  // THE PRINCIPLE: a range is not self-describing. `{0,1}` from a genuine
+  // external prior and `{0,1}` from ignorance are byte-identical and mean
+  // opposite things, so the discriminator is the PROVENANCE FLAG, never the
+  // arithmetic — see `isUnquantifiedPrior`, which is also what
+  // `isFactorNeedsInput` consumes. Edits to that affordance and to this display
+  // are the same defect on two surfaces, under one owner, so they cannot drift.
+  //
+  // ⚠ IT RETURNS A ROW, NOT `null`. Suppressing the prior entirely would hide a
+  // real state from the user; the standing ruling is to CAVEAT, never hide. The
+  // row renders and says plainly that there is no estimate.
+  if (isUnquantifiedPrior(prior)) return { kind: 'unquantified' }
   if (typeof prior === 'number' && Number.isFinite(prior)) {
     return { kind: 'percent', fraction: prior, text: `${(prior * 100).toFixed(0)}%` }
   }
@@ -453,10 +487,16 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {priorDisplay && (
         <div className="flex items-center justify-between mt-2 px-2 py-1 bg-panel rounded border border-panel-border">
           <span className={`${typography.panelMeta} text-text-light`}>Prior</span>
-          <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-            {priorDisplay.kind === 'percent'
-              ? priorDisplay.text
-              : `${formatNormalisedRangeEnd(priorDisplay.rangeMin)} to ${formatNormalisedRangeEnd(priorDisplay.rangeMax)}${scaleSuffix(priorDisplay)}`}
+          {/* Three kinds, checked explicitly. The previous two-way ternary sent
+              anything that was not `percent` down the range branch, so a third
+              kind would have read `rangeMin` off an object that has none and
+              thrown inside `formatNormalisedRangeEnd`. */}
+          <span className={`${typography.panelBody} text-text-body ${priorDisplay.kind === 'unquantified' ? '' : 'tabular-nums'}`}>
+            {priorDisplay.kind === 'unquantified'
+              ? NO_ESTIMATE_SHORT
+              : priorDisplay.kind === 'percent'
+                ? priorDisplay.text
+                : `${formatNormalisedRangeEnd(priorDisplay.rangeMin)} to ${formatNormalisedRangeEnd(priorDisplay.rangeMax)}${scaleSuffix(priorDisplay)}`}
           </span>
         </div>
       )}
@@ -651,7 +691,14 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           <label className={`block ${typography.panelMeta} text-text-body mb-1`}>
             Prior <span className="text-text-light">(belief before evidence)</span>
           </label>
-          {priorDisplay.kind === 'percent' ? (
+          {priorDisplay.kind === 'unquantified' ? (
+            /* No bar and no bracket. A progress bar over ignorance would fake
+               precision exactly as a numeric range does, and the widest
+               possible bar reads as the strongest possible claim. */
+            <p className={`${typography.panelBody} text-text-body`}>
+              {NO_ESTIMATE_SENTENCE}
+            </p>
+          ) : priorDisplay.kind === 'percent' ? (
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-panel-border rounded-full overflow-hidden">
                 <div
