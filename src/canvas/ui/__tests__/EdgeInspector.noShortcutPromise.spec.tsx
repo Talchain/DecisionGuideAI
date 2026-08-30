@@ -9,16 +9,37 @@
  * menu strips its undo/redo entries and the left-rail buttons are permanently
  * disabled.
  *
- * ⚠ THIS PATH IS LIVE, AND AN EARLIER PASS OF THIS WORK RECORDED IT AS DEAD by
- * inheriting that claim instead of tracing it. The chain is:
- *   edge click → `InspectorModal` (imported and mounted by `ReactFlowGraph`)
- *              → `EdgeInspector` → "Delete connector" → `handleDelete`.
- * `PropertiesPanel` is a second live importer. No flag, no `disabled`, no
- * authority gate anywhere on it.
+ * ⚠⚠ THE REACHABILITY CLAIM THAT STOOD HERE IS REFUTED — CORRECTED 30 Aug 2026.
+ * It read: "THIS PATH IS LIVE, AND AN EARLIER PASS OF THIS WORK RECORDED IT AS
+ * DEAD by inheriting that claim instead of tracing it", with the chain
+ * `edge click → InspectorModal → EdgeInspector → "Delete connector"` and
+ * "`PropertiesPanel` is a second live importer".
  *
- * THE LESSON THIS PIN ENCODES: the first sweep looked at the components it was
- * already editing, and these strings lived somewhere it was not. Sweep by the
- * LITERAL across the whole tree, not by the surfaces already in hand.
+ * **THE EARLIER PASS WAS RIGHT AND THIS HEADER OVERTURNED IT WRONGLY.** The
+ * 28 Aug trace stopped at `ReactFlowGraph → InspectorModal` and never read
+ * what `InspectorModal` does: `:17` `const USE_INSPECTOR_V2 = true` and `:160`
+ * `if (USE_INSPECTOR_V2) return <InspectorRouter/>` — an early return ABOVE
+ * the legacy branch that renders `EdgeInspector` at `:232`. That const has
+ * been `true` since 8 Mar 2026 (`1af3a554`), i.e. for nearly six months before
+ * this header was written on 28 Aug (`b8c88f28`). And `PropertiesPanel`
+ * imports `EdgeInspector` but has ZERO non-test importers itself — "imports
+ * it" was read as "is live".
+ *
+ * WITNESSED BY EXECUTION, not by reading: rendering `InspectorModal` with an
+ * edge id yields the v2 router's `inspector-authority-notice`, does NOT yield
+ * the legacy "Edge Properties" heading, and a contrast control in the same run
+ * (`intervention-edge-notice`) fired — so the probe could see a presence.
+ *
+ * THE PIN STAYS, because it is cheap and it becomes load-bearing the moment
+ * `USE_INSPECTOR_V2` flips. But NOTHING HERE IS EVIDENCE THAT A USER CAN REACH
+ * THIS FILE. Re-derive the mount path before commissioning work against it.
+ *
+ * TWO LESSONS THIS PIN ENCODES, both still correct:
+ *   1. Sweep by the LITERAL across the whole tree, not by the surfaces already
+ *      in hand — the strings lived where the first sweep was not looking.
+ *   2. A claim of the form "X is mounted by Y" is not finished until you have
+ *      read what Y actually renders. An import is not a mount, and a chain
+ *      traced one hop short reads exactly like a chain traced to the end.
  *
  * BINDING: resolved through the toast this component actually raises, by
  * spying on `showToast` — not by searching the document for "deleted", which

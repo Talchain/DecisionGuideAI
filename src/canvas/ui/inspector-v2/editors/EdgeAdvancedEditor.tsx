@@ -9,6 +9,7 @@ import { useCanvasStore } from '../../../store'
 import { EDGE_CONSTRAINTS } from '../../../domain/edges'
 import { useEdgeMutations } from '../useInspectorMutations'
 import { EDGE_COPY } from '../inspectorStrings'
+import { typography } from '../../../../styles/typography'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { AdvancedWarningPill } from '../shared/AdvancedWarningPill'
@@ -74,11 +75,38 @@ export function EdgeAdvancedEditor({ edgeId, linkKind }: EdgeAdvancedEditorProps
         {/* ⛔ DO NOT "FIX" THIS BY HIDING OR DISABLING THE FIELD ABOVE. The
             no-hiding ruling applies: the coefficient is real, it is stored, and
             a user is entitled to see and change it. What was wrong was the
-            claim around it, so the claim is what changes. */}
+            claim around it, so the claim is what changes.
+
+            ⚠⚠ THIS CAVEAT SHIPS DARK, AND THAT IS RECORDED HERE ON PURPOSE
+            (30 Aug 2026). It is not merely that β cannot be EDITED — β cannot
+            be VIEWED. This editor renders only inside `EdgePanel`'s
+            `TechnicalDisclosure`, which starts COLLAPSED
+            (`TechnicalDisclosure.tsx:24`, `useState(false)`) and is opened by
+            a `<button>` — and that button sits inside the unconditional
+            `<fieldset disabled>` that `InspectorRouter` wraps every panel in
+            (`InspectorRouter.tsx:221-233`). A disabled fieldset disables
+            descendant buttons, so the disclosure cannot be opened and nothing
+            below it ever reaches a user.
+            MEASURED IN REAL CHROMIUM, not inferred: a button inside
+            `<fieldset disabled>` fired its handler 0 times; the contrast
+            control outside the fieldset fired 1. `display: contents` on the
+            fieldset does not rescue it.
+            ⚠ jsdom CANNOT SETTLE THIS — it does not propagate fieldset
+            disabled-ness to `.disabled`, and the spec beside this file renders
+            `EdgePanel` DIRECTLY, bypassing the fieldset. So a green suite here
+            is evidence about the COMPONENT and says nothing about the product.
+            STATUS: this caveat is CODE EXISTS + TESTED, and DARK — it becomes
+            user-visible the moment the read-only fieldset lifts, and that is
+            the follow-up this comment exists to brief. The sibling half of
+            this fix, the intervention notice in `EdgePanel`, is OUTSIDE all of
+            this gating and IS reachable (rung: MOUNTED). */}
         {linkKind === 'intervention' && (
           <p
             data-testid="edge-beta-inert-on-intervention"
-            className="text-warning mt-0.5"
+            // `typography.panelMeta` is set EXPLICITLY, like every sibling in
+            // this group. It previously inherited 11px by cascade and was the
+            // only element in the slot relying on that.
+            className={`${typography.panelMeta} text-warning mt-0.5`}
           >
             {EDGE_COPY.interventionStrengthInert}
           </p>

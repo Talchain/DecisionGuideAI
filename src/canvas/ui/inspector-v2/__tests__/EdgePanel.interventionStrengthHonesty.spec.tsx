@@ -26,6 +26,26 @@
  * wrong reason — the exact shape that let a sibling lane claim a fix nothing
  * observed. No module is mocked in this file, so no mock posture can hide the
  * surface either.
+ *
+ * ⚠⚠ AND THE LIMIT OF EVERYTHING BELOW, STATED SO NOBODY INHERITS MORE THAN
+ * WAS MEASURED (added 30 Aug 2026 after review). These cases render
+ * `EdgePanel` DIRECTLY. The product does not: `InspectorRouter` wraps every
+ * panel in an unconditional `<fieldset disabled>` (`InspectorRouter.tsx:
+ * 221-233`), and the "Model detail" `<button>` these cases click sits INSIDE
+ * that fieldset — so in the real product it cannot be clicked and the β
+ * caveat is DARK. Measured in real Chromium: handler fired 0 times inside a
+ * disabled fieldset, 1 outside; `display: contents` does not rescue it. jsdom
+ * cannot see this at all, because it does not propagate fieldset
+ * disabled-ness to `.disabled`.
+ *
+ * SO THE TWO HALVES OF THIS FIX HAVE DIFFERENT RUNGS, AND THE SPEC IS GREEN
+ * FOR BOTH:
+ *   · the intervention NOTICE (`EdgePanel`, a `<p>` outside all gating) —
+ *     MOUNTED, and it is the false sentence a user actually read;
+ *   · the β CAVEAT (`EdgeAdvancedEditor`) — CODE EXISTS + TESTED, and DARK
+ *     until the read-only fieldset lifts.
+ * A green run here is evidence about the components. It is NOT a journey
+ * witness, and it must not be cited as one.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -102,13 +122,25 @@ describe('option→factor edge — the β control carries the caveat', () => {
     expect(caveat.textContent).toMatch(/the value the option sets its target to/i)
   })
 
-  it('the β control remains present and editable — corrected, never hidden', () => {
+  // ⚠⚠ THE NAME OF THIS CASE IS LOAD-BEARING — it was renamed on 30 Aug 2026
+  // after review. It used to read "the β control remains present and editable",
+  // which is TRUE OF THE COMPONENT AND FALSE OF THE PRODUCT: `InspectorRouter`
+  // wraps every panel in an unconditional `<fieldset disabled>`, so no user can
+  // operate this input. The body was honest about that; the NAME was not — and
+  // the name is what the next lane greps and what survives every refactor.
+  // A misleading test name is as dangerous as a wrong assertion, because
+  // nobody re-reads the body.
+  it('this component renders β and does not itself disable it — a COMPONENT claim, NOT a claim that a user can edit it', () => {
     const { container } = renderWithModelDetailOpen('option', 'factor')
-    // The no-hiding ruling: the field is still on screen, still an input, and
-    // still not `disabled` by this component. (`InspectorRouter` wraps the
-    // whole panel in a read-only fieldset one level up; that is a different
-    // decision, made elsewhere, and this assertion is deliberately scoped to
-    // what THIS component does.)
+    // Scoped deliberately to what THIS component does. The product-level
+    // verdict is the opposite and is recorded at the caveat's own site in
+    // `EdgeAdvancedEditor.tsx`: the field is unreachable, because the
+    // disclosure button that reveals it is itself inside the disabled
+    // fieldset (measured in real Chromium — handler fired 0 times inside,
+    // 1 outside). This spec renders `EdgePanel` DIRECTLY and therefore
+    // BYPASSES that fieldset, so it cannot see the gating and must not be
+    // read as evidence about it. jsdom could not settle it either way: it
+    // does not propagate fieldset disabled-ness to `.disabled`.
     const inputs = Array.from(container.querySelectorAll('input'))
     const betaInput = inputs.find(i => i.getAttribute('placeholder') === '[-1, 1]')
     expect(betaInput).toBeTruthy()
