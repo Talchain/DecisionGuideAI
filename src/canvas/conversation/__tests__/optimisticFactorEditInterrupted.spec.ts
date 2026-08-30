@@ -637,8 +637,15 @@ describe('the response that RESOLVES after the abort — the exit that bypasses 
 
   it('does not emit the false draft notice on this exit either', async () => {
     const result = await driveStoppedEdit('not_saved', { resolveOnAbort: true })
+    const notices = noticesOf(result as never)
 
+    // PRECONDITION, PINNED IN-TEST — and it is here because the mutant that
+    // deletes the new abort-arm call left this case GREEN when it was written
+    // without one: with nothing emitted, `not.toMatch` passes on an empty
+    // string. A case that a total silence satisfies cannot distinguish the fix
+    // from the defect it replaces.
+    expect(notices, 'there IS a sentence to constrain').toHaveLength(1)
     expect(observedOn(TARGET_ID).value).toBe(SENT_MODEL)
-    expect(noticesOf(result as never).join(' ')).not.toMatch(/canvas is unchanged/i)
+    expect(notices.join(' ')).not.toMatch(/canvas is unchanged/i)
   })
 })
