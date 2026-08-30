@@ -257,6 +257,28 @@ describe('wire currency is superseded by a local edit the producer has not seen'
     expect(composed.displayState.state).toBe(derivedTwin.displayState.state)
   })
 
+  it('THE THIRD SURFACE — Analysis (New) reads the same member, so its staleness line moves with it', () => {
+    // `OutputsDock.tsx:980` composes
+    //   `analysisNotConfirmedFresh = displayedFreshness === 'stale' || === 'unknown'`
+    // and passes it to `<AnalysisNewTabBody isStale={…}>` at `:3472`. That panel
+    // gates its staleness line on `isStale && !isPreRun`, where `isPreRun` is
+    // `!hasCompletedFirstRun` — a DIFFERENT question ("is a completed analysis
+    // being displayed at all?") which this change does not touch (#972's gate).
+    //
+    // ⚠ SCOPE, STATED RATHER THAN OVERCLAIMED. This case pins the MEMBER the
+    // third surface consumes, on both sides of the window. It does NOT pin the
+    // one wiring hop at `OutputsDock.tsx:980` — that expression lives inline in
+    // the dock and is not importable, so a change there would not RED here.
+    // Naming the unpinned hop is the honest form; claiming end-to-end coverage
+    // from a composition test would not be.
+    const notConfirmedFresh = (v: string | null) => v === 'stale' || v === 'unknown'
+
+    expect(notConfirmedFresh(composeAnalysisState(WIRE_SAYS_CURRENT).displayedFreshness)).toBe(false)
+    expect(
+      notConfirmedFresh(composeAnalysisState({ ...WIRE_SAYS_CURRENT, dirty: true }).displayedFreshness),
+    ).toBe(true)
+  })
+
   it('EVERY OTHER RUN-STATE KIND IS UNTOUCHED BY THE OVERLAY — derived, not hand-listed', () => {
     // Derived from the contract's own kind list so a kind added at the next pin
     // bump is covered by default rather than silently exempted (trap 12).
