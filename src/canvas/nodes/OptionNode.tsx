@@ -372,7 +372,11 @@ interface InterventionChip {
 /** Structured delta for spec Section 13 pre-analysis display. */
 interface StructuredDelta {
   factorId: string
+  /** Compacted for the card. The card is the ONLY place this is shortened. */
   label: string
+  /** Uncompacted, for the `title` recovery affordance. Never rendered raw on
+   * the card — `compactFactorLabel` owns what the card shows. */
+  fullLabel: string
   direction: 'up' | 'down'
   /** Formatted "baseline → intervention" — real-world where the payload
    * supports it, else normalised percentages (brief scope 7). */
@@ -658,7 +662,7 @@ export const OptionNode = memo((props: NodeProps) => {
         const isBinaryPair = (c.value === 0 || c.value === 1) && (baseline === 0 || baseline === 1)
         const baselineLabel = baseline === c.observedValue ? c.baselineDisplayValue : undefined
         if (isBinaryPair && c.displayValue && baselineLabel) {
-          return { factorId: c.factorId, label: shortLabel, direction, fromTo: `${baselineLabel} → ${c.displayValue}` }
+          return { factorId: c.factorId, label: shortLabel, fullLabel: c.label, direction, fromTo: `${baselineLabel} → ${c.displayValue}` }
         }
 
         // Both sides come from the shared formatter (real-world display units
@@ -670,7 +674,7 @@ export const OptionNode = memo((props: NodeProps) => {
           ? `${change.baselineText} → ${change.targetText}`
           : `${Math.round(baseline * 100)}% → ${Math.round(c.value * 100)}%`
 
-        return { factorId: c.factorId, label: shortLabel, direction, fromTo }
+        return { factorId: c.factorId, label: shortLabel, fullLabel: c.label, direction, fromTo }
       })
       .filter((d): d is StructuredDelta => d !== null)
   }, [interventionChips, baselineOptionInterventions])
@@ -1183,7 +1187,15 @@ export const OptionNode = memo((props: NodeProps) => {
                 : (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                  <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
+                  {/* FULL label, deliberately. This popover is the recovery
+                      surface for the card's 22-char compaction, and it
+                      truncated at 30 — so the full string was recoverable
+                      nowhere short of the inspector. It is portalled to
+                      document.body (`NodePopover.tsx`), therefore outside the
+                      React Flow transform, so `var(--canvas-label-scale, 1)`
+                      resolves to 1 and it renders at the declared size in a
+                      260px wrapping box. It has the room. */}
+                  <span className="text-text-body">{chip.label}</span>
                   {echoStripped && (
                     <>
                       <span className="text-text-light"> → </span>
@@ -1320,28 +1332,63 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Pre-analysis: structured deltas — Graph v1.1 Task 6 wireframe v4
-            OptionWinnerPre. Outlined pills (10px, panel-border, rounded-full)
-            laid out horizontally so several fit per row. Labels are compacted
-            via compactFactorLabel before reaching here. */}
+        {/* Pre-analysis: structured deltas — one ROW per change.
+            ⭐ THIS REPLACED WRAPPING PILLS, AND THE MEASUREMENT IS THE REASON.
+            Captured in Chromium at 1280x800 on the five shipped starters
+            (30 Aug 2026), where every starter's auto-fit clamps at the 0.50
+            legibility floor, so `--canvas-label-scale` is 2 and an 11px label
+            renders at 22px inside a 244px card — roughly 19 characters a line.
+
+            Each delta was an `inline-flex` pill sized to the card's content
+            box, so its text wrapped INSIDE a rounded border: measured pill
+            heights of 59/87/114/142/169px are 2/3/4/5/SIX wrapped lines. A
+            six-line rounded pill is not a pill; it reads as a broken box. And
+            `gap-0.5` put 2px between the label and its value at 22px type, so
+            "Germany market entry" and "Low (0) → Very high (1)" ran together
+            as "market entryLow (0)".
+
+            ⚠ WHAT THIS DELIBERATELY DOES NOT DO, because the same measurement
+            ruled it out: the approved brief was "one line per change, label
+            truncates, value NEVER truncates". At 19 characters a line, values
+            like "No in-house build pursued → Very high (1)" exceed a whole
+            line BEFORE any label. One line per change is therefore unbuildable
+            without truncating values, which the brief forbids — so the value
+            keeps as many lines as it needs and the LABEL gets its own line.
+
+            ⚠ AND THE HONEST SIZE OF THE WIN: removing the chrome recovers
+            about 3px of padding and border per row, ~5% of the block. This is
+            a LEGIBILITY change, not a density one. First-view legibility is
+            height-bound at the GRAPH level (build-vs-buy lays out 2693 units
+            against ~1600 showable) and no card change reaches that. */}
         {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
+          <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
             {structuredDeltas.map(d => (
-              <span
+              <li
                 key={d.factorId}
-                className={`${typography.nodeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body`}
-                style={{ borderWidth: '0.5px' }}
+                className="flex items-start gap-1"
+                /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go
+                   (Paul, 29 Aug). `label` is compacted to 22 chars; the full
+                   string is here and in the hover popover below. Native
+                   `title` is the canvas-node tooltip idiom in this repo — see
+                   `nodes/shared/MetricPills.tsx`. */
+                title={`${d.fullLabel}: ${d.fromTo}`}
               >
                 {d.direction === 'up' ? (
-                  <ArrowUp size={10} className="text-success flex-shrink-0" />
+                  <ArrowUp size={10} className="text-success flex-shrink-0 mt-0.5" />
                 ) : (
-                  <ArrowDown size={10} className="text-danger flex-shrink-0" />
+                  <ArrowDown size={10} className="text-danger flex-shrink-0 mt-0.5" />
                 )}
-                <span>{d.label}</span>
-                <span className="text-text-light">{d.fromTo}</span>
-              </span>
+                {/* min-w-0 so the text block may shrink and WRAP rather than
+                    overflow. Nothing here is `truncate`: a CSS ellipsis inside
+                    a canvas node REDs `nodeTextClipping.visual.spec.ts`, which
+                    exempts JS-shortened strings by design. */}
+                <span className="min-w-0 flex-1">
+                  <span className={`${typography.nodeLabel} block text-text-body`}>{d.label}</span>
+                  <span className={`${typography.nodeLabel} block text-text-light`}>{d.fromTo}</span>
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
 
         {/* Polish 4 Task 5: differentiator line — what's strategically unique
