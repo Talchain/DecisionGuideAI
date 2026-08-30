@@ -8,15 +8,31 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { EDGE_CONSTRAINTS } from '../../../domain/edges'
 import { useEdgeMutations } from '../useInspectorMutations'
+import { EDGE_COPY } from '../inspectorStrings'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { AdvancedWarningPill } from '../shared/AdvancedWarningPill'
 
+/**
+ * Which of `EdgePanel`'s three link classes this editor is rendering under.
+ *
+ * ⚠ SUPPLIED BY THE CALLER ON PURPOSE — this editor does NOT re-derive it.
+ * `EdgePanel` already owns the derivation (`sourceKind`/`targetKind`, EdgePanel
+ * .tsx:180-181) and uses it to choose which notice to render. Deriving it a
+ * second time here would create a second semantic owner for one question, and
+ * the two would drift (trap 21: two authorities answering what looks like the
+ * same question, disagreeing on a reachable class, neither one wrong in
+ * isolation). The prop is REQUIRED, not defaulted, so a future call site is a
+ * type error rather than a silent `'causal'`.
+ */
+export type EdgeLinkKind = 'causal' | 'organisational' | 'intervention'
+
 interface EdgeAdvancedEditorProps {
   edgeId: string
+  linkKind: EdgeLinkKind
 }
 
-export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
+export function EdgeAdvancedEditor({ edgeId, linkKind }: EdgeAdvancedEditorProps) {
   const edge = useCanvasStore(s => s.edges.find(e => e.id === edgeId))
   const mutations = useEdgeMutations(edgeId)
 
@@ -55,6 +71,18 @@ export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
           step={0.01}
           helperText="Signed causal effect size. Positive = same direction."
         />
+        {/* ⛔ DO NOT "FIX" THIS BY HIDING OR DISABLING THE FIELD ABOVE. The
+            no-hiding ruling applies: the coefficient is real, it is stored, and
+            a user is entitled to see and change it. What was wrong was the
+            claim around it, so the claim is what changes. */}
+        {linkKind === 'intervention' && (
+          <p
+            data-testid="edge-beta-inert-on-intervention"
+            className="text-warning mt-0.5"
+          >
+            {EDGE_COPY.interventionStrengthInert}
+          </p>
+        )}
         <AdvancedField
           label="Epistemic uncertainty (σ)"
           value={Number(std.toFixed(4))}
