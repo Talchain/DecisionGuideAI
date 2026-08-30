@@ -42,12 +42,28 @@
  * the direction of a FALSE "no session", which is exactly the defect being
  * fixed. Discovery cannot drift that way.
  *
- * ⚠ THE ANCHORED SUFFIX IS LOAD-BEARING, NOT TIDINESS. gotrue also writes
- * `${storageKey}-code-verifier` during a PKCE sign-in. A visitor who started a
- * sign-in and abandoned it has that key and NO session; matching it would put
- * a guest behind a spinner for a session that is never coming. `$`-anchoring
- * on `-auth-token` excludes it, and `storedSupabaseSession.spec.ts` pins that
- * discrimination in both directions.
+ * ── TWO INDEPENDENT GUARDS, AND WHICH ONE ACTUALLY DOES THE WORK ─────────
+ * ⚠ AN EARLIER VERSION OF THIS COMMENT CLAIMED THE `$` ANCHOR WAS WHAT KEPT A
+ * PKCE CODE-VERIFIER OUT, AND A MUTANT REFUTED IT. gotrue writes
+ * `${storageKey}-code-verifier` when a sign-in STARTS, so a visitor who began
+ * signing in and changed their mind has that key and no session — and treating
+ * it as a session would put a guest behind a spinner for something that is
+ * never coming. But un-anchoring the pattern in a throwaway worktree left the
+ * whole suite GREEN (mutant M5, 17/17): gotrue stores the verifier as
+ * `JSON.stringify(<string>)`, so it is excluded by the VALUE check below —
+ * `typeof parsed !== 'object'` — and the anchor never gets a chance to matter.
+ *
+ * So, stated accurately: the VALUE check is the discriminator for the case we
+ * actually ship, and the anchor is defence in depth — it binds to the exact
+ * key rather than to anything merely beginning with it. Both are kept, because
+ * they fail independently and a guard that agrees with its neighbour is not a
+ * second guard. The spec now pins each ON ITS OWN, so neither can quietly stop
+ * discriminating behind the other.
+ *
+ * The durable lesson, recorded because it cost a mutant to find: a rationale
+ * written into a comment is a CLAIM about the code, and an unmeasured claim
+ * about your own guard is exactly as wrong as an unmeasured claim about the
+ * product.
  *
  * ── WHAT THIS DELIBERATELY DOES NOT DO ────────────────────────────────────
  * It does not decide whether the session is VALID, current, or refreshable —

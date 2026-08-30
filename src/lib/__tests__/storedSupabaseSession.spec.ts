@@ -77,13 +77,35 @@ describe('hasStoredSupabaseSession', () => {
     expect(hasStoredSupabaseSession()).toBe(true)
   })
 
-  // ── THE DISCRIMINATION THE ANCHORED SUFFIX EXISTS FOR ──────────────────
+  // ── THE PKCE CODE-VERIFIER, AND WHICH GUARD ACTUALLY EXCLUDES IT ───────
   it('is false for a PKCE code-verifier left by an abandoned sign-in', () => {
     // gotrue writes `${storageKey}-code-verifier` when a sign-in STARTS. A
     // visitor who clicked "Sign in", changed their mind, and came back has
-    // this and no session. An unanchored pattern would match it and put them
-    // behind a spinner for a session that cannot arrive.
+    // this and no session, and must not be put behind a spinner for a session
+    // that cannot arrive.
+    //
+    // ⚠ THIS CASE IS PASSED BY THE VALUE CHECK, NOT BY THE KEY ANCHOR, and
+    // that was measured rather than assumed: un-anchoring the pattern left
+    // this test GREEN (mutant M5), because gotrue stores the verifier as
+    // `JSON.stringify(<string>)` and the probe rejects a non-object. The
+    // anchor's own contribution is pinned separately below — one case per
+    // guard, so neither can stop discriminating behind the other.
     localStorage.setItem(`${KEY}-code-verifier`, JSON.stringify('a-verifier'))
+    expect(hasStoredSupabaseSession()).toBe(false)
+  })
+
+  it('binds to the exact session key, not to anything merely starting with it', () => {
+    // The anchor's OWN property, given a case the value check cannot absorb:
+    // a key that begins with the session key, carrying a payload that would
+    // otherwise qualify. Un-anchor the pattern and this goes red.
+    //
+    // ⚠ SCOPE, stated rather than implied: this is a property of OUR probe —
+    // it matches the session key and not a prefix of it. It is NOT a claim
+    // that gotrue ever writes a session object under a `-code-verifier` key;
+    // it does not. The realistic verifier case is the test above. This one
+    // exists so the anchor has a guard of its own rather than being carried by
+    // its neighbour.
+    localStorage.setItem(`${KEY}-code-verifier`, session())
     expect(hasStoredSupabaseSession()).toBe(false)
   })
 
