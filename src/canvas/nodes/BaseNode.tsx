@@ -99,7 +99,18 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     // so the value is `undefined` there — and `undefined !== null` is true,
     // which dimmed every node in every test that mounts a partial store. Same
     // fail-soft convention the rest of this file uses for optional slices.
-    s => s.olumiAttention != null && s.olumiAttention.nodeIds.includes(id) === false,
+    // ⚠ AND `nodeIds.length > 0`, WITHOUT WHICH AN EDGE-ONLY ATTENTION GREYS
+    // OUT THE WHOLE CANVAS. Attention may hold edges and no nodes; then no node
+    // is attended, this predicate is true for EVERY node, and all of them dim to
+    // 30% — while `OlumiAttentionCard` returns null at `attention.nodeIds[0]`,
+    // so no card and therefore no Dismiss button renders. The dim is derived
+    // from attention and the exit was drawn from the card, so the two disagreed
+    // about whether anything was on screen. An attention that names no node
+    // dims no node.
+    s =>
+      s.olumiAttention != null &&
+      s.olumiAttention.nodeIds.length > 0 &&
+      s.olumiAttention.nodeIds.includes(id) === false,
   )
   // Assistant focus is a static, independently-owned marker. It does not use
   // React Flow's `selected` prop and does not enter the transient highlight

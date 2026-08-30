@@ -23,7 +23,7 @@
  * instead of continuing to present the note as current.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useStore } from '@xyflow/react'
 import { X } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -49,6 +49,31 @@ export function OlumiAttentionCard() {
   const transform = useStore((s) => s.transform)
 
   const dismiss = useCallback(() => clearOlumiAttention(), [])
+
+  /*
+   * ⭐ ESCAPE RELEASES THE HOLD, AND IT IS DELIBERATELY ABOVE THE EARLY RETURN.
+   *
+   * Attention dims the whole model around its target, but the DIM is derived
+   * from `olumiAttention` alone while this card renders only when there is a
+   * NOTE — so attention held without one dims everything and shows no card,
+   * and therefore no Dismiss button. Nothing reaches that state today (the
+   * `ui_directive` path only accumulates targets inside `if (attentionNote)`,
+   * and `focusModelTarget` only holds when it was given a note), but the exit
+   * must not depend on that staying true.
+   *
+   * Placed before the `return null` so the listener is bound whenever ANY
+   * attention is held, note or no note. Escape is also simply the key a user
+   * reaches for first when the screen dims.
+   */
+  const isHeld = attention != null
+  useEffect(() => {
+    if (!isHeld) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearOlumiAttention()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isHeld])
 
   if (!attention || !attention.note) return null
   const anchorId = attention.nodeIds[0]

@@ -41,6 +41,7 @@ import {
   type RecRecord,
 } from '../../../canvas/stores/strengthenStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { attentionNoteForRecommendation } from './recommendationAttention'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import { openAskOlumi } from '../coaching/askOlumiStore'
@@ -257,9 +258,14 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     } else if (rec.action.kind === 'ai-dialogue') {
       ok = dispatchAiDialogue(record)
     } else if (rec.action.kind === 'canvas-focus' && rec.targetId) {
-      ok = focusModelTarget(rec.targetId)
+      // The camera arriving somewhere is not an explanation. Both of these
+      // routes send the user to an element BECAUSE of something the engine
+      // found, and the finding is already in hand — so it travels with them
+      // and is held beside the element instead of being left behind in the
+      // panel they just navigated away from.
+      ok = focusModelTarget(rec.targetId, attentionNoteForRecommendation(rec))
     } else if (rec.action.kind === 'inline-edit' && rec.targetId) {
-      ok = focusModelTarget(rec.targetId)
+      ok = focusModelTarget(rec.targetId, attentionNoteForRecommendation(rec))
     }
     // §8.8: close only after the action genuinely succeeds — a successful
     // dispatch marks IN PROGRESS (the user confirms addressed themselves).
@@ -303,7 +309,10 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
 
   const onFocusCanvas = (record: RecRecord): boolean => {
     if (!record.snapshot.targetId) return false
-    return focusModelTarget(record.snapshot.targetId)
+    return focusModelTarget(
+      record.snapshot.targetId,
+      attentionNoteForRecommendation(record.snapshot),
+    )
   }
 
   const onNotRelevant = (record: RecRecord) => {
