@@ -68,6 +68,7 @@ jobs:
             contracts/
             schemas/
             tests/contract/
+            src/cee/provenance/
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -115,6 +116,16 @@ jobs:
             echo "::warning title=CEE contract mirror drift::contracts/cee/ no longer matches Talchain/olumi-assistants-service@staging ($(git -C cee-repo rev-parse --short HEAD)). Tests in this job run against the FETCHED schemas; local runs use the committed mirror. Re-sync via scripts/fetch-cee-contracts.sh and update contracts/cee/README.md."
             git --no-pager diff --stat -- contracts/cee/
           fi
+
+      # ⚠ THE UI DECLARES `prior_is_unquantified` ITSELF (it is not in the pinned
+      # @talchain/schemas 0.48.0, and the pin must not move). Its unit test
+      # compares a UI constant against a UI-side literal, so a CEE RENAME would
+      # leave that test GREEN while every surface keyed on the flag silently
+      # reverts. This step is the only thing in the estate that reads BOTH sides.
+      - name: unquantified-prior field spelling matches CEE
+        run: node scripts/ci/assert-unquantified-prior-field-parity.mjs
+        env:
+          CEE_REPO_PATH: ./cee-repo
 
       - name: Run contract tests
         run: pnpm exec vitest run tests/contracts/ --reporter=verbose --bail=1

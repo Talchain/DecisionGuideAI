@@ -236,6 +236,51 @@ describe('FactorNode — a factor with no estimate says so', () => {
     expect(container.textContent).not.toMatch(NO_ESTIMATE_LINE)
   })
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // ⭐⭐ THE EXTERNAL ARM — REACHABLE, AND MY FIRST READING SAID IT WAS NOT
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // I traced two writers of the flagged prior, found both on the CONTROLLABLE
+  // arm, and deferred the external sites as unreachable. There is a THIRD:
+  // `unified-pipeline/stages/repair/unreachable-factors.ts` sets
+  // `node.category = "external"` (:446) and writes `buildUnquantifiedPrior()`
+  // (:750) on the SAME node in the SAME loop iteration — verified at CEE
+  // `8a4564e5`, where the file is in #1223's changed-file list. (It was NOT in
+  // that list at the earlier head I read, `aa330ffe`, which is how the trace
+  // went stale — and is why a writer-by-writer sweep is the wrong instrument:
+  // subscribe to the FIELD.)
+  //
+  // ⚠ THE HARM IS A CONTRADICTION, NOT AN OMISSION. `Range: 0 to 1` is
+  // PRE-EXISTING on this surface. What the honest-unknown sentence adds is the
+  // contradiction beside it — the node asserting "No estimate yet" and
+  // "Range: 0 to 1" simultaneously, the second being precisely the claim the
+  // first replaces. So the binding assertion is the PAIR, not either half.
+
+  it('⭐ EXTERNAL + FLAGGED — says there is no estimate and does NOT also print a range', () => {
+    const { container } = renderFactor({
+      category: 'external',
+      prior: IGNORANCE_PRIOR,
+    })
+    const text = container.textContent ?? ''
+    expect(text).toMatch(NO_ESTIMATE_LINE)
+    // The contradiction that must never co-render with it.
+    expect(text).not.toContain('Range:')
+    expect(text).not.toContain('0 to 1')
+  })
+
+  it('⭐ THE TWIN — an external factor with a GENUINE prior still prints its range', () => {
+    // PRECONDITION PINNED IN-TEST: this proves the suppression above is the
+    // FLAG's doing and not "external factors stopped showing ranges", which
+    // would be a silent capability loss on the whole external population.
+    const { container } = renderFactor({
+      category: 'external',
+      prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
+    })
+    const text = container.textContent ?? ''
+    expect(text).toContain('Range:')
+    expect(text).not.toMatch(NO_ESTIMATE_LINE)
+  })
+
   it('exactly ONE of the two sentences renders, never both', () => {
     const { container } = renderFactor({
       prior: IGNORANCE_PRIOR,

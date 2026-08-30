@@ -331,6 +331,29 @@ export const FactorNode = memo((props: NodeProps) => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
     const rangeMin = prior?.range_min
     const rangeMax = prior?.range_max
+    // ⭐⭐ AN IGNORANCE PRIOR IS NOT A RANGE TO PRINT.
+    //
+    // ⚠ THIS ARM IS REACHABLE, AND MY FIRST READING SAID IT WAS NOT. I traced
+    // two writers of the flagged prior (`normalisation.ts`,
+    // `deterministic-sweep.ts`), found both on the CONTROLLABLE arm, and
+    // deferred this site as unreachable. There is a THIRD writer:
+    // `unified-pipeline/stages/repair/unreachable-factors.ts` sets
+    // `node.category = "external"` (:446) and then writes
+    // `buildUnquantifiedPrior()` (:750) — SAME node, SAME loop iteration, no
+    // intervening scope (verified at CEE `8a4564e5`). So an EXTERNAL factor
+    // does carry the flag, and CEE's own comment there names this surface:
+    // *"instead of printing a bare `Range: 0 to 1`"*.
+    //
+    // ⚠ AND THE HARM IS WORSE THAN AN UNFIXED SIBLING. `Range: 0 to 1` is
+    // PRE-EXISTING here; what the honest-unknown sentence adds is a
+    // CONTRADICTION BESIDE IT — the node saying "No estimate yet" and
+    // "Range: 0 to 1" at once, the second being exactly the claim the first was
+    // written to replace. Suppressing the range is what stops the pair
+    // co-rendering, and that pairing is pinned in the spec.
+    //
+    // Suppressing the LINE is not hiding the STATE: the honest sentence and the
+    // evidence-gap badge both render on this node and say what is true.
+    if (isUnquantifiedPrior(prior)) return null
     // Both endpoints must be finite numbers: `!range_min` truthiness would
     // drop the line for range_min === 0 (a perfectly good lower bound), and
     // Infinity/NaN must never render ("Range: Infinity to …").
@@ -457,7 +480,16 @@ export const FactorNode = memo((props: NodeProps) => {
     return null
   }, [props.data, isInferred, factorValueHasEvidence])
 
-  const externalWithPrior = nodeCategory === 'external' && props.data?.prior != null
+  // An external factor's prior is its evidence, so it earns the badge's silence
+  // — UNLESS the prior is an explicit statement of ignorance, which is the
+  // absence of evidence rather than a quiet form of it. Same owner, same
+  // discrimination, as `isFactorNeedsInput`'s exemption: the flag, never the
+  // range. `unreachable-factors.ts` reclassifies a factor to `external` and
+  // writes the flagged prior in one pass, so this arm is genuinely reached.
+  const externalWithPrior =
+    nodeCategory === 'external'
+    && props.data?.prior != null
+    && !isUnquantifiedPrior(props.data.prior)
   const showEvidenceGapBadge =
     isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
 
