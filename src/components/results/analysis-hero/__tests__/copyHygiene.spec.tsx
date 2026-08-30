@@ -94,10 +94,17 @@ const UI_COPY: string[] = [
   HERO_COPY.detail.goalFitWithLimits('34%'),
   HERO_COPY.detail.goalFitJointBasis('34%'),
   HERO_COPY.footer.mainReason('Team capacity'),
+  // BOTH BRANCHES of the main-driver claim are swept, on the same rule the
+  // flip-risk pair below already follows: a tie-hedged sentence is user-facing
+  // copy and is held to the identical hygiene rules — listing only the
+  // unhedged branch would leave half the shipped strings unchecked.
+  HERO_COPY.footer.mainReasonTied('Team capacity'),
   // §6.5 quick-evidence pills (summary row).
   HERO_COPY.pills.mainDriver('Team capacity'),
+  HERO_COPY.pills.mainDriverTied('Team capacity'),
   HERO_COPY.pills.topFlipRisk('Team capacity'),
   HERO_COPY.pills.combined('Team capacity'),
+  HERO_COPY.pills.combinedTied('Team capacity'),
   // Next-step route row + §6.2 pause-read resolution action.
   HERO_COPY.nextRec.label,
   HERO_COPY.nextRec.open,

@@ -47,6 +47,7 @@ import type { DriverItem, FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { selectFlipRisk } from '../utils/selectFlipRisk'
+import { hasClearInfluenceLeader } from '../driverDisplayModel'
 import { sortOptionsForDisplay } from '../utils/optionDisplayOrder'
 // `SUB_ONE_PERCENT_FLOOR` is still imported, and deliberately: it no longer
 // formats anything here, but it still GATES the no-option-on-track headline
@@ -72,6 +73,7 @@ import type {
   HeroChartModel,
   HeroDriverValueProvenance,
   HeroLens,
+  HeroMainDriverLink,
   HeroModel,
   HeroRowVM,
   HeroStatusModel,
@@ -919,9 +921,50 @@ export function buildHeroModel(
   // a fallback) when the label would trip the glossary in generated copy.
   const topDriverLabel = drivers?.topDrivers?.[0]?.factorLabel
   const cleanDriverLabel = topDriverLabel ? stripEncodingNotation(topDriverLabel) : null
+
+  // ⚠ "MAIN DRIVER: X" IS A COMPARATIVE CLAIM AND A TIE CANNOT SUPPORT ONE.
+  // Both this line and the §6.5 pill below were built from
+  // `topDrivers[0]` — THE FIRST ELEMENT OF A LIST — gated only on
+  // `containsBannedTerm` and `canFocus`, neither of which is comparative.
+  // Witnessed on the deployed build: the hero printed "Main driver: EU Data
+  // Residency Compliance" beside three factors at exactly 100%, while
+  // `DriversSection` on the SAME SCREEN printed "These factors have similar
+  // influence on the outcome" — because that panel asks the tie predicate and
+  // the hero did not. The hero was the FOURTH reader of the tie concept.
+  //
+  // ⚠ IT ASKS THE EXISTING OWNER. `hasClearInfluenceLeader` already serves the
+  // Drivers "biggest" badge, the leader node's "#1 driver" claim and
+  // `sensitivityRank`; a fifth private notion of a tie would be worse than the
+  // defect (that is exactly how the estate got a crown and an equal-influence
+  // note on one screen). No epsilon is read here — the boundary stays with
+  // `INFLUENCE_TIE_EPSILON`'s single owner.
+  //
+  // ⚠ THE SET IS `topDrivers` BECAUSE THAT IS THE SET THE CLAIM RANGES OVER,
+  // and it cannot hide a top-tie: `topDrivers` is the non-zero-impact rows in
+  // rank order, rank descends by the same display value, so a factor AT the
+  // maximum can only fall outside the top 3 when three others already sit at
+  // or above it — at which point two distinct ids are already at the top and
+  // the tie is reported anyway.
+  //
+  // ⚠ AND IT BINDS BY IDENTITY. `hasClearInfluenceLeader` answers "is exactly
+  // one id at the top", never WHICH id — so on its own it would happily
+  // certify a clear leader that is NOT the factor this line names, should
+  // producer `rank` ever diverge from the display value. The maximality check
+  // ties the verdict to the named row; a divergence fails closed (hedged).
+  const topDriverEntries = (drivers?.topDrivers ?? []).map((d) => ({
+    id: d.factorKey,
+    value: d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0,
+  }))
+  const namedDriverValue = topDriverEntries[0]?.value ?? 0
+  const driverLeadIsClear =
+    hasClearInfluenceLeader(topDriverEntries)
+    && topDriverEntries.every((e) => e.value <= namedDriverValue)
+
   const mainReason =
     cleanDriverLabel && !containsBannedTerm(cleanDriverLabel)
-      ? HERO_COPY.footer.mainReason(cleanDriverLabel)
+      ? driverLeadIsClear
+        ? HERO_COPY.footer.mainReason(cleanDriverLabel)
+        : HERO_COPY.footer.mainReasonTied(cleanDriverLabel)
       : null
 
   // §6.5 quick evidence links — selection of existing producer-backed
@@ -932,12 +975,17 @@ export function buildHeroModel(
   // the fragile-edge surfaces (UI-SEM-013, 0.15) so a negligible flip
   // risk never earns a summary link. Both labels glossary-gated like
   // mainReason; unfocusable or gated entries yield null, never a dead link.
+  // The pill carries the SAME tie verdict as the footer line above — one
+  // computation, two surfaces, so the two cannot disagree about the run in
+  // front of the reader. `leadIsClear` is required on the link type, so a
+  // future construction site cannot omit it and silently crown a tie.
   const topDriverItem = drivers?.topDrivers?.[0]
-  const mainDriver =
+  const mainDriver: HeroMainDriverLink | null =
     mainReason && cleanDriverLabel && topDriverItem?.canFocus
       ? {
           label: cleanDriverLabel,
           targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
+          leadIsClear: driverLeadIsClear,
         }
       : null
   // ROADMAP 2.276 — the flip-risk quick link is chosen by `selectFlipRisk`,

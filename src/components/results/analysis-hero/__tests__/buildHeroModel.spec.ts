@@ -1302,7 +1302,10 @@ describe('Wave 2 (§6.5): quick evidence links', () => {
 
   it('mainDriver carries the top driver focus target when focusable', () => {
     const m = chart(buildHeroModel(makeHeroData({ drivers: { topDrivers: [focusableTop], drivers: [focusableTop] } })))
-    expect(m.quickLinks.mainDriver).toEqual({ label: 'Developer capacity', targetId: 'node_dev_capacity' })
+    // `leadIsClear` is asserted here too: a single top driver has no runner-up,
+    // so its comparative claim stands. The tie half lives in
+    // `mainDriverYieldsToTie.spec.tsx` with its opposite-direction twin.
+    expect(m.quickLinks.mainDriver).toEqual({ label: 'Developer capacity', targetId: 'node_dev_capacity', leadIsClear: true })
   })
 
   it('mainDriver is null when the top driver cannot focus (static main reason remains)', () => {
