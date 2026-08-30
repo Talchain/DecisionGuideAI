@@ -532,7 +532,10 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     'src/canvas/shared/AnalysisFooter.tsx': 1,
     'src/canvas/ui/inspector/StrengthBar.tsx': 1,
     'src/components/Tooltip.tsx': 1,
-    'src/styles/typography.ts': 38,
+    // 38 -> 36 on 2026-08-31: the 32px display token was retired (it carried an
+    // arbitrary size and a raw weight). Lowered here in the same PR so the
+    // ratchet holds at the new floor rather than banking slack.
+    'src/styles/typography.ts': 36,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 2,
@@ -596,8 +599,11 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // any burn-down — which is exactly what caught this lane: removing the
     // entries turned the ratchet green and turned THIS assertion red, so the
     // pair cannot be quietly hollowed out from either end.
+    // 31 Aug 2026: 106 -> 104, as the retired display token took an arbitrary
+    // size and a raw weight out of `typography.ts` with it. Lowered in the same
+    // PR as the map entry above, which is the whole point of the pair.
     expect(files).toBe(30)
-    expect(total).toBe(106)
+    expect(total).toBe(104)
   })
 })
 

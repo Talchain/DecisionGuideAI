@@ -116,8 +116,6 @@ export const ANALYSIS_NEW_COPY = {
      * which is a claim about the CURRENT model and false once the model moved.
      */
     eyebrowStale: 'As last analysed',
-    /** Caption under the win-share number and bar. */
-    winShareCaption: 'of simulated futures ahead',
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
     /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */

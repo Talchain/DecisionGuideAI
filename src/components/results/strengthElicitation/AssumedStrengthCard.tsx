@@ -50,7 +50,7 @@
  * ── TYPOGRAPHY: THE SANCTIONED SCALE, NOT RAW UTILITIES ─────────────────────
  * This card first shipped with raw Tailwind size and weight utilities, which
  * DS v5 §2.4 bans in panel scope (`src/styles/typography.ts:47-54` declares the
- * strict set for src/components/results/: heroDisplay / panelHeader / panelBody /
+ * strict set for src/components/results/: panelHeader / panelBody /
  * panelMeta). It now uses panelHeader for the title, panelBody for prose and the
  * action, and panelMeta for the tertiary "others" line — so the card sits on the
  * same three-size scale as every sibling. Do not reintroduce a raw size or weight
