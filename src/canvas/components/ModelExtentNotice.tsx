@@ -52,16 +52,21 @@ import { useCanvasStore } from '../store'
 import { excludeNonModelNodes } from '../utils/fitTargets'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { countNodesOutsideFrame, readFocusCamera } from '../utils/cameraComfort'
+import { cameraDuration } from '../utils/cameraMotion'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
 
 /**
- * Below the legibility floor, so the user genuinely sees everything. This is
- * the ONE place the floor is bypassed, and only ever from a click.
+ * Base duration for the overview move. Routed through `cameraDuration` at the
+ * call site so it collapses to 0 under `prefers-reduced-motion` —
+ * `cameraMotion.sourceScan.spec.ts` REDs on any camera duration that is not,
+ * which is what it did to the first version of this file.
  */
-const OVERVIEW_MIN_ZOOM = 0.1
+const OVERVIEW_FIT_MS = 400
 
 export function ModelExtentNotice() {
   const { getViewport, fitView } = useReactFlow()
+  const prefersReducedMotion = usePrefersReducedMotion()
   const nodes = useCanvasStore(s => s.nodes)
   // Subscribe to the live transform so the count follows pan and zoom rather
   // than going stale the moment the user moves. Without this the notice would
@@ -91,13 +96,24 @@ export function ModelExtentNotice() {
     // `padding` comes from `computeFitPadding()` so the overview frames into
     // the visible canvas, clear of the dock and sidebar, rather than behind
     // them — the same frame every other fit in this product uses.
+    //
+    // ⭐ AND NO `minZoom` IS PASSED, DELIBERATELY. Omitting it lets the fit fall
+    // to the canvas instance's own floor (`minZoom={0.1}` on the ReactFlow
+    // element), which is exactly the bound wanted here: the user asked for the
+    // overview, so the only limit should be what the canvas itself permits.
+    //
+    // The first version passed an explicit `0.1`, which was BOTH unnecessary
+    // and a doctrine violation — `zoomLegibilitySingleSource.spec.ts` allows
+    // exactly two zoom-threshold literals under `src/canvas`, both in
+    // `zoomLegibility.ts`, and REDed on the third. Declaring it there was the
+    // wrong fix too: this is not a legibility threshold, it is the canvas's
+    // floor, and the honest way to use that floor is to not restate it.
     fitView({
       ...(modelNodes.length > 0 ? { nodes: modelNodes } : {}),
       padding: computeFitPadding(),
-      minZoom: OVERVIEW_MIN_ZOOM,
-      duration: 400,
+      duration: cameraDuration(OVERVIEW_FIT_MS, prefersReducedMotion),
     })
-  }, [fitView, modelNodes])
+  }, [fitView, modelNodes, prefersReducedMotion])
 
   // Absent, zero, or a model small enough that the question does not arise.
   if (outside === null || outside === 0) return null
