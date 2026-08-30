@@ -43,6 +43,7 @@ import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
+import { ModelExtentNotice } from './components/ModelExtentNotice'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorModal } from './components/InspectorModal'
@@ -2323,6 +2324,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
         canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
       />
+      <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}

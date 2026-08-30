@@ -265,6 +265,49 @@ export function paddingToInsets(padding: FitPadding): ComfortInsets {
   }
 }
 
+/**
+ * The comfort FRAME in pane coordinates, or null when it cannot be measured.
+ *
+ * Split out 30 Aug 2026 so the frame has ONE definition. It previously lived
+ * inside `nodesComfortablyVisible`, and the moment a second caller needed to
+ * know WHICH nodes were outside it (rather than merely whether any were), the
+ * alternative was a second copy of this arithmetic — the hand-maintained mirror
+ * this estate pays for repeatedly. Both callers below derive from this.
+ */
+function comfortFrame(
+  viewport: ViewportLike | null | undefined,
+  paneWidth: number,
+  paneHeight: number,
+  insets: ComfortInsets,
+): { left: number; top: number; right: number; bottom: number } | null {
+  if (!viewport) return null
+  if (!(paneWidth > 0) || !(paneHeight > 0)) return null
+  const left = Math.max(0, insets.left - COMFORT_SLACK_PX)
+  const top = Math.max(0, insets.top - COMFORT_SLACK_PX)
+  const right = paneWidth - Math.max(0, insets.right - COMFORT_SLACK_PX)
+  const bottom = paneHeight - Math.max(0, insets.bottom - COMFORT_SLACK_PX)
+  if (right <= left || bottom <= top) return null
+  return { left, top, right, bottom }
+}
+
+/** Is this ONE node wholly inside the frame? The per-node half of the rule. */
+function nodeInsideFrame(
+  node: SizedNodeLike,
+  viewport: ViewportLike,
+  frame: { left: number; top: number; right: number; bottom: number },
+): boolean {
+  const width = node.measured?.width ?? node.width ?? DEFAULT_NODE_WIDTH
+  const height = node.measured?.height ?? node.height ?? DEFAULT_NODE_HEIGHT
+  const screenX = node.position.x * viewport.zoom + viewport.x
+  const screenY = node.position.y * viewport.zoom + viewport.y
+  return (
+    screenX >= frame.left &&
+    screenY >= frame.top &&
+    screenX + width * viewport.zoom <= frame.right &&
+    screenY + height * viewport.zoom <= frame.bottom
+  )
+}
+
 export function nodesComfortablyVisible(
   nodes: ReadonlyArray<SizedNodeLike>,
   viewport: ViewportLike | null | undefined,
@@ -274,30 +317,50 @@ export function nodesComfortablyVisible(
 ): boolean {
   if (nodes.length === 0) return false
   if (!viewport) return false
-  if (!(paneWidth > 0) || !(paneHeight > 0)) return false
   if (viewport.zoom < MIN_READABLE_ZOOM) return false
+  const frame = comfortFrame(viewport, paneWidth, paneHeight, insets)
+  if (!frame) return false
+  return nodes.every(n => nodeInsideFrame(n, viewport, frame))
+}
 
-  const frameLeft = Math.max(0, insets.left - COMFORT_SLACK_PX)
-  const frameTop = Math.max(0, insets.top - COMFORT_SLACK_PX)
-  const frameRight = paneWidth - Math.max(0, insets.right - COMFORT_SLACK_PX)
-  const frameBottom = paneHeight - Math.max(0, insets.bottom - COMFORT_SLACK_PX)
-  if (frameRight <= frameLeft || frameBottom <= frameTop) return false
-
-  for (const node of nodes) {
-    const width = node.measured?.width ?? node.width ?? DEFAULT_NODE_WIDTH
-    const height = node.measured?.height ?? node.height ?? DEFAULT_NODE_HEIGHT
-    const screenX = node.position.x * viewport.zoom + viewport.x
-    const screenY = node.position.y * viewport.zoom + viewport.y
-    if (
-      screenX < frameLeft ||
-      screenY < frameTop ||
-      screenX + width * viewport.zoom > frameRight ||
-      screenY + height * viewport.zoom > frameBottom
-    ) {
-      return false
-    }
-  }
-  return true
+/**
+ * HOW MANY of these nodes are not wholly inside the frame.
+ *
+ * ⭐ WHY THIS EXISTS, AND WHY IT IS NOT `nodesComfortablyVisible` INVERTED.
+ * Measured 30 Aug 2026 in Chromium at 1280x800 on the five shipped starters:
+ * every one clamps at the `LABEL_LEGIBLE_ZOOM` floor, and on `build-vs-buy`
+ * FIVE of twenty nodes sit entirely outside the pane on first view — the
+ * DECISION node itself, the goal, and all three risks. (Re-derived at
+ * `ca49e2ed`; it read six at `e38b8e96`, before #967 shortened a starter
+ * string and recovered 339 units of height.) A tester opening
+ * that starter unattended cannot see the decision they are being asked about.
+ *
+ * The product may not fix that by zooming below the floor: `zoomLegibility.ts`
+ * rules that "the user may choose the overview, the product may not choose it
+ * for them". So the honest move is to SAY how much is out of view and let the
+ * user take the overview themselves — no hiding, caveat instead (Paul,
+ * 29 Aug).
+ *
+ * ⚠ DELIBERATELY IGNORES THE ZOOM FLOOR, and that is the whole difference from
+ * `nodesComfortablyVisible`. That function answers "should the camera move?",
+ * for which an unreadable zoom means NO node is comfortable. This one answers
+ * "how much of the model is out of view?", which is a geometric question the
+ * zoom does not change the answer to. Fusing them would report every node as
+ * off-screen the moment a user zoomed out to look at the whole thing — the
+ * exact opposite of the truth, in the exact state this notice exists to serve.
+ */
+export function countNodesOutsideFrame(
+  nodes: ReadonlyArray<SizedNodeLike>,
+  viewport: ViewportLike | null | undefined,
+  paneWidth: number,
+  paneHeight: number,
+  insets: ComfortInsets,
+): number | null {
+  if (nodes.length === 0) return null
+  if (!viewport) return null
+  const frame = comfortFrame(viewport, paneWidth, paneHeight, insets)
+  if (!frame) return null
+  return nodes.reduce((n, node) => (nodeInsideFrame(node, viewport, frame) ? n : n + 1), 0)
 }
 
 export interface FocusCamera {
