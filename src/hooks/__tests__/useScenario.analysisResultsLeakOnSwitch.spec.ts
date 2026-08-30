@@ -229,6 +229,13 @@ describe('the clear does not destroy the analysis of the scenario being loaded',
   it('re-loading the SAME analysed scenario still shows its report', async () => {
     // The degenerate switch. A clear placed after the hydration overlay would
     // blank the report a user has just reopened.
+    //
+    // ⚠⚠ READ THE TEST BELOW BEFORE TRUSTING THIS ONE. It asserts the
+    // reload-keeps-the-answer journey and PASSES at a head where that journey
+    // was broken for every real user — because `analysedRow` carries
+    // `analysis_status: 'ready'`, a row shape the deployed V5 path produces in
+    // ZERO of its runs. This test is correct as stated; its CORPUS omitted the
+    // only row class that ships (CLAUDE.md trap 22).
     setScenarioRow('scenario-A', analysedRow('scenario-A', 'Option A', A_HASH, 42))
 
     const { result } = renderHook(() => useScenario())
@@ -243,5 +250,68 @@ describe('the clear does not destroy the analysis of the scenario being loaded',
     const state = useCanvasStore.getState().results
     expect(state.status).toBe('complete')
     expect(state.hash).toBe(A_HASH)
+  })
+
+  it('⭐ THE ROW SHAPE THAT ACTUALLY SHIPS: a re-load whose row has no analysis column does not blank a restored answer', async () => {
+    // ── WHY THIS CASE EXISTS ────────────────────────────────────────────────
+    // The test above is the FALSE ASSURANCE this case repairs. Its row asserts
+    // `analysis_status: 'ready'` with a populated `analysis` column, which
+    // satisfies `loadScenario`'s repopulator — so the report it observes is
+    // re-installed by the OVERLAY, and the test says nothing at all about the
+    // unconditional `results: createIdleResults()` above it.
+    //
+    // Those two columns have NO CURRENT WRITER. `persistAnalysisSuccess` →
+    // `scenarioService.storeAnalysis` has zero non-test call sites at this tip;
+    // it was retired with the direct browser→PLoT `/v2/run` path (ROADMAP
+    // 2.1229). Every row a real V5 run leaves behind therefore looks like the
+    // one below — graph present, `analysis` null, `analysis_status` not 'ready'
+    // — and on THAT row the overlay never fires.
+    //
+    // What the user loses is real: they run an analysis on `/scenario/:id`,
+    // refresh, and the graph, constraints and conversation all come back while
+    // the answer does not.
+    //
+    // ⚠ SCOPE OF THIS CASE. It drives the SUPABASE half only, and stands in the
+    // existing spec because it is the missing member of THIS corpus. The full
+    // journey — a real `applyV5State` run, the real autosave projection, the
+    // real boot restore, then this load — plus the freshness acceptance
+    // condition, lives in `useScenario.reloadPreservesRestoredResults.spec.ts`.
+    const deployedShapedRow = neverAnalysedRow('scenario-A')
+    // PINNED IN-TEST: this row cannot satisfy the repopulator. Without this the
+    // assertion below could pass because the overlay quietly re-installed the
+    // report — the exact vacuity the case above suffers from.
+    expect(deployedShapedRow.analysis_status).not.toBe('ready')
+    expect(deployedShapedRow.analysis).toBeNull()
+    setScenarioRow('scenario-A', deployedShapedRow)
+
+    // The state a boot restore leaves behind: a completed report STAMPED with
+    // the scenario the autosave record was written under. `resultsLoadHistorical`
+    // is the real store action and the only writer of that stamp.
+    useCanvasStore.getState().resultsLoadHistorical(
+      {
+        id: `run-${A_HASH}`,
+        ts: Date.parse('2026-08-29T10:00:00Z'),
+        hash: A_HASH,
+        report: { option_comparison: [], critiques: [] } as never,
+        drivers: undefined,
+        ceeReview: null,
+        ceeTrace: null,
+        ceeError: null,
+      },
+      'scenario-A',
+    )
+    const restored = useCanvasStore.getState().results
+    expect(restored.status).toBe('complete')
+    expect(restored.hash).toBe(A_HASH)
+
+    const { result } = renderHook(() => useScenario())
+    await act(async () => {
+      await result.current.loadScenario('scenario-A')
+    })
+
+    // Bound by IDENTITY to the restored run — not "some report is present".
+    const after = useCanvasStore.getState().results
+    expect(after.status).toBe('complete')
+    expect(after.hash).toBe(A_HASH)
   })
 })

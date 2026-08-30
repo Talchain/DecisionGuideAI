@@ -768,6 +768,48 @@ export function useScenario(): UseScenarioReturn {
       // divergence permanent by declaring it already written.
       lastSavedTitleRef.current = row.title ?? null
 
+      // ── ⭐ IS THE ANSWER ON SCREEN *THIS* SCENARIO'S, RESTORED AT BOOT? ──────
+      //
+      // Read BEFORE `hydrateGraphSlice`, which is the call that installs
+      // `row.id` as `currentScenarioId` — after it there is no way to tell a
+      // reload from a switch.
+      //
+      // THE DEFECT THIS CLOSES (user-visible): a signed-in user opens
+      // `/scenario/:id`, runs an analysis, refreshes — graph, constraints and
+      // conversation all come back and ONLY THE ANSWER does not.
+      // `ReactFlowGraph`'s init effect restores it from the autosave FIRST (it
+      // is a child effect), this load resolves asynchronously afterwards, and
+      // the unconditional `results: createIdleResults()` below wiped it. The
+      // repopulator underneath cannot save it: it is gated on
+      // `analysis_status === 'ready' && analysis != null`, and those two
+      // columns have had NO WRITER since the direct browser→PLoT `/v2/run`
+      // path was retired (ROADMAP 2.1229) — so on the deployed V5 path it is
+      // never satisfiable and the clear is total.
+      //
+      // ⚠ THE CLEAR IS STILL RIGHT AT A GENUINE SWITCH — that is the opposite
+      // harm, and it is the worse one: A's completed report displayed under B's
+      // name, which `autosaveProjection` can then persist there. One predicate,
+      // two opposite harms, so it needs the identity and not a boolean
+      // (CLAUDE.md trap 21). Both directions are pinned — the preserve in
+      // `hooks/__tests__/useScenario.reloadPreservesRestoredResults.spec.ts`,
+      // the clear in `useScenario.analysisResultsLeakOnSwitch.spec.ts`.
+      //
+      // ⚠ FAIL-CLOSED: only a stamp that EQUALS this row's id preserves.
+      // Absent/null (every producer except the boot restore) clears exactly as
+      // before, so this cannot widen into "loadScenario stops clearing".
+      //
+      // ⚠ NOT a currency claim, and this is the acceptance condition rather
+      // than a nicety: a restored answer has no `v5AnalysisFact` (session-only,
+      // never restored), so `useAnalysisStateSource` classifies it
+      // `orphaned_plot_result` and the selector renders `results_stale` — a
+      // dimmed prior result with a rerun CTA, never a green completion claim
+      // over a model that may have moved. Pinned in the same spec, with a
+      // contrast control proving that verdict is a discrimination.
+      const heldResults = useCanvasStore.getState().results
+      const heldResultsBelongToThisScenario =
+        heldResults.restoredForScenarioId != null &&
+        heldResults.restoredForScenarioId === row.id
+
       // Hydrate graph slice (resets history, selection, reseeds IDs).
       // B3: goalConstraints is passed on EVERY load — the value or null. It
       // is not conditional, because "this scenario has no constraint" must
@@ -808,7 +850,16 @@ export function useScenario(): UseScenarioReturn {
         // restores, where clearing would blank a fresh analysis on reload.
         // Both directions are pinned in
         // canvas/store/__tests__/loadScenarioClearsPreviousAnalysis.spec.ts.
-        results: createIdleResults(),
+        //
+        // ⭐ …AND THIS LEG HAD TAKEN EXACTLY THE ROUTE THAT COMMENT FORBIDS ON
+        // THE OTHER PATH, because a RELOAD of `/scenario/:id` reaches here too.
+        // Gated on the boot-restore stamp — see the derivation above.
+        results: heldResultsBelongToThisScenario ? heldResults : createIdleResults(),
+        // Unconditional, deliberately. The delta baseline is NOT restored at
+        // boot (it is absent from `PersistedAnalysis`), so on a reload there is
+        // nothing here to keep, and on a switch it must go. Preserving it under
+        // the same gate would be a second behaviour change with no case behind
+        // it.
         previousReport: null,
       })
 

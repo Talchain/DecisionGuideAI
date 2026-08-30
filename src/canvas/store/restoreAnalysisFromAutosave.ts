@@ -25,6 +25,16 @@ import type { RestorableRun } from './runHistory'
 /**
  * Rehydrate `results` from `autosave.analysis`, if there is one.
  *
+ * ⭐ IT ALSO STAMPS THE SCENARIO THIS ANSWER BELONGS TO, and this is the single
+ * point at which that identity is known. The autosave record already carries
+ * `scenarioId` — written together with the graph and the answer, read together
+ * here — so no new persisted field is needed. The stamp exists because the
+ * SUPABASE leg (`useScenario.loadScenario`) clears `results` unconditionally on
+ * every load, which wiped this restore on every reload of `/scenario/:id`; it
+ * now clears only when the stamp does not match the scenario being loaded, so a
+ * genuine SWITCH still clears and a RELOAD does not. See
+ * `ResultsState.restoredForScenarioId`.
+ *
  * @param autosave  the record just read by `loadAutosave()`
  * @param restoreFn the store's `resultsLoadHistorical`
  * @returns true when an answer was restored — the caller uses this to skip the
@@ -32,8 +42,8 @@ import type { RestorableRun } from './runHistory'
  *          graphHash guess.
  */
 export function restoreAnalysisFromAutosave(
-  autosave: Pick<AutosaveData, 'analysis'> | null | undefined,
-  restoreFn: (run: RestorableRun) => void,
+  autosave: Pick<AutosaveData, 'analysis' | 'scenarioId'> | null | undefined,
+  restoreFn: (run: RestorableRun, restoredForScenarioId?: string | null) => void,
 ): boolean {
   const analysis = autosave?.analysis
   // Persisted JSON is not a type. Guard the one field the results surfaces
@@ -44,17 +54,24 @@ export function restoreAnalysisFromAutosave(
   if (!report || typeof report !== 'object') return false
 
   const ts = Date.parse(analysis.computedAt ?? '')
-  restoreFn({
-    id: analysis.runId ?? `restored:${analysis.hash ?? 'unknown'}`,
-    ts: Number.isFinite(ts) ? ts : Date.now(),
-    // Absent on the V5 path and never invented — see PersistedAnalysis.
-    seed: analysis.seed,
-    hash: analysis.hash,
-    report,
-    drivers: analysis.drivers,
-    ceeReview: null,
-    ceeTrace: null,
-    ceeError: null,
-  })
+  restoreFn(
+    {
+      id: analysis.runId ?? `restored:${analysis.hash ?? 'unknown'}`,
+      ts: Number.isFinite(ts) ? ts : Date.now(),
+      // Absent on the V5 path and never invented — see PersistedAnalysis.
+      seed: analysis.seed,
+      hash: analysis.hash,
+      report,
+      drivers: analysis.drivers,
+      ceeReview: null,
+      ceeTrace: null,
+      ceeError: null,
+    },
+    // ⚠ `?? null` and NOT a fabricated id. A pre-`scenarioId` autosave, or a
+    // guest record that never had one, restores WITHOUT a stamp — the answer
+    // still comes back, and the Supabase leg (which only runs for a signed-in
+    // scenario route) keeps its previous clear-on-load behaviour for it.
+    autosave?.scenarioId ?? null,
+  )
   return true
 }
