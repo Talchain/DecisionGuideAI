@@ -271,6 +271,53 @@ export interface ResultsState {
   reportEpoch?: number
   /** The `runEpoch` of the run that produced the error currently held. */
   errorEpoch?: number
+  /**
+   * ⭐ THE SCENARIO A *RESTORED* REPORT WAS RECOVERED FOR — and the only field
+   * on this slice that carries scenario identity at all.
+   *
+   * THE DEFECT IT CLOSES. `useScenario.loadScenario` (the Supabase leg, the only
+   * one `/scenario/:id` runs) sets `results: createIdleResults()`
+   * UNCONDITIONALLY on every load, including a RELOAD OF THE SAME SCENARIO. Its
+   * only repopulator is gated on `analysis_status === 'ready' && analysis !=
+   * null`, and those two columns have NO CURRENT WRITER — their writer
+   * (`persistAnalysisSuccess` → `scenarioService.storeAnalysis`) was retired
+   * with the direct browser→PLoT `/v2/run` path (ROADMAP 2.1229). And the
+   * ordering is decisive: `ReactFlowGraph`'s init effect — where
+   * `restoreAnalysisFromAutosave` runs — fires FIRST as a child effect, so the
+   * Supabase load lands afterwards and wipes even a SUCCESSFUL restore. A
+   * signed-in user who ran an analysis and refreshed got their graph,
+   * constraints and conversation back, and lost only the answer.
+   *
+   * WHY IDENTITY AND NOT A BOOLEAN. The clear is CORRECT at a genuine scenario
+   * SWITCH — without it, A's completed report is displayed under B's name and
+   * the autosave projection can persist it there (pinned in
+   * `useScenario.analysisResultsLeakOnSwitch.spec.ts`). One predicate therefore
+   * guards two opposite harms, and only the scenario id can tell them apart
+   * (CLAUDE.md trap 21/22b). A boolean "this was restored" would preserve
+   * across a switch too, which is the worse of the two harms.
+   *
+   * ⚠ ONE WRITER, AND ABSENCE IS FAIL-CLOSED. Written ONLY by
+   * `resultsLoadHistorical`'s optional second argument, which only
+   * `restoreAnalysisFromAutosave` supplies (from `autosave.scenarioId`, the id
+   * the record was written under). Every other producer of `results` —
+   * `resultsComplete`, `resultsError`, `createIdleResults`, the palette's
+   * historical pick — replaces the slice without it, so the value is absent and
+   * `loadScenario` clears exactly as it did before. A missing stamp is never
+   * read as "belongs to this scenario".
+   *
+   * ⚠ NOT a currency claim. It says WHICH SCENARIO this answer belongs to, not
+   * that the answer is still current. Currency is decided by the freshness
+   * machinery, which marks every reloaded report `orphaned_plot_result` →
+   * `results_stale` (`hooks/useAnalysisStateSource.ts`,
+   * `state/analysisStateSelector.ts`) — because `v5AnalysisFact` is session-only
+   * AND `hydrateGraphSlice` nulls it on every load carrying nodes, so a
+   * reloaded report provably has no run fact for the graph on screen. Measured,
+   * with a contrast control, in
+   * `hooks/__tests__/useScenario.reloadPreservesRestoredResults.spec.ts`.
+   * ⚠ Scoped to the deployed flag posture (`VITE_V5_CANONICAL_ANALYSIS=true`,
+   * `netlify.toml`) — that posture is derived by a test, not asserted here.
+   */
+  restoredForScenarioId?: string | null
 }
 
 
@@ -966,8 +1013,16 @@ interface CanvasState {
    * no seed on the live V5 path — can restore through the SAME action, with the
    * same honest `analysisFreshness: 'unknown'` semantics, rather than a second
    * restore path that could drift from this one.
+   *
+   * `restoredForScenarioId` — see `ResultsState.restoredForScenarioId`. Supplied
+   * ONLY by `restoreAnalysisFromAutosave`, from the id the autosave record was
+   * written under. Omitted by every other caller, and an omitted stamp is
+   * fail-closed: `useScenario.loadScenario` still clears.
    */
-  resultsLoadHistorical: (run: RestorableRun) => void
+  resultsLoadHistorical: (
+    run: RestorableRun,
+    restoredForScenarioId?: string | null,
+  ) => void
   /** Hydrate results from Supabase row.analysis (V2RunResponse already mapped to store shape) */
   resultsHydrateFromSupabase: (hydrated: {
     results: Partial<ResultsState>
@@ -4187,7 +4242,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
-  resultsLoadHistorical: (run: RestorableRun) => {
+  resultsLoadHistorical: (run: RestorableRun, restoredForScenarioId?: string | null) => {
     if (typeof window !== 'undefined') {
       try {
         const win = window as any
@@ -4232,7 +4287,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // never collide with a future `errorEpoch`.
         runEpoch: s.results.runEpoch,
         reportEpoch: HISTORICAL_REPORT_EPOCH,
-        errorEpoch: undefined
+        errorEpoch: undefined,
+        // ⭐ The ONE writer of this field. `?? null` is deliberate: an omitted
+        // argument records "no scenario identity", which `loadScenario` reads
+        // as "clear" — never as "belongs to whatever is loading".
+        restoredForScenarioId: restoredForScenarioId ?? null,
       },
       runMeta: {
         diagnostics: undefined,
