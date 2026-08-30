@@ -398,6 +398,26 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const isInferred = observedState?.extractionType === 'inferred'
   const isExplicit = observedState?.extractionType === 'explicit'
+
+  // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
+  //
+  // `extractionType` alone cannot answer it. `inferred` is the state CEE
+  // CREATES to mean "NOT from the brief" (`cee/transforms/schema-v3.ts` demotes
+  // `explicit`/`observed` → `inferred` exactly when a brief claim is not
+  // earned), and it covers two populations that must not share a sentence:
+  // a value CEE invented, and a value a PERSON supplied that still carries the
+  // inferred label. Splitting them needs the `source` stamp, not the label —
+  // and not the magnitude, since a genuinely user-stated 0.5 is identical by
+  // value to CEE's placeholder (CLAUDE.md trap 19).
+  //
+  // `hasObservedData` is already this component's authority for "is there
+  // evidence behind this number" — it drives `showEvidenceGapBadge` six lines
+  // below, whose tooltip reads "No observed data for X". Using it here is what
+  // stops that badge and this sentence describing one number two ways. It
+  // delegates the stamp reading to `classifyValueProvenance`, the estate's
+  // single owner of "who authored it", and is positive-evidence-only: an
+  // absent or unrecognised stamp asserts nothing in either direction.
+  const factorValueHasEvidence = hasObservedData(props.data)
   // Single source of truth shared with BaseNode's StatusPill (wireframe v4
   // FactorNeedsPre): all of value/raw_value/display_value null AND non-external.
   const needsInput = isFactorNeedsInput(props.data)
@@ -621,11 +641,57 @@ export const FactorNode = memo((props: NodeProps) => {
           Detailed view shows more evidence (ConnRows, bars, parameters), not
           coaching on every node. Standard view already gates the popover via
           isHighPriority. */}
-      {isInferred && isHighPriority && (
+      {/* ⭐ THIS LINE USED TO CLAIM THE BRIEF OVER A NUMBER CEE INVENTED.
+          Measured on deployed staging (UI `e38b8e96`, 30 Aug 2026): four
+          factors each carrying `{ value: 0.5, source: 'cee_inference',
+          extractionType: 'inferred' }` — distinct value set literally [0.5] —
+          rendered "Olumi estimated this from your brief." The number is a
+          hardcoded constant (`adapters/llm/normalisation.ts`,
+          `repair/deterministic-sweep.ts`, which stamp
+          `value_tier: "fallback_default"` as they write it); nothing about the
+          brief produced it. The gate was `isInferred`, which is the state
+          meaning "NOT from the brief" — so the branch and its sentence were
+          exact opposites, and the same defect fired over `user_override`
+          values too, re-attributing a user's own number to Olumi.
+          Three populations, three honest outcomes, none asserting the brief. */}
+      {/* ⭐ KEPT SHORT ON PURPOSE — height is the scarcest resource on this canvas.
+          Measured across all five shipped starters at 1280x800: every one clamps
+          at the 0.50 legibility floor and every one is HEIGHT-bound, not
+          width-bound (build-vs-buy ~41% of its height off-screen, market-entry
+          ~30%, vendor-selection ~27%). A long sentence on top-3 factor nodes
+          pushes directly against that.
+          The claim that has to survive is "this number is Olumi's placeholder
+          and there is no evidence behind it" — that is the false attribution we
+          came to kill. The ACTION half ("setting it would strengthen the
+          analysis") is deliberately NOT repeated here because THIS EXACT
+          POPULATION already carries it: `showEvidenceGapBadge` above fires on
+          `!hasObservedData`, the same predicate as this line, and its tooltip
+          reads "No observed data for X. Setting a value would strengthen the
+          analysis." Saying it twice costs a line and adds nothing.
+          Shortened by REWRITING, never by truncating or eliding — an ellipsis
+          with nowhere to go would be hiding, and going silent would be worse. */}
+      {isInferred && isHighPriority && !factorValueHasEvidence && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          Olumi estimated this from your brief. High leverage, low evidence.
+          Olumi&rsquo;s placeholder &mdash; no evidence yet.
         </p>
       )}
+      {/* The other two `inferred` populations — a value a PERSON owns, and one
+          with no stamp at all — reach NEITHER arm and show no coaching line.
+          That is a refusal to claim, not a hidden surface: the value, the
+          evidence badge, the chips and the connections all still render. For
+          the source-less case there is genuinely nothing true to say (claiming
+          the user authored it would invent authorship). For the user-owned
+          case there IS — but see the note on the arm below, which cannot
+          currently deliver it.
+          ⚠ FOUND WHILE FIXING THIS, NOT FIXED HERE: the arm below is
+          STRUCTURALLY DEAD. `useNodeConnections` returns `[]` unless
+          `results.status === 'complete'` (hooks/useNodeConnections.ts:35),
+          and this whole block renders only when NOT post-analysis — so
+          `outboundConnections.length > 0` can never hold here and this
+          sentence has never been able to render. Left in place and reported
+          rather than deleted or widened: deleting it is a separate
+          dead-code call, and widening it would ship a branch no test in this
+          harness can reach. */}
       {isExplicit && isHighPriority && outboundConnections.length > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
