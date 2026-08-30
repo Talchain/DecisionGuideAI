@@ -296,23 +296,42 @@ export interface ResultsState {
    * (CLAUDE.md trap 21/22b). A boolean "this was restored" would preserve
    * across a switch too, which is the worse of the two harms.
    *
-   * ⚠ ONE WRITER, AND ABSENCE IS FAIL-CLOSED. Written ONLY by
-   * `resultsLoadHistorical`'s optional second argument, which only
-   * `restoreAnalysisFromAutosave` supplies (from `autosave.scenarioId`, the id
-   * the record was written under). Every other producer of `results` —
-   * `resultsComplete`, `resultsError`, `createIdleResults`, the palette's
-   * historical pick — replaces the slice without it, so the value is absent and
-   * `loadScenario` clears exactly as it did before. A missing stamp is never
-   * read as "belongs to this scenario".
+   * ⚠ ONE WRITER — BUT TEN CARRIERS, AND THAT IS THE DANGEROUS HALF.
+   * PRODUCED only by `resultsLoadHistorical`'s optional second argument, which
+   * only `restoreAnalysisFromAutosave` supplies (from `autosave.scenarioId`,
+   * the id the record was written under). It does NOT follow that every other
+   * `results` write is free of it: enumerated at the bytes
+   * (`rg -n 'results:\s*\{' src/canvas/store.ts` → 16 sites), TEN of them carry
+   * the previous slice forward with `...s.results` — `resultsConnecting`,
+   * `resultsProgress`, `resultsComplete` and its duplicate-run follow-up,
+   * `resultsError`, `resultsCancelled`, `resultsAnalysing`, both arms of
+   * `resultsSettle`, and `resultsHydrateFromSupabase`. An earlier version of
+   * this comment claimed they all "replace the slice without it"; that was
+   * FALSE at the bytes, and a stale stamp riding one of those spreads is worse
+   * than the defect this field closes — it converts a lost answer into a
+   * confidently wrong one. What actually makes the claim true is the shared
+   * guard `createRestoreStampGuard`, which strips the stamp from every `set`
+   * except the one authorised write. Pinned per-carrier in
+   * `hooks/__tests__/useScenario.reloadPreservesRestoredResults.spec.ts`.
+   *
+   * ⚠ ABSENCE IS FAIL-CLOSED. A missing stamp is never read as "belongs to this
+   * scenario" — `loadScenario` clears exactly as it did before.
    *
    * ⚠ NOT a currency claim. It says WHICH SCENARIO this answer belongs to, not
    * that the answer is still current. Currency is decided by the freshness
    * machinery, which marks every reloaded report `orphaned_plot_result` →
    * `results_stale` (`hooks/useAnalysisStateSource.ts`,
-   * `state/analysisStateSelector.ts`) — because `v5AnalysisFact` is session-only
-   * AND `hydrateGraphSlice` nulls it on every load carrying nodes, so a
-   * reloaded report provably has no run fact for the graph on screen. Measured,
-   * with a contrast control, in
+   * `state/analysisStateSelector.ts`) — because `v5AnalysisFact` is SESSION-ONLY
+   * and is never restored: this store has no `persist()` middleware and
+   * `AutosaveData` has no such field, so after a reload it is absent whatever
+   * the load does. ⚠ An earlier version of this comment added "AND
+   * `hydrateGraphSlice` nulls it on every load carrying nodes"; that is FALSE.
+   * `hydrateGraphSlice` nulls `analysisFreshness`, `analysisFreshnessDirty`,
+   * `analysisRefusalNotice` and `analysisStateV1` on a load carrying nodes, but
+   * NOT `v5AnalysisFact` — the only writers of `v5AnalysisFact: null` are the
+   * initial state, `importCanvas` and `resetCanvas` (enumerated with a contrast
+   * control). The conclusion stands on session-only alone. Measured, with a
+   * contrast control, in
    * `hooks/__tests__/useScenario.reloadPreservesRestoredResults.spec.ts`.
    * ⚠ Scoped to the deployed flag posture (`VITE_V5_CANONICAL_ANALYSIS=true`,
    * `netlify.toml`) — that posture is derived by a test, not asserted here.
@@ -1991,6 +2010,80 @@ function createDebugSet<T>(originalSet: SetState<T>, debugEnabled: boolean): Set
   }
 }
 
+/**
+ * ⭐ THE GUARD THAT KEEPS `ResultsState.restoredForScenarioId` OFF EVERY SLICE
+ * IT WAS NOT COMPUTED FOR — one shared path, not a list of call sites.
+ *
+ * ⚠ ONE WRITER, TEN CARRIERS. `resultsLoadHistorical` is the only PRODUCER of
+ * the stamp, and it is nowhere near the only writer of `results`. Enumerated at
+ * the bytes (`rg -n 'results:\s*\{' src/canvas/store.ts` → 16 sites), TEN carry
+ * the previous slice forward with `...s.results`: `resultsConnecting`,
+ * `resultsProgress`, `resultsComplete` and its duplicate-run follow-up,
+ * `resultsError`, `resultsCancelled`, `resultsAnalysing`, both arms of
+ * `resultsSettle`, and `resultsHydrateFromSupabase`. Every one of them would
+ * otherwise carry the stamp onto a slice holding a DIFFERENT answer.
+ *
+ * THE HARM THAT MAKES THIS LOAD-BEARING. A boot restore stamps A; the user runs
+ * a NEW analysis in-session; the stamp rides `resultsComplete` onto the fresh
+ * slice and still equals A. A later `loadScenario(A)` REPLACES the graph with
+ * the server's, and would preserve that answer over a model it was not computed
+ * on — and an in-session run DOES mint a `v5AnalysisFact`, so the orphan
+ * classification that keeps a restored answer honest never fires and it renders
+ * `complete`. That turns a LOST answer into a CONFIDENTLY WRONG one, which is
+ * strictly worse than the defect the stamp exists to close.
+ *
+ * ⚠ WHY A GUARD AND NOT TEN `delete`s. Ten edits are a hand-maintained mirror
+ * (CLAUDE.md trap 12): the eleventh carrier ships without one and nothing reds.
+ * This intercepts the ONE path every in-store `results` write takes, so a new
+ * carrier is covered the day it is written.
+ *
+ * ⚠ WHY AN EXPLICIT TOKEN AND NOT A PROPERTY OF THE SLICE. Authorising on
+ * `reportEpoch === HISTORICAL_REPORT_EPOCH` was considered and REJECTED:
+ * `resultsHydrateFromSupabase` writes that same sentinel BY SPREAD, so it would
+ * have re-authorised a stale stamp onto a different report. The writer
+ * announces itself instead, which is exact rather than a proxy.
+ *
+ * ⚠ SCOPE, STATED NARROWLY. This covers writes through the store's own `set`.
+ * A `useCanvasStore.setState({ results })` from outside is not intercepted —
+ * there is exactly one such site at this tip (`useScenario.ts`'s
+ * `analysis_status === 'failed'` arm), and it REPLACES the slice rather than
+ * spreading it, so it carries no stamp either way. `loadScenario`'s deliberate
+ * preserve is also an outside `setState`, and must stay outside: it is the one
+ * write whose whole purpose is to carry the stamped slice through.
+ */
+let restoreStampWriteAuthorised = false
+
+/**
+ * Announce the ONE authorised write. Consumed by the very next `set`, whatever
+ * it carries — zustand's `set` is synchronous (functional partials included),
+ * so the window is exactly that one call and cannot leak past it.
+ */
+function authoriseRestoreStampOnNextSet(): void {
+  restoreStampWriteAuthorised = true
+}
+
+function stripUnauthorisedRestoreStamp<T>(partial: T, authorised: boolean): T {
+  if (authorised) return partial
+  if (!partial || typeof partial !== 'object') return partial
+  const results = (partial as { results?: ResultsState }).results
+  if (!results || typeof results !== 'object') return partial
+  if (!('restoredForScenarioId' in results)) return partial
+  const { restoredForScenarioId: _dropped, ...withoutStamp } = results
+  return { ...partial, results: withoutStamp } as T
+}
+
+function createRestoreStampGuard(inner: SetState<CanvasState>): SetState<CanvasState> {
+  return (partial, replace) => {
+    const authorised = restoreStampWriteAuthorised
+    restoreStampWriteAuthorised = false
+    if (typeof partial === 'function') {
+      const updater = partial as (state: CanvasState) => CanvasState | Partial<CanvasState>
+      return inner((state) => stripUnauthorisedRestoreStamp(updater(state), authorised), replace)
+    }
+    return inner(stripUnauthorisedRestoreStamp(partial, authorised), replace)
+  }
+}
+
 // Create the store with optional debugging middleware
 // Enable via URL param ?stateDebug=1 to capture ALL set() calls with stack traces
 const _stateDebugEnabled = isStateDebugEnabled()
@@ -2001,7 +2094,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // local SetState declares a single signature with replace?: boolean. The
   // wrapper preserves runtime behaviour exactly — only the static signature
   // differs.
-  const set = createDebugSet(originalSet as SetState<CanvasState>, _stateDebugEnabled)
+  // ⭐ The restore-stamp guard wraps the OUTERMOST `set`, so every in-store
+  // `results` write passes through it — see `createRestoreStampGuard`.
+  const set = createRestoreStampGuard(
+    createDebugSet(originalSet as SetState<CanvasState>, _stateDebugEnabled),
+  )
 
   return {
   nodes: initialNodes,
@@ -4267,6 +4364,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const existingHealth = get().graphHealth
     const healthFromQuality = graphHealthFromQuality(run.report?.graph_quality, existingHealth)
 
+    // ⭐ THE ONE AUTHORISED STAMP WRITE. Every other `results` write — including
+    // the ten that carry this slice forward by spread — has the stamp stripped
+    // by `createRestoreStampGuard`. Must sit immediately before the `set` it
+    // authorises: the token is consumed by the very next call.
+    authoriseRestoreStampOnNextSet()
     set(s => ({
       results: {
         status: 'complete',

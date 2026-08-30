@@ -263,11 +263,29 @@ function simulateReloadRestore(): { restored: boolean } {
   return { restored }
 }
 
+let memoPoisonCounter = 0
+
 beforeEach(() => {
   vi.clearAllMocks()
   // Re-arms the spies, including the `PGRST116` "no rows" arm. Must run AFTER
   // clearAllMocks, which strips the implementations.
   resetScenarioHarness()
+  localStorage.clear()
+  // ⚠ `saveAutosave` MEMOISES the last payload it wrote, in MODULE scope
+  // (`scenarios.ts`'s `lastAutosavePayload`), and skips a byte-identical
+  // rewrite. `localStorage.clear()` does not reset that memo, so two tests
+  // whose records differ only by a `Date.now()` that landed in the SAME
+  // millisecond have the second write SILENTLY SKIPPED — `loadAutosave()` then
+  // returns null and the test fails inside `persistAutosave`, nowhere near the
+  // cause. Measured as an intermittent ~1-in-6 failure once this file grew past
+  // 15 tests; invisible before that only because collisions were rare.
+  // Poison the memo with a record no test can produce, then clear the slot.
+  saveAutosave({
+    timestamp: 0,
+    nodes: [],
+    edges: [],
+    scenarioId: `memo-poison-${++memoPoisonCounter}`,
+  } as AutosaveData)
   localStorage.clear()
   useCanvasStore.getState().reset()
 })
@@ -467,10 +485,19 @@ describe('a preserved answer is never presented as current', () => {
     expect(after.results.hash).toBe(runHash)
 
     // … and THE MECHANISM that keeps it honest, MEASURED rather than assumed.
-    // `v5AnalysisFact` is session-only and never restored, AND `hydrateGraphSlice`
-    // nulls it (with `analysisFreshness` / `analysisStateV1`) on every load
-    // carrying nodes — so a reloaded report provably has no run fact and no
-    // verdict attached to the graph now on screen.
+    // `v5AnalysisFact` is SESSION-ONLY and never restored — the store has no
+    // `persist()` middleware and `AutosaveData` carries no such field — so it
+    // is absent after any reload, whatever the load does. That, on its own, is
+    // what leaves a reloaded report with no run fact.
+    //
+    // ⚠ An earlier version of this comment also claimed `hydrateGraphSlice`
+    // nulls `v5AnalysisFact` "on every load carrying nodes". It does not.
+    // Enumerated with a contrast control: `hydrateGraphSlice` nulls
+    // `analysisFreshness`, `analysisFreshnessDirty`, `analysisRefusalNotice`
+    // and `analysisStateV1` on a load carrying nodes — the contrast fires — but
+    // the only writers of `v5AnalysisFact: null` are the store's initial state,
+    // `importCanvas` and `resetCanvas`. The three assertions below are true;
+    // only the mechanism named for the first one was wrong.
     //
     // ⚠ `analysisFreshness` is NULL here, not the `'unknown'` /
     // `hydrated_without_capture` marker `resultsLoadHistorical` writes: this
@@ -538,5 +565,197 @@ describe('a preserved answer is never presented as current', () => {
     expect(useCanvasStore.getState().results.hash).toBe(runHash)
     const { composed } = composeFromStore(true)
     expect(composed.displayState.state).toBe('results_stale')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ⭐ THE STAMP MUST NEVER SURVIVE ONTO A SLICE IT WAS NOT COMPUTED FOR
+//
+// ONE WRITER, TEN CARRIERS. `resultsLoadHistorical` is the only PRODUCER of
+// `restoredForScenarioId` — and it is nowhere near the only writer of
+// `results`. Enumerated at the bytes rather than inherited
+// (`rg -n 'results:\s*\{' src/canvas/store.ts` → 16 sites), TEN of them carry
+// the previous slice forward with `...s.results`: `resultsConnecting`,
+// `resultsProgress`, `resultsComplete` and its duplicate-run follow-up,
+// `resultsError`, `resultsCancelled`, `resultsAnalysing`, both arms of
+// `resultsSettle`, and `resultsHydrateFromSupabase`.
+//
+// THE HARM A LEAK CAUSES, and why it is worse than the defect this PR fixes.
+// A boot restore stamps A. The user then runs a NEW analysis in the same
+// session; the stamp rides `resultsComplete`'s spread onto the fresh slice and
+// STILL EQUALS A. A later `loadScenario(A)` — which REPLACES the graph with
+// whatever Supabase serves — would then preserve that answer over a model it
+// was not computed on; and because an in-session run DOES mint a
+// `v5AnalysisFact`, the orphan classification that keeps a restored answer
+// honest never fires, so it renders `complete`. A lost answer becomes a
+// CONFIDENTLY WRONG one.
+//
+// The fix is a single guard on the one path every in-store `results` write
+// takes, not a `delete` repeated at ten call sites — a ten-site edit is the
+// hand-maintained mirror (CLAUDE.md trap 12) and the eleventh carrier would
+// ship without it, silently.
+// ---------------------------------------------------------------------------
+
+/** The stamp as the surfaces would read it — never a value predicate. */
+function heldStamp(): unknown {
+  return (useCanvasStore.getState().results as { restoredForScenarioId?: unknown })
+    .restoredForScenarioId
+}
+
+/**
+ * The V5 `analysis_result` report carries the block's `summary` STRING at
+ * runtime; `results.report` is typed `ReportV1`, whose `summary` is a bands
+ * object — the store's type is stale against what `applyV5State` installs.
+ * Read it through ONE narrow accessor rather than casting at each assertion:
+ * this string is what binds every assertion below to the run that produced it,
+ * by identity and not by a value predicate another run could satisfy
+ * (CLAUDE.md trap 19).
+ */
+function heldReportSummary(): unknown {
+  const report = useCanvasStore.getState().results.report as unknown
+  return (report as { summary?: unknown } | null | undefined)?.summary
+}
+
+/** A second, DIFFERENT analysis — so "the new run" is bound by identity. */
+const secondAnalysisBlock = {
+  ...analysisBlock,
+  summary: 'Relocate to Purpose-Built Premises now leads by 12 percentage points.',
+  leading_option_id: 'opt_relocate',
+  win_probabilities: { opt_freehold: 0.31, opt_relocate: 0.55, opt_renew: 0.14 },
+}
+
+describe('a stale restore stamp can never ride a spread onto a later slice', () => {
+  it('PROBE: a NEW run completing on top of a restored report leaves NO stamp behind', async () => {
+    const runHash = runV5AnalysisOnScenario(SCENARIO_A)
+    persistAutosave()
+    simulateReloadRestore()
+
+    // POSITIVE CONTROL, in-test: the stamp really is there to be leaked.
+    // Without this the assertion below passes just as happily against a
+    // restore that never armed (CLAUDE.md trap 13).
+    expect(heldStamp()).toBe(SCENARIO_A)
+    expect(useCanvasStore.getState().results.hash).toBe(runHash)
+
+    // The user runs a NEW analysis in the same session, through the REAL
+    // applicator and the REAL `resultsComplete` — the deployed sequence.
+    useCanvasStore.getState().resultsAnalysing()
+    applyV5State(v5Response([secondAnalysisBlock]), realApplicatorStore())
+
+    // Bound by IDENTITY to the SECOND run, never "some report is present".
+    const after = useCanvasStore.getState().results
+    expect(after.status).toBe('complete')
+    expect(heldReportSummary()).toBe(secondAnalysisBlock.summary)
+
+    // THE ASSERTION. At the pre-fix HEAD the stamp is still `SCENARIO_A` here.
+    expect(heldStamp()).toBeUndefined()
+  })
+
+  // Each row names a WITNESS: a field the action does not itself write, so its
+  // survival proves the action really did SPREAD the previous slice. Without a
+  // witness, an action that REPLACED `results` wholesale would satisfy the
+  // stamp assertion for entirely the wrong reason — a guard agreeing with
+  // itself (CLAUDE.md trap 13b). `resultsConnecting` overwrites `runId` and
+  // `resultsHydrateFromSupabase` overwrites the report, so they cannot share
+  // one witness.
+  const reportSummary = heldReportSummary
+  const runId = () => useCanvasStore.getState().results.runId
+
+  it.each([
+    [
+      'resultsConnecting',
+      () => useCanvasStore.getState().resultsConnecting('run-connecting'),
+      reportSummary,
+    ],
+    [
+      'resultsProgress',
+      () => useCanvasStore.getState().resultsProgress(40),
+      reportSummary,
+    ],
+    [
+      'resultsAnalysing',
+      () => useCanvasStore.getState().resultsAnalysing(),
+      reportSummary,
+    ],
+    [
+      'resultsError',
+      () =>
+        useCanvasStore.getState().resultsError({
+          code: 'PROBE_FAILURE',
+          message: 'probe',
+          canRetry: true,
+        } as never),
+      reportSummary,
+    ],
+    [
+      'resultsCancelled',
+      () => useCanvasStore.getState().resultsCancelled(),
+      reportSummary,
+    ],
+    [
+      'resultsSettle (report arm)',
+      () => {
+        useCanvasStore.getState().resultsAnalysing()
+        useCanvasStore.getState().resultsSettle()
+      },
+      reportSummary,
+    ],
+    [
+      'resultsHydrateFromSupabase',
+      () =>
+        useCanvasStore.getState().resultsHydrateFromSupabase({
+          results: {
+            status: 'complete',
+            progress: 100,
+            hash: 'hydrated-elsewhere',
+            report: { summary: 'a different answer entirely' } as never,
+          },
+          runMeta: {},
+        }),
+      runId,
+    ],
+  ])(
+    '%s carries the slice forward but NOT the stamp',
+    (_name, carry: () => void, witness: () => unknown) => {
+      runV5AnalysisOnScenario(SCENARIO_A)
+      persistAutosave()
+      simulateReloadRestore()
+      const witnessBefore = witness()
+      expect(heldStamp()).toBe(SCENARIO_A)
+      expect(witnessBefore).toBeTruthy()
+
+      carry()
+
+      // PRECONDITION PINNED IN-TEST: the action really did spread.
+      expect(witness()).toBe(witnessBefore)
+      expect(heldStamp()).toBeUndefined()
+    },
+  )
+
+  it('THE CONSEQUENCE: a fresh in-session run is NOT preserved by the earlier restore’s stamp', async () => {
+    const runHash = runV5AnalysisOnScenario(SCENARIO_A)
+    persistAutosave()
+    simulateReloadRestore()
+    expect(heldStamp()).toBe(SCENARIO_A)
+
+    useCanvasStore.getState().resultsAnalysing()
+    applyV5State(v5Response([secondAnalysisBlock]), realApplicatorStore())
+    const fresh = useCanvasStore.getState().results
+    expect(heldReportSummary()).toBe(secondAnalysisBlock.summary)
+    expect(fresh.hash).not.toBe(runHash)
+
+    setScenarioRow(SCENARIO_A, deployedShapedRow(SCENARIO_A))
+    const { result } = renderHook(() => useScenario())
+    await act(async () => {
+      await result.current.loadScenario(SCENARIO_A)
+    })
+
+    // Fail-CLOSED, and this is the pre-#982 behaviour for an unstamped slice:
+    // the load replaces the graph with the server's, so an answer it cannot
+    // vouch for goes. The alternative — preserving it because a stamp from an
+    // earlier, different answer still said "A" — is the confidently-wrong
+    // outcome this guard exists to prevent.
+    const afterLoad = useCanvasStore.getState().results
+    expect(afterLoad.status).toBe('idle')
+    expect(afterLoad.report ?? null).toBeNull()
   })
 })
