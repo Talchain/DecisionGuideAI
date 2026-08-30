@@ -529,3 +529,43 @@ describe('a partial analysis carries a provisional marker on the surface', () =>
     expect(COPY.status.provisional).not.toMatch(/\bready|readiness|cannot run|not ready\b/i)
   })
 })
+
+// ---------------------------------------------------------------------------
+// PRE-RUN AND STALE ARE MUTUALLY EXCLUSIVE CLAIMS.
+//
+// Witnessed on the deployed build at `4401d6d8` (30 Aug 2026), guest session,
+// saved example "Usage-Based Billing System Approach": the panel rendered
+// `analysis-new-status-pre-run` ("No analysis has run yet for this model.")
+// AND `analysis-new-status-stale` ("The model has changed since this analysis
+// ran.") at the same time.
+//
+// The contract settles which is wrong: `isPreRun` is "No completed analysis is
+// being displayed"; `isStale` is "The DISPLAYED run predates the current
+// model". With nothing displayed, staleness has no subject.
+//
+// This is the SECOND instance of this shape on this surface — the block above
+// records an intro that asserted a run sitting over "No analysis has run yet".
+// Same defect, different pairing, which is why it is pinned both ways here.
+// ---------------------------------------------------------------------------
+describe('pre-run never carries a staleness claim', () => {
+  it('suppresses the staleness line when no analysis is displayed', () => {
+    renderBody(genuineDecision(), { isPreRun: true, isStale: true })
+    expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+  })
+
+  it('OPPOSITE-DIRECTION TWIN: still shows staleness once a run IS displayed', () => {
+    // Without this, the fix could pass by suppressing the line unconditionally
+    // — closing a contradiction by deleting a true disclosure.
+    renderBody(genuineDecision(), { isPreRun: false, isStale: true })
+    expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
+      'The model has changed since this analysis ran.',
+    )
+  })
+
+  it('pre-run without staleness is unchanged', () => {
+    renderBody(genuineDecision(), { isPreRun: true, isStale: false })
+    expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+  })
+})
