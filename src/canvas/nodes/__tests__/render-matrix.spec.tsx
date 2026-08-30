@@ -222,11 +222,26 @@ describe('Render matrix — FactorNode × view × phase', () => {
       label: 'Marketing Expertise Available',
       type: 'factor',
       category: 'controllable',
-      observedState: { value: 0.5, extractionType: 'inferred', unit: 'scale' },
+      // ⚠ `source` ADDED 30 Aug 2026, and it is the whole correction. This
+      // fixture previously carried no provenance stamp, so it could not tell
+      // CEE's invented placeholder from a value a user genuinely set to 0.5
+      // (CLAUDE.md trap 19 — a magnitude is not a discriminator). It therefore
+      // pinned the line's presence while saying nothing about whether the line
+      // was TRUE, and what it pinned was a false claim: the sentence read
+      // "Olumi estimated this from your brief" over a hardcoded constant.
+      // `cee_inference` is the stamp the substitution actually writes,
+      // witnessed on deployed staging — so the fixture is now the shape this
+      // case was always meant to model.
+      observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference', unit: 'scale' },
     })
     // Item 3: coaching line gated to top-3. factor-1 has the strongest edge,
     // so it ranks #1 → high priority → coaching line renders inline.
-    expect(screen.getByText(/Olumi estimated this from your brief/i)).toBeDefined()
+    // The GATE is what this case pins, and it still holds. What changed is the
+    // sentence behind it: an invented value may never be attributed to the
+    // brief. Full provenance coverage lives in
+    // `FactorNode.briefAttribution.spec.tsx`.
+    expect(screen.getByText(/Olumi\u2019s placeholder/i)).toBeDefined()
+    expect(screen.queryByText(/from your brief/i)).toBeNull()
   })
 
   it('Detailed pre: low-priority inferred factor does NOT show the coaching line', () => {
@@ -239,18 +254,34 @@ describe('Render matrix — FactorNode × view × phase', () => {
       <ReactFlowProvider>
         <FactorNode
           {...baseFactorProps}
+          // `NodeProps` requires these three and `baseFactorProps` omits them —
+          // the reason this file carries TS2739 in the typecheck baseline.
+          // Supplied at THIS call site only, because adding `source` below
+          // changes the inline object's type and would otherwise mint a NEW
+          // baseline identity for a diagnostic this PR introduced. Scoped here
+          // rather than fixed in `baseFactorProps`, which would clear several
+          // unrelated baseline entries and turn a copy fix into a ratchet
+          // change.
+          deletable={false}
+          selectable
+          draggable
           id="factor-4"
           data={{
             type: 'factor',
             label: 'Low priority factor',
             category: 'controllable',
-            observedState: { value: 0.5, extractionType: 'inferred', unit: 'scale' },
+            // Same `source` correction as the high-priority case above: this is
+            // the shape CEE's substitution writes.
+            observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference', unit: 'scale' },
           }}
         />
       </ReactFlowProvider>
     )
-    // Low-priority → coaching line suppressed in Detailed view too.
+    // Low-priority → coaching line suppressed in Detailed view too. Asserted
+    // against BOTH the old sentence and the new one, so this case cannot pass
+    // merely because the copy moved.
     expect(screen.queryByText(/Olumi estimated this from your brief/i)).toBeNull()
+    expect(screen.queryByText(/Olumi\u2019s placeholder/i)).toBeNull()
   })
 
   it('Detailed post: factor body shows full layer 2 (no synthesised coaching line — Detailed-specific)', () => {
