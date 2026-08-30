@@ -165,7 +165,27 @@ export function AnalysisNewTabBody({
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
           </div>
         ) : null}
-        {vm.status.isStale ? (
+        {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
+            THE ONE ABOVE, IN A DIFFERENT PAIRING. Witnessed on the deployed
+            build at `4401d6d8` (30 Aug 2026), guest, saved example
+            "Usage-Based Billing System Approach": this panel rendered BOTH
+            `analysis-new-status-pre-run` — "No analysis has run yet for this
+            model." — and `analysis-new-status-stale` — "The model has changed
+            since this analysis ran." Two sentences, one panel, mutually
+            exclusive claims. There is no "this analysis" for the model to have
+            changed since.
+
+            The types already settle which one is wrong. `isPreRun` is declared
+            "No completed analysis is being displayed"; `isStale` is declared
+            "The DISPLAYED run predates the current model". Staleness is a
+            property OF a displayed result, so with nothing displayed it has no
+            subject — it is not a smaller truth, it is a claim about a thing
+            that is not there.
+
+            The pre-run branch stays and the staleness line goes, rather than
+            the reverse: pre-run is the state the reader is actually in, and it
+            is the sentence that tells them what to do next. */}
+        {vm.status.isStale && !vm.status.isPreRun ? (
           <p
             className={`${typography.panelMeta} text-warning`}
             role="status"

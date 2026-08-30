@@ -529,3 +529,67 @@ describe('a partial analysis carries a provisional marker on the surface', () =>
     expect(COPY.status.provisional).not.toMatch(/\bready|readiness|cannot run|not ready\b/i)
   })
 })
+
+// ---------------------------------------------------------------------------
+// PRE-RUN AND STALE ARE MUTUALLY EXCLUSIVE CLAIMS.
+//
+// Witnessed on the deployed build at `4401d6d8` (30 Aug 2026), guest session,
+// saved example "Usage-Based Billing System Approach": the panel rendered
+// `analysis-new-status-pre-run` ("No analysis has run yet for this model.")
+// AND `analysis-new-status-stale` ("The model has changed since this analysis
+// ran.") at the same time.
+//
+// The contract settles which is wrong: `isPreRun` is "No completed analysis is
+// being displayed"; `isStale` is "The DISPLAYED run predates the current
+// model". With nothing displayed, staleness has no subject.
+//
+// This is the SECOND instance of this shape on this surface — the block above
+// records an intro that asserted a run sitting over "No analysis has run yet".
+// Same defect, different pairing, which is why it is pinned both ways here.
+// ---------------------------------------------------------------------------
+describe('pre-run never carries a staleness claim', () => {
+  it('suppresses the staleness line when no analysis is displayed', () => {
+    renderBody(genuineDecision(), { isPreRun: true, isStale: true })
+    expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+  })
+
+  it('OPPOSITE-DIRECTION TWIN: still shows staleness once a run IS displayed', () => {
+    // Without this, the fix could pass by suppressing the line unconditionally
+    // — closing a contradiction by deleting a true disclosure.
+    renderBody(genuineDecision(), { isPreRun: false, isStale: true })
+    expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
+      'The model has changed since this analysis ran.',
+    )
+  })
+
+  it('⭐ NO staleness claim on a fresh completed run — the default state', () => {
+    // ⚠ THIS CASE WAS MISSING AND A REVIEWER'S MUTANT FOUND THE HOLE. Dropping
+    // the `isStale` conjunct — leaving the gate as `!isPreRun` — SURVIVED all
+    // 30 tests, because nothing here asserted the line is ABSENT in the
+    // surface's own default state. Its effect is to print "The model has
+    // changed since this analysis ran" on EVERY completed run, including a
+    // fresh one.
+    //
+    // That is the fabrication direction, and it is worse than the
+    // contradiction this PR fixes: a self-contradiction at least tells the
+    // reader something is wrong, while a confident false staleness claim tells
+    // them something untrue and looks fine doing it.
+    //
+    // The general lesson, which is why this comment is long: my corpus tested
+    // the two states where the line SHOULD appear or is contradictory, and
+    // never the state where it should simply be quiet. Check what a corpus
+    // EXCLUDES, not what it covers.
+    renderBody(genuineDecision(), { isPreRun: false, isStale: false })
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+    // Pinned in-test: this really is a displayed run, so the absence above is
+    // the gate's doing and not an empty panel.
+    expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
+  })
+
+  it('pre-run without staleness is unchanged', () => {
+    renderBody(genuineDecision(), { isPreRun: true, isStale: false })
+    expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+  })
+})
