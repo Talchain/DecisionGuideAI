@@ -921,6 +921,14 @@ function buildAtAGlance(
       : null
 
   const winShare = winPct ? `Ahead in ${winPct} of simulated futures` : null
+  // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
+  // same condition as `winPct`, so the number and the bar can never disagree
+  // about whether there is a share at all.
+  const winRaw = leader?.winProbability ?? rec.winProbability
+  const winFraction =
+    winPct && typeof winRaw === 'number' && Number.isFinite(winRaw)
+      ? Math.max(0, Math.min(1, winRaw > 1 ? winRaw / 100 : winRaw))
+      : null
   const verdictBlock = word
     ? { tone: word.tone, label: word.label, ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}) }
     : null
@@ -943,7 +951,10 @@ function buildAtAGlance(
 
   return {
     headline,
+    leaderLabel: headline && leader ? leader.label : null,
     winShare,
+    winPercentLabel: winPct,
+    winFraction,
     comparisonScope,
     comparativeClaim,
     verdict: verdictBlock,
@@ -1047,7 +1058,7 @@ export function buildAnalysisNewViewModel(
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
-      ? { headline: null, winShare: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
+      ? { headline: null, leaderLabel: null, winShare: null, winPercentLabel: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
       : glance,
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }

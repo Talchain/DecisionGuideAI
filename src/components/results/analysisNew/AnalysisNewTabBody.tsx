@@ -133,17 +133,16 @@ export function AnalysisNewTabBody({
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
-      <div className="px-5 py-4 space-y-4 max-w-[360px] mx-auto">
+      <div className="px-4 py-4 space-y-4 max-w-[440px] mx-auto">
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
             false of this model when nothing has run — mounted pre-run it sat
             directly above "No analysis has run yet for this model", which is
             the surface contradicting itself in two consecutive lines. */}
-        {vm.status.isPreRun ? null : (
-          <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-intro">
-            {COPY.tabIntro}
-          </p>
-        )}
+        {/* The self-describing preamble ("A second reading of the same analysis
+            run…") was REMOVED 30 Aug 2026. A panel that explains itself before
+            doing its job spends the top of the first viewport on nothing the
+            reader came for. */}
 
         {/* ── STATUS ────────────────────────────────────────────────────────
             Contextualises the content; never dominates it (§20). One line,
@@ -185,30 +184,14 @@ export function AnalysisNewTabBody({
             The pre-run branch stays and the staleness line goes, rather than
             the reverse: pre-run is the state the reader is actually in, and it
             is the sentence that tells them what to do next. */}
-        {vm.status.isStale && !vm.status.isPreRun ? (
-          <p
-            className={`${typography.panelMeta} text-warning`}
-            role="status"
-            data-testid="analysis-new-status-stale"
-          >
-            {COPY.status.stale}
-          </p>
-        ) : null}
+        
         {/* ⚠ A PARTIAL RESULT SAYS SO HERE, NOT ONLY IN A COLLAPSED REGION.
             `status.isProvisional` was computed and read by NONE of the six
             render components; the sole disclosure was the bare enum "partial"
             inside `Deeper analysis`, which opens collapsed. On a surface whose
             claim is a five-to-ten-second read, that is a partial result
             presented exactly like a complete one. */}
-        {vm.status.isProvisional ? (
-          <p
-            className={`${typography.panelMeta} text-warning`}
-            role="status"
-            data-testid="analysis-new-status-provisional"
-          >
-            {COPY.status.provisional}
-          </p>
-        ) : null}
+        
         {vm.status.statusNote ? (
           <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-status-note">
             {vm.status.statusNote}
@@ -223,6 +206,8 @@ export function AnalysisNewTabBody({
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
+          isStale={vm.status.isStale && !vm.status.isPreRun}
+          isProvisional={vm.status.isProvisional}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={
             vm.strengthen.interventions[0]

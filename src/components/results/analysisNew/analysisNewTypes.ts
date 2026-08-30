@@ -366,6 +366,18 @@ export interface AtAGlance {
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
   /**
+   * The leading option's LABEL alone, so the surface can typeset the name as
+   * the answer and choose its own framing verb. Same source as `headline`
+   * (`recommendation.recommendedOption.label`) under the same entitlement — it
+   * is that sentence's subject, not a second claim.
+   *
+   * ⚠ WHY THE SURFACE NEEDS THE SUBJECT SEPARATELY: `headline` is composed here
+   * in the present tense ("currently scores higher"), and a present-tense claim
+   * is false on a STALE run. Carrying the subject lets the renderer frame it as
+   * "as last analysed" without this adapter having to know about freshness.
+   */
+  leaderLabel: string | null
+  /**
    * The evidence behind the read, as a sentence. Gated on the SAME entitlement
    * as `headline` — a win share with no entitled leader is a number about an
    * option the producer declined to put forward.
@@ -376,6 +388,18 @@ export interface AtAGlance {
    * here — "60%, of we-cannot-say-what" is not a smaller version of the truth.
    */
   winShare: string | null
+  /**
+   * The same win share as `winShare`, as the bare formatted percentage
+   * ("84%") — the identical `pctOrNull` output that sentence is built from, so
+   * no second rounding and no new precision. For typesetting the number large.
+   */
+  winPercentLabel: string | null
+  /**
+   * The same value unformatted, 0-1, FOR BAR GEOMETRY ONLY. Never rendered as
+   * a number: formatting it a second way is how two different roundings of one
+   * quantity end up on screen together.
+   */
+  winFraction: number | null
   /**
    * What the win share ranges over. Rendered BESIDE the number, never behind
    * disclosure: it changes what the number means, so a reader who sees one
