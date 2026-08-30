@@ -76,12 +76,25 @@ export interface AtAGlanceProps {
   testId?: string
 }
 
-/** A small tracked eyebrow. The only place this surface uses uppercase. */
+/**
+ * The small label above a block.
+ *
+ * ⚠ THE FIRST DRAFT BROKE DS v5 §2.4 THREE WAYS ON ONE LINE — an arbitrary
+ * 10px size, a raw weight, and a caps transform — caught by the
+ * shell-conformance guard and the DS ratchet. Panel scope renders exactly three
+ * sizes, and only from `panelHeader` / `panelBody` / `panelMeta`.
+ *
+ * ⚠ AND THE GUARD SCANS COMMENTS TOO. Naming the offending utilities literally
+ * here re-triggered both checks on a file that no longer uses any of them, so
+ * this note describes them instead of quoting them.
+ *
+ * The eyebrow still reads as an eyebrow: it is the smallest step, the lightest
+ * colour, and slightly tracked. The hierarchy comes from the scale and the
+ * spacing, which is what the scale is for.
+ */
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-light m-0">
-      {children}
-    </p>
+    <p className={`${typography.panelMeta} text-text-light tracking-wide m-0`}>{children}</p>
   )
 }
 
@@ -171,7 +184,7 @@ export function AtAGlance({
         <div>
           <Eyebrow>{isStale ? COPY.glance.eyebrowStale : COPY.glance.eyebrowLeading}</Eyebrow>
           <p
-            className="mt-1 mb-0 text-[17px] leading-[1.25] font-semibold text-text-header text-balance"
+            className={`${typography.panelHeader} mt-1 mb-0 text-text-header text-balance`}
             data-testid={`${testId}-headline`}
           >
             {glance.leaderLabel ?? glance.headline}
@@ -188,14 +201,14 @@ export function AtAGlance({
           <div className="flex items-center gap-2">
             {glance.winPercentLabel ? (
               <span
-                className="text-[26px] leading-none font-semibold text-text-header tabular-nums"
+                className={`${typography.heroDisplay} text-text-header tabular-nums`}
                 data-testid={`${testId}-win-share`}
               >
                 {glance.winPercentLabel}
               </span>
             ) : null}
             <span
-              className={`${typography.panelMeta} shrink-0 rounded-full px-2 py-0.5 font-medium ${TONE_PILL[glance.verdict.tone]}`}
+              className={`${typography.panelMeta} shrink-0 rounded-full px-2 py-0.5 ${TONE_PILL[glance.verdict.tone]}`}
               data-testid={`${testId}-verdict-line`}
             >
               {glance.verdict.tone === 'stable' ? (
@@ -300,7 +313,7 @@ export function AtAGlance({
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
-                <span className="text-text-header font-medium">{COPY.glance.couldChangeIf}</span>{' '}
+                <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
                 {glance.condition!.text}
               </span>
               {focusable ? (
@@ -509,7 +522,7 @@ export function AtAGlance({
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
-                <span className="text-text-header font-medium">{COPY.glance.couldChangeIf}</span>{' '}
+                <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
                 {glance.condition!.text}
               </span>
               {focusable ? (
@@ -556,7 +569,7 @@ export function AtAGlance({
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className={`${typography.panelBody} text-text-header font-medium block`}>
+            <span className={`${typography.panelHeader} text-text-header block`}>
               {primaryIntervention.label}
             </span>
             {primaryIntervention.why ? (
