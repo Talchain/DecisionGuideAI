@@ -68,11 +68,40 @@ export function influencePillAriaLabel(
   pct: number,
   provenance: DriverDisplayProvenance | null | undefined,
 ): string {
+  // ⚠ THE NAME LEADS WITH THE SAME NOUN THE PILL NOW SHOWS. When the visible
+  // string gained its basis, this label still opened with the bare noun — one
+  // quantity under two names, which is the exact shape the visible change was
+  // made to close. The explanatory clause stays: it says what the noun means.
   return provenance === 'normalised_elasticity'
-    ? `Influence ${pct}%, relative to the strongest factor. The top driver always shows 100%`
+    ? `Relative influence ${pct}%, scaled against the strongest factor. The top driver always shows 100%`
     : provenance === 'influence_score'
-      ? `Influence ${pct}%, an absolute causal influence score from the analysis`
+      ? `Influence score ${pct}%, an absolute causal influence score from the analysis`
       : 'Influence basis unavailable'
+}
+
+/**
+ * The VISIBLE noun for an influence figure, basis-aware.
+ *
+ * ⭐ WHY THE BASIS MOVED INTO THE VISIBLE STRING. On the set-relative basis the
+ * value is scaled against the strongest factor in the run, so the leader reads
+ * 100% by construction and three near-equal factors read 91% each. A bare
+ * percentage there is taken for an absolute share of the outcome — a deployed
+ * graph showed exactly that. The basis was disclosed only through `title` and
+ * `aria-label`: a pointer user never opens the first and a sighted user never
+ * hears the second.
+ *
+ * Fail-closed to the plain noun when nothing is stamped. Both canvas call sites
+ * already withhold the figure entirely in that state, so this arm asserts
+ * nothing about a basis it does not know.
+ */
+export function influenceBasisNoun(
+  provenance: DriverDisplayProvenance | null | undefined,
+): string {
+  return provenance === 'normalised_elasticity'
+    ? 'Relative influence'
+    : provenance === 'influence_score'
+      ? 'Influence score'
+      : 'Influence'
 }
 
 /**

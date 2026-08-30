@@ -1077,9 +1077,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               borderRadius: '4px',
               maxWidth: '160px',
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
               display: 'flex',
+              // One line, always. The resolver clears a fixed 160x22 box, so
+              // the row may never wrap to a second line; the ellipsis that
+              // keeps the TEXT inside that box lives on the span below.
+              flexWrap: 'nowrap',
               alignItems: 'center',
               gap: '4px',
               cursor: 'pointer',
@@ -1117,10 +1119,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       data-testid="edge-suggestion-indicator"
                     />
                   )}
-                  <span style={{
-                    fontWeight: 500,
-                    fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined
-                  }}>
+                  {/* The single-line ellipsis lives HERE, not on the flex
+                      container above. text-overflow only acts on a box that
+                      lays out inline content; the container's children are
+                      flex items, so there it computed to a hard clip and cut
+                      labels mid-word ("Moderate drag (unc"). minWidth 0
+                      releases this flex item's automatic minimum so it may
+                      shrink below its own text and ellipsise, instead of
+                      pushing the row past the 160px cap the dodge resolver
+                      assumes. The full string stays recoverable: the
+                      container's aria-label and title both carry it.
+                      CSS ellipsis is safe here ONLY because
+                      EdgeLabelRenderer portals this outside
+                      .react-flow__node — inside a node card the
+                      no-clipped-text visual gate requires shortening in JS. */}
+                  <span
+                    data-testid="edge-influence-label-text"
+                    style={{
+                      minWidth: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontWeight: 500,
+                      fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined
+                    }}
+                  >
                     {desc.label}
                   </span>
                   {provenance && (

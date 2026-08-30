@@ -32,18 +32,18 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
   it('relative basis: pill is a role="img" named with the relative-scale disclosure, plus a title', () => {
     render(<MetricPills influencePct={100} influenceProvenance="normalised_elasticity" />)
     const pill = screen.getByRole('img', {
-      name: 'Influence 100%, relative to the strongest factor. The top driver always shows 100%',
+      name: 'Relative influence 100%, scaled against the strongest factor. The top driver always shows 100%',
     })
-    expect(pill.textContent).toBe('Influence 100%')
+    expect(pill.textContent).toBe('Relative influence 100%')
     expect(pill.getAttribute('title')).toBe(RELATIVE_TITLE)
   })
 
   it('producer basis: pill carries the absolute-basis wording, never the relative claim', () => {
     render(<MetricPills influencePct={62} influenceProvenance="influence_score" />)
     const pill = screen.getByRole('img', {
-      name: 'Influence 62%, an absolute causal influence score from the analysis',
+      name: 'Influence score 62%, an absolute causal influence score from the analysis',
     })
-    expect(pill.textContent).toBe('Influence 62%')
+    expect(pill.textContent).toBe('Influence score 62%')
     expect(pill.getAttribute('title')).toBe(ABSOLUTE_TITLE)
     expect(pill.getAttribute('title')).not.toContain('always shows 100%')
   })
@@ -55,7 +55,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
 
   it('preserves an attested zero', () => {
     render(<MetricPills influencePct={0} influenceProvenance="influence_score" />)
-    expect(screen.getByText('Influence 0%')).toBeInTheDocument()
+    expect(screen.getByText('Influence score 0%')).toBeInTheDocument()
   })
 
   it('unchanged behaviour: renders nothing when no metric is present', () => {

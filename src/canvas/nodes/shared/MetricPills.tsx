@@ -24,7 +24,7 @@
  */
 import { typography } from '../../../styles/typography'
 import type { DriverDisplayProvenance } from '../../../components/results/driverDisplayModel'
-import { influenceExplanation, influencePillAriaLabel } from '../../../components/results/influenceScaleCopy'
+import { influenceBasisNoun, influenceExplanation, influencePillAriaLabel } from '../../../components/results/influenceScaleCopy'
 
 interface MetricPillsProps {
   influencePct?: number | null
@@ -57,6 +57,11 @@ export function MetricPills({
   if (!hasInfluence && !hasConfidence) return null
 
   const influenceTitle = influenceExplanation(influenceProvenance)
+  // Composed here rather than as JSX children, deliberately: as separate
+  // children this becomes several text nodes, and a discriminator elsewhere
+  // depends on the pill being ONE. Loosening that assertion would have traded a
+  // real guard for a formatting convenience.
+  const influenceLabel = `${influenceBasisNoun(influenceProvenance)} ${influencePct}%`
   const influenceAria = influencePillAriaLabel(influencePct ?? 0, influenceProvenance)
 
   // Confidence disclosure — composed from the two flags the shared policy
@@ -86,7 +91,7 @@ export function MetricPills({
           role="img"
           aria-label={influenceAria}
         >
-          Influence {influencePct}%
+          {influenceLabel}
         </span>
       )}
       {hasConfidence && (
