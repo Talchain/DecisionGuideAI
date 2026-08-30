@@ -54,6 +54,7 @@ import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
+import { requestOlumiAttention, type OlumiAttentionNote } from '../canvas/utils/olumiAttention'
 import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import {
   useUIStore,
@@ -648,6 +649,11 @@ export function applyV5State(
   // server-side — the exact "AI edited your graph silently" moment. Collect
   // the targets that actually apply below and pulse once after the loop.
   const pulsedNodeIds: string[] = []
+  // Held-attention accumulators — see the highlight branch for why these are
+  // separate from the pulse ones rather than a longer pulse.
+  const attentionNodeIds: string[] = []
+  const attentionEdgeIds: string[] = []
+  let pendingAttentionNote: OlumiAttentionNote | null = null
   const pulsedEdgeIds: string[] = []
   // add_constraint patches are collected here and flushed to
   // setGoalConstraints ONCE after the loop: the store snapshot's
@@ -908,6 +914,46 @@ export function applyV5State(
         // focus / open_inspector act on a SINGLE target (the viewport centres
         // on one element / the inspector opens one element); highlight pulses
         // every resolvable target.
+        /*
+         * The optional note a highlight may bring. Read defensively and NEVER
+         * composed here: every string is the producer's own. A note this file
+         * authored beside a producer's finding would be fabricated coaching,
+         * which is the one thing this channel must not carry.
+         */
+        const rawNote = (block as { note?: unknown }).note
+        const attentionNote =
+          rawNote !== null && typeof rawNote === 'object'
+            ? (() => {
+                const n = rawNote as Record<string, unknown>
+                const title = typeof n.title === 'string' ? n.title.trim() : ''
+                const body = typeof n.body === 'string' ? n.body.trim() : ''
+                if (title.length === 0 || body.length === 0) return null
+                const move = n.move
+                const safeMove: OlumiAttentionNote['move'] =
+                  move === 'expand' || move === 'challenge' ||
+                  move === 'calibrate' || move === 'reframe'
+                    ? move
+                    : 'challenge'
+                return {
+                  move: safeMove,
+                  title,
+                  body,
+                  ...(typeof n.source_line === 'string' ? { sourceLine: n.source_line } : {}),
+                  ...(Array.isArray(n.actions)
+                    ? {
+                        actions: (n.actions as Array<Record<string, unknown>>)
+                          .filter((x) => x && typeof x.id === 'string' && typeof x.label === 'string')
+                          .map((x) => ({
+                            id: String(x.id),
+                            label: String(x.label),
+                            ...(typeof x.prompt === 'string' ? { prompt: String(x.prompt) } : {}),
+                          })),
+                      }
+                    : {}),
+                }
+              })()
+            : null
+
         let singleTargetActioned = false
         for (const t of targets) {
           if (!t?.id) continue
@@ -924,6 +970,28 @@ export function applyV5State(
             continue
           }
           if (verb === 'highlight') {
+            /*
+             * ⭐ A HIGHLIGHT THAT CARRIES A NOTE IS ATTENTION, NOT AN
+             * ACKNOWLEDGEMENT — and the two have different lifetimes.
+             *
+             * The pulse below answers "a number moved under your eyes": two
+             * seconds, then gone. Right for an applied edit. Wrong for the AI
+             * saying "look here while I explain", because the user is still
+             * reading the sentence when the mark disappears.
+             *
+             * So a bare highlight keeps the existing pulse — no behaviour
+             * change for anything emitting one today — and a highlight that
+             * brings something to SAY routes to the held attention channel
+             * instead. The fork is on the payload, not on a flag, so a
+             * producer opts in simply by having something to say.
+             */
+            if (attentionNote) {
+              pendingAttentionNote = attentionNote
+              if (isEdge) attentionEdgeIds.push(t.id)
+              else attentionNodeIds.push(t.id)
+              applied.push(`ui_directive:highlight:${t.id}`)
+              continue
+            }
             if (isEdge) pulsedEdgeIds.push(t.id)
             else pulsedNodeIds.push(t.id)
             applied.push(`ui_directive:highlight:${t.id}`)
@@ -1007,6 +1075,17 @@ export function applyV5State(
   }
   if (pulsedNodeIds.length > 0 || pulsedEdgeIds.length > 0) {
     pulseAppliedTargets({ nodeIds: pulsedNodeIds, edgeIds: pulsedEdgeIds })
+  }
+  if (attentionNodeIds.length > 0 || attentionEdgeIds.length > 0) {
+    // Held attention. `requestOlumiAttention` is fail-closed: targets no longer
+    // on the canvas are dropped, and a request whose targets have ALL gone
+    // stale writes nothing rather than dimming the whole graph around an
+    // element that is not there.
+    requestOlumiAttention({
+      nodeIds: attentionNodeIds,
+      edgeIds: attentionEdgeIds,
+      note: pendingAttentionNote,
+    })
   }
   // Flush any add_constraint patches in ONE setGoalConstraints write (see
   // pendingConstraints declaration). fromProducerSync: true — a CEE-applied

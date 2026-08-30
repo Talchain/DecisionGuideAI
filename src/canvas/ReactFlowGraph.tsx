@@ -44,6 +44,8 @@ import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { ModelExtentNotice } from './components/ModelExtentNotice'
+import { FirstModelNotice } from './components/FirstModelNotice'
+import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorModal } from './components/InspectorModal'
@@ -2299,6 +2301,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             {/* Says so when LodSync has blanked the labels — measured at 0 of 5
                 viewports before this shipped; see the component's header. */}
             <CanvasLodNotice />
+            {/* Olumi speaking beside the element it is speaking about. Mounted
+                INSIDE ReactFlow so it lives in the viewport's coordinate space
+                and tracks its anchor through pans and zooms — the card belongs
+                to the node, not to the screen. */}
+            <ViewportPortal>
+              <OlumiAttentionCard />
+            </ViewportPortal>
           </ReactFlow>
         )}
       </div>
@@ -2341,6 +2350,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         <div className="flex flex-col items-center gap-2">
           <AssistantFocusChip />
           <FocusModeChip />
+          {/* Says that a generated model is a starting point, while it still is
+              one. Lives in this stack rather than at bottom-centre because
+              `ModelExtentNotice` owns that position and fires on exactly the
+              same graphs — a post-draft fit clamps at the legibility floor. The
+              column already handles the collision with the two chips above it. */}
+          <FirstModelNotice />
         </div>
       </div>
 
