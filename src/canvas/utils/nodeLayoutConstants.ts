@@ -78,7 +78,7 @@ export const NODE_HEADER_RESERVE_PX = NODE_HEADER_ICON_PX + NODE_HEADER_GAP_PX
  * control so it is shown to discriminate. Do not guard this by counting
  * characters: "Commoditisation" is exactly as long as "Cannibalization".
  */
-export const NODE_TITLE_WIDEST_WORD_PX = 100
+export const NODE_TITLE_WIDEST_WORD_PX = 107
 
 /**
  * Minimum horizontal measure (px) reserved for a node's TITLE, at the largest

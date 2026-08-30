@@ -25,5 +25,8 @@ export const GHOST_OPTION_NODE_ID = '__ghost-option__'
  * ReactFlow's `getNodes()` without either caller casting.
  */
 export function excludeNonModelNodes<T extends { id: string }>(nodes: readonly T[]): T[] {
-  return nodes.filter((n) => n.id !== GHOST_OPTION_NODE_ID)
+  // ⚠ PREFIX, NOT ONE ID. The frontier affordance now exists on every tier,
+  // and an exclusion keyed on a single id silently stops excluding the moment a
+  // second one is added — the hand-maintained-mirror defect, in a filter.
+  return nodes.filter((n) => !n.id.startsWith('__ghost-'))
 }
