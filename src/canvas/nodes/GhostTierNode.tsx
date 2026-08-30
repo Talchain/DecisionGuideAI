@@ -50,9 +50,16 @@ export const GhostTierNode = memo((props: NodeProps) => {
       style={{
         // Matches GhostOptionNode's measured 3:1 non-text contrast outline —
         // the dashes are the only thing marking this affordance's bounds.
+        //
+        // ⚠ This read `var(--panel-border, #C7C7C7)`, and --panel-border is
+        // not a defined custom property, so it always resolved to the
+        // hardcoded #C7C7C7: a fixed light grey in both themes, and NOT the
+        // colour it claimed to match. The comment above asserted a contrast
+        // property the code could not have. Now it reads the same token
+        // GhostOptionNode does, so the claim is true rather than aspirational.
         width: 132,
         height: 64,
-        border: '1.5px dashed var(--panel-border, #C7C7C7)',
+        border: '1.5px dashed var(--text-body, #3F3F3E)',
         background: 'transparent',
       }}
     >
