@@ -529,9 +529,28 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
         }
         const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
           adopt(s);
-          // A later auth event is a real event — a sign-in, a sign-out, a
-          // successful refresh — not the initial restore this flag describes.
-          settle(false);
+          // ⚠ THIS IS NOT ONLY "LATER" EVENTS, AND ASSUMING SO RETIRED THE
+          // FAILURE THIS PROVIDER EXISTS TO REPORT. `onAuthStateChange` REPLAYS
+          // an `INITIAL_SESSION` event to every callback the moment it
+          // subscribes — with a null session when there is none, and with null
+          // again if reading it threw (gotrue-js 2.62.2, the version
+          // `@supabase/supabase-js@2.39.7` resolves to:
+          // `GoTrueClient.js:1144-1167`, `onAuthStateChange` ->
+          // `_emitInitialSession`). That replay always lands AFTER the
+          // `settle()` above, so an unconditional `settle(false)` here wiped
+          // `restoreFailed` back to false on the exact path that had just set
+          // it, and the returning owner went straight back to the arrival
+          // screen written for a stranger.
+          //
+          // So only an event that actually CARRIES a session may retire a
+          // failed restore — that is a real sign-in or a successful refresh,
+          // and it is the only evidence that the restore is no longer failed.
+          // A session-less event still resolves the wait (we now know as much
+          // as we are going to know) but leaves the verdict alone. A deliberate
+          // sign-out clears the flag in `signOut` itself, so nothing is stranded.
+          if (cancelled) return;
+          if (s) settle(false);
+          else setSessionResolved(true);
         });
         cleanup = () => sub?.subscription?.unsubscribe?.();
       } catch (error) {

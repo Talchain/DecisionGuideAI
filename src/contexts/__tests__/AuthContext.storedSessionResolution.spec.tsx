@@ -106,13 +106,54 @@ function storedSessionValue() {
 // ---------------------------------------------------------------------------
 
 const getSession = vi.fn()
-const onAuthStateChange = vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } }))
+const onAuthStateChange = vi.fn(
+  (_callback?: (event: string, session: unknown) => void) => ({
+    data: { subscription: { unsubscribe: vi.fn() } },
+  })
+)
+
+/**
+ * ⚠ THE DOUBLE MUST REPLAY `INITIAL_SESSION`, OR THIS WHOLE FILE IS BLIND TO THE
+ * DEFECT IT EXISTS TO PIN.
+ *
+ * A bare `vi.fn()` returning a subscription and never invoking the callback is
+ * NOT what the deployed library does. `@supabase/supabase-js@2.39.7` resolves to
+ * `@supabase/gotrue-js@2.62.2`, whose `onAuthStateChange`
+ * (`dist/main/GoTrueClient.js:1144-1167`) replays an `INITIAL_SESSION` event to
+ * every callback the moment it subscribes — carrying the current session, or
+ * `null` when there is none or reading it threw.
+ *
+ * That replay lands AFTER the provider's own `settle()`, so a handler that
+ * unconditionally settles on any event silently retires a failed restore. A
+ * mock that never fires cannot observe that, which is how it shipped green.
+ *
+ * Emulated faithfully: the session is read back through the same `getSession`
+ * double the test configured (every case uses `mockReturnValue` /
+ * `mockResolvedValue`, never `...Once`, so re-reading is safe and returns the
+ * same promise — including the never-settling one, where the real library would
+ * likewise never reach its replay).
+ */
+function replayingOnAuthStateChange(callback?: (event: string, session: unknown) => void) {
+  if (!callback) return { data: { subscription: { unsubscribe: vi.fn() } } }
+  void Promise.resolve().then(async () => {
+    let session: unknown = null
+    try {
+      const result = (await getSession()) as { data?: { session?: unknown } } | undefined
+      session = result?.data?.session ?? null
+    } catch {
+      session = null
+    }
+    callback('INITIAL_SESSION', session)
+  })
+  return { data: { subscription: { unsubscribe: vi.fn() } } }
+}
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: (...a: unknown[]) => getSession(...a),
-      onAuthStateChange: (...a: unknown[]) => onAuthStateChange(...(a as [])),
+      onAuthStateChange: (...a: unknown[]) =>
+        onAuthStateChange(...(a as Parameters<typeof onAuthStateChange>)),
       signInWithOtp: vi.fn(),
       signInWithOAuth: vi.fn(),
       signInWithPassword: vi.fn(),
@@ -217,7 +258,7 @@ describe('OptionalAuthProvider — stored-session resolution', () => {
     localStorage.clear()
     getSession.mockReset()
     onAuthStateChange.mockReset()
-    onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
+    onAuthStateChange.mockImplementation(replayingOnAuthStateChange)
   })
 
   // ── PRECONDITION (trap 13b) ────────────────────────────────────────────
@@ -344,6 +385,81 @@ describe('OptionalAuthProvider — stored-session resolution', () => {
     // Both doors still work: sign in again, or carry on as a guest.
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue without an account' })).toBeInTheDocument()
+  })
+
+  // ── CASE 3c — the replay that used to undo case 3 ──────────────────────
+  // `onAuthStateChange` is not a stream of only LATER events. gotrue-js 2.62.2
+  // (`GoTrueClient.js:1144-1167`) replays `INITIAL_SESSION` to every callback
+  // the moment it subscribes, with a null session when there is none. That
+  // replay lands after the provider has already settled, so a handler that
+  // settles unconditionally wipes the failure it had just recorded and puts the
+  // user back on the stranger's arrival screen.
+  //
+  // The callback is invoked DIRECTLY here rather than relying on the double's
+  // auto-replay, so the assertion is about the provider's handling and cannot
+  // pass or fail on scheduling luck.
+  it('the INITIAL_SESSION replay does not retire a failed restore', async () => {
+    localStorage.setItem(STORED_SESSION_KEY, storedSessionValue())
+    getSession.mockResolvedValue({
+      data: { session: null },
+      error: { name: 'AuthApiError', message: 'Invalid Refresh Token' },
+    })
+
+    await act(async () => {
+      await renderMountPath()
+    })
+
+    // Precondition, pinned in-test (trap 13b): the failure was actually reached,
+    // so what follows measures survival rather than an absence that was never
+    // there.
+    expect(screen.getByTestId('session-restore-failed')).toBeInTheDocument()
+
+    await waitFor(() => expect(onAuthStateChange).toHaveBeenCalled())
+    const replay = onAuthStateChange.mock.calls[0]?.[0]
+    expect(typeof replay).toBe('function')
+
+    await act(async () => {
+      replay!('INITIAL_SESSION', null)
+      await Promise.resolve()
+    })
+
+    expect(screen.getByTestId('session-restore-failed')).toBeInTheDocument()
+    expect(screen.queryByText(ARRIVAL_SENTENCE)).not.toBeInTheDocument()
+    expect(loadingPerRender[loadingPerRender.length - 1]).toBe(false)
+  })
+
+  // ── CASE 3d — the opposite-direction twin ──────────────────────────────
+  // Narrowing what may clear the flag must not make it unclearable. An event
+  // that actually CARRIES a session is a real sign-in or a successful refresh,
+  // and it must retire the failure — otherwise the user signs in again and is
+  // still told the restore failed. One predicate, two opposite harms: both get
+  // a case.
+  it('a session-carrying event does retire a failed restore', async () => {
+    localStorage.setItem(STORED_SESSION_KEY, storedSessionValue())
+    getSession.mockResolvedValue({
+      data: { session: null },
+      error: { name: 'AuthApiError', message: 'Invalid Refresh Token' },
+    })
+
+    await act(async () => {
+      await renderMountPath()
+    })
+    expect(screen.getByTestId('session-restore-failed')).toBeInTheDocument()
+
+    await waitFor(() => expect(onAuthStateChange).toHaveBeenCalled())
+    const emit = onAuthStateChange.mock.calls[0]?.[0]
+    expect(typeof emit).toBe('function')
+
+    await act(async () => {
+      emit!('SIGNED_IN', {
+        access_token: 'fixture-not-a-real-token',
+        user: { id: OWNER_ID, email: 'owner@example.com' },
+      })
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByTestId('session-restore-failed')).not.toBeInTheDocument()
+    expect(screen.queryByText(ARRIVAL_SENTENCE)).not.toBeInTheDocument()
   })
 
   // ── CASE 3b — the limbo this must not become ───────────────────────────
