@@ -428,7 +428,29 @@ export const EDGE_LINK_NOTICES = {
   },
   intervention: {
     title: 'Intervention link',
-    bodyTemplate: 'This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. It affects analysis.',
+    // ⛔ THIS USED TO END "It affects analysis." — an unqualified claim that is
+    // false about the one number sitting under it. Two different things are
+    // being conflated:
+    //   • THE LINK ITSELF IS READ. Its existence corresponds to an entry in
+    //     the option's `interventions` map — the "sets to" quantity — and that
+    //     quantity does reach the maths.
+    //   • THE COEFFICIENT ON THE LINK IS NOT READ. PLoT deletes option and
+    //     decision nodes AND every edge incident to them before any arithmetic
+    //     (`NON_CAUSAL_NODE_KINDS` → `filterOptionNodes`, called at
+    //     `routes/v2/run.ts` ~1,900 lines before the ISL request is built;
+    //     ISL carries a `NON_INFERENCE_KINDS` safety net behind it).
+    // Measured at ISL staging tip `28fe0c95`, PLoT `75e7f974`, 30 Aug 2026:
+    // taking an option→factor edge's strength 1.0 → 0.3 → 0.0 → −1.0, and
+    // deleting the edges outright, all returned a BIT-IDENTICAL win
+    // probability to 8 dp, while the same edit on a factor→goal edge moved it.
+    // So the user read "It affects analysis", edited β, watched the staleness
+    // banner fire, re-ran, and received a guaranteed-identical number.
+    // ⚠ This sentence mirrors a filter that lives in ANOTHER SERVICE (trap 12).
+    // It is stated as what the analysis READS rather than as a copy of PLoT's
+    // predicate, and the derivation above is dated and cited so a successor
+    // re-derives rather than inherits. If PLoT ever stops filtering option
+    // edges, this sentence and `EDGE_COPY.interventionStrengthInert` both move.
+    bodyTemplate: 'This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. The analysis reads the link and the value it sets — not the effect strength stored on the connection.',
   },
 } as const
 
@@ -455,6 +477,16 @@ export const EDGE_COPY = {
   sliderNoEffect: 'No effect',
   sliderStrongPositive: 'Strong positive',
   needsYourJudgement: 'Needs your judgement',
+  // Caveat carried by the β field on an option→factor (intervention) edge.
+  // The control stays visible and stays editable — the no-hiding ruling says
+  // correct the claim, never remove the surface. See the derivation cited on
+  // `EDGE_LINK_NOTICES.intervention.bodyTemplate` above.
+  // ⚠ Deliberately says nothing about whether the edit PERSISTS. It does
+  // persist, and it does move the analysis-affecting hash — which is why the
+  // product honestly reports "stale, re-run" and then returns the same number.
+  // The claim here is only about what the analysis reads.
+  interventionStrengthInert:
+    'The analysis does not read this coefficient on an option link — it reads the value the option sets its target to. Editing β will not change the result.',
 } as const
 
 // ─── Baseline / option badges ─────────────────────────────────────

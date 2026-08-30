@@ -513,7 +513,11 @@ export const EdgePanel = memo(function EdgePanel({
             {fragileEdgeSwitchProb !== null && (
               <div>switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]</div>
             )}
-            <EdgeAdvancedEditor edgeId={edgeId} />
+            {/* This arm is reached only when the edge is NEITHER
+                organisational NOR an intervention, so its strength IS read by
+                the analysis. Passed explicitly rather than defaulted: the
+                class is stated at every call site, never inferred. */}
+            <EdgeAdvancedEditor edgeId={edgeId} linkKind="causal" />
           </TechnicalDisclosure>
         </>
       )}
@@ -521,7 +525,10 @@ export const EdgePanel = memo(function EdgePanel({
       {/* For org/intervention edges, still show tech disclosure */}
       {(isOrganisational || isIntervention) && (
         <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
-          <EdgeAdvancedEditor edgeId={edgeId} />
+          <EdgeAdvancedEditor
+            edgeId={edgeId}
+            linkKind={isIntervention ? 'intervention' : 'organisational'}
+          />
         </TechnicalDisclosure>
       )}
 

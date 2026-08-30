@@ -170,9 +170,24 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     // `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)`,
     // an authority fixed at `'disabled'`. Nothing else redeems the promise —
     // the context menu strips its undo/redo entries and the left-rail buttons
-    // are permanently disabled. This path is LIVE (edge click → InspectorModal,
-    // mounted at `ReactFlowGraph.tsx`, → EdgeInspector → "Delete connector"),
-    // so it was a live instruction to press a key that does nothing.
+    // are permanently disabled, so it was an instruction to press a key that
+    // does nothing. The COPY RULE above stands wherever this file is mounted.
+    //
+    // ⚠⚠ THE REACHABILITY CLAIM THAT USED TO SIT HERE WAS FALSE, AND CORRECTED
+    // 30 Aug 2026. It read: "This path is LIVE (edge click → InspectorModal,
+    // mounted at `ReactFlowGraph.tsx`, → EdgeInspector → 'Delete connector')".
+    // `InspectorModal` cannot reach this file: `InspectorModal.tsx:17` sets
+    // `const USE_INSPECTOR_V2 = true` and `:160` returns the v2 router before
+    // the legacy branch that renders `EdgeInspector` at `:232`. The only other
+    // renderer, `components/PropertiesPanel.tsx`, has ZERO non-test importers
+    // in `src/` (positive control `InspectorModal` in `ReactFlowGraph.tsx` = 2
+    // hits; fabricated contrast = 0). Locations that sweep could NOT reach:
+    // anything outside `src/` — `EdgeInspector.stories.tsx` is a Storybook
+    // mount — and any dynamic or string-keyed mount.
+    // ⛔ DO NOT COMMISSION WORK AGAINST THIS FILE ON THE STRENGTH OF A COMMENT.
+    // A false "this is live" note is exactly how a session spends a PR on a
+    // surface nothing mounts; this one nearly did. Re-derive the mount path
+    // before treating anything here as user-reachable.
     showToast('Connector deleted.', 'success')
     onClose()
   }, [edgeId, deleteEdge, showToast, onClose])
