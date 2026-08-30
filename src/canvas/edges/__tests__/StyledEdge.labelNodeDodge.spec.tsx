@@ -281,8 +281,15 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     it('the container is capped at the resolver\'s assumed width and cannot become two lines', () => {
       const { container } = render(<StyledEdge {...edgeProps as any} />)
       const style = labelStyle(container)
-      // Width cap === the resolver's box width (2 × half-extent)
-      expect(style.maxWidth).toBe(`${LABEL_HALF_WIDTH * 2}px`)
+      // ⚠ These two literals are written INDEPENDENTLY of the constants they
+      // pin. StyledEdge now DERIVES its cap from LABEL_HALF_WIDTH, so an
+      // assertion phrased as `LABEL_HALF_WIDTH * 2` would read the same
+      // constant as the code and could never fail — a guard agreeing with
+      // itself. 160 is the rendered cap; 80 is the half-extent the resolver
+      // clears. Changing the geometry REDs here, where the coupling is
+      // explained, rather than passing silently.
+      expect(style.maxWidth).toBe('160px')
+      expect(LABEL_HALF_WIDTH).toBe(80)
       // The row is a flex line that may not wrap — this is what holds the
       // ±LABEL_HALF_HEIGHT (single-line) half of the assumption now that
       // white-space no longer sits here — and anything past the cap is
@@ -325,7 +332,7 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       )
       // Same cap regardless of text length: jsdom does not lay text out, so
       // the enforceable invariant is the cap itself, not a measured width.
-      expect(labelStyle(container).maxWidth).toBe(`${LABEL_HALF_WIDTH * 2}px`)
+      expect(labelStyle(container).maxWidth).toBe('160px') // independent literal, as above
       // …and at that length the shortening machinery is still on the text,
       // so the extra characters ellipsise rather than widen the row.
       expect(labelTextStyle(container).textOverflow).toBe('ellipsis')

@@ -29,7 +29,7 @@ import {
   resolveEdgeDash,
   type EdgePresentationState,
 } from './edgePresentation'
-import { resolvePersistentLabelPlacements, type PlacementEdge } from './edgeLabelCollision'
+import { resolvePersistentLabelPlacements, LABEL_HALF_WIDTH, type PlacementEdge } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { shouldShowLabel, getEdgeConfidence } from '../domain/edges'
 import {
@@ -1075,7 +1075,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               pointerEvents: 'all',
               padding: '3px 8px',
               borderRadius: '4px',
-              maxWidth: '160px',
+              // Derived, not mirrored: the resolver clears a box of exactly
+              // this width around the anchor, so the cap and the cleared box
+              // are one quantity with two readers, not two numbers kept in
+              // step by hand. The spec pins the resolved value against an
+              // independently-written literal so the number stays observable.
+              maxWidth: `${LABEL_HALF_WIDTH * 2}px`,
               overflow: 'hidden',
               display: 'flex',
               // One line, always. The resolver clears a fixed 160x22 box, so
