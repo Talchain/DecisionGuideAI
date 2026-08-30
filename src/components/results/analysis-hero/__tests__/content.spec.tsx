@@ -671,7 +671,7 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
     return {
       ...m,
       quickLinks: {
-        mainDriver: { label: 'Developer capacity', targetId: 'node_dev' },
+        mainDriver: { label: 'Developer capacity', targetId: 'node_dev', leadIsClear: true },
         topFlipRisk: { label: 'Salary cost', targetId: 'node_salary' },
       },
     }
@@ -714,7 +714,7 @@ describe('Wave 2 (§6.5): quick evidence pills in the summary row', () => {
       {
         ...m,
         quickLinks: {
-          mainDriver: { label: 'Developer capacity', targetId: 'node_dev' },
+          mainDriver: { label: 'Developer capacity', targetId: 'node_dev', leadIsClear: true },
           topFlipRisk: { label: 'Developer capacity', targetId: 'node_dev' },
         },
       },

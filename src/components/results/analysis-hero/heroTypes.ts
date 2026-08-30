@@ -186,6 +186,27 @@ export interface HeroQuickLink {
 }
 
 /**
+ * The MAIN DRIVER quick link — a `HeroQuickLink` that also carries the tie
+ * verdict for the claim its label makes.
+ *
+ * ⚠ `leadIsClear` IS REQUIRED, NOT OPTIONAL, AND THAT IS THE POINT. "Main
+ * driver: X" is a COMPARATIVE claim; the hero shipped it built from
+ * `topDrivers[0]` — the first element of a list — with no tie notion at all,
+ * so on a degenerate run it crowned one of three factors at exactly 100%
+ * while the Drivers panel beside it said "These factors have similar
+ * influence on the outcome". An optional flag would let a new construction
+ * site default back into that crown silently; a required one makes the
+ * omission a type error. `topFlipRisk` deliberately does NOT carry it — that
+ * claim is a producer-ranked flip probability, a different question with its
+ * own owner (`selectFlipRisk`).
+ */
+export interface HeroMainDriverLink extends HeroQuickLink {
+  /** True only when the named factor is clear of the runner-up by more than
+   * `INFLUENCE_TIE_EPSILON`, per the single owner `hasClearInfluenceLeader`. */
+  leadIsClear: boolean
+}
+
+/**
  * ⭐ WHERE A DRIVER'S VALUE CAME FROM — three states, and the third one is the
  * point (ported from the retired V7 evidence disclosure, ROADMAP row "est.").
  *
@@ -429,7 +450,7 @@ export interface HeroChartModel {
   /** Wave 2 (§6.5): Main driver / Top flip risk quick links (semantically
    * distinct: strongest effect vs most likely to change the leader). */
   quickLinks: {
-    mainDriver: HeroQuickLink | null
+    mainDriver: HeroMainDriverLink | null
     topFlipRisk: HeroQuickLink | null
   }
   /** Wave 2 (§6.6): "Why and what could change it" disclosure content. */

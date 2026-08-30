@@ -518,7 +518,9 @@ export function AnalysisHeroPanel({
               className={pillClass}
             >
               <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
-              {HERO_COPY.pills.combined(combinedLink.label)}
+              {combinedLink.leadIsClear
+                ? HERO_COPY.pills.combined(combinedLink.label)
+                : HERO_COPY.pills.combinedTied(combinedLink.label)}
             </button>
           ) : (
             <>
@@ -530,7 +532,11 @@ export function AnalysisHeroPanel({
                   className={pillClass}
                 >
                   <Crosshair aria-hidden="true" className="h-3 w-3 flex-none text-info" />
-                  {HERO_COPY.pills.mainDriver(mainDriverLink.label)}
+                  {/* The claim yields to a tie; the FACTOR is still named and
+                      the pill still focuses it. See heroCopy.pills.mainDriverTied. */}
+                  {mainDriverLink.leadIsClear
+                    ? HERO_COPY.pills.mainDriver(mainDriverLink.label)
+                    : HERO_COPY.pills.mainDriverTied(mainDriverLink.label)}
                 </button>
               )}
               {topFlipLink && (

@@ -381,6 +381,22 @@ export const HERO_COPY = {
     mainDriver: (factor: string) => `Main driver: ${factor}`,
     topFlipRisk: (factor: string) => `Top flip risk: ${factor}`,
     combined: (factor: string) => `Main driver and top flip risk: ${factor}`,
+    /**
+     * ⛔ THE TIE VARIANTS STILL NAME THE FACTOR. "Main driver: X" is a
+     * comparative claim and a tie cannot support one — but going quiet would
+     * cost the reader their single most useful orientation, and under the
+     * no-hiding ruling that is a worse answer than a hedged one. The register
+     * matches the leader node's ", tied for its top lever": state the tie,
+     * which is the fact the crown was concealing.
+     *
+     * `combinedTied` hedges the DRIVER half only. The comma before "and"
+     * groups the two claims ("[tied for main driver], and [top flip risk]"),
+     * so the hedge cannot be read as applying to the flip-risk half — which
+     * has its own owner (`selectFlipRisk`) and is not in question here.
+     */
+    mainDriverTied: (factor: string) => `Tied for main driver: ${factor}`,
+    combinedTied: (factor: string) =>
+      `Tied for main driver, and top flip risk: ${factor}`,
   },
 
   /**
@@ -415,6 +431,12 @@ export const HERO_COPY = {
      * stays forbidden until a producer rationale string exists.
      */
     mainReason: (factor: string) => `Main driver: ${factor}.`,
+    /**
+     * The pill-less path's tie variant — same rule and same register as
+     * `pills.mainDriverTied`. The factor is still named; only the
+     * comparative claim yields.
+     */
+    mainReasonTied: (factor: string) => `Tied for main driver: ${factor}.`,
     /**
      * Focus-next reconciliation (review-locked): the coaching panel's rows
      * are composed POSITIONALLY (buildFocusRows: server rows in received
