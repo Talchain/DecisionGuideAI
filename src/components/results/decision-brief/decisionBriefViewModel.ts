@@ -94,7 +94,13 @@ function isValidIsoInstant(value: string): boolean {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value
 }
 
-function containsRawIdentifier(value: string): boolean {
+/**
+ * Exported so `estimatedInterventions.ts` withholds an id-shaped CANVAS label by
+ * the SAME rule this module applies to producer prose. Deliberately shared
+ * rather than copied: a second regex pair would be a hand-maintained mirror of
+ * this one, and the copy that drifts is the one that leaks an identifier.
+ */
+export function containsRawIdentifier(value: string): boolean {
   return RAW_ID_PATTERN.test(value) || SUPPLEMENTAL_RAW_IDENTIFIER_RE.test(value)
 }
 

@@ -90,7 +90,7 @@ describe('robustness_caveat reaches the view model', () => {
 describe('the caveat is gated on the leader claim, and never asserts one', () => {
   it('renders when the producer permitted a leader claim', () => {
     const vm = vmWith({ robustness_caveat: caveat() })!
-    render(<DecisionBriefSection brief={vm} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={vm} leaderClaimPermitted estimatedInterventions={[]} />)
     expect(screen.getByText(new RegExp('held up under the perturbations tested'))).toBeInTheDocument()
   })
 
@@ -99,14 +99,14 @@ describe('the caveat is gated on the leader claim, and never asserts one', () =>
     // own evidence that a ranking may be spoken about.
     const vm = vmWith({ robustness_caveat: caveat() })!
     expect(vm.robustnessCaveat).not.toBeNull()
-    render(<DecisionBriefSection brief={vm} leaderClaimPermitted={false} />)
+    render(<DecisionBriefSection brief={vm} leaderClaimPermitted={false} estimatedInterventions={[]} />)
     expect(screen.queryByText(new RegExp('held up under the perturbations tested'))).toBeNull()
     expect(screen.queryByTestId('decision-brief-robustness-caveat')).toBeNull()
   })
 
   it('makes no claim in either direction when the caveat is absent but a leader is permitted', () => {
     const vm = vmWith({})!
-    render(<DecisionBriefSection brief={vm} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={vm} leaderClaimPermitted estimatedInterventions={[]} />)
     expect(screen.queryByTestId('decision-brief-robustness-caveat')).toBeNull()
     // Absence must not be rendered as reassurance.
     expect(document.body.textContent ?? '').not.toMatch(/held up|robust|no caveat|stable/i)
@@ -114,7 +114,7 @@ describe('the caveat is gated on the leader claim, and never asserts one', () =>
 
   it('renders the fragile wording as faithfully as the reassuring one', () => {
     const vm = vmWith({ robustness_caveat: caveat(FRAGILE) })!
-    render(<DecisionBriefSection brief={vm} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={vm} leaderClaimPermitted estimatedInterventions={[]} />)
     expect(screen.getByText(new RegExp('was fragile under the perturbations tested'))).toBeInTheDocument()
   })
 })
