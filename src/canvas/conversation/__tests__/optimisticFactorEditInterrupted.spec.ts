@@ -44,15 +44,29 @@
  * no freshness dirt. The value simply stands until the preempting turn's own
  * graph apply writes CEE's copy over it.
  *
- * ── WHY THIS IS THE ONLY GENUINELY SILENT PATH ─────────────────────────────
+ * ── WHY THIS PATH IS SILENT — AND THE CLAIM THAT IT WAS THE *ONLY* ONE,
+ *    WITHDRAWN ────────────────────────────────────────────────────────────────
  *
- * The other two discard paths both leave the user something to read:
+ * The two POST-REPLY discard paths both leave the user something to read:
  *   · a typed refusal resolves through `resolveFailedOptimisticFactorEdit` and
  *     ships one of the `OPTIMISTIC_FACTOR_EDIT_NOTICE` sentences;
  *   · a 200 with no receipt reverts, and CEE's own prose ("Value 25 months
  *     exceeds the factor's cap of 6 months. I haven't changed anything.")
  *     renders in the transcript beside it.
  * An abort produces no reply, therefore no prose, therefore silence.
+ *
+ * ⚠ THIS HEADER USED TO SAY THE ABORT WAS THE ONLY GENUINELY SILENT PATH. FALSE
+ * — refuted by execution in the #962 review, with a contrast control firing in
+ * the same run. A signed-in session with `currentScenarioId` null refuses to
+ * mint at `useConversation.ts:3636`, and that refusal's notice is gated
+ * `mode === 'user' && !hidden`, so a SYSTEM `factor_value_edit` returns before
+ * dispatch and before the try: `dispatched = 0`, `messages = 0`, canvas still
+ * `{"value":0.8,…,"source":"user"}`, guest contrast control `dispatched = 1`.
+ * It is silent for a DIFFERENT reason — it never reaches a reply, so a scan
+ * that begins at the reply cannot see it — which is exactly why the original
+ * enumeration missed it. Left unfixed and rowed, not closed blind: the honest
+ * sentence there is about a decision that is not open, not about an interrupted
+ * turn, and that copy is a separate change. Named rather than quietly dropped.
  *
  * ── WHAT THE FIX MAY NOT DO ────────────────────────────────────────────────
  *
@@ -82,6 +96,19 @@ import {
 const replies: Array<Record<string, unknown>> = []
 const dispatched: Array<Record<string, unknown>> = []
 let holdFirstTurn = false
+/**
+ * ⚠ THE HELD TURN'S TWO ENDINGS, AND THE SECOND ONE IS WHY THIS FLAG EXISTS.
+ *
+ * `callV5Turn` awaits `fetch()` (headers) and `parseV5Response(res)` (body) as
+ * two SEPARATE awaits (`v5Adapter.ts:119`, `:198`). An abort between them, on a
+ * small already-buffered receipt, leaves `res.json()` resolving normally — so
+ * the promise RESOLVES while the signal reads aborted, and `sendTurn` leaves
+ * through `if (controller.signal.aborted) return` INSIDE the try, never
+ * reaching the catch. Every case above this flag drives the rejecting ending;
+ * none of them can see that exit, which is exactly how the #962 review found
+ * PR head emitting ZERO notices where the merge base emitted one.
+ */
+let heldTurnResolvesOnAbort = false
 
 /** An abort shaped exactly as `sendTurn` classifies it (`err.name === 'AbortError'`). */
 function abortError(): Error {
@@ -101,11 +128,12 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
       async (payload: Record<string, unknown>, opts?: { signal?: AbortSignal }) => {
         dispatched.push(payload)
         if (holdFirstTurn && dispatched.length === 1) {
-          await new Promise((_res, rej) => {
+          await new Promise((res, rej) => {
             const signal = opts?.signal
+            const settle = () => (heldTurnResolvesOnAbort ? res(undefined) : rej(abortError()))
             if (!signal) return
-            if (signal.aborted) return rej(abortError())
-            signal.addEventListener('abort', () => rej(abortError()))
+            if (signal.aborted) return settle()
+            signal.addEventListener('abort', settle)
           })
         }
         const response = replies.shift() ?? { assistant_text: 'ok', blocks: [] }
@@ -235,6 +263,7 @@ beforeEach(() => {
   dispatched.length = 0
   replies.length = 0
   holdFirstTurn = false
+  heldTurnResolvesOnAbort = false
   useCanvasStore.setState({
     currentScenarioId: SCENARIO,
     nodes: [
@@ -454,10 +483,11 @@ describe('the interrupted edit is not REVERTED — we hold no committed bytes', 
 
 async function driveStoppedEdit(
   kind: 'not_saved' | 'already_saved' | 'unconfirmed',
-  opts?: { movedOnTo?: number; deleteNode?: boolean },
+  opts?: { movedOnTo?: number; deleteNode?: boolean; resolveOnAbort?: boolean },
 ) {
   stopKind = kind
   holdFirstTurn = true
+  heldTurnResolvesOnAbort = opts?.resolveOnAbort === true
   const { result } = renderHook(() => useConversation())
 
   const pre = useCanvasStore.getState().nodes.find((n) => n.id === TARGET_ID)!.data
@@ -532,6 +562,17 @@ describe('the stop suppression is conditional — a Stop the user pressed is NEV
     expect(notices[0]).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
   })
 
+  it('OPPOSITE TWIN: when the value has MOVED ON *and* the response resolves after the abort, the draft stop notice still fires', async () => {
+    // The same twin as above, on the OTHER exit. Both directions must hold on
+    // both arms or the suppression has a hole on one of them and the suite
+    // cannot tell — which is precisely how the non-`catch` exit shipped silent.
+    const result = await driveStoppedEdit('not_saved', { movedOnTo: 0.95, resolveOnAbort: true })
+    const notices = noticesOf(result as never)
+
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toBe(EARLY_STOP_NOT_SAVED_NOTICE)
+  })
+
   it('OPPOSITE TWIN: when the NODE IS GONE, the draft stop notice fires as it does today', async () => {
     // ⚠ THIS CASE EXISTS BECAUSE THE REVIEW FOUND `if (!node) return` WAS A
     // SURVIVING MUTANT — the comment claimed TWO preconditions binding by
@@ -542,5 +583,62 @@ describe('the stop suppression is conditional — a Stop the user pressed is NEV
 
     expect(notices).toHaveLength(1)
     expect(notices[0]).toBe(EARLY_STOP_ALREADY_SAVED_NOTICE)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DIRECTION 4 — THE EXIT NOTHING ABOVE DRIVES.
+//
+// Found by the independent review of #962, by execution, with a base-commit
+// control. `cancelTurn` stands its stop notice down on a PREDICTION that the
+// catch's abort arm will speak. The two sites read ONE predicate, so they
+// cannot DISAGREE — but a reader that is never REACHED cannot agree either,
+// and there are exactly two returns inside `sendTurn`'s try that bypass the
+// catch. On the first of them the promise RESOLVES (the Stop landed between
+// the header await and the body await), so nothing threw, nothing was caught,
+// and the suppression stood alone.
+//
+// MEASURED, both arms, same driver, preconditions pinned in-probe (edit
+// dispatched = 1; the optimistic 0.8 asserted on the canvas; isThinking true):
+//
+//   PR HEAD c62e1bfe   notice count = 0   canvas value = 0.8 (source 'user')
+//   BASE    e38b8e96   notice count = 1   "You stopped this draft … Your canvas
+//                                          is unchanged — start a new draft…"
+//
+// The base sentence is FALSE while 0.8 sits on the canvas — that is the defect
+// this PR set out to remove. The PR turned one wrong sentence into NO sentence,
+// which is the worse direction by this file's own rule, and the twelve cases
+// above were all green throughout because every one of them drives the
+// REJECTING ending.
+// ---------------------------------------------------------------------------
+
+describe('the response that RESOLVES after the abort — the exit that bypasses the catch', () => {
+  it('still speaks, and the sentence names the factor', async () => {
+    const result = await driveStoppedEdit('not_saved', { resolveOnAbort: true })
+
+    // PRECONDITION, PINNED IN-TEST: the optimistic value really is on the
+    // canvas, so silence here really would leave a number nothing reconciles.
+    expect(observedOn(TARGET_ID).value, 'the optimistic write stands').toBe(SENT_MODEL)
+
+    const notices = noticesOf(result as never)
+    // RED at PR head c62e1bfe: `notices` is EMPTY — 0, against a base of 1.
+    expect(notices).toHaveLength(1)
+    expect(notices[0]).toBe(buildInterruptedFactorEditNotice(TARGET_LABEL))
+    // Bound by IDENTITY, not by shape: the sentence names the factor the event
+    // named and not the other factor sitting beside it on the same canvas.
+    expect(notices[0]).toContain(TARGET_LABEL)
+    expect(notices[0]).not.toContain(BYSTANDER_LABEL)
+    // The copy itself, pinned by a LITERAL rather than by the production
+    // builder — the review's note that an equality against the builder cannot
+    // see a copy change. The phrase chosen is the one that distinguishes this
+    // sentence from `unconfirmed_server`, which also opens "I couldn't confirm".
+    expect(notices[0]).toContain('the turn carrying it was interrupted')
+  })
+
+  it('does not emit the false draft notice on this exit either', async () => {
+    const result = await driveStoppedEdit('not_saved', { resolveOnAbort: true })
+
+    expect(observedOn(TARGET_ID).value).toBe(SENT_MODEL)
+    expect(noticesOf(result as never).join(' ')).not.toMatch(/canvas is unchanged/i)
   })
 })

@@ -617,13 +617,32 @@ export type OptimisticFactorEditNoticeKey = keyof typeof OPTIMISTIC_FACTOR_EDIT_
 /**
  * Does this edit's number still stand, unchanged, on the node it named?
  *
- * ⭐ ONE DEFINITION, TWO READERS, AND THAT IS THE POINT. It decides both whether
+ * ⭐ ONE DEFINITION FOR ITS TWO BOOLEAN READERS. It decides both whether
  * `resolveInterruptedOptimisticFactorEdit` speaks AND whether `cancelTurn`
  * stands its draft-stop notice down — and those two must never disagree, because
  * a disagreement in either direction is a defect the review already caught once:
  * both speaking is the contradictory pair, neither speaking is silence on a Stop
- * the user pressed. Two copies of this predicate would be two questions wearing
- * one name, which is exactly how the estate's worst seams have been built.
+ * the user pressed.
+ *
+ * ⚠ AND THE CLAIM THAT USED TO SIT HERE — "ONE DEFINITION, TWO READERS", full
+ * stop — WAS FALSE OF THE FILE, and is corrected rather than left standing. The
+ * #962 review found the SAME predicate (node still present, and still holding
+ * `sentValue`) already inlined TWICE above: `confirmOptimisticFactorEdit`
+ * (`:618-622`) and `revertOptimisticFactorEdit` (`:694-699`). This is the THIRD
+ * site computing it. They agree today — no semantic disagreement, so not a
+ * correctness defect — but three hand-maintained copies of one predicate is the
+ * mirror this comment claimed to have avoided, and a comment asserting a
+ * unification that does not exist is worse than no comment.
+ *
+ * ⚠ NOT UNIFIED HERE, DELIBERATELY, AND ROWED. The other two do not return a
+ * BOOLEAN: they return WHICH stand-down reason applied (`node_gone` /
+ * `value_moved_on`), and their callers switch on it — `resolveFailed…` withholds
+ * the "previous value is back" promise on a non-`reverted` outcome, and both log
+ * the reason. Collapsing them onto this boolean would DELETE that distinction;
+ * doing it properly needs a tri-state helper returning the node alongside the
+ * outcome, which is two more functions and their tests. That is a bigger change
+ * than the fix round it was found in, so it is named here and rowed, not done
+ * blind under time pressure.
  *
  * The two stand-down reasons are the same pair `revertOptimisticFactorEdit`
  * uses, for the same reasons: a node that is gone cannot be checked, and a value
