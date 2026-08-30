@@ -53,8 +53,15 @@ export const CANVAS_LOD_NOTICE_TESTID = 'canvas-lod-notice'
  * to show labels" is true at exactly the moment `lodActive` is true, because
  * that flag IS `zoom < LABEL_LEGIBLE_ZOOM`.
  */
-export const CANVAS_LOD_NOTICE_COPY = 'Zoomed out too far to show labels'
-export const CANVAS_LOD_NOTICE_ACTION = 'Zoom in to read them'
+/**
+ * ⚠ THIS SENTENCE WAS TRUE UNTIL THE TITLES STOPPED HIDING (30 Aug 2026).
+ * "Too far to show labels" described the old behaviour, where every node below
+ * the threshold rendered its title `visibility: hidden`. Titles now survive at
+ * every zoom; it is the node BODIES that simplify. Leaving the old sentence
+ * would have the product describing a state it no longer enters.
+ */
+export const CANVAS_LOD_NOTICE_COPY = 'Zoomed out — showing titles only'
+export const CANVAS_LOD_NOTICE_ACTION = 'Zoom in for detail'
 
 export function CanvasLodNotice() {
   const lodActive = useCanvasStore((s) => s.lodActive === true)

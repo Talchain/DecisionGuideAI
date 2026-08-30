@@ -107,7 +107,30 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // readable title. Undefined-safe for spec store doubles without the slice.
   const lodActive = useCanvasStore(s => s.lodActive === true)
   const lodKeepsTitle = nodeType === 'goal' || nodeType === 'decision' || lodKeepLabel
-  const lodHideTitle = lodActive && !lodKeepsTitle
+
+  /**
+   * ⭐⭐ A NODE NEVER LOSES ITS NAME (30 Aug 2026, Paul, on the deployed build:
+   * "when I zoom out of the graph, the content in it shouldn't disappear —
+   * it's a terrible user experience").
+   *
+   * This used to be `lodActive && !lodKeepsTitle`, so below the 0.50
+   * level-of-detail threshold every node except the goal, the decision and the
+   * leading option rendered its TITLE as `visibility: hidden` — and the body
+   * with it. The graph became anonymous coloured boxes.
+   *
+   * The reasoning behind it was sound and is why the BODY still hides: at low
+   * zoom the counter-scale is capped, dense body content stops being legible,
+   * and hiding it keeps the card's box (so ELK and the edge anchors stay
+   * stable). But that argument was applied one level too far. A user zooms out
+   * DELIBERATELY, to read structure — and structure is unreadable without
+   * knowing which node is which. Small text you can squint at is strictly
+   * better than a box that says nothing, and a blank card is indistinguishable
+   * from a broken render.
+   *
+   * The anchors still get the boost; everything else keeps its ordinary title,
+   * so no card's geometry assumption changes.
+   */
+  const lodHideTitle = false
   const lodBoostTitle = lodActive && lodKeepsTitle
 
   // Graph Interaction P1: Node dimming for path highlighting

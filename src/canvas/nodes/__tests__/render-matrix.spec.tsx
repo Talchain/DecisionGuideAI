@@ -1280,13 +1280,21 @@ describe('N1 — per-type selection ring', () => {
     expect(screen.queryByTestId('edited-since-run-factor-1')).toBeNull()
   })
 
-  it('D2: at LOD zoom a factor node hides its title and body (shape only)', () => {
+  it('D2: at LOD zoom a factor node KEEPS its title, and hides only the body', () => {
+    // ⚠ THIS PIN WAS INVERTED ON PURPOSE (30 Aug 2026). It previously required
+    // the title to be `visibility: hidden` at LOD zoom, which is what made the
+    // graph read as anonymous coloured boxes the moment a user zoomed out to
+    // look at structure. A node never loses its name; the BODY still simplifies,
+    // which is the part of the original rationale that holds.
     vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
       sel({ ...nodeState([]), lodActive: true }),
     )
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
     const title = screen.getAllByTestId('node-title')[0]
-    expect(title).toHaveStyle({ visibility: 'hidden' })
+    expect(title).not.toHaveStyle({ visibility: 'hidden' })
+    // The discriminating half: the body IS still hidden, so this test cannot
+    // pass on a build that simply removed level-of-detail altogether.
+    expect(document.querySelector('[data-lod-hidden="true"]')).not.toBeNull()
   })
 
   it('D2: at LOD zoom a goal node keeps a boosted, visible title', () => {
