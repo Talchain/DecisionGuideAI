@@ -268,6 +268,28 @@ describe('DecisionBriefSection renders the disclosure on the mounted surface', (
     expect(group).toHaveTextContent(FACTOR_LABEL)
   })
 
+  /**
+   * ⚠ THE SECTION-LEVEL GUARD IN `DecisionBriefSection.spec.tsx` NEVER SEES THIS
+   * COPY. It renders a fixture with no disclosure, so its assertion that the
+   * section carries no "confidence"/"probability" language and no "%" is silent
+   * about the one string this PR adds. Asserted here on the RENDERED SECTION,
+   * with the disclosure present — the string-level `T-NO-CLAIM` above proves the
+   * sentence is clean, this proves the SURFACE still is once it carries it.
+   */
+  it('T-NO-CLAIM-RENDERED: the section asserts no confidence or probability once the disclosure is on it', () => {
+    render(
+      <DecisionBriefSection
+        brief={EMPTY_BRIEF}
+        leaderClaimPermitted
+        estimatedInterventions={[formatEstimatedInterventionNote(OPTION_LABEL, FACTOR_LABEL)]}
+      />,
+    )
+    const section = screen.getByTestId('decision-brief-section')
+    expect(section).toHaveTextContent(ESTIMATED_INTERVENTION_MARK)
+    expect(section).not.toHaveTextContent(/recommend|winner|leading option|probability|confidence|robust/i)
+    expect(section).not.toHaveTextContent('%')
+  })
+
   it('T-NO-DISCLOSURE: with nothing model-chosen, the group stays absent — no empty promise', () => {
     render(
       <DecisionBriefSection brief={EMPTY_BRIEF} leaderClaimPermitted estimatedInterventions={[]} />,
