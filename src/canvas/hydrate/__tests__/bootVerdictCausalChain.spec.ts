@@ -55,6 +55,14 @@
  * carries none (`applyV5State.ts:1176-1184`). Both are correct — a turn is a
  * fresher authority than a boot read — and both end this PR's governance. The
  * post-turn-1 freshness defect is NOT fixed here and is named in the PR limits.
+ *
+ * ⚠ APPENDED, NOT REWRITTEN — the paragraph above is this PR's own record and
+ * stands. The post-turn-1 defect it names as unfixed HAS since been fixed, one
+ * layer up: the wire branch now lets the local dirty overlay supersede an
+ * AFFIRMATIVE `complete_current`, which is what let `applyBootAnalysisVerdict`
+ * decline that kind outright in the first place. Two cases in this file moved
+ * with it, each carrying its own derivation. Nothing about the boot window's
+ * behaviour changed.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -176,9 +184,18 @@ describe('⭐ the chain: restored verdict → wire branch → the overlay stops 
     expect(after.requiresRerun).toBe(true)
   })
 
-  it('⭐ the wire branch does NOT consult the overlay — its fate stops mattering', () => {
+  it('⭐ a STATED `complete_stale` does not consult the overlay — its fate stops mattering there', () => {
     // The honest form of "the overlay survives the next turn". It may or may not
-    // survive; while a verdict stands, the answer is the same either way.
+    // survive; while a STATED-CHANGE verdict stands, the answer is the same
+    // either way.
+    //
+    // ⚠ TITLE NARROWED, AND THE NARROWING IS THE POINT. This read "the wire
+    // branch does NOT consult the overlay", which was true of the whole branch
+    // when written and is now true only of the NON-AFFIRMATIVE kinds. The
+    // affirmative `complete_current` IS superseded by the overlay
+    // (`analysisStateSelector.localEditSupersedesWireCurrency.spec.tsx`), and a
+    // guard whose name asserts something false about the estate is how alarms
+    // stop meaning anything. The case itself is unchanged and still bites.
     const overlayIntact = compose({
       analysisState: RESTORED_STALE,
       freshness: TURN1_FRESH,
@@ -219,14 +236,60 @@ describe('⭐ BOTH DIRECTIONS — the restored verdict must not become a STUCK "
     // turn's verdict over whatever boot restored — a turn is a fresher
     // authority and must win, or this PR trades a false "current" for a
     // permanent "changed", which users learn to ignore just as fast.
+    //
+    // ⚠⚠ THE SECOND ARM'S `dirty` WAS `true` AND THAT WAS A FIXTURE THE CHAIN
+    // CANNOT PRODUCE — corrected when the wire branch learned to consult the
+    // overlay (`analysisStateSelector.localEditSupersedesWireCurrency.spec.tsx`).
+    // Derived at the writer: `applyV5State` calls `setAnalysisFreshness` at
+    // `:1098`, BEFORE it writes the verdict at `:1193`, and that reducer clears
+    // the overlay whenever it accepts a present freshness payload. So a turn
+    // that genuinely re-verified the current model arrives with `dirty: false`,
+    // which is what this arm now supplies. The claim being pinned —
+    // "a fresher verdict wins and the product moves on" — is unchanged; only
+    // the arm's inputs are now ones the producer can actually emit (trap 16's
+    // inverse: a fixture you wrote yourself is not evidence about the wire).
     const atBoot = compose({ analysisState: RESTORED_STALE, freshness: null, dirty: true })
-    const afterTurn = compose({ analysisState: TURN_CURRENT, freshness: null, dirty: true })
+    const afterTurn = compose({ analysisState: TURN_CURRENT, freshness: null, dirty: false })
 
     expect(atBoot.semantic).toBe('changed')
     expect(afterTurn.semantic).toBe('current')
     // The two verdicts genuinely differ — bound by identity, not by a predicate
     // a second object could satisfy (trap 19).
     expect(afterTurn.runStateKind).not.toBe(atBoot.runStateKind)
+  })
+
+  it('NOT STUCK — the escape hatch is the overlay, and one re-verifying turn opens it', () => {
+    // The other half of "must not become a STUCK changed", now that the overlay
+    // can withhold a wire currency claim. Same verdict, one input different:
+    // the product returns to `current` the moment a turn re-verifies. Without
+    // this, the correction above would be a claim rather than a demonstration.
+    const held = compose({ analysisState: TURN_CURRENT, freshness: null, dirty: true })
+    const released = compose({ analysisState: TURN_CURRENT, freshness: null, dirty: false })
+    expect(held.semantic).toBe('changed')
+    expect(released.semantic).toBe('current')
+    expect(released.runStateKind).toBe(held.runStateKind)
+  })
+
+  it('WHY THE HELD ARM IS HONEST — every reachable `complete_current` + overlay is a change CEE has not seen', () => {
+    // The overlay survives a turn only where the store deliberately keeps it,
+    // and each of those cases is the same fact: the server's verdict was
+    // computed without the user's change.
+    //   · `pendingEmittedEdits > 0` — an emitted edit not yet on the wire;
+    //   · a readiness-only `analysis_ready` (VERDICT_ABSENT_FROM_PAYLOAD) —
+    //     silence about freshness is not evidence of re-verification;
+    //   · `importPendingServerRegistration` — the canvas holds a graph CEE has
+    //     never seen (that arm is pinned separately, and may NOT mint 'changed');
+    //   · a purely local mutation after the turn — a restore
+    //     (`mergeAppliedGraph.ts:717`) or "add a baseline"
+    //     (`useAddBaseline.ts:123`).
+    // In all of them the currency claim describes a graph that is no longer on
+    // screen, so withdrawing it is the honest answer and the rerun affordance
+    // must come with it.
+    const held = compose({ analysisState: TURN_CURRENT, freshness: null, dirty: true })
+    expect(held.authority).toBe('wire')
+    expect(held.runStateKind).toBe('complete_current')
+    expect(held.displayedFreshness).toBe('unknown')
+    expect(held.requiresRerun).toBe(true)
   })
 
   it('a turn carrying NO verdict clears back to the derived branch — and the UNFIXED defect is there', () => {

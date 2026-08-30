@@ -527,13 +527,67 @@ export function composeAnalysisState(
   const runStateKind: AnalysisRunStateKind | null =
     wire !== null ? wire.run_state.kind : null
 
+  // ⭐ THE ONE THING THE PRODUCER CANNOT KNOW: AN EDIT IT HAS NOT BEEN TOLD ABOUT.
+  //
+  // The precedence rule below is deliberate and stays. But every wire member is
+  // a statement about THE GRAPH CEE SAW, and `dirty` is not a competing verdict
+  // — it is the UI's own first-hand record that an analysis-affecting edit has
+  // happened SINCE. A producer cannot contradict it, because it has not been
+  // shown it. So the ONE AFFIRMATIVE claim on the wire — `complete_current`, the
+  // only kind entitled to vouch for a result — is superseded by it.
+  //
+  // ⚠ THIS IS NOT A NEW DIAGNOSIS, AND THAT IS WHY IT IS FIXED HERE RATHER THAN
+  // AT ANOTHER WRITER. `serverGraphHydration.ts:187-192` already records it and
+  // works around it: `applyBootAnalysisVerdict` "declines `complete_current`
+  // outright: on the selector's WIRE branch the local dirty overlay is not
+  // consulted, so restoring a currency claim here would render 'Analysis
+  // complete' over a canvas the merge below is about to mark stale." That guard
+  // covers the BOOT writer only — the polling writer
+  // (`applyScenarioAnalysisRead.ts:383`) applies `complete_current` by design,
+  // so the window stayed open behind it, and a restore
+  // (`mergeAppliedGraph.ts:717`) or an "add a baseline" (`useAddBaseline.ts:123`)
+  // walked straight into it.
+  //
+  // ⚠ SCOPED TO THE AFFIRMATIVE, AND KEYED ONLY ON THE OVERLAY. Two boundaries,
+  // both pinned by opposite-direction twins in
+  // `analysisStateSelector.localEditSupersedesWireCurrency.spec.tsx`:
+  //   · A CEE-STATED legacy `stale` still loses to a wire `complete_current` —
+  //     the supersession reads the OVERLAY, never the legacy verdict. Widening
+  //     it to the verdict would reopen the six-vocabularies divergence this
+  //     module exists to close.
+  //   · Every other wire kind is untouched. They are already non-affirmative
+  //     (`complete_stale` states the change; `refused` / `unknown_degraded` /
+  //     `running` state uncertainty; `never_run` / `blocked` have no result to
+  //     vouch for), so an overlay has nothing to withdraw from them.
+  //
+  // ⚠ AND IT MOVES THREE MEMBERS AS ONE UNIT — `semantic`, `displayedFreshness`
+  // and `requiresRerun`. They are composed from one verdict and answer one
+  // user-facing question between them; the RUN PAIR note above records the two
+  // real defects that splitting such a group produced. `requiresRerun` is
+  // otherwise producer-owned and is NOT re-derived here: the producer's `false`
+  // is a true answer about the graph it saw, and this withdraws it for the same
+  // reason the currency claim is withdrawn, on the same input, at the same time.
+  const wireCurrencySuperseded =
+    wire !== null && wire.run_state.kind === 'complete_current' && dirty === true
+
   // THE PRECEDENCE RULE. When the wire is present its verdict wins outright —
   // the legacy semantic is not consulted, not blended, and not used as a
   // tie-break. `classifyFreshnessForDisplay` is still the derived branch's
   // implementation (wrapped above), which is why there is no second copy of it.
+  //
+  // ⚠ THE SUPERSEDED WORDING IS `'changed'` — EXCEPT UNDER AN IMPORT HOLD.
+  // `classifyFreshnessForDisplay` forbids the positive "you changed the model"
+  // claim there, because the hold's identity match is structural and also fires
+  // when the GENUINE server graph is on the canvas (interim 2.467). Minting
+  // `'changed'` under a hold would reopen that P0 in a new spelling, so the
+  // wire branch obeys the same rule the derived branch does.
   const semantic: FreshnessDisplaySemantic =
     wire !== null
-      ? mapRunStateKindToSemantic(wire.run_state.kind, hasReport)
+      ? wireCurrencySuperseded
+        ? importHold
+          ? 'cannot_confirm'
+          : 'changed'
+        : mapRunStateKindToSemantic(wire.run_state.kind, hasReport)
       : legacyTrust.semantic
 
   // The trust shape every existing consumer reads, with the composed semantic
@@ -629,9 +683,18 @@ export function composeAnalysisState(
     freshness,
     legacyTrust.orphaned,
   )
+  // ⚠ `'unknown'`, NEVER `'stale'`, WHEN THE OVERLAY SUPERSEDES THE WIRE'S
+  // CURRENCY. This is `resolveDisplayedFreshness`'s own rule applied to the wire
+  // branch: "Suppress a stale-since-edit 'fresh' verdict to cannot-confirm." A
+  // `'stale'` here would be FABRICATED — it is reserved for a verdict the server
+  // actually stated (`complete_stale`), and minting it from our own overlay is
+  // the thing `mapRunStateKindToDisplayedFreshness`'s doc says keeps "never
+  // fabricate stale" true on this branch.
   const displayedFreshness: AnalysisFreshnessValue | null =
     wire !== null
-      ? mapRunStateKindToDisplayedFreshness(wire.run_state.kind, hasReport)
+      ? wireCurrencySuperseded
+        ? 'unknown'
+        : mapRunStateKindToDisplayedFreshness(wire.run_state.kind, hasReport)
       : resolveDisplayedFreshness(effectiveForValue, dirty)
 
   // ⚠ This used to pass `semantic === 'changed' ? 'stale' : ...` — the very
@@ -669,9 +732,18 @@ export function composeAnalysisState(
     // rerun AFFORDANCE has always rendered for a not-confirmably-current
     // result, and withdrawing it on legacy payloads would be a regression
     // dressed up as caution.
+    //
+    // ⚠ AND THE ONE CASE IN WHICH THE PRODUCER'S ANSWER IS SUPERSEDED — the
+    // same case, the same input, the same moment as the currency claim above.
+    // `wire.requires_rerun: false` is a true answer about the graph CEE saw; it
+    // is not an answer about a graph the user has changed since. Withdrawing the
+    // currency claim while leaving this alone would split a group of three that
+    // one surface reads together: `postAnalysisFooter.deriveRerunActionLabel`
+    // gates on `requiresRerun` and words itself from `semantic`, so the strip
+    // would say the model moved while the rerun beside it stayed unqualified.
     requiresRerun:
       wire !== null
-        ? wire.requires_rerun
+        ? wireCurrencySuperseded || wire.requires_rerun
         : semantic === 'changed' || semantic === 'cannot_confirm',
     blockedUnusable: wire?.blocked_unusable ?? null,
     contradictions: wire?.contradictions ?? null,
