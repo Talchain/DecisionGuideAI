@@ -172,7 +172,7 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     expect(rowsByKey.get('n_up')?.rank).toBe(3)
   })
 
-  it('producer basis: the top-driver crown lands on the same row on both surfaces', () => {
+  it('producer basis: an exact tie yields no rendered ordinal, and the values still agree across surfaces', () => {
     setCompleteReport(baseReport({
       factor_sensitivity: [
         { node_id: 'a_pos', label: 'Alpha uplift', influence_score: 0.5, elasticity: 0.3 },
@@ -183,18 +183,41 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     const panel = renderHook(() => useResultsSectionData())
     const rowsByKey = new Map(panel.result.current.drivers.drivers.map(d => [d.factorKey, d]))
 
-    // Both rows carry a producer score, and the SAME one — so the crown is
+    // Both rows carry a producer score, and the SAME one — so the ORDER is
     // decided purely by the elasticity tie-break.
     expect(rowsByKey.get('a_pos')?.displayProvenance).toBe('influence_score')
     expect(rowsByKey.get('a_pos')?.displayInfluence).toBeCloseTo(0.5)
     expect(rowsByKey.get('b_neg')?.displayInfluence).toBeCloseTo(0.5)
 
+    // ⚠⚠ THIS FIXTURE IS AN EXACT TIE, AND THE ASSERTION BELOW CHANGED ON
+    // 2026-08-30. It used to read
+    //     expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
+    // — i.e. it pinned the canvas badge printing "#1" and "#2" for two factors
+    // the producer scored IDENTICALLY, with the order coming from the hidden
+    // elasticity tie-break. That is the defect #964 exists to remove: an
+    // ordinal is a COMPARATIVE claim and a tie cannot support one.
+    //
+    // ⚠ ORDERING ROWS AND ASSERTING A RANK ARE DIFFERENT QUESTIONS (trap 21),
+    // which is why the two surfaces legitimately answer differently here and
+    // this is NOT a re-opened fork. The panel's `rank` is an internal SORT KEY
+    // — its only non-test reader is `useResultsSectionData.ts:2698`
+    // (`.sort((a, b) => a.rank - b.rank)`) — and rows must come out in *some*
+    // deterministic order, so the tie-break is a correct use there. The canvas
+    // value is RENDERED to the user as "#N" (`NodeInspector`, `BaseNode`'s
+    // "Key driver #N", `EdgeInspector`'s "ranked #N in influence"), and there
+    // the tie-break would be a claim the data cannot support. The panel prints
+    // no ordinal at all; its user-visible tie signal is the "These factors have
+    // similar influence" note, which already fires on this fixture.
     for (const key of ['a_pos', 'b_neg']) {
       const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
-      expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
+      expect(canvas.result.current.sensitivityRank).toBeNull()
+      // …and the parity this spec exists to protect is UNCHANGED: the two
+      // surfaces still resolve the same VALUE on the same BASIS.
+      expect(canvas.result.current.influence).toBeCloseTo(rowsByKey.get(key)!.displayInfluence!)
     }
 
-    // The larger MAGNITUDE wins the tie on both surfaces, negative or not.
+    // The larger MAGNITUDE still wins the tie in the panel's row ORDER,
+    // negative or not — that behaviour is untouched.
     expect(rowsByKey.get('b_neg')?.rank).toBe(1)
     expect(rowsByKey.get('a_pos')?.rank).toBe(2)
   })

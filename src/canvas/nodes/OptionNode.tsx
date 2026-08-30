@@ -776,12 +776,18 @@ export const OptionNode = memo((props: NodeProps) => {
     // superlative would leave the reader with no idea the ranking was
     // meaningless; the honest surface states the tie, which is the fact the
     // crown was concealing.
+    //
+    // ⚠ BOTH CALLS PASS IDENTITIES, NOT VALUES. `hasClearInfluenceLeader` used
+    // to take a bare number array here, and a producer row duplicated under one
+    // `factor_id` then read as a tie WITH ITSELF — suppressing a genuine 2.5x
+    // leader on the global set, and independently suppressing the option-scoped
+    // claim on `optionLevers`. See that function's header.
     const claim: 'global_top' | 'option_top' | 'tied' =
       chosen.value > 0
       && chosen.id === ranked[0]?.id
-      && hasClearInfluenceLeader(ranked.map(f => f.value))
+      && hasClearInfluenceLeader(ranked)
         ? 'global_top'
-        : hasClearInfluenceLeader(optionLevers.map(f => f.value))
+        : hasClearInfluenceLeader(optionLevers)
           ? 'option_top'
           : 'tied'
 
@@ -1278,7 +1284,7 @@ export const OptionNode = memo((props: NodeProps) => {
               ? ', the #1 driver'
               : winsVia.claim === 'option_top'
                 ? ', its biggest lever'
-                : ', tied for its biggest lever'}
+                : ', tied for its top lever'}
           </p>
         )}
 

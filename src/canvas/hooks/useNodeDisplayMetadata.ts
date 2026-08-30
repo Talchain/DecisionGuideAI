@@ -11,7 +11,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
-import { compareByDisplayModel } from '../../components/results/driverDisplayModel'
+import { compareByDisplayModel, hasClearInfluenceLeader } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
@@ -251,9 +251,38 @@ export function useNodeDisplayMetadata(
         }))
         .sort(compareByDisplayModel)
 
-      // Find this node's rank (1-indexed)
+      // Find this node's rank (1-indexed).
+      //
+      // ⚠⚠ A RANK IS A COMPARATIVE CLAIM AND A TIE CANNOT SUPPORT ONE
+      // (2026-08-30). `compareByDisplayModel` falls through value → elasticity
+      // → `key.localeCompare`, so on a degenerate draft this RESOLVED the tie
+      // instead of reporting it: five byte-identical factors fed in shuffled
+      // order came back `#1 fac_a … #5 fac_e` — ALPHABETICAL — with one
+      // distinct value and one distinct elasticity between them (measured in
+      // this tree; a spread-value contrast control in the same run came back in
+      // value order, so the probe was discriminating). The rank then renders as
+      // `#N` at `NodeInspector.tsx`, as a "Key driver #N" canvas badge at
+      // `BaseNode.tsx`, and as "Connects factor ranked #N in influence" at
+      // `EdgeInspector.tsx`, so the leader node could honestly say "tied" while
+      // the inspector beside it crowned one of the tied factors "#1".
+      //
+      // The gate ASKS THE EXISTING OWNER — `hasClearInfluenceLeader`, the same
+      // function the Drivers panel's badge and the leader node's "#1 driver"
+      // claim consume — rather than minting a rival tie notion here. One
+      // question, one function.
+      //
+      // ⚠ IT IS SET-LEVEL, DELIBERATELY. Withholding only the tied factors'
+      // ranks would print a "#3" with no "#1" or "#2" beside it, which is a
+      // second kind of nonsense; when the top is undetermined the ordinal
+      // reading of the whole set is what fails. Under the NO-HIDING ruling this
+      // withholds a claim the data cannot support — it does not hide a finding:
+      // the influence VALUE and its provenance are still surfaced below, so the
+      // reader keeps the number and loses only the false ordering.
       const rank = ranked.findIndex(f => f.key === nodeId) + 1
-      sensitivityRank = rank > 0 && rank <= 3 ? rank : null
+      const rankIsDetermined = hasClearInfluenceLeader(
+        ranked.map((f) => ({ id: f.key, value: f.value })),
+      )
+      sensitivityRank = rankIsDetermined && rank > 0 && rank <= 3 ? rank : null
 
       // VoI rank: top-3 factors by value_of_information. Keyed off the shared
       // feed's canonical key (node_id → factor_id → id → label), so a row

@@ -278,8 +278,8 @@ export function compareByDisplayModel(
 export const INFLUENCE_TIE_EPSILON = 0.01
 
 /**
- * Does this set of display values have a SINGLE leader — a top clear of its
- * runner-up by more than `INFLUENCE_TIE_EPSILON`?
+ * Do these factors have a SINGLE leader — one factor clear of the next
+ * DISTINCT factor by more than `INFLUENCE_TIE_EPSILON`?
  *
  * ⚠ EXTRACTED, NOT INVENTED (2026-08-29). This predicate already existed,
  * inlined inside `resolveDriverSemanticLabels`, where it correctly withheld the
@@ -294,17 +294,80 @@ export const INFLUENCE_TIE_EPSILON = 0.01
  * sorts first ALPHABETICALLY. Across 20 varied-magnitude reconstructions of
  * each degenerate draft the "biggest lever" was undetermined in 5 of 5.
  *
- * A crown is a COMPARATIVE claim and a tie cannot support one. Both surfaces
- * now ask this one function, so neither can drift into its own idea of a tie.
+ * A crown is a COMPARATIVE claim and a tie cannot support one.
+ *
+ * ⚠⚠ IT TAKES IDENTITIES, NOT A BAG OF NUMBERS — AND THAT IS NOT A STYLE
+ * CHOICE (2026-08-30, adversarial review of #964). This shipped for one round
+ * as `hasClearInfluenceLeader(values: ReadonlyArray<number>)`, replacing an
+ * identity test (`f.id === globalTopId`) at the leader node with a VALUE COUNT.
+ * Measured at head `d5d11c1b`: `factor_sensitivity = [a@1.0, a@1.0, c@0.4]` —
+ * ONE factor listed twice — made the leader node say *"tied for its biggest
+ * lever"* where the pre-#964 code correctly said *", the #1 driver"*. A single
+ * duplicated row committed BOTH harms at once: it SUPPRESSED a genuine 2.5x
+ * leader and ASSERTED a tie that does not exist, the factor "tied" with itself.
+ * Counting values cannot tell one factor listed twice from two factors — only
+ * an id can, which is the standing rule (bind by IDENTITY, never by a value
+ * predicate another object could satisfy) that the tie fix was itself applying.
+ *
+ * ⚠ Reachability of a duplicated `factor_id` is UNESTABLISHED, deliberately.
+ * The in-UI route is closed (`normaliseGraphIds` in `utils/nodeIdNormalisation`
+ * resolves collisions against `usedIds`, so the id map is injective); the
+ * trigger needs the producer — CEE / PLoT / ISL — to emit two
+ * `factor_sensitivity` rows under one `factor_id`, and no lane has reached that
+ * location to say either way. The binding is correct regardless, so this is not
+ * priced as a reachability question.
  *
  * A single-member set has no runner-up, so its member is trivially clear. An
- * empty set has no leader to be clear.
+ * empty set has no leader to be clear. Two entries sharing one id are ONE
+ * factor: a factor is not tied with itself.
+ *
+ * ⚠⚠ THE COMPLETE CONSUMER LIST, AND WHAT THIS FUNCTION STILL DOES **NOT**
+ * OWN. This header claimed, for one round, that *"both surfaces now ask this
+ * one function, so neither can drift into its own idea of a tie"* — **false
+ * when written**, and exactly the label-drift this estate keeps paying for: an
+ * honest scope overwritten by a reassuring one teaches every later lane to
+ * stop looking. Derived by `command grep -raIn` over `src/`, 2026-08-30.
+ *
+ * THREE consumers ask this function:
+ * - `resolveDriverSemanticLabels` below — the Drivers panel's "biggest" badge.
+ * - `canvas/nodes/OptionNode.tsx` — the leader node's "#1 driver" claim, over
+ *   two DIFFERENT sets (all factors; then this option's levers).
+ * - `canvas/hooks/useNodeDisplayMetadata.ts` — `sensitivityRank`, added
+ *   2026-08-30. It sorts by `compareByDisplayModel` and takes the index, and
+ *   that comparator falls through value → elasticity → `key.localeCompare`, so
+ *   it used to RESOLVE a tie instead of reporting one: five byte-identical
+ *   factors fed in shuffled order ranked `#1 fac_a … #5 fac_e`, ALPHABETICAL.
+ *   It reaches the user as `#N` at `NodeInspector.tsx`, a "Key driver #N"
+ *   canvas badge at `BaseNode.tsx`, "Connects factor ranked #N in influence"
+ *   at `EdgeInspector.tsx`, an ordinal at `inspector-v2/shared/ImportanceBar`,
+ *   coaching gates at `inspector/coachingText.ts`, four `inspector-v2/panels/*`
+ *   and icon selection at `hooks/useScienceIcons.ts` — twelve non-test files
+ *   off one number, which is why it is gated at the single producer rather
+ *   than at each render site.
+ *
+ * These do NOT, and are named so a later sweep does not have to rediscover them:
+ * - `components/results/TriageActionCardsBody.tsx:486-488` — a hand-maintained
+ *   inline rival (`> INFLUENCE_TIE_EPSILON`, same boundary), additionally gated
+ *   on `basis === 'influence_score'` for both rows. Correct today; it should be
+ *   folded in, and is not, deliberately.
+ * - `components/results/DriversSection.tsx:1015-1019` — `(max - min) <=
+ *   INFLUENCE_TIE_EPSILON`. This answers a DIFFERENT question ("is the whole
+ *   set flat?") and is RIGHT not to be unified; named only so it is not
+ *   mistaken for a third copy of this one.
  */
-export function hasClearInfluenceLeader(values: ReadonlyArray<number>): boolean {
-  if (values.length === 0) return false
-  const safe = values.map((v) => (Number.isFinite(v) ? v : 0))
-  const max = Math.max(...safe)
-  return safe.filter((v) => max - v <= INFLUENCE_TIE_EPSILON).length === 1
+export function hasClearInfluenceLeader(
+  entries: ReadonlyArray<{ id: string; value: number }>,
+): boolean {
+  if (entries.length === 0) return false
+  const safe = entries.map((e) => ({
+    id: e.id,
+    value: Number.isFinite(e.value) ? e.value : 0,
+  }))
+  const max = Math.max(...safe.map((e) => e.value))
+  const idsAtTop = new Set(
+    safe.filter((e) => max - e.value <= INFLUENCE_TIE_EPSILON).map((e) => e.id),
+  )
+  return idsAtTop.size === 1
 }
 
 /**
@@ -343,7 +406,12 @@ export function resolveDriverSemanticLabels(
   // Clear of the runner-up, or there is no runner-up at all. The predicate is
   // `hasClearInfluenceLeader` above — shared with the leader node's "#1 driver"
   // claim, so the crown and that claim cannot disagree about what a tie is.
-  const topIsUnique = hasClearInfluenceLeader(values)
+  // `key` IS this surface's factor identity (it is what the returned Map is
+  // keyed by, so duplicates already collapse in the output) — pass it, so the
+  // panel cannot withhold its crown because one factor arrived twice.
+  const topIsUnique = hasClearInfluenceLeader(
+    entries.map((e, i) => ({ id: e.key, value: values[i] })),
+  )
 
   entries.forEach((entry, i) => {
     const value = values[i]

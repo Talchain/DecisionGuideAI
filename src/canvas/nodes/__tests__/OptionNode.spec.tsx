@@ -2419,10 +2419,13 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
     /**
      * The WHOLE rendered sentence, whitespace-normalised.
      *
-     * ⚠ WHY THE WHOLE SENTENCE AND NOT A SUBSTRING. "its biggest lever" is a
-     * SUBSTRING of "tied for its biggest lever", so a `queryByText(/its biggest
-     * lever/)` absence assertion is unsatisfiable and its presence twin is
-     * ambiguous — the two claims cannot be told apart by substring at all.
+     * ⚠ WHY THE WHOLE SENTENCE AND NOT A SUBSTRING. The three claims share
+     * words ("its", "lever"), and until 2026-08-30 the tie branch read "tied
+     * for its biggest lever" — of which the option-scoped claim "its biggest
+     * lever" is a literal SUBSTRING, making a `queryByText(/its biggest
+     * lever/)` absence assertion unsatisfiable and its presence twin
+     * ambiguous. Shortening the tie copy removed that particular overlap but
+     * not the hazard, so the assertions stay on the WHOLE sentence.
      * Exact equality also pins the FACTOR LABEL in the same breath, which is
      * the identity binding this block needs: the fixture's five factors carry
      * byte-identical influence values, so any value-based or partial match is
@@ -2467,7 +2470,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       // Paul's standing ruling: NO HIDING, CAVEAT INSTEAD. The factor is still
       // named — the reader loses a false claim and gains a true one.
       expect(winsViaSentence()).toBe(
-        'Leads via Migration investment, tied for its biggest lever',
+        'Leads via Migration investment, tied for its top lever',
       )
     })
 
@@ -2519,6 +2522,137 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       )
       expect(winsViaSentence()).toBe(
         'Leads via Migration investment, the #1 driver',
+      )
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // A FACTOR IS NOT TIED WITH ITSELF (2026-08-30, adversarial review of #964).
+  //
+  // The tie rule above was first shipped as a VALUE-COUNT over a bare
+  // `ReadonlyArray<number>` — a bag of numbers with no identity — replacing an
+  // identity test (`f.id === globalTopId`). Measured by the reviewer at head
+  // `d5d11c1b`: `factor_sensitivity = [a@1.0, a@1.0, c@0.4]` (ONE factor listed
+  // twice) on an option pulling ONE lever rendered — quoted verbatim, because
+  // it is a RECORD OF WHAT THE PRODUCT EMITTED at that commit and not a
+  // fixture to keep current (the tie copy was shortened to "tied for its top
+  // lever" on 2026-08-30):
+  //   "Leads via Migration investment, tied for its biggest lever"
+  // where the pre-#964 code correctly rendered ", the #1 driver". A single
+  // duplicated row therefore committed BOTH harms at once: it suppressed a
+  // genuine 2.5x leader AND asserted a tie the data does not contain — the
+  // factor "tied" with itself, on an option that pulls nothing else.
+  //
+  // ⚠ REACHABILITY IS UNESTABLISHED AND THAT IS NOT THE POINT. The in-UI route
+  // is closed (`normaliseGraphIds`, src/utils/nodeIdNormalisation.ts:85-105,
+  // resolves collisions against `usedIds`, so the id map is injective). The
+  // trigger needs the PRODUCER (CEE/PLoT/ISL) to emit two `factor_sensitivity`
+  // rows on one `factor_id`, which is a location neither the reviewer nor this
+  // lane could reach. The binding is correct either way, and this is the
+  // standing rule the fix itself was applying elsewhere: an assertion — and a
+  // predicate — binds by IDENTITY, never by a value another object could
+  // satisfy (trap 19).
+  // -------------------------------------------------------------------------
+  describe('winsVia: a duplicated producer row is not a tie with itself', () => {
+    const DUP_FACTOR_NODES = [
+      { id: 'fac_a_migration', type: 'factor', data: { label: 'Migration investment', type: 'factor' } },
+      { id: 'fac_b_headcount', type: 'factor', data: { label: 'Headcount ramp', type: 'factor' } },
+      { id: 'fac_c_pricing', type: 'factor', data: { label: 'Pricing page clarity', type: 'factor' } },
+      { id: 'option-1', type: 'option', data: { label: 'Keep Current Page', type: 'option' } },
+      { id: 'option-2', type: 'option', data: { label: 'Full Redesign', type: 'option' } },
+    ]
+
+    const winsViaSentence = () =>
+      screen.getByText(/Leads via/).textContent?.replace(/\s+/g, ' ').trim()
+
+    // ⚠ PIN THE PRECONDITION IN-TEST. Every assertion below is worthless if the
+    // duplicate silently collapses upstream — the fixture would then be an
+    // ordinary two-factor set and the tests would pass while proving nothing
+    // about duplicates. This asserts the duplicate SURVIVES `extractPolicyRow`
+    // into the ranked array the component builds, so what follows is the
+    // predicate's doing.
+    it('PRECONDITION: the duplicated row survives extraction as TWO rows on ONE key', () => {
+      const rows = [
+        { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+        { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+        { factor_id: 'fac_c_pricing', influence_score: 0.4, elasticity: 0.4 },
+      ]
+        .map(f => extractPolicyRow(f))
+        .filter((r): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
+
+      expect(rows).toHaveLength(3)
+      expect(rows.filter(r => r.key === 'fac_a_migration')).toHaveLength(2)
+      // …and both duplicate rows resolve to the SAME display value, which is
+      // exactly what a value-count cannot tell apart from two real factors.
+      const model = selectDriverDisplayModel(rows)
+      expect(new Set(rows.map(r => model.get(r.key)!.value)).size).toBe(2)
+    })
+
+    // THE REVIEWER'S REPRODUCTION, VERBATIM. `a` leads `c` by 2.5x; the crown
+    // is earned and must be awarded.
+    it('awards the GLOBAL crown to a genuine leader listed twice (review repro)', () => {
+      mountLeader(
+        winsViaState({
+          nodes: DUP_FACTOR_NODES,
+          factors: [
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_c_pricing', influence_score: 0.4, elasticity: 0.4 },
+          ],
+          interventions: { fac_a_migration: 1 },
+        }),
+      )
+      expect(winsViaSentence()).toBe(
+        'Leads via Migration investment, the #1 driver',
+      )
+    })
+
+    // ⚠ THE SAME DEFECT ON THE OTHER CALL SITE. The option-scoped claim runs
+    // the predicate over `optionLevers`, a DIFFERENT set, and a duplicate in
+    // THAT set suppressed the option-scoped claim independently. Here the
+    // GLOBAL crown is correctly withheld (a and b genuinely tie), so the
+    // sentence must fall to the option-scoped claim and not past it to "tied".
+    it('awards the OPTION-scoped claim when only the option-lever set is duplicated', () => {
+      mountLeader(
+        winsViaState({
+          nodes: DUP_FACTOR_NODES,
+          factors: [
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_b_headcount', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_c_pricing', influence_score: 0.4, elasticity: 0.4 },
+          ],
+          interventions: { fac_a_migration: 1, fac_c_pricing: 1 },
+        }),
+      )
+      expect(winsViaSentence()).toBe(
+        'Leads via Migration investment, its biggest lever',
+      )
+    })
+
+    // ⚠ THE OPPOSITE-DIRECTION TWIN, AND IT IS THE ONE THAT MATTERS. This
+    // predicate guards TWO opposite harms — crowning a false leader, and
+    // suppressing a genuine one — and they cannot share one window. A
+    // "deduplicate then compare" rule that ALSO collapsed two DIFFERENT
+    // factors would pass every case above and re-open the original lie. Here
+    // `a` and `b` are distinct ids at identical values, with `a` duplicated on
+    // top: the tie is real and the crown must still be withheld.
+    it('MIRROR: a duplicate does not manufacture a crown over a genuinely tied rival', () => {
+      mountLeader(
+        winsViaState({
+          nodes: DUP_FACTOR_NODES,
+          factors: [
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_b_headcount', influence_score: 1.0, elasticity: 0.9 },
+          ],
+          interventions: { fac_a_migration: 1, fac_b_headcount: 1 },
+        }),
+      )
+      // Both levers are pulled and both are genuinely at the top, so the
+      // option-scoped claim is a tie too — and the copy says so.
+      expect(winsViaSentence()).toBe(
+        'Leads via Migration investment, tied for its top lever',
       )
     })
   })

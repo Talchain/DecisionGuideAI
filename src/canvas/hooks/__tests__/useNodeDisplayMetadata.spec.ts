@@ -315,6 +315,81 @@ describe('useNodeDisplayMetadata — factor sensitivityRank', () => {
     const { result } = renderHook(() => useNodeDisplayMetadata('factor-4', 'factor'))
     expect(result.current.sensitivityRank).toBeNull()
   })
+
+  // -------------------------------------------------------------------------
+  // A RANK IS A COMPARATIVE CLAIM AND A TIE CANNOT SUPPORT ONE (2026-08-30).
+  //
+  // `sensitivityRank` is `[...].sort(compareByDisplayModel)` then `findIndex`,
+  // and `compareByDisplayModel` falls through value → elasticity →
+  // `key.localeCompare`. So on a degenerate draft it RESOLVES the tie instead
+  // of reporting it. Measured in this tree, 2026-08-30, five byte-identical
+  // factors fed in shuffled order `[e,c,a,d,b]`:
+  //     #1 fac_a  #2 fac_b  #3 fac_c  #4 fac_d  #5 fac_e
+  //     DISTINCT VALUES = 1   DISTINCT ELASTICITIES = 1
+  // — i.e. ALPHABETICAL. A contrast control in the same run (a set with a real
+  // spread) came back in VALUE order, so the probe was discriminating.
+  //
+  // The rank renders as `#N` at `NodeInspector.tsx:494`, as a canvas badge at
+  // `BaseNode.tsx:470-477`, and as "Connects factor ranked #N in influence" at
+  // `EdgeInspector.tsx:296`. Without this gate, #964 leaves the leader node
+  // honestly saying "tied" while the inspector beside it prints "#1" about the
+  // same factor — the contradiction inverted rather than closed.
+  //
+  // ⚠ THE GATE CONSUMES THE EXISTING OWNER (`hasClearInfluenceLeader`), it does
+  // not mint a rival predicate. One question, one function, two surfaces.
+  // -------------------------------------------------------------------------
+  it('withholds the rank entirely when no factor is clear of its runner-up', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          // The live degenerate signature: identical influence AND identical
+          // elasticity, so the comparator has nothing left but localeCompare.
+          factor_sensitivity: [
+            { factor_id: 'fac_e_regulatory', influence_score: 0.8333333333333334, elasticity: 5.460487156 },
+            { factor_id: 'fac_c_pricing', influence_score: 0.8333333333333334, elasticity: 5.460487156 },
+            { factor_id: 'fac_a_migration', influence_score: 0.8333333333333334, elasticity: 5.460487156 },
+            { factor_id: 'fac_d_churn', influence_score: 0.8333333333333334, elasticity: 5.460487156 },
+            { factor_id: 'fac_b_headcount', influence_score: 0.8333333333333334, elasticity: 5.460487156 },
+          ],
+        }),
+      },
+    }
+    // `fac_a_migration` is the one that WINS `key.localeCompare` — it is the
+    // factor the ungated code crowned "#1". Binding to it by id is the point:
+    // the five values are byte-identical, so no value predicate could tell
+    // this factor from the other four (trap 19).
+    const first = renderHook(() => useNodeDisplayMetadata('fac_a_migration', 'factor'))
+    expect(first.result.current.sensitivityRank).toBeNull()
+    // …and the whole set is withheld, not just the alphabetical winner: a "#3"
+    // printed with no "#1" beside it would be its own kind of nonsense.
+    const third = renderHook(() => useNodeDisplayMetadata('fac_c_pricing', 'factor'))
+    expect(third.result.current.sensitivityRank).toBeNull()
+    // PRECONDITION, pinned in-test: the factor IS in the analysis, so the null
+    // above is the tie gate firing and not a dropped/absent row.
+    expect(first.result.current.inSensitivityAnalysis).toBe(true)
+    expect(first.result.current.influence).not.toBeNull()
+  })
+
+  // ⚠ THE OPPOSITE-DIRECTION TWIN. A gate that withheld every rank would pass
+  // the test above and silently delete a true signal from three surfaces. One
+  // clear leader over a tied pack must still rank.
+  it('MIRROR: still ranks when there IS a clear leader, even with a tied pack behind it', () => {
+    mockState = {
+      results: {
+        status: 'complete',
+        report: makeReport({
+          factor_sensitivity: [
+            { factor_id: 'fac_a_migration', influence_score: 1.0, elasticity: 0.9 },
+            { factor_id: 'fac_b_headcount', influence_score: 0.3, elasticity: 0.3 },
+            { factor_id: 'fac_c_pricing', influence_score: 0.3, elasticity: 0.3 },
+          ],
+        }),
+      },
+    }
+    const { result } = renderHook(() => useNodeDisplayMetadata('fac_a_migration', 'factor'))
+    expect(result.current.sensitivityRank).toBe(1)
+  })
 })
 
 // ---------------------------------------------------------------------------
