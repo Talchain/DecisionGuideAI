@@ -168,8 +168,14 @@ function renderFactor(data: Record<string, unknown>) {
 }
 
 describe('FactorNode — a factor with no estimate says so', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    // ⚠ `clearAllMocks` clears CALLS, not IMPLEMENTATIONS — so a
+    // `mockReturnValue(true)` in one badge case would leak into every case
+    // after it and silently change what the other assertions are measuring.
+    // Pinned explicitly here so the default is order-independent.
+    const flags = await import('../../../flags')
+    vi.mocked(flags.isGraphBadgesEnabled).mockReturnValue(false)
     vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector(topology()))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -279,6 +285,50 @@ describe('FactorNode — a factor with no estimate says so', () => {
     const text = container.textContent ?? ''
     expect(text).toContain('Range:')
     expect(text).not.toMatch(NO_ESTIMATE_LINE)
+  })
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ⚠ THESE TWO EXIST BECAUSE A MUTANT SURVIVED, AND A SURVIVOR IS A CLAIM
+  // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Reverting the `externalWithPrior` fix left all 62 tests GREEN. The reason is
+  // that every case above mocks `isGraphBadgesEnabled` to FALSE, so
+  // `showEvidenceGapBadge` is false whatever the prior says and the badge can
+  // never render. The fix was real and **entirely unobserved** — a change
+  // claimed as a fix that no assertion could see.
+  //
+  // So the badge cases mount with the flag ON, and bind by the badge's own
+  // `data-testid`, not by any value predicate.
+  //
+  // ⚠ SCOPE, STATED PRECISELY: this proves the LOGIC given the flag on. The
+  // DEPLOYED posture of `isGraphBadgesEnabled()` is NOT established — the
+  // bundle probe for it was declared blind (target and positive control both
+  // read zero, i.e. the wrong document was being measured). If the flag is off
+  // in staging, this behaviour is correct and dark. That is a claim about
+  // reach, not about correctness, and it is not asserted here either way.
+
+  it('EXTERNAL + FLAGGED — the evidence-gap badge is NOT suppressed (an ignorance prior is not evidence)', async () => {
+    const flags = await import('../../../flags')
+    vi.mocked(flags.isGraphBadgesEnabled).mockReturnValue(true)
+    const { queryByTestId } = renderFactor({
+      category: 'external',
+      prior: IGNORANCE_PRIOR,
+    })
+    expect(queryByTestId('evidence-gap-badge')).not.toBeNull()
+  })
+
+  it('⭐ THE TWIN — an external factor with a GENUINE prior keeps the badge suppressed', async () => {
+    // The prior IS the evidence for this population, so its silence is earned.
+    // Without this case the one above passes under "always show the badge",
+    // which would put an evidence-gap marker on every properly-estimated
+    // external factor.
+    const flags = await import('../../../flags')
+    vi.mocked(flags.isGraphBadgesEnabled).mockReturnValue(true)
+    const { queryByTestId } = renderFactor({
+      category: 'external',
+      prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
+    })
+    expect(queryByTestId('evidence-gap-badge')).toBeNull()
   })
 
   it('exactly ONE of the two sentences renders, never both', () => {
