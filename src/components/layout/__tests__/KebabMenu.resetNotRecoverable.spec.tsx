@@ -1,5 +1,5 @@
 /**
- * KebabMenu — the Reset canvas confirmation must not promise recovery.
+ * KebabMenu — the start-new-model confirmation must not promise recovery.
  *
  * ── WHY THIS PIN EXISTS, AND WHY THIS ONE IS THE WORST OF THE THREE ─────────
  * The dialog said: "… Undo (Ctrl+Z / Cmd+Z) can bring the graph back. The
@@ -20,7 +20,9 @@
  * for the half a user is most likely to act on.
  *
  * BINDING: the message is read from the dialog THIS menu item opens, reached by
- * clicking "Reset canvas". An identical string lives at `ReactFlowGraph.tsx`
+ * clicking "Start new model" (named "Reset canvas" until 30 Aug 2026 — see
+ * `KebabMenu.startNewModel.spec.tsx`). A near-identical string lives at
+ * `ReactFlowGraph.tsx`
  * behind a `showResetConfirm` that is never set true — so the string is not an
  * identity, and a pin that searched the repo (or the document) for the sentence
  * could be satisfied by the dead copy while the live one regressed.
@@ -80,11 +82,11 @@ function openResetDialog() {
       />
     </ToastProvider>,
   )
-  fireEvent.click(screen.getByText('Reset canvas'))
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Start new model' }))
   return screen.getByRole('dialog').textContent ?? ''
 }
 
-describe('Reset canvas confirmation promises no recovery', () => {
+describe('start-new-model confirmation promises no recovery', () => {
   it('does not claim undo can bring the graph back', () => {
     const text = openResetDialog()
 
@@ -104,7 +106,7 @@ describe('Reset canvas confirmation promises no recovery', () => {
   it('PRECONDITION: the dialog opened and states the destruction', () => {
     const text = openResetDialog()
 
-    expect(text).toMatch(/reset canvas\?/i)
-    expect(text).toMatch(/remove all nodes and connections/i)
+    expect(text).toMatch(/start a new model\?/i)
+    expect(text).toMatch(/nodes? and connections?/i)
   })
 })

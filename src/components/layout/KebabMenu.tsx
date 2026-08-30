@@ -1,7 +1,7 @@
 /**
  * KebabMenu — restructured "More" dropdown menu for the top bar.
  *
- * Groups: Model (Rename, Export, Import, Snapshots, Reset canvas) |
+ * Groups: Model (Rename, Export, Import, Snapshots, Start new model) |
  * View (Fullscreen) | Help (Keyboard shortcuts, How influence works) |
  * Canvas settings (flattened toggles).
  *
@@ -24,7 +24,7 @@ import {
   Download,
   Upload,
   Camera,
-  RotateCcw,
+  FilePlus,
   Maximize,
   Keyboard,
   HelpCircle,
@@ -93,7 +93,7 @@ export function KebabMenu({
 
   const closeDialog = useCallback(() => setActiveDialog(null), [])
 
-  const handleResetCanvas = useCallback(() => {
+  const handleStartNewModel = useCallback(() => {
     setShowResetConfirm(true)
     onClose()
   }, [onClose])
@@ -171,14 +171,30 @@ export function KebabMenu({
               <Camera size={14} aria-hidden="true" />
               <span>Snapshots</span>
             </button>
+            {/* NAMED BY INTENT, NOT BY MECHANISM (30 Aug 2026).
+                This item was named for the mechanism — a destructive wipe — in
+                the vocabulary of the implementation rather than the user's. It
+                is the product's ONLY route to a blank canvas: `CanvasToolbar`
+                is production-unmounted and `ReactFlowGraph`'s copy of the sheet
+                sits behind a `showResetConfirm` never set true. So an
+                unsupervised tester wanting to model their own decision had
+                exactly this control and no reason to recognise it as the one.
+
+                The danger hover went with the old name. The hazard is real, but
+                stating it is the CONFIRMATION's job, and it does: a red route
+                plus a red confirmation is a control people decline rather than
+                one they use carefully. A rename that dropped the disclosure
+                would be the worse trade, so both halves are pinned together in
+                `KebabMenu.startNewModel.spec.tsx`. */}
             <button
               type="button"
               role="menuitem"
-              className={`${styles.dropdownMenuButton} hover:text-danger`}
-              onClick={handleResetCanvas}
+              className={styles.dropdownMenuButton}
+              onClick={handleStartNewModel}
+              data-testid="kebab-start-new-model"
             >
-              <RotateCcw size={14} aria-hidden="true" />
-              <span>Reset canvas</span>
+              <FilePlus size={14} aria-hidden="true" />
+              <span>Start new model</span>
             </button>
 
             <hr className={styles.dropdownMenuDivider} />
@@ -295,7 +311,7 @@ export function KebabMenu({
         )}
       </div>
 
-      {/* Reset canvas confirmation dialog.
+      {/* Start-new-model confirmation dialog.
 
           ⚠ THE MESSAGE LISTED ONLY THE GRAPH. This is the UNGATED reset —
           CanvasToolbar disables its button on an empty canvas, this menu item
@@ -323,9 +339,9 @@ export function KebabMenu({
           Do not restore a recovery promise here unless one exists. */}
       {showResetConfirm && (
         <ConfirmDialog
-          title="Reset canvas?"
-          message="This will remove all nodes and connections, any analysis results, and the AI assistant conversation. This cannot be undone."
-          confirmLabel="Reset"
+          title="Start a new model?"
+          message="This clears the current model: every node and connection, any analysis results, and the AI assistant conversation. It cannot be undone — to keep a copy, cancel and choose Export first."
+          confirmLabel="Start new model"
           cancelLabel="Cancel"
           onConfirm={handleConfirmReset}
           onCancel={() => setShowResetConfirm(false)}
