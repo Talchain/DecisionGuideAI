@@ -117,7 +117,19 @@ const ROUTES: ReadonlyArray<{
     name: 'restoreModelVersion (write)',
     fn: 'restoreModelVersion',
     ok: { schema: 'model_version_restore.v2' },
-    call: (o) => restoreModelVersion(SCENARIO_ID, { ...o, versionId: 'v1' }),
+    // The two C8-A required fields (CEE `4c29c5b5`): `mutation_id` is a
+    // required uuid and `expected_graph_identity_hash` is a REQUIRED KEY with
+    // a nullable value. This case asserts the REQUEST HEADERS, so the values
+    // are immaterial here — but they are supplied rather than dropped,
+    // because the adapter's types now make omission a compile error, which is
+    // the whole point of the change that added them.
+    call: (o) =>
+      restoreModelVersion(SCENARIO_ID, {
+        ...o,
+        versionId: 'v1',
+        mutationId: '22222222-8888-4888-8888-222222222222',
+        expectedGraphIdentityHash: null,
+      }),
   },
 ]
 
