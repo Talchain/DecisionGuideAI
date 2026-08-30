@@ -383,12 +383,34 @@ const FLAGS_CONFIG = {
   // already-mounted AuthGuard. Default OFF — the live flip is Paul-gated
   // (UX approval + integration verify); flag-off is pinned byte-identical
   // to guest-mode-today in lib/__tests__/poc.requireLogin.spec.ts.
-  // ⚠ FLIP RUNBOOK: this flag alone is NOT sufficient in a guest-env
-  // BUILD — vite.config.ts aliases @supabase/supabase-js to a stub when
-  // VITE_AUTH_MODE=guest at build time (staging's netlify.toml pins it),
-  // so flag-on there renders LoginPage but sign-in silently no-ops. The
-  // real flip needs the build env switched to real-auth (VITE_AUTH_MODE
-  // unset/real + real Supabase env) IN ADDITION to this flag.
+  // ⚠⚠ THE FLIP RUNBOOK THAT USED TO SIT HERE IS STALE AND WAS TEACHING
+  // EVERY LANE THE WRONG THING — corrected 2026-08-30 at the bytes.
+  // It read: "vite.config.ts aliases @supabase/supabase-js to a stub when
+  // VITE_AUTH_MODE=guest at build time (staging's netlify.toml pins it), so
+  // flag-on there renders LoginPage but sign-in silently no-ops."
+  //
+  // That was true when written and has not been true since
+  // `VITE_STUB_SUPABASE = "0"` landed in `[context.staging.environment]`
+  // (netlify.toml:132). The stub decision is no longer `isPocBuild` alone:
+  // `scripts/supabase-stub-decision.mjs::shouldStubSupabase` returns FALSE on
+  // any `VITE_STUB_SUPABASE=0` build, so STAGING BUNDLES THE REAL SDK while
+  // still pinning VITE_AUTH_MODE="guest". `src/lib/supabase.ts` configures it
+  // with persistSession, autoRefreshToken and PKCE, and sign-in on staging
+  // genuinely works.
+  //
+  // Why this correction matters more than its size: a stale note saying a
+  // capability is dark is the most convincing kind of wrong, because it stops
+  // anyone looking. A lane reading the old text would have "known" that a
+  // stored Supabase session cannot exist on staging — and would have deleted
+  // the session-restore path in `contexts/AuthContext.tsx` as dead code.
+  //
+  // ⚠ WHAT IS STILL TRUE, kept because the old note was right about it: a
+  // build that does NOT set VITE_STUB_SUPABASE=0 (production/`main` today,
+  // which inherits only from [build.environment]) still gets the stub, and
+  // there `signInWithOtp`/`signInWithOAuth` are genuinely ABSENT. AuthContext
+  // handles that explicitly with `signInUnavailable()` rather than reporting a
+  // false success. Derive the posture from netlify.toml at your tip before
+  // relying on either half of this.
   requireLogin: {
     envKey: 'VITE_REQUIRE_LOGIN',
     storageKey: 'feature.requireLogin',

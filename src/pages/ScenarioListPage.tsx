@@ -285,7 +285,7 @@ function ScenarioListSkeleton() {
 // ---------------------------------------------------------------------------
 
 export default function ScenarioListPage() {
-  const { user, authenticated } = useAuth()
+  const { user, authenticated, sessionRestoreFailed } = useAuth()
   const { createScenario, deleteScenario, isPersistenceActive } = useScenario()
   const navigate = useNavigate()
 
@@ -388,6 +388,53 @@ export default function ScenarioListPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to duplicate decision')
     }
+  }
+
+  // ⚠⚠ A RETURNING USER WHOSE SESSION COULD NOT BE RESTORED IS NOT A NEW
+  // VISITOR, AND MUST NOT BE GREETED AS ONE. This branch used to be the ONLY
+  // thing an unrecognised visitor could see, so a signed-in owner whose token
+  // refresh failed landed on "This is an invite-only pilot" — an introduction,
+  // addressed to someone who has never been here, with no error and no hint
+  // that anything went wrong. They cannot tell that from having been silently
+  // logged out and losing their work, and the reasonable conclusion is the
+  // alarming one.
+  //
+  // So the failure is STATED. Both doors stay open — sign in again, or carry on
+  // as a guest — because the guest path is the supported pilot experience and
+  // this must not become a gate. `AuthContext.sessionRestoreFailed` is `false`
+  // for anyone who never had a session, so a genuine first-time visitor is
+  // untouched by this and still gets the arrival screen below.
+  if (!isPersistenceActive && sessionRestoreFailed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-canvas p-8">
+        <div className="text-center max-w-md" data-testid="session-restore-failed">
+          <h1 className={`${typography.h3} text-text-header`}>You’ve been signed out</h1>
+          <p className={`${typography.body} text-text-body mt-4`}>
+            We couldn’t restore your session — it may have expired. Sign in again to get back to your models.
+          </p>
+          {/* ⚠ NO REASSURANCE ABOUT WHERE THE WORK IS. The sentence that wants
+              to be written here — "nothing is lost, your models are on our
+              servers, not in this browser" — is a positive storage-location
+              claim, and `src/test/guestStorageClaims.ts` bans those for the
+              reason that they keep turning out to be false in one half. The
+              honest offer is the ACTION: sign in again. */}
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <button
+              onClick={() => navigate('/login')}
+              className={`${typography.button} px-6 py-3 rounded-pill bg-primary text-text-on-color shadow-1 hover:bg-primary-hover transition-all duration-fast`}
+            >
+              Sign in
+            </button>
+            <button
+              onClick={() => navigate('/canvas')}
+              className={`${typography.button} px-6 py-3 rounded-pill border border-[rgba(38,38,38,0.16)] text-text-body hover:bg-panel-hover transition-colors duration-fast`}
+            >
+              Continue without an account
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Guest mode — offer sign-in (primary) and a guest path into the canvas
