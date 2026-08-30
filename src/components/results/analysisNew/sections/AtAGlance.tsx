@@ -39,12 +39,7 @@ import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 
-/** Verdict tone → the accent that carries it. One ramp, used everywhere. */
-const TONE_CLASS: Record<string, string> = {
-  stable: 'text-success',
-  mixed: 'text-warning',
-  sensitive: 'text-warning',
-}
+/** Verdict tone → the accent that carries it. */
 const TONE_PILL: Record<string, string> = {
   stable: 'bg-success/10 text-success',
   mixed: 'bg-warning/10 text-warning',
