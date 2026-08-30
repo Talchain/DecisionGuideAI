@@ -87,6 +87,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+  /**
+   * Olumi attention — held while the AI is explaining THIS element, unlike the
+   * two-second acknowledgement above. Primitive-boolean selectors (React #185),
+   * and the dim is DERIVED rather than written into `dimmedNodeIds`, which
+   * already has two writers with a precedence rule between them.
+   */
+  const isAttended = useCanvasStore(s => s.olumiAttention?.nodeIds.includes(id) === true)
+  const isAttentionDimmed = useCanvasStore(
+    // ⚠ `!= null`, NOT `!== null`. Spec store doubles omit this slice entirely,
+    // so the value is `undefined` there — and `undefined !== null` is true,
+    // which dimmed every node in every test that mounts a partial store. Same
+    // fail-soft convention the rest of this file uses for optional slices.
+    s => s.olumiAttention != null && s.olumiAttention.nodeIds.includes(id) === false,
+  )
   // Assistant focus is a static, independently-owned marker. It does not use
   // React Flow's `selected` prop and does not enter the transient highlight
   // Set, so it can coexist with both without borrowing either lifetime.
@@ -323,7 +337,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         transition-all duration-200
         cursor-default
         ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
-        ${isHighlighted ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
+        ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
+        ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
+        ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{

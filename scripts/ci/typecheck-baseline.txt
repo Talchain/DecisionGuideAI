@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2195
+# count=2156
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -78,7 +78,7 @@
 1	src/adapters/plot/reconnection.ts
 5	src/adapters/plot/v1/reportNormalizer.ts
 2	src/adapters/plot/v1/templateNormalizer.ts
-12	src/adapters/plot/v2/__tests__/adapter.spec.ts
+9	src/adapters/plot/v2/__tests__/adapter.spec.ts
 3	src/adapters/plot/v2/__tests__/ceeV3ContractBridge.spec.ts
 1	src/adapters/plot/v2/__tests__/reconcile.patchAccept.spec.ts
 4	src/adapters/plot/v2/__tests__/responseMapper.constraintGate.spec.ts
@@ -172,7 +172,7 @@
 6	src/canvas/components/pre-analysis/__tests__/DraftCoachingSummary.e2e.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/InteractiveActions.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/PreAnalysisPanel.brief57.spec.tsx
-4	src/canvas/components/pre-analysis/__tests__/PreAnalysisPanel.spec.tsx
+3	src/canvas/components/pre-analysis/__tests__/PreAnalysisPanel.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/PreAnalysisPanel.statusBanner.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/T1D3cBlocks.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/T1D6AdvancedFooter.spec.tsx
@@ -202,10 +202,7 @@
 2	src/canvas/conversation/__tests__/aiPanelTranche1.spec.tsx
 3	src/canvas/conversation/__tests__/blockSchemaAlignment.spec.ts
 1	src/canvas/conversation/__tests__/cee-request-contracts.spec.ts
-1	src/canvas/conversation/__tests__/conversation-flow.spec.ts
 2	src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx
-7	src/canvas/conversation/__tests__/envelopeAnalysisPersistence.spec.ts
-8	src/canvas/conversation/__tests__/envelopeAnalysisWiring.spec.ts
 3	src/canvas/conversation/__tests__/goldenFixture.spec.ts
 6	src/canvas/conversation/__tests__/patchAcceptLogic.spec.tsx
 3	src/canvas/conversation/__tests__/systemEvents.spec.ts
@@ -213,8 +210,7 @@
 1	src/canvas/conversation/__tests__/useConversation.hook.spec.ts
 1	src/canvas/conversation/__tests__/useSmartScroll.spec.ts
 1	src/canvas/conversation/__tests__/validateResponse.spec.ts
-4	src/canvas/conversation/turnService.ts
-14	src/canvas/conversation/useConversation.ts
+1	src/canvas/conversation/useConversation.ts
 2	src/canvas/conversation/useGraphEditEvents.ts
 6	src/canvas/conversation/utils/__tests__/applyPatch.v3Fields.spec.ts
 4	src/canvas/conversation/validateResponse.ts
@@ -266,7 +262,7 @@
 13	src/canvas/nodes/__tests__/GoalNode.spec.tsx
 29	src/canvas/nodes/__tests__/OptionNode.spec.tsx
 4	src/canvas/nodes/__tests__/OutcomeNode.spec.tsx
-7	src/canvas/nodes/__tests__/render-matrix.spec.tsx
+6	src/canvas/nodes/__tests__/render-matrix.spec.tsx
 1	src/canvas/nodes/registry.ts
 1	src/canvas/nodes/shared/NodePopover.tsx
 1	src/canvas/nodes/shared/__tests__/ScienceIcon.spec.tsx
@@ -354,7 +350,7 @@
 1	src/components/assistants/ProvenanceChip.tsx
 1	src/components/auth/__tests__/AuthCallback.test.tsx
 1	src/components/auth/__tests__/AuthGuard.test.tsx
-2	src/components/auth/__tests__/LoginPage.test.tsx
+1	src/components/auth/__tests__/LoginPage.test.tsx
 5	src/components/chat/ArtefactHeader.tsx
 1	src/components/coaching/CoachingNudge.tsx
 4	src/components/debug/DebugPanelV2.tsx

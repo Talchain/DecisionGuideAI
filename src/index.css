@@ -743,3 +743,16 @@
 .canvas-mode-hand .react-flow__node:active {
   cursor: grabbing;
 }
+
+/* Olumi attention — a HELD mark, not the 2s applied-edit acknowledgement.
+   It does not pulse: a sustained ring is a place to look at while reading,
+   and a repeating animation under a paragraph of text is an irritation
+   rather than a signal. The lift separates the attended element from the
+   dimmed field behind it without moving anything. */
+.olumi-attended {
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--info) 12%, transparent);
+  transition: box-shadow 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .olumi-attended { transition: none; }
+}

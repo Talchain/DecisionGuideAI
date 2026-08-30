@@ -44,6 +44,8 @@ import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { ModelExtentNotice } from './components/ModelExtentNotice'
+import { FirstModelNotice } from './components/FirstModelNotice'
+import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorModal } from './components/InspectorModal'
@@ -2324,6 +2326,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
         canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
       />
+      {/* ⚠ SCREEN SPACE, NOT FLOW SPACE — and the counter-scale census is what
+          caught this — and it also flags the mention, so this note describes
+          the portal rather than naming it. Mounted in the transformed subtree
+          the card sits in flow space, so its own flow-to-screen arithmetic was applied
+          a second time by the transform, AND its text would shrink with the
+          zoom: at the 0.50 auto-fit floor a 12px line renders at 6px, well
+          under the canvas legibility floor. A coaching card is read, so it
+          holds a constant size and tracks its anchor by arithmetic instead. */}
+      <OlumiAttentionCard />
       <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
@@ -2341,6 +2352,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         <div className="flex flex-col items-center gap-2">
           <AssistantFocusChip />
           <FocusModeChip />
+          {/* Says that a generated model is a starting point, while it still is
+              one. Lives in this stack rather than at bottom-centre because
+              `ModelExtentNotice` owns that position and fires on exactly the
+              same graphs — a post-draft fit clamps at the legibility floor. The
+              column already handles the collision with the two chips above it. */}
+          <FirstModelNotice />
         </div>
       </div>
 

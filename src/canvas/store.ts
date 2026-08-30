@@ -758,6 +758,13 @@ interface CanvasState {
   needleMovers: NeedleMover[]
   // Phase 3: Interaction enhancements (Set for O(1) lookup)
   highlightedNodes: Set<string>
+  /**
+   * Olumi attention — the AI holding the user's gaze on part of the model.
+   * Distinct from `highlightedNodes` (a 2s acknowledgement that something
+   * changed) because it must PERSIST while the user reads the sentence about
+   * it. See `utils/olumiAttention.ts` for why the two are not merged.
+   */
+  olumiAttention: import('./utils/olumiAttention').OlumiAttention | null
   highlightedEdges: Set<string>
   /**
    * Analysis-graph projection — the "graph-as-explanation-surface" slice.
@@ -1184,6 +1191,10 @@ interface CanvasState {
   setNeedleMovers: (movers: NeedleMover[]) => void
   // Phase 3: Interaction actions
   setHighlightedNodes: (ids: string[]) => void
+  /** Hold attention on part of the model. Replaces any previous attention. */
+  setOlumiAttention: (a: import('./utils/olumiAttention').OlumiAttention) => void
+  /** Release it. No state write when nothing is held (no Set-identity churn). */
+  clearOlumiAttention: () => void
   setHighlightedEdges: (ids: string[]) => void
   /** Analysis-graph projection: mark the resolved canvas ids owned by an
    * evidence view. Replaces any previous projection wholesale. */
@@ -2209,6 +2220,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   graphHealth: null,
   needleMovers: [],
   highlightedNodes: new Set<string>(),
+  olumiAttention: null,
   highlightedEdges: new Set<string>(),
   analysisHighlight: { source: null, edgeIds: new Set<string>(), nodeIds: new Set<string>() },
   dimmedNodeIds: new Set<string>(),
@@ -5615,6 +5627,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Phase 3: Interaction actions (accepts array, stores as Set for O(1) lookup)
   setHighlightedNodes: (ids: string[]) => {
     set({ highlightedNodes: new Set(ids) })
+  },
+  setOlumiAttention: (a) => {
+    set({ olumiAttention: a })
+  },
+  clearOlumiAttention: () => {
+    // No-op when nothing is held: an unconditional write churns identity and
+    // re-renders every node subscribed to this slice.
+    if (get().olumiAttention === null) return
+    set({ olumiAttention: null })
   },
   setHighlightedEdges: (ids: string[]) => {
     set({ highlightedEdges: new Set(ids) })
