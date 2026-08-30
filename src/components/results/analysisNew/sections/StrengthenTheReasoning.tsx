@@ -43,13 +43,15 @@
  * would no longer be about information architecture.
  */
 
-import { ArrowRight, FlaskConical, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Crosshair, FlaskConical, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { SEVERITY_BADGE_CLASS } from '../../strengthen/StrengthenPanel'
+import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
 
@@ -128,6 +130,26 @@ export function StrengthenTheReasoning({
                 <div className="flex items-start justify-between gap-2">
                   <p className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}>
                     {rec.title}
+                    {/* ⭐ WHICH ONE TO ACT ON FIRST. Three recommendations that
+                        render identically ask the reader to rank them — which is
+                        the producer's job, and it already did it: `category` is
+                        its own four-value verdict. Same ramp and same labels as
+                        the existing Strengthen panel, IMPORTED rather than
+                        copied (a second colour map would be the mirror defect).
+
+                        INLINE, not a third flex child: the right slot holds the
+                        grounding chip, and at 280px two right-aligned chips
+                        collide. Absent when the producer sent no category — an
+                        unranked recommendation is not a low-priority one. */}
+                    {rec.category ? (
+                      <span
+                        className={`${typography.panelMeta} ml-1.5 inline-flex items-center rounded-pill border bg-transparent px-1.5 align-middle ${SEVERITY_BADGE_CLASS[rec.category]}`}
+                        data-testid={`${testId}-severity`}
+                        data-category={rec.category}
+                      >
+                        {STRENGTHEN_COPY.severityLabel[rec.category]}
+                      </span>
+                    ) : null}
                   </p>
                   {grounding ? (
                     <span
@@ -164,6 +186,7 @@ export function StrengthenTheReasoning({
                     className={`${typography.panelBody} text-text-light mt-1 mb-0`}
                     data-testid={`${testId}-try`}
                   >
+                    <span className="text-info">{STRENGTHEN_COPY.tryThisLead}</span>{' '}
                     {rec.tryThis}
                   </p>
                 ) : null}
@@ -192,9 +215,10 @@ export function StrengthenTheReasoning({
                     <button
                       type="button"
                       onClick={() => focusModelTarget(rec.targetId!)}
-                      className={`${typography.panelMeta} text-text-light rounded px-1 py-1 underline hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      className={`${typography.panelMeta} inline-flex items-center gap-1 rounded px-1 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-focus`}
                     >
+                      <Crosshair className="w-3 h-3" aria-hidden={true} />
                       Show on canvas
                     </button>
                   ) : null}
