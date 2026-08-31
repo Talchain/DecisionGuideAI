@@ -21,143 +21,129 @@ import { AtAGlance } from '../sections/AtAGlance'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import type { AtAGlance as AtAGlanceModel, GlanceInputProvenance } from '../analysisNewTypes'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { normalizeFactorSensitivity } from '../../useResultsSectionData'
-import { isDefaultedConfidenceFromRaw } from '../../driverConfidenceDisplayPolicy'
+import { buildNodeValueSourceMap } from '../../driverValueProvenance'
 import { genuineDecision, makeData, makeDriver } from './analysisNewFixtures'
-import stagingCapture from '../../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
+import codexExport from '../../../../canvas/registration/__tests__/fixtures/codex-export-2026-08-05.canvas.json'
 
 const PROVENANCE_TESTID = 'analysis-new-glance-input-provenance'
 
-const provenanceOf = (data: ResultsSectionDataReturn) =>
+const provenanceOf = (
+  data: ResultsSectionDataReturn,
+  nodeValueSources?: ReadonlyMap<string, string>,
+) =>
   buildAnalysisNewViewModel({
     data,
     recommendations: [],
     isPreRun: false,
     isRunning: false,
     isStale: false,
+    nodeValueSources,
   }).atAGlance.inputProvenance
 
-/** A run whose factor rows carry exactly the provenance flags given. */
-const withDrivers = (
-  rows: Array<{ isDefaultedConfidence?: boolean; valueDefaulted?: boolean }>,
-): ResultsSectionDataReturn =>
-  makeData({
+/**
+ * A run of N factor rows whose NODES carry exactly these sources.
+ *
+ * ⚠ THE SOURCE SITS ON THE NODE, NOT THE ROW, AND THAT IS THE POINT OF THE
+ * CHANGE. The analysis result carries no `observed_state` at all; authorship is
+ * canvas state, joined by factor id. `undefined` means the node exists with no
+ * source — silence, which must never resolve to either claim.
+ */
+const withSources = (rows: Array<string | undefined>) => {
+  const data = makeData({
     drivers: {
-      drivers: rows.map((flags, i) =>
-        makeDriver({ factorKey: `f_${i}`, factorLabel: `Factor ${i}`, ...flags }),
+      drivers: rows.map((_, i) =>
+        makeDriver({ factorKey: `f_${i}`, factorLabel: `Factor ${i}` }),
       ),
     },
   })
+  const sources = new Map<string, string>()
+  rows.forEach((s, i) => {
+    if (s) sources.set(`f_${i}`, s)
+  })
+  return { data, sources }
+}
+const pv = (rows: Array<string | undefined>) => {
+  const { data, sources } = withSources(rows)
+  return provenanceOf(data, sources)
+}
 
 afterEach(() => cleanup())
 
 // ── THE DERIVATION ──────────────────────────────────────────────────────────
 
-describe('input provenance — the producer settles it, or nothing is claimed', () => {
-  it('⭐ says undetermined when the producer asserted nothing either way', () => {
-    // THE FIX. PLoT omits `value_defaulted` on rows whose value came from
-    // cee_inference, i.e. values the product invented — so this is the
-    // commonest real payload, and it used to be silence. Silence let the share
-    // above stand as though something had established it. The producer having
-    // settled nothing IS the answer to "what does this rest on".
-    expect(provenanceOf(withDrivers([{}, {}]))).toBe('undetermined')
+describe('input provenance — the node settles it, or nothing is claimed', () => {
+  it('⭐ says undetermined when no node carries a source', () => {
+    expect(pv([undefined, undefined])).toBe('undetermined')
   })
 
   it('is null ONLY when there are no factor rows at all', () => {
     // Not a provenance state. `useResultsSectionData` downgrades driversStatus
-    // 'computed' → 'unavailable' whenever the row set is empty, so zero rows
-    // always means the sensitivity feed failed — a transport condition, and
-    // describing it as a provenance finding would be a different lie.
-    expect(provenanceOf(withDrivers([]))).toBeNull()
+    // 'computed' -> 'unavailable' whenever the row set is empty, so zero rows
+    // always means the sensitivity feed failed — a transport condition.
+    expect(pv([])).toBeNull()
   })
 
-  it('⭐ does not read a HALF denial as user authorship', () => {
-    // THE DISCRIMINATING TWIN, and the whole point of the three-state read.
-    // Confidence is explicitly not defaulted, but nothing ever denied that the
-    // VALUE was defaulted. A boolean `isEstimate` would score this as the
-    // user's figure. It is not; it is unknown — and `undetermined` is the word
-    // for unknown, never a user-authorship claim.
-    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: false }]))).toBe('undetermined')
-    expect(provenanceOf(withDrivers([{ valueDefaulted: false }]))).toBe('undetermined')
+  it('reads a producer estimate as estimated', () => {
+    expect(pv(['cee_inference'])).toBe('estimated')
   })
 
-  it('⭐ never says undetermined once the producer has settled a single row', () => {
-    // The other half of the discriminating pair. `undetermined` must be
-    // unreachable the moment any positive evidence exists, or it becomes a
-    // catch-all that quietly outranks a real finding.
-    expect(provenanceOf(withDrivers([{ valueDefaulted: true }, {}]))).not.toBe('undetermined')
-    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: true }]))).not.toBe('undetermined')
-    expect(
-      provenanceOf(withDrivers([{ isDefaultedConfidence: false, valueDefaulted: false }, {}])),
-    ).not.toBe('undetermined')
+  it('⭐ says user_supplied only when every row is a user-owned source', () => {
+    expect(pv(['user_confirmed', 'user_override'])).toBe('user_supplied')
   })
 
-  it('reads a producer TRUE on EITHER field as estimated', () => {
-    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: true, valueDefaulted: false }])))
-      .toBe('estimated')
-    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: false, valueDefaulted: true }])))
-      .toBe('estimated')
+  it('says mixed when one of each is positively witnessed', () => {
+    expect(pv(['cee_inference', 'user_confirmed'])).toBe('mixed')
+    // Silence on a third row cannot falsify an existential pair.
+    expect(pv(['cee_inference', 'user_confirmed', undefined])).toBe('mixed')
   })
 
-  it('says user_supplied ONLY when every row is denied BOTH ways', () => {
-    expect(
-      provenanceOf(
-        withDrivers([
-          { isDefaultedConfidence: false, valueDefaulted: false },
-          { isDefaultedConfidence: false, valueDefaulted: false },
-        ]),
-      ),
-    ).toBe('user_supplied')
+  it('demotes a universal claim to "partly" when any row is unsettled', () => {
+    expect(pv(['cee_inference', undefined])).toBe('partly_estimated')
+    expect(pv(['user_confirmed', undefined])).toBe('partly_user_supplied')
   })
 
-  it('says estimated only when every row is settled and all of them are Olumi’s', () => {
-    expect(
-      provenanceOf(
-        withDrivers([
-          { isDefaultedConfidence: true, valueDefaulted: true },
-          { valueDefaulted: true },
-        ]),
-      ),
-    ).toBe('estimated')
+  it('⭐ brief extraction settles NOTHING — it is neither claim', () => {
+    // THE RULING-PENDING CASE, and the discriminating twin for it. A rule that
+    // read `brief_extraction` as the user's figure would say `user_supplied`
+    // here; one that read it as Olumi's would say `estimated`. It is neither.
+    expect(pv(['brief_extraction'])).toBe('undetermined')
+    expect(pv(['brief_extraction', 'cee_inference'])).toBe('partly_estimated')
+    expect(pv(['brief_extraction', 'user_confirmed'])).toBe('partly_user_supplied')
   })
 
-  it('demotes a universal claim to "partly" when the producer stayed silent on any row', () => {
-    // One row is positively Olumi's; the other was never settled. "On inputs
-    // Olumi estimated" would overclaim across the silent row.
-    expect(provenanceOf(withDrivers([{ valueDefaulted: true }, {}]))).toBe('partly_estimated')
-    expect(
-      provenanceOf(withDrivers([{ isDefaultedConfidence: false, valueDefaulted: false }, {}])),
-    ).toBe('partly_user_supplied')
+  it('⭐ a literal the shared map does not know settles nothing either', () => {
+    expect(pv(['some_future_literal'])).toBe('undetermined')
+    expect(pv(['some_future_literal', 'cee_inference'])).toBe('partly_estimated')
   })
 
-  it('says mixed when one of each is positively witnessed, silence notwithstanding', () => {
-    // Both existentials are witnessed, so an unsettled third row cannot
-    // falsify the sentence — it stays `mixed`, not `partly_` anything.
-    expect(
-      provenanceOf(
-        withDrivers([
-          { valueDefaulted: true },
-          { isDefaultedConfidence: false, valueDefaulted: false },
-        ]),
-      ),
-    ).toBe('mixed')
-    expect(
-      provenanceOf(
-        withDrivers([
-          { valueDefaulted: true },
-          { isDefaultedConfidence: false, valueDefaulted: false },
-          {},
-        ]),
-      ),
-    ).toBe('mixed')
+  it('⭐ never says undetermined once a single row is settled', () => {
+    expect(pv(['cee_inference', undefined])).not.toBe('undetermined')
+    expect(pv(['user_confirmed', undefined])).not.toBe('undetermined')
+  })
+
+  it('⭐ no longer reads the bootstrap-degeneracy signal at all', () => {
+    // THE DEFECT THIS CHANGE CLOSES. `isDefaultedConfidence` answers whether the
+    // CONFIDENCE was a placeholder, never who authored the VALUE. A row carrying
+    // it, with a node that says the value is the user's, must read as the
+    // user's — under the old expression it read as Olumi's.
+    const data = makeData({
+      drivers: {
+        drivers: [
+          makeDriver({
+            factorKey: 'fac_switch_cost',
+            factorLabel: 'Switching cost',
+            isDefaultedConfidence: true,
+            valueDefaulted: true,
+          }),
+        ],
+      },
+    })
+    expect(provenanceOf(data, new Map([['fac_switch_cost', 'user_confirmed']]))).toBe('user_supplied')
   })
 
   it('counts a zero-influence factor as an input like any other', () => {
     // Provenance is a fact about where a number came from. Making it depend on
     // influence would let an unrelated quantity decide an honesty claim.
-    expect(
-      provenanceOf(withDrivers([{ valueDefaulted: true }])),
-    ).toBe('estimated')
     expect(
       provenanceOf(
         makeData({
@@ -167,16 +153,16 @@ describe('input provenance — the producer settles it, or nothing is claimed', 
                 factorKey: 'f_zero',
                 factorLabel: 'Zero factor',
                 zeroReason: 'zero_outcome_diff',
-                valueDefaulted: true,
               }),
             ],
           },
         }),
+        new Map([['f_zero', 'cee_inference']]),
       ),
     ).toBe('estimated')
   })
 
-  it('reads the standing decision fixture as undetermined, its producer having settled nothing', () => {
+  it('reads the standing decision fixture as undetermined — no nodes, no claim', () => {
     expect(provenanceOf(genuineDecision())).toBe('undetermined')
   })
 })
@@ -184,74 +170,38 @@ describe('input provenance — the producer settles it, or nothing is claimed', 
 // ── THE WIRE ────────────────────────────────────────────────────────────────
 
 /**
- * ⭐⭐ BOUND TO REAL PRODUCER BYTES, NOT TO A FIXTURE THIS LANE WROTE.
- *
- * CLAUDE.md trap 16-inverse: a fixture you wrote yourself encodes your model of
- * the producer rather than the producer. Every case above is hand-made, so on
- * its own the suite could certify a branch the wire can never reach — or miss
- * that the commonest wire shape lands in it. This case takes an actual captured
- * staging payload and pushes its factor rows through the SAME two producer
- * derivations the live hook uses, so the claim "this is what real runs do" is
- * measured rather than assumed.
+ * ⭐⭐ BOUND TO A REAL EXPORTED GRAPH, NOT A FIXTURE THIS LANE WROTE.
+ * Trap 16-inverse: a self-authored fixture encodes the author's model of the
+ * producer rather than the producer.
  */
-describe('the branch a real captured payload lands in', () => {
-  // A captured staging analysis result. Its three factor rows carry
-  // `factor_id`, `factor_label`, `sensitivity_score`, `elasticity`,
-  // `direction` and `importance_rank` — and no provenance signal whatsoever:
-  // no `confidence_source`, no `confidence_components`, no `value_defaulted`.
-  const captureRows = (
-    stagingCapture as {
-      blocks: Array<{ enrichment?: { factor_sensitivity?: unknown[] } }>
-    }
-  ).blocks[0].enrichment!.factor_sensitivity!
-
-  /** The live hook's own two derivations, imported rather than re-implemented. */
-  const asDriverItems = (raws: unknown[]) =>
-    raws.map((raw, i) => {
-      const n = normalizeFactorSensitivity(raw, new Map<string, string>())
-      return makeDriver({
-        factorKey: n.factorId || `f_${i}`,
-        factorLabel: n.label,
-        isDefaultedConfidence: isDefaultedConfidenceFromRaw({
-          confidenceSource: n.confidenceSource,
-          samplingStability: n.samplingStability,
-        }),
-        valueDefaulted: n.valueDefaulted,
-      })
+describe('the branch a real exported graph lands in', () => {
+  const sources = buildNodeValueSourceMap((codexExport as { nodes: unknown[] }).nodes)
+  const rowsFor = (ids: string[]) =>
+    makeData({
+      drivers: {
+        drivers: ids.map((id, i) => makeDriver({ factorKey: id, factorLabel: `Factor ${i}` })),
+      },
     })
 
-  it('POSITIVE CONTROL — the capture really does carry factor rows', () => {
-    // Without this the case below could pass on an empty array, which is the
-    // vacuity that makes an absence assertion worthless (trap 13).
-    expect(Array.isArray(captureRows)).toBe(true)
-    expect(captureRows.length).toBe(3)
+  it('POSITIVE CONTROL — the export really does carry the two literals', () => {
+    expect(sources.get('fac_conversion_rate')).toBe('cee_inference')
+    expect(sources.get('fac_budget_spend')).toBe('brief_extraction')
   })
 
-  it('CONTRAST CONTROL — the derivation can see a provenance flag when one is sent', () => {
-    // Proves the pipeline below is not simply blind. Same code path, one row
-    // carrying the producer's own field values, and it resolves the other way.
-    expect(
-      provenanceOf(
-        makeData({
-          drivers: {
-            drivers: asDriverItems([
-              {
-                factor_id: 'fac_probe',
-                factor_label: 'Probe',
-                confidence_source: 'plot_unified_from_isl_bootstrap',
-                confidence_components: { sampling_stability: 0 },
-              },
-            ]),
-          },
-        }),
-      ),
-    ).toBe('estimated')
+  it('⭐ a run of Olumi-inferred factors says so', () => {
+    expect(provenanceOf(rowsFor(['fac_conversion_rate', 'fac_lead_volume']), sources))
+      .toBe('estimated')
   })
 
-  it('⭐ resolves to undetermined — so the fix is what real runs hit', () => {
-    expect(
-      provenanceOf(makeData({ drivers: { drivers: asDriverItems(captureRows) } })),
-    ).toBe('undetermined')
+  it('⭐ adding the brief-extracted factor demotes it to partly — same payload', () => {
+    // The pair, at the glance level: two real ids from one real export moving
+    // the sentence in opposite directions.
+    expect(provenanceOf(rowsFor(['fac_conversion_rate', 'fac_budget_spend']), sources))
+      .toBe('partly_estimated')
+  })
+
+  it('⭐ the brief-extracted factor alone claims nothing', () => {
+    expect(provenanceOf(rowsFor(['fac_budget_spend']), sources)).toBe('undetermined')
   })
 })
 

@@ -26,6 +26,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '@/canvas/store'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
+import { buildNodeValueSourceMap } from '../driverValueProvenance'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { buildHeroModel } from './buildHeroModel'
 import type { HeroModel } from './heroTypes'
@@ -64,9 +65,22 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
   const nodes = useCanvasStore((s) => s.nodes)
   const canvasNodeIds = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes])
 
+  /**
+   * ⭐ AUTHORSHIP, FROM THE SAME `nodes` ARRAY — the node's
+   * `observed_state.source` is the field that answers who put a value there,
+   * and this hook already held the nodes it was narrowing to bare ids.
+   *
+   * ⚠ THE HOOK IS WHERE THIS JOIN BELONGS, NOT THE MODEL. `buildHeroModel` is
+   * a pure mapper over the analysis result, and the analysis result does not
+   * carry `observed_state` at all — it is canvas state. Reaching for the store
+   * inside the mapper would give it a second data authority; passing the
+   * derived map keeps the one-way flow the module header promises.
+   */
+  const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+
   const model = useMemo(
-    () => buildHeroModel(data, optionNumbering, canvasNodeIds),
-    [data, optionNumbering, canvasNodeIds],
+    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources),
+    [data, optionNumbering, canvasNodeIds, nodeValueSources],
   )
 
   const strengthenOn = isStrengthenPanelEnabled()

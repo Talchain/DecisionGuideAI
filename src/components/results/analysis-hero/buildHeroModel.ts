@@ -43,7 +43,7 @@
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import type { DriverItem, FlipThreshold, OptionResult } from '../types'
+import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import { selectFlipRisk } from '../utils/selectFlipRisk'
@@ -67,11 +67,11 @@ import {
 } from '../utils/getExpectedValue'
 import { safeInterpolatedLabel, containsBannedTerm } from '../utils/glossaryCheck'
 import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPercent'
+import { driverValueProvenance } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
 import type {
   HeroChartModel,
-  HeroDriverValueProvenance,
   HeroLens,
   HeroMainDriverLink,
   HeroModel,
@@ -82,23 +82,18 @@ import type {
 /**
  * Where one driver's VALUE came from — the `est.` tag's only input.
  *
- * A DIRECT PRODUCER READ, never a threshold and never an inference from the
- * value itself. Both fields are producer booleans on `DriverItem`:
- *   · `isDefaultedConfidence` — derived by `isDefaultedConfidenceFromRaw`
- *     (ISL bootstrap degeneracy); the live hook always writes a real boolean.
- *   · `valueDefaulted`        — PLoT's `value_defaulted`, preserved under a
- *     strict `typeof === 'boolean'` guard that never coerces absence to false.
+ * ⚠⚠ THE DERIVATION MOVED, AND THE FIELD IT ASKS CHANGED. This used to read
+ * `isDefaultedConfidence` — an ISL bootstrap-degeneracy signal that answers
+ * "was the CONFIDENCE a placeholder", not "who put this VALUE here". Measured
+ * on `live-analysis-turn-T3-20260808T155759Z`: `fac_switch_cost` carries
+ * `value_source: 'brief_extraction'` with `sampling_stability: 0`, so the tag
+ * fired on a number taken from the user's own brief.
  *
- * The ordering matters: a producer TRUE on either field settles the question,
- * so it is asked first. Only if neither says "estimated" do we ask whether the
- * producer actually denied it — and an absent `valueDefaulted` is silence,
- * which this function reports as silence.
+ * The authority is the NODE's `observed_state.source`, and the derivation now
+ * lives in `../driverValueProvenance` — ONE implementation, imported by this
+ * surface and by the glance, rather than the declared copy the two used to
+ * keep. See that module for the map and for why `brief` is not user-owned.
  */
-function driverValueProvenance(d: DriverItem): HeroDriverValueProvenance {
-  if (d.isDefaultedConfidence === true || d.valueDefaulted === true) return 'estimated'
-  if (d.isDefaultedConfidence === false && d.valueDefaulted === false) return 'not_estimated'
-  return 'undetermined'
-}
 
 // ─── Small helpers (selection + display formatting only) ────────────────────
 
@@ -229,6 +224,13 @@ export function buildHeroModel(
    * and the container's focus resolver remains the fail-closed layer.
    */
   canvasNodeIds?: ReadonlySet<string>,
+  /**
+   * Node id -> `observed_state.source`, built by the store-aware hook from the
+   * SAME `nodes` array it already narrows into `canvasNodeIds`. This is the
+   * authorship authority for the `est.` tag; absent (older callers/tests) every
+   * row reads `undetermined` and no tag renders, which is the honest default.
+   */
+  nodeValueSources?: ReadonlyMap<string, string>,
 ): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
@@ -1038,20 +1040,18 @@ export function buildHeroModel(
             rank: d.rank,
             label,
             targetId: d.canFocus ? d.matchedNodeId ?? d.factorKey : null,
-            // Value provenance for the `est.` tag — a DIRECT PRODUCER READ,
-            // never a threshold, exactly as the retired V7 disclosure did.
+            // Value provenance for the `est.` tag — a DIRECT read of the NODE's
+            // `observed_state.source`, never a threshold and never inferred
+            // from the number.
             //
-            // The TRUE arm is V7's condition byte-for-byte
-            // (`buildV7Lenses.ts:282` at ca8cb0c1). The FALSE arm is not:
-            // `DriverItem.valueDefaulted` is written by
-            // `useResultsSectionData` under a strict `typeof === 'boolean'`
-            // guard whose own comment says it "never coerce[s] an absent value
-            // → false", so an absent flag is UNKNOWN provenance, not a denial.
-            // Only when the producer has answered BOTH questions may this
-            // model say the value was not estimated. See
-            // `HeroDriverValueProvenance` for the live measurement that makes
-            // this the majority case.
-            isEstimate: driverValueProvenance(d),
+            // ⚠ THE OLD READ WAS V7's condition (`buildV7Lenses.ts:282` at
+            // ca8cb0c1), inherited byte-for-byte, and it asked the wrong field:
+            // `isDefaultedConfidence` is ISL bootstrap degeneracy, so a value
+            // extracted from the user's own brief with a placeholder confidence
+            // was tagged as Olumi's. The authority is the node. See
+            // `../driverValueProvenance` — one implementation, shared with the
+            // glance, where the old declared copy used to sit.
+            isEstimate: driverValueProvenance(d, nodeValueSources),
             // Producer-normalised direction, passed through; absent stays
             // absent (the sign glyph is omitted, never guessed).
             //

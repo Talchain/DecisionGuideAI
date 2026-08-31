@@ -130,58 +130,99 @@ function driver(label: string, provenance: Partial<DriverItem>): DriverItem {
   } as unknown as DriverItem
 }
 
-function provenanceOf(drivers: DriverItem[]): Array<string> {
+/**
+ * ⚠⚠ §2 WAS REWRITTEN WHEN THE DERIVATION MOVED TO THE NODE. It used to drive
+ * `isEstimate` from `isDefaultedConfidence` / `valueDefaulted` on the factor
+ * ROW. Those are producer booleans about the CONFIDENCE and about defaulting —
+ * neither answers who authored the value, and the first is ISL bootstrap
+ * degeneracy. On the very capture §3 below reads, `fac_switch_cost` carries
+ * `value_source: 'brief_extraction'` with `sampling_stability: 0`, so the old
+ * expression tagged a figure taken from the USER'S OWN BRIEF as Olumi's
+ * estimate. The authority is the node's `observed_state.source`.
+ *
+ * §3 is untouched and still passes: it pins what the WIRE contains, which is a
+ * historic record, not a claim about this derivation.
+ */
+function provenanceOf(
+  drivers: DriverItem[],
+  sources: Record<string, string> = {},
+): Array<string> {
   const data = { ...makeHeroData({ drivers: { drivers, topDrivers: drivers } }) } as ResultsSectionDataReturn
-  const m = buildHeroModel(data)
+  const m = buildHeroModel(data, undefined, undefined, new Map(Object.entries(sources)))
   expect(m.kind, 'fixture must produce a chart model, else every assertion below is vacuous').toBe('chart')
   return (m as HeroChartModel).evidence.drivers.map((d) => d.isEstimate)
 }
 
-describe('§2 buildHeroModel derives value provenance from the producer booleans', () => {
-  it('§2.1 isDefaultedConfidence true => estimated (V7’s first disjunct)', () => {
-    expect(provenanceOf([driver('Alpha', { isDefaultedConfidence: true })])).toEqual(['estimated'])
+describe('§2 buildHeroModel derives value provenance from the NODE that owns the value', () => {
+  it('§2.1 a value the product inferred => estimated', () => {
+    expect(provenanceOf([driver('Alpha', {})], { fac_alpha: 'cee_inference' })).toEqual(['estimated'])
   })
 
-  it('§2.2 valueDefaulted true => estimated (V7’s second disjunct)', () => {
-    expect(provenanceOf([driver('Beta', { valueDefaulted: true })])).toEqual(['estimated'])
+  it('§2.2 ⭐ a value the user owns => not_estimated, and never wears the tag', () => {
+    expect(provenanceOf([driver('Beta', {})], { fac_beta: 'user_confirmed' })).toEqual([
+      'not_estimated',
+    ])
+    expect(provenanceOf([driver('Beta', {})], { fac_beta: 'user_override' })).toEqual([
+      'not_estimated',
+    ])
   })
 
-  it('§2.3 an explicit false on BOTH => not_estimated', () => {
-    expect(
-      provenanceOf([driver('Gamma', { isDefaultedConfidence: false, valueDefaulted: false })]),
-    ).toEqual(['not_estimated'])
-  })
-
-  it('§2.4 confidence denied but value provenance ABSENT => undetermined, never a denial', () => {
-    // This is the live shape §3.4 measures: PLoT omits `value_defaulted`
-    // entirely on rows it did not default. V7 rendered this as `false`.
-    expect(provenanceOf([driver('Delta', { isDefaultedConfidence: false })])).toEqual([
+  it('§2.3 ⭐ brief extraction => undetermined — neither claim, pending the ruling', () => {
+    // `brief_extraction` is deliberately NOT in `USER_OWNED_KINDS`: extraction
+    // from the user's brief is not the user stating a figure, and it is not the
+    // product inventing one. No tag, and no counter-claim either.
+    expect(provenanceOf([driver('Gamma', {})], { fac_gamma: 'brief_extraction' })).toEqual([
       'undetermined',
     ])
   })
 
-  it('§2.5 nothing asserted at all => undetermined', () => {
-    expect(provenanceOf([driver('Epsilon', {})])).toEqual(['undetermined'])
+  it('§2.4 no source on the node => undetermined, never a denial', () => {
+    expect(provenanceOf([driver('Delta', {})], {})).toEqual(['undetermined'])
   })
 
-  it('§2.6 a producer TRUE wins over a producer FALSE on the other field', () => {
-    // Order-of-questions pin: "estimated" is settled by either field, so a
-    // defaulted VALUE with an undefaulted CONFIDENCE is still an estimate.
-    expect(
-      provenanceOf([driver('Zeta', { isDefaultedConfidence: false, valueDefaulted: true })]),
-    ).toEqual(['estimated'])
-    expect(
-      provenanceOf([driver('Eta', { isDefaultedConfidence: true, valueDefaulted: false })]),
-    ).toEqual(['estimated'])
+  it('§2.5 a literal the shared classifier does not know => undetermined', () => {
+    // It is reported as a finding, never patched into the contract's map here.
+    expect(provenanceOf([driver('Epsilon', {})], { fac_epsilon: 'some_future_literal' })).toEqual([
+      'undetermined',
+    ])
   })
 
-  it('§2.7 provenance is PER ROW — a mixed set does not smear', () => {
+  it('§2.6 ⭐⭐ THE DEFECT THIS CLOSES — the degeneracy signal no longer speaks', () => {
+    // Both row booleans say "estimated" under the OLD expression. The node says
+    // the user confirmed the number. The user wins, because the node is the
+    // only field that answers authorship.
     expect(
-      provenanceOf([
-        driver('One', { valueDefaulted: true }),
-        driver('Two', { isDefaultedConfidence: false, valueDefaulted: false }),
-        driver('Three', {}),
-      ]),
+      provenanceOf(
+        [driver('Switch cost', { isDefaultedConfidence: true, valueDefaulted: true })],
+        { fac_switch_cost: 'user_confirmed' },
+      ),
+    ).toEqual(['not_estimated'])
+    // And with no node source the same row is undetermined, not estimated —
+    // the degeneracy booleans cannot manufacture a tag on their own.
+    expect(
+      provenanceOf([driver('Switch cost', { isDefaultedConfidence: true, valueDefaulted: true })], {}),
+    ).toEqual(['undetermined'])
+  })
+
+  it('§2.7 ⭐ THE DISCRIMINATING PAIR — two named ids, opposite directions, one payload', () => {
+    // Bound by id, never by "some driver shows estimated" (trap 19). A rule
+    // that blanket-returned `undetermined` fails on Two; one that
+    // blanket-returned `estimated` fails on One. Only a rule that reads each
+    // node's own source passes both.
+    expect(
+      provenanceOf(
+        [driver('Switch cost', {}), driver('Crm capability', {})],
+        { fac_switch_cost: 'brief_extraction', fac_crm_capability: 'cee_inference' },
+      ),
+    ).toEqual(['undetermined', 'estimated'])
+  })
+
+  it('§2.8 provenance is PER ROW — a mixed set does not smear', () => {
+    expect(
+      provenanceOf([driver('One', {}), driver('Two', {}), driver('Three', {})], {
+        fac_one: 'cee_inference',
+        fac_two: 'user_confirmed',
+      }),
     ).toEqual(['estimated', 'not_estimated', 'undetermined'])
   })
 })

@@ -21,6 +21,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useStrengthenStore } from '../../../canvas/stores/strengthenStore'
+import { buildNodeValueSourceMap } from '../driverValueProvenance'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -54,6 +55,16 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
 
   // ── reads only ────────────────────────────────────────────────────────────
   const currentStage = useCanvasStore((s) => s.currentStage)
+  /**
+   * ⭐ AUTHORSHIP, AND IT IS A READ LIKE EVERY OTHER READ HERE. The node's
+   * `observed_state.source` is the only field that says who put a value on a
+   * factor, and it lives in canvas state — the analysis result does not carry
+   * it. The hero's hook derives the identical map from the identical store
+   * slice via the identical helper, so the two surfaces cannot disagree about
+   * whose number a factor holds.
+   */
+  const nodes = useCanvasStore((s) => s.nodes)
+  const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
@@ -110,6 +121,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         seedUsed,
         responseHash,
         scienceGrounding,
+        nodeValueSources,
       }),
     [
       data,
@@ -121,6 +133,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       seedUsed,
       responseHash,
       scienceGrounding,
+      nodeValueSources,
     ],
   )
 }

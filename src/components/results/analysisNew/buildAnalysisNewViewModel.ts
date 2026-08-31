@@ -38,6 +38,7 @@
 
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
+import { driverValueProvenance } from '../driverValueProvenance'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
@@ -145,6 +146,14 @@ export interface AnalysisNewViewModelInputs {
    * Sparse: an absent key means the producer attested nothing. Never defaulted.
    */
   scienceGrounding?: Record<string, ScienceGrounding>
+  /**
+   * Node id -> `observed_state.source`, built by the store-aware hook. THE
+   * authorship authority: the analysis result does not carry `observed_state`
+   * at all, so this is the only field that can say who put a value on a factor.
+   * Absent (older callers/tests) every row reads `undetermined`, the glance
+   * says its basis was never established, and no claim is made either way.
+   */
+  nodeValueSources?: ReadonlyMap<string, string>
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -1066,19 +1075,20 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
 /**
  * ⭐⭐ THE ANTECEDENT — whose numbers this run actually consumed.
  *
- * ⚠ A DIRECT PRODUCER READ, AND NOT A NEW ONE. The per-factor oracle below is
- * the SAME expression `driverValueProvenance` uses in `analysis-hero/
- * buildHeroModel.ts` to decide the `est.` tag, which that lane derived at the
- * producer and pinned against live captures. Re-deriving it differently here
- * would put two answers to one question on one screen — so it is copied
- * deliberately, semantics and ordering intact:
+ * ⚠⚠ NO LONGER A COPY — IT IS THE SAME FUNCTION. This used to hold a DECLARED
+ * copy of `analysis-hero/buildHeroModel.ts`'s expression, "semantics and
+ * ordering intact". A declared copy is still a copy: it can be checked for
+ * agreement and never for correctness. Both surfaces now import
+ * `driverValueProvenance` from `../driverValueProvenance`, so there is one
+ * answer to one question and nothing left to drift.
  *
- *   · a producer TRUE on EITHER field settles it as estimated, so it is asked
- *     first (`isDefaultedConfidence` is ISL bootstrap degeneracy;
- *     `valueDefaulted` is PLoT's `value_defaulted`);
- *   · only then do we ask whether the producer actually DENIED it, which needs
- *     an explicit false on BOTH — absence is silence, never a denial;
- *   · anything else is undetermined, and undetermined is the majority case.
+ * ⚠⚠ AND THE FIELD IT ASKS CHANGED. The old expression led with
+ * `isDefaultedConfidence`, which is ISL bootstrap degeneracy — it answers
+ * whether the CONFIDENCE was a placeholder, not who authored the VALUE. The
+ * authority is the node's `observed_state.source`. Measured on
+ * `live-analysis-turn-T3-20260808T155759Z`: `fac_switch_cost` is
+ * `value_source: 'brief_extraction'` with `sampling_stability: 0`, so the old
+ * read called a figure from the user's own brief an Olumi estimate.
  *
  * ⛔ NO THRESHOLD, NO INFERENCE FROM THE VALUE ITSELF, AND NO COUNT. The wire
  * carries a per-factor flag and nothing else; a proportion would be a metric
@@ -1092,7 +1102,10 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
  * about inputs that never appear as factor rows, which is why the sanctioned
  * copy speaks of inputs and figures rather than of "everything".
  */
-function glanceInputProvenance(data: ResultsSectionDataReturn): GlanceInputProvenance | null {
+function glanceInputProvenance(
+  data: ResultsSectionDataReturn,
+  nodeValueSources?: ReadonlyMap<string, string>,
+): GlanceInputProvenance | null {
   const rows = data.drivers.drivers ?? []
   // ⚠ NO ROWS IS A DRIVERS-FEED CONDITION, NOT A PROVENANCE ONE, AND THE TWO
   // MUST NOT SHARE A SENTENCE. `useResultsSectionData` downgrades
@@ -1104,10 +1117,13 @@ function glanceInputProvenance(data: ResultsSectionDataReturn): GlanceInputProve
   // two-questions-one-name defect this change removes, pointed the other way.
   if (rows.length === 0) return null
 
+  // The SHARED oracle's two positive answers. Its third, `undetermined`, is
+  // what neither predicate matches — and it is the one that demotes a
+  // universal claim to a "partly" one below.
   const estimated = (d: (typeof rows)[number]) =>
-    d.isDefaultedConfidence === true || d.valueDefaulted === true
+    driverValueProvenance(d, nodeValueSources) === 'estimated'
   const userStated = (d: (typeof rows)[number]) =>
-    d.isDefaultedConfidence === false && d.valueDefaulted === false
+    driverValueProvenance(d, nodeValueSources) === 'not_estimated'
 
   const hasEstimated = rows.some(estimated)
   const hasUserStated = rows.some(userStated)
@@ -1228,6 +1244,7 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
 function buildAtAGlance(
   data: ResultsSectionDataReturn,
   recommendations: Recommendation[],
+  nodeValueSources?: ReadonlyMap<string, string>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -1330,7 +1347,7 @@ function buildAtAGlance(
     drivers,
     influenceIsSetRelative: setRelative,
     condition: glanceCondition(data),
-    inputProvenance: glanceInputProvenance(data),
+    inputProvenance: glanceInputProvenance(data, nodeValueSources),
     primaryInterventionId: recommendations[0]?.id ?? null,
   }
 }
@@ -1556,8 +1573,8 @@ function dedupeAgainstGlance(
 export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
-  const { data, recommendations, isStale } = inputs
-  const glance = buildAtAGlance(data, recommendations)
+  const { data, recommendations, isStale, nodeValueSources } = inputs
+  const glance = buildAtAGlance(data, recommendations, nodeValueSources)
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
