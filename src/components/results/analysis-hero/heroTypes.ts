@@ -210,26 +210,33 @@ export interface HeroMainDriverLink extends HeroQuickLink {
  * ⭐ WHERE A DRIVER'S VALUE CAME FROM — three states, and the third one is the
  * point (ported from the retired V7 evidence disclosure, ROADMAP row "est.").
  *
- * V7 carried this as a plain `isEstimate: boolean` computed as
- * `isDefaultedConfidence === true || valueDefaulted === true`. That expression
- * is right about its TRUE arm and WRONG about its FALSE arm, and the difference
- * is the whole trust claim:
+ * ⚠⚠ THE FIELD THIS READS CHANGED, AND THE OLD ONE NEVER ANSWERED THE
+ * QUESTION. V7 carried this as a plain `isEstimate: boolean` computed as
+ * `isDefaultedConfidence === true || valueDefaulted === true`, and this type
+ * inherited that expression with only its FALSE arm corrected.
+ * `isDefaultedConfidence` is ISL BOOTSTRAP DEGENERACY — it says the CONFIDENCE
+ * was a placeholder, and says nothing whatever about who put the VALUE there.
+ * Measured on the capture named below: `fac_switch_cost` carries
+ * `value_source: 'brief_extraction'` with `sampling_stability: 0`, so the old
+ * expression tagged a number lifted from the USER'S OWN BRIEF as Olumi's
+ * estimate — the precise inversion of the claim the tag exists to make.
  *
- *   · `estimated`    — the producer said so. `DriverItem.isDefaultedConfidence`
- *     is true (ISL emitted a placeholder confidence) OR `valueDefaulted` is
- *     true (the value itself was defaulted). Exactly V7's condition, unchanged.
- *   · `not_estimated` — the producer said so, BOTH WAYS: confidence is not
- *     defaulted AND `valueDefaulted` is an explicit `false`. Only then has
- *     anything actually asserted that the number is the user's.
- *   · `undetermined` — the producer asserted neither. Measured on live captures
- *     (`src/v5/__tests__/fixtures/live-analysis-turn-T3-20260808T155759Z.json`),
- *     this is the MAJORITY case: PLoT omits `value_defaulted` entirely on rows
- *     whose value came from `cee_inference` — i.e. values the PRODUCT invented.
- *     Collapsing those into `false` is precisely the lie the tag exists to
- *     prevent, so the model refuses to write it. The disclosure renders the
- *     tag ONLY on `estimated` and says nothing on the other two, so no new
- *     claim is authored; what changed is that the model can no longer be read
- *     as asserting user-authorship it never had.
+ * The authority is the NODE's `observed_state.source`, whose vocabulary
+ * actually answers authorship, and the derivation now lives in ONE place:
+ * `components/results/driverValueProvenance.ts`, imported by the hero AND by
+ * the Analysis (New) glance, which used to keep a declared copy of it.
+ *
+ *   · `estimated`     — a classified, non-user-owned source. `cee_inference`
+ *     is the overwhelming majority; this is Olumi's own number.
+ *   · `not_estimated` — a USER-OWNED source (`user_confirmed`, `user_override`
+ *     and the rest of `USER_OWNED_KINDS`). A person vouched for this figure.
+ *   · `undetermined`  — no source, a source the classifier does not know, or
+ *     `brief_extraction`. The last is deliberate: extraction FROM the user's
+ *     brief is not the user stating a figure, and `USER_OWNED_KINDS` excludes
+ *     it, so the surface says nothing pending a founder ruling.
+ *
+ * The disclosure renders the tag ONLY on `estimated` and says nothing on the
+ * other two, so no new claim is authored in either direction.
  *
  * REQUIRED, deliberately (same reason as `designationsWithheld` below): an
  * optional provenance flag that every fixture omits is a hole with a green test
