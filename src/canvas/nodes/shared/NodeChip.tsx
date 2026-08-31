@@ -166,7 +166,22 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
   return (
     <button
       type="button"
-      className={`${typography.edgeLabel} font-medium inline-flex items-center px-2 py-0.5 rounded-md border border-info/30 text-text-body bg-panel cursor-pointer hover:bg-info/5 transition-colors nodrag nopan`}
+      // ⭐ 24px TOUCH TARGET ON A SURFACE ARGUED FOR TOUCH (WCAG 2.2 AA, 2.5.8).
+      //
+      // The painted chip is ~18.5px tall: `edgeLabel` is 10px with `leading-tight`
+      // (12.5px line box), plus `py-0.5` (4px) and a 1px border each side. #1061
+      // moves these chips onto the card because a hover popover cannot be reached
+      // on a touch device — so landing them at 18.5px would answer the wrong half
+      // of that argument.
+      //
+      // Expanded with a pseudo-element rather than padding so the chip's PAINTED
+      // size and the row's density are unchanged: the same instrument used on the
+      // quick-actions button in #1049, and for the same reason.
+      //
+      // ⚠ CSS px at zoom 1. Under ReactFlow's viewport transform this scales with
+      // the canvas like everything else; the guideline is defined at zoom 1 and
+      // that is what this satisfies.
+      className={`${typography.edgeLabel} font-medium inline-flex items-center px-2 py-0.5 rounded-md border border-info/30 text-text-body bg-panel cursor-pointer hover:bg-info/5 transition-colors nodrag nopan relative before:absolute before:content-[''] before:-inset-y-[3px] before:left-0 before:right-0`}
       onClick={handleClick}
       onPointerDown={(e) => e.stopPropagation()}
       // `title` and not a styled tooltip, deliberately: this is the SAME

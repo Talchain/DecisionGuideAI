@@ -22,7 +22,7 @@
  * prove visibility and nothing here claims it does.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within, cleanup } from '@testing-library/react'
+import { render, screen, within, cleanup, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 
@@ -55,6 +55,24 @@ vi.mock('../../store', () => ({
     vi.fn((selector: (s: any) => unknown) => selector(hoisted.state)),
     { getState: () => hoisted.state },
   ),
+}))
+
+/**
+ * ⭐ CAPTURES WHAT THE CHIP ACTUALLY SENDS.
+ *
+ * The assertion at the bottom of this file ("asserts nothing about the model")
+ * scanned RENDERED TEXT — and the chip's falsehood was in `message`, which
+ * never renders. The guard and the defect were on different strings, so the
+ * suite stayed green while "Suggest a third option" went out on every model.
+ * These tests click the chip and read the dispatched payload.
+ */
+const dispatched: Array<Record<string, unknown>> = []
+vi.mock('../../stores/guidanceStore', () => ({
+  useGuidanceStore: {
+    getState: () => ({
+      _dispatchAction: (a: Record<string, unknown>) => { dispatched.push(a) },
+    }),
+  },
 }))
 
 const DECISION_ID = 'decision-1'
@@ -168,5 +186,54 @@ describe('DecisionNode — invitations in Standard view', () => {
     const text = outsidePopover(container)
     const JUDGEMENT = /\b(too similar|too few|not enough|weak|incomplete|you should)\b/i
     expect(text).not.toMatch(JUDGEMENT)
+  })
+
+  /**
+   * ⭐ THE SENT MESSAGE IS A STATEMENT ABOUT THE USER'S MODEL, MADE IN THE
+   * USER'S NAME — so it has to be true of the model it is sent from.
+   */
+  describe('what the chip sends, not what it shows', () => {
+    const messageFor = (label: string): string => {
+      dispatched.length = 0
+      const { container } = renderDecision()
+      const btn = Array.from(container.querySelectorAll('button'))
+        .find(b => b.textContent?.includes(label))
+      if (!btn) throw new Error(`refusing to assert: no "${label}" chip rendered`)
+      fireEvent.click(btn)
+      if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
+      return String(dispatched[dispatched.length - 1].message ?? '')
+    }
+
+    it('does not claim the model has exactly two options', () => {
+      // The hardcoded string read "Suggest a third option I haven't considered
+      // for this decision" on every model — asking for a third that would be
+      // the second on a one-option model, and a sixth-that-already-exists on a
+      // seven-option one.
+      expect(messageFor('Explore more options')).not.toMatch(/\ba third option\b/i)
+    })
+
+    it('DISCRIMINATION: the message differs between two models of different size', () => {
+      // Without this, any fixed replacement string passes the test above. This
+      // is the assertion that makes the message model-aware rather than merely
+      // differently-generic — the same property #1060 pins for the frontier
+      // doors, and the reason this string was worth changing at all.
+      const two = messageFor('Explore more options')
+      setStore({
+        nodes: [decisionNode, ...optionNodes, { id: 'option-3', type: 'option', data: { type: 'option', label: 'Hire one' } }],
+        edges: [...optionEdges, { id: 'e3', source: DECISION_ID, target: 'option-3', data: {} }],
+      })
+      const three = messageFor('Explore more options')
+      expect(two).not.toBe(three)
+      expect(two).toContain('2 options')
+      expect(three).toContain('3 options')
+    })
+
+    it('counts, and does not assess', () => {
+      // The line this whole surface stays on: how many options exist is
+      // observable from the graph. "Too few" or "too similar" would be a claim
+      // about the user's reasoning and belongs to the producer.
+      const msg = messageFor('Explore more options')
+      expect(msg).not.toMatch(/\b(too similar|too few|not enough|weak|incomplete|you should)\b/i)
+    })
   })
 })

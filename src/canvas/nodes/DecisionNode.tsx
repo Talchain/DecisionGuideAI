@@ -316,14 +316,43 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // Detailed view. The body never renders coaching chips. Exception:
   // pre-analysis body still shows the "Run analysis" CTA when the model is
   // ready, because that's a primary action button rather than coaching.
+  /**
+   * ⭐ "A THIRD OPTION" WAS HARDCODED, AND THIS PR IS WHAT MAKES IT REACHABLE.
+   *
+   * The sent message read "Suggest a third option I haven't considered for this
+   * decision" on every model. With one option it asked for a third that would
+   * be the second; with seven it asked for a third that already existed five
+   * times over. The string asserts the model holds exactly two options — and it
+   * is sent as the USER'S OWN message, so the user is made to state a false
+   * fact about their own board.
+   *
+   * The defect predates this PR. Promoting it does not: it lived behind a hover
+   * in a non-default view, and this change puts it on the anchor node of every
+   * Standard-view model. That is the question a PR opening a dark surface has
+   * to answer — now that people can reach it, is what they reach true?
+   *
+   * ⚠ AND THE SUITE COULD NOT SEE IT. `DecisionNode.invitations.spec.tsx`
+   * asserts the chips "assert nothing about the model" by scanning RENDERED
+   * LABEL TEXT. The falsehood is in `message`, which never renders. The guard
+   * and the defect were on different strings — so the assertion below is on
+   * `message` specifically.
+   *
+   * Counting only, never assessing: how many options exist is observable.
+   * "Your options are too similar" would be a claim about the user's reasoning
+   * and belongs to the producer.
+   */
+  const exploreOptionsMessage =
+    `My model has ${optionCount} option${optionCount === 1 ? '' : 's'} so far.` +
+    ' What other options could answer this decision that I have not put on the board?'
+
   const preAnalysisCoachingChips = useMemo(() => (
     <div className="flex items-center gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
+      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message={exploreOptionsMessage} />
       {!showRunAnalysis && (
         <NodeChip chipId="decision_what_could_go_wrong" actionType={null} label="What could go wrong?" message="What could go wrong with this decision?" />
       )}
     </div>
-  ), [showRunAnalysis])
+  ), [showRunAnalysis, exploreOptionsMessage])
 
   const postAnalysisCoachingChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
@@ -405,9 +434,18 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * being asked to think hardest about is not furniture; the same two chips on
    * thirteen cards would be.
    *
-   * Duplicated in the popover rather than moved out of it, which the R5 ruling
-   * explicitly permits ("full functionality ... may be DUPLICATED there"): a
-   * pointer user who hovers should not find LESS than they had.
+   * ⚠ MOVED OUT OF THE POPOVER, NOT DUPLICATED INTO THE BODY — and this
+   * paragraph said the opposite until a review caught it.
+   *
+   * I first wrote duplication, citing the R5 ruling's permission ("full
+   * functionality ... may be DUPLICATED there") on the grounds that a pointer
+   * user who hovers should not find less than they had. Rendering both put the
+   * SAME chip on one node twice, which `render-matrix.spec.tsx` caught as
+   * "found multiple elements". So the code moves them, the popover sixty lines
+   * below says "⛔ THE CHIPS ARE NOT HERE ANY MORE", and this comment went on
+   * describing the rejected alternative as shipped fact — with a ruling cited
+   * as authority for it. A false label is a first-class defect here (trap 14);
+   * the next reader would have believed the paragraph over the code.
    */
   // ⚠ NO `optionCount > 0` CONJUNCT, and that is measured rather than assumed.
   // I wrote one, and a mutant proved it a NO-OP: deleting it left the suite
