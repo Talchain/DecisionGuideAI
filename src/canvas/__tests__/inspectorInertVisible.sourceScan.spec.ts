@@ -51,6 +51,24 @@ describe('read-only Inspector — inert controls read as inert', () => {
     expect(rule).toMatch(/cursor:\s*not-allowed/)
   })
 
+  it('⚠ does NOT claim to cover every control — the one live escaper must keep looking live', () => {
+    // `<fieldset disabled>` inerts FORM-ASSOCIATED descendants only.
+    // `inspectorAuthorityBinding.spec.tsx` pins the single control it does not
+    // reach: the Context prompt, a `<div role="button" tabindex="0">`. That div
+    // is genuinely still interactive, so fading it would say "inert" about
+    // something that responds — the same lie as the original defect pointed the
+    // other way, and worse, because the user would stop trying the one control
+    // that still works.
+    //
+    // This asserts the rule's SCOPE stays honest: `:disabled` only, never a
+    // `[role="button"]` or `[tabindex]` selector that would sweep the escaper in.
+    const rule = css.match(/\[data-authority="disabled"\][^{]*\{/g)?.join(' ') ?? ''
+    expect(rule).not.toMatch(/role=|tabindex|\*/)
+    // And the comment must not restate the claim that was false.
+    const block = css.slice(Math.max(0, css.indexOf('Read-only Inspector')), css.indexOf('[data-authority="disabled"] :disabled'))
+    expect(block).not.toMatch(/covers every control inside it/i)
+  })
+
   it('selects via :disabled rather than a hand-listed set of controls', () => {
     // Derived, not enumerated: the browser's own answer to "is this inert"
     // covers every control inside the boundary, including ones added later. A

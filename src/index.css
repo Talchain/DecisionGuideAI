@@ -687,11 +687,25 @@
    product is technically honest and reads as broken.
 
    ⭐ KEYED ON THE FIELDSET, NOT LISTED PER CONTROL. One rule derived from the
-   authority boundary covers every control inside it — the ones there today and
-   the ones added later — so this cannot drift out of sync the way a
-   hand-maintained list of `disabled:` classes would (CLAUDE.md trap 12). The
-   `:disabled` pseudo-class does the selecting, so it is the browser's own
-   answer to "is this inert", not a second opinion.
+   authority boundary, selecting via `:disabled` — the browser's own answer to
+   "is this inert", not a second opinion. So it covers the controls there today
+   and the ones added later, without a hand-maintained list of `disabled:`
+   classes to drift (CLAUDE.md trap 12).
+
+   ⚠ "EVERY CONTROL INSIDE IT" IS WHAT THIS COMMENT USED TO SAY, AND IT IS
+   FALSE. `<fieldset disabled>` inerts FORM-ASSOCIATED descendants only —
+   `useInspectorMutations.ts` records exactly that, and
+   `inspectorAuthorityBinding.spec.tsx` pins the one control it does not reach:
+   the Context prompt, a `<div role="button" tabindex="0">`. Reproduced: three
+   controls fade, that one does not.
+
+   ⭐ AND IT MUST NOT. That div is the one control in the boundary that is
+   genuinely still LIVE — it opens a prompt and works. Fading it would say
+   "inert" about something that responds, which is the same lie as this rule's
+   original defect pointed the other way, and worse: the user would stop trying
+   the one thing that still does something. A control that works must look like
+   it works. The scope is therefore correct AS WRITTEN; only the claim about it
+   was wrong.
 
    `contents` on the fieldset means it has no box of its own, so this styles
    descendants and never the wrapper. */
