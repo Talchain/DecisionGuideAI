@@ -1379,6 +1379,26 @@ function usableOptionLabel(o: OptionResult): string | null {
  */
 function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparisonSection {
   const allOptions = data.recommendation.allOptions ?? []
+
+  /**
+   * ⚠ A COMPARISON NEEDS SOMETHING TO COMPARE WITH. With one option the
+   * section rendered "How the options compare … >99.99%" — a heading promising
+   * a comparison over a set of one, and a near-certainty readout that is an
+   * artefact of having nothing to lose to.
+   *
+   * TWO ESTATE GATES ALREADY SAY THIS AND NEITHER WAS APPLIED HERE:
+   * `ResultsBody.tsx:522` gates the whole "Your options" section on
+   * `!isSingleOption && allOptions.length > 1`, and this very file gates the
+   * leader headline at `:968` on `!rec.isSingleOption`. Gating only on
+   * `totalCount === 0` left the one-option case open.
+   *
+   * Both conjuncts, deliberately, matching `ResultsBody`: `isSingleOption` is
+   * the producer's own word, and the length check catches a payload where the
+   * flag is absent. Neither alone is the rule the rest of the estate applies.
+   */
+  if (data.recommendation.isSingleOption === true || allOptions.length <= 1) {
+    return { rows: [], totalCount: 0 }
+  }
   const storyHeadlines = data.recommendation.storyHeadlines
 
   const rows: ComparisonOption[] = []

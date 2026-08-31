@@ -149,7 +149,36 @@ export function OptionsComparison({
               >
                 <span
                   className="block h-full rounded-full bg-info"
-                  style={{ width: `${Math.round(o.winFraction * 100)}%` }}
+                  /**
+                   * ⭐⭐ THE GEOMETRY IS FLOORED BECAUSE THE READOUT IS.
+                   *
+                   * This was `Math.round(winFraction * 100)`, and it shipped a
+                   * measured non-zero share as a 0px fill. Browser-witnessed on
+                   * deployed `ce32426c`, guest, real 4-option run: the row read
+                   * "< 1%" beside a 371px track with `width: 0%`. One row, one
+                   * quantity, two contradictory claims — and precisely what the
+                   * comment above says this component refuses.
+                   *
+                   * `formatProbabilityWithResolution` floors the READOUT so a
+                   * measured tiny share never prints as "0%". Rounding the
+                   * WIDTH re-opened that exact falsehood in the one channel the
+                   * eye reads first — the defect `formatPercent.ts`'s own header
+                   * documents by name (ROADMAP 2.236): the same number honest in
+                   * one place and "0%" in another.
+                   *
+                   * ⚠ TWO DIRECTIONS, AND THEY MUST NOT COLLAPSE. A genuine
+                   * measured zero MUST render an empty track — "came out ahead
+                   * in 0% of simulated scenarios" is true, and the floor exists
+                   * to stop a non-zero value reading as zero, never to stop zero
+                   * reading as zero. So the minimum is applied ONLY when the
+                   * fraction is strictly positive, and the rounding is gone so a
+                   * small share keeps its own width rather than borrowing the
+                   * floor's.
+                   */
+                  style={{
+                    width: `${o.winFraction * 100}%`,
+                    ...(o.winFraction > 0 ? { minWidth: '2px' } : {}),
+                  }}
                 />
               </span>
             ) : null}
