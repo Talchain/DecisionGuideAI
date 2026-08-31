@@ -7,6 +7,9 @@ import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
 import { useCanvasStore } from './store'
+// Direct module import, NOT the `inspector-v2` barrel: the barrel re-exports
+// the shell and every panel, and this file is already in their import graph.
+import { requestNodeRename } from './ui/inspector-v2/renameIntent'
 import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
@@ -1081,8 +1084,34 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     setShowFullInspector(true)
   }, [onCanvasInteraction])
 
-  // Double-click handlers for opening full inspector modal
-  const handleNodeDoubleClick = useCallback(() => {
+  /**
+   * Double-click a node → open the inspector WITH ITS TITLE IN EDITING STATE.
+   *
+   * ⭐⭐ THIS IS THE CALL SITE `renameIntent.ts` WAS WRITTEN FOR, AND IT DID NOT
+   * EXIST. That module's own header says "The workspace lane's canvas
+   * double-click handler calls `requestNodeRename(id)`" — describing this
+   * function. It never did: `requestNodeRename` appeared in exactly four files
+   * repo-wide (its definition, the barrel, and two specs) and had ZERO product
+   * call sites, verified with a contrast control (`openNodeInspector`, 18
+   * files, same sweep). The whole rename path — the one-shot intent store, the
+   * shell's consume-and-clear, `EditableLabel` — was built, tested, and
+   * unreachable. Renaming a node is the most basic authoring act on a canvas
+   * whose purpose is that the model belongs to the team, and it was one call
+   * away the entire time.
+   *
+   * ⚠ THE SELECTION IS WRITTEN EXPLICITLY rather than relied upon. React Flow
+   * fires `onNodeClick` before `onNodeDoubleClick`, so the node IS selected by
+   * the time we get here — but `requestNodeRename`'s stated contract is that
+   * the node must be the inspector's selection, and a contract honoured only
+   * by an ordering guarantee in someone else's library is a contract waiting
+   * to break silently. `selectNodeWithoutHistory` is the same writer
+   * `openNodeInspector` uses, for the same reason: opening an editor is not a
+   * graph change and must not be undoable.
+   */
+  const handleNodeDoubleClick = useCallback((_event: unknown, node: { id: string }) => {
+    if (!node?.id) return
+    useCanvasStore.getState().selectNodeWithoutHistory(node.id)
+    requestNodeRename(node.id)
     setShowFullInspector(true)
   }, [])
 
