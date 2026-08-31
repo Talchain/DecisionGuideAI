@@ -13,10 +13,10 @@
  * Geometry used throughout (graph coordinates):
  *  - n1 (source) card at (−400,−40) 200×80 → centre (−300, 0)
  *  - n2 (target) card at ( 200,−40) 200×80 → centre ( 300, 0)
- *  - label anchor basis = midpoint of node centres = (0, 0); the 160×22 label
- *    box (±80, ±11) is clear of both endpoint cards.
+ *  - label anchor basis = midpoint of node centres = (0, 0); the 160×34 label
+ *    box (±80, ±17) is clear of both endpoint cards.
  *  - blocker card at (−100,−40) 200×80 spans x −100..100, y −40..40 — dead on
- *    the anchor. Clearing its bottom edge needs dy ≥ 51.
+ *    the anchor. Clearing its bottom edge needs dy ≥ 57.
  *  - the mocked path functions put the RENDERED anchor at (50, 50).
  */
 
@@ -162,13 +162,18 @@ const leaderDelta = (leader: Element) => ({
   dy: Number(leader.getAttribute('y2')) - Number(leader.getAttribute('y1')),
 })
 
-/** True when a 160×22 label box centred on (cx, cy) is clear of the rect. */
+// True when the label box centred on (cx, cy) is clear of the rect. The
+// half-extents are INDEPENDENT literals, never imported from the module under
+// test — a helper reading the same constants as the code agrees with it by
+// construction. 160 × 34: the width cap, and the height at the maximum canvas
+// counter-scale (measured 33.0 in Chromium; the module rounds its half-extent
+// up to 17).
 const labelClearOfRect = (
   cx: number,
   cy: number,
   r: { x: number; y: number; width: number; height: number },
 ) =>
-  cx + 80 <= r.x || cx - 80 >= r.x + r.width || cy + 11 <= r.y || cy - 11 >= r.y + r.height
+  cx + 80 <= r.x || cx - 80 >= r.x + r.width || cy + 17 <= r.y || cy - 17 >= r.y + r.height
 
 const edgeProps = {
   id: 'e1',
@@ -217,10 +222,43 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     expect(x1).toBe(50)
     expect(y1).toBe(50)
     // Displaced clear of the blocker card: label top edge must pass the card
-    // bottom (40) plus the 11px label half-height → dy ≥ 51
-    expect(y2 - y1).toBeGreaterThanOrEqual(51)
+    // bottom (40) plus the 17px label half-height → dy ≥ 57
+    expect(y2 - y1).toBeGreaterThanOrEqual(57)
     // The label itself renders at the leader's far end
     expect(label!.style.transform).toContain(`translate(${x2}px,${y2}px)`)
+  })
+
+  // ── 31 Aug 2026: the leader must be VISIBLE, not merely present ──────────
+  // Every other test here asserts the leader EXISTS. A leader drawn in a
+  // near-background colour at half a device pixel exists and cannot be seen,
+  // which is how a displaced label came to be reported as having "no visible
+  // edge". jsdom cannot prove visibility (CLAUDE.md trap 3), so what is
+  // pinned is the two declarations that decide it — the ones a tidy-up would
+  // otherwise revert without anything going red.
+  it('the leader is drawn in a foreground token, not the near-background border token', () => {
+    nodeRegistry.blocker = card('blocker', 'factor', -100, -40)
+
+    const { container } = render(<StyledEdge {...edgeProps as any} />)
+
+    const leader = leaderOf(container)
+    expect(leader).not.toBeNull()
+    const stroke = leader!.getAttribute('stroke') ?? ''
+    // Independent literals: the token this must NOT be, and the one it is.
+    expect(stroke).not.toContain('--border-default')
+    expect(stroke).toContain('--text-light')
+  })
+
+  it('the leader keeps a constant SCREEN width, so it survives the auto-fit zoom', () => {
+    nodeRegistry.blocker = card('blocker', 'factor', -100, -40)
+
+    const { container } = render(<StyledEdge {...edgeProps as any} />)
+
+    const leader = leaderOf(container)
+    expect(leader).not.toBeNull()
+    // Without this the 1-unit stroke renders at 0.5 device px at the 0.50 zoom
+    // a freshly drafted model is fitted to — invisible exactly when a label is
+    // most likely to have been displaced.
+    expect(leader!.getAttribute('vector-effect')).toBe('non-scaling-stroke')
   })
 
   it('label clear of every card renders at the anchor with no leader line', () => {
@@ -243,7 +281,7 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     const leader = container.querySelector('[data-testid="edge-label-leader"]')
     expect(leader).not.toBeNull()
     const dy = Number(leader!.getAttribute('y2')) - Number(leader!.getAttribute('y1'))
-    expect(dy).toBeGreaterThanOrEqual(51)
+    expect(dy).toBeGreaterThanOrEqual(57)
   })
 
   // ── Label-box assumption: the resolver clears a FIXED 160×22 box ──────────
@@ -297,6 +335,12 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       expect(style.display).toBe('flex')
       expect(style.flexWrap).toBe('nowrap')
       expect(style.overflow).toBe('hidden')
+      // The vertical chrome the HEIGHT derivation adds to the line box: 3px
+      // padding and a 1px border, top and bottom. Pinned here, beside the
+      // width cap, because the resolver's box height is computed from it —
+      // change the padding and the box the dodge clears is wrong again.
+      expect(style.padding).toBe('3px 8px')
+      expect(container.querySelector('[role="note"]')!.className).toContain('border')
     })
 
     it('the label TEXT carries the single-line ellipsis, so a long label shortens instead of wrapping', () => {
@@ -337,7 +381,13 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // so the extra characters ellipsise rather than widen the row.
       expect(labelTextStyle(container).textOverflow).toBe('ellipsis')
       expect(parseFloat(labelTextStyle(container).minWidth)).toBe(0)
-      expect(LABEL_HALF_HEIGHT).toBe(11) // ~22px tall single line (padding included)
+      // ⚠ 11 UNTIL 31 Aug 2026, WHEN THE RENDERED BOX WAS MEASURED AT 33 GRAPH
+      // UNITS TALL IN CHROMIUM. Canvas label text carries a counter-scale, so
+      // the height a resolver working in graph units must clear depends on
+      // zoom, and is largest at exactly the zoom the product's auto-fit parks
+      // at. The constant is now derived from that scale; this remains an
+      // INDEPENDENT literal so the derivation cannot silently drift.
+      expect(LABEL_HALF_HEIGHT).toBe(17)
     })
   })
 
@@ -403,15 +453,18 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
   // a permanently stale offset — up to ~10px of clip/spurious dodge that no
   // later event ever fixes.
   describe('drag-end / settled-position recompute (quantisation gap)', () => {
-    // Blocker at y −94: bottom edge −14 just clears the label box (−11..11).
-    // At y −88: bottom edge −8 overlaps. Both quantise to the same 10px
-    // bucket (round(−9.4) === round(−8.8) === −9).
+    // ⚠ RE-SITED 31 Aug 2026 with the corrected label box (±17, not ±11): the
+    // old −94/−88 pair now BOTH overlap, so it stopped testing the boundary.
+    // Blocker at y −100.4: bottom edge −20.4 just clears the label box
+    // (−17..17). At y −95.6: bottom edge −15.6 overlaps. Both quantise to the
+    // same 10px bucket (round(−10.04) === round(−9.56) === −10), which is the
+    // property under test.
     it('a sub-bucket move of a settled card still triggers a recompute', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -94)
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4)
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
       expect(leaderOf(container)).toBeNull() // clear at −94
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -88)
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6)
       // New data identity defeats React.memo bailout without touching any
       // collision-memo dependency.
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
@@ -422,11 +475,11 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     })
 
     it('perf posture: mid-drag sub-bucket movement does NOT recompute', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -94, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4, { dragging: true })
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
       expect(leaderOf(container)).toBeNull()
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -88, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6, { dragging: true })
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
 
       // Same 10px bucket while dragging → throttled, still no dodge…
@@ -434,14 +487,14 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     })
 
     it('…but the drag SETTLING at the same sub-bucket position recomputes', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -94, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4, { dragging: true })
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -88, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6, { dragging: true })
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
       expect(leaderOf(container)).toBeNull() // throttled mid-drag
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -88, { dragging: false })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6, { dragging: false })
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
 
       const leader = leaderOf(container)
@@ -465,9 +518,11 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     })
 
     it('a card over the true (handle-midpoint) anchor is dodged', () => {
-      // bottom edge 145: overlaps the 140-anchor box (129..151), clear of the
-      // 160-anchor box (149..171)
-      nodeRegistry.blocker = card('blocker', 'factor', -100, 65)
+      // ⚠ RE-SITED 31 Aug 2026 for the corrected ±17 label box: at y 65 the
+      // card overlapped BOTH candidate anchors and the pair discriminated
+      // nothing. Bottom edge 140: overlaps the 140-anchor box (123..157),
+      // clear of the 160-anchor box (143..177).
+      nodeRegistry.blocker = card('blocker', 'factor', -100, 60)
 
       const { container } = render(<StyledEdge {...edgeProps as any} />)
 
@@ -475,15 +530,16 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       expect(leader).not.toBeNull()
       const { dx, dy } = leaderDelta(leader!)
       expect(dx).toBe(0)
-      // Clear of the blocker bottom (145) from cy 140 → dy ≥ 16
-      expect(dy).toBeGreaterThanOrEqual(16)
-      expect(labelClearOfRect(0 + dx, 140 + dy, { x: -100, y: 65, width: 200, height: 80 })).toBe(true)
+      // Clear of the blocker bottom (140) from cy 140 → dy ≥ 17
+      expect(dy).toBeGreaterThanOrEqual(17)
+      expect(labelClearOfRect(0 + dx, 140 + dy, { x: -100, y: 60, width: 200, height: 80 })).toBe(true)
     })
 
     it('a card over the node-centre midpoint (clear of the render anchor) is NOT dodged', () => {
-      // top edge 155: overlaps the 160-anchor box (149..171), clear of the
-      // 140-anchor box (129..151) — dodging it would be a phantom dodge
-      nodeRegistry.blocker = card('blocker', 'factor', -100, 155)
+      // Top edge 160: overlaps the 160-anchor box (143..177), clear of the
+      // 140-anchor box (123..157) — dodging it would be a phantom dodge.
+      // Re-sited from 155 with the corrected ±17 box, same reason as above.
+      nodeRegistry.blocker = card('blocker', 'factor', -100, 160)
 
       const { container } = render(<StyledEdge {...edgeProps as any} />)
 
@@ -500,12 +556,14 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
   // under a card — and it must key off the true anchor, not a stale one.
   describe('proximity nudge goes through the resolver', () => {
     it('a nudge keyed off the wrong anchor must not push the label under a card', () => {
-      // n1 (−30, 0) 200×80, n2 (−30, 140) 200×80 → true anchor (70, 110);
-      // the label box (99..121) is clear of both cards, so NO offset at all
+      // n1 (−30, 0) 200×80, n2 (−30, 160) 200×80 → true anchor (70, 120);
+      // the label box (103..137) is clear of both cards, so NO offset at all
       // is correct. A post-resolution nudge (dy +20) would sink the label box
-      // (119..141) into n2 (top edge 140).
+      // (123..157) into n2 (top edge 160). ⚠ n2 moved 140 → 160 on 31 Aug
+      // 2026: with the corrected ±17 box the old spacing left no clear slot
+      // at the anchor, so the case could no longer observe "no offset".
+      nodeRegistry.n2 = card('n2', 'outcome', -30, 160)
       nodeRegistry.n1 = card('n1', 'factor', -30, 0)
-      nodeRegistry.n2 = card('n2', 'outcome', -30, 140)
 
       const { container } = render(<StyledEdge {...edgeProps as any} />)
 
@@ -514,16 +572,24 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       const leader = leaderOf(container)
       const { dx, dy } = leader ? leaderDelta(leader) : { dx: 0, dy: 0 }
       // Whatever offset is applied, the final label box must clear both cards
-      expect(labelClearOfRect(70 + dx, 110 + dy, { x: -30, y: 0, width: 200, height: 80 })).toBe(true)
-      expect(labelClearOfRect(70 + dx, 110 + dy, { x: -30, y: 140, width: 200, height: 80 })).toBe(true)
+      expect(labelClearOfRect(70 + dx, 120 + dy, { x: -30, y: 0, width: 200, height: 80 })).toBe(true)
+      expect(labelClearOfRect(70 + dx, 120 + dy, { x: -30, y: 160, width: 200, height: 80 })).toBe(true)
     })
 
     it('when the nudge fires, the resolver still clears every card AND the nudge survives', () => {
       // n1 (0, 0) 200×80 (centre (100, 40)), n2 (0, 40) 200×160 (top handle
       // (100, 40)) → anchor (100, 60) is within 40px of n1's centre → nudge
       // fires perpendicular to the (vertical) handle direction: dx +20. The
-      // anchor sits inside BOTH cards, so the resolver must then stack the
-      // nudged label clear of both (dy ≥ 151 to pass n2's bottom edge 200).
+      // anchor sits inside BOTH cards, so the resolver must then displace the
+      // nudged label clear of both.
+      //
+      // ⚠ REPHRASED 31 Aug 2026: this pinned `dy >= 151` (downward past n2's
+      // bottom edge). Clearing upward past n1's top edge costs 78 against 156,
+      // and the search is now bidirectional-nearest-first, so it takes the
+      // short way. The clearance assertions — the actual property — are
+      // unchanged; the magnitude is now bounded on BOTH sides so it still
+      // fails a resolver that does not displace, and fails one that travels
+      // the long way round.
       nodeRegistry.n1 = card('n1', 'factor', 0, 0)
       nodeRegistry.n2 = card('n2', 'outcome', 0, 40, { height: 160 })
 
@@ -533,7 +599,8 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       expect(leader).not.toBeNull()
       const { dx, dy } = leaderDelta(leader!)
       expect(dx).toBe(20) // the 9c nudge survives, applied pre-resolution
-      expect(dy).toBeGreaterThanOrEqual(151)
+      expect(Math.abs(dy)).toBeGreaterThanOrEqual(71) // n1's top edge from cy 60
+      expect(Math.abs(dy)).toBeLessThan(151) // n2's bottom edge — the long way
       expect(labelClearOfRect(100 + dx, 60 + dy, { x: 0, y: 0, width: 200, height: 80 })).toBe(true)
       expect(labelClearOfRect(100 + dx, 60 + dy, { x: 0, y: 40, width: 200, height: 160 })).toBe(true)
     })
