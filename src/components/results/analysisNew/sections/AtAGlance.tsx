@@ -35,6 +35,7 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
+import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
@@ -98,7 +99,15 @@ function reassuranceIsStale(tone: string, isStale: boolean): boolean {
  */
 export const DRIVER_SPREAD_MIN = 0.05
 
-export const EXCLUDED_OPTION_VISIBLE_CAP = 2
+/**
+ * How many excluded options these rows name at rest.
+ *
+ * ⭐ THE REGISTER'S CONSTANT, NOT A SECOND NUMBER. This was a literal `2`,
+ * justified by the scope note naming every option these rows name. Bounding
+ * that note made the justification false and left two caps each resting on the
+ * other's completeness. They are now one value and cannot drift apart.
+ */
+export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP
 
 export interface AtAGlanceProps {
   glance: AtAGlanceModel
