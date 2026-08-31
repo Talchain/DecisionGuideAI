@@ -480,8 +480,27 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const isPostAnalysis = resultsStatus === 'complete'
     if (isPostAnalysis && viewMode !== 'expert') return nodes
 
+    /*
+     * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
+     *
+     * `withGhostTiers` decides tier by tier, and refuses a door on a tier with
+     * no members for a stated reason: a ghost on an empty tier would assert the
+     * tier OUGHT to have members, which is a judgement this affordance exists
+     * not to make. That per-tier care was then defeated by a global
+     * `if (optionNodes.length === 0) return nodes` above it — inherited from
+     * when the options ghost was the ONLY ghost, and correct then.
+     *
+     * Since the frontier reached factors, risks and outcomes it is no longer
+     * correct: a model with factors and risks but no options got no door on any
+     * tier, including the tiers that had members. The doors disappeared exactly
+     * when the model was sparsest, which is when an invitation is worth most.
+     *
+     * The OPTIONS ghost still needs an option node — its position is derived
+     * from the rightmost one — so that part of the gate stays, scoped to itself.
+     */
+    const tierGhosts = GHOST_TIERS.filter((t) => t.siblingType !== 'option')
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    if (optionNodes.length === 0) return nodes
+    if (optionNodes.length === 0) return withGhostTiers(nodes, tierGhosts)
 
     // Find rightmost option position, accounting for node width
     const maxX = Math.max(...optionNodes.map(n => n.position?.x ?? 0))
@@ -515,7 +534,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * excluded from the fit and from every model count by the shared `__ghost-`
      * prefix, so they cannot inflate what the graph appears to contain.
      */
-    return withGhostTiers([...nodes, ghostNode], GHOST_TIERS.filter((t) => t.siblingType !== 'option'))
+    return withGhostTiers([...nodes, ghostNode], tierGhosts)
   }, [nodes, resultsStatus, viewMode])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
