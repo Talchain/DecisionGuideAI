@@ -257,9 +257,25 @@ export function StrengthenTheReasoning({
                         type="button"
                         onClick={() =>
                           openAskOlumi({
+                            // The FINDING is the context, not the method's own
+                            // description — that is the whole point of attaching
+                            // a technique to a trigger. `ActionsMenu` sends the
+                            // description because it dispatches from a menu with
+                            // no finding to point at.
                             context: rec.whyNow || rec.signal,
                             draft: method.prompt,
                             label: method.title,
+                            // ⚠ IDENTITY MUST RIDE THE DISPATCH, and omitting
+                            // this made the chip cosmetic. `ActionsMenu` passes
+                            // both, and its comment says why: the method id
+                            // travels in `parameters` so the eventual dispatch is
+                            // a conversation-typed turn carrying
+                            // `chip_metadata {method_id}`. Without them the
+                            // drawer still opens with the right prompt, so
+                            // nothing looks broken — CEE simply never learns
+                            // which technique the user invoked.
+                            parameters: { method_id: method.id },
+                            source: 'chip',
                             ...(rec.targetId ? { targetId: rec.targetId } : {}),
                           })
                         }
