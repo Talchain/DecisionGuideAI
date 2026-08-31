@@ -41,6 +41,7 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
 import * as path from 'path'
 import * as fs from 'fs/promises'
+import { DECISION_NODE_LABEL } from '../src/canvas/domain/vocabulary'
 
 const SCREENSHOT_DIR = path.join('e2e', 'screenshots')
 
@@ -410,7 +411,11 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // Open the decision node: its own affordance is present…
     const decision = await openNodeInspector(page, 'decision-1')
     await expect(decision.getByRole('button', { name: 'Growth strategy choice' })).toBeVisible()
-    await expect(decision.getByText('Decision', { exact: true })).toBeVisible()
+    // The TYPE pill, read from the vocabulary constant. `exact: true` means a
+    // literal here breaks the moment the word changes — and it would break as a
+    // TIMEOUT deep in a journey spec, which is the most expensive way to learn
+    // about a rename.
+    await expect(decision.getByText(DECISION_NODE_LABEL, { exact: true })).toBeVisible()
     await expect(decision.getByTestId('decision-add-option')).toBeVisible()
 
     // …and switching to a factor REPLACES the content rather than adding to it.

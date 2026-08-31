@@ -17,6 +17,7 @@
 
 import { test, expect, Page } from '@playwright/test'
 import { installFakeEventSource } from './_helpers'
+import { DECISION_NODE_LABEL } from '../src/canvas/domain/vocabulary'
 
 const isMac = process.platform === 'darwin'
 const modifier = isMac ? 'Meta' : 'Control'
@@ -49,9 +50,16 @@ async function addNode(page: Page, type: 'goal' | 'decision' | 'option' | 'facto
   await page.waitForTimeout(100)
 
   // Click the appropriate node type
+  // ⚠ THE DECISION ENTRY READS THE VOCABULARY CONSTANT, AND THIS ONE MATTERS
+  // MORE THAN THE OTHER TWO CALL SITES. The menu item's label comes from
+  // `DECISION_NODE_LABEL` (`useMenuItems.ts`), so a literal here stops matching
+  // at the next rename — and the `isVisible` check below then falls through to
+  // "click the first available menu item", which SUCCEEDS while adding the
+  // WRONG NODE TYPE. The spec would stay green having tested something else
+  // entirely. A fallback that cannot fail is worse than a missing locator.
   const typeMap: Record<string, string> = {
     goal: 'Goal',
-    decision: 'Decision',
+    decision: DECISION_NODE_LABEL,
     option: 'Option',
     factor: 'Factor'
   }

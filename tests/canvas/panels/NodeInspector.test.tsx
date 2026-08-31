@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { NodeInspector } from '../../../src/canvas/ui/NodeInspector'
 import { useCanvasStore } from '../../../src/canvas/store'
+import { DECISION_NODE_LABEL } from '../../../src/canvas/domain/vocabulary'
 
 describe('NodeInspector (panel)', () => {
   beforeEach(() => {
@@ -31,7 +32,10 @@ describe('NodeInspector (panel)', () => {
     render(<NodeInspector nodeId="n1" onClose={() => {}} />)
 
     const typeDisplay = screen.getByTestId('read-only-node-type')
-    expect(typeDisplay.textContent).toBe('Decision')
+    // The node-type word comes from the vocabulary constant, never a literal —
+    // a hardcoded word here is the hand-maintained mirror `DECISION_NODE_LABEL`
+    // exists to abolish, and it goes stale silently at the next rename.
+    expect(typeDisplay.textContent).toBe(DECISION_NODE_LABEL)
   })
 
   // B.I.1: Probabilities section removed — tests for probability editor no longer applicable
