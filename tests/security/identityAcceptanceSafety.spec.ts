@@ -19,6 +19,10 @@ const environment = {
 const response = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
 const jwt = (role: string) => `e30.${Buffer.from(JSON.stringify({ role })).toString('base64url')}.offline`
 const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+const setOptionalEnv = (key: string, value: string | undefined) => {
+  if (value === undefined) delete process.env[key]
+  else vi.stubEnv(key, value)
+}
 
 beforeEach(() => {
   Object.entries(environment).forEach(([key, value]) => vi.stubEnv(key, value))
@@ -35,7 +39,7 @@ afterEach(() => {
 
 describe('identity acceptance input fails closed', () => {
   it.each([undefined, '', '0', 'true'])('requires explicit opt-in, not %s', value => {
-    vi.stubEnv('RUN_IDENTITY_ACCEPTANCE', value)
+    setOptionalEnv('RUN_IDENTITY_ACCEPTANCE', value)
     expect(() => identityInput()).toThrow('LIVE_RUN_NOT_ACKNOWLEDGED')
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -58,7 +62,7 @@ describe('identity acceptance input fails closed', () => {
   })
   it.each(['IDENTITY_EXPECTED_UI_COMMIT', 'IDENTITY_EXPECTED_CEE_COMMIT'])('requires a full SHA for %s', key => {
     for (const value of [undefined, '', '1234567', 'g'.repeat(40)]) {
-      vi.stubEnv(key, value)
+      setOptionalEnv(key, value)
       expect(() => identityInput()).toThrow()
     }
     vi.stubEnv(key, key.includes('_UI_') ? uiSha : ceeSha)
