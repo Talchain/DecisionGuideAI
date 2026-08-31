@@ -94,6 +94,12 @@ const run = (
     responseHash: `resp-${n}`,
     graphHashAtRun: `aag-${n}`,
     winner: { option_id: 'opt-a', option_label: 'Option A', win_probability: winProb },
+    // ⚠ THE RUNNER-UP IS DERIVED, SO `winProb: 0.5` IS AN EXACT TIE. At that one
+    // value the two options are level, `deriveDecisionVerdict` has no argmax to
+    // name, and it withholds the leader claim — so any test here that needs a
+    // NAMED leader must pass a probability other than 0.5. (Two did, silently,
+    // and only started failing when the tie gate landed. 0.5 reads as a neutral
+    // placeholder and is the single worst choice this helper admits.)
     runnerUp: { option_id: 'opt-b', option_label: 'Option B', win_probability: 1 - winProb },
     ...extra,
   })
@@ -190,7 +196,11 @@ describe('pick-two-runs side-by-side (2.113a slice 2)', () => {
   // ── Honest degradation ─────────────────────────────────────────────────
   it('the LEADER row quotes each run’s own producer verdict — and stays silent when there is none', async () => {
     await renderWithRuns([
-      run(1, '10', 0.5, { nearTie: { is_tie: false, top_option_id: 'opt-a' } }),
+      // 0.55, not 0.5 — see the runner-up note in `run`. This test needs run 1
+      // to NAME a leader; at 0.5 the derived runner-up ties it and the verdict
+      // is correctly withheld, which is a different scenario from the one under
+      // test here (entitled-vs-silent, not tied-vs-separated).
+      run(1, '10', 0.55, { nearTie: { is_tie: false, top_option_id: 'opt-a' } }),
       // Second run: the producer sent NO usable near-tie signal.
       run(2, '11', 0.62, { nearTieOverride: null }),
     ])
@@ -204,7 +214,9 @@ describe('pick-two-runs side-by-side (2.113a slice 2)', () => {
 
   it('two runs whose producer named the same leader report it UNCHANGED', async () => {
     await renderWithRuns([
-      run(1, '10', 0.5, { nearTie: { is_tie: false, top_option_id: 'opt-a' } }),
+      // 0.55, not 0.5 — see the runner-up note in `run`. "Leader unchanged"
+      // requires BOTH runs to name a leader, and at 0.5 run 1 is a tie.
+      run(1, '10', 0.55, { nearTie: { is_tie: false, top_option_id: 'opt-a' } }),
       run(2, '11', 0.62, { nearTie: { is_tie: false, top_option_id: 'opt-a' } }),
     ])
     openPicker()
