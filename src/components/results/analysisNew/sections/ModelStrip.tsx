@@ -57,7 +57,18 @@ export function ModelStrip({ testId = 'analysis-new-model-strip' }: ModelStripPr
   if (strip.rows.length === 0) return null
 
   return (
-    <section data-testid={testId} className="flex flex-col gap-2">
+    /* ⚠ NAMED FOR ASSISTIVE TECH, NOT ON SCREEN. A `section` is a landmark and
+       an unnamed one is an unlabelled region for anyone navigating by landmark
+       — the dock's own spec pins `aria-labelledby` on its sections for exactly
+       this reason. It is deliberately NOT a visible heading: the rows carry
+       their own labels, the panel's standing criticism is that it is too
+       textual, and a zone title here would restate what four labelled rows
+       already say. */
+    <section
+      data-testid={testId}
+      className="flex flex-col gap-2"
+      aria-label="Your model so far"
+    >
       {/* ⚠ A COUNT LINE WAS REMOVED HERE AND THE REASON IS THE CLAIM, NOT THE
           CLUTTER. It read "N elements on the canvas" from `strip.total`, which
           sums the four ROWS — options, factors, risks, outcomes — and therefore
