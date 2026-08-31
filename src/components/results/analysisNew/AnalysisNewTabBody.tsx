@@ -227,6 +227,7 @@ export function AnalysisNewTabBody({
                   id: vm.strengthen.interventions[0].id,
                   label: vm.strengthen.interventions[0].action.label,
                   why: vm.strengthen.interventions[0].signal,
+                  signalCode: vm.strengthen.interventions[0].signalCode,
                 }
               : null
           }

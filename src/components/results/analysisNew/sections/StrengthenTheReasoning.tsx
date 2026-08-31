@@ -307,7 +307,7 @@ export function StrengthenTheReasoning({
             const grounding = scienceGrounding[rec.id]
             // `null` for most findings, and that is correct — see
             // `recommendationMethod.ts`. No placeholder, no default technique.
-            const method = methodForRecommendation(rec.id)
+            const method = methodForRecommendation(rec.id, rec.signalCode)
             /**
              * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
              * A card about a Risk now carries the risk shape, in the risk

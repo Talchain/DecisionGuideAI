@@ -104,7 +104,15 @@ export interface AtAGlanceProps {
   glance: AtAGlanceModel
   onFocusTarget?: (targetId: string) => void
   driverTotal?: number
-  primaryIntervention?: { id: string; label: string; why: string } | null
+  primaryIntervention?: {
+    id: string
+    label: string
+    why: string
+    /** The producer's `signal_code` on a phase-3 finding; absent on the UI's
+     * own triggers. Carried so the primary card can name a technique when the
+     * producer's code names one — see `recommendationMethod.ts`. */
+    signalCode?: string
+  } | null
   onRunIntervention?: (recommendationId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
   isStale?: boolean
@@ -701,7 +709,10 @@ export function AtAGlance({
                 `null` for most findings by design (`recommendationMethod.ts`);
                 nothing renders then, never a default technique. */}
             {(() => {
-              const method = methodForRecommendation(primaryIntervention.id)
+              const method = methodForRecommendation(
+                primaryIntervention.id,
+                primaryIntervention.signalCode,
+              )
               return method ? (
                 <span
                   className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info mt-1`}

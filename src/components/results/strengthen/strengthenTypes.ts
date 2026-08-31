@@ -62,6 +62,16 @@ export interface Recommendation {
    * own deterministic triggers, which the producer never categorised).
    */
   category?: GuidanceCategory
+  /**
+   * The producer's `signal_code` VERBATIM — set only on phase-3 guidance recs.
+   * An OPEN, producer-owned SCREAMING_SNAKE vocabulary (PRE_MORTEM,
+   * COGNITIVE_BIAS, EVIDENCE_GAP, …): never allowlisted, never rendered as user
+   * copy. It is carried so the surface can attach a science-grounded METHOD to
+   * a producer finding the way it already does for the UI's own triggers —
+   * without which the producer's pre-mortem card arrives with no technique
+   * named, while "Run a pre-mortem" sits two clicks away in a menu.
+   */
+  signalCode?: string
 }
 
 // ── Engine inputs (narrow, fixture-friendly) ─────────────────────────────────
@@ -126,6 +136,16 @@ export interface StrengthenPhase3Item {
    * everywhere else.
    */
   signal?: string
+  /**
+   * The producer's `signal_code` VERBATIM when emitted; absent otherwise.
+   *
+   * ⚠ It reached the store and died one hop later, here. `deriveGuidance`
+   * carries it onto `GuidanceItem` and `toStrengthenPhase3Item` simply did not
+   * map it, so the engine classified every producer finding as `clarify` — the
+   * producer's own challenge cards included. Passthrough only: an OPEN
+   * vocabulary, never allowlisted, never rendered as user copy (data-* only).
+   */
+  signalCode?: string
   targetIds: string[]
   /**
    * The producer's 0.19.0 `priority_rank` VERBATIM (ascending display

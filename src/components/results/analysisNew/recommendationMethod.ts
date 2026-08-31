@@ -66,18 +66,73 @@ const METHOD_BY_RECOMMENDATION_PREFIX: ReadonlyArray<readonly [string, string]> 
 ]
 
 /**
+ * Producer `signal_code` → method id, for PHASE-3 rows.
+ *
+ * ⭐⭐ WHY A SECOND MAP RATHER THAN MORE PREFIXES. Phase-3 rows all share one id
+ * shape — `strengthen:phase3:${block_id}` — so a prefix cannot distinguish a
+ * producer pre-mortem card from a producer assumption check. The header above
+ * rejects `helpType` as a key because it is too coarse; `signal_code` is the
+ * opposite problem solved: it is the producer's OWN name for the move, finer
+ * than the id and authored upstream rather than here.
+ *
+ * The consequence is the point. Until now every technique chip in the product
+ * hung off one of the UI's three deterministic triggers, so a producer finding
+ * — the majority of what the panel shows, occupying the whole top band — could
+ * never name a technique, however plainly it was one. Three of seven techniques
+ * were reachable from a finding. This makes the producer's own cards carry
+ * their method, and unlocks a FOURTH: `review_bias`, which had no trigger at
+ * all and was reachable only from a menu you had to already know you wanted.
+ *
+ * ⚠ THE SAME RESTRAINT RULE APPLIES, and it is doing work here. `FRAGILE_RESULT`
+ * is deliberately ABSENT: `strengthen:robustness` earns `pre_mortem` because
+ * that recommendation's instruction IS "build the strongest case against the
+ * leader", whereas a producer fragility card states a fact about the run and
+ * may prescribe something else entirely. Same kind of thinking (both are
+ * `challenge`), different move — and a method chip claims the move, not the
+ * kind.
+ */
+const METHOD_BY_SIGNAL_CODE: ReadonlyArray<readonly [string, string]> = [
+  // Name-identical, and the catalogue's description ("imagine failure and
+  // capture plausible causes") is what the producer's PRE_MORTEM card is.
+  ['PRE_MORTEM', 'pre_mortem'],
+
+  // `review_bias` IS "review the decision for cognitive bias"; a producer
+  // COGNITIVE_BIAS signal is that move, named by the producer. This is the
+  // technique's first and only trigger.
+  ['COGNITIVE_BIAS', 'review_bias'],
+
+  // Identical to the existing `strengthen:broaden` → `different_option` row,
+  // reached from the producer's own code instead of the UI's bias gate.
+  ['LOW_OPTION_COUNT', 'different_option'],
+]
+
+/**
  * The method this finding warrants, or `null` when none genuinely does.
  *
  * `null` is the common case by design — see the header. Callers must render
  * nothing at all for it, never a placeholder or a default technique.
+ *
+ * `signalCode` is the producer's code on a phase-3 row (absent on the UI's own
+ * triggers). The id is tried first so a UI trigger's mapping always wins; a
+ * producer code is consulted only when the id matches nothing, which keeps this
+ * change strictly additive — no finding that names a technique today can stop
+ * naming one, or start naming a different one.
  */
-export function methodForRecommendation(recommendationId: string): MethodEntry | null {
+export function methodForRecommendation(
+  recommendationId: string,
+  signalCode?: string,
+): MethodEntry | null {
   if (!recommendationId) return null
-  const hit = METHOD_BY_RECOMMENDATION_PREFIX.find(([prefix]) =>
+  const byPrefix = METHOD_BY_RECOMMENDATION_PREFIX.find(([prefix]) =>
     recommendationId === prefix || recommendationId.startsWith(`${prefix}:`),
   )
-  if (!hit) return null
-  return METHOD_CATALOGUE.find((m) => m.id === hit[1]) ?? null
+  const methodId =
+    byPrefix?.[1] ??
+    (signalCode
+      ? METHOD_BY_SIGNAL_CODE.find(([code]) => code === signalCode)?.[1]
+      : undefined)
+  if (!methodId) return null
+  return METHOD_CATALOGUE.find((m) => m.id === methodId) ?? null
 }
 
 /**
@@ -86,8 +141,19 @@ export function methodForRecommendation(recommendationId: string): MethodEntry |
  * this module to returning `null` for everything — the failure would be a
  * feature quietly disappearing, with no test to catch it (CLAUDE.md trap 12).
  */
-export const MAPPED_METHOD_IDS: readonly string[] = METHOD_BY_RECOMMENDATION_PREFIX.map(
-  ([, methodId]) => methodId,
+export const MAPPED_METHOD_IDS: readonly string[] = [
+  ...METHOD_BY_RECOMMENDATION_PREFIX.map(([, methodId]) => methodId),
+  // The signal-code map is covered by the SAME guard, deliberately. It is a
+  // second list of catalogue ids and would otherwise be exactly the
+  // hand-maintained mirror the guard exists to catch — a rename in
+  // `actionsCatalogue.ts` would silently reduce every producer finding to no
+  // chip, with nothing red.
+  ...METHOD_BY_SIGNAL_CODE.map(([, methodId]) => methodId),
+]
+
+/** Exposed for the same guard: the producer codes this module claims to know. */
+export const MAPPED_SIGNAL_CODES: readonly string[] = METHOD_BY_SIGNAL_CODE.map(
+  ([code]) => code,
 )
 
 /** Exposed for the same guard, so a prefix typo is visible to a test. */

@@ -26,7 +26,7 @@
  * the rest while preserving relative order within each group.
  */
 import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
-import type { Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
+import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 
 /**
@@ -53,6 +53,11 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     actionLabel: item.actionLabel,
     ...(item.category ? { category: item.category } : {}),
     ...(item.signal ? { signal: item.signal } : {}),
+    // Stage 3: `signal_code` rides through VERBATIM. It survived
+    // `deriveGuidance` onto `GuidanceItem` and then died HERE, unmapped — so
+    // the engine had no way to tell a producer pre-mortem from a producer
+    // assumption check and minted `clarify` for both.
+    ...(item.signal_code ? { signalCode: item.signal_code } : {}),
     targetIds: item.target_object?.id ? [item.target_object.id] : [],
     ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
   }
@@ -86,6 +91,63 @@ const MAX_PHASE3_PROMOTED = 4
 /** Adaptive-priority boost: large enough that a matching rec always outranks
  * every non-matching band while in-band relative order is preserved. */
 const ADAPTIVE_MATCH_BOOST = 10_000
+
+/**
+ * Producer `signal_code` → help type, for phase-3 guidance rows.
+ *
+ * ⭐⭐ WHY THIS EXISTS. Every phase-3 row was minted `clarify`, unconditionally.
+ * So the producer's OWN challenge cards — a pre-mortem, a cognitive-bias
+ * signal, a fragile result — arrived at the panel classified as "complete the
+ * model". Two consequences, and the second is the expensive one:
+ *   1. The row is mislabelled.
+ *   2. `composePreview` picks the last preview slot by looking for a finding of
+ *      a DIFFERENT kind, so that the default three rows are not all one kind of
+ *      thinking. Fed a monoculture of `clarify` it has nothing to choose
+ *      between — and since the producer band occupies ranks 10-13, above every
+ *      deterministic trigger, the one critical move in the product sat below
+ *      the fold on exactly the runs that warranted it.
+ *
+ * ⚠⚠ DELIBERATELY SHORT, AND THE GAPS ARE THE POINT — the same restraint rule
+ * as `recommendationMethod.ts`. A row is reclassified ONLY where the producer's
+ * code names the move AND we can point at an existing, independent
+ * classification of that same move:
+ *
+ *   PRE_MORTEM, FRAGILE_RESULT → 'challenge'. The engine's own
+ *     `strengthen:robustness` trigger — "Pressure-test the leading option", the
+ *     move for a lead that does not survive stress-testing — is `challenge`.
+ *     Same move, same kind; this is the engine agreeing with itself.
+ *   LOW_OPTION_COUNT → 'broaden'. The engine's own `strengthen:broaden` —
+ *     "Find a route that works differently" — is `broaden`, and a low option
+ *     count is what that recommendation is about.
+ *   COGNITIVE_BIAS → 'challenge'. The one row NOT grounded in an existing
+ *     trigger, and it is called out rather than hidden: it is grounded in the
+ *     catalogue instead. `review_bias` is a technique whose whole content is
+ *     critique of the reasoning so far. (Narrow-framing bias is separate and
+ *     already drives `strengthen:broaden` through its own producer gate.)
+ *
+ * ASSUMPTION_CHECK, EVIDENCE_GAP, CALIBRATION_PROMPT, STRENGTHEN_ITEM,
+ * ANALYSIS_NARRATIVE, DEFAULT_NODE_CONFIDENCE and FLIP_THRESHOLD are
+ * deliberately ABSENT. Nothing here classifies them, so a kind for them would
+ * be the UI's opinion wearing the producer's clothes. They keep `clarify`,
+ * which is what they get today — this change can only move a row OFF the
+ * default, never onto it.
+ *
+ * `signal_code` is an OPEN producer vocabulary, so an unrecognised code falls
+ * through to `clarify`. That is the honest default, not a gap to close later:
+ * a code we have never seen is a move we cannot classify.
+ */
+const HELP_TYPE_BY_SIGNAL_CODE: Readonly<Record<string, HelpType>> = {
+  PRE_MORTEM: 'challenge',
+  FRAGILE_RESULT: 'challenge',
+  COGNITIVE_BIAS: 'challenge',
+  LOW_OPTION_COUNT: 'broaden',
+}
+
+/** Exported so a spec can pin the map without re-implementing it. */
+export function helpTypeForPhase3Item(item: StrengthenPhase3Item): HelpType {
+  if (!item.signalCode) return 'clarify'
+  return HELP_TYPE_BY_SIGNAL_CODE[item.signalCode] ?? 'clarify'
+}
 
 // UI-SEM-085 (narrowed, 0.19.0): two phase-3 bands, not one. A guidance
 // block the producer ranked (it carries `priority_rank` — ascending, lower =
@@ -241,7 +303,11 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   for (const item of promotedPhase3) {
     recs.push({
       id: `strengthen:phase3:${item.id}`,
-      helpType: 'clarify',
+      // Stage 3: the producer's own `signal_code`, where it names a move we can
+      // independently classify. Falls through to 'clarify' — today's
+      // unconditional value — for every code we cannot. See
+      // HELP_TYPE_BY_SIGNAL_CODE.
+      helpType: helpTypeForPhase3Item(item),
       title: item.title, // verbatim wire copy — never UI-authored
       // The producer's factor-naming body rides BOTH display fields VERBATIM
       // (trigger honesty holds — wire copy, never UI-authored):
@@ -284,6 +350,9 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // Only phase-3 recs carry it (the UI's own triggers are uncategorised,
       // so they show no badge — honest absence).
       ...(item.category ? { category: item.category } : {}),
+      // Stage 3: carried so the surface can attach a named technique to a
+      // PRODUCER finding, not only to the UI's own triggers.
+      ...(item.signalCode ? { signalCode: item.signalCode } : {}),
     })
   }
 
