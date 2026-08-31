@@ -98,6 +98,12 @@ vi.mock('../../../flags', () => ({
 
 import { useCanvasStore } from '../../store'
 
+// ⚠ COMPLETE against React Flow's NodeProps rather than cast. The first cut
+// omitted `deletable`, `selectable`, `draggable`, `width`, `height`,
+// `sourcePosition` and `targetPosition`, which the app's own tsconfig requires
+// (TS2739/TS2740) even though the component never reads them. Casting the gap
+// away would add another partial mock to a file already carrying a ratchet
+// baseline of them; completing it adds none.
 const baseProps = {
   type: 'factor',
   position: { x: 0, y: 0 },
@@ -107,6 +113,13 @@ const baseProps = {
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
+  deletable: true,
+  selectable: true,
+  draggable: true,
+  width: 240,
+  height: 100,
+  sourcePosition: undefined,
+  targetPosition: undefined,
 }
 
 const setStore = (state: Record<string, unknown>) => {
