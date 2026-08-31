@@ -507,3 +507,64 @@ describe('could change if — the value is printed at a precision a reader can u
     )
   })
 })
+
+describe('a stale run may not reassure — but it must still warn', () => {
+  /*
+   * WITNESSED LIVE. After a user replaced a value Olumi had invented, every
+   * subsequent rerun failed silently and this panel kept the previous result on
+   * screen: a green tick, "Stable", and "came out ahead in 91% of simulated
+   * scenarios". Four different inputs — including a flipped risk profile —
+   * produced byte-identical output. The chat surface said the honest thing at
+   * the same moment; the two surfaces disagreed, and the one a user is more
+   * likely to read was the wrong one. The result was stale *precisely because
+   * the user tried to improve it*.
+   */
+  const stablePill = () => screen.getByTestId('analysis-new-glance-verdict-line')
+
+  it('drops the reassuring tick from a STALE stable verdict', () => {
+    render(<AtAGlance glance={glanceOf(genuineDecision())} isStale />)
+    const pill = stablePill()
+
+    expect(pill).toHaveAttribute('data-verdict-demoted', 'stale')
+    expect(pill.querySelector('svg')).toBeNull()
+  })
+
+  it('keeps the word, because removing information is not the same as removing the anchor', () => {
+    render(<AtAGlance glance={glanceOf(genuineDecision())} isStale />)
+    // Under an eyebrow that already reads "As last analysed", a neutral
+    // "Stable" is a record of what the last run found. What goes is the claim
+    // about the model in front of you, not the finding.
+    expect(stablePill()).toHaveTextContent('Stable')
+  })
+
+  // ⭐ THE OPPOSITE-DIRECTION TWIN, AND THE REASON THE PREDICATE IS ASYMMETRIC.
+  // Demoting a stale `stable` removes false reassurance. Demoting a stale
+  // `sensitive` would mute a TRUE warning and make a fragile result look calmer
+  // than it is — the mirror defect, and the worse one.
+  it('does NOT demote a stale sensitive verdict — a stale warning is still a warning', () => {
+    render(<AtAGlance glance={glanceOf(highUncertainty())} isStale />)
+    const pill = stablePill()
+
+    expect(pill).not.toHaveAttribute('data-verdict-demoted')
+    expect(pill.querySelector('svg')).not.toBeNull()
+    expect(pill).toHaveTextContent('Sensitive')
+  })
+
+  // The control: nothing about a FRESH run changes.
+  it('leaves a fresh stable verdict fully reassuring', () => {
+    render(<AtAGlance glance={glanceOf(genuineDecision())} />)
+    const pill = stablePill()
+
+    expect(pill).not.toHaveAttribute('data-verdict-demoted')
+    expect(pill.querySelector('svg')).not.toBeNull()
+    expect(pill).toHaveTextContent('Stable')
+  })
+
+  // Precondition pinned in-test: the fixtures really do produce the two
+  // different tones, or three of the four cases above would be measuring the
+  // same thing (trap 13b — a guard agreeing with itself).
+  it('precondition: the two fixtures produce different verdict tones', () => {
+    expect(glanceOf(genuineDecision()).verdict?.tone).toBe('stable')
+    expect(glanceOf(highUncertainty()).verdict?.tone).toBe('sensitive')
+  })
+})
