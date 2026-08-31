@@ -1312,11 +1312,35 @@ export const OptionNode = memo((props: NodeProps) => {
             className="mt-1.5 mb-1 flex items-center gap-1.5"
             title={winReadout.phrase}
           >
-            {/* `max(4px, N%)` is load-bearing and unchanged: a tiny non-zero
-                win probability must still show a visible sliver rather than
-                round away to nothing. The track is now `flex-1` instead of
-                full-bleed, so the percentage is measured against a shorter
-                track — the floor matters MORE here, not less. */}
+            {/* ⭐⭐ `max(4px, N%)` IS THE ONLY THING PREVENTING A 0px FILL HERE.
+                DO NOT REMOVE IT AS REDUNDANT — it is not.
+
+                MEASURED on deployed `ce32426c`, all four option nodes, by
+                `getBoundingClientRect` (a peer lane, driving the live canvas):
+                the "< 1%" option's computed style reads literally
+                `width: max(4px, 0%)`. So `Math.round(rate * 100)` DOES produce
+                `0` on this surface for a genuine, measured, non-zero share —
+                the same rounding defect that is an open P0 on the results
+                panel's own bar. This floor is what stops it landing here, and
+                deleting it re-opens that P0 on the canvas.
+
+                ⚠ AND THE TRADE IT BUYS, STATED RATHER THAN LEFT SILENT. On a
+                191.56px track, 4px is 2.09%. A genuine 2% share therefore
+                renders `max(4px, 3.83px)` = 4px — IDENTICAL to a 0.4% share
+                beside it. So ordering collapses below about 2%: the floor that
+                prevents "a measured value looks like nothing" creates "two
+                different measurements look the same". That is the smaller harm
+                and it is deliberate, because anything thinner is invisible at
+                canvas zoom.
+
+                The results panel keeps 2px on a 371px track (0.54%) for the
+                same reason at a different scale. If the two ever have to agree,
+                the honest form is a floor expressed as a FRACTION of the track
+                rather than a pixel count — not needed today.
+
+                The track is `flex-1` rather than full-bleed since the density
+                change, so the percentage is measured against a shorter track
+                and the floor matters MORE here, not less. */}
             {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
                 The density change put `phrase()` behind a `title` and left the
                 number bare. A `title` is unreachable by KEYBOARD (this row is
