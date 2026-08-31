@@ -294,19 +294,117 @@ function signInRefusalCopy(
 export const SERVER_VERSIONS_SIGNIN =
   'Sign in to save shared versions. Version history for the shared model is available when you are signed in; the local history above still works in this browser.'
 
-/** Provenance, in the user's terms. Unknown values render as themselves. */
-function provenanceLabel(provenance: string | null): string | null {
+/**
+ * The v2 `creation.kind` union, hand-written from CEE's wire schema
+ * (`orchestrator-v5/model-management/history-v2.ts:19-32`, `.strict()`
+ * discriminated union) at staging `d0544243`, where the same six members are
+ * declared FOUR times independently — DB CHECK constraint
+ * (`20260824200000_c8_atomic_model_version_restore.sql:123-128`), TS union
+ * (`model-management/types.ts:49-56`), Zod enum (`contracts.ts:128-137`) and
+ * the wire schema itself.
+ *
+ * ⚠ THIS IS A HAND-MAINTAINED MIRROR AND THERE IS NO WAY TO DERIVE IT TODAY
+ * (trap 12, stated rather than hidden): the pinned `@talchain/schemas` 0.48.0
+ * does not carry the v2 creation union, so there is nothing to import. If CEE
+ * adds a seventh kind, this list is short and the new kind falls to the
+ * unrecognised path below — no badge, never a raw token, never a wrong label.
+ * That is the fail-QUIET-to-the-user, fail-SAFE direction; it is not fail-loud
+ * to us, and the honest deletion condition for this comment is the day the
+ * shared package exports the union.
+ */
+export const SERVER_VERSION_CREATION_KINDS = [
+  'initial',
+  'committed_mutation',
+  'restore',
+  'variant_creation',
+  'variant_promotion',
+  'unknown',
+] as const
+
+/**
+ * One shared version's origin, in the product's own words — never a wire token.
+ *
+ * ── WHY THIS IS NOT THE OLD SWITCH ──────────────────────────────────────────
+ * This switched on the RETIRED v1 vocabulary (`user_save | commit |
+ * pre_restore | restore`) long after the adapter moved to v2, and its `default`
+ * returned the token VERBATIM — so a user read `committed_mutation`, `initial`
+ * and `unknown` on screen. Exactly one v1 arm still worked, and only by
+ * coincidence: `restore` is spelled the same in both vocabularies.
+ *
+ * v1 CANNOT REACH HERE ANY MORE, derived rather than assumed: `parseSummaryV2`
+ * (`adapters/cee/modelVersions.ts:370`) is the SOLE constructor of
+ * `ServerModelVersion` in this repo, and `listModelVersions` fails closed on
+ * anything but `model_versions_list.v2` (same file, :462). So `user_save`,
+ * `commit` and `pre_restore` are unreachable. `restore` is the contrast control
+ * for that claim — it IS reachable, so the sweep was not simply blind.
+ *
+ * ── EVERY STRING BELOW IS DERIVED FROM THE PRODUCER, NOT FROM THE TOKEN NAME ─
+ * (trap 13c: a mutant kit measures whether a test can DETECT a change, never
+ * whether the EXPECTATION is right.) Per-token derivation, at CEE `d0544243`:
+ *
+ *  · `initial` / `committed_mutation` — the two arms of ONE `CASE` in
+ *    `append_turn_atomic_v5` (migration :820-828): `initial` iff the scenario
+ *    has no versions yet, else `committed_mutation`. The latter is inserted
+ *    (:832-847) with `label='Committed model change'` and a `source_turn_id`,
+ *    and `store-adapter.ts:335` reads it keyed by (source_turn_id,
+ *    mutation_id) — it is what a committed TURN leaves behind, automatically.
+ *
+ *  · `restore` — `restore_model_version_atomic_v1` (:416-431) writes
+ *    `creation_kind='restore'` with `source_version_id`; the graph was COPIED
+ *    from an earlier version.
+ *
+ *  · `variant_creation` / `variant_promotion` — ⚠ NO PRODUCER EXISTS. Both
+ *    appear 6 times each in CEE and every occurrence is a declaration site
+ *    (CHECK constraint, validator, wire schema, TS union, contracts enum, and
+ *    `summaryV2`'s pass-through case). Zero writes, zero RPC parameters;
+ *    contrast control in the same sweep, the fabricated token
+ *    `variant_rebase`, read 0 while both real tokens read 6. So their copy is
+ *    CONTRACT-derived, not producer-derived, and says only what the contract
+ *    guarantees: both arms REQUIRE a non-null `source_version_id`, so the
+ *    version was made from an earlier one. They share one arm deliberately —
+ *    splitting them would mean inventing "variant of…" / "promoted from…",
+ *    naming a product feature that does not exist. Revisit when a producer
+ *    lands; the grouping makes the shared copy visibly intentional rather than
+ *    an accident two mutants could swap undetected.
+ *
+ *  · `unknown` — THREE genuinely different situations collapse here, and the
+ *    copy is true of all three: (a) the pre-restore safety snapshot, written
+ *    explicitly as `unknown` (:404-409); (b) ⭐ EVERY DELIBERATE USER SAVE —
+ *    the save RPC `create_model_version` (migration
+ *    `20260705120000_v5_model_versions.sql`) contains ZERO occurrences of
+ *    `creation_kind`, so a save persists NULL and `summaryV2`'s `case null`
+ *    resolves it to `unknown`; (c) genuine legacy rows, per the DB column's own
+ *    comment, "NULL is legacy unknown". A label like "you saved this" would be
+ *    FALSE for (a) and (c). What is true of all three is that the server did
+ *    not record the mechanism.
+ *
+ * ── THE UNRECOGNISED CASE, AND WHY IT IS SILENCE ────────────────────────────
+ * Returning the raw token is the defect. Inventing copy for a value we by
+ * definition do not understand is worse. And reusing the `unknown` copy would
+ * answer a DIFFERENT QUESTION under the same words (trap 21): "the server did
+ * not record it" versus "we have no words for it" — here the server DID record
+ * something, so "origin not recorded" would misreport a UI gap as a server gap.
+ * Silence is the only thing that is true when there is nothing true to say.
+ *
+ * Silence is unambiguous *because* every emittable kind above returns a label:
+ * under v1, no-badge meant "a deliberate save"; under v2 nothing maps to null
+ * but the unrecognised path, so `null` now has exactly one meaning.
+ */
+export function provenanceLabel(provenance: string | null): string | null {
   switch (provenance) {
-    case 'user_save':
-      return null // a deliberate save needs no explanation
-    case 'commit':
-      return 'auto — saved on change'
-    case 'pre_restore':
-      return 'auto — before a restore'
+    case 'initial':
+      return 'first version'
+    case 'committed_mutation':
+      return 'auto — saved on a model change'
     case 'restore':
-      return 'restored'
+      return 'restored from an earlier version'
+    case 'variant_creation':
+    case 'variant_promotion':
+      return 'made from an earlier version'
+    case 'unknown':
+      return 'origin not recorded'
     default:
-      return provenance
+      return null
   }
 }
 
@@ -848,6 +946,7 @@ export function ServerVersionsSection() {
                         </span>
                         {origin !== null && (
                           <span
+                            data-testid="server-version-origin"
                             className={`${typography.panelMeta} text-text-light ml-2 px-1.5 py-0.5 rounded border border-panel-border`}
                           >
                             {origin}
