@@ -7,6 +7,11 @@
  * Post-analysis Standard: compound winner + risk sentence, 2 coaching chips,
  *   popover with stability % + tier + progress bar.
  * Post-analysis Detailed: same as Standard PLUS stability line in body.
+ *
+ * Resting state: when NEITHER branch would put a child on screen, the body
+ *   states what is absent from this node and — where an authoring act would
+ *   answer that absence — offers to ask Olumi for it. Never a sentence about
+ *   the analysis. See `bodyHasContent` and `DECISION_RESTING_COPY`.
  */
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -24,6 +29,37 @@ import { biasSignal } from '../shared/biasSignalTitles'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
+
+/**
+ * EVERY static string the resting state can render or send.
+ *
+ * ⭐ THIS RECORD IS WHY THE HONESTY GUARD IS COMPLETE. The first cut of this
+ * feature spelled its copy inline and pinned it against ONE rendered fixture,
+ * so the guard bit on exactly one of three lines: an independent review
+ * mutated the other two into `'This decision is not named yet'`,
+ * `'…for this question'`, `'…the options are too close to call'` and
+ * `'…so no option is leading'` — a fabricated analysis verdict and two stale
+ * node-type words — and the suite stayed 8/8 GREEN on all four.
+ *
+ * Copy that never leaves this record can be enumerated, so the guard runs over
+ * the WHOLE set instead of whatever one fixture happens to mount. The rendered
+ * corpus in the spec is kept ALONGSIDE it, not instead of it: enumeration
+ * proves every declared string is honest, and only a rendered corpus notices a
+ * string that never got declared (CLAUDE.md trap 12d — ship both).
+ */
+export const DECISION_RESTING_COPY = {
+  unnamedLine: 'Not named yet',
+  unnamedCta: 'Name it',
+  unnamedAsk: 'Suggest a clear name for this part of the model',
+  unnamedAskLabel: 'Name this',
+  noOptionsLine: 'No options linked yet',
+  noOptionsCta: 'Add options',
+  noOptionsAsk: 'Suggest options to compare here',
+  noOptionsAskLabel: 'Add options',
+  completedRunLine: "Hover for this node's detail",
+  emptyLine: 'Nothing to show on this node',
+} as const
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -319,6 +355,156 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     if (send) send(message)
   }, [])
 
+  // ---- What the two body branches will actually put on screen ----
+  //
+  // ⭐ NAMED ONCE AND USED TWICE — by the JSX below AND by `bodyHasContent`.
+  // The resting state has to fire EXACTLY when nothing else renders, and a
+  // second copy of these conditions written out beside the first is the
+  // hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12):
+  // it would read green while drifting, and the drift's symptom — a resting
+  // state on top of real content, or no resting state on an empty node — is
+  // invisible to any test that does not happen to mount that exact cell.
+  const isPostAnalysisBranch = isPostAnalysis && Boolean(report)
+  const isPreAnalysisBranch = !isPostAnalysisBranch && optionCount > 0
+  // Named here and consumed BOTH by the popover's own render condition below
+  // AND by the resting copy, which points at that popover — a second copy of
+  // this expression is how the copy would start pointing at a panel that is
+  // not there.
+  const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
+  const showHeadline = Boolean(headline)
+  const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
+  const showPostAnalysisChips = isDetailed
+  const showTriageLine = Boolean(triageLine)
+
+  const bodyHasContent = isPostAnalysisBranch
+    ? (showHeadline || showStabilityLine || showPostAnalysisChips)
+    : isPreAnalysisBranch
+      ? (showTriageLine || showRunAnalysis)
+      : false
+
+  // ---- The honest resting state ----
+  //
+  // Measured on deployed `2db13473`: the anchor node of a real model rendered
+  // as an EMPTY BOX carrying nothing but its title, because both branches put
+  // zero children on screen and `BaseNode`'s children wrapper is gated on
+  // `children` being truthy. Two reachable ways in — a decision with no option
+  // linked (`optionCount === 0` fell through both arms to a literal `null`),
+  // and a completed run in Standard view where the producer made no owned
+  // leader claim (the `mt-1` div rendered with no children, since the
+  // stability line and the post chips are Detailed-only).
+  //
+  // ⛔ THE ONE THING THIS COPY MAY NOT DO IS EXPLAIN THE ANALYSIS. The second
+  // case is reached BECAUSE a leader claim was withheld, which makes "no
+  // leading option" / "too close to call" the obvious sentence to write here —
+  // and it would be this node inventing a verdict it does not hold. `headline`
+  // is also null when the claimed option is simply not on the canvas any more
+  // (`deriveDecisionVerdict`'s identity gate, and the winner-label lookup
+  // below it), so a sentence about the analysis would be false on a reachable
+  // path, not merely unearned. It states what is ABSENT FROM THIS NODE, never
+  // a finding, and never a reassuring positive.
+  //
+  // ⛔ AND IT NAMES NO NODE TYPE. The user-facing word for this type is moving
+  // ("Decision" → "Question") behind `DECISION_NODE_LABEL` in
+  // `canvas/domain/vocabulary.ts`, owned by another lane. Copy that does not
+  // need the word cannot ship the stale one.
+  //
+  // ⭐⭐ AND THE CTA GOES TO THE CONVERSATION, NOT TO THE INSPECTOR. The first
+  // cut called `requestNodeRename` + `openNodeInspector`, on the strength of
+  // #1020/#1024 — but **#1025 REVERTED #1024**, because a node-label edit has
+  // no wire carrier and a server rehydrate silently discarded the user's
+  // rename. Re-derived on `origin/staging` at this tip: `onLabelChange` has
+  // ZERO product callers (spec files only), `InspectorShell:136` forwards it
+  // into `EditableLabel`'s `onSave`, and `EditableLabel:91` reads
+  // `if (!autoEdit || wasArmed || !onSave) return` — so the auto-edit effect
+  // returns immediately and the title renders as static text. Contrast control
+  // for that sweep: the sibling `onSave` DOES have live product call sites
+  // (`FactorObservablePanel:239`, `RiskPanel:130`), so the zero is real
+  // absence and not a blind probe.
+  //
+  // A CTA pointing there would open a panel that says changes cannot be saved.
+  // `requestAsk` is the seam that works — three live product call sites, and
+  // it NEVER auto-sends: it prefills an editable draft in the composer, or the
+  // Ask-Olumi drawer when no composer is registered, and the user presses
+  // Send. Renaming does land conversationally. The button is gated on
+  // `canReceiveAsk` for the reason that module's own header gives: with no
+  // surface at all the affordance must not render rather than pretend.
+  //
+  // ⚠ The narrowing shapes are not decoration. Under `tsconfig.tooling.json`
+  // this component's `data` resolves to `{}` and `id` to `unknown` (the same
+  // widening that already baselines a TS2345 on `useModelReadiness(id)`
+  // above), so a bare `data?.label` / `openNodeInspector(id)` compiles under
+  // one project and REDs the gate under the other.
+  const restingLabelValue = (data as { label?: unknown } | undefined)?.label
+  const restingLabel = typeof restingLabelValue === 'string' ? restingLabelValue.trim() : ''
+  const isUnnamed = restingLabel.length === 0
+  const restingNodeId = id as string
+
+  // ⚠ ORDER MATTERS, AND THE SECOND ARM IS A CORRECTION. This previously read
+  // "Nothing on this node yet" on a COMPLETED run — while the SAME node's
+  // popover carried "62%", "sensitive", "Challenge this result" and "Compare
+  // options". "yet" says nothing has happened; a run had. And "Rename it"
+  // prescribed an act unrelated to why the body was empty. The corpus could
+  // not see it because the withheld-report fixture omitted
+  // `recommendation_stability` — i.e. it EXCLUDED the class where the
+  // contradiction is visible (CLAUDE.md trap 13d: check what a corpus leaves
+  // out, not what it covers).
+  //
+  // Where a popover exists the body now points AT it — a statement about this
+  // surface, still not about the analysis — and offers no CTA, because the
+  // absence there is not something the user authors away.
+  const resting = isUnnamed
+    ? {
+        line: DECISION_RESTING_COPY.unnamedLine,
+        cta: DECISION_RESTING_COPY.unnamedCta,
+        ask: DECISION_RESTING_COPY.unnamedAsk,
+        askLabel: DECISION_RESTING_COPY.unnamedAskLabel,
+      }
+    : hasPostAnalysisPopover
+      ? { line: DECISION_RESTING_COPY.completedRunLine, cta: null, ask: null, askLabel: null }
+      : optionCount === 0
+        ? {
+            line: DECISION_RESTING_COPY.noOptionsLine,
+            cta: DECISION_RESTING_COPY.noOptionsCta,
+            ask: DECISION_RESTING_COPY.noOptionsAsk,
+            askLabel: DECISION_RESTING_COPY.noOptionsAskLabel,
+          }
+        : { line: DECISION_RESTING_COPY.emptyLine, cta: null, ask: null, askLabel: null }
+
+  const restingAsk = resting.ask
+  const restingAskLabel = resting.askLabel
+  const canAsk = useGuidanceStore(canReceiveAsk)
+
+  const handleRestingAsk = useCallback(() => {
+    if (!restingAsk || !restingAskLabel) return
+    // No `parameters`: this is a plain ask, so it prefills the composer where
+    // one is registered and falls back to the Ask-Olumi drawer otherwise.
+    // Either way the user sees the draft and presses Send — it is never sent
+    // for them.
+    requestAsk({
+      text: restingAsk,
+      label: restingAskLabel,
+      targetId: restingNodeId,
+      source: 'decision-node-resting',
+    })
+  }, [restingAsk, restingAskLabel, restingNodeId])
+
+  const restingState = (
+    <div className="mt-1" data-testid="decision-node-resting-state">
+      <div className={`${typography.edgeLabel} text-text-light`}>{resting.line}</div>
+      {resting.cta && canAsk && (
+        <button
+          type="button"
+          data-testid="decision-node-resting-cta"
+          className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan mt-0.5`}
+          onClick={handleRestingAsk}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {resting.cta}
+        </button>
+      )}
+    </div>
+  )
+
   // ---- Render ----
 
   return (
@@ -348,11 +534,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             Stability is the axis `decisionVerdict` insists is disclosed
             SEPARATELY from separation, so suppressing it alongside the leader
             claim would be the over-suppression half of this same defect. */}
-        {isPostAnalysis && report ? (
+        {isPostAnalysisBranch ? (
           <div className="mt-1">
             {/* The leader sentence — and ONLY this — is gated on the producer's
                 owned claim. */}
-            {headline && (
+            {showHeadline && headline && (
               <div
                 className={`${typography.nodeLabel} text-text-body`}
               >
@@ -375,16 +561,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {/* Post-analysis Detailed only: stability + chips inline in body
                 (Detailed has no popover). Standard surfaces both via the
                 popover below. */}
-            {isDetailed && stabilityDisplay && (
+            {showStabilityLine && stabilityDisplay && (
               <div
                 className={`${typography.edgeLabel} text-text-light mt-1`}
               >
                 Stability: {stabilityDisplay.pct}% ({stabilityDisplay.tier})
               </div>
             )}
-            {isDetailed && postAnalysisCoachingChips}
+            {showPostAnalysisChips && postAnalysisCoachingChips}
+            {/* Nothing above rendered — say what is absent rather than
+                presenting an empty box. */}
+            {!bodyHasContent && restingState}
           </div>
-        ) : optionCount > 0 ? (
+        ) : isPreAnalysisBranch ? (
           <>
             {/* ===== PRE-ANALYSIS ===== */}
 
@@ -411,7 +600,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 above, capping the line near 59 characters — two lines at this
                 measure. `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any
                 node text starts overflowing its box again. */}
-            {triageLine && (
+            {showTriageLine && (
               <div className={`${typography.edgeLabel} text-text-body mt-1`}>
                 {triageLine}
               </div>
@@ -425,8 +614,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 <NodeChip chipId="decision_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
               </div>
             )}
+            {!bodyHasContent && restingState}
           </>
-        ) : null}
+        ) : (
+          /* Neither branch applies — most often a decision with no option
+             linked, which is the shape measured on `2db13473`. This arm used
+             to be a literal `null`, i.e. the empty box itself. */
+          restingState
+        )}
       </BaseNode>
 
       {/* Pre-analysis popover — model readiness breakdown + coaching chips */}
@@ -460,7 +655,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       {/* Post-analysis Standard popover — stability detail + coaching chips.
           Detailed view shows stability + chips inline in the body, so the
           popover only renders in Standard. */}
-      {isPostAnalysis && !isDetailed && (
+      {hasPostAnalysisPopover && (
         <NodePopover
           visible={showPopover}
           width={220}
