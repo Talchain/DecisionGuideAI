@@ -1,118 +1,112 @@
 /**
- * ⭐ THE REASONING FRONTIER'S MOUNT PATH — bound, not documented.
+ * ⭐ THE REASONING FRONTIER'S MOUNT PATH — bound to BEHAVIOUR, after this file
+ * spent a whole dark period agreeing with itself.
  *
  * The frontier is the one component on this canvas built to help a team think
  * of what the model does NOT yet contain: a door at the end of each tier that
- * asks Olumi a question. It was written, tested, and reached NO USER, for the
- * dullest possible reason — `enableGhostSuggestions` defaults to `false` and
- * was passed `true` by nothing in the repository.
+ * asks Olumi a question.
  *
- * Confirmed on the deployed build before this change: zero frontier doors
- * against thirteen real nodes, with a control proving the probe could see nodes
- * at all. A lane (mine) had even edited the placement logic inside it that same
- * day without noticing it was unreachable — maintained-looking dead code
- * attracting fixes, which is exactly how it stays dark.
+ * ── WHAT THE PREVIOUS VERSION OF THIS FILE GOT WRONG ──
  *
- * This file pins the two properties that keep it live and keep it scoped:
- * the primary canvas opts in, and no other mount does.
+ * It asserted SOURCE TEXT: that `enableGhostSuggestions` appeared on the
+ * element, that it was written as a bare literal, that it defaulted `false`.
+ * Six assertions, all green, all true — and all six were equally green while
+ * the prop was DEAD. It was declared, defaulted, destructured at
+ * `ReactFlowGraph.tsx` and never read, so it decided nothing; the doors
+ * rendered on every mount of the graph the entire time. The spec could not have
+ * failed, because not one assertion was about whether anything rendered.
  *
- * ── WHY SOURCE-DERIVED (house pattern: starterStripMountPath) ──
- * A render test proves the doors work under props the TEST supplies — which is
- * precisely the evidence that stayed green through the whole period they were
- * dark. What needs pinning is a property of the SOURCE: that the opt-in exists
- * at the mount, and that it is not routed through anything a deployment, a flag
- * or an authority table can move. Reading the source is the only way to assert
- * the ABSENCE of a gate rather than the presence of one path through it.
+ * Its own header argued the case: "a render test proves the doors work under
+ * props the TEST supplies — which is precisely the evidence that stayed green
+ * while they were dark." That reasoning is sound about a render test with
+ * hand-fed props. It was used to justify asserting nothing about behaviour at
+ * all, which is a different thing, and it produced a guard that blessed exactly
+ * the state it was written to detect.
  *
- * ⚠ EVERY FILE READ IS ASSERTED NON-EMPTY BEFORE ANY MATCH IS BELIEVED.
- * `expect(...).not.toContain(...)` passes beautifully against an empty string,
- * and an extraction that silently produced nothing agrees with every other
- * extraction that produced nothing.
+ * ── WHAT THIS VERSION ASSERTS ──
+ *
+ * The two functions that actually decide, called directly:
+ *
+ *   `frontierIsVisible(resultsStatus, viewMode)` — whether the tier doors are
+ *      on screen at all. Extracted out of a `useMemo` in a 2,700-line component
+ *      for this reason: a condition no test can call cannot be pinned.
+ *   `withGhostTiers(nodes)` — whether doors are produced for a real graph.
+ *
+ * Delete either behaviour and this file REDS. That is the property the old one
+ * lacked.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import type { Node } from '@xyflow/react'
+import { frontierIsVisible, withGhostTiers, isGhostNode } from '../../utils/ghostTiers'
 
-const ROOT = resolve(__dirname, '../../../..')
-
-function source(relPath: string): string {
-  const text = readFileSync(resolve(ROOT, relPath), 'utf8')
-  if (text.trim().length < 200) {
-    throw new Error(
-      `refusing to assert against ${relPath}: read ${text.length} chars — ` +
-        `an empty or truncated read makes every assertion in this file vacuous`,
-    )
-  }
-  return text
+/** A model shaped like a real one: three tiers with members, all named. */
+function model(): Node[] {
+  const at = (id: string, type: string, label: string, x: number): Node =>
+    ({ id, type, position: { x, y: type === 'option' ? 0 : 200 }, data: { label } }) as Node
+  return [
+    at('d1', 'decision', 'Replace our CDP', 0),
+    at('o1', 'option', 'Segment', 0),
+    at('o2', 'option', 'Rudderstack', 300),
+    at('r1', 'risk', 'Migration overruns', 0),
+  ]
 }
 
-/** Strip comments so an absence claim is about CODE, not about prose — the
- *  files below name `enableGhostSuggestions` in the comments that explain why
- *  they do or do not opt in, and deleting that record to satisfy a text match
- *  would trade the explanation for a green test. */
-function codeOnly(text: string): string {
-  const stripped = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
-  if (stripped.trim().length < 200) {
-    throw new Error(`comment strip left ${stripped.trim().length} chars — refusing to assert`)
-  }
-  return stripped
-}
+const doorsIn = (nodes: Node[]) => nodes.filter(isGhostNode)
 
-const CANVAS_MVP = 'src/routes/CanvasMVP.tsx'
-const PLOT_WORKSPACE = 'src/routes/PlotWorkspace.tsx'
-const CANVAS_ISOLATION_TEST = 'src/routes/CanvasIsolationTest.tsx'
-const COPILOT_CANVAS = 'src/pages/sandbox-guide/components/canvas/CopilotCanvas.tsx'
-
-/** Every file that mounts <ReactFlowGraph>. Exactly one may opt in. */
-const ALL_MOUNTS = [CANVAS_MVP, PLOT_WORKSPACE, CANVAS_ISOLATION_TEST, COPILOT_CANVAS] as const
-const OTHER_MOUNTS = [PLOT_WORKSPACE, CANVAS_ISOLATION_TEST, COPILOT_CANVAS] as const
-
-describe('the reasoning frontier’s mount path', () => {
-  it('POSITIVE + NEGATIVE CONTROL — the detector reads real bytes and discriminates', () => {
-    const mvp = codeOnly(source(CANVAS_MVP))
-    expect(mvp).toContain('ReactFlowGraph')
-    // A fabricated name must NOT match. Without this, a detector that matched
-    // everything would pass every assertion below.
-    expect(mvp).not.toContain('enableGhostSuggestionsV99Fabricated')
+describe('the frontier is visible when the product says it is', () => {
+  // ⚠ THE DISCRIMINATING TRIPLE. Each row must differ from its neighbour, or
+  // the predicate is not discriminating and a constant `true` would pass.
+  it('renders before an analysis, in the ordinary view', () => {
+    expect(frontierIsVisible('idle', 'standard')).toBe(true)
   })
 
-  it('CONTROL — every listed mount really does mount ReactFlowGraph', () => {
-    // Pins this file's own precondition. If a file merely stopped mounting the
-    // graph, the negative assertions below would start passing for the wrong
-    // reason — a guard agreeing with itself (trap 13b).
-    for (const path of ALL_MOUNTS) {
-      expect(source(path), `${path} no longer mounts ReactFlowGraph`).toMatch(/<ReactFlowGraph\b/)
-    }
+  it('renders after an analysis in Expert view', () => {
+    expect(frontierIsVisible('complete', 'expert')).toBe(true)
   })
 
-  it('⭐ the primary canvas opts IN — this is the assertion that would have caught the dark period', () => {
-    const mvp = codeOnly(source(CANVAS_MVP))
-    // On the element itself, not merely somewhere in the file: a mention in an
-    // unrelated helper would satisfy a loose match while the prop stayed off.
-    expect(mvp).toMatch(/<ReactFlowGraph\b[^>]*\benableGhostSuggestions\b/)
+  it('DISAPPEARS after an analysis in the ordinary view — the existing product behaviour, pinned so a change to it is deliberate', () => {
+    // This is very likely the mechanism behind a deployed measurement of zero
+    // doors against thirteen real nodes. It is preserved unchanged here and
+    // raised as a product question separately; what this assertion buys is that
+    // nobody can now move it without a test going red and saying so.
+    expect(frontierIsVisible('complete', 'standard')).toBe(false)
   })
 
-  it('the opt-in is a LITERAL prop, not routed through a flag or authority table', () => {
-    // The starter strip was dark because its gate was proxied through
-    // `CANVAS_SEMANTIC_MUTATIONS_CONNECTED`, a permanently-false authority
-    // constant — a gate about mutation authority silently switching off a gate
-    // about which mount you are (trap 21). This asserts the frontier's opt-in
-    // cannot be moved the same way: bare prop, no `={...}` expression.
-    const mvp = codeOnly(source(CANVAS_MVP))
-    expect(mvp).not.toMatch(/enableGhostSuggestions\s*=\s*\{/)
+  it('is not a constant — the three states above do not all agree', () => {
+    // Guards against the failure mode this whole file exists to correct: a
+    // predicate that returns the same answer for every input passes any number
+    // of individually-plausible assertions.
+    const answers = [
+      frontierIsVisible('idle', 'standard'),
+      frontierIsVisible('complete', 'expert'),
+      frontierIsVisible('complete', 'standard'),
+    ]
+    expect(new Set(answers).size).toBe(2)
+  })
+})
+
+describe('doors are actually produced for a real model', () => {
+  it('places a door on every tier that has members', () => {
+    const out = withGhostTiers(model())
+    const doors = doorsIn(out)
+    expect(doors.length).toBeGreaterThan(0)
+    const tiers = doors.map((d) => (d.data as { tier?: string }).tier).sort()
+    expect(tiers).toEqual(['option', 'risk'])
   })
 
-  it('no OTHER mount gains the frontier', () => {
-    for (const path of OTHER_MOUNTS) {
-      expect(
-        codeOnly(source(path)),
-        `${path} must not opt into the reasoning frontier`,
-      ).not.toContain('enableGhostSuggestions')
-    }
+  it('CONTRAST CONTROL: a tier with no members gets no door', () => {
+    // Proves the assertion above is about tier membership and not about the
+    // function returning a fixed set. Without this, "doors exist" is compatible
+    // with doors appearing for tiers the model does not have — which would be
+    // the product asserting the model OUGHT to contain them.
+    const doors = doorsIn(withGhostTiers(model()))
+    expect(doors.map((d) => (d.data as { tier?: string }).tier)).not.toContain('outcome')
   })
 
-  it('the prop still defaults OFF, so a new mount is dark until it says otherwise', () => {
-    const graph = codeOnly(source('src/canvas/ReactFlowGraph.tsx'))
-    expect(graph).toMatch(/enableGhostSuggestions\s*=\s*false/)
+  it('leaves the real model untouched — every input node survives, and no door counts as one', () => {
+    const input = model()
+    const out = withGhostTiers(input)
+    const passedThrough = out.filter((n) => !isGhostNode(n)).map((n) => n.id)
+    expect(passedThrough).toEqual(input.map((n) => n.id))
   })
 })

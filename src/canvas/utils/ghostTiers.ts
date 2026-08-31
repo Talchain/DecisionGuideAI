@@ -30,6 +30,10 @@ import type { Node } from '@xyflow/react'
 // copies of the first two, so the filter and the ids it filtered were two
 // independent lists that happened to agree.
 import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID } from './fitTargets'
+// The producer's own word for "this node has no name". Imported, never
+// re-spelled: the estate already carries eight hand-copied `'Untitled'`
+// literals, and a ninth that drifted would silently re-open B2(a).
+import { UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
 
 export { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 
@@ -64,10 +68,22 @@ export interface GhostTier {
   prompt: (context: GhostPromptContext) => string
 }
 
-/** What a door can see from where it stands. Facts only, no derived judgement. */
+/**
+ * What a door can see from where it stands. Facts only, no derived judgement.
+ *
+ * ⚠ THE COUNT IS SEPARATE FROM THE LABELS ON PURPOSE, and this is the whole
+ * repair. The context used to be a single `siblingLabels` array built by
+ * filtering out the unnamed — so a tier of three options with one name reached
+ * the prompt as a list of one, and the sentence "these are the options
+ * currently in my model" then told Olumi, in the user's own transcript and
+ * under the user's own name, that their model held one option. Filtering is
+ * silent by nature; the only defence is to carry what was filtered.
+ */
 export interface GhostPromptContext {
-  /** Labels of the tier members this door sits beside, in canvas order. */
-  siblingLabels: readonly string[]
+  /** Labels of the tier members that carry a real name, in canvas order. */
+  namedSiblings: readonly string[]
+  /** How many members the tier holds IN TOTAL — named or not. */
+  siblingCount: number
   /** The decision or goal this model is about, when the graph carries one. */
   subject: string | null
 }
@@ -86,9 +102,59 @@ export function listForPrompt(labels: readonly string[]): string {
   return rest > 0 ? `${joined} (and ${rest} more)` : joined
 }
 
-/** The subject clause, omitted entirely when the graph does not carry one. */
+/**
+ * State what a tier holds, in a sentence that stays true whatever it holds.
+ *
+ * Three states, because a tier really has three and collapsing them is what
+ * produced a false sentence:
+ *
+ *   3 named of 3  → "My model has 3 options: A, B, C."
+ *   1 named of 3  → "My model has 3 options. The ones I have named: A — the
+ *                    other 2 are not named yet."
+ *   0 named of 3  → "My model has 3 options, none of which I have named yet."
+ *
+ * ⭐ THE COUNT LEADS IN EVERY BRANCH, which is also what fixes the furniture
+ * problem. The previous copy was byte-identical for one risk and for three
+ * whenever the labels were missing, so the door degraded into generic text on
+ * exactly the sparse, early-stage model the frontier exists to serve. A stated
+ * count differs between those two models even when no name does.
+ *
+ * ⚠ IT REPORTS, IT DOES NOT ASSESS. "None of which I have named yet" is an
+ * observable fact about the graph. "Your model is underspecified" would be a
+ * claim about the user's reasoning and belongs to the producer — the line this
+ * file does not cross.
+ */
+export function inventorySentence(
+  named: readonly string[],
+  total: number,
+  one: string,
+  many: string,
+): string {
+  const noun = total === 1 ? one : many
+  const unnamed = total - named.length
+  if (named.length === 0) {
+    return `My model has ${total} ${noun}, none of which I have named yet.`
+  }
+  if (unnamed <= 0) {
+    return `My model has ${total} ${noun}: ${listForPrompt(named)}.`
+  }
+  return (
+    `My model has ${total} ${noun}. The ones I have named: ${listForPrompt(named)}` +
+    ` — the other ${unnamed} ${unnamed === 1 ? 'is' : 'are'} not named yet.`
+  )
+}
+
+/**
+ * The subject clause, omitted entirely when the graph does not carry one.
+ *
+ * ⚠ A LABEL THAT ALREADY ENDS IN PUNCTUATION SUPPLIES ITS OWN TERMINATOR.
+ * Appending ours produced "The decision is: Acquire Acme?." — and this string
+ * is not internal, it lands in the user's transcript attributed to the user.
+ */
 function about(subject: string | null): string {
-  return subject ? ` The decision is: ${subject}.` : ''
+  if (!subject) return ''
+  const terminator = /[.!?]$/.test(subject) ? '' : '.'
+  return ` The decision is: ${subject}${terminator}`
 }
 
 export const GHOST_TIERS: readonly GhostTier[] = [
@@ -99,24 +165,24 @@ export const GHOST_TIERS: readonly GhostTier[] = [
     // Names the options that exist and asks what sits outside them. It does NOT
     // say they are too similar or badly framed — the user reads the list and
     // draws their own conclusion, which is the whole point.
-    prompt: ({ siblingLabels, subject }) =>
-      `These are the options currently in my model: ${listForPrompt(siblingLabels)}.` +
+    prompt: ({ namedSiblings, siblingCount, subject }) =>
+      inventorySentence(namedSiblings, siblingCount, 'option', 'options') +
       `${about(subject)} What other options could answer this that I have not put on the board?`,
   },
   {
     id: `${GHOST_ID_PREFIX}factor__`,
     siblingType: 'factor',
     label: 'Another factor',
-    prompt: ({ siblingLabels, subject }) =>
-      `My model already accounts for these factors: ${listForPrompt(siblingLabels)}.` +
+    prompt: ({ namedSiblings, siblingCount, subject }) =>
+      inventorySentence(namedSiblings, siblingCount, 'factor', 'factors') +
       `${about(subject)} What else could materially affect how this turns out?`,
   },
   {
     id: `${GHOST_ID_PREFIX}risk__`,
     siblingType: 'risk',
     label: 'Another risk',
-    prompt: ({ siblingLabels, subject }) =>
-      `The risks currently in my model are: ${listForPrompt(siblingLabels)}.` +
+    prompt: ({ namedSiblings, siblingCount, subject }) =>
+      inventorySentence(namedSiblings, siblingCount, 'risk', 'risks') +
       `${about(subject)} What could go wrong that these do not already cover?` +
       ' Consider failure modes a forecast would miss.',
   },
@@ -124,8 +190,8 @@ export const GHOST_TIERS: readonly GhostTier[] = [
     id: `${GHOST_ID_PREFIX}outcome__`,
     siblingType: 'outcome',
     label: 'Another outcome',
-    prompt: ({ siblingLabels, subject }) =>
-      `The outcomes currently in my model are: ${listForPrompt(siblingLabels)}.` +
+    prompt: ({ namedSiblings, siblingCount, subject }) =>
+      inventorySentence(namedSiblings, siblingCount, 'outcome', 'outcomes') +
       `${about(subject)} What further consequences could follow that these do not represent?`,
   },
 ] as const
@@ -145,7 +211,24 @@ function labelOf(n: Node): string | null {
   const raw = (n.data as { label?: unknown } | undefined)?.label
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
-  return trimmed.length > 0 ? trimmed : null
+  if (trimmed.length === 0) return null
+  // ⭐ THE COMMENT ABOVE SAID THIS; THE CODE DID NOT DO IT.
+  //
+  // `'Untitled'` is not a name a user typed — it is what four separate
+  // producers WRITE when there is no name: the CEE patch-apply path
+  // (`applyPatch.ts:82`, the primary draft journey), `persist.ts:35/43`,
+  // `migrations.ts:121` and `store.ts:6112/6212`. A `typeof === 'string'`
+  // test cannot tell that apart from a real label, so every unnamed node
+  // reached the prompt as a node genuinely called "Untitled" and was read
+  // back to the user as part of their own model.
+  //
+  // The guard was correct and pointed at the wrong bytes: it rejected the
+  // representation I imagined (whitespace) and admitted the one the producers
+  // actually emit. Compared case-insensitively because the literal is a
+  // display string, and matched against the canonical constant so a rename
+  // at the source cannot leave this reader behind.
+  if (trimmed.toLowerCase() === UNNAMED_ELEMENT_LABEL.toLowerCase()) return null
+  return trimmed
 }
 
 /**
@@ -162,6 +245,36 @@ function readSubject(nodes: Node[]): string | null {
     )
   const node = byKind('decision') ?? byKind('goal')
   return node ? labelOf(node) : null
+}
+
+/**
+ * ⭐ WHETHER THE FRONTIER IS ON SCREEN AT ALL — the gate, named and exported.
+ *
+ * This was an inline condition inside a `useMemo` in a 2,700-line component
+ * (`ReactFlowGraph.tsx`), which is the reason nothing could bind to it and the
+ * reason a mount-path spec resorted to reading source text instead. An
+ * assertion about a condition no test can call is not an assertion.
+ *
+ * ⚠ IT IS ALSO THE ONLY THING THAT DECIDES. There was believed to be a second
+ * control — an `enableGhostSuggestions` prop — and there was not: it was
+ * declared, defaulted `false`, destructured, and never read, so the doors
+ * rendered on EVERY mount of the graph regardless. The prop is now deleted
+ * rather than wired, because a switch whose only effect would be to turn off a
+ * capability we want on is a dark-launch gate this estate has ruled against.
+ *
+ * ⚠ AND NOTE WHAT IT SAYS, because it is very likely the mechanism behind a
+ * deployed measurement of zero doors against thirteen real nodes: after an
+ * analysis completes, the frontier disappears in every view except Expert.
+ * That is the existing behaviour, preserved here deliberately and unchanged —
+ * whether it is the RIGHT behaviour is a product question, not a refactor, and
+ * it is raised separately rather than flipped in passing.
+ */
+export function frontierIsVisible(
+  resultsStatus: string | null | undefined,
+  viewMode: string,
+): boolean {
+  const isPostAnalysis = resultsStatus === 'complete'
+  return !(isPostAnalysis && viewMode !== 'expert')
 }
 
 export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[] = GHOST_TIERS): Node[] {
@@ -194,7 +307,12 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
         // it is standing in, and two derivations of one list is how they come
         // to disagree.
         prompt: tier.prompt({
-          siblingLabels: siblings.map(labelOf).filter((l): l is string => l !== null),
+          namedSiblings: siblings.map(labelOf).filter((l): l is string => l !== null),
+          // The UNFILTERED count. `siblings` is the tier as it really is; the
+          // line above is what survived naming. Passing both is what lets the
+          // sentence describe a partly-unnamed tier without either inventing
+          // names or under-reporting the model.
+          siblingCount: siblings.length,
           subject,
         }),
         tier: tier.siblingType,
