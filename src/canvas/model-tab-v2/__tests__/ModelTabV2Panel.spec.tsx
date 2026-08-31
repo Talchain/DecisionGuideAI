@@ -347,7 +347,7 @@ describe('ModelTabV2Panel — factor value edits ride the canonical transaction'
 
   it.each([
     '0.50.85', '0.85 or 0.9', '85%', 'NaN', 'Infinity', '-Infinity',
-    '0x10', '1e309', 'not a number',
+    '1,000', '0x10', '0b11', '0o17', '1e309', 'not a number',
   ])('rejects the whole invalid scalar %s visibly before any mutation', raw => {
     renderPanel()
     const input = editFactorValue(raw)
