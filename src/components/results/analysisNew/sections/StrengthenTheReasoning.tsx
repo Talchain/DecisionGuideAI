@@ -663,6 +663,24 @@ export function StrengthenTheReasoning({
                             ? `${STRENGTHEN_COPY.historyAddressed}: ${last.whatChanged}.`
                             : `${STRENGTHEN_COPY.historyAddressed}.`}
                       </p>
+                      {/* ⚠ THE OBJECTION HAS TO COME WITH IT. "I disagree, and
+                          I am setting this aside" is one of the most useful
+                          things a team does, and without this the reason was
+                          written to the store and then rendered nowhere — the
+                          act survived, its content did not. */}
+                      {(() => {
+                        const objection = [...record.history]
+                          .reverse()
+                          .find((e) => e.event === 'disputed')?.disputeReason
+                        return objection ? (
+                          <p
+                            className={`${typography.panelMeta} text-text-light m-0 italic`}
+                            data-testid={`${testId}-history-disagreement`}
+                          >
+                            {STRENGTHEN_COPY.historyDisputed}: {objection}
+                          </p>
+                        ) : null
+                      })()}
                     </div>
                     {record.status === 'dismissed' ? (
                       <button

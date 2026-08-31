@@ -23,6 +23,8 @@ export const STRENGTHEN_COPY = {
    */
   historyDismissed: 'Set aside as not relevant.',
   historyAddressed: 'Addressed',
+  /** Prefix on an objection carried onto the trail. The user's words follow. */
+  historyDisputed: 'You disagreed',
   empty: 'No recommendations need attention right now.', // (spec)
   staleLabel: 'From your last completed analysis',
   workThrough: 'Work through this with Olumi', // (spec — ask icon-button title + aria-label)

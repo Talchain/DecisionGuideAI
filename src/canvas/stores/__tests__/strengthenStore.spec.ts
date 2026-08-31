@@ -292,3 +292,36 @@ describe('strengthenStore — seedIfAbsent (a record for the row the user just a
     expect(s().records['a'].status).toBe('recommended')
   })
 })
+
+/**
+ * ⚠⚠ RESTORING MUST NOT DELETE THE FINDING FROM EVERY SURFACE.
+ *
+ * `reconcile` REBUILDS `priorityOrder` from the firing set alone, so a record
+ * that stops firing is dropped from that array while its record survives.
+ * `selectActive` maps over `priorityOrder`; `selectHistory` filters on
+ * dismissed|addressed. So restoring such a record used to remove it from the
+ * trail AND leave it invisible in the active list — present in the store,
+ * reachable by nobody. Found by an audit of the trail's own Restore control.
+ */
+describe('strengthenStore — restore puts the finding back where it can be seen', () => {
+  it('re-enters priorityOrder when reconcile has dropped the id', () => {
+    s().reconcile([rec('a'), rec('b')], 'h1', 1000)
+    s().dismiss('a', 1001)
+    // 'a' no longer fires, so reconcile rebuilds the order without it.
+    s().reconcile([rec('b')], 'h2', 2000)
+    expect(s().priorityOrder).not.toContain('a')
+
+    s().restoreDismissed('a', 2001)
+
+    // Bound to REACHABILITY, not to the array — that is the property at stake.
+    expect(selectActive(s()).map((r) => r.id)).toContain('a')
+    expect(selectHistory(s()).map((r) => r.id)).not.toContain('a')
+  })
+
+  it('does not duplicate the id when it is already in the order', () => {
+    s().reconcile([rec('a')], 'h1', 1000)
+    s().dismiss('a', 1001)
+    s().restoreDismissed('a', 1002)
+    expect(s().priorityOrder.filter((id) => id === 'a')).toHaveLength(1)
+  })
+})

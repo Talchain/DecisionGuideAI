@@ -271,6 +271,26 @@ describe('the reasoning trail', () => {
     )
   })
 
+  it('carries the objection onto the trail with the finding it contests', () => {
+    records = {
+      'strengthen:gone': {
+        ...retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+        history: [
+          { at: 1, event: 'recommended' },
+          { at: 2, event: 'disputed', disputeReason: 'Our board measures this quarterly.' },
+          { at: 3, event: 'dismissed' },
+        ],
+      },
+    }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
+    // "I disagree, and I am setting this aside" is one of the most useful
+    // things a team does; the act used to survive and its content did not.
+    expect(screen.getByTestId('analysis-new-strengthen-history-disagreement')).toHaveTextContent(
+      'Our board measures this quarterly.',
+    )
+  })
+
   /**
    * ⚠ THE DISCRIMINATING PAIR. Restore must be offered on the row it can act on
    * and withheld on the one it cannot — a control rendered on both would pass
@@ -337,18 +357,21 @@ describe('recording a disagreement', () => {
       'The lead time assumption is wrong for our supplier.',
     )
     /**
-     * ⚠ THE ASSERTION THAT SEPARATES THIS FROM DISMISSAL, bound by identity
-     * rather than by a count — a count cannot tell "still there" from
-     * "replaced by the next item in the queue" (trap 19), which is exactly the
-     * mistake that produced a wrong verdict on this section once already.
+     * ⚠⚠ THIS BLOCK USED TO ASSERT THAT THE CARD "STAYS", BY READING THE
+     * RENDERED ITEM IDS. That assertion was STRUCTURALLY INCAPABLE OF FAILING:
+     * `interventions` is a PROP, so the row renders whatever the store does,
+     * and it would have passed just as happily if disputing retired the record.
+     * A test named for the property that distinguishes dispute from dismissal,
+     * which could not observe that property, is worse than no test.
+     *
+     * What this layer CAN prove is that dispute does not reach for dismissal.
+     * That the record SURVIVES is a store property and is proven where it
+     * lives — `strengthenStore.spec.ts`, "records the reason on the history and
+     * leaves the finding ACTIVE", which asserts status and `selectActive`
+     * membership and REDs when `dispute` is made a disposal.
      */
-    expect(
-      screen
-        .getAllByTestId('analysis-new-strengthen-item')
-        .map((el) => el.getAttribute('data-recommendation-id')),
-    ).toContain('strengthen:robustness')
-    // And dismissal was NOT invoked as a side effect.
     expect(dismiss).not.toHaveBeenCalled()
+    expect(restoreDismissed).not.toHaveBeenCalled()
   })
 
   it('shows the standing objection on the card, and offers to edit rather than restate', () => {

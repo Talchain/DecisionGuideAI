@@ -115,7 +115,7 @@ export interface ScienceGrounding {
   strength?: string
 }
 
-/** Strengthen the reasoning — the prioritised interventions, 1 to 3. */
+/** Strengthen the reasoning — the prioritised interventions, in engine order. */
 export interface StrengthenSection {
   /**
    * Engine output, already filtered against the strengthen lifecycle store.

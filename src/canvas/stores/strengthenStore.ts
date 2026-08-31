@@ -313,8 +313,24 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
         history: [...record.history, { at: now, event: 'restored' as const, whatChanged: 'dismiss undone' }],
       },
     }
-    persist(records, get().priorityOrder)
-    set({ records })
+    /**
+     * ⚠⚠ THE ID MUST BE PUT BACK IN THE ORDER, OR RESTORING DELETES THE
+     * FINDING FROM EVERY SURFACE.
+     *
+     * `reconcile` REBUILDS `priorityOrder` from the firing set alone, so a
+     * record that stopped firing is dropped from it while its record survives.
+     * `selectActive` maps over `priorityOrder` — so restoring such a record
+     * makes it active-but-invisible there, and it simultaneously leaves
+     * `selectHistory`, whose filter is dismissed|addressed. Active list: gone.
+     * Trail: gone. Store: still there, reachable by nobody.
+     *
+     * Appended rather than inserted, for the reason `seedIfAbsent` gives: this
+     * row's engine rank is not ours to assert.
+     */
+    const order = get().priorityOrder
+    const priorityOrder = order.includes(id) ? order : [...order, id]
+    persist(records, priorityOrder)
+    set({ records, priorityOrder })
   },
 
   _reset: () => {
