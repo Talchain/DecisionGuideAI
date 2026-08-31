@@ -400,4 +400,105 @@ describe('the section adds up, and disappears when it has nothing', () => {
     expect(screen.getByTestId(`${TESTID}-toggle`)).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId(`${TESTID}-region`)).toBeNull()
   })
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * ⭐⭐ THE BAR AND THE READOUT ARE ONE CLAIM (F1 — shipped, browser-witnessed)
+   * ─────────────────────────────────────────────────────────────────────────
+   *
+   * `Math.round(winFraction * 100)` rendered a MEASURED share as a 0px fill.
+   * On deployed `ce32426c`, guest, real 4-option run, the Status Quo row read
+   * "< 1%" beside a 371px track whose fill measured 0px — the readout floored
+   * by the display-honesty authority, the geometry not.
+   *
+   * ⚠ jsdom CANNOT SEE THIS. It computes no layout, so a width assertion here
+   * proves only what the style says, never what a user sees. That is why these
+   * tests assert the STYLE STRING — the thing the component controls — and the
+   * live proof stays in the PR body where it belongs. Do not upgrade these into
+   * a claim about pixels (trap 3).
+   */
+  describe('the bar cannot contradict the number beside it', () => {
+    /** The style the component put on the fill, for a row bound by identity. */
+    function fillStyle(optionId: string): CSSStyleDeclaration {
+      const fill = row(optionId).querySelector<HTMLElement>('.bg-info')
+      if (!fill) throw new Error(`no bar fill for ${optionId}`)
+      return fill.style
+    }
+
+    it('gives a measured-but-tiny share a visible width, not a zero one', () => {
+      // Below the 0.005 rounding cliff, and ABOVE zero: the exact class the
+      // shipped code collapsed. The readout for this row is floored, so the
+      // bar must be too.
+      renderSection(
+        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.0004, nValidSamples: 10000 }])),
+      )
+      open()
+
+      const style = fillStyle('opt_status_quo')
+      expect(style.minWidth).toBe('2px')
+      expect(style.width).not.toBe('0%')
+      // And the readout it must agree with is itself non-zero.
+      expect(row('opt_status_quo')).toHaveTextContent(
+        formatProbabilityWithResolution(0.0004, 10000),
+      )
+    })
+
+    /**
+     * ⭐ THE OTHER DIRECTION, AND WITHOUT IT THE FIX IS A NEW FALSEHOOD.
+     * A genuine measured zero MUST render an empty track: "came out ahead in
+     * 0% of simulated scenarios" is TRUE, and the floor exists to stop a
+     * NON-zero value reading as zero, never to stop zero reading as zero
+     * (`formatPercent.ts:103-107`, in terms). A `minWidth` applied here would
+     * draw a share that was measured not to exist.
+     */
+    it('leaves a genuine measured zero with no fill at all', () => {
+      renderSection(
+        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0, nValidSamples: 10000 }])),
+      )
+      open()
+
+      const style = fillStyle('opt_status_quo')
+      expect(style.width).toBe('0%')
+      expect(style.minWidth).toBe('')
+    })
+
+    it('does not round a small share up to a neighbour\'s width', () => {
+      renderSection(
+        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.004, nValidSamples: 10000 }])),
+      )
+      open()
+      // 0.4%, not rounded to 0% and not inflated to 1%.
+      expect(fillStyle('opt_status_quo').width).toBe('0.4%')
+    })
+  })
+
+  /**
+   * ⭐ A COMPARISON NEEDS SOMETHING TO COMPARE WITH (F3).
+   * One option rendered "How the options compare … >99.99%" — a near-certainty
+   * that is an artefact of having nothing to lose to. Two estate gates already
+   * said this (`ResultsBody.tsx:522`, and this file's own leader headline at
+   * `:968`) and neither was applied here.
+   */
+  describe('a single option is not a comparison', () => {
+    it('renders nothing when the producer says the model has one option', () => {
+      const one = [makeOption({ id: 'opt_only', label: 'Only', winProbability: 1, nValidSamples: 10000 })]
+      renderSection(dataWith(one, { isSingleOption: true }))
+      expect(screen.queryByTestId(TESTID)).toBeNull()
+    })
+
+    it('renders nothing on a one-option list even when the flag is absent', () => {
+      const one = [makeOption({ id: 'opt_only', label: 'Only', winProbability: 1, nValidSamples: 10000 })]
+      renderSection(dataWith(one))
+      expect(screen.queryByTestId(TESTID)).toBeNull()
+    })
+
+    /**
+     * ⭐ THE DISCRIMINATING CASE. Without it the gate could have suppressed the
+     * section entirely and both tests above would still pass.
+     */
+    it('still renders the real multi-option run', () => {
+      renderSection(dataWith(fourOptionRun()))
+      expect(screen.getByTestId(TESTID)).toBeInTheDocument()
+    })
+  })
 })
