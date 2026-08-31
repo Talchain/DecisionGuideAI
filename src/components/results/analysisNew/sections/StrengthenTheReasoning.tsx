@@ -735,7 +735,13 @@ export function StrengthenTheReasoning({
                     // sibling files in the same directory that wire it.
                     aria-expanded={disputingId === rec.id}
                     aria-controls={`${testId}-disagree-form-${rec.id}`}
-                    className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    /* ⚠ THE AUTO LEFT MARGIN IS GONE. Its container wraps, and at
+                       the 278px dock floor it always does — so pushing this to the
+                       far edge right-aligned whichever line it landed on, leaving
+                       the two record-scoped actions adrift from the primary ones
+                       above them. In a wrapping row, flow order reads; edge
+                       alignment does not. */
+                    className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-disagree`}
                   >
                     {standingDispute ? COPY.dissent.edit : COPY.dissent.open}

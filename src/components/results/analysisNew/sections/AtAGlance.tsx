@@ -550,8 +550,16 @@ export function AtAGlance({
                     {d.label}
                   </span>
                   {driversDiscriminate ? (
+                    /* ⚠ THE BAR USED TO WIDEN ON THE VIEWPORT, NOT THE PANEL.
+                       This lives in a dock whose floor is 278px, and the
+                       breakpoint it branched on is satisfied by any desktop
+                       window — so on the narrowest, shipped default it took the
+                       WIDER size and the label beside it, which is truncated,
+                       lost the room. The bar is decoration; the driver's name is
+                       the information. A panel-aware branch is available
+                       (`usePanelWidth`) if a wide dock should ever get more. */
                     <span
-                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden sm:w-24"
+                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden"
                       aria-hidden="true"
                       data-testid={`${testId}-driver-bar`}
                     >
@@ -635,7 +643,7 @@ export function AtAGlance({
                   </span>
                   {driversDiscriminate ? (
                     <span
-                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden sm:w-24"
+                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden"
                       aria-hidden="true"
                       data-testid={`${testId}-driver-bar`}
                     >
