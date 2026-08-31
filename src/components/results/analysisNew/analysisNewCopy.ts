@@ -148,6 +148,52 @@ export const ANALYSIS_NEW_COPY = {
     /** Chip text when the producer attested grounding but named no strength. */
     groundedChip: 'Decision science',
   },
+
+  /**
+   * "Your model so far" — the per-node detail.
+   *
+   * ⚠ EVERY STRING HERE IS FURNITURE OR AN ABSENCE, AND THERE IS NO THIRD KIND.
+   * What a node's detail SAYS about the model is the engine's own `title` and
+   * `tryThis` rendered verbatim; this file supplies the affordance wording and
+   * the sentence for when there is nothing. There is deliberately no reassuring
+   * positive — "this node looks fine" is a claim nothing measured, and it is
+   * exactly the sentence a panel like this drifts towards.
+   */
+  modelStrip: {
+    /**
+     * The affordance, stated once above the marks. It describes the CONTROL,
+     * never the model, and it is what makes the marks discoverable at all — a
+     * 12px shape whose accessible name lives in a screen-reader span otherwise
+     * announces itself to nobody using a mouse.
+     */
+    hint: 'Pick a mark to see what this analysis says about it, and to show it on the canvas.',
+    /**
+     * ⚠ SCOPED TO THIS PANEL, AND THE SCOPE IS THE HONESTY. The index behind
+     * the detail is built from exactly two lists — the glance's drivers and the
+     * engine's interventions — so "this panel" is the largest true subject.
+     * "No finding names this node" would be a claim about the RUN, and the run
+     * holds findings this panel has already filtered (dismissed ones) and
+     * capped.
+     */
+    noInsight: 'Nothing else on this panel refers to this node.',
+    /** Disclosure of the per-node finding cap. Never silent truncation. */
+    moreFindings: (n: number) => `+ ${n} more finding${n === 1 ? '' : 's'} for this node`,
+    /**
+     * Singular node-kind nouns for the detail heading.
+     *
+     * ⚠ A MIRROR OF `MARK_KINDS`, AND IT IS PINNED BY A TEST for that reason —
+     * a kind added to `nodeMarks.tsx` without a noun here would render a
+     * heading with a missing word rather than failing loudly (CLAUDE.md
+     * trap 12). The row labels above are the plural forms and are NOT reusable
+     * for one node.
+     */
+    kindNoun: {
+      option: 'Option',
+      factor: 'Factor',
+      risk: 'Risk',
+      outcome: 'Outcome',
+    } as Record<string, string>,
+  },
   glance: {
     /** Eyebrow above the answer on a CURRENT run. */
     eyebrowLeading: 'Leading option',
