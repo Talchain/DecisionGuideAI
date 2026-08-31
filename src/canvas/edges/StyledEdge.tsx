@@ -1246,9 +1246,27 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         // SECOND literal copy of the fabricated constant — removing the default
         // from the schema would not have silenced this line.
         //
-        // The direction is gated with the strength deliberately: `direction`
-        // defaults to 'positive', so "Positive" is itself a fabrication on an
-        // edge nobody characterised.
+        // ⚠⚠ THE DIRECTION USED TO BE GATED WITH THE STRENGTH, AND THAT WAS THE
+        // WRONG GATE — the note below is the original, and it diagnosed the
+        // fabrication correctly while fixing it against the wrong predicate.
+        //
+        // ORIGINAL: "The direction is gated with the strength deliberately:
+        // `direction` defaults to 'positive', so 'Positive' is itself a
+        // fabrication on an edge nobody characterised."
+        //
+        // True, and insufficient. "Was the STRENGTH set?" and "was the DIRECTION
+        // stated?" are two questions, and this asked the first while answering
+        // the second. An edge with a user-set strength and a defaulted direction
+        // clears the strength gate — and then the sign of that defaulted
+        // `direction` printed a bold "Positive" and a green bar, on the SAME
+        // edge whose stroke this component draws GREY a thousand lines above,
+        // from `resolveEdgeDirectionDisplay`, for "direction not set yet".
+        // One component, two verdicts, one edge.
+        //
+        // Both now read the one resolver. `statedDirection` (:283) is
+        // `directionDisplay.show ? directionDisplay.direction : null` — the same
+        // ratified owner `computeDirectionStroke` consumes, so the popover and
+        // the stroke cannot disagree again.
         const strengthDisplay = resolveEdgeSignedStrengthDisplay(
           edgeData as Record<string, unknown> | undefined,
         )
@@ -1261,7 +1279,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         const confidencePct = confidenceDisplay.show
           ? Math.round(confidenceDisplay.value * 100)
           : null
-        const dirLabel = signedVal !== null ? (signedVal >= 0 ? 'Positive' : 'Negative') : null
+        // The WORD comes from the resolver, never from the sign of a number
+        // whose direction may have been defaulted.
+        const dirLabel = statedDirection === null
+          ? null
+          : statedDirection === 'positive' ? 'Positive' : 'Negative'
+        // Which half-colour the bar paints IS a direction claim, so it is gated
+        // the same way. Grey is this canvas's stated NO-VERDICT colour for
+        // exactly this case — `directionStroke.ts` calls it
+        // "weight-set-but-no-direction" — and it is the same token the stroke
+        // and the legend row already use, so no new vocabulary is introduced.
+        const strengthBarTone = statedDirection === null
+          ? (isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)')
+          : null
         const causalPopoverStyle: React.CSSProperties = {
           ...popoverStyle,
           pointerEvents: 'all',
@@ -1276,7 +1306,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
-              {/* Direction — only when the strength that gives it its sign was set */}
+              {/* Direction — only when the producer or the user STATED one. */}
               {dirLabel !== null && (
                 <div className={`${typography.edgeLabel} font-bold text-text-body`}>
                   {dirLabel}
@@ -1293,15 +1323,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 <div className="flex items-center gap-1.5">
                   <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${signedVal >= 0 ? 'bg-success' : 'bg-danger'}`}
-                      style={{ width: `${Math.max(4, strengthPct)}%` }}
+                      className={`h-full rounded-full ${
+                        strengthBarTone !== null
+                          ? ''
+                          : statedDirection === 'positive' ? 'bg-success' : 'bg-danger'
+                      }`}
+                      style={{
+                        width: `${Math.max(4, strengthPct)}%`,
+                        ...(strengthBarTone !== null ? { backgroundColor: strengthBarTone } : {}),
+                      }}
                     />
                   </div>
                   <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
                 </div>
               )}
-              {/* Nothing characterised yet — say that, rather than a number */}
-              {dirLabel === null && confidencePct === null && (
+              {/* Nothing characterised yet — say that, rather than a number.
+                  ⚠ GATED ON `signedVal`, NOT ON `dirLabel`, AND THAT IS A
+                  CONSEQUENCE OF THE FIX ABOVE. They used to be equivalent:
+                  `dirLabel` was derived from `signedVal`, so `dirLabel === null`
+                  implied no strength. Binding the word to `statedDirection`
+                  DECOUPLED them — and an edge with a set strength and no stated
+                  direction would then have rendered the strength bar AND
+                  "Strength and likelihood not set" in the same popover, which is
+                  a NEW contradiction bought with the old one's fix. The empty
+                  state is a claim about the NUMBERS, so it reads the numbers. */}
+              {signedVal === null && confidencePct === null && (
                 <div
                   className={`${typography.edgeLabel} text-text-light`}
                   data-testid="edge-hover-popover-unset"
