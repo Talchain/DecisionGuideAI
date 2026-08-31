@@ -81,6 +81,7 @@ import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
 import { GHOST_TIERS, withGhostTiers } from './utils/ghostTiers'
+import { withThinStructureDoors } from './utils/thinStructureDoors'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -538,8 +539,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * excluded from the fit and from every model count by the shared `__ghost-`
      * prefix, so they cannot inflate what the graph appears to contain.
      */
-    return withGhostTiers([...nodes, ghostNode], tierGhosts)
-  }, [nodes, resultsStatus, viewMode])
+    /* ⭐ AND ONE DOOR ON THE OPTION NOBODY HAS ARGUED AGAINST.
+       The row-level doors above ask "another risk, somewhere". This asks it of
+       the specific option whose structure is thin — which is where a blind spot
+       actually sits. It fires only on ASYMMETRY (some options carry a risk and
+       one does not), never on a uniformly young model, so it cannot become
+       thirteen copies of the same furniture. See `thinStructureDoors`. */
+    return withThinStructureDoors(withGhostTiers([...nodes, ghostNode], tierGhosts), edges)
+  }, [nodes, edges, resultsStatus, viewMode])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
