@@ -74,6 +74,13 @@ export interface PreviewPlan {
    * a position, and so the surface could mark it later if that reads well.
    */
   promotedId: string | null
+  /**
+   * Every id pulled into the preview, in the order promoted. `promotedId` is
+   * the first of these and is kept because the single-swap case is still by far
+   * the most common; this is the honest plural for a preview that gained more
+   * than one kind of thinking.
+   */
+  promotedIds: string[]
 }
 
 /** Distinct `helpType`s across a list, in first-appearance order. */
@@ -95,40 +102,83 @@ export function planPreview(
 
   // Nothing is below the fold, so there is no composition to plan.
   if (previewSize <= 0 || ordered.length <= previewSize) {
-    return { ordered, hiddenKinds: [], promotedId: null }
+    return { ordered, hiddenKinds: [], promotedId: null, promotedIds: [] }
   }
 
   const head = ordered.slice(0, previewSize)
   const tail = ordered.slice(previewSize)
 
-  // ⚠ ALREADY ASKING FOR MORE THAN ONE KIND OF THOUGHT — leave it alone. The
-  // minimal intervention is the defensible one: every swap not made is a place
-  // the producer's ranking still speaks for itself.
-  if (kindsOf(head).length > 1) {
-    return { ordered, hiddenKinds: kindsOf(tail), promotedId: null }
+  /**
+   * ⭐⭐ WIDENED FROM "NOT MONOTONE" TO "AS MANY KINDS OF THINKING AS THE SLOTS
+   * ALLOW", and the widening is the whole point rather than a refinement.
+   *
+   * The first version intervened only when the preview asked for ONE kind of
+   * thought. That was right for the run it was written against and wrong for
+   * the run that followed it: once the producer's bias findings are classified
+   * honestly, a live head reads `[clarify, challenge, challenge]` — two kinds,
+   * so the old rule bailed — while `strengthen:broaden`, the ONLY move in the
+   * product that asks for a new idea rather than a more complete one, sat below
+   * the fold at priority 140.
+   *
+   * A preview showing two kinds when three are available, with a DUPLICATE
+   * occupying the slot the third could have, is not the producer's ranking
+   * speaking for itself. It is a coin-toss between two rows of the same kind.
+   * So a duplicate may be traded for an ABSENT kind, and only ever for that.
+   *
+   * The line still is not crossed: nothing is re-ranked, nothing is scored, and
+   * nothing is promoted for carrying a technique chip. A row is moved only when
+   * doing so puts a kind of thinking on screen that was not there — which is
+   * the panel's stated purpose, not a preference.
+   */
+  const displacedRows: Recommendation[] = []
+  const promotedIds: string[] = []
+  const remainingTail = [...tail]
+
+  // Bounded by the slots: each pass adds one kind, so it cannot run longer than
+  // the preview is wide.
+  for (let pass = 0; pass < previewSize; pass++) {
+    const headKinds = kindsOf(head)
+    // The highest-ranked finding below the fold whose kind is missing above it.
+    const promoteIndex = remainingTail.findIndex((rec) => !headKinds.includes(rec.helpType))
+    if (promoteIndex === -1) break
+
+    // Displace the LOWEST-RANKED row whose kind is already represented more
+    // than once — never a row that is the sole carrier of its kind, or the swap
+    // would trade one absent kind for another and gain nothing.
+    const counts = new Map<HelpType, number>()
+    for (const rec of head) counts.set(rec.helpType, (counts.get(rec.helpType) ?? 0) + 1)
+    let displaceIndex = -1
+    for (let i = head.length - 1; i >= 0; i--) {
+      if ((counts.get(head[i].helpType) ?? 0) > 1) {
+        displaceIndex = i
+        break
+      }
+    }
+    // Every visible row is the sole carrier of its kind. There is nothing to
+    // trade, and evicting a kind to admit another is not an improvement.
+    if (displaceIndex === -1) break
+
+    const [promoted] = remainingTail.splice(promoteIndex, 1)
+    const [displaced] = head.splice(displaceIndex, 1)
+    // Into the LAST preview slot: the engine's top-ranked findings keep the
+    // positions they earned, and the new kind reads as the addition it is.
+    head.push(promoted)
+    displacedRows.push(displaced)
+    promotedIds.push(promoted.id)
   }
 
-  const headKind = head[0].helpType
-  const promoteIndex = tail.findIndex((rec) => rec.helpType !== headKind)
-
-  // Every finding is the same kind. There is no diversity to surface and
-  // manufacturing one would mean inventing a distinction the engine did not
-  // make.
-  if (promoteIndex === -1) {
-    return { ordered, hiddenKinds: kindsOf(tail), promotedId: null }
+  if (promotedIds.length === 0) {
+    return { ordered, hiddenKinds: kindsOf(tail), promotedId: null, promotedIds: [] }
   }
 
-  const [promoted] = tail.splice(promoteIndex, 1)
-  // Into the LAST preview slot, not the first: the engine's top-ranked finding
-  // keeps the position it earned. The displaced row goes to the front of the
-  // tail, so it is the first thing "Show N more" reveals.
-  const displaced = head.pop()!
-  const nextHead = [...head, promoted]
-  const nextTail = [displaced, ...tail]
+  // ⚠ NOTHING IS HIDDEN. Displaced rows go to the FRONT of the tail, so they
+  // are the first thing "Show N more" reveals.
+  const nextTail = [...displacedRows, ...remainingTail]
 
   return {
-    ordered: [...nextHead, ...nextTail],
+    ordered: [...head, ...nextTail],
     hiddenKinds: kindsOf(nextTail),
-    promotedId: promoted.id,
+    promotedId: promotedIds[0],
+    promotedIds,
   }
 }
