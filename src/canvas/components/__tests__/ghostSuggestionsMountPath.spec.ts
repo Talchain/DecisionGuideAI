@@ -113,7 +113,7 @@ describe('doors are actually produced for a real model', () => {
   it('leaves the real model untouched — every input node survives, and no door counts as one', () => {
     const input = model()
     const out = withGhostTiers(input)
-    const passedThrough = out.filter((n) => !isGhostNode(n)).map((n) => n.id)
+    const passedThrough = out.filter((n) => !isGhostNode(n.id)).map((n) => n.id)
     expect(passedThrough).toEqual(input.map((n) => n.id))
   })
 })
