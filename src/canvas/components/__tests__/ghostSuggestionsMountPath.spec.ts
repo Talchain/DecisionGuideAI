@@ -53,7 +53,12 @@ function model(): Node[] {
   ]
 }
 
-const doorsIn = (nodes: Node[]) => nodes.filter(isGhostNode)
+// ⚠ `isGhostNode(id: string)` — it takes the ID, not the node. Passing the node
+// threw a TypeError on every call, so the three tests below FAILED AT PRISTINE
+// and could not have redded on a regression: the half of this file that asserts
+// doors get produced was already red. `tsc` never saw it, because the typecheck
+// gate excludes test files — a type error inside a spec is invisible to it.
+const doorsIn = (nodes: Node[]) => nodes.filter((n) => isGhostNode(n.id))
 
 describe('the frontier is visible when the product says it is', () => {
   // ⚠ THE DISCRIMINATING TRIPLE. Each row must differ from its neighbour, or
@@ -133,15 +138,42 @@ describe('doors are actually produced for a real model', () => {
  * the file, not of a function's behaviour. What it does NOT prove is that the
  * line executes, or under what conditions.
  *
- * ⚠ WHAT IS STILL OWED, stated rather than carried silently: a mount test that
- * renders the graph and asserts ghost nodes reach `<ReactFlow>`. That is the
- * only thing that would prove the frontier renders, and it is not here. This
- * pair — behaviour of the functions, presence of the call — is strictly more
- * than the previous spec had and strictly less than a mount witness.
+ * ⚠ WHAT IS STILL OWED, and a review has now measured exactly how much.
+ *
+ * Stripping comments closes ONE of the two holes: the call is now proven to be
+ * live code rather than prose. It does NOT prove the mount EXECUTES it. The
+ * reviewer's mutant was a comment PLUS an unconditional `return nodes`, and only
+ * the first half is caught here — a live call sitting in a branch that never
+ * fires would still pass, which is precisely the shape that made the original
+ * defect invisible.
+ *
+ * The close is a CALL-COUNT assertion against a mocked module, since a comment
+ * cannot satisfy a call count and neither can an unreached branch. That needs a
+ * harness that renders the graph, and NOTHING in this repo renders
+ * `ReactFlowGraph` today — both existing "mount path" specs are source-text
+ * specs like this one. So it is a lane, not a line, and it is named here rather
+ * than implied to be done.
+ *
+ * Read this file as: behaviour of the two functions, PROVEN; the call site is
+ * live code, PROVEN; the mount reaches it, NOT PROVEN.
  */
 describe('the mount still calls the functions this file tests', () => {
   const GRAPH = resolve(__dirname, '../../ReactFlowGraph.tsx')
 
+  /**
+   * ⚠ COMMENTS STRIPPED, AND THIS IS THE WHOLE POINT OF THE HELPER.
+   *
+   * Without it, `/frontierIsVisible\s*\(/` matches a call sitting inside a
+   * COMMENT. A review proved it by mutation: it replaced the gate with a comment
+   * carrying the same call text plus an unconditional `return nodes` — frontier
+   * completely dead, no door ever produced — and all three tests below stayed
+   * GREEN. Delta pristine to dead-frontier: zero.
+   *
+   * The irony is worth recording rather than quietly fixing: the spec I DELETED
+   * to write this one had a `codeOnly()` helper doing exactly this, and I
+   * dropped it while removing that file's real defect. Its comment-stripping was
+   * the sound half of a spec whose fault lay elsewhere.
+   */
   const source = (): string => {
     const text = readFileSync(GRAPH, 'utf8')
     // An absence assertion against an empty read passes beautifully, and an
@@ -150,7 +182,11 @@ describe('the mount still calls the functions this file tests', () => {
     if (text.length < 10_000) {
       throw new Error(`refusing to assert: read ${text.length} chars from ReactFlowGraph.tsx`)
     }
-    return text
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+    if (code.trim().length < 10_000) {
+      throw new Error(`comment strip left ${code.trim().length} chars — refusing to assert`)
+    }
+    return code
   }
 
   it('invokes frontierIsVisible', () => {
