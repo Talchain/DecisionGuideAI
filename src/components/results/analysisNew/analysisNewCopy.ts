@@ -293,7 +293,18 @@ export const ANALYSIS_NEW_COPY = {
    * it. The wording states what was not covered and stops.
    */
   coverage: {
-    someFactorsUnassessed: 'Some factors could not be assessed for this ranking.',
+    /**
+     * ⛔ `someFactorsUnassessed` DELETED. It read 'Some factors could not be
+     * assessed for this ranking.' — a second, near-identical spelling of
+     * `RESOLVE_NEXT_COPY.partial` ("Some factors couldn't be assessed for this
+     * ranking."), the register whose own header exists to forbid exactly that:
+     * "copying the sentences into the second deck would be the hand-maintained
+     * mirror CLAUDE.md trap 12 is about, and the drift would be SILENT".
+     *
+     * It also had ZERO render consumers — the ranking it describes reached no
+     * screen on this tab at all. Now that it does, the sentence is imported
+     * from its owner and rendered verbatim, so there is one spelling again.
+     */
     /** Influence figures are set-relative, not a causal share of the outcome. */
     setRelativeInfluence:
       'Influence is relative to the other factors in this run, not a share of the outcome.',

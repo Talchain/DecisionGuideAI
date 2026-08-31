@@ -301,10 +301,22 @@ describe('interventions (§14, §3B)', () => {
   })
 })
 
-describe('key insights (§13) — a small number, and the cap is disclosed', () => {
-  it('never exceeds four and reports the true candidate count', () => {
+describe('key insights (§13) — the whole list, and the count that survives the dedupe', () => {
+  /**
+   * ⚠ THIS TEST WAS 'never exceeds four and reports the true candidate count',
+   * AND IT COULD NOT FAIL. Four branches could push, so `insights.length <= 4`
+   * held whatever the code did — a bound the implementation could not reach is
+   * a guard agreeing with itself (CLAUDE.md trap 13b), and it read as coverage
+   * of a `KEY_INSIGHT_CAP` that was in fact slicing the DATA. The cap is gone;
+   * the tail is now reached by the mount's preview, and the unbounded case is
+   * pinned in `insightsDriversUncertaintyDepth.spec.ts`.
+   *
+   * What is left here is the claim that still has content: `candidateCount`
+   * reports what the RUN produced, so an empty list with a non-zero count means
+   * "already shown above" rather than "nothing was found".
+   */
+  it('reports what the run produced, never fewer than the list it hands over', () => {
     const vm = build(highUncertainty())
-    expect(vm.keyInsights.insights.length).toBeLessThanOrEqual(4)
     expect(vm.keyInsights.candidateCount).toBeGreaterThanOrEqual(vm.keyInsights.insights.length)
   })
 

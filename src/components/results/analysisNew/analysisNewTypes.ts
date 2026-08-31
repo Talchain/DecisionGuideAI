@@ -82,15 +82,26 @@ export interface AnalysisNewFinding {
 }
 
 /**
- * Key insights — 2 to 4 of them. NOT decision-centric by construction: a
- * comparative insight is one KIND among several and appears only when the
- * single decision verdict entitles it.
+ * Key insights. NOT decision-centric by construction: a comparative insight is
+ * one KIND among several and appears only when the single decision verdict
+ * entitles it.
+ *
+ * ⚠ THE FULL ORDERED LIST, NEVER A CAPPED ONE. `KEY_INSIGHT_CAP` sliced the
+ * DATA here until it was deleted; the preview length is applied at the mount,
+ * where the section can disclose and REACH its own tail. See
+ * `buildAnalysisNewViewModel.ts`'s header on that constant.
  */
 export interface KeyInsightsSection {
   insights: AnalysisNewFinding[]
   /**
-   * How many grounded candidates existed before the cap. Rendered as a plain
-   * count so the cap is disclosed rather than silent (no silent truncation).
+   * How many grounded candidates the RUN produced, before `dedupeAgainstGlance`
+   * removes anything the glance is already saying one viewport above.
+   *
+   * ⚠ NOT A MIRROR OF `insights.length`, AND THE DIFFERENCE IS WHAT IT IS FOR:
+   * an empty list with a non-zero count means "shown above", which is why the
+   * mount uses it to suppress an empty-state sentence that would contradict the
+   * surface directly above it. It is deliberately NOT a truncation disclosure
+   * any more — there is no truncation left at this layer to disclose.
    */
   candidateCount: number
 }
@@ -212,7 +223,21 @@ export interface UncertaintySection {
    * renders nothing; `'measured_zero'` is a real result and says so.
    */
   decisionVoi: 'not_computed' | 'measured_zero' | 'measured_non_zero'
-  totalCount: number
+  /**
+   * ⛔ `totalCount` DELETED. It was `findings.length` — a MIRROR of the array
+   * beside it (CLAUDE.md trap 12) — with a doc comment promising disclosure and
+   * ZERO render consumers repo-wide, while its structural sibling
+   * `DriversSection.totalCount` is genuinely read (the glance shows at most
+   * three drivers and needs the run's total, which it does not hold).
+   *
+   * There was nothing to render honestly: the one component that could use it
+   * already receives `findings` and derives its own count and its own "Show N
+   * more" from the actual list, on purpose — "a hand-passed count is a mirror,
+   * and a truncation that misreports how much it hid reads as 'you have seen
+   * everything' when you have not" (`AnalysisNewSection.tsx`). This is exactly
+   * the `candidateCount` deletion `StrengthenSection` above records, and for
+   * the same reason.
+   */
 }
 
 /** Level-3 material. One collapsed region, never a fifth top-level section. */
