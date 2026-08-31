@@ -121,7 +121,17 @@ describe('BaseNode — maxWidth (H1)', () => {
     const titleEl = container.querySelector('.break-words') as HTMLElement | null
     expect(titleEl, 'title element with break-words should exist').toBeTruthy()
     expect(titleEl?.textContent).toBe(longLabel)
-    expect(titleEl?.className).toContain('line-clamp-3')
+    // ⭐ TWO LINES SINCE 1 Sep 2026. Three-line titles were the biggest source
+    // of visual noise on a full board — card heights varied by up to 50%, so
+    // nothing lined up and the eye had no baseline to scan along. The glyph
+    // moving off the title row gave the text back 20px of measure, which is
+    // what made two lines sufficient rather than merely shorter.
+    expect(titleEl?.className).toContain('line-clamp-2')
+    // ⚠ AND NOT THREE. Asserted explicitly because `toContain('line-clamp-2')`
+    // would also pass on a class list that carried BOTH — Tailwind emits them
+    // as separate utilities and the later one wins, so a stray `line-clamp-3`
+    // would silently restore the old geometry with this file still green.
+    expect(titleEl?.className).not.toContain('line-clamp-3')
     // Existing break-words behaviour must remain alongside the new clamp.
     expect(titleEl?.className).toContain('break-words')
   })
