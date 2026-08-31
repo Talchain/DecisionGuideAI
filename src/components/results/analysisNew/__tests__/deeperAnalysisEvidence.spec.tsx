@@ -41,6 +41,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { DeeperAnalysis } from '../sections/DeeperAnalysis'
+import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
+import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import { humaniseInferenceWarningTitle } from '../../utils/humaniseInferenceWarning'
 import type { ConfidenceSectionData, InferenceWarning } from '../../types'
@@ -63,6 +65,31 @@ const deeperOf = (data: ReturnType<typeof makeData>, over: Record<string, unknow
 /** Render the section exactly as `AnalysisNewTabBody` mounts it. */
 const renderDeeper = (data: ReturnType<typeof makeData>, over: Record<string, unknown> = {}) =>
   render(<DeeperAnalysis deeper={deeperOf(data, over)} />)
+
+/**
+ * ⚠ THE STRIPS MOVED, AND SO DID THESE TESTS — DELIBERATELY, NOT AS A REPAIR.
+ *
+ * #1039 mounted the warning strips inside `DeeperAnalysis`, which was right
+ * about the defect (they had NO consumer on this tab at all) and wrong about
+ * the position: that section sits at the BOTTOM, so a caveat arrived after the
+ * reading it qualifies. They now mount at the top of `AnalysisNewTabBody`,
+ * outside any collapsible.
+ *
+ * Every assertion below is about the strips' CONTENT — what the engine said,
+ * bound by the producer's own identity anchor — and content is what these
+ * components own wherever they are mounted. The PLACEMENT claim is a different
+ * claim and is pinned separately, in `AnalysisNewTabBody.spec.tsx`, against the
+ * thing that can actually break it: the tab's own mount order.
+ */
+const renderStrips = (data: ReturnType<typeof makeData>, over: Record<string, unknown> = {}) => {
+  const d = deeperOf(data, over)
+  return render(
+    <>
+      <CritiqueWarningStrip critiques={d.critiques} />
+      <InferenceWarningStrip warnings={d.caveats} />
+    </>,
+  )
+}
 
 // ── The real capture. `manyFragileEdges()` carries the three inference
 //    warnings measured on deployed staging `a9fc1564`, including the raw node
@@ -112,7 +139,7 @@ describe('an engine critique reaches the screen on this tab', () => {
     // The whole defect, in one assertion. On the existing tab this set is
     // mounted in an unconditional group; a chevron between the reader and an
     // engine warning is a demotion, and a demotion nobody opens is a deletion.
-    renderDeeper(withCritique())
+    renderStrips(withCritique())
     const entry = screen.getByTestId('critique-warning-strip-entry')
     // Bound by the producer's own identity anchor. A text match would pass on
     // any other row that happened to carry the same sentence.
@@ -122,12 +149,12 @@ describe('an engine critique reaches the screen on this tab', () => {
   it('renders NO strip on a run the engine raised nothing about', () => {
     // The discriminating twin: proves the case above is reading the critique
     // set and not a container that is always present.
-    renderDeeper(genuineDecision())
+    renderStrips(genuineDecision())
     expect(screen.queryByTestId('critique-warning-strip')).toBeNull()
   })
 
   it("carries the producer's own remediation, and invents none where there is none", () => {
-    renderDeeper(withCritique())
+    renderStrips(withCritique())
     expect(screen.getByText('Simplify the model or rerun.')).toBeInTheDocument()
   })
 
@@ -242,7 +269,7 @@ describe('severity is not flattened — the split the existing tab makes', () =>
   })
 
   it('renders the warning-severity entry before any click, humanised', () => {
-    render(<DeeperAnalysis deeper={deeperOf(withWarnings([warningSeverity]))} />)
+    renderStrips(withWarnings([warningSeverity]))
     const entry = screen.getByTestId('inference-warning-strip-entry')
     expect(entry).toHaveAttribute('data-warning-code', 'ROOT_NODE_DEFAULT_VALUE')
     expect(entry.textContent ?? '').not.toContain('n_alpha')
@@ -327,13 +354,23 @@ describe('the section never renders an affordance that lies', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders the strip but NO expander when there is a warning and nothing to inspect', () => {
-    // An expander over an empty region promises content it does not have. The
-    // warning still has to reach the reader, so the two decisions are separate.
+  it('renders NO expander when there is nothing to inspect, warning or not', () => {
+    // An expander over an empty region promises content it does not have.
+    // ⭐ THE TWO DECISIONS ARE NOW GENUINELY SEPARATE, which is the point of
+    // the move: the warning reaches the reader from the TOP of the tab, and
+    // this section's only question is whether it has anything to inspect. It
+    // must render nothing even on a run the engine warned about.
     const vm = deeperOf(withCritique())
-    render(<DeeperAnalysis deeper={{ ...vm, groups: [] }} />)
-    expect(screen.getByTestId('critique-warning-strip')).toBeInTheDocument()
+    const { container } = render(<DeeperAnalysis deeper={{ ...vm, groups: [] }} />)
     expect(screen.queryByTestId('analysis-new-deeper-toggle')).toBeNull()
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('and the warning still reaches the reader, from where it now lives', () => {
+    // The other half of the pair. Without this, the assertion above would be
+    // satisfied by having silently dropped the warning altogether.
+    renderStrips(withCritique())
+    expect(screen.getByTestId('critique-warning-strip')).toBeInTheDocument()
   })
 })
 
