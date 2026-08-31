@@ -1462,6 +1462,7 @@ export function toStoreGuidanceItem(g: DerivedGuidanceItem): GuidanceItem {
     // signal_code / category are producer-owned passthrough: carry
     // them only when the producer supplied them, never invented.
     ...(g.signal_code ? { signal_code: g.signal_code } : {}),
+    ...(g.coaching_kind ? { coaching_kind: g.coaching_kind } : {}),
     ...(g.category ? { category: g.category } : {}),
     source: g.source,
     title: g.title,

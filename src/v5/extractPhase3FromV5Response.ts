@@ -81,6 +81,17 @@ export interface DerivedGuidanceItem {
    */
   signal_code?: string
   /**
+   * The producer's `coaching_kind` VERBATIM when the block carries one — a
+   * REQUIRED field on coaching blocks ('assumption_check', 'calibration_prompt',
+   * 'strengthen', 'bias_signal'). Passthrough, never allowlisted here.
+   *
+   * ⚠ IT IS THE ONLY STRUCTURAL SIGNAL THAT A FINDING IS A COGNITIVE-BIAS
+   * FINDING. Without it a bias signal is indistinguishable downstream from an
+   * assumption check, and the engine's one CREATIVE trigger — which fires on a
+   * narrow-framing bias — could never see the producer's narrow-framing card.
+   */
+  coaching_kind?: string
+  /**
    * The producer's four-value `category` VERBATIM when emitted; absent when
    * the producer sent none. Passthrough — never defaulted to 'should_fix',
    * never synthesised from `severity`.
@@ -391,6 +402,11 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
   // `block.type` (block classes are not codes), never allowlists the set.
   const signal_code = safeString(r.signal_code)
 
+  // coaching_kind — REQUIRED on coaching blocks, carried VERBATIM. Passthrough
+  // only: never defaulted, never synthesised from `block.type` (a block class
+  // is not a kind).
+  const coaching_kind = safeString(r.coaching_kind)
+
   // action_label — the producer's CTA label VERBATIM when supplied; absent
   // otherwise. Passthrough only (never UI-authored). Stage 1 preserved it on
   // the raw block but dropped it from this derived shape, so the Strengthen
@@ -535,6 +551,7 @@ function deriveGuidance(block: Phase3RawBlock): DerivedGuidanceItem | null {
     // signal_code / category: producer-owned passthrough — included only when
     // the producer supplied them; absent stays absent, never invented.
     ...(signal_code ? { signal_code } : {}),
+    ...(coaching_kind ? { coaching_kind } : {}),
     ...(category ? { category } : {}),
     source,
     title,

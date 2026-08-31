@@ -39,6 +39,12 @@ export interface GuidanceItem {
    */
   signal_code?: string
   /**
+   * Producer `coaching_kind` VERBATIM when supplied; absent otherwise. The only
+   * structural marker that a finding is a COGNITIVE-BIAS finding
+   * ('bias_signal') rather than an assumption check or a calibration prompt.
+   */
+  coaching_kind?: string
+  /**
    * Producer four-value `category` VERBATIM when supplied; absent otherwise —
    * the V5 derivation never defaults it. Rendering surfaces fall back to a
    * neutral display treatment (or suppress the category badge), never a

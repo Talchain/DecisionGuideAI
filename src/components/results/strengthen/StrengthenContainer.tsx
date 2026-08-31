@@ -46,6 +46,7 @@ import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openDefineSuccess, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { buildRecommendations, toStrengthenPhase3Item } from './buildRecommendations'
+import { mergeBiasFindingTypes } from './biasTypesFromGuidance'
 import { STRENGTHEN_COPY as COPY } from './strengthenCopy'
 import type { HelpType, StrengthenInputs } from './strengthenTypes'
 import { StrengthenPanel } from './StrengthenPanel'
@@ -98,6 +99,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
 
   const inputs: StrengthenInputs = useMemo(() => {
     const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
+    const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
     return {
       goalThreshold: data.recommendation.goalThreshold ?? null,
       analysisComplete: data.recommendation.analysisStatus === 'computed',
@@ -150,17 +152,20 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         status: data.confidence.robustnessStatus ?? null,
         level: data.confidence.robustnessLevel ?? null,
       },
-      // Producer-owned bias findings only (§19): CEE draft-coaching
-      // bias_signals (e.g. 'narrow_framing'), verbatim types — never local
-      // option counting. Empty until CEE sends the signal (fail-closed).
-      biasFindingTypes: (biasSignals ?? []).map((b) => b.type),
+      // Producer-owned bias findings only (§19) — never local option counting.
+      // ⭐ BOTH producer channels, unioned: CEE draft-coaching `bias_signals`
+      // AND the phase-3 bias-signal cards. `draftCoaching` is NULL on the
+      // re-draft path (measured on deployed `cffe418d`), so the draft channel
+      // alone left this empty while the producer's own "Narrow framing" card
+      // was on screen. See `biasTypesFromGuidance.ts`.
+      biasFindingTypes: mergeBiasFindingTypes(biasSignals, phase3Items),
       // Producer stage signal → adaptive priority (UI-SEM-076, ordering only).
       adaptivePriority: adaptivePriorityFromStage(currentStage),
       // UI-SEM-085 (narrowed): the shared mapper carries the producer's
       // `priority_rank` VERBATIM (ascending, unbounded, presence =
       // producer-ranked) — the historic `100 - priority` re-inversion here
       // is what collapsed the coaching band. Never reintroduce a local map.
-      phase3Items: guidanceItems.map(toStrengthenPhase3Item),
+      phase3Items,
     }
   }, [data, guidanceItems, biasSignals, currentStage])
 

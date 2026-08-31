@@ -100,7 +100,7 @@ export function AnalysisNewSection({
         ) : null
       ) : (
         <>
-          <div>
+          <div id={`${testId}-list`}>
             {visible.map((f) => (
               <DisclosureRow
                 key={f.id}
@@ -116,6 +116,11 @@ export function AnalysisNewSection({
               type="button"
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
+              // The revealed rows are rendered ABOVE this button, so without a
+              // jump target a screen-reader user hears "expanded" and finds
+              // nothing ahead of them. One fix here covers every section that
+              // uses this shared pattern.
+              aria-controls={`${testId}-list`}
               className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-1`}
               data-testid={`${testId}-show-more`}
             >
