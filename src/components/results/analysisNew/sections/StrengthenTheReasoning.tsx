@@ -68,6 +68,16 @@ export interface StrengthenTheReasoningProps {
    * and the row then carries no grounding badge at all.
    */
   scienceGrounding?: Record<string, ScienceGrounding>
+  /**
+   * Rows shown before "Show N more". Absent = show all.
+   *
+   * ⚠ THIS USED TO BE A SLICE IN THE VIEW MODEL, which meant the remainder
+   * never arrived here and the section could not disclose it. On a measured
+   * staging run eight recommendations were active and five were unreachable.
+   * A preview is a presentation choice and belongs at the mount; a cap is a
+   * claim about what exists, and this section was never entitled to make one.
+   */
+  preview?: number
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId?: string
@@ -90,6 +100,7 @@ const STRENGTH_LABEL: Record<string, string> = {
 export function StrengthenTheReasoning({
   interventions,
   scienceGrounding = {},
+  preview,
   icon,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
@@ -150,6 +161,19 @@ export function StrengthenTheReasoning({
     setUndoable(null)
   }, [])
 
+  /**
+   * ⚠ THE COUNT ON THE COLLAPSED HEADER IS THE FULL LIST, NOT THE PREVIEW.
+   * `SectionShell` already receives `interventions.length`, so a reader who
+   * never opens the section still sees how many findings there are — and the
+   * number they then meet inside must reconcile with it. Previewing without
+   * disclosing the remainder is how "Strengthen the reasoning (8)" came to
+   * open onto three rows and nothing else.
+   */
+  const [expanded, setExpanded] = useState(false)
+  const limit = preview ?? interventions.length
+  const visible = expanded ? interventions : interventions.slice(0, limit)
+  const hidden = interventions.length - visible.length
+
   return (
     <SectionShell
       title={COPY.sections.strengthen}
@@ -193,7 +217,7 @@ export function StrengthenTheReasoning({
         </p>
       ) : (
         <ul className="space-y-3 list-none p-0 m-0">
-          {interventions.map((rec) => {
+          {visible.map((rec) => {
             const grounding = scienceGrounding[rec.id]
             // `null` for most findings, and that is correct — see
             // `recommendationMethod.ts`. No placeholder, no default technique.
@@ -409,6 +433,22 @@ export function StrengthenTheReasoning({
           })}
         </ul>
       )}
+
+      {/* ⭐ THE TAIL IS REACHABLE, AND IT SAYS HOW LONG IT IS. Same control,
+          same copy constants and same testid convention as every sibling
+          section (`AnalysisNewSection`), because a reader should not have to
+          learn a second disclosure idiom inside one panel. */}
+      {hidden > 0 || expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-2`}
+          data-testid={`${testId}-show-more`}
+        >
+          {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreStrengthen(hidden)}
+        </button>
+      ) : null}
     </SectionShell>
   )
 }

@@ -129,3 +129,57 @@ describe('the technique chip', () => {
     expect(screen.queryByTestId('analysis-new-strengthen-method')).toBeNull()
   })
 })
+
+/**
+ * ⭐⭐ THE TAIL. Measured on the deployed build `d658698a`: a real run put
+ * EIGHT active recommendations in the lifecycle store, the section header read
+ * its true count, and the list rendered three. The other five were not
+ * collapsed and not summarised — they were sliced away one layer up, so the
+ * component never held them and no affordance could have reached them.
+ *
+ * ⚠ THESE ASSERT IDENTITY, NEVER LENGTH. Counting rows is what produced a
+ * wrong verdict on this very section a day earlier: the list backfills from
+ * the queue, so `3 before, 3 after` is equally consistent with "nothing
+ * happened" and with "the right thing happened" (CLAUDE.md trap 19).
+ */
+describe('the preview discloses its remainder, and the remainder is reachable', () => {
+  const five = [1, 2, 3, 4, 5].map((n) => rec({ id: `strengthen:r${n}`, title: `Finding ${n}` }))
+  const shownIds = () =>
+    screen
+      .getAllByTestId('analysis-new-strengthen-item')
+      .map((el) => el.getAttribute('data-recommendation-id'))
+
+  it('shows the preview, names how many are held back, and reveals exactly those', () => {
+    renderOpen(<StrengthenTheReasoning interventions={five} preview={3} />)
+    expect(shownIds()).toEqual(['strengthen:r1', 'strengthen:r2', 'strengthen:r3'])
+
+    const more = screen.getByTestId('analysis-new-strengthen-show-more')
+    // The number is the ACTUAL remainder, not a generic "Show more" — a reader
+    // deciding whether to open it is entitled to know the size of the tail.
+    expect(more).toHaveTextContent('Show 2 more')
+
+    fireEvent.click(more)
+    expect(shownIds()).toEqual([
+      'strengthen:r1',
+      'strengthen:r2',
+      'strengthen:r3',
+      'strengthen:r4',
+      'strengthen:r5',
+    ])
+
+    // And back, on the same control — an expansion with no way home is a
+    // one-way door on a panel 278px wide.
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-show-more'))
+    expect(shownIds()).toEqual(['strengthen:r1', 'strengthen:r2', 'strengthen:r3'])
+  })
+
+  /**
+   * ⚠ THE OPPOSITE DIRECTION. A control rendered unconditionally would pass
+   * every assertion above while offering "Show 0 more" on a complete list.
+   */
+  it('offers NO affordance when the preview already holds everything', () => {
+    renderOpen(<StrengthenTheReasoning interventions={five.slice(0, 3)} preview={3} />)
+    expect(shownIds()).toEqual(['strengthen:r1', 'strengthen:r2', 'strengthen:r3'])
+    expect(screen.queryByTestId('analysis-new-strengthen-show-more')).toBeNull()
+  })
+})

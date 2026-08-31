@@ -82,6 +82,13 @@ export const ANALYSIS_NEW_COPY = {
     /** Level-2 grounding prefix. Always followed by the producer signal name. */
     groundedIn: 'Grounded in',
     moreDrivers: (n: number) => `Show ${n} more`,
+    /**
+     * ⚠ NAMED APART, for the reason the note below `moreUncertainty` gives.
+     * This one answers "more ways to strengthen the reasoning" — a set of
+     * recommended MOVES, not a set of findings. Identical string today; a
+     * later edit to either must not silently speak for the other.
+     */
+    moreStrengthen: (n: number) => `Show ${n} more`,
     moreUncertainty: (n: number) => `Show ${n} more`,
     /**
      * ⚠ NAMED APART FROM `moreUncertainty` ABOVE THOUGH THE STRING IS THE SAME

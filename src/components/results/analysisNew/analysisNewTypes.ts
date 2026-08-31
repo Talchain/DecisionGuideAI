@@ -118,13 +118,18 @@ export interface ScienceGrounding {
 /** Strengthen the reasoning — the prioritised interventions, 1 to 3. */
 export interface StrengthenSection {
   /**
-   * Engine output, already filtered against the strengthen lifecycle store and
-   * capped. The engine is `buildRecommendations` — this surface runs it and
-   * renders it; it never adds a recommendation of its own.
+   * Engine output, already filtered against the strengthen lifecycle store.
+   * The engine is `buildRecommendations` — this surface runs it and renders
+   * it; it never adds a recommendation of its own.
+   *
+   * ⚠ NOT CAPPED, AND THE FIELD THAT USED TO SIT BELOW THIS ONE IS GONE.
+   * `candidateCount` was documented "Disclosed, never silent" while NOTHING
+   * rendered it — a promise the product never kept, pinned by a test that
+   * only ever checked the number existed. The section now previews this list
+   * and discloses its own remainder, so a second count would be a mirror of
+   * `interventions.length` (trap 12) rather than a fact.
    */
   interventions: Recommendation[]
-  /** Total active engine output before the cap. Disclosed, never silent. */
-  candidateCount: number
   /**
    * Producer DSK attestation, keyed by recommendation id. Sparse BY DESIGN: an
    * absent key means the producer attested nothing for that intervention.

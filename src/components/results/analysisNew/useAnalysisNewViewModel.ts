@@ -103,7 +103,6 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       buildAnalysisNewViewModel({
         data,
         recommendations,
-        recommendationCandidateCount: recommendations.length,
         isPreRun,
         isRunning,
         isStale,
