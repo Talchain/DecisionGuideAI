@@ -31,7 +31,7 @@ const BRIEF: DecisionBriefViewModel = {
 
 describe('DecisionBriefSection', () => {
   it('shows every licensed group and its first producer item without opening a disclosure', () => {
-    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted estimatedInterventions={[]} />)
 
     // Heading generalised: a user who brought a strategic challenge was being
     // told they had a "Decision brief". Pinned in
@@ -53,7 +53,7 @@ describe('DecisionBriefSection', () => {
 
   it('expands and collapses all complete producer lists through one keyboard-operable control', async () => {
     const user = userEvent.setup()
-    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted estimatedInterventions={[]} />)
 
     const toggle = screen.getByRole('button', { name: 'Show all brief details' })
     toggle.focus()
@@ -74,7 +74,7 @@ describe('DecisionBriefSection', () => {
   })
 
   it('renders no recommendation, probability, confidence or robustness authority', () => {
-    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted estimatedInterventions={[]} />)
     const section = screen.getByTestId('decision-brief-section')
 
     expect(section).not.toHaveTextContent(/recommend|winner|leading option|probability|confidence|robust/i)
@@ -88,7 +88,7 @@ describe('DecisionBriefSection', () => {
    * the moment any category is sourced from a factor-name list again.
    */
   it('never renders the same content under two category headings', () => {
-    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted />)
+    render(<DecisionBriefSection brief={BRIEF} leaderClaimPermitted estimatedInterventions={[]} />)
 
     const groups = screen.getByTestId('decision-brief-groups')
     const rendered = Array.from(groups.querySelectorAll('ul')).map(list =>

@@ -3,6 +3,7 @@ import { BookOpenText, CircleDot, GitBranch, Layers3 } from 'lucide-react'
 import { useCanvasStore } from '@/canvas/store'
 import { typography } from '@/styles/typography'
 import { readDecisionBriefViewModel, type DecisionBriefViewModel } from './decisionBriefViewModel'
+import { selectEstimatedInterventions } from './estimatedInterventions'
 import { ICON_STATUS } from '../../../canvas/conversation/panelIcons'
 
 interface BriefGroupProps {
@@ -65,10 +66,29 @@ export interface DecisionBriefSectionProps {
    * claim for every future caller — the mirror-that-reads-green failure mode.
    */
   leaderClaimPermitted: boolean
+
+  /**
+   * The option→factor effect values THE MODEL CHOSE, already formatted by
+   * `estimatedInterventions.ts`. Joined into "What Olumi assumed" because they
+   * answer that heading's exact question from a second source — see the join
+   * comment at `groups` below.
+   *
+   * ⭐ REQUIRED, NOT DEFAULTED, for the same reason as `leaderClaimPermitted`
+   * one field up, though the harm runs the other way. A default of `[]` could
+   * never state a falsehood, but it WOULD let a caller silently omit the
+   * disclosure and still render a subtitle promising it — which is precisely
+   * the defect being closed here, reappearing as a mirror that reads green.
+   * Every caller states its answer.
+   */
+  estimatedInterventions: string[]
 }
 
 /** Store-free presentation, exported for focused and adversarial tests. */
-export function DecisionBriefSection({ brief, leaderClaimPermitted }: DecisionBriefSectionProps) {
+export function DecisionBriefSection({
+  brief,
+  leaderClaimPermitted,
+  estimatedInterventions,
+}: DecisionBriefSectionProps) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
   /**
@@ -87,7 +107,34 @@ export function DecisionBriefSection({ brief, leaderClaimPermitted }: DecisionBr
    */
   const groups = [
     { title: 'What matters', items: brief.topDrivers.map(driver => driver.label), icon: CircleDot, testId: 'decision-brief-drivers' },
-    { title: 'What Olumi assumed', items: brief.defaultedAssumptions.map(entry => entry.note), icon: Layers3, testId: 'decision-brief-defaulted' },
+    /**
+     * ⭐ TWO SOURCES, ONE QUESTION. This group asks "what did Olumi supply that
+     * you did not?" and it now has two honest answers:
+     *
+     *   · `estimatedInterventions` — option→factor EFFECT VALUES the model
+     *     chose (`source: 'cee_hypothesis'`), read from the canvas nodes;
+     *   · `brief.defaultedAssumptions` — FACTOR STARTING VALUES the producer
+     *     defaulted (`source: 'value_defaulted'`), in its own prose.
+     *
+     * ⚠ THE MODEL-CHOSEN VALUES LEAD, and the order is load-bearing rather than
+     * cosmetic: `BriefGroup` previews only `PREVIEW_ITEMS`, and these are the
+     * numbers the win probabilities on this very screen were computed from. On
+     * the witnessed run `defaultedAssumptions` was EMPTY and this group vanished
+     * entirely — while the subtitle above went on promising "the values Olumi
+     * assumed". A promise this surface makes and does not keep is worse than
+     * silence, which is why the group is fed rather than the subtitle softened.
+     *
+     * ⚠ THEY ARE NOT MERGED AS A CONCEPT. Two producers, two vocabularies, two
+     * readers, joined only at the point of DISPLAY under the heading whose
+     * question they both answer (CLAUDE.md trap 21 — name the concepts apart,
+     * pick which one the surface consumes). Neither reader knows about the other.
+     */
+    {
+      title: 'What Olumi assumed',
+      items: [...estimatedInterventions, ...brief.defaultedAssumptions.map(entry => entry.note)],
+      icon: Layers3,
+      testId: 'decision-brief-defaulted',
+    },
     { title: 'What could change', items: brief.whatWouldChange, icon: GitBranch, testId: 'decision-brief-change' },
   ].filter(group => group.items.length > 0)
 
@@ -179,10 +226,35 @@ export function DecisionBriefSectionContainer({ leaderClaimPermitted }: Decision
   const rawBrief = useCanvasStore(state => (
     (state.results.report as { decision_brief?: unknown } | null | undefined)?.decision_brief
   ))
+  /**
+   * ⭐ THE MODEL-CHOSEN VALUES ARE ALREADY CLIENT-SIDE — no new transport, no
+   * producer change, no flag. The option nodes carry the producer's own
+   * `interventions[factorId].source` stamp, which is the only thing the
+   * Inspector's "Estimated by Olumi" can be reading. This is a SELECTOR over
+   * state the browser already holds, so the disclosure lands with the analysis
+   * rather than waiting on a PLoT→schemas→UI chain.
+   *
+   * ⚠ A BARE `s.nodes` SELECTOR, NOT A DERIVED ARRAY. Returning
+   * `selectEstimatedInterventions(s.nodes)` from inside the store selector would
+   * build a NEW array on every store event and re-render this section forever
+   * (the React 185 class the repo's `ci:guard:zustand` check exists to catch).
+   * The reference-stable slice comes out; the derivation happens in the memo.
+   */
+  const nodes = useCanvasStore(state => state.nodes)
   const brief = useMemo(() => readDecisionBriefViewModel(rawBrief), [rawBrief])
+  const estimatedInterventions = useMemo(
+    () => selectEstimatedInterventions(nodes).map(row => row.note),
+    [nodes],
+  )
 
   if (!brief) return null
-  return <DecisionBriefSection brief={brief} leaderClaimPermitted={leaderClaimPermitted} />
+  return (
+    <DecisionBriefSection
+      brief={brief}
+      leaderClaimPermitted={leaderClaimPermitted}
+      estimatedInterventions={estimatedInterventions}
+    />
+  )
 }
 
 export default DecisionBriefSectionContainer
