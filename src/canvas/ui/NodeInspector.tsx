@@ -25,6 +25,7 @@ import { formatWinProbability, classifyUnit } from '../utils/labelUtils'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
+import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
 interface ObservedState {
   value: number
@@ -348,7 +349,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {/* F.4: Context line — shows nearest connected node of a different kind */}
       {contextNode && (
         <p className={`${typography.panelMeta} mb-1`}>
-          <span className="text-text-light">{contextNode.kind === 'decision' ? 'Decision' : contextNode.kind.charAt(0).toUpperCase() + contextNode.kind.slice(1)}: </span>
+          <span className="text-text-light">{contextNode.kind === 'decision' ? DECISION_NODE_LABEL : contextNode.kind.charAt(0).toUpperCase() + contextNode.kind.slice(1)}: </span>
           <span className={typography.panelBody}>{contextNode.label}</span>
         </p>
       )}

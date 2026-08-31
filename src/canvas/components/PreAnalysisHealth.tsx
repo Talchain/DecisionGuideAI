@@ -29,6 +29,7 @@ import { useGraphReadiness, type GraphReadinessLevel, type GraphImprovement, typ
 import { useCanvasStore } from '../store'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
+import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
 // Node type display names
 const nodeTypeLabels: Record<SuggestedNodeType, string> = {
@@ -38,7 +39,7 @@ const nodeTypeLabels: Record<SuggestedNodeType, string> = {
   factor: 'Factor',
   evidence: 'Evidence',
   goal: 'Goal',
-  decision: 'Decision',
+  decision: DECISION_NODE_LABEL,
 }
 
 interface PreAnalysisHealthProps {

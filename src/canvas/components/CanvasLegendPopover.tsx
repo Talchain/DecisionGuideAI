@@ -25,6 +25,7 @@ import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
+import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
 interface LegendRow {
   label: string
@@ -33,7 +34,7 @@ interface LegendRow {
 
 // Shape swatches reuse the same indicators users see on the cards.
 const TYPE_ROWS: LegendRow[] = [
-  { label: 'Decision', swatch: <NodeShapeIndicator nodeKind="decision" size={12} /> },
+  { label: DECISION_NODE_LABEL, swatch: <NodeShapeIndicator nodeKind="decision" size={12} /> },
   { label: 'Option', swatch: <NodeShapeIndicator nodeKind="option" size={12} /> },
   { label: 'Factor', swatch: <NodeShapeIndicator nodeKind="factor" size={12} /> },
   { label: 'Outcome', swatch: <NodeShapeIndicator nodeKind="outcome" size={12} /> },

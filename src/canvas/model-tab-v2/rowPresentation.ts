@@ -19,6 +19,7 @@ import type {
   ModelGroupId,
   RepairQueue,
 } from './types'
+import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
 /**
  * How a deferral reads on screen (design §5.3, Paul's ruling 16 Aug 2026).
@@ -123,7 +124,7 @@ export const KIND_GLYPH: Record<ModelElementKind, string> = {
 /** Screen-reader/tooltip name for the glyph. A glyph alone is not a label. */
 export const KIND_LABEL: Record<ModelElementKind, string> = {
   goal: 'Goal',
-  decision: 'Decision',
+  decision: DECISION_NODE_LABEL,
   option: 'Option',
   factor: 'Factor',
   risk: 'Risk',

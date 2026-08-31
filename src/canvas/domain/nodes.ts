@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { Target, Crosshair, Lightbulb, Settings, AlertTriangle, TrendingUp, Zap, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { devWarn } from '../../utils/debugLog'
+import { DECISION_NODE_LABEL } from './vocabulary'
 
 /*
  * Node type taxonomy for decision trees
@@ -502,7 +503,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeMetadata> = {
   },
   decision: {
     icon: Crosshair,
-    label: 'Decision',
+    label: DECISION_NODE_LABEL,
     ariaRole: 'group',
     defaultSize: { width: 240, height: 100 },
   },
