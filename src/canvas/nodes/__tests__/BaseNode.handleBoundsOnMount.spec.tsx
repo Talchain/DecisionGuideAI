@@ -100,10 +100,18 @@ const renderNode = (props: Record<string, unknown> = {}) =>
     </ReactFlowProvider>,
   )
 
-// The registration is deferred by one animation frame so the commit can settle
-// and the handles are in the DOM before React Flow re-measures.
-async function flushFrame() {
-  await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+/**
+ * Let the mount-time registration and its safety-net timer both settle.
+ *
+ * ⚠ NO `requestAnimationFrame` HERE, AND THAT IS LOAD-BEARING. The first
+ * version of this fix scheduled the measurement with rAF, which does not fire
+ * in a background tab — so the canvas rendered no edges at all until the tab
+ * was focused, and a deployed check driven in a hidden pane reported the fix as
+ * not working when it had simply never been allowed to run. A spec that also
+ * waited on rAF would have agreed with the broken version.
+ */
+async function flushRegistration() {
+  await new Promise((resolve) => setTimeout(resolve, 0))
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
@@ -116,14 +124,14 @@ describe('BaseNode — handle bounds are registered on mount', () => {
     renderNode()
     // Precondition: nothing was clicked. The old call site was the chevron
     // handler, so a test that interacted first would pass against the defect.
-    await flushFrame()
+    await flushRegistration()
 
     expect(updateNodeInternals).toHaveBeenCalledWith('node-a')
   })
 
   it('registers for the id it was actually given, not a hard-coded one', async () => {
     renderNode({ id: 'node-zebra' })
-    await flushFrame()
+    await flushRegistration()
 
     expect(updateNodeInternals).toHaveBeenCalledWith('node-zebra')
     expect(updateNodeInternals).not.toHaveBeenCalledWith('node-a')
@@ -135,10 +143,14 @@ describe('BaseNode — handle bounds are registered on mount', () => {
   // mounted node is bounded by the node count; re-measurement after that is the
   // ResizeObserver's job. A fix for invisible edges must not buy them with a
   // render loop.
-  it('registers ONCE per node, not on every render', async () => {
+  it('registers a BOUNDED number of times per mount, not on every render', async () => {
     const { rerender } = renderNode()
-    await flushFrame()
-    expect(updateNodeInternals).toHaveBeenCalledTimes(1)
+    await flushRegistration()
+    const afterMount = vi.mocked(updateNodeInternals).mock.calls.length
+    // Two at most: the commit-time call and its safety-net timer. The point is
+    // that it is a CONSTANT per mount, not that it is one.
+    expect(afterMount).toBeGreaterThan(0)
+    expect(afterMount).toBeLessThanOrEqual(2)
 
     for (let i = 0; i < 5; i++) {
       rerender(
@@ -147,16 +159,23 @@ describe('BaseNode — handle bounds are registered on mount', () => {
         </ReactFlowProvider>,
       )
     }
-    await flushFrame()
+    await flushRegistration()
 
-    expect(updateNodeInternals).toHaveBeenCalledTimes(1)
+    // ⚠ THE OPPOSITE HARM. `updateNodeInternals` driven per render is a known
+    // starvation source here (`readinessStore.churnStarvation.spec.ts` records a
+    // ResizeObserver -> updateNodeInternals stack). Five re-renders must add
+    // nothing: a fix for invisible edges must not be bought with a render loop.
+    expect(vi.mocked(updateNodeInternals).mock.calls.length).toBe(afterMount)
   })
 
-  it('cancels the pending frame on unmount rather than measuring a gone node', async () => {
+  it('does not keep measuring after unmount', async () => {
     const { unmount } = renderNode()
+    const atUnmount = vi.mocked(updateNodeInternals).mock.calls.length
     unmount()
-    await flushFrame()
+    await flushRegistration()
 
-    expect(updateNodeInternals).not.toHaveBeenCalled()
+    // The safety-net timer is cleared, so nothing new arrives for a node that
+    // is no longer on the canvas.
+    expect(vi.mocked(updateNodeInternals).mock.calls.length).toBe(atUnmount)
   })
 })
