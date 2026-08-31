@@ -966,37 +966,48 @@ export function useScenario(): UseScenarioReturn {
       // decision the user can no longer reach.
       await scenarioService.deleteScenario(id)
 
-      // TWO INDEPENDENT QUESTIONS, ASKED SEPARATELY — see `scenarios.deleteScenario`,
-      // which asks them the same way. They are about DIFFERENT OBJECTS:
-      //   the POINTER names whatever decision this tab currently has open;
-      //   the AUTOSAVE RECORD carries its own `scenarioId`.
-      // Nesting the second inside the first made the autosave survive whenever
-      // the pointer had already moved on — reachable with two tabs open
-      // (`useAutosave.ts:320-321` documents concurrent-tab writes), and via the
-      // ~500 ms DEBOUNCE_MS projection lag after a scenario switch in one tab.
-      // The orphan is then resolved by `bindRestoredScenarioId` on the next boot
-      // and RE-PERSISTED, so the resurrection becomes durable.
+      // ⭐ ONE QUESTION, ONE ANSWER — DELEGATED, NOT RE-IMPLEMENTED.
+      //
+      // "Delete this decision's local state" is asked by BOTH delete paths, and
+      // it is about THREE different objects:
+      //   the RECORD   — the saved scenario in `olumi-canvas-scenarios`;
+      //   the POINTER  — whichever decision this tab currently has open;
+      //   the AUTOSAVE — a slot carrying its own `scenarioId`.
+      //
+      // This path used to answer it with a hand-written copy of the local
+      // path's logic, and the copy was SHORT: it handled the pointer and the
+      // autosave and never the record, so a saved record outlived every server
+      // delete and `getScenario(id)` kept resolving a decision the server no
+      // longer had. Codex named it at `a1932f83` ("persisted pointer and local
+      // saved-record deletion still diverge between server/local paths").
+      //
+      // The repair is to CALL the local path rather than mirror it. A mirror is
+      // what drifted — first on the autosave (fixed in the previous commit by
+      // re-deriving the same keying), then on the record. Delegating means the
+      // two paths cannot answer differently again, because there is only one
+      // answer left. `useScenario.deleteRemovesLocalRecord.spec.ts` CASE 5 pins
+      // that by DERIVING the invariant: it drives both paths over identical
+      // seeded state and compares the resulting persisted bytes.
+      //
+      // Ids genuinely collide, so this is not hypothetical: `canvas/store.ts`'s
+      // `saveCurrentScenario` calls `createScenario({ id: currentScenarioId })`
+      // to ADOPT the already-allocated conversation UUID, so one id names both a
+      // Supabase row and a local record.
+      scenarios.deleteScenario(id)
 
-      // (a) The pointer, and the reload-surviving copy of it.
+      // The IN-MEMORY pointer is this hook's alone to clear: `scenarios.deleteScenario`
+      // owns localStorage and has no view of the Zustand store. The durable key is
+      // cleared again here deliberately — the two pointers can DISAGREE (a ~500 ms
+      // DEBOUNCE_MS projection lag after a switch, or a second tab), and a pointer
+      // naming a deleted decision must not survive on either side. Without this,
+      // `olumi-canvas-current-scenario-id` seeds `currentScenarioId` at boot and
+      // `ReactFlowGraph` restores that scenario on a UUID-FORMAT check with no
+      // existence test. CEE #1192 stopped the SERVER resurrecting a deleted
+      // scenario; this is the client half of the same harm, which that fix does
+      // not reach.
       if (useCanvasStore.getState().currentScenarioId === id) {
         useCanvasStore.setState({ currentScenarioId: null })
-        // ⚠ AND THE POINTER THAT SURVIVES A RELOAD, or the deleted decision comes
-        // straight back: olumi-canvas-current-scenario-id seeds `currentScenarioId`
-        // at boot, and `ReactFlowGraph` restores that scenario on a UUID-FORMAT
-        // check with no existence test.
-        // CEE #1192 stopped the SERVER resurrecting a deleted scenario; this is
-        // the client half of the same harm and that fix does not reach it.
         scenarios.clearCurrentScenarioId()
-      }
-
-      // (b) The autosave, keyed on the record's OWN id — the trigger state is
-      // defined by what the record carries, not by where the pointer happens to
-      // be. olumi-canvas-autosave is preferred by the init effect whenever it is
-      // newer than the saved copy, and it carries the graph itself.
-      // Keyed this way, deleting some OTHER decision never disturbs the open
-      // one's unsaved work.
-      if (scenarios.loadAutosave()?.scenarioId === id) {
-        scenarios.clearAutosave()
       }
     },
     [isPersistenceActive],
