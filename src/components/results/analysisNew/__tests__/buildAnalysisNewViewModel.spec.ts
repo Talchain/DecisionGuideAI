@@ -651,3 +651,68 @@ describe('the producer suggestion, pinned to what the code ACTUALLY does', () =>
     expect(detail).toContain('0.3')
   })
 })
+
+/**
+ * ⭐⭐ THE ONE ASSUMED RELATIONSHIP WORTH PINNING DOWN.
+ *
+ * Computed for every run and rendered only on the OLD Analysis tab. Measured
+ * live on `a75cdf8a`, both tabs, one guest session, one run: the old tab carried
+ * it, this one carried nothing, and `assumedStrength` had ZERO references across
+ * the whole `analysisNew` tree (contrast control: `data.drivers`, 8).
+ *
+ * Every assertion binds to the EDGE by identity, never to a position or a count
+ * another finding could satisfy.
+ */
+describe('the assumed relationship worth pinning down', () => {
+  const selection = {
+    edgeId: 'edge_residency_to_gdpr',
+    fromLabel: 'EU Data Residency Compliance',
+    toLabel: 'GDPR Non-Compliance Risk',
+    switchProbability: 0.41,
+    alternativeWinnerLabel: 'RudderStack',
+    strengthProvenance: 'ai_inferred' as const,
+  }
+  const withSelection = (assumedFragileCount: number) =>
+    makeData({ assumedStrength: { selected: selection, refusalReason: null, assumedFragileCount } })
+  const found = (vm: ReturnType<typeof build>) =>
+    vm.uncertainty.findings.find((f) => f.id === `uncertainty:assumed-strength:${selection.edgeId}`)
+
+  it('names the relationship, what wins when it is wrong, and how often', () => {
+    const f = found(build(withSelection(3)))
+    expect(f).toBeDefined()
+    // The team's own words for their own model — both ends named.
+    expect(f!.implication).toContain('EU Data Residency Compliance')
+    expect(f!.implication).toContain('GDPR Non-Compliance Risk')
+    // The measured consequence, which is the reasoning content that was dark.
+    expect(f!.detail).toContain('RudderStack')
+    expect(f!.detail).toContain('41%')
+    // The edge is the focus target, so "Show on canvas" lands on the thing.
+    expect(f!.targetId).toBe(selection.edgeId)
+  })
+
+  /**
+   * ⚠ THE OPPOSITE DIRECTION. A build that pushed unconditionally would pass
+   * every assertion above while inventing a finding on runs where the producer
+   * declined to name one.
+   */
+  it('renders NOTHING when the producer selected none', () => {
+    const vm = build(
+      makeData({
+        assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
+      }),
+    )
+    expect(vm.uncertainty.findings.some((f) => f.id.startsWith('uncertainty:assumed-strength:'))).toBe(
+      false,
+    )
+  })
+
+  /**
+   * ⚠ The "and others" clause is the copy module's own rule — it counts the
+   * SAME population the selection came from. Pinned here only to prove it flows
+   * through rather than being dropped or restated.
+   */
+  it('mentions other unconfirmed strengths only when there is another', () => {
+    expect(found(build(withSelection(1)))!.detail).not.toContain('other sensitive')
+    expect(found(build(withSelection(3)))!.detail).toContain('2 other sensitive relationships')
+  })
+})
