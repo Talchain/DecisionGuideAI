@@ -40,7 +40,8 @@ import { truncateAtWordBoundary } from '../../../utils/text'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
-import { notAnalysedReasonCopy } from '../utils/notAnalysedCopy'
+import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
+import { optionComputationFailed } from '../utils/notAnalysedOptions'
 // The two existing warning surfaces' OWN selectors, imported rather than
 // respelled. A second copy of either predicate is a mirror that drifts silently
 // (CLAUDE.md trap 12), and the drift here would be a warning going quiet.
@@ -1416,6 +1417,38 @@ function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparis
         // is the weaker of the two claims: it reports that the analysis came
         // back with nothing, and prescribes no action the user cannot take.
         reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+      })
+      continue
+    }
+
+    // ⭐ THE SECOND FORK — the option the analysis RAN ON and could not compute.
+    //
+    // BESIDE the one above, never inside it: that one answers "was this option
+    // in the analysis at all?" (derived from the producer's omission), this one
+    // answers "did the computation produce a usable result?" (stated by the
+    // producer). An option can be analysed and not computed, so one branch
+    // cannot serve both without lying on that intersection (CLAUDE.md trap 21).
+    //
+    // ⛔ WHY IT MUST FORK BEFORE THE `hasWin` LINE BELOW. On a failed option
+    // (`'failed'` ⇔ `n_valid === 0`) `winProbability` is a finite `0`, so
+    // `hasWin` is TRUE and the row below emits a `winReadout` of `'0%'` and a
+    // `winFraction` of `0` — a zero-width bar and a measured claim, from a
+    // computation that drew no valid samples. The absence rule the block below
+    // enforces cannot help here, because this is not an absence: it is a
+    // present, finite, meaningless zero.
+    //
+    // Gated on the producer's EMITTED value: `'partial'` has a real
+    // distribution behind it and takes the ordinary path, and an ABSENT status
+    // (the legacy V1 shape) takes it too.
+    //
+    // ⭐ THE SAME PREDICATE `OptionCards` FORKS ON, so the two tabs cannot
+    // disagree about which options carry a share.
+    if (optionComputationFailed(o.computeStatus)) {
+      rows.push({
+        kind: 'not_computed',
+        id: o.id,
+        label,
+        reasonCopy: notComputedReasonCopy(o.computeStatusReason),
       })
       continue
     }

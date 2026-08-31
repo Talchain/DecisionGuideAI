@@ -179,6 +179,25 @@ export interface V2OptionComparison {
   outcome?: Partial<V2Outcome>
   /** Multi-constraint analysis results (when goal_constraints were provided) */
   constraint_analysis?: ConstraintAnalysis
+  /**
+   * The producer's PER-OPTION computation classification and its reason —
+   * PLoT `src/routes/v2/run.ts:3134-3135`, sourced from ISL's
+   * `determine_option_status(n_valid, n_total)`.
+   *
+   * ⚠ DELIBERATELY `unknown`, unlike every concrete member above. The shared
+   * contract types this as a BARE `z.ZodOptional<z.ZodString>` — not the closed
+   * enum its producer actually emits — so a token this UI has never heard of is
+   * a legal payload. Typing it `string` here would let a consumer assign it
+   * straight through; `unknown` makes `narrowOptionComputeStatus` the only way
+   * to read it, and the compiler enforces that rather than a reviewer.
+   *
+   * ⛔ AND THE TYPE'S ABSENCE WAS ITSELF PART OF THE DEFECT: the mapper rebuilds
+   * this object key by key, so a field this interface did not name was dropped
+   * even though it arrived intact on the wire.
+   */
+  status?: unknown
+  /** See {@link V2OptionComparison.status}. Absent on a computed option. */
+  status_reason?: unknown
 }
 
 /**

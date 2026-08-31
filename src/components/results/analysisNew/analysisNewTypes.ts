@@ -371,6 +371,42 @@ export type ComparisonOption =
        */
       reasonCopy: string
     }
+  | {
+      /**
+       * ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE — a THIRD
+       * shape, beside `'not_analysed'` and never merged into it.
+       *
+       * ⚠ TWO NUMBERLESS ROWS THAT MEAN DIFFERENT THINGS (CLAUDE.md trap 21).
+       * `'not_analysed'` says the option was NOT IN the comparison and is
+       * derived from the producer's OMISSION; this says it WAS in the
+       * comparison and the computation failed, and is STATED by the producer
+       * (`'failed'` ⇔ `n_valid === 0`, zero finite Monte Carlo samples). An
+       * option can be analysed and not computed, so collapsing them would lose
+       * the only fact that tells a reader whose gap it is — and would attribute
+       * an engine outcome to the user's configuration.
+       *
+       * ⛔ AND THE SHAPE IS THE ENFORCEMENT, exactly as the header above argues
+       * for `'not_analysed'`: no `winReadout` and no `winFraction` exist on this
+       * member, so no renderer can coalesce a failed option's finite `0` into a
+       * `0%` or a zero-width bar. That `0%` is what this row shipped before —
+       * a fabricated measurement in the slot that answers "how often did this
+       * come out ahead". A nullable field would put the rule in every
+       * renderer's hands; a union puts it in the compiler's.
+       */
+      kind: 'not_computed'
+      id: string
+      label: string
+      /**
+       * `notComputedReasonCopy(producerReason)`, verbatim — resolved here for
+       * the same reason `'not_analysed'`'s is: so no component can re-word it,
+       * and so the producer-reason and no-producer-reason sentences cannot
+       * silently collapse into one at a new call site.
+       *
+       * ⚠ The producer's reason is ABSENT from all 12 live captures, so the
+       * common value of this string is the sanctioned sentence alone.
+       */
+      reasonCopy: string
+    }
 
 /**
  * Every option the user has, each with what the run is entitled to say about it.

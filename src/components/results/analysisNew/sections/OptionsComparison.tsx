@@ -36,18 +36,34 @@
  *    from the leader VERDICT.
  *
  *  · NO AUTHORED SENTENCES. Every string a reader meets here is either a label
- *    the producer sent, a number the estate's own formatter produced, or
- *    `NOT_ANALYSED_BADGE` / `notAnalysedReasonCopy` — the single source for what
- *    the results panel says about an unanalysed option.
+ *    the producer sent, a number the estate's own formatter produced, or one of
+ *    the sanctioned constants in `utils/notAnalysedCopy.ts` — the single source
+ *    for what the results panel says about an option carrying no number.
  *
  * ── ABSENCE IS NOT ZERO, AND IT IS STRUCTURAL ─────────────────────────────
  *
- * An unanalysed option is a DIFFERENT SHAPE in the view model (`kind:
- * 'not_analysed'`), with no `winReadout` and no `winFraction` to reach for. It
- * renders with no bar and no number, by construction rather than by this
- * component remembering to check. An ANALYSED option whose producer sent no win
- * probability carries `null` on both fields together, so the bar and the number
- * can never disagree about whether there is a share at all.
+ * An option carrying no number is a DIFFERENT SHAPE in the view model, with no
+ * `winReadout` and no `winFraction` to reach for. It renders with no bar and no
+ * number, by construction rather than by this component remembering to check. An
+ * ANALYSED option whose producer sent no win probability carries `null` on both
+ * fields together, so the bar and the number can never disagree about whether
+ * there is a share at all.
+ *
+ * ⚠⚠ AND THERE ARE **TWO** SUCH SHAPES, WHICH SAY DIFFERENT THINGS ABOUT WHOSE
+ * GAP IT IS (CLAUDE.md trap 21):
+ *
+ *  · `kind: 'not_analysed'` — the option was NOT IN the comparison. Derived from
+ *    the producer's OMISSION; the copy attributes the gap to configuration.
+ *  · `kind: 'not_computed'` — the analysis RAN ON it and could not compute a
+ *    result (`'failed'` ⇔ `n_valid === 0`). STATED by the producer; the copy
+ *    attributes the gap to the run and says explicitly that it is not a verdict
+ *    on the option.
+ *
+ * They are two shapes rather than one nullable flag because the row that used to
+ * render for the second case was a fabricated `0%` with a zero-width bar — a
+ * measured claim from a computation that drew no valid samples. Showing the
+ * "Not analysed" badge there would be the opposite error: blaming the user's
+ * configuration for an engine outcome.
  *
  * ── WIDTH (the 280px dock floor) ──────────────────────────────────────────
  *
@@ -60,7 +76,7 @@
 
 import { Scale } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
-import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
+import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -128,11 +144,23 @@ export function OptionsComparison({
                   </span>
                 ) : null
               ) : (
+                /* ⚠ THE BADGE NAMES WHICH NUMBERLESS STATE THIS IS, and the two
+                   are not interchangeable. "Not analysed" says the option was
+                   left OUT of the comparison — attributing the gap to the
+                   user's configuration. On an option the analysis RAN ON and
+                   could not compute, that sentence is false and blames the
+                   wrong party. Switched on `kind` (the union) rather than on a
+                   nullable flag, so a new numberless state cannot silently
+                   inherit either badge. */
                 <span
                   className={`${typography.panelMeta} text-text-light shrink-0`}
-                  data-testid={`${testId}-not-analysed-badge`}
+                  data-testid={
+                    o.kind === 'not_computed'
+                      ? `${testId}-not-computed-badge`
+                      : `${testId}-not-analysed-badge`
+                  }
                 >
-                  {NOT_ANALYSED_BADGE}
+                  {o.kind === 'not_computed' ? NOT_COMPUTED_BADGE : NOT_ANALYSED_BADGE}
                 </span>
               )}
             </div>
@@ -207,6 +235,22 @@ export function OptionsComparison({
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
                 data-testid={`${testId}-not-analysed-reason`}
+              >
+                {o.reasonCopy}
+              </p>
+            ) : null}
+
+            {/* WHY the computation produced no number, as opposed to why the
+                option was left out. A DISTINCT testid so a spec cannot pass by
+                finding the other state's sentence, and so the two can never be
+                asserted interchangeably. The copy is resolved in the view model
+                (`notComputedReasonCopy`) and rendered verbatim — including the
+                clause that says this is not a verdict on the option, which is
+                the whole reason the state exists as its own row. */}
+            {o.kind === 'not_computed' ? (
+              <p
+                className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
+                data-testid={`${testId}-not-computed-reason`}
               >
                 {o.reasonCopy}
               </p>

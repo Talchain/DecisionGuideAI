@@ -13,6 +13,7 @@ import type { ConstraintAnalysis } from '../../types/constraints'
 import type { M1CoachingReadiness } from '../../types/cee'
 import type { DecisionVerdict } from '../../lib/decisionVerdict'
 import type { ReportV1, OptionProbability } from '../../adapters/plot/types'
+import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
 import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plot/v2/types'
 import type { KnownFlipReason } from './utils/flipReasonVocabulary'
 import type { PercentilesSource } from './utils/downsideCopy'
@@ -220,6 +221,40 @@ export interface OptionResult {
    * `downsideUnavailableCopy`, which is the only place this field is consumed.
    */
   percentilesSource?: PercentilesSource
+  /**
+   * ⭐ WHETHER THE COMPUTATION PRODUCED A USABLE RESULT FOR THIS OPTION —
+   * the PRODUCER's classification, carried from
+   * `option_probabilities[id].status`, never re-derived here.
+   *
+   * ⚠ THIS IS A DIFFERENT QUESTION FROM {@link OptionResult.notAnalysed}, AND
+   * THE TWO INTERSECT (CLAUDE.md trap 21). `notAnalysed` answers *"was this
+   * option in the analysis at all?"* — a property of the JOIN, derived from the
+   * producer's omission. This answers *"did the computation produce a usable
+   * result?"* — a property of the RESULT, stated by the producer. An option can
+   * be ANALYSED AND NOT COMPUTED: it was submitted, ISL ran on it, and got zero
+   * finite samples. One flag cannot serve both without lying on that
+   * intersection. See `utils/notAnalysedOptions.ts`, where both predicates live
+   * side by side and each docblock names the other.
+   *
+   * ⚠ AND IT IS A DIFFERENT LEVEL FROM {@link DecisionResultData.analysisStatus},
+   * which shares three of its four spellings and describes the WHOLE RUN. That
+   * name collision is why this field is `computeStatus` and not `status`: a
+   * second bare `statusReason` one level down, carrying the same tokens, is how
+   * two authorities come to look like one. The WIRE MIRROR keeps the producer's
+   * own spelling (`option_probabilities[id].status`); this DISPLAY object names
+   * the question.
+   *
+   * ABSENT MEANS ABSENT — never read `undefined` as `'failed'`.
+   */
+  computeStatus?: OptionComputeStatus
+  /**
+   * The producer's own sentence for a non-computed option, verbatim.
+   *
+   * ⚠ ABSENT FROM ALL 12 LIVE CAPTURES — render sites must be correct without
+   * it, and must never gate the disclosure on it. See
+   * `notComputedReasonCopy` for the sanctioned sentence that stands alone.
+   */
+  computeStatusReason?: string
   /** Optional goal probability when no distribution data exists. */
   goalProbability?: number | null
   /** Task 2.1: Whether this option is the baseline for comparison */
@@ -335,7 +370,19 @@ export interface DecisionResultData {
   goalLabel: string
   goalNodeId?: string // For click-to-focus
   isSingleOption: boolean
+  /**
+   * The RUN's status (`EnrichmentAnalysisStatus`).
+   *
+   * ⚠ NOT THE SAME QUESTION AS {@link OptionResult.computeStatus}, which shares
+   * three of these four spellings and describes ONE OPTION. A run can be
+   * `'computed'` while one of its options is `'failed'` — that combination is
+   * correct, not an inconsistency to reconcile (CLAUDE.md trap 21). The two are
+   * named apart deliberately: this pair keeps the bare `status` spelling because
+   * it is the older and broader claim; the per-option pair carries `compute` in
+   * its name.
+   */
   analysisStatus: 'computed' | 'partial' | 'failed' | 'blocked'
+  /** The RUN's reason. See {@link DecisionResultData.analysisStatus}. */
   statusReason?: string
   /** Unit for outcome values (from goal node observed_state.unit) */
   outcomeUnit?: OutcomeUnitType
@@ -1489,6 +1536,39 @@ export interface ResultsOptionProbability extends OptionProbability {
    * Absent means absent — see `downsideUnavailableCopy`.
    */
   percentiles_source?: PercentilesSource
+  /**
+   * ⭐ THE PRODUCER'S PER-OPTION COMPUTATION CLASSIFICATION — wire-named,
+   * narrowed by both mappers to the producer's closed vocabulary, carried
+   * verbatim from there.
+   *
+   * ⚠ THE SAME TWIN WARNING THE `percentiles_source` NOTE ABOVE CARRIES applies
+   * to this pair, and it now covers TWO writers rather than one:
+   * `mapV5AnalysisToReport`'s function-local `ResultsOptionProbability` (the V5
+   * canonical path) and `responseMapper.ts`'s inline `option_probabilities`
+   * builder (the V2/hydrate path) both WRITE these keys; this interface
+   * describes what the hook READS. A field added to only some of them vanishes
+   * silently at the seam, which is how it came to be dropped in the first place.
+   *
+   * ⭐ AND THIS IS THE CANVAS'S FIELD TOO. `useNodeDisplayMetadata` reads its
+   * per-option win rate directly off `report.option_probabilities[nodeId]`, so
+   * this key — not `OptionResult.computeStatus` — is what an option NODE has to
+   * consult before rendering a share.
+   *
+   * ABSENT MEANS ABSENT: `undefined` is the legacy V1 shape (ISL's V1
+   * `OptionResult` has no status at all) or a token outside the vocabulary, and
+   * both keep the option on the ordinary path. Never read `undefined` as
+   * `'failed'`.
+   */
+  status?: OptionComputeStatus
+  /**
+   * The producer's own sentence for a non-computed option, verbatim.
+   *
+   * ⚠ ABSENT FROM ALL 12 LIVE CAPTURES in `src/v5/__tests__/fixtures/`. It is
+   * declared by ISL and forwarded by PLoT, but no captured payload carries one,
+   * so no surface may gate its disclosure on this being present — `status`
+   * licenses the disclosure, this only enriches it.
+   */
+  status_reason?: string
 }
 
 /**
