@@ -19,35 +19,10 @@ import { useMemo } from 'react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { nodeColors } from '../../../../canvas/nodes/colors'
+import { NodeMark } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { typography } from '../../../../styles/typography'
-import { buildModelStrip, MARK_CAP, type StripRow } from '../buildModelStrip'
-
-/**
- * Mark shape per kind, mirroring the canvas's own glyph vocabulary
- * (`contextMenu/useMenuItems.ts`: factor a disc, risk a down-triangle, outcome
- * an up-triangle, option a square).
- *
- * ⚠ The glyph table there is module-private, so this is a SECOND spelling of a
- * shared idea rather than a derivation — a small hand-maintained mirror
- * (CLAUDE.md trap 12). It is pinned by a test asserting every row kind has a
- * shape, so adding a kind without one REDs rather than rendering a blank.
- * COLOUR is derived from `nodeColors` and is not mirrored.
- */
-const MARK: Record<StripRow['kind'], string> = {
-  option: 'M1.6 1.6h8.8v8.8H1.6z',
-  factor: 'M6 1.2a4.8 4.8 0 100 9.6 4.8 4.8 0 000-9.6z',
-  risk: 'M6 10.8L1.2 2.4h9.6z',
-  outcome: 'M6 1.2l4.8 8.4H1.2z',
-}
-
-/** Derived, never restated — the canvas owns what colour a kind is. */
-const COLOUR: Record<StripRow['kind'], string> = {
-  option: nodeColors.option.text,
-  factor: nodeColors.factor.text,
-  risk: nodeColors.risk.text,
-  outcome: nodeColors.outcome.text,
-}
+import { buildModelStrip, MARK_CAP } from '../buildModelStrip'
 
 export interface ModelStripProps {
   testId?: string
@@ -129,14 +104,12 @@ export function ModelStrip({ testId = 'analysis-new-model-strip' }: ModelStripPr
                     key={node.id}
                     type="button"
                     onClick={() => focusModelTarget(node.id)}
-                    className={`${COLOUR[row.kind]} rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className="rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
                     data-testid={`${testId}-mark`}
                     data-node-id={node.id}
                     title={node.label || undefined}
                   >
-                    <svg viewBox="0 0 12 12" className="w-3 h-3" aria-hidden={true}>
-                      <path d={MARK[row.kind]} fill="currentColor" />
-                    </svg>
+                    <NodeMark kind={row.kind} />
                     <span className="sr-only">
                       {node.label
                         ? `Show ${node.label} on the canvas`
@@ -166,4 +139,3 @@ export function ModelStrip({ testId = 'analysis-new-model-strip' }: ModelStripPr
   )
 }
 
-export { MARK_CAP }

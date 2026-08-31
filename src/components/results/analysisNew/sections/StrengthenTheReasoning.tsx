@@ -57,6 +57,7 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
+import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 
 export interface StrengthenTheReasoningProps {
@@ -156,6 +157,18 @@ export function StrengthenTheReasoning({
             // `null` for most findings, and that is correct — see
             // `recommendationMethod.ts`. No placeholder, no default technique.
             const method = methodForRecommendation(rec.id)
+            /**
+             * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
+             * A card about a Risk now carries the risk shape, in the risk
+             * colour, matching the canvas — so "this concerns a risk" is
+             * something the reader sees rather than a clause they parse.
+             *
+             * `null` whenever the honest answer is unknown: no target, an EDGE
+             * target (a relationship has no node kind), or a kind this panel
+             * does not draw. Nothing renders then — a shape that means the
+             * wrong thing is worse than no shape.
+             */
+            const markKind = markKindForTarget(rec.targetId)
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -189,7 +202,10 @@ export function StrengthenTheReasoning({
                     They are also the same KIND of thing: how urgent this is, and
                     what licenses it. Reading them as a pair beneath the title is
                     what they are. */}
-                <p className={`${typography.panelHeader} text-text-header m-0`}>{rec.title}</p>
+                <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
+                  {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
+                  <span className="min-w-0">{rec.title}</span>
+                </p>
 
                 {rec.category || grounding || method ? (
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
