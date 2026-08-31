@@ -9,7 +9,7 @@
  * - Smooth transitions
  */
 
-import { memo, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { memo, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
@@ -34,6 +34,9 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
+import { isSuppressedUnit } from '../utils/labelUtils'
+import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
+import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
@@ -157,6 +160,75 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    */
   const lodHideTitle = false
   const lodBoostTitle = lodActive && lodKeepsTitle
+
+  /**
+   * ⭐⭐ AND A CARD SHOWS LESS, NEVER NOTHING (31 Aug 2026, Paul, the SECOND
+   * report of the same defect: "when I zoom out of the graph, the content in it
+   * shouldn't disappear").
+   *
+   * The 30 Aug fix above kept the TITLE and left the BODY blanked, so below the
+   * level-of-detail threshold a card still said nothing about itself beyond its
+   * name. The argument that survived that fix — at low zoom the counter-scale
+   * is capped, dense body content stops being legible, and the box must keep
+   * its dimensions so ELK and the edge anchors do not move — argues for showing
+   * LESS. It has never argued for showing NOTHING, and the same sentence in the
+   * comment above applies unchanged: a blank card is indistinguishable from a
+   * broken render.
+   *
+   * So the body keeps hiding (the box is preserved exactly as before, and this
+   * line is absolutely positioned, so no card's geometry assumption changes)
+   * and ONE reduced line is drawn over it.
+   *
+   * ⚠ THE LINE IS READ FROM AN OWNER, NEVER COMPOSED HERE. It is the factor's
+   * own observed value, via `factorDisplayText` — the module's declared shared
+   * entry point, the same priority chain FactorNode's body, the inspector-v2
+   * factor panels and the debug bundle all render from. This component decides
+   * WHEN to show a reduced line, never WHAT the value is; there is no second
+   * formatter here and no new datum (CLAUDE.md trap 12).
+   *
+   * ⚠ AND THE UNIT GOES THROUGH THE SHARED SUPPRESSION GUARD FIRST. CEE
+   * sometimes leaks an internal factor_type descriptor ("binary", "cost",
+   * "other") into `unit`; `formatFactorValue`, `formatInterventionValue` and
+   * FactorNode's own call all pass it through `isSuppressedUnit` before
+   * formatting, and `factorDisplayText` does not. Without this, the reduced
+   * line could read "0.5 other" while the body two pixels beneath it read
+   * something else — one datum, one card, two answers. That divergence is
+   * pre-existing and belongs to the formatter, not to this lane; this consumes
+   * the same guard every other caller does rather than restating the rule, and
+   * `BaseNode.lodBodyLine.spec.tsx` pins agreement with what FactorNode
+   * actually renders, so a drift goes red here.
+   *
+   * ⚠ SCOPE, STATED RATHER THAN IMPLIED (trap 20). FACTORS ONLY, deliberately:
+   *   · a factor's value is the single varying quantity its card renders, it
+   *     exists BEFORE an analysis has run (which is the state a user zooms out
+   *     in most often), and it is short enough to survive the legibility
+   *     budget — at the capped counter-scale a card holds roughly twenty
+   *     characters, so "£26,000" or "Moderate" reads and a sentence does not;
+   *   · an option's win figure ships as a full comparative SENTENCE
+   *     (`COMPARATIVE_COPY.phrase`) which truncates to nothing at this size,
+   *     and the bare percentage on its own is an unlabelled number;
+   *   · goal and outcome figures carry MANDATORY adjacent disclosures
+   *     (`GOAL_FIT_BASIS_CAVEAT_COPY`, possessive withholding via
+   *     `basisWithholdsPossessive`) that cannot ride on one line without
+   *     restating their gate here — so they stay blank rather than print a
+   *     figure stripped of the caveat that makes it honest;
+   *   · decision, risk and action cards have no single headline quantity.
+   * Nodes outside that scope behave exactly as they did before this change.
+   */
+  const lodBodyLine = useMemo<string | null>(() => {
+    if (!lodActive || nodeType !== 'factor') return null
+    const record = data as Record<string, unknown> | undefined
+    if (!record) return null
+    const observed = record.observedState as Record<string, unknown> | undefined
+    const normalised = isSuppressedUnit(observed?.unit as string | undefined)
+      ? { ...record, observedState: { ...observed, unit: null } }
+      : record
+    // The same rest-state shortening the body applies (R6): a trailing
+    // all-numeric parenthetical is the raw default showing through, and this is
+    // the most compressed rest state the card has. Display only — it can shorten
+    // the string and can never change the value it states.
+    return collapseEstimateDisplay(factorDisplayText(normalised, label))
+  }, [lodActive, nodeType, data, label])
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
@@ -717,10 +789,33 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens.
           D2: at level-of-detail zoom the body hides via visibility (box keeps
           its dimensions so ELK/edge anchors stay stable) — the node reads as
-          its coloured shape. */}
+          its coloured shape, PLUS the one reduced line below. */}
       {!isCausalLens && !isEvidenceLens && children ? (
-        <div className="text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
+        <div className="relative text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
           {children as ReactNode}
+          {/* The reduced line (see `lodBodyLine` above for what it is and why
+              the scope is what it is).
+
+              TWO PROPERTIES IT HAS TO KEEP, both load-bearing:
+              · `visibility: 'visible'` overrides the hidden ancestor — a
+                descendant may re-declare visibility, which is the whole reason
+                the body can stay hidden while one line of it comes back;
+              · absolutely positioned, so it contributes NO height. The card's
+                box is byte-for-byte what it was before this change, which is
+                what keeps ELK's placement and the edge anchors stable — the
+                same reason the body hides by visibility rather than display.
+              `title` carries the untruncated string, the same sighted-hover
+              treatment the node title gets when its clamp ellipsises it. */}
+          {lodBodyLine !== null && (
+            <div
+              data-testid="node-lod-line"
+              title={lodBodyLine}
+              className={`${typography.nodeLabel} text-text-body truncate absolute left-0 right-0 top-0`}
+              style={{ visibility: 'visible' }}
+            >
+              {lodBodyLine}
+            </div>
+          )}
         </div>
       ) : null}
 
