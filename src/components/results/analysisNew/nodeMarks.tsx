@@ -89,7 +89,7 @@ export function NodeMark({ kind, className = 'w-3 h-3' }: NodeMarkProps) {
  */
 export function markKindForTarget(targetId: string | undefined | null): MarkKind | null {
   if (!targetId) return null
-  const node = useCanvasStore.getState().nodes.find((n) => n.id === targetId)
+  const node = (useCanvasStore.getState().nodes ?? []).find((n) => n.id === targetId)
   if (!node) return null
   const kind = resolveNodeTypeLiteral(node)
   return kind && (MARK_KINDS as readonly string[]).includes(kind) ? (kind as MarkKind) : null

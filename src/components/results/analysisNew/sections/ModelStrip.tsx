@@ -35,12 +35,20 @@ export function ModelStrip({ testId = 'analysis-new-model-strip' }: ModelStripPr
    * re-render this component continuously while a user moves the canvas. The
    * signature changes only when a node is added, removed or retyped — which is
    * the only thing this component displays.
+   *
+   * ⚠ `?? []` IS NOT DEFENSIVE HABIT, IT IS SIZED TO THE BLAST RADIUS.
+   * `AnalysisNewTabBody` is NOT wrapped in a `SectionErrorBoundary` — unlike
+   * every section of `ResultsBody` — so a throw here does not degrade one
+   * region, it takes the whole tab down. The store's initial `nodes` could not
+   * be confirmed to be an array at every point in its lifecycle (the `[]` in
+   * `store.ts` is a reset path, not an initialiser), and the cost of being
+   * wrong is a blank surface rather than a missing strip.
    */
   const signature = useCanvasStore((s) =>
-    s.nodes.map((n) => `${n.id}:${n.type ?? ''}`).join('|'),
+    (s.nodes ?? []).map((n) => `${n.id}:${n.type ?? ''}`).join('|'),
   )
   const strip = useMemo(
-    () => buildModelStrip(useCanvasStore.getState().nodes),
+    () => buildModelStrip(useCanvasStore.getState().nodes ?? []),
     [signature],
   )
 
