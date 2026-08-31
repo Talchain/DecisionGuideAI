@@ -37,6 +37,7 @@ vi.mock('@xyflow/react', async () => {
 
 const FAILED = 'opt-failed'
 const COMPUTED_TRUE_ZERO = 'opt-true-zero'
+const LEADER = 'opt-leader'
 
 // React Flow's `NodeProps` requires the full plumbing set — `deletable`,
 // `selectable` and `draggable` included. Omitting them is a TS2739 in exactly
@@ -254,6 +255,81 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
       </ReactFlowProvider>,
     )
     expect(screen.getByText(/Close call/i)).toBeInTheDocument()
+  })
+
+  // ── THE THIRD SURFACE: A COMPARATIVE DESIGNATION CARRYING NO NUMBER ────────
+
+  /**
+   * "Behind: X" is a RANK CLAIM in inverse form. Until this gate existed, the
+   * same card said both of these, about sixty lines apart:
+   *
+   *   "Not computed — the analysis ran on this option but could not produce a
+   *    usable result, so it has no rank and no probability."
+   *   "Behind: fewer key changes"
+   *
+   * Before the not-computed disclosure existed the card read `0%` + `Behind: X`
+   * — consistent, and wrong. Adding the disclosure without this gate made the
+   * card assert "no rank" AND a rank, so the contradiction is INTRODUCED by
+   * that change and closed here. It is the same one-line gate `closeCallGapPp`
+   * already carries, on the same flag, derived from the same field.
+   *
+   * The fixture is a DISCRIMINATING PAIR: both cases render the identical
+   * report, the identical nodes and the identical `win_probability: 0` for the
+   * subject. ONLY `status` differs, so a gate that suppressed "Behind:" for
+   * every option — or one that never fired at all — cannot pass both.
+   */
+  const renderBehindFixture = (subjectStatus: string) => {
+    useCanvasStore.setState({
+      nodes: [
+        { id: FAILED, type: 'option', position: { x: 0, y: 0 }, data: { label: 'Hold the current plan', type: 'option', is_baseline: false } },
+        { id: LEADER, type: 'option', position: { x: 200, y: 0 }, data: { label: 'Double the spend', type: 'option', is_baseline: false } },
+      ],
+      edges: [],
+      results: {
+        status: 'complete',
+        report: {
+          // `recommended_option_id` is what `computeBehindReason` needs before
+          // it will return a reason at all, and `near_tie` (with its identity,
+          // under `robustness` — decisionVerdict.ts:352) is what gives the
+          // verdict a leading option. Without BOTH the line cannot render for
+          // either status and the suppression assertion would pass by testing
+          // nothing (trap 13). The positive control below is what proves it.
+          robustness: {
+            near_tie: { is_tie: false, top_option_id: LEADER },
+            recommended_option_id: LEADER,
+          },
+          option_probabilities: {
+            // The producer really does send a finite `0` on a failed option.
+            [FAILED]: { confidence: 0.5, win_probability: 0, status: subjectStatus },
+            [LEADER]: { confidence: 0.9, win_probability: 0.6, status: 'computed' },
+          },
+        },
+      },
+    } as never)
+    return render(
+      <ReactFlowProvider>
+        <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option', is_baseline: false }} />
+      </ReactFlowProvider>,
+    )
+  }
+
+  it('makes no COMPARATIVE DESIGNATION about an option that was never scored', () => {
+    renderBehindFixture('failed')
+    // PRECONDITION, PINNED IN-TEST: the fixture provably reaches the failed
+    // branch. Without this the absence below could be a fixture that simply
+    // never produced a reason (trap 13b — a guard agreeing with itself).
+    expect(screen.getByTestId(`option-not-computed-${FAILED}`)).toBeInTheDocument()
+    expect(screen.queryByText(/Behind:/)).toBeNull()
+  })
+
+  it('POSITIVE CONTROL: the identical fixture DOES render "Behind:" for a COMPUTED non-leader', () => {
+    // Same report, same nodes, same `win_probability: 0`, same leader, same
+    // gap. Only `status` differs — so this fails the moment the gate is
+    // widened past the producer's failing token, and the assertion above
+    // fails the moment it is removed.
+    renderBehindFixture('computed')
+    expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
+    expect(screen.getByText(/Behind:/)).toBeInTheDocument()
   })
 
   it('renders nothing at all outside results mode', () => {

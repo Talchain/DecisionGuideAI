@@ -896,6 +896,29 @@ export const OptionNode = memo((props: NodeProps) => {
     // boolean computed in this component, never an optional prop, so it
     // carries none of the omitted-input risk that made #491 choose ordering.
     if (!verdict.hasLeadingOption) return null
+    // ⭐ AND AN OPTION THAT WAS NEVER SCORED CANNOT BE DESIGNATED BEHIND ONE.
+    //
+    // "Behind:" is a RANK CLAIM in inverse form — the same reading of A1's
+    // ruling that put the `hasLeadingOption` gate above it. When the producer
+    // says `status === 'failed'` (`n_valid === 0`) there is no distribution
+    // behind this option's share, so there is no rank either, and the card
+    // renders the sanctioned "no rank and no probability" sentence sixty lines
+    // below. Without this gate the two sit on one card and CONTRADICT each
+    // other: "it has no rank" beside a rank. That contradiction did not exist
+    // before the disclosure was added — the card previously read `0%` +
+    // "Behind: X", consistent and wrong — so it is INTRODUCED by that change
+    // and belongs to it.
+    //
+    // It is the same one-line gate `closeCallGapPp` carries at :491, on the
+    // same flag, derived from the same field by the same predicate. A third
+    // reader of `win_probability` gated differently from the other two is how
+    // this field reached the state that needed fixing (CLAUDE.md hazard 1).
+    //
+    // ⚠ THE GATE IS ON THIS OPTION'S OWN STATUS ONLY. A failed SIBLING still
+    // participates in the identical-reason suppression below, which can only
+    // ever remove a line — it fails toward saying less, and re-deriving that
+    // scan per sibling would need a second authority on the same question.
+    if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
     if (!myReason) return null
@@ -921,7 +944,7 @@ export const OptionNode = memo((props: NodeProps) => {
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
-  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
+  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
@@ -1412,8 +1435,22 @@ export const OptionNode = memo((props: NodeProps) => {
             fill bars is a measured claim, and a dash in that slot still asserts
             membership in the comparison. The state this replaces rendered a
             hard `0%` with a zero-width bar, in the one position on the card
-            that answers how often this option came out ahead — while a GENUINE
-            measured zero at n=10,000 renders `"<0.01%"` two nodes along.
+            that answers how often this option came out ahead.
+
+            ⚠ CORRECTED (#1048 review). This said a GENUINE measured zero
+            "renders `"<0.01%"` two nodes along". FALSE **for this surface**,
+            and the harm it described was therefore MILDER than the real one.
+            `formatWinProbability` hardcodes
+            `formatProbabilityWithResolution(rawProb, undefined)`
+            (`labelUtils.ts:183`), so the resolution arm is UNREACHABLE from the
+            canvas and `value <= 0` returns `'0%'` (`formatPercent.ts:114`,
+            pinned by `labelUtils.spec.ts`'s "0 renders 0%"). `<0.01%` needs an
+            `nSamples` count, which only the RESULTS PANEL supplies — where the
+            sentence is true, and where `OptionCards.notComputed.spec.tsx:236`
+            asserts it. So on the canvas, pre-fix, a failed option and a genuine
+            measured zero rendered the IDENTICAL `0%`: indistinguishable, with
+            no accident of a fallback arm to tell them apart. The gate is what
+            distinguishes them, not the formatter.
 
             ## Why a WORD and not simply nothing
 

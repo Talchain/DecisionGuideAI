@@ -22,6 +22,7 @@ import {
 } from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
 import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
+import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
 
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -445,6 +446,30 @@ export function useNodeDisplayMetadata(
       if (nodeType === 'goal' && achievementProbability === null) {
         for (const entry of Object.values(optionProbabilities)) {
           if (!entry) continue
+          // ⭐ THE PRODUCER'S COMPUTE STATUS, CONSULTED BEFORE THE ENTRY IS
+          // READ — the same predicate, on the same field, as the win gate
+          // fifty-five lines below.
+          //
+          // `status === 'failed'` is `n_valid === 0`: zero finite Monte Carlo
+          // samples, so nothing attached to the entry is a measurement — its
+          // goal figure no more than its share. This scan decides whether the
+          // goal node says "this run did not produce a goal probability" or
+          // points the user at the per-option figures, so an ungated failed
+          // entry could, ON ITS OWN, make the node advertise figures there is
+          // no distribution behind. Two readers of one field gated differently
+          // would be two authorities on one question (CLAUDE.md trap 21).
+          //
+          // ⚠ PER ENTRY, NOT ALL-OR-NOTHING, and on the FAILING TOKEN only:
+          // `'partial'` has samples and a full outcome block, an ABSENT status
+          // is the legacy V1 shape, and a computed option beside a failed one
+          // still makes the run's figures available.
+          if (
+            !optionComputationProducedResult(
+              (entry as { status?: OptionComputeStatus }).status,
+            )
+          ) {
+            continue
+          }
           if (selectGoalProbability(entry as GoalProbabilityInput).goalProbability != null) {
             goalFitAvailableForOptions = true
             break
