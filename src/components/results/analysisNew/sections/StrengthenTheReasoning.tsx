@@ -204,10 +204,75 @@ export function StrengthenTheReasoning({
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
-  const openDispute = useCallback((id: string, existing: string) => {
-    setDisputingId(id)
-    setDraft(existing)
+  /**
+   * ⭐ WHERE FOCUS GOES, AND WHY THIS DIRECTORY HAD NO ANSWER.
+   *
+   * Every close path here unmounts the subtree holding the button the user just
+   * pressed, so focus fell to `document.body` — the top of the document. A
+   * keyboard user who recorded a disagreement (the reasoning act this surface
+   * exists to enable) was thrown to the top of the page at the moment they
+   * committed it, with no confirmation and no way back to the card.
+   *
+   * Measured before fixing: `.focus()` appeared in ZERO files under
+   * `analysisNew/`, against 12 files elsewhere under `results/` (ModalShell,
+   * AskOlumiDrawer, …). The estate restores focus; this directory did not.
+   *
+   * The trigger survives the close — it merely relabels to "Edit" once an
+   * objection stands — so it is the correct restore target rather than a
+   * best-effort one.
+   */
+  const disputeTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const disputeInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const undoButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  const openDispute = useCallback(
+    (id: string, existing: string, trigger: HTMLButtonElement | null) => {
+      disputeTriggerRef.current = trigger
+      setDisputingId(id)
+      setDraft(existing)
+    },
+    [],
+  )
+
+  /** Focus into the composer on open — without it, activating "I disagree"
+   * announces nothing and moves nothing, so a screen-reader user has no way to
+   * learn the textarea exists short of tabbing past a destructive
+   * "Not relevant" button to find it. */
+  useEffect(() => {
+    if (disputingId) disputeInputRef.current?.focus()
+  }, [disputingId])
+
+  const closeDispute = useCallback(() => {
+    setDisputingId(null)
+    setDraft('')
+    // Restore BEFORE the browser settles on body. The trigger is still mounted.
+    disputeTriggerRef.current?.focus()
   }, [])
+
+  /**
+   * ⭐⭐ "NOT RELEVANT" WAS EFFECTIVELY IRREVERSIBLE BY KEYBOARD, and this is
+   * the one path on the panel that loses producer-grounded content.
+   *
+   * Dismissing retires the card, so the `<li>` holding the focused button
+   * unmounts and focus falls to `document.body` — the top of the document. The
+   * repair, Undo, is rendered ABOVE the destroyed position and expires after
+   * `NOTICE_MS`. So the user had to Tab forward through the entire dock to
+   * reach it, inside six seconds, having first been sent to the top. In
+   * practice: a one-way discard. This component's own comment argues undo is
+   * "not optional furniture" and that a one-way discard is "a worse affordance
+   * than none" — which is precisely what a keyboard user was getting.
+   *
+   * ⚠ REPAIR, NOT A GRAB. It fires only when focus was actually destroyed
+   * (`activeElement` is body or gone). If the user is somewhere deliberate —
+   * a dismissal triggered from elsewhere, or focus already moved — this does
+   * nothing. Stealing focus from a live element would be its own defect.
+   */
+  useEffect(() => {
+    if (!undoable || typeof document === 'undefined') return
+    const active = document.activeElement
+    if (active && active !== document.body) return
+    undoButtonRef.current?.focus()
+  }, [undoable])
 
   const commitDispute = useCallback(
     (rec: Recommendation) => {
@@ -219,10 +284,9 @@ export function StrengthenTheReasoning({
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
       dispute(rec.id, draft)
-      setDisputingId(null)
-      setDraft('')
+      closeDispute()
     },
-    [dispute, seedIfAbsent, analysisHash, draft],
+    [dispute, seedIfAbsent, analysisHash, draft, closeDispute],
   )
 
   const retired = useMemo(
@@ -282,6 +346,7 @@ export function StrengthenTheReasoning({
             {STRENGTHEN_COPY.dismissedNotice}: {undoable.title}
           </span>
           <button
+            ref={undoButtonRef}
             type="button"
             onClick={() => {
               restoreDismissed(undoable.id)
@@ -302,7 +367,7 @@ export function StrengthenTheReasoning({
           {COPY.empty.strengthen}
         </p>
       ) : (
-        <ul className="space-y-3 list-none p-0 m-0">
+        <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
           {visible.map((rec) => {
             const grounding = scienceGrounding[rec.id]
             // `null` for most findings, and that is correct — see
@@ -421,6 +486,14 @@ export function StrengthenTheReasoning({
                       >
                         <Lightbulb className="w-3 h-3" aria-hidden={true} />
                         {method.title}
+                        {/* ⚠ `title` RENDERS ON MOUSE HOVER ONLY — no major
+                            browser shows it on keyboard focus. So what the
+                            technique actually IS, which is the science content
+                            this surface exists to deliver, was withheld from
+                            anyone navigating by keyboard. The grounding chip
+                            immediately below already pairs `title` with an
+                            sr-only span; this chip simply had not. */}
+                        <span className="sr-only">{method.description}</span>
                       </button>
                     ) : null}
                     {grounding ? (
@@ -512,7 +585,14 @@ export function StrengthenTheReasoning({
                       need, on the user's action, so they can always act. */}
                   <button
                     type="button"
-                    onClick={() => openDispute(rec.id, standingDispute ?? '')}
+                    onClick={(e) => openDispute(rec.id, standingDispute ?? '', e.currentTarget)}
+                    // It is a disclosure, so it says so. `aria-expanded` is
+                    // already used twice in this file (show-more, history) —
+                    // the author knew the attribute; this control was the
+                    // outlier, and `aria-controls` reads zero here against 4
+                    // sibling files in the same directory that wire it.
+                    aria-expanded={disputingId === rec.id}
+                    aria-controls={`${testId}-disagree-form-${rec.id}`}
                     className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-disagree`}
                   >
@@ -538,7 +618,11 @@ export function StrengthenTheReasoning({
                     the finding and the reason it is contested are read
                     together, which is the whole point. */}
                 {disputingId === rec.id ? (
-                  <div className="mt-1.5" data-testid={`${testId}-disagree-form`}>
+                  <div
+                    className="mt-1.5"
+                    id={`${testId}-disagree-form-${rec.id}`}
+                    data-testid={`${testId}-disagree-form`}
+                  >
                     <label
                       className={`${typography.panelMeta} block text-text-light mb-1`}
                       htmlFor={`${testId}-disagree-input-${rec.id}`}
@@ -546,6 +630,7 @@ export function StrengthenTheReasoning({
                       {COPY.dissent.prompt}
                     </label>
                     <textarea
+                      ref={disputeInputRef}
                       id={`${testId}-disagree-input-${rec.id}`}
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
@@ -564,10 +649,7 @@ export function StrengthenTheReasoning({
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setDisputingId(null)
-                          setDraft('')
-                        }}
+                        onClick={closeDispute}
                         className={`${typography.panelMeta} rounded text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-disagree-cancel`}
                       >
@@ -611,6 +693,14 @@ export function StrengthenTheReasoning({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          // ⚠ THE ROWS IT REVEALS ARE RENDERED ABOVE IT. Without a jump target
+          // a screen-reader user hears "expanded" and finds nothing after the
+          // button, because the new rows were inserted behind their reading
+          // position. `aria-controls` is wired correctly in four sibling files
+          // in this directory (DisclosureRow, SectionShell, ModelStrip,
+          // DeeperAnalysis) — this control was the departure from the house
+          // convention, not the convention itself.
+          aria-controls={`${testId}-list`}
           className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-2`}
           data-testid={`${testId}-show-more`}
         >
