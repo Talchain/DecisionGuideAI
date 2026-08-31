@@ -301,8 +301,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * handles are in the DOM and React Flow has adopted the node.
    */
   useEffect(() => {
-    const raf = requestAnimationFrame(() => updateNodeInternals(id))
-    return () => cancelAnimationFrame(raf)
+    // `useEffect` already runs after the DOM commit, so the handles are in the
+    // tree and React Flow's own `getBoundingClientRect` will force whatever
+    // layout it needs. Measure straight away.
+    updateNodeInternals(id)
+    // Safety net for a node whose subtree commits after this effect.
+    //
+    // ⚠ `setTimeout`, DELIBERATELY NOT `requestAnimationFrame`. rAF does not
+    // fire in a background tab, so an rAF-scheduled measurement leaves the
+    // canvas with NO EDGES AT ALL until the tab is focused — and opening the
+    // product in a background tab is an ordinary thing to do. Measured
+    // directly: with `document.hidden === true`, a scheduled rAF callback did
+    // not run within 2s, while `setTimeout` fired normally.
+    //
+    // That is also how the first version of this fix escaped its own
+    // verification: it was rAF-scheduled and driven in a hidden pane, so the
+    // deployed check reported "still no edges" about a fix that had never been
+    // given a chance to run. A false negative from the instrument, not a
+    // finding about the code.
+    const t = setTimeout(() => updateNodeInternals(id), 0)
+    return () => clearTimeout(t)
   }, [id, updateNodeInternals])
 
   // Toggle expand via chevron icon click
