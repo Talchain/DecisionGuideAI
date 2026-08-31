@@ -373,13 +373,54 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
   const showHeadline = Boolean(headline)
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
+  // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
+  // oversight. "Challenge this result" deserves the same treatment as the
+  // pre-analysis pair below and I tried it — but the post-analysis Standard
+  // body is the exact surface another lane's HONEST RESTING STATE occupies
+  // (`DecisionNode.restingState.spec.tsx`), and filling it with chips suppresses
+  // that copy: four of their tests go red. Two lanes, one surface, and their
+  // design has a measured defect behind it. Left alone pending a decision that
+  // covers both.
   const showPostAnalysisChips = isDetailed
   const showTriageLine = Boolean(triageLine)
+
+  /**
+   * ⭐ THE INVITATIONS BELONG ON THE CARD, NOT BEHIND A HOVER.
+   *
+   * "Explore more options" and "What could go wrong?" are the canvas's two most
+   * reasoning-shaped affordances on its most important node, and until this
+   * they rendered in exactly two places: the Detailed (expert) view, and a
+   * HOVER POPOVER. Measured on the deployed build — `viewMode: 'standard'`, and
+   * none of the four coaching chips anywhere on screen, with a contrast control
+   * proving the probe could read the page.
+   *
+   * So for an ordinary user on the default view they did not exist, and on a
+   * touch device they could not exist: `hover` is not an input that device has.
+   *
+   * ⚠ THIS DOES CHANGE A STATED RULE. The comment on the body chip below reads
+   * "Coaching chips live in the popover" — a deliberate anti-clutter decision,
+   * and a reasonable one when it was made. It is worth revisiting only because
+   * of WHERE these sit: this is ONE node, the anchor of the whole model, not a
+   * treatment applied to every card. Two chips on the single node the user is
+   * being asked to think hardest about is not furniture; the same two chips on
+   * thirteen cards would be.
+   *
+   * Duplicated in the popover rather than moved out of it, which the R5 ruling
+   * explicitly permits ("full functionality ... may be DUPLICATED there"): a
+   * pointer user who hovers should not find LESS than they had.
+   */
+  // ⚠ NO `optionCount > 0` CONJUNCT, and that is measured rather than assumed.
+  // I wrote one, and a mutant proved it a NO-OP: deleting it left the suite
+  // fully green, because `isPreAnalysisBranch` already requires linked options.
+  // A guard that cannot fail is not defence in depth, it is a second answer to
+  // a question already answered — and the next reader would have had to work
+  // out which one was load-bearing.
+  const showPreAnalysisInvitations = isPreAnalysisBranch
 
   const bodyHasContent = isPostAnalysisBranch
     ? (showHeadline || showStabilityLine || showPostAnalysisChips)
     : isPreAnalysisBranch
-      ? (showTriageLine || showRunAnalysis)
+      ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
       : false
 
   // ---- The honest resting state ----
@@ -606,14 +647,18 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
 
-            {/* Body chip: ONLY the "Run analysis" CTA when the model is ready.
-                Coaching chips ("Explore more options" / "What could go wrong?")
-                live in the popover below — see preAnalysisCoachingChips. */}
+            {/* The "Run analysis" CTA when the model is ready — a primary
+                action, not coaching. */}
             {showRunAnalysis && (
               <div className="flex items-center gap-1 flex-wrap mt-1.5">
                 <NodeChip chipId="decision_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
               </div>
             )}
+            {/* The invitations — see `showPreAnalysisInvitations` for why these
+                moved out from behind the hover. `preAnalysisCoachingChips`
+                already drops "What could go wrong?" while the Run CTA is up, so
+                the card never carries three chips at once. */}
+            {showPreAnalysisInvitations && preAnalysisCoachingChips}
             {!bodyHasContent && restingState}
           </>
         ) : (
@@ -648,7 +693,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </>
             )}
           </div>
-          {preAnalysisCoachingChips}
+          {/* ⛔ THE CHIPS ARE NOT HERE ANY MORE — they are on the card.
+              Rendering them in both put the SAME chip on one node twice for a
+              pointer user, which is worse than either placement alone, and it
+              broke `render-matrix`'s own `getByText` audit. The popover keeps
+              what it is uniquely good at: the readiness breakdown, which is
+              detail on demand rather than an invitation. */}
         </NodePopover>
       )}
 
