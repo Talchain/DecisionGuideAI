@@ -5,6 +5,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { NodeInspector } from '../NodeInspector'
 import { useCanvasStore } from '../../store'
+import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
+
+/**
+ * The decision node's user-facing word comes from the vocabulary constant, not
+ * a literal. Hardcoding it here would recreate exactly the hand-maintained
+ * mirror `DECISION_NODE_LABEL` was introduced to abolish (CLAUDE.md trap 12),
+ * and it would go stale silently at the next rename rather than failing loud.
+ *
+ * ⚠ The ABSENCE assertion below matters more than the presence one: a literal
+ * `/Decision:/` there would keep passing after the rename WHILE TESTING
+ * NOTHING, because the surface no longer emits that word in either direction —
+ * a guard agreeing with itself (trap 13b). Reading the constant is what keeps
+ * the negative case pointed at the string the component actually renders.
+ */
+const DECISION_CONTEXT_PREFIX = new RegExp(`${DECISION_NODE_LABEL}:`)
 
 describe('NodeInspector — context label (F.4)', () => {
   beforeEach(() => {
@@ -15,7 +30,7 @@ describe('NodeInspector — context label (F.4)', () => {
     cleanup()
   })
 
-  it('shows "Decision: {label}" when factor has incoming edge from decision', () => {
+  it('shows "<decision word>: {label}" when factor has incoming edge from decision', () => {
     useCanvasStore.setState({
       nodes: [
         { id: 'dec', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Pro Plan Pricing Decision' } },
@@ -30,7 +45,7 @@ describe('NodeInspector — context label (F.4)', () => {
     })
     render(<NodeInspector nodeId="fac" onClose={() => {}} />)
 
-    expect(screen.getByText(/Decision:/)).toBeDefined()
+    expect(screen.getByText(DECISION_CONTEXT_PREFIX)).toBeDefined()
     expect(screen.getByText('Pro Plan Pricing Decision')).toBeDefined()
   })
 
@@ -87,7 +102,7 @@ describe('NodeInspector — context label (F.4)', () => {
     })
     render(<NodeInspector nodeId="fac2" onClose={() => {}} />)
 
-    expect(screen.queryByText(/Decision:/)).toBeNull()
+    expect(screen.queryByText(DECISION_CONTEXT_PREFIX)).toBeNull()
     expect(screen.queryByText(/Goal:/)).toBeNull()
     expect(screen.queryByText(/Factor:/)).toBeNull()
   })

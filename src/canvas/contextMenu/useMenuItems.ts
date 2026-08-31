@@ -41,6 +41,7 @@ import {
   setValueWorstCase,
   setValueReset,
 } from './actions'
+import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -54,7 +55,7 @@ const NODE_TYPE_ITEMS: { type: NodeType; label: string; glyph?: string; icon?: C
   { type: 'outcome', label: 'Outcome', glyph: '\u25B2', color: 'text-success', tooltip: 'Observable result or measurement' },
   { type: 'option', label: 'Option', glyph: '\u25A0', color: 'text-option', tooltip: 'Alternative choice under a decision' },
   { type: 'goal', label: 'Goal', glyph: '\u25C6', color: 'text-goal', tooltip: 'Target outcome for optimisation' },
-  { type: 'decision', label: 'Decision', glyph: '\u2B22', color: 'text-info', tooltip: 'Choice point between options' },
+  { type: 'decision', label: DECISION_NODE_LABEL, glyph: '\u2B22', color: 'text-info', tooltip: 'What you are working out — the options answer it' },
 ]
 
 // ---------------------------------------------------------------------------

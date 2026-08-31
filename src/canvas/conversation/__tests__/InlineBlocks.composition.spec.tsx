@@ -41,6 +41,7 @@ import type {
   V5ExerciseBlock,
   V5ReviewCardBlock,
 } from '../types'
+import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
 
 vi.mock('../../store', () => {
   const mockState = {
@@ -351,7 +352,9 @@ describe('InlineBlocks — graph-vocabulary legend affordance (F16, migrated)', 
     // Every canvas node kind must be defined: 'Outcome' was once missing while
     // the canvas's own "How to read this" key listed it, so a card pointing at
     // an outcome node referred to vocabulary this primer did not define.
-    for (const term of ['Decision', 'Factor', 'Option', 'Outcome', 'Goal', 'Risk', 'Constraint', 'Link']) {
+    // The node-type word comes from the vocabulary constant — see
+    // `canvas/domain/vocabulary.ts`. A literal here would be a second mirror.
+    for (const term of [DECISION_NODE_LABEL, 'Factor', 'Option', 'Outcome', 'Goal', 'Risk', 'Constraint', 'Link']) {
       expect(screen.getByText(term)).toBeInTheDocument()
     }
   })

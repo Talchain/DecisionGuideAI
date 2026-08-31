@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
+import { DECISION_NODE_LABEL } from '../../../domain/vocabulary'
 
 // Mock ReactFlow viewport hook
 vi.mock('@xyflow/react', () => ({
@@ -101,7 +102,10 @@ describe('InspectorRouter', () => {
     ])
     render(<InspectorRouter nodeId="d1" edgeId={null} onClose={onClose} />)
     expect(screen.getByText('Market strategy')).toBeTruthy()
-    expect(screen.getByText('Decision')).toBeTruthy()
+    // The TYPE pill, asserted against the vocabulary constant rather than a
+    // literal — a hardcoded word here would be the same hand-maintained
+    // mirror the constant was introduced to abolish.
+    expect(screen.getByText(DECISION_NODE_LABEL)).toBeTruthy()
   })
 
   it('renders risk panel for risk node', () => {

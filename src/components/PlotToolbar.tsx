@@ -2,6 +2,7 @@
 // Left toolbar for plot workspace tools
 
 import { useState } from 'react'
+import { DECISION_NODE_LABEL } from '../canvas/domain/vocabulary'
 
 export type Tool = 'select' | 'pan' | 'add-node' | 'add-note' | 'connect'
 export type NodeType = 'goal' | 'decision' | 'option' | 'factor' | 'risk' | 'outcome' | 'action'
@@ -25,7 +26,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
 
   const nodeTypes: { type: NodeType; icon: string; label: string; color: string }[] = [
     { type: 'goal', icon: '🎯', label: 'Goal', color: 'bg-panel border-success/30' },
-    { type: 'decision', icon: '⚖️', label: 'Decision', color: 'bg-panel border-info/30' },
+    { type: 'decision', icon: '⚖️', label: DECISION_NODE_LABEL, color: 'bg-panel border-info/30' },
     { type: 'option', icon: '🔷', label: 'Option', color: 'bg-panel border-info/30' },
     { type: 'factor', icon: '⚙️', label: 'Factor', color: 'bg-panel border-panel-border' },
     { type: 'risk', icon: '⚠️', label: 'Risk', color: 'bg-panel border-warning/30' },

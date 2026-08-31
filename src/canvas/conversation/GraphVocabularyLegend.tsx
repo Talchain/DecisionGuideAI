@@ -15,10 +15,11 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import styles from './Conversation.module.css'
+import { DECISION_NODE_LABEL, DECISION_NODE_DEFINITION } from '../domain/vocabulary'
 
 /** Minimal node/edge vocabulary used by phase-3 card target references. */
 const LEGEND_TERMS: ReadonlyArray<{ term: string; definition: string }> = [
-  { term: 'Decision', definition: 'The choice you are weighing up.' },
+  { term: DECISION_NODE_LABEL, definition: DECISION_NODE_DEFINITION },
   { term: 'Option', definition: 'A course of action you could take.' },
   { term: 'Factor', definition: 'Something that influences how things turn out.' },
   // Outcome was the one canvas node kind this legend never named, while the

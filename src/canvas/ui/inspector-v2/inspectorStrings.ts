@@ -6,6 +6,7 @@
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
+import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
 
 // ─── Section titles (spec §3.1) ────────────────────────────────────
 export const SECTION_TITLES = {
@@ -43,7 +44,7 @@ export function getTypeLabel(nodeType: NodeType, category?: FactorCategory | str
   }
   const labels: Partial<Record<NodeType, string>> = {
     goal:       'Goal',
-    decision:   'Decision',
+    decision:   DECISION_NODE_LABEL,
     option:     'Option',
     outcome:    'Outcome',
     risk:       'Risk',
