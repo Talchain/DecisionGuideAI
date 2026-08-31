@@ -34,6 +34,7 @@ vi.mock('../nodeMarks', async (orig) => ({
 let records: Record<string, unknown> = {}
 const dismiss = vi.fn()
 const restoreDismissed = vi.fn()
+const dispute = vi.fn()
 
 /**
  * ⚠ `selectHistory` IS NOT MOCKED. It is the real, exported store selector —
@@ -43,7 +44,7 @@ const restoreDismissed = vi.fn()
 vi.mock('../../../../canvas/stores/strengthenStore', async (orig) => ({
   ...(await orig<typeof import('../../../../canvas/stores/strengthenStore')>()),
   useStrengthenStore: (sel: (s: unknown) => unknown) =>
-    sel({ records, priorityOrder: Object.keys(records), dismiss, restoreDismissed }),
+    sel({ records, priorityOrder: Object.keys(records), dismiss, restoreDismissed, dispute }),
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -71,6 +72,7 @@ beforeEach(() => {
   records = {}
   dismiss.mockClear()
   restoreDismissed.mockClear()
+  dispute.mockClear()
 })
 
 /** A retired record, shaped as the store writes it. */
@@ -268,5 +270,85 @@ describe('the reasoning trail', () => {
 
     fireEvent.click(restores[0])
     expect(restoreDismissed).toHaveBeenCalledWith('strengthen:gone')
+  })
+})
+
+/**
+ * ⭐⭐ DISAGREEMENT. Before this the panel's only answer to "I think this is
+ * wrong" was "Not relevant" — which retires the card. The reasoning act became
+ * a disappearance and the reason went unrecorded, while disagreement is
+ * precisely where a team's first real insight usually surfaces.
+ */
+describe('recording a disagreement', () => {
+  const one = [rec({ id: 'strengthen:robustness' })]
+
+  it('is NOT offered when the store holds no record for the id (the pre-run case)', () => {
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+    expect(screen.queryByTestId('analysis-new-strengthen-disagree')).toBeNull()
+  })
+
+  it('records the reason, and the finding STAYS — that is the whole difference', () => {
+    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: 'The lead time assumption is wrong for our supplier.' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
+
+    expect(dispute).toHaveBeenCalledWith(
+      'strengthen:robustness',
+      'The lead time assumption is wrong for our supplier.',
+    )
+    /**
+     * ⚠ THE ASSERTION THAT SEPARATES THIS FROM DISMISSAL, bound by identity
+     * rather than by a count — a count cannot tell "still there" from
+     * "replaced by the next item in the queue" (trap 19), which is exactly the
+     * mistake that produced a wrong verdict on this section once already.
+     */
+    expect(
+      screen
+        .getAllByTestId('analysis-new-strengthen-item')
+        .map((el) => el.getAttribute('data-recommendation-id')),
+    ).toContain('strengthen:robustness')
+    // And dismissal was NOT invoked as a side effect.
+    expect(dismiss).not.toHaveBeenCalled()
+  })
+
+  it('shows the standing objection on the card, and offers to edit rather than restate', () => {
+    records = {
+      'strengthen:robustness': {
+        status: 'recommended',
+        history: [
+          { at: 1, event: 'recommended' },
+          { at: 2, event: 'disputed', disputeReason: 'First thought.' },
+          // The LATEST one is what the user now thinks — see the note in the
+          // component. An earlier objection must not be the one displayed.
+          { at: 3, event: 'disputed', disputeReason: 'What I actually mean.' },
+        ],
+      },
+    }
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+
+    const shown = screen.getByTestId('analysis-new-strengthen-disagreement')
+    expect(shown).toHaveTextContent('What I actually mean.')
+    expect(shown).not.toHaveTextContent('First thought.')
+    expect(shown.getAttribute('data-recommendation-id')).toBe('strengthen:robustness')
+    expect(screen.getByTestId('analysis-new-strengthen-disagree')).toHaveTextContent(
+      'Edit what you said',
+    )
+  })
+
+  it('cancelling records nothing', () => {
+    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: 'typed then thought better of it' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-cancel'))
+    expect(dispute).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('analysis-new-strengthen-disagree-form')).toBeNull()
   })
 })

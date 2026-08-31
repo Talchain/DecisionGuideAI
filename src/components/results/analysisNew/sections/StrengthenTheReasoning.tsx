@@ -118,6 +118,7 @@ export function StrengthenTheReasoning({
    */
   const dismiss = useStrengthenStore((st) => st.dismiss)
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
+  const dispute = useStrengthenStore((st) => st.dispute)
   /**
    * ⚠⚠ WITNESSED ON DEPLOYED `3378415d`, AND IT IS THE DEFECT CLASS THIS WHOLE
    * SURFACE EXISTS TO AVOID: a control that claims an action it did not perform.
@@ -180,6 +181,36 @@ export function StrengthenTheReasoning({
    * `NOTICE_MS`; before this, a dismissal a minute old was unreachable and
    * permanent. A record you cannot act on is an archive, not a trail.
    */
+  /**
+   * ⭐⭐ DISAGREEMENT NEEDED SOMEWHERE TO LIVE, AND HAD NOWHERE.
+   *
+   * The only response this panel offered to "I think this is wrong" was
+   * "Not relevant", which retires the card. A reasoning act became a
+   * disappearance, and the reason went unrecorded — while disagreement is
+   * precisely where a team's first real insight usually surfaces.
+   *
+   * `disputingId` is the card with the box open; at most one at a time, because
+   * two open composers in a 278px column is not a thing anyone can use.
+   */
+  const [disputingId, setDisputingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+
+  const openDispute = useCallback((id: string, existing: string) => {
+    setDisputingId(id)
+    setDraft(existing)
+  }, [])
+
+  const commitDispute = useCallback(
+    (id: string) => {
+      // The store no-ops on an empty reason; closing without recording is the
+      // honest outcome, not a silent empty entry.
+      dispute(id, draft)
+      setDisputingId(null)
+      setDraft('')
+    },
+    [dispute, draft],
+  )
+
   const retired = useMemo(
     () => selectHistory({ records: strengthenRecords, priorityOrder }),
     [strengthenRecords, priorityOrder],
@@ -259,6 +290,15 @@ export function StrengthenTheReasoning({
              * wrong thing is worse than no shape.
              */
             const markKind = markKindForTarget(rec.targetId)
+            /**
+             * ⚠ THE LATEST DISPUTE, NOT ANY DISPUTE. A user who revises what
+             * they said should see what they now think, not the first thing
+             * they typed — so this scans BACKWARDS and stops at the first hit.
+             */
+            const record = strengthenRecords[rec.id]
+            const standingDispute = record
+              ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
+              : undefined
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -425,25 +465,92 @@ export function StrengthenTheReasoning({
                       Show on canvas
                     </button>
                   ) : null}
-                  {/* Sits last and reads quietly: disagreeing is a first-class
-                      move, but it is not the one being recommended.
-
-                      Offered only when the store can actually retire this id —
-                      see the note on `strengthenRecords` above. */}
-                  {strengthenRecords[rec.id] ? (
+                  {/* ⚠ THIS COMMENT USED TO CALL THIS BUTTON "disagreeing".
+                      It is not. "Not relevant" says this finding does not apply
+                      to me; "I disagree" says it is wrong, and here is why. The
+                      first retires the card, the second keeps it and attaches a
+                      position to it. One name for both is exactly how the panel
+                      came to offer only deletion. Both are offered now, and both
+                      need the store to hold this id — see `strengthenRecords`. */}
+                  {record ? (
+                    <button
+                      type="button"
+                      onClick={() => openDispute(rec.id, standingDispute ?? '')}
+                      className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-disagree`}
+                    >
+                      {standingDispute ? COPY.dissent.edit : COPY.dissent.open}
+                    </button>
+                  ) : null}
+                  {record ? (
                   <button
                     type="button"
                     onClick={() => {
                       dismiss(rec.id)
                       showUndo({ id: rec.id, title: rec.title })
                     }}
-                    className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
                   ) : null}
                 </div>
+
+                {/* ⭐ THE OBJECTION STAYS ON THE CARD. It is not a note filed
+                    elsewhere and it is not a chat message that scrolls away —
+                    the finding and the reason it is contested are read
+                    together, which is the whole point. */}
+                {disputingId === rec.id ? (
+                  <div className="mt-1.5" data-testid={`${testId}-disagree-form`}>
+                    <label
+                      className={`${typography.panelMeta} block text-text-light mb-1`}
+                      htmlFor={`${testId}-disagree-input-${rec.id}`}
+                    >
+                      {COPY.dissent.prompt}
+                    </label>
+                    <textarea
+                      id={`${testId}-disagree-input-${rec.id}`}
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      rows={2}
+                      className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel-hover px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-disagree-input`}
+                    />
+                    <div className="mt-1 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => commitDispute(rec.id)}
+                        className={`${typography.panelMeta} rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-disagree-save`}
+                      >
+                        {COPY.dissent.save}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDisputingId(null)
+                          setDraft('')
+                        }}
+                        className={`${typography.panelMeta} rounded text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-disagree-cancel`}
+                      >
+                        {COPY.dissent.cancel}
+                      </button>
+                    </div>
+                  </div>
+                ) : standingDispute ? (
+                  <p
+                    className={`${typography.panelBody} mt-1.5 mb-0 rounded border-l-2 border-attention/60 bg-panel-hover px-2 py-1 text-text-body`}
+                    data-testid={`${testId}-disagreement`}
+                    data-recommendation-id={rec.id}
+                  >
+                    <span className={`${typography.panelMeta} text-text-light`}>
+                      {COPY.dissent.standing}:{' '}
+                    </span>
+                    {standingDispute}
+                  </p>
+                ) : null}
 
                 {rec.sourceLine ? (
                   <p

@@ -28,9 +28,11 @@ import type { Recommendation, RecStatus } from '../../components/results/strengt
 
 export interface RecHistoryEvent {
   at: number
-  event: 'recommended' | 'in_progress' | 'addressed' | 'dismissed' | 'reopened' | 'auto_addressed' | 'restored'
+  event: 'recommended' | 'in_progress' | 'addressed' | 'dismissed' | 'reopened' | 'auto_addressed' | 'restored' | 'disputed'
   whatChanged?: string
   reopenReason?: string
+  /** The user's own words on why they disagree. Only on a 'disputed' event. */
+  disputeReason?: string
 }
 
 export interface RecRecord {
@@ -59,6 +61,22 @@ export interface StrengthenState {
   /** Undo affordance for 'Not relevant': restores a dismissed record to the
    * active status it held before dismissal. No-op unless status is dismissed. */
   restoreDismissed: (id: string, now?: number) => void
+  /**
+   * ⭐⭐ THE USER DISAGREES, AND SAYS WHY. Deliberately NOT A STATUS.
+   *
+   * A dispute is an ACT, not a terminal state: the finding stays exactly as
+   * active as it was, and can still be worked through or set aside afterwards.
+   * Modelling it as a `RecStatus` would have dropped the record out of
+   * `selectActive` — whose filter is an explicit triple — so disagreeing would
+   * have made the card VANISH, which is the precise failure this exists to
+   * fix. The product's only answer to "I think this is wrong" was "Not
+   * relevant", i.e. deletion: a reasoning act converted into a disappearance,
+   * unrecorded.
+   *
+   * An empty or whitespace-only reason is a no-op. A recorded disagreement
+   * with no stated ground is the same silence in a different costume.
+   */
+  dispute: (id: string, reason: string, now?: number) => void
   /** Test/reset seam. */
   _reset: () => void
 }
@@ -202,6 +220,23 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
         ...record,
         status: 'dismissed' as RecStatus,
         history: [...record.history, { at: now, event: 'dismissed' as const }],
+      },
+    }
+    persist(records, get().priorityOrder)
+    set({ records })
+  },
+
+  dispute: (id, reason, now = Date.now()) => {
+    const record = get().records[id]
+    if (!record) return
+    const trimmed = reason.trim()
+    if (!trimmed) return
+    const records = {
+      ...get().records,
+      // ⚠ `status` IS UNTOUCHED, ON PURPOSE. See the note on the declaration.
+      [id]: {
+        ...record,
+        history: [...record.history, { at: now, event: 'disputed' as const, disputeReason: trimmed }],
       },
     }
     persist(records, get().priorityOrder)
