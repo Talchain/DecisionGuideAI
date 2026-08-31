@@ -32,6 +32,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
+import { useMemo } from 'react'
 import { AlertTriangle, Wrench, Star, TrendingUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
@@ -41,6 +42,7 @@ import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
+import { buildNodeInsights } from './nodeInsights'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
@@ -116,6 +118,24 @@ export function AnalysisNewTabBody({
    * never auto-sent. The recommendation is found by id, so the drawer is
    * seeded with the ENGINE's own words, not with a paraphrase of the row.
    */
+  /**
+   * ⭐ ONE JOIN, ONE PLACE. "What does this run say about node X" is answered
+   * here and handed to the strip, rather than derived inside it — the strip is
+   * not the only surface that will want the answer, and two derivations of one
+   * answer disagree the first time either input changes (CLAUDE.md trap 12).
+   *
+   * Both inputs are the view model's own lists, passed rather than re-selected:
+   * this surface never mints a recommendation or a driver.
+   */
+  const nodeInsights = useMemo(
+    () =>
+      buildNodeInsights({
+        interventions: vm.strengthen.interventions,
+        drivers: vm.atAGlance.drivers,
+      }),
+    [vm.strengthen.interventions, vm.atAGlance.drivers],
+  )
+
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return
@@ -209,7 +229,12 @@ export function AnalysisNewTabBody({
             It also fixes what this tab could not do at all: describe its own
             subject. The panel could report a run in detail and never say what
             the run was about. */}
-        <ModelStrip isPreRun={vm.status.isPreRun} />
+        {/* ⭐ …and it is now a TOOL rather than a census: a mark opens the
+            run's own coaching for that node — the engine's finding, its one
+            practical instruction, and the technique the finding warrants —
+            while still routing to the node on canvas. Nothing on that detail is
+            authored by this surface; see `nodeInsights.ts`. */}
+        <ModelStrip isPreRun={vm.status.isPreRun} insights={nodeInsights} />
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
         {/* ⚠ `driverTotal` is the RUN's non-zero driver count, not the

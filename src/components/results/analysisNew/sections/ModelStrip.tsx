@@ -59,16 +59,57 @@
  * have, and a fill this data cannot justify is the defect the strip exists to
  * expose. With no fill there is nothing to explain, so the strip needs NO
  * LEGEND — the legend was furniture bought entirely by the fill.
+ *
+ * ⭐⭐ AND WHAT MAKES IT A TOOL RATHER THAN A STATUS BAR (Paul, 31 Aug 2026):
+ * "each one of those is meant to represent the data point within the model and
+ * display an information panel or a few key data points and actionable coaching
+ * below it."
+ *
+ * A mark now OPENS THE RUN'S OWN COACHING FOR THAT NODE. Nothing on that detail
+ * is authored here: the finding's `title` and `tryThis` are the engine's own
+ * sentences, the technique is the catalogue's, the driver line is the glance's.
+ * The join is `targetId`, made once in `nodeInsights.ts` and handed in as a
+ * prop, so the strip and any later surface cannot derive two different answers
+ * to "what does this run say about node X" (CLAUDE.md trap 12).
+ *
+ * ⭐ AND THE OTHER HALF OF THE SAME SENTENCE — "possibly highlight the relevant
+ * items in the graph". Pointing at or focusing a mark RINGS THAT NODE ON THE
+ * CANVAS, through the same results-panel → canvas channel the compare tab
+ * already uses and which `BaseNode` renders. The reader sees which shape the
+ * mark is before deciding to move the camera to it.
+ *
+ * ⚠ THREE ROUTES IN, NOT ONE. Hover is a mouse affordance and nothing else:
+ * touch has no hover and the keyboard has no pointer. Pointing at a mark,
+ * FOCUSING a mark and ACTIVATING a mark all open the same detail, and
+ * activation additionally does what it always did — routes to the node on
+ * canvas. `aria-expanded` on the mark and `aria-controls` at the detail are what
+ * make the disclosure legible to a screen reader rather than a visual-only
+ * change of state.
+ *
+ * ⚠ THE DETAIL DOES NOT CLEAR ON MOUSE-OUT, DELIBERATELY. A panel that empties
+ * the instant the pointer leaves cannot be READ — the reader has to travel to
+ * it, and the trip erases it. It is replaced by the next mark and by nothing
+ * else, which is also what the approved prototype does.
+ *
+ * ⚠ AND THE ABSENCE IS RENDERED. A node with no finding and no driver row says
+ * so. The alternative — showing nothing, or showing a reassurance — is the
+ * "advertisement, not affordance" defect: a reader who picks a mark and gets
+ * silence cannot tell a node nobody flagged from a control that is broken.
  */
 
 import { useId, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
-import { NodeMark } from '../nodeMarks'
+import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
 import { typography } from '../../../../styles/typography'
+import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
+import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { buildModelStrip, MARK_CAP } from '../buildModelStrip'
+import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -79,8 +120,29 @@ import { buildModelStrip, MARK_CAP } from '../buildModelStrip'
  */
 const NO_SUBJECT_LABEL = 'Your model so far'
 
+/**
+ * A stable empty index, so an unwired mount does not allocate a new Map on
+ * every render and re-run every memo downstream of it.
+ */
+const NO_INSIGHTS: NodeInsightIndex = new Map()
+
+/** What a node's detail has to say when the run named it nowhere. */
+const EMPTY_INSIGHT: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0 }
+
 export interface ModelStripProps {
   testId?: string
+  /**
+   * The run's findings and drivers, indexed by the node they NAME — built once
+   * by `buildNodeInsights` at the mount and passed in.
+   *
+   * ⚠ A PROP RATHER THAN A HOOK, AND THAT IS THE POINT. The strip has no access
+   * to the view model and must not grow one: a second derivation of "what does
+   * this run say about node X" is the mirror defect, and this surface already
+   * carries two components that would want the same answer. Absent = the strip
+   * still navigates, and every detail honestly reports that nothing on the
+   * panel refers to the node.
+   */
+  insights?: NodeInsightIndex
   /**
    * Nothing has been analysed yet. Chooses the DEFAULT open state only — a
    * reader who toggles keeps their choice for as long as the panel is mounted.
@@ -98,6 +160,7 @@ export interface ModelStripProps {
 export function ModelStrip({
   testId = 'analysis-new-model-strip',
   isPreRun = false,
+  insights = NO_INSIGHTS,
 }: ModelStripProps) {
   /**
    * ⚠ SUBSCRIBED THROUGH A SIGNATURE, NOT THROUGH THE NODE ARRAY. React Flow
@@ -128,14 +191,39 @@ export function ModelStrip({
    * strip would stay open across the pre-run boundary — see `isPreRun`.
    */
   const [override, setOverride] = useState<boolean | null>(null)
+  /**
+   * The node whose detail is on screen, by ID.
+   *
+   * ⚠ AN ID, NOT THE NODE OBJECT. The strip is rebuilt whenever the canvas
+   * signature moves, so a captured object would go stale against a renamed or
+   * retyped node while still rendering its old label. Resolving the id against
+   * the CURRENT strip on every render also makes deletion self-healing: a node
+   * that is no longer there resolves to nothing and the detail closes, with no
+   * effect to keep in sync.
+   */
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(null)
   const regionId = useId()
   const subjectId = useId()
+  const detailId = useId()
 
   // Nothing on the canvas: the panel's other surfaces already say so, and a
   // strip of empty rows would be furniture claiming to be information.
   if (strip.rows.length === 0) return null
 
   const open = override ?? isPreRun
+
+  /** Resolved against the current strip — see `activeNodeId`. */
+  const active: { id: string; label: string; kind: MarkKind } | null = (() => {
+    if (activeNodeId === null) return null
+    for (const row of strip.rows) {
+      const found = row.nodes.find((n) => n.id === activeNodeId)
+      if (found) return { id: found.id, label: found.label, kind: row.kind }
+    }
+    return null
+  })()
+  const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
+  const activeHasNothing =
+    activeInsight.driverLabel === null && activeInsight.findings.length === 0
 
   return (
     /* ⚠ A LABELLED LANDMARK, NAMED BY ITS OWN SUBJECT. A `section` is a
@@ -221,11 +309,8 @@ export function ModelStrip({
           the navigation layer, and moving it behind a disclosure is the only
           thing that happened to it. */}
       {open ? (
-        <ul
-          id={regionId}
-          className="list-none p-0 m-0 flex flex-col gap-1 pb-1"
-          data-testid={`${testId}-region`}
-        >
+        <div id={regionId} data-testid={`${testId}-region`} className="pb-1">
+        <ul className="list-none p-0 m-0 flex flex-col gap-1">
           {strip.rows.map((row) => (
             <li
               key={row.kind}
@@ -258,14 +343,59 @@ export function ModelStrip({
                     className="flex flex-wrap items-center gap-1"
                     data-testid={`${testId}-marks`}
                   >
-                    {shown.map((node) => (
+                    {shown.map((node) => {
+                      const isActive = active?.id === node.id
+                      return (
                       <button
                         key={node.id}
                         type="button"
-                        onClick={() => focusModelTarget(node.id)}
-                        className="rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+                        /* Activation keeps doing what it always did — this is
+                           the affordance the disclosure was moved to preserve —
+                           and additionally pins the detail, which is the only
+                           route a touch device has to it. */
+                        onClick={() => {
+                          setActiveNodeId(node.id)
+                          focusModelTarget(node.id)
+                        }}
+                        /* ⭐ AND THE GRAPH ANSWERS. `highlightNode` is the
+                           results-panel → canvas channel the compare tab
+                           already uses this way, and `BaseNode` renders it as a
+                           ring on the node itself — so pointing at a mark shows
+                           the reader WHICH shape on the canvas it is, before
+                           they commit to moving the camera.
+
+                           ⚠ TRANSIENT, AND THE ASYMMETRY WITH THE DETAIL IS
+                           DELIBERATE. The detail is a thing you READ and so it
+                           persists; the ring is a POINTER and belongs to the
+                           gesture. A highlight left behind by a pointer that
+                           has moved on would also sit on a shared channel that
+                           the applied-edit pulse and the AI's own directives
+                           write to. */
+                        onMouseEnter={() => {
+                          setActiveNodeId(node.id)
+                          highlightNode(node.id)
+                        }}
+                        onMouseLeave={() => clearHighlight()}
+                        /* Keyboard parity. Tabbing across the row reads each
+                           node's detail in turn and rings each node in turn,
+                           without committing a canvas move the reader did not
+                           ask for. */
+                        onFocus={() => {
+                          setActiveNodeId(node.id)
+                          highlightNode(node.id)
+                        }}
+                        onBlur={() => clearHighlight()}
+                        aria-expanded={isActive}
+                        /* Points at the detail ONLY while this mark owns it —
+                           the detail is unmounted otherwise, so a resting
+                           reference on every mark would dangle on all but one. */
+                        aria-controls={isActive ? detailId : undefined}
+                        className={`rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                          isActive ? 'ring-2 ring-info' : ''
+                        }`}
                         data-testid={`${testId}-mark`}
                         data-node-id={node.id}
+                        data-active={isActive ? 'true' : undefined}
                         title={node.label || undefined}
                       >
                         <NodeMark kind={row.kind} />
@@ -275,7 +405,8 @@ export function ModelStrip({
                             : `Show this ${row.kind} on the canvas`}
                         </span>
                       </button>
-                    ))}
+                      )
+                    })}
                     {hidden > 0 ? (
                       <span
                         className={`${typography.panelMeta} text-text-light`}
@@ -294,6 +425,155 @@ export function ModelStrip({
             </li>
           ))}
         </ul>
+
+        {/* ── WHAT THIS RUN SAYS ABOUT THE PICKED NODE ────────────────────
+            One slot, replaced rather than accumulated: a stack of open details
+            in a 280px column is the density this panel was cut down from.
+
+            ⚠ EVERY SENTENCE BELOW IS THE ENGINE'S OR THE CATALOGUE'S. The only
+            strings this component contributes are the affordance line, the
+            absence line and the cap disclosure — furniture and honesty, never a
+            statement about the model. */}
+        {active === null ? (
+          <p
+            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+            data-testid={`${testId}-hint`}
+          >
+            {COPY.modelStrip.hint}
+          </p>
+        ) : (
+          <div
+            id={detailId}
+            /* `min-w-0` on the flex children and wrapping on every producer
+               string: at the 280px floor a long factor name or an engine
+               sentence with no spaces must wrap inside this box rather than
+               widen the panel. */
+            className="mt-1 rounded bg-panel-hover p-2 space-y-1 min-w-0"
+            data-testid={`${testId}-detail`}
+            data-node-id={active.id}
+          >
+            <p
+              className={`${typography.panelBody} text-text-header m-0 flex items-start gap-1 min-w-0`}
+              data-testid={`${testId}-detail-title`}
+            >
+              <NodeMark kind={active.kind} className="w-3 h-3 mt-0.5" />
+              {/* No label recorded is not an error and not a blank: the kind
+                  noun is the only true name available, and it is the same
+                  substitution the mark's own accessible name makes. */}
+              <span className="min-w-0 break-words">
+                {active.label || COPY.modelStrip.kindNoun[active.kind]}
+              </span>
+            </p>
+
+            <div className="flex flex-wrap items-center gap-1">
+              <span
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`${testId}-detail-kind`}
+              >
+                {COPY.modelStrip.kindNoun[active.kind]}
+              </span>
+              {/* ⚠ PRESENCE ONLY, AND THE ASYMMETRY IS DELIBERATE. The glance's
+                  driver list is capped, so membership licenses "the glance named
+                  this among what matters most" and non-membership licenses
+                  nothing — which is why no chip renders for its absence. The
+                  magnitude is deliberately not repeated here: a bar or a
+                  percentage is only readable beside the basis caption the glance
+                  carries, and duplicating that caption into every node's detail
+                  would restate a claim this panel already makes once. */}
+              {activeInsight.driverLabel !== null ? (
+                <span
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info`}
+                  data-testid={`${testId}-detail-driver`}
+                >
+                  {COPY.glance.whatMattersMost}
+                </span>
+              ) : null}
+            </div>
+
+            {activeInsight.findings.map((finding) => {
+              // Hoisted so the narrowing survives into the handler below; a
+              // property check does not narrow inside a closure.
+              const method = finding.method
+              return (
+              <div
+                key={finding.recommendationId}
+                className="space-y-1 min-w-0"
+                data-testid={`${testId}-detail-finding`}
+                data-recommendation-id={finding.recommendationId}
+              >
+                <p
+                  className={`${typography.panelBody} text-text-header m-0 break-words`}
+                  data-testid={`${testId}-detail-finding-title`}
+                >
+                  {finding.title}
+                </p>
+                <p className={`${typography.panelBody} text-text-body m-0 break-words`}>
+                  {/* The lead-in is the Strengthen panel's own, imported rather
+                      than respelled, and the emphasis is carried semantically —
+                      the panel scale defines its own weights and a raw utility
+                      here would be a design-system violation as well as a second
+                      spelling of one label. */}
+                  <strong>{STRENGTHEN_COPY.tryThisLead}</strong> {finding.tryThis}
+                </p>
+                {/* ⭐ THE TECHNIQUE, ON THE NODE THAT WARRANTED IT — the same
+                    control `StrengthenTheReasoning` renders, reached from the
+                    model rather than from a list. `null` for most findings by
+                    design (`recommendationMethod.ts`): no placeholder, no
+                    default technique. Identity rides the dispatch so CEE learns
+                    which technique was invoked. */}
+                {method ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAskOlumi({
+                        context: finding.context,
+                        draft: method.prompt,
+                        label: method.title,
+                        parameters: { method_id: method.id },
+                        source: 'chip',
+                        targetId: active.id,
+                      })
+                    }
+                    className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    data-testid={`${testId}-detail-method`}
+                    data-method-id={method.id}
+                    title={method.description}
+                  >
+                    <Lightbulb className="w-3 h-3" aria-hidden={true} />
+                    {method.title}
+                    {/* A browser renders `title` on pointer hover only, so the
+                        science content would otherwise be withheld from anyone
+                        navigating by keyboard. */}
+                    <span className="sr-only">{method.description}</span>
+                  </button>
+                ) : null}
+              </div>
+              )
+            })}
+
+            {activeInsight.withheldFindings > 0 ? (
+              <p
+                className={`${typography.panelMeta} text-text-light m-0`}
+                data-testid={`${testId}-detail-more`}
+              >
+                {COPY.modelStrip.moreFindings(activeInsight.withheldFindings)}
+              </p>
+            ) : null}
+
+            {/* ⚠ THE ABSENCE IS THE RESULT, AND IT IS RENDERED. Silence here
+                would be indistinguishable from a broken control, and a
+                reassurance would be a claim nothing measured. */}
+            {activeHasNothing ? (
+              <p
+                className={`${typography.panelMeta} text-text-light m-0`}
+                data-testid={`${testId}-detail-empty`}
+              >
+                {COPY.modelStrip.noInsight}
+              </p>
+            ) : null}
+          </div>
+        )}
+        </div>
       ) : null}
     </section>
   )
