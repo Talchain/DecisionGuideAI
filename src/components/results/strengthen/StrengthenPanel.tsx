@@ -97,7 +97,15 @@ type Notice =
   | { kind: 'addressed' }
   | { kind: 'focus-failed' }
 
-const NOTICE_MS = 6000
+/**
+ * How long a transient notice (dismissed / addressed / focus-failed) stays up.
+ *
+ * ⚠ EXPORTED because Analysis (New) shows the SAME dismissal notice and must not
+ * pick its own duration. Two timings for one behaviour is a hand-maintained
+ * mirror (CLAUDE.md trap 12) that a user would actually feel: the same action
+ * lingering for different lengths on two surfaces reads as a bug.
+ */
+export const NOTICE_MS = 6000
 
 function RecRow({
   record,

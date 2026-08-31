@@ -43,7 +43,7 @@
  * would no longer be about information architecture.
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
@@ -52,7 +52,7 @@ import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { SEVERITY_BADGE_CLASS } from '../../strengthen/StrengthenPanel'
+import { SEVERITY_BADGE_CLASS, NOTICE_MS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
@@ -109,6 +109,31 @@ export function StrengthenTheReasoning({
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
   const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
 
+  /**
+   * ⚠ THE NOTICE IS TRANSIENT, ON THE OWNER'S TIMING. An earlier draft left it up
+   * indefinitely, which accumulates furniture and — worse — would have made the
+   * SAME action linger for different lengths on this surface and on the shipped
+   * Strengthen panel. `NOTICE_MS` is imported from that panel rather than
+   * restated, so the two cannot drift.
+   *
+   * The timer is cleared on replace and on unmount: dismissing a second card
+   * while the first notice is up must not leave an orphaned timeout that blanks
+   * the new one early.
+   */
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
+
+  const showUndo = useCallback((next: { id: string; title: string }) => {
+    setUndoable(next)
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setUndoable(null), NOTICE_MS)
+  }, [])
+
+  const clearUndo = useCallback(() => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    setUndoable(null)
+  }, [])
+
   return (
     <SectionShell
       title={COPY.sections.strengthen}
@@ -134,7 +159,7 @@ export function StrengthenTheReasoning({
             type="button"
             onClick={() => {
               restoreDismissed(undoable.id)
-              setUndoable(null)
+              clearUndo()
             }}
             className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
             data-testid={`${testId}-dismissed-undo`}
@@ -325,7 +350,7 @@ export function StrengthenTheReasoning({
                     type="button"
                     onClick={() => {
                       dismiss(rec.id)
-                      setUndoable({ id: rec.id, title: rec.title })
+                      showUndo({ id: rec.id, title: rec.title })
                     }}
                     className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
