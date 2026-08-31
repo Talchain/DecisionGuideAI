@@ -124,7 +124,26 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    *
    * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled:
    * "Challenge this" (gated `isFull || isGoal`), "Explore ▸ Trace to goal" and
-   * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete.
+   * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete —
+   * plus two Graph Lens items, "Isolate this option's paths"
+   * (`lens-isolate-option`, option nodes) and "Show sensitivity view"
+   * (`lens-sensitivity`, factor nodes carrying `factor_sensitivity`), both
+   * post-analysis and both behind `isGraphLensEnabled()`
+   * (`contextMenu/useMenuItems.ts:470-500`).
+   *
+   * ⚠ THE LIST ABOVE WAS SHORT BY THOSE TWO, WHICH IS THE SAME DEFECT AS THE
+   * ONE THIS BLOCK OPENS BY CONFESSING. The first version named three
+   * invitations that cannot render; the correction then omitted two that can.
+   * Over-claiming and under-claiming are the same failure — a list in shipped
+   * source that does not match what the code produces — and I made both in one
+   * comment, having written "derived rather than recalled" above it.
+   *
+   * ⚠ AND WHAT I STILL CANNOT SAY: whether those two are on for a real user.
+   * `VITE_FEATURE_GRAPH_LENS` is absent from `netlify.toml`, so its deployed
+   * value is a Render/Netlify dashboard question and not derivable from this
+   * tree (CLAUDE.md trap 18 — YAML is not the deployed env). They are
+   * unstripped and reachable BY CONSTRUCTION when the flag is on; that is the
+   * precise claim, and "the menu contains them by default" is not.
    *
    * Until this button there were exactly two doors to them: RIGHT-CLICK, which
    * has no equivalent on a touch device, and SHIFT+F10, which nobody discovers.
