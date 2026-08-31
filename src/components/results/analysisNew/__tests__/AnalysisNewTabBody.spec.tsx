@@ -213,7 +213,10 @@ describe('empty states say what was NOT established (§19)', () => {
 
 describe('staleness contextualises without dominating (§20)', () => {
   it('states the MODEL changed — not that the result is wrong — and keeps the content', () => {
-    renderBody(genuineDecision(), { isStale: true })
+    // ⚠ `staleReason` IS NOW REQUIRED TO GET THIS SENTENCE. It used to fall out
+    // of `isStale` alone, which is how a cannot-confirm run came to assert that
+    // the user had changed their model.
+    renderBody(genuineDecision(), { isStale: true, staleReason: 'changed' })
     expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
       'The model has changed since this analysis ran.',
     )
@@ -564,10 +567,39 @@ describe('pre-run never carries a staleness claim', () => {
   it('OPPOSITE-DIRECTION TWIN: still shows staleness once a run IS displayed', () => {
     // Without this, the fix could pass by suppressing the line unconditionally
     // — closing a contradiction by deleting a true disclosure.
-    renderBody(genuineDecision(), { isPreRun: false, isStale: true })
+    renderBody(genuineDecision(), { isPreRun: false, isStale: true, staleReason: 'changed' })
     expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
       'The model has changed since this analysis ran.',
     )
+  })
+
+  /**
+   * ⭐⭐ THE CASE THIS SURFACE GOT WRONG, and the reason the two are named apart.
+   *
+   * `OutputsDock.tsx:981` computes ONE boolean over `'stale' || 'unknown'`, so on
+   * a run CEE could not VERIFY this panel's FIRST line told the user their model
+   * had CHANGED — an assertion about the world from an absence of evidence. The
+   * dock's own comment forbids exactly that, and the old Analysis tab honours it
+   * with strict equality (`AnalysisFreshnessNotice`, `freshness === 'stale'`).
+   */
+  it('says we CANNOT CONFIRM when that is all we know — never that the model changed', () => {
+    renderBody(genuineDecision(), { isPreRun: false, isStale: true, staleReason: 'unconfirmed' })
+    expect(screen.getByTestId('analysis-new-status-freshness-unknown')).toHaveTextContent(
+      'We cannot confirm whether this analysis reflects the current model.',
+    )
+    // And it must NOT also make the stronger claim.
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+  })
+
+  /**
+   * ⚠ FAIL-CLOSED. A caller that says nothing about WHY gets the weaker claim,
+   * because not knowing why is itself a cannot-confirm. The opposite default
+   * would reinstate the defect for every caller that forgets the field.
+   */
+  it('defaults to cannot-confirm when the caller gives no reason', () => {
+    renderBody(genuineDecision(), { isPreRun: false, isStale: true })
+    expect(screen.getByTestId('analysis-new-status-freshness-unknown')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
   })
 
   it('⭐ NO staleness claim on a fresh completed run — the default state', () => {

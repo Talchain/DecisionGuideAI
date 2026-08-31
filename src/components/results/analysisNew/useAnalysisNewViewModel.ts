@@ -45,13 +45,14 @@ export interface UseAnalysisNewViewModelArgs {
   isPreRun: boolean
   isRunning: boolean
   isStale: boolean
+  staleReason?: 'changed' | 'unconfirmed' | null
   nSamples?: number
   seedUsed?: number | string
   responseHash?: string
 }
 
 export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): AnalysisNewViewModel {
-  const { data, isPreRun, isRunning, isStale, nSamples, seedUsed, responseHash } = args
+  const { data, isPreRun, isRunning, isStale, staleReason, nSamples, seedUsed, responseHash } = args
 
   // ── reads only ────────────────────────────────────────────────────────────
   const currentStage = useCanvasStore((s) => s.currentStage)
@@ -117,6 +118,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         isPreRun,
         isRunning,
         isStale,
+        staleReason,
         nSamples,
         seedUsed,
         responseHash,

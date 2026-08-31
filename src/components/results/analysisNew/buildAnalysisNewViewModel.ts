@@ -135,6 +135,11 @@ export interface AnalysisNewViewModelInputs {
   isRunning: boolean
   /** The displayed report predates the current model (freshness only). */
   isStale: boolean
+  /**
+   * Why the report may not match the model. Threaded from the dock's freshness
+   * verdict; absent means we could not establish it, which is `unconfirmed`.
+   */
+  staleReason?: 'changed' | 'unconfirmed' | null
   /** Monte Carlo sample count, when the producer disclosed one. */
   nSamples?: number
   /** Deterministic seed, when disclosed. */
@@ -1513,6 +1518,14 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
     isPreRun: inputs.isPreRun,
     isRunning: inputs.isRunning,
     isStale: inputs.isStale,
+    /**
+     * ⚠ 'changed' IS A CLAIM ABOUT THE WORLD; 'unconfirmed' IS A CLAIM ABOUT
+     * OUR EVIDENCE. The dock hands this surface one boolean covering both, so
+     * without the reason the panel asserted the first for either.
+     * Fail-closed: an absent or unrecognised reason reads as 'unconfirmed',
+     * because not knowing why is itself a cannot-confirm.
+     */
+    staleKind: inputs.isStale ? (inputs.staleReason === 'changed' ? 'changed' : 'unconfirmed') : null,
     // 'partial' is the producer's own word for an incomplete result. The
     // completeness verdict is the second, independent source.
     isProvisional: status === 'partial' || data.completeness.status === 'partial',

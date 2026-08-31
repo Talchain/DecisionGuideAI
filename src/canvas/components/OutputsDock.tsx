@@ -147,6 +147,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
+import { staleReasonFromFreshness } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -979,6 +980,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const composedAnalysisState = useAnalysisState()
   const displayedFreshness = composedAnalysisState.displayedFreshness
   const analysisNotConfirmedFresh = displayedFreshness === 'stale' || displayedFreshness === 'unknown'
+  /**
+   * ⚠⚠ THE REASON, NOT JUST THE FLAG — and it belongs here, beside the boolean
+   * that loses it.
+   *
+   * `analysisNotConfirmedFresh` is ONE boolean over `'stale' || 'unknown'`, and
+   * the Reasoning tab rendered "The model has changed since this analysis ran."
+   * for BOTH — asserting a fact about the user's model from an absence of
+   * evidence, on that panel's FIRST line. The comment a few lines below already
+   * forbids exactly this ("so the stale banner never claims 'you've updated the
+   * model' for a CEE-sourced 'unknown'"), and the OLD tab honours it:
+   * `AnalysisFreshnessNotice` computes `freshness === 'stale'` with STRICT
+   * equality and gives 'unknown' its own sentence.
+   *
+   * ⚠ ResultsBody deliberately does NOT receive this. The old tab already makes
+   * the distinction through its own notice; handing it a second authority for
+   * one question is the trap this is fixing, not a symmetry to restore.
+   */
+  const analysisStaleReason = staleReasonFromFreshness(displayedFreshness)
   // Brief step 6 — the composed run state that decides WHICH truth-state
   // banner this surface may render. It derives nothing new: it maps the
   // verdicts the refusal/freshness/results owners already publish onto the
@@ -3491,6 +3510,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   responseHash={results?.hash}
                   onFocusNode={handleFocusResultNode}
                   isStale={analysisNotConfirmedFresh}
+                  staleReason={analysisStaleReason}
                 />
               </SectionErrorBoundary>
             )}

@@ -133,6 +133,12 @@ export interface AtAGlanceProps {
   onRunIntervention?: (recommendationId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
   isStale?: boolean
+  /**
+   * WHY the report may not match the model. Defaults to 'unconfirmed', which is
+   * the honest reading of a caller that did not say — never 'changed', because
+   * that would assert a fact from an absence.
+   */
+  staleKind?: 'changed' | 'unconfirmed' | null
   /** The producer disclosed the result as partial. */
   isProvisional?: boolean
   testId?: string
@@ -167,6 +173,7 @@ export function AtAGlance({
   primaryIntervention,
   onRunIntervention,
   isStale = false,
+  staleKind = 'unconfirmed',
   isProvisional = false,
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -221,7 +228,20 @@ export function AtAGlance({
   // Rule 3 + 4. One ribbon, in the order a reader needs it: freshness first
   // (it invalidates the tense), completeness second (it bounds the claim).
   const ribbon: Array<{ testId: string; text: string }> = []
-  if (isStale) ribbon.push({ testId: 'analysis-new-status-stale', text: COPY.status.stale })
+  /**
+   * ⚠⚠ THIS USED TO ASSERT "the model has changed" ON A CANNOT-CONFIRM RUN.
+   * The dock collapses `'stale'` and `'unknown'` into one boolean
+   * (`OutputsDock.tsx:981`), so an absence of evidence was rendering as a
+   * statement of fact — on this panel's FIRST line. The dock's own comment
+   * forbids it and the old Analysis tab honours it with strict equality.
+   */
+  if (isStale) {
+    ribbon.push(
+      staleKind === 'changed'
+        ? { testId: 'analysis-new-status-stale', text: COPY.status.stale }
+        : { testId: 'analysis-new-status-freshness-unknown', text: COPY.status.freshnessUnknown },
+    )
+  }
   if (isProvisional) {
     ribbon.push({ testId: 'analysis-new-status-provisional', text: COPY.status.provisional })
   }
