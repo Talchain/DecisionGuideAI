@@ -34,9 +34,10 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
-import { isSuppressedUnit } from '../utils/labelUtils'
+import { isSuppressedUnit, formatWinProbability } from '../utils/labelUtils'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
@@ -215,8 +216,69 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    *   · decision, risk and action cards have no single headline quantity.
    * Nodes outside that scope behave exactly as they did before this change.
    */
+  // Decision Graph Display v2: Get Results-mode display metadata.
+  //
+  // ⚠ DECLARED HERE, ABOVE `lodBodyLine`, AND THE ORDER IS LOAD-BEARING. It sat
+  // ~90 lines further down until the low-zoom line began reading `winRate`; a
+  // `useMemo` runs its factory and evaluates its dependency array DURING the
+  // render that declares it, so leaving the declaration below would put
+  // `displayMetadata` in its own temporal dead zone and throw
+  // `Cannot access before initialization` on every node — not a subtle bug, but
+  // one that a type checker does not catch and that only fires at runtime.
+  // `useNodeDisplayMetadata` takes only props, so moving it up is safe and
+  // nothing between the two positions referenced it.
+  const displayMetadata = useNodeDisplayMetadata(id, nodeType)
+
   const lodBodyLine = useMemo<string | null>(() => {
-    if (!lodActive || nodeType !== 'factor') return null
+    if (!lodActive) return null
+
+    /**
+     * ⭐ OPTIONS TOO — AND THE PREMISE THAT EXCLUDED THEM HAS CHANGED.
+     *
+     * The scope note above excluded options on the ground that "an option's win
+     * figure ships as a full comparative SENTENCE (`COMPARATIVE_COPY.phrase`)
+     * which truncates to nothing at this size, and the bare percentage on its
+     * own is an unlabelled number". Both halves were true when written. The
+     * second is no longer, because 31 Aug added `COMPARATIVE_COPY.anchor` —
+     * a ONE-WORD anchor created for exactly this situation, in the register's
+     * own words "for a bar-and-number row where a sentence will not fit". So
+     * the anchored pair `Ahead 6%` is nine characters against a budget of
+     * about twenty, and it is neither a sentence nor a bare number.
+     *
+     * ⚠ THIS IS A PREMISE CHANGE, NOT A SCOPE WIDENING I TALKED MYSELF INTO.
+     * The exclusions that still hold, hold for reasons the anchor does not
+     * touch: goal and outcome figures carry MANDATORY adjacent disclosures
+     * (`GOAL_FIT_BASIS_CAVEAT_COPY`, possessive withholding) that cannot ride
+     * on one line without restating their gate, so they stay blank rather than
+     * print a figure stripped of the caveat that makes it honest; and decision,
+     * risk and action cards still have no single headline quantity. Those are
+     * unchanged and deliberately still excluded.
+     *
+     * Why it is worth the line: zooming out is how a team reads the WHOLE
+     * model, and an options-and-standing view is the one reading that answers
+     * "where does this decision currently stand" at a glance. Titles alone name
+     * the alternatives without saying anything about them.
+     *
+     * ⛔ AND IT INHERITS THE COMPUTE-STATUS GATE FOR FREE, which is why this
+     * change sits on top of the failed-option fix rather than beside it.
+     * `winRate` is `null` when the producer said the computation produced no
+     * usable result (`status === 'failed'`, `n_valid === 0`), so a degenerate
+     * option renders NOTHING here rather than `Ahead 0%` — which at this zoom,
+     * stripped of the disclosure the full card carries, would be the most
+     * compact possible fabrication. Built on `staging` before that fix landed,
+     * this line would have shipped exactly that.
+     *
+     * No new datum and no second formatter: the anchor comes from the register
+     * that owns the wording and the number from `formatWinProbability`, the
+     * same two the full card already renders.
+     */
+    if (nodeType === 'option') {
+      const winRate = displayMetadata.winRate
+      if (winRate === null) return null
+      return `${COMPARATIVE_COPY.anchor} ${formatWinProbability(winRate)}`
+    }
+
+    if (nodeType !== 'factor') return null
     const record = data as Record<string, unknown> | undefined
     if (!record) return null
     const observed = record.observedState as Record<string, unknown> | undefined
@@ -228,7 +290,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     // the most compressed rest state the card has. Display only — it can shorten
     // the string and can never change the value it states.
     return collapseEstimateDisplay(factorDisplayText(normalised, label))
-  }, [lodActive, nodeType, data, label])
+  }, [lodActive, nodeType, data, label, displayMetadata.winRate])
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
@@ -257,9 +319,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   // Canvas view mode: 'decision' (clean) vs 'model' (full detail)
   const viewMode = useCanvasStore(s => s.viewMode)
-
-  // Decision Graph Display v2: Get Results-mode display metadata
-  const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
