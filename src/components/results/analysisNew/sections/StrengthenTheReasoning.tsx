@@ -50,6 +50,11 @@ import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { openDefineSuccess, openDecisionRecord } from '../../modals'
+import { useShowToastSafe } from '../../../../canvas/ToastContext'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../../../../canvas/mutations/mutationAuthority'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -202,6 +207,7 @@ export function StrengthenTheReasoning({
    * `disputingId` is the card with the box open; at most one at a time, because
    * two open composers in a 278px column is not a thing anyone can use.
    */
+  const showToast = useShowToastSafe()
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
@@ -260,23 +266,55 @@ export function StrengthenTheReasoning({
    * around — offered a chat about defining success instead of the control that
    * defines it. Advice you read, where the engine had already built work you do.
    *
-   * ⚠⚠ AND IT IS NOT A NEW DISPATCH AUTHORITY, which is why the original
-   * restriction can be lifted safely. `openDefineSuccess` / `openDecisionRecord`
-   * are global store openers, and BOTH modals are already mounted by the dock
-   * that hosts this tab (`OutputsDock.tsx`, `<DefineSuccessModal />` /
-   * `<DecisionRecordModal />`). The modal owns the mutation and commits through
-   * the canonical path, exactly as it does from the legacy panel. This surface
-   * still mutates nothing itself — it stops withholding a control that already
-   * exists.
+   * ⚠⚠ "ALREADY MOUNTED" ANSWERS THE WRONG QUESTION, AND THE FIRST VERSION OF
+   * THIS COMMENT MADE EXACTLY THAT MISTAKE. It argued the route was safe
+   * because both modals are mounted by the dock. True, and beside the point:
+   * `mutationAuthority.ts` exists to separate *"may this control LOOK LIKE a
+   * shared-model edit?"* from *"may this write actually happen?"* — two
+   * questions under one name, and conflating them is how a surface comes to
+   * offer a control the model cannot honour.
    *
-   * Unknown or conversational kinds fall through to the drawer, unchanged.
+   * ⭐ SO define-success IS GATED, and the gate is statically CLOSED.
+   * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is `'disabled'` in a
+   * `const satisfies` object, so `hasServerGraphAuthority` is a compile-time
+   * `false`. Both pre-existing call sites already withhold on it —
+   * `ResultsBody.tsx:412` passes `undefined`, and `StrengthenContainer.tsx:243`
+   * substitutes the Ask-Olumi draft this arm now mirrors.
+   *
+   * What the gate is protecting the user from is specific: only the THRESHOLD
+   * reaches the analysis. Metric, direction, timeframe and baseline persist to
+   * `sessionStorage` (`successMeasureStore.ts:16-17` — "survives reloads, dies
+   * with the session"), so a teammate opening the same scenario sees none of
+   * it, while the modal's toast says "Success measure saved." Opening it here
+   * would have made `strengthen:success-measure` — `priority: 0`, the top card
+   * of every run — the product's most prominent false promise.
+   *
+   * decision-record has no such gate on any surface and opens unconditionally,
+   * which is the half of this change that stands.
    */
   const runPrimaryAction = useCallback((rec: Recommendation) => {
     if (rec.action.kind === 'open-modal') {
-      if (rec.action.modal === 'define-success') return openDefineSuccess()
-      if (rec.action.modal === 'decision-record') return openDecisionRecord()
-      // An open-modal route naming a modal this surface cannot open must not
-      // silently become a chat about it — fall through only for known kinds.
+      if (rec.action.modal === 'define-success') {
+        if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)) {
+          return openDefineSuccess()
+        }
+        // Mirrors StrengthenContainer: keep the coaching action useful without
+        // opening the local-only editor. Falls through to the drawer below.
+      } else if (rec.action.modal === 'decision-record') {
+        return openDecisionRecord()
+      } else {
+        /**
+         * ⚠ AN `open-modal` NAMING NO MODAL THIS SURFACE CAN OPEN. `modal?:` is
+         * optional, so `{ kind: 'open-modal' }` is compile-clean and a third
+         * emitter reaches here with no type error. The previous comment claimed
+         * such a route "must not silently become a chat about it" — and then let
+         * it do exactly that, which is a comment stating the opposite of its
+         * code. The legacy panel tells the user (`StrengthenContainer.tsx:292`);
+         * so does this one. We deliberately invent no recovery.
+         */
+        showToast("That didn't go through. Open the Olumi conversation and ask there.")
+        return
+      }
     }
     openAskOlumi({
       context: rec.whyNow || rec.signal,
@@ -285,7 +323,7 @@ export function StrengthenTheReasoning({
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
       ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
     })
-  }, [])
+  }, [showToast])
 
   const closeDispute = useCallback(() => {
     setDisputingId(null)

@@ -80,7 +80,29 @@ beforeEach(() => {
 })
 
 describe('an open-modal finding opens the modal, not a chat about it', () => {
-  it('define-success opens the Define-success modal', () => {
+  /**
+   * ⭐⭐ define-success IS WITHHELD, AND THAT IS THE CORRECT BEHAVIOUR.
+   *
+   * The first version of this test asserted the modal OPENED, because the first
+   * version of the code opened it. Both were wrong, and the review that caught
+   * it named the reason precisely: "already mounted by the dock" answers *may
+   * this control look like a shared-model edit?* and not *may this write
+   * happen?* — two questions under one name.
+   *
+   * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is `'disabled'` in a `const
+   * satisfies` object, so the gate is a compile-time `false` and BOTH
+   * pre-existing call sites already withhold on it. Only the THRESHOLD reaches
+   * the analysis; metric, direction, timeframe and baseline die with the
+   * session, under a toast reading "Success measure saved." Opening it from
+   * the top card of every run would have been the product's most prominent
+   * false promise.
+   *
+   * ⚠ This test is now the ONLY pinned behaviour for that gate on either
+   * surface — `StrengthenContainer`'s authority branch has no test at all — so
+   * a later reconciliation is pulled toward the honest arm rather than away
+   * from it.
+   */
+  it('withholds the local-only Define-success editor and hands over a draft instead', () => {
     renderOpen(
       <StrengthenTheReasoning
         interventions={[
@@ -93,9 +115,9 @@ describe('an open-modal finding opens the modal, not a chat about it', () => {
     )
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-action'))
 
-    expect(openDefineSuccess).toHaveBeenCalledTimes(1)
-    // ⭐ THE DEFECT, ASSERTED DIRECTLY: it must not fall through to a chat.
-    expect(openAskOlumi).not.toHaveBeenCalled()
+    expect(openDefineSuccess).not.toHaveBeenCalled()
+    // Withheld, not dropped: the coaching action stays useful.
+    expect(openAskOlumi).toHaveBeenCalledTimes(1)
   })
 
   it('decision-record opens the Decision-record modal', () => {
