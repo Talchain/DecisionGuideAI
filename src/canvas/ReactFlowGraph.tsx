@@ -246,6 +246,66 @@ interface ReactFlowGraphProps {
  * - Only use sessionStorage when no persistent source exists (draft mode)
  */
 /**
+ * WHICH SCENARIO DOES THE AUTO-RECOVERED GRAPH BELONG TO?
+ *
+ * ⚠ THIS FUNCTION EXISTS BECAUSE THE BOOT PATH ANSWERED THAT QUESTION FROM THE
+ * WRONG RECORD, AND THE PRICE WAS SILENT DATA LOSS. Measured on the DEPLOYED
+ * staging build `a206cca9`, 31 Aug 2026, guest session, scenario
+ * `73c56180-195c-46f4-b910-e89aded4fc26`.
+ *
+ * TWO records carry the identity of an auto-recovered guest graph:
+ *   · `localStorage['olumi-canvas-current-scenario-id']` — a POINTER, written
+ *     only by the lazy mint in `useConversation.sendTurn`, by `loadScenario`
+ *     and by the templates panel;
+ *   · `autosave.scenarioId` — the identity written INTO the record, by the same
+ *     projection, in the same write, as the graph it belongs to.
+ *
+ * The boot path read ONLY the pointer, and on a miss called
+ * `clearCurrentScenarioId()` — discarding an identity the graph beside it was
+ * still carrying. `sendTurn` then MINTS a fresh UUID (correctly, for a guest
+ * with no scenario at all), so from that moment every turn is addressed to a
+ * scenario CEE holds NO GRAPH for. `factor_value_edit` is the one that hurts:
+ * the event is well-formed and does leave the browser, CEE has no such node to
+ * write, and the optimistic value is reverted minutes later with no
+ * explanation. The user typed a number, the row showed it, and it is gone.
+ *
+ * THE MEASUREMENT, one variable, opposite outcomes:
+ *   pointer ABSENT  → POST /proxy/v5/turn carried
+ *                     `scenario_id: e2b272ba…` (0 nodes server-side) while the
+ *                     graph ON SCREEN was `73c56180…`; cold read of
+ *                     `73c56180…` after the edit: `value 0.5, cee_inference`,
+ *                     UNCHANGED.
+ *   pointer PRESENT → same row, same click, same typed 0.85, and the turn
+ *                     carried `scenario_id: 73c56180…`; cold read after:
+ *                     `raw_value 0.85, source user_override`. It persisted.
+ *
+ * ⚠ AND THE OLD BRANCH WAS SELF-SUSTAINING: it called `clearCurrentScenarioId()`
+ * on the miss, so once the pointer was gone every subsequent reload re-erased it
+ * and re-forked. Nothing anywhere reported it; the only visible symptom was a
+ * value quietly reverting.
+ *
+ * `RecoveryBanner`'s MANUAL restore already binds the graph to its own record
+ * (`currentScenarioId: autosaveData.scenarioId || null`). The AUTOMATIC restore
+ * is the same question and must not answer it differently (trap 21 — two
+ * authorities, one question).
+ *
+ * PRECEDENCE IS DELIBERATE. The pointer still WINS when present and well-formed:
+ * it is the LIVE conversation's id, and the autosave record can be one
+ * projection behind it. Only a MISS falls through to the record. A legacy
+ * (non-UUID) id on either side is still refused, so the "drop into draft mode"
+ * behaviour survives for the case it was written for — and `resetCanvas` clears
+ * the AUTOSAVE as well (`store.ts`), so "Start fresh" never reaches this branch.
+ */
+export function resolveRestoredScenarioId(
+  pointerId: string | null,
+  autosaveScenarioId: string | null | undefined,
+): string | null {
+  if (pointerId && isUUID(pointerId)) return pointerId
+  if (autosaveScenarioId && isUUID(autosaveScenarioId)) return autosaveScenarioId
+  return null
+}
+
+/**
  * ROADMAP 2.1003 / F4 — EXPORTED FOR TEST SO THE CALL SITE IS PINNED.
  *
  * ⚠ Measured: deleting the freshness re-ingestion inside this function fully
@@ -1661,13 +1721,29 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           goalConstraints: autosave.goalConstraints ?? null,
         })
         // Scenario/thread continuity: preserve a UUID-format current-scenario ID across
-        // the refresh so the in-flight CEE conversation keeps the same scenario_id. The
-        // periodic autosave stamps this same ID into the autosave slot, so the recovered
-        // graph and the preserved conversation belong together. Only a missing or legacy
-        // (non-UUID) ID is cleared to drop into draft mode.
-        const persistedScenarioId = scenarios.getCurrentScenarioId()
-        if (persistedScenarioId && isUUID(persistedScenarioId)) {
-          useCanvasStore.setState({ currentScenarioId: persistedScenarioId })
+        // the refresh so the in-flight CEE conversation keeps the same scenario_id.
+        //
+        // ⚠ THE SECOND ARGUMENT IS THE FIX. The comment that used to sit here said
+        // "the periodic autosave stamps this same ID into the autosave slot, so the
+        // recovered graph and the preserved conversation belong together" — and then
+        // the code read only the POINTER and threw the record's own id away when the
+        // pointer was missing. That is how a restored graph gets rebound to a freshly
+        // minted scenario and every later edit is addressed to a scenario CEE has no
+        // graph for. See `resolveRestoredScenarioId` for the measurement.
+        const restoredScenarioId = resolveRestoredScenarioId(
+          scenarios.getCurrentScenarioId(),
+          autosave.scenarioId,
+        )
+        if (restoredScenarioId) {
+          useCanvasStore.setState({ currentScenarioId: restoredScenarioId })
+          // RECONVERGE THE TWO RECORDS. Without this write the pointer stays
+          // missing, this branch re-runs on every reload, and everything that reads
+          // the pointer directly — the store's own boot seed (`store.ts`
+          // `currentScenarioId: scenarios.getCurrentScenarioId()`) and
+          // `resetCanvas`'s saved-record test — keeps disagreeing with the graph on
+          // screen. A restore that fixes only the in-memory half leaves the defect
+          // armed for the next reload.
+          scenarios.setCurrentScenarioId(restoredScenarioId)
         } else {
           scenarios.clearCurrentScenarioId()
           useCanvasStore.setState({ currentScenarioId: null })
