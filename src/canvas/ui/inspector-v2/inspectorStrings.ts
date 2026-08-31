@@ -546,14 +546,63 @@ export const ASK_TEMPLATES: Record<string, string> = {
 }
 
 /**
- * Resolve an "Ask about this" question template with element labels.
- * Returns null if no template matches or required placeholders are missing.
+ * ⭐ THE CHANGE REGISTER — "I want to change this", per element type.
+ *
+ * The twin of `ASK_TEMPLATES`, and it exists because of a measured product
+ * problem rather than a wish for symmetry: **most of the model cannot be edited
+ * directly, and the surfaces that cannot edit it currently end in a refusal.**
+ *
+ * There are exactly FOUR server-authoritative edit carriers -- `factor_value_edit`,
+ * `prior_range_edit`, `edge_adjudication` and `structural_delete`. Edge strength,
+ * likelihood, direction, the goal target and node labels have NO durable carrier:
+ * they write to the local store and are overwritten by the next server rehydrate
+ * (measured 31 Aug 2026 -- a rename persisted to the autosave, survived 30s, and
+ * was destroyed on reload). That is why the inspector is read-only, and the
+ * read-only notice is TRUE.
+ *
+ * But a true refusal is still a dead end, and there is a path that works: the
+ * SAME edit made conversationally persists (measured, contrast-controlled). So
+ * these templates route the user to the writer that can actually save, instead
+ * of telling them their change is impossible.
+ *
+ * ⚠ PHRASED AS THE USER'S OWN REQUEST, AND DELIBERATELY UNFINISHED. Each opens a
+ * sentence the user completes -- it lands as an EDITABLE DRAFT via `ASK_SEMANTIC`
+ * and never dispatches, so a half-formed intent is the correct output here, not a
+ * defect. Naming the specific editable thing where we know it ("the value of",
+ * "the success target for") is what stops the draft being a vague "change this".
+ *
+ * ⚠ NOTHING HERE ASSERTS THAT THE CHANGE WILL BE MADE. These are requests, not
+ * promises; CEE decides. Do not add copy that implies the edit is already agreed.
  */
-export function resolveAskTemplate(
-  panelType: string,
+export const CHANGE_TEMPLATES: Record<string, string> = {
+  goal:                  'Change the success target for {label} to ',
+  'factor-controllable': 'Change the value of {label} to ',
+  'factor-observable':   'Change the value of {label} to ',
+  'factor-external':     'Change the uncertainty range for {label} to ',
+  edge:                  'Change the strength of the link between {sourceLabel} and {targetLabel} to ',
+  option:                'Change {label}: ',
+  outcome:               'Change {label}: ',
+  risk:                  'Change {label}: ',
+  decision:              'Rename {label} to ',
+}
+
+/**
+ * Substitute element labels into a template.
+ *
+ * ⚠ ONE RESOLVER FOR BOTH REGISTERS. `resolveAskTemplate` and
+ * `resolveChangeTemplate` share this rather than each carrying its own copy of
+ * the placeholder rules -- two near-identical substitution helpers beside each
+ * other is precisely the near-duplicate that drifts (CLAUDE.md trap 12), and a
+ * drift here would show up as one register silently dropping a label the other
+ * renders.
+ *
+ * Returns null when a required placeholder has no value, so a caller can fall
+ * back rather than render "Change the value of undefined to".
+ */
+function resolveTemplate(
+  template: string | undefined,
   context: { label?: string; sourceLabel?: string; targetLabel?: string },
 ): string | null {
-  const template = ASK_TEMPLATES[panelType]
   if (!template) return null
 
   let resolved = template
@@ -570,6 +619,28 @@ export function resolveAskTemplate(
     resolved = resolved.replace('{targetLabel}', context.targetLabel)
   }
   return resolved
+}
+
+/**
+ * Resolve an "Ask about this" question template with element labels.
+ * Returns null if no template matches or required placeholders are missing.
+ */
+export function resolveAskTemplate(
+  panelType: string,
+  context: { label?: string; sourceLabel?: string; targetLabel?: string },
+): string | null {
+  return resolveTemplate(ASK_TEMPLATES[panelType], context)
+}
+
+/**
+ * Resolve a "Change this" request template with element labels.
+ * Returns null if no template matches or required placeholders are missing.
+ */
+export function resolveChangeTemplate(
+  panelType: string,
+  context: { label?: string; sourceLabel?: string; targetLabel?: string },
+): string | null {
+  return resolveTemplate(CHANGE_TEMPLATES[panelType], context)
 }
 
 // ─── Goal panel strings ──────────────────────────────────────────

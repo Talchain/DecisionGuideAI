@@ -278,6 +278,55 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     expect(screen.getByTestId('inspector-quick-analysis')).toBeTruthy()
   })
 
+  it('offers a route OUT of the read-only panel — "Change this"', () => {
+    // ⭐ WHAT THIS EXISTS FOR. The inspector below is read-only and its notice
+    // is TRUE: most of the model has no durable direct-edit carrier, so a
+    // direct write is overwritten by the next server rehydrate (measured
+    // 31 Aug 2026 — a rename persisted to the autosave, survived 30s, and was
+    // destroyed on reload). But a true refusal is still a DEAD END, and the
+    // same edit made conversationally does persist. This control is the route.
+    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    setNodeStore()
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(screen.getByTestId('inspector-quick-change')).toBeTruthy()
+  })
+
+  it('the change request PREFILLS and never dispatches, and names the element', () => {
+    const prefill = vi.fn()
+    const send = vi.fn()
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch } as never)
+    setNodeStore()
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByTestId('inspector-quick-change'))
+
+    // ⚠ THE LOAD-BEARING HALF. A control that SENDS on click would make the
+    // read-only notice beneath it a lie — the panel would be telling the user
+    // their change cannot be saved while the click had already committed one.
+    expect(send).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalled()
+    expect(prefill).toHaveBeenCalled()
+
+    // Bound to the element by its LABEL, not by matching the copy this change
+    // authors — a draft naming the wrong node is the failure that matters.
+    const drafted = String(prefill.mock.calls[0]?.[0] ?? prefill.mock.calls[0])
+    expect(drafted).toContain('Marketing Budget')
+  })
+
+  it('is HIDDEN, not inert, when no conversation surface is registered', () => {
+    // The same rule the ask follows. A control that looks live and does nothing
+    // is the dead-button class this button exists to REMOVE, so shipping it as
+    // one would be self-defeating.
+    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
+    setNodeStore()
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
+    // Positive control: the probe can see a quick action when one is present,
+    // so the absence above is a real absence rather than a blind query.
+    expect(screen.getByTestId('inspector-quick-analysis')).toBeTruthy()
+  })
+
   it('places them ABOVE the panel body — nothing buried', () => {
     useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
     setNodeStore()

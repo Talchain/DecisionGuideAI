@@ -17,13 +17,13 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { MessageCircleQuestion, BarChart3 } from 'lucide-react'
+import { MessageCircleQuestion, BarChart3, PenLine } from 'lucide-react'
 
 import { typography } from '../../../../styles/typography'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useUIStore, type OutputTab } from '../../../../stores/uiStore'
 import { requestAsk } from '../askSemantic'
-import { resolveAskTemplate } from '../inspectorStrings'
+import { resolveAskTemplate, resolveChangeTemplate } from '../inspectorStrings'
 
 interface InspectorQuickActionsProps {
   /** Node or edge id — the ask's model target. */
@@ -66,6 +66,41 @@ export function InspectorQuickActions({
     })
   }, [question, elementLabel, elementId])
 
+  /**
+   * ⭐ "Change this" — the route out of a read-only panel.
+   *
+   * Most of the model has no durable direct-edit carrier (only
+   * `factor_value_edit`, `prior_range_edit`, `edge_adjudication` and
+   * `structural_delete` persist), which is why the panel below is read-only and
+   * why its notice is TRUE. But a true refusal is still a dead end, and the SAME
+   * edit made conversationally DOES persist — measured, contrast-controlled.
+   *
+   * So this hands the user to the writer that can actually save. It rides the
+   * identical `ASK_SEMANTIC` path as "Ask Olumi": it never dispatches, it lands
+   * an editable draft the user sends. The draft is deliberately an UNFINISHED
+   * sentence ("Change the value of X to ") — the user completes it, and a
+   * half-formed intent is the correct output of this control, not a defect.
+   *
+   * ⚠ IT PROMISES NOTHING. This is a request; CEE decides. Do not let the copy
+   * drift into implying the change is already made — that would be the
+   * looks-like-a-guarantee defect this estate keeps shipping, and the read-only
+   * notice beneath would then contradict it.
+   */
+  const changeRequest = useMemo(
+    () => resolveChangeTemplate(panelType, { label: elementLabel, ...labelContext }),
+    [panelType, elementLabel, labelContext],
+  )
+
+  const handleChange = useCallback(() => {
+    if (!changeRequest) return
+    requestAsk({
+      text: changeRequest,
+      label: `Change ${elementLabel}`,
+      context: '',
+      targetId: elementId,
+    })
+  }, [changeRequest, elementLabel, elementId])
+
   const handleAnalysis = useCallback(() => {
     useUIStore.getState().setActiveOutputTab(analysisTab)
   }, [analysisTab])
@@ -86,6 +121,24 @@ export function InspectorQuickActions({
         >
           <MessageCircleQuestion size={12} aria-hidden="true" />
           Ask Olumi
+        </button>
+      )}
+      {/* HIDDEN, not disabled, when there is no conversation surface or no
+          template for this element type — the same rule the ask follows. A
+          control that looks live and does nothing is the dead-button class
+          this estate keeps shipping, and it is exactly what this button
+          exists to remove. */}
+      {canAsk && changeRequest !== null && (
+        <button
+          type="button"
+          data-testid="inspector-quick-change"
+          onClick={handleChange}
+          title={`Ask Olumi to change ${elementLabel}`}
+          aria-label={`Ask Olumi to change ${elementLabel}`}
+          className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors`}
+        >
+          <PenLine size={12} aria-hidden="true" />
+          Change this
         </button>
       )}
       <button
