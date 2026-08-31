@@ -13,6 +13,26 @@ export interface MethodEntry {
   description: string
   /** Opening message for the contextual AI session. */
   prompt: string
+  /**
+   * The CEE intent this technique IS, when one of the accepted intents names
+   * the same move. Absent for every technique where none does.
+   *
+   * ⭐⭐ WHY IT MATTERS, AND IT IS NOT A ROUTING DETAIL. A chip turn carrying an
+   * accepted intent is what makes CEE apply decision science: it resolves a DSK
+   * protocol for the intent and builds a coaching-method directive from it
+   * (`resolveApplicableProtocol`, `buildCoachingMethodDirective`). Without one,
+   * `resolveCoachingIntent` returns undefined and the turn is an ordinary chat
+   * that happens to start with a good prompt. So the product could name a
+   * technique, prefill its prompt, and still never ask CEE to RUN it.
+   *
+   * ⚠ ABSENT IS THE COMMON CASE AND IS DELIBERATE. `CEE_ACCEPTED_INTENTS`
+   * (`v5/buildPayload.ts`) holds five members and the gate FAILS CLOSED, so an
+   * unmapped technique sends no intent and behaves exactly as it does today. A
+   * technique is mapped only where an accepted intent names the SAME move —
+   * never by rough resemblance, which would ask CEE to run the wrong protocol
+   * under a science label.
+   */
+  intent?: string
 }
 
 export interface GlobalActionEntry {
@@ -52,18 +72,28 @@ export const METHOD_CATALOGUE: MethodEntry[] = [
     title: 'Reframe the problem',
     description: 'Check whether the current question is too narrow.',
     prompt: 'Help me reframe this decision. Is the question we are asking too narrow, and what alternative framings should we consider?',
+    // Reframing the problem IS challenging the frame — the catalogue's own
+    // description and the intent name the same move.
+    intent: 'challenge_frame',
   },
   {
     id: 'different_option',
     title: 'Generate a materially different option',
     description: 'Use divergent thinking before narrowing.',
     prompt: 'Help me generate an option that works through a materially different mechanism from the ones already on the canvas.',
+    // Asking for an option that does not exist yet is option ELICITATION, not
+    // adding a known one — `add_option` carries a label CEE is meant to attach,
+    // and there is nothing to attach here.
+    intent: 'elicit_options',
   },
   {
     id: 'consider_opposite',
     title: 'Consider the opposite',
     description: 'Build the strongest case against the current leader.',
     prompt: 'Build the strongest honest case AGAINST the currently leading option. What evidence or reasoning would change my mind?',
+    // "What would change my mind?" is an assumption challenge, and it is the
+    // same intent the engine's own `strengthen:robustness` trigger sends.
+    intent: 'challenge_assumption',
   },
   {
     id: 'outside_view',

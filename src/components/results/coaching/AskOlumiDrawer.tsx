@@ -47,6 +47,7 @@ export function AskOlumiDrawer() {
   const targetId = useAskOlumiStore((s) => s.targetId)
   const parameters = useAskOlumiStore((s) => s.parameters)
   const source = useAskOlumiStore((s) => s.source)
+  const intent = useAskOlumiStore((s) => s.intent)
   const setDraft = useAskOlumiStore((s) => s.setDraft)
   const close = useAskOlumiStore((s) => s.close)
 
@@ -97,6 +98,18 @@ export function AskOlumiDrawer() {
       // carrier) survives ONLY on this turn type.
       void dispatchAction({
         action_type: 'discuss',
+        // ⭐⭐ THIS IS WHAT MAKES THE TURN DECISION SCIENCE RATHER THAN CHAT.
+        // CEE resolves a DSK protocol for the intent and builds a
+        // coaching-method directive from it, but ONLY on a chip turn carrying
+        // one. Until now this drawer sent none, so a technique chip could name
+        // a method, prefill its prompt, and never ask CEE to RUN that method.
+        //
+        // ⚠ `action_type` stays 'discuss': that is what keeps this a
+        // CONVERSATION-typed turn, the only turn type `chip_metadata` survives
+        // on. The intent rides BESIDE it — two different questions ("what kind
+        // of turn?" and "which move is the user making?") that one field would
+        // conflate. `buildChipMeta` gates it and FAILS CLOSED.
+        ...(intent ? { intent } : {}),
         parameters,
         // ⭐ THE SENT TEXT IS THE DISPLAY TEXT — the user authored it.
         //

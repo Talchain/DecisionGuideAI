@@ -49,6 +49,7 @@ import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { openDefineSuccess, openDecisionRecord } from '../../modals'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -241,6 +242,50 @@ export function StrengthenTheReasoning({
   useEffect(() => {
     if (disputingId) disputeInputRef.current?.focus()
   }, [disputingId])
+
+  /**
+   * ⭐⭐ THE PRIMARY DOES THE THING, WHERE THE ENGINE SAYS IT SHOULD.
+   *
+   * The engine emits five action routes and two of its eight builders emit
+   * `open-modal` — the two that are WORK rather than conversation:
+   *   `strengthen:success-measure` → the Define-success modal
+   *   `strengthen:commit`          → the Decision-record modal
+   * Its own comment at the success-measure builder reads: "the primary DOES the
+   * thing — the structured Define-success modal (threshold commits through the
+   * canonical rerun path)".
+   *
+   * ⚠ THIS SURFACE DROPPED BOTH. Every card routed to the Ask-Olumi drawer
+   * regardless of `action.kind`, so the highest-ranked finding on every run —
+   * "Define what success looks like", rank 0, the one the whole ladder is built
+   * around — offered a chat about defining success instead of the control that
+   * defines it. Advice you read, where the engine had already built work you do.
+   *
+   * ⚠⚠ AND IT IS NOT A NEW DISPATCH AUTHORITY, which is why the original
+   * restriction can be lifted safely. `openDefineSuccess` / `openDecisionRecord`
+   * are global store openers, and BOTH modals are already mounted by the dock
+   * that hosts this tab (`OutputsDock.tsx`, `<DefineSuccessModal />` /
+   * `<DecisionRecordModal />`). The modal owns the mutation and commits through
+   * the canonical path, exactly as it does from the legacy panel. This surface
+   * still mutates nothing itself — it stops withholding a control that already
+   * exists.
+   *
+   * Unknown or conversational kinds fall through to the drawer, unchanged.
+   */
+  const runPrimaryAction = useCallback((rec: Recommendation) => {
+    if (rec.action.kind === 'open-modal') {
+      if (rec.action.modal === 'define-success') return openDefineSuccess()
+      if (rec.action.modal === 'decision-record') return openDecisionRecord()
+      // An open-modal route naming a modal this surface cannot open must not
+      // silently become a chat about it — fall through only for known kinds.
+    }
+    openAskOlumi({
+      context: rec.whyNow || rec.signal,
+      draft: rec.action.prompt ?? rec.tryThis,
+      label: rec.action.label,
+      ...(rec.targetId ? { targetId: rec.targetId } : {}),
+      ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
+    })
+  }, [])
 
   const closeDispute = useCallback(() => {
     setDisputingId(null)
@@ -475,6 +520,10 @@ export function StrengthenTheReasoning({
                             // nothing looks broken — CEE simply never learns
                             // which technique the user invoked.
                             parameters: { method_id: method.id },
+                            // The technique's own CEE intent, where one names
+                            // the same move. Absent for most; the gate fails
+                            // closed, so absence changes nothing.
+                            ...(method.intent ? { intent: method.intent } : {}),
                             source: 'chip',
                             ...(rec.targetId ? { targetId: rec.targetId } : {}),
                           })
@@ -542,15 +591,7 @@ export function StrengthenTheReasoning({
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      openAskOlumi({
-                        context: rec.whyNow || rec.signal,
-                        draft: rec.action.prompt ?? rec.tryThis,
-                        label: rec.action.label,
-                        ...(rec.targetId ? { targetId: rec.targetId } : {}),
-                        ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
-                      })
-                    }
+                    onClick={() => runPrimaryAction(rec)}
                     className={`${typography.panelBody} inline-flex items-center gap-1 rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-action`}
                   >
