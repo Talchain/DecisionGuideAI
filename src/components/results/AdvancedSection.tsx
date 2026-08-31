@@ -14,6 +14,7 @@ import { Copy, Check, AlertTriangle, Gauge, Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
+import { SCIENCE_LIMITATIONS_DISCLOSURE } from './analysisMethodCopy'
 import { selectHumanisedInferenceWarningsOutsideStrip } from './utils/humaniseInferenceWarning'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { derivePostFooterStatus } from '../../canvas/components/utils/postAnalysisFooter'
@@ -418,10 +419,13 @@ export function AdvancedSection({
               )
             })()}
 
-            {/* Science limitations line */}
-            <p>
-              This analysis uses a simplified structural causal model. Some uncertainty sources (intercepts, node-level noise) are not yet captured.
-            </p>
+            {/* Science limitations line.
+                ⚠ EXTRACTED, NOT REWORDED — same characters, now read from the
+                one constant. The Analysis (New) tab's "Deeper analysis and
+                evidence" owes the reader the identical disclosure, and a second
+                hand-typed copy is the mirror that drifts (CLAUDE.md trap 12).
+                See `analysisMethodCopy.ts`. */}
+            <p data-testid="advanced-science-limitations">{SCIENCE_LIMITATIONS_DISCLOSURE}</p>
           </div>
         </div>
 

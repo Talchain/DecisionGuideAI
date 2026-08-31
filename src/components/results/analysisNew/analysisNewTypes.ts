@@ -19,7 +19,8 @@
  * property that makes a wrong row diagnosable rather than merely wrong.
  */
 
-import type { DriversSectionData } from '../types'
+import type { DriversSectionData, InferenceWarning } from '../types'
+import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 
@@ -215,9 +216,42 @@ export interface UncertaintySection {
   totalCount: number
 }
 
-/** Level-3 material. One collapsed region, never a fifth top-level section. */
+/**
+ * Level-3 material. One collapsed region, never a fifth top-level section.
+ *
+ * ⚠⚠ `groups` IS LEVEL 3. `critiques` AND `caveats` ARE NOT, AND THE SPLIT IS
+ * THE WHOLE POINT OF THIS SHAPE.
+ *
+ * `groups` is provenance a curious reader goes looking for: run identity,
+ * coverage, defaulting notices. Collapsing it is correct.
+ *
+ * `critiques` and `caveats` are things THE ENGINE RAISED about this run. On the
+ * existing Analysis tab both render in ALWAYS-VISIBLE strips at the top of the
+ * results body (`CritiqueWarningStrip`, `InferenceWarningStrip` — mounted in
+ * `ResultsBody`'s unconditional current-view group). This tab is a separate
+ * branch in `OutputsDock` and does not mount `ResultsBody`, so before this field
+ * existed those warnings reached NO SCREEN HERE AT ALL — the product knowing
+ * something and not saying it. They are carried separately so the component can
+ * render them OUTSIDE the collapsed region; putting a warning behind a chevron
+ * is a demotion, and a demotion the reader never opens is a deletion.
+ */
 export interface DeeperAnalysisSection {
   groups: Array<{ title: string; rows: InspectRow[] }>
+  /**
+   * WARNING-severity engine critiques, already selected by the rendering
+   * surface's OWN selector (`selectRenderableCritiqueEntries`) rather than by a
+   * second spelling of its predicate. Copy is CEE-owned `user_message` verbatim
+   * for the S/U-bucket codes — never re-humanised here, never authored here.
+   */
+  critiques: CritiqueWarningEntry[]
+  /**
+   * WARNING-severity producer `inference_warnings` — the set
+   * `InferenceWarningStrip` shows, selected by the shared `isStripEntry`
+   * predicate. Carried as the PRODUCER entries, not as pre-rendered strings, so
+   * the strip humanises them by `code` through the one sanctioned path
+   * (`humaniseCritique`) and this adapter never touches `.message`.
+   */
+  caveats: InferenceWarning[]
 }
 
 /**
