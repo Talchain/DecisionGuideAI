@@ -716,3 +716,43 @@ describe('the assumed relationship worth pinning down', () => {
     expect(found(build(withSelection(3)))!.detail).toContain('2 other sensitive relationships')
   })
 })
+
+/**
+ * ⭐ THE PARTIAL WARNING NAMES WHAT DID NOT COME BACK.
+ *
+ * Witnessed on the deployed build: this ribbon renders in amber ABOVE the
+ * result, and on a run where the producer sent no `statusReason` it said only
+ * "some results are missing" — a caveat with no content in the most prominent
+ * position on the panel. `completeness.missing` already carried the answer.
+ */
+describe('the partial-analysis warning', () => {
+  const withMissing = (missing: string[]) =>
+    build(
+      makeData({
+        completeness: { status: 'partial', missing, reasons: [] } as never,
+      }),
+    )
+
+  it("names the producer's own missing keys, in this surface's words", () => {
+    const vm = withMissing(['top_drivers', 'robustness_level'])
+    expect(vm.status.missingResults).toEqual(['the drivers', 'the robustness check'])
+  })
+
+  /**
+   * ⚠ THE DIRECTION THAT KEEPS IT HONEST. The vocabulary is closed today, but a
+   * producer that adds a key must never put a raw token on screen — an
+   * unrecognised name is worse than the generic sentence it would displace.
+   */
+  it('DROPS a key this build does not recognise rather than showing it raw', () => {
+    const vm = withMissing(['top_drivers', 'some_future_key'])
+    expect(vm.status.missingResults).toEqual(['the drivers'])
+  })
+
+  it('names nothing when every key is unrecognised, so the generic sentence stands', () => {
+    expect(withMissing(['only_unknown_keys']).status.missingResults).toEqual([])
+  })
+
+  it('names nothing when the producer named nothing', () => {
+    expect(withMissing([]).status.missingResults).toEqual([])
+  })
+})

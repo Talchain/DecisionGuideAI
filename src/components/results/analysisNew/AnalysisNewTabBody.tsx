@@ -274,6 +274,7 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
+          missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={
             vm.strengthen.interventions[0]

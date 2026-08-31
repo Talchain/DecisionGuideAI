@@ -516,8 +516,28 @@ describe('a partial analysis carries a provisional marker on the surface', () =>
     expect(vmOf(genuineDecision()).status.isProvisional).toBe(false)
   })
 
-  it('renders the marker when the result is partial', () => {
+  it('renders the marker when the result is partial, NAMING what did not come back', () => {
     renderBody(partialRun())
+    // The fixture's missing key is `robustness_level`, so the ribbon must say
+    // so rather than "some results are missing" — a caveat with no content,
+    // rendered in amber above the result, is one a reader learns to skip.
+    expect(screen.getByTestId('analysis-new-status-provisional')).toHaveTextContent(
+      'This analysis is partial — the robustness check did not come back.',
+    )
+  })
+
+  /**
+   * ⚠ THE FALLBACK, which is the direction that keeps the naming honest. When
+   * the producer names nothing this build recognises, the generic sentence must
+   * still appear — never an empty list, and never a raw producer token.
+   */
+  it('falls back to the generic sentence when nothing nameable is missing', () => {
+    renderBody(
+      makeData({
+        recommendation: { ...genuineDecision().recommendation, analysisStatus: 'partial' },
+        completeness: { status: 'partial', missing: [], reasons: [] },
+      }),
+    )
     expect(screen.getByTestId('analysis-new-status-provisional')).toHaveTextContent(
       COPY.status.provisional,
     )

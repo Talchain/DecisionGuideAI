@@ -303,6 +303,13 @@ export interface AnalysisNewStatus {
   isProvisional: boolean
   /** Producer-owned reason, verbatim, when there is one. Never authored here. */
   statusNote: string | null
+  /**
+   * WHICH results did not come back, already mapped to this surface's own
+   * names. Empty when the producer named none, or named only keys this build
+   * does not recognise — the generic sentence then stands rather than a raw
+   * token being shown.
+   */
+  missingResults: readonly string[]
 }
 
 /**
