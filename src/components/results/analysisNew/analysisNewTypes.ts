@@ -432,7 +432,10 @@ export interface AtAGlance {
   condition: GlanceCondition | null
   /**
    * ⭐ THE ANTECEDENT OF EVERY READING ABOVE IT — where the factor values this
-   * run consumed came from. Null when the producer settled it for no factor.
+   * run consumed came from. Null ONLY when there are no factor rows to
+   * describe; a run whose rows the producer left unsettled is the
+   * `undetermined` KIND, which renders, because a reading with no stated basis
+   * is what this line exists to prevent.
    *
    * ⚠ NOT `condition`, AND THE DISTANCE MATTERS (CLAUDE.md trap 21). `condition`
    * is the TIPPING POINT — the value at which the ordering changes, from
@@ -447,7 +450,7 @@ export interface AtAGlance {
 }
 
 /**
- * ⭐⭐ WHOSE NUMBERS THE RUN ACTUALLY USED — five kinds, and the split between
+ * ⭐⭐ WHOSE NUMBERS THE RUN ACTUALLY USED — six kinds, and the split between
  * the universal and the "partly" forms is the entire honesty claim.
  *
  * Derived from the producer's THREE-STATE per-factor value provenance
@@ -472,9 +475,37 @@ export interface AtAGlance {
  *   · `user_supplied`        — every factor settled, all of them the user's.
  *   · `partly_user_supplied` — at least one is the user's, none is Olumi's, and
  *                              the producer stayed silent on the rest.
+ *   · `undetermined`         — factor rows EXIST and the producer settled not
+ *                              one of them. See below: this is a kind, not an
+ *                              absence, and that distinction is the fix.
  *
- * When the producer settled nothing the model is `null` and the surface renders
- * NOTHING — never a default, because every one of these words is a claim.
+ * ⭐⭐ WHY `undetermined` IS A KIND AND NOT `null` (added after measuring why
+ * this line never reached a screen). The per-factor oracle is THREE-state, and
+ * this set-level type used to have names for only two of them: the third was
+ * folded into `null` alongside "there is nothing to describe". Two different
+ * facts under one name is CLAUDE.md trap 21, and the cost was concrete —
+ * replaying this oracle over every factor-bearing capture in the repo returns
+ * `estimated` on 7 files, `partly_estimated` on 9, and NOTHING on 9 more whose
+ * rows are all real and all unsettled. On those nine the panel printed "Ahead
+ * in N% of simulated futures" and stated its basis in no place at all, which
+ * is the precise condition Olumi's alignment principle forbids: the consequent
+ * prominent, the antecedent nowhere.
+ *
+ * `undetermined` says only what is true — that the producer did not settle
+ * where these figures came from. It is a claim about OUR knowledge, never
+ * about the user, and so it cannot commit the authorship lie the other five
+ * words risk.
+ *
+ * ⛔ AND IT IS STILL NOT A COUNT. The wire carries a per-factor flag. "Six of
+ * nine inputs were unsettled" is a proportion nothing licenses.
+ *
+ * `null` now means exactly one thing: there are no factor rows to describe.
+ * That is a DRIVERS-FEED condition, not a provenance one — the producer hook
+ * downgrades `driversStatus` 'computed' → 'unavailable' whenever the row set
+ * is empty, so zero rows always means the sensitivity feed was unavailable or
+ * errored. Describing a transport failure as a provenance finding would be the
+ * same two-questions-one-name defect in the other direction, so the surface
+ * stays silent there and the spec pins it.
  */
 export type GlanceInputProvenance =
   | 'estimated'
@@ -482,3 +513,4 @@ export type GlanceInputProvenance =
   | 'mixed'
   | 'user_supplied'
   | 'partly_user_supplied'
+  | 'undetermined'

@@ -11,12 +11,21 @@
  * nowhere.
  *
  * ── WHY THESE STRINGS AND NOT SHORTER ONES ─────────────────────────────────
- * Five kinds, not two, because the producer's provenance signal is THREE-STATE
+ * Six kinds, not two, because the producer's provenance signal is THREE-STATE
  * and the third state is the point (see `HeroDriverValueProvenance`). A run
  * where every factor is positively marked as the user's is a different claim
  * from one where SOME are the user's and the rest were never asserted either
  * way. Collapsing the second into the first would author exactly the
  * user-authorship claim this line exists to keep honest.
+ *
+ * ── WHY THE SIXTH SENTENCE EXISTS ──────────────────────────────────────────
+ * Because on real payloads it is the most common answer, and the surface had
+ * no word for it. Replaying the oracle over every factor-bearing capture in
+ * this repo, nine files hold rows the producer settled in NEITHER direction —
+ * and on those nine this panel rendered a prominent share with its basis
+ * stated nowhere. Silence is honest about the producer; it is NOT honest about
+ * the reading, which the reader would otherwise take as resting on something
+ * established. `undetermined` states the one thing that is true.
  *
  * ⛔ NO NUMBER AND NO COUNT, DELIBERATELY. The producer supplies a per-factor
  * provenance flag, not a proportion. "Six of nine inputs were estimated" is a
@@ -42,4 +51,10 @@ export const GLANCE_PROVENANCE_COPY: Record<GlanceInputProvenance, string> = {
   mixed: "On a mix of your figures and Olumi's estimates",
   user_supplied: 'On figures you supplied',
   partly_user_supplied: 'Partly on figures you supplied',
+  // ⚠ A STATEMENT ABOUT OUR KNOWLEDGE, NOT ABOUT THE USER — which is exactly
+  // why it is safe to render where the other five are not. It attributes the
+  // figures to nobody, so it cannot commit the authorship claim this module
+  // exists to prevent, and it leaves the reading above it visibly conditional
+  // instead of silently unconditioned.
+  undetermined: 'On inputs whose source Olumi could not establish',
 }

@@ -818,6 +818,14 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
  */
 function glanceInputProvenance(data: ResultsSectionDataReturn): GlanceInputProvenance | null {
   const rows = data.drivers.drivers ?? []
+  // ⚠ NO ROWS IS A DRIVERS-FEED CONDITION, NOT A PROVENANCE ONE, AND THE TWO
+  // MUST NOT SHARE A SENTENCE. `useResultsSectionData` downgrades
+  // `driversStatus` 'computed' → 'unavailable' whenever the row set is empty,
+  // so an empty set always means the sensitivity feed was unavailable or
+  // errored — never that a run examined some inputs and could not place them.
+  // Rendering "Olumi could not establish where these came from" over a
+  // transport failure would describe an outage as a finding, which is the same
+  // two-questions-one-name defect this change removes, pointed the other way.
   if (rows.length === 0) return null
 
   const estimated = (d: (typeof rows)[number]) =>
@@ -832,8 +840,24 @@ function glanceInputProvenance(data: ResultsSectionDataReturn): GlanceInputProve
   // a universal claim to a "partly" one.
   const allDetermined = rows.every((d) => estimated(d) || userStated(d))
 
-  // Nothing positively witnessed either way — the honest output is silence.
-  if (!hasEstimated && !hasUserStated) return null
+  // ⭐⭐ NOTHING POSITIVELY WITNESSED EITHER WAY — AND THIS IS NOT SILENCE.
+  //
+  // It used to be. That is why this line never reached a screen: the per-factor
+  // oracle is three-state, this set-level one had names for two of them, and
+  // the third was folded into `null` next to "there are no rows at all". Two
+  // different facts under one name (trap 21), and the cost was measured — over
+  // every factor-bearing capture in this repo the oracle returns `estimated` on
+  // 7 files, `partly_estimated` on 9, and this branch on 9 more whose rows are
+  // all real and all unsettled. On those nine the panel printed a prominent
+  // share and stated its basis nowhere.
+  //
+  // The producer having said nothing is itself the answer to "what does this
+  // rest on", and it is the answer a reader most needs. `undetermined` reports
+  // our own knowledge and attributes the figures to nobody, so it carries none
+  // of the authorship risk that makes the other five words gated.
+  //
+  // ⛔ STILL NO COUNT AND NO PROPORTION. The wire carries a per-factor flag.
+  if (!hasEstimated && !hasUserStated) return 'undetermined'
   // Both witnessed. Silence on any remaining row cannot falsify a claim that
   // only asserts one of each exists, so this needs no `allDetermined` gate.
   if (hasEstimated && hasUserStated) return 'mixed'
