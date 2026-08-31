@@ -90,7 +90,13 @@ function serverVersion(overrides: Record<string, unknown> = {}) {
     id: VERSION_OLD,
     versionNumber: 1,
     label: 'First cut',
-    provenance: 'user_save',
+    // v2 `creation.kind`, not the retired v1 vocabulary. A deliberate user save
+    // genuinely arrives as `unknown`: CEE's save RPC `create_model_version`
+    // never writes `creation_kind`, so it persists NULL and `summaryV2`
+    // resolves NULL to `unknown`. The old `'user_save'` here encoded a wire
+    // shape the adapter can no longer produce — a self-authored fixture
+    // outside the producer's output domain (trap 16-inverse).
+    provenance: 'unknown',
     restoredFromVersionId: null,
     createdAt: '2026-08-17T10:00:00.000Z',
     graphIdentityHash: HASH_OLD,
@@ -103,7 +109,7 @@ const TWO_VERSIONS = [
     id: VERSION_HEAD,
     versionNumber: 2,
     label: null,
-    provenance: 'commit',
+    provenance: 'committed_mutation',
     graphIdentityHash: HASH_HEAD,
   }),
   serverVersion(),

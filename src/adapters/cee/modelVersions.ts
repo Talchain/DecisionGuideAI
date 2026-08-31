@@ -102,10 +102,27 @@ export interface ServerModelVersion {
    * has no such field and models creation as a discriminated union. These are
    * two different vocabularies answering two different questions, so this
    * carries `creation.kind` VERBATIM rather than inventing a translation back
-   * to the retired v1 words. Safe to do because a sweep of `src` (excluding
-   * tests) finds NO consumer of this field or of `restoredFromVersionId`
-   * outside this adapter — nothing renders or branches on either today. Any
-   * future renderer must be written against the v2 words above.
+   * to the retired v1 words.
+   *
+   * ⚠ CORRECTED 2026-08-31 — THE SENTENCE THAT USED TO SIT HERE WAS FALSE, AND
+   * ITS FALSENESS IS EXACTLY WHAT SHIPPED THE DEFECT. It read: "Safe to do
+   * because a sweep of `src` (excluding tests) finds NO consumer of this field
+   * … nothing renders or branches on either today. Any future renderer must be
+   * written against the v2 words above." There WAS a renderer —
+   * `ServerVersionsSection.tsx` has read `version.provenance` and painted it
+   * into a badge all along — and because this comment said there was none, the
+   * v2 bump left that renderer switching on the retired v1 words. Its `default`
+   * arm printed the token verbatim, so users read `committed_mutation`,
+   * `initial` and `unknown` on screen. Re-derived at UI `735c0ff1`:
+   * `rg -a '\.provenance\b' src` returns `ServerVersionsSection.tsx:831` among
+   * its hits. `restoredFromVersionId` remains genuinely unconsumed outside this
+   * adapter (same sweep, `rg -a 'restoredFromVersionId' src`) — that half of
+   * the old claim survives, which is why this note narrows it rather than
+   * deleting it.
+   *
+   * The renderer is now written against the v2 words, in
+   * `ServerVersionsSection.provenanceLabel`, which carries the per-token
+   * producer derivation. Keep that mapping and this field in step.
    */
   provenance: string | null
   restoredFromVersionId: string | null
