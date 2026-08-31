@@ -37,6 +37,11 @@ import {
   waitForVisualQuiescence,
   type StarterId,
 } from '../visual/harness'
+// ⚠ PREFIX, NOT THE OPTIONS ID. This compared `nd.id === '__ghost-option__'`,
+// so once the frontier affordance reached the factor, risk and outcome tiers it
+// counted three UI placeholders as part of the user's MODEL — inflating the very
+// geometry it exists to measure. Derived from the product's own owner.
+import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
 const STARTERS: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'headcount-allocation', 'pricing-model']
 const VPS = [
@@ -55,8 +60,7 @@ for (const vp of VPS) {
       await minimiseFloatingOlumiPanel(page)
       await waitForVisualQuiescence(page)
 
-      const m = await page.evaluate(() => {
-        const GHOST = '__ghost-option__'
+      const m = await page.evaluate((GHOST: string) => {
         const els = [...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]
         const vpEl = document.querySelector('.react-flow__viewport') as HTMLElement | null
         const tr = vpEl ? getComputedStyle(vpEl).transform : 'none'
@@ -68,7 +72,7 @@ for (const vp of VPS) {
         const box = (skipGhost: boolean) => {
           let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0
           for (const nd of store.nodes) {
-            if (skipGhost && nd.id === GHOST) continue
+            if (skipGhost && nd.id.startsWith(GHOST)) continue
             const d = dims.get(nd.id); if (!d) continue
             n++
             x0 = Math.min(x0, nd.position.x); y0 = Math.min(y0, nd.position.y)
@@ -79,21 +83,21 @@ for (const vp of VPS) {
         const flow = document.querySelector('.react-flow')!.getBoundingClientRect()
         const dock = document.querySelector('aside[aria-label="Outputs dock"]')?.getBoundingClientRect()
         const side = document.querySelector('nav[aria-label="Canvas tools"]')?.getBoundingClientRect()
-        const rows = new Set(store.nodes.filter(nd => nd.id !== GHOST).map(nd => Math.round(nd.position.y))).size
+        const rows = new Set(store.nodes.filter(nd => !nd.id.startsWith(GHOST)).map(nd => Math.round(nd.position.y))).size
         const sig = store.nodes.map(nd => `${nd.id}@${nd.position.x},${nd.position.y}`).sort().join('|')
         return {
           zoom,
           withGhost: box(false),
           realOnly: box(true),
           rows,
-          hasGhost: store.nodes.some(nd => nd.id === GHOST),
+          hasGhost: store.nodes.some(nd => nd.id.startsWith(GHOST)),
           pane: { w: Math.round(flow.width), h: Math.round(flow.height) },
           dockLeft: dock ? Math.round(dock.left) : null,
           sidebarRight: side ? Math.round(side.right) : null,
           sigHash: sig.length,
           sig,
         }
-      })
+      }, GHOST_ID_PREFIX)
       const fitW = m.pane.w - (m.dockLeft !== null ? Math.max(0, m.pane.w - m.dockLeft) + 16 : 0) - (m.sidebarRight !== null ? m.sidebarRight + 16 : 0)
       const fitZoomReal = Math.min(fitW / m.realOnly.w, (m.pane.h - 2 * Math.floor((m.pane.h - m.pane.h / 1.08) * 0.5)) / m.realOnly.h)
       // eslint-disable-next-line no-console
