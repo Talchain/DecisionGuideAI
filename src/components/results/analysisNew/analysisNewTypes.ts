@@ -240,9 +240,117 @@ export interface AnalysisNewStatus {
   statusNote: string | null
 }
 
+/**
+ * ONE option, as this surface is entitled to render it.
+ *
+ * ⚠⚠ A DISCRIMINATED UNION RATHER THAN NULLABLE FIELDS, AND THAT IS THE WHOLE
+ * "ABSENCE IS NOT ZERO" RULE MADE STRUCTURAL. An unanalysed option does not
+ * have a `winReadout` of `null` that a renderer might coalesce to `'0%'` — it
+ * is a DIFFERENT SHAPE with no such field, so the component cannot reach for a
+ * number that was never measured. A nullable field puts the rule in every
+ * renderer's hands; a union puts it in the compiler's.
+ */
+export type ComparisonOption =
+  | {
+      kind: 'analysed'
+      /** Stable identity. Tests bind to this, never to a value predicate. */
+      id: string
+      /** `OptionResult.label`, verbatim. Never re-worded, never truncated here. */
+      label: string
+      /**
+       * `formatProbabilityWithResolution(winProbability, nValidSamples)` — the
+       * estate's display-honesty authority, NOT a local `Math.round`.
+       *
+       * ⚠ WHY THAT FUNCTION AND NOT `pctOrNull`. `pctOrNull` renders a measured
+       * 5-in-10,000 probability as `'0%'`, which is the exact falsehood the
+       * simulation-resolution floor exists to stop ("<0.01%"). The two
+       * formatters are not interchangeable and the difference only shows up on
+       * the long tail of a real run — i.e. on precisely the options this
+       * section was built to surface.
+       *
+       * `null` when the producer sent no win probability for this option. The
+       * renderer then shows NO number and NO bar.
+       */
+      winReadout: string | null
+      /**
+       * The same value, 0-1, FOR BAR GEOMETRY ONLY. Never rendered as a number:
+       * formatting one quantity twice is how two roundings end up on screen
+       * together. `null` in lockstep with `winReadout`, so the bar and the
+       * number can never disagree about whether there is a share at all.
+       */
+      winFraction: number | null
+      /**
+       * ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION —
+       * `recommendation.storyHeadlines[option.id]`, sanitised at the data layer
+       * and rendered VERBATIM. Never composed, never templated, never inferred
+       * from the numbers beside it.
+       *
+       * This is what lets the section lead with meaning rather than with a
+       * percentage. It is the producer's `m1_coaching.story_headlines` map
+       * (`EnrichmentM1CoachingSchema`, `additionalProperties: string`, keyed by
+       * option id), and it carries a sentence for NON-LEADING options too — a
+       * live capture holds *"Status Quo could come out ahead if hiring speed in
+       * remote mode is slower or retention drops."* against `opt_status_quo`.
+       * That is precisely the material this section existed to be missing.
+       *
+       * `null` when the producer sent none for this option, or sent an empty
+       * string: `useResultsSectionData` sanitises a non-string value to `''`,
+       * so emptiness is a real state here and must not render an empty line.
+       */
+      why: string | null
+    }
+  | {
+      kind: 'not_analysed'
+      id: string
+      label: string
+      /**
+       * `notAnalysedReasonCopy(reason)`, verbatim — the estate's single source
+       * for what the results panel says about an unanalysed option. Carried as
+       * a RESOLVED STRING rather than as a reason code so no component can
+       * re-decide the wording, and so the two sentences (`no_interventions` vs
+       * `not_returned`) cannot silently collapse into one at a new call site.
+       */
+      reasonCopy: string
+    }
+
+/**
+ * Every option the user has, each with what the run is entitled to say about it.
+ *
+ * ⭐ THE GAP THIS CLOSES. On a real completed staging run the surface rendered
+ * the leading option and one win percentage and NOTHING AT ALL about the other
+ * options — a run with four options showed one. For a decision tool that is the
+ * largest content gap on the surface: the reader cannot see whether the leader
+ * won by a mile or by a whisker, and cannot see that an option they care about
+ * took no part in the comparison at all.
+ *
+ * ⚠⚠ ORDER IS INHERITED, NEVER RE-DERIVED. `rows` is `recommendation.allOptions`
+ * in the order the hook already produced it, and that order is a DESIGNATION
+ * (`utils/optionDisplayOrder.ts`, ROADMAP 1.267): `sortOptionsForDisplay` is
+ * called ONCE, upstream, gated on `designationsWithheld`, and returns the
+ * caller's canonical order untouched when the verdict withholds the leader
+ * claim. Re-sorting here — by win probability, by rank, by anything — would be
+ * a SECOND designation channel wearing a different number, and it would not
+ * carry that gate. Rendering the array as given is what makes this section
+ * honest on a withheld run for free.
+ */
+export interface OptionsComparisonSection {
+  rows: ComparisonOption[]
+  /**
+   * How many options exist in total, INCLUDING any this list cannot name.
+   *
+   * ⚠ SO THE SECTION ADDS UP. `rows` drops an option whose label is blank or is
+   * merely its own node id — inventing "Untitled option" is the fabrication
+   * `deriveComparisonScope` exists to refuse — and without this a collapsed row
+   * would promise a count the body does not deliver. The renderer discloses the
+   * difference as a plain count rather than silently shortening the list.
+   */
+  totalCount: number
+}
+
 export interface AnalysisNewViewModel {
   status: AnalysisNewStatus
   atAGlance: AtAGlance
+  optionsComparison: OptionsComparisonSection
   keyInsights: KeyInsightsSection
   strengthen: StrengthenSection
   drivers: DriversSection
