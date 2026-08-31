@@ -341,11 +341,46 @@ const NATIVELY_DISABLEABLE = 'button, input, select, textarea'
  * be reused INSIDE the fieldset to launder a control past the escape check).
  * Identity only — a value predicate another element could satisfy is trap 19.
  */
-const DELIBERATELY_OUTSIDE: ReadonlyArray<{ selector: string; why: string }> = [
+const DELIBERATELY_OUTSIDE: ReadonlyArray<{ selector: string; why: string; onlyOn?: 'node' }> = [
   { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
   { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
+  /**
+   * ⭐⭐ THE ONE WRITE DELIBERATELY OUTSIDE THE BOUNDARY (31 Aug 2026).
+   *
+   * Every other entry above is navigation, presentation or dismissal — none of
+   * them writes. This one does: it renames the element, through the sanctioned
+   * `setLabel`.
+   *
+   * IT BELONGS OUTSIDE BECAUSE THE BOUNDARY'S CLAIM IS ABOUT SAVEABILITY, NOT
+   * ABOUT EDITING. The fieldset exists because those controls "cannot yet be
+   * saved to the shared model". A rename CAN: `setLabel` writes `data.label`
+   * through the manifest-guarded setter, it is persisted hash-by-default, and
+   * CEE reads durable label changes (its #1237). Keeping it inside the fieldset
+   * would have suppressed a write the product can honour — the same
+   * over-suppression the `mutationAuthority.ts` header records a withdrawn
+   * proposal for.
+   *
+   * ⚠ THE NOTICE WAS NARROWED IN THE SAME CHANGE. It said "This inspector is
+   * read-only", which became false the moment the title could be edited. It now
+   * says the name is editable and the settings below are not. A boundary and
+   * the sentence describing it must not disagree.
+   *
+   * ⚠ THIS ENTRY MUST NOT GROW. It is the exception, not a precedent: a second
+   * write out here means the boundary has stopped being the answer to "may this
+   * present itself as a saved edit?" and has started being a suggestion.
+   */
+  {
+    selector: '[data-testid="inspector-rename-trigger"]',
+    why: 'rename — a write, and a SAVEABLE one',
+    // NODE PANELS ONLY, and scoped rather than made optional so the
+    // fail-loud check still applies on the panel where it must appear. An
+    // edge's inspector title is DERIVED ("Source → Target"), not a stored
+    // field, so there is nothing there to rename and `onLabelChange` is
+    // deliberately not passed on that branch.
+    onlyOn: 'node',
+  },
 ]
 
 function describeControl(el: Element): string {
@@ -360,14 +395,15 @@ function describeControl(el: Element): string {
  * Every control in the Inspector that is neither inside the boundary nor
  * deliberately outside it. Non-empty means a write surface has escaped.
  */
-function escapedControls(): string[] {
+function escapedControls(panel: 'node' | 'edge' = 'node'): string[] {
   const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)
   if (!region) throw new Error('PRECONDITION FAILED: no Inspector region rendered')
   const fieldset = document.querySelector<HTMLElement>('fieldset[data-authority="disabled"]')
   if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
 
   const allowed = new Set<Element>()
-  for (const { selector } of DELIBERATELY_OUTSIDE) {
+  for (const { selector, onlyOn } of DELIBERATELY_OUTSIDE) {
+    if (onlyOn && onlyOn !== panel) continue
     const matches = Array.from(region.querySelectorAll(selector))
     // Fails loud rather than quietly excusing one control fewer.
     expect(matches.length, `deliberately-outside entry matched nothing: ${selector}`)
@@ -442,7 +478,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('leaves no editing control outside the boundary in the edge panel', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
-    expect(escapedControls()).toEqual([])
+    expect(escapedControls('edge')).toEqual([])
   })
 
   it('leaves no effectively-enabled FORM CONTROL inside the node boundary', () => {
