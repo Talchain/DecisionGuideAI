@@ -74,8 +74,17 @@
  * server accepted anything, because neither can return an outcome that says so.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import { useCanvasStore } from '../store'
+import {
+  beginModelEditAttempt,
+  getModelEditAttempt,
+  getModelEditCompletionVersion,
+  markModelEditUnresolved,
+  subscribeModelEditCompletion,
+  type ModelEditAttempt,
+  type ModelEditAttemptId,
+} from './modelEditCompletion'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
@@ -100,6 +109,23 @@ import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdi
 export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_encodable'
 
 /**
+ * What ONE proposal returns — the dispatch outcome PLUS its correlation token.
+ *
+ * ⚠ THE OUTCOME IS NOT THE COMPLETION, and keeping them in one object is how
+ * that stays visible. `outcome: 'dispatched'` says the wire event left this
+ * seam; it says NOTHING about whether the model took the number. The completion
+ * is read from `completionFor(attemptId)` and settles later — see
+ * `modelEditCompletion.ts` for why a receipt alone can never mean "committed".
+ *
+ * `attemptId` is `null` exactly when nothing was dispatched (`not_encodable`),
+ * because there is no attempt to correlate to.
+ */
+export interface FactorValueProposal {
+  readonly outcome: FactorValueProposalOutcome
+  readonly attemptId: ModelEditAttemptId | null
+}
+
+/**
  * How a LOCAL COMMIT left this seam.
  *
  * ⚠ THERE IS DELIBERATELY NO `dispatched` MEMBER. These operations have no
@@ -117,7 +143,21 @@ export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_enco
 export type LocalCommitOutcome = 'committed' | 'not_encodable'
 
 export interface ModelEditAuthorityLive {
-  proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
+  proposeFactorValue: (typedValue: number) => FactorValueProposal
+  /**
+   * The retained completion for one attempt, or `null` if the ledger has never
+   * heard of it.
+   *
+   * ⭐ THIS IS THE INTERFACE #1033 CONSUMES. It survives unmount because the
+   * ledger is module-scoped: the panel can be destroyed and remounted, or the
+   * user can edit another factor and come back, and the attempt's outcome is
+   * still here. A component that re-reads this after a remount gets the same
+   * answer it would have got before — which is contract point (4).
+   *
+   * Correlated BY ATTEMPT ID, never by node or by "the last edit": A's late
+   * answer settles A even if the user is now looking at B.
+   */
+  completionFor: (attemptId: ModelEditAttemptId | null | undefined) => ModelEditAttempt | null
   /**
    * Set the ACTIVE OPTION's target value for one factor.
    *
@@ -144,10 +184,15 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const proposeFactorValue = useCallback(
-    (typedValue: number): FactorValueProposalOutcome => {
-      if (!activeNodeId) return 'not_encodable'
-      const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
-      if (!node) return 'not_encodable'
+    (typedValue: number): FactorValueProposal => {
+      const nothingDispatched: FactorValueProposal = {
+        outcome: 'not_encodable',
+        attemptId: null,
+      }
+      if (!activeNodeId) return nothingDispatched
+      const state = useCanvasStore.getState()
+      const node = state.nodes.find(n => n.id === activeNodeId)
+      if (!node) return nothingDispatched
       const data = node.data as Record<string, unknown>
 
       const event = buildFactorValueEditEvent({
@@ -157,19 +202,37 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
         // what decides the scale of what the user typed.
         nodeData: data,
       })
-      if (!event) return 'not_encodable'
+      if (!event) return nothingDispatched
       const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
         value: number
         raw_value?: number
       }
 
+      // ⭐ THE ATTEMPT IS MINTED BEFORE THE WRITE, and its id rides to the
+      // settle points on the undo snapshot — the carrier that ALREADY survives
+      // the deferral buffer, so an immediate dispatch and a deferred flush
+      // correlate through one path (see `modelEditCompletion`'s header).
+      const attemptId = beginModelEditAttempt({
+        nodeId: activeNodeId,
+        scenarioId: state.currentScenarioId ?? null,
+        attemptedValue: modelValue,
+        attemptedRawValue: typeof rawMagnitude === 'number' ? rawMagnitude : null,
+      })
+
       // Undo BEFORE the write, from the same pre-write data.
-      const undo = captureOptimisticFactorEdit(activeNodeId, modelValue, data)
+      const undo = captureOptimisticFactorEdit(activeNodeId, modelValue, data, undefined, attemptId)
 
       // Local write first, in ONE update: value + raw_value + provenance stamp.
       mutations.setObservedValue(modelValue, rawMagnitude, { source: 'user' })
 
-      if (!sendSystemEvent) return 'local_only'
+      if (!sendSystemEvent) {
+        // ⚠ `local_only` IS NOT A COMPLETION. Nothing left the browser, so no
+        // canonical evidence is ever coming — the honest phase is `unresolved`,
+        // never `committed`. A surface that read the local write back as a
+        // success would be design §2 F6 exactly.
+        markModelEditUnresolved(attemptId, 'No conversation is mounted, so this was never sent.')
+        return { outcome: 'local_only', attemptId }
+      }
       void Promise.resolve(
         sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
       ).catch(() => {
@@ -178,7 +241,7 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
         // failure: the dispatcher's central revert handles it. Identical to the
         // reference surface's catch, for the identical reason.
       })
-      return 'dispatched'
+      return { outcome: 'dispatched', attemptId }
     },
     [activeNodeId, mutations, sendSystemEvent],
   )
@@ -257,5 +320,22 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
     return 'committed'
   }, [activeNodeId, mutations])
 
-  return { proposeFactorValue, proposeOptionIntervention, proposeFactorConfirmation }
+  // Subscribe to the ledger so a settled outcome re-renders the consumer. The
+  // snapshot is a version counter, not the Map — see `getModelEditCompletionVersion`.
+  useSyncExternalStore(
+    subscribeModelEditCompletion,
+    getModelEditCompletionVersion,
+    getModelEditCompletionVersion,
+  )
+  const completionFor = useCallback(
+    (attemptId: ModelEditAttemptId | null | undefined) => getModelEditAttempt(attemptId),
+    [],
+  )
+
+  return {
+    proposeFactorValue,
+    proposeOptionIntervention,
+    proposeFactorConfirmation,
+    completionFor,
+  }
 }

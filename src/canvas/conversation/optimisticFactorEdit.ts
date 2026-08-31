@@ -40,6 +40,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import type { ModelEditAttemptId } from '../hooks/modelEditCompletion'
 import { saveAutosave } from '../store/scenarios'
 import { autosaveSourceFromStore, projectAutosaveData } from '../store/autosaveProjection'
 import { withObservedStateUpdate, type ObservedStateData } from '../utils/observedStateHelpers'
@@ -92,6 +93,18 @@ export interface OptimisticFactorEdit {
    * deferred flush alike, rather than two that have to stay in sync.
    */
   reviewedStamp?: Partial<ObservedStateData>
+  /**
+   * The per-edit completion ledger's correlation token, when this edit was
+   * dispatched through `useModelEditAuthority`.
+   *
+   * WHY IT RIDES HERE. This snapshot is already the one thing that travels with
+   * the send THROUGH the deferral buffer and arrives at every settle point —
+   * receipt, refusal, typed error, abort. Minting a second carrier for the
+   * attempt id would be two things that have to stay in sync about one edit,
+   * which is the defect class this module's own header is about. Optional
+   * because the inspector and other callers do not mint attempts.
+   */
+  attemptId?: ModelEditAttemptId
 }
 
 /**
@@ -117,6 +130,7 @@ export function captureOptimisticFactorEdit(
   sentValue: number,
   nodeData: unknown,
   reviewedStamp?: Partial<ObservedStateData>,
+  attemptId?: ModelEditAttemptId,
 ): OptimisticFactorEdit | null {
   if (!nodeId) return null
   if (typeof sentValue !== 'number' || !Number.isFinite(sentValue)) return null
@@ -127,6 +141,7 @@ export function captureOptimisticFactorEdit(
     prevObservedState: readObservedState(nodeData),
     prevDisplayValue: d.display_value,
     ...(reviewedStamp ? { reviewedStamp } : {}),
+    ...(attemptId ? { attemptId } : {}),
   }
 }
 
@@ -150,7 +165,17 @@ export function mergeOptimisticFactorEdit(
   // INCOMING stamp, which describes the commit that is actually going to be
   // sent (a value edit and a "confirm as is" stamp different provenance, and
   // the reply decides the later one's fate, not the superseded one's).
-  return { ...queued, sentValue: incoming.sentValue, reviewedStamp: incoming.reviewedStamp }
+  // The ATTEMPT id follows the same rule as the stamp: the reply decides the
+  // fate of the edit that is actually going to be sent, so the incoming
+  // attempt is the one the settle points must correlate to. The superseded
+  // attempt is marked at the merge CALL SITE (it is a ledger write, and this
+  // function stays pure so its own spec can keep testing it as data).
+  return {
+    ...queued,
+    sentValue: incoming.sentValue,
+    reviewedStamp: incoming.reviewedStamp,
+    attemptId: incoming.attemptId,
+  }
 }
 
 /** Collect every target id a graph_patch block can be read to address. */
