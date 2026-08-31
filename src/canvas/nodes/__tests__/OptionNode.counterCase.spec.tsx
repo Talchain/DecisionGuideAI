@@ -243,7 +243,20 @@ describe('the counter-case door on the leading option', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector({ ...makeStoreState(PERMITTED_REPORT), nodes: baselineNodes } as never),
     )
-    const { container } = renderNode(LEADER_ID, LEADER_LABEL)
+    // ⚠ THE FLAG MUST BE ON THE COMPONENT'S OWN PROPS, not just the store node.
+    // `isBaselineOption` reads `props.data.is_baseline` (OptionNode.tsx:583) and
+    // only falls back to a label regex when that is absent. My first fixture set
+    // it on the store node alone, so the component never saw it and the test was
+    // asserting the gap against a node that was not actually the baseline.
+    const { container } = render(
+      <ReactFlowProvider>
+        <OptionNode
+          {...(baseProps as any)}
+          id={LEADER_ID}
+          data={{ label: LEADER_LABEL, type: 'option', is_baseline: true }}
+        />
+      </ReactFlowProvider>,
+    )
     const chip = Array.from(container.querySelectorAll('button'))
       .find(b => b.textContent?.trim() === COUNTER_CASE_LABEL)
     expect(chip).toBeUndefined()
