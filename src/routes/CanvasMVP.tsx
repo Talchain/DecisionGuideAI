@@ -291,6 +291,23 @@ export default function CanvasMVP() {
                strip by default — pinned by
                canvas/components/__tests__/starterStripMountPath.spec.ts. */
             showStarters
+            /* ⭐ THE REASONING FRONTIER, ON. Doors at the end of each tier —
+               "Another option", "Another risk" — that ask Olumi a question the
+               user decides what to do with.
+
+               It was written, tested and DARK: `enableGhostSuggestions`
+               defaults to false and was passed `true` by nothing in the
+               repository. Confirmed on the deployed build — zero frontier doors
+               against thirteen real nodes, with a control proving the probe
+               could see nodes at all. A whole component built for the one thing
+               the canvas could not do, reachable by nobody.
+
+               THIS MOUNT ONLY, and for the same reason `showStarters` is here:
+               it is the primary canvas with a real first-run journey.
+               PlotWorkspace, CanvasIsolationTest and the sandbox canvas get
+               nothing — pinned by
+               canvas/components/__tests__/ghostSuggestionsMountPath.spec.ts. */
+            enableGhostSuggestions
           />
         </main>
 
