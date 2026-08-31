@@ -96,7 +96,7 @@ const baseProps = {
 const renderNode = (props: Record<string, unknown> = {}) =>
   render(
     <ReactFlowProvider>
-      <DecisionNode {...({ ...baseProps, ...props } as never)} />
+      <DecisionNode {...({ ...baseProps, ...props } as any)} />
     </ReactFlowProvider>,
   )
 
@@ -143,7 +143,7 @@ describe('BaseNode — handle bounds are registered on mount', () => {
     for (let i = 0; i < 5; i++) {
       rerender(
         <ReactFlowProvider>
-          <DecisionNode {...({ ...baseProps, selected: i % 2 === 0 } as never)} />
+          <DecisionNode {...({ ...baseProps, selected: i % 2 === 0 } as any)} />
         </ReactFlowProvider>,
       )
     }
