@@ -47,6 +47,11 @@ import type {
   UncertaintyItem,
 } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+// ⚠ IMPORTED FROM ITS OWNER, NEVER RESTATED. `resolveNextCopy.ts` is "the ONE
+// spelling of the Resolve next register" by its own header; a second copy in
+// this surface's deck would be the mirror that drifts silently (trap 12).
+import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
+import type { VoiRanking } from '../voi/voiRanking'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -64,8 +69,25 @@ import type {
   GlanceComparativeClaim,
 } from './analysisNewTypes'
 
-/** §2 of the brief: "a very small number of high-value insights". */
-const KEY_INSIGHT_CAP = 4
+/**
+ * §2 of the brief: "a very small number of high-value insights".
+ *
+ * ⚠⚠ `KEY_INSIGHT_CAP = 4` WAS DELETED HERE, AND IT WAS A DATA CAP OF EXACTLY
+ * THE KIND `STRENGTHEN_PREVIEW` BELOW RECORDS FIXING. That commit's rationale
+ * named Key insights as one of the sections that "do the opposite" — a
+ * component preview over a full list, each therefore carrying a "Show N more".
+ * It was not true of this one: `usable.slice(0, KEY_INSIGHT_CAP)` sliced the
+ * DATA, so the component never received the rest and could not offer them.
+ *
+ * It was latent rather than live while exactly four branches could push, which
+ * is why nothing caught it — `slice(0, 4)` over at most four candidates is a
+ * no-op, and the "cap disclosed" test passed by asserting a bound the code
+ * could not reach. Emitting every conditional winner (below) makes the list
+ * unbounded and would have made the silent truncation live.
+ *
+ * The preview length that governs this section is `KEY_INSIGHT_PREVIEW`, and it
+ * is already applied at the mount where the remainder can be reached.
+ */
 /**
  * §2: "1–3 prioritised reasoning interventions" — which is a statement about
  * what is PROMINENT, not about what exists.
@@ -246,11 +268,47 @@ function buildKeyInsights(
   //    `VERDICT_WORD` there. Deleting these here is what keeps "one signal, one
   //    primary surface" true in the code rather than only in a filter.
 
-  // 3. Strategic tension: the leading option DEPENDS on a factor's value.
+  // 3. Strategic tensions: the leading option DEPENDS on a factor's value.
   //    A genuine "it depends" finding, and the most reasoning-shaped thing the
   //    producer emits. Neutral arm when the winner identity was withheld.
-  const cw: ConditionalWinner | undefined = conf.conditionalWinners?.[0]
-  if (cw) {
+  //
+  // ⚠⚠ EVERY ROW, NOT `[0]` — AND THE LOSS WAS UNDISCLOSED. `conditionalWinners`
+  // is an UNBOUNDED producer array: `useResultsSectionData.ts:3620` maps one row
+  // per surviving `conditional_winners` entry, so a run whose answer turns on
+  // three factors emitted three rows and this surface rendered the first. The
+  // other two were not collapsed and not summarised — absent, with nothing on
+  // screen saying so. That is the same omission `STRENGTHEN_PREVIEW`'s header
+  // records, in the section that carries the most reasoning-shaped finding the
+  // producer sends: "what does this depend on" is a question a team debates, and
+  // it had exactly one answer however many the run found.
+  //
+  // ⚠ THE ATTESTATION GATE IS PART OF EMITTING MORE THAN ONE, NOT A SEPARATE
+  // TIDY-UP. `winner_flips` is the producer's statement that the winning option
+  // CHANGES across the split (`types.ts:891-899` — "says THAT the winner
+  // changes, never WHICH option"), and "The answer turns on X" is precisely that
+  // claim. An explicit `false` denies it, so such a row is dropped rather than
+  // headlined — the read `analysisSnapshotFactory.ts:285` and the Compare tab's
+  // D7 already make of the same field. Taking `[0]` risked this claim once;
+  // taking every row would have multiplied it.
+  //
+  // ⚠ ABSENT IS NOT `false`, AND THE DIVERGENCE FROM THOSE TWO CALLERS IS
+  // DELIBERATE. They require `=== true`; this requires `!== false`. The field is
+  // optional on `ConditionalWinner`, older payloads omit it, and the producer
+  // still sent a split — so absence keeps the row and the two existing arms
+  // (named / neutral) go on deciding the sentence, exactly as they do today.
+  // Requiring `true` would delete a finding on payloads that currently show one.
+  //
+  // ⚠ DEDUPED BY `factor_id`, FIRST WINS, IN WIRE ORDER. Nothing in the producer
+  // loop stops a repeated `factor_id`, and that id IS this finding's identity —
+  // two rows would collide on `key={f.id}`, the defect `uncertaintyKey`'s header
+  // below documents at length. Two different splits for one factor contradict
+  // each other anyway; the producer's first is kept.
+  const conditionalWinners: ConditionalWinner[] = conf.conditionalWinners ?? []
+  const seenConditionalFactors = new Set<string>()
+  for (const cw of conditionalWinners) {
+    if (cw.winner_flips === false) continue
+    if (seenConditionalFactors.has(cw.factor_id)) continue
+    seenConditionalFactors.add(cw.factor_id)
     const high = cw.high_bucket?.winner_label
     const low = cw.low_bucket?.winner_label
     const namesBoth = Boolean(high && low && high !== low)
@@ -311,8 +369,14 @@ function buildKeyInsights(
 
   // Insights with no implication sentence say nothing — drop rather than
   // render a headline with an empty body.
+  //
+  // ⚠ THE WHOLE ORDERED LIST LEAVES HERE. The preview is applied at the mount
+  // (`KEY_INSIGHT_PREVIEW`), where the section can disclose and REACH its own
+  // tail; slicing here would put the remainder somewhere the component cannot
+  // offer it. `candidateCount` is what the RUN produced, before the glance
+  // deduplication below removes anything already on screen.
   const usable = out.filter((i) => i.implication.trim().length > 0 || i.detail)
-  return { insights: usable.slice(0, KEY_INSIGHT_CAP), candidateCount: usable.length }
+  return { insights: usable, candidateCount: usable.length }
 }
 
 // ── DRIVERS AND DYNAMICS ────────────────────────────────────────────────────
@@ -369,6 +433,25 @@ function driverFinding(
       // Absence-safe: a defaulted or absent confidence prints nothing.
       row('Confidence', d.isDefaultedConfidence ? null : pctOrNull(d.confidence)),
       row('Attribution stability', d.attributionStability),
+      // ⚠ HOW STABLE IS THE RANK WE JUST SHOWED? `rank_flip_rate` is ISL's own
+      // bootstrap answer — "fraction of bootstrap samples where this factor's
+      // rank flips" (`types.ts:692`) — and it reached NO surface on this tab
+      // while the row above it prints that very rank as a fact. A team reading
+      // an ordered list of drivers is entitled to the producer's measure of
+      // whether the order holds. Absence-safe: `pctOrNull` prints nothing for a
+      // producer that did not send it, and a genuine 0 is a real result.
+      row('Chance the rank flips', pctOrNull(d.rankFlipRate)),
+      // ⚠ SOMEONE ON THE TEAM DISPUTED THE EVIDENCE FOR THIS FACTOR. Derived by
+      // the hook from the canvas edges' own `validation.status === 'contested'`
+      // (`useResultsSectionData.ts:2661`), so it is a fact about the shared
+      // model, not a claim about the run. Its only other consumer is gated off
+      // behind `DISPLAY_SAFE_DRIVER_CONFIDENCE`, so a recorded disagreement
+      // currently reaches no screen at all — on the surface whose whole purpose
+      // is a team's shared reasoning.
+      //
+      // ⚠ ONLY `true` RENDERS. `false` is "no contested edge found", which is
+      // not a finding, and printing it would fill every row with a negative.
+      row('Contested evidence', d.hasContestedEdge === true ? 'yes' : null),
       row('Chance the result flips', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
     ),
     intervention: interventionFor(recommendations, target),
@@ -435,12 +518,103 @@ function evidenceGapFinding(
   }
 }
 
+/**
+ * The producer's VALUE-OF-INFORMATION RANKING, as one finding.
+ *
+ * ⭐⭐ WHY THIS EXISTS: THE SECTION NAMED WHAT WAS UNCERTAIN AND NEVER WHICH
+ * UNCERTAINTY WAS WORTH RESOLVING — while the run's own answer sat in the
+ * browser. `data.voiRanking` is ISL's Strong–Oakley regression EVPPI, read by
+ * `voi/voiRanking.ts`, and on this surface it reached exactly two places: a
+ * COUNT (`String(resolved.length)`) and a `'yes'`, both level-3 inspect rows
+ * inside `Deeper analysis and evidence` — a different section, three levels
+ * down, stripped of the ordering that is the only thing the estimator licenses
+ * us to show. The EXISTING Analysis tab renders it as a first-class view
+ * (`analysis-hero/HeroEvidenceDisclosure.tsx`), so the tab meant to replace
+ * that one was the weaker of the two on the most actionable thing in the
+ * payload.
+ *
+ * ⚠ EVERY SENTENCE HERE IS `RESOLVE_NEXT_COPY`, IMPORTED FROM ITS OWNER AND
+ * RENDERED VERBATIM. That module's header says why in terms: it is "the ONE
+ * spelling of the Resolve next register", and copying its sentences into this
+ * surface's own deck would be the hand-maintained mirror (CLAUDE.md trap 12)
+ * with SILENT drift — two tabs making differently-worded claims about the same
+ * producer rows, each with a green suite. Nothing is authored here.
+ *
+ * ⚠ NO MAGNITUDE, NO DIGIT. `evppi` is in the decision's OUTCOME units with no
+ * licensed display, so the ranking is carried STRUCTURALLY — rank 1 in the
+ * headline, ranks 2..n in producer wire order behind it. No sort, no filter, no
+ * re-group: a view that "fixes" the order is a view that can invert it.
+ *
+ * ⚠ HONEST SILENCE ON THE GATE STATE. A null ranking (absent / empty /
+ * all-invalid / unlabelable rank 1) produces NO finding at all, which is the
+ * convention the existing tab's host already follows: on a run with no usable
+ * value-of-information the surface makes no claim rather than offering a row
+ * that leads to a dead end. `RESOLVE_NEXT_COPY.gate` is deliberately unused
+ * here for that reason.
+ *
+ * ⚠ AND THE LIMIT, STATED RATHER THAN HIDDEN. Ranks 2..n are named but not
+ * individually focusable or actionable — `AnalysisNewFinding` carries ONE
+ * `targetId` and ONE `intervention`, so only rank 1 reaches the canvas. The
+ * existing tab gives every row a focus target and a `valueAffordance` act. That
+ * is a real gap against it, and closing it needs either a bespoke section (a
+ * second disclosure pattern this surface bans) or a mount change this lane does
+ * not own. Named so the next session inherits the gap and not the impression
+ * of parity.
+ */
+function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): AnalysisNewFinding {
+  const lead = voi.resolved[0]
+  const belowLabels = voi.belowResolution.map((r) => r.label).join(', ')
+  // Both values are the owner's own ratified sentences. The `dt` labels are
+  // furniture, exactly as `row('Basis', …)` is in the drivers rows above.
+  const inspect = rows(
+    row('Precision', belowLabels ? RESOLVE_NEXT.below(belowLabels) : null),
+    row('Coverage', voi.someFactorsUnassessed ? RESOLVE_NEXT.partial : null),
+  )
+
+  // The arrived-and-all-sub-resolution state. LICENSED because a non-null
+  // ranking guarantees rows arrived, validated and label-resolved — so an empty
+  // `resolved` band means every surviving row is below resolution, which is
+  // exactly what the sentence claims. It must never render on an absent block:
+  // that would assert an assessment that never happened, and the caller's
+  // null-check is what keeps it out.
+  if (!lead) {
+    return {
+      id: 'voi:none-above-resolution',
+      headline: RESOLVE_NEXT.tab,
+      implication: RESOLVE_NEXT.noneAboveResolution,
+      groundedIn: 'the value-of-information ranking',
+      inspect,
+    }
+  }
+
+  const rest = voi.resolved.slice(1)
+  return {
+    // Producer identity, so the row survives a reorder and two sections cannot
+    // mint the same id (trap 19 — never a value predicate, never a position).
+    id: `voi:${lead.factorId}`,
+    headline: `${RESOLVE_NEXT.lead}: ${lead.label}`,
+    implication: RESOLVE_NEXT.note,
+    // `RESOLVE_NEXT_COPY.then` is documented as "Ranks 2..n, producer wire
+    // order" — this is that, as a list rather than as a per-row suffix.
+    detail: rest.length > 0 ? `${RESOLVE_NEXT.then} ${rest.map((r) => r.label).join(', ')}.` : undefined,
+    groundedIn: 'the value-of-information ranking',
+    targetId: lead.canFocus ? lead.factorId : undefined,
+    inspect,
+    intervention: interventionFor(recommendations, lead.factorId),
+  }
+}
+
 function buildUncertainty(
   data: ResultsSectionDataReturn,
   recommendations: Recommendation[],
 ): AnalysisNewViewModel['uncertainty'] {
   const conf = data.confidence
   const findings: AnalysisNewFinding[] = []
+
+  // 0. What is most worth resolving, FIRST — because it is the only row in this
+  //    section that says what to DO about the uncertainty, and with
+  //    `UNCERTAINTY_PREVIEW` at three it must not sit behind "Show more".
+  if (data.voiRanking) findings.push(voiFinding(data.voiRanking, recommendations))
 
   // 1. Consequential uncertainties first — these carry a threshold or an
   //    E-value, i.e. they are quantified, not merely noted.
@@ -652,7 +826,6 @@ function buildUncertainty(
     // Rule 4 — the load-bearing distinction for this section's empty state.
     evidenceAssessed: conf.evidenceGapsAssessed === true,
     decisionVoi: data.decisionVoi,
-    totalCount: findings.length,
   }
 }
 
@@ -1156,14 +1329,13 @@ export function buildAnalysisNewViewModel(
         }
       : buildDrivers(data, recommendations),
     uncertainty: preRun
-      ? { findings: [], totalCount: 0, evidenceAssessed: false, decisionVoi: 'not_computed' as const }
+      ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
       : buildUncertainty(data, recommendations),
     deeper: buildDeeper(inputs),
   }
 }
 
 export const ANALYSIS_NEW_LIMITS = {
-  KEY_INSIGHT_CAP,
   KEY_INSIGHT_PREVIEW,
   STRENGTHEN_PREVIEW,
   DRIVER_PREVIEW,
