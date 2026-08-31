@@ -114,8 +114,34 @@ export function AtAGlance({
     setShowAllExcluded(false)
   }
 
+  /**
+   * ⚠⚠ THE PRIMARY INTERVENTION COUNTS AS SOMETHING, AND LEAVING IT OUT MADE
+   * THIS SURFACE MUTE BEFORE A RUN. Witnessed on deployed `5f2d9703`, guest,
+   * on a live-drafted model: pre-run this tab rendered its placeholder
+   * sentence and a collapsed "Strengthen the reasoning · 1" — and nothing
+   * else. The one real, producer-grounded move ("Define what success looks
+   * like") was in the view model and never reached the screen.
+   *
+   * The cause is that the two modules answered different questions under one
+   * name. `buildAnalysisNewViewModel` blanks every RUN-DERIVED field pre-run
+   * and, in terms, does NOT blank `strengthen` — "it is derived from the
+   * MODEL, which exists before any run". This guard then tested only
+   * run-derived fields, so it discarded the one thing its own component
+   * renders that is not a reading of a run. Neither module was wrong alone;
+   * the guard was simply answering "did a run produce anything?" while the
+   * component's contract is "have I anything to show?" (CLAUDE.md trap 21).
+   *
+   * Adding it here rather than opening the collapsed section is deliberate:
+   * `SectionShell`'s default-closed rule exists because this panel measured
+   * 1,584px against a 769px viewport, and reopening a section would spend
+   * that fix. One card is not a section.
+   */
   const hasAnything =
-    glance.headline || glance.verdict || glance.drivers.length > 0 || glance.condition
+    glance.headline ||
+    glance.verdict ||
+    glance.drivers.length > 0 ||
+    glance.condition ||
+    (primaryIntervention && onRunIntervention)
   if (!hasAnything) return null
 
   // Rule 2. `fraction` is relative to the strongest, so max is 1 by
@@ -188,18 +214,32 @@ export function AtAGlance({
       ) : null}
 
       {/* ── HOW MUCH TO RELY ON IT ─────────────────────────────────────────
-          The share as a NUMBER with a bar, the verdict word as a pill beside
-          it, the producer's own reason sentence beneath. Previously all three
-          were one run-on line of 11px meta text. */}
+          The share AS A SENTENCE with a bar, the verdict word as a pill beside
+          it, the producer's own reason sentence beneath.
+
+          ⚠⚠ THIS BLOCK RENDERED THE SHARE AS A BARE NUMERAL IN THE PANEL'S
+          LARGEST TYPE UNTIL 2026-08-31, and that was the defect, not the
+          styling. Olumi's alignment principle says the product must mitigate
+          anchoring — "especially anchoring on a number the AI supplied" — and
+          on a fresh run every input feeding this share is Olumi's own estimate,
+          not the user's. A percentage set larger than everything around it is
+          read as the answer, which is the one thing this panel is not for.
+
+          The fix is not a smaller numeral: it is `winShare`, the producer-
+          gated sentence the view model already composed and nothing rendered
+          ("Ahead in 66% of simulated futures"). The number survives intact —
+          it is simply no longer the largest thing on screen, and it now
+          arrives inside a claim that says what it ranges over. The separate
+          caption beneath it went with it; the sentence subsumes it. */}
       {glance.verdict ? (
         <div data-testid={`${testId}-verdict`} data-verdict-tone={glance.verdict.tone}>
-          <div className="flex items-center gap-2">
-            {glance.winPercentLabel ? (
+          <div className="flex items-start gap-2">
+            {glance.winShare ? (
               <span
-                className={`${typography.heroDisplay} text-text-header tabular-nums`}
+                className={`${typography.panelBody} text-text-header`}
                 data-testid={`${testId}-win-share`}
               >
-                {glance.winPercentLabel}
+                {glance.winShare}
               </span>
             ) : null}
             <span
@@ -215,11 +255,6 @@ export function AtAGlance({
             </span>
           </div>
 
-          {glance.winPercentLabel ? (
-            <p className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}>
-              {COPY.glance.winShareCaption}
-            </p>
-          ) : null}
           {glance.winFraction !== null ? (
             <span
               className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"

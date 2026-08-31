@@ -60,11 +60,19 @@ export const typography = {
   nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-tight',
   edgeLabel: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-tight',
 
-  // Results Panel — strict 4-size system (Brief 5.5 §2.1 lock)
-  // Only these four tokens should be used inside src/components/results/
-  // and src/canvas/components/pre-analysis/. heroDisplay is reserved for the
-  // hero probability numeric on the Current result card.
-  heroDisplay: 'text-[32px] font-semibold font-sans leading-none tracking-tight', // 32px — hero probability only
+  // Results Panel — strict 3-size system (Brief 5.5 §2.1 lock)
+  // Only these three tokens should be used inside src/components/results/
+  // and src/canvas/components/pre-analysis/.
+  //
+  // ⚠ THE 32px DISPLAY TOKEN WAS RETIRED ON 2026-08-31, AND IT SHOULD NOT COME
+  // BACK. It existed for one thing — a headline win probability, set larger
+  // than anything else on the panel. That is the anchoring bias Olumi's own
+  // alignment principle names: the largest type in the product, first on
+  // screen, on a number computed partly from values Olumi invented rather than
+  // the user. It was rejected twice in design and shipped anyway, as the sole
+  // consumer of this token, until `AtAGlance` was changed to lead with the
+  // producer's own sentence instead. A panel that needs a bigger size than
+  // `panelHeader` is a panel promoting a number; say it in words instead.
   panelHeader: 'text-sm font-semibold font-sans leading-snug',    // 14px — section titles, winner name, key emphasis
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
