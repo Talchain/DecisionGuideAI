@@ -1,10 +1,6 @@
 /**
  * The PER-EDIT COMPLETION INTERFACE — the four contract points, pinned.
  *
- * This spec exists because #1033 (the Model-tab UX lane) cannot tell a user
- * their edit saved without an authority that can tell it apart from an edit
- * that did not. The four points it pins:
- *
  *   1. a CORRELATED outcome — which attempt this answer belongs to;
  *   2. the CANONICAL resulting value — what the model holds, not what was
  *      optimistically rendered;
@@ -13,18 +9,20 @@
  *
  * ⭐⭐ THE LOAD-BEARING TEST IS THE DISCRIMINATING PAIR (`false-success class`).
  * Both arms record a RECEIPT. The ONLY thing that differs between them is the
- * cold-read bytes. So an implementation that trusted the receipt — which is the
- * measured CEE defect (`edit-graph.ts:2986-2992`, four false successes where the
- * number went to a dead `data/value` key and `observed_state.value` never moved,
- * pinned by `persisted-false-success-2026-07-23.test.ts`) — reports BOTH arms
- * committed and fails the pair. Neither arm alone shows this: the commit arm
- * alone is satisfied by trusting the receipt, and the refusal arm alone is
- * satisfied by never committing anything.
+ * cold-read bytes. So an implementation that trusted the receipt — the measured
+ * CEE defect (`edit-graph.ts:2986-2992`, four false successes where the number
+ * went to a dead `data/value` key and `observed_state.value` never moved) —
+ * reports BOTH arms committed and fails the pair. Neither arm alone shows this.
+ *
+ * ⚠ THE DEFAULT FIXTURE IS THE **WIRE** SHAPE. `fetchScenarioGraph` returns
+ * `scenarios.graph` verbatim, whose nodes carry `observed_state` at the TOP
+ * LEVEL with no `data` key. The first cut of this spec used only the CANVAS
+ * shape, so the branch that executes in production had zero coverage while
+ * every test passed. Both shapes are now exercised and named.
  *
  * ⚠ ASSERTIONS BIND BY IDENTITY (attempt id, node id) AND EXPECTATIONS ARE
  * LITERALS. Nothing here reads a value out of the ledger and then asserts the
- * ledger agrees with it — that shape (an expectation derived from the thing it
- * pins) has shipped repeatedly in this estate and is worth nothing.
+ * ledger agrees with it.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -39,8 +37,12 @@ vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
 import {
   __resetModelEditCompletionLedger,
   beginModelEditAttempt,
+  canColdReadScenario,
   getModelEditAttempt,
+  hasAttemptsAwaitingCanonical,
+  markCanonicalReadIssued,
   markModelEditUnresolved,
+  readCanonicalFactor,
   readCanonicalFactorValue,
   recordModelEditReceipt,
   refuseModelEditAttempt,
@@ -49,40 +51,70 @@ import {
 import { useModelEditAuthority } from '../useModelEditAuthority'
 import { useCanvasStore } from '../../store'
 
-const SCENARIO = 'scn_alpha'
-const OTHER_SCENARIO = 'scn_beta'
+/** Real UUIDs — a non-UUID scenario has no cold read at all (see F5 block). */
+const SCENARIO = '11111111-2222-4333-8444-555555555555'
+const OTHER_SCENARIO = '99999999-8888-4777-8666-555555555555'
+const LOCAL_DRAFT_ID = 'local-draft-42'
 const FACTOR_A = 'fac_delivery_time'
 const FACTOR_B = 'fac_unit_cost'
 
+interface NodeSpec {
+  id: string
+  value?: number
+  rawValue?: number
+  source?: string
+  /** Node-level `provenance` — RESPONSE-ONLY, and never evidence. */
+  provenance?: string
+  /** Emit the node with NO observed state at all. */
+  noObservedState?: boolean
+}
+
+function observedState(n: NodeSpec) {
+  return {
+    ...(n.value === undefined ? {} : { value: n.value }),
+    ...(n.rawValue === undefined ? {} : { raw_value: n.rawValue }),
+    ...(n.source === undefined ? {} : { source: n.source }),
+  }
+}
+
 /**
- * A cold-read graph in the witnessed shape:
- * `POST /bff/cee/scenarios/<id>/graph` body `{}` → nodes carrying
- * `observed_state { value, raw_value, source }`.
+ * THE PRODUCTION SHAPE. `observed_state` at the top level, no `data` key —
+ * `scenarios.graph` verbatim, as `applyDraftResult` destructures it.
  */
-function coldReadGraph(
-  nodes: Array<{
-    id: string
-    value?: number
-    rawValue?: number
-    source?: string
-    /** Node-level `provenance` — RESPONSE-ONLY, and never evidence. */
-    provenance?: string
-  }>,
-) {
+function wireGraph(nodes: NodeSpec[]) {
+  return {
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      ...(n.provenance ? { provenance: n.provenance } : {}),
+      ...(n.noObservedState ? {} : { observed_state: observedState(n) }),
+    })),
+  }
+}
+
+/** The CANVAS shape — `observed_state` nested under `data`. Also supported. */
+function canvasGraph(nodes: NodeSpec[]) {
   return {
     nodes: nodes.map((n) => ({
       id: n.id,
       data: {
         label: n.id,
         ...(n.provenance ? { provenance: n.provenance } : {}),
-        observed_state: {
-          ...(n.value === undefined ? {} : { value: n.value }),
-          ...(n.rawValue === undefined ? {} : { raw_value: n.rawValue }),
-          ...(n.source === undefined ? {} : { source: n.source }),
-        },
+        ...(n.noObservedState ? {} : { observed_state: observedState(n) }),
       },
     })),
   }
+}
+
+/** Mint an attempt that the receipt channel has already answered. */
+function receiptedAttempt(nodeId = FACTOR_A, scenarioId: string | null = SCENARIO) {
+  const id = beginModelEditAttempt({
+    nodeId,
+    scenarioId,
+    attemptedValue: 0.7,
+    attemptedRawValue: 21000,
+  })
+  recordModelEditReceipt(id)
+  return id
 }
 
 beforeEach(() => {
@@ -106,17 +138,21 @@ describe('contract 1 — the outcome is correlated to THE attempt that produced 
       attemptedRawValue: 0.4,
     })
     expect(attemptA).not.toBe(attemptB)
-
     recordModelEditReceipt(attemptA)
     recordModelEditReceipt(attemptB)
 
-    // The cold read confirms A and contradicts B, in ONE graph.
+    const readAt = markCanonicalReadIssued()
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([
+      wireGraph([
         { id: FACTOR_A, value: 0.85, rawValue: 0.85, source: 'user_override' },
-        { id: FACTOR_B, value: 0.4, rawValue: 0.9, source: 'cee_inference' },
+        // ⚠ DISAGREES ON **BOTH** BASES. An earlier draft moved only
+        // `raw_value` and left `value` equal to the attempt — which now
+        // correctly COMMITS, because agreeing on any basis means the model
+        // holds the number. A refusal fixture has to refuse on every basis.
+        { id: FACTOR_B, value: 0.9, rawValue: 0.9, source: 'cee_inference' },
       ]),
+      readAt,
     )
 
     // ⭐ BOUND BY ATTEMPT ID. A per-node or "last edit" flag cannot pass this:
@@ -130,36 +166,56 @@ describe('contract 1 — the outcome is correlated to THE attempt that produced 
     expect(getModelEditAttempt(attemptB)?.nodeId).toBe(FACTOR_B)
   })
 
-  it('a late answer cannot re-open an attempt that already settled', () => {
-    const attempt = beginModelEditAttempt({
+  it('two concurrent attempts on the SAME factor settle independently', () => {
+    // The first is superseded in value terms but is still its own transaction.
+    const first = beginModelEditAttempt({
       nodeId: FACTOR_A,
       scenarioId: SCENARIO,
-      attemptedValue: 0.85,
-      attemptedRawValue: 0.85,
+      attemptedValue: 0.6,
+      attemptedRawValue: 18000,
     })
+    const second = beginModelEditAttempt({
+      nodeId: FACTOR_A,
+      scenarioId: SCENARIO,
+      attemptedValue: 0.7,
+      attemptedRawValue: 21000,
+    })
+    recordModelEditReceipt(first)
+    recordModelEditReceipt(second)
+
+    const readAt = markCanonicalReadIssued()
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([{ id: FACTOR_A, value: 0.85, rawValue: 0.85, source: 'user_override' }]),
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      readAt,
+    )
+
+    // The model holds the SECOND number. The first attempt's number is not in
+    // the model, and it is told so on its own id.
+    expect(getModelEditAttempt(second)?.completion.phase).toBe('committed')
+    expect(getModelEditAttempt(first)?.completion.phase).toBe('refused')
+  })
+
+  it('a late receipt-channel answer cannot re-open an attempt that already settled', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
     )
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
 
-    // A's slow refusal lands after the user has moved on. It must not win.
     refuseModelEditAttempt(attempt, 'late refusal that must be ignored')
     markModelEditUnresolved(attempt, 'late uncertainty that must be ignored')
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
   })
 
   it('does not settle an attempt against another scenario’s graph', () => {
-    const attempt = beginModelEditAttempt({
-      nodeId: FACTOR_A,
-      scenarioId: SCENARIO,
-      attemptedValue: 0.85,
-      attemptedRawValue: 0.85,
-    })
-    recordModelEditReceipt(attempt)
+    const attempt = receiptedAttempt()
     settleModelEditAttemptsFromCanonicalGraph(
       OTHER_SCENARIO,
-      coldReadGraph([{ id: FACTOR_A, value: 0.85, rawValue: 0.85, source: 'user_override' }]),
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
     )
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
   })
@@ -167,83 +223,162 @@ describe('contract 1 — the outcome is correlated to THE attempt that produced 
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('⭐ the discriminating pair — a receipt cannot buy a commit', () => {
-  /**
-   * Both arms are byte-identical up to the cold read: same attempted value,
-   * same receipt. Only the persisted bytes differ.
-   */
-  function armWithReceipt() {
-    return beginModelEditAttempt({
-      nodeId: FACTOR_A,
-      scenarioId: SCENARIO,
-      attemptedValue: 0.85,
-      attemptedRawValue: 0.85,
-    })
-  }
-
   it('COMMITTED arm — the cold read proves the model holds the number', () => {
-    const attempt = armWithReceipt()
-    recordModelEditReceipt(attempt)
+    const attempt = receiptedAttempt()
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([{ id: FACTOR_A, value: 0.85, rawValue: 0.85, source: 'user_override' }]),
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
     )
     expect(getModelEditAttempt(attempt)?.completion).toEqual({
       phase: 'committed',
-      canonical: { value: 0.85, rawValue: 0.85, source: 'user_override' },
+      canonical: { value: 0.7, rawValue: 21000, source: 'user_override' },
     })
   })
 
   it('REFUSED arm — the SAME receipt, but the persisted value never moved', () => {
-    const attempt = armWithReceipt()
-    recordModelEditReceipt(attempt)
-    // The measured false-success shape: the turn reported the edit applied and
-    // `observed_state` still holds the engine's own estimate.
+    const attempt = receiptedAttempt()
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([{ id: FACTOR_A, value: 0.5, rawValue: 0.5, source: 'cee_inference' }]),
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
+      markCanonicalReadIssued(),
     )
     const completion = getModelEditAttempt(attempt)?.completion
     expect(completion?.phase).toBe('refused')
-    // Contract 2 + 3: the row is handed what the model ACTUALLY holds, so it
-    // can stop rendering the optimistic 0.85.
     expect(completion).toMatchObject({
-      canonical: { value: 0.5, rawValue: 0.5, source: 'cee_inference' },
+      evidence: 'canonical',
+      canonical: { value: 0.5, rawValue: 15000, source: 'cee_inference' },
     })
   })
 
   it('a receipt on its own is never `committed`', () => {
-    const attempt = armWithReceipt()
-    recordModelEditReceipt(attempt)
-    // No cold read has happened. The honest phase is `receipted` — a state
-    // #1033 must not render as "saved".
+    const attempt = receiptedAttempt()
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+  })
+
+  it('the CANVAS node shape adjudicates identically to the wire shape', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      canvasGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
   })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('contract 3 — provenance comes from observed_state.source, never NodeV3.provenance', () => {
-  it('ignores `provenance: "user_set"` and refuses on the persisted bytes', () => {
+describe('⭐ F2 — bytes read BEFORE the edit may not adjudicate it', () => {
+  it('a cold read issued before the receipt leaves the attempt open, not refused', () => {
+    // Boot hydration is already in flight when the user commits: its read was
+    // issued first, so its bytes describe a model that never saw this edit.
+    const staleRead = markCanonicalReadIssued()
+    const attempt = receiptedAttempt()
+
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
+      staleRead,
+    )
+    // ⚠ NOT `refused`. The honest phase already exists and this is it.
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+  })
+
+  it('and a later, correctly-ordered read still settles it', () => {
+    const staleRead = markCanonicalReadIssued()
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
+      staleRead,
+    )
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
+  })
+
+  it('an attempt with no receipt at all is never adjudicated', () => {
     const attempt = beginModelEditAttempt({
       nodeId: FACTOR_A,
       scenarioId: SCENARIO,
-      attemptedValue: 0.85,
-      attemptedRawValue: 0.85,
+      attemptedValue: 0.7,
+      attemptedRawValue: 21000,
     })
-    recordModelEditReceipt(attempt)
-    // `user_set` is NOT in `OBSERVED_STATE_SOURCE_LITERALS`; it lives on
-    // `NodeV3.provenance`, which is RESPONSE-ONLY and recomputed every
-    // response. A completion signal taken from it would report "saved" here.
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('pending')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('⭐ F3 — a receipt-derived refusal is PROVISIONAL', () => {
+  it('canonical evidence overturns a receipt refusal the model actually took', () => {
+    // `responseAppliedFactorEdit` returns false for a patch with status
+    // 'pending' — a queued-then-applied edit. That must not be the last word.
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR_A,
+      scenarioId: SCENARIO,
+      attemptedValue: 0.7,
+      attemptedRawValue: 21000,
+    })
+    refuseModelEditAttempt(attempt, 'The model did not take this change.')
+    expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
+      phase: 'refused',
+      evidence: 'receipt',
+    })
+
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toEqual({
+      phase: 'committed',
+      canonical: { value: 0.7, rawValue: 21000, source: 'user_override' },
+    })
+  })
+
+  it('but a CANONICAL refusal is terminal', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toMatchObject({ evidence: 'canonical' })
+
+    // A contradictory later read cannot flip a settled canonical verdict.
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('refused')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('contract 3 — provenance from observed_state.source, never NodeV3.provenance', () => {
+  it('ignores `provenance: "user_set"` and refuses on the persisted bytes', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([
         {
           id: FACTOR_A,
           value: 0.5,
-          rawValue: 0.5,
+          rawValue: 15000,
           source: 'cee_inference',
           provenance: 'user_set',
         },
       ]),
+      markCanonicalReadIssued(),
     )
     const completion = getModelEditAttempt(attempt)?.completion
     expect(completion?.phase).toBe('refused')
@@ -251,30 +386,80 @@ describe('contract 3 — provenance comes from observed_state.source, never Node
   })
 
   it('reads the source verbatim off observed_state', () => {
-    const canonical = readCanonicalFactorValue(
-      coldReadGraph([
-        { id: FACTOR_A, value: 0.85, rawValue: 0.85, source: 'user_override', provenance: 'user_set' },
-      ]),
-      FACTOR_A,
-    )
-    expect(canonical).toEqual({ value: 0.85, rawValue: 0.85, source: 'user_override' })
+    expect(
+      readCanonicalFactorValue(
+        wireGraph([
+          { id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override', provenance: 'user_set' },
+        ]),
+        FACTOR_A,
+      ),
+    ).toEqual({ value: 0.7, rawValue: 21000, source: 'user_override' })
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('⭐ F5 — what the cold read can and cannot establish', () => {
+  it('an UNREADABLE graph does NOT manufacture a refusal', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, { notAGraph: true }, markCanonicalReadIssued())
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+    expect(readCanonicalFactor({ notAGraph: true }, FACTOR_A)).toEqual({ kind: 'unreadable' })
   })
 
-  it('an unreadable graph does NOT manufacture a refusal', () => {
-    const attempt = beginModelEditAttempt({
-      nodeId: FACTOR_A,
-      scenarioId: SCENARIO,
-      attemptedValue: 0.85,
-      attemptedRawValue: 0.85,
-    })
-    recordModelEditReceipt(attempt)
-    // The node is absent from the cold read: "I could not tell" is not "it did
-    // not move", and conflating them would accuse the user's data falsely.
+  it('a factor DELETED server-side is refused — the graph is readable and says so', () => {
+    const attempt = receiptedAttempt()
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([{ id: FACTOR_B, value: 0.4, source: 'cee_inference' }]),
+      wireGraph([{ id: FACTOR_B, value: 0.4, source: 'cee_inference' }]),
+      markCanonicalReadIssued(),
     )
-    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+    expect(getModelEditAttempt(attempt)?.completion).toEqual({
+      phase: 'refused',
+      reason: 'This factor is no longer in the model.',
+      evidence: 'canonical',
+      canonical: null,
+    })
+  })
+
+  it('a node PRESENT but carrying no observed state is refused, distinctly', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, noObservedState: true }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
+      phase: 'refused',
+      reason: 'The model holds no value for this factor.',
+    })
+  })
+
+  it('observed_state present with BOTH value and raw_value absent is refused', () => {
+    const attempt = receiptedAttempt()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, source: 'cee_inference' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
+      phase: 'refused',
+      reason: 'The model holds no value for this factor.',
+    })
+  })
+
+  it('an edit under a LOCAL DRAFT ID resolves honestly — it can never be cold-read', () => {
+    expect(canColdReadScenario(LOCAL_DRAFT_ID)).toBe(false)
+    expect(canColdReadScenario(SCENARIO)).toBe(true)
+    const attempt = receiptedAttempt(FACTOR_A, LOCAL_DRAFT_ID)
+    // ⚠ NOT `receipted`. There is no success path for this scenario at all, and
+    // leaving it open would render as "still working" for the life of the page.
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('unresolved')
+    expect(hasAttemptsAwaitingCanonical(LOCAL_DRAFT_ID)).toBe(false)
+  })
+
+  it('the same is true with no scenario id at all', () => {
+    const attempt = receiptedAttempt(FACTOR_A, null)
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('unresolved')
   })
 })
 
@@ -292,12 +477,7 @@ describe('contract 4 — the outcome survives a remount', () => {
             data: {
               label: 'Delivery time',
               kind: 'factor',
-              observedState: {
-                value: 0.5,
-                raw_value: 15000,
-                cap: 30000,
-                source: 'cee_inference',
-              },
+              observedState: { value: 0.5, raw_value: 15000, cap: 30000, source: 'cee_inference' },
             },
           },
         ],
@@ -316,22 +496,19 @@ describe('contract 4 — the outcome survives a remount', () => {
       attemptId = proposal.attemptId
     })
     expect(attemptId).toBeTruthy()
+    recordModelEditReceipt(attemptId)
 
     // ⚠ THE GRAPH CARRIES A LITERAL 21000, not a number read back out of the
-    // ledger. So this also pins that the authority recorded the magnitude it
-    // SENT — if it recorded anything else, this settles `refused` and the
-    // assertion below fails.
+    // ledger — so this also pins that the authority recorded the magnitude it
+    // SENT. If it recorded anything else this settles `refused`.
     settleModelEditAttemptsFromCanonicalGraph(
       SCENARIO,
-      coldReadGraph([
-        { id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' },
-      ]),
+      wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
     )
 
-    // The panel goes away — the user switched tabs.
-    first.unmount()
+    first.unmount() // the panel goes away — the user switched tabs
 
-    // A brand-new hook instance, exactly as a remount produces.
     const second = renderHook(() => useModelEditAuthority(FACTOR_A))
     const retained = second.result.current.completionFor(attemptId)
     expect(retained?.attemptId).toBe(attemptId)

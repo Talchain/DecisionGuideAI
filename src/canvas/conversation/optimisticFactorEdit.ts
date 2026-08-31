@@ -178,6 +178,32 @@ export function mergeOptimisticFactorEdit(
   }
 }
 
+/**
+ * The attempt that a merge will strand, if any.
+ *
+ * ⚠ KEYED ON THE **QUEUED** ATTEMPT ALONE, and the version that required BOTH
+ * ids was a real gap (review of #1057, F6). `mergeOptimisticFactorEdit` writes
+ * `incoming.attemptId` unconditionally, and the INSPECTOR does not mint
+ * attempts — its `captureOptimisticFactorEdit` call passes no 5th argument. So
+ * a Model-tab edit sitting in the deferral buffer, superseded by an inspector
+ * edit on the same factor, lost its id from the carrier AND was never marked:
+ * it sat `pending` for the rest of the session. What matters is only that the
+ * QUEUED attempt will never be answered, which is true whatever supersedes it.
+ *
+ * Extracted as a pure function rather than left inline at the merge site so it
+ * can be driven directly — the inline version was reachable only through the
+ * deferral buffer and had no test.
+ */
+export function supersededAttemptId(
+  queued: OptimisticFactorEdit | undefined,
+  incoming: OptimisticFactorEdit | undefined,
+): ModelEditAttemptId | null {
+  const queuedAttempt = queued?.attemptId
+  if (!queuedAttempt) return null
+  if (queuedAttempt === incoming?.attemptId) return null
+  return queuedAttempt
+}
+
 /** Collect every target id a graph_patch block can be read to address. */
 function patchTargets(block: Record<string, unknown>): string[] {
   const out: string[] = []

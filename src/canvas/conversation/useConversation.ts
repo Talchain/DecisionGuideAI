@@ -139,6 +139,7 @@ import {
   OPTIMISTIC_FACTOR_EDIT_NOTICE,
   buildInterruptedFactorEditNotice,
   optimisticFactorEditStillStands,
+  supersededAttemptId,
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
@@ -3352,13 +3353,14 @@ export function useConversation(): UseConversationReturn {
       // never receive an answer. Settling it here is what stops a superseded
       // attempt sitting `pending` for the rest of the session — a completion
       // that never arrives is indistinguishable from one that is still coming.
-      if (
-        queuedEdit?.attemptId &&
-        incomingEdit?.attemptId &&
-        queuedEdit.attemptId !== incomingEdit.attemptId
-      ) {
+      // The predicate is `supersededAttemptId` (pure, driven directly by its
+      // own spec) rather than an inline condition — the inline version required
+      // BOTH ids and silently stranded a Model-tab attempt superseded by an
+      // inspector edit, which mints none.
+      const strandedAttempt = supersededAttemptId(queuedEdit, incomingEdit)
+      if (strandedAttempt) {
         markModelEditUnresolved(
-          queuedEdit.attemptId,
+          strandedAttempt,
           'Superseded by a later edit to the same factor before either was sent.',
         )
       }
