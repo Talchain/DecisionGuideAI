@@ -65,7 +65,7 @@ import { typography } from '../../styles/typography'
 const OVERVIEW_FIT_MS = 400
 
 export function ModelExtentNotice() {
-  const { getViewport, fitView } = useReactFlow()
+  const { getViewport, fitView, getNodes } = useReactFlow()
   const prefersReducedMotion = usePrefersReducedMotion()
   const nodes = useCanvasStore(s => s.nodes)
   // Subscribe to the live transform so the count follows pan and zoom rather
@@ -108,12 +108,13 @@ export function ModelExtentNotice() {
     // `zoomLegibility.ts`, and REDed on the third. Declaring it there was the
     // wrong fix too: this is not a legibility threshold, it is the canvas's
     // floor, and the honest way to use that floor is to not restate it.
+    const fitTargets = excludeNonModelNodes(getNodes())
     fitView({
-      ...(modelNodes.length > 0 ? { nodes: modelNodes } : {}),
+      ...(fitTargets.length > 0 ? { nodes: fitTargets } : {}),
       padding: computeFitPadding(),
       duration: cameraDuration(OVERVIEW_FIT_MS, prefersReducedMotion),
     })
-  }, [fitView, modelNodes, prefersReducedMotion])
+  }, [fitView, getNodes, prefersReducedMotion])
 
   // Absent, zero, or a model small enough that the question does not arise.
   if (outside === null || outside === 0) return null
