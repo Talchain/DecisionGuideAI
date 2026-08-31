@@ -41,6 +41,14 @@ import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy } from '../utils/notAnalysedCopy'
+// The two existing warning surfaces' OWN selectors, imported rather than
+// respelled. A second copy of either predicate is a mirror that drifts silently
+// (CLAUDE.md trap 12), and the drift here would be a warning going quiet.
+import { selectRenderableCritiqueEntries } from '../CritiqueWarningStrip'
+import {
+  isStripEntry,
+  selectHumanisedInferenceWarningsOutsideStrip,
+} from '../utils/humaniseInferenceWarning'
 import type {
   ConditionalWinner,
   DriverItem,
@@ -848,7 +856,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // this model" — the surface contradicting itself, from producer defaults
   // rather than from producer statements. `rows()` cannot catch it: the values
   // are present, they are just not about anything.
-  if (inputs.isPreRun) return { groups: [] }
+  if (inputs.isPreRun) return { groups: [], critiques: [], caveats: [] }
 
   const run = rows(
     row('Run identity', inputs.responseHash),
@@ -885,18 +893,86 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   if (coverage.length) groups.push({ title: 'What this run covered', rows: coverage })
 
   // ⚠ THE ENGINE'S ACCOUNT OF ITS OWN WORKAROUNDS. Moved here from "Uncertainty
-  // and gaps" (see `buildUncertainty` step 4): diagnostics, carrying raw node
-  // ids the producer does not humanise, three of them rendering one headline on
-  // a real run. Real provenance, kept available one level down where technical
-  // material belongs, and never rewritten.
-  const inferenceRows = (conf.inferenceWarnings ?? [])
-    .map((w) => {
-      const message = (w as { message?: string; description?: string }).message
-        ?? (w as { description?: string }).description
-      return message ? { label: (w as { code?: string }).code ?? 'Model gap', value: message } : null
-    })
-    .filter((r): r is { label: string; value: string } => r !== null)
+  // and gaps" (see `buildUncertainty` step 4): diagnostics, and "Uncertainty and
+  // gaps" is where a user looks for STRATEGIC uncertainty. Demoting them was
+  // right. TWO THINGS ABOUT HOW IT WAS DONE WERE NOT.
+  //
+  // ⛔⛔ (1) THIS ADAPTER WAS RENDERING THE PRODUCER'S RAW `message`, AND THE
+  // GUARD THAT EXISTS TO STOP EXACTLY THAT CANNOT SEE THIS FILE.
+  //
+  // `utils/humaniseInferenceWarning.ts` opens by recording the defect: ISL
+  // inference-warning messages carry internal identifiers, `AdvancedSection`
+  // rendered them verbatim, and that was ruled a no-raw-message-invariant
+  // violation and fixed (P0-3 fold, external review 2026-07-14). The static
+  // tripwire is `__tests__/no-message-render.spec.ts`, and its scanner walks
+  // files matching `/\.tsx$/` under `src/components/results/`. This file has a
+  // `.ts` extension, so it was never scanned; the value it produced was then
+  // rendered by `DeeperAnalysis.tsx` as `{r.value}`, which the brace scanner
+  // cannot recognise as a message read either. The invariant was intact, the
+  // guard was intact, and the leak walked between them.
+  //
+  // What actually reached the screen on the deployed build at `a9fc1564`:
+  //   "No observed value provided for root node 'e4ec3415'; defaulted to 0.0"
+  //   "Goal node 'a6a496f8' is scored from its forward-propagated outcome…"
+  //
+  // ⛔ AND THE ARGUMENT THAT KEPT IT THERE WAS FALSE ON ITS OWN EVIDENCE. The
+  // note this replaces reasoned that rewriting producer prose would be
+  // fabrication and that "no reliable structured resolution exists here". There
+  // is one, it is the estate's only sanctioned one, and it is already the path
+  // both existing surfaces use: `humaniseCritique` maps the producer's own
+  // `code` to approved copy, resolves labels from `affected_labels` (never
+  // parsed out of the message), and falls through to a deliberately
+  // non-factor-framed generic sentence for a code it does not hold. Both codes
+  // quoted above — `ROOT_NODE_DEFAULT_VALUE` and `GOAL_OBSERVED_VALUE_UNUSED` —
+  // have templates in that map already. Keying off `code` is not this surface
+  // authoring a producer sentence; echoing `message` is this surface publishing
+  // an engine identifier as if it were one.
+  //
+  // ⛔ (2) SEVERITY WAS BEING FLATTENED. The existing tab SPLITS these:
+  // warning-severity entries go to `InferenceWarningStrip`, always visible at
+  // the top of the results body, and `AdvancedSection` renders that set's exact
+  // COMPLEMENT. Lumping both into one collapsed group demotes the half the
+  // other tab refuses to collapse. The split below uses `isStripEntry` and
+  // `selectHumanisedInferenceWarningsOutsideStrip` — the shared predicate and
+  // its shared complement, never a second spelling of either (trap 12).
+  //
+  // The label is the producer's `code`. That is deliberate and it is what the
+  // generic fallback presupposes: it tells the reader the raw code "is listed
+  // in the run's audit details", and this group IS those audit details. A
+  // machine code is right content for an audit trail and wrong content for a
+  // caveat strip.
+  const caveats = (conf.inferenceWarnings ?? []).filter(isStripEntry)
+  const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(conf.inferenceWarnings)
+    .map((w) => ({ label: w.code, value: w.title }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
+
+  // ⚠ READINESS SIGNALS, RENDERED AS THE PRODUCER'S OWN NUMBERS. `m1_coaching
+  // .readiness_signals.dimensions`, normalised upstream to
+  // `{ evidence, robustness, clarity }` and absent-or-complete by construction
+  // (`useResultsSectionData` returns undefined unless all three arrived). The
+  // labels and the percentage rendering are the existing tab's — `clarity` is
+  // shown as "Framing" there, and a second name for one dimension across two
+  // surfaces is the defect, not the fix.
+  //
+  // ⚠ A UNIT RENDERING, NOT A DERIVED METRIC. `pctOrNull` is this file's own
+  // existing helper and shows the same number the wire carries, the way
+  // `AdvancedSection`'s readiness bars already show it. It yields null for a
+  // non-finite value, so a dimension that arrives unusable drops its row rather
+  // than printing a placeholder: absence renders as absence.
+  //
+  // ⚠ NOT A READINESS VERDICT, for the reason this file's header gives:
+  // `RunAdmission` is the sole authority on whether analysis may run and
+  // nothing here reads it or speaks for it. These are quality signals the
+  // coaching layer reported ABOUT THE MODEL, on a run that already happened.
+  const dims = data.recommendation.coachingReadinessDimensions
+  const readiness = dims
+    ? rows(
+        row('Evidence', pctOrNull(dims.evidence)),
+        row('Robustness', pctOrNull(dims.robustness)),
+        row('Framing', pctOrNull(dims.clarity)),
+      )
+    : []
+  if (readiness.length) groups.push({ title: 'Readiness signals', rows: readiness })
 
   const provenance = rows(
     row(
@@ -920,7 +996,29 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
     .map((p) => ({ label: p.principle, value: `${p.question} (${p.dskClaimId})` }))
   if (dsk.length) groups.push({ title: 'Grounded decision-quality prompts', rows: dsk })
 
-  return { groups }
+  return {
+    groups,
+    // ⚠⚠ THE WORST DEFECT THIS SECTION HAD: A WARNING THE ENGINE RAISED THAT
+    // REACHED NO SCREEN.
+    //
+    // `confidence.humanisedCritiques` is WARNING-severity engine critiques,
+    // already SENSITIVE_ASSUMPTION-excluded and already carrying CEE's approved
+    // `user_message` verbatim for the S/U-bucket codes. `ResultsBody` mounts
+    // `CritiqueWarningStrip` over it in its UNCONDITIONAL current-view group —
+    // i.e. the existing tab treats these as too important to collapse.
+    //
+    // `OutputsDock` branches on `effectiveActiveTab`: the `results` branch
+    // mounts `ResultsBody`, the `analysisNew` branch mounts this tab instead.
+    // So on this tab the strip is not merely lower down, it is not mounted at
+    // all — a sweep for `humanisedCritiques` under `analysisNew/` returned zero
+    // (contrast control in the same sweep: `inferenceWarnings`, present).
+    //
+    // Selected HERE by the strip's own exported selector so the view model's
+    // idea of "is there anything to show" and the component's cannot disagree —
+    // which is what drives the render decision in `DeeperAnalysis`.
+    critiques: selectRenderableCritiqueEntries(conf.humanisedCritiques),
+    caveats,
+  }
 }
 
 // ── AT A GLANCE ─────────────────────────────────────────────────────────────
