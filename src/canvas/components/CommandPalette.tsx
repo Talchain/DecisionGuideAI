@@ -9,6 +9,7 @@ import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { excludeNonModelNodes } from '../utils/fitTargets'
+import { claimCameraForUser } from '../utils/userCameraClaim'
 import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
@@ -174,6 +175,9 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
     // UI placeholders excluded, and floored at the legibility zoom so the palette
     // cannot choose an unreadable frame either.
     { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => {
+      // Same claim as the toolbar and the extent notice: a fit the USER asked
+      // for is not something the automatic re-fit may undo (#1051).
+      claimCameraForUser()
       const nodes = getNodes ? excludeNonModelNodes(getNodes()) : []
       fitView({
         ...(nodes.length > 0 ? { nodes } : {}),

@@ -8,6 +8,7 @@ import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
+import { releaseUserCameraClaim, userOwnsCamera } from '../utils/userCameraClaim'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
@@ -209,6 +210,10 @@ export function useFitViewOnLayoutVersion(): void {
   useEffect(() => {
     if (layoutVersion === 0) return
     const raf = requestAnimationFrame(() => {
+      // A completed layout has moved every position, so whatever the user framed
+      // is gone. The product owns this frame; the claim is released rather than
+      // honoured (see `utils/userCameraClaim.ts` for why the two triggers differ).
+      releaseUserCameraClaim()
       fitNow.current()
     })
     return () => cancelAnimationFrame(raf)
@@ -313,6 +318,9 @@ export function useFitViewOnLayoutVersion(): void {
       if (!isRestoredModelReady(now)) return
       if (restoreIdentityKey(now.currentScenarioId) !== restoreKey) return
       aimedRestoreRef.current = restoreKey
+      // A restore is a model ARRIVING. Nothing the user framed on a previous
+      // model survives it, so the claim is released here too.
+      releaseUserCameraClaim()
       fitNow.current()
     })
     return () => cancelAnimationFrame(raf)
@@ -333,6 +341,13 @@ export function useFitViewOnLayoutVersion(): void {
   useEffect(() => {
     return watchReservedBox(() => {
       if (!cameraHasATarget(useCanvasStore.getState())) return
+      // ⭐⭐ THE USER'S FRAME WINS. Measured on `build-vs-buy` (#1051): the
+      // overview landed at 0.2630 with 19 of 19 nodes inside the pane, and this
+      // trigger overwrote it 155ms later with the floored 0.5000 top-anchored
+      // view, 9 of 19 inside. This re-fit exists to SPEND canvas won back; it
+      // was also spending the user's own camera. `utils/userCameraClaim.ts`
+      // carries the timed trace and why the layout/restore triggers differ.
+      if (userOwnsCamera()) return
       fitNow.current()
     })
   }, [])

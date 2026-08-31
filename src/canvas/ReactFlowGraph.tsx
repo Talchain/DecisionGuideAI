@@ -79,6 +79,7 @@ import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
+import { claimCameraForUser } from './utils/userCameraClaim'
 import { GHOST_TIERS, withGhostTiers } from './utils/ghostTiers'
 import { LABEL_LEGIBLE_ZOOM } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
@@ -2100,6 +2101,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // may choose the overview, the product may not choose it for them.
   // `utils/zoomLegibility.ts` owns the number.
   const handleFitView = useCallback(() => {
+    // The user framed this camera; the product's automatic re-fit may not take
+    // it back off them (`utils/userCameraClaim.ts`, defect #1051).
+    claimCameraForUser()
     const nodes = excludeNonModelNodes(getNodesRef.current())
     fitViewRef.current({
       ...(nodes.length > 0 ? { nodes } : {}),
