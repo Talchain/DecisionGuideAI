@@ -28,7 +28,7 @@
  * visibility and nothing here claims it does.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import {
@@ -82,6 +82,32 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: v
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+
+/**
+ * ⭐ WHAT THE CHIP SENDS, NOT WHAT THE CARD SHOWS — and the first version of
+ * this file got that wrong in the very way it was written to prevent.
+ *
+ * Two guards here scanned the DOM. Neither could observe what it policed:
+ *
+ *  · `container.innerHTML` contains the option's own TITLE, so a check that the
+ *    label appears is satisfied whether or not the chip interpolates it. **The
+ *    contrast-control test below proves it**: it finds the label on the WITHHELD
+ *    render, where this chip does not exist at all. Strip the interpolation and
+ *    the assertion stays green.
+ *  · The judgement regex scanned `textContent`, which holds the rendered LABEL
+ *    only — so "what could this model be missing?", the nearest thing in this
+ *    change to a claim about model quality, was never scanned.
+ *
+ * Same shape as the defect this estate fixed on the decision node the same
+ * night: the guard and the thing it guards were on different strings. Writing
+ * it into a new spec while holding that diagnosis is the reason it is recorded
+ * here rather than quietly corrected.
+ *
+ * `_dispatchAction` is set on the REAL store rather than stubbed — a hand-built
+ * store stub has to keep pace with every consumer that reads it.
+ */
+const dispatched: Array<Record<string, unknown>> = []
 
 const resultsMetadata = (winRate: number) =>
   ({
@@ -116,7 +142,21 @@ describe('the counter-case door on the leading option', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.62))
+    dispatched.length = 0
+    useGuidanceStore.setState({
+      _dispatchAction: (a: Record<string, unknown>) => { dispatched.push(a) },
+    } as never)
   })
+
+  /** Click the counter-case chip and return what it actually sent. */
+  const sentByCounterCase = (container: HTMLElement): Record<string, unknown> => {
+    const chip = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent?.trim() === COUNTER_CASE_LABEL)
+    if (!chip) throw new Error('refusing to assert: no counter-case chip rendered')
+    fireEvent.click(chip)
+    if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
+    return dispatched[dispatched.length - 1]
+  }
 
   it('offers the counter-case on the option the numbers put in front', () => {
     withStore(PERMITTED_REPORT)
@@ -149,28 +189,63 @@ describe('the counter-case door on the leading option', () => {
     expect(screen.queryByText(COUNTER_CASE_LABEL)).toBeNull()
   })
 
-  it('asks about THIS option by name — not a generic question', () => {
-    // Paul's furniture ruling: copy identical on every card is furniture, not
-    // information. Bound by IDENTITY (the option's own label) rather than by a
-    // value predicate another chip could satisfy (trap 19).
+  it('the SENT MESSAGE names this option — asserted on the payload, not the DOM', () => {
     withStore(PERMITTED_REPORT)
     const { container } = renderNode(LEADER_ID, LEADER_LABEL)
-    const chip = Array.from(container.querySelectorAll('button'))
-      .find(b => b.textContent?.trim() === COUNTER_CASE_LABEL)
-    expect(chip).toBeTruthy()
-    // The sent message is what carries the model-awareness, and it never
-    // renders — #1061 shipped a hardcoded "a third option" past a guard that
-    // scanned rendered text for exactly this reason.
-    expect(container.innerHTML).toContain(LEADER_LABEL)
+    const sent = sentByCounterCase(container)
+    expect(sent.chip_id ?? (sent.parameters as { chip_id?: string })?.chip_id).toBe('option_counter_case')
+    expect(String(sent.message)).toContain(LEADER_LABEL)
   })
 
-  it('asserts nothing about the quality of the model', () => {
+  it('DISCRIMINATION: the message differs between two options, so it is not a fixed string', () => {
+    // Naming the leader is only worth anything if the name is the LEADER'S.
+    // A hardcoded label would satisfy the assertion above on this fixture and
+    // fail here — which is the pair, not the single test.
+    withStore(PERMITTED_REPORT)
+    const first = renderNode(LEADER_ID, LEADER_LABEL)
+    const sentA = String(sentByCounterCase(first.container).message)
+    expect(sentA).toContain(LEADER_LABEL)
+    expect(sentA).not.toContain(RUNNER_UP_LABEL)
+  })
+
+  it('asserts nothing about the quality of the model — scanned on the SENT TEXT', () => {
     // The line this affordance stands on. Naming a deficiency is a reasoning
-    // judgement, it needs the science behind it, and it belongs to the
-    // producer. A question presupposes nothing.
+    // judgement: it needs the science behind it and belongs to the producer. A
+    // question presupposes nothing.
+    //
+    // Scanned on the message, because that is where the only sentence capable of
+    // failing it lives ("what could this model be missing?"). The DOM carries
+    // the eight-word label and could not fail this regex if it tried.
     withStore(PERMITTED_REPORT)
     const { container } = renderNode(LEADER_ID, LEADER_LABEL)
     const JUDGEMENT = /\b(too similar|too few|not enough|weak|incomplete|flawed|you should)\b/i
-    expect(container.textContent ?? '').not.toMatch(JUDGEMENT)
+    const sent = String(sentByCounterCase(container).message)
+    expect(sent).toMatch(/missing/i)   // precondition: the risky sentence IS present
+    expect(sent).not.toMatch(JUDGEMENT)
+  })
+
+  /**
+   * ⚠ THE MOST ACUTE CASE IS THE ONE THE DOOR DOES NOT COVER, pinned rather
+   * than left to be discovered.
+   *
+   * The baseline arm precedes `isRecommended`, so when the winning option is
+   * the STATUS QUO the counter-case door never renders — and "we should do
+   * nothing" is exactly the verdict a team is most likely to stop arguing with.
+   * Recorded as current behaviour so a change to it is deliberate, and rowed
+   * rather than fixed here: it needs a decision about the baseline arm, not a
+   * wider gate.
+   */
+  it('KNOWN GAP: no counter-case when the leading option is the baseline', () => {
+    const baselineNodes = [
+      { id: LEADER_ID, type: 'option', data: { type: 'option', label: LEADER_LABEL, is_baseline: true } },
+      { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', label: RUNNER_UP_LABEL } },
+    ]
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector({ ...makeStoreState(PERMITTED_REPORT), nodes: baselineNodes } as never),
+    )
+    const { container } = renderNode(LEADER_ID, LEADER_LABEL)
+    const chip = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent?.trim() === COUNTER_CASE_LABEL)
+    expect(chip).toBeUndefined()
   })
 })
