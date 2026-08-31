@@ -7,9 +7,15 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasLegendPopover } from '../CanvasLegendPopover'
+import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
 
+// ⚠ THE NODE-TYPE WORD COMES FROM THE VOCABULARY CONSTANT, NOT A LITERAL.
+// The approved list is a hand-maintained mirror of what the legend renders;
+// hardcoding the word here would make this spec the very mirror
+// `DECISION_NODE_LABEL` was introduced to abolish, and it would go stale the
+// next time the word changes rather than failing loud.
 const APPROVED = [
-  'Decision', 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
+  DECISION_NODE_LABEL, 'Option', 'Factor', 'Outcome', 'Risk', 'Goal', 'Outside your control',
   'Raises', 'Lowers', 'Solid connection: established', 'Dashed connection: less certain',
   'Weak effect', 'Moderate effect', 'Strong effect',
 ]
