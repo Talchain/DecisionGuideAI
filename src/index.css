@@ -666,6 +666,46 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Read-only Inspector — make the inertness VISIBLE, not just real.
+
+   `InspectorRouter` wraps every panel in `<fieldset disabled
+   data-authority="disabled">`, which genuinely inerts the controls inside: an
+   input there matches `:disabled`, takes no focus and accepts no typing. That
+   part works.
+
+   ⚠ WHAT DID NOT WORK WAS SAYING SO. Measured on deployed staging: the inert
+   value input and a live input elsewhere on the same screen rendered with
+   IDENTICAL opacity (1), IDENTICAL text colour and IDENTICAL border colour.
+   The only difference the browser gave the user was `cursor: default` versus
+   `cursor: text` — invisible until hover, and absent entirely on touch. So a
+   field captioned "Enter value", drawn exactly like every field that works,
+   silently swallowed clicks. The panel's read-only notice sits at the TOP of
+   the panel; the control at the point of failure said nothing.
+
+   That is the same shape as the defects this canvas keeps paying for: the
+   product is technically honest and reads as broken.
+
+   ⭐ KEYED ON THE FIELDSET, NOT LISTED PER CONTROL. One rule derived from the
+   authority boundary covers every control inside it — the ones there today and
+   the ones added later — so this cannot drift out of sync the way a
+   hand-maintained list of `disabled:` classes would (CLAUDE.md trap 12). The
+   `:disabled` pseudo-class does the selecting, so it is the browser's own
+   answer to "is this inert", not a second opinion.
+
+   `contents` on the fieldset means it has no box of its own, so this styles
+   descendants and never the wrapper. */
+[data-authority="disabled"] :disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The placeholder is the part that most reads as an invitation ("Enter
+   value"), so it fades furthest — the field still shows any value it holds. */
+[data-authority="disabled"] :disabled::placeholder {
+  opacity: 0.7;
+}
+
 /* Streaming cursor — injected via dangerouslySetInnerHTML in MessageBubble */
 .streaming-cursor {
   display: inline;
