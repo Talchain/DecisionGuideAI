@@ -38,9 +38,14 @@ vi.mock('../../../../canvas/store', () => {
   return { useCanvasStore }
 })
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+vi.mock('../../../../canvas/utils/highlightHelpers', () => ({
+  highlightNode: vi.fn(),
+  clearHighlight: vi.fn(),
+}))
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { ModelStrip } from '../sections/ModelStrip'
 import { buildNodeInsights, NODE_INSIGHT_FINDING_CAP } from '../nodeInsights'
@@ -133,6 +138,8 @@ const renderOpen = (index = insights()) => {
 beforeEach(() => {
   vi.mocked(focusModelTarget).mockClear()
   vi.mocked(openAskOlumi).mockClear()
+  vi.mocked(highlightNode).mockClear()
+  vi.mocked(clearHighlight).mockClear()
   setCanvas(CANVAS)
 })
 afterEach(() => cleanup())
@@ -231,6 +238,36 @@ describe('⭐ three routes in, and the canvas route is unchanged', () => {
     fireEvent.mouseEnter(mark('r1'))
     fireEvent.focus(mark('o2'))
     expect(focusModelTarget).not.toHaveBeenCalled()
+  })
+})
+
+describe('⭐ the graph answers — pointing at a mark rings THAT node', () => {
+  it('rings the mark’s own node, and clears when the pointer leaves', () => {
+    renderOpen()
+    fireEvent.mouseEnter(mark('f8'))
+    // Bound by the node's id. A component that rang a fixed node, or the first
+    // node, satisfies "something was highlighted" and fails this.
+    expect(highlightNode).toHaveBeenCalledTimes(1)
+    expect(highlightNode).toHaveBeenCalledWith('f8')
+    expect(clearHighlight).not.toHaveBeenCalled()
+
+    fireEvent.mouseLeave(mark('f8'))
+    expect(clearHighlight).toHaveBeenCalledTimes(1)
+  })
+
+  it('the ring FOLLOWS the pointer — a second mark rings the second node', () => {
+    renderOpen()
+    fireEvent.mouseEnter(mark('o2'))
+    fireEvent.mouseEnter(mark('r1'))
+    expect(vi.mocked(highlightNode).mock.calls.map(([id]) => id)).toEqual(['o2', 'r1'])
+  })
+
+  it('keyboard focus rings it too, and blur clears it', () => {
+    renderOpen()
+    fireEvent.focus(mark('o1'))
+    expect(highlightNode).toHaveBeenCalledWith('o1')
+    fireEvent.blur(mark('o1'))
+    expect(clearHighlight).toHaveBeenCalledTimes(1)
   })
 })
 

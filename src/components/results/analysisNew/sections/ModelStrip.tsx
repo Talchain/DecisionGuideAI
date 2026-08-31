@@ -72,6 +72,12 @@
  * prop, so the strip and any later surface cannot derive two different answers
  * to "what does this run say about node X" (CLAUDE.md trap 12).
  *
+ * ⭐ AND THE OTHER HALF OF THE SAME SENTENCE — "possibly highlight the relevant
+ * items in the graph". Pointing at or focusing a mark RINGS THAT NODE ON THE
+ * CANVAS, through the same results-panel → canvas channel the compare tab
+ * already uses and which `BaseNode` renders. The reader sees which shape the
+ * mark is before deciding to move the camera to it.
+ *
  * ⚠ THREE ROUTES IN, NOT ONE. Hover is a mouse affordance and nothing else:
  * touch has no hover and the keyboard has no pointer. Pointing at a mark,
  * FOCUSING a mark and ACTIVATING a mark all open the same detail, and
@@ -97,6 +103,7 @@ import { ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
 import { useCanvasStore } from '../../../../canvas/store'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
@@ -350,11 +357,34 @@ export function ModelStrip({
                           setActiveNodeId(node.id)
                           focusModelTarget(node.id)
                         }}
-                        onMouseEnter={() => setActiveNodeId(node.id)}
+                        /* ⭐ AND THE GRAPH ANSWERS. `highlightNode` is the
+                           results-panel → canvas channel the compare tab
+                           already uses this way, and `BaseNode` renders it as a
+                           ring on the node itself — so pointing at a mark shows
+                           the reader WHICH shape on the canvas it is, before
+                           they commit to moving the camera.
+
+                           ⚠ TRANSIENT, AND THE ASYMMETRY WITH THE DETAIL IS
+                           DELIBERATE. The detail is a thing you READ and so it
+                           persists; the ring is a POINTER and belongs to the
+                           gesture. A highlight left behind by a pointer that
+                           has moved on would also sit on a shared channel that
+                           the applied-edit pulse and the AI's own directives
+                           write to. */
+                        onMouseEnter={() => {
+                          setActiveNodeId(node.id)
+                          highlightNode(node.id)
+                        }}
+                        onMouseLeave={() => clearHighlight()}
                         /* Keyboard parity. Tabbing across the row reads each
-                           node's detail in turn, without committing a canvas
-                           move the reader did not ask for. */
-                        onFocus={() => setActiveNodeId(node.id)}
+                           node's detail in turn and rings each node in turn,
+                           without committing a canvas move the reader did not
+                           ask for. */
+                        onFocus={() => {
+                          setActiveNodeId(node.id)
+                          highlightNode(node.id)
+                        }}
+                        onBlur={() => clearHighlight()}
                         aria-expanded={isActive}
                         /* Points at the detail ONLY while this mark owns it —
                            the detail is unmounted otherwise, so a resting
