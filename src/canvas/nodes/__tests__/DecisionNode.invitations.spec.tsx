@@ -58,22 +58,30 @@ vi.mock('../../store', () => ({
 }))
 
 /**
- * ⭐ CAPTURES WHAT THE CHIP ACTUALLY SENDS.
+ * ⭐ CAPTURES WHAT THE CHIP ACTUALLY SENDS — through the REAL store.
  *
  * The assertion at the bottom of this file ("asserts nothing about the model")
- * scanned RENDERED TEXT — and the chip's falsehood was in `message`, which
- * never renders. The guard and the defect were on different strings, so the
- * suite stayed green while "Suggest a third option" went out on every model.
- * These tests click the chip and read the dispatched payload.
+ * scanned RENDERED TEXT, and the chip's falsehood was in `message`, which never
+ * renders. Guard and defect on different strings, so the suite stayed green
+ * while "Suggest a third option" went out on every model. These tests click the
+ * chip and read the dispatched payload instead.
+ *
+ * ⚠ NOT MOCKED, AND THAT IS THE FIX. I first mocked the module with an object
+ * exposing `getState`. `useGuidanceStore` is a zustand hook and DecisionNode
+ * calls it AS ONE — `useGuidanceStore(canReceiveAsk)` at :582 — so every test in
+ * this file died on "useGuidanceStore is not a function", and a repair probe hit
+ * a SECOND consumer (`NodeCoachingMarker`) behind the first. A hand-built stub
+ * of a store has to keep pace with every consumer that reads it, which is the
+ * hand-maintained mirror in test clothing.
+ *
+ * The real store already supports this: `_dispatchAction` defaults to `null`
+ * and is settable. So the capture is a real state write, the selectors are the
+ * real selectors, and any future consumer is served without an edit here — the
+ * same approach the sibling `restingState.spec.tsx` takes.
  */
+import { useGuidanceStore } from '../../stores/guidanceStore'
+
 const dispatched: Array<Record<string, unknown>> = []
-vi.mock('../../stores/guidanceStore', () => ({
-  useGuidanceStore: {
-    getState: () => ({
-      _dispatchAction: (a: Record<string, unknown>) => { dispatched.push(a) },
-    }),
-  },
-}))
 
 const DECISION_ID = 'decision-1'
 const decisionNode = { id: DECISION_ID, type: 'decision', data: { type: 'decision' } }
@@ -125,7 +133,14 @@ const outsidePopover = (container: HTMLElement): string => {
 }
 
 describe('DecisionNode — invitations in Standard view', () => {
-  beforeEach(() => { vi.clearAllMocks(); setStore() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setStore()
+    dispatched.length = 0
+    useGuidanceStore.setState({
+      _dispatchAction: (a: Record<string, unknown>) => { dispatched.push(a) },
+    } as never)
+  })
   afterEach(() => cleanup())
 
   it('offers "Explore more options" WITHOUT hovering', () => {
