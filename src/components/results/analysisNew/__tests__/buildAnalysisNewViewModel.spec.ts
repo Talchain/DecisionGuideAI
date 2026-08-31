@@ -733,9 +733,37 @@ describe('the partial-analysis warning', () => {
       }),
     )
 
-  it("names the producer's own missing keys, in this surface's words", () => {
-    const vm = withMissing(['top_drivers', 'robustness_level'])
-    expect(vm.status.missingResults).toEqual(['the drivers', 'the robustness check'])
+  it("names the producer's own missing REQUIRED keys, in this surface's words", () => {
+    const vm = withMissing(['win_probability', 'robustness_level'])
+    expect(vm.status.missingResults).toEqual(['the win share', 'the robustness check'])
+  })
+
+  /**
+   * ⭐⭐ THE PAIR THAT MATTERS, AND THE DEFECT THAT PRODUCED IT.
+   *
+   * ⚠ MEASURED on deployed `fc46e7ee`, a real completed guest run: the drivers
+   * the producer actually sends carry no sensitivity field at all, and the
+   * decision review is skipped by configuration on staging — so BOTH were in
+   * `completeness.missing` on a perfectly healthy analysis, and the tab's first
+   * line read "This analysis is partial — the sensitivity check, the decision
+   * review did not come back" while the canvas rendered a sensitivity chip and
+   * the chat rendered the review's own prose.
+   *
+   * These two assertions are OPPOSITE-DIRECTION TWINS and must stay that way:
+   * the first proves optional enrichment cannot raise the warning, the second
+   * proves closing that gap did not swallow a genuine missing result. One alone
+   * would let the fix slide into either failure.
+   */
+  it('does NOT call an analysis partial for OPTIONAL enrichment the live path never sends', () => {
+    const vm = withMissing(['sensitivity', 'decision_review', 'top_drivers'])
+    expect(vm.status.missingResults).toEqual([])
+    expect(vm.status.isProvisional).toBe(false)
+  })
+
+  it('STILL calls it partial when a required result is missing alongside that enrichment', () => {
+    const vm = withMissing(['sensitivity', 'decision_review', 'expected_outcome'])
+    expect(vm.status.missingResults).toEqual(['the expected outcome'])
+    expect(vm.status.isProvisional).toBe(true)
   })
 
   /**
@@ -744,8 +772,8 @@ describe('the partial-analysis warning', () => {
    * unrecognised name is worse than the generic sentence it would displace.
    */
   it('DROPS a key this build does not recognise rather than showing it raw', () => {
-    const vm = withMissing(['top_drivers', 'some_future_key'])
-    expect(vm.status.missingResults).toEqual(['the drivers'])
+    const vm = withMissing(['win_probability', 'some_future_key'])
+    expect(vm.status.missingResults).toEqual(['the win share'])
   })
 
   it('names nothing when every key is unrecognised, so the generic sentence stands', () => {
