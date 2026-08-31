@@ -58,6 +58,17 @@ export function ModelStrip({ testId = 'analysis-new-model-strip' }: ModelStripPr
 
   return (
     <section data-testid={testId} className="flex flex-col gap-2">
+      {/* ⚠ A COUNT LINE WAS REMOVED HERE AND THE REASON IS THE CLAIM, NOT THE
+          CLUTTER. It read "N elements on the canvas" from `strip.total`, which
+          sums the four ROWS — options, factors, risks, outcomes — and therefore
+          excludes the goal and decision nodes that are also on the canvas. The
+          sentence claimed more than the number supported, and a reader counting
+          nodes on screen would have found it short.
+
+          Making it accurate was possible; making it USEFUL was not. Every row
+          already carries its own tally, so the line restated them in aggregate
+          on a panel whose standing criticism is that it is too textual. Dropped
+          rather than corrected. */}
       {strip.goalLabel ? (
         <div
           className="flex items-start gap-2 rounded-md bg-panel-hover px-2 py-2"
@@ -69,9 +80,6 @@ export function ModelStrip({ testId = 'analysis-new-model-strip' }: ModelStripPr
           <span className="min-w-0">
             <span className={`${typography.panelBody} text-text-header block`}>
               {strip.goalLabel}
-            </span>
-            <span className={`${typography.panelMeta} text-text-light block`}>
-              {strip.total === 1 ? '1 element on the canvas' : `${strip.total} elements on the canvas`}
             </span>
           </span>
         </div>
