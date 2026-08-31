@@ -37,6 +37,7 @@ import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 
 /** Verdict tone → the accent that carries it. */
@@ -602,6 +603,28 @@ export function AtAGlance({
             <span className={`${typography.panelHeader} text-text-header block`}>
               {primaryIntervention.label}
             </span>
+            {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
+                the one move a reader meets without opening anything, so if any
+                card should say WHICH science-grounded method it is, it is this
+                one. Rendered as a label rather than a control: the card is
+                already a button, and a nested button is invalid markup — the
+                card's own click runs the intervention, which is the same
+                destination the chip would have offered.
+
+                `null` for most findings by design (`recommendationMethod.ts`);
+                nothing renders then, never a default technique. */}
+            {(() => {
+              const method = methodForRecommendation(primaryIntervention.id)
+              return method ? (
+                <span
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info mt-1`}
+                  data-testid={`${testId}-primary-method`}
+                  data-method-id={method.id}
+                >
+                  {method.title}
+                </span>
+              ) : null
+            })()}
             {primaryIntervention.why ? (
               <span className={`${typography.panelMeta} text-text-light block mt-0.5`}>
                 {primaryIntervention.why}
