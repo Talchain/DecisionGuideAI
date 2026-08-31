@@ -190,6 +190,7 @@
 2	src/canvas/ReactFlowGraph.tsx	TS2322	Type '{ options: { id: string; label: string; status: "needs_encoding" | "needs_user_mapping" | "ready"; interventions: Record<string, unknown>; user_questions?: string[] | undefined; unresolved_targets?: string[] | undefined; }[]; goal_node_id: string; suggested_seed?: string | undefined; status?: string | undefined; use...' is not assignable to type 'CEEAnalysisReady'.
 1	src/canvas/ReactFlowGraph.tsx	TS2345	Argument of type 'Scenario | null | undefined' is not assignable to parameter of type 'Scenario | null'.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'MiniMap' is declared but its value is never read.
+1	src/canvas/ReactFlowGraph.tsx	TS6133	'enableGhostSuggestions' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'handleEmptyStateTemplate' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'handleOpenCompare' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'handleQuickFixAll' is declared but its value is never read.
