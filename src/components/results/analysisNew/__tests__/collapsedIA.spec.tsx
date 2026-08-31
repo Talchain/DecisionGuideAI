@@ -160,7 +160,7 @@ describe('the glance declares its own cap', () => {
     render(
       <AtAGlance
         glance={{
-          headline: null, leaderLabel: null, winPercentLabel: null, winFraction: null,
+          headline: null, leaderLabel: null, winFraction: null,
           winShare: null,
           comparisonScope: { kind: 'whole_set' },
           comparativeClaim: 'none',
@@ -173,7 +173,6 @@ describe('the glance declares its own cap', () => {
           influenceIsSetRelative: false,
           condition: null,
           inputProvenance: null,
-          primaryInterventionId: null,
         }}
         driverTotal={7}
       />,
@@ -189,7 +188,7 @@ describe('the glance declares its own cap', () => {
     render(
       <AtAGlance
         glance={{
-          headline: null, leaderLabel: null, winPercentLabel: null, winFraction: null,
+          headline: null, leaderLabel: null, winFraction: null,
           winShare: null,
           comparisonScope: { kind: 'whole_set' },
           comparativeClaim: 'none',
@@ -198,7 +197,6 @@ describe('the glance declares its own cap', () => {
           influenceIsSetRelative: false,
           condition: null,
           inputProvenance: null,
-          primaryInterventionId: null,
         }}
         driverTotal={1}
       />,
