@@ -9,7 +9,7 @@
  * - Smooth transitions
  */
 
-import { memo, useState, useCallback, type ReactNode } from 'react'
+import { memo, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { optionsWereAssessed } from '../domain/optionAssessment'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
@@ -259,6 +259,40 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`
+
+  /*
+   * ⭐⭐ REGISTER THIS NODE'S HANDLE BOUNDS ONCE, ON MOUNT — WITHOUT THIS THE
+   * CANVAS DRAWS NO EDGES AT ALL.
+   *
+   * React Flow positions an edge from `node.internals.handleBounds`, which it
+   * fills in when it measures a node. If the handles are not in the DOM at that
+   * moment, `getHandleBounds` returns null, `handleBounds` stays undefined, and
+   * `getEdgePosition` then returns null for every edge touching that node — so
+   * `EdgeWrapper` renders NOTHING. Silently: no warning, no error, no fallback.
+   * The node still measures fine, so `measured` is populated and everything
+   * looks healthy.
+   *
+   * Measured on deployed `a0587e0d`, a guest's saved model: 14 nodes, 22 edges
+   * handed to React Flow, `edgeLookup.size === 22`, `nodesInitialized === true`
+   * — and `handleBounds` undefined on 14 of 14 nodes, `.react-flow__edge`
+   * elements in the DOM: 0. Pushing `updateNodeInternals` for the 14 mounted
+   * nodes populated 14 of 14 and all 22 edges appeared immediately. That is the
+   * whole defect: a causal model rendered as disconnected boxes.
+   *
+   * The one existing call sat inside `handleExpandToggle`, so bounds were only
+   * ever registered for a node whose chevron a user happened to click.
+   *
+   * ⚠ ONCE PER NODE, KEYED ON `id`, AND DELIBERATELY NOT ON EVERY RENDER.
+   * `updateNodeInternals` driven from a ResizeObserver is a known starvation
+   * source here (see `readinessStore.churnStarvation.spec.ts`). One rAF-deferred
+   * call per mounted node is bounded by the node count; re-measurement after
+   * that stays the ResizeObserver's job. The rAF lets the commit settle so the
+   * handles are in the DOM and React Flow has adopted the node.
+   */
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => updateNodeInternals(id))
+    return () => cancelAnimationFrame(raf)
+  }, [id, updateNodeInternals])
 
   // Toggle expand via chevron icon click
   const handleExpandToggle = useCallback((e: React.MouseEvent) => {
