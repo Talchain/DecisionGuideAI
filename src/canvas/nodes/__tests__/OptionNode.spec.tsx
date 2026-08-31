@@ -107,6 +107,7 @@ import { selectGoalProbability } from '../../../components/results/utils/selectG
 // The density tests below assert against it rather than re-typing the sentence,
 // so a change to the register moves the test with the product.
 import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../../../components/results/utils/goalAnchorCopy'
+import { typography } from '../../../styles/typography'
 
 const baseProps = {
   id: 'option-1',
@@ -617,6 +618,34 @@ describe('OptionNode', () => {
       valueOfInformation: null,
       voiRank: null,
     })
+
+  it('the anchor word is VISIBLE, not only in the hover text or the sr-only span', () => {
+    // ⭐ THE REGRESSION THIS EXISTS TO PREVENT (31 Aug 2026). The first density
+    // pass shipped the percentage BARE, with the ratified sentence reachable
+    // only through `title` and an `sr-only` span. Screen-reader users were
+    // fine; KEYBOARD-only users were not (this row is not focusable, so a
+    // `title` cannot be reached) and neither were TOUCH users
+    // (`(hover: hover)` is false). Two input classes got a number with no
+    // statement of what it measures.
+    //
+    // So the assertion is deliberately about the VISIBLE tree, and it must
+    // fail if the anchor is ever demoted back into `title`/`sr-only` — which
+    // is exactly what a future density pass would do.
+    mockWinRate72()
+    renderOption()
+
+    const anchorEl = screen.getByTestId('option-win-anchor-option-1')
+    expect(anchorEl.textContent).toBe(COMPARATIVE_COPY.anchor)
+
+    // NOT screen-reader-only: an `sr-only` anchor would satisfy a naive
+    // "the word is present" check while remaining invisible to the two input
+    // classes that lost it.
+    expect(anchorEl.className).not.toContain('sr-only')
+    expect(anchorEl.className).not.toContain(typography.screenReaderOnly)
+
+    // The word must not be re-typed at the call site — it is the register's.
+    expect(COMPARATIVE_COPY.phrase('72%')).toContain(COMPARATIVE_COPY.anchor.toLowerCase())
+  })
 
   it('density: the VISIBLE readout is the bare percentage, and it is hidden from assistive tech', () => {
     mockWinRate72()
