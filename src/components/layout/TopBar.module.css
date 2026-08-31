@@ -75,15 +75,6 @@
 }
 
 /* Center section - metadata chips in compact pill format */
-.topBarCenter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 8px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border-default, #EEE6D8);
-}
-
 .topBarRight {
   display: flex;
   align-items: center;
@@ -417,8 +408,5 @@
 /* Responsive handling for TopBar pill */
 @media (max-width: 900px) {
   /* Hide metadata chips on medium screens */
-  .topBarCenter {
-    display: none;
-  }
 }
 
