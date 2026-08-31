@@ -376,6 +376,19 @@ export function StrengthenTheReasoning({
     () => selectHistory({ records: strengthenRecords, priorityOrder }),
     [strengthenRecords, priorityOrder],
   )
+  /**
+   * Counted BY STATUS, each on its own predicate — see the succeeded-state
+   * comment below for why neither is derived by subtracting the other from
+   * `retired.length`.
+   */
+  const addressedCount = useMemo(
+    () => retired.filter((r) => r.status === 'addressed').length,
+    [retired],
+  )
+  const setAsideCount = useMemo(
+    () => retired.filter((r) => r.status === 'dismissed').length,
+    [retired],
+  )
   const [historyOpen, setHistoryOpen] = useState(false)
 
   /**
@@ -444,11 +457,61 @@ export function StrengthenTheReasoning({
       ) : null}
 
       {interventions.length === 0 ? (
-        // ⚠ STATES WHAT WAS NOT FOUND, NOT THAT NOTHING IS WRONG. "Your
-        // reasoning looks solid" would be a claim nobody measured.
-        <p className={`${typography.panelBody} text-text-light`} data-testid={`${testId}-empty`}>
-          {COPY.empty.strengthen}
-        </p>
+        retired.length === 0 ? (
+          // ⚠ STATES WHAT WAS NOT FOUND, NOT THAT NOTHING IS WRONG. "Your
+          // reasoning looks solid" would be a claim nobody measured.
+          <p className={`${typography.panelBody} text-text-light`} data-testid={`${testId}-empty`}>
+            {COPY.empty.strengthen}
+          </p>
+        ) : (
+          /**
+           * ⭐⭐ THE SUCCEEDED STATE. Reached only when the list is empty AND a
+           * trail exists — i.e. the list is empty BECAUSE the team emptied it.
+           * The old branch told those users "no recommendations need attention",
+           * which reads as *nothing was found* and quietly discards the work.
+           *
+           * ⚠ THE TWO COUNTS ARE READ BY STATUS, NEVER BY SUBTRACTION FROM
+           * `retired.length`. `selectHistory` owns what retires and may retire a
+           * status this component does not know about; `addressed = total −
+           * dismissed` would then silently credit that unknown status as work
+           * the team did. Counting each by identity means an unrecognised status
+           * is absent from both sentences rather than misattributed to one.
+           */
+          <div data-testid={`${testId}-completed`}>
+            <p className={`${typography.panelBody} text-text-body m-0`}>
+              {addressedCount > 0 && setAsideCount > 0
+                ? STRENGTHEN_COPY.completedMixed(addressedCount, setAsideCount)
+                : setAsideCount > 0
+                  ? STRENGTHEN_COPY.completedAllSetAside(setAsideCount)
+                  : STRENGTHEN_COPY.completedAllAddressed(addressedCount)}
+            </p>
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+              data-testid={`${testId}-completed-limit`}
+            >
+              {STRENGTHEN_COPY.completedLimit}
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                openAskOlumi({
+                  context: STRENGTHEN_COPY.completedLimit,
+                  draft: STRENGTHEN_COPY.completedChallengeDraft,
+                  label: STRENGTHEN_COPY.completedChallenge,
+                  // An accepted CEE intent, so the turn resolves a DSK protocol
+                  // instead of arriving as ordinary chat. The wire gate fails
+                  // closed, so a narrowed accepted-set degrades to prompt text.
+                  intent: 'challenge_assumption',
+                })
+              }
+              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-completed-challenge`}
+            >
+              {STRENGTHEN_COPY.completedChallenge}
+              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        )
       ) : (
         <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
           {visible.map((rec) => {

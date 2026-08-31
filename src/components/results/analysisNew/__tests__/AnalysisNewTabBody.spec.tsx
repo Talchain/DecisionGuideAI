@@ -600,3 +600,70 @@ describe('pre-run never carries a staleness claim', () => {
     expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * ⭐⭐ A CAVEAT THAT ARRIVES AFTER THE READING IS A FOOTNOTE.
+ *
+ * #1039 gave the engine's warning strips a consumer on this tab — they had
+ * NONE, because `CritiqueWarningStrip` is mounted by `ResultsBody`, which
+ * `OutputsDock` never mounts on the `analysisNew` branch. It landed them inside
+ * `DeeperAnalysis`, which sits at the BOTTOM of the tab, so the warning arrived
+ * after every reading it qualifies. The legacy tab puts them at the top.
+ *
+ * ⚠ THIS IS THE ONLY TEST THAT CAN SEE THE PLACEMENT. `deeperAnalysisEvidence`
+ * asserts what the strips SAY, which the strip components own wherever they are
+ * mounted — it stayed green through the move and would stay green if they moved
+ * back. Order is a property of the TAB, so it is pinned here, against the thing
+ * that can actually break it.
+ */
+describe('the engine warning arrives before the reading it qualifies', () => {
+  /**
+   * ⚠ SEVERITY IS THE PRECONDITION, and my first attempt got it wrong: the
+   * strip renders ONLY producer severity 'warning', and the shared
+   * `manyFragileEdges` fixture carries three warnings with NO severity field —
+   * so the strip correctly rendered nothing and the test failed for a reason
+   * that had nothing to do with placement. Set the field explicitly.
+   */
+  const warned = () =>
+    makeData({
+      confidence: {
+        inferenceWarnings: [
+          {
+            code: 'ROOT_NODE_DEFAULT_VALUE',
+            affected_nodes: ['n_alpha'],
+            message: "No observed value provided for root node 'n_alpha'; defaulted to 0.0.",
+            severity: 'warning',
+          },
+        ],
+      } as never,
+    })
+
+  it('mounts the warning strip ABOVE the glance, not below the sections', () => {
+    renderBody(warned())
+
+    const strip = screen.queryByTestId('inference-warning-strip')
+    const glance = screen.getByTestId('analysis-new-glance')
+    // Pinned in-test: this fixture really does carry warnings, so a null strip
+    // would be the mount failing rather than the run being clean.
+    expect(strip).not.toBeNull()
+    expect(
+      strip!.compareDocumentPosition(glance) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('renders it without the reader opening anything', () => {
+    // The demotion this fixes: a chevron between the reader and an engine
+    // warning is a demotion, and a demotion nobody opens is a deletion.
+    renderBody(warned())
+    expect(screen.getByTestId('inference-warning-strip')).toBeInTheDocument()
+  })
+
+  it('renders no strip at all on a run the engine raised nothing about', () => {
+    // The discriminating twin: proves the two above read the warning set and
+    // not a container that is always present.
+    renderBody(genuineDecision())
+    expect(screen.queryByTestId('inference-warning-strip')).toBeNull()
+    expect(screen.queryByTestId('critique-warning-strip')).toBeNull()
+  })
+})

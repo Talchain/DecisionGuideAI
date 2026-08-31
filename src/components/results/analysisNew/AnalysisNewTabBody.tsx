@@ -48,6 +48,8 @@ import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
+import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
+import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
 export interface AnalysisNewTabBodyProps {
@@ -219,6 +221,23 @@ export function AnalysisNewTabBody({
             {vm.status.statusNote}
           </p>
         ) : null}
+
+        {/* ── WHAT THE ENGINE WARNED, ABOVE EVERYTHING IT QUALIFIES ────────
+            ⚠ THE PLACEMENT IS THE POINT. #1039 gave these strips a consumer at
+            all — they had NONE on this tab, because `CritiqueWarningStrip` is
+            mounted by `ResultsBody`, which `OutputsDock` never mounts on the
+            `analysisNew` branch. It landed them inside "Deeper analysis", i.e.
+            at the BOTTOM.
+
+            A caveat that arrives after the reading it qualifies has already
+            been done is not a caveat, it is a footnote. The legacy tab puts
+            them at the top and it is right to. Both render nothing when their
+            set is empty, so a clean run pays nothing for this.
+
+            They stay OUTSIDE any collapsible: a warning behind a toggle is a
+            warning the reader has to already suspect in order to find. */}
+        <CritiqueWarningStrip critiques={vm.deeper.critiques} className="mb-2" />
+        <InferenceWarningStrip warnings={vm.deeper.caveats} className="mb-2" />
 
         {/* ── YOUR MODEL SO FAR ────────────────────────────────────────────
             First, because it is the only element that is true in every state:

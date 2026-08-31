@@ -49,4 +49,51 @@ export const STRENGTHEN_COPY = {
   undo: 'Undo',
   addressedNotice: 'Marked as addressed',
   focusFailedNotice: 'That element is no longer on the canvas',
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * ⭐⭐ THE SUCCEEDED STATE — the terminal state this panel did not have.
+   * ─────────────────────────────────────────────────────────────────────────
+   *
+   * `empty` above is correct for a team that has been shown nothing, and it was
+   * WRONG for a team that had worked through everything: "No recommendations
+   * need attention right now" reads as *nothing was found* to someone who has
+   * just addressed six things. The panel went quiet at the one moment it should
+   * have had the most to say, and the trail that proves the work was folded
+   * behind a collapsed toggle.
+   *
+   * ⚠ EVERY SENTENCE HERE IS A COUNT WE HOLD, NEVER A VERDICT WE DO NOT.
+   * "Your reasoning looks solid" is the claim this deliberately does not make —
+   * nobody measured it. Addressed and set-aside are counted APART because they
+   * are different acts: setting a finding aside is a legitimate judgement and
+   * is not the same as working through it, and one sentence covering both
+   * would flatter the second into the first.
+   */
+  completedAllAddressed: (n: number) =>
+    n === 1
+      ? 'You have worked through the one finding Olumi raised.'
+      : `You have worked through all ${n} findings Olumi raised.`,
+  completedAllSetAside: (n: number) =>
+    n === 1
+      ? 'The one finding Olumi raised has been set aside.'
+      : `All ${n} findings Olumi raised have been set aside.`,
+  completedMixed: (addressed: number, setAside: number) =>
+    `You have worked through ${addressed} of Olumi's findings and set aside ${setAside}.`,
+  /**
+   * ⭐ THE COACHING LINE, AND THE REASON THIS STATE EARNS ITS PLACE. An empty
+   * findings list invites closure — the team reads silence as a clean bill of
+   * health. Naming the limit of the instrument is the critical-thinking move
+   * the panel exists to make, and it is a statement about OLUMI, which we can
+   * make honestly, rather than about the model, which we cannot.
+   */
+  completedLimit:
+    'Olumi raises what it can detect. Working through every finding is not the same as the model being right.',
+  /**
+   * The way out of a terminal state. It is the question the limit sentence
+   * provokes, and it carries `challenge_assumption` — an accepted CEE intent —
+   * so the ask arrives as decision science rather than as chat.
+   */
+  completedChallenge: 'Ask what this analysis might be missing',
+  completedChallengeDraft:
+    'What might this analysis be missing? Challenge the assumptions it rests on.',
 } as const

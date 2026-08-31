@@ -34,8 +34,6 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
-import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
-import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import type { DeeperAnalysisSection } from '../analysisNewTypes'
 
 export interface DeeperAnalysisProps {
@@ -47,24 +45,22 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
   const [open, setOpen] = useState(false)
 
   const hasGroups = deeper.groups.length > 0
-  const hasWarnings = deeper.critiques.length > 0 || deeper.caveats.length > 0
 
-  // Nothing to inspect and nothing the engine raised renders nothing at all —
-  // an empty expander is an affordance that lies about having content behind
-  // it. Pre-run this is the whole section: the adapter returns every list empty
-  // rather than describing a run that has not happened.
-  if (!hasGroups && !hasWarnings) return null
+  // Nothing to inspect renders nothing at all — an empty expander is an
+  // affordance that lies about having content behind it. Pre-run this is the
+  // whole section: the adapter returns every list empty rather than describing
+  // a run that has not happened.
+  //
+  // ⚠ THE WARNING STRIPS ARE NOT HERE ANY MORE, and the reason is placement,
+  // not ownership. #1039 mounted them above this toggle because they had no
+  // consumer on this tab at all. That was right about the absence and wrong
+  // about the position: this section sits at the BOTTOM, and a caveat that
+  // arrives after the reading it qualifies is a footnote. They now mount at the
+  // top of `AnalysisNewTabBody`, outside any collapsible.
+  if (!hasGroups) return null
 
   return (
     <section data-testid={testId}>
-      {/* ⚠ ABOVE THE TOGGLE, NOT INSIDE THE REGION. The placement IS the fix.
-          `InferenceWarningStrip` shows only producer severity 'warning' and
-          `CritiqueWarningStrip` only entries carrying renderable humanised
-          copy; both render nothing when their set is empty, so this costs a
-          run with no warnings exactly nothing. */}
-      <CritiqueWarningStrip critiques={deeper.critiques} className="mb-2" />
-      <InferenceWarningStrip warnings={deeper.caveats} className="mb-2" />
-
       {hasGroups ? (
         <>
           <button
