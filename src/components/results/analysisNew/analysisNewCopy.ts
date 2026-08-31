@@ -331,7 +331,17 @@ export const ANALYSIS_NEW_COPY = {
       expected_outcome: 'the expected outcome',
       sensitivity: 'the sensitivity check',
       robustness_level: 'the robustness check',
-      recommendation_stability: 'the stability check',
+      /**
+       * ⚠⚠ `recommendation_stability` IS DELIBERATELY ABSENT FROM THIS MAP, and
+       * a CI guard exists to keep it that way (`withheldFieldReadBan.spec.ts`,
+       * which caught it here). PLoT WITHHOLDS that field on purpose: ISL derives
+       * it as the leader's win probability RELABELLED, carrying — in the
+       * producer's own words — "zero independent information". Naming it as a
+       * result that "did not come back" would warn a reader about the absence of
+       * something withdrawn deliberately, on every run, and imply they are
+       * missing a measurement that never existed. `deriveResultCompleteness`
+       * never adds it either; the unknown-key drop handles it silently.
+       */
       decision_review: 'the decision review',
       top_drivers: 'the drivers',
     } as Record<string, string>,
