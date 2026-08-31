@@ -58,6 +58,7 @@ import type {
   AtAGlance,
   GlanceCondition,
   GlanceDriver,
+  GlanceInputProvenance,
   GlanceVerdict,
   GlanceComparisonScope,
   GlanceComparativeClaim,
@@ -787,6 +788,60 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
 }
 
 /**
+ * ⭐⭐ THE ANTECEDENT — whose numbers this run actually consumed.
+ *
+ * ⚠ A DIRECT PRODUCER READ, AND NOT A NEW ONE. The per-factor oracle below is
+ * the SAME expression `driverValueProvenance` uses in `analysis-hero/
+ * buildHeroModel.ts` to decide the `est.` tag, which that lane derived at the
+ * producer and pinned against live captures. Re-deriving it differently here
+ * would put two answers to one question on one screen — so it is copied
+ * deliberately, semantics and ordering intact:
+ *
+ *   · a producer TRUE on EITHER field settles it as estimated, so it is asked
+ *     first (`isDefaultedConfidence` is ISL bootstrap degeneracy;
+ *     `valueDefaulted` is PLoT's `value_defaulted`);
+ *   · only then do we ask whether the producer actually DENIED it, which needs
+ *     an explicit false on BOTH — absence is silence, never a denial;
+ *   · anything else is undetermined, and undetermined is the majority case.
+ *
+ * ⛔ NO THRESHOLD, NO INFERENCE FROM THE VALUE ITSELF, AND NO COUNT. The wire
+ * carries a per-factor flag and nothing else; a proportion would be a metric
+ * this surface invented, which is the defect class it has already shipped
+ * three times.
+ *
+ * ⚠ SCOPE, STATED SO THE COPY CANNOT OUTRUN IT: this reads the FACTOR ROWS the
+ * producer returned — every row, including zero-influence ones, because a
+ * factor scored at zero was still an input and filtering by influence would
+ * make a provenance claim depend on an unrelated quantity. It says nothing
+ * about inputs that never appear as factor rows, which is why the sanctioned
+ * copy speaks of inputs and figures rather than of "everything".
+ */
+function glanceInputProvenance(data: ResultsSectionDataReturn): GlanceInputProvenance | null {
+  const rows = data.drivers.drivers ?? []
+  if (rows.length === 0) return null
+
+  const estimated = (d: (typeof rows)[number]) =>
+    d.isDefaultedConfidence === true || d.valueDefaulted === true
+  const userStated = (d: (typeof rows)[number]) =>
+    d.isDefaultedConfidence === false && d.valueDefaulted === false
+
+  const hasEstimated = rows.some(estimated)
+  const hasUserStated = rows.some(userStated)
+  // Determined = the producer landed on one of the two positive answers. A row
+  // that is neither is the silent third state, and its presence is what demotes
+  // a universal claim to a "partly" one.
+  const allDetermined = rows.every((d) => estimated(d) || userStated(d))
+
+  // Nothing positively witnessed either way — the honest output is silence.
+  if (!hasEstimated && !hasUserStated) return null
+  // Both witnessed. Silence on any remaining row cannot falsify a claim that
+  // only asserts one of each exists, so this needs no `allDetermined` gate.
+  if (hasEstimated && hasUserStated) return 'mixed'
+  if (hasEstimated) return allDetermined ? 'estimated' : 'partly_estimated'
+  return allDetermined ? 'user_supplied' : 'partly_user_supplied'
+}
+
+/**
  * "Could change if" — the TIPPING POINT, from `flipThresholds`.
  *
  * ⚠ GATED ON `flipThresholdsStatus`, WHICH IS THE HONESTY FIELD. 'unavailable'
@@ -975,6 +1030,7 @@ function buildAtAGlance(
     drivers,
     influenceIsSetRelative: setRelative,
     condition: glanceCondition(data),
+    inputProvenance: glanceInputProvenance(data),
     primaryInterventionId: recommendations[0]?.id ?? null,
   }
 }
@@ -1072,7 +1128,7 @@ export function buildAnalysisNewViewModel(
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
-      ? { headline: null, leaderLabel: null, winShare: null, winPercentLabel: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, primaryInterventionId: glance.primaryInterventionId }
+      ? { headline: null, leaderLabel: null, winShare: null, winPercentLabel: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, primaryInterventionId: glance.primaryInterventionId }
       : glance,
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }

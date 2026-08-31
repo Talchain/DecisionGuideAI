@@ -1,19 +1,30 @@
 /**
- * The dismissal control, and the technique chip.
+ * The dismissal, the disagreement, and the technique chip.
  *
- * ⭐⭐ THE FIRST DESCRIBE BLOCK EXISTS BECAUSE OF A DEFECT WITNESSED ON THE
- * DEPLOYED BUILD `3378415d`, not because of a hypothesis.
+ * ⭐⭐ HISTORY, BECAUSE IT EXPLAINS THE SHAPE OF WHAT IS PINNED HERE.
  *
  * `strengthenStore.dismiss` opens with `if (!record) return` — it SILENTLY
- * NO-OPS for an id it holds no record for, and records are only created by
+ * NO-OPS for an id it holds no record for. Records were created only by
  * `reconcile`, which runs on a COMPLETED analysis. Before a run the button
  * therefore did nothing, while the notice said "Recommendation dismissed" and
- * the card stayed on screen beside it.
+ * the card stayed on screen beside it. The first fix GATED the control on the
+ * store holding the id, on the principle that a control which cannot act is not
+ * an affordance but an advertisement.
  *
- * A control that cannot act is not an affordance, it is an advertisement. The
- * button is not offered unless the store can actually retire the id, and that
- * is what these cases pin — in both directions, because a guard that only ever
- * hides the control would be just as wrong.
+ * ⚠⚠ THAT GATE WAS THEN MEASURED ON THE DEPLOYED BUILD `fdeb08d2` AND FOUND TO
+ * BE THE WRONG FIX. `reconcile` is called from ONE place — `StrengthenContainer`,
+ * which mounts only on the OLD Analysis tab. This surface is deliberately
+ * read-only. So on a live run the panel rendered SIX findings while the store
+ * held FOUR, from an earlier run seen on the other tab: the controls appeared on
+ * some cards and not others, for a reason wholly invisible to the reader. An
+ * affordance that appears at random is worse than one that is simply missing.
+ *
+ * The gate is therefore replaced by `seedIfAbsent`, which creates the record on
+ * the user's DELIBERATE ACTION — never on mount, so the read-only property that
+ * keeps the two tabs comparable is preserved. What is pinned below is that the
+ * controls are always offered AND that acting always seeds before it acts;
+ * without the seed the action would be silently discarded, which is the original
+ * defect wearing a different hat.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -33,10 +44,19 @@ vi.mock('../nodeMarks', async (orig) => ({
 /** Records the component sees. Mutated per test. */
 let records: Record<string, unknown> = {}
 const dismiss = vi.fn()
+const restoreDismissed = vi.fn()
+const dispute = vi.fn()
+const seedIfAbsent = vi.fn()
 
-vi.mock('../../../../canvas/stores/strengthenStore', () => ({
+/**
+ * ⚠ `selectHistory` IS NOT MOCKED. It is the real, exported store selector —
+ * mocking it would leave these tests agreeing with a stub about which records
+ * count as retired, which is the one thing they exist to check.
+ */
+vi.mock('../../../../canvas/stores/strengthenStore', async (orig) => ({
+  ...(await orig<typeof import('../../../../canvas/stores/strengthenStore')>()),
   useStrengthenStore: (sel: (s: unknown) => unknown) =>
-    sel({ records, dismiss, restoreDismissed: vi.fn() }),
+    sel({ records, priorityOrder: Object.keys(records), dismiss, restoreDismissed, dispute, seedIfAbsent }),
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -63,22 +83,52 @@ const renderOpen = (ui: React.ReactElement) => {
 beforeEach(() => {
   records = {}
   dismiss.mockClear()
+  restoreDismissed.mockClear()
+  dispute.mockClear()
+  seedIfAbsent.mockClear()
 })
 
-describe('the dismissal is offered only when it can actually act', () => {
-  it('is ABSENT when the store holds no record for the id (the pre-run case)', () => {
-    renderOpen(
-      <StrengthenTheReasoning interventions={[rec({ id: 'strengthen:success-measure' })]} />,
+/** A retired record, shaped as the store writes it. */
+const retiredRecord = (
+  id: string,
+  title: string,
+  status: 'dismissed' | 'addressed',
+  whatChanged?: string,
+) => ({
+  id,
+  status,
+  snapshot: { id, title },
+  analysisHash: null,
+  isStale: false,
+  history: [
+    { at: 1, event: 'recommended' as const },
+    { at: 2, event: status, ...(whatChanged ? { whatChanged } : {}) },
+  ],
+})
+
+describe('the dismissal can always act, whichever tab the reader came from', () => {
+  it('is OFFERED with no store record, and SEEDS the record before dismissing', () => {
+    const one = rec({ id: 'strengthen:success-measure' })
+    renderOpen(<StrengthenTheReasoning interventions={[one]} analysisHash="v5:abc" />)
+
+    const btn = screen.getByTestId('analysis-new-strengthen-dismiss')
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+
+    /**
+     * ⚠ THE ORDER IS THE ASSERTION. `dismiss` no-ops without a record, so a
+     * seed that ran afterwards — or not at all — would discard the action in
+     * silence. Bound to the recommendation BY IDENTITY, and to the hash, so a
+     * seed of the wrong row or an unstamped record fails here.
+     */
+    expect(seedIfAbsent).toHaveBeenCalledWith(one, 'v5:abc')
+    expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
+      dismiss.mock.invocationCallOrder[0],
     )
-    expect(screen.queryByTestId('analysis-new-strengthen-dismiss')).toBeNull()
+    expect(dismiss).toHaveBeenCalledWith('strengthen:success-measure')
   })
 
-  /**
-   * ⭐ THE OPPOSITE DIRECTION, AND IT IS THE ONE THAT KEEPS THE GUARD HONEST. A
-   * predicate that always hid the button would pass the case above and remove
-   * the feature. This proves it appears when the store CAN retire the id.
-   */
-  it('is PRESENT, and dismisses, when the store holds the record', () => {
+  it('still dismisses when the store DOES hold the record', () => {
     records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
 
@@ -181,5 +231,182 @@ describe('the preview discloses its remainder, and the remainder is reachable', 
     renderOpen(<StrengthenTheReasoning interventions={five.slice(0, 3)} preview={3} />)
     expect(shownIds()).toEqual(['strengthen:r1', 'strengthen:r2', 'strengthen:r3'])
     expect(screen.queryByTestId('analysis-new-strengthen-show-more')).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ THE TRAIL. "A living representation of the team's reasoning" implies a
+ * history — what was raised, what was worked through, what was set aside and
+ * why. The store records all of it and the legacy panel renders it; this
+ * surface rendered none, so consolidating onto it would have dropped the only
+ * part of the picture that is not a snapshot.
+ */
+describe('the reasoning trail', () => {
+  it('is not offered at all when nothing has been retired', () => {
+    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
+    expect(screen.queryByTestId('analysis-new-strengthen-history-toggle')).toBeNull()
+  })
+
+  it('lists what was set aside and what was addressed, each saying which', () => {
+    records = {
+      'strengthen:gone': retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+      'strengthen:done': retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
+    }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
+    const rows = screen.getAllByTestId('analysis-new-strengthen-history-item')
+    // Bound by identity, not by position or count.
+    expect(rows.map((r) => r.getAttribute('data-recommendation-id')).sort()).toEqual([
+      'strengthen:done',
+      'strengthen:gone',
+    ])
+    expect(screen.getByTestId('analysis-new-strengthen-history')).toHaveTextContent(
+      'Set aside as not relevant.',
+    )
+    // The producer's own `whatChanged` rides through — never "Addressed: undefined".
+    expect(screen.getByTestId('analysis-new-strengthen-history')).toHaveTextContent(
+      'Addressed: added a downside case.',
+    )
+  })
+
+  it('carries the objection onto the trail with the finding it contests', () => {
+    records = {
+      'strengthen:gone': {
+        ...retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+        history: [
+          { at: 1, event: 'recommended' },
+          { at: 2, event: 'disputed', disputeReason: 'Our board measures this quarterly.' },
+          { at: 3, event: 'dismissed' },
+        ],
+      },
+    }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
+    // "I disagree, and I am setting this aside" is one of the most useful
+    // things a team does; the act used to survive and its content did not.
+    expect(screen.getByTestId('analysis-new-strengthen-history-disagreement')).toHaveTextContent(
+      'Our board measures this quarterly.',
+    )
+  })
+
+  /**
+   * ⚠ THE DISCRIMINATING PAIR. Restore must be offered on the row it can act on
+   * and withheld on the one it cannot — a control rendered on both would pass
+   * any single-direction assertion while advertising an action that no-ops on
+   * an addressed record.
+   */
+  it('offers restore on a set-aside row, and only there', () => {
+    records = {
+      'strengthen:gone': retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+      'strengthen:done': retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
+    }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
+
+    const restores = screen.getAllByTestId('analysis-new-strengthen-history-restore')
+    expect(restores).toHaveLength(1)
+    const owner = restores[0].closest('[data-recommendation-id]')
+    expect(owner?.getAttribute('data-recommendation-id')).toBe('strengthen:gone')
+
+    fireEvent.click(restores[0])
+    expect(restoreDismissed).toHaveBeenCalledWith('strengthen:gone')
+  })
+})
+
+/**
+ * ⭐⭐ DISAGREEMENT. Before this the panel's only answer to "I think this is
+ * wrong" was "Not relevant" — which retires the card. The reasoning act became
+ * a disappearance and the reason went unrecorded, while disagreement is
+ * precisely where a team's first real insight usually surfaces.
+ */
+describe('recording a disagreement', () => {
+  const one = [rec({ id: 'strengthen:robustness' })]
+
+  it('is OFFERED with no store record, and SEEDS before recording', () => {
+    renderOpen(<StrengthenTheReasoning interventions={one} analysisHash="v5:abc" />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: 'Wrong for our supplier.' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
+
+    // Same ordering obligation as the dismissal: `dispute` no-ops without a
+    // record, so a seed that ran second would lose the objection silently.
+    expect(seedIfAbsent).toHaveBeenCalledWith(one[0], 'v5:abc')
+    expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
+      dispute.mock.invocationCallOrder[0],
+    )
+    expect(dispute).toHaveBeenCalledWith('strengthen:robustness', 'Wrong for our supplier.')
+  })
+
+  it('records the reason, and the finding STAYS — that is the whole difference', () => {
+    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: 'The lead time assumption is wrong for our supplier.' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
+
+    expect(dispute).toHaveBeenCalledWith(
+      'strengthen:robustness',
+      'The lead time assumption is wrong for our supplier.',
+    )
+    /**
+     * ⚠⚠ THIS BLOCK USED TO ASSERT THAT THE CARD "STAYS", BY READING THE
+     * RENDERED ITEM IDS. That assertion was STRUCTURALLY INCAPABLE OF FAILING:
+     * `interventions` is a PROP, so the row renders whatever the store does,
+     * and it would have passed just as happily if disputing retired the record.
+     * A test named for the property that distinguishes dispute from dismissal,
+     * which could not observe that property, is worse than no test.
+     *
+     * What this layer CAN prove is that dispute does not reach for dismissal.
+     * That the record SURVIVES is a store property and is proven where it
+     * lives — `strengthenStore.spec.ts`, "records the reason on the history and
+     * leaves the finding ACTIVE", which asserts status and `selectActive`
+     * membership and REDs when `dispute` is made a disposal.
+     */
+    expect(dismiss).not.toHaveBeenCalled()
+    expect(restoreDismissed).not.toHaveBeenCalled()
+  })
+
+  it('shows the standing objection on the card, and offers to edit rather than restate', () => {
+    records = {
+      'strengthen:robustness': {
+        status: 'recommended',
+        history: [
+          { at: 1, event: 'recommended' },
+          { at: 2, event: 'disputed', disputeReason: 'First thought.' },
+          // The LATEST one is what the user now thinks — see the note in the
+          // component. An earlier objection must not be the one displayed.
+          { at: 3, event: 'disputed', disputeReason: 'What I actually mean.' },
+        ],
+      },
+    }
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+
+    const shown = screen.getByTestId('analysis-new-strengthen-disagreement')
+    expect(shown).toHaveTextContent('What I actually mean.')
+    expect(shown).not.toHaveTextContent('First thought.')
+    expect(shown.getAttribute('data-recommendation-id')).toBe('strengthen:robustness')
+    expect(screen.getByTestId('analysis-new-strengthen-disagree')).toHaveTextContent(
+      'Edit what you said',
+    )
+  })
+
+  it('cancelling records nothing', () => {
+    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    renderOpen(<StrengthenTheReasoning interventions={one} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: 'typed then thought better of it' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-cancel'))
+    expect(dispute).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('analysis-new-strengthen-disagree-form')).toBeNull()
   })
 })

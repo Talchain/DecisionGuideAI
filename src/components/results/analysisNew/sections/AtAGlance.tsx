@@ -37,6 +37,7 @@ import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 
@@ -329,6 +330,41 @@ export function AtAGlance({
             </p>
           ) : null}
         </div>
+      ) : null}
+
+      {/* ── WHAT IT RESTS ON ───────────────────────────────────────────────
+          ⭐⭐ THE ANTECEDENT, AND IT BELONGS HERE RATHER THAN ANYWHERE ELSE.
+
+          Olumi's alignment principle is conditional in form: analysis describes
+          what the model implies GIVEN its assumptions and evidence, and what
+          the product invented must stay distinguishable from what the user
+          knows. This panel had the consequent in its largest type and the
+          antecedent nowhere — on a run driven 30 Aug 2026 every factor was
+          Olumi's own estimate, and the surface stating "Ahead in 68% of
+          simulated futures" said so in no place a reader would reach.
+
+          It sits immediately beneath the share, not in a disclosure and not at
+          the foot of the panel, for the same reason the scope note does: it
+          changes what the sentence above means, so a reader who sees one must
+          see the other.
+
+          ⚠ AND IT IS SILENT BY DEFAULT. `inputProvenance` is null whenever the
+          producer settled the question for no factor — the majority case on
+          real payloads — and this renders nothing at all in that state. There
+          is no fallback wording, because every available wording is a claim.
+
+          ⚠ GATED ON A READING BEING PRESENT. A bare statement of what the
+          inputs were, with no conclusion above it to condition, is a caveat
+          orphaned from its claim. */}
+      {glance.inputProvenance &&
+      (showAnswer || glance.verdict || glance.drivers.length > 0) ? (
+        <p
+          className={`${typography.panelMeta} text-text-light m-0`}
+          data-testid={`${testId}-input-provenance`}
+          data-input-provenance={glance.inputProvenance}
+        >
+          {GLANCE_PROVENANCE_COPY[glance.inputProvenance]}
+        </p>
       ) : null}
 
       {/* ── SCOPE ──────────────────────────────────────────────────────────

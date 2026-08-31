@@ -74,6 +74,26 @@ export const ANALYSIS_NEW_COPY = {
     uncertaintyUnassessed: 'Evidence quality was not assessed on this run.',
   },
 
+  /**
+   * Recording a disagreement.
+   *
+   * ⚠ THESE ARE NOT DISMISSAL STRINGS AND MUST NEVER BE FOLDED INTO THEM.
+   * "Not relevant" says this finding does not apply to me; "I disagree" says
+   * this finding is wrong, and here is why. The first retires the card, the
+   * second keeps it and attaches a position to it. One name for both is how
+   * the product ended up offering only deletion.
+   */
+  dissent: {
+    open: 'I disagree',
+    edit: 'Edit what you said',
+    /** Placed on the textarea. States what happens, so saving is not a guess. */
+    prompt: 'Why? This stays on the card.',
+    save: 'Record this',
+    cancel: 'Cancel',
+    /** Prefix on the standing objection. The user's own words follow. */
+    standing: 'You disagreed',
+  },
+
   /** Progressive-disclosure affordances. */
   disclosure: {
     expand: 'Show more',

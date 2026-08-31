@@ -43,7 +43,7 @@
  * would no longer be about information architecture.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
@@ -58,7 +58,8 @@ import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
-import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import { planPreview } from '../previewComposition'
+import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -78,6 +79,12 @@ export interface StrengthenTheReasoningProps {
    * claim about what exists, and this section was never entitled to make one.
    */
   preview?: number
+  /**
+   * The completed analysis these findings are grounded in, used only to stamp
+   * a record the user's own action creates. Absent pre-run, which is correct:
+   * a pre-run finding is grounded in the MODEL, not in any run.
+   */
+  analysisHash?: string | null
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId?: string
@@ -101,6 +108,7 @@ export function StrengthenTheReasoning({
   interventions,
   scienceGrounding = {},
   preview,
+  analysisHash = null,
   icon,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
@@ -118,6 +126,8 @@ export function StrengthenTheReasoning({
    */
   const dismiss = useStrengthenStore((st) => st.dismiss)
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
+  const dispute = useStrengthenStore((st) => st.dispute)
+  const seedIfAbsent = useStrengthenStore((st) => st.seedIfAbsent)
   /**
    * ⚠⚠ WITNESSED ON DEPLOYED `3378415d`, AND IT IS THE DEFECT CLASS THIS WHOLE
    * SURFACE EXISTS TO AVOID: a control that claims an action it did not perform.
@@ -134,6 +144,13 @@ export function StrengthenTheReasoning({
    * store actually holds this recommendation and can retire it.
    */
   const strengthenRecords = useStrengthenStore((st) => st.records)
+  /**
+   * ⚠ SUBSCRIBED EVEN THOUGH `selectHistory` DOES NOT READ IT TODAY. Its
+   * signature asks for both halves of the state; handing it `[]` for the half
+   * it currently ignores would work until the day it stops ignoring it, and
+   * then fail silently (trap 12). Cheap to be correct now.
+   */
+  const priorityOrder = useStrengthenStore((st) => st.priorityOrder)
   const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
 
   /**
@@ -162,6 +179,59 @@ export function StrengthenTheReasoning({
   }, [])
 
   /**
+   * ⭐⭐ THE TRAIL. "A living representation of the team's reasoning" implies
+   * history: what was raised, what was worked through, what was set aside and
+   * why. That trail is RECORDED — the store stamps every transition, and
+   * `addressed`/`restored` carry a `whatChanged` — and the legacy Strengthen
+   * panel renders it. This surface did not, so consolidating onto it would
+   * have silently dropped the one part of the model that is not a snapshot.
+   *
+   * ⚠ AND THE RESTORE IS NOT DECORATION. The undo notice above expires after
+   * `NOTICE_MS`; before this, a dismissal a minute old was unreachable and
+   * permanent. A record you cannot act on is an archive, not a trail.
+   */
+  /**
+   * ⭐⭐ DISAGREEMENT NEEDED SOMEWHERE TO LIVE, AND HAD NOWHERE.
+   *
+   * The only response this panel offered to "I think this is wrong" was
+   * "Not relevant", which retires the card. A reasoning act became a
+   * disappearance, and the reason went unrecorded — while disagreement is
+   * precisely where a team's first real insight usually surfaces.
+   *
+   * `disputingId` is the card with the box open; at most one at a time, because
+   * two open composers in a 278px column is not a thing anyone can use.
+   */
+  const [disputingId, setDisputingId] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+
+  const openDispute = useCallback((id: string, existing: string) => {
+    setDisputingId(id)
+    setDraft(existing)
+  }, [])
+
+  const commitDispute = useCallback(
+    (rec: Recommendation) => {
+      // ⚠ SEED FIRST. `dispute` opens with `if (!record) return`, and this
+      // surface never reconciles — so without this the objection would be
+      // silently discarded on any finding the OTHER tab had not already
+      // recorded, which on a measured run was four of six.
+      seedIfAbsent(rec, analysisHash)
+      // The store no-ops on an empty reason; closing without recording is the
+      // honest outcome, not a silent empty entry.
+      dispute(rec.id, draft)
+      setDisputingId(null)
+      setDraft('')
+    },
+    [dispute, seedIfAbsent, analysisHash, draft],
+  )
+
+  const retired = useMemo(
+    () => selectHistory({ records: strengthenRecords, priorityOrder }),
+    [strengthenRecords, priorityOrder],
+  )
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  /**
    * ⚠ THE COUNT ON THE COLLAPSED HEADER IS THE FULL LIST, NOT THE PREVIEW.
    * `SectionShell` already receives `interventions.length`, so a reader who
    * never opens the section still sees how many findings there are — and the
@@ -170,9 +240,25 @@ export function StrengthenTheReasoning({
    * open onto three rows and nothing else.
    */
   const [expanded, setExpanded] = useState(false)
-  const limit = preview ?? interventions.length
-  const visible = expanded ? interventions : interventions.slice(0, limit)
-  const hidden = interventions.length - visible.length
+
+  /**
+   * ⭐⭐ THE PREVIEW IS COMPOSED, NOT SLICED — see `previewComposition.ts` for
+   * the measurement that forced this. Four of the engine's eight builders emit
+   * `clarify` and they hold every slot at the top of its ladder, so the three
+   * rows a reader actually meets were all "complete the model" and none of them
+   * named a technique. One slot is now given to a different kind of thought
+   * when the preview would otherwise ask for only one.
+   *
+   * ⚠ NOT A RE-RANK, and nothing is hidden by it: the displaced row moves to
+   * the front of the tail, which "Show N more" reaches.
+   */
+  const plan = useMemo(
+    () => planPreview(interventions, preview ?? interventions.length),
+    [interventions, preview],
+  )
+  const limit = preview ?? plan.ordered.length
+  const visible = expanded ? plan.ordered : plan.ordered.slice(0, limit)
+  const hidden = plan.ordered.length - visible.length
 
   return (
     <SectionShell
@@ -234,6 +320,15 @@ export function StrengthenTheReasoning({
              * wrong thing is worse than no shape.
              */
             const markKind = markKindForTarget(rec.targetId)
+            /**
+             * ⚠ THE LATEST DISPUTE, NOT ANY DISPUTE. A user who revises what
+             * they said should see what they now think, not the first thing
+             * they typed — so this scans BACKWARDS and stops at the first hit.
+             */
+            const record = strengthenRecords[rec.id]
+            const standingDispute = record
+              ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
+              : undefined
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -400,25 +495,98 @@ export function StrengthenTheReasoning({
                       Show on canvas
                     </button>
                   ) : null}
-                  {/* Sits last and reads quietly: disagreeing is a first-class
-                      move, but it is not the one being recommended.
+                  {/* ⚠ THIS COMMENT USED TO CALL THIS BUTTON "disagreeing".
+                      It is not. "Not relevant" says this finding does not apply
+                      to me; "I disagree" says it is wrong, and here is why. The
+                      first retires the card, the second keeps it and attaches a
+                      position to it. One name for both is exactly how the panel
+                      came to offer only deletion.
 
-                      Offered only when the store can actually retire this id —
-                      see the note on `strengthenRecords` above. */}
-                  {strengthenRecords[rec.id] ? (
+                      ⭐ NEITHER IS GATED ON THE STORE ANY MORE, and that is a
+                      fix rather than a relaxation. The original guard existed
+                      because both actions no-op without a record — a control
+                      that cannot act is an advertisement, not an affordance.
+                      But the only writer of records is the OLD tab's container,
+                      so on a measured run four of six findings had none and the
+                      controls appeared at random. They now seed the record they
+                      need, on the user's action, so they can always act. */}
+                  <button
+                    type="button"
+                    onClick={() => openDispute(rec.id, standingDispute ?? '')}
+                    className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    data-testid={`${testId}-disagree`}
+                  >
+                    {standingDispute ? COPY.dissent.edit : COPY.dissent.open}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
+                      // Seed first, for the same reason as the objection above.
+                      seedIfAbsent(rec, analysisHash)
                       dismiss(rec.id)
                       showUndo({ id: rec.id, title: rec.title })
                     }}
-                    className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
-                  ) : null}
                 </div>
+
+                {/* ⭐ THE OBJECTION STAYS ON THE CARD. It is not a note filed
+                    elsewhere and it is not a chat message that scrolls away —
+                    the finding and the reason it is contested are read
+                    together, which is the whole point. */}
+                {disputingId === rec.id ? (
+                  <div className="mt-1.5" data-testid={`${testId}-disagree-form`}>
+                    <label
+                      className={`${typography.panelMeta} block text-text-light mb-1`}
+                      htmlFor={`${testId}-disagree-input-${rec.id}`}
+                    >
+                      {COPY.dissent.prompt}
+                    </label>
+                    <textarea
+                      id={`${testId}-disagree-input-${rec.id}`}
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      rows={2}
+                      className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel-hover px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-disagree-input`}
+                    />
+                    <div className="mt-1 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => commitDispute(rec)}
+                        className={`${typography.panelMeta} rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-disagree-save`}
+                      >
+                        {COPY.dissent.save}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDisputingId(null)
+                          setDraft('')
+                        }}
+                        className={`${typography.panelMeta} rounded text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-disagree-cancel`}
+                      >
+                        {COPY.dissent.cancel}
+                      </button>
+                    </div>
+                  </div>
+                ) : standingDispute ? (
+                  <p
+                    className={`${typography.panelBody} mt-1.5 mb-0 rounded border-l-2 border-attention/60 bg-panel-hover px-2 py-1 text-text-body`}
+                    data-testid={`${testId}-disagreement`}
+                    data-recommendation-id={rec.id}
+                  >
+                    <span className={`${typography.panelMeta} text-text-light`}>
+                      {COPY.dissent.standing}:{' '}
+                    </span>
+                    {standingDispute}
+                  </p>
+                ) : null}
 
                 {rec.sourceLine ? (
                   <p
@@ -448,6 +616,88 @@ export function StrengthenTheReasoning({
         >
           {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreStrengthen(hidden)}
         </button>
+      ) : null}
+
+      {/* ⚠ OFFERED ONLY WHEN THERE IS A TRAIL. A toggle that opens onto
+          "Nothing addressed yet" is furniture advertising an empty room — the
+          legacy panel can afford it because it is always mounted; a section
+          that is itself collapsible cannot. */}
+      {retired.length > 0 ? (
+        <div className="mt-2 border-t border-panel-border pt-2">
+          <button
+            type="button"
+            aria-expanded={historyOpen}
+            onClick={() => setHistoryOpen((v) => !v)}
+            className={`${typography.panelMeta} text-text-light hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-history-toggle`}
+          >
+            {STRENGTHEN_COPY.historyToggle} ({retired.length})
+          </button>
+
+          {historyOpen ? (
+            <ul
+              className="mt-1.5 space-y-1.5 list-none p-0 m-0"
+              data-testid={`${testId}-history`}
+            >
+              {retired.map((record) => {
+                const last = record.history[record.history.length - 1]
+                return (
+                  <li
+                    key={record.id}
+                    className="flex items-start gap-2"
+                    data-testid={`${testId}-history-item`}
+                    data-recommendation-id={record.id}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className={`${typography.panelBody} text-text-body m-0`}>
+                        {record.snapshot.title}
+                      </p>
+                      {/* ⚠ THE PRODUCER'S OWN `whatChanged` WHEN THERE IS ONE,
+                          and a bare statement of the outcome when there is not.
+                          Never "Addressed: undefined", and never a sentence
+                          about a change nobody recorded. */}
+                      <p className={`${typography.panelMeta} text-text-light m-0`}>
+                        {record.status === 'dismissed'
+                          ? STRENGTHEN_COPY.historyDismissed
+                          : last?.whatChanged
+                            ? `${STRENGTHEN_COPY.historyAddressed}: ${last.whatChanged}.`
+                            : `${STRENGTHEN_COPY.historyAddressed}.`}
+                      </p>
+                      {/* ⚠ THE OBJECTION HAS TO COME WITH IT. "I disagree, and
+                          I am setting this aside" is one of the most useful
+                          things a team does, and without this the reason was
+                          written to the store and then rendered nowhere — the
+                          act survived, its content did not. */}
+                      {(() => {
+                        const objection = [...record.history]
+                          .reverse()
+                          .find((e) => e.event === 'disputed')?.disputeReason
+                        return objection ? (
+                          <p
+                            className={`${typography.panelMeta} text-text-light m-0 italic`}
+                            data-testid={`${testId}-history-disagreement`}
+                          >
+                            {STRENGTHEN_COPY.historyDisputed}: {objection}
+                          </p>
+                        ) : null
+                      })()}
+                    </div>
+                    {record.status === 'dismissed' ? (
+                      <button
+                        type="button"
+                        onClick={() => restoreDismissed(record.id)}
+                        className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-history-restore`}
+                      >
+                        {STRENGTHEN_COPY.undo}
+                      </button>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
     </SectionShell>
   )

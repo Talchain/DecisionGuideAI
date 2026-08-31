@@ -78,11 +78,19 @@ describe('the density threshold', () => {
     expect(strip.rows[0].overCap).toBe(false)
   })
 
-  it('switches to a bar one past the cap, and keeps the exact count', () => {
+  /**
+   * ⚠ THIS CASE WAS NAMED "switches to a bar one past the cap" AND THE BAR IS
+   * THE ONE THING THIS SURFACE MUST NEVER RENDER — it reads as a proportion of
+   * a denominator nobody measured, and it was rejected in review. The code has
+   * never drawn one; the name and its comment were the last places still
+   * describing it, in the file a builder reads to learn what `overCap` means.
+   * Renamed to what the flag actually does. See the note on `MARK_CAP`.
+   */
+  it('flags the row for capped display one past the cap, and keeps the exact count', () => {
     const strip = buildModelStrip(factors(MARK_CAP + 1))
     expect(strip.rows[0].overCap).toBe(true)
-    // The tally must survive the switch — the bar shows proportion, the number
-    // carries the precision the marks were providing.
+    // Every node survives the flag: the renderer draws the first `MARK_CAP` and
+    // states how many it is withholding, so the count must stay complete.
     expect(strip.rows[0].nodes).toHaveLength(MARK_CAP + 1)
   })
 
