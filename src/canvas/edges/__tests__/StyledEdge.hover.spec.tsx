@@ -244,6 +244,96 @@ describe('StyledEdge hover popover — provenance honesty', () => {
     vi.useRealTimers()
   })
 
+  // ── DIRECTION IS ITS OWN QUESTION ──────────────────────────────────────
+  //
+  // The popover used to derive its bold direction word, and the half-colour of
+  // its strength bar, from the SIGN of the resolved strength:
+  //
+  //     const dirLabel = signedVal !== null ? (signedVal >= 0 ? 'Positive' : ...)
+  //
+  // gated on WEIGHT provenance. But "was the strength set?" and "was the
+  // direction stated?" are two questions. `characterisedEdge` above answers the
+  // first and not the second — `weightSource: 'user'`, no `directionSource` —
+  // so it cleared the gate and the sign of a DEFAULTED `direction: 'positive'`
+  // printed a bold "Positive" and a green bar. On the same edge whose stroke
+  // this component draws GREY, from `resolveEdgeDirectionDisplay`, for
+  // "direction not set yet". One component, two verdicts, one edge.
+  //
+  // Both now read `statedDirection`, the ratified owner `computeDirectionStroke`
+  // already consumes.
+  const statedPositiveEdge = {
+    ...defaultEdgeProps,
+    data: {
+      weight: 0.3, direction: 'positive' as const, beliefExists: 0.8,
+      weightSource: 'user' as const, beliefExistsSource: 'user' as const,
+      directionSource: 'user' as const,
+    },
+  }
+  const statedNegativeEdge = {
+    ...defaultEdgeProps,
+    data: {
+      weight: 0.3, direction: 'negative' as const, beliefExists: 0.8,
+      weightSource: 'user' as const, beliefExistsSource: 'user' as const,
+      directionSource: 'user' as const,
+    },
+  }
+
+  it('does NOT call an unstated direction "Positive", even when the strength IS set', async () => {
+    const container = await hoverAndGetPopover(characterisedEdge)
+    const popover = container.querySelector('[data-testid="edge-hover-popover"]')
+    // Precondition: the popover really rendered, and really has the strength —
+    // otherwise this absence is vacuous (the numbers control above shares it).
+    expect(popover).not.toBeNull()
+    expect(popover!.textContent ?? '').toMatch(/30%/)
+
+    expect(popover!.textContent ?? '').not.toMatch(/Positive/)
+    expect(popover!.textContent ?? '').not.toMatch(/Negative/)
+  })
+
+  it('does NOT paint the strength bar green when no direction was stated', async () => {
+    const container = await hoverAndGetPopover(characterisedEdge)
+    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
+    // Which half-colour the bar paints IS a direction claim.
+    expect(popover.querySelector('.bg-success')).toBeNull()
+    expect(popover.querySelector('.bg-danger')).toBeNull()
+  })
+
+  // ⭐ THE OPPOSITE DIRECTION. Refusing to speak an unstated direction must not
+  // silence a STATED one — that would trade a lie for a gap.
+  it('DOES say "Positive" and paint green when the direction was stated', async () => {
+    const container = await hoverAndGetPopover(statedPositiveEdge)
+    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
+    expect(popover.textContent ?? '').toMatch(/Positive/)
+    expect(popover.querySelector('.bg-success')).not.toBeNull()
+  })
+
+  it('DOES say "Negative" and paint danger when a negative direction was stated', async () => {
+    const container = await hoverAndGetPopover(statedNegativeEdge)
+    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
+    expect(popover.textContent ?? '').toMatch(/Negative/)
+    expect(popover.querySelector('.bg-danger')).not.toBeNull()
+    expect(popover.querySelector('.bg-success')).toBeNull()
+  })
+
+  // ⚠ THE CONTRADICTION THE FIX COULD HAVE BOUGHT. `dirLabel` and `signedVal`
+  // used to be equivalent, so the empty state could be gated on either. Binding
+  // the word to `statedDirection` decoupled them — and an edge with a SET
+  // strength and no stated direction would then render the strength bar AND
+  // "Strength and likelihood not set" together. A fix that trades one lie for
+  // another is not a fix, so this is a first-class case.
+  it('does not claim "not set" while it is showing a strength', async () => {
+    const container = await hoverAndGetPopover(characterisedEdge)
+    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
+    // Precondition: it really is showing a strength, or the absence is vacuous.
+    expect(popover.textContent ?? '').toMatch(/30%/)
+    expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).toBeNull()
+  })
+
+  it('POSITIVE CONTROL: a wholly uncharacterised edge DOES say nothing is set', async () => {
+    const container = await hoverAndGetPopover(drawnEdge)
+    expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).not.toBeNull()
+  })
+
   it('POSITIVE CONTROL: a characterised edge DOES show its numbers', async () => {
     // Without this, every assertion below would pass on a popover that
     // rendered nothing at all.
