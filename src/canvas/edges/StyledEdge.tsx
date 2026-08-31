@@ -800,6 +800,35 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // fragile-badged, so they never bump.
             return isAnalysisFragileEdge && !isStructuralEdge ? Math.max(base, 4) : base
           })(),
+          /*
+           * ⭐ THE WIDTHS ABOVE ARE FLOW-SPACE UNTIL THIS LINE, AND THE CANVAS
+           * SPENDS MOST OF ITS LIFE ZOOMED OUT.
+           *
+           * Every width chosen above is multiplied by the viewport scale before
+           * it reaches a pixel. Measured on the deployed build, a guest's saved
+           * model auto-fitted to `scale(0.322946)`:
+           *
+           *   declared 1px   -> rendered 0.32px
+           *   declared 2px   -> rendered 0.65px
+           *
+           * So every connection was a sub-pixel hairline, and the whole
+           * thickness encoding — the one channel that says which relationships
+           * carry the result — collapsed to nothing. The gap between "weak" and
+           * "strong" was a third of a pixel. It is not that the encoding was
+           * badly chosen; it never reached the screen.
+           *
+           * `non-scaling-stroke` makes the declared width a SCREEN width at any
+           * zoom, so 1.5 / 2 / 3 stay 1.5 / 2 / 3 and stay distinguishable. The
+           * dash pattern beside it was already reasoned about this way — its own
+           * comment says it "stays legible at every zoom level" — and width was
+           * simply never given the same treatment.
+           *
+           * ⚠ The trade is that edges no longer thicken as you zoom IN. That is
+           * the right way round for a diagram: thickness here is an ENCODING of
+           * strength, not a drawing property, so it should mean the same thing
+           * at every zoom rather than growing with the camera.
+           */
+          vectorEffect: 'non-scaling-stroke',
           // ⭐ ONE AUTHORITY, ONE STATED PRECEDENCE (17 Aug 2026).
           //
           // Both channels used to be ordered early-return chains written inline
