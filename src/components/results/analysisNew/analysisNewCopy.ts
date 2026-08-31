@@ -272,6 +272,26 @@ export const ANALYSIS_NEW_COPY = {
      */
     stale: 'The model has changed since this analysis ran.',
     /**
+     * ⚠⚠ NAMED APART FROM `stale`, AND THIS IS THE WHOLE POINT (trap 21).
+     *
+     * `OutputsDock.tsx:981` computes ONE boolean —
+     * `displayedFreshness === 'stale' || displayedFreshness === 'unknown'` —
+     * and this surface rendered `stale` for both. So on a run CEE could not
+     * VERIFY, the panel's first line told the user their model had CHANGED.
+     * That is an assertion about the world made from an absence of evidence.
+     *
+     * The dock's own comment forbids exactly this, six lines below that
+     * predicate: "so the stale banner never claims 'you've updated the model'
+     * for a CEE-sourced 'unknown'." The old Analysis tab honours it —
+     * `AnalysisFreshnessNotice` computes `freshness === 'stale'` with STRICT
+     * equality and gives 'unknown' its own sentence. This tab did not.
+     *
+     * Two states, two claims: one says the model moved, one says we cannot
+     * tell. Collapsing them is how a warning that sometimes matters gets
+     * trained out of a reader.
+     */
+    freshnessUnknown: 'We cannot confirm whether this analysis reflects the current model.',
+    /**
      * ⚠ COVERAGE, NOT READINESS. Says the RESULT is incomplete; never that
      * analysis may not run — `RunAdmission` owns readiness and this surface
      * does not speak for it.

@@ -293,6 +293,12 @@ export interface AnalysisNewStatus {
   isRunning: boolean
   /** The displayed report predates the current model. */
   isStale: boolean
+  /**
+   * WHY the displayed report may not match the model — never a second boolean.
+   * 'changed' is a claim about the world; 'unconfirmed' is a claim about our
+   * evidence. `null` when `isStale` is false. See `analysisNewCopy.status`.
+   */
+  staleKind: 'changed' | 'unconfirmed' | null
   /** The producer disclosed the result as partial/incomplete. */
   isProvisional: boolean
   /** Producer-owned reason, verbatim, when there is one. Never authored here. */

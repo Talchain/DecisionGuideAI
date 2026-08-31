@@ -59,6 +59,12 @@ export interface AnalysisNewTabBodyProps {
   isRunning: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
+  /**
+   * WHY the report may not match the model. The dock hands this surface ONE
+   * boolean over `'stale' || 'unknown'`, so without this the panel asserted a
+   * CHANGE on a run nobody could VERIFY. Absent = 'unconfirmed', fail-closed.
+   */
+  staleReason?: 'changed' | 'unconfirmed' | null
   nSamples?: number
   seedUsed?: number | string
   responseHash?: string
@@ -91,6 +97,7 @@ export function AnalysisNewTabBody({
   isPreRun,
   isRunning,
   isStale,
+  staleReason = 'unconfirmed',
   nSamples,
   seedUsed,
   responseHash,
@@ -101,6 +108,7 @@ export function AnalysisNewTabBody({
     isPreRun,
     isRunning,
     isStale,
+    staleReason,
     nSamples,
     seedUsed,
     responseHash,
@@ -264,6 +272,7 @@ export function AnalysisNewTabBody({
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
           isStale={vm.status.isStale && !vm.status.isPreRun}
+          staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={
