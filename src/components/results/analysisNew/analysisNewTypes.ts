@@ -430,6 +430,55 @@ export interface AtAGlance {
    */
   influenceIsSetRelative: boolean
   condition: GlanceCondition | null
+  /**
+   * ⭐ THE ANTECEDENT OF EVERY READING ABOVE IT — where the factor values this
+   * run consumed came from. Null when the producer settled it for no factor.
+   *
+   * ⚠ NOT `condition`, AND THE DISTANCE MATTERS (CLAUDE.md trap 21). `condition`
+   * is the TIPPING POINT — the value at which the ordering changes, from
+   * `flipThresholds`. This is INPUT PROVENANCE — who authored the numbers that
+   * went in, from `isDefaultedConfidence` / `valueDefaulted`. Different
+   * producers, different questions; naming them alike is how one gets read as
+   * the other.
+   */
+  inputProvenance: GlanceInputProvenance | null
   /** The single highest-priority engine recommendation, or null. */
   primaryInterventionId: string | null
 }
+
+/**
+ * ⭐⭐ WHOSE NUMBERS THE RUN ACTUALLY USED — five kinds, and the split between
+ * the universal and the "partly" forms is the entire honesty claim.
+ *
+ * Derived from the producer's THREE-STATE per-factor value provenance
+ * (`HeroDriverValueProvenance`, adjudicated at live captures by the hero lane):
+ * a factor is `estimated` when the producer said so, `not_estimated` when the
+ * producer denied it BOTH WAYS, and `undetermined` when it asserted neither.
+ * The third state is the majority case on real payloads, because PLoT omits
+ * `value_defaulted` on rows whose value came from `cee_inference` — i.e. the
+ * values the product invented. Reading that silence as "the user's" is the
+ * precise lie this line exists to prevent.
+ *
+ * So the two directions are gated ASYMMETRICALLY, because they are not the same
+ * harm. Claiming user authorship the product never had is the defect; declaring
+ * Olumi's own estimate merely errs toward disclosure. Both unqualified forms
+ * still require the producer to have settled EVERY factor.
+ *
+ *   · `estimated`            — every factor settled, all of them Olumi's.
+ *   · `partly_estimated`     — at least one is Olumi's, none is the user's, and
+ *                              the producer stayed silent on the rest.
+ *   · `mixed`                — at least one of each is positively witnessed.
+ *                              Silence on other factors cannot falsify it.
+ *   · `user_supplied`        — every factor settled, all of them the user's.
+ *   · `partly_user_supplied` — at least one is the user's, none is Olumi's, and
+ *                              the producer stayed silent on the rest.
+ *
+ * When the producer settled nothing the model is `null` and the surface renders
+ * NOTHING — never a default, because every one of these words is a claim.
+ */
+export type GlanceInputProvenance =
+  | 'estimated'
+  | 'partly_estimated'
+  | 'mixed'
+  | 'user_supplied'
+  | 'partly_user_supplied'

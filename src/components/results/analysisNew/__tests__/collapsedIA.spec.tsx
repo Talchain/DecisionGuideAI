@@ -138,6 +138,7 @@ describe('the glance declares its own cap', () => {
           ],
           influenceIsSetRelative: false,
           condition: null,
+          inputProvenance: null,
           primaryInterventionId: null,
         }}
         driverTotal={7}
@@ -162,6 +163,7 @@ describe('the glance declares its own cap', () => {
           drivers: [{ id: 'a', label: 'A', fraction: 1, targetId: null }],
           influenceIsSetRelative: false,
           condition: null,
+          inputProvenance: null,
           primaryInterventionId: null,
         }}
         driverTotal={1}
