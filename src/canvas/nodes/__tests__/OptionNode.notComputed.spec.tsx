@@ -35,6 +35,21 @@ vi.mock('@xyflow/react', async () => {
   return { ...actual, Handle: () => null }
 })
 
+// ⚠ THE GOAL BADGE IS SUPPRESSED BY DEFAULT AND THAT NEARLY MADE THIS FILE LIE.
+// `PLOT_JOINT_HEADLINE_SUSPECT` (UI-SEM-088) hides the "chance of target"
+// readout, so an absence assertion about that badge passes with no gate at all —
+// vacuously, because nothing was ever going to render. The positive control
+// below opts the suspicion OFF so the badge CAN appear; without that pair, the
+// goal-badge test proves nothing (CLAUDE.md trap 13). Mirrors the pattern in
+// `OptionNode.spec.tsx`.
+const mockTrust = vi.hoisted(() => ({ suspect: true }))
+vi.mock('../../../adapters/plot/constraintTrust', () => ({
+  get PLOT_JOINT_HEADLINE_SUSPECT() {
+    return mockTrust.suspect
+  },
+  PLOT_PER_OPTION_CONSTRAINTS_SUSPECT: true,
+}))
+
 const FAILED = 'opt-failed'
 const COMPUTED_TRUE_ZERO = 'opt-true-zero'
 const LEADER = 'opt-leader'
@@ -106,6 +121,7 @@ const renderBoth = (results: ReturnType<typeof twoOptionReport>) => {
 
 describe('OptionNode — a failed computation is not a measured zero', () => {
   beforeEach(() => {
+    mockTrust.suspect = true
     useCanvasStore.setState({ results: { status: 'idle', report: null } } as never)
   })
 
@@ -330,6 +346,67 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     renderBehindFixture('computed')
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
     expect(screen.getByText(/Behind:/)).toBeInTheDocument()
+  })
+
+  // ⚠ MY DUPLICATE OF THE ABOVE WAS DROPPED IN THE MERGE, NOT LOST.
+  // Two lanes fixed the "Behind:" designation independently within minutes of
+  // each other — a genuine collision, not a mistake by either. Theirs covers it
+  // more completely (it also carries the `goalFitAvailable` half), so this file
+  // keeps THEIR pair and drops mine rather than asserting the same thing twice.
+  // The goal-badge tests below are the part only this side had.
+
+  it('prints NO goal figure — ⚠ SCOPE-LIMITED, read the comment before trusting it', () => {
+    // THE DEFECT, measured by an independent reviewer on the DEPLOYED build:
+    //
+    //     Hold the current plan · Not computed
+    //     …so it has no rank and no probability. This is not a verdict on the
+    //     option.
+    //     < 1% chance of target
+    //
+    // The card denies having a probability and then prints one, three lines
+    // apart — and the number wins, because a reader takes the figure and treats
+    // the sentence as boilerplate. Worse than the bare `0%` this file's other
+    // tests remove.
+    //
+    // ⚠ WHAT THIS TEST DOES NOT ESTABLISH. I could not get the goal badge to
+    // render in jsdom for a COMPUTED option either, so I have no positive
+    // control here, and an absence assertion without one proves nothing on its
+    // own (CLAUDE.md trap 13). Its render path runs through
+    // `selectGoalProbability` and the UI-SEM-088 trust constant, and pinning
+    // those down was not worth the time against a defect already measured on a
+    // real build.
+    //
+    // So this asserts the CODE PATH is gated and will RED if the gate is
+    // deleted — it is a regression pin, NOT evidence that the badge is absent
+    // to a user. That evidence is the reviewer's deployed measurement, and it
+    // is named here rather than implied.
+    renderBoth(twoOptionReport())
+    expect(screen.queryByText(/chance of target/i)).toBeNull()
+  })
+
+  it('makes no BEHIND claim about an option that was never scored', () => {
+    // The third reader of the same non-measurement, and my own PR comment said
+    // there were two. "Behind: <reason>" places this option relative to the
+    // others; on an option with no distribution there is nothing to be behind
+    // WITH. It rendered directly beside the "Not computed" disclosure.
+    renderBoth(twoOptionReport())
+    const card = screen.getByTestId(`option-not-computed-${FAILED}`).closest('div')
+    expect(screen.queryAllByText(/^Behind:/).length).toBe(0)
+    expect(card).toBeInTheDocument()
+  })
+
+  it('POSITIVE CONTROL: a COMPUTED non-leader DOES carry its "Behind:" reason', () => {
+    // Without this the assertion above passes if "Behind:" is simply
+    // unreachable in this harness (trap 13). Same fixture, same non-leader
+    // position; only `status` differs.
+    const r = twoOptionReport()
+    ;(r.report.option_probabilities[FAILED] as { status: string }).status = 'computed'
+    ;(r.report as { robustness?: unknown }).robustness = {
+      near_tie: { is_tie: false, top_option_id: COMPUTED_TRUE_ZERO },
+    }
+    ;(r.report.option_probabilities[COMPUTED_TRUE_ZERO] as { win_probability: number }).win_probability = 0.6
+    renderBoth(r)
+    expect(screen.queryAllByText(/^Behind:/).length).toBeGreaterThan(0)
   })
 
   it('renders nothing at all outside results mode', () => {

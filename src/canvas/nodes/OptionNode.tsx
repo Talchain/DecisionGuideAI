@@ -835,10 +835,54 @@ export const OptionNode = memo((props: NodeProps) => {
   // one. The caveat now travels with the number to every surface showing it.
   const goalDecision = useMemo(() => {
     if (!isPostAnalysis || !resultsReport) return null
+    // ⭐ THE THIRD READER OF A NON-MEASUREMENT, and the worst of them.
+    //
+    // A review found the card reading, in one vertical stack:
+    //
+    //     Hold the current plan · Not computed
+    //     …so it has no rank and no probability. This is not a verdict on the
+    //     option.
+    //     < 1% chance of target
+    //
+    // The card denies having a probability and then prints one. That is worse
+    // than the bare `0%` this change set removes, because the denial and the
+    // number are three lines apart and the number wins — a reader takes the
+    // figure and treats the sentence as boilerplate.
+    //
+    // `selectGoalProbability` is correct and is not the problem: it answers
+    // "what goal figure does this option's block carry, and on what basis",
+    // and it has no business knowing about compute status. The defect was that
+    // NOTHING asked the prior question — whether this option has a measurement
+    // at all — before handing it that block. Gated here, at the reader, for the
+    // same reason the other two are.
+    //
+    // ⚠ AND IT RESTORES THE PARITY THAT IS THE WHOLE REASON FOR SHARING THE
+    // PREDICATE: the results panel forks a failed option to
+    // `NotComputedOptionCard`, which prints NO goal figure. Without this gate
+    // the canvas and the panel disagreed about one option in one run, which is
+    // precisely the two-authorities defect the shared predicate exists to
+    // prevent (CLAUDE.md trap 21).
+    //
+    // ⛔⛔ AND THE NUMBER IT SUPPRESSES IS WORSE THAN "SMALL" — established by a
+    // producer derivation, not assumed here. ISL computes
+    // `probability_of_goal` over the RAW unfiltered sample array with no
+    // finiteness gate. On the very shape that produces `status: 'failed'`
+    // (`n_valid === 0`, i.e. every draw non-finite), `inf >= threshold` holds
+    // for every draw, so the option ships **`probability_of_goal: 1.0`**.
+    //
+    // A failed option can therefore arrive carrying a 0.0 chance of winning AND
+    // a 1.0 chance of hitting the goal — both fabricated, both from the
+    // producer. Without this gate the card would print the most confident
+    // possible statement about the one option nothing was measured for.
+    //
+    // ⚠ SO THIS FIX IS NECESSARY AND NOT SUFFICIENT. The producer defect is
+    // real, is outside this repo, and has its own lane. Suppressing the render
+    // stops the UI repeating a fabrication; it does not stop the fabrication.
+    if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const optionProbs = report?.option_probabilities?.[props.id]
     return selectGoalProbability(optionProbs)
-  }, [isPostAnalysis, resultsReport, props.id])
+  }, [isPostAnalysis, resultsReport, props.id, displayMetadata.winComputationFailed])
   const goalProbability = goalDecision?.goalProbability ?? null
 
   // THE POSSESSIVE GATE (ROADMAP 2.282). `basis === 'joint_goal_substituted'`
@@ -879,6 +923,21 @@ export const OptionNode = memo((props: NodeProps) => {
   // differentiates nothing, so it renders on none of them (audit §8 P1).
   const behindReason = useMemo<string | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
+    // ⭐ THE THIRD READER — and my own PR comment said there were two.
+    //
+    // "Behind: <reason>" is a comparative designation: it places this option
+    // relative to the others. On an option the producer could not compute
+    // (`status === 'failed'`, `n_valid === 0`) there is nothing to be behind
+    // WITH — the comparison has no measurement on one side. It rendered
+    // directly beside the "Not computed" disclosure, so the card said the
+    // analysis produced no usable result and then explained where the option
+    // came in the ranking.
+    //
+    // `computeBehindReason` and `deriveDecisionVerdict` are both status-blind
+    // by design and should stay that way: they answer "how does this option
+    // compare", not "is there anything to compare". The prior question belongs
+    // at the reader, which is here.
+    if (displayMetadata.winComputationFailed === true) return null
     // ROADMAP 1.239: "Behind:" is an explicit comparative designation, and on a
     // withheld turn it was rendering on EVERY option — including the one the
     // numbers put on top. `isRecommended` is `hasLeadingOption && leaderId ===
