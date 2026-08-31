@@ -58,6 +58,7 @@ import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
+import { planPreview } from '../previewComposition'
 import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
 
 export interface StrengthenTheReasoningProps {
@@ -226,9 +227,25 @@ export function StrengthenTheReasoning({
    * open onto three rows and nothing else.
    */
   const [expanded, setExpanded] = useState(false)
-  const limit = preview ?? interventions.length
-  const visible = expanded ? interventions : interventions.slice(0, limit)
-  const hidden = interventions.length - visible.length
+
+  /**
+   * ⭐⭐ THE PREVIEW IS COMPOSED, NOT SLICED — see `previewComposition.ts` for
+   * the measurement that forced this. Four of the engine's eight builders emit
+   * `clarify` and they hold every slot at the top of its ladder, so the three
+   * rows a reader actually meets were all "complete the model" and none of them
+   * named a technique. One slot is now given to a different kind of thought
+   * when the preview would otherwise ask for only one.
+   *
+   * ⚠ NOT A RE-RANK, and nothing is hidden by it: the displaced row moves to
+   * the front of the tail, which "Show N more" reaches.
+   */
+  const plan = useMemo(
+    () => planPreview(interventions, preview ?? interventions.length),
+    [interventions, preview],
+  )
+  const limit = preview ?? plan.ordered.length
+  const visible = expanded ? plan.ordered : plan.ordered.slice(0, limit)
+  const hidden = plan.ordered.length - visible.length
 
   return (
     <SectionShell
