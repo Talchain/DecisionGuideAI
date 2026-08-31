@@ -342,6 +342,95 @@ interface ReactFlowGraphProps {
  * `resetCanvas` clears the AUTOSAVE as well (`store.ts`), so "Start fresh"
  * never reaches this branch.
  */
+/**
+ * ⭐⭐ THE BOOT LOAD-SOURCE RULE — A DISAGREEMENT IS STALENESS, NOT A TIE.
+ *
+ * Which graph does a cold boot put on screen: the autosave slot, or the record
+ * the pointer names? The rule used to be purely "whichever is newer", and that
+ * composed with `resolveRestoredScenarioId`'s pointer-precedence into a state
+ * where the two answered DIFFERENT questions and contradicted each other:
+ * the autosave supplied the GRAPH while the pointer supplied the IDENTITY, so
+ * the canvas could display decision A while every subsequent edit was addressed
+ * to decision B. That is the silent-discard class — the user's edit lands
+ * somewhere they cannot see.
+ *
+ * ⚠ THE FIX IS NOT A PRECEDENCE FLIP, AND THE WRITE ORDERING IS WHY. It is
+ * tempting to say "display wins — bind to whatever graph is on screen". That is
+ * WRONG HERE, and it fails for a structural reason rather than a statistical
+ * one:
+ *
+ *   `useAutosave` stamps `scenarioId: currentScenarioId` — the autosave's id is
+ *   a COPY OF THE POINTER, not an independent opinion — and the mint writes the
+ *   pointer FIRST (`useConversation.ts`, `setState` then `setCurrentScenarioId`).
+ *   So the autosave is BY CONSTRUCTION at or behind the pointer and can never be
+ *   ahead of it.
+ *
+ * Therefore a well-formed disagreement can only mean ONE thing: the autosave is
+ * STALE. "Display wins" would adopt the stale side every time — binding the user
+ * back to the scenario they deliberately switched AWAY from, which is the very
+ * harm it was meant to prevent, arriving through the other door.
+ *
+ * THE WINDOW IS REAL, not theoretical. `store.ts`'s `loadScenario` (the switch)
+ * sets `currentScenarioId` and never calls `clearAutosave()`, and `useAutosave`
+ * skips its replacement write while an existing autosave is younger than
+ * `DEBOUNCE_MS` (500ms), on an unchanged content hash, or when
+ * `mayPersistGraphNow` declines. So after a switch A -> B the slot can still
+ * carry A's id AND A's graph.
+ *
+ * SO THE RULE IS: when the pointer and the autosave BOTH state a well-formed id
+ * and those ids DIFFER, the autosave is stale — do not put it on screen
+ * automatically, even if it is newer. Render the pointer's own record instead.
+ * Display and identity then agree, and they agree on where the user actually
+ * was. A's unsaved work is NOT lost: the switch never clears the slot, and
+ * `RecoveryBanner` still offers it.
+ *
+ * ⭐ AND THE TRAP-21 QUESTION, SETTLED IN WORDS RATHER THAN LEFT AS AN APPARENT
+ * INCONSISTENCY. `RecoveryBanner`'s MANUAL restore binds to the autosave's own
+ * id (`currentScenarioId: autosaveData.scenarioId || null`) — display-wins. This
+ * AUTOMATIC path prefers the pointer. Those are not two answers to one question;
+ * they are answers to TWO questions:
+ *
+ *   MANUAL    "the user has EXPLICITLY asked for this recovered graph"
+ *             -> explicit intent. Bind to what they asked for. Display wins.
+ *   AUTOMATIC "nothing was asked; we are INFERRING where the user was"
+ *             -> inference. The pointer is the more recent write by
+ *                construction, so it is the better inference. Pointer wins.
+ *
+ * Do not "reconcile" these into one default. The difference is the design.
+ *
+ * ⚠ SCOPE, STATED EXACTLY (trap 20 — a fix must restate the finding's scope,
+ * never its generalisation). This rule fires ONLY when BOTH an autosave and a
+ * record for the pointer exist, because only then is there a renderable
+ * alternative to the stale slot. When the pointer names NO local record
+ * (`scenario === null`) the autosave is still taken, unchanged — that is the
+ * guest/never-saved path the fallback exists for, and on it
+ * `olumi-canvas-scenarios` is routinely absent entirely, so refusing the
+ * autosave there would refuse exactly the case it was written for. The
+ * display/identity divergence therefore REMAINS OPEN on that branch; it is not
+ * closed here and must not be reported as closed.
+ */
+export function resolveBootLoadSource(
+  pointerId: string | null,
+  autosave: { readonly timestamp: number; readonly scenarioId?: string | null } | null,
+  // `| undefined` is load-bearing: the caller passes `scenarios.getScenario(id)`,
+  // which returns `Scenario | undefined`. Narrowing to `| null` here made the
+  // call site a type error rather than making the input impossible.
+  scenario: { readonly updatedAt: number } | null | undefined,
+): 'autosave' | 'scenario' | 'none' {
+  if (autosave && scenario) {
+    const autosaveId = autosave.scenarioId
+    const bothWellFormed =
+      !!pointerId && isUUID(pointerId) && !!autosaveId && isUUID(autosaveId)
+    // The staleness test. Not a tie-break: by the write ordering above, a
+    // well-formed disagreement can ONLY mean the slot has not caught up.
+    if (bothWellFormed && autosaveId !== pointerId) return 'scenario'
+    return autosave.timestamp > scenario.updatedAt ? 'autosave' : 'scenario'
+  }
+  if (autosave) return 'autosave'
+  if (scenario) return 'scenario'
+  return 'none'
+}
+
 export function resolveRestoredScenarioId(
   pointerId: string | null,
   autosaveScenarioId: string | null | undefined,
@@ -1767,26 +1856,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       const autosave = scenarios.loadAutosave()
       const scenario = currentId ? scenarios.getScenario(currentId) : null
 
-      // Determine which source to load
-      let loadSource: 'autosave' | 'scenario' | 'none' = 'none'
-      let recoveredFromAutosave = false
-
-      if (autosave && scenario) {
-        // Both exist - load whichever is newer
-        if (autosave.timestamp > scenario.updatedAt) {
-          loadSource = 'autosave'
-          recoveredFromAutosave = true
-        } else {
-          loadSource = 'scenario'
-        }
-      } else if (autosave && !scenario) {
-        // Only autosave exists - load it
-        loadSource = 'autosave'
-        recoveredFromAutosave = true
-      } else if (scenario) {
-        // Only scenario exists - load it
-        loadSource = 'scenario'
-      }
+      // Determine which source to load. DRIVEN, not inlined — see
+      // `resolveBootLoadSource` for the staleness rule and why a disagreement
+      // between the pointer and the autosave is not a precedence question.
+      const loadSource = resolveBootLoadSource(currentId, autosave, scenario)
+      const recoveredFromAutosave = loadSource === 'autosave'
 
       // Diagnostic logging for restoration debugging
       if (process.env.NODE_ENV === 'development') {
