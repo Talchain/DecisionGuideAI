@@ -966,22 +966,36 @@ export function useScenario(): UseScenarioReturn {
       // decision the user can no longer reach.
       await scenarioService.deleteScenario(id)
 
-      // If we deleted the active scenario, clear the store reference
+      // TWO INDEPENDENT QUESTIONS, ASKED SEPARATELY — see `scenarios.deleteScenario`,
+      // which asks them the same way. They are about DIFFERENT OBJECTS:
+      //   the POINTER names whatever decision this tab currently has open;
+      //   the AUTOSAVE RECORD carries its own `scenarioId`.
+      // Nesting the second inside the first made the autosave survive whenever
+      // the pointer had already moved on — reachable with two tabs open
+      // (`useAutosave.ts:320-321` documents concurrent-tab writes), and via the
+      // ~500 ms DEBOUNCE_MS projection lag after a scenario switch in one tab.
+      // The orphan is then resolved by `bindRestoredScenarioId` on the next boot
+      // and RE-PERSISTED, so the resurrection becomes durable.
+
+      // (a) The pointer, and the reload-surviving copy of it.
       if (useCanvasStore.getState().currentScenarioId === id) {
         useCanvasStore.setState({ currentScenarioId: null })
-        // ⚠ AND THE TWO POINTERS THAT SURVIVE A RELOAD, or the deleted decision
-        // comes straight back. Clearing only the in-memory id left:
-        //   olumi-canvas-current-scenario-id — the store seeds `currentScenarioId`
-        //     from it at boot, and `ReactFlowGraph` restores that scenario on a
-        //     UUID-FORMAT check with no existence test;
-        //   olumi-canvas-autosave — the init effect PREFERS this record whenever
-        //     it is newer than the saved one, and it carries the graph itself.
+        // ⚠ AND THE POINTER THAT SURVIVES A RELOAD, or the deleted decision comes
+        // straight back: olumi-canvas-current-scenario-id seeds `currentScenarioId`
+        // at boot, and `ReactFlowGraph` restores that scenario on a UUID-FORMAT
+        // check with no existence test.
         // CEE #1192 stopped the SERVER resurrecting a deleted scenario; this is
         // the client half of the same harm and that fix does not reach it.
-        //
-        // Guarded by the identity check above, so deleting some OTHER decision
-        // never disturbs the one still open.
         scenarios.clearCurrentScenarioId()
+      }
+
+      // (b) The autosave, keyed on the record's OWN id — the trigger state is
+      // defined by what the record carries, not by where the pointer happens to
+      // be. olumi-canvas-autosave is preferred by the init effect whenever it is
+      // newer than the saved copy, and it carries the graph itself.
+      // Keyed this way, deleting some OTHER decision never disturbs the open
+      // one's unsaved work.
+      if (scenarios.loadAutosave()?.scenarioId === id) {
         scenarios.clearAutosave()
       }
     },

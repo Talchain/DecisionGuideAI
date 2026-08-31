@@ -432,11 +432,20 @@ export function duplicateScenario(id: string, newName?: string): Scenario | null
  * precisely the path where restoring the id is WRONG. Worse, the boot path
  * re-persists what it resolves, so the resurrection would become durable.
  *
- * `useScenario.deleteScenario:984-985` already clears both for the server-backed
- * path, with the same reasoning in its own comment. Two delete paths asking one
- * question must not answer it differently — so the invariant lives HERE, next to
- * the record it guards, and covers every caller of this function rather than the
- * one call site that happens to exist today.
+ * `useScenario.deleteScenario` clears both for the server-backed path, with the
+ * same reasoning in its own comment. Two delete paths asking one question must
+ * not answer it differently — so the invariant lives HERE, next to the record it
+ * guards, and covers every caller of this function rather than the one call site
+ * that happens to exist today.
+ *
+ * ⚠ That symmetry was ASSERTED here before it was true: until the F2 repair, the
+ * server path nested its autosave clear inside the POINTER check, so it answered
+ * the question about a different object and an orphaned record survived. The two
+ * paths now ask both questions independently, and
+ * `useScenario.deleteClearsOrphanedAutosave.spec.ts` pins the server half —
+ * including a discriminating twin, because clearing unconditionally would
+ * destroy the OPEN decision's unsaved work and no single-direction case can see
+ * that. A comment is not an invariant; the spec is.
  *
  * Keyed on the AUTOSAVE'S OWN id, not on the pointer: the trigger state is
  * defined by what the record carries, and the pointer may already be null or
