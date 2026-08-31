@@ -772,9 +772,44 @@ export function buildV5VerdictReportLike(block: {
     winProbs,
   )
 
-  const option_probabilities: Record<string, { win_probability?: number | null }> = {}
+  // Per-option status, keyed by the SAME id space the probabilities above are
+  // keyed by — sourced from `option_comparison`, the only producer array that
+  // carries it. The `decision_brief.options[]` fallback has no status field, so
+  // a payload that reached the id↔label mapping through that fallback yields no
+  // statuses at all and every option stays on the ordinary path. That is the
+  // correct direction: absent status ⇒ ordinary path, never ⇒ failure.
+  const optionStatusById = new Map<string, unknown>()
+  for (const { optionId, enriched } of fromComparison) {
+    if (enriched?.status !== undefined) optionStatusById.set(optionId, enriched.status)
+  }
+
+  // ⭐ THE PRODUCER'S PER-OPTION STATUS RIDES ALONG, verbatim and unnarrowed.
+  //
+  // Without it this view is DARK to `deriveDecisionVerdict`'s failed-option
+  // exclusion: the verdict module drops an option ISL classified `'failed'`
+  // (`n_valid === 0`, so the `win_probability: 0` beside it is a fabricated
+  // stand-in and not a measurement), and it can only do that if the status
+  // reaches it. This function exists precisely because it feeds the verdict a
+  // STRICTLY RICHER signal than the mapped report does; a rebuild that dropped
+  // the one field the exclusion reads would have shipped the fix switched off
+  // on the V5 block path while every test passed on the other one.
+  //
+  // Passed through UNNARROWED for the same reason `near_tie` below is:
+  // `deriveDecisionVerdict` narrows it itself with the producer's own
+  // vocabulary, and a second narrowing here would be a divergent gate on the
+  // same bytes.
+  const option_probabilities: Record<
+    string,
+    { win_probability?: number | null; status?: unknown }
+  > = {}
   for (const [optionId, win] of winById) {
-    option_probabilities[optionId] = { win_probability: win }
+    const status = optionStatusById.get(optionId)
+    option_probabilities[optionId] = {
+      win_probability: win,
+      // Absent in ⇒ absent out. No `?? 'computed'`: a default would
+      // manufacture a classification claim out of silence.
+      ...(status !== undefined ? { status } : {}),
+    }
   }
 
   const robustnessRaw = isPlainObject(enrichment?.robustness) ? enrichment!.robustness : undefined

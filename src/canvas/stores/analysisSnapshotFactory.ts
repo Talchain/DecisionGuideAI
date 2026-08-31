@@ -582,11 +582,31 @@ function deriveRunLeaderVerdict(
   rawV2Response: V2RunResponse,
   sorted: readonly V2OptionComparison[],
 ): DecisionVerdict {
-  const optionProbabilities: Record<string, { win_probability?: number | null }> = {}
+  // ⭐ THE PRODUCER'S PER-OPTION STATUS RESHAPES ALONG WITH THE PROBABILITY.
+  //
+  // `V2OptionComparison.status` is the field `deriveDecisionVerdict` reads to
+  // drop an option ISL classified `'failed'` (`n_valid === 0`, so the
+  // `win_probability: 0` beside it is a fabricated stand-in). Reshaping the
+  // number without it would hand the verdict module a view in which every
+  // option looks computed — the fix would pass its own tests and be DARK on the
+  // Compare tab, which is the "rebuilt key by key" loss this repo has already
+  // paid for once at the V2 mapper.
+  //
+  // Carried verbatim and unnarrowed: the verdict module narrows it with the
+  // producer's own vocabulary, and a second narrowing here would be a divergent
+  // gate on the same bytes.
+  const optionProbabilities: Record<
+    string,
+    { win_probability?: number | null; status?: unknown }
+  > = {}
   for (const o of sorted) {
     const id = typeof o?.option_id === 'string' ? o.option_id : ''
     if (id.length === 0 || id in optionProbabilities) continue
-    optionProbabilities[id] = { win_probability: o.win_probability ?? null }
+    optionProbabilities[id] = {
+      win_probability: o.win_probability ?? null,
+      // Absent in ⇒ absent out.
+      ...(o.status !== undefined ? { status: o.status } : {}),
+    }
   }
 
   return deriveDecisionVerdict({

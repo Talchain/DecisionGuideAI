@@ -75,8 +75,6 @@
  * is the only true thing to say about case (3).
  */
 
-import type { OptionComputeStatus } from '../../../adapters/plot/optionComputeStatus'
-
 /** Why an option carries no analysis. Two facts, never one boolean. */
 export type NotAnalysedReason =
   /**
@@ -153,58 +151,30 @@ export function deriveNotAnalysedReason(
 }
 
 /**
- * ⭐ DID THE COMPUTATION PRODUCE A USABLE RESULT FOR THIS OPTION?
+ * ⭐ DID THE COMPUTATION PRODUCE A USABLE RESULT FOR THIS OPTION? — RE-EXPORTED.
  *
- * The PRODUCER's answer, read — never re-derived. See
- * {@link isAnalysedOption} for the OTHER question this file answers and why the
- * two are kept apart rather than reconciled.
+ * The implementation MOVED to `src/adapters/plot/optionComputeStatus.ts`
+ * (2026-08-31), beside `narrowOptionComputeStatus`, whose closed vocabulary it
+ * reads. It is re-exported here so every existing reader keeps its import and
+ * there is ONE implementation, not a mirror — the same move `HeadlineBanded`
+ * made out of `results/types.ts` into `src/lib/decisionVerdict.ts`, and for the
+ * identical reason.
  *
- * ## Gated on the EMITTED VALUE, never on falsiness
+ * ## Why it had to move
  *
- * The only status that means "there is no computation here" is `'failed'`,
- * which ISL emits exactly when `n_valid === 0` — zero finite Monte Carlo
- * samples, so no distribution, so no share and no percentile behind any number
- * attached to the option.
+ * `deriveDecisionVerdict` (`src/lib/decisionVerdict.ts`) must exclude a FAILED
+ * option from the set it compares, and it must do so by quoting THIS predicate
+ * rather than spelling a second one — a second reading of `'failed'` is exactly
+ * the two-authorities defect (CLAUDE.md trap 21) that the surrounding modules
+ * are written to avoid. But `src/lib` does not import from `src/components`
+ * (stated in `decisionVerdict.ts`'s own header), so the shared predicate moved
+ * DOWN to the layer both callers can already reach.
  *
- * ⛔ **`'partial'` IS NOT A FAILURE AND MUST NOT BE TREATED AS ONE.** It means
- * `0 < n_valid/n_total < 0.8`: the samples EXIST, ISL emits a full `outcome`
- * block, and it raises a LOW_EFFECTIVE_SAMPLES critique alongside. It is a
- * DISCLOSURE. A `status !== 'computed'` predicate would swallow it and discard
- * results ISL honestly computed — which is why this is written against the
- * failing token and not against the passing one. PLoT's own `isFailedIslOption`
- * (`src/routes/v2/run.ts`) is spelled the same way for the same reason, and the
- * two must not drift.
- *
- * ⛔ **`undefined` IMPLIES NOTHING AND STAYS ON THE ORDINARY PATH.** It is the
- * legacy V1 shape — ISL's V1 `OptionResult` carries no `status` field at all —
- * and it is also what both mappers produce for a token outside the producer's
- * vocabulary (the shared contract types this as a bare string, so that is a
- * legal payload). Reading silence as failure would suppress a real result and
- * tell the user their option could not be computed when it was. This matches
- * PLoT's `isCrownableCandidate`, which treats an absent status as computed.
- *
- * @param status The narrowed per-option status, from
- *   `option_probabilities[id].status` / `OptionResult.computeStatus`. Already
- *   narrowed at the mapper: an unrecognised wire token arrives here as
- *   `undefined`, so this predicate never sees a string it does not know.
+ * The three-questions doctrine above is UNCHANGED by the move: this is still a
+ * different question from {@link isAnalysedOption}, still fails in the opposite
+ * direction on absence, and still must not be folded into it.
  */
-export function optionComputationProducedResult(
-  status: OptionComputeStatus | undefined,
-): boolean {
-  return status !== 'failed'
-}
-
-/**
- * The negation, named — for the one place that FORKS on it.
- *
- * Exists so a render site reads `optionComputationFailed(...)` rather than
- * `!optionComputationProducedResult(...)`: the fork in `OptionCards` is about
- * the failing case, and a negated positive at a fork is where an accidental
- * De Morgan lands. Both spellings resolve to the same single comparison above,
- * so there is no second authority here — only a second name for the same one.
- */
-export function optionComputationFailed(
-  status: OptionComputeStatus | undefined,
-): boolean {
-  return !optionComputationProducedResult(status)
-}
+export {
+  optionComputationProducedResult,
+  optionComputationFailed,
+} from '../../../adapters/plot/optionComputeStatus'

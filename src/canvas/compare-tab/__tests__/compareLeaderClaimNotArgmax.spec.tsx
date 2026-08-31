@@ -446,9 +446,36 @@ describe('the leader series is bound to ONE option id across runs', () => {
   })
 
   it('CONTRAST: DotProgression still prints an honestly-measured 0% in the leader row', () => {
-    render(<DotProgression snapshots={[scoredRun(1, 0.7, 0.2), scoredRun(2, 0, 0)]} />)
+    // ⚠ FIXTURE CHANGED 2026-08-31, PROPERTY UNCHANGED — and the reason is the
+    // point of the change that touched it.
+    //
+    // This used to read `[scoredRun(1, 0.7, 0.2), scoredRun(2, 0, 0)]`: the
+    // honest zero was the LATEST run, in which BOTH options measured 0. That
+    // is an exact tie, and `deriveDecisionVerdict` no longer entitles a leader
+    // claim on one — `top1` is undefined when the top two are equal, so the old
+    // claim was decided by object key order (measured: reversing the two keys
+    // reversed the entitlement). So the fixture was asserting the leader row
+    // renders for a run that has no leader.
+    //
+    // The property this test exists for is NOT "a tie names a leader". It is
+    // "a MEASURED zero is a measurement, and must not render as the absence
+    // marker" — the contrast to `DotProgression prints no fabricated 0% for an
+    // unscored run` directly above. That property is preserved exactly by
+    // moving the honest zero to the run that is NOT making the claim: run 2
+    // names a leader on its own separated numbers, and run 1 measured that same
+    // option at 0, which must print `0%` and not `—`.
+    //
+    // It is also the STRICTER placement: the "—" path is genuinely reachable
+    // for a non-latest run, so a regression that confused zero with absence
+    // would surface here.
+    render(<DotProgression snapshots={[scoredRun(1, 0, 0.9), scoredRun(2, 0.7, 0.2)]} />)
     const row = screen.getByTestId(`compare-progression-row-${LEADER_ID}`)
     expect(row.textContent).toMatch(ZERO_PERCENT)
+    // And it is NOT the absence marker — without this the assertion above could
+    // be satisfied by a row that rendered nothing measured at all. The literal
+    // is `DotProgression`'s own `NOT_SCORED` (module-private, so it is spelled
+    // here); the em dash is what an unscored run renders instead of a number.
+    expect(row.textContent).not.toContain('—')
   })
 
   it('a scored leader keeps its own row, and the row shows its own numbers', () => {
@@ -478,8 +505,32 @@ describe('winnerProbDelta is measured on ONE option, at both ends, or not at all
     expect(tr.winnerProbDelta).toBe(13)
   })
 
-  it('CONTRAST: an honest zero-to-zero movement is 0, not null', () => {
-    const [tr] = deriveTransitions([scoredRun(1, 0, 0), scoredRun(2, 0, 0)])
-    expect(tr.winnerProbDelta).toBe(0)
+  it('CONTRAST: an honest ZERO END is a measurement, so the delta is computed', () => {
+    // ⚠ FIXTURE AND NAME CHANGED 2026-08-31, PROPERTY UNCHANGED.
+    //
+    // This read `[scoredRun(1, 0, 0), scoredRun(2, 0, 0)]` and asserted a
+    // zero-to-zero delta of 0. Both runs are exact ties, and
+    // `deriveDecisionVerdict` no longer entitles a leader claim on a tie, so
+    // `deriveWinnerProbDelta`'s `toClaim.kind !== 'named'` guard now returns
+    // null first and the test could never reach its own subject.
+    //
+    // ⛔ AND A ZERO-TO-ZERO MOVEMENT FOR A *NAMED* LEADER IS NOW UNREACHABLE BY
+    // CONSTRUCTION, which is worth stating rather than hiding: being the named
+    // leader requires being STRICTLY above the runner-up, so a leader measured
+    // at 0 would need every rival below 0. Win probabilities are not negative.
+    // (Nor was the old fixture a payload PLoT emits — per-option win
+    // probabilities partition the draws and sum to ~1, so a two-option run
+    // cannot have both at 0.)
+    //
+    // The property under test is "a ZERO END is a measurement and must not be
+    // treated as the absence that nulls the delta" — the contrast to
+    // `null when the later run never scored the leader` directly above. That is
+    // preserved by putting the honest zero at the FROM end of a pair whose TO
+    // end names a leader on its own separated numbers.
+    const [tr] = deriveTransitions([scoredRun(1, 0, 0.9), scoredRun(2, 0.7, 0.2)])
+    // 70 − 0. The discrimination that matters is against `null`: a zero end
+    // must not silently become "no measurement here".
+    expect(tr.winnerProbDelta).toBe(70)
+    expect(tr.winnerProbDelta).not.toBeNull()
   })
 })

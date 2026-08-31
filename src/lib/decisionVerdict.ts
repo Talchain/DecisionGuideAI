@@ -95,6 +95,16 @@
 // applied to option Y), and the robustness_gated disclosure flag. The
 // producer's own `text` sentence is deliberately NOT consumed.
 
+// The producer's per-option computation vocabulary and the ONE predicate over
+// it. Imported from the adapter layer rather than respelled here: a second
+// reading of `'failed'` would be a second authority on one question, which is
+// the defect class this whole module exists to end. `notAnalysedOptions.ts`
+// re-exports the same implementation for the component layer.
+import {
+  narrowOptionComputeStatus,
+  optionComputationProducedResult,
+} from '../adapters/plot/optionComputeStatus'
+
 /** Producer band tokens (PLoT BriefBandedHeadline.band, closed set). */
 export type HeadlineBandedBand = 'very_close' | 'slightly_ahead' | 'clearly_ahead'
 
@@ -195,7 +205,22 @@ const FP_EPSILON = 1e-9
 /** Minimal shape this module reads out of the PLoT report. Structural, so a
  *  mapped ReportV1, a raw V2 response, or a hydrated report all satisfy it. */
 export interface DecisionVerdictReportLike {
-  option_probabilities?: Record<string, { win_probability?: number | null } | null | undefined> | null
+  option_probabilities?: Record<
+    string,
+    {
+      win_probability?: number | null
+      /**
+       * The producer's PER-OPTION computation classification, verbatim off the
+       * wire. `unknown` deliberately, matching `V2OptionComparison.status`: the
+       * shared contract declares it a BARE `z.ZodOptional<z.ZodString>`, not
+       * the closed enum its producer actually emits, so a token this UI has
+       * never heard of is a legal payload. Typing it `string` here would let it
+       * be read directly; `unknown` makes `narrowOptionComputeStatus` the only
+       * way in, and the compiler enforces that rather than a reviewer.
+       */
+      status?: unknown
+    } | null | undefined
+  > | null
   robustness?: {
     recommended_option_id?: string | null
     /** PLoT `computeNearTie` output. Snake and camel both appear on the wire. */
@@ -281,11 +306,42 @@ export function deriveDecisionVerdict(
   const { visibleOptionIds, rawHeadlineBanded } = options
   const probs = report.option_probabilities ?? {}
 
-  // Comparable options: those with a finite win probability that are still on
-  // the canvas (when a visibility set is supplied).
+  // Comparable options: those the producer actually COMPUTED, that carry a
+  // finite win probability, and that are still on the canvas (when a visibility
+  // set is supplied).
+  //
+  // ⚠⚠ "FINITE" WAS NOT ENOUGH, AND THE GAP DEFEATED THE LENGTH GUARD BELOW.
+  // ISL emits `status: 'failed'` exactly when `n_valid === 0` — ZERO finite
+  // Monte Carlo samples, so there is no distribution, no share and no rank
+  // behind any number attached to the option — and PLoT forwards a
+  // `win_probability: 0` beside it. Zero is finite. So a failed option counted
+  // as comparable, a run with ONE genuinely computed option plus ONE failed
+  // option reached `comparable.length === 2`, and this module went on to author
+  // a leader verdict where only one measurement existed. Measured at pristine
+  // `8915b0e2`: one computed option at 0.71 beside one failed option returned
+  // `hasLeadingOption: true, separation: 'clear', gapPp: 71` — a seventy-one
+  // point "lead" whose loser was a fabricated stand-in.
+  //
+  // ⭐ GATED ON THE PRODUCER'S EMITTED TOKEN, NEVER ON FALSINESS. A `win > 0`
+  // or truthiness test would be a SECOND, worse classification: it would admit
+  // a failed option carrying any non-zero fabricated value, and it would
+  // wrongly drop a GENUINE measured zero — an option ISL computed at n=10,000
+  // and found never wins. Those two are indistinguishable by value and
+  // distinguishable only by this field, which is the entire reason the producer
+  // sends it.
+  //
+  // The predicate is `optionComputationProducedResult`, QUOTED and not
+  // respelled. It is the same one `OptionCards` forks on and the same reading
+  // PLoT's own `isFailedIslOption` applies, so the UI cannot classify an option
+  // differently from the service that crowned it (CLAUDE.md trap 21). In
+  // particular `'partial'` is a DISCLOSURE and stays in — the samples exist —
+  // and an ABSENT or unrecognised status stays in too, because that is the
+  // legacy V1 shape and reading silence as failure would suppress a real
+  // result.
   const comparable: Array<{ id: string; win: number }> = []
   for (const [id, entry] of Object.entries(probs)) {
     if (visibleOptionIds && !visibleOptionIds.has(id)) continue
+    if (!optionComputationProducedResult(narrowOptionComputeStatus(entry?.status))) continue
     const win = entry?.win_probability
     if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
   }
@@ -359,6 +415,46 @@ export function deriveDecisionVerdict(
 
   if (nearTieApplies && nearTie!.isTie) {
     return { leaderId, separation: 'tied', hasLeadingOption: false, gapPp, source: 'producer_near_tie' }
+  }
+
+  // ── An EXACT tie at the top has no argmax, so no claim may rest on one ──
+  //
+  // ⚠⚠ THE FOUNDER'S DEFECT: a headline naming a leader over two options the
+  // same panel reported as level ("currently leads" beside "essentially tied").
+  //
+  // `top1` is the head of a sort. When the top two win probabilities are EQUAL
+  // there is no argmax — `top1` is whichever key `Object.entries` happened to
+  // yield first. BOTH producer identity gates key on `top1.id`, so on an exact
+  // tie the entitlement was decided by object insertion order. Measured at
+  // pristine `8915b0e2`, two options at 0.35 each with one band naming `opt_a`:
+  //
+  //     keys {opt_a, opt_b} → hasLeadingOption: true,  separation: 'slight'
+  //     keys {opt_b, opt_a} → hasLeadingOption: false, separation: 'unknown'
+  //
+  // Same data, same producer signal, opposite claims. A verdict that flips on
+  // key order is not a verdict, and `hasLeadingOption: true` with `gapPp: 0`
+  // reaches `certaintyCopy`'s "{winner} currently leads".
+  //
+  // ⭐ PLACED AFTER AUTHORITY 1'S TIE BRANCH, DELIBERATELY. A producer that
+  // explicitly called the tie keeps its `'tied'` verdict, which is what
+  // licenses the honest "no clear leading option" copy. Only the ASSERTION is
+  // withheld here, never the producer's own denial — swallowing that would take
+  // a true sentence off the screen, which is the over-suppression twin of the
+  // defect being fixed (CLAUDE.md trap 22b: one predicate cannot guard two
+  // opposite harms).
+  //
+  // ⛔ EXACT EQUALITY, NOT A THRESHOLD. This module's header records SIX
+  // mutually-inconsistent "too close to call" cutoffs found across sixteen
+  // modules; a seventh invented here would be the same defect wearing a fix's
+  // clothes. Equality is not a judgement about closeness — it is the one input
+  // on which `top1` is undefined. Where the producer wants a closeness call it
+  // already has `near_tie` (threshold 0.10) and the `very_close` band, and both
+  // still decide it.
+  //
+  // Fails toward SILENCE (`'unknown'`), not toward a denial: the UI has no more
+  // authority to say "no clear leading option" than to name one.
+  if (top1.win === top2.win) {
+    return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
   }
 
   // ── Authority 2: the producer's leader-confidence band ──────────────────

@@ -127,3 +127,79 @@ export function narrowOptionComputeStatusReason(raw: unknown): string | undefine
   const trimmed = raw.trim()
   return trimmed.length > 0 ? trimmed : undefined
 }
+
+// ---------------------------------------------------------------------------
+// ⭐ THE PREDICATE OVER THAT VOCABULARY
+//
+// MOVED HERE (2026-08-31) from `src/components/results/utils/notAnalysedOptions.ts`,
+// which re-exports it — ONE implementation, no mirror. It reads the closed
+// vocabulary this module owns, and it now has readers in two layers:
+// `src/components` (the results panel and the cards) and `src/lib`
+// (`deriveDecisionVerdict`, which must not import from `src/components`).
+// Leaving it in the component layer would have forced the verdict module to
+// spell a SECOND reading of `'failed'` — two authorities on one question, which
+// is the defect the whole `decisionVerdict` module exists to end.
+//
+// The three-questions doctrine that surrounds it in `notAnalysedOptions.ts`
+// ("was it analysed?" vs "why not?" vs "did it compute?") is unaffected: the
+// other two questions are about the GRAPH and the RESULT SET and stay there.
+// This one is about the PRODUCER'S STATED CLASSIFICATION and belongs beside the
+// vocabulary it reads.
+// ---------------------------------------------------------------------------
+
+/**
+ * ⭐ DID THE COMPUTATION PRODUCE A USABLE RESULT FOR THIS OPTION?
+ *
+ * The PRODUCER's answer, read — never re-derived. See
+ * `isAnalysedOption` for the OTHER question this file answers and why the
+ * two are kept apart rather than reconciled.
+ *
+ * ## Gated on the EMITTED VALUE, never on falsiness
+ *
+ * The only status that means "there is no computation here" is `'failed'`,
+ * which ISL emits exactly when `n_valid === 0` — zero finite Monte Carlo
+ * samples, so no distribution, so no share and no percentile behind any number
+ * attached to the option.
+ *
+ * ⛔ **`'partial'` IS NOT A FAILURE AND MUST NOT BE TREATED AS ONE.** It means
+ * `0 < n_valid/n_total < 0.8`: the samples EXIST, ISL emits a full `outcome`
+ * block, and it raises a LOW_EFFECTIVE_SAMPLES critique alongside. It is a
+ * DISCLOSURE. A `status !== 'computed'` predicate would swallow it and discard
+ * results ISL honestly computed — which is why this is written against the
+ * failing token and not against the passing one. PLoT's own `isFailedIslOption`
+ * (`src/routes/v2/run.ts`) is spelled the same way for the same reason, and the
+ * two must not drift.
+ *
+ * ⛔ **`undefined` IMPLIES NOTHING AND STAYS ON THE ORDINARY PATH.** It is the
+ * legacy V1 shape — ISL's V1 `OptionResult` carries no `status` field at all —
+ * and it is also what both mappers produce for a token outside the producer's
+ * vocabulary (the shared contract types this as a bare string, so that is a
+ * legal payload). Reading silence as failure would suppress a real result and
+ * tell the user their option could not be computed when it was. This matches
+ * PLoT's `isCrownableCandidate`, which treats an absent status as computed.
+ *
+ * @param status The narrowed per-option status, from
+ *   `option_probabilities[id].status` / `OptionResult.computeStatus`. Already
+ *   narrowed at the mapper: an unrecognised wire token arrives here as
+ *   `undefined`, so this predicate never sees a string it does not know.
+ */
+export function optionComputationProducedResult(
+  status: OptionComputeStatus | undefined,
+): boolean {
+  return status !== 'failed'
+}
+
+/**
+ * The negation, named — for the one place that FORKS on it.
+ *
+ * Exists so a render site reads `optionComputationFailed(...)` rather than
+ * `!optionComputationProducedResult(...)`: the fork in `OptionCards` is about
+ * the failing case, and a negated positive at a fork is where an accidental
+ * De Morgan lands. Both spellings resolve to the same single comparison above,
+ * so there is no second authority here — only a second name for the same one.
+ */
+export function optionComputationFailed(
+  status: OptionComputeStatus | undefined,
+): boolean {
+  return !optionComputationProducedResult(status)
+}
