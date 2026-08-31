@@ -48,6 +48,46 @@ const TONE_PILL: Record<string, string> = {
 }
 
 /**
+ * The same word, with the reassurance taken out of it.
+ *
+ * Used only for a STALE `stable` verdict — see `reassuranceIsStale` below.
+ */
+const TONE_PILL_STALE = 'bg-panel-hover text-text-light'
+
+/**
+ * ⭐⭐ A STALE RUN MAY NOT REASSURE, BUT IT MUST STILL WARN.
+ *
+ * Witnessed live: after a user replaced a value Olumi had invented, every
+ * subsequent rerun failed silently and this panel kept the previous result on
+ * screen — a green tick, "Stable", and "came out ahead in 91% of simulated
+ * scenarios". Four different inputs, including a flipped risk profile, produced
+ * byte-identical output. The chat surface said the honest thing at the same
+ * moment ("I've stopped rather than show you a confident wrong answer"), so the
+ * two surfaces disagreed and the one a user is more likely to read was the
+ * wrong one. The result was stale *precisely because the user tried to improve
+ * it*, which inverts the product's own principle.
+ *
+ * This block already knew about staleness — the eyebrow reframes to "As last
+ * analysed" and the present-tense headline is suppressed (rule 3). The verdict
+ * pill was simply never given the same treatment, which is trap 21: two parts
+ * of one surface answering "is this current?" differently.
+ *
+ * ⚠ AND IT IS DELIBERATELY ASYMMETRIC, BECAUSE THE TWO DIRECTIONS ARE NOT THE
+ * SAME HARM. Demoting a stale `stable` removes false reassurance. Demoting a
+ * stale `sensitive` or `mixed` would mute a TRUE warning and make a fragile
+ * result look calmer than it is — the mirror defect, and the worse one. One
+ * predicate, two opposite harms, so only the reassuring tone is demoted.
+ *
+ * The word itself stays. Removing information is not the same as removing the
+ * anchor: under an eyebrow that already reads "As last analysed", a neutral
+ * "Stable" is a record of what the last run found. A green tick is a claim
+ * about the model in front of you.
+ */
+function reassuranceIsStale(tone: string, isStale: boolean): boolean {
+  return isStale && tone === 'stable'
+}
+
+/**
  * Below this spread, driver bars are not drawn.
  *
  * `fraction` is each driver against the STRONGEST in the run, so the leader is
@@ -244,10 +284,21 @@ export function AtAGlance({
               </span>
             ) : null}
             <span
-              className={`${typography.panelMeta} shrink-0 rounded-full px-2 py-0.5 ${TONE_PILL[glance.verdict.tone]}`}
+              className={`${typography.panelMeta} shrink-0 rounded-full px-2 py-0.5 ${
+                reassuranceIsStale(glance.verdict.tone, isStale)
+                  ? TONE_PILL_STALE
+                  : TONE_PILL[glance.verdict.tone]
+              }`}
               data-testid={`${testId}-verdict-line`}
+              // The producer's own verdict, unchanged — the demotion is a
+              // display decision about currency, never a re-reading of what the
+              // analysis found.
+              data-verdict-demoted={
+                reassuranceIsStale(glance.verdict.tone, isStale) ? 'stale' : undefined
+              }
             >
-              {glance.verdict.tone === 'stable' ? (
+              {reassuranceIsStale(glance.verdict.tone, isStale) ? null : glance.verdict.tone ===
+                'stable' ? (
                 <CheckCircle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
               ) : (
                 <AlertTriangle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
