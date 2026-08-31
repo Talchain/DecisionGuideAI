@@ -210,8 +210,25 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
    */
   const externalGuidance = flipEntry?.alternative_winner_label
     ? `If ${String(node.data?.label ?? 'this factor')} is high, the result changes to ${flipEntry.alternative_winner_label}.`
+    // ⚠ THE MIRROR OF THE CONFLATION THIS PR REMOVES, twelve lines above
+    // `investigationGuidance`'s render site. Gated on `sensitivityRank` — the
+    // INFLUENCE signal — while saying "contributes significant uncertainty",
+    // which is the INVESTIGATION family's claim. With low VoI the card read:
+    //
+    //     "More evidence here would add little — you already know enough
+    //      about this one."
+    //     "This factor contributes significant uncertainty to your results."
+    //
+    // Exactly the contradiction removed from the other two panels, surviving on
+    // the one I had edited. My spec tested the two families in isolation and
+    // never the third sentence beside them, so it stayed green.
+    //
+    // Now says what its gate actually knows: a high sensitivity rank means the
+    // factor's VALUE moves the result, and being outside the user's control is
+    // the fact this panel exists to state. Neither clause borrows the
+    // investigation family's vocabulary.
     : isResultsMode && displayMetadata.sensitivityRank != null
-    ? 'This factor contributes significant uncertainty to your results.'
+    ? "This factor is outside your control, and its value is one of the strongest influences on the result."
     : 'This factor is outside your control, so its level is uncertain.'
 
   return (

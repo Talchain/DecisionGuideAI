@@ -22,6 +22,8 @@
  * that made them collide.
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { influenceGuidance, investigationGuidance } from '../inspectorStrings'
 
 /** The words that made the two read as one claim about the same thing. */
@@ -51,6 +53,44 @@ describe('factor guidance — two questions, two vocabularies', () => {
       expect(s, `voi=${voi} borrows the influence family's words: "${s}"`).not.toMatch(RESULT_WORDS)
       expect(s).toMatch(/evidence|uncertainty/i)
     }
+  })
+
+  it('⚠ THE THIRD SENTENCE — no OTHER guidance on the card may borrow the vocabulary either', () => {
+    // The finding my own spec missed: it tested the two families in isolation
+    // and never the third sentence rendered beside them. `externalGuidance`
+    // (`FactorExternalPanel.tsx`) is gated on `sensitivityRank` — the INFLUENCE
+    // signal — and said "contributes significant uncertainty", the
+    // INVESTIGATION family's claim. With low VoI the card read "you already
+    // know enough about this one" directly above it.
+    //
+    // Source-scanned rather than rendered, deliberately: the point is that NO
+    // sentence gated on the influence signal may speak the uncertainty
+    // vocabulary, which is a property of the file, not of one render path. A
+    // render test would only cover the fixture it happened to mount — which is
+    // exactly how this survived.
+    const src = readFileSync(
+      resolve(__dirname, '../panels/FactorExternalPanel.tsx'),
+      'utf8',
+    )
+    expect(src.length, 'empty read makes this assertion vacuous').toBeGreaterThan(500)
+    const gatedOnInfluence = src.slice(
+      src.indexOf('const externalGuidance'),
+      src.indexOf('return (', src.indexOf('const externalGuidance')),
+    )
+    expect(gatedOnInfluence.length).toBeGreaterThan(100)
+    // ⚠ COMMENTS STRIPPED FIRST, so the absence claim is about CODE. The
+    // explanation of the defect necessarily QUOTES the sentence it forbids, and
+    // deleting that record to satisfy a text match would trade the reason for a
+    // green test. This test caught exactly that on its own first run.
+    const code = gatedOnInfluence
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    expect(code.trim().length, 'comment strip left nothing to assert against').toBeGreaterThan(80)
+    // The literal that shipped. Its absence is the fix; its presence is the bug.
+    expect(code).not.toMatch(/contributes significant uncertainty/i)
+    // POSITIVE CONTROL: the slice really does contain the guidance strings, so
+    // a mis-sliced empty region cannot pass this by testing nothing.
+    expect(code).toMatch(/outside your control/i)
   })
 
   it('does not promise CONFIDENCE — the producer says VoI is not certainty', () => {
