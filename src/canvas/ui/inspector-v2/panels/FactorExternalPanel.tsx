@@ -18,6 +18,7 @@ import {
   INLINE_LABELS,
   DESCRIPTION_PLACEHOLDERS,
   getExtractionLabel,
+  investigationGuidance,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -279,11 +280,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {displayMetadata.valueOfInformation >= 0.7
-                    ? 'Gathering more evidence here could significantly improve confidence.'
-                    : displayMetadata.valueOfInformation >= 0.4
-                    ? 'Additional evidence here would moderately sharpen the analysis.'
-                    : 'Further investigation here is unlikely to change the outcome.'}
+                  {investigationGuidance(displayMetadata.valueOfInformation)}
                 </p>
               </div>
             )}

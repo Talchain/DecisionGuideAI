@@ -120,6 +120,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
+import { investigationGuidance } from '../inspectorStrings'
 
 /*
  * This panel's first render pulls a large import graph and lands within a few
@@ -205,7 +206,22 @@ const COMPUTE_DENIAL =
  * the analysis."). The carve-out is still right to exist; the premise naming
  * which panels share it was wrong, and it named the wrong sibling.
  */
-const VOI_NOTE = 'Additional evidence here would moderately sharpen the analysis.'
+/**
+ * ⚠ DERIVED FROM THE OWNER, NOT PINNED AS A LITERAL — changed 31 Aug 2026.
+ *
+ * This was a verbatim copy of the sentence, with a note saying a change "has to
+ * come here and be argued", and that its wording was "a two-panel decision"
+ * because `FactorControllablePanel` rendered the identical string. That was the
+ * right diagnosis: it was a THREE-panel decision, and the three panels each
+ * carried their own slightly different wording.
+ *
+ * The sentences now have one owner (`investigationGuidance`), so this carve-out
+ * reads from it. The scan below still asserts the note is PRESENT or ABSENT
+ * exactly as before — what it no longer does is go red for a copy edit that
+ * changed nothing about this spec's subject, which is whether the range control
+ * states its actual role.
+ */
+const VOI_NOTE = investigationGuidance(0.5)
 
 function stripVoiNote(text: string, expectPresent: boolean): string {
   const present = text.includes(VOI_NOTE)
