@@ -304,6 +304,37 @@ export const ANALYSIS_NEW_COPY = {
      * one and making the badge speak for the run (CLAUDE.md trap 21).
      */
     provisional: 'This analysis is partial — some results are missing.',
+    /**
+     * ⭐⭐ THE SAME WARNING, SAYING WHICH RESULTS.
+     *
+     * Witnessed on the deployed build: this ribbon renders in amber ABOVE the
+     * result, and on a run where the producer sent no `statusReason` it said
+     * only "some results are missing" — a caveat with no content, in the most
+     * prominent position on the panel. A warning a reader cannot act on is a
+     * warning they learn to scroll past.
+     *
+     * ⚠ THE NAMES ARE NOT INVENTED. `completeness.missing` is a CLOSED
+     * seven-key vocabulary derived by `deriveResultCompleteness` from the
+     * SOURCE fields, before any UI defaulting. This maps those keys to what
+     * this surface already calls those things; it adds no claim the producer
+     * did not make. An unrecognised key is DROPPED rather than shown raw, and
+     * if nothing survives the mapping the generic sentence above stands.
+     */
+    provisionalNaming: (missing: readonly string[]) =>
+      `This analysis is partial — ${missing.join(', ')} did not come back.`,
+    /**
+     * Field names as THIS surface says them. Furniture: naming our own fields,
+     * never a statement about the run. Keys are the producer's own vocabulary.
+     */
+    missingResultLabels: {
+      win_probability: 'the win share',
+      expected_outcome: 'the expected outcome',
+      sensitivity: 'the sensitivity check',
+      robustness_level: 'the robustness check',
+      recommendation_stability: 'the stability check',
+      decision_review: 'the decision review',
+      top_drivers: 'the drivers',
+    } as Record<string, string>,
   },
 
   /**

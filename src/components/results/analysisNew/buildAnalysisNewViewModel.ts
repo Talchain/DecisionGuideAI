@@ -1594,6 +1594,15 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
     isProvisional: status === 'partial' || data.completeness.status === 'partial',
     // Producer-owned, verbatim. Never authored here.
     statusNote: data.recommendation.statusReason ?? null,
+    /**
+     * ⚠ UNKNOWN KEYS ARE DROPPED, NOT RENDERED. The vocabulary is closed
+     * today, but a producer that adds a key must not put a raw token like
+     * `foo_bar` on screen — an unrecognised name is worse than the generic
+     * sentence it would replace.
+     */
+    missingResults: (data.completeness?.missing ?? [])
+      .map((k) => COPY.status.missingResultLabels[k])
+      .filter((label): label is string => Boolean(label)),
   }
 }
 

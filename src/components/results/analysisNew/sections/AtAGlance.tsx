@@ -141,6 +141,8 @@ export interface AtAGlanceProps {
   staleKind?: 'changed' | 'unconfirmed' | null
   /** The producer disclosed the result as partial. */
   isProvisional?: boolean
+  /** Which results did not come back, already named for this surface. */
+  missingResults?: readonly string[]
   testId?: string
 }
 
@@ -175,6 +177,7 @@ export function AtAGlance({
   isStale = false,
   staleKind = 'unconfirmed',
   isProvisional = false,
+  missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
@@ -243,7 +246,14 @@ export function AtAGlance({
     )
   }
   if (isProvisional) {
-    ribbon.push({ testId: 'analysis-new-status-provisional', text: COPY.status.provisional })
+    // Name them when we can; the generic sentence stands when we cannot.
+    ribbon.push({
+      testId: 'analysis-new-status-provisional',
+      text:
+        missingResults.length > 0
+          ? COPY.status.provisionalNaming(missingResults)
+          : COPY.status.provisional,
+    })
   }
 
   /**
