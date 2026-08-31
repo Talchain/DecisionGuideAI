@@ -423,9 +423,14 @@ export function deriveComparisonScope(
  * Not exported: it is an implementation detail of the register, and a second
  * public list-joiner is exactly the kind of near-duplicate helper that drifts.
  */
-function joinLabels(labels: readonly string[]): string {
-  if (labels.length === 1) return labels[0]
-  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+function joinLabels(labels: readonly string[], tail?: string): string {
+  // The remainder, when there is one, IS the final item of the list — so it
+  // goes through the same joiner rather than being concatenated beside it.
+  // A second `.join(', ')` spelled next to this function is exactly the
+  // near-duplicate this helper's non-export exists to prevent.
+  const items = tail === undefined ? labels : [...labels, tail]
+  if (items.length === 1) return items[0]
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 }
 
 /**
@@ -492,22 +497,37 @@ export const COMPARISON_SCOPE_COPY = {
    */
   excludedClause: (scope: ComparisonScope): string => {
     const missing = scope.total - scope.analysed
-    const named = scope.excludedLabels.slice(0, EXCLUDED_LABEL_NAME_CAP)
+    // Bounded by the cap AND by the arithmetic. `ComparisonScope` is an
+    // exported interface, so a caller outside `deriveComparisonScope` can hand
+    // over more labels than `total - analysed`; naming all of them would assert
+    // an exclusion the count denies. Naming fewer than we hold is always safe,
+    // naming more never is — so the missing count is a hard ceiling on the
+    // names, not just on the remainder.
+    const nameable = Math.max(0, Math.min(EXCLUDED_LABEL_NAME_CAP, missing))
+    const named = scope.excludedLabels.slice(0, nameable)
 
     if (named.length === 0) {
       return missing === 1 ? '1 was left out' : `${missing} were left out`
     }
 
-    const others = missing - named.length
+    // ⚠ CLAMPED AT ZERO, NOT ASSUMED NON-NEGATIVE. `ComparisonScope` is an
+    // exported interface, so a caller outside `deriveComparisonScope` can hand
+    // us more labels than the arithmetic says are missing. Left unclamped that
+    // falls through to the exact branch below and NAMES options the count says
+    // are not excluded — overstating in the one direction this whole function
+    // exists to stop. Naming fewer than we hold is always safe; naming more
+    // never is.
+    const others = Math.max(0, missing - named.length)
 
-    if (others <= 0) {
+    if (others === 0) {
       const verb = named.length === 1 ? 'was' : 'were'
       return `${joinLabels(named)} ${verb} left out`
     }
 
-    // Compound subject — plural throughout, including "A and 1 other were
+    // Compound subject — plural throughout, including "Alpha and 1 other were
     // left out", where the singular noun still takes a plural verb.
-    return `${named.join(', ')} and ${others} other${others === 1 ? '' : 's'} were left out`
+    const remainder = `${others} other${others === 1 ? '' : 's'}`
+    return `${joinLabels(named, remainder)} were left out`
   },
 
   /**

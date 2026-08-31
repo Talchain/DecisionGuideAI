@@ -51,17 +51,25 @@ const scope = (
   excludedLabels: readonly string[],
 ): ComparisonScope => ({ analysed, total, excludedLabels })
 
-/** Every excluded option accounted for, whether named or counted. */
+/**
+ * Every excluded option accounted for, whether named or counted.
+ *
+ * ⚠ THE REMAINDER IS MATCHED AT THE TAIL, NOT ANYWHERE IN THE CLAUSE. A bare
+ * `/(\d+)\s+others?\b/` also matches digits inside a LABEL — a realistic
+ * fixture such as "Retire 2 other sites" would add two phantom accounted-for
+ * options and let the arithmetic assertion pass on a clause that under-reports.
+ * A helper that checks an invariant must not be looser than the invariant.
+ */
 function accountedFor(s: ComparisonScope, clause: string): number {
+  // A count-only clause ("30 were left out") names none and counts all.
+  const bare = /^(\d+) (?:was|were) left out$/.exec(clause)
+  if (bare) return Number(bare[1])
+
   const named = s.excludedLabels
     .slice(0, EXCLUDED_LABEL_NAME_CAP)
     .filter((l) => clause.includes(l)).length
-  const others = /(\d+)\s+others?\b/.exec(clause)
-  const counted = others ? Number(others[1]) : 0
-  // A count-only clause ("30 were left out") names none and counts all.
-  const bare = /^(\d+)\s+(?:was|were)\s+left out$/.exec(clause)
-  if (bare) return Number(bare[1])
-  return named + counted
+  const tail = / and (\d+) others? were left out$/.exec(clause)
+  return named + (tail ? Number(tail[1]) : 0)
 }
 
 describe('excludedClause is bounded and never reads as complete when partial', () => {
@@ -105,6 +113,29 @@ describe('excludedClause is bounded and never reads as complete when partial', (
       'Alpha was left out',
     )
     expect(COMPARISON_SCOPE_COPY.excludedClause(scope(3, 4, []))).toBe('1 was left out')
+  })
+
+  it('joins a SINGLE name to the remainder without a stray comma', () => {
+    // The likeliest real shape of the defect: one option carries a usable
+    // label and the rest do not. Every other `others > 0` case here names two,
+    // so without this the single-name join is never executed.
+    const s = scope(1, 6, ['Alpha'])
+    const clause = COMPARISON_SCOPE_COPY.excludedClause(s)
+
+    expect(clause).toBe('Alpha and 4 others were left out')
+    expect(accountedFor(s, clause)).toBe(5)
+  })
+
+  it('never names more options than the arithmetic says are missing', () => {
+    // `ComparisonScope` is exported, so a caller outside `deriveComparisonScope`
+    // can hand over more labels than `total - analysed`. Naming fewer than we
+    // hold is safe; naming more overstates, in the one direction this whole
+    // function exists to stop.
+    const s = scope(3, 4, ['Alpha', 'Bravo'])
+    const clause = COMPARISON_SCOPE_COPY.excludedClause(s)
+
+    expect(clause).not.toMatch(/-\d|\bother/)
+    expect(accountedFor(s, clause)).toBeLessThanOrEqual(s.total - s.analysed)
   })
 
   it('says "1 other" not "1 others" when exactly one is unnamed', () => {

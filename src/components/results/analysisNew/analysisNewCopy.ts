@@ -127,6 +127,20 @@ export const ANALYSIS_NEW_COPY = {
      * grouping as evidence that all three are live.
      */
     moreExcluded: (n: number) => `Show ${n} more`,
+
+    /**
+     * The excluded options this list cannot name.
+     *
+     * ⚠ NEUTRAL, AND IT REPORTS OUR LIMIT RATHER THAN BLAMING THE OPTION. An
+     * option is unnameable here because its label is blank or is merely its own
+     * node id — a gap in what reached us, not something the user did. "No name
+     * recorded" states that without inventing "Untitled option", which is the
+     * fabrication `deriveComparisonScope` exists to refuse.
+     *
+     * It exists so the list ADDS UP to the count the scope sentence states.
+     */
+    unnamedExcluded: (n: number) =>
+      n === 1 ? '1 more with no name recorded' : `${n} more with no name recorded`,
   },
 
   /** At a glance. Every string here is furniture — none describes the analysis. */
