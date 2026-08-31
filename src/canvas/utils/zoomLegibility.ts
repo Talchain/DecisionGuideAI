@@ -43,6 +43,29 @@
  *     structure without labels. Explicit user gestures are NOT clamped, so
  *     `ReactFlowGraph.handleFitView`, `CanvasToolbar`'s fit button and the
  *     command palette's "Zoom to Fit" stay unfloored by design.
+ *
+ * ⭐⭐ AND THAT SECOND BULLET WAS PROSE ONLY — THE CODE DID THE OPPOSITE, FOR
+ * WEEKS, AND NOTHING WENT RED (31 Aug 2026, found while fixing #1051).
+ * `ReactFlowGraph.handleFitView` and the command palette's "Zoom to Fit" both
+ * passed `minZoom: LABEL_LEGIBLE_ZOOM`, so on any model whose whole-model fit
+ * sits below 0.5 — which is every model the extent notice appears for — the
+ * left-rail control could not show the whole model however many times it was
+ * pressed. The paragraph above says explicit user gestures are unfloored; the
+ * gesture was floored. A doctrine paragraph and its implementation drifting
+ * apart with no mechanism between them is this estate's dominant defect class
+ * (CLAUDE.md trap 12), and here it was inside the file that owns the doctrine.
+ *
+ * `e2e/canvas.lod-disclosure.spec.ts` still carries the measurement from before
+ * the drift — the same control landing at **0.344** at 834x1112, which the floor
+ * makes arithmetically impossible — and its header states flatly that "the
+ * manual fit never passes a `minZoom`". Two files describing behaviour the code
+ * had stopped having, and neither could fail.
+ *
+ * ⭐ SO THE TWO CLASSES ARE NOW A FUNCTION, NOT A PARAGRAPH: `fitBoundsFor`
+ * below. Every fit that means to be bounded by legibility asks it, naming the
+ * class it belongs to, and `zoomLegibilitySingleSource.spec.ts` REDs on any fit
+ * that sets `minZoom`/`maxZoom` from these constants by hand. The prose can no
+ * longer drift from the behaviour without something going red.
  */
 
 /**
@@ -50,6 +73,42 @@
  * render. The one number; do not restate it anywhere else.
  */
 export const LABEL_LEGIBLE_ZOOM = 0.5
+
+/**
+ * WHO ASKED FOR THIS FIT — the only distinction the legibility bounds make.
+ *
+ * `'user'` is a control the person pressed: "Show whole model", the left-rail
+ * "Fit to view", the palette's "Zoom to Fit". `'product'` is the canvas fitting
+ * itself: after a layout, after a restore, after the reserved box changes.
+ *
+ * It is deliberately the SAME two classes `utils/userCameraClaim.ts` divides the
+ * camera by, because it is the same rule — *"the user may choose the overview,
+ * the product may not choose it for them"* — and the two halves of that rule
+ * were separately half-implemented before #1051. `zoomLegibilitySingleSource`
+ * asserts the two lists agree, so a site cannot claim the camera as the user's
+ * and then fit under the product's bounds, or the reverse.
+ */
+export type FitInitiator = 'user' | 'product'
+
+/**
+ * The `minZoom` / `maxZoom` a fit of this class runs under, spread into the
+ * `fitView` options: `fitView({ ..., ...fitBoundsFor('user') })`.
+ *
+ * A USER fit gets NEITHER bound. That is not "no opinion" — it is the opinion:
+ * the only limits on a view the user asked for are the canvas instance's own
+ * (`minZoom={0.1}`, `maxZoom={4}`), and the honest way to use those is to not
+ * restate them. `options?.minZoom ?? minZoom` in xyflow's `fitViewport` falls
+ * through to the instance exactly when the field is absent or `undefined`, so
+ * spreading an empty object and omitting the keys are the same call.
+ *
+ * A PRODUCT fit gets both: the legibility floor, because an automatic fit that
+ * parks in the unreadable band is the product choosing a bad view for someone;
+ * and `AUTO_FIT_MAX_ZOOM`, because a degenerate bounding box otherwise magnifies
+ * to the instance ceiling (a witnessed canvas sat at 328%).
+ */
+export function fitBoundsFor(initiator: FitInitiator): { minZoom?: number; maxZoom?: number } {
+  return initiator === 'product' ? { minZoom: LABEL_LEGIBLE_ZOOM, maxZoom: AUTO_FIT_MAX_ZOOM } : {}
+}
 
 /** True when node labels are rendered at this zoom. */
 export function labelsRenderedAtZoom(zoom: number): boolean {

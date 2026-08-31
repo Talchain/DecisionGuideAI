@@ -20,6 +20,7 @@ import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
+import { claimCameraForUser, releaseUserCameraClaim } from '../utils/userCameraClaim'
 
 const fitViewSpy = vi.fn()
 
@@ -44,6 +45,9 @@ describe('useFitViewOnLayoutVersion', () => {
     fitViewSpy.mockReset()
     currentPadding = FIT_PADDING
     currentNodes = []
+    // The claim is module state by design (see `utils/userCameraClaim.ts`), so
+    // it is reset here rather than leaking between cases.
+    releaseUserCameraClaim()
   })
 
   afterEach(() => {
@@ -248,6 +252,91 @@ describe('useFitViewOnLayoutVersion', () => {
         rafCallbacks.splice(0).forEach((cb) => cb())
       })
       expect(fitViewSpy).toHaveBeenCalledTimes(1)
+
+      rafSpy.mockRestore()
+    })
+
+    it('does NOT re-fit when the USER has framed the camera (#1051)', () => {
+      // ⭐⭐ THE DEFECT, AT THE SEAM. Measured in Chromium on `build-vs-buy`:
+      // "Show whole model" landed the camera at 0.2630 with 19 of 19 nodes
+      // inside the pane, and THIS trigger overwrote it 155ms later at 0.5000 —
+      // the legibility floor the automatic fit is clamped to — leaving 9 of 19
+      // inside. The button did its job and the product undid it.
+      //
+      // ⚠ WHAT THIS jsdom CASE PROVES, AND WHAT IT DOES NOT. It proves the
+      // SEAM: that a claimed camera stops this trigger issuing a fit at all.
+      // It cannot prove anything about layout, zoom or what a user can see —
+      // jsdom has no layout. The visibility half is
+      // `e2e/visual/showWholeModelFit.visual.spec.ts`, in a real browser.
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+
+      renderHook(() => useFitViewOnLayoutVersion())
+      act(() => {
+        useCanvasStore.setState({ layoutVersion: 1 } as never)
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy).toHaveBeenCalledTimes(1)
+
+      // The user asks for the overview.
+      claimCameraForUser()
+
+      // The reserved box then changes for real — the same stimulus the case
+      // above proves DOES re-fit, so this is not passing because nothing moved.
+      currentPadding = { top: '10px', right: '444px', bottom: '10px', left: '20px' }
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+
+      expect(
+        fitViewSpy,
+        'the product re-framed a camera the user had explicitly framed',
+      ).toHaveBeenCalledTimes(1)
+
+      rafSpy.mockRestore()
+    })
+
+    it('a completed layout releases the claim — the product owns a frame it has just moved', () => {
+      // The other direction, and it is not decoration: a claim that outlived the
+      // model would strand the camera on a graph whose every position has moved.
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+
+      renderHook(() => useFitViewOnLayoutVersion())
+      claimCameraForUser()
+
+      act(() => {
+        useCanvasStore.setState({ layoutVersion: 1 } as never)
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy, 'a layout must still fit even while a claim is held').toHaveBeenCalledTimes(1)
+
+      // ...and the claim is GONE, so the reserved box works again afterwards.
+      currentPadding = { top: '10px', right: '444px', bottom: '10px', left: '20px' }
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+      act(() => {
+        rafCallbacks.splice(0).forEach((cb) => cb())
+      })
+      expect(fitViewSpy, 'the layout did not release the claim').toHaveBeenCalledTimes(2)
 
       rafSpy.mockRestore()
     })

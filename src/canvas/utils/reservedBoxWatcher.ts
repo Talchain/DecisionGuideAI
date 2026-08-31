@@ -13,12 +13,37 @@
  * THE SIGNAL IS DERIVED, NOT MIRRORED (CLAUDE.md trap 12). This watcher does not
  * keep a list of "things that change the reserved box" and hope it stays
  * current — it recomputes `computeFitPadding()` and compares the result. A
- * trigger that fires spuriously costs four `getBoundingClientRect` calls and
- * changes nothing (⚠ it was three until the floating top bar became a
- * contributor on 19 Aug 2026 — a hand-maintained count, corrected at review);
- * a trigger we failed to think of degrades to the previous behaviour (no
+ * trigger we failed to think of degrades to the previous behaviour (no
  * re-fit), never to a wrong fit. The triggers are therefore allowed to be
  * approximate, and the decision never is.
+ *
+ * ⚠⚠ THIS PARAGRAPH USED TO END *"a trigger that fires spuriously costs four
+ * `getBoundingClientRect` calls and changes nothing"*. **THAT WAS FALSE, AND IT
+ * WAS THE LOAD-BEARING WRONG ASSUMPTION IN DEFECT #1051** (measured 31 Aug 2026,
+ * `panZoom.setViewport` wrapped so every camera write named its caller). A
+ * spurious fire costs THE USER'S CAMERA: this watcher's `onChange` runs the
+ * product's floored auto-fit, which on `build-vs-buy` overwrote the overview the
+ * user had just asked for — 0.2630 with 19 of 19 nodes in the pane, replaced
+ * 155ms later by 0.5000 with 9 of 19. The sentence taught two lanes that this
+ * path was free, which is exactly what a false comment does (trap 14), so it is
+ * corrected here rather than deleted.
+ *
+ * ⚠ AND A SPURIOUS FIRE IS STILL REACHABLE — LATENT, NOT FIXED, RECORDED HERE
+ * FOR WHOEVER TOUCHES THIS FILE NEXT. `last` is taken at SUBSCRIBE time, at
+ * canvas mount, while the OutputsDock is still a 68px rail; the dock reaches its
+ * expanded 444px reservation ~2.4s later, so the first trigger after that —
+ * often the user's own first `pointerup` — sees a "change" that is really just
+ * the app finishing its startup. Traced directly:
+ *
+ *     {"ev":"subscribe","last":"73px|68px|29px|76px"}
+ *     {"ev":"check","last":"73px|68px|29px|76px","next":"73px|444px|29px|76px","changed":true}
+ *
+ * It can no longer take the user's camera (`utils/userCameraClaim.ts` stops
+ * that), so it is a latent oddity rather than a live defect and was deliberately
+ * NOT fixed in #1059. It is still a re-fit nobody asked for at an arbitrary
+ * moment ~2.4s into every session. If you are here to change this file, that is
+ * the thing to fix: baseline the signature once the canvas is actually settled,
+ * rather than at mount.
  *
  * ⚠ BUT "DEGRADES TO NO RE-FIT" IS STICKY, AND THERE IS A NAMED HOLE (recorded
  * at the #786 review rather than left to be discovered). None of the triggers

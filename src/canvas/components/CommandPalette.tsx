@@ -9,7 +9,8 @@ import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { excludeNonModelNodes } from '../utils/fitTargets'
-import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { claimCameraForUser } from '../utils/userCameraClaim'
+import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
@@ -171,14 +172,18 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
     }},
     { id: 'select-all', label: 'Select All', shortcut: '⌘A', execute: () => selectAll() },
     // Same contract as the toolbar's "Fit to view" (ReactFlowGraph.handleFitView):
-    // UI placeholders excluded, and floored at the legibility zoom so the palette
-    // cannot choose an unreadable frame either.
+    // UI placeholders excluded, and the USER bounds — this is a control a person
+    // pressed, so it reaches the model's own fit rather than stopping at the
+    // legibility floor. It was floored until 31 Aug 2026; see `handleFitView`.
     { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => {
+      // Same claim as the toolbar and the extent notice: a fit the USER asked
+      // for is not something the automatic re-fit may undo (#1051).
+      claimCameraForUser()
       const nodes = getNodes ? excludeNonModelNodes(getNodes()) : []
       fitView({
         ...(nodes.length > 0 ? { nodes } : {}),
         padding: computeFitPadding(),
-        minZoom: LABEL_LEGIBLE_ZOOM,
+        ...fitBoundsFor('user'),
         duration: cameraDuration(300, prefersReducedMotion),
       })
     } },

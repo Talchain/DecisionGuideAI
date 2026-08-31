@@ -79,8 +79,9 @@ import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
+import { claimCameraForUser } from './utils/userCameraClaim'
 import { GHOST_TIERS, withGhostTiers } from './utils/ghostTiers'
-import { LABEL_LEGIBLE_ZOOM } from './utils/zoomLegibility'
+import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -2091,20 +2092,32 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) }), [])
   // The USER-invoked "Fit to view".
   //
-  // ⚠ It had no legibility floor while the product's own auto-fit did — so the
-  // product refused to choose an unreadable first view and then offered the user
-  // a button that chose one for them. `minZoom` is honoured by xyflow
-  // (`fitViewport` passes it into `getViewportForBounds`, which clamps and
-  // RE-FRAMES on the clamped zoom), and the canvas instance's own `minZoom={0.1}`
-  // still lets the user zoom out by hand: the asymmetry is deliberate — the user
-  // may choose the overview, the product may not choose it for them.
-  // `utils/zoomLegibility.ts` owns the number.
+  // ⚠⚠ THIS CALL USED TO PASS `minZoom: LABEL_LEGIBLE_ZOOM`, AND THE COMMENT
+  // ABOVE IT ARGUED FOR IT — while `utils/zoomLegibility.ts`, the file that owns
+  // the number, named THIS FUNCTION as one that "stays unfloored by design".
+  // Both cannot be right. The floor lost, on the principle the module states:
+  // *the user may choose the overview, the product may not choose it for them* —
+  // and a person pressing a control labelled "Fit to view" is the paradigm case
+  // of the permitted half. Floored, this button could not show the whole of any
+  // model whose fit sits below 0.5, which is every model the extent notice
+  // appears for; it made the same promise "Show whole model" makes and broke it
+  // the same way (#1051). The old comment's premise — that an unfloored user fit
+  // is "a button that chose an unreadable view for them" — is answered by
+  // `CanvasLodNotice`, which discloses the label-less view rather than
+  // forbidding it.
+  //
+  // The bounds now come from `fitBoundsFor('user')`, the same two classes
+  // `userCameraClaim` divides the camera by, so the prose and the behaviour
+  // cannot drift apart again without a red.
   const handleFitView = useCallback(() => {
+    // The user framed this camera; the product's automatic re-fit may not take
+    // it back off them (`utils/userCameraClaim.ts`, defect #1051).
+    claimCameraForUser()
     const nodes = excludeNonModelNodes(getNodesRef.current())
     fitViewRef.current({
       ...(nodes.length > 0 ? { nodes } : {}),
       padding: computeFitPadding(),
-      minZoom: LABEL_LEGIBLE_ZOOM,
+      ...fitBoundsFor('user'),
       duration: cameraDuration(300, reducedMotionRef.current),
     })
   }, [])

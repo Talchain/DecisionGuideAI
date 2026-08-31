@@ -53,6 +53,8 @@ import { excludeNonModelNodes } from '../utils/fitTargets'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { countNodesOutsideFrame, readFocusCamera } from '../utils/cameraComfort'
 import { cameraDuration } from '../utils/cameraMotion'
+import { claimCameraForUser } from '../utils/userCameraClaim'
+import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
 
@@ -97,10 +99,10 @@ export function ModelExtentNotice() {
     // the visible canvas, clear of the dock and sidebar, rather than behind
     // them — the same frame every other fit in this product uses.
     //
-    // ⭐ AND NO `minZoom` IS PASSED, DELIBERATELY. Omitting it lets the fit fall
-    // to the canvas instance's own floor (`minZoom={0.1}` on the ReactFlow
-    // element), which is exactly the bound wanted here: the user asked for the
-    // overview, so the only limit should be what the canvas itself permits.
+    // ⭐ AND NO FLOOR, DELIBERATELY — now SAID rather than merely omitted. The
+    // fit falls to the canvas instance's own bound (`minZoom={0.1}` on the
+    // ReactFlow element), which is exactly what is wanted: the user asked for
+    // the overview, so the only limit should be what the canvas itself permits.
     //
     // The first version passed an explicit `0.1`, which was BOTH unnecessary
     // and a doctrine violation — `zoomLegibilitySingleSource.spec.ts` allows
@@ -108,10 +110,25 @@ export function ModelExtentNotice() {
     // `zoomLegibility.ts`, and REDed on the third. Declaring it there was the
     // wrong fix too: this is not a legibility threshold, it is the canvas's
     // floor, and the honest way to use that floor is to not restate it.
+    //
+    // ⚠ WHAT CHANGED 31 Aug 2026: the absence is now spelled `fitBoundsFor('user')`
+    // — an empty spread, byte-identical in behaviour. Silence was indistinguishable
+    // from an oversight, and the two sibling user fits DID have the floor
+    // silently added to them (#1051, and see `ReactFlowGraph.handleFitView`).
+    // Naming the class is what lets a guard tell an intentional absence from a
+    // forgotten one.
+    // ⭐⭐ AND THE CAMERA IS NOW THE USER'S — WITHOUT THIS LINE THE BUTTON WAS
+    // MEASURED DOING ITS JOB AND HAVING IT UNDONE 155ms LATER (`#1051`). The
+    // product's own re-fit is floored at the legibility zoom, so on any model
+    // this notice appears for it CANNOT leave the whole model on screen; it ran
+    // after this fit and parked the camera back at the floor. See
+    // `utils/userCameraClaim.ts` for the two camera writes, timed and named.
+    claimCameraForUser()
     const fitTargets = excludeNonModelNodes(getNodes())
     fitView({
       ...(fitTargets.length > 0 ? { nodes: fitTargets } : {}),
       padding: computeFitPadding(),
+      ...fitBoundsFor('user'),
       duration: cameraDuration(OVERVIEW_FIT_MS, prefersReducedMotion),
     })
   }, [fitView, getNodes, prefersReducedMotion])

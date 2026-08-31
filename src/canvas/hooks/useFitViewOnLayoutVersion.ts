@@ -7,7 +7,8 @@ import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
-import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
+import { releaseUserCameraClaim, userOwnsCamera } from '../utils/userCameraClaim'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
@@ -196,12 +197,18 @@ export function useFitViewOnLayoutVersion(): void {
       // fit-everything, i.e. exactly the previous behaviour.
       ...(nodes.length > 0 ? { nodes } : {}),
       padding,
-      minZoom: LABEL_LEGIBLE_ZOOM,
-      // ⭐ THE OTHER END OF THE BAND. A floor alone let a degenerate bounding
-      // box — one node, or a graph the layout engine never spread — frame at up
-      // to the instance's `maxZoom={4}`; the witnessed canvas sat at 328%.
-      // Automatic fits do not magnify; the user still can.
-      maxZoom: AUTO_FIT_MAX_ZOOM,
+      // ⭐ THE PRODUCT'S BAND, BOTH ENDS. The floor keeps an automatic fit out of
+      // the band the product itself calls unreadable; the ceiling stops a
+      // degenerate bounding box — one node, or a graph the layout engine never
+      // spread — framing at up to the instance's `maxZoom={4}` (a witnessed
+      // canvas sat at 328%). Automatic fits neither hide labels nor magnify; the
+      // user may do both.
+      //
+      // ⚠ SPREAD FROM `fitBoundsFor`, NOT RESTATED. Until 31 Aug 2026 the two
+      // USER-invoked fits set `minZoom` to this same constant by hand, against
+      // the doctrine in the module that owns it, and nothing could tell the two
+      // classes apart (#1051). Naming the class is what makes them different.
+      ...fitBoundsFor('product'),
       duration,
     })
   })
@@ -209,6 +216,10 @@ export function useFitViewOnLayoutVersion(): void {
   useEffect(() => {
     if (layoutVersion === 0) return
     const raf = requestAnimationFrame(() => {
+      // A completed layout has moved every position, so whatever the user framed
+      // is gone. The product owns this frame; the claim is released rather than
+      // honoured (see `utils/userCameraClaim.ts` for why the two triggers differ).
+      releaseUserCameraClaim()
       fitNow.current()
     })
     return () => cancelAnimationFrame(raf)
@@ -313,6 +324,9 @@ export function useFitViewOnLayoutVersion(): void {
       if (!isRestoredModelReady(now)) return
       if (restoreIdentityKey(now.currentScenarioId) !== restoreKey) return
       aimedRestoreRef.current = restoreKey
+      // A restore is a model ARRIVING. Nothing the user framed on a previous
+      // model survives it, so the claim is released here too.
+      releaseUserCameraClaim()
       fitNow.current()
     })
     return () => cancelAnimationFrame(raf)
@@ -333,6 +347,13 @@ export function useFitViewOnLayoutVersion(): void {
   useEffect(() => {
     return watchReservedBox(() => {
       if (!cameraHasATarget(useCanvasStore.getState())) return
+      // ⭐⭐ THE USER'S FRAME WINS. Measured on `build-vs-buy` (#1051): the
+      // overview landed at 0.2630 with 19 of 19 nodes inside the pane, and this
+      // trigger overwrote it 155ms later with the floored 0.5000 top-anchored
+      // view, 9 of 19 inside. This re-fit exists to SPEND canvas won back; it
+      // was also spending the user's own camera. `utils/userCameraClaim.ts`
+      // carries the timed trace and why the layout/restore triggers differ.
+      if (userOwnsCamera()) return
       fitNow.current()
     })
   }, [])
