@@ -186,9 +186,28 @@ export const GoalNode = memo((props: NodeProps) => {
       ? null
       : formatGoalProbability(displayMetadata.achievementProbability)
 
-  // Border: dashed warning for no target, dashed by stability for post-analysis
+  /**
+   * Border: DASHED for "not finished yet", COLOUR for "something is wrong".
+   *
+   * ⭐ NO TARGET IS NOT AN ALARM (31 Aug 2026). This returned
+   * `border-warning border-dashed`, so a goal with no success target rendered
+   * in the product's warning colour -- on the most important node on the
+   * canvas, in the state EVERY model is in before the user sets one.
+   *
+   * That contradicts the ruling this state already has, written into
+   * `results/utils/goalAnchorCopy.ts` beside the `noTarget` copy: *"it NEVER
+   * blocks. This is an invitation with a route, not a wall."* The sentence
+   * obeyed it; the border did not, and the border is what a user reads first.
+   *
+   * The dash stays -- it is the shared idiom on this node for "incomplete or
+   * provisional", and it is what distinguishes an unset target from a set one.
+   * Only the alarm colour goes. The two genuinely diagnostic states below keep
+   * their colours, because those ARE claims about the analysis: `moderate` and
+   * `low` robustness are the producer's own verdicts, not a gap in the user's
+   * input.
+   */
   const goalBorderOverride = useMemo(() => {
-    if (!hasThreshold) return 'border-warning border-dashed'
+    if (!hasThreshold) return 'border-panel-border border-dashed'
     if (!robustnessData) return undefined
     switch (robustnessData.level) {
       case 'moderate': return 'border-info border-dashed'
