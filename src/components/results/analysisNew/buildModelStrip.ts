@@ -29,7 +29,20 @@
 
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 
-/** Above this many nodes a row shows a proportional bar instead of marks. */
+/**
+ * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
+ * how many it is not showing.
+ *
+ * ⚠⚠ THIS COMMENT USED TO SAY "shows a proportional bar instead of marks", AND
+ * THE BAR IS THE ONE THING THIS COMPONENT MUST NEVER RENDER. The bar was
+ * rejected in review — it reads as a proportion of a denominator nobody
+ * measured, and filled to 100% it says "complete" about a model nobody has
+ * checked. The code has never rendered one; only these two comments and one
+ * test name still described it, which is a live instruction to reintroduce a
+ * rejected design sitting in the file a builder would read first. Corrected
+ * rather than left, because a stale comment that prescribes a defect is worse
+ * than no comment.
+ */
 export const MARK_CAP = 12
 
 export interface StripNode {
@@ -43,7 +56,9 @@ export interface StripRow {
   label: string
   nodes: StripNode[]
   /**
-   * True when the row has more nodes than `MARK_CAP` and renders a bar.
+   * True when the row has more nodes than `MARK_CAP`, so the renderer draws the
+   * first `MARK_CAP` and states how many it is withholding. Never a bar — see
+   * the note on `MARK_CAP`.
    *
    * ⚠ The threshold is a design decision, not a fallback. Eight marks are
    * readable and individually clickable; forty are a wall, and a real strategic
