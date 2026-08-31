@@ -1572,11 +1572,58 @@ function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparis
   return { rows, totalCount: allOptions.length }
 }
 
+/**
+ * ⭐⭐ WHICH ABSENCES MAKE AN ANALYSIS "PARTIAL" — MEASURED ON THE LIVE WIRE.
+ *
+ * `completeness.missing` is ONE list answering TWO questions (CLAUDE.md trap
+ * 21): a REQUIRED result that did not arrive, and an OPTIONAL enrichment this
+ * product does not populate on the live path. Only the first makes an analysis
+ * partial. Merging them put a permanent warning on the tab's first line.
+ *
+ * ⚠ MEASURED on deployed `fc46e7ee`, driving a real completed guest run
+ * (4 options, 20 report keys): `report.drivers[]` carry `{label, polarity,
+ * strength, contribution, nodeId}` and NONE of `sensitivity_score` /
+ * `elasticity` / `importance_score`; `results.drivers` — the payload the
+ * derivation unions in — is `undefined`. So `sensitivity` is missing on EVERY
+ * run of this shape. `decision_review` is skipped by configuration on staging.
+ *
+ * ⭐ THE HERO HAD ALREADY DIAGNOSED THIS AND THIS TAB WALKED INTO IT.
+ * `buildHeroModel.ts:244` refuses to gate on `completeness.status` in these
+ * words: that verdict "turns 'partial' when OPTIONAL enrichment is absent
+ * (e.g. the CEE decision review is skipped when coaching autofire is off, as
+ * on staging)" and gating on it "would show 'some steps did not complete'
+ * over a perfectly computed run".
+ *
+ * Naming the absences made it louder, not safer: the first line of a healthy
+ * run read "This analysis is partial — the sensitivity check, the decision
+ * review did not come back", while the canvas beside it rendered a sensitivity
+ * chip and the chat rendered the review's own prose.
+ *
+ * ⚠ `top_drivers` is OPTIONAL BY THE DERIVATION'S OWN ACCOUNT: its comment in
+ * `useResultCompleteness.ts` says absence is "no top drivers computed", not
+ * "partial" — and it is the ONE key that adds no reason code, which is the
+ * tell that it was written as information rather than as a verdict.
+ *
+ * ⚠ `recommendation_stability` is absent here because it is always added
+ * ALONGSIDE `robustness_level`, which already covers that condition — and it
+ * is deliberately unlabelled (see `analysisNewCopy.ts`; a CI guard enforces
+ * it). Nothing is hidden by this set: the raw completeness verdict and its
+ * full key list still render in the diagnostics row above.
+ */
+const REQUIRED_RESULT_KEYS: ReadonlySet<string> = new Set([
+  'win_probability',
+  'expected_outcome',
+  'robustness_level',
+])
+
 // ── STATUS ──────────────────────────────────────────────────────────────────
 
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
   const { data } = inputs
   const status = data.recommendation.analysisStatus
+  const missingRequired = (data.completeness?.missing ?? []).filter((k) =>
+    REQUIRED_RESULT_KEYS.has(k),
+  )
   return {
     isPreRun: inputs.isPreRun,
     isRunning: inputs.isRunning,
@@ -1590,8 +1637,9 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
      */
     staleKind: inputs.isStale ? (inputs.staleReason === 'changed' ? 'changed' : 'unconfirmed') : null,
     // 'partial' is the producer's own word for an incomplete result. The
-    // completeness verdict is the second, independent source.
-    isProvisional: status === 'partial' || data.completeness.status === 'partial',
+    // completeness verdict is the second, independent source — but only its
+    // REQUIRED keys speak for it (see REQUIRED_RESULT_KEYS above).
+    isProvisional: status === 'partial' || missingRequired.length > 0,
     // Producer-owned, verbatim. Never authored here.
     statusNote: data.recommendation.statusReason ?? null,
     /**
@@ -1600,7 +1648,7 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
      * `foo_bar` on screen — an unrecognised name is worse than the generic
      * sentence it would replace.
      */
-    missingResults: (data.completeness?.missing ?? [])
+    missingResults: missingRequired
       .map((k) => COPY.status.missingResultLabels[k])
       .filter((label): label is string => Boolean(label)),
   }
