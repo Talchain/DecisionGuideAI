@@ -15,8 +15,32 @@
  * framed as though it were part of the user's model.
  */
 
-/** The affordance's id, spelled ONCE for the whole codebase. */
-export const GHOST_OPTION_NODE_ID = '__ghost-option__'
+/**
+ * The prefix every frontier affordance's id carries, spelled ONCE for the whole
+ * codebase — and this file is where it lives because this file owns exclusion.
+ *
+ * ⚠ IT WAS SPELLED THREE TIMES, WHICH IS HOW IT DRIFTED. `ghostTiers.ts` kept
+ * its own `GHOST_ID_PREFIX` and a SECOND `export const GHOST_OPTION_NODE_ID`
+ * with the same value, under a comment here claiming the id was "spelled ONCE
+ * for the whole codebase" — a hand-maintained mirror inside the sentence
+ * denying there was one. Meanwhile `excludeNonModelNodes` matched a bare
+ * `'__ghost-'` literal, so nothing tied the filter to the ids it was filtering.
+ */
+export const GHOST_ID_PREFIX = '__ghost-'
+
+/** The options affordance's id. */
+export const GHOST_OPTION_NODE_ID = `${GHOST_ID_PREFIX}option__`
+
+/**
+ * Is this a frontier affordance rather than part of the user's model?
+ *
+ * The one predicate. `excludeNonModelNodes` is its filter form; the
+ * `ModelExtentNotice` count and the e2e geometry measures resolve to it too, so
+ * "the model" cannot mean three different sets in three places.
+ */
+export function isGhostNode(id: string): boolean {
+  return id.startsWith(GHOST_ID_PREFIX)
+}
 
 /**
  * Drop UI placeholders from a fit target list.
@@ -28,5 +52,5 @@ export function excludeNonModelNodes<T extends { id: string }>(nodes: readonly T
   // ⚠ PREFIX, NOT ONE ID. The frontier affordance now exists on every tier,
   // and an exclusion keyed on a single id silently stops excluding the moment a
   // second one is added — the hand-maintained-mirror defect, in a filter.
-  return nodes.filter((n) => !n.id.startsWith('__ghost-'))
+  return nodes.filter((n) => !isGhostNode(n.id))
 }

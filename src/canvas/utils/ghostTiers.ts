@@ -25,8 +25,13 @@
  */
 
 import type { Node } from '@xyflow/react'
+// The prefix, the id and the predicate all live in `fitTargets`, which owns
+// exclusion. Imported rather than restated: this file used to declare its own
+// copies of the first two, so the filter and the ids it filtered were two
+// independent lists that happened to agree.
+import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID } from './fitTargets'
 
-export const GHOST_OPTION_NODE_ID = '__ghost-option__'
+export { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 
 /** One frontier slot per tier the product models. */
 export interface GhostTier {
@@ -51,34 +56,27 @@ export const GHOST_TIERS: readonly GhostTier[] = [
     prompt: "Suggest an additional option I haven't considered for this decision",
   },
   {
-    id: '__ghost-factor__',
+    id: `${GHOST_ID_PREFIX}factor__`,
     siblingType: 'factor',
     label: 'Another factor',
     prompt:
       "What factors could materially affect this decision that aren't represented in the model yet?",
   },
   {
-    id: '__ghost-risk__',
+    id: `${GHOST_ID_PREFIX}risk__`,
     siblingType: 'risk',
     label: 'Another risk',
     prompt:
       'What could go wrong here that the model does not currently capture? Consider failure modes a forecast would miss.',
   },
   {
-    id: '__ghost-outcome__',
+    id: `${GHOST_ID_PREFIX}outcome__`,
     siblingType: 'outcome',
     label: 'Another outcome',
     prompt:
       'What further consequences could follow from this decision that the model does not represent?',
   },
 ] as const
-
-const GHOST_ID_PREFIX = '__ghost-'
-
-/** Is this a frontier affordance rather than part of the user's model? */
-export function isGhostNode(id: string): boolean {
-  return id.startsWith(GHOST_ID_PREFIX)
-}
 
 /**
  * Place one ghost at the end of each tier that already has members.

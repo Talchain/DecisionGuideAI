@@ -23,6 +23,7 @@ import {
   preparePage, openCanvas, seedStarterDraft, clearNotifications,
   freezeMotion, waitForVisualQuiescence, VIEWPORTS,
 } from './harness'
+import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
 /**
  * Wait until the camera transform stops changing.
@@ -48,13 +49,29 @@ async function waitForCameraSettled(page: Page, timeoutMs = 5000): Promise<void>
   )
 }
 
-/** Nodes wholly inside the pane, and the total, read from the live DOM. */
+/**
+ * Nodes wholly inside the pane, and the total, read from the live DOM.
+ *
+ * ⚠ THE MODEL, NOT EVERY MOUNTED NODE — AND THIS SPEC WAS THE ONLY PLACE THAT
+ * DISAGREED. Three things answer "what is the model?": the notice's own count,
+ * `showAll`'s fit target, and this measurement. The first two both resolve to
+ * `excludeNonModelNodes`; this one counted `.react-flow__node` wholesale. So
+ * once the frontier affordance reached the factor, risk and outcome tiers, the
+ * button framed the model — correctly — while this asserted that the
+ * *invitations to extend it* should have been framed too, and reported the
+ * difference as nodes left outside the pane.
+ *
+ * Filtered by the product's own `GHOST_ID_PREFIX` rather than a fourth literal:
+ * a filter that restates the ids it filters is the drift this whole PR removes.
+ */
 async function nodeVisibility(page: Page) {
-  return page.evaluate(() => {
+  return page.evaluate((ghostPrefix: string) => {
     const pane = document.querySelector('.react-flow') as HTMLElement | null
     if (!pane) return { paneOk: false, total: 0, fullyVisible: 0, hidden: document.hidden }
     const pr = pane.getBoundingClientRect()
-    const els = [...document.querySelectorAll('.react-flow__node')]
+    const els = [...document.querySelectorAll('.react-flow__node')].filter(
+      el => !((el as HTMLElement).dataset.id ?? '').startsWith(ghostPrefix),
+    )
     const fullyVisible = els.filter(el => {
       const r = el.getBoundingClientRect()
       return r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1 && r.left >= pr.left - 1 && r.right <= pr.right + 1
@@ -65,7 +82,7 @@ async function nodeVisibility(page: Page) {
       fullyVisible,
       hidden: document.hidden,
     }
-  })
+  }, GHOST_ID_PREFIX)
 }
 
 test.describe('the first view discloses its own extent', () => {

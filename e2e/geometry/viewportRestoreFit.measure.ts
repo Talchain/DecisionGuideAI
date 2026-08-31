@@ -51,7 +51,13 @@ import {
   FROZEN_TIME,
 } from '../visual/harness'
 
-const GHOST = '__ghost-option__'
+// ⚠ PREFIX, NOT THE OPTIONS ID. This measured `!== '__ghost-option__'`, so
+// after the frontier affordance was added to the factor, risk and outcome tiers
+// it counted three UI placeholders as part of the user's MODEL — inflating the
+// model extent it exists to measure. Derived from the product's own owner so it
+// cannot drift again.
+import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
+
 const SIZES = [
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
@@ -109,13 +115,13 @@ interface Frame {
 }
 
 async function frameOf(page: Page): Promise<Frame> {
-  return page.evaluate((ghost: string) => {
+  return page.evaluate((ghostPrefix: string) => {
     const vpEl = document.querySelector('.react-flow__viewport') as HTMLElement | null
     const flow = document.querySelector('.react-flow')!.getBoundingClientRect()
     const banner = document.querySelector('[role="banner"]')?.getBoundingClientRect() ?? null
     const store = (window as unknown as { useCanvasStore: { getState: () => { nodes: Array<{ id: string }>; layoutVersion: number } } }).useCanvasStore.getState()
     const els = [...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]
-    const model = els.filter((e) => e.dataset.id !== ghost)
+    const model = els.filter((e) => !(e.dataset.id ?? '').startsWith(ghostPrefix))
     const offPane: string[] = []
     const behindBanner: string[] = []
     for (const el of model) {
@@ -140,7 +146,7 @@ async function frameOf(page: Page): Promise<Frame> {
       behindBanner,
       bannerFound: banner !== null,
     }
-  }, GHOST)
+  }, GHOST_ID_PREFIX)
 }
 
 function report(phase: string, extra: Record<string, unknown>) {
