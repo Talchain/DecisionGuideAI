@@ -1306,9 +1306,14 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   }
 }
 
+/**
+ * ⚠ `recommendations` WAS DROPPED FROM THIS SIGNATURE, and that is a finding
+ * rather than a tidy-up: its ONLY use was computing `primaryInterventionId`,
+ * a field nothing rendered. The glance never needed the engine's list — the
+ * mount derives the top recommendation itself, from the array it already holds.
+ */
 function buildAtAGlance(
   data: ResultsSectionDataReturn,
-  recommendations: Recommendation[],
   nodeValueSources?: ReadonlyMap<string, string>,
 ): AtAGlance {
   const rec = data.recommendation
@@ -1404,7 +1409,6 @@ function buildAtAGlance(
     headline,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
-    winPercentLabel: winPct,
     winFraction,
     comparisonScope,
     comparativeClaim,
@@ -1413,7 +1417,6 @@ function buildAtAGlance(
     influenceIsSetRelative: setRelative,
     condition: glanceCondition(data),
     inputProvenance: glanceInputProvenance(data, nodeValueSources),
-    primaryInterventionId: recommendations[0]?.id ?? null,
   }
 }
 
@@ -1647,7 +1650,7 @@ export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, isStale, nodeValueSources } = inputs
-  const glance = buildAtAGlance(data, recommendations, nodeValueSources)
+  const glance = buildAtAGlance(data, nodeValueSources)
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
@@ -1670,7 +1673,7 @@ export function buildAnalysisNewViewModel(
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
-      ? { headline: null, leaderLabel: null, winShare: null, winPercentLabel: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, primaryInterventionId: glance.primaryInterventionId }
+      ? { headline: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF

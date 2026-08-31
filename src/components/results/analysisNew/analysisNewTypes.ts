@@ -603,12 +603,6 @@ export interface AtAGlance {
    */
   winShare: string | null
   /**
-   * The same win share as `winShare`, as the bare formatted percentage
-   * ("84%") — the identical `pctOrNull` output that sentence is built from, so
-   * no second rounding and no new precision. For typesetting the number large.
-   */
-  winPercentLabel: string | null
-  /**
    * The same value unformatted, 0-1, FOR BAR GEOMETRY ONLY. Never rendered as
    * a number: formatting it a second way is how two different roundings of one
    * quantity end up on screen together.
@@ -654,8 +648,6 @@ export interface AtAGlance {
    * the other.
    */
   inputProvenance: GlanceInputProvenance | null
-  /** The single highest-priority engine recommendation, or null. */
-  primaryInterventionId: string | null
 }
 
 /**

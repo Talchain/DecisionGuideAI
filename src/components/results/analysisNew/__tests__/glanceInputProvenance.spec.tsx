@@ -248,7 +248,6 @@ const glanceModel = (
   headline: 'Raise price currently scores higher',
   leaderLabel: 'Raise price',
   winShare: 'Ahead in 68% of simulated futures',
-  winPercentLabel: '68%',
   winFraction: 0.68,
   comparisonScope: { kind: 'whole_set' },
   comparativeClaim: 'value',
@@ -257,7 +256,6 @@ const glanceModel = (
   influenceIsSetRelative: false,
   condition: null,
   inputProvenance,
-  primaryInterventionId: null,
   ...overrides,
 })
 
@@ -305,7 +303,6 @@ describe('the condition line on screen', () => {
           headline: null,
           leaderLabel: null,
           winShare: null,
-          winPercentLabel: null,
           winFraction: null,
           comparativeClaim: 'none',
           verdict: null,
