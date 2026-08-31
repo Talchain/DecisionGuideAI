@@ -1930,6 +1930,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ...(prob.percentiles_source !== undefined
           ? { percentilesSource: prob.percentiles_source }
           : {}),
+        // ⭐ THE PRODUCER'S PER-OPTION COMPUTATION CLASSIFICATION, carried
+        // verbatim — NOT scaled, NOT defaulted, NOT re-derived. Both mappers
+        // have already narrowed it to the producer's closed vocabulary, so this
+        // hop's whole job is to not be the one that drops it, which is exactly
+        // what it was doing before this change by rebuilding the option object
+        // field by field.
+        //
+        // ⛔ NOT FOLDED INTO `notAnalysed` ABOVE. That flag answers "was this
+        // option in the analysis at all?" and is derived from the producer's
+        // OMISSION; this answers "did the computation produce a usable result?"
+        // and is STATED by the producer. An option can be analysed and not
+        // computed — the two are independent, and the spread below deliberately
+        // runs on the ordinary path rather than inside the `notAnalysed`
+        // branch, so a failed option still carries its classification.
+        ...(prob.status !== undefined ? { computeStatus: prob.status } : {}),
+        ...(prob.status_reason !== undefined
+          ? { computeStatusReason: prob.status_reason }
+          : {}),
         goalProbability,
         goalFitIsModelledBasis,
         // Which quantity `goalProbability` actually IS, carried to the render

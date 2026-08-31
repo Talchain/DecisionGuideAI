@@ -36,6 +36,10 @@ import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
 import { safeArray, safeArrayWithMeta } from '../../../lib/array-utils'
 import { PLOT_PER_OPTION_CONSTRAINTS_SUSPECT } from '../constraintTrust'
+import {
+  narrowOptionComputeStatus,
+  narrowOptionComputeStatusReason,
+} from '../optionComputeStatus'
 import type {
   CeeDecisionReviewPayloadV1,
   CeeTrace,
@@ -632,6 +636,12 @@ export function mapV2ResponseToReportV1(
         const p50 = safeNumber(outcome?.p50) ?? null  // True median only, no fallback to mean
         const p90 = safeNumber(outcome?.p90) ?? high
 
+        // Narrowed ONCE, here, rather than at each spread below: a second call
+        // is a second chance for the two to disagree, and the estate's rule for
+        // a narrowed wire value is one derivation with one name.
+        const computeStatus = narrowOptionComputeStatus(opt.status)
+        const computeStatusReason = narrowOptionComputeStatusReason(opt.status_reason)
+
         acc[optionId] = {
           /**
            * @claim-producer goal-probability
@@ -688,6 +698,29 @@ export function mapV2ResponseToReportV1(
               ...(validityRatio !== null ? { validity_ratio: validityRatio } : {}),
             }
           })(),
+          // ⭐ THE PRODUCER'S PER-OPTION COMPUTATION CLASSIFICATION, carried
+          // verbatim. PLoT emits `status` / `status_reason` per option
+          // (`src/routes/v2/run.ts:3134-3135` at staging d37c8cfd), sourced
+          // from ISL's `determine_option_status(n_valid, n_total)`. This
+          // object is rebuilt KEY BY KEY, so until this line a field named
+          // nowhere here could not survive the rebuild even though it arrived
+          // intact on the wire — the identical mechanism the
+          // `percentiles_source` note in `mapV5AnalysisToReport.ts` records.
+          //
+          // ⛔ AND `n_valid_samples` IS NOT A SUBSTITUTE FOR IT, for two
+          // independent reasons. It would re-derive the producer's own
+          // classification in a consumer (trap 13c), AND
+          // `positiveIntegerOrNull` above REJECTS `0` — so on the very option
+          // this field exists to describe (`failed` ⇔ n_valid === 0) the count
+          // arrives `undefined` while `win_probability: 0` arrives finite: a
+          // meaningful zero read as absence, next to an absence read as zero.
+          //
+          // Narrowed at the boundary, never cast: the shared contract types
+          // `status` as a BARE `z.ZodOptional<z.ZodString>`, so the wire may
+          // legally carry a token this UI has never heard of. Absent in,
+          // absent out — see `narrowOptionComputeStatus`.
+          ...(computeStatus !== undefined ? { status: computeStatus } : {}),
+          ...(computeStatusReason !== undefined ? { status_reason: computeStatusReason } : {}),
           // Multi-constraint analysis (when goal_constraints were provided in request)
           // Honesty gate (UI-SEM-088, seam 2): STILL SUSPECT. Unlike the
           // headline seam (selectGoalProbability), the per-option block is NOT

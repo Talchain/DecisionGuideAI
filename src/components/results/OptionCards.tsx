@@ -42,6 +42,11 @@ import {
 import { FOCUS_ON_CANVAS_LABEL, focusOnCanvasTestId } from './utils/focusOnCanvasCopy'
 import { ExpertBlock } from './ExpertBlock'
 import { NotAnalysedOptionCard } from './NotAnalysedOptionCard'
+import { NotComputedOptionCard } from './NotComputedOptionCard'
+import {
+  optionComputationFailed,
+  optionComputationProducedResult,
+} from './utils/notAnalysedOptions'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { sortOptionsForDisplay } from './utils/optionDisplayOrder'
 import { OptionRangeBar, computeOptionScale, isFiniteNumber, type OptionScale } from './shared/OptionRangeBar'
@@ -1151,7 +1156,17 @@ export function OptionCards({
   // the comparison. Every completeness quantifier on this surface asks about
   // THEM; an option the run never analysed cannot make a field incomplete
   // because it was never part of the field.
-  const analysedOptions = options.filter(o => o.notAnalysed !== true)
+  // ⚠ AND AN OPTION THE COMPUTATION FAILED ON IS NOT IN THE FIELD EITHER. It
+  // renders no goal bar (it forks to `NotComputedOptionCard` below), so leaving
+  // it inside this set would let one uncomputed option delete the "Hits target"
+  // row from every card that WAS scored — the identical `every`-quantifier
+  // defect the block above records for `notAnalysed`, one status along. The
+  // variable's own name would also stop being true: this set is what the
+  // completeness quantifiers below ask about, and a failed option is not part of
+  // the comparison they are quantifying over.
+  const analysedOptions = options.filter(
+    o => o.notAnalysed !== true && optionComputationProducedResult(o.computeStatus),
+  )
 
   // V11: Conditional "Hits target" — hide unless EVERY option has goalProbability.
   //
@@ -1228,11 +1243,22 @@ export function OptionCards({
   // 2.237), and for the same reason: appending keeps it out of the ranked
   // sequence, whereas promoting it into the top N would re-order the list and
   // hand it a position it must not have.
-  const hiddenNotAnalysed = sorted.filter(
-    (o) => o.notAnalysed === true && !withLensPick.some((v) => v.id === o.id),
+  //
+  // ⭐ AND SO IS AN OPTION THE COMPUTATION FAILED ON, FOR THE IDENTICAL REASON.
+  // A failed option carries `winProbability: 0`, so it sorts LAST — meaning the
+  // disclosure the product owes the user ("the analysis could not compute a
+  // result for this one, and that is not a verdict on it") would sit behind
+  // "Show all", reachable only by a click nobody has a reason to make. That is
+  // the same silent drop this block was written to prevent, one status along.
+  // Same mechanism (append, never promote), so it stays out of the ranked
+  // sequence.
+  const hiddenUnranked = sorted.filter(
+    (o) =>
+      (o.notAnalysed === true || optionComputationFailed(o.computeStatus)) &&
+      !withLensPick.some((v) => v.id === o.id),
   )
-  const visibleOptions = hiddenNotAnalysed.length > 0
-    ? [...withLensPick, ...hiddenNotAnalysed]
+  const visibleOptions = hiddenUnranked.length > 0
+    ? [...withLensPick, ...hiddenUnranked]
     : withLensPick
   // Derived from what is actually rendered — `sorted.length - TOP_N` would say
   // "1 more" while that one was already on screen.
@@ -1306,6 +1332,39 @@ export function OptionCards({
         if (option.notAnalysed === true) {
           return (
             <NotAnalysedOptionCard
+              key={option.id}
+              option={option}
+              onFocusNode={onFocusNode}
+            />
+          )
+        }
+        // ⭐ THE SECOND FORK — BESIDE the first, never folded into it.
+        //
+        // A DIFFERENT QUESTION with a DIFFERENT ANSWER (CLAUDE.md trap 21).
+        // Above: "was this option in the analysis at all?", derived from the
+        // producer's OMISSION. Here: "did the computation produce a usable
+        // result?", STATED by the producer. An option can be ANALYSED AND NOT
+        // COMPUTED — it was submitted, ISL ran on it and got zero finite Monte
+        // Carlo samples — so one flag cannot serve both without lying on that
+        // intersection, and the two cards say different things about whose
+        // gap it is.
+        //
+        // ⛔ WHAT REACHING THE ORDINARY CARD USED TO MEAN. `option.winProbability`
+        // on a failed option is a finite `0`, so `OptionCard` printed a hard
+        // `0%` and a zero-width fill bar in the slot that answers "how often did
+        // this come out ahead" — a fabricated measurement, on a card carrying a
+        // rank swatch and an ordinal. And `nValidSamples` could not rescue it:
+        // the mapper's positive-integer guard rejects `0`, so the count arrives
+        // ABSENT on exactly the option this describes, taking the legacy
+        // formatter arm that renders an exact zero as `0%`.
+        //
+        // Gated on the PRODUCER'S EMITTED VALUE, never on falsiness: `'partial'`
+        // is a disclosure with a real distribution behind it and stays on the
+        // ordinary path, and an ABSENT status is the legacy V1 shape and stays
+        // there too. See `optionComputationFailed`.
+        if (optionComputationFailed(option.computeStatus)) {
+          return (
+            <NotComputedOptionCard
               key={option.id}
               option={option}
               onFocusNode={onFocusNode}

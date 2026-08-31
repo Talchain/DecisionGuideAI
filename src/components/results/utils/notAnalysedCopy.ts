@@ -72,3 +72,73 @@ export function notAnalysedActionLabel(reason: NotAnalysedReason): string | null
 export function resolveOptionPrompt(optionLabel: string): string {
   return `Help me configure ${optionLabel}.`
 }
+
+// ─── NOT COMPUTED — a DIFFERENT state, beside "not analysed", never merged ───
+
+/**
+ * The pill on a card whose computation produced no usable result.
+ *
+ * ⚠ DELIBERATELY NOT `NOT_ANALYSED_BADGE`. "Not analysed" would be FALSE here:
+ * the option WAS analysed — it was submitted, ISL ran on it and classified the
+ * outcome. Reusing that pill would attribute an engine failure to the user's
+ * configuration, which is the "lie about whose fault it is" the sibling
+ * predicate's docblock refuses.
+ *
+ * ⛔ AND IT MUST NOT READ AS A VERDICT ON THE OPTION. "Not computed" names the
+ * state of the COMPUTATION. Anything scoring the option — "no result",
+ * "unavailable", a dash, an empty slot — invites the reader to fill the gap
+ * with "it lost", and on this card the gap sits exactly where every sibling
+ * card prints a win share.
+ */
+export const NOT_COMPUTED_BADGE = 'Not computed'
+
+/**
+ * Why this option carries no rank and no probability, when the PRODUCER sent no
+ * reason of its own.
+ *
+ * ## Every clause here is load-bearing
+ *
+ * - *"ran on this option"* — distinguishes it from the not-analysed card, which
+ *   says the option was left out. Both cards are numberless and a reader who
+ *   cannot tell them apart learns nothing from either.
+ * - *"could not produce a usable result"* — the producer's actual claim
+ *   (`n_valid === 0`: zero finite samples), stated as a property of the RUN.
+ * - *"no rank and no probability"* — states the CONSEQUENCE explicitly, the same
+ *   rule {@link notAnalysedReasonCopy} follows: a card that silently omits
+ *   numbers reads as a rendering gap; a card that says why reads as a decision.
+ * - *"not a verdict on the option"* — the one sentence this whole change exists
+ *   for. The state it replaces rendered a hard `0%` and a zero-width bar in the
+ *   position where every other card shows how often that option came out ahead,
+ *   so the default reading of a numberless card in a ranked list is "it lost".
+ *   Saying so is TRUE: zero valid samples is a statement about the simulation,
+ *   and carries no information about the option's merit either way.
+ *
+ * ⚠ NO ACTION IS OFFERED, and that is deliberate. There is nothing the user can
+ * do about a degenerate sample draw, and a disclosure that prescribes a futile
+ * action is worse than one that reports — the same rule `not_returned` follows
+ * in {@link notAnalysedActionLabel}.
+ */
+export const NOT_COMPUTED_REASON_COPY =
+  'The analysis ran on this option but could not produce a usable result, so it has no rank and no probability. This is not a verdict on the option.'
+
+/**
+ * What the card says: the producer's own sentence when it sent one, otherwise
+ * the sanctioned sentence above.
+ *
+ * ⚠ THE PRODUCER'S REASON IS ADDED TO THE SANCTIONED SENTENCE, NEVER
+ * SUBSTITUTED FOR IT. ISL's `status_reason` is a short internal phrase
+ * ("Analysis could not be completed", "Blocked by: <CODE>") written for an
+ * operator, and it states neither the consequence nor the non-verdict. Shown
+ * alone it would leave the reader to infer both from an empty row — the exact
+ * gap this copy exists to close.
+ *
+ * ⚠ AND IT IS ABSENT FROM ALL 12 LIVE CAPTURES in `src/v5/__tests__/fixtures/`.
+ * The common path is therefore the `undefined` arm, so that arm has to be
+ * complete on its own — the producer's reason is an enrichment, never the thing
+ * that licenses the disclosure.
+ */
+export function notComputedReasonCopy(producerReason: string | undefined): string {
+  return producerReason === undefined
+    ? NOT_COMPUTED_REASON_COPY
+    : `${NOT_COMPUTED_REASON_COPY} The analysis reported: ${producerReason}`
+}

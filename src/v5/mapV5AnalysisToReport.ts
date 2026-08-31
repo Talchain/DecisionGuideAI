@@ -35,6 +35,11 @@ import type {
 } from '@talchain/schemas/boundary'
 
 import type { ReportV1, ConfidenceLevel, CritiqueItemV1 } from '../adapters/plot/types'
+import {
+  narrowOptionComputeStatus,
+  narrowOptionComputeStatusReason,
+  type OptionComputeStatus,
+} from '../adapters/plot/optionComputeStatus'
 import type { DecisionVerdictReportLike } from '../lib/decisionVerdict'
 import {
   factorDirectionToPolarity,
@@ -468,6 +473,28 @@ interface RawOptionEnrichmentEntry {
    * honestly. Never `null`, never zeroed — see `normaliseDownside`.
    */
   downside?: { cvar_10?: unknown; p05?: unknown; expected_regret?: unknown }
+  /**
+   * The producer's PER-OPTION computation classification (`'computed'` /
+   * `'partial'` / `'failed'`) and its reason, declared `unknown` and NARROWED at
+   * the read below exactly like every other member here.
+   *
+   * ⚠ `unknown` is not defensive habit in this one case, it is the contract:
+   * `@talchain/schemas` 0.48.0 types
+   * `EnrichmentOptionComparisonEntrySchema.status` as a BARE
+   * `z.ZodOptional<z.ZodString>` — contrast `outcome.percentiles_source` two
+   * members up, which the same file types as a real `z.ZodEnum`. So the wire may
+   * legally carry a token outside the producer's vocabulary, and the narrowing
+   * is what stops it reaching a predicate.
+   *
+   * ⛔ Until this row BOTH fields were DROPPED by this function for the same
+   * reason `percentiles_source` was: the option object is rebuilt key by key, so
+   * a field this interface does not name cannot survive the rebuild even though
+   * it arrived intact on the wire. Nine of the twelve captured live payloads in
+   * `__tests__/fixtures/` carry `status` today.
+   */
+  status?: unknown
+  /** See {@link RawOptionEnrichmentEntry.status}. Absent on a computed option. */
+  status_reason?: unknown
 }
 
 interface ResolvedOptionEntry {
@@ -962,6 +989,42 @@ export function mapV5AnalysisToReport(
      * denormalisation scale as the percentile family.
      */
     downside?: { cvar_10: number; p05: number; expected_regret: number }
+    /**
+     * ⭐ THE PRODUCER'S PER-OPTION COMPUTATION CLASSIFICATION, wire-named and
+     * carried verbatim after narrowing to its closed vocabulary.
+     *
+     * WHY IT HAS TO BE CARRIED AND CANNOT BE RE-DERIVED HERE: `'failed'` means
+     * ISL got ZERO finite Monte Carlo samples for this option, so there is no
+     * distribution behind any number attached to it. Without this field the
+     * surface re-derived a worse classification from what happened to survive —
+     * and a degraded option rendered a `0%` and a 0-width bar, i.e. a measured
+     * claim, in the same run where a genuine measured zero at n=10,000 rendered
+     * `"<0.01%"`. The two were distinguishable only by an accident of a fallback
+     * arm.
+     *
+     * ⛔ `outcome.n_valid_samples` is NOT the substitute. It re-derives the
+     * producer's own classification in a consumer, AND the V2 mapper's
+     * `positiveIntegerOrNull` guard rejects `0` — so on precisely the option
+     * this describes the count arrives ABSENT while `win_probability: 0`
+     * arrives finite.
+     *
+     * ⚠ THIS TYPE AND `types.ts`'s `ResultsOptionProbability` ARE THE TWINS the
+     * `percentiles_source` note there names: one describes what the mapper
+     * WRITES, the other what the hook READS, and nothing makes them agree except
+     * a human noticing. Both gained this pair in the same change; the divergence
+     * spec drives the REAL mapper into the REAL predicate so the pair is checked
+     * by execution rather than by memory.
+     */
+    status?: OptionComputeStatus
+    /**
+     * The producer's own sentence for a non-computed option, verbatim.
+     *
+     * ⚠ ABSENT FROM ALL 12 LIVE CAPTURES. It is declared by ISL
+     * (`Optional[str]`) and forwarded by PLoT, but no captured payload carries
+     * one — so every render site must be correct with `status` present and this
+     * absent, and nothing may gate the disclosure on it.
+     */
+    status_reason?: string
   }
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
@@ -1046,6 +1109,19 @@ export function mapV5AnalysisToReport(
     const goalFitBasis = normaliseGoalFitBasis(enriched?.goal_fit_basis)
     const downside = normaliseDownside(enriched?.downside)
 
+    // ⭐ Per-option computation classification — narrowed to the producer's
+    // closed vocabulary and carried verbatim, NO fallback chain and NO
+    // coercion. Same rule as `percentilesSource` above and for the same reason:
+    // the only honest value is the one the producer stated, so anything outside
+    // the vocabulary (absent, null, a token we do not recognise) leaves the key
+    // absent and the option stays on the ordinary path.
+    //
+    // ⛔ NOT `?? 'computed'`. A default here would manufacture a classification
+    // claim out of silence — the exact `percentiles_source: percentilesSource ??
+    // 'samples'` fabrication the note below refuses.
+    const computeStatus = narrowOptionComputeStatus(enriched?.status)
+    const computeStatusReason = narrowOptionComputeStatusReason(enriched?.status_reason)
+
     option_probabilities[optionId] = {
       /**
        * @claim-producer goal-probability
@@ -1082,6 +1158,14 @@ export function mapV5AnalysisToReport(
       // out. A `percentiles_source: percentilesSource ?? 'samples'` here would
       // manufacture a provenance claim from silence.
       ...(percentilesSource !== undefined ? { percentiles_source: percentilesSource } : {}),
+      // ⭐ Same conditional-spread idiom, same reason: absent in, absent out.
+      // THIS IS THE FIELD THE CANVAS READS — `useNodeDisplayMetadata` takes its
+      // per-option win rate straight off `report.option_probabilities[nodeId]`,
+      // so a fix applied only to the results panel would leave the canvas
+      // showing a failed option as a genuine `0%`. One structure, one field,
+      // both surfaces.
+      ...(computeStatus !== undefined ? { status: computeStatus } : {}),
+      ...(computeStatusReason !== undefined ? { status_reason: computeStatusReason } : {}),
       outcome: {
         mean: rawMean ?? null,
         p10: p10 ?? null,
