@@ -937,6 +937,16 @@ export const OptionNode = memo((props: NodeProps) => {
     // by design and should stay that way: they answer "how does this option
     // compare", not "is there anything to compare". The prior question belongs
     // at the reader, which is here.
+    //
+    // ⚠ THE GATE IS ON THIS OPTION'S OWN STATUS ONLY. A failed SIBLING still
+    // participates in the identical-reason suppression below, which can only
+    // ever remove a line — it fails toward saying less, and re-deriving that
+    // scan per sibling would need a second authority on the same question.
+    //
+    // This memo carried a SECOND copy of this gate, sixty lines below, from a
+    // rebase that kept both lanes' fixes for one defect. The compiler proved it
+    // dead (TS2367: `false | undefined` never equals `true`) — the suite could
+    // not, because a redundant guard changes no behaviour. One reader, one gate.
     if (displayMetadata.winComputationFailed === true) return null
     // ROADMAP 1.239: "Behind:" is an explicit comparative designation, and on a
     // withheld turn it was rendering on EVERY option — including the one the
@@ -955,29 +965,6 @@ export const OptionNode = memo((props: NodeProps) => {
     // boolean computed in this component, never an optional prop, so it
     // carries none of the omitted-input risk that made #491 choose ordering.
     if (!verdict.hasLeadingOption) return null
-    // ⭐ AND AN OPTION THAT WAS NEVER SCORED CANNOT BE DESIGNATED BEHIND ONE.
-    //
-    // "Behind:" is a RANK CLAIM in inverse form — the same reading of A1's
-    // ruling that put the `hasLeadingOption` gate above it. When the producer
-    // says `status === 'failed'` (`n_valid === 0`) there is no distribution
-    // behind this option's share, so there is no rank either, and the card
-    // renders the sanctioned "no rank and no probability" sentence sixty lines
-    // below. Without this gate the two sit on one card and CONTRADICT each
-    // other: "it has no rank" beside a rank. That contradiction did not exist
-    // before the disclosure was added — the card previously read `0%` +
-    // "Behind: X", consistent and wrong — so it is INTRODUCED by that change
-    // and belongs to it.
-    //
-    // It is the same one-line gate `closeCallGapPp` carries at :491, on the
-    // same flag, derived from the same field by the same predicate. A third
-    // reader of `win_probability` gated differently from the other two is how
-    // this field reached the state that needed fixing (CLAUDE.md hazard 1).
-    //
-    // ⚠ THE GATE IS ON THIS OPTION'S OWN STATUS ONLY. A failed SIBLING still
-    // participates in the identical-reason suppression below, which can only
-    // ever remove a line — it fails toward saying less, and re-deriving that
-    // scan per sibling would need a second authority on the same question.
-    if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
     if (!myReason) return null
