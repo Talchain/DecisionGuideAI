@@ -222,7 +222,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
@@ -342,7 +342,7 @@ jobs:
 
       - name: Upload Playwright test-results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results-${{ strategy.job-index }}
           path: test-results
@@ -351,7 +351,7 @@ jobs:
 
       - name: Upload Playwright HTML report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ strategy.job-index }}
           path: playwright-report
@@ -446,7 +446,7 @@ jobs:
       - name: Immutability unit test (report.json hash)
         run: npm run test -- src/lib/__tests__/evidence.immutability.test.ts
       - name: Upload evidence artefacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: evidence-artifacts
           path: |
@@ -455,7 +455,7 @@ jobs:
 
       - name: Upload Playwright HTML report on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-evidence
           path: |
@@ -503,7 +503,7 @@ jobs:
 
       - name: Upload Playwright test-results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-prod-safe-results
           path: test-results
