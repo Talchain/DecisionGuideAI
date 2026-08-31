@@ -98,6 +98,8 @@ export function ActionsMenu() {
       draft: method.prompt,
       label: method.title,
       parameters: { method_id: method.id },
+      // Same technique, same intent, whichever surface invoked it.
+      ...(method.intent ? { intent: method.intent } : {}),
       source: 'chip',
     })
   }

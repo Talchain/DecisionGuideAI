@@ -49,6 +49,12 @@ import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { openDefineSuccess, openDecisionRecord } from '../../modals'
+import { useShowToastSafe } from '../../../../canvas/ToastContext'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+} from '../../../../canvas/mutations/mutationAuthority'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -201,6 +207,7 @@ export function StrengthenTheReasoning({
    * `disputingId` is the card with the box open; at most one at a time, because
    * two open composers in a 278px column is not a thing anyone can use.
    */
+  const showToast = useShowToastSafe()
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
 
@@ -241,6 +248,82 @@ export function StrengthenTheReasoning({
   useEffect(() => {
     if (disputingId) disputeInputRef.current?.focus()
   }, [disputingId])
+
+  /**
+   * ⭐⭐ THE PRIMARY DOES THE THING, WHERE THE ENGINE SAYS IT SHOULD.
+   *
+   * The engine emits five action routes and two of its eight builders emit
+   * `open-modal` — the two that are WORK rather than conversation:
+   *   `strengthen:success-measure` → the Define-success modal
+   *   `strengthen:commit`          → the Decision-record modal
+   * Its own comment at the success-measure builder reads: "the primary DOES the
+   * thing — the structured Define-success modal (threshold commits through the
+   * canonical rerun path)".
+   *
+   * ⚠ THIS SURFACE DROPPED BOTH. Every card routed to the Ask-Olumi drawer
+   * regardless of `action.kind`, so the highest-ranked finding on every run —
+   * "Define what success looks like", rank 0, the one the whole ladder is built
+   * around — offered a chat about defining success instead of the control that
+   * defines it. Advice you read, where the engine had already built work you do.
+   *
+   * ⚠⚠ "ALREADY MOUNTED" ANSWERS THE WRONG QUESTION, AND THE FIRST VERSION OF
+   * THIS COMMENT MADE EXACTLY THAT MISTAKE. It argued the route was safe
+   * because both modals are mounted by the dock. True, and beside the point:
+   * `mutationAuthority.ts` exists to separate *"may this control LOOK LIKE a
+   * shared-model edit?"* from *"may this write actually happen?"* — two
+   * questions under one name, and conflating them is how a surface comes to
+   * offer a control the model cannot honour.
+   *
+   * ⭐ SO define-success IS GATED, and the gate is statically CLOSED.
+   * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is `'disabled'` in a
+   * `const satisfies` object, so `hasServerGraphAuthority` is a compile-time
+   * `false`. Both pre-existing call sites already withhold on it —
+   * `ResultsBody.tsx:412` passes `undefined`, and `StrengthenContainer.tsx:243`
+   * substitutes the Ask-Olumi draft this arm now mirrors.
+   *
+   * What the gate is protecting the user from is specific: only the THRESHOLD
+   * reaches the analysis. Metric, direction, timeframe and baseline persist to
+   * `sessionStorage` (`successMeasureStore.ts:16-17` — "survives reloads, dies
+   * with the session"), so a teammate opening the same scenario sees none of
+   * it, while the modal's toast says "Success measure saved." Opening it here
+   * would have made `strengthen:success-measure` — `priority: 0`, the top card
+   * of every run — the product's most prominent false promise.
+   *
+   * decision-record has no such gate on any surface and opens unconditionally,
+   * which is the half of this change that stands.
+   */
+  const runPrimaryAction = useCallback((rec: Recommendation) => {
+    if (rec.action.kind === 'open-modal') {
+      if (rec.action.modal === 'define-success') {
+        if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)) {
+          return openDefineSuccess()
+        }
+        // Mirrors StrengthenContainer: keep the coaching action useful without
+        // opening the local-only editor. Falls through to the drawer below.
+      } else if (rec.action.modal === 'decision-record') {
+        return openDecisionRecord()
+      } else {
+        /**
+         * ⚠ AN `open-modal` NAMING NO MODAL THIS SURFACE CAN OPEN. `modal?:` is
+         * optional, so `{ kind: 'open-modal' }` is compile-clean and a third
+         * emitter reaches here with no type error. The previous comment claimed
+         * such a route "must not silently become a chat about it" — and then let
+         * it do exactly that, which is a comment stating the opposite of its
+         * code. The legacy panel tells the user (`StrengthenContainer.tsx:292`);
+         * so does this one. We deliberately invent no recovery.
+         */
+        showToast("That didn't go through. Open the Olumi conversation and ask there.")
+        return
+      }
+    }
+    openAskOlumi({
+      context: rec.whyNow || rec.signal,
+      draft: rec.action.prompt ?? rec.tryThis,
+      label: rec.action.label,
+      ...(rec.targetId ? { targetId: rec.targetId } : {}),
+      ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
+    })
+  }, [showToast])
 
   const closeDispute = useCallback(() => {
     setDisputingId(null)
@@ -475,6 +558,10 @@ export function StrengthenTheReasoning({
                             // nothing looks broken — CEE simply never learns
                             // which technique the user invoked.
                             parameters: { method_id: method.id },
+                            // The technique's own CEE intent, where one names
+                            // the same move. Absent for most; the gate fails
+                            // closed, so absence changes nothing.
+                            ...(method.intent ? { intent: method.intent } : {}),
                             source: 'chip',
                             ...(rec.targetId ? { targetId: rec.targetId } : {}),
                           })
@@ -542,15 +629,7 @@ export function StrengthenTheReasoning({
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      openAskOlumi({
-                        context: rec.whyNow || rec.signal,
-                        draft: rec.action.prompt ?? rec.tryThis,
-                        label: rec.action.label,
-                        ...(rec.targetId ? { targetId: rec.targetId } : {}),
-                        ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
-                      })
-                    }
+                    onClick={() => runPrimaryAction(rec)}
                     className={`${typography.panelBody} inline-flex items-center gap-1 rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-action`}
                   >

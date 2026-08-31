@@ -24,6 +24,12 @@ export interface AskOlumiPayload {
   parameters?: Record<string, unknown>
   /** Dispatch source tag (defaults to 'chip' — conversation-typed turn) */
   source?: string
+  /**
+   * The CEE intent this ask IS, when an accepted intent names the same move.
+   * It is what makes the turn decision science rather than chat. Absent for
+   * most asks; the wire gate fails closed, so absence changes nothing.
+   */
+  intent?: string
 }
 
 interface AskOlumiState {
@@ -34,6 +40,7 @@ interface AskOlumiState {
   targetId: string | null
   parameters: Record<string, unknown> | undefined
   source: string
+  intent: string | undefined
   openAsk: (payload: AskOlumiPayload) => void
   setDraft: (draft: string) => void
   close: () => void
@@ -47,6 +54,7 @@ export const useAskOlumiStore = create<AskOlumiState>((set) => ({
   targetId: null,
   parameters: undefined,
   source: 'chip',
+  intent: undefined,
   openAsk: (payload) =>
     set({
       isOpen: true,
@@ -56,6 +64,8 @@ export const useAskOlumiStore = create<AskOlumiState>((set) => ({
       targetId: payload.targetId ?? null,
       parameters: payload.parameters,
       source: payload.source ?? 'chip',
+      // Absent stays absent — never defaulted to a routable intent.
+      intent: payload.intent,
     }),
   setDraft: (draft) => set({ draft }),
   close: () => set({ isOpen: false }),
