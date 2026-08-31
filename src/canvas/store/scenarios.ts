@@ -420,6 +420,27 @@ export function duplicateScenario(id: string, newName?: string): Scenario | null
 
 /**
  * Delete a scenario
+ *
+ * ⚠ THE AUTOSAVE MUST GO WITH THE RECORD, or the deleted decision comes back on
+ * the next reload. This function used to clear only the POINTER. That was
+ * survivable while `ReactFlowGraph`'s boot path also read only the pointer — a
+ * missing pointer dropped the canvas into draft mode and the orphaned autosave
+ * was never consulted for its id. It stopped being survivable the moment that
+ * boot path gained a fallback to `autosave.scenarioId`: local delete is the one
+ * enumerated production path that produces exactly that fallback's trigger state
+ * (autosave holding a live UUID while the pointer is missing), and it is
+ * precisely the path where restoring the id is WRONG. Worse, the boot path
+ * re-persists what it resolves, so the resurrection would become durable.
+ *
+ * `useScenario.deleteScenario:984-985` already clears both for the server-backed
+ * path, with the same reasoning in its own comment. Two delete paths asking one
+ * question must not answer it differently — so the invariant lives HERE, next to
+ * the record it guards, and covers every caller of this function rather than the
+ * one call site that happens to exist today.
+ *
+ * Keyed on the AUTOSAVE'S OWN id, not on the pointer: the trigger state is
+ * defined by what the record carries, and the pointer may already be null or
+ * pointing elsewhere by the time a delete arrives.
  */
 export function deleteScenario(id: string): void {
   const scenarios = loadScenarios().filter(s => s.id !== id)
@@ -434,6 +455,11 @@ export function deleteScenario(id: string): void {
         // Ignore errors
       }
     }
+  }
+
+  // And drop an autosave that belongs to the record just removed.
+  if (loadAutosave()?.scenarioId === id) {
+    clearAutosave()
   }
 }
 
