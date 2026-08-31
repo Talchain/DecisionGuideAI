@@ -185,6 +185,33 @@ export const COMPARATIVE_COPY = {
   /** Compact readout, number first, no full stop. */
   phrase: (formatted: string): string => `Came out ahead in ${formatted} of simulated scenarios`,
   /**
+   * ⭐ THE ANCHOR WORD, for a bar-and-number row where a sentence will not fit.
+   *
+   * Added 31 Aug 2026 after a density change moved `phrase()` to a hover and
+   * shipped the number BARE. That removed the anchor, not a redundancy: the
+   * header of this module retires "un-anchored forms — bare 'win probability'"
+   * precisely because this quantity means nothing without a statement of what
+   * it measures.
+   *
+   * Measured consequences of the bare form on the deployed canvas: a `title`
+   * is unreachable by keyboard (the row is not focusable) and absent on touch
+   * (`matchMedia('(hover: hover)')` is false), so two whole input classes got a
+   * number with no referent; the option card ALREADY carries a bare numeral in
+   * its rank badge, so the card showed two unlabelled numbers side by side; and
+   * it was the only unlabelled percentage on a canvas where every other one is
+   * anchored ("Influence score 50%", "50% strength").
+   *
+   * ⚠ IT LIVES HERE, NOT AT THE CALL SITE. The register owns this wording —
+   * the same rule that produced `leadNoMagnitude` and `phraseMidSentence`
+   * after two call sites did their own casing surgery inline.
+   *
+   * One word, because it sits in a `w-14` column beside a bar on a node card.
+   * `FactorNode` ships "Influence" and "Confidence" in exactly that slot, so
+   * this matches the canvas's existing anchored-row pattern rather than
+   * inventing a second one.
+   */
+  anchor: 'Ahead',
+  /**
    * The same claim with NO magnitude — for the runs that carry the
    * comparative RANK but not a displayable probability for the leader.
    *

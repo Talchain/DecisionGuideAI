@@ -1317,6 +1317,25 @@ export const OptionNode = memo((props: NodeProps) => {
                 round away to nothing. The track is now `flex-1` instead of
                 full-bleed, so the percentage is measured against a shorter
                 track — the floor matters MORE here, not less. */}
+            {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
+                The density change put `phrase()` behind a `title` and left the
+                number bare. A `title` is unreachable by KEYBOARD (this row is
+                not focusable) and absent on TOUCH (`(hover: hover)` false), so
+                two input classes got a number with no statement of what it
+                measures — on the only unlabelled percentage on a canvas where
+                every other one is anchored, and beside the rank badge, which is
+                already a bare numeral.
+                The word comes from the register, never re-typed here. The
+                `w-14` column matches `FactorNode`'s "Influence" / "Confidence"
+                rows exactly, so this is the canvas's existing anchored-row
+                pattern rather than a second one. */}
+            <span
+              data-testid={`option-win-anchor-${props.id}`}
+              className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}
+              aria-hidden="true"
+            >
+              {COMPARATIVE_COPY.anchor}
+            </span>
             <div
               className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"
               aria-hidden="true"
