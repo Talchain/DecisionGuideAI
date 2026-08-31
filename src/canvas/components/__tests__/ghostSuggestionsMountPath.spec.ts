@@ -36,6 +36,8 @@
  * lacked.
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { Node } from '@xyflow/react'
 import { frontierIsVisible, withGhostTiers, isGhostNode } from '../../utils/ghostTiers'
 
@@ -108,5 +110,63 @@ describe('doors are actually produced for a real model', () => {
     const out = withGhostTiers(input)
     const passedThrough = out.filter((n) => !isGhostNode(n)).map((n) => n.id)
     expect(passedThrough).toEqual(input.map((n) => n.id))
+  })
+})
+
+/**
+ * ⭐ THE RESIDUAL GAP, CLOSED AS FAR AS A UNIT TEST CAN AND NAMED WHERE IT
+ * CANNOT.
+ *
+ * Everything above calls `frontierIsVisible()` and `withGhostTiers()` directly.
+ * That makes the suite sensitive to what those two functions DO — which is
+ * exactly what the old source-text spec lacked. But the mount calls neither
+ * directly in a test's presence, so **nothing above would fail if
+ * `ReactFlowGraph` stopped calling them.** Delete the call site and every
+ * assertion in this file still passes.
+ *
+ * That is not hypothetical in this repo: an independent review found the same
+ * shape in UI #1057 the same evening — a wiring spec that called its function
+ * directly, so mutating the single line that invoked it left 143 tests green.
+ *
+ * So the call-site binding is asserted from SOURCE, and this is the one claim
+ * source is the right instrument for: whether a line exists is a property of
+ * the file, not of a function's behaviour. What it does NOT prove is that the
+ * line executes, or under what conditions.
+ *
+ * ⚠ WHAT IS STILL OWED, stated rather than carried silently: a mount test that
+ * renders the graph and asserts ghost nodes reach `<ReactFlow>`. That is the
+ * only thing that would prove the frontier renders, and it is not here. This
+ * pair — behaviour of the functions, presence of the call — is strictly more
+ * than the previous spec had and strictly less than a mount witness.
+ */
+describe('the mount still calls the functions this file tests', () => {
+  const GRAPH = resolve(__dirname, '../../ReactFlowGraph.tsx')
+
+  const source = (): string => {
+    const text = readFileSync(GRAPH, 'utf8')
+    // An absence assertion against an empty read passes beautifully, and an
+    // extraction that silently produced nothing agrees with every other
+    // extraction that produced nothing.
+    if (text.length < 10_000) {
+      throw new Error(`refusing to assert: read ${text.length} chars from ReactFlowGraph.tsx`)
+    }
+    return text
+  }
+
+  it('invokes frontierIsVisible', () => {
+    expect(source()).toMatch(/frontierIsVisible\s*\(/)
+  })
+
+  it('invokes withGhostTiers', () => {
+    expect(source()).toMatch(/withGhostTiers\s*\(/)
+  })
+
+  it('POSITIVE CONTROL: the same probe finds a symbol that is genuinely absent', () => {
+    // Proves the two assertions above can FAIL. Without it, a regex that never
+    // matches anything would pass them both by matching nothing — the exact
+    // vacuity that let the previous version of this file stay green while the
+    // prop it asserted decided nothing.
+    expect(source()).not.toMatch(/frontierIsVisibleV99Fabricated\s*\(/)
+    expect(source()).toMatch(/withGhostTiers\s*\(/)
   })
 })
