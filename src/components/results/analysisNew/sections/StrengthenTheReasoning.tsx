@@ -43,7 +43,8 @@
  * would no longer be about information architecture.
  */
 
-import { ArrowRight, Crosshair, FlaskConical, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
@@ -54,6 +55,8 @@ import { SEVERITY_BADGE_CLASS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
+import { methodForRecommendation } from '../recommendationMethod'
+import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -88,6 +91,22 @@ export function StrengthenTheReasoning({
   icon,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
+  /**
+   * ⭐ THE DISMISSAL IS USER AGENCY, NOT HOUSEKEEPING. The shipped Strengthen
+   * panel has always had "Not relevant"; this surface read the resulting
+   * `dismissed` status (`useAnalysisNewViewModel`'s RETIRED_STATUSES) and had no
+   * way to WRITE it — so a reader could see coaching filtered by a decision this
+   * tab gave them no way to make. Dismissing bad coaching is how the human stays
+   * authoritative, which is the sixth clause of the alignment principle.
+   *
+   * The store, the copy and the undo already exist; only the control was
+   * missing. Undo matters as much as the dismissal: a one-way discard of a
+   * producer-grounded finding is a worse affordance than none.
+   */
+  const dismiss = useStrengthenStore((st) => st.dismiss)
+  const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
+  const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
+
   return (
     <SectionShell
       title={COPY.sections.strengthen}
@@ -95,6 +114,34 @@ export function StrengthenTheReasoning({
       count={interventions.length > 0 ? interventions.length : null}
       testId={testId}
     >
+      {/* ⚠ THE UNDO IS NOT OPTIONAL FURNITURE. Dismissing removes the card on
+          the next render (the view model treats `dismissed` as retired), so
+          without this the only feedback for a misclick is a finding silently
+          vanishing. It names what went, so the undo is a choice rather than a
+          guess. */}
+      {undoable ? (
+        <div
+          className={`${typography.panelMeta} flex flex-wrap items-center gap-2 rounded-md bg-panel-hover px-2 py-1 text-text-light`}
+          role="status"
+          data-testid={`${testId}-dismissed-notice`}
+        >
+          <span>
+            {STRENGTHEN_COPY.dismissedNotice}: {undoable.title}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              restoreDismissed(undoable.id)
+              setUndoable(null)
+            }}
+            className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            data-testid={`${testId}-dismissed-undo`}
+          >
+            {STRENGTHEN_COPY.undo}
+          </button>
+        </div>
+      ) : null}
+
       {interventions.length === 0 ? (
         // ⚠ STATES WHAT WAS NOT FOUND, NOT THAT NOTHING IS WRONG. "Your
         // reasoning looks solid" would be a claim nobody measured.
@@ -105,6 +152,9 @@ export function StrengthenTheReasoning({
         <ul className="space-y-3 list-none p-0 m-0">
           {interventions.map((rec) => {
             const grounding = scienceGrounding[rec.id]
+            // `null` for most findings, and that is correct — see
+            // `recommendationMethod.ts`. No placeholder, no default technique.
+            const method = methodForRecommendation(rec.id)
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -140,7 +190,7 @@ export function StrengthenTheReasoning({
                     what they are. */}
                 <p className={`${typography.panelHeader} text-text-header m-0`}>{rec.title}</p>
 
-                {rec.category || grounding ? (
+                {rec.category || grounding || method ? (
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {rec.category ? (
                       <span
@@ -150,6 +200,35 @@ export function StrengthenTheReasoning({
                       >
                         {STRENGTHEN_COPY.severityLabel[rec.category]}
                       </span>
+                    ) : null}
+                    {/* ⭐⭐ THE TECHNIQUE, ON THE FINDING THAT WARRANTS IT.
+                        This is the single clearest expression of "Olumi
+                        recommends techniques, not answers": the seven
+                        science-grounded methods already ship, and until now they
+                        sat in a dropdown with no idea which finding should
+                        trigger them. The chip is a control, not a label — it
+                        opens the method's own prompt with THIS finding as
+                        context, so the technique arrives already pointed at the
+                        thing that warranted it. */}
+                    {method ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openAskOlumi({
+                            context: rec.whyNow || rec.signal,
+                            draft: method.prompt,
+                            label: method.title,
+                            ...(rec.targetId ? { targetId: rec.targetId } : {}),
+                          })
+                        }
+                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-method`}
+                        data-method-id={method.id}
+                        title={method.description}
+                      >
+                        <Lightbulb className="w-3 h-3" aria-hidden={true} />
+                        {method.title}
+                      </button>
                     ) : null}
                     {grounding ? (
                       <span
@@ -223,6 +302,19 @@ export function StrengthenTheReasoning({
                       Show on canvas
                     </button>
                   ) : null}
+                  {/* Sits last and reads quietly: disagreeing is a first-class
+                      move, but it is not the one being recommended. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dismiss(rec.id)
+                      setUndoable({ id: rec.id, title: rec.title })
+                    }}
+                    className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    data-testid={`${testId}-dismiss`}
+                  >
+                    {STRENGTHEN_COPY.notRelevant}
+                  </button>
                 </div>
 
                 {rec.sourceLine ? (
