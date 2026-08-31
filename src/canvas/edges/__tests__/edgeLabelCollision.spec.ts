@@ -20,16 +20,28 @@ describe('resolveLabelCollisionOffsets — E3 label collision avoidance', () => 
     expect(out.get('lower')!.dy).toBeGreaterThanOrEqual(16) // pushed clear
   })
 
-  it('three coincident labels stack deterministically (0, step, 2×step spacing)', () => {
+  // ⚠ REPHRASED 31 Aug 2026, and the rephrasing is the point. This asserted
+  // `0, +step, +2×step` — the DIRECTION the old downward-only loop happened to
+  // take, not the property the resolver owes. The property is: every pair ends
+  // at least Y_THRESHOLD apart, by the smallest displacement that achieves it.
+  // The search is now bidirectional, so three coincident labels resolve to
+  // {0, +step, −step} — one step of travel each instead of two for the last.
+  it('three coincident labels separate by the SMALLEST displacements (0, ±step)', () => {
     const out = resolveLabelCollisionOffsets([
       { id: 'c', x: 0, y: 0 },
       { id: 'a', x: 0, y: 0 },
       { id: 'b', x: 0, y: 0 },
     ])
     const dys = ['a', 'b', 'c'].map((id) => out.get(id)!.dy).sort((x, y) => x - y)
-    expect(dys[0]).toBe(0)
-    expect(dys[1]).toBeGreaterThan(0)
-    expect(dys[2]).toBeGreaterThan(dys[1])
+    // The property: pairwise separation clears the label box on y…
+    for (let i = 0; i < dys.length; i++) {
+      for (let j = i + 1; j < dys.length; j++) {
+        expect(Math.abs(dys[i] - dys[j])).toBeGreaterThanOrEqual(34)
+      }
+    }
+    // …at one STEP of travel each, never two. Written as literals, not as
+    // `STEP`, so the constant and its pin cannot agree with each other.
+    expect(dys).toEqual([-36, 0, 36])
   })
 
   it('is deterministic regardless of input order (every edge computes the same assignment)', () => {
@@ -48,7 +60,7 @@ describe('resolveLabelCollisionOffsets — E3 label collision avoidance', () => 
   it('vertical near-misses outside the y-threshold do not offset', () => {
     const out = resolveLabelCollisionOffsets([
       { id: 'a', x: 0, y: 0 },
-      { id: 'b', x: 0, y: 40 }, // 40 > Y_THRESHOLD 24
+      { id: 'b', x: 0, y: 40 }, // 40 > Y_THRESHOLD 36
     ])
     expect(out.get('b')).toEqual({ dx: 0, dy: 0 })
   })
@@ -63,8 +75,8 @@ describe('resolveLabelCollisionOffsets — E3 label collision avoidance', () => 
 })
 
 describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstacles', () => {
-  // A standard node card ~200×80. The rendered label box is 160×22 (see the
-  // module doc comment), i.e. half-extents 80×11 around the anchor point.
+  // A standard node card ~200×80. The rendered label box is 160×34 (see the
+  // module doc comment), i.e. half-extents 80×17 around the anchor point.
   // CARD is centred on the origin: x spans −100..100, y spans −40..40.
   const CARD = { x: -100, y: -40, width: 200, height: 80 }
 
@@ -72,16 +84,16 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
     const out = resolveLabelCollisionOffsets([{ id: 'a', x: 0, y: 0 }], [CARD])
     const off = out.get('a')!
     expect(off.dx).toBe(0)
-    // Clear below the card: label top edge (anchor + dy − 11) must reach the
-    // card's bottom edge (y = 40), i.e. dy ≥ 51.
-    expect(off.dy).toBeGreaterThanOrEqual(51)
+    // Clear below the card: label top edge (anchor + dy − 17) must reach the
+    // card's bottom edge (y = 40), i.e. dy ≥ 57.
+    expect(off.dy).toBeGreaterThanOrEqual(57)
   })
 
   it('labels clear of every node card are unmoved', () => {
     const out = resolveLabelCollisionOffsets(
       [
         { id: 'far', x: 400, y: 300 },
-        { id: 'below', x: 0, y: 60 }, // label top edge 49 > card bottom 40
+        { id: 'below', x: 0, y: 60 }, // label top edge 43 > card bottom 40
         { id: 'beside', x: 200, y: 0 }, // label left edge 120 > card right 100
       ],
       [CARD],
@@ -102,9 +114,9 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
     const a = out.get('a')!
     const b = out.get('b')!
     // a cleared the card…
-    expect(a.dy).toBeGreaterThanOrEqual(51)
-    // …and the FINAL positions are label-vs-label clear (Y_THRESHOLD 24 at same x)
-    expect(Math.abs(a.dy - (55 + b.dy))).toBeGreaterThanOrEqual(24)
+    expect(a.dy).toBeGreaterThanOrEqual(57)
+    // …and the FINAL positions are label-vs-label clear (Y_THRESHOLD 36 at same x)
+    expect(Math.abs(a.dy - (55 + b.dy))).toBeGreaterThanOrEqual(36)
     // b had to move — the pass accounts for card-displaced labels when placing later ones
     expect(b.dy).toBeGreaterThan(0)
   })
@@ -124,7 +136,11 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
   })
 
   it('empty nodeRects (or omitted) is byte-identical to the pre-E3-part-2 behaviour', () => {
-    // Pinned fixture: the crossing pair from the E3 suite stacks exactly 26px.
+    // Pinned fixture: the crossing pair from the E3 suite is displaced by
+    // exactly one STEP. The number moved 26 → 36 on 31 Aug 2026 when STEP was
+    // derived from the (corrected) label-box height; what this case pins is
+    // that OMITTING nodeRects and passing [] are the same call, which is
+    // independent of the number.
     const pts = [
       { id: 'lower', x: 10, y: 8 },
       { id: 'upper', x: 0, y: 0 },
@@ -133,12 +149,12 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
     const explicitEmpty = resolveLabelCollisionOffsets(pts, [])
     for (const out of [omitted, explicitEmpty]) {
       expect(out.get('upper')).toEqual({ dx: 0, dy: 0 })
-      expect(out.get('lower')).toEqual({ dx: 0, dy: 26 })
+      expect(out.get('lower')).toEqual({ dx: 0, dy: 36 })
     }
   })
 
   it('guard still bounds stacking when a label cannot clear a pathological rect', () => {
-    // A 1000px-tall card cannot be cleared within MAX_STACK (10 × 26 = 260)
+    // A 1000px-tall card cannot be cleared within the displacement budget (260)
     const out = resolveLabelCollisionOffsets(
       [{ id: 'trapped', x: 0, y: 0 }],
       [{ x: -100, y: -500, width: 200, height: 1000 }],
@@ -147,12 +163,110 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
   })
 })
 
+/**
+ * 31 Aug 2026 — the three defects behind the founder's report, each pinned by
+ * a case that REDs on the pristine resolver. Measured first in real Chromium
+ * (`e2e/geometry/edgeLabelOverlap.measure.ts`); these are the unit pins for
+ * the arithmetic underneath, not evidence about the rendered page — jsdom
+ * cannot see geometry (CLAUDE.md trap 3) and this file mounts nothing.
+ */
+describe('resolveLabelCollisionOffsets — 31 Aug 2026 label-overlap defects', () => {
+  it('separates two labels whose 160px boxes overlap on x (the reported overlap)', () => {
+    // The measured case: two edges converging on the goal node, anchors 144px
+    // apart. 144 < 160, so the boxes overlap by 16px — but the old x
+    // threshold was 90, so the pair scored CLEAR and both painted at their
+    // anchors, one over the other's ellipsis.
+    const out = resolveLabelCollisionOffsets([
+      { id: 'left', x: 0, y: 0 },
+      { id: 'right', x: 144, y: 0 },
+    ])
+    const separation = Math.abs(out.get('left')!.dy - out.get('right')!.dy)
+    expect(separation).toBeGreaterThanOrEqual(22) // clears the box on y
+  })
+
+  it('CONTRAST CONTROL: two labels further apart than the box width are NOT displaced', () => {
+    // The discriminating twin of the case above. Without it, "separate more
+    // eagerly" passes by displacing everything, and a threshold of any size
+    // would look correct. 170 > 160 → the boxes genuinely do not meet.
+    const out = resolveLabelCollisionOffsets([
+      { id: 'left', x: 0, y: 0 },
+      { id: 'right', x: 170, y: 0 },
+    ])
+    expect(out.get('left')).toEqual({ dx: 0, dy: 0 })
+    expect(out.get('right')).toEqual({ dx: 0, dy: 0 })
+  })
+
+  it('takes the NEARER clear side of a blocking card, not always downward', () => {
+    // Card spans y 0..200 with the anchor at 30, near its top edge.
+    //   upward   : 30 + dy + 17 ≤ 0   → dy ≤ −47  → −72 (2 steps of 36)
+    //   downward : 30 + dy − 17 ≥ 200 → dy ≥ 187 → +216 (6 steps of 36)
+    // The old downward-only loop walked the full height of the card and left
+    // the label 182px from its own edge, with a leader line that runs beneath
+    // the node layer and is therefore invisible for most of its length.
+    const out = resolveLabelCollisionOffsets(
+      [{ id: 'a', x: 0, y: 30 }],
+      [{ x: -100, y: 0, width: 200, height: 200 }],
+    )
+    expect(out.get('a')!.dy).toBe(-72)
+  })
+
+  it('an unplaceable label stays at its anchor, NOT at the guard ceiling', () => {
+    // No slot inside the displacement budget clears a 1000px-tall card. The
+    // old loop exited
+    // its guard still holding the last value it had stepped to — the MAXIMUM
+    // displacement AND still colliding: measured at 260px on `build-vs-buy`,
+    // which put the label off the bottom of the viewport, joined to its edge
+    // by an unpainted hairline. That is the "detached, no visible edge"
+    // symptom. Staying put is recoverable; being stranded is not.
+    const out = resolveLabelCollisionOffsets(
+      [{ id: 'trapped', x: 0, y: 0 }],
+      [{ x: -100, y: -500, width: 200, height: 1000 }],
+    )
+    expect(out.get('trapped')!.dy).toBe(0)
+  })
+
+  it('when no slot is clean, prefers overlapping a LABEL to hiding under a CARD', () => {
+    // Nodes paint above the edge-label renderer, so a label under a card is
+    // gone; a label over a label is merely crowded. Both are still on screen.
+    //
+    // Cards A (spans y −1000..1) and B (spans y 75..1075) leave exactly one
+    // clear window for a label centre: 18 ≤ cy ≤ 58.
+    //   b (0,−32) resolves first (lower y) and reaches the window at dy +72,
+    //     i.e. cy 40.
+    //   a (0, 0) then finds:
+    //     dy   0 → cy  0 — under card A; b is 40 away, outside the threshold.
+    //     dy +36 → cy 36 — clear of both cards, but 4px from b.
+    //     everything else is under a card (and +72 is under B *and* near b).
+    // So the only choice is "under a card" versus "beside another label".
+    // Weighted, +36 wins. Unweighted the two score equally, dy 0 is reached
+    // first, and the label disappears under card A.
+    const cards = [
+      { x: -100, y: -1000, width: 200, height: 1001 },
+      { x: -100, y: 75, width: 200, height: 1000 },
+    ]
+    const out = resolveLabelCollisionOffsets(
+      [
+        { id: 'a', x: 0, y: 0 },
+        { id: 'b', x: 0, y: -32 },
+      ],
+      cards,
+    )
+    expect(out.get('b')!.dy).toBe(72) // the clean window
+    expect(out.get('a')!.dy).toBe(36) // crowded, but visible
+  })
+})
+
 describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-resolution nudge', () => {
   const rect = (x: number, y: number, width = 200, height = 80) => ({ x, y, width, height })
 
-  /** True when a 160×22 label box centred on (cx, cy) is clear of the rect. */
+  // True when the label box centred on (cx, cy) is clear of the rect. The
+  // half-extents are written as INDEPENDENT literals, never imported from the
+  // module under test — a helper that reads the same constants as the code
+  // agrees with the code by construction and can never contradict it.
+  // 160 × 34: the width cap, and the height at the maximum counter-scale
+  // (measured 33.0 in Chromium; the module rounds its half-extent up to 17).
   const clearOf = (cx: number, cy: number, r: { x: number; y: number; width: number; height: number }) =>
-    cx + 80 <= r.x || cx - 80 >= r.x + r.width || cy + 11 <= r.y || cy - 11 >= r.y + r.height
+    cx + 80 <= r.x || cx - 80 >= r.x + r.width || cy + 17 <= r.y || cy - 17 >= r.y + r.height
 
   // Finding 3 fixture: unequal-height endpoints.
   //  - source (−400, 0) 200×80 → bottom handle (−300, 80)
@@ -160,23 +274,30 @@ describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-res
   //  - handle-midpoint anchor (0, 140) — where the bezier label actually
   //    renders; the node-CENTRE midpoint (0, 160) diverges by
   //    (sourceHeight − targetHeight)/4 = −20.
+  //
+  // ⚠ The two blocker fixtures below were RE-SITED on 31 Aug 2026. They were
+  // placed to sit in the 20px gap between the two candidate anchors using a
+  // ±11 label box; the box is really ±17, so the old sites overlapped BOTH
+  // anchors and the pair stopped discriminating anything. The property is
+  // unchanged — a card over the render anchor is dodged, one over the phantom
+  // anchor is not — and it is the fixture's job to keep that observable.
   const source = rect(-400, 0)
   const target = rect(200, 200, 200, 160)
 
   it('anchors at the handle midpoint: a card over the render anchor is dodged clear', () => {
-    const blocker = rect(-100, 65) // bottom edge 145 — hits the 140 box (129..151), misses the 160 box
+    const blocker = rect(-100, 60) // bottom edge 140 — hits the 140 box (123..157), misses the 160 box (143..177)
     const out = resolvePersistentLabelPlacements(
       [{ id: 'e', sourceRect: source, targetRect: target }],
       [blocker],
     )
     const off = out.get('e')!
     expect(off.dx).toBe(0)
-    expect(off.dy).toBeGreaterThanOrEqual(16) // label top (140 + dy − 11) must pass 145
+    expect(off.dy).toBeGreaterThanOrEqual(17) // label top (140 + dy − 17) must pass 140
     expect(clearOf(0 + off.dx, 140 + off.dy, blocker)).toBe(true)
   })
 
   it('a card over the node-centre midpoint (clear of the render anchor) is NOT dodged', () => {
-    const phantom = rect(-100, 155) // hits the 160 box (149..171), misses the 140 box
+    const phantom = rect(-100, 160) // hits the 160 box (143..177), misses the 140 box (123..157)
     const out = resolvePersistentLabelPlacements(
       [{ id: 'e', sourceRect: source, targetRect: target }],
       [phantom],
@@ -188,7 +309,16 @@ describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-res
     // n1 (0,0) 200×80 (centre (100,40)), n2 (0,40) 200×160 (top handle
     // (100,40)) → anchor (100,60), within 40px of n1's centre → nudge fires
     // perpendicular to the vertical handle direction: dx +20. The (nudged)
-    // anchor sits inside both cards, so the resolver must stack it clear.
+    // anchor sits inside both cards, so the resolver must displace it clear.
+    //
+    // ⚠ REPHRASED 31 Aug 2026 with the bidirectional search. This pinned
+    // `dy >= 151` — downward past n2's bottom edge — which was never the
+    // property, only the direction the old loop could travel. Clearing UPWARD
+    // past n1's top edge costs 78px against 156px, so the resolver now takes
+    // it. The clearance assertions below are the property and are unchanged;
+    // the magnitude assertion is now direction-agnostic and BOUNDED, so it
+    // still bites (a resolver that stopped displacing at all would RED on
+    // `clearOf`, and one that travelled the long way round REDs on the bound).
     const n1 = rect(0, 0)
     const n2 = rect(0, 40, 200, 160)
     const out = resolvePersistentLabelPlacements(
@@ -197,9 +327,13 @@ describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-res
     )
     const off = out.get('e')!
     expect(off.dx).toBe(20) // nudge survives in the total offset
-    expect(off.dy).toBeGreaterThanOrEqual(151) // clears n2's bottom edge (200) from cy 60
     expect(clearOf(100 + off.dx, 60 + off.dy, n1)).toBe(true)
     expect(clearOf(100 + off.dx, 60 + off.dy, n2)).toBe(true)
+    // Clearing n1's top edge (0) from cy 60 needs |dy| ≥ 77 upward; clearing
+    // n2's bottom edge (200) needs ≥ 157 downward. Nearest wins.
+    expect(Math.abs(off.dy)).toBeGreaterThanOrEqual(77)
+    expect(Math.abs(off.dy)).toBeLessThan(157)
+    expect(off.dy).toBeLessThan(0) // the nearer side is up, from this anchor
   })
 
   // The discriminating finding-4 pin. The pins above happen to survive a

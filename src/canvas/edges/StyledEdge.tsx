@@ -1081,15 +1081,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
       {/* E3: hairline leader from the edge midpoint to a displaced label so a
           dodged label still reads as belonging to its edge. SVG sibling of the
-          edge path (EdgeLabelRenderer portals to HTML, so the line lives here). */}
+          edge path (EdgeLabelRenderer portals to HTML, so the line lives here).
+
+          ⭐ 31 Aug 2026 — THIS IS THE ONLY THING THAT SAYS WHICH EDGE A
+          DISPLACED LABEL BELONGS TO, AND IT WAS DRAWN TOO FAINT TO SEE. The
+          founder reported a label "floated detached below the bottom node with
+          no visible edge"; the leader was being drawn, in two senses too
+          quietly to count:
+
+           1. `--border-default` is #EEE6D8 — a pale cream, chosen for panel
+              EDGES against a panel FILL. On the canvas ground it is very
+              nearly the background. It now uses the muted TEXT token, the same
+              one the causal-lens label beside it uses for secondary content:
+              a connector the reader is meant to follow is content, not chrome.
+           2. `strokeWidth={1}` is 1 GRAPH unit, and the canvas sits at zoom
+              0.50 the moment a drafted model is auto-fitted — so the leader
+              rendered at HALF a device pixel exactly when it was needed most.
+              `vector-effect: non-scaling-stroke` is the SVG mechanism for
+              "this width is a screen width", so the leader is 1px at every
+              zoom. This is the same failure canvas TEXT already solves with
+              `--canvas-label-scale`; strokes need their own answer because a
+              counter-scale variable cannot reach a stroke width.
+
+          Neither change moves any geometry, so neither can affect the dodge
+          resolver's assumptions — the trade-off-free half of the fix. */}
       {showLabel && (Math.abs(labelOffsetX) + Math.abs(labelOffsetY)) > 12 && (
         <line
           x1={labelX}
           y1={labelY}
           x2={labelX + labelOffsetX}
           y2={labelY + labelOffsetY}
-          stroke="var(--border-default, #EEE6D8)"
+          stroke="var(--text-light, #6E6B6B)"
           strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
           data-testid="edge-label-leader"
         />
       )}
