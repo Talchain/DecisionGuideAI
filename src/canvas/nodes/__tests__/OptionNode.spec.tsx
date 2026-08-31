@@ -103,7 +103,10 @@ import { useLayoutStore } from '../../layoutStore'
 // possessive-gate tests below pin the shipped predicate and the shipped
 // wording rather than a restatement of either.
 import { selectGoalProbability } from '../../../components/results/utils/selectGoalProbability'
-import { GOAL_ANCHOR_COPY } from '../../../components/results/utils/goalAnchorCopy'
+// COMPARATIVE_COPY is the ratified win-probability wording and its one owner.
+// The density tests below assert against it rather than re-typing the sentence,
+// so a change to the register moves the test with the product.
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 const baseProps = {
   id: 'option-1',
@@ -567,10 +570,100 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    const percentEl = screen.getByText('Came out ahead in 72% of simulated scenarios')
+    // CONVERTED, not deleted (31 Aug 2026 density change). The property this
+    // test pins — no coloured text in the node body — is real and unchanged.
+    // What changed is WHICH element carries the readout: the block is now a
+    // bar and a bare percentage on one line, with the ratified sentence out of
+    // flow for assistive technology. Reading the className off the SENTENCE
+    // now reads the out-of-flow span, so the neutral-colour claim is asserted
+    // against the element a sighted user actually sees.
+    //
+    // Bound by test id, not by text (trap 19): "72%" is a value another
+    // element on a results card could carry.
+    const percentEl = screen.getByTestId('option-win-readout-option-1')
+    expect(percentEl.textContent).toBe('72%')
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
+  })
+
+  // ── Density: bar + percentage on one line, sentence on hover ─────────────
+  //
+  // Paul, 31 Aug 2026: "Saying the same copy on every node is a waste of
+  // space… It should show the bar with the percentage next to it to save
+  // space." The risk the change carries is that the sentence — the only thing
+  // that says what the number MEANS — becomes unreachable for anyone who
+  // cannot hover. These pin BOTH halves: the visible line is short, and the
+  // sentence still exists.
+  // COMPLETE against `NodeDisplayMetadata`, deliberately. The partial literals
+  // used elsewhere in this file are the 27 pre-existing TS2345s the typecheck
+  // ratchet holds a baseline for; a 28th would have failed the gate, and
+  // silencing it with a cast would have added a new untyped mock instead.
+  const mockWinRate72 = () =>
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      influenceProvenance: null,
+      confidence: null,
+      confidenceIsDefaulted: false,
+      confidenceIsProvisional: false,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      achievementProbabilityIsModelledBasis: false,
+      stabilityPercentage: null,
+      winRate: 0.72,
+      isResultsMode: true,
+      predictedOutcome: null,
+      valueOfInformation: null,
+      voiRank: null,
+    })
+
+  it('density: the VISIBLE readout is the bare percentage, and it is hidden from assistive tech', () => {
+    mockWinRate72()
+    renderOption()
+    const percentEl = screen.getByTestId('option-win-readout-option-1')
+    // The sentence must NOT be repeated in the visible line — that repetition
+    // across five option cards is the whole defect being fixed.
+    expect(percentEl.textContent).toBe('72%')
+    // Hidden from assistive tech so the statistic is announced once, in full,
+    // by the sentence below rather than as a number with no referent.
+    expect(percentEl.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('density: the ratified sentence survives as the hover title AND as text for assistive tech', () => {
+    mockWinRate72()
+    renderOption()
+    const expected = COMPARATIVE_COPY.phrase('72%')
+
+    // (a) hover: the row carrying the readout is the element with the title.
+    // Reached FROM the readout rather than by a bare `[title]` sweep, so it
+    // cannot pass on some other titled element elsewhere in the node.
+    const row = screen.getByTestId('option-win-readout-option-1').closest('[title]')
+    expect(row).not.toBeNull()
+    expect(row?.getAttribute('title')).toBe(expected)
+
+    // (b) not-hover: the same sentence is present as text, out of flow, so a
+    // screen-reader user is not left with a bare number. Bound to the element
+    // by its class as well as its text, so moving the sentence back into the
+    // visible line would RED this.
+    const srEl = screen.getByText(expected)
+    expect(srEl.className).toContain('sr-only')
+
+    // Positive control (trap 13): the copy comes from the ratified register,
+    // and this test would be vacuous if that register were empty.
+    expect(expected).toBe('Came out ahead in 72% of simulated scenarios')
+  })
+
+  it('density: the visible number and the sentence report the SAME statistic', () => {
+    // One derivation, two renderings — pinned so a later edit to one call site
+    // cannot leave a card whose bar, number and sentence disagree.
+    mockWinRate72()
+    renderOption()
+    const percent = screen.getByTestId('option-win-readout-option-1').textContent
+    // Not `!== ''`: an empty or null readout would make the assertion below
+    // pass on a sentence the user never sees a number for.
+    expect(percent).toMatch(/^[<>]?\s*[\d.]+%$/)
+    expect(screen.getByText(COMPARATIVE_COPY.phrase(percent as string))).toBeDefined()
   })
 
   // V3: Leading option badge uses text-text-body (WCAG AA contrast on bg-success-light)

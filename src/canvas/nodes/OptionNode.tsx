@@ -1218,6 +1218,28 @@ export const OptionNode = memo((props: NodeProps) => {
     return `[${totalInterventionCount} of ${totalFactorCount}] factors specified`
   }, [isPostAnalysis, totalInterventionCount, totalFactorCount])
 
+  // Win-probability readout, derived ONCE.
+  //
+  // The visible number, the hover text and the text announced to assistive
+  // technology are now three renderings of one statistic, so they are built
+  // from a single `formatWinProbability` call rather than three. Two calls
+  // could not disagree today — the function is pure — but a later change to
+  // one call site and not the others is exactly how a card comes to show a
+  // number its own sentence contradicts.
+  //
+  // `rate` is carried alongside because the bar width needs the raw value and
+  // a non-null `winReadout` does not narrow `displayMetadata.winRate` for the
+  // type checker.
+  const winReadout = useMemo(() => {
+    if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return null
+    const formatted = formatWinProbability(displayMetadata.winRate)
+    return {
+      rate: displayMetadata.winRate,
+      formatted,
+      phrase: COMPARATIVE_COPY.phrase(formatted),
+    }
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate])
+
   return (
     <div
       ref={nodeElRef as React.Ref<HTMLDivElement>}
@@ -1263,20 +1285,55 @@ export const OptionNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Win probability bar (post-analysis, both views) */}
-        {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
+        {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
+            ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
+            same copy on every node is a waste of space… It should show the bar
+            with the percentage next to it to save space." Five option cards
+            each carried the identical ratified sentence and only the number
+            varied, so four fifths of that block was repetition — and on a
+            canvas card the sentence wraps to two or three lines at the
+            legibility floor.
+
+            THE SENTENCE IS NOT DROPPED, because the number alone does not say
+            what it measures. It survives twice:
+              · as the row's `title`, so a pointer user gets it on hover;
+              · as an out-of-flow span, because hover is not available to a
+                keyboard or screen-reader user and a bare "72%" would announce
+                as a quantity with no referent.
+            The bar and the number are hidden from assistive technology so the
+            statistic is announced ONCE, in full, rather than as a number
+            followed by a sentence repeating it.
+
+            The copy is never re-typed here: it comes from
+            `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
+            which is the ratified wording and the one owner of it. */}
+        {winReadout !== null && (
           <div
-            className={`mt-1.5 mb-1`}
+            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            title={winReadout.phrase}
           >
-            <div className={`${typography.nodeLabel} text-text-body`}>
-              {COMPARATIVE_COPY.phrase(formatWinProbability(displayMetadata.winRate))}
-            </div>
-            <div className="h-1 bg-panel-border rounded-full overflow-hidden mt-0.5">
+            {/* `max(4px, N%)` is load-bearing and unchanged: a tiny non-zero
+                win probability must still show a visible sliver rather than
+                round away to nothing. The track is now `flex-1` instead of
+                full-bleed, so the percentage is measured against a shorter
+                track — the floor matters MORE here, not less. */}
+            <div
+              className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"
+              aria-hidden="true"
+            >
               <div
                 className="h-full bg-option rounded-full transition-all duration-300"
-                style={{ width: displayMetadata.winRate > 0 ? `max(4px, ${Math.round(displayMetadata.winRate * 100)}%)` : '0%' }}
+                style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
               />
             </div>
+            <span
+              data-testid={`option-win-readout-${props.id}`}
+              className={`${typography.nodeLabel} text-text-body shrink-0 tabular-nums`}
+              aria-hidden="true"
+            >
+              {winReadout.formatted}
+            </span>
+            <span className={typography.screenReaderOnly}>{winReadout.phrase}</span>
           </div>
         )}
 
