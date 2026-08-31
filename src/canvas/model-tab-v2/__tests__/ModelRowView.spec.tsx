@@ -276,3 +276,38 @@ describe('ModelRowView — the tier switches CONTENT only (design §4.3 rule 1)'
     expect(screen.getByTestId('model-row-v2-f1-provenance').textContent).toBe(plain.prov)
   })
 })
+
+// These are renderer-contract controls, not evidence that the production
+// dispatcher supplies a canonical completion handle (it currently does not).
+describe('ModelRowView — completion and provenance remain authority supplied', () => {
+  it('does not present an optimistic user stamp as confirmed while saving', () => {
+    const optimistic = row({ id: 'pending', primaryValue: '0.85', provenanceSource: 'user' })
+    const { rerender } = render(<ModelRowView row={optimistic} tier="plain"
+      commit={{ phase: 'inflight', from: '0.5', to: '0.85' }} />)
+    expect(screen.getByTestId('model-row-v2-pending-value')).toHaveTextContent('Saving')
+    expect(screen.queryByTestId('model-row-v2-pending-provenance')).toBeNull()
+    rerender(<ModelRowView row={optimistic} tier="plain"
+      commit={{ phase: 'unconfirmed', from: '0.5', to: '0.85', reason: 'Not yet confirmed' }} />)
+    expect(screen.getByTestId('model-row-v2-pending-value')).toHaveTextContent('Previous: 0.5')
+    expect(screen.getByTestId('model-row-v2-pending-value')).toHaveTextContent('Your entry: 0.85')
+    expect(screen.queryByTestId('model-row-v2-pending-provenance')).toBeNull()
+  })
+
+  it('uses an applied handle value/source even when the row still has the old AI projection', () => {
+    render(<ModelRowView tier="plain" row={row({ id: 'applied', primaryValue: '0.5',
+      provenanceSource: 'cee_inference', attention: ['unconfirmed-estimate', 'no-value'] })}
+      commit={{ phase: 'applied', value: '0.85', provenanceSource: 'user_override' }} />)
+    expect(screen.getByTestId('model-row-v2-applied-value')).toHaveTextContent('0.85')
+    expect(screen.getByTestId('model-row-v2-applied-provenance')).toHaveTextContent('User edited')
+    expect(screen.queryByTestId('model-row-v2-applied-attention-unconfirmed-estimate')).toBeNull()
+    expect(screen.queryByTestId('model-row-v2-applied-attention-no-value')).toBeNull()
+  })
+
+  it('shows a refusal without retaining the optimistic provenance stamp', () => {
+    render(<ModelRowView tier="plain" row={row({ id: 'refused', primaryValue: '0.85', provenanceSource: 'user' })}
+      commit={{ phase: 'refused', from: '0.5', attempted: '0.85', reason: 'The value was refused.' }} />)
+    expect(screen.getByTestId('model-row-v2-refused-value')).toHaveTextContent('0.5')
+    expect(screen.getByTestId('model-row-v2-refused-value')).not.toHaveTextContent('0.85')
+    expect(screen.queryByTestId('model-row-v2-refused-provenance')).toBeNull()
+  })
+})
