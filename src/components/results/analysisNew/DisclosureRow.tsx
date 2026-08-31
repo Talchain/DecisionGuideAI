@@ -164,8 +164,15 @@ export function DisclosureRow({
                 >
                   {finding.inspect.map((r) => (
                     <div key={r.label} className="contents">
-                      <dt className={`${typography.panelMeta} text-text-light`}>{r.label}</dt>
-                      <dd className={`${typography.panelMeta} text-text-body`}>{r.value}</dd>
+                      {/* ⚠ MIRRORS `DeeperAnalysis.tsx:110-111`, WHICH ALREADY HAD THIS
+                          AND THIS FILE DID NOT. Both render producer-supplied node
+                          labels and values, which are unbounded and may contain a
+                          token with no break opportunity — and an unbreakable token
+                          in a 278px column gives the whole tab a horizontal
+                          scrollbar. Same content, same risk, one guard: an
+                          asymmetry, not a decision. */}
+                      <dt className={`${typography.panelMeta} text-text-light break-words`}>{r.label}</dt>
+                      <dd className={`${typography.panelMeta} text-text-body break-words min-w-0`}>{r.value}</dd>
                     </div>
                   ))}
                 </dl>
