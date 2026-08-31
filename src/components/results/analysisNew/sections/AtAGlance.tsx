@@ -373,10 +373,17 @@ export function AtAGlance({
           changes what the sentence above means, so a reader who sees one must
           see the other.
 
-          ⚠ AND IT IS SILENT BY DEFAULT. `inputProvenance` is null whenever the
-          producer settled the question for no factor — the majority case on
-          real payloads — and this renders nothing at all in that state. There
-          is no fallback wording, because every available wording is a claim.
+          ⚠ IT DOES NOT GO QUIET WHEN THE PRODUCER DOES. That was the defect:
+          a run whose factor rows the producer left unsettled — the commonest
+          real payload, 9 of the 25 factor-bearing captures in this repo —
+          rendered no line at all, so the share above sat with its basis stated
+          nowhere and read as though something had established it. That run now
+          resolves to the `undetermined` kind and says so.
+
+          ⚠ STILL SILENT WHERE SILENCE IS THE TRUTH. `inputProvenance` is null
+          when there are no factor rows to describe, and this renders nothing
+          at all in that state. There is no fallback wording, because every
+          wording that attributes the figures to somebody is a claim.
 
           ⚠ GATED ON A READING BEING PRESENT. A bare statement of what the
           inputs were, with no conclusion above it to condition, is a caveat

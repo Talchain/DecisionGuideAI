@@ -21,7 +21,10 @@ import { AtAGlance } from '../sections/AtAGlance'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import type { AtAGlance as AtAGlanceModel, GlanceInputProvenance } from '../analysisNewTypes'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
+import { normalizeFactorSensitivity } from '../../useResultsSectionData'
+import { isDefaultedConfidenceFromRaw } from '../../driverConfidenceDisplayPolicy'
 import { genuineDecision, makeData, makeDriver } from './analysisNewFixtures'
+import stagingCapture from '../../../../v5/__tests__/fixtures/v5-analysis-result.staging-real-shape.json'
 
 const PROVENANCE_TESTID = 'analysis-new-glance-input-provenance'
 
@@ -51,13 +54,20 @@ afterEach(() => cleanup())
 // ── THE DERIVATION ──────────────────────────────────────────────────────────
 
 describe('input provenance — the producer settles it, or nothing is claimed', () => {
-  it('is null when the producer asserted nothing either way — the majority live case', () => {
-    // PLoT omits `value_defaulted` on rows whose value came from cee_inference,
-    // i.e. values the product invented. Silence must stay silence.
-    expect(provenanceOf(withDrivers([{}, {}]))).toBeNull()
+  it('⭐ says undetermined when the producer asserted nothing either way', () => {
+    // THE FIX. PLoT omits `value_defaulted` on rows whose value came from
+    // cee_inference, i.e. values the product invented — so this is the
+    // commonest real payload, and it used to be silence. Silence let the share
+    // above stand as though something had established it. The producer having
+    // settled nothing IS the answer to "what does this rest on".
+    expect(provenanceOf(withDrivers([{}, {}]))).toBe('undetermined')
   })
 
-  it('is null when there are no factor rows at all', () => {
+  it('is null ONLY when there are no factor rows at all', () => {
+    // Not a provenance state. `useResultsSectionData` downgrades driversStatus
+    // 'computed' → 'unavailable' whenever the row set is empty, so zero rows
+    // always means the sensitivity feed failed — a transport condition, and
+    // describing it as a provenance finding would be a different lie.
     expect(provenanceOf(withDrivers([]))).toBeNull()
   })
 
@@ -65,9 +75,21 @@ describe('input provenance — the producer settles it, or nothing is claimed', 
     // THE DISCRIMINATING TWIN, and the whole point of the three-state read.
     // Confidence is explicitly not defaulted, but nothing ever denied that the
     // VALUE was defaulted. A boolean `isEstimate` would score this as the
-    // user's figure. It is not; it is unknown.
-    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: false }]))).toBeNull()
-    expect(provenanceOf(withDrivers([{ valueDefaulted: false }]))).toBeNull()
+    // user's figure. It is not; it is unknown — and `undetermined` is the word
+    // for unknown, never a user-authorship claim.
+    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: false }]))).toBe('undetermined')
+    expect(provenanceOf(withDrivers([{ valueDefaulted: false }]))).toBe('undetermined')
+  })
+
+  it('⭐ never says undetermined once the producer has settled a single row', () => {
+    // The other half of the discriminating pair. `undetermined` must be
+    // unreachable the moment any positive evidence exists, or it becomes a
+    // catch-all that quietly outranks a real finding.
+    expect(provenanceOf(withDrivers([{ valueDefaulted: true }, {}]))).not.toBe('undetermined')
+    expect(provenanceOf(withDrivers([{ isDefaultedConfidence: true }]))).not.toBe('undetermined')
+    expect(
+      provenanceOf(withDrivers([{ isDefaultedConfidence: false, valueDefaulted: false }, {}])),
+    ).not.toBe('undetermined')
   })
 
   it('reads a producer TRUE on EITHER field as estimated', () => {
@@ -154,10 +176,82 @@ describe('input provenance — the producer settles it, or nothing is claimed', 
     ).toBe('estimated')
   })
 
-  it('is null on the standing decision fixture, whose producer settled nothing', () => {
-    // Pins that this feature is silent by default on existing fixtures rather
-    // than quietly appearing across the suite.
-    expect(provenanceOf(genuineDecision())).toBeNull()
+  it('reads the standing decision fixture as undetermined, its producer having settled nothing', () => {
+    expect(provenanceOf(genuineDecision())).toBe('undetermined')
+  })
+})
+
+// ── THE WIRE ────────────────────────────────────────────────────────────────
+
+/**
+ * ⭐⭐ BOUND TO REAL PRODUCER BYTES, NOT TO A FIXTURE THIS LANE WROTE.
+ *
+ * CLAUDE.md trap 16-inverse: a fixture you wrote yourself encodes your model of
+ * the producer rather than the producer. Every case above is hand-made, so on
+ * its own the suite could certify a branch the wire can never reach — or miss
+ * that the commonest wire shape lands in it. This case takes an actual captured
+ * staging payload and pushes its factor rows through the SAME two producer
+ * derivations the live hook uses, so the claim "this is what real runs do" is
+ * measured rather than assumed.
+ */
+describe('the branch a real captured payload lands in', () => {
+  // A captured staging analysis result. Its three factor rows carry
+  // `factor_id`, `factor_label`, `sensitivity_score`, `elasticity`,
+  // `direction` and `importance_rank` — and no provenance signal whatsoever:
+  // no `confidence_source`, no `confidence_components`, no `value_defaulted`.
+  const captureRows = (
+    stagingCapture as {
+      blocks: Array<{ enrichment?: { factor_sensitivity?: unknown[] } }>
+    }
+  ).blocks[0].enrichment!.factor_sensitivity!
+
+  /** The live hook's own two derivations, imported rather than re-implemented. */
+  const asDriverItems = (raws: unknown[]) =>
+    raws.map((raw, i) => {
+      const n = normalizeFactorSensitivity(raw, new Map<string, string>())
+      return makeDriver({
+        factorKey: n.factorId || `f_${i}`,
+        factorLabel: n.label,
+        isDefaultedConfidence: isDefaultedConfidenceFromRaw({
+          confidenceSource: n.confidenceSource,
+          samplingStability: n.samplingStability,
+        }),
+        valueDefaulted: n.valueDefaulted,
+      })
+    })
+
+  it('POSITIVE CONTROL — the capture really does carry factor rows', () => {
+    // Without this the case below could pass on an empty array, which is the
+    // vacuity that makes an absence assertion worthless (trap 13).
+    expect(Array.isArray(captureRows)).toBe(true)
+    expect(captureRows.length).toBe(3)
+  })
+
+  it('CONTRAST CONTROL — the derivation can see a provenance flag when one is sent', () => {
+    // Proves the pipeline below is not simply blind. Same code path, one row
+    // carrying the producer's own field values, and it resolves the other way.
+    expect(
+      provenanceOf(
+        makeData({
+          drivers: {
+            drivers: asDriverItems([
+              {
+                factor_id: 'fac_probe',
+                factor_label: 'Probe',
+                confidence_source: 'plot_unified_from_isl_bootstrap',
+                confidence_components: { sampling_stability: 0 },
+              },
+            ]),
+          },
+        }),
+      ),
+    ).toBe('estimated')
+  })
+
+  it('⭐ resolves to undetermined — so the fix is what real runs hit', () => {
+    expect(
+      provenanceOf(makeData({ drivers: { drivers: asDriverItems(captureRows) } })),
+    ).toBe('undetermined')
   })
 })
 
@@ -173,12 +267,25 @@ describe('the sanctioned sentences', () => {
     expect(GLANCE_PROVENANCE_COPY.mixed).toBe("On a mix of your figures and Olumi's estimates")
     expect(GLANCE_PROVENANCE_COPY.user_supplied).toBe('On figures you supplied')
     expect(GLANCE_PROVENANCE_COPY.partly_user_supplied).toBe('Partly on figures you supplied')
+    expect(GLANCE_PROVENANCE_COPY.undetermined).toBe(
+      'On inputs whose source Olumi could not establish',
+    )
   })
 
   it('contains no digit in any kind — the producer supplies a flag, not a proportion', () => {
     for (const sentence of Object.values(GLANCE_PROVENANCE_COPY)) {
       expect(sentence).not.toMatch(/\d/)
     }
+  })
+
+  it('⭐ the undetermined sentence attributes the figures to NOBODY', () => {
+    // The load-bearing property, and the reason this kind may render where the
+    // other five are gated: it reports our own knowledge. The moment it names
+    // the reader as author it becomes the exact claim the module exists to
+    // prevent — and it would then be a claim made on NO evidence at all.
+    const s = GLANCE_PROVENANCE_COPY.undetermined
+    expect(s).not.toMatch(/\byou\b|\byour\b|\byours\b/i)
+    expect(s).not.toMatch(/\bsupplied\b|\bestimated\b/i)
   })
 })
 
@@ -221,9 +328,22 @@ describe('the condition line on screen', () => {
     expect(line).toHaveTextContent("On a mix of your figures and Olumi's estimates")
   })
 
-  it('⭐ renders NOTHING when the provenance is unknown', () => {
+  it('⭐ renders the undetermined sentence beside the share it conditions', () => {
+    // THE SHIPPED BEHAVIOUR. A reader who sees "Ahead in 68% of simulated
+    // futures" now also sees, without interaction, that its basis was never
+    // established. This is the case that used to render nothing.
+    render(<AtAGlance glance={glanceModel('undetermined')} />)
+    const line = screen.getByTestId(PROVENANCE_TESTID)
+    expect(line).toHaveAttribute('data-input-provenance', 'undetermined')
+    expect(line).toHaveTextContent('On inputs whose source Olumi could not establish')
+    expect(screen.getByTestId('analysis-new-glance-win-share')).toBeVisible()
+    expect(line).toBeVisible()
+  })
+
+  it('⭐ renders NOTHING when there is no provenance model at all', () => {
     // The other direction, and the one that matters. No fallback, no hedge, no
-    // element at all — an unknown antecedent is not a quieter claim.
+    // element at all — with no factor rows there is nothing to describe, and a
+    // sentence about a set the producer never returned would be invented.
     render(<AtAGlance glance={glanceModel(null)} />)
     expect(screen.queryByTestId(PROVENANCE_TESTID)).toBeNull()
   })
