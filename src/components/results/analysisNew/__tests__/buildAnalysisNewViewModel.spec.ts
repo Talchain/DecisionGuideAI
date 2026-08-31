@@ -45,7 +45,6 @@ const build = (
   buildAnalysisNewViewModel({
     data,
     recommendations,
-    recommendationCandidateCount: recommendations.length,
     isPreRun: false,
     isRunning: false,
     isStale: false,
@@ -250,16 +249,26 @@ describe('whole-decision VOI (§4) — verdict only, never the number', () => {
 })
 
 describe('interventions (§14, §3B)', () => {
-  it('caps the prioritised list at three and discloses how many there were', () => {
+  /**
+   * ⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND IT WAS NAMED "caps the
+   * prioritised list at three and discloses how many there were". It passed.
+   * Nothing disclosed anything: `candidateCount` had no render consumer
+   * anywhere in the tree, so the second half of that name was a property of
+   * the view model and never of the product — five of eight findings were
+   * unreachable on a measured staging run.
+   *
+   * The preview is now applied at the mount, where the remainder can be
+   * offered, so what this layer owes the section is the WHOLE ordered list.
+   */
+  it('hands the section the full list, in engine order, and never re-ranks it', () => {
     const many = [1, 2, 3, 4, 5].map((n) => rec({ id: `strengthen:r${n}`, priority: n }))
     const vm = build(openStrategicChallenge(), many)
-    expect(vm.strengthen.interventions).toHaveLength(3)
-    expect(vm.strengthen.candidateCount).toBe(5)
-    // The cap preserves the engine's order — it never re-ranks.
     expect(vm.strengthen.interventions.map((r) => r.id)).toEqual([
       'strengthen:r1',
       'strengthen:r2',
       'strengthen:r3',
+      'strengthen:r4',
+      'strengthen:r5',
     ])
   })
 
@@ -271,7 +280,6 @@ describe('interventions (§14, §3B)', () => {
   it('renders NONE rather than manufacturing one when the engine emitted nothing', () => {
     const vm = build(openStrategicChallenge(), [])
     expect(vm.strengthen.interventions).toHaveLength(0)
-    expect(vm.strengthen.candidateCount).toBe(0)
   })
 
   it('attaches a contextual intervention to a finding BY TARGET ID, never by label', () => {

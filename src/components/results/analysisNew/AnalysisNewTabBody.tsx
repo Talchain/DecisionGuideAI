@@ -261,6 +261,7 @@ export function AnalysisNewTabBody({
         <StrengthenTheReasoning
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}
+          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           icon={Wrench}
         />
 

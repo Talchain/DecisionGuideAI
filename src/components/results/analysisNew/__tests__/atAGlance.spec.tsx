@@ -24,7 +24,6 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({
     data,
     recommendations: [],
-    recommendationCandidateCount: 0,
     isPreRun: false,
     isRunning: false,
     isStale: false,
@@ -197,7 +196,6 @@ describe('one signal, one primary surface', () => {
     buildAnalysisNewViewModel({
       data,
       recommendations: [],
-      recommendationCandidateCount: 0,
       isPreRun: false,
       isRunning: false,
       isStale: false,
@@ -293,7 +291,6 @@ describe('the flip gate honours the producer\'s own verdict on the row', () => {
         recommendation: { flipThresholdsStatus: 'computed' as never, flipThresholds: [row] as never },
       }),
       recommendations: [],
-      recommendationCandidateCount: 0,
       isPreRun: false,
       isRunning: false,
       isStale: false,

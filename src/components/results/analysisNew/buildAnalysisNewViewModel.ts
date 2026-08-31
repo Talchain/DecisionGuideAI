@@ -65,8 +65,24 @@ import type {
 
 /** §2 of the brief: "a very small number of high-value insights". */
 const KEY_INSIGHT_CAP = 4
-/** §2: "1–3 prioritised reasoning interventions". */
-const STRENGTHEN_CAP = 3
+/**
+ * §2: "1–3 prioritised reasoning interventions" — which is a statement about
+ * what is PROMINENT, not about what exists.
+ *
+ * ⚠ IT WAS A DATA CAP UNTIL NOW, AND THAT MADE THE SECTION LIE BY OMISSION.
+ * Slicing here meant the component never received the rest, so it could not
+ * offer them however it wished: on a measured staging run the engine emitted
+ * EIGHT active recommendations and five were unreachable — not collapsed, not
+ * summarised, absent. Every sibling section does the opposite
+ * (`KEY_INSIGHT_PREVIEW`, `DRIVER_PREVIEW`, `UNCERTAINTY_PREVIEW` are all
+ * component previews over a full list) and each therefore carries a "Show N
+ * more". Strengthen is the section the experiment exists to test, and it was
+ * the only one that hid its tail.
+ *
+ * The name now says which question it answers (trap 21): this is a PREVIEW
+ * length applied at the mount, never a bound on the engine's output.
+ */
+const STRENGTHEN_PREVIEW = 3
 /** Level-1 rows before "Show more". */
 const KEY_INSIGHT_PREVIEW = 3
 const DRIVER_PREVIEW = 3
@@ -78,8 +94,6 @@ export interface AnalysisNewViewModelInputs {
   data: ResultsSectionDataReturn
   /** Engine output, already lifecycle-filtered by the hook. */
   recommendations: Recommendation[]
-  /** Total active engine output BEFORE the cap, for honest disclosure. */
-  recommendationCandidateCount: number
   isPreRun: boolean
   isRunning: boolean
   /** The displayed report predates the current model (freshness only). */
@@ -1034,7 +1048,7 @@ function dedupeAgainstGlance(
 export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
-  const { data, recommendations, recommendationCandidateCount, isStale } = inputs
+  const { data, recommendations, isStale } = inputs
   const glance = buildAtAGlance(data, recommendations)
 
   /**
@@ -1064,8 +1078,9 @@ export function buildAnalysisNewViewModel(
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
     strengthen: {
-      interventions: recommendations.slice(0, STRENGTHEN_CAP),
-      candidateCount: recommendationCandidateCount,
+      // The FULL ordered list. The preview length is applied at the mount so
+      // the section can disclose, and reach, its own tail.
+      interventions: recommendations,
       scienceGrounding: inputs.scienceGrounding ?? {},
     },
     drivers: preRun
@@ -1094,7 +1109,7 @@ export function buildAnalysisNewViewModel(
 export const ANALYSIS_NEW_LIMITS = {
   KEY_INSIGHT_CAP,
   KEY_INSIGHT_PREVIEW,
-  STRENGTHEN_CAP,
+  STRENGTHEN_PREVIEW,
   DRIVER_PREVIEW,
   UNCERTAINTY_PREVIEW,
 } as const

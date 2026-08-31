@@ -95,7 +95,6 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({
     data,
     recommendations: [],
-    recommendationCandidateCount: 0,
     isPreRun: false,
     isRunning: false,
     isStale: false,
