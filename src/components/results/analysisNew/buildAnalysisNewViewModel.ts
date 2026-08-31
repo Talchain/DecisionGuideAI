@@ -37,6 +37,13 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
+import {
+  ASSUMED_STRENGTH_TITLE,
+  assumedStrengthAsk,
+  assumedStrengthLead,
+  assumedStrengthOthers,
+  assumedStrengthWhy,
+} from '../strengthElicitation/assumedStrengthCopy'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
@@ -628,6 +635,59 @@ function buildUncertainty(
   //    section that says what to DO about the uncertainty, and with
   //    `UNCERTAINTY_PREVIEW` at three it must not sit behind "Show more".
   if (data.voiRanking) findings.push(voiFinding(data.voiRanking, recommendations))
+
+  /**
+   * ⭐⭐ THE ONE ASSUMED RELATIONSHIP WORTH PINNING DOWN — computed for every
+   * run, rendered only on the OLD Analysis tab, and dark here until now.
+   *
+   * MEASURED LIVE on the deployed build `a75cdf8a`, both tabs, one guest
+   * session, one run: the old tab carried "Olumi estimated how strongly X
+   * affects Y, but your team has not confirmed it" and what changes in the runs
+   * where that link came out weak. This surface carried none of it —
+   * `assumedStrength` had ZERO references across the whole `analysisNew` tree
+   * (contrast control: `data.drivers`, 8).
+   *
+   * It is the single most reasoning-shaped thing the producer emits: it names
+   * an assumption nobody set, says which option wins when it is wrong, and how
+   * often. On the surface that exists to improve reasoning, that cannot be the
+   * one thing missing.
+   *
+   * ⚠ NOTHING HERE IS AUTHORED. Every sentence comes from
+   * `strengthElicitation/assumedStrengthCopy`, whose claims are held
+   * mechanically by its own spec — the same module the old tab renders, so the
+   * two surfaces cannot drift into saying different things about one fact.
+   *
+   * ⚠ NO INSPECT ROWS, DELIBERATELY. `assumedStrengthWhy` already states the
+   * measured rate in its own sentence, and this tab has a census spec whose
+   * whole purpose is catching one claim stated twice.
+   *
+   * ⚠ NO INTERVENTION ATTACHED, AND THAT IS NOT AN OVERSIGHT. The old tab's
+   * action ("Ask Olumi to set this strength") dispatches through a route this
+   * surface does not own, and `ContextualIntervention.recommendationId` is
+   * looked up against the engine's recommendations — a synthetic id would give
+   * a button that no-ops. A control that cannot act is an advertisement, not an
+   * affordance. The edge is reachable via canvas focus below; wiring the ask is
+   * a separate, honest step.
+   */
+  const assumed = data.assumedStrength?.selected ?? null
+  if (assumed) {
+    const others = assumedStrengthOthers(data.assumedStrength.assumedFragileCount)
+    findings.push({
+      // Identity carries the edge, so a test binds to THIS relationship rather
+      // than to whichever row happens to sit first.
+      id: `uncertainty:assumed-strength:${assumed.edgeId}`,
+      headline: ASSUMED_STRENGTH_TITLE,
+      implication: assumedStrengthLead(assumed),
+      detail: [assumedStrengthWhy(assumed), others, assumedStrengthAsk(assumed)]
+        .filter(Boolean)
+        .join(' '),
+      groundedIn: 'the unconfirmed-strength check on the fragile relationships',
+      // `focusModelTarget` resolves against nodes AND edges, so an edge id is a
+      // live target here — verified at `focusHelpers.ts:183-205`.
+      targetId: assumed.edgeId,
+      inspect: [],
+    })
+  }
 
   // 1. Consequential uncertainties first — these carry a threshold or an
   //    E-value, i.e. they are quantified, not merely noted.

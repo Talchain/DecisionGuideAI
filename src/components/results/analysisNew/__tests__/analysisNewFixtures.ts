@@ -66,6 +66,14 @@ export interface MakeDataOptions {
   decisionVoi?: ResultsSectionDataReturn['decisionVoi']
   sensitivityReference?: ResultsSectionDataReturn['sensitivityReference']
   voiRanking?: ResultsSectionDataReturn['voiRanking']
+  /**
+   * ⚠ ADDED BECAUSE ITS ABSENCE WAS A SILENT NO-OP. `assumedStrength` was
+   * hardcoded to `selected: null` below and had no key here, so a test passing
+   * an override got no error and no effect — the extra property was simply
+   * dropped. A fixture that ignores what it is handed cannot fail a build that
+   * ignores the same thing.
+   */
+  assumedStrength?: ResultsSectionDataReturn['assumedStrength']
 }
 
 export function makeData(opts: MakeDataOptions = {}): ResultsSectionDataReturn {
@@ -119,7 +127,7 @@ export function makeData(opts: MakeDataOptions = {}): ResultsSectionDataReturn {
     sensitivityReference: opts.sensitivityReference ?? null,
     voiRanking: opts.voiRanking ?? null,
     decisionVoi: opts.decisionVoi ?? 'not_computed',
-    assumedStrength: { selected: null, refusalReason: null, assumedFragileCount: 0 },
+    assumedStrength: opts.assumedStrength ?? { selected: null, refusalReason: null, assumedFragileCount: 0 },
   } as ResultsSectionDataReturn
 }
 
