@@ -43,7 +43,7 @@
  * would no longer be about information architecture.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
@@ -58,7 +58,7 @@ import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
-import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -134,6 +134,13 @@ export function StrengthenTheReasoning({
    * store actually holds this recommendation and can retire it.
    */
   const strengthenRecords = useStrengthenStore((st) => st.records)
+  /**
+   * ⚠ SUBSCRIBED EVEN THOUGH `selectHistory` DOES NOT READ IT TODAY. Its
+   * signature asks for both halves of the state; handing it `[]` for the half
+   * it currently ignores would work until the day it stops ignoring it, and
+   * then fail silently (trap 12). Cheap to be correct now.
+   */
+  const priorityOrder = useStrengthenStore((st) => st.priorityOrder)
   const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
 
   /**
@@ -160,6 +167,24 @@ export function StrengthenTheReasoning({
     if (noticeTimer.current) clearTimeout(noticeTimer.current)
     setUndoable(null)
   }, [])
+
+  /**
+   * ⭐⭐ THE TRAIL. "A living representation of the team's reasoning" implies
+   * history: what was raised, what was worked through, what was set aside and
+   * why. That trail is RECORDED — the store stamps every transition, and
+   * `addressed`/`restored` carry a `whatChanged` — and the legacy Strengthen
+   * panel renders it. This surface did not, so consolidating onto it would
+   * have silently dropped the one part of the model that is not a snapshot.
+   *
+   * ⚠ AND THE RESTORE IS NOT DECORATION. The undo notice above expires after
+   * `NOTICE_MS`; before this, a dismissal a minute old was unreachable and
+   * permanent. A record you cannot act on is an archive, not a trail.
+   */
+  const retired = useMemo(
+    () => selectHistory({ records: strengthenRecords, priorityOrder }),
+    [strengthenRecords, priorityOrder],
+  )
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   /**
    * ⚠ THE COUNT ON THE COLLAPSED HEADER IS THE FULL LIST, NOT THE PREVIEW.
@@ -448,6 +473,70 @@ export function StrengthenTheReasoning({
         >
           {expanded ? COPY.disclosure.collapse : COPY.disclosure.moreStrengthen(hidden)}
         </button>
+      ) : null}
+
+      {/* ⚠ OFFERED ONLY WHEN THERE IS A TRAIL. A toggle that opens onto
+          "Nothing addressed yet" is furniture advertising an empty room — the
+          legacy panel can afford it because it is always mounted; a section
+          that is itself collapsible cannot. */}
+      {retired.length > 0 ? (
+        <div className="mt-2 border-t border-panel-border pt-2">
+          <button
+            type="button"
+            aria-expanded={historyOpen}
+            onClick={() => setHistoryOpen((v) => !v)}
+            className={`${typography.panelMeta} text-text-light hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-history-toggle`}
+          >
+            {STRENGTHEN_COPY.historyToggle} ({retired.length})
+          </button>
+
+          {historyOpen ? (
+            <ul
+              className="mt-1.5 space-y-1.5 list-none p-0 m-0"
+              data-testid={`${testId}-history`}
+            >
+              {retired.map((record) => {
+                const last = record.history[record.history.length - 1]
+                return (
+                  <li
+                    key={record.id}
+                    className="flex items-start gap-2"
+                    data-testid={`${testId}-history-item`}
+                    data-recommendation-id={record.id}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className={`${typography.panelBody} text-text-body m-0`}>
+                        {record.snapshot.title}
+                      </p>
+                      {/* ⚠ THE PRODUCER'S OWN `whatChanged` WHEN THERE IS ONE,
+                          and a bare statement of the outcome when there is not.
+                          Never "Addressed: undefined", and never a sentence
+                          about a change nobody recorded. */}
+                      <p className={`${typography.panelMeta} text-text-light m-0`}>
+                        {record.status === 'dismissed'
+                          ? STRENGTHEN_COPY.historyDismissed
+                          : last?.whatChanged
+                            ? `${STRENGTHEN_COPY.historyAddressed}: ${last.whatChanged}.`
+                            : `${STRENGTHEN_COPY.historyAddressed}.`}
+                      </p>
+                    </div>
+                    {record.status === 'dismissed' ? (
+                      <button
+                        type="button"
+                        onClick={() => restoreDismissed(record.id)}
+                        className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        data-testid={`${testId}-history-restore`}
+                      >
+                        {STRENGTHEN_COPY.undo}
+                      </button>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
     </SectionShell>
   )

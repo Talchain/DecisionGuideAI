@@ -33,10 +33,17 @@ vi.mock('../nodeMarks', async (orig) => ({
 /** Records the component sees. Mutated per test. */
 let records: Record<string, unknown> = {}
 const dismiss = vi.fn()
+const restoreDismissed = vi.fn()
 
-vi.mock('../../../../canvas/stores/strengthenStore', () => ({
+/**
+ * ⚠ `selectHistory` IS NOT MOCKED. It is the real, exported store selector —
+ * mocking it would leave these tests agreeing with a stub about which records
+ * count as retired, which is the one thing they exist to check.
+ */
+vi.mock('../../../../canvas/stores/strengthenStore', async (orig) => ({
+  ...(await orig<typeof import('../../../../canvas/stores/strengthenStore')>()),
   useStrengthenStore: (sel: (s: unknown) => unknown) =>
-    sel({ records, dismiss, restoreDismissed: vi.fn() }),
+    sel({ records, priorityOrder: Object.keys(records), dismiss, restoreDismissed }),
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -63,6 +70,25 @@ const renderOpen = (ui: React.ReactElement) => {
 beforeEach(() => {
   records = {}
   dismiss.mockClear()
+  restoreDismissed.mockClear()
+})
+
+/** A retired record, shaped as the store writes it. */
+const retiredRecord = (
+  id: string,
+  title: string,
+  status: 'dismissed' | 'addressed',
+  whatChanged?: string,
+) => ({
+  id,
+  status,
+  snapshot: { id, title },
+  analysisHash: null,
+  isStale: false,
+  history: [
+    { at: 1, event: 'recommended' as const },
+    { at: 2, event: status, ...(whatChanged ? { whatChanged } : {}) },
+  ],
 })
 
 describe('the dismissal is offered only when it can actually act', () => {
@@ -181,5 +207,66 @@ describe('the preview discloses its remainder, and the remainder is reachable', 
     renderOpen(<StrengthenTheReasoning interventions={five.slice(0, 3)} preview={3} />)
     expect(shownIds()).toEqual(['strengthen:r1', 'strengthen:r2', 'strengthen:r3'])
     expect(screen.queryByTestId('analysis-new-strengthen-show-more')).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ THE TRAIL. "A living representation of the team's reasoning" implies a
+ * history — what was raised, what was worked through, what was set aside and
+ * why. The store records all of it and the legacy panel renders it; this
+ * surface rendered none, so consolidating onto it would have dropped the only
+ * part of the picture that is not a snapshot.
+ */
+describe('the reasoning trail', () => {
+  it('is not offered at all when nothing has been retired', () => {
+    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
+    expect(screen.queryByTestId('analysis-new-strengthen-history-toggle')).toBeNull()
+  })
+
+  it('lists what was set aside and what was addressed, each saying which', () => {
+    records = {
+      'strengthen:gone': retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+      'strengthen:done': retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
+    }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
+    const rows = screen.getAllByTestId('analysis-new-strengthen-history-item')
+    // Bound by identity, not by position or count.
+    expect(rows.map((r) => r.getAttribute('data-recommendation-id')).sort()).toEqual([
+      'strengthen:done',
+      'strengthen:gone',
+    ])
+    expect(screen.getByTestId('analysis-new-strengthen-history')).toHaveTextContent(
+      'Set aside as not relevant.',
+    )
+    // The producer's own `whatChanged` rides through — never "Addressed: undefined".
+    expect(screen.getByTestId('analysis-new-strengthen-history')).toHaveTextContent(
+      'Addressed: added a downside case.',
+    )
+  })
+
+  /**
+   * ⚠ THE DISCRIMINATING PAIR. Restore must be offered on the row it can act on
+   * and withheld on the one it cannot — a control rendered on both would pass
+   * any single-direction assertion while advertising an action that no-ops on
+   * an addressed record.
+   */
+  it('offers restore on a set-aside row, and only there', () => {
+    records = {
+      'strengthen:gone': retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+      'strengthen:done': retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
+    }
+    renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
+
+    const restores = screen.getAllByTestId('analysis-new-strengthen-history-restore')
+    expect(restores).toHaveLength(1)
+    const owner = restores[0].closest('[data-recommendation-id]')
+    expect(owner?.getAttribute('data-recommendation-id')).toBe('strengthen:gone')
+
+    fireEvent.click(restores[0])
+    expect(restoreDismissed).toHaveBeenCalledWith('strengthen:gone')
   })
 })

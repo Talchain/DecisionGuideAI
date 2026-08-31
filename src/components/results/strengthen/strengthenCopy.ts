@@ -16,6 +16,13 @@ export const STRENGTHEN_COPY = {
   historyToggle: 'Show addressed and dismissed',
   historyHeading: 'Addressed or dismissed', // (spec)
   historyEmpty: 'Nothing addressed yet.', // (spec)
+  /**
+   * Per-row outcome lines. NAMED APART from `historyHeading` above, which is a
+   * heading over a mixed list: a row states which of the two happened to THAT
+   * recommendation, and a heading cannot do that for it.
+   */
+  historyDismissed: 'Set aside as not relevant.',
+  historyAddressed: 'Addressed',
   empty: 'No recommendations need attention right now.', // (spec)
   staleLabel: 'From your last completed analysis',
   workThrough: 'Work through this with Olumi', // (spec — ask icon-button title + aria-label)
