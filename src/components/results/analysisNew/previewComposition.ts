@@ -83,6 +83,31 @@ export interface PreviewPlan {
   promotedIds: string[]
 }
 
+/**
+ * Kinds that may never be PROMOTED into the preview.
+ *
+ * ⚠⚠ FOUND BY DRIVING THE DEPLOYED BUILD, not by reasoning about the rule — and
+ * it is the reason the rule gets driven rather than argued about.
+ *
+ * On a real completed run the preview came back as `[Define success · Narrow
+ * framing · Record the decision]`, with a SECOND unaddressed cognitive bias
+ * ("Overconfidence") pushed below the fold to make room. The rule worked
+ * exactly as written: `commit` was a kind the head did not have, so it was
+ * surfaced.
+ *
+ * But `commit` — "Record the decision and what would trigger a rethink" — is
+ * not a kind of thinking to DO. It is what you do when the thinking is
+ * finished, and the engine ranks it last (priority 200) for precisely that
+ * reason. Promoting it over an open finding is the panel advising a team to
+ * close a decision while two named biases in their own reasoning sit unread.
+ * That is the opposite of what this surface is for.
+ *
+ * ⚠ EXCLUDED FROM PROMOTION ONLY. When the engine's own ordering already places
+ * it in the preview it stays exactly where it is: this rule never removes what
+ * the ranking earned, it only declines to advance this one kind past a finding.
+ */
+const TERMINAL_KINDS: readonly HelpType[] = ['commit']
+
 /** Distinct `helpType`s across a list, in first-appearance order. */
 function kindsOf(recs: readonly Recommendation[]): HelpType[] {
   const seen: HelpType[] = []
@@ -139,7 +164,9 @@ export function planPreview(
   for (let pass = 0; pass < previewSize; pass++) {
     const headKinds = kindsOf(head)
     // The highest-ranked finding below the fold whose kind is missing above it.
-    const promoteIndex = remainingTail.findIndex((rec) => !headKinds.includes(rec.helpType))
+    const promoteIndex = remainingTail.findIndex(
+      (rec) => !headKinds.includes(rec.helpType) && !TERMINAL_KINDS.includes(rec.helpType),
+    )
     if (promoteIndex === -1) break
 
     // Displace the LOWEST-RANKED row whose kind is already represented more

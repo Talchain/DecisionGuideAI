@@ -167,6 +167,45 @@ describe('it does nothing when nothing needs doing', () => {
     expect(ids(plan.ordered)).toHaveLength(4)
   })
 
+  /**
+   * ⚠⚠ THE CASE THE DEPLOYED BUILD TAUGHT ME. On a real run the preview read
+   * `[Define success · Narrow framing · Record the decision]` and pushed a
+   * SECOND unaddressed cognitive bias below the fold — because `commit` was a
+   * kind the head did not have. Correct by the rule as written, and wrong for
+   * the product: `commit` is what you do when the thinking is DONE.
+   */
+  it('never promotes the terminal "record the decision" move over an open finding', () => {
+    const plan = planPreview(
+      [
+        rec('strengthen:success-measure', 'clarify'),
+        rec('strengthen:phase3:narrow', 'challenge'),
+        rec('strengthen:phase3:overconfidence', 'challenge'),
+        rec('strengthen:commit', 'commit'),
+      ],
+      3,
+    )
+    // The second bias keeps its slot; commit stays where the engine ranked it.
+    expect(ids(plan.ordered).slice(0, 3)).toEqual([
+      'strengthen:success-measure',
+      'strengthen:phase3:narrow',
+      'strengthen:phase3:overconfidence',
+    ])
+    expect(plan.promotedIds).toEqual([])
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN. Commit is barred from being PROMOTED, never
+   * removed — without this the exclusion could quietly become a demotion.
+   */
+  it('leaves commit alone when the engine’s own ordering already shows it', () => {
+    const plan = planPreview(
+      [rec('a', 'clarify'), rec('b', 'commit'), rec('c', 'clarify'), rec('d', 'clarify')],
+      3,
+    )
+    expect(ids(plan.ordered).slice(0, 3)).toEqual(['a', 'b', 'c'])
+    expect(plan.promotedIds).toEqual([])
+  })
+
   it('leaves a preview alone when every visible row is already a distinct kind', () => {
     const plan = planPreview(
       [rec('a', 'clarify'), rec('b', 'challenge'), rec('c', 'broaden'), rec('d', 'clarify')],
