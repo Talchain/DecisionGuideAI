@@ -58,6 +58,7 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     // the engine had no way to tell a producer pre-mortem from a producer
     // assumption check and minted `clarify` for both.
     ...(item.signal_code ? { signalCode: item.signal_code } : {}),
+    ...(item.coaching_kind ? { coachingKind: item.coaching_kind } : {}),
     targetIds: item.target_object?.id ? [item.target_object.id] : [],
     ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
   }

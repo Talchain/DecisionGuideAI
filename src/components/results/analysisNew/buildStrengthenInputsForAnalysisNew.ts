@@ -35,6 +35,7 @@
 import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
 import { adaptivePriorityFromStage } from '../strengthen/StrengthenContainer'
 import { toStrengthenPhase3Item } from '../strengthen/buildRecommendations'
+import { mergeBiasFindingTypes } from '../strengthen/biasTypesFromGuidance'
 import type { StrengthenInputs } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
@@ -55,6 +56,7 @@ export function buildStrengthenInputsForAnalysisNew({
   currentStage,
 }: StrengthenInputSources): StrengthenInputs {
   const fragile = (data.confidence.challengeFragileEdges ?? []) as Array<Record<string, unknown>>
+  const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
   return {
     goalThreshold: data.recommendation.goalThreshold ?? null,
     analysisComplete: data.recommendation.analysisStatus === 'computed',
@@ -91,8 +93,13 @@ export function buildStrengthenInputsForAnalysisNew({
       level: data.confidence.robustnessLevel ?? null,
     },
     // Producer-owned bias findings only — never local option counting.
-    biasFindingTypes: (biasSignals ?? []).map((b) => b.type),
+    // ⭐ THE UNION OF BOTH PRODUCER CHANNELS. Measured on deployed `cffe418d`:
+    // `draftCoaching` is NULL on the re-draft path, so this list was empty and
+    // the one CREATIVE trigger could not fire — while the producer's own
+    // "Narrow framing" card sat in the phase-3 channel, rendered as a row.
+    // See `biasTypesFromGuidance.ts`.
+    biasFindingTypes: mergeBiasFindingTypes(biasSignals, phase3Items),
     adaptivePriority: adaptivePriorityFromStage(currentStage),
-    phase3Items: guidanceItems.map(toStrengthenPhase3Item),
+    phase3Items,
   }
 }

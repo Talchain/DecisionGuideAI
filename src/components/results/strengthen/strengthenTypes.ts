@@ -146,6 +146,15 @@ export interface StrengthenPhase3Item {
    * vocabulary, never allowlisted, never rendered as user copy (data-* only).
    */
   signalCode?: string
+  /**
+   * The producer's `coaching_kind` VERBATIM ('assumption_check',
+   * 'calibration_prompt', 'strengthen', 'bias_signal'); absent otherwise.
+   *
+   * ⭐ 'bias_signal' is load-bearing: it is the only structural marker that a
+   * finding is about a COGNITIVE BIAS in the reasoning, and the engine's one
+   * creative trigger depends on being able to see one.
+   */
+  coachingKind?: string
   targetIds: string[]
   /**
    * The producer's 0.19.0 `priority_rank` VERBATIM (ascending display
