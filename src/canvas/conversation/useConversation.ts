@@ -4080,6 +4080,14 @@ export function useConversation(): UseConversationReturn {
             systemEvent?.type === 'factor_value_edit'
           ) {
             resolveInterruptedOptimisticFactorEdit(opts.optimisticFactorEdit)
+            // The transcript half is above; this is the LEDGER half. An abort
+            // after a response is not a resolution, and without this write the
+            // attempt sits `pending` for the life of the page — which a
+            // consumer cannot tell from "still coming".
+            markModelEditUnresolved(
+              opts.optimisticFactorEdit.attemptId,
+              'The turn was interrupted before the change settled.',
+            )
           }
           return
         }
@@ -4108,6 +4116,21 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             carriedGraph: resultCarriesDraftGraph(v5Result),
           })
+          // ⚠ THE FENCE'S JUSTIFICATION FOR WITHHOLDING THE TRANSCRIPT
+          // RESOLUTION DOES NOT EXTEND TO THIS. That call is withheld because
+          // `optimisticFactorEditStillStands` reads the LIVE canvas and would
+          // emit a sentence about the departed scenario's factor into the new
+          // scenario's transcript — the exact bridge the fence exists to stop.
+          // `markModelEditUnresolved` writes only the module ledger, keyed by
+          // the attempt's own id: it emits no sentence, reads no canvas, and
+          // cannot bridge two scenarios' authority. Leaving the attempt
+          // `pending` is not neutrality — it is a permanently locked row.
+          if (opts.optimisticFactorEdit && systemEvent?.type === 'factor_value_edit') {
+            markModelEditUnresolved(
+              opts.optimisticFactorEdit.attemptId,
+              'The model moved on before this change settled.',
+            )
+          }
           return
         }
 
@@ -4172,6 +4195,33 @@ export function useConversation(): UseConversationReturn {
         }
 
         const optimisticEdit = opts.optimisticFactorEdit
+        // ⚠ A SUPERSEDED TURN SKIPS THE ENTIRE BLOCK BELOW, and the ledger has
+        // to hear about it. `activeV5TurnIdRef` is stamped at EVERY dispatch of
+        // every kind, and a user send PREEMPTS an in-flight system turn
+        // (`isUserPreempt` → `abortRef.current?.abort()`), so "edit a factor,
+        // then type a message" is an ORDINARY sequence that lands here. Without
+        // this write the attempt is `pending` for the life of the page.
+        //
+        // ⚠ UNPINNED, AND DISCLOSED RATHER THAN CLAIMED EQUIVALENT. Deleting
+        // this write leaves the suite GREEN (43/43). The reason appears to be
+        // that a preempt ABORTS the in-flight turn, so that turn lands on one
+        // of the two abort exits above — both of which now write — before it
+        // can reach this check. I could not construct a driver that stamps a
+        // newer turn id WITHOUT aborting the older one, so I cannot show this
+        // branch is reachable. That is not a demonstration that it is
+        // unreachable, and an equivalent mutant must be demonstrated, never
+        // asserted (trap 13c) — so the guard stays as cheap defence in depth
+        // and this comment states its evidential status honestly.
+        if (
+          optimisticEdit &&
+          systemEvent?.type === 'factor_value_edit' &&
+          activeV5TurnIdRef.current !== turnClientId
+        ) {
+          markModelEditUnresolved(
+            optimisticEdit.attemptId,
+            'A newer turn took over before this change settled.',
+          )
+        }
         if (
           optimisticEdit &&
           systemEvent?.type === 'factor_value_edit' &&

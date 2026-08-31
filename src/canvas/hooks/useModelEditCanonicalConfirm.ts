@@ -40,14 +40,13 @@
  *   issued after the receipt, so the ordering guard admits it by construction.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * BOUNDED, AND WHY THE BOUND IS PER ATTEMPT
+ * BOUNDED, AND THE BOUND IS A REAL SCHEDULE
  * ─────────────────────────────────────────────────────────────────────────────
- * The effect re-runs on every ledger change, so an unbounded trigger could spin.
- * The bound is a per-attempt read count: an attempt is worth at most
- * `MAX_CONFIRM_READS` reads, and one read serves every attempt outstanding at
- * the moment it is issued. When a read settles them, `hasAttemptsAwaitingCanonical`
- * goes false and the effect stops asking. An attempt whose reads all fail stays
- * `receipted` — honest, and never a false claim in either direction.
+ * One read serves every attempt outstanding when it is issued, and the loop
+ * stops the moment nothing is awaiting — so the common case costs exactly one
+ * request. A non-`graph` answer RETRIES on the measured write-back schedule
+ * (see `CONFIRM_READ_DELAYS_MS`); an exhausted budget leaves the attempt in its
+ * honest open phase and is never a verdict in either direction.
  *
  * ⚠ IDENTITY IS READ AT REQUEST TIME, NEVER CAPTURED AT RENDER TIME — the same
  * discipline and the same accessor as `useServerGraphHydration`, for the same
@@ -61,19 +60,48 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { logger } from '../../lib/logger'
+import { ABSENT_GRAPH_RETRY_DELAYS_MS, waitForRetry } from '../hydrate/absentGraphRetry'
 import {
   getModelEditCompletionVersion,
   hasAttemptsAwaitingCanonical,
   markCanonicalReadIssued,
-  modelEditAttemptIdsAwaitingCanonical,
   settleModelEditAttemptsFromCanonicalGraph,
   subscribeModelEditCompletion,
 } from './modelEditCompletion'
 
-/** Reads spent on any one attempt before it is left in its honest open phase. */
-export const MAX_CONFIRM_READS = 2
+/**
+ * ⚠ THE SAME SCHEDULE `absentGraphRetry` DERIVED, AND FOR THE SAME REASON.
+ *
+ * The first cut spent ONE read and called a budget of 2 a bound — it was
+ * unspendable: a failed or non-`graph` answer changed none of the effect's
+ * dependencies, so nothing ever re-triggered, and the attempt stuck at
+ * `receipted`. `fetchScenarioGraph` has seven non-`graph` outcomes that all
+ * land here.
+ *
+ * `absent` is the one that matters most and is exactly why this schedule
+ * exists: CEE's write-back completes 30–90s after the model first appears
+ * (journey-witnessed 25 Aug, 5 trials), and a once-only read against that
+ * endpoint left the canvas empty for the life of the page. A confirmation read
+ * fires MOMENTS after an edit, which is squarely inside that window — so
+ * re-adopting the once-only shape would re-adopt the measured defect.
+ *
+ * The DELAYS are imported rather than restated (trap 12: a copied schedule
+ * drifts). What is deliberately NOT reused is `runAbsentGraphRetrySchedule`
+ * itself — it orchestrates HYDRATION, returns `HydrationOutcome`, and merges
+ * the answer onto the canvas, which a confirmation must never do.
+ */
+export const CONFIRM_READ_DELAYS_MS = ABSENT_GRAPH_RETRY_DELAYS_MS
 
-export function useModelEditCanonicalConfirm(scenarioIdFromRoute?: string | null): void {
+/** Injectable for tests — production uses the real client and the real clock. */
+export interface ModelEditConfirmDeps {
+  read?: typeof fetchScenarioGraph
+  wait?: (ms: number, signal: AbortSignal) => Promise<void>
+}
+
+export function useModelEditCanonicalConfirm(
+  scenarioIdFromRoute?: string | null,
+  deps: ModelEditConfirmDeps = {},
+): void {
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   const { user } = useAuth()
 
@@ -89,44 +117,60 @@ export function useModelEditCanonicalConfirm(scenarioIdFromRoute?: string | null
     getModelEditCompletionVersion,
   )
 
-  const readsPerAttemptRef = useRef(new Map<string, number>())
   const inFlightRef = useRef(false)
+  const read = deps.read ?? fetchScenarioGraph
+  const wait = deps.wait ?? waitForRetry
 
   useEffect(() => {
     if (!scenarioId) return
     if (inFlightRef.current) return
     if (!hasAttemptsAwaitingCanonical(scenarioId)) return
 
-    const awaiting = modelEditAttemptIdsAwaitingCanonical(scenarioId)
-    const reads = readsPerAttemptRef.current
-    const worthReading = awaiting.filter((id) => (reads.get(id) ?? 0) < MAX_CONFIRM_READS)
-    if (worthReading.length === 0) return
-
-    // Charge the read to every attempt it will serve, BEFORE issuing it — a
-    // failure must still consume the budget or a dead scenario re-asks forever.
-    for (const id of worthReading) reads.set(id, (reads.get(id) ?? 0) + 1)
-
     inFlightRef.current = true
     const controller = new AbortController()
 
     void (async (): Promise<void> => {
       try {
-        const identity = await getSessionIdentity()
-        // ⭐ THE TICK IS TAKEN BEFORE THE REQUEST GOES OUT. Taken after, it
-        // would post-date bytes that pre-date it and the ordering guard it
-        // feeds would be worthless.
-        const readIssuedAt = markCanonicalReadIssued()
-        const result = await fetchScenarioGraph(scenarioId, {
-          userId: identity.userId,
-          accessToken: identity.accessToken,
-          signal: controller.signal,
-        })
-        if (controller.signal.aborted) return
-        if (result.status === 'graph') {
-          settleModelEditAttemptsFromCanonicalGraph(scenarioId, result.graph, readIssuedAt)
-        } else {
-          logger.debug('model_edit_confirm.no_graph', { scenarioId, outcome: result.status })
+        // Attempt 0 is immediate; each further attempt waits the next measured
+        // delay. The loop exits the moment nothing is awaiting — so the common
+        // case (CEE answers the first read) costs exactly one request.
+        for (let i = 0; i <= CONFIRM_READ_DELAYS_MS.length; i += 1) {
+          if (controller.signal.aborted) return
+          if (!hasAttemptsAwaitingCanonical(scenarioId)) return
+          if (i > 0) {
+            try {
+              await wait(CONFIRM_READ_DELAYS_MS[i - 1], controller.signal)
+            } catch {
+              return // aborted
+            }
+          }
+          if (controller.signal.aborted) return
+
+          const identity = await getSessionIdentity()
+          // ⭐ THE TICK IS TAKEN BEFORE THE REQUEST GOES OUT. Taken after, it
+          // would post-date bytes that pre-date it and the ordering guard it
+          // feeds would be worthless. Re-taken on EVERY attempt, because each
+          // read is its own point in time.
+          const readIssuedAt = markCanonicalReadIssued()
+          const result = await read(scenarioId, {
+            userId: identity.userId,
+            accessToken: identity.accessToken,
+            signal: controller.signal,
+          })
+          if (controller.signal.aborted) return
+          if (result.status === 'graph') {
+            settleModelEditAttemptsFromCanonicalGraph(scenarioId, result.graph, readIssuedAt)
+          } else {
+            logger.debug('model_edit_confirm.no_graph', {
+              scenarioId,
+              outcome: result.status,
+              attempt: i,
+            })
+          }
         }
+        // Budget spent. Whatever is still open stays in its honest phase — an
+        // exhausted schedule is never a verdict in either direction.
+        logger.debug('model_edit_confirm.exhausted', { scenarioId })
       } catch (err) {
         // Never rethrow: a confirmation is an improvement on an honest open
         // phase, never a precondition for anything on screen.

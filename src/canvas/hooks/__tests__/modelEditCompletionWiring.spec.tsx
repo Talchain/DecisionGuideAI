@@ -53,6 +53,7 @@ import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import { useModelEditAuthority } from '../useModelEditAuthority'
 import { useModelEditCanonicalConfirm } from '../useModelEditCanonicalConfirm'
+import { markCanonicalReadIssued, settleModelEditAttemptsFromCanonicalGraph } from '../modelEditCompletion'
 import {
   __resetModelEditCompletionLedger,
   beginModelEditAttempt,
@@ -68,6 +69,7 @@ import {
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const FACTOR = 'factor-1'
 const CEE_TOKEN = 'a'.repeat(63) + '7'
+const OTHER_SCENARIO_ID = '77777777-6666-4555-8444-333333333333'
 
 /** The WIRE shape — `observed_state` at the top level, no `data` key. */
 function serverBody(value: number, rawValue: number, source: string) {
@@ -314,5 +316,113 @@ describe('F6 — the supersede guard keys on the QUEUED attempt alone', () => {
     const queued = captureOptimisticFactorEdit(FACTOR, 0.7, nodeData)
     const incoming = captureOptimisticFactorEdit(FACTOR, 0.8, nodeData, undefined, 'mea_2_def')
     expect(supersededAttemptId(queued!, incoming!)).toBeNull()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('⭐ B3 — the retry budget is spendable', () => {
+  /** The wire graph, as `fetchScenarioGraph` hands it back. */
+  const graphResult = (value: number, rawValue: number, source: string) =>
+    ({ status: 'graph', graph: serverBody(value, rawValue, source).graph, briefText: null }) as never
+
+  it('a non-`graph` answer is RETRIED, and the later read settles the attempt', async () => {
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.7,
+      attemptedRawValue: 21000,
+    })
+    recordModelEditReceipt(attempt)
+
+    // `absent` is the measured 30–90s write-back window — the outcome that a
+    // once-only read turned into a permanent empty canvas on 25 Aug.
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 'absent' })
+      .mockResolvedValueOnce(graphResult(0.7, 21000, 'user_override'))
+    const wait = vi.fn(async () => undefined)
+
+    const view = renderHook(() =>
+      useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
+    )
+
+    await vi.waitFor(() => {
+      expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
+    })
+    // ⭐ THE BUDGET WAS ACTUALLY SPENT — the first cut read exactly once and
+    // could never read again, whatever its stated maximum.
+    expect(read.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(wait).toHaveBeenCalled()
+    view.unmount()
+  })
+
+  it('stops as soon as nothing is awaiting — the common case costs ONE read', async () => {
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.7,
+      attemptedRawValue: 21000,
+    })
+    recordModelEditReceipt(attempt)
+    const read = vi.fn().mockResolvedValue(graphResult(0.7, 21000, 'user_override'))
+    const wait = vi.fn(async () => undefined)
+
+    const view = renderHook(() =>
+      useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
+    )
+    await vi.waitFor(() => {
+      expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
+    })
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(wait).not.toHaveBeenCalled()
+    view.unmount()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('⭐ B4 — the outcome is REACHABLE after the remount, not merely retained', () => {
+  it('a row that lost its attempt id recovers the outcome BY NODE', () => {
+    const first = renderHook(() => useModelEditAuthority(FACTOR))
+    let attemptId: string | null = null
+    act(() => {
+      attemptId = first.result.current.proposeFactorValue(21000).attemptId
+    })
+    recordModelEditReceipt(attemptId)
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO_ID,
+      serverBody(0.7, 21000, 'user_override').graph,
+      markCanonicalReadIssued(),
+    )
+
+    // The panel unmounts on a tab switch and its `useState` attempt ids die
+    // with it. This is the exact event the module singleton exists to survive —
+    // and before the per-node accessor the outcome was retained and
+    // UNREACHABLE, because `completionFor` needs an id the caller no longer has.
+    first.unmount()
+
+    const second = renderHook(() => useModelEditAuthority(FACTOR))
+    const recovered = second.result.current.latestAttemptForNode(FACTOR)
+    expect(recovered?.completion).toEqual({
+      phase: 'committed',
+      canonical: { value: 0.7, rawValue: 21000, source: 'user_override' },
+    })
+    // ⭐ AND IT HANDS BACK THE ID, so correlation resumes from here.
+    expect(recovered?.attemptId).toBe(attemptId)
+    expect(second.result.current.attemptsForNode(FACTOR)).toHaveLength(1)
+    second.unmount()
+  })
+
+  it('recovery is scoped to the live scenario — A→B never shows A’s outcome', () => {
+    const view = renderHook(() => useModelEditAuthority(FACTOR))
+    act(() => {
+      view.result.current.proposeFactorValue(21000)
+    })
+    expect(view.result.current.attemptsForNode(FACTOR)).toHaveLength(1)
+
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: OTHER_SCENARIO_ID } as never, false)
+    })
+    expect(view.result.current.attemptsForNode(FACTOR)).toHaveLength(0)
+    view.unmount()
   })
 })

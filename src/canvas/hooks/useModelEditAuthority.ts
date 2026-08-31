@@ -81,6 +81,7 @@ import {
   getModelEditAttempt,
   getModelEditCompletionVersion,
   markModelEditUnresolved,
+  modelEditAttemptsForNode,
   subscribeModelEditCompletion,
   type ModelEditAttempt,
   type ModelEditAttemptId,
@@ -158,6 +159,35 @@ export interface ModelEditAuthorityLive {
    * answer settles A even if the user is now looking at B.
    */
   completionFor: (attemptId: ModelEditAttemptId | null | undefined) => ModelEditAttempt | null
+  /**
+   * ⭐⭐ THE RECOVERY READ — for when the caller has LOST the attempt id.
+   *
+   * `completionFor` is the correlated read and stays the primary one. But it is
+   * useless across the exact event the ledger was built to survive: the panel
+   * holds its attempt ids in `useState`, and a tab switch unmounts the panel
+   * and destroys them. Retention in the store with no way to reach it after a
+   * remount is not retention — the outcome was retained and unreachable, and
+   * #1033 could not render it.
+   *
+   * So a row that has lost its id recovers by NODE, and gets back the whole
+   * attempt INCLUDING its `attemptId`, which re-establishes the correlation
+   * from that point on.
+   *
+   * ⚠ THIS IS NOT THE "LAST EDIT FLAG" THE INTERFACE REFUSES TO BE, and the
+   * difference is worth stating because they look alike. A last-edit flag is a
+   * single global slot that any outcome overwrites and that cannot say which
+   * attempt it describes. This returns a specific, identified attempt scoped to
+   * one node in one scenario; every other attempt remains addressable by id,
+   * and a late answer for a superseded attempt still settles that attempt
+   * alone. Recovery by node is how you FIND an id you dropped, not a
+   * replacement for having one.
+   *
+   * Scoped to the CURRENT scenario, so A→B→A recovers A's state and B never
+   * shows A's.
+   */
+  attemptsForNode: (nodeId: string) => readonly ModelEditAttempt[]
+  /** The most recent attempt against `nodeId`, or `null`. Convenience over `attemptsForNode`. */
+  latestAttemptForNode: (nodeId: string) => ModelEditAttempt | null
   /**
    * Set the ACTIVE OPTION's target value for one factor.
    *
@@ -331,11 +361,28 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
     (attemptId: ModelEditAttemptId | null | undefined) => getModelEditAttempt(attemptId),
     [],
   )
+  // ⚠ THE SCENARIO IS READ AT CALL TIME, not captured in the closure: a row
+  // recovering after a tab switch must be scoped to the scenario that is live
+  // NOW, or A→B would hand B the attempts made against A.
+  const attemptsForNode = useCallback(
+    (nodeId: string) =>
+      modelEditAttemptsForNode(nodeId, useCanvasStore.getState().currentScenarioId ?? null),
+    [],
+  )
+  const latestAttemptForNode = useCallback(
+    (nodeId: string) => {
+      const all = attemptsForNode(nodeId)
+      return all.length === 0 ? null : all[all.length - 1]
+    },
+    [attemptsForNode],
+  )
 
   return {
     proposeFactorValue,
     proposeOptionIntervention,
     proposeFactorConfirmation,
     completionFor,
+    attemptsForNode,
+    latestAttemptForNode,
   }
 }
