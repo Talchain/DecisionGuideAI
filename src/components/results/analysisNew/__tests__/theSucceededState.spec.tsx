@@ -75,7 +75,7 @@ const record = (id: string, status: 'addressed' | 'dismissed'): RecRecord => ({
   snapshot: snapshot(id),
   analysisHash: 'h',
   isStale: false,
-  history: [{ at: 1, status } as RecRecord['history'][number]],
+  history: [{ at: 1, event: status }],
 })
 
 const setTrail = (...recs: RecRecord[]) => {
