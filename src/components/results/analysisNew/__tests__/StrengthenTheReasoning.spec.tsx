@@ -105,7 +105,24 @@ describe('what / why / do it (§14)', () => {
   it('routes canvas focus through the existing fail-closed helper', () => {
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:phase3:g1' })]} />)
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-focus'))
-    expect(focusModelTarget).toHaveBeenCalledWith('f_leadtime')
+    expect(focusModelTarget).toHaveBeenCalledWith('f_leadtime', expect.anything())
+  })
+
+  // ⭐ AND IT TAKES THE FINDING WITH IT. Focus alone moves the camera and leaves
+  // the reason the user clicked behind in this panel; the second argument is
+  // what Olumi then holds beside the element. Asserted as the ENGINE's own
+  // strings, not as a shape — a composed or paraphrased note would be the UI
+  // speaking for the producer.
+  it('carries the engine’s own finding to the canvas, not a paraphrase', () => {
+    const item = rec({ id: 'strengthen:phase3:g1' })
+    renderOpen(<StrengthenTheReasoning interventions={[item]} />)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-focus'))
+
+    const note = vi.mocked(focusModelTarget).mock.calls[0]?.[1]
+    expect(note).toBeTruthy()
+    expect(note?.title).toBe(item.title)
+    expect(note?.sourceLine).toBe(item.sourceLine)
+    expect(note?.actions?.[0]?.prompt).toBe(item.action.prompt)
   })
 })
 

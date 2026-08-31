@@ -87,6 +87,32 @@ export function requestOlumiAttention(next: {
     return { applied: [], dropped }
   }
 
+  /*
+   * ⚠ AND AN ATTENTION THAT NAMES NO LIVE NODE IS ALSO REFUSED — the guard
+   * above is true for the all-stale case and was FALSE for the edge-only case,
+   * which is one predicate covering two situations.
+   *
+   * An edge-only hold writes `nodeIds: []`. Two consumers then disagree about
+   * whether anything is on screen: `BaseNode` dims every node that is not
+   * attended — which, with no attended nodes, is ALL of them — while
+   * `OlumiAttentionCard` anchors on `nodeIds[0]` and renders nothing. The
+   * result is a fully greyed canvas with no explanation and no dismiss button.
+   *
+   * The card cannot anchor without a node, so this is a state the UI has no way
+   * to present. Refusing it here closes it for EVERY caller, including ones
+   * that do not exist yet: the `ui_directive` path cannot reach it today only
+   * because `ui_directive.note` is `z.string()` on a `.strict()` block at the
+   * vendored pin, so the object-note branch is dead — which means a contract
+   * bump alone would arm this, in a lane that has no reason to look here.
+   *
+   * Callers holding an edge should hold its endpoint nodes too; that is both
+   * the fix and the honest presentation, since a claim about a link is a claim
+   * about the two things it joins (`focusModelTarget` does this).
+   */
+  if (liveNodes.length === 0) {
+    return { applied: [], dropped: [...dropped, ...liveEdges] }
+  }
+
   state.setOlumiAttention?.({
     nodeIds: liveNodes,
     edgeIds: liveEdges,

@@ -50,6 +50,7 @@ import { SectionShell } from './SectionShell'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { SEVERITY_BADGE_CLASS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
@@ -294,7 +295,7 @@ export function StrengthenTheReasoning({
                   {rec.targetId ? (
                     <button
                       type="button"
-                      onClick={() => focusModelTarget(rec.targetId!)}
+                      onClick={() => focusModelTarget(rec.targetId!, attentionNoteForRecommendation(rec))}
                       className={`${typography.panelMeta} inline-flex items-center gap-1 rounded px-1 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-focus`}
                     >

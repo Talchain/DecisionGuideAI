@@ -14,6 +14,7 @@ import {
   unregisterFocusHelpers,
   focusModelTarget,
 } from '../focusHelpers'
+import type { OlumiAttentionNote } from '../olumiAttention'
 import { useCanvasStore } from '../../store'
 
 describe('focusModelTarget', () => {
@@ -33,6 +34,7 @@ describe('focusModelTarget', () => {
         { id: 'e1', source: 'fac_price', target: 'goal_1', data: {} } as any,
         { id: 'e2', source: 'goal_1', target: 'fac_price', data: { edge_id: 'plot_edge_77' } } as any,
       ],
+      olumiAttention: null,
     })
   })
 
@@ -77,5 +79,74 @@ describe('focusModelTarget', () => {
 
   it('fails closed for an empty id', () => {
     expect(focusModelTarget('')).toBe(false)
+  })
+
+  // ── ATTENTION — the optional second argument ────────────────────────────
+  //
+  // A caller with something to SAY about the element passes a note, and the
+  // element is held under attention with the explanation beside it. A caller
+  // with nothing to say passes nothing and gets exactly the viewport move it
+  // had before. One predicate, two directions, so both get cases.
+  describe('held attention', () => {
+    const note: OlumiAttentionNote = {
+      move: 'challenge',
+      title: 'This link is doing a lot of work',
+      body: 'The result flips if this weakens.',
+      sourceLine: 'Source: robustness analysis.',
+      actions: [{ id: 'strengthen-challenge', label: 'Ask Olumi', prompt: 'Why is this so influential?' }],
+    }
+
+    it('holds attention on a node, carrying the note verbatim', () => {
+      expect(focusModelTarget('fac_price', note)).toBe(true)
+      const held = useCanvasStore.getState().olumiAttention
+      expect(held?.nodeIds).toEqual(['fac_price'])
+      expect(held?.edgeIds).toEqual([])
+      expect(held?.note).toBe(note)
+    })
+
+    // ⭐ THE DISCRIMINATING CASE. `fac_price->goal_1` is not on the canvas.
+    // Holding attention on the id as GIVEN would be dropped by
+    // requestOlumiAttention's fail-closed filter and dim nothing, so the
+    // element would be focused with no card — the failure would be silent.
+    // Attention must land on the id the resolver actually produced.
+    it('holds attention on the RESOLVED edge, not on the arrow-form id it was given', () => {
+      expect(focusModelTarget('fac_price->goal_1', note)).toBe(true)
+      const held = useCanvasStore.getState().olumiAttention
+      expect(held?.edgeIds).toEqual(['e1'])
+    })
+
+    // ⭐ AND IT HOLDS THE EDGE'S ENDPOINTS, WHICH IS NOT DECORATION. An
+    // edge-only hold writes `nodeIds: []`; `BaseNode` then dims every node that
+    // is not attended — all of them — while the card anchors on `nodeIds[0]`
+    // and renders nothing. A fully greyed canvas with no card and no dismiss
+    // button. Holding the endpoints is both the fix and the honest reading: a
+    // claim about a link is a claim about the two things it joins.
+    it('holds the edge AND its endpoint nodes, so the canvas cannot grey out anchorless', () => {
+      expect(focusModelTarget('e1', note)).toBe(true)
+      const held = useCanvasStore.getState().olumiAttention
+      expect(held?.edgeIds).toEqual(['e1'])
+      expect(held?.nodeIds).toEqual(['fac_price', 'goal_1'])
+    })
+
+    it('holds attention on the canvas edge behind a producer edge_id, with its endpoints', () => {
+      expect(focusModelTarget('plot_edge_77', note)).toBe(true)
+      const held = useCanvasStore.getState().olumiAttention
+      expect(held?.edgeIds).toEqual(['e2'])
+      expect(held?.nodeIds).toEqual(['goal_1', 'fac_price'])
+    })
+
+    // The opposite direction: narrowing what raises attention must not make
+    // every existing caller start dimming the model. Six of the seven call
+    // sites pass no note and must be untouched.
+    it('holds NOTHING when no note is passed, and still focuses', () => {
+      expect(focusModelTarget('fac_price')).toBe(true)
+      expect(focusNode).toHaveBeenCalledWith('fac_price')
+      expect(useCanvasStore.getState().olumiAttention).toBeNull()
+    })
+
+    it('holds nothing when the target does not resolve', () => {
+      expect(focusModelTarget('ghost', note)).toBe(false)
+      expect(useCanvasStore.getState().olumiAttention).toBeNull()
+    })
   })
 })

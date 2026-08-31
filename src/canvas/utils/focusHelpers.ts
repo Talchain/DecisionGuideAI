@@ -8,6 +8,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { requestOlumiAttention, type OlumiAttentionNote } from './olumiAttention'
 
 type FocusNodeFn = (nodeId: string) => void
 type FocusEdgeFn = (edgeId: string) => void
@@ -179,15 +180,69 @@ export function focusExistingTarget(
  *     else fall back to whichever endpoint node exists
  *  4. producer edge id stashed on edge.data (edge_id / plot_edge_id)
  */
-export function focusModelTarget(targetId: string): boolean {
+export function focusModelTarget(
+  targetId: string,
+  /**
+   * What Olumi has to SAY beside the thing being focused, if anything.
+   *
+   * ⭐ OPTIONAL, AND THE DEFAULT IS THE OLD BEHAVIOUR. Six of the seven call
+   * sites pass nothing and keep exactly the viewport move they had. A caller
+   * that HAS something to say — a recommendation the user just clicked "Show
+   * on canvas" on — passes it, and the element is held under attention with
+   * the explanation beside it instead of the camera simply arriving somewhere.
+   *
+   * ⚠ THE NOTE IS NEVER COMPOSED HERE. It is the caller's producer text; this
+   * function only decides WHICH resolved element it belongs to, because only
+   * this function knows how the id resolved.
+   */
+  note?: OlumiAttentionNote | null,
+): boolean {
   if (!targetId) return false
   const { nodes, edges } = useCanvasStore.getState()
+
+  // Attention is raised against the id that was actually RESOLVED, never the
+  // one that was asked for: `fac_price->goal_1` is not on the canvas, and
+  // holding attention on a string no node carries would silently drop the
+  // request (`requestOlumiAttention` is fail-closed) and dim nothing.
+  const hold = (resolvedId: string, kind: 'node' | 'edge') => {
+    if (!note) return
+    if (kind === 'node') {
+      requestOlumiAttention({ nodeIds: [resolvedId], edgeIds: [], note })
+      return
+    }
+    /*
+     * ⭐ AN EDGE IS A CLAIM ABOUT TWO NODES, SO ATTENTION HOLDS ALL THREE.
+     *
+     * Not a nicety — holding an edge ALONE is actively broken. `nodeIds: []`
+     * means no node is attended, so every node satisfies the dim predicate and
+     * the entire canvas greys out, while the card anchors on
+     * `attention.nodeIds[0]` and therefore renders nothing at all. The user
+     * would get a dimmed model, no explanation, and no dismiss button.
+     * `BaseNode` now refuses to dim on an empty node set as well — two
+     * independent guards, because this one can be silently undone by a caller
+     * and that one cannot.
+     *
+     * It is also the honest presentation: "this link is doing a lot of work"
+     * is a sentence about the link AND the two things it joins, so lighting
+     * the endpoints shows the reader what the claim is actually about.
+     */
+    const edge = edges.find((e) => e.id === resolvedId)
+    const endpoints = edge
+      ? [edge.source, edge.target].filter((endpointId) =>
+          nodes.some((n) => n.id === endpointId),
+        )
+      : []
+    requestOlumiAttention({ edgeIds: [resolvedId], nodeIds: endpoints, note })
+  }
+
   if (nodes.some((n) => n.id === targetId)) {
     focusByTarget(targetId, 'node')
+    hold(targetId, 'node')
     return true
   }
   if (edges.some((e) => e.id === targetId)) {
     focusByTarget(targetId, 'edge')
+    hold(targetId, 'edge')
     return true
   }
   const parts = targetId.split(/->|\u2192/)
@@ -196,11 +251,13 @@ export function focusModelTarget(targetId: string): boolean {
     const edge = edges.find((e) => e.source === from && e.target === to)
     if (edge) {
       focusByTarget(edge.id, 'edge')
+      hold(edge.id, 'edge')
       return true
     }
     const endpoint = [from, to].find((id) => nodes.some((n) => n.id === id))
     if (endpoint) {
       focusByTarget(endpoint, 'node')
+      hold(endpoint, 'node')
       return true
     }
   }
@@ -210,8 +267,11 @@ export function focusModelTarget(targetId: string): boolean {
   })
   if (byData) {
     focusByTarget(byData.id, 'edge')
+    hold(byData.id, 'edge')
     return true
   }
+  // Nothing resolved: no focus, and NO attention. A card pointing at an element
+  // that is not on the canvas would dim the model around nothing.
   return false
 }
 
