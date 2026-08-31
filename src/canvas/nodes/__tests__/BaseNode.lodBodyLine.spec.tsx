@@ -268,11 +268,23 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
       setStore({ lodActive: true, results: { status: 'complete', report: null } })
       render(
         <ReactFlowProvider>
+          {/*
+            `DecisionNode` is typed `NodeProps<DecisionNodeData>` — a CONCRETE
+            node type, so its props are not the generic `NodeProps` that
+            `baseProps` satisfies for `FactorNode` above, and it additionally
+            requires `dragHandle` and `parentId`. The sibling spec
+            `BaseNode.handleBoundsOnMount.spec.tsx:99` casts for exactly this
+            reason; the cast is over the React Flow PLUMBING props only — the
+            two props this test is actually about, `type` and `data`, are still
+            written literally and still checked by the assertion below.
+          */}
           <DecisionNode
-            {...baseProps}
-            type="decision"
-            id="decision-1"
-            data={{ label: 'Should we expand?', type: 'decision' }}
+            {...({
+              ...baseProps,
+              type: 'decision',
+              id: 'decision-1',
+              data: { label: 'Should we expand?', type: 'decision' },
+            } as any)}
           />
         </ReactFlowProvider>,
       )
