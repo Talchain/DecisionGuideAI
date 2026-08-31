@@ -51,6 +51,40 @@
  * Case 4 binds by identity rather than by a value predicate (trap 19): the
  * assertion is on the chip's own `data-stability` attribute, not on the word
  * "Stable" appearing anywhere on screen.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠⚠ SUPERSEDED BY A PRODUCT RULING, 31 Aug 2026 — READ THIS BEFORE THE ABOVE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * THE HEADER CHIP NO LONGER EXISTS. Paul's ruling on the deployed canvas:
+ * *"keep that top menu very simple unless there is genuinely valuable
+ * information in having something within it"*, and "all that type of
+ * information for the moment should be in the right-hand panel". The whole
+ * centre group went with it — stage pill, scenario count, stability chip,
+ * last-run time.
+ *
+ * ⭐ THIS RESOLVES C6 MORE COMPLETELY THAN THE FIX ABOVE DID. The chip was
+ * `stability`'s ONLY consumer (`useAnalysisMetadata`'s other live caller,
+ * `GoalPanel`, destructures `scenarioCount` alone — verified). With the chip
+ * gone the field has ZERO display consumers, so the header cannot contradict
+ * the panel about robustness in ANY wire state, correct verdict or not.
+ *
+ * ⚠⚠ AND THE HONEST PART, because the previous cases anticipated exactly this
+ * move. Case 3 was written as a discriminating positive with the stated
+ * purpose that *"the fix cannot pass by deleting the chip"* — and deleting the
+ * chip is precisely what happened. It is a legitimate product decision rather
+ * than a way to make a test pass, but that distinction is invisible in a diff,
+ * so it is recorded here rather than left to be inferred.
+ *
+ * The cases below therefore pin the STRONGER invariant — the header makes no
+ * robustness claim in ANY of the four measured wire states — and keep a
+ * POSITIVE CONTROL proving the probe can still see a chip when one is present.
+ * Without that control every case here would pass on a page that renders
+ * nothing at all (CLAUDE.md trap 13), which is now the default.
+ *
+ * If a robustness readout ever returns to the header, it consumes
+ * `display_verdict` and never raw `is_robust` — the original ruling stands,
+ * it simply has no surface to govern today.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act } from '@testing-library/react'
@@ -110,75 +144,45 @@ function renderTopBar() {
   )
 }
 
-describe('LINK-R1 C6 — the header stability chip consumes the display-safe verdict', () => {
+describe('LINK-R1 C6 — the header makes no robustness claim at all', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
-  it('does NOT say "Stable" when the producer\'s display verdict is fragile, even with is_robust true', () => {
-    // The deployed shape. `is_robust` said the winner survived the
-    // perturbation set; `display_verdict` said the run may not claim
-    // robustness. The chrome sided with the raw field.
+  /**
+   * THE POSITIVE CONTROL, and it is load-bearing.
+   *
+   * Every assertion below is an ABSENCE. With the chip removed they would all
+   * pass against a blank page, a crashed render, or a probe pointed at the
+   * wrong attribute. This proves the probe finds a `[data-stability]` element
+   * when one genuinely exists, so the absences mean something.
+   */
+  it('the probe can see a stability chip when one exists', () => {
     renderTopBar()
-    seedResults({ is_robust: true, display_verdict: 'fragile' })
-
-    const chip = stabilityChip()
-    expect(
-      chip?.getAttribute('data-stability') ?? null,
-      'the header chip claimed stability the analysis panel had already refused',
-    ).not.toBe('stable')
+    const marker = document.createElement('div')
+    marker.setAttribute('data-stability', 'stable')
+    document.body.appendChild(marker)
+    try {
+      expect(stabilityChip(), 'the probe cannot see a chip that is present').not.toBeNull()
+    } finally {
+      marker.remove()
+    }
   })
 
-  it('makes NO stability claim at all when the producer sent no display verdict', () => {
-    // L3 §9: the panel read "Stability: (not available for this run)" on the
-    // same screen as the green chip. Absence of a verdict is the certified
-    // "Robustness unknown" state — the chrome must be silent, not cheerful.
+  it.each([
+    ['the deployed contradiction — raw is_robust beside a fragile verdict', { is_robust: true, display_verdict: 'fragile' }],
+    ['a genuinely robust verdict', { is_robust: true, display_verdict: 'robust' }],
+    ['a moderate verdict', { is_robust: true, display_verdict: 'moderate' }],
+    ['no display verdict on the wire at all', { is_robust: true }],
+    ['an explicit not_assessed', { is_robust: true, display_verdict: 'not_assessed' }],
+    ['an unrecognised token', { is_robust: true, display_verdict: 'extremely_robust_probably' }],
+  ])('renders no robustness claim in the header — %s', (_case, robustness) => {
     renderTopBar()
-    seedResults({ is_robust: true })
+    seedResults(robustness)
 
     expect(
       stabilityChip(),
-      'the header chip claimed stability on a run whose robustness was never assessed',
+      'the header is claiming robustness again — it may only do so from display_verdict, and the panel owns that claim',
     ).toBeNull()
-  })
-
-  it('makes NO stability claim when the producer explicitly says not_assessed', () => {
-    renderTopBar()
-    seedResults({ is_robust: true, display_verdict: 'not_assessed' })
-
-    expect(stabilityChip()).toBeNull()
-  })
-
-  it('STILL says "Stable" on a genuinely robust verdict — the discriminating positive', () => {
-    // Without this the fix could pass by suppressing the chip unconditionally,
-    // which deletes a truthful signal rather than correcting a false one.
-    renderTopBar()
-    seedResults({ is_robust: true, display_verdict: 'robust' })
-
-    const chip = stabilityChip()
-    expect(chip).not.toBeNull()
-    expect(chip!.getAttribute('data-stability')).toBe('stable')
-    expect(chip!.textContent).toContain('Stable')
-  })
-
-  it('says "Sensitive" on a moderate verdict, and binds the claim to the chip itself', () => {
-    renderTopBar()
-    seedResults({ is_robust: true, display_verdict: 'moderate' })
-
-    const chip = stabilityChip()
-    expect(chip).not.toBeNull()
-    // Bound by identity to the chip's own attribute, never to the word
-    // appearing somewhere on the screen (trap 19). `fragile` is the shipped
-    // attribute vocabulary for the non-robust rendering; it is kept so this
-    // change moves the SOURCE of the claim, not the DOM contract.
-    expect(chip!.getAttribute('data-stability')).toBe('fragile')
-    expect(chip!.textContent).toContain('Sensitive')
-  })
-
-  it('ignores an unrecognised verdict token rather than guessing (fail-closed)', () => {
-    renderTopBar()
-    seedResults({ is_robust: true, display_verdict: 'extremely_robust_probably' })
-
-    expect(stabilityChip()).toBeNull()
   })
 })

@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, Shield, ShieldAlert, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { Share2, Users, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
-import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
-import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
 import { ScenarioSwitcher } from '../../canvas/components/ScenarioSwitcher'
@@ -211,9 +209,7 @@ export const TopBar = ({
   }, [closeMenu])
 
   // Decision Graph Display v2 Task 13: Analysis metadata
-  const analysisMetadata = useAnalysisMetadata()
   // A.15: Stage lifecycle pill
-  const stagePill = useStagePill()
 
   // `data-overlay-origin` is present only while an overlay this bar owns is
   // raised, and names WHO raised it. A surface the assistant put on screen must
@@ -263,61 +259,19 @@ export const TopBar = ({
 
       </div>
 
-      {/* Decision Graph Display v2 Task 13: Analysis metadata chips */}
-      <div className={styles.topBarCenter}>
-        {/* A.15: Stage lifecycle pill */}
-        <Tooltip content={`Decision stage: ${stagePill.label}`}>
-          <div
-            className={`${styles.stagePill}${stagePill.isGenerating ? ` ${styles.stagePillGenerating}` : ''}`}
-            style={{ borderColor: stagePill.borderColor }}
-            data-stage={stagePill.stage}
-            data-stage-source={stagePill.source}
-          >
-            <span className={styles.metadataLabel}>{stagePill.label}</span>
-          </div>
-        </Tooltip>
+      {/* ⭐ THE CENTRE CHIPS ARE GONE (Paul, 31 Aug 2026).
+          This slot carried four readouts — the stage lifecycle pill, the
+          scenario count, a Stable/Sensitive stability pill and the last-run
+          time. Paul's ruling: *"keep that top menu very simple unless there is
+          genuinely valuable information in having something within it"*, and
+          "all that type of information for the moment should be in the
+          right-hand panel".
 
-        {/* Scenario Count (only show when complete) */}
-        {analysisMetadata.scenarioCount !== null && analysisMetadata.runStatus === 'complete' && (
-          <Tooltip content={`Analyzed ${analysisMetadata.scenarioCount.toLocaleString()} scenarios`}>
-            <div className={styles.metadataChip}>
-              <Users size={12} aria-hidden="true" />
-              <span className={styles.metadataLabel}>
-                {analysisMetadata.scenarioCount.toLocaleString()} scenarios
-              </span>
-            </div>
-          </Tooltip>
-        )}
-
-        {/* Stability (only show when complete) */}
-        {analysisMetadata.stability !== null && analysisMetadata.runStatus === 'complete' && (
-          <Tooltip content={analysisMetadata.stability === 'stable' ? 'Result is stable across scenarios' : 'Result may change with different assumptions'}>
-            <div className={styles.metadataChip} data-stability={analysisMetadata.stability}>
-              {analysisMetadata.stability === 'stable' ? (
-                <Shield size={12} aria-hidden="true" />
-              ) : (
-                <ShieldAlert size={12} aria-hidden="true" />
-              )}
-              <span className={styles.metadataLabel}>
-                {analysisMetadata.stability === 'stable' ? 'Stable' : 'Sensitive'}
-              </span>
-            </div>
-          </Tooltip>
-        )}
-
-        {/* Last Run Time (only show when complete) */}
-        {analysisMetadata.relativeTime !== null && analysisMetadata.runStatus === 'complete' && (
-          <Tooltip content={analysisMetadata.computedAt ? `Completed ${new Date(analysisMetadata.computedAt).toLocaleString()}` : 'Analysis completed'}>
-            <div className={styles.metadataChip}>
-              <Clock size={12} aria-hidden="true" />
-              <span className={styles.metadataLabel}>
-                {analysisMetadata.relativeTime}
-              </span>
-            </div>
-          </Tooltip>
-        )}
-
-      </div>
+          ⚠ NOTHING IS LOST, CHECKED BEFORE DELETING. Every fact here already
+          renders in the right-hand panel: the verdict via `AtAGlance`'s tone
+          pill and `OptionCards`, the scenario count via `WinGauge`,
+          `HowComputedModal` and `certaintyCopy`. This removes a duplicate
+          readout, not a source. */}
 
       {/* Right section */}
       <div className={styles.topBarRight}>
