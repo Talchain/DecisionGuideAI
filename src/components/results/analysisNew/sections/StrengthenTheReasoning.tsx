@@ -43,7 +43,7 @@
  * would no longer be about information architecture.
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowRight, Crosshair, FlaskConical, Lightbulb, type LucideIcon } from 'lucide-react'
 import { strengthenWhyLine } from '../analysisNewCopy'
 import { SectionShell } from './SectionShell'
@@ -52,11 +52,12 @@ import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from '../../strengthen/recommendationAttention'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { SEVERITY_BADGE_CLASS } from '../../strengthen/StrengthenPanel'
+import { SEVERITY_BADGE_CLASS, NOTICE_MS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
+import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 
 export interface StrengthenTheReasoningProps {
@@ -106,7 +107,48 @@ export function StrengthenTheReasoning({
    */
   const dismiss = useStrengthenStore((st) => st.dismiss)
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
+  /**
+   * ⚠⚠ WITNESSED ON DEPLOYED `3378415d`, AND IT IS THE DEFECT CLASS THIS WHOLE
+   * SURFACE EXISTS TO AVOID: a control that claims an action it did not perform.
+   *
+   * `strengthenStore.dismiss` opens with `const record = get().records[id]; if
+   * (!record) return` — it SILENTLY NO-OPS for an id it holds no record for.
+   * Records are created by `reconcile`, which runs on a COMPLETED analysis. So
+   * before a run there is no record, the dismissal does nothing, and the notice
+   * still said "Recommendation dismissed". The card stayed on screen next to a
+   * sentence saying it had gone.
+   *
+   * The fix is not a louder notice. A control that cannot act is not an
+   * affordance, it is an advertisement — so the button is not offered unless the
+   * store actually holds this recommendation and can retire it.
+   */
+  const strengthenRecords = useStrengthenStore((st) => st.records)
   const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
+
+  /**
+   * ⚠ THE NOTICE IS TRANSIENT, ON THE OWNER'S TIMING. An earlier draft left it up
+   * indefinitely, which accumulates furniture and — worse — would have made the
+   * SAME action linger for different lengths on this surface and on the shipped
+   * Strengthen panel. `NOTICE_MS` is imported from that panel rather than
+   * restated, so the two cannot drift.
+   *
+   * The timer is cleared on replace and on unmount: dismissing a second card
+   * while the first notice is up must not leave an orphaned timeout that blanks
+   * the new one early.
+   */
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
+
+  const showUndo = useCallback((next: { id: string; title: string }) => {
+    setUndoable(next)
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    noticeTimer.current = setTimeout(() => setUndoable(null), NOTICE_MS)
+  }, [])
+
+  const clearUndo = useCallback(() => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    setUndoable(null)
+  }, [])
 
   return (
     <SectionShell
@@ -133,7 +175,7 @@ export function StrengthenTheReasoning({
             type="button"
             onClick={() => {
               restoreDismissed(undoable.id)
-              setUndoable(null)
+              clearUndo()
             }}
             className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
             data-testid={`${testId}-dismissed-undo`}
@@ -156,6 +198,18 @@ export function StrengthenTheReasoning({
             // `null` for most findings, and that is correct — see
             // `recommendationMethod.ts`. No placeholder, no default technique.
             const method = methodForRecommendation(rec.id)
+            /**
+             * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
+             * A card about a Risk now carries the risk shape, in the risk
+             * colour, matching the canvas — so "this concerns a risk" is
+             * something the reader sees rather than a clause they parse.
+             *
+             * `null` whenever the honest answer is unknown: no target, an EDGE
+             * target (a relationship has no node kind), or a kind this panel
+             * does not draw. Nothing renders then — a shape that means the
+             * wrong thing is worse than no shape.
+             */
+            const markKind = markKindForTarget(rec.targetId)
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -189,7 +243,10 @@ export function StrengthenTheReasoning({
                     They are also the same KIND of thing: how urgent this is, and
                     what licenses it. Reading them as a pair beneath the title is
                     what they are. */}
-                <p className={`${typography.panelHeader} text-text-header m-0`}>{rec.title}</p>
+                <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
+                  {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
+                  <span className="min-w-0">{rec.title}</span>
+                </p>
 
                 {rec.category || grounding || method ? (
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -216,9 +273,25 @@ export function StrengthenTheReasoning({
                         type="button"
                         onClick={() =>
                           openAskOlumi({
+                            // The FINDING is the context, not the method's own
+                            // description — that is the whole point of attaching
+                            // a technique to a trigger. `ActionsMenu` sends the
+                            // description because it dispatches from a menu with
+                            // no finding to point at.
                             context: rec.whyNow || rec.signal,
                             draft: method.prompt,
                             label: method.title,
+                            // ⚠ IDENTITY MUST RIDE THE DISPATCH, and omitting
+                            // this made the chip cosmetic. `ActionsMenu` passes
+                            // both, and its comment says why: the method id
+                            // travels in `parameters` so the eventual dispatch is
+                            // a conversation-typed turn carrying
+                            // `chip_metadata {method_id}`. Without them the
+                            // drawer still opens with the right prompt, so
+                            // nothing looks broken — CEE simply never learns
+                            // which technique the user invoked.
+                            parameters: { method_id: method.id },
+                            source: 'chip',
                             ...(rec.targetId ? { targetId: rec.targetId } : {}),
                           })
                         }
@@ -304,18 +377,23 @@ export function StrengthenTheReasoning({
                     </button>
                   ) : null}
                   {/* Sits last and reads quietly: disagreeing is a first-class
-                      move, but it is not the one being recommended. */}
+                      move, but it is not the one being recommended.
+
+                      Offered only when the store can actually retire this id —
+                      see the note on `strengthenRecords` above. */}
+                  {strengthenRecords[rec.id] ? (
                   <button
                     type="button"
                     onClick={() => {
                       dismiss(rec.id)
-                      setUndoable({ id: rec.id, title: rec.title })
+                      showUndo({ id: rec.id, title: rec.title })
                     }}
                     className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
+                  ) : null}
                 </div>
 
                 {rec.sourceLine ? (

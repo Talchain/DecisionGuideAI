@@ -42,6 +42,7 @@ import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
+import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
@@ -197,6 +198,17 @@ export function AnalysisNewTabBody({
             {vm.status.statusNote}
           </p>
         ) : null}
+
+        {/* ── YOUR MODEL SO FAR ────────────────────────────────────────────
+            First, because it is the only element that is true in every state:
+            before a run, during one, and after. It says what the model CONTAINS
+            and routes to each node — it makes no claim about the run, and no
+            claim about whose values these are (see `buildModelStrip.ts`).
+
+            It also fixes what this tab could not do at all: describe its own
+            subject. The panel could report a run in detail and never say what
+            the run was about. */}
+        <ModelStrip />
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
         {/* ⚠ `driverTotal` is the RUN's non-zero driver count, not the
