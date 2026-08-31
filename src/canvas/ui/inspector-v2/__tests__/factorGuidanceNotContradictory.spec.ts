@@ -86,11 +86,41 @@ describe('factor guidance — two questions, two vocabularies', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '')
     expect(code.trim().length, 'comment strip left nothing to assert against').toBeGreaterThan(80)
-    // The literal that shipped. Its absence is the fix; its presence is the bug.
-    expect(code).not.toMatch(/contributes significant uncertainty/i)
-    // POSITIVE CONTROL: the slice really does contain the guidance strings, so
-    // a mis-sliced empty region cannot pass this by testing nothing.
-    expect(code).toMatch(/outside your control/i)
+    // ⚠ THE WHOLE FAMILY, NOT ONE LITERAL — and this test's title always
+    // claimed the family while its body checked a single string.
+    //
+    // `not.toMatch(/contributes significant uncertainty/i)` is satisfied by any
+    // sentence that borrows the vocabulary in different words, and the fallback
+    // arm did exactly that: "...so its level is uncertain." A review found it
+    // still live AFTER this spec went green, in the arm covering every factor
+    // outside the top three — i.e. the common case, while the arm I fixed
+    // covers at most three per model.
+    //
+    // A guard written against the failure mode in hand rather than against the
+    // property, which is the shape CLAUDE.md 13d records. The property is: no
+    // sentence in this expression may speak the INVESTIGATION family's words.
+    const INVESTIGATION_WORDS = /\b(uncertain|uncertainty|evidence|know enough|worth (investigating|learning))\b/i
+    expect(
+      code.match(INVESTIGATION_WORDS)?.[0] ?? null,
+      'externalGuidance borrows the investigation family\'s vocabulary',
+    ).toBeNull()
+
+    // ⚠ POSITIVE CONTROLS THAT DISCRIMINATE BETWEEN THE ARMS. The old control
+    // (`/outside your control/i`) matches BOTH arms, so it proved the slice was
+    // non-empty and nothing else — it could not tell the fixed arm from the
+    // untouched one, which is why it certified a half-done fix. One control per
+    // arm, so deleting or rewording either REDs here.
+    expect(code, 'the influence arm is missing from the slice').toMatch(/externalInfluence/)
+    expect(code, 'the fallback arm is missing from the slice').toMatch(/plan around it/i)
+
+    // ⚠ ONE OWNER FOR THE INFLUENCE THRESHOLD. This panel used a bespoke
+    // `sensitivityRank != null` (rank 1-3 → "one of the strongest") against
+    // `influenceGuidance`'s `<= 2` / `<= 5`, so AT RANK 3 it contradicted the
+    // Controllable and Observable panels about the same signal. Asserting the
+    // owner is called AND the bespoke threshold is gone, because either alone
+    // permits both to coexist.
+    expect(code, 'the influence clause must come from influenceGuidance').toMatch(/influenceGuidance\s*\(/)
+    expect(code, 'a second, bespoke rank threshold has come back').not.toMatch(/sensitivityRank\s*!=\s*null/)
   })
 
   it('does not promise CONFIDENCE — the producer says VoI is not certainty', () => {
