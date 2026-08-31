@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_READ_ONLY_REASON, useNodeMutations } from './useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -160,37 +160,6 @@ export const InspectorRouter = memo(function InspectorRouter({
     }
   }, [])
 
-  /**
-   * ⭐⭐ THE TITLE IS EDITABLE. IT WAS NOT, AND THE REASON WAS TWO LEVELS DEEP.
-   *
-   * `EditableLabel` returns a plain read-only `<span>` when its `onSave` prop
-   * is undefined ("Read-only mode — no rename affordance, because there is no
-   * rename"). `InspectorShell` forwards `onLabelChange` into that prop — and
-   * **nothing ever passed it**, so every mount rendered the read-only branch.
-   *
-   * That was the SECOND dark level on this path. The first was the missing
-   * canvas double-click caller for `requestNodeRename` (#1020). Fixing that one
-   * alone set the intent correctly and then handed it to an editor that could
-   * not open — a capability that looks wired at every hop and does nothing at
-   * the last one. Renaming only works with BOTH.
-   *
-   * ⚠ NODES ONLY, DELIBERATELY. An edge's inspector title is DERIVED
-   * ("Source → Target", built at the branch below), not a stored field, so
-   * making it editable would offer to save a string nothing reads. Edge panels
-   * keep the read-only title.
-   *
-   * ⚠ THE HOOK IS CALLED UNCONDITIONALLY with `nodeId ?? ''`, above every early
-   * return, because it is a hook. On the edge branch and the no-selection
-   * branch the lookup finds no node and `setLabel` returns early on its own
-   * guard — a no-op, not a write to a made-up id.
-   *
-   * `setLabel` is the SANCTIONED setter, not a raw `updateNode`: it is declared
-   * in `NODE_SETTER_FIELDS` and covered by the co-located manifest spec, which
-   * REDs if a setter starts writing a different field. Bypassing it would move
-   * this write outside the one guarantee that keeps the manifest honest.
-   */
-  const { setLabel } = useNodeMutations(nodeId ?? '')
-
   if (!panelType) return null
 
   // ─── Edge panel ────────────────────────────────────────────────
@@ -339,7 +308,6 @@ export const InspectorRouter = memo(function InspectorRouter({
       techMode={techMode}
       onTechToggleChange={setTechMode}
       onClose={onClose}
-      onLabelChange={setLabel}
       dragHandlers={dragHandlers}
       quickActions={
         <InspectorQuickActions

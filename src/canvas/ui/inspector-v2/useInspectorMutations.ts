@@ -175,19 +175,8 @@ export const EDITOR_WRITTEN_FIELDS = {
  */
 
 /** Receipt-bearing actions mounted elsewhere and intentionally preserved. */
-/**
- * ⚠ THE SCOPE OF THIS SENTENCE NARROWED, 31 Aug 2026, AND THE OLD ONE HAD
- * BECOME FALSE THE MOMENT THE TITLE BECAME EDITABLE.
- *
- * It read "This inspector is read-only…" while the panel's own header now
- * carries a working rename. A notice that overstates its own scope is the same
- * defect class as one that understates it: the user is told nothing here can
- * be saved, immediately above a control that saves. It now says what is
- * actually true — the CONTROLS BELOW are read-only, and the name is not one of
- * them.
- */
 export const INSPECTOR_READ_ONLY_REASON =
-  'You can rename this, but the settings below are read-only — those changes cannot yet be saved to the shared model. Use the Model tab for supported factor values, or ask Olumi to change structure.'
+  'This inspector is read-only because these changes cannot yet be saved to the shared model. Use the Model tab for supported factor values or ask Olumi to change structure.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
