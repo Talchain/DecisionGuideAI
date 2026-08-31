@@ -286,6 +286,96 @@ describe('deriveDecisionVerdict — an EXACT tie is not a lead', () => {
     expect(v.leaderId).toBe(A)
   })
 
+  it("an explicit VERY_CLOSE BAND survives the tie clamp as a DENIAL, not silence", () => {
+    // ⚠⚠ REGRESSION PIN — this was BROKEN by the first version of the tie gate
+    // and caught by review, not by this suite.
+    //
+    // At `f11432c5` the gate was an early return placed between Authority 1 and
+    // Authority 2, and a comment there claimed it "withheld only the assertion".
+    // It did not: `headline_banded.band: 'very_close'` is an EXPLICIT producer
+    // tie call too, and the early return swallowed it before the band could
+    // speak. Measured, the headline degraded from
+    //   "no clear leading option, the result is sensitive to your estimates"
+    // to
+    //   "the analysis did not put an option forward"
+    // — a TRUE sentence replaced by a weaker one. CLAUDE.md trap 22b: closing
+    // the assertion re-opened the denial.
+    const report: DecisionVerdictReportLike = {
+      option_probabilities: {
+        [A]: { win_probability: TIE_WIN, status: 'computed' },
+        [B]: { win_probability: TIE_WIN, status: 'computed' },
+      },
+      robustness: { recommended_option_id: null },
+      decision_brief: { headline_banded: { band: 'very_close', leader_option_id: A } },
+    }
+
+    const v = deriveDecisionVerdict(report)
+    expect(v.separation).toBe('tied')
+    expect(v.hasLeadingOption).toBe(false)
+    // Bound to the SOURCE too: 'tied' must be the producer's claim being
+    // rendered, not a UI-side denial that happens to share the token.
+    expect(v.source).toBe('producer_band')
+  })
+
+  it("a very_close band is NOT promoted to 'slight' on level numbers", () => {
+    // The promotion arm (`banded === 'tied' && nearTie says not-a-tie`) is
+    // itself an assertion. On level numbers it must not fire, or the denial is
+    // lost one line earlier than the clamp.
+    const report: DecisionVerdictReportLike = {
+      option_probabilities: {
+        [A]: { win_probability: TIE_WIN, status: 'computed' },
+        [B]: { win_probability: TIE_WIN, status: 'computed' },
+      },
+      robustness: {
+        recommended_option_id: null,
+        near_tie: { is_tie: false, top_option_id: A, gap: 0, threshold: 0.1 },
+      },
+      decision_brief: { headline_banded: { band: 'very_close', leader_option_id: A } },
+    }
+
+    const v = deriveDecisionVerdict(report)
+    expect(v.separation).toBe('tied')
+    expect(v.hasLeadingOption).toBe(false)
+  })
+
+  it("DISCRIMINATING TWIN — the promotion DOES still fire when the numbers are separated", () => {
+    // The twin for the clause above: without it, `&& !levelAtTop` could have
+    // been written as `&& false` and nothing would notice.
+    const report: DecisionVerdictReportLike = {
+      option_probabilities: {
+        [A]: { win_probability: 0.4, status: 'computed' },
+        [B]: { win_probability: 0.35, status: 'computed' },
+      },
+      robustness: {
+        recommended_option_id: null,
+        near_tie: { is_tie: false, top_option_id: A, gap: 0.05, threshold: 0.1 },
+      },
+      decision_brief: { headline_banded: { band: 'very_close', leader_option_id: A } },
+    }
+
+    const v = deriveDecisionVerdict(report)
+    expect(v.separation).toBe('slight')
+    expect(v.hasLeadingOption).toBe(true)
+  })
+
+  it("an asserting band ('clearly_ahead') on level numbers falls to SILENCE, not to a denial", () => {
+    // The producer says clearly ahead; the numbers are level. We have authority
+    // to resolve that disagreement in NEITHER direction, so 'unknown' — never
+    // 'tied', which would be a counter-claim we cannot support either.
+    const report: DecisionVerdictReportLike = {
+      option_probabilities: {
+        [A]: { win_probability: TIE_WIN, status: 'computed' },
+        [B]: { win_probability: TIE_WIN, status: 'computed' },
+      },
+      robustness: { recommended_option_id: null },
+      decision_brief: { headline_banded: { band: 'clearly_ahead', leader_option_id: A } },
+    }
+
+    const v = deriveDecisionVerdict(report)
+    expect(v.separation).toBe('unknown')
+    expect(v.hasLeadingOption).toBe(false)
+  })
+
   it("DISCRIMINATING TWIN — the producer's own TIE call still yields 'tied', not silence", () => {
     // The withheld direction must not swallow a denial the producer DID
     // authorise. `separation: 'tied'` is what licenses the honest

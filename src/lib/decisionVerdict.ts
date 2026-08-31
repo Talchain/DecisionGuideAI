@@ -100,10 +100,7 @@
 // reading of `'failed'` would be a second authority on one question, which is
 // the defect class this whole module exists to end. `notAnalysedOptions.ts`
 // re-exports the same implementation for the component layer.
-import {
-  narrowOptionComputeStatus,
-  optionComputationProducedResult,
-} from '../adapters/plot/optionComputeStatus'
+import { optionEligibleToLead } from '../adapters/plot/optionComputeStatus'
 
 /** Producer band tokens (PLoT BriefBandedHeadline.band, closed set). */
 export type HeadlineBandedBand = 'very_close' | 'slightly_ahead' | 'clearly_ahead'
@@ -330,7 +327,12 @@ export function deriveDecisionVerdict(
   // distinguishable only by this field, which is the entire reason the producer
   // sends it.
   //
-  // The predicate is `optionComputationProducedResult`, QUOTED and not
+  // The predicate is `optionEligibleToLead` — THE single eligibility authority,
+  // the same call `determineWinnerSelection` makes to choose the RENDERED
+  // leader. That shared call is load-bearing: when the verdict and the rendered
+  // identity were gated by different code, the verdict correctly dropped a
+  // failed option while the panel crowned it anyway.
+  // It delegates to `optionComputationProducedResult`, QUOTED and not
   // respelled. It is the same one `OptionCards` forks on and the same reading
   // PLoT's own `isFailedIslOption` applies, so the UI cannot classify an option
   // differently from the service that crowned it (CLAUDE.md trap 21). In
@@ -341,7 +343,7 @@ export function deriveDecisionVerdict(
   const comparable: Array<{ id: string; win: number }> = []
   for (const [id, entry] of Object.entries(probs)) {
     if (visibleOptionIds && !visibleOptionIds.has(id)) continue
-    if (!optionComputationProducedResult(narrowOptionComputeStatus(entry?.status))) continue
+    if (!optionEligibleToLead(entry?.status)) continue
     const win = entry?.win_probability
     if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
   }
@@ -417,7 +419,7 @@ export function deriveDecisionVerdict(
     return { leaderId, separation: 'tied', hasLeadingOption: false, gapPp, source: 'producer_near_tie' }
   }
 
-  // ── An EXACT tie at the top has no argmax, so no claim may rest on one ──
+  // ── An EXACT tie at the top has no argmax, so no ASSERTION may rest on one ─
   //
   // ⚠⚠ THE FOUNDER'S DEFECT: a headline naming a leader over two options the
   // same panel reported as level ("currently leads" beside "essentially tied").
@@ -435,27 +437,36 @@ export function deriveDecisionVerdict(
   // key order is not a verdict, and `hasLeadingOption: true` with `gapPp: 0`
   // reaches `certaintyCopy`'s "{winner} currently leads".
   //
-  // ⭐ PLACED AFTER AUTHORITY 1'S TIE BRANCH, DELIBERATELY. A producer that
-  // explicitly called the tie keeps its `'tied'` verdict, which is what
-  // licenses the honest "no clear leading option" copy. Only the ASSERTION is
-  // withheld here, never the producer's own denial — swallowing that would take
-  // a true sentence off the screen, which is the over-suppression twin of the
-  // defect being fixed (CLAUDE.md trap 22b: one predicate cannot guard two
-  // opposite harms).
+  // ⛔ EXACT EQUALITY, NOT A THRESHOLD, and this is the RIGHT predicate rather
+  // than a cautious one. ISL computes `win_probability = wins / n_samples` over
+  // a SHARED denominator, so a producer-side tie is BIT-IDENTICAL, and
+  // `Array.prototype.sort` is stable — exact equality is therefore precisely
+  // coextensive with "`top1` is arbitrary", the condition this guards. A
+  // seventh "too close to call" cutoff (this module's header records six) would
+  // be the same defect wearing a fix's clothes; closeness stays with the
+  // producer, whose `near_tie` and band both require a gap of 0.10.
   //
-  // ⛔ EXACT EQUALITY, NOT A THRESHOLD. This module's header records SIX
-  // mutually-inconsistent "too close to call" cutoffs found across sixteen
-  // modules; a seventh invented here would be the same defect wearing a fix's
-  // clothes. Equality is not a judgement about closeness — it is the one input
-  // on which `top1` is undefined. Where the producer wants a closeness call it
-  // already has `near_tie` (threshold 0.10) and the `very_close` band, and both
-  // still decide it.
+  // ⭐⭐ IT WITHHOLDS THE ASSERTION AND NEVER THE PRODUCER'S OWN DENIAL — AND
+  // THE FIRST VERSION OF THIS GUARD GOT THAT WRONG, WHICH IS WHY IT IS NOW A
+  // CLAMP AND NOT AN EARLY RETURN.
   //
-  // Fails toward SILENCE (`'unknown'`), not toward a denial: the UI has no more
-  // authority to say "no clear leading option" than to name one.
-  if (top1.win === top2.win) {
-    return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
-  }
+  // At `f11432c5` this sat between Authority 1 and Authority 2 and returned
+  // `'unknown'` outright. A comment right here claimed it therefore "withheld
+  // only the assertion" — but a `very_close` BAND is an explicit producer tie
+  // call too, and the early return swallowed it before Authority 2 could speak.
+  // Measured: an exact tie carrying `headline_banded.band: 'very_close'`
+  // degraded the headline from "no clear leading option" to "the analysis did
+  // not put an option forward" — a TRUE sentence replaced by a weaker one. That
+  // is CLAUDE.md trap 22b exactly: one predicate cannot guard two opposite
+  // harms, and closing the assertion re-opened the denial. The comment asserted
+  // the property instead of testing it against the second authority.
+  //
+  // So the rule is applied where each authority produces its `separation`:
+  // an ASSERTING outcome ('clear' / 'slight') cannot stand on level numbers and
+  // falls to `'unknown'` (silence, never a counter-claim — a producer band of
+  // `clearly_ahead` over level numbers is a disagreement we have authority to
+  // resolve in neither direction); a DENIAL ('tied') passes through untouched.
+  const levelAtTop = top1.win === top2.win
 
   // ── Authority 2: the producer's leader-confidence band ──────────────────
   // Refines HOW far ahead. When authority 1 has already ruled "not a tie",
@@ -463,8 +474,20 @@ export function deriveDecisionVerdict(
   // clear-vs-slight in that case — the producer's own tie call wins.
   if (bandApplies) {
     const banded = BAND_TO_SEPARATION[band!.band]
+    // ⭐ `&& !levelAtTop` — the promotion from a `very_close` band to 'slight'
+    // is itself an ASSERTION, so it must not fire on level numbers. Without it
+    // the clamp below would catch the result anyway, but as SILENCE rather than
+    // as the producer's own tie call: the band said `very_close` and the honest
+    // outcome is to keep saying so.
     const separation: LeaderSeparation =
-      banded === 'tied' && nearTieApplies && !nearTie!.isTie ? 'slight' : banded
+      banded === 'tied' && nearTieApplies && !nearTie!.isTie && !levelAtTop ? 'slight' : banded
+
+    // THE CLAMP. An asserting band cannot stand on an exact tie; a DENIAL
+    // ('tied') passes through and keeps "no clear leading option" on screen.
+    if (levelAtTop && separation !== 'tied') {
+      return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
+    }
+
     return {
       leaderId,
       separation,
@@ -477,6 +500,12 @@ export function deriveDecisionVerdict(
   // Authority 1 said "not a tie" and there is no band to refine it: a leading
   // option exists. Grade it on the leader's own win probability.
   if (nearTieApplies && !nearTie!.isTie) {
+    // THE CLAMP again. This branch only ever ASSERTS, so on level numbers there
+    // is nothing here to preserve — it falls to silence. (The producer's own
+    // `is_tie: true` denial was already returned above, untouched.)
+    if (levelAtTop) {
+      return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
+    }
     const separation: LeaderSeparation =
       top1.win >= LEADER_CLEAR_WIN_PROBABILITY - FP_EPSILON ? 'clear' : 'slight'
     return { leaderId, separation, hasLeadingOption: true, gapPp, source: 'producer_near_tie' }

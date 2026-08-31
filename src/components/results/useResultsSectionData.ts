@@ -73,6 +73,9 @@ import {
   isAnalysedOption,
   runAnalysedAnyOption,
 } from './utils/notAnalysedOptions'
+// THE single eligibility authority for leader selection — the same call
+// `deriveDecisionVerdict` makes. See `optionEligibleToLead`'s own header.
+import { optionEligibleToLead } from '../../adapters/plot/optionComputeStatus'
 import { readInferenceWarnings } from './utils/readInferenceWarnings'
 import { deriveStabilityLevel } from '../../lib/stability'
 import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
@@ -115,13 +118,51 @@ export function determineWinnerSelection(
   // loosening the coverage rule keeps the rule's own question intact: the
   // coverage must still be COMPLETE, over the options that were in the
   // comparison.
-  const options = allOptions.filter((o) => o.notAnalysed !== true)
+  //
+  // ⭐⭐ AND THE SECOND FILTER IS THE ONE THAT WAS MISSING, WHICH IS HOW THE
+  // RENDERED LEADER CAME APART FROM THE LEADER VERDICT.
+  //
+  // `notAnalysed` answers *"was this option in the analysis at all?"* — and a
+  // `status: 'failed'` option WAS: the entry is present, so it passes that
+  // filter. What it lacks is a COMPUTATION. ISL emits `'failed'` exactly when
+  // `n_valid === 0` (zero finite Monte Carlo samples), and PLoT still forwards
+  // a finite `win_probability: 0` beside it, so this function's argmax sorted
+  // on a fabricated number. Measured at `f11432c5`:
+  //
+  //     [{ id: 'good',   winProbability: 0.4, computeStatus: 'computed' },
+  //      { id: 'failed', winProbability: 0.9, computeStatus: 'failed' }]
+  //       -> { recommendedId: 'failed', determinedBy: 'win_probability' }
+  //
+  // The panel crowned the failed option AND told the user the answer came from
+  // win probability. `deriveDecisionVerdict` had already been taught to drop
+  // that option, so the verdict said "no leading option" while the identity
+  // beside it named one — the two questions gated by two different pieces of
+  // code, which is precisely the split `decisionVerdict.ts` exists to end.
+  //
+  // ⚠⚠ PLoT ALREADY REFUSED TO CROWN IT: `isCrownableCandidate`
+  // (`src/routes/v2/run.ts:1976`) is an allowlist on `status === 'computed'`.
+  // The producer fails CLOSED and this failed OPEN.
+  //
+  // `optionEligibleToLead` is THE single eligibility authority and the SAME
+  // call `deriveDecisionVerdict` makes. Not a second `!== 'failed'` test: if
+  // this is ever respelled locally the two can drift, and drift between these
+  // two is the whole defect.
+  const options = allOptions.filter(
+    (o) => o.notAnalysed !== true && optionEligibleToLead(o.computeStatus),
+  )
   if (options.length === 0) {
     return { recommendedId: null, determinedBy: 'unknown' }
   }
 
   if (backendRecommendedId) {
+    // FAIL CLOSED. `find` runs over the ELIGIBLE set, so a backend
+    // recommendation naming an ineligible option no longer short-circuits
+    // straight to `{ recommendedId: backendRecommendedId }` — at `f11432c5` it
+    // did, and returned the failed option even when it was named explicitly.
     const backendOption = options.find(opt => opt.id === backendRecommendedId)
+    if (backendOption === undefined) {
+      return { recommendedId: null, determinedBy: 'unknown' }
+    }
     if (backendOption?.winProbability != null) {
       return { recommendedId: backendRecommendedId, determinedBy: 'win_probability' }
     }

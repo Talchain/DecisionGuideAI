@@ -203,3 +203,66 @@ export function optionComputationFailed(
 ): boolean {
   return !optionComputationProducedResult(status)
 }
+
+// ---------------------------------------------------------------------------
+// ⭐⭐ THE ONE ELIGIBILITY AUTHORITY FOR LEADER SELECTION
+// ---------------------------------------------------------------------------
+
+/**
+ * ⭐⭐ MAY THIS OPTION BE PUT FORWARD AS THE LEADING OPTION?
+ *
+ * **THE SINGLE ENTRY POINT. Every surface that selects, names, orders or
+ * crowns a leading option asks THIS, and nothing re-derives it.**
+ *
+ * ## Why it exists, and why it is not a seventeenth authority
+ *
+ * It is NOT a new rule. It is `optionComputationProducedResult` with the
+ * narrowing folded in, so that a raw wire value and an already-narrowed
+ * `computeStatus` cannot be read through two different spellings of the same
+ * question. Delete the delegation and this becomes a second authority
+ * immediately — which is the whole failure mode `decisionVerdict.ts`'s header
+ * documents (sixteen modules each classifying a leader for themselves).
+ *
+ * ## The defect it closes — MEASURED, not hypothesised
+ *
+ * The leader VERDICT ("is there a leading option?") and the leader IDENTITY
+ * ("which one?") were gated by different code. `deriveDecisionVerdict` was
+ * taught to drop an option ISL classified `'failed'`; `determineWinnerSelection`
+ * was not, and it re-selected a winner from whatever numeric artefacts were
+ * present. Measured at `f11432c5`:
+ *
+ *     [{ id: 'good', winProbability: 0.4, computeStatus: 'computed' },
+ *      { id: 'failed', winProbability: 0.9, computeStatus: 'failed' }]
+ *       -> { recommendedId: 'failed', determinedBy: 'win_probability' }
+ *
+ * The UI crowned the failed option **and told the user the answer came from
+ * win probability** — on a number ISL emits precisely because it had ZERO
+ * finite samples. It did so even when the backend recommendation named it.
+ *
+ * ⚠⚠ **AND THE PRODUCER HAD ALREADY REFUSED TO CROWN IT.** PLoT's
+ * `isCrownableCandidate` (`src/routes/v2/run.ts:1976`) is an ALLOWLIST on
+ * `status === 'computed'`. So the UI was crowning an option the service that
+ * owns crowning had explicitly declined to crown — the producer fails CLOSED
+ * and the UI failed OPEN, which is worse than either posture on its own.
+ *
+ * ## ⚠ THIS IS NOT PLoT'S PREDICATE, AND THE DIFFERENCE IS DELIBERATE
+ *
+ * PLoT's allowlist excludes `'partial'` and an ABSENT status; this denylist
+ * admits both. **That divergence is real, it is NOT closed here, and it is
+ * rowed** (see the PR body). It is left open on purpose: `'partial'` is a
+ * DISCLOSURE — ISL emits a full `outcome` block with `0 < n_valid/n_total <
+ * 0.8` — and an absent status is the legacy V1 shape that carries no `status`
+ * field at all, so tightening to an allowlist here would suppress every
+ * legacy-V1 option on the surface, a far larger harm than the one being fixed.
+ * Narrowing this to match PLoT is a product decision with its own copy
+ * consequences, not a tidy-up to make in passing.
+ *
+ * @param status Either a RAW wire value or an already-narrowed
+ *   `OptionComputeStatus`. Both are accepted so that the verdict (which reads
+ *   `option_probabilities[id].status`, untyped) and the results panel (which
+ *   reads `OptionResult.computeStatus`, narrowed) reach ONE decision through
+ *   ONE call, rather than through two call sites that could drift apart.
+ */
+export function optionEligibleToLead(status: unknown): boolean {
+  return optionComputationProducedResult(narrowOptionComputeStatus(status))
+}
