@@ -423,10 +423,32 @@ export function deriveComparisonScope(
  * Not exported: it is an implementation detail of the register, and a second
  * public list-joiner is exactly the kind of near-duplicate helper that drifts.
  */
-function joinLabels(labels: readonly string[]): string {
-  if (labels.length === 1) return labels[0]
-  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
+function joinLabels(labels: readonly string[], tail?: string): string {
+  // The remainder, when there is one, IS the final item of the list — so it
+  // goes through the same joiner rather than being concatenated beside it.
+  // A second `.join(', ')` spelled next to this function is exactly the
+  // near-duplicate this helper's non-export exists to prevent.
+  const items = tail === undefined ? labels : [...labels, tail]
+  if (items.length === 1) return items[0]
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
 }
+
+/**
+ * How many excluded options are NAMED at rest, before the remainder becomes a
+ * count. ONE constant, consumed by both the sentence here and the option rows
+ * in `analysisNew/sections/AtAGlance.tsx`.
+ *
+ * ⚠ IT IS ONE CONSTANT ON PURPOSE. The rows previously carried their own `2`,
+ * justified by this sentence being COMPLETE — "the note names every excluded
+ * option these rows name, so capping the rows loses nothing". Bounding the
+ * sentence makes that justification false, and two caps whose safety rests on
+ * each other's completeness is a circle neither suite can see (CLAUDE.md trap
+ * 21, built out of two integers). Binding them removes the circle rather than
+ * re-arguing it.
+ *
+ * If the trade is ever judged wrong, raise THIS number — never re-split it.
+ */
+export const EXCLUDED_LABEL_NAME_CAP = 2
 
 /**
  * The comparison-set register — ONE spelling of "these numbers compare N of
@@ -453,14 +475,59 @@ export const COMPARISON_SCOPE_COPY = {
    * Who is outside the set. Falls back to the COUNT when no excluded option
    * carries a usable label — reporting "1 was left out" is honest; inventing
    * "Untitled option" is not.
+   *
+   * ⭐⭐ IT ACCOUNTS FOR `total - analysed`, NEVER FOR `excludedLabels.length`.
+   * That distinction is the whole fix. The clause previously named every label
+   * it had and stopped, which shipped two defects on four mounted surfaces
+   * (`WinGauge` ×2, `OptionCards`, `AnalysisHeroPanel`, `AtAGlance`):
+   *
+   *   1. UNBOUNDED — thirty excluded options produced a thirty-name sentence
+   *      under the headline number.
+   *   2. SILENTLY PARTIAL — `excludedLabels` MAY BE SHORTER than the missing
+   *      count (see the type's own doc: an unlabelled option, or one labelled
+   *      with its own node id, is deliberately dropped rather than invented).
+   *      So "Comparing 1 of your 31 options — Alpha, Bravo, Charlie, Delta and
+   *      Echo were left out" read as a complete list while THIRTY were left
+   *      out, and nothing in the sentence signalled it was partial.
+   *
+   * The remainder is therefore derived from the arithmetic, not from what we
+   * happen to be able to spell — so an unnameable option is counted even
+   * though it cannot be named, and the sentence can no longer overstate its
+   * own completeness.
    */
   excludedClause: (scope: ComparisonScope): string => {
     const missing = scope.total - scope.analysed
-    if (scope.excludedLabels.length === 0) {
+    // Bounded by the cap AND by the arithmetic. `ComparisonScope` is an
+    // exported interface, so a caller outside `deriveComparisonScope` can hand
+    // over more labels than `total - analysed`; naming all of them would assert
+    // an exclusion the count denies. Naming fewer than we hold is always safe,
+    // naming more never is — so the missing count is a hard ceiling on the
+    // names, not just on the remainder.
+    const nameable = Math.max(0, Math.min(EXCLUDED_LABEL_NAME_CAP, missing))
+    const named = scope.excludedLabels.slice(0, nameable)
+
+    if (named.length === 0) {
       return missing === 1 ? '1 was left out' : `${missing} were left out`
     }
-    const verb = scope.excludedLabels.length === 1 ? 'was' : 'were'
-    return `${joinLabels(scope.excludedLabels)} ${verb} left out`
+
+    // ⚠ CLAMPED AT ZERO, NOT ASSUMED NON-NEGATIVE. `ComparisonScope` is an
+    // exported interface, so a caller outside `deriveComparisonScope` can hand
+    // us more labels than the arithmetic says are missing. Left unclamped that
+    // falls through to the exact branch below and NAMES options the count says
+    // are not excluded — overstating in the one direction this whole function
+    // exists to stop. Naming fewer than we hold is always safe; naming more
+    // never is.
+    const others = Math.max(0, missing - named.length)
+
+    if (others === 0) {
+      const verb = named.length === 1 ? 'was' : 'were'
+      return `${joinLabels(named)} ${verb} left out`
+    }
+
+    // Compound subject — plural throughout, including "Alpha and 1 other were
+    // left out", where the singular noun still takes a plural verb.
+    const remainder = `${others} other${others === 1 ? '' : 's'}`
+    return `${joinLabels(named, remainder)} were left out`
   },
 
   /**

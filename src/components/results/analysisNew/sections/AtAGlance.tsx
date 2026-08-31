@@ -35,6 +35,7 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
+import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
@@ -98,7 +99,23 @@ function reassuranceIsStale(tone: string, isStale: boolean): boolean {
  */
 export const DRIVER_SPREAD_MIN = 0.05
 
-export const EXCLUDED_OPTION_VISIBLE_CAP = 2
+/**
+ * How many excluded options these rows name at rest.
+ *
+ * ⭐ THE REGISTER'S CONSTANT, NOT A SECOND NUMBER. This was a literal `2`,
+ * justified by the scope note naming every option these rows name. Bounding
+ * that note made the justification false and left two caps each resting on the
+ * other's completeness. They are now one value.
+ *
+ * ⚠ SCOPE, EXACTLY — an earlier draft of this note said the two "cannot drift
+ * apart", which overstated it and was caught in review. What the shared
+ * constant fixes is HOW MANY each side names at rest. It does not by itself
+ * make the two sides agree about the REMAINDER: the sentence counts every
+ * missing option (`total - analysed`) while this list can only hold the ones
+ * carrying a usable label. That gap is closed separately, by the unnamed-
+ * remainder row below — not by this constant.
+ */
+export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP
 
 export interface AtAGlanceProps {
   glance: AtAGlanceModel
@@ -399,6 +416,30 @@ export function AtAGlance({
                 </span>
               </li>
             ))}
+            {/* ⭐ THE OPTIONS THIS LIST CANNOT NAME, so the section adds up.
+                `excluded` is filtered to options with a usable label
+                (`buildAnalysisNewViewModel.ts` drops a blank label and one that
+                is merely the node's own id). The scope sentence above counts
+                ALL of them — "…and 28 others were left out" — so without this
+                row the sentence and the list below it report two different
+                populations, and the disclosure control offers to reveal 3 when
+                the sentence just said 28. Same defect class as the two caps
+                this change bound together, one level out. */}
+            {(() => {
+              const s = glance.comparisonScope.scope
+              const unnameable = s.total - s.analysed - glance.comparisonScope.excluded.length
+              return unnameable > 0 ? (
+                <li
+                  className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
+                  data-testid={`${testId}-excluded-unnamed`}
+                >
+                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    {COPY.disclosure.unnamedExcluded(unnameable)}
+                  </span>
+                </li>
+              ) : null
+            })()}
           </ul>
           {glance.comparisonScope.excluded.length > EXCLUDED_OPTION_VISIBLE_CAP ? (
             <button
