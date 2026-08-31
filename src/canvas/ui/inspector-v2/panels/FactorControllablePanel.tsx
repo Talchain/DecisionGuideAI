@@ -27,6 +27,7 @@ import {
   EMPTY_STATES,
   getExtractionLabel,
   getProvenanceLabel,
+  INLINE_LABELS,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -444,7 +445,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 <div>
                   <DataBar
                     value={displayMetadata.valueOfInformation}
-                    label="Investigation value"
+                    label={INLINE_LABELS.investigationValue}
                     colour="info"
                     trailingLabel={
                       displayMetadata.valueOfInformation >= 0.7 ? 'High'
@@ -452,6 +453,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                       : 'Low'
                     }
                   />
+                  {/* Its own label, in the same place ImportanceBar puts its own —
+                      without it, that bar's label reads as this bar's. */}
+                  <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                    {INLINE_LABELS.investigationValue}
+                  </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
                     {displayMetadata.valueOfInformation >= 0.7
                       ? 'Gathering more evidence here could significantly improve confidence.'

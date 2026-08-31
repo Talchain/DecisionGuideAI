@@ -398,6 +398,26 @@ export const INLINE_LABELS = {
   influences:   'Influences',
   drivers:      'What drives this',
   influenceOnResults: 'Influence on results',
+  /**
+   * ⚠ THE VALUE-OF-INFORMATION BAR HAD NO VISIBLE LABEL, AND THE PANEL
+   * CONTRADICTED ITSELF AS A RESULT.
+   *
+   * `DataBar` renders `label` as an `aria-label` ONLY — never as text — so a
+   * sighted reader saw an unlabelled bar. `ImportanceBar` puts its label
+   * BELOW its own bar, so `Influence on results` sat immediately above the
+   * unlabelled investigation-value bar and was read as belonging to it. On a
+   * top driver that produced, in one vertical stack:
+   *
+   *     1st · 100%  ->  Influence on results  ->  [bar] Low
+   *     -> "Further investigation here is unlikely to change the outcome."
+   *     -> "This is one of the most influential factors in your model."
+   *
+   * i.e. "influence: Low" directly above "one of the most influential". The
+   * data was never wrong — influence and value-of-information are different
+   * quantities — but a missing label made a coherent panel look like a
+   * data-integrity defect. A reviewer nearly filed it as one.
+   */
+  investigationValue: 'Investigation value',
   sensitiveAssumption: 'Sensitive assumption',
   flipRisk:     '{pct}% flip risk',
   strengthQuestion: 'How strong is this effect?',
