@@ -54,6 +54,7 @@ import {
   freezeMotion, waitForVisualQuiescence, VIEWPORTS,
 } from './harness'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
+import { LABEL_LEGIBLE_ZOOM } from '../../src/canvas/utils/zoomLegibility'
 
 /**
  * How far the camera may sit from the fit derived at the same instant before it
@@ -322,5 +323,104 @@ test.describe('the overview the user asks for is the overview they keep', () => 
       Math.abs(after.scale - after.derivedFit) / after.derivedFit,
       `the model already fitted and the fit action moved the camera to ${after.scale}, away from the derived fit ${after.derivedFit}`,
     ).toBeLessThanOrEqual(FIT_TOLERANCE)
+  })
+})
+
+test.describe('an explicit user fit reaches the model, an automatic one stays legible', () => {
+  /**
+   * ⭐⭐ THE SECOND HALF OF #1051, RULED ON 31 Aug 2026. `zoomLegibility.ts` said
+   * in prose that explicit user gestures "stay unfloored by design" and named
+   * `ReactFlowGraph.handleFitView` as one of them; the code passed
+   * `minZoom: LABEL_LEGIBLE_ZOOM`. So the left-rail control could not show the
+   * whole of any model whose fit sits below 0.5 — which is every model the
+   * extent notice appears for — and it made the same promise "Show whole model"
+   * makes and broke it the same way.
+   *
+   * These two cases fail on DIFFERENT assertions in OPPOSITE directions, which
+   * is the whole point: one class was changed and the other must not have been.
+   * Unfloor everything and the product case REDs; floor everything and the user
+   * case REDs. Neither can be satisfied by moving a single dial.
+   *
+   * ⚠ `LABEL_LEGIBLE_ZOOM` is IMPORTED, never typed as 0.5 — the constant is
+   * what the product clamps to, so the assertion has to move with it.
+   */
+  test('build-vs-buy: the left-rail "Fit to view" reaches the model\'s own fit, not the floor', async ({ page }) => {
+    await preparePage(page, VIEWPORTS[0])
+    await openCanvas(page)
+    await seedStarterDraft(page, 'build-vs-buy')
+    await clearNotifications(page)
+    await freezeMotion(page)
+    await waitForVisualQuiescence(page)
+    await waitForExtentsSettled(page, GHOST_ID_PREFIX)
+
+    const before = await readCamera(page)
+    expect(before.ok, before.why).toBe(true)
+    expect(before.hidden).toBe(false)
+    expect(before.unmeasured).toBe(0)
+
+    // PRECONDITION, PINNED IN-TEST: the floor has to BITE on this model, or the
+    // case is a tautology — a model whose fit is already above 0.5 would pass
+    // whether the gesture is floored or not.
+    expect(
+      before.derivedFit,
+      `this model's fit (${before.derivedFit}) is not below the legibility floor, so the floor cannot bite and nothing is tested`,
+    ).toBeLessThan(LABEL_LEGIBLE_ZOOM)
+
+    await page.getByRole('button', { name: 'Fit to view' }).click()
+    await waitForCameraSettled(page)
+    await page.waitForTimeout(1500)
+
+    const after = await readCamera(page)
+    expect(after.ok, after.why).toBe(true)
+    expect(
+      Math.abs(after.scale - after.derivedFit) / after.derivedFit,
+      `"Fit to view" left the camera at ${after.scale} when the model's own extents need ` +
+      `${after.derivedFit} — ${after.modelNodes - after.fullyVisible} of ${after.modelNodes} elements are outside the pane`,
+    ).toBeLessThanOrEqual(FIT_TOLERANCE)
+    expect(after.fullyVisible, 'the derived fit was reached but elements are still outside the pane').toBe(after.modelNodes)
+    // Names the defect directly, so the failure says what happened rather than
+    // only that a ratio was wrong.
+    expect(
+      Math.abs(after.scale - LABEL_LEGIBLE_ZOOM) < 1e-3,
+      `the camera stopped exactly at the legibility floor (${LABEL_LEGIBLE_ZOOM}) — the product clamped a view the user asked for`,
+    ).toBe(false)
+  })
+
+  test('a PRODUCT-initiated re-fit on the same model is still floored at the legibility zoom', async ({ page }) => {
+    // THE OPPOSITE DIRECTION. Auto-arrange bumps `layoutVersion`, which is the
+    // product's own fit trigger — no user camera gesture anywhere in this case.
+    // It must still refuse to park in the unreadable band, which is the rule the
+    // change above deliberately did NOT touch.
+    await preparePage(page, VIEWPORTS[0])
+    await openCanvas(page)
+    await seedStarterDraft(page, 'build-vs-buy')
+    await clearNotifications(page)
+    await freezeMotion(page)
+    await waitForVisualQuiescence(page)
+    await waitForExtentsSettled(page, GHOST_ID_PREFIX)
+
+    await page.getByRole('button', { name: 'Auto-arrange' }).click()
+    await waitForCameraSettled(page)
+    await waitForExtentsSettled(page, GHOST_ID_PREFIX)
+    await page.waitForTimeout(1000)
+
+    const after = await readCamera(page)
+    expect(after.ok, after.why).toBe(true)
+    expect(after.unmeasured).toBe(0)
+    // Same precondition as above, re-derived after the layout: the floor must be
+    // the thing standing between this camera and the whole model.
+    expect(
+      after.derivedFit,
+      `the re-laid-out model fits at ${after.derivedFit}, at or above the floor — this case cannot observe a clamp`,
+    ).toBeLessThan(LABEL_LEGIBLE_ZOOM)
+
+    expect(
+      after.scale,
+      `the product's own re-fit parked the camera at ${after.scale}, below the legibility floor it is supposed to clamp to`,
+    ).toBeCloseTo(LABEL_LEGIBLE_ZOOM, 3)
+    expect(
+      Math.abs(after.scale - after.derivedFit) / after.derivedFit,
+      'the product chose the whole-model overview for the user — that is the half of the rule that must NOT change',
+    ).toBeGreaterThan(FIT_TOLERANCE)
   })
 })

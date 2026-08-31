@@ -20,6 +20,23 @@
  * expected set is computed from the sources themselves, so a THIRD literal
  * introduced under any new name (`READABLE_ZOOM`, `LABEL_ZOOM_MIN`, …) fails
  * this spec on the day it is written.
+ *
+ * ⭐⭐ EXTENDED 31 Aug 2026 — ONE NUMBER WAS NEVER THE WHOLE RULE, AND THE HALF
+ * THIS FILE DID NOT COVER IS THE ONE THAT SHIPPED A DEFECT (#1051). Nothing here
+ * cared WHO a fit belonged to. `zoomLegibility.ts` stated in prose that explicit
+ * user gestures "stay unfloored by design" and named the two call sites; both of
+ * them passed `minZoom: LABEL_LEGIBLE_ZOOM` — legally, since they imported the
+ * one constant rather than restating it. So "Fit to view" and the palette's
+ * "Zoom to Fit" could not show the whole of any model whose fit sits below 0.5,
+ * a doctrine paragraph and its implementation disagreed for weeks, and this
+ * guard was green throughout. It was watching the number and not the rule.
+ *
+ * The second half below therefore pins the CLASSES: the legibility bounds may
+ * only reach a `fitView` through `fitBoundsFor(initiator)`, and the sites that
+ * fit as `'user'` must be exactly the sites that claim the camera for the user
+ * (`utils/userCameraClaim.ts`). Two lists derived from the same tree, asserted
+ * equal — so a fit cannot belong to one class for the floor and the other for
+ * the camera.
  */
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -137,5 +154,127 @@ describe('one legibility number under src/canvas', () => {
     expect(singleSourceDeclarations).toHaveLength(SINGLE_SOURCE_NAMES.length)
     const declaredNames = singleSourceDeclarations.map((d) => d.split(' = ')[0]).sort()
     expect(declaredNames).toEqual([...SINGLE_SOURCE_NAMES].sort())
+  })
+})
+
+/* ── the two fit classes ───────────────────────────────────────────────────── */
+
+/** The module that DECLARES the camera claim; it is not a call site. */
+const CLAIM_MODULE = 'utils/userCameraClaim.ts'
+
+/** The legibility constants, as a fit would name them. */
+const LEGIBILITY_CONSTANTS = ['LABEL_LEGIBLE_ZOOM', 'AUTO_FIT_MAX_ZOOM'] as const
+
+/**
+ * Every `minZoom:` / `maxZoom:` FIELD set directly from a legibility constant.
+ *
+ * A FIELD, not any mention: `topAnchoredViewportWhenClamped(bounds, w, h, insets,
+ * LABEL_LEGIBLE_ZOOM)` passes the same constant positionally and is not a fit
+ * bound, and `useFocusCamera`'s `maxZoom: 1.2` is a different quantity entirely.
+ * Matching the field assignment is what separates "a fit declared its own
+ * legibility band" from every other use of the number.
+ */
+export function findHandSetLegibilityBounds(src: string): string[] {
+  const code = blankNonCode(src)
+  const re = /\b(minZoom|maxZoom)\s*:\s*([A-Za-z_$][\w$]*)/g
+  const found: string[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(code)) !== null) {
+    const value = m[2]!
+    if (!(LEGIBILITY_CONSTANTS as readonly string[]).includes(value)) continue
+    found.push(`${m[1]}: ${value}`)
+  }
+  return found
+}
+
+/**
+ * Which initiators a file names when it asks for fit bounds.
+ *
+ * ⚠ THE ARGUMENT IS A STRING LITERAL, AND `blankNonCode` BLANKS STRING BODIES —
+ * so scanning the blanked source alone finds `fitBoundsFor('    ')` and reads
+ * every call as unclassified. Caught by this file's own positive control, which
+ * is the only reason it did not ship as a guard that matched nothing. The
+ * blanking IS still needed, to keep prose and code samples out; it is
+ * offset-preserving, so the call sites are located in the blanked source and the
+ * initiator is then read from the RAW source at the same offset.
+ */
+export function findFitBoundsInitiators(src: string): string[] {
+  const code = blankNonCode(src)
+  const re = /\bfitBoundsFor\s*\(/g
+  const found = new Set<string>()
+  let m: RegExpExecArray | null
+  while ((m = re.exec(code)) !== null) {
+    const arg = /^\s*'(user|product)'/.exec(src.slice(m.index + m[0].length))
+    if (arg) found.add(arg[1]!)
+  }
+  return [...found].sort()
+}
+
+describe('the class scan itself bites (detector contract)', () => {
+  it('catches a fit that sets a legibility bound by hand — the #1051 shape', () => {
+    expect(findHandSetLegibilityBounds('fitView({ padding, minZoom: LABEL_LEGIBLE_ZOOM })')).toEqual([
+      'minZoom: LABEL_LEGIBLE_ZOOM',
+    ])
+    expect(findHandSetLegibilityBounds('fitView({ maxZoom: AUTO_FIT_MAX_ZOOM })')).toEqual([
+      'maxZoom: AUTO_FIT_MAX_ZOOM',
+    ])
+  })
+
+  it('does NOT catch the same constant used for something that is not a fit bound', () => {
+    // The contrast that proves the scan discriminates rather than matching the
+    // constant's name wherever it appears.
+    expect(findHandSetLegibilityBounds('topAnchoredViewportWhenClamped(b, w, h, i, LABEL_LEGIBLE_ZOOM)')).toEqual([])
+    expect(findHandSetLegibilityBounds('setViewport({ zoom: LABEL_LEGIBLE_ZOOM })')).toEqual([])
+    expect(findHandSetLegibilityBounds('fitView({ maxZoom: 1.2 })')).toEqual([])
+    expect(findHandSetLegibilityBounds('// minZoom: LABEL_LEGIBLE_ZOOM')).toEqual([])
+  })
+
+  it('reads the initiator a fit names', () => {
+    expect(findFitBoundsInitiators("fitView({ ...fitBoundsFor('user') })")).toEqual(['user'])
+    expect(findFitBoundsInitiators("fitView({ ...fitBoundsFor('product') })")).toEqual(['product'])
+    expect(findFitBoundsInitiators('fitView({})')).toEqual([])
+  })
+})
+
+describe('a fit belongs to ONE class, for the floor and for the camera alike', () => {
+  it('no fit under src/canvas sets a legibility bound by hand', () => {
+    const violations: string[] = []
+    for (const file of sourceFiles(CANVAS_ROOT)) {
+      const rel = relative(CANVAS_ROOT, file)
+      // The module that OWNS the bounds is where they are allowed to be named.
+      if (rel === SINGLE_SOURCE_FILE) continue
+      for (const hit of findHandSetLegibilityBounds(readFileSync(file, 'utf8'))) {
+        violations.push(`${rel} → ${hit}`)
+      }
+    }
+    expect(
+      violations,
+      'a fit declared its own legibility band instead of naming its class — this is exactly how ' +
+        '"Fit to view" ended up floored while the doctrine said it was not (#1051)',
+    ).toEqual([])
+  })
+
+  it('the USER-bounded fits are exactly the fits that claim the camera for the user', () => {
+    const userBounded: string[] = []
+    const claiming: string[] = []
+    for (const file of sourceFiles(CANVAS_ROOT)) {
+      const rel = relative(CANVAS_ROOT, file)
+      // The module that DECLARES the claim is not a call site — its
+      // `export function claimCameraForUser()` matches a call-shaped regex.
+      if (rel === CLAIM_MODULE) continue
+      const src = readFileSync(file, 'utf8')
+      const code = blankNonCode(src)
+      if (findFitBoundsInitiators(src).includes('user')) userBounded.push(rel)
+      if (/\bclaimCameraForUser\s*\(/.test(code)) claiming.push(rel)
+    }
+
+    // POSITIVE CONTROL: an empty-vs-empty comparison would pass while proving
+    // nothing (CLAUDE.md trap 13).
+    expect(userBounded.length, 'the scan found no user-bounded fit at all').toBeGreaterThan(0)
+    expect(
+      userBounded.sort(),
+      'a fit is bounded as the user\'s but does not claim the camera for them, or the reverse — ' +
+        'the two halves of one rule have drifted apart',
+    ).toEqual(claiming.sort())
   })
 })

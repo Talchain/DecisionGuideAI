@@ -7,7 +7,7 @@ import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
-import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
 import { releaseUserCameraClaim, userOwnsCamera } from '../utils/userCameraClaim'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 
@@ -197,12 +197,18 @@ export function useFitViewOnLayoutVersion(): void {
       // fit-everything, i.e. exactly the previous behaviour.
       ...(nodes.length > 0 ? { nodes } : {}),
       padding,
-      minZoom: LABEL_LEGIBLE_ZOOM,
-      // ⭐ THE OTHER END OF THE BAND. A floor alone let a degenerate bounding
-      // box — one node, or a graph the layout engine never spread — frame at up
-      // to the instance's `maxZoom={4}`; the witnessed canvas sat at 328%.
-      // Automatic fits do not magnify; the user still can.
-      maxZoom: AUTO_FIT_MAX_ZOOM,
+      // ⭐ THE PRODUCT'S BAND, BOTH ENDS. The floor keeps an automatic fit out of
+      // the band the product itself calls unreadable; the ceiling stops a
+      // degenerate bounding box — one node, or a graph the layout engine never
+      // spread — framing at up to the instance's `maxZoom={4}` (a witnessed
+      // canvas sat at 328%). Automatic fits neither hide labels nor magnify; the
+      // user may do both.
+      //
+      // ⚠ SPREAD FROM `fitBoundsFor`, NOT RESTATED. Until 31 Aug 2026 the two
+      // USER-invoked fits set `minZoom` to this same constant by hand, against
+      // the doctrine in the module that owns it, and nothing could tell the two
+      // classes apart (#1051). Naming the class is what makes them different.
+      ...fitBoundsFor('product'),
       duration,
     })
   })
