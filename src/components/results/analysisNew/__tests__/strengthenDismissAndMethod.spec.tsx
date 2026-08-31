@@ -1,19 +1,30 @@
 /**
- * The dismissal control, and the technique chip.
+ * The dismissal, the disagreement, and the technique chip.
  *
- * ⭐⭐ THE FIRST DESCRIBE BLOCK EXISTS BECAUSE OF A DEFECT WITNESSED ON THE
- * DEPLOYED BUILD `3378415d`, not because of a hypothesis.
+ * ⭐⭐ HISTORY, BECAUSE IT EXPLAINS THE SHAPE OF WHAT IS PINNED HERE.
  *
  * `strengthenStore.dismiss` opens with `if (!record) return` — it SILENTLY
- * NO-OPS for an id it holds no record for, and records are only created by
+ * NO-OPS for an id it holds no record for. Records were created only by
  * `reconcile`, which runs on a COMPLETED analysis. Before a run the button
  * therefore did nothing, while the notice said "Recommendation dismissed" and
- * the card stayed on screen beside it.
+ * the card stayed on screen beside it. The first fix GATED the control on the
+ * store holding the id, on the principle that a control which cannot act is not
+ * an affordance but an advertisement.
  *
- * A control that cannot act is not an affordance, it is an advertisement. The
- * button is not offered unless the store can actually retire the id, and that
- * is what these cases pin — in both directions, because a guard that only ever
- * hides the control would be just as wrong.
+ * ⚠⚠ THAT GATE WAS THEN MEASURED ON THE DEPLOYED BUILD `fdeb08d2` AND FOUND TO
+ * BE THE WRONG FIX. `reconcile` is called from ONE place — `StrengthenContainer`,
+ * which mounts only on the OLD Analysis tab. This surface is deliberately
+ * read-only. So on a live run the panel rendered SIX findings while the store
+ * held FOUR, from an earlier run seen on the other tab: the controls appeared on
+ * some cards and not others, for a reason wholly invisible to the reader. An
+ * affordance that appears at random is worse than one that is simply missing.
+ *
+ * The gate is therefore replaced by `seedIfAbsent`, which creates the record on
+ * the user's DELIBERATE ACTION — never on mount, so the read-only property that
+ * keeps the two tabs comparable is preserved. What is pinned below is that the
+ * controls are always offered AND that acting always seeds before it acts;
+ * without the seed the action would be silently discarded, which is the original
+ * defect wearing a different hat.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -35,6 +46,7 @@ let records: Record<string, unknown> = {}
 const dismiss = vi.fn()
 const restoreDismissed = vi.fn()
 const dispute = vi.fn()
+const seedIfAbsent = vi.fn()
 
 /**
  * ⚠ `selectHistory` IS NOT MOCKED. It is the real, exported store selector —
@@ -44,7 +56,7 @@ const dispute = vi.fn()
 vi.mock('../../../../canvas/stores/strengthenStore', async (orig) => ({
   ...(await orig<typeof import('../../../../canvas/stores/strengthenStore')>()),
   useStrengthenStore: (sel: (s: unknown) => unknown) =>
-    sel({ records, priorityOrder: Object.keys(records), dismiss, restoreDismissed, dispute }),
+    sel({ records, priorityOrder: Object.keys(records), dismiss, restoreDismissed, dispute, seedIfAbsent }),
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -73,6 +85,7 @@ beforeEach(() => {
   dismiss.mockClear()
   restoreDismissed.mockClear()
   dispute.mockClear()
+  seedIfAbsent.mockClear()
 })
 
 /** A retired record, shaped as the store writes it. */
@@ -93,20 +106,29 @@ const retiredRecord = (
   ],
 })
 
-describe('the dismissal is offered only when it can actually act', () => {
-  it('is ABSENT when the store holds no record for the id (the pre-run case)', () => {
-    renderOpen(
-      <StrengthenTheReasoning interventions={[rec({ id: 'strengthen:success-measure' })]} />,
+describe('the dismissal can always act, whichever tab the reader came from', () => {
+  it('is OFFERED with no store record, and SEEDS the record before dismissing', () => {
+    const one = rec({ id: 'strengthen:success-measure' })
+    renderOpen(<StrengthenTheReasoning interventions={[one]} analysisHash="v5:abc" />)
+
+    const btn = screen.getByTestId('analysis-new-strengthen-dismiss')
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+
+    /**
+     * ⚠ THE ORDER IS THE ASSERTION. `dismiss` no-ops without a record, so a
+     * seed that ran afterwards — or not at all — would discard the action in
+     * silence. Bound to the recommendation BY IDENTITY, and to the hash, so a
+     * seed of the wrong row or an unstamped record fails here.
+     */
+    expect(seedIfAbsent).toHaveBeenCalledWith(one, 'v5:abc')
+    expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
+      dismiss.mock.invocationCallOrder[0],
     )
-    expect(screen.queryByTestId('analysis-new-strengthen-dismiss')).toBeNull()
+    expect(dismiss).toHaveBeenCalledWith('strengthen:success-measure')
   })
 
-  /**
-   * ⭐ THE OPPOSITE DIRECTION, AND IT IS THE ONE THAT KEEPS THE GUARD HONEST. A
-   * predicate that always hid the button would pass the case above and remove
-   * the feature. This proves it appears when the store CAN retire the id.
-   */
-  it('is PRESENT, and dismisses, when the store holds the record', () => {
+  it('still dismisses when the store DOES hold the record', () => {
     records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
 
@@ -282,9 +304,22 @@ describe('the reasoning trail', () => {
 describe('recording a disagreement', () => {
   const one = [rec({ id: 'strengthen:robustness' })]
 
-  it('is NOT offered when the store holds no record for the id (the pre-run case)', () => {
-    renderOpen(<StrengthenTheReasoning interventions={one} />)
-    expect(screen.queryByTestId('analysis-new-strengthen-disagree')).toBeNull()
+  it('is OFFERED with no store record, and SEEDS before recording', () => {
+    renderOpen(<StrengthenTheReasoning interventions={one} analysisHash="v5:abc" />)
+
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {
+      target: { value: 'Wrong for our supplier.' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
+
+    // Same ordering obligation as the dismissal: `dispute` no-ops without a
+    // record, so a seed that ran second would lose the objection silently.
+    expect(seedIfAbsent).toHaveBeenCalledWith(one[0], 'v5:abc')
+    expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
+      dispute.mock.invocationCallOrder[0],
+    )
+    expect(dispute).toHaveBeenCalledWith('strengthen:robustness', 'Wrong for our supplier.')
   })
 
   it('records the reason, and the finding STAYS — that is the whole difference', () => {

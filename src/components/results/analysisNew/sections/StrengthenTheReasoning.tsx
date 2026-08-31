@@ -79,6 +79,12 @@ export interface StrengthenTheReasoningProps {
    * claim about what exists, and this section was never entitled to make one.
    */
   preview?: number
+  /**
+   * The completed analysis these findings are grounded in, used only to stamp
+   * a record the user's own action creates. Absent pre-run, which is correct:
+   * a pre-run finding is grounded in the MODEL, not in any run.
+   */
+  analysisHash?: string | null
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId?: string
@@ -102,6 +108,7 @@ export function StrengthenTheReasoning({
   interventions,
   scienceGrounding = {},
   preview,
+  analysisHash = null,
   icon,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
@@ -120,6 +127,7 @@ export function StrengthenTheReasoning({
   const dismiss = useStrengthenStore((st) => st.dismiss)
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
   const dispute = useStrengthenStore((st) => st.dispute)
+  const seedIfAbsent = useStrengthenStore((st) => st.seedIfAbsent)
   /**
    * ⚠⚠ WITNESSED ON DEPLOYED `3378415d`, AND IT IS THE DEFECT CLASS THIS WHOLE
    * SURFACE EXISTS TO AVOID: a control that claims an action it did not perform.
@@ -202,14 +210,19 @@ export function StrengthenTheReasoning({
   }, [])
 
   const commitDispute = useCallback(
-    (id: string) => {
+    (rec: Recommendation) => {
+      // ⚠ SEED FIRST. `dispute` opens with `if (!record) return`, and this
+      // surface never reconciles — so without this the objection would be
+      // silently discarded on any finding the OTHER tab had not already
+      // recorded, which on a measured run was four of six.
+      seedIfAbsent(rec, analysisHash)
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
-      dispute(id, draft)
+      dispute(rec.id, draft)
       setDisputingId(null)
       setDraft('')
     },
-    [dispute, draft],
+    [dispute, seedIfAbsent, analysisHash, draft],
   )
 
   const retired = useMemo(
@@ -487,22 +500,29 @@ export function StrengthenTheReasoning({
                       to me; "I disagree" says it is wrong, and here is why. The
                       first retires the card, the second keeps it and attaches a
                       position to it. One name for both is exactly how the panel
-                      came to offer only deletion. Both are offered now, and both
-                      need the store to hold this id — see `strengthenRecords`. */}
-                  {record ? (
-                    <button
-                      type="button"
-                      onClick={() => openDispute(rec.id, standingDispute ?? '')}
-                      className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                      data-testid={`${testId}-disagree`}
-                    >
-                      {standingDispute ? COPY.dissent.edit : COPY.dissent.open}
-                    </button>
-                  ) : null}
-                  {record ? (
+                      came to offer only deletion.
+
+                      ⭐ NEITHER IS GATED ON THE STORE ANY MORE, and that is a
+                      fix rather than a relaxation. The original guard existed
+                      because both actions no-op without a record — a control
+                      that cannot act is an advertisement, not an affordance.
+                      But the only writer of records is the OLD tab's container,
+                      so on a measured run four of six findings had none and the
+                      controls appeared at random. They now seed the record they
+                      need, on the user's action, so they can always act. */}
+                  <button
+                    type="button"
+                    onClick={() => openDispute(rec.id, standingDispute ?? '')}
+                    className={`${typography.panelMeta} ml-auto inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    data-testid={`${testId}-disagree`}
+                  >
+                    {standingDispute ? COPY.dissent.edit : COPY.dissent.open}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
+                      // Seed first, for the same reason as the objection above.
+                      seedIfAbsent(rec, analysisHash)
                       dismiss(rec.id)
                       showUndo({ id: rec.id, title: rec.title })
                     }}
@@ -511,7 +531,6 @@ export function StrengthenTheReasoning({
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
-                  ) : null}
                 </div>
 
                 {/* ⭐ THE OBJECTION STAYS ON THE CARD. It is not a note filed
@@ -537,7 +556,7 @@ export function StrengthenTheReasoning({
                     <div className="mt-1 flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => commitDispute(rec.id)}
+                        onClick={() => commitDispute(rec)}
                         className={`${typography.panelMeta} rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-disagree-save`}
                       >

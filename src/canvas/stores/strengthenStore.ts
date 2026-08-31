@@ -62,6 +62,32 @@ export interface StrengthenState {
    * active status it held before dismissal. No-op unless status is dismissed. */
   restoreDismissed: (id: string, now?: number) => void
   /**
+   * ⭐⭐ CREATE A RECORD FOR A FINDING THE USER IS ABOUT TO ACT ON.
+   *
+   * WHY THIS EXISTS, measured on the deployed build `fdeb08d2`: `reconcile` is
+   * called from exactly ONE place — `StrengthenContainer`, which mounts only on
+   * the OLD Analysis tab. Analysis (New) runs the same engine but is
+   * deliberately READ-ONLY, because a surface that writes on mount would make
+   * the two tabs an A/B test on different data rather than a presentation
+   * comparison. That constraint is correct and is preserved.
+   *
+   * The consequence was not: a live run rendered SIX findings while the store
+   * held FOUR, from the previous run viewed on the other tab. Every control
+   * gated on "does the store hold this id" — dismiss, and now disagree — was
+   * therefore present on some cards and absent on others, for a reason
+   * invisible to the reader. An affordance that appears at random is worse than
+   * one that is simply missing.
+   *
+   * ⚠ THE LINE THIS DOES NOT CROSS. It writes on a DELIBERATE USER ACTION and
+   * never on mount, so visiting the tab still changes nothing. `reconcile`
+   * remains the single owner of bulk lifecycle state; this only ensures the row
+   * the user just acted on exists to be acted upon.
+   *
+   * No-op when a record is already held — it must never overwrite lifecycle
+   * state that `reconcile` owns.
+   */
+  seedIfAbsent: (rec: Recommendation, analysisHash: string | null, now?: number) => void
+  /**
    * ⭐⭐ THE USER DISAGREES, AND SAYS WHY. Deliberately NOT A STATUS.
    *
    * A dispute is an ACT, not a terminal state: the finding stays exactly as
@@ -224,6 +250,29 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     }
     persist(records, get().priorityOrder)
     set({ records })
+  },
+
+  seedIfAbsent: (rec, analysisHash, now = Date.now()) => {
+    if (get().records[rec.id]) return
+    const records = {
+      ...get().records,
+      // ⚠ SHAPED EXACTLY AS `reconcile`'s INSERT PATH. Two ways of minting the
+      // same record is how the two diverge (trap 12); if that shape changes,
+      // this must change with it.
+      [rec.id]: {
+        id: rec.id,
+        status: 'recommended' as RecStatus,
+        snapshot: rec,
+        analysisHash,
+        isStale: false,
+        history: [{ at: now, event: 'recommended' as const }],
+      },
+    }
+    // Appended, never inserted: `priorityOrder` is the ENGINE's ordering and
+    // this row's rank is not ours to assert. `selectActive` reads that order,
+    // so a guess here would silently re-rank the other surface's panel.
+    persist(records, [...get().priorityOrder, rec.id])
+    set({ records, priorityOrder: [...get().priorityOrder, rec.id] })
   },
 
   dispute: (id, reason, now = Date.now()) => {

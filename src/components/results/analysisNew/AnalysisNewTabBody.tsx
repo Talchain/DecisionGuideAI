@@ -208,7 +208,7 @@ export function AnalysisNewTabBody({
             It also fixes what this tab could not do at all: describe its own
             subject. The panel could report a run in detail and never say what
             the run was about. */}
-        <ModelStrip />
+        <ModelStrip isPreRun={vm.status.isPreRun} />
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
         {/* ⚠ `driverTotal` is the RUN's non-zero driver count, not the
@@ -262,6 +262,7 @@ export function AnalysisNewTabBody({
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
+          analysisHash={responseHash ?? null}
           icon={Wrench}
         />
 
