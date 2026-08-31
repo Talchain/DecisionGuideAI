@@ -699,13 +699,28 @@
    the Context prompt, a `<div role="button" tabindex="0">`. Reproduced: three
    controls fade, that one does not.
 
-   ⭐ AND IT MUST NOT. That div is the one control in the boundary that is
-   genuinely still LIVE — it opens a prompt and works. Fading it would say
-   "inert" about something that responds, which is the same lie as this rule's
-   original defect pointed the other way, and worse: the user would stop trying
-   the one thing that still does something. A control that works must look like
-   it works. The scope is therefore correct AS WRITTEN; only the claim about it
-   was wrong.
+   ⭐ AND IT MUST NOT BE FADED — but NOT for the reason I first gave, which was
+   itself an over-claim in the same family as the one above.
+
+   I wrote that the div "opens a prompt and works". A review traced it: the
+   prompt toggles the panel into edit mode, and what that reveals is a
+   `<textarea>` INSIDE THE SAME DISABLED FIELDSET. The div is not inerted, so it
+   responds to a click — and then the thing it opens accepts no typing. "It
+   works" is false in the half that matters.
+
+   The scope of this rule is still correct as written, for the narrower reason:
+   `:disabled` is the browser's own answer to "is this inert", and that div is
+   NOT inert. Fading a control the user can still activate would say "dead"
+   about something that responds — the same lie as this rule's original defect,
+   pointed the other way. Whether the interaction behind it should exist at all
+   is a different question from whether THIS rule should paint it, and painting
+   it would not fix the dead end; it would only hide the entrance to one.
+
+   ⚠ SO THE DEAD END IS A SEPARATE, REAL DEFECT and is rowed, not fixed here: a
+   read-only panel offers an affordance that opens an editor nobody can type
+   into. Recorded rather than absorbed, because a comment that says "and works"
+   is exactly how the next reader stops looking — which is the failure this
+   whole block exists to document.
 
    `contents` on the fieldset means it has no box of its own, so this styles
    descendants and never the wrapper. */
