@@ -148,6 +148,7 @@ import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
+import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
@@ -3461,16 +3462,37 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               // handler, the same freshness derivation. Never a re-derivation.
               // If these two lists ever diverge, the two tabs stop being a
               // presentation comparison and the whole experiment is void.
-              <AnalysisNewTabBody
-                resultsSectionData={resultsSectionData}
-                isPreRun={isPreRun}
-                isRunning={isRunning}
-                nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
-                seedUsed={(report as any)?.meta?.seed}
-                responseHash={results?.hash}
-                onFocusNode={handleFocusResultNode}
-                isStale={analysisNotConfirmedFresh}
-              />
+              /*
+               * ⚠ BOUNDARIED, BECAUSE THIS TAB WAS THE ONE SURFACE WHERE A
+               * SINGLE THROW BLANKS EVERYTHING.
+               *
+               * `ResultsBody` — the existing Analysis tab — wraps its sections
+               * in 25 separate `SectionErrorBoundary`s, so a failure there
+               * costs one region and the rest of the panel survives. This tab
+               * was mounted bare, and `OutputsDock` had no boundary of its own
+               * anywhere, so any throw inside it took out the whole dock:
+               * Olumi, Analysis, Model, every tab, not just this one.
+               *
+               * That matters more than usual here because this is the surface
+               * being evaluated. A blank dock is indistinguishable from a
+               * broken build, and it would take the working tabs down with it.
+               *
+               * One boundary at the tab root rather than 25 inside it: the
+               * whole tab is the experiment, so degrading it as a unit is the
+               * honest granularity. Sections inside can earn their own later.
+               */
+              <SectionErrorBoundary section="Analysis (New)">
+                <AnalysisNewTabBody
+                  resultsSectionData={resultsSectionData}
+                  isPreRun={isPreRun}
+                  isRunning={isRunning}
+                  nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
+                  seedUsed={(report as any)?.meta?.seed}
+                  responseHash={results?.hash}
+                  onFocusNode={handleFocusResultNode}
+                  isStale={analysisNotConfirmedFresh}
+                />
+              </SectionErrorBoundary>
             )}
             {effectiveActiveTab === 'compare' && (
               // 2.581 — ONE expert mode for the product. The Compare pill used
