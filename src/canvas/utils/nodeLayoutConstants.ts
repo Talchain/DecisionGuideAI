@@ -44,17 +44,29 @@ import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 /** Horizontal padding inside the rendered card (12px each side, see BaseNode). */
 export const NODE_CARD_PADDING_X = 24
 
-/** Shape-indicator glyph width in the title's flex row (see BaseNode). */
-export const NODE_HEADER_ICON_PX = 14
+/**
+ * Diameter of the type glyph, which now sits ON the top connector rather than
+ * in the title's flex row. Bigger than the 14px it replaced because at 14px in
+ * a corner the four shapes were not reliably distinguishable at canvas zoom.
+ */
+export const NODE_TYPE_GLYPH_PX = 18
 
-/** Gap between the shape indicator and the title in that row (see BaseNode). */
+/** Gap between the title and the right-hand header slot (see BaseNode). */
 export const NODE_HEADER_GAP_PX = 6
 
 /**
- * Horizontal space the title row gives up to the shape indicator before any
- * text is laid out. Derived, so the two literals above have exactly one home.
+ * ⭐ ZERO SINCE THE GLYPH MOVED TO THE CONNECTOR (1 Sep 2026).
+ *
+ * This was `icon + gap` — 20px of measure surrendered by every title on the
+ * board so a single 14px mark could sit to its left. That reservation is what
+ * pushed real titles onto a third line, and the clamp then ellipsised them.
+ *
+ * Kept as a named constant rather than deleted: it still expresses "space the
+ * title gives up before any text is laid out", it is consumed by
+ * `NODE_LAYOUT_MIN_W` below and asserted by `nodeLabelFit.spec.ts`, and a
+ * future header ornament should raise THIS rather than reintroduce a literal.
  */
-export const NODE_HEADER_RESERVE_PX = NODE_HEADER_ICON_PX + NODE_HEADER_GAP_PX
+export const NODE_HEADER_RESERVE_PX = 0
 
 /**
  * Width of the widest single word the product's own content contains, at the
@@ -92,7 +104,20 @@ export const NODE_TITLE_WIDEST_WORD_PX = 100
  * The header row is allowed to WRAP, so the header slot moves below the title
  * rather than the title being squeezed below a readable measure.
  */
-export const NODE_TITLE_MIN_MEASURE_PX = NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE
+/**
+ * ⭐ THE COLUMN THE GLYPH GAVE BACK (1 Sep 2026) — 20px, the old
+ * `icon + gap`. It does not disappear when the glyph moves to the connector; it
+ * becomes TEXT MEASURE. Card geometry is therefore unchanged and the title is
+ * 20px wider, which is the entire point of moving the mark: three-line titles
+ * were a width problem, not a length problem.
+ *
+ * Named rather than folded into the sum below so the derivation still says
+ * where the width came from.
+ */
+export const NODE_TITLE_RECLAIMED_PX = 20
+
+export const NODE_TITLE_MIN_MEASURE_PX =
+  (NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX) * MAX_LABEL_COUNTER_SCALE
 
 /**
  * Layout-algorithm lower bound: the narrowest ELK card width. Not a visual

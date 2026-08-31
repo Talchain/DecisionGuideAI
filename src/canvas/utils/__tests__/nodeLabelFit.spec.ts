@@ -30,12 +30,12 @@ import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
   NODE_HEADER_GAP_PX,
-  NODE_HEADER_ICON_PX,
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
   NODE_SINGLE_ROW_FAIR_SHARE_W,
   NODE_TITLE_MIN_MEASURE_PX,
   NODE_TITLE_WIDEST_WORD_PX,
+  NODE_TITLE_RECLAIMED_PX,
 } from '../nodeLayoutConstants'
 
 /**
@@ -79,11 +79,26 @@ describe('the label scale is the geometry authority', () => {
   })
 
   it('the title measure carries the scale — this is the coupling #758 was missing', () => {
-    expect(NODE_TITLE_MIN_MEASURE_PX).toBe(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
+    // Still the #758 coupling — the measure carries the scale — with the glyph's
+    // reclaimed 20px now inside the text term rather than in the header reserve.
+    expect(NODE_TITLE_MIN_MEASURE_PX).toBe(
+      (NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX) * MAX_LABEL_COUNTER_SCALE,
+    )
+    // ⚠ AND THE COUPLING ITSELF, ASSERTED SEPARATELY. The line above would pass
+    // for a hand-set constant that happened to equal today's product; this fails
+    // if the scale ever stops multiplying the measure, which is the property
+    // #758 was actually missing.
+    expect(NODE_TITLE_MIN_MEASURE_PX).toBeGreaterThan(
+      NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX,
+    )
   })
 
   it('the card floor is the title measure plus what the header row takes first', () => {
-    expect(NODE_HEADER_RESERVE_PX).toBe(NODE_HEADER_ICON_PX + NODE_HEADER_GAP_PX)
+    // The glyph moved out of the title row onto the top connector (1 Sep 2026),
+    // so the title surrenders nothing before layout. Asserted as an exact value
+    // rather than deleted: this constant still gates `NODE_LAYOUT_MIN_W`, and a
+    // future header ornament must raise it deliberately and fail here first.
+    expect(NODE_HEADER_RESERVE_PX).toBe(0)
     expect(NODE_LAYOUT_MIN_W).toBe(
       NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
     )
@@ -139,7 +154,12 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // the change must be the SCALE COUPLING and nothing else. Evaluate the same
     // formula at scale 1 and it must land on the pre-#758 geometry (140px),
     // give or take the 4px the old hand-set measure was under-derived by.
-    const measureAt1x = NODE_TITLE_WIDEST_WORD_PX * 1
+    // The glyph's 20px column moved from the header reserve INTO the text
+    // measure, so the card lands on exactly the same geometry as before while
+    // the title is 20px wider. Both halves are asserted: the sum is unchanged
+    // (below), and the reserve is now zero (earlier in this file). Testing only
+    // one of the two would let the width silently leave the card altogether.
+    const measureAt1x = NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX
     const cardAt1x = measureAt1x + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X
     expect(cardAt1x).toBeLessThanOrEqual(145)
     expect(cardAt1x).toBeGreaterThanOrEqual(140)

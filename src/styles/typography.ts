@@ -56,7 +56,12 @@ export const typography = {
   // unset, so every non-canvas use of these tokens resolves to exactly the same
   // font-size it had before this change. Derivation and bounds:
   // `src/canvas/utils/zoomLegibility.ts`.
-  nodeTitle: 'text-[length:calc(13px*var(--canvas-label-scale,1))] font-semibold font-sans leading-tight',
+  // ⭐ `font-medium`, not `font-semibold` (1 Sep 2026). At 13px on a card the
+  // heavier weight read as a heading on every node at once, so nothing on the
+  // board had emphasis — twenty shouting labels are twenty quiet ones. Medium
+  // holds the hierarchy against the 11px body while letting the numbers and the
+  // type glyph carry the emphasis instead.
+  nodeTitle: 'text-[length:calc(13px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
   nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-tight',
   edgeLabel: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-tight',
 

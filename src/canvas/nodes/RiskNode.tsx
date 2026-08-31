@@ -14,7 +14,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { EstimateMarker } from './shared'
+import { EstimateMarker, NodeMetricRow } from './shared'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -219,17 +219,27 @@ export const RiskNode = memo((props: NodeProps) => {
             when nobody did. The honesty claim and the placeholder-wall claim are
             different claims and both are satisfied. */}
         {bridgeEdgeData?.bridgeStrengthPct != null && (
-          <div className="mt-1 inline-flex items-baseline gap-1">
-            <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            {/* The noun. Never "goal drag", never absent — see UI-SEM-089 above. */}
-            <span className={`${typography.edgeLabel} text-text-light`}>strength</span>
-            {bridgeEdgeData.bridgeIsEstimated && (
-              <>
-                <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>·</span>
+          /* ⭐ THE SHARED ROW (1 Sep 2026). This was value-first inline text with
+             no bar, while options rendered an anchored row WITH one and factors
+             rendered a pill — three presentations of one idea, because each was
+             written where it was needed. A risk's strength was the only one a
+             reader could not compare at a glance.
+
+             The noun is unchanged and still rendered text, so UI-SEM-089 holds:
+             an unlabelled percentage beside a goal reads as a computed
+             contribution, and that is what the noun exists to prevent. */
+          <NodeMetricRow
+            label="strength"
+            value={bridgeEdgeData.bridgeStrengthPct / 100}
+            formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
+            fillClass="bg-danger"
+            testId="risk-strength-row"
+            trailing={
+              bridgeEdgeData.bridgeIsEstimated ? (
                 <EstimateMarker title="Strength estimated, not yet confirmed — open the details to set or confirm it" />
-              </>
-            )}
-          </div>
+              ) : null
+            }
+          />
         )}
 
         {/* Severity badge + probability × impact pair — visible in STANDARD view
