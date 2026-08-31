@@ -5,6 +5,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Substituted at BUILD time by scripts/build-id.mjs (wired as a Vite plugin
+      in vite.config.ts), never at runtime. After substitution the content is
+      either the 40-char commit SHA — the same string dist/version.json carries
+      as `commit` — or the literal word `unidentified`. It is never the
+      unsubstituted placeholder below; scripts/ci/assert-build-id-stamped.mjs
+      fails the build if one ever survives into dist/.
+
+      (Deliberately no placeholder token in this comment: the stamp is a global
+      literal replacement over the whole document, so a token written here would
+      be substituted too and this sentence would go false.)
+
+      This is the estate's only TAB-BOUND build marker. `/version.json` is
+      fetched over the network and so describes the SERVER; this is read from the
+      DOM of the document the tab actually loaded, with no request involved:
+
+          document.querySelector('meta[name="x-build-id"]').content
+    -->
     <meta name="x-build-id" content="%BUILD_ID%" />
     <title>Olumi</title>
     
@@ -47,7 +65,23 @@
     <script>
       // POC: Minimal inline script for build/edge display
       (function () {
-        var build = document.querySelector('meta[name="x-build-id"]')?.content || new Date().toISOString();
+        // A build id is a commit SHA or nothing. This used to fall back to
+        // `new Date().toISOString()`, which answered "which build is this?"
+        // with the clock at page load — a plausible-looking value with no
+        // relationship to the build. Combined with the placeholder never being
+        // substituted, the safe screen showed users either the raw placeholder
+        // token or a fabricated timestamp, and both read as an answer.
+        // (No placeholder token written here on purpose — the build-time stamp
+        // is a global literal replacement and would substitute it, turning this
+        // comment false.)
+        //
+        // Validated POSITIVELY (must look like a SHA) rather than by excluding
+        // known-bad strings: that covers the unsubstituted placeholder, the
+        // empty string, a stray timestamp, and any future placeholder syntax,
+        // without this script having to carry a copy of the placeholder token
+        // — which the build-time stamp would itself substitute.
+        var rawBuild = (document.querySelector('meta[name="x-build-id"]')?.content || '').trim().toLowerCase();
+        var build = /^[0-9a-f]{7,40}$/.test(rawBuild) ? rawBuild : 'unidentified';
         var edge = '/engine';
         var buildEl = document.getElementById('poc-build');
         var edgeEl = document.getElementById('poc-edge');
