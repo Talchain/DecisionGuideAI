@@ -265,7 +265,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               <div>
                 <DataBar
                   value={displayMetadata.valueOfInformation}
-                  label="Investigation value"
+                  label={INLINE_LABELS.investigationValue}
                   colour="info"
                   trailingLabel={
                     displayMetadata.valueOfInformation >= 0.7 ? 'High'
@@ -273,6 +273,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                     : 'Low'
                   }
                 />
+                {/* Its own label, in the same place ImportanceBar puts its own —
+                    without it, that bar's label reads as this bar's. */}
+                <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                  {INLINE_LABELS.investigationValue}
+                </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
                   {displayMetadata.valueOfInformation >= 0.7
                     ? 'Gathering more evidence here could significantly improve confidence.'
