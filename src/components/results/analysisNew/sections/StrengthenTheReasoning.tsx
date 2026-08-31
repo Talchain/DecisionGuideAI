@@ -107,6 +107,22 @@ export function StrengthenTheReasoning({
    */
   const dismiss = useStrengthenStore((st) => st.dismiss)
   const restoreDismissed = useStrengthenStore((st) => st.restoreDismissed)
+  /**
+   * ⚠⚠ WITNESSED ON DEPLOYED `3378415d`, AND IT IS THE DEFECT CLASS THIS WHOLE
+   * SURFACE EXISTS TO AVOID: a control that claims an action it did not perform.
+   *
+   * `strengthenStore.dismiss` opens with `const record = get().records[id]; if
+   * (!record) return` — it SILENTLY NO-OPS for an id it holds no record for.
+   * Records are created by `reconcile`, which runs on a COMPLETED analysis. So
+   * before a run there is no record, the dismissal does nothing, and the notice
+   * still said "Recommendation dismissed". The card stayed on screen next to a
+   * sentence saying it had gone.
+   *
+   * The fix is not a louder notice. A control that cannot act is not an
+   * affordance, it is an advertisement — so the button is not offered unless the
+   * store actually holds this recommendation and can retire it.
+   */
+  const strengthenRecords = useStrengthenStore((st) => st.records)
   const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
 
   /**
@@ -361,7 +377,11 @@ export function StrengthenTheReasoning({
                     </button>
                   ) : null}
                   {/* Sits last and reads quietly: disagreeing is a first-class
-                      move, but it is not the one being recommended. */}
+                      move, but it is not the one being recommended.
+
+                      Offered only when the store can actually retire this id —
+                      see the note on `strengthenRecords` above. */}
+                  {strengthenRecords[rec.id] ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -373,6 +393,7 @@ export function StrengthenTheReasoning({
                   >
                     {STRENGTHEN_COPY.notRelevant}
                   </button>
+                  ) : null}
                 </div>
 
                 {rec.sourceLine ? (
