@@ -44,6 +44,7 @@ import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
+import { OptionsComparison } from './sections/OptionsComparison'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
@@ -233,6 +234,19 @@ export function AnalysisNewTabBody({
           }
           onRunIntervention={runIntervention}
         />
+
+        {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
+            ⭐ FIRST BELOW THE GLANCE, BECAUSE IT IS THE GLANCE'S OWN MISSING
+            HALF. On a real completed run with four options this surface showed
+            the leader and one percentage and nothing at all about the other
+            three; the reader could not tell a runaway leader from a coin flip,
+            and could not see that an option they cared about took no part in
+            the comparison. It sits directly under the answer it qualifies.
+
+            It costs ONE collapsed row at rest — the same idiom as every
+            section below it — so closing the largest content gap on the
+            surface does not spend the first viewport. */}
+        <OptionsComparison options={vm.optionsComparison} />
 
         {/* ── 1. KEY INSIGHTS ─────────────────────────────────────────────── */}
         <AnalysisNewSection

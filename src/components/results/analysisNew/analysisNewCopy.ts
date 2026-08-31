@@ -20,6 +20,16 @@ export const ANALYSIS_NEW_COPY = {
 
   sections: {
     atAGlance: 'At a glance',
+    /**
+     * ⚠ NAMES THE SECTION; ASSERTS NOTHING ABOUT THE RESULT. "How the options
+     * compare" is furniture — it says what is behind the row. It deliberately
+     * does NOT say "ranked", "best" or "in order": the list's ORDER is a
+     * designation authored once upstream and WITHHELD on a run whose verdict
+     * withholds the leader claim (`utils/optionDisplayOrder.ts`), so a title
+     * asserting a ranking would make a claim the data may not carry on the very
+     * run where it matters most.
+     */
+    options: 'How the options compare',
     keyInsights: 'Key insights',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
@@ -140,6 +150,22 @@ export const ANALYSIS_NEW_COPY = {
      * It exists so the list ADDS UP to the count the scope sentence states.
      */
     unnamedExcluded: (n: number) =>
+      n === 1 ? '1 more with no name recorded' : `${n} more with no name recorded`,
+
+    /**
+     * The options the COMPARISON LIST cannot name.
+     *
+     * ⚠ NAMED APART FROM `unnamedExcluded` ABOVE, THOUGH THE STRING IS THE SAME
+     * TODAY, AND THE TWO ANSWER DIFFERENT QUESTIONS (CLAUDE.md trap 21).
+     * `unnamedExcluded` counts options LEFT OUT OF THE COMPARISON whose label
+     * did not reach us; this counts options of ANY analysis state — analysed
+     * ones included — that the comparison list drops for the same reason. An
+     * edit to either must not silently speak for the other set.
+     *
+     * Like its sibling it reports OUR limit rather than blaming the option, and
+     * it exists so the collapsed row's count and the body's rows ADD UP.
+     */
+    unnamedOptions: (n: number) =>
       n === 1 ? '1 more with no name recorded' : `${n} more with no name recorded`,
   },
 

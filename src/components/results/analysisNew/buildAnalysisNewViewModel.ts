@@ -37,6 +37,7 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
+import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy } from '../utils/notAnalysedCopy'
@@ -44,6 +45,7 @@ import type {
   ConditionalWinner,
   DriverItem,
   EvidenceGapItem,
+  OptionResult,
   UncertaintyItem,
 } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -62,6 +64,8 @@ import type {
   GlanceVerdict,
   GlanceComparisonScope,
   GlanceComparativeClaim,
+  ComparisonOption,
+  OptionsComparisonSection,
 } from './analysisNewTypes'
 
 /** §2 of the brief: "a very small number of high-value insights". */
@@ -1059,6 +1063,106 @@ function buildAtAGlance(
   }
 }
 
+// ── HOW THE OPTIONS COMPARE ─────────────────────────────────────────────────
+
+/**
+ * Is this option's label usable AS A NAME, or is it a gap in what reached us?
+ *
+ * The predicate is `deriveComparisonScope`'s, reproduced from the ONE place the
+ * estate already applies it (`buildAtAGlance`'s excluded filter): a blank label
+ * carries no name, and a label that is merely the node's own id is an id, not a
+ * name. Neither may be replaced with an invented "Untitled option" — that is
+ * the fabrication the excluded-option path exists to refuse — so an option
+ * failing this is COUNTED and disclosed rather than named or silently dropped.
+ */
+function usableOptionLabel(o: OptionResult): string | null {
+  const label = typeof o.label === 'string' ? o.label.trim() : ''
+  return label.length > 0 && label !== o.id ? label : null
+}
+
+/**
+ * Every option, with what the run is entitled to say about each one.
+ *
+ * ⚠⚠ THE ORDER IS NOT DECIDED HERE AND MUST NOT BE. `rec.allOptions` arrives
+ * already ordered by `sortOptionsForDisplay` (called ONCE, in
+ * `useResultsSectionData`, gated on `designationsWithheld`), which returns the
+ * caller's canonical graph order untouched when the verdict withholds the
+ * leader claim, and which puts unanalysed options LAST — "last is not a rank,
+ * it is outside the list". Re-sorting here would be a second designation
+ * channel that does not carry that gate (ROADMAP 1.267).
+ *
+ * ⚠⚠ AND NO ORDINAL IS EMITTED, DELIBERATELY. `OptionResult.rank` is a real
+ * producer field, but printing it beside the labels would put a RANKING on
+ * screen on a run whose verdict withheld one — the ordering claim survives in
+ * the array order, where exactly one authority decides whether to make it.
+ * A number is a louder designation than a position, and this section is not
+ * entitled to a louder one than the surface it sits on.
+ *
+ * ⚠ NO GAP, NO DIFFERENCE, NO DELTA. `OptionResult` carries `deltaFromBaseline`
+ * and the win-probability gap is computable from two rows here — and the
+ * ratified rule (OptionCards' `tiedOrWithheld`, retired 2026-08-10) is that no
+ * user-facing surface states the gap between two Monte Carlo win frequencies:
+ * a difference of two estimates carries more uncertainty than either does, and
+ * printed bare it reads as the most precise number on screen while being the
+ * least reliable. Own-probability statements only.
+ */
+function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparisonSection {
+  const allOptions = data.recommendation.allOptions ?? []
+  const storyHeadlines = data.recommendation.storyHeadlines
+
+  const rows: ComparisonOption[] = []
+  for (const o of allOptions) {
+    const label = usableOptionLabel(o)
+    if (label === null) continue
+
+    if (o.notAnalysed === true) {
+      rows.push({
+        kind: 'not_analysed',
+        id: o.id,
+        label,
+        // The SANCTIONED sentence, resolved here so no component re-words it.
+        // `not_returned` is the same default `buildAtAGlance` applies, and it
+        // is the weaker of the two claims: it reports that the analysis came
+        // back with nothing, and prescribes no action the user cannot take.
+        reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+      })
+      continue
+    }
+
+    // ⚠ ABSENCE IS NOT ZERO, AND IT IS ENFORCED AT THE ONE PLACE THE NUMBER IS
+    // BORN. A win probability that is absent, non-finite, or not a number at
+    // all yields `null` on BOTH fields together — no readout and no bar — so
+    // the renderer has nothing to coalesce into a `0%` or a zero-width bar.
+    const raw = o.winProbability
+    const hasWin = typeof raw === 'number' && Number.isFinite(raw)
+
+    // The producer's own sentence for THIS option, joined by option id — the
+    // same join `OptionCards` and the analysis hero already make. Trimmed to
+    // non-empty because `useResultsSectionData` sanitises a non-string value to
+    // `''`, and an empty string is absence wearing a present field's clothes.
+    const rawWhy = storyHeadlines?.[o.id]
+    const why = typeof rawWhy === 'string' && rawWhy.trim().length > 0 ? rawWhy.trim() : null
+
+    rows.push({
+      kind: 'analysed',
+      id: o.id,
+      label,
+      // The display-honesty authority, given the SAME arguments `OptionCards`
+      // gives it, so the two tabs cannot print two different readouts of one
+      // probability on one run. A measured-but-tiny share renders "<0.01%",
+      // never "0%".
+      winReadout: hasWin ? formatProbabilityWithResolution(raw, o.nValidSamples) : null,
+      // Geometry only. Clamped because a bar cannot render outside its track;
+      // the READOUT above is never clamped, so a value the producer sent out of
+      // range still shows the producer's own number.
+      winFraction: hasWin ? Math.max(0, Math.min(1, raw)) : null,
+      why,
+    })
+  }
+
+  return { rows, totalCount: allOptions.length }
+}
+
 // ── STATUS ──────────────────────────────────────────────────────────────────
 
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
@@ -1154,6 +1258,16 @@ export function buildAnalysisNewViewModel(
     atAGlance: preRun
       ? { headline: null, leaderLabel: null, winShare: null, winPercentLabel: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, primaryInterventionId: glance.primaryInterventionId }
       : glance,
+    // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
+    // exist before any analysis, but "how the options compare" is a reading OF
+    // A RUN — and pre-run the `notAnalysed` derivation is itself suppressed
+    // (it is guarded on the run having produced SOME per-option result), so
+    // every option would arrive unmarked and render as analysed-with-no-share.
+    // A list of names under that heading is a run report about a run that has
+    // not happened. `ModelStrip` already says what the model contains.
+    optionsComparison: preRun
+      ? { rows: [], totalCount: 0 }
+      : buildOptionsComparison(data),
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),

@@ -31,6 +31,13 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision, manyFragileEdges, openStrategicChallenge } from './analysisNewFixtures'
 
 const SECTIONS = [
+  // ⚠ THIS LIST IS A HAND-MAINTAINED MIRROR (CLAUDE.md trap 12) — a section
+  // missing from it is silently uncovered by every assertion below, and the
+  // suite reads green. `analysis-new-options` is added in the same commit that
+  // mints it; the `present` filter means a fixture without options simply
+  // drops out rather than failing, so adding an id is always safe and never
+  // adding one is the drift.
+  'analysis-new-options',
   'analysis-new-key-insights',
   'analysis-new-strengthen',
   'analysis-new-drivers',
@@ -73,6 +80,33 @@ describe('the surface below the glance is a list of collapsed rows', () => {
       // the section row must not weaken it.
       expect(screen.queryByTestId(`${id}-region`)).toBeNull()
     }
+  })
+
+  /**
+   * ⚠⚠ THE SAME RULE, ON A FIXTURE THAT ACTUALLY CARRIES OPTIONS — AND IT IS
+   * NOT REDUNDANT WITH THE CASE ABOVE. `manyFragileEdges()` has an EMPTY option
+   * list, so `analysis-new-options` renders nothing and drops straight out of
+   * `present`: adding its id to `SECTIONS` covered it in appearance only, and a
+   * mutant forcing that section open left this file GREEN. That is trap 13b —
+   * presence of a control is not coverage of the branch — caught by running the
+   * mutant rather than by reading the list.
+   *
+   * `genuineDecision()` carries two labelled options, so the section mounts and
+   * the assertions below actually bind to it.
+   */
+  it('mounts the options section CLOSED on a run that HAS options', () => {
+    renderBody(genuineDecision())
+    // PRECONDITION, PINNED IN-TEST: without this the case silently becomes the
+    // vacuous one it exists to replace.
+    const section = screen.getByTestId('analysis-new-options')
+    expect(section).toBeInTheDocument()
+
+    expect(section).toHaveAttribute('data-section-open', 'false')
+    expect(screen.getByTestId('analysis-new-options-toggle')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(screen.queryByTestId('analysis-new-options-region')).toBeNull()
   })
 
   it('opens on click, and only the section clicked', () => {
