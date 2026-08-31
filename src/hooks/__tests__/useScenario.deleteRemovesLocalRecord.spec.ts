@@ -134,8 +134,6 @@ const STILL_OPEN = 'bbbbbbbb-2222-4bbb-8bbb-bbbbbbbbbbbb'
 /** A third decision, deleted in case 2 — neither the pointer nor the record. */
 const UNRELATED = 'cccccccc-3333-4ccc-8ccc-cccccccccccc'
 
-const SCENARIOS_KEY = 'olumi-canvas-scenarios'
-
 /** A COLD READ of the persisted store — the canonical evidence for a persistence claim. */
 function persistedIds(): string[] {
   return loadScenarios().map(s => s.id)
