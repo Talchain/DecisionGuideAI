@@ -160,12 +160,40 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // Audit §8 P1: result-derived decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift, chips stay interactive).
 
+  /**
+   * ⭐ DISTINCT OPTIONS, NOT OUTGOING EDGES — and this PR is what makes the
+   * difference observable.
+   *
+   * This counted EDGES whose target is an option, so a decision with one option
+   * linked TWICE counted two. That was harmless for as long as nothing read the
+   * magnitude: the three other readers are `> 0` (:397, :711) and `=== 0`
+   * (:543), and the distinct set is empty exactly when the filtered edge list
+   * is, so de-duplicating cannot change any of their verdicts. The new
+   * "My model has N options so far" message at :345 is the FIRST reader of the
+   * number itself — the PR that stops the copy being generic is the PR that
+   * makes this reachable, so it belongs here rather than in a follow-up.
+   *
+   * ⚠ AND IT IS REACHABLE, not theoretical. `store.addEdge` refuses duplicates
+   * (`store.ts:2739`, via `isDuplicateEdge`) — but the CEE patch path does not
+   * go through it: `applyPatch.ts:350` appends supplied edges wholesale with no
+   * duplicate check, and its `_rewireTarget` handling can point two surviving
+   * edges at one option without appending anything at all. The product already
+   * knows this happens: `useModelHealth.ts:180` ships a "Duplicate edge" warning
+   * for exactly this state.
+   *
+   * So the honest count is of the options themselves. A duplicate edge is a
+   * modelling defect the health check reports; it is not a second option, and
+   * the user should not be told it is one in their own words.
+   */
   const optionCount = useMemo(() => {
-    const outgoingEdges = edges.filter(e => e.source === id)
-    return outgoingEdges.filter(e => {
-      const targetNode = nodes.find(n => n.id === e.target)
-      return targetNode?.type === 'option' || targetNode?.data?.type === 'option'
-    }).length
+    const optionTargets = edges
+      .filter(e => e.source === id)
+      .filter(e => {
+        const targetNode = nodes.find(n => n.id === e.target)
+        return targetNode?.type === 'option' || targetNode?.data?.type === 'option'
+      })
+      .map(e => e.target)
+    return new Set(optionTargets).size
   }, [edges, nodes, id])
 
   // All factor values present?

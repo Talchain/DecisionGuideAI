@@ -236,4 +236,62 @@ describe('DecisionNode — invitations in Standard view', () => {
       expect(msg).not.toMatch(/\b(too similar|too few|not enough|weak|incomplete|you should)\b/i)
     })
   })
+
+  /**
+   * ⭐ A DUPLICATE EDGE IS NOT A SECOND OPTION.
+   *
+   * `optionCount` counted outgoing edges, which was harmless while its only
+   * readers were `> 0` / `=== 0` tests. The message above is the first thing in
+   * the product to say the number OUT LOUD, so the change that removes the
+   * generic copy is the change that makes this reachable.
+   *
+   * Reachable, not theoretical: `store.addEdge` blocks duplicates, but the CEE
+   * patch path (`applyPatch.ts:350`) appends edges with no duplicate check, and
+   * `useModelHealth.ts:180` already warns on the resulting state.
+   */
+  describe('counting the model honestly', () => {
+    const messageWithEdges = (edges: unknown[], nodes: unknown[]): string => {
+      dispatched.length = 0
+      setStore({ edges, nodes })
+      const { container } = renderDecision()
+      const btn = Array.from(container.querySelectorAll('button'))
+        .find(b => b.textContent?.includes('Explore more options'))
+      if (!btn) throw new Error('refusing to assert: no "Explore more options" chip rendered')
+      fireEvent.click(btn)
+      if (dispatched.length === 0) throw new Error('refusing to assert: click dispatched nothing')
+      return String(dispatched[dispatched.length - 1].message ?? '')
+    }
+
+    it('one option linked twice is one option', () => {
+      const msg = messageWithEdges(
+        [...optionEdges, { id: 'e1-dup', source: DECISION_ID, target: 'option-1', data: {} }],
+        [decisionNode, ...optionNodes],
+      )
+      expect(msg).toContain('2 options')
+      expect(msg).not.toContain('3 options')
+    })
+
+    it('CONTRAST CONTROL: a genuine third option still counts as three', () => {
+      // Without this, the assertion above passes for a count stuck at 2 — or for
+      // any implementation that under-counts. The pair is what proves the change
+      // removed duplicates rather than removed counting.
+      const msg = messageWithEdges(
+        [...optionEdges, { id: 'e3', source: DECISION_ID, target: 'option-3', data: {} }],
+        [decisionNode, ...optionNodes, { id: 'option-3', type: 'option', data: { type: 'option', label: 'Hire one' } }],
+      )
+      expect(msg).toContain('3 options')
+    })
+
+    it('singular stays singular when the one option is linked twice', () => {
+      const msg = messageWithEdges(
+        [
+          { id: 'e1', source: DECISION_ID, target: 'option-1', data: {} },
+          { id: 'e1-dup', source: DECISION_ID, target: 'option-1', data: {} },
+        ],
+        [decisionNode, optionNodes[0]],
+      )
+      expect(msg).toContain('1 option ')
+      expect(msg).not.toContain('1 options')
+    })
+  })
 })
