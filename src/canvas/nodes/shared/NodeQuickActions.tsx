@@ -110,15 +110,34 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    *
    * ## The gap this closes
    *
-   * Every reasoning INVITATION the canvas offers a node lives in
-   * `useMenuItems` — "Challenge this", "Explore", "Add risk from this",
-   * "Add outcome from this", "Add connected factor", "Trace to goal". Until
-   * this button there were exactly two doors to them: RIGHT-CLICK, which has no
-   * equivalent on a touch device, and SHIFT+F10, which nobody discovers. So the
-   * part of the product that invites a team to expand and challenge its model
-   * was, in practice, unreachable — not disabled, not missing, just behind a
-   * gesture. The ruling this component implements says "nothing buried"; this
-   * was the largest buried thing on the canvas.
+   * ⚠ THIS LIST WAS WRONG WHEN FIRST WRITTEN, and the correction matters more
+   * than the list does. It named six invitations including "Add risk from
+   * this", "Add outcome from this" and "Add connected factor" — **none of which
+   * can render, for any node type, in any state.** All three are stripped by
+   * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` (`useMenuItems.ts:82-96`) because
+   * `mutationAuthority.ts:70` sets `canvasSemanticMutations: 'disabled'`, and
+   * that strip is test-locked as a permanent audit rather than a runtime
+   * toggle. No user was misled — the label is `More actions for {label}` and
+   * promises nothing specific — but the false claim sat in shipped source,
+   * which is where the next session inherits it. **A comment that overstates
+   * what a thing does teaches the next reader to stop checking.**
+   *
+   * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled:
+   * "Challenge this" (gated `isFull || isGoal`), "Explore ▸ Trace to goal" and
+   * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete.
+   *
+   * Until this button there were exactly two doors to them: RIGHT-CLICK, which
+   * has no equivalent on a touch device, and SHIFT+F10, which nobody discovers.
+   * So the part of the product that invites a team to challenge its model was,
+   * in practice, unreachable — not disabled, not missing, just behind a
+   * gesture. The ruling this component implements says "nothing buried".
+   *
+   * ⚠ AND ONE LIMIT THE RATIONALE MUST NOT DENY: this whole layer unmounts at
+   * low zoom (`showQuickActions = !lodActive && …`, `BaseNode.tsx`), which is a
+   * plausible touch posture. Right-click still works there, so it is a gap
+   * rather than a regression — but the button does not reach every state the
+   * argument for it implies, and saying so here is cheaper than the next reader
+   * discovering it.
    *
    * ## Why it DISPATCHES a contextmenu event rather than calling a handler
    *
@@ -202,8 +221,23 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         type="button"
         onClick={handleOpenMenu}
         onPointerDown={stopPointer}
-        className="nodrag inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        /* ⭐ 20px VISUAL, 24px TARGET. `h-5 w-5` keeps it identical to its two
+           siblings, and the `before:-inset-[2px]` pseudo-element expands the
+           hit area to 24×24 — WCAG 2.2 AA 2.5.8's minimum. A button whose
+           entire purpose is touch reachability shipping a sub-minimum touch
+           target would be self-undermining, which is why this is fixed here
+           rather than rowed. The siblings share the shortfall and are left
+           alone: widening their targets is a change to controls this PR is not
+           about. */
+        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
         aria-label={`More actions for ${label}`}
+        /* Announces that a menu follows. `aria-haspopup` is used by five other
+           canvas components, so its absence here was a real gap rather than a
+           repo convention. ⛔ NO `aria-expanded`: this button dispatches an
+           event and does not own the menu's open state, so it could not keep
+           that attribute truthful — and a stale `aria-expanded` is worse than
+           none. */
+        aria-haspopup="menu"
         title={`More actions for ${label} — the same menu as right-click`}
         data-testid={`node-action-menu-${nodeId}`}
       >

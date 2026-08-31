@@ -1,11 +1,19 @@
 /**
  * NodeQuickActions — the door to the node's own menu.
  *
- * Every reasoning INVITATION the canvas offers a node ("Challenge this",
- * "Explore", "Add risk from this", "Add outcome from this", "Trace to goal")
- * lives in the context menu, and until this button the only ways in were
- * RIGHT-CLICK — which has no equivalent on a touch device — and SHIFT+F10,
- * which nobody discovers.
+ * The invitations this button unburies are "Challenge this", "Explore ▸ Trace
+ * to goal" and "Select path to goal", plus "Explain this", Copy and Delete.
+ *
+ * ⚠ AN EARLIER VERSION OF THIS HEADER ALSO NAMED "Add risk from this", "Add
+ * outcome from this" and "Add connected factor". None of the three can render —
+ * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` strips them because
+ * `canvasSemanticMutations` is `'disabled'`, test-locked as a permanent audit.
+ * The claim was false in shipped source and in this spec, which is the place it
+ * does most damage: a comment that overstates what a thing does teaches the
+ * next reader to stop checking.
+ *
+ * Until this button the only ways in were RIGHT-CLICK — which has no equivalent
+ * on a touch device — and SHIFT+F10, which nobody discovers.
  *
  * ## What these tests assert, stated precisely
  *
@@ -115,6 +123,25 @@ describe('NodeQuickActions — opening the node menu without a right-click', () 
     )
     fireEvent.click(container.querySelector('[data-testid="node-action-menu-n1"]') as HTMLElement)
     expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('announces that a menu follows', () => {
+    renderInHost()
+    const btn = screen.getByTestId('node-action-menu-n1')
+    expect(btn).toHaveAttribute('aria-haspopup', 'menu')
+    // ⛔ And NOT `aria-expanded`: the button dispatches an event and does not
+    // own the menu's open state, so it could not keep that attribute truthful.
+    // A stale `aria-expanded` is worse than none.
+    expect(btn).not.toHaveAttribute('aria-expanded')
+  })
+
+  it('carries a hit-area expander, so the 20px visual is a 24px target', () => {
+    // ⚠ SCOPE: jsdom applies no Tailwind stylesheet, so this asserts the CLASS
+    // is present, not the computed box — a hand-maintained mirror of the class
+    // name and nothing more. It guards deletion, which is the realistic
+    // failure; the geometry is a browser claim and is not made here.
+    renderInHost()
+    expect(screen.getByTestId('node-action-menu-n1').className).toContain('before:-inset-[2px]')
   })
 
   it('sits LAST, after the two named shortcuts — overflow, not a third peer', () => {
