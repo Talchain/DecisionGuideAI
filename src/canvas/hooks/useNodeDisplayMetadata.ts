@@ -21,6 +21,7 @@ import {
   type GoalProbabilityBasis,
 } from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
+import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
 
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -161,6 +162,38 @@ interface NodeDisplayMetadata {
   /** Win rate for options (0-1) */
   winRate: number | null
   /**
+   * The producer said its computation for THIS option produced no usable
+   * result (`status === 'failed'` ⇔ `n_valid === 0`, zero finite Monte Carlo
+   * samples), so `winRate` above is `null` BY SUPPRESSION rather than by
+   * absence — and the node must say which.
+   *
+   * ⚠ WHY IT IS NOT ENOUGH TO JUST NULL `winRate`. A `null` share renders as
+   * NOTHING on an option card, and nothing in a row of bars reads as a
+   * rendering gap, or worse as "we ran it and it came last". The producer's
+   * claim is narrower and needs saying: the run happened and it yielded no
+   * distribution, which is a fact about the simulation and not a verdict on the
+   * option. The results panel makes exactly that distinction with a dedicated
+   * card; this flag is what lets the canvas make it too, from the same field
+   * (`option_probabilities[id].status`) and the same sanctioned copy.
+   *
+   * ⚠ OPTIONAL, following `goalFitAvailable` above and for its stated reason:
+   * making it required forces edits into unrelated `NodeDisplayMetadata` test
+   * mocks, and that churn rewrites the printed type strings of pre-existing
+   * diagnostics — which desyncs the typecheck gate's IDENTITY baseline and
+   * trips its clean-tree self-test control. A display signal whose absence is
+   * indistinguishable from `false` does not need to impose that cost.
+   */
+  winComputationFailed?: boolean
+  /**
+   * The producer's own short phrase about the failure, when it sent one.
+   *
+   * ⚠ NEVER THE THING THAT LICENSES THE DISCLOSURE — it is ABSENT from all 12
+   * live captures, so the render site must be complete without it. The STATUS
+   * licenses the disclosure; this only enriches it. See
+   * {@link notComputedReasonCopy}, which appends it rather than substituting.
+   */
+  winComputationFailedReason?: string
+  /**
    * Predicted outcome range (post-analysis, outcome nodes only).
    * Currently null — PLoT does not provide per-outcome distributions.
    * Gated on per-node data; re-enable when PLoT adds per-outcome distributions.
@@ -208,6 +241,7 @@ export function useNodeDisplayMetadata(
         goalFitAvailable: false,
         stabilityPercentage: null,
         winRate: null,
+        winComputationFailed: false,
         predictedOutcome: null,
         valueOfInformation: null,
         voiRank: null,
@@ -433,11 +467,47 @@ export function useNodeDisplayMetadata(
     // Task 8: Win rate for options
     // Read from option_probabilities[nodeId].win_probability — that's where the mapper puts it
     let winRate: number | null = null
+    // ⭐ THE PRODUCER'S PER-OPTION COMPUTE STATUS, CONSULTED BEFORE THE SHARE IS
+    // READ — never after, and never re-derived from the share itself.
+    //
+    // `status === 'failed'` means `n_valid === 0`: zero finite Monte Carlo
+    // samples, so there is no distribution behind `win_probability` and the
+    // number beside it is not a measurement. Until this gate existed the node
+    // read the share unconditionally and rendered a hard `0%` with a
+    // zero-width bar — indistinguishable from a genuine measured zero, which
+    // on this same surface renders `"<0.01%"`. The two were told apart only by
+    // which fallback arm a missing sample count happened to take.
+    //
+    // ⚠ THE GATE IS ON THE PRODUCER'S EMITTED TOKEN, NOT ON FALSINESS.
+    // `optionComputationProducedResult` is `true` for `'partial'` — samples
+    // EXIST and ISL emits a full outcome block, so it is a disclosure and not a
+    // failure — and `true` for ABSENT, which is the legacy V1 shape. A
+    // `status !== 'computed'` test here would discard results ISL honestly
+    // computed. The predicate is shared with the results panel precisely so the
+    // canvas and the panel cannot become two authorities on one question.
+    let winComputationFailed = false
+    let winComputationFailedReason: string | undefined
     if (nodeType === 'option') {
-      const optionProbabilities = report.option_probabilities ?? {}
+      // ⚠ READ THROUGH THE `ResultsReport` VIEW, not off the store's `ReportV1`.
+      // `ResultsReport` re-declares `option_probabilities` as
+      // `Record<string, ResultsOptionProbability>` (`types.ts:1302-1304`) —
+      // `ReportV1`'s entries have no `status` at all, so reading it off the raw
+      // store value would be two fresh TS2339s of the same class as the five
+      // `report.robustness` errors this file already carries. That is the
+      // narrowing the results panel does at its own boundary; the same field
+      // deserves the same one here. Same cast the driver feed uses at :277.
+      const optionProbabilities =
+        (report as unknown as ResultsReport).option_probabilities ?? {}
       const optionData = optionProbabilities[nodeId]
       if (optionData) {
-        winRate = optionData.win_probability ?? null
+        if (optionComputationProducedResult(optionData.status)) {
+          winRate = optionData.win_probability ?? null
+        } else {
+          // Left `null` deliberately: suppressing the share is the point, and
+          // the flag below is what stops that suppression reading as absence.
+          winComputationFailed = true
+          winComputationFailedReason = optionData.status_reason
+        }
       }
     }
 
@@ -463,6 +533,8 @@ export function useNodeDisplayMetadata(
       goalFitAvailable,
       stabilityPercentage,
       winRate,
+      winComputationFailed,
+      winComputationFailedReason,
       predictedOutcome,
       valueOfInformation,
       voiRank,

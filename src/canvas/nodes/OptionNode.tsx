@@ -26,6 +26,7 @@ import {
   basisWithholdsPossessive,
 } from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 
@@ -469,6 +470,25 @@ export const OptionNode = memo((props: NodeProps) => {
     // front-runner would compute a zero gap against itself and render
     // "Close call: within 1 percentage point" on its own card.
     if (verdict.leaderId === props.id) return null
+    // ⭐ AND THE SAME NON-MEASUREMENT CANNOT BE COMPARED EITHER.
+    //
+    // This is the SECOND surface on this card built from
+    // `option_probabilities[id].win_probability`, and the readout is not the
+    // only place a fabricated number reaches the user. When the producer says
+    // `status === 'failed'` (`n_valid === 0`) there is no distribution behind
+    // this option's share — but it still arrives as a finite `0`, which passes
+    // the `typeof === 'number'` test below and yields a perfectly well-formed
+    // gap inside the 5pp window. The card would then read "Close call with the
+    // leading option" about an option that was never scored: a comparative
+    // claim with nothing measured on one side of the comparison, and a worse
+    // falsehood than the bare `0%` this change removes, because it asserts a
+    // RELATIONSHIP rather than a value. The copy carries no number, which makes
+    // it read as a considered judgement rather than an arithmetic slip.
+    //
+    // Suppressing the readout while leaving this line is the trap of fixing one
+    // reader of a value and not the others (CLAUDE.md hazard 1 in miniature),
+    // so both gate on the one flag the hook derives from the one field.
+    if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
     if (!probs) return null
@@ -486,7 +506,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // early return (within-0.0001 tolerance), but rounding can still produce
     // 0 from a small positive gap like 0.004.
     return Math.max(1, Math.round(gap * 100))
-  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id])
+  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
 
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
@@ -1377,6 +1397,62 @@ export const OptionNode = memo((props: NodeProps) => {
               {winReadout.formatted}
             </span>
             <span className={typography.screenReaderOnly}>{winReadout.phrase}</span>
+          </div>
+        )}
+
+        {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
+            Mutually exclusive with the readout above by construction, not by a
+            second condition: `winComputationFailed` is the branch on which the
+            hook leaves `winRate` null, so `winReadout` is already null here.
+
+            ## What it deliberately does NOT render
+
+            No bar, no track, no percentage, no rank contribution. Not "rendered
+            as 0%", not "rendered as —": ABSENT. A zero-width fill in a row of
+            fill bars is a measured claim, and a dash in that slot still asserts
+            membership in the comparison. The state this replaces rendered a
+            hard `0%` with a zero-width bar, in the one position on the card
+            that answers how often this option came out ahead — while a GENUINE
+            measured zero at n=10,000 renders `"<0.01%"` two nodes along.
+
+            ## Why a WORD and not simply nothing
+
+            Dropping the row would have been honest about the number and silent
+            about the reason, and silence in a row of bars reads as a rendering
+            gap or as "it came last". `n_valid === 0` is a fact about the
+            simulation and carries no information about the option's merit
+            either way — which is exactly what the sanctioned sentence says, and
+            why it is worth the two lines of space.
+
+            ## The copy has ONE owner and it is not this file
+
+            `NOT_COMPUTED_BADGE` and `notComputedReasonCopy` come from
+            `components/results/utils/notAnalysedCopy` — the same strings the
+            results panel's `NotComputedOptionCard` renders. Re-typing the
+            sentence here would let the canvas and the panel drift into saying
+            two different things about one run (CLAUDE.md trap 12).
+
+            ## Reachability, following the anchor row above
+
+            The sentence is given to assistive technology directly rather than
+            only through `title`, because a `title` is unreachable by KEYBOARD
+            (this row is not focusable) and absent on TOUCH — the same reason
+            the win anchor was restored as visible text on 31 Aug. */}
+        {displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true && (
+          <div
+            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            title={notComputedReasonCopy(displayMetadata.winComputationFailedReason)}
+            data-testid={`option-not-computed-${props.id}`}
+          >
+            <span
+              className={`${typography.edgeLabel} text-text-light shrink-0`}
+              aria-hidden="true"
+            >
+              {NOT_COMPUTED_BADGE}
+            </span>
+            <span className={typography.screenReaderOnly}>
+              {notComputedReasonCopy(displayMetadata.winComputationFailedReason)}
+            </span>
           </div>
         )}
 
