@@ -100,8 +100,8 @@ export function NodeMetricRow({
           quoted the class it was explaining. A rule that cannot tell a use from
           a mention will read your explanation as the offence. Rowed.
 
-          ⭐ THE FIXED CAPTION COLUMN IS GONE, AND THE WIDTH IT USED TO CARRY WAS
-          MEASURED FOR TYPE THIS ROW NO LONGER RENDERS. `edgeLabel` is
+          ⭐ THE CAPTION COLUMN IS A FLOOR, NOT A FIXED WIDTH, AND THE WIDTH IT
+          USED TO CARRY WAS MEASURED FOR TYPE THIS ROW NO LONGER RENDERS. `edgeLabel` is
           `calc(10px * var(--canvas-label-scale))`: it counter-scales so a canvas
           caption stays legible as the view zooms out. The old `w-14` (56px) did
           NOT counter-scale, so at the auto-fit floor the caption rendered at 20px
@@ -121,21 +121,42 @@ export function NodeMetricRow({
           silently deletes the bar to save the caption trades one visible defect
           for a worse one. The numbers are the only reason I know that.
 
-          WHAT IS HERE INSTEAD: the caption is sized to its CONTENT. It cannot
-          clip, and the bar keeps 33px on the narrowest card (against 51px before,
-          and 0px under the scaled-column version). Measured across three
-          starters at the auto-fit zoom.
+          ⛔ AND CONTENT-SIZING — WHICH #1124 SHIPPED — IS ALSO NOT THE ANSWER,
+          THOUGH IT IS A MUCH NEARER MISS. It cannot clip, and it keeps the bar
+          at 33px on the narrowest card. But it gives up the shared start-x:
+          the four captions differ in width ("Leads", "Chance", "strength",
+          "Influence"), so EQUAL VALUES RENDER AS UNEQUAL BAR LENGTHS across node
+          types — the doctrine two paragraphs up, inverted. On a data display
+          that is a truthfulness problem, not a cosmetic one.
 
-          ⚠ AND THE COST, STATED RATHER THAN BURIED: bars no longer begin at the
-          same x across node TYPES, because the four captions differ in width
-          ("Leads", "Chance", "strength", "Influence"). Within a type they still
-          align exactly. This is a real reduction in the at-a-glance comparison
-          this component was built for, and it is a DESIGN judgement, not a
-          mechanical one — flagged in the PR for a ruling rather than settled
-          here. The alternative that preserves alignment is a wider card floor at
-          the counter-scale, which is canvas geometry and belongs to that lane. */}
+          ⭐ WHAT IS HERE INSTEAD: a FLOOR. `width = max(3.5rem, content)`, so
+          each regime gets the behaviour that was right for it and neither pays
+          for the other:
+
+            content ≥ 56px  →  identical to content-sizing; the clip stays fixed
+            content < 56px  →  identical to the old `w-14`; alignment holds
+
+          MEASURED (build-vs-buy, the 230px card — the narrowest the starters
+          produce — in Chromium on the hermetic visual harness):
+
+            counter-scale   caption content   caption box   bar    vs #1124
+            2 (auto-fit)         73px            73px       33px    unchanged
+            1 (zoomed in)        41px            56px       86px    -15px
+
+          So the floor costs the bar NOTHING at the tightest case, because there
+          the content already exceeds it. Where it does bite, it is paid for out
+          of a bar that has 101px to give, and it buys back the shared start-x.
+
+          ⚠ AND THE LIMIT OF THAT EVIDENCE, STATED: only the outcome and risk
+          rows mount in the starter fixtures, and both caption "strength". The
+          alignment this restores is BETWEEN node types, so the harness cannot
+          witness the thing being bought — it can only witness that the floor is
+          applied and that the bar survives. `NodeMetricRow` renders five
+          captions; three of them are unreachable to any starter-seeded test.
+          `nodeMetricColumn.visual.spec.ts` pins both regimes on the two that
+          are, at both counter-scales. */}
       <span
-        className={`${typography.edgeLabel} shrink-0 text-text-light`}
+        className={`${typography.edgeLabel} min-w-[3.5rem] shrink-0 text-text-light`}
         aria-hidden="true"
       >
         {label}

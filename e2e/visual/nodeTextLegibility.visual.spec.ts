@@ -28,15 +28,24 @@
  * an explicit user gesture and is unfloored by design.
  */
 import { test, expect } from '@playwright/test'
-import { VIEWPORTS, clearNotifications, openCanvas, preparePage, seedStarterDraft } from './harness'
+import {
+  VIEWPORTS, clearNotifications, openCanvas, preparePage, seedStarterDraft,
+  NODE_TITLE_DECLARED_PX,
+} from './harness'
 
 /** Every starter the product ships — the corpus, from outside this file. */
 const STARTERS = ['build-vs-buy', 'market-entry', 'vendor-selection'] as const
 
 /**
  * Design System v5 §2.4: "Panel and canvas contexts use 10-12px for information
- * density, always via tokens, never raw classes." 10px is the floor, and §2.3
- * fixes the canvas scale at 13/11/10.
+ * density, always via tokens, never raw classes." 10px is the floor.
+ *
+ * ⚠ §2.3 STILL SPELLS THE CANVAS SCALE 13/11/10 AND THE CODE SHIPS 12/11/10.
+ * #1088 moved the title to 12px deliberately and did not amend the design-system
+ * document. The DOCUMENT is the stale half, and it is rowed rather than edited
+ * here — a spec is not the place to change the design system. This file uses
+ * `NODE_TITLE_DECLARED_PX`, derived from the token, so it tracks what the
+ * product renders rather than either copy of the number.
  */
 const MIN_CANVAS_PX = 10
 
@@ -157,7 +166,8 @@ for (const viewport of VIEWPORTS) {
           .map((t) => +(parseFloat(getComputedStyle(t).fontSize) * z).toFixed(2))
       })
       expect(titles.length).toBeGreaterThan(10)
-      for (const t of titles) expect(t, 'node title not rendering at its declared 13px').toBeCloseTo(13, 0)
+      for (const t of titles) expect(t, `node title not rendering at its declared ${NODE_TITLE_DECLARED_PX}px`)
+        .toBeCloseTo(NODE_TITLE_DECLARED_PX, 0)
 
       // ⭐ THE REGRESSION THIS LANE CLOSED, bound BY IDENTITY rather than by a
       // value predicate another element could satisfy (CLAUDE.md trap 19): the

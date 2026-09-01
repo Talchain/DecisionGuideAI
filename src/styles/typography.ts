@@ -41,8 +41,19 @@ export const typography = {
 
   // Canvas/Graph - Inter (smaller for dense UI)
   //
-  // ⭐ THE DECLARED SIZES BELOW ARE DS v5 §2.3 AND HAVE NOT CHANGED: 13 / 11 / 10.
-  // What changed (17 Aug 2026) is that they are now what the user actually SEES.
+  // ⭐ THE DECLARED SIZES BELOW ARE 12 / 11 / 10, AND THEY ARE WHAT THE USER
+  // ACTUALLY SEES (17 Aug 2026 wired the counter-scale that made that true).
+  //
+  // ⚠ THIS COMMENT READ "DS v5 §2.3 ... 13 / 11 / 10" UNTIL 1 Sep 2026, FOUR
+  // LINES ABOVE A TOKEN DECLARING 12px. #1088 moved the title to 12px
+  // deliberately (the derivation is in the block on `nodeTitle` below) and did
+  // not amend the sentence describing it — so the file contradicted itself, and
+  // two visual specs that had copied the 13 threw on it. A comment that names a
+  // number the code beside it does not use is the hand-maintained mirror at the
+  // top of CLAUDE.md, at the shortest possible range.
+  //
+  // ⚠ DS v5 §2.3 ITSELF STILL SAYS 13px/semibold. The DOCUMENT is now the stale
+  // half — rowed for the design-system owner, not edited from here.
   //
   // Canvas labels are DOM inside React Flow's viewport transform, which scales
   // glyphs. A post-draft graph clamps at the `LABEL_LEGIBLE_ZOOM` floor of 0.50,
