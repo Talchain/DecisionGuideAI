@@ -337,8 +337,8 @@ describe('B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT', () => {
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('C · THE FOUR-SECTION STRUCTURE', () => {
-  it('renders Key insights, Strengthen the reasoning, Drivers and dynamics, Uncertainty and gaps — in that order', () => {
+describe('C · THE SECTION STRUCTURE', () => {
+  it('renders What we checked, Key insights, Strengthen the reasoning, Drivers and dynamics, Uncertainty and gaps — in that order', () => {
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
@@ -355,6 +355,10 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
       (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
     )
     expect(headings).toEqual([
+      // ⭐ #1082's trust readout, mounted in the same commit that added this
+      // line. Its appearance HERE is the positive control that the mount is
+      // real rather than a no-op import: this census went RED on it, by name.
+      ANALYSIS_NEW_COPY.sections.checks,
       ANALYSIS_NEW_COPY.sections.keyInsights,
       ANALYSIS_NEW_COPY.sections.strengthen,
       ANALYSIS_NEW_COPY.sections.drivers,
@@ -366,7 +370,25 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
     // The placement IS the experiment. On the existing Analysis tab the same
     // material is the FIFTH of eleven named sections in `ResultsBody` (below
     // Decision brief, Analysis hero, Key question and What I was given), plus
-    // the warning strips and status furniture above it. Here it is second.
+    // the warning strips and status furniture above it.
+    //
+    // ⚠⚠ THE SCOPE OF THIS CENSUS, STATED BECAUSE IT IS A BLIND SPOT AND NOT
+    // AN OBVIOUS ONE (trap 20 — name the artefact searched, never the
+    // generalisation). `headings` is every `h3` the body renders, which is the
+    // SectionShell sections and NOT the full run of things a reader scrolls
+    // past: `ModelStrip`, `AtAGlance` and the two warning strips carry no
+    // `h3`, and `OptionsComparison` renders NOTHING AT ALL here because
+    // `seedCompletedRun()` seeds no options and it returns null on
+    // `totalCount === 0`.
+    //
+    // So the index below is a position among the HEADING-BEARING sections,
+    // several places above where a reader actually meets this material. It is
+    // a true assertion about a smaller surface than its name suggests — the
+    // same shape as a `SECTIONS` entry that covers nothing because the fixture
+    // drops the section. It is left EXACT rather than loosened, with the scope
+    // written down so the next reader inherits it instead of the
+    // generalisation; a claim about the whole assembled surface has to be made
+    // where the whole surface is in view, not here.
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
@@ -376,7 +398,7 @@ describe('C · THE FOUR-SECTION STRUCTURE', () => {
     const headings = Array.from(body.querySelectorAll('h3')).map(
       (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
     )
-    expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(1)
+    expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(2)
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
     )

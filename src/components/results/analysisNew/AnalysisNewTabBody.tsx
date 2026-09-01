@@ -46,6 +46,7 @@ import { buildNodeInsights } from './nodeInsights'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
+import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
@@ -288,6 +289,25 @@ export function AnalysisNewTabBody({
           }
           onRunIntervention={runIntervention}
         />
+
+        {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
+            #1082 landed this component, its adapter and 54 tests but left it
+            UNMOUNTED, because this file belongs to another lane. This is the
+            mount — the delta that PR verified in a throwaway worktree, at the
+            anchor it named: directly under the answer it qualifies, before
+            `OptionsComparison`.
+
+            It answers a DIFFERENT question from the glance — what the run
+            CHECKED, not what it FOUND — so the two are named apart rather than
+            reconciled (trap 21). It is the only surface on this tab that
+            speaks for a check that was NOT made, where silence otherwise reads
+            as "fine": a reader could not tell "we looked and found nothing"
+            from "we did not look", and only one of those is reassurance.
+
+            Costs one wrapped line at rest and renders NOTHING pre-run
+            (`vm.checks` is `{ items: [] }`, which the component returns null
+            for) — so a heading never appears without something under it. */}
+        <WhatWeChecked checks={vm.checks} />
 
         {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
             ⭐ FIRST BELOW THE GLANCE, BECAUSE IT IS THE GLANCE'S OWN MISSING
