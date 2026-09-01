@@ -535,7 +535,13 @@ export function ModelStrip({
       showToast(COPY.modelStrip.valueNotEncodable)
       return
     }
-    const outcome = editAuthority.proposeFactorValue(parsed)
+    // ⚠ `.outcome`, NOT the proposal. #1057 widened this return from a bare
+    // outcome string to `{ outcome, attemptId }` so a caller can correlate the
+    // later completion. The three sentences below are unchanged; only the read
+    // moved. Comparing the OBJECT to a string silently selects the
+    // `not_encodable` copy for every arm — a dispatched edit reported as a
+    // dropped one.
+    const { outcome } = editAuthority.proposeFactorValue(parsed)
     showToast(
       outcome === 'dispatched'
         ? COPY.modelStrip.valueDispatched
