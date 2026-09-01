@@ -24,8 +24,20 @@
  * dead branch), and it says nothing about what a user SEES — jsdom applies no
  * stylesheet and this file reads text, not pixels. It is a drift alarm on the
  * one property that went wrong: a reader arriving with no gate at all. The
- * behaviour itself is pinned by `OptionNode.notComputed.spec.tsx` and
- * `BaseNode.lodOptionStanding.spec.tsx`, which render through the real hook.
+ * behaviour itself is pinned by `OptionNode.notComputed.spec.tsx`, which
+ * renders all three memo readers through the real hook, and — for the low-zoom
+ * arm — by `lodMetricLine.spec.ts`.
+ *
+ * ⚠ THIS SENTENCE PREVIOUSLY NAMED A THIRD SPEC THAT DOES NOT EXIST HERE, and
+ * the way it got here is the whole point of this file. `BaseNode.lodOptionStanding.spec.tsx`
+ * was created by `69e41a1c`; this guard was written directly on top of it, so
+ * the reference was TRUE ON THE BRANCH IT WAS WRITTEN ON. The salvage onto
+ * staging correctly declined to bring `69e41a1c` across (its low-zoom work is
+ * superseded by `resolveLodMetricLine`) — and carried the prose anyway. A claim
+ * true where it was written and false where it landed, reproduced by a
+ * cherry-pick, in the header of the guard whose subject is exactly that.
+ * Prose does not travel with a commit's guarantees; re-verify every reference
+ * a salvage brings across, against the head it lands on.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -39,9 +51,22 @@ const stripComments = (s: string): string =>
 
 /**
  * Split the component into `useMemo` blocks, keyed by the const they bind.
- * Crude on purpose: the next `const <name> = useMemo` is the terminator, which
- * cannot miss a block and can only ever make a block too LONG — an error in the
- * direction of a false PASS being harder, not easier, to obtain.
+ *
+ * ⚠ THE TERMINATOR IS THE MEMO'S OWN DEPENDENCY-ARRAY CLOSE, NOT THE NEXT MEMO,
+ * AND THE COMMENT HERE PREVIOUSLY HAD THE DIRECTION OF THE ERROR BACKWARDS. It
+ * said a too-LONG block made a false PASS "harder, not easier". The opposite is
+ * true: `CARRIES_GATE` is satisfied by a gate ANYWHERE in the block, so every
+ * extra line a block absorbs can only supply more gates. Terminating on the
+ * next memo made the LAST block run to end-of-file — swallowing the entire
+ * ~430-line JSX render, which is precisely where a comparative claim is most
+ * likely to be written. An ungated reader placed there was absorbed by
+ * `winReadout` and reported as gated. Demonstrated by review, and now pinned by
+ * *an ungated reader in the RENDER is detected* below.
+ *
+ * So blocks end at their own `}, [deps])`. That bounds a memo to its own body,
+ * and the render is scanned separately by `renderReaders`, per JSX expression
+ * container — because one region checked as a whole would reproduce the same
+ * absorption at a larger scale.
  */
 function memoBlocks(source: string): Array<{ name: string; body: string }> {
   const starts: Array<{ name: string; index: number }> = []
@@ -59,9 +84,68 @@ function memoBlocks(source: string): Array<{ name: string; body: string }> {
     // turn the manifest red, which is a guard agreeing with itself (CLAUDE.md
     // trap 13b). Keep that control — it is what pins this line.
     body: source
-      .slice(s.index, starts[i + 1]?.index ?? source.length)
+      .slice(s.index, memoEnd(source, s.index, starts[i + 1]?.index ?? source.length))
       .replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}'),
   }))
+}
+
+/** Where a `useMemo` actually ends: its own dependency-array close. Falls back
+ *  to the next memo start, so this can only ever SHORTEN a block — never
+ *  lengthen one past where it used to end. */
+function memoEnd(source: string, start: number, nextStart: number): number {
+  const depClose = /\}\s*,\s*\[[^\]]*\]\s*\)/g
+  depClose.lastIndex = start
+  const m = depClose.exec(source)
+  const end = m ? m.index + m[0].length : nextStart
+  return Math.min(end, nextStart)
+}
+
+/** The balanced `{...}` enclosing `idx` — a JSX expression container in the
+ *  render. Bounding each reader by its OWN container is what stops the render
+ *  becoming one big region in which any single gate satisfies every reader. */
+function enclosingBraces(s: string, idx: number): { start: number; end: number } {
+  let depth = 0
+  let start = -1
+  for (let i = idx; i >= 0; i--) {
+    if (s[i] === '}') depth++
+    else if (s[i] === '{') {
+      if (depth === 0) { start = i; break }
+      depth--
+    }
+  }
+  if (start < 0) return { start: 0, end: s.length }
+  depth = 0
+  for (let i = start; i < s.length; i++) {
+    if (s[i] === '{') depth++
+    else if (s[i] === '}') {
+      depth--
+      if (depth === 0) return { start, end: i + 1 }
+    }
+  }
+  return { start, end: s.length }
+}
+
+/** Comparative readers living in the JSX render — everything after the last
+ *  memo ends. Each is bounded by its own expression container. */
+function renderReaders(source: string): Array<{ name: string; body: string }> {
+  const starts: number[] = []
+  const re = /\n\s*const (\w+) = (?:React\.)?useMemo/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(source)) !== null) starts.push(m.index)
+  const lastEnd = starts.length > 0 ? memoEnd(source, starts[starts.length - 1], source.length) : 0
+  const render = source.slice(lastEnd)
+  const out: Array<{ name: string; body: string }> = []
+  const seen = new Set<number>()
+  const scan = new RegExp(READS_COMPARATIVE.source, 'g')
+  let r: RegExpExecArray | null
+  while ((r = scan.exec(render)) !== null) {
+    const { start, end } = enclosingBraces(render, r.index)
+    if (seen.has(start)) continue
+    seen.add(start)
+    const line = source.slice(0, lastEnd + start).split('\n').length
+    out.push({ name: `render:${line}`, body: render.slice(start, end) })
+  }
+  return out
 }
 
 /** Places this option relative to the others, or reads the share it is placed by. */
@@ -69,8 +153,11 @@ const READS_COMPARATIVE = /option_probabilities|verdict\.(leaderId|hasLeadingOpt
 /** The one authority on "was anything measured for this option". */
 const CARRIES_GATE = /winComputationFailed|displayMetadata\.winRate/
 
-const readers = () =>
-  memoBlocks(stripComments(SRC)).filter(b => READS_COMPARATIVE.test(b.body))
+const readersIn = (src: string) =>
+  [...memoBlocks(stripComments(src)), ...renderReaders(stripComments(src))]
+    .filter(b => READS_COMPARATIVE.test(b.body))
+
+const readers = () => readersIn(SRC)
 
 describe('OptionNode — the comparative-position reader manifest', () => {
   it('the scan can see the file at all', () => {
@@ -135,6 +222,59 @@ describe('OptionNode — the comparative-position reader manifest', () => {
       .filter(b => READS_COMPARATIVE.test(b.body))
       .filter(b => !CARRIES_GATE.test(b.body))
     expect(ungated.length).toBeGreaterThan(0)
+  })
+
+  it('POSITIVE CONTROL: an ungated reader in the RENDER is detected — with its gated twin', () => {
+    // ⚠ THIS IS THE CONTROL THE GUARD SHIPPED WITHOUT, AND THE HOLE IT LEFT WAS
+    // THE WHOLE RENDER. Blocks used to terminate on the next memo, so the last
+    // one ran to end-of-file and absorbed the ~430-line JSX body. `CARRIES_GATE`
+    // is satisfied by a gate ANYWHERE in a block, so an ungated comparative
+    // claim written in the render was swallowed by `winReadout`'s gate and
+    // reported as gated — a false PASS in the one region where such a claim is
+    // most likely to be written.
+    //
+    // Both directions, because a scan that flagged everything in the render
+    // would be just as useless as one that flagged nothing (CLAUDE.md 22b — a
+    // corpus that tests one direction is a guard watching one door).
+    const ungatedInRender = `${SRC}\n      {resultsReport?.option_probabilities ? <span>Ahead</span> : null}\n`
+    const gatedInRender = `${SRC}\n      {displayMetadata.winComputationFailed !== true && resultsReport?.option_probabilities ? <span>Ahead</span> : null}\n`
+
+    // ⚠ SCOPED TO THE RENDER, DELIBERATELY. An unscoped `readersIn` here reddens
+    // this control whenever a MEMO gate is removed — so it would fail for a
+    // reason other than the one it names, and could not tell you which property
+    // broke. That is the same correction the memo control above already carries;
+    // it was re-learned here, measured (gate mutants REDded 2 tests, not 1).
+    const ungatedNames = (src: string) =>
+      readersIn(src)
+        .filter(b => b.name.startsWith('render:'))
+        .filter(b => !CARRIES_GATE.test(b.body))
+        .map(b => b.name)
+
+    // pristine: nothing in the render is ungated today
+    expect(ungatedNames(SRC)).toEqual([])
+    // the injected ungated reader IS seen
+    expect(
+      ungatedNames(ungatedInRender).length,
+      'an ungated comparative reader in the JSX render was not detected — the ' +
+        'render is being absorbed into a memo block again',
+    ).toBeGreaterThan(0)
+    // ...and its gated twin is NOT flagged, so the scan discriminates on the
+    // gate rather than merely on being in the render
+    expect(ungatedNames(gatedInRender)).toEqual([])
+  })
+
+  it('memo blocks are bounded by their own deps — the last one does not run to EOF', () => {
+    // Pins the mechanism the control above depends on. If a refactor restores
+    // next-memo termination, the last block swallows the render again and the
+    // control turns into a tautology (CLAUDE.md 13b — a guard whose
+    // discrimination rests on something nothing pins).
+    const blocks = memoBlocks(stripComments(SRC))
+    const last = blocks[blocks.length - 1]
+    expect(blocks.length).toBeGreaterThan(10)
+    expect(
+      last.body.length,
+      `the last memo block is ${last.body.length} chars — it is absorbing the render`,
+    ).toBeLessThan(4_000)
   })
 
   it('no comment states a gate COUNT — the count is what went stale', () => {
