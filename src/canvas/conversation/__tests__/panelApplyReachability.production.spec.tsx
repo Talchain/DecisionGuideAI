@@ -550,4 +550,29 @@ describe('production panel-apply route', () => {
     // Flag OFF: DraftChat keeps its own host, or the rollback posture goes dark.
     expect(legacySource).toContain('useStructuralDeleteEvents(')
   })
+
+  // ═══ schemas 0.50.0 — the durable-RENAME drain gets the same pin ═══════════
+  //
+  // Written at the same time as the hosts rather than after a dark ship. The
+  // limb above is the record of what it costs to omit this one: a working
+  // capability, a green suite, and no instrument anywhere that could see the
+  // difference. Deleting EITHER rename host reds here.
+  it('the durable-rename drain is mounted on BOTH flag postures', () => {
+    const graphSource = readFileSync(resolve(process.cwd(), 'src/canvas/ReactFlowGraph.tsx'), 'utf8')
+    const legacySource = readFileSync(resolve(process.cwd(), 'src/canvas/components/DraftChat.tsx'), 'utf8')
+    const flagOnHost = readFileSync(
+      resolve(process.cwd(), 'src/canvas/conversation/StructuralRenameDrainHost.tsx'),
+      'utf8',
+    )
+
+    expect(graphSource.match(/<StructuralRenameDrainHost \/>/g)).toHaveLength(1)
+    const providerBlock = graphSource.slice(
+      graphSource.indexOf('<ConversationProvider>'),
+      graphSource.indexOf('</ConversationProvider>'),
+    )
+    expect(providerBlock).toContain('<StructuralRenameDrainHost />')
+    expect(flagOnHost).toContain('useStructuralRenameEvents(sendSystemEvent)')
+
+    expect(legacySource).toContain('useStructuralRenameEvents(')
+  })
 })

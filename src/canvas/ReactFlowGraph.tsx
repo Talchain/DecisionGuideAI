@@ -123,6 +123,7 @@ import { isAiPanelV2Enabled } from '../flags'
 import { ConversationProvider } from './conversation/ConversationContext'
 import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
 import { StructuralDeleteDrainHost } from './conversation/StructuralDeleteDrainHost'
+import { StructuralRenameDrainHost } from './conversation/StructuralRenameDrainHost'
 import { GuidanceInvalidationHost } from './conversation/GuidanceInvalidationHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import {
@@ -2961,6 +2962,11 @@ export function MaybeConversationProvider({ children }: { children: import('reac
             the drain there alone shipped the capability dark. Same two-host
             shape as PanelApplyDrainHost above, for the same reason. */}
         <StructuralDeleteDrainHost />
+        {/* schemas 0.50.0 — the durable-RENAME drain's flag-ON host. Both hosts
+            from the start, deliberately: the delete drain above shipped dark
+            with only its DraftChat host and a fully green suite, and repeating
+            that would be paying twice for one lesson. */}
+        <StructuralRenameDrainHost />
         {/* N-23 — guidance invalidation's flag-ON host. `clearGuidanceItems()`
             had one production caller, inside `useGraphEditEvents`, whose only
             host is DraftChat (mounted only when aiPanelV2 is OFF). With the flag

@@ -174,9 +174,29 @@ export const EDITOR_WRITTEN_FIELDS = {
  * file governs whether the Inspector's controls are reachable at all.
  */
 
-/** Receipt-bearing actions mounted elsewhere and intentionally preserved. */
+/**
+ * Receipt-bearing actions mounted elsewhere and intentionally preserved.
+ *
+ * ⚠⚠ NARROWED, schemas 0.50.0 — AND THE NARROWING IS THE POINT, NOT A TIDY-UP.
+ * This sentence used to open "This inspector is read-only because these changes
+ * cannot yet be saved to the shared model." That was true of every control in
+ * the panel when it was written. It stopped being true the moment the title
+ * gained a durable `structural_rename` carrier: the NAME now writes to
+ * `scenarios.graph` and survives a reload, while the panel body still cannot.
+ *
+ * A blanket claim over a control that no longer obeys it is this estate's trap
+ * 21 — two questions under one sentence — and the failure mode is specific and
+ * bad: a user reads "changes cannot be saved", renames anyway because the
+ * pencil is right there, and then does not trust the rename that DID save. The
+ * copy therefore names the exception rather than being quietly left to rot.
+ *
+ * ⚠ SCOPE, EXACTLY. The `<fieldset disabled>` in `InspectorRouter` is unchanged
+ * and still wraps the whole panel body; it never wrapped the shell header, which
+ * is where the title lives, so nothing about the enforcement boundary moved
+ * here. Only the sentence describing it did.
+ */
 export const INSPECTOR_READ_ONLY_REASON =
-  'This inspector is read-only because these changes cannot yet be saved to the shared model. Use the Model tab for supported factor values or ask Olumi to change structure.'
+  "You can rename this — the name saves to the shared model. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure."
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {

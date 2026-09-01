@@ -117,8 +117,8 @@ jobs:
             git --no-pager diff --stat -- contracts/cee/
           fi
 
-      # ⚠ THE UI DECLARES `prior_is_unquantified` ITSELF (it is not in the pinned
-      # @talchain/schemas 0.48.0, and the pin must not move). Its unit test
+      # ⚠ THE UI DECLARES `prior_is_unquantified` ITSELF — it is not in the shared
+      # contract at all (measured at 0.50.0 with a contrast control). Its unit test
       # compares a UI constant against a UI-side literal, so a CEE RENAME would
       # leave that test GREEN while every surface keyed on the flag silently
       # reverts. This step is the only thing in the estate that reads BOTH sides.

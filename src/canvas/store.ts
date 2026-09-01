@@ -33,6 +33,14 @@ import {
   type StructuralDeleteIntent,
 } from './mutations/structuralDelete'
 import {
+  captureStructuralRename,
+  STRUCTURAL_RENAME_DEFERRED_NOTICE,
+  STRUCTURAL_RENAME_LIFECYCLE_LIMIT,
+  type StructuralRenameIntent,
+  type StructuralRenameLifecycleRecord,
+  type StructuralRenameTerminalStatus,
+} from './mutations/structuralRename'
+import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
   buildDurableDeletionNotice,
@@ -712,6 +720,32 @@ interface CanvasState {
    */
   pendingStructuralDeletes: StructuralDeleteIntent[]
   /**
+   * 0.50.0: rename gestures awaiting the wire, captured SYNCHRONOUSLY against
+   * the PRE-rename node so `expected_label` and `base_graph_hash` both describe
+   * the model the user was actually looking at. Drained by
+   * `useStructuralRenameEvents`, which is the ONE sender.
+   */
+  pendingStructuralRenames: StructuralRenameIntent[]
+  /**
+   * 0.50.0 — ATTEMPT AND COMPLETION AUTHORITY FOR EVERY RENAME PUT ON THE WIRE.
+   *
+   * ⚠ THE QUEUE ABOVE IS NOT ENOUGH, and the gap is measured rather than
+   * theoretical. The drain removes an intent from `pendingStructuralRenames` and
+   * THEN awaits the server, so between those two moments the gesture lived only
+   * in a closure owned by whichever component happened to be mounted.
+   * `useConversation` gates its optimistic resolution on `!isAbort` and its abort
+   * arm handles `factor_value_edit` ONLY, so an interrupted rename resolved
+   * NEITHER way: no revert, no confirmation, no sentence, and nothing in state to
+   * say an attempt had ever been made. The optimistic label simply stood.
+   *
+   * Three outcomes stay resolvable here — `committed` / `refused` /
+   * `unconfirmed` — and the record survives a remount, a panel close and a route
+   * change, because it is store state rather than a closure. Dropped on a
+   * decision-context change (`DECISION_CONTEXT_CLEAR`), for the same reason the
+   * queue is: a verdict about another decision is not ours to keep.
+   */
+  structuralRenameLifecycle: StructuralRenameLifecycleRecord[]
+  /**
    * Canvas ids the server has PROVEN removed from the saved model — written
    * ONLY from a `'proven'` `structural_delete` receipt.
    *
@@ -1174,6 +1208,48 @@ interface CanvasState {
    * drain interleaved.
    */
   takePendingStructuralDeletes: () => StructuralDeleteIntent[]
+  /** 0.50.0: the rename twin of the above — one atomic read-and-clear. */
+  takePendingStructuralRenames: () => StructuralRenameIntent[]
+  /**
+   * 0.50.0: move the HEAD of the rename queue into the lifecycle as
+   * `in_flight`, in ONE `set()`, and return it. Null when the queue is empty.
+   *
+   * ⭐ THE ATOMICITY IS THE POINT. Taking the whole batch and then awaiting each
+   * send left every gesture after the first in neither the queue nor any record;
+   * an abort or a remount in that window destroyed the only evidence the attempt
+   * existed. One at a time means the gesture is always in exactly one place.
+   */
+  beginStructuralRenameSend: () => StructuralRenameLifecycleRecord | null
+  /**
+   * 0.50.0: write the terminal verdict for one attempt.
+   *
+   * IDEMPOTENT BY DESIGN — a record that already holds a terminal status is LEFT
+   * ALONE. Two authorities can reach one attempt (the resolver inside `sendTurn`,
+   * and the drain's every-exit settle), and a late arm rewriting a `committed`
+   * verdict as `unconfirmed` would tell the user their saved name might not be
+   * saved: a lie in the other direction.
+   */
+  settleStructuralRename: (
+    intentId: string,
+    status: StructuralRenameTerminalStatus,
+  ) => void
+  /**
+   * 0.50.0: put back a label the server refused to take.
+   *
+   * ⚠ RESTORES **TWO** FIELDS. `updateNodeLabel` also stamps
+   * `provenance: 'user_set'` on a GOAL (via `provenanceAfterHumanAuthoredLabel`),
+   * which is what clears the "From your brief" pill. Restoring only the label
+   * would leave a REFUSED rename having permanently cleared that pill — the
+   * model still holds the brief's extract while the canvas claims the user
+   * authored it. `provenanceWasPresent` distinguishes "the key was absent" from
+   * "the key held undefined", which are different bytes.
+   */
+  applyStructuralRenameRevert: (restore: {
+    nodeId: string
+    label: string
+    provenance?: unknown
+    provenanceWasPresent: boolean
+  }) => void
   /**
    * 0.48.0: put back elements the server refused to remove.
    *
@@ -1594,6 +1670,15 @@ const DECISION_CONTEXT_CLEAR = {
   // never edited. (Typed rather than left to `as const`, which would infer
   // `readonly []` and refuse to satisfy the mutable store field.)
   pendingStructuralDeletes: [] as StructuralDeleteIntent[],
+  // 0.50.0: same rule for renames — an undrained gesture names a node id in the
+  // graph it was captured against, and its `expected_label` describes that
+  // graph's label. Both are meaningless once the context has been replaced.
+  pendingStructuralRenames: [] as StructuralRenameIntent[],
+  // 0.50.0: an attempt's verdict describes ONE decision's node. Carrying it
+  // across a context replacement would let a late settle write a verdict about a
+  // graph this canvas is no longer showing — the same argument as the queue
+  // above, applied to the record of what happened to it.
+  structuralRenameLifecycle: [] as StructuralRenameLifecycleRecord[],
   // 0.48.0: the durable-delete record names ids in ONE decision's graph.
   // Carrying it across a context replacement would guard a new canvas against
   // deletions made in a decision the user has left — and could withhold a node
@@ -1856,6 +1941,70 @@ function recordStructuralDeleteIntent(
     return { pendingStructuralDeletes: [...queued, result.intent] }
   })
   return true
+}
+
+/**
+ * Record one rename gesture for the wire, against the PRE-rename node.
+ *
+ * DELIBERATELY NOT GATED ON SUCCESS. Unlike the delete twin — which refuses the
+ * local removal outright when it cannot express it durably, because a locally
+ * removed node that resurrects on reload is the P0 that lane closed — a rename
+ * that cannot be sent still applies LOCALLY and simply claims no durability.
+ * The asymmetry is deliberate and derived from the harms: an unsent delete makes
+ * the product contradict itself on the next re-run; an unsent rename is a local
+ * display name, which is what the product did for its entire history before
+ * 0.50.0. Blocking it would be a regression bought for tidiness.
+ *
+ * ⚠ AND IT IS NOT CALLED from producer-driven writes: `captureStructuralRename`
+ * reads `_externalMutationActive`, the estate's existing name for "this is CEE's
+ * own write coming back". Echoing a server rename to the server as a user rename
+ * would be a second authority arguing with the first — and, worse here than for
+ * deletes, it would carry an `expected_label` the server itself just superseded.
+ */
+function recordStructuralRenameIntent(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  nodeId: string,
+  label: string,
+): void {
+  const state = get()
+  const result = captureStructuralRename({
+    nodesBefore: state.nodes,
+    nodeId,
+    label,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sr-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) return
+  set((s) => ({ pendingStructuralRenames: [...s.pendingStructuralRenames, result.intent] }))
+
+  // ⭐⭐ THE DEFERRED ARM — the P0 this lane closes. Before this, a rename made on
+  // a RESTORED graph stood down on `no_server_graph_hash`, queued nothing, and
+  // the local write below applied the label anyway: a local-only write that
+  // looked committed and vanished on the next reload. It is now queued and will
+  // be stamped with a real base hash by the drain, but until a turn supplies one
+  // the model genuinely does not hold the name — and the queue is memory-only,
+  // so a reload before that turn still loses it.
+  //
+  // ⚠ SAYING SO IS THE POINT. UI #1025 was reverted for shipping a control that
+  // HID this loss; blocking the rename instead would regress a capability the
+  // product has had since long before 0.50.0. The third option is the honest one:
+  // apply it, queue it, and tell the user exactly where it stands.
+  //
+  // ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND. A scratch graph with no
+  // scenario and no authoritative graph has no saved model, so there is nothing
+  // to disclose and a notice would be noise. Same predicate the delete lane uses.
+  if (!result.deferred) return
+  const ownsServerGraph = state.currentScenarioId != null || state.lastAuthoritativeGraph != null
+  if (!ownsServerGraph) return
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: { message: STRUCTURAL_RENAME_DEFERRED_NOTICE, level: 'warning' },
+  }))
 }
 
 /**
@@ -2225,6 +2374,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastServerGraphHash: null,
   // 0.48.0: no delete gestures awaiting the wire.
   pendingStructuralDeletes: [],
+  // 0.50.0: no rename gestures awaiting the wire.
+  pendingStructuralRenames: [],
+  // 0.50.0: no rename has been attempted at cold start, so there is no verdict
+  // to hold — and an empty lifecycle is "nothing attempted", never "all fine".
+  structuralRenameLifecycle: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -2390,6 +2544,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   updateNodeLabel: (id, label) => {
+    // 0.50.0 — CAPTURE BEFORE THE LOCAL WRITE, and that ordering is the whole
+    // point. `expected_label` is an assertion about the label the user was
+    // LOOKING AT; reading it after the local mutation would assert the label we
+    // just wrote, which always matches nothing on the server and turns the
+    // concurrency gate into a tautology that never fires.
+    //
+    // ⭐ THIS IS THE ONE CHOKEPOINT EVERY RENAME GESTURE CROSSES, which is the
+    // same reason `recordStructuralDeleteIntent` lives inside the store's delete
+    // actions rather than at a call site: the inspector title
+    // (`InspectorRouter` → `EditableLabel`), the canvas double-click
+    // (`requestNodeRename` → the same editor), the pre-analysis hero and
+    // `YourDecisionSection` all land here. Capturing at any one of them would
+    // have left the others silent — the defect `StructuralDeleteDrainHost`'s
+    // header records as having shipped dark under a fully green suite.
+    recordStructuralRenameIntent(get, set, id, label)
     pushToHistory(get, set)
     set((s) => ({
       nodes: s.nodes.map(n => {
@@ -5399,6 +5568,71 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (queued.length === 0) return []
     set({ pendingStructuralDeletes: [] })
     return queued
+  },
+
+  takePendingStructuralRenames: () => {
+    const queued = get().pendingStructuralRenames
+    if (queued.length === 0) return []
+    set({ pendingStructuralRenames: [] })
+    return queued
+  },
+
+  beginStructuralRenameSend: () => {
+    const queued = get().pendingStructuralRenames
+    if (queued.length === 0) return null
+    const intent = queued[0]!
+    const record: StructuralRenameLifecycleRecord = {
+      intent,
+      // Captured at DISPATCH, exactly like the resolver's `scenarioIdAtDispatch`
+      // — read later it would name whatever decision the user has since opened.
+      scenarioId: get().currentScenarioId ?? null,
+      status: 'in_flight',
+    }
+    // ONE `set()`: the gesture leaves the queue and enters the lifecycle in the
+    // same transaction, so no observer can ever see it in neither.
+    set((s) => ({
+      pendingStructuralRenames: s.pendingStructuralRenames.slice(1),
+      structuralRenameLifecycle: [...s.structuralRenameLifecycle, record].slice(
+        -STRUCTURAL_RENAME_LIFECYCLE_LIMIT,
+      ),
+    }))
+    return record
+  },
+
+  settleStructuralRename: (intentId, status: StructuralRenameTerminalStatus) => {
+    set((s) => {
+      const idx = s.structuralRenameLifecycle.findIndex((r) => r.intent.id === intentId)
+      if (idx === -1) return {}
+      const existing = s.structuralRenameLifecycle[idx]!
+      // IDEMPOTENT: a terminal verdict is never rewritten. Two authorities can
+      // reach one attempt (the resolver inside `sendTurn`, and the drain's
+      // every-exit settle), and the second must not downgrade the first.
+      if (existing.status !== 'in_flight') return {}
+      const next = s.structuralRenameLifecycle.slice()
+      next[idx] = { ...existing, status }
+      return { structuralRenameLifecycle: next }
+    })
+  },
+
+  applyStructuralRenameRevert: (restore) => {
+    set((s) => ({
+      nodes: s.nodes.map((n) => {
+        if (n.id !== restore.nodeId) return n
+        // Annotated, not inferred: `n.data`'s inferred type is narrow, so the
+        // spread's result would not admit a `provenance` key and the two writes
+        // below would be TS2339 under the gate's stricter project.
+        const data: Record<string, unknown> = {
+          ...(n.data as Record<string, unknown>),
+          label: restore.label,
+        }
+        // "Absent" and "present with value undefined" are different bytes and
+        // only one of them is what `provenance` means, so the key is DELETED
+        // rather than written as undefined when it was not there before.
+        if (restore.provenanceWasPresent) data.provenance = restore.provenance
+        else delete data.provenance
+        return { ...n, data } as typeof n
+      }),
+    }))
   },
 
   recordDurableDeletion: (removed) => {

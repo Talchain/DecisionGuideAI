@@ -1001,6 +1001,27 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // WHOLE turn (422) — not just this field. CEE's reader (#1015) must be
   // deployed before this emitter. Merge ordering carries that, not a flag.
   'structural_delete',
+  // schemas 0.50.0 — the DURABLE LABEL writer, and the close of "my rename
+  // vanished on reload". A canvas rename previously reached CEE only as a
+  // `direct_graph_edit` NOTIFICATION, which CEE classifies 'ack_and_commit': a
+  // turn row and NO graph write. CEE's own dispatch table names the harm —
+  // "the user's new factor survives exactly until the next reload and then
+  // silently vanishes — a lie told by omission".
+  //
+  // ⚠ IT CARRIES **TWO** ASSERTIONS, NOT ONE, AND THE SECOND IS NOT REDUNDANT.
+  // `label` is absent from CEE's analysis-affecting hash projection, so two
+  // concurrent renames move NO hash and `base_graph_hash` alone would let the
+  // second clobber the first. `expected_label` is the gate for the field the
+  // hash cannot see, and the contract states the obligation in terms: "CEE MUST
+  // compare `expected_label` against the persisted label and refuse on
+  // mismatch." Do not "simplify" it away — see `mutations/structuralRename.ts`.
+  //
+  // ⚠ READER-FIRST, same rule as `structural_delete` above and for the same
+  // mechanical reason: a CEE pinned ≤0.49.0 fails the DISCRIMINATOR and rejects
+  // the WHOLE turn (422). Derived rather than assumed — CEE staging `4f0bd774`
+  // pins schemas 0.50.0 and its `SYSTEM_EVENT_HANDLING` declares
+  // `structural_rename: 'mutating'` (the writer landed in #1273, `a705319f`).
+  'structural_rename',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */

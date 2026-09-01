@@ -151,6 +151,30 @@ export const InspectorRouter = memo(function InspectorRouter({
   )
 
   // Navigate to another node (e.g., clicking a ConnectionRow)
+  // ⚠⚠ DECLARED HERE, ABOVE EVERY EARLY RETURN, AND THAT PLACEMENT IS THE POINT.
+  // It sat below `if (!nodeId) return null` / `if (!node) return null` on the
+  // first cut, which is a rules-of-hooks violation: the hook would be skipped on
+  // the renders that bail, so React's hook ORDER would differ between renders.
+  // The local `pnpm typecheck` is blind to it — the required CI check runs
+  // `lint → typecheck → tests` and ESLint caught it there. A green named gate is
+  // necessary and not sufficient.
+  //
+  // ⚠ `nodeId` is nullable at this point (the narrowing happens later), so the
+  // guard inside the callback is real rather than defensive.
+  //
+  // ⚠ AND THE TRUTH FOR `expected_label` IS READ STORE-SIDE from `node.data.label`
+  // — never from the `label` variable below, which is a DISPLAY truncation of
+  // `rawLabel` (the `(0-1, …)` notation strip). Asserting a truncated label as
+  // the one the server holds would refuse every rename of a normalised-range
+  // node, on a gate that was working correctly.
+  const handleLabelChange = useCallback(
+    (value: string) => {
+      if (!nodeId) return
+      useCanvasStore.getState().updateNodeLabel(nodeId, value)
+    },
+    [nodeId],
+  )
+
   const handleNavigate = useCallback((id: string) => {
     const store = useCanvasStore.getState()
     // Check if it's a node or edge
@@ -309,6 +333,28 @@ export const InspectorRouter = memo(function InspectorRouter({
       onTechToggleChange={setTechMode}
       onClose={onClose}
       dragHandlers={dragHandlers}
+      /* ⭐⭐ schemas 0.50.0 — THE ONE INSPECTOR CONTROL THAT NOW SAVES.
+         Until this prop existed `EditableLabel` had no `onSave`, so it returned
+         a bare `<span>` (`EditableLabel.tsx:124`) and the whole
+         `requestNodeRename` → `autoEdit` canvas-double-click path terminated in
+         an editor that could never open. This is not a new affordance; it is
+         the missing half of one that was already built and already tested.
+
+         ⚠ AND IT IS NOT INSIDE THE AUTHORITY FIELDSET. The `<fieldset disabled>`
+         below wraps the panel BODY, which is still genuinely unsavable; the
+         shell HEADER is outside it. That asymmetry is deliberate and is now the
+         thing `INSPECTOR_READ_ONLY_REASON` describes — the notice was narrowed
+         in the same change, because a blanket "these changes cannot be saved"
+         over a control that saves is the estate's trap 21: two questions under
+         one sentence.
+
+         ⚠ `store.updateNodeLabel`, NOT the panel's own `setLabel`. It is the one
+         chokepoint that (a) captures the durable `structural_rename` intent
+         against the PRE-rename node and (b) stamps goal-label provenance through
+         `provenanceAfterHumanAuthoredLabel`. `setLabel` writes via `updateNode`
+         and would do neither — the rename would apply locally and vanish on
+         reload, which is the exact defect UI #1025 reverted #1024 for. */
+      onLabelChange={handleLabelChange}
       quickActions={
         <InspectorQuickActions
           elementId={nodeId}

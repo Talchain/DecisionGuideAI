@@ -50,6 +50,15 @@ export type MutationAuthority =
 export const CANONICAL_EDIT_AUTHORITY = {
   modelFactorValue: 'server_graph',
   structuralDeleteWithServerHash: 'server_graph',
+  // schemas 0.50.0 — the canvas/inspector rename. `server_graph` because it has
+  // exactly what that value requires and nothing weaker: a receipt-bearing
+  // GraphV3 carrier (`structural_rename`), a server-side write to
+  // `scenarios.graph`, and a committed `edit_graph` fact. ⚠ CONDITIONAL ON THE
+  // HASH, like its delete sibling and by the same mechanism: with no
+  // CEE-stamped `graph_hash` seen this session the capture stands down and the
+  // rename is local-only — the key names that precondition rather than implying
+  // the write is unconditional.
+  canvasNodeRenameWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'disabled',
