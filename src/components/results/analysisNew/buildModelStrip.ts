@@ -168,6 +168,49 @@ function labelOf(node: { id: string; data?: unknown }): string {
 }
 
 /**
+ * ⭐⭐ EVERYTHING THIS STRIP DISPLAYS ABOUT ONE NODE, BEYOND ITS IDENTITY.
+ *
+ * ⚠ WHY IT EXISTS. `ModelStrip` subscribes to the canvas through a SIGNATURE
+ * rather than the node array, because React Flow replaces that array on every
+ * drag. The signature was `id:type` — and its comment said that was "the only
+ * thing this component displays", which was true when it was written and is not
+ * now.
+ *
+ * ⚠⚠ WITNESSED ON THE DEPLOYED BUILD (`32e9becd`, fresh guest). Typing a value
+ * into the detail's own editor wrote it — the canvas node re-rendered showing
+ * `42` — and the detail the user had just typed into still read "No value set".
+ * The strip could not see its own edit, because `observed_state` is not part of
+ * `id:type`, so `buildModelStrip` never recomputed. An affordance whose effect
+ * is invisible on the surface that offers it.
+ *
+ * ⚠ AND IT WAS ALREADY WRONG FOR `needsCheck` BEFORE ANY OF THIS. That field is
+ * `factorIsConfirmable(node.data)`, which reads the same `observed_state`, so
+ * the strip's "N to verify" worklist had the identical staleness — it simply
+ * had no affordance pointing at it, so nobody met the defect.
+ *
+ * ⚠ RAW FIELDS, NEVER `factorDisplayText`. This runs inside a zustand selector,
+ * on every store change: it must be cheap and allocation-light. Formatting here
+ * would put the unit/cap/currency chain on the hot path for no gain, since the
+ * only question is "did anything the strip renders change".
+ *
+ * ⚠ AND IT DELIBERATELY IGNORES POSITION, which is the whole reason the
+ * signature exists. A drag changes `x`/`y` and nothing here.
+ */
+export function stripNodeValueSignature(node: { data?: unknown } | undefined): string {
+  const n = node as Record<string, unknown> | undefined
+  const inner = n?.data as Record<string, unknown> | undefined
+  const obs = (n?.observedState ??
+    n?.observed_state ??
+    inner?.observedState ??
+    inner?.observed_state) as Record<string, unknown> | undefined
+  if (!obs) return ''
+  // `display_value` is included because `factorDisplayText` prefers it, so a
+  // producer changing only that would otherwise be invisible here.
+  const parts = [obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value]
+  return parts.map((v) => (v === undefined || v === null ? '' : String(v))).join(',')
+}
+
+/**
  * Build the strip from canvas nodes.
  *
  * Empty rows are DROPPED rather than rendered at zero: "Risks 0" reads as a

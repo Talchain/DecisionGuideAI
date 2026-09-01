@@ -168,7 +168,13 @@ import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { buildModelStrip, MARK_CAP, type StripNode, type StripRow } from '../buildModelStrip'
+import {
+  buildModelStrip,
+  MARK_CAP,
+  stripNodeValueSignature,
+  type StripNode,
+  type StripRow,
+} from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 
 /**
@@ -281,9 +287,16 @@ export function ModelStrip({
   /**
    * ⚠ SUBSCRIBED THROUGH A SIGNATURE, NOT THROUGH THE NODE ARRAY. React Flow
    * replaces `nodes` on every drag, so selecting the array itself would
-   * re-render this component continuously while a user moves the canvas. The
-   * signature changes only when a node is added, removed or retyped — which is
-   * the only thing this component displays.
+   * re-render this component continuously while a user moves the canvas.
+   *
+   * ⚠⚠ THE SIGNATURE COVERS EVERY FIELD THIS STRIP RENDERS, AND IT USED NOT TO.
+   * It was `id:type`, under a comment claiming that was "the only thing this
+   * component displays" — a sentence that was true when written and went stale
+   * under two later changes. Witnessed on deployed `32e9becd`: a value typed
+   * into this detail's own editor wrote through to the canvas node and the
+   * detail still read "No value set". `needsCheck` had the same staleness
+   * before that, unnoticed only because nothing pointed at it. See
+   * `stripNodeValueSignature` for why it reads raw fields and ignores position.
    *
    * ⚠ `?? []` IS NOT DEFENSIVE HABIT, IT IS SIZED TO THE BLAST RADIUS.
    * `AnalysisNewTabBody` is NOT wrapped in a `SectionErrorBoundary` — unlike
@@ -294,7 +307,9 @@ export function ModelStrip({
    * wrong is a blank surface rather than a missing strip.
    */
   const signature = useCanvasStore((s) =>
-    (s.nodes ?? []).map((n) => `${n.id}:${n.type ?? ''}`).join('|'),
+    (s.nodes ?? [])
+      .map((n) => `${n.id}:${n.type ?? ''}:${stripNodeValueSignature(n)}`)
+      .join('|'),
   )
   const strip = useMemo(
     () => buildModelStrip(useCanvasStore.getState().nodes ?? []),
