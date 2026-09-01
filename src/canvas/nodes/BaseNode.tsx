@@ -42,6 +42,7 @@ import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
+import { valueProvenanceDescribesNodeKind } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -774,8 +775,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             and not others for a reason that has nothing to do with provenance.
 
             `ml-auto` is on THIS element rather than the group, so it still
-            pushes right when no header slot is present. */}
-        {!isCausalLens && !isEvidenceLens && (
+            pushes right when no header slot is present.
+
+            ⚠ NOT ON EVERY KIND, and the first version of this was wrong about
+            that. `data.provenance` means "who owns this VALUE" on a factor and
+            "who wrote this LABEL" on a goal — one field, two questions — so the
+            value vocabulary misdescribes it on `goal` and `decision`.
+            `valueProvenanceDescribesNodeKind` owns that call; the reasoning and
+            the deployed measurement that forced it are recorded there. */}
+        {!isCausalLens && !isEvidenceLens && valueProvenanceDescribesNodeKind(nodeType) && (
           <span className="inline-flex items-center shrink-0 ml-auto">
             <NodeProvenanceMark provenance={(data as Record<string, unknown> | undefined)?.provenance} />
           </span>

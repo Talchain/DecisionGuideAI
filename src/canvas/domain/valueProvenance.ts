@@ -63,6 +63,7 @@
  * kind a type error rather than a silent fallback. That is the derivation trap
  * 12 asks for without forcing one voice on every surface.
  */
+import type { NodeType } from './nodes'
 
 /** What act put the number there. */
 export type ValueProvenanceKind =
@@ -421,4 +422,68 @@ export function factorHasConfirmableValue(data: unknown): boolean {
  */
 export function factorIsConfirmable(data: unknown): boolean {
   return factorNeedsVerification(data) && factorHasConfirmableValue(data)
+}
+
+/**
+ * ⭐ DOES THE **VALUE** VOCABULARY DESCRIBE WHAT `data.provenance` MEANS ON
+ * THIS NODE KIND?
+ *
+ * `NodeProvenanceMark` renders `VALUE_PROVENANCE_LABEL` — "AI estimate",
+ * "From brief", "Set by you". Those words are about a NUMBER. But
+ * `data.provenance` is one field name carrying two different questions
+ * depending on the kind it arrives on, which is this estate's chronic defect
+ * (CLAUDE.md trap 21), and `domain/goalLabelProvenance` had already written
+ * down the goal half of it:
+ *
+ *   > A goal node has no value, so on a goal the field can only be speaking
+ *   > about the label.
+ *
+ * Measured on deployed staging `be33648b`, the mark shipped without this gate
+ * and both halves were visible on one screen:
+ *
+ *   · **goal** — the card read "From brief" (this mark) 18px above
+ *     "From your brief" (`GOAL_LABEL_FROM_BRIEF_COPY`). The SAME wire literal,
+ *     rendered twice, in two spellings, one of them using value words for a
+ *     label. A reader cannot tell those are one fact, and adjacency implies
+ *     they are two.
+ *   · **decision** — the card read "AI estimate" for a question Olumi FRAMED.
+ *     Nothing was estimated. It is the wrong claim, not merely a clumsy one.
+ *
+ * ⛔ FAIL-CLOSED, like the mark itself: where the value words do not describe
+ * the field, render NOTHING rather than a wrong attribution. Silence is a state
+ * a reader can interpret; a wrong attribution is not.
+ *
+ * ⚠ SCOPE, STATED RATHER THAN GENERALISED (trap 20). `goal` and `decision` are
+ * the two kinds where this was DEMONSTRATED on a real model. `action` and
+ * `constraint` were not present in it, so their `true` below is UNCHANGED
+ * BEHAVIOUR, not a verified claim — `constraint` is never emitted as a canvas
+ * node at all. If either turns out to carry a label rather than a value, that
+ * is a new measurement, not a reason to have guessed here.
+ *
+ * The switch is EXHAUSTIVE with no `default`, so adding a member to
+ * `NodeTypeEnum` fails the typecheck until someone answers this question for it
+ * — the alarm is the compiler, not a comment asking to be remembered
+ * (trap 12: a hand-maintained list must fail loud on drift).
+ */
+export function valueProvenanceDescribesNodeKind(nodeType: NodeType): boolean {
+  switch (nodeType) {
+    // These carry a modelled number, and `provenance` is about that number.
+    case 'factor':
+    case 'risk':
+    case 'outcome':
+    case 'option':
+      return true
+
+    // No value to attribute. `goal` already has a correctly-scoped surface for
+    // this exact field (`GOAL_LABEL_FROM_BRIEF_COPY`); `decision` has none, and
+    // needs its own framing-provenance copy before it can say anything here.
+    case 'goal':
+    case 'decision':
+      return false
+
+    // Unverified — see the SCOPE note above.
+    case 'action':
+    case 'constraint':
+      return true
+  }
 }
