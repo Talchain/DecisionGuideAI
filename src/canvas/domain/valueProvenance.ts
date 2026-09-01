@@ -99,6 +99,35 @@ export interface ValueProvenanceClass {
 }
 
 /**
+ * ⭐ THE ONE LABEL PER KIND, FOR EVERY SURFACE THAT NAMES AUTHORSHIP.
+ *
+ * ⚠ WHY IT MOVED HERE. These strings were `SourceProvenancePill`'s private
+ * `CONFIG`, which made the Model tab the only surface that could say whose a
+ * number is. The Reasoning tab's factor detail needs the same answer in a
+ * different shape (a panel-scale line, not an outlined pill), and copying the
+ * seven strings across would have been the hand-maintained mirror this estate
+ * pays for repeatedly (CLAUDE.md trap 12) — two spellings of one authorship
+ * claim, free to drift into disagreeing about the same factor.
+ *
+ * ⚠ LABELS ONLY, NOT STYLE. Each surface keeps its own border/colour
+ * vocabulary: the pill is outlined by semantic token, the panel line is
+ * `typography.panelMeta`. Sharing the WORDS is the point; sharing the paint
+ * would force one surface into the other's design system.
+ *
+ * The record is TOTAL over `ValueProvenanceKind`, so a new kind is a type error
+ * here rather than a silent fallback at every consumer.
+ */
+export const VALUE_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, string>> = Object.freeze({
+  brief: 'From brief',
+  ai: 'AI estimate',
+  confirmed: 'Confirmed by you',
+  edited: 'User edited',
+  assumption: 'Your assumption',
+  human: 'Set by you',
+  panel: 'From your panel',
+})
+
+/**
  * Every `observed_state.source` literal any producer in this estate is known to
  * write. Sources, with the byte read that established each:
  *

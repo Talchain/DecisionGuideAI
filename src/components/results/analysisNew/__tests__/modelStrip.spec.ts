@@ -12,6 +12,9 @@ import { buildModelStrip, MARK_CAP } from '../buildModelStrip'
 // The product's own "N to verify" function, imported so the two counts are
 // compared rather than re-stated — see the union assertion at the foot.
 import { countFactorsToVerify } from '../../../../canvas/components/model-tab/utils'
+// The ONE classifier for `observed_state.source`, imported rather than
+// restated — the guard below is about ITS vocabulary, not about a copy of it.
+import { classifyValueProvenance } from '../../../../canvas/domain/valueProvenance'
 
 const node = (id: string, type: string, label?: string) => ({
   id,
@@ -107,16 +110,39 @@ describe('the density threshold', () => {
 describe('⭐ the strip makes no provenance claim, and cannot grow one silently', () => {
   /**
    * The design draws these marks filled-or-hollow to say which inputs are the
-   * user's and which are Olumi's. That distinction is NOT AVAILABLE:
-   * `provenance_class` returns zero files in this repo, CEE can send an
-   * intervention as a bare number carrying no source, and PLoT stamps
-   * unrecognised values as `user_specified` (PR #353, open) — the strongest
-   * claim of human authorship on a value Olumi invented.
+   * user's and which are Olumi's. THE FILL IS STILL REFUSED. If a later change
+   * adds a field here, this test REDs and whoever added it has to come and read
+   * this paragraph before shipping one.
    *
-   * So the row model carries `id`, `label` and `needsCheck` — and nothing
-   * else. If a later change adds a provenance-ish field here, this test REDs
-   * and whoever added it has to come and read the paragraph above before
-   * shipping a fill.
+   * ⚠⚠ THE TRIPWIRE FIRED A SECOND TIME (`valueText` / `valueSource`), AND ONE
+   * OF ITS THREE STATED REASONS TURNED OUT TO BE FALSE. This paragraph used to
+   * open *"that distinction is NOT AVAILABLE: `provenance_class` returns zero
+   * files in this repo"*. That names a WIRE FIELD, not the question. The
+   * authority for "who put this value here" is the node's own
+   * `observed_state.source`, classified by `canvas/domain/valueProvenance.ts`,
+   * and THIS TAB ALREADY JOINS AGAINST IT for the glance's condition line
+   * (`useAnalysisNewViewModel` → `buildNodeValueSourceMap` →
+   * `driverValueProvenance`). A field-name grep returning zero is evidence
+   * about that NAME and never about the question — CLAUDE.md trap 13e,
+   * committed inside a comment that cites a contrast control.
+   *
+   * ⚠ THE OTHER TWO REASONS SURVIVE, AND THEY ARE WHY THE FILL STAYS REFUSED
+   * WHILE THE DETAIL'S WORD DOES NOT. CEE can send a value carrying no source
+   * at all, so a whole row can be unanswerable; a mark is 8px with no label, so
+   * a fill has to be right for EVERY node in its row or it teaches a false
+   * reading of all of them. The detail names ONE node at a time, beside its
+   * label, and renders nothing when the literal is unclassifiable.
+   *
+   * ⭐ AND THE THIRD REASON — PLoT stamping an invented value `user_specified`
+   * — CANNOT REACH THESE FIELDS, which is a derivation and not a hope.
+   * `user_specified` is a member of `INTERVENTION_SOURCE_CLASSES`, the
+   * vocabulary for *how an intervention was determined*. It is deliberately NOT
+   * a member of `SOURCE_CLASSES`, the vocabulary for *who put this value here*,
+   * and `valueProvenance.ts` documents at length why merging the two maps is
+   * the wrong call that survives review. `valueSource` carries
+   * `observed_state.source` and is classified by `classifyValueProvenance`, so
+   * the laundering literal resolves to `null` and the surface says nothing.
+   * The case below pins that by execution.
    *
    * ⚠⚠ `needsCheck` WAS ADDED DELIBERATELY, PAST THIS TRIPWIRE, AND IT IS NOT
    * A PROVENANCE FIELD. The tripwire fired, which is what it is for; this is
@@ -128,9 +154,68 @@ describe('⭐ the strip makes no provenance claim, and cannot grow one silently'
    * and a value with no source at all land together on the other. A provenance
    * fill would separate exactly the pairs this field joins.
    */
-  it('a strip node exposes an identity, a name and the verify state — no source or fill', () => {
+  it('a strip node exposes an identity, a name, the verify state, the value and its source', () => {
     const strip = buildModelStrip([node('f1', 'factor', 'Annual cost')])
-    expect(Object.keys(strip.rows[0].nodes[0]).sort()).toEqual(['id', 'label', 'needsCheck'])
+    expect(Object.keys(strip.rows[0].nodes[0]).sort()).toEqual([
+      'id',
+      'label',
+      'needsCheck',
+      'valueSource',
+      'valueText',
+    ])
+  })
+
+  /**
+   * ⭐⭐ THE LAUNDERING LITERAL RESOLVES TO SILENCE — the claim the paragraph
+   * above makes, proven rather than asserted.
+   *
+   * ⚠ WITH ITS DISCRIMINATING TWIN, because a classifier that returned `null`
+   * for EVERYTHING would pass the first half and be worthless. The second case
+   * is a literal that MUST classify, so this pair fails on different
+   * assertions: one if the laundering literal ever starts classifying, the
+   * other if the classifier goes blind.
+   */
+  it('an intervention-vocabulary literal on observed_state classifies to nothing, while a real one classifies', () => {
+    expect(classifyValueProvenance('user_specified')).toBeNull()
+    expect(classifyValueProvenance('cee_inference')).toEqual({ kind: 'ai', userOwned: false })
+  })
+
+  /**
+   * ⭐ THE VALUE ROW'S TWO EMPTY STATES ARE DIFFERENT STATES.
+   *
+   * `valueText: null` says the factor carries no number. It is NOT the same as
+   * "we could not establish where the number came from" — the glance's
+   * `undetermined` sentence — and collapsing them sends a reader hunting for a
+   * provenance problem behind a figure that was never there.
+   */
+  it('a factor with no observed value reports no value, not an unknown source', () => {
+    const strip = buildModelStrip([
+      { id: 'f1', type: 'factor', data: { label: 'Never stated' } },
+      { id: 'f2', type: 'factor', data: {
+        label: 'Stated with a unit',
+        observedState: { value: 0.49, raw_value: 49, unit: '£', source: 'user_override' },
+      } },
+    ])
+    const [none, stated] = strip.rows[0].nodes
+    expect(none.valueText).toBeNull()
+    expect(none.valueSource).toBeUndefined()
+    expect(stated.valueText).not.toBeNull()
+    expect(stated.valueSource).toBe('user_override')
+  })
+
+  /**
+   * ⚠ FACTORS ONLY. An option carries no `observed_state` in this shape, and a
+   * detail rendering "No value set" over one would assert something false.
+   */
+  it('a non-factor node carries neither field', () => {
+    const strip = buildModelStrip([
+      { id: 'o1', type: 'option', data: {
+        label: 'An option',
+        observed_state: { value: 0.6, source: 'user_confirmed' },
+      } },
+    ])
+    expect(strip.rows[0].nodes[0].valueText).toBeNull()
+    expect(strip.rows[0].nodes[0].valueSource).toBeUndefined()
   })
 
   it('every node of a kind is indistinguishable from every other', () => {

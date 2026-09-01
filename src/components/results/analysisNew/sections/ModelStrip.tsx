@@ -151,10 +151,15 @@
  */
 
 import { useCallback, useId, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
+import {
+  classifyValueProvenance,
+  VALUE_PROVENANCE_LABEL,
+} from '../../../../canvas/domain/valueProvenance'
+import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -329,6 +334,30 @@ export function ModelStrip({
   const regionId = useId()
   const subjectId = useId()
   const detailId = useId()
+  const valueInputId = useId()
+  /**
+   * ⚠ THE NODE ID, NOT A BOOLEAN, AND FOR THE SAME REASON `activeNodeId` IS AN
+   * ID. An open editor is only open FOR one factor; a boolean would survive the
+   * reader moving to another mark and offer them a field pre-filled from a
+   * different factor's value. Holding the id makes the editor close itself when
+   * the detail moves, is filtered away, or is deleted — no effect to keep in
+   * sync, the mechanism this file already uses twice.
+   */
+  const [editingFor, setEditingFor] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  /**
+   * ⭐ THE ONE WRITE AUTHORITY, NOT A SECOND ONE. `useModelEditAuthority` is
+   * what the Model tab's factor rows dispatch through, and it owns the parts
+   * that are dangerous to re-derive: the SCALE the typed number is read at
+   * (from the node's own cap/unit), the optimistic local write, and the undo
+   * that reverts it if the turn is refused. This surface supplies a number and
+   * renders the outcome; it decides nothing.
+   *
+   * ⚠ CALLED UNCONDITIONALLY AND PARAMETERISED BY THE ACTIVE ID — the hook's
+   * own documented contract ("pass `null` when no edit is active"). Every
+   * proposal is then `not_encodable`, which is the honest answer.
+   */
+  const editAuthority = useModelEditAuthority(editingFor)
 
   // Nothing on the canvas: the panel's other surfaces already say so, and a
   // strip of empty rows would be furniture claiming to be information.
@@ -429,17 +458,78 @@ export function ModelStrip({
    * closes it with no effect to keep in sync — the same mechanism that already
    * handles a deleted node.
    */
-  const active: { id: string; label: string; kind: MarkKind; needsCheck: boolean } | null = (() => {
+  const active:
+    | {
+        id: string
+        label: string
+        kind: MarkKind
+        needsCheck: boolean
+        valueText: string | null
+        valueSource: string | undefined
+      }
+    | null = (() => {
     if (activeNodeId === null) return null
     for (const v of visible) {
       if (!v.drawMarks) continue
       const found = v.nodes.find((n) => n.id === activeNodeId)
       if (found) {
-        return { id: found.id, label: found.label, kind: v.row.kind, needsCheck: found.needsCheck }
+        return {
+          id: found.id,
+          label: found.label,
+          kind: v.row.kind,
+          needsCheck: found.needsCheck,
+          valueText: found.valueText,
+          valueSource: found.valueSource,
+        }
       }
     }
     return null
   })()
+  /**
+   * ⚠ THE CLASSIFIER IS CALLED HERE, NOT IN THE BUILDER, AND IT MAY ANSWER
+   * `null`. `classifyValueProvenance` refuses to guess at a literal it does not
+   * know, and this surface renders that refusal as SILENCE rather than as a
+   * fallback word. A guessed fallback is how "AI estimate" lands over a number
+   * the user typed.
+   */
+  const activeValueProvenance = (() => {
+    const cls = classifyValueProvenance(active?.valueSource)
+    return cls === null ? null : VALUE_PROVENANCE_LABEL[cls.kind]
+  })()
+  /** Open only for the factor whose detail is on screen — see `editingFor`. */
+  const isEditingActive = active !== null && editingFor === active.id
+
+  /**
+   * Send the typed value to the one write authority and SAY WHICH OF THE THREE
+   * THINGS HAPPENED.
+   *
+   * ⚠ NOT A `useCallback`. It reads `active`, which is derived after this
+   * component's early return, so a hook here would be conditional. It is used
+   * only in event handlers, where the identity does not matter.
+   *
+   * ⚠ AND THE OUTCOME IS NEVER FLATTENED TO "SAVED". `proposeFactorValue`
+   * answers `dispatched | local_only | not_encodable` precisely so a caller
+   * cannot claim a server acceptance it did not observe; the three sentences
+   * are three different truths. On `not_encodable` the editor STAYS OPEN —
+   * nothing was written anywhere, so closing it would look like a success.
+   */
+  const commitValue = () => {
+    const typed = draft.trim()
+    const parsed = Number(typed)
+    if (typed === '' || !Number.isFinite(parsed)) {
+      showToast(COPY.modelStrip.valueNotEncodable)
+      return
+    }
+    const outcome = editAuthority.proposeFactorValue(parsed)
+    showToast(
+      outcome === 'dispatched'
+        ? COPY.modelStrip.valueDispatched
+        : outcome === 'local_only'
+          ? COPY.modelStrip.valueLocalOnly
+          : COPY.modelStrip.valueNotEncodable,
+    )
+    if (outcome !== 'not_encodable') setEditingFor(null)
+  }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
   const activeHasNothing =
     activeInsight.driverLabel === null && activeInsight.findings.length === 0
@@ -835,6 +925,114 @@ export function ModelStrip({
               <Crosshair className="w-3 h-3" aria-hidden={true} />
               {COPY.modelStrip.showOnCanvas}
             </button>
+
+            {/* ⭐⭐ THE DATA BEHIND THIS FACTOR, AND WHOSE IT IS.
+                The detail could name a factor and say nothing about the number
+                the run was computed from — the one thing a reader clicking a
+                factor is asking for. Three statements, each bound to a datum
+                that already exists and each with its own honest empty state:
+                the value as the canvas renders it (or that there is none),
+                whose it is (or silence), and a way to change it.
+
+                ⚠ FACTORS ONLY. `valueText` and `valueSource` are populated for
+                factors alone — see their fields in `buildModelStrip.ts` — and
+                a row rendering "No value set" over an option would assert
+                something false about a node that has no observed value to
+                carry. */}
+            {active.kind === 'factor' ? (
+              <div className="space-y-1 min-w-0" data-testid={`${testId}-detail-value`}>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
+                  <span className={`${typography.panelMeta} text-text-light`}>
+                    {COPY.modelStrip.valueLabel}
+                  </span>
+                  <span
+                    className={`${typography.panelBody} text-text-header break-words min-w-0`}
+                    data-testid={`${testId}-detail-value-text`}
+                    /* The two states are distinguishable by an assertion, not
+                       only by reading the copy — a test that matched on the
+                       sentence would pass on a reworded no-value string. */
+                    data-has-value={active.valueText !== null}
+                  >
+                    {active.valueText ?? COPY.modelStrip.noValue}
+                  </span>
+                  {activeValueProvenance !== null ? (
+                    <span
+                      className={`${typography.panelMeta} text-text-light`}
+                      data-testid={`${testId}-detail-value-source`}
+                    >
+                      {activeValueProvenance}
+                    </span>
+                  ) : null}
+                </div>
+
+                {isEditingActive ? (
+                  <div className="flex flex-wrap items-center gap-1 min-w-0">
+                    <label className="sr-only" htmlFor={valueInputId}>
+                      {COPY.modelStrip.valueInputLabel(
+                        active.label || COPY.modelStrip.kindNoun[active.kind],
+                      )}
+                    </label>
+                    <input
+                      id={valueInputId}
+                      type="number"
+                      inputMode="decimal"
+                      value={draft}
+                      autoFocus={true}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          commitValue()
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault()
+                          setEditingFor(null)
+                        }
+                      }}
+                      className={`${typography.panelBody} w-24 min-w-0 rounded border border-panel-border bg-panel px-2 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-detail-value-input`}
+                    />
+                    <button
+                      type="button"
+                      onClick={commitValue}
+                      className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-detail-value-save`}
+                    >
+                      {COPY.modelStrip.saveValue}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingFor(null)}
+                      className={`${typography.panelMeta} inline-flex items-center rounded-full px-2 py-0.5 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      data-testid={`${testId}-detail-value-cancel`}
+                    >
+                      {COPY.modelStrip.cancelValue}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      /* ⚠ THE FIELD OPENS EMPTY, NEVER PRE-FILLED FROM
+                         `valueText`. That string is a DISPLAY rendering — it can
+                         carry a currency symbol, a percent sign, thousands
+                         separators or a qualitative tier word — and seeding a
+                         numeric input with it would either be silently dropped
+                         by the browser or, worse, parse to a different number
+                         than the one shown. The reader states the value they
+                         mean. */
+                      setDraft('')
+                      setEditingFor(active.id)
+                    }}
+                    className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    data-testid={`${testId}-detail-value-edit`}
+                    data-node-id={active.id}
+                  >
+                    <Pencil className="w-3 h-3" aria-hidden={true} />
+                    {COPY.modelStrip.changeValue}
+                  </button>
+                )}
+              </div>
+            ) : null}
 
             {activeInsight.findings.map((finding) => {
               // Hoisted so the narrowing survives into the handler below; a
