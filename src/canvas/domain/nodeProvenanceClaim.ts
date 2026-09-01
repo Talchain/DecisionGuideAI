@@ -86,6 +86,7 @@
  * numbers — which is precisely the conflation this module exists to end.
  */
 import type { NodeType } from './nodes'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from './valueProvenance'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
@@ -151,10 +152,50 @@ export const VALUE_FIELDS_BY_KIND: Readonly<Record<NodeType, readonly string[]>>
   action: [],
 })
 
-/** Read a declared value field off a node's `data`, tolerating both spellings. */
+/**
+ * Does this node actually carry one of the value fields its schema declares?
+ *
+ * ⚠ THE FACTOR ARM DELEGATES, AND THE FIRST VERSION DID NOT — an independent
+ * review caught this PR's OWN defect class surviving inside the fix, on the one
+ * kind the fix was written for. The generic check below reads `typeof v ===
+ * 'object'` as "carries a value", which is TRUE for a valueless
+ * `observedState` (`{}`, or `{ unit, source }`, or `{ value: null }`). Such a
+ * card renders the amber "needs your judgement" border — `isIncomplete` via
+ * `isFactorNeedsInput` — while the mark beside it said **"AI estimate"** about a
+ * number nobody has stated. Exactly the false claim this module exists to end.
+ *
+ * `hasAnyStatedValue` (`utils/observedStateHelpers`) is the estate's DECLARED
+ * single owner of "does this factor state a number", asked by `isFactorNeedsInput`
+ * and by FactorNode; its own docstring says a second hand-listed copy is the
+ * drift this estate keeps paying for. So the factor arm asks IT rather than
+ * re-deciding, and the border and the mark can no longer disagree about the
+ * same card.
+ *
+ * ⚠ SCOPE, stated rather than generalised: the reviewer found 0 of 18
+ * `observed_state` objects across three capture fixtures with this shape, so the
+ * defect was LATENT on the draft wire, not deployed. It is fixed because it is
+ * two lines and because a guard that disagrees with the border on the same card
+ * is the kind of thing that becomes deployed later.
+ */
 function carriesDeclaredValue(nodeType: NodeType, data: unknown): boolean {
   const d = data as Record<string, unknown> | null | undefined
   if (!d || typeof d !== 'object') return false
+  // The factor's value lives behind the observed-state triple; one owner.
+  //
+  // ⚠ `|| display_value` IS NOT A SECOND COPY OF THE RULE, AND IT IS NOT
+  // OPTIONAL. `hasAnyStatedValue` reads the triple INSIDE `observedState`;
+  // `FactorNodeDataSchema` separately declares `display_value` AT THE TOP LEVEL
+  // ("CEE emits it alongside `observed_state` … readers should prefer top-level
+  // and fall back to observedState"). Delegating wholesale was the reviewer's
+  // suggested fix and this spec REFUTED it by execution — a factor arriving with
+  // only CEE's top-level display text lost its value claim, which is the
+  // opposite-direction harm of the defect being fixed. The owner is asked about
+  // the thing it owns, and the schema's other declared field is read beside it.
+  if (nodeType === 'factor') {
+    if (hasAnyStatedValue(d)) return true
+    const top = d.display_value
+    return typeof top === 'string' && top.trim().length > 0
+  }
   return VALUE_FIELDS_BY_KIND[nodeType].some((field) => {
     // Canvas stores `observedState`; the CEE/PLoT wire uses `observed_state`,
     // and real graphs carry both. Reading one under-counts — the same lesson

@@ -28,6 +28,7 @@ import {
   STRUCTURAL_PROVENANCE_LABEL,
 } from '../nodeProvenanceClaim'
 import { VALUE_PROVENANCE_LABEL } from '../valueProvenance'
+import { hasAnyStatedValue } from '../../utils/observedStateHelpers'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   goalLabelIsUnconfirmedBriefExtract,
@@ -96,6 +97,50 @@ describe('⛔ THE TWIN — a card WITH a number still says so', () => {
     expect(nodeProvenanceClaim('factor', dataFor('factor', { display_value: '   ' }))).toBe(
       'structural',
     )
+  })
+
+  /**
+   * ⛔ A VALUELESS `observedState` IS NOT A VALUE — the PR's own defect class,
+   * caught by an independent review surviving inside the fix, on the one kind
+   * the fix was written for.
+   *
+   * A generic `typeof v === 'object'` check reads `{}`, `{ unit, source }` and
+   * `{ value: null }` as "carries a value". Such a card renders the amber
+   * "needs your judgement" border (`isIncomplete` via `isFactorNeedsInput`)
+   * while the mark beside it says "AI estimate" about a number nobody stated —
+   * the border and the mark disagreeing about the same card. The factor arm
+   * therefore asks `hasAnyStatedValue`, the estate's declared single owner of
+   * this question, which `isFactorNeedsInput` also asks.
+   */
+  it.each([
+    ['empty observedState', {}],
+    ['observedState with no number', { unit: '£', source: 'cee_inference' }],
+    ['observedState with a null value', { value: null }],
+  ])('factor with an %s — structural, and it agrees with the amber border', (_label, obs) => {
+    expect(nodeProvenanceClaim('factor', dataFor('factor', { observedState: obs }))).toBe(
+      'structural',
+    )
+  })
+
+  it('the two authorities now AGREE on every one of those shapes', () => {
+    // Pin the convergence itself, not just the outcome: if `hasAnyStatedValue`
+    // ever moves, this reads the move rather than agreeing with a stale copy.
+    for (const obs of [{}, { unit: '£' }, { value: null }, { value: 0.7 }, { raw_value: 26000 }]) {
+      const data = dataFor('factor', { observedState: obs })
+      expect(nodeProvenanceClaim('factor', data) === 'value').toBe(hasAnyStatedValue(data))
+    }
+  })
+
+  it('but a factor with ONLY CEE’s top-level display_value keeps its value claim', () => {
+    // ⛔ THE TWIN, and it REFUTED the review's suggested fix by execution.
+    // `hasAnyStatedValue` reads the triple INSIDE `observedState`;
+    // `FactorNodeDataSchema` declares `display_value` at the TOP level too.
+    // Delegating wholesale dropped this card's value claim — the opposite-
+    // direction harm of the defect being fixed.
+    expect(nodeProvenanceClaim('factor', dataFor('factor', { display_value: '£26,000' }))).toBe(
+      'value',
+    )
+    expect(hasAnyStatedValue(dataFor('factor', { display_value: '£26,000' }))).toBe(false)
   })
 })
 
