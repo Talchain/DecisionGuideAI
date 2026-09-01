@@ -72,10 +72,50 @@
  * (`min-w-0 flex-1`) and a `shrink-0` readout that never compresses, with the
  * bar on its own full-width line beneath. Nothing has an intrinsic minimum
  * wider than the floor, so the panel never scrolls horizontally.
+ *
+ * ── THE ROW IS OPERATED, NOT JUST READ ────────────────────────────────────
+ *
+ * Imported from the old Analysis tab, whose option cards have carried the
+ * contract on screen since they shipped: *"Hover highlights on canvas. Click
+ * opens inspector."* This section rendered the same options as inert text.
+ *
+ * ⚠⚠ THE OLD TAB'S SENTENCE IS HALF TRUE, AND ONLY THE TRUE HALF IS IMPORTED.
+ * Derived at `OptionCards.tsx`, not inherited from the copy:
+ *
+ *  · HOVER — true. `:716` `onMouseEnter={() => highlightNode(option.id)}`,
+ *    cleared on leave. Reproduced here exactly, plus the `onFocus`/`onBlur`
+ *    twin the old tab does not have.
+ *
+ *  · CLICK — FALSE AS WRITTEN. The handler beside that tooltip is
+ *    `:1444 onClick={lensEnabled && resultsComplete ? () => handleLensClick(...)}`
+ *    — a graph LENS toggle, behind a flag, and NOT the inspector. The estate's
+ *    real inspector helper is `openNodeInspector`, and `OptionCards.tsx:1084-1098`
+ *    states in its own comment that it "is not on this path". With the lens flag
+ *    off, `onClick` is `undefined`, which also strips `role` and `tabIndex`
+ *    (`:720-721`) — so the card is not focusable and its tooltip is reachable by
+ *    mouse hover alone.
+ *
+ * So the act here is `focusModelTarget` — the fail-closed panel→canvas primitive
+ * the shipped Strengthen panel and `ModelStrip` already use, whose behaviour
+ * ("centre this option in the model") is what the row's `aria-label` states.
+ * ⛔ `openNodeInspector` was considered and rejected on evidence: `InspectorRouter`
+ * wraps every panel in an unconditional `<fieldset disabled>`, and this estate has
+ * ALREADY re-pointed one act away from it for exactly that reason
+ * (`TriageActionCardsBody.tsx:278-305`). Honouring the old tab's literal wording
+ * would have imported a promise the destination cannot keep.
+ *
+ * ⚠ AND THE AFFORDANCE IS NOT NARRATED. No hint line was added: the dock floor is
+ * 280px, and a sentence telling the reader what hovering does is one more thing to
+ * READ on a panel whose complaint is that it cannot be OPERATED. The hover ring is
+ * self-teaching, and the sentence a screen reader needs is the button's name.
  */
 
+import { useCallback } from 'react'
 import { Scale } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
+import { useShowToastSafe } from '../../../../canvas/ToastContext'
+import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { clearHighlight, highlightNode } from '../../../../canvas/utils/highlightHelpers'
 import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
@@ -90,6 +130,37 @@ export function OptionsComparison({
   options,
   testId = 'analysis-new-options',
 }: OptionsComparisonProps) {
+  const showToast = useShowToastSafe()
+
+  /**
+   * ⭐ THE ACT, AND IT FAILS LOUDLY OR NOT AT ALL.
+   *
+   * `focusModelTarget` is fail-CLOSED: it returns `false` and moves nothing when
+   * the id resolves to no canvas element. Discarding that boolean is what turns
+   * a control into an advertisement, and it is a live shape in this very
+   * directory — `StrengthenTheReasoning.tsx:705`'s "Show on canvas" button
+   * throws the return value away, so on a stale target it silently does nothing.
+   * Every other estate caller of this helper on a user-triggered surface pairs
+   * it with a notice (`StrengthenContainer.tsx:271`, `AskOlumiDrawer.tsx:147`),
+   * and this one does too.
+   *
+   * ⚠ WHEN IT CAN ACTUALLY FAIL, since a guard nobody can trigger is theatre.
+   * NOT on `kind`: every row's `id` is a canvas option node id BY CONSTRUCTION —
+   * `useResultsSectionData.ts:1726` builds the option list from
+   * `nodes.filter(n => n.data?.kind === 'option')` and `:1783` maps over those
+   * same nodes, so `not_analysed` and `not_computed` rows are canvas option
+   * nodes the producer omitted or failed to score, not phantom rows. The real
+   * failure is TIME and IDENTITY: a node deleted between render and click, or a
+   * recovered session whose ids no longer match (pinned as a live condition by
+   * `lib/__tests__/decisionVerdict.spec.ts:156`).
+   */
+  const activate = useCallback(
+    (optionId: string) => {
+      if (!focusModelTarget(optionId)) showToast(COPY.canvas.focusFailed)
+    },
+    [showToast],
+  )
+
   // Nothing to show and nothing truthful to say about its absence — pre-run,
   // or a model with no options at all. The honest render is no render: a
   // heading is a claim that there is something under it (`AnalysisNewSection`
@@ -118,14 +189,53 @@ export function OptionsComparison({
     >
       <ul className="list-none p-0 m-0 space-y-2.5">
         {options.rows.map((o) => (
-          <li key={o.id} data-testid={`${testId}-row`} data-option-id={o.id} data-option-kind={o.kind}>
+          <li
+            key={o.id}
+            data-testid={`${testId}-row`}
+            data-option-id={o.id}
+            data-option-kind={o.kind}
+            /* ⭐ POINTER-ONLY, AND ON THE WHOLE ROW ON PURPOSE. Hovering
+               anywhere on the row rings that option on the canvas, which is the
+               gesture that TEACHES the affordance — you point at a name and the
+               model answers, before committing to a camera move. It carries no
+               role, no tabIndex and no semantics: it is a mouse convenience, and
+               the keyboard's equivalent lives on the button below where it is
+               reachable. Putting the highlight ONLY here would be the
+               hover-only defect; putting it only on the button would shrink the
+               target to the width of a word. */
+            onMouseEnter={() => highlightNode(o.id)}
+            onMouseLeave={clearHighlight}
+          >
             <div className="flex items-baseline gap-2">
-              <span
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words`}
-                data-testid={`${testId}-label`}
+              {/* ⚠ THE BUTTON WRAPS THE LABEL AND NOTHING ELSE, AND THAT IS AN
+                  ACCESSIBILITY DECISION RATHER THAN A LAYOUT ONE. An
+                  `aria-label` REPLACES an element's name with the given string,
+                  so a button wrapping the whole row would announce "Show
+                  Segment on the canvas" and put the win percentage, the bar,
+                  the producer's sentence and the not-analysed reason inside a
+                  control whose name has already been decided — the row's
+                  content would stop being independently readable. Wrapping the
+                  label alone costs nothing: the string the label carries IS the
+                  option name, which the `aria-label` states in full. Everything
+                  that qualifies it stays outside the control, as text. */}
+              <button
+                type="button"
+                data-testid={`${testId}-focus`}
+                aria-label={COPY.canvas.focusOption(o.label)}
+                onClick={() => activate(o.id)}
+                /* Keyboard parity with the row hover above — tabbing across the
+                   list rings each option in turn without moving the camera the
+                   reader did not ask for. `onBlur` clears for the same reason
+                   `onMouseLeave` does: the ring is a POINTER and belongs to the
+                   gesture, and it sits on a shared channel the applied-edit
+                   pulse also writes to, so leaving one behind would be a stray
+                   claim about the model. */
+                onFocus={() => highlightNode(o.id)}
+                onBlur={clearHighlight}
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 cursor-pointer transition-colors hover:bg-info/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
-                {o.label}
-              </span>
+                <span data-testid={`${testId}-label`}>{o.label}</span>
+              </button>
 
               {/* ⚠ THE NUMBER IS THE SMALLEST TYPE IN THE ROW, AND THAT IS A
                   RULE RATHER THAN A PREFERENCE. A win probability set larger
