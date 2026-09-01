@@ -5,11 +5,21 @@
  * analysis run through a reasoning-led information architecture so the two can
  * be compared directly on one scenario. The existing Analysis tab is untouched.
  *
- *   What should we notice?            → Key insights
+ * The questions, IN MOUNT ORDER — and it is mount order deliberately, because
+ * a list like this is a hand-maintained mirror (CLAUDE.md trap 12) and the only
+ * thing that stops one drifting is being able to read it against the render:
+ *
  *   How can we strengthen this?       → Strengthen the reasoning
+ *   What did the run CHECK?           → What we checked
+ *   How do the options compare?       → Options comparison
+ *   What should we notice?            → Key insights
  *   What is shaping the situation?    → Drivers and dynamics
  *   What is still uncertain?          → Uncertainty and gaps
  *   (everything deeper)               → one collapsed region
+ *
+ * ⚠ THE ORDER IS NOT AUTHORITATIVE HERE. It is pinned by the spec ("the
+ * coaching sits directly under the reading it responds to"), which is what will
+ * actually go RED if the render moves; this list is orientation, not a guard.
  *
  * ⭐ SINGLE DATA AUTHORITY. `resultsSectionData` arrives as a PROP — the same
  * instance `OutputsDock` hands `ResultsBody`. This surface calls no analysis
@@ -352,6 +362,39 @@ export function AnalysisNewTabBody({
           onRunIntervention={runIntervention}
         />
 
+        {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
+            ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.
+            The standing explanation for this tab's incoherence was that "the
+            panel coaches you until you press Analyse, then switches to
+            reporting". Derived at the bytes, that is FALSE:
+            `strengthen:success-measure` gates on `goalThreshold == null`, not
+            on the run completing, so it fires PRE-RUN, and post-run the
+            coaching gets RICHER (one card becomes five). The coaching never
+            stops. It was BURIED — seventh of ten mounts, below the ranked
+            options and below Key insights.
+
+            The order this restores is the reading order the surface always
+            claimed: WHAT HAPPENED (the glance) → WHAT TO DO ABOUT IT (this) →
+            THE DETAIL (everything below). `AtAGlance` stays above because it
+            is the five-second read and this section is a RESPONSE to it —
+            coaching that arrives before the finding it answers has no subject.
+
+            ⚠ SCOPE, STATED SO IT IS NOT INHERITED AS MORE THAN IT IS: this is
+            a MOVE and nothing else. No section is renamed, merged, deleted,
+            restyled or re-scoped here. The consolidation proper — the four
+            slots in `2-consolidation-map.html` — is a separate decision, and
+            mixing it into this commit would make both unjudgeable. Order is a
+            property of THIS file, so it is pinned in this file's own spec
+            (`AnalysisNewTabBody.spec.tsx`, "the coaching sits directly under
+            the reading it responds to"); no per-section spec can see it. */}
+        <StrengthenTheReasoning
+          interventions={vm.strengthen.interventions}
+          scienceGrounding={vm.strengthen.scienceGrounding}
+          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
+          analysisHash={responseHash ?? null}
+          icon={Wrench}
+        />
+
         {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
             #1082 landed this component, its adapter and 54 tests but left it
             UNMOUNTED, because this file belongs to another lane. This is the
@@ -372,19 +415,21 @@ export function AnalysisNewTabBody({
         <WhatWeChecked checks={vm.checks} />
 
         {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
-            ⭐ FIRST BELOW THE GLANCE, BECAUSE IT IS THE GLANCE'S OWN MISSING
-            HALF. On a real completed run with four options this surface showed
-            the leader and one percentage and nothing at all about the other
-            three; the reader could not tell a runaway leader from a coin flip,
-            and could not see that an option they cared about took no part in
-            the comparison. It sits directly under the answer it qualifies.
+            ⭐ THE GLANCE'S OWN MISSING HALF. On a real completed run with four
+            options this surface showed the leader and one percentage and
+            nothing at all about the other three; the reader could not tell a
+            runaway leader from a coin flip, and could not see that an option
+            they cared about took no part in the comparison.
+            ⚠ It previously sat directly under the glance; the coaching now
+            takes that slot (see above), and this sentence is corrected rather
+            than left describing a placement that no longer holds.
 
             It costs ONE collapsed row at rest — the same idiom as every
             section below it — so closing the largest content gap on the
             surface does not spend the first viewport. */}
         <OptionsComparison options={vm.optionsComparison} />
 
-        {/* ── 1. KEY INSIGHTS ─────────────────────────────────────────────── */}
+        {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.keyInsights}
           findings={vm.keyInsights.insights}
@@ -406,18 +451,7 @@ export function AnalysisNewTabBody({
           testId="analysis-new-key-insights"
         />
 
-        {/* ── 2. STRENGTHEN THE REASONING ──────────────────────────────────
-            Second from the top by design. This is the placement the
-            experiment is testing. */}
-        <StrengthenTheReasoning
-          interventions={vm.strengthen.interventions}
-          scienceGrounding={vm.strengthen.scienceGrounding}
-          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
-          analysisHash={responseHash ?? null}
-          icon={Wrench}
-        />
-
-        {/* ── 3. DRIVERS AND DYNAMICS ─────────────────────────────────────── */}
+        {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.drivers}
           findings={vm.drivers.findings}
@@ -452,7 +486,7 @@ export function AnalysisNewTabBody({
           testId="analysis-new-drivers"
         />
 
-        {/* ── 4. UNCERTAINTY AND GAPS ─────────────────────────────────────── */}
+        {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.uncertainty}
           findings={vm.uncertainty.findings}

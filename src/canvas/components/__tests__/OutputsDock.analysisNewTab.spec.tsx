@@ -338,7 +338,7 @@ describe('B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('C · THE SECTION STRUCTURE', () => {
-  it('renders What we checked, Key insights, Strengthen the reasoning, Drivers and dynamics, Uncertainty and gaps — in that order', () => {
+  it('renders Strengthen the reasoning, What we checked, Key insights, Drivers and dynamics, Uncertainty and gaps — in that order', () => {
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
@@ -358,9 +358,12 @@ describe('C · THE SECTION STRUCTURE', () => {
       // ⭐ #1082's trust readout, mounted in the same commit that added this
       // line. Its appearance HERE is the positive control that the mount is
       // real rather than a no-op import: this census went RED on it, by name.
+      // ⚠ STRENGTHEN LEADS AS OF THE REORDER. The coaching was seventh of ten
+      // MOUNTS — below the ranked options and below Key insights — and this
+      // census could not see that; see the scope note on the case below.
+      ANALYSIS_NEW_COPY.sections.strengthen,
       ANALYSIS_NEW_COPY.sections.checks,
       ANALYSIS_NEW_COPY.sections.keyInsights,
-      ANALYSIS_NEW_COPY.sections.strengthen,
       ANALYSIS_NEW_COPY.sections.drivers,
       ANALYSIS_NEW_COPY.sections.uncertainty,
     ])
@@ -389,6 +392,19 @@ describe('C · THE SECTION STRUCTURE', () => {
     // written down so the next reader inherits it instead of the
     // generalisation; a claim about the whole assembled surface has to be made
     // where the whole surface is in view, not here.
+    //
+    // ⭐⭐ AND THAT IS NOT HYPOTHETICAL — IT IS WHAT THIS CASE DID. Named
+    // "near the TOP, not at the end", it read `1` and was GREEN for weeks
+    // while the coaching sat SEVENTH OF TEN mounts, below the ranked options
+    // and below Key insights. The reorder that fixed the burial is what
+    // finally moved this index, and the spec asserting the property was the
+    // last thing to notice the property was false. The claim it structurally
+    // cannot make — Strengthen above the options comparison on a run that HAS
+    // options — is pinned where the whole surface is in view, in
+    // `analysisNew/__tests__/AnalysisNewTabBody.spec.tsx` ("the coaching sits
+    // directly under the reading it responds to"). Deliberately NOT duplicated
+    // here: two derivations of one claim disagree the first time either moves
+    // (trap 12).
     seedCompletedRun()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
@@ -398,7 +414,7 @@ describe('C · THE SECTION STRUCTURE', () => {
     const headings = Array.from(body.querySelectorAll('h3')).map(
       (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
     )
-    expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(2)
+    expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBe(0)
     expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
       headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
     )
