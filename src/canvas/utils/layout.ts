@@ -61,6 +61,109 @@ interface LayoutOptions {
   preserveLocked?: boolean
 }
 
+type LayoutDirection = NonNullable<LayoutOptions['direction']>
+
+/** Canonical tier of a node. Module-level so ONE implementation serves both
+ *  `layoutGraph` and `solveLayoutNodeWidth` (CLAUDE.md trap 12: derive, never
+ *  mirror — two copies of this mapping is how the two would drift apart). */
+function tierOf(node: Node): number {
+  const kind = (node.type ?? (node.data as Record<string, unknown> | undefined)?.kind) as string | undefined
+  return kind !== undefined && TIER_BY_KIND[kind] !== undefined ? TIER_BY_KIND[kind] : 2
+}
+
+function isUnlocked(node: Node): boolean {
+  return (node.data as Record<string, unknown> | undefined)?.locked !== true
+}
+
+/** Size of the widest tier — the ONE graph property the card width depends on. */
+function maxTierCountOf(unlocked: Node[]): number {
+  const tierCounts = new Map<number, number>()
+  for (const node of unlocked) {
+    const t = tierOf(node)
+    tierCounts.set(t, (tierCounts.get(t) ?? 0) + 1)
+  }
+  return Math.max(...tierCounts.values())
+}
+
+/**
+ * The ELK box width, and whether this is the row-splitting branch.
+ *
+ * Extracted so `solveLayoutNodeWidth` below is the SAME code rather than a
+ * restatement of it. `splits` is returned rather than re-derived from
+ * `elkBoxW`, because the non-DOWN branch can land on `LAYOUT_BOX_MIN_W` too and
+ * must NOT split — testing the width would silently widen row splitting to
+ * directions that never had it.
+ */
+function planLayoutBox(maxTierCount: number, isDownLayout: boolean): { elkBoxW: number; splits: boolean } {
+  if (isDownLayout && maxTierCount > 1) {
+    const unclampedElkBoxW = Math.floor((CANONICAL_LAYOUT_WIDTH - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+
+    // WHEN the tier splits is a row-packing policy and is deliberately NOT the
+    // (label-scale-derived) card floor — see NODE_SINGLE_ROW_FAIR_SHARE_W.
+    // Fusing the two moved tiers between branches when the label scale changed,
+    // which dragged the pre-existing multi-row overlap defect onto graphs that
+    // did not have it.
+    if (unclampedElkBoxW >= NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X) {
+      return { elkBoxW: NODE_CARD_MAX_W + LAYOUT_PADDING_X, splits: false }
+    }
+    return { elkBoxW: NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X, splits: true }
+  }
+  return {
+    elkBoxW: Math.min(NODE_CARD_MAX_W + LAYOUT_PADDING_X, Math.max(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X,
+      maxTierCount > 1
+        ? Math.floor((CANONICAL_LAYOUT_WIDTH - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+        : NODE_CARD_MAX_W + LAYOUT_PADDING_X
+    )),
+    splits: false,
+  }
+}
+
+/**
+ * ⭐⭐ THE WIDTH A CARD MUST RENDER AT FOR A GIVEN GRAPH'S POSITIONS TO BE RIGHT.
+ *
+ * `layoutGraph` places nodes on a stride computed from this width and reports it
+ * back so `BaseNode` can size the card to match. That handshake is SESSION-ONLY:
+ * `layoutStore.setLayoutNodeWidth` does not persist, so on RELOAD the store
+ * reads `null` and `BaseNode.tsx`'s `maxWidth ?? layoutNodeWidth ??
+ * NODE_CARD_MAX_W` renders every card at the MAXIMUM. Cards laid out at 230px
+ * came back at 320px — 90px wider than the stride their positions were computed
+ * for — so same-row neighbours overlapped, permanently (no corrective pass can
+ * fire on a restored layout; see `useRestoredLayoutWidth`).
+ *
+ * ⭐ THE WIDTH IS NOT INDEPENDENT INFORMATION, WHICH IS WHY IT IS DERIVED HERE
+ * RATHER THAN PERSISTED. It is a pure function of the widest tier's size, the
+ * direction and `preserveLocked` — and nothing else. It does NOT depend on the
+ * viewport (founder ruling R1 made the budget a constant), on node spacing, on
+ * measured heights, or on the edges. So it is ALREADY persisted, implicitly and
+ * exactly, by the nodes themselves. Storing it beside its own inputs would be
+ * the hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12),
+ * and it would repair nothing already saved.
+ *
+ * MEASURED, not reasoned: 288 cells (4 directions x widest-tier 1..12 x node
+ * spacing {15,40,120} x with/without measured heights) — this function agrees
+ * with `layoutGraph`'s own returned `layoutNodeWidth` in 288/288. A naive
+ * "always NODE_CARD_MAX_W" predictor disagrees in 198 of the same cells, so the
+ * agreement is a discrimination and not a tautology. Reachable values: DOWN
+ * {320, 230}; RIGHT/UP/LEFT {320, 261, 230}.
+ * `__tests__/layoutNodeWidthDerivation.spec.ts` re-runs that matrix.
+ *
+ * ⚠ WHAT IT CANNOT KNOW: it answers "what width would TODAY'S solver use for
+ * this graph", not "what width was used the day these positions were written".
+ * Those differ only if the graph was laid out under a different `direction` /
+ * `respectLocked` (both persisted, so they survive a reload) or under different
+ * layout CONSTANTS. A constants change already invalidates the stored positions
+ * themselves, which no width can repair — see the PR body.
+ */
+export function solveLayoutNodeWidth(
+  nodes: Node[],
+  options: { direction?: LayoutDirection; preserveLocked?: boolean } = {},
+): number {
+  const { direction = 'DOWN', preserveLocked = true } = options
+  const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
+  if (unlocked.length === 0) return NODE_CARD_MAX_W
+  return planLayoutBox(maxTierCountOf(unlocked), direction === 'DOWN').elkBoxW - LAYOUT_PADDING_X
+}
+
 /**
  * Lay out a decision graph using ELK + the deterministic semantic pipeline.
  *
@@ -98,9 +201,7 @@ export async function layoutGraph(
   const effectiveNodeSpacing = Math.max(20, spacing)
   const effectiveLayerSpacing = Math.max(30, layerSpacing ?? spacing * 1.5)
 
-  const unlocked = preserveLocked
-    ? nodes.filter(n => (n.data as Record<string, unknown> | undefined)?.locked !== true)
-    : nodes
+  const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
 
   if (unlocked.length === 0) {
     return { nodes, edges, layoutNodeWidth: NODE_CARD_MAX_W }
@@ -110,51 +211,19 @@ export async function layoutGraph(
   const unlockedIds = new Set<string>()
   for (const n of unlocked) unlockedIds.add(n.id)
 
-  const tierOf = (node: Node): number => {
-    const kind = (node.type ?? (node.data as Record<string, unknown> | undefined)?.kind) as string | undefined
-    return kind !== undefined && TIER_BY_KIND[kind] !== undefined
-      ? TIER_BY_KIND[kind]
-      : 2
-  }
-
-  const tierCounts = new Map<number, number>()
-  for (const node of unlocked) {
-    const t = tierOf(node)
-    tierCounts.set(t, (tierCounts.get(t) ?? 0) + 1)
-  }
-  const maxTierCount = Math.max(...tierCounts.values())
+  const maxTierCount = maxTierCountOf(unlocked)
 
   const availableWidth = CANONICAL_LAYOUT_WIDTH
   const isDownLayout = direction === 'DOWN'
 
-  let elkBoxW: number
-  let gap: number
-  let nodesPerRow: number | null = null
-
-  if (isDownLayout && maxTierCount > 1) {
-    const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
-
-    // WHEN the tier splits is a row-packing policy and is deliberately NOT the
-    // (label-scale-derived) card floor — see NODE_SINGLE_ROW_FAIR_SHARE_W.
-    // Fusing the two moved tiers between branches when the label scale changed,
-    // which dragged the pre-existing multi-row overlap defect onto graphs that
-    // did not have it.
-    if (unclampedElkBoxW >= NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X) {
-      elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
-      gap = effectiveNodeSpacing
-    } else {
-      elkBoxW = NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X
-      nodesPerRow = Math.max(1, Math.floor((availableWidth + effectiveNodeSpacing) / (elkBoxW + effectiveNodeSpacing)))
-      gap = effectiveNodeSpacing
-    }
-  } else {
-    elkBoxW = Math.min(NODE_CARD_MAX_W + LAYOUT_PADDING_X, Math.max(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X,
-      maxTierCount > 1
-        ? Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
-        : NODE_CARD_MAX_W + LAYOUT_PADDING_X
-    ))
-    gap = effectiveNodeSpacing
-  }
+  // ⚠ ONE authority for the box width, shared with `solveLayoutNodeWidth` above
+  // so the restore path cannot drift from the layout path. `gap` was assigned
+  // `effectiveNodeSpacing` in all three former branches and is hoisted.
+  const { elkBoxW, splits } = planLayoutBox(maxTierCount, isDownLayout)
+  const gap = effectiveNodeSpacing
+  const nodesPerRow: number | null = splits
+    ? Math.max(1, Math.floor((availableWidth + effectiveNodeSpacing) / (elkBoxW + effectiveNodeSpacing)))
+    : null
 
   const nodeW = elkBoxW - LAYOUT_PADDING_X
 

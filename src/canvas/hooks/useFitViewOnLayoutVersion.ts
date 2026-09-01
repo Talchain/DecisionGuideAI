@@ -116,7 +116,7 @@ function cameraHasATarget(s: CameraReadinessState): boolean {
  * answers "is this the same shape of graph?". This one answers "is this the same
  * restored model?", and must therefore survive every edit the user makes to it.
  */
-function restoreIdentityKey(scenarioId: string | null | undefined): string {
+export function restoreIdentityKey(scenarioId: string | null | undefined): string {
   return typeof scenarioId === 'string' && scenarioId.length > 0
     ? `scenario:${scenarioId}`
     : 'draft'
