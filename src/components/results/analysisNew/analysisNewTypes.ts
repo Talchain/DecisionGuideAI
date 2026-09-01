@@ -564,6 +564,101 @@ export interface AnalysisNewViewModel {
   drivers: DriversSection
   uncertainty: UncertaintySection
   deeper: DeeperAnalysisSection
+  /** ⭐ What the run CHECKED — including the checks it did not make. */
+  checks: ChecksSection
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHAT WE CHECKED — the trust readout, and the only surface that speaks for
+// the checks the run DID NOT make
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⭐⭐ WHY THIS SECTION EXISTS, AND WHY IT IS NOT A RESTATEMENT.
+ *
+ * "At a glance" answers WHAT THE RUN FOUND. This answers WHAT THE RUN CHECKED.
+ * They are different questions and they are named apart deliberately
+ * (CLAUDE.md trap 21) — aligning them would be the wrong fix.
+ *
+ * The gap is measurable, not theoretical. On this tab a check that was NOT
+ * MADE currently renders as SILENCE, in all three cases:
+ *   · leader      — `buildGlance` sets `headline = null` unless
+ *                   `verdict.hasLeadingOption === true`, so an unassessed
+ *                   comparison and a genuine tie both show nothing.
+ *   · robustness  — `VERDICT_WORD` omits `'not_assessed'` DELIBERATELY (it
+ *                   must not render a fourth word that reads as a
+ *                   measurement), so `verdictBlock` is `null` and no chip
+ *                   appears at all.
+ *   · evidence    — an empty gap list renders an empty section whether or not
+ *                   the producer ever looked.
+ *
+ * Silence reads as "fine". That is the defect: a reader cannot tell
+ * "we looked and found nothing" from "we did not look", and only one of those
+ * is reassurance. This section makes the distinction visible, and it is the
+ * ONLY place on the surface that does.
+ *
+ * ⚠ IT ADDS NO ORACLE. Every state below is read from the same three
+ * authorities the rest of the tab already quotes — `recommendation.verdict`
+ * (`src/lib/decisionVerdict.ts`), `recommendation.robustnessVerdict`, and
+ * `confidence.evidenceGaps` + `evidenceGapsAssessed`. There is no fourth
+ * reading of anything here.
+ */
+export type ChecksCode =
+  /** `verdict.hasLeadingOption === true`. */
+  | 'leader_present'
+  /**
+   * `separation === 'tied'` — the ONLY state that licenses an affirmative
+   * denial. `decisionVerdict.ts:166-168`: "`false` — surfaces must NOT badge,
+   * and MAY say 'no clear leading option' (only when `separation === 'tied'`;
+   * `'unknown'` licenses silence, never a denial)".
+   */
+  | 'leader_tied'
+  /** `separation === 'unknown'`, or no verdict on the wire at all. */
+  | 'leader_not_assessed'
+  | 'robustness_robust'
+  /** `'moderate'` or `'fragile'` — the producer made a claim and it is not clean. */
+  | 'robustness_sensitive'
+  /** The producer's EXPLICIT `'not_assessed'`. */
+  | 'robustness_not_assessed'
+  /** The field is absent — an older producer build said nothing at all. */
+  | 'robustness_unknown'
+  /** Gaps were found and every one is addressed. */
+  | 'evidence_all_addressed'
+  /** Gaps were found and some are outstanding. */
+  | 'evidence_gaps'
+  /** Assessed, none found — a real, licensed all-clear. */
+  | 'evidence_none_flagged'
+  /** Never assessed — an empty list that is NOT an all-clear. */
+  | 'evidence_not_assessed'
+
+/**
+ * The glyph state. THREE values, and the third is the whole point.
+ *
+ * ⚠ `'not_assessed'` is NOT a failure and must never render as one — an
+ * undetermined check is the absence of a verdict, not a negative one. It is
+ * also NOT a pass, which is the direction the old tab blurred: it rendered the
+ * muted glyph for BOTH "assessed, none found" and "never assessed", so the one
+ * distinction the third state exists to preserve was carried by the label
+ * alone. Here they are different states.
+ */
+export type ChecksState = 'pass' | 'finding' | 'not_assessed'
+
+export interface ChecksItem {
+  /** Which of the three checks this row is. Stable identity for tests. */
+  id: 'leader' | 'robustness' | 'evidence'
+  code: ChecksCode
+  state: ChecksState
+}
+
+export interface ChecksSection {
+  /**
+   * Always the three checks, in a fixed order, or EMPTY pre-run.
+   *
+   * ⚠ A partial list would defeat the section: "which checks were not made"
+   * cannot be read off a list that drops them. The rows are always present and
+   * it is their STATE that varies.
+   */
+  items: readonly ChecksItem[]
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

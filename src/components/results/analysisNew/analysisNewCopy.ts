@@ -49,6 +49,17 @@ export const ANALYSIS_NEW_COPY = {
     drivers: 'Drivers and dynamics',
     uncertainty: 'Uncertainty and gaps',
     deeper: 'Deeper analysis and evidence',
+    /**
+     * ⚠ NAMES THE CHECKS, ASSERTS NOTHING ABOUT THEIR OUTCOME. "What we
+     * checked" stands unchanged over a run that passed everything and over one
+     * that checked nothing — which is the point, because the second is the run
+     * this section exists for.
+     *
+     * Imported VERBATIM from the old tab (`TriageActionCardsBody.tsx:702`).
+     * A second wording for one readout is how a user learns that two surfaces
+     * mean different things by it.
+     */
+    checks: 'What we checked',
   },
 
   /**
@@ -621,6 +632,115 @@ export const ANALYSIS_NEW_COPY = {
     measuredNonZero:
       'Measured for the decision as a whole, this run did not come back at zero.',
     measuredZero: 'Resolving the open unknowns was measured as not changing this decision.',
+  },
+
+  /**
+   * ─────────────────────────────────────────────────────────────────────────
+   * ⭐⭐ WHAT WE CHECKED — one entry per reachable state, and the unassessed
+   * states are the ones that carry a sentence.
+   * ─────────────────────────────────────────────────────────────────────────
+   *
+   * ⭐ THE LABELS ARE THE OLD TAB'S, VERBATIM WHERE THEY EXIST. This readout is
+   * proven and the consolidation map marks it KEEP; re-wording it would be a
+   * second vocabulary for one concept.
+   *
+   * ⭐⭐ `meaning` IS THE §7.5 FIX, AND IT IS THE REASON THIS IMPORT IS NOT A
+   * COPY. The map's own critique of the old readout is: "no action, no
+   * explanation — what does a user do with 'Evidence not assessed'?" That
+   * critique is correct. The old tab's answer is a NATIVE `title` TOOLTIP,
+   * which is hover-only — invisible on touch, invisible to a reader scanning
+   * the row, and invisible to anyone who does not know there is something to
+   * hover. So the explanation was there and unreachable, which is the same as
+   * absent for most readers.
+   *
+   * Here it is VISIBLE TEXT, and it appears ONLY on the unassessed states.
+   * That is deliberate on both halves:
+   *  · ONLY there, because a sentence under every chip is furniture rather
+   *    than information (Paul's canvas-density ruling, applied one surface up)
+   *    — and because the assessed outcomes are already explained elsewhere on
+   *    this tab, where the census requires them to stay.
+   *  · THERE AT ALL, because that state is the one a reader cannot act on
+   *    without being told what it means. Every one of these sentences does the
+   *    same single job: it blocks the reading of SILENCE AS REASSURANCE.
+   *
+   * ⛔ AND NO ACTION IS OFFERED, DELIBERATELY. §7.5 asks for "no action, no
+   * explanation" to be fixed, and only ONE half of that is honest here. There
+   * is no control on this surface that can cause a check to be made: the three
+   * verdicts are producer-side, and routing the reader to "Strengthen the
+   * reasoning" would be a false promise (those recommendations are
+   * engine-emitted and have no relationship to whether a check ran). An
+   * advertised action that terminates in nothing is the exact defect this
+   * estate ships most often. Explanation is what the surface can keep, so
+   * explanation is what it offers.
+   *
+   * ⛔ NO ROBUSTNESS REASON HERE. The producer's `robustnessVerdictReason` is
+   * rendered by "At a glance" and is its to render. Repeating it would put one
+   * producer sentence on the surface twice — the exact property
+   * `__tests__/firstViewportCensus.spec.tsx` exists to forbid.
+   */
+  checks: {
+    leader_present: { label: 'Has leading option' },
+    /**
+     * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
+     * alone (`decisionVerdict.ts:166-168`).
+     */
+    leader_tied: { label: 'No clear leader' },
+    leader_not_assessed: {
+      label: 'Leading option not assessed',
+      /**
+       * ⚠ THE SENTENCE MUST BLOCK BOTH MISREADINGS, not just one. "Not
+       * assessed" can be read as "they are level" (the tie this verdict is
+       * explicitly NOT entitled to claim) or as "it is fine". It says neither.
+       */
+      meaning:
+        'This run returned no comparison verdict, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
+    },
+    robustness_robust: { label: 'Robust' },
+    /**
+     * ⚠ "Sensitive" ALONE NAMES NO SUBJECT — the old tab's own note, and its
+     * reasoning is imported with the string: sensitive to WHAT is the whole
+     * content of the verdict. Covers `'moderate'` and `'fragile'` together,
+     * exactly as the old tab does; the degree is the glance's to state.
+     */
+    robustness_sensitive: { label: 'Sensitive to assumptions' },
+    robustness_not_assessed: {
+      label: 'Robustness not assessed',
+      meaning:
+        'This run did not test how the result behaves when the assumptions change, so nothing here says it would hold.',
+    },
+    /**
+     * ⚠ A DIFFERENT STATE FROM THE ONE ABOVE, AND THE OLD TAB IS RIGHT TO
+     * SPLIT THEM. `'not_assessed'` is the producer SAYING it did not assess;
+     * a missing field is the producer saying NOTHING — an older build that
+     * never carried the verdict. Collapsing them would attribute a statement
+     * to a producer that never made one.
+     */
+    robustness_unknown: {
+      label: 'Robustness unknown',
+      meaning:
+        'No robustness verdict came back with this run, so the result has not been shown to survive a change in the assumptions.',
+    },
+    evidence_all_addressed: { label: 'Evidence covered' },
+    evidence_gaps: { label: 'Evidence gaps' },
+    /**
+     * ⭐ A REAL, LICENSED ALL-CLEAR — the producer assessed and flagged
+     * nothing. It renders as a PASS here, which is the deliberate deviation
+     * from the old tab: that surface gives this state and "never assessed" the
+     * SAME muted glyph, leaving the one distinction the third state exists to
+     * preserve carried by the label alone.
+     */
+    evidence_none_flagged: { label: 'No evidence gaps flagged' },
+    evidence_not_assessed: {
+      label: 'Evidence not assessed',
+      /**
+       * ⭐ THE SENTENCE §7.5 ASKED FOR, LITERALLY. What a user does with
+       * "Evidence not assessed" is: stop reading the empty list below as an
+       * all-clear. That is a real change in what they believe, which is why
+       * the explanation earns its line even without an action beside it.
+       */
+      meaning:
+        'This run did not assess the evidence behind the inputs, so an empty list here is not an all-clear.',
+    },
   },
 } as const
 
