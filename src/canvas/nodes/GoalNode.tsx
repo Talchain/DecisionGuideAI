@@ -236,6 +236,24 @@ export const GoalNode = memo((props: NodeProps) => {
     return formatGoalTarget(raw, thresholdUnit) ?? String(thresholdRaw)
   }, [hasThreshold, thresholdRaw, thresholdUnit])
 
+  /**
+   * The goal's reduced line below the legibility floor.
+   *
+   * ⚠ THE TARGET, NOT AN ACHIEVEMENT PROBABILITY. A goal's probability figures
+   * carry mandatory adjacent disclosures (`GOAL_FIT_BASIS_CAVEAT_COPY`,
+   * possessive withholding) that cannot ride one line, and a number stripped of
+   * the caveat that makes it honest is not made safe by shrinking the type —
+   * the same rule `shared/lodMetricLine.ts` applies to an outcome. The
+   * THRESHOLD is the user's own stated target: it needs no caveat, because it
+   * is not a claim about the world, and it is the thing a reader most wants
+   * from this card at a glance.
+   *
+   * No threshold set means no line, which is honest — that is precisely the
+   * state the card's dashed border is already reporting.
+   */
+  const lodMetric = thresholdDisplay ? `Target ${thresholdDisplay}` : null
+
+
   // Science icons (spec Section 4.1)
   const scienceIcons = useScienceIcons(props.id, 'goal')
 
@@ -374,6 +392,7 @@ export const GoalNode = memo((props: NodeProps) => {
       <BaseNode
         {...props}
         nodeType="goal"
+        lodMetric={lodMetric}
         icon={metadata.icon}
         borderClassOverride={goalBorderOverride ?? undefined}
         headerSlot={scienceIcons.length > 0 ? (
