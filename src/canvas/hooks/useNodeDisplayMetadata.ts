@@ -499,9 +499,22 @@ export function useNodeDisplayMetadata(
     // samples, so there is no distribution behind `win_probability` and the
     // number beside it is not a measurement. Until this gate existed the node
     // read the share unconditionally and rendered a hard `0%` with a
-    // zero-width bar — indistinguishable from a genuine measured zero, which
-    // on this same surface renders `"<0.01%"`. The two were told apart only by
-    // which fallback arm a missing sample count happened to take.
+    // zero-width bar.
+    //
+    // ⚠ CORRECTED (#1048 review, second pass). This said the `0%` was
+    // "indistinguishable from a genuine measured zero, which on this same
+    // surface renders `<0.01%`". FALSE **for this surface**, and it understated
+    // the harm. `formatWinProbability` hardcodes
+    // `formatProbabilityWithResolution(rawProb, undefined)`
+    // (`labelUtils.ts:183`), so the resolution arm is UNREACHABLE from the
+    // canvas and `value <= 0` returns `'0%'` (`formatPercent.ts:114`). `<0.01%`
+    // needs an `nSamples` count, which only the RESULTS PANEL supplies. So
+    // before this gate the failed option and a genuine measured zero rendered
+    // the SAME string on the canvas — not two strings a reader could tell
+    // apart. The same sentence was corrected at `OptionNode.tsx`; it survived
+    // here, in the hook the correction is about, because the first fix swept
+    // the artefacts the review had named rather than every carrier of the
+    // claim (trap 20).
     //
     // ⚠ THE GATE IS ON THE PRODUCER'S EMITTED TOKEN, NOT ON FALSINESS.
     // `optionComputationProducedResult` is `true` for `'partial'` — samples
