@@ -95,14 +95,31 @@ describe('Stage 2 — producer action_label rides through, verbatim', () => {
     expect(item.actionLabel).toBe('Confirm this assumption')
   })
 
-  it('the promoted rec renders the producer action_label as its CTA and its tip', () => {
+  /**
+   * ⚠ THIS TEST USED TO ASSERT "AS ITS CTA **AND ITS TIP**", AND THE SECOND
+   * HALF IS NOW ITS INVERSE. Read why before restoring it.
+   *
+   * The defect this describe-block exists to prevent is `action_label` being
+   * DROPPED at the strengthen seam (Stage 1 hardcoded it `undefined`). That is
+   * still pinned, by the CTA assertion — the producer's words still ride
+   * through verbatim, onto the control where they are pressable.
+   *
+   * What changed is that they no longer ride through TWICE. Putting the same
+   * string in `tryThis` rendered it as "Try this — Confirm this assumption"
+   * directly above a button reading "Confirm this assumption", so the lead-in
+   * promised a practical instruction and delivered the control beneath it. See
+   * `Recommendation.tryThis` for the measured shape of that on the deployed
+   * build; the discrimination lives in
+   * `tryThisNamesAnInstructionOrNothing.spec.tsx`.
+   */
+  it('the promoted rec renders the producer action_label as its CTA, and does not repeat it as a tip', () => {
     const rec = buildRecommendations(
       wireToInputs([
         coachingBlock({ block_id: 'c-1', title: 'Confirm', action_label: 'Confirm this assumption', priority_rank: 101 }),
       ]),
     ).find((r) => r.id === 'strengthen:phase3:c-1')!
     expect(rec.action.label).toBe('Confirm this assumption')
-    expect(rec.tryThis).toBe('Confirm this assumption')
+    expect(rec.tryThis).toBeNull()
   })
 
   it('with no action_label the rec keeps its honest boilerplate CTA', () => {

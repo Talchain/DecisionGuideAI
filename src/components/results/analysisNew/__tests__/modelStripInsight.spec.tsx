@@ -50,6 +50,7 @@ import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { ModelStrip } from '../sections/ModelStrip'
 import { buildNodeInsights, NODE_INSIGHT_FINDING_CAP } from '../nodeInsights'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { MARK_KINDS } from '../nodeMarks'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { GlanceDriver } from '../analysisNewTypes'
@@ -143,6 +144,55 @@ beforeEach(() => {
   setCanvas(CANVAS)
 })
 afterEach(() => cleanup())
+
+describe('⭐ the detail names a practical move, or says nothing at all', () => {
+  /**
+   * ⚠ THIS SURFACE IS THE DENSEST PLACE "Try this" APPEARS — one node can carry
+   * several findings, so a placeholder here STACKS. The producer path now emits
+   * `tryThis: null` (see `Recommendation.tryThis`), and the detail must drop the
+   * whole line rather than print a lead-in with nothing after it.
+   *
+   * ⚠ WRITTEN BECAUSE A MUTANT SURVIVED. Guarding this renderer without a case
+   * for it left the guard free to be deleted silently — for one round the
+   * ModelStrip half of this change was protected by nothing.
+   *
+   * ⚠ AND IT IS A PAIR, FAILING ON DIFFERENT ASSERTIONS. The first case pins
+   * that the lead-in still renders when an instruction exists; without it, a
+   * change that deleted the line unconditionally would pass the second case and
+   * take the real coaching with it.
+   */
+  const findingIn = (nodeId: string) => {
+    fireEvent.mouseEnter(mark(nodeId))
+    const detail = screen.getByTestId(`${TID}-detail`)
+    return within(detail).getAllByTestId(`${TID}-detail-finding`)[0]
+  }
+
+  it('renders the lead-in when the finding names an instruction', () => {
+    renderOpen()
+    expect(findingIn('o1')).toHaveTextContent(STRENGTHEN_COPY.tryThisLead)
+  })
+
+  it('omits the lead-in entirely when it does not', () => {
+    renderOpen(
+      buildNodeInsights({
+        interventions: [
+          rec({
+            id: 'strengthen:phase3:c-1',
+            targetId: 'o1',
+            title: 'Confirm the large-account assumption',
+            tryThis: null,
+          }),
+        ],
+        drivers: [],
+      }),
+    )
+    const finding = findingIn('o1')
+    // The finding itself is on screen — so the absence below is the code's
+    // doing, not an empty detail.
+    expect(finding).toHaveTextContent('Confirm the large-account assumption')
+    expect(finding).not.toHaveTextContent(STRENGTHEN_COPY.tryThisLead)
+  })
+})
 
 describe('⭐ the detail is bound to the mark’s OWN node', () => {
   it('naming a mark shows THAT node, its kind, and the engine’s finding for it', () => {

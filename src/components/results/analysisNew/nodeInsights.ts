@@ -56,8 +56,12 @@ export interface NodeInsightFinding {
   recommendationId: string
   /** `Recommendation.title`, verbatim. */
   title: string
-  /** `Recommendation.tryThis`, verbatim — the one practical instruction. */
-  tryThis: string
+  /**
+   * `Recommendation.tryThis`, verbatim — the one practical instruction, or
+   * `null` when the recommendation has none. Carried through unchanged: the
+   * strip's detail is a CONSUMER of this decision, never a second one.
+   */
+  tryThis: string | null
   /**
    * `whyNow` falling back to `signal` — BOTH are engine fields, and this is the
    * same precedence `StrengthenTheReasoning` uses when it seeds the Ask-Olumi

@@ -490,7 +490,15 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
       expect(rec.title.length).toBeGreaterThan(0)
       expect(rec.signal.length).toBeGreaterThan(0)
       expect(rec.whyNow.length).toBeGreaterThan(0)
-      expect(rec.tryThis.length).toBeGreaterThan(0)
+      // ⚠ ABSENT IS ALLOWED; BLANK IS NOT, AND THE DISTINCTION IS THE POINT.
+      // `tryThis` is `string | null`: `null` says this recommendation names no
+      // practical move beyond its action, and every renderer omits the line.
+      // An empty STRING would be the defect this loop exists to catch — a
+      // "Try this" lead-in with nothing after it.
+      expect(
+        rec.tryThis === null || rec.tryThis.length > 0,
+        `${rec.id}: tryThis is a blank string — absent must be null, never ''`,
+      ).toBe(true)
       expect(rec.sourceLine.length).toBeGreaterThan(0)
       expect(rec.action.label.length).toBeGreaterThan(0)
       if (rec.action.kind === 'ai-dialogue') {

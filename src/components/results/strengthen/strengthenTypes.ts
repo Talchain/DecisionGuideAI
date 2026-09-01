@@ -46,8 +46,24 @@ export interface Recommendation {
   signal: string
   /** §8.4 why it matters now. */
   whyNow: string
-  /** §8.4 one practical instruction. */
-  tryThis: string
+  /**
+   * §8.4 one practical instruction — or `null` when there is no instruction to
+   * give.
+   *
+   * ⚠⚠ `null` IS A REAL STATE AND IT IS NOT AN EMPTY STRING. It says: this
+   * recommendation has an action, and no specific move to name beyond it. Every
+   * renderer must omit the "Try this" line entirely rather than print a
+   * placeholder — a lead-in that promises a concrete next step and then
+   * restates the button beneath it is worse than silence, because it teaches
+   * the reader that "Try this" carries nothing.
+   *
+   * Measured on the deployed build (`e685dafa`, fresh guest, 6 cards): FOUR of
+   * six read "Try this — Work through it with Olumi." directly above a button
+   * reading "Work through with Olumi". The same seven words twice per card,
+   * eight times in one section — while the two cards carrying real
+   * decision-science moves were outnumbered two to one by their own filler.
+   */
+  tryThis: string | null
   /** §8.4 named grounding source — honest about producer vs UI basis. */
   sourceLine: string
   action: RecAction

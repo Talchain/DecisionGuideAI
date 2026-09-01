@@ -1051,14 +1051,22 @@ export function ModelStrip({
                 >
                   {finding.title}
                 </p>
-                <p className={`${typography.panelBody} text-text-body m-0 break-words`}>
-                  {/* The lead-in is the Strengthen panel's own, imported rather
-                      than respelled, and the emphasis is carried semantically —
-                      the panel scale defines its own weights and a raw utility
-                      here would be a design-system violation as well as a second
-                      spelling of one label. */}
-                  <strong>{STRENGTHEN_COPY.tryThisLead}</strong> {finding.tryThis}
-                </p>
+                {/* The lead-in is the Strengthen panel's own, imported rather
+                    than respelled, and the emphasis is carried semantically —
+                    the panel scale defines its own weights and a raw utility
+                    here would be a design-system violation as well as a second
+                    spelling of one label.
+
+                    ⚠ AND THE WHOLE LINE GOES when the finding names no
+                    instruction. This detail is the DENSEST place the phrase
+                    appears — one node can carry several findings — so a
+                    placeholder here stacks. Same rule as the panel: see
+                    `Recommendation.tryThis`. */}
+                {finding.tryThis !== null ? (
+                  <p className={`${typography.panelBody} text-text-body m-0 break-words`}>
+                    <strong>{STRENGTHEN_COPY.tryThisLead}</strong> {finding.tryThis}
+                  </p>
+                ) : null}
                 {/* ⭐ THE TECHNIQUE, ON THE NODE THAT WARRANTED IT — the same
                     control `StrengthenTheReasoning` renders, reached from the
                     model rather than from a list. `null` for most findings by
