@@ -165,6 +165,43 @@ export interface StrengthenSection {
  */
 export type DriversStatus = DriversSectionData['driversStatus']
 
+/**
+ * One driver as the influence chart draws it: a magnitude, a direction the
+ * PRODUCER asserted (or declined to), and an edit target.
+ *
+ * ⚠⚠ THIS IS NOT THE OLD TAB'S `TornadoRow`, AND THE DIFFERENCE IS THE WHOLE
+ * POINT. That row carries `lowOutcome`/`highOutcome` — "the outcome when this
+ * factor is at its low/high value" — computed in `OutputsDock.tsx:1039` as
+ * `expected ± influence × range`, where `range` comes from the RECOMMENDED
+ * OPTION's p10/p90 and is therefore THE SAME CONSTANT FOR EVERY ROW. Each bar
+ * is the influence score rescaled, presented as a per-factor outcome bound the
+ * data does not contain; that component's own header says so ("a proportional
+ * presentation-layer approximation, not authoritative per-factor outcome bounds
+ * from PLoT"). We carry the magnitude UNDER ITS OWN NAME instead, and make no
+ * claim in outcome units.
+ */
+export interface DriverInfluenceRow {
+  id: string
+  label: string
+  /** 0-1 against the STRONGEST driver in this run — a within-run rank comparison. */
+  fraction: number
+  /**
+   * The producer's direction, ALREADY NARROWED to the two states that license
+   * a side. `null` means `mixed`, `unknown` or absent — all three are present
+   * values that still forbid a directional claim (`isDirectionalFactor`), and
+   * all three render centred rather than picking a side.
+   *
+   * ⚠ THE OLD CHART GETS THIS WRONG TODAY. `TornadoRow.direction` exists and is
+   * populated, but `TornadoChart` branches only on GOAL direction — so a
+   * negative-direction factor (cost, churn) draws on the wrong side. Its own
+   * derivation comment admits it and defers the fix to a phase that shipped
+   * without it.
+   */
+  direction: 'positive' | 'negative' | null
+  /** Focus/edit target, or null when the factor is not on the canvas. */
+  targetId: string | null
+}
+
 export interface DriversSection {
   findings: AnalysisNewFinding[]
   /**
@@ -177,6 +214,18 @@ export interface DriversSection {
    * producer's own provenance token, not of the adapter's taste.
    */
   influenceIsSetRelative: boolean
+  /**
+   * EVERY driver the run returned and did not zero, for the influence chart —
+   * not the glance's top three.
+   *
+   * ⚠ A DIFFERENT QUESTION FROM `atAGlance.drivers`, DELIBERATELY (trap 21).
+   * The glance answers "what is biggest": it caps at three, draws one-sided,
+   * and suppresses its bars entirely when they do not discriminate. The chart
+   * answers "which way does each one push, and which do I want to change" — so
+   * it needs the full set and the direction, and it stays useful when the
+   * magnitudes are flat, because the SIDES still carry information.
+   */
+  influenceRows: DriverInfluenceRow[]
   /** The option sensitivities were computed against, when disclosed. */
   referenceOptionLabel: string | null
   totalCount: number

@@ -159,7 +159,7 @@ import {
   classifyValueProvenance,
   VALUE_PROVENANCE_LABEL,
 } from '../../../../canvas/domain/valueProvenance'
-import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
+import { useFactorValueCommit } from '../useFactorValueCommit'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -372,7 +372,7 @@ export function ModelStrip({
    * own documented contract ("pass `null` when no edit is active"). Every
    * proposal is then `not_encodable`, which is the honest answer.
    */
-  const editAuthority = useModelEditAuthority(editingFor)
+  const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
 
   // Nothing on the canvas: the panel's other surfaces already say so, and a
   // strip of empty rows would be furniture claiming to be information.
@@ -529,13 +529,7 @@ export function ModelStrip({
    * nothing was written anywhere, so closing it would look like a success.
    */
   const commitValue = () => {
-    const typed = draft.trim()
-    const parsed = Number(typed)
-    if (typed === '' || !Number.isFinite(parsed)) {
-      showToast(COPY.modelStrip.valueNotEncodable)
-      return
-    }
-    const outcome = editAuthority.proposeFactorValue(parsed)
+    const outcome = commitFactorValue(draft)
     showToast(
       outcome === 'dispatched'
         ? COPY.modelStrip.valueDispatched

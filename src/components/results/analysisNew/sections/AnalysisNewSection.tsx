@@ -15,6 +15,7 @@
 
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { DisclosureRow } from '../DisclosureRow'
@@ -77,6 +78,17 @@ export interface AnalysisNewSectionProps {
   emptyMessage?: string | null
   onFocusTarget?: (targetId: string) => void
   onRunIntervention?: (recommendationId: string) => void
+  /**
+   * Rendered ABOVE the findings, inside the opened section — for a section
+   * whose data has a visual form as well as a prose form.
+   *
+   * ⚠ IT DOES NOT KEEP AN EMPTY SECTION ALIVE. The early return below still
+   * fires on no findings and no empty message, deliberately: a chart with no
+   * rows under a heading is the same "heading promising content" defect §19
+   * records, and the two are derived from ONE filtered list upstream, so they
+   * are empty together or not at all.
+   */
+  header?: ReactNode
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId: string
@@ -92,6 +104,7 @@ export function AnalysisNewSection({
   onFocusTarget,
   onRunIntervention,
   icon,
+  header,
   testId,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
@@ -121,6 +134,12 @@ export function AnalysisNewSection({
           {caveat}
         </p>
       ) : null}
+
+      {/* ⚠ BELOW THE CAVEAT, ON PURPOSE. The caveat says what basis the
+          magnitudes are on ("largest in this set", not a share of the outcome);
+          a reader who meets the bars first has already formed the reading it
+          exists to prevent. */}
+      {header ?? null}
 
       {findings.length === 0 ? (
         emptyMessage ? (
