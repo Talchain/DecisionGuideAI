@@ -41,6 +41,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
+import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -755,6 +756,29 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {/* S1-UNK: Warning chip for unknown backend kinds */}
         {Boolean(data?.unknownKind) && typeof data?.originalKind === 'string' && (
           <UnknownKindWarning originalKind={data.originalKind} />
+        )}
+
+        {/* ⭐⭐ WHO PUT THIS HERE — before any number the card goes on to state.
+            One fixed position, every node type, from the ONE classifier
+            (`domain/valueProvenance`). See `NodeProvenanceMark` for why this is
+            a surfacing job rather than a new signal, and why an unrecognised
+            provenance renders NOTHING rather than a default.
+
+            ⚠ IT SITS IN THE HEADER, NOT THE BODY, AND THAT IS THE WHOLE POINT.
+            The body hides below the legibility floor; the header does not. A
+            provenance mark that vanished exactly when the user zoomed out to see
+            their whole model would be absent at the moment "which of this did I
+            write?" is the most useful question on screen. It is also why this is
+            NOT inside the `headerSlot` group below — that group is gated on a
+            caller passing science icons, so the mark would appear on some cards
+            and not others for a reason that has nothing to do with provenance.
+
+            `ml-auto` is on THIS element rather than the group, so it still
+            pushes right when no header slot is present. */}
+        {!isCausalLens && !isEvidenceLens && (
+          <span className="inline-flex items-center shrink-0 ml-auto">
+            <NodeProvenanceMark provenance={(data as Record<string, unknown> | undefined)?.provenance} />
+          </span>
         )}
 
         {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
