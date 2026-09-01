@@ -40,7 +40,7 @@
  *
  * Run: pnpm exec playwright test -c playwright.geometry.config.ts heightVsZoom
  */
-import { test } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import {
   openCanvas,
   preparePage,
@@ -232,6 +232,86 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, async ({ page }) => {
     unsettled: series.filter((s) => s.held && digest(s.boundHeights) !== digest(s.secondBound)).map((s) => s.requested),
   }
 
+  // ── LOD DIRECTION, PER CARD (review note 3) ────────────────────────────────
+  //
+  // The counter-scale term is removed by construction. LOD is the term that
+  // remains, and the safety argument for leaving it is entirely DIRECTIONAL: a
+  // card that shrinks below its reserved height leaves whitespace; a card that
+  // GREW past it would overlap the row beneath. Until now that direction rested
+  // on one measurement written into a comment. This asserts it.
+  //
+  // ⚠ `lodTitleBoostIsBounded.spec.ts` guards only the TITLE limb of LOD (the
+  // −16px on the goal and decision cards). The −12px on the outcome/risk cards
+  // comes from other LOD-gated body content and has no CI guard at all — THIS
+  // assertion is the only thing in the repo that watches it, and it does not run
+  // in CI. Run this probe when you change LOD-gated body content.
+  //
+  // ⭐⭐ ITS DETECTION FLOOR, MEASURED RATHER THAN ASSUMED — because the obvious
+  // mutant SURVIVED and that had to be explained, not waved through (trap 13c:
+  // an equivalent mutant must be DEMONSTRATED). Raising the LOD title boost in
+  // `BaseNode`, one size per run, applied-check 1, restored from HEAD between,
+  // with a trailing control that passed:
+  //
+  //     text-3xl (30px)  SURVIVES — and the numbers say why: `dec_billing` and
+  //                      `goal_billing` drop OUT of the moved set entirely
+  //                      (7 movers → 5). At 30px the LOD-on card lands level
+  //                      with its LOD-off self, so it is not taller, so there
+  //                      is no harm to detect. Genuinely equivalent HERE.
+  //     text-5xl (48px)  REDs
+  //     text-7xl (72px)  REDs
+  //
+  // The floor is not a weakness in the assertion, it IS the property: the
+  // layout reserves the LOD-OFF height, so a title that grows within that
+  // headroom costs nothing. What follows is how the two guards divide, and
+  // neither substitutes for the other:
+  //
+  //   `lodTitleBoostIsBounded.spec.ts` compares DECLARED SIZES (30 > 24), so it
+  //   REDs at text-3xl — strictly more sensitive, runs in CI, sees only the
+  //   TITLE.
+  //   This probe compares RENDERED CARD HEIGHTS, so it is blind below the
+  //   headroom — but it sees EVERY LOD-gated term, including the outcome/risk
+  //   body limb that no CI test covers at all.
+  const LOD_THRESHOLD = 0.5
+  const lodOff = usable.filter((s) => (s.settled ?? 0) >= LOD_THRESHOLD)
+  const lodOn = usable.filter((s) => (s.settled ?? 1) < LOD_THRESHOLD)
+
+  // A positive control FIRST: an "all ≤" verdict over an empty partition, or
+  // over cards that never differ, is vacuous (trap 13). The sweep must actually
+  // have visited both states.
+  expect(lodOff.length, 'no settled sample at or above the LOD threshold — the direction check has nothing to compare').toBeGreaterThan(0)
+  expect(lodOn.length, 'no settled sample below the LOD threshold — the direction check has nothing to compare').toBeGreaterThan(0)
+
+  const worstOff: Record<string, number> = {}
+  for (const s of lodOff) for (const [id, h] of Object.entries(s.heights)) worstOff[id] = Math.max(worstOff[id] ?? 0, h)
+  const grew: string[] = []
+  const moved: string[] = []
+  for (const s of lodOn) {
+    for (const [id, h] of Object.entries(s.heights)) {
+      const off = worstOff[id]
+      if (off === undefined) continue
+      if (h > off) grew.push(`${id}: LOD-off ${off} -> LOD-on ${h} (+${h - off}) at zoom ${s.settled}`)
+      else if (h < off) moved.push(id)
+    }
+  }
+  expect(
+    [...new Set(moved)].length,
+    'NO card changed height across the LOD threshold — the comparison is not discriminating, so "nothing grew" says nothing',
+  ).toBeGreaterThan(0)
+  expect(
+    grew,
+    'a card is TALLER with LOD on than the tallest it reaches with LOD off. The layout reserves the LOD-off height, so this card now overflows its row band below the legibility floor — the defect this PR closes, arriving through the LOD door.',
+  ).toEqual([])
+
+  const lod = { lodOffSamples: lodOff.length, lodOnSamples: lodOn.length, cardsThatMoved: [...new Set(moved)].length, cardsThatGrew: grew.length }
+
+  // ── COMPLETENESS, ASSERTED IN THE PROBE ITSELF ────────────────────────────
+  // ⚠ A cell that produces no data is an INSTRUMENT failure, and it must be the
+  // PROBE that says so, not the script that happened to run it. An earlier A/B
+  // driver carried that assertion and lived only in a working directory; the
+  // check disappeared with it, and 11 of 12 cells went silently missing.
+  expect(series.length, 'the sweep did not visit every requested zoom').toBe(ZOOMS.length)
+  expect(invariant.boundEntryCount + Object.keys(series[0].heights).length, 'the probe measured no cards at all').toBeGreaterThan(0)
+
   // eslint-disable-next-line no-console
-  console.log('HZJSON ' + JSON.stringify({ starter: STARTER, vp: `${VP.width}x${VP.height}`, invariant, series }))
+  console.log('HZJSON ' + JSON.stringify({ starter: STARTER, vp: `${VP.width}x${VP.height}`, invariant, lod, series }))
 })

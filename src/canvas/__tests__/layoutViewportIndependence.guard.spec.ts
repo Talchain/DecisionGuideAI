@@ -222,7 +222,18 @@ const VARYING_DIMENSION = /innerWidth|innerHeight|getBoundingClientRect|visualVi
  * marker?" — and the second is asked of the exempted module SPECIFICALLY,
  * because it is the only module the first question was relaxed for.
  */
-const DOCUMENT_ROOTED_INSTANCE = /document\s*\.\s*(querySelector|querySelectorAll|getElementsBy\w+)\s*\(\s*[`'"][^`'"]*\.react-flow/
+/**
+ * ⚠ TWO LIMBS, BECAUSE THE TWO APIs SPELL A CLASS DIFFERENTLY — and the first
+ * draft of this had a THIRD limb that could never fire. It read
+ * `(querySelector|querySelectorAll|getElementsBy\w+)` in front of a mandatory
+ * `\.react-flow`, but `getElementsByClassName` takes the class **without a
+ * dot**, so that alternative was unreachable while looking exactly like
+ * protection. A branch that cannot fire is worse than no branch. Each limb below
+ * therefore has its OWN positive control in the test — a shared control proves
+ * only that *something* matches, which is how the dead limb survived review.
+ */
+const DOCUMENT_ROOTED_INSTANCE =
+  /document\s*\.\s*(?:querySelector(?:All)?\s*\(\s*[`'"][^`'"]*\.react-flow|getElementsByClassName\s*\(\s*[`'"]\s*react-flow)/
 
 afterEach(() => {
   document.querySelectorAll('.react-flow').forEach((el) => el.remove())
@@ -272,6 +283,15 @@ describe('R1 (structural) — no runtime dimension can reach the canonical layou
     ).toBe(false)
 
     // ⭐ ROOT SELECTION — the half the first exemption did not ask about.
+    //
+    // ⚠⚠ THIS ASSERTION IS THE LOAD-BEARING ONE. Do not delete it believing the
+    // labelled negative control at the bottom of this test covers it: that one
+    // only shows the detector ignores `marker.closest('.react-flow')`, which is
+    // true of ANY detector that requires a leading `document.` — it is nearly
+    // free to pass and proves almost nothing. What has teeth is running the
+    // detector over the SHIPPED MODULE, which legitimately contains
+    // `document.querySelector(CANVAS_LABEL_SCALE_MARKER_SELECTOR)`: a detector
+    // written one notch too broad REDs here, on real code, immediately.
     expect(
       DOCUMENT_ROOTED_INSTANCE.test(measurer),
       'the exempted measurer picks a React Flow instance from the DOCUMENT. In comparison mode the main canvas is unmounted and the only roots are two MiniCanvases rendering the same node ids, so this binds to a mini-map and returns its heights under the real nodes\' ids — which getNodeDimensions PREFERS over measured.height. Select up from the CanvasLabelScaleSync marker instead.',
@@ -286,13 +306,27 @@ describe('R1 (structural) — no runtime dimension can reach the canonical layou
     expect(RUNTIME_DIMENSION.test("document.querySelector('.react-flow')")).toBe(true)
     expect(VARYING_DIMENSION.test("document.querySelector('.react-flow')")).toBe(false)
     // ...and the replacement must genuinely BITE on what the drop let through.
-    // Without these three the exemption could be narrowed by a regex that
-    // matches nothing, which reads identically green.
+    // ⭐ ONE POSITIVE CONTROL PER LIMB. A single control proves only that
+    // SOMETHING in the alternation matches, which is precisely how a limb that
+    // could never fire sat here reading as coverage.
     expect(DOCUMENT_ROOTED_INSTANCE.test("document.querySelector('.react-flow')")).toBe(true)
     expect(DOCUMENT_ROOTED_INSTANCE.test('document.querySelectorAll(".react-flow__node")')).toBe(true)
     expect(
+      DOCUMENT_ROOTED_INSTANCE.test("document.getElementsByClassName('react-flow')"),
+      'the getElementsByClassName limb does not fire — it takes a class WITHOUT a dot, so a pattern demanding ".react-flow" makes it unreachable',
+    ).toBe(true)
+    // The labelled negative control. ⚠ Weak by construction — it passes for any
+    // detector requiring a leading `document.`, so it is a smoke check, not the
+    // evidence. The module-level assertion above is what actually bites.
+    expect(
       DOCUMENT_ROOTED_INSTANCE.test("marker.closest('.react-flow')"),
       'the root-selection detector fires on the SANCTIONED form too — it is not discriminating, it is just banning the string',
+    ).toBe(false)
+    // And it must not fire on the shipped marker lookup, which is a
+    // `document.querySelector` that names NO React Flow instance.
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test('document.querySelector(CANVAS_LABEL_SCALE_MARKER_SELECTOR)'),
+      'the detector fires on the sanctioned marker lookup — it is banning `document.querySelector`, not instance selection',
     ).toBe(false)
 
     // POSITIVE CONTROL on the detector — a synthetic offender must fire.

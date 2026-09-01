@@ -9,8 +9,48 @@
  * i.e. 24px at the cap — to a FIXED `text-lg`, 18px.
  *
  * Measured (`e2e/geometry/heightVsZoom.measure.ts`, build-vs-buy @1280x800):
- * crossing 0.5 downward, `dec_billing` 333 → 317 and `goal_billing` 173 → 157.
- * Both SHRINK, by 16px each, and nothing else moves — ~0.26% of the 6211px total.
+ * crossing 0.5 downward, **7 of 23 cards move, −92px in total, 1.48% of 6211px**:
+ *
+ *     dec_billing          333 → 317  (−16)   ← this guard covers these two
+ *     goal_billing         173 → 157  (−16)   ←
+ *     out_billing_accuracy 166 → 154  (−12)   ← this guard does NOT cover these
+ *     out_delivery_speed   166 → 154  (−12)   ←
+ *     risk_billing_errors  166 → 154  (−12)   ←
+ *     risk_eng_overload    166 → 154  (−12)   ←
+ *     risk_vendor_lock     166 → 154  (−12)   ←
+ *
+ * ⚠⚠ WHAT THIS FILE GUARDS, AND WHAT IT DOES NOT — READ BEFORE TRUSTING IT.
+ * An earlier draft of this header said the two title cards moved "and nothing
+ * else moves". **That was false**, refuted by this change's own other two
+ * measurements, and it is exactly the sentence a later LOD lane would have
+ * inherited as settled fact.
+ *
+ *   GUARDED (below): the TITLE term — `lodBoostTitle`'s font size against the
+ *   size the layout reserves. That is the `dec_billing` / `goal_billing` −16px.
+ *
+ *   NOT GUARDED: the remaining −12px on the five outcome / risk cards. It comes
+ *   from other LOD-gated body content, not from the title, and no assertion in
+ *   this repo compares it to anything. Same direction (a shrink) and smaller,
+ *   which is why it was accepted rather than fixed — but it is ACCEPTED, not
+ *   PROVEN, and a change that made LOD-gated body content GROW would pass every
+ *   test here.
+ *
+ *   The nearest thing to a guard on that limb is
+ *   `heightVsZoom.measure.ts`'s per-card `LOD-on ≤ LOD-off` assertion, which is
+ *   a real browser probe and does NOT run in CI. If you are changing LOD-gated
+ *   body content, run it.
+ *
+ *   ⚠ AND THE TWO ARE NOT INTERCHANGEABLE, measured by mutating the boost size
+ *   one step at a time: this file compares DECLARED SIZES and so REDs at
+ *   `text-3xl` (30 > 24); the probe compares RENDERED CARD HEIGHTS and survives
+ *   `text-3xl` — correctly, because at 30px the card lands level with its
+ *   LOD-off self and is therefore not taller — and REDs from `text-5xl` up.
+ *   This file is more SENSITIVE and narrower; the probe is blunter and WIDER.
+ *
+ * ⚠ And the bound the whole argument rests on: the worst single-card delta is
+ * 16px against a designed row slack of `LAYOUT_PADDING_Y + effectiveLayerSpacing`
+ * = 64px (45px for a sub-row). That margin, not the percentage, is why a
+ * one-directional 1.48% is safe.
  *
  * ⭐⭐ SMALL IS NOT THE ANSWER. THE DIRECTION IS. A card that shrinks below the
  * reserved height leaves whitespace, which the layout doctrine explicitly calls

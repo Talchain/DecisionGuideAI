@@ -22,7 +22,7 @@
  *  · SERIES — 20 samples over 30s, so a transient cannot be reported as
  *    terminal (`waitForVisualQuiescence` settles faster than a corrective pass).
  */
-import { test } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import {
   openCanvas, preparePage, seedStarterDraft, clearNotifications,
   minimiseFloatingOlumiPanel, waitForVisualQuiescence, type StarterId,
@@ -150,9 +150,9 @@ test(`RH ${STARTER} @${VP.width}x${VP.height} #${trial}`, async ({ page }) => {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForSelector('.react-flow__node[data-id]', { timeout: 60_000 })
 
-  const series: unknown[] = []
+  const series: Array<{ t: number; lv: number; pairs: number; nodes: number; zoom: number | null }> = []
   for (let k = 0; k < 20; k++) {
-    series.push(await page.evaluate(() => {
+    series.push((await page.evaluate(() => {
       const w = window as unknown as { useCanvasStore: { getState: () => { nodes: Array<{ id: string; position: { x: number; y: number } }>; layoutVersion: number } } }
       const st = w.useCanvasStore.getState()
       const box = new Map<string, [number, number]>()
@@ -167,8 +167,11 @@ test(`RH ${STARTER} @${VP.width}x${VP.height} #${trial}`, async ({ page }) => {
       }
       const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
       const m = vp ? new DOMMatrixReadOnly(getComputedStyle(vp).transform) : null
-      return { t: Math.round(performance.now()), lv: st.layoutVersion, pairs, zoom: m ? +m.a.toFixed(4) : null }
-    }))
+      // `nodes` is carried so the completeness assertions below can tell a
+      // CLEAN canvas from an EMPTY one: a zero-node sample reports zero
+      // overlapping pairs, which reads exactly like success.
+      return { t: Math.round(performance.now()), lv: st.layoutVersion, pairs, nodes: ns.length, zoom: m ? +m.a.toFixed(4) : null }
+    })) as (typeof series)[number])
     if (k < 19) await page.waitForTimeout(1500)
   }
 
@@ -183,6 +186,30 @@ test(`RH ${STARTER} @${VP.width}x${VP.height} #${trial}`, async ({ page }) => {
   })
   await page.waitForTimeout(3500)
   const afterRelayout = await page.evaluate(SNAP)
+
+  // ── COMPLETENESS, ASSERTED IN THE PROBE ITSELF ────────────────────────────
+  //
+  // ⚠ A CELL THAT PRODUCES NO DATA IS AN INSTRUMENT FAILURE, AND THE PROBE HAS
+  // TO BE THE THING THAT SAYS SO. An A/B driver carried this check once and
+  // lived only in a working directory: when the driver was rewritten the check
+  // went with it, and 11 of 12 cells vanished silently — caught only because
+  // someone happened to check the output byte counts. An assertion that is not
+  // in the repo is not an assertion; it is a habit.
+  //
+  // Each of these is a distinct way this probe can measure nothing while
+  // exiting 0, so each is named rather than folded into one truthiness check.
+  expect(before.nodes.length, 'nothing was measured before the flush — the canvas never mounted a node').toBeGreaterThan(0)
+  expect(flushed, 'the autosave flush reported failure, so the reload arm is about a graph that was never persisted').toBe(true)
+  expect(series.length, 'the post-reload series is short — it did not sample for its full window').toBe(20)
+  expect(
+    series.filter((s) => s.nodes > 0).length,
+    'at least one post-reload sample saw ZERO nodes — a zero-node sample reports zero overlapping pairs, which is indistinguishable from a clean canvas',
+  ).toBe(series.length)
+  expect(after.nodes.length, 'nothing was measured after the reload').toBeGreaterThan(0)
+  expect(
+    after.nodes.length,
+    'the reload restored a DIFFERENT number of nodes than were flushed — the two sides of this comparison are not the same graph',
+  ).toBe(before.nodes.length)
 
   // eslint-disable-next-line no-console
   console.log('RHJSON ' + JSON.stringify({ starter: STARTER, vp: `${VP.width}x${VP.height}`, trial, flushed, armB, before, series, after, causal, afterRelayout }))
