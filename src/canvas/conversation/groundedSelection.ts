@@ -27,8 +27,25 @@
  * (grounded-selection.ts:4-12, quoted): it answers *"Which model elements was
  * THIS turn's answer grounded on?"* — a producer-side fact about the answer's
  * CONTEXT (the elements CEE placed in the routing prompt's `focus` section). It
- * is **deliberately NOT a claim that the answer's TEXT mentions each one**; no
- * code on either side reads the model's output.
+ * is **deliberately NOT a claim that the answer's TEXT mentions each one**.
+ *
+ * ⚠ AND THE CLAUSE THAT USED TO END THAT SENTENCE WAS A FALSE ABSENCE CLAIM —
+ * corrected 1 Sep 2026 on review. It read *"no code on either side reads the
+ * model's output"*, which WIDENED the producer's own carefully scoped sentence
+ * (*"no code **here** reads the model's output"*, `grounded-selection.ts:11`)
+ * into a claim about the whole estate. CEE compares answer text against an
+ * element label today — `answerContainsLabel` in
+ * `src/orchestrator-v5/coaching/validation-priority.ts:182`, reachable via
+ * `decideValidationBeat` ← `tools/handlers/explain-results.ts:183` (CEE staging
+ * `d5455355`). It feeds a coaching-beat dedup decision and never reaches
+ * `_grounded_selection`.
+ *
+ * THE NARROW TRUTH, which is what this field and its copy rest on: no usage
+ * evidence is carried on THIS path — `element_ids` is sourced from the
+ * selection alone. The full derivation, including all three
+ * `projectGroundedSelection` call sites, lives in `GroundedOnNotice.tsx`.
+ * Dropping a scoping word from someone else's claim is how this estate
+ * manufactures false absences (CLAUDE.md trap 20) — keep the "here".
  *
  * ⚠⚠ THE PARAGRAPH THAT USED TO CLOSE THIS BLOCK WAS WRONG, AND ITS ERROR
  * SHIPPED A FALSE SENTENCE TO USERS. It read: *"Our copy therefore says the

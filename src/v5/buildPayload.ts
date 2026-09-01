@@ -246,11 +246,24 @@ export const MAX_SELECTED_ELEMENTS = 20
  * message-turn shape published at our pin is `Array<{id, kind, label?}>`, capped
  * at 20. This builds the V5 shape, because that is what
  * `MessageTurnPayloadSchema` — the `.strict()` schema this payload is validated
- * against — declares. (CEE's *ingress* still mirrors the V4 shape and drops an
- * array-of-refs best-effort; that is a CEE-side widening, tracked as hop 3 of
- * this slice. Until it lands, this field is carried and not consumed. It cannot
- * 422 anything in the meantime: CEE's pre-flight strips the key off the body
- * before the strict validator runs, and its extension re-parse is fail-soft.)
+ * against — declares.
+ *
+ * ⚠ THE PARAGRAPH THAT USED TO CLOSE THIS BLOCK IS STALE AND IS REPLACED. It
+ * read: *"CEE's ingress still mirrors the V4 shape and drops an array-of-refs
+ * best-effort; that is a CEE-side widening, tracked as hop 3 of this slice.
+ * Until it lands, this field is carried and not consumed."* HOP 3 HAS LANDED.
+ * Verified at CEE staging `d5455355` (1 Sep 2026): `SelectedElementsIngressSchema`
+ * (`src/orchestrator-v5/boundary/request-extensions.ts:172`) is a union whose
+ * FIRST branch is `z.array(SelectedElementRefSchema)` — the published V5 ref
+ * array this builder emits, imported from the contract rather than restated —
+ * so the array-of-refs is now PARSED AND CONSUMED, not dropped. `buildTurnContext`
+ * resolves those ids against the persisted graph into groundable answering
+ * context (`EnrichedTurnContext.selection`), which is the same selection
+ * `_grounded_selection` is later projected from.
+ *
+ * Read the consequence, not just the correction: this field is USER-REACHABLE
+ * now. A change to what it carries changes what CEE grounds an answer in and
+ * what the answer footer names — it is no longer inert on the wire.
  *
  * Returns `undefined` — i.e. the key is ABSENT — rather than an empty array
  * whenever the client has nothing truthful to say:

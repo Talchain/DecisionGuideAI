@@ -12,10 +12,18 @@
  * `_grounded_selection.element_ids` is the user's CANVAS SELECTION on every
  * path there is — CEE's `projectGroundedSelection` reads `selection.elements`,
  * the UI attaches `selected_elements` from the live store on EVERY send, and
- * nothing clears the selection when a turn is sent. Nothing on either side
- * reads the model's output, so no usage claim can be licensed. Two questions
- * under one name (CLAUDE.md trap 21): "what did the user select?" is not
- * "what did this answer draw on?".
+ * nothing clears the selection when a turn is sent.
+ *
+ * ⚠ THE SENTENCE THAT FOLLOWED WAS A FALSE ABSENCE CLAIM — corrected 1 Sep 2026
+ * on review. It read *"Nothing on either side reads the model's output, so no
+ * usage claim can be licensed"*. CEE compares answer text against an element
+ * label today (`answerContainsLabel`, `validation-priority.ts:182`, reachable
+ * via `decideValidationBeat` ← `explain-results.ts:183`); that comparison feeds
+ * a coaching-beat dedup decision and never reaches `_grounded_selection`. The
+ * narrow truth this file actually pins: no usage evidence is carried on THIS
+ * path, so no usage claim can be licensed HERE. See `GroundedOnNotice.tsx` for
+ * the full derivation. Two questions under one name (CLAUDE.md trap 21): "what
+ * did the user select?" is not "what did this answer draw on?".
  *
  * ── WHAT THESE TESTS BIND TO, AND WHY THEY CANNOT PASS VACUOUSLY ──────────
  * Every case asserts BOTH halves together (CLAUDE.md trap 13 — an absence
