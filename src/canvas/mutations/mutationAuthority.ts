@@ -59,6 +59,15 @@ export const CANONICAL_EDIT_AUTHORITY = {
   // rename is local-only — the key names that precondition rather than implying
   // the write is unconditional.
   canvasNodeRenameWithServerHash: 'server_graph',
+  // schemas 0.50.0 — the canvas/palette/context-menu node add. `server_graph`
+  // because it has exactly what that value requires and nothing weaker: a
+  // receipt-bearing GraphV3 carrier (`structural_add`), a server-side write to
+  // `scenarios.graph`, and a committed `edit_graph` fact. ⚠ CONDITIONAL ON THE
+  // HASH like its two siblings, and by the same mechanism — with no CEE-stamped
+  // `graph_hash` seen this session the gesture is DEFERRED rather than dropped,
+  // and the user is told the model does not hold it yet. The key names that
+  // precondition rather than implying the write is unconditional.
+  canvasNodeAddWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'disabled',
@@ -71,7 +80,14 @@ export const CANONICAL_EDIT_AUTHORITY = {
   preAnalysisEdgeStrength: 'disabled',
   preAnalysisV3FactorValue: 'server_graph',
   preAnalysisV3FactorConfirmation: 'disabled',
-  preAnalysisV3StructuralAdd: 'disabled',
+  // schemas 0.50.0 — FLIPPED FROM `'disabled'`, and the flip is what lights up a
+  // COMPLETE, ALREADY-TESTED affordance that has been dark since it was written.
+  // `YourDecisionSection` renders its inline "Add option" / "Add risk" rows only
+  // when this key has server-graph authority; with the key `'disabled'` users
+  // got a fallback "ask Olumi" link instead. The rows were never wrong — they
+  // were missing a durable carrier, exactly as the rename lane found its
+  // `EditableLabel`. `structural_add` supplies it.
+  preAnalysisV3StructuralAdd: 'server_graph',
   analysisAssumedEdgeStrength: 'disabled',
   canvasEdgeStrength: 'disabled',
   canvasFactorConfirmation: 'disabled',

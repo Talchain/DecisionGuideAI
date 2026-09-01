@@ -7,7 +7,12 @@ import { setsEqual, mapsEqual } from './store/utils'
 import { assignStableOptionNumbers } from './store/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
-import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
+import {
+  NODE_REGISTRY,
+  resolveNodeTypeLiteral,
+  type NodeType,
+  type NodeData,
+} from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
@@ -40,6 +45,15 @@ import {
   type StructuralRenameLifecycleRecord,
   type StructuralRenameTerminalStatus,
 } from './mutations/structuralRename'
+import {
+  captureStructuralAdd,
+  STRUCTURAL_ADD_DEFERRED_NOTICE,
+  STRUCTURAL_ADD_LIFECYCLE_LIMIT,
+  WIRE_ADDABLE_NODE_KINDS,
+  type StructuralAddIntent,
+  type StructuralAddLifecycleRecord,
+  type StructuralAddTerminalStatus,
+} from './mutations/structuralAdd'
 import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
@@ -746,6 +760,29 @@ interface CanvasState {
    */
   structuralRenameLifecycle: StructuralRenameLifecycleRecord[]
   /**
+   * 0.50.0: add gestures awaiting the wire, captured SYNCHRONOUSLY against the
+   * POST-add graph — the new node only exists after the write. Drained by
+   * `useStructuralAddEvents`, which is the ONE sender.
+   */
+  pendingStructuralAdds: StructuralAddIntent[]
+  /**
+   * 0.50.0 — ATTEMPT AND COMPLETION AUTHORITY FOR EVERY ADD PUT ON THE WIRE.
+   *
+   * ⚠ THE QUEUE ABOVE IS NOT ENOUGH, and the gap is the same measured one the
+   * rename lane closed: the drain removes an intent from `pendingStructuralAdds`
+   * and THEN awaits the server, so between those two moments the gesture lived
+   * only in a closure owned by whichever component happened to be mounted.
+   * `useConversation` gates its optimistic resolution on `!isAbort` and its abort
+   * arm handles `factor_value_edit` ONLY, so an interrupted add resolved NEITHER
+   * way: no removal, no confirmation, no sentence, and nothing in state to say an
+   * attempt had ever been made. The node simply stood, and vanished on reload.
+   *
+   * Three outcomes stay resolvable here — `committed` / `refused` /
+   * `unconfirmed` — and the record survives a remount, a panel close and a route
+   * change, because it is store state rather than a closure.
+   */
+  structuralAddLifecycle: StructuralAddLifecycleRecord[]
+  /**
    * Canvas ids the server has PROVEN removed from the saved model — written
    * ONLY from a `'proven'` `structural_delete` receipt.
    *
@@ -945,7 +982,29 @@ interface CanvasState {
   viewMode: 'standard' | 'expert'
   setViewMode: (mode: 'standard' | 'expert') => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
-  addNode: (pos?: { x: number; y: number }, type?: NodeType) => LimitExceeded | null
+  /**
+   * Create a node.
+   *
+   * ⭐⭐ `label` IS OPTIONAL AND ITS ADDITION FIXES A REAL DEFECT, not an
+   * ergonomic wrinkle. Two callers — `YourDecisionSection.addNamedNode` and
+   * `HeroSection.commitGoal` — previously did `addNode()` → scan the node list
+   * → `updateNodeLabel()`. That is wrong twice over now that BOTH actions carry
+   * durable writers: it puts TWO turns on the wire for ONE gesture, and the
+   * second is doomed, because the rename's `expected_label` was read from the
+   * node the add is still trying to create. Worse, the scan found the last node
+   * OF A KIND (`nodes.filter(n => kindOf(n) === kind).at(-1)`) — a VALUE
+   * PREDICATE another node satisfies the moment anything else adds one
+   * (CLAUDE.md trap 19). Naming the node at creation removes both.
+   *
+   * ⚠ NO VALUE IS SEEDED, HERE OR ANYWHERE ON THIS PATH. A new node's data is
+   * `{ label }` and nothing else. See `mutations/structuralAdd.ts`'s header for
+   * why that is the load-bearing property of this whole lane and not a detail.
+   */
+  addNode: (
+    pos?: { x: number; y: number },
+    type?: NodeType,
+    label?: string,
+  ) => LimitExceeded | null
   /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
   addNodeWithEdge: (
     pos: { x: number; y: number },
@@ -1210,6 +1269,50 @@ interface CanvasState {
   takePendingStructuralDeletes: () => StructuralDeleteIntent[]
   /** 0.50.0: the rename twin of the above — one atomic read-and-clear. */
   takePendingStructuralRenames: () => StructuralRenameIntent[]
+  /** 0.50.0: the add twin — one atomic read-and-clear. */
+  takePendingStructuralAdds: () => StructuralAddIntent[]
+  /**
+   * 0.50.0: move the HEAD of the add queue into the lifecycle as `in_flight`, in
+   * ONE `set()`, and return it. Null when the queue is empty.
+   *
+   * ⭐ THE ATOMICITY IS THE POINT — the same review P1 the rename lane fixed.
+   * Taking the whole batch and then awaiting each send left every gesture after
+   * the first in neither the queue nor any record; an abort or a remount in that
+   * window destroyed the only evidence the attempt existed.
+   */
+  beginStructuralAddSend: () => StructuralAddLifecycleRecord | null
+  /**
+   * 0.50.0: write the terminal verdict for one add attempt.
+   *
+   * IDEMPOTENT BY DESIGN — a record that already holds a terminal status is LEFT
+   * ALONE. Two authorities can reach one attempt (the resolver inside `sendTurn`,
+   * and the drain's every-exit settle), and a late arm rewriting a `committed`
+   * verdict as `unconfirmed` would tell the user their saved node might not be
+   * saved: a lie in the other direction.
+   */
+  settleStructuralAdd: (
+    intentId: string,
+    status: StructuralAddTerminalStatus,
+  ) => void
+  /**
+   * 0.50.0: take back a node the server did not save.
+   *
+   * ⚠ DELIBERATELY NOT `deleteNodeById`. That action records a
+   * `structural_delete` intent, which would tell the server to remove a node it
+   * never held — a second, false write chasing a refused first one. This removes
+   * the node and nothing else.
+   *
+   * ⚠ AND IT RAISES `_externalMutationActive` IN THE SAME `set()` AS THE WRITE,
+   * exactly as `applyStructuralDeleteRevert` does and for the same measured
+   * reason (mutant MUT-ORDER): a counter raised in a LATER `set()` arrives after
+   * the differ's subscriber has already seen the change, so `useGraphEditEvents`
+   * would emit a `direct_graph_edit` announcing a removal the user never made.
+   *
+   * Takes NO history entry: it is a correction of a write the user already saw,
+   * and "Added factor" sitting in the undo stack for a node that is gone would
+   * offer to restore something the model has refused.
+   */
+  applyStructuralAddRevert: (removal: { nodeId: string }) => void
   /**
    * 0.50.0: move the HEAD of the rename queue into the lifecycle as
    * `in_flight`, in ONE `set()`, and return it. Null when the queue is empty.
@@ -1679,6 +1782,14 @@ const DECISION_CONTEXT_CLEAR = {
   // graph this canvas is no longer showing — the same argument as the queue
   // above, applied to the record of what happened to it.
   structuralRenameLifecycle: [] as StructuralRenameLifecycleRecord[],
+  // 0.50.0: same rule for adds. An undrained add names an id minted into THIS
+  // graph; replayed against a replaced context it would assert a node the user
+  // never created there.
+  pendingStructuralAdds: [] as StructuralAddIntent[],
+  // 0.50.0: and the same for its verdict record, for the same reason as the
+  // rename's — a late settle must not write a verdict about a graph this canvas
+  // is no longer showing.
+  structuralAddLifecycle: [] as StructuralAddLifecycleRecord[],
   // 0.48.0: the durable-delete record names ids in ONE decision's graph.
   // Carrying it across a context replacement would guard a new canvas against
   // deletions made in a decision the user has left — and could withhold a node
@@ -2004,6 +2115,69 @@ function recordStructuralRenameIntent(
   if (typeof window === 'undefined') return
   window.dispatchEvent(new CustomEvent('topbar:show-toast', {
     detail: { message: STRUCTURAL_RENAME_DEFERRED_NOTICE, level: 'warning' },
+  }))
+}
+
+/**
+ * Record one add gesture for the wire, against the POST-add graph.
+ *
+ * DELIBERATELY NOT GATED ON SUCCESS, the same asymmetry the rename twin
+ * documents and for the same derived reason. The DELETE twin refuses the local
+ * removal outright when it cannot express it durably, because a locally removed
+ * node that resurrects on reload is the P0 that lane closed. An add that cannot
+ * be sent still applies LOCALLY and simply claims no durability — which is what
+ * the product did for its entire history before 0.50.0. Blocking it would be a
+ * regression bought for tidiness.
+ *
+ * ⚠ AND IT IS NOT CALLED from producer-driven writes: `captureStructuralAdd`
+ * reads `_externalMutationActive`, the estate's existing name for "this is CEE's
+ * own write coming back". Echoing a server-created node back to the server as a
+ * user add would be a second authority arguing with the first — and here it
+ * would mint a duplicate id, which is the one collision `base_graph_hash`
+ * provably cannot catch.
+ */
+function recordStructuralAddIntent(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  nodeId: string,
+): void {
+  const state = get()
+  const result = captureStructuralAdd({
+    nodesAfter: state.nodes,
+    nodeId,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    persistableKinds: WIRE_ADDABLE_NODE_KINDS,
+    // THE DOMAIN'S ONE FALLBACK CHAIN, never a second copy — `resolveNodeTypeLiteral`
+    // owns `node.type ?? data.kind ?? data.type` precisely so every surface gets
+    // the same answer, and it returns null outside the taxonomy rather than
+    // inventing a default.
+    resolveKind: (n) => resolveNodeTypeLiteral(n),
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sa-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) return
+  set((s) => ({ pendingStructuralAdds: [...s.pendingStructuralAdds, result.intent] }))
+
+  // ⭐⭐ THE DEFERRED ARM. On a restored graph there is no `graph_hash` yet, so
+  // the model genuinely does not hold this node and will not until the next
+  // turn. The queue is memory-only, so a reload before then loses it — and
+  // SAYING SO IS THE POINT. UI #1025 was reverted for shipping a control that
+  // HID exactly this loss; blocking the add instead would regress a capability
+  // the product has always had. The third option is the honest one: apply it,
+  // queue it, and tell the user exactly where it stands.
+  //
+  // ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND. A scratch graph with no
+  // scenario and no authoritative graph has no saved model, so there is nothing
+  // to disclose and a notice would be noise. Same predicate as the rename lane's.
+  if (!result.deferred) return
+  const ownsServerGraph = state.currentScenarioId != null || state.lastAuthoritativeGraph != null
+  if (!ownsServerGraph) return
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: { message: STRUCTURAL_ADD_DEFERRED_NOTICE, level: 'warning' },
   }))
 }
 
@@ -2379,6 +2553,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // 0.50.0: no rename has been attempted at cold start, so there is no verdict
   // to hold — and an empty lifecycle is "nothing attempted", never "all fine".
   structuralRenameLifecycle: [],
+  // 0.50.0: no add gestures awaiting the wire.
+  pendingStructuralAdds: [],
+  // 0.50.0: no add has been attempted at cold start — an empty lifecycle is
+  // "nothing attempted", never "all fine".
+  structuralAddLifecycle: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -2493,7 +2672,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
   },
 
-  addNode: (pos, type = 'decision') => {
+  addNode: (pos, type = 'decision', label) => {
     // Node limit check (PRD guardrail)
     const { nodes, edges, engineLimits } = get()
     const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 0, engineLimits)
@@ -2502,7 +2681,30 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set, `Added ${type}`)
     invalidateAnalysisReady(get, set, `add_node (${type})`)
     const id = get().createNodeId()
-    set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
+    // ⚠ `{ label }` AND NOTHING ELSE — no prior, no observedState, no category,
+    // no value of any kind. The explicit-unknown guarantee starts here, and
+    // `structuralAdd.explicitUnknown.spec.ts` fails loud if a key is ever added.
+    const resolvedLabel =
+      typeof label === 'string' && label.trim().length > 0 ? label.trim() : `Node ${id}`
+    set((s) => ({
+      nodes: [
+        ...s.nodes,
+        { id, type, position: pos || { x: 200, y: 200 }, data: { label: resolvedLabel } },
+      ],
+    }))
+    // ⭐ CAPTURE AFTER THE WRITE, and that ordering is the whole point — the
+    // mirror image of `updateNodeLabel`'s. A rename asserts `expected_label`, a
+    // fact about the graph BEFORE the gesture, so it must capture first. An add
+    // asserts the EXISTENCE of something that did not exist before, so its
+    // subject only exists once the node is in the store. Same discipline — read
+    // the graph the assertion is about — reaching opposite sides of one `set()`.
+    //
+    // ⭐⭐ THIS IS THE ONE CHOKEPOINT EVERY ADD GESTURE CROSSES: the pane context
+    // menu, all six Command Palette "Add …" commands, the pre-analysis AddRow
+    // and the hero goal field all land here. Capturing at any one of them would
+    // have left the others silent — the defect `StructuralDeleteDrainHost`'s
+    // header records as having shipped dark under a fully green suite.
+    recordStructuralAddIntent(get, set, id)
     return null
   },
 
@@ -5619,6 +5821,67 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (queued.length === 0) return []
     set({ pendingStructuralRenames: [] })
     return queued
+  },
+
+  takePendingStructuralAdds: () => {
+    const queued = get().pendingStructuralAdds
+    if (queued.length === 0) return []
+    set({ pendingStructuralAdds: [] })
+    return queued
+  },
+
+  beginStructuralAddSend: () => {
+    const queued = get().pendingStructuralAdds
+    if (queued.length === 0) return null
+    const intent = queued[0]!
+    const record: StructuralAddLifecycleRecord = {
+      intent,
+      // Captured at DISPATCH, exactly like the resolver's `scenarioIdAtDispatch`
+      // — read later it would name whatever decision the user has since opened.
+      scenarioId: get().currentScenarioId ?? null,
+      status: 'in_flight',
+    }
+    // ONE `set()`: the gesture leaves the queue and enters the lifecycle in the
+    // same transaction, so no observer can ever see it in neither.
+    set((s) => ({
+      pendingStructuralAdds: s.pendingStructuralAdds.slice(1),
+      structuralAddLifecycle: [...s.structuralAddLifecycle, record].slice(
+        -STRUCTURAL_ADD_LIFECYCLE_LIMIT,
+      ),
+    }))
+    return record
+  },
+
+  settleStructuralAdd: (intentId, status: StructuralAddTerminalStatus) => {
+    set((s) => {
+      const idx = s.structuralAddLifecycle.findIndex((r) => r.intent.id === intentId)
+      if (idx === -1) return {}
+      const existing = s.structuralAddLifecycle[idx]!
+      // IDEMPOTENT: a terminal verdict is never rewritten. Two authorities can
+      // reach one attempt (the resolver inside `sendTurn`, and the drain's
+      // every-exit settle), and the second must not downgrade the first.
+      if (existing.status !== 'in_flight') return {}
+      const next = s.structuralAddLifecycle.slice()
+      next[idx] = { ...existing, status }
+      return { structuralAddLifecycle: next }
+    })
+  },
+
+  applyStructuralAddRevert: (removal) => {
+    set((s) => {
+      if (!s.nodes.some((n) => n.id === removal.nodeId)) return {}
+      return {
+        nodes: s.nodes.filter((n) => n.id !== removal.nodeId),
+        // ⚠ NOT A USER EDIT — an add being REVERTED. Counter raised in the SAME
+        // `set()` as the write; a later one arrives after the differ's
+        // subscriber has already seen the change, and `useGraphEditEvents`
+        // would then announce a removal the user never made
+        // (`applyStructuralDeleteRevert`'s mutant MUT-ORDER, same mechanism).
+        _externalMutationActive: s._externalMutationActive + 1,
+      }
+    })
+    set((s) => ({ _externalMutationActive: Math.max(0, s._externalMutationActive - 1) }))
+    markAnalysisFreshnessDirty(get, set)
   },
 
   beginStructuralRenameSend: () => {

@@ -22,7 +22,6 @@ import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, HERO_COPY, SPARK_PROMPTS } from '../constants'
-import { kindOf } from '../selectors/graphFacts'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { BestNextStep } from './BestNextStep'
 import { CoachingSlot } from './CoachingSlot'
@@ -74,15 +73,16 @@ export const HeroSection = memo(function HeroSection({
         store.updateNodeLabel(hero.goal.nodeId, label)
         return true
       }
-      // No goal yet: create one, then name it.
-      const limit = store.addNode(undefined, 'goal')
+      // No goal yet: create it NAMED, in one gesture.
+      //
+      // ⭐ It used to add, scan for "the last goal node", then rename — two
+      // turns on the wire for one gesture once both actions carry durable
+      // writers, with the second doomed (its `expected_label` describes a node
+      // the add has not finished creating). The scan also bound by a VALUE
+      // PREDICATE rather than by identity (trap 19). See `addNamedNode` in
+      // `model/YourDecisionSection.tsx` for the full reasoning.
+      const limit = store.addNode(undefined, 'goal', label)
       if (limit) return FIELD_FEEDBACK_COPY.modelSizeLimit
-      const created = useCanvasStore
-        .getState()
-        .nodes.filter(n => kindOf(n) === 'goal')
-        .at(-1)
-      if (!created) return FIELD_FEEDBACK_COPY.goalEmptyHint
-      useCanvasStore.getState().updateNodeLabel(created.id, label)
       return true
     },
     [hero.goal],

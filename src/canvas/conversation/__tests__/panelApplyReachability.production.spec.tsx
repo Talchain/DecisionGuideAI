@@ -575,4 +575,34 @@ describe('production panel-apply route', () => {
 
     expect(legacySource).toContain('useStructuralRenameEvents(')
   })
+
+  // ═══ schemas 0.50.0 — the durable-ADD drain gets the same pin ══════════════
+  //
+  // Same discipline, written WITH the hosts rather than after a dark ship. The
+  // panel-apply limb above is the record of what omitting this costs: a working
+  // capability, a fully green suite, and no instrument anywhere that could see
+  // the difference — the delete drain was hosted only in DraftChat, which mounts
+  // ONLY when aiPanelV2 is OFF, and it is ON for every fresh user. Deleting
+  // EITHER add host reds here.
+  it('the durable-add drain is mounted on BOTH flag postures', () => {
+    const graphSource = readFileSync(resolve(process.cwd(), 'src/canvas/ReactFlowGraph.tsx'), 'utf8')
+    const legacySource = readFileSync(resolve(process.cwd(), 'src/canvas/components/DraftChat.tsx'), 'utf8')
+    const flagOnHost = readFileSync(
+      resolve(process.cwd(), 'src/canvas/conversation/StructuralAddDrainHost.tsx'),
+      'utf8',
+    )
+
+    expect(graphSource.match(/<StructuralAddDrainHost \/>/g)).toHaveLength(1)
+    // ⚠ ASSERTS THE MOUNT PATH, not merely the presence of the string. A host
+    // rendered outside the provider gets no conversation and sends nothing, and
+    // a bare `toContain` on the whole file cannot tell the two apart.
+    const providerBlock = graphSource.slice(
+      graphSource.indexOf('<ConversationProvider>'),
+      graphSource.indexOf('</ConversationProvider>'),
+    )
+    expect(providerBlock).toContain('<StructuralAddDrainHost />')
+    expect(flagOnHost).toContain('useStructuralAddEvents(sendSystemEvent)')
+
+    expect(legacySource).toContain('useStructuralAddEvents(')
+  })
 })

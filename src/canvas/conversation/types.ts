@@ -1022,6 +1022,40 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // pins schemas 0.50.0 and its `SYSTEM_EVENT_HANDLING` declares
   // `structural_rename: 'mutating'` (the writer landed in #1273, `a705319f`).
   'structural_rename',
+  // schemas 0.50.0 — the DURABLE NODE writer, and the close of "the factor I
+  // added wasn't there when I came back". A canvas add previously reached CEE
+  // only as a `direct_graph_edit` NOTIFICATION, which CEE classifies
+  // 'ack_and_commit': a turn row and NO graph write. CEE's own dispatch table
+  // names this exact harm — "the user's new factor survives exactly until the
+  // next reload and then silently vanishes — a lie told by omission".
+  //
+  // ⚠ IT CARRIES NO VALUE, AND THAT IS THE CONTRACT'S DECISION, NOT AN
+  // OVERSIGHT TO CORRECT. The member is exactly `node_id`, `node_kind`, `label`
+  // and `base_graph_hash`; the contract states that "EVERY OPTIONAL NodeV3 FIELD
+  // IS DELIBERATELY ABSENT — `category`, `observed_state`, `goal_threshold` and
+  // the rest", because "a node created here is refined by the value/prior/edge
+  // members that already exist". CEE stamps a new factor with an explicit
+  // ignorance prior and REFUSES ITS OWN COMMIT if any numeric level reaches the
+  // persisted bytes. Do not "helpfully" widen this — see
+  // `mutations/structuralAdd.ts`.
+  //
+  // ⚠ IT HAS NO `expected_label` TWIN, AND ITS ABSENCE IS CORRECT RATHER THAN AN
+  // INCONSISTENCY WITH `structural_rename` ABOVE. Rename needs one because
+  // `label` sits outside CEE's analysis-affecting hash projection, so two
+  // concurrent renames move NO hash. An add ALWAYS moves the hash — `projectNode`
+  // unconditionally emits `{id, kind}` — so the stale gate genuinely covers it.
+  // The one thing `base_graph_hash` cannot catch is a colliding id, because that
+  // id is already in the graph the user was looking at, and CEE gates that
+  // separately by reading its own persisted graph.
+  //
+  // ⚠ READER-FIRST, same rule as the two above and for the same mechanical
+  // reason: every member is `.strict()` inside a `discriminatedUnion`, so a CEE
+  // pinned ≤0.49.0 fails the DISCRIMINATOR and rejects the WHOLE turn (422).
+  // Derived rather than assumed — CEE staging `d5455355` pins schemas 0.50.0 and
+  // its `SYSTEM_EVENT_HANDLING` declares `structural_add: 'mutating'`
+  // (`system-events/dispatch.ts:315`), with the writer at
+  // `system-events/structural-add.ts`.
+  'structural_add',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */

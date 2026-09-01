@@ -179,6 +179,45 @@ export function removeStructuralDeleteClaims(
   for (const op of diff.edgeOps.values()) diff.operations.add(op)
 }
 
+/**
+ * Drop from a diff the ADDS a `structural_add` intent has already claimed, so
+ * one gesture produces one turn.
+ *
+ * ⚠⚠ WITHOUT THIS, WIRING THE DURABLE ADD WRITER *INTRODUCES* A DEFECT RATHER
+ * THAN ONLY CLOSING ONE. `diffSnapshots` records a new id as `nodeOps: 'add'`
+ * and `buildSummary`/the emitter turn it into a `direct_graph_edit` with
+ * `change_type: 'add_node'`. So a single add gesture would reach CEE TWICE:
+ * once as the durable write, and once as a notification claiming the same node
+ * changed — and the notification half is the `'ack_and_commit'` no-graph-write
+ * path the durable verb exists to replace. Two turns describing one gesture is
+ * the second-authority defect this estate pays for most often.
+ *
+ * Bound by IDENTITY — the intent's exact node id — never by "this diff contains
+ * adds". A gesture that added A while a producer added B must still report B.
+ *
+ * The op check is load-bearing in the other direction too: an id that was ADDED
+ * by the gesture and REMOVED by something else in the same debounce window is a
+ * genuine removal and stays.
+ */
+export function removeStructuralAddClaims(
+  diff: DiffAccumulator,
+  pending: ReadonlyArray<{ nodeId: string }>,
+): void {
+  if (pending.length === 0) return
+  for (const intent of pending) {
+    if (diff.nodeOps.get(intent.nodeId) !== 'add') continue
+    diff.changedNodeIds.delete(intent.nodeId)
+    diff.nodeOps.delete(intent.nodeId)
+    diff.fieldsChanged.delete(intent.nodeId)
+  }
+  // `operations` is a set of op KINDS, not of ids, so it must be re-derived from
+  // what survived — leaving a stale 'add' would tell CEE an addition happened
+  // that this notification no longer names.
+  diff.operations.clear()
+  for (const op of diff.nodeOps.values()) diff.operations.add(op)
+  for (const op of diff.edgeOps.values()) diff.operations.add(op)
+}
+
 function buildSummary(acc: DiffAccumulator): string {
   const parts: string[] = []
   const nodeCount = acc.changedNodeIds.size
@@ -294,6 +333,10 @@ export function useGraphEditEvents(
       useGuidanceStore.getState().clearGuidanceItems()
 
       removeStructuralDeleteClaims(diff, curr.pendingStructuralDeletes)
+      // 0.50.0 — the same subtraction for the durable ADD writer. See
+      // `removeStructuralAddClaims`: without it, wiring that writer would put
+      // two turns on the wire for one gesture.
+      removeStructuralAddClaims(diff, curr.pendingStructuralAdds)
       if (diff.changedNodeIds.size === 0 && diff.changedEdgeIds.size === 0) {
         // Every change in this diff is already on the wire as a durable
         // removal. Advance the snapshot and emit nothing — one gesture, one
