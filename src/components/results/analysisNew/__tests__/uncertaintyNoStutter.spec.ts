@@ -49,6 +49,27 @@ const uncertaintyRows = (data: ResultsSectionDataReturn) =>
 const withUncertainties = (uncertainties: UncertaintyItem[]) =>
   makeData({ confidence: { evidenceGapsAssessed: true, uncertainties } })
 
+/**
+ * ⚠⚠ THE ELLIPSIS IS WHY THE OBVIOUS ASSERTION CANNOT SEE THIS DEFECT — and the
+ * first draft of this file shipped that mistake, caught by its own mutant.
+ *
+ * `truncateAtWordBoundary` appends `'…'` (`src/utils/text.ts:24`), so the cut
+ * headline is NOT a string prefix of the body: `body.startsWith(headline)` is
+ * FALSE for exactly the rows that stutter. A guard written that way passes on
+ * the defect it was written to catch — trap 13b, a guard agreeing with itself —
+ * and mutant `M3_restore_truncated_headline` proved it by leaving this file's
+ * corpus test GREEN with the truncation restored.
+ *
+ * So the suffix is stripped before the comparison. The predicate is the one a
+ * READER applies: with the "there is more" marker taken off, does the label just
+ * repeat the opening of the sentence underneath it?
+ */
+function isPrefixLabel(row: { headline: string; implication: string }): boolean {
+  if (row.headline === '' || row.implication === '') return false
+  const label = row.headline.replace(/…$/, '')
+  return label.length > 0 && row.implication.startsWith(label)
+}
+
 /** The measured sentence, at its measured length. */
 const LONG_SENTENCE =
   'If "Operational Overhead Burden → Operational Overhead Exceeds Team Capacity" changes significantly, "RudderStack" could become the better choice'
@@ -75,7 +96,7 @@ describe('an uncertainty row never says its own sentence twice', () => {
     expect(row.implication).toBe(LONG_SENTENCE)
     // And it must not also appear, cut, as a label above itself.
     expect(row.headline).toBe('')
-    expect(row.implication.startsWith(row.headline + '…')).toBe(false)
+    expect(isPrefixLabel(row)).toBe(false)
   })
 
   it('⭐ THE OTHER HALF: a THRESHOLD row keeps its producer-supplied label AND its body', () => {
@@ -125,7 +146,7 @@ describe('an uncertainty row never says its own sentence twice', () => {
     for (const row of rows) {
       if (row.headline === '' || row.implication === '') continue
       expect(
-        row.implication.startsWith(row.headline),
+        isPrefixLabel(row),
         `row "${row.id}" repeats its label at the head of its body`,
       ).toBe(false)
     }
