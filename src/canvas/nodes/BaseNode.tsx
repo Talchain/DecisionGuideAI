@@ -41,8 +41,6 @@ import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
-import { NODE_REGISTRY } from '../domain/nodes'
-import Tooltip from '../../components/Tooltip'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -255,9 +253,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // so the rendered node matches ELK's sizing assumptions.
   const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
 
-  // Canvas view mode: 'decision' (clean) vs 'model' (full detail)
-  const viewMode = useCanvasStore(s => s.viewMode)
-
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
@@ -341,7 +336,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   })()
 
   // Accessible name combines node type and label
-  const accessibleName = `${nodeType} node: ${label}`
+  // ⚠ THE TYPE DESCRIPTION RIDES HERE BECAUSE ITS TOOLTIP IS GONE. Moving the
+  // glyph onto the connector (below) deleted the only surface that told a user
+  // what a "factor" or an "outcome" IS — a real affordance removed by a purely
+  // visual change, which is the quiet kind of regression. The glyph itself
+  // cannot carry it back: it is `pointer-events-none` so React Flow's Handle
+  // keeps its clicks, and an element that cannot be hovered cannot hold a
+  // tooltip. So the description goes where this PR already says the type
+  // survives. ⚠ A VISUAL SURFACE IS STILL OWED — rowed in CANVAS-BACKLOG.md;
+  // a sighted user currently has no way to ask what a node type means.
+  const accessibleName = `${nodeType} node: ${label}. ${NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''}`.trim()
 
   /*
    * ⭐⭐ REGISTER THIS NODE'S HANDLE BOUNDS ONCE, ON MOUNT — WITHOUT THIS THE

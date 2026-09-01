@@ -113,11 +113,41 @@ export const NODE_TITLE_WIDEST_WORD_PX = 100
  *
  * Named rather than folded into the sum below so the derivation still says
  * where the width came from.
+ *
+ * ⚠⚠ IT IS ADDED **UNSCALED**, AND THAT IS THE WHOLE CORRECTNESS OF THIS FILE.
+ *
+ * The first cut wrote `(WIDEST_WORD + RECLAIMED) * MAX_LABEL_COUNTER_SCALE`,
+ * beneath a comment promising "card geometry is therefore unchanged". The
+ * comment was the intent; the arithmetic was not. `MAX_LABEL_COUNTER_SCALE` is
+ * 2, so multiplying the reclaimed column doubled it: `NODE_LAYOUT_MIN_W` went
+ * 244 → 264, the lower packing cliff went 1132 → 1212, and at the pinned
+ * budget of 1185 every tier of 7–10 siblings dropped from FOUR cards per row to
+ * THREE.
+ *
+ * ⛔ WHICH IS THE OPPOSITE OF THIS PR'S PURPOSE. Fewer cards per row makes the
+ * graph taller, a taller graph fits at a lower zoom, and a lower zoom is
+ * precisely the "not fit for purpose on a normal laptop-sized screen" defect
+ * this work exists to fix. A visual tidy-up would have shipped a layout
+ * regression, and nothing on screen would have named it.
+ *
+ * The distinction the arithmetic missed: `MAX_LABEL_COUNTER_SCALE` exists to
+ * keep TEXT legible at the zoom the product picks, so it scales things measured
+ * in TEXT — the widest word. The reclaimed column is CHROME: a fixed 20px that
+ * an icon used to occupy and no longer does. Chrome is not counter-scaled, and
+ * scaling it counts a decision twice.
+ *
+ * Caught by `layoutViewportIndependence.guard.spec.ts` — five failures, three of
+ * them "the canonical shape moved". The R1 viewport-independence half stayed
+ * GREEN throughout, so the guard was not reporting a broken ruling; it was
+ * reporting that the SHAPE changed, which is exactly the discrimination it was
+ * built to make. With the scale removed the recorded hashes match again, with
+ * no snapshot re-recorded — which is the evidence that the geometry really is
+ * unchanged rather than merely re-pinned to whatever it became.
  */
 export const NODE_TITLE_RECLAIMED_PX = 20
 
 export const NODE_TITLE_MIN_MEASURE_PX =
-  (NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX) * MAX_LABEL_COUNTER_SCALE
+  NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE + NODE_TITLE_RECLAIMED_PX
 
 /**
  * Layout-algorithm lower bound: the narrowest ELK card width. Not a visual

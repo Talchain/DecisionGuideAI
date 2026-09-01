@@ -29,7 +29,6 @@ import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '
 import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
-  NODE_HEADER_GAP_PX,
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
   NODE_SINGLE_ROW_FAIR_SHARE_W,
@@ -81,8 +80,14 @@ describe('the label scale is the geometry authority', () => {
   it('the title measure carries the scale — this is the coupling #758 was missing', () => {
     // Still the #758 coupling — the measure carries the scale — with the glyph's
     // reclaimed 20px now inside the text term rather than in the header reserve.
+    //
+    // ⚠ THE RECLAIMED COLUMN IS ADDED OUTSIDE THE MULTIPLICATION. It is chrome,
+    // not text: a fixed 20px an icon used to sit in. Inside the brackets it gets
+    // counter-scaled, which silently widened every card by 20px and cost the
+    // board a whole card per row — see `nodeLayoutConstants.ts` for the measured
+    // consequence. Only the WIDEST WORD is text, so only the widest word scales.
     expect(NODE_TITLE_MIN_MEASURE_PX).toBe(
-      (NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX) * MAX_LABEL_COUNTER_SCALE,
+      NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE + NODE_TITLE_RECLAIMED_PX,
     )
     // ⚠ AND THE COUPLING ITSELF, ASSERTED SEPARATELY. The line above would pass
     // for a hand-set constant that happened to equal today's product; this fails
@@ -159,16 +164,45 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // the title is 20px wider. Both halves are asserted: the sum is unchanged
     // (below), and the reserve is now zero (earlier in this file). Testing only
     // one of the two would let the width silently leave the card altogether.
-    const measureAt1x = NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX
+    const measureAt1x = NODE_TITLE_WIDEST_WORD_PX * 1 + NODE_TITLE_RECLAIMED_PX
     const cardAt1x = measureAt1x + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X
     expect(cardAt1x).toBeLessThanOrEqual(145)
     expect(cardAt1x).toBeGreaterThanOrEqual(140)
 
+    // ⭐⭐ AND THE SAME CLAIM AT THE SCALE THE PRODUCT ACTUALLY SHIPS, WHICH IS
+    // THE ASSERTION THAT WAS MISSING.
+    //
+    // Everything above evaluates at scale 1 — and at scale 1 the defect this
+    // block was written to prevent is INVISIBLE. Counter-scaling the reclaimed
+    // column is a no-op when the scale is 1, so the first cut of this file
+    // passed all of it while shipping a 20px-wider card at the real scale of 2.
+    // A control evaluated at the one value where the fault cannot appear is not
+    // a control; it is the fault's alibi.
+    //
+    // 244 is the SHIPPED PRE-MOVE GEOMETRY (100*2 + 20 reserve + 24 padding),
+    // written as a literal on purpose: re-deriving it from the same constants
+    // the product uses would make this agree with any arithmetic they happen to
+    // express. The whole promise of moving the glyph is that the card does not
+    // change size — so the number is pinned from BEFORE the move, and if the
+    // card ever legitimately resizes this fails and someone states why.
+    expect(NODE_LAYOUT_MIN_W).toBe(244)
+    expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
+
     // …and only the TEXT measure carries the scale. The icon, its gap and the
     // card padding are not text and must NOT be inflated: doing so would widen
     // every card for no legibility gain. No hand-added slack anywhere else.
+    //
+    // ⚠ THE GLYPH'S RECLAIMED COLUMN JOINED THAT LIST ON 1 Sep 2026, and this
+    // line is where it had to be said out loud. `measureAt1x` now carries two
+    // things of different kinds — the widest WORD, which scales, and the 20px
+    // the icon vacated, which does not — so the sum can no longer be written as
+    // one multiplication. Spelling the two terms apart is the point: it is the
+    // distinction the shipped constant got wrong.
     expect(NODE_LAYOUT_MIN_W).toBe(
-      measureAt1x * MAX_LABEL_COUNTER_SCALE + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
+      NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE +
+        NODE_TITLE_RECLAIMED_PX +
+        NODE_HEADER_RESERVE_PX +
+        NODE_CARD_PADDING_X,
     )
   })
 
