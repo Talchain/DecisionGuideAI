@@ -719,3 +719,106 @@ describe('the engine warning arrives before the reading it qualifies', () => {
     expect(screen.queryByTestId('critique-warning-strip')).toBeNull()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * ⭐⭐ THE COACHING SITS DIRECTLY UNDER THE READING IT RESPONDS TO.
+ *
+ * Paul's verdict on this tab was "still an absolute mess… such a lack of
+ * consistency in the design", and the standing explanation was that the panel
+ * coaches you until you press Analyse and then switches to reporting. Derived
+ * at the bytes, that explanation is FALSE: `strengthen:success-measure` gates
+ * on `goalThreshold == null`, not on the run completing, so it fires PRE-RUN,
+ * and post-run the coaching gets RICHER (one card becomes five).
+ *
+ * The coaching never stopped. It was BURIED — seventh of ten mounts, below the
+ * ranked options and below Key insights. This pins the order that fixes it:
+ * what happened (the glance) → what to do about it (Strengthen) → the detail.
+ *
+ * ⚠ WHY IT LIVES HERE AND NOWHERE ELSE. Order is a property of the TAB, not of
+ * any section, so no per-section spec can see it — the same reason the warning
+ * strip's placement is pinned in this file. `firstViewportCensus` asserts text
+ * redundancy across the assembled surface and `collapsedIA` asserts set
+ * membership; both are order-blind by construction and stayed green through
+ * this move, which is correct and is exactly why neither can stand in for this.
+ *
+ * ⚠ AND IT BINDS BY IDENTITY, NOT BY "SOMETHING MOVED" (trap 19). Proven with
+ * a DISCRIMINATING PAIR rather than a single biting mutant:
+ *   RED   — restoring the old order (Strengthen back below Key insights) fails
+ *           `Strengthen precedes OptionsComparison` by name.
+ *   GREEN — swapping Drivers and Uncertainty, a real reorder of two OTHER
+ *           sections, leaves every assertion here passing.
+ * One alone would only show sensitivity to some change; the pair shows the
+ * assertion is about the named pair.
+ */
+describe('the coaching sits directly under the reading it responds to', () => {
+  /** `a` comes before `b` in document order. */
+  const precedes = (a: Element, b: Element) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+  it('mounts Strengthen ABOVE the options comparison, and below the glance', () => {
+    // `genuineDecision()` carries two labelled options, so OptionsComparison
+    // actually mounts — it returns null on `totalCount === 0`, and an absent
+    // element would make this pass for the wrong reason.
+    renderBody(genuineDecision())
+
+    const glance = screen.getByTestId('analysis-new-glance')
+    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    const options = screen.getByTestId('analysis-new-options')
+
+    // PRECONDITIONS, PINNED IN-TEST: three distinct elements really are on the
+    // surface, so neither ordering claim below can hold vacuously.
+    expect(new Set([glance, strengthen, options]).size).toBe(3)
+
+    // WHAT HAPPENED → WHAT TO DO ABOUT IT.
+    expect(
+      precedes(glance, strengthen),
+      'the glance must stay above the coaching: coaching that arrives before the finding it answers has no subject',
+    ).toBe(true)
+
+    // WHAT TO DO ABOUT IT → THE DETAIL. This is the move itself.
+    expect(
+      precedes(strengthen, options),
+      'Strengthen must sit above the options comparison — burying it below the detail is the defect this pins',
+    ).toBe(true)
+  })
+
+  it('keeps the coaching above every detail section, not merely above one of them', () => {
+    // The move is "above the DETAIL", and the options comparison is only the
+    // first of it. Bound section by section so a partial restoration cannot
+    // pass by clearing one.
+    //
+    // ⚠ THE LIST IS A HAND-MAINTAINED MIRROR (trap 12) AND IT HAS ALREADY BEEN
+    // SHORT ONCE: `analysis-new-checks` was missing until the readout was
+    // mounted, and a section absent from this list is silently uncovered while
+    // the case reads green. `getByTestId` THROWS on an id that does not
+    // render, so a stale entry fails loudly rather than dropping out — which
+    // is the property that makes adding to it safe and never adding the drift.
+    renderBody(genuineDecision())
+    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    const detail = [
+      'analysis-new-checks',
+      'analysis-new-options',
+      'analysis-new-key-insights',
+      'analysis-new-drivers',
+      'analysis-new-uncertainty',
+    ]
+    for (const id of detail) {
+      const section = screen.getByTestId(id)
+      expect(precedes(strengthen, section), `Strengthen must precede ${id}`).toBe(true)
+    }
+  })
+
+  it('the ordering probe can actually detect a wrong order', () => {
+    // ⭐ The discriminating half, in-test. Without it "everything is in order"
+    // could mean the probe is broken rather than the surface being right —
+    // `compareDocumentPosition` on a detached or identical node returns a mask
+    // with no FOLLOWING bit, which would read as a silent false.
+    const root = document.createElement('div')
+    root.innerHTML = '<i id="first"></i><i id="second"></i>'
+    const first = root.querySelector('#first')!
+    const second = root.querySelector('#second')!
+    expect(precedes(first, second)).toBe(true)
+    expect(precedes(second, first)).toBe(false)
+  })
+})
