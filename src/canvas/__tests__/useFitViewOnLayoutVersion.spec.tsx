@@ -21,6 +21,7 @@ import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 import { LABEL_LEGIBLE_ZOOM, AUTO_FIT_MAX_ZOOM } from '../utils/zoomLegibility'
 import { claimCameraForUser, releaseUserCameraClaim } from '../utils/userCameraClaim'
+import { currentModelKey } from '../utils/currentModelKey'
 
 const fitViewSpy = vi.fn()
 
@@ -286,7 +287,7 @@ describe('useFitViewOnLayoutVersion', () => {
       expect(fitViewSpy).toHaveBeenCalledTimes(1)
 
       // The user asks for the overview.
-      claimCameraForUser()
+      claimCameraForUser(currentModelKey())
 
       // The reserved box then changes for real — the same stimulus the case
       // above proves DOES re-fit, so this is not passing because nothing moved.
@@ -306,9 +307,18 @@ describe('useFitViewOnLayoutVersion', () => {
       rafSpy.mockRestore()
     })
 
-    it('a completed layout releases the claim — the product owns a frame it has just moved', () => {
+    it('a layout that brings a DIFFERENT model releases the claim — that frame is gone', () => {
       // The other direction, and it is not decoration: a claim that outlived the
-      // model would strand the camera on a graph whose every position has moved.
+      // model would strand the camera on a graph that no longer exists.
+      //
+      // ⚠ THIS TEST USED TO SAY "a completed layout releases the claim", full
+      // stop, and asserted it by laying out THE SAME (empty) MODEL. That was the
+      // defect #1096 fixed, written down as an expectation: `layoutVersion`
+      // incrementing was being read as "a new model arrived" when it also covers
+      // the corrective re-layouts `useMeasureThenLayout` runs on the model
+      // already on screen. The claim it tests is still real — it just has to be
+      // exercised with an actual model CHANGE, which is what now distinguishes
+      // the two cases.
       const rafCallbacks: Array<() => void> = []
       const rafSpy = vi
         .spyOn(globalThis, 'requestAnimationFrame')
@@ -318,10 +328,13 @@ describe('useFitViewOnLayoutVersion', () => {
         })
 
       renderHook(() => useFitViewOnLayoutVersion())
-      claimCameraForUser()
+      claimCameraForUser(currentModelKey())
 
       act(() => {
-        useCanvasStore.setState({ layoutVersion: 1 } as never)
+        useCanvasStore.setState({
+          nodes: [{ id: 'arrived_1', position: { x: 0, y: 0 }, data: {} }],
+          layoutVersion: 1,
+        } as never)
       })
       act(() => {
         rafCallbacks.splice(0).forEach((cb) => cb())
@@ -457,7 +470,7 @@ describe('useFitViewOnLayoutVersion', () => {
     it('honours the claim when the model is the one already framed', () => {
       const { flush, rafSpy } = setup()
 
-      claimCameraForUser()
+      claimCameraForUser(currentModelKey())
       // A corrective re-layout: same nodes, same ids, only the geometry redone.
       act(() => {
         useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 2 } as never)
@@ -481,7 +494,142 @@ describe('useFitViewOnLayoutVersion', () => {
       // never re-aimed.
       const { flush, rafSpy } = setup()
 
-      claimCameraForUser()
+      claimCameraForUser(currentModelKey())
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2 } as never)
+      })
+      flush()
+
+      expect(
+        fitViewSpy,
+        'a new model arrived and the product did not frame it — a stale claim stranded the camera',
+      ).toHaveBeenCalledTimes(2)
+
+      rafSpy.mockRestore()
+    })
+  })
+
+  /**
+   * ⭐⭐ THE KEY MUST BE THE ONE THE USER CLAIMED, NOT THE ONE THE PRODUCT LAST
+   * FRAMED — trap 21 recurring ONE LEVEL BELOW the instance it was introduced to
+   * fix, and found in review of #1096.
+   *
+   * The first fix compared the corrective layout against `lastFramedModelRef`,
+   * stamped inside `fitNow` — i.e. on the PRODUCT's fit. The user's own fit does
+   * not go through `fitNow`, so an ordinary edit between the product's fit and
+   * the user's click left the reference stale:
+   *
+   *   1. the product frames model A            -> ref = key(A)
+   *   2. the user adds a node                  -> the model is now A'
+   *   3. the user clicks "Show whole model"    -> claim taken, ref STILL key(A)
+   *   4. a corrective layout compares A' to A  -> "a different model arrived",
+   *      releases the claim and overwrites the user's frame
+   *
+   * Reachable by an ordinary edit-then-click, verified at the bytes rather than
+   * assumed: `store.ts` has exactly ONE write to `layoutVersion` (inside
+   * `applyLayout`), and neither `addNode` nor `deleteNodeById` calls
+   * `setPendingLayout`, so step 2 changes the model WITHOUT laying it out. The
+   * corrective pass in `useMeasureThenLayout` then calls `applyLayout` directly.
+   *
+   * The ref answered "which model did the PRODUCT last frame?"; the code needed
+   * "which model did the USER claim?". Two questions, one ref. The key is now
+   * taken AT CLAIM TIME, by the claim itself.
+   */
+  describe('the claim is keyed to the model the USER claimed', () => {
+    const MODEL_A = [{ id: 'dec_1', position: { x: 0, y: 0 }, data: {} }]
+    /** A, plus one node the user added — a DIFFERENT identity, same session. */
+    const MODEL_A_PRIME = [
+      { id: 'dec_1', position: { x: 0, y: 0 }, data: {} },
+      { id: 'opt_new', position: { x: 0, y: 0 }, data: {} },
+    ]
+    const MODEL_B = [{ id: 'dec_2', position: { x: 0, y: 0 }, data: {} }]
+
+    function setup() {
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+      const flush = () =>
+        act(() => {
+          rafCallbacks.splice(0).forEach((cb) => cb())
+        })
+      renderHook(() => useFitViewOnLayoutVersion())
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 1 } as never)
+      })
+      flush()
+      expect(fitViewSpy, 'the product must frame the model first').toHaveBeenCalledTimes(1)
+      return { flush, rafSpy }
+    }
+
+    it("survives a corrective layout after the user EDITED the model then claimed", () => {
+      const { flush, rafSpy } = setup()
+
+      // The user edits — no layout, so nothing re-frames and nothing re-stamps.
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME } as never)
+      })
+      // ...and THEN asks for the overview. The claim is taken on A'.
+      claimCameraForUser(currentModelKey())
+
+      // A corrective pass on that same edited model.
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME, layoutVersion: 2 } as never)
+      })
+      flush()
+
+      expect(
+        fitViewSpy,
+        "an edit before the click made the reference stale, so a corrective layout read the user's own model as a new one and overwrote their frame",
+      ).toHaveBeenCalledTimes(1)
+
+      rafSpy.mockRestore()
+    })
+
+    it('and the claim still STANDS afterwards — a reserved-box change cannot re-fit either', () => {
+      // ⚠ THIS IS WHAT MAKES THE CASE ABOVE ABOUT OWNERSHIP RATHER THAN ABOUT ONE
+      // SUPPRESSED CALL. Without it, a fix that merely skipped this particular
+      // fit would pass while the claim had already been thrown away.
+      const { flush, rafSpy } = setup()
+
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME } as never)
+      })
+      claimCameraForUser(currentModelKey())
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME, layoutVersion: 2 } as never)
+      })
+      flush()
+
+      // The reserved box then changes for real — the stimulus the suite proves
+      // elsewhere DOES re-fit, so this cannot pass because nothing moved.
+      currentPadding = { top: '10px', right: '444px', bottom: '10px', left: '20px' }
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+      flush()
+
+      expect(
+        fitViewSpy,
+        'the corrective layout consumed the claim — the user no longer owns the camera',
+      ).toHaveBeenCalledTimes(1)
+
+      rafSpy.mockRestore()
+    })
+
+    it('but a genuinely NEW model still re-fits, claim or no claim', () => {
+      // The falsifier (CLAUDE.md trap 22b). Without this, "never release" passes
+      // both cases above and strands the camera on a model that no longer exists.
+      const { flush, rafSpy } = setup()
+
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME } as never)
+      })
+      claimCameraForUser(currentModelKey())
+
       act(() => {
         useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2 } as never)
       })

@@ -8,8 +8,9 @@ import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
-import { releaseUserCameraClaim, userOwnsCamera } from '../utils/userCameraClaim'
-import { getGraphIdentityKey, graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
+import { releaseUserCameraClaim, userOwnsCamera, userOwnsCameraFor } from '../utils/userCameraClaim'
+import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
+import { currentModelKey } from '../utils/currentModelKey'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -148,29 +149,10 @@ export function useFitViewOnLayoutVersion(): void {
   const reducedMotionRef = useRef(prefersReducedMotion)
   reducedMotionRef.current = prefersReducedMotion
 
-  /**
-   * The MODEL the product last aimed the camera at — not the model on screen.
-   *
-   * ⭐⭐ THIS IS THE DIFFERENCE BETWEEN "A LAYOUT RAN" AND "THE MODEL CHANGED",
-   * and conflating them is what made `claimCameraForUser` a half-fix (#1051).
-   * See the layout trigger below for the measurement.
-   */
-  const lastFramedModelRef = useRef<string | null>(null)
-
-  /** The identity of the model on the canvas right now. */
-  const currentModelKey = useRef(() => {
-    const s = useCanvasStore.getState()
-    return getGraphIdentityKey(s.currentScenarioId, s.nodes, s.edges)
-  })
-
   // ONE contract, both triggers. A second literal here is how the auto-fit and
   // the re-fit would silently stop agreeing (and how three copies of the dock
   // bounds drifted before `dockWidth.ts` existed).
   const fitNow = useRef(() => {
-    // Recorded HERE rather than at each trigger so every product fit stamps the
-    // model it framed, however many triggers there are — the same reason all
-    // three share this closure.
-    lastFramedModelRef.current = currentModelKey.current()
     const nodes = getNodesRef.current ? excludeNonModelNodes(getNodesRef.current()) : []
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
@@ -268,11 +250,23 @@ export function useFitViewOnLayoutVersion(): void {
       // when the user clicks is a matter of machine load. That is why this read
       // as intermittent, and why instrumenting the page could hide it.
       //
-      // So: the claim is honoured when the model is the one the product already
-      // framed, and released only when a DIFFERENT model has arrived — which is
+      // So: the claim is honoured when the layout is of THE MODEL THE USER
+      // CLAIMED, and released only when a DIFFERENT model has arrived — which is
       // the case the original premise actually describes, and which still needs
       // the camera aimed at it.
-      if (userOwnsCamera() && currentModelKey.current() === lastFramedModelRef.current) return
+      //
+      // ⚠ AND THE KEY IS THE USER'S, NOT THE PRODUCT'S — corrected in review of
+      // #1096, trap 21 one level down. The first version of this fix compared
+      // against a ref stamped inside `fitNow`, i.e. on the PRODUCT's last fit.
+      // The user's own fit does not run through `fitNow`, so an ordinary edit
+      // between the two left it stale: frame A, add a node (now A'), click, and
+      // the next corrective layout read A' as a new model and took the frame
+      // back (`fitView calls = 2` in jsdom). `store.ts` has exactly ONE write to
+      // `layoutVersion` and neither `addNode` nor `deleteNodeById` calls
+      // `setPendingLayout`, so that edit genuinely lands without a layout —
+      // the window is reachable by an ordinary edit-then-click, not theoretical.
+      // The claim now carries its own key, taken at claim time.
+      if (userOwnsCameraFor(currentModelKey())) return
       releaseUserCameraClaim()
       fitNow.current()
     })

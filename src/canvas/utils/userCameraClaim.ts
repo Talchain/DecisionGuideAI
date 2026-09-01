@@ -87,11 +87,27 @@
  */
 
 /**
+ * The MODEL the user framed, or `null` when the camera is the product's.
+ *
+ * ⭐⭐ A KEY, NOT A BOOLEAN — and the difference is a real defect, found in review
+ * of #1096 (CLAUDE.md trap 21, one level below the instance #1096 fixed). The
+ * first version of that fix held a boolean here and kept the model identity in
+ * the fit hook, stamped on the PRODUCT's fit. The user's own fit does not go
+ * through that path, so an ordinary edit between the two left the reference
+ * stale: frame A, add a node (now A'), click "Show whole model" — and the next
+ * corrective layout compared A' against A, called it a new model, and took the
+ * frame back. Reproduced in jsdom: `fitView calls = 2`, user claim discarded.
+ *
+ * The key is taken AT CLAIM TIME, so it always answers the question the callers
+ * actually ask — *which model did the USER claim?* — rather than *which model
+ * did the product last frame?*.
+ *
  * Module-level rather than store state, deliberately: this is a fact about the
  * live camera, not about the model. Putting it in the canvas store would make it
- * persistable, undoable and serialisable, none of which it should ever be.
+ * persistable, undoable and serialisable, none of which it should ever be. It
+ * holds an identity STRING and never the graph, so it cannot keep a model alive.
  */
-let claimed = false
+let claimedModelKey: string | null = null
 
 /**
  * The user has explicitly framed the camera — "Show whole model", the left-rail
@@ -102,8 +118,8 @@ let claimed = false
  * if it is reached from anywhere else, so the claim cannot quietly grow into
  * "the camera is busy" (CLAUDE.md trap 12 — a rule nobody can drift past).
  */
-export function claimCameraForUser(): void {
-  claimed = true
+export function claimCameraForUser(modelKey: string): void {
+  claimedModelKey = modelKey
 }
 
 /**
@@ -111,10 +127,42 @@ export function claimCameraForUser(): void {
  * arrived, so whatever the user framed no longer exists to be preserved.
  */
 export function releaseUserCameraClaim(): void {
-  claimed = false
+  claimedModelKey = null
 }
 
-/** Has the user framed this camera themselves? */
+/**
+ * Has the user framed this camera themselves?
+ *
+ * Deliberately UNKEYED, and its caller is the reserved-box trigger. A dock
+ * collapsing or a window resizing is not a model changing, so that trigger has
+ * no model to compare against and must simply stand off a camera the user owns.
+ */
 export function userOwnsCamera(): boolean {
-  return claimed
+  return isClaimed(claimedModelKey)
+}
+
+/**
+ * Did the user frame THIS model?
+ *
+ * The question the layout trigger has to ask, and the one a boolean cannot
+ * answer: a layout pass may be a corrective re-layout of the model the user is
+ * looking at (their frame stands) or the arrival of a different model (the
+ * product must aim the camera at it, or it is stranded on a graph that no
+ * longer exists).
+ */
+export function userOwnsCameraFor(modelKey: string): boolean {
+  return isClaimed(claimedModelKey) && claimedModelKey === modelKey
+}
+
+/**
+ * ⚠ A NON-STRING KEY IS NO CLAIM AT ALL, and the two predicates must agree about
+ * that or they describe different worlds. A caller reaching this module without
+ * a key (an untyped call site, a test written against the old signature) would
+ * otherwise leave `undefined` here — which is `!== null`, so `userOwnsCamera`
+ * would report the camera as the user's while `userOwnsCameraFor` reported it as
+ * nobody's. The reserved box would stand off forever while every layout re-fit:
+ * a state neither predicate is meant to permit.
+ */
+function isClaimed(key: string | null): key is string {
+  return typeof key === 'string' && key.length > 0
 }
