@@ -37,12 +37,29 @@
  * `GOAL_FIT_BASIS_CAVEAT_COPY` from, not from a second reading of the rule.
  * Fail-closed everywhere: an absent gate value withholds.
  *
- * ⚠ SCOPE, STATED RATHER THAN IMPLIED (trap 20). This changes what FACTOR,
- * OPTION, RISK and OUTCOME cards say below the legibility floor. `decision`,
- * `goal` and `action` are untouched and still render nothing: a decision card
- * has no single headline quantity, and a goal's figure is the one most
- * entangled with withholding rules. They are not "done" — they are DELIBERATELY
- * NOT ATTEMPTED HERE, and rowed in CANVAS-BACKLOG.md.
+ * ⚠ SCOPE, STATED RATHER THAN IMPLIED (trap 20). This resolves the reduced line
+ * for FACTOR, OPTION, RISK and OUTCOME — the four types whose figure is
+ * reachable from `data` + `displayMetadata`.
+ *
+ * ⚠⚠ AND THE SCOPE DECISION WRITTEN HERE FIRST WAS WRONG, IN THE MOST VISIBLE
+ * PLACE AVAILABLE. It read: *"`decision`, `goal` and `action` are untouched and
+ * still render nothing: a decision card has no single headline quantity."* The
+ * premise was true and the conclusion was not — it left THE ANCHOR OF THE MODEL
+ * as an empty box below the floor, which Paul then reported for a third time.
+ * Measured on deployed `7d717c13`: that card's body holds "Segment leads in 48%
+ * of scenarios…" rendered `visibility: hidden`, with nothing put in its place.
+ * Every other type got a line and the one a reader looks at first got none.
+ *
+ * `decision` and `goal` now declare their own line through `BaseNode`'s
+ * `lodMetric` prop, because both read a datum this module cannot see — a
+ * leader-claim PERMISSION and a user-stated threshold respectively. `action`
+ * remains unattempted.
+ *
+ * ⭐ THE LESSON, because it is the second time in one night: a scope note that
+ * says "not attempted" reads as a decision and gets inherited as one. Write
+ * down what the EXCLUDED case will look like on screen, not just why it is
+ * excluded — "renders nothing" and "is an empty box" are the same fact, and
+ * only one of them makes the cost obvious.
  */
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'

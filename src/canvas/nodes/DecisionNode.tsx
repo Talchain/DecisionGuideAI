@@ -595,6 +595,38 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     })
   }, [restingAsk, restingAskLabel, restingNodeId])
 
+  /**
+   * ⭐ WHAT THE ANCHOR OF THE MODEL SAYS WHEN IT IS TOO SMALL TO SAY ANYTHING
+   * ELSE — and it had NOTHING, which is the defect Paul reported twice.
+   *
+   * `shared/lodMetricLine.ts` deliberately scoped `decision` out: it has no
+   * single headline QUANTITY, so a central resolver reading `data` could not
+   * find one. That reasoning was correct and the conclusion was wrong, because
+   * it left THE MOST IMPORTANT CARD ON THE CANVAS as an empty box below the
+   * legibility floor — measured on deployed `7d717c13`, where this node's body
+   * holds a perfectly good sentence ("Segment leads in 48% of scenarios…")
+   * rendered `visibility: hidden` with nothing put back in its place. Every
+   * other type got a line and the anchor got none.
+   *
+   * ⛔ IT NAMES A LEADER ONLY WHERE THE CARD IS ALREADY ENTITLED TO. This reads
+   * `headline`, which is the SAME permission the full-zoom body consumes — so
+   * a run whose verdict withholds a leader has `headline === null` here and
+   * this says nothing about the analysis at all. It does not re-derive the
+   * permission, and it must never be changed into something that does: the
+   * leader-claim seam is exactly where this product has shipped a withheld
+   * verdict and a named leader two pixels apart before (trap 21).
+   *
+   * Where no leader may be named it falls back to the RESTING line — a
+   * statement about what is absent from this node, never about the analysis.
+   */
+  const lodMetric = useMemo<string | null>(() => {
+    if (headline?.winnerLabel) {
+      const pct = headline.winProb != null ? ` ${Math.round(headline.winProb * 100)}%` : ''
+      return `${headline.winnerLabel}${pct}`
+    }
+    return resting.line
+  }, [headline, resting])
+
   const restingState = (
     <div className="mt-1" data-testid="decision-node-resting-state">
       <div className={`${typography.edgeLabel} text-text-light`}>{resting.line}</div>
@@ -623,6 +655,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     >
       <BaseNode
         nodeType="decision"
+        lodMetric={lodMetric}
         icon={Crosshair}
         id={id}
         data={data}
