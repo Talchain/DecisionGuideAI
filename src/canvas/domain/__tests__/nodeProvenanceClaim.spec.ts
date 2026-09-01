@@ -28,7 +28,11 @@ import {
   STRUCTURAL_PROVENANCE_LABEL,
 } from '../nodeProvenanceClaim'
 import { VALUE_PROVENANCE_LABEL } from '../valueProvenance'
-import { GOAL_LABEL_FROM_BRIEF_COPY } from '../goalLabelProvenance'
+import { hasAnyStatedValue } from '../../utils/observedStateHelpers'
+import {
+  GOAL_LABEL_FROM_BRIEF_COPY,
+  goalLabelIsUnconfirmedBriefExtract,
+} from '../goalLabelProvenance'
 
 /** A node's data as the canvas holds it — the object the predicate takes. */
 const dataFor = (type: string, over: Record<string, unknown> = {}) => ({
@@ -94,11 +98,83 @@ describe('⛔ THE TWIN — a card WITH a number still says so', () => {
       'structural',
     )
   })
+
+  /**
+   * ⛔ A VALUELESS `observedState` IS NOT A VALUE — the PR's own defect class,
+   * caught by an independent review surviving inside the fix, on the one kind
+   * the fix was written for.
+   *
+   * A generic `typeof v === 'object'` check reads `{}`, `{ unit, source }` and
+   * `{ value: null }` as "carries a value". Such a card renders the amber
+   * "needs your judgement" border (`isIncomplete` via `isFactorNeedsInput`)
+   * while the mark beside it says "AI estimate" about a number nobody stated —
+   * the border and the mark disagreeing about the same card. The factor arm
+   * therefore asks `hasAnyStatedValue`, the estate's declared single owner of
+   * this question, which `isFactorNeedsInput` also asks.
+   */
+  it.each([
+    ['empty observedState', {}],
+    ['observedState with no number', { unit: '£', source: 'cee_inference' }],
+    ['observedState with a null value', { value: null }],
+  ])('factor with an %s — structural, and it agrees with the amber border', (_label, obs) => {
+    expect(nodeProvenanceClaim('factor', dataFor('factor', { observedState: obs }))).toBe(
+      'structural',
+    )
+  })
+
+  it('the two authorities now AGREE on every one of those shapes', () => {
+    // Pin the convergence itself, not just the outcome: if `hasAnyStatedValue`
+    // ever moves, this reads the move rather than agreeing with a stale copy.
+    for (const obs of [{}, { unit: '£' }, { value: null }, { value: 0.7 }, { raw_value: 26000 }]) {
+      const data = dataFor('factor', { observedState: obs })
+      expect(nodeProvenanceClaim('factor', data) === 'value').toBe(hasAnyStatedValue(data))
+    }
+  })
+
+  it('but a factor with ONLY CEE’s top-level display_value keeps its value claim', () => {
+    // ⛔ THE TWIN, and it REFUTED the review's suggested fix by execution.
+    // `hasAnyStatedValue` reads the triple INSIDE `observedState`;
+    // `FactorNodeDataSchema` declares `display_value` at the TOP level too.
+    // Delegating wholesale dropped this card's value claim — the opposite-
+    // direction harm of the defect being fixed.
+    expect(nodeProvenanceClaim('factor', dataFor('factor', { display_value: '£26,000' }))).toBe(
+      'value',
+    )
+    expect(hasAnyStatedValue(dataFor('factor', { display_value: '£26,000' }))).toBe(false)
+  })
 })
 
-describe('only the goal says nothing, and only because it already says it', () => {
-  it('goal — suppressed', () => {
-    expect(nodeProvenanceClaim('goal', dataFor('goal'))).toBe('none')
+describe('the goal is silent ONLY where its own card is already speaking', () => {
+  it('goal / from_brief — suppressed, because GoalNode renders its own pill', () => {
+    expect(nodeProvenanceClaim('goal', dataFor('goal', { provenance: 'from_brief' }))).toBe('none')
+  })
+
+  /**
+   * ⛔ THE TWIN, AND IT CAUGHT A REAL DEFECT IN THIS MODULE'S FIRST VERSION.
+   *
+   * `goalLabelIsUnconfirmedBriefExtract` fires for `kind === 'brief'` ONLY, so
+   * `GoalNode`'s pill renders for `from_brief` and NOTHING ELSE. Suppressing on
+   * the KIND therefore DELETED the fact on a goal carrying `user_set` (which
+   * `provenanceAfterHumanAuthoredLabel` stamps the moment a human authors the
+   * label) or `ai_inferred` — the same over-suppression this module rejects,
+   * committed inside the module that rejects it.
+   */
+  it.each(['user_set', 'ai_inferred'] as const)(
+    'goal / %s — NOT suppressed: nothing else on the card says it',
+    (provenance) => {
+      expect(nodeProvenanceClaim('goal', dataFor('goal', { provenance }))).toBe('structural')
+    },
+  )
+
+  it('the gate is the goal surface’s OWN predicate, so the two cannot drift', () => {
+    // Pin the precondition in-test: the suppression is granted exactly where
+    // `GoalNode` renders its pill. If that predicate's domain ever changes, this
+    // reads the change rather than agreeing with a stale copy of it.
+    for (const provenance of ['from_brief', 'user_set', 'ai_inferred', 'nonsense']) {
+      const data = dataFor('goal', { provenance })
+      const goalCardSpeaks = goalLabelIsUnconfirmedBriefExtract(data)
+      expect(nodeProvenanceClaim('goal', data) === 'none').toBe(goalCardSpeaks)
+    }
   })
 
   it('and the goal card’s OWN surface still carries the same fact', () => {
@@ -113,12 +189,14 @@ describe('only the goal says nothing, and only because it already says it', () =
     expect(nodeProvenanceClaim('decision', dataFor('decision'))).toBe('structural')
   })
 
-  it('the suppression is a SCOPE, not a removal — exactly one kind is silent', () => {
-    // Derived from the enum itself, never hand-listed (trap 12).
+  it('the suppression is a SCOPE, not a removal — nothing else is ever silent', () => {
+    // Derived from the enum itself, never hand-listed (trap 12). `dataFor`
+    // supplies `ai_inferred`, for which NO kind — including the goal — has a
+    // competing surface, so the honest answer here is that nothing is silent.
     const silent = NodeTypeEnum.options.filter(
       (k) => nodeProvenanceClaim(k, dataFor(k)) === 'none',
     )
-    expect(silent).toEqual(['goal'])
+    expect(silent).toEqual([])
   })
 
   it('answers for EVERY kind the enum admits', () => {

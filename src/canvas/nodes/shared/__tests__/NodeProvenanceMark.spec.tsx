@@ -107,11 +107,27 @@ describe('⛔ THE TWIN — a card WITH a number still makes the value claim', ()
   })
 })
 
-describe('the goal says nothing HERE, because its own surface already says it', () => {
-  it.each(CANVAS_LITERALS)('goal / %s renders nothing', (literal) => {
-    render(<NodeProvenanceMark nodeType="goal" data={{ label: 'Grow', type: 'goal', provenance: literal }} />)
+describe('the goal is silent ONLY where its own surface is already speaking', () => {
+  it('from_brief — nothing here, because GoalNode renders its own pill for it', () => {
+    render(<NodeProvenanceMark nodeType="goal" data={{ label: 'Grow', type: 'goal', provenance: 'from_brief' }} />)
     expect(mark()).toBeNull()
   })
+
+  /**
+   * ⛔ THE TWIN, AND IT CAUGHT A REAL DEFECT IN THIS CHANGE'S FIRST VERSION.
+   * `goalLabelIsUnconfirmedBriefExtract` fires for `kind === 'brief'` ONLY, so
+   * `GoalNode`'s pill renders for `from_brief` and nothing else. Suppressing on
+   * the KIND deleted the fact on `user_set` and `ai_inferred` goals rather than
+   * de-duplicating it — the over-suppression this design exists to reject.
+   */
+  it.each(['user_set', 'ai_inferred'] as const)(
+    'goal / %s — the mark IS present: nothing else on the card says it',
+    (literal) => {
+      render(<NodeProvenanceMark nodeType="goal" data={{ label: 'Grow', type: 'goal', provenance: literal }} />)
+      expect(mark()).not.toBeNull()
+      expect(mark()!.getAttribute('data-provenance-claim')).toBe('structural')
+    },
+  )
 
   it('and the decision — which has NO competing surface — still speaks', () => {
     // The discriminating twin for the suppression. A gate that silenced both

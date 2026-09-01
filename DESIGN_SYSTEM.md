@@ -83,7 +83,16 @@ Icons inherit colour from context — no fixed colours. Follow semantic layer: `
 
 - **Tier 1 — Navigation** (always visible): `ChevronDown`, `ChevronRight`, `X`
 - **Tier 2 — Actions** (hover/focus only, tooltip required): `Pencil`, `Link`, `Check`, `Plus`, `ExternalLink`
-- **Tier 3 — Status** (always visible, replaces text labels): `CheckCircle`, `AlertTriangle`, `Info`
+- **Tier 3 — Status** (always visible, replaces text labels): `CheckCircle`, `AlertTriangle`, `Info`, and the provenance glyphs `Sparkles` (AI), `FileText` (from the brief), `UserCheck` (a person)
+
+  The three provenance glyphs are registered here because they are always-visible
+  node status marks that REPLACE text labels — the canvas card's "AI estimate" /
+  "From brief" / "Set by you" pill. Their single owner is
+  `src/canvas/domain/valueProvenanceIcon.ts` (total over `ValueProvenanceKind`);
+  never pick a provenance glyph at a call site. They are neutral `text-text-light`
+  rather than semantic: against `--bg-panel` #FEFEFE, `--warning` measures 1.92:1
+  and `--success` 2.02:1, both below SC 1.4.11's 3:1 for a graphic carrying
+  meaning, and an icon has no word behind it to carry the meaning instead.
 
 ### Node-type icons (off-canvas use only)
 
