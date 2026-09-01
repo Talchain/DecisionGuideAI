@@ -28,10 +28,77 @@
  *     different semantics is how two questions end up under one name. This
  *     component writes NO store state at all — it is a pure read.
  *
- * ── WHAT IT NEVER CLAIMS ───────────────────────────────────────────────────
- * · Never that the answer's TEXT mentions the elements. The producer refuses to
- *   make that claim (no code reads the model's output), so the copy is
- *   "Answered using X" — about the answer's inputs, not its prose.
+ * ── ⭐⭐ WHY THE COPY IS ABOUT THE SELECTION, NOT ABOUT THE ANSWER ──────────
+ * This surface shipped reading **"Answered using X"** and that was FALSE on a
+ * reachable and ordinary path. Witnessed on deployed staging (CEE `18b84b0`,
+ * UI `6e58c921`, 1 Sep 2026): a user asked about **co-founder equity** and the
+ * answer was footered *"Answered using Warm Connection Density"* — a node the
+ * answer never touched. It was simply the node they had selected, and it
+ * persisted across several turns.
+ *
+ * The mechanism, derived at both producers' bytes rather than inferred:
+ *   · the UI attaches `selected_elements` from the LIVE canvas store on EVERY
+ *     send (`buildPayload.ts` `deriveSelectedElements`) — a typed question and
+ *     the SelectionPill are byte-identical on the wire;
+ *   · nothing clears that selection when a turn is sent (`clearSelection` has
+ *     exactly one caller, `FocusModeChip`), and creating a node auto-selects
+ *     it (`store.ts` `addNodeWithEdge`) — so a selection is STICKY by default;
+ *   · CEE re-projects that same selection back out unchanged
+ *     (`projectGroundedSelection`: `element_ids` = the selected ids).
+ *
+ * So `element_ids` is the user's SELECTION, on every path there is. It is never
+ * derived from what the answer drew on — the producer says so itself: *"no code
+ * here reads the model's output"*. Two questions were living under one name
+ * (CLAUDE.md trap 21):
+ *
+ *   · what the producer computes → "what did the user have selected?"
+ *   · what "Answered using" asserts → "what did this answer draw on?"
+ *
+ * The remedy that trap prescribes is to NAME THE CONCEPTS APART and let the
+ * surface consume the one that is true, which is what the copy now does. It
+ * states the user's own selection at send time and makes no provenance claim of
+ * any kind. Do not reintroduce a usage verb here ("answered using", "based on",
+ * "drew on"): NO USAGE EVIDENCE IS CARRIED ON THIS WIRE PATH — `element_ids` is
+ * sourced from the SELECTION alone. `projectGroundedSelection` has three call
+ * sites in CEE's `turn-executor.ts` (10048, 10071, 14078) and EVERY ONE passes
+ * `(focus, context.selection)`; the one that attaches the sidecar to the
+ * response is 14078, whose focus is `capturedFocus = contextPack.focus`, taken
+ * off the pack BEFORE the model answers. The answer's text is therefore not an
+ * input to this field on any of them. `GroundedOnNotice.claimHonesty.spec.tsx`
+ * REDs if a usage verb returns.
+ *
+ * ⚠⚠ AND THE SENTENCE THAT USED TO STAND HERE WAS A FALSE ABSENCE CLAIM —
+ * corrected 1 Sep 2026, at CEE staging `d5455355`, on review. It read: *"nothing
+ * on either side of the wire CAN license one"*. That is a claim about the whole
+ * estate, not about this path, and it is REFUTED: CEE compares answer text
+ * against an element label today —
+ *
+ *     answerContainsLabel(answerText: string, label: string): boolean
+ *     src/orchestrator-v5/coaching/validation-priority.ts:182
+ *
+ * live and reachable via `decideValidationBeat` ←
+ * `src/orchestrator-v5/tools/handlers/explain-results.ts:183`. The sweep that
+ * produced the "zero such functions" figure keyed on a *selection/focus*
+ * parameter, while this one takes a bare `label: string` — so THE PROBE CARRIED
+ * THE BLIND SPOT OF THE CONCLUSION IT SUPPORTED (CLAUDE.md trap 13e).
+ *
+ * ⚠ SCOPE, so this correction does not become the next inherited overclaim: the
+ * REVIEWER's re-run, with a contrast control that saw its known positives,
+ * reported **13** such functions — that figure is the reviewer's and is NOT
+ * re-derived here. What IS verified here, at the CEE bytes, is the single
+ * material one named above and its reachability. One live counter-example is
+ * all a universal "nothing CAN" claim needs to fall.
+ *
+ * WHAT SURVIVES THE REFUTATION, AND IT IS WHAT THE COPY RESTS ON: that
+ * comparison feeds a coaching-beat DEDUP decision (`__validation_beat`, and
+ * whether a validation paragraph is appended to the answer text). It never
+ * reaches `_grounded_selection`. So the narrow claim above holds and the copy is
+ * safe on it; the universal claim was never true and must not be restored.
+ * Whether a real usage source is worth wiring is a separate question — ROW it,
+ * do not build it here, and do not weaken this copy on the strength of a source
+ * that is not on this path.
+ *
+ * ── WHAT IT STILL NEVER CLAIMS ─────────────────────────────────────────────
  * · Never a COUNT of grounded elements. The id→label join below is fail-closed
  *   and can legitimately name FEWER elements than the producer sent (an id for
  *   a node not on this canvas cannot be named without fabricating a label).
@@ -98,11 +165,29 @@ export function resolveGroundedLabels(
  *                        Rendering "not found" here is the exact conflation the
  *                        producer's contract exists to prevent.
  *  · `none`            — nothing is missing, so there is nothing to disclose.
+ *
+ * ⭐⭐ BOTH SENTENCES NAME THE SELECTION, BECAUSE BOTH DESCRIBE ONE FIELD.
+ * These read *"something you ASKED ABOUT"* until the referent fix, and that put
+ * two referents in one box: the line above says what the user SELECTED, and
+ * this one said what they asked. It is the same conflation the elements line
+ * had just stopped making, and the producer settles it — `deriveUnresolved`
+ * (CEE `context-pack-assembler.ts:1213-1225`, staging `d5455355`) takes a
+ * `TurnSelection` and nothing else, so THE USER'S QUESTION IS NOT AN INPUT to
+ * this state at all. Before the fix both sentences were consistently wrong;
+ * after it they contradicted each other, which is worse, because the box
+ * visibly disagrees with itself and the reader cannot tell which half to trust.
+ * `GroundedOnNotice.oneReferent.spec.tsx` REDs if either sentence drifts back.
+ *
+ * ⚠ THE REFERENT IS THE ONLY THING THAT CHANGED. The `not_in_model` /
+ * `could_not_check` discrimination is byte-untouched: one still ASSERTS the
+ * absence, the other still claims nothing about presence. Collapsing them is a
+ * different and wrong change, and both this spec and the sibling
+ * `GroundedOnNotice.spec.tsx` RED on it.
  */
 const DISCLOSURE: Readonly<Record<GroundedUnresolved, string | null>> = {
   none: null,
-  not_in_model: "Something you asked about isn't in this model.",
-  could_not_check: "I couldn't read your model to check what you asked about.",
+  not_in_model: "Something you selected isn't in this model.",
+  could_not_check: "I couldn't read your model to check what you selected.",
 }
 
 export const GroundedOnNotice = memo(function GroundedOnNotice({
@@ -134,13 +219,14 @@ export const GroundedOnNotice = memo(function GroundedOnNotice({
     >
       {named.length > 0 && (
         <p data-testid="grounded-on-elements">
-          <span>Answered using </span>
+          <span>You had </span>
           {named.map((element, index) => (
             <span key={element.id} data-testid="grounded-on-element" data-element-id={element.id}>
               {index > 0 ? ', ' : ''}
               <span className="text-text-body">{element.label}</span>
             </span>
           ))}
+          <span> selected when you asked.</span>
         </p>
       )}
       {disclosure !== null && <p data-testid="grounded-on-unresolved">{disclosure}</p>}

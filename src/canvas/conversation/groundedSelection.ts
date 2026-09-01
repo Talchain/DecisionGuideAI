@@ -27,11 +27,47 @@
  * (grounded-selection.ts:4-12, quoted): it answers *"Which model elements was
  * THIS turn's answer grounded on?"* — a producer-side fact about the answer's
  * CONTEXT (the elements CEE placed in the routing prompt's `focus` section). It
- * is **deliberately NOT a claim that the answer's TEXT mentions each one**; no
- * code on either side reads the model's output. Our copy therefore says the
- * answer was *answered using* these elements, and never that the answer
- * *discusses*, *names* or *is about* them — that would be an over-claim the
- * producer explicitly refuses to make.
+ * is **deliberately NOT a claim that the answer's TEXT mentions each one**.
+ *
+ * ⚠ AND THE CLAUSE THAT USED TO END THAT SENTENCE WAS A FALSE ABSENCE CLAIM —
+ * corrected 1 Sep 2026 on review. It read *"no code on either side reads the
+ * model's output"*, which WIDENED the producer's own carefully scoped sentence
+ * (*"no code **here** reads the model's output"*, `grounded-selection.ts:11`)
+ * into a claim about the whole estate. CEE compares answer text against an
+ * element label today — `answerContainsLabel` in
+ * `src/orchestrator-v5/coaching/validation-priority.ts:182`, reachable via
+ * `decideValidationBeat` ← `tools/handlers/explain-results.ts:183` (CEE staging
+ * `d5455355`). It feeds a coaching-beat dedup decision and never reaches
+ * `_grounded_selection`.
+ *
+ * THE NARROW TRUTH, which is what this field and its copy rest on: no usage
+ * evidence is carried on THIS path — `element_ids` is sourced from the
+ * selection alone. The full derivation, including all three
+ * `projectGroundedSelection` call sites, lives in `GroundedOnNotice.tsx`.
+ * Dropping a scoping word from someone else's claim is how this estate
+ * manufactures false absences (CLAUDE.md trap 20) — keep the "here".
+ *
+ * ⚠⚠ THE PARAGRAPH THAT USED TO CLOSE THIS BLOCK WAS WRONG, AND ITS ERROR
+ * SHIPPED A FALSE SENTENCE TO USERS. It read: *"Our copy therefore says the
+ * answer was answered using these elements, and never that the answer
+ * discusses, names or is about them — that would be an over-claim the producer
+ * explicitly refuses to make."* It is corrected rather than deleted, because
+ * the reasoning is seductive and the next reader will otherwise re-derive it.
+ *
+ * The step that does not hold is the word **therefore**. "The producer will not
+ * claim the answer MENTIONS X" does not license "the answer was ANSWERED USING
+ * X" — that is still a usage claim, and nothing computes it. What the producer
+ * actually computes, traced to its source, is the user's CANVAS SELECTION:
+ * `projectGroundedSelection` sets `element_ids` from `selection.elements`, the
+ * UI attaches `selected_elements` from the live store on EVERY send, and
+ * nothing clears the selection when a turn is sent. So a stale selection rides
+ * an unrelated question and the footer names it.
+ *
+ * Witnessed on deployed staging (CEE `18b84b0`, UI `6e58c921`, 1 Sep 2026): a
+ * question about **co-founder equity** footered *"Answered using Warm
+ * Connection Density"*. The copy now states the SELECTION and makes no
+ * provenance claim — see `GroundedOnNotice.tsx`, which carries the full
+ * derivation and the ban on usage verbs.
  *
  * ⭐⭐ `not_in_model` AND `could_not_check` MUST NOT COLLAPSE. The producer is
  * emphatic (grounded-selection.ts:71-79, context-pack-assembler.ts:830-833):
