@@ -152,33 +152,50 @@ describe('what your model implies — the two readings', () => {
     expect(result.goal.optionId).toBe(crown!.id)
   })
 
-  it('the outcome claim reads the MEAN, never the median', () => {
-    // ⚠ THE DISCRIMINATING FIXTURE. `expected` and `p50` disagree, and they
-    // disagree in a way that picks DIFFERENT leaders — so a builder that fell
-    // back to the median (as the hero's chart centre deliberately does) would
-    // crown the other option and this test would RED.
+  it('⭐ an option with NO MEAN makes the outcome reading unentitled — a median is not a substitute', () => {
+    /**
+     * ⚠⚠ THE FIRST VERSION OF THIS TEST WAS VACUOUS, AND ITS OWN MUTANT PROVED
+     * IT. It gave the option BOTH an `expected` and a divergent `p50`, so a
+     * builder mutated to `getExpectedValue(o) ?? p50` never reached the
+     * fallback — `??` only fires on null — and the mutant SURVIVED against a
+     * test whose stated purpose was to kill it. A guard agreeing with itself
+     * (trap 13b).
+     *
+     * The fixture that discriminates gives `opt_b` NO mean at all and a `p50`
+     * large enough to WIN if it were ever consulted:
+     *   · correct builder — `getExpectedValue` is null, the field is
+     *     incomplete, and a maximum over an unmeasured rival cannot claim
+     *     "highest", so the whole reading is withheld;
+     *   · median-substituting builder — `opt_b` acquires a centre of 400,
+     *     wins the reading, and the surface names it.
+     * The two outcomes are `none` versus a claim about a specific option, so
+     * the assertion cannot pass under both.
+     */
     const a = rangedOption('opt_a', 'Segment', 120, 0.3)
     const b = rangedOption('opt_b', 'RudderStack', 60, 0.8)
-    const skewed = {
+    const medianOnly = {
       ...b,
-      outcome: { ...b.outcome, p50: 400 },
+      expected: null,
+      outcome: { mean: null, p10: 50, p50: 400, p90: 70 },
       p50: 400,
     } as typeof b
 
-    expect(getExpectedValue(skewed)).toBe(60)
+    // PIN THE PRECONDITION IN-TEST: this option really does carry no mean, so
+    // the outcome below is the code's doing and not the fixture's failure.
+    expect(getExpectedValue(medianOnly)).toBeNull()
+    expect(medianOnly.outcome.p50).toBe(400)
 
     const result = implicationOf(
       makeData({
         recommendation: {
-          allOptions: [a, skewed],
+          allOptions: [a, medianOnly],
           recommendedOption: a,
           goalThreshold: 100,
           verdict: ENTITLED,
         },
       }),
     )
-    if (result.kind !== 'diverged') throw new Error('expected divergence')
-    expect(result.outcome.optionId).toBe('opt_a')
+    expect(result.kind).toBe('none')
   })
 
   it('states AGREEMENT when one option leads both readings', () => {
