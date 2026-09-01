@@ -91,18 +91,51 @@ export function NodeMetricRow({
           this as a NET-NEW violation.
 
           It was also the wrong call on its own terms. `FactorNode`'s influence
-          row already ships this exact shape in sentence case
-          (`w-14 shrink-0 text-text-light`), and this component exists to make
-          the four node types agree. Styling it differently would have made the
-          row that unifies them the one that matched none of them. The classes
-          below are now byte-identical to the row this replaces.
+          row already ships this exact shape in sentence case, and this component
+          exists to make the four node types agree. Styling it differently would
+          have made the row that unifies them the one that matched none of them.
 
           ⚠ AND A NOTE FOR WHOEVER TRIPS THIS NEXT: the guard scans SOURCE TEXT,
           so it fired again on the first version of THIS comment, which merely
           quoted the class it was explaining. A rule that cannot tell a use from
-          a mention will read your explanation as the offence. Rowed. */}
+          a mention will read your explanation as the offence. Rowed.
+
+          ⭐ THE FIXED CAPTION COLUMN IS GONE, AND THE WIDTH IT USED TO CARRY WAS
+          MEASURED FOR TYPE THIS ROW NO LONGER RENDERS. `edgeLabel` is
+          `calc(10px * var(--canvas-label-scale))`: it counter-scales so a canvas
+          caption stays legible as the view zooms out. The old `w-14` (56px) did
+          NOT counter-scale, so at the auto-fit floor the caption rendered at 20px
+          inside a box measured for 10px — `clientWidth 56 / scrollWidth 73` at
+          `labelScale 2`, measured in Chromium, so ~17px of "strength" painted
+          ON TOP OF the bar beside it. `nodeTextClipping.visual.spec.ts` reported
+          it on three starters; it has been red since #1067 introduced this row.
+
+          ⛔ THE OBVIOUS FIX IS WRONG AND I SHIPPED IT BEFORE MEASURING IT. Scaling
+          the column with the type (`w-[calc(3.5rem*var(--canvas-label-scale,1))]`)
+          makes the caption fit and reads as the principled change — the container
+          tracking the same scale as its contents. Measured, it DESTROYS THE BAR:
+          on the 230px card the caption takes 112px of a 202px row and the track
+          collapses to 0px (from 51px). This component's own rule two paragraphs
+          up is that the bar is the constant, and its `max(4px, …)` fill exists
+          precisely so a real value is never reported as an absence. A fix that
+          silently deletes the bar to save the caption trades one visible defect
+          for a worse one. The numbers are the only reason I know that.
+
+          WHAT IS HERE INSTEAD: the caption is sized to its CONTENT. It cannot
+          clip, and the bar keeps 33px on the narrowest card (against 51px before,
+          and 0px under the scaled-column version). Measured across three
+          starters at the auto-fit zoom.
+
+          ⚠ AND THE COST, STATED RATHER THAN BURIED: bars no longer begin at the
+          same x across node TYPES, because the four captions differ in width
+          ("Leads", "Chance", "strength", "Influence"). Within a type they still
+          align exactly. This is a real reduction in the at-a-glance comparison
+          this component was built for, and it is a DESIGN judgement, not a
+          mechanical one — flagged in the PR for a ruling rather than settled
+          here. The alternative that preserves alignment is a wider card floor at
+          the counter-scale, which is canvas geometry and belongs to that lane. */}
       <span
-        className={`${typography.edgeLabel} w-14 shrink-0 text-text-light`}
+        className={`${typography.edgeLabel} shrink-0 text-text-light`}
         aria-hidden="true"
       >
         {label}
