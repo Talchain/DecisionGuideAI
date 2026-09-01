@@ -119,6 +119,12 @@ const OTHER_USERS_LABEL = 'Engineering run rate'
 function seedCanvasPostRename() {
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
+    // The REAL state at the moment `sendTurn` resolves: the drain moved this
+    // gesture out of the queue and into the lifecycle as `in_flight` before it
+    // awaited, so the resolver's job includes writing the terminal verdict.
+    structuralRenameLifecycle: [
+      { intent: renameIntent(), scenarioId: SCENARIO_ID, status: 'in_flight' },
+    ],
     nodes: [
       {
         id: NODE_ID,
@@ -372,5 +378,60 @@ describe('structural_rename 409 — a guaranteed no-write reverts and says so', 
 
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
     expect(notices).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE VERDICT THAT OUTLIVES THE COMPONENT — review P1
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⭐ EVERY ARM OF THE RESOLVER WRITES A TERMINAL VERDICT, and the three are
+ * genuinely distinct rather than two-plus-a-euphemism. This matters because the
+ * drain's every-exit fallback settles anything still `in_flight` as
+ * `unconfirmed`: an arm that resolved the canvas but forgot the record would
+ * hand the user "I couldn't confirm" about a rename that plainly committed.
+ *
+ * Bound to the STATUS by identity (the intent's id), never to the canvas label —
+ * a label predicate is satisfiable by the same-labelled sibling, and the whole
+ * reason this event exists is that the status code and the truth disagree.
+ */
+const verdictFor = (intentId: string) =>
+  useCanvasStore.getState().structuralRenameLifecycle.find((r) => r.intent.id === intentId)
+    ?.status
+
+describe('structural_rename — the lifecycle verdict, one per arm', () => {
+  it('a 200 whose bytes CONFIRM settles `committed`', async () => {
+    stub200(NEW_LABEL, 'Renamed.')
+    await driveRename()
+    expect(verdictFor('sr-1')).toBe('committed')
+  })
+
+  it('a 200 whose bytes REFUTE settles `refused` — not committed, though the status says 200', async () => {
+    stub200(OTHER_USERS_LABEL, 'someone renamed it while you were working')
+    await driveRename()
+    expect(verdictFor('sr-1')).toBe('refused')
+  })
+
+  it('a 200 with NO readable committed graph settles `unconfirmed` — the honest third state', async () => {
+    stub200(null, 'Something happened.')
+    await driveRename()
+    // ⚠ NOT collapsed into success. We hold no bytes about this node, and the
+    // name is still on the canvas, so the record has to say we do not know.
+    expect(verdictFor('sr-1')).toBe('unconfirmed')
+  })
+
+  it('a guaranteed-no-write 409 settles `refused`', async () => {
+    stub409('BASE_HASH_DIVERGED')
+    await driveRename()
+    expect(verdictFor('sr-1')).toBe('refused')
+  })
+
+  it('OPPOSITE TWIN — an UNKNOWN 409 category settles `unconfirmed`, never `refused`', async () => {
+    stub409('some_future_conflict_category')
+    await driveRename()
+    // Calling an unknown a refusal is the same overclaim as calling it a
+    // success, one step further down. The producer guarantees nothing here.
+    expect(verdictFor('sr-1')).toBe('unconfirmed')
   })
 })

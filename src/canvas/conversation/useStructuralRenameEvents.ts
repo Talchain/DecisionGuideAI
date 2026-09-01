@@ -38,6 +38,7 @@ import { isOrchestratorV2Enabled } from '../../flags'
 import {
   buildStructuralRenameWirePayload,
   resolveStructuralRenameBase,
+  STRUCTURAL_RENAME_UNCONFIRMED_TOAST,
   type StructuralRenameIntent,
 } from '../mutations/structuralRename'
 import type { WireSystemEvent } from './types'
@@ -104,19 +105,32 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
     void (async () => {
       try {
         for (;;) {
-          const batch = useCanvasStore.getState().takePendingStructuralRenames()
-          if (batch.length === 0) return
-          for (const intent of batch) {
-            // Stamp the base hash for a DEFERRED intent; an intent captured with
-            // its own hash keeps it. `null` here means the hash vanished between
-            // the gate above and now, which the transitions make unreachable —
-            // but the type makes it expressible, so it is refused rather than
-            // sent with a hole where the assertion belongs.
-            const resolved = resolveStructuralRenameBase(
-              intent,
-              useCanvasStore.getState().lastServerGraphHash,
-            )
-            if (!resolved) continue
+          // ⭐ ONE AT A TIME, AND ATOMICALLY — review P1. Taking the WHOLE batch
+          // and then awaiting each send left every gesture after the first in
+          // NEITHER the queue nor any record, so an abort or a remount in that
+          // window destroyed the only evidence the attempt existed. This moves
+          // exactly one intent from the queue into the store-held lifecycle as
+          // `in_flight`, in one `set()`.
+          const record = useCanvasStore.getState().beginStructuralRenameSend()
+          if (record === null) return
+          const intent = record.intent
+
+          // Stamp the base hash for a DEFERRED intent; an intent captured with
+          // its own hash keeps it. `null` here means the hash vanished between
+          // the gate above and now, which the transitions make unreachable —
+          // but the type makes it expressible, so it is refused rather than
+          // sent with a hole where the assertion belongs.
+          //
+          // ⚠ AND THE REFUSAL IS NO LONGER SILENT. The pristine `continue`
+          // dropped the intent — it had already left the queue — so an
+          // "unreachable" branch would have cost the user their rename with no
+          // record and no word. It now settles `unconfirmed` like every other
+          // exit, which is what makes the branch AUDIBLE if it is ever reached.
+          const resolved = resolveStructuralRenameBase(
+            intent,
+            useCanvasStore.getState().lastServerGraphHash,
+          )
+          if (resolved) {
             // The outcome is resolved inside `sendTurn` against the server
             // receipt — a refusal reverts the label and says so there, where the
             // response is in hand. Nothing here may treat a resolved promise as
@@ -134,6 +148,51 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
                   console.warn('[structuralRename] send failed:', err)
                 }
               })
+          }
+
+          // ⭐⭐ THE EVERY-EXIT SETTLE, AND IT IS DERIVED RATHER THAN ENUMERATED.
+          //
+          // `useConversation` gates its whole optimistic resolution on
+          // `!isAbort`, and its ABORT ARM handles `factor_value_edit` only — in
+          // terms: "Its twin `structural_delete` is deliberately NOT handled
+          // here … Naming it rather than silently widening the fix." Every V5
+          // dispatch runs `abortRef.current?.abort()` before installing its own
+          // controller, so renaming and then asking Olumi anything cancelled the
+          // rename's turn and NEITHER arm ran: no revert, no confirmation, no
+          // sentence. The response arm is fenced again on
+          // `activeV5TurnIdRef.current === turnClientId`, which discards a
+          // superseded turn just as quietly.
+          //
+          // Rather than mirror that list of branches here — a hand-maintained
+          // mirror that would drift the moment a new exit is added — this asks
+          // the only question that matters at this point: my await has returned,
+          // so did ANYBODY settle this attempt? If not, we sent it and never
+          // heard, and `unconfirmed` is the honest terminal state.
+          //
+          // ⚠ IT MUST NOT REVERT. The cancel was CLIENT-side; CEE may well have
+          // taken the rename and there are no committed bytes either way.
+          // Discarding the user's typing on that guess is the data-loss
+          // direction of the same harm.
+          //
+          // `settleStructuralRename` is idempotent, so a resolver that already
+          // wrote `committed` / `refused` / `unconfirmed` wins and this is a
+          // no-op — which is why the notice is gated on the status READ BACK
+          // rather than on having called the setter.
+          const stillOpen =
+            useCanvasStore
+              .getState()
+              .structuralRenameLifecycle.find((r) => r.intent.id === intent.id)
+              ?.status === 'in_flight'
+          if (stillOpen) {
+            useCanvasStore.getState().settleStructuralRename(intent.id, 'unconfirmed')
+            // Deliberately the canvas toast bridge, not `addMessage`: this code
+            // outlives the React instance that started the send, so the
+            // conversation it would write into may already be unmounted.
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+                detail: { message: STRUCTURAL_RENAME_UNCONFIRMED_TOAST, level: 'warning' },
+              }))
+            }
           }
         }
       } finally {

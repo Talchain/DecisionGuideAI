@@ -234,6 +234,76 @@ export function resolveStructuralRenameBase(
 export const STRUCTURAL_RENAME_DEFERRED_NOTICE =
   "Renamed on the canvas. It isn't saved to the model yet — I'll save it with your next message. If you reload before then, the model will still hold the old name."
 
+/**
+ * ⭐⭐ WHAT A USER IS TOLD WHEN THE RENAME'S TURN WAS INTERRUPTED — the review P1.
+ *
+ * `useConversation`'s catch block gates the whole optimistic resolution on
+ * `!isAbort`, and its ABORT ARM handles `factor_value_edit` ONLY — in terms:
+ * "Its twin `structural_delete` is deliberately NOT handled here … Naming it
+ * rather than silently widening the fix." `structural_rename` sits in that same
+ * unhandled position, and every V5 dispatch runs `abortRef.current?.abort()`
+ * before installing its own controller. So renaming a node and then asking Olumi
+ * anything cancels the rename's turn, and NEITHER arm runs: no revert, no
+ * confirmation, no sentence, and nothing in state to say an attempt was made.
+ * The response arm is fenced again on `activeV5TurnIdRef.current === turnClientId`,
+ * which discards a superseded turn just as quietly.
+ *
+ * ⚠ IT MUST NOT REVERT, for the same reason the value-edit arm must not: the
+ * cancel was CLIENT-side, CEE may well have taken the rename, and there are no
+ * committed bytes either way. Discarding the user's typing on that guess is the
+ * data-loss direction of the same harm. `unconfirmed` is a legitimate TERMINAL
+ * state — "we sent it and never heard" — and the honest move is to say so.
+ *
+ * Deliberately a TOAST rather than a chat message: the settle happens in the
+ * drain, which outlives the React instance that started the send, so the
+ * conversation's `addMessage` may belong to an unmounted tree.
+ */
+export const STRUCTURAL_RENAME_UNCONFIRMED_TOAST =
+  "That rename was interrupted before the model answered, so I can't tell you whether it saved. It's on the canvas — reload this decision to see what the model actually holds."
+
+/**
+ * Where one rename gesture has got to. THREE outcomes, never two, and
+ * `unconfirmed` is a terminal state rather than a polite word for success.
+ *
+ * ⚠ THE RECORD LIVES IN THE STORE, not in a closure owned by whichever
+ * component happened to be mounted when the user typed. That is the entire
+ * point: a panel close, a route change or a remount must not be able to destroy
+ * the only evidence that an attempt was made.
+ */
+export type StructuralRenameLifecycleStatus =
+  /** Sent; the server has not answered (or its answer has not been read). */
+  | 'in_flight'
+  /** The server's committed bytes carry this id at this label. */
+  | 'committed'
+  /** The server declined — a 409, or a committed 200 holding a different label. */
+  | 'refused'
+  /** We sent it and never heard. NOT a success, and never rendered as one. */
+  | 'unconfirmed'
+
+export interface StructuralRenameLifecycleRecord {
+  readonly intent: StructuralRenameIntent
+  /**
+   * The scenario this attempt was made against, captured at DISPATCH. A verdict
+   * about another decision is not ours to keep — the record is dropped on a
+   * decision-context change, exactly like the queue it came from.
+   */
+  readonly scenarioId: string | null
+  readonly status: StructuralRenameLifecycleStatus
+}
+
+/** Everything except `in_flight` — the states a settle may write. */
+export type StructuralRenameTerminalStatus = Exclude<
+  StructuralRenameLifecycleStatus,
+  'in_flight'
+>
+
+/**
+ * How many records to keep. The drain is SERIALISED (one gesture at a time), so
+ * at most one record is ever `in_flight` and a plain "keep the newest N" cannot
+ * evict a live attempt.
+ */
+export const STRUCTURAL_RENAME_LIFECYCLE_LIMIT = 20
+
 export interface CaptureStructuralRenameInput {
   /** Nodes as they were BEFORE the rename was applied. */
   readonly nodesBefore: readonly Node[]

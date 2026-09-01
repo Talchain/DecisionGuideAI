@@ -3081,10 +3081,25 @@ export function useConversation(): UseConversationReturn {
       let notice: StructuralRenameNoticeKey | null = null
       let shouldRevert = false
 
+      // ⭐ SETTLE THE LIFECYCLE RECORD ON EVERY ARM, INCLUDING THE EARLY
+      // RETURNS — review P1. The record is the attempt/completion authority that
+      // outlives this React instance; leaving an arm unsettled would hand the
+      // drain's every-exit fallback an attempt the server DID answer, and it
+      // would tell the user "I couldn't confirm" about a rename that plainly
+      // committed. `settleStructuralRename` is idempotent, so whichever
+      // authority writes first owns the verdict.
+      const settle = (status: 'committed' | 'refused' | 'unconfirmed') => {
+        useCanvasStore.getState().settleStructuralRename(intent.id, status)
+      }
+
       if (outcome.kind === 'response') {
         const receipt = readStructuralRenameReceipt(intent, outcome.response)
-        if (receipt === 'proven') return
+        if (receipt === 'proven') {
+          settle('committed')
+          return
+        }
         if (receipt === 'refuted') {
+          settle('refused')
           shouldRevert = true
           // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
           // always has, with a better sentence than ours (it names the label).
@@ -3094,13 +3109,19 @@ export function useConversation(): UseConversationReturn {
           notice = spoke ? null : 'unconfirmed_server'
         } else {
           // `unproven`. We hold no bytes about this node. Keep the name.
+          settle('unconfirmed')
           notice = 'unconfirmed_server'
         }
       } else if (outcome.kind === 'typed_error') {
         const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
+        // A category the PRODUCER guarantees wrote nothing is a refusal we can
+        // state; anything else is an unknown, and calling an unknown a refusal
+        // would be the same overclaim in verdict form.
+        settle(provenNoWrite ? 'refused' : 'unconfirmed')
         shouldRevert = provenNoWrite
         notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
       } else {
+        settle('unconfirmed')
         notice = 'unconfirmed_transport'
       }
 

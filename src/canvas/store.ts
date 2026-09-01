@@ -35,7 +35,10 @@ import {
 import {
   captureStructuralRename,
   STRUCTURAL_RENAME_DEFERRED_NOTICE,
+  STRUCTURAL_RENAME_LIFECYCLE_LIMIT,
   type StructuralRenameIntent,
+  type StructuralRenameLifecycleRecord,
+  type StructuralRenameTerminalStatus,
 } from './mutations/structuralRename'
 import {
   EMPTY_DURABLE_DELETION_RECORD,
@@ -724,6 +727,25 @@ interface CanvasState {
    */
   pendingStructuralRenames: StructuralRenameIntent[]
   /**
+   * 0.50.0 — ATTEMPT AND COMPLETION AUTHORITY FOR EVERY RENAME PUT ON THE WIRE.
+   *
+   * ⚠ THE QUEUE ABOVE IS NOT ENOUGH, and the gap is measured rather than
+   * theoretical. The drain removes an intent from `pendingStructuralRenames` and
+   * THEN awaits the server, so between those two moments the gesture lived only
+   * in a closure owned by whichever component happened to be mounted.
+   * `useConversation` gates its optimistic resolution on `!isAbort` and its abort
+   * arm handles `factor_value_edit` ONLY, so an interrupted rename resolved
+   * NEITHER way: no revert, no confirmation, no sentence, and nothing in state to
+   * say an attempt had ever been made. The optimistic label simply stood.
+   *
+   * Three outcomes stay resolvable here — `committed` / `refused` /
+   * `unconfirmed` — and the record survives a remount, a panel close and a route
+   * change, because it is store state rather than a closure. Dropped on a
+   * decision-context change (`DECISION_CONTEXT_CLEAR`), for the same reason the
+   * queue is: a verdict about another decision is not ours to keep.
+   */
+  structuralRenameLifecycle: StructuralRenameLifecycleRecord[]
+  /**
    * Canvas ids the server has PROVEN removed from the saved model — written
    * ONLY from a `'proven'` `structural_delete` receipt.
    *
@@ -1189,6 +1211,29 @@ interface CanvasState {
   /** 0.50.0: the rename twin of the above — one atomic read-and-clear. */
   takePendingStructuralRenames: () => StructuralRenameIntent[]
   /**
+   * 0.50.0: move the HEAD of the rename queue into the lifecycle as
+   * `in_flight`, in ONE `set()`, and return it. Null when the queue is empty.
+   *
+   * ⭐ THE ATOMICITY IS THE POINT. Taking the whole batch and then awaiting each
+   * send left every gesture after the first in neither the queue nor any record;
+   * an abort or a remount in that window destroyed the only evidence the attempt
+   * existed. One at a time means the gesture is always in exactly one place.
+   */
+  beginStructuralRenameSend: () => StructuralRenameLifecycleRecord | null
+  /**
+   * 0.50.0: write the terminal verdict for one attempt.
+   *
+   * IDEMPOTENT BY DESIGN — a record that already holds a terminal status is LEFT
+   * ALONE. Two authorities can reach one attempt (the resolver inside `sendTurn`,
+   * and the drain's every-exit settle), and a late arm rewriting a `committed`
+   * verdict as `unconfirmed` would tell the user their saved name might not be
+   * saved: a lie in the other direction.
+   */
+  settleStructuralRename: (
+    intentId: string,
+    status: StructuralRenameTerminalStatus,
+  ) => void
+  /**
    * 0.50.0: put back a label the server refused to take.
    *
    * ⚠ RESTORES **TWO** FIELDS. `updateNodeLabel` also stamps
@@ -1629,6 +1674,11 @@ const DECISION_CONTEXT_CLEAR = {
   // graph it was captured against, and its `expected_label` describes that
   // graph's label. Both are meaningless once the context has been replaced.
   pendingStructuralRenames: [] as StructuralRenameIntent[],
+  // 0.50.0: an attempt's verdict describes ONE decision's node. Carrying it
+  // across a context replacement would let a late settle write a verdict about a
+  // graph this canvas is no longer showing — the same argument as the queue
+  // above, applied to the record of what happened to it.
+  structuralRenameLifecycle: [] as StructuralRenameLifecycleRecord[],
   // 0.48.0: the durable-delete record names ids in ONE decision's graph.
   // Carrying it across a context replacement would guard a new canvas against
   // deletions made in a decision the user has left — and could withhold a node
@@ -2326,6 +2376,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   pendingStructuralDeletes: [],
   // 0.50.0: no rename gestures awaiting the wire.
   pendingStructuralRenames: [],
+  // 0.50.0: no rename has been attempted at cold start, so there is no verdict
+  // to hold — and an empty lifecycle is "nothing attempted", never "all fine".
+  structuralRenameLifecycle: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -5522,6 +5575,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (queued.length === 0) return []
     set({ pendingStructuralRenames: [] })
     return queued
+  },
+
+  beginStructuralRenameSend: () => {
+    const queued = get().pendingStructuralRenames
+    if (queued.length === 0) return null
+    const intent = queued[0]!
+    const record: StructuralRenameLifecycleRecord = {
+      intent,
+      // Captured at DISPATCH, exactly like the resolver's `scenarioIdAtDispatch`
+      // — read later it would name whatever decision the user has since opened.
+      scenarioId: get().currentScenarioId ?? null,
+      status: 'in_flight',
+    }
+    // ONE `set()`: the gesture leaves the queue and enters the lifecycle in the
+    // same transaction, so no observer can ever see it in neither.
+    set((s) => ({
+      pendingStructuralRenames: s.pendingStructuralRenames.slice(1),
+      structuralRenameLifecycle: [...s.structuralRenameLifecycle, record].slice(
+        -STRUCTURAL_RENAME_LIFECYCLE_LIMIT,
+      ),
+    }))
+    return record
+  },
+
+  settleStructuralRename: (intentId, status: StructuralRenameTerminalStatus) => {
+    set((s) => {
+      const idx = s.structuralRenameLifecycle.findIndex((r) => r.intent.id === intentId)
+      if (idx === -1) return {}
+      const existing = s.structuralRenameLifecycle[idx]!
+      // IDEMPOTENT: a terminal verdict is never rewritten. Two authorities can
+      // reach one attempt (the resolver inside `sendTurn`, and the drain's
+      // every-exit settle), and the second must not downgrade the first.
+      if (existing.status !== 'in_flight') return {}
+      const next = s.structuralRenameLifecycle.slice()
+      next[idx] = { ...existing, status }
+      return { structuralRenameLifecycle: next }
+    })
   },
 
   applyStructuralRenameRevert: (restore) => {
