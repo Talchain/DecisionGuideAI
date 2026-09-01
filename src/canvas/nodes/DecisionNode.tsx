@@ -160,12 +160,40 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // Audit §8 P1: result-derived decorations mirror the panels' freshness
   // verdict (opacity + title only — no layout shift, chips stay interactive).
 
+  /**
+   * ⭐ DISTINCT OPTIONS, NOT OUTGOING EDGES — and this PR is what makes the
+   * difference observable.
+   *
+   * This counted EDGES whose target is an option, so a decision with one option
+   * linked TWICE counted two. That was harmless for as long as nothing read the
+   * magnitude: the three other readers are `> 0` (:397, :711) and `=== 0`
+   * (:543), and the distinct set is empty exactly when the filtered edge list
+   * is, so de-duplicating cannot change any of their verdicts. The new
+   * "My model has N options so far" message at :345 is the FIRST reader of the
+   * number itself — the PR that stops the copy being generic is the PR that
+   * makes this reachable, so it belongs here rather than in a follow-up.
+   *
+   * ⚠ AND IT IS REACHABLE, not theoretical. `store.addEdge` refuses duplicates
+   * (`store.ts:2739`, via `isDuplicateEdge`) — but the CEE patch path does not
+   * go through it: `applyPatch.ts:350` appends supplied edges wholesale with no
+   * duplicate check, and its `_rewireTarget` handling can point two surviving
+   * edges at one option without appending anything at all. The product already
+   * knows this happens: `useModelHealth.ts:180` ships a "Duplicate edge" warning
+   * for exactly this state.
+   *
+   * So the honest count is of the options themselves. A duplicate edge is a
+   * modelling defect the health check reports; it is not a second option, and
+   * the user should not be told it is one in their own words.
+   */
   const optionCount = useMemo(() => {
-    const outgoingEdges = edges.filter(e => e.source === id)
-    return outgoingEdges.filter(e => {
-      const targetNode = nodes.find(n => n.id === e.target)
-      return targetNode?.type === 'option' || targetNode?.data?.type === 'option'
-    }).length
+    const optionTargets = edges
+      .filter(e => e.source === id)
+      .filter(e => {
+        const targetNode = nodes.find(n => n.id === e.target)
+        return targetNode?.type === 'option' || targetNode?.data?.type === 'option'
+      })
+      .map(e => e.target)
+    return new Set(optionTargets).size
   }, [edges, nodes, id])
 
   // All factor values present?
@@ -316,14 +344,43 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // Detailed view. The body never renders coaching chips. Exception:
   // pre-analysis body still shows the "Run analysis" CTA when the model is
   // ready, because that's a primary action button rather than coaching.
+  /**
+   * ⭐ "A THIRD OPTION" WAS HARDCODED, AND THIS PR IS WHAT MAKES IT REACHABLE.
+   *
+   * The sent message read "Suggest a third option I haven't considered for this
+   * decision" on every model. With one option it asked for a third that would
+   * be the second; with seven it asked for a third that already existed five
+   * times over. The string asserts the model holds exactly two options — and it
+   * is sent as the USER'S OWN message, so the user is made to state a false
+   * fact about their own board.
+   *
+   * The defect predates this PR. Promoting it does not: it lived behind a hover
+   * in a non-default view, and this change puts it on the anchor node of every
+   * Standard-view model. That is the question a PR opening a dark surface has
+   * to answer — now that people can reach it, is what they reach true?
+   *
+   * ⚠ AND THE SUITE COULD NOT SEE IT. `DecisionNode.invitations.spec.tsx`
+   * asserts the chips "assert nothing about the model" by scanning RENDERED
+   * LABEL TEXT. The falsehood is in `message`, which never renders. The guard
+   * and the defect were on different strings — so the assertion below is on
+   * `message` specifically.
+   *
+   * Counting only, never assessing: how many options exist is observable.
+   * "Your options are too similar" would be a claim about the user's reasoning
+   * and belongs to the producer.
+   */
+  const exploreOptionsMessage =
+    `My model has ${optionCount} option${optionCount === 1 ? '' : 's'} so far.` +
+    ' What other options could answer this decision that I have not put on the board?'
+
   const preAnalysisCoachingChips = useMemo(() => (
     <div className="flex items-center gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
+      <NodeChip chipId="decision_explore_more_options" actionType={null} label="Explore more options" message={exploreOptionsMessage} />
       {!showRunAnalysis && (
         <NodeChip chipId="decision_what_could_go_wrong" actionType={null} label="What could go wrong?" message="What could go wrong with this decision?" />
       )}
     </div>
-  ), [showRunAnalysis])
+  ), [showRunAnalysis, exploreOptionsMessage])
 
   const postAnalysisCoachingChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
@@ -373,13 +430,63 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
   const showHeadline = Boolean(headline)
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
+  // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
+  // oversight. "Challenge this result" deserves the same treatment as the
+  // pre-analysis pair below and I tried it — but the post-analysis Standard
+  // body is the exact surface another lane's HONEST RESTING STATE occupies
+  // (`DecisionNode.restingState.spec.tsx`), and filling it with chips suppresses
+  // that copy: four of their tests go red. Two lanes, one surface, and their
+  // design has a measured defect behind it. Left alone pending a decision that
+  // covers both.
   const showPostAnalysisChips = isDetailed
   const showTriageLine = Boolean(triageLine)
+
+  /**
+   * ⭐ THE INVITATIONS BELONG ON THE CARD, NOT BEHIND A HOVER.
+   *
+   * "Explore more options" and "What could go wrong?" are the canvas's two most
+   * reasoning-shaped affordances on its most important node, and until this
+   * they rendered in exactly two places: the Detailed (expert) view, and a
+   * HOVER POPOVER. Measured on the deployed build — `viewMode: 'standard'`, and
+   * none of the four coaching chips anywhere on screen, with a contrast control
+   * proving the probe could read the page.
+   *
+   * So for an ordinary user on the default view they did not exist, and on a
+   * touch device they could not exist: `hover` is not an input that device has.
+   *
+   * ⚠ THIS DOES CHANGE A STATED RULE. The comment on the body chip below reads
+   * "Coaching chips live in the popover" — a deliberate anti-clutter decision,
+   * and a reasonable one when it was made. It is worth revisiting only because
+   * of WHERE these sit: this is ONE node, the anchor of the whole model, not a
+   * treatment applied to every card. Two chips on the single node the user is
+   * being asked to think hardest about is not furniture; the same two chips on
+   * thirteen cards would be.
+   *
+   * ⚠ MOVED OUT OF THE POPOVER, NOT DUPLICATED INTO THE BODY — and this
+   * paragraph said the opposite until a review caught it.
+   *
+   * I first wrote duplication, citing the R5 ruling's permission ("full
+   * functionality ... may be DUPLICATED there") on the grounds that a pointer
+   * user who hovers should not find less than they had. Rendering both put the
+   * SAME chip on one node twice, which `render-matrix.spec.tsx` caught as
+   * "found multiple elements". So the code moves them, the popover sixty lines
+   * below says "⛔ THE CHIPS ARE NOT HERE ANY MORE", and this comment went on
+   * describing the rejected alternative as shipped fact — with a ruling cited
+   * as authority for it. A false label is a first-class defect here (trap 14);
+   * the next reader would have believed the paragraph over the code.
+   */
+  // ⚠ NO `optionCount > 0` CONJUNCT, and that is measured rather than assumed.
+  // I wrote one, and a mutant proved it a NO-OP: deleting it left the suite
+  // fully green, because `isPreAnalysisBranch` already requires linked options.
+  // A guard that cannot fail is not defence in depth, it is a second answer to
+  // a question already answered — and the next reader would have had to work
+  // out which one was load-bearing.
+  const showPreAnalysisInvitations = isPreAnalysisBranch
 
   const bodyHasContent = isPostAnalysisBranch
     ? (showHeadline || showStabilityLine || showPostAnalysisChips)
     : isPreAnalysisBranch
-      ? (showTriageLine || showRunAnalysis)
+      ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
       : false
 
   // ---- The honest resting state ----
@@ -606,14 +713,18 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
 
-            {/* Body chip: ONLY the "Run analysis" CTA when the model is ready.
-                Coaching chips ("Explore more options" / "What could go wrong?")
-                live in the popover below — see preAnalysisCoachingChips. */}
+            {/* The "Run analysis" CTA when the model is ready — a primary
+                action, not coaching. */}
             {showRunAnalysis && (
               <div className="flex items-center gap-1 flex-wrap mt-1.5">
                 <NodeChip chipId="decision_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
               </div>
             )}
+            {/* The invitations — see `showPreAnalysisInvitations` for why these
+                moved out from behind the hover. `preAnalysisCoachingChips`
+                already drops "What could go wrong?" while the Run CTA is up, so
+                the card never carries three chips at once. */}
+            {showPreAnalysisInvitations && preAnalysisCoachingChips}
             {!bodyHasContent && restingState}
           </>
         ) : (
@@ -648,7 +759,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </>
             )}
           </div>
-          {preAnalysisCoachingChips}
+          {/* ⛔ THE CHIPS ARE NOT HERE ANY MORE — they are on the card.
+              Rendering them in both put the SAME chip on one node twice for a
+              pointer user, which is worse than either placement alone, and it
+              broke `render-matrix`'s own `getByText` audit. The popover keeps
+              what it is uniquely good at: the readiness breakdown, which is
+              detail on demand rather than an invitation. */}
         </NodePopover>
       )}
 
