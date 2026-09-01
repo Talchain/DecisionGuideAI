@@ -25,6 +25,7 @@ import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
+import { useRestoredLayoutWidth } from './hooks/useRestoredLayoutWidth'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import {
@@ -837,14 +838,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const layoutVersion = useCanvasStore(s => s.layoutVersion)
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
-  // Three-hook layout lifecycle. Order does not matter — each hook owns
+  // Four-hook layout lifecycle. Order does not matter — each hook owns
   // its own dep array and state subscription:
   //   - useInitialLayoutGuard: detects stacked-load and requests a layout
   //   - useMeasureThenLayout: gates applyLayout on node measurement readiness
   //   - useFitViewOnLayoutVersion: RAF-synced fitView after each successful layout
+  //   - useRestoredLayoutWidth: gives a RESTORED model the card width its own
+  //     positions were computed for. The three hooks above all key off a layout
+  //     RUNNING; on a reload none ever does, which is why the width the layout
+  //     would have published has to be re-derived here.
   useInitialLayoutGuard()
   useMeasureThenLayout()
   useFitViewOnLayoutVersion()
+  useRestoredLayoutWidth()
 
   // Brief 36 Fix: Use ref for fitView so the `handleFitView` callback
   // below has a stable reference even when ReactFlow updates.
