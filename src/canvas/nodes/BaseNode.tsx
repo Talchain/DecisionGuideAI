@@ -24,7 +24,7 @@ import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
   NODE_HEADER_GAP_PX,
-  NODE_HEADER_ICON_PX,
+  NODE_TYPE_GLYPH_PX,
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
   NODE_TITLE_MIN_MEASURE_PX,
@@ -41,8 +41,6 @@ import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
-import { NODE_REGISTRY } from '../domain/nodes'
-import Tooltip from '../../components/Tooltip'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -255,9 +253,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // so the rendered node matches ELK's sizing assumptions.
   const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
 
-  // Canvas view mode: 'decision' (clean) vs 'model' (full detail)
-  const viewMode = useCanvasStore(s => s.viewMode)
-
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
@@ -341,7 +336,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   })()
 
   // Accessible name combines node type and label
-  const accessibleName = `${nodeType} node: ${label}`
+  // ⚠ THE TYPE DESCRIPTION RIDES HERE BECAUSE ITS TOOLTIP IS GONE. Moving the
+  // glyph onto the connector (below) deleted the only surface that told a user
+  // what a "factor" or an "outcome" IS — a real affordance removed by a purely
+  // visual change, which is the quiet kind of regression. The glyph itself
+  // cannot carry it back: it is `pointer-events-none` so React Flow's Handle
+  // keeps its clicks, and an element that cannot be hovered cannot hold a
+  // tooltip. So the description goes where this PR already says the type
+  // survives. ⚠ A VISUAL SURFACE IS STILL OWED — rowed in CANVAS-BACKLOG.md;
+  // a sighted user currently has no way to ask what a node type means.
+  const accessibleName = `${nodeType} node: ${label}. ${NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''}`.trim()
 
   /*
    * ⭐⭐ REGISTER THIS NODE'S HANDLE BOUNDS ONCE, ON MOUNT — WITHOUT THIS THE
@@ -675,8 +679,37 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         <NodeCoachingMarker nodeId={id} />
       </div>
 
+      {/* ⭐ THE TYPE GLYPH SITS ON THE TOP CONNECTOR, NOT IN THE TITLE ROW.
+          
+          It used to be the first item of the title's flex row, which cost the
+          title `NODE_HEADER_RESERVE_PX` of measure on every card — a 20px
+          column reserved on all twenty nodes so that one 14px mark could sit in
+          it. That is width the title needs far more than the glyph does: it is
+          what forced three-line wrapping, and the clamp above then ellipsised
+          the third line.
+
+          On the connector it is bigger (18px against 14px, so the shape is
+          actually legible), it is the first thing the eye meets travelling down
+          an edge into a node, and it costs the title nothing.
+
+          ⚠ `pointer-events-none` IS LOAD-BEARING. React Flow's target `Handle`
+          is at this exact position, and an element painted over it that also
+          captured clicks would silently break edge interaction — a visual
+          change taking a behaviour away with nothing to notice it. The type
+          name stays reachable: it is already in the card's `aria-label`, and
+          the tooltip that used to hang off this mark would have needed pointer
+          events to work, so it moves rather than being kept at that price. */}
+      <span
+        aria-hidden="true"
+        data-testid="node-type-glyph"
+        className="pointer-events-none absolute -top-2.5 left-1/2 z-10 flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center rounded-md border-[1.5px] border-panel-border bg-panel"
+      >
+        <NodeShapeIndicator nodeKind={nodeType} size={NODE_TYPE_GLYPH_PX} />
+      </span>
+
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       {!isCausalLens && (
+
       <div
         style={{
           display: 'flex',
@@ -691,18 +724,24 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           flexWrap: 'wrap',
         }}
       >
-        {/* Shape indicator — type name as tooltip */}
-        <Tooltip content={NODE_TYPE_DESCRIPTIONS[nodeType] ?? (NODE_REGISTRY[nodeType]?.label ?? nodeType)} delay={300}>
-          <span className="inline-flex mt-0.5 shrink-0"><NodeShapeIndicator nodeKind={nodeType} size={NODE_HEADER_ICON_PX} /></span>
-        </Tooltip>
-
         {/* Title + optional badges inline.
             `min-w-0` is deliberately NOT used here: it permits the flex item to
             collapse below its content, which at compressed card widths left a
             77px measure and made `break-words` split ordinary words mid-word.
             A real minimum measure keeps wrapping on word boundaries. */}
         <div className="flex-1" style={{ minWidth: `${titleMinMeasurePx}px` }}>
-          {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
+          {/* ⭐ TWO LINES, NOT THREE (1 Sep 2026). A third line was the single
+              biggest source of visual noise on a full board: card heights
+              varied by up to 50%, so nothing lined up and the eye had no
+              baseline to scan along. Two lines is a firm measure — every card
+              is one of two heights — and the glyph moving off the title row
+              (below) gave the text back the width it needed to fit.
+
+              The ellipsis is the point, not a regret: a title that cannot say
+              itself in two lines is a title the user should shorten, and the
+              full text stays reachable by `title` and `aria-label`.
+
+              Original note, still true of the clamp itself: cap the title so ELK can
               rely on uniform-ish node heights. `break-words` preserved so
               long unbroken tokens still wrap before clamping.
 
@@ -728,7 +767,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             className={
               lodBoostTitle
                 ? 'text-lg font-semibold text-text-header break-words line-clamp-2'
-                : `${typography.nodeTitle} text-text-body break-words line-clamp-3`
+                : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
             }
             style={lodHideTitle ? { visibility: 'hidden' } : undefined}
           >
@@ -770,7 +809,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       {/* Causal lens: show label only (header hidden) */}
       {isCausalLens && (
-        <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`}>
+        <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-2`}>
           {label}
         </div>
       )}
