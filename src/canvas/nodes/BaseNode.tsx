@@ -35,8 +35,7 @@ import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { resolveLodMetricLine } from './shared/lodMetricLine'
-import { findGoalNodeId } from './shared/bridgeStrengthToGoal'
-import { resolveLodMetricFacts, countDecisionOptions } from './shared/lodMetricFacts'
+import { resolveLodMetricFacts } from './shared/lodMetricFacts'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
@@ -237,66 +236,48 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
   /**
-   * ⚠ THE THREE FACTS THAT DO NOT LIVE ON THE NODE, and whose absence was the
-   * defect. A risk's / outcome's strength is a property of its EDGE to the
-   * goal; a decision's option count is a graph traversal; an option's change
-   * count lives in `ceeAnalysisReady`. `resolveLodMetricLine` receives `data`
-   * and `displayMetadata` and can see none of them, which is why those card
-   * types could only ever speak after an analysis had run.
+   * ⚠ THE FACT THAT DOES NOT LIVE ON THE NODE, and whose absence was the
+   * defect. An option's change count lives in `ceeAnalysisReady`;
+   * `resolveLodMetricLine` receives `data` and `displayMetadata` and cannot see
+   * it, which is why an option card could only ever speak after a run.
    *
-   * ⭐ EACH SELECTOR RETURNS A PRIMITIVE (an id, a number) AND IS SCOPED TO THE
-   * ONE NODE TYPE THAT NEEDS IT. `BaseNode` hosts every card on the canvas, so
-   * subscribing it to the whole `nodes` array would re-render the entire graph
-   * on every selection and every drag. Returning a string or a number means
-   * Zustand compares by value and re-renders only when the answer actually
-   * changes; returning `null` for the other types makes the selector O(1) for
-   * almost every node on screen.
+   * ⭐ IT IS COMPUTED ONLY BELOW THE LEGIBILITY FLOOR AND ONLY FOR OPTIONS.
+   * `BaseNode` hosts every card on the canvas, so this deliberately subscribes
+   * to nothing new: `ceeAnalysisReady` is already selected above for the
+   * pre-run overlay, and no `nodes`/`edges` traversal is added. Risk, outcome,
+   * goal and decision need nothing here — each formats its own line and passes
+   * it as `lodMetric` below.
    */
-  const goalNodeId = useCanvasStore(s =>
-    nodeType === 'risk' || nodeType === 'outcome' ? findGoalNodeId(s.nodes) : null,
-  )
-  const decisionOptionCount = useCanvasStore(s =>
-    nodeType === 'decision' ? countDecisionOptions(id, s.nodes, s.edges) : null,
-  )
-
   const lodFacts = useMemo(() => {
-    if (!lodActive) return undefined
+    if (!lodActive || nodeType !== 'option') return undefined
     return resolveLodMetricFacts({
       nodeType,
       nodeId: id,
       data: data as Record<string, unknown> | undefined,
-      goalNodeId,
-      edges,
       ceeOptions: ceeAnalysisReady?.options,
-      decisionOptionCount,
     })
-  }, [lodActive, nodeType, id, goalNodeId, edges, ceeAnalysisReady, data, decisionOptionCount])
+  }, [lodActive, nodeType, id, ceeAnalysisReady, data])
 
   const lodBodyLine = useMemo<string | null>(() => {
     if (!lodActive) return null
-    // The owner's own line wins — it can see data this cannot (see `lodMetric`).
-    //
-    // ⚠⚠ REBASE NOTE (1 Sep 2026) — TWO MECHANISMS NOW ANSWER THIS QUESTION FOR
-    // RISK AND OUTCOME, AND THAT IS AN UNRESOLVED DECISION, NOT A TIDY-UP.
-    // #1074 (merged) has the OWNER format the final string and pass it here,
-    // where it WINS. #1080 (this change) has the owner resolve the FACT
-    // (`facts.bridgeStrength`) and lets `resolveLodMetricLine` order and format
-    // it. Both close the same blank-card defect; they disagree on two things a
-    // user can see:
-    //   · SEPARATOR — #1074 renders `Strength 50% est.`, #1080 renders
-    //     `Strength 50% · est.`. Each is pinned by exact equality in its own
-    //     spec (`lodMetric.riskOutcome.spec.tsx:149` vs `lodMetricLine.spec.ts:300`).
-    //   · PRECEDENCE — #1074's string wins unconditionally, so a risk that HAS
-    //     probability+impact shows `Strength 45%` rather than `High risk`, and an
-    //     outcome with a clean achievement figure shows strength rather than
-    //     `Achievement 70%`. #1080's ordering is additive: the analysis-derived
-    //     figure keeps precedence and strength is the pre-analysis fallback.
-    // This rebase HOLDS #1074's deployed behaviour unchanged (it is merged,
-    // reviewed and on screen) and does NOT delete #1080's arms. The consequence,
-    // stated rather than hidden: `bridgeStrengthLine` in `lodMetricLine.ts` is
-    // currently UNREACHABLE FROM RiskNode/OutcomeNode, while its unit specs
-    // still exercise it directly. Reviewer owes a ruling on which mechanism owns
-    // risk/outcome; whichever wins, the loser's arm and its spec come out.
+    /**
+     * ⛔ THE OWNER'S OWN LINE WINS, AND AS OF 1 SEP 2026 THAT IS A SETTLED
+     * OWNERSHIP SPLIT RATHER THAN A FALLBACK ORDER (see the map in
+     * `shared/lodMetricLine.ts`).
+     *
+     * Four types format their own string and pass it here: risk and outcome
+     * (#1074) and goal and decision (#1085), each because it reads a datum the
+     * central resolver cannot see — an EDGE's strength, a user-stated
+     * threshold, a leader-claim PERMISSION. Factor and option have no owner
+     * line and are resolved centrally.
+     *
+     * ⚠ SO A `case` ADDED TO `resolveLodMetricLine` FOR ONE OF THOSE FOUR
+     * TYPES IS DEAD CODE, AND ITS UNIT SPEC WILL STILL PASS. That is not
+     * hypothetical: this branch is where four such arms were deleted, after a
+     * mutant pair showed the resolver's risk arm could be neutered with the
+     * component spec staying GREEN. If you are about to add one, add it to the
+     * owning component instead.
+     */
     if (lodMetric != null && lodMetric.length > 0) return lodMetric
     return resolveLodMetricLine({
       nodeType,
@@ -306,6 +287,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       facts: lodFacts,
     })
   }, [lodActive, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
     if (nodeType === 'factor') {

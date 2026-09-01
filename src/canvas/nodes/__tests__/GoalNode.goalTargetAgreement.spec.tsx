@@ -97,13 +97,24 @@ const baseProps = {
   draggable: true,
 }
 
-function cardText(data: Record<string, unknown>) {
-  const { container } = render(
+function renderCard(data: Record<string, unknown>, lodActive = false) {
+  vi.mocked(useCanvasStore).mockImplementation((selector) =>
+    selector(makeStoreState({ lodActive }) as never),
+  )
+  const { container, unmount } = render(
     <ReactFlowProvider>
       <GoalNode {...baseProps} data={{ label: 'Grow annual revenue', type: 'goal', ...data }} />
     </ReactFlowProvider>,
   )
-  return container.textContent ?? ''
+  return {
+    text: container.textContent ?? '',
+    lodLine: container.querySelector('[data-testid="node-lod-line"]')?.textContent ?? null,
+    unmount,
+  }
+}
+
+function cardText(data: Record<string, unknown>) {
+  return renderCard(data).text
 }
 
 describe('GoalNode target string — the canvas half of the one-goal-one-string pair', () => {
@@ -136,5 +147,93 @@ describe('GoalNode target string — the canvas half of the one-goal-one-string 
     const text = cardText({ goal_threshold_raw: 84.6, goal_threshold_unit: 'percent' })
     expect(text).toContain('85%')
     expect(text).toContain(formatGoalTarget(84.6, 'percent'))
+  })
+})
+
+/**
+ * ⭐⭐ THE THIRD AGREEMENT, AND THE ONE THAT ACTUALLY BROKE — the goal card
+ * against ITSELF, one zoom step apart.
+ *
+ * The file above pins card ⇄ Inspector panel. On 1 Sep 2026 the card acquired a
+ * reduced line for low zoom, written as a SECOND HAND-COPY of its own full-zoom
+ * string — and the copy dropped the colon. The same goal read `Target: 15%` at
+ * full zoom and `Target 15%` one step out, with the full-zoom body hidden
+ * behind it so nothing on screen could contradict it. Three sites (body line,
+ * reduced line, the file's own docblock) and two of them disagreed.
+ *
+ * ⛔ SO THIS PINS THE LOW-ZOOM LINE AGAINST THE FULL-ZOOM RENDER, NOT AGAINST A
+ * LITERAL — which is the whole point. A test spelling `'Target: 15%'` would
+ * have to be edited in step with any wording change, i.e. it would be a THIRD
+ * hand-maintained copy of the string it is guarding (CLAUDE.md trap 12). This
+ * one cannot drift: it renders the card twice and asserts the reduced line is
+ * text the card already shows. Change the wording anywhere and it stays green;
+ * change it in only ONE place and it REDs, which is the only event worth
+ * catching.
+ */
+describe('the reduced line is DERIVED from the full-zoom card, never hand-copied beside it', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as never))
+  })
+
+  const CASES: Array<{ name: string; data: Record<string, unknown> }> = [
+    { name: 'a percent target', data: { goal_threshold_raw: 15, goal_threshold_unit: 'percent' } },
+    { name: 'a currency target', data: { goal_threshold_raw: 800000, goal_threshold_unit: '£' } },
+    { name: 'a real-unit target', data: { goal_threshold_raw: 9, goal_threshold_unit: 'months' } },
+    // ⭐ THE NO-TARGET CARD IS A CASE, NOT AN EDGE CASE. It is the state every
+    // model is in before somebody sets a target — the commonest goal card there
+    // is — and below the floor it used to be an empty box, which is
+    // indistinguishable from a broken render.
+    { name: 'no target at all', data: {} },
+  ]
+
+  for (const c of CASES) {
+    it(`${c.name}: the low-zoom line is text the full-zoom card already shows`, () => {
+      const full = renderCard(c.data, false)
+      const fullText = full.text
+      full.unmount()
+
+      const low = renderCard(c.data, true)
+      const line = low.lodLine
+      low.unmount()
+
+      // ⛔ POSITIVE CONTROLS FIRST (CLAUDE.md trap 13). `toContain` is trivially
+      // satisfied by an empty needle, and an unrendered card gives an empty
+      // haystack — so BOTH halves are proven non-vacuous before the comparison
+      // that matters. Without these, a GoalNode that threw on mount would make
+      // this assertion pass forever while checking nothing.
+      expect(fullText).toContain('Grow annual revenue')
+      expect(line).not.toBeNull()
+      expect(line!.trim().length).toBeGreaterThan(0)
+
+      // THE PIN. No literal anywhere: the reduced line has to be a substring of
+      // what this same card renders at ordinary zoom.
+      expect(fullText).toContain(line!)
+    })
+  }
+
+  it('CONTRAST CONTROL — the reduced line exists ONLY below the floor, so this is a zoom behaviour and not a second body', () => {
+    // Without this, every assertion above could be satisfied by a card that
+    // renders the line at all times, and the pin would be about a duplicated
+    // body rather than about the reduced line.
+    const full = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, false)
+    expect(full.lodLine).toBeNull()
+    full.unmount()
+
+    const low = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, true)
+    expect(low.lodLine).not.toBeNull()
+    low.unmount()
+  })
+
+  it('CONTRAST CONTROL — two different targets produce two different lines, so the line is read and never defaulted', () => {
+    const a = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, true)
+    const lineA = a.lodLine
+    a.unmount()
+    const b = renderCard({ goal_threshold_raw: 9, goal_threshold_unit: 'months' }, true)
+    const lineB = b.lodLine
+    b.unmount()
+    expect(lineA).not.toBeNull()
+    expect(lineB).not.toBeNull()
+    expect(lineA).not.toBe(lineB)
   })
 })

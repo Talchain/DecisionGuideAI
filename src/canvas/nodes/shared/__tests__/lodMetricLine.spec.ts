@@ -178,14 +178,20 @@ describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one
 })
 
 describe('scope, pinned so it cannot widen by accident', () => {
-  // ⚠ THIS BLOCK USED TO PIN `decision` AND `goal` AS RENDERING NOTHING, AND
-  // THAT PIN WAS CORRECT WHEN WRITTEN AND IS NOW WRONG. Both were "deliberately
-  // not attempted" — and the consequence, measured in a browser on deployed
-  // `f3b1ca87`, was that the goal (the most important card on the canvas) and
-  // the decision (its anchor) were BLANK BOXES on every pre-analysis model at
-  // every zoom below 0.5. A deliberate non-attempt is still a blank card to the
-  // person looking at it. The pins are REPLACED, not deleted, so the scope stays
-  // stated rather than drifting.
+  // ⚠⚠ THIS BLOCK ONCE PINNED `goal` AND `decision` AS RENDERING NOTHING; THIS
+  // BRANCH THEN REPLACED THOSE PINS WITH ARMS OF ITS OWN; AND BOTH ARE NOW GONE
+  // AGAIN, WHICH IS THE HONEST OUTCOME AND NOT A RETREAT.
+  //
+  // Neither card is blank any more — #1085 shipped both lines through
+  // `BaseNode`'s `lodMetric` prop, which WINS over this resolver. A `goal` or
+  // `decision` case here would therefore be code the mount can never reach, and
+  // a spec asserting its precedence would be GREEN ABOUT NOTHING (CLAUDE.md
+  // trap 13b). Proven by a mutant pair on the sibling risk arm: neutering the
+  // resolver left the component spec green; neutering the component's own
+  // `lodMetric` REDs it.
+  //
+  // So the scope this file pins is now exactly the two types it still owns
+  // end-to-end — factor and option — and `action`, which nothing owns.
   it('action is still deliberately not attempted — the one type this change does not touch', () => {
     expect(
       resolveLodMetricLine({
@@ -202,172 +208,77 @@ describe('scope, pinned so it cannot widen by accident', () => {
     ).toBeNull()
   })
 
-  it('a goal with no target says so — the state EVERY model is in before somebody sets one', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'goal',
-        data: { label: 'Grow ARR' },
+  // ⛔ THE TWO ARMS THAT WERE DELETED GET A PIN OF THEIR OWN, BECAUSE A
+  // DELETION LEAVES NOTHING TO NOTICE IF IT COMES BACK. `goal` and `decision`
+  // must resolve to `null` HERE — their lines are their owners' to declare, and
+  // an arm re-added in this file would silently take precedence over nothing
+  // while a reader believed it was live.
+  //
+  // ⚠⚠ THE FIXTURE IS DELIBERATELY OVER-SUPPLIED, AND THAT IS THE ONLY REASON
+  // THIS GUARD DISCRIMINATES. My first version passed a bare `data` and no
+  // `facts` at all — and a re-added decision arm SURVIVED it, measured, because
+  // the arm read a fact the fixture did not carry and withheld for the wrong
+  // reason. The test agreed with itself (CLAUDE.md trap 13b): it would have
+  // reported a closed hole while the hole was open. So the inputs below carry
+  // everything a goal arm or a decision arm could possibly read — a user-set
+  // threshold, a CEE-backfilled one, a unit, and an option count — cast past
+  // the narrowed `LodMetricFacts` PRECISELY BECAUSE the type no longer admits
+  // the count, which is itself the thing being pinned.
+  const OVER_SUPPLIED = {
+    decisionOptionCount: 4,
+    bridgeStrength: { signedMean: 0.45, bridgeStrengthPct: 45, bridgeIsEstimated: true },
+    optionInterventionCount: 2,
+    optionIsBaseline: false,
+  } as unknown as Parameters<typeof resolveLodMetricLine>[0]['facts']
+
+  it('goal and decision resolve to nothing HERE, even handed every fact an arm could want', () => {
+    const goal = resolveLodMetricLine({
+      nodeType: 'goal',
+      data: {
         label: 'Grow ARR',
-        displayMetadata: NOTHING,
-      }),
-    ).toBe('No target set')
-  })
-
-  it('a goal WITH a user-set target states it, through the shared unit authority', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'goal',
-        data: {
-          label: 'Grow ARR',
-          threshold_source: 'user',
-          success_threshold: 15,
-          goal_threshold_unit: 'percent',
-        },
-        label: 'Grow ARR',
-        displayMetadata: NOTHING,
-      }),
-    ).toBe('Target: 15%')
-  })
-
-  it('CONTRAST CONTROL — a CEE-backfilled threshold is read too, so the line is not keyed to one field', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'goal',
-        data: { label: 'Grow ARR', goal_threshold_raw: 800000, goal_threshold_unit: '£' },
-        label: 'Grow ARR',
-        displayMetadata: NOTHING,
-      }),
-    ).toBe('Target: £800,000')
-  })
-
-  it('a decision counts the options it compares', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'decision',
-        data: { label: 'Choose' },
-        label: 'Choose',
-        displayMetadata: NOTHING,
-        facts: { decisionOptionCount: 4 },
-      }),
-    ).toBe('4 options')
-  })
-
-  it('singular is not a plural with an s bolted on', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'decision',
-        data: { label: 'Choose' },
-        label: 'Choose',
-        displayMetadata: NOTHING,
-        facts: { decisionOptionCount: 1 },
-      }),
-    ).toBe('1 option')
-  })
-
-  it('⛔ WITHHOLD vs ZERO — an UNKNOWN count says nothing; a KNOWN zero says the model has no options yet', () => {
-    // The two must never collapse. A decision with no options linked is a real
-    // and useful thing to be told; a decision whose count could not be
-    // established must not be told as "none".
-    const withUnknown = resolveLodMetricLine({
+        threshold_source: 'user',
+        success_threshold: 15,
+        goal_threshold_raw: 15,
+        goal_threshold_unit: 'percent',
+      },
+      label: 'Grow ARR',
+      displayMetadata: NOTHING,
+      facts: OVER_SUPPLIED,
+    })
+    const decision = resolveLodMetricLine({
       nodeType: 'decision',
       data: { label: 'Choose' },
       label: 'Choose',
       displayMetadata: NOTHING,
-      facts: {},
+      facts: OVER_SUPPLIED,
     })
-    const withZero = resolveLodMetricLine({
-      nodeType: 'decision',
-      data: { label: 'Choose' },
-      label: 'Choose',
+    // CONTRAST CONTROL, same call, same file, same `facts`: a type this module
+    // DOES own. Without it, a resolver that had broken and returned `null` for
+    // everything would pass the two assertions above.
+    // ⚠ `raw_value`, not `{ value, unit }` — see the note on the stated-value
+    // test above. My first fixture here used the latter, `factorDisplayText`
+    // returned null for it, and this control caught it. Third time in this file.
+    const factor = resolveLodMetricLine({
+      nodeType: 'factor',
+      data: { label: 'Unit cost', observedState: { raw_value: '£26,000' } },
+      label: 'Unit cost',
       displayMetadata: NOTHING,
-      facts: { decisionOptionCount: 0 },
+      facts: OVER_SUPPLIED,
     })
-    expect(withUnknown).toBeNull()
-    expect(withZero).toBe('No options linked yet')
+    expect(goal).toBeNull()
+    expect(decision).toBeNull()
+    expect(factor).not.toBeNull()
   })
 })
 
 describe('the pre-analysis arms, and the opposite-direction twin for each', () => {
-  it('a risk with neither probability nor impact reads its strength to the goal', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'risk',
-        data: { label: 'Churn' },
-        label: 'Churn',
-        displayMetadata: NOTHING,
-        facts: { bridgeStrength: { signedMean: -0.45, bridgeStrengthPct: 45, bridgeIsEstimated: true } },
-      }),
-    ).toBe('Strength 45% · est.')
-  })
-
-  it('TWIN — a risk that HAS a severity band still says the band, unchanged', () => {
-    // The new arm may only be reached where the old one returned null. A fix
-    // for a blank card must not change a card that was already speaking.
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'risk',
-        data: { label: 'Churn', probability: 0.8, impact: 'high' },
-        label: 'Churn',
-        displayMetadata: NOTHING,
-        facts: { bridgeStrength: { signedMean: -0.45, bridgeStrengthPct: 45, bridgeIsEstimated: true } },
-      }),
-    ).toBe('High risk')
-  })
-
-  it('a user-stated strength carries no estimate marker — the marker is a claim about provenance', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'risk',
-        data: { label: 'Churn' },
-        label: 'Churn',
-        displayMetadata: NOTHING,
-        facts: { bridgeStrength: { signedMean: 0.45, bridgeStrengthPct: 45, bridgeIsEstimated: false } },
-      }),
-    ).toBe('Strength 45%')
-  })
-
-  it('CONTRAST CONTROL — no bridge edge, no line: the strength is read and never defaulted', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'risk',
-        data: { label: 'Churn' },
-        label: 'Churn',
-        displayMetadata: NOTHING,
-        facts: { bridgeStrength: null },
-      }),
-    ).toBeNull()
-  })
-
-  it('an outcome whose achievement figure is WITHHELD by the caveat gate falls back to strength, never to the withheld number', () => {
-    const line = resolveLodMetricLine({
-      nodeType: 'outcome',
-      data: { label: 'ARR' },
-      label: 'ARR',
-      displayMetadata: meta({
-        achievementProbability: 0.62,
-        achievementProbabilityIsModelledBasis: true,
-      }),
-      facts: { bridgeStrength: { signedMean: 0.65, bridgeStrengthPct: 65, bridgeIsEstimated: true } },
-    })
-    expect(line).toBe('Strength 65% · est.')
-    // The gate still holds: the withheld figure does not appear by any route.
-    expect(line).not.toContain('62')
-  })
-
-  it('TWIN — an outcome on a clean basis still states its achievement probability', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'outcome',
-        data: { label: 'ARR' },
-        label: 'ARR',
-        displayMetadata: meta({
-          achievementProbability: 0.62,
-          achievementProbabilityIsModelledBasis: false,
-        }),
-        facts: { bridgeStrength: { signedMean: 0.65, bridgeStrengthPct: 65, bridgeIsEstimated: true } },
-      }),
-    ).toBe('Achievement 62%')
-  })
+  // ⚠ RISK AND OUTCOME ARE ABSENT FROM THIS BLOCK ON PURPOSE. They had
+  // pre-analysis arms here (a bridge strength read from their edge to the
+  // goal), with a twin apiece. #1074 shipped the same capability through
+  // `RiskNode`/`OutcomeNode`'s own `lodMetric`, which wins before this function
+  // is called — so those arms and their tests came out together. Their
+  // behaviour is pinned where it actually renders, in
+  // `__tests__/lodMetric.riskOutcome.spec.tsx`.
 
   it('a baseline option says what its card says, and NOT what its backfilled interventions say', () => {
     // Measured: the Headcount starter backfills interventions onto all four

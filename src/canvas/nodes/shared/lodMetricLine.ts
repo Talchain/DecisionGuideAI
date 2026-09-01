@@ -61,33 +61,28 @@
  * excluded — "renders nothing" and "is an empty box" are the same fact, and
  * only one of them makes the cost obvious.
  *
- * ⭐⭐ THE DEFECT THAT REOPENED, AND WHY (measured in a real browser on deployed
- * `f3b1ca87`, 1 Sep 2026). Two fixes had already shipped for "the cards go
- * blank when I zoom out". On the pre-analysis Headcount starter, **14 of 16
- * cards still rendered an empty box** at 0.49 zoom — and 0.49 is not an exotic
- * place to be: "Show whole model" lands a real model at **0.488**, so the
- * ordinary gesture for *"let me see the whole thing"* put the user straight
- * into it.
+ * ⭐⭐ AND THE DEFECT REOPENED ANYWAY, FOR FACTORS AND OPTIONS (measured in a
+ * real browser on deployed `f3b1ca87`, 1 Sep 2026). On the pre-analysis
+ * Headcount starter, **14 of 16 cards still rendered an empty box** at 0.49
+ * zoom — and 0.49 is not an exotic place to be: "Show whole model" lands a real
+ * model at **0.488**, so the ordinary gesture for *"let me see the whole
+ * thing"* put the user straight into it.
  *
- * The cause was one shape, repeated in every branch: **every rule here except a
- * factor's stated value asked for an ANALYSIS-DERIVED metric** — an influence
- * score, a win share, an achievement probability, a risk severity computed from
- * probability × impact — and `goal` and `decision` fell to `default: null`
- * unconditionally. So the feature was weakest exactly where the gesture is most
- * used, because **zooming out to grasp the whole model is something people do
- * BEFORE they analyse.** The product assumed analysis had run.
+ * The cause was one shape, repeated: **every rule here except a factor's stated
+ * value asked for an ANALYSIS-DERIVED metric** — an influence score, a win
+ * share, an achievement probability, a severity computed from probability ×
+ * impact. So the feature was weakest exactly where the gesture is most used,
+ * because **zooming out to grasp the whole model is something people do BEFORE
+ * they analyse.** The product assumed analysis had run.
  *
  * ⛔ THE RULE, RESTATED AT ITS FULL STRENGTH: ASK FOR THE DATUM THE CARD IS
- * ALREADY DISPLAYING AT FULL ZOOM. Not the one an analysis would produce. Every
- * branch below now has a pre-analysis answer, and each one reads the very
- * string or number the card shows one zoom step up:
+ * ALREADY DISPLAYING AT FULL ZOOM. Not the one an analysis would produce. The
+ * two types this module still owns end-to-end now each have a pre-analysis
+ * answer, and each reads the very string or number the card shows one zoom step
+ * up:
  *
  *   factor   stated value → influence → **its prior range** ("Range: 0.3 to 0.9")
  *   option   win share    → **how many factors it changes**
- *   risk     severity     → **its strength to the goal** ("Strength 45% · est.")
- *   outcome  achievement  → **its strength to the goal**
- *   goal     **its target, or "No target set"**
- *   decision **how many options it compares**
  *
  * ⚠ THE ORDER IS PURELY ADDITIVE AND THAT IS DELIBERATE. Every rule that
  * resolved to a line before this change resolves to the SAME line now; the new
@@ -96,14 +91,34 @@
  * change a card that was already speaking (the opposite-direction twin,
  * CLAUDE.md trap 22b).
  *
- * ⚠ TWO OF THESE FIGURES LIVE OUTSIDE `data` AND `displayMetadata`, WHICH IS THE
- * WHOLE REASON THEY WERE UNREACHABLE. A risk's strength lives on its EDGE to
- * the goal and an option's change count lives in `ceeAnalysisReady`. They
- * arrive as the `facts` input below, resolved by their own owners
- * (`bridgeStrengthToGoal.ts`) and passed in — never re-derived here.
+ * ⚠⚠ SCOPE, AND WHY IT SHRANK — THE HALF OF THIS CHANGE THAT WAS DELETED RATHER
+ * THAN SHIPPED (1 Sep 2026). This started out ALSO giving `risk`, `outcome`,
+ * `goal` and `decision` pre-analysis arms here. While it sat open, #1074
+ * (risk/outcome) and #1085 (goal/decision) shipped the same capability through
+ * the OTHER mechanism — the owner formats its own line and passes it as
+ * `BaseNode`'s `lodMetric` prop, where it WINS over this resolver. Both
+ * mechanisms were correct; keeping both would have left four arms here that the
+ * mount can never reach, with unit specs certifying their precedence in detail.
  *
- * ⚠ `action` remains DELIBERATELY NOT ATTEMPTED (trap 20: the scope of this
- * change is what it says, not what it suggests).
+ * ⛔ THAT IS THE DANGEROUS SHAPE, NOT MERELY THE REDUNDANT ONE. A green spec
+ * about code no mount reaches is a guard agreeing with itself (CLAUDE.md trap
+ * 13b), and it was PROVEN dark by a mutant pair: neutering the resolver's risk
+ * arm left the component spec GREEN, while neutering `RiskNode`'s own
+ * `lodMetric` REDs it. The deployed mechanism wins; the unreachable arms and
+ * the specs that certified them are gone.
+ *
+ * ⚠ SO THE LIVE OWNERSHIP MAP IS NOW SPLIT, AND IT IS SPLIT ON PURPOSE (trap
+ * 21 — two authorities answering different questions look like an
+ * inconsistency to reconcile, and aligning them is the wrong fix):
+ *
+ *   factor · option              → THIS MODULE (no `lodMetric` prop is passed)
+ *   risk · outcome               → `RiskNode` / `OutcomeNode` (#1074)
+ *   goal · decision              → `GoalNode` / `DecisionNode` (#1085)
+ *   action                       → DELIBERATELY NOT ATTEMPTED (trap 20)
+ *
+ * The test that keeps this map honest is the contrast control in
+ * `BaseNode.lodBodyLine.spec.tsx`: `action` must stay silent, so a widening
+ * still has to be a decision rather than an accident.
  */
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
@@ -112,32 +127,32 @@ import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
-import { formatGoalTarget } from '../../../components/results/utils/formatGoalTarget'
-import type { BridgeStrengthToGoal } from './bridgeStrengthToGoal'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
  *
- * ⚠ THIS INPUT EXISTS BECAUSE THE ABSENCE OF IT WAS THE DEFECT. A risk's
- * strength is a property of its EDGE to the goal; an option's change count
- * lives in `ceeAnalysisReady`; a decision's option count is a graph traversal.
- * A resolver handed only `data` and `displayMetadata` cannot see any of them,
- * so those three card types could only ever speak once an ANALYSIS had run —
- * and the whole-model gesture happens before that.
+ * ⚠ THIS INPUT EXISTS BECAUSE THE ABSENCE OF IT WAS THE DEFECT. An option's
+ * change count lives in `ceeAnalysisReady`, not on the node, so a resolver
+ * handed only `data` and `displayMetadata` could not see it — which is why an
+ * option card could only ever speak once an ANALYSIS had run, and the
+ * whole-model gesture happens before that.
+ *
+ * ⚠ IT CARRIES OPTION FACTS ONLY, AND THE ABSENCES ARE THE SCOPE. Risk and
+ * outcome read their bridge strength, and decision its option count, from their
+ * OWN components, which format the line themselves and pass it as `lodMetric`
+ * (see the ownership map above). Adding a field here for a type whose line is
+ * declared by its owner would build a second answer to a settled question.
  *
  * Every field is RESOLVED BY ITS OWNER and passed in already computed. Nothing
  * here is derived in this file.
  */
 export interface LodMetricFacts {
-  /** `resolveBridgeStrengthToGoal` — risk and outcome. */
-  bridgeStrength?: BridgeStrengthToGoal | null
   /**
-   * How many factors this option changes (`OptionNode.totalInterventionCount`).
+   * How many factors this option changes (`OptionNode.totalInterventionCount`),
+   * via the shared owner `optionInterventionCount.ts` — never recounted here.
    * `null` when unknown, which is not the same as zero and withholds.
    */
   optionInterventionCount?: number | null
-  /** How many options this decision compares (`DecisionNode.optionCount`). */
-  decisionOptionCount?: number | null
   /** `OptionNode.isBaselineOption` — checked BEFORE any count, as it is there. */
   optionIsBaseline?: boolean | null
 }
@@ -167,26 +182,6 @@ function factorStatedValue(data: Record<string, unknown>, label: string): string
   // it can shorten the string and can never change the value it states.
   const text = collapseEstimateDisplay(factorDisplayText(normalised, label))
   return text && text.trim().length > 0 ? text : null
-}
-
-/**
- * A risk's / an outcome's strength to the goal, worded as the card words it.
- *
- * The NOUN is mandatory and is not decoration: UI-SEM-089 — an unlabelled
- * percentage beside a goal reads as a COMPUTED CONTRIBUTION, and this figure is
- * an assumed edge weight. `RiskNode` keeps the noun on both of its branches for
- * exactly this reason, so a reduced line that dropped it would re-open the
- * defect that rule exists to close, at the zoom where the user can check it
- * least.
- *
- * The estimate marker rides along for the same reason it does on the card: "45%
- * strength" and "45% strength · est." are different claims about who put the
- * number there. Nothing is re-rounded — the percentage is the owner's.
- */
-function bridgeStrengthLine(bridge: BridgeStrengthToGoal | null | undefined): string | null {
-  const pct = bridge?.bridgeStrengthPct
-  if (pct == null) return null
-  return `Strength ${pct}%${bridge?.bridgeIsEstimated ? ' \u00b7 est.' : ''}`
 }
 
 export function resolveLodMetricLine({
@@ -277,93 +272,41 @@ export function resolveLodMetricLine({
         data.probability as number | undefined,
         data.impact as RiskImpact | undefined,
       )
-      if (severity !== null) {
-        return `${severity.charAt(0).toUpperCase()}${severity.slice(1)} risk`
-      }
-
-      // ⭐ THE PRE-ANALYSIS ARM. `calculateRiskSeverity` needs BOTH probability
-      // and impact, and a drafted risk node routinely carries neither — its
-      // `data` is a label and a provenance stamp and nothing else (measured on
-      // deployed `f3b1ca87`). What its card actually shows is the strength of
-      // its edge to the goal, and that is available the moment the graph exists.
-      return bridgeStrengthLine(facts?.bridgeStrength)
+      // ⚠ NO PRE-ANALYSIS FALLBACK HERE, AND ITS ABSENCE IS THE DECISION. A
+      // drafted risk routinely carries neither probability nor impact, so this
+      // returns `null` — but the card is NOT blank, because `RiskNode` declares
+      // its own `Strength N% est.` line through `lodMetric`, which wins before
+      // this function is ever called (#1074, merged and deployed). An arm here
+      // would be unreachable code with a spec certifying its precedence.
+      if (severity === null) return null
+      return `${severity.charAt(0).toUpperCase()}${severity.slice(1)} risk`
     }
 
     case 'outcome': {
       const { achievementProbability, achievementProbabilityIsModelledBasis } = displayMetadata
-      // ⭐ THE PRE-ANALYSIS ARM, reached whenever the achievement figure is
-      // absent OR withheld by the caveat gate below. Either way the card is not
-      // silent at full zoom: it shows its strength to the goal ("65% strength ·
-      // est."), which needs no analysis and carries no mandatory caveat.
-      if (achievementProbability == null) return bridgeStrengthLine(facts?.bridgeStrength)
+      // ⚠ AS FOR RISK ABOVE: no pre-analysis fallback, because `OutcomeNode`
+      // declares its own strength line through `lodMetric` and it wins here.
+      if (achievementProbability == null) return null
       // ⛔ THE CAVEAT GATE. On the modelled basis `OutcomeNode` is REQUIRED to
       // render `GOAL_FIT_BASIS_CAVEAT_COPY` adjacent to this figure. One line
       // cannot carry both, so the figure is withheld rather than shown stripped
       // of the disclosure that makes it honest.
-      if (achievementProbabilityIsModelledBasis === true) {
-        return bridgeStrengthLine(facts?.bridgeStrength)
-      }
+      if (achievementProbabilityIsModelledBasis === true) return null
       return `Achievement ${Math.round(achievementProbability * 100)}%`
     }
 
-    case 'goal': {
-      // ⭐ PREVIOUSLY UNREACHABLE BY DESIGN — "a goal's figure is the one most
-      // entangled with withholding rules", which was true of its ACHIEVEMENT
-      // PROBABILITY and was then applied to the whole card. The goal's target is
-      // a different quantity with none of that entanglement: it is the number
-      // the USER set, it needs no run, and `GoalNode` renders it as
-      // "Target: 15%" with no caveat anywhere near it.
-      //
-      // The priority is `GoalNode`'s own, not a second reading of it: a
-      // user-set `success_threshold` counts first, then the CEE-backfilled
-      // `goal_threshold_raw`. Rendering goes through `formatGoalTarget`, the
-      // single unit-string authority, so the canvas card and this line cannot
-      // print one target two ways.
-      const userThreshold = data.threshold_source === 'user'
-        ? (data.success_threshold as number | null | undefined)
-        : undefined
-      const raw = userThreshold != null ? userThreshold : (data.goal_threshold_raw as string | number | null | undefined)
-      const hasThreshold = raw != null && String(raw).trim() !== ''
-      if (hasThreshold) {
-        const numeric = typeof raw === 'number' ? raw : Number(raw)
-        const formatted = Number.isFinite(numeric)
-          ? formatGoalTarget(numeric, data.goal_threshold_unit as string | undefined)
-          : null
-        return `Target: ${formatted ?? String(raw)}`
-      }
-      // ⛔ AND THE NO-TARGET CASE IS THE POINT, NOT AN AFTERTHOUGHT. A goal
-      // with no target is the state EVERY model is in before somebody sets one
-      // — the single most common goal card there is. Saying "No target set" is
-      // honest, is the card's OWN words, and is strictly more useful than an
-      // empty box, which is indistinguishable from a broken render. It states
-      // an ABSENCE and can never be mistaken for a value.
-      return 'No target set'
-    }
-
-    case 'decision': {
-      // ⭐ PREVIOUSLY UNREACHABLE BY DESIGN — "a decision card has no single
-      // headline quantity". That is still true of its VERDICT, and this is not
-      // its verdict.
-      //
-      // ⛔ WHAT THIS DELIBERATELY DOES NOT SAY. The decision card's full-zoom
-      // body is a triage line ("Top gap: validate Platform Engineer Headcount
-      // Added") or, after a run, a leader claim ("Freeze Hiring leads it"). The
-      // first does not survive truncation to one short line with its meaning
-      // intact — it names the factor, and the name IS the content. The second
-      // is a LEADER CLAIM, governed by permission rules this file has no
-      // business re-deriving; naming a leader here that the confirmation
-      // withholds is precisely the harm CLAUDE.md trap 21 records.
-      //
-      // So the line states the one fact about a decision that is always true,
-      // always available, never needs a run and never needs a caveat: how many
-      // alternatives are in play. On a whole-model view that is also the thing
-      // a reader most wants from the anchor node.
-      const count = facts?.decisionOptionCount
-      if (count == null) return null
-      if (count === 0) return 'No options linked yet'
-      return `${count} option${count === 1 ? '' : 's'}`
-    }
-
+    // ⚠ `goal`, `decision` and `action` fall through DELIBERATELY.
+    //
+    // `goal` and `decision` are not silent — each declares its own line through
+    // `BaseNode`'s `lodMetric` prop (#1085), because each reads a datum this
+    // module cannot see: a user-stated threshold and a leader-claim PERMISSION
+    // respectively. A goal arm here would print `Target: 15%` beside a prop
+    // that prints the same target from a different expression, and a decision
+    // arm would be a second, differently-counted answer to "how many options?".
+    // Both were written, and both are deleted rather than shipped dark.
+    //
+    // `action` is genuinely NOT ATTEMPTED (trap 20), and the contrast control
+    // in `BaseNode.lodBodyLine.spec.tsx` keeps it that way on purpose.
     default:
       return null
   }

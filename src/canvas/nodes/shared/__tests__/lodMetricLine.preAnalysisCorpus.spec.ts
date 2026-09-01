@@ -38,7 +38,6 @@ import { applyDraftResult } from '../../../utils/applyDraftResult'
 import { useCanvasStore } from '../../../store'
 import { resolveLodMetricLine } from '../lodMetricLine'
 import { resolveLodMetricFacts } from '../lodMetricFacts'
-import { findGoalNodeId } from '../bridgeStrengthToGoal'
 import type { NodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 
 /**
@@ -79,8 +78,7 @@ beforeAll(() => {
   const applied = applyDraftResult(headcountStarter as never, { skipAutosave: true })
   expect(applied.nodeCount).toBeGreaterThan(0)
 
-  const { nodes, edges, ceeAnalysisReady } = useCanvasStore.getState()
-  const goalNodeId = findGoalNodeId(nodes)
+  const { nodes, ceeAnalysisReady } = useCanvasStore.getState()
 
   cards = nodes.map((n) => {
     const data = n.data as Record<string, unknown> | undefined
@@ -89,17 +87,7 @@ beforeAll(() => {
       nodeType,
       nodeId: n.id,
       data,
-      goalNodeId,
-      edges,
       ceeOptions: ceeAnalysisReady?.options,
-      decisionOptionCount:
-        nodeType === 'decision'
-          ? edges.filter((e) => {
-              if (e.source !== n.id) return false
-              const t = nodes.find((m) => m.id === e.target)
-              return t?.type === 'option' || t?.data?.type === 'option'
-            }).length
-          : null,
     })
     return {
       id: n.id,
@@ -133,31 +121,63 @@ describe('the corpus is the model that was measured', () => {
   })
 })
 
-describe('THE ACCEPTANCE: no card in a pre-analysis model is left with nothing to say', () => {
-  it('every one of the 16 cards resolves a reduced line', () => {
-    const silent = cards.filter((c) => c.line === null)
+/**
+ * ⚠⚠ THE SCOPE OF THIS ACCEPTANCE NARROWED ON 1 SEP 2026, AND SAYING SO
+ * PRECISELY IS THE POINT (CLAUDE.md trap 20 — a capture proves what it was
+ * pointed at).
+ *
+ * It used to assert that all 16 cards resolve a line HERE. That claim is no
+ * longer true OF THIS MODULE and it would be dishonest to keep: risk, outcome,
+ * goal and decision now declare their lines through `BaseNode`'s `lodMetric`
+ * prop (#1074, #1085), which this function never sees. Asserting 16 would mean
+ * re-adding four arms the mount can never reach purely to keep a number green.
+ *
+ * ⛔ SO THE CLAIM IS SPLIT, NOT WEAKENED:
+ *   · here — every FACTOR and OPTION card in the real starter resolves a line
+ *     (the two types this module owns end-to-end, and 9 of the 16 cards);
+ *   · `lodMetric.riskOutcome.spec.tsx` and `lodMetric.decisionGoal.spec.tsx` —
+ *     the other four types, pinned where they actually render;
+ *   · the whole-model claim ("no blank cards at 0.30 zoom") is the BROWSER
+ *     ladder's, and always was. jsdom cannot prove visibility (trap 3).
+ */
+const OWNED_HERE = ['factor', 'option']
+
+describe('THE ACCEPTANCE: no factor or option card is left with nothing to say', () => {
+  it('every factor and option card in the real starter resolves a reduced line', () => {
+    const mine = cards.filter((c) => OWNED_HERE.includes(c.type))
+    // ⛔ POSITIVE CONTROL FIRST (trap 13). An "none are silent" assertion over
+    // an EMPTY list passes while proving nothing — and this list is built by a
+    // filter over a store the draft adapter populated, so it can legitimately
+    // come back empty if anything upstream changes.
+    expect(mine).toHaveLength(9)
+    const silent = mine.filter((c) => c.line === null)
     expect(silent.map((c) => `${c.type}:${c.label}`)).toEqual([])
   })
 
   it('names what each card says, so a change to any line is a decision and not a drift', () => {
     const spoken = Object.fromEntries(cards.map((c) => [c.label, c.line]))
-    // ⭐ THE FIVE CARDS THE FOUNDER NAMED, each now saying the number its own
+    // ⭐ THE FACTOR CARDS THE FOUNDER NAMED, each now saying the number its own
     // card was already showing one zoom step up.
     expect(spoken['Engineering Attrition Rate']).toBe('Range: 0.3 to 0.9')
     expect(spoken['Market Demand for Product']).toBe('Range: 0.3 to 0.8')
     expect(spoken['Current Sales Quota Attainment']).toBe('Range: 0.25 to 0.75')
-    expect(spoken['Achieve ARR Growth by Q3']).toBe('No target set')
-    // The outcome reads its strength to the goal — the figure its card renders
-    // as "65% strength · est.".
-    expect(spoken['New ARR Generated']).toBe('Strength 65% · est.')
+  })
+
+  it('⛔ AND THE FOUR OWNER-DECLARED TYPES RESOLVE TO NOTHING HERE — the split is real in the real model, not only in fixtures', () => {
+    // This is the corpus form of the ownership map. If an arm for one of these
+    // types is ever re-added to `lodMetricLine.ts`, this REDs — which is the
+    // only thing that can notice a deletion coming back, since a dark arm's own
+    // unit test would pass perfectly.
+    const ownedElsewhere = cards.filter((c) => !OWNED_HERE.includes(c.type))
+    expect(ownedElsewhere).toHaveLength(7)
+    expect(ownedElsewhere.filter((c) => c.line !== null).map((c) => `${c.type}:${c.label} → ${c.line}`)).toEqual([])
   })
 
   it('states a QUANTITY on every line — a bare number beside a goal reads as a computed contribution (UI-SEM-089)', () => {
     // ⚠ THE FIRST VERSION OF THIS TEST ASSERTED THE WRONG PROPERTY — it banned
-    // a leading digit, which flagged "4 options" and "Changes 2 factors". Those
-    // are labelled quantities and are exactly what the rule ASKS for. The rule
-    // is that no line may be a BARE figure, so the property is that every line
-    // carries a word.
+    // a leading digit, which flagged "Changes 2 factors". That is a labelled
+    // quantity and is exactly what the rule ASKS for. The rule is that no line
+    // may be a BARE figure, so the property is that every line carries a word.
     const naked = cards.filter((c) => c.line !== null && !/[A-Za-z]{2,}/.test(c.line))
     expect(naked.map((c) => `${c.label} → ${c.line}`)).toEqual([])
   })
@@ -180,15 +200,13 @@ describe('CONTRAST CONTROL — the lines are the cards’ own data, not a defaul
     expect(ranges.length).toBeGreaterThanOrEqual(3)
   })
 
-  it('the three risks state THREE DIFFERENT strengths', () => {
-    const strengths = cards.filter((c) => c.type === 'risk').map((c) => c.line)
-    expect(strengths.every((s) => s !== null)).toBe(true)
-    expect(new Set(strengths).size).toBe(strengths.length)
-  })
-
-  it('the decision counts the options that are actually linked to it', () => {
-    const decision = cards.find((c) => c.type === 'decision')
-    const optionCount = cards.filter((c) => c.type === 'option').length
-    expect(decision?.line).toBe(`${optionCount} options`)
+  it('CONTRAST CONTROL — the option lines differ from the factor lines, so one default is not answering for both', () => {
+    // A resolver that had collapsed to a single constant would satisfy "no card
+    // is silent" perfectly. Two distinct shapes of answer, from two distinct
+    // arms, is what shows it is reading each card's own data.
+    const optionLines = cards.filter((c) => c.type === 'option').map((c) => c.line)
+    const factorLines = cards.filter((c) => c.type === 'factor').map((c) => c.line)
+    expect(optionLines.every((l) => l !== null)).toBe(true)
+    expect(optionLines.some((l) => !factorLines.includes(l))).toBe(true)
   })
 })

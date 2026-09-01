@@ -5,7 +5,9 @@
  *  - No threshold (either phase): one compact "No target set" status chip that
  *    opens this node's inspector. R5/L-47: no instructional prose, no full
  *    buttons on the node.
- *  - With threshold: "Target: [value]" + provenance icon
+ *  - With threshold: `GOAL_TARGET_PREFIX` + value ("Target: 15%") + provenance
+ *    icon. The SAME string is this card's reduced line below the legibility
+ *    floor — see `targetLine`, which is the only place it is built.
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
  *  - No risks chip (always)
  *
@@ -44,6 +46,20 @@ import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
+
+/**
+ * ⭐ THE TWO STRINGS THIS CARD USES TO STATE ITS TARGET, DECLARED ONCE.
+ *
+ * Both are rendered at FULL ZOOM (the body line and the no-target chip) and
+ * both are re-used verbatim as the card's reduced line below the legibility
+ * floor. They are module constants rather than inline literals for one reason:
+ * a low-zoom line that is a second hand-written copy of a full-zoom string will
+ * drift, and it already did — the colon was dropped in the copy, so one goal
+ * read `Target: 15%` and `Target 15%` one zoom step apart, with the
+ * contradicting body hidden.
+ */
+const GOAL_TARGET_PREFIX = 'Target:'
+const GOAL_NO_TARGET_LINE = 'No target set'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -237,7 +253,23 @@ export const GoalNode = memo((props: NodeProps) => {
   }, [hasThreshold, thresholdRaw, thresholdUnit])
 
   /**
-   * The goal's reduced line below the legibility floor.
+   * ⭐⭐ ONE OWNER FOR WHAT THIS CARD SAYS ABOUT ITS TARGET — AT EVERY ZOOM.
+   *
+   * ⚠ THIS EXISTS BECAUSE THE TWO SITES HAD ALREADY DIVERGED, BY ONE CHARACTER.
+   * The full-zoom body rendered `Target: 15%` and the reduced line, added
+   * beside it a day later, rendered `Target 15%`. Same card, same datum, one
+   * zoom step apart — and the file's own docblock documented the colon form, so
+   * all three disagreed. Nothing could catch it, because the low-zoom line was
+   * a SECOND HAND-WRITTEN COPY of the first: the strings were only ever equal
+   * by someone remembering to keep them equal (CLAUDE.md trap 12).
+   *
+   * ⛔ SO THE RULE IS MADE STRUCTURAL RATHER THAN RESTATED: the reduced line is
+   * DERIVED FROM WHAT THIS CARD RENDERS AT FULL ZOOM, never hand-copied beside
+   * it. `targetLine` below is the ONLY place the phrase is built; the full-zoom
+   * body renders it and `lodMetric` passes it down. A future edit to the
+   * wording changes both or neither, and `GoalNode.lodTargetLine.spec.tsx`
+   * pins the low-zoom line AGAINST THE FULL-ZOOM RENDER rather than against a
+   * literal, so a re-divergence cannot pass by editing one string.
    *
    * ⚠ THE TARGET, NOT AN ACHIEVEMENT PROBABILITY. A goal's probability figures
    * carry mandatory adjacent disclosures (`GOAL_FIT_BASIS_CAVEAT_COPY`,
@@ -247,11 +279,18 @@ export const GoalNode = memo((props: NodeProps) => {
    * THRESHOLD is the user's own stated target: it needs no caveat, because it
    * is not a claim about the world, and it is the thing a reader most wants
    * from this card at a glance.
-   *
-   * No threshold set means no line, which is honest — that is precisely the
-   * state the card's dashed border is already reporting.
    */
-  const lodMetric = thresholdDisplay ? `Target ${thresholdDisplay}` : null
+  const targetLine = thresholdDisplay != null ? `${GOAL_TARGET_PREFIX} ${thresholdDisplay}` : null
+
+  /**
+   * ⭐ AND THE NO-TARGET CASE IS THE POINT, NOT AN AFTERTHOUGHT. A goal with no
+   * target is the state EVERY model is in before somebody sets one — the single
+   * most common goal card there is, and below the floor it was an EMPTY BOX,
+   * which is indistinguishable from a broken render. It now says the card's own
+   * words: `GOAL_NO_TARGET_LINE` is the same constant the full-zoom chip
+   * renders, so this states an ABSENCE and can never be mistaken for a value.
+   */
+  const lodMetric = targetLine ?? GOAL_NO_TARGET_LINE
 
 
   // Science icons (spec Section 4.1)
@@ -378,7 +417,7 @@ export const GoalNode = memo((props: NodeProps) => {
       data-testid="goal-node-no-target-chip"
       data-diagnostic={noTargetDiagnostic ? 'no-probability' : undefined}
     >
-      No target set
+      {GOAL_NO_TARGET_LINE}
     </button>
   )
 
@@ -432,9 +471,9 @@ export const GoalNode = memo((props: NodeProps) => {
         {!hasThreshold && !isPostAnalysis && noTargetStatusChip}
 
         {/* With target: display it */}
-        {hasThreshold && (
+        {targetLine !== null && (
           <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-            Target: {thresholdDisplay}
+            {targetLine}
           </div>
         )}
 
