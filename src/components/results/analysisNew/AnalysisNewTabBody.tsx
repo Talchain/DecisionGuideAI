@@ -56,6 +56,7 @@ import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights } from './nodeInsights'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
+import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { WhatWeChecked } from './sections/WhatWeChecked'
@@ -88,6 +89,16 @@ export interface AnalysisNewTabBodyProps {
    * control, which is the honest render — never a dead button.
    */
   onReanalyse?: () => void
+  /**
+   * The dock's own chat sender, shared with the existing tab.
+   *
+   * ⚠ ITS ABSENCE IS NOT A FAILURE — `WhatIWasGivenSection` gates its "Add
+   * this" affordance on this prop precisely so an unmodelled figure never
+   * offers an action nobody can carry out. Absent, the register still renders
+   * and simply offers no button (the fail-closed pre-gate this panel uses for
+   * focus targets too).
+   */
+  onSendMessage?: (message: string) => void
 }
 
 /**
@@ -121,6 +132,7 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
   onReanalyse,
+  onSendMessage,
 }: AnalysisNewTabBodyProps) {
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
@@ -447,6 +459,28 @@ export function AnalysisNewTabBody({
             property of THIS file, so it is pinned in this file's own spec
             (`AnalysisNewTabBody.spec.tsx`, "the coaching sits directly under
             the reading it responds to"); no per-section spec can see it. */}
+        {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
+            ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
+            THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
+            you mentioned aren't in the model yet". A driven comparison of both
+            tabs on one completed run found it absent here (accordions opened,
+            positive control firing at 6151 chars), and this is the mount.
+
+            ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
+            enforces its own identity gate (it once rendered a PREVIOUS
+            decision's brief verbatim), so re-implementing it for this tab would
+            fork both the gate and the manifest vocabulary — the twin defect
+            this estate keeps paying for. One component, two mounts.
+
+            ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
+            a WORKLIST — every row is something to validate or add, and its
+            "Add this" starts the conversation to include a figure. That makes
+            it kin to the coaching below it, not to the census above it. Putting
+            it under the strip would have pushed the answer below the fold, and
+            the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
+            ABOUT IT → THE DETAIL. */}
+        <WhatIWasGivenSection onSendMessage={onSendMessage} />
+
         <StrengthenTheReasoning
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}

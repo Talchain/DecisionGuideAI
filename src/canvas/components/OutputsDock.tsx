@@ -3512,6 +3512,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
+                  onSendMessage={sendMessage}
                 />
               </SectionErrorBoundary>
             )}
