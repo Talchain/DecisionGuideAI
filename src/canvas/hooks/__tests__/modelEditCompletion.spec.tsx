@@ -516,6 +516,23 @@ describe('⭐ F2 — bytes read BEFORE the edit may not adjudicate it', () => {
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
   })
 
+  /**
+   * ⚠⚠ DRIVEN TO THE BOUNDARY, AND THAT IS THE ENTIRE POINT.
+   *
+   * This test used to spend ONE read — and one read cannot pin the null guard,
+   * because the deferral holds an attempt open for
+   * `MIN_CANONICAL_READS_BEFORE_REFUSAL` reads *whatever the guard does*. So
+   * `if (attempt.receiptChannelAt === null) return` could be deleted and this
+   * stayed GREEN: `readIssuedAt > null` coerces to `n > 0`, which is true, so
+   * the tick half waves it through and only the unreached deferral kept the
+   * phase at `pending`.
+   *
+   * ⭐ THIS IS THE EXACT TWIN OF THE DEFECT ALREADY FIXED FOR THE TICK HALF a
+   * few lines above, created by the same boundary move and missed on the other
+   * door. One predicate, two directions, one door watched — so both doors are
+   * now driven to the boundary, and both carry the opposite-direction twin that
+   * proves the fixture could have refused.
+   */
   it('an attempt with no receipt at all is never adjudicated', () => {
     const attempt = beginModelEditAttempt({
       nodeId: FACTOR_A,
@@ -523,12 +540,29 @@ describe('⭐ F2 — bytes read BEFORE the edit may not adjudicate it', () => {
       attemptedValue: 0.7,
       attemptedRawValue: 21000,
     })
-    settleModelEditAttemptsFromCanonicalGraph(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
-      markCanonicalReadIssued(),
     )
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('pending')
+  })
+
+  /**
+   * ⭐ THE OPPOSITE-DIRECTION TWIN — it PINS THE TEST ABOVE'S OWN PRECONDITION.
+   *
+   * Without this, "still `pending` at the boundary" is satisfied just as well by
+   * a fixture that never reached the boundary at all, and the guard above would
+   * be asserting nothing (trap 13b: a guard whose discrimination depends on a
+   * fixture that nothing pins). Same graph, same read count, one receipt of
+   * difference — so the `pending` above is demonstrably the NULL GUARD's doing.
+   */
+  it('— and the SAME fixture at the SAME read count DOES refuse once a receipt exists', () => {
+    const attempt = receiptedAttempt()
+    coldReadToRefusalBoundary(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('refused')
   })
 })
 

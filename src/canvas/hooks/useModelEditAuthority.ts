@@ -149,11 +149,45 @@ export interface ModelEditAuthorityLive {
    * The retained completion for one attempt, or `null` if the ledger has never
    * heard of it.
    *
-   * ⭐ THIS IS THE INTERFACE #1033 CONSUMES. It survives unmount because the
-   * ledger is module-scoped: the panel can be destroyed and remounted, or the
-   * user can edit another factor and come back, and the attempt's outcome is
-   * still here. A component that re-reads this after a remount gets the same
-   * answer it would have got before — which is contract point (4).
+   * ⚠⚠ THIS INTERFACE HAS NO CONSUMER YET, AND #1033 IS NOT ONE. An earlier
+   * version of this comment said "THIS IS THE INTERFACE #1033 CONSUMES". That
+   * was false, and falsely reassuring: it is the sentence that made the two PRs
+   * look composed when they are not.
+   *
+   * Derived at #1033's head `5af774a9`, with a contrast control so the zeros are
+   * absence and not a blind probe: `completionFor` **0**, `attemptsForNode`
+   * **0**, `latestAttemptForNode` **0**, `modelEditCompletion` **0**,
+   * `ModelEditAttemptId` **0** — against contrasts in the same sweep that fire,
+   * `EditProposalHandle` 2, `EditCommitState` 3, `useModelEditAuthority` 3.
+   * #1033 instead holds its unconfirmed rows in a COMPONENT-SCOPED
+   * `useState<ReadonlyMap<string, EditCommitState>>` in `ModelTabV2Panel`,
+   * keyed by row id and destroyed on unmount — which is precisely the event
+   * this ledger exists to survive, and which `attemptsForNode` below was built
+   * to recover from. #1033's own plan text says so in as many words:
+   * *"`EditProposalHandle` is an existing documented shape with no live
+   * implementation; exposing and wiring it is still work for the shared owner."*
+   *
+   * ⭐ SO WHICH OF THE TWO IS RIGHT? The INTERFACE is — it is the durable answer
+   * to a problem #1033 currently solves non-durably — but the CLAIM was
+   * premature, and the adoption it asserts is real, unstarted work: map
+   * `EditCommitState` onto `completionFor` (correlated) with `attemptsForNode`
+   * as the post-remount recovery read, and delete the local map. Until that
+   * lands this interface has **zero production consumers**: every call site of
+   * `proposeFactorValue` discards the proposal, including
+   * `ModelTabV2Panel.tsx:390` on the proven Model-tab path.
+   *
+   * ⚠ MERGE ORDER FOLLOWS FROM THAT, and it is not "either order". This is not
+   * inert while unconsumed: `CanvasMVP` mounts `useModelEditCanonicalConfirm`
+   * unconditionally and real `proposeFactorValue` calls feed it, so every
+   * receipted edit spends 1–8 `POST /bff/cee/scenarios/{id}/graph` reads for
+   * ZERO rendered output. Merging this alone buys network traffic and no
+   * capability. It should land WITH its consumer, not before it.
+   *
+   * What the interface itself guarantees, and does today: it survives unmount
+   * because the ledger is module-scoped — the panel can be destroyed and
+   * remounted, or the user can edit another factor and come back, and the
+   * attempt's outcome is still here. A component that re-reads this after a
+   * remount gets the same answer it would have got before — contract point (4).
    *
    * Correlated BY ATTEMPT ID, never by node or by "the last edit": A's late
    * answer settles A even if the user is now looking at B.
