@@ -21,7 +21,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
@@ -1091,9 +1091,40 @@ export const FactorNode = memo((props: NodeProps) => {
             in Detailed the Layer-2 Influence/Confidence bars below carry the same
             two numbers with more context, so the pills were a duplicate % channel
             in the densest view. No information is lost; the bars remain. */}
+        {/* ⭐ INFLUENCE IS THE SHARED ROW NOW — the same shape an option's
+            "Ahead", a risk's "strength" and an outcome's "strength" use. It was
+            the last of the four still rendering its primary number as a pill
+            with no bar, which is the inconsistency Paul named on 1 Sep: four
+            presentations of one idea on one screen, so a reader has to work out
+            which format each card is using before they can compare two cards.
+
+            ⚠ THE BASIS DISCLOSURE TRAVELS WITH IT, on both channels. On the
+            fallback basis this number is per-set normalised — the top driver
+            reads 100% BY CONSTRUCTION — so `title` carries the explanation for
+            pointer users and `phrase` carries it for assistive tech, both from
+            `influenceScaleCopy`, the one module `DriversSection` and the
+            Detailed-view bars also read. Fail-closed is preserved structurally:
+            `influencePct` is only passed when provenance is non-null, so no
+            provenance renders no row, exactly as the pill behaved.
+
+            ⚠ CONFIDENCE DELIBERATELY STAYS A PILL. Making it a second row would
+            add a line to the densest view and re-introduce the height variance
+            #1067 had just removed — and a card whose two numbers sit at equal
+            weight says neither is the headline. One row, one pill, is a
+            hierarchy; two rows is a list. */}
+        {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
+          <NodeMetricRow
+            label="Influence"
+            value={influencePct / 100}
+            formatted={`${influencePct}%`}
+            fillClass="bg-info"
+            testId="factor-influence-row"
+            title={influenceExplanation(displayMetadata.influenceProvenance)}
+            phrase={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
+          />
+        )}
         {isPostAnalysis && !isDetailed && (
           <MetricPills
-            influencePct={influencePct}
             influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}

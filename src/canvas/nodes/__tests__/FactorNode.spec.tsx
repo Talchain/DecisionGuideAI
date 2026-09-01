@@ -732,13 +732,33 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    const pill = screen.getByText('Relative influence 100%')
-    expect(pill.getAttribute('title')).toBe(
+    // ⚠ THE SURFACE MOVED, THE CLAIM DID NOT (1 Sep 2026). Standard-view
+    // influence is now the shared `NodeMetricRow` rather than a MetricPills
+    // pill, so this binds to the row — but it asserts exactly what it asserted
+    // before, and deliberately so: the whole risk of that conversion was moving
+    // a per-set-normalised figure onto a MORE prominent surface while dropping
+    // the sentence that stops it being read as an absolute. This test is the
+    // thing that would have caught that, so it is re-pointed, never relaxed.
+    // Both channels stay pinned: `title` for pointer users, and the phrase for
+    // assistive tech, which the row renders screen-reader-only.
+    const row = screen.getByTestId('factor-influence-row')
+    expect(row.getAttribute('title')).toBe(
       'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
-    expect(pill.getAttribute('aria-label')).toBe(
-      'Relative influence 100%, scaled against the strongest factor. The top driver always shows 100%'
-    )
+    expect(row.textContent).toContain('Influence')
+    expect(row.textContent).toContain('100%')
+    // ⚠ THE **BAR** PHRASE, NOT THE PILL'S — and that is a deliberate upgrade,
+    // not a relaxation. `influenceScaleCopy` carries both spellings and the row
+    // is a bar, so it now reads the SAME string the Detailed-view Influence bar
+    // reads. Before this, one surface said "Relative influence 100%, scaled
+    // against…" and the other said "Influence, relative to the strongest…" for
+    // one number on one card. Both still come from that one module, so neither
+    // can drift; they now also agree with each other.
+    expect(
+      screen.getByText(
+        'Influence, relative to the strongest factor. The top driver always shows 100%',
+      ),
+    ).toBeDefined()
   })
 
   // -------------------------------------------------------------------------
@@ -772,9 +792,21 @@ describe('FactorNode', () => {
       renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('Standard view: renders the MetricPills influence + confidence pills', () => {
+    it('Standard view: influence is the shared metric row; confidence stays a pill', () => {
       setup('standard')
-      expect(screen.getByText('Influence score 80%')).toBeDefined()
+      // ⚠ THE HIERARCHY IS THE POINT, and it is what this now pins. Influence —
+      // the headline — renders through the same `NodeMetricRow` an option's
+      // "Ahead" and a risk's "strength" use, so a reader comparing two cards of
+      // different types is comparing the same shape. Confidence stays a pill on
+      // purpose: a second row would add a line to the densest view and put two
+      // numbers at equal weight, which says neither is the headline.
+      const row = screen.getByTestId('factor-influence-row')
+      expect(row.textContent).toContain('Influence')
+      expect(row.textContent).toContain('80%')
+      // The pill form of INFLUENCE is gone — asserted by its single-text-node
+      // spelling, which the row never produces (the row renders the label and
+      // the value as separate nodes).
+      expect(screen.queryByText('Influence score 80%')).toBeNull()
       expect(screen.getByText('Confidence 45%')).toBeDefined()
     })
 
