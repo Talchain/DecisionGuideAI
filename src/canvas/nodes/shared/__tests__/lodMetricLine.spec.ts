@@ -178,24 +178,266 @@ describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one
 })
 
 describe('scope, pinned so it cannot widen by accident', () => {
-  it.each(['decision', 'goal', 'action'])(
-    '%s renders no reduced line — not done, deliberately not attempted (rowed)',
-    kind => {
-      expect(
-        resolveLodMetricLine({
-          nodeType: kind,
-          data: { label: 'x', probability: 0.8, impact: 'high' },
-          label: 'x',
-          displayMetadata: meta({
-            influence: 0.9,
-            influenceProvenance: 'influence_score' as never,
-            isResultsMode: true,
-            winRate: 0.5,
-            achievementProbability: 0.5,
-            achievementProbabilityIsModelledBasis: false,
-          }),
+  // ⚠ THIS BLOCK USED TO PIN `decision` AND `goal` AS RENDERING NOTHING, AND
+  // THAT PIN WAS CORRECT WHEN WRITTEN AND IS NOW WRONG. Both were "deliberately
+  // not attempted" — and the consequence, measured in a browser on deployed
+  // `f3b1ca87`, was that the goal (the most important card on the canvas) and
+  // the decision (its anchor) were BLANK BOXES on every pre-analysis model at
+  // every zoom below 0.5. A deliberate non-attempt is still a blank card to the
+  // person looking at it. The pins are REPLACED, not deleted, so the scope stays
+  // stated rather than drifting.
+  it('action is still deliberately not attempted — the one type this change does not touch', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'action',
+        data: { label: 'x', probability: 0.8, impact: 'high' },
+        label: 'x',
+        displayMetadata: meta({
+          influence: 0.9,
+          influenceProvenance: 'influence_score' as never,
+          isResultsMode: true,
+          winRate: 0.5,
         }),
-      ).toBeNull()
-    },
-  )
+      }),
+    ).toBeNull()
+  })
+
+  it('a goal with no target says so — the state EVERY model is in before somebody sets one', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'goal',
+        data: { label: 'Grow ARR' },
+        label: 'Grow ARR',
+        displayMetadata: NOTHING,
+      }),
+    ).toBe('No target set')
+  })
+
+  it('a goal WITH a user-set target states it, through the shared unit authority', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'goal',
+        data: {
+          label: 'Grow ARR',
+          threshold_source: 'user',
+          success_threshold: 15,
+          goal_threshold_unit: 'percent',
+        },
+        label: 'Grow ARR',
+        displayMetadata: NOTHING,
+      }),
+    ).toBe('Target: 15%')
+  })
+
+  it('CONTRAST CONTROL — a CEE-backfilled threshold is read too, so the line is not keyed to one field', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'goal',
+        data: { label: 'Grow ARR', goal_threshold_raw: 800000, goal_threshold_unit: '£' },
+        label: 'Grow ARR',
+        displayMetadata: NOTHING,
+      }),
+    ).toBe('Target: £800,000')
+  })
+
+  it('a decision counts the options it compares', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'decision',
+        data: { label: 'Choose' },
+        label: 'Choose',
+        displayMetadata: NOTHING,
+        facts: { decisionOptionCount: 4 },
+      }),
+    ).toBe('4 options')
+  })
+
+  it('singular is not a plural with an s bolted on', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'decision',
+        data: { label: 'Choose' },
+        label: 'Choose',
+        displayMetadata: NOTHING,
+        facts: { decisionOptionCount: 1 },
+      }),
+    ).toBe('1 option')
+  })
+
+  it('⛔ WITHHOLD vs ZERO — an UNKNOWN count says nothing; a KNOWN zero says the model has no options yet', () => {
+    // The two must never collapse. A decision with no options linked is a real
+    // and useful thing to be told; a decision whose count could not be
+    // established must not be told as "none".
+    const withUnknown = resolveLodMetricLine({
+      nodeType: 'decision',
+      data: { label: 'Choose' },
+      label: 'Choose',
+      displayMetadata: NOTHING,
+      facts: {},
+    })
+    const withZero = resolveLodMetricLine({
+      nodeType: 'decision',
+      data: { label: 'Choose' },
+      label: 'Choose',
+      displayMetadata: NOTHING,
+      facts: { decisionOptionCount: 0 },
+    })
+    expect(withUnknown).toBeNull()
+    expect(withZero).toBe('No options linked yet')
+  })
+})
+
+describe('the pre-analysis arms, and the opposite-direction twin for each', () => {
+  it('a risk with neither probability nor impact reads its strength to the goal', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'risk',
+        data: { label: 'Churn' },
+        label: 'Churn',
+        displayMetadata: NOTHING,
+        facts: { bridgeStrength: { signedMean: -0.45, bridgeStrengthPct: 45, bridgeIsEstimated: true } },
+      }),
+    ).toBe('Strength 45% · est.')
+  })
+
+  it('TWIN — a risk that HAS a severity band still says the band, unchanged', () => {
+    // The new arm may only be reached where the old one returned null. A fix
+    // for a blank card must not change a card that was already speaking.
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'risk',
+        data: { label: 'Churn', probability: 0.8, impact: 'high' },
+        label: 'Churn',
+        displayMetadata: NOTHING,
+        facts: { bridgeStrength: { signedMean: -0.45, bridgeStrengthPct: 45, bridgeIsEstimated: true } },
+      }),
+    ).toBe('High risk')
+  })
+
+  it('a user-stated strength carries no estimate marker — the marker is a claim about provenance', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'risk',
+        data: { label: 'Churn' },
+        label: 'Churn',
+        displayMetadata: NOTHING,
+        facts: { bridgeStrength: { signedMean: 0.45, bridgeStrengthPct: 45, bridgeIsEstimated: false } },
+      }),
+    ).toBe('Strength 45%')
+  })
+
+  it('CONTRAST CONTROL — no bridge edge, no line: the strength is read and never defaulted', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'risk',
+        data: { label: 'Churn' },
+        label: 'Churn',
+        displayMetadata: NOTHING,
+        facts: { bridgeStrength: null },
+      }),
+    ).toBeNull()
+  })
+
+  it('an outcome whose achievement figure is WITHHELD by the caveat gate falls back to strength, never to the withheld number', () => {
+    const line = resolveLodMetricLine({
+      nodeType: 'outcome',
+      data: { label: 'ARR' },
+      label: 'ARR',
+      displayMetadata: meta({
+        achievementProbability: 0.62,
+        achievementProbabilityIsModelledBasis: true,
+      }),
+      facts: { bridgeStrength: { signedMean: 0.65, bridgeStrengthPct: 65, bridgeIsEstimated: true } },
+    })
+    expect(line).toBe('Strength 65% · est.')
+    // The gate still holds: the withheld figure does not appear by any route.
+    expect(line).not.toContain('62')
+  })
+
+  it('TWIN — an outcome on a clean basis still states its achievement probability', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'outcome',
+        data: { label: 'ARR' },
+        label: 'ARR',
+        displayMetadata: meta({
+          achievementProbability: 0.62,
+          achievementProbabilityIsModelledBasis: false,
+        }),
+        facts: { bridgeStrength: { signedMean: 0.65, bridgeStrengthPct: 65, bridgeIsEstimated: true } },
+      }),
+    ).toBe('Achievement 62%')
+  })
+
+  it('a baseline option says what its card says, and NOT what its backfilled interventions say', () => {
+    // Measured: the Headcount starter backfills interventions onto all four
+    // options, the status-quo one included. Reading the count alone produced
+    // "Changes 2 factors" on the card whose body reads "No changes to factors".
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Freeze Hiring (Status Quo)' },
+        label: 'Freeze Hiring (Status Quo)',
+        displayMetadata: NOTHING,
+        facts: { optionIsBaseline: true, optionInterventionCount: 2 },
+      }),
+    ).toBe('No changes to factors')
+  })
+
+  it('a non-baseline option states how many factors it changes', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Hire Four' },
+        label: 'Hire Four',
+        displayMetadata: NOTHING,
+        facts: { optionIsBaseline: false, optionInterventionCount: 2 },
+      }),
+    ).toBe('Changes 2 factors')
+  })
+
+  it('TWIN — after a run the win share still wins, whatever the change count is', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Hire Four' },
+        label: 'Hire Four',
+        displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
+        facts: { optionIsBaseline: false, optionInterventionCount: 2 },
+      }),
+    ).toBe('Ahead 41%')
+  })
+
+  it('a factor with a prior range reads it when it has no stated value and no influence', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: NOTHING,
+      }),
+    ).toBe('Range: 0.3 to 0.9')
+  })
+
+  it('TWIN — influence still outranks the range, so no post-analysis card changes', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
+      }),
+    ).toBe('Influence 67%')
+  })
+
+  it('CONTRAST CONTROL — a CONTROLLABLE factor with the same prior says nothing, so the arm is the external gate and not a default', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'controllable', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: NOTHING,
+      }),
+    ).toBeNull()
+  })
 })

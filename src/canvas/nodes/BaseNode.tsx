@@ -35,6 +35,8 @@ import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { resolveLodMetricLine } from './shared/lodMetricLine'
+import { findGoalNodeId } from './shared/bridgeStrengthToGoal'
+import { resolveLodMetricFacts, countDecisionOptions } from './shared/lodMetricFacts'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
@@ -221,17 +223,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * may appear — `lodActive`, i.e. below the legibility floor. It never decides
    * what the line says, and there is no formatter in this file.
    */
-  const lodBodyLine = useMemo<string | null>(() => {
-    if (!lodActive) return null
-    // The owner's own line wins — it can see data this cannot (see `lodMetric`).
-    if (lodMetric != null && lodMetric.length > 0) return lodMetric
-    return resolveLodMetricLine({
-      nodeType,
-      data: data as Record<string, unknown> | undefined,
-      label,
-      displayMetadata,
-    })
-  }, [lodActive, lodMetric, nodeType, data, label, displayMetadata])
+  // (declared below, once `lodFacts` is available — see `lodBodyLine`.)
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
@@ -243,6 +235,77 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+
+  /**
+   * ⚠ THE THREE FACTS THAT DO NOT LIVE ON THE NODE, and whose absence was the
+   * defect. A risk's / outcome's strength is a property of its EDGE to the
+   * goal; a decision's option count is a graph traversal; an option's change
+   * count lives in `ceeAnalysisReady`. `resolveLodMetricLine` receives `data`
+   * and `displayMetadata` and can see none of them, which is why those card
+   * types could only ever speak after an analysis had run.
+   *
+   * ⭐ EACH SELECTOR RETURNS A PRIMITIVE (an id, a number) AND IS SCOPED TO THE
+   * ONE NODE TYPE THAT NEEDS IT. `BaseNode` hosts every card on the canvas, so
+   * subscribing it to the whole `nodes` array would re-render the entire graph
+   * on every selection and every drag. Returning a string or a number means
+   * Zustand compares by value and re-renders only when the answer actually
+   * changes; returning `null` for the other types makes the selector O(1) for
+   * almost every node on screen.
+   */
+  const goalNodeId = useCanvasStore(s =>
+    nodeType === 'risk' || nodeType === 'outcome' ? findGoalNodeId(s.nodes) : null,
+  )
+  const decisionOptionCount = useCanvasStore(s =>
+    nodeType === 'decision' ? countDecisionOptions(id, s.nodes, s.edges) : null,
+  )
+
+  const lodFacts = useMemo(() => {
+    if (!lodActive) return undefined
+    return resolveLodMetricFacts({
+      nodeType,
+      nodeId: id,
+      data: data as Record<string, unknown> | undefined,
+      goalNodeId,
+      edges,
+      ceeOptions: ceeAnalysisReady?.options,
+      decisionOptionCount,
+    })
+  }, [lodActive, nodeType, id, goalNodeId, edges, ceeAnalysisReady, data, decisionOptionCount])
+
+  const lodBodyLine = useMemo<string | null>(() => {
+    if (!lodActive) return null
+    // The owner's own line wins — it can see data this cannot (see `lodMetric`).
+    //
+    // ⚠⚠ REBASE NOTE (1 Sep 2026) — TWO MECHANISMS NOW ANSWER THIS QUESTION FOR
+    // RISK AND OUTCOME, AND THAT IS AN UNRESOLVED DECISION, NOT A TIDY-UP.
+    // #1074 (merged) has the OWNER format the final string and pass it here,
+    // where it WINS. #1080 (this change) has the owner resolve the FACT
+    // (`facts.bridgeStrength`) and lets `resolveLodMetricLine` order and format
+    // it. Both close the same blank-card defect; they disagree on two things a
+    // user can see:
+    //   · SEPARATOR — #1074 renders `Strength 50% est.`, #1080 renders
+    //     `Strength 50% · est.`. Each is pinned by exact equality in its own
+    //     spec (`lodMetric.riskOutcome.spec.tsx:149` vs `lodMetricLine.spec.ts:300`).
+    //   · PRECEDENCE — #1074's string wins unconditionally, so a risk that HAS
+    //     probability+impact shows `Strength 45%` rather than `High risk`, and an
+    //     outcome with a clean achievement figure shows strength rather than
+    //     `Achievement 70%`. #1080's ordering is additive: the analysis-derived
+    //     figure keeps precedence and strength is the pre-analysis fallback.
+    // This rebase HOLDS #1074's deployed behaviour unchanged (it is merged,
+    // reviewed and on screen) and does NOT delete #1080's arms. The consequence,
+    // stated rather than hidden: `bridgeStrengthLine` in `lodMetricLine.ts` is
+    // currently UNREACHABLE FROM RiskNode/OutcomeNode, while its unit specs
+    // still exercise it directly. Reviewer owes a ruling on which mechanism owns
+    // risk/outcome; whichever wins, the loser's arm and its spec come out.
+    if (lodMetric != null && lodMetric.length > 0) return lodMetric
+    return resolveLodMetricLine({
+      nodeType,
+      data: data as Record<string, unknown> | undefined,
+      label,
+      displayMetadata,
+      facts: lodFacts,
+    })
+  }, [lodActive, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
     if (nodeType === 'factor') {
@@ -806,7 +869,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           D2: at level-of-detail zoom the body hides via visibility (box keeps
           its dimensions so ELK/edge anchors stay stable) — the node reads as
           its coloured shape, PLUS the one reduced line below. */}
-      {!isCausalLens && !isEvidenceLens && children ? (
+      {/* ⚠ `children || lodBodyLine`, AND THE SECOND HALF IS LOAD-BEARING. This
+          wrapper hosts the reduced line, so gating it on `children` alone made
+          the line unrenderable on precisely the cards that needed it most: one
+          whose body branches all resolved to nothing is the emptiest box on the
+          canvas, and it was the one card that could not be given a line. The
+          wrapper contributes no height and the line is absolutely positioned,
+          so admitting it with no children changes no geometry. */}
+      {!isCausalLens && !isEvidenceLens && (children || lodBodyLine) ? (
         <div className="relative text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
           {children as ReactNode}
           {/* The reduced line (see `lodBodyLine` above for what it is and why

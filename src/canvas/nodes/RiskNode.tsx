@@ -6,7 +6,6 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
@@ -15,6 +14,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { EstimateMarker, NodeMetricRow } from './shared'
+import { resolveBridgeStrengthToGoal, findGoalNodeId } from './shared/bridgeStrengthToGoal'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -41,31 +41,14 @@ export const RiskNode = memo((props: NodeProps) => {
   const scienceIcons = useScienceIcons(props.id, 'risk')
 
   // Bridge edge to goal — contribution %
-  const bridgeEdgeData = useMemo(() => {
-    const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
-    if (!goalNode) return null
-    const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
-    if (!edge) return null
-    // ⛔ Provenance gate. The previous test — `strength_mean` present OR
-    // `weight != null` — could NOT fire: `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS`
-    // always define `weight`, so `hasStrength` was true for every edge that
-    // exists in the product and this rendered `USER_EDGE_DEFAULTS.weight` (0.3)
-    // as a bold coloured "contribution" figure. Same shape as the F1 defect in
-    // `RelationshipsSection`: a gate whose condition is a tautology.
-    const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
-    const signedMean = display.show ? display.value : null
-    // R6: is this strength an ESTIMATE or something the user stated? Derived
-    // from the edge's own provenance stamp — the same field the display gate
-    // above consults — never from a hardcoded word. `weightSource` absent means
-    // defaulted (edgeValueProvenance's stated invariant), which is an estimate;
-    // `'user'` means the user set it, and carries no marker at all.
-    const weightSource = (edge.data as Record<string, unknown> | undefined)?.weightSource
-    return {
-      signedMean,
-      bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
-      bridgeIsEstimated: signedMean != null && weightSource !== 'user',
-    }
-  }, [edges, nodes, props.id])
+  // ⭐ ONE OWNER (shared/bridgeStrengthToGoal.ts). This block was byte-identical
+  // in RiskNode and OutcomeNode, and the reduced line below the legibility
+  // floor needed to read it as a third consumer — a third copy is how one
+  // figure comes to have two answers one zoom step apart.
+  const bridgeEdgeData = useMemo(
+    () => resolveBridgeStrengthToGoal(props.id, findGoalNodeId(nodes), edges),
+    [edges, nodes, props.id],
+  )
 
   /**
    * The reduced line this card keeps below the legibility floor.
