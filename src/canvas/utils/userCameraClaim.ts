@@ -80,6 +80,8 @@ let claimed = false
  */
 export function claimCameraForUser(): void {
   claimed = true
+  // eslint-disable-next-line no-console
+  console.log('PROBE claim', new Error().stack)
 }
 
 /**
@@ -88,6 +90,8 @@ export function claimCameraForUser(): void {
  */
 export function releaseUserCameraClaim(): void {
   claimed = false
+  // eslint-disable-next-line no-console
+  console.log('PROBE release', new Error().stack)
 }
 
 /** Has the user framed this camera themselves? */

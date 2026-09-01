@@ -152,6 +152,8 @@ export function useFitViewOnLayoutVersion(): void {
   // the re-fit would silently stop agreeing (and how three copies of the dock
   // bounds drifted before `dockWidth.ts` existed).
   const fitNow = useRef(() => {
+    // eslint-disable-next-line no-console
+    console.log('PROBE fitNow', new Error().stack)
     const nodes = getNodesRef.current ? excludeNonModelNodes(getNodesRef.current()) : []
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
@@ -219,6 +221,8 @@ export function useFitViewOnLayoutVersion(): void {
       // A completed layout has moved every position, so whatever the user framed
       // is gone. The product owns this frame; the claim is released rather than
       // honoured (see `utils/userCameraClaim.ts` for why the two triggers differ).
+      // eslint-disable-next-line no-console
+      console.log('PROBE layoutTrigger fire')
       releaseUserCameraClaim()
       fitNow.current()
     })
@@ -323,6 +327,8 @@ export function useFitViewOnLayoutVersion(): void {
       if (now.layoutVersion > 0) return
       if (!isRestoredModelReady(now)) return
       if (restoreIdentityKey(now.currentScenarioId) !== restoreKey) return
+      // eslint-disable-next-line no-console
+      console.log('PROBE restoreTrigger fire')
       aimedRestoreRef.current = restoreKey
       // A restore is a model ARRIVING. Nothing the user framed on a previous
       // model survives it, so the claim is released here too.
@@ -353,6 +359,8 @@ export function useFitViewOnLayoutVersion(): void {
       // view, 9 of 19 inside. This re-fit exists to SPEND canvas won back; it
       // was also spending the user's own camera. `utils/userCameraClaim.ts`
       // carries the timed trace and why the layout/restore triggers differ.
+      // eslint-disable-next-line no-console
+      console.log('PROBE reservedBox onChange owns=' + userOwnsCamera())
       if (userOwnsCamera()) return
       fitNow.current()
     })

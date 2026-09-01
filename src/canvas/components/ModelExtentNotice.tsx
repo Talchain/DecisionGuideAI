@@ -123,6 +123,8 @@ export function ModelExtentNotice() {
     // this notice appears for it CANNOT leave the whole model on screen; it ran
     // after this fit and parked the camera back at the floor. See
     // `utils/userCameraClaim.ts` for the two camera writes, timed and named.
+    // eslint-disable-next-line no-console
+    console.log('PROBE showAll')
     claimCameraForUser()
     const fitTargets = excludeNonModelNodes(getNodes())
     fitView({
