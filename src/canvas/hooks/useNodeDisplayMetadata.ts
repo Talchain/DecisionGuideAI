@@ -22,7 +22,7 @@ import {
 } from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
 
-interface NodeDisplayMetadata {
+export interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
   sensitivityRank: number | null
   /** Factor influence score (0-1, normalized) - Task 3 */

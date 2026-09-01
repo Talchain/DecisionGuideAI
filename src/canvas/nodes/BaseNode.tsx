@@ -34,9 +34,7 @@ import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
-import { isSuppressedUnit } from '../utils/labelUtils'
-import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
-import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
+import { resolveLodMetricLine } from './shared/lodMetricLine'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
@@ -161,75 +159,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodHideTitle = false
   const lodBoostTitle = lodActive && lodKeepsTitle
 
-  /**
-   * ⭐⭐ AND A CARD SHOWS LESS, NEVER NOTHING (31 Aug 2026, Paul, the SECOND
-   * report of the same defect: "when I zoom out of the graph, the content in it
-   * shouldn't disappear").
-   *
-   * The 30 Aug fix above kept the TITLE and left the BODY blanked, so below the
-   * level-of-detail threshold a card still said nothing about itself beyond its
-   * name. The argument that survived that fix — at low zoom the counter-scale
-   * is capped, dense body content stops being legible, and the box must keep
-   * its dimensions so ELK and the edge anchors do not move — argues for showing
-   * LESS. It has never argued for showing NOTHING, and the same sentence in the
-   * comment above applies unchanged: a blank card is indistinguishable from a
-   * broken render.
-   *
-   * So the body keeps hiding (the box is preserved exactly as before, and this
-   * line is absolutely positioned, so no card's geometry assumption changes)
-   * and ONE reduced line is drawn over it.
-   *
-   * ⚠ THE LINE IS READ FROM AN OWNER, NEVER COMPOSED HERE. It is the factor's
-   * own observed value, via `factorDisplayText` — the module's declared shared
-   * entry point, the same priority chain FactorNode's body, the inspector-v2
-   * factor panels and the debug bundle all render from. This component decides
-   * WHEN to show a reduced line, never WHAT the value is; there is no second
-   * formatter here and no new datum (CLAUDE.md trap 12).
-   *
-   * ⚠ AND THE UNIT GOES THROUGH THE SHARED SUPPRESSION GUARD FIRST. CEE
-   * sometimes leaks an internal factor_type descriptor ("binary", "cost",
-   * "other") into `unit`; `formatFactorValue`, `formatInterventionValue` and
-   * FactorNode's own call all pass it through `isSuppressedUnit` before
-   * formatting, and `factorDisplayText` does not. Without this, the reduced
-   * line could read "0.5 other" while the body two pixels beneath it read
-   * something else — one datum, one card, two answers. That divergence is
-   * pre-existing and belongs to the formatter, not to this lane; this consumes
-   * the same guard every other caller does rather than restating the rule, and
-   * `BaseNode.lodBodyLine.spec.tsx` pins agreement with what FactorNode
-   * actually renders, so a drift goes red here.
-   *
-   * ⚠ SCOPE, STATED RATHER THAN IMPLIED (trap 20). FACTORS ONLY, deliberately:
-   *   · a factor's value is the single varying quantity its card renders, it
-   *     exists BEFORE an analysis has run (which is the state a user zooms out
-   *     in most often), and it is short enough to survive the legibility
-   *     budget — at the capped counter-scale a card holds roughly twenty
-   *     characters, so "£26,000" or "Moderate" reads and a sentence does not;
-   *   · an option's win figure ships as a full comparative SENTENCE
-   *     (`COMPARATIVE_COPY.phrase`) which truncates to nothing at this size,
-   *     and the bare percentage on its own is an unlabelled number;
-   *   · goal and outcome figures carry MANDATORY adjacent disclosures
-   *     (`GOAL_FIT_BASIS_CAVEAT_COPY`, possessive withholding via
-   *     `basisWithholdsPossessive`) that cannot ride on one line without
-   *     restating their gate here — so they stay blank rather than print a
-   *     figure stripped of the caveat that makes it honest;
-   *   · decision, risk and action cards have no single headline quantity.
-   * Nodes outside that scope behave exactly as they did before this change.
-   */
-  const lodBodyLine = useMemo<string | null>(() => {
-    if (!lodActive || nodeType !== 'factor') return null
-    const record = data as Record<string, unknown> | undefined
-    if (!record) return null
-    const observed = record.observedState as Record<string, unknown> | undefined
-    const normalised = isSuppressedUnit(observed?.unit as string | undefined)
-      ? { ...record, observedState: { ...observed, unit: null } }
-      : record
-    // The same rest-state shortening the body applies (R6): a trailing
-    // all-numeric parenthetical is the raw default showing through, and this is
-    // the most compressed rest state the card has. Display only — it can shorten
-    // the string and can never change the value it states.
-    return collapseEstimateDisplay(factorDisplayText(normalised, label))
-  }, [lodActive, nodeType, data, label])
-
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
   const isDimmed = useCanvasStore(s => s.dimmedNodeIds.has(id))
@@ -260,6 +189,32 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
+
+  /**
+   * The ONE line a node still says when it is too small to say anything else.
+   *
+   * ⚠ THE SCOPE AND THE RULES LIVE IN `shared/lodMetricLine.ts`, NOT HERE — and
+   * deliberately so. This file used to carry forty lines explaining why the
+   * reduced line was FACTORS ONLY; that reasoning was sound and its outcome was
+   * that 15 of 15 factor bodies on deployed `ec4cba73` rendered nothing,
+   * because it asked each factor for a value most factors have never been
+   * given. Leaving the old rationale here beside a resolver that no longer
+   * obeys it would be the estate's most reliable defect: a confident comment
+   * describing behaviour the code has stopped having.
+   *
+   * What stays true at this level: `BaseNode` decides only WHEN a reduced line
+   * may appear — `lodActive`, i.e. below the legibility floor. It never decides
+   * what the line says, and there is no formatter in this file.
+   */
+  const lodBodyLine = useMemo<string | null>(() => {
+    if (!lodActive) return null
+    return resolveLodMetricLine({
+      nodeType,
+      data: data as Record<string, unknown> | undefined,
+      label,
+      displayMetadata,
+    })
+  }, [lodActive, nodeType, data, label, displayMetadata])
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
