@@ -150,13 +150,14 @@
  *     it dispatches through `openAskOlumi` with no branching of its own.
  */
 
-import { useId, useMemo, useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
+import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -253,6 +254,25 @@ export function ModelStrip({
   isPreRun = false,
   insights = NO_INSIGHTS,
 }: ModelStripProps) {
+  const showToast = useShowToastSafe()
+  /**
+   * ⚠ THE BOOLEAN IS THE POINT. `focusModelTarget` is fail-CLOSED: it returns
+   * `false` when the target is no longer on the canvas and moves nothing. Both
+   * call sites in this file discarded it, so on a model that has moved on since
+   * the run, a mark and its detail button did nothing, silently — this estate's
+   * signature defect, an affordance that cannot act still advertising itself.
+   *
+   * Reported by the reorder lane, which hit the same class one file over and
+   * declined to replicate it. Same repair as #1078 and `OptionsComparison
+   * .tsx:159`: honour the return, and degrade with the sentence that already
+   * exists at `strengthenCopy.ts:51` — imported, never respelled.
+   */
+  const focusOrSay = useCallback(
+    (targetId: string) => {
+      if (!focusModelTarget(targetId)) showToast(STRENGTHEN_COPY.focusFailedNotice)
+    },
+    [showToast],
+  )
   /**
    * ⚠ SUBSCRIBED THROUGH A SIGNATURE, NOT THROUGH THE NODE ARRAY. React Flow
    * replaces `nodes` on every drag, so selecting the array itself would
@@ -633,7 +653,7 @@ export function ModelStrip({
                            route a touch device has to it. */
                         onClick={() => {
                           setActiveNodeId(node.id)
-                          focusModelTarget(node.id)
+                          focusOrSay(node.id)
                         }}
                         /* ⭐ AND THE GRAPH ANSWERS. `highlightNode` is the
                            results-panel → canvas channel the compare tab
@@ -807,7 +827,7 @@ export function ModelStrip({
                 on touch and suppressed by many browsers. */}
             <button
               type="button"
-              onClick={() => focusModelTarget(active.id)}
+              onClick={() => focusOrSay(active.id)}
               className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               data-testid={`${testId}-detail-focus`}
               data-node-id={active.id}
