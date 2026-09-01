@@ -52,8 +52,12 @@ vi.mock('../../../lib/supabase', async (importOriginal) => {
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import { useModelEditAuthority } from '../useModelEditAuthority'
-import { useModelEditCanonicalConfirm } from '../useModelEditCanonicalConfirm'
-import { markCanonicalReadIssued, settleModelEditAttemptsFromCanonicalGraph } from '../modelEditCompletion'
+import { CONFIRM_READ_DELAYS_MS, useModelEditCanonicalConfirm } from '../useModelEditCanonicalConfirm'
+import {
+  MIN_CANONICAL_READS_BEFORE_REFUSAL,
+  markCanonicalReadIssued,
+  settleModelEditAttemptsFromCanonicalGraph,
+} from '../modelEditCompletion'
 import {
   __resetModelEditCompletionLedger,
   beginModelEditAttempt,
@@ -175,12 +179,15 @@ describe('M-W1 — the boot hydration settles outstanding attempts', () => {
     recordModelEditReceipt(attempt)
     stubFetch(serverBody(0.5, 15000, 'cee_inference'))
 
-    // ⚠ TWO reads. A canonical REFUSAL is not believed on the first one — it
-    // may be CEE's write-back window, not a refusal (see
-    // `MIN_CANONICAL_READS_BEFORE_REFUSAL`). Boot hydration reads once per
-    // call, so the honest fixture calls it twice.
-    await hydrateCanvasFromServer(SCENARIO_ID, {})
-    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+    // ⚠ A canonical REFUSAL is not believed until the measured schedule has
+    // been spent — the first reads may be CEE's write-back window, not a
+    // refusal (see `MIN_CANONICAL_READS_BEFORE_REFUSAL`). Boot hydration reads
+    // once per call, so the honest fixture calls it to the boundary — and the
+    // COUNT IS DERIVED, so this cannot silently stop reaching it.
+    for (let i = 0; i < MIN_CANONICAL_READS_BEFORE_REFUSAL - 1; i += 1) {
+      await hydrateCanvasFromServer(SCENARIO_ID, {})
+      expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+    }
     await hydrateCanvasFromServer(SCENARIO_ID, {})
 
     expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
@@ -435,6 +442,202 @@ describe('⭐ B4 — the outcome is REACHABLE after the remount, not merely reta
       useCanvasStore.setState({ currentScenarioId: OTHER_SCENARIO_ID } as never, false)
     })
     expect(view.result.current.attemptsForNode(FACTOR)).toHaveLength(0)
+    view.unmount()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ F7 / F8 — the two ways a VALID edit could still be told the wrong thing.
+//
+// Both were found by independent review of `800569f8` and neither was pinned.
+// They are opposite-direction failures of the same interface and they share a
+// fixture set deliberately, so a fix for one that reopens the other REDs here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A wire graph carrying named factors, so two attempts can be told apart. */
+function graphFor(
+  specs: ReadonlyArray<{ id: string; value: number; rawValue: number }>,
+): never {
+  return {
+    status: 'graph',
+    graph: {
+      nodes: specs.map((s) => ({
+        id: s.id,
+        kind: 'factor',
+        label: s.id,
+        observed_state: { value: s.value, raw_value: s.rawValue, source: 'user_override' },
+      })),
+      edges: [],
+    },
+    briefText: null,
+  } as never
+}
+
+const FACTOR_B = 'factor-2'
+
+describe('⭐⭐ F7 — a wake-up arriving DURING a read is coalesced, never discarded', () => {
+  /**
+   * The reviewed defect, exactly. `runConfirmation` returned early while
+   * `inFlightRef` was true and banked nothing, so a receipt that landed during
+   * the FINAL read of an episode was dropped: the in-flight read's tick
+   * pre-dates that receipt, the ordering guard correctly declines it, the loop
+   * has no next iteration, and the attempt stays `receipted` for the life of
+   * the page — the exact "still confirming" lie this interface exists to end.
+   */
+  it('a receipt landing during the FINAL read still gets a freshly stamped read', async () => {
+    const attemptA = beginModelEditAttempt({
+      nodeId: FACTOR,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.7,
+      attemptedRawValue: 21000,
+    })
+    recordModelEditReceipt(attemptA)
+
+    // The 8th (final) read of the episode is HELD, so a receipt can land while
+    // it is genuinely in flight rather than merely "around the same time".
+    let releaseFinalRead: (value: unknown) => void = () => {}
+    const heldFinalRead = new Promise<unknown>((resolve) => {
+      releaseFinalRead = resolve
+    })
+
+    const read = vi.fn(async () => {
+      const call = read.mock.calls.length
+      if (call <= CONFIRM_READ_DELAYS_MS.length) return { status: 'absent' } as never
+      if (call === CONFIRM_READ_DELAYS_MS.length + 1) return (await heldFinalRead) as never
+      // The replayed episode: CEE has now written B back.
+      return graphFor([{ id: FACTOR_B, value: 0.45, rawValue: 45 }])
+    })
+    const wait = vi.fn(async () => undefined)
+
+    const view = renderHook(() =>
+      useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
+    )
+
+    // Hold here until the final read of the episode is actually in flight.
+    await vi.waitFor(() => {
+      expect(read.mock.calls.length).toBe(CONFIRM_READ_DELAYS_MS.length + 1)
+    })
+
+    // ⭐ THE RECEIPT ARRIVES WHILE THAT READ IS IN FLIGHT.
+    const attemptB = beginModelEditAttempt({
+      nodeId: FACTOR_B,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.45,
+      attemptedRawValue: 45,
+    })
+    recordModelEditReceipt(attemptB)
+
+    // The held read answers with bytes whose tick PRE-DATES B's receipt. The
+    // ordering guard is right to decline them for B — that is not the defect.
+    releaseFinalRead(graphFor([{ id: FACTOR, value: 0.7, rawValue: 21000 }]))
+
+    // A is settled by those bytes; B must NOT be stranded by them.
+    await vi.waitFor(
+      () => {
+        expect(getModelEditAttempt(attemptB)?.completion.phase).toBe('committed')
+      },
+      { timeout: 3000 },
+    )
+    // Bound by IDENTITY: B's own outcome carries B's own number.
+    const settled = getModelEditAttempt(attemptB)?.completion
+    expect(settled?.phase === 'committed' ? settled.canonical.value : null).toBe(0.45)
+    // A ninth read genuinely happened — the replay is a NEW request, not a
+    // re-reading of the answer that already declined B.
+    expect(read.mock.calls.length).toBeGreaterThanOrEqual(CONFIRM_READ_DELAYS_MS.length + 2)
+    expect(getModelEditAttempt(attemptA)?.completion.phase).toBe('committed')
+    view.unmount()
+  })
+
+  it('and an exhausted episode with NO new wake-up does not restart — the bound holds', async () => {
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.45,
+      attemptedRawValue: 45,
+    })
+    recordModelEditReceipt(attempt)
+
+    // Every read answers `absent`, so nothing is ever settled and nothing emits.
+    const read = vi.fn().mockResolvedValue({ status: 'absent' } as never)
+    const wait = vi.fn(async () => undefined)
+
+    const view = renderHook(() =>
+      useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
+    )
+    await vi.waitFor(() => {
+      expect(read.mock.calls.length).toBe(CONFIRM_READ_DELAYS_MS.length + 1)
+    })
+    // ⚠ THE COALESCING MUST NOT BECOME AN INFINITE POLL. Exhaustion is not a
+    // wake-up; only a real ledger write is.
+    await new Promise((r) => setTimeout(r, 50))
+    expect(read).toHaveBeenCalledTimes(CONFIRM_READ_DELAYS_MS.length + 1)
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+    view.unmount()
+  })
+})
+
+describe('⭐⭐ F8 — a canonical refusal is believed only at the END of the measured schedule', () => {
+  /**
+   * The reviewed defect: a fixed threshold of 2 made read 1 (+3s) terminal,
+   * while the module's OWN measurement says CEE's write-back lands 30–90s out.
+   * The source claimed "reads 2..7 keep looking out to 282s"; the code could
+   * not do it, because a terminal refusal makes `hasAttemptsAwaitingCanonical`
+   * false and the loop exits on its next check.
+   */
+  it('the refusal boundary is DERIVED from the schedule, not restated beside it', () => {
+    expect(MIN_CANONICAL_READS_BEFORE_REFUSAL).toBe(CONFIRM_READ_DELAYS_MS.length + 1)
+  })
+
+  it('two STALE readable answers do not close the door — a later agreement COMMITS', async () => {
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.45,
+      attemptedRawValue: 45,
+    })
+    recordModelEditReceipt(attempt)
+
+    // preWrite → preWrite → postWrite: the first two reads carry the number the
+    // PREVIOUS edit left. This is the arm the reviewed corpus omitted.
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce(graphFor([{ id: FACTOR, value: 0.4, rawValue: 40 }]))
+      .mockResolvedValueOnce(graphFor([{ id: FACTOR, value: 0.4, rawValue: 40 }]))
+      .mockResolvedValue(graphFor([{ id: FACTOR, value: 0.45, rawValue: 45 }]))
+    const wait = vi.fn(async () => undefined)
+
+    const view = renderHook(() =>
+      useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
+    )
+    await vi.waitFor(() => {
+      expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
+    })
+    const settled = getModelEditAttempt(attempt)?.completion
+    expect(settled?.phase === 'committed' ? settled.canonical.rawValue : null).toBe(45)
+    view.unmount()
+  })
+
+  it('but a model that NEVER takes the change IS refused, at the end of the schedule', async () => {
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR,
+      scenarioId: SCENARIO_ID,
+      attemptedValue: 0.45,
+      attemptedRawValue: 45,
+    })
+    recordModelEditReceipt(attempt)
+
+    // The opposite-direction twin. Deferring must not become never refusing.
+    const read = vi.fn().mockResolvedValue(graphFor([{ id: FACTOR, value: 0.4, rawValue: 40 }]))
+    const wait = vi.fn(async () => undefined)
+
+    const view = renderHook(() =>
+      useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
+    )
+    await vi.waitFor(() => {
+      expect(getModelEditAttempt(attempt)?.completion.phase).toBe('refused')
+    })
+    // ⭐ AND THE BOUNDARY IS THE SCHEDULE ITSELF — not an arbitrary small count.
+    expect(read).toHaveBeenCalledTimes(CONFIRM_READ_DELAYS_MS.length + 1)
     view.unmount()
   })
 })

@@ -41,6 +41,7 @@ import {
   getModelEditAttempt,
   hasAttemptsAwaitingCanonical,
   markCanonicalReadIssued,
+  MIN_CANONICAL_READS_BEFORE_REFUSAL,
   markModelEditUnresolved,
   modelEditAttemptIdsAwaitingCanonical,
   readCanonicalFactor,
@@ -119,18 +120,43 @@ function receiptedAttempt(nodeId = FACTOR_A, scenarioId: string | null = SCENARI
 }
 
 /**
- * TWO identical cold reads.
+ * As many identical cold reads as the refusal boundary actually requires.
  *
- * ⚠ A CANONICAL REFUSAL IS NOT BELIEVED ON THE FIRST READ — see
- * `MIN_CANONICAL_READS_BEFORE_REFUSAL`. Read 0 races CEE's write-back
- * (measured: the value lands ~1s after the receipt, and `runConfirmation`
- * issues read 0 with no delay), so a refusal has to survive a re-read.
- * `committed` is unaffected: it settles on read 0 and the second read is a
- * no-op against a terminal attempt.
+ * ⚠ A CANONICAL REFUSAL IS NOT BELIEVED UNTIL THE MEASURED SCHEDULE HAS BEEN
+ * SPENT — see `MIN_CANONICAL_READS_BEFORE_REFUSAL`. Read 0 races CEE's
+ * write-back (measured: the value lands ~1s after the receipt, and
+ * `runConfirmation` issues read 0 with no delay), and the write-back window
+ * itself is 30–90s, so a refusal has to survive the whole schedule.
+ * `committed` is unaffected: it settles on read 0 and later reads are a no-op
+ * against a terminal attempt.
+ *
+ * ⭐ THE COUNT IS DERIVED, NEVER WRITTEN HERE. When the boundary moved from a
+ * fixed 2 to the schedule, every test that had hard-coded "twice" silently
+ * stopped reaching it — and one of them (F2's ordering-guard pin below) would
+ * have kept passing while the guard it exists to pin was deleted.
  */
-function coldReadTwice(scenarioId: string | null, graph: unknown) {
-  settleModelEditAttemptsFromCanonicalGraph(scenarioId, graph, markCanonicalReadIssued())
-  settleModelEditAttemptsFromCanonicalGraph(scenarioId, graph, markCanonicalReadIssued())
+function coldReadToRefusalBoundary(scenarioId: string | null, graph: unknown) {
+  for (let i = 0; i < MIN_CANONICAL_READS_BEFORE_REFUSAL; i += 1) {
+    settleModelEditAttemptsFromCanonicalGraph(scenarioId, graph, markCanonicalReadIssued())
+  }
+}
+
+/** One read SHORT of the boundary — the attempt must still be open. */
+function coldReadShortOfRefusalBoundary(scenarioId: string | null, graph: unknown) {
+  for (let i = 0; i < MIN_CANONICAL_READS_BEFORE_REFUSAL - 1; i += 1) {
+    settleModelEditAttemptsFromCanonicalGraph(scenarioId, graph, markCanonicalReadIssued())
+  }
+}
+
+/** The boundary's worth of reads, all bearing the SAME (stale) tick. */
+function coldReadToRefusalBoundaryAt(
+  scenarioId: string | null,
+  graph: unknown,
+  readIssuedAt: ReturnType<typeof markCanonicalReadIssued>,
+) {
+  for (let i = 0; i < MIN_CANONICAL_READS_BEFORE_REFUSAL; i += 1) {
+    settleModelEditAttemptsFromCanonicalGraph(scenarioId, graph, readIssuedAt)
+  }
 }
 
 beforeEach(() => {
@@ -168,7 +194,7 @@ describe('contract 1 — the outcome is correlated to THE attempt that produced 
         // holds the number. A refusal fixture has to refuse on every basis.
         { id: FACTOR_B, value: 0.9, rawValue: 0.9, source: 'cee_inference' },
     ])
-    coldReadTwice(SCENARIO, graphAB)
+    coldReadToRefusalBoundary(SCENARIO, graphAB)
 
     // ⭐ BOUND BY ATTEMPT ID. A per-node or "last edit" flag cannot pass this:
     // the two attempts settle to OPPOSITE phases from one adjudication.
@@ -199,7 +225,7 @@ describe('contract 1 — the outcome is correlated to THE attempt that produced 
     recordModelEditReceipt(second)
 
     // Twice: `second` commits on read 0, `first`'s refusal survives the re-read.
-    coldReadTwice(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([{ id: FACTOR_A, value: 0.7, rawValue: 21000, source: 'user_override' }]),
     )
@@ -252,7 +278,7 @@ describe('⭐ the discriminating pair — a receipt cannot buy a commit', () => 
 
   it('REFUSED arm — the SAME receipt, but the persisted value never moved', () => {
     const attempt = receiptedAttempt()
-    coldReadTwice(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
     )
@@ -311,7 +337,7 @@ describe('⭐ the two bases must AGREE — a partial write is not a commit', () 
 
   it('RAW agrees but VALUE does not → REFUSED, with the canonical bytes', () => {
     const attempt = attemptSendingBoth()
-    coldReadTwice(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: SENT_RAW, source: 'user_override' }]),
     )
@@ -325,7 +351,7 @@ describe('⭐ the two bases must AGREE — a partial write is not a commit', () 
 
   it('VALUE agrees but RAW does not → REFUSED, with the canonical bytes', () => {
     const attempt = attemptSendingBoth()
-    coldReadTwice(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([{ id: FACTOR_A, value: SENT_MODEL, rawValue: 15000, source: 'user_override' }]),
     )
@@ -464,12 +490,11 @@ describe('⭐ F2 — bytes read BEFORE the edit may not adjudicate it', () => {
      * deferral had silently absorbed F2's discrimination: two guards, one
      * observable, so the outer one could be removed unnoticed.
      *
-     * Two stale reads clear the deferral's re-read requirement, so the ONLY
+     * Enough stale reads to CLEAR the deferral's re-read requirement, so the ONLY
      * thing still holding this attempt open is the ordering guard. Delete that
      * guard and this goes RED, which is the property F2 exists to pin.
      */
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, staleGraph, staleRead)
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, staleGraph, staleRead)
+    coldReadToRefusalBoundaryAt(SCENARIO, staleGraph, staleRead)
 
     // ⚠ NOT `refused`. The honest phase already exists and this is it.
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
@@ -538,7 +563,7 @@ describe('⭐ F3 — a receipt-derived refusal is PROVISIONAL', () => {
   it('but a CANONICAL refusal is terminal — ONCE it has survived the re-read', () => {
     const attempt = receiptedAttempt()
     // Two reads that agree the model did not take it: now it is terminal.
-    coldReadTwice(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: 15000, source: 'cee_inference' }]),
     )
@@ -558,7 +583,7 @@ describe('⭐ F3 — a receipt-derived refusal is PROVISIONAL', () => {
 describe('contract 3 — provenance from observed_state.source, never NodeV3.provenance', () => {
   it('ignores `provenance: "user_set"` and refuses on the persisted bytes', () => {
     const attempt = receiptedAttempt()
-    coldReadTwice(
+    coldReadToRefusalBoundary(
       SCENARIO,
       wireGraph([
         {
@@ -600,7 +625,7 @@ describe('⭐ F5 — what the cold read can and cannot establish', () => {
     const attempt = receiptedAttempt()
     const deleted = wireGraph([{ id: FACTOR_B, value: 0.4, source: 'cee_inference' }])
     // Read 0 cannot tell "deleted" from "not written back yet".
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, deleted, markCanonicalReadIssued())
+    coldReadShortOfRefusalBoundary(SCENARIO, deleted)
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
     settleModelEditAttemptsFromCanonicalGraph(SCENARIO, deleted, markCanonicalReadIssued())
     expect(getModelEditAttempt(attempt)?.completion).toEqual({
@@ -614,7 +639,7 @@ describe('⭐ F5 — what the cold read can and cannot establish', () => {
   it('a node PRESENT but carrying no observed state is refused, distinctly, on the RE-READ', () => {
     const attempt = receiptedAttempt()
     const bare = wireGraph([{ id: FACTOR_A, noObservedState: true }])
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, bare, markCanonicalReadIssued())
+    coldReadShortOfRefusalBoundary(SCENARIO, bare)
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
     settleModelEditAttemptsFromCanonicalGraph(SCENARIO, bare, markCanonicalReadIssued())
     expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
@@ -626,8 +651,7 @@ describe('⭐ F5 — what the cold read can and cannot establish', () => {
   it('observed_state present with BOTH value and raw_value absent is refused on the RE-READ', () => {
     const attempt = receiptedAttempt()
     const empty = wireGraph([{ id: FACTOR_A, source: 'cee_inference' }])
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, empty, markCanonicalReadIssued())
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, empty, markCanonicalReadIssued())
+    coldReadToRefusalBoundary(SCENARIO, empty)
     expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
       phase: 'refused',
       reason: 'The model holds no value for this factor.',
@@ -727,13 +751,12 @@ describe('⭐⭐ the CEE write-back race — a refusal must survive a re-read', 
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
   })
 
-  it('a REAL refusal still lands — two reads that both disagree settle terminally', () => {
+  it('a REAL refusal still lands — reads that ALL disagree settle terminally', () => {
     const attempt = attemptSendingBoth()
     const wrong = wireGraph([
       { id: FACTOR_A, value: 0.11, rawValue: 11, source: 'cee_inference' },
     ])
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, wrong, markCanonicalReadIssued())
-    settleModelEditAttemptsFromCanonicalGraph(SCENARIO, wrong, markCanonicalReadIssued())
+    coldReadToRefusalBoundary(SCENARIO, wrong)
     expect(getModelEditAttempt(attempt)?.completion).toEqual({
       phase: 'refused',
       reason: 'The model did not take this change.',

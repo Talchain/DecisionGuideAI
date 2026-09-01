@@ -126,6 +126,15 @@
  * rather than two that must stay in sync.
  */
 
+/**
+ * ⚠ THE MODULE'S ONE IMPORT, AND IT IS DELIBERATE. The refusal boundary below
+ * IS the confirmation schedule; importing it keeps the two from drifting apart
+ * into a copied constant (trap 12). `absentGraphRetry` reaches
+ * `serverGraphHydration` only through an `import type`, which is erased — so
+ * this edge adds no runtime cycle. Keep that import type-only.
+ */
+import { ABSENT_GRAPH_RETRY_DELAYS_MS } from '../hydrate/absentGraphRetry'
+
 /** Opaque per-attempt correlation token. Minted here; never parsed by a caller. */
 export type ModelEditAttemptId = string
 
@@ -211,8 +220,9 @@ export interface ModelEditAttempt {
 /**
  * ⭐⭐ HOW MANY CANONICAL READS A REFUSAL MUST SURVIVE BEFORE IT IS BELIEVED.
  *
- * MEASURED, not chosen. On deployed CEE `915da5a3`, wire-level, a factor edit
- * persisted `observed_state` and a cold read at **t+1s** returned
+ * DERIVED FROM THE MEASURED SCHEDULE, not chosen beside it. On deployed CEE
+ * `915da5a3`, wire-level, a factor edit persisted `observed_state` and a cold
+ * read at **t+1s** returned
  * `{"unit":"%","value":0.3,"source":"user_override","raw_value":30}`. The value
  * IS written — but not instantly, and `runConfirmation` issues read 0 with NO
  * delay, so read 0 races the write.
@@ -222,13 +232,38 @@ export interface ModelEditAttempt {
  * 0/3 present at t+50s). So the state a first edit is adjudicated against is
  * `noValue` BY DEFAULT, and waiting longer never helps — only re-reading does.
  *
- * ⚠ WHY 2 AND NOT A DELAY. A fixed delay before read 0 trades a false refusal
- * for a slower one and is still a race — the persistence window is not bounded
- * by anything this module can see. Re-reading is not a race: read 1 fires at
- * +3s (`CONFIRM_READ_DELAYS_MS[0]`), comfortably outside the measured ~1s, and
- * if persistence is slower still, reads 2..7 keep looking out to 282s.
+ * ⚠⚠ WHY THE WHOLE SCHEDULE AND NOT A SMALL COUNT (review of `800569f8`, B2).
+ * This was `2`, and `2` was a false-refusal generator. Read 1 fires at +3s
+ * (`ABSENT_GRAPH_RETRY_DELAYS_MS[0]`) — and this module's OWN measured
+ * write-back window is **30–90s**, which +3s is nowhere near. So the reachable
+ * sequence was:
+ *
+ *   receipt → read 0 stale → +3s read 1 still stale → TERMINAL `refused`
+ *           → CEE's write lands seconds later, and nothing ever looks again.
+ *
+ * Worse, the comment here used to claim "reads 2..7 keep looking out to 282s".
+ * The code could not do that: a terminal refusal makes
+ * `hasAttemptsAwaitingCanonical` false, so the confirmation loop exits on its
+ * very next check and the remaining 8s/16s/30s/50s/75s/100s reads are never
+ * spent. The prose described a behaviour the implementation had no way to have.
+ *
+ * The boundary is therefore the SCHEDULE ITSELF — the same one
+ * `absentGraphRetry` derived to cover that measured window, imported rather
+ * than restated (trap 12: a copied schedule drifts). A refusal is believed only
+ * once the model has been given every look the schedule allows.
+ *
+ * ⭐ AND THE ASYMMETRY IS DELIBERATE. `committed` is NOT deferred: staleness can
+ * only ever make a read DISAGREE with what was sent, so for a stale read to
+ * AGREE the old and new numbers must be the same number — in which case the
+ * claim is true regardless. Agreement is safe to accept early; disagreement and
+ * absence are not safe to reject early.
+ *
+ * ⚠ If fewer than this many READABLE looks ever arrive, the attempt stays in
+ * its honest open phase. An exhausted schedule is never a verdict in either
+ * direction — that is the module's rule, and it is why this is a floor on
+ * evidence rather than a timer.
  */
-export const MIN_CANONICAL_READS_BEFORE_REFUSAL = 2
+export const MIN_CANONICAL_READS_BEFORE_REFUSAL = ABSENT_GRAPH_RETRY_DELAYS_MS.length + 1
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cold-read readability

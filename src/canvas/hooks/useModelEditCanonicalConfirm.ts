@@ -115,6 +115,23 @@ export function useModelEditCanonicalConfirm(
   // events and costs no renders at all.
 
   const inFlightRef = useRef(false)
+  /**
+   * ⭐⭐ A WAKE-UP THAT ARRIVES MID-EPISODE IS BANKED, NOT DROPPED (review of
+   * `800569f8`, B1). The first cut returned early while a read was in flight
+   * and recorded nothing, which loses the ONE event that mattered:
+   *
+   *   1. attempt A reaches the FINAL read of its episode; the tick is stamped
+   *      and the request is in flight;
+   *   2. attempt B is receipted while it is; the listener fires and is dropped;
+   *   3. the read answers, and its tick PRE-DATES B's receipt — so the ordering
+   *      guard correctly declines to adjudicate B from those bytes;
+   *   4. the loop has no next iteration. Nothing replays. B stays `receipted`
+   *      for the life of the page.
+   *
+   * Step 3 is not the defect — declining stale bytes is the whole point of the
+   * guard. The defect is that nothing ever asks again.
+   */
+  const rerunRequestedRef = useRef(false)
   const read = deps.read ?? fetchScenarioGraph
   const wait = deps.wait ?? waitForRetry
 
@@ -123,60 +140,92 @@ export function useModelEditCanonicalConfirm(
 
     const controller = new AbortController()
 
+    /**
+     * ONE bounded episode: at most `CONFIRM_READ_DELAYS_MS.length + 1` reads,
+     * stopping the moment nothing is awaiting — so the common case (CEE answers
+     * the first read) still costs exactly one request.
+     */
+    const runEpisode = async (): Promise<void> => {
+      for (let i = 0; i <= CONFIRM_READ_DELAYS_MS.length; i += 1) {
+        if (controller.signal.aborted) return
+        if (!hasAttemptsAwaitingCanonical(scenarioId)) return
+        if (i > 0) {
+          try {
+            await wait(CONFIRM_READ_DELAYS_MS[i - 1], controller.signal)
+          } catch {
+            return // aborted
+          }
+        }
+        if (controller.signal.aborted) return
+
+        const identity = await getSessionIdentity()
+        // ⭐ THE TICK IS TAKEN BEFORE THE REQUEST GOES OUT. Taken after, it
+        // would post-date bytes that pre-date it and the ordering guard it
+        // feeds would be worthless. Re-taken on EVERY attempt, because each
+        // read is its own point in time — including the replayed episode's,
+        // which is exactly why a replay can settle what the last read could not.
+        const readIssuedAt = markCanonicalReadIssued()
+        const result = await read(scenarioId, {
+          userId: identity.userId,
+          accessToken: identity.accessToken,
+          signal: controller.signal,
+        })
+        if (controller.signal.aborted) return
+        if (result.status === 'graph') {
+          settleModelEditAttemptsFromCanonicalGraph(scenarioId, result.graph, readIssuedAt)
+        } else {
+          logger.debug('model_edit_confirm.no_graph', {
+            scenarioId,
+            outcome: result.status,
+            attempt: i,
+          })
+        }
+      }
+      // Budget spent. Whatever is still open stays in its honest phase — an
+      // exhausted schedule is never a verdict in either direction.
+      logger.debug('model_edit_confirm.exhausted', { scenarioId })
+    }
+
     const runConfirmation = async (): Promise<void> => {
-      if (inFlightRef.current) return
+      // ⭐ COALESCE, NEVER DISCARD. One replay is banked however many events
+      // land during the episode, so a burst of edits costs one extra episode.
+      if (inFlightRef.current) {
+        rerunRequestedRef.current = true
+        return
+      }
       if (!hasAttemptsAwaitingCanonical(scenarioId)) return
       inFlightRef.current = true
       try {
-        // Attempt 0 is immediate; each further attempt waits the next measured
-        // delay. The loop exits the moment nothing is awaiting — so the common
-        // case (CEE answers the first read) costs exactly one request.
-        for (let i = 0; i <= CONFIRM_READ_DELAYS_MS.length; i += 1) {
-          if (controller.signal.aborted) return
-          if (!hasAttemptsAwaitingCanonical(scenarioId)) return
-          if (i > 0) {
-            try {
-              await wait(CONFIRM_READ_DELAYS_MS[i - 1], controller.signal)
-            } catch {
-              return // aborted
-            }
-          }
-          if (controller.signal.aborted) return
-
-          const identity = await getSessionIdentity()
-          // ⭐ THE TICK IS TAKEN BEFORE THE REQUEST GOES OUT. Taken after, it
-          // would post-date bytes that pre-date it and the ordering guard it
-          // feeds would be worthless. Re-taken on EVERY attempt, because each
-          // read is its own point in time.
-          const readIssuedAt = markCanonicalReadIssued()
-          const result = await read(scenarioId, {
-            userId: identity.userId,
-            accessToken: identity.accessToken,
-            signal: controller.signal,
-          })
-          if (controller.signal.aborted) return
-          if (result.status === 'graph') {
-            settleModelEditAttemptsFromCanonicalGraph(scenarioId, result.graph, readIssuedAt)
-          } else {
-            logger.debug('model_edit_confirm.no_graph', {
-              scenarioId,
-              outcome: result.status,
-              attempt: i,
-            })
-          }
-        }
-        // Budget spent. Whatever is still open stays in its honest phase — an
-        // exhausted schedule is never a verdict in either direction.
-        logger.debug('model_edit_confirm.exhausted', { scenarioId })
+        do {
+          rerunRequestedRef.current = false
+          await runEpisode()
+          // ⚠ NO `await` BETWEEN THE EPISODE RETURNING AND THIS CHECK, so a
+          // listener cannot interleave into the gap and be lost a second time.
+        } while (
+          rerunRequestedRef.current &&
+          !controller.signal.aborted &&
+          hasAttemptsAwaitingCanonical(scenarioId)
+        )
       } catch (err) {
         // Never rethrow: a confirmation is an improvement on an honest open
         // phase, never a precondition for anything on screen.
         logger.debug('model_edit_confirm.failed', { scenarioId, err: String(err) })
       } finally {
         inFlightRef.current = false
+        rerunRequestedRef.current = false
       }
     }
 
+    /**
+     * ⚠ WHY THIS CANNOT BECOME AN INFINITE POLL, derived at the ledger's bytes
+     * rather than asserted: a replay requires `rerunRequestedRef`, which only a
+     * listener sets, and listeners run only from `emit()`. `emit()` has exactly
+     * three call sites in `modelEditCompletion.ts` — a new attempt, a receipt,
+     * and a TERMINAL canonical settle. `markCanonicalReadIssued` does not emit,
+     * and neither does the deferred-refusal bookkeeping write. So this loop's
+     * own reads cannot wake it: exhaustion is silent, and the only thing that
+     * buys another episode is genuinely new information.
+     */
     const unsubscribe = subscribeModelEditCompletion(() => {
       void runConfirmation()
     })
@@ -186,6 +235,7 @@ export function useModelEditCanonicalConfirm(
       unsubscribe()
       controller.abort()
       inFlightRef.current = false
+      rerunRequestedRef.current = false
     }
   }, [scenarioId, user?.id, read, wait])
 
