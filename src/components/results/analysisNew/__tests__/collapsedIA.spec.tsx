@@ -125,21 +125,31 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     const count = screen.getByTestId('analysis-new-uncertainty-count')
     expect(count).toBeInTheDocument()
     // Bound to the SECTION, not to whichever element carries a number.
-    // ⚠ FIVE — three same-code uncertainties plus two assumptions, which DO
-    // belong to this section. NOT eight: the fixture's three inference warnings
-    // are engine diagnostics and render in "Deeper analysis and evidence" now.
-    // The row promises exactly what a reader will find behind it.
+    // ⚠ TWO, NOT FIVE — and the missing three are the point, not a loss. The
+    // fixture's three same-code uncertainties are `SENSITIVE_ASSUMPTION` rows,
+    // which now build into "What would change your mind"; the two assumptions
+    // stay here. (Still not eight: the three inference warnings are engine
+    // diagnostics and render in "Deeper analysis and evidence".) The CLAIM is
+    // unchanged — the row promises exactly what a reader finds behind it — so
+    // the sibling assertion below makes it about BOTH rows, or this one would
+    // pass just as well on a section that had silently lost its contents.
     expect(within(screen.getByTestId('analysis-new-uncertainty')).getByTestId('analysis-new-uncertainty-count'))
-      .toHaveTextContent('5')
+      .toHaveTextContent('2')
+    expect(within(screen.getByTestId('analysis-new-sensitivity')).getByTestId('analysis-new-sensitivity-count'))
+      .toHaveTextContent('3')
 
-    // And it is the ACTUAL list length, not a remembered number — which is the
-    // whole reason the count is derived. A count that misreports reads as "you
-    // have seen everything" when you have not. Open the row (level 1), then
-    // reveal the rest (level 2), and the rows must total the promised five.
+    // And each count is the ACTUAL list length, not a remembered number —
+    // which is the whole reason it is derived. A count that misreports reads as
+    // "you have seen everything" when you have not.
+    //
+    // ⚠ TWO fits inside `UNCERTAINTY_PREVIEW`, so this section no longer needs
+    // a "show more" step; the promise is met on the first open. The disclosure
+    // half of the claim moves to the section that now HAS a tail.
     fireEvent.click(screen.getByTestId('analysis-new-uncertainty-toggle'))
-    expect(screen.getAllByTestId('analysis-new-uncertainty-row')).toHaveLength(3)
-    fireEvent.click(screen.getByTestId('analysis-new-uncertainty-show-more'))
-    expect(screen.getAllByTestId('analysis-new-uncertainty-row')).toHaveLength(5)
+    expect(screen.getAllByTestId('analysis-new-uncertainty-row')).toHaveLength(2)
+
+    fireEvent.click(screen.getByTestId('analysis-new-sensitivity-toggle'))
+    expect(screen.getAllByTestId('analysis-new-sensitivity-row')).toHaveLength(3)
   })
 
   it('renders NO count rather than a zero when a section is empty', () => {

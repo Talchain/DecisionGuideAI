@@ -47,6 +47,19 @@ export const ANALYSIS_NEW_COPY = {
     keyInsights: 'Key insights',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
+    /**
+     * ⭐⭐ THE SECTION NAME IS THE READER'S QUESTION, NOT THE PRODUCER'S
+     * CATEGORY. "Sensitive assumptions" is what the analysis calls these;
+     * "What would change your mind" is what the reader is asking when they get
+     * to them, and it is the only heading on this panel that names a question
+     * rather than a container.
+     *
+     * ⚠ NOT "What could change the outcome" — the outcome is a number, and a
+     * changed number is not a changed decision. These rows name the option that
+     * would WIN INSTEAD, so the claim is about the DECISION, and the heading
+     * says so.
+     */
+    sensitivity: 'What would change your mind',
     uncertainty: 'Uncertainty and gaps',
     deeper: 'Deeper analysis and evidence',
     /**

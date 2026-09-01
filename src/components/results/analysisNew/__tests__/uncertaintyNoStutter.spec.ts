@@ -33,18 +33,26 @@
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { makeData } from './analysisNewFixtures'
-import { manyFragileEdges } from './analysisNewFixtures'
+// ⚠ BOTH SECTIONS. The `SENSITIVE_ASSUMPTION` rows now build into
+// `sensitivity` ("What would change your mind") and the rest stay in
+// `uncertainty`. Every claim in this file is about how a ROW IS BUILT — that it
+// never says its own sentence twice — and none is about which section it landed
+// in; reading one array would narrow each of them to whichever half survived the
+// split, and the long-non-threshold case this file exists for is precisely a
+// fragile-edge row, i.e. the half that MOVED.
+import { manyFragileEdges, uncertaintyDerivedFindings } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { UncertaintyItem } from '../../types'
 
 const uncertaintyRows = (data: ResultsSectionDataReturn) =>
-  buildAnalysisNewViewModel({
+  uncertaintyDerivedFindings(buildAnalysisNewViewModel({
     data,
     recommendations: [],
     isPreRun: false,
     isRunning: false,
     isStale: false,
-  }).uncertainty.findings
+  }))
+
 
 const withUncertainties = (uncertainties: UncertaintyItem[]) =>
   makeData({ confidence: { evidenceGapsAssessed: true, uncertainties } })

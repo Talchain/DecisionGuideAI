@@ -1,3 +1,4 @@
+import type { AnalysisNewFinding, AnalysisNewViewModel } from '../analysisNewTypes'
 /**
  * Analysis (New) — fixtures for the three scenario CLASSES the experiment must
  * behave correctly across (brief §24F).
@@ -346,3 +347,23 @@ export function manyFragileEdges(): ResultsSectionDataReturn {
     } as Partial<ConfidenceSectionData>,
   })
 }
+
+/**
+ * ⭐ EVERY FINDING BUILT FROM A PRODUCER UNCERTAINTY ROW, whichever section it
+ * lands in.
+ *
+ * ⚠ WHY THIS EXISTS RATHER THAN `vm.uncertainty.findings`. The
+ * `SENSITIVE_ASSUMPTION` rows now build into `vm.sensitivity` ("What would
+ * change your mind"); the rest stay in `vm.uncertainty`. Almost every existing
+ * assertion about these rows is about HOW THE ROW IS CONSTRUCTED — its id is
+ * unique, its prose is not cut, its headline is not its body — and none of
+ * those claims is about which section it ended up in. Reading one array would
+ * silently narrow each of them to whichever half survived the split, which is
+ * the "guard watching one door" shape this estate keeps paying for.
+ *
+ * A test that IS about the split reads the two arrays apart, deliberately —
+ * see `whatWouldChangeYourMind.spec.ts`.
+ */
+export const uncertaintyDerivedFindings = (
+  vm: Pick<AnalysisNewViewModel, 'uncertainty' | 'sensitivity'>,
+): AnalysisNewFinding[] => [...vm.sensitivity.findings, ...vm.uncertainty.findings]
