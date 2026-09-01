@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2156
+# count=2154
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -190,7 +190,6 @@
 2	src/canvas/ReactFlowGraph.tsx	TS2322	Type '{ options: { id: string; label: string; status: "needs_encoding" | "needs_user_mapping" | "ready"; interventions: Record<string, unknown>; user_questions?: string[] | undefined; unresolved_targets?: string[] | undefined; }[]; goal_node_id: string; suggested_seed?: string | undefined; status?: string | undefined; use...' is not assignable to type 'CEEAnalysisReady'.
 1	src/canvas/ReactFlowGraph.tsx	TS2345	Argument of type 'Scenario | null | undefined' is not assignable to parameter of type 'Scenario | null'.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'MiniMap' is declared but its value is never read.
-1	src/canvas/ReactFlowGraph.tsx	TS6133	'enableGhostSuggestions' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'handleEmptyStateTemplate' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'handleOpenCompare' is declared but its value is never read.
 1	src/canvas/ReactFlowGraph.tsx	TS6133	'handleQuickFixAll' is declared but its value is never read.
@@ -448,7 +447,7 @@
 1	src/canvas/conversation/__tests__/useConversation.hook.spec.ts	TS2345	Argument of type 'null | string' is not assignable to parameter of type 'string'.
 1	src/canvas/conversation/__tests__/useSmartScroll.spec.ts	TS6133	'mockScrollIntoView' is declared but its value is never read.
 1	src/canvas/conversation/__tests__/validateResponse.spec.ts	TS2352	Conversion of type 'ConversationBlock' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 268 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
+1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 271 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'op' is declared but its value is never read.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'ops' is declared but its value is never read.
 6	src/canvas/conversation/utils/__tests__/applyPatch.v3Fields.spec.ts	TS2353	Object literal may only specify known properties, and 'block_type' does not exist in type 'GraphPatchBlock'.
@@ -529,7 +528,6 @@
 1	src/canvas/hooks/useUtilityWeights.ts	TS7006	Parameter 's' implicitly has an 'any' type.
 1	src/canvas/nodes/ActionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'ReactNode'.
 1	src/canvas/nodes/ActionNode.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
-1	src/canvas/nodes/BaseNode.tsx	TS6133	'viewMode' is declared but its value is never read.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'Record<string, unknown>'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'boolean'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'string'.
