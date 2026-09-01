@@ -30,6 +30,18 @@ import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item }
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 
 /**
+ * The deterministic "define a success measure" recommendation's id.
+ *
+ * ⭐ EXPORTED BECAUSE A SECOND SURFACE SUPPRESSES IT BY ID. The model strip
+ * renders its own "Target · None set · Set a target" line, so the glance must
+ * not ALSO promote this recommendation as the one thing to do — the panel said
+ * one fact three times. A string literal in the suppressing file would be a
+ * hand-maintained mirror: renaming the id here would silently restore the
+ * duplication with nothing red (CLAUDE.md trap 12).
+ */
+export const SUCCESS_MEASURE_RECOMMENDATION_ID = 'strengthen:success-measure'
+
+/**
  * GuidanceItem → StrengthenPhase3Item, the ONE store→engine mapping
  * (UI-SEM-085 narrowed; Stage 2). `priorityRank` rides through VERBATIM —
  * ascending, lower = first, unbounded, presence = producer-ranked. Nothing is
@@ -221,7 +233,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // ── Clarify: define a measurable success (deterministic) ──────────────────
   if (inputs.goalThreshold == null) {
     recs.push({
-      id: 'strengthen:success-measure',
+      id: SUCCESS_MEASURE_RECOMMENDATION_ID,
       helpType: 'clarify',
       title: 'Define what success looks like',
       signal: 'No measurable success target is set.',

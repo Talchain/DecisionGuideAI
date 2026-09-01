@@ -227,12 +227,34 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
  * kind is absent. The panel has surfaces whose job is to say what is missing;
  * this one reports what is there.
  */
+/**
+ * The model's goal node id, or null when it has no goal.
+ *
+ * ⭐ EXTRACTED SO TWO SURFACES CANNOT DISAGREE ABOUT WHETHER A GOAL EXISTS.
+ * `buildModelStrip` calls this for its own `goalNodeId`, so the strip and any
+ * caller asking "is the strip rendering a target affordance?" read one answer.
+ * A second, hand-written copy of the first-goal-wins rule is exactly the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
+ *
+ * First goal node in node order wins — the strip's long-standing rule, moved
+ * here verbatim rather than restated.
+ */
+export function resolveGoalNodeId(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
+): string | null {
+  for (const node of nodes) {
+    if (resolveNodeTypeLiteral(node) === 'goal') return node.id
+  }
+  return null
+}
+
 export function buildModelStrip(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
 ): ModelStrip {
   const byKind = new Map<string, StripNode[]>()
   let goalLabel: string | null = null
-  let goalNodeId: string | null = null
+  // ⚠ ONE OWNER. Never re-derive this inline — see `resolveGoalNodeId`.
+  const goalNodeId: string | null = resolveGoalNodeId(nodes)
   let decisionLabel: string | null = null
 
   for (const node of nodes) {
@@ -240,7 +262,6 @@ export function buildModelStrip(
     if (!kind) continue
     if (kind === 'goal') {
       goalLabel = goalLabel ?? (labelOf(node) || null)
-      goalNodeId = goalNodeId ?? node.id
       continue
     }
     if (kind === 'decision') {
