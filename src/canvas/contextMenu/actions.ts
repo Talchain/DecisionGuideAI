@@ -645,7 +645,20 @@ export function traceToGoal(
 // Ask AI
 // ---------------------------------------------------------------------------
 
-function buildAskAIPrompt(target: ContextTarget, intent: string): string {
+/**
+ * The one producer of ask-prompt copy for canvas elements.
+ *
+ * ⭐ EXPORTED so a surface can offer one of these prompts WITHOUT inheriting
+ * `askAI`'s auto-send. `NodeQuickActions`' challenge button reads its text from
+ * here and routes it through `requestAsk` instead — same sentence, different
+ * confirmation. Pasting the string into that component would have been the
+ * smaller diff and the worse change: one idea with two spellings, drifting the
+ * first time either is reworded.
+ *
+ * The two questions this file answers are deliberately separate (trap 21):
+ * WHAT is asked lives here; HOW an ask is confirmed lives at the call site.
+ */
+export function buildAskAIPrompt(target: ContextTarget, intent: string): string {
   if (target.kind === 'node') {
     const label = (target.node.data as any)?.label ?? 'this element'
     if (intent === 'explain_element') {

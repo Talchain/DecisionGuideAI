@@ -1,11 +1,32 @@
 import { memo, useCallback } from 'react'
-import { MessageSquare, PanelRight, MoreHorizontal } from 'lucide-react'
+import { MessageSquare, PanelRight, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
-import { askAI } from '../../contextMenu/actions'
+import { askAI, buildAskAIPrompt } from '../../contextMenu/actions'
+import { FULL_MENU_KINDS } from '../../contextMenu/useMenuItems'
+import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import { openNodeInspector } from './openNodeInspector'
+
+/**
+ * Does this node type have a generative prompt to offer?
+ *
+ * ⭐ DERIVED FROM THE MENU'S OWN SET, NEVER MIRRORED. `buildNodeMenu` gates
+ * "Challenge this" on `FULL_MENU_KINDS.has(kind) || kind === 'goal'`; this
+ * imports that same Set rather than re-listing `factor | risk | outcome`. A
+ * hand-copied list here would drift the first time a kind joined or left the
+ * menu's gate, and the drift would read as green — the hand-maintained mirror
+ * this estate keeps paying for. If the menu stops offering the prompt, this
+ * button stops rendering, by construction.
+ *
+ * The organisational kinds (`decision`, `option`, `constraint`) get NO button:
+ * the menu builds no challenge prompt for them, so a control here would open
+ * nothing. An affordance that opens nothing is worse than no affordance.
+ */
+function hasChallengePrompt(nodeType: NodeType): boolean {
+  return FULL_MENU_KINDS.has(nodeType as string) || nodeType === 'goal'
+}
 
 /**
  * NodeQuickActions — the contextual efficiency layer (R5, Paul, 16 Aug 2026).
@@ -98,6 +119,84 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       showToast,
     )
   }, [nodeId, nodeType, showToast])
+
+  /**
+   * ⭐⭐ THE GENERATIVE PROMPT GETS A DOOR.
+   *
+   * ## What was actually buried
+   *
+   * This layer shipped with ONE conversational shortcut, and the prompt behind
+   * it is `explain_element`: *"Explain the role of X in this decision model."*
+   * That is a REPORTING question — it describes what is already on the card.
+   * The product's one node-scoped GENERATIVE prompt, `challenge_element`
+   * (*"Challenge the current setup of X. What could be wrong or missing?"*),
+   * had no button: its only doors were RIGHT-CLICK → Ask AI ▸ Challenge this,
+   * and the overflow button beside this one, which re-emits that right-click.
+   * Both land it two levels inside a menu, and right-click has no equivalent
+   * gesture on a touch device.
+   *
+   * So the layer built to unbury this node's power picked the reporting prompt
+   * and left the generating one buried. That is the standing critique of this
+   * canvas — every element is a conclusion, nothing generates — reproduced
+   * inside the fix for it. This is the third entry, and it is a peer of the
+   * ask, not overflow: it is the half that suggests what is MISSING rather
+   * than scoring what is there.
+   *
+   * ## Why `requestAsk` and NOT `askAI`
+   *
+   * `askAI` — which the sibling ask button uses — polls for `_sendMessage` and
+   * DISPATCHES. That is tolerable for "explain this", which asks the model to
+   * describe something the user already has. It is wrong here: a challenge
+   * produces ideas the user has not agreed to, and the house rule
+   * (`askSemantic.ts`, `ASK_SEMANTIC = 'prefill-and-confirm'`) is that an ask
+   * lands an EDITABLE DRAFT in a visible surface and the user presses Send.
+   * Humans stay the authors of what enters their own model.
+   *
+   * ⚠ AND THE SEAM THIS LEAVES OPEN, stated rather than hidden: the button
+   * beside this one still auto-sends, so two adjacent controls in one layer now
+   * confirm differently. That is trap 21 in miniature and I am NOT closing it
+   * here — `askAI` has seven call sites and every context-menu ask rides it, so
+   * migrating it changes the whole menu's behaviour and needs its own review.
+   * The smallest enabling change is to route `askAI`'s step 3 through
+   * `requestAsk`; it is reported, not smuggled into this PR.
+   *
+   * ## Why it selects first
+   *
+   * `askAI` selects the element before sending so the turn carries
+   * `selected_elements` — the context the prompt's text alone does not supply.
+   * Dropping that would make this button's answer worse than the menu's for the
+   * same question, so the selection step is reproduced deliberately. It is the
+   * one line of `askAI` worth having without the send.
+   */
+  const canChallenge = useGuidanceStore(canReceiveAsk) && hasChallengePrompt(nodeType)
+
+  const handleChallenge = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const node = useCanvasStore.getState().nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    // Same ordering as `askAI`: select, THEN ask, so the turn carries the
+    // element rather than a bare sentence about it.
+    useCanvasStore.getState().selectNodeWithoutHistory(nodeId)
+
+    const text = buildAskAIPrompt(
+      { kind: 'node', nodeId, nodeType, node, screenPos: { x: 0, y: 0 } },
+      'challenge_element',
+    )
+    const landed = requestAsk({
+      text,
+      label: `Challenge ${label}`,
+      targetId: nodeId,
+      source: 'node-quick-actions',
+    })
+    // The gate is checked at render; a channel can still die between render and
+    // click. `requestAsk` returning 'none' is that case, and it must surface as
+    // a message rather than as a button that did nothing — the same discipline
+    // the ask button's toast enforces.
+    if (landed === 'none') {
+      showToast?.('Could not open a draft — try typing your question directly.', 'warning')
+    }
+  }, [nodeId, nodeType, label, showToast])
 
   const handleInspect = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -213,6 +312,28 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           data-testid={`node-action-ask-${nodeId}`}
         >
           <MessageSquare size={11} aria-hidden="true" />
+        </button>
+      )}
+      {/* ⭐ THE GENERATIVE PEER OF THE ASK. Second, not last: it sits beside
+          "Ask Olumi about this" because the two are the same kind of act — a
+          question to the model about THIS element — and the overflow keeps its
+          deliberate final position. Identical geometry to its siblings, so the
+          cluster stays one row of equal 20px controls.
+
+          `Zap` is the icon the context menu already uses for "Challenge this"
+          (`useMenuItems.ts`), so the button and the menu entry it unburies read
+          as the same action rather than as two features. */}
+      {canChallenge && (
+        <button
+          type="button"
+          onClick={handleChallenge}
+          onPointerDown={stopPointer}
+          className="nodrag inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          aria-label={`Challenge ${label}`}
+          title={`Challenge ${label} — what could be wrong or missing?`}
+          data-testid={`node-action-challenge-${nodeId}`}
+        >
+          <Zap size={11} aria-hidden="true" />
         </button>
       )}
       <button
