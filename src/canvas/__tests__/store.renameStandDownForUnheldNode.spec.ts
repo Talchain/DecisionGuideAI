@@ -10,12 +10,12 @@
  * crosses, so each of those gestures captured a `structural_rename` intent and
  * put it on the wire.
  *
- * CEE cannot possibly hold that node. It reloads its OWN persisted graph, and
- * the only carrier that could have told it about a client-created node —
- * `structural_add` — DOES NOT EXIST IN THIS REPO (swept `rg -a`: zero
- * occurrences, against a contrast control of `structural_rename` in nine
- * files). The debounced `direct_graph_edit` notification CEE classifies
- * `ack_and_commit` writes no graph. So the receipt was always
+ * CEE cannot hold that node TODAY. It reloads its OWN persisted graph; the
+ * debounced `direct_graph_edit` notification CEE classifies `ack_and_commit`
+ * writes no graph; and the one carrier that could tell CEE about a
+ * client-created node — `structural_add` — has NO UI EMITTER yet (see the
+ * CONTINGENCY block below, which is load-bearing and not background). So the
+ * receipt was always
  * `readStructuralRenameReceipt → 'unproven'`, which is CORRECT and must stay —
  * an absent node is a different event, not a refutation — but `unproven` sets
  * `notice = 'unconfirmed_server'`, and that injects a synthetic assistant
@@ -35,6 +35,36 @@
  * so the honest move is to send nothing.
  *
  * ─────────────────────────────────────────────────────────────────────────────
+ * ⚠⚠ CONTINGENCY — THIS PREMISE EXPIRES, AND THE FIRST DRAFT OF THIS HEADER
+ * ERASED THE TRIPWIRE BY GETTING IT WRONG.
+ *
+ * It asserted that `structural_add` "DOES NOT EXIST IN THIS REPO (swept `rg -a`:
+ * zero occurrences, against a contrast control of `structural_rename` in nine
+ * files)". BOTH ARMS OF THAT SWEEP WERE FALSE. Re-measured with `rg -a` at
+ * `origin/staging` @ `ee76d07a`, 1 Sep 2026, with a fabricated-symbol contrast
+ * control in the SAME run:
+ *
+ *     structural_add                      6 occurrences in  1 file
+ *                                           (3 token-exact; the other 3 are
+ *                                            `structural_add_edge`)
+ *     structural_rename                  45 occurrences in 16 files
+ *     structural_zzz_fabricated_control   0 occurrences in  0 files
+ *
+ * `structural_add` IS a live `V5_EVENT_KINDS` member and CEE DECLARES IT
+ * 'mutating' AT STAGING `4f0bd774` — A WRITER EXISTS
+ * (`systemEventParity.test.ts:265`). Only the UI EMITTER is missing, and it is
+ * missing on purpose: `knownDeferred` (`systemEventParity.test.ts:271`) holds it
+ * for its own product lane.
+ *
+ * ⭐⭐ SO EVERY TEST BELOW IS CONDITIONAL ON THAT LANE NOT HAVING SHIPPED. Once a
+ * UI `structural_add` emitter lands, a client-created node CAN be genuinely
+ * server-held while still absent from `lastAuthoritativeGraph` until the next
+ * authoritative graph arrives — and in that window this stand-down suppresses a
+ * LEGITIMATE rename, re-opening the data-loss class #1108 closed. These tests
+ * would all still be green. REVISIT WHEN THE EMITTER SHIPS; the mechanical
+ * trigger is `structural_add` leaving `knownDeferred`.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
  * ⭐⭐ THE SIGNAL, AND WHY IT IS DERIVED RATHER THAN INVENTED.
  *
  * `lastAuthoritativeGraph.nodeIds` (`store.ts:685`) is the estate's EXISTING
@@ -51,7 +81,27 @@
  *
  * It is ALREADY the authority for exactly this class of question: the reconciler
  * "only removes elements CEE has previously acknowledged". This lane subscribes
- * to that existing authority rather than minting a second one.
+ * to that existing authority rather than minting a second one. (The field-name
+ * grep finds only ONE of the four writers — the honest manifest comes from the
+ * setter, `store.ts:5552`, plus the cold-load assignment at `store.ts:6680`.)
+ *
+ * ⭐⭐ THAT ARGUMENT IS TRUE AND IT IS NOT WHAT MAKES THIS SAFE. The two readers
+ * need the record tight in OPPOSITE directions:
+ *
+ *   · the reconciler reads MEMBERSHIP to AUTHORISE A DELETION — an under-broad
+ *     record removes less, so it is FAIL-SAFE, which is why it can afford
+ *     `authoritative?.nodeIds ?? []` (`mergeAppliedGraph.ts:478`);
+ *   · this reader reads NON-MEMBERSHIP to SUPPRESS A SEND — an under-broad
+ *     record silently drops a real rename, so it is HARMED, and the very same
+ *     `?? []` would be a data-loss defect.
+ *
+ * This is THE FIRST CONSUMER REQUIRING COMPLETENESS. What carries it is
+ * WIRE-GRAPH COMPLETENESS, read at the bytes of all four writers: each replaces
+ * the record wholesale with the FULL graph just observed and none is
+ * incremental (`mergeAppliedGraph.ts:606`, `mergeServerGraph.ts:461`,
+ * `applyDraftResult.ts:293`, `store.ts:6680`). A record that EXISTS is complete
+ * for the graph it saw. If a writer ever becomes a delta, THIS reader breaks and
+ * the reconciler does not.
  *
  * ⚠ AND THE ALTERNATIVE WAS REJECTED AT THE BYTES, not on taste. `createNodeId`
  * returns `String(nextNodeId)` — a bare integer counter with nothing to
@@ -272,6 +322,34 @@ describe('DIRECTION 3 — no authoritative record is an ABSENCE OF EVIDENCE, nev
     useCanvasStore.getState().updateNodeLabel(CLIENT_MADE_ID, NEW)
 
     expect(queued().filter((i) => i.nodeId === CLIENT_MADE_ID)).toHaveLength(1)
+  })
+
+  it('NULL RECORD *WITH* A HASH IN HAND still sends — the residual case, pinned not merely disclosed', () => {
+    // ⭐ THE ARM BOTH TESTS ABOVE MISS. Each seeds `lastAuthoritativeGraph: null`
+    // on a fixture whose `lastServerGraphHash` is ALSO null, so neither can tell
+    // "we stand down on a null record" apart from "we stand down when there is
+    // no hash to send with". This seeds a null record and a REAL hash — the one
+    // combination where the two inputs disagree: CEE has stamped a graph this
+    // session, yet no authoritative graph has been recorded.
+    //
+    // The decision here was DISCLOSED in prose and rested on nothing. It is
+    // deliberate and it is unchanged: a client-made node in this state STILL
+    // SENDS, because a null record is an absence of evidence and the hash says
+    // nothing about MEMBERSHIP. Pinned so that a future change has to argue with
+    // a red test rather than with a paragraph.
+    seedRestoredWithAuthoritativeRecord({
+      lastAuthoritativeGraph: null,
+      lastServerGraphHash: TURN_HASH,
+    })
+    useCanvasStore.getState().updateNodeLabel(CLIENT_MADE_ID, NEW)
+
+    // Bound by id: its unheld twin must not be able to satisfy this.
+    const forNode = queued().filter((i) => i.nodeId === CLIENT_MADE_ID)
+    expect(forNode).toHaveLength(1)
+    expect(queued().filter((i) => i.nodeId === CLIENT_MADE_2_ID)).toHaveLength(0)
+    // And the precondition is pinned in-test: the capture must be seeing the
+    // hash, or this would pass for the wrong reason.
+    expect(forNode[0]?.baseGraphHash).toBe(TURN_HASH)
   })
 
   it('an EMPTY record is a real record — the server holds nothing, so nothing stands', () => {
