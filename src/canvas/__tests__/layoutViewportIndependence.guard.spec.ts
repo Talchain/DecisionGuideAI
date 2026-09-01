@@ -356,10 +356,29 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1920'
    * changes is that a 1280 and a 1920 user now get that same shape instead of
    * two different ones.
    */
+  /*
+   * ⭐ RE-RECORDED 1 Sep 2026 — the node title went 13px → 12px, so the card
+   * floor went 244 → 230 and three of the five starters legitimately repack.
+   * Stated here because the block above is explicit that "a moved digest is a
+   * product decision" and must not be re-blessed silently:
+   *
+   *   vendor-selection  965ce13a0c023c31 → 5ef77f9459d9b7d5
+   *   market-entry      ea8e81e6fe7d4278 → 463368facba15056
+   *   build-vs-buy      27c5080706eb0760 → 7af988986c1d41f1
+   *
+   * ⛔ WHAT DID **NOT** MOVE IS THE POINT, and it is why this is a re-record
+   * rather than a broken ruling: every R1 acceptance test stayed GREEN — one
+   * canonical layout across 1280 / 1440 / 1512 / 1920 for all five starters,
+   * and the contrast control still discriminates. The shape changed; its
+   * INDEPENDENCE FROM THE VIEWPORT did not, which is the property R1 names.
+   * `headcount-allocation` and `pricing-model` did not move at all — the same
+   * two that held through the #1067 glyph change, so the repack is a real
+   * consequence of card width and not global churn.
+   */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '965ce13a0c023c31', nodes: 19 },
-    'market-entry': { digest: 'ea8e81e6fe7d4278', nodes: 18 },
-    'build-vs-buy': { digest: '27c5080706eb0760', nodes: 19 },
+    'vendor-selection': { digest: '5ef77f9459d9b7d5', nodes: 19 },
+    'market-entry': { digest: '463368facba15056', nodes: 18 },
+    'build-vs-buy': { digest: '7af988986c1d41f1', nodes: 19 },
     'headcount-allocation': { digest: '4055b1313f4caf01', nodes: 16 },
     'pricing-model': { digest: 'ac60debf91cc922e', nodes: 15 },
   }
@@ -392,7 +411,14 @@ describe('the pinned budget sits inside its band, and both cliffs are named', ()
    * defect waiting for a rounding change, and a constant nudged across one
    * re-shapes every model silently.
    */
-  const BAND = { lower: 1132, upper: 1238 } as const
+  // ⚠ LOWER CLIFF 1132 → 1076, because it IS the width of a four-card row and
+  // the card narrowed: 4 × (230 + 24) + 3 × 20 = 1076. The upper cliff is a
+  // tier-splitting bound and does not depend on card width, so it holds. The
+  // pinned budget 1185 stays inside the band — and the packing table below is
+  // UNCHANGED at that budget, which is the useful fact: cards got narrower
+  // WITHOUT changing how many sit in a row, so the graph gets narrower and
+  // shorter rather than repacking into a different shape.
+  const BAND = { lower: 1076, upper: 1238 } as const
 
   it('CANONICAL_LAYOUT_WIDTH is strictly inside the band', () => {
     expect(CANONICAL_LAYOUT_WIDTH).toBeGreaterThan(BAND.lower)

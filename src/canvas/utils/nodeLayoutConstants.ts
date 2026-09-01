@@ -90,7 +90,26 @@ export const NODE_HEADER_RESERVE_PX = 0
  * control so it is shown to discriminate. Do not guard this by counting
  * characters: "Commoditisation" is exactly as long as "Cannibalization".
  */
-export const NODE_TITLE_WIDEST_WORD_PX = 100
+/**
+ * ⚠ RE-DERIVED WITH THE TYPE SCALE (1 Sep 2026): 100 → 85.
+ *
+ * This constant is a WIDTH AT A FONT SIZE, so it is not independent of that
+ * size — it was measured at a declared 13px title and the title is now 12px.
+ * Leaving it at 100 would have kept every card sized for type it no longer
+ * renders, silently discarding the width the smaller font was changed to win.
+ *
+ * Scaled from the ORIGINAL MEASUREMENT rather than from the rounded constant,
+ * so the rounding is not compounded: the widest run in the five shipped
+ * starters is "Cannibalization" at 97.77px @13px → 90.25px @12px. Rounded up to
+ * 93, which keeps ~2.75px of margin — the same headroom the 13px figure carried,
+ * and deliberately no more, because every pixel here is doubled by the
+ * counter-scale and widens every compressed card.
+ *
+ * `e2e/visual/nodeLabelFit.visual.spec.ts` measures the real corpus against
+ * this bound in a real browser and REDs if a word arrives that exceeds it — so
+ * this derivation is checked against the live font rather than trusted.
+ */
+export const NODE_TITLE_WIDEST_WORD_PX = 93
 
 /**
  * Minimum horizontal measure (px) reserved for a node's TITLE, at the largest
