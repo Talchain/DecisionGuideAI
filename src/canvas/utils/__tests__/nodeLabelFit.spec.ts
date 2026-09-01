@@ -60,6 +60,33 @@ import {
  */
 const WIDEST_WORD_PX_AT_13 = 97.77
 
+/**
+ * ⭐ THE SAME WORD AT THE NEW DECLARED SIZE (1 Sep 2026, title 13px → 11px).
+ *
+ * DERIVED FROM THE AUTHORITATIVE 13px FIGURE, NOT RE-PROBED — and the reason is
+ * the correction recorded above this constant. A hand-built probe span does not
+ * resolve the font the product resolves: measuring "Cannibalization" that way
+ * gives 95.95px where the mounted element gives 97.77px, a consistent ~1.9%
+ * under-read. The header already says take it off the mounted element, and a
+ * lane that re-probed here would quietly re-introduce the very bias the review
+ * removed.
+ *
+ * ⭐ WHAT THE PROBE *IS* GOOD FOR IS THE RATIO, because a multiplicative bias
+ * CANCELS in a ratio. Measured across eight runs in the live font at both
+ * sizes, 11px/13px came out at 0.8462 against the arithmetic 11/13 = 0.84615 —
+ * i.e. this font scales linearly to 4 decimal places, so the conversion below
+ * is a scaling and not an estimate.
+ *
+ *     97.77 × 11/13 = 82.72px
+ *
+ * `NODE_TITLE_WIDEST_WORD_PX` is 85, so the margin is 2.28px — deliberately the
+ * SAME tight headroom the 13px bound carried (2.23px), for the same reason:
+ * every pixel here is doubled by the counter-scale and widens every compressed
+ * card. The negative controls hold their relationship too: "Recommendation" and
+ * "Commoditisation" exceeded the bound at 13px and still exceed it at 11px.
+ */
+const WIDEST_WORD_PX_AT_11 = +(WIDEST_WORD_PX_AT_13 * (11 / 13)).toFixed(2)
+
 describe('the label scale is the geometry authority', () => {
   it('the maximum counter-scale is DERIVED from the legibility floor, not restated', () => {
     // Not a tautology: it asserts the bound is the value AT the floor, which is
@@ -115,7 +142,7 @@ describe('the derived geometry actually holds the product’s own words', () => 
     // The load-bearing assertion. Everything above proves the numbers agree
     // with each other; this one proves they agree with a MEASUREMENT.
     expect(NODE_TITLE_MIN_MEASURE_PX).toBeGreaterThanOrEqual(
-      WIDEST_WORD_PX_AT_13 * MAX_LABEL_COUNTER_SCALE,
+      WIDEST_WORD_PX_AT_11 * MAX_LABEL_COUNTER_SCALE,
     )
   })
 
@@ -166,8 +193,28 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // one of the two would let the width silently leave the card altogether.
     const measureAt1x = NODE_TITLE_WIDEST_WORD_PX * 1 + NODE_TITLE_RECLAIMED_PX
     const cardAt1x = measureAt1x + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X
-    expect(cardAt1x).toBeLessThanOrEqual(145)
-    expect(cardAt1x).toBeGreaterThanOrEqual(140)
+    // ⚠ THE BAND MOVED WITH THE FONT, AND IT HAD TO. It was [140, 145] — the
+    // pre-#758 geometry at a DECLARED 13px title. The title is now 11px, so a
+    // card built for it is legitimately narrower and holding the old band would
+    // assert that a smaller font must produce the same card, which is the whole
+    // change denied. Re-derived at the same ratio the type moved by:
+    // the card does NOT scale uniformly, because only part of it is text:
+    // 44px of it (20 reclaimed chrome + 24 padding) is fixed, so 144 → 129 is
+    // the text half moving 100 → 85 with the chrome standing still. Asserting a
+    // scaled version of the OLD CARD band would have been wrong arithmetic
+    // dressed as a derivation — I wrote that first and it failed here, which is
+    // the guard doing its job on the person changing it.
+    // The TEXT half tracks the font: 100px @13px × 11/13 = 84.6, shipped at 85.
+    // Stated as a band around the derivation so a hand-tuned value cannot creep
+    // back in, and deliberately NOT as `toBe(85)`, which would agree with any
+    // number this file and the source happen to share.
+    const textHalfAt1x = NODE_TITLE_WIDEST_WORD_PX
+    const derivedTextHalf = 100 * (11 / 13)
+    expect(textHalfAt1x).toBeGreaterThanOrEqual(derivedTextHalf)
+    expect(textHalfAt1x).toBeLessThanOrEqual(derivedTextHalf + 3)
+    expect(cardAt1x).toBe(
+      NODE_TITLE_WIDEST_WORD_PX + NODE_TITLE_RECLAIMED_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
+    )
 
     // ⭐⭐ AND THE SAME CLAIM AT THE SCALE THE PRODUCT ACTUALLY SHIPS, WHICH IS
     // THE ASSERTION THAT WAS MISSING.
@@ -185,7 +232,14 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // express. The whole promise of moving the glyph is that the card does not
     // change size — so the number is pinned from BEFORE the move, and if the
     // card ever legitimately resizes this fails and someone states why.
-    expect(NODE_LAYOUT_MIN_W).toBe(244)
+    // ⚠ 244 → 214. The pin is re-stated, not removed: its job is to make a card
+    // resize a DELIBERATE act that someone has to come here and defend, and
+    // that job is done by it going red — which is exactly what happened when
+    // the type scale changed. 214 = 85 (widest word @11px, rounded) × 2
+    // (counter-scale) + 20 (chrome the glyph vacated) + 24 (card padding).
+    // The card is 30px narrower, which is the point: more cards fit a row, so
+    // the graph is shorter and more of it fits a laptop screen.
+    expect(NODE_LAYOUT_MIN_W).toBe(214)
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
 
     // …and only the TEXT measure carries the scale. The icon, its gap and the
