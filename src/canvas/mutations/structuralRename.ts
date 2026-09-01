@@ -379,6 +379,38 @@ export interface CaptureStructuralRenameInput {
    * acknowledged"), so this is a second reader of one authority rather than a
    * second authority.
    *
+   * ⚠ THE FIELD-NAME GREP FINDS ONLY ONE OF THOSE FOUR. The honest manifest
+   * comes from the SETTER (`store.ts:5552`, `set({ lastAuthoritativeGraph })`)
+   * plus the one direct assignment on the cold-load path (`store.ts:6680`) —
+   * subscribe to the field, do not grep for it.
+   *
+   * ⭐⭐ BUT "SECOND READER, NOT SECOND AUTHORITY" IS NOT WHAT MAKES THIS SAFE,
+   * AND THE COMMENT USED TO STOP THERE. The two readers need this record tight
+   * in OPPOSITE directions:
+   *
+   *   · THE RECONCILER reads MEMBERSHIP to AUTHORISE A DELETION
+   *     (`mergeAppliedGraph.ts:483`, `ackNodeIds.has(n.id) && !wire.has(n.id)`).
+   *     An UNDER-BROAD record simply removes less. FAIL-SAFE — which is why it
+   *     can afford `authoritative?.nodeIds ?? []`.
+   *   · THIS READER reads NON-MEMBERSHIP to SUPPRESS A SEND. An under-broad
+   *     record silently drops a legitimate rename. HARMED — which is exactly why
+   *     the same `?? []` would be a data-loss defect here.
+   *
+   * So this is THE FIRST CONSUMER THAT REQUIRES COMPLETENESS, and the earlier
+   * argument cannot carry it: a record that has always been good enough to
+   * authorise deletions has never once been asked to be exhaustive.
+   *
+   * ⭐ WHAT ACTUALLY CARRIES IT IS WIRE-GRAPH COMPLETENESS, verified at the
+   * bytes of all four writers rather than inferred: every one replaces the whole
+   * record with the FULL graph it just observed, and not one is incremental —
+   * `mergeAppliedGraph.ts:606` takes every key of the receipt graph,
+   * `mergeServerGraph.ts:461` every key of the server graph, and
+   * `applyDraftResult.ts:293` / `store.ts:6680` run `identityFromCanvasGraph`
+   * over the entire applied draft and the entire loaded scenario. CEE attaches
+   * the full committed graph, so a record that EXISTS is complete for the graph
+   * it saw. THAT is the property this stand-down rests on. If a writer ever
+   * becomes a delta, this reader breaks and the reconciler does not.
+   *
    * ⚠ `null` IS "NO EVIDENCE", NEVER "NOT HELD", and the asymmetry is the whole
    * safety property — see {@link captureStructuralRename}.
    */
@@ -445,14 +477,48 @@ export function captureStructuralRename(
   // immediately `updateNodeLabel(created.id, …)` — that is how naming a new
   // goal, option or risk works in the pre-analysis panel, and
   // `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"` makes it the DEPLOYED posture. CEE
-  // reloads its OWN persisted graph and there is no `structural_add` carrier in
-  // this repo at all (swept `rg -a`: zero occurrences, against a contrast
-  // control of `structural_rename` in nine files), so the committed bytes could
-  // never carry the node. `readStructuralRenameReceipt` therefore returned
+  // reloads its OWN persisted graph, and TODAY no UI code path tells it about a
+  // node this client created, so the committed bytes cannot carry one.
+  // `readStructuralRenameReceipt` therefore returned
   // `unproven` — CORRECTLY, an absent node is a different event and that
   // distinction stays — but `unproven` sets `notice = 'unconfirmed_server'`,
   // which put "I couldn't confirm that new name reached the saved model" into
   // the conversation on an ordinary happy path, and burnt a turn doing it.
+  //
+  // ⚠⚠ THAT PREMISE IS CONTINGENT, IT HAS AN OWNER, AND IT EXPIRES — AND AN
+  // EARLIER DRAFT OF THIS COMMENT ERASED THE TRIPWIRE BY GETTING IT WRONG. It
+  // claimed `structural_add` "does not exist in this repo at all (swept `rg -a`:
+  // zero occurrences, against a contrast control of `structural_rename` in nine
+  // files)". BOTH ARMS OF THAT SWEEP WERE FALSE. It is corrected here rather
+  // than deleted, because the truth is the thing a later change needs to hit.
+  //
+  // Re-measured with `rg -a` at `origin/staging` @ `ee76d07a`, 1 Sep 2026, with
+  // a fabricated-symbol contrast control in the SAME run:
+  //
+  //     structural_add                      6 occurrences in  1 file
+  //                                           (3 token-exact; the other 3 are
+  //                                            `structural_add_edge`)
+  //     structural_rename                  45 occurrences in 16 files
+  //     structural_zzz_fabricated_control   0 occurrences in  0 files
+  //
+  // `structural_add` IS a live `V5_EVENT_KINDS` member, and CEE DECLARES IT
+  // 'mutating' AT STAGING `4f0bd774` — A WRITER EXISTS
+  // (`systemEventParity.test.ts:265`). What does not exist is the UI EMITTER,
+  // and it is absent on purpose: it sits in `knownDeferred`
+  // (`systemEventParity.test.ts:271`) awaiting its own product lane, because a
+  // new node needs a value/kind decision that lane will own.
+  //
+  // ⭐⭐ SO THE CORRECTNESS OF THIS STAND-DOWN DEPENDS ON THAT LANE NOT HAVING
+  // SHIPPED. The moment a UI `structural_add` emitter lands, a node this client
+  // created CAN become genuinely server-held — and it will be ABSENT from
+  // `lastAuthoritativeGraph` until the NEXT authoritative graph arrives. Inside
+  // that window this guard would silently suppress a LEGITIMATE rename, which is
+  // precisely the data-loss class #1108 was written to close.
+  //
+  // REVISIT THIS GUARD WHEN THE `structural_add` EMITTER SHIPS. The trigger is
+  // mechanical and already loud: removing `structural_add` from `knownDeferred`
+  // REDs `systemEventParity.test.ts`'s emission-count lock, and this block is the
+  // reason that red must not be waved through with a count bump.
   //
   // The cure belongs HERE rather than at the receipt: with nothing to send,
   // there is no send to be unsure about. Suppressing the notice downstream would
