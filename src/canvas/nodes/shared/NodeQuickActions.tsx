@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react'
-import { MessageSquare, PanelRight } from 'lucide-react'
+import { MessageSquare, PanelRight, MoreHorizontal } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
@@ -104,6 +104,95 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     openNodeInspector(nodeId)
   }, [nodeId])
 
+  /**
+   * Open this node's own menu — the SAME menu right-click opens, by the same
+   * code path.
+   *
+   * ## The gap this closes
+   *
+   * ⚠ THIS LIST WAS WRONG WHEN FIRST WRITTEN, and the correction matters more
+   * than the list does. It named six invitations including "Add risk from
+   * this", "Add outcome from this" and "Add connected factor" — **none of which
+   * can render, for any node type, in any state.** All three are stripped by
+   * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` (`useMenuItems.ts:82-96`) because
+   * `mutationAuthority.ts:70` sets `canvasSemanticMutations: 'disabled'`, and
+   * that strip is test-locked as a permanent audit rather than a runtime
+   * toggle. No user was misled — the label is `More actions for {label}` and
+   * promises nothing specific — but the false claim sat in shipped source,
+   * which is where the next session inherits it. **A comment that overstates
+   * what a thing does teaches the next reader to stop checking.**
+   *
+   * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled:
+   * "Challenge this" (gated `isFull || isGoal`), "Explore ▸ Trace to goal" and
+   * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete —
+   * plus two Graph Lens items, "Isolate this option's paths"
+   * (`lens-isolate-option`, option nodes) and "Show sensitivity view"
+   * (`lens-sensitivity`, factor nodes carrying `factor_sensitivity`), both
+   * post-analysis and both behind `isGraphLensEnabled()`
+   * (`contextMenu/useMenuItems.ts:470-500`).
+   *
+   * ⚠ THE LIST ABOVE WAS SHORT BY THOSE TWO, WHICH IS THE SAME DEFECT AS THE
+   * ONE THIS BLOCK OPENS BY CONFESSING. The first version named three
+   * invitations that cannot render; the correction then omitted two that can.
+   * Over-claiming and under-claiming are the same failure — a list in shipped
+   * source that does not match what the code produces — and I made both in one
+   * comment, having written "derived rather than recalled" above it.
+   *
+   * ⚠ AND WHAT I STILL CANNOT SAY: whether those two are on for a real user.
+   * `VITE_FEATURE_GRAPH_LENS` is absent from `netlify.toml`, so its deployed
+   * value is a Render/Netlify dashboard question and not derivable from this
+   * tree (CLAUDE.md trap 18 — YAML is not the deployed env). They are
+   * unstripped and reachable BY CONSTRUCTION when the flag is on; that is the
+   * precise claim, and "the menu contains them by default" is not.
+   *
+   * Until this button there were exactly two doors to them: RIGHT-CLICK, which
+   * has no equivalent on a touch device, and SHIFT+F10, which nobody discovers.
+   * So the part of the product that invites a team to challenge its model was,
+   * in practice, unreachable — not disabled, not missing, just behind a
+   * gesture. The ruling this component implements says "nothing buried".
+   *
+   * ⚠ AND ONE LIMIT THE RATIONALE MUST NOT DENY: this whole layer unmounts at
+   * low zoom (`showQuickActions = !lodActive && …`, `BaseNode.tsx`), which is a
+   * plausible touch posture. Right-click still works there, so it is a gap
+   * rather than a regression — but the button does not reach every state the
+   * argument for it implies, and saying so here is cheaper than the next reader
+   * discovering it.
+   *
+   * ## Why it DISPATCHES a contextmenu event rather than calling a handler
+   *
+   * The menu's target is assembled in `ReactFlowGraph.onNodeContextMenu`, which
+   * also handles multi-selection and selects the node when it is not already
+   * selected. Reaching in to call that would mean either lifting a callback
+   * through every node type or duplicating the target-assembly here — and a
+   * second assembler is how two authorities on one question get created
+   * (CLAUDE.md trap 21). Re-emitting the event React Flow already listens for
+   * means this button CANNOT diverge from right-click: there is one handler,
+   * one target shape, one menu. If right-click's behaviour changes, this
+   * changes with it, including any gating added later.
+   *
+   * ⚠ `bubbles: true` IS LOAD-BEARING, not boilerplate. React attaches its
+   * listeners at the root container, so a non-bubbling dispatch would reach
+   * nothing at all and the button would be silently inert — a dead control,
+   * which is the specific failure this component's own header records catching
+   * once already.
+   *
+   * Coordinates are the button's own bottom-right corner, so the menu opens
+   * where the finger or cursor already is rather than at the node's origin.
+   */
+  const handleOpenMenu = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const el = e.currentTarget as HTMLElement
+    const rect = el.getBoundingClientRect()
+    el.dispatchEvent(
+      new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: Math.round(rect.right),
+        clientY: Math.round(rect.bottom),
+      }),
+    )
+  }, [])
+
   const stopPointer = useCallback((e: React.PointerEvent) => {
     e.stopPropagation()
   }, [])
@@ -136,6 +225,42 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         data-testid={`node-action-inspect-${nodeId}`}
       >
         <PanelRight size={11} aria-hidden="true" />
+      </button>
+      {/* ⭐ THE DOOR TO EVERYTHING ELSE THIS NODE CAN DO.
+          Deliberately LAST: the two named shortcuts above are the ruling's
+          "powerful science-grounded shortcuts", and this is the overflow, not a
+          third peer. It adds no new capability and makes no claim about the
+          model — it re-emits the gesture that already opens this node's menu,
+          for the input classes that cannot perform it.
+
+          The title names right-click on purpose. A user who learns the gesture
+          from it stops needing the button, which is the right direction for an
+          affordance whose job is discoverability. */}
+      <button
+        type="button"
+        onClick={handleOpenMenu}
+        onPointerDown={stopPointer}
+        /* ⭐ 20px VISUAL, 24px TARGET. `h-5 w-5` keeps it identical to its two
+           siblings, and the `before:-inset-[2px]` pseudo-element expands the
+           hit area to 24×24 — WCAG 2.2 AA 2.5.8's minimum. A button whose
+           entire purpose is touch reachability shipping a sub-minimum touch
+           target would be self-undermining, which is why this is fixed here
+           rather than rowed. The siblings share the shortfall and are left
+           alone: widening their targets is a change to controls this PR is not
+           about. */
+        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+        aria-label={`More actions for ${label}`}
+        /* Announces that a menu follows. `aria-haspopup` is used by five other
+           canvas components, so its absence here was a real gap rather than a
+           repo convention. ⛔ NO `aria-expanded`: this button dispatches an
+           event and does not own the menu's open state, so it could not keep
+           that attribute truthful — and a stale `aria-expanded` is worse than
+           none. */
+        aria-haspopup="menu"
+        title={`More actions for ${label} — the same menu as right-click`}
+        data-testid={`node-action-menu-${nodeId}`}
+      >
+        <MoreHorizontal size={11} aria-hidden="true" />
       </button>
     </div>
   )
