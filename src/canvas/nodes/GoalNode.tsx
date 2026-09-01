@@ -37,7 +37,7 @@ import { basisWithholdsPossessive } from '../../components/results/utils/selectG
 import { readInferenceWarnings } from '../../components/results/utils/readInferenceWarnings'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getStabilityClassification } from '../../lib/stability'
-import { NodeChip, NodePopover, ScienceIcon } from './shared'
+import { NodeChip, NodeMetricRow, NodePopover, ScienceIcon } from './shared'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -201,6 +201,39 @@ export const GoalNode = memo((props: NodeProps) => {
     displayMetadata.achievementProbability === null
       ? null
       : formatGoalProbability(displayMetadata.achievementProbability)
+
+  /**
+   * ⭐ ONE GATE FOR THE ACHIEVEMENT FIGURE, NAMED ONCE.
+   *
+   * The same three-term expression was written out THREE times below — once
+   * for the readout, once for the modelled-basis caveat, once for the
+   * low-probability guidance — and the metric row would have made it four.
+   * Four hand-kept copies of the permission that decides whether this card
+   * states a probability at all is precisely the mirror this estate keeps
+   * paying for (CLAUDE.md trap 12), and the drift it produces is the worst
+   * kind available here: a number rendered by one copy while the disclosure
+   * that makes it honest is withheld by another.
+   *
+   * ⚠ UI-SEM-082 IS THE REASON FOR `hasThreshold`, and it is not incidental.
+   * The producer synthesises an auto goal threshold and returns a probability
+   * even when the USER set no target, so gating on value presence alone would
+   * crown a target nobody chose.
+   */
+  const showAchievementReadout =
+    hasThreshold &&
+    displayMetadata.isResultsMode &&
+    displayMetadata.achievementProbability !== null
+
+  /**
+   * The critical-probability predicate, also named once. It was written out
+   * three times — the danger colour, the coaching chip's gate, and the
+   * "Target may be ambitious" guidance — each carrying its own null check. The
+   * `< 0.10` threshold is the card's own editorial line and there is no reason
+   * for three copies of it to be able to disagree about where it sits.
+   */
+  const achievementIsCritical =
+    displayMetadata.achievementProbability !== null &&
+    displayMetadata.achievementProbability < 0.10
 
   /**
    * Border: DASHED for "not finished yet", COLOUR for "something is wrong".
@@ -377,7 +410,7 @@ export const GoalNode = memo((props: NodeProps) => {
           threshold. */}
       {hasThreshold && (
         <div className="flex gap-1 flex-wrap mt-1.5">
-          {displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+          {achievementIsCritical && (
             <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
           )}
           <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
@@ -526,9 +559,9 @@ export const GoalNode = memo((props: NodeProps) => {
             crown a target the user never set AND co-render with the "Set a target
             to see how likely you are to reach it" invitation above. hasThreshold makes the two
             mutually exclusive by construction. */}
-        {hasThreshold && displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
+        {showAchievementReadout && (
           <div className={`${typography.nodeLabel} mt-1 ${
-            displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
+            achievementIsCritical ? 'text-danger' : 'text-text-body'
           }`}>
             {/* ROADMAP 2.283: the withheld arm is the shared register's PHRASE
                 form verbatim — the same wording the results panel, the hero,
@@ -550,15 +583,56 @@ export const GoalNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* ⭐ THE SHARED METRIC ROW — the same `noun ▬▬▬ NN%` the factor, risk,
+            outcome and option cards already render (measured on deployed
+            staging `d4ff3683`: 12 of 14 cards had it, the goal and the decision
+            did not). It carries NO new datum: `achievementProbability` is the
+            producer figure the sentence directly above already states in words,
+            through the one chooser entitled to pick it
+            (`selectGoalProbability`). Nothing is computed here.
+
+            ⛔ IT SITS INSIDE THE FIGURE BLOCK, ABOVE THE CAVEAT, ON PURPOSE.
+            On a modelled basis this number may not be shown BARE, and the
+            disclosure below is what makes it honest — which is exactly why the
+            low-zoom line withholds the figure rather than shrinking it. Putting
+            the bar between the sentence and its caveat keeps the disclosure
+            adjacent to every rendering of the number, not just the prose one.
+            A row placed after the caveat would leave a bar with nothing
+            qualifying it.
+
+            ⚠ THE NOUN IS NOT DECORATION (UI-SEM-089): an unlabelled percentage
+            beside a goal reads as a computed CONTRIBUTION. `Chance` keeps the
+            quantity named on the row itself.
+
+            ⚠ NO `phrase`, and every span in the row is `aria-hidden` — correct,
+            because the sentence above already says "N% chance of reaching
+            target" to assistive tech. A phrase here would make a screen reader
+            state the same figure twice. The row is a VISUAL encoding of copy
+            that has not moved, so `GoalNode.possessiveGate`, the zero-floor
+            specs and the parity suite all keep biting on the text they were
+            written against.
+
+            ⚠ AND THE POSSESSIVE GATE IS INHERITED, NOT RE-DERIVED. Where
+            `selectGoalProbability` withholds (`joint_goal_withheld`) it returns
+            no number at all, so `showAchievementReadout` is false and this row
+            does not exist. It must never grow its own basis check. */}
+        {showAchievementReadout && (
+          <NodeMetricRow
+            label="Chance"
+            value={displayMetadata.achievementProbability}
+            formatted={achievementReadout ?? ''}
+            fillClass="bg-goal"
+            testId="goal-achievement-metric-row"
+          />
+        )}
+
         {/* Display-honesty (ROADMAP 1.6b follow-up, claim-integrity): the
             achievement-probability number above is scored from a MODELLED
             forward-propagated outcome distribution, not a directly-elicited
             base — same gate + shared wording as OptionCards' caveat
             (GOAL_FIT_BASIS_CAVEAT_COPY), rendered adjacent to the number it
             qualifies, never separately, never invented. */}
-        {hasThreshold &&
-          displayMetadata.isResultsMode &&
-          displayMetadata.achievementProbability !== null &&
+        {showAchievementReadout &&
           displayMetadata.achievementProbabilityIsModelledBasis === true && (
             <p
               className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
@@ -571,7 +645,7 @@ export const GoalNode = memo((props: NodeProps) => {
         {/* Actionable guidance for low probability (UI-SEM-082: gated on
             hasThreshold too — no "Target may be ambitious" against an
             auto-threshold the user never set). */}
-        {hasThreshold && isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+        {hasThreshold && isPostAnalysis && achievementIsCritical && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             Target may be ambitious.{' '}
             <button
