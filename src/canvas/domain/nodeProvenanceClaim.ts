@@ -40,14 +40,20 @@
  *                      "You added this". Never "estimate".
  *   · `'none'`       — say nothing at all.
  *
- * ─── ⚠ ONLY `goal` IS SUPPRESSED, AND FOR A REASON THAT IS NOT ABOUT VALUES ──
- * The goal card ALREADY renders this exact wire literal, correctly scoped, as
+ * ─── ⚠ THE GOAL IS SILENT ONLY WHERE ITS OWN CARD IS ALREADY SPEAKING ───────
+ * `GoalNode` renders this exact wire literal, correctly scoped, as
  * `GOAL_LABEL_FROM_BRIEF_COPY.pill` ("From your brief"). Shipped together they
  * produced the duplication measured on deployed staging `be33648b`: **one wire
  * literal in two spellings, 18px apart**, which a reader cannot tell is one
- * fact. Suppression here is a DE-DUPLICATION, not a judgement that a goal has
- * no provenance — the goal's provenance is still on the card, in the surface
- * that owns it.
+ * fact.
+ *
+ * ⚠ BUT THAT PILL FIRES FOR `from_brief` ALONE. Suppressing the mark on the
+ * KIND — the first version of this module — deleted the fact outright on a goal
+ * carrying `user_set` or `ai_inferred`, because neither has a competing
+ * surface. That is the same over-suppression this module was written to reject.
+ * The gate is therefore the goal surface's OWN predicate
+ * (`goalLabelIsUnconfirmedBriefExtract`), so silence is granted exactly where
+ * something else is already saying it, and nowhere else.
  *
  * `decision` is NOT suppressed. It has no competing surface, and "Olumi
  * suggested this" is true and useful about a question Olumi framed. The old
@@ -81,7 +87,10 @@
  */
 import type { NodeType } from './nodes'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from './valueProvenance'
-import { GOAL_LABEL_FROM_BRIEF_COPY } from './goalLabelProvenance'
+import {
+  GOAL_LABEL_FROM_BRIEF_COPY,
+  goalLabelIsUnconfirmedBriefExtract,
+} from './goalLabelProvenance'
 
 /** Which vocabulary, if any, may describe `data.provenance` on this card. */
 export type NodeProvenanceClaim = 'value' | 'structural' | 'none'
@@ -164,10 +173,31 @@ function carriesDeclaredValue(nodeType: NodeType, data: unknown): boolean {
  */
 export function nodeProvenanceClaim(nodeType: NodeType, data: unknown): NodeProvenanceClaim {
   switch (nodeType) {
-    // ⛔ The goal card already says this, correctly scoped, in its own surface.
-    // Rendering it twice is the duplication measured on `be33648b`.
+    /**
+     * ⛔ SILENT ONLY WHERE THE GOAL CARD IS ALREADY SPEAKING — and this is
+     * DERIVED from the goal surface's own predicate, not from the kind.
+     *
+     * ⚠ THE FIRST VERSION OF THIS RETURNED `'none'` FOR EVERY GOAL, AND THAT
+     * WAS THE OVER-SUPPRESSION THIS MODULE EXISTS TO REJECT, COMMITTED INSIDE
+     * THE MODULE THAT REJECTS IT. `goalLabelIsUnconfirmedBriefExtract` fires
+     * for `kind === 'brief'` ONLY (`from_brief`), so `GoalNode`'s pill renders
+     * for that literal and NOTHING ELSE. A goal carrying `user_set` — which
+     * `provenanceAfterHumanAuthoredLabel` stamps the moment a human authors the
+     * label, and which the pill deliberately disappears on — or `ai_inferred`
+     * had no competing surface at all. Blanket suppression therefore DELETED
+     * the fact on those two literals instead of de-duplicating it: exactly the
+     * "smaller half of its own defect" charge laid against the earlier design.
+     *
+     * So the gate is the goal surface's OWN predicate. Where that surface
+     * speaks, this one is silent; where it does not, the structural claim
+     * stands. The two cannot drift, because there is one predicate.
+     */
     case 'goal':
-      return 'none'
+      return goalLabelIsUnconfirmedBriefExtract(
+        data as { provenance?: unknown } | null | undefined,
+      )
+        ? 'none'
+        : 'structural'
 
     // Carrier-dependent: the schema declares an optional value field, so the
     // node itself decides which claim is true of it.

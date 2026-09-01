@@ -183,7 +183,7 @@ describe('the GOAL states its provenance ONCE', () => {
    * scoped surface for this exact literal; the mark rendering it again, in a
    * second spelling, 18px away, is the defect.
    */
-  it('no provenance mark on the goal card', () => {
+  it('from_brief — no provenance mark, because the goal card renders its own', () => {
     renderNode(GoalNode, 'goal', 'goal_1', {
       label: 'Grow revenue',
       type: 'goal',
@@ -191,6 +191,22 @@ describe('the GOAL states its provenance ONCE', () => {
     })
     expect(mark()).toBeNull()
   })
+
+  /**
+   * ⛔ THE TWIN. `GoalNode`'s pill fires for `from_brief` ALONE, so suppressing
+   * on the KIND would delete the fact here rather than de-duplicate it — the
+   * over-suppression this whole design rejects. Asserted on the rendered card,
+   * not on the predicate.
+   */
+  it.each(['user_set', 'ai_inferred'] as const)(
+    '%s — the mark IS present, because nothing else on the goal card says it',
+    (provenance) => {
+      renderNode(GoalNode, 'goal', 'goal_1', { label: 'Grow revenue', type: 'goal', provenance })
+      expect(screen.queryByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)).toBeNull()
+      expect(mark()).not.toBeNull()
+      expect(mark()!.getAttribute('data-provenance-claim')).toBe('structural')
+    },
+  )
 
   it('and the fact itself is NOT lost — it is stated once, not zero times', () => {
     // ⚠ THE PRECONDITION FOR THE SUPPRESSION, PINNED IN-TEST. Without this the
