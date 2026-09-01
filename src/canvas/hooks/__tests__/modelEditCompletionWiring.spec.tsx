@@ -557,20 +557,40 @@ describe('⭐⭐ F7 — a wake-up arriving DURING a read is coalesced, never dis
     })
     recordModelEditReceipt(attempt)
 
-    // Every read answers `absent`, so nothing is ever settled and nothing emits.
-    const read = vi.fn().mockResolvedValue({ status: 'absent' } as never)
+    const BUDGET = CONFIRM_READ_DELAYS_MS.length + 1
+    let readsBeyondBudget = 0
+
+    /**
+     * ⚠⚠ THE OVERFLOW IS MADE TO TERMINATE, ON PURPOSE — and this is the whole
+     * reason this test is written this way. The first cut let a runaway loop
+     * simply keep reading, which HUNG the file: the remaining tests never ran,
+     * and vitest reported "14 passed" with ZERO failures. A run with fewer
+     * tests and no failures reads exactly like a pass, so the mutant that
+     * turns exhaustion into a restart SURVIVED a control written to catch it.
+     * Settling the attempt on the first over-budget read stops the runaway, so
+     * the breach lands as a clean assertion instead of a silence.
+     */
+    const read = vi.fn(async () => {
+      if (read.mock.calls.length > BUDGET) {
+        readsBeyondBudget += 1
+        return graphFor([{ id: FACTOR, value: 0.45, rawValue: 45 }])
+      }
+      return { status: 'absent' } as never
+    })
     const wait = vi.fn(async () => undefined)
 
     const view = renderHook(() =>
       useModelEditCanonicalConfirm(SCENARIO_ID, { read: read as never, wait }),
     )
     await vi.waitFor(() => {
-      expect(read.mock.calls.length).toBe(CONFIRM_READ_DELAYS_MS.length + 1)
+      expect(read.mock.calls.length).toBe(BUDGET)
     })
+    await new Promise((r) => setTimeout(r, 100))
+
     // ⚠ THE COALESCING MUST NOT BECOME AN INFINITE POLL. Exhaustion is not a
     // wake-up; only a real ledger write is.
-    await new Promise((r) => setTimeout(r, 50))
-    expect(read).toHaveBeenCalledTimes(CONFIRM_READ_DELAYS_MS.length + 1)
+    expect(readsBeyondBudget).toBe(0)
+    expect(read).toHaveBeenCalledTimes(BUDGET)
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
     view.unmount()
   })
