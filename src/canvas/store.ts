@@ -864,6 +864,33 @@ interface CanvasState {
   layoutInProgress: boolean
   layoutVersion: number
   layoutRequestId: number
+  /**
+   * WHO ASKED FOR THE LAST COMMITTED LAYOUT — `'user'` when a control the person
+   * pressed dispatched it (Auto-arrange, the layout toolbar, a `/command`),
+   * `'product'` when the canvas laid itself out on its own (the measure-then-
+   * layout gate and its two corrective passes).
+   *
+   * ⚠ IT IS NOT `skipHistory` UNDER A SECOND NAME, and that is deliberate.
+   * `skipHistory` answers "has this call site already pushed an undo entry?";
+   * this answers "may an automatic re-fit take the camera off the user?". They
+   * agree at every call site today, and one flag answering two questions is how
+   * this estate's trap 21 defects start — the day a manual trigger needs to skip
+   * history, the camera rule would silently invert with no test to notice.
+   *
+   * Consumed by `useFitViewOnLayoutVersion`'s layout trigger, as ONE HALF of a
+   * conjunction: `layoutWasAutomatic && userOwnsCameraFor(currentModelKey())`.
+   * The other half is the model-keyed camera claim, and the two are a genuine
+   * pair — the KEY stops an automatic corrective pass stealing a frame the user
+   * asked for, and THIS FIELD stops that same guard suppressing a frame the user
+   * asked for by pressing Auto-arrange (same model, same key, claim live). Two
+   * harms in opposite directions cannot share one predicate (CLAUDE.md trap 22b);
+   * shipping either half alone re-opens the other, which is exactly what
+   * happened across #1096 and #1097.
+   *
+   * Defaults to `'user'` so a call site that says nothing keeps the pre-existing
+   * always-re-fit behaviour: the fail-safe direction is the old one.
+   */
+  lastLayoutInitiatedBy: 'user' | 'product'
   setPendingLayout: (value: boolean) => void
   // Track 3: Hydrated thread entries from scenario row (consumed once by useConversation, then cleared)
   _hydratedThread: unknown[] | null
@@ -946,7 +973,12 @@ interface CanvasState {
    * `{laidOut:true}` means it committed. `handleLayoutWithRecovery` needs the
    * distinction or it clears the failure banner over an unchanged graph.
    */
-  applyLayout: (opts?: { skipHistory?: boolean; requestId?: number }) => Promise<LayoutAttemptResult>
+  applyLayout: (opts?: {
+    skipHistory?: boolean
+    requestId?: number
+    /** See `lastLayoutInitiatedBy`. Omitted means `'user'` — the pre-existing behaviour. */
+    initiatedBy?: 'user' | 'product'
+  }) => Promise<LayoutAttemptResult>
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
   resetCanvas: () => void
@@ -2274,6 +2306,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   layoutInProgress: false,
   layoutVersion: 0,
   layoutRequestId: 0,
+  lastLayoutInitiatedBy: 'user',
   // Track 3: Hydrated thread/events (transient, consumed once)
   _hydratedThread: null,
   _hydratedEvents: null,
@@ -3331,6 +3364,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         nodes: layoutedNodes,
         layoutVersion: get().layoutVersion + 1,
         pendingLayout: false,
+        // Recorded in the SAME set() as the version bump, so the fit trigger
+        // that reads it on the next frame cannot observe a version from this
+        // layout beside an initiator from the previous one.
+        lastLayoutInitiatedBy: opts?.initiatedBy ?? 'user',
       })
       return { laidOut: true }
     } catch (err) {

@@ -69,14 +69,27 @@
  * layout door was never shut.
  *
  * The scope now: the claim is honoured by the RESERVED-BOX trigger, and by the
- * LAYOUT trigger WHENEVER THE MODEL IS THE ONE THE PRODUCT ALREADY FRAMED. It is
- * released — and the product re-frames — only when a DIFFERENT model has
- * arrived, which is what the original premise actually describes, and which
- * still needs the camera aimed at it: a stale claim there would strand the
+ * LAYOUT trigger when the layout was AUTOMATIC *and* the model is the one the
+ * user claimed. It is released — and the product re-frames — when a DIFFERENT
+ * model has arrived, which is what the original premise actually describes, and
+ * which still needs the camera aimed at it: a stale claim there would strand the
  * camera on a graph that no longer exists (measured — dropping that condition
  * leaves a newly arrived model at the previous model's zoom of 0.3233, never
  * re-aimed). The RESTORE trigger still releases unconditionally; it fires once
  * per restore identity, before the user has had a chance to frame anything.
+ *
+ * ⚠⚠ AND THE "AUTOMATIC" HALF IS THE ONE A MODEL-KEY-ONLY FIX GETS WRONG — this
+ * module's own correction above, re-corrected the same day, because the two are
+ * a genuine pair and neither is a superset of the other. Auto-arrange re-lays
+ * out THE MODEL THE USER IS LOOKING AT: same nodes, same edges, same key, claim
+ * outstanding. Keyed on the model alone, the claim is honoured and the layout the
+ * user just asked for is never framed — every node moves under a camera aimed at
+ * the old arrangement. The two conjuncts guard harms in OPPOSITE directions
+ * (CLAUDE.md trap 22b), so one predicate cannot carry both: the KEY stops an
+ * automatic pass stealing the frame, and the INITIATOR stops the fix suppressing
+ * a frame the user asked for. `hooks/useFitViewOnLayoutVersion.ts` carries the
+ * test and the call-site manifest; `store.ts`'s `lastLayoutInitiatedBy` carries
+ * why the initiator is its own field and not `skipHistory` under a second name.
  *
  * ⚠ WHAT IT IS NOT. It is not a fix for the reserved-box baseline being taken
  * too early, and it does not claim the watcher's spurious startup fire is

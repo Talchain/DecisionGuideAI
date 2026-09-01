@@ -216,6 +216,22 @@ export function useFitViewOnLayoutVersion(): void {
 
   useEffect(() => {
     if (layoutVersion === 0) return
+    // ⚠ THE INITIATOR IS CAPTURED HERE, NOT IN THE FRAME, AND THE DIFFERENCE IS A
+    // DEFECT THE GEOMETRY MEASURE CAUGHT IN THE FIRST CUT OF THIS FIX.
+    //
+    // It is a property OF THIS `layoutVersion`, so it must be read in the same
+    // tick the version changed. Read a frame later it is whatever committed MOST
+    // RECENTLY — and an automatic corrective pass routinely lands inside that
+    // window, because re-framing changes the zoom, the zoom changes level-of-
+    // detail, and level-of-detail changes measured card heights. Reading late
+    // therefore relabels a USER's Auto-arrange as automatic and skips its
+    // re-frame: measured on `build-vs-buy`, the camera did not move at all after
+    // a user-initiated layout.
+    //
+    // The MODEL key below is deliberately read in the FRAME instead. That one is
+    // a question about what is being framed NOW, not about which layout asked —
+    // two questions, two read points, named apart (CLAUDE.md trap 21).
+    const initiatedBy = useCanvasStore.getState().lastLayoutInitiatedBy
     const raf = requestAnimationFrame(() => {
       // ⭐⭐ A LAYOUT PASS IS NOT A NEW MODEL, AND THIS LINE USED TO ASSUME IT WAS
       // (CLAUDE.md trap 21 — two questions under one name).
@@ -266,7 +282,40 @@ export function useFitViewOnLayoutVersion(): void {
       // `setPendingLayout`, so that edit genuinely lands without a layout —
       // the window is reachable by an ordinary edit-then-click, not theoretical.
       // The claim now carries its own key, taken at claim time.
-      if (userOwnsCameraFor(currentModelKey())) return
+      //
+      // ⭐⭐ AND THE SECOND CONJUNCT — WHO ASKED FOR THE LAYOUT — IS NOT DECORATION
+      // EITHER. Keying on the model alone closes the corrective-layout door and
+      // shuts a door that must stay open: AUTO-ARRANGE. That control re-arranges
+      // the model the user is looking at, so the model key is UNCHANGED and the
+      // claim is outstanding — exactly the state the line above refuses to fit.
+      // The person pressed a control asking for a new arrangement, and asking to
+      // be shown it; without this conjunct every node moves under a camera framed
+      // for the old arrangement and the product never re-frames. The user's own
+      // layout call sites are `useMenuItems.ts` (Auto-arrange), the command
+      // palette's re-layout via `runLayoutWithProgress`, `setViewMode`'s
+      // follow-up layout and `EmptyState`'s first node.
+      //
+      // So the claim is honoured only when BOTH halves hold, and NEITHER alone is
+      // enough — each guards a harm in the OPPOSITE direction (trap 22b: one
+      // predicate cannot carry two harms):
+      //
+      //   - `layoutWasAutomatic` — without it, a layout the USER asked for is
+      //     silently suppressed and the new arrangement is never framed;
+      //   - `userOwnsCameraFor(currentModelKey())` — without it, EVERY automatic
+      //     layout defers, so the ordinary post-draft corrective pass stops
+      //     re-fitting and a fresh draft is left at whatever the first pass
+      //     chose; and a claim outstanding when a DIFFERENT model arrives would
+      //     strand the camera on a graph that no longer exists (measured —
+      //     dropping the key leaves a newly arrived model at the previous
+      //     model's zoom of 0.3233, never re-aimed).
+      //
+      // `initiatedBy` is a NEW EXPLICIT OPTION on `applyLayout`, never a second
+      // meaning for `skipHistory`. They agree at every call site today, and one
+      // flag answering two questions is how this estate's trap-21 defects start.
+      // It defaults to `'user'`, so a call site that says nothing keeps the
+      // previous always-re-fit behaviour: the fail-safe direction is the old one.
+      const layoutWasAutomatic = initiatedBy === 'product'
+      if (layoutWasAutomatic && userOwnsCameraFor(currentModelKey())) return
       releaseUserCameraClaim()
       fitNow.current()
     })

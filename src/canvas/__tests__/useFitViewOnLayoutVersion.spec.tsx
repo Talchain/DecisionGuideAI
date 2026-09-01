@@ -42,7 +42,10 @@ vi.mock('../utils/computeFitPadding', () => ({
 describe('useFitViewOnLayoutVersion', () => {
   beforeEach(() => {
     useCanvasStore.getState().resetCanvas()
-    useCanvasStore.setState({ layoutVersion: 0 } as never)
+    // ⚠ THE INITIATOR IS RESET HERE TOO. `resetCanvas` does not clear it, and the
+    // layout trigger's guard reads it — a case that left it `'product'` would
+    // silently change the branch the NEXT case takes.
+    useCanvasStore.setState({ layoutVersion: 0, lastLayoutInitiatedBy: 'user' } as never)
     fitViewSpy.mockReset()
     currentPadding = FIT_PADDING
     currentNodes = []
@@ -334,6 +337,12 @@ describe('useFitViewOnLayoutVersion', () => {
         useCanvasStore.setState({
           nodes: [{ id: 'arrived_1', position: { x: 0, y: 0 }, data: {} }],
           layoutVersion: 1,
+          // ⚠ AUTOMATIC, EXPLICITLY. A model ARRIVING is laid out by
+          // `useMeasureThenLayout`, i.e. `initiatedBy: 'product'`. Left at the
+          // store default of `'user'` this case would pass on the INITIATOR
+          // conjunct and stop saying anything about the model key at all —
+          // green for a reason it was not written to test (trap 13b).
+          lastLayoutInitiatedBy: 'product',
         } as never)
       })
       act(() => {
@@ -459,8 +468,18 @@ describe('useFitViewOnLayoutVersion', () => {
       renderHook(() => useFitViewOnLayoutVersion())
       // The product frames the model once. This is what stamps "the model I am
       // looking at" — without it the comparison below has nothing to compare to.
+      //
+      // ⚠ EVERY LAYOUT IN THIS DESCRIBE IS MARKED `'product'` EXPLICITLY, and
+      // that is not tidying. The guard is a CONJUNCTION — `layoutWasAutomatic &&
+      // userOwnsCameraFor(currentModelKey())` — so a case that leaves the
+      // initiator at the store default of `'user'` exits on the FIRST conjunct
+      // and never reaches the model key these cases exist to test. They would
+      // stay green under a mutant that deleted the key entirely: a guard
+      // agreeing with itself (CLAUDE.md trap 13b). Naming the initiator is what
+      // keeps them pointed at the key. The initiator's own directions are
+      // `useFitViewOnLayoutVersion.userOverview.spec.tsx`.
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 1 } as never)
+        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 1, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
       expect(fitViewSpy, 'the product must frame the model first').toHaveBeenCalledTimes(1)
@@ -473,7 +492,7 @@ describe('useFitViewOnLayoutVersion', () => {
       claimCameraForUser(currentModelKey())
       // A corrective re-layout: same nodes, same ids, only the geometry redone.
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 2 } as never)
+        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 2, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
 
@@ -496,7 +515,7 @@ describe('useFitViewOnLayoutVersion', () => {
 
       claimCameraForUser(currentModelKey())
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2 } as never)
+        useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
 
@@ -558,7 +577,7 @@ describe('useFitViewOnLayoutVersion', () => {
         })
       renderHook(() => useFitViewOnLayoutVersion())
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 1 } as never)
+        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 1, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
       expect(fitViewSpy, 'the product must frame the model first').toHaveBeenCalledTimes(1)
@@ -577,7 +596,7 @@ describe('useFitViewOnLayoutVersion', () => {
 
       // A corrective pass on that same edited model.
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_A_PRIME, layoutVersion: 2 } as never)
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME, layoutVersion: 2, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
 
@@ -600,7 +619,7 @@ describe('useFitViewOnLayoutVersion', () => {
       })
       claimCameraForUser(currentModelKey())
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_A_PRIME, layoutVersion: 2 } as never)
+        useCanvasStore.setState({ nodes: MODEL_A_PRIME, layoutVersion: 2, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
 
@@ -631,7 +650,7 @@ describe('useFitViewOnLayoutVersion', () => {
       claimCameraForUser(currentModelKey())
 
       act(() => {
-        useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2 } as never)
+        useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2, lastLayoutInitiatedBy: 'product' } as never)
       })
       flush()
 

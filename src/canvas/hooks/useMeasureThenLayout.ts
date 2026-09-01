@@ -126,7 +126,7 @@ export function useMeasureThenLayout(): void {
     ) {
       laidOutWithFallbackRef.current = false
       laidOutHeightsRef.current = currentHeights()
-      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true }))
+      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, initiatedBy: 'product' }))
       return
     }
 
@@ -155,7 +155,7 @@ export function useMeasureThenLayout(): void {
         // layout is superseded mid-flight the recorded set still describes what
         // is on screen — and a node cannot re-trigger on the same growth.
         laidOutHeightsRef.current = heights
-        handleLayoutWithRecovery(() => applyLayout({ skipHistory: true }))
+        handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, initiatedBy: 'product' }))
         return
       }
     }
@@ -173,7 +173,7 @@ export function useMeasureThenLayout(): void {
       laidOutWithFallbackRef.current = false
       laidOutHeightsRef.current = currentHeights()
       handleLayoutWithRecovery(() =>
-        applyLayout({ skipHistory: true, requestId: capturedId }),
+        applyLayout({ skipHistory: true, requestId: capturedId, initiatedBy: 'product' }),
       )
       return
     }
@@ -207,7 +207,7 @@ export function useMeasureThenLayout(): void {
       // Committed against fallback heights — mark it for correction.
       laidOutWithFallbackRef.current = true
       handleLayoutWithRecovery(() =>
-        applyLayout({ skipHistory: true, requestId: capturedId }),
+        applyLayout({ skipHistory: true, requestId: capturedId, initiatedBy: 'product' }),
       )
     }, remaining)
     return () => clearTimeout(timer)
