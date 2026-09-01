@@ -133,6 +133,12 @@ export type StructuralRenameStandDownReason =
   | 'external_mutation'
   /** The node is not on the canvas, so there is nothing to name on the wire. */
   | 'node_not_found'
+  /**
+   * The node is on the canvas but CEE is KNOWN not to hold it — a node created
+   * this session that no authoritative graph has ever carried. See
+   * {@link CaptureStructuralRenameInput.authoritativeNodeIds}.
+   */
+  | 'node_not_server_held'
   /** `label === expected_label`. The contract's own refinement refuses this. */
   | 'no_change'
   /** The node id or either label fails a bound the contract enforces at ingress. */
@@ -314,9 +320,36 @@ export type StructuralRenameTerminalStatus = Exclude<
 >
 
 /**
- * How many records to keep. The drain is SERIALISED (one gesture at a time), so
- * at most one record is ever `in_flight` and a plain "keep the newest N" cannot
- * evict a live attempt.
+ * How many records to keep.
+ *
+ * ⚠ THIS COMMENT USED TO CLAIM MORE THAN THE CODE GUARANTEES, and it is
+ * corrected rather than left to rot. It read: "The drain is SERIALISED (one
+ * gesture at a time), so at most one record is ever `in_flight` and a plain
+ * 'keep the newest N' cannot evict a live attempt." The serialisation lock is
+ * `drainingRef` in `useStructuralRenameEvents`, which is a `useRef` and
+ * therefore PER-INSTANCE — a remount mid-drain gives the new instance a fresh
+ * `false` and permits two concurrent loops. So "at most one `in_flight`" is
+ * stronger than the code delivers.
+ *
+ * What IS guaranteed, stated no more strongly than the code delivers:
+ * `beginStructuralRenameSend` moves one intent out of the queue and into the
+ * lifecycle inside a SINGLE functional `set()`, so no observer can see a gesture
+ * in neither, and each call appends exactly one record. The number of `in_flight`
+ * records is therefore bounded by the number of concurrently mounted drains, not
+ * by one — a count nowhere near 20, so the cap still cannot evict a live attempt.
+ * That, and not the false one-at-a-time invariant, is what the limit rests on.
+ *
+ * ⚠ AND IT IS DELIBERATELY NOT CLAIMED THAT TWO LOOPS CANNOT CLAIM THE SAME
+ * INTENT. `beginStructuralRenameSend` reads `queued[0]` OUTSIDE its `set()` and
+ * slices inside it, so a genuine remount race could hand two callers the same
+ * head while removing two entries. Unreachable in practice on the deployed
+ * single-drain mount, and out of scope for the lane that corrected this comment —
+ * recorded here rather than silently smoothed over, because the whole point of
+ * the correction is that this block should not assert what it has not checked.
+ *
+ * ⚠ THE CODE IS NOT RESTRUCTURED HERE. The defect was the CLAIM: an invariant
+ * written stronger than its mechanism is what lets a later change lean on a
+ * guarantee nobody is enforcing.
  */
 export const STRUCTURAL_RENAME_LIFECYCLE_LIMIT = 20
 
@@ -330,6 +363,26 @@ export interface CaptureStructuralRenameInput {
   readonly baseGraphHash: string | null
   /** `_externalMutationActive > 0` — a producer write, not a user gesture. */
   readonly externalMutationActive: boolean
+  /**
+   * ⭐⭐ THE NODE IDS CEE IS KNOWN TO HOLD — `lastAuthoritativeGraph.nodeIds`,
+   * or `null` when no authoritative graph has been seen this session.
+   *
+   * DERIVED FROM AN EXISTING AUTHORITY, NOT MINTED HERE. All four production
+   * writers of that field describe it in exactly these terms, and they were read
+   * rather than assumed: the cold load (`store.ts:6672`) — "the persisted graph
+   * IS CEE's view of this scenario, so everything in it is an element CEE has
+   * acknowledged"; `applyDraftResult.ts:288` — "a fresh draft IS an
+   * authoritative CEE graph"; `mergeAppliedGraph.ts:601` — "the receipt is proof
+   * that CEE has seen exactly these elements"; `mergeServerGraph.ts:445` — the
+   * same sentence as the cold load. The reconciler ALREADY uses this record to
+   * answer this class of question ("only removes elements CEE has previously
+   * acknowledged"), so this is a second reader of one authority rather than a
+   * second authority.
+   *
+   * ⚠ `null` IS "NO EVIDENCE", NEVER "NOT HELD", and the asymmetry is the whole
+   * safety property — see {@link captureStructuralRename}.
+   */
+  readonly authoritativeNodeIds: readonly string[] | null
   /** Injected so the capture is deterministic under test. */
   readonly makeId: () => string
 }
@@ -384,6 +437,57 @@ export function captureStructuralRename(
   // satisfy. Two nodes may legitimately share a label; only one has this id.
   const node = input.nodesBefore.find((n) => n.id === input.nodeId)
   if (!node) return { ok: false, reason: 'node_not_found' }
+
+  // ⭐⭐ A RENAME OF A NODE CEE HAS NEVER SEEN IS NOT AN UNCERTAINTY — IT IS A
+  // CERTAINTY, AND SENDING IT REPORTED THE FORMER.
+  //
+  // `HeroSection.tsx:85` and `YourDecisionSection.tsx:69` `addNode` and then
+  // immediately `updateNodeLabel(created.id, …)` — that is how naming a new
+  // goal, option or risk works in the pre-analysis panel, and
+  // `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"` makes it the DEPLOYED posture. CEE
+  // reloads its OWN persisted graph and there is no `structural_add` carrier in
+  // this repo at all (swept `rg -a`: zero occurrences, against a contrast
+  // control of `structural_rename` in nine files), so the committed bytes could
+  // never carry the node. `readStructuralRenameReceipt` therefore returned
+  // `unproven` — CORRECTLY, an absent node is a different event and that
+  // distinction stays — but `unproven` sets `notice = 'unconfirmed_server'`,
+  // which put "I couldn't confirm that new name reached the saved model" into
+  // the conversation on an ordinary happy path, and burnt a turn doing it.
+  //
+  // The cure belongs HERE rather than at the receipt: with nothing to send,
+  // there is no send to be unsure about. Suppressing the notice downstream would
+  // leave the turn burnt and the queue churning; calling the receipt `refuted`
+  // would be a claim the bytes do not support AND would arm the revert against
+  // the user's own typing.
+  //
+  // ⚠⚠ POSITIVE EVIDENCE ONLY, AND THE ASYMMETRY IS DELIBERATE. `null` means no
+  // authoritative graph has been seen — an absence of evidence, not evidence of
+  // absence — and it must NOT stand down: that state is exactly where #1108's
+  // deferral disclosure lives, and suppressing it there would re-open the
+  // data-loss P0 that lane closed. An EMPTY record is a different thing: a
+  // server graph WAS read and carried nothing, which is positive evidence. The
+  // two cannot be collapsed by a `?? []`, and `store.renameStandDownForUnheldNode
+  // .spec.ts` reds if they are.
+  //
+  // ⚠ AND THE ID-SHAPE SHORTCUT WAS REJECTED AT THE BYTES: `createNodeId`
+  // returns `String(nextNodeId)`, a bare counter with nothing marking a client
+  // id apart from a server one. `reseedIds` advances that counter past the
+  // maximum loaded id WITHOUT rewriting any id — which is both what keeps this
+  // record valid across a restore and what makes a freshly minted id provably
+  // unable to collide with a server-held one.
+  // ⚠ `Array.isArray` RATHER THAN `!== null`, and it is not defensive noise. The
+  // stand-down must fire only on a RECORD WE HOLD; anything that is not an array
+  // is not a record, so the absent/unknown cases all fall through to the
+  // existing behaviour instead of throwing. An earlier `!== null` form let an
+  // `undefined` past the guard and then threw on `.includes` — and this runs
+  // inside `updateNodeLabel`, so that throw would have taken the user's LOCAL
+  // rename down with it: a far worse harm than the notice this lane removes.
+  // TypeScript still requires the field, so a real call site cannot omit it by
+  // accident; this only decides which way a malformed one fails.
+  const authoritative = input.authoritativeNodeIds
+  if (Array.isArray(authoritative) && !authoritative.includes(input.nodeId)) {
+    return { ok: false, reason: 'node_not_server_held' }
+  }
 
   const data = (node.data ?? {}) as Record<string, unknown>
   const rawPrevious = data.label
