@@ -968,6 +968,47 @@ export const OptionNode = memo((props: NodeProps) => {
                 leader") and `winnerChipCopy.ts` (ROADMAP 1.223). */}
             <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to lead instead of ${optionLabel}?`} />
             <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
+            {/* ⭐ THE COUNTER-CASE — the reasoning frontier's one door on the
+                leading option, and the moment a team is most likely to stop
+                looking.
+
+                ⚠ IT IS NOT A FOURTH WAY OF ASKING THE TWO ABOVE, and that is
+                the objection worth answering before adding a chip to a row that
+                already has two. Both existing chips are questions about the
+                MODEL'S ARITHMETIC: "what would need to change for another
+                option to lead" asks which inputs the computed ranking is
+                sensitive to, and "why does this lead" asks it to explain the
+                numbers it already produced. Both are answerable entirely from
+                what the model contains.
+
+                This one asks what the model might be MISSING — the conditions
+                under which the whole exercise points the wrong way. A
+                pre-mortem, not a sensitivity sweep. That is the distinction the
+                frontier exists on: everything else on this canvas helps a team
+                interrogate the model they built, and nothing helps them notice
+                what they never put in it. A sensitivity analysis cannot tell
+                you about a factor nobody entered.
+
+                ⚠ IT ASSERTS NOTHING, WHICH IS WHY IT NEEDS NO PRODUCER. "What
+                would have to be true for X to be the wrong choice" presupposes
+                neither that it IS the wrong choice nor that the model is
+                deficient. Compare the sibling comment above: that chip is
+                deliberately phrased about the ALTERNATIVE to avoid putting a
+                crowning claim in the user's mouth. This one names the leader
+                but makes no claim about it — the question is well-formed
+                whatever the answer turns out to be.
+
+                ⚠ THE LEADER ENTITLEMENT IS INHERITED, NOT RE-DERIVED. This sits
+                inside the `isRecommended` arm, which is
+                `verdict.hasLeadingOption && verdict.leaderId === props.id` AND
+                requires `winRate !== null`. So on a withheld turn, an exact tie,
+                or an option the producer could not compute, this chip does not
+                render — because the arm does not. Naming the leader in copy
+                while the product is not entitled to name one is precisely the
+                permission seam CLAUDE.md trap 21 records, and the defence is to
+                reuse the single authority rather than mint a second reader of
+                the same question three lines from the first. */}
+            <NodeChip chipId="option_counter_case" actionType={null} label="What would make this wrong?" message={`Set aside the numbers for a moment. What would have to be true for ${optionLabel} to be the wrong choice here — what could this model be missing?`} />
           </div>
         )
       }
