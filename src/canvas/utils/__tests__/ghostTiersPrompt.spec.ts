@@ -25,6 +25,7 @@ import {
   listForPrompt,
   ghostOptionPrompt,
 } from '../ghostTiers'
+import { DECISION_NODE_LABEL, GOAL_NODE_LABEL } from '../../domain/vocabulary'
 
 const n = (id: string, type: string, label: string): Node =>
   ({ id, type, position: { x: 0, y: 0 }, data: { label, type } }) as Node
@@ -89,7 +90,17 @@ describe('frontier prompts — built from the model', () => {
     const noSubject = MODEL.filter(x => x.type !== 'decision')
     const p = promptFor(noSubject, 'option')
     expect(p).toContain('Segment')
-    expect(p).not.toMatch(/The decision is:/)
+    // ⚠ BOTH NOUNS, DERIVED. This assertion used to read `/The decision is:/`,
+    // a literal that stopped matching anything the moment the clause learned to
+    // say "question" or "goal" — an absence test that passes by testing nothing
+    // is the decay this estate keeps paying for. It now excludes every noun the
+    // clause can emit, spelled by the product rather than by this file.
+    expect(p).not.toMatch(new RegExp(`The ${DECISION_NODE_LABEL} is:`, 'i'))
+    expect(p).not.toMatch(new RegExp(`The ${GOAL_NODE_LABEL} is:`, 'i'))
+    // POSITIVE CONTROL: the same probe finds the clause when there IS a subject.
+    expect(promptFor(MODEL, 'option')).toMatch(
+      new RegExp(`The ${DECISION_NODE_LABEL} is:`, 'i'),
+    )
   })
 
   it('⛔ ASSERTS NOTHING ABOUT QUALITY — the producer owns that judgement', () => {
@@ -273,7 +284,10 @@ describe('the legacy option door composes from the same tier table as every othe
       optionTier!.prompt({
         namedSiblings: ['Segment', 'RudderStack', 'Stay on the current CDP'],
         siblingCount: 3,
-        subject: 'Replace our customer data platform before the March renewal',
+        subject: {
+          label: 'Replace our customer data platform before the March renewal',
+          noun: DECISION_NODE_LABEL.toLowerCase(),
+        },
       }),
     )
   })

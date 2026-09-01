@@ -67,3 +67,22 @@ export const DECISION_NODE_DEFINITION =
  * whose-value-is-this badge is reading it wrong.
  */
 export const UNCONFIRMED_ESTIMATE_LABEL = 'Estimate not yet confirmed'
+
+/**
+ * The goal node, as a user reads it.
+ *
+ * ⚠ WHY THIS EXISTS NOW. `ghostTiers` needs to name the KIND of node a model's
+ * subject came from, because the frontier's prompt used to call every subject a
+ * "decision" — including a subject read off a GOAL node, in a sentence that
+ * lands in the user's own transcript under the user's own name. Naming the kind
+ * means spelling its word, and this file is where a product word is spelled.
+ *
+ * ⚠ IT IS NOT YET THE ONLY SPELLING, and saying so is the point. Three surfaces
+ * still carry a bare `'Goal'` literal — `NODE_REGISTRY` (`domain/nodes.ts`),
+ * `getTypeLabel` (`inspector-v2/inspectorStrings.ts`) and `KIND_LABEL`
+ * (`model-tab-v2/rowPresentation.ts`) — exactly as nine surfaces carried
+ * `'Decision'` before the header above was written. Rewiring them is a separate
+ * change with its own review; what this constant buys today is that the fourth
+ * reader does not add a fourth loose literal.
+ */
+export const GOAL_NODE_LABEL = 'Goal'

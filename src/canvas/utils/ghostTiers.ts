@@ -34,6 +34,11 @@ import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID } from './fitTargets'
 // re-spelled: the estate already carries eight hand-copied `'Untitled'`
 // literals, and a ninth that drifted would silently re-open B2(a).
 import { UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
+// The product's own words for the two node kinds a subject can come from.
+// Imported, never re-typed: `DECISION_NODE_LABEL` changed on 31 Aug, and a
+// sentence carrying a hand-copied 'Decision' would still be saying the retired
+// word in the user's transcript today.
+import { DECISION_NODE_LABEL, GOAL_NODE_LABEL } from '../domain/vocabulary'
 
 export { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 
@@ -84,8 +89,29 @@ export interface GhostPromptContext {
   namedSiblings: readonly string[]
   /** How many members the tier holds IN TOTAL — named or not. */
   siblingCount: number
-  /** The decision or goal this model is about, when the graph carries one. */
-  subject: string | null
+  /** What this model is about, when the graph carries it. */
+  subject: ModelSubject | null
+}
+
+/**
+ * What the model is about, AND what the product calls the node it came from.
+ *
+ * ⚠ THE NOUN TRAVELS WITH THE LABEL, and that is the whole repair. `readSubject`
+ * resolves decision-then-goal, and the clause that rendered it was hardcoded
+ * "The decision is: X" — so a model with a goal and no decision told the user,
+ * in their own transcript and under their own name, that their goal was a
+ * decision. A resolver that returns only the string forces every reader to guess
+ * the kind, and the guess was wrong for one of the two kinds it could be.
+ */
+export interface ModelSubject {
+  /** The subject's label, exactly as the user wrote it. */
+  readonly label: string
+  /**
+   * The product's on-screen word for that node's KIND, mid-sentence. Derived
+   * from `domain/vocabulary`, never spelled here — the canvas and this sentence
+   * must call one thing one name.
+   */
+  readonly noun: string
 }
 
 /**
@@ -151,10 +177,10 @@ export function inventorySentence(
  * Appending ours produced "The decision is: Acquire Acme?." — and this string
  * is not internal, it lands in the user's transcript attributed to the user.
  */
-function about(subject: string | null): string {
+function about(subject: ModelSubject | null): string {
   if (!subject) return ''
-  const terminator = /[.!?]$/.test(subject) ? '' : '.'
-  return ` The decision is: ${subject}${terminator}`
+  const terminator = /[.!?]$/.test(subject.label) ? '' : '.'
+  return ` The ${subject.noun} is: ${subject.label}${terminator}`
 }
 
 export const GHOST_TIERS: readonly GhostTier[] = [
@@ -237,14 +263,28 @@ function labelOf(n: Node): string | null {
  * Prefers the decision node, falls back to the goal, and returns null when
  * neither carries a usable label — the clause is then omitted rather than
  * filled with a guess.
+ *
+ * ⚠ IT NOW RETURNS THE KIND ALONGSIDE THE LABEL, AND THE RESOLUTION IS
+ * OTHERWISE UNCHANGED. The `??` chain, and with it the existing behaviour that
+ * an UNNAMED decision node suppresses the clause rather than falling through to
+ * the goal, is preserved exactly: the defect was the noun, and widening the
+ * resolution while fixing the noun would be a second, unasked change hiding
+ * inside the first.
  */
-function readSubject(nodes: Node[]): string | null {
-  const byKind = (kind: string) =>
-    nodes.find(
-      (n) => n.type === kind || (n.data as { type?: string } | undefined)?.type === kind,
-    )
+function readSubject(nodes: Node[]): ModelSubject | null {
+  const isKind = (n: Node, kind: string) =>
+    n.type === kind || (n.data as { type?: string } | undefined)?.type === kind
+  const byKind = (kind: string) => nodes.find((n) => isKind(n, kind))
+
   const node = byKind('decision') ?? byKind('goal')
-  return node ? labelOf(node) : null
+  if (!node) return null
+  const label = labelOf(node)
+  if (label === null) return null
+
+  // Read off the node that was ACTUALLY chosen, rather than inferred from which
+  // lookup ran: the two must not be able to disagree.
+  const noun = isKind(node, 'decision') ? DECISION_NODE_LABEL : GOAL_NODE_LABEL
+  return { label, noun: noun.toLowerCase() }
 }
 
 /**
@@ -298,11 +338,33 @@ function siblingsOf(nodes: Node[], siblingType: string): Node[] {
  * tier as it really is, `namedSiblings` is what survived naming. Passing both is
  * what lets the sentence describe a partly-unnamed tier without either inventing
  * names or under-reporting the model.
+ *
+ * ⚠⚠ AND "AS IT REALLY IS" MEANS AS THE CANVAS RENDERS IT, NOT AS THE PAYLOAD
+ * ARRIVED. `ReactFlowGraph.tsx` drops nodes whose id it has already seen — under
+ * its own comment, "CEE may return duplicate node IDs" — so a payload carrying
+ * one option twice put THREE in this sentence beside TWO on screen, and named
+ * the repeated one twice. The user reads a count and a list that do not match
+ * what they can see, in a sentence attributed to them.
+ *
+ * ⚠ WHY THE DEDUP IS SPELLED HERE RATHER THAN THE MOUNT'S RESULT BEING REUSED,
+ * since a second copy of a filter is normally exactly the wrong move. The
+ * mount's dedup runs DOWNSTREAM of this call: it consumes the ghost node this
+ * composition produces, so its output does not exist yet at composition time.
+ * The choice was a sentence composed from a set the canvas will not render, or
+ * this. It is confined to prompt composition — `siblingsOf`, the mount's own
+ * option filter and the empty-tier early return are untouched, and dedup cannot
+ * turn a non-empty tier empty, so their agreement is preserved.
+ *
+ * ⚠ BY ID, NEVER BY LABEL. Two genuinely different options may share a name;
+ * collapsing those would under-report the model, which is the same false
+ * sentence pointing the other way. First occurrence wins, matching the mount.
  */
-function contextFor(siblings: readonly Node[], subject: string | null): GhostPromptContext {
+function contextFor(siblings: readonly Node[], subject: ModelSubject | null): GhostPromptContext {
+  const seen = new Set<string>()
+  const rendered = siblings.filter((n) => (seen.has(n.id) ? false : (seen.add(n.id), true)))
   return {
-    namedSiblings: siblings.map(labelOf).filter((l): l is string => l !== null),
-    siblingCount: siblings.length,
+    namedSiblings: rendered.map(labelOf).filter((l): l is string => l !== null),
+    siblingCount: rendered.length,
     subject,
   }
 }
