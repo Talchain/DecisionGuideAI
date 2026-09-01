@@ -356,6 +356,32 @@ export const ANALYSIS_NEW_COPY = {
    * positive — "this node looks fine" is a claim nothing measured, and it is
    * exactly the sentence a panel like this drifts towards.
    */
+  /**
+   * The influence chart's axis and its non-directional state.
+   *
+   * ⚠ "Lowers"/"Raises" NAME THE EFFECT ON THE GOAL, not on the factor. The
+   * producer's `direction` is documented as "'positive' = increases goal", so
+   * a cost factor whose direction is negative LOWERS the goal — which is the
+   * distinction the old chart loses by branching on goal direction instead.
+   */
+  driverChart: {
+    lowers: 'Lowers the goal',
+    raises: 'Raises the goal',
+    /**
+     * ⚠ NOT "no direction" AND NOT SILENCE. `mixed` and `unknown` are results:
+     * the producer measured the factor and declined to assert one direction.
+     * "Direction not established" says that; "no direction" would report an
+     * absence of effect that was never measured.
+     */
+    directionNotEstablished: 'Direction not established',
+    /**
+     * The section header for the chart. It names the QUESTION the chart
+     * answers, which is not the question the glance's bars answer — those rank
+     * the top three by size; this one says which way each pushes and lets you
+     * change it.
+     */
+    title: 'Which way each driver pushes',
+  },
   modelStrip: {
     /**
      * The affordance, stated once above the marks. It describes the CONTROL,

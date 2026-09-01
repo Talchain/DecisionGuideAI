@@ -76,6 +76,7 @@ import { getExpectedValue } from '../utils/getExpectedValue'
 import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
+import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { ANALYSIS_NEW_COPY as COPY, ANALYSIS_NEW_LABEL_FALLBACK } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -87,6 +88,7 @@ import type {
   AtAGlance,
   GlanceCondition,
   GlanceDriver,
+  DriverInfluenceRow,
   GlanceInputProvenance,
   GlanceVerdict,
   GlanceComparisonScope,
@@ -524,12 +526,38 @@ function buildDrivers(
   // to tell "we measured, and it was zero" apart from "we got nothing", and an
   // empty `findings` array cannot.
   const suppressedZero = drivers.filter((d) => d.zeroReason != null)
-  const findings = drivers
-    .filter((d) => d.zeroReason == null)
-    .map((d) => driverFinding(d, influenceIsSetRelative, recommendations))
+  const live = drivers.filter((d) => d.zeroReason == null)
+  const findings = live.map((d) => driverFinding(d, influenceIsSetRelative, recommendations))
+
+  // ⭐ THE SAME MAGNITUDE EXPRESSION THE GLANCE USES, FOR THE SAME REASON IT
+  // USES IT: `displayInfluence` or nothing. A bar drawn from a mixed basis
+  // ranks across two different scales, and two surfaces deriving one ranking
+  // differently disagree the first time either input moves (trap 12).
+  const magnitude = (d: (typeof live)[number]) => d.displayInfluence ?? 0
+  // ⚠ SCALED TO THE STRONGEST DRIVER IN THIS RUN, NOT TO A SUM — the glance's
+  // rule, and it is load-bearing here too: scaling to a sum would render each
+  // bar as a SHARE OF THE OUTCOME, a claim neither basis licenses.
+  const strongest = Math.max(...live.map(magnitude), 0)
+  const influenceRows: DriverInfluenceRow[] = live
+    .slice()
+    .sort((a, b) => magnitude(b) - magnitude(a))
+    .map((d) => ({
+      id: d.factorKey,
+      label: d.factorLabel,
+      fraction: strongest > 0 ? Math.max(0.04, magnitude(d) / strongest) : 0,
+      // ⚠ `isDirectionalFactor`, NEVER `direction != null`. `mixed` and
+      // `unknown` are PRESENT values that still forbid a directional claim —
+      // narrowing them to a side is exactly the defect ROADMAP 2.234 widened
+      // this domain to stop, and it is the defect the old chart still ships.
+      direction: isDirectionalFactor(d.direction) ? d.direction : null,
+      // Fail-closed focus pre-gate: an unfocusable row yields null and renders
+      // as text, never a dead affordance.
+      targetId: d.canFocus ? (d.matchedNodeId ?? d.factorKey) : null,
+    }))
 
   return {
     findings,
+    influenceRows,
     influenceIsSetRelative,
     referenceOptionLabel: data.sensitivityReference?.optionLabel ?? null,
     totalCount: findings.length,
@@ -2195,6 +2223,7 @@ export function buildAnalysisNewViewModel(
     drivers: preRun
       ? {
           findings: [],
+          influenceRows: [],
           totalCount: 0,
           influenceIsSetRelative: false,
           referenceOptionLabel: null,

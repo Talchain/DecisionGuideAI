@@ -55,6 +55,7 @@ import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights } from './nodeInsights'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
+import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { WhatWeChecked } from './sections/WhatWeChecked'
@@ -536,6 +537,32 @@ export function AnalysisNewTabBody({
           onRunIntervention={runIntervention}
           icon={TrendingUp}
           testId="analysis-new-drivers"
+          /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
+             WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
+             The consolidation that took this panel from fourteen elements to
+             six is the reason: a chart and the prose about the same drivers are
+             one subject, and splitting them would re-open the restatement the
+             consolidation closed. */
+          header={
+            <DriverInfluenceChart
+              rows={vm.drivers.influenceRows}
+              onFocusTarget={focusTarget}
+              /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
+                 reports which of them happened and this surface owns the
+                 words — the same vocabulary the model strip's editor uses,
+                 because it is the same write through the same authority. */
+              onCommitOutcome={(outcome) =>
+                showToast(
+                  outcome === 'dispatched'
+                    ? COPY.modelStrip.valueDispatched
+                    : outcome === 'local_only'
+                      ? COPY.modelStrip.valueLocalOnly
+                      : COPY.modelStrip.valueNotEncodable,
+                )
+              }
+              testId="analysis-new-driver-chart"
+            />
+          }
         />
 
         {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
