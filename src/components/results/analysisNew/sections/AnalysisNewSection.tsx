@@ -21,6 +21,36 @@ import { DisclosureRow } from '../DisclosureRow'
 import { SectionShell } from './SectionShell'
 import type { AnalysisNewFinding } from '../analysisNewTypes'
 
+/**
+ * ⭐⭐ A ROW BADGE MAY CARRY A CLAIM ABOUT ITS OWN ROW. IT MAY NOT RESTATE A
+ * CLAIM ABOUT THE RUN.
+ *
+ * `provisional` and `not_assessed` are row-scoped: the view model sets them per
+ * finding, from that finding's own data (`d.isDefaultedConfidence`,
+ * `g.confidence == null`). `stale` is not — it is `isStale ? 'stale' :
+ * undefined`, one run-level boolean stamped onto EVERY key insight. So a stale
+ * run rendered "From an earlier run" up to `KEY_INSIGHT_PREVIEW` times, under a
+ * ribbon that had already said it, under an eyebrow that had said it again.
+ * Measured on staging `19fe8710`: three surfaces, one fact, all three true.
+ *
+ * ⚠ THE FACT IS NOT REMOVED, THE RESTATEMENTS ARE. `AtAGlance`'s ribbon states
+ * it once, names the CONDITION ('changed' vs 'unconfirmed' — different
+ * questions, `staleReason.ts`), and now cannot be dropped by an empty glance.
+ * This function only decides how many times the surface says it.
+ *
+ * ⚠ DERIVED FROM THE MARKER'S SCOPE, NOT A LIST OF SECTIONS. Written as "drop
+ * the run-scoped marker" rather than "drop markers in Key insights", so a later
+ * `staleMarker` stamped on drivers or uncertainty is covered without anyone
+ * remembering to update a list (CLAUDE.md trap 12).
+ */
+const RUN_SCOPED_MARKERS: ReadonlySet<NonNullable<AnalysisNewFinding['marker']>> = new Set(['stale'])
+
+function withoutRunScopedMarker(finding: AnalysisNewFinding): AnalysisNewFinding {
+  if (!finding.marker || !RUN_SCOPED_MARKERS.has(finding.marker)) return finding
+  const { marker: _dropped, ...rest } = finding
+  return rest
+}
+
 export interface AnalysisNewSectionProps {
   title: string
   findings: AnalysisNewFinding[]
@@ -104,7 +134,7 @@ export function AnalysisNewSection({
             {visible.map((f) => (
               <DisclosureRow
                 key={f.id}
-                finding={f}
+                finding={withoutRunScopedMarker(f)}
                 onFocusTarget={onFocusTarget}
                 onRunIntervention={onRunIntervention}
                 testIdPrefix={testId}

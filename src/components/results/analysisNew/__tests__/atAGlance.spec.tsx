@@ -528,9 +528,17 @@ describe('a stale run may not reassure — but it must still warn', () => {
 
   it('keeps the word, because removing information is not the same as removing the anchor', () => {
     render(<AtAGlance glance={glanceOf(genuineDecision())} isStale />)
-    // Under an eyebrow that already reads "As last analysed", a neutral
-    // "Stable" is a record of what the last run found. What goes is the claim
-    // about the model in front of you, not the finding.
+    // Under a ribbon that already says the model has moved (or that we cannot
+    // confirm it has not), a neutral "Stable" is a record of what the last run
+    // found. What goes is the claim about the model in front of you, not the
+    // finding.
+    //
+    // ⚠ THIS SENTENCE USED TO CITE THE EYEBROW ("As last analysed"), which was
+    // the panel's SECOND statement of one fact and has been retired — the
+    // ribbon is now the only place the panel says it (`freshnessSaidOnce.spec`).
+    // The justification is unchanged in substance; only the surface carrying it
+    // is different, and leaving the old citation here would have sent the next
+    // reader to a line that no longer exists.
     expect(stablePill()).toHaveTextContent('Stable')
   })
 

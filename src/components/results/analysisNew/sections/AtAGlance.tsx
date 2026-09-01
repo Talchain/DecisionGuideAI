@@ -81,9 +81,14 @@ const TONE_PILL_STALE = 'bg-panel-hover text-text-light'
  * predicate, two opposite harms, so only the reassuring tone is demoted.
  *
  * The word itself stays. Removing information is not the same as removing the
- * anchor: under an eyebrow that already reads "As last analysed", a neutral
- * "Stable" is a record of what the last run found. A green tick is a claim
- * about the model in front of you.
+ * anchor: under a ribbon that already says the model has moved — or that we
+ * cannot confirm it has not — a neutral "Stable" is a record of what the last
+ * run found. A green tick is a claim about the model in front of you.
+ *
+ * ⚠ THIS USED TO CITE THE EYEBROW ("As last analysed"), which was this panel's
+ * SECOND statement of one fact and has been retired; the ribbon is now the only
+ * place the panel says it. The justification is unchanged in substance — only
+ * the surface carrying it is different.
  */
 function reassuranceIsStale(tone: string, isStale: boolean): boolean {
   return isStale && tone === 'stable'
@@ -191,6 +196,44 @@ export function AtAGlance({
     setShowAllExcluded(false)
   }
 
+  // Rule 3 + 4. One ribbon, in the order a reader needs it: freshness first
+  // (it invalidates the tense), completeness second (it bounds the claim).
+  //
+  // ⚠⚠ BUILT BEFORE `hasAnything`, AND THAT ORDER IS THE POINT — IT IS THE ONLY
+  // FRESHNESS STATEMENT THIS PANEL MAKES. It used to be built AFTER the early
+  // return below, so a run whose glance had no content dropped the trust bar
+  // entirely and left the freshness claim to a row badge two sections down. The
+  // bar is a claim about the RUN, not about the glance; gating it on the
+  // glance's own content is what made it droppable, and once the restatements
+  // go it would have been droppable to ZERO. `ribbon.length > 0` now counts as
+  // content, so the invariant "a run that is not current says so, exactly once"
+  // holds structurally rather than by luck.
+  const ribbon: Array<{ testId: string; text: string }> = []
+  /**
+   * ⚠⚠ THIS USED TO ASSERT "the model has changed" ON A CANNOT-CONFIRM RUN.
+   * The dock collapses `'stale'` and `'unknown'` into one boolean
+   * (`OutputsDock.tsx:981`), so an absence of evidence was rendering as a
+   * statement of fact — on this panel's FIRST line. The dock's own comment
+   * forbids it and the old Analysis tab honours it with strict equality.
+   */
+  if (isStale) {
+    ribbon.push(
+      staleKind === 'changed'
+        ? { testId: 'analysis-new-status-stale', text: COPY.status.stale }
+        : { testId: 'analysis-new-status-freshness-unknown', text: COPY.status.freshnessUnknown },
+    )
+  }
+  if (isProvisional) {
+    // Name them when we can; the generic sentence stands when we cannot.
+    ribbon.push({
+      testId: 'analysis-new-status-provisional',
+      text:
+        missingResults.length > 0
+          ? COPY.status.provisionalNaming(missingResults)
+          : COPY.status.provisional,
+    })
+  }
+
   /**
    * ⚠⚠ THE PRIMARY INTERVENTION COUNTS AS SOMETHING, AND LEAVING IT OUT MADE
    * THIS SURFACE MUTE BEFORE A RUN. Witnessed on deployed `5f2d9703`, guest,
@@ -218,7 +261,8 @@ export function AtAGlance({
     glance.verdict ||
     glance.drivers.length > 0 ||
     glance.condition ||
-    (primaryIntervention && onRunIntervention)
+    (primaryIntervention && onRunIntervention) ||
+    ribbon.length > 0
   if (!hasAnything) return null
 
   // Rule 2. `fraction` is relative to the strongest, so max is 1 by
@@ -227,34 +271,6 @@ export function AtAGlance({
   const driversDiscriminate =
     glance.drivers.length > 1 &&
     Math.max(...fractions) - Math.min(...fractions) >= DRIVER_SPREAD_MIN
-
-  // Rule 3 + 4. One ribbon, in the order a reader needs it: freshness first
-  // (it invalidates the tense), completeness second (it bounds the claim).
-  const ribbon: Array<{ testId: string; text: string }> = []
-  /**
-   * ⚠⚠ THIS USED TO ASSERT "the model has changed" ON A CANNOT-CONFIRM RUN.
-   * The dock collapses `'stale'` and `'unknown'` into one boolean
-   * (`OutputsDock.tsx:981`), so an absence of evidence was rendering as a
-   * statement of fact — on this panel's FIRST line. The dock's own comment
-   * forbids it and the old Analysis tab honours it with strict equality.
-   */
-  if (isStale) {
-    ribbon.push(
-      staleKind === 'changed'
-        ? { testId: 'analysis-new-status-stale', text: COPY.status.stale }
-        : { testId: 'analysis-new-status-freshness-unknown', text: COPY.status.freshnessUnknown },
-    )
-  }
-  if (isProvisional) {
-    // Name them when we can; the generic sentence stands when we cannot.
-    ribbon.push({
-      testId: 'analysis-new-status-provisional',
-      text:
-        missingResults.length > 0
-          ? COPY.status.provisionalNaming(missingResults)
-          : COPY.status.provisional,
-    })
-  }
 
   /**
    * ⭐ WHAT COULD CHANGE IT OUTRANKS DRIVERS THAT DO NOT DISCRIMINATE.
@@ -295,12 +311,30 @@ export function AtAGlance({
       ) : null}
 
       {/* ── THE ANSWER ─────────────────────────────────────────────────────
-          The only large type on the surface. On a stale run the eyebrow
-          reframes it in the past and `headline`'s present-tense sentence is
-          deliberately not rendered (rule 3). */}
+          The only large type on the surface. `headline`'s present-tense
+          sentence is never rendered here (rule 3) — see the eyebrow note.
+
+          ⚠⚠ THE EYEBROW NO LONGER SWITCHES ON FRESHNESS, AND THE REASON IS THAT
+          THE SENTENCE IT WAS RE-TENSING IS NOT ON THIS SURFACE. `eyebrowStale`
+          ("As last analysed") existed to put `glance.headline` — composed as
+          "… currently scores higher" — into the past. But the line below renders
+          `glance.leaderLabel ?? glance.headline`, and the view model sets
+          `leaderLabel = headline && leader ? leader.label : null` while
+          `headline` is non-null only when `leader` is: so `leaderLabel` is
+          non-null exactly when `headline` is, the fallback never fires, and what
+          reaches the screen is the OPTION LABEL — a noun phrase, carrying no
+          tense to repair. (`freshnessSaidOnce.spec.tsx` pins that precondition
+          in-test rather than trusting this paragraph.)
+
+          What the swap DID do was cost the reader the role label on exactly the
+          runs where the reading is hardest: a stale panel named an option and
+          no longer said it was the leading one. The freshness condition is
+          stated once, in the ribbon directly above, where it scopes the whole
+          panel instead of one line — three statements of one fact is noise, and
+          noise crowds out the only useful response, which is to re-run. */}
       {showAnswer ? (
         <div>
-          <Eyebrow>{isStale ? COPY.glance.eyebrowStale : COPY.glance.eyebrowLeading}</Eyebrow>
+          <Eyebrow>{COPY.glance.eyebrowLeading}</Eyebrow>
           <p
             className={`${typography.panelHeader} mt-1 mb-0 text-text-header text-balance`}
             data-testid={`${testId}-headline`}

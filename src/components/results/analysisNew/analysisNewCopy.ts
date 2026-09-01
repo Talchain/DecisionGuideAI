@@ -221,14 +221,30 @@ export const ANALYSIS_NEW_COPY = {
     } as Record<string, string>,
   },
   glance: {
-    /** Eyebrow above the answer on a CURRENT run. */
-    eyebrowLeading: 'Leading option',
     /**
-     * Eyebrow above the answer on a STALE run. The present tense belongs to the
-     * run, not to now: `headline` is composed as "…currently scores higher",
-     * which is a claim about the CURRENT model and false once the model moved.
+     * Eyebrow above the answer, in EVERY run state.
+     *
+     * ⛔ RETIRED, AND DELIBERATELY NOT REPLACED: `eyebrowStale`
+     * ("As last analysed"), the stale-run variant of this line.
+     *
+     * It was written to put `headline` — "…currently scores higher" — into the
+     * past. `AtAGlance` renders `glance.leaderLabel ?? glance.headline`, and
+     * the view model gives `leaderLabel` a value on exactly the runs where
+     * `headline` has one, so the fallback never fires and the tensed sentence
+     * never reaches the screen. It was re-tensing a sentence this surface does
+     * not render, while costing the stale reader the role label the fresh
+     * reader gets.
+     *
+     * ⚠ DO NOT REINSTATE IT AS A FRESHNESS CUE. Freshness is stated ONCE per
+     * panel, in the ribbon at the top of `AtAGlance` (`status.stale` /
+     * `status.freshnessUnknown`), which names the CONDITION and distinguishes
+     * "the model moved" from "we cannot tell". Measured on staging `19fe8710`:
+     * the panel made that one point in three places at once — the ribbon, this
+     * eyebrow, and `markers.stale` on every key-insight row. Every one of them
+     * was TRUE; the defect was the repetition, and repetition is not emphasis.
+     * `freshnessSaidOnce.spec.tsx` holds the count at one.
      */
-    eyebrowStale: 'As last analysed',
+    eyebrowLeading: 'Leading option',
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
     /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
@@ -249,6 +265,23 @@ export const ANALYSIS_NEW_COPY = {
 
   markers: {
     provisional: 'Provisional',
+    /**
+     * ⛔ NO LONGER RENDERED BY THIS PANEL, AND THE STRING STAYS ONLY BECAUSE
+     * `DisclosureRow`'s `MARKER_LABEL` is a total map over the finding type,
+     * which still admits `'stale'`.
+     *
+     * The other two markers are ROW-SCOPED claims — this value is provisional,
+     * this thing was not assessed — and they are the only kind a row badge can
+     * honestly carry. `'stale'` is a RUN-SCOPED claim wearing a row-scoped
+     * badge: the view model stamps it on EVERY key insight, so a stale run
+     * repeated one fact up to `KEY_INSIGHT_PREVIEW` times at rest and once more
+     * per row on disclosure. `AnalysisNewSection` drops it before it reaches
+     * `DisclosureRow`; the run says it once, in the ribbon.
+     *
+     * ⚠ THE VIEW MODEL IS NOT WRONG TO CARRY IT and was deliberately left
+     * alone — `isStale` is a real property of the displayed run. This is a
+     * question of how many times the SURFACE states it.
+     */
     stale: 'From an earlier run',
     notAssessed: 'Not assessed',
   },
