@@ -3513,6 +3513,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
                   onSendMessage={sendMessage}
+                  /* ⭐ THE GATE'S OWN REFUSAL, NOT A SECOND EXPRESSION OF IT.
+                     `runBlockedListing` is `runGateResult.blockedListing`,
+                     already computed above for the run button — passing it down
+                     is what lets the pre-run panel explain a refusal without
+                     becoming a second authority on whether one exists. */
+                  blockedListing={runBlockedListing}
                 />
               </SectionErrorBoundary>
             )}
