@@ -487,8 +487,22 @@ export const OptionNode = memo((props: NodeProps) => {
     // it read as a considered judgement rather than an arithmetic slip.
     //
     // Suppressing the readout while leaving this line is the trap of fixing one
-    // reader of a value and not the others (CLAUDE.md hazard 1 in miniature),
-    // so both gate on the one flag the hook derives from the one field.
+    // reader of a value and not the others (CLAUDE.md hazard 1 in miniature).
+    //
+    // ⚠ THIS SENTENCE PREVIOUSLY ASSERTED HOW MANY READERS WERE GATED HERE,
+    // AND THE REVIEW THAT FOUND THE ONE IT OMITTED QUOTED IT AS THE EVIDENCE.
+    // The code was then fixed and this line was not, so the file went on
+    // shipping the finding's own exhibit — true of the prose, false of the
+    // code. The tally is the defect, not the number that was in it: the set
+    // grows, and the next reader falsifies whatever figure is written here.
+    //
+    // The invariant instead, which does not go stale: EVERY expression on this
+    // card that places the option relative to the others gates on the one
+    // authority the hook derives from the one producer field — this flag, or
+    // `winRate`, which the hook leaves `null` on the same branch.
+    // `OptionNode.comparativeReaderManifest.spec.ts` derives that set from this
+    // file and REDs on a reader that arrives without a gate, so the counting is
+    // done by something that cannot forget to update itself (CLAUDE.md trap 12).
     if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
