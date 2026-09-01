@@ -95,7 +95,13 @@ import type {
   OptionsComparisonSection,
   ImplicationClaim,
   ModelImplication,
+  ChecksCode,
+  ChecksState,
 } from './analysisNewTypes'
+// ⚠ THE OWNER'S EXPORTED PREDICATE, NOT A LOCAL `gaps.every(...)`. Its contract
+// is explicit that an empty list returns `false` on purpose, because "no gaps"
+// is a different question — see `buildChecks`.
+import { everyEvidenceGapAddressed } from '../utils/evidenceGapConfidenceDisplay'
 
 /**
  * §2 of the brief: "a very small number of high-value insights".
@@ -1950,6 +1956,164 @@ function dedupeAgainstGlance(
 
 // ── THE ADAPTER ─────────────────────────────────────────────────────────────
 
+// ── WHAT WE CHECKED ─────────────────────────────────────────────────────────
+
+/**
+ * The three checks, ALWAYS all three, in a fixed order.
+ *
+ * ⭐ IT ADDS NO ORACLE — and that is the load-bearing property, not a nicety.
+ * Each arm quotes an authority this file already reads elsewhere:
+ *   · `rec.verdict`           — `src/lib/decisionVerdict.ts`, the one module
+ *                               entitled to say whether a leading option
+ *                               exists. Already read at `:1390` and `:1601`.
+ *   · `rec.robustnessVerdict` — the producer's display-safe verdict. Already
+ *                               read at `:1432`.
+ *   · `conf.evidenceGaps` + `conf.evidenceGapsAssessed` — already read at
+ *                               `:928` and `:977`.
+ * A fourth reading of any of them would be this estate's most expensive defect
+ * (`valueProvenance.ts:182-260` documents three same-named `source` fields
+ * answering different questions). There is not one here.
+ *
+ * ⚠ THE ORDER IS FIXED AND IS NOT A RANKING. It is the old tab's order, kept
+ * so a reader who knows one surface can read the other. Nothing here sorts by
+ * severity — a "worst first" order would be a judgement across three
+ * incommensurable checks that no producer field supports.
+ */
+function buildChecks(data: ResultsSectionDataReturn): AnalysisNewViewModel['checks'] {
+  const rec = data.recommendation
+  const conf = data.confidence
+
+  // ── 1. LEADER ─────────────────────────────────────────────────────────────
+  /**
+   * ⛔ NO `!!recommendedOption` FALLBACK, AND THIS IS A DELIBERATE DEPARTURE
+   * FROM THE SOURCE. `TriageActionCardsBody.tsx:573-575` falls back to the
+   * presence of a recommended option when `verdict` is absent:
+   *
+   *     const hasWinner = verdict ? verdict.hasLeadingOption : !!data.recommendation.recommendedOption
+   *
+   * That fallback is a UI-DERIVED LEADER CLAIM — precisely the "Authority 3"
+   * that `decisionVerdict.ts` DELETED (ROADMAP 1.223), and for a reason that
+   * applies here exactly: CEE deliberately drops the leader claim while the
+   * per-option numbers keep riding the wire, so a consumer-side fallback reads
+   * the numbers and rebuilds the claim the producer just withheld. The module's
+   * own words: "once a producer's silence carries information, a consumer-side
+   * fallback does not degrade gracefully — it OVERWRITES the message."
+   *
+   * `recommendedOption` is non-null on such a run. Importing the fallback would
+   * therefore have this section tick "Has leading option" on exactly the runs
+   * where the product is withholding one. Absent verdict is NOT ASSESSED.
+   */
+  const verdict = rec.verdict
+  const leaderCode: ChecksCode =
+    verdict?.hasLeadingOption === true
+      ? 'leader_present'
+      : // ⚠ THE DENIAL IS LICENSED BY `'tied'` ALONE. `decisionVerdict.ts:166-168`
+        // is explicit that `'unknown'` licenses SILENCE, never a denial — so an
+        // unknown separation lands in the third state with the two other
+        // unassessed checks, and never renders "No clear leader".
+        verdict != null && verdict.separation === 'tied'
+        ? 'leader_tied'
+        : 'leader_not_assessed'
+
+  // ── 2. ROBUSTNESS ─────────────────────────────────────────────────────────
+  /**
+   * ⚠ AN EXPLICIT ALLOWLIST, NOT `!== 'not_assessed'`. The negated form treats
+   * any future producer token as a determinate verdict and renders it as
+   * "Sensitive to assumptions" — a fabricated finding from an unrecognised
+   * string. The old tab states the same rule in its own words: "'not_assessed'
+   * and unknown values must never render as 'Sensitive'".
+   *
+   * ⚠ AND THE TWO SILENT STATES ARE SPLIT, because they are different
+   * statements: `'not_assessed'` is the producer saying it did not assess;
+   * `undefined` is an older build saying nothing at all.
+   */
+  const robustnessVerdict = rec.robustnessVerdict
+  const robustnessCode: ChecksCode =
+    robustnessVerdict === 'robust'
+      ? 'robustness_robust'
+      : robustnessVerdict === 'moderate' || robustnessVerdict === 'fragile'
+        ? 'robustness_sensitive'
+        : robustnessVerdict === 'not_assessed'
+          ? 'robustness_not_assessed'
+          : 'robustness_unknown'
+
+  // ── 3. EVIDENCE ───────────────────────────────────────────────────────────
+  /**
+   * ⭐ THE SAME LIST THIS TAB RENDERS, AND THAT IS WHY IT DIVERGES FROM THE
+   * SOURCE. The old tab reads `topEvidenceGaps ?? evidenceGaps` because ITS
+   * section renders that list. `buildUncertainty` above renders
+   * `conf.evidenceGaps` (`:928`). Reading a different list here would let the
+   * tick and the section beneath it report two different populations — which
+   * is the exact defect the old tab fixed on its own surface, in its own
+   * words: "derived from the SAME `addressed` count that span renders, so the
+   * two cannot disagree by construction".
+   *
+   * So the rule is imported and the FIELD follows this tab's own section. A
+   * verbatim copy of the field expression would have imported the rule's
+   * violation.
+   */
+  const gaps = conf.evidenceGaps ?? []
+  /**
+   * ⚠ `everyEvidenceGapAddressed` IS THE OWNER'S EXPORTED PREDICATE, not a
+   * local `gaps.every(...)`. Its contract is explicit that an empty list
+   * returns `false` ON PURPOSE — "no gaps" is a different question, answered
+   * separately below by `evidenceGapsAssessed`. Re-spelling it here would fold
+   * two questions under one name (trap 21) and would drift from the owner the
+   * first time the addressed threshold moves.
+   */
+  const evidenceCode: ChecksCode =
+    gaps.length > 0
+      ? everyEvidenceGapAddressed(gaps)
+        ? 'evidence_all_addressed'
+        : 'evidence_gaps'
+      : // An EMPTY list is two states, and telling them apart is this whole
+        // section's reason to exist. `evidenceGapsAssessed === true` is the
+        // producer's statement that it looked; anything else is that it did
+        // not say so, and an unstated assessment is not an all-clear.
+        conf.evidenceGapsAssessed === true
+        ? 'evidence_none_flagged'
+        : 'evidence_not_assessed'
+
+  return {
+    items: [
+      { id: 'leader', code: leaderCode, state: CHECK_STATE[leaderCode] },
+      { id: 'robustness', code: robustnessCode, state: CHECK_STATE[robustnessCode] },
+      { id: 'evidence', code: evidenceCode, state: CHECK_STATE[evidenceCode] },
+    ],
+  }
+}
+
+/**
+ * Code → glyph state. A TOTAL map over the union, so a new code is a type
+ * error rather than a silently missing glyph.
+ *
+ * ⭐⭐ `evidence_none_flagged` IS A `pass`, AND THIS IS THE DELIBERATE
+ * IMPROVEMENT ON THE SOURCE. The old tab renders the muted "unknown" glyph for
+ * BOTH "assessed, none found" and "never assessed" — its own comment says so:
+ * "Two states render the muted help glyph rather than the red X, for two
+ * different reasons". Both reasons are sound (neither is a failure), but the
+ * consequence is that the ONE distinction the third state exists to preserve
+ * is carried by the label text alone, and a reader scanning glyphs sees the
+ * same symbol for "we looked and it was clean" and "we never looked".
+ *
+ * Here a licensed all-clear is a tick and an absent assessment is not. The
+ * mutant pair in `whatWeChecked.spec.tsx` pins exactly this: collapsing
+ * `evidence_none_flagged` into `not_assessed` (or the reverse) must RED.
+ */
+const CHECK_STATE: Record<ChecksCode, ChecksState> = {
+  leader_present: 'pass',
+  leader_tied: 'finding',
+  leader_not_assessed: 'not_assessed',
+  robustness_robust: 'pass',
+  robustness_sensitive: 'finding',
+  robustness_not_assessed: 'not_assessed',
+  robustness_unknown: 'not_assessed',
+  evidence_all_addressed: 'pass',
+  evidence_gaps: 'finding',
+  evidence_none_flagged: 'pass',
+  evidence_not_assessed: 'not_assessed',
+}
+
 export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
@@ -2026,6 +2190,14 @@ export function buildAnalysisNewViewModel(
       ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
       : buildUncertainty(data, recommendations),
     deeper: buildDeeper(inputs),
+    // ⚠ PRE-RUN THERE ARE NO CHECKS TO REPORT — and this section must be
+    // gated HARDER than the others, not more softly. Its whole content is
+    // statements about what a run did and did not do, so mounted pre-run it
+    // would render three "not assessed" rows about an analysis that never
+    // started — which reads as a run that came back empty. Same rule
+    // `buildDeeper` states; the failure mode here is worse because the
+    // unassessed states are exactly what this section is FOR.
+    checks: preRun ? { items: [] } : buildChecks(data),
   }
 }
 
