@@ -1,0 +1,169 @@
+/**
+ * ⭐ ONE FIELD, TWO QUESTIONS — and the card must ask the one its kind answers.
+ *
+ * `data.provenance` means "who owns this VALUE" on a valued factor and "who put
+ * this ELEMENT here" on an option. `NodeProvenanceMark` rendered the VALUE
+ * vocabulary on every kind, so on the 21 of 25 captured non-factor nodes that
+ * carry no value it asserted an estimate of a number that does not exist.
+ *
+ * ⛔ AND THE FIX IS NOT SUPPRESSION. A predicate that returned `'none'`
+ * throughout would satisfy every "no false estimate" assertion in this file
+ * while deleting the mark from the whole canvas — destroying the signal the
+ * founder specifically valued ("9 of 14 elements were Olumi's") to fix a
+ * sentence. **Every case below therefore has its opposite-direction twin**: a
+ * value-bearing card must still make the VALUE claim, and a structural card must
+ * make the STRUCTURAL one — not nothing.
+ *
+ * ⚠ THIS FILE GUARDS THE PREDICATE, NOT THE CARD.
+ * `BaseNode.provenanceClaimMount.spec.tsx` guards that the mount consults it —
+ * a correct predicate nothing calls is this estate's signature defect — and
+ * `nodeProvenanceClaim.schemaDerivation.spec.ts` guards that the split still
+ * agrees with the Zod schemas it claims to be derived from.
+ */
+import { describe, it, expect } from 'vitest'
+import { NodeTypeEnum } from '../nodes'
+import {
+  nodeProvenanceClaim,
+  provenanceClaimLabel,
+  STRUCTURAL_PROVENANCE_LABEL,
+} from '../nodeProvenanceClaim'
+import { VALUE_PROVENANCE_LABEL } from '../valueProvenance'
+import { GOAL_LABEL_FROM_BRIEF_COPY } from '../goalLabelProvenance'
+
+/** A node's data as the canvas holds it — the object the predicate takes. */
+const dataFor = (type: string, over: Record<string, unknown> = {}) => ({
+  label: `a ${type}`,
+  type,
+  provenance: 'ai_inferred',
+  ...over,
+})
+
+describe('a card without a number never makes a claim about one', () => {
+  it.each(['option', 'outcome', 'decision', 'action'] as const)(
+    '%s — its schema declares NO value field, so the claim is structural',
+    (kind) => {
+      expect(nodeProvenanceClaim(kind, dataFor(kind))).toBe('structural')
+    },
+  )
+
+  it('risk WITHOUT a probability — structural, because nothing was estimated', () => {
+    expect(nodeProvenanceClaim('risk', dataFor('risk'))).toBe('structural')
+  })
+
+  it('factor WITHOUT an observed value — structural, and the rule is uniform', () => {
+    // The factor's `observedState` is `.optional()` in the schema exactly as the
+    // risk's `probability` is. Exempting the factor by kind would be a hand-made
+    // exception to a derived rule, and it would put "AI estimate" back on the
+    // 2 of 10 captured factors that arrived with no value.
+    expect(nodeProvenanceClaim('factor', dataFor('factor'))).toBe('structural')
+  })
+})
+
+describe('⛔ THE TWIN — a card WITH a number still says so', () => {
+  /**
+   * The harm the fix above must not cause. A change that made every card
+   * structural would pass every assertion in the block above while silently
+   * deleting the value vocabulary from the product. These are load-bearing.
+   */
+  it('factor with an observed value — the VALUE claim', () => {
+    expect(
+      nodeProvenanceClaim('factor', dataFor('factor', { observedState: { value: 0.7 } })),
+    ).toBe('value')
+  })
+
+  it('factor with only CEE’s top-level display_value — still the VALUE claim', () => {
+    expect(nodeProvenanceClaim('factor', dataFor('factor', { display_value: '£26,000' }))).toBe(
+      'value',
+    )
+  })
+
+  it('factor with the WIRE spelling observed_state — the VALUE claim', () => {
+    // Canvas stores `observedState`; the CEE/PLoT wire uses `observed_state`,
+    // and real graphs carry both. Reading one under-counts.
+    expect(
+      nodeProvenanceClaim('factor', dataFor('factor', { observed_state: { value: 0.7 } })),
+    ).toBe('value')
+  })
+
+  it('risk WITH a probability — the VALUE claim', () => {
+    expect(nodeProvenanceClaim('risk', dataFor('risk', { probability: 0.3 }))).toBe('value')
+  })
+
+  it('an empty display_value does not buy a value claim', () => {
+    expect(nodeProvenanceClaim('factor', dataFor('factor', { display_value: '   ' }))).toBe(
+      'structural',
+    )
+  })
+})
+
+describe('only the goal says nothing, and only because it already says it', () => {
+  it('goal — suppressed', () => {
+    expect(nodeProvenanceClaim('goal', dataFor('goal'))).toBe('none')
+  })
+
+  it('and the goal card’s OWN surface still carries the same fact', () => {
+    // Pin the PRECONDITION for the suppression in-test. If this copy ever left
+    // the goal card, suppressing the mark would delete the fact from the card
+    // entirely rather than de-duplicating it — the suppression would silently
+    // become the destructive change this whole design rejects.
+    expect(GOAL_LABEL_FROM_BRIEF_COPY.pill.length).toBeGreaterThan(0)
+  })
+
+  it('decision is NOT suppressed — it has no competing surface', () => {
+    expect(nodeProvenanceClaim('decision', dataFor('decision'))).toBe('structural')
+  })
+
+  it('the suppression is a SCOPE, not a removal — exactly one kind is silent', () => {
+    // Derived from the enum itself, never hand-listed (trap 12).
+    const silent = NodeTypeEnum.options.filter(
+      (k) => nodeProvenanceClaim(k, dataFor(k)) === 'none',
+    )
+    expect(silent).toEqual(['goal'])
+  })
+
+  it('answers for EVERY kind the enum admits', () => {
+    for (const kind of NodeTypeEnum.options) {
+      expect(
+        ['value', 'structural', 'none'],
+        `${kind} is unclassified`,
+      ).toContain(nodeProvenanceClaim(kind, dataFor(kind)))
+    }
+  })
+})
+
+describe('the words themselves — a structural card may never say "estimate"', () => {
+  it('the structural register states no number, for any kind', () => {
+    for (const [kind, label] of Object.entries(STRUCTURAL_PROVENANCE_LABEL)) {
+      expect(label.toLowerCase(), `${kind} leaks value vocabulary`).not.toContain('estimate')
+    }
+  })
+
+  it('ai — "Olumi suggested this", not "AI estimate"', () => {
+    expect(provenanceClaimLabel('structural', 'ai')).toBe('Olumi suggested this')
+    // The twin: the value claim is untouched by this change.
+    expect(provenanceClaimLabel('value', 'ai')).toBe(VALUE_PROVENANCE_LABEL.ai)
+  })
+
+  it('human — "You added this", not "Set by you"', () => {
+    expect(provenanceClaimLabel('structural', 'human')).toBe('You added this')
+    expect(provenanceClaimLabel('value', 'human')).toBe(VALUE_PROVENANCE_LABEL.human)
+  })
+
+  it('brief REUSES the goal card’s existing spelling rather than authoring a second', () => {
+    // The defect being fixed was ONE wire literal wearing TWO spellings. A
+    // freshly authored "From your brief" here would rebuild it in the same
+    // commit that removes it — so this binds to the shared constant.
+    expect(provenanceClaimLabel('structural', 'brief')).toBe(GOAL_LABEL_FROM_BRIEF_COPY.pill)
+  })
+
+  it('and the two vocabularies genuinely DIFFER — this is not one register twice', () => {
+    const kinds = Object.keys(STRUCTURAL_PROVENANCE_LABEL) as Array<
+      keyof typeof STRUCTURAL_PROVENANCE_LABEL
+    >
+    const differing = kinds.filter(
+      (k) => STRUCTURAL_PROVENANCE_LABEL[k] !== VALUE_PROVENANCE_LABEL[k],
+    )
+    // The three canvas-reachable kinds at minimum.
+    expect(differing).toEqual(expect.arrayContaining(['ai', 'brief', 'human']))
+  })
+})
