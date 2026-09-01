@@ -1974,6 +1974,11 @@ function recordStructuralRenameIntent(
     label,
     baseGraphHash: state.lastServerGraphHash,
     externalMutationActive: state._externalMutationActive > 0,
+    // The elements CEE has acknowledged, or null when none have been seen. A
+    // node absent from a record that EXISTS was created after CEE last spoke,
+    // so there is no server-side rename to confirm and nothing to send — see
+    // `captureStructuralRename` for why null must NOT stand down.
+    authoritativeNodeIds: state.lastAuthoritativeGraph?.nodeIds ?? null,
     makeId: () =>
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
