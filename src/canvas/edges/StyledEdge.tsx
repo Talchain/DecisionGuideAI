@@ -1156,9 +1156,36 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             data-testid="edge-influence-label"
             aria-label={ariaLabel}
             title={(() => {
+              // ⭐ CANVAS-BACKLOG S1 — THE SENTENCE THE PLATE CUTS OFF LIVES HERE NOW.
+              //
+              // The label text below is ellipsised by CSS, and structurally has
+              // to be: the plate is capped at the box `resolvePersistentLabelPlacements`
+              // clears, that cap is in GRAPH units, and graph units shrink with
+              // zoom while the label FONT does not (it carries `labelCounterScale`
+              // so its rendered size stays on the Design System floor). At
+              // `LABEL_LEGIBLE_ZOOM` — where the product's own auto-fit parks —
+              // roughly a dozen glyphs survive, against a vocabulary that runs to
+              // "Moderate effect, direction not stated (uncertain)".
+              //
+              // ⚠ THE COMMENT BESIDE THE ELLIPSIS USED TO SAY THE FULL STRING WAS
+              // ALREADY RECOVERABLE FROM "aria-label AND title". Half true, and the
+              // false half was the half a sighted user needs: `title` carried
+              // `tooltip` — the NUMBERS — and never the sentence. So did the hover
+              // popover. The words the user could see two thirds of were reachable
+              // by assistive technology and by nobody else, which is why this defect
+              // was re-reported three times.
+              //
+              // The sentence is READ from `edgeDescription`, never re-derived:
+              // `getEdgeLabel` is the one owner of this vocabulary and one datum
+              // must not get two spellings (CLAUDE.md trap 21).
+              const { label, tooltip } = edgeDescription
+              // In NUMERIC mode `getEdgeLabel` returns the SAME string for both
+              // channels — the sentence IS the numbers — so joining them
+              // unconditionally would print "w −0.35 • b 70%" twice in one tooltip.
+              const sentence = label === tooltip ? tooltip : `${label}\n${tooltip}`
               const baseTooltip = provenance
-                ? `${edgeDescription.tooltip} • Source: ${provenance}`
-                : edgeDescription.tooltip
+                ? `${sentence} • Source: ${provenance}`
+                : sentence
               return `${baseTooltip}\n\nDouble-click to inspect`
             })()}
             onDoubleClick={handleLabelDoubleClick}
@@ -1185,8 +1212,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       releases this flex item's automatic minimum so it may
                       shrink below its own text and ellipsise, instead of
                       pushing the row past the 160px cap the dodge resolver
-                      assumes. The full string stays recoverable: the
-                      container's aria-label and title both carry it.
+                      assumes.
+
+                      ⚠⚠ THIS SENTENCE READ "The full string stays recoverable:
+                      the container's aria-label and title both carry it", AND
+                      THE `title` HALF WAS FALSE FOR AS LONG AS IT WAS WRITTEN
+                      (settled at the bytes, CANVAS-BACKLOG S1). The title
+                      carried `edgeDescription.tooltip` — "Weight: −0.60,
+                      Belief: 85%" — so the only channel with the sentence was
+                      the accessible name, and the sighted user hovering the
+                      thing they could not read got the numbers back. The
+                      claim is now TRUE, and it is true because the title
+                      composition above makes it true; a spec
+                      (`StyledEdge.labelRecoverable.spec.tsx`) asserts the
+                      painted text is contained in the hover text so the two
+                      cannot drift apart again. Corrected rather than deleted:
+                      a comment asserting a guarantee reads as already
+                      audited, so nobody re-checks it.
+
                       CSS ellipsis is safe here ONLY because
                       EdgeLabelRenderer portals this outside
                       .react-flow__node — inside a node card the
