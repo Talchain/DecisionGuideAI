@@ -151,6 +151,30 @@ export const InspectorRouter = memo(function InspectorRouter({
   )
 
   // Navigate to another node (e.g., clicking a ConnectionRow)
+  // ⚠⚠ DECLARED HERE, ABOVE EVERY EARLY RETURN, AND THAT PLACEMENT IS THE POINT.
+  // It sat below `if (!nodeId) return null` / `if (!node) return null` on the
+  // first cut, which is a rules-of-hooks violation: the hook would be skipped on
+  // the renders that bail, so React's hook ORDER would differ between renders.
+  // The local `pnpm typecheck` is blind to it — the required CI check runs
+  // `lint → typecheck → tests` and ESLint caught it there. A green named gate is
+  // necessary and not sufficient.
+  //
+  // ⚠ `nodeId` is nullable at this point (the narrowing happens later), so the
+  // guard inside the callback is real rather than defensive.
+  //
+  // ⚠ AND THE TRUTH FOR `expected_label` IS READ STORE-SIDE from `node.data.label`
+  // — never from the `label` variable below, which is a DISPLAY truncation of
+  // `rawLabel` (the `(0-1, …)` notation strip). Asserting a truncated label as
+  // the one the server holds would refuse every rename of a normalised-range
+  // node, on a gate that was working correctly.
+  const handleLabelChange = useCallback(
+    (value: string) => {
+      if (!nodeId) return
+      useCanvasStore.getState().updateNodeLabel(nodeId, value)
+    },
+    [nodeId],
+  )
+
   const handleNavigate = useCallback((id: string) => {
     const store = useCanvasStore.getState()
     // Check if it's a node or edge
@@ -274,19 +298,6 @@ export const InspectorRouter = memo(function InspectorRouter({
       }
     }
   }
-
-  // ⚠ Bound to `nodeId`, and the truth for `expected_label` is read STORE-SIDE
-  // from `node.data.label` — never from the `label` variable above, which is a
-  // DISPLAY truncation of `rawLabel` (the `(0-1, …)` notation strip). Asserting
-  // a truncated label as the one the server holds would refuse every rename of a
-  // normalised-range node, on a gate that was working correctly.
-  const handleLabelChange = useCallback(
-    (value: string) => {
-      if (!nodeId) return
-      useCanvasStore.getState().updateNodeLabel(nodeId, value)
-    },
-    [nodeId],
-  )
 
   const panelProps = {
     nodeId,

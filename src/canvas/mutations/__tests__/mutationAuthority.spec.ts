@@ -23,6 +23,23 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['canvas pointer', 'canvas keyboard', 'canvas change events'],
     requiredEvidence: 'accepted structural_delete with matching server graph hash',
   },
+  // schemas 0.50.0 — the durable label writer. It qualifies for `server_graph`
+  // on the same terms as its delete sibling directly above and on no weaker
+  // ones: a receipt-bearing GraphV3 carrier (`structural_rename`), a server-side
+  // write to `scenarios.graph`, and a committed `edit_graph` fact.
+  //
+  // ⚠ TWO ASSERTIONS, NOT ONE, and the second is what the evidence line names.
+  // `base_graph_hash` alone is NOT sufficient here: `label` is absent from CEE's
+  // analysis-affecting hash projection, so two concurrent renames move no hash
+  // and the second would silently clobber the first. `expected_label` is the
+  // gate for the field the hash cannot see, and a rename accepted WITHOUT it
+  // would not deserve this authority.
+  canvasNodeRenameWithServerHash: {
+    authority: 'server_graph',
+    entrySurfaces: ['inspector title', 'canvas double-click', 'pre-analysis hero'],
+    requiredEvidence:
+      'accepted structural_rename with matching server graph hash AND matching expected_label',
+  },
   priorRangeJudgement: {
     authority: 'disabled',
     entrySurfaces: ['Inspector prior range'],
@@ -172,6 +189,10 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       .map(([action]) => action)
       .sort()
     expect(graphEdits).toEqual([
+      // 0.50.0 — the rename joins the receipt-bearing set. ⚠ THIS LIST IS SORTED,
+      // so the new member lands FIRST rather than beside its delete sibling; that
+      // is the sort's doing, not a claim about ordering.
+      'canvasNodeRenameWithServerHash',
       'modelFactorValue',
       'preAnalysisV3FactorValue',
       'structuralDeleteWithServerHash',

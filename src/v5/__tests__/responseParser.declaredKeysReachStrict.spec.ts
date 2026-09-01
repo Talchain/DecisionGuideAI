@@ -45,6 +45,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { OlumiResponseSchema } from '@talchain/schemas/boundary'
+import { maximalModelVersionMutationReceiptCommittedMutation } from '@talchain/schemas/fixtures'
 
 import { parseV5Response, ADDITIVE_EXTENSIONS_KEY } from '../responseParser'
 
@@ -146,6 +147,23 @@ const SCHEMA_VALID_SAMPLES: Readonly<Record<string, unknown>> = {
     ],
     details_redacted: true,
   },
+  // schemas 0.50.0 — `model_version_receipt` joined `OlumiResponseSchema` with
+  // the bump, and this guard is what caught it. Eighteen REQUIRED fields,
+  // including two discriminated unions and a nested GraphV3.
+  //
+  // ⭐ THE PRODUCER'S OWN FIXTURE, NOT A HAND-ROLLED OBJECT — and that choice is
+  // the whole point of the entry. This map is the file's one acknowledged
+  // hand-maintained mirror; adding eighteen hand-typed fields to it would be
+  // adding eighteen more things to drift, and the first field the contract
+  // tightened would leave this "sample" quietly invalid while still covering the
+  // key. The published fixture is generated FROM the schema and ships beside it,
+  // so it cannot fall out of step with what it is meant to exercise.
+  //
+  // Verified by execution before it was written here: unwrapped the declared
+  // `ZodOptional → ZodEffects → ZodObject` and ran `safeParse` on the fixture —
+  // `success: true`. The `.strict()` union means a wrong shape would not merely
+  // fail this key, it would fail the WHOLE parse.
+  model_version_receipt: maximalModelVersionMutationReceiptCommittedMutation,
 }
 
 const DECLARED_KEYS: readonly string[] = Object.keys(OlumiResponseSchema.shape)
