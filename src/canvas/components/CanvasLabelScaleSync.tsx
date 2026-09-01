@@ -25,7 +25,11 @@
  */
 import { useEffect, useRef } from 'react'
 import { useStore } from '@xyflow/react'
-import { labelCounterScale, CANVAS_LABEL_SCALE_VAR } from '../utils/zoomLegibility'
+import {
+  labelCounterScale,
+  CANVAS_LABEL_SCALE_VAR,
+  CANVAS_LABEL_SCALE_MARKER_TESTID,
+} from '../utils/zoomLegibility'
 
 /**
  * Quantisation step for the written value.
@@ -59,5 +63,16 @@ export function CanvasLabelScaleSync() {
     }
   }, [scale])
 
-  return <span ref={markerRef} data-testid="canvas-label-scale-sync" style={{ display: 'none' }} />
+  // ⚠ The testid is DERIVED, not a literal: it is the contract by which anything
+  // else that must find THIS instance's root does so (see
+  // `CANVAS_LABEL_SCALE_MARKER_TESTID`). A hand-copied string here and a
+  // hand-copied string in the reader is precisely how the two would stop
+  // agreeing, silently, on which canvas they mean.
+  return (
+    <span
+      ref={markerRef}
+      data-testid={CANVAS_LABEL_SCALE_MARKER_TESTID}
+      style={{ display: 'none' }}
+    />
+  )
 }

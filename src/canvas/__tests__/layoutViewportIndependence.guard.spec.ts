@@ -202,6 +202,28 @@ const LABEL_BOUND_MEASURER = 'src/canvas/utils/measureNodeHeightsAtLabelBound.ts
 /** `.react-flow` alone, with the varying dimensions removed — see above. */
 const VARYING_DIMENSION = /innerWidth|innerHeight|getBoundingClientRect|visualViewport|clientWidth|clientHeight|matchMedia|canvasSize/
 
+/**
+ * ⭐⭐⭐ THE FIRST VERSION OF THIS EXEMPTION WAS THE DEFECT IT WAS ADDED BESIDE.
+ *
+ * It dropped `.react-flow` from the detector and pinned two things in its place:
+ * that the module measures at the CONSTANT bound, and that it reads no varying
+ * dimension. Both true, both beside the point — because in THIS module
+ * `.react-flow` was never a proxy for "a varying size". It is the selector that
+ * decides **WHICH INSTANCE**, and the exemption pinned nothing about that. So
+ * the module shipped `document.querySelector('.react-flow')`, the exact form its
+ * own partner bans by name, and the guard that encoded the rule had just been
+ * widened by the change that needed catching. (CLAUDE.md trap 21: two harms
+ * under one predicate is two questions under one name — and the answer is to
+ * name them apart, not to drop one.)
+ *
+ * So the two questions are now asked separately. `VARYING_DIMENSION` asks "does
+ * it read a size that moves with the viewport?"; `DOCUMENT_ROOTED_INSTANCE` asks
+ * "does it pick a React Flow instance from the DOCUMENT rather than from its own
+ * marker?" — and the second is asked of the exempted module SPECIFICALLY,
+ * because it is the only module the first question was relaxed for.
+ */
+const DOCUMENT_ROOTED_INSTANCE = /document\s*\.\s*(querySelector|querySelectorAll|getElementsBy\w+)\s*\(\s*[`'"][^`'"]*\.react-flow/
+
 afterEach(() => {
   document.querySelectorAll('.react-flow').forEach((el) => el.remove())
 })
@@ -248,10 +270,30 @@ describe('R1 (structural) — no runtime dimension can reach the canonical layou
       VARYING_DIMENSION.test(measurer),
       'the exempted measurer started reading a varying dimension',
     ).toBe(false)
-    // And the exemption must be NARROW: the two detectors must genuinely differ,
-    // or it is not an exemption at all, it is the same rule twice.
+
+    // ⭐ ROOT SELECTION — the half the first exemption did not ask about.
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test(measurer),
+      'the exempted measurer picks a React Flow instance from the DOCUMENT. In comparison mode the main canvas is unmounted and the only roots are two MiniCanvases rendering the same node ids, so this binds to a mini-map and returns its heights under the real nodes\' ids — which getNodeDimensions PREFERS over measured.height. Select up from the CanvasLabelScaleSync marker instead.',
+    ).toBe(false)
+    expect(
+      measurer,
+      'the exempted measurer no longer selects from the label-scale marker — there is nothing tying it to the MAIN canvas',
+    ).toMatch(/CANVAS_LABEL_SCALE_MARKER_SELECTOR[\s\S]*\.closest\(/)
+
+    // The two detectors must genuinely differ, or this is not an exemption at
+    // all, it is the same rule twice...
     expect(RUNTIME_DIMENSION.test("document.querySelector('.react-flow')")).toBe(true)
     expect(VARYING_DIMENSION.test("document.querySelector('.react-flow')")).toBe(false)
+    // ...and the replacement must genuinely BITE on what the drop let through.
+    // Without these three the exemption could be narrowed by a regex that
+    // matches nothing, which reads identically green.
+    expect(DOCUMENT_ROOTED_INSTANCE.test("document.querySelector('.react-flow')")).toBe(true)
+    expect(DOCUMENT_ROOTED_INSTANCE.test('document.querySelectorAll(".react-flow__node")')).toBe(true)
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test("marker.closest('.react-flow')"),
+      'the root-selection detector fires on the SANCTIONED form too — it is not discriminating, it is just banning the string',
+    ).toBe(false)
 
     // POSITIVE CONTROL on the detector — a synthetic offender must fire.
     expect(RUNTIME_DIMENSION.test('const w = window.innerWidth * 0.85')).toBe(true)

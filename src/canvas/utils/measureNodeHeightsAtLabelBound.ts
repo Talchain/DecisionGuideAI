@@ -59,6 +59,33 @@
  * graph at different zooms become identical, which is what R1 asks for and what
  * `layoutIsZoomInvariant` in the spec pins.
  *
+ * ⭐⭐ WHAT THIS ACTUALLY ACHIEVES, MEASURED — because "the layout ignores zoom"
+ * and "the number we feed the layout ignores zoom" are DIFFERENT CLAIMS, and
+ * only the first is provable in jsdom (review note 1). Driven in real Chromium
+ * over ten zooms from 1.2 to 0.4, each one asserted to have been REACHED AND
+ * HELD, with two agreeing reads per sample:
+ *
+ *   live Σ card height  3030 → 6211 px  (×2.05, seven distinct answers)
+ *   this module's answer   ONE answer across 1.2 · 1.0 · 0.9 · 0.8 · 0.7 ·
+ *                          0.6 · 0.5 — six distinct label scales
+ *
+ * ⚠ AND IT IS NOT PERFECTLY INVARIANT. THERE ARE TWO ANSWERS, NOT ONE, AND THE
+ * SECOND IS WORTH NAMING RATHER THAN ROUNDING AWAY. Below `LABEL_LEGIBLE_ZOOM`
+ * the store flag `lodActive` flips (`LodSync`), and this module pins the SCALE,
+ * not that FLAG — it cannot, because the flag is read by React components and
+ * a re-render is not available inside a synchronous measurement. So:
+ *
+ *   zoom ≥ 0.5 (LOD off)  Σ 6211    zoom < 0.5 (LOD on)  Σ 6119
+ *   difference: −92 px total (−1.48%), on 7 of 23 cards, worst −16 px
+ *
+ * ⭐ BOUNDED, AND IN THE SAFE DIRECTION — which is the whole of why it is left
+ * alone. Every LOD difference is a SHRINK, and the worst single card is 16 px
+ * against a designed row slack of `LAYOUT_PADDING_Y + effectiveLayerSpacing` =
+ * 64 px (45 px for a sub-row). A layout computed with LOD on under-reserves by
+ * at most 16 px where at least 45 px is available. The direction is pinned by
+ * `lodTitleBoostIsBounded.spec.ts`, which REDs if the boosted title ever grows
+ * past the size the layout reserves.
+ *
  * ⚠ WHY A DOM READ AND NOT ARITHMETIC. Height is not linear in the scale — only
  * the text runs scale, and how many LINES a title wraps to is a step function of
  * the font size. There is no closed form from `h(zoom)` to `h(bound)`; the
@@ -67,11 +94,22 @@
  * restore the property, all without yielding to the event loop.
  *
  * ⚠ WHY IT MAY RETURN AN EMPTY MAP, AND WHY THAT IS NOT A FAILURE. jsdom has no
- * layout, and a headless/SSR context has no React Flow root. Callers must treat
- * an absent entry as "no better information than `measured.height`" and fall
- * through — never as zero. A missing key must NEVER become a height.
+ * layout; a headless/SSR context has no React Flow root; and COMPARISON MODE
+ * unmounts the main canvas entirely. Callers must treat an absent entry as "no
+ * better information than `measured.height`" and fall through — never as zero.
+ * A missing key must NEVER become a height.
+ *
+ * ⚠ AND THAT SAFETY IS WEAKER THAN IT LOOKS, WHICH IS WHY ROOT SELECTION IS
+ * LOAD-BEARING: `getNodeDimensions` PREFERS a supplied bound over
+ * `measured.height`, so "fall through" only protects against a MISSING id. An
+ * id that is present and wrong — a mini-map's height under the real node's id —
+ * is taken. Absence is safe; a wrong instance is not.
  */
-import { CANVAS_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
+import {
+  CANVAS_LABEL_SCALE_VAR,
+  CANVAS_LABEL_SCALE_MARKER_SELECTOR,
+  MAX_LABEL_COUNTER_SCALE,
+} from './zoomLegibility'
 
 /**
  * Rendered height, in model px, of every mounted canvas node, measured with the
@@ -85,7 +123,27 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   const out = new Map<string, number>()
   if (typeof document === 'undefined') return out
 
-  const root = document.querySelector('.react-flow') as HTMLElement | null
+  // ⭐⭐ UP FROM THE SYNC'S OWN MARKER — NEVER `document.querySelector('.react-flow')`.
+  //
+  // That is the exact form this module's partner bans BY NAME
+  // (`CanvasLabelScaleSync`: *"never `document.querySelector`, which would reach
+  // the Compare-tab mini-maps"*), and here the harm is worse than a stray style
+  // write. `ReactFlowGraph` renders comparison mode as a TERNARY, so while it is
+  // on the main canvas is UNMOUNTED and the only roots on the page are two
+  // `<MiniCanvas>` instances rendering THE SAME node ids, un-re-keyed. A
+  // document-rooted lookup would return a mini-map's heights under the real
+  // nodes' ids — and `getNodeDimensions` PREFERS a supplied bound, so this
+  // module's "absent ⇒ fall through" safety would never engage: the ids are
+  // present and wrong. Probed: one root → `{n1:300, n2:280}`; two roots →
+  // `{n1:90, n2:84}`, the first root's.
+  //
+  // Asking the marker degrades to the DESIGNED inert path instead: no main
+  // canvas, no marker, no root, empty map, `measured.height` as before. The
+  // selector is DERIVED from the constant the marker itself is rendered with, so
+  // the writer and this reader cannot drift on which instance they mean.
+  const marker = document.querySelector(CANVAS_LABEL_SCALE_MARKER_SELECTOR)
+  if (marker === null) return out
+  const root = marker.closest('.react-flow') as HTMLElement | null
   if (root === null) return out
 
   const nodes = root.querySelectorAll('.react-flow__node[data-id]')

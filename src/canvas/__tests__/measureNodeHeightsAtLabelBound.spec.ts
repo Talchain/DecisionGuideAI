@@ -14,11 +14,30 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { measureNodeHeightsAtLabelBound } from '../utils/measureNodeHeightsAtLabelBound'
-import { CANVAS_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
+import {
+  CANVAS_LABEL_SCALE_VAR,
+  CANVAS_LABEL_SCALE_MARKER_TESTID,
+  MAX_LABEL_COUNTER_SCALE,
+} from '../utils/zoomLegibility'
 
-function mountCanvas(ids: string[], heights: Record<string, number>, scaleSeen: string[]): HTMLElement {
+/**
+ * @param withMarker mount the `CanvasLabelScaleSync` marker inside this root.
+ *   A `<MiniCanvas>` is a bare `<ReactFlow>` and carries NO marker — that
+ *   asymmetry is the whole contract, so it has to be expressible here.
+ */
+function mountCanvas(
+  ids: string[],
+  heights: Record<string, number>,
+  scaleSeen: string[],
+  withMarker = true,
+): HTMLElement {
   const root = document.createElement('div')
   root.className = 'react-flow'
+  if (withMarker) {
+    const marker = document.createElement('span')
+    marker.dataset.testid = CANVAS_LABEL_SCALE_MARKER_TESTID
+    root.appendChild(marker)
+  }
   for (const id of ids) {
     const el = document.createElement('div')
     el.className = 'react-flow__node'
@@ -77,5 +96,52 @@ describe('measureNodeHeightsAtLabelBound', () => {
     const out = measureNodeHeightsAtLabelBound()
     expect(out.get('a')).toBe(300)
     expect(out.has('zero')).toBe(false)
+  })
+
+  // ── WHICH INSTANCE (review finding F1) ────────────────────────────────────
+  // `ReactFlowGraph` renders comparison mode as a TERNARY: while it is on, the
+  // main canvas is UNMOUNTED and the only roots on the page are two
+  // `<MiniCanvas>` instances rendering THE SAME node ids, un-re-keyed. A
+  // document-rooted `.react-flow` lookup returns the FIRST of those.
+  //
+  // ⚠ These are not "nice to have". `getNodeDimensions` PREFERS a supplied bound
+  // over `measured.height`, so the module's "absent ⇒ fall through" safety only
+  // protects against a MISSING id. A mini-map's height under a real node's id is
+  // present, wrong, and taken.
+
+  it('measures NOTHING when the main canvas is unmounted and only mini-maps remain', () => {
+    // The reviewer's reproduction, as a corpus: two marker-less roots carrying
+    // the same ids at mini-map heights.
+    mountCanvas(['n1', 'n2'], { n1: 90, n2: 84 }, [], false)
+    mountCanvas(['n1', 'n2'], { n1: 90, n2: 84 }, [], false)
+
+    const out = measureNodeHeightsAtLabelBound()
+
+    expect(
+      out.size,
+      'a mini-map height arrived under a real node id — the caller PREFERS it over measured.height, so nothing downstream can recover',
+    ).toBe(0)
+  })
+
+  it('measures the MARKER\'s root, not the first root in the document', () => {
+    // The discriminating twin of the case above, and the reason the first one is
+    // not merely "returns empty when the DOM is odd": a mini-map is mounted
+    // FIRST and the real canvas second, so `document.querySelector` and the
+    // marker walk disagree, and the assertion says which one is right.
+    mountCanvas(['n1', 'n2'], { n1: 90, n2: 84 }, [], false)
+    mountCanvas(['n1', 'n2'], { n1: 300, n2: 280 }, [], true)
+
+    const out = measureNodeHeightsAtLabelBound()
+
+    expect(Object.fromEntries(out)).toEqual({ n1: 300, n2: 280 })
+  })
+
+  it('the marker must be INSIDE a React Flow root to select one', () => {
+    // A marker portalled out of the canvas (or left behind by an unmount) must
+    // not resolve to some ancestor that happens to exist. No root, empty map.
+    const stray = document.createElement('span')
+    stray.dataset.testid = CANVAS_LABEL_SCALE_MARKER_TESTID
+    document.body.appendChild(stray)
+    expect(measureNodeHeightsAtLabelBound().size).toBe(0)
   })
 })
