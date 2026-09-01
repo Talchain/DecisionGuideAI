@@ -75,12 +75,18 @@ vi.mock('../../hooks/useSelectionContext', () => ({ useSelectionContext: () => n
 vi.mock('../../hooks/usePrefersReducedMotion', () => ({ usePrefersReducedMotion: () => true }))
 vi.mock('../../../adapters/plot', () => ({ plot: { templates: () => new Promise(() => {}) } }))
 
-const thinkingMockState: { isThinking: boolean } = { isThinking: false }
-
 vi.mock('../../conversation/useConversation', async () => {
   const { useState } = await import('react')
+  const { create } = await import('zustand')
+  // A REAL store, not a static object: the generating window has to be
+  // ENTERED and then LEFT inside one test, and a non-subscribing mock cannot
+  // express that — which is exactly how a burnt one-shot latch stays
+  // invisible (mutant M3 survived the first kit for this reason).
+  const useThinkingStore = create(() => ({ isThinking: false }))
   return {
+    __useThinkingStore: useThinkingStore,
     useConversation: () => {
+      const { isThinking } = useThinkingStore()
       const [sendMessage] = useState(() => vi.fn())
       const [sendSystemEvent] = useState(() => vi.fn())
       const [sendChip] = useState(() => vi.fn())
@@ -89,7 +95,7 @@ vi.mock('../../conversation/useConversation', async () => {
       const [setPatchRejection] = useState(() => vi.fn())
       return {
         messages: [],
-        isThinking: thinkingMockState.isThinking,
+        isThinking,
         longRunningHint: null,
         lastSendFailure: null,
         sendMessage,
@@ -110,6 +116,11 @@ import { FirstUseComposer } from '../FirstUseComposer'
 import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
 import { registerFloatingFocus } from '../../hooks/useFloatingFocus'
 import { useCanvasStore } from '../../store'
+import * as useConversationModule from '../../conversation/useConversation'
+
+const thinkingStore = (useConversationModule as unknown as {
+  __useThinkingStore: { setState: (p: { isThinking: boolean }) => void }
+}).__useThinkingStore
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <ConversationProvider>{children}</ConversationProvider>
@@ -121,7 +132,7 @@ beforeEach(() => {
   useFloatingPanelState.getState().reset()
   useFloatingPanelState.getState().open('system-first-use')
   ;(useCanvasStore as any).setState({ nodes: [], edges: [] })
-  thinkingMockState.isThinking = false
+  thinkingStore.setState({ isThinking: false })
 })
 
 afterEach(() => {
@@ -165,7 +176,7 @@ describe('FirstUseComposer — focus ownership at the first paintable moment', (
   })
 
   it('does not claim focus while the draft is generating (the textarea is disabled in that window)', async () => {
-    thinkingMockState.isThinking = true
+    thinkingStore.setState({ isThinking: true })
 
     render(<FirstUseComposer />, { wrapper: Wrapper })
 
@@ -175,6 +186,29 @@ describe('FirstUseComposer — focus ownership at the first paintable moment', (
       await new Promise((r) => setTimeout(r, 10))
     })
     expect(document.activeElement).not.toBe(input)
+  })
+
+  it('the generating window must not BURN the one-shot: a failed draft gets the caret back', async () => {
+    // Enter the generating window first — the textarea is disabled here, and
+    // calling focus() on it is a silent no-op. A guard that merely *tried*
+    // and marked the latch spent would look identical right now...
+    thinkingStore.setState({ isThinking: true })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    const input = screen.getByTestId(HERO_TEXTAREA) as HTMLTextAreaElement
+    expect(input.disabled).toBe(true)
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10))
+    })
+    expect(document.activeElement).not.toBe(input)
+
+    // ...and only differ HERE, when the draft fails and the composer becomes
+    // the way in again. This is the assertion that makes the guard observable.
+    await act(async () => {
+      thinkingStore.setState({ isThinking: false })
+    })
+    const enabled = screen.getByTestId(HERO_TEXTAREA) as HTMLTextAreaElement
+    expect(enabled.disabled).toBe(false)
+    await waitFor(() => expect(document.activeElement).toBe(enabled))
   })
 
   it('re-arms after a canvas reset: focus is claimed again when the hero returns', async () => {
