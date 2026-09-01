@@ -4864,6 +4864,34 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // wrong) — re-derive it to the LOADED graph's goal node so a stale id
       // from the previous scenario cannot collide with a same-id node here.
       outcomeNodeId: restoredGoalId,
+      // ⭐ B2, EXTENDED TO THIS LEG: the element-identity record is PER-SCENARIO
+      // and this path replaced the graph without touching it. After A -> B the
+      // record still described A while the canvas showed B — the exact harm
+      // DECISION_CONTEXT_CLEAR's own comment names ("a previous scenario's set
+      // would authorise deleting same-id nodes in the newly loaded graph"), and
+      // this method does not spread that block.
+      //
+      // It is not a tidiness. The record's MEMBERSHIP consumer is the
+      // applied-edit reconciler (`mergeAppliedGraph.ts:477-484`), where
+      // membership AUTHORISES a removal — so an over-broad record lets a receipt
+      // delete a node of B's that CEE never held. And the id collision is the
+      // NORMAL case: ids are sequential integer strings (`createNodeId`) and
+      // `reseedIds` re-bases `nextNodeId` from the LOADED graph alone, so two
+      // scenarios of different sizes reissue the same ids by construction.
+      //
+      // ⚠ SEEDED, NOT CLEARED, AND NEVER `null`. `null` means "no evidence";
+      // an empty record means "evidence that this scenario holds nothing", and
+      // the three EXISTENCE consumers (`ownsServerGraph` at :1900 and :2002,
+      // `graphAcceptedForCanvas` in useProvisionalAnalysisDelivery) read the
+      // difference. The sibling leg of this same gesture
+      // (`useScenario.loadScenario` -> `hydrateGraphSlice`, below) records the
+      // loaded graph's full identity, and so does the boot arbiter's other
+      // branch; clearing here would leave one branch of one gesture unable to
+      // reconcile a deletion until a second receipt arrived. `nodes`/`edges`
+      // are the graph being installed by this very `set`, so the record and the
+      // canvas cannot disagree. An empty scenario yields an EMPTY record, which
+      // is the honest value for it.
+      lastAuthoritativeGraph: identityFromCanvasGraph(nodes, edges),
     })
 
     // Exit comparison mode when switching scenarios (lives in useComparisonStore as of C3-3)
