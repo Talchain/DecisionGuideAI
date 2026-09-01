@@ -54,6 +54,7 @@ import { computeFitPadding } from '../utils/computeFitPadding'
 import { countNodesOutsideFrame, readFocusCamera } from '../utils/cameraComfort'
 import { cameraDuration } from '../utils/cameraMotion'
 import { claimCameraForUser } from '../utils/userCameraClaim'
+import { currentModelKey } from '../utils/currentModelKey'
 import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
@@ -123,7 +124,7 @@ export function ModelExtentNotice() {
     // this notice appears for it CANNOT leave the whole model on screen; it ran
     // after this fit and parked the camera back at the floor. See
     // `utils/userCameraClaim.ts` for the two camera writes, timed and named.
-    claimCameraForUser()
+    claimCameraForUser(currentModelKey())
     const fitTargets = excludeNonModelNodes(getNodes())
     fitView({
       ...(fitTargets.length > 0 ? { nodes: fitTargets } : {}),

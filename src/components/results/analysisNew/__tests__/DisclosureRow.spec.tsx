@@ -69,7 +69,7 @@ describe('level 1 — scan', () => {
 describe('level 2 — understand', () => {
   it('expands to reveal detail, grounding and the contextual intervention', () => {
     renderRow(rich)
-    const toggle = screen.getByTestId('row-toggle')
+    const toggle = screen.getByTestId('row-row-toggle')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
 
     fireEvent.click(toggle)
@@ -89,7 +89,7 @@ describe('level 2 — understand', () => {
 
   it('wires aria-controls to the region that actually exists', () => {
     renderRow(rich)
-    const toggle = screen.getByTestId('row-toggle')
+    const toggle = screen.getByTestId('row-row-toggle')
     expect(toggle).not.toHaveAttribute('aria-controls')
     fireEvent.click(toggle)
     const id = toggle.getAttribute('aria-controls')
@@ -99,8 +99,8 @@ describe('level 2 — understand', () => {
 
   it('collapses back, unmounting the region', () => {
     renderRow(rich)
-    fireEvent.click(screen.getByTestId('row-toggle'))
-    fireEvent.click(screen.getByTestId('row-toggle'))
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
     expect(screen.queryByTestId('row-detail')).toBeNull()
   })
 })
@@ -108,7 +108,7 @@ describe('level 2 — understand', () => {
 describe('level 3 — inspect', () => {
   it('nests inside level 2 and is collapsed until asked for', () => {
     renderRow(rich)
-    fireEvent.click(screen.getByTestId('row-toggle'))
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
     expect(screen.queryByTestId('row-inspect')).toBeNull()
 
     fireEvent.click(screen.getByTestId('row-inspect-toggle'))
@@ -123,7 +123,7 @@ describe('a row with nothing beneath it is not an expander', () => {
     // The discriminating half: the SAME component, given a finding with no
     // detail / intervention / inspect rows, must not advertise a disclosure.
     renderRow(bare)
-    const toggle = screen.getByTestId('row-toggle')
+    const toggle = screen.getByTestId('row-row-toggle')
     expect(toggle).toBeDisabled()
     expect(toggle).not.toHaveAttribute('aria-expanded')
     fireEvent.click(toggle)
@@ -135,7 +135,7 @@ describe('actions', () => {
   it('routes canvas focus by the producer-named target id', () => {
     const onFocusTarget = vi.fn()
     renderRow(rich, { onFocusTarget })
-    fireEvent.click(screen.getByTestId('row-toggle'))
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
     fireEvent.click(screen.getByTestId('row-focus'))
     expect(onFocusTarget).toHaveBeenCalledWith('f_adopt')
   })
@@ -143,14 +143,14 @@ describe('actions', () => {
   it('runs the intervention by its engine recommendation id, not by its label', () => {
     const onRunIntervention = vi.fn()
     renderRow(rich, { onRunIntervention })
-    fireEvent.click(screen.getByTestId('row-toggle'))
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
     fireEvent.click(screen.getByTestId('row-intervention'))
     expect(onRunIntervention).toHaveBeenCalledWith('strengthen:voi')
   })
 
   it('offers no focus affordance when the producer named no target', () => {
     renderRow({ ...rich, targetId: undefined })
-    fireEvent.click(screen.getByTestId('row-toggle'))
+    fireEvent.click(screen.getByTestId('row-row-toggle'))
     expect(screen.queryByTestId('row-focus')).toBeNull()
   })
 })

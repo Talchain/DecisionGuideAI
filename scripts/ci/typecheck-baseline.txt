@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2154
+# count=2153
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -463,7 +463,7 @@
 8	src/pages/sandbox-guide/components/panel/sections/BiasMitigation.tsx
 4	src/pages/sandbox-guide/components/panel/sections/TopDriversSection.tsx
 1	src/pages/sandbox-guide/components/panel/sections/VerificationBadge.tsx
-3	src/pages/sandbox-guide/components/panel/states/EmptyState.tsx
+2	src/pages/sandbox-guide/components/panel/states/EmptyState.tsx
 15	src/pages/sandbox-guide/components/panel/states/InspectorState.tsx
 1	src/pages/sandbox-guide/components/shared/NodeReferenceBadges.tsx
 1	src/pages/sandbox-guide/components/shared/index.ts

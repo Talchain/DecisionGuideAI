@@ -76,6 +76,7 @@ import { getExpectedValue } from '../utils/getExpectedValue'
 import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
+import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { ANALYSIS_NEW_COPY as COPY, ANALYSIS_NEW_LABEL_FALLBACK } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -87,6 +88,7 @@ import type {
   AtAGlance,
   GlanceCondition,
   GlanceDriver,
+  DriverInfluenceRow,
   GlanceInputProvenance,
   GlanceVerdict,
   GlanceComparisonScope,
@@ -443,15 +445,28 @@ function driverFinding(
   // chain existed for legacy fixtures, and a fixture must not dictate production
   // semantics. Absent, the honest render is no number (rule 4).
   const influence = d.displayInfluence
-  // ⚠ THE PRODUCER'S DOMAIN IS `positive | negative | mixed | unknown`, and the
-  // last two are NOT a direction. `'moves'` is the honest verb for them: a
-  // factor whose direction the producer declined to resolve must not be
-  // rendered as raising or lowering anything. (An earlier draft compared
-  // against `'increase'`/`'decrease'` — tokens that do not exist in this union
-  // — so every row silently fell through to the neutral arm and the two real
-  // directions were never rendered at all. The typecheck gate caught it.)
-  const directionWord =
-    d.direction === 'positive' ? 'raises' : d.direction === 'negative' ? 'lowers' : 'moves'
+  /**
+   * ⚠⚠ THE DIRECTION WORD IS GONE FROM THIS SENTENCE, AND IT IS A RESTATEMENT
+   * FIX, NOT A LOSS.
+   *
+   * Witnessed on deployed `1be7c0b8`: the influence chart draws each driver's
+   * SIDE — "← Lowers the goal | Raises the goal →" with the bar on the
+   * matching half — and the row directly beneath it then said "lowers the
+   * outcome" in words. Every driver was on screen twice, with the direction
+   * duplicated, in the section where a chart had just been added to make the
+   * panel less textual. The chart made this sentence redundant the day it
+   * shipped.
+   *
+   * What the row keeps is what a BAR CANNOT STATE: the figure. A bar length is
+   * a rank comparison and never a number, so "Structural influence 90%" is
+   * additive where "lowers the outcome" is not.
+   *
+   * ⚠ THE NUANCE MOVES RATHER THAN DISAPPEARS. `mixed`/`unknown` are not a
+   * direction, and the chart says so explicitly — a centred bar plus "Direction
+   * not established" — which is a stronger statement than this sentence's
+   * neutral verb `'moves'` ever was. The two surfaces are built from ONE
+   * filtered list, so a row can never appear without its bar.
+   */
 
   return {
     id: `driver:${d.factorKey}`,
@@ -459,9 +474,13 @@ function driverFinding(
     // ⚠ Rule 2. Under a set-relative basis this says "among the strongest in
     // this run" — a RANK claim. It never says "drives N% of the outcome",
     // which would be an absolute causal share the basis does not license.
+    // ⚠ Rule 2 still holds. Under a set-relative basis this says "among the
+    // strongest in this run" — a RANK claim — and never "drives N% of the
+    // outcome", which would be an absolute causal share the basis does not
+    // license.
     implication: setRelative || influence == null
-      ? `Among the strongest influences in this run; ${directionWord} the outcome.`
-      : `Structural influence ${pct(influence)}; ${directionWord} the outcome.`,
+      ? `Among the strongest influences in this run.`
+      : `Structural influence ${pct(influence)}.`,
     detail:
       d.fragileEdgeInfo?.switchProbability != null
         ? `This relationship is one the result is sensitive to.`
@@ -524,12 +543,38 @@ function buildDrivers(
   // to tell "we measured, and it was zero" apart from "we got nothing", and an
   // empty `findings` array cannot.
   const suppressedZero = drivers.filter((d) => d.zeroReason != null)
-  const findings = drivers
-    .filter((d) => d.zeroReason == null)
-    .map((d) => driverFinding(d, influenceIsSetRelative, recommendations))
+  const live = drivers.filter((d) => d.zeroReason == null)
+  const findings = live.map((d) => driverFinding(d, influenceIsSetRelative, recommendations))
+
+  // ⭐ THE SAME MAGNITUDE EXPRESSION THE GLANCE USES, FOR THE SAME REASON IT
+  // USES IT: `displayInfluence` or nothing. A bar drawn from a mixed basis
+  // ranks across two different scales, and two surfaces deriving one ranking
+  // differently disagree the first time either input moves (trap 12).
+  const magnitude = (d: (typeof live)[number]) => d.displayInfluence ?? 0
+  // ⚠ SCALED TO THE STRONGEST DRIVER IN THIS RUN, NOT TO A SUM — the glance's
+  // rule, and it is load-bearing here too: scaling to a sum would render each
+  // bar as a SHARE OF THE OUTCOME, a claim neither basis licenses.
+  const strongest = Math.max(...live.map(magnitude), 0)
+  const influenceRows: DriverInfluenceRow[] = live
+    .slice()
+    .sort((a, b) => magnitude(b) - magnitude(a))
+    .map((d) => ({
+      id: d.factorKey,
+      label: d.factorLabel,
+      fraction: strongest > 0 ? Math.max(0.04, magnitude(d) / strongest) : 0,
+      // ⚠ `isDirectionalFactor`, NEVER `direction != null`. `mixed` and
+      // `unknown` are PRESENT values that still forbid a directional claim —
+      // narrowing them to a side is exactly the defect ROADMAP 2.234 widened
+      // this domain to stop, and it is the defect the old chart still ships.
+      direction: isDirectionalFactor(d.direction) ? d.direction : null,
+      // Fail-closed focus pre-gate: an unfocusable row yields null and renders
+      // as text, never a dead affordance.
+      targetId: d.canFocus ? (d.matchedNodeId ?? d.factorKey) : null,
+    }))
 
   return {
     findings,
+    influenceRows,
     influenceIsSetRelative,
     referenceOptionLabel: data.sensitivityReference?.optionLabel ?? null,
     totalCount: findings.length,
@@ -2195,6 +2240,7 @@ export function buildAnalysisNewViewModel(
     drivers: preRun
       ? {
           findings: [],
+          influenceRows: [],
           totalCount: 0,
           influenceIsSetRelative: false,
           referenceOptionLabel: null,

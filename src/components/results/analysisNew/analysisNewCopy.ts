@@ -356,6 +356,104 @@ export const ANALYSIS_NEW_COPY = {
    * positive — "this node looks fine" is a claim nothing measured, and it is
    * exactly the sentence a panel like this drifts towards.
    */
+  /**
+   * The influence chart's axis and its non-directional state.
+   *
+   * ⚠ "Lowers"/"Raises" NAME THE EFFECT ON THE GOAL, not on the factor. The
+   * producer's `direction` is documented as "'positive' = increases goal", so
+   * a cost factor whose direction is negative LOWERS the goal — which is the
+   * distinction the old chart loses by branching on goal direction instead.
+   */
+  driverChart: {
+    lowers: 'Lowers the goal',
+    raises: 'Raises the goal',
+    /**
+     * ⚠ NOT "no direction" AND NOT SILENCE. `mixed` and `unknown` are results:
+     * the producer measured the factor and declined to assert one direction.
+     * "Direction not established" says that; "no direction" would report an
+     * absence of effect that was never measured.
+     */
+    directionNotEstablished: 'Direction not established',
+    /**
+     * The section header for the chart. It names the QUESTION the chart
+     * answers, which is not the question the glance's bars answer — those rank
+     * the top three by size; this one says which way each pushes and lets you
+     * change it.
+     */
+    title: 'Which way each driver pushes',
+  },
+  heldUp: {
+    /**
+     * ⚠ "HELD UP", NOT "LOOKS GOOD" AND NOT "READY TO DECIDE". The producer
+     * tested the model and it did not break — that is a statement about the
+     * MODEL under testing, not a verdict on the decision, and certainly not
+     * permission. The verb is the strongest honest one available.
+     */
+    title: 'Your model held up under testing',
+    /**
+     * ⚠⚠ SAID IN THE SAME BREATH AS THE GOOD NEWS, never behind a disclosure.
+     * This is the moment the surface is most likely to be read as absolution,
+     * and the product's first principle is that humans remain the authors.
+     */
+    limit: 'That is a result about the model, not about the decision. What it assumes is still yours to judge.',
+    /** The move. Named for what the team gets, not for what the system does. */
+    record: 'Record what you decided, and why',
+  },
+  /**
+   * The success target — the question a strategist answers FIRST and this panel
+   * never asked.
+   */
+  successTarget: {
+    label: 'Target',
+    /**
+     * ⚠ "No target set" IS A FACT ABOUT THE MODEL, and it is not the same
+     * sentence as `unexpressible` below. Collapsing them would tell a user who
+     * DID set a target that they never did.
+     */
+    none: 'None set',
+    /**
+     * ⚠⚠ A REAL VALUE WE CANNOT EXPRESS IN THE USER'S UNITS. The store tags
+     * thresholds `raw` or `normalised`; a bare 0-1 rendered as a target once
+     * "showed 0.8 when the real target was 20%". Saying so is honest; printing
+     * the number is the defect.
+     */
+    /**
+     * ⚠⚠ IT NO LONGER SAYS "Set", AND THAT IS A WITNESS-DRIVEN CORRECTION.
+     *
+     * On deployed `6e58c921` this rendered **"Target: Set, but not in a unit we
+     * can show"** roughly 120px above the coaching card **"Define success — No
+     * measurable success target is set"**. Two sentences on ONE panel, one
+     * saying set and one saying not set, about the same thing.
+     *
+     * The two surfaces answer different questions — this reads the MODEL's
+     * threshold from the canvas store, the card's input comes through the
+     * RUN's `recommendation.goalThreshold` — and per CLAUDE.md trap 21 the fix
+     * for two authorities that appear to disagree is NOT to align their
+     * defaults. But `Set` was the weakest claim of the two: we hold a
+     * normalised number we cannot interpret, and calling that "set" from the
+     * reader's side is generous. Dropping the word removes the contradiction
+     * without asserting anything about the other surface's question.
+     *
+     * ⚠ THE TWO ABSENCES STAY DISTINCT. This is still a different sentence
+     * from `none` — "we have nothing" and "we have something unusable" are
+     * different facts, and the mutant that collapses them still bites. What
+     * changed is that neither now claims a state the reader cannot verify.
+     */
+    unexpressible: 'No target we can show',
+    set: 'Set a target',
+    change: 'Change',
+    inputLabel: 'Success target for this goal',
+    /**
+     * ⚠⚠ `local_only` IS THE ONLY OUTCOME THIS CONTROL CAN REPORT, and the copy
+     * says what that means rather than implying a save. There is no server
+     * carrier for a goal threshold — `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget`
+     * is `'disabled'`, and the four that exist are `factor_value_edit`,
+     * `prior_range_edit`, `edge_adjudication`, `structural_delete`. Borrowing
+     * the strip editor's "sent" sentence would claim an acceptance nothing gave.
+     */
+    savedLocally: 'Target set on your model. It will be used the next time you analyse.',
+    notEncodable: 'That target could not be applied, so nothing changed.',
+  },
   modelStrip: {
     /**
      * The affordance, stated once above the marks. It describes the CONTROL,
@@ -576,6 +674,13 @@ export const ANALYSIS_NEW_COPY = {
      * trained out of a reader.
      */
     freshnessUnknown: 'We cannot confirm whether this analysis reflects the current model.',
+    /**
+     * ⚠ NAMED FOR THE OUTCOME, NOT THE MECHANISM. "Re-analyse" describes what
+     * the system does; "to be sure" says what the READER gets, which is the
+     * only reason they would press it. It serves BOTH ribbon states — a changed
+     * model and an unconfirmable one are resolved by the same act.
+     */
+    reanalyseToBeSure: 'Re-run to be sure',
     /**
      * ⚠ COVERAGE, NOT READINESS. Says the RESULT is incomplete; never that
      * analysis may not run — `RunAdmission` owns readiness and this surface

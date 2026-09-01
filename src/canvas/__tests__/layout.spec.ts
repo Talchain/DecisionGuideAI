@@ -27,21 +27,55 @@ function makeEdge(id: string, source: string, target: string): Edge {
 
 /**
  * Check that no two nodes overlap given their layout positions.
- * Uses the largest NODE_REGISTRY bounding box as the conservative check:
- *   goal/decision: defaultSize 240w + 24px ELK padding = 264px wide
- *   all types:     defaultSize 100h + 16px ELK padding = 116px tall
+ *
+ * ⚠⚠ THIS GUARD WAS VACUOUS AND IS THE REASON A WHOLE WAVE OF CARD-HEIGHT
+ * CHANGES SHIPPED UNDER A GREEN SUITE (repaired 1 Sep 2026). Two defects, and
+ * the second is the one that mattered:
+ *
+ * 1. It compared position ORIGINS against a FIXED box for every node
+ *    (`Math.abs(a.x - b.x) < nodeW`), so it was never a rectangle-intersection
+ *    test at all. Two cards of different heights could not be judged.
+ * 2. The box was hardcoded at DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y = 116 px,
+ *    while cards on the deployed canvas render 152-284 model px (measured in
+ *    real Chromium, `e2e/geometry/nodeOverlap.measure.ts`). A 137 px row pitch
+ *    under a 161 px card is a real 24 px overlap — and 137 > 116, so this guard
+ *    PASSED on exactly the geometry the founder photographed.
+ *
+ * It now derives each node's box FROM THAT NODE, by id, using the same
+ * precedence `getNodeDimensions` applies in `layout.ts`
+ * (`measured?.height ?? height ?? defaultSize.height`, plus ELK padding), and
+ * performs a true rectangle intersection. A caller may still pin explicit
+ * dimensions, but there is no longer a single constant standing in for every
+ * card.
+ *
+ * ⚠ DERIVATION ALONE WOULD NOT HAVE CAUGHT THIS EITHER (CLAUDE.md trap 12d: a
+ * derived guard proves agreement, never completeness). Every fixture in this
+ * file uses `makeNode`, which carries NO measured height, so every box was the
+ * 100 px default and the guard could agree with itself forever. The corpus is
+ * what notices — see `nodes do not overlap when cards render at their REAL
+ * measured heights` below, which feeds the measured 152-284 px range in.
  */
-function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
+function checkNoOverlap(nodes: Node[], nodeW?: number, nodeH?: number): void {
+  /** Same precedence as `getNodeDimensions` in layout.ts, per node id. */
+  const boxOf = (n: Node): { w: number; h: number } => {
+    const measured = (n as { measured?: { width?: number; height?: number } }).measured
+    const h = nodeH ?? (measured?.height ?? (n as { height?: number }).height ?? DEFAULT_NODE_HEIGHT) + LAYOUT_PADDING_Y
+    const w = nodeW ?? (measured?.width ?? (n as { width?: number }).width ?? 240) + LAYOUT_PADDING_X
+    return { w, h }
+  }
+
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
-      const a = nodes[i].position
-      const b = nodes[j].position
-      const overlapX = Math.abs(a.x - b.x) < nodeW
-      const overlapY = Math.abs(a.y - b.y) < nodeH
+      const A = nodes[i], B = nodes[j]
+      const a = A.position, b = B.position
+      const ba = boxOf(A), bb = boxOf(B)
+      const overlapX = Math.min(a.x + ba.w, b.x + bb.w) - Math.max(a.x, b.x)
+      const overlapY = Math.min(a.y + ba.h, b.y + bb.h) - Math.max(a.y, b.y)
       expect(
-        overlapX && overlapY,
-        `Nodes ${nodes[i].id} and ${nodes[j].id} overlap: ` +
-        `(${a.x},${a.y}) vs (${b.x},${b.y})`
+        overlapX > 0 && overlapY > 0,
+        `Nodes ${A.id} and ${B.id} overlap by ${Math.round(overlapX)}x${Math.round(overlapY)}px: ` +
+        `${A.id} at (${a.x},${a.y}) is ${ba.w}x${ba.h}, ` +
+        `${B.id} at (${b.x},${b.y}) is ${bb.w}x${bb.h}`
       ).toBe(false)
     }
   }
@@ -537,7 +571,72 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {})
-    checkNoOverlap(laid, NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X, DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y)
+    checkNoOverlap(laid, NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X)
+  })
+
+  /**
+   * ⭐ THE CORPUS THAT MAKES `checkNoOverlap` ABLE TO FAIL.
+   *
+   * Every other fixture here uses `makeNode`, which carries no measured height,
+   * so `layoutGraph` sizes every box at DEFAULT_NODE_HEIGHT (100) and the guard
+   * compares 116 px boxes to a layout built from 116 px boxes — agreeing with
+   * itself no matter what the layout does with a tall card.
+   *
+   * These heights are MEASURED, not invented: real Chromium, deployed staging
+   * `d4ff3683`, the shipped starters at 1440x900
+   * (`e2e/geometry/nodeOverlap.measure.ts`). Cards render 152-284 model px on
+   * the founder's model and up to 529 px on `build-vs-buy` — 1.5x to 5x the
+   * 100 px the layout reserves by default. If a future card change makes
+   * `layoutGraph` mis-handle tall cards, this REDs.
+   *
+   * ⚠ SCOPE, STATED PRECISELY (CLAUDE.md trap 20): this pins that the LAYOUT
+   * places tall cards without overlap. It does NOT and CANNOT pin the defect
+   * that actually shipped — that layout was never RE-RUN once the cards grew,
+   * which is a browser-timing property jsdom cannot observe at all. That one is
+   * pinned by `useMeasureThenLayout.heightSubscription.spec.tsx` and witnessed
+   * by `e2e/geometry/nodeOverlap.measure.ts`. Two different claims; neither
+   * guard substitutes for the other.
+   */
+  it('nodes do not overlap when cards render at their REAL measured heights', async () => {
+    const H: Record<string, number> = {
+      d: 284, o1: 302, o2: 302, o3: 355,
+      f1: 300, f2: 251, f3: 269, f4: 244, f5: 251, f6: 529, f7: 152,
+      out: 198, r1: 241, g: 197,
+    }
+    const tall = (id: string, type: string): Node => ({
+      ...makeNode(id, type),
+      measured: { width: 232, height: H[id] },
+    } as Node)
+
+    const nodes: Node[] = [
+      tall('d', 'decision'),
+      tall('o1', 'option'), tall('o2', 'option'), tall('o3', 'option'),
+      tall('f1', 'factor'), tall('f2', 'factor'), tall('f3', 'factor'),
+      tall('f4', 'factor'), tall('f5', 'factor'), tall('f6', 'factor'), tall('f7', 'factor'),
+      tall('out', 'outcome'),
+      tall('r1', 'risk'),
+      tall('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
+      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'), makeEdge('e9', 'o3', 'f6'),
+      makeEdge('e10', 'o3', 'f7'),
+      makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
+      makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
+    ]
+
+    const { nodes: laid } = await layoutGraph(nodes, edges, {})
+
+    // The guard must be reading the REAL heights, not the 100 px default —
+    // otherwise this whole case is theatre (it would pass on any layout).
+    const laidById = new Map(laid.map(n => [n.id, n]))
+    expect(
+      (laidById.get('f6') as { measured?: { height?: number } } | undefined)?.measured?.height,
+      'the 529 px card must survive layoutGraph, or this corpus proves nothing',
+    ).toBe(529)
+
+    checkNoOverlap(laid)
   })
 
   it('decision node is always above options which are above factors', async () => {

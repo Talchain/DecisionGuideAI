@@ -15,6 +15,7 @@
 
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { DisclosureRow } from '../DisclosureRow'
@@ -77,6 +78,17 @@ export interface AnalysisNewSectionProps {
   emptyMessage?: string | null
   onFocusTarget?: (targetId: string) => void
   onRunIntervention?: (recommendationId: string) => void
+  /**
+   * Rendered ABOVE the findings, inside the opened section — for a section
+   * whose data has a visual form as well as a prose form.
+   *
+   * ⚠ IT DOES NOT KEEP AN EMPTY SECTION ALIVE. The early return below still
+   * fires on no findings and no empty message, deliberately: a chart with no
+   * rows under a heading is the same "heading promising content" defect §19
+   * records, and the two are derived from ONE filtered list upstream, so they
+   * are empty together or not at all.
+   */
+  header?: ReactNode
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId: string
@@ -92,6 +104,7 @@ export function AnalysisNewSection({
   onFocusTarget,
   onRunIntervention,
   icon,
+  header,
   testId,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
@@ -113,6 +126,22 @@ export function AnalysisNewSection({
       // click on nothing; the honest empty section still opens to its sentence,
       // which is a claim about the run and must stay reachable.
       count={findings.length > 0 ? findings.length : null}
+      /**
+       * ⭐ A SECTION HOLDING EXACTLY ONE ITEM OPENS ITSELF.
+       *
+       * Progressive disclosure earns its keep by hiding BULK. At one item it
+       * hides nothing worth hiding and charges a click for it: the collapsed
+       * row — heading, count, chevron — is about as tall as the single line it
+       * conceals, so the reader pays an interaction and gains no vertical
+       * space. A count of "1" is also the least informative label this panel
+       * produces; it tells you how many and never whether it matters.
+       *
+       * ⚠ THE HEIGHT ARGUMENT IS WHY IT STOPS AT ONE. `SectionShell`'s
+       * default-closed rule exists because this panel measured 1,584px against
+       * a 769px viewport — opening a section with several rows would spend that
+       * fix. One row cannot.
+       */
+      defaultOpen={findings.length === 1}
       subtitle={subtitle}
       testId={testId}
     >
@@ -121,6 +150,12 @@ export function AnalysisNewSection({
           {caveat}
         </p>
       ) : null}
+
+      {/* ⚠ BELOW THE CAVEAT, ON PURPOSE. The caveat says what basis the
+          magnitudes are on ("largest in this set", not a share of the outcome);
+          a reader who meets the bars first has already formed the reading it
+          exists to prevent. */}
+      {header ?? null}
 
       {findings.length === 0 ? (
         emptyMessage ? (

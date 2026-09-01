@@ -115,6 +115,47 @@ function makeDiagnosticTrace(): Record<string, unknown> {
   }
 }
 
+/**
+ * The draft-quality record CEE attaches when the reject-and-redraw pass fired.
+ *
+ * Shape derived from the PRODUCER (`src/cee/draft-quality/types.ts`,
+ * `DraftQualityTraceRecord`, CEE PR #1309), not from what this consumer would
+ * find convenient — the expectation has to come from the producer's declared
+ * semantics or a full mutant score is a perfect mark on the wrong exam.
+ *
+ * `discarded_graph` carries DISTINCTIVE node labels on purpose: they are what
+ * the verbatim-carry assertion binds to, so a truncating or summarising
+ * implementation cannot pass by shipping the right key with hollowed content.
+ */
+function makeDraftQualityRecord(): Record<string, unknown> {
+  return {
+    redraw_spent: true,
+    shipped: 'second',
+    improved: true,
+    second_outcome: 'richer',
+    first_coverage: { causal_waist: 1, option_count: 5, factor_count: 3 },
+    second_coverage: { causal_waist: 4, option_count: 5, factor_count: 9 },
+    second_verdict: { kind: 'adequate' },
+    discarded_graph: {
+      nodes: [
+        { id: 'n1', type: 'decision', label: 'DISCARDED-SENTINEL-decision-node' },
+        { id: 'n2', type: 'option', label: 'DISCARDED-SENTINEL-option-a' },
+        { id: 'n3', type: 'factor', label: 'DISCARDED-SENTINEL-the-single-waist' },
+        { id: 'n4', type: 'goal', label: 'DISCARDED-SENTINEL-goal-node' },
+      ],
+      edges: [
+        { id: 'e1', source: 'n2', target: 'n3' },
+        { id: 'e2', source: 'n3', target: 'n4' },
+      ],
+    },
+  }
+}
+
+/** A trace from a turn where the pass DID redraw. */
+function makeDiagnosticTraceWithDraftQuality(): Record<string, unknown> {
+  return { ...makeDiagnosticTrace(), draft_quality: makeDraftQualityRecord() }
+}
+
 function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
   return {
     overall: { status: 'success', total_duration_ms: 1200, request_id: 'req-main' },
@@ -294,6 +335,7 @@ describe('Debug Bundle v2.0', () => {
       expect(bundle.structured_output_config).toBeNull()
       expect(bundle.streaming_metrics).toBeNull()
       expect(bundle.fallback_trace).toBeNull()
+      expect(bundle.draft_quality).toBeNull()
     })
   })
 
@@ -314,6 +356,7 @@ describe('Debug Bundle v2.0', () => {
       expect(bundle.structured_output_config).toBeUndefined()
       expect(bundle.streaming_metrics).toBeUndefined()
       expect(bundle.fallback_trace).toBeUndefined()
+      expect(bundle.draft_quality).toBeUndefined()
     })
   })
 
@@ -397,6 +440,7 @@ describe('Debug Bundle v2.0', () => {
         'structured_output_config',
         'streaming_metrics',
         'fallback_trace',
+        'draft_quality',
       ]
 
       for (const key of v2Keys) {
@@ -455,6 +499,74 @@ describe('Debug Bundle v2.0', () => {
     })
   })
 
+  // ===========================================================================
+  // draft_quality — the discarded-draft inspection route (CEE PR #1309)
+  //
+  // The requirement: "A repair pass that silently hides bad drafts destroys the
+  // only signal we have about draft quality. We need visibility of the original
+  // graph produced and what the system does to fix it."
+  //
+  // CEE puts the rejected draw on `_diagnostic_trace.draft_quality`. The export
+  // block in exportBundle.ts ENUMERATES named keys, so before this pair existed
+  // the key was dropped one hop short of the owner.
+  //
+  // ⭐ TWO TWINS, FAILING ON DIFFERENT ASSERTIONS — one alone proves nothing:
+  //   - CARRIES  REDs on the deep-equality/verbatim assertion. It proves the
+  //     record arrives at all, and arrives WHOLE.
+  //   - DOES NOT FABRICATE  REDs on the honest-`null` assertion. It proves a
+  //     turn with no redraw does not grow an invented record. Without it, an
+  //     implementation that synthesised `{}` — or one that reported a discarded
+  //     draft on every turn — would pass the first twin perfectly.
+  // ===========================================================================
+  describe('draft_quality — the discarded draft reaches the export', () => {
+    it('CARRIES the rejected draw, whole and verbatim, when the pass redrew', () => {
+      const trace = makeDiagnosticTraceWithDraftQuality()
+      const bundle = buildDebugBundle(makeDebugData({ diagnostic_trace: trace }))
+
+      // Bound by IDENTITY to the producer's record, not to a value predicate
+      // another object could satisfy.
+      expect(bundle.draft_quality).toEqual(trace.draft_quality)
+
+      const record = bundle.draft_quality as Record<string, unknown>
+      expect(record.shipped).toBe('second')
+      expect(record.second_outcome).toBe('richer')
+
+      // ⭐ VERBATIM, not merely present. A summarising or truncating carry
+      // would satisfy `toBeDefined()` and even a shallow key check, so the
+      // assertion binds to the discarded graph's actual CONTENT.
+      const discarded = record.discarded_graph as { nodes: unknown[]; edges: unknown[] }
+      expect(discarded.nodes).toHaveLength(4)
+      expect(discarded.edges).toHaveLength(2)
+      expect(JSON.stringify(discarded)).toContain('DISCARDED-SENTINEL-the-single-waist')
+
+      // The whole point of the requirement: the owner can read the rejected
+      // graph out of a serialised bundle, not just a verdict about it.
+      expect(JSON.stringify(bundle)).toContain('DISCARDED-SENTINEL-decision-node')
+    })
+
+    it('does NOT fabricate a record on a turn where the pass did not redraw', () => {
+      // The ordinary case: a real trace, no `draft_quality` on it at all.
+      const trace = makeDiagnosticTrace()
+      expect(trace.draft_quality).toBeUndefined() // pins the precondition in-test
+      const bundle = buildDebugBundle(makeDebugData({ diagnostic_trace: trace }))
+
+      // Honest absence, and specifically `null` rather than `{}` or a stub:
+      // `null` says "we read the trace and there was no redraw", which is the
+      // statement that distinguishes it from "the UI dropped it".
+      expect(bundle.draft_quality).toBeNull()
+      expect(bundle.draft_quality).not.toEqual({})
+
+      // No discarded draft may be invented anywhere in the bundle.
+      expect(JSON.stringify(bundle)).not.toContain('discarded_graph')
+
+      // Contrast control — the sibling keys DID populate from the same trace,
+      // so the null above is a real read of an absent key, not a blind probe
+      // that would report null no matter what the trace held.
+      expect(bundle.llm_calls).toEqual(trace.llm_calls)
+      expect(bundle.fallback_trace).toEqual(trace.fallback_trace)
+    })
+  })
+
   describe('flag OFF produces no v2 keys at all (strict)', () => {
     it('v1.5 bundle has zero v2-only keys', () => {
       import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
@@ -464,7 +576,7 @@ describe('Debug Bundle v2.0', () => {
 
       const v2OnlyKeys = ['llm_calls', 'prompt_identity', 'zone2_assembly', 'tool_policy',
         'provider_resolution', 'structured_output_config', 'streaming_metrics',
-        'fallback_trace', '_unavailable_reason']
+        'fallback_trace', 'draft_quality', '_unavailable_reason']
 
       for (const key of v2OnlyKeys) {
         expect(bundleKeys).not.toContain(key)

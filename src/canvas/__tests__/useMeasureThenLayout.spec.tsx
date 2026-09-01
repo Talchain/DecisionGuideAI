@@ -114,7 +114,18 @@ describe('useMeasureThenLayout', () => {
       vi.advanceTimersByTime(1)
     })
     expect(applySpy).toHaveBeenCalledTimes(1)
-    expect(applySpy.mock.calls[0][0]).toEqual({ skipHistory: true, requestId: 1 })
+    // ⭐ EXACT-OBJECT, AND `initiatedBy` IS PART OF THE CONTRACT, NOT NOISE.
+    // Every layout this hook dispatches is one the PRODUCT decided to run, and
+    // `useFitViewOnLayoutVersion` reads exactly this field to decide whether an
+    // automatic re-fit may take the camera off a user who has framed it. Drop it
+    // here and the corrective passes start counting as user gestures again,
+    // which is the defect this field was added to close. Keep the assertion
+    // exact so a silently added OR dropped option fails here.
+    expect(applySpy.mock.calls[0][0]).toEqual({
+      skipHistory: true,
+      requestId: 1,
+      initiatedBy: 'product',
+    })
   })
 
   it('fallback deadline survives effect re-renders instead of restarting the full timeout', () => {
@@ -147,7 +158,18 @@ describe('useMeasureThenLayout', () => {
       vi.advanceTimersByTime(1)
     })
     expect(applySpy).toHaveBeenCalledTimes(1)
-    expect(applySpy.mock.calls[0][0]).toEqual({ skipHistory: true, requestId: 1 })
+    // ⭐ EXACT-OBJECT, AND `initiatedBy` IS PART OF THE CONTRACT, NOT NOISE.
+    // Every layout this hook dispatches is one the PRODUCT decided to run, and
+    // `useFitViewOnLayoutVersion` reads exactly this field to decide whether an
+    // automatic re-fit may take the camera off a user who has framed it. Drop it
+    // here and the corrective passes start counting as user gestures again,
+    // which is the defect this field was added to close. Keep the assertion
+    // exact so a silently added OR dropped option fails here.
+    expect(applySpy.mock.calls[0][0]).toEqual({
+      skipHistory: true,
+      requestId: 1,
+      initiatedBy: 'product',
+    })
   })
 
   it('cleanup cancels the fallback timer when pendingLayout flips false before it fires', () => {
@@ -186,7 +208,18 @@ describe('useMeasureThenLayout', () => {
     renderHook(() => useMeasureThenLayout())
 
     expect(applySpy).toHaveBeenCalledTimes(1)
-    expect(applySpy.mock.calls[0][0]).toEqual({ skipHistory: true, requestId: 1 })
+    // ⭐ EXACT-OBJECT, AND `initiatedBy` IS PART OF THE CONTRACT, NOT NOISE.
+    // Every layout this hook dispatches is one the PRODUCT decided to run, and
+    // `useFitViewOnLayoutVersion` reads exactly this field to decide whether an
+    // automatic re-fit may take the camera off a user who has framed it. Drop it
+    // here and the corrective passes start counting as user gestures again,
+    // which is the defect this field was added to close. Keep the assertion
+    // exact so a silently added OR dropped option fails here.
+    expect(applySpy.mock.calls[0][0]).toEqual({
+      skipHistory: true,
+      requestId: 1,
+      initiatedBy: 'product',
+    })
   })
 
   it('blocked: does not invoke applyLayout while layoutInProgress is true', () => {
@@ -271,6 +304,17 @@ describe('useMeasureThenLayout', () => {
     callback()
 
     expect(applySpy).toHaveBeenCalledTimes(1)
-    expect(applySpy.mock.calls[0][0]).toEqual({ skipHistory: true, requestId: 1 })
+    // ⭐ EXACT-OBJECT, AND `initiatedBy` IS PART OF THE CONTRACT, NOT NOISE.
+    // Every layout this hook dispatches is one the PRODUCT decided to run, and
+    // `useFitViewOnLayoutVersion` reads exactly this field to decide whether an
+    // automatic re-fit may take the camera off a user who has framed it. Drop it
+    // here and the corrective passes start counting as user gestures again,
+    // which is the defect this field was added to close. Keep the assertion
+    // exact so a silently added OR dropped option fails here.
+    expect(applySpy.mock.calls[0][0]).toEqual({
+      skipHistory: true,
+      requestId: 1,
+      initiatedBy: 'product',
+    })
   })
 })

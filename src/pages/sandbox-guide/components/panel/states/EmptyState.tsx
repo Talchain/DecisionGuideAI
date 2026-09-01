@@ -15,7 +15,13 @@ export function EmptyState(): JSX.Element {
   const handleBuildManually = () => {
     // Add initial outcome node to get started
     addNode({ type: 'outcome', x: 400, y: 200 })
-    applyLayout('LR')
+    // ⚠ WAS `applyLayout('LR')`, WHICH NEVER MEANT ANYTHING. `applyLayout` takes
+    // an OPTIONS object, not a direction — the direction comes from
+    // `layoutStore` — so the string was read as `opts`, every `opts?.x` lookup
+    // resolved to undefined, and TypeScript had rejected the call since before
+    // this line was written (it sat in the typecheck baseline). Dropping the
+    // argument is byte-identical at runtime and removes the error.
+    applyLayout()
   }
 
   const handleTemplate = () => {

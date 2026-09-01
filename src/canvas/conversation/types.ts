@@ -1198,6 +1198,18 @@ export interface OrchestratorResponseEnvelopeV2 {
     structured_output_config?: unknown
     streaming_metrics?: unknown
     fallback_trace?: unknown[]
+    /**
+     * Draft-quality reject-and-redraw record (CEE PR #1309). Present ONLY on a
+     * turn where the second AI pass judged the draft thin and spent another
+     * draw; absent otherwise, which honestly means "the pass did not redraw".
+     * Carries `discarded_graph` — the draft that was REJECTED, kept whole.
+     *
+     * Declared here for discoverability rather than necessity: the index
+     * signature below already admits it. Named anyway, because the export
+     * layer enumerates trace keys and an unnamed key is how this one went
+     * missing from the debug bundle in the first place.
+     */
+    draft_quality?: unknown
     [key: string]: unknown
   } | null
   /**

@@ -48,6 +48,7 @@ import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
+import { openDecisionRecord } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
@@ -55,8 +56,11 @@ import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights } from './nodeInsights'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
+import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
+import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
+import { ModelHeldUp } from './sections/ModelHeldUp'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
@@ -82,6 +86,21 @@ export interface AnalysisNewTabBodyProps {
   responseHash?: string
   /** OutputsDock's canvas-focus handler, shared with the existing tab. */
   onFocusNode?: (nodeId: string) => void
+  /**
+   * The dock's own re-analyse handler. Absent = the staleness ribbon offers no
+   * control, which is the honest render — never a dead button.
+   */
+  onReanalyse?: () => void
+  /**
+   * The dock's own chat sender, shared with the existing tab.
+   *
+   * ⚠ ITS ABSENCE IS NOT A FAILURE — `WhatIWasGivenSection` gates its "Add
+   * this" affordance on this prop precisely so an unmodelled figure never
+   * offers an action nobody can carry out. Absent, the register still renders
+   * and simply offers no button (the fail-closed pre-gate this panel uses for
+   * focus targets too).
+   */
+  onSendMessage?: (message: string) => void
 }
 
 /**
@@ -114,6 +133,8 @@ export function AnalysisNewTabBody({
   seedUsed,
   responseHash,
   onFocusNode,
+  onReanalyse,
+  onSendMessage,
 }: AnalysisNewTabBodyProps) {
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
@@ -352,6 +373,7 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
+          onReanalyse={onReanalyse}
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={
@@ -365,6 +387,35 @@ export function AnalysisNewTabBody({
               : null
           }
           onRunIntervention={runIntervention}
+        />
+
+        {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, and it renders on almost no runs —
+            which is the point. It is the panel's TERMINAL state: when the model
+            holds up, every section below has nothing to say and the surface
+            goes quiet at exactly the moment the team should be handed their
+            decision. Placed after the reading it concludes, never before it. */}
+        <ModelHeldUp
+          verdictTone={vm.atAGlance.verdict?.tone ?? null}
+          /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
+             none found" and "never assessed" both produce an empty array, and
+             congratulating a team on a model whose evidence was never examined
+             is a lie told in the surface's most confident voice. */
+          evidenceAssessed={vm.uncertainty.evidenceAssessed}
+          gapCount={vm.uncertainty.findings.length}
+          isStale={vm.status.isStale}
+          isPreRun={vm.status.isPreRun}
+          /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
+             above renders `missingResults` on a provisional run — without this
+             the panel names the results that did not come back and then
+             congratulates the reader on the model, in that order. */
+          isProvisional={vm.status.isProvisional}
+          /* ⭐ THE REAL DECISION RECORD, not a chat prefill. `openDecisionRecord`
+             already exists and is what the Strengthen section's own succeeded
+             state commits through — routing this elsewhere would fork the one
+             act the product treats as committing. */
+          onRecord={openDecisionRecord}
+          testId="analysis-new-held-up"
         />
 
         {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
@@ -439,6 +490,28 @@ export function AnalysisNewTabBody({
             property of THIS file, so it is pinned in this file's own spec
             (`AnalysisNewTabBody.spec.tsx`, "the coaching sits directly under
             the reading it responds to"); no per-section spec can see it. */}
+        {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
+            ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
+            THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
+            you mentioned aren't in the model yet". A driven comparison of both
+            tabs on one completed run found it absent here (accordions opened,
+            positive control firing at 6151 chars), and this is the mount.
+
+            ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
+            enforces its own identity gate (it once rendered a PREVIOUS
+            decision's brief verbatim), so re-implementing it for this tab would
+            fork both the gate and the manifest vocabulary — the twin defect
+            this estate keeps paying for. One component, two mounts.
+
+            ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
+            a WORKLIST — every row is something to validate or add, and its
+            "Add this" starts the conversation to include a figure. That makes
+            it kin to the coaching below it, not to the census above it. Putting
+            it under the strip would have pushed the answer below the fold, and
+            the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
+            ABOUT IT → THE DETAIL. */}
+        <WhatIWasGivenSection onSendMessage={onSendMessage} />
+
         <StrengthenTheReasoning
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}
@@ -536,6 +609,32 @@ export function AnalysisNewTabBody({
           onRunIntervention={runIntervention}
           icon={TrendingUp}
           testId="analysis-new-drivers"
+          /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
+             WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
+             The consolidation that took this panel from fourteen elements to
+             six is the reason: a chart and the prose about the same drivers are
+             one subject, and splitting them would re-open the restatement the
+             consolidation closed. */
+          header={
+            <DriverInfluenceChart
+              rows={vm.drivers.influenceRows}
+              onFocusTarget={focusTarget}
+              /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
+                 reports which of them happened and this surface owns the
+                 words — the same vocabulary the model strip's editor uses,
+                 because it is the same write through the same authority. */
+              onCommitOutcome={(outcome) =>
+                showToast(
+                  outcome === 'dispatched'
+                    ? COPY.modelStrip.valueDispatched
+                    : outcome === 'local_only'
+                      ? COPY.modelStrip.valueLocalOnly
+                      : COPY.modelStrip.valueNotEncodable,
+                )
+              }
+              testId="analysis-new-driver-chart"
+            />
+          }
         />
 
         {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}

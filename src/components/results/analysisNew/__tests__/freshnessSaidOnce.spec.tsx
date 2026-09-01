@@ -148,8 +148,11 @@ const openEverySection = () => {
     'analysis-new-strengthen',
     'analysis-new-deeper',
   ]) {
+    // ⚠ OPEN, NOT TOGGLE. A single-item section opens itself on mount, so a
+    // blind click CLOSES it and every assertion below then fails for a reason
+    // unrelated to what it claims.
     const toggle = screen.queryByTestId(`${id}-toggle`)
-    if (toggle) fireEvent.click(toggle)
+    if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
   }
 }
 

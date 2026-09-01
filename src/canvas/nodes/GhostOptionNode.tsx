@@ -1,8 +1,31 @@
 /**
  * GhostOptionNode — dashed placeholder node that invites the user to explore another option.
- * Click triggers sendMessage via guidanceStore._sendMessage.
+ * Click sends the question its `data.prompt` carries, via guidanceStore._sendMessage.
  *
  * Visible: pre-analysis always (both views). Post-analysis: Model view only.
+ *
+ * ⭐ THE SENTENCE IS BUILT FROM THE MODEL, AND NOT HERE.
+ *
+ * This component used to send a hardcoded "Suggest an additional option I
+ * haven't considered for this decision" — which would read identically in any
+ * product, about any decision, and is verbatim the generic line
+ * `utils/ghostTiers.ts` holds up as the bad example that `#1060` existed to
+ * abolish. It survived that work because the canvas never routed the option
+ * tier through `withGhostTiers`: `ReactFlowGraph.tsx` builds this node by hand
+ * (its position is derived from the rightmost option) and used to pass
+ * `data: {}`, so the model-aware option prompt was composed for a node nobody
+ * mounted while this string was what users actually sent.
+ *
+ * `ghostOptionPrompt(nodes)` now composes it at the mount, from the same tier
+ * table every other door uses. The node is a renderer; the sentence has one
+ * author.
+ *
+ * ⚠ AND THERE IS NO FALLBACK, DELIBERATELY. Handed no prompt, this door sends
+ * nothing rather than a generic sentence — a dead door is a visible failure, a
+ * model-blind sentence is confident wrongness, and a static safety net would
+ * silently re-open exactly what was just closed the first time a caller forgot.
+ * `GhostTierNode` already behaves this way; the two doors agree rather than each
+ * inventing a policy.
  */
 import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -11,11 +34,14 @@ import { Plus } from 'lucide-react'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
 
-export const GhostOptionNode = memo((_props: NodeProps) => {
+export const GhostOptionNode = memo((props: NodeProps) => {
+  const prompt = (props.data as { prompt?: string } | undefined)?.prompt
+
   const handleClick = useCallback(() => {
+    if (!prompt) return
     const send = useGuidanceStore.getState()._sendMessage
-    if (send) send('Suggest an additional option I haven\'t considered for this decision')
-  }, [])
+    if (send) send(prompt)
+  }, [prompt])
 
   return (
     <div

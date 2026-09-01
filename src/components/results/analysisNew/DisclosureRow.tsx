@@ -73,7 +73,18 @@ export function DisclosureRow({
         className={`w-full text-left flex items-start gap-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
           hasLevel2 ? 'hover:opacity-80' : 'cursor-default'
         }`}
-        data-testid={`${testIdPrefix}-toggle`}
+        /**
+         * ⚠⚠ `-row-toggle`, NOT `-toggle`, AND THE COLLISION WAS REAL. This
+         * row and its OWNING SECTION were both rendering `${prefix}-toggle`,
+         * so the moment a section is open the id matches two controls and
+         * `getByTestId` throws. It stayed latent only because every section
+         * defaulted closed — a duplicate id that no test could reach.
+         *
+         * Found by opening single-item sections: the change did not create the
+         * collision, it exposed one that was already shipped, and any future
+         * default-open section would have hit it too.
+         */
+        data-testid={`${testIdPrefix}-row-toggle`}
       >
         {hasLevel2 ? (
           open ? (

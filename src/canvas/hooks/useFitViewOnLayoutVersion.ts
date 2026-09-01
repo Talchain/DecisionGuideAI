@@ -8,8 +8,9 @@ import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
-import { releaseUserCameraClaim, userOwnsCamera } from '../utils/userCameraClaim'
+import { releaseUserCameraClaim, userOwnsCamera, userOwnsCameraFor } from '../utils/userCameraClaim'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
+import { currentModelKey } from '../utils/currentModelKey'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -115,7 +116,7 @@ function cameraHasATarget(s: CameraReadinessState): boolean {
  * answers "is this the same shape of graph?". This one answers "is this the same
  * restored model?", and must therefore survive every edit the user makes to it.
  */
-function restoreIdentityKey(scenarioId: string | null | undefined): string {
+export function restoreIdentityKey(scenarioId: string | null | undefined): string {
   return typeof scenarioId === 'string' && scenarioId.length > 0
     ? `scenario:${scenarioId}`
     : 'draft'
@@ -215,10 +216,106 @@ export function useFitViewOnLayoutVersion(): void {
 
   useEffect(() => {
     if (layoutVersion === 0) return
+    // ⚠ THE INITIATOR IS CAPTURED HERE, NOT IN THE FRAME, AND THE DIFFERENCE IS A
+    // DEFECT THE GEOMETRY MEASURE CAUGHT IN THE FIRST CUT OF THIS FIX.
+    //
+    // It is a property OF THIS `layoutVersion`, so it must be read in the same
+    // tick the version changed. Read a frame later it is whatever committed MOST
+    // RECENTLY — and an automatic corrective pass routinely lands inside that
+    // window, because re-framing changes the zoom, the zoom changes level-of-
+    // detail, and level-of-detail changes measured card heights. Reading late
+    // therefore relabels a USER's Auto-arrange as automatic and skips its
+    // re-frame: measured on `build-vs-buy`, the camera did not move at all after
+    // a user-initiated layout.
+    //
+    // The MODEL key below is deliberately read in the FRAME instead. That one is
+    // a question about what is being framed NOW, not about which layout asked —
+    // two questions, two read points, named apart (CLAUDE.md trap 21).
+    const initiatedBy = useCanvasStore.getState().lastLayoutInitiatedBy
     const raf = requestAnimationFrame(() => {
-      // A completed layout has moved every position, so whatever the user framed
-      // is gone. The product owns this frame; the claim is released rather than
-      // honoured (see `utils/userCameraClaim.ts` for why the two triggers differ).
+      // ⭐⭐ A LAYOUT PASS IS NOT A NEW MODEL, AND THIS LINE USED TO ASSUME IT WAS
+      // (CLAUDE.md trap 21 — two questions under one name).
+      //
+      // The premise written here was *"a completed layout has moved every
+      // position, so whatever the user framed is gone"*. That is true of the
+      // layout that lays out an ARRIVING model, and false of the corrective
+      // passes `useMeasureThenLayout` runs on the model already on screen: it
+      // re-lays out when a card grows taller than the height the committed
+      // layout was computed against (measurement landing late, or analysis
+      // results adding content to a card). Same nodes, same edges, same ids —
+      // only the geometry is recomputed. `layoutVersion` cannot tell the two
+      // apart, so the user's overview was discarded by both.
+      //
+      // MEASURED, real Chromium, real clock, 1280x800, `build-vs-buy`, at
+      // `8220f48d` — the camera sampled every frame after the click:
+      //
+      //     t=1     zoom=0.5000  x=181  y=61   before the click
+      //     t=681   zoom=0.2907  x=480  y=67   the user's overview, whole model
+      //     t=1279  zoom=0.5000  x=181  y=61   back to EXACTLY the pre-click camera
+      //
+      //     +17632ms  showAll / claimCameraForUser
+      //     +18219ms  this trigger fires (layoutVersion 4 -> 5)
+      //     +18220ms  releaseUserCameraClaim   <- the claim, discarded
+      //     +18220ms  fitNow                   <- floored product fit, back to 0.50
+      //
+      // The button did its job and 587ms later the product threw the result
+      // away — the same shape as the reserved-box defect `claimCameraForUser`
+      // was written for, through the one trigger that never consulted it. On
+      // this starter `dec_billing` was measured growing 94 -> 198 -> 295px
+      // across successive corrective passes, so whether one is still in flight
+      // when the user clicks is a matter of machine load. That is why this read
+      // as intermittent, and why instrumenting the page could hide it.
+      //
+      // So: the claim is honoured when the layout is of THE MODEL THE USER
+      // CLAIMED, and released only when a DIFFERENT model has arrived — which is
+      // the case the original premise actually describes, and which still needs
+      // the camera aimed at it.
+      //
+      // ⚠ AND THE KEY IS THE USER'S, NOT THE PRODUCT'S — corrected in review of
+      // #1096, trap 21 one level down. The first version of this fix compared
+      // against a ref stamped inside `fitNow`, i.e. on the PRODUCT's last fit.
+      // The user's own fit does not run through `fitNow`, so an ordinary edit
+      // between the two left it stale: frame A, add a node (now A'), click, and
+      // the next corrective layout read A' as a new model and took the frame
+      // back (`fitView calls = 2` in jsdom). `store.ts` has exactly ONE write to
+      // `layoutVersion` and neither `addNode` nor `deleteNodeById` calls
+      // `setPendingLayout`, so that edit genuinely lands without a layout —
+      // the window is reachable by an ordinary edit-then-click, not theoretical.
+      // The claim now carries its own key, taken at claim time.
+      //
+      // ⭐⭐ AND THE SECOND CONJUNCT — WHO ASKED FOR THE LAYOUT — IS NOT DECORATION
+      // EITHER. Keying on the model alone closes the corrective-layout door and
+      // shuts a door that must stay open: AUTO-ARRANGE. That control re-arranges
+      // the model the user is looking at, so the model key is UNCHANGED and the
+      // claim is outstanding — exactly the state the line above refuses to fit.
+      // The person pressed a control asking for a new arrangement, and asking to
+      // be shown it; without this conjunct every node moves under a camera framed
+      // for the old arrangement and the product never re-frames. The user's own
+      // layout call sites are `useMenuItems.ts` (Auto-arrange), the command
+      // palette's re-layout via `runLayoutWithProgress`, `setViewMode`'s
+      // follow-up layout and `EmptyState`'s first node.
+      //
+      // So the claim is honoured only when BOTH halves hold, and NEITHER alone is
+      // enough — each guards a harm in the OPPOSITE direction (trap 22b: one
+      // predicate cannot carry two harms):
+      //
+      //   - `layoutWasAutomatic` — without it, a layout the USER asked for is
+      //     silently suppressed and the new arrangement is never framed;
+      //   - `userOwnsCameraFor(currentModelKey())` — without it, EVERY automatic
+      //     layout defers, so the ordinary post-draft corrective pass stops
+      //     re-fitting and a fresh draft is left at whatever the first pass
+      //     chose; and a claim outstanding when a DIFFERENT model arrives would
+      //     strand the camera on a graph that no longer exists (measured —
+      //     dropping the key leaves a newly arrived model at the previous
+      //     model's zoom of 0.3233, never re-aimed).
+      //
+      // `initiatedBy` is a NEW EXPLICIT OPTION on `applyLayout`, never a second
+      // meaning for `skipHistory`. They agree at every call site today, and one
+      // flag answering two questions is how this estate's trap-21 defects start.
+      // It defaults to `'user'`, so a call site that says nothing keeps the
+      // previous always-re-fit behaviour: the fail-safe direction is the old one.
+      const layoutWasAutomatic = initiatedBy === 'product'
+      if (layoutWasAutomatic && userOwnsCameraFor(currentModelKey())) return
       releaseUserCameraClaim()
       fitNow.current()
     })

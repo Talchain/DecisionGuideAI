@@ -25,6 +25,7 @@ import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
+import { useRestoredLayoutWidth } from './hooks/useRestoredLayoutWidth'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import {
@@ -80,7 +81,8 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
-import { GHOST_TIERS, withGhostTiers, frontierIsVisible } from './utils/ghostTiers'
+import { currentModelKey } from './utils/currentModelKey'
+import { GHOST_TIERS, withGhostTiers, frontierIsVisible, ghostOptionPrompt } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -756,11 +758,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const measuredW = (sameY as any)?.measured?.width ?? (sameY as any)?.width ?? 200
     const ghostGap = measuredW + 60
 
+    /*
+     * ⭐ THE SENTENCE TRAVELS WITH THE NODE — this door used to carry `data: {}`.
+     *
+     * `GhostOptionNode` cannot see the graph, so an empty data bag left it
+     * nothing to say and it fell back to a hardcoded "Suggest an additional
+     * option I haven't considered for this decision" — verbatim the generic line
+     * `ghostTiers.ts` holds up as the bad example, still live on the one door
+     * that matters most. It is composed HERE, from the same tier table and the
+     * same builder every other door uses (`ghostOptionPrompt`), rather than in
+     * the component: a door should not re-derive the model it is standing in,
+     * and two derivations of one list is how they come to disagree.
+     */
     const ghostNode = {
       id: GHOST_OPTION_NODE_ID,
       type: 'ghost-option' as const,
       position: { x: maxX + ghostGap, y: ghostY },
-      data: {},
+      data: { prompt: ghostOptionPrompt(nodes) },
       selectable: false,
       draggable: false,
       connectable: false,
@@ -826,14 +840,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const layoutVersion = useCanvasStore(s => s.layoutVersion)
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
-  // Three-hook layout lifecycle. Order does not matter — each hook owns
+  // Four-hook layout lifecycle. Order does not matter — each hook owns
   // its own dep array and state subscription:
   //   - useInitialLayoutGuard: detects stacked-load and requests a layout
   //   - useMeasureThenLayout: gates applyLayout on node measurement readiness
   //   - useFitViewOnLayoutVersion: RAF-synced fitView after each successful layout
+  //   - useRestoredLayoutWidth: gives a RESTORED model the card width its own
+  //     positions were computed for. The three hooks above all key off a layout
+  //     RUNNING; on a reload none ever does, which is why the width the layout
+  //     would have published has to be re-derived here.
   useInitialLayoutGuard()
   useMeasureThenLayout()
   useFitViewOnLayoutVersion()
+  useRestoredLayoutWidth()
 
   // Brief 36 Fix: Use ref for fitView so the `handleFitView` callback
   // below has a stable reference even when ReactFlow updates.
@@ -2346,7 +2365,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleFitView = useCallback(() => {
     // The user framed this camera; the product's automatic re-fit may not take
     // it back off them (`utils/userCameraClaim.ts`, defect #1051).
-    claimCameraForUser()
+    claimCameraForUser(currentModelKey())
     const nodes = excludeNonModelNodes(getNodesRef.current())
     fitViewRef.current({
       ...(nodes.length > 0 ? { nodes } : {}),

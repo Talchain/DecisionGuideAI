@@ -3511,6 +3511,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   onFocusNode={handleFocusResultNode}
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
+                  onReanalyse={handleRunAnalysis}
+                  onSendMessage={sendMessage}
                 />
               </SectionErrorBoundary>
             )}
