@@ -43,3 +43,27 @@ export const DECISION_NODE_LABEL = 'Question'
 /** One-line gloss, for legends and vocabulary surfaces. */
 export const DECISION_NODE_DEFINITION =
   'What you are working out — the options below are the answers you are weighing.'
+
+/**
+ * The state a factor is in when it carries a number and nobody has confirmed it
+ * — `factorIsConfirmable` in `./valueProvenance`, the write authority's own
+ * condition and the predicate behind every live "N to verify" surface.
+ *
+ * ⭐ WHY IT MOVED HERE (1 Sep 2026). It was authored inside
+ * `model-tab-v2/rowPresentation.ts` as one row of `ATTENTION_LABEL`, which was
+ * fine while the Model tab was its only reader. The Analysis (New) model strip
+ * now names the same state on the same predicate, and `model-tab-v2/` is a
+ * SEALED namespace: its boundary guard permits exactly one outside reference —
+ * its named mount host — because a second reference is a second mount path.
+ * So the choice was to reach through a sealed door, or to keep a second copy of
+ * a user-facing string on another surface. Both are wrong, and this file exists
+ * for exactly the second one: a product word re-typed per surface is the mirror
+ * this estate keeps paying for (see the header).
+ *
+ * ⚠ IT IS NOT A PROVENANCE CLAIM. "Nobody has confirmed it" is a weaker and
+ * different statement from "Olumi wrote it" — the predicate joins a value the
+ * producer invented with a value that arrived carrying no source at all, and
+ * separates neither by author. Any surface tempted to render this as a
+ * whose-value-is-this badge is reading it wrong.
+ */
+export const UNCONFIRMED_ESTIMATE_LABEL = 'Estimate not yet confirmed'

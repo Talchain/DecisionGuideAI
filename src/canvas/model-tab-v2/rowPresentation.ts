@@ -19,7 +19,7 @@ import type {
   ModelGroupId,
   RepairQueue,
 } from './types'
-import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL } from '../domain/vocabulary'
 
 /**
  * How a deferral reads on screen (design §5.3, Paul's ruling 16 Aug 2026).
@@ -142,7 +142,11 @@ export const KIND_LABEL: Record<ModelElementKind, string> = {
  */
 export const ATTENTION_LABEL: Record<AttentionReason, string> = {
   'no-value': 'No value set',
-  'unconfirmed-estimate': 'Estimate not yet confirmed',
+  // ⚠ THE STRING LIVES IN `domain/vocabulary` NOW, NOT HERE. The model strip
+  // names the same state off the same predicate, and this directory is
+  // sealed — see the constant's own note for why it moved rather than
+  // being copied.
+  'unconfirmed-estimate': UNCONFIRMED_ESTIMATE_LABEL,
   contested: 'Two passes disagree',
   fragile: 'Could flip the result',
   'missing-intervention': 'No target value for this option',

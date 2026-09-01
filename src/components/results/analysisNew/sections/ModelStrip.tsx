@@ -95,12 +95,66 @@
  * so. The alternative — showing nothing, or showing a reassurance — is the
  * "advertisement, not affordance" defect: a reader who picks a mark and gets
  * silence cannot tell a node nobody flagged from a control that is broken.
+ *
+ * ⭐⭐⭐ AND THE THING THAT WAS STILL MISSING (Paul, 1 Sep 2026): *"The top
+ * component still doesn't feel like a tool. The information shown when you
+ * hover over it isn't very action-oriented. It doesn't give you any additional
+ * icons or clickable elements to make it valuable."*
+ *
+ * ⚠ THAT IS NOT AN IMPRESSION, IT IS A DESCRIPTION OF THE DOM — measured on
+ * the deployed build at `19fe8710`, hovering the RICHEST case available (a
+ * factor that is also a named driver). The detail rendered exactly three lines
+ * — `detail-title` (the node's name), `detail-kind` ("Factor"), and one
+ * `detail-driver` chip — and `querySelectorAll('button,a,[role="button"]')`
+ * inside it returned EMPTY. Two of those three lines restate what the mark
+ * already carries: the name is the mark's own label and the kind is its shape
+ * and colour. So on the best node in the model, the panel said one new thing
+ * and offered nothing to do.
+ *
+ * Three changes answer it, and each is bound to a datum that already exists:
+ *
+ *   1. A ROW IS A CONTROL. The row label is now a button. Pressing it rings
+ *      every node of that kind on the canvas AND lifts the mark cap for that
+ *      row, so the reader sees all twenty factors instead of twelve and a
+ *      withheld count. That second half is the part a reader could not get
+ *      any other way, which is why the row does more than filter.
+ *   2. THE STRIP CARRIES A WORKLIST. `needsCheck` is the product's own
+ *      "N to verify" state (`factorIsConfirmable`, the write authority's own
+ *      condition — see `buildModelStrip.ts`). The toggle narrows the strip to
+ *      exactly those factors and rings them. It renders ONLY when the count is
+ *      non-zero, which is the rule `ModelTabV2Panel` already applies to the
+ *      same number: a chip reading "0 to verify" is a dead affordance.
+ *   3. THE DETAIL HAS ACTIONS AND ONE MORE FACT. A named "Show on canvas"
+ *      button — the detail is where the reader's eyes are, activation of the
+ *      mark is a different gesture, and on touch that gesture is what opened
+ *      the detail in the first place — and the "Estimate not yet confirmed"
+ *      state when this node carries one, which is the one thing on the detail
+ *      the mark cannot already show.
+ *
+ * ⚠⚠ AND WHAT IS STILL REFUSED, BECAUSE THE OBVIOUS NEXT STEPS ARE THE UNSAFE
+ * ONES ONCE THE ROWS ARE INTERACTIVE:
+ *
+ *   · NO RENAME FROM THE STRIP. `onLabelChange` has zero product callers and
+ *     no server carrier exists for a node label — the four carriers are
+ *     `factor_value_edit`, `prior_range_edit`, `edge_adjudication`,
+ *     `structural_delete`. A rename would be discarded on the next load.
+ *   · NO FILLED-VS-HOLLOW MARK. Unchanged and non-negotiable — see below.
+ *     `needsCheck` is deliberately NOT drawn as a fill: it is a different and
+ *     weaker claim than provenance, and a reader who learned to read fill as
+ *     "whose value is this" would read it wrong.
+ *   · NO "RUN THIS FINDING" BUTTON. A recommendation's primary action is
+ *     dispatched by `runPrimaryAction` in `StrengthenTheReasoning`, which
+ *     carries modal routing and a `hasServerGraphAuthority` gate. A second
+ *     copy here is the two-authorities defect (CLAUDE.md traps 12 and 21), and
+ *     that file is not this lane's to change. The METHOD chip stays, because
+ *     it dispatches through `openAskOlumi` with no branching of its own.
  */
 
 import { useId, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
+import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
@@ -108,7 +162,7 @@ import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { buildModelStrip, MARK_CAP } from '../buildModelStrip'
+import { buildModelStrip, MARK_CAP, type StripNode, type StripRow } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 
 /**
@@ -128,6 +182,43 @@ const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
 const EMPTY_INSIGHT: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0 }
+
+/**
+ * Ring several nodes at once on the canvas.
+ *
+ * ⚠ THE STORE DIRECTLY, AND ONLY BECAUSE THE HELPER MODULE HAS NO MULTI-NODE
+ * FORM. `highlightHelpers` exports `highlightNode` (one id) and
+ * `clearHighlight`; the underlying store action has always taken an array.
+ * Adding `highlightNodes` there is the tidier home for this and it is a canvas
+ * file, outside this lane's ownership — so the call is made here, named, and
+ * reported as the delta rather than smuggled in. It writes the SAME channel
+ * `highlightNode` writes, so a row ring and a mark ring can never coexist as
+ * two competing highlights.
+ */
+function ringNodes(ids: readonly string[]): void {
+  useCanvasStore.getState().setHighlightedNodes([...ids])
+}
+
+/**
+ * One row as the current narrowing leaves it.
+ *
+ * ⚠ `nodes` IS WHAT THIS ROW CONTRIBUTES, `drawMarks` IS WHETHER IT DRAWS THEM,
+ * AND THEY ARE DIFFERENT QUESTIONS (CLAUDE.md trap 21). Selecting a KIND does
+ * not shrink any row's membership — it decides which row draws marks, and the
+ * counts stay the model's. Selecting the WORKLIST does shrink membership, and
+ * only then does a row state two numbers. Collapsing the two into one field
+ * would make an unselected row report "0 of 20", which is a claim about the
+ * model rather than about the control.
+ */
+interface VisibleRow {
+  row: StripRow
+  nodes: StripNode[]
+  drawMarks: boolean
+  /** `nodes` is a strict subset of `row.nodes` — the count must state both. */
+  narrowed: boolean
+  /** The selected row shows everything it has; see `MARK_CAP`. */
+  uncapped: boolean
+}
 
 export interface ModelStripProps {
   testId?: string
@@ -202,6 +293,19 @@ export function ModelStrip({
    * effect to keep in sync.
    */
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null)
+  /**
+   * The two narrowings, and they are MUTUALLY EXCLUSIVE by construction.
+   *
+   * ⚠ NOT BECAUSE COMPOSING THEM IS HARD — because their intersection is a
+   * claim. "Options, needing a check" is empty for every model by the
+   * predicate's own domain, and an empty result would have to be explained
+   * with a sentence that reads as a finding about the model ("no option needs
+   * a check") rather than as the state of two controls. One narrowing at a
+   * time has no empty state to explain, and each control is its own off
+   * switch, so no third "clear" button is needed either.
+   */
+  const [kindFilter, setKindFilter] = useState<MarkKind | null>(null)
+  const [verifyOnly, setVerifyOnly] = useState(false)
   const regionId = useId()
   const subjectId = useId()
   const detailId = useId()
@@ -212,12 +316,107 @@ export function ModelStrip({
 
   const open = override ?? isPreRun
 
-  /** Resolved against the current strip — see `activeNodeId`. */
-  const active: { id: string; label: string; kind: MarkKind } | null = (() => {
-    if (activeNodeId === null) return null
+  /**
+   * ⚠ DERIVED, NOT READ OFF THE STATE, AND IT IS THE STRANDING GUARD. The
+   * reader can confirm the last unconfirmed factor while the worklist is on;
+   * the toggle then unmounts (it renders only above zero) and a `verifyOnly`
+   * read straight from state would leave an empty row list with no control to
+   * turn it off. Deriving it heals that with no effect to keep in sync — the
+   * same rule `active` follows.
+   */
+  const verifyActive = verifyOnly && strip.needsCheckTotal > 0
+
+  /** The rows as the current narrowing leaves them — see `VisibleRow`. */
+  const visible: VisibleRow[] = strip.rows
+    .map((row) => {
+      const nodes = verifyActive ? row.nodes.filter((n) => n.needsCheck) : row.nodes
+      return {
+        row,
+        nodes,
+        drawMarks: kindFilter === null || kindFilter === row.kind,
+        narrowed: nodes.length !== row.nodes.length,
+        uncapped: kindFilter === row.kind,
+      }
+    })
+    // A row the worklist empties is DROPPED rather than drawn at zero — the
+    // same rule the builder applies to a kind the canvas does not carry, and
+    // for the same reason: "Options 0" reads as a finding about the model.
+    .filter((v) => v.nodes.length > 0)
+
+  /**
+   * Every node id the current narrowing names, in row order. This is what the
+   * canvas rings, and it is derived rather than stored so it cannot drift from
+   * what is on screen.
+   */
+  const narrowedIds = (kind: MarkKind | null, onlyVerify: boolean): string[] => {
+    /**
+     * ⚠ NO NARROWING IS NOT "EVERY NODE", AND THE FIRST DRAFT GOT IT WRONG.
+     * With both controls off the loop below matches everything, so releasing a
+     * row selection RANG THE WHOLE MODEL instead of clearing, and simply
+     * pointing at a mark and leaving did the same. Two cases in this file
+     * caught it. An empty narrowing names nothing; the caller clears.
+     */
+    if (kind === null && !onlyVerify) return []
+    const out: string[] = []
     for (const row of strip.rows) {
-      const found = row.nodes.find((n) => n.id === activeNodeId)
-      if (found) return { id: found.id, label: found.label, kind: row.kind }
+      if (kind !== null && row.kind !== kind) continue
+      for (const n of row.nodes) {
+        if (onlyVerify && !n.needsCheck) continue
+        out.push(n.id)
+      }
+    }
+    return out
+  }
+
+  /**
+   * What the canvas should show once a POINTER GESTURE ENDS.
+   *
+   * ⚠ THE MARK'S `clearHighlight` WOULD OTHERWISE ERASE THE ROW'S RING. Both
+   * write one channel (see `ringNodes`), so leaving a mark inside a selected
+   * row used to blank the selection the reader had just made. The gesture
+   * returns the channel to the narrowing's state, not to empty.
+   */
+  const restoreRing = () => {
+    const ids = narrowedIds(kindFilter, verifyActive)
+    if (ids.length > 0) ringNodes(ids)
+    else clearHighlight()
+  }
+
+  const pickKind = (kind: MarkKind) => {
+    const next = kindFilter === kind ? null : kind
+    setKindFilter(next)
+    setVerifyOnly(false)
+    const ids = narrowedIds(next, false)
+    if (ids.length > 0) ringNodes(ids)
+    else clearHighlight()
+  }
+
+  const toggleVerify = () => {
+    const next = !verifyActive
+    setVerifyOnly(next)
+    setKindFilter(null)
+    const ids = narrowedIds(null, next)
+    if (ids.length > 0) ringNodes(ids)
+    else clearHighlight()
+  }
+
+  /**
+   * Resolved against the VISIBLE rows — see `activeNodeId`.
+   *
+   * ⚠ VISIBLE, NOT `strip.rows`, AND THAT IS THE SELF-HEALING PART. A detail
+   * left open on a node the reader has just filtered away would be a panel
+   * describing something no longer on screen. Resolving against what is drawn
+   * closes it with no effect to keep in sync — the same mechanism that already
+   * handles a deleted node.
+   */
+  const active: { id: string; label: string; kind: MarkKind; needsCheck: boolean } | null = (() => {
+    if (activeNodeId === null) return null
+    for (const v of visible) {
+      if (!v.drawMarks) continue
+      const found = v.nodes.find((n) => n.id === activeNodeId)
+      if (found) {
+        return { id: found.id, label: found.label, kind: v.row.kind, needsCheck: found.needsCheck }
+      }
     }
     return null
   })()
@@ -293,6 +492,20 @@ export function ModelStrip({
                   </span>
                 </span>
               ))}
+              {/* ⭐ THE CLOSED LINE ADVERTISES THE WORKLIST, and it is a SPAN
+                  rather than a second control on purpose: the header is one
+                  button (see below) and a button cannot be nested inside one.
+                  Reading it and pressing it are the same gesture — the press
+                  opens the strip, where the toggle it names is waiting. Absent
+                  at zero, like every other tally here. */}
+              {strip.needsCheckTotal > 0 ? (
+                <span
+                  className={`${typography.panelMeta} text-warning`}
+                  data-testid={`${testId}-verify-summary`}
+                >
+                  {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
+                </span>
+              ) : null}
             </span>
           )}
         </span>
@@ -310,15 +523,73 @@ export function ModelStrip({
           thing that happened to it. */}
       {open ? (
         <div id={regionId} data-testid={`${testId}-region`} className="pb-1">
+        {/* ── THE WORKLIST TOGGLE ─────────────────────────────────────────
+            Rendered only when it has something to show. `ModelTabV2Panel`
+            applies the same rule to the same number, and its reason is this
+            file's own: a control that cannot change anything is furniture
+            wearing an affordance. */}
+        {strip.needsCheckTotal > 0 ? (
+          <button
+            type="button"
+            onClick={toggleVerify}
+            aria-pressed={verifyActive}
+            /* CONTAINS the visible text, so the control keeps label-in-name.
+               "3 to verify" alone announces a count and not what pressing it
+               does. */
+            aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+              verifyActive ? 'bg-warning text-text-on-color' : 'bg-warning/10 text-warning hover:bg-warning/20'
+            }`}
+            data-testid={`${testId}-verify-toggle`}
+          >
+            <ListChecks className="w-3 h-3" aria-hidden={true} />
+            {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
+          </button>
+        ) : null}
+
+        {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
+            does not say what qualified them, and a `title` would put that
+            explanation out of reach of touch entirely. */}
+        {verifyActive ? (
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mb-1`}
+            data-testid={`${testId}-narrowed-note`}
+          >
+            {COPY.modelStrip.toVerifyNarrowed}
+          </p>
+        ) : null}
+
         <ul className="list-none p-0 m-0 flex flex-col gap-1">
-          {strip.rows.map((row) => (
+          {visible.map(({ row, nodes, drawMarks, narrowed, uncapped }) => (
             <li
               key={row.kind}
-              className="grid grid-cols-[56px_1fr_auto] items-center gap-2"
+              className="grid grid-cols-[76px_1fr_auto] items-center gap-2"
               data-testid={`${testId}-row`}
               data-kind={row.kind}
+              data-selected={kindFilter === row.kind ? 'true' : undefined}
             >
-              <span className={`${typography.panelMeta} text-text-light`}>{row.label}</span>
+              {/* ⭐ THE ROW IS A CONTROL. It rings its kind on the canvas and
+                  lifts this row's mark cap — the second half is the part the
+                  reader cannot get any other way, and it is why the row does
+                  more than hide its neighbours. The mark travels with the
+                  label so the open state carries the same vocabulary key the
+                  closed tallies do. */}
+              <button
+                type="button"
+                onClick={() => pickKind(row.kind)}
+                aria-pressed={kindFilter === row.kind}
+                aria-label={COPY.modelStrip.onlyKind(row.label)}
+                className={`flex items-center gap-1 rounded px-1 py-0.5 min-w-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                  kindFilter === row.kind ? 'bg-panel-hover' : 'hover:bg-panel-hover'
+                }`}
+                data-testid={`${testId}-row-filter`}
+                data-kind={row.kind}
+              >
+                <NodeMark kind={row.kind} />
+                <span className={`${typography.panelMeta} text-text-light truncate`}>
+                  {row.label}
+                </span>
+              </button>
 
               {(() => {
                 /**
@@ -336,8 +607,15 @@ export function ModelStrip({
                  * not showing. Nothing is implied about the remainder except
                  * that it exists, which is the only thing known.
                  */
-                const shown = row.overCap ? row.nodes.slice(0, MARK_CAP) : row.nodes
-                const hidden = row.nodes.length - shown.length
+                /* ⚠ THE CAP IS RECOMPUTED AGAINST WHAT IS ON SCREEN, never
+                   read off `row.overCap`, which describes the unfiltered row.
+                   A withheld count taken from the wrong denominator is a
+                   number about a list the reader is not looking at. Selecting
+                   the row lifts it entirely: nothing is then withheld, so
+                   there is nothing to disclose. */
+                const shown =
+                  !drawMarks ? [] : uncapped || nodes.length <= MARK_CAP ? nodes : nodes.slice(0, MARK_CAP)
+                const hidden = drawMarks ? nodes.length - shown.length : 0
                 return (
                   <span
                     className="flex flex-wrap items-center gap-1"
@@ -375,7 +653,7 @@ export function ModelStrip({
                           setActiveNodeId(node.id)
                           highlightNode(node.id)
                         }}
-                        onMouseLeave={() => clearHighlight()}
+                        onMouseLeave={restoreRing}
                         /* Keyboard parity. Tabbing across the row reads each
                            node's detail in turn and rings each node in turn,
                            without committing a canvas move the reader did not
@@ -384,7 +662,7 @@ export function ModelStrip({
                           setActiveNodeId(node.id)
                           highlightNode(node.id)
                         }}
-                        onBlur={() => clearHighlight()}
+                        onBlur={restoreRing}
                         aria-expanded={isActive}
                         /* Points at the detail ONLY while this mark owns it —
                            the detail is unmounted otherwise, so a resting
@@ -419,8 +697,17 @@ export function ModelStrip({
                 )
               })()}
 
-              <span className={`${typography.panelMeta} text-text-light tabular-nums`}>
-                {row.nodes.length}
+              {/* ⚠ TWO NUMBERS WHENEVER THE WORKLIST NARROWED THIS ROW. The
+                  narrowed count alone would read as the row's size and
+                  silently shrink the model. */}
+              <span
+                className={`${typography.panelMeta} text-text-light tabular-nums`}
+                data-testid={`${testId}-row-count`}
+                data-kind={row.kind}
+              >
+                {narrowed
+                  ? COPY.modelStrip.narrowedCount(nodes.length, row.nodes.length)
+                  : row.nodes.length}
               </span>
             </li>
           ))}
@@ -488,7 +775,46 @@ export function ModelStrip({
                   {COPY.glance.whatMattersMost}
                 </span>
               ) : null}
+              {/* ⭐ THE ONE FACT ON THIS DETAIL THE MARK CANNOT ALREADY SHOW.
+                  The sentence is `domain/vocabulary`'s, shared with the Model
+                  tab's own row marker rather than respelled here — two
+                  spellings of one state is the mirror this estate pays for
+                  (CLAUDE.md trap 12), and it would put the two surfaces in
+                  disagreement about one factor.
+
+                  ⚠ IT LIVES IN `domain/` AND NOT IN `model-tab-v2/`, WHERE IT
+                  WAS AUTHORED, BECAUSE THAT DIRECTORY IS SEALED. Its boundary
+                  guard permits exactly one outside reference — its named mount
+                  host — since a second reference is a second mount path. The
+                  first draft of this component imported straight through that
+                  door and the guard caught it, which is what it is for. */}
+              {active.needsCheck ? (
+                <span
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-warning`}
+                  data-testid={`${testId}-detail-verify`}
+                >
+                  {UNCONFIRMED_ESTIMATE_LABEL}
+                </span>
+              ) : null}
             </div>
+
+            {/* ⭐ THE DETAIL'S OWN ACTION. Activating the mark routes to the
+                canvas and always has; this is the same route offered where the
+                reader is actually looking, and it is the ONLY one a touch
+                reader has twice — their first tap is what opened the detail,
+                so without this there is no way to ask again without closing
+                it. Named in text, not in a `title`: a tooltip is unreachable
+                on touch and suppressed by many browsers. */}
+            <button
+              type="button"
+              onClick={() => focusModelTarget(active.id)}
+              className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-detail-focus`}
+              data-node-id={active.id}
+            >
+              <Crosshair className="w-3 h-3" aria-hidden={true} />
+              {COPY.modelStrip.showOnCanvas}
+            </button>
 
             {activeInsight.findings.map((finding) => {
               // Hoisted so the narrowing survives into the handler below; a

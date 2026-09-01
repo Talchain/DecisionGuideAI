@@ -242,6 +242,48 @@ export const ANALYSIS_NEW_COPY = {
     /** Disclosure of the per-node finding cap. Never silent truncation. */
     moreFindings: (n: number) => `+ ${n} more finding${n === 1 ? '' : 's'} for this node`,
     /**
+     * ⭐⭐ THE WORKLIST LABEL, AND IT IS THE PRODUCT'S OWN LIVE PHRASE RATHER
+     * THAN A NEW ONE. `ModelTabV2Panel.tsx:538` renders exactly
+     * `'1 to verify'` / `` `${n} to verify` `` off the SAME predicate
+     * (`factorIsConfirmable`), and `StatusBar`, `WorkspaceShellTabStrip`,
+     * `ModelHealthSection` and `FactorsSection` all name the same count.
+     * A strip that invented a second phrase for one state would teach the
+     * reader two vocabularies for one number.
+     *
+     * ⚠ IT IS A COUNT, NEVER A COVERAGE CLAIM. "3 to verify" says three
+     * factors carry a number no one has confirmed. It says nothing about the
+     * factors with no number at all — those are excluded by the predicate's
+     * value guard and are a different question the Model tab names `no-value`.
+     */
+    toVerify: (n: number) => (n === 1 ? '1 to verify' : `${n} to verify`),
+    /**
+     * The toggle's accessible name. It CONTAINS the visible text, so the
+     * control satisfies label-in-name; the visible half alone would tell a
+     * screen-reader user the count and not what pressing it does.
+     */
+    toVerifyToggleName: (n: number) =>
+      `${n === 1 ? '1 to verify' : `${n} to verify`} — show only these factors`,
+    /**
+     * ⚠ A VISIBLE EXPLANATION, NOT A `title`. The criterion behind the filter
+     * is not self-evident from a count, and a tooltip is unreachable on touch
+     * and suppressed by many browsers. Rendered only while the filter is on.
+     */
+    toVerifyNarrowed: 'Showing only factors carrying a number nobody has confirmed.',
+    /** A row is a filter. Accessible name; the row's own word is the visible half. */
+    onlyKind: (label: string) => `Show only ${label}`,
+    /**
+     * A row whose marks are narrowed states BOTH numbers. Showing the narrowed
+     * count alone would read as the row's size and quietly shrink the model.
+     */
+    narrowedCount: (shown: number, total: number) => `${shown} of ${total}`,
+    /**
+     * The node-level action, inside the detail the reader is actually reading.
+     * Activating a mark already routes to the canvas; on touch that same tap is
+     * what opened the detail, so without this the detail has no repeatable
+     * route of its own — and it had no control of any kind before.
+     */
+    showOnCanvas: 'Show on canvas',
+    /**
      * Singular node-kind nouns for the detail heading.
      *
      * ⚠ A MIRROR OF `MARK_KINDS`, AND IT IS PINNED BY A TEST for that reason —
