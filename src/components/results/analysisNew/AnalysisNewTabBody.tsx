@@ -55,7 +55,7 @@ import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights } from './nodeInsights'
-import { resolveGoalNodeId } from './buildModelStrip'
+import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
@@ -278,14 +278,30 @@ export function AnalysisNewTabBody({
    * is the copy that actually earns its place, because it says why a target
    * matters rather than restating that one is missing.
    */
-  const goalNodeId = useCanvasStore((state) => resolveGoalNodeId(state.nodes ?? []))
+  const nodes = useCanvasStore((state) => state.nodes)
+  /**
+   * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
+   * the difference is a shipped regression, caught by independent review.
+   *
+   * The first version of this asked `resolveGoalNodeId(nodes) !== null`, which
+   * is TRUE on a goal-only or goal+decision model — where `ModelStrip` renders
+   * NOTHING (`rows.length === 0`) and its target line goes with it. On exactly
+   * those models this suppressed the glance's card and left the panel with no
+   * visible way to set a target at all, the ask surviving only inside a
+   * collapsed section. `stripRendersTargetAffordance` asks both halves in one
+   * place so no caller can ask half the question.
+   */
+  const stripOffersTarget = useMemo(
+    () => stripRendersTargetAffordance(buildModelStrip(nodes ?? [])),
+    [nodes],
+  )
   const glancePrimary = useMemo(() => {
     const interventions = vm.strengthen.interventions
-    if (goalNodeId === null) return interventions[0] ?? null
+    if (!stripOffersTarget) return interventions[0] ?? null
     return (
       interventions.find((rec) => rec.id !== SUCCESS_MEASURE_RECOMMENDATION_ID) ?? null
     )
-  }, [vm.strengthen.interventions, goalNodeId])
+  }, [vm.strengthen.interventions, stripOffersTarget])
 
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)

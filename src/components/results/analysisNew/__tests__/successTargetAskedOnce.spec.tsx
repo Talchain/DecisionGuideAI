@@ -49,7 +49,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../../strengthen/buildRecommendations'
-import { resolveGoalNodeId } from '../buildModelStrip'
+import { buildModelStrip, resolveGoalNodeId, stripRendersTargetAffordance } from '../buildModelStrip'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { openStrategicChallenge } from './analysisNewFixtures'
 
@@ -60,6 +60,20 @@ const GOAL_NODES = [
 /** ⚠ A model with nodes but NO goal — not an empty canvas, which would also
  *  starve every other section and make the twin pass for the wrong reason. */
 const GOALLESS_NODES = [{ id: 'o1', type: 'option', data: { label: 'Hold current strategy' } }]
+/**
+ * ⚠⚠ A GOAL AND NOTHING TO TALLY — the model that broke the first version of
+ * this fix, found by independent review (Codex, CHANGES_REQUIRED on #1120).
+ *
+ * `ModelStrip.rows` is a census of options/factors/risks/outcomes; goal and
+ * decision are the SUBJECT LINE and are excluded from it. So this model has a
+ * goal, zero rows, and `ModelStrip` returns null — taking its target line with
+ * it. A suppression keyed on "the model has a goal" fires here and leaves the
+ * panel with no visible way to set a target at all.
+ */
+const GOAL_ONLY_NODES = [
+  { id: 'g1', type: 'goal', data: { label: 'Board wants NRR back above 110%' } },
+  { id: 'd1', type: 'decision', data: { label: 'What should we do?' } },
+]
 
 const seed = (nodes: typeof GOAL_NODES | typeof GOALLESS_NODES) => {
   useCanvasStore.setState({ nodes, goalThreshold: null } as never)
@@ -103,6 +117,21 @@ describe('THE INSTRUMENT — the probe can see both answers', () => {
   it('resolveGoalNodeId separates the two fixtures', () => {
     expect(resolveGoalNodeId(GOAL_NODES)).toBe('g1')
     expect(resolveGoalNodeId(GOALLESS_NODES)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE DISCRIMINATION THAT MATTERS, AND THE ONE THE FIRST VERSION LACKED.
+   * "Has a goal" and "is offering the control" agree on the ordinary model and
+   * DISAGREE on the goal-only one. A predicate that cannot tell these apart is
+   * the regression; this asserts the two questions are genuinely different
+   * before any render is inspected.
+   */
+  it('having a goal and offering the control are DIFFERENT questions', () => {
+    expect(resolveGoalNodeId(GOAL_ONLY_NODES)).toBe('g1')
+    expect(stripRendersTargetAffordance(buildModelStrip(GOAL_ONLY_NODES))).toBe(false)
+    // …and they agree where they should.
+    expect(stripRendersTargetAffordance(buildModelStrip(GOAL_NODES))).toBe(true)
+    expect(stripRendersTargetAffordance(buildModelStrip(GOALLESS_NODES))).toBe(false)
   })
 
   it('the id the suppression keys on is the id the builder mints', () => {
@@ -182,6 +211,26 @@ describe('with no goal — the glance is the only offer, and it keeps it', () =>
    * ⭐⭐ THE OPPOSITE-DIRECTION TWIN, and the reason the suppression is
    * conditional at all. Suppressing unconditionally would delete the panel's
    * top ask on exactly the models that have no other place to make it.
+   */
+  it('the glance still promotes the success-measure recommendation', () => {
+    renderPanel()
+    expect(glancePrimaryId()).toBe(SUCCESS_MEASURE_RECOMMENDATION_ID)
+  })
+})
+
+describe('a goal with nothing to tally — the strip renders NOTHING, so the glance must keep the ask', () => {
+  beforeEach(() => seed(GOAL_ONLY_NODES as never))
+
+  /** ⚠ THE PRECONDITION: the whole strip is absent, not merely its target line. */
+  it('the model strip does not render at all', () => {
+    renderPanel()
+    expect(screen.queryByTestId('analysis-new-model-strip')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-model-strip-target')).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE REGRESSION TEST. Suppressing here removes the panel's only visible
+   * way to set a target — the ask survives solely inside a collapsed section.
    */
   it('the glance still promotes the success-measure recommendation', () => {
     renderPanel()
