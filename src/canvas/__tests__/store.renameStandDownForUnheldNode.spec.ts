@@ -87,6 +87,17 @@ const SERVER_HELD_ID = 'fac_price'
 const SERVER_HELD_SIBLING_ID = 'fac_sibling'
 /** A node `addNode` minted this session. CEE has never heard of it. */
 const CLIENT_MADE_ID = '7'
+/**
+ * A SECOND client-made node, and it exists for the mutant pair rather than for
+ * coverage. With only one unheld node in the fixture, every "loosen the guard
+ * for a DIFFERENT node" mutant is equivalent by construction — the other nodes
+ * are all server-held, so the stand-down never fires for them and the mutation
+ * changes nothing observable. That is the FALSE SURVIVOR shape. Two independent
+ * unheld nodes make the discriminating half of the pair real: exempting this one
+ * must leave every assertion about {@link CLIENT_MADE_ID} green while reddening
+ * the assertion about this one.
+ */
+const CLIENT_MADE_2_ID = '8'
 
 const PREVIOUS = 'Price'
 const NEW = 'List price'
@@ -116,6 +127,7 @@ function seedRestoredWithAuthoritativeRecord(overrides: Record<string, unknown> 
       // Minted after the authoritative graph was recorded — the pre-analysis
       // `addNode` → `updateNodeLabel` shape, with its placeholder label.
       { id: CLIENT_MADE_ID, type: 'option', position: { x: 18, y: 0 }, data: { label: `Node ${CLIENT_MADE_ID}`, kind: 'option' } },
+      { id: CLIENT_MADE_2_ID, type: 'risk', position: { x: 27, y: 0 }, data: { label: `Node ${CLIENT_MADE_2_ID}`, kind: 'risk' } },
     ] as unknown as Node[],
     edges: [],
     ...overrides,
@@ -188,6 +200,17 @@ describe('DIRECTION 1 — a node the server is KNOWN NOT to hold: no capture, no
   it('the LOCAL rename still applies — the capability is untouched, only the wire claim is dropped', () => {
     useCanvasStore.getState().updateNodeLabel(CLIENT_MADE_ID, NEW)
     expect(labelOf(CLIENT_MADE_ID)).toBe(NEW)
+  })
+
+  it('a SECOND unheld node stands down on its own account, not by inheriting the first', () => {
+    // Bound to this id specifically. Its twin above is untouched here, so a
+    // guard exempting one unheld node cannot pass by way of the other — which
+    // is what makes the "different node only" half of the mutant pair a real
+    // discrimination rather than a false survivor.
+    useCanvasStore.getState().updateNodeLabel(CLIENT_MADE_2_ID, 'Named risk')
+
+    expect(queued().filter((i) => i.nodeId === CLIENT_MADE_2_ID)).toHaveLength(0)
+    expect(labelOf(CLIENT_MADE_2_ID)).toBe('Named risk')
   })
 })
 
