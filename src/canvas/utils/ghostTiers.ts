@@ -34,6 +34,11 @@ import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID } from './fitTargets'
 // re-spelled: the estate already carries eight hand-copied `'Untitled'`
 // literals, and a ninth that drifted would silently re-open B2(a).
 import { UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
+// The product's own words for the two node kinds a subject can come from.
+// Imported, never re-typed: `DECISION_NODE_LABEL` changed on 31 Aug, and a
+// sentence carrying a hand-copied 'Decision' would still be saying the retired
+// word in the user's transcript today.
+import { DECISION_NODE_LABEL, GOAL_NODE_LABEL } from '../domain/vocabulary'
 
 export { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 
@@ -84,8 +89,29 @@ export interface GhostPromptContext {
   namedSiblings: readonly string[]
   /** How many members the tier holds IN TOTAL — named or not. */
   siblingCount: number
-  /** The decision or goal this model is about, when the graph carries one. */
-  subject: string | null
+  /** What this model is about, when the graph carries it. */
+  subject: ModelSubject | null
+}
+
+/**
+ * What the model is about, AND what the product calls the node it came from.
+ *
+ * ⚠ THE NOUN TRAVELS WITH THE LABEL, and that is the whole repair. `readSubject`
+ * resolves decision-then-goal, and the clause that rendered it was hardcoded
+ * "The decision is: X" — so a model with a goal and no decision told the user,
+ * in their own transcript and under their own name, that their goal was a
+ * decision. A resolver that returns only the string forces every reader to guess
+ * the kind, and the guess was wrong for one of the two kinds it could be.
+ */
+export interface ModelSubject {
+  /** The subject's label, exactly as the user wrote it. */
+  readonly label: string
+  /**
+   * The product's on-screen word for that node's KIND, mid-sentence. Derived
+   * from `domain/vocabulary`, never spelled here — the canvas and this sentence
+   * must call one thing one name.
+   */
+  readonly noun: string
 }
 
 /**
@@ -151,10 +177,10 @@ export function inventorySentence(
  * Appending ours produced "The decision is: Acquire Acme?." — and this string
  * is not internal, it lands in the user's transcript attributed to the user.
  */
-function about(subject: string | null): string {
+function about(subject: ModelSubject | null): string {
   if (!subject) return ''
-  const terminator = /[.!?]$/.test(subject) ? '' : '.'
-  return ` The decision is: ${subject}${terminator}`
+  const terminator = /[.!?]$/.test(subject.label) ? '' : '.'
+  return ` The ${subject.noun} is: ${subject.label}${terminator}`
 }
 
 export const GHOST_TIERS: readonly GhostTier[] = [
@@ -237,14 +263,28 @@ function labelOf(n: Node): string | null {
  * Prefers the decision node, falls back to the goal, and returns null when
  * neither carries a usable label — the clause is then omitted rather than
  * filled with a guess.
+ *
+ * ⚠ IT NOW RETURNS THE KIND ALONGSIDE THE LABEL, AND THE RESOLUTION IS
+ * OTHERWISE UNCHANGED. The `??` chain, and with it the existing behaviour that
+ * an UNNAMED decision node suppresses the clause rather than falling through to
+ * the goal, is preserved exactly: the defect was the noun, and widening the
+ * resolution while fixing the noun would be a second, unasked change hiding
+ * inside the first.
  */
-function readSubject(nodes: Node[]): string | null {
-  const byKind = (kind: string) =>
-    nodes.find(
-      (n) => n.type === kind || (n.data as { type?: string } | undefined)?.type === kind,
-    )
+function readSubject(nodes: Node[]): ModelSubject | null {
+  const isKind = (n: Node, kind: string) =>
+    n.type === kind || (n.data as { type?: string } | undefined)?.type === kind
+  const byKind = (kind: string) => nodes.find((n) => isKind(n, kind))
+
   const node = byKind('decision') ?? byKind('goal')
-  return node ? labelOf(node) : null
+  if (!node) return null
+  const label = labelOf(node)
+  if (label === null) return null
+
+  // Read off the node that was ACTUALLY chosen, rather than inferred from which
+  // lookup ran: the two must not be able to disagree.
+  const noun = isKind(node, 'decision') ? DECISION_NODE_LABEL : GOAL_NODE_LABEL
+  return { label, noun: noun.toLowerCase() }
 }
 
 /**
@@ -277,16 +317,64 @@ export function frontierIsVisible(
   return !(isPostAnalysis && viewMode !== 'expert')
 }
 
+/**
+ * The members of one tier, by the producer's two spellings of a node's kind.
+ *
+ * ⚠ SPELLED ONCE ON PURPOSE. `withGhostTiers` and the legacy option door both
+ * need this predicate, and two copies of it are how the door's sentence and the
+ * door's position come to describe different sets of nodes.
+ */
+function siblingsOf(nodes: Node[], siblingType: string): Node[] {
+  return nodes.filter(
+    (n) =>
+      n.type === siblingType || (n.data as { type?: string } | undefined)?.type === siblingType,
+  )
+}
+
+/**
+ * What a door standing at the end of a tier's row can see. Facts only.
+ *
+ * The UNFILTERED count travels alongside the surviving names: `siblings` is the
+ * tier as it really is, `namedSiblings` is what survived naming. Passing both is
+ * what lets the sentence describe a partly-unnamed tier without either inventing
+ * names or under-reporting the model.
+ *
+ * ⚠⚠ AND "AS IT REALLY IS" MEANS AS THE CANVAS RENDERS IT, NOT AS THE PAYLOAD
+ * ARRIVED. `ReactFlowGraph.tsx` drops nodes whose id it has already seen — under
+ * its own comment, "CEE may return duplicate node IDs" — so a payload carrying
+ * one option twice put THREE in this sentence beside TWO on screen, and named
+ * the repeated one twice. The user reads a count and a list that do not match
+ * what they can see, in a sentence attributed to them.
+ *
+ * ⚠ WHY THE DEDUP IS SPELLED HERE RATHER THAN THE MOUNT'S RESULT BEING REUSED,
+ * since a second copy of a filter is normally exactly the wrong move. The
+ * mount's dedup runs DOWNSTREAM of this call: it consumes the ghost node this
+ * composition produces, so its output does not exist yet at composition time.
+ * The choice was a sentence composed from a set the canvas will not render, or
+ * this. It is confined to prompt composition — `siblingsOf`, the mount's own
+ * option filter and the empty-tier early return are untouched, and dedup cannot
+ * turn a non-empty tier empty, so their agreement is preserved.
+ *
+ * ⚠ BY ID, NEVER BY LABEL. Two genuinely different options may share a name;
+ * collapsing those would under-report the model, which is the same false
+ * sentence pointing the other way. First occurrence wins, matching the mount.
+ */
+function contextFor(siblings: readonly Node[], subject: ModelSubject | null): GhostPromptContext {
+  const seen = new Set<string>()
+  const rendered = siblings.filter((n) => (seen.has(n.id) ? false : (seen.add(n.id), true)))
+  return {
+    namedSiblings: rendered.map(labelOf).filter((l): l is string => l !== null),
+    siblingCount: rendered.length,
+    subject,
+  }
+}
+
 export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[] = GHOST_TIERS): Node[] {
   const ghosts: Node[] = []
   const subject = readSubject(nodes)
 
   for (const tier of enabledTiers) {
-    const siblings = nodes.filter(
-      (n) =>
-        n.type === tier.siblingType ||
-        (n.data as { type?: string } | undefined)?.type === tier.siblingType,
-    )
+    const siblings = siblingsOf(nodes, tier.siblingType)
     if (siblings.length === 0) continue
 
     const maxX = Math.max(...siblings.map((n) => n.position?.x ?? 0))
@@ -306,15 +394,7 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
         // the node component — the door should not have to re-derive the model
         // it is standing in, and two derivations of one list is how they come
         // to disagree.
-        prompt: tier.prompt({
-          namedSiblings: siblings.map(labelOf).filter((l): l is string => l !== null),
-          // The UNFILTERED count. `siblings` is the tier as it really is; the
-          // line above is what survived naming. Passing both is what lets the
-          // sentence describe a partly-unnamed tier without either inventing
-          // names or under-reporting the model.
-          siblingCount: siblings.length,
-          subject,
-        }),
+        prompt: tier.prompt(contextFor(siblings, subject)),
         tier: tier.siblingType,
       },
       selectable: false,
@@ -324,4 +404,66 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
   }
 
   return ghosts.length > 0 ? [...nodes, ...ghosts] : nodes
+}
+
+/**
+ * The option tier, resolved ONCE at module load and BY ID.
+ *
+ * Not `GHOST_TIERS[0]`: a positional bind would silently point the legacy door
+ * at a different tier's sentence the first time the table is reordered, and the
+ * failure would be a plausible-sounding prompt about the wrong kind of node
+ * rather than a crash. Resolved eagerly so a table that lost its option tier
+ * fails at import — loudly, in every suite — instead of on a user's click.
+ */
+const OPTION_TIER: GhostTier = (() => {
+  const tier = GHOST_TIERS.find((t) => t.id === GHOST_OPTION_NODE_ID)
+  if (!tier) {
+    throw new Error(
+      'ghostTiers: GHOST_TIERS carries no tier with the option door id, so the ' +
+        'legacy ghost-option node has no sentence to send.',
+    )
+  }
+  return tier
+})()
+
+/**
+ * ⭐⭐ THE PRE-ANALYSIS OPTION DOOR'S SENTENCE — the one door `#1060` did not reach.
+ *
+ * ── WHY THIS FUNCTION EXISTS RATHER THAN THE DOOR SIMPLY USING `withGhostTiers` ──
+ *
+ * The option door on the pre-analysis canvas is NOT a `ghost-tier` node. It is
+ * the older `ghost-option` node (`nodes/GhostOptionNode.tsx`), and
+ * `ReactFlowGraph.tsx` builds it by hand because its position is derived from
+ * the rightmost option, then filters the option tier OUT of the set it hands
+ * `withGhostTiers`. So `GHOST_TIERS`' option prompt — the model-aware one, the
+ * whole point of `#1060` — was composed for a node the canvas never built,
+ * while the component sent a hardcoded "Suggest an additional option I haven't
+ * considered for this decision": VERBATIM the sentence the `GhostTier.prompt`
+ * doc above holds up as the bad example. The defect was named in this file and
+ * still shipped, and its own spec was green about the unreached path.
+ *
+ * ⚠ THE OTHER REPAIR — routing this door through `withGhostTiers` and deleting
+ * the legacy node — WAS DELIBERATELY NOT TAKEN. `GhostOptionNode` carries a
+ * measured WCAG 1.4.11 outline (`--text-body` at 10.45:1 / 9.29:1 against both
+ * adjacent grounds, verified in a live browser) and its own geometry, pinned by
+ * `GhostOptionNode.contrast.spec.ts`. `GhostTierNode` is a different size, a
+ * different label and a different icon scale. Swapping the component to fix a
+ * STRING would have changed the affordance's appearance and re-opened a
+ * contrast question that a lane already answered at the pixel — a larger,
+ * less honest change wearing the smaller change's clothes.
+ *
+ * What the door needed was the sentence, so the sentence is what it gets. One
+ * tier table, one composer, two renderers.
+ *
+ * ⚠ EMPTY WHEN THE TIER IS EMPTY, matching `withGhostTiers`' refusal to place a
+ * door on a tier with no members: a sentence beginning "My model has 0 options"
+ * would assert the tier OUGHT to have some, which is the judgement line this
+ * file does not cross. The mount does not build the door in that case either —
+ * it has nowhere to sit — so this is the two authorities agreeing rather than a
+ * second one being invented.
+ */
+export function ghostOptionPrompt(nodes: Node[]): string {
+  const siblings = siblingsOf(nodes, OPTION_TIER.siblingType)
+  if (siblings.length === 0) return ''
+  return OPTION_TIER.prompt(contextFor(siblings, readSubject(nodes)))
 }
