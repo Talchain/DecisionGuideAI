@@ -40,6 +40,7 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const { showToast } = vi.hoisted(() => ({ showToast: vi.fn() }))
 
@@ -177,6 +178,30 @@ describe('keyboard and touch reach it — hover is never the only route', () => 
     // element is genuinely reachable rather than merely looking like a control.
     expect(el.tagName).toBe('BUTTON')
     expect(el).not.toHaveAttribute('disabled')
+  })
+
+  it('Enter and Space activate it, and Tab reaches it', async () => {
+    const user = userEvent.setup()
+    renderSection(mixedRun())
+
+    // TAB, not `.focus()`: reachability is the claim, and a programmatic focus
+    // would pass on an element the tab order never visits. Bounded, and the
+    // bound is ASSERTED — a control that never enters the tab order fails here
+    // rather than spinning. The section's own disclosure toggle is reached
+    // first, which is why this is a loop and not a hardcoded tab count.
+    let reached = false
+    for (let i = 0; i < 8 && !reached; i++) {
+      await user.tab()
+      reached = document.activeElement === control('opt_segment')
+    }
+    expect(reached).toBe(true)
+
+    await user.keyboard('{Enter}')
+    expect(focusModelTarget).toHaveBeenCalledWith('opt_segment')
+
+    vi.mocked(focusModelTarget).mockClear()
+    await user.keyboard(' ')
+    expect(focusModelTarget).toHaveBeenCalledWith('opt_segment')
   })
 
   it('focusing a row highlights it, and blurring clears — the onMouseEnter twin', () => {
