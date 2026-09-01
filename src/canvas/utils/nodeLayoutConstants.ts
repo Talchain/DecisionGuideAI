@@ -94,14 +94,14 @@ export const NODE_HEADER_RESERVE_PX = 0
  * ⚠ RE-DERIVED WITH THE TYPE SCALE (1 Sep 2026): 100 → 85.
  *
  * This constant is a WIDTH AT A FONT SIZE, so it is not independent of that
- * size — it was measured at a declared 13px title and the title is now 11px.
+ * size — it was measured at a declared 13px title and the title is now 12px.
  * Leaving it at 100 would have kept every card sized for type it no longer
  * renders, silently discarding the width the smaller font was changed to win.
  *
  * Scaled from the ORIGINAL MEASUREMENT rather than from the rounded constant,
  * so the rounding is not compounded: the widest run in the five shipped
- * starters is "Cannibalization" at 97.77px @13px → 82.7px @11px. Rounded up to
- * 85, which keeps ~2.3px of margin — the same headroom the 13px figure carried,
+ * starters is "Cannibalization" at 97.77px @13px → 90.25px @12px. Rounded up to
+ * 93, which keeps ~2.75px of margin — the same headroom the 13px figure carried,
  * and deliberately no more, because every pixel here is doubled by the
  * counter-scale and widens every compressed card.
  *
@@ -109,7 +109,7 @@ export const NODE_HEADER_RESERVE_PX = 0
  * this bound in a real browser and REDs if a word arrives that exceeds it — so
  * this derivation is checked against the live font rather than trusted.
  */
-export const NODE_TITLE_WIDEST_WORD_PX = 85
+export const NODE_TITLE_WIDEST_WORD_PX = 93
 
 /**
  * Minimum horizontal measure (px) reserved for a node's TITLE, at the largest

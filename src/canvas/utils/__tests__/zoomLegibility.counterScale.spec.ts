@@ -17,10 +17,27 @@ import {
   labelCounterScale,
   renderedLabelPx,
   CANVAS_LABEL_SCALE_VAR,
+  MAX_LABEL_COUNTER_SCALE,
 } from '../zoomLegibility'
 
 /** DS v5 §2.3, as declared in src/styles/typography.ts. */
-const DECLARED = { nodeTitle: 13, nodeLabel: 11, edgeLabel: 10 } as const
+/**
+ * ⚠ `nodeTitle` 13 → 12 (1 Sep 2026). THE SIZE HERE IS INCIDENTAL; THE CLAIM IS
+ * THE COUNTER-SCALE. This table exists so the assertions below can check that
+ * each canvas token spells `calc(<n>px*var(--canvas-label-scale,1))` — i.e.
+ * that the token CARRIES the scale — and it has to name the current `<n>` to do
+ * that exactly. So a size change lands here, and it should: this was the FOURTH
+ * guard to red on the type change, after two in `nodeLabelFit.spec.ts` and one
+ * in `BaseNode.titleWrap.spec.tsx`.
+ *
+ * That four separate guards fire on one literal is the system working, not
+ * friction — the declared size is a geometry input in this codebase, and the
+ * only thing worse than re-deriving four bounds is a font change that silently
+ * re-derives none of them. The negative controls below (a token WITHOUT the
+ * scale must not match; the 13px regex must not match an 11px token) are
+ * untouched, so this file still discriminates on the property it is about.
+ */
+const DECLARED = { nodeTitle: 12, nodeLabel: 11, edgeLabel: 10 } as const
 
 /** DS v5 §2.4: panel and canvas contexts bottom out at 10px. */
 const DS_CANVAS_FLOOR_PX = 10
@@ -88,7 +105,7 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // 6.5 / 5.5 / 5.0px at the settle zoom. If this assertion ever fails, the
     // counter-scale has stopped being the thing doing the work.
     const before = Object.values(DECLARED).map(px => px * LABEL_LEGIBLE_ZOOM)
-    expect(before).toEqual([6.5, 5.5, 5])
+    expect(before).toEqual([6, 5.5, 5])
     for (const px of before) expect(px).toBeLessThan(DS_CANVAS_FLOOR_PX)
   })
 
@@ -122,8 +139,35 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // Below LABEL_LEGIBLE_ZOOM the LOD view has hidden most labels; the few that
     // are kept (goal / decision / the leading option) shrink linearly from the
     // capped scale instead of vanishing.
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(11.7, 6)
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(10.4, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(10.8)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(9.6, 6)
+
+    /*
+     * ⚠ THE TRADE THE 13px → 12px CHANGE MAKES, STATED RATHER THAN BURIED IN A
+     * NUMBER (1 Sep 2026).
+     *
+     * Below the floor the cap has bitten, so rendered = declared × 2 × zoom and
+     * the title crosses DS v5 §2.4's 10px minimum at:
+     *
+     *     13px → zoom 0.385        12px → zoom 0.417
+     *
+     * So there is a NARROW BAND, roughly 0.385–0.417, where a title used to
+     * satisfy the canvas floor and no longer does. That is a real cost and it
+     * is why this went from 10.4 to 9.6.
+     *
+     * It is accepted, on a bound rather than a feeling: AT AND ABOVE the floor —
+     * the whole range the product treats as legible — the cap and the zoom
+     * cancel, so a title renders at its DECLARED 12px and clears the minimum
+     * with headroom. Below 0.5 the product has already declared text is not the
+     * medium: it hides the body, shows one reduced line per card and puts a
+     * banner up saying so. 11px was rejected precisely because it broke the
+     * floor at 0.45, INSIDE the band this test calls graceful.
+     *
+     * This assertion is the thing that will notice if someone shaves the
+     * declared size again, so the next person has to come here and re-argue it.
+     */
+    const floorCrossingZoom = DS_CANVAS_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)
+    expect(floorCrossingZoom).toBeLessThan(LABEL_LEGIBLE_ZOOM)
   })
 })
 

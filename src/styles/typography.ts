@@ -72,13 +72,26 @@ export const typography = {
    * SIX of eighteen were clipped. The card was not too small; the type was too
    * big for it.
    *
-   * ⛔ 11px IS THE FLOOR-AWARE CHOICE, NOT A ROUND NUMBER. Rendered size is
-   * `declared × scale × zoom`, and the scale is capped at `1 /
-   * LABEL_LEGIBLE_ZOOM` = 2. So AT THE FLOOR the two cancel and **rendered size
-   * equals DECLARED size** — which makes Design System v5 §2.4's 10px canvas
-   * minimum a hard bound on this literal, not on the rendered result. 11px
-   * keeps 1px of headroom; 10px would sit exactly on the floor with none, and
-   * anything below it ships text the design system forbids.
+   * ⛔ 12px, AND THE REASON IT IS NOT 11 IS THE BAND *BELOW* THE FLOOR.
+   *
+   * Rendered size is `declared × scale × zoom` and the scale is capped at
+   * `1 / LABEL_LEGIBLE_ZOOM` = 2. At and above the floor the two cancel, so
+   * rendered size equals DECLARED size and anything ≥ 10px satisfies Design
+   * System v5 §2.4. That reasoning alone picks 11px, and I did pick 11px first.
+   *
+   * It is wrong just below the floor, where the cap has bitten and the zoom
+   * keeps falling: rendered = declared × 2 × zoom. At zoom 0.45 —
+   * inside the graceful-degradation band the product deliberately enters, and a
+   * band where TITLES STILL RENDER — that is 11 × 2 × 0.45 = **9.9px**, under
+   * the floor. 12px gives 10.8px and stays over it.
+   *
+   * Caught by `zoomLegibility.counterScale.spec.ts`'s "degrades gracefully
+   * below the floor rather than falling off a cliff", which pins that exact
+   * band. The cheaper reading was to call sub-floor text acceptable because the
+   * product is already showing a "zoomed out" banner there — but a banner
+   * explains a state, it does not license shipping type the design system
+   * forbids. 12px costs ~8% of the width win instead of ~18% and needs no
+   * argument.
    *
    * Effect: ~18% more characters a line at the same card width, and the card
    * itself narrows (see `NODE_TITLE_WIDEST_WORD_PX`, re-derived with it), so
@@ -89,7 +102,7 @@ export const typography = {
    * title from a metric value once both are near the floor size; dropping it to
    * 400 would buy no space and cost the hierarchy.
    */
-  nodeTitle: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
+  nodeTitle: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
   nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-tight',
   edgeLabel: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-tight',
 

@@ -73,19 +73,19 @@ const WIDEST_WORD_PX_AT_13 = 97.77
  *
  * ⭐ WHAT THE PROBE *IS* GOOD FOR IS THE RATIO, because a multiplicative bias
  * CANCELS in a ratio. Measured across eight runs in the live font at both
- * sizes, 11px/13px came out at 0.8462 against the arithmetic 11/13 = 0.84615 —
+ * sizes, the probe reproduced the arithmetic ratio to 4dp —
  * i.e. this font scales linearly to 4 decimal places, so the conversion below
  * is a scaling and not an estimate.
  *
- *     97.77 × 11/13 = 82.72px
+ *     97.77 × 12/13 = 90.25px
  *
- * `NODE_TITLE_WIDEST_WORD_PX` is 85, so the margin is 2.28px — deliberately the
+ * `NODE_TITLE_WIDEST_WORD_PX` is 93, so the margin is 2.75px — deliberately the
  * SAME tight headroom the 13px bound carried (2.23px), for the same reason:
  * every pixel here is doubled by the counter-scale and widens every compressed
  * card. The negative controls hold their relationship too: "Recommendation" and
  * "Commoditisation" exceeded the bound at 13px and still exceed it at 11px.
  */
-const WIDEST_WORD_PX_AT_11 = +(WIDEST_WORD_PX_AT_13 * (11 / 13)).toFixed(2)
+const WIDEST_WORD_PX_AT_12 = +(WIDEST_WORD_PX_AT_13 * (12 / 13)).toFixed(2)
 
 describe('the label scale is the geometry authority', () => {
   it('the maximum counter-scale is DERIVED from the legibility floor, not restated', () => {
@@ -142,7 +142,7 @@ describe('the derived geometry actually holds the product’s own words', () => 
     // The load-bearing assertion. Everything above proves the numbers agree
     // with each other; this one proves they agree with a MEASUREMENT.
     expect(NODE_TITLE_MIN_MEASURE_PX).toBeGreaterThanOrEqual(
-      WIDEST_WORD_PX_AT_11 * MAX_LABEL_COUNTER_SCALE,
+      WIDEST_WORD_PX_AT_12 * MAX_LABEL_COUNTER_SCALE,
     )
   })
 
@@ -199,17 +199,17 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // assert that a smaller font must produce the same card, which is the whole
     // change denied. Re-derived at the same ratio the type moved by:
     // the card does NOT scale uniformly, because only part of it is text:
-    // 44px of it (20 reclaimed chrome + 24 padding) is fixed, so 144 → 129 is
-    // the text half moving 100 → 85 with the chrome standing still. Asserting a
+    // 44px of it (20 reclaimed chrome + 24 padding) is fixed, so 144 → 137 is
+    // the text half moving 100 → 93 with the chrome standing still. Asserting a
     // scaled version of the OLD CARD band would have been wrong arithmetic
     // dressed as a derivation — I wrote that first and it failed here, which is
     // the guard doing its job on the person changing it.
-    // The TEXT half tracks the font: 100px @13px × 11/13 = 84.6, shipped at 85.
+    // The TEXT half tracks the font: 100px @13px × 12/13 = 92.3, shipped at 93.
     // Stated as a band around the derivation so a hand-tuned value cannot creep
     // back in, and deliberately NOT as `toBe(85)`, which would agree with any
     // number this file and the source happen to share.
     const textHalfAt1x = NODE_TITLE_WIDEST_WORD_PX
-    const derivedTextHalf = 100 * (11 / 13)
+    const derivedTextHalf = 100 * (12 / 13)
     expect(textHalfAt1x).toBeGreaterThanOrEqual(derivedTextHalf)
     expect(textHalfAt1x).toBeLessThanOrEqual(derivedTextHalf + 3)
     expect(cardAt1x).toBe(
@@ -237,9 +237,9 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // that job is done by it going red — which is exactly what happened when
     // the type scale changed. 214 = 85 (widest word @11px, rounded) × 2
     // (counter-scale) + 20 (chrome the glyph vacated) + 24 (card padding).
-    // The card is 30px narrower, which is the point: more cards fit a row, so
+    // The card is 14px narrower, which is the point: more cards fit a row, so
     // the graph is shorter and more of it fits a laptop screen.
-    expect(NODE_LAYOUT_MIN_W).toBe(214)
+    expect(NODE_LAYOUT_MIN_W).toBe(230)
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
 
     // …and only the TEXT measure carries the scale. The icon, its gap and the

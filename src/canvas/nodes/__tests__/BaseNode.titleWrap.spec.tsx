@@ -133,7 +133,7 @@ describe('BaseNode — titles wrap at word boundaries (never mid-word)', () => {
     // #758 passed this file. Derivation and evidence: `nodeLabelFit.spec.ts`.
     //
     // ⚠ AND IT HAS TO TRACK THE DECLARED SIZE TOO (1 Sep 2026, title 13px →
-    // 11px). This is the THIRD guard in this repo pinned to a 13px measurement
+    // 12px). This is the THIRD guard in this repo pinned to a 13px measurement
     // — the other two are in `nodeLabelFit.spec.ts` — and all three went red on
     // the type change, which is the system working: a font size is not a style
     // tweak here, it is a geometry input, and every bound derived from it has
@@ -142,9 +142,9 @@ describe('BaseNode — titles wrap at word boundaries (never mid-word)', () => {
     // 97.77); it is scaled rather than corrected, because this assertion's job
     // is a conservative LOWER bound and raising it here would be a second,
     // quieter change riding along with the first.
-    const ORDINARY_WORD_PX_AT_11 = 96 * (11 / 13)
+    const ORDINARY_WORD_PX_AT_12 = 96 * (12 / 13)
     expect(NODE_TITLE_MIN_MEASURE_PX).toBeGreaterThanOrEqual(
-      ORDINARY_WORD_PX_AT_11 * MAX_LABEL_COUNTER_SCALE,
+      ORDINARY_WORD_PX_AT_12 * MAX_LABEL_COUNTER_SCALE,
     )
   })
 
