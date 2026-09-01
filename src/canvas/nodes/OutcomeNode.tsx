@@ -14,7 +14,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
-import { EstimateMarker } from './shared'
+import { EstimateMarker, NodeMetricRow } from './shared'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -241,18 +241,32 @@ export const OutcomeNode = memo((props: NodeProps) => {
             stated: "85% strength" when somebody set it, "85% strength · est."
             when nobody did. The honesty claim and the placeholder-wall claim are
             different claims and both are satisfied. */}
+        {/* ⭐ THE SHARED ROW, NOT A THIRD PRESENTATION OF THE SAME NUMBER.
+            This rendered `70% strength · est.` — value first, no bar — while
+            `RiskNode` rendered the SAME datum, from the SAME `bridgeEdgeData`
+            seam, as `strength ▬▬▬ 70% est.`. One number, one meaning, two
+            layouts, on cards a user compares side by side.
+
+            Everything UI-SEM-089 requires is preserved and is now structural
+            rather than repeated: the NOUN is the row's `label` and cannot go
+            missing, and the estimate marker rides `trailing` on the same
+            condition it did before. What changes is that the bar arrives, the
+            caption sits in the same 56px column as every other node type, and
+            the next node type gets it for free instead of hand-copying it —
+            which is how these three drifted apart in the first place. */}
         {bridgeEdgeData?.bridgeStrengthPct != null && (
-          <div className="mt-1 inline-flex items-baseline gap-1">
-            <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            {/* The noun. Never "of your goal", never absent — see UI-SEM-089 above. */}
-            <span className={`${typography.edgeLabel} text-text-light`}>strength</span>
-            {bridgeEdgeData.bridgeIsEstimated && (
-              <>
-                <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>·</span>
+          <NodeMetricRow
+            label="strength"
+            value={bridgeEdgeData.bridgeStrengthPct / 100}
+            formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
+            fillClass="bg-success"
+            testId="outcome-strength-row"
+            trailing={
+              bridgeEdgeData.bridgeIsEstimated ? (
                 <EstimateMarker title="Strength estimated, not yet confirmed — open the details to set or confirm it" />
-              </>
-            )}
-          </div>
+              ) : null
+            }
+          />
         )}
 
         {/* Coaching chip moved to popover — see `outcomeChips` useMemo and

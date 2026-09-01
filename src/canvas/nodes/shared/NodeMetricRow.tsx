@@ -42,6 +42,25 @@ export interface NodeMetricRowProps {
   phrase?: string
   /** Rendered after the value: an estimate marker, a confidence dot. */
   trailing?: ReactNode
+  /**
+   * Pointer-facing disclosure for a figure whose BASIS a reader could misread.
+   *
+   * ⚠ ADDED FOR THE FACTOR ROW, AND IT IS NOT OPTIONAL THERE. A factor's
+   * influence on the fallback basis is per-set normalised, so the top driver
+   * shows 100% BY CONSTRUCTION — a number that means "highest here", not
+   * "total". `MetricPills` disclosed that through a native `title`, and a
+   * conversion that dropped it would have moved a figure onto a more prominent
+   * row while quietly removing the sentence that stops it being read as an
+   * absolute. Same shape as the type-description tooltip that died when the
+   * glyph moved: a visual change taking an explanation away with nothing on
+   * screen to notice it.
+   *
+   * ⚠ A `title` IS NOT ENOUGH ON ITS OWN and is not offered as one — it is
+   * unreachable by keyboard on a non-focusable row and absent on touch, which
+   * is why `phrase` carries the meaning for assistive tech independently.
+   * Callers that need a basis disclosed should pass BOTH.
+   */
+  title?: string
   testId?: string
 }
 
@@ -52,6 +71,7 @@ export function NodeMetricRow({
   fillClass,
   phrase,
   trailing,
+  title,
   testId,
 }: NodeMetricRowProps) {
   // Absence is not zero. A node with no measurement renders no row rather than
@@ -61,7 +81,7 @@ export function NodeMetricRow({
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
 
   return (
-    <div className="mt-1 flex items-center gap-1.5" data-testid={testId}>
+    <div className="mt-1 flex items-center gap-1.5" data-testid={testId} title={title}>
       {/* ⚠ SENTENCE CASE, AND THE DESIGN-SYSTEM GUARD WAS RIGHT TO INSIST.
           The first cut set a text-transform here and argued it carefully:
           transform in CSS rather than in the string, so `textContent` keeps the
