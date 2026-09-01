@@ -42,7 +42,7 @@ import {
   Flag,
   Pencil,
   Sparkles,
-  User,
+  UserCheck,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -75,10 +75,27 @@ export const VALUE_PROVENANCE_ICON: Readonly<Record<ValueProvenanceKind, LucideI
     ai: Sparkles,
     /**
      * A person owns the value but the record does not say which act — the
-     * wire-level `user_set`. `User` is `ProvenanceBadge`'s `'user-modified'`
-     * glyph.
+     * wire-level `user_set`.
+     *
+     * ⭐ `UserCheck`, NOT bare `User` (Paul's call, 1 Sep 2026). The claim this
+     * mark has to carry is **human-vetted or human-provided**, and neither half
+     * of that survives on its own: a bare person says "a human" without saying
+     * they stood behind the number, and a bare tick says "done" without saying
+     * by whom. The pair says it in one glyph.
+     *
+     * It also has to READ against its two siblings on the same card, which is
+     * what actually decides a canvas glyph: `Sparkles` = the machine made this
+     * up, `FileText` = lifted from your document, `UserCheck` = a person stood
+     * behind it. The discriminator between them is the SHAPE (spark / page /
+     * person), and the tick only qualifies the person — so the set stays
+     * legible when the glyphs are small.
+     *
+     * ⚠ Deliberately NOT `Pencil`: that is `edited`'s glyph below, for when the
+     * record says the human SUPPLIED the number. `user_set` does not say which
+     * act occurred, so a glyph asserting authorship would claim more than the
+     * wire does — the same over-claim this whole register exists to avoid.
      */
-    human: User,
+    human: UserCheck,
     /**
      * The human read the number that was there and endorsed it.
      * `ProvenanceBadge`'s `'accepted'` row uses bare `Check`; `CheckCircle` is
