@@ -28,6 +28,7 @@ import {
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -565,18 +566,17 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [ceeAnalysisReady, props.id, nodes])
 
   /** Total intervention count (all factors, not capped at 3). */
-  const totalInterventionCount = useMemo(() => {
-    const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
-    if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
-      return Object.keys(ceeOption.interventions).length
-    }
-    const optionNode = nodes.find(n => n.id === props.id)
-    const nodeInterventions = (optionNode?.data as any)?.interventions
-    if (nodeInterventions && typeof nodeInterventions === 'object') {
-      return Object.keys(nodeInterventions).length
-    }
-    return 0
-  }, [ceeAnalysisReady, props.id, nodes])
+  // ⭐ ONE OWNER (shared/optionInterventionCount.ts). The reduced line a node
+  // renders below the legibility floor needs this same count — it is all that
+  // fits — and a second copy of the cee-then-node priority is how two surfaces
+  // come to disagree about how many changes one option makes.
+  const totalInterventionCount = useMemo(
+    () => resolveOptionInterventionCount(props.id, {
+      ceeOptions: ceeAnalysisReady?.options,
+      nodeInterventions: (nodes.find(n => n.id === props.id)?.data as any)?.interventions,
+    }),
+    [ceeAnalysisReady, props.id, nodes],
+  )
 
   const isBaselineOption = useMemo(() => {
     // Explicit flag wins; regex only fires when flag absent (null/undefined).

@@ -178,24 +178,177 @@ describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one
 })
 
 describe('scope, pinned so it cannot widen by accident', () => {
-  it.each(['decision', 'goal', 'action'])(
-    '%s renders no reduced line — not done, deliberately not attempted (rowed)',
-    kind => {
-      expect(
-        resolveLodMetricLine({
-          nodeType: kind,
-          data: { label: 'x', probability: 0.8, impact: 'high' },
-          label: 'x',
-          displayMetadata: meta({
-            influence: 0.9,
-            influenceProvenance: 'influence_score' as never,
-            isResultsMode: true,
-            winRate: 0.5,
-            achievementProbability: 0.5,
-            achievementProbabilityIsModelledBasis: false,
-          }),
+  // ⚠⚠ THIS BLOCK ONCE PINNED `goal` AND `decision` AS RENDERING NOTHING; THIS
+  // BRANCH THEN REPLACED THOSE PINS WITH ARMS OF ITS OWN; AND BOTH ARE NOW GONE
+  // AGAIN, WHICH IS THE HONEST OUTCOME AND NOT A RETREAT.
+  //
+  // Neither card is blank any more — #1085 shipped both lines through
+  // `BaseNode`'s `lodMetric` prop, which WINS over this resolver. A `goal` or
+  // `decision` case here would therefore be code the mount can never reach, and
+  // a spec asserting its precedence would be GREEN ABOUT NOTHING (CLAUDE.md
+  // trap 13b). Proven by a mutant pair on the sibling risk arm: neutering the
+  // resolver left the component spec green; neutering the component's own
+  // `lodMetric` REDs it.
+  //
+  // So the scope this file pins is now exactly the two types it still owns
+  // end-to-end — factor and option — and `action`, which nothing owns.
+  it('action is still deliberately not attempted — the one type this change does not touch', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'action',
+        data: { label: 'x', probability: 0.8, impact: 'high' },
+        label: 'x',
+        displayMetadata: meta({
+          influence: 0.9,
+          influenceProvenance: 'influence_score' as never,
+          isResultsMode: true,
+          winRate: 0.5,
         }),
-      ).toBeNull()
-    },
-  )
+      }),
+    ).toBeNull()
+  })
+
+  // ⛔ THE TWO ARMS THAT WERE DELETED GET A PIN OF THEIR OWN, BECAUSE A
+  // DELETION LEAVES NOTHING TO NOTICE IF IT COMES BACK. `goal` and `decision`
+  // must resolve to `null` HERE — their lines are their owners' to declare, and
+  // an arm re-added in this file would silently take precedence over nothing
+  // while a reader believed it was live.
+  //
+  // ⚠⚠ THE FIXTURE IS DELIBERATELY OVER-SUPPLIED, AND THAT IS THE ONLY REASON
+  // THIS GUARD DISCRIMINATES. My first version passed a bare `data` and no
+  // `facts` at all — and a re-added decision arm SURVIVED it, measured, because
+  // the arm read a fact the fixture did not carry and withheld for the wrong
+  // reason. The test agreed with itself (CLAUDE.md trap 13b): it would have
+  // reported a closed hole while the hole was open. So the inputs below carry
+  // everything a goal arm or a decision arm could possibly read — a user-set
+  // threshold, a CEE-backfilled one, a unit, and an option count — cast past
+  // the narrowed `LodMetricFacts` PRECISELY BECAUSE the type no longer admits
+  // the count, which is itself the thing being pinned.
+  const OVER_SUPPLIED = {
+    decisionOptionCount: 4,
+    bridgeStrength: { signedMean: 0.45, bridgeStrengthPct: 45, bridgeIsEstimated: true },
+    optionInterventionCount: 2,
+    optionIsBaseline: false,
+  } as unknown as Parameters<typeof resolveLodMetricLine>[0]['facts']
+
+  it('goal and decision resolve to nothing HERE, even handed every fact an arm could want', () => {
+    const goal = resolveLodMetricLine({
+      nodeType: 'goal',
+      data: {
+        label: 'Grow ARR',
+        threshold_source: 'user',
+        success_threshold: 15,
+        goal_threshold_raw: 15,
+        goal_threshold_unit: 'percent',
+      },
+      label: 'Grow ARR',
+      displayMetadata: NOTHING,
+      facts: OVER_SUPPLIED,
+    })
+    const decision = resolveLodMetricLine({
+      nodeType: 'decision',
+      data: { label: 'Choose' },
+      label: 'Choose',
+      displayMetadata: NOTHING,
+      facts: OVER_SUPPLIED,
+    })
+    // CONTRAST CONTROL, same call, same file, same `facts`: a type this module
+    // DOES own. Without it, a resolver that had broken and returned `null` for
+    // everything would pass the two assertions above.
+    // ⚠ `raw_value`, not `{ value, unit }` — see the note on the stated-value
+    // test above. My first fixture here used the latter, `factorDisplayText`
+    // returned null for it, and this control caught it. Third time in this file.
+    const factor = resolveLodMetricLine({
+      nodeType: 'factor',
+      data: { label: 'Unit cost', observedState: { raw_value: '£26,000' } },
+      label: 'Unit cost',
+      displayMetadata: NOTHING,
+      facts: OVER_SUPPLIED,
+    })
+    expect(goal).toBeNull()
+    expect(decision).toBeNull()
+    expect(factor).not.toBeNull()
+  })
+})
+
+describe('the pre-analysis arms, and the opposite-direction twin for each', () => {
+  // ⚠ RISK AND OUTCOME ARE ABSENT FROM THIS BLOCK ON PURPOSE. They had
+  // pre-analysis arms here (a bridge strength read from their edge to the
+  // goal), with a twin apiece. #1074 shipped the same capability through
+  // `RiskNode`/`OutcomeNode`'s own `lodMetric`, which wins before this function
+  // is called — so those arms and their tests came out together. Their
+  // behaviour is pinned where it actually renders, in
+  // `__tests__/lodMetric.riskOutcome.spec.tsx`.
+
+  it('a baseline option says what its card says, and NOT what its backfilled interventions say', () => {
+    // Measured: the Headcount starter backfills interventions onto all four
+    // options, the status-quo one included. Reading the count alone produced
+    // "Changes 2 factors" on the card whose body reads "No changes to factors".
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Freeze Hiring (Status Quo)' },
+        label: 'Freeze Hiring (Status Quo)',
+        displayMetadata: NOTHING,
+        facts: { optionIsBaseline: true, optionInterventionCount: 2 },
+      }),
+    ).toBe('No changes to factors')
+  })
+
+  it('a non-baseline option states how many factors it changes', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Hire Four' },
+        label: 'Hire Four',
+        displayMetadata: NOTHING,
+        facts: { optionIsBaseline: false, optionInterventionCount: 2 },
+      }),
+    ).toBe('Changes 2 factors')
+  })
+
+  it('TWIN — after a run the win share still wins, whatever the change count is', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'option',
+        data: { label: 'Hire Four' },
+        label: 'Hire Four',
+        displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
+        facts: { optionIsBaseline: false, optionInterventionCount: 2 },
+      }),
+    ).toBe('Ahead 41%')
+  })
+
+  it('a factor with a prior range reads it when it has no stated value and no influence', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: NOTHING,
+      }),
+    ).toBe('Range: 0.3 to 0.9')
+  })
+
+  it('TWIN — influence still outranks the range, so no post-analysis card changes', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
+      }),
+    ).toBe('Influence 67%')
+  })
+
+  it('CONTRAST CONTROL — a CONTROLLABLE factor with the same prior says nothing, so the arm is the external gate and not a default', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'controllable', prior: { range_min: 0.3, range_max: 0.9 } },
+        label: 'Attrition',
+        displayMetadata: NOTHING,
+      }),
+    ).toBeNull()
+  })
 })

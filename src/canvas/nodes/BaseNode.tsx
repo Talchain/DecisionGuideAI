@@ -35,6 +35,7 @@ import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { resolveLodMetricLine } from './shared/lodMetricLine'
+import { resolveLodMetricFacts } from './shared/lodMetricFacts'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { FOOTER_COPY } from '../components/pre-analysis-v3/constants'
 import { isGraphLensEnabled } from '../../flags'
@@ -222,17 +223,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * may appear — `lodActive`, i.e. below the legibility floor. It never decides
    * what the line says, and there is no formatter in this file.
    */
-  const lodBodyLine = useMemo<string | null>(() => {
-    if (!lodActive) return null
-    // The owner's own line wins — it can see data this cannot (see `lodMetric`).
-    if (lodMetric != null && lodMetric.length > 0) return lodMetric
-    return resolveLodMetricLine({
-      nodeType,
-      data: data as Record<string, unknown> | undefined,
-      label,
-      displayMetadata,
-    })
-  }, [lodActive, lodMetric, nodeType, data, label, displayMetadata])
+  // (declared below, once `lodFacts` is available — see `lodBodyLine`.)
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
@@ -244,6 +235,60 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+
+  /**
+   * ⚠ THE FACT THAT DOES NOT LIVE ON THE NODE, and whose absence was the
+   * defect. An option's change count lives in `ceeAnalysisReady`;
+   * `resolveLodMetricLine` receives `data` and `displayMetadata` and cannot see
+   * it, which is why an option card could only ever speak after a run.
+   *
+   * ⭐ IT IS COMPUTED ONLY BELOW THE LEGIBILITY FLOOR AND ONLY FOR OPTIONS.
+   * `BaseNode` hosts every card on the canvas, so this deliberately subscribes
+   * to nothing new: `ceeAnalysisReady` is already selected above for the
+   * pre-run overlay, and no `nodes`/`edges` traversal is added. Risk, outcome,
+   * goal and decision need nothing here — each formats its own line and passes
+   * it as `lodMetric` below.
+   */
+  const lodFacts = useMemo(() => {
+    if (!lodActive || nodeType !== 'option') return undefined
+    return resolveLodMetricFacts({
+      nodeType,
+      nodeId: id,
+      data: data as Record<string, unknown> | undefined,
+      ceeOptions: ceeAnalysisReady?.options,
+    })
+  }, [lodActive, nodeType, id, ceeAnalysisReady, data])
+
+  const lodBodyLine = useMemo<string | null>(() => {
+    if (!lodActive) return null
+    /**
+     * ⛔ THE OWNER'S OWN LINE WINS, AND AS OF 1 SEP 2026 THAT IS A SETTLED
+     * OWNERSHIP SPLIT RATHER THAN A FALLBACK ORDER (see the map in
+     * `shared/lodMetricLine.ts`).
+     *
+     * Four types format their own string and pass it here: risk and outcome
+     * (#1074) and goal and decision (#1085), each because it reads a datum the
+     * central resolver cannot see — an EDGE's strength, a user-stated
+     * threshold, a leader-claim PERMISSION. Factor and option have no owner
+     * line and are resolved centrally.
+     *
+     * ⚠ SO A `case` ADDED TO `resolveLodMetricLine` FOR ONE OF THOSE FOUR
+     * TYPES IS DEAD CODE, AND ITS UNIT SPEC WILL STILL PASS. That is not
+     * hypothetical: this branch is where four such arms were deleted, after a
+     * mutant pair showed the resolver's risk arm could be neutered with the
+     * component spec staying GREEN. If you are about to add one, add it to the
+     * owning component instead.
+     */
+    if (lodMetric != null && lodMetric.length > 0) return lodMetric
+    return resolveLodMetricLine({
+      nodeType,
+      data: data as Record<string, unknown> | undefined,
+      label,
+      displayMetadata,
+      facts: lodFacts,
+    })
+  }, [lodActive, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
     if (nodeType === 'factor') {
@@ -830,7 +875,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           D2: at level-of-detail zoom the body hides via visibility (box keeps
           its dimensions so ELK/edge anchors stay stable) — the node reads as
           its coloured shape, PLUS the one reduced line below. */}
-      {!isCausalLens && !isEvidenceLens && children ? (
+      {/* ⚠ `children || lodBodyLine`, AND THE SECOND HALF IS LOAD-BEARING. This
+          wrapper hosts the reduced line, so gating it on `children` alone made
+          the line unrenderable on precisely the cards that needed it most: one
+          whose body branches all resolved to nothing is the emptiest box on the
+          canvas, and it was the one card that could not be given a line. The
+          wrapper contributes no height and the line is absolutely positioned,
+          so admitting it with no children changes no geometry. */}
+      {!isCausalLens && !isEvidenceLens && (children || lodBodyLine) ? (
         <div className="relative text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
           {children as ReactNode}
           {/* The reduced line (see `lodBodyLine` above for what it is and why

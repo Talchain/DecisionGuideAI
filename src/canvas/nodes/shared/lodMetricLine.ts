@@ -60,6 +60,65 @@
  * down what the EXCLUDED case will look like on screen, not just why it is
  * excluded — "renders nothing" and "is an empty box" are the same fact, and
  * only one of them makes the cost obvious.
+ *
+ * ⭐⭐ AND THE DEFECT REOPENED ANYWAY, FOR FACTORS AND OPTIONS (measured in a
+ * real browser on deployed `f3b1ca87`, 1 Sep 2026). On the pre-analysis
+ * Headcount starter, **14 of 16 cards still rendered an empty box** at 0.49
+ * zoom — and 0.49 is not an exotic place to be: "Show whole model" lands a real
+ * model at **0.488**, so the ordinary gesture for *"let me see the whole
+ * thing"* put the user straight into it.
+ *
+ * The cause was one shape, repeated: **every rule here except a factor's stated
+ * value asked for an ANALYSIS-DERIVED metric** — an influence score, a win
+ * share, an achievement probability, a severity computed from probability ×
+ * impact. So the feature was weakest exactly where the gesture is most used,
+ * because **zooming out to grasp the whole model is something people do BEFORE
+ * they analyse.** The product assumed analysis had run.
+ *
+ * ⛔ THE RULE, RESTATED AT ITS FULL STRENGTH: ASK FOR THE DATUM THE CARD IS
+ * ALREADY DISPLAYING AT FULL ZOOM. Not the one an analysis would produce. The
+ * two types this module still owns end-to-end now each have a pre-analysis
+ * answer, and each reads the very string or number the card shows one zoom step
+ * up:
+ *
+ *   factor   stated value → influence → **its prior range** ("Range: 0.3 to 0.9")
+ *   option   win share    → **how many factors it changes**
+ *
+ * ⚠ THE ORDER IS PURELY ADDITIVE AND THAT IS DELIBERATE. Every rule that
+ * resolved to a line before this change resolves to the SAME line now; the new
+ * arms are reached only where the old ones returned `null`, i.e. only where the
+ * user was being shown an empty box. A fix for a blank card must not be able to
+ * change a card that was already speaking (the opposite-direction twin,
+ * CLAUDE.md trap 22b).
+ *
+ * ⚠⚠ SCOPE, AND WHY IT SHRANK — THE HALF OF THIS CHANGE THAT WAS DELETED RATHER
+ * THAN SHIPPED (1 Sep 2026). This started out ALSO giving `risk`, `outcome`,
+ * `goal` and `decision` pre-analysis arms here. While it sat open, #1074
+ * (risk/outcome) and #1085 (goal/decision) shipped the same capability through
+ * the OTHER mechanism — the owner formats its own line and passes it as
+ * `BaseNode`'s `lodMetric` prop, where it WINS over this resolver. Both
+ * mechanisms were correct; keeping both would have left four arms here that the
+ * mount can never reach, with unit specs certifying their precedence in detail.
+ *
+ * ⛔ THAT IS THE DANGEROUS SHAPE, NOT MERELY THE REDUNDANT ONE. A green spec
+ * about code no mount reaches is a guard agreeing with itself (CLAUDE.md trap
+ * 13b), and it was PROVEN dark by a mutant pair: neutering the resolver's risk
+ * arm left the component spec GREEN, while neutering `RiskNode`'s own
+ * `lodMetric` REDs it. The deployed mechanism wins; the unreachable arms and
+ * the specs that certified them are gone.
+ *
+ * ⚠ SO THE LIVE OWNERSHIP MAP IS NOW SPLIT, AND IT IS SPLIT ON PURPOSE (trap
+ * 21 — two authorities answering different questions look like an
+ * inconsistency to reconcile, and aligning them is the wrong fix):
+ *
+ *   factor · option              → THIS MODULE (no `lodMetric` prop is passed)
+ *   risk · outcome               → `RiskNode` / `OutcomeNode` (#1074)
+ *   goal · decision              → `GoalNode` / `DecisionNode` (#1085)
+ *   action                       → DELIBERATELY NOT ATTEMPTED (trap 20)
+ *
+ * The test that keeps this map honest is the contrast control in
+ * `BaseNode.lodBodyLine.spec.tsx`: `action` must stay silent, so a widening
+ * still has to be a decision rather than an accident.
  */
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
@@ -67,6 +126,36 @@ import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
 import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { resolveFactorPriorRange } from './factorPriorRange'
+
+/**
+ * The facts a reduced line needs that DO NOT live on the node.
+ *
+ * ⚠ THIS INPUT EXISTS BECAUSE THE ABSENCE OF IT WAS THE DEFECT. An option's
+ * change count lives in `ceeAnalysisReady`, not on the node, so a resolver
+ * handed only `data` and `displayMetadata` could not see it — which is why an
+ * option card could only ever speak once an ANALYSIS had run, and the
+ * whole-model gesture happens before that.
+ *
+ * ⚠ IT CARRIES OPTION FACTS ONLY, AND THE ABSENCES ARE THE SCOPE. Risk and
+ * outcome read their bridge strength, and decision its option count, from their
+ * OWN components, which format the line themselves and pass it as `lodMetric`
+ * (see the ownership map above). Adding a field here for a type whose line is
+ * declared by its owner would build a second answer to a settled question.
+ *
+ * Every field is RESOLVED BY ITS OWNER and passed in already computed. Nothing
+ * here is derived in this file.
+ */
+export interface LodMetricFacts {
+  /**
+   * How many factors this option changes (`OptionNode.totalInterventionCount`),
+   * via the shared owner `optionInterventionCount.ts` — never recounted here.
+   * `null` when unknown, which is not the same as zero and withholds.
+   */
+  optionInterventionCount?: number | null
+  /** `OptionNode.isBaselineOption` — checked BEFORE any count, as it is there. */
+  optionIsBaseline?: boolean | null
+}
 
 export interface LodMetricLineInputs {
   nodeType: string
@@ -74,6 +163,8 @@ export interface LodMetricLineInputs {
   data: Record<string, unknown> | undefined
   label: string
   displayMetadata: NodeDisplayMetadata
+  /** Off-node facts, resolved by their owners. Absent ⇒ those arms withhold. */
+  facts?: LodMetricFacts
 }
 
 /** A factor's stated value, via the shared entry point every factor surface uses. */
@@ -98,6 +189,7 @@ export function resolveLodMetricLine({
   data,
   label,
   displayMetadata,
+  facts,
 }: LodMetricLineInputs): string | null {
   if (!data) return null
 
@@ -115,8 +207,26 @@ export function resolveLodMetricLine({
       // card's full-zoom row says "Influence" beside its bar for the same
       // reason.
       const { influence, influenceProvenance } = displayMetadata
-      if (influence == null || influenceProvenance == null) return null
-      return `Influence ${Math.round(influence * 100)}%`
+      if (influence != null && influenceProvenance != null) {
+        return `Influence ${Math.round(influence * 100)}%`
+      }
+
+      // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules
+      // above are ANALYSIS-DERIVED or user-supplied, and on a freshly drafted
+      // model an external factor usually has neither — its only figure is the
+      // prior range CEE gave it, which its card is already showing as
+      // "Range: 0.3 to 0.9". Read from the same owner the card reads, so the
+      // two cannot state different ranges for one factor.
+      //
+      // `valueDisplay: null` is correct and not a shortcut: this arm is only
+      // reached when `factorStatedValue` returned null, so there is no value
+      // line for the range to duplicate, and the owner's dedupe is a no-op.
+      return resolveFactorPriorRange({
+        data,
+        nodeCategory: data.category as string | undefined,
+        observedState: data.observedState as { unit?: string | null; cap?: number | null } | undefined,
+        valueDisplay: null,
+      })
     }
 
     case 'option': {
@@ -125,8 +235,34 @@ export function resolveLodMetricLine({
       // comparative phrase that truncates to nothing at this size. Paul's
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
-      if (!displayMetadata.isResultsMode || displayMetadata.winRate == null) return null
-      return `Ahead ${formatWinProbability(displayMetadata.winRate)}`
+      if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
+        return `Ahead ${formatWinProbability(displayMetadata.winRate)}`
+      }
+
+      // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and
+      // what its card shows instead is the set of factor changes it makes
+      // ("Account executive… Very low → High (0.75)"). That list is far too
+      // long for one line at this size, so the reduced line states its SIZE —
+      // the shortest true thing the card is already saying.
+      //
+      // ⛔ IT COUNTS, IT NEVER CHARACTERISES. "2 factor changes" is a fact about
+      // the option's own definition and needs no analysis, no caveat and no
+      // adjacent disclosure. Zero is a real and useful answer here (a
+      // status-quo option genuinely changes nothing, and its card says so),
+      // which is exactly why the withholding case has to be `null` — UNKNOWN —
+      // and not 0. Absence of the fact is not absence of changes.
+      // ⚠ THE PRECEDENCE IS `OptionNode`'S OWN, IN ITS ORDER, AND THE ORDER IS
+      // THE CORRECTNESS. Baseline first, then "none specified", then the
+      // count. A first cut read the count alone and said "Changes 2 factors"
+      // about the status-quo card whose body reads "No changes to factors" —
+      // the interventions are BACKFILLED onto a baseline, so the raw count is
+      // real and describes something the card deliberately does not claim.
+      // The corpus caught it; a self-authored fixture would not have.
+      if (facts?.optionIsBaseline === true) return 'No changes to factors'
+      const changes = facts?.optionInterventionCount
+      if (changes == null) return null
+      if (changes === 0) return 'No changes specified'
+      return `Changes ${changes} factor${changes === 1 ? '' : 's'}`
     }
 
     case 'risk': {
@@ -136,12 +272,20 @@ export function resolveLodMetricLine({
         data.probability as number | undefined,
         data.impact as RiskImpact | undefined,
       )
+      // ⚠ NO PRE-ANALYSIS FALLBACK HERE, AND ITS ABSENCE IS THE DECISION. A
+      // drafted risk routinely carries neither probability nor impact, so this
+      // returns `null` — but the card is NOT blank, because `RiskNode` declares
+      // its own `Strength N% est.` line through `lodMetric`, which wins before
+      // this function is ever called (#1074, merged and deployed). An arm here
+      // would be unreachable code with a spec certifying its precedence.
       if (severity === null) return null
       return `${severity.charAt(0).toUpperCase()}${severity.slice(1)} risk`
     }
 
     case 'outcome': {
       const { achievementProbability, achievementProbabilityIsModelledBasis } = displayMetadata
+      // ⚠ AS FOR RISK ABOVE: no pre-analysis fallback, because `OutcomeNode`
+      // declares its own strength line through `lodMetric` and it wins here.
       if (achievementProbability == null) return null
       // ⛔ THE CAVEAT GATE. On the modelled basis `OutcomeNode` is REQUIRED to
       // render `GOAL_FIT_BASIS_CAVEAT_COPY` adjacent to this figure. One line
@@ -151,6 +295,18 @@ export function resolveLodMetricLine({
       return `Achievement ${Math.round(achievementProbability * 100)}%`
     }
 
+    // ⚠ `goal`, `decision` and `action` fall through DELIBERATELY.
+    //
+    // `goal` and `decision` are not silent — each declares its own line through
+    // `BaseNode`'s `lodMetric` prop (#1085), because each reads a datum this
+    // module cannot see: a user-stated threshold and a leader-claim PERMISSION
+    // respectively. A goal arm here would print `Target: 15%` beside a prop
+    // that prints the same target from a different expression, and a decision
+    // arm would be a second, differently-counted answer to "how many options?".
+    // Both were written, and both are deleted rather than shipped dark.
+    //
+    // `action` is genuinely NOT ATTEMPTED (trap 20), and the contrast control
+    // in `BaseNode.lodBodyLine.spec.tsx` keeps it that way on purpose.
     default:
       return null
   }

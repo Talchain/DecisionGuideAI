@@ -10,7 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { classifyUnit, cleanFactorLabel, compactFactorLabel, formatInterventionValue, formatRawValueWithUnit, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatInterventionChange } from '../utils/interventionDisplay'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
@@ -23,55 +23,10 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
-
-/**
- * Parse a display string that is a BARE numeric range ("0.2 to 0.8",
- * "20 – 80", "20,000-80,000"). Anything else — prose, currency-formatted
- * ranges ("£20,000 to £80,000"), unit-suffixed values — returns null.
- * Used only for the prior-range dedupe in priorRangeDisplay below.
- */
-function parseBareNumericRange(text: string): readonly [number, number] | null {
-  const m = text.trim().match(/^(-?[\d,]*\.?\d+)\s*(?:to|[–—-])\s*(-?[\d,]*\.?\d+)$/i)
-  if (!m) return null
-  const a = Number(m[1].replace(/,/g, ''))
-  const b = Number(m[2].replace(/,/g, ''))
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
-  return [a, b]
-}
-
-/** Relative-epsilon numeric equality for the dedupe check (never string-fuzzy). */
-function nearlyEqual(a: number, b: number): boolean {
-  return Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b))
-}
-
-/**
- * True when `text` is a bare numeric range that duplicates the prior's
- * range_min/max — matched NUMERICALLY (lane C3), in either normalised form
- * ("0.2 to 0.8") or cap-denormalised form ("20 to 80" with cap 100).
- */
-function bareNumericRangeMatchesPrior(
-  text: string,
-  rangeMin: number,
-  rangeMax: number,
-  cap: number | null | undefined,
-): boolean {
-  const parsed = parseBareNumericRange(text)
-  if (!parsed) return false
-  const [a, b] = parsed
-  if (nearlyEqual(a, rangeMin) && nearlyEqual(b, rangeMax)) return true
-  if (cap != null && cap > 1 && nearlyEqual(a, rangeMin * cap) && nearlyEqual(b, rangeMax * cap)) {
-    return true
-  }
-  return false
-}
-
-/** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros trimmed. */
-function formatNormalisedRangeEnd(v: number): string {
-  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
-}
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -327,97 +282,23 @@ export const FactorNode = memo((props: NodeProps) => {
   // shared formatRawValueWithUnit, so this path can no longer drift from the
   // other formatters (it previously had a local fmt() with its own hardcoded
   // ['£','$','€','¥'] list that leaked "Range: 20 scale to 80 scale").
-  const priorRangeDisplay = useMemo(() => {
-    const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
-    const rangeMin = prior?.range_min
-    const rangeMax = prior?.range_max
-    // ⭐⭐ AN IGNORANCE PRIOR IS NOT A RANGE TO PRINT.
-    //
-    // ⚠ THIS ARM IS REACHABLE, AND MY FIRST READING SAID IT WAS NOT. I traced
-    // two writers of the flagged prior (`normalisation.ts`,
-    // `deterministic-sweep.ts`), found both on the CONTROLLABLE arm, and
-    // deferred this site as unreachable. There is a THIRD writer:
-    // `unified-pipeline/stages/repair/unreachable-factors.ts` sets
-    // `node.category = "external"` (:446) and then writes
-    // `buildUnquantifiedPrior()` (:750) — SAME node, SAME loop iteration, no
-    // intervening scope (verified at CEE `8a4564e5`). So an EXTERNAL factor
-    // does carry the flag, and CEE's own comment there names this surface:
-    // *"instead of printing a bare `Range: 0 to 1`"*.
-    //
-    // ⚠ AND THE HARM IS WORSE THAN AN UNFIXED SIBLING. `Range: 0 to 1` is
-    // PRE-EXISTING here; what the honest-unknown sentence adds is a
-    // CONTRADICTION BESIDE IT — the node saying "No estimate yet" and
-    // "Range: 0 to 1" at once, the second being exactly the claim the first was
-    // written to replace. Suppressing the range is what stops the pair
-    // co-rendering, and that pairing is pinned in the spec.
-    //
-    // Suppressing the LINE is not hiding the STATE: the honest sentence and the
-    // evidence-gap badge both render on this node and say what is true.
-    if (isUnquantifiedPrior(prior)) return null
-    // Both endpoints must be finite numbers: `!range_min` truthiness would
-    // drop the line for range_min === 0 (a perfectly good lower bound), and
-    // Infinity/NaN must never render ("Range: Infinity to …").
-    if (
-      nodeCategory !== 'external' ||
-      typeof rangeMin !== 'number' || !Number.isFinite(rangeMin) ||
-      typeof rangeMax !== 'number' || !Number.isFinite(rangeMax)
-    ) return null
-    const cap = observedState?.cap
-    // Internal factor_type descriptors ('binary', 'normalised', …) must never
-    // display as units — treat as unitless (same guard as valueDisplay above).
-    const rawUnit = observedState?.unit
-    const unit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : null
-    const { kind } = classifyUnit(unit)
-    // Only a cap > 1 can turn the normalised 0–1 prior back into real-world
-    // magnitude. Percent is the one exception: a 0–1 ratio converts to
-    // percentage points (×100) with no cap at all.
-    const canCalibrate = cap != null && cap > 1
-
-    if (kind === 'none' || kind === 'placeholder' || (kind !== 'percent' && !canCalibrate)) {
-      // No real-world calibration: cap-denormalising would fake a measurement,
-      // so render the normalised range unitless — UNLESS the node body already
-      // shows this same range via the CEE-authored display_value (numeric
-      // dedupe against both normalised and cap-denormalised forms). The
-      // display_value line wins because it is CEE-authored copy; the Range
-      // line adds nothing when it repeats the same numbers.
-      // A real unit WITHOUT a usable cap lands here too: prefixing a
-      // normalised 0–1 endpoint with "£" fakes calibration exactly like a
-      // placeholder unit would (and Math.round would grind it to "£0 to £1").
-      if (valueDisplay != null && bareNumericRangeMatchesPrior(valueDisplay, rangeMin, rangeMax, cap)) {
-        return null
-      }
-      return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
-    }
-
-    // Real unit with calibration (or percent): the Range line adds calibrated
-    // information (e.g. "£20,000 to £80,000"). Denormalise via cap, then
-    // format through the shared classifyUnit-based raw formatter (symbol
-    // prefix "£20,000", ISO prefix "USD 20,000", "%" / "months" suffix).
-    const fmt = (v: number) => {
-      let denormed = canCalibrate ? v * cap : v
-      // Percent with no usable cap: the 0–1 prior is a ratio — scale to
-      // percentage points (0.2 → 20%, 1 → 100%), mirroring
-      // formatFactorDisplayValue's percent rule. Keyed on CAP PRESENCE, not
-      // value magnitude: a cap-denormalised value is already in percentage
-      // points and must never be re-scaled (cap 100, range_min 0.005
-      // denormalises to 0.5, meaning 0.5% — not 50%).
-      if (kind === 'percent' && !canCalibrate) denormed *= 100
-      // Integer rounding is only honest at magnitude ≥ 1; sub-1 calibrated
-      // values (0.5 percentage points) keep two decimal places.
-      const rounded = Math.abs(denormed) >= 1 ? Math.round(denormed) : Math.round(denormed * 100) / 100
-      return formatRawValueWithUnit(rounded, unit)
-    }
-    const rendered = `${fmt(rangeMin)} to ${fmt(rangeMax)}`
-    // Dedupe: a CEE-authored display_value that is EXACTLY the calibrated
-    // range text (e.g. "£20,000 to £80,000") makes the Range line pure
-    // repetition. Exact-string equality only — both sides must have come
-    // through the same formatter to collide, so this is numerically faithful
-    // and can never fuzzy-match prose or differently-scaled values. A bare
-    // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
-    // here: the calibrated Range line still adds the unit information.
-    if (valueDisplay != null && valueDisplay.trim() === rendered) return null
-    return `Range: ${rendered}`
-  }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior, valueDisplay])
+  // ⭐ THE DERIVATION MOVED OUT, VERBATIM, AND THE MOVE IS THE FIX.
+  // It used to live here as forty lines of arithmetic, which meant the ONE
+  // line a node still says below the legibility floor could not read it — so a
+  // factor whose only figure is its prior range rendered a BLANK BOX the
+  // moment a user zoomed out to see the whole model. The rules, the reachable
+  // ignorance-prior arm and the two dedupes all live in
+  // `shared/factorPriorRange.ts` now; this card and the reduced line ask the
+  // same owner, so they cannot state different ranges for one factor.
+  const priorRangeDisplay = useMemo(
+    () => resolveFactorPriorRange({
+      data: props.data as Record<string, unknown> | undefined,
+      nodeCategory,
+      observedState,
+      valueDisplay,
+    }),
+    [nodeCategory, observedState, props.data, valueDisplay],
+  )
 
   const isInferred = observedState?.extractionType === 'inferred'
   const isExplicit = observedState?.extractionType === 'explicit'
