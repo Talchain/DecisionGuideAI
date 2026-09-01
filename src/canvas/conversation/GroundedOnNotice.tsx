@@ -28,10 +28,38 @@
  *     different semantics is how two questions end up under one name. This
  *     component writes NO store state at all — it is a pure read.
  *
- * ── WHAT IT NEVER CLAIMS ───────────────────────────────────────────────────
- * · Never that the answer's TEXT mentions the elements. The producer refuses to
- *   make that claim (no code reads the model's output), so the copy is
- *   "Answered using X" — about the answer's inputs, not its prose.
+ * ── ⭐⭐ WHY THE COPY IS ABOUT THE SELECTION, NOT ABOUT THE ANSWER ──────────
+ * This surface shipped reading **"Answered using X"** and that was FALSE on a
+ * reachable and ordinary path. Witnessed on deployed staging (CEE `18b84b0`,
+ * UI `6e58c921`, 1 Sep 2026): a user asked about **co-founder equity** and the
+ * answer was footered *"Answered using Warm Connection Density"* — a node the
+ * answer never touched. It was simply the node they had selected, and it
+ * persisted across several turns.
+ *
+ * The mechanism, derived at both producers' bytes rather than inferred:
+ *   · the UI attaches `selected_elements` from the LIVE canvas store on EVERY
+ *     send (`buildPayload.ts` `deriveSelectedElements`) — a typed question and
+ *     the SelectionPill are byte-identical on the wire;
+ *   · nothing clears that selection when a turn is sent (`clearSelection` has
+ *     exactly one caller, `FocusModeChip`), and creating a node auto-selects
+ *     it (`store.ts` `addNodeWithEdge`) — so a selection is STICKY by default;
+ *   · CEE re-projects that same selection back out unchanged
+ *     (`projectGroundedSelection`: `element_ids` = the selected ids).
+ *
+ * So `element_ids` is the user's SELECTION, on every path there is. It is never
+ * derived from what the answer drew on — the producer says so itself: *"no code
+ * here reads the model's output"*. Two questions were living under one name
+ * (CLAUDE.md trap 21):
+ *
+ *   · what the producer computes → "what did the user have selected?"
+ *   · what "Answered using" asserts → "what did this answer draw on?"
+ *
+ * The remedy that trap prescribes is to NAME THE CONCEPTS APART and let the
+ * surface consume the one that is true, which is what the copy now does. It
+ * states the user's own selection at send time and makes no provenance claim of
+ * any kind. Do not reintroduce a usage verb here ("answered using", "based on",
+ * "drew on") — nothing on either side of the wire can license one, and
+ * `GroundedOnNotice.claimHonesty.spec.tsx` REDs if one returns.
  * · Never a COUNT of grounded elements. The id→label join below is fail-closed
  *   and can legitimately name FEWER elements than the producer sent (an id for
  *   a node not on this canvas cannot be named without fabricating a label).
@@ -134,13 +162,14 @@ export const GroundedOnNotice = memo(function GroundedOnNotice({
     >
       {named.length > 0 && (
         <p data-testid="grounded-on-elements">
-          <span>Answered using </span>
+          <span>You had </span>
           {named.map((element, index) => (
             <span key={element.id} data-testid="grounded-on-element" data-element-id={element.id}>
               {index > 0 ? ', ' : ''}
               <span className="text-text-body">{element.label}</span>
             </span>
           ))}
+          <span> selected when you asked.</span>
         </p>
       )}
       {disclosure !== null && <p data-testid="grounded-on-unresolved">{disclosure}</p>}
