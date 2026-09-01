@@ -77,6 +77,27 @@ const GOAL_ONLY: Node[] = [
   n('o2', 'option', 'RudderStack'),
 ]
 
+/**
+ * BOTH kinds present. Added because a mutant survived without it: swapping the
+ * resolver's `??` order to goal-then-decision REDDED NOTHING, since every other
+ * fixture here carries exactly one of the two. A corpus that omits a shape the
+ * code admits cannot certify the code over that shape.
+ */
+const BOTH_KINDS: Node[] = [
+  n('g1', 'goal', 'Grow recurring revenue to £40m'),
+  n('d1', 'decision', SUBJECT),
+  n('o1', 'option', 'Segment'),
+  n('o2', 'option', 'RudderStack'),
+]
+
+/** A decision node with no usable name, beside a named goal. */
+const UNNAMED_DECISION: Node[] = [
+  n('d1', 'decision', '   '),
+  n('g1', 'goal', 'Grow recurring revenue to £40m'),
+  n('o1', 'option', 'Segment'),
+  n('o2', 'option', 'RudderStack'),
+]
+
 const occurrences = (haystack: string, needle: string): number =>
   haystack.split(needle).length - 1
 
@@ -147,6 +168,28 @@ describe('the subject is called what the product calls that node', () => {
       `The ${DECISION_NODE_LABEL.toLowerCase()} is:`,
     )
     expect(ghostOptionPrompt(CLEAN)).not.toContain(`The ${GOAL_NODE_LABEL.toLowerCase()} is:`)
+  })
+
+  it('PRECEDENCE UNCHANGED: a model carrying BOTH kinds names the DECISION, not the goal', () => {
+    // The noun was the defect; the resolution order was not, and this change
+    // claims not to have touched it. Nothing pinned that claim until a mutant
+    // that reversed the order survived the whole file.
+    const p = ghostOptionPrompt(BOTH_KINDS)
+    expect(p).toContain(`The ${DECISION_NODE_LABEL.toLowerCase()} is: ${SUBJECT}`)
+    expect(p).not.toContain(`The ${GOAL_NODE_LABEL.toLowerCase()} is:`)
+  })
+
+  it('PRECEDENCE UNCHANGED, OTHER DIRECTION: an UNNAMED decision suppresses the clause rather than falling through to the goal', () => {
+    // The existing behaviour of the `??` chain, preserved deliberately. Widening
+    // the resolution while fixing the noun would be a second, unasked change
+    // hiding inside the first — and it would be invisible to every assertion
+    // above, all of which carry at most one nameable subject.
+    const p = ghostOptionPrompt(UNNAMED_DECISION)
+    expect(p).not.toContain(`The ${GOAL_NODE_LABEL.toLowerCase()} is:`)
+    expect(p).not.toContain(`The ${DECISION_NODE_LABEL.toLowerCase()} is:`)
+    // POSITIVE CONTROL: the same probe DOES see a clause when one is emitted,
+    // so the two absences above are not passing by looking at nothing.
+    expect(ghostOptionPrompt(GOAL_ONLY)).toContain(`The ${GOAL_NODE_LABEL.toLowerCase()} is:`)
   })
 
   it('RETIRED VOCABULARY: neither sentence says "decision", the word the product dropped on 31 Aug', () => {
