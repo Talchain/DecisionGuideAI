@@ -547,7 +547,7 @@ export function StrengthenTheReasoning({
             return (
               <li
                 key={rec.id}
-                className="border-l-2 border-info/40 pl-3"
+                className="border-b border-panel-border last:border-b-0 pb-3 last:pb-0"
                 data-testid={`${testId}-item`}
                 data-recommendation-id={rec.id}
               >
@@ -807,7 +807,7 @@ export function StrengthenTheReasoning({
                   </div>
                 ) : standingDispute ? (
                   <p
-                    className={`${typography.panelBody} mt-1.5 mb-0 rounded border-l-2 border-attention/60 bg-panel-hover px-2 py-1 text-text-body`}
+                    className={`${typography.panelBody} mt-1.5 mb-0 rounded border border-attention/40 bg-panel-hover px-2 py-1 text-text-body`}
                     data-testid={`${testId}-disagreement`}
                     data-recommendation-id={rec.id}
                   >

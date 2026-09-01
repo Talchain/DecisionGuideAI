@@ -58,7 +58,7 @@
  *     comment must NOT be flagged (the #385/#386 footgun).
  */
 import { describe, it, expect } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { stripComments } from '../helpers/stripSourceComments'
 
@@ -115,6 +115,55 @@ const CONTENT_CARD_FILES = [
   // popover carries a complete border; lock the rule in against a future accent.
   'canvas/nodes/shared/ScienceIcon.tsx',
 ]
+
+/**
+ * ⭐⭐ DERIVED, NOT LISTED — AND THE REASON IS THIS GUARD'S OWN NEAR-MISS.
+ *
+ * The list above is hand-maintained, and its header asks a human to remember to
+ * "add new analysis-surface cards". That is the hand-maintained mirror this
+ * repo keeps paying for (CLAUDE.md trap 12), and it DRIFTED EXACTLY AS PREDICTED:
+ * the Analysis (New) tab was built after the list was written, so not one of its
+ * files was ever scanned — and it accumulated FIVE one-sided accents (three
+ * `border-l-2 border-warning/*` in AtAGlance, `border-l-2 border-info/40` on every
+ * Strengthen item, `border-l-2 border-attention/60` on the standing-disagreement
+ * note). Paul found them by looking at the screen. The guard was green throughout,
+ * because a scan list cannot fail on a file it was never told about.
+ *
+ * ⚠ NOTE WHAT WAS NOT WRONG: the detector. `ACCENT_WIDTH_NUMERIC` matches
+ * `border-l-2` and would have flagged all five on the first CI run. Every control
+ * in this file passes and always did. The defect was entirely in the SCOPE — which
+ * is the failure mode a control can never catch, because controls prove the
+ * instrument sees what it is pointed at, never that it is pointed at everything.
+ *
+ * So this tree is DERIVED: every `.tsx` under `components/results/analysisNew`
+ * is scanned, today and after the next file lands, with no list to update. A new
+ * section component is covered the moment it exists.
+ */
+const DERIVED_TREES = ['components/results/analysisNew']
+
+/** Every `.tsx` under a derived tree, excluding test directories. */
+function derivedTreeFiles(relRoot: string): string[] {
+  const abs = resolvePath(SRC, relRoot)
+  if (!existsSync(abs)) return []
+  const out: string[] = []
+  const walk = (dirAbs: string, dirRel: string) => {
+    for (const entry of readdirSync(dirAbs, { withFileTypes: true })) {
+      if (entry.name === '__tests__' || entry.name === '__fixtures__') continue
+      const childAbs = `${dirAbs}/${entry.name}`
+      const childRel = `${dirRel}/${entry.name}`
+      if (entry.isDirectory()) walk(childAbs, childRel)
+      else if (entry.name.endsWith('.tsx')) out.push(childRel)
+    }
+  }
+  walk(abs, relRoot)
+  return out.sort()
+}
+
+/** The full scan set: the hand list PLUS every file derived from the trees. */
+function scanSet(): string[] {
+  const derived = DERIVED_TREES.flatMap(derivedTreeFiles)
+  return Array.from(new Set([...CONTENT_CARD_FILES, ...derived]))
+}
 
 /** Single-side border width with an arbitrary value: `border-l-[3px]`. */
 const ACCENT_WIDTH_ARBITRARY = /\bborder-[lrtb]-\[/
@@ -179,7 +228,7 @@ describe('complete-borders guard: analysis-surface content cards carry complete 
 
   it('has no one-sided coloured border accent in any swept content-card file', () => {
     const violations: Violation[] = []
-    for (const rel of CONTENT_CARD_FILES) {
+    for (const rel of scanSet()) {
       const abs = resolvePath(SRC, rel)
       // A missing file is list-drift, asserted by the dedicated test above with a
       // named message; skip it here so this scan never masks that as a raw ENOENT.
@@ -201,6 +250,22 @@ describe('complete-borders guard: analysis-surface content cards carry complete 
   })
 
   // ── Self-test controls (prove the detector is neither blind nor over-eager) ──
+
+  /**
+   * ⚠ THE CONTROL THE OLD SHAPE COULD NOT HAVE — an EMPTY derivation is
+   * indistinguishable from a clean one, and would restore the exact silence this
+   * tree was added to end. A moved or renamed directory must RED here, loudly,
+   * not quietly stop scanning. The named-file assertion is deliberate: a
+   * non-zero count alone would survive a derivation that walked the wrong tree.
+   */
+  it('DERIVATION control: the derived trees are non-empty and reach the tab sections', () => {
+    const derived = DERIVED_TREES.flatMap(derivedTreeFiles)
+    expect(derived.length).toBeGreaterThan(5)
+    expect(derived).toContain('components/results/analysisNew/sections/AtAGlance.tsx')
+    expect(derived).toContain('components/results/analysisNew/sections/StrengthenTheReasoning.tsx')
+    // And the derivation excludes the test tree, whose fixtures may name accents.
+    expect(derived.filter((f) => f.includes('__tests__'))).toHaveLength(0)
+  })
 
   it('POSITIVE control: flags border-l-[3px] and border-t-2 accents', () => {
     const positive = [

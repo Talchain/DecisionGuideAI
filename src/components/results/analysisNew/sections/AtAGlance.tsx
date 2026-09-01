@@ -274,7 +274,7 @@ export function AtAGlance({
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
       {ribbon.length > 0 ? (
         <div
-          className="flex items-start gap-1.5 border-l-2 border-warning/50 pl-2"
+          className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/[0.05] px-2 py-1.5"
           role="status"
           data-testid={`${testId}-ribbon`}
         >
@@ -527,7 +527,7 @@ export function AtAGlance({
           )
           return (
             <div
-              className="rounded-md border-l-2 border-warning/40 bg-warning/[0.04] py-1.5 pl-2 pr-1"
+              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
               data-testid={`${testId}-condition`}
             >
               {focusable ? (
@@ -744,7 +744,7 @@ export function AtAGlance({
           )
           return (
             <div
-              className="rounded-md border-l-2 border-warning/40 bg-warning/[0.04] py-1.5 pl-2 pr-1"
+              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
               data-testid={`${testId}-condition`}
             >
               {focusable ? (
