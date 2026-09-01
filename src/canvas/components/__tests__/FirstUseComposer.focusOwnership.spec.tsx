@@ -221,6 +221,30 @@ describe('FirstUseComposer — focus continuity across the restore swap', () => 
     unregister()
   })
 
+  it("OPPOSITE TWIN: the user's OWN send is not a restore — the reposition path owns that transition", async () => {
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    const input = screen.getByTestId(HERO_TEXTAREA) as HTMLTextAreaElement
+    await waitFor(() => expect(document.activeElement).toBe(input))
+
+    // Pin the precondition: this really is a send from THIS composer.
+    fireEvent.change(input, { target: { value: 'my own brief about billing' } })
+    expect(input.value).toBe('my own brief about billing')
+    fireEvent.click(screen.getByTestId('first-use-input-bar-send'))
+
+    // The graph the user's own send produced.
+    act(() => {
+      ;(useCanvasStore as any).setState({ nodes: [{ id: 'n1' }] })
+    })
+
+    const floatingFocus = vi.fn()
+    const unregister = registerFloatingFocus(floatingFocus)
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20))
+    })
+    expect(floatingFocus).not.toHaveBeenCalled()
+    unregister()
+  })
+
   it('OPPOSITE TWIN: no handoff when the user had typed nothing — focus is left alone', async () => {
     render(<FirstUseComposer />, { wrapper: Wrapper })
     await waitFor(() =>
