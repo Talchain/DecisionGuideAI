@@ -26,6 +26,7 @@ import {
   basisWithholdsPossessive,
 } from '../../components/results/utils/selectGoalProbability'
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
@@ -470,6 +471,25 @@ export const OptionNode = memo((props: NodeProps) => {
     // front-runner would compute a zero gap against itself and render
     // "Close call: within 1 percentage point" on its own card.
     if (verdict.leaderId === props.id) return null
+    // ⭐ AND THE SAME NON-MEASUREMENT CANNOT BE COMPARED EITHER.
+    //
+    // This is the SECOND surface on this card built from
+    // `option_probabilities[id].win_probability`, and the readout is not the
+    // only place a fabricated number reaches the user. When the producer says
+    // `status === 'failed'` (`n_valid === 0`) there is no distribution behind
+    // this option's share — but it still arrives as a finite `0`, which passes
+    // the `typeof === 'number'` test below and yields a perfectly well-formed
+    // gap inside the 5pp window. The card would then read "Close call with the
+    // leading option" about an option that was never scored: a comparative
+    // claim with nothing measured on one side of the comparison, and a worse
+    // falsehood than the bare `0%` this change removes, because it asserts a
+    // RELATIONSHIP rather than a value. The copy carries no number, which makes
+    // it read as a considered judgement rather than an arithmetic slip.
+    //
+    // Suppressing the readout while leaving this line is the trap of fixing one
+    // reader of a value and not the others (CLAUDE.md hazard 1 in miniature),
+    // so both gate on the one flag the hook derives from the one field.
+    if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
     if (!probs) return null
@@ -487,7 +507,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // early return (within-0.0001 tolerance), but rounding can still produce
     // 0 from a small positive gap like 0.004.
     return Math.max(1, Math.round(gap * 100))
-  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id])
+  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
 
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
@@ -815,10 +835,54 @@ export const OptionNode = memo((props: NodeProps) => {
   // one. The caveat now travels with the number to every surface showing it.
   const goalDecision = useMemo(() => {
     if (!isPostAnalysis || !resultsReport) return null
+    // ⭐ THE THIRD READER OF A NON-MEASUREMENT, and the worst of them.
+    //
+    // A review found the card reading, in one vertical stack:
+    //
+    //     Hold the current plan · Not computed
+    //     …so it has no rank and no probability. This is not a verdict on the
+    //     option.
+    //     < 1% chance of target
+    //
+    // The card denies having a probability and then prints one. That is worse
+    // than the bare `0%` this change set removes, because the denial and the
+    // number are three lines apart and the number wins — a reader takes the
+    // figure and treats the sentence as boilerplate.
+    //
+    // `selectGoalProbability` is correct and is not the problem: it answers
+    // "what goal figure does this option's block carry, and on what basis",
+    // and it has no business knowing about compute status. The defect was that
+    // NOTHING asked the prior question — whether this option has a measurement
+    // at all — before handing it that block. Gated here, at the reader, for the
+    // same reason the other two are.
+    //
+    // ⚠ AND IT RESTORES THE PARITY THAT IS THE WHOLE REASON FOR SHARING THE
+    // PREDICATE: the results panel forks a failed option to
+    // `NotComputedOptionCard`, which prints NO goal figure. Without this gate
+    // the canvas and the panel disagreed about one option in one run, which is
+    // precisely the two-authorities defect the shared predicate exists to
+    // prevent (CLAUDE.md trap 21).
+    //
+    // ⛔⛔ AND THE NUMBER IT SUPPRESSES IS WORSE THAN "SMALL" — established by a
+    // producer derivation, not assumed here. ISL computes
+    // `probability_of_goal` over the RAW unfiltered sample array with no
+    // finiteness gate. On the very shape that produces `status: 'failed'`
+    // (`n_valid === 0`, i.e. every draw non-finite), `inf >= threshold` holds
+    // for every draw, so the option ships **`probability_of_goal: 1.0`**.
+    //
+    // A failed option can therefore arrive carrying a 0.0 chance of winning AND
+    // a 1.0 chance of hitting the goal — both fabricated, both from the
+    // producer. Without this gate the card would print the most confident
+    // possible statement about the one option nothing was measured for.
+    //
+    // ⚠ SO THIS FIX IS NECESSARY AND NOT SUFFICIENT. The producer defect is
+    // real, is outside this repo, and has its own lane. Suppressing the render
+    // stops the UI repeating a fabrication; it does not stop the fabrication.
+    if (displayMetadata.winComputationFailed === true) return null
     const report = resultsReport as any
     const optionProbs = report?.option_probabilities?.[props.id]
     return selectGoalProbability(optionProbs)
-  }, [isPostAnalysis, resultsReport, props.id])
+  }, [isPostAnalysis, resultsReport, props.id, displayMetadata.winComputationFailed])
   const goalProbability = goalDecision?.goalProbability ?? null
 
   // THE POSSESSIVE GATE (ROADMAP 2.282). `basis === 'joint_goal_substituted'`
@@ -859,6 +923,31 @@ export const OptionNode = memo((props: NodeProps) => {
   // differentiates nothing, so it renders on none of them (audit §8 P1).
   const behindReason = useMemo<string | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
+    // ⭐ THE THIRD READER — and my own PR comment said there were two.
+    //
+    // "Behind: <reason>" is a comparative designation: it places this option
+    // relative to the others. On an option the producer could not compute
+    // (`status === 'failed'`, `n_valid === 0`) there is nothing to be behind
+    // WITH — the comparison has no measurement on one side. It rendered
+    // directly beside the "Not computed" disclosure, so the card said the
+    // analysis produced no usable result and then explained where the option
+    // came in the ranking.
+    //
+    // `computeBehindReason` and `deriveDecisionVerdict` are both status-blind
+    // by design and should stay that way: they answer "how does this option
+    // compare", not "is there anything to compare". The prior question belongs
+    // at the reader, which is here.
+    //
+    // ⚠ THE GATE IS ON THIS OPTION'S OWN STATUS ONLY. A failed SIBLING still
+    // participates in the identical-reason suppression below, which can only
+    // ever remove a line — it fails toward saying less, and re-deriving that
+    // scan per sibling would need a second authority on the same question.
+    //
+    // This memo carried a SECOND copy of this gate, sixty lines below, from a
+    // rebase that kept both lanes' fixes for one defect. The compiler proved it
+    // dead (TS2367: `false | undefined` never equals `true`) — the suite could
+    // not, because a redundant guard changes no behaviour. One reader, one gate.
+    if (displayMetadata.winComputationFailed === true) return null
     // ROADMAP 1.239: "Behind:" is an explicit comparative designation, and on a
     // withheld turn it was rendering on EVERY option — including the one the
     // numbers put on top. `isRecommended` is `hasLeadingOption && leaderId ===
@@ -901,7 +990,7 @@ export const OptionNode = memo((props: NodeProps) => {
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
-  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
+  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
@@ -1418,6 +1507,76 @@ export const OptionNode = memo((props: NodeProps) => {
               {winReadout.formatted}
             </span>
             <span className={typography.screenReaderOnly}>{winReadout.phrase}</span>
+          </div>
+        )}
+
+        {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
+            Mutually exclusive with the readout above by construction, not by a
+            second condition: `winComputationFailed` is the branch on which the
+            hook leaves `winRate` null, so `winReadout` is already null here.
+
+            ## What it deliberately does NOT render
+
+            No bar, no track, no percentage, no rank contribution. Not "rendered
+            as 0%", not "rendered as —": ABSENT. A zero-width fill in a row of
+            fill bars is a measured claim, and a dash in that slot still asserts
+            membership in the comparison. The state this replaces rendered a
+            hard `0%` with a zero-width bar, in the one position on the card
+            that answers how often this option came out ahead.
+
+            ⚠ CORRECTED (#1048 review). This said a GENUINE measured zero
+            "renders `"<0.01%"` two nodes along". FALSE **for this surface**,
+            and the harm it described was therefore MILDER than the real one.
+            `formatWinProbability` hardcodes
+            `formatProbabilityWithResolution(rawProb, undefined)`
+            (`labelUtils.ts:183`), so the resolution arm is UNREACHABLE from the
+            canvas and `value <= 0` returns `'0%'` (`formatPercent.ts:114`,
+            pinned by `labelUtils.spec.ts`'s "0 renders 0%"). `<0.01%` needs an
+            `nSamples` count, which only the RESULTS PANEL supplies — where the
+            sentence is true, and where `OptionCards.notComputed.spec.tsx:236`
+            asserts it. So on the canvas, pre-fix, a failed option and a genuine
+            measured zero rendered the IDENTICAL `0%`: indistinguishable, with
+            no accident of a fallback arm to tell them apart. The gate is what
+            distinguishes them, not the formatter.
+
+            ## Why a WORD and not simply nothing
+
+            Dropping the row would have been honest about the number and silent
+            about the reason, and silence in a row of bars reads as a rendering
+            gap or as "it came last". `n_valid === 0` is a fact about the
+            simulation and carries no information about the option's merit
+            either way — which is exactly what the sanctioned sentence says, and
+            why it is worth the two lines of space.
+
+            ## The copy has ONE owner and it is not this file
+
+            `NOT_COMPUTED_BADGE` and `notComputedReasonCopy` come from
+            `components/results/utils/notAnalysedCopy` — the same strings the
+            results panel's `NotComputedOptionCard` renders. Re-typing the
+            sentence here would let the canvas and the panel drift into saying
+            two different things about one run (CLAUDE.md trap 12).
+
+            ## Reachability, following the anchor row above
+
+            The sentence is given to assistive technology directly rather than
+            only through `title`, because a `title` is unreachable by KEYBOARD
+            (this row is not focusable) and absent on TOUCH — the same reason
+            the win anchor was restored as visible text on 31 Aug. */}
+        {displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true && (
+          <div
+            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            title={notComputedReasonCopy(displayMetadata.winComputationFailedReason)}
+            data-testid={`option-not-computed-${props.id}`}
+          >
+            <span
+              className={`${typography.edgeLabel} text-text-light shrink-0`}
+              aria-hidden="true"
+            >
+              {NOT_COMPUTED_BADGE}
+            </span>
+            <span className={typography.screenReaderOnly}>
+              {notComputedReasonCopy(displayMetadata.winComputationFailedReason)}
+            </span>
           </div>
         )}
 

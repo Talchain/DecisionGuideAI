@@ -163,6 +163,77 @@ describe('useNodeDisplayMetadata — goalFitAvailable (REAL hook)', () => {
     expect(result.current.goalFitAvailable).toBe(true)
   })
 
+  // ── THE PRODUCER'S PER-OPTION COMPUTE STATUS, IN THE SCAN ─────────────────
+  //
+  // This scan decides whether the goal node says "this run did not produce a
+  // goal probability" or points the user at the per-option figures. It
+  // iterated EVERY entry, failed ones included — so an option ISL got zero
+  // finite samples for could, on its own, make the node advertise figures
+  // there is no distribution behind. The win readout fifty-five lines below
+  // consults `optionComputationProducedResult` before reading its share; this
+  // scan now consults the same predicate before reading the entry, so the two
+  // readers of one field cannot disagree about the same option (trap 21).
+
+  it('a FAILED option contributes NOTHING to the scan, even carrying a figure', () => {
+    // `n_valid === 0`: no distribution, so the goal figure attached to it is
+    // not a measurement either. The entry is skipped, not read-and-rejected.
+    setReport({
+      option_probabilities: { opt_failed: { probability_of_goal: 0.31, status: 'failed' } },
+      robustness: {},
+    })
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
+    expect(result.current.goalFitAvailable).toBe(false)
+  })
+
+  it('⭐ POSITIVE CONTROL: the IDENTICAL figure from a COMPUTED option does count', () => {
+    // Byte-identical fixture, `status` alone differing. Without this the
+    // assertion above would pass if the scan were broken outright (trap 13),
+    // and the pair is what binds the gate to the producer's token rather than
+    // to the presence of a status field.
+    setReport({
+      option_probabilities: { opt_failed: { probability_of_goal: 0.31, status: 'computed' } },
+      robustness: {},
+    })
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
+    expect(result.current.goalFitAvailable).toBe(true)
+  })
+
+  it("a 'partial' option is a DISCLOSURE and still counts", () => {
+    // `0 < n_valid/n_total < 0.8` — samples EXIST and ISL emits a full outcome
+    // block. A `status !== 'computed'` gate here would discard a figure the
+    // producer honestly computed, which is the opposite defect.
+    setReport({
+      option_probabilities: { opt_partial: { probability_of_goal: 0.31, status: 'partial' } },
+      robustness: {},
+    })
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
+    expect(result.current.goalFitAvailable).toBe(true)
+  })
+
+  it('an ABSENT status is the legacy V1 shape and still counts', () => {
+    setReport({
+      option_probabilities: { opt_legacy: { probability_of_goal: 0.31 } },
+      robustness: {},
+    })
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
+    expect(result.current.goalFitAvailable).toBe(true)
+  })
+
+  it('the scan is PER-ENTRY, not all-or-nothing: one computed option beside a failed one still counts', () => {
+    // A gate written as "any failed option disables the scan" would pass every
+    // case above and fail this one. The failed entry is skipped; the computed
+    // one is still found.
+    setReport({
+      option_probabilities: {
+        opt_failed: { probability_of_goal: 0.02, status: 'failed' },
+        opt_ok: { probability_of_goal: 0.31, status: 'computed' },
+      },
+      robustness: {},
+    })
+    const { result } = renderHook(() => useNodeDisplayMetadata('goal_capacity', 'goal'))
+    expect(result.current.goalFitAvailable).toBe(true)
+  })
+
   it('is FALSE for a non-goal node even when the figures exist', () => {
     setReport(WITNESSED_REPORT)
     const { result } = renderHook(() => useNodeDisplayMetadata('fac_capex', 'factor'))
