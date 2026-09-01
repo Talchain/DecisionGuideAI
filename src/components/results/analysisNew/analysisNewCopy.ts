@@ -417,7 +417,29 @@ export const ANALYSIS_NEW_COPY = {
      * "showed 0.8 when the real target was 20%". Saying so is honest; printing
      * the number is the defect.
      */
-    unexpressible: 'Set, but not in a unit we can show',
+    /**
+     * ⚠⚠ IT NO LONGER SAYS "Set", AND THAT IS A WITNESS-DRIVEN CORRECTION.
+     *
+     * On deployed `6e58c921` this rendered **"Target: Set, but not in a unit we
+     * can show"** roughly 120px above the coaching card **"Define success — No
+     * measurable success target is set"**. Two sentences on ONE panel, one
+     * saying set and one saying not set, about the same thing.
+     *
+     * The two surfaces answer different questions — this reads the MODEL's
+     * threshold from the canvas store, the card's input comes through the
+     * RUN's `recommendation.goalThreshold` — and per CLAUDE.md trap 21 the fix
+     * for two authorities that appear to disagree is NOT to align their
+     * defaults. But `Set` was the weakest claim of the two: we hold a
+     * normalised number we cannot interpret, and calling that "set" from the
+     * reader's side is generous. Dropping the word removes the contradiction
+     * without asserting anything about the other surface's question.
+     *
+     * ⚠ THE TWO ABSENCES STAY DISTINCT. This is still a different sentence
+     * from `none` — "we have nothing" and "we have something unusable" are
+     * different facts, and the mutant that collapses them still bites. What
+     * changed is that neither now claims a state the reader cannot verify.
+     */
+    unexpressible: 'No target we can show',
     set: 'Set a target',
     change: 'Change',
     inputLabel: 'Success target for this goal',

@@ -99,6 +99,29 @@ describe('it refuses to print a number it cannot express', () => {
    * the model, one about the value. Telling a user who set a target that they
    * never did is the failure this separates.
    */
+  /**
+   * ⚠⚠ WITNESSED DEFECT, PINNED. On deployed `6e58c921` this line read
+   * "Target: Set, but not in a unit we can show" roughly 120px above the
+   * coaching card "Define success — No measurable success target is set" —
+   * one panel asserting set and not-set about the same thing.
+   *
+   * The two surfaces answer different questions (this reads the MODEL's
+   * threshold from the canvas store; the card's input arrives via the RUN's
+   * `recommendation.goalThreshold`), and per trap 21 the fix is NOT to align
+   * their defaults. But this sentence made the weaker claim — we hold a
+   * normalised number we cannot interpret — so it is the one that must not
+   * assert a state the reader cannot verify.
+   */
+  it('the unexpressible sentence never claims the target is SET', () => {
+    expect(COPY.successTarget.unexpressible).not.toMatch(/\bset\b/i)
+  })
+
+  /** The twin: "none" is still allowed to say it, because there it is true. */
+  it('…while "none" may still speak plainly about the absence', () => {
+    expect(COPY.successTarget.none.length).toBeGreaterThan(0)
+    expect(COPY.successTarget.none).not.toBe(COPY.successTarget.unexpressible)
+  })
+
   it('says something different for "none" than for "unexpressible"', () => {
     draw()
     const none = screen.getByTestId(`${TID}-none`).textContent
