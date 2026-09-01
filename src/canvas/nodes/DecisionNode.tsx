@@ -22,7 +22,7 @@ import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { typography } from '../../styles/typography'
-import { NodeChip, NodePopover } from './shared'
+import { NodeChip, NodeMetricRow, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { biasSignal } from '../shared/biasSignalTitles'
@@ -696,6 +696,46 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                   </>
                 ) : null}
               </div>
+            )}
+
+            {/* ⭐ THE SAME BAR EVERY OTHER CARD ALREADY HAS, ON THE NUMBER THAT
+                MATTERS MOST. Measured on deployed staging `d4ff3683`: factor,
+                risk, outcome and option cards all render `noun ▬▬▬ NN%`, and
+                this one — the anchor of the model — rendered its percentage as
+                bare prose. The most consequential figure on the canvas was the
+                least visually encoded one.
+
+                ⛔ IT READS `headline`, THE SAME PERMISSION THE SENTENCE ABOVE
+                CONSUMES, AND IT MUST NEVER BE CHANGED INTO SOMETHING THAT
+                RE-DERIVES IT. `option_probabilities[leader].win_probability` is
+                present on withheld runs too — the fixture pair proves it — so a
+                bar gated on the NUMBER rather than on the CLAIM would state a
+                leader the producer refused to designate, in a channel nobody
+                was watching. That is trap 21's seam exactly: this product has
+                shipped a withheld verdict and a named leader two pixels apart
+                before.
+
+                ⚠ `bg-option` DELIBERATELY, not a decision hue. This is the same
+                field, for the same option, that the winning OptionNode renders
+                as `Ahead 47%` — so the two bars are the same quantity on the
+                same scale and a reader is entitled to compare them by eye. A
+                different fill would imply a different measure.
+
+                ⚠ NO `phrase`. Every span in the row is `aria-hidden`, and that
+                is correct here: the sentence directly above already states
+                "{X} leads in N% of scenarios" to assistive tech. A phrase would
+                make a screen reader say the same claim twice. The row is a
+                VISUAL encoding of a sentence that stays where it was — nothing
+                moved out of visible text, so the eight-surface leader-claim
+                corpus keeps biting on the copy it was written against. */}
+            {showHeadline && headline && headline.winProb != null && (
+              <NodeMetricRow
+                label="Leads"
+                value={headline.winProb}
+                formatted={`${Math.round(headline.winProb * 100)}%`}
+                fillClass="bg-option"
+                testId="decision-leader-metric-row"
+              />
             )}
 
             {/* Post-analysis Detailed only: stability + chips inline in body
