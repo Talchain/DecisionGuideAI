@@ -20,6 +20,14 @@
  *
  * ## What it does NOT claim
  *
+ * ⚠ KNOWN LIMIT, NAMED RATHER THAN IMPLIED: gating is checked PER BLOCK, so a
+ * memo with several arms where only ONE carries the gate reads as gated. That
+ * is inherent to block-level gating, not an oversight — tightening the bound to
+ * the nearest nested block would red the legitimate shape this file actually
+ * uses, where the gate is an early `return null` governing everything after it.
+ * The manifest is a drift alarm on a reader arriving with NO gate anywhere, and
+ * that is the whole of its claim.
+ *
  * It does not claim the gate is correctly PLACED (a reference could sit in a
  * dead branch), and it says nothing about what a user SEES — jsdom applies no
  * stylesheet and this file reads text, not pixels. It is a drift alarm on the
@@ -64,17 +72,14 @@ const stripComments = (s: string): string =>
  * *an ungated reader in the RENDER is detected* below.
  *
  * So blocks end at their own `}, [deps])`. That bounds a memo to its own body,
- * and the render is scanned separately by `renderReaders`, per JSX expression
- * container — because one region checked as a whole would reproduce the same
- * absorption at a larger scale.
+ * and everything OUTSIDE a memo body — the inter-memo gaps and the JSX render —
+ * is scanned by `outsideMemoReaders`, per expression container, because one
+ * region checked as a whole would reproduce the same absorption at a larger
+ * scale.
  */
 function memoBlocks(source: string): Array<{ name: string; body: string }> {
-  const starts: Array<{ name: string; index: number }> = []
-  const re = /\n\s*const (\w+) = (?:React\.)?useMemo/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) starts.push({ name: m[1], index: m.index })
-  return starts.map((s, i) => ({
-    name: s.name,
+  return memoSpans(source).map(sp => ({
+    name: sp.name,
     // ⚠ DEPENDENCY ARRAYS REMOVED, AND THIS IS LOAD-BEARING — the guard did not
     // work until they were. `}, [..., displayMetadata.winComputationFailed])`
     // names the flag without gating on it, so a block whose `if` was deleted
@@ -83,9 +88,7 @@ function memoBlocks(source: string): Array<{ name: string; body: string }> {
     // gate-removal control below is the only thing that caught it: it could not
     // turn the manifest red, which is a guard agreeing with itself (CLAUDE.md
     // trap 13b). Keep that control — it is what pins this line.
-    body: source
-      .slice(s.index, memoEnd(source, s.index, starts[i + 1]?.index ?? source.length))
-      .replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}'),
+    body: source.slice(sp.start, sp.end).replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}'),
   }))
 }
 
@@ -125,27 +128,47 @@ function enclosingBraces(s: string, idx: number): { start: number; end: number }
   return { start, end: s.length }
 }
 
-/** Comparative readers living in the JSX render — everything after the last
- *  memo ends. Each is bounded by its own expression container. */
-function renderReaders(source: string): Array<{ name: string; body: string }> {
-  const starts: number[] = []
-  const re = /\n\s*const (\w+) = (?:React\.)?useMemo/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source)) !== null) starts.push(m.index)
-  const lastEnd = starts.length > 0 ? memoEnd(source, starts[starts.length - 1], source.length) : 0
-  const render = source.slice(lastEnd)
+/**
+ * Comparative readers living OUTSIDE any memo body — the inter-memo gaps AND
+ * the JSX render. Each is bounded by its own `{...}` expression container.
+ *
+ * ⚠ THIS WAS `renderReaders`, WHICH SCANNED ONLY AFTER THE LAST MEMO — so
+ * bounding the blocks correctly left the ~10k characters BETWEEN memos scanned
+ * by nothing at all. Closing one blind region opened a smaller one, which is
+ * the shape of the defect this whole file is about. Scanning the COMPLEMENT of
+ * the memo bodies has no gap by construction: every character is either inside
+ * a bounded memo or inside a bounded container here.
+ */
+function outsideMemoReaders(source: string): Array<{ name: string; body: string }> {
+  const spans = memoSpans(source)
+  const covered = (i: number) => spans.some(sp => i >= sp.start && i < sp.end)
   const out: Array<{ name: string; body: string }> = []
   const seen = new Set<number>()
   const scan = new RegExp(READS_COMPARATIVE.source, 'g')
   let r: RegExpExecArray | null
-  while ((r = scan.exec(render)) !== null) {
-    const { start, end } = enclosingBraces(render, r.index)
+  while ((r = scan.exec(source)) !== null) {
+    if (covered(r.index)) continue
+    const { start, end } = enclosingBraces(source, r.index)
     if (seen.has(start)) continue
     seen.add(start)
-    const line = source.slice(0, lastEnd + start).split('\n').length
-    out.push({ name: `render:${line}`, body: render.slice(start, end) })
+    out.push({ name: `outside:${source.slice(0, start).split('\n').length}`, body: source.slice(start, end) })
   }
   return out
+}
+
+/** The [start, end) span of every memo, shared by the splitter and the
+ *  complement scan so the two cannot disagree about what "inside a memo" means
+ *  (CLAUDE.md trap 12 — two copies of one boundary is how they drift). */
+function memoSpans(source: string): Array<{ name: string; start: number; end: number }> {
+  const starts: Array<{ name: string; index: number }> = []
+  const re = /\n\s*const (\w+) = (?:React\.)?useMemo/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(source)) !== null) starts.push({ name: m[1], index: m.index })
+  return starts.map((st, i) => ({
+    name: st.name,
+    start: st.index,
+    end: memoEnd(source, st.index, starts[i + 1]?.index ?? source.length),
+  }))
 }
 
 /** Places this option relative to the others, or reads the share it is placed by. */
@@ -154,7 +177,7 @@ const READS_COMPARATIVE = /option_probabilities|verdict\.(leaderId|hasLeadingOpt
 const CARRIES_GATE = /winComputationFailed|displayMetadata\.winRate/
 
 const readersIn = (src: string) =>
-  [...memoBlocks(stripComments(src)), ...renderReaders(stripComments(src))]
+  [...memoBlocks(stripComments(src)), ...outsideMemoReaders(stripComments(src))]
     .filter(b => READS_COMPARATIVE.test(b.body))
 
 const readers = () => readersIn(SRC)
@@ -173,6 +196,22 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     // make every legitimate new reader a red, which trains lanes to bump the
     // number. The property below is what must hold, whatever the count.
     expect(readers().length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('the four known readers are each still FOUND — a count cannot notice one vanishing', () => {
+    // ⚠ A FLOOR CANNOT SEE A READER DISAPPEAR. Review demonstrated the route:
+    // an array literal placed before a comparative read truncates its block at
+    // the `}, [...])` regex, the read vanishes with the truncation, the manifest
+    // drops 4 → 3, and `>= 3` still passes — a false PASS, not a false positive.
+    // The same hole swallows a reader converted from `useMemo` to a plain
+    // function. Binding to the NAMES closes both, because a name is an identity
+    // and a count is a value another arrangement can satisfy (CLAUDE.md trap 19).
+    //
+    // `arrayContaining`, NOT equality — a new legitimate reader must not red
+    // this, or it becomes the number-bumping ritual the floor above avoids.
+    expect(readers().map(b => b.name)).toEqual(
+      expect.arrayContaining(['isRecommended', 'closeCallGapPp', 'goalDecision', 'behindReason']),
+    )
   })
 
   it('⭐ EVERY reader carries the compute-status gate', () => {
@@ -246,7 +285,7 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     // it was re-learned here, measured (gate mutants REDded 2 tests, not 1).
     const ungatedNames = (src: string) =>
       readersIn(src)
-        .filter(b => b.name.startsWith('render:'))
+        .filter(b => b.name.startsWith('outside:'))
         .filter(b => !CARRIES_GATE.test(b.body))
         .map(b => b.name)
 
