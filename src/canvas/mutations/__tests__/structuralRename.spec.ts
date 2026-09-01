@@ -31,6 +31,7 @@ import type { Node } from '@xyflow/react'
 import {
   captureStructuralRename,
   buildStructuralRenameWirePayload,
+  resolveStructuralRenameBase,
   readStructuralRenameReceipt,
   revertStructuralRename,
   isWireUsableLabel,
@@ -116,13 +117,54 @@ describe('captureStructuralRename', () => {
     if (without.ok) expect(without.intent.restore.provenanceWasPresent).toBe(false)
   })
 
-  it('STANDS DOWN with no server hash — never fabricates one', () => {
+  /**
+   * ⚠⚠ THIS TEST WAS DELIBERATELY INVERTED, AND THE OLD ASSERTION WAS PINNING A
+   * DEFECT. It read "STANDS DOWN with no server hash — never fabricates one" and
+   * expected `reason: 'no_server_graph_hash'`. The "never fabricates one" half
+   * was right and is kept below. The "stands down" half was the P0: the capture
+   * dropped the gesture while `store.updateNodeLabel` applied the visible label
+   * anyway, so the first rename after a restore looked saved and vanished on the
+   * next reload. A missing base hash is NOT the end of the gesture — it is a
+   * deferral until a turn stamps one. See `store.restoredGraphRename.spec.ts`.
+   */
+  it('DEFERS with no server hash — captured, flagged, and still never fabricating one', () => {
     const r = capture({ baseGraphHash: null })
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.reason).toBe('no_server_graph_hash')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.deferred).toBe(true)
+      // The half of the old assertion that was always correct: no invented hash.
+      expect(r.intent.baseGraphHash).toBeNull()
+      expect(r.intent.expectedLabel).toBe(PREVIOUS)
+    }
   })
-  it('TWIN: a present hash captures', () => {
-    expect(capture({ baseGraphHash: 'abc123' }).ok).toBe(true)
+  it('TWIN: a present hash captures and is NOT deferred', () => {
+    const r = capture({ baseGraphHash: 'abc123' })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.deferred).toBe(false)
+      expect(r.intent.baseGraphHash).toBe('abc123')
+    }
+  })
+
+  it('a deferred intent has NO wire payload until a hash resolves it', () => {
+    const r = capture({ baseGraphHash: null })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(resolveStructuralRenameBase(r.intent, null)).toBeNull()
+
+    const resolved = resolveStructuralRenameBase(r.intent, 'later0123456789a')
+    expect(resolved).not.toBeNull()
+    expect(buildStructuralRenameWirePayload(resolved!).base_graph_hash).toBe('later0123456789a')
+  })
+
+  it('TWIN: resolution never OVERWRITES a hash the gesture already captured', () => {
+    const r = capture({ baseGraphHash: 'atgesture000000a' })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    // The gesture-time hash asserts the graph the user was looking at, which is
+    // strictly better evidence than "whatever is current now".
+    const resolved = resolveStructuralRenameBase(r.intent, 'much0newer00000b')
+    expect(resolved!.baseGraphHash).toBe('atgesture000000a')
   })
 
   it('STANDS DOWN on a producer write — a server rename echoed back is not a user gesture', () => {
@@ -162,7 +204,9 @@ describe('captureStructuralRename', () => {
 
 describe('buildStructuralRenameWirePayload', () => {
   it('maps to the CONTRACT field names, in one place', () => {
-    expect(buildStructuralRenameWirePayload(intent())).toEqual({
+    // Through the resolver: the builder accepts only a RESOLVED intent, so a
+    // deferred one cannot reach the wire by forgetting to check a flag.
+    expect(buildStructuralRenameWirePayload(resolveStructuralRenameBase(intent(), HASH)!)).toEqual({
       node_id: NODE_ID,
       label: NEW,
       expected_label: PREVIOUS,

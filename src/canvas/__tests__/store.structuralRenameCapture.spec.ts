@@ -21,7 +21,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Node } from '@xyflow/react'
 
 import { useCanvasStore } from '../store'
-import { buildStructuralRenameWirePayload } from '../mutations/structuralRename'
+import {
+  buildStructuralRenameWirePayload,
+  resolveStructuralRenameBase,
+} from '../mutations/structuralRename'
 
 const NODE_ID = 'fac_price'
 const SIBLING_ID = 'fac_sibling'
@@ -53,9 +56,15 @@ function seed(hash: string | null = HASH) {
 
 // ⚠ `beforeEach(() => seed())`, NEVER `beforeEach(seed)`. Vitest passes its
 // context object as the first argument, which would land in `hash` — a truthy
-// non-string that makes every capture stand down on `no_server_graph_hash`. The
+// non-string that no capture can read as a base, so every gesture would be
+// captured DEFERRED and every payload assertion would fail on a null base. The
 // suite then reports a working feature as broken, and it took a probe rather
 // than inspection to see it. (Trap 13's shape, reached through arity.)
+//
+// ⚠ The failure mode used to be a stand-down on `no_server_graph_hash`; that
+// reason no longer exists (a missing base is now a deferral, not a refusal), so
+// the symptom moved. The arity hazard did not — hence the corrected wording
+// rather than a deleted warning.
 beforeEach(() => seed())
 
 describe('a rename gesture becomes exactly one wire intent', () => {
@@ -75,7 +84,11 @@ describe('a rename gesture becomes exactly one wire intent', () => {
   it('the wire payload is exactly the four contract fields', () => {
     useCanvasStore.getState().updateNodeLabel(NODE_ID, NEW)
     const intent = useCanvasStore.getState().pendingStructuralRenames[0]!
-    expect(buildStructuralRenameWirePayload(intent)).toEqual({
+    // Routed through the resolver deliberately: since a deferred intent carries a
+    // null base, the wire builder accepts only a RESOLVED intent, and this is the
+    // one path to one. The compiler refuses the shortcut, which is the point.
+    const resolved = resolveStructuralRenameBase(intent, HASH)!
+    expect(buildStructuralRenameWirePayload(resolved)).toEqual({
       node_id: NODE_ID,
       label: NEW,
       expected_label: PREVIOUS,
@@ -146,17 +159,42 @@ describe('what must NOT reach the wire', () => {
     expect((node?.data as { label?: string } | undefined)?.label).toBe(NEW)
   })
 
-  it('with NO server hash the rename is LOCAL-ONLY — no intent, and no fabricated hash', () => {
+  /**
+   * ⚠⚠ REWRITTEN DELIBERATELY — THE OLD ASSERTION HERE WAS PINNING THE DEFECT,
+   * and it is worth recording exactly how, because the test read as careful.
+   *
+   * It asserted `pendingStructuralRenames` was EMPTY and the label applied
+   * anyway, and defended that as "the deliberate asymmetry with the delete
+   * twin". Half of that reasoning is still right and is kept: an unsent rename
+   * is a local display name, which is what the product did for its whole history
+   * before 0.50.0, so BLOCKING it would be a regression bought for tidiness.
+   *
+   * ⭐ But the test answered only ONE of the two questions in front of it, and
+   * silently gave the other the wrong answer:
+   *   Q1 "should a rename be blocked when it cannot be committed?"  — No. Kept.
+   *   Q2 "may the product SHOW a rename as saved when it knows it is not?" — No,
+   *      and nothing asked it. The combination the old test blessed is the worst
+   *      one available: the carrier exists, the capture bails, and the canvas
+   *      shows the name regardless.
+   *
+   * Both are now answered: the gesture is DEFERRED rather than dropped (the next
+   * turn stamps a real base hash and sends it), and the user is told where it
+   * stands meanwhile. The full journey lives in `store.restoredGraphRename.spec.ts`.
+   */
+  it('with NO server hash the rename is DEFERRED, not dropped — and never carries a fabricated hash', () => {
     seed(null)
     useCanvasStore.getState().updateNodeLabel(NODE_ID, NEW)
 
-    expect(useCanvasStore.getState().pendingStructuralRenames).toHaveLength(0)
-    // ⚠ AND IT IS NOT BLOCKED, which is the deliberate asymmetry with the delete
-    // twin. An unsent DELETE makes the product contradict itself on the next
-    // re-run (the option comes back), so that lane refuses the local removal. An
-    // unsent RENAME is a local display name — exactly what the product did for
-    // its entire history before 0.50.0 — so blocking it would be a regression
-    // bought for tidiness.
+    const queued = useCanvasStore.getState().pendingStructuralRenames
+    expect(queued).toHaveLength(1)
+    expect(queued[0]!.nodeId).toBe(NODE_ID)
+    // The half of the old assertion that was always correct: nothing invented.
+    expect(queued[0]!.baseGraphHash).toBeNull()
+
+    // ⚠ AND IT IS STILL NOT BLOCKED, which remains the deliberate asymmetry with
+    // the delete twin. An unsent DELETE makes the product contradict itself on
+    // the next re-run (the option comes back), so that lane refuses the local
+    // removal. A rename applies and tells the truth about its durability.
     const node = useCanvasStore.getState().nodes.find((n) => n.id === NODE_ID)
     expect((node?.data as { label?: string } | undefined)?.label).toBe(NEW)
   })

@@ -113,8 +113,6 @@ export const WIRE_LABEL_MAX_LENGTH = 200
 
 /** Why a rename gesture produced no wire intent. Never a silent drop. */
 export type StructuralRenameStandDownReason =
-  /** No CEE-stamped `graph_hash` has been seen this session — see the KNOWN GAP above. */
-  | 'no_server_graph_hash'
   /** The mutation came from a producer (patch-apply, hydration), not a user. */
   | 'external_mutation'
   /** The node is not on the canvas, so there is nothing to name on the wire. */
@@ -140,8 +138,27 @@ export interface StructuralRenameIntent {
   readonly label: string
   /** The label last read from the canonical persisted node — the concurrency assertion. */
   readonly expectedLabel: string
-  /** The CEE-stamped `aag_v1` hash of the graph the user was looking at. */
-  readonly baseGraphHash: string
+  /**
+   * The CEE-stamped `aag_v1` hash of the graph the user was looking at, or
+   * `null` when NO turn had stamped one yet — the restored-graph case.
+   *
+   * ⚠⚠ NULL IS "NOT YET", NOT "NEVER", AND THAT DISTINCTION IS THE P0 THIS
+   * FIELD'S NULLABILITY EXISTS TO CLOSE. A restore leaves `lastServerGraphHash`
+   * null (a reload builds a fresh store; a scenario switch nulls it through
+   * `DECISION_CONTEXT_CLEAR`), and neither hydration nor the UI can supply a
+   * real one: the scenario-graph read returns only the `identity.v1` envelope,
+   * and `boundary/graph-hash-contract` publishes a field VOCABULARY while
+   * stating that it "does NOT implement a hashing function". The only genuine
+   * `base_graph_hash` in existence arrives on a turn response via
+   * `applyV5State`. So the intent is HELD with a null base and stamped at drain
+   * time by {@link resolveStructuralRenameBase}, rather than dropped — which is
+   * what left the first rename after a restore looking saved and then gone.
+   *
+   * ⚠ A null base NEVER reaches the wire: {@link buildStructuralRenameWirePayload}
+   * accepts only a {@link ResolvedStructuralRenameIntent}, so "approximate" is
+   * not expressible rather than merely discouraged.
+   */
+  readonly baseGraphHash: string | null
   /** Exactly what to put back if the server declines. */
   readonly restore: {
     readonly label: string
@@ -152,9 +169,70 @@ export interface StructuralRenameIntent {
   }
 }
 
+/**
+ * An intent whose base hash is in hand. The ONLY shape the wire builder accepts,
+ * so a deferred intent cannot be sent by forgetting to check a boolean.
+ */
+export type ResolvedStructuralRenameIntent = StructuralRenameIntent & {
+  readonly baseGraphHash: string
+}
+
 export type CaptureStructuralRenameResult =
-  | { readonly ok: true; readonly intent: StructuralRenameIntent }
+  | {
+      readonly ok: true
+      readonly intent: StructuralRenameIntent
+      /**
+       * True when the intent is queued WITHOUT a base hash and is waiting for a
+       * turn to stamp one. The caller owes the user a disclosure in this state:
+       * the label is on the canvas, the model does not hold it yet, and a reload
+       * before the next turn loses it.
+       */
+      readonly deferred: boolean
+    }
   | { readonly ok: false; readonly reason: StructuralRenameStandDownReason }
+
+/**
+ * Stamp the CURRENT base hash onto an intent, or refuse.
+ *
+ * ⭐ WHY DRAIN-TIME AND NOT CAPTURE-TIME, for the deferred case: at capture there
+ * was no hash to read, so the choice is between the freshest real one and none
+ * at all. It is safe precisely because `base_graph_hash` is NOT this event's
+ * concurrency gate — `label` sits outside `projectNode`'s keep-list, so a rename
+ * moves no analysis hash and two concurrent renames diverge no hash at all. The
+ * gate that protects a rename is `expected_label`, and THAT is still the one
+ * captured against the graph the user was looking at. Stamping a fresher base
+ * asserts nothing the user did not see; inventing an `expected_label` would.
+ *
+ * Returns `null` rather than a partial intent: a rename we cannot express
+ * correctly must not be expressed approximately.
+ */
+export function resolveStructuralRenameBase(
+  intent: StructuralRenameIntent,
+  currentBaseGraphHash: string | null,
+): ResolvedStructuralRenameIntent | null {
+  // An intent captured WITH a hash keeps its own — it asserts the graph that
+  // gesture was made against, which is strictly better evidence than "now".
+  if (typeof intent.baseGraphHash === 'string' && intent.baseGraphHash.length > 0) {
+    return intent as ResolvedStructuralRenameIntent
+  }
+  if (typeof currentBaseGraphHash !== 'string' || currentBaseGraphHash.length === 0) return null
+  return { ...intent, baseGraphHash: currentBaseGraphHash }
+}
+
+/**
+ * What the user is told when a rename is captured but cannot be sent YET.
+ *
+ * ⚠⚠ THIS SENTENCE IS THE DIFFERENCE BETWEEN THIS LANE AND THE ONE THAT WAS
+ * REVERTED. UI #1025 was reverted for shipping a control that HID the loss. The
+ * failure mode here is real and reachable — the queue is memory-only, so a
+ * reload before the next turn does lose the rename — and the copy names it
+ * rather than implying a durability the product has not earned. It also names
+ * the thing that COMPLETES the write, which is any message at all, because that
+ * is what stamps a `graph_hash` (`applyV5State`). No affordance terminating in
+ * refusal: the action named is the action that works.
+ */
+export const STRUCTURAL_RENAME_DEFERRED_NOTICE =
+  "Renamed on the canvas. It isn't saved to the model yet — I'll save it with your next message. If you reload before then, the model will still hold the old name."
 
 export interface CaptureStructuralRenameInput {
   /** Nodes as they were BEFORE the rename was applied. */
@@ -209,10 +287,12 @@ export function captureStructuralRename(
 ): CaptureStructuralRenameResult {
   if (input.externalMutationActive) return { ok: false, reason: 'external_mutation' }
 
-  const baseGraphHash = input.baseGraphHash
-  if (typeof baseGraphHash !== 'string' || baseGraphHash.length === 0) {
-    return { ok: false, reason: 'no_server_graph_hash' }
-  }
+  // ⚠ A MISSING BASE HASH IS NO LONGER A STAND-DOWN — it is a DEFERRAL, and the
+  // ordering below matters: every OTHER refusal still applies to a deferred
+  // gesture. A no-op, a vanished node or a wire-unusable label is just as wrong
+  // held in a queue as it is on the wire, so those checks run regardless.
+  const rawBase = input.baseGraphHash
+  const baseGraphHash = typeof rawBase === 'string' && rawBase.length > 0 ? rawBase : null
 
   // BOUND BY IDENTITY — the node id, never a label predicate another node could
   // satisfy. Two nodes may legitimately share a label; only one has this id.
@@ -239,6 +319,7 @@ export function captureStructuralRename(
 
   return {
     ok: true,
+    deferred: baseGraphHash === null,
     intent: {
       id: input.makeId(),
       nodeId: input.nodeId,
@@ -260,9 +341,15 @@ export function captureStructuralRename(
  * Field names are the CONTRACT's, not the intent's — `expected_label` rather
  * than `expectedLabel` — and the mapping lives in exactly one place so a
  * rename of the internal shape cannot silently change what goes on the wire.
+ *
+ * ⚠ ACCEPTS ONLY A RESOLVED INTENT. `base_graph_hash` is a REQUIRED `z.ZodString`
+ * on a `.strict()` union member, so a deferred intent would build a payload that
+ * fails ingress — or, worse, one carrying `null` where CEE expects an assertion.
+ * Requiring the resolved type makes that unrepresentable rather than merely
+ * forbidden: the only route here is through {@link resolveStructuralRenameBase}.
  */
 export function buildStructuralRenameWirePayload(
-  intent: StructuralRenameIntent,
+  intent: ResolvedStructuralRenameIntent,
 ): Record<string, unknown> {
   return {
     node_id: intent.nodeId,

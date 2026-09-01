@@ -34,6 +34,7 @@ import {
 } from './mutations/structuralDelete'
 import {
   captureStructuralRename,
+  STRUCTURAL_RENAME_DEFERRED_NOTICE,
   type StructuralRenameIntent,
 } from './mutations/structuralRename'
 import {
@@ -1898,6 +1899,30 @@ function recordStructuralRenameIntent(
   })
   if (!result.ok) return
   set((s) => ({ pendingStructuralRenames: [...s.pendingStructuralRenames, result.intent] }))
+
+  // ⭐⭐ THE DEFERRED ARM — the P0 this lane closes. Before this, a rename made on
+  // a RESTORED graph stood down on `no_server_graph_hash`, queued nothing, and
+  // the local write below applied the label anyway: a local-only write that
+  // looked committed and vanished on the next reload. It is now queued and will
+  // be stamped with a real base hash by the drain, but until a turn supplies one
+  // the model genuinely does not hold the name — and the queue is memory-only,
+  // so a reload before that turn still loses it.
+  //
+  // ⚠ SAYING SO IS THE POINT. UI #1025 was reverted for shipping a control that
+  // HID this loss; blocking the rename instead would regress a capability the
+  // product has had since long before 0.50.0. The third option is the honest one:
+  // apply it, queue it, and tell the user exactly where it stands.
+  //
+  // ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND. A scratch graph with no
+  // scenario and no authoritative graph has no saved model, so there is nothing
+  // to disclose and a notice would be noise. Same predicate the delete lane uses.
+  if (!result.deferred) return
+  const ownsServerGraph = state.currentScenarioId != null || state.lastAuthoritativeGraph != null
+  if (!ownsServerGraph) return
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: { message: STRUCTURAL_RENAME_DEFERRED_NOTICE, level: 'warning' },
+  }))
 }
 
 /**

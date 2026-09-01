@@ -37,6 +37,7 @@ import { useCanvasStore } from '../store'
 import { isOrchestratorV2Enabled } from '../../flags'
 import {
   buildStructuralRenameWirePayload,
+  resolveStructuralRenameBase,
   type StructuralRenameIntent,
 } from '../mutations/structuralRename'
 import type { WireSystemEvent } from './types'
@@ -49,6 +50,18 @@ export type StructuralRenameSender = (
 
 export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSender): void {
   const pending = useCanvasStore((s) => s.pendingStructuralRenames)
+  /**
+   * ⭐⭐ SUBSCRIBED DELIBERATELY, AND IT IS HALF THE P0 FIX. A rename made on a
+   * restored graph is queued with a NULL base hash, because none exists yet —
+   * neither hydration nor the UI can supply one (see `structuralRename.ts`). The
+   * only real `base_graph_hash` arrives on a turn response, where `applyV5State`
+   * stamps it here. Keying the effect on `pending` ALONE would leave that intent
+   * sitting in the queue with nothing left to wake it: the gesture is long over,
+   * so `pending` never changes again and the rename is never sent. Subscribing
+   * to the hash is what closes `restored graph -> first typed rename -> canonical
+   * writer`.
+   */
+  const baseGraphHash = useCanvasStore((s) => s.lastServerGraphHash)
   /** True while a drain is running — the serialisation lock. */
   const drainingRef = useRef(false)
   const senderRef = useRef(sendSystemEvent)
@@ -63,6 +76,21 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
       useCanvasStore.getState().takePendingStructuralRenames()
       return
     }
+    // ⚠⚠ HOLD, DO NOT DISCARD. With no base hash yet there is nothing to stamp
+    // onto a deferred intent, and dropping it here would reproduce the exact P0
+    // one layer down — the label on the canvas, nothing on the wire. The queue
+    // survives; the next turn's `graph_hash` re-runs this effect through the
+    // `baseGraphHash` subscription above and the rename goes out then.
+    //
+    // ⭐ WHY A SINGLE TOP-LEVEL GATE IS SUFFICIENT rather than a per-intent
+    // partition — derived from the field's transitions, not assumed:
+    // `setLastServerGraphHash` REFUSES to clear (it early-returns on a non-string
+    // or empty value), and the only writer of null is `DECISION_CONTEXT_CLEAR`,
+    // which empties `pendingStructuralRenames` in the SAME set. So while the
+    // queue is non-empty the hash is monotonic null → string, and a mixed queue
+    // (some intents resolvable, some not) is unreachable: a null store hash means
+    // every queued intent was captured against a null hash too.
+    if (typeof baseGraphHash !== 'string' || baseGraphHash.length === 0) return
     if (drainingRef.current) return
     drainingRef.current = true
 
@@ -79,6 +107,16 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
           const batch = useCanvasStore.getState().takePendingStructuralRenames()
           if (batch.length === 0) return
           for (const intent of batch) {
+            // Stamp the base hash for a DEFERRED intent; an intent captured with
+            // its own hash keeps it. `null` here means the hash vanished between
+            // the gate above and now, which the transitions make unreachable —
+            // but the type makes it expressible, so it is refused rather than
+            // sent with a hole where the assertion belongs.
+            const resolved = resolveStructuralRenameBase(
+              intent,
+              useCanvasStore.getState().lastServerGraphHash,
+            )
+            if (!resolved) continue
             // The outcome is resolved inside `sendTurn` against the server
             // receipt — a refusal reverts the label and says so there, where the
             // response is in hand. Nothing here may treat a resolved promise as
@@ -87,9 +125,9 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
               .current(
                 {
                   type: 'structural_rename',
-                  payload: buildStructuralRenameWirePayload(intent),
+                  payload: buildStructuralRenameWirePayload(resolved),
                 },
-                { structuralRename: intent, debugSource: 'canvas_rename' },
+                { structuralRename: resolved, debugSource: 'canvas_rename' },
               )
               .catch((err) => {
                 if (import.meta.env.DEV) {
@@ -102,5 +140,7 @@ export function useStructuralRenameEvents(sendSystemEvent: StructuralRenameSende
         drainingRef.current = false
       }
     })()
-  }, [pending])
+    // `baseGraphHash` is a REAL dependency, not lint appeasement: it is the only
+    // thing that can wake a queue held by the gate above.
+  }, [pending, baseGraphHash])
 }
