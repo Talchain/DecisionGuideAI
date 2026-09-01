@@ -70,33 +70,41 @@ const renderBody = (
  * (CLAUDE.md trap 13). Opening the section first is what keeps those cases
  * meaningful — they are the ones that would otherwise rot silently.
  */
+/**
+ * ⚠⚠ OPEN, NOT TOGGLE — AND THE DIFFERENCE NOW BITES. A section holding exactly
+ * one item opens itself on mount, so a blind click CLOSES it and every
+ * assertion inside it fails for a reason that has nothing to do with what it
+ * claims. Reading `aria-expanded` first makes this idempotent, which is what
+ * the name always promised.
+ */
 const openSection = (testId: string) => {
   const toggle = screen.queryByTestId(`${testId}-toggle`)
-  if (toggle) fireEvent.click(toggle)
+  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
 }
 
 /** Open every section, for cases that assert across the whole surface. */
 /**
- * ⚠ A HAND-MAINTAINED LIST, AND IT HAS NOW DRIFTED ONCE (CLAUDE.md trap 12).
- * "What would change your mind" was added to the panel and this list did not
- * know about it, so a test calling `openAllSections()` and then asserting
- * inside that section failed for the wrong reason — and one that asserted an
- * ABSENCE there would have passed vacuously, which is the dangerous direction.
+ * ⭐ DERIVED, NOT LISTED — the change the previous comment here said was "worth
+ * making the next time this drifts". This is that time.
  *
- * Left as a list rather than derived from `[data-testid$="-toggle"]` because a
- * blind derived sweep would TOGGLE, not open: it would close any section
- * already expanded. A derived version has to read `aria-expanded` first, which
- * is a change worth making the next time this drifts rather than inside a
- * commit about section order.
+ * The list had already drifted once ("What would change your mind" was added to
+ * the panel and the list did not know), and a test asserting an ABSENCE inside
+ * an unopened section passes VACUOUSLY, which is the dangerous direction
+ * (CLAUDE.md trap 12 + trap 13).
+ *
+ * ⚠ THE REASON A DERIVED SWEEP WAS UNSAFE BEFORE IS NOW FIXED: it would have
+ * TOGGLED rather than opened. `openSection` reads `aria-expanded` first, so a
+ * blind sweep is now safe, and the list has nothing left to drift from.
+ *
+ * ⚠ SCOPED TO SECTION TOGGLES. Finding ROWS carry `-row-toggle` since the
+ * collision fix, so this cannot accidentally expand every row on the panel.
  */
 const openAllSections = () => {
-  for (const id of [
-    'analysis-new-key-insights',
-    'analysis-new-sensitivity',
-    'analysis-new-strengthen',
-    'analysis-new-drivers',
-    'analysis-new-uncertainty',
-  ]) openSection(id)
+  for (const toggle of Array.from(
+    document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]'),
+  )) {
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  }
 }
 
 beforeEach(() => {
@@ -263,12 +271,16 @@ describe('progressive disclosure on the real surface (§24E)', () => {
     openSection('analysis-new-drivers')
     expect(screen.queryByTestId('analysis-new-drivers-grounding')).toBeNull()
 
-    // ⚠ `-toggle` now names BOTH the section row and each finding row, so a
-    // positional [0] binds to the SECTION header this test has just opened —
-    // the wrong control (CLAUDE.md trap 19, bind by identity not position).
-    // The finding's toggle is the last one inside the section.
-    const driverToggles = within(screen.getByTestId('analysis-new-drivers')).getAllByTestId('analysis-new-drivers-toggle')
-    fireEvent.click(driverToggles[driverToggles.length - 1])
+    // ⭐ THE COLLISION IS GONE, SO THIS BINDS BY IDENTITY RATHER THAN BY
+    // POSITION. `-toggle` used to name BOTH the section header and each finding
+    // row, which forced this test to reach for "the last one inside the
+    // section" — a positional binding another element could satisfy (CLAUDE.md
+    // trap 19). Finding rows now carry `-row-toggle`, so the control this test
+    // means is the only thing that answers to its id.
+    const driverRowToggles = within(screen.getByTestId('analysis-new-drivers')).getAllByTestId(
+      'analysis-new-drivers-row-toggle',
+    )
+    fireEvent.click(driverRowToggles[0])
     expect(screen.getByTestId('analysis-new-drivers-grounding')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-new-drivers-inspect')).toBeNull()
 

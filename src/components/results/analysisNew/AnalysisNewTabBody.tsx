@@ -83,6 +83,11 @@ export interface AnalysisNewTabBodyProps {
   responseHash?: string
   /** OutputsDock's canvas-focus handler, shared with the existing tab. */
   onFocusNode?: (nodeId: string) => void
+  /**
+   * The dock's own re-analyse handler. Absent = the staleness ribbon offers no
+   * control, which is the honest render — never a dead button.
+   */
+  onReanalyse?: () => void
 }
 
 /**
@@ -115,6 +120,7 @@ export function AnalysisNewTabBody({
   seedUsed,
   responseHash,
   onFocusNode,
+  onReanalyse,
 }: AnalysisNewTabBodyProps) {
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
@@ -353,6 +359,7 @@ export function AnalysisNewTabBody({
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
+          onReanalyse={onReanalyse}
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={

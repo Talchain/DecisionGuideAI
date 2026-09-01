@@ -146,6 +146,12 @@ export interface AtAGlanceProps {
   staleKind?: 'changed' | 'unconfirmed' | null
   /** The producer disclosed the result as partial. */
   isProvisional?: boolean
+  /**
+   * Re-run the analysis. Absent = no control is offered, deliberately: a
+   * staleness sentence with a dead button beside it is worse than the sentence
+   * alone.
+   */
+  onReanalyse?: () => void
   /** Which results did not come back, already named for this surface. */
   missingResults?: readonly string[]
   testId?: string
@@ -182,6 +188,7 @@ export function AtAGlance({
   isStale = false,
   staleKind = 'unconfirmed',
   isProvisional = false,
+  onReanalyse,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -307,6 +314,32 @@ export function AtAGlance({
               </span>
             ))}
           </span>
+          {/* ⭐⭐ THE MOVE THAT ANSWERS THE SENTENCE. A staleness ribbon states a
+              condition the reader cannot act on from here — "we cannot confirm
+              whether this analysis reflects the current model" is true, useful,
+              and leaves them nowhere to go. Re-running IS the resolution of
+              both states, so the one action that settles the doubt sits on the
+              doubt.
+
+              ⚠ THE SHELL'S OWN BAR DOES NOT COVER THIS. `ReanalyseBar` renders
+              on `semantic === 'changed'`, plus cannot-confirm ONLY when an
+              import hold is in play (`heldUnsure = importHold && ...`) — so an
+              ordinary unconfirmed run gets the sentence and no control. That
+              component's own comment already makes the argument: "You can be
+              honestly unsure AND still offer the button."
+
+              ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
+              the same pre-gate this panel uses for focus targets. */}
+          {onReanalyse ? (
+            <button
+              type="button"
+              onClick={onReanalyse}
+              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-warning underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-ribbon-reanalyse`}
+            >
+              {COPY.status.reanalyseToBeSure}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
