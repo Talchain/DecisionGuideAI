@@ -215,9 +215,16 @@ export const GoalNode = memo((props: NodeProps) => {
    * blocks. This is an invitation with a route, not a wall."* The sentence
    * obeyed it; the border did not, and the border is what a user reads first.
    *
-   * The dash stays -- it is the shared idiom on this node for "incomplete or
-   * provisional", and it is what distinguishes an unset target from a set one.
-   * Only the alarm colour goes. The two genuinely diagnostic states below keep
+   * ⚠ "The dash stays" WAS TRUE OF THIS OVERRIDE AND IS NOT TRUE OF THE CARD
+   * (corrected 1 Sep 2026, caught by an independent review of the border
+   * change). `isIncomplete` WINS over `borderClassOverride` in `BaseNode`, and
+   * a targetless goal IS incomplete — so in the no-target state this override is
+   * unreached and the card renders SOLID AMBER. That precedence is pre-existing
+   * and was deliberately not re-ordered by the border change; what changed is
+   * that the winning branch no longer carries a dash. The sentence below still
+   * describes this override's INTENT, which is why it is corrected rather than
+   * deleted: the dash is this node's idiom for "incomplete or provisional", and
+   * only the alarm colour was meant to go. The two genuinely diagnostic states below keep
    * their colours, because those ARE claims about the analysis: `moderate` and
    * `low` robustness are the producer's own verdicts, not a gap in the user's
    * input.
