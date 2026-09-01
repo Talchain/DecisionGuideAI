@@ -36,6 +36,7 @@ import { useMemo } from 'react'
 import { AlertTriangle, Wrench, Star, TrendingUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
+import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -104,6 +105,14 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
 }: AnalysisNewTabBodyProps) {
+  /**
+   * The fail-closed notice channel for canvas focus. `Safe` because this
+   * surface renders inside the dock in tests without a ToastProvider, and a
+   * missing provider must not throw — the same hook `OptionsComparison` uses
+   * one directory down, so both sibling call sites report failure identically.
+   */
+  const showToast = useShowToastSafe()
+
   const vm = useAnalysisNewViewModel({
     data: resultsSectionData,
     isPreRun,
@@ -115,12 +124,65 @@ export function AnalysisNewTabBody({
     responseHash,
   })
 
-  // Canvas focus prefers the dock's own handler (shared with the existing tab);
-  // `focusModelTarget` is the fail-closed fallback for edge ids the node-scoped
-  // handler cannot resolve.
+  /**
+   * ⭐⭐ ONE RESOLVER, AND ITS ANSWER IS HONOURED — the fix for a structurally
+   * dead button and a silently-failing one, in the same three lines.
+   *
+   * This read `if (onFocusNode) onFocusNode(id); else focusModelTarget(id)`.
+   * There is exactly ONE production mount (`OutputsDock.tsx:3504`, the only
+   * non-test reference to this component) and it ALWAYS supplies
+   * `onFocusNode`, so the `else` branch was DEAD IN PRODUCTION — the capable
+   * resolver was reachable only from tests.
+   *
+   * ⚠ AND THE PREFERENCE WAS INVERTED, WHICH IS WHY IT MATTERED.
+   * `onFocusNode` is `handleFocusResultNode` = `focusExistingTarget(id,
+   * 'node')` (`OutputsDock.tsx:1524-1531`): NODE-SCOPED, and it `return`s
+   * silently on an id it cannot resolve. `focusModelTarget` is the UNIVERSAL
+   * resolver — canvas node id, canvas edge id, arrow-form `a->b` producer edge
+   * id, or a producer id stashed on `edge.data` — and it returns whether
+   * anything resolved. The fallback was the capable one.
+   *
+   * Two live consequences, both closed here:
+   *
+   * 1. A STRUCTURALLY DEAD BUTTON. `buildAnalysisNewViewModel.ts` emits
+   *    `targetId: assumed.edgeId` — declared "Canvas edge id — the focus
+   *    target" (`selectAssumedStrengthToResolve.ts:163`) — into the node-only
+   *    path, so that "Show on canvas" could NEVER work, on any run, for any
+   *    user. Its own comment says it relies on `focusModelTarget` resolving
+   *    edges; it was RIGHT about the resolver and could not see that the
+   *    consumer never reached it. `focusHelpers.ts:173` names this exact
+   *    shape: "the audit's 'Focus on canvas does nothing' class of dead
+   *    buttons". This is trap 21 — two authorities under similar names, each
+   *    locally correct, disagreeing at the seam nothing pinned.
+   * 2. EVERY TARGET FAILED SILENTLY. The boolean was discarded, so a stale or
+   *    deleted target moved nothing and said nothing.
+   *
+   * ⚠ NOT FIXED WITH A NOTICE ALONE — that would have turned a silent dead
+   * button into a LOUD dead button. The edge-vs-node question was settled
+   * first: `focusModelTarget`'s second step matches `edges.some(e => e.id ===
+   * targetId)` and `assumed.edgeId` IS a canvas edge id, so routing genuinely
+   * resolves it. The notice is for the case that remains.
+   *
+   * The shape is not invented: it is `OptionsComparison.tsx:159` and
+   * `StrengthenTheReasoning.tsx:722`, the two sibling call sites in this
+   * directory that already honour the boolean, and the notice is IMPORTED
+   * (`COPY.canvas.focusFailed`, itself derived from
+   * `strengthen/strengthenCopy.ts:51`) rather than respelled.
+   *
+   * ⚠ `onFocusNode` IS NOW ADDITIVE, NOT THE RESOLVER. It also sets the dock's
+   * 3-second highlight, which is worth keeping, so it is still called once the
+   * target has resolved. On an edge id it no-ops exactly as before (its own
+   * `focusExistingTarget(id, 'node')` returns false); on a node id it re-runs
+   * the same `focusNodeById(id)` with the same argument, which is idempotent —
+   * stated rather than hidden. Separating the highlight from the node-only
+   * resolution would mean changing `OutputsDock`, which is outside this lane.
+   */
   const focusTarget = (targetId: string) => {
-    if (onFocusNode) onFocusNode(targetId)
-    else focusModelTarget(targetId)
+    if (!focusModelTarget(targetId)) {
+      showToast(COPY.canvas.focusFailed)
+      return
+    }
+    onFocusNode?.(targetId)
   }
 
   /**
