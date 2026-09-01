@@ -702,7 +702,27 @@ export function StrengthenTheReasoning({
                   {rec.targetId ? (
                     <button
                       type="button"
-                      onClick={() => focusModelTarget(rec.targetId!, attentionNoteForRecommendation(rec))}
+                      /**
+                       * ⚠ THE BOOLEAN IS THE WHOLE POINT, AND IT WAS DISCARDED.
+                       * `focusModelTarget` is fail-CLOSED: it returns `false`
+                       * when the target is no longer on the canvas and moves
+                       * nothing. Dropping that return made this button do
+                       * nothing, silently, on exactly the runs where the model
+                       * has moved on since the finding was raised — which is
+                       * the estate's signature defect, an affordance that
+                       * cannot act still advertising itself.
+                       *
+                       * The sibling section already degrades correctly
+                       * (`OptionsComparison.tsx:159`), and the honest sentence
+                       * for this case was already written and unused two files
+                       * away. Found by the lane that built that sibling, which
+                       * declined to replicate this and reported it instead.
+                       */
+                      onClick={() => {
+                        if (!focusModelTarget(rec.targetId!, attentionNoteForRecommendation(rec))) {
+                          showToast(STRENGTHEN_COPY.focusFailedNotice)
+                        }
+                      }}
                       className={`${typography.panelMeta} inline-flex items-center gap-1 rounded px-1 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-focus`}
                     >
