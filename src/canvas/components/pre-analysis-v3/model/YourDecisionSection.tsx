@@ -20,7 +20,6 @@ import { useCanvasStore } from '../../../store'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, MODEL_VIEW_COPY, PANEL_COPY, SPARK_PROMPTS } from '../constants'
-import { kindOf } from '../selectors/graphFacts'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { PanelDisclosure } from '../ui/PanelDisclosure'
 import { CalibrateDrillIn } from './CalibrateDrillIn'
@@ -55,19 +54,27 @@ const CLOSED_GROUPS: Record<GroupKey, boolean> = {
   estimates: false,
 }
 
+/**
+ * ⭐ ONE CALL, NOT THREE — changed with the 0.50.0 durable writers.
+ *
+ * This used to `addNode` a placeholder, find it again with a `.at(-1)` scan over
+ * nodes matching the kind, and then `updateNodeLabel` it. Two things were wrong
+ * with that the moment both actions gained durable carriers:
+ *
+ *  1. It put TWO turns on the wire for ONE gesture, and the second was DOOMED —
+ *     the rename's `base_graph_hash` was read before the add moved it, so CEE
+ *     refuses it every time.
+ *  2. The `.at(-1)` lookup bound the result by a VALUE PREDICATE (kind) plus
+ *     position, not by identity, so any concurrent creation of the same kind
+ *     would have named the wrong node.
+ *
+ * `addNode` now takes the label, so the node is created named.
+ */
 function addNamedNode(kind: 'option' | 'risk', label: string): boolean {
   const trimmed = label.trim()
   if (trimmed === '') return false
-  const store = useCanvasStore.getState()
-  const limit = store.addNode(undefined, kind)
-  if (limit) return false
-  const created = useCanvasStore
-    .getState()
-    .nodes.filter(n => kindOf(n) === kind)
-    .at(-1)
-  if (!created) return false
-  useCanvasStore.getState().updateNodeLabel(created.id, trimmed)
-  return true
+  const limit = useCanvasStore.getState().addNode(undefined, kind, trimmed)
+  return !limit
 }
 
 /** Collapsible group: header (shape, name, meta) toggles the body + coach line. */

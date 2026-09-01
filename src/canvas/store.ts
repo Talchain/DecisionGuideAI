@@ -37,6 +37,10 @@ import {
   type StructuralRenameIntent,
 } from './mutations/structuralRename'
 import {
+  captureStructuralAdd,
+  type StructuralAddIntent,
+} from './mutations/structuralAdd'
+import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
   buildDurableDeletionNotice,
@@ -723,6 +727,12 @@ interface CanvasState {
    */
   pendingStructuralRenames: StructuralRenameIntent[]
   /**
+   * 0.50.0: node-creation gestures awaiting the wire, captured SYNCHRONOUSLY
+   * inside `addNode` — the ONE store action every pure node-creation gesture
+   * crosses. Drained by `useStructuralAddEvents`, which is the ONE sender.
+   */
+  pendingStructuralAdds: StructuralAddIntent[]
+  /**
    * Canvas ids the server has PROVEN removed from the saved model — written
    * ONLY from a `'proven'` `structural_delete` receipt.
    *
@@ -895,7 +905,23 @@ interface CanvasState {
   viewMode: 'standard' | 'expert'
   setViewMode: (mode: 'standard' | 'expert') => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
-  addNode: (pos?: { x: number; y: number }, type?: NodeType) => LimitExceeded | null
+  /**
+   * Create ONE node.
+   *
+   * ⭐ `label` IS OPTIONAL AND IS THE 0.50.0 ADDITION. Two callers previously
+   * created a placeholder node and then immediately called `updateNodeLabel` to
+   * name it (`YourDecisionSection.addNamedNode`, `HeroSection.commitGoal`),
+   * finding the new node with a `.at(-1)` scan. With durable writers on BOTH
+   * actions that sequence puts two turns on the wire for one gesture — and the
+   * second one is DOOMED, because the rename's `base_graph_hash` was read before
+   * the add moved it. Passing the label in makes it one gesture, one turn, and
+   * removes a positional lookup that was never bound by identity.
+   */
+  addNode: (
+    pos?: { x: number; y: number },
+    type?: NodeType,
+    label?: string,
+  ) => LimitExceeded | null
   /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
   addNodeWithEdge: (
     pos: { x: number; y: number },
@@ -1155,6 +1181,17 @@ interface CanvasState {
   takePendingStructuralDeletes: () => StructuralDeleteIntent[]
   /** 0.50.0: the rename twin of the above — one atomic read-and-clear. */
   takePendingStructuralRenames: () => StructuralRenameIntent[]
+  /** 0.50.0: the add twin of the above — one atomic read-and-clear. */
+  takePendingStructuralAdds: () => StructuralAddIntent[]
+  /**
+   * 0.50.0: take back a node the server refused to save.
+   *
+   * Removes the node ONLY. `revertStructuralAdd` has already established that it
+   * has no incident edges — a node connected since the gesture is stood down
+   * rather than removed, because taking it off would delete the user's edges as
+   * collateral.
+   */
+  applyStructuralAddRevert: (nodeId: string) => void
   /**
    * 0.50.0: put back a label the server refused to take.
    *
@@ -1596,6 +1633,10 @@ const DECISION_CONTEXT_CLEAR = {
   // graph it was captured against, and its `expected_label` describes that
   // graph's label. Both are meaningless once the context has been replaced.
   pendingStructuralRenames: [] as StructuralRenameIntent[],
+  // 0.50.0: same rule for adds — an undrained gesture names an id minted in ONE
+  // decision's id space, and its `base_graph_hash` describes that decision's
+  // graph. Both are meaningless once the context has been replaced.
+  pendingStructuralAdds: [] as StructuralAddIntent[],
   // 0.48.0: the durable-delete record names ids in ONE decision's graph.
   // Carrying it across a context replacement would guard a new canvas against
   // deletions made in a decision the user has left — and could withhold a node
@@ -1898,6 +1939,60 @@ function recordStructuralRenameIntent(
   })
   if (!result.ok) return
   set((s) => ({ pendingStructuralRenames: [...s.pendingStructuralRenames, result.intent] }))
+}
+
+/**
+ * Record one node-creation gesture for the wire.
+ *
+ * ⭐⭐ CALLED FROM `addNode` AND ONLY FROM `addNode` — the ONE store action every
+ * PURE node-creation gesture crosses: the pane context menu
+ * (`contextMenu/actions.ts`), all six Command Palette "Add …" commands, the
+ * pre-analysis Model panel's Add option / Add risk rows, and the hero's goal
+ * field. Capturing at any one of those call sites would have left the others
+ * silent — the defect `StructuralDeleteDrainHost`'s header records as having
+ * shipped dark under a fully green suite.
+ *
+ * ⛔ AND DELIBERATELY **NOT** FROM `addNodeWithEdge`, WHICH IS THE OTHER STORE
+ * ACTION THAT APPENDS A NODE. The reason is derived at CEE's bytes rather than
+ * chosen: `structural_add_edge` is declared `'reader_only_refusal'` in CEE's
+ * `SYSTEM_EVENT_HANDLING` — it has NO writer. So emitting `structural_add` from
+ * `addNodeWithEdge` would durably save the node and silently drop the EDGE,
+ * under a CEE confirmation that tells the user to "link it to what it affects"
+ * when they just did. That trades one silent loss for a subtler one. Those
+ * gestures keep today's behaviour until the edge writer exists, and they ride
+ * with the `structural_add_edge` lane rather than being half-fixed here.
+ *
+ * NOT GATED ON SUCCESS, matching the rename twin and for the same reason: an add
+ * that cannot be expressed durably still applies LOCALLY and simply claims no
+ * durability, which is what the product did for its entire history before
+ * 0.50.0. Blocking it would be a regression bought for tidiness.
+ *
+ * ⚠ NOT CALLED for producer-driven writes: `captureStructuralAdd` reads
+ * `_externalMutationActive`, the estate's existing name for "this is CEE's own
+ * write coming back". Echoing a server-created node back to the server as a user
+ * creation would collide on the very id CEE just minted.
+ */
+function recordStructuralAddIntent(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  nodeId: string,
+  nodeKind: string,
+  label: string,
+): void {
+  const state = get()
+  const result = captureStructuralAdd({
+    nodeId,
+    nodeKind,
+    label,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sa-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) return
+  set((s) => ({ pendingStructuralAdds: [...s.pendingStructuralAdds, result.intent] }))
 }
 
 /**
@@ -2269,6 +2364,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   pendingStructuralDeletes: [],
   // 0.50.0: no rename gestures awaiting the wire.
   pendingStructuralRenames: [],
+  // 0.50.0: no add gestures awaiting the wire.
+  pendingStructuralAdds: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -2382,7 +2479,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
   },
 
-  addNode: (pos, type = 'decision') => {
+  addNode: (pos, type = 'decision', label) => {
     // Node limit check (PRD guardrail)
     const { nodes, edges, engineLimits } = get()
     const limitKind = wouldExceedLimits(nodes.length, edges.length, 1, 0, engineLimits)
@@ -2391,7 +2488,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set, `Added ${type}`)
     invalidateAnalysisReady(get, set, `add_node (${type})`)
     const id = get().createNodeId()
-    set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
+    // The label that will actually be on the node — the caller's, or the
+    // placeholder. Resolved BEFORE the capture so the wire carries the label the
+    // canvas shows, never a placeholder the user is about to replace.
+    const resolvedLabel =
+      typeof label === 'string' && label.trim().length > 0 ? label.trim() : `Node ${id}`
+    // 0.50.0 — THE CHOKEPOINT CAPTURE. Runs BEFORE the local write for the same
+    // reason the rename capture does: the assertion is about the graph the user
+    // was looking at, and `lastServerGraphHash` must not be read across a write.
+    // The gesture still applies locally whether or not this records anything.
+    recordStructuralAddIntent(get, set, id, type, resolvedLabel)
+    set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: resolvedLabel } }] }))
     return null
   },
 
@@ -5460,6 +5567,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (queued.length === 0) return []
     set({ pendingStructuralRenames: [] })
     return queued
+  },
+
+  takePendingStructuralAdds: () => {
+    const queued = get().pendingStructuralAdds
+    if (queued.length === 0) return []
+    set({ pendingStructuralAdds: [] })
+    return queued
+  },
+
+  applyStructuralAddRevert: (nodeId) => {
+    set((s) => ({ nodes: s.nodes.filter((n) => n.id !== nodeId) }))
   },
 
   applyStructuralRenameRevert: (restore) => {

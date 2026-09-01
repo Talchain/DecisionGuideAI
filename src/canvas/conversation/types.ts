@@ -1022,6 +1022,29 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // pins schemas 0.50.0 and its `SYSTEM_EVENT_HANDLING` declares
   // `structural_rename: 'mutating'` (the writer landed in #1273, `a705319f`).
   'structural_rename',
+  // schemas 0.50.0 — the DURABLE NODE writer, and the close of "the factor I
+  // drew vanished on reload". A canvas node creation previously reached CEE only
+  // as a `direct_graph_edit` NOTIFICATION, which CEE classifies
+  // 'ack_and_commit': a turn row and NO graph write.
+  //
+  // ⚠ IT MINTS AN ID, WHICH IS WHY ITS ID SPACE IS NARROWER THAN ITS SIBLINGS'.
+  // `node_id` is validated against `NodeV3Schema.shape.id` (i.e.
+  // `NODE_ID_PATTERN`) because CEE must be able to persist it; `structural_delete`
+  // and `structural_rename` address EXISTING nodes and use the open
+  // `CanonicalEdgeEndpointIdSchema`, whose comment says narrowing it "would
+  // refuse live nodes". Do not make the two "consistent" — see
+  // `mutations/structuralAdd.ts`.
+  //
+  // ⚠ AND ITS FAILURE MODE IS A 200, NOT A 409. Ten of CEE's eleven refusal
+  // reasons — including a colliding id and an unpersistable kind — are COMMITTED
+  // as honest direct answers and returned 200. The receipt is read from the
+  // committed bytes, never from the status code.
+  //
+  // ⚠ READER-FIRST, same rule as its siblings above: a CEE pinned ≤0.49.0 fails
+  // the DISCRIMINATOR and rejects the WHOLE turn (422). Derived rather than
+  // assumed — CEE staging declares `structural_add: 'mutating'` and ships
+  // `system-events/structural-add.ts`.
+  'structural_add',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */

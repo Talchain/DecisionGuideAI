@@ -28,6 +28,7 @@ import { useConversation } from '../conversation/useConversation'
 import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
 import { useStructuralDeleteEvents } from '../conversation/useStructuralDeleteEvents'
 import { useStructuralRenameEvents } from '../conversation/useStructuralRenameEvents'
+import { useStructuralAddEvents } from '../conversation/useStructuralAddEvents'
 import { usePanelApplyDrain } from '../conversation/usePanelApplyDrain'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
 // useSessionResumeEvent disabled — session_resume not in CEE v3 schema
@@ -161,6 +162,9 @@ export function DraftChat() {
   // schemas 0.50.0 — the durable-rename drain's flag-OFF host. Its flag-ON twin
   // is `StructuralRenameDrainHost`, mounted in `MaybeConversationProvider`.
   useStructuralRenameEvents(conversation.sendSystemEvent)
+  // schemas 0.50.0 — the durable-add drain's flag-OFF host. Its flag-ON twin is
+  // `StructuralAddDrainHost`, mounted in `MaybeConversationProvider`.
+  useStructuralAddEvents(conversation.sendSystemEvent)
   useAnalysisCompleteEvent()
   // COLLAB 0.40.0 — drain a panel-apply intent recorded on `/scenario/:id/panel`.
   // It is hosted HERE, beside its two sibling system-event hooks, because this is

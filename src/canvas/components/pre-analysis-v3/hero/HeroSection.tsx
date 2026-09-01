@@ -22,7 +22,6 @@ import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, HERO_COPY, SPARK_PROMPTS } from '../constants'
-import { kindOf } from '../selectors/graphFacts'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { BestNextStep } from './BestNextStep'
 import { CoachingSlot } from './CoachingSlot'
@@ -74,15 +73,15 @@ export const HeroSection = memo(function HeroSection({
         store.updateNodeLabel(hero.goal.nodeId, label)
         return true
       }
-      // No goal yet: create one, then name it.
-      const limit = store.addNode(undefined, 'goal')
+      // No goal yet: create it NAMED, in one call.
+      //
+      // ⭐ Was `addNode` → `.at(-1)` scan → `updateNodeLabel`. With 0.50.0's
+      // durable writers on both actions that put TWO turns on the wire for one
+      // gesture, and the second was doomed: the rename's `base_graph_hash` was
+      // read before the add moved it. The scan also bound the result by a value
+      // predicate rather than by identity.
+      const limit = store.addNode(undefined, 'goal', label)
       if (limit) return FIELD_FEEDBACK_COPY.modelSizeLimit
-      const created = useCanvasStore
-        .getState()
-        .nodes.filter(n => kindOf(n) === 'goal')
-        .at(-1)
-      if (!created) return FIELD_FEEDBACK_COPY.goalEmptyHint
-      useCanvasStore.getState().updateNodeLabel(created.id, label)
       return true
     },
     [hero.goal],

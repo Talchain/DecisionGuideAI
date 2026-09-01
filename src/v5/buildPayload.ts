@@ -43,6 +43,11 @@ import {
   isWireUsableNodeId,
   type StructuralRenameWireEvent,
 } from '../canvas/mutations/structuralRename'
+import {
+  isWireAddableNodeKind,
+  isWireUsableNewNodeId,
+  type StructuralAddWireEvent,
+} from '../canvas/mutations/structuralAdd'
 // VALUE import, and deliberately so: the selection this module puts on the wire
 // must be the one the canvas holds AT SEND TIME, read at the moment the payload
 // is built. Passing it in from useConversation would be purer, but the store is
@@ -413,6 +418,11 @@ function systemEventToPayload(args: {
     }
     case 'structural_rename': {
       const event = adaptStructuralRename(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
+    case 'structural_add': {
+      const event = adaptStructuralAdd(eventPayload)
       if (event === null) return null
       return { ...base, event }
     }
@@ -933,6 +943,59 @@ function adaptStructuralRename(
   if (label === expected_label) return null
 
   return { kind: 'structural_rename', node_id, label, expected_label, base_graph_hash }
+}
+
+/**
+ * `structural_add` (0.50.0) — the durable node write.
+ *
+ * FAIL-CLOSED ON THE CONTRACT'S OWN RULES, checked here rather than trusted from
+ * the caller, for the reason `adaptStructuralDelete` states: every member of
+ * this union is `.strict()` and the union is discriminated, so one malformed
+ * field does not lose the field, it loses the WHOLE TURN at CEE's ingress (422).
+ * The rules re-applied here are the schema's, not invented ones:
+ *
+ *   · `node_id` is `NodeV3Schema.shape.id`, i.e. `min(1).max(100)` matching
+ *     `NODE_ID_PATTERN`. ⚠ AND DELIBERATELY **NOT** the open
+ *     `CanonicalEdgeEndpointIdSchema` its two siblings use: this member MINTS an
+ *     id, and the contract's own note gives the reason — "an id that fails that
+ *     pattern is one CEE cannot persist into GraphV3". Loosening it here would
+ *     mint unpersistable ids; narrowing the sibling fields would refuse live
+ *     ones. Both directions are wrong, so the predicates are named apart
+ *     (`isWireUsableNewNodeId` vs `isWireUsableNodeId`).
+ *   · `node_kind` is the graph contract's `NodeKind`. ⚠ The check applied is
+ *     NARROWER than the wire's eight members: CEE's persisted `NodeKindV3` has
+ *     no `constraint`, so that value passes ingress and earns a committed-200
+ *     refusal naming nothing the user could act on. Standing down here spends no
+ *     turn — and the node is still created locally, exactly as before 0.50.0.
+ *   · `label` is `NodeV3Schema.shape.label`, i.e. `min(1).max(200)`.
+ *   · `base_graph_hash` is `z.string().min(1)` — absent, null and empty are all
+ *     forbidden; the stale gate is non-optional.
+ *
+ * ⚠ AND NOTHING ELSE GOES ON THE WIRE. Every optional `NodeV3` field is absent
+ * by contract, so there is no value, no category and no POSITION to send. A new
+ * factor is an EXPLICIT UNKNOWN and CEE's writer refuses its own commit if any
+ * numeric level reaches the persisted bytes — do not "helpfully" add one here.
+ *
+ * A `null` return routes to `unsupported_system_event`, i.e. no turn at all —
+ * the right outcome: an unsendable add must not become a turn that claims
+ * something happened.
+ */
+function adaptStructuralAdd(
+  eventPayload: Record<string, unknown> | undefined,
+): StructuralAddWireEvent | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const node_id = eventPayload?.node_id
+  if (!isWireUsableNewNodeId(node_id)) return null
+
+  const node_kind = eventPayload?.node_kind
+  if (!isWireAddableNodeKind(node_kind)) return null
+
+  const label = eventPayload?.label
+  if (!isWireUsableLabel(label)) return null
+
+  return { kind: 'structural_add', node_id, node_kind, label, base_graph_hash }
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown

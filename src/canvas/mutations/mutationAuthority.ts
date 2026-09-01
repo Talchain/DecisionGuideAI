@@ -59,6 +59,20 @@ export const CANONICAL_EDIT_AUTHORITY = {
   // rename is local-only — the key names that precondition rather than implying
   // the write is unconditional.
   canvasNodeRenameWithServerHash: 'server_graph',
+  // schemas 0.50.0 — the canvas/palette/context-menu node creation.
+  // `server_graph` because it has exactly what that value requires: a
+  // receipt-bearing GraphV3 carrier (`structural_add`), a server-side write to
+  // `scenarios.graph`, and a committed `edit_graph` fact. ⚠ CONDITIONAL ON THE
+  // HASH, like both siblings and by the same mechanism: with no CEE-stamped
+  // `graph_hash` seen this session the capture stands down and the creation is
+  // local-only — the key names that precondition rather than implying the write
+  // is unconditional.
+  //
+  // ⛔ IT DOES **NOT** COVER `addNodeWithEdge`. That action creates an edge too,
+  // and `structural_add_edge` is `'reader_only_refusal'` at CEE — no writer. A
+  // key claiming server authority for it would be false about the half that
+  // still vanishes. Named apart deliberately (trap 21).
+  canvasNodeAddWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'disabled',
@@ -71,7 +85,15 @@ export const CANONICAL_EDIT_AUTHORITY = {
   preAnalysisEdgeStrength: 'disabled',
   preAnalysisV3FactorValue: 'server_graph',
   preAnalysisV3FactorConfirmation: 'disabled',
-  preAnalysisV3StructuralAdd: 'disabled',
+  // schemas 0.50.0 — FLIPPED FROM `'disabled'`. This key gates the pre-analysis
+  // Model panel's inline "Add option" / "Add risk" rows (`AddRow` in
+  // `YourDecisionSection`), a complete and tested affordance that has been dark
+  // for exactly one stated reason: a node creation had no receipt-bearing wire
+  // carrier, so the control could not honestly present itself as a saved
+  // shared-model edit. `structural_add` is that carrier, and the rows route
+  // through `store.addNode`, which now captures it. The reason for the
+  // disablement is spent.
+  preAnalysisV3StructuralAdd: 'server_graph',
   analysisAssumedEdgeStrength: 'disabled',
   canvasEdgeStrength: 'disabled',
   canvasFactorConfirmation: 'disabled',
