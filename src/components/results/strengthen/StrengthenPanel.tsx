@@ -217,9 +217,15 @@ function RecRow({
       {expanded && (
         <div className="space-y-1.5 pb-3 pl-[42px] pr-3">
           <p className={`${typography.panelBody} text-text-body`}>{rec.whyNow}</p>
-          <p className={`${typography.panelBody} text-text-header`}>
-            <strong className="text-info">{COPY.tryThisLead}</strong> {rec.tryThis}
-          </p>
+          {/* Omitted entirely when there is no instruction — see
+              `Recommendation.tryThis`. A lead-in with nothing after it is the
+              defect; a lead-in restating the button below it is the same defect
+              wearing copy. */}
+          {rec.tryThis !== null ? (
+            <p className={`${typography.panelBody} text-text-header`}>
+              <strong className="text-info">{COPY.tryThisLead}</strong> {rec.tryThis}
+            </p>
+          ) : null}
           <p className={`${typography.panelMeta} text-text-light`}>{rec.sourceLine}</p>
 
           <div className="flex flex-wrap items-center gap-1.5 pt-1.5">

@@ -325,7 +325,23 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // the no-copy floor.
       signal: item.signal ?? item.body ?? 'Olumi flagged this while reviewing your model.',
       whyNow: item.body ?? 'Resolving it improves what the analysis can tell you.',
-      tryThis: item.actionLabel ?? 'Work through it with Olumi.',
+      /**
+       * ⭐⭐ NO INSTRUCTION IS NAMED HERE, AND THAT IS THE FIX RATHER THAN A GAP.
+       *
+       * This read `item.actionLabel ?? 'Work through it with Olumi.'`, and it
+       * was a restatement of the button in BOTH branches — not only in the
+       * fallback. When the producer supplies `actionLabel` it becomes
+       * `action.label` four lines below, so the card rendered the identical
+       * string twice; when it does not, both fell to the same boilerplate.
+       * Either way "Try this" carried nothing the reader could not already see.
+       *
+       * The producer's own instruction, when it has one, rides `action.label`
+       * on the button — where it is pressable. The catalogue paths in this file
+       * keep their hand-authored `tryThis` because those ARE instructions
+       * ("Build the strongest case AGAINST the current leader and see if it
+       * survives"), and they are what "Try this" should mean.
+       */
+      tryThis: null,
       // UI-SEM-085: the label IS the band marker — an unranked row states that
       // its position is arrival order, not merit.
       sourceLine: isProducerRanked(item) ? PHASE3_SOURCE_RANKED : PHASE3_SOURCE_UNRANKED,

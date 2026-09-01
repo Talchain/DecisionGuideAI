@@ -114,7 +114,11 @@ function assistantBoundStrings(rec: Recommendation): string[] {
     rec.title,
     rec.signal,
     rec.whyNow,
-    rec.tryThis,
+    // ⚠ `?? ''` IS NOT A SHRUG — `tryThis` is nullable now, and an ABSENT
+    // instruction contributes no string, so there is nothing in this channel to
+    // leak. The channel stays enumerated so a future non-null value is swept;
+    // dropping the line would silently narrow this leak sweep instead.
+    rec.tryThis ?? '',
     rec.action.label,
     rec.action.prompt ?? '',
     JSON.stringify(rec.action.parameters ?? {}),

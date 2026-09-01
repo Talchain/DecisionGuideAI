@@ -224,7 +224,12 @@ export function AnalysisNewTabBody({
     if (!rec) return
     openAskOlumi({
       context: rec.whyNow || rec.signal,
-      draft: rec.action.prompt ?? rec.tryThis,
+      // ⚠ `tryThis` MAY BE `null` NOW, AND `draft` IS A REQUIRED STRING. The
+      // title is the last resort rather than an empty draft: on the producer
+      // path `action.prompt` IS the title, so this falls back to what that path
+      // would have sent anyway, and a drawer that opens blank is a worse
+      // failure than one seeded with the finding's own name.
+      draft: rec.action.prompt ?? rec.tryThis ?? rec.title,
       label: rec.action.label,
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
     })
