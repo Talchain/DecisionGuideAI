@@ -14,12 +14,17 @@ import { OutcomeNode } from './OutcomeNode'
 import { ActionNode } from './ActionNode'
 import { GhostOptionNode } from './GhostOptionNode'
 import { GhostTierNode } from './GhostTierNode'
+import { withNodeKeyboardScope } from './nodeKeyboardScope'
 
 /**
- * React Flow node types registry
- * Used in ReactFlow component's nodeTypes prop
+ * The renderers, before the keyboard scope is applied.
+ *
+ * ⚠ NOT THE EXPORT. Consume `nodeTypes` below — this map exists so the wrapping
+ * is DERIVED from it rather than written out a second time. It is exported only
+ * so `registry.keyboardScope.spec.tsx` can assert that every entry here appears
+ * wrapped in `nodeTypes`, in both directions.
  */
-export const nodeTypes: NodeTypes = {
+export const rawNodeTypes: NodeTypes = {
   goal: GoalNode,
   decision: DecisionNode,
   option: OptionNode,
@@ -35,3 +40,23 @@ export const nodeTypes: NodeTypes = {
   'ghost-option': GhostOptionNode,
   'ghost-tier': GhostTierNode,
 }
+
+/**
+ * React Flow node types registry
+ * Used in ReactFlow component's nodeTypes prop
+ *
+ * ⭐ EVERY RENDERER IS WRAPPED IN A KEYBOARD SCOPE, AND THAT IS DERIVED FROM THE
+ * MAP ABOVE, NOT LISTED. Without it, pressing Enter or Space on ANY control
+ * inside a node also selects the node behind it and swings the dock to the
+ * Inspector — React Flow's own node-level `onKeyDown` has no idea a descendant
+ * handled the key. The full mechanism, the measurement, and why this is not
+ * `disableKeyboardA11y`, are in `nodeKeyboardScope.tsx`.
+ *
+ * A node type added here gets the scope by construction. That is the point: a
+ * per-component fix is a list someone has to remember to extend (CLAUDE.md
+ * trap 12), and `GhostOptionNode` has no inner element to put a class on — its
+ * root IS the control.
+ */
+export const nodeTypes: NodeTypes = Object.fromEntries(
+  Object.entries(rawNodeTypes).map(([type, Renderer]) => [type, withNodeKeyboardScope(Renderer)]),
+)
