@@ -80,7 +80,7 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
-import { GHOST_TIERS, withGhostTiers } from './utils/ghostTiers'
+import { GHOST_TIERS, withGhostTiers, frontierIsVisible } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -217,7 +217,6 @@ export interface BlueprintEventBus {
 interface ReactFlowGraphProps {
   blueprintEventBus?: BlueprintEventBus
   onCanvasInteraction?: () => void
-  enableGhostSuggestions?: boolean
   /**
    * ⭐ Does this mount offer the first-run starter strip? Default NO, so a
    * mount that says nothing gets no starters BY CONSTRUCTION.
@@ -685,7 +684,7 @@ const NODE_DRAG_THRESHOLD = 2
 const SELECT_MODE_PAN_BUTTONS = [1]
 
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
-const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false, showStarters = false }: ReactFlowGraphProps) {
+const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -721,9 +720,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
   const nodesWithGhost = useMemo(() => {
-    // Pre-analysis: always show. Post-analysis: Expert view only
-    const isPostAnalysis = resultsStatus === 'complete'
-    if (isPostAnalysis && viewMode !== 'expert') return nodes
+    // Pre-analysis: always show. Post-analysis: Expert view only.
+    // The predicate lives in `ghostTiers` so a test can call it — inline here,
+    // it was the one control over the frontier that nothing could bind to.
+    if (!frontierIsVisible(resultsStatus, viewMode)) return nodes
 
     /*
      * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
