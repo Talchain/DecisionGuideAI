@@ -48,11 +48,35 @@
  * user's unfloored one). This is the missing half: once the user has explicitly
  * framed the camera, an AUTOMATIC re-frame may not take it away from them.
  *
- * ⚠ SCOPE, STATED NARROWLY. This claim is honoured by the RESERVED-BOX trigger
- * only. The layout and restore triggers RELEASE it and then fit, because those
- * fire when the model itself changed or arrived — a new model is the product's
- * frame to choose, and a stale claim there would strand the camera on a graph
- * that no longer exists.
+ * ⚠ SCOPE, STATED NARROWLY — AND CORRECTED 1 Sep 2026, BECAUSE THE NARROW SCOPE
+ * WAS THE OTHER HALF OF THE DEFECT.
+ *
+ * This paragraph used to read: *"This claim is honoured by the RESERVED-BOX
+ * trigger only. The layout and restore triggers RELEASE it and then fit, because
+ * those fire when the model itself changed or arrived."* The reasoning is right;
+ * the premise about the LAYOUT trigger is not. `layoutVersion` increments on
+ * every layout pass, including the CORRECTIVE ones `useMeasureThenLayout` runs
+ * on the model already on screen when a card's measured height changes — late
+ * measurement, or analysis adding content to a card. Those are not a new model
+ * arriving, and treating them as one discarded the user's overview about half a
+ * second after they asked for it.
+ *
+ * Measured in real Chromium at 1280x800 on `build-vs-buy` (staging tip
+ * `8220f48d`): the button reached 0.2907 with the whole model framed, and 587ms
+ * later the layout trigger returned the camera to EXACTLY its pre-click value of
+ * 0.5000 — leaving 10 of 19 model nodes behind the dock or off the pane. So
+ * `claimCameraForUser` was a half-fix: it closed the reserved-box door and the
+ * layout door was never shut.
+ *
+ * The scope now: the claim is honoured by the RESERVED-BOX trigger, and by the
+ * LAYOUT trigger WHENEVER THE MODEL IS THE ONE THE PRODUCT ALREADY FRAMED. It is
+ * released — and the product re-frames — only when a DIFFERENT model has
+ * arrived, which is what the original premise actually describes, and which
+ * still needs the camera aimed at it: a stale claim there would strand the
+ * camera on a graph that no longer exists (measured — dropping that condition
+ * leaves a newly arrived model at the previous model's zoom of 0.3233, never
+ * re-aimed). The RESTORE trigger still releases unconditionally; it fires once
+ * per restore identity, before the user has had a chance to frame anything.
  *
  * ⚠ WHAT IT IS NOT. It is not a fix for the reserved-box baseline being taken
  * too early, and it does not claim the watcher's spurious startup fire is

@@ -9,7 +9,7 @@ import { usePrefersReducedMotion } from './usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
 import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
 import { releaseUserCameraClaim, userOwnsCamera } from '../utils/userCameraClaim'
-import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
+import { getGraphIdentityKey, graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 
 /** The slice of canvas state the camera's readiness questions are asked of. */
 type CameraReadinessState = Pick<
@@ -148,10 +148,29 @@ export function useFitViewOnLayoutVersion(): void {
   const reducedMotionRef = useRef(prefersReducedMotion)
   reducedMotionRef.current = prefersReducedMotion
 
+  /**
+   * The MODEL the product last aimed the camera at — not the model on screen.
+   *
+   * ⭐⭐ THIS IS THE DIFFERENCE BETWEEN "A LAYOUT RAN" AND "THE MODEL CHANGED",
+   * and conflating them is what made `claimCameraForUser` a half-fix (#1051).
+   * See the layout trigger below for the measurement.
+   */
+  const lastFramedModelRef = useRef<string | null>(null)
+
+  /** The identity of the model on the canvas right now. */
+  const currentModelKey = useRef(() => {
+    const s = useCanvasStore.getState()
+    return getGraphIdentityKey(s.currentScenarioId, s.nodes, s.edges)
+  })
+
   // ONE contract, both triggers. A second literal here is how the auto-fit and
   // the re-fit would silently stop agreeing (and how three copies of the dock
   // bounds drifted before `dockWidth.ts` existed).
   const fitNow = useRef(() => {
+    // Recorded HERE rather than at each trigger so every product fit stamps the
+    // model it framed, however many triggers there are — the same reason all
+    // three share this closure.
+    lastFramedModelRef.current = currentModelKey.current()
     const nodes = getNodesRef.current ? excludeNonModelNodes(getNodesRef.current()) : []
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
@@ -216,9 +235,44 @@ export function useFitViewOnLayoutVersion(): void {
   useEffect(() => {
     if (layoutVersion === 0) return
     const raf = requestAnimationFrame(() => {
-      // A completed layout has moved every position, so whatever the user framed
-      // is gone. The product owns this frame; the claim is released rather than
-      // honoured (see `utils/userCameraClaim.ts` for why the two triggers differ).
+      // ⭐⭐ A LAYOUT PASS IS NOT A NEW MODEL, AND THIS LINE USED TO ASSUME IT WAS
+      // (CLAUDE.md trap 21 — two questions under one name).
+      //
+      // The premise written here was *"a completed layout has moved every
+      // position, so whatever the user framed is gone"*. That is true of the
+      // layout that lays out an ARRIVING model, and false of the corrective
+      // passes `useMeasureThenLayout` runs on the model already on screen: it
+      // re-lays out when a card grows taller than the height the committed
+      // layout was computed against (measurement landing late, or analysis
+      // results adding content to a card). Same nodes, same edges, same ids —
+      // only the geometry is recomputed. `layoutVersion` cannot tell the two
+      // apart, so the user's overview was discarded by both.
+      //
+      // MEASURED, real Chromium, real clock, 1280x800, `build-vs-buy`, at
+      // `8220f48d` — the camera sampled every frame after the click:
+      //
+      //     t=1     zoom=0.5000  x=181  y=61   before the click
+      //     t=681   zoom=0.2907  x=480  y=67   the user's overview, whole model
+      //     t=1279  zoom=0.5000  x=181  y=61   back to EXACTLY the pre-click camera
+      //
+      //     +17632ms  showAll / claimCameraForUser
+      //     +18219ms  this trigger fires (layoutVersion 4 -> 5)
+      //     +18220ms  releaseUserCameraClaim   <- the claim, discarded
+      //     +18220ms  fitNow                   <- floored product fit, back to 0.50
+      //
+      // The button did its job and 587ms later the product threw the result
+      // away — the same shape as the reserved-box defect `claimCameraForUser`
+      // was written for, through the one trigger that never consulted it. On
+      // this starter `dec_billing` was measured growing 94 -> 198 -> 295px
+      // across successive corrective passes, so whether one is still in flight
+      // when the user clicks is a matter of machine load. That is why this read
+      // as intermittent, and why instrumenting the page could hide it.
+      //
+      // So: the claim is honoured when the model is the one the product already
+      // framed, and released only when a DIFFERENT model has arrived — which is
+      // the case the original premise actually describes, and which still needs
+      // the camera aimed at it.
+      if (userOwnsCamera() && currentModelKey.current() === lastFramedModelRef.current) return
       releaseUserCameraClaim()
       fitNow.current()
     })

@@ -405,4 +405,94 @@ describe('useFitViewOnLayoutVersion', () => {
       expect('nodes' in args).toBe(false)
     })
   })
+
+  /**
+   * ⭐⭐ A LAYOUT PASS IS NOT A NEW MODEL — the half `claimCameraForUser` did not
+   * cover (#1051 was a half-fix, and this is the other half).
+   *
+   * The layout trigger released the claim unconditionally, so the user's
+   * overview survived only until the next layout. It did not have to be a new
+   * model: `useMeasureThenLayout` re-lays out the model ALREADY on screen when a
+   * card grows taller than the height the committed layout was computed against
+   * (late measurement, or analysis adding content to a card). Measured in real
+   * Chromium at 1280x800 on `build-vs-buy`, the camera went 0.5000 -> 0.2907
+   * (the user's overview, whole model framed) -> 0.5000, back to EXACTLY the
+   * pre-click camera, 587ms after the click — leaving 10 of 19 model nodes
+   * outside the visible canvas.
+   *
+   * ⚠ WHAT THESE jsdom CASES PROVE. The SEAM only: whether the trigger issues a
+   * fit. jsdom has no layout, so nothing here is evidence about what a user can
+   * see; that half is `e2e/geometry/showWholeModel.measure.ts`, in real
+   * Chromium, where the two are a discriminating pair — reverting the fix REDs
+   * the first arm, and dropping the model-key conjunct alone REDs the second.
+   */
+  describe('a layout of the SAME model does not take the user\'s frame', () => {
+    /** A model identity the store can hold; the ids are what the key hashes. */
+    const MODEL_A = [{ id: 'dec_1', position: { x: 0, y: 0 }, data: {} }]
+    const MODEL_B = [{ id: 'dec_2', position: { x: 0, y: 0 }, data: {} }]
+
+    function setup() {
+      const rafCallbacks: Array<() => void> = []
+      const rafSpy = vi
+        .spyOn(globalThis, 'requestAnimationFrame')
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb as () => void)
+          return rafCallbacks.length
+        })
+      const flush = () =>
+        act(() => {
+          rafCallbacks.splice(0).forEach((cb) => cb())
+        })
+      renderHook(() => useFitViewOnLayoutVersion())
+      // The product frames the model once. This is what stamps "the model I am
+      // looking at" — without it the comparison below has nothing to compare to.
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 1 } as never)
+      })
+      flush()
+      expect(fitViewSpy, 'the product must frame the model first').toHaveBeenCalledTimes(1)
+      return { flush, rafSpy }
+    }
+
+    it('honours the claim when the model is the one already framed', () => {
+      const { flush, rafSpy } = setup()
+
+      claimCameraForUser()
+      // A corrective re-layout: same nodes, same ids, only the geometry redone.
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_A, layoutVersion: 2 } as never)
+      })
+      flush()
+
+      expect(
+        fitViewSpy,
+        "a re-layout of the SAME model re-framed a camera the user had explicitly framed",
+      ).toHaveBeenCalledTimes(1)
+
+      rafSpy.mockRestore()
+    })
+
+    it('releases the claim when a DIFFERENT model arrives', () => {
+      // The opposite-direction twin (CLAUDE.md trap 22b). Without this the case
+      // above is equally satisfied by honouring the claim unconditionally, which
+      // would strand the camera on a model that no longer exists — the harm
+      // `utils/userCameraClaim.ts` warns about in its scope note. Proven live:
+      // dropping the model-key conjunct leaves a new model at zoom 0.3233,
+      // never re-aimed.
+      const { flush, rafSpy } = setup()
+
+      claimCameraForUser()
+      act(() => {
+        useCanvasStore.setState({ nodes: MODEL_B, layoutVersion: 2 } as never)
+      })
+      flush()
+
+      expect(
+        fitViewSpy,
+        'a new model arrived and the product did not frame it — a stale claim stranded the camera',
+      ).toHaveBeenCalledTimes(2)
+
+      rafSpy.mockRestore()
+    })
+  })
 })
