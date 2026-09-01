@@ -511,13 +511,49 @@ export function AnalysisNewTabBody({
 
         {/* Whole-decision value of information — a VERDICT, never the number.
             'not_computed' renders nothing: it is a distinct state from a
-            measured zero and must not be collapsed into one. */}
+            measured zero and must not be collapsed into one.
+
+            ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
+            This shipped as a bare `<p>` at the body's TOP LEVEL, between two
+            accordions, with no heading — so the sentence's subject was never
+            named. "This run did not come back at zero" leaves a reader asking
+            *what* did not come back at zero, and the answer was nowhere on
+            screen. Witnessed on staging `e685dafa`.
+
+            ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
+            `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
+            noise floor, no CI and no `n_samples`, so a small positive is not
+            distinguishable from estimator noise and NOTHING here may say the
+            value MEANS anything. The label names the measure, which is the
+            owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
+            information"), and it is checked against the same imported ceiling
+            by `analysisNewCopyCeiling.spec.ts`.
+
+            ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
+            third micro-section shape on a panel already criticised for
+            inconsistency would be the defect, not the fix. */}
         {vm.uncertainty.decisionVoi !== 'not_computed' ? (
-          <p className={`${typography.panelMeta} text-text-light`} data-testid="analysis-new-decision-voi">
-            {vm.uncertainty.decisionVoi === 'measured_non_zero'
-              ? COPY.decisionVoi.measuredNonZero
-              : COPY.decisionVoi.measuredZero}
-          </p>
+          <section
+            className="border-t border-panel-border pt-3"
+            data-testid="analysis-new-decision-voi-section"
+            aria-labelledby="analysis-new-decision-voi-heading"
+          >
+            <h3
+              id="analysis-new-decision-voi-heading"
+              className={`${typography.panelMeta} text-text-light mb-1`}
+              data-testid="analysis-new-decision-voi-heading"
+            >
+              {COPY.decisionVoi.label}
+            </h3>
+            <p
+              className={`${typography.panelMeta} text-text-light m-0`}
+              data-testid="analysis-new-decision-voi"
+            >
+              {vm.uncertainty.decisionVoi === 'measured_non_zero'
+                ? COPY.decisionVoi.measuredNonZero
+                : COPY.decisionVoi.measuredZero}
+            </p>
+          </section>
         ) : null}
 
         {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}

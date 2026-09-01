@@ -7,19 +7,30 @@
  * The strip is the design's first element and the only genuinely visual one:
  * one mark per node, grouped by kind, each mark a route to that node on canvas.
  *
- * ⚠⚠ IT MAKES NO PROVENANCE CLAIM, AND THAT IS A DELIBERATE OMISSION RATHER
- * THAN AN OVERSIGHT. The design draws these marks filled-or-hollow to say which
- * inputs are the user's and which are Olumi's. That distinction is NOT
- * available: `provenance_class` returns zero files in this repo (contrast
- * control: `authored_by`, ten files), CEE can send an intervention as a bare
- * number carrying no source, and PLoT's `routes/v2/run.ts` stamps unrecognised
- * values as `user_specified` — the strongest possible claim of human authorship
- * on a value Olumi invented (PR #353, open).
+ * ⚠⚠ THE MARK MAKES NO PROVENANCE CLAIM, AND THAT IS STILL DELIBERATE. The
+ * design draws these marks filled-or-hollow to say which inputs are the user's
+ * and which are Olumi's. Every mark here is identical and means one thing only:
+ * A NODE OF THIS KIND EXISTS. A fill would have to be legible at 8px with no
+ * label, so it must be right for EVERY node in the row or it teaches a false
+ * reading of all of them — and CEE can send an intervention as a bare number
+ * carrying no source at all, so a whole row can be unanswerable.
  *
- * So every mark here is identical and means one thing only: A NODE OF THIS KIND
- * EXISTS. A fill this data cannot justify would be the exact defect the strip
- * was conceived to expose. When provenance lands, the fill is the increment —
- * and until then a strip that navigates honestly beats one that decorates.
+ * ⚠⚠ BUT THE ORIGINAL REASON GIVEN FOR THAT REFUSAL WAS WRONG, AND IT WAS
+ * BLOCKING MORE THAN THE FILL. This header used to say the distinction "is NOT
+ * available: `provenance_class` returns zero files in this repo". That names a
+ * WIRE FIELD, not the question. The authority for "who put this value here" is
+ * the node's own `observed_state.source`, whose closed vocabulary
+ * `canvas/domain/valueProvenance.ts` classifies and which this very tab already
+ * joins against for the glance's condition line
+ * (`useAnalysisNewViewModel.ts` → `buildNodeValueSourceMap`). A field-name grep
+ * returning zero is evidence about that NAME, never about the question — the
+ * estate's own trap 13e, committed inside the comment that cites a contrast
+ * control.
+ *
+ * So `valueSource` is carried per node and the DETAIL says the word, where
+ * there is a label to carry it, one node at a time, and an unclassifiable
+ * literal renders nothing. The fill stays refused; the silence about
+ * authorship does not.
  *
  * ⚠ THE GOAL IS NOT A ROW. Every row here is progress through a SET (six
  * options, five factors). A goal is a binary — set or not — and putting it in
@@ -29,6 +40,8 @@
 
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
+import { nodeValueSource } from '../driverValueProvenance'
+import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
 /**
  * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
@@ -69,6 +82,40 @@ export interface StripNode {
    * would be asserting confirmability of a thing that has nothing to confirm.
    */
   needsCheck: boolean
+  /**
+   * The factor's value AS THE CANVAS RENDERS IT, or `null` when it has none.
+   *
+   * ⚠ NOT FORMATTED HERE, AND THAT IS THE WHOLE REASON THIS FIELD EXISTS
+   * RATHER THAN A NUMBER. `factorDisplayText` is the estate's shared entry
+   * point — the same one `FactorNode` and the inspector-v2 factor panels call —
+   * and it carries the unit/cap/`display_value` priority chain, the currency
+   * classification and the compound-value unwrap. A second formatter here
+   * would put the panel and the canvas node in disagreement about one factor's
+   * value (CLAUDE.md trap 12), which is the exact defect a detail claiming to
+   * show "the data behind this" must not have.
+   *
+   * `null` is MEANINGFUL and is a different state from "we could not establish
+   * the source": it says the factor carries no value at all.
+   *
+   * ⚠ FACTORS ONLY. `factorDisplayText` reads an `observedState` that options,
+   * risks and outcomes do not carry in this shape.
+   */
+  valueText: string | null
+  /**
+   * The node's `observed_state.source` literal, VERBATIM — never a class.
+   *
+   * ⚠ THE CLASSIFIER IS THE CONSUMER'S, DELIBERATELY. `classifyValueProvenance`
+   * returns `null` for a literal it does not know rather than guessing, and the
+   * renderer's honest silence depends on receiving that `null` itself. A class
+   * resolved here would have to pick a fallback, and a guessed fallback is how
+   * "AI estimate" lands on a number the user typed.
+   *
+   * ⚠ AND IT IS `observed_state.source`, NOT AN INTERVENTION SOURCE. The two
+   * fields share a name and answer different questions; `valueProvenance.ts`
+   * documents why routing one through the other's classifier is the wrong call
+   * that survives review.
+   */
+  valueSource: string | undefined
 }
 
 export interface StripRow {
@@ -147,11 +194,17 @@ export function buildModelStrip(
       continue
     }
     const bucket = byKind.get(kind)
+    const isFactor = kind === 'factor'
     const entry: StripNode = {
       id: node.id,
       label: labelOf(node),
       // Scoped to the predicate's own domain — see `StripNode.needsCheck`.
-      needsCheck: kind === 'factor' && factorIsConfirmable(node.data),
+      needsCheck: isFactor && factorIsConfirmable(node.data),
+      // Both scoped to factors for the reasons on the fields themselves.
+      valueText: isFactor
+        ? factorDisplayText(node.data as Record<string, unknown> | null | undefined)
+        : null,
+      valueSource: isFactor ? nodeValueSource(node) : undefined,
     }
     if (bucket) bucket.push(entry)
     else byKind.set(kind, [entry])

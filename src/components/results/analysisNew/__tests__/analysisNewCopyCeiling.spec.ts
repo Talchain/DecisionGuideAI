@@ -24,10 +24,21 @@ import {
   UNLICENSED_SIGNIFICANCE_CLAIMS,
 } from '../../voi/resolveNextCopy'
 
-/** The two sentences this surface can render off the decision-level verdict. */
+/**
+ * Every decision-level string this surface can render — the two verdict
+ * sentences AND the heading above them.
+ *
+ * ⚠ THE LABEL IS IN THE LIST BECAUSE IT SHIPS ON THE SAME SURFACE, OFF THE SAME
+ * VERDICT. It was added to give the sentence a subject (it rendered as an
+ * unlabelled orphan), and a heading is exactly where a significance claim would
+ * be easiest to smuggle in — "Worth learning more" would read as a section name
+ * and assert the thing the ceiling forbids. Naming the MEASURE is licensed;
+ * naming its MAGNITUDE is not, and only this list can tell the two apart.
+ */
 const DECISION_LEVEL: ReadonlyArray<readonly [string, string]> = [
   ['measuredNonZero', ANALYSIS_NEW_COPY.decisionVoi.measuredNonZero],
   ['measuredZero', ANALYSIS_NEW_COPY.decisionVoi.measuredZero],
+  ['label', ANALYSIS_NEW_COPY.decisionVoi.label],
 ]
 
 describe("the ceiling instrument can see the breach that actually shipped", () => {
@@ -110,6 +121,22 @@ describe('Analysis (New) decision-level copy stays inside the ceiling', () => {
     expect(ANALYSIS_NEW_COPY.decisionVoi.measuredNonZero.toLowerCase()).toContain(
       'for the decision as a whole',
     )
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATION FOR THE LABEL SPECIFICALLY. Passing the pattern list
+   * is necessary and not sufficient: a heading of "Notes" would pass it and
+   * would not give the sentence a subject, which is the whole reason the label
+   * exists. So this pins that the label NAMES THE MEASURE — and, as its twin,
+   * that the nearest banned phrasing really is banned, so the pair fails on
+   * different assertions if either half rots.
+   */
+  it('the label names the measure, and the phrasing it was NOT given is genuinely banned', () => {
+    expect(ANALYSIS_NEW_COPY.decisionVoi.label.toLowerCase()).toContain('value of information')
+    expect(
+      UNLICENSED_SIGNIFICANCE_CLAIMS.some((p) => p.test('Worth learning more')),
+      'the near-miss heading must be refused by the imported ceiling, or the label test proves nothing',
+    ).toBe(true)
   })
 
   it('neither sentence carries a digit (the magnitude is in unlicensed outcome units)', () => {

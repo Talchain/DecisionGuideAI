@@ -27,7 +27,11 @@
  */
 
 import { typography } from '../../../styles/typography'
-import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import {
+  classifyValueProvenance,
+  VALUE_PROVENANCE_LABEL,
+  type ValueProvenanceKind,
+} from '../../domain/valueProvenance'
 
 interface SourceProvenancePillProps {
   source: string | undefined
@@ -35,26 +39,37 @@ interface SourceProvenancePillProps {
   showWhenAbsent?: boolean
 }
 
-const CONFIG: Record<ValueProvenanceKind, { label: string; border: string }> = {
-  brief:      { label: 'From brief', border: 'border-info/30' },
-  ai:         { label: 'AI estimate', border: 'border-warning/30' },
-  confirmed:  { label: 'Confirmed by you', border: 'border-success/30' },
-  edited:     { label: 'User edited', border: 'border-success/30' },
-  assumption: { label: 'Your assumption', border: 'border-success/30' },
-  human:      { label: 'Set by you', border: 'border-success/30' },
-  // 0.40.0 — a named colleague's panel answer, applied by the owner. NO NAME on
-  // the persistent canvas pill, deliberately: only `participant_id` is stored in
-  // the graph, so a name here would have to be resolved and cached on a surface
-  // the R-2 redaction routine cannot reach. The name lives on the inspector line
-  // and the reveal, both of which re-derive it from round data at render.
-  panel:      { label: 'From your panel', border: 'border-info/30' },
+/**
+ * ⚠ THE LABELS ARE NO LONGER THIS FILE'S. They live at
+ * `domain/valueProvenance.VALUE_PROVENANCE_LABEL` so the Reasoning tab's factor
+ * detail says the same words about the same factor; only the BORDER is this
+ * pill's own. See that register's header for why the words moved and the paint
+ * did not.
+ *
+ * 0.40.0 note kept with the kind it is about — `panel`: a named colleague's
+ * answer, applied by the owner. NO NAME on the persistent canvas pill,
+ * deliberately: only `participant_id` is stored in the graph, so a name here
+ * would have to be resolved and cached on a surface the R-2 redaction routine
+ * cannot reach. The name lives on the inspector line and the reveal, both of
+ * which re-derive it from round data at render.
+ */
+const BORDER: Record<ValueProvenanceKind, string> = {
+  brief:      'border-info/30',
+  ai:         'border-warning/30',
+  confirmed:  'border-success/30',
+  edited:     'border-success/30',
+  assumption: 'border-success/30',
+  human:      'border-success/30',
+  panel:      'border-info/30',
 }
 
 const FALLBACK = { label: 'Not set', border: 'border-panel-border' }
 
 export function SourceProvenancePill({ source, showWhenAbsent = true }: SourceProvenancePillProps) {
   const cls = classifyValueProvenance(source)
-  const config = cls ? CONFIG[cls.kind] : FALLBACK
+  const config = cls
+    ? { label: VALUE_PROVENANCE_LABEL[cls.kind], border: BORDER[cls.kind] }
+    : FALLBACK
   if (!source && !showWhenAbsent) return null
 
   return (

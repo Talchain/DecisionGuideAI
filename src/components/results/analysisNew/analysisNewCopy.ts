@@ -352,6 +352,45 @@ export const ANALYSIS_NEW_COPY = {
      */
     hint: 'Pick a mark to see what this analysis says about it, and to show it on the canvas.',
     /**
+     * ⭐ THE FACTOR VALUE ROW — the detail's answer to "what data is behind
+     * this, and is it mine or Olumi's".
+     *
+     * ⚠ `noValue` IS A DIFFERENT STATEMENT FROM THE GLANCE'S
+     * "On inputs whose source Olumi could not establish", AND THE DIFFERENCE IS
+     * THE POINT. That sentence is about our KNOWLEDGE of a source; this one is
+     * about the ABSENCE OF A NUMBER. A factor with no value has no source to
+     * establish, so the glance line is true of it and tells the reader the
+     * wrong thing — they go looking for a provenance problem behind a figure
+     * that was never there.
+     */
+    valueLabel: 'Value',
+    noValue: 'No value set',
+    /**
+     * The edit affordance. Named for the ACT, not the field: "Edit" alone reads
+     * as a mode, and the reader is being offered one specific change.
+     */
+    changeValue: 'Change this value',
+    valueInputLabel: (name: string) => `New value for ${name}`,
+    saveValue: 'Save',
+    cancelValue: 'Cancel',
+    /**
+     * ⭐⭐ THREE OUTCOMES, THREE SENTENCES, AND THEY MUST NOT BE COLLAPSED.
+     * `useModelEditAuthority.proposeFactorValue` returns
+     * `dispatched | local_only | not_encodable`, and the type carries that
+     * three-way split precisely so a caller cannot report a server acceptance
+     * it did not get. A single "Saved" toast over all three would do exactly
+     * that — the estate's signature defect, an affordance reporting an outcome
+     * it never observed.
+     *
+     * ⚠ `dispatched` DOES NOT SAY "SAVED" EITHER. The turn has been sent; the
+     * authority answers asynchronously and the optimistic write is reverted if
+     * it refuses. "Sent to Olumi" is what is true at the moment the sentence
+     * is rendered.
+     */
+    valueDispatched: 'Sent to Olumi — the shared model updates when it answers.',
+    valueLocalOnly: 'Changed here only. Olumi has not been told, so the shared model still has the old value.',
+    valueNotEncodable: 'That value could not be applied, so nothing changed.',
+    /**
      * ⚠ SCOPED TO THIS PANEL, AND THE SCOPE IS THE HONESTY. The index behind
      * the detail is built from exactly two lists — the glance's drivers and the
      * engine's interventions — so "this panel" is the largest true subject.
@@ -629,6 +668,21 @@ export const ANALYSIS_NEW_COPY = {
      * Guarded by `__tests__/analysisNewCopyCeiling.spec.ts`, which imports the
      * ceiling from the owner rather than restating it.
      */
+    /**
+     * ⭐ THE MEASURE'S NAME, SO THE SENTENCE BELOW HAS A SUBJECT.
+     *
+     * ⚠ A TOPIC, NOT A MAGNITUDE. The ceiling forbids saying what the number
+     * MEANS; it does not forbid naming what was measured — its own
+     * discrimination case proves that by requiring the owner's licensed
+     * sentences to survive the pattern list. "Value of information" is the
+     * owner's own vocabulary (`RESOLVE_NEXT_COPY.note`), so this introduces no
+     * second name for one measure.
+     *
+     * ⚠ NOT "value of MORE information", which reads as a quantity claim about
+     * a delta, and not "worth learning" — `/worth learning more/i` is a banned
+     * pattern and the near-miss is exactly how a ceiling gets walked past.
+     */
+    label: 'Value of information',
     measuredNonZero:
       'Measured for the decision as a whole, this run did not come back at zero.',
     measuredZero: 'Resolving the open unknowns was measured as not changing this decision.',
