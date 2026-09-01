@@ -13,6 +13,8 @@
  * describing the analysis, that is the fabrication boundary being crossed.
  */
 
+import { HERO_COPY } from '../analysis-hero/heroCopy'
+
 export const ANALYSIS_NEW_COPY = {
   /** The tab's own one-line frame. Names it as an experiment, not a product. */
   tabIntro:
@@ -30,6 +32,11 @@ export const ANALYSIS_NEW_COPY = {
      * run where it matters most.
      */
     options: 'How the options compare',
+    /**
+     * ⚠ NAMES THE SECTION; ASSERTS NOTHING. It does not say "they disagree" —
+     * the same title stands over the aligned and the needs-target states.
+     */
+    implications: 'What your model implies',
     keyInsights: 'Key insights',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
@@ -43,6 +50,91 @@ export const ANALYSIS_NEW_COPY = {
    * fact about this run; "Your reasoning looks solid" would be a claim nobody
    * measured.
    */
+  /**
+   * ⭐ WHAT YOUR MODEL IMPLIES — the two readings.
+   *
+   * ⚠⚠ THE TWO CLAIM SENTENCES ARE DELEGATED, NOT AUTHORED. `outcomeClaim` and
+   * `goalClaim` return `HERO_COPY`'s own strings, byte for byte. This is the
+   * same relationship `heroCopy.ts` itself has with `GOAL_ANCHOR_COPY`, and it
+   * exists for the same reason: the four goal surfaces in this estate drifted
+   * apart precisely because one claim was authored in four places. Two tabs must
+   * never print two different sentences about one number on one run.
+   *
+   * So this file's standing rule — "no copy that asserts a finding; every
+   * sentence a user reads ABOUT their situation comes from the producer, verbatim
+   * or formatted" — is honoured in the strongest available form: the FRAMING
+   * below is ours, and every sentence that makes a CLAIM is the other surface's,
+   * unmodified. If the hero re-words a claim, this surface re-words with it.
+   */
+  implications: {
+    /**
+     * The lead-in for the diverged state.
+     *
+     * ⚠ IT DOES NOT SAY "the model is unsure", AND THAT IS THE WHOLE POINT.
+     * Divergence is not low confidence and it is not a defect in the run: both
+     * readings are well-founded, they answer different questions, and they
+     * happen to point at different options. Framing it as uncertainty would
+     * teach the reader to discount it, when it is the single most decision-
+     * relevant thing this run has to say.
+     */
+    divergedLead: 'Two defensible readings of this run point at different options.',
+    /**
+     * The diverged state's close. Names the judgement as the USER'S — Olumi
+     * does not adjudicate between the two readings, because which one matters
+     * more is a question about the team's appetite, not about the numbers.
+     */
+    divergedResolve:
+      'Which reading matters more is a judgement about your appetite for risk, not a result this run can settle.',
+    /** The aligned state. Agreement across two different questions is evidence. */
+    alignedLead: (label: string): string =>
+      `${label} leads on both readings of this run.`,
+    alignedResolve:
+      'The two readings agree, so the choice does not hinge on which one you weight.',
+    /**
+     * ⭐ THE UNLOCK, FRAMED AS REASONING RATHER THAN HOUSEKEEPING.
+     *
+     * "Set a success target" alone reads as a form field somebody forgot. What
+     * a target actually buys is a SECOND, INDEPENDENT WAY TO READ THE SAME RUN
+     * — one that can disagree with the first and change the decision. The
+     * sentence says that, so the user can decide whether the second reading is
+     * worth having rather than complying with a prompt.
+     *
+     * ⚠ AND IT PROMISES ONLY WHAT IT CAN DELIVER: it says a target WOULD add a
+     * second reading, never that the two would disagree. Whether they diverge is
+     * not knowable before the target exists, and promising a divergence that
+     * then does not appear would be a fabricated expectation.
+     */
+    needsTargetLead: 'Only one reading of this run is available.',
+    needsTargetUnlock:
+      'Set a success target and the same run also answers which option is most likely to hit it — a second reading that can disagree with this one.',
+
+    /**
+     * READING ONE — the highest expected outcome. DELEGATED verbatim.
+     * `HERO_COPY.subline.highestOutcome` is itself a delegation to this same
+     * function, so all three sites are one string.
+     */
+    outcomeClaim: (label: string, readout: string): string =>
+      HERO_COPY.headline.outcomeLeader(label, readout),
+
+    /**
+     * READING TWO — the highest chance of meeting the user's target. DELEGATED.
+     *
+     * ⚠ THE `hasConstraints` SWITCH IS NOT COSMETIC AND IS NOT RE-DERIVED. When
+     * every goal-bearing option carries its own constraint analysis, the number
+     * behind this sentence is the JOINT probability (goal AND limits) and the
+     * copy must say so; when it does not, claiming "and limits" would describe a
+     * quantity the run did not measure. The flag is read straight off
+     * `buildHeroModel`'s output, where it is an EVERY-quantifier over the
+     * goal-bearing options — a mixed set falls back to the goal-alone wording,
+     * which may understate a constrained bar but never overstates an
+     * unconstrained one. Deciding it here would be a second copy of that rule.
+     */
+    goalClaim: (label: string, readout: string, hasConstraints: boolean): string =>
+      hasConstraints
+        ? HERO_COPY.headline.goalWithLimits(label, readout)
+        : HERO_COPY.headline.goalOnly(label, readout),
+  },
+
   empty: {
     keyInsights: 'No insight is grounded well enough to lead with yet.',
     strengthen: 'No high-priority reasoning intervention identified yet.',

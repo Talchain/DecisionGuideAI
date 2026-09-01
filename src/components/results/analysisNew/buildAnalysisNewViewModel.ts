@@ -71,6 +71,9 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 // this surface's deck would be the mirror that drifts silently (trap 12).
 import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
 import type { VoiRanking } from '../voi/voiRanking'
+import { buildHeroModel } from '../analysis-hero/buildHeroModel'
+import { HERO_COPY } from '../analysis-hero/heroCopy'
+import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -88,6 +91,8 @@ import type {
   GlanceComparativeClaim,
   ComparisonOption,
   OptionsComparisonSection,
+  ImplicationClaim,
+  ModelImplication,
 } from './analysisNewTypes'
 
 /**
@@ -778,11 +783,59 @@ function buildUncertainty(
     const u = uncertaintyRows[i]
     const text = humanised(u)
     if (!text) continue
-    // A threshold row gets the producer's own variable as its label; everything
-    // else gets the sentence cut to a label length.
+    /**
+     * ⭐⭐ THE SENTENCE APPEARS EXACTLY ONCE — AS THE LABEL WHEN IT IS SHORT
+     * ENOUGH TO BE ONE, AS THE BODY OTHERWISE.
+     *
+     * ⚠ WITNESSED ON DEPLOYED `19fe8710`, and it is the third distinct defect
+     * this two-slot pair has produced. Every non-threshold row printed its own
+     * sentence TWICE — once cut off mid-clause, once in full:
+     *
+     *     If "Operational Overhead Burden → Operational Overhead Exceeds Team
+     *     Capacity"…
+     *     If "Operational Overhead Burden → Operational Overhead Exceeds Team
+     *     Capacity" changes significantly, "RudderStack" could become the
+     *     better choice
+     *
+     * Two of the three rows in "Uncertainty and gaps" did this, directly under
+     * a sibling row that does it correctly (a real short label over a distinct
+     * body). One section, two title conventions — which is Paul's "such a lack
+     * of consistency in the design", concretely.
+     *
+     * ⚠⚠ READ THE HISTORY BEFORE CHANGING THIS AGAIN — TWO ALTERNATIVES ARE
+     * ALREADY REJECTED AND NEITHER MAY COME BACK:
+     *  · `implication = u.suggestion || text`. The producer sends `suggestion`
+     *    as the CONSTANT 'Review this assumption' on every fragile-edge row, so
+     *    a generic remedy DISPLACED the finding and the reasoning left the page.
+     *  · the full sentence promoted into the label slot — 300 characters of
+     *    header type, trading truthfulness for the density problem this surface
+     *    exists to solve.
+     * A third, considered and rejected here: a constant category label
+     * ("One assumption the result is sensitive to"). It reads as a real label
+     * until you notice two rows carry the SAME one, at which point it is
+     * furniture rather than information — Paul's canvas-density ruling, one
+     * surface up.
+     *
+     * ⚠ SO THE FIX IS NOT A BETTER TRUNCATION, IT IS NOT TRUNCATING. A cut
+     * prefix of the body is not a label; it is the body said badly, and it was
+     * cut BEFORE ITS VERB on all three measured rows, so the reader got the
+     * condition and never the consequence. When the cut would change the text,
+     * the row carries NO label and the whole sentence rides `implication`,
+     * where nothing can displace it and nothing repeats it. When the cut would
+     * NOT change the text the sentence already IS label-length, so it stays in
+     * the label slot with an empty body — the previously-pinned no-duplicate
+     * case, unchanged.
+     *
+     * A threshold row is untouched: `threshold.variable` is a PRODUCER-SUPPLIED
+     * name, a genuine label that is not a prefix of anything, so it keeps both
+     * slots. That row and this one are the discriminating pair.
+     */
+    const labelLength = truncateAtWordBoundary(text, 80)
     const headlineText = u.threshold
       ? `${u.threshold.variable} could tip the result`
-      : truncateAtWordBoundary(text, 80)
+      : labelLength === text
+        ? text
+        : ''
     findings.push({
       id: uncertaintyKey(u, i),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
@@ -805,6 +858,14 @@ function buildUncertainty(
       // first draft carried `text` unconditionally and the first-viewport census
       // caught it: an uncertainty shorter than the cut rendered the identical
       // sentence twice. Truthfulness and non-repetition are one requirement.
+      //
+      // ⭐ THIS LINE IS NOW THE WHOLE NON-REPETITION RULE, and it needed no
+      // change to absorb the fix above: a `''` headline is never equal to a
+      // non-empty `text`, so the body carries the sentence exactly as it does
+      // for a threshold row. The two slots hold the sentence ONCE in every
+      // reachable combination — label-only (short), body-only (long, no
+      // threshold), or label-plus-body (threshold, where the label is the
+      // producer's own variable and not a prefix of the body).
       headline: headlineText,
       implication: headlineText === text ? '' : text,
       // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather
@@ -1463,6 +1524,145 @@ function usableOptionLabel(o: OptionResult): string | null {
  * printed bare it reads as the most precise number on screen while being the
  * least reliable. Own-probability statements only.
  */
+/**
+ * ⭐⭐ WHAT YOUR MODEL IMPLIES — the two readings, and whether they agree.
+ *
+ * See `ModelImplication` in `analysisNewTypes.ts` for WHY this section exists.
+ * This note is about HOW, and the how is almost entirely "it does not decide
+ * anything".
+ *
+ * ── THE ONE ARCHITECTURAL DECISION ─────────────────────────────────────────
+ * This calls `buildHeroModel` and READS ITS ANSWERS. It does not re-implement
+ * a single predicate. The alternative — importing `selectGoalLeader` and
+ * re-deriving the outcome argmax here — was rejected because the outcome
+ * centre is a THREE-STEP FALLBACK CHAIN (`getExpectedValue ?? getMedian ??
+ * p50`) that exists in exactly one place in this repo (`buildHeroModel.ts:122`)
+ * and is not exported. Writing it again would have created the second copy on
+ * day one, in the same commit as a comment promising not to.
+ *
+ * `buildHeroModel` is a PURE function of the same `ResultsSectionDataReturn`
+ * this builder already receives, and the whole view model is memoised one
+ * level up in `useAnalysisNewViewModel`, so this is one extra pure call per
+ * report — not per render.
+ *
+ * ── WHAT IS INHERITED, AND WHY EACH ONE MATTERS ────────────────────────────
+ *  · `leaders.goal`    — the goal crown, already gated by `selectGoalLeader` on
+ *                        a user target, a COMPLETE field, a UNIQUE maximum and
+ *                        the sub-1% floor, and already nulled on a withheld run.
+ *  · `leaders.outcome` — the outcome argmax, already nulled on a withheld run.
+ *  · `showGoalHint`    — `!goalAvailable && goalThreshold == null`: the goal
+ *                        reading is missing BECAUSE no target exists, as
+ *                        opposed to a producer gap. This is the difference
+ *                        between honest guidance and false advice.
+ *  · `hasConstraints`  — decides "your goal" vs "your goal and limits".
+ *
+ * Because `leaders` is all-null on a withheld run, EVERY branch below falls to
+ * `none` on such a run without this function mentioning the verdict once. That
+ * is the intended shape: ROADMAP 1.267 gates at SELECTION precisely so a new
+ * reader cannot be born un-gated, and this is a new reader.
+ *
+ * ── ⚠ THE ONE PLACE THIS IS STRICTER THAN THE HERO, DELIBERATELY ───────────
+ * `leaders.outcome` is the entitlement for the hero's CHART RING. The hero's
+ * outcome SENTENCE carries one further gate the ring does not — UI-SEM-070,
+ * `topOutcomesReadoutTied`: when the top two options render the SAME readout
+ * string, the chart shows no winner, so no sentence may crown one. That flag is
+ * not exposed on `HeroChartModel`, and re-deriving it would mean re-deriving the
+ * runner-up, and therefore the ranking, and therefore the centre chain — the
+ * exact thing this module refuses to do.
+ *
+ * So the gate here is `readoutIsUnique`: the leader's rendered outcome readout
+ * must be unique across ALL rows, not merely different from the runner-up's.
+ * That is STRICTLY STRONGER than the hero's flag (leader-vs-any implies
+ * leader-vs-runner-up), which is the safe direction of difference: it can only
+ * ever WITHHOLD where the hero speaks, never speak where the hero withholds. It
+ * is also the same signal the hero's own comment names as the authority — "the
+ * exact 'what the user sees' signal: string equality of the rendered readouts".
+ */
+function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication {
+  const hero = buildHeroModel(data)
+  // 'status' (blocked/failed/partial) and 'empty' carry no rows and no leaders.
+  if (hero.kind !== 'chart') return { kind: 'none' }
+
+  /**
+   * ⚠ A COMPARISON NEEDS SOMETHING TO COMPARE WITH — the SAME two-conjunct gate
+   * `buildOptionsComparison` applies below, and for the same reason. With one
+   * option "X has the highest expected outcome" is not a finding, it is a
+   * tautology dressed as one. `isSingleOption` is the producer's own word and
+   * the length check catches a payload where the flag is absent; neither alone
+   * is the rule the rest of the estate applies (`ResultsBody.tsx:522`).
+   */
+  if (data.recommendation.isSingleOption === true || hero.rows.length <= 1) {
+    return { kind: 'none' }
+  }
+
+  const { rows, leaders, hasConstraints, showGoalHint } = hero
+
+  /**
+   * ⚠ THE LABEL IS PASSED THROUGH THE HERO'S OWN INTERPOLATION GUARD, not used
+   * raw. `safeInterpolatedLabel` is what stops a label the glossary bans, or one
+   * that is merely a node id, being welded into a generated sentence — and both
+   * tabs must refuse the same labels, or one of them prints what the other
+   * suppressed.
+   */
+  const safeLabel = (row: (typeof rows)[number]): string =>
+    safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
+
+  const outcomeRow = leaders.outcome != null ? rows.find((r) => r.id === leaders.outcome) : null
+  if (!outcomeRow) return { kind: 'none' }
+
+  /**
+   * ⚠ A CLAIM WITH NO NUMBER BEHIND IT IS NOT A CLAIM. `outcome.readout` is the
+   * missing glyph when the option has no centre; the argmax cannot select such a
+   * row today, but the sentence template interpolates the readout directly, so
+   * the guard sits where the string is built rather than depending on a
+   * selector's discipline upstream.
+   */
+  if (outcomeRow.outcome.readout === HERO_COPY.readout.missing) return { kind: 'none' }
+
+  // UI-SEM-070, strengthened — see the header note.
+  const readoutIsUnique =
+    rows.filter((r) => r.outcome.readout === outcomeRow.outcome.readout).length === 1
+  if (!readoutIsUnique) return { kind: 'none' }
+
+  const outcome: ImplicationClaim = {
+    optionId: outcomeRow.id,
+    sentence: COPY.implications.outcomeClaim(safeLabel(outcomeRow), outcomeRow.outcome.readout),
+  }
+
+  const goalRow = leaders.goal != null ? rows.find((r) => r.id === leaders.goal) : null
+  if (!goalRow) {
+    /**
+     * No second reading. `showGoalHint` decides between an honest unlock and
+     * silence — it is TRUE only when the reading is missing because no target
+     * exists. A target-bearing run whose crown is withheld (tie, incomplete
+     * field, sub-1% floor) or that has no goal probabilities at all takes the
+     * silent branch: we are not entitled to a second claim and have no true
+     * unlock to offer, and "set a success target" to someone who already set one
+     * is advice that cannot be followed.
+     */
+    return showGoalHint ? { kind: 'needs_target', outcome } : { kind: 'none' }
+  }
+
+  const goal: ImplicationClaim = {
+    optionId: goalRow.id,
+    sentence: COPY.implications.goalClaim(
+      safeLabel(goalRow),
+      goalRow.goal.readout,
+      hasConstraints,
+    ),
+  }
+
+  /**
+   * ⚠ COMPARED BY ID, NEVER BY LABEL OR BY VALUE. Two options can share a label
+   * (and `safeLabel` can collapse two distinct unusable labels onto the SAME
+   * fallback string), and two can share a readout. Identity is the only
+   * comparison that answers "is this the same option?" — CLAUDE.md trap 19.
+   */
+  return goalRow.id === outcomeRow.id
+    ? { kind: 'aligned', label: safeLabel(goalRow), outcome, goal }
+    : { kind: 'diverged', outcome, goal }
+}
+
 function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparisonSection {
   const allOptions = data.recommendation.allOptions ?? []
 
@@ -1739,6 +1939,14 @@ export function buildAnalysisNewViewModel(
     // every option would arrive unmarked and render as analysed-with-no-share.
     // A list of names under that heading is a run report about a run that has
     // not happened. `ModelStrip` already says what the model contains.
+    /**
+     * ⚠ GATED PRE-RUN, for the same reason as the comparison below: both
+     * readings are readings OF A RUN. Pre-run there is no outcome centre and no
+     * goal probability, so `buildModelImplication` would return `none` anyway —
+     * the explicit gate states the intent rather than relying on the absence of
+     * data to produce the right answer by accident.
+     */
+    modelImplication: preRun ? { kind: 'none' } : buildModelImplication(data),
     optionsComparison: preRun
       ? { rows: [], totalCount: 0 }
       : buildOptionsComparison(data),
