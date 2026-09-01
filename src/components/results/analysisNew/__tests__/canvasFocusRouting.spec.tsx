@@ -151,18 +151,31 @@ function runWithBothTargetKinds(
  * first" — a value predicate another object satisfies (trap 19). The id a
  * button will actually send is what identifies it.
  */
+/**
+ * ⚠ BOTH SECTIONS, AND THE SPLIT IS WHY. A producer uncertainty now builds into
+ * "What would change your mind" when its code is `SENSITIVE_ASSUMPTION` and
+ * into "Uncertainty and gaps" otherwise — and `runWithBothTargetKinds()` puts
+ * its NODE-targeted row on one side and its EDGE-targeted row on the other.
+ * Collecting from a single section would silently drop one of the two targets
+ * this file exists to discriminate between, and the test would then pass or
+ * fail for a reason that has nothing to do with focus routing.
+ */
 function openUncertaintyAndCollectFocusButtons() {
-  fireEvent.click(screen.getByTestId('analysis-new-uncertainty-toggle'))
-  for (const toggle of screen.getAllByTestId('analysis-new-uncertainty-toggle')) {
-    if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
-  }
-  for (const row of screen.getAllByTestId('analysis-new-uncertainty-row')) {
-    const rowToggle = row.querySelector('[data-testid="analysis-new-uncertainty-toggle"]')
-    if (rowToggle && rowToggle.getAttribute('aria-expanded') === 'false') {
-      fireEvent.click(rowToggle)
+  const buttons: HTMLElement[] = []
+  for (const tid of ['analysis-new-sensitivity', 'analysis-new-uncertainty']) {
+    if (screen.queryAllByTestId(`${tid}-toggle`).length === 0) continue
+    for (const toggle of screen.getAllByTestId(`${tid}-toggle`)) {
+      if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
     }
+    for (const row of screen.queryAllByTestId(`${tid}-row`)) {
+      const rowToggle = row.querySelector(`[data-testid="${tid}-toggle"]`)
+      if (rowToggle && rowToggle.getAttribute('aria-expanded') === 'false') {
+        fireEvent.click(rowToggle)
+      }
+    }
+    buttons.push(...screen.queryAllByTestId(`${tid}-focus`))
   }
-  return screen.queryAllByTestId('analysis-new-uncertainty-focus')
+  return buttons
 }
 
 /**

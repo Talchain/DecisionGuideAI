@@ -553,6 +553,21 @@ export type ModelImplication =
   /** Nothing this run is entitled to say. Renders nothing at all. */
   | { kind: 'none' }
 
+/**
+ * The producer-classified sensitivity findings — "what would change your mind".
+ *
+ * ⚠ PRESENCE-GATED AT THE MOUNT, WITH NO EMPTY STATE, AND THAT IS DELIBERATE.
+ * An empty list here cannot distinguish *"the run tested this and nothing would
+ * flip it"* from *"the run did not test it"*, and only one of those is good
+ * news. The panel already carries that exact trap once, in
+ * `ChecksSection`/`evidenceAssessed`, where it needed a producer signal to
+ * resolve. No such signal exists for sensitivity, so the honest move is to
+ * render nothing rather than to author a reassurance the data cannot support.
+ */
+export interface SensitivitySection {
+  findings: AnalysisNewFinding[]
+}
+
 export interface AnalysisNewViewModel {
   status: AnalysisNewStatus
   atAGlance: AtAGlance
@@ -563,6 +578,31 @@ export interface AnalysisNewViewModel {
   strengthen: StrengthenSection
   drivers: DriversSection
   uncertainty: UncertaintySection
+  /**
+   * ⭐⭐ WHAT WOULD CHANGE YOUR MIND — split OUT of `uncertainty`, not copied.
+   *
+   * ⚠ WHY IT IS ITS OWN SECTION. The producer's `SENSITIVE_ASSUMPTION` rows
+   * carry the single most decision-relevant sentence this product emits — *"If
+   * X changes significantly, Y could become the better choice"* — which names
+   * the ALTERNATIVE WINNER. Witnessed on staging `e685dafa`, that sentence
+   * rendered as row 3 of 5 inside a COLLAPSED section titled "Uncertainty and
+   * gaps", twelfth of fourteen elements on the panel. A heading that reads as a
+   * list of caveats is where a reader files things they can safely skip, and
+   * this is the one row they cannot.
+   *
+   * ⚠ THE SPLIT IS DECIDED ONCE, IN THE BUILDER, ON THE PRODUCER'S OWN `code`.
+   * No consumer filters, and nothing matches on prose — the sentence's wording
+   * is the producer's and may change; `code === 'SENSITIVE_ASSUMPTION'` is the
+   * contract. A copy-matching predicate here would be the class of guess this
+   * estate keeps paying for.
+   *
+   * ⚠ AND THE ROWS ARE MOVED, NEVER DUPLICATED. `uncertainty` keeps evidence
+   * gaps, ledger assumptions and the resolve-next reading; a row appears in
+   * exactly one of the two sections. The first-viewport census would catch a
+   * copy, and a reader meeting the same sentence twice is the defect this
+   * panel has already shipped three times.
+   */
+  sensitivity: SensitivitySection
   deeper: DeeperAnalysisSection
   /** ⭐ What the run CHECKED — including the checks it did not make. */
   checks: ChecksSection

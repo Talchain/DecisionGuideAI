@@ -29,6 +29,7 @@ import {
   makeData,
   makeDriver,
   openStrategicChallenge,
+  manyFragileEdges,
 } from './analysisNewFixtures'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 
@@ -75,9 +76,23 @@ const openSection = (testId: string) => {
 }
 
 /** Open every section, for cases that assert across the whole surface. */
+/**
+ * ⚠ A HAND-MAINTAINED LIST, AND IT HAS NOW DRIFTED ONCE (CLAUDE.md trap 12).
+ * "What would change your mind" was added to the panel and this list did not
+ * know about it, so a test calling `openAllSections()` and then asserting
+ * inside that section failed for the wrong reason — and one that asserted an
+ * ABSENCE there would have passed vacuously, which is the dangerous direction.
+ *
+ * Left as a list rather than derived from `[data-testid$="-toggle"]` because a
+ * blind derived sweep would TOGGLE, not open: it would close any section
+ * already expanded. A derived version has to read `aria-expanded` first, which
+ * is a change worth making the next time this drifts rather than inside a
+ * commit about section order.
+ */
 const openAllSections = () => {
   for (const id of [
     'analysis-new-key-insights',
+    'analysis-new-sensitivity',
     'analysis-new-strengthen',
     'analysis-new-drivers',
     'analysis-new-uncertainty',
@@ -145,12 +160,28 @@ describe('F · the three scenario classes (§24F)', () => {
     expect(body.textContent).not.toContain('Raise price')
   })
 
+  /**
+   * ⚠ REBOUND, NOT RELAXED. This asserted its finding inside
+   * `analysis-new-uncertainty`; `highUncertainty()`'s only row is a
+   * `SENSITIVE_ASSUMPTION`, which now lands in "What would change your mind".
+   * The claim in this test's NAME is prominence, and the move serves it better
+   * — the row went from a collapsed section twelfth of fourteen to an open one
+   * third — so the assertion follows the finding AND is strengthened from
+   * "present somewhere" to "above the coaching". Presence alone was always the
+   * weaker claim than the name promised.
+   */
   it('HIGH UNCERTAINTY — uncertainty is prominent and the analysis is NOT presented as blocked', () => {
     renderBody(highUncertainty())
     openAllSections()
-    const uncertainty = screen.getByTestId('analysis-new-uncertainty')
-    expect(within(uncertainty).getAllByTestId('analysis-new-uncertainty-row').length).toBeGreaterThan(0)
-    expect(uncertainty).toHaveTextContent('Customer adoption')
+    const sensitivity = screen.getByTestId('analysis-new-sensitivity')
+    expect(within(sensitivity).getAllByTestId('analysis-new-sensitivity-row').length).toBeGreaterThan(0)
+    expect(sensitivity).toHaveTextContent('Customer adoption')
+    // PROMINENT means above the coaching, not merely on the page.
+    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    expect(
+      Boolean(sensitivity.compareDocumentPosition(strengthen) & Node.DOCUMENT_POSITION_FOLLOWING),
+      'the sensitive assumption must sit above the coaching that responds to it',
+    ).toBe(true)
 
     const body = screen.getByTestId('analysis-new-tab-body')
     // Nothing may read as a readiness refusal — RunAdmission owns that.
@@ -751,6 +782,58 @@ describe('the engine warning arrives before the reading it qualifies', () => {
  * One alone would only show sensitivity to some change; the pair shows the
  * assertion is about the named pair.
  */
+describe('"What would change your mind" sits between the reading and the coaching', () => {
+  /** `a` comes before `b` in document order. */
+  const before = (a: Element, b: Element) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+  it('mounts BELOW the glance and ABOVE the coaching', () => {
+    renderBody(manyFragileEdges())
+
+    const glance = screen.getByTestId('analysis-new-glance')
+    const sensitivity = screen.getByTestId('analysis-new-sensitivity')
+    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    // PRECONDITION, PINNED IN-TEST: three distinct elements, so neither
+    // ordering claim can hold vacuously.
+    expect(new Set([glance, sensitivity, strengthen]).size).toBe(3)
+
+    expect(
+      before(glance, sensitivity),
+      'it is a property of the result the glance just stated, so it cannot precede it',
+    ).toBe(true)
+    expect(
+      before(sensitivity, strengthen),
+      'below the coaching it is detail again — which is where it came from',
+    ).toBe(true)
+  })
+
+  it('leaves "Uncertainty and gaps" BELOW it, and no longer carrying the same rows', () => {
+    renderBody(manyFragileEdges())
+    const sensitivity = screen.getByTestId('analysis-new-sensitivity')
+    const uncertainty = screen.queryByTestId('analysis-new-uncertainty')
+    if (uncertainty) expect(before(sensitivity, uncertainty)).toBe(true)
+    // The flip sentence appears once on the whole panel, not once per section.
+    const body = screen.getByTestId('analysis-new-tab-body')
+    const hits = (body.textContent ?? '').split('could become the better choice').length - 1
+    expect(hits, 'the sentence is on the panel more than once').toBeLessThanOrEqual(1)
+  })
+
+  /**
+   * ⚠ PRESENCE-GATED, AND THIS IS THE HALF THAT KEEPS IT HONEST. An empty list
+   * cannot distinguish "nothing would flip this" from "the run did not test
+   * it", so the section renders NOTHING rather than a reassurance the data
+   * cannot support. Without this case, a change that mounted it unconditionally
+   * with an empty-state sentence would pass every assertion above.
+   */
+  it('does not mount at all when the run named no sensitive assumption', () => {
+    renderBody(genuineDecision())
+    expect(screen.queryByTestId('analysis-new-sensitivity')).toBeNull()
+    // …and the surface is genuinely rendered, so the absence is the gate's
+    // doing rather than an empty render.
+    expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
+  })
+})
+
 describe('the coaching sits directly under the reading it responds to', () => {
   /** `a` comes before `b` in document order. */
   const precedes = (a: Element, b: Element) =>

@@ -28,7 +28,7 @@ import {
 import type { ConditionalWinner } from '../../types'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { VoiRanking } from '../../voi/voiRanking'
-import { makeData, makeDriver } from './analysisNewFixtures'
+import { makeData, makeDriver, uncertaintyDerivedFindings} from './analysisNewFixtures'
 
 const build = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({
@@ -188,7 +188,7 @@ describe('uncertainty — the value-of-information ranking reaches the section',
     const vm = build(
       withRanking(ranking({ resolved: [voiRow('f_churn', 'Churn rate'), voiRow('f_price', 'Price elasticity')] })),
     )
-    const first = vm.uncertainty.findings[0]
+    const first = uncertaintyDerivedFindings(vm)[0]
     // Identity, from the producer's own factor id.
     expect(first.id).toBe('voi:f_churn')
     expect(first.headline).toBe(`${RESOLVE_NEXT_COPY.lead}: Churn rate`)
@@ -211,7 +211,7 @@ describe('uncertainty — the value-of-information ranking reaches the section',
         ranking({ resolved: [voiRow('f_1', 'Zeta'), voiRow('f_2', 'Mu'), voiRow('f_3', 'Alpha')] }),
       ),
     )
-    const first = vm.uncertainty.findings[0]
+    const first = uncertaintyDerivedFindings(vm)[0]
     expect(first.detail).toBe(`${RESOLVE_NEXT_COPY.then} Mu, Alpha.`)
   })
 
@@ -225,7 +225,7 @@ describe('uncertainty — the value-of-information ranking reaches the section',
         }),
       ),
     )
-    const inspect = vm.uncertainty.findings[0].inspect
+    const inspect = uncertaintyDerivedFindings(vm)[0].inspect
     const valueFor = (label: string) => inspect.find((r) => r.label === label)?.value
     expect(valueFor('Precision')).toBe(RESOLVE_NEXT_COPY.below('Freight rate, Staff churn'))
     expect(valueFor('Coverage')).toBe(RESOLVE_NEXT_COPY.partial)
@@ -235,7 +235,7 @@ describe('uncertainty — the value-of-information ranking reaches the section',
     // The contrast control for the case above: the rows are absent, not empty
     // strings and not a reassuring negative.
     const vm = build(withRanking(ranking({ resolved: [voiRow('f_lead', 'Lead time')] })))
-    const labels = vm.uncertainty.findings[0].inspect.map((r) => r.label)
+    const labels = uncertaintyDerivedFindings(vm)[0].inspect.map((r) => r.label)
     expect(labels).not.toContain('Precision')
     expect(labels).not.toContain('Coverage')
   })
@@ -252,7 +252,7 @@ describe('uncertainty — the value-of-information ranking reaches the section',
     const vm = build(
       withRanking(ranking({ belowResolution: [voiRow('f_x', 'Freight rate', false)] })),
     )
-    const first = vm.uncertainty.findings[0]
+    const first = uncertaintyDerivedFindings(vm)[0]
     expect(first.id).toBe('voi:none-above-resolution')
     expect(first.implication).toBe(RESOLVE_NEXT_COPY.noneAboveResolution)
     const breach = UNLICENSED_SIGNIFICANCE_CLAIMS.find(
@@ -298,7 +298,7 @@ describe('uncertainty — the value-of-information ranking reaches the section',
       }),
     )
     // The ranking leads; the producer's own rows are not displaced by it.
-    expect(vm.uncertainty.findings.map((f) => f.id)).toEqual(['voi:f_lead', 'gap:f_churn'])
+    expect(uncertaintyDerivedFindings(vm).map((f) => f.id)).toEqual(['voi:f_lead', 'gap:f_churn'])
   })
 })
 

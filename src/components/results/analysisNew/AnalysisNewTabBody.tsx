@@ -43,7 +43,7 @@
  */
 
 import { useMemo } from 'react'
-import { AlertTriangle, Wrench, Star, TrendingUp } from 'lucide-react'
+import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -366,6 +366,48 @@ export function AnalysisNewTabBody({
           }
           onRunIntervention={runIntervention}
         />
+
+        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
+            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
+            Witnessed on staging `e685dafa`: the single most decision-relevant
+            sentence this product emits —
+
+              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
+               changes significantly, \"A Full Switch at Renewal\" could become
+               the better choice"
+
+            — rendered inside "Uncertainty and gaps", a heading that reads as a
+            list of caveats. Meanwhile "How the options compare", which restates
+            the headline, had a section of its own higher up. That is an
+            inverted information architecture, and this is the correction.
+
+            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
+            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
+            DETAIL. "What would change your mind" is the last half of what
+            happened, not the first half of what to do: it is a property of the
+            result the glance just stated, and the coaching that follows is a
+            response to BOTH. Placed under the coaching it would be detail
+            again, which is where it came from.
+
+            ⚠ PRESENCE-GATED, WITH NO EMPTY STATE. An empty list cannot
+            distinguish "nothing would flip this" from "the run did not test
+            it", and only one of those is reassurance. See `SensitivitySection`.
+
+            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
+            carries them. A reader meeting one sentence in two sections is a
+            defect this panel has already shipped. */}
+        {vm.sensitivity.findings.length > 0 ? (
+          <AnalysisNewSection
+            title={COPY.sections.sensitivity}
+            findings={vm.sensitivity.findings}
+            preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+            emptyMessage={null}
+            onFocusTarget={focusTarget}
+            onRunIntervention={runIntervention}
+            icon={GitBranch}
+            testId="analysis-new-sensitivity"
+          />
+        ) : null}
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.

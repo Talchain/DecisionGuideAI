@@ -654,9 +654,16 @@ function voiFinding(voi: VoiRanking, recommendations: Recommendation[]): Analysi
 function buildUncertainty(
   data: ResultsSectionDataReturn,
   recommendations: Recommendation[],
-): AnalysisNewViewModel['uncertainty'] {
+): AnalysisNewViewModel['uncertainty'] & { sensitivityFindings: AnalysisNewFinding[] } {
   const conf = data.confidence
   const findings: AnalysisNewFinding[] = []
+  /**
+   * ⭐⭐ "WHAT WOULD CHANGE YOUR MIND" — the producer's `SENSITIVE_ASSUMPTION`
+   * rows, split OUT here so no consumer has to filter and nothing downstream
+   * matches on prose. See `SensitivitySection` for why these leave this
+   * section rather than being copied into a second one.
+   */
+  const sensitivityFindings: AnalysisNewFinding[] = []
 
   // 0. What is most worth resolving, FIRST — because it is the only row in this
   //    section that says what to DO about the uncertainty, and with
@@ -844,7 +851,14 @@ function buildUncertainty(
       : labelLength === text
         ? text
         : ''
-    findings.push({
+    /**
+     * ⚠ THE PRODUCER'S OWN CLASS DECIDES, AND IT IS READ HERE BECAUSE THIS IS
+     * THE LAST HOP WHERE `u.code` EXISTS — `AnalysisNewFinding` deliberately
+     * carries no producer code, so a downstream split would have to match the
+     * SENTENCE, and that sentence is the producer's to reword.
+     */
+    const bucket = u.code === 'SENSITIVE_ASSUMPTION' ? sensitivityFindings : findings
+    bucket.push({
       id: uncertaintyKey(u, i),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
       // BE SAID TWICE.
@@ -979,6 +993,7 @@ function buildUncertainty(
 
   return {
     findings,
+    sensitivityFindings,
     // Rule 4 — the load-bearing distinction for this section's empty state.
     evidenceAssessed: conf.evidenceGapsAssessed === true,
     decisionVoi: data.decisionVoi,
@@ -2138,6 +2153,13 @@ export function buildAnalysisNewViewModel(
    */
   const preRun = inputs.isPreRun
 
+  /**
+   * Built ONCE and read apart into two sections — see the assembly below.
+   * `undefined` pre-run: nothing is derived from a run that has not happened,
+   * and the two pre-run literals below say so without calling this at all.
+   */
+  const uncertaintyBuild = preRun ? undefined : buildUncertainty(data, recommendations)
+
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
@@ -2186,9 +2208,13 @@ export function buildAnalysisNewViewModel(
           suppressedZeroCount: 0,
         }
       : buildDrivers(data, recommendations),
+    // ⚠ ONE BUILD, TWO SECTIONS. `buildUncertainty` is called ONCE and its two
+    // buckets are read apart — calling it twice would run the whole assembly
+    // (and its id derivation) a second time and invite the two results to drift.
     uncertainty: preRun
       ? { findings: [], evidenceAssessed: false, decisionVoi: 'not_computed' as const }
-      : buildUncertainty(data, recommendations),
+      : { findings: uncertaintyBuild!.findings, evidenceAssessed: uncertaintyBuild!.evidenceAssessed, decisionVoi: uncertaintyBuild!.decisionVoi },
+    sensitivity: preRun ? { findings: [] } : { findings: uncertaintyBuild!.sensitivityFindings },
     deeper: buildDeeper(inputs),
     // ⚠ PRE-RUN THERE ARE NO CHECKS TO REPORT — and this section must be
     // gated HARDER than the others, not more softly. Its whole content is

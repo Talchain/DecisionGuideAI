@@ -38,13 +38,22 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { UncertaintyItem } from '../../types'
 
 const uncertaintyRows = (data: ResultsSectionDataReturn) =>
-  buildAnalysisNewViewModel({
+  bothSections(buildAnalysisNewViewModel({
     data,
     recommendations: [],
     isPreRun: false,
     isRunning: false,
     isStale: false,
-  }).uncertainty.findings
+  }))
+// ⚠ BOTH SECTIONS. The `SENSITIVE_ASSUMPTION` rows now build into
+// `sensitivity` ("What would change your mind") and the rest stay in
+// `uncertainty`. Every claim in this file is about how a ROW IS BUILT — that it
+// never says its own sentence twice — and none of them is about which section
+// it landed in. Reading one array would narrow each of them to whichever half
+// survived the split, and the long-non-threshold case this file exists for is
+// precisely a fragile-edge row, i.e. the half that MOVED.
+const bothSections = (vm: { uncertainty: { findings: unknown[] }; sensitivity: { findings: unknown[] } }) =>
+  [...vm.sensitivity.findings, ...vm.uncertainty.findings] as never[]
 
 const withUncertainties = (uncertainties: UncertaintyItem[]) =>
   makeData({ confidence: { evidenceGapsAssessed: true, uncertainties } })

@@ -21,6 +21,7 @@ import {
   makeDriver,
   manyFragileEdges,
   openStrategicChallenge,
+  uncertaintyDerivedFindings,
 } from './analysisNewFixtures'
 
 const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
@@ -172,7 +173,7 @@ describe('influence basis (§16) — displayProvenance decides, not taste', () =
 describe('absence is not zero (§4)', () => {
   it('a null evidence-gap confidence renders NO confidence row and marks it unassessed', () => {
     const vm = build(evidenceGapWithNullConfidence())
-    const gap = vm.uncertainty.findings.find((f) => f.id === 'gap:f_churn')!
+    const gap = uncertaintyDerivedFindings(vm).find((f) => f.id === 'gap:f_churn')!
     expect(gap.marker).toBe('not_assessed')
     expect(gap.inspect.map((r) => r.label)).not.toContain('Confidence')
     // The specific fabrication this guards: a rendered 0 the user cannot tell
@@ -210,7 +211,7 @@ describe('coverage is not readiness (§17)', () => {
 
   it('never blocks or empties the analysis just because uncertainty is high', () => {
     const vm = build(highUncertainty())
-    expect(vm.uncertainty.findings.length).toBeGreaterThan(0)
+    expect(uncertaintyDerivedFindings(vm).length).toBeGreaterThan(0)
     expect(vm.drivers.findings.length).toBeGreaterThan(0)
     // The glance still has a read to give even on a fragile, partial run.
     expect(vm.atAGlance.verdict).not.toBeNull()
@@ -232,7 +233,7 @@ describe('humanised producer text (§4)', () => {
       // 'Review this assumption' is DEMOTED to `detail` on every fragile-edge
       // row. Corrected rather than implemented — see the builder for why
       // detecting it would mean hardcoding a producer literal.
-      vm.uncertainty.findings.some((f) =>
+      uncertaintyDerivedFindings(vm).some((f) =>
         [f.headline, f.implication, f.detail ?? ''].some((field) =>
           field.includes('Test the adoption assumption'),
         ),
@@ -384,7 +385,7 @@ describe('finding identity (CLAUDE.md trap 19) — one row, one id', () => {
    */
   it('gives same-code uncertainties distinct ids', () => {
     const vm = build(manyFragileEdges())
-    const sensitive = vm.uncertainty.findings.filter((f) => f.id.startsWith('uncertainty:'))
+    const sensitive = uncertaintyDerivedFindings(vm).filter((f) => f.id.startsWith('uncertainty:'))
     expect(sensitive.length, 'fixture must emit several same-code rows or this is vacuous').toBeGreaterThan(1)
     expect(new Set(sensitive.map((f) => f.id)).size).toBe(sensitive.length)
   })
@@ -394,7 +395,7 @@ describe('finding identity (CLAUDE.md trap 19) — one row, one id', () => {
     const ids = [
       ...vm.keyInsights.insights,
       ...vm.drivers.findings,
-      ...vm.uncertainty.findings,
+      ...uncertaintyDerivedFindings(vm),
     ].map((f) => f.id)
     expect(ids.length, 'no findings — this assertion would be vacuous').toBeGreaterThan(3)
     const dupes = ids.filter((id, i) => ids.indexOf(id) !== i)
@@ -419,7 +420,7 @@ describe('producer prose is never cut (ROADMAP 2.1330)', () => {
     expect(texts.length).toBeGreaterThan(0)
     for (const text of texts) {
       expect(text.length, 'fixture text must exceed the cut or this is vacuous').toBeGreaterThan(80)
-      const carried = vm.uncertainty.findings.some((f) =>
+      const carried = uncertaintyDerivedFindings(vm).some((f) =>
         [f.headline, f.implication, f.detail ?? ''].some((field) => field.includes(text)),
       )
       expect(carried, `no field carries the full sentence: "${text.slice(0, 60)}…"`).toBe(true)
@@ -434,8 +435,8 @@ describe('producer prose is never cut (ROADMAP 2.1330)', () => {
     // breaks the other is not a fix.
     for (const data of [manyFragileEdges(), highUncertainty()]) {
       const vm = build(data)
-      expect(vm.uncertainty.findings.length).toBeGreaterThan(0)
-      for (const f of vm.uncertainty.findings) {
+      expect(uncertaintyDerivedFindings(vm).length).toBeGreaterThan(0)
+      for (const f of uncertaintyDerivedFindings(vm)) {
         if (f.implication) expect(f.implication).not.toBe(f.headline)
       }
     }
@@ -445,7 +446,7 @@ describe('producer prose is never cut (ROADMAP 2.1330)', () => {
     // The density half. A fix that simply stopped cutting would put 300
     // characters of header type at the top of every row.
     const vm = build(manyFragileEdges())
-    const long = vm.uncertainty.findings.filter((f) => f.implication.length > 80)
+    const long = uncertaintyDerivedFindings(vm).filter((f) => f.implication.length > 80)
     expect(long.length, 'no long findings — this case would be vacuous').toBeGreaterThan(0)
     for (const f of long) expect(f.headline.length).toBeLessThanOrEqual(85)
   })
@@ -482,7 +483,7 @@ describe('identity survives a reorder — for the population that has a discrimi
     } as typeof forward
 
     const idsOf = (d: typeof forward) =>
-      build(d).uncertainty.findings.filter((f) => f.id.startsWith('uncertainty:')).map((f) => f.id)
+      uncertaintyDerivedFindings(build(d)).filter((f) => f.id.startsWith('uncertainty:')).map((f) => f.id)
 
     const a = idsOf(forward)
     const b = idsOf(reversed)
@@ -493,7 +494,7 @@ describe('identity survives a reorder — for the population that has a discrimi
     // The discriminating half: an INDEX-based id would satisfy the line above
     // (both lists yield :0,:1,:2) while binding a different row each time. So
     // assert the id travels WITH its content.
-    const first = build(forward).uncertainty.findings.find((f) => f.id.startsWith('uncertainty:'))!
+    const first = uncertaintyDerivedFindings(build(forward)).find((f) => f.id.startsWith('uncertainty:'))!
     // ⚠ PIN THE PRECONDITION THIS LOOKUP DEPENDS ON. Finding the row by its
     // rendered text is a VALUE PREDICATE, and trap 19 is that another object can
     // satisfy one. It is correct only while these keys are distinct — a fact
@@ -512,7 +513,7 @@ describe('identity survives a reorder — for the population that has a discrimi
     // two rows from colliding by straddling the slot boundary.
     const contentKey = (f: { headline: string; implication: string }) =>
       `${f.headline}\u0000${f.implication}`
-    const keys = build(forward).uncertainty.findings
+    const keys = uncertaintyDerivedFindings(build(forward))
       .filter((f) => f.id.startsWith('uncertainty:'))
       .map(contentKey)
     expect(
@@ -520,7 +521,7 @@ describe('identity survives a reorder — for the population that has a discrimi
       'rendered content must be unique or the lookup below can match the wrong row',
     ).toBe(keys.length)
 
-    const same = build(reversed).uncertainty.findings.find(
+    const same = uncertaintyDerivedFindings(build(reversed)).find(
       (f) => contentKey(f) === contentKey(first),
     )!
     expect(same.id).toBe(first.id)
@@ -538,7 +539,7 @@ describe('identity survives a reorder — for the population that has a discrimi
         ],
       } as never,
     })
-    const ids = build(bare).uncertainty.findings.map((f) => f.id)
+    const ids = uncertaintyDerivedFindings(build(bare)).map((f) => f.id)
     expect(new Set(ids).size, 'they must still be unique').toBe(ids.length)
     expect(ids.every((id) => /:\d+$/.test(id)), 'these fall back to POSITION').toBe(true)
   })
@@ -566,7 +567,7 @@ describe('identity survives a reorder — for the population that has a discrimi
         ],
       } as never,
     })
-    const ids = build(emptyNodes).uncertainty.findings.map((f) => f.id)
+    const ids = uncertaintyDerivedFindings(build(emptyNodes)).map((f) => f.id)
     expect(ids.length).toBe(2)
     expect(new Set(ids).size, 'an empty discriminator must not collapse two rows').toBe(2)
   })
@@ -578,7 +579,7 @@ describe('engine diagnostics are not strategic uncertainty', () => {
     // warnings, all with the identical headline and bodies carrying raw node
     // ids ("root node 'e4ec3415'").
     const vm = build(manyFragileEdges())
-    expect(vm.uncertainty.findings.some((f) => f.id.startsWith('inference-warning:'))).toBe(false)
+    expect(uncertaintyDerivedFindings(vm).some((f) => f.id.startsWith('inference-warning:'))).toBe(false)
     expect(JSON.stringify(vm.uncertainty)).not.toContain('e4ec3415')
   })
 
@@ -618,7 +619,7 @@ describe('the producer suggestion, pinned to what the code ACTUALLY does', () =>
    */
   it('demotes the producer suggestion to detail — it does not drop it', () => {
     const vm = build(manyFragileEdges())
-    const rows = vm.uncertainty.findings.filter((f) => f.id.startsWith('uncertainty:'))
+    const rows = uncertaintyDerivedFindings(vm).filter((f) => f.id.startsWith('uncertainty:'))
     expect(rows.length, 'no fragile-edge rows — vacuous').toBeGreaterThan(1)
     // The producer sends this literal on every such row (useResultsSectionData:3197).
     for (const f of rows) expect(f.detail).toBe('Review this assumption')
@@ -641,7 +642,7 @@ describe('the producer suggestion, pinned to what the code ACTUALLY does', () =>
         }],
       } as never,
     })
-    const f = build(withThreshold).uncertainty.findings[0]
+    const f = uncertaintyDerivedFindings(build(withThreshold))[0]
     expect(f.detail).not.toBe('Review this assumption')
     expect(f.detail).toContain('The ordering changes around')
   })
@@ -660,7 +661,7 @@ describe('the producer suggestion, pinned to what the code ACTUALLY does', () =>
         }],
       } as never,
     })
-    const detail = build(withThreshold).uncertainty.findings[0].detail ?? ''
+    const detail = uncertaintyDerivedFindings(build(withThreshold))[0].detail ?? ''
     expect(detail, 'the raw float reached the surface').not.toContain('0.3007492161730507')
     expect(detail).toContain('0.3')
   })
@@ -689,7 +690,7 @@ describe('the assumed relationship worth pinning down', () => {
   const withSelection = (assumedFragileCount: number) =>
     makeData({ assumedStrength: { selected: selection, refusalReason: null, assumedFragileCount } })
   const found = (vm: ReturnType<typeof build>) =>
-    vm.uncertainty.findings.find((f) => f.id === `uncertainty:assumed-strength:${selection.edgeId}`)
+    uncertaintyDerivedFindings(vm).find((f) => f.id === `uncertainty:assumed-strength:${selection.edgeId}`)
 
   it('names the relationship, what wins when it is wrong, and how often', () => {
     const f = found(build(withSelection(3)))
@@ -715,7 +716,7 @@ describe('the assumed relationship worth pinning down', () => {
         assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
       }),
     )
-    expect(vm.uncertainty.findings.some((f) => f.id.startsWith('uncertainty:assumed-strength:'))).toBe(
+    expect(uncertaintyDerivedFindings(vm).some((f) => f.id.startsWith('uncertainty:assumed-strength:'))).toBe(
       false,
     )
   })
