@@ -247,6 +247,247 @@ interface ReactFlowGraphProps {
  * - Only use sessionStorage when no persistent source exists (draft mode)
  */
 /**
+ * WHICH SCENARIO DOES THE AUTO-RECOVERED GRAPH BELONG TO?
+ *
+ * ⚠ THIS FUNCTION EXISTS BECAUSE THE BOOT PATH ANSWERED THAT QUESTION FROM THE
+ * WRONG RECORD, AND THE PRICE WAS SILENT DATA LOSS. Measured on the DEPLOYED
+ * staging build `a206cca9`, 31 Aug 2026, guest session, scenario
+ * `73c56180-195c-46f4-b910-e89aded4fc26`.
+ *
+ * TWO records carry the identity of an auto-recovered guest graph:
+ *   · `localStorage['olumi-canvas-current-scenario-id']` — a POINTER, written
+ *     only by the lazy mint in `useConversation.sendTurn` (`:3678`), by
+ *     `loadScenario` (`store.ts:4666` / `scenarios.ts:344`) and by the
+ *     templates panel (`TemplatesPanel.tsx:315`);
+ *   · `autosave.scenarioId` — the id STAMPED INTO the record beside the graph,
+ *     in the same write.
+ *
+ * ⚠ THE RECORD'S ID IS NOT AN INDEPENDENT DERIVATION, and an earlier draft of
+ * this comment claimed it was. Derived at the bytes, complete manifest of every
+ * writer: `autosaveProjection.ts:199` `scenarioId: state.currentScenarioId` ·
+ * `useAutosave.ts:330` `scenarioId: currentScenarioId` · `crashFlush.ts:201`
+ * `snapshot.scenarioId ?? getCurrentScenarioId()` — whose fallback IS the
+ * pointer · `autosaveProjection.ts:222` passes that value straight through.
+ * Every one projects the store's `currentScenarioId`, which is itself seeded
+ * from the pointer at boot and re-written by the mint. So the two records share
+ * one lineage; what the record gives us is not a second opinion but a LAG — a
+ * copy taken before the pointer was erased. That lag is the whole fix, and it
+ * is worth less than an independent witness would be. Do not upgrade this
+ * sentence back.
+ *
+ * The boot path read ONLY the pointer, and on a miss called
+ * `clearCurrentScenarioId()` — discarding an identity the graph beside it was
+ * still carrying. `sendTurn` then MINTS a fresh UUID (correctly, for a guest
+ * with no scenario at all), so from that moment every turn is addressed to a
+ * scenario CEE holds NO GRAPH for. `factor_value_edit` is the one that hurts:
+ * the event is well-formed and does leave the browser, CEE has no such node to
+ * write, and the optimistic value is reverted minutes later with no
+ * explanation. The user typed a number, the row showed it, and it is gone.
+ *
+ * THE MEASUREMENT, one variable, opposite outcomes:
+ *   pointer ABSENT  → POST /proxy/v5/turn carried
+ *                     `scenario_id: e2b272ba…` (0 nodes server-side) while the
+ *                     graph ON SCREEN was `73c56180…`; cold read of
+ *                     `73c56180…` after the edit: `value 0.5, cee_inference`,
+ *                     UNCHANGED.
+ *   pointer PRESENT → same row, same click, same typed 0.85, and the turn
+ *                     carried `scenario_id: 73c56180…`; cold read after:
+ *                     `raw_value 0.85, source user_override`. It persisted.
+ *
+ * ⚠ WHAT WAS **NOT** MEASURED, said plainly because the gap is load-bearing:
+ * the forked browser was never read for `autosave.scenarioId` itself. The
+ * capture recorded the pointer, the graph on screen, the turn's `scenario_id`
+ * and both cold reads — not the one value that would show this fallback had the
+ * right id to fall back TO. The fix rests on the write-manifest above (the
+ * record is a lagging copy of an id that WAS correct) plus the pointer-present
+ * arm; it does not rest on a reading nobody took.
+ *
+ * ⚠ AND IT IS PREVENTIVE, NOT CURATIVE. Once `sendTurn` has minted, it writes
+ * the store id AND the pointer in the same two lines (`useConversation.ts:3677`
+ * `:3678`), so the next boot takes the POINTER branch and this fallback never
+ * runs — a browser already forked is not repaired by it. The claim that the old
+ * branch was SELF-SUSTAINING is true only for the window BEFORE any turn is
+ * sent: while no mint has happened the miss re-erases the pointer on every
+ * reload, and the moment one does the pointer is restored and the loop stops.
+ * What this change buys is that the fork never forms.
+ *
+ * `RecoveryBanner`'s MANUAL restore already binds the graph to its own record
+ * (`currentScenarioId: autosaveData.scenarioId || null`). The AUTOMATIC restore
+ * is the same question and must not answer it differently (trap 21 — two
+ * authorities, one question).
+ *
+ * PRECEDENCE: THE POINTER WINS, AND THE ARGUMENT IS STRUCTURAL, NOT STATISTICAL.
+ * Because every writer of the record projects the pointer's own lineage (see the
+ * manifest above) and the mint writes the pointer FIRST, a disagreement between
+ * the two at boot can only mean the projection has not caught up. The record is
+ * by construction at or behind the pointer; it can never be ahead. So "prefer
+ * the pointer" is not a bet on which case is commoner — it is the ordering the
+ * writes already impose. It is also the only arm that was measured good end to
+ * end (pointer PRESENT → the edit persisted).
+ *
+ * ⚠ WHAT THIS RULE CANNOT DO, so nobody later mistakes it for more: it compares
+ * two ids and has no way to ask whether either one names a scenario that
+ * EXISTS. An existence test was considered as a discriminator and REJECTED on
+ * evidence — on the guest path that this defect was measured on there are no
+ * local scenario records at all (`olumi-canvas-scenarios` absent, live-probed
+ * 26 Jul and relied on by the legacy re-derivations below), so requiring the
+ * record's id to resolve would make the fallback refuse exactly the case it
+ * exists for. "Never saved" and "deleted" are indistinguishable by existence.
+ * The resurrection-after-delete hazard is therefore closed AT THE DELETE
+ * instead — `scenarios.deleteScenario` now clears an autosave belonging to the
+ * record it removes, which is what `useScenario.deleteScenario:984-985` already
+ * did for the server-backed path. Two delete paths, one question, one answer.
+ *
+ * A legacy (non-UUID) id on either side is still refused, so the "drop into
+ * draft mode" behaviour survives for the case it was written for — and
+ * `resetCanvas` clears the AUTOSAVE as well (`store.ts`), so "Start fresh"
+ * never reaches this branch.
+ */
+/**
+ * ⭐⭐ THE BOOT LOAD-SOURCE RULE — A DISAGREEMENT IS STALENESS, NOT A TIE.
+ *
+ * Which graph does a cold boot put on screen: the autosave slot, or the record
+ * the pointer names? The rule used to be purely "whichever is newer", and that
+ * composed with `resolveRestoredScenarioId`'s pointer-precedence into a state
+ * where the two answered DIFFERENT questions and contradicted each other:
+ * the autosave supplied the GRAPH while the pointer supplied the IDENTITY, so
+ * the canvas could display decision A while every subsequent edit was addressed
+ * to decision B. That is the silent-discard class — the user's edit lands
+ * somewhere they cannot see.
+ *
+ * ⚠ THE FIX IS NOT A PRECEDENCE FLIP, AND THE WRITE ORDERING IS WHY. It is
+ * tempting to say "display wins — bind to whatever graph is on screen". That is
+ * WRONG HERE, and it fails for a structural reason rather than a statistical
+ * one:
+ *
+ *   `useAutosave` stamps `scenarioId: currentScenarioId` — the autosave's id is
+ *   a COPY OF THE POINTER, not an independent opinion — and the mint writes the
+ *   pointer FIRST (`useConversation.ts`, `setState` then `setCurrentScenarioId`).
+ *   So the autosave is BY CONSTRUCTION at or behind the pointer and can never be
+ *   ahead of it.
+ *
+ * Therefore a well-formed disagreement can only mean ONE thing: the autosave is
+ * STALE. "Display wins" would adopt the stale side every time — binding the user
+ * back to the scenario they deliberately switched AWAY from, which is the very
+ * harm it was meant to prevent, arriving through the other door.
+ *
+ * THE WINDOW IS REAL, not theoretical. `store.ts`'s `loadScenario` (the switch)
+ * sets `currentScenarioId` and never calls `clearAutosave()`, and `useAutosave`
+ * skips its replacement write while an existing autosave is younger than
+ * `DEBOUNCE_MS` (500ms), on an unchanged content hash, or when
+ * `mayPersistGraphNow` declines. So after a switch A -> B the slot can still
+ * carry A's id AND A's graph.
+ *
+ * SO THE RULE IS: when the pointer and the autosave BOTH state a well-formed id
+ * and those ids DIFFER, the autosave is stale — do not put it on screen
+ * automatically, even if it is newer. Render the pointer's own record instead.
+ * Display and identity then agree, and they agree on where the user actually
+ * was. A's unsaved work is NOT lost: the switch never clears the slot, and
+ * `RecoveryBanner` still offers it.
+ *
+ * ⭐ AND THE TRAP-21 QUESTION, SETTLED IN WORDS RATHER THAN LEFT AS AN APPARENT
+ * INCONSISTENCY. `RecoveryBanner`'s MANUAL restore binds to the autosave's own
+ * id (`currentScenarioId: autosaveData.scenarioId || null`) — display-wins. This
+ * AUTOMATIC path prefers the pointer. Those are not two answers to one question;
+ * they are answers to TWO questions:
+ *
+ *   MANUAL    "the user has EXPLICITLY asked for this recovered graph"
+ *             -> explicit intent. Bind to what they asked for. Display wins.
+ *   AUTOMATIC "nothing was asked; we are INFERRING where the user was"
+ *             -> inference. The pointer is the more recent write by
+ *                construction, so it is the better inference. Pointer wins.
+ *
+ * Do not "reconcile" these into one default. The difference is the design.
+ *
+ * ⚠ SCOPE, STATED EXACTLY (trap 20 — a fix must restate the finding's scope,
+ * never its generalisation). This rule fires ONLY when BOTH an autosave and a
+ * record for the pointer exist, because only then is there a renderable
+ * alternative to the stale slot. When the pointer names NO local record
+ * (`scenario === null`) the autosave is still taken, unchanged — that is the
+ * guest/never-saved path the fallback exists for, and on it
+ * `olumi-canvas-scenarios` is routinely absent entirely, so refusing the
+ * autosave there would refuse exactly the case it was written for. The
+ * display/identity divergence therefore REMAINS OPEN on that branch; it is not
+ * closed here and must not be reported as closed.
+ */
+export function resolveBootLoadSource(
+  pointerId: string | null,
+  autosave: { readonly timestamp: number; readonly scenarioId?: string | null } | null,
+  // `| undefined` is load-bearing: the caller passes `scenarios.getScenario(id)`,
+  // which returns `Scenario | undefined`. Narrowing to `| null` here made the
+  // call site a type error rather than making the input impossible.
+  scenario: { readonly updatedAt: number } | null | undefined,
+): 'autosave' | 'scenario' | 'none' {
+  if (autosave && scenario) {
+    const autosaveId = autosave.scenarioId
+    const bothWellFormed =
+      !!pointerId && isUUID(pointerId) && !!autosaveId && isUUID(autosaveId)
+    // The staleness test. Not a tie-break: by the write ordering above, a
+    // well-formed disagreement can ONLY mean the slot has not caught up.
+    if (bothWellFormed && autosaveId !== pointerId) return 'scenario'
+    return autosave.timestamp > scenario.updatedAt ? 'autosave' : 'scenario'
+  }
+  if (autosave) return 'autosave'
+  if (scenario) return 'scenario'
+  return 'none'
+}
+
+export function resolveRestoredScenarioId(
+  pointerId: string | null,
+  autosaveScenarioId: string | null | undefined,
+): string | null {
+  if (pointerId && isUUID(pointerId)) return pointerId
+  if (autosaveScenarioId && isUUID(autosaveScenarioId)) return autosaveScenarioId
+  return null
+}
+
+/**
+ * THE BOOT CALL SITE, EXPORTED SO IT CAN BE DRIVEN RATHER THAN SCANNED.
+ *
+ * ⚠ WHY THIS IS A FUNCTION AND NOT FIVE LINES INSIDE THE EFFECT. The first cut
+ * of this fix pinned the wiring with a SOURCE SCAN asserting the branch text
+ * contained `'autosave.scenarioId'`. That string already occurred twice inside
+ * the same brace-matched branch (the legacy results-restore below), so the
+ * assertion was satisfied by a different object entirely and the guard was
+ * vacuous on the one argument that IS the fix: measured, replacing the second
+ * argument with `null` — behaviourally identical to the original defect —
+ * survived the whole spec 8/8, and so did passing `autosave.selectedGoalNode`.
+ * The P0 was fully restorable with every test green.
+ *
+ * Taking the resolution AND both writes behind an exported function moves them
+ * where a test can EXECUTE them against the real store and real localStorage,
+ * which is this file's own precedent (`restoreCeeAnalysisReady`, and the lesson
+ * recorded in `reactFlowGraph.restoreFreshnessOnBoot.spec.ts`: a pure function
+ * with a perfect unit kit is not evidence that the product calls the unit).
+ * The boot effect itself cannot be driven — it is gated on `import.meta.env.PROD`
+ * and never executes under vitest — so extract-and-drive is the strongest
+ * available instrument, and the remaining unexecuted step (that the effect calls
+ * THIS function) is the one thing left to a scan.
+ *
+ * Returns the id it bound, or null when it dropped the canvas into draft mode.
+ */
+export function bindRestoredScenarioId(
+  pointerId: string | null,
+  autosave: scenarios.AutosaveData,
+): string | null {
+  const restoredScenarioId = resolveRestoredScenarioId(pointerId, autosave.scenarioId)
+  if (restoredScenarioId) {
+    useCanvasStore.setState({ currentScenarioId: restoredScenarioId })
+    // RECONVERGE THE TWO RECORDS. Without this write the pointer stays missing,
+    // this branch re-runs on every reload, and everything that reads the pointer
+    // directly — the store's own boot seed (`store.ts`
+    // `currentScenarioId: scenarios.getCurrentScenarioId()`) and `resetCanvas`'s
+    // saved-record test — keeps disagreeing with the graph on screen. A restore
+    // that fixes only the in-memory half leaves the defect armed for next reload.
+    scenarios.setCurrentScenarioId(restoredScenarioId)
+  } else {
+    scenarios.clearCurrentScenarioId()
+    useCanvasStore.setState({ currentScenarioId: null })
+  }
+  return restoredScenarioId
+}
+
+/**
  * ROADMAP 2.1003 / F4 — EXPORTED FOR TEST SO THE CALL SITE IS PINNED.
  *
  * ⚠ Measured: deleting the freshness re-ingestion inside this function fully
@@ -1616,26 +1857,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       const autosave = scenarios.loadAutosave()
       const scenario = currentId ? scenarios.getScenario(currentId) : null
 
-      // Determine which source to load
-      let loadSource: 'autosave' | 'scenario' | 'none' = 'none'
-      let recoveredFromAutosave = false
-
-      if (autosave && scenario) {
-        // Both exist - load whichever is newer
-        if (autosave.timestamp > scenario.updatedAt) {
-          loadSource = 'autosave'
-          recoveredFromAutosave = true
-        } else {
-          loadSource = 'scenario'
-        }
-      } else if (autosave && !scenario) {
-        // Only autosave exists - load it
-        loadSource = 'autosave'
-        recoveredFromAutosave = true
-      } else if (scenario) {
-        // Only scenario exists - load it
-        loadSource = 'scenario'
-      }
+      // Determine which source to load. DRIVEN, not inlined — see
+      // `resolveBootLoadSource` for the staleness rule and why a disagreement
+      // between the pointer and the autosave is not a precedence question.
+      const loadSource = resolveBootLoadSource(currentId, autosave, scenario)
+      const recoveredFromAutosave = loadSource === 'autosave'
 
       // Diagnostic logging for restoration debugging
       if (process.env.NODE_ENV === 'development') {
@@ -1662,17 +1888,24 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           goalConstraints: autosave.goalConstraints ?? null,
         })
         // Scenario/thread continuity: preserve a UUID-format current-scenario ID across
-        // the refresh so the in-flight CEE conversation keeps the same scenario_id. The
-        // periodic autosave stamps this same ID into the autosave slot, so the recovered
-        // graph and the preserved conversation belong together. Only a missing or legacy
-        // (non-UUID) ID is cleared to drop into draft mode.
-        const persistedScenarioId = scenarios.getCurrentScenarioId()
-        if (persistedScenarioId && isUUID(persistedScenarioId)) {
-          useCanvasStore.setState({ currentScenarioId: persistedScenarioId })
-        } else {
-          scenarios.clearCurrentScenarioId()
-          useCanvasStore.setState({ currentScenarioId: null })
-        }
+        // the refresh so the in-flight CEE conversation keeps the same scenario_id.
+        //
+        // ⚠ THE RECORD'S OWN ID IS THE FIX. The comment that used to sit here said
+        // "the periodic autosave stamps this same ID into the autosave slot, so the
+        // recovered graph and the preserved conversation belong together" — and then
+        // the code read only the POINTER and threw the record's own id away when the
+        // pointer was missing. That is how a restored graph gets rebound to a freshly
+        // minted scenario and every later edit is addressed to a scenario CEE has no
+        // graph for. See `bindRestoredScenarioId` for the measurement, the write
+        // manifest, and why the pointer still takes precedence.
+        //
+        // `currentId` is REUSED here rather than re-reading the pointer: it is the
+        // same value `loadSource` was decided from a few lines up, and a second read
+        // across the synchronous `hydrateGraphSlice` above would let this branch bind
+        // to an id the load-source decision never saw. No subscriber writes the
+        // pointer today, so that was latent — reusing the value costs nothing and
+        // closes it.
+        bindRestoredScenarioId(currentId, autosave)
         // FIX: Do NOT clear autosave after consuming it.
         // Keep autosave data until user explicitly saves (scenario save) or next autosave cycle.
         // This ensures if browser crashes again before manual save, data can still be recovered.
