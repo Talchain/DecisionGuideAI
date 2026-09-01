@@ -71,6 +71,20 @@ export interface GhostTier {
    * not cross it.
    */
   prompt: (context: GhostPromptContext) => string
+  /**
+   * What KIND of invitation this is — which decides the icon, and nothing else.
+   *
+   * `extend` is the frontier before a result exists: the question is what the
+   * model does not yet contain, and a `+` is the honest glyph for it.
+   * `challenge` is the frontier after one does: the question is no longer
+   * "what else goes on the board" but "what would change what the board just
+   * told us", and a `+` would misdescribe it.
+   *
+   * ⚠ IT IS A GLYPH CHOICE, NOT A CLAIM. A challenge door does not assert the
+   * result is wrong any more than an extend door asserts the model is
+   * incomplete — see the header. Both only ask.
+   */
+  variant: 'extend' | 'challenge'
 }
 
 /**
@@ -187,6 +201,7 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: GHOST_OPTION_NODE_ID,
     siblingType: 'option',
+    variant: 'extend',
     label: 'Another option',
     // Names the options that exist and asks what sits outside them. It does NOT
     // say they are too similar or badly framed — the user reads the list and
@@ -198,6 +213,7 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: `${GHOST_ID_PREFIX}factor__`,
     siblingType: 'factor',
+    variant: 'extend',
     label: 'Another factor',
     prompt: ({ namedSiblings, siblingCount, subject }) =>
       inventorySentence(namedSiblings, siblingCount, 'factor', 'factors') +
@@ -206,6 +222,7 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: `${GHOST_ID_PREFIX}risk__`,
     siblingType: 'risk',
+    variant: 'extend',
     label: 'Another risk',
     prompt: ({ namedSiblings, siblingCount, subject }) =>
       inventorySentence(namedSiblings, siblingCount, 'risk', 'risks') +
@@ -215,6 +232,7 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: `${GHOST_ID_PREFIX}outcome__`,
     siblingType: 'outcome',
+    variant: 'extend',
     label: 'Another outcome',
     prompt: ({ namedSiblings, siblingCount, subject }) =>
       inventorySentence(namedSiblings, siblingCount, 'outcome', 'outcomes') +
@@ -288,33 +306,111 @@ function readSubject(nodes: Node[]): ModelSubject | null {
 }
 
 /**
- * ⭐ WHETHER THE FRONTIER IS ON SCREEN AT ALL — the gate, named and exported.
+ * ⭐ THE FRONTIER AFTER THE ANSWER — two doors, and different questions.
  *
- * This was an inline condition inside a `useMemo` in a 2,700-line component
- * (`ReactFlowGraph.tsx`), which is the reason nothing could bind to it and the
- * reason a mount-path spec resorted to reading source text instead. An
- * assertion about a condition no test can call is not an assertion.
+ * A result does not end the reasoning; it is the moment the reasoning is worth
+ * most. But the questions change, and that is why this is a separate set rather
+ * than the same four doors surviving the run.
  *
- * ⚠ IT IS ALSO THE ONLY THING THAT DECIDES. There was believed to be a second
- * control — an `enableGhostSuggestions` prop — and there was not: it was
- * declared, defaulted `false`, destructured, and never read, so the doors
- * rendered on EVERY mount of the graph regardless. The prop is now deleted
- * rather than wired, because a switch whose only effect would be to turn off a
- * capability we want on is a dark-launch gate this estate has ruled against.
+ * Before a run, the frontier asks what the MODEL does not contain. After one,
+ * the model is no longer the thing under scrutiny — the RESULT is, and the
+ * questions a team needs are "what could beat these?" and "what could break
+ * this?". "Add another factor" is a weaker question at that moment, not a
+ * stronger one, and the analysis has already reported which factors move the
+ * needle.
  *
- * ⚠ AND NOTE WHAT IT SAYS, because it is very likely the mechanism behind a
- * deployed measurement of zero doors against thirteen real nodes: after an
- * analysis completes, the frontier disappears in every view except Expert.
- * That is the existing behaviour, preserved here deliberately and unchanged —
- * whether it is the RIGHT behaviour is a product question, not a refactor, and
- * it is raised separately rather than flipped in passing.
+ * ⚠ TWO, NOT FOUR — DELIBERATELY FEWER. The canvas already carries the doors
+ * from the pre-analysis frontier plus every `Needs input` dash, and the founder
+ * has named it noisy. Options and risks are kept because they are the two tiers
+ * whose absence can overturn a result: an option nobody put on the board cannot
+ * win, and a risk nobody modelled cannot lower a score. Factors and outcomes
+ * are dropped because sensitivity already speaks to the first and the result
+ * itself is the second.
+ *
+ * ⚠ STILL INVITATIONS. "What could make that result wrong" does not claim the
+ * result IS wrong, exactly as "Another risk" never claimed a risk was missing.
+ * The file's line is unmoved: state what is demonstrably there, then ask.
+ * "I have run an analysis on this model" is demonstrably there — it is the
+ * `results.status === 'complete'` that selected this set in the first place.
  */
-export function frontierIsVisible(
-  resultsStatus: string | null | undefined,
-  viewMode: string,
-): boolean {
-  const isPostAnalysis = resultsStatus === 'complete'
-  return !(isPostAnalysis && viewMode !== 'expert')
+export const POST_ANALYSIS_TIERS: readonly GhostTier[] = [
+  {
+    id: GHOST_OPTION_NODE_ID,
+    siblingType: 'option',
+    variant: 'challenge',
+    label: 'What could beat these',
+    prompt: ({ namedSiblings, siblingCount, subject }) =>
+      inventorySentence(namedSiblings, siblingCount, 'option', 'options') +
+      `${about(subject)} I have run an analysis on these.` +
+      ' What option outside this set could do better, and what would have to be true for it to?',
+  },
+  {
+    id: `${GHOST_ID_PREFIX}risk__`,
+    siblingType: 'risk',
+    variant: 'challenge',
+    label: 'What could break this',
+    prompt: ({ namedSiblings, siblingCount, subject }) =>
+      inventorySentence(namedSiblings, siblingCount, 'risk', 'risks') +
+      `${about(subject)} I have run an analysis on this model.` +
+      ' What could make that result wrong that these risks do not already cover?',
+  },
+] as const
+
+/** Which frontier is on the canvas, and how its option door is rendered. */
+export interface FrontierPosture {
+  /** The tier set to place doors for. Never empty at either phase today. */
+  tiers: readonly GhostTier[]
+  /**
+   * Whether the OPTION door comes from the legacy `ghost-option` node rather
+   * than from `withGhostTiers`.
+   *
+   * ⚠ THIS EXISTS BECAUSE THE LEGACY NODE CANNOT VARY ITS SENTENCE. Its prompt
+   * is hardcoded inside the component (`GhostOptionNode.tsx`) — the one door
+   * `#1060` did not reach, so the most valuable tier still sends the generic
+   * line that PR's own header holds up as the bad example. Post-analysis needs
+   * a prompt built from the model AND the run, so its option door is a
+   * `ghost-tier`. Pre-analysis keeps the legacy node byte-for-byte: making that
+   * door model-aware is a real improvement and a SEPARATE change, not one to
+   * smuggle in behind a post-analysis fix.
+   */
+  usesLegacyOptionDoor: boolean
+}
+
+/**
+ * ⭐ WHAT THE FRONTIER IS RIGHT NOW — the one authority, replacing the gate.
+ *
+ * ── WHAT THIS REPLACES, AND WHY IT IS NOT A REFACTOR ──
+ *
+ * `frontierIsVisible(resultsStatus, viewMode)` returned `false` for exactly one
+ * combination: a completed analysis in any view but Expert. Measured in a live
+ * browser at `65866cd7`: 4 doors pre-analysis, 4 post-analysis in Expert,
+ * **0 post-analysis in Standard**, at zoom 1.0.
+ *
+ * That condition arrived in `e3fb2c42` (29 Mar 2026), the Standard/Expert
+ * redesign, as the bare line "Post-analysis: Expert view only" with no stated
+ * reason. The reason is recoverable from what existed then: the frontier was
+ * ONE door, "Explore another option", whose static prompt asks Olumi to suggest
+ * an option the user has not considered. Post-analysis, that door invites an
+ * edit that invalidates the result the team is reading — so hiding it from the
+ * ordinary view was defensible, and for THAT door with THAT prompt it was
+ * right.
+ *
+ * ⚠ THE GATE OUTLIVED ITS REASON. `#1060` generalised the frontier to four
+ * tiers with prompts built from the model, and inherited the condition
+ * wholesale — a predicate written about one door now deciding for four. The
+ * answer is not to flip it, because the original concern was real: what changes
+ * post-analysis is the QUESTION, so what changes here is the tier SET.
+ *
+ * ⚠ AND VIEW MODE NO LONGER DECIDES. It is the argument that is gone, not
+ * merely unused. Whether a team may ask "what might we be missing?" cannot turn
+ * on how much numeric detail they have asked to see — that is the same defect
+ * as locking reasoning behind analysis-readiness, wearing the opposite sign.
+ * Expert therefore goes 4 → 2 as well: post-analysis is post-analysis.
+ */
+export function frontierFor(resultsStatus: string | null | undefined): FrontierPosture {
+  return resultsStatus === 'complete'
+    ? { tiers: POST_ANALYSIS_TIERS, usesLegacyOptionDoor: false }
+    : { tiers: GHOST_TIERS, usesLegacyOptionDoor: true }
 }
 
 /**
@@ -396,6 +492,10 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
         // to disagree.
         prompt: tier.prompt(contextFor(siblings, subject)),
         tier: tier.siblingType,
+        // Carried so the node can pick its glyph. Read from the tier rather
+        // than re-derived from the analysis state in the component: two
+        // readings of one condition is how they come to disagree.
+        variant: tier.variant,
       },
       selectable: false,
       draggable: false,

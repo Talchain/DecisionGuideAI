@@ -27,9 +27,10 @@
  *
  * The two functions that actually decide, called directly:
  *
- *   `frontierIsVisible(resultsStatus, viewMode)` — whether the tier doors are
- *      on screen at all. Extracted out of a `useMemo` in a 2,700-line component
- *      for this reason: a condition no test can call cannot be pinned.
+ *   `frontierFor(resultsStatus)` — WHICH frontier is on screen. It replaced a
+ *      `frontierIsVisible(resultsStatus, viewMode)` gate that removed every
+ *      door after an analysis outside Expert view; the questions now change
+ *      with the phase instead of the doors vanishing with it.
  *   `withGhostTiers(nodes)` — whether doors are produced for a real graph.
  *
  * Delete either behaviour and this file REDS. That is the property the old one
@@ -39,7 +40,13 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Node } from '@xyflow/react'
-import { frontierIsVisible, withGhostTiers, isGhostNode } from '../../utils/ghostTiers'
+import {
+  frontierFor,
+  withGhostTiers,
+  isGhostNode,
+  GHOST_TIERS,
+  POST_ANALYSIS_TIERS,
+} from '../../utils/ghostTiers'
 
 /** A model shaped like a real one: three tiers with members, all named. */
 function model(): Node[] {
@@ -60,35 +67,143 @@ function model(): Node[] {
 // gate excludes test files — a type error inside a spec is invisible to it.
 const doorsIn = (nodes: Node[]) => nodes.filter((n) => isGhostNode(n.id))
 
-describe('the frontier is visible when the product says it is', () => {
-  // ⚠ THE DISCRIMINATING TRIPLE. Each row must differ from its neighbour, or
-  // the predicate is not discriminating and a constant `true` would pass.
-  it('renders before an analysis, in the ordinary view', () => {
-    expect(frontierIsVisible('idle', 'standard')).toBe(true)
+/** A model with every tier populated — the shape the density claim is about. */
+function richModel(): Node[] {
+  const at = (id: string, type: string, label: string, x: number): Node =>
+    ({ id, type, position: { x, y: 0 }, data: { label } }) as Node
+  return [
+    at('d1', 'decision', 'Replace our CDP', 0),
+    at('o1', 'option', 'Segment', 0),
+    at('f1', 'factor', 'Migration cost', 0),
+    at('r1', 'risk', 'Migration overruns', 0),
+    at('x1', 'outcome', 'Analytics restored', 0),
+  ]
+}
+
+const tiersOf = (nodes: Node[]) =>
+  nodes.filter((n) => isGhostNode(n.id)).map((d) => (d.data as { tier?: string }).tier).sort()
+
+describe('the frontier survives the answer, and changes its questions', () => {
+  it('is unchanged before an analysis — the case that already worked', () => {
+    // ⚠ THE OPPOSITE-DIRECTION TWIN. The post-analysis fix must not be bought
+    // by regressing the phase that was never broken, so this asserts IDENTITY
+    // with the shipped set rather than merely "four of something".
+    const { tiers, usesLegacyOptionDoor } = frontierFor('idle')
+    expect(tiers).toBe(GHOST_TIERS)
+    expect(tiers).toHaveLength(4)
+    expect(usesLegacyOptionDoor).toBe(true)
   })
 
-  it('renders after an analysis in Expert view', () => {
-    expect(frontierIsVisible('complete', 'expert')).toBe(true)
+  it('APPEARS after an analysis — the defect this file previously PINNED as correct', () => {
+    // The assertion that stood here was `frontierIsVisible('complete',
+    // 'standard') === false`, measured live at `65866cd7` as 0 doors against 13
+    // real nodes at zoom 1.0. It was pinned deliberately, flagged as a product
+    // question, and this is the answer to it.
+    expect(frontierFor('complete').tiers.length).toBeGreaterThan(0)
   })
 
-  it('DISAPPEARS after an analysis in the ordinary view — the existing product behaviour, pinned so a change to it is deliberate', () => {
-    // This is very likely the mechanism behind a deployed measurement of zero
-    // doors against thirteen real nodes. It is preserved unchanged here and
-    // raised as a product question separately; what this assertion buys is that
-    // nobody can now move it without a test going red and saying so.
-    expect(frontierIsVisible('complete', 'standard')).toBe(false)
+  it('asks the POST-ANALYSIS questions: options and risks, not factors and outcomes', () => {
+    expect(frontierFor('complete').tiers.map((t) => t.siblingType).sort()).toEqual([
+      'option',
+      'risk',
+    ])
   })
 
-  it('is not a constant — the three states above do not all agree', () => {
-    // Guards against the failure mode this whole file exists to correct: a
-    // predicate that returns the same answer for every input passes any number
-    // of individually-plausible assertions.
-    const answers = [
-      frontierIsVisible('idle', 'standard'),
-      frontierIsVisible('complete', 'expert'),
-      frontierIsVisible('complete', 'standard'),
-    ]
-    expect(new Set(answers).size).toBe(2)
+  it('DENSITY: the frontier after a result is strictly SMALLER than before one', () => {
+    // The bar this change was held to — a canvas more useful and no busier.
+    // Asserted as an inequality rather than as `=== 2`, so it keeps biting if
+    // either set is resized later.
+    expect(frontierFor('complete').tiers.length).toBeLessThan(frontierFor('idle').tiers.length)
+  })
+
+  it('DENSITY, at the doors rather than at the tier list', () => {
+    // The count above is of tier DEFINITIONS. This is the thing a user sees:
+    // real nodes in, real doors out, on a model that populates every tier.
+    const before = tiersOf(withGhostTiers(richModel(), frontierFor('idle').tiers))
+    const after = tiersOf(withGhostTiers(richModel(), frontierFor('complete').tiers))
+    expect(before).toEqual(['factor', 'option', 'outcome', 'risk'])
+    expect(after).toEqual(['option', 'risk'])
+  })
+
+  it('is not a constant — the two phases do not return the same frontier', () => {
+    // Guards the failure mode this whole file exists to correct. The predicate
+    // it replaced was pinned the same way; a `frontierFor` that ignored its
+    // argument would satisfy every individually-plausible assertion above.
+    expect(frontierFor('complete').tiers).not.toBe(frontierFor('idle').tiers)
+  })
+
+  it('VIEW MODE NO LONGER DECIDES — it is not an argument at all', () => {
+    // The old gate returned false for `('complete', 'standard')` and true for
+    // `('complete', 'expert')`: whether a team could ask "what might we be
+    // missing?" turned on how much numeric detail they had asked to see.
+    // Asserting arity is what stops a second parameter being reintroduced
+    // quietly — a behavioural test cannot see an argument nobody passes.
+    expect(frontierFor).toHaveLength(1)
+  })
+
+  it('only a COMPLETE run switches frontiers — a failed or in-flight one does not', () => {
+    // Bound to the real `ResultsStatus` union (`resultsStore.ts:26`). A
+    // cancelled or errored run leaves no result to interrogate, so the
+    // model-completion questions remain the right ones.
+    for (const status of ['idle', 'preparing', 'connecting', 'streaming', 'error', 'cancelled']) {
+      expect(frontierFor(status).tiers).toBe(GHOST_TIERS)
+    }
+    expect(frontierFor('complete').tiers).toBe(POST_ANALYSIS_TIERS)
+  })
+
+  it('the post-analysis option door does NOT come from the legacy node', () => {
+    // `GhostOptionNode` hardcodes "Suggest an additional option I haven't
+    // considered for this decision" and cannot vary it, so an option door
+    // routed through it post-analysis would silently drop the reframing.
+    expect(frontierFor('complete').usesLegacyOptionDoor).toBe(false)
+  })
+})
+
+describe('the post-analysis prompts are about the RESULT, not about the model', () => {
+  const ctx = { namedSiblings: ['Segment', 'Rudderstack'], siblingCount: 2, subject: 'Replace our CDP' }
+  const promptFor = (tiers: readonly { siblingType: string; prompt: (c: typeof ctx) => string }[], t: string) =>
+    tiers.find((x) => x.siblingType === t)!.prompt(ctx)
+
+  it('differs from the pre-analysis prompt for the SAME tier', () => {
+    // The set change alone would be satisfied by post-analysis doors that ask
+    // the identical pre-analysis question. This is what proves the reframing
+    // actually shipped, and it fails if either sentence is copied onto the
+    // other.
+    for (const tier of ['option', 'risk']) {
+      expect(promptFor(POST_ANALYSIS_TIERS, tier)).not.toEqual(promptFor(GHOST_TIERS, tier))
+    }
+  })
+
+  it('states the run as a fact and still ends in a question', () => {
+    // The file's standing line: report what is demonstrably there, then ASK.
+    // "I have run an analysis" is exactly the `results.status === 'complete'`
+    // that selected this set; neither sentence may assert the result is wrong.
+    for (const tier of ['option', 'risk']) {
+      const p = promptFor(POST_ANALYSIS_TIERS, tier)
+      expect(p).toContain('I have run an analysis')
+      expect(p.trim().endsWith('?')).toBe(true)
+    }
+  })
+
+  it('still carries the model inventory — specificity is not lost in the reframe', () => {
+    // CONTRAST CONTROL for the two assertions above: they would both pass on a
+    // generic sentence that mentioned an analysis and ended in a question mark.
+    // This binds the prompt to THIS model by identity.
+    expect(promptFor(POST_ANALYSIS_TIERS, 'option')).toContain('Segment, Rudderstack')
+    expect(promptFor(POST_ANALYSIS_TIERS, 'option')).toContain('Replace our CDP')
+  })
+
+  it('every post-analysis door is a challenge, every pre-analysis door an extension', () => {
+    expect(POST_ANALYSIS_TIERS.every((t) => t.variant === 'challenge')).toBe(true)
+    expect(GHOST_TIERS.every((t) => t.variant === 'extend')).toBe(true)
+  })
+
+  it('the variant reaches the rendered node, not just the tier table', () => {
+    // A variant nothing carries onto the node decides nothing — the
+    // `enableGhostSuggestions` shape this file was rewritten to stop repeating.
+    const doors = withGhostTiers(richModel(), POST_ANALYSIS_TIERS).filter((n) => isGhostNode(n.id))
+    expect(doors).toHaveLength(2)
+    expect(doors.every((d) => (d.data as { variant?: string }).variant === 'challenge')).toBe(true)
   })
 })
 
@@ -122,7 +237,7 @@ describe('doors are actually produced for a real model', () => {
  * ⭐ THE RESIDUAL GAP, CLOSED AS FAR AS A UNIT TEST CAN AND NAMED WHERE IT
  * CANNOT.
  *
- * Everything above calls `frontierIsVisible()` and `withGhostTiers()` directly.
+ * Everything above calls `frontierFor()` and `withGhostTiers()` directly.
  * That makes the suite sensitive to what those two functions DO — which is
  * exactly what the old source-text spec lacked. But the mount calls neither
  * directly in a test's presence, so **nothing above would fail if
@@ -163,7 +278,7 @@ describe('the mount still calls the functions this file tests', () => {
   /**
    * ⚠ COMMENTS STRIPPED, AND THIS IS THE WHOLE POINT OF THE HELPER.
    *
-   * Without it, `/frontierIsVisible\s*\(/` matches a call sitting inside a
+   * Without it, `/frontierFor\s*\(/` matches a call sitting inside a
    * COMMENT. A review proved it by mutation: it replaced the gate with a comment
    * carrying the same call text plus an unconditional `return nodes` — frontier
    * completely dead, no door ever produced — and all three tests below stayed
@@ -189,8 +304,17 @@ describe('the mount still calls the functions this file tests', () => {
     return code
   }
 
-  it('invokes frontierIsVisible', () => {
-    expect(source()).toMatch(/frontierIsVisible\s*\(/)
+  it('invokes frontierFor', () => {
+    expect(source()).toMatch(/frontierFor\s*\(/)
+  })
+
+  it('does NOT still call the gate this change replaced', () => {
+    // A leftover `frontierIsVisible` call would mean two authorities deciding
+    // one thing — the shape that produced the leader-claim seam. It is deleted
+    // from `ghostTiers.ts`, so a surviving call would not compile; this asserts
+    // it at the mount anyway, because the typecheck gate is the thing most
+    // likely to be routed around.
+    expect(source()).not.toMatch(/frontierIsVisible\s*\(/)
   })
 
   it('invokes withGhostTiers', () => {
@@ -202,7 +326,7 @@ describe('the mount still calls the functions this file tests', () => {
     // matches anything would pass them both by matching nothing — the exact
     // vacuity that let the previous version of this file stay green while the
     // prop it asserted decided nothing.
-    expect(source()).not.toMatch(/frontierIsVisibleV99Fabricated\s*\(/)
+    expect(source()).not.toMatch(/frontierForV99Fabricated\s*\(/)
     expect(source()).toMatch(/withGhostTiers\s*\(/)
   })
 })

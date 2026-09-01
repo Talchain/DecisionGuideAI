@@ -80,7 +80,7 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
-import { GHOST_TIERS, withGhostTiers, frontierIsVisible, ghostOptionPrompt } from './utils/ghostTiers'
+import { withGhostTiers, frontierFor, ghostOptionPrompt } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -716,14 +716,36 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // M6: Scenario Comparison Mode (lives in useComparisonStore as of C3-3)
   const comparisonModeActive = useComparisonStore(s => s.comparisonMode.active)
-  const viewMode = useCanvasStore(s => s.viewMode)
+  // `viewMode` was subscribed here for the frontier gate alone. The frontier
+  // no longer varies with it, so the subscription is removed rather than left
+  // dangling — a store subscription nothing reads still re-renders this
+  // 2,700-line component on every view toggle.
 
   // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
   const nodesWithGhost = useMemo(() => {
-    // Pre-analysis: always show. Post-analysis: Expert view only.
-    // The predicate lives in `ghostTiers` so a test can call it — inline here,
-    // it was the one control over the frontier that nothing could bind to.
-    if (!frontierIsVisible(resultsStatus, viewMode)) return nodes
+    /*
+     * ⭐ THE FRONTIER SURVIVES THE ANSWER — it changes its questions instead.
+     *
+     * This used to read `if (!frontierIsVisible(resultsStatus, viewMode))
+     * return nodes`, which removed every door after an analysis in every view
+     * but Expert: measured live at `65866cd7`, 4 doors before a run and 0 after
+     * it at zoom 1.0. The team lost "what might we be missing?" at the one
+     * moment they most need it.
+     *
+     * `frontierFor` is now the single authority — see its header for why the
+     * original gate was right about its own door and wrong about these four,
+     * and why view mode no longer decides anything here.
+     */
+    const { tiers, usesLegacyOptionDoor } = frontierFor(resultsStatus)
+    if (tiers.length === 0) return nodes
+
+    /*
+     * Post-analysis the option door must carry a prompt built from the model
+     * AND the run, so it comes from `withGhostTiers` like every other tier.
+     * The pre-analysis path below is the legacy `ghost-option` node and is
+     * deliberately untouched — see `FrontierPosture.usesLegacyOptionDoor`.
+     */
+    if (!usesLegacyOptionDoor) return withGhostTiers(nodes, tiers)
 
     /*
      * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
@@ -743,7 +765,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * The OPTIONS ghost still needs an option node — its position is derived
      * from the rightmost one — so that part of the gate stays, scoped to itself.
      */
-    const tierGhosts = GHOST_TIERS.filter((t) => t.siblingType !== 'option')
+    const tierGhosts = tiers.filter((t) => t.siblingType !== 'option')
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
     if (optionNodes.length === 0) return withGhostTiers(nodes, tierGhosts)
 
@@ -792,7 +814,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * prefix, so they cannot inflate what the graph appears to contain.
      */
     return withGhostTiers([...nodes, ghostNode], tierGhosts)
-  }, [nodes, resultsStatus, viewMode])
+    // `viewMode` is deliberately absent: the frontier no longer varies with it.
+  }, [nodes, resultsStatus])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.

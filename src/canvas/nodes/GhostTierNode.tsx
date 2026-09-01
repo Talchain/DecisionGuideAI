@@ -15,16 +15,30 @@
 import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
-import { Plus } from 'lucide-react'
+import { Plus, HelpCircle } from 'lucide-react'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
 
 export const GHOST_TIER_TESTID = 'ghost-tier-node'
 
 export const GhostTierNode = memo((props: NodeProps) => {
-  const data = (props.data ?? {}) as { label?: string; prompt?: string; tier?: string }
+  const data = (props.data ?? {}) as {
+    label?: string
+    prompt?: string
+    tier?: string
+    variant?: 'extend' | 'challenge'
+  }
   const label = data.label ?? 'Add'
   const prompt = data.prompt
+  // ⚠ THE GLYPH IS THE ONLY THING THIS DECIDES. After an analysis the door asks
+  // what would change the result, not what to add to the model, and a `+` would
+  // describe the wrong action — the user would read "insert a node" on an
+  // affordance that inserts nothing. It makes no claim either way: see the
+  // `variant` doc in `ghostTiers.ts`.
+  //
+  // Defaults to `+` when absent so a node built by an older path keeps the
+  // appearance it already had, rather than silently acquiring a new one.
+  const Icon = data.variant === 'challenge' ? HelpCircle : Plus
 
   const open = useCallback(() => {
     if (!prompt) return
@@ -39,6 +53,9 @@ export const GhostTierNode = memo((props: NodeProps) => {
       aria-label={label}
       data-testid={GHOST_TIER_TESTID}
       data-tier={data.tier}
+      // Surfaced so a driven witness can tell the two frontiers apart in the
+      // DOM without reading copy, which is the thing most likely to change.
+      data-variant={data.variant ?? 'extend'}
       onClick={open}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -64,7 +81,7 @@ export const GhostTierNode = memo((props: NodeProps) => {
       }}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <Plus className="w-4 h-4 text-text-light" aria-hidden="true" />
+      <Icon className="w-4 h-4 text-text-light" aria-hidden="true" />
       <span className={`${typography.nodeLabel} text-text-light text-center px-1`}>{label}</span>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
     </div>
