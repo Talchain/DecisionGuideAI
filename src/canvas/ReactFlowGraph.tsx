@@ -80,6 +80,7 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
+import { currentModelKey } from './utils/currentModelKey'
 import { GHOST_TIERS, withGhostTiers, frontierIsVisible, ghostOptionPrompt } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
@@ -2357,7 +2358,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleFitView = useCallback(() => {
     // The user framed this camera; the product's automatic re-fit may not take
     // it back off them (`utils/userCameraClaim.ts`, defect #1051).
-    claimCameraForUser()
+    claimCameraForUser(currentModelKey())
     const nodes = excludeNonModelNodes(getNodesRef.current())
     fitViewRef.current({
       ...(nodes.length > 0 ? { nodes } : {}),

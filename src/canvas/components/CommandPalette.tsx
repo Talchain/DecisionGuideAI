@@ -10,6 +10,7 @@ import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { excludeNonModelNodes } from '../utils/fitTargets'
 import { claimCameraForUser } from '../utils/userCameraClaim'
+import { currentModelKey } from '../utils/currentModelKey'
 import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { cameraDuration } from '../utils/cameraMotion'
@@ -178,7 +179,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
     { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => {
       // Same claim as the toolbar and the extent notice: a fit the USER asked
       // for is not something the automatic re-fit may undo (#1051).
-      claimCameraForUser()
+      claimCameraForUser(currentModelKey())
       const nodes = getNodes ? excludeNonModelNodes(getNodes()) : []
       fitView({
         ...(nodes.length > 0 ? { nodes } : {}),
