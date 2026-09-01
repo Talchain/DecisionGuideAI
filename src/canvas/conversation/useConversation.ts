@@ -4202,16 +4202,15 @@ export function useConversation(): UseConversationReturn {
         // then type a message" is an ORDINARY sequence that lands here. Without
         // this write the attempt is `pending` for the life of the page.
         //
-        // ⚠ UNPINNED, AND DISCLOSED RATHER THAN CLAIMED EQUIVALENT. Deleting
-        // this write leaves the suite GREEN (43/43). The reason appears to be
-        // that a preempt ABORTS the in-flight turn, so that turn lands on one
-        // of the two abort exits above — both of which now write — before it
-        // can reach this check. I could not construct a driver that stamps a
-        // newer turn id WITHOUT aborting the older one, so I cannot show this
-        // branch is reachable. That is not a demonstration that it is
-        // unreachable, and an equivalent mutant must be demonstrated, never
-        // asserted (trap 13c) — so the guard stays as cheap defence in depth
-        // and this comment states its evidential status honestly.
+        // ⚠ DEMONSTRATED EQUIVALENT — kept as defence in depth, not as cover.
+        // Deleting this write leaves the suite green, and an independent review
+        // established WHY rather than leaving it a suspicion: there is a single
+        // stamp site for `activeV5TurnIdRef`, the in-flight lock is held across
+        // the fetch, a preempt always aborts first, and no `await` sits between
+        // the abort check above and this check — so a turn cannot reach here
+        // with a superseded id. The branch is unreachable on today's control
+        // flow. It stays because any of those four facts could change in a
+        // refactor and the cost of the guard is one comparison.
         if (
           optimisticEdit &&
           systemEvent?.type === 'factor_value_edit' &&

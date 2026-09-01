@@ -422,14 +422,13 @@ export function modelEditAttemptIdsAwaitingCanonical(
  * model-scale basis, through a divide-by-cap, so exact equality would report a
  * float artefact as a refusal.
  *
- * ⚠ WHAT THIS TOLERANCE IS NOT SIZED AGAINST, stated honestly because the first
- * cut of this comment justified it by the failure mode in hand rather than by
- * the producer's contract (trap 13d): CEE's PERSISTED PRECISION FOR
- * `observed_state.raw_value` IS NOT DERIVED. It spans two services and cannot be
- * established from this repo. If CEE ever rounds for storage, a rounded
- * round-trip would read as a mismatch on that basis — which is exactly why
- * `settleModelEditAttemptFromCanonical` refuses only when EVERY comparable basis
- * disagrees, rather than on the raw basis alone.
+ * ⚠ WHAT IT IS FOR, AND WHAT IT IS NOT. It absorbs float/JSON artefacts and
+ * nothing else. CEE's persisted precision is now DERIVED rather than assumed:
+ * `observed_state` is stored with full JSONB fidelity and no rounding is applied
+ * on this path, so a round-trip that differs by more than an artefact is a real
+ * difference and must be reported as one. This tolerance is therefore NOT a
+ * hedge against producer rounding — an earlier version of this comment said it
+ * was, and used that to justify a laxer agreement rule.
  */
 function sameMagnitude(a: number, b: number): boolean {
   return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b))
@@ -519,13 +518,37 @@ export function readCanonicalFactorValue(
  * genuine commit commits, through one predicate rather than a special case for
  * the defect in hand.
  *
- * ⚠ REFUSES ONLY WHEN EVERY COMPARABLE BASIS DISAGREES. The user-unit
- * `raw_value` and the model-scale `value` are two statements of one fact; a
- * mismatch on one while the other agrees is a representation difference, not a
- * refusal. Since CEE's persisted precision is underived (see `sameMagnitude`),
- * agreeing on ANY basis is treated as the model holding the number — the
- * fail-safe direction, because a false refusal is an accusation about the
- * user's own data.
+ * ⭐⭐ EVERY COMPARABLE BASIS MUST AGREE. `some` WAS WRONG, AND IT WAS THE
+ * FALSE-SUCCESS DEFECT REBUILT INSIDE THE MODULE THAT EXISTS TO CATCH IT.
+ *
+ * The earlier rule committed when ANY basis agreed, justified by CEE's
+ * persisted precision being underived: a rounded `raw_value` round-trip should
+ * not read as a refusal. That premise is now REFUTED — CEE stores
+ * `observed_state` with full JSONB fidelity and applies no rounding on this
+ * path (derived at the producer; 41 files use `toFixed` elsewhere, none here).
+ * So the reason the rule stood on was false, and a true-looking rule standing
+ * on a false reason is one refactor from being a wrong rule.
+ *
+ * And the rule itself was wrong, not merely unjustified. `raw_value` and
+ * `value` are two statements of ONE fact (`value` is the magnitude over the
+ * node's cap). When they DISAGREE the persisted state is internally incoherent
+ * — one field moved and the other did not, or they were written against
+ * different caps. That is a PARTIAL WRITE, which is the exact shape of the
+ * measured CEE defect this module was built for: a number written to one key
+ * while `observed_state` never moved, reported as applied. Committing on
+ * "either one matches" hands the consumer a success receipt for a model that
+ * does not coherently hold the number.
+ *
+ * ⚠ THE DIRECTION IS DELIBERATE. `committed` is the STRONG claim — #1033
+ * renders it as "saved" — so it must be the hard one to earn. A refusal is
+ * recoverable: it carries the canonical bytes, so the consumer shows what the
+ * model actually holds and the user can see the truth for themselves. A false
+ * `committed` shows them a number the model does not have and tells them it is
+ * safe. Between an over-strict success and a confident lie, this module takes
+ * the over-strict success every time.
+ *
+ * (`bases.length === 0` returns before this — `every` over an empty set is
+ * `true`, and "nothing was comparable" must never read as agreement.)
  */
 export function settleModelEditAttemptFromCanonical(
   attemptId: ModelEditAttemptId | null | undefined,
@@ -581,7 +604,7 @@ export function settleModelEditAttemptFromCanonical(
   }
   if (bases.length === 0) return // nothing comparable — say nothing
 
-  if (bases.some(([held, sent]) => sameMagnitude(held, sent))) {
+  if (bases.every(([held, sent]) => sameMagnitude(held, sent))) {
     settleCanonical({ phase: 'committed', canonical })
     return
   }

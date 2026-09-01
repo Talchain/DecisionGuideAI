@@ -268,6 +268,91 @@ describe('⭐ the discriminating pair — a receipt cannot buy a commit', () => 
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+describe('⭐ the two bases must AGREE — a partial write is not a commit', () => {
+  /**
+   * ⚠ THE CLASS THE CORPUS PREVIOUSLY EXCLUDED, and its absence is why a
+   * `some` → `every` mutant survived 43/43: no fixture ever had `raw_value` and
+   * `value` disagreeing, so nothing could tell "any basis agrees" from "every
+   * basis agrees". A full kill-rate against a corpus that omits the value class
+   * the predicate is ABOUT is a perfect score on the wrong exam.
+   *
+   * `value` is the magnitude over the node's cap, so the two are two statements
+   * of ONE fact. Disagreement means the persisted state is incoherent — one
+   * field moved and the other did not — which is the partial-write shape of the
+   * measured CEE defect. Both directions are pinned, so neither `some` nor a
+   * single-basis rule can pass.
+   */
+  const SENT_MODEL = 0.7
+  const SENT_RAW = 21000
+
+  function attemptSendingBoth() {
+    const id = beginModelEditAttempt({
+      nodeId: FACTOR_A,
+      scenarioId: SCENARIO,
+      attemptedValue: SENT_MODEL,
+      attemptedRawValue: SENT_RAW,
+    })
+    recordModelEditReceipt(id)
+    return id
+  }
+
+  it('RAW agrees but VALUE does not → REFUSED, with the canonical bytes', () => {
+    const attempt = attemptSendingBoth()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: 0.5, rawValue: SENT_RAW, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toEqual({
+      phase: 'refused',
+      reason: 'The model did not take this change.',
+      evidence: 'canonical',
+      canonical: { value: 0.5, rawValue: SENT_RAW, source: 'user_override' },
+    })
+  })
+
+  it('VALUE agrees but RAW does not → REFUSED, with the canonical bytes', () => {
+    const attempt = attemptSendingBoth()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: SENT_MODEL, rawValue: 15000, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toEqual({
+      phase: 'refused',
+      reason: 'The model did not take this change.',
+      evidence: 'canonical',
+      canonical: { value: SENT_MODEL, rawValue: 15000, source: 'user_override' },
+    })
+  })
+
+  it('BOTH agree → COMMITTED (the opposite-direction twin)', () => {
+    const attempt = attemptSendingBoth()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: SENT_MODEL, rawValue: SENT_RAW, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion).toEqual({
+      phase: 'committed',
+      canonical: { value: SENT_MODEL, rawValue: SENT_RAW, source: 'user_override' },
+    })
+  })
+
+  it('only ONE basis is comparable, and it agrees → COMMITTED', () => {
+    // The graph states no `raw_value`, so `value` is the only statement of the
+    // fact available. `every` over one basis is that basis — not a refusal.
+    const attempt = attemptSendingBoth()
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      wireGraph([{ id: FACTOR_A, value: SENT_MODEL, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 describe('⭐ F2 — bytes read BEFORE the edit may not adjudicate it', () => {
   it('a cold read issued before the receipt leaves the attempt open, not refused', () => {
     // Boot hydration is already in flight when the user commits: its read was

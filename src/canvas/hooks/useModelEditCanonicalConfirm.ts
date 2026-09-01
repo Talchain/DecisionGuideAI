@@ -54,7 +54,7 @@
  * be expired when this fire-and-forget request goes out.
  */
 
-import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
@@ -62,7 +62,6 @@ import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { logger } from '../../lib/logger'
 import { ABSENT_GRAPH_RETRY_DELAYS_MS, waitForRetry } from '../hydrate/absentGraphRetry'
 import {
-  getModelEditCompletionVersion,
   hasAttemptsAwaitingCanonical,
   markCanonicalReadIssued,
   settleModelEditAttemptsFromCanonicalGraph,
@@ -109,13 +108,11 @@ export function useModelEditCanonicalConfirm(
   // the boot path sets, the route param is the deep-link fallback.
   const scenarioId = currentScenarioId ?? scenarioIdFromRoute ?? null
 
-  // Re-evaluate whenever the ledger moves — a receipt landing is the event that
-  // makes a confirmation read worth spending.
-  const version = useSyncExternalStore(
-    subscribeModelEditCompletion,
-    getModelEditCompletionVersion,
-    getModelEditCompletionVersion,
-  )
+  // ⚠ SUBSCRIBED, NOT RENDERED. An earlier cut read the ledger through
+  // `useSyncExternalStore`, which re-rendered THE WHOLE CANVAS ROUTE on every
+  // ledger write — this hook is mounted in `CanvasMVP`, and it renders nothing.
+  // The subscription lives in the effect instead: it sees exactly the same
+  // events and costs no renders at all.
 
   const inFlightRef = useRef(false)
   const read = deps.read ?? fetchScenarioGraph
@@ -123,13 +120,13 @@ export function useModelEditCanonicalConfirm(
 
   useEffect(() => {
     if (!scenarioId) return
-    if (inFlightRef.current) return
-    if (!hasAttemptsAwaitingCanonical(scenarioId)) return
 
-    inFlightRef.current = true
     const controller = new AbortController()
 
-    void (async (): Promise<void> => {
+    const runConfirmation = async (): Promise<void> => {
+      if (inFlightRef.current) return
+      if (!hasAttemptsAwaitingCanonical(scenarioId)) return
+      inFlightRef.current = true
       try {
         // Attempt 0 is immediate; each further attempt waits the next measured
         // delay. The loop exits the moment nothing is awaiting — so the common
@@ -178,11 +175,18 @@ export function useModelEditCanonicalConfirm(
       } finally {
         inFlightRef.current = false
       }
-    })()
+    }
+
+    const unsubscribe = subscribeModelEditCompletion(() => {
+      void runConfirmation()
+    })
+    void runConfirmation()
 
     return () => {
+      unsubscribe()
       controller.abort()
       inFlightRef.current = false
     }
-  }, [scenarioId, version, user?.id])
+  }, [scenarioId, user?.id, read, wait])
+
 }
