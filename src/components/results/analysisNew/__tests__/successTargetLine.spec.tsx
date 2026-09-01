@@ -27,6 +27,7 @@ const TID = 'target'
 beforeEach(() => {
   setGoalThresholdAndUpdateNode.mockReset()
   state = {
+    nodes: [{ id: 'g1', type: 'goal', data: {} }],
     goalThreshold: null,
     goalThresholdRepresentation: null,
     setGoalThresholdAndUpdateNode,
@@ -68,6 +69,79 @@ describe('it shows the target the user already stated', () => {
   })
 })
 
+describe('the GOAL NODE is the source, and it is in the user\'s units', () => {
+  /**
+   * ⭐⭐ THE DEFECT THIS FIXES, WITNESSED ON DEPLOYED `6e58c921`. The canvas goal
+   * card rendered "Target: 110%" while this line rendered "No target we can
+   * show" — one goal, one screen, two answers. The node holds the figure in the
+   * user's own units; the store held a NORMALISED twin of it, and this line was
+   * reading the weaker source.
+   */
+  it('renders the node\'s CEE-derived target even when the store value is normalised', () => {
+    state.nodes = [
+      { id: 'g1', type: 'goal', data: { goal_threshold_raw: 110, goal_threshold_unit: '%' } },
+    ]
+    state.goalThreshold = 1.1
+    state.goalThresholdRepresentation = 'normalised'
+    draw()
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('110')
+    expect(screen.queryByTestId(`${TID}-none`)).toBeNull()
+  })
+
+  /**
+   * ⚠ THE DISCRIMINATING TWIN. Without it the case above passes on a component
+   * that simply stopped honouring the normalised guard. Same normalised store
+   * value, node carrying NOTHING — the refusal must return.
+   */
+  it('…and still refuses when the node carries nothing and only a normalised store value exists', () => {
+    state.nodes = [{ id: 'g1', type: 'goal', data: {} }]
+    state.goalThreshold = 1.1
+    state.goalThresholdRepresentation = 'normalised'
+    draw()
+    expect(screen.queryByTestId(`${TID}-value`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-none`)).toHaveTextContent(COPY.successTarget.unexpressible)
+  })
+
+  /**
+   * ⚠ PROVENANCE FOLLOWS THE RESOLVER. A target the reader TYPED and one CEE
+   * lifted from their brief are different claims about authorship, and this
+   * panel's provenance vocabulary exists to keep them apart. Hardcoding "From
+   * brief" over a user-set value is exactly the mislabel it guards against.
+   */
+  it('credits the USER when they set it themselves', () => {
+    state.nodes = [
+      {
+        id: 'g1',
+        type: 'goal',
+        data: { threshold_source: 'user', success_threshold: 95, goal_threshold_unit: '%' },
+      },
+    ]
+    draw()
+    expect(screen.getByTestId(`${TID}-source`)).toHaveAttribute('data-source', 'user')
+    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_PROVENANCE_LABEL.human)
+  })
+
+  it('credits the BRIEF for a CEE-derived one', () => {
+    state.nodes = [{ id: 'g1', type: 'goal', data: { goal_threshold_raw: 110 } }]
+    draw()
+    expect(screen.getByTestId(`${TID}-source`)).toHaveAttribute('data-source', 'brief')
+    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_PROVENANCE_LABEL.brief)
+  })
+
+  /** A user-set value wins over CEE's backfill — `computeSuccessState`'s order. */
+  it('a user-set target beats the CEE-derived one on the same node', () => {
+    state.nodes = [
+      {
+        id: 'g1',
+        type: 'goal',
+        data: { threshold_source: 'user', success_threshold: 95, goal_threshold_raw: 110 },
+      },
+    ]
+    draw()
+    expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('95')
+  })
+})
+
 describe('it refuses to print a number it cannot express', () => {
   /**
    * ⭐⭐ THE DEFECT THIS EXISTS TO PREVENT. A bare 0-1 painted as a target read
@@ -99,6 +173,29 @@ describe('it refuses to print a number it cannot express', () => {
    * the model, one about the value. Telling a user who set a target that they
    * never did is the failure this separates.
    */
+  /**
+   * ⚠⚠ WITNESSED DEFECT, PINNED. On deployed `6e58c921` this line read
+   * "Target: Set, but not in a unit we can show" roughly 120px above the
+   * coaching card "Define success — No measurable success target is set" —
+   * one panel asserting set and not-set about the same thing.
+   *
+   * The two surfaces answer different questions (this reads the MODEL's
+   * threshold from the canvas store; the card's input arrives via the RUN's
+   * `recommendation.goalThreshold`), and per trap 21 the fix is NOT to align
+   * their defaults. But this sentence made the weaker claim — we hold a
+   * normalised number we cannot interpret — so it is the one that must not
+   * assert a state the reader cannot verify.
+   */
+  it('the unexpressible sentence never claims the target is SET', () => {
+    expect(COPY.successTarget.unexpressible).not.toMatch(/\bset\b/i)
+  })
+
+  /** The twin: "none" is still allowed to say it, because there it is true. */
+  it('…while "none" may still speak plainly about the absence', () => {
+    expect(COPY.successTarget.none.length).toBeGreaterThan(0)
+    expect(COPY.successTarget.none).not.toBe(COPY.successTarget.unexpressible)
+  })
+
   it('says something different for "none" than for "unexpressible"', () => {
     draw()
     const none = screen.getByTestId(`${TID}-none`).textContent

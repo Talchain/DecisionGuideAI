@@ -41,6 +41,8 @@ import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
+import { resolveGoalTarget, type GoalTargetSource } from '../../../../canvas/domain/goalTarget'
+import { formatGoalTarget } from '../../utils/formatGoalTarget'
 
 export interface SuccessTargetLineProps {
   /** The goal node to write to. Null = no goal, so nothing to target. */
@@ -55,9 +57,29 @@ export function SuccessTargetLine({
   onCommitOutcome,
   testId,
 }: SuccessTargetLineProps) {
+  /**
+   * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
+   * CORRECTION. This first read `goalThreshold`/`goalThresholdRepresentation`
+   * from the canvas store, which on deployed `6e58c921` carried the
+   * `normalised` tag, so this line rendered "No target we can show" while the
+   * canvas goal card six inches away rendered **"Target: 110%"**. One goal, one
+   * screen, two answers — because the node holds the figure in the user's own
+   * units and the store held a normalised twin of it.
+   *
+   * `resolveGoalTarget` is the shared owner both surfaces now go through.
+   */
+  const goalData = useCanvasStore((s) =>
+    goalNodeId === null ? null : (s.nodes.find((n) => n.id === goalNodeId)?.data ?? null),
+  )
+  const setGoalThresholdAndUpdateNode = useCanvasStore((s) => s.setGoalThresholdAndUpdateNode)
+  /**
+   * ⚠ THE STORE SURVIVES AS A FALLBACK ONLY, and keeps its guard. A `raw` store
+   * value is still a real target when the node carries none; a `normalised` one
+   * is a number we cannot express in the user's units, and printing it is the
+   * defect that showed 0.8 for a 20% target (`store.ts:5059`).
+   */
   const threshold = useCanvasStore((s) => s.goalThreshold)
   const representation = useCanvasStore((s) => s.goalThresholdRepresentation)
-  const setGoalThresholdAndUpdateNode = useCanvasStore((s) => s.setGoalThresholdAndUpdateNode)
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -71,8 +93,24 @@ export function SuccessTargetLine({
    * user's units — printing it would be the 0.8-for-20% defect. `null` and
    * `normalised` are DIFFERENT states and get different sentences below.
    */
-  const shown = threshold != null && representation === 'raw' ? threshold : null
-  const unexpressible = threshold != null && representation !== 'raw'
+  const fromNode = resolveGoalTarget(goalData as GoalTargetSource | null)
+  const fromStore = threshold != null && representation === 'raw' ? threshold : null
+  /** The node first — it is the only source guaranteed to be in user units. */
+  const shownText =
+    fromNode !== null
+      ? (formatGoalTarget(
+          typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
+          fromNode.unit,
+        ) ?? String(fromNode.raw))
+      : fromStore != null
+        ? String(fromStore)
+        : null
+  /**
+   * ⚠ ONLY WHEN NOTHING EXPRESSIBLE EXISTS ANYWHERE. A normalised store value
+   * beside a readable node value is not "unexpressible" — it is simply the
+   * weaker of two sources, and the node already answered.
+   */
+  const unexpressible = shownText === null && threshold != null && representation !== 'raw'
 
   const commit = () => {
     const typed = draft.trim()
@@ -129,12 +167,12 @@ export function SuccessTargetLine({
         </span>
       ) : (
         <>
-          {shown != null ? (
+          {shownText !== null ? (
             <span
               className={`${typography.panelMeta} text-text-body`}
               data-testid={`${testId}-value`}
             >
-              {shown}
+              {shownText}
             </span>
           ) : (
             <span
@@ -151,24 +189,32 @@ export function SuccessTargetLine({
           {/* Provenance in the SAME vocabulary the factor rows use — one thing
               learned once. A target we hold is the user's own: it came from
               their brief or from this control. */}
-          {shown != null ? (
+          {/* ⚠ PROVENANCE FROM THE RESOLVER, NOT ASSUMED. A target the reader
+              typed and one CEE lifted from their brief are different claims
+              about authorship — this panel's whole provenance vocabulary exists
+              to keep them apart, and hardcoding "From brief" over a value the
+              user set themselves is exactly the mislabel it guards against. */}
+          {shownText !== null ? (
             <span
               className={`${typography.panelMeta} text-text-light`}
               data-testid={`${testId}-source`}
+              data-source={fromNode?.source ?? 'store'}
             >
-              {VALUE_PROVENANCE_LABEL.brief}
+              {fromNode?.source === 'user'
+                ? VALUE_PROVENANCE_LABEL.human
+                : VALUE_PROVENANCE_LABEL.brief}
             </span>
           ) : null}
           <button
             type="button"
             onClick={() => {
               setEditing(true)
-              setDraft(shown != null ? String(shown) : '')
+              setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
             }}
             className={`${typography.panelMeta} text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
             data-testid={`${testId}-edit`}
           >
-            {shown != null ? COPY.successTarget.change : COPY.successTarget.set}
+            {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
           </button>
         </>
       )}
