@@ -48,6 +48,7 @@ import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
+import { openDecisionRecord } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
@@ -59,6 +60,7 @@ import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
+import { ModelHeldUp } from './sections/ModelHeldUp'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
@@ -385,6 +387,35 @@ export function AnalysisNewTabBody({
               : null
           }
           onRunIntervention={runIntervention}
+        />
+
+        {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, and it renders on almost no runs —
+            which is the point. It is the panel's TERMINAL state: when the model
+            holds up, every section below has nothing to say and the surface
+            goes quiet at exactly the moment the team should be handed their
+            decision. Placed after the reading it concludes, never before it. */}
+        <ModelHeldUp
+          verdictTone={vm.atAGlance.verdict?.tone ?? null}
+          /* ⚠⚠ BOTH LIMBS, AND THE FIRST IS WHAT KEEPS THIS HONEST. "Assessed,
+             none found" and "never assessed" both produce an empty array, and
+             congratulating a team on a model whose evidence was never examined
+             is a lie told in the surface's most confident voice. */
+          evidenceAssessed={vm.uncertainty.evidenceAssessed}
+          gapCount={vm.uncertainty.findings.length}
+          isStale={vm.status.isStale}
+          isPreRun={vm.status.isPreRun}
+          /* ⚠⚠ THE FIFTH LIMB, from independent review. `AtAGlance` directly
+             above renders `missingResults` on a provisional run — without this
+             the panel names the results that did not come back and then
+             congratulates the reader on the model, in that order. */
+          isProvisional={vm.status.isProvisional}
+          /* ⭐ THE REAL DECISION RECORD, not a chat prefill. `openDecisionRecord`
+             already exists and is what the Strengthen section's own succeeded
+             state commits through — routing this elsewhere would fork the one
+             act the product treats as committing. */
+          onRecord={openDecisionRecord}
+          testId="analysis-new-held-up"
         />
 
         {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────

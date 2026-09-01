@@ -382,6 +382,23 @@ export const ANALYSIS_NEW_COPY = {
      */
     title: 'Which way each driver pushes',
   },
+  heldUp: {
+    /**
+     * ⚠ "HELD UP", NOT "LOOKS GOOD" AND NOT "READY TO DECIDE". The producer
+     * tested the model and it did not break — that is a statement about the
+     * MODEL under testing, not a verdict on the decision, and certainly not
+     * permission. The verb is the strongest honest one available.
+     */
+    title: 'Your model held up under testing',
+    /**
+     * ⚠⚠ SAID IN THE SAME BREATH AS THE GOOD NEWS, never behind a disclosure.
+     * This is the moment the surface is most likely to be read as absolution,
+     * and the product's first principle is that humans remain the authors.
+     */
+    limit: 'That is a result about the model, not about the decision. What it assumes is still yours to judge.',
+    /** The move. Named for what the team gets, not for what the system does. */
+    record: 'Record what you decided, and why',
+  },
   modelStrip: {
     /**
      * The affordance, stated once above the marks. It describes the CONTROL,
