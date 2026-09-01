@@ -30,6 +30,15 @@ import type { CeeDecisionReviewPayloadV1 } from '../../adapters/cee/types'
 import type { DecisionReview030 } from '../../v5/decisionReviewAdapter'
 
 import type { CompletenessReasonCode } from './copy/freshnessReasons'
+import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
+/**
+ * The producer's per-option classification, read through the ONE predicate that
+ * owns it. Imported from `notAnalysedOptions` rather than respelled here: a
+ * second spelling of `status !== 'failed'` would be a second authority on one
+ * question, and this hook must classify an option identically to the service
+ * that produced it.
+ */
+import { optionComputationProducedResult } from './utils/notAnalysedOptions'
 
 export type ResultCompletenessStatus = 'full' | 'partial' | 'failed'
 
@@ -132,12 +141,39 @@ export function deriveResultCompleteness(
   // `win_probability` for likelihood-based ranking. The brief flagged
   // "Analysis complete" with null win probabilities as the headline
   // bug; this surfaces it.
+  //
+  // ⭐ A FAILED OPTION'S `win_probability` IS NOT ONE OF THEM.
+  //
+  // ISL emits `status: 'failed'` exactly when `n_valid === 0` — zero finite
+  // Monte Carlo samples, so no distribution and no share — and PLoT forwards a
+  // `win_probability: 0` beside it. Zero is a number, so the bare `typeof`
+  // test counted that fabrication as a present measurement and SUPPRESSED this
+  // disclosure on a run where the only "win probability" was invented. The one
+  // surface whose job is to say the field is missing was silenced by the very
+  // absence it exists to report.
+  //
+  // Gated on the PRODUCER'S EMITTED TOKEN, never on falsiness. A `win > 0`
+  // test would be a second, worse classification: it would admit a failed
+  // option carrying any non-zero fabricated value, and would wrongly drop a
+  // GENUINE measured zero — an option ISL computed at full sample count and
+  // found never wins. Those two are indistinguishable by value and
+  // distinguishable only by `status`.
+  //
+  // `optionComputationProducedResult` is QUOTED, not respelled: `'partial'`
+  // stays in (samples exist — a disclosure, not a failure) and an ABSENT
+  // status stays in (the legacy V1 shape, which has no status field at all).
+  // A `status !== 'computed'` test here would discard results ISL honestly
+  // produced.
   const optionProbs = inputs.report.option_probabilities ?? {}
   const optionIds = Object.keys(optionProbs)
   if (optionIds.length > 0) {
-    const anyWin = optionIds.some(
-      (id) => typeof optionProbs[id]?.win_probability === 'number',
-    )
+    const anyWin = optionIds.some((id) => {
+      const entry = optionProbs[id] as
+        | ((typeof optionProbs)[string] & { status?: OptionComputeStatus })
+        | undefined
+      if (!optionComputationProducedResult(entry?.status)) return false
+      return typeof entry?.win_probability === 'number'
+    })
     if (!anyWin) {
       missing.add('win_probability')
       reasons.add('win_probability_missing')
