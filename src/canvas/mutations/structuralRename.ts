@@ -56,11 +56,27 @@
  * The UI's own `canvas/utils/graphHash.ts` is a DIFFERENT algorithm and the
  * `identity.v1` envelope has no wire emitter at all.
  *
- * ⚠ KNOWN GAP, stated rather than papered over, and INHERITED DELIBERATELY from
- * the delete lane: with no CEE hash seen this session there is no base to assert
- * and the contract forbids absent/null/empty. This module records NO intent and
- * reports the reason, rather than fabricating a hash. The rename still applies
- * locally — it simply claims no durability it cannot deliver.
+ * ⚠⚠ THE FORMER "KNOWN GAP" IS CLOSED, AND THIS PARAGRAPH USED TO SAY THE
+ * OPPOSITE — it is corrected here rather than left to rot, because a false claim
+ * in the header of the module that implements the behaviour is the estate's
+ * dominant defect, not a cosmetic one.
+ *
+ * It read: "This module records NO intent and reports the reason, rather than
+ * fabricating a hash. The rename still applies locally — it simply claims no
+ * durability it cannot deliver." The second half was always true and still is.
+ * The FIRST half described the P0: recording no intent while the store applied
+ * the visible label anyway meant the first rename after a restore looked saved
+ * and vanished on the next reload — the carrier existed, and the gesture was
+ * dropped before reaching it.
+ *
+ * What is true now: with no CEE hash seen this session there is still no base to
+ * assert, and the contract still forbids absent/null/empty — so nothing is
+ * fabricated. But the gesture is HELD rather than dropped. The intent is recorded
+ * with `baseGraphHash: null`, {@link resolveStructuralRenameBase} stamps the real
+ * hash the moment a turn supplies one, and the wire builder accepts only a
+ * resolved intent so a null base is unrepresentable rather than merely forbidden.
+ * The user is told meanwhile — the queue is memory-only, so a reload before that
+ * turn does still lose the rename, and the copy says so.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⭐ THE REVERT RESTORES **TWO** FIELDS, AND THE SECOND ONE IS THE ONE A
