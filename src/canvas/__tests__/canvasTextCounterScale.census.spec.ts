@@ -278,7 +278,20 @@ function deriveScope(): { dirs: string[]; entries: string[]; errors: string[] } 
   }
 
   const nodeSrc = readFileSync(NODE_REGISTRY, 'utf8')
-  collect(NODE_REGISTRY, /export const nodeTypes[^{]*\{([\s\S]*?)\n\}/.exec(nodeSrc)?.[1], 'nodeTypes')
+  /*
+   * ⚠ `rawNodeTypes`, NOT `nodeTypes`. The exported `nodeTypes` is now DERIVED
+   * — every renderer is wrapped in the canvas keyboard scope
+   * (`nodes/nodeKeyboardScope.tsx`) — so it is no longer an object literal and
+   * this parser cannot read it. `rawNodeTypes` is the literal that still names
+   * one component per type, which is exactly what this census needs; the
+   * derivation between the two is pinned in both directions by
+   * `nodes/__tests__/registry.keyboardScope.spec.tsx`.
+   *
+   * The entry-count control below is what would have caught this silently
+   * returning nothing, and it is the reason this is a corrected parser rather
+   * than a census that quietly stopped covering the node renderers.
+   */
+  collect(NODE_REGISTRY, /export const rawNodeTypes[^{]*\{([\s\S]*?)\n\}/.exec(nodeSrc)?.[1], 'nodeTypes')
 
   const edgeSrc = readFileSync(EDGE_REGISTRY, 'utf8')
   collect(EDGE_REGISTRY, /edgeTypes\s*=\s*useMemo\(\s*\(\)\s*=>\s*\(\{([\s\S]*?)\}\)/.exec(edgeSrc)?.[1], 'edgeTypes')
