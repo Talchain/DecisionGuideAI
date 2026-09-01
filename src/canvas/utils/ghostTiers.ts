@@ -567,3 +567,126 @@ export function ghostOptionPrompt(nodes: Node[]): string {
   if (siblings.length === 0) return ''
   return OPTION_TIER.prompt(contextFor(siblings, readSubject(nodes)))
 }
+
+/**
+ * ⭐⭐ THE FRONTIER THE MOUNT ACTUALLY PRODUCES — the whole composition, in one
+ * testable place, because the previous split made a spec agree with a path the
+ * canvas never takes.
+ *
+ * ── WHY THIS FUNCTION EXISTS (M4, found by an independent review) ──
+ *
+ * The composition used to live INSIDE `ReactFlowGraph`'s `useMemo`, and the
+ * density spec approximated it as `withGhostTiers(richModel(), GHOST_TIERS)`.
+ * Those are not the same computation. The mount filters the option tier out of
+ * `withGhostTiers` (`t.siblingType !== 'option'`) and supplies the option door
+ * separately, as the LEGACY `ghost-option` node. `withGhostTiers` was therefore
+ * never called with its default set anywhere in the product — only in the spec.
+ *
+ * ⚠ MEASURED CONSEQUENCE: deleting the legacy option door from the mount left
+ * **46/46 GREEN**. Pre-analysis would have silently gone from 4 doors to 3 —
+ * the OPTION door, the most valuable tier, the one this whole frontier grew
+ * out of — and nothing in the suite would have moved. That is this estate's
+ * signature test defect: a spec bound to a path the deployment does not render.
+ *
+ * The repair is not another assertion. It is to make the thing the mount does
+ * and the thing the spec calls **the same function**, so there is no second
+ * path left to drift. The mount is now one line, and every count below is a
+ * count of the doors a user would actually get.
+ *
+ * ⚠ WHAT IS STILL NOT PROVEN BY UNIT TEST: that `ReactFlowGraph` reaches this
+ * function at runtime. Nothing in this repo renders `ReactFlowGraph` today, so
+ * the call site is pinned from source instead — see the mount-path describe
+ * block in `ghostSuggestionsMountPath.spec.ts`, which states that limit rather
+ * than implying it is closed.
+ */
+export function composeFrontier(
+  nodes: Node[],
+  resultsStatus: string | null | undefined,
+): Node[] {
+  const { tiers, usesLegacyOptionDoor } = frontierFor(resultsStatus)
+  if (tiers.length === 0) return nodes
+
+  /*
+   * Post-analysis the option door must carry a prompt built from the model AND
+   * the run, so it comes from `withGhostTiers` like every other tier. The
+   * pre-analysis path below is the legacy `ghost-option` node and is
+   * deliberately untouched — see `FrontierPosture.usesLegacyOptionDoor`.
+   */
+  if (!usesLegacyOptionDoor) return withGhostTiers(nodes, tiers)
+
+  /*
+   * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
+   *
+   * `withGhostTiers` decides tier by tier, and refuses a door on a tier with no
+   * members for a stated reason: a ghost on an empty tier would assert the tier
+   * OUGHT to have members, which is a judgement this affordance exists not to
+   * make. That per-tier care was then defeated by a global
+   * `if (optionNodes.length === 0) return nodes` above it — inherited from when
+   * the options ghost was the ONLY ghost, and correct then.
+   *
+   * Since the frontier reached factors, risks and outcomes it is no longer
+   * correct: a model with factors and risks but no options got no door on any
+   * tier, including the tiers that had members. The doors disappeared exactly
+   * when the model was sparsest, which is when an invitation is worth most.
+   *
+   * The OPTIONS ghost still needs an option node — its position is derived from
+   * the rightmost one — so that part of the gate stays, scoped to itself.
+   */
+  const tierGhosts = tiers.filter((t) => t.siblingType !== 'option')
+  const optionNodes = nodes.filter(
+    (n) => n.type === 'option' || (n.data as { type?: string } | undefined)?.type === 'option',
+  )
+  if (optionNodes.length === 0) return withGhostTiers(nodes, tierGhosts)
+
+  // Rightmost option position, accounting for node width.
+  const maxX = Math.max(...optionNodes.map((n) => n.position?.x ?? 0))
+  const sameY = optionNodes.find((n) => (n.position?.x ?? 0) === maxX)
+  const ghostY = sameY?.position?.y ?? 0
+  // Measure: node width (from ELK) + node spacing (60 default).
+  const measuredW =
+    (sameY as { measured?: { width?: number }; width?: number } | undefined)?.measured?.width ??
+    (sameY as { width?: number } | undefined)?.width ??
+    200
+  const ghostGap = measuredW + 60
+
+  const ghostNode = {
+    id: GHOST_OPTION_NODE_ID,
+    type: 'ghost-option' as const,
+    position: { x: maxX + ghostGap, y: ghostY },
+    /*
+     * ⭐ THE SENTENCE TRAVELS WITH THE NODE — this door used to carry `data: {}`.
+     *
+     * `GhostOptionNode` cannot see the graph, so an empty data bag left it
+     * nothing to say and it fell back to a hardcoded "Suggest an additional
+     * option I haven't considered for this decision" — verbatim the generic
+     * line this file holds up as the bad example. Composed from the same tier
+     * table and the same builder every other door uses (`ghostOptionPrompt`).
+     *
+     * ⚠ PRESERVED ACROSS THIS PR's REBASE, DELIBERATELY. #1086 merged to
+     * staging while this branch was open and wired this exact line in
+     * `ReactFlowGraph`; moving the composition here would have silently
+     * restored `data: {}` and reverted a merged fix — the conflict resolution
+     * keeps BOTH changes, per CLAUDE.md trap 24.
+     */
+    data: { prompt: ghostOptionPrompt(nodes) },
+    selectable: false,
+    draggable: false,
+    connectable: false,
+  } as Node
+
+  /*
+   * ⭐ THE FRONTIER EXISTS ON EVERY TIER, NOT ONLY ON OPTIONS.
+   *
+   * The options ghost was the most reasoning-shaped affordance already on the
+   * canvas — an open door that asks Olumi to help you think of something the
+   * model does not contain — and it existed on one tier of four. The graph
+   * showed what IS there and had no way to represent what might be missing,
+   * which is where the thinking actually happens.
+   *
+   * These are invitations, not assessments: the product does not claim a risk
+   * is missing, it just leaves the door open where one would go. Each is
+   * excluded from the fit and from every model count by the shared `__ghost-`
+   * prefix, so they cannot inflate what the graph appears to contain.
+   */
+  return withGhostTiers([...nodes, ghostNode], tierGhosts)
+}

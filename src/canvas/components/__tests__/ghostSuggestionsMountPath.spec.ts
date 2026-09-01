@@ -25,16 +25,19 @@
  *
  * ── WHAT THIS VERSION ASSERTS ──
  *
- * The two functions that actually decide, called directly:
+ * The functions that actually decide, called directly:
  *
  *   `frontierFor(resultsStatus)` — WHICH frontier is on screen. It replaced a
  *      `frontierIsVisible(resultsStatus, viewMode)` gate that removed every
  *      door after an analysis outside Expert view; the questions now change
  *      with the phase instead of the doors vanishing with it.
  *   `withGhostTiers(nodes)` — whether doors are produced for a real graph.
+ *   `composeFrontier(nodes, resultsStatus)` — ⭐ THE WHOLE MOUNT PATH, and the
+ *      one this file previously approximated instead of calling. See the
+ *      "doors the MOUNT actually produces" block for what that cost.
  *
- * Delete either behaviour and this file REDS. That is the property the old one
- * lacked.
+ * Delete any of those behaviours and this file REDS. That is the property the
+ * old one lacked.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -42,9 +45,11 @@ import { resolve } from 'node:path'
 import type { Node } from '@xyflow/react'
 import {
   frontierFor,
+  composeFrontier,
   withGhostTiers,
   isGhostNode,
   GHOST_TIERS,
+  GHOST_OPTION_NODE_ID,
   POST_ANALYSIS_TIERS,
 } from '../../utils/ghostTiers'
 
@@ -80,9 +85,6 @@ function richModel(): Node[] {
   ]
 }
 
-const tiersOf = (nodes: Node[]) =>
-  nodes.filter((n) => isGhostNode(n.id)).map((d) => (d.data as { tier?: string }).tier).sort()
-
 describe('the frontier survives the answer, and changes its questions', () => {
   it('is unchanged before an analysis — the case that already worked', () => {
     // ⚠ THE OPPOSITE-DIRECTION TWIN. The post-analysis fix must not be bought
@@ -114,15 +116,6 @@ describe('the frontier survives the answer, and changes its questions', () => {
     // Asserted as an inequality rather than as `=== 2`, so it keeps biting if
     // either set is resized later.
     expect(frontierFor('complete').tiers.length).toBeLessThan(frontierFor('idle').tiers.length)
-  })
-
-  it('DENSITY, at the doors rather than at the tier list', () => {
-    // The count above is of tier DEFINITIONS. This is the thing a user sees:
-    // real nodes in, real doors out, on a model that populates every tier.
-    const before = tiersOf(withGhostTiers(richModel(), frontierFor('idle').tiers))
-    const after = tiersOf(withGhostTiers(richModel(), frontierFor('complete').tiers))
-    expect(before).toEqual(['factor', 'option', 'outcome', 'risk'])
-    expect(after).toEqual(['option', 'risk'])
   })
 
   it('is not a constant — the two phases do not return the same frontier', () => {
@@ -159,7 +152,175 @@ describe('the frontier survives the answer, and changes its questions', () => {
   })
 })
 
-describe('the post-analysis prompts are about the RESULT, not about the model', () => {
+/**
+ * ⭐⭐ THE DOORS THE MOUNT ACTUALLY PRODUCES — the M4 repair.
+ *
+ * ── WHAT WAS WRONG, MEASURED ──
+ *
+ * This file's density claim used to be `withGhostTiers(richModel(), GHOST_TIERS)`
+ * — i.e. `withGhostTiers` called with its DEFAULT tier set. The mount never did
+ * that. It filtered the option tier OUT (`t.siblingType !== 'option'`) and
+ * supplied the option door separately, as the legacy `ghost-option` node with
+ * `data: {}`. `withGhostTiers` was called with its default set nowhere in the
+ * product — only here.
+ *
+ * ⚠ THE CONSEQUENCE, PROVEN BY MUTATION: deleting the legacy option door from
+ * the mount left **46/46 GREEN**. Pre-analysis would have gone from 4 doors to
+ * 3 — losing the OPTION door, the most valuable tier and the one the whole
+ * frontier grew out of — and nothing in this suite would have moved. A spec
+ * green about a path the canvas does not take is this estate's signature test
+ * defect, and it was sitting in the file written to end exactly that.
+ *
+ * ── THE REPAIR ──
+ *
+ * The composition moved out of `ReactFlowGraph`'s `useMemo` into
+ * `composeFrontier`, and every count below calls THAT. The mount and the spec
+ * are now the same function, so there is no second path left to drift — which
+ * is a stronger property than any additional assertion against the old split.
+ *
+ * These are also the COUNT assertions the review found missing (F1): the
+ * pre-analysis frontier's content was pinned byte-for-byte, but nothing said
+ * how many doors it produced.
+ */
+describe('the doors the MOUNT actually produces', () => {
+  const doorsOf = (nodes: Node[]) => nodes.filter((n) => isGhostNode(n.id))
+  /**
+   * Which tier a door belongs to, ACROSS BOTH DOOR KINDS.
+   *
+   * ⚠ THE LEGACY NODE CARRIES NO `tier` — its `data` is literally `{}`, which
+   * is precisely why the deleted `tiersOf` helper (which read `data.tier` and
+   * nothing else) could not see it, and why deleting the door was invisible.
+   * Its tier is carried by its TYPE instead.
+   */
+  const tierKeyOf = (n: Node) =>
+    n.type === 'ghost-option' ? 'option' : ((n.data as { tier?: string }).tier ?? '(none)')
+
+  it('PRE-ANALYSIS: FOUR doors, one per tier — the count, not just the content', () => {
+    const doors = doorsOf(composeFrontier(richModel(), 'idle'))
+    expect(doors).toHaveLength(4)
+    expect(doors.map(tierKeyOf).sort()).toEqual(['factor', 'option', 'outcome', 'risk'])
+  })
+
+  it('PRE-ANALYSIS: the option door is the LEGACY node, and deleting it REDS here', () => {
+    // ⭐ THIS IS THE ASSERTION THAT WAS MISSING. The mutant is
+    // `withGhostTiers([...nodes, ghostNode], tierGhosts)` →
+    // `withGhostTiers(nodes, tierGhosts)`: one argument, four doors to three,
+    // previously 46/46 green.
+    //
+    // Bound by IDENTITY — id AND node type — not by "there are some doors".
+    // The type matters on its own: routing this door through `ghost-tier`
+    // would silently make it model-aware, which is a real improvement and a
+    // SEPARATE change, so a quiet swap should red rather than pass.
+    const optionDoors = doorsOf(composeFrontier(richModel(), 'idle')).filter(
+      (n) => n.id === GHOST_OPTION_NODE_ID,
+    )
+    expect(optionDoors).toHaveLength(1)
+    expect(optionDoors[0].type).toBe('ghost-option')
+  })
+
+  it('PRE-ANALYSIS: THE MOUNT PATH ITSELF — no tier is served twice', () => {
+    // ⚠ THIS IS THE "assert the mount path so the binding fails loud if a tier
+    // filter moves" half. Drop `tiers.filter(t => t.siblingType !== 'option')`
+    // and the option tier is served BOTH by the legacy node and by
+    // `withGhostTiers` — two React Flow nodes sharing `GHOST_OPTION_NODE_ID`.
+    // The count assertion above cannot see that on its own (it would read 5 and
+    // could be "fixed" by loosening it); a duplicate-id assertion can.
+    const doors = doorsOf(composeFrontier(richModel(), 'idle'))
+    expect(new Set(doors.map((n) => n.id)).size).toBe(doors.length)
+    expect(doors.filter((n) => tierKeyOf(n) === 'option')).toHaveLength(1)
+  })
+
+  it('POST-ANALYSIS: TWO doors, both model-aware, and the legacy node is gone', () => {
+    // The headline capability, at the mount rather than at the tier table. The
+    // mutant this closes is the post-analysis branch returning `nodes`
+    // unchanged — the exact defect this PR exists to fix, previously invisible.
+    const doors = doorsOf(composeFrontier(richModel(), 'complete'))
+    expect(doors).toHaveLength(2)
+    expect(doors.map(tierKeyOf).sort()).toEqual(['option', 'risk'])
+    expect(doors.every((n) => n.type === 'ghost-tier')).toBe(true)
+    // ⚠ MODEL-AWARE, BOUND PER DOOR BY IDENTITY. My first attempt here asserted
+    // every door named 'Segment' and RED — correctly: the risk door names the
+    // RISKS. A door that named another tier's members would be describing the
+    // wrong part of the model back to the user, so each is bound to its own.
+    const promptOf = (tier: string) =>
+      (doors.find((n) => tierKeyOf(n) === tier)!.data as { prompt?: string }).prompt ?? ''
+    expect(promptOf('option')).toContain('Segment')
+    expect(promptOf('risk')).toContain('Migration overruns')
+    // CONTRAST CONTROL: not merely "contains some label" — the wrong tier's
+    // members must be ABSENT, which is what makes the two lines above bind.
+    expect(promptOf('option')).not.toContain('Migration overruns')
+    expect(promptOf('risk')).not.toContain('Segment')
+    // And both are the post-analysis sentence, not the pre-analysis one.
+    expect(promptOf('option')).toContain('I have run an analysis')
+    expect(promptOf('risk')).toContain('I have run an analysis')
+  })
+
+  it('DENSITY AT THE MOUNT: the frontier after a result is strictly smaller', () => {
+    // The bar this change was held to — more useful and no busier — measured
+    // in doors a user would get rather than in tier definitions.
+    expect(doorsOf(composeFrontier(richModel(), 'complete')).length).toBeLessThan(
+      doorsOf(composeFrontier(richModel(), 'idle')).length,
+    )
+  })
+
+  it('CONTRAST CONTROL: a model with no options still gets its other doors', () => {
+    // The global `if (optionNodes.length === 0) return nodes` that used to
+    // swallow every tier's door. Without this, the counts above are equally
+    // satisfied by a mount that gives up whenever options are absent — which is
+    // the sparse, early-stage model the frontier is worth most on.
+    const noOptions = richModel().filter((n) => n.type !== 'option')
+    const doors = doorsOf(composeFrontier(noOptions, 'idle'))
+    expect(doors.map(tierKeyOf).sort()).toEqual(['factor', 'outcome', 'risk'])
+    expect(doors.map(tierKeyOf)).not.toContain('option')
+  })
+
+  it('leaves the real model untouched — every input node survives, in order', () => {
+    const input = richModel()
+    const out = composeFrontier(input, 'complete')
+    expect(out.filter((n) => !isGhostNode(n.id)).map((n) => n.id)).toEqual(input.map((n) => n.id))
+  })
+
+  it('ADDS NOTHING TO THE MODEL: every door is unselectable and undraggable', () => {
+    for (const status of ['idle', 'complete']) {
+      for (const door of doorsOf(composeFrontier(richModel(), status))) {
+        expect(door.selectable).toBe(false)
+        expect(door.draggable).toBe(false)
+        expect(door.connectable).toBe(false)
+      }
+    }
+  })
+})
+
+/**
+ * ⭐ WHAT THE POST-ANALYSIS PROMPTS ARE DERIVED FROM — named accurately, after
+ * this block asserted the reverse of what the code does.
+ *
+ * ⚠ THE OLD NAME WAS `the post-analysis prompts are about the RESULT, not about
+ * the model`, and an independent review measured it as backwards. The prompts
+ * are built from the MODEL — the tier inventory and the subject — and SELECTED
+ * by the PHASE (`results.status === 'complete'`). They never read the outcome:
+ * a run where one option wins by a mile and a run that ends in a dead heat emit
+ * BYTE-IDENTICAL door prompts. The only result-derived content in either
+ * sentence is the constant "I have run an analysis", which is a restatement of
+ * the status that chose the set.
+ *
+ * ── THE CHOICE MADE, STATED RATHER THAN LEFT IMPLICIT ──
+ *
+ * The review offered two exits: rename the block to what is true, or make the
+ * prompts genuinely outcome-derived (the data IS reachable — `rawV2Response`,
+ * `v5AnalysisFact`). **This lane renames.** Not because the other is hard, but
+ * because it is a different change with a different risk: an outcome-derived
+ * sentence puts a CLAIM about the result into a message that lands in the
+ * user's transcript attributed to the user, and `ghostTiers.ts`'s standing line
+ * is that this file states only what is demonstrably there and asks. Crossing
+ * it wants the producer's fields checked for a real producer, its own review,
+ * and its own witness — not a free ride on a mount fix. Rowed, not smuggled in.
+ *
+ * A rename alone would be prose, so the limit is PINNED below: a prompt that
+ * grew an outcome argument reds here rather than quietly making this comment
+ * stale.
+ */
+describe('the post-analysis prompts are PHASE-derived and MODEL-derived — they do not read the outcome', () => {
   const ctx = { namedSiblings: ['Segment', 'Rudderstack'], siblingCount: 2, subject: 'Replace our CDP' }
   const promptFor = (tiers: readonly { siblingType: string; prompt: (c: typeof ctx) => string }[], t: string) =>
     tiers.find((x) => x.siblingType === t)!.prompt(ctx)
@@ -198,6 +359,30 @@ describe('the post-analysis prompts are about the RESULT, not about the model', 
     expect(GHOST_TIERS.every((t) => t.variant === 'extend')).toBe(true)
   })
 
+  it('DOES NOT READ THE OUTCOME — the limit this block is named for, pinned', () => {
+    // ⚠ WHAT THIS ASSERTS AND WHAT IT DOES NOT. It cannot show that two
+    // opposite results produce the same sentence, because the sentence has no
+    // way to see a result at all — and that absence IS the claim. So it is
+    // asserted structurally, in the two places an outcome could enter:
+    //
+    //   (a) the prompt takes exactly ONE argument, the model context. An
+    //       outcome parameter would change the arity and red here — the same
+    //       instrument that stops `viewMode` returning to `frontierFor`.
+    for (const t of POST_ANALYSIS_TIERS) expect(t.prompt).toHaveLength(1)
+    //   (b) it is a pure function of that context: the same model gives the
+    //       same sentence, so nothing outcome-shaped is being read from
+    //       elsewhere (a module-level store, a global) behind the argument.
+    for (const t of POST_ANALYSIS_TIERS) {
+      expect(t.prompt({ ...ctx })).toEqual(t.prompt({ ...ctx }))
+    }
+    // CONTRAST CONTROL for (b): the sentence is not a constant either — change
+    // the model and it changes. Without this, a `prompt` that ignored its
+    // argument entirely would satisfy the equality above.
+    expect(POST_ANALYSIS_TIERS[0].prompt({ ...ctx, siblingCount: 9 })).not.toEqual(
+      POST_ANALYSIS_TIERS[0].prompt({ ...ctx }),
+    )
+  })
+
   it('the variant reaches the rendered node, not just the tier table', () => {
     // A variant nothing carries onto the node decides nothing — the
     // `enableGhostSuggestions` shape this file was rewritten to stop repeating.
@@ -234,60 +419,61 @@ describe('doors are actually produced for a real model', () => {
 })
 
 /**
- * ⭐ THE RESIDUAL GAP, CLOSED AS FAR AS A UNIT TEST CAN AND NAMED WHERE IT
- * CANNOT.
+ * ⭐ THE RESIDUAL GAP — SMALLER THAN IT WAS, AND STILL NAMED WHERE IT REMAINS.
  *
- * Everything above calls `frontierFor()` and `withGhostTiers()` directly.
- * That makes the suite sensitive to what those two functions DO — which is
- * exactly what the old source-text spec lacked. But the mount calls neither
- * directly in a test's presence, so **nothing above would fail if
- * `ReactFlowGraph` stopped calling them.** Delete the call site and every
- * assertion in this file still passes.
+ * Everything above calls `composeFrontier()` directly. Since the mount's whole
+ * composition now LIVES in that function, the two mutants that used to survive
+ * inside `ReactFlowGraph` — deleting the legacy option door (M4), and the
+ * post-analysis branch returning `nodes` (M5) — are now behavioural failures
+ * up there. That is the substantive part of the close, and it came from moving
+ * the code rather than from adding assertions.
  *
- * That is not hypothetical in this repo: an independent review found the same
- * shape in UI #1057 the same evening — a wiring spec that called its function
- * directly, so mutating the single line that invoked it left 143 tests green.
+ * ⚠ WHAT SOURCE IS STILL THE ONLY INSTRUMENT FOR. Whether `ReactFlowGraph`
+ * REACHES `composeFrontier` is a property of the mount, and nothing in this
+ * repo renders `ReactFlowGraph` — both existing "mount path" specs are
+ * source-text specs like this one. A rendering harness is a lane, not a line.
  *
- * So the call-site binding is asserted from SOURCE, and this is the one claim
- * source is the right instrument for: whether a line exists is a property of
- * the file, not of a function's behaviour. What it does NOT prove is that the
- * line executes, or under what conditions.
+ * So the binding is tightened as far as source can go, and the shape of the
+ * remaining hole is stated precisely rather than implied to be closed:
  *
- * ⚠ WHAT IS STILL OWED, and a review has now measured exactly how much.
+ *   PROVEN HERE  the frontier memo IS the `composeFrontier` call — not a call
+ *                sitting beside a `return nodes`, not a call in a comment, and
+ *                not a call whose result is discarded. The memo body is pinned
+ *                as a single expression, which is why `ReactFlowGraph` is
+ *                written that way and must stay that way.
+ *   PROVEN HERE  the memo re-runs when the analysis status changes. Drop
+ *                `resultsStatus` from the dependency array and the frontier
+ *                would freeze at whatever it was when the nodes last changed —
+ *                the post-analysis doors would never arrive. That is a real
+ *                and quiet failure of exactly this PR's capability.
+ *   NOT PROVEN   that the memo executes at runtime, i.e. that this component
+ *                mounts and React evaluates it.
  *
- * Stripping comments closes ONE of the two holes: the call is now proven to be
- * live code rather than prose. It does NOT prove the mount EXECUTES it. The
- * reviewer's mutant was a comment PLUS an unconditional `return nodes`, and only
- * the first half is caught here — a live call sitting in a branch that never
- * fires would still pass, which is precisely the shape that made the original
- * defect invisible.
- *
- * The close is a CALL-COUNT assertion against a mocked module, since a comment
- * cannot satisfy a call count and neither can an unreached branch. That needs a
- * harness that renders the graph, and NOTHING in this repo renders
- * `ReactFlowGraph` today — both existing "mount path" specs are source-text
- * specs like this one. So it is a lane, not a line, and it is named here rather
- * than implied to be done.
- *
- * Read this file as: behaviour of the two functions, PROVEN; the call site is
- * live code, PROVEN; the mount reaches it, NOT PROVEN.
+ * ⚠ THE LAST LINE IS A DEPLOY-VERIFY OBLIGATION, NOT A TEST DEBT TO SHRUG AT.
+ * `frontierFor`/`composeFrontier` returning the right doors is not evidence
+ * that a user sees them, and jsdom cannot make that claim either. The rung this
+ * PR reaches on merge is DEPLOYED; the claim "the frontier survives the answer"
+ * is only WIRE/JOURNEY-WITNESSED once staging is driven: run an analysis to
+ * completion, then read the canvas for two `[data-testid="ghost-tier-node"]`
+ * doors carrying `data-variant="challenge"`, in Standard view, at zoom 1.0 —
+ * the same measurement that produced the original "4 before, 0 after" finding.
+ * Until that is done the capability claim stays at DEPLOYED and says so.
  */
-describe('the mount still calls the functions this file tests', () => {
+describe('the mount still calls the function this file tests', () => {
   const GRAPH = resolve(__dirname, '../../ReactFlowGraph.tsx')
 
   /**
    * ⚠ COMMENTS STRIPPED, AND THIS IS THE WHOLE POINT OF THE HELPER.
    *
-   * Without it, `/frontierFor\s*\(/` matches a call sitting inside a
-   * COMMENT. A review proved it by mutation: it replaced the gate with a comment
-   * carrying the same call text plus an unconditional `return nodes` — frontier
-   * completely dead, no door ever produced — and all three tests below stayed
-   * GREEN. Delta pristine to dead-frontier: zero.
+   * Without it, `/composeFrontier\s*\(/` matches a call sitting inside a
+   * COMMENT. A review proved it by mutation on the previous shape: it replaced
+   * the gate with a comment carrying the same call text plus an unconditional
+   * `return nodes` — frontier completely dead, no door ever produced — and all
+   * three tests below stayed GREEN. Delta pristine to dead-frontier: zero.
    *
-   * The irony is worth recording rather than quietly fixing: the spec I DELETED
-   * to write this one had a `codeOnly()` helper doing exactly this, and I
-   * dropped it while removing that file's real defect. Its comment-stripping was
-   * the sound half of a spec whose fault lay elsewhere.
+   * It matters more now, not less: the mount's explanatory comment NAMES both
+   * `composeFrontier` and `withGhostTiers`, so an unstripped read would match
+   * on prose alone.
    */
   const source = (): string => {
     const text = readFileSync(GRAPH, 'utf8')
@@ -304,8 +490,27 @@ describe('the mount still calls the functions this file tests', () => {
     return code
   }
 
-  it('invokes frontierFor', () => {
-    expect(source()).toMatch(/frontierFor\s*\(/)
+  it('invokes composeFrontier', () => {
+    expect(source()).toMatch(/composeFrontier\s*\(/)
+  })
+
+  it('the frontier memo IS that call — not a call standing next to a dead branch', () => {
+    // ⚠ THE HALF THE PREVIOUS VERSION COULD NOT REACH. The reviewer's mutant
+    // was a live call PLUS an unconditional `return nodes`; "the symbol appears
+    // in code" cannot see that, because both are code. Pinning the memo as a
+    // single expression can: any statement body reds here.
+    expect(source()).toMatch(
+      /useMemo\(\s*\(\s*\)\s*=>\s*composeFrontier\s*\(\s*nodes\s*,\s*resultsStatus\s*\)\s*,/,
+    )
+  })
+
+  it('the memo re-runs when the analysis completes — resultsStatus is a dependency', () => {
+    // Omit it and the doors never change phase: the post-analysis frontier
+    // would arrive only if the node list happened to change too. Silent, and
+    // fatal to this PR's whole point.
+    expect(source()).toMatch(
+      /composeFrontier\s*\(\s*nodes\s*,\s*resultsStatus\s*\)\s*,[\s\S]{0,200}?\[\s*nodes\s*,\s*resultsStatus\s*\]/,
+    )
   })
 
   it('does NOT still call the gate this change replaced', () => {
@@ -317,16 +522,27 @@ describe('the mount still calls the functions this file tests', () => {
     expect(source()).not.toMatch(/frontierIsVisible\s*\(/)
   })
 
-  it('invokes withGhostTiers', () => {
-    expect(source()).toMatch(/withGhostTiers\s*\(/)
+  it('COMPOSITION HAS ONE HOME — the mount does not build a door of its own', () => {
+    // ⭐ THIS IS THE GUARD AGAINST M4 COMING BACK. The defect was not that the
+    // legacy door was wrong; it was that it was built at a SECOND site the spec
+    // could not see. If a door is ever constructed in `ReactFlowGraph` again,
+    // this reds — before it has a chance to go untested.
+    expect(source()).not.toMatch(/'ghost-option'|"ghost-option"/)
+    expect(source()).not.toMatch(/'ghost-tier'|"ghost-tier"/)
+    expect(source()).not.toMatch(/withGhostTiers\s*\(/)
+    expect(source()).not.toMatch(/GHOST_OPTION_NODE_ID/)
   })
 
   it('POSITIVE CONTROL: the same probe finds a symbol that is genuinely absent', () => {
-    // Proves the two assertions above can FAIL. Without it, a regex that never
-    // matches anything would pass them both by matching nothing — the exact
-    // vacuity that let the previous version of this file stay green while the
-    // prop it asserted decided nothing.
-    expect(source()).not.toMatch(/frontierForV99Fabricated\s*\(/)
-    expect(source()).toMatch(/withGhostTiers\s*\(/)
+    // Proves the assertions above can FAIL. Without it, a regex that never
+    // matches anything would pass every negative by matching nothing — the
+    // exact vacuity that let the previous version of this file stay green while
+    // the prop it asserted decided nothing.
+    //
+    // ⚠ AND THE CONTRAST HALF: the negatives above are only evidence of absence
+    // if the same probe returns a HIT on a same-family symbol that is genuinely
+    // present. `useMemo` is present in this file many times over.
+    expect(source()).not.toMatch(/composeFrontierV99Fabricated\s*\(/)
+    expect(source()).toMatch(/useMemo\s*\(/)
   })
 })

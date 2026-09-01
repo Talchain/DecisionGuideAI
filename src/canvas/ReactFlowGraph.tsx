@@ -78,9 +78,9 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
-import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
+import { excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
-import { withGhostTiers, frontierFor, ghostOptionPrompt } from './utils/ghostTiers'
+import { composeFrontier } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -721,101 +721,31 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // dangling — a store subscription nothing reads still re-renders this
   // 2,700-line component on every view toggle.
 
-  // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
-  const nodesWithGhost = useMemo(() => {
-    /*
-     * ⭐ THE FRONTIER SURVIVES THE ANSWER — it changes its questions instead.
-     *
-     * This used to read `if (!frontierIsVisible(resultsStatus, viewMode))
-     * return nodes`, which removed every door after an analysis in every view
-     * but Expert: measured live at `65866cd7`, 4 doors before a run and 0 after
-     * it at zoom 1.0. The team lost "what might we be missing?" at the one
-     * moment they most need it.
-     *
-     * `frontierFor` is now the single authority — see its header for why the
-     * original gate was right about its own door and wrong about these four,
-     * and why view mode no longer decides anything here.
-     */
-    const { tiers, usesLegacyOptionDoor } = frontierFor(resultsStatus)
-    if (tiers.length === 0) return nodes
-
-    /*
-     * Post-analysis the option door must carry a prompt built from the model
-     * AND the run, so it comes from `withGhostTiers` like every other tier.
-     * The pre-analysis path below is the legacy `ghost-option` node and is
-     * deliberately untouched — see `FrontierPosture.usesLegacyOptionDoor`.
-     */
-    if (!usesLegacyOptionDoor) return withGhostTiers(nodes, tiers)
-
-    /*
-     * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
-     *
-     * `withGhostTiers` decides tier by tier, and refuses a door on a tier with
-     * no members for a stated reason: a ghost on an empty tier would assert the
-     * tier OUGHT to have members, which is a judgement this affordance exists
-     * not to make. That per-tier care was then defeated by a global
-     * `if (optionNodes.length === 0) return nodes` above it — inherited from
-     * when the options ghost was the ONLY ghost, and correct then.
-     *
-     * Since the frontier reached factors, risks and outcomes it is no longer
-     * correct: a model with factors and risks but no options got no door on any
-     * tier, including the tiers that had members. The doors disappeared exactly
-     * when the model was sparsest, which is when an invitation is worth most.
-     *
-     * The OPTIONS ghost still needs an option node — its position is derived
-     * from the rightmost one — so that part of the gate stays, scoped to itself.
-     */
-    const tierGhosts = tiers.filter((t) => t.siblingType !== 'option')
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    if (optionNodes.length === 0) return withGhostTiers(nodes, tierGhosts)
-
-    // Find rightmost option position, accounting for node width
-    const maxX = Math.max(...optionNodes.map(n => n.position?.x ?? 0))
-    const sameY = optionNodes.find(n => (n.position?.x ?? 0) === maxX)
-    const ghostY = sameY?.position?.y ?? 0
-    // Measure: node width (from ELK) + node spacing (60 default)
-    const measuredW = (sameY as any)?.measured?.width ?? (sameY as any)?.width ?? 200
-    const ghostGap = measuredW + 60
-
-    /*
-     * ⭐ THE SENTENCE TRAVELS WITH THE NODE — this door used to carry `data: {}`.
-     *
-     * `GhostOptionNode` cannot see the graph, so an empty data bag left it
-     * nothing to say and it fell back to a hardcoded "Suggest an additional
-     * option I haven't considered for this decision" — verbatim the generic line
-     * `ghostTiers.ts` holds up as the bad example, still live on the one door
-     * that matters most. It is composed HERE, from the same tier table and the
-     * same builder every other door uses (`ghostOptionPrompt`), rather than in
-     * the component: a door should not re-derive the model it is standing in,
-     * and two derivations of one list is how they come to disagree.
-     */
-    const ghostNode = {
-      id: GHOST_OPTION_NODE_ID,
-      type: 'ghost-option' as const,
-      position: { x: maxX + ghostGap, y: ghostY },
-      data: { prompt: ghostOptionPrompt(nodes) },
-      selectable: false,
-      draggable: false,
-      connectable: false,
-    }
-
-    /*
-     * ⭐ THE FRONTIER EXISTS ON EVERY TIER, NOT ONLY ON OPTIONS.
-     *
-     * The options ghost was the most reasoning-shaped affordance already on the
-     * canvas — an open door that asks Olumi to help you think of something the
-     * model does not contain — and it existed on one tier of four. The graph
-     * showed what IS there and had no way to represent what might be missing,
-     * which is where the thinking actually happens.
-     *
-     * These are invitations, not assessments: the product does not claim a risk
-     * is missing, it just leaves the door open where one would go. Each is
-     * excluded from the fit and from every model count by the shared `__ghost-`
-     * prefix, so they cannot inflate what the graph appears to contain.
-     */
-    return withGhostTiers([...nodes, ghostNode], tierGhosts)
+  /*
+   * ⭐ THE FRONTIER SURVIVES THE ANSWER — it changes its questions instead.
+   *
+   * This used to read `if (!frontierIsVisible(resultsStatus, viewMode))
+   * return nodes`, which removed every door after an analysis in every view
+   * but Expert: measured live at `65866cd7`, 4 doors before a run and 0 after
+   * it at zoom 1.0. The team lost "what might we be missing?" at the one
+   * moment they most need it.
+   *
+   * ⚠ THE WHOLE COMPOSITION MOVED TO `composeFrontier`, AND THAT IS THE FIX,
+   * NOT TIDYING. While the legacy `ghost-option` door was built HERE and the
+   * spec approximated the mount as `withGhostTiers(richModel(), GHOST_TIERS)`,
+   * deleting that door left 46/46 green — pre-analysis would have dropped from
+   * 4 doors to 3 unobserved. The spec now calls the same function this line
+   * does, so there is no second path left to drift. See `composeFrontier`.
+   *
+   * ⚠ KEEP THIS MEMO A SINGLE CALL. `ghostSuggestionsMountPath.spec.ts` pins
+   * the memo's SHAPE from source, because a live call sitting in a branch that
+   * never fires is exactly what made the original defect invisible.
+   */
+  const nodesWithGhost = useMemo(
+    () => composeFrontier(nodes, resultsStatus),
     // `viewMode` is deliberately absent: the frontier no longer varies with it.
-  }, [nodes, resultsStatus])
+    [nodes, resultsStatus],
+  )
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
