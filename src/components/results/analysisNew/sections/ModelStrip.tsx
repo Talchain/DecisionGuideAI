@@ -154,7 +154,7 @@ import { useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
-import { ATTENTION_LABEL } from '../../../../canvas/model-tab-v2/rowPresentation'
+import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
@@ -776,18 +776,24 @@ export function ModelStrip({
                 </span>
               ) : null}
               {/* ⭐ THE ONE FACT ON THIS DETAIL THE MARK CANNOT ALREADY SHOW.
-                  The sentence is `ATTENTION_LABEL`'s, imported from the
-                  surface that owns the same predicate rather than respelled
-                  here — two spellings of one state is the mirror this estate
-                  pays for (CLAUDE.md trap 12), and it would put the strip and
-                  the Model tab's own row marker in disagreement about one
-                  factor. */}
+                  The sentence is `domain/vocabulary`'s, shared with the Model
+                  tab's own row marker rather than respelled here — two
+                  spellings of one state is the mirror this estate pays for
+                  (CLAUDE.md trap 12), and it would put the two surfaces in
+                  disagreement about one factor.
+
+                  ⚠ IT LIVES IN `domain/` AND NOT IN `model-tab-v2/`, WHERE IT
+                  WAS AUTHORED, BECAUSE THAT DIRECTORY IS SEALED. Its boundary
+                  guard permits exactly one outside reference — its named mount
+                  host — since a second reference is a second mount path. The
+                  first draft of this component imported straight through that
+                  door and the guard caught it, which is what it is for. */}
               {active.needsCheck ? (
                 <span
                   className={`${typography.panelMeta} inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-warning`}
                   data-testid={`${testId}-detail-verify`}
                 >
-                  {ATTENTION_LABEL['unconfirmed-estimate']}
+                  {UNCONFIRMED_ESTIMATE_LABEL}
                 </span>
               ) : null}
             </div>

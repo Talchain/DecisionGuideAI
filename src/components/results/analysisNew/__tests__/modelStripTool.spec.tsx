@@ -62,7 +62,7 @@ vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { clearHighlight } from '../../../../canvas/utils/highlightHelpers'
-import { ATTENTION_LABEL } from '../../../../canvas/model-tab-v2/rowPresentation'
+import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import { ModelStrip } from '../sections/ModelStrip'
 import { MARK_CAP } from '../buildModelStrip'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -363,7 +363,7 @@ describe('⭐ the detail can be acted on — the measured gap', () => {
     // (trap 12), and it would put this chip and the Model tab's row marker in
     // disagreement about one factor.
     expect(screen.getByTestId(`${TID}-detail-verify`)).toHaveTextContent(
-      ATTENTION_LABEL['unconfirmed-estimate'],
+      UNCONFIRMED_ESTIMATE_LABEL,
     )
   })
 
