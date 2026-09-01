@@ -62,13 +62,27 @@ export function NodeMetricRow({
 
   return (
     <div className="mt-1 flex items-center gap-1.5" data-testid={testId}>
-      {/* ⚠ UPPERCASE IN CSS, NOT IN THE STRING. `text-transform` does not change
-          `textContent`, so each node keeps the exact noun it already shipped —
-          `getByText('strength')` still matches — while every caption on the
-          board renders as one micro-label. Changing the strings instead would
-          have rewritten copy that UI-SEM-089 pins, to win a styling argument. */}
+      {/* ⚠ SENTENCE CASE, AND THE DESIGN-SYSTEM GUARD WAS RIGHT TO INSIST.
+          The first cut set a text-transform here and argued it carefully:
+          transform in CSS rather than in the string, so `textContent` keeps the
+          noun each node already shipped and UI-SEM-089's pinned copy survives.
+          The argument was sound and answered the wrong question — the design
+          system forbids that transform outright (`ci:guard:ds`), and it blocked
+          this as a NET-NEW violation.
+
+          It was also the wrong call on its own terms. `FactorNode`'s influence
+          row already ships this exact shape in sentence case
+          (`w-14 shrink-0 text-text-light`), and this component exists to make
+          the four node types agree. Styling it differently would have made the
+          row that unifies them the one that matched none of them. The classes
+          below are now byte-identical to the row this replaces.
+
+          ⚠ AND A NOTE FOR WHOEVER TRIPS THIS NEXT: the guard scans SOURCE TEXT,
+          so it fired again on the first version of THIS comment, which merely
+          quoted the class it was explaining. A rule that cannot tell a use from
+          a mention will read your explanation as the offence. Rowed. */}
       <span
-        className={`${typography.edgeLabel} w-14 shrink-0 uppercase tracking-[0.06em] text-text-light`}
+        className={`${typography.edgeLabel} w-14 shrink-0 text-text-light`}
         aria-hidden="true"
       >
         {label}
