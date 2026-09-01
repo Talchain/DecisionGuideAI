@@ -169,6 +169,43 @@ export const ANALYSIS_NEW_COPY = {
       n === 1 ? '1 more with no name recorded' : `${n} more with no name recorded`,
   },
 
+  /**
+   * PANEL → CANVAS. The strings that describe an ACT, never a finding.
+   *
+   * ⚠ THE ACCESSIBLE NAME IS THE ONLY CARRIER OF THIS AFFORDANCE, AND THAT IS
+   * WHY IT IS A REAL STRING RATHER THAN A `title`. The old Analysis tab states
+   * the same contract in a `Tooltip` on a card that is focusable ONLY when a
+   * flag is on (`OptionCards.tsx:720-721` — `tabIndex={onClick ? 0 : undefined}`),
+   * so with the flag off the sentence is reachable by mouse hover and by
+   * nothing else. Keyboard and touch users are told nothing at all. Here the
+   * row is always focusable and the sentence is its `aria-label`.
+   */
+  canvas: {
+    /**
+     * What activating an option row does, per row, with the option NAMED.
+     *
+     * ⚠ "Show … on the canvas" — NOT "open the inspector", which is what the
+     * old tab's tooltip promises. That promise is not kept anywhere: the click
+     * handler it sits beside toggles a graph LENS (`OptionCards.tsx:1444`
+     * → `handleLensClick`), and the estate's actual inspector helper
+     * (`openNodeInspector`) is not on that path — `OptionCards.tsx:1084-1098`
+     * says so in its own comment. Copying the sentence across would have
+     * imported a false promise into a second surface.
+     */
+    focusOption: (label: string) => `Show ${label} on the canvas`,
+    /**
+     * Fail-closed notice when the option's node is no longer on the canvas —
+     * a recovered session with different ids, or a node deleted between render
+     * and click (`decisionVerdict.spec.ts:156` pins that this happens).
+     *
+     * ⚠ VERBATIM THE ESTATE'S EXISTING SENTENCE for this exact condition
+     * (`strengthen/strengthenCopy.ts:51` `focusFailedNotice`, and
+     * `AskOlumiDrawer.tsx:151`). A third wording for one condition is how a
+     * user learns that two surfaces mean different things by it.
+     */
+    focusFailed: 'That element is no longer on the canvas',
+  },
+
   /** At a glance. Every string here is furniture — none describes the analysis. */
   strengthen: {
     /** Chip text when the producer attested grounding but named no strength. */
