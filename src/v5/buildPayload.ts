@@ -38,6 +38,11 @@ import type { SystemEvent } from '../canvas/conversation/types'
 // that produces them — restating them here would be a mirror, and a drifted
 // copy would put a 422-shaped id on the wire.
 import { isCanonicalEndpointId } from '../canvas/mutations/structuralDelete'
+import {
+  isWireUsableLabel,
+  isWireUsableNodeId,
+  type StructuralRenameWireEvent,
+} from '../canvas/mutations/structuralRename'
 // VALUE import, and deliberately so: the selection this module puts on the wire
 // must be the one the canvas holds AT SEND TIME, read at the moment the payload
 // is built. Passing it in from useConversation would be purer, but the store is
@@ -403,6 +408,11 @@ function systemEventToPayload(args: {
     }
     case 'structural_delete': {
       const event = adaptStructuralDelete(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
+    case 'structural_rename': {
+      const event = adaptStructuralRename(eventPayload)
       if (event === null) return null
       return { ...base, event }
     }
@@ -869,6 +879,60 @@ function adaptStructuralDelete(
   if (removed_node_ids.length === 0 && removed_edges.length === 0) return null
 
   return { kind: 'structural_delete', removed_node_ids, removed_edges, base_graph_hash }
+}
+
+/**
+ * `structural_rename` (0.50.0) — the durable label write.
+ *
+ * FAIL-CLOSED ON THE CONTRACT'S OWN RULES, checked here rather than trusted from
+ * the caller, for the reason `adaptStructuralDelete` states: every member of
+ * this union is `.strict()` and the union is discriminated, so one malformed
+ * field does not lose the field, it loses the WHOLE TURN at CEE's ingress (422).
+ * The rules re-applied here are the schema's, not invented ones:
+ *
+ *   · `node_id` is `CanonicalEdgeEndpointIdSchema` — non-blank, no surrounding
+ *     whitespace, never a `→`/`->` composite. ⚠ AND DELIBERATELY NOT the
+ *     lowercase `NodeV3Schema.shape.id` regex: the contract's own note says
+ *     narrowing an EXISTING-id field that way "would refuse live nodes", because
+ *     "CEE's persisted GraphV3 is the authority and its deployed node ids are
+ *     open strings". Narrowing here is a silent capability loss, not safety.
+ *   · `label` and `expected_label` are both `NodeV3Schema.shape.label`, i.e.
+ *     `min(1).max(200)`. The UI's own input cap is 100 — strictly inside it — so
+ *     a value can clear the input and still be refused here only if it arrived
+ *     from somewhere other than the input, which is exactly when we want a
+ *     stand-down rather than a 422.
+ *   · `base_graph_hash` is `z.string().min(1)` — absent, null and empty are all
+ *     forbidden; the stale gate is non-optional.
+ *   · `refineStructuralRename` — `label === expected_label` is refused, because
+ *     "a structural_rename to the label it already has is a no-op".
+ *
+ * ⚠ `expected_label` IS NOT OPTIONAL AND IS NOT REDUNDANT WITH THE HASH. `label`
+ * is absent from CEE's analysis-affecting hash projection, so two users renaming
+ * one node concurrently move NO hash: without this field the second rename
+ * silently clobbers the first, on the one field the stale gate is blind to.
+ *
+ * A `null` return routes to `unsupported_system_event`, i.e. no turn at all —
+ * the right outcome: an unsendable rename must not become a turn that claims
+ * something happened.
+ */
+function adaptStructuralRename(
+  eventPayload: Record<string, unknown> | undefined,
+): StructuralRenameWireEvent | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const node_id = eventPayload?.node_id
+  if (!isWireUsableNodeId(node_id)) return null
+
+  const label = eventPayload?.label
+  const expected_label = eventPayload?.expected_label
+  if (!isWireUsableLabel(label) || !isWireUsableLabel(expected_label)) return null
+
+  // The contract's cross-field refinement, applied before the wire so a no-op
+  // never costs a turn, a commit and two comparisons to change nothing.
+  if (label === expected_label) return null
+
+  return { kind: 'structural_rename', node_id, label, expected_label, base_graph_hash }
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown

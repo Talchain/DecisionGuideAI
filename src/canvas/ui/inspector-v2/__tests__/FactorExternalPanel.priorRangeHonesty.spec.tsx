@@ -702,8 +702,16 @@ describe('FactorExternalPanel — the read-only premise its copy leans on', () =
     expect(within(card).getByRole('button', { name: 'Uncertain' })).toBeDisabled()
 
     // The notice the copy's "read-only" defers to is on screen above it.
+    // ⚠ ASSERTED IN BOTH DIRECTIONS since schemas 0.50.0, because the notice
+    // now makes TWO claims and a single fragment could not tell them apart:
+    // the NAME saves, and the rest of the panel does not. A test that only
+    // checked the read-only half would stay green if the copy silently went
+    // back to claiming the name cannot be saved either.
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      'cannot yet be saved to the shared model',
+      "can't yet be saved",
+    )
+    expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
+      'You can rename this',
     )
   })
 })

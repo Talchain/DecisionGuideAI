@@ -348,8 +348,16 @@ describe('InspectorRouter — semantic controls fail closed without GraphV3 auth
     ])
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={onClose} />)
 
+    // ⚠ ASSERTED IN BOTH DIRECTIONS since schemas 0.50.0, because the notice
+    // now makes TWO claims and a single fragment could not tell them apart:
+    // the NAME saves, and the rest of the panel does not. A test that only
+    // checked the read-only half would stay green if the copy silently went
+    // back to claiming the name cannot be saved either.
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      'cannot yet be saved to the shared model',
+      "can't yet be saved",
+    )
+    expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
+      'You can rename this',
     )
     const boundary = document.querySelector<HTMLFieldSetElement>('fieldset[data-authority="disabled"]')
     expect(boundary).not.toBeNull()

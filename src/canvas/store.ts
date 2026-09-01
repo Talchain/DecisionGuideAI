@@ -33,6 +33,10 @@ import {
   type StructuralDeleteIntent,
 } from './mutations/structuralDelete'
 import {
+  captureStructuralRename,
+  type StructuralRenameIntent,
+} from './mutations/structuralRename'
+import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
   buildDurableDeletionNotice,
@@ -712,6 +716,13 @@ interface CanvasState {
    */
   pendingStructuralDeletes: StructuralDeleteIntent[]
   /**
+   * 0.50.0: rename gestures awaiting the wire, captured SYNCHRONOUSLY against
+   * the PRE-rename node so `expected_label` and `base_graph_hash` both describe
+   * the model the user was actually looking at. Drained by
+   * `useStructuralRenameEvents`, which is the ONE sender.
+   */
+  pendingStructuralRenames: StructuralRenameIntent[]
+  /**
    * Canvas ids the server has PROVEN removed from the saved model — written
    * ONLY from a `'proven'` `structural_delete` receipt.
    *
@@ -1142,6 +1153,25 @@ interface CanvasState {
    * drain interleaved.
    */
   takePendingStructuralDeletes: () => StructuralDeleteIntent[]
+  /** 0.50.0: the rename twin of the above — one atomic read-and-clear. */
+  takePendingStructuralRenames: () => StructuralRenameIntent[]
+  /**
+   * 0.50.0: put back a label the server refused to take.
+   *
+   * ⚠ RESTORES **TWO** FIELDS. `updateNodeLabel` also stamps
+   * `provenance: 'user_set'` on a GOAL (via `provenanceAfterHumanAuthoredLabel`),
+   * which is what clears the "From your brief" pill. Restoring only the label
+   * would leave a REFUSED rename having permanently cleared that pill — the
+   * model still holds the brief's extract while the canvas claims the user
+   * authored it. `provenanceWasPresent` distinguishes "the key was absent" from
+   * "the key held undefined", which are different bytes.
+   */
+  applyStructuralRenameRevert: (restore: {
+    nodeId: string
+    label: string
+    provenance?: unknown
+    provenanceWasPresent: boolean
+  }) => void
   /**
    * 0.48.0: put back elements the server refused to remove.
    *
@@ -1562,6 +1592,10 @@ const DECISION_CONTEXT_CLEAR = {
   // never edited. (Typed rather than left to `as const`, which would infer
   // `readonly []` and refuse to satisfy the mutable store field.)
   pendingStructuralDeletes: [] as StructuralDeleteIntent[],
+  // 0.50.0: same rule for renames — an undrained gesture names a node id in the
+  // graph it was captured against, and its `expected_label` describes that
+  // graph's label. Both are meaningless once the context has been replaced.
+  pendingStructuralRenames: [] as StructuralRenameIntent[],
   // 0.48.0: the durable-delete record names ids in ONE decision's graph.
   // Carrying it across a context replacement would guard a new canvas against
   // deletions made in a decision the user has left — and could withhold a node
@@ -1824,6 +1858,46 @@ function recordStructuralDeleteIntent(
     return { pendingStructuralDeletes: [...queued, result.intent] }
   })
   return true
+}
+
+/**
+ * Record one rename gesture for the wire, against the PRE-rename node.
+ *
+ * DELIBERATELY NOT GATED ON SUCCESS. Unlike the delete twin — which refuses the
+ * local removal outright when it cannot express it durably, because a locally
+ * removed node that resurrects on reload is the P0 that lane closed — a rename
+ * that cannot be sent still applies LOCALLY and simply claims no durability.
+ * The asymmetry is deliberate and derived from the harms: an unsent delete makes
+ * the product contradict itself on the next re-run; an unsent rename is a local
+ * display name, which is what the product did for its entire history before
+ * 0.50.0. Blocking it would be a regression bought for tidiness.
+ *
+ * ⚠ AND IT IS NOT CALLED from producer-driven writes: `captureStructuralRename`
+ * reads `_externalMutationActive`, the estate's existing name for "this is CEE's
+ * own write coming back". Echoing a server rename to the server as a user rename
+ * would be a second authority arguing with the first — and, worse here than for
+ * deletes, it would carry an `expected_label` the server itself just superseded.
+ */
+function recordStructuralRenameIntent(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  nodeId: string,
+  label: string,
+): void {
+  const state = get()
+  const result = captureStructuralRename({
+    nodesBefore: state.nodes,
+    nodeId,
+    label,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sr-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) return
+  set((s) => ({ pendingStructuralRenames: [...s.pendingStructuralRenames, result.intent] }))
 }
 
 /**
@@ -2193,6 +2267,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastServerGraphHash: null,
   // 0.48.0: no delete gestures awaiting the wire.
   pendingStructuralDeletes: [],
+  // 0.50.0: no rename gestures awaiting the wire.
+  pendingStructuralRenames: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -2357,6 +2433,21 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   updateNodeLabel: (id, label) => {
+    // 0.50.0 — CAPTURE BEFORE THE LOCAL WRITE, and that ordering is the whole
+    // point. `expected_label` is an assertion about the label the user was
+    // LOOKING AT; reading it after the local mutation would assert the label we
+    // just wrote, which always matches nothing on the server and turns the
+    // concurrency gate into a tautology that never fires.
+    //
+    // ⭐ THIS IS THE ONE CHOKEPOINT EVERY RENAME GESTURE CROSSES, which is the
+    // same reason `recordStructuralDeleteIntent` lives inside the store's delete
+    // actions rather than at a call site: the inspector title
+    // (`InspectorRouter` → `EditableLabel`), the canvas double-click
+    // (`requestNodeRename` → the same editor), the pre-analysis hero and
+    // `YourDecisionSection` all land here. Capturing at any one of them would
+    // have left the others silent — the defect `StructuralDeleteDrainHost`'s
+    // header records as having shipped dark under a fully green suite.
+    recordStructuralRenameIntent(get, set, id, label)
     pushToHistory(get, set)
     set((s) => ({
       nodes: s.nodes.map(n => {
@@ -5362,6 +5453,34 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (queued.length === 0) return []
     set({ pendingStructuralDeletes: [] })
     return queued
+  },
+
+  takePendingStructuralRenames: () => {
+    const queued = get().pendingStructuralRenames
+    if (queued.length === 0) return []
+    set({ pendingStructuralRenames: [] })
+    return queued
+  },
+
+  applyStructuralRenameRevert: (restore) => {
+    set((s) => ({
+      nodes: s.nodes.map((n) => {
+        if (n.id !== restore.nodeId) return n
+        // Annotated, not inferred: `n.data`'s inferred type is narrow, so the
+        // spread's result would not admit a `provenance` key and the two writes
+        // below would be TS2339 under the gate's stricter project.
+        const data: Record<string, unknown> = {
+          ...(n.data as Record<string, unknown>),
+          label: restore.label,
+        }
+        // "Absent" and "present with value undefined" are different bytes and
+        // only one of them is what `provenance` means, so the key is DELETED
+        // rather than written as undefined when it was not there before.
+        if (restore.provenanceWasPresent) data.provenance = restore.provenance
+        else delete data.provenance
+        return { ...n, data } as typeof n
+      }),
+    }))
   },
 
   recordDurableDeletion: (removed) => {

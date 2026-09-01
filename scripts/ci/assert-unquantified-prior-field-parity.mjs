@@ -5,9 +5,23 @@
  * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
  *
  * The UI declares the field name itself (`canvas/domain/nodes.ts`
- * `PRIOR_IS_UNQUANTIFIED_FIELD`) because it is NOT in the UI's pinned
- * `@talchain/schemas@0.48.0` and the pin must not move (CEE is on 0.50.0; a
- * skew is a hard 422 on the whole turn).
+ * `PRIOR_IS_UNQUANTIFIED_FIELD`) because it is NOT in the shared contract at all.
+ *
+ * ⚠ THIS PARAGRAPH USED TO SAY "not in the UI's pinned `@talchain/schemas@0.48.0`
+ * and the pin must not move (CEE is on 0.50.0; a skew is a hard 422)". Both
+ * halves are now wrong and the correction matters, because the second half read
+ * as a standing prohibition on an upgrade that was in fact the FIX:
+ *   · the pin HAS moved — the UI vendors 0.50.0, at parity with CEE;
+ *   · and the 422 hazard runs the OTHER WAY. Every `SystemEventSchema` member is
+ *     `.strict()` inside a discriminated union, so the turn-rejecting skew is a
+ *     UI AHEAD of CEE, never a UI behind it. A UI behind CEE cannot 422; it can
+ *     only fail to express verbs CEE already understands, which is exactly what
+ *     kept the canvas rename dark.
+ * ⭐ MEASURED, not assumed, with a contrast control: `prior_is_unquantified`
+ * returns ZERO hits across `dist/` in 0.50.0 while the sibling `prior_range_edit`
+ * returns a hit in the same sweep — a real absence rather than a blind probe. So
+ * the UI-side declaration stays, and this guard stays the only thing in the
+ * estate that reads BOTH sides.
  *
  * ⚠⚠ THE UNIT TEST THAT ASSERTS THAT CONSTANT IS A GUARD AGREEING WITH ITSELF.
  * It compares a UI constant against a UI-side literal, so **a CEE rename leaves

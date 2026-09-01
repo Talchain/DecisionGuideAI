@@ -41,6 +41,7 @@ const UI_WIRE_EVENT_TYPES = [
   'edge_adjudication',
   'prior_range_edit',
   'structural_delete',
+  'structural_rename',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -136,6 +137,27 @@ const UI_COVERAGE: Record<
     payload: {
       removed_node_ids: ['opt_wait'],
       removed_edges: [{ from: 'fac_price', to: 'out_churn' }],
+      base_graph_hash: 'f3d31f75957c5cb5',
+    },
+  },
+  // 0.50.0: the DURABLE LABEL writer. Emitted by every rename gesture through
+  // `store.updateNodeLabel` → `useStructuralRenameEvents`. Reader-first and
+  // DERIVED rather than assumed: CEE staging `4f0bd774` pins schemas 0.50.0 and
+  // its `SYSTEM_EVENT_HANDLING` declares `structural_rename: 'mutating'` (the
+  // writer landed in #1273, `a705319f`). A CEE below 0.50.0 fails the
+  // DISCRIMINATOR and rejects the WHOLE turn.
+  //
+  // ⚠ NOTE THE TWO ASSERTIONS. `expected_label` is not redundant with
+  // `base_graph_hash`: `label` is absent from CEE's analysis-affecting hash
+  // projection, so two concurrent renames move no hash and the second would
+  // silently clobber the first without it.
+  structural_rename: {
+    kind: 'system_event',
+    eventKind: 'structural_rename',
+    payload: {
+      node_id: 'fac_price',
+      label: 'List price',
+      expected_label: 'Price',
       base_graph_hash: 'f3d31f75957c5cb5',
     },
   },
@@ -237,6 +259,17 @@ describe('UI ↔ V5 system event parity', () => {
       // This is a reader-only adoption lane, so it must not invent a UI emitter;
       // a separately reviewed product/transport lane owns that future decision.
       'edge_strength_edit',
+      // 0.50.0 added three direct-canvas verbs. `structural_rename` IS wired
+      // (see above). The other two are deferred, and the reason is CEE-side and
+      // derived rather than a UI preference:
+      //   · `structural_add`      — CEE declares it 'mutating' at staging
+      //     `4f0bd774`, so a writer exists; the UI emitter is a separate product
+      //     lane (a new node needs a value/kind decision this lane does not own).
+      //   · `structural_add_edge` — CEE still declares it 'reader_only_refusal',
+      //     i.e. it has NO writer. Emitting it would earn the user an honest
+      //     refusal and nothing else.
+      'structural_add',
+      'structural_add_edge',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -266,11 +299,15 @@ describe('UI ↔ V5 system event parity', () => {
     // have left that defect open. UI emission count is therefore 8
     // (patch_accepted, patch_dismissed, direct_graph_edit, feedback,
     // factor_value_edit, edge_adjudication, prior_range_edit,
-    // structural_delete).
+    // structural_delete). 0.50.0 grew the union to 16 with three direct-canvas
+    // verbs and this lane wires ONE of them — `structural_rename`, the durable
+    // label writer — taking UI emission to 9. `structural_add` has a CEE writer
+    // but needs its own product lane; `structural_add_edge` has no CEE writer at
+    // all (still 'reader_only_refusal'), so emitting it would buy a refusal.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(8)
-    expect(V5_EVENT_KINDS).toHaveLength(13)
+    expect(uiEmittedCount).toBe(9)
+    expect(V5_EVENT_KINDS).toHaveLength(16)
   })
 })

@@ -331,8 +331,24 @@ const EDITING_SELECTOR =
 const NATIVELY_DISABLEABLE = 'button, input, select, textarea'
 
 /**
- * Chrome that sits OUTSIDE the boundary ON PURPOSE. None of these writes the
- * model: they navigate, dismiss, or toggle presentation.
+ * Controls that sit OUTSIDE the boundary ON PURPOSE.
+ *
+ * ⚠⚠ THIS COMMENT USED TO READ "None of these writes the model: they navigate,
+ * dismiss, or toggle presentation." THAT IS NO LONGER TRUE, and rewriting it is
+ * the point rather than a formality — an honest label quietly replaced by a
+ * convenient one is how a guard stops meaning what it says (trap 14).
+ *
+ * Since schemas 0.50.0 EXACTLY ONE entry here writes the shared model: the
+ * inspector title's rename trigger. It is outside the boundary because it has
+ * what the boundary exists to demand and the rest of the panel lacks — a
+ * receipt-bearing wire carrier (`structural_rename`), a server-side write to
+ * `scenarios.graph`, and a committed `edit_graph` fact. The boundary's rule was
+ * never "no control may write"; it is "no control may LOOK like a saved
+ * shared-model edit without being one". The rename is one, so it is in.
+ *
+ * ⚠ THE SENTENCE ABOVE IS THE ADMISSION CRITERION. A future entry that writes
+ * the model WITHOUT a receipt-bearing carrier does not belong here, and adding
+ * it would turn this list from a defended exception into a loophole.
  *
  * ⚠ A SUBTRACTION LIST IS A HAND-MAINTAINED MIRROR (trap 12), so it is fenced
  * two ways: every entry MUST match at least one element (a renamed or removed
@@ -341,11 +357,33 @@ const NATIVELY_DISABLEABLE = 'button, input, select, textarea'
  * be reused INSIDE the fieldset to launder a control past the escape check).
  * Identity only — a value predicate another element could satisfy is trap 19.
  */
-const DELIBERATELY_OUTSIDE: ReadonlyArray<{ selector: string; why: string }> = [
+type PanelKind = 'node' | 'edge'
+
+const DELIBERATELY_OUTSIDE: ReadonlyArray<{
+  selector: string
+  why: string
+  /**
+   * Which panels this affordance exists on. Omitted means BOTH — the fence
+   * ("must match at least one element") then applies in both, which is the
+   * strict default. Naming a subset NARROWS where the fence is checked; it
+   * never disables it, so a scoped entry that disappears from its own panel
+   * still REDs.
+   */
+  panels?: readonly PanelKind[]
+}> = [
   { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
   { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
+  {
+    selector: '[data-testid="inspector-rename-trigger"]',
+    why: 'schemas 0.50.0 — the ONE writing control here, and the only one with a receipt-bearing carrier (structural_rename → scenarios.graph + an edit_graph fact)',
+    // NODE ONLY, and that is a contract fact rather than an oversight:
+    // `structural_rename.node_id` addresses a NODE, and `EdgeV3Schema` declares
+    // no label at all — an edge's only canonical identity is its `(from, to)`
+    // pair. There is nothing on an edge for this verb to rename.
+    panels: ['node'],
+  },
 ]
 
 function describeControl(el: Element): string {
@@ -360,14 +398,16 @@ function describeControl(el: Element): string {
  * Every control in the Inspector that is neither inside the boundary nor
  * deliberately outside it. Non-empty means a write surface has escaped.
  */
-function escapedControls(): string[] {
+function escapedControls(panel: PanelKind = 'node'): string[] {
   const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)
   if (!region) throw new Error('PRECONDITION FAILED: no Inspector region rendered')
   const fieldset = document.querySelector<HTMLElement>('fieldset[data-authority="disabled"]')
   if (!fieldset) throw new Error('PRECONDITION FAILED: no authority boundary rendered')
 
   const allowed = new Set<Element>()
-  for (const { selector } of DELIBERATELY_OUTSIDE) {
+  for (const { selector } of DELIBERATELY_OUTSIDE.filter(
+    (e) => e.panels === undefined || e.panels.includes(panel),
+  )) {
     const matches = Array.from(region.querySelectorAll(selector))
     // Fails loud rather than quietly excusing one control fewer.
     expect(matches.length, `deliberately-outside entry matched nothing: ${selector}`)
@@ -442,7 +482,7 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   it('leaves no editing control outside the boundary in the edge panel', () => {
     setStoreState(EDGE_FIXTURE_NODES, EDGE_FIXTURE_EDGES)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
-    expect(escapedControls()).toEqual([])
+    expect(escapedControls('edge')).toEqual([])
   })
 
   it('leaves no effectively-enabled FORM CONTROL inside the node boundary', () => {

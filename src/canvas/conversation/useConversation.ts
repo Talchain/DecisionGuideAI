@@ -52,6 +52,13 @@ import {
   type StructuralDeleteIntent,
   type StructuralDeleteNoticeKey,
 } from '../mutations/structuralDelete'
+import {
+  readStructuralRenameReceipt,
+  revertStructuralRename,
+  STRUCTURAL_RENAME_NOTICE,
+  type StructuralRenameIntent,
+  type StructuralRenameNoticeKey,
+} from '../mutations/structuralRename'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
@@ -2271,6 +2278,8 @@ export interface SendTurnOpts {
    * `sendTurn` rather than in the dispatcher.
    */
   structuralDelete?: StructuralDeleteIntent
+  /** schemas 0.50.0 — the rename gesture this `structural_rename` announces. */
+  structuralRename?: StructuralRenameIntent
   /**
    * Keep this system event with its caller when another turn owns the lock.
    *
@@ -2412,6 +2421,8 @@ export interface UseConversationReturn {
      * canvas asserting a removal the server declined.
      */
     structuralDelete?: StructuralDeleteIntent
+    /** schemas 0.50.0 — the rename gesture this `structural_rename` announces. */
+    structuralRename?: StructuralRenameIntent
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
@@ -3010,6 +3021,112 @@ export function useConversation(): UseConversationReturn {
           role: 'assistant',
           synthetic: true,
           content: STRUCTURAL_DELETE_NOTICE[notice],
+          timestamp: new Date(),
+        })
+      }
+    },
+    [addMessage],
+  )
+
+  /**
+   * schemas 0.50.0 — resolve a `structural_rename` against what the SERVER did.
+   *
+   * ⭐⭐ THE ONE THING THAT MAKES THIS DIFFERENT FROM ITS DELETE TWIN, and the
+   * reason a status-code check would have shipped a silent lie: **the outcome
+   * this event exists to catch is a 200.**
+   *
+   * `expected_label` is the gate for the field `base_graph_hash` is structurally
+   * blind to — `label` is absent from CEE's analysis-affecting hash projection,
+   * so two concurrent renames move NO hash. CEE refuses the second one with a
+   * COMMITTED 200 naming the current label, deliberately NOT a 409, because the
+   * 409 envelope's only recovery payload is `expected_base_graph_hash` and on a
+   * label-only divergence that hash is UNCHANGED — the server would hand back
+   * the exact value the client already holds, and the client would resend the
+   * same rename forever.
+   *
+   * So a UI keyed on `conflict_category` alone reads the concurrent-rename case
+   * as SUCCESS and leaves the user's name standing over a model that holds
+   * someone else's. The verdict here is therefore taken from the COMMITTED BYTES
+   * — `readStructuralRenameReceipt` reads the node BY ID out of `draft_graph` and
+   * compares its label — because CEE's refusal path passes the PERSISTED graph
+   * through `commitDirectAnswer(..., { contentGraph })`, so that arm carries a
+   * positive, readable refutation rather than a silence.
+   *
+   * THE EVIDENCE, AND ITS THREE STATES (never two):
+   *   · `proven`   — the committed graph carries this id at this label. Nothing
+   *     to do; CEE's own confirmation prose renders through the 200 branch.
+   *   · `refuted`  — the committed graph carries this id at a DIFFERENT label.
+   *     REVERT. This is both the concurrent-rename case and every server-side
+   *     refusal that still committed a turn. No notice is added when CEE spoke:
+   *     its sentence names the label the model holds, and ours would not.
+   *   · `unproven` — no readable committed graph. KEEP the name and say we could
+   *     not confirm. Reverting on a guess is data loss, which is strictly worse
+   *     than the uncertainty it would be trying to hide.
+   *
+   * ⚠ A 409 IS DECIDED BY THE SHARED PREDICATE, not by an equality: CEE has two
+   * 409 sources that both state a no-write guarantee, and `isProvenNoWriteConflict`
+   * is the ONE set both optimistic writers read. A category outside it is an
+   * UNKNOWN and takes the cannot-confirm line, never a promise we cannot keep.
+   */
+  const resolveStructuralRename = useCallback(
+    (
+      intent: StructuralRenameIntent,
+      capturedScenarioId: string | null,
+      outcome:
+        | { kind: 'response'; response: { draft_graph?: unknown; assistant_text?: unknown } }
+        | { kind: 'typed_error'; conflictCategory: string | undefined }
+        | { kind: 'transport' },
+    ) => {
+      const store = useCanvasStore.getState()
+      let notice: StructuralRenameNoticeKey | null = null
+      let shouldRevert = false
+
+      if (outcome.kind === 'response') {
+        const receipt = readStructuralRenameReceipt(intent, outcome.response)
+        if (receipt === 'proven') return
+        if (receipt === 'refuted') {
+          shouldRevert = true
+          // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
+          // always has, with a better sentence than ours (it names the label).
+          const spoke =
+            typeof outcome.response.assistant_text === 'string' &&
+            outcome.response.assistant_text.trim().length > 0
+          notice = spoke ? null : 'unconfirmed_server'
+        } else {
+          // `unproven`. We hold no bytes about this node. Keep the name.
+          notice = 'unconfirmed_server'
+        }
+      } else if (outcome.kind === 'typed_error') {
+        const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
+        shouldRevert = provenNoWrite
+        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+      } else {
+        notice = 'unconfirmed_transport'
+      }
+
+      if (shouldRevert) {
+        const revertOutcome = revertStructuralRename(
+          intent,
+          {
+            nodes: store.nodes,
+            currentScenarioId: store.currentScenarioId,
+            applyStructuralRenameRevert: store.applyStructuralRenameRevert,
+          },
+          capturedScenarioId,
+        )
+        // The copy promises the old name is back. If the revert stood down
+        // (the scenario moved on, or the user has renamed again since) that
+        // promise is false, so the notice is withheld rather than shipped
+        // alongside a canvas it does not describe.
+        if (revertOutcome === 'stood_down') return
+      }
+
+      if (notice !== null) {
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          synthetic: true,
+          content: STRUCTURAL_RENAME_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -4151,6 +4268,31 @@ export function useConversation(): UseConversationReturn {
           )
         }
 
+        // 0.50.0 — the rename twin, and NOT gated on `target.kind !==
+        // 'typed_error'` for the same reason the delete above is not: a 409 IS
+        // an outcome this event must resolve. ⚠ AND UNLIKE the delete, the arm
+        // that matters most is the 200 — see `resolveStructuralRename`.
+        const structuralRename = opts.structuralRename
+        if (
+          structuralRename &&
+          systemEvent?.type === 'structural_rename' &&
+          activeV5TurnIdRef.current === turnClientId
+        ) {
+          resolveStructuralRename(
+            structuralRename,
+            // Captured at DISPATCH, not read now — a scenario switch mid-turn
+            // must stand the revert down rather than write this label into a
+            // decision the user never edited.
+            scenarioIdAtDispatch,
+            target.kind === 'typed_error'
+              ? {
+                  kind: 'typed_error',
+                  conflictCategory: extractConflictCategory(target.boundaryError),
+                }
+              : { kind: 'response', response: target.response },
+          )
+        }
+
         const optimisticEdit = opts.optimisticFactorEdit
         if (
           optimisticEdit &&
@@ -5080,6 +5222,15 @@ export function useConversation(): UseConversationReturn {
               kind: 'transport',
             })
           }
+          // 0.50.0 — the rename twin. Same treatment and the same reason: the
+          // NAME is left alone (nothing was read, so reverting would be as
+          // unfounded as keeping it) and the user is told it is unconfirmed
+          // rather than left to discover it on the next reload.
+          if (opts.structuralRename && systemEvent?.type === 'structural_rename') {
+            resolveStructuralRename(opts.structuralRename, scenarioIdAtDispatch, {
+              kind: 'transport',
+            })
+          }
           // The same treatment for the OTHER optimistic writer, and for the
           // same reason: an unresolved value edit leaves the canvas showing a
           // number the model may not hold. No category, so it can only take
@@ -5416,6 +5567,8 @@ export function useConversation(): UseConversationReturn {
       optimisticFactorEdit?: OptimisticFactorEdit
       /** 0.48.0 — see the interface declaration. */
       structuralDelete?: StructuralDeleteIntent
+      /** schemas 0.50.0 — the rename gesture this `structural_rename` announces. */
+      structuralRename?: StructuralRenameIntent
       deferIfBusy?: boolean
     }) => {
       // No-op when orchestrator V2 is OFF
@@ -5453,6 +5606,14 @@ export function useConversation(): UseConversationReturn {
         sourceSurface: opts?.debugSourceSurface,
         optimisticFactorEdit: opts?.optimisticFactorEdit,
         structuralDelete: opts?.structuralDelete,
+        // ⚠ THE LINE THAT MUST NOT BE FORGOTTEN. Its absence is INVISIBLE: the
+        // resolver still exists, the opts type still declares the field, and
+        // every test that does not drive a real turn stays green — the rename
+        // simply never resolves against the server and the canvas silently keeps
+        // a name the model refused. It was missing on the first cut of this
+        // lane and `useConversation.structuralRenameOutcome.spec.ts` is what
+        // found it, which is the argument for that spec existing.
+        structuralRename: opts?.structuralRename,
         // ⚠ A DELETE MAY DEFER, AND THE DEDUPE KEY IS WHY THAT IS SAFE.
         // `enqueueDeferredSystemSend` collapses only `factor_value_edit`
         // (last-write-wins per target); every other type gets a per-enqueue
