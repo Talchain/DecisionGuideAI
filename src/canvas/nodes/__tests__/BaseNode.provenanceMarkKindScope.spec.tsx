@@ -121,6 +121,8 @@ const baseProps = {
   draggable: true,
   width: 240,
   height: 100,
+  dragHandle: undefined,
+  parentId: undefined,
   sourcePosition: undefined,
   targetPosition: undefined,
 }
@@ -130,94 +132,6 @@ const setStore = (state: Record<string, unknown>) => {
     selector(makeStoreState(state) as never),
   )
 }
-
-const renderFactor = (data: Record<string, unknown>, lodActive: boolean) => {
-  setStore({ lodActive })
-  return render(
-    <ReactFlowProvider>
-      <FactorNode {...baseProps} id="factor-1" data={data} />
-    </ReactFlowProvider>,
-  )
-}
-
-/**
- * The corpus, and where the expectations come from.
- *
- * Every `expected` below is written from the PRODUCER's declared semantics —
- * `formatFactorDisplayValue`'s documented priority order (Pattern 1 raw_value +
- * meaningful unit → CEE display_value → unitless raw_value → binary heuristic)
- * — never read back out of the code path under test. A guard whose expectation
- * is copied from the implementation only proves the implementation agrees with
- * itself (CLAUDE.md traps 13b/13c).
- */
-const CORPUS: ReadonlyArray<{
-  name: string
-  data: Record<string, unknown>
-  /** What the card states for this factor, in BOTH the body and the reduced line. */
-  expected: string
-}> = [
-  {
-    name: 'currency raw_value with a real unit',
-    data: {
-      label: 'Hiring cost',
-      type: 'factor',
-      observedState: { raw_value: 26000, unit: '£' },
-    },
-    expected: '£26,000',
-  },
-  {
-    name: 'a 0–1 ratio carrying a percent unit',
-    data: {
-      label: 'Conversion',
-      type: 'factor',
-      observedState: { raw_value: 0.25, unit: '%' },
-    },
-    expected: '25%',
-  },
-  {
-    name: 'CEE contextual display_value at the top level of node data',
-    data: {
-      label: 'Competitor Acquisition',
-      type: 'factor',
-      display_value: 'No acquisition pursued',
-      observedState: { value: 0, raw_value: 0, cap: 0, factor_type: 'other' },
-    },
-    expected: 'No acquisition pursued',
-  },
-  {
-    /**
-     * ⭐ THE DISCRIMINATING CASE. `unit` here holds an INTERNAL CEE factor_type
-     * descriptor, which the shared guard (`isSuppressedUnit`) exists to stop
-     * reaching a user — the documented "factor_type leak". Drop the guard from
-     * BaseNode and this factor's reduced line reads "0.5 other" while the body
-     * two pixels beneath it reads "0.5": one datum, one card, two answers.
-     */
-    name: 'an internal factor_type descriptor leaking into unit',
-    data: {
-      label: 'Team quality',
-      type: 'factor',
-      observedState: { raw_value: 0.5, value: 0.5, unit: 'other' },
-    },
-    expected: '0.5',
-  },
-  {
-    /**
-     * An INFERRED value at rest sheds its parenthesised raw number (R6). The
-     * reduced line is the most compressed rest state the card has, so it applies
-     * the same shortening through the same owner — and this case is the one that
-     * would go red if the two ever stopped agreeing about it.
-     */
-    name: 'an inferred value whose parenthesised raw number is shed at rest',
-    data: {
-      label: 'Team morale',
-      type: 'factor',
-      display_value: 'Moderate (0.5)',
-      observedState: { value: 0.5, extractionType: 'inferred' },
-    },
-    expected: 'Moderate',
-  },
-]
-
 
 const mark = () => screen.queryAllByTestId('node-provenance-mark')
 
@@ -232,9 +146,7 @@ const dataFor = (kind: string) => ({
 
 describe('the provenance mark appears only where the value words fit', () => {
   beforeEach(() => {
-    vi.mocked(useCanvasStore).mockImplementation((selector: (s: unknown) => unknown) =>
-      selector(makeStoreState()),
-    )
+    setStore({})
   })
 
   it('POSITIVE CONTROL — a factor card carries the mark', () => {
