@@ -1535,6 +1535,28 @@ interface DebugBundle {
   streaming_metrics?: unknown | null
   /** CEE diagnostic trace: fallback trace entries. */
   fallback_trace?: unknown[] | null
+  /**
+   * CEE diagnostic trace: the draft-quality reject-and-redraw record.
+   *
+   * ⭐ Carries `discarded_graph` — the draft the second AI pass REJECTED, kept
+   * whole. This is the last hop of the inspection route: a repair pass that
+   * silently hides bad drafts destroys the only signal we have about draft
+   * quality, so the rejected original has to be readable in the export.
+   *
+   * ⚠ Semantics of the three states, which are NOT interchangeable:
+   *   - a populated record  → the pass fired and spent a redraw on this turn;
+   *   - `null`              → the trace was read and carried no record, i.e.
+   *                           the pass did not redraw. HONEST ABSENCE;
+   *   - key absent entirely → v2 sections are off (flag OFF), so nothing was
+   *                           read at all.
+   * The `null` rung matters: it is what distinguishes "no redraw happened"
+   * from "the UI dropped it", and dropping it is the exact defect this key
+   * was added to close.
+   *
+   * Passthrough — carried VERBATIM, never summarised or truncated. See the
+   * note on the enumeration in `buildDebugBundle` for why.
+   */
+  draft_quality?: unknown | null
   /** Reason when all v2.0 sections are null (CEE hasn't deployed trace support). */
   _unavailable_reason?: string
 
@@ -3406,15 +3428,42 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     display_state: options.displayState ?? null,
 
     // V2.0 sections — CEE diagnostic trace (passthrough, only when flag is ON)
+    //
+    // ⚠ THIS BLOCK ENUMERATES NAMED KEYS, so a key CEE adds to the trace is
+    // silently dropped here until it is named below. That is how
+    // `draft_quality` — the record carrying the REJECTED draft — was missing
+    // from the export while CEE was already putting it on the wire.
+    //
+    // `draft_quality` is carried VERBATIM and WHOLE, `discarded_graph`
+    // included. A real drafted graph measures ~26–43 KB of JSON, the record
+    // rides only the rare turns where the pass actually spent a redraw, and
+    // the export is a diagnostic artefact downloaded on demand — so the size
+    // is affordable. Summarising it here would be worse than the cost: the
+    // requirement is to see the ORIGINAL GRAPH the system rejected, a summary
+    // cannot answer "what was wrong with it", and `_diagnostic_trace` is a
+    // declared passthrough the UI must not transform. A UI-side summary would
+    // also have to encode CEE's shape, which is the producer/consumer drift
+    // this estate keeps paying for. If the size ever does become a problem,
+    // that is a CEE-side decision about what to put on the wire, not a
+    // truncation to make silently here.
     ...(v2Enabled ? {
-      llm_calls: diagnosticTrace?.llm_calls ?? null,
-      prompt_identity: diagnosticTrace?.prompt_identity ?? null,
+      // The four array-typed reads carry a PURE TYPE ASSERTION and no runtime
+      // change: `diagnosticTrace` is `Record<string, unknown>`, so each read is
+      // `unknown`, which TS widens to `{}` under `??` and will not assign to
+      // the declared `unknown[] | null`. That mismatch is pre-existing; adding
+      // a key below re-fingerprints the resulting whole-object diagnostic, and
+      // the typecheck gate's self-test fails any NEW diagnostic identity on a
+      // clean tree. Asserting the declared type here removes the mismatch at
+      // its source rather than widening the baseline to accommodate it.
+      llm_calls: (diagnosticTrace?.llm_calls ?? null) as unknown[] | null,
+      prompt_identity: (diagnosticTrace?.prompt_identity ?? null) as unknown[] | null,
       zone2_assembly: diagnosticTrace?.zone2_assembly ?? null,
       tool_policy: diagnosticTrace?.tool_policy ?? null,
-      provider_resolution: diagnosticTrace?.provider_resolution ?? null,
+      provider_resolution: (diagnosticTrace?.provider_resolution ?? null) as unknown[] | null,
       structured_output_config: diagnosticTrace?.structured_output_config ?? null,
       streaming_metrics: diagnosticTrace?.streaming_metrics ?? null,
-      fallback_trace: diagnosticTrace?.fallback_trace ?? null,
+      fallback_trace: (diagnosticTrace?.fallback_trace ?? null) as unknown[] | null,
+      draft_quality: diagnosticTrace?.draft_quality ?? null,
       ...(!diagnosticTrace ? {
         _unavailable_reason: 'CEE diagnostic trace not present in response',
       } : {}),
