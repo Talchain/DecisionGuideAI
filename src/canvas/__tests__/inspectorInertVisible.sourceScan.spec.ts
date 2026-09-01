@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const css = readFileSync(resolve(__dirname, '../../index.css'), 'utf8')
+const selfSource = readFileSync(__filename, 'utf8')
 const router = readFileSync(
   resolve(__dirname, '../ui/inspector-v2/InspectorRouter.tsx'),
   'utf8',
@@ -51,14 +52,52 @@ describe('read-only Inspector — inert controls read as inert', () => {
     expect(rule).toMatch(/cursor:\s*not-allowed/)
   })
 
+  it('the correction is in BOTH files, not just the one that was corrected', () => {
+    // A correction reached `index.css` and this spec kept the withdrawn claim —
+    // twice in one night, in two different PRs. Sweeping ONE file cannot catch
+    // that.
+    //
+    // ⚠ This is a PRESENCE assertion on this file and an ABSENCE assertion on
+    // the CSS, deliberately. A first attempt scanned both for the forbidden
+    // phrase and RED on itself: a guard that names the string it bans contains
+    // that string. So each side asserts what it can assert without quoting the
+    // claim — the CSS must not restate it, and this file must carry the fact
+    // that replaced it.
+    const normalise = (text: string) => text.replace(/\/\//g, ' ').replace(/\s+/g, ' ')
+
+    // POSITIVE CONTROL: an absence assertion is vacuous unless the probe is
+    // shown to see a phrase that IS present in the file it scans.
+    const normalisedCss = normalise(css)
+    expect(normalisedCss, 'probe is blind — the control phrase is absent').toMatch(
+      /form-associated/i,
+    )
+    // Built from fragments so this line is not itself a match.
+    const withdrawn = new RegExp(['one control', ' that (still )?', 'works'].join(''), 'i')
+    expect(normalisedCss, 'index.css restates the withdrawn claim').not.toMatch(withdrawn)
+
+    // And this file's own escaper block must not restate it either — that is
+    // where the stale copy survived. Scoped to that block so the guard is not
+    // scanning the fragments it just built.
+    const escaperBlock = normalise(
+      selfSource.slice(selfSource.indexOf('does NOT claim to cover every control')),
+    )
+    expect(escaperBlock, 'probe is blind — the escaper block was not found').toMatch(
+      /form-associated/i,
+    )
+    expect(escaperBlock, 'this spec restates the withdrawn claim').not.toMatch(withdrawn)
+  })
+
   it('⚠ does NOT claim to cover every control — the one live escaper must keep looking live', () => {
     // `<fieldset disabled>` inerts FORM-ASSOCIATED descendants only.
     // `inspectorAuthorityBinding.spec.tsx` pins the single control it does not
     // reach: the Context prompt, a `<div role="button" tabindex="0">`. That div
-    // is genuinely still interactive, so fading it would say "inert" about
-    // something that responds — the same lie as the original defect pointed the
-    // other way, and worse, because the user would stop trying the one control
-    // that still works.
+    // is genuinely still interactive — it responds, and swaps itself for an
+    // editor. But that editor is a `<textarea>` inside this same disabled
+    // fieldset, so the control is an entrance to a dead end, NOT a control that
+    // works. Painting it inert would not fix the dead end; it would only hide
+    // the entrance to one, and `:disabled` — the browser's own answer to "is
+    // this inert" — correctly says the div is not inert. That is the reason to
+    // leave the scope alone, and it does not rest on the div working.
     //
     // This asserts the rule's SCOPE stays honest: `:disabled` only, never a
     // `[role="button"]` or `[tabindex]` selector that would sweep the escaper in.
