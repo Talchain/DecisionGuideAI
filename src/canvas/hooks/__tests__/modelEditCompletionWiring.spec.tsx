@@ -175,6 +175,12 @@ describe('M-W1 — the boot hydration settles outstanding attempts', () => {
     recordModelEditReceipt(attempt)
     stubFetch(serverBody(0.5, 15000, 'cee_inference'))
 
+    // ⚠ TWO reads. A canonical REFUSAL is not believed on the first one — it
+    // may be CEE's write-back window, not a refusal (see
+    // `MIN_CANONICAL_READS_BEFORE_REFUSAL`). Boot hydration reads once per
+    // call, so the honest fixture calls it twice.
+    await hydrateCanvasFromServer(SCENARIO_ID, {})
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
     await hydrateCanvasFromServer(SCENARIO_ID, {})
 
     expect(getModelEditAttempt(attempt)?.completion).toMatchObject({
@@ -239,8 +245,11 @@ describe('⭐ M-W2 — the ORDINARY EDIT JOURNEY reaches `committed`', () => {
     // measured `edit-graph.ts:2986-2992` class, driven end to end.
     stubFetch(serverBody(0.5, 15000, 'cee_inference'))
 
+    // ⭐ THE RETRY SCHEDULE IS PART OF THIS JOURNEY NOW. A canonical refusal
+    // must survive a re-read, so the hook has to come back for a second look —
+    // the delay is collapsed, the loop is the real one.
     const view = renderHook(() => {
-      useModelEditCanonicalConfirm(SCENARIO_ID)
+      useModelEditCanonicalConfirm(SCENARIO_ID, { wait: async () => {} })
       return useModelEditAuthority(FACTOR)
     })
     let attemptId: string | null = null
@@ -257,6 +266,9 @@ describe('⭐ M-W2 — the ORDINARY EDIT JOURNEY reaches `committed`', () => {
         evidence: 'canonical',
       })
     })
+    // It took MORE THAN ONE read — the whole point of the fix.
+    expect((globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length)
+      .toBeGreaterThan(1)
     view.unmount()
   })
 

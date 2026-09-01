@@ -47,8 +47,27 @@
  *   receipted  → a receipt arrived. NOT a success.                       (open)
  *   refused(receipt)   → the reply carried no applied patch. Provisional. (open)
  *   committed          → a cold read proves the model holds it.      (TERMINAL)
- *   refused(canonical) → a cold read proves it does not.             (TERMINAL)
+ *   refused(canonical) → cold reads prove it does not.               (TERMINAL,
+ *                        but only after MIN_CANONICAL_READS_BEFORE_REFUSAL —
+ *                        see below)
  *   unresolved         → no answer is coming.                        (TERMINAL)
+ *
+ * ⚠⚠ AND THE THIRD TIME THE SAME LESSON ARRIVED: A CANONICAL REFUSAL WAS
+ * TERMINAL ON THE **FIRST** READ, WHICH RACED CEE'S WRITE-BACK.
+ * Measured on deployed CEE `915da5a3`: an edit's value appears in the cold-read
+ * projection at **t+1s**, and `runConfirmation` issues read 0 with NO delay —
+ * so read 0 routinely sees the model BEFORE the write lands. A freshly drafted
+ * graph carries no `observed_state` on any un-edited factor at all (0 of 3 at
+ * t+50s), so `noValue` is the DEFAULT state a first edit is adjudicated
+ * against. The result was a permanent "The model holds no value for this
+ * factor" on edits that had just succeeded.
+ *
+ * This is the F2 harm through a different door. F2 declines bytes read BEFORE
+ * the receipt; these bytes are read AFTER it and are still too early, because
+ * the receipt says CEE ACCEPTED the edit, never that it has FINISHED PERSISTING
+ * it. An ordering guard over the receipt cannot see a write-back window.
+ * A refusal must now survive a re-read. `committed` need not — see
+ * `MIN_CANONICAL_READS_BEFORE_REFUSAL` for why the asymmetry is sound.
  *
  * The cold read is the known-good shape, witnessed:
  *   `POST /bff/cee/scenarios/<id>/graph` body `{}` → `raw_value 0.85,
@@ -180,8 +199,36 @@ export interface ModelEditAttempt {
    * see the ordering note in the header.
    */
   readonly receiptChannelAt: LedgerTick | null
+  /**
+   * How many cold reads have delivered EVIDENCE ABOUT THIS NODE (i.e. anything
+   * other than `unreadable`). The count a canonical REFUSAL must clear before it
+   * is believed — see `MIN_CANONICAL_READS_BEFORE_REFUSAL`.
+   */
+  readonly canonicalReadsSeen: number
   readonly completion: ModelEditCompletion
 }
+
+/**
+ * ⭐⭐ HOW MANY CANONICAL READS A REFUSAL MUST SURVIVE BEFORE IT IS BELIEVED.
+ *
+ * MEASURED, not chosen. On deployed CEE `915da5a3`, wire-level, a factor edit
+ * persisted `observed_state` and a cold read at **t+1s** returned
+ * `{"unit":"%","value":0.3,"source":"user_override","raw_value":30}`. The value
+ * IS written — but not instantly, and `runConfirmation` issues read 0 with NO
+ * delay, so read 0 races the write.
+ *
+ * The same measurement established the other half: a freshly drafted graph
+ * carries NO `observed_state` on ANY un-edited factor (12 nodes, 3 factors,
+ * 0/3 present at t+50s). So the state a first edit is adjudicated against is
+ * `noValue` BY DEFAULT, and waiting longer never helps — only re-reading does.
+ *
+ * ⚠ WHY 2 AND NOT A DELAY. A fixed delay before read 0 trades a false refusal
+ * for a slower one and is still a race — the persistence window is not bounded
+ * by anything this module can see. Re-reading is not a race: read 1 fires at
+ * +3s (`CONFIRM_READ_DELAYS_MS[0]`), comfortably outside the measured ~1s, and
+ * if persistence is slower still, reads 2..7 keep looking out to 282s.
+ */
+export const MIN_CANONICAL_READS_BEFORE_REFUSAL = 2
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cold-read readability
@@ -285,6 +332,7 @@ export function beginModelEditAttempt(input: {
     attemptedRawValue: input.attemptedRawValue ?? null,
     dispatchedAt: nextTick(),
     receiptChannelAt: null,
+    canonicalReadsSeen: 0,
     completion: { phase: 'pending' },
   })
   emit()
@@ -567,16 +615,54 @@ export function settleModelEditAttemptFromCanonical(
   if (attempt.receiptChannelAt === null) return
   if (!(readIssuedAt > attempt.receiptChannelAt)) return
 
+  // `unreadable` is not evidence ABOUT THE NODE — it does not count as a look.
+  if (read.kind === 'unreadable') return
+
+  const readsSeen = attempt.canonicalReadsSeen + 1
+  const seen = { ...attempt, canonicalReadsSeen: readsSeen }
+
   const settleCanonical = (completion: ModelEditCompletion): void => {
-    attempts.set(attemptId, { ...attempt, completion })
+    attempts.set(attemptId, { ...seen, completion })
     emit()
   }
 
-  if (read.kind === 'unreadable') return
+  /**
+   * ⭐⭐ A CANONICAL REFUSAL IS NOT BELIEVED ON THE FIRST READ.
+   *
+   * The count is banked and the attempt is left OPEN, so the existing retry
+   * schedule looks again. No emit: nothing user-visible moved, and emitting
+   * would churn every subscriber for a bookkeeping write.
+   *
+   * ⚠ THIS COVERS ALL THREE REFUSING READS, NOT JUST THE ABSENT ONES, AND THAT
+   * IS DELIBERATE — the brief that prompted this fix named `noValue` and
+   * `nodeAbsent`, which is right for a factor's FIRST edit (an un-edited node
+   * has no `observed_state` at all, measured). But a SECOND edit to the same
+   * factor races the value the FIRST one persisted: the pre-write bytes are
+   * `kind: 'value'` holding the OLD number, the bases disagree, and that is the
+   * identical false refusal through the `value` door. Exempting only absence
+   * would fix the first edit and leave every subsequent one broken.
+   *
+   * ⭐ AND WHY `committed` IS NOT DEFERRED. Staleness can only ever make a read
+   * DISAGREE with what was sent. For a stale read to AGREE, the old number and
+   * the new number must be the same number — in which case the model does hold
+   * the attempted value and the claim is true regardless. Agreement is safe to
+   * accept early; disagreement and absence are not safe to reject early. That
+   * asymmetry is the module's own rule ("between an over-strict success and a
+   * confident lie, take the over-strict success") applied to TIME.
+   */
+  const refuseCanonically = (completion: ModelEditCompletion): void => {
+    if (readsSeen < MIN_CANONICAL_READS_BEFORE_REFUSAL) {
+      attempts.set(attemptId, seen)
+      return
+    }
+    settleCanonical(completion)
+  }
+
   if (read.kind === 'nodeAbsent') {
     // Knowable, and previously left unsaid: the graph is fine and the factor is
-    // not in it. The model demonstrably does not hold this number.
-    settleCanonical({
+    // not in it. ⚠ But on the FIRST read this is indistinguishable from a node
+    // CEE has not written back yet, so it must survive a re-read.
+    refuseCanonically({
       phase: 'refused',
       reason: 'This factor is no longer in the model.',
       evidence: 'canonical',
@@ -585,7 +671,7 @@ export function settleModelEditAttemptFromCanonical(
     return
   }
   if (read.kind === 'noValue') {
-    settleCanonical({
+    refuseCanonically({
       phase: 'refused',
       reason: 'The model holds no value for this factor.',
       evidence: 'canonical',
@@ -602,13 +688,20 @@ export function settleModelEditAttemptFromCanonical(
   if (canonical.value !== null) {
     bases.push([canonical.value, attempt.attemptedValue])
   }
-  if (bases.length === 0) return // nothing comparable — say nothing
+  if (bases.length === 0) {
+    // Nothing comparable — say nothing. The count is still banked: a node that
+    // keeps offering no comparable basis is not evidence of a refusal either.
+    attempts.set(attemptId, seen)
+    return
+  }
 
   if (bases.every(([held, sent]) => sameMagnitude(held, sent))) {
     settleCanonical({ phase: 'committed', canonical })
     return
   }
-  settleCanonical({
+  // ⚠ PROVISIONAL ON THE FIRST READ — these bytes may pre-date CEE's write-back
+  // for THIS edit, in which case they are the value the PREVIOUS edit left.
+  refuseCanonically({
     phase: 'refused',
     reason: 'The model did not take this change.',
     evidence: 'canonical',
