@@ -26,6 +26,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { DecisionNode } from '../DecisionNode'
+import { ActionNode } from '../ActionNode'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -307,6 +308,35 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
       expect(line!.textContent!.trim().length).toBeGreaterThan(0)
       // …and it says nothing about the analysis on a report-less run.
       expect(line!.textContent!.toLowerCase()).not.toMatch(/lead|ahead|winner|too close/)
+    })
+
+    it('CONTRAST CONTROL — is still absent on `action`, the type deliberately not attempted', () => {
+      // The other half of the pair above. If this ever goes green without a
+      // deliberate decision, the reduced line has widened by accident — which is
+      // exactly what the original tripwire existed to catch. `action` is named
+      // in `lodMetricLine.ts` as DELIBERATELY NOT ATTEMPTED, so it is the honest
+      // absence case, and it keeps this guard discriminating rather than
+      // agreeing with itself.
+      setStore({ lodActive: true, results: { status: 'complete', report: null } })
+      render(
+        <ReactFlowProvider>
+          <ActionNode
+            {...baseProps}
+            type="action"
+            id="action-1"
+            data={{ label: 'Ship the pilot', type: 'action' }}
+          />
+        </ReactFlowProvider>,
+      )
+      // ⛔ POSITIVE CONTROL FIRST (CLAUDE.md trap 13). An absence assertion is
+      // worth nothing until the probe is shown to be able to SEE a presence: if
+      // `ActionNode` rendered nothing at all — a throw, a changed testid, a
+      // mock drifting out from under this file — `queryByTestId` would return
+      // null for the wrong reason and this test would pass forever while
+      // asserting nothing. Prove the card is on screen, THEN prove the line is
+      // not.
+      expect(screen.getByText('Ship the pilot')).toBeInTheDocument()
+      expect(screen.queryByTestId('node-lod-line')).toBeNull()
     })
   })
 
