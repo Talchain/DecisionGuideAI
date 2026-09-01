@@ -972,6 +972,13 @@ jobs:
       #   Derived 2026-09-01:
       #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
       #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      #
+      # ⚠ AND HERE ONLY — deliberately NOT in `build:ci`, which is what Netlify
+      # runs (netlify.toml:20). A missing build id is evidence the DIAGNOSTIC is
+      # broken, never that the artefact is unsafe to serve, so it must gate the
+      # MERGE and must not be able to fail the staging DEPLOY. Reasoning in the
+      # POSTURE block of scripts/ci/assert-build-id-stamped.mjs; pinned, with a
+      # contrast control, in tests/ci-guards/build-id-stamp.spec.ts.
       - name: Build id is stamped into every published HTML file
         run: pnpm run ci:guard:build-id
 

@@ -278,3 +278,75 @@ describe('stampBuildId', () => {
     expect(stampBuildId(html, 'X')).toBe(html)
   })
 })
+
+/**
+ * ⭐⭐ POSTURE: THIS GUARD GATES THE MERGE, NEVER THE DEPLOY — and as first
+ * written it did both.
+ *
+ * The guard was added to `build:ci` as well as to the required "Staging Gate".
+ * `netlify.toml:20` runs `npm run build:ci`, and the guard's `requireSha` is
+ * `Boolean(process.env.CI || process.env.NETLIFY)` — TRUE on Netlify. So an
+ * underivable SHA would not have produced a missing diagnostic label; it would
+ * have produced a FAILED DEPLOY. The product would stop shipping because a
+ * build-id string was absent.
+ *
+ * ⭐ THE PRINCIPLE, and it is the same one the CEE sibling of this change
+ * enforces: A GUARD MUST NOT ASSERT MORE THAN ITS EVIDENCE SUPPORTS. A missing
+ * build id is evidence that the diagnostic is broken. It is not evidence that
+ * the build is unsafe to serve — the bundle is byte-identical either way, and
+ * every claim in the guard's own "WHAT THIS GUARD CANNOT SEE" block is about
+ * provenance, not correctness. Escalating a diagnostic absence into a hard
+ * failure on the deploy path asserts a severity the finding does not carry.
+ *
+ * ⚠ THIS IS NOT A BLANKET "NO GUARDS IN build:ci" RULE, and the contrast
+ * control below exists so nobody reads it as one. `build:ci` legitimately
+ * carries `assert-v5-endpoint-configured`, `verify-bundle-budget` and
+ * `assert-no-legacy-orchestration`: those are CORRECTNESS/CONFIG guards, and a
+ * build that trips one is genuinely unsafe to publish. Build-id is DIAGNOSTIC.
+ * The distinction is the severity of what the finding proves, not the presence
+ * of a guard — which is exactly the distinction three sibling guards already
+ * record in their own headers (`assert-bundle-env-allowlist.mjs`,
+ * `assert-no-bundle-credentials.mjs`, `assert-logger-emits.mjs`).
+ *
+ * Derived, not mirrored: every fact below is read out of `package.json`,
+ * `netlify.toml` and the workflow YAML at this tip. Moving the guard back onto
+ * the deploy path, or dropping it from the merge gate, REDs here.
+ */
+describe('build id: the guard gates the MERGE, never the DEPLOY', () => {
+  const pkg = JSON.parse(readFileSync(resolve(REPO, 'package.json'), 'utf8'))
+  const netlifyToml = readFileSync(resolve(REPO, 'netlify.toml'), 'utf8')
+  const stagingGate = readFileSync(
+    resolve(REPO, '.github/workflows/staging-full-tests.yml'),
+    'utf8',
+  )
+
+  it('PRECONDITION — `build:ci` is what Netlify runs, so anything in it is on the deploy path', () => {
+    // Pinned in-test rather than remembered: if the deploy command ever stops
+    // being `build:ci`, the absence assertion below stops meaning what it says
+    // and this REDs first.
+    expect(netlifyToml).toContain('npm run build:ci')
+  })
+
+  it('the build-id guard is NOT on the deploy path — a missing diagnostic must not stop the product shipping', () => {
+    expect(pkg.scripts['build:ci']).not.toContain('assert-build-id-stamped')
+    expect(pkg.scripts['build:ci']).not.toContain('ci:guard:build-id')
+  })
+
+  it('CONTRAST CONTROL — the correctness guards ARE still on the deploy path, so this probe is not blind', () => {
+    // Without this, a mis-keyed lookup returning `undefined` would satisfy the
+    // absence above by reading nothing at all (trap 13: an absence assertion
+    // must first prove it can see a presence). It also pins the narrow claim:
+    // build-id is out because it is DIAGNOSTIC, not because guards are banned.
+    expect(pkg.scripts['build:ci']).toContain('assert-v5-endpoint-configured')
+    expect(pkg.scripts['build:ci']).toContain('verify-bundle-budget')
+    expect(pkg.scripts['build:ci']).toContain('assert-no-legacy-orchestration')
+  })
+
+  it('OPPOSITE-DIRECTION TWIN — it IS still wired into the required Staging Gate', () => {
+    // Dropping it from the deploy path must never become dropping it. The
+    // merge gate is where this guard's finding belongs, and it is the only
+    // context `staging` protection requires.
+    expect(pkg.scripts['ci:guard:build-id']).toContain('assert-build-id-stamped')
+    expect(stagingGate).toContain('pnpm run ci:guard:build-id')
+  })
+})

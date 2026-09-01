@@ -46,6 +46,39 @@
 //     that still defaults to a wall-clock timestamp; this guard says nothing
 //     about it.
 //
+// POSTURE: BLOCKING, and in ONE place only — the `build` job of
+// `.github/workflows/staging-full-tests.yml`, which is the "Staging Gate".
+//   Derived 2026-09-01:
+//     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+//       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+//   Re-derive before assuming this is still where the blocking happens.
+//
+// ⚠ DELIBERATELY NOT WIRED INTO `build:ci` — and it WAS, in the first draft of
+// this change. `netlify.toml:20` runs `npm run build:ci`, and `requireSha`
+// below is true whenever `NETLIFY` is set, so an underivable SHA on the deploy
+// path would not have produced a missing diagnostic label: it would have
+// produced a FAILED DEPLOY. The product would stop shipping because a build-id
+// string was absent.
+//
+// ⭐ THE PRINCIPLE. A GUARD MUST NOT ASSERT MORE THAN ITS EVIDENCE SUPPORTS. A
+// missing build id is evidence that the DIAGNOSTIC is broken; it is not
+// evidence that the artefact is unsafe to serve. The bundle is byte-identical
+// either way, and every limitation listed above is about PROVENANCE, not
+// correctness. Escalating a diagnostic absence into a hard failure on the
+// deploy path claims a severity the finding does not carry — the same error of
+// degree, in the opposite direction, as an alarm claiming an authority it
+// lacks. A false red must gate the MERGE, never break the staging DEPLOY for
+// every lane.
+//
+// ⚠ THAT IS NOT A BLANKET RULE ABOUT GUARDS IN `build:ci`. That script rightly
+// carries `assert-v5-endpoint-configured`, `verify-bundle-budget` and
+// `assert-no-legacy-orchestration`: those are CORRECTNESS/CONFIG guards, and a
+// build tripping one is genuinely unsafe to publish. The distinguishing
+// question is what the finding PROVES, not whether a guard is involved. The
+// posture is derived and pinned by `tests/ci-guards/build-id-stamp.spec.ts`
+// (with a contrast control asserting those three are still there), so moving
+// this back onto the deploy path REDs rather than drifting.
+//
 // POSITIVE CONTROL. An absence assertion over files that do not exist passes by
 // testing nothing — a `dist/` that failed to build, or an output directory typo,
 // would otherwise read as a clean green. So the guard HARD-FAILS unless it found
