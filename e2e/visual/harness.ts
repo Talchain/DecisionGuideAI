@@ -64,6 +64,42 @@ import { join, dirname } from 'node:path'
 import { PNG } from 'pngjs'
 import { repoRoot } from './repoRoot'
 import { posturePins, postureFingerprint, unmappedNetlifyFlags } from './flagPosture'
+import { typography } from '../../src/styles/typography'
+
+/**
+ * The declared canvas node-title size, DERIVED FROM THE TOKEN THE PRODUCT SHIPS.
+ *
+ * ⚠ IT WAS A COPIED `13` IN TWO SPECS, AND THAT COST SEVEN ASSERTIONS THEIR RUN.
+ * #1088 moved `nodeTitle` to 12px for legibility (11px goes sub-floor at zoom
+ * 0.45 — the derivation is in `typography.ts`), and the shipped code is
+ * self-consistent about it: the token declares 12px and
+ * `NODE_TITLE_WIDEST_WORD_PX` is 93 = `97.77 x 12/13 + 2.75`, re-derived with
+ * it. The two specs' copies were not updated. Both sat in PRECONDITION position
+ * — `nodeLabelFit` guards its widest-word corpus, `nodeTextLegibility` guards
+ * its strength-pill sweep — so each threw before its real payload assertions
+ * ever ran, and those assertions had not executed since 1 Sep.
+ *
+ * The assertion's NAME lied; its predicate was fine. That is the hand-maintained
+ * mirror at the top of CLAUDE.md, in miniature: a copied number, in a guard, in
+ * the file whose job is to notice drift.
+ *
+ * So it is derived rather than re-copied to 12, and the parse THROWS rather than
+ * falling back — a mirror that cannot be re-synced by hand cannot go stale, and
+ * one that fails loud is the only kind worth keeping.
+ */
+export const NODE_TITLE_DECLARED_PX: number = (() => {
+  const m = /text-\[length:calc\((\d+(?:\.\d+)?)px\s*\*\s*var\(--canvas-label-scale/.exec(
+    typography.nodeTitle,
+  )
+  if (!m) {
+    throw new Error(
+      `[visreg] could not derive the declared node-title size from typography.nodeTitle ` +
+        `("${typography.nodeTitle}"). The token's shape changed; fix this derivation rather ` +
+        `than hardcoding a size — a copied one is what went stale last time.`,
+    )
+  }
+  return Number(m[1])
+})()
 
 export const REFERENCE_ROOT = join(repoRoot(), 'e2e', 'visual', 'references')
 export const MANIFEST_PATH = join(repoRoot(), 'test-results', 'visual-manifest.txt')

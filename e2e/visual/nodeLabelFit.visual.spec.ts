@@ -33,7 +33,10 @@ import { test, expect } from '@playwright/test'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { VIEWPORTS, clearNotifications, openCanvas, preparePage, seedStarterDraft } from './harness'
+import {
+  VIEWPORTS, clearNotifications, openCanvas, preparePage, seedStarterDraft,
+  NODE_TITLE_DECLARED_PX,
+} from './harness'
 import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
@@ -223,9 +226,16 @@ test.describe('the widest-word bound covers the product’s own content', () => 
         controlPx.map((c) => `    ${c.word.padEnd(18)} ${c.px}px`).join('\n'),
     )
 
-    // The declared size must be the DS v5 §2.3 canvas title size. If this drifts
-    // the measurement below is being taken at the wrong size and means nothing.
-    expect(declaredPx).toBeCloseTo(13, 1)
+    // The declared size must be the size the TOKEN declares. If this drifts the
+    // measurement below is being taken at the wrong size and means nothing.
+    //
+    // ⚠ THIS READ `13` UNTIL 1 Sep 2026 AND THE TOKEN HAD SAID 12 SINCE #1088,
+    // so it threw here and the whole corpus check below it — the reason this
+    // test exists — had not run since. Derived from the token now, for that
+    // reason. (DS v5 §2.3 still says 13px; the document is the stale half and is
+    // rowed, not edited from a spec.)
+    expect(declaredPx, 'the mounted title is not rendering at the size its token declares')
+      .toBeCloseTo(NODE_TITLE_DECLARED_PX, 1)
 
     /*
      * ⚠ FONT METRICS ARE PLATFORM-DEPENDENT, AND THE BOUND WAS MEASURED ON ONE
