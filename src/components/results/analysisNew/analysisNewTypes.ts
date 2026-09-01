@@ -455,9 +455,109 @@ export interface OptionsComparisonSection {
   totalCount: number
 }
 
+/**
+ * One of the two readings, resolved to the sentence the surface prints and the
+ * option it is ABOUT.
+ *
+ * ⚠ `optionId` IS NOT DECORATION. It is the identity a test binds to. An
+ * assertion that finds a claim by its rendered VALUE ("the row showing 62%")
+ * can be satisfied by a different option that happens to share the number —
+ * CLAUDE.md trap 19, which cost this estate a deleted extractor under 23,832
+ * green tests. Every assertion about these claims binds to `optionId`.
+ */
+export interface ImplicationClaim {
+  optionId: string
+  /** Composed by `analysisNewCopy`, which delegates to the hero's own wording. */
+  sentence: string
+}
+
+/**
+ * ⭐ WHAT YOUR MODEL IMPLIES — the two readings, and whether they agree.
+ *
+ * ── WHY THIS EXISTS ────────────────────────────────────────────────────────
+ * This surface could show only ONE reading of a run: the win probability, in
+ * "How the options compare". A win probability answers "which option most often
+ * comes out on top?" and nothing else. The old Analysis tab's hero carries a
+ * second and a third — the highest EXPECTED OUTCOME, and the highest chance of
+ * MEETING THE USER'S OWN TARGET — and its most valuable single sentence is the
+ * one that fires when those two disagree:
+ *
+ *   "X has the highest expected outcome."
+ *   "Y has the highest chance of meeting your goal and limits."
+ *
+ * That disagreement is the product's whole thesis in one place. It is not a
+ * defect in the run and it is not noise: it is two defensible readings of the
+ * same numbers pointing at different options, which is exactly the moment a
+ * team has to supply judgement the model cannot. The Reasoning tab did not have
+ * it, and "the other sections aren't that valuable" is the predictable result of
+ * a reasoning surface that only ever states one reading.
+ *
+ * ── ⚠⚠ THE GOAL CROWN IS NOT RE-DERIVED ────────────────────────────────────
+ * The second reading is `selectGoalLeader`'s own output — THE owner of the
+ * goal-metric crown, called, never copied. It carries the rules that were
+ * expensive to get right:
+ *
+ *   · AVAILABILITY vs ENTITLEMENT. "May I DISPLAY this?" is `.some`; "may I
+ *     CLAIM a leader?" is `.every`. One revision of ROADMAP 2.233 merged them
+ *     and had to be reverted. This section asks ONLY the entitlement question
+ *     for its claims, because a sentence naming two options is a claim — never
+ *     a display — and asks the availability question ONLY to decide whether an
+ *     honest unlock exists to offer.
+ *   · UI-SEM-071 (no user target, no goal claim), the complete-field gate, the
+ *     unique maximum, and the sub-1% floor.
+ *
+ * WITHHELD DESIGNATIONS (ROADMAP 1.267) are applied first and unconditionally:
+ * a sentence naming two options is the largest designation this surface makes.
+ *
+ * ⚠ THE OUTCOME ARGMAX IS WRITTEN LOCALLY, AND THE REASON IS RECORDED ON THE
+ * BUILDER. In short: `selectGoalLeader` is a PROBABILITY selector (its floor and
+ * its presence test both assume 0..1), an expected outcome is a signed quantity
+ * in the run's own units, and pushing one through the other would be trap 21 —
+ * one name answering two questions. The entitlement SHAPE is deliberately
+ * identical, because the reasoning generalises even where the function cannot.
+ */
+export type ModelImplication =
+  /**
+   * The two readings name DIFFERENT options. The crown jewel.
+   */
+  | { kind: 'diverged'; outcome: ImplicationClaim; goal: ImplicationClaim }
+  /**
+   * The two readings name the SAME option. Agreement is informative — it is the
+   * evidence that the choice is robust across two different questions — so it
+   * is stated, not silently dropped.
+   */
+  | { kind: 'aligned'; label: string; outcome: ImplicationClaim; goal: ImplicationClaim }
+  /**
+   * ⭐ THE STATE THAT WILL FIRE MOST OFTEN, AND THE REASON IT IS NOT AN ERROR.
+   *
+   * The outcome reading is available on essentially any successful run. The goal
+   * reading needs a SUCCESS TARGET, and a target is a USER ACTION — not a
+   * producer gap. So on a run where nobody set one, the second reading does not
+   * exist to be shown, and no honest surface can invent it.
+   *
+   * What it must NOT do is stay silent, and what it must not do is nag. The
+   * surface states the reading it has, and names the target as the thing that
+   * UNLOCKS A SECOND WAY OF READING THE RUN — reasoning the user cannot
+   * currently do — rather than as a missing field to go and fill in.
+   *
+   * ⚠ GATED NARROWER THAN "no goal leader": the unlock is offered only when
+   * `hasAnyGoalValue` is false AND no threshold exists — i.e. the goal reading
+   * is absent BECAUSE no target exists. A run that HAS a target and merely lacks
+   * goal probabilities is a producer gap, where "set a success target" would be
+   * false advice — that case falls to `none`, as does a target-bearing run whose
+   * crown is withheld for a tie, an incomplete field, or the sub-1% floor. In
+   * every one of those we are not entitled to a second claim AND have no honest
+   * unlock to offer, so we say nothing.
+   */
+  | { kind: 'needs_target'; outcome: ImplicationClaim }
+  /** Nothing this run is entitled to say. Renders nothing at all. */
+  | { kind: 'none' }
+
 export interface AnalysisNewViewModel {
   status: AnalysisNewStatus
   atAGlance: AtAGlance
+  /** ⭐ The two readings and whether they agree. Sits with the glance. */
+  modelImplication: ModelImplication
   optionsComparison: OptionsComparisonSection
   keyInsights: KeyInsightsSection
   strengthen: StrengthenSection

@@ -13,6 +13,15 @@
  * describing the analysis, that is the fabrication boundary being crossed.
  */
 
+import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+
+/**
+ * Stands in for a label that cannot be safely interpolated into a generated
+ * sentence — blank, a bare node id, or one carrying a banned glossary term.
+ * `safeInterpolatedLabel` is the shared guard; this is what it falls back to.
+ */
+export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
+
 export const ANALYSIS_NEW_COPY = {
   /** The tab's own one-line frame. Names it as an experiment, not a product. */
   tabIntro:
@@ -30,6 +39,11 @@ export const ANALYSIS_NEW_COPY = {
      * run where it matters most.
      */
     options: 'How the options compare',
+    /**
+     * ⚠ NAMES THE SECTION; ASSERTS NOTHING. It does not say "they disagree" —
+     * the same title stands over the aligned and the needs-target states.
+     */
+    implications: 'What your model implies',
     keyInsights: 'Key insights',
     strengthen: 'Strengthen the reasoning',
     drivers: 'Drivers and dynamics',
@@ -43,6 +57,102 @@ export const ANALYSIS_NEW_COPY = {
    * fact about this run; "Your reasoning looks solid" would be a claim nobody
    * measured.
    */
+  /**
+   * ⭐ WHAT YOUR MODEL IMPLIES — the two readings.
+   *
+   * ⚠⚠ ONE CLAIM IS DELEGATED AND ONE IS AUTHORED, AND THE ASYMMETRY IS FORCED.
+   * `goalClaim` returns `GOAL_ANCHOR_COPY`'s own sentence — the shared owner
+   * that the retiring hero's copy ALSO delegates to, so both surfaces print one
+   * wording of that claim and cannot drift.
+   *
+   * `outcomeClaim` has no shared owner. Its only prior authoring lives inside
+   * `analysis-hero`, which an allow-list guard forbids this tab from importing
+   * (the module is being retired and must stay deletable). So the sentence is
+   * authored here. That is a genuine, KNOWN duplication of one claim across two
+   * surfaces, and it is the sanctioned choice rather than an oversight: the
+   * estate has already decided this tab must not depend on that module, and the
+   * duplication ends when the hero is deleted. If the outcome claim ever needs a
+   * second live consumer before then, the fix is to promote it to
+   * `results/utils/`, NOT to import it from either surface.
+   *
+   * This file's standing rule — "no copy that asserts a finding; every sentence
+   * a user reads ABOUT their situation comes from the producer, verbatim or
+   * formatted" — holds: the framing below is furniture, and both claim sentences
+   * carry only a producer label and a producer number, formatted by the shared
+   * formatters.
+   */
+  implications: {
+    /**
+     * The lead-in for the diverged state.
+     *
+     * ⚠ IT DOES NOT SAY "the model is unsure", AND THAT IS THE WHOLE POINT.
+     * Divergence is not low confidence and it is not a defect in the run: both
+     * readings are well-founded, they answer different questions, and they
+     * happen to point at different options. Framing it as uncertainty would
+     * teach the reader to discount it, when it is the single most decision-
+     * relevant thing this run has to say.
+     */
+    divergedLead: 'Two defensible readings of this run point at different options.',
+    /**
+     * The diverged state's close. Names the judgement as the USER'S — Olumi
+     * does not adjudicate between the two readings, because which one matters
+     * more is a question about the team's appetite, not about the numbers.
+     */
+    divergedResolve:
+      'Which reading matters more is a judgement about your appetite for risk, not a result this run can settle.',
+    /** The aligned state. Agreement across two different questions is evidence. */
+    alignedLead: (label: string): string =>
+      `${label} leads on both readings of this run.`,
+    alignedResolve:
+      'The two readings agree, so the choice does not hinge on which one you weight.',
+    /**
+     * ⭐ THE UNLOCK, FRAMED AS REASONING RATHER THAN HOUSEKEEPING.
+     *
+     * "Set a success target" alone reads as a form field somebody forgot. What
+     * a target actually buys is a SECOND, INDEPENDENT WAY TO READ THE SAME RUN
+     * — one that can disagree with the first and change the decision. The
+     * sentence says that, so the user can decide whether the second reading is
+     * worth having rather than complying with a prompt.
+     *
+     * ⚠ AND IT PROMISES ONLY WHAT IT CAN DELIVER: it says a target WOULD add a
+     * second reading, never that the two would disagree. Whether they diverge is
+     * not knowable before the target exists, and promising a divergence that
+     * then does not appear would be a fabricated expectation.
+     */
+    needsTargetLead: 'Only one reading of this run is available.',
+    needsTargetUnlock:
+      'Set a success target and the same run also answers which option is most likely to hit it — a second reading that can disagree with this one.',
+
+    /**
+     * READING ONE — the highest expected outcome.
+     *
+     * ⚠ "EXPECTED OUTCOME" IS LITERALLY TRUE HERE, AND THAT IS LOAD-BEARING.
+     * The number is `getExpectedValue`, which is the MEAN and explicitly refuses
+     * to fall back to the median. A surface that blends mean and median into one
+     * "centre" may say "centre"; only one reading the mean may say "expected".
+     */
+    outcomeClaim: (label: string, readout: string): string =>
+      `${label} has the highest expected outcome: ${readout}.`,
+
+    /**
+     * READING TWO — the highest chance of meeting the user's target. DELEGATED
+     * to the shared anchor, which is also what the hero's own copy calls.
+     *
+     * ⚠⚠ THE `true` IS NOT A PLACEHOLDER — IT IS THE WORDING TRUE IN BOTH CASES,
+     * and it is the same argument `HERO_COPY.headline.goalOnly` passes.
+     * The producer collapses two situations into one `goalProbability` and sends
+     * NO discriminator: with no user constraints PLoT synthesises one from the
+     * goal threshold, so the figure IS goal attainment; with constraints present
+     * it discards the goal threshold and the figure is the JOINT probability, so
+     * "your goal" would be false. "every target this run scored" is true either
+     * way. Asserting the possessive would be a claim the contract cannot support,
+     * and sniffing another service's internal constant to tell the cases apart is
+     * the hand-maintained mirror this estate keeps paying for (trap 12).
+     */
+    goalClaim: (label: string, readout: string): string =>
+      `${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
+  },
+
   empty: {
     keyInsights: 'No insight is grounded well enough to lead with yet.',
     strengthen: 'No high-priority reasoning intervention identified yet.',

@@ -71,7 +71,12 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 // this surface's deck would be the mirror that drifts silently (trap 12).
 import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
 import type { VoiRanking } from '../voi/voiRanking'
-import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
+import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
+import { getExpectedValue } from '../utils/getExpectedValue'
+import { formatGoalProbability } from '../utils/displayFloors'
+import { formatThreshold } from '../RangeVisualization'
+import { safeInterpolatedLabel } from '../utils/glossaryCheck'
+import { ANALYSIS_NEW_COPY as COPY, ANALYSIS_NEW_LABEL_FALLBACK } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
@@ -88,6 +93,8 @@ import type {
   GlanceComparativeClaim,
   ComparisonOption,
   OptionsComparisonSection,
+  ImplicationClaim,
+  ModelImplication,
 } from './analysisNewTypes'
 
 /**
@@ -778,11 +785,59 @@ function buildUncertainty(
     const u = uncertaintyRows[i]
     const text = humanised(u)
     if (!text) continue
-    // A threshold row gets the producer's own variable as its label; everything
-    // else gets the sentence cut to a label length.
+    /**
+     * ⭐⭐ THE SENTENCE APPEARS EXACTLY ONCE — AS THE LABEL WHEN IT IS SHORT
+     * ENOUGH TO BE ONE, AS THE BODY OTHERWISE.
+     *
+     * ⚠ WITNESSED ON DEPLOYED `19fe8710`, and it is the third distinct defect
+     * this two-slot pair has produced. Every non-threshold row printed its own
+     * sentence TWICE — once cut off mid-clause, once in full:
+     *
+     *     If "Operational Overhead Burden → Operational Overhead Exceeds Team
+     *     Capacity"…
+     *     If "Operational Overhead Burden → Operational Overhead Exceeds Team
+     *     Capacity" changes significantly, "RudderStack" could become the
+     *     better choice
+     *
+     * Two of the three rows in "Uncertainty and gaps" did this, directly under
+     * a sibling row that does it correctly (a real short label over a distinct
+     * body). One section, two title conventions — which is Paul's "such a lack
+     * of consistency in the design", concretely.
+     *
+     * ⚠⚠ READ THE HISTORY BEFORE CHANGING THIS AGAIN — TWO ALTERNATIVES ARE
+     * ALREADY REJECTED AND NEITHER MAY COME BACK:
+     *  · `implication = u.suggestion || text`. The producer sends `suggestion`
+     *    as the CONSTANT 'Review this assumption' on every fragile-edge row, so
+     *    a generic remedy DISPLACED the finding and the reasoning left the page.
+     *  · the full sentence promoted into the label slot — 300 characters of
+     *    header type, trading truthfulness for the density problem this surface
+     *    exists to solve.
+     * A third, considered and rejected here: a constant category label
+     * ("One assumption the result is sensitive to"). It reads as a real label
+     * until you notice two rows carry the SAME one, at which point it is
+     * furniture rather than information — Paul's canvas-density ruling, one
+     * surface up.
+     *
+     * ⚠ SO THE FIX IS NOT A BETTER TRUNCATION, IT IS NOT TRUNCATING. A cut
+     * prefix of the body is not a label; it is the body said badly, and it was
+     * cut BEFORE ITS VERB on all three measured rows, so the reader got the
+     * condition and never the consequence. When the cut would change the text,
+     * the row carries NO label and the whole sentence rides `implication`,
+     * where nothing can displace it and nothing repeats it. When the cut would
+     * NOT change the text the sentence already IS label-length, so it stays in
+     * the label slot with an empty body — the previously-pinned no-duplicate
+     * case, unchanged.
+     *
+     * A threshold row is untouched: `threshold.variable` is a PRODUCER-SUPPLIED
+     * name, a genuine label that is not a prefix of anything, so it keeps both
+     * slots. That row and this one are the discriminating pair.
+     */
+    const labelLength = truncateAtWordBoundary(text, 80)
     const headlineText = u.threshold
       ? `${u.threshold.variable} could tip the result`
-      : truncateAtWordBoundary(text, 80)
+      : labelLength === text
+        ? text
+        : ''
     findings.push({
       id: uncertaintyKey(u, i),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
@@ -805,6 +860,14 @@ function buildUncertainty(
       // first draft carried `text` unconditionally and the first-viewport census
       // caught it: an uncertainty shorter than the cut rendered the identical
       // sentence twice. Truthfulness and non-repetition are one requirement.
+      //
+      // ⭐ THIS LINE IS NOW THE WHOLE NON-REPETITION RULE, and it needed no
+      // change to absorb the fix above: a `''` headline is never equal to a
+      // non-empty `text`, so the body carries the sentence exactly as it does
+      // for a threshold row. The two slots hold the sentence ONCE in every
+      // reachable combination — label-only (short), body-only (long, no
+      // threshold), or label-plus-body (threshold, where the label is the
+      // producer's own variable and not a prefix of the body).
       headline: headlineText,
       implication: headlineText === text ? '' : text,
       // ⚠⚠ THIS COMMENT USED TO SAY "the generic constant is DROPPED rather
@@ -1463,6 +1526,190 @@ function usableOptionLabel(o: OptionResult): string | null {
  * printed bare it reads as the most precise number on screen while being the
  * least reliable. Own-probability statements only.
  */
+/**
+ * ⭐⭐ WHAT YOUR MODEL IMPLIES — the two readings, and whether they agree.
+ *
+ * See `ModelImplication` in `analysisNewTypes.ts` for WHY this section exists.
+ *
+ * ── ⚠⚠ WHY THIS DOES NOT CALL `buildHeroModel`, THOUGH IT WANTED TO ────────
+ * The first implementation of this section read its answers straight off
+ * `buildHeroModel`'s output — `leaders.goal`, `leaders.outcome`,
+ * `showGoalHint`, `hasConstraints` — which re-derived nothing at all and was,
+ * on the reuse axis alone, the better design.
+ *
+ * It is not available. `analysis-hero/__tests__/inertness.spec.ts` is an
+ * ALLOW-LIST: `ResultsBody.tsx` and `HeroGallery.tsx` are the only files in
+ * `src/` permitted to import that module, by any form, INCLUDING FROM TESTS.
+ * The hero is being retired, and the guard exists so that it stays deletable —
+ * so coupling the tab meant to replace it to the module being removed would
+ * defeat the guard's whole purpose, not merely trip it. CI caught this, which
+ * is the system working.
+ *
+ * ── SO: SHARED OWNERS FOR EVERYTHING THAT HAS ONE ──────────────────────────
+ * Every rule below with an owner in `results/utils/` is CALLED, not copied:
+ *
+ *  · `selectGoalLeader` — THE goal-metric crown. Availability (`.some`) is a
+ *    different question from entitlement (`.every`) and this module owns both;
+ *    a sentence naming two options is a CLAIM, so only entitlement is asked.
+ *    It carries the user-target gate (UI-SEM-071), the complete-field gate, the
+ *    unique-maximum gate and the sub-1% floor. This section re-derives none of
+ *    them, and `designationsWithheld`/`hasUserTarget` are passed in because
+ *    that is the documented contract of `GoalLeaderGates`, not a second rule.
+ *  · `getExpectedValue` — THE centralised expected-outcome reader.
+ *  · `formatThreshold` / `formatGoalProbability` — the shared formatters, so
+ *    this surface's numbers reconcile with every other surface's.
+ *  · `GOAL_ANCHOR_COPY.headline` — the shared goal sentence, which is what
+ *    `HERO_COPY` itself delegates to. Not a second wording of one claim.
+ *
+ * ── ⚠ THE ONE RULE WRITTEN HERE, AND WHY IT IS NOT A SECOND ORACLE ─────────
+ * The OUTCOME argmax. `selectGoalLeader` is deliberately NOT reused for it:
+ * its fifth gate is `SUB_ONE_PERCENT_FLOOR`, a PROBABILITY floor, and its
+ * presence test is `isFiniteProbability`. An expected outcome is not a
+ * probability — it is a signed quantity in the run's own units — so selecting
+ * one through a probability selector would be trap 21 exactly: one name
+ * answering two questions, and it would silently reject every negative or
+ * large-magnitude outcome. The entitlement SHAPE is deliberately the same
+ * (complete field, unique maximum), because the reasoning behind it is the
+ * reasoning, not the caller.
+ *
+ * ⚠ AND IT READS THE MEAN, NEVER THE MEDIAN. `getExpectedValue` refuses to
+ * fall back to `p50` ("semantically different", its own words). The hero's
+ * private centre blends mean → median → p50 because a CHART needs one dot per
+ * option and any centre beats none; a SENTENCE that says "highest expected
+ * outcome" while showing a median would be false. Same data, different
+ * obligation — so the difference is deliberate, and it is the safe direction.
+ */
+function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication {
+  const rec = data.recommendation
+  const options = rec.allOptions ?? []
+
+  /**
+   * ⚠ A COMPARISON NEEDS SOMETHING TO COMPARE WITH — the SAME two-conjunct gate
+   * `buildOptionsComparison` applies below. With one option "X has the highest
+   * expected outcome" is not a finding, it is a tautology dressed as one.
+   */
+  if (rec.isSingleOption === true || options.length <= 1) return { kind: 'none' }
+
+  /**
+   * ROADMAP 1.267 — DESIGNATION vs DATA. On a run whose verdict withholds the
+   * leader claim, ORDER, ORDINALS and CROWNS go. A sentence naming two options
+   * is the largest designation this surface could make, so it goes first and
+   * unconditionally. The predicate is the one `GoalLeaderGates` documents and
+   * that `optionDisplayOrder`/`fragileEdgeCopy` state identically; an ABSENT
+   * verdict is not a withheld claim.
+   */
+  const designationsWithheld = rec.verdict != null && !rec.verdict.hasLeadingOption
+  if (designationsWithheld) return { kind: 'none' }
+
+  /**
+   * UI-SEM-071. Without a USER target, PLoT/ISL synthesize one and the selector
+   * still adopts `probability_of_joint_goal` — values describing a target the
+   * user never set. Suppressed at source, exactly as the hero does it, so no
+   * downstream read can bypass the gate.
+   */
+  const hasUserTarget = rec.goalThreshold != null
+  const goalValue = (o: OptionResult): number | null =>
+    hasUserTarget ? o.goalProbability ?? null : null
+
+  const label = (o: OptionResult): string =>
+    safeInterpolatedLabel(o.label, ANALYSIS_NEW_LABEL_FALLBACK)
+
+  // ── READING ONE: the highest expected outcome ─────────────────────────────
+  const centres = new Map<string, number>()
+  for (const o of options) {
+    const v = getExpectedValue(o)
+    if (typeof v === 'number' && Number.isFinite(v)) centres.set(o.id, v)
+  }
+
+  /**
+   * ENTITLEMENT, the `.every` question. A maximum taken over unmeasured rivals
+   * cannot honestly claim "highest" — the same reasoning as
+   * `hasCompleteGoalField`, applied to the quantity this reading is about.
+   */
+  if (centres.size !== options.length) return { kind: 'none' }
+
+  let outcomeRow: OptionResult | null = null
+  let best = -Infinity
+  let tiedAtMax = false
+  for (const o of options) {
+    const v = centres.get(o.id) as number
+    if (v > best) {
+      best = v
+      outcomeRow = o
+      tiedAtMax = false
+    } else if (v === best) {
+      tiedAtMax = true
+    }
+  }
+  // A tie at the top identifies no single best option; crowning either would be
+  // arbitrary. Same gate, same reason, as the goal selector's.
+  if (!outcomeRow || tiedAtMax) return { kind: 'none' }
+
+  const outcomeReadout = formatThreshold(
+    best,
+    rec.outcomeUnit,
+    rec.outcomeUnitSymbol,
+    rec.isNormalised,
+  )
+
+  /**
+   * ⚠ UI-SEM-070, AND IT IS ABOUT WHAT THE READER SEES, NOT WHAT WE COMPUTED.
+   * Two options whose distinct centres RENDER as the same string show the
+   * reader no winner, so no sentence may crown one. String equality of the
+   * rendered readouts is the signal — never a ratio, so a genuine lead that
+   * happens to be small still reads as a lead.
+   */
+  const readoutOf = (o: OptionResult): string =>
+    formatThreshold(centres.get(o.id) as number, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
+  if (options.filter((o) => readoutOf(o) === outcomeReadout).length !== 1) {
+    return { kind: 'none' }
+  }
+
+  const outcome: ImplicationClaim = {
+    optionId: outcomeRow.id,
+    sentence: COPY.implications.outcomeClaim(label(outcomeRow), outcomeReadout),
+  }
+
+  // ── READING TWO: the highest chance of meeting the user's target ──────────
+  // THE shared crown. Every gate is this selector's, none is restated here.
+  const goalRow = selectGoalLeader(options, goalValue, { designationsWithheld, hasUserTarget })
+
+  if (!goalRow) {
+    /**
+     * No second reading. The unlock is offered ONLY when the reading is missing
+     * because no target exists — `hasAnyGoalValue` is the AVAILABILITY question
+     * (`.some`), and its being false alongside an absent threshold is exactly
+     * the hero's `showGoalHint` condition. A run that HAS a target and merely
+     * lacks goal probabilities is a producer gap where "set a success target"
+     * would be false advice; a target-bearing run whose crown is withheld for a
+     * tie, an incomplete field or the sub-1% floor is not entitled to a second
+     * claim either. Both take the silent branch.
+     */
+    const goalAvailable = hasAnyGoalValue(options, goalValue, { hasUserTarget })
+    return !goalAvailable && rec.goalThreshold == null
+      ? { kind: 'needs_target', outcome }
+      : { kind: 'none' }
+  }
+
+  const goal: ImplicationClaim = {
+    optionId: goalRow.id,
+    sentence: COPY.implications.goalClaim(
+      label(goalRow),
+      formatGoalProbability(goalValue(goalRow) as number, goalRow.nValidSamples),
+    ),
+  }
+
+  /**
+   * ⚠ COMPARED BY ID, NEVER BY LABEL OR BY VALUE. Two options can share a label
+   * (and `safeInterpolatedLabel` can collapse two distinct unusable labels onto
+   * the SAME fallback string), and two can share a readout. Identity is the only
+   * comparison that answers "is this the same option?" — trap 19.
+   */
+  return goalRow.id === outcomeRow.id
+    ? { kind: 'aligned', label: label(goalRow), outcome, goal }
+    : { kind: 'diverged', outcome, goal }
+}
+
 function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparisonSection {
   const allOptions = data.recommendation.allOptions ?? []
 
@@ -1739,6 +1986,14 @@ export function buildAnalysisNewViewModel(
     // every option would arrive unmarked and render as analysed-with-no-share.
     // A list of names under that heading is a run report about a run that has
     // not happened. `ModelStrip` already says what the model contains.
+    /**
+     * ⚠ GATED PRE-RUN, for the same reason as the comparison below: both
+     * readings are readings OF A RUN. Pre-run there is no outcome centre and no
+     * goal probability, so `buildModelImplication` would return `none` anyway —
+     * the explicit gate states the intent rather than relying on the absence of
+     * data to produce the right answer by accident.
+     */
+    modelImplication: preRun ? { kind: 'none' } : buildModelImplication(data),
     optionsComparison: preRun
       ? { rows: [], totalCount: 0 }
       : buildOptionsComparison(data),

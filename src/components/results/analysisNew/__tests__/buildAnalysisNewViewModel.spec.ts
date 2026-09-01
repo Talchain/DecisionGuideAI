@@ -494,21 +494,35 @@ describe('identity survives a reorder — for the population that has a discrimi
     // (both lists yield :0,:1,:2) while binding a different row each time. So
     // assert the id travels WITH its content.
     const first = build(forward).uncertainty.findings.find((f) => f.id.startsWith('uncertainty:'))!
-    // ⚠ PIN THE PRECONDITION THIS LOOKUP DEPENDS ON. Finding the row by
-    // `headline` is a VALUE PREDICATE, and trap 19 is that another object can
-    // satisfy one. It is correct today only because these headlines happen to
-    // be distinct — a fact nothing asserted, so a fixture edit giving two rows
-    // the same headline would silently turn this into a match against the wrong
-    // row while staying green.
-    const headlines = build(forward).uncertainty.findings
+    // ⚠ PIN THE PRECONDITION THIS LOOKUP DEPENDS ON. Finding the row by its
+    // rendered text is a VALUE PREDICATE, and trap 19 is that another object can
+    // satisfy one. It is correct only while these keys are distinct — a fact
+    // nothing asserted before, so a fixture edit giving two rows the same text
+    // would silently turn this into a match against the wrong row while staying
+    // green.
+    //
+    // ⭐ THE KEY IS BOTH SLOTS, NOT `headline` ALONE — AND THIS ASSERTION IS WHY.
+    // It was `headline`, and it went RED the moment the builder stopped putting a
+    // truncated copy of the body in that slot (the deployed `19fe8710` stutter
+    // fix): all three fragile-edge rows now carry an EMPTY headline and their
+    // distinguishing content lives in `implication`. The precondition did exactly
+    // what it was written to do — it failed loudly instead of quietly matching the
+    // wrong row — so the fix is to key on the row's whole rendered content, which
+    // discriminates wherever the builder chooses to put it. A NUL joiner keeps
+    // two rows from colliding by straddling the slot boundary.
+    const contentKey = (f: { headline: string; implication: string }) =>
+      `${f.headline}\u0000${f.implication}`
+    const keys = build(forward).uncertainty.findings
       .filter((f) => f.id.startsWith('uncertainty:'))
-      .map((f) => f.headline)
+      .map(contentKey)
     expect(
-      new Set(headlines).size,
-      'headlines must be unique or the lookup below can match the wrong row',
-    ).toBe(headlines.length)
+      new Set(keys).size,
+      'rendered content must be unique or the lookup below can match the wrong row',
+    ).toBe(keys.length)
 
-    const same = build(reversed).uncertainty.findings.find((f) => f.headline === first.headline)!
+    const same = build(reversed).uncertainty.findings.find(
+      (f) => contentKey(f) === contentKey(first),
+    )!
     expect(same.id).toBe(first.id)
   })
 
