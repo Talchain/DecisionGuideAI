@@ -399,6 +399,39 @@ export const ANALYSIS_NEW_COPY = {
     /** The move. Named for what the team gets, not for what the system does. */
     record: 'Record what you decided, and why',
   },
+  /**
+   * The success target — the question a strategist answers FIRST and this panel
+   * never asked.
+   */
+  successTarget: {
+    label: 'Target',
+    /**
+     * ⚠ "No target set" IS A FACT ABOUT THE MODEL, and it is not the same
+     * sentence as `unexpressible` below. Collapsing them would tell a user who
+     * DID set a target that they never did.
+     */
+    none: 'None set',
+    /**
+     * ⚠⚠ A REAL VALUE WE CANNOT EXPRESS IN THE USER'S UNITS. The store tags
+     * thresholds `raw` or `normalised`; a bare 0-1 rendered as a target once
+     * "showed 0.8 when the real target was 20%". Saying so is honest; printing
+     * the number is the defect.
+     */
+    unexpressible: 'Set, but not in a unit we can show',
+    set: 'Set a target',
+    change: 'Change',
+    inputLabel: 'Success target for this goal',
+    /**
+     * ⚠⚠ `local_only` IS THE ONLY OUTCOME THIS CONTROL CAN REPORT, and the copy
+     * says what that means rather than implying a save. There is no server
+     * carrier for a goal threshold — `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget`
+     * is `'disabled'`, and the four that exist are `factor_value_edit`,
+     * `prior_range_edit`, `edge_adjudication`, `structural_delete`. Borrowing
+     * the strip editor's "sent" sentence would claim an acceptance nothing gave.
+     */
+    savedLocally: 'Target set on your model. It will be used the next time you analyse.',
+    notEncodable: 'That target could not be applied, so nothing changed.',
+  },
   modelStrip: {
     /**
      * The affordance, stated once above the marks. It describes the CONTROL,

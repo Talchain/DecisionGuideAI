@@ -139,6 +139,15 @@ export interface StripRow {
 export interface ModelStrip {
   /** The goal or decision node's label, when the model names one. */
   goalLabel: string | null
+  /**
+   * The goal node's id, so the target line can write to the RIGHT node.
+   *
+   * ⚠ NOT `outcomeNodeId`. The store's setter falls back to that when handed no
+   * id, and `GoalThresholdEditor` carries the same warning in its own props —
+   * "preventing writes to the wrong node". A model with a goal AND an outcome
+   * would otherwise have its target written onto the outcome.
+   */
+  goalNodeId: string | null
   rows: StripRow[]
   /** Total nodes represented, across every row. Never a claim about coverage. */
   total: number
@@ -223,6 +232,7 @@ export function buildModelStrip(
 ): ModelStrip {
   const byKind = new Map<string, StripNode[]>()
   let goalLabel: string | null = null
+  let goalNodeId: string | null = null
   let decisionLabel: string | null = null
 
   for (const node of nodes) {
@@ -230,6 +240,7 @@ export function buildModelStrip(
     if (!kind) continue
     if (kind === 'goal') {
       goalLabel = goalLabel ?? (labelOf(node) || null)
+      goalNodeId = goalNodeId ?? node.id
       continue
     }
     if (kind === 'decision') {
@@ -264,6 +275,11 @@ export function buildModelStrip(
     // The decision node names the question when no goal node does; both are
     // the thing the rows are about, so either serves as the header.
     goalLabel: goalLabel ?? decisionLabel,
+    // ⚠ THE GOAL NODE ONLY, never the decision node's id as a fallback. The
+    // header LABEL may come from either — both name the thing the rows are
+    // about — but a success target belongs to a goal, and writing one onto a
+    // decision node would put a threshold where nothing reads it.
+    goalNodeId,
     rows,
     total: rows.reduce((n, r) => n + r.nodes.length, 0),
     needsCheckTotal: rows.reduce(

@@ -160,6 +160,7 @@ import {
   VALUE_PROVENANCE_LABEL,
 } from '../../../../canvas/domain/valueProvenance'
 import { useFactorValueCommit } from '../useFactorValueCommit'
+import { SuccessTargetLine } from './SuccessTargetLine'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -635,6 +636,32 @@ export function ModelStrip({
           <ChevronRight className="w-4 h-4 shrink-0 mt-0.5 text-text-light" aria-hidden={true} />
         )}
       </button>
+
+      {/* ── THE SUCCESS TARGET ────────────────────────────────────────────────
+          ⭐ OUTSIDE THE TOGGLE, AND THAT IS FORCED, NOT STYLISTIC. The header is
+          ONE button so the keyboard reaches it once, and a button cannot be
+          nested inside a button — the same constraint that makes the worklist
+          summary above a `span`. This line carries real controls, so it sits
+          beside the header rather than inside it.
+
+          ⚠ RENDERED WHETHER THE STRIP IS OPEN OR CLOSED. "What does success
+          look like" is the question a strategist answers first, and a target
+          hidden behind a disclosure is a target nobody sets. */}
+      <SuccessTargetLine
+        goalNodeId={strip.goalNodeId}
+        /* ⚠⚠ TWO OUTCOMES, NOT THREE, AND NEVER "sent". There is no server
+           carrier for a goal threshold, so this control cannot dispatch. The
+           factor editor above answers to a real authority and says so; this one
+           must not borrow its sentence. */
+        onCommitOutcome={(outcome) =>
+          showToast(
+            outcome === 'local_only'
+              ? COPY.successTarget.savedLocally
+              : COPY.successTarget.notEncodable,
+          )
+        }
+        testId={`${testId}-target`}
+      />
 
       {/* ── THE MARKS, one per node, each a route to that node on canvas ─────
           Unchanged from the always-visible version, including the cap: this is
