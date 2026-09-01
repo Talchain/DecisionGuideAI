@@ -3447,14 +3447,22 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     // that is a CEE-side decision about what to put on the wire, not a
     // truncation to make silently here.
     ...(v2Enabled ? {
-      llm_calls: diagnosticTrace?.llm_calls ?? null,
-      prompt_identity: diagnosticTrace?.prompt_identity ?? null,
+      // The four array-typed reads carry a PURE TYPE ASSERTION and no runtime
+      // change: `diagnosticTrace` is `Record<string, unknown>`, so each read is
+      // `unknown`, which TS widens to `{}` under `??` and will not assign to
+      // the declared `unknown[] | null`. That mismatch is pre-existing; adding
+      // a key below re-fingerprints the resulting whole-object diagnostic, and
+      // the typecheck gate's self-test fails any NEW diagnostic identity on a
+      // clean tree. Asserting the declared type here removes the mismatch at
+      // its source rather than widening the baseline to accommodate it.
+      llm_calls: (diagnosticTrace?.llm_calls ?? null) as unknown[] | null,
+      prompt_identity: (diagnosticTrace?.prompt_identity ?? null) as unknown[] | null,
       zone2_assembly: diagnosticTrace?.zone2_assembly ?? null,
       tool_policy: diagnosticTrace?.tool_policy ?? null,
-      provider_resolution: diagnosticTrace?.provider_resolution ?? null,
+      provider_resolution: (diagnosticTrace?.provider_resolution ?? null) as unknown[] | null,
       structured_output_config: diagnosticTrace?.structured_output_config ?? null,
       streaming_metrics: diagnosticTrace?.streaming_metrics ?? null,
-      fallback_trace: diagnosticTrace?.fallback_trace ?? null,
+      fallback_trace: (diagnosticTrace?.fallback_trace ?? null) as unknown[] | null,
       draft_quality: diagnosticTrace?.draft_quality ?? null,
       ...(!diagnosticTrace ? {
         _unavailable_reason: 'CEE diagnostic trace not present in response',
