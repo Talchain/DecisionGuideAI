@@ -19,7 +19,6 @@
  * No ExpertOverlay. No MetricPills.
  */
 import { memo, useMemo } from 'react'
-import { resolveGoalTarget, type GoalTargetSource } from '../domain/goalTarget'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -108,15 +107,13 @@ export const GoalNode = memo((props: NodeProps) => {
   // reconciled CEE round-trip) set one. Mirror computeSuccessState's priority:
   // a user-set success_threshold counts as "set" first; fall back to the
   // CEE-derived goal_threshold_raw.
-  // ⭐ RESOLVED BY THE SHARED OWNER, not inline. The Reasoning panel's strip
-  // asks the same question and was asking a WEAKER source — the canvas card
-  // rendered "Target: 110%" while the panel rendered "No target we can show",
-  // about one goal, on one screen. `resolveGoalTarget` carries this precedence
-  // (and the empty-string guard) so the two cannot drift again.
-  const resolvedTarget = resolveGoalTarget(props.data as GoalTargetSource | undefined)
-  const thresholdRaw = resolvedTarget?.raw
-  const thresholdUnit = resolvedTarget?.unit
-  const hasThreshold = resolvedTarget !== null
+  const userThreshold = props.data?.threshold_source === 'user'
+    ? (props.data?.success_threshold as number | null | undefined)
+    : undefined
+  const ceeThresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
+  const thresholdRaw = userThreshold != null ? userThreshold : ceeThresholdRaw
+  const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
+  const hasThreshold = thresholdRaw != null && String(thresholdRaw).trim() !== ''
 
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),
