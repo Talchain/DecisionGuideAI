@@ -168,12 +168,39 @@ function codeOf(src: string): string {
 /** Anything that varies at runtime and could re-enter the solver. */
 const RUNTIME_DIMENSION = /innerWidth|innerHeight|getBoundingClientRect|visualViewport|clientWidth|clientHeight|matchMedia|['"`]\.react-flow['"`]|canvasSize/
 
-/** The modules that make up the canonical-layout pipeline. Recorded, not derived. */
+/**
+ * The modules that make up the canonical-layout pipeline. Recorded, not derived
+ * — and therefore a hand-maintained mirror that WENT SHORT (CLAUDE.md trap 12):
+ * `measureNodeHeightsAtLabelBound.ts` joined the pipeline on 1 Sep 2026 and this
+ * list did not know about it, so a genuine pipeline module sat outside the ban
+ * with nothing going red. Adding a module here is part of adding it to the
+ * pipeline.
+ */
 const LAYOUT_PIPELINE = [
   'src/canvas/utils/layout.ts',
   'src/canvas/utils/nodeLayoutConstants.ts',
   'src/canvas/layoutStore.ts',
+  'src/canvas/utils/measureNodeHeightsAtLabelBound.ts',
 ] as const
+
+/**
+ * ⭐⭐ ONE MODULE IN THE PIPELINE TOUCHES THE REACT FLOW ROOT ON PURPOSE, AND THE
+ * BAN ABOVE CONFLATES TWO QUESTIONS (CLAUDE.md trap 21 — two harms under one
+ * predicate is two questions under one name).
+ *
+ * `RUNTIME_DIMENSION` includes `'.react-flow'` as a PROXY for "reads a size that
+ * varies with the viewport". `measureNodeHeightsAtLabelBound` reads the React
+ * Flow root, and reads NO such size: it pins `--canvas-label-scale` to the
+ * CONSTANT `MAX_LABEL_COUNTER_SCALE` and reads `offsetHeight`, which is
+ * unzoomed model px. It exists precisely BECAUSE the pipeline had a hidden
+ * viewport input — the live zoom, arriving through `node.measured.height`,
+ * measured at ×2.05 between zoom 1.0 and 0.5 — and it removes it. Silence would
+ * be worse than an exception, so the exemption is NARROW and PINNED: the module
+ * must reference the constant, and must not reference any varying dimension.
+ */
+const LABEL_BOUND_MEASURER = 'src/canvas/utils/measureNodeHeightsAtLabelBound.ts'
+/** `.react-flow` alone, with the varying dimensions removed — see above. */
+const VARYING_DIMENSION = /innerWidth|innerHeight|getBoundingClientRect|visualViewport|clientWidth|clientHeight|matchMedia|canvasSize/
 
 afterEach(() => {
   document.querySelectorAll('.react-flow').forEach((el) => el.remove())
@@ -201,9 +228,30 @@ describe('R1 (structural) — no runtime dimension can reach the canonical layou
     for (const rel of LAYOUT_PIPELINE) {
       const full = resolve(REPO_ROOT, rel)
       expect(existsSync(full), `${rel} is missing — this guard is measuring nothing`).toBe(true)
-      if (RUNTIME_DIMENSION.test(codeOf(readFileSync(full, 'utf8')))) offenders.push(rel)
+      const code = codeOf(readFileSync(full, 'utf8'))
+      // The narrow exemption, and only for the one named module.
+      const detector = rel === LABEL_BOUND_MEASURER ? VARYING_DIMENSION : RUNTIME_DIMENSION
+      if (detector.test(code)) offenders.push(rel)
     }
     expect(offenders).toEqual([])
+
+    // ⭐ THE EXEMPTION PINS ITS OWN PRECONDITION (CLAUDE.md trap 13b): an
+    // exemption that only SUBTRACTS a rule is a hole. These two assertions are
+    // what make it a narrower rule instead — the module must measure at the
+    // CONSTANT bound, and must still be blind to every varying dimension.
+    const measurer = codeOf(readFileSync(resolve(REPO_ROOT, LABEL_BOUND_MEASURER), 'utf8'))
+    expect(
+      measurer,
+      'the exempted measurer no longer pins the scale to its constant bound — the exemption is now a hole',
+    ).toMatch(/MAX_LABEL_COUNTER_SCALE/)
+    expect(
+      VARYING_DIMENSION.test(measurer),
+      'the exempted measurer started reading a varying dimension',
+    ).toBe(false)
+    // And the exemption must be NARROW: the two detectors must genuinely differ,
+    // or it is not an exemption at all, it is the same rule twice.
+    expect(RUNTIME_DIMENSION.test("document.querySelector('.react-flow')")).toBe(true)
+    expect(VARYING_DIMENSION.test("document.querySelector('.react-flow')")).toBe(false)
 
     // POSITIVE CONTROL on the detector — a synthetic offender must fire.
     expect(RUNTIME_DIMENSION.test('const w = window.innerWidth * 0.85')).toBe(true)

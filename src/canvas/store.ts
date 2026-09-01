@@ -3499,7 +3499,22 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // itself fails (network, module corruption).
       const { layoutGraph } = await import('./utils/layout')
       const { useLayoutStore } = await import('./layoutStore')
+      const { measureNodeHeightsAtLabelBound } = await import('./utils/measureNodeHeightsAtLabelBound')
       const layoutOptions = useLayoutStore.getState()
+
+      // ⭐ MEASURED BEFORE THE AWAIT-FREE WINDOW CLOSES, and at the counter-scale
+      // BOUND rather than at today's zoom. `node.measured.height` is a function
+      // of the live zoom (`--canvas-label-scale` multiplies the canvas type
+      // tokens), so a stride computed from it is correct at one zoom and wrong
+      // at every other — measured ×2.05 between zoom 1.0 and 0.5, and witnessed
+      // as 13 overlapping pairs that survive a reload. See
+      // `utils/measureNodeHeightsAtLabelBound.ts`.
+      //
+      // ⭐ THIS IS NOT A RUNTIME INPUT — IT REMOVES ONE. Ruling R1 says the
+      // canonical layout has no viewport input; today it has a hidden one, the
+      // zoom, arriving through `measured.height`. Measuring at a CONSTANT scale
+      // makes two layouts of the same graph at different zooms identical.
+      const heightAtLabelBound = measureNodeHeightsAtLabelBound()
 
       // No canvas/viewport argument, deliberately: the canonical layout has no
       // runtime input (founder ruling R1). See `utils/layout.ts`'s header.
@@ -3511,6 +3526,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           spacing: layoutOptions.nodeSpacing,
           layerSpacing: layoutOptions.layerSpacing,
           preserveLocked: layoutOptions.respectLocked,
+          heightAtLabelBound,
         }
       )
 
