@@ -123,10 +123,21 @@ describe('GhostOptionNode outline — WCAG 1.4.11 non-text contrast', () => {
   })
 
   it('stays distinguishable from the other dashed border on the canvas', () => {
-    // Incomplete nodes render `border-warning border-dashed` (--warning
-    // #FFA656). The ghost shares the dashed STYLE channel with them, so hue
-    // is all that separates the two — a contrast fix that collapsed this
-    // separation would trade an a11y bug for a state-confusion bug.
+    // Incomplete nodes render amber (--warning #FFA656).
+    //
+    // ⚠ THIS COMMENT SAID "border-warning border-dashed … the ghost shares the
+    // dashed STYLE channel with them" UNTIL 1 Sep 2026, AND THAT HALF IS NOW
+    // FALSE. The dash was removed from the incomplete treatment as a false
+    // claim — `DESIGN_SYSTEM.md` reserves dashed for "outside your control" —
+    // so the ghost NO LONGER shares the dashed channel with an incomplete node.
+    // The assertion below is unchanged and still load-bearing for a narrower
+    // reason: both marks still appear on canvas cards, so a contrast fix that
+    // walked the ghost outline into the amber family would still trade an a11y
+    // bug for a state-confusion bug. Only the mechanism sentence changed.
+    //
+    // ⚠ SCOPE, not generalised: this compares the ghost against amber alone. It
+    // is NOT a claim that the ghost is distinguishable from every other border
+    // on the canvas, and it never was.
     const outline = declared(token)
     const warning = declared('--warning')
     expect(outline.toUpperCase()).not.toBe(warning.toUpperCase())

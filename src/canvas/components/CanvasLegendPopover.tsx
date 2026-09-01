@@ -26,6 +26,8 @@ import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import toolbarStyles from '../../components/layout/CanvasFloatingToolbar.module.css'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { classifyNodeProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 
 interface LegendRow {
   label: string
@@ -156,6 +158,41 @@ const THICKNESS_ROWS: LegendRow[] = [
   },
 ]
 
+/**
+ * ⭐⭐ WHERE A VALUE CAME FROM — the key that stops the new card glyphs being a
+ * PRIVATE CODE.
+ *
+ * `NodeProvenanceMark` was three words on every card ("AI estimate" on 9 of 14
+ * on a real deployed model); it is now a glyph, per the founder's ruling that
+ * copy identical on every card is furniture. Replacing words with pictures is
+ * only an improvement if the pictures are legible to someone who has never seen
+ * them — otherwise it trades repetition for illegibility. This legend is a real
+ * toolbar BUTTON, reachable by keyboard and by touch, and it is the surface that
+ * makes the swap honest for a reader who cannot hover.
+ *
+ * ⚠ DERIVED FROM THE PRODUCER, NOT HAND-LISTED. The rows come from the three
+ * `CEEProvenance` literals run through `classifyNodeProvenance` — the same
+ * authority the card itself uses — so this key CANNOT list a glyph the canvas
+ * does not render, or miss one it does. A hand-written kind list would be the
+ * mirror this estate keeps paying for (CLAUDE.md trap 12) and would silently
+ * stop covering a literal the day one is added. Both the glyph and the words
+ * come from the shared registers; no copy is authored here, which is what keeps
+ * this component's "approved strings only" rule (A4) intact.
+ */
+const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] as const)
+  .map((literal) => {
+    const kind = classifyNodeProvenance(literal)!.kind
+    const Icon = VALUE_PROVENANCE_ICON[kind]
+    return {
+      label: VALUE_PROVENANCE_LABEL[kind],
+      // Declared at the DS canvas-badge 14px. No counter-scale here: the legend
+      // is panel DOM, outside React Flow's transform, so the plain size is the
+      // rendered size (this is exactly what the `var(…, 1)` fallback on the
+      // card's own class is for).
+      swatch: <Icon className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />,
+    }
+  })
+
 function LegendGroup({ rows }: { rows: LegendRow[] }) {
   return (
     <div className="space-y-1.5">
@@ -232,6 +269,8 @@ export function CanvasLegendPopover() {
           <LegendGroup rows={DIRECTION_ROWS} />
       <div className="h-px bg-panel-border my-2" aria-hidden="true" />
       <LegendGroup rows={COLOUR_ROWS} />
+      <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+      <LegendGroup rows={PROVENANCE_ROWS} />
         </div>
       )}
     </div>

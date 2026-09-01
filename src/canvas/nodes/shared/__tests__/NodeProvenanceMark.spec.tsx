@@ -37,7 +37,20 @@ describe('it names the author, in the product’s own words', () => {
     // literal in this file would pass while the canvas and the Reasoning tab
     // called the same thing two different names — which is the drift the shared
     // module exists to prevent, reproduced inside its own guard.
-    expect(el!.textContent).toBe(VALUE_PROVENANCE_LABEL[kind as keyof typeof VALUE_PROVENANCE_LABEL])
+    //
+    // ⚠⚠ READ FROM THE ACCESSIBLE NAME, NOT `textContent`, SINCE 1 Sep 2026.
+    // The mark became an ICON (the founder, on a real deployed model: nine of
+    // fourteen cards read "AI estimate"), so the canonical words moved from
+    // rendered text to `aria-label`. THE GUARD IS UNCHANGED IN WHAT IT
+    // PROTECTS — copy OWNERSHIP, i.e. that this surface cannot spell an
+    // authorship claim differently from the rest of the product. Only the
+    // carrier moved, and re-pointing the assertion at the new carrier is what
+    // stops it going vacuous. The glyph itself, the a11y contract and the
+    // ABSENCE of rendered words are pinned separately in
+    // `NodeProvenanceMark.iconography.spec.tsx`.
+    expect(el!.getAttribute('aria-label')).toBe(
+      VALUE_PROVENANCE_LABEL[kind as keyof typeof VALUE_PROVENANCE_LABEL],
+    )
   })
 
   it('carries the raw producer literal for anyone debugging what actually arrived', () => {

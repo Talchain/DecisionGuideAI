@@ -394,7 +394,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Wireframes v4 hierarchy (display-only): decision/options 1px, factors 0.5px.
   // Risk/outcome/goal/constraint/action keep 2px. The isCausalLens / isIncomplete
   // width overrides in the className below still take precedence — e.g. an
-  // unset "goal gap" renders 2px dashed warning via the isIncomplete path.
+  // unset "goal gap" renders 2px SOLID amber via the isIncomplete path.
+  // ⚠ It read "2px dashed warning" until 1 Sep 2026. The dash was removed as a
+  // false claim ("outside your control") — see `borderColourClass` below for
+  // the ratified vocabulary. A width note that still described the old style
+  // would be the next reader's evidence for putting it back.
   const borderWidth = (() => {
     if (nodeType === 'factor') return 'border-[0.5px]'
     if (nodeType === 'decision' || nodeType === 'option') return 'border'
@@ -440,6 +444,55 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // One condition, two consumers (the mount below and the footer padding).
   const showQuickActions = !lodActive && !isCausalLens && !isEvidenceLens
 
+  /**
+   * ⭐⭐ AMBER ONLY — THE DASH IS A DIFFERENT CLAIM, AND IT WAS FALSE.
+   *
+   * `DESIGN_SYSTEM.md` §"Border vocabulary (ratified, wireframe v4)" names
+   * exactly two border modifiers and says they must never be conflated:
+   *
+   *   · **DASHED = "outside your control"** (external factors)
+   *   · **AMBER  = "needs your judgement"** (a controllable node missing its
+   *     value; the goal missing its target)
+   *
+   * This expression applied BOTH AT ONCE for `isIncomplete`, so every
+   * incomplete node also claimed to be outside the user's control. On the
+   * founder's pre-analysis screenshot four of five OPTIONS rendered that way —
+   * and an option is the most within-the-user's-control object on the canvas.
+   * The sentence the card was making is not clumsy, it is false.
+   *
+   * ⚠ THE AMBER IS UNTOUCHED, DELIBERATELY. Amber-on-incomplete is ratified,
+   * and `DESIGN_SYSTEM.md` carries an OPEN QUESTION about it (flagged
+   * 2026-07-16, *"Paul to rule"*): amber `#FFA656` sits close to the risk
+   * border `#EA7B4B`, and the alternative — kind hue on the border + an amber
+   * BADGE for needs-judgement — would preserve the kind channel but means
+   * re-ruling wireframe v4. Measured from `brand.css` for that ruling:
+   * **ΔE2000 = 13.9** (ΔE76 = 20.1). Changing the hue is not this lane's call;
+   * removing a modifier that means something else is, because it needs no
+   * re-ruling at all.
+   *
+   * ⚠ EXTERNAL FACTORS ARE UNAFFECTED, and the reason sits UPSTREAM of this
+   * line rather than inside it: `isFactorNeedsInput` returns false for
+   * `category === 'external'`, so an external factor never enters this arm and
+   * its dash comes from `borderStyle` in the final branch. That is what keeps
+   * "external factors NEVER get amber" true structurally.
+   *
+   * ⚠ PRECEDENCE IS UNCHANGED and is NOT the same question. `isIncomplete`
+   * still wins over `borderClassOverride`, so `GoalNode`'s own
+   * `goalBorderOverride` remains unreached in the no-target state. That is a
+   * separate, pre-existing disagreement between two authorities about the goal
+   * card (CLAUDE.md trap 21) and re-ordering them here would be an undeclared
+   * ruling on it. Left exactly as found; reported, not fixed.
+   *
+   * Pinned in BOTH directions by `BaseNode.incompleteBorderVocabulary.spec.tsx`
+   * — the incomplete node must LOSE the dash and the external factor must KEEP
+   * it, in one file, so a change that flattened the whole channel cannot pass.
+   */
+  const borderColourClass = isCausalLens
+    ? (causalBorderClass ?? '')
+    : isIncomplete
+      ? 'border-warning'
+      : borderClassOverride ?? `${colors.border} ${borderStyle}`
+
   return (
     <div
       role="group"
@@ -451,7 +504,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
       className={`
         group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
-        ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
+        ${borderColourClass}
         transition-all duration-200
         cursor-default
         ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
