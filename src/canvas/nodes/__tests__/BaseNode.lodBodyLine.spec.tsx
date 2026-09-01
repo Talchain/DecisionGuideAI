@@ -261,10 +261,24 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
       expect(screen.queryByTestId('node-lod-line')).toBeNull()
     })
 
-    it('is absent on node types whose headline figure is not this component to state', () => {
-      // Scope is deliberate, not incidental: an option's win figure is a full
-      // comparative sentence and goal/outcome figures carry mandatory adjacent
-      // disclosures. Widening the scope has to be a decision, so it goes red here.
+    it('is present on a decision card too — the scope this once pinned was WRONG', () => {
+      // ⚠⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND IT WAS GUARDING A DEFECT.
+      //
+      // It read: "Scope is deliberate, not incidental… Widening the scope has to
+      // be a decision, so it goes red here." The intent was right — a scope
+      // change SHOULD have to be deliberate — but what it actually pinned was
+      // the anchor of the model rendering as an EMPTY BOX below the legibility
+      // floor, which Paul reported three times. Measured on deployed
+      // `7d717c13`: the card's body held "Segment leads in 48% of scenarios…"
+      // at `visibility: hidden` with nothing in its place.
+      //
+      // So the widening WAS made deliberately, and this went red exactly as
+      // designed. It is re-pointed rather than deleted, because the thing worth
+      // guarding is still real: `decision` does not get its line from
+      // `lodMetricLine.ts` (which cannot see a leader-claim permission) but
+      // declares it through `BaseNode`'s `lodMetric` prop. The permission
+      // itself is pinned by `lodMetric.decisionGoal.spec.tsx`'s discriminating
+      // pair — a withheld verdict must still name no leader here.
       setStore({ lodActive: true, results: { status: 'complete', report: null } })
       render(
         <ReactFlowProvider>
@@ -288,7 +302,11 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
           />
         </ReactFlowProvider>,
       )
-      expect(screen.queryByTestId('node-lod-line')).toBeNull()
+      const line = screen.queryByTestId('node-lod-line')
+      expect(line).not.toBeNull()
+      expect(line!.textContent!.trim().length).toBeGreaterThan(0)
+      // …and it says nothing about the analysis on a report-less run.
+      expect(line!.textContent!.toLowerCase()).not.toMatch(/lead|ahead|winner|too close/)
     })
   })
 
