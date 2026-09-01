@@ -139,9 +139,15 @@ import {
   OPTIMISTIC_FACTOR_EDIT_NOTICE,
   buildInterruptedFactorEditNotice,
   optimisticFactorEditStillStands,
+  supersededAttemptId,
   type OptimisticFactorEdit,
   type OptimisticFactorEditNoticeKey,
 } from './optimisticFactorEdit'
+import {
+  markModelEditUnresolved,
+  recordModelEditReceipt,
+  refuseModelEditAttempt,
+} from '../hooks/modelEditCompletion'
 import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -3341,12 +3347,26 @@ export function useConversation(): UseConversationReturn {
       // neither and still holds 3 — so a refusal of 30 must restore 3, not the
       // intermediate 25 the server never held. The value being sent is the new
       // one; the state to restore is the ORIGINAL one.
+      const queuedEdit = deferredSystemSendsRef.current[existing].opts.optimisticFactorEdit
+      const incomingEdit = entry.opts.optimisticFactorEdit
+      // The merged send carries the INCOMING attempt, so the queued one will
+      // never receive an answer. Settling it here is what stops a superseded
+      // attempt sitting `pending` for the rest of the session — a completion
+      // that never arrives is indistinguishable from one that is still coming.
+      // The predicate is `supersededAttemptId` (pure, driven directly by its
+      // own spec) rather than an inline condition — the inline version required
+      // BOTH ids and silently stranded a Model-tab attempt superseded by an
+      // inspector edit, which mints none.
+      const strandedAttempt = supersededAttemptId(queuedEdit, incomingEdit)
+      if (strandedAttempt) {
+        markModelEditUnresolved(
+          strandedAttempt,
+          'Superseded by a later edit to the same factor before either was sent.',
+        )
+      }
       entry.opts = {
         ...entry.opts,
-        optimisticFactorEdit: mergeOptimisticFactorEdit(
-          deferredSystemSendsRef.current[existing].opts.optimisticFactorEdit,
-          entry.opts.optimisticFactorEdit,
-        ),
+        optimisticFactorEdit: mergeOptimisticFactorEdit(queuedEdit, incomingEdit),
       }
       deferredSystemSendsRef.current[existing] = entry
     } else {
@@ -4060,6 +4080,14 @@ export function useConversation(): UseConversationReturn {
             systemEvent?.type === 'factor_value_edit'
           ) {
             resolveInterruptedOptimisticFactorEdit(opts.optimisticFactorEdit)
+            // The transcript half is above; this is the LEDGER half. An abort
+            // after a response is not a resolution, and without this write the
+            // attempt sits `pending` for the life of the page — which a
+            // consumer cannot tell from "still coming".
+            markModelEditUnresolved(
+              opts.optimisticFactorEdit.attemptId,
+              'The turn was interrupted before the change settled.',
+            )
           }
           return
         }
@@ -4088,6 +4116,21 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             carriedGraph: resultCarriesDraftGraph(v5Result),
           })
+          // ⚠ THE FENCE'S JUSTIFICATION FOR WITHHOLDING THE TRANSCRIPT
+          // RESOLUTION DOES NOT EXTEND TO THIS. That call is withheld because
+          // `optimisticFactorEditStillStands` reads the LIVE canvas and would
+          // emit a sentence about the departed scenario's factor into the new
+          // scenario's transcript — the exact bridge the fence exists to stop.
+          // `markModelEditUnresolved` writes only the module ledger, keyed by
+          // the attempt's own id: it emits no sentence, reads no canvas, and
+          // cannot bridge two scenarios' authority. Leaving the attempt
+          // `pending` is not neutrality — it is a permanently locked row.
+          if (opts.optimisticFactorEdit && systemEvent?.type === 'factor_value_edit') {
+            markModelEditUnresolved(
+              opts.optimisticFactorEdit.attemptId,
+              'The model moved on before this change settled.',
+            )
+          }
           return
         }
 
@@ -4152,6 +4195,32 @@ export function useConversation(): UseConversationReturn {
         }
 
         const optimisticEdit = opts.optimisticFactorEdit
+        // ⚠ A SUPERSEDED TURN SKIPS THE ENTIRE BLOCK BELOW, and the ledger has
+        // to hear about it. `activeV5TurnIdRef` is stamped at EVERY dispatch of
+        // every kind, and a user send PREEMPTS an in-flight system turn
+        // (`isUserPreempt` → `abortRef.current?.abort()`), so "edit a factor,
+        // then type a message" is an ORDINARY sequence that lands here. Without
+        // this write the attempt is `pending` for the life of the page.
+        //
+        // ⚠ DEMONSTRATED EQUIVALENT — kept as defence in depth, not as cover.
+        // Deleting this write leaves the suite green, and an independent review
+        // established WHY rather than leaving it a suspicion: there is a single
+        // stamp site for `activeV5TurnIdRef`, the in-flight lock is held across
+        // the fetch, a preempt always aborts first, and no `await` sits between
+        // the abort check above and this check — so a turn cannot reach here
+        // with a superseded id. The branch is unreachable on today's control
+        // flow. It stays because any of those four facts could change in a
+        // refactor and the cost of the guard is one comparison.
+        if (
+          optimisticEdit &&
+          systemEvent?.type === 'factor_value_edit' &&
+          activeV5TurnIdRef.current !== turnClientId
+        ) {
+          markModelEditUnresolved(
+            optimisticEdit.attemptId,
+            'A newer turn took over before this change settled.',
+          )
+        }
         if (
           optimisticEdit &&
           systemEvent?.type === 'factor_value_edit' &&
@@ -4184,9 +4253,22 @@ export function useConversation(): UseConversationReturn {
               optimisticEdit,
               extractConflictCategory(target.boundaryError),
             )
+            // A typed error is UNCERTAINTY, not a refusal: only a PROVEN
+            // no-write reverts, and everything else (the untyped 500 included)
+            // keeps the value. The completion must say exactly that much and
+            // no more.
+            markModelEditUnresolved(
+              optimisticEdit.attemptId,
+              'The change could not be confirmed — the turn failed before it settled.',
+            )
           } else {
             const applied = responseAppliedFactorEdit(target.response, optimisticEdit.nodeId)
             if (!applied) {
+              // No applied patch for this target — an AUTHORITATIVE refusal.
+              refuseModelEditAttempt(
+                optimisticEdit.attemptId,
+                'The model did not take this change.',
+              )
               const outcome = revertOptimisticFactorEdit(optimisticEdit)
               if (import.meta.env.DEV) {
                 console.warn(
@@ -4200,6 +4282,15 @@ export function useConversation(): UseConversationReturn {
               // nowhere else. Callers that pass no stamp (Model tab, inspector)
               // are unaffected: `confirmOptimisticFactorEdit` returns
               // 'no_stamp' and writes nothing.
+              // ⭐⭐ A RECEIPT, AND ONLY A RECEIPT. This does NOT settle the
+              // attempt as committed — `responseAppliedFactorEdit` fails SAFE
+              // toward applied (an unattributable patch counts as ours), which
+              // is right for deciding whether to revert and wrong for telling
+              // the user "saved". CEE has shipped a receipt for a write that
+              // never moved `observed_state.value`
+              // (`edit-graph.ts:2986-2992`, four false successes). Only a cold
+              // read settles this — see `modelEditCompletion`'s header.
+              recordModelEditReceipt(optimisticEdit.attemptId)
               const outcome = confirmOptimisticFactorEdit(optimisticEdit)
               if (import.meta.env.DEV && outcome === 'value_moved_on') {
                 console.warn(
@@ -5097,6 +5188,10 @@ export function useConversation(): UseConversationReturn {
           // route to machinery four tests already cover.
           if (opts.optimisticFactorEdit && systemEvent?.type === 'factor_value_edit') {
             resolveFailedOptimisticFactorEdit(opts.optimisticFactorEdit, undefined)
+            markModelEditUnresolved(
+              opts.optimisticFactorEdit.attemptId,
+              'The change could not be confirmed — the send failed.',
+            )
           }
         }
         // ⚠ THE ABORT ARM — the branch above is `!isAbort`, and that exclusion
@@ -5118,6 +5213,13 @@ export function useConversation(): UseConversationReturn {
           systemEvent?.type === 'factor_value_edit'
         ) {
           resolveInterruptedOptimisticFactorEdit(opts.optimisticFactorEdit)
+          // An abort is not a resolution. The value stands on the canvas and
+          // nothing will reconcile it, so the completion says "unknown" rather
+          // than inventing either verdict.
+          markModelEditUnresolved(
+            opts.optimisticFactorEdit.attemptId,
+            'The turn was interrupted before the change settled.',
+          )
         }
         if (import.meta.env.DEV && !isAbort) {
           console.warn('[sendTurn V5] Dispatch error:', err)

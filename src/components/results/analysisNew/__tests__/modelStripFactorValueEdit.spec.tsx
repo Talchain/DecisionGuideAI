@@ -21,9 +21,31 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
+import type {
+  FactorValueProposal,
+  FactorValueProposalOutcome,
+} from '../../../../canvas/hooks/useModelEditAuthority'
+import type { ModelEditAttemptId } from '../../../../canvas/hooks/modelEditCompletion'
+
 const nodes: unknown[] = []
 const showToast = vi.fn()
 const proposeFactorValue = vi.fn()
+
+/**
+ * ⚠⚠ THE MOCK'S RETURN IS TYPED AGAINST THE REAL CONTRACT, ON PURPOSE.
+ *
+ * This mock previously returned a BARE STRING (`mockReturnValue(proposalOf('dispatched'))`)
+ * — a hand-maintained mirror of the authority's return type that TypeScript
+ * could not see, because a `vi.fn()` returns `any`. When #1057 widened
+ * `proposeFactorValue` to `{ outcome, attemptId }`, the production caller broke
+ * and THIS SPEC WOULD HAVE STAYED GREEN while every arm silently selected the
+ * `not_encodable` sentence. Annotating the factory means the next shape change
+ * fails to COMPILE here instead of passing dishonestly (trap 12).
+ */
+const proposalOf = (outcome: FactorValueProposalOutcome): FactorValueProposal => ({
+  outcome,
+  attemptId: outcome === 'not_encodable' ? null : ('attempt-mock-1' as ModelEditAttemptId),
+})
 
 type MockState = { nodes: unknown; setHighlightedNodes: unknown }
 vi.mock('../../../../canvas/store', () => {
@@ -81,7 +103,7 @@ beforeEach(() => {
   nodes.length = 0
   nodes.push(...CANVAS)
   showToast.mockReset()
-  proposeFactorValue.mockReset().mockReturnValue('dispatched')
+  proposeFactorValue.mockReset().mockReturnValue(proposalOf('dispatched'))
 })
 afterEach(cleanup)
 
@@ -134,7 +156,7 @@ describe('the edit dispatches through the one write authority, and reports what 
   })
 
   it('a dispatched edit says it was SENT, never that it was saved', () => {
-    proposeFactorValue.mockReturnValue('dispatched')
+    proposeFactorValue.mockReturnValue(proposalOf('dispatched'))
     openDetailFor('f_ai')
     type('72')
     expect(showToast).toHaveBeenCalledWith(COPY.modelStrip.valueDispatched)
@@ -143,7 +165,7 @@ describe('the edit dispatches through the one write authority, and reports what 
   })
 
   it('a local-only edit says the shared model still has the old value', () => {
-    proposeFactorValue.mockReturnValue('local_only')
+    proposeFactorValue.mockReturnValue(proposalOf('local_only'))
     openDetailFor('f_ai')
     type('72')
     expect(showToast).toHaveBeenCalledWith(COPY.modelStrip.valueLocalOnly)
@@ -155,7 +177,7 @@ describe('the edit dispatches through the one write authority, and reports what 
    * (#1078, #1084) exist to end.
    */
   it('an unencodable edit says nothing changed, and leaves the field open to correct', () => {
-    proposeFactorValue.mockReturnValue('not_encodable')
+    proposeFactorValue.mockReturnValue(proposalOf('not_encodable'))
     openDetailFor('f_ai')
     type('72')
     expect(showToast).toHaveBeenCalledWith(COPY.modelStrip.valueNotEncodable)

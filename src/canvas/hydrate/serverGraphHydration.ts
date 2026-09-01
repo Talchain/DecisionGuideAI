@@ -23,6 +23,11 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict } from './applyScenarioAnalysisRead'
+import {
+  canColdReadScenario,
+  markCanonicalReadIssued,
+  settleModelEditAttemptsFromCanonicalGraph,
+} from '../hooks/modelEditCompletion'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -75,8 +80,10 @@ export interface HydrateFromServerOptions {
  * anything else is a local draft id and would spend a request to earn a
  * guaranteed refusal.
  */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// ⚠ ONE DEFINITION, shared with the completion ledger (`canColdReadScenario`).
+// Two regexes deciding "can this scenario be read from the server?" is the
+// hand-maintained mirror this estate keeps paying for — and the ledger has to
+// ask the identical question to know whether an edit has any success path.
 
 /**
  * Whether CEE's answer is the SAME graph we already hydrated from.
@@ -107,10 +114,15 @@ export async function hydrateCanvasFromServer(
   scenarioId: string | null | undefined,
   opts: HydrateFromServerOptions = {},
 ): Promise<HydrationOutcome> {
-  if (typeof scenarioId !== 'string' || !UUID_RE.test(scenarioId)) {
+  if (!canColdReadScenario(scenarioId)) {
     return 'skipped'
   }
 
+  // ⭐ TAKEN BEFORE THE REQUEST GOES OUT. The completion ledger uses this to
+  // refuse to adjudicate an attempt against bytes that pre-date it; a tick
+  // taken after the answer arrived would post-date those bytes and the guard
+  // would be worthless. See `modelEditCompletion`'s ordering note.
+  const readIssuedAt = markCanonicalReadIssued()
   const result = await fetchScenarioGraph(scenarioId, {
     userId: opts.userId,
     accessToken: opts.accessToken,
@@ -173,6 +185,21 @@ export async function hydrateCanvasFromServer(
     briefText: result.briefText,
     manifest: result.notModelled,
   })
+
+  // ── PER-EDIT COMPLETION — the cold read IS the canonical evidence ─────────
+  //
+  // This response is a cold read of the PERSISTED store, which is the only
+  // thing that can settle a receipted edit as genuinely committed. CEE has
+  // shipped a receipt for a write that never moved `observed_state.value`
+  // (`edit-graph.ts:2986-2992`), so a receipt cannot do it and the ledger
+  // deliberately will not let it — see `hooks/modelEditCompletion.ts`.
+  //
+  // Every unsettled attempt for THIS scenario is adjudicated against these
+  // bytes: the ones the graph confirms settle `committed` with the canonical
+  // value and source; the ones it contradicts settle `refused`. `scenarioId` is
+  // the requested id, which the guard above has already proven equals the live
+  // one, so an attempt can never be settled against another scenario's graph.
+  settleModelEditAttemptsFromCanonicalGraph(scenarioId, result.graph, readIssuedAt)
 
   // ── A3 LINK 6 — CONSUME THE VERDICT THIS RESPONSE ALREADY CARRIES ─────────
   //

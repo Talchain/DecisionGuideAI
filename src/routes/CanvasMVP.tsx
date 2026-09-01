@@ -17,6 +17,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { getScenario } from '../canvas/store/scenarios'
 import { useScenario } from '../hooks/useScenario'
 import { useServerGraphHydration } from '../canvas/hooks/useServerGraphHydration'
+import { useModelEditCanonicalConfirm } from '../canvas/hooks/useModelEditCanonicalConfirm'
 import { ServerGraphRetryNotice } from '../canvas/components/ServerGraphRetryNotice'
 // ROADMAP 2.1271 — deliver the auto-run's provisional analysis without another
 // turn. Mounted HERE, beside boot hydration, deliberately: the trigger is the
@@ -101,6 +102,12 @@ export default function CanvasMVP() {
   // Supabase writes, whereas this read goes through CEE, which holds the
   // service credential the browser deliberately does not have.
   useServerGraphHydration(scenarioIdFromRoute)
+  // ⭐ THE EDIT'S OWN COLD READ. Boot hydration fires once per scenario, BEFORE
+  // any edit exists, so without this a committed edit has no success path at
+  // all and the panel would show a permanent in-flight state on every
+  // successful edit. Demand-driven and bounded — costs nothing when no attempt
+  // is outstanding. See the hook header for what else was considered.
+  useModelEditCanonicalConfirm(scenarioIdFromRoute)
   // Inert until CEE reports a provisional run in flight for this scenario.
   useProvisionalAnalysisDelivery(scenarioIdFromRoute)
 

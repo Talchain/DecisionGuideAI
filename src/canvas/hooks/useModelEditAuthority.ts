@@ -74,8 +74,18 @@
  * server accepted anything, because neither can return an outcome that says so.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import { useCanvasStore } from '../store'
+import {
+  beginModelEditAttempt,
+  getModelEditAttempt,
+  getModelEditCompletionVersion,
+  markModelEditUnresolved,
+  modelEditAttemptsForNode,
+  subscribeModelEditCompletion,
+  type ModelEditAttempt,
+  type ModelEditAttemptId,
+} from './modelEditCompletion'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
@@ -100,6 +110,23 @@ import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdi
 export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_encodable'
 
 /**
+ * What ONE proposal returns — the dispatch outcome PLUS its correlation token.
+ *
+ * ⚠ THE OUTCOME IS NOT THE COMPLETION, and keeping them in one object is how
+ * that stays visible. `outcome: 'dispatched'` says the wire event left this
+ * seam; it says NOTHING about whether the model took the number. The completion
+ * is read from `completionFor(attemptId)` and settles later — see
+ * `modelEditCompletion.ts` for why a receipt alone can never mean "committed".
+ *
+ * `attemptId` is `null` exactly when nothing was dispatched (`not_encodable`),
+ * because there is no attempt to correlate to.
+ */
+export interface FactorValueProposal {
+  readonly outcome: FactorValueProposalOutcome
+  readonly attemptId: ModelEditAttemptId | null
+}
+
+/**
  * How a LOCAL COMMIT left this seam.
  *
  * ⚠ THERE IS DELIBERATELY NO `dispatched` MEMBER. These operations have no
@@ -117,7 +144,84 @@ export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_enco
 export type LocalCommitOutcome = 'committed' | 'not_encodable'
 
 export interface ModelEditAuthorityLive {
-  proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
+  proposeFactorValue: (typedValue: number) => FactorValueProposal
+  /**
+   * The retained completion for one attempt, or `null` if the ledger has never
+   * heard of it.
+   *
+   * ⚠⚠ THIS INTERFACE HAS NO CONSUMER YET, AND #1033 IS NOT ONE. An earlier
+   * version of this comment said "THIS IS THE INTERFACE #1033 CONSUMES". That
+   * was false, and falsely reassuring: it is the sentence that made the two PRs
+   * look composed when they are not.
+   *
+   * Derived at #1033's head `5af774a9`, with a contrast control so the zeros are
+   * absence and not a blind probe: `completionFor` **0**, `attemptsForNode`
+   * **0**, `latestAttemptForNode` **0**, `modelEditCompletion` **0**,
+   * `ModelEditAttemptId` **0** — against contrasts in the same sweep that fire,
+   * `EditProposalHandle` 2, `EditCommitState` 3, `useModelEditAuthority` 3.
+   * #1033 instead holds its unconfirmed rows in a COMPONENT-SCOPED
+   * `useState<ReadonlyMap<string, EditCommitState>>` in `ModelTabV2Panel`,
+   * keyed by row id and destroyed on unmount — which is precisely the event
+   * this ledger exists to survive, and which `attemptsForNode` below was built
+   * to recover from. #1033's own plan text says so in as many words:
+   * *"`EditProposalHandle` is an existing documented shape with no live
+   * implementation; exposing and wiring it is still work for the shared owner."*
+   *
+   * ⭐ SO WHICH OF THE TWO IS RIGHT? The INTERFACE is — it is the durable answer
+   * to a problem #1033 currently solves non-durably — but the CLAIM was
+   * premature, and the adoption it asserts is real, unstarted work: map
+   * `EditCommitState` onto `completionFor` (correlated) with `attemptsForNode`
+   * as the post-remount recovery read, and delete the local map. Until that
+   * lands this interface has **zero production consumers**: every call site of
+   * `proposeFactorValue` discards the proposal, including
+   * `ModelTabV2Panel.tsx:390` on the proven Model-tab path.
+   *
+   * ⚠ MERGE ORDER FOLLOWS FROM THAT, and it is not "either order". This is not
+   * inert while unconsumed: `CanvasMVP` mounts `useModelEditCanonicalConfirm`
+   * unconditionally and real `proposeFactorValue` calls feed it, so every
+   * receipted edit spends 1–8 `POST /bff/cee/scenarios/{id}/graph` reads for
+   * ZERO rendered output. Merging this alone buys network traffic and no
+   * capability. It should land WITH its consumer, not before it.
+   *
+   * What the interface itself guarantees, and does today: it survives unmount
+   * because the ledger is module-scoped — the panel can be destroyed and
+   * remounted, or the user can edit another factor and come back, and the
+   * attempt's outcome is still here. A component that re-reads this after a
+   * remount gets the same answer it would have got before — contract point (4).
+   *
+   * Correlated BY ATTEMPT ID, never by node or by "the last edit": A's late
+   * answer settles A even if the user is now looking at B.
+   */
+  completionFor: (attemptId: ModelEditAttemptId | null | undefined) => ModelEditAttempt | null
+  /**
+   * ⭐⭐ THE RECOVERY READ — for when the caller has LOST the attempt id.
+   *
+   * `completionFor` is the correlated read and stays the primary one. But it is
+   * useless across the exact event the ledger was built to survive: the panel
+   * holds its attempt ids in `useState`, and a tab switch unmounts the panel
+   * and destroys them. Retention in the store with no way to reach it after a
+   * remount is not retention — the outcome was retained and unreachable, and
+   * #1033 could not render it.
+   *
+   * So a row that has lost its id recovers by NODE, and gets back the whole
+   * attempt INCLUDING its `attemptId`, which re-establishes the correlation
+   * from that point on.
+   *
+   * ⚠ THIS IS NOT THE "LAST EDIT FLAG" THE INTERFACE REFUSES TO BE, and the
+   * difference is worth stating because they look alike. A last-edit flag is a
+   * single global slot that any outcome overwrites and that cannot say which
+   * attempt it describes. This returns a specific, identified attempt scoped to
+   * one node in one scenario; every other attempt remains addressable by id,
+   * and a late answer for a superseded attempt still settles that attempt
+   * alone. Recovery by node is how you FIND an id you dropped, not a
+   * replacement for having one.
+   *
+   * Scoped to the CURRENT scenario, so A→B→A recovers A's state and B never
+   * shows A's.
+   */
+  attemptsForNode: (nodeId: string) => readonly ModelEditAttempt[]
+  /** The most recent attempt against `nodeId`, or `null`. Convenience over `attemptsForNode`. */
+  latestAttemptForNode: (nodeId: string) => ModelEditAttempt | null
   /**
    * Set the ACTIVE OPTION's target value for one factor.
    *
@@ -144,10 +248,15 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const proposeFactorValue = useCallback(
-    (typedValue: number): FactorValueProposalOutcome => {
-      if (!activeNodeId) return 'not_encodable'
-      const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
-      if (!node) return 'not_encodable'
+    (typedValue: number): FactorValueProposal => {
+      const nothingDispatched: FactorValueProposal = {
+        outcome: 'not_encodable',
+        attemptId: null,
+      }
+      if (!activeNodeId) return nothingDispatched
+      const state = useCanvasStore.getState()
+      const node = state.nodes.find(n => n.id === activeNodeId)
+      if (!node) return nothingDispatched
       const data = node.data as Record<string, unknown>
 
       const event = buildFactorValueEditEvent({
@@ -157,19 +266,37 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
         // what decides the scale of what the user typed.
         nodeData: data,
       })
-      if (!event) return 'not_encodable'
+      if (!event) return nothingDispatched
       const { value: modelValue, raw_value: rawMagnitude } = event.payload as {
         value: number
         raw_value?: number
       }
 
+      // ⭐ THE ATTEMPT IS MINTED BEFORE THE WRITE, and its id rides to the
+      // settle points on the undo snapshot — the carrier that ALREADY survives
+      // the deferral buffer, so an immediate dispatch and a deferred flush
+      // correlate through one path (see `modelEditCompletion`'s header).
+      const attemptId = beginModelEditAttempt({
+        nodeId: activeNodeId,
+        scenarioId: state.currentScenarioId ?? null,
+        attemptedValue: modelValue,
+        attemptedRawValue: typeof rawMagnitude === 'number' ? rawMagnitude : null,
+      })
+
       // Undo BEFORE the write, from the same pre-write data.
-      const undo = captureOptimisticFactorEdit(activeNodeId, modelValue, data)
+      const undo = captureOptimisticFactorEdit(activeNodeId, modelValue, data, undefined, attemptId)
 
       // Local write first, in ONE update: value + raw_value + provenance stamp.
       mutations.setObservedValue(modelValue, rawMagnitude, { source: 'user' })
 
-      if (!sendSystemEvent) return 'local_only'
+      if (!sendSystemEvent) {
+        // ⚠ `local_only` IS NOT A COMPLETION. Nothing left the browser, so no
+        // canonical evidence is ever coming — the honest phase is `unresolved`,
+        // never `committed`. A surface that read the local write back as a
+        // success would be design §2 F6 exactly.
+        markModelEditUnresolved(attemptId, 'No conversation is mounted, so this was never sent.')
+        return { outcome: 'local_only', attemptId }
+      }
       void Promise.resolve(
         sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
       ).catch(() => {
@@ -178,7 +305,7 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
         // failure: the dispatcher's central revert handles it. Identical to the
         // reference surface's catch, for the identical reason.
       })
-      return 'dispatched'
+      return { outcome: 'dispatched', attemptId }
     },
     [activeNodeId, mutations, sendSystemEvent],
   )
@@ -257,5 +384,39 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
     return 'committed'
   }, [activeNodeId, mutations])
 
-  return { proposeFactorValue, proposeOptionIntervention, proposeFactorConfirmation }
+  // Subscribe to the ledger so a settled outcome re-renders the consumer. The
+  // snapshot is a version counter, not the Map — see `getModelEditCompletionVersion`.
+  useSyncExternalStore(
+    subscribeModelEditCompletion,
+    getModelEditCompletionVersion,
+    getModelEditCompletionVersion,
+  )
+  const completionFor = useCallback(
+    (attemptId: ModelEditAttemptId | null | undefined) => getModelEditAttempt(attemptId),
+    [],
+  )
+  // ⚠ THE SCENARIO IS READ AT CALL TIME, not captured in the closure: a row
+  // recovering after a tab switch must be scoped to the scenario that is live
+  // NOW, or A→B would hand B the attempts made against A.
+  const attemptsForNode = useCallback(
+    (nodeId: string) =>
+      modelEditAttemptsForNode(nodeId, useCanvasStore.getState().currentScenarioId ?? null),
+    [],
+  )
+  const latestAttemptForNode = useCallback(
+    (nodeId: string) => {
+      const all = attemptsForNode(nodeId)
+      return all.length === 0 ? null : all[all.length - 1]
+    },
+    [attemptsForNode],
+  )
+
+  return {
+    proposeFactorValue,
+    proposeOptionIntervention,
+    proposeFactorConfirmation,
+    completionFor,
+    attemptsForNode,
+    latestAttemptForNode,
+  }
 }
