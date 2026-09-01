@@ -227,12 +227,70 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
  * kind is absent. The panel has surfaces whose job is to say what is missing;
  * this one reports what is there.
  */
+/**
+ * The model's goal node id, or null when it has no goal.
+ *
+ * ⭐ EXTRACTED SO TWO SURFACES CANNOT DISAGREE ABOUT WHETHER A GOAL EXISTS.
+ * `buildModelStrip` calls this for its own `goalNodeId`, so the strip and any
+ * caller asking "is the strip rendering a target affordance?" read one answer.
+ * A second, hand-written copy of the first-goal-wins rule is exactly the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
+ *
+ * First goal node in node order wins — the strip's long-standing rule, moved
+ * here verbatim rather than restated.
+ */
+/**
+ * Does the strip render anything at all?
+ *
+ * ⚠ THE ROWS ARE THE CENSUS — options, factors, risks, outcomes. Goal and
+ * decision are pulled OUT of them (they are the subject line, not a tally), so
+ * a model that is only a goal, or a goal and a decision, has ZERO rows and the
+ * strip renders NOTHING — including its target line, which lives inside it.
+ */
+export function stripHasContent(strip: Pick<ModelStrip, 'rows'>): boolean {
+  return strip.rows.length > 0
+}
+
+/**
+ * ⭐⭐ IS THE STRIP ACTUALLY OFFERING THE SUCCESS-TARGET CONTROL?
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE "THE MODEL HAS A GOAL" IS THE WRONG QUESTION, AND
+ * ASKING IT SHIPPED A REGRESSION. The glance suppresses its own "define a
+ * success measure" card when the strip is already offering the same control —
+ * but the first version of that suppression keyed on `resolveGoalNodeId(nodes)
+ * !== null`, which is TRUE on a goal-only or goal+decision model where
+ * `ModelStrip` returns null at `rows.length === 0` and offers nothing at all.
+ * On exactly those models the panel would have lost its only visible way to set
+ * a target, leaving the ask behind a collapsed Strengthen section.
+ *
+ * Found by independent review (Codex, CHANGES_REQUIRED on #1120), which is
+ * where it should have been found — I named this failure mode in the review
+ * request and still wrote the narrower predicate.
+ *
+ * Both conditions, in ONE place, so no caller can ask half the question:
+ * the strip must render, AND it must have a goal to attach a target to
+ * (`SuccessTargetLine` returns null without one — a control writing nowhere).
+ */
+export function stripRendersTargetAffordance(strip: ModelStrip): boolean {
+  return stripHasContent(strip) && strip.goalNodeId !== null
+}
+
+export function resolveGoalNodeId(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
+): string | null {
+  for (const node of nodes) {
+    if (resolveNodeTypeLiteral(node) === 'goal') return node.id
+  }
+  return null
+}
+
 export function buildModelStrip(
   nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
 ): ModelStrip {
   const byKind = new Map<string, StripNode[]>()
   let goalLabel: string | null = null
-  let goalNodeId: string | null = null
+  // ⚠ ONE OWNER. Never re-derive this inline — see `resolveGoalNodeId`.
+  const goalNodeId: string | null = resolveGoalNodeId(nodes)
   let decisionLabel: string | null = null
 
   for (const node of nodes) {
@@ -240,7 +298,6 @@ export function buildModelStrip(
     if (!kind) continue
     if (kind === 'goal') {
       goalLabel = goalLabel ?? (labelOf(node) || null)
-      goalNodeId = goalNodeId ?? node.id
       continue
     }
     if (kind === 'decision') {

@@ -55,6 +55,9 @@ import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights } from './nodeInsights'
+import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
+import { useCanvasStore } from '../../../canvas/store'
+import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
@@ -240,6 +243,66 @@ export function AnalysisNewTabBody({
     [vm.strengthen.interventions, vm.atAGlance.drivers],
   )
 
+  /**
+   * ⭐⭐ THE GLANCE'S ONE THING TO DO — SKIPPING WHATEVER THE STRIP ALREADY ASKS.
+   *
+   * ⚠ FOUND BY DRIVING DEPLOYED `3595403b`, not by reading the diff, and the
+   * defect was MINE. Before a run the panel said one fact three times inside a
+   * single viewport:
+   *
+   *   model strip     "Target · None set · Set a target"
+   *   glance card     "Define success — No measurable success target is set."
+   *   strengthen row  "Define what success looks like — No measurable success
+   *                    target is set."
+   *
+   * — the last two sharing a sentence VERBATIM, and the canvas goal card saying
+   * it a fourth time. The strip's line was added yesterday; it is the better
+   * home (it names the goal, and its control edits in place) and it made the
+   * glance's copy of the ask redundant the moment it shipped.
+   *
+   * ⚠ THE STRIP'S LINE IS RENDERED WHETHER THE STRIP IS OPEN OR CLOSED —
+   * `SuccessTargetLine` sits OUTSIDE the disclosure button (`ModelStrip.tsx`,
+   * and that placement is load-bearing, not stylistic). So this suppression can
+   * never hide the ask; it removes a second copy of a control that is always on
+   * screen.
+   *
+   * ⚠⚠ CONDITIONAL ON THE STRIP ACTUALLY RENDERING IT. `SuccessTargetLine`
+   * returns null when there is no goal node — a target affordance writing into
+   * nowhere. With no goal the glance keeps the recommendation, because then it
+   * is the ONLY place the ask appears. Suppressing unconditionally would delete
+   * the panel's top ask on exactly the models that most need it.
+   *
+   * Nothing is re-ranked and nothing is hidden: the engine's order is untouched
+   * and the displaced recommendation still renders in "Strengthen the
+   * reasoning" with its whyNow, its Try this, and its provenance line — which
+   * is the copy that actually earns its place, because it says why a target
+   * matters rather than restating that one is missing.
+   */
+  const nodes = useCanvasStore((state) => state.nodes)
+  /**
+   * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
+   * the difference is a shipped regression, caught by independent review.
+   *
+   * The first version of this asked `resolveGoalNodeId(nodes) !== null`, which
+   * is TRUE on a goal-only or goal+decision model — where `ModelStrip` renders
+   * NOTHING (`rows.length === 0`) and its target line goes with it. On exactly
+   * those models this suppressed the glance's card and left the panel with no
+   * visible way to set a target at all, the ask surviving only inside a
+   * collapsed section. `stripRendersTargetAffordance` asks both halves in one
+   * place so no caller can ask half the question.
+   */
+  const stripOffersTarget = useMemo(
+    () => stripRendersTargetAffordance(buildModelStrip(nodes ?? [])),
+    [nodes],
+  )
+  const glancePrimary = useMemo(() => {
+    const interventions = vm.strengthen.interventions
+    if (!stripOffersTarget) return interventions[0] ?? null
+    return (
+      interventions.find((rec) => rec.id !== SUCCESS_MEASURE_RECOMMENDATION_ID) ?? null
+    )
+  }, [vm.strengthen.interventions, stripOffersTarget])
+
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return
@@ -377,12 +440,12 @@ export function AnalysisNewTabBody({
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={
-            vm.strengthen.interventions[0]
+            glancePrimary
               ? {
-                  id: vm.strengthen.interventions[0].id,
-                  label: vm.strengthen.interventions[0].action.label,
-                  why: vm.strengthen.interventions[0].signal,
-                  signalCode: vm.strengthen.interventions[0].signalCode,
+                  id: glancePrimary.id,
+                  label: glancePrimary.action.label,
+                  why: glancePrimary.signal,
+                  signalCode: glancePrimary.signalCode,
                 }
               : null
           }

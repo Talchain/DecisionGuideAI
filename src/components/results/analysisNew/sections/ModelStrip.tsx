@@ -171,6 +171,7 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import {
   buildModelStrip,
+  stripHasContent,
   MARK_CAP,
   stripNodeValueSignature,
   type StripNode,
@@ -377,7 +378,10 @@ export function ModelStrip({
 
   // Nothing on the canvas: the panel's other surfaces already say so, and a
   // strip of empty rows would be furniture claiming to be information.
-  if (strip.rows.length === 0) return null
+  // ⚠ ONE OWNER — `stripRendersTargetAffordance` asks this same question, and
+  // a second expression of it is how the glance came to suppress a control this
+  // component was not rendering.
+  if (!stripHasContent(strip)) return null
 
   const open = override ?? isPreRun
 
