@@ -492,26 +492,29 @@ export interface ImplicationClaim {
  * it, and "the other sections aren't that valuable" is the predictable result of
  * a reasoning surface that only ever states one reading.
  *
- * ── ⚠⚠ NOTHING HERE IS RE-DERIVED, AND THAT IS THE POINT ───────────────────
- * Every gate below is READ OFF `buildHeroModel`'s output — `leaders.goal`,
- * `leaders.outcome`, `showGoalHint`, `hasConstraints`. Not one predicate is
- * re-implemented. The rules being reused are load-bearing and were expensive:
+ * ── ⚠⚠ THE GOAL CROWN IS NOT RE-DERIVED ────────────────────────────────────
+ * The second reading is `selectGoalLeader`'s own output — THE owner of the
+ * goal-metric crown, called, never copied. It carries the rules that were
+ * expensive to get right:
  *
- *   · AVAILABILITY vs ENTITLEMENT (`utils/selectGoalLeader.ts`). "May I DISPLAY
- *     this?" is `.some`; "may I CLAIM a leader?" is `.every`. One revision of
- *     ROADMAP 2.233 merged them and had to be reverted. This section asks ONLY
- *     the entitlement question, because a sentence naming two options is a
- *     claim — never a display.
- *   · WITHHELD DESIGNATIONS (ROADMAP 1.267). On a run whose verdict withholds
- *     the leader claim, `leaders` is all-null, so every branch here falls to
- *     `none` for free. The withholding is inherited, not re-applied — a reader
- *     that re-applies a rule is the reader that will one day forget to.
- *   · UI-SEM-071, the unique max, the sub-1% floor, the complete-field gate.
+ *   · AVAILABILITY vs ENTITLEMENT. "May I DISPLAY this?" is `.some`; "may I
+ *     CLAIM a leader?" is `.every`. One revision of ROADMAP 2.233 merged them
+ *     and had to be reverted. This section asks ONLY the entitlement question
+ *     for its claims, because a sentence naming two options is a claim — never
+ *     a display — and asks the availability question ONLY to decide whether an
+ *     honest unlock exists to offer.
+ *   · UI-SEM-071 (no user target, no goal claim), the complete-field gate, the
+ *     unique maximum, and the sub-1% floor.
  *
- * A second oracle answering the same question is this estate's most expensive
- * recurring defect (three same-named `source` fields already answer three
- * different questions — `valueProvenance.ts:182-260`). There is no fourth
- * reading of anything here.
+ * WITHHELD DESIGNATIONS (ROADMAP 1.267) are applied first and unconditionally:
+ * a sentence naming two options is the largest designation this surface makes.
+ *
+ * ⚠ THE OUTCOME ARGMAX IS WRITTEN LOCALLY, AND THE REASON IS RECORDED ON THE
+ * BUILDER. In short: `selectGoalLeader` is a PROBABILITY selector (its floor and
+ * its presence test both assume 0..1), an expected outcome is a signed quantity
+ * in the run's own units, and pushing one through the other would be trap 21 —
+ * one name answering two questions. The entitlement SHAPE is deliberately
+ * identical, because the reasoning generalises even where the function cannot.
  */
 export type ModelImplication =
   /**
@@ -537,8 +540,8 @@ export type ModelImplication =
    * UNLOCKS A SECOND WAY OF READING THE RUN — reasoning the user cannot
    * currently do — rather than as a missing field to go and fill in.
    *
-   * ⚠ GATED ON `showGoalHint`, WHICH IS NARROWER THAN "no goal leader".
-   * `showGoalHint` is `!goalAvailable && goalThreshold == null`: the goal lens
+   * ⚠ GATED NARROWER THAN "no goal leader": the unlock is offered only when
+   * `hasAnyGoalValue` is false AND no threshold exists — i.e. the goal reading
    * is absent BECAUSE no target exists. A run that HAS a target and merely lacks
    * goal probabilities is a producer gap, where "set a success target" would be
    * false advice — that case falls to `none`, as does a target-bearing run whose

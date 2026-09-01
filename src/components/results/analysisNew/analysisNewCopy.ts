@@ -13,7 +13,14 @@
  * describing the analysis, that is the fabrication boundary being crossed.
  */
 
-import { HERO_COPY } from '../analysis-hero/heroCopy'
+import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
+
+/**
+ * Stands in for a label that cannot be safely interpolated into a generated
+ * sentence — blank, a bare node id, or one carrying a banned glossary term.
+ * `safeInterpolatedLabel` is the shared guard; this is what it falls back to.
+ */
+export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
 export const ANALYSIS_NEW_COPY = {
   /** The tab's own one-line frame. Names it as an experiment, not a product. */
@@ -53,18 +60,26 @@ export const ANALYSIS_NEW_COPY = {
   /**
    * ⭐ WHAT YOUR MODEL IMPLIES — the two readings.
    *
-   * ⚠⚠ THE TWO CLAIM SENTENCES ARE DELEGATED, NOT AUTHORED. `outcomeClaim` and
-   * `goalClaim` return `HERO_COPY`'s own strings, byte for byte. This is the
-   * same relationship `heroCopy.ts` itself has with `GOAL_ANCHOR_COPY`, and it
-   * exists for the same reason: the four goal surfaces in this estate drifted
-   * apart precisely because one claim was authored in four places. Two tabs must
-   * never print two different sentences about one number on one run.
+   * ⚠⚠ ONE CLAIM IS DELEGATED AND ONE IS AUTHORED, AND THE ASYMMETRY IS FORCED.
+   * `goalClaim` returns `GOAL_ANCHOR_COPY`'s own sentence — the shared owner
+   * that the retiring hero's copy ALSO delegates to, so both surfaces print one
+   * wording of that claim and cannot drift.
    *
-   * So this file's standing rule — "no copy that asserts a finding; every
-   * sentence a user reads ABOUT their situation comes from the producer, verbatim
-   * or formatted" — is honoured in the strongest available form: the FRAMING
-   * below is ours, and every sentence that makes a CLAIM is the other surface's,
-   * unmodified. If the hero re-words a claim, this surface re-words with it.
+   * `outcomeClaim` has no shared owner. Its only prior authoring lives inside
+   * `analysis-hero`, which an allow-list guard forbids this tab from importing
+   * (the module is being retired and must stay deletable). So the sentence is
+   * authored here. That is a genuine, KNOWN duplication of one claim across two
+   * surfaces, and it is the sanctioned choice rather than an oversight: the
+   * estate has already decided this tab must not depend on that module, and the
+   * duplication ends when the hero is deleted. If the outcome claim ever needs a
+   * second live consumer before then, the fix is to promote it to
+   * `results/utils/`, NOT to import it from either surface.
+   *
+   * This file's standing rule — "no copy that asserts a finding; every sentence
+   * a user reads ABOUT their situation comes from the producer, verbatim or
+   * formatted" — holds: the framing below is furniture, and both claim sentences
+   * carry only a producer label and a producer number, formatted by the shared
+   * formatters.
    */
   implications: {
     /**
@@ -109,30 +124,33 @@ export const ANALYSIS_NEW_COPY = {
       'Set a success target and the same run also answers which option is most likely to hit it — a second reading that can disagree with this one.',
 
     /**
-     * READING ONE — the highest expected outcome. DELEGATED verbatim.
-     * `HERO_COPY.subline.highestOutcome` is itself a delegation to this same
-     * function, so all three sites are one string.
+     * READING ONE — the highest expected outcome.
+     *
+     * ⚠ "EXPECTED OUTCOME" IS LITERALLY TRUE HERE, AND THAT IS LOAD-BEARING.
+     * The number is `getExpectedValue`, which is the MEAN and explicitly refuses
+     * to fall back to the median. A surface that blends mean and median into one
+     * "centre" may say "centre"; only one reading the mean may say "expected".
      */
     outcomeClaim: (label: string, readout: string): string =>
-      HERO_COPY.headline.outcomeLeader(label, readout),
+      `${label} has the highest expected outcome: ${readout}.`,
 
     /**
-     * READING TWO — the highest chance of meeting the user's target. DELEGATED.
+     * READING TWO — the highest chance of meeting the user's target. DELEGATED
+     * to the shared anchor, which is also what the hero's own copy calls.
      *
-     * ⚠ THE `hasConstraints` SWITCH IS NOT COSMETIC AND IS NOT RE-DERIVED. When
-     * every goal-bearing option carries its own constraint analysis, the number
-     * behind this sentence is the JOINT probability (goal AND limits) and the
-     * copy must say so; when it does not, claiming "and limits" would describe a
-     * quantity the run did not measure. The flag is read straight off
-     * `buildHeroModel`'s output, where it is an EVERY-quantifier over the
-     * goal-bearing options — a mixed set falls back to the goal-alone wording,
-     * which may understate a constrained bar but never overstates an
-     * unconstrained one. Deciding it here would be a second copy of that rule.
+     * ⚠⚠ THE `true` IS NOT A PLACEHOLDER — IT IS THE WORDING TRUE IN BOTH CASES,
+     * and it is the same argument `HERO_COPY.headline.goalOnly` passes.
+     * The producer collapses two situations into one `goalProbability` and sends
+     * NO discriminator: with no user constraints PLoT synthesises one from the
+     * goal threshold, so the figure IS goal attainment; with constraints present
+     * it discards the goal threshold and the figure is the JOINT probability, so
+     * "your goal" would be false. "every target this run scored" is true either
+     * way. Asserting the possessive would be a claim the contract cannot support,
+     * and sniffing another service's internal constant to tell the cases apart is
+     * the hand-maintained mirror this estate keeps paying for (trap 12).
      */
-    goalClaim: (label: string, readout: string, hasConstraints: boolean): string =>
-      hasConstraints
-        ? HERO_COPY.headline.goalWithLimits(label, readout)
-        : HERO_COPY.headline.goalOnly(label, readout),
+    goalClaim: (label: string, readout: string): string =>
+      `${GOAL_ANCHOR_COPY.headline(label, readout, true)}.`,
   },
 
   empty: {

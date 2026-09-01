@@ -38,8 +38,9 @@
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { HERO_COPY } from '../../analysis-hero/heroCopy'
-import { buildHeroModel } from '../../analysis-hero/buildHeroModel'
+import { GOAL_ANCHOR_COPY } from '../../utils/goalAnchorCopy'
+import { selectGoalLeader } from '../../utils/selectGoalLeader'
+import { getExpectedValue } from '../../utils/getExpectedValue'
 import { makeData, makeOption } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { DecisionResultData } from '../../types'
@@ -118,42 +119,66 @@ describe('what your model implies — the two readings', () => {
     expect(result.goal.optionId).toBe('opt_b')
   })
 
-  it('DELEGATES both claim sentences to the hero, so the two tabs cannot drift', () => {
+  it('DELEGATES the goal sentence to the SHARED anchor, so the surfaces cannot drift', () => {
     const result = implicationOf(divergingRun())
     if (result.kind !== 'diverged') throw new Error('expected divergence')
 
-    // The hero's model for the SAME data — the sentences must be the ones that
-    // surface prints, not a second wording of one claim.
-    const hero = buildHeroModel(divergingRun())
-    if (hero.kind !== 'chart') throw new Error('expected a chart model')
-    const outcomeRow = hero.rows.find((r) => r.id === 'opt_a')!
-    const goalRow = hero.rows.find((r) => r.id === 'opt_b')!
-
-    expect(result.outcome.sentence).toBe(
-      HERO_COPY.headline.outcomeLeader(outcomeRow.label, outcomeRow.outcome.readout),
-    )
-    // `hasConstraints` is false on this fixture (no constraint analysis), so the
-    // goal-alone wording is the correct one and "and limits" would be a claim
-    // about a quantity the run did not measure.
-    expect(hero.hasConstraints).toBe(false)
+    // `GOAL_ANCHOR_COPY` is the owner the retiring hero's own copy also calls,
+    // so pinning against it — rather than against a re-typed literal — is what
+    // stops this file going green against wording the product no longer prints.
     expect(result.goal.sentence).toBe(
-      HERO_COPY.headline.goalOnly(goalRow.label, goalRow.goal.readout),
+      `${GOAL_ANCHOR_COPY.headline('RudderStack', '80%', true)}.`,
     )
+    // ⚠ AND IT IS THE BOTH-CASES-TRUE WORDING. The producer sends no signal to
+    // tell goal-only from joint, so the possessive would be a claim the contract
+    // cannot support.
+    expect(result.goal.sentence).not.toContain('your goal')
   })
 
-  it('reuses selectGoalLeader TRANSITIVELY — the goal claim IS the hero crown, never a second argmax', () => {
+  it('the goal claim IS selectGoalLeader\'s crown — never a second argmax', () => {
     const data = divergingRun()
     const result = implicationOf(data)
-    const hero = buildHeroModel(data)
-    if (hero.kind !== 'chart') throw new Error('expected a chart model')
     if (result.kind !== 'diverged') throw new Error('expected divergence')
 
-    // `leaders.goal` is `selectGoalLeader(...)`'s output, withheld-gated
-    // (`buildHeroModel.ts:695` and `:1188`). Pinning the equality is what stops
-    // a future edit quietly substituting a local argmax that does not carry the
-    // complete-field, unique-max and sub-1% gates.
-    expect(result.goal.optionId).toBe(hero.leaders.goal)
-    expect(result.outcome.optionId).toBe(hero.leaders.outcome)
+    // Called with the SAME gates the builder passes. Pinning the equality is
+    // what stops a future edit substituting a local argmax that does not carry
+    // the complete-field, unique-max, user-target and sub-1% gates.
+    const crown = selectGoalLeader(
+      data.recommendation.allOptions ?? [],
+      (o) => o.goalProbability ?? null,
+      { designationsWithheld: false, hasUserTarget: true },
+    )
+    expect(crown).not.toBeNull()
+    expect(result.goal.optionId).toBe(crown!.id)
+  })
+
+  it('the outcome claim reads the MEAN, never the median', () => {
+    // ⚠ THE DISCRIMINATING FIXTURE. `expected` and `p50` disagree, and they
+    // disagree in a way that picks DIFFERENT leaders — so a builder that fell
+    // back to the median (as the hero's chart centre deliberately does) would
+    // crown the other option and this test would RED.
+    const a = rangedOption('opt_a', 'Segment', 120, 0.3)
+    const b = rangedOption('opt_b', 'RudderStack', 60, 0.8)
+    const skewed = {
+      ...b,
+      outcome: { ...b.outcome, p50: 400 },
+      p50: 400,
+    } as typeof b
+
+    expect(getExpectedValue(skewed)).toBe(60)
+
+    const result = implicationOf(
+      makeData({
+        recommendation: {
+          allOptions: [a, skewed],
+          recommendedOption: a,
+          goalThreshold: 100,
+          verdict: ENTITLED,
+        },
+      }),
+    )
+    if (result.kind !== 'diverged') throw new Error('expected divergence')
+    expect(result.outcome.optionId).toBe('opt_a')
   })
 
   it('states AGREEMENT when one option leads both readings', () => {

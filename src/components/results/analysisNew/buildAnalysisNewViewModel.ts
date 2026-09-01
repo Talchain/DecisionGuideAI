@@ -71,10 +71,12 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 // this surface's deck would be the mirror that drifts silently (trap 12).
 import { RESOLVE_NEXT_COPY as RESOLVE_NEXT } from '../voi/resolveNextCopy'
 import type { VoiRanking } from '../voi/voiRanking'
-import { buildHeroModel } from '../analysis-hero/buildHeroModel'
-import { HERO_COPY } from '../analysis-hero/heroCopy'
+import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
+import { getExpectedValue } from '../utils/getExpectedValue'
+import { formatGoalProbability } from '../utils/displayFloors'
+import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
-import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, ANALYSIS_NEW_LABEL_FALLBACK } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
@@ -1528,138 +1530,183 @@ function usableOptionLabel(o: OptionResult): string | null {
  * ⭐⭐ WHAT YOUR MODEL IMPLIES — the two readings, and whether they agree.
  *
  * See `ModelImplication` in `analysisNewTypes.ts` for WHY this section exists.
- * This note is about HOW, and the how is almost entirely "it does not decide
- * anything".
  *
- * ── THE ONE ARCHITECTURAL DECISION ─────────────────────────────────────────
- * This calls `buildHeroModel` and READS ITS ANSWERS. It does not re-implement
- * a single predicate. The alternative — importing `selectGoalLeader` and
- * re-deriving the outcome argmax here — was rejected because the outcome
- * centre is a THREE-STEP FALLBACK CHAIN (`getExpectedValue ?? getMedian ??
- * p50`) that exists in exactly one place in this repo (`buildHeroModel.ts:122`)
- * and is not exported. Writing it again would have created the second copy on
- * day one, in the same commit as a comment promising not to.
+ * ── ⚠⚠ WHY THIS DOES NOT CALL `buildHeroModel`, THOUGH IT WANTED TO ────────
+ * The first implementation of this section read its answers straight off
+ * `buildHeroModel`'s output — `leaders.goal`, `leaders.outcome`,
+ * `showGoalHint`, `hasConstraints` — which re-derived nothing at all and was,
+ * on the reuse axis alone, the better design.
  *
- * `buildHeroModel` is a PURE function of the same `ResultsSectionDataReturn`
- * this builder already receives, and the whole view model is memoised one
- * level up in `useAnalysisNewViewModel`, so this is one extra pure call per
- * report — not per render.
+ * It is not available. `analysis-hero/__tests__/inertness.spec.ts` is an
+ * ALLOW-LIST: `ResultsBody.tsx` and `HeroGallery.tsx` are the only files in
+ * `src/` permitted to import that module, by any form, INCLUDING FROM TESTS.
+ * The hero is being retired, and the guard exists so that it stays deletable —
+ * so coupling the tab meant to replace it to the module being removed would
+ * defeat the guard's whole purpose, not merely trip it. CI caught this, which
+ * is the system working.
  *
- * ── WHAT IS INHERITED, AND WHY EACH ONE MATTERS ────────────────────────────
- *  · `leaders.goal`    — the goal crown, already gated by `selectGoalLeader` on
- *                        a user target, a COMPLETE field, a UNIQUE maximum and
- *                        the sub-1% floor, and already nulled on a withheld run.
- *  · `leaders.outcome` — the outcome argmax, already nulled on a withheld run.
- *  · `showGoalHint`    — `!goalAvailable && goalThreshold == null`: the goal
- *                        reading is missing BECAUSE no target exists, as
- *                        opposed to a producer gap. This is the difference
- *                        between honest guidance and false advice.
- *  · `hasConstraints`  — decides "your goal" vs "your goal and limits".
+ * ── SO: SHARED OWNERS FOR EVERYTHING THAT HAS ONE ──────────────────────────
+ * Every rule below with an owner in `results/utils/` is CALLED, not copied:
  *
- * Because `leaders` is all-null on a withheld run, EVERY branch below falls to
- * `none` on such a run without this function mentioning the verdict once. That
- * is the intended shape: ROADMAP 1.267 gates at SELECTION precisely so a new
- * reader cannot be born un-gated, and this is a new reader.
+ *  · `selectGoalLeader` — THE goal-metric crown. Availability (`.some`) is a
+ *    different question from entitlement (`.every`) and this module owns both;
+ *    a sentence naming two options is a CLAIM, so only entitlement is asked.
+ *    It carries the user-target gate (UI-SEM-071), the complete-field gate, the
+ *    unique-maximum gate and the sub-1% floor. This section re-derives none of
+ *    them, and `designationsWithheld`/`hasUserTarget` are passed in because
+ *    that is the documented contract of `GoalLeaderGates`, not a second rule.
+ *  · `getExpectedValue` — THE centralised expected-outcome reader.
+ *  · `formatThreshold` / `formatGoalProbability` — the shared formatters, so
+ *    this surface's numbers reconcile with every other surface's.
+ *  · `GOAL_ANCHOR_COPY.headline` — the shared goal sentence, which is what
+ *    `HERO_COPY` itself delegates to. Not a second wording of one claim.
  *
- * ── ⚠ THE ONE PLACE THIS IS STRICTER THAN THE HERO, DELIBERATELY ───────────
- * `leaders.outcome` is the entitlement for the hero's CHART RING. The hero's
- * outcome SENTENCE carries one further gate the ring does not — UI-SEM-070,
- * `topOutcomesReadoutTied`: when the top two options render the SAME readout
- * string, the chart shows no winner, so no sentence may crown one. That flag is
- * not exposed on `HeroChartModel`, and re-deriving it would mean re-deriving the
- * runner-up, and therefore the ranking, and therefore the centre chain — the
- * exact thing this module refuses to do.
+ * ── ⚠ THE ONE RULE WRITTEN HERE, AND WHY IT IS NOT A SECOND ORACLE ─────────
+ * The OUTCOME argmax. `selectGoalLeader` is deliberately NOT reused for it:
+ * its fifth gate is `SUB_ONE_PERCENT_FLOOR`, a PROBABILITY floor, and its
+ * presence test is `isFiniteProbability`. An expected outcome is not a
+ * probability — it is a signed quantity in the run's own units — so selecting
+ * one through a probability selector would be trap 21 exactly: one name
+ * answering two questions, and it would silently reject every negative or
+ * large-magnitude outcome. The entitlement SHAPE is deliberately the same
+ * (complete field, unique maximum), because the reasoning behind it is the
+ * reasoning, not the caller.
  *
- * So the gate here is `readoutIsUnique`: the leader's rendered outcome readout
- * must be unique across ALL rows, not merely different from the runner-up's.
- * That is STRICTLY STRONGER than the hero's flag (leader-vs-any implies
- * leader-vs-runner-up), which is the safe direction of difference: it can only
- * ever WITHHOLD where the hero speaks, never speak where the hero withholds. It
- * is also the same signal the hero's own comment names as the authority — "the
- * exact 'what the user sees' signal: string equality of the rendered readouts".
+ * ⚠ AND IT READS THE MEAN, NEVER THE MEDIAN. `getExpectedValue` refuses to
+ * fall back to `p50` ("semantically different", its own words). The hero's
+ * private centre blends mean → median → p50 because a CHART needs one dot per
+ * option and any centre beats none; a SENTENCE that says "highest expected
+ * outcome" while showing a median would be false. Same data, different
+ * obligation — so the difference is deliberate, and it is the safe direction.
  */
 function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication {
-  const hero = buildHeroModel(data)
-  // 'status' (blocked/failed/partial) and 'empty' carry no rows and no leaders.
-  if (hero.kind !== 'chart') return { kind: 'none' }
+  const rec = data.recommendation
+  const options = rec.allOptions ?? []
 
   /**
    * ⚠ A COMPARISON NEEDS SOMETHING TO COMPARE WITH — the SAME two-conjunct gate
-   * `buildOptionsComparison` applies below, and for the same reason. With one
-   * option "X has the highest expected outcome" is not a finding, it is a
-   * tautology dressed as one. `isSingleOption` is the producer's own word and
-   * the length check catches a payload where the flag is absent; neither alone
-   * is the rule the rest of the estate applies (`ResultsBody.tsx:522`).
+   * `buildOptionsComparison` applies below. With one option "X has the highest
+   * expected outcome" is not a finding, it is a tautology dressed as one.
    */
-  if (data.recommendation.isSingleOption === true || hero.rows.length <= 1) {
+  if (rec.isSingleOption === true || options.length <= 1) return { kind: 'none' }
+
+  /**
+   * ROADMAP 1.267 — DESIGNATION vs DATA. On a run whose verdict withholds the
+   * leader claim, ORDER, ORDINALS and CROWNS go. A sentence naming two options
+   * is the largest designation this surface could make, so it goes first and
+   * unconditionally. The predicate is the one `GoalLeaderGates` documents and
+   * that `optionDisplayOrder`/`fragileEdgeCopy` state identically; an ABSENT
+   * verdict is not a withheld claim.
+   */
+  const designationsWithheld = rec.verdict != null && !rec.verdict.hasLeadingOption
+  if (designationsWithheld) return { kind: 'none' }
+
+  /**
+   * UI-SEM-071. Without a USER target, PLoT/ISL synthesize one and the selector
+   * still adopts `probability_of_joint_goal` — values describing a target the
+   * user never set. Suppressed at source, exactly as the hero does it, so no
+   * downstream read can bypass the gate.
+   */
+  const hasUserTarget = rec.goalThreshold != null
+  const goalValue = (o: OptionResult): number | null =>
+    hasUserTarget ? o.goalProbability ?? null : null
+
+  const label = (o: OptionResult): string =>
+    safeInterpolatedLabel(o.label, ANALYSIS_NEW_LABEL_FALLBACK)
+
+  // ── READING ONE: the highest expected outcome ─────────────────────────────
+  const centres = new Map<string, number>()
+  for (const o of options) {
+    const v = getExpectedValue(o)
+    if (typeof v === 'number' && Number.isFinite(v)) centres.set(o.id, v)
+  }
+
+  /**
+   * ENTITLEMENT, the `.every` question. A maximum taken over unmeasured rivals
+   * cannot honestly claim "highest" — the same reasoning as
+   * `hasCompleteGoalField`, applied to the quantity this reading is about.
+   */
+  if (centres.size !== options.length) return { kind: 'none' }
+
+  let outcomeRow: OptionResult | null = null
+  let best = -Infinity
+  let tiedAtMax = false
+  for (const o of options) {
+    const v = centres.get(o.id) as number
+    if (v > best) {
+      best = v
+      outcomeRow = o
+      tiedAtMax = false
+    } else if (v === best) {
+      tiedAtMax = true
+    }
+  }
+  // A tie at the top identifies no single best option; crowning either would be
+  // arbitrary. Same gate, same reason, as the goal selector's.
+  if (!outcomeRow || tiedAtMax) return { kind: 'none' }
+
+  const outcomeReadout = formatThreshold(
+    best,
+    rec.outcomeUnit,
+    rec.outcomeUnitSymbol,
+    rec.isNormalised,
+  )
+
+  /**
+   * ⚠ UI-SEM-070, AND IT IS ABOUT WHAT THE READER SEES, NOT WHAT WE COMPUTED.
+   * Two options whose distinct centres RENDER as the same string show the
+   * reader no winner, so no sentence may crown one. String equality of the
+   * rendered readouts is the signal — never a ratio, so a genuine lead that
+   * happens to be small still reads as a lead.
+   */
+  const readoutOf = (o: OptionResult): string =>
+    formatThreshold(centres.get(o.id) as number, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
+  if (options.filter((o) => readoutOf(o) === outcomeReadout).length !== 1) {
     return { kind: 'none' }
   }
 
-  const { rows, leaders, hasConstraints, showGoalHint } = hero
-
-  /**
-   * ⚠ THE LABEL IS PASSED THROUGH THE HERO'S OWN INTERPOLATION GUARD, not used
-   * raw. `safeInterpolatedLabel` is what stops a label the glossary bans, or one
-   * that is merely a node id, being welded into a generated sentence — and both
-   * tabs must refuse the same labels, or one of them prints what the other
-   * suppressed.
-   */
-  const safeLabel = (row: (typeof rows)[number]): string =>
-    safeInterpolatedLabel(row.label, HERO_COPY.labelFallback)
-
-  const outcomeRow = leaders.outcome != null ? rows.find((r) => r.id === leaders.outcome) : null
-  if (!outcomeRow) return { kind: 'none' }
-
-  /**
-   * ⚠ A CLAIM WITH NO NUMBER BEHIND IT IS NOT A CLAIM. `outcome.readout` is the
-   * missing glyph when the option has no centre; the argmax cannot select such a
-   * row today, but the sentence template interpolates the readout directly, so
-   * the guard sits where the string is built rather than depending on a
-   * selector's discipline upstream.
-   */
-  if (outcomeRow.outcome.readout === HERO_COPY.readout.missing) return { kind: 'none' }
-
-  // UI-SEM-070, strengthened — see the header note.
-  const readoutIsUnique =
-    rows.filter((r) => r.outcome.readout === outcomeRow.outcome.readout).length === 1
-  if (!readoutIsUnique) return { kind: 'none' }
-
   const outcome: ImplicationClaim = {
     optionId: outcomeRow.id,
-    sentence: COPY.implications.outcomeClaim(safeLabel(outcomeRow), outcomeRow.outcome.readout),
+    sentence: COPY.implications.outcomeClaim(label(outcomeRow), outcomeReadout),
   }
 
-  const goalRow = leaders.goal != null ? rows.find((r) => r.id === leaders.goal) : null
+  // ── READING TWO: the highest chance of meeting the user's target ──────────
+  // THE shared crown. Every gate is this selector's, none is restated here.
+  const goalRow = selectGoalLeader(options, goalValue, { designationsWithheld, hasUserTarget })
+
   if (!goalRow) {
     /**
-     * No second reading. `showGoalHint` decides between an honest unlock and
-     * silence — it is TRUE only when the reading is missing because no target
-     * exists. A target-bearing run whose crown is withheld (tie, incomplete
-     * field, sub-1% floor) or that has no goal probabilities at all takes the
-     * silent branch: we are not entitled to a second claim and have no true
-     * unlock to offer, and "set a success target" to someone who already set one
-     * is advice that cannot be followed.
+     * No second reading. The unlock is offered ONLY when the reading is missing
+     * because no target exists — `hasAnyGoalValue` is the AVAILABILITY question
+     * (`.some`), and its being false alongside an absent threshold is exactly
+     * the hero's `showGoalHint` condition. A run that HAS a target and merely
+     * lacks goal probabilities is a producer gap where "set a success target"
+     * would be false advice; a target-bearing run whose crown is withheld for a
+     * tie, an incomplete field or the sub-1% floor is not entitled to a second
+     * claim either. Both take the silent branch.
      */
-    return showGoalHint ? { kind: 'needs_target', outcome } : { kind: 'none' }
+    const goalAvailable = hasAnyGoalValue(options, goalValue, { hasUserTarget })
+    return !goalAvailable && rec.goalThreshold == null
+      ? { kind: 'needs_target', outcome }
+      : { kind: 'none' }
   }
 
   const goal: ImplicationClaim = {
     optionId: goalRow.id,
     sentence: COPY.implications.goalClaim(
-      safeLabel(goalRow),
-      goalRow.goal.readout,
-      hasConstraints,
+      label(goalRow),
+      formatGoalProbability(goalValue(goalRow) as number, goalRow.nValidSamples),
     ),
   }
 
   /**
    * ⚠ COMPARED BY ID, NEVER BY LABEL OR BY VALUE. Two options can share a label
-   * (and `safeLabel` can collapse two distinct unusable labels onto the SAME
-   * fallback string), and two can share a readout. Identity is the only
-   * comparison that answers "is this the same option?" — CLAUDE.md trap 19.
+   * (and `safeInterpolatedLabel` can collapse two distinct unusable labels onto
+   * the SAME fallback string), and two can share a readout. Identity is the only
+   * comparison that answers "is this the same option?" — trap 19.
    */
   return goalRow.id === outcomeRow.id
-    ? { kind: 'aligned', label: safeLabel(goalRow), outcome, goal }
+    ? { kind: 'aligned', label: label(goalRow), outcome, goal }
     : { kind: 'diverged', outcome, goal }
 }
 
