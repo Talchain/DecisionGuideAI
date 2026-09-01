@@ -28,6 +28,7 @@
  */
 
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
+import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
 
 /**
  * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
@@ -48,6 +49,26 @@ export const MARK_CAP = 12
 export interface StripNode {
   id: string
   label: string
+  /**
+   * This node carries a number nobody has confirmed — the product's own
+   * "N to verify" state, and the ONLY per-node state this strip is allowed to
+   * assert.
+   *
+   * ⚠⚠ IT IS NOT A PROVENANCE CLAIM AND THE DISTINCTION IS THE WHOLE POINT.
+   * The design draws these marks filled-or-hollow to say WHOSE value each one
+   * is; that is unavailable (see the header) and stays unbuilt. This field
+   * answers a different, weaker and answerable question — "is there a number
+   * here that a confirmation could ratify, and has nobody ratified it?" — and
+   * it is the write authority's own condition, not a reading of one.
+   *
+   * ⚠ FACTORS ONLY, BY THE PREDICATE'S OWN DOMAIN. `factorIsConfirmable` is
+   * about an `observed_state` a factor carries and an option does not, and the
+   * product's live count (`countFactorsToVerify`) is scoped the same way. A
+   * strip that applied it to every kind would print a number that disagrees
+   * with the Model tab's badge for the same model (CLAUDE.md trap 12), and
+   * would be asserting confirmability of a thing that has nothing to confirm.
+   */
+  needsCheck: boolean
 }
 
 export interface StripRow {
@@ -74,6 +95,14 @@ export interface ModelStrip {
   rows: StripRow[]
   /** Total nodes represented, across every row. Never a claim about coverage. */
   total: number
+  /**
+   * How many nodes carry `needsCheck`. Equal BY CONSTRUCTION to
+   * `countFactorsToVerify` over the same graph — same predicate, same domain —
+   * and pinned as such by a derived equality in `modelStrip.spec.ts` so a
+   * later narrowing of the product's count cannot leave this strip printing a
+   * different number for the same model.
+   */
+  needsCheckTotal: number
 }
 
 const ROW_ORDER: ReadonlyArray<{ kind: StripRow['kind']; label: string }> = [
@@ -118,7 +147,12 @@ export function buildModelStrip(
       continue
     }
     const bucket = byKind.get(kind)
-    const entry = { id: node.id, label: labelOf(node) }
+    const entry: StripNode = {
+      id: node.id,
+      label: labelOf(node),
+      // Scoped to the predicate's own domain — see `StripNode.needsCheck`.
+      needsCheck: kind === 'factor' && factorIsConfirmable(node.data),
+    }
     if (bucket) bucket.push(entry)
     else byKind.set(kind, [entry])
   }
@@ -136,5 +170,9 @@ export function buildModelStrip(
     goalLabel: goalLabel ?? decisionLabel,
     rows,
     total: rows.reduce((n, r) => n + r.nodes.length, 0),
+    needsCheckTotal: rows.reduce(
+      (n, r) => n + r.nodes.filter((x) => x.needsCheck).length,
+      0,
+    ),
   }
 }
