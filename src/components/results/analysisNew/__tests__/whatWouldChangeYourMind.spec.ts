@@ -29,7 +29,7 @@ const build = (data: ReturnType<typeof makeData>, recommendations: Recommendatio
     recommendations,
     isStale: false,
     isPreRun: false,
-    nodeValueSources: new Map(),
+    isRunning: false,
   })
 
 /** One of each class, in ONE build, so the assertion is about the split. */
@@ -107,7 +107,7 @@ describe('the producer class decides which section a finding lands in', () => {
       recommendations: [],
       isStale: false,
       isPreRun: true,
-      nodeValueSources: new Map(),
+      isRunning: false,
     })
     expect(vm.sensitivity.findings).toEqual([])
   })

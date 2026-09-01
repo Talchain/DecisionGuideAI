@@ -389,25 +389,30 @@ export function AnalysisNewTabBody({
             response to BOTH. Placed under the coaching it would be detail
             again, which is where it came from.
 
-            ⚠ PRESENCE-GATED, WITH NO EMPTY STATE. An empty list cannot
-            distinguish "nothing would flip this" from "the run did not test
-            it", and only one of those is reassurance. See `SensitivitySection`.
+            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
+            An empty list here cannot distinguish "nothing would flip this" from
+            "the run did not test it", and only one of those is reassurance —
+            so the section must be ABSENT rather than empty. `AnalysisNewSection`
+            already owns that rule (`findings.length === 0 && !emptyMessage`
+            returns null, §19), so a `length > 0` conditional at this mount was
+            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
+            green. Dead code shaped like a safety gate is worse than none, because
+            it tells the next reader the mount decides when the section does.
+            The mutant that bites is giving this an emptyMessage.
 
             ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
             carries them. A reader meeting one sentence in two sections is a
             defect this panel has already shipped. */}
-        {vm.sensitivity.findings.length > 0 ? (
-          <AnalysisNewSection
-            title={COPY.sections.sensitivity}
-            findings={vm.sensitivity.findings}
-            preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
-            emptyMessage={null}
-            onFocusTarget={focusTarget}
-            onRunIntervention={runIntervention}
-            icon={GitBranch}
-            testId="analysis-new-sensitivity"
-          />
-        ) : null}
+        <AnalysisNewSection
+          title={COPY.sections.sensitivity}
+          findings={vm.sensitivity.findings}
+          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+          emptyMessage={null}
+          onFocusTarget={focusTarget}
+          onRunIntervention={runIntervention}
+          icon={GitBranch}
+          testId="analysis-new-sensitivity"
+        />
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.

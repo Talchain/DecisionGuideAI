@@ -1,3 +1,4 @@
+import type { AnalysisNewFinding, AnalysisNewViewModel } from '../analysisNewTypes'
 /**
  * Analysis (New) — fixtures for the three scenario CLASSES the experiment must
  * behave correctly across (brief §24F).
@@ -363,7 +364,6 @@ export function manyFragileEdges(): ResultsSectionDataReturn {
  * A test that IS about the split reads the two arrays apart, deliberately —
  * see `whatWouldChangeYourMind.spec.ts`.
  */
-export const uncertaintyDerivedFindings = (vm: {
-  uncertainty: { findings: ReadonlyArray<unknown> }
-  sensitivity: { findings: ReadonlyArray<unknown> }
-}) => [...vm.sensitivity.findings, ...vm.uncertainty.findings] as never[]
+export const uncertaintyDerivedFindings = (
+  vm: Pick<AnalysisNewViewModel, 'uncertainty' | 'sensitivity'>,
+): AnalysisNewFinding[] => [...vm.sensitivity.findings, ...vm.uncertainty.findings]

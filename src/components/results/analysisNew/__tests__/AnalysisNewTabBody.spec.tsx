@@ -819,11 +819,13 @@ describe('"What would change your mind" sits between the reading and the coachin
   })
 
   /**
-   * ⚠ PRESENCE-GATED, AND THIS IS THE HALF THAT KEEPS IT HONEST. An empty list
-   * cannot distinguish "nothing would flip this" from "the run did not test
-   * it", so the section renders NOTHING rather than a reassurance the data
-   * cannot support. Without this case, a change that mounted it unconditionally
-   * with an empty-state sentence would pass every assertion above.
+   * ⚠⚠ THE GATE IS `emptyMessage={null}`, NOT A CONDITIONAL, and this test is
+   * what pins it. An empty list cannot distinguish "nothing would flip this"
+   * from "the run did not test it", so the section must be ABSENT rather than
+   * empty — `AnalysisNewSection` returns null for exactly that combination
+   * (§19). A `length > 0` conditional at the mount was redundant, and a mutant
+   * proved it by surviving; giving this section an empty MESSAGE is the change
+   * that reopens the defect, and it REDs here.
    */
   it('does not mount at all when the run named no sensitive assumption', () => {
     renderBody(genuineDecision())
