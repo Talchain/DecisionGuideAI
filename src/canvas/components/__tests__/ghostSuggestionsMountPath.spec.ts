@@ -52,6 +52,7 @@ import {
   GHOST_OPTION_NODE_ID,
   POST_ANALYSIS_TIERS,
 } from '../../utils/ghostTiers'
+import type { GhostPromptContext, GhostTier } from '../../utils/ghostTiers'
 
 /** A model shaped like a real one: three tiers with members, all named. */
 function model(): Node[] {
@@ -321,8 +322,27 @@ describe('the doors the MOUNT actually produces', () => {
  * stale.
  */
 describe('the post-analysis prompts are PHASE-derived and MODEL-derived — they do not read the outcome', () => {
-  const ctx = { namedSiblings: ['Segment', 'Rudderstack'], siblingCount: 2, subject: 'Replace our CDP' }
-  const promptFor = (tiers: readonly { siblingType: string; prompt: (c: typeof ctx) => string }[], t: string) =>
+  /**
+   * ⚠ TYPED AS THE REAL CONTRACT, AND THAT IS THE POINT OF THIS FIXTURE.
+   *
+   * It read `subject: 'Replace our CDP'` — a bare string — because that WAS the
+   * contract when this spec was written. #1086 then merged, making the subject a
+   * `ModelSubject { label, noun }` so a goal would stop being announced to the
+   * user as a decision. On rebase the post-analysis door began emitting
+   * **"The undefined is: undefined."** into a real user's transcript.
+   *
+   * ⛔ TYPECHECK COULD NOT SEE IT. `prompt: (c: typeof ctx) => string` typed the
+   * callback from the FIXTURE rather than from the contract, so the fixture
+   * defined its own truth and agreed with itself — the shape CLAUDE.md trap 13b
+   * describes. Annotating with the real `GhostPromptContext` is what makes the
+   * next contract change RED at the type checker instead of at a user.
+   */
+  const ctx: GhostPromptContext = {
+    namedSiblings: ['Segment', 'Rudderstack'],
+    siblingCount: 2,
+    subject: { label: 'Replace our CDP', noun: 'decision' },
+  }
+  const promptFor = (tiers: readonly GhostTier[], t: string) =>
     tiers.find((x) => x.siblingType === t)!.prompt(ctx)
 
   it('differs from the pre-analysis prompt for the SAME tier', () => {

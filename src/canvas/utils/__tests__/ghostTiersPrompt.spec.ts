@@ -325,21 +325,36 @@ describe('the mount hands that sentence to the legacy ghost node', () => {
    * ⚠ COMMENTS STRIPPED FIRST. Without it, every assertion below can be
    * satisfied by prose — a review proved exactly that on the sibling mount-path
    * spec, by replacing a live call with a comment carrying the same call text.
+   *
+   * ⚠⚠ RE-POINTED WHEN #1077 MOVED THE COMPOSITION, AND THE PROPERTY IS
+   * UNCHANGED. These guards were written against `ReactFlowGraph.tsx` because
+   * that is where the legacy ghost node was built. #1077 moved the whole
+   * composition into `composeFrontier` in `ghostTiers.ts` so the mount and the
+   * spec would call the same function — a good change, and one that would have
+   * silently voided every assertion below had they been deleted instead of
+   * followed. What they protect is unaltered: the door is built with a real
+   * sentence rather than `data: {}`. Only the file holding it moved.
+   *
+   * The mount's own obligation is now DELEGATION rather than construction, and
+   * it is asserted separately at the end of this block.
    */
-  const mountSource = (): string => {
-    const raw = readFileSync(resolve(__dirname, '../../ReactFlowGraph.tsx'), 'utf-8')
+  const sourceOf = (rel: string, min = 1000): string => {
+    const raw = readFileSync(resolve(__dirname, rel), 'utf-8')
     const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
     // POSITIVE CONTROL: a strip that ate the file would make every `not.toMatch`
     // below pass by matching nothing, and the `toMatch` ones fail loudly — but
     // only if something asserts the input is non-empty first.
-    if (code.length < 1000) throw new Error('ReactFlowGraph.tsx read or stripped to nothing')
+    if (code.length < min) throw new Error(`${rel} read or stripped to nothing`)
     return code
   }
 
+  const composerSource = (): string => sourceOf('../ghostTiers.ts')
+  const mountSource = (): string => sourceOf('../../ReactFlowGraph.tsx')
+
   /** The legacy ghost node's object literal, isolated so the assertions bind to IT. */
   const ghostNodeLiteral = (): string => {
-    const m = /id:\s*GHOST_OPTION_NODE_ID[\s\S]{0,600}?connectable:\s*false,/.exec(mountSource())
-    if (!m) throw new Error('could not locate the ghost-option node literal in ReactFlowGraph.tsx')
+    const m = /id:\s*GHOST_OPTION_NODE_ID[\s\S]{0,600}?connectable:\s*false,/.exec(composerSource())
+    if (!m) throw new Error('could not locate the ghost-option node literal in ghostTiers.ts')
     return m[0]
   }
 
@@ -361,7 +376,24 @@ describe('the mount hands that sentence to the legacy ghost node', () => {
     expect(ghostNodeLiteral()).not.toMatch(/data:\s*\{\s*prompt:\s*ghostOptionPromptV99Fabricated\(/)
   })
 
-  it('imports it from the tier module rather than re-deriving a sentence locally', () => {
-    expect(mountSource()).toMatch(/import\s*\{[^}]*ghostOptionPrompt[^}]*\}\s*from\s*'\.\/utils\/ghostTiers'/)
+  it('the composer builds the sentence in the same module as the tier table', () => {
+    // The original form of this assertion read the MOUNT's import list, because
+    // the mount was what built the door. Now that the composition lives beside
+    // the tier table, the property is that the builder and the table are one
+    // module — which is what stops a second derivation of the same list.
+    expect(composerSource()).toMatch(/export function ghostOptionPrompt\(/)
+    expect(composerSource()).toMatch(/export function composeFrontier\(/)
+  })
+
+  it('the MOUNT delegates rather than re-deriving the sentence locally', () => {
+    // The mount's obligation after #1077: call the composer, and hold no second
+    // copy of the door-building logic. A re-derivation appearing here is exactly
+    // the drift the move was made to prevent.
+    expect(mountSource()).toMatch(/import\s*\{[^}]*composeFrontier[^}]*\}\s*from\s*'\.\/utils\/ghostTiers'/)
+    expect(mountSource()).toMatch(/composeFrontier\(\s*nodes\s*,\s*resultsStatus\s*\)/)
+    // NEGATIVE CONTROL for the two above: the mount must NOT still be building
+    // the literal itself, which is what a botched conflict resolution would
+    // leave behind (both copies alive, only one reached).
+    expect(mountSource()).not.toMatch(/type:\s*'ghost-option'/)
   })
 })
