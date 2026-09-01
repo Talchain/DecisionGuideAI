@@ -60,6 +60,30 @@ export const OutcomeNode = memo((props: NodeProps) => {
     }
   }, [edges, nodes, props.id])
 
+  /**
+   * The reduced line this card keeps below the legibility floor.
+   *
+   * ⚠ BRIDGE STRENGTH, BECAUSE IT IS WHAT THIS CARD RELIABLY HAS. Measured on
+   * deployed `30bd7f8c`: every risk and every outcome on a real guest model
+   * rendered `strength · N% · est.` and NOTHING ELSE — no severity band, no
+   * achievement probability. The central resolver asked for those two and lit
+   * 0 of 3 risks and 0 of 3 outcomes, which is the very defect it was written to
+   * fix (asking for the datum the node lacks) reproduced one type along.
+   *
+   * ⛔ `est.` RIDES WITH THE NUMBER AND IS NOT OPTIONAL. It is the provenance
+   * marker `bridgeIsEstimated` produces, and the full-zoom card is required to
+   * show it beside this figure. A bare "Strength 50%" at low zoom would state as
+   * measured what the card two zoom levels up states as estimated — the same
+   * class of over-claim as printing a caveated probability with the caveat
+   * dropped. Where the user set the weight themselves there is no marker, and
+   * this correctly carries none.
+   */
+  const lodMetric = useMemo(() => {
+    const pct = bridgeEdgeData?.bridgeStrengthPct
+    if (pct == null) return null
+    return `Strength ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
+  }, [bridgeEdgeData])
+
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
 
@@ -181,6 +205,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
       <BaseNode
         {...props}
         nodeType="outcome"
+        lodMetric={lodMetric}
         icon={metadata.icon}
         headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">

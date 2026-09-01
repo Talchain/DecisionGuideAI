@@ -63,6 +63,26 @@ interface BaseNodeProps extends NodeProps {
   headerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
   borderClassOverride?: string
+  /**
+   * ⭐ THE REDUCED LINE, DECLARED BY THE NODE THAT OWNS THE DATUM.
+   *
+   * `shared/lodMetricLine.ts` resolves this centrally where the value is
+   * reachable from `data` + `displayMetadata`. It is NOT reachable for every
+   * type: a risk's and an outcome's headline figure is the BRIDGE STRENGTH,
+   * aggregated from the store's EDGES by the node component itself, and a
+   * central resolver reading only `data` cannot see it.
+   *
+   * Measured on deployed `30bd7f8c`, which is why this prop exists: the central
+   * resolver lit 6/6 factors and 4/4 options and **0/3 risks and 0/3
+   * outcomes**, because it asked those two for a severity band and an
+   * achievement probability that the real model does not carry. That is the
+   * SAME defect the resolver was written to fix — asking for the datum the node
+   * lacks — reproduced one type along, and no test could see it because every
+   * fixture supplied the field the real wire omits.
+   *
+   * So the owner declares it. When set, this WINS over the central resolver.
+   */
+  lodMetric?: string | null
 }
 
 /**
@@ -70,7 +90,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride, lodKeepLabel = false }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   const description = typeof data?.description === 'string' ? data.description : undefined
 
@@ -203,13 +223,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    */
   const lodBodyLine = useMemo<string | null>(() => {
     if (!lodActive) return null
+    // The owner's own line wins — it can see data this cannot (see `lodMetric`).
+    if (lodMetric != null && lodMetric.length > 0) return lodMetric
     return resolveLodMetricLine({
       nodeType,
       data: data as Record<string, unknown> | undefined,
       label,
       displayMetadata,
     })
-  }, [lodActive, nodeType, data, label, displayMetadata])
+  }, [lodActive, lodMetric, nodeType, data, label, displayMetadata])
 
   // Phase 2: Uncertain node styling
   const isUncertain = Number(data?.uncertainty ?? 0) > 0.4

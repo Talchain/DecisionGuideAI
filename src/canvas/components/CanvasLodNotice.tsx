@@ -54,13 +54,29 @@ export const CANVAS_LOD_NOTICE_TESTID = 'canvas-lod-notice'
  * that flag IS `zoom < LABEL_LEGIBLE_ZOOM`.
  */
 /**
- * ⚠ THIS SENTENCE WAS TRUE UNTIL THE TITLES STOPPED HIDING (30 Aug 2026).
- * "Too far to show labels" described the old behaviour, where every node below
- * the threshold rendered its title `visibility: hidden`. Titles now survive at
- * every zoom; it is the node BODIES that simplify. Leaving the old sentence
- * would have the product describing a state it no longer enters.
+ * ⚠⚠ THIS SENTENCE HAS NOW BEEN FALSE TWICE, IN THE SAME WAY, AND THE PATTERN
+ * IS THE POINT.
+ *
+ * v1 — "Zoomed out too far to show labels" — described a state where titles
+ * rendered `visibility: hidden`. On 30 Aug titles stopped hiding, and the
+ * comment above this one was written to correct it.
+ *
+ * v2 — "showing titles only" — was true for exactly one day. Cards now keep a
+ * reduced metric line below the floor (`shared/lodMetricLine.ts`), so the
+ * product was standing on the canvas announcing "titles only" directly above
+ * six cards reading `Influence 100%`. **Caught by LOOKING at deployed
+ * `30bd7f8c`. No test could see it: every one of them pins the constant, and a
+ * constant agrees with itself.**
+ *
+ * ⭐ THE RULE THIS EARNS: copy that ENUMERATES what is on screen goes stale
+ * every time the screen changes, and the correcting sentence is written by the
+ * same head in the same sitting, so it inherits the same blind spot. v3 states
+ * the DIRECTION rather than the inventory — "less on each card" stays true
+ * whether a card shows a title, a title and a figure, or a title and a glyph,
+ * and it stops being true only if the ladder is removed entirely. Do not
+ * "improve" it back into a list of what is showing.
  */
-export const CANVAS_LOD_NOTICE_COPY = 'Zoomed out — showing titles only'
+export const CANVAS_LOD_NOTICE_COPY = 'Zoomed out — showing less on each card'
 export const CANVAS_LOD_NOTICE_ACTION = 'Zoom in for detail'
 
 export function CanvasLodNotice() {
