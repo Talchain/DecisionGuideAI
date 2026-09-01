@@ -445,15 +445,28 @@ function driverFinding(
   // chain existed for legacy fixtures, and a fixture must not dictate production
   // semantics. Absent, the honest render is no number (rule 4).
   const influence = d.displayInfluence
-  // ⚠ THE PRODUCER'S DOMAIN IS `positive | negative | mixed | unknown`, and the
-  // last two are NOT a direction. `'moves'` is the honest verb for them: a
-  // factor whose direction the producer declined to resolve must not be
-  // rendered as raising or lowering anything. (An earlier draft compared
-  // against `'increase'`/`'decrease'` — tokens that do not exist in this union
-  // — so every row silently fell through to the neutral arm and the two real
-  // directions were never rendered at all. The typecheck gate caught it.)
-  const directionWord =
-    d.direction === 'positive' ? 'raises' : d.direction === 'negative' ? 'lowers' : 'moves'
+  /**
+   * ⚠⚠ THE DIRECTION WORD IS GONE FROM THIS SENTENCE, AND IT IS A RESTATEMENT
+   * FIX, NOT A LOSS.
+   *
+   * Witnessed on deployed `1be7c0b8`: the influence chart draws each driver's
+   * SIDE — "← Lowers the goal | Raises the goal →" with the bar on the
+   * matching half — and the row directly beneath it then said "lowers the
+   * outcome" in words. Every driver was on screen twice, with the direction
+   * duplicated, in the section where a chart had just been added to make the
+   * panel less textual. The chart made this sentence redundant the day it
+   * shipped.
+   *
+   * What the row keeps is what a BAR CANNOT STATE: the figure. A bar length is
+   * a rank comparison and never a number, so "Structural influence 90%" is
+   * additive where "lowers the outcome" is not.
+   *
+   * ⚠ THE NUANCE MOVES RATHER THAN DISAPPEARS. `mixed`/`unknown` are not a
+   * direction, and the chart says so explicitly — a centred bar plus "Direction
+   * not established" — which is a stronger statement than this sentence's
+   * neutral verb `'moves'` ever was. The two surfaces are built from ONE
+   * filtered list, so a row can never appear without its bar.
+   */
 
   return {
     id: `driver:${d.factorKey}`,
@@ -461,9 +474,13 @@ function driverFinding(
     // ⚠ Rule 2. Under a set-relative basis this says "among the strongest in
     // this run" — a RANK claim. It never says "drives N% of the outcome",
     // which would be an absolute causal share the basis does not license.
+    // ⚠ Rule 2 still holds. Under a set-relative basis this says "among the
+    // strongest in this run" — a RANK claim — and never "drives N% of the
+    // outcome", which would be an absolute causal share the basis does not
+    // license.
     implication: setRelative || influence == null
-      ? `Among the strongest influences in this run; ${directionWord} the outcome.`
-      : `Structural influence ${pct(influence)}; ${directionWord} the outcome.`,
+      ? `Among the strongest influences in this run.`
+      : `Structural influence ${pct(influence)}.`,
     detail:
       d.fragileEdgeInfo?.switchProbability != null
         ? `This relationship is one the result is sensitive to.`

@@ -133,12 +133,26 @@ describe('influence basis (§16) — displayProvenance decides, not taste', () =
     expect(d.groundedIn).toBe('factor sensitivity, ranked within this run')
   })
 
-  it('renders a DIRECTION only for the two members that are one — never for mixed or unknown', () => {
-    // ⚠ The producer's union is positive | negative | mixed | unknown, and the
-    // last two are NOT directions. A surface that falls back to "lowers" for
-    // them invents a direction the producer explicitly declined to resolve.
-    // This case was absent until the mutation battery found a fallback mutant
-    // surviving: nothing asserted on a mixed-direction row at all.
+  /**
+   * ⚠⚠ THIS INVARIANT MOVED, IT DID NOT DIE — and moving it is the whole point.
+   *
+   * The row's sentence used to carry the direction verb, and this case pinned
+   * that `mixed`/`unknown` never got one. The influence chart now DRAWS the
+   * direction (`← Lowers the goal | Raises the goal →`), so the row saying it
+   * again put every driver on screen twice — witnessed on deployed `1be7c0b8`.
+   * The verb was removed from the sentence; the guarantee moved to the surface
+   * that now makes the claim.
+   *
+   * ⚠ AND IT IS STRONGER THERE. The row's neutral verb `'moves'` was silence
+   * about the producer's refusal; the chart states it — a centred bar plus
+   * "Direction not established" (`driverInfluenceChart.spec.tsx`), with the
+   * narrowing itself pinned in `influenceRowsDirection.spec.ts` including the
+   * `mixed`/`unknown`/absent cases this used to own.
+   *
+   * What stays HERE is the half the chart cannot draw: that the row makes no
+   * directional claim at all any more.
+   */
+  it('the row makes NO directional claim — the chart owns that, and owns it for every member', () => {
     const implicationFor = (direction: string) =>
       build(
         makeData({
@@ -150,17 +164,28 @@ describe('influence basis (§16) — displayProvenance decides, not taste', () =
         }),
       ).drivers.findings[0].implication
 
-    expect(implicationFor('positive')).toContain('raises the outcome')
-    expect(implicationFor('negative')).toContain('lowers the outcome')
-    // Neither of the two real direction verbs may appear for an unresolved one.
-    for (const undecided of ['mixed', 'unknown']) {
-      const text = implicationFor(undecided)
-      expect(text, `${undecided} was rendered as a direction`).toContain('moves the outcome')
-      expect(text).not.toContain('raises')
-      expect(text).not.toContain('lowers')
+    for (const anyMember of ['positive', 'negative', 'mixed', 'unknown', undefined]) {
+      const text = implicationFor(anyMember as never)
+      expect(text, `${anyMember} leaked a direction into the row`).not.toMatch(
+        /raises|lowers|moves/,
+      )
     }
-    // An absent direction is the same case as an unresolved one.
-    expect(implicationFor(undefined as never)).toContain('moves the outcome')
+  })
+
+  /**
+   * ⚠ THE OPPOSITE-DIRECTION TWIN, in the same file, so the removal cannot be
+   * read as "the row lost its content". The figure is what a BAR LENGTH cannot
+   * state — a bar is a rank comparison, never a number — so it must survive.
+   */
+  it('…and still states the figure, which the bar cannot', () => {
+    const vm = build(
+      makeData({
+        drivers: {
+          drivers: [makeDriver({ factorKey: 'f_x', factorLabel: 'X', displayInfluence: 0.6 })],
+        },
+      }),
+    )
+    expect(vm.drivers.findings[0].implication).toMatch(/\d+%/)
   })
 
   it('states structural influence numerically ONLY on the producer influence scale', () => {
