@@ -225,6 +225,97 @@ describe('evidence check — the empty list is TWO states', () => {
   })
 })
 
+/**
+ * ⭐⭐ THE CODE→STATE MAP, EXHAUSTIVELY — AND THIS BLOCK EXISTS BECAUSE A
+ * MUTANT SURVIVED.
+ *
+ * The first mutant run flipped `CHECK_STATE.leader_present` from `'pass'` to
+ * `'not_assessed'` and ALL 42 TESTS STAYED GREEN. The suite asserted every
+ * check's CODE and never its GLYPH STATE, so a run with an entitled leading
+ * option would have rendered the muted "not assessed" glyph — the readout
+ * saying it had not checked something it had checked — with no red anywhere.
+ *
+ * ⚠ NOT AN EQUIVALENT MUTANT. It changes what a user sees on the most common
+ * healthy run. A survivor is a claim either way and the only settlement is a
+ * discriminating fixture (CLAUDE.md trap 13c), so the fixture is here rather
+ * than an argument that it did not matter.
+ *
+ * The map is now pinned for EVERY code, in both directions: a code moved to the
+ * wrong state REDs, and so does a state quietly widened to cover more codes.
+ */
+describe('every code maps to the right glyph state (the survivor that closed this hole)', () => {
+  const CASES: ReadonlyArray<readonly [ChecksCode, 'pass' | 'finding' | 'not_assessed', ResultsSectionDataReturn]> = [
+    ['leader_present', 'pass', makeData({ recommendation: { verdict: verdict({}) } })],
+    [
+      'leader_tied',
+      'finding',
+      makeData({ recommendation: { verdict: verdict({ separation: 'tied', hasLeadingOption: false }) } }),
+    ],
+    [
+      'leader_not_assessed',
+      'not_assessed',
+      makeData({ recommendation: { verdict: verdict({ separation: 'unknown', hasLeadingOption: false }) } }),
+    ],
+    ['robustness_robust', 'pass', makeData({ recommendation: { robustnessVerdict: 'robust' } })],
+    ['robustness_sensitive', 'finding', makeData({ recommendation: { robustnessVerdict: 'fragile' } })],
+    [
+      'robustness_not_assessed',
+      'not_assessed',
+      makeData({ recommendation: { robustnessVerdict: 'not_assessed' } }),
+    ],
+    ['robustness_unknown', 'not_assessed', makeData({ recommendation: { robustnessVerdict: undefined } })],
+    [
+      'evidence_all_addressed',
+      'pass',
+      makeData({
+        confidence: {
+          evidenceGaps: [{ factorId: 'f1', factorLabel: 'Supplier lead time', confidence: 90 }],
+          evidenceGapsAssessed: true,
+        } as never,
+      }),
+    ],
+    [
+      'evidence_gaps',
+      'finding',
+      makeData({
+        confidence: {
+          evidenceGaps: [{ factorId: 'f2', factorLabel: 'Churn', confidence: 10 }],
+          evidenceGapsAssessed: true,
+        } as never,
+      }),
+    ],
+    [
+      'evidence_none_flagged',
+      'pass',
+      makeData({ confidence: { evidenceGaps: [], evidenceGapsAssessed: true } as never }),
+    ],
+    [
+      'evidence_not_assessed',
+      'not_assessed',
+      makeData({ confidence: { evidenceGaps: [], evidenceGapsAssessed: false } as never }),
+    ],
+  ]
+
+  it.each(CASES)('%s → %s', (code, state, data) => {
+    const item = vmChecks(data).items.find((i) => i.code === code)
+    expect(item, `no check emitted code ${code}`).toBeDefined()
+    expect(item!.state).toBe(state)
+  })
+
+  /**
+   * ⚠ THE FIXTURE TABLE PINS ITS OWN PRECONDITION. If a future change made two
+   * of these fixtures produce the SAME code, the rows above would still pass
+   * while silently testing one state twice. Every code must appear exactly
+   * once, so the table is provably exhaustive over the union rather than
+   * exhaustive-looking.
+   */
+  it('the table covers all 11 codes exactly once', () => {
+    const codes = CASES.map(([c]) => c)
+    expect(new Set(codes).size).toBe(codes.length)
+    expect(codes.length).toBe(11)
+  })
+})
+
 describe('the section always carries all three checks, and none pre-run', () => {
   it('post-run: exactly the three checks, in the old tab’s order', () => {
     const items = vmChecks(makeData()).items
