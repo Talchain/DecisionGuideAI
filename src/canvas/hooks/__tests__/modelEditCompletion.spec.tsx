@@ -350,6 +350,42 @@ describe('⭐ the two bases must AGREE — a partial write is not a commit', () 
     )
     expect(getModelEditAttempt(attempt)?.completion.phase).toBe('committed')
   })
+
+  /**
+   * ⭐ ZERO bases comparable — the empty-set hole in `every`.
+   *
+   * `[].every(p)` is `true`, so the ONLY thing standing between "nothing was
+   * comparable" and a `committed` receipt is the `bases.length === 0` early
+   * return. That guard was reasoned about in the module header and pinned by
+   * nothing: deleting the line left all 47 tests GREEN, because every fixture
+   * happened to produce at least one basis. It is the same omission that let
+   * `some` survive 43/43 — a corpus that never contains the value class cannot
+   * certify the code over it (trap 12d/22).
+   *
+   * REACHABLE, not hypothetical: the read reports `kind: 'value'` whenever
+   * EITHER field is present, so a graph carrying `raw_value` but no `value`,
+   * adjudicating an attempt that sent no raw magnitude, produces exactly zero
+   * comparable bases. Committing there would be the module's own false-success
+   * defect, reached through an empty set instead of a bad receipt.
+   */
+  it('ZERO bases comparable → stays open; an empty set is NOT agreement', () => {
+    const attempt = beginModelEditAttempt({
+      nodeId: FACTOR_A,
+      scenarioId: SCENARIO,
+      attemptedValue: SENT_MODEL,
+      attemptedRawValue: null, // sent no raw magnitude → basis A unavailable
+    })
+    recordModelEditReceipt(attempt)
+    settleModelEditAttemptsFromCanonicalGraph(
+      SCENARIO,
+      // states a raw_value (so the node reads as `value`, not `noValue`) but no
+      // `value` → basis B unavailable too
+      wireGraph([{ id: FACTOR_A, rawValue: SENT_RAW, source: 'user_override' }]),
+      markCanonicalReadIssued(),
+    )
+    expect(getModelEditAttempt(attempt)?.completion.phase).toBe('receipted')
+    expect(getModelEditAttempt(attempt)?.completion.phase).not.toBe('committed')
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
