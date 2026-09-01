@@ -603,6 +603,13 @@ export const ANALYSIS_NEW_COPY = {
      */
     freshnessUnknown: 'We cannot confirm whether this analysis reflects the current model.',
     /**
+     * ⚠ NAMED FOR THE OUTCOME, NOT THE MECHANISM. "Re-analyse" describes what
+     * the system does; "to be sure" says what the READER gets, which is the
+     * only reason they would press it. It serves BOTH ribbon states — a changed
+     * model and an unconfirmable one are resolved by the same act.
+     */
+    reanalyseToBeSure: 'Re-run to be sure',
+    /**
      * ⚠ COVERAGE, NOT READINESS. Says the RESULT is incomplete; never that
      * analysis may not run — `RunAdmission` owns readiness and this surface
      * does not speak for it.

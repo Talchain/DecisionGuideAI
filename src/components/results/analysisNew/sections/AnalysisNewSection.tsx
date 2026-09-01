@@ -126,6 +126,22 @@ export function AnalysisNewSection({
       // click on nothing; the honest empty section still opens to its sentence,
       // which is a claim about the run and must stay reachable.
       count={findings.length > 0 ? findings.length : null}
+      /**
+       * ⭐ A SECTION HOLDING EXACTLY ONE ITEM OPENS ITSELF.
+       *
+       * Progressive disclosure earns its keep by hiding BULK. At one item it
+       * hides nothing worth hiding and charges a click for it: the collapsed
+       * row — heading, count, chevron — is about as tall as the single line it
+       * conceals, so the reader pays an interaction and gains no vertical
+       * space. A count of "1" is also the least informative label this panel
+       * produces; it tells you how many and never whether it matters.
+       *
+       * ⚠ THE HEIGHT ARGUMENT IS WHY IT STOPS AT ONE. `SectionShell`'s
+       * default-closed rule exists because this panel measured 1,584px against
+       * a 769px viewport — opening a section with several rows would spend that
+       * fix. One row cannot.
+       */
+      defaultOpen={findings.length === 1}
       subtitle={subtitle}
       testId={testId}
     >

@@ -163,8 +163,8 @@ function runWithBothTargetKinds(
 function openUncertaintyAndCollectFocusButtons() {
   const buttons: HTMLElement[] = []
   for (const tid of ['analysis-new-sensitivity', 'analysis-new-uncertainty']) {
-    if (screen.queryAllByTestId(`${tid}-toggle`).length === 0) continue
-    for (const toggle of screen.getAllByTestId(`${tid}-toggle`)) {
+    if (screen.queryAllByTestId(`${tid}-row-toggle`).length === 0) continue
+    for (const toggle of screen.getAllByTestId(`${tid}-row-toggle`)) {
       if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
     }
     for (const row of screen.queryAllByTestId(`${tid}-row`)) {
