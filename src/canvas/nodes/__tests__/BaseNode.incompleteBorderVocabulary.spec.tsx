@@ -58,8 +58,8 @@ import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- mirrors the sibling node
-   specs: ReactFlow's NodeProps requires a dozen fields no assertion here reads. */
+/* ReactFlow's NodeProps requires a dozen fields no assertion here reads; the
+   casts below are the sibling node specs' own pattern. */
 const baseProps = {
   selected: false,
   dragging: false,
