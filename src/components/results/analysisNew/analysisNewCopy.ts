@@ -463,6 +463,23 @@ export const ANALYSIS_NEW_COPY = {
      */
     hint: 'Pick a mark to see what this analysis says about it, and to show it on the canvas.',
     /**
+     * ⭐⭐ THE SAME AFFORDANCE, BEFORE ANY ANALYSIS EXISTS — and it needs its own
+     * sentence because the one above is a promise the pre-run panel cannot keep.
+     *
+     * ⚠ MEASURED ON DEPLOYED `3595403b`, guest, a saved model with no run. The
+     * strip offered "see what this analysis says about it" one line beneath the
+     * panel's own banner reading "No analysis has run yet for this model" —
+     * and picking any of the 17 marks returned "Nothing else on this panel
+     * refers to this node." There was no analysis to say anything, so the
+     * affordance could not have behaved otherwise on any mark.
+     *
+     * The marks still do something real before a run — they route to the node
+     * on canvas — so the fix is to offer THAT, not to hide the control. A dead
+     * promise repeated seventeen times reads as a broken model rather than as
+     * an analysis nobody has run yet.
+     */
+    hintPreRun: 'Pick a mark to show that part of the model on the canvas.',
+    /**
      * ⭐ THE FACTOR VALUE ROW — the detail's answer to "what data is behind
      * this, and is it mine or Olumi's".
      *
@@ -510,6 +527,15 @@ export const ANALYSIS_NEW_COPY = {
      * capped.
      */
     noInsight: 'Nothing else on this panel refers to this node.',
+    /**
+     * ⚠⚠ THE SAME ABSENCE, WITH THE REASON THE READER ACTUALLY NEEDS. Before a
+     * run `noInsight` above is TRUE and still tells the wrong story: it reads
+     * as though the panel looked at this node and found nothing said about it,
+     * when in fact nothing has been said about ANY node. Naming the cause is
+     * the difference between "your model has a gap here" and "no analysis has
+     * run" — and only one of those is a fact about the model.
+     */
+    noInsightPreRun: 'No analysis has run yet, so this panel has nothing to say about this node.',
     /** Disclosure of the per-node finding cap. Never silent truncation. */
     moreFindings: (n: number) => `+ ${n} more finding${n === 1 ? '' : 's'} for this node`,
     /**

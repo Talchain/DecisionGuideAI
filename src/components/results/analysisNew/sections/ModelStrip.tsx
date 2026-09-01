@@ -872,7 +872,7 @@ export function ModelStrip({
             className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
             data-testid={`${testId}-hint`}
           >
-            {COPY.modelStrip.hint}
+            {isPreRun ? COPY.modelStrip.hintPreRun : COPY.modelStrip.hint}
           </p>
         ) : (
           <div
@@ -1156,7 +1156,7 @@ export function ModelStrip({
                 className={`${typography.panelMeta} text-text-light m-0`}
                 data-testid={`${testId}-detail-empty`}
               >
-                {COPY.modelStrip.noInsight}
+                {isPreRun ? COPY.modelStrip.noInsightPreRun : COPY.modelStrip.noInsight}
               </p>
             ) : null}
           </div>
