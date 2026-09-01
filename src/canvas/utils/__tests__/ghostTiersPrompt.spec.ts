@@ -15,8 +15,16 @@
  * keeping the prompts on the free side of that line while making them specific.
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { Node } from '@xyflow/react'
-import { GHOST_TIERS, withGhostTiers, listForPrompt } from '../ghostTiers'
+import {
+  GHOST_TIERS,
+  GHOST_OPTION_NODE_ID,
+  withGhostTiers,
+  listForPrompt,
+  ghostOptionPrompt,
+} from '../ghostTiers'
 
 const n = (id: string, type: string, label: string): Node =>
   ({ id, type, position: { x: 0, y: 0 }, data: { label, type } }) as Node
@@ -31,9 +39,37 @@ const MODEL: Node[] = [
   n('u1', 'outcome', 'Migration completed before renewal'),
 ]
 
+/**
+ * ⭐⭐ THE PROMPT A DOOR ACTUALLY SENDS, ROUTED THE WAY THE CANVAS ROUTES IT.
+ *
+ * ⚠ THIS HELPER USED TO CALL `withGhostTiers(nodes)` WITH THE DEFAULT SET, AND
+ * ITS `'option'` ASSERTIONS WERE THEREFORE GREEN ABOUT A DOOR THE CANVAS NEVER
+ * BUILDS. `ReactFlowGraph.tsx` filters the option tier OUT of the set it hands
+ * `withGhostTiers` (`tierGhosts`), because the option door is the legacy
+ * `ghost-option` node whose position is derived from the rightmost option — so
+ * every assertion here about `GHOST_TIERS`' option prompt was passing on a node
+ * that only this file constructed, while the deployed door sent a hardcoded
+ * sentence this suite could not see. The estate's signature test defect: a spec
+ * bound to a component the deployment does not render.
+ *
+ * The dispatch below is the mount's, restated once. The option tier resolves to
+ * `ghostOptionPrompt` — the same function the mount calls, asserted at the
+ * mount's own bytes in the last describe of this file — and every other tier
+ * resolves through `withGhostTiers` with the option tier excluded, exactly as
+ * `tierGhosts` does.
+ */
+const CANVAS_TIER_DOORS = GHOST_TIERS.filter(t => t.id !== GHOST_OPTION_NODE_ID)
+
 const promptFor = (nodes: Node[], tier: string): string => {
-  const out = withGhostTiers(nodes)
-  const ghost = out.find(g => (g.data as { tier?: string })?.tier === tier)
+  // ⚠ BY ID, NEVER BY `siblingType`. The tier table is the thing under test;
+  // resolving the door through the table's own `tier` data field would let a
+  // wrongly-labelled node satisfy the lookup.
+  const definition = GHOST_TIERS.find(t => t.siblingType === tier)
+  if (!definition) throw new Error(`no tier defined for sibling type "${tier}"`)
+  if (definition.id === GHOST_OPTION_NODE_ID) return ghostOptionPrompt(nodes)
+
+  const out = withGhostTiers(nodes, CANVAS_TIER_DOORS)
+  const ghost = out.find(g => g.id === definition.id)
   return String((ghost?.data as { prompt?: string })?.prompt ?? '')
 }
 
@@ -206,5 +242,112 @@ describe('the prompt tells Olumi the truth about the model — the producer-deri
     const p = promptFor([n('d1', 'decision', 'Acquire Acme?'), n('o1', 'option', 'Buy')], 'option')
     expect(p).toContain('Acquire Acme?')
     expect(p).not.toContain('Acme?.')
+  })
+})
+
+/**
+ * ⭐⭐ THE OPTION DOOR, AT THE PATH THE CANVAS ACTUALLY TAKES.
+ *
+ * Everything above now routes the option tier through `ghostOptionPrompt`. That
+ * is only worth anything if the MOUNT calls it too — otherwise this file has
+ * simply moved its green from one unreached path to another. The block below is
+ * the binding, and it is deliberately two different kinds of evidence:
+ *
+ *   · `ghostOptionPrompt` composes from the model             (executed here)
+ *   · `ReactFlowGraph` hands that sentence to the ghost node  (read at the mount)
+ *   · `GhostOptionNode` sends what it was handed              (rendered and
+ *      clicked in `nodes/__tests__/GhostOptionNode.prompt.spec.tsx`)
+ *
+ * The middle link is source text because the mount is a 2,700-line component
+ * with a live React Flow canvas inside it; the two links either side are
+ * executed, so the static one carries only the join.
+ */
+describe('the legacy option door composes from the same tier table as every other door', () => {
+  it('IDENTITY: the sentence is the option TIER\'s, not a second one written for this door', () => {
+    // The defect being closed is precisely that there were two sentences for
+    // one door. Bound to the tier by ID so a reordering of `GHOST_TIERS` cannot
+    // quietly point this at a different tier's prompt.
+    const optionTier = GHOST_TIERS.find(t => t.id === GHOST_OPTION_NODE_ID)
+    expect(optionTier, 'GHOST_TIERS carries no option tier').toBeTruthy()
+    expect(ghostOptionPrompt(MODEL)).toBe(
+      optionTier!.prompt({
+        namedSiblings: ['Segment', 'RudderStack', 'Stay on the current CDP'],
+        siblingCount: 3,
+        subject: 'Replace our customer data platform before the March renewal',
+      }),
+    )
+  })
+
+  it('agrees with `withGhostTiers` when the option tier is routed through it', () => {
+    // The two paths to the same door's sentence must not diverge — a door whose
+    // copy depends on which code path built it is the two-`generateGraphHash`
+    // shape in a user-visible string.
+    const optionTier = GHOST_TIERS.find(t => t.id === GHOST_OPTION_NODE_ID)!
+    const viaTiers = withGhostTiers(MODEL, [optionTier]).find(g => g.id === GHOST_OPTION_NODE_ID)
+    expect((viaTiers?.data as { prompt?: string })?.prompt).toBe(ghostOptionPrompt(MODEL))
+  })
+
+  it('places NO sentence on a model with no options — the empty-tier rule, applied to this door too', () => {
+    // `withGhostTiers` refuses a door on an empty tier because it would assert
+    // the tier OUGHT to have members. The mount refuses the option ghost for the
+    // same reason (it also has nowhere to sit). This keeps the composer from
+    // being the one place that would happily say "My model has 0 options".
+    const noOptions = MODEL.filter(x => x.type !== 'option')
+    expect(ghostOptionPrompt(noOptions)).toBe('')
+  })
+
+  it('DISCRIMINATION: it is not a constant — two models get two sentences', () => {
+    const other = [
+      n('d1', 'decision', 'Replace our customer data platform before the March renewal'),
+      n('o1', 'option', 'Snowplow'),
+    ]
+    expect(ghostOptionPrompt(MODEL)).not.toBe(ghostOptionPrompt(other))
+    expect(ghostOptionPrompt(other)).toContain('Snowplow')
+  })
+})
+
+describe('the mount hands that sentence to the legacy ghost node', () => {
+  /**
+   * ⚠ COMMENTS STRIPPED FIRST. Without it, every assertion below can be
+   * satisfied by prose — a review proved exactly that on the sibling mount-path
+   * spec, by replacing a live call with a comment carrying the same call text.
+   */
+  const mountSource = (): string => {
+    const raw = readFileSync(resolve(__dirname, '../../ReactFlowGraph.tsx'), 'utf-8')
+    const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    // POSITIVE CONTROL: a strip that ate the file would make every `not.toMatch`
+    // below pass by matching nothing, and the `toMatch` ones fail loudly — but
+    // only if something asserts the input is non-empty first.
+    if (code.length < 1000) throw new Error('ReactFlowGraph.tsx read or stripped to nothing')
+    return code
+  }
+
+  /** The legacy ghost node's object literal, isolated so the assertions bind to IT. */
+  const ghostNodeLiteral = (): string => {
+    const m = /id:\s*GHOST_OPTION_NODE_ID[\s\S]{0,600}?connectable:\s*false,/.exec(mountSource())
+    if (!m) throw new Error('could not locate the ghost-option node literal in ReactFlowGraph.tsx')
+    return m[0]
+  }
+
+  it('POSITIVE CONTROL: the literal was found, and it is the ghost-option one', () => {
+    const block = ghostNodeLiteral()
+    expect(block).toContain('GHOST_OPTION_NODE_ID')
+    expect(block).toContain("'ghost-option'")
+  })
+
+  it('builds it with a prompt from `ghostOptionPrompt`, not with an empty data bag', () => {
+    // `data: {}` is what shipped the defect: the node carried nothing, so the
+    // component's hardcoded sentence was what the user actually sent.
+    expect(ghostNodeLiteral()).toMatch(/data:\s*\{\s*prompt:\s*ghostOptionPrompt\(/)
+    expect(ghostNodeLiteral()).not.toMatch(/data:\s*\{\s*\}/)
+  })
+
+  it('NEGATIVE CONTROL: a fabricated name does not match', () => {
+    // Guards the two assertions above against a regex that matches anything.
+    expect(ghostNodeLiteral()).not.toMatch(/data:\s*\{\s*prompt:\s*ghostOptionPromptV99Fabricated\(/)
+  })
+
+  it('imports it from the tier module rather than re-deriving a sentence locally', () => {
+    expect(mountSource()).toMatch(/import\s*\{[^}]*ghostOptionPrompt[^}]*\}\s*from\s*'\.\/utils\/ghostTiers'/)
   })
 })

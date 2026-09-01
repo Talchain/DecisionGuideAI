@@ -80,7 +80,7 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
-import { GHOST_TIERS, withGhostTiers, frontierIsVisible } from './utils/ghostTiers'
+import { GHOST_TIERS, withGhostTiers, frontierIsVisible, ghostOptionPrompt } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -755,11 +755,23 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const measuredW = (sameY as any)?.measured?.width ?? (sameY as any)?.width ?? 200
     const ghostGap = measuredW + 60
 
+    /*
+     * ⭐ THE SENTENCE TRAVELS WITH THE NODE — this door used to carry `data: {}`.
+     *
+     * `GhostOptionNode` cannot see the graph, so an empty data bag left it
+     * nothing to say and it fell back to a hardcoded "Suggest an additional
+     * option I haven't considered for this decision" — verbatim the generic line
+     * `ghostTiers.ts` holds up as the bad example, still live on the one door
+     * that matters most. It is composed HERE, from the same tier table and the
+     * same builder every other door uses (`ghostOptionPrompt`), rather than in
+     * the component: a door should not re-derive the model it is standing in,
+     * and two derivations of one list is how they come to disagree.
+     */
     const ghostNode = {
       id: GHOST_OPTION_NODE_ID,
       type: 'ghost-option' as const,
       position: { x: maxX + ghostGap, y: ghostY },
-      data: {},
+      data: { prompt: ghostOptionPrompt(nodes) },
       selectable: false,
       draggable: false,
       connectable: false,

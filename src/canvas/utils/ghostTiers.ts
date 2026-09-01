@@ -277,16 +277,42 @@ export function frontierIsVisible(
   return !(isPostAnalysis && viewMode !== 'expert')
 }
 
+/**
+ * The members of one tier, by the producer's two spellings of a node's kind.
+ *
+ * ⚠ SPELLED ONCE ON PURPOSE. `withGhostTiers` and the legacy option door both
+ * need this predicate, and two copies of it are how the door's sentence and the
+ * door's position come to describe different sets of nodes.
+ */
+function siblingsOf(nodes: Node[], siblingType: string): Node[] {
+  return nodes.filter(
+    (n) =>
+      n.type === siblingType || (n.data as { type?: string } | undefined)?.type === siblingType,
+  )
+}
+
+/**
+ * What a door standing at the end of a tier's row can see. Facts only.
+ *
+ * The UNFILTERED count travels alongside the surviving names: `siblings` is the
+ * tier as it really is, `namedSiblings` is what survived naming. Passing both is
+ * what lets the sentence describe a partly-unnamed tier without either inventing
+ * names or under-reporting the model.
+ */
+function contextFor(siblings: readonly Node[], subject: string | null): GhostPromptContext {
+  return {
+    namedSiblings: siblings.map(labelOf).filter((l): l is string => l !== null),
+    siblingCount: siblings.length,
+    subject,
+  }
+}
+
 export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[] = GHOST_TIERS): Node[] {
   const ghosts: Node[] = []
   const subject = readSubject(nodes)
 
   for (const tier of enabledTiers) {
-    const siblings = nodes.filter(
-      (n) =>
-        n.type === tier.siblingType ||
-        (n.data as { type?: string } | undefined)?.type === tier.siblingType,
-    )
+    const siblings = siblingsOf(nodes, tier.siblingType)
     if (siblings.length === 0) continue
 
     const maxX = Math.max(...siblings.map((n) => n.position?.x ?? 0))
@@ -306,15 +332,7 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
         // the node component — the door should not have to re-derive the model
         // it is standing in, and two derivations of one list is how they come
         // to disagree.
-        prompt: tier.prompt({
-          namedSiblings: siblings.map(labelOf).filter((l): l is string => l !== null),
-          // The UNFILTERED count. `siblings` is the tier as it really is; the
-          // line above is what survived naming. Passing both is what lets the
-          // sentence describe a partly-unnamed tier without either inventing
-          // names or under-reporting the model.
-          siblingCount: siblings.length,
-          subject,
-        }),
+        prompt: tier.prompt(contextFor(siblings, subject)),
         tier: tier.siblingType,
       },
       selectable: false,
@@ -324,4 +342,66 @@ export function withGhostTiers(nodes: Node[], enabledTiers: readonly GhostTier[]
   }
 
   return ghosts.length > 0 ? [...nodes, ...ghosts] : nodes
+}
+
+/**
+ * The option tier, resolved ONCE at module load and BY ID.
+ *
+ * Not `GHOST_TIERS[0]`: a positional bind would silently point the legacy door
+ * at a different tier's sentence the first time the table is reordered, and the
+ * failure would be a plausible-sounding prompt about the wrong kind of node
+ * rather than a crash. Resolved eagerly so a table that lost its option tier
+ * fails at import — loudly, in every suite — instead of on a user's click.
+ */
+const OPTION_TIER: GhostTier = (() => {
+  const tier = GHOST_TIERS.find((t) => t.id === GHOST_OPTION_NODE_ID)
+  if (!tier) {
+    throw new Error(
+      'ghostTiers: GHOST_TIERS carries no tier with the option door id, so the ' +
+        'legacy ghost-option node has no sentence to send.',
+    )
+  }
+  return tier
+})()
+
+/**
+ * ⭐⭐ THE PRE-ANALYSIS OPTION DOOR'S SENTENCE — the one door `#1060` did not reach.
+ *
+ * ── WHY THIS FUNCTION EXISTS RATHER THAN THE DOOR SIMPLY USING `withGhostTiers` ──
+ *
+ * The option door on the pre-analysis canvas is NOT a `ghost-tier` node. It is
+ * the older `ghost-option` node (`nodes/GhostOptionNode.tsx`), and
+ * `ReactFlowGraph.tsx` builds it by hand because its position is derived from
+ * the rightmost option, then filters the option tier OUT of the set it hands
+ * `withGhostTiers`. So `GHOST_TIERS`' option prompt — the model-aware one, the
+ * whole point of `#1060` — was composed for a node the canvas never built,
+ * while the component sent a hardcoded "Suggest an additional option I haven't
+ * considered for this decision": VERBATIM the sentence the `GhostTier.prompt`
+ * doc above holds up as the bad example. The defect was named in this file and
+ * still shipped, and its own spec was green about the unreached path.
+ *
+ * ⚠ THE OTHER REPAIR — routing this door through `withGhostTiers` and deleting
+ * the legacy node — WAS DELIBERATELY NOT TAKEN. `GhostOptionNode` carries a
+ * measured WCAG 1.4.11 outline (`--text-body` at 10.45:1 / 9.29:1 against both
+ * adjacent grounds, verified in a live browser) and its own geometry, pinned by
+ * `GhostOptionNode.contrast.spec.ts`. `GhostTierNode` is a different size, a
+ * different label and a different icon scale. Swapping the component to fix a
+ * STRING would have changed the affordance's appearance and re-opened a
+ * contrast question that a lane already answered at the pixel — a larger,
+ * less honest change wearing the smaller change's clothes.
+ *
+ * What the door needed was the sentence, so the sentence is what it gets. One
+ * tier table, one composer, two renderers.
+ *
+ * ⚠ EMPTY WHEN THE TIER IS EMPTY, matching `withGhostTiers`' refusal to place a
+ * door on a tier with no members: a sentence beginning "My model has 0 options"
+ * would assert the tier OUGHT to have some, which is the judgement line this
+ * file does not cross. The mount does not build the door in that case either —
+ * it has nowhere to sit — so this is the two authorities agreeing rather than a
+ * second one being invented.
+ */
+export function ghostOptionPrompt(nodes: Node[]): string {
+  const siblings = siblingsOf(nodes, OPTION_TIER.siblingType)
+  if (siblings.length === 0) return ''
+  return OPTION_TIER.prompt(contextFor(siblings, readSubject(nodes)))
 }
