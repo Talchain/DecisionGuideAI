@@ -12,7 +12,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
-import { registerFloatingFocus } from '../hooks/useFloatingFocus'
+import { focusFloating, registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
@@ -297,6 +297,82 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
     if (!shouldRender) return
     return registerFloatingFocus(() => inputBarRef.current?.focus())
   }, [shouldRender])
+
+  // ⭐⭐ THE INVITATION MUST BE THE FIELD THAT RECEIVES THE TYPING.
+  //
+  // MEASURED ON THE DEPLOYED BUILD `b5f9bdbb` (2026-09-01, guest, real
+  // browser): 207 ms after a document load, this composer is mounted,
+  // enabled and 654x75 px on screen — and `document.activeElement` is
+  // `BODY`. 64 characters typed at that moment appear NOWHERE in the DOM:
+  // not in this textarea, not in any other, not in `draft`. They are gone.
+  //
+  // That is a DATA-LOSS defect, not a polish item, and it is invisible to
+  // every existing test: jsdom specs drive the textarea directly, so they
+  // assert what happens to text that has ALREADY reached the field. The
+  // question this closes is the one before that — does a keystroke reach
+  // the field at all? Nothing focused it, so it did not.
+  //
+  // ⚠ IT NEVER STEALS FOCUS. The guard is `activeElement` being body/null,
+  // i.e. nobody has chosen a field yet. A user (or a restored surface) that
+  // already owns focus keeps it — this only claims focus that is going
+  // nowhere. `isGenerating` is excluded because the textarea is `disabled`
+  // in that window (AIInputBar.tsx:404); focusing a disabled input is a
+  // no-op that would burn the one-shot latch.
+  const heroFocusClaimedRef = useRef(false)
+  useEffect(() => {
+    if (!shouldRender) {
+      // Re-arm for the next engagement (canvas reset re-opens the hero).
+      heroFocusClaimedRef.current = false
+      return
+    }
+    if (heroFocusClaimedRef.current) return
+    if (isGenerating) return
+    if (typeof document !== 'undefined') {
+      const active = document.activeElement
+      const focusIsUnclaimed =
+        active === null || active === document.body || active === document.documentElement
+      if (!focusIsUnclaimed) return
+    }
+    heroFocusClaimedRef.current = true
+    inputBarRef.current?.focus()
+  }, [shouldRender, isGenerating])
+
+  // ⭐⭐ FOCUS CONTINUITY ACROSS THE RESTORE SWAP.
+  //
+  // The other half of the same measurement. A returning guest holds a
+  // 36-byte scenario pointer in localStorage; `useServerGraphHydration`
+  // reads the model back from CEE and `mergeServerGraph.ts:235` hydrates an
+  // EMPTY canvas in full. So nodeCount goes 0 → N about 1-2 s after boot,
+  // `shouldRender` flips false, and this portal is torn out from under
+  // whoever was typing into it. Witnessed at `b5f9bdbb`: the surface the
+  // user is typing into changes identity from
+  // `first-use-input-bar-textarea` to `ai-input-bar-floating-textarea`,
+  // and focus lands back on BODY.
+  //
+  // The TEXT itself survives — `draft` lives in ConversationContext, which
+  // outlives this portal, and the floating composer binds the same buffer.
+  // What is lost is the CARET. So the honest repair is a handoff, not a
+  // rescue: point focus at the surface that now owns the same text.
+  //
+  // ⚠ ONLY FOR A SWAP THE USER DID NOT CAUSE. When the user sent from this
+  // composer, `handleAfterSend` has set the latch and the reposition effect
+  // above owns the transition — taking focus there would fight it. And with
+  // an empty draft there is nothing at risk, so we leave focus alone rather
+  // than pull the user into a text box they never opened.
+  const focusHandoffPrevNodeCountRef = useRef(nodeCount)
+  useEffect(() => {
+    const prev = focusHandoffPrevNodeCountRef.current
+    focusHandoffPrevNodeCountRef.current = nodeCount
+    if (prev !== 0 || nodeCount === 0) return // only on 0 → N+
+    if (userSentFromFirstUseRef.current) return // the user's own send
+    if (draft.length === 0) return // nothing being typed
+    // This portal unmounts in the same commit; the floating panel registers
+    // its focus channel on the next one. Defer past that boundary.
+    const id = window.setTimeout(() => {
+      focusFloating()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [nodeCount, draft])
 
   // ⭐ THE DOCK OVERLAYS THIS SURFACE, SO ITS WIDTH IS PART OF OUR GEOMETRY.
   // This composer is `position: fixed` at zIndex 300; the outputs dock is
