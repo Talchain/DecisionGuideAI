@@ -523,13 +523,38 @@ function T1DominantNudge({
       data-testid="t1-dominant-nudge"
       title={fullExplanation}
     >
-      <AlertTriangle size={14} className="text-warning flex-shrink-0" aria-hidden="true" />
-      {/* Factor name never truncates; explanation text takes remaining space and clips. */}
-      <p className={`${typography.panelMeta} text-text-body min-w-0 flex-1 flex items-baseline gap-1 overflow-hidden`}>
-        <span className="whitespace-nowrap"><strong>Dominant factor:</strong></span>
+      <AlertTriangle size={14} className="text-warning flex-shrink-0 self-start mt-0.5" aria-hidden="true" />
+      {/* ⚠ THE ROW WRAPS; IT DOES NOT CLIP (1 Sep 2026, witnessed on deployed
+          staging `83f20058`). It used to be `flex … overflow-hidden` with two
+          `whitespace-nowrap` children ahead of the metric. A nowrap flex item
+          keeps `min-width: auto`, so its min-content size IS its full width and
+          it cannot shrink; the metric span was `flex-1` (`flex-basis: 0%`), whose
+          scaled shrink factor is `1 x 0 = 0`, so it absorbed nothing and stayed
+          at 0px while its siblings overflowed. On screen: a hard cut MID-WORD,
+          no ellipsis, and the influence score — the only reason this warning
+          exists — never rendered at any dock width below 480px, for SHORT labels
+          too.
+
+          Measured in real Chromium across 280-480px before choosing this
+          (`e2e/geometry/dominantNudgeNumber.measure.ts` is the standing form):
+          adding `min-w-0 truncate` to the label alone removes the overflow
+          COMPLETELY — an overflow-based guard goes green — and the metric span
+          is still 0px wide at every width. Pinning the metric `nowrap
+          flex-shrink-0` instead keeps the number only at >=416px and collapses
+          the label to nothing below that.
+
+          So the row wraps. The unbounded USER label is the only element allowed
+          to yield, and it yields with an ellipsis (`truncate` + `max-w-full`
+          bounds a pathological single-token label to one line); the product's own
+          sentence, which ends in the number, always renders whole. */}
+      <p
+        className={`${typography.panelMeta} text-text-body min-w-0 flex-1 flex flex-wrap items-baseline gap-x-1`}
+        data-testid="t1-dominant-nudge-row"
+      >
+        <span className="whitespace-nowrap flex-shrink-0"><strong>Dominant factor:</strong></span>
         {/* Visible identity span — always renders the raw user label, even in v17 mode. */}
-        <strong className="whitespace-nowrap">{dominantLabel}</strong>
-        <span className={`truncate min-w-0 flex-1 text-text-light`}>{explanation}</span>
+        <strong className="min-w-0 max-w-full truncate" data-testid="t1-dominant-nudge-label">{dominantLabel}</strong>
+        <span className={`min-w-0 text-text-light`} data-testid="t1-dominant-nudge-metric">{explanation}</span>
       </p>
       {dominantFocusId && onFocusNode && (
         <button
