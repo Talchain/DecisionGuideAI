@@ -1716,6 +1716,46 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         allOptions: [],
         goalLabel,
         goalNodeId,
+        /* ⚠⚠ THE TARGET IS A FACT ABOUT THE MODEL, NOT ABOUT THE RUN, AND
+           OMITTING IT HERE MADE THE PANEL CONTRADICT ITSELF ON SCREEN.
+           Witnessed on deployed `f59ffc26` as a guest: open the
+           "International Expansion Strategy" saved example and the Reasoning
+           tab renders, ~120px apart in one viewport —
+
+             model strip     Target 11 £M ARR · From brief · Change
+             strengthen card No measurable success target is set.
+                             Source: your goal has no success threshold
+                             (checked directly).
+
+           The strip reads the goal node (`resolveGoalTarget`). The card reads
+           `recommendation.goalThreshold`, which this early return did not
+           carry — so `buildRecommendations`' `goalThreshold == null` test fired
+           on every model with a brief-set target, and the card claimed a direct
+           check of a goal it had never been shown. Reproduces on
+           `market-entry` (11) and `pricing-model` (110).
+
+           ⚠ THIS IS NOT ALIGNING TWO DEFAULTS, which trap 21 rightly forbids
+           and which `successTargetLine.spec.tsx`:176-187 explicitly ruled out.
+           The two surfaces keep their own resolvers because they answer
+           different questions — the strip asks "is there a target we can SHOW,
+           in this reader's units, and whose is it?", the card asks "has anyone
+           set a measurable target at all?". Existence is the broader question,
+           so the honest invariant is one-directional and only that:
+
+               the strip displaying a target  ⟹  the card's sentence is absent
+
+           The converse stays false on purpose: a goal carrying only a
+           normalised threshold is genuinely held-but-unexpressible to the strip
+           and genuinely set to the card, and those are two true sentences.
+           What was wrong was not the card's question — it was being made to
+           answer it with a fact nobody had given it.
+
+           `effectiveGoalThreshold` is the right thing to hand over because it
+           never reads `report`: it is store → `ceeAnalysisReady` → goal node,
+           all available before any run, and it is already what the post-run
+           branch passes (:2234) and already in this memo's deps (:2413). Its
+           absence here was where the `if` happens to sit, not a decision. */
+        goalThreshold: effectiveGoalThreshold,
         isSingleOption: true,
         analysisStatus: 'computed',
       }
