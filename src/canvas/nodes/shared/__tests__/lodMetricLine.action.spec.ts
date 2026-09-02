@@ -85,13 +85,53 @@ describe('resolveLodMetricLine — action', () => {
     expect(resolveAction(undefined)).toBeNull()
   })
 
-  it('CONTRAST — a type whose line is owned elsewhere is still not resolved here', () => {
-    // The discrimination that proves this file is testing the `action` ARM and
-    // not merely "the resolver returns something for a description". `risk`
-    // carries the identical `description` and must stay null here, because its
-    // line is declared by `RiskNode` through `lodMetric`. If a future edit
-    // widened the new arm to read `description` for every type, the tests above
-    // would all still pass and this one would red.
+  /**
+   * ⭐⭐ THE DISCRIMINATING CONTROL — AND IT IS `goal`, NOT `risk`, FOR A REASON
+   * A MUTANT HAD TO TEACH ME.
+   *
+   * This control was FIRST written against `risk`, on the reasoning that risk
+   * carries the identical `description` and must stay silent because its line is
+   * owned by `RiskNode`. That reasoning is true and the test was USELESS: `risk`
+   * has its own `case` earlier in the switch, so it returns from that arm and
+   * can never reach the one under test. A mutant that widened the action arm to
+   * `default` — i.e. to EVERY unmatched type — left the whole file GREEN.
+   *
+   * `goal` is the honest choice because `goal` genuinely FALLS THROUGH to the
+   * default arm. It is inside the domain the widening would capture, so it is
+   * the only kind of witness that can observe it (CLAUDE.md trap 16-inverse: a
+   * fixture outside the reachable input space proves nothing, however sensible
+   * it reads).
+   */
+  it('CONTRAST — a FALL-THROUGH type must stay silent, so the arm cannot widen by accident', () => {
+    // `goal` reaches the same `default` the action arm sits beside, and its line
+    // is declared by `GoalNode` through `lodMetric`. If the action arm ever
+    // widened to read `description` for every unmatched type, every test above
+    // would still pass and this one would red.
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'goal',
+        data: { type: 'goal', description: 'Run a 4-week beta' },
+        label: 'Reach 15% margin',
+        displayMetadata: NO_METADATA,
+      }),
+    ).toBeNull()
+    // `decision` is the other fall-through type; pinned too, because the two
+    // are named apart in the ownership map and a widening would take both.
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'decision',
+        data: { type: 'decision', description: 'Run a 4-week beta' },
+        label: 'Should we expand?',
+        displayMetadata: NO_METADATA,
+      }),
+    ).toBeNull()
+  })
+
+  it('CONTRAST — a type with its OWN arm is also unaffected', () => {
+    // Weaker than the fall-through control above and kept deliberately: it
+    // cannot see a widening (that is what the mutant proved), but it does pin
+    // the ownership split itself — `risk` resolving to a line HERE would mean
+    // two surfaces answering one question.
     expect(
       resolveLodMetricLine({
         nodeType: 'risk',
