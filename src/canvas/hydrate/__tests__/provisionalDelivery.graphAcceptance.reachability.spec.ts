@@ -422,6 +422,17 @@ describe('⚠ KNOWN-OPEN: a prior recorder defeats the guard (pinned, not fixed)
       if (/setLastAuthoritativeGraph\s*\(\s*[^)\s]/.test(code)) recorders.add(rel)
       // Form 2: property assignment to something other than `null`.
       if (/lastAuthoritativeGraph\s*=\s*(?!null)[A-Za-z{]/.test(code)) recorders.add(rel)
+      // Form 3: an OBJECT-LITERAL PROPERTY with a non-null value, i.e. the
+      // record written inline inside a `set({ … })`. Added when
+      // `store.loadScenario` began seeding the record that way; forms 1 and 2
+      // are both blind to it, and this file exists precisely because a writer
+      // form went unseen once already (see the note on form 2). It matches a
+      // call or a bare identifier and deliberately NOT `{`, so the field's own
+      // TYPE DECLARATION (`lastAuthoritativeGraph: { nodeIds: … } | null`) and
+      // every `: null` clear stay out of the set.
+      if (/lastAuthoritativeGraph:\s*(?!null\b)[A-Za-z_$][\w$.]*\s*[(,\n]/.test(code)) {
+        recorders.add(rel)
+      }
     }
 
     // POSITIVE CONTROL — the scan must SEE something, or the assertion below is
