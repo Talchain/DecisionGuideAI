@@ -175,6 +175,37 @@ export const TOP_BAR_SELECTOR = '[role="banner"]'
 export const DOCK_SELECTOR = 'aside[aria-label="Outputs dock"]'
 /** The LeftSidebar ("Canvas tools"). */
 export const SIDEBAR_SELECTOR = 'nav[aria-label="Canvas tools"]'
+/**
+ * The canvas overlay band (`CanvasOverlayBand`), which owns bottom-edge overlay
+ * space so that notices stop being drawn over the model.
+ *
+ * ⚠ THE CONTRIBUTOR IS THE BAND, NOT ITS OCCUPANTS — and that distinction is
+ * the whole reason this is admissible. Applying criteria 1-4 above:
+ *
+ *   1. EDGE-ANCHORED — `bottom: 12px`, spanning the full width. One answer to
+ *      "how much does it occlude".
+ *   2. NOT USER-MOVABLE — no drag affordance exists.
+ *   3. NOT DISMISSIBLE — its OCCUPANTS are dismissible; the band is not, and it
+ *      reserves the same height whether or not anything occupies it.
+ *   4. PERSISTENT — mounted unconditionally beside the canvas, with no
+ *      "render only when occupied" branch. This is the criterion every
+ *      individual notice failed, and it is why they could never be admitted
+ *      here one by one.
+ *
+ * ⭐ AND THE REASON IT IS A CONSTANT-HEIGHT BAND RATHER THAN A MEASURED STACK:
+ * a variable reservation feeds `reservedBoxWatcher` → `fitNow`, so a notice
+ * mounting or being dismissed would re-fit the camera on the next `pointerup`.
+ * With `CanvasLodNotice` among the occupants that closes a loop — zoom out →
+ * notice mounts → reservation grows → re-fit → notice unmounts. The band's
+ * height is deliberately not a function of what is inside it.
+ *
+ * Declared as a literal here rather than imported from the component so this
+ * module stays a pure DOM measurement with no React dependency (the same
+ * reason `FloatingOlumiPanel.measureDockInset` restates the dock selector).
+ * `computeFitPadding.overlayBand.spec.ts` asserts the two spellings agree, so
+ * they cannot drift apart silently.
+ */
+export const OVERLAY_BAND_SELECTOR = '[data-canvas-overlay-band]'
 
 /**
  * THE DECLARED CONTRIBUTOR SET — the whole of it, and the only thing standing
@@ -194,7 +225,12 @@ export const SIDEBAR_SELECTOR = 'nav[aria-label="Canvas tools"]'
  * it. The same spec also asserts this function reaches for no store, so a
  * contributor smuggled in as state rather than as a rect REDs too.
  */
-export const FIT_PADDING_CONTRIBUTORS = [DOCK_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR] as const
+export const FIT_PADDING_CONTRIBUTORS = [
+  DOCK_SELECTOR,
+  SIDEBAR_SELECTOR,
+  TOP_BAR_SELECTOR,
+  OVERLAY_BAND_SELECTOR,
+] as const
 /** Never let combined per-axis padding exceed this fraction of the pane (keeps a fitting area). */
 const MAX_PADDING_FRACTION = 0.8
 
@@ -252,10 +288,14 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
 
   let right = baseX
   let left = baseX
-  // Bottom keeps the base margin: nothing is anchored to the bottom edge of the
-  // canvas. `top` is resolved against the floating top bar below — see the
-  // header for why the old claim on this line ("the top bar never overlaps the
-  // flow rect") was false at the deployed tip.
+  // ⚠ THIS COMMENT USED TO READ *"Bottom keeps the base margin: nothing is
+  // anchored to the bottom edge of the canvas."* THAT IS NO LONGER TRUE, and
+  // leaving it would have made it the third false sentence this function has
+  // carried about which edges are occupied. `CanvasOverlayBand` IS anchored to
+  // the bottom edge — deliberately, because it is the only band with room —
+  // and it is resolved below exactly as the dock, sidebar and top bar are.
+  // `top` is resolved against the floating top bar; see the header for why the
+  // older claim on that line was false at the deployed tip too.
   let top = baseY
   let bottom = baseY
 
@@ -285,6 +325,16 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
     if (topBar) {
       const overlap = Math.max(0, topBar.bottom - flowRect.top)
       if (overlap > 0) top = Math.max(top, overlap + GAP)
+    }
+    // Bottom edge — the canvas overlay band. MEASURED like every other
+    // contributor rather than restated as `OVERLAY_BAND_HEIGHT + OVERLAY_BAND_BOTTOM`:
+    // the band's height is a CSS value behind a custom property
+    // (`--canvas-overlay-band-h`), and a second arithmetic copy of it here
+    // would be a hand-maintained mirror of a number that can be overridden.
+    const band = rectOf(OVERLAY_BAND_SELECTOR)
+    if (band) {
+      const overlap = Math.max(0, flowRect.bottom - band.top)
+      if (overlap > 0) bottom = Math.max(bottom, overlap + GAP)
     }
 
     // ⭐ NOTHING ELSE CONTRIBUTES. The floating conversation panel, its side tab

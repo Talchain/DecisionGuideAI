@@ -7,6 +7,7 @@ import { useConversationContext } from '../conversation/ConversationContext'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { analysisHeldNotice } from '../utils/analysisHeldOnInjectedModel'
 import { typography } from '../../styles/typography'
+import { useOverlayCell } from './CanvasOverlayBand'
 
 /**
  * StarterProvenanceBanner — the "this is a saved example" disclosure.
@@ -177,21 +178,31 @@ export function StarterProvenanceBanner() {
     }
   }, [starterId, sendMessage, showToast, draft, setDraft])
 
-  if (!starterId || dismissed) return null
-  const starter = getStarter(starterId)
-  if (!starter) return null
-  if (typeof document === 'undefined') return null
+  const starter = starterId ? getStarter(starterId) : null
+  const wants = Boolean(starter) && !dismissed
+  // ⚠ THIS BANNER COVERED THE DECISION NODE'S TITLE BY CONSTRUCTION, and no
+  // amount of reserving space at the top could have fixed it: it was
+  // `fixed; top: 72px`, and the product fit's top inset is 73px
+  // (`topBarFitInset.spec.ts`), so the fitted model's top row began at exactly
+  // this banner's top edge. The only fix is to stop being there.
+  const { granted, target } = useOverlayCell('bottom-centre', 'starter-provenance-banner', wants)
 
-  return createPortal(
+  if (!wants || !starter || !granted) return null
+
+  // ⭐ REFLOWED TO ONE BAND-HEIGHT ROW — icon, two lines, inline action,
+  // dismiss. The copy is BYTE-IDENTICAL to the stacked version it replaces and
+  // is pinned that way by `StarterProvenanceBanner.spec.tsx`: this is a change
+  // of shape, never of what the product says about a saved example.
+  const body = (
     <div
       data-testid="starter-provenance-banner"
       role="status"
-      className="fixed left-1/2 top-[72px] z-[250] flex -translate-x-1/2 items-start gap-3 rounded-lg bg-panel px-4 py-3 shadow-2"
-      style={{ maxWidth: 'min(720px, calc(100vw - 32px))' }}
+      className="pointer-events-auto flex items-center gap-3 rounded-lg bg-panel px-4 py-2 shadow-2"
+      style={{ maxWidth: 'min(720px, 100%)' }}
     >
-      <BookmarkCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+      <BookmarkCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-info" />
       <div className="min-w-0 flex-1">
-        <p className={`${typography.bodySmall} text-text-header`}>
+        <p className={`${typography.bodySmall} leading-snug text-text-header`}>
           Saved example — Olumi drafted this model on {starter.provenance.capturedAt}. It wasn’t generated just now.
         </p>
         {/* Says ONLY what the gate actually does. An earlier draft of this copy
@@ -199,18 +210,18 @@ export function StarterProvenanceBanner() {
             the product does not keep: the starter stamp rides a save, so
             saving does NOT re-enable analysis. Re-drafting is the one route
             that does, because the resulting graph comes from a CEE turn. */}
-        <p className={`mt-1 ${typography.caption} text-text-light`}>
+        <p className={`${typography.caption} leading-snug text-text-light`}>
           Edit anything on the canvas.{heldNotice === null ? '' : ` ${heldNotice}`}
         </p>
-        <button
-          type="button"
-          data-testid="starter-redraft"
-          onClick={handleRedraft}
-          className={`${typography.label} mt-2 rounded-pill bg-primary px-3 py-1.5 text-text-on-color transition-colors duration-fast hover:bg-primary-hover`}
-        >
-          Re-draft this live
-        </button>
       </div>
+      <button
+        type="button"
+        data-testid="starter-redraft"
+        onClick={handleRedraft}
+        className={`${typography.label} shrink-0 whitespace-nowrap rounded-pill bg-primary px-3 py-1.5 text-text-on-color transition-colors duration-fast hover:bg-primary-hover`}
+      >
+        Re-draft this live
+      </button>
       <button
         type="button"
         aria-label="Dismiss saved-example notice"
@@ -220,7 +231,8 @@ export function StarterProvenanceBanner() {
       >
         <X aria-hidden="true" className="h-4 w-4" />
       </button>
-    </div>,
-    document.body,
+    </div>
   )
+
+  return target ? createPortal(body, target) : body
 }

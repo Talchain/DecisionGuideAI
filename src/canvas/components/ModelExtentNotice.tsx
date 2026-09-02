@@ -53,7 +53,9 @@
  * elements" over nine visible nodes. See the fork named at the count itself.
  */
 import { useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useReactFlow, useStore } from '@xyflow/react'
+import { useOverlayCell } from './CanvasOverlayBand'
 import { Maximize2 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { excludeNonModelNodes } from '../utils/fitTargets'
@@ -82,6 +84,39 @@ export function ModelExtentNotice() {
   // than going stale the moment the user moves. Without this the notice would
   // keep claiming nodes are off-screen after they had been scrolled into view.
   const transform = useStore(s => s.transform)
+  // ⭐⭐ THE COUNT IS A LIE UNTIL THE LAYOUT PIPELINE HAS SETTLED — MEASURED ON
+  // THE DEPLOYED BUILD `f59ffc26`, 18 timed runs on the Playwright geometry
+  // harness (real geometry, `assertPaneCanRenderGeometry` passing):
+  //
+  //   t=    0ms  zoom=4    lv=0  pending=true   "Showing 0 of 18 elements"
+  //   t= 3005ms  zoom=0.5  lv=2  pending=false  "Showing 10 of 18 elements"
+  //
+  // 18/18 runs pass through that state and 18/18 heal, but heal time ranged
+  // from 1.05s to 17.0s. `zoom=4` is the canvas ceiling (`maxZoom={4}`),
+  // reached when a fit runs against a degenerate content bounding box because
+  // the nodes have not been measured yet. The count is taken against the camera
+  // frame, so a degenerate camera corrupts it directly: "Showing 0 of 18" is
+  // arithmetically correct about a camera that is briefly nonsense.
+  //
+  // ⚠ AND IT CANNOT BE FIXED BY THE BUTTON. This notice's only remedy is a
+  // camera move, and no camera move repairs a bounding box that has not been
+  // computed yet — the same argument the header already makes about
+  // companion-occluded nodes: a count must only include what its remedy can fix.
+  //
+  // The predicate is written against the SPEC — "the layout pipeline has not
+  // settled" — rather than against the symptom that was measured. `pending=true`
+  // is what the runs recorded, but `layoutInProgress` denotes the same
+  // unsettled state one step later in the same pipeline, and a caveat computed
+  // during either is resting on a frame that is still moving.
+  //
+  // Suppressing FAILS CLOSED (no caveat) rather than open (a false caveat),
+  // which is the right direction: silence while the product is still drawing
+  // says nothing untrue, whereas "Showing 0 of 18" tells a user their model is
+  // empty at the exact moment they first look at it.
+  //
+  // ⚠ The 1s-17s spread is measured but NOT explained. Nothing here may depend
+  // on a bound for it — the suppression is keyed on the flags themselves.
+  const layoutUnsettled = useCanvasStore(s => s.pendingLayout || s.layoutInProgress)
 
   const modelNodes = useMemo(() => excludeNonModelNodes(nodes), [nodes])
 
@@ -187,18 +222,30 @@ export function ModelExtentNotice() {
     })
   }, [fitView, getNodes, prefersReducedMotion])
 
-  // Absent, zero, or a model small enough that the question does not arise.
-  if (outside === null || outside === 0) return null
+  // Absent, zero, a model small enough that the question does not arise — or a
+  // layout that has not settled, in which case there is no honest count to give.
+  const wants = outside !== null && outside !== 0 && !layoutUnsettled
+  // ⭐ THE OTHER HALF OF THE REPORTED DEFECT LIVED IN THE OLD CLASS STRING.
+  // `left-1/2` centred this on the WINDOW, and the window's centre at 1280 is
+  // x 640 — which put "Show whole model" under the minimised Olumi pill at
+  // x 752..836 and truncated the button's own label. The band centres its
+  // occupant in the space actually left over once the dock and that pill are
+  // accounted for, so the button is whole.
+  const { granted, target } = useOverlayCell('bottom-centre', 'model-extent-notice', wants)
+
+  if (!wants || !granted) return null
 
   const total = modelNodes.length
-  const visible = total - outside
+  // `wants` already establishes `outside` is a non-zero number, but that is a
+  // boolean and does not narrow the union — spell the fallback rather than
+  // assert, so a future change to `wants` cannot turn this into `NaN`.
+  const visible = total - (outside ?? 0)
 
-  return (
+  const body = (
     <div
       data-testid="model-extent-notice"
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[90] pointer-events-auto
-                 flex items-center gap-3 rounded-lg border border-panel-border bg-panel
-                 shadow-1 px-3 py-2"
+      className="pointer-events-auto flex items-center gap-3 rounded-lg border
+                 border-panel-border bg-panel shadow-1 px-3 py-2"
     >
       <span className={`${typography.caption} text-text-body`} data-testid="model-extent-count">
         {/* States the REMAINDER, never a bare fade — the same honesty rule the
@@ -218,4 +265,6 @@ export function ModelExtentNotice() {
       </button>
     </div>
   )
+
+  return target ? createPortal(body, target) : body
 }

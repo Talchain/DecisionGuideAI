@@ -193,3 +193,84 @@ describe('ModelExtentNotice — the sentence is a claim about the SCREEN, so it 
     expect(container.querySelector('[data-testid="model-extent-notice"]')).toBeNull()
   })
 })
+
+/**
+ * ⭐⭐ THE SAME SENTENCE, FALSE FOR A DIFFERENT REASON — AND ON EVERY USER'S
+ * FIRST VIEW.
+ *
+ * Measured on the deployed build `f59ffc26`, 18 timed runs on the Playwright
+ * geometry harness with `assertPaneCanRenderGeometry` passing (real geometry,
+ * not a hidden-pane reading):
+ *
+ *   t=    0ms  zoom=4    lv=0  pending=true   "Showing 0 of 18 elements"
+ *   t= 3005ms  zoom=0.5  lv=2  pending=false  "Showing 10 of 18 elements"
+ *
+ * 18/18 runs pass through that state; 18/18 heal; none stick. Heal time ranged
+ * from 1.05s to 17.0s.
+ *
+ * `zoom=4` is the canvas ceiling (`maxZoom={4}`), reached when a fit runs
+ * against a degenerate content bounding box because the nodes have not been
+ * measured yet. The count is taken against the camera frame, so a degenerate
+ * camera corrupts it directly — "Showing 0 of 18" is arithmetically correct
+ * about a camera that is briefly nonsense.
+ *
+ * ⚠ NOTE WHAT IT SHARES WITH THE DEFECT ABOVE, because that is why both live in
+ * this file: in each case the ARITHMETIC is right and the FRAME is wrong, so no
+ * amount of testing the count could have found either. And in each case the
+ * remedy argument settles it — this notice's only action is a camera move, and
+ * no camera move repairs a bounding box that has not been computed yet.
+ *
+ * ⚠ The 1s-17s spread is measured but NOT explained. Nothing here depends on a
+ * bound for it; the suppression is keyed on the pipeline's own flags.
+ */
+describe('ModelExtentNotice — no count while the layout pipeline is still unsettled', () => {
+  const setLayout = (s: { pendingLayout?: boolean; layoutInProgress?: boolean }) =>
+    useCanvasStore.setState(s as never)
+
+  afterEach(() => setLayout({ pendingLayout: false, layoutInProgress: false }))
+
+  it('POSITIVE CONTROL: with the layout settled, this payload DOES render a count', () => {
+    // Trap 13, and it is the whole file's hinge: three of the four assertions
+    // below are absences, and an absence proves nothing unless the same fixture
+    // can be shown producing a presence.
+    mountChrome({ companion: false })
+    setNodes(NODES)
+    setLayout({ pendingLayout: false, layoutInProgress: false })
+    render(<ModelExtentNotice />)
+    expect(screen.getByTestId('model-extent-count')).toHaveTextContent('Showing 3 of 5 elements')
+  })
+
+  it('says NOTHING while a layout is pending', () => {
+    mountChrome({ companion: false })
+    setNodes(NODES)
+    setLayout({ pendingLayout: true })
+    const { container } = render(<ModelExtentNotice />)
+    expect(container.querySelector('[data-testid="model-extent-notice"]')).toBeNull()
+  })
+
+  it('says NOTHING while a layout is mid-flight', () => {
+    // `layoutInProgress` is the same unsettled state one step later in the same
+    // pipeline. The predicate is written against the SPEC — "the layout has not
+    // settled" — rather than against `pending=true`, which is merely the flag
+    // the measurement happened to catch (CLAUDE.md trap 13d).
+    mountChrome({ companion: false })
+    setNodes(NODES)
+    setLayout({ layoutInProgress: true })
+    const { container } = render(<ModelExtentNotice />)
+    expect(container.querySelector('[data-testid="model-extent-notice"]')).toBeNull()
+  })
+
+  it('CONTRAST CONTROL: the count returns once the pipeline settles', () => {
+    // Suppression must be TRANSIENT. A guard that hid the notice for good would
+    // pass all three assertions above and silently delete a real capability.
+    mountChrome({ companion: false })
+    setNodes(NODES)
+    setLayout({ pendingLayout: true })
+    const view = render(<ModelExtentNotice />)
+    expect(view.container.querySelector('[data-testid="model-extent-notice"]')).toBeNull()
+
+    setLayout({ pendingLayout: false })
+    view.rerender(<ModelExtentNotice />)
+    expect(screen.getByTestId('model-extent-count')).toHaveTextContent('Showing 3 of 5 elements')
+  })
+})

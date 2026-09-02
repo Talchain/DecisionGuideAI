@@ -8,7 +8,9 @@
  */
 
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import type { LensMode } from '../store'
@@ -286,18 +288,20 @@ function RobustnessPanel() {
 export function LensInfoPanel() {
   const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full') as LensMode
 
-  if (lensMode !== 'causal' && lensMode !== 'evidence' && lensMode !== 'robustness') {
-    return null
-  }
+  const wants = lensMode === 'causal' || lensMode === 'evidence' || lensMode === 'robustness'
+  // ⚠ THIS PANEL'S OLD `bottom: 48; left: 12` SAT ON TOP OF THE VIEWPORT-CONTROLS
+  // TOOLBAR (`fixed; left: 12; bottom: 12; z-index: 1100`, ~150px tall) — a
+  // collision that was in no register row. The band's left padding clears the
+  // toolbar by construction, so the panel no longer has to guess.
+  const { granted, target } = useOverlayCell('bottom-left', 'lens-info-panel', wants)
 
-  return (
+  if (!wants || !granted) return null
+
+  const body = (
     <div
       className="border border-panel-border bg-panel shadow-2 rounded-md"
       style={{
-        position: 'absolute',
-        bottom: 48,
-        left: 12,
-        zIndex: 5,
+        pointerEvents: 'auto',
         padding: '10px 14px',
         maxWidth: 320,
         animation: 'thinkingModeIn 150ms cubic-bezier(0.0, 0, 0.2, 1) both',
@@ -309,4 +313,6 @@ export function LensInfoPanel() {
       {lensMode === 'robustness' && <RobustnessPanel />}
     </div>
   )
+
+  return target ? createPortal(body, target) : body
 }
