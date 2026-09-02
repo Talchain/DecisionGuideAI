@@ -144,6 +144,16 @@ describe('stale-build recovery — one detector, one sentence, one reload guard'
     // "Olumi was updated" is comfortable and wrong when a byte stream stopped —
     // and because both causes end in the same Reload button, a boundary that
     // reused the sentence would look entirely healthy.
+    //
+    // ⚠⚠ AND THIS ASSERTION IS WEAK IN EXACTLY THE WAY THE ONE ABOVE ADMITS TO,
+    // MEASURED RATHER THAN SUSPECTED. A mutant that DELETED the stall branch
+    // from `CanvasErrorBoundary`'s render left this arm fully GREEN, because the
+    // constant is still named on the import line. Presence of copy is not
+    // coverage of the branch that renders it. This pins PROVENANCE only; the
+    // load-bearing evidence is `src/canvas/__tests__/ErrorBoundary.chunkStall.spec.tsx`
+    // and `src/__tests__/BootErrorBoundary.staleBuild.spec.tsx`, which MOUNT the
+    // boundaries and drive a real stall error — the mutant above was caught
+    // there, by name.
     for (const consumer of CONSUMERS) {
       const code = CORPUS.find(([rel]) => rel === consumer)![1]
       expect(code, `${consumer} must branch its notice on the cause`).toContain(
