@@ -1,24 +1,40 @@
 /**
- * useResultsSectionData — option rank coherence (badge metric = sort metric).
+ * useResultsSectionData — what `Option N` MEANS, and what it does not.
  *
- * Production screenshot bug: the options list rendered badge "4" ABOVE
- * badge "3". Mechanism: the hook sorted `allOptions` by EXPECTED VALUE and
- * registered stable ordinals in that order (append-only, never re-sorted),
- * but every list surface orders rows via `sortOptionsForDisplay`, which
- * ranks by WIN PROBABILITY whenever all options carry one. With expected
- * +36/+30/+18/+12 (ordinals 1/2/3/4) and win probs 78/12/2/8, the display
- * order was 78/12/8/2 — so the 8% option (badge 4) sat above the 2% option
- * (badge 3).
+ * Two production screenshots, one seam.
  *
- * Contract pinned here: registration order = display order = allOptions
- * order (one metric per surface), while the append-only stability of
- * `assignStableOptionNumbers` is preserved (ordinals freeze after first
- * registration; later reruns and lens switches never renumber).
+ *  1. (earlier) The options LIST rendered badge "4" above badge "3", because
+ *     ordinals were minted in an expected-value order while the list sorts by
+ *     win probability.
+ *  2. (Paul, 31 Aug 2026) The option CARDS ON THE CANVAS carried badges
+ *     reading `1, 2, 4, 5, 3` left to right: "Either order the row by rank or
+ *     stop putting ordinals on a non-ordered row."
  *
- * The hero-row half of this contract (stable numbers strictly ascending
- * top-to-bottom on a first run) lives in
- * `../analysis-hero/__tests__/firstRunNumbering.rankCoherence.spec.ts` —
- * the inertness guard allows analysis-hero imports only inside the module.
+ * Fix 1 made the badge a first-run PROBABILITY RANK. That is what defect 2 is
+ * — a rank frozen from the results panel, printed on a row whose left-to-right
+ * order is ELK's. The two agreed only by coincidence.
+ *
+ * ⭐ THE CONTRACT PINNED HERE, and it is a DIFFERENT one from the old file:
+ * `Option N` is POSITIONAL IDENTITY — the Nth option card in canvas reading
+ * order (row-major: y-row, then x) at the moment the numbers are first minted.
+ * It is not a rank and never was entitled to be one. RANK is `row.index` on
+ * the hero rows, a separate quantity that re-ranks freely on every run
+ * (`../analysis-hero/__tests__/rerunFlipNumbering.rankCoherence.spec.tsx` and
+ * `./ResultsBody.crossSurfaceOptionNumbering.spec.tsx` pin that the two are
+ * different quantities and stay different).
+ *
+ * The store now owns ORDER (it sorts by canvas position); callers own
+ * MEMBERSHIP (which ids exist). `sortOptionsForDisplay` is therefore GONE from
+ * the registration path — it still authors the display ranking everywhere
+ * else, which is the whole point: one order per question.
+ *
+ * The append-only stability of `assignStableOptionNumbers` is unchanged:
+ * ordinals freeze after first registration, so later reruns and lens switches
+ * never renumber, and an option added mid-row gets `max+1` wherever it lands.
+ *
+ * The hero-row half lives in
+ * `../analysis-hero/__tests__/firstRunNumbering.rankCoherence.spec.ts` — the
+ * inertness guard allows analysis-hero imports only inside the module.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -90,11 +106,32 @@ function makeV2Response(options: OptionShape[]): V2RunResponse {
   }
 }
 
+/**
+ * Canvas geometry, chosen so reading order contradicts BOTH the array order
+ * and the probability order. Two rows, and within each row the LEFT card is
+ * the one the other two orders put LAST — a function that ignored position
+ * could not produce the expected result by coincidence.
+ *
+ *   row 1 (y=100):  opt_solo (x=40)     opt_outsource (x=340)
+ *   row 2 (y=520):  opt_partner (x=40)  opt_launch (x=340)
+ *
+ * Reading order: solo, outsource, partner, launch.
+ */
+const CANVAS_POSITION: Record<string, { x: number; y: number }> = {
+  opt_solo: { x: 40, y: 100 },
+  opt_outsource: { x: 340, y: 100 },
+  opt_partner: { x: 40, y: 520 },
+  opt_launch: { x: 340, y: 520 },
+}
+
+/** Canvas reading order of the four screenshot options (row-major). */
+const CANVAS_ORDER_IDS = ['opt_solo', 'opt_outsource', 'opt_partner', 'opt_launch']
+
 function optionNodesFor(options: OptionShape[]) {
   return options.map((o) => ({
     id: o.id,
     type: 'option',
-    position: { x: 0, y: 0 },
+    position: CANVAS_POSITION[o.id] ?? { x: 0, y: 0 },
     data: { kind: 'option', label: o.label },
   }))
 }
@@ -123,18 +160,45 @@ beforeEach(() => {
 })
 
 describe('useResultsSectionData — option rank coherence', () => {
-  it('registers stable ordinals in the shared display order (win probability), not expected value', () => {
+  it('⭐ registers stable ordinals in CANVAS READING ORDER — not array order, not probability order', () => {
     setStoreWithMappedReport(SCREENSHOT_OPTIONS)
+
+    // PRECONDITION, asserted in-test (trap 13b): all THREE orders must genuinely
+    // differ, or this test would pass for a function that picked any of them.
+    const arrayOrder = SCREENSHOT_OPTIONS.map((o) => o.id)
+    const probabilityOrder = DISPLAY_ORDER_IDS
+    expect(CANVAS_ORDER_IDS).not.toEqual(arrayOrder)
+    expect(CANVAS_ORDER_IDS).not.toEqual(probabilityOrder)
+    expect(arrayOrder).not.toEqual(probabilityOrder)
 
     renderHook(() => useResultsSectionData())
 
-    // 1 = 78%, 2 = 12%, 3 = 8%, 4 = 2% — the order every list renders in.
+    // Row-major: solo and outsource share the top row (solo is left of it),
+    // then partner and launch on the row below. Left to right, top to bottom,
+    // the badges now read 1, 2, 3, 4 — which is the whole defect.
     expect(useCanvasStore.getState().optionNumbering).toEqual({
-      opt_launch: 1,
-      opt_partner: 2,
-      opt_solo: 3,
-      opt_outsource: 4,
+      opt_solo: 1,
+      opt_outsource: 2,
+      opt_partner: 3,
+      opt_launch: 4,
     })
+  })
+
+  it('⭐ AT MINT: ordinals ascend 1..N along the canvas reading order', () => {
+    // ⚠ SCOPED DELIBERATELY — "AT MINT", not "always". Ordinals are frozen when
+    // they are first assigned and are never recomputed, so a later re-layout can
+    // desynchronise them from reading order. That boundary is pinned by its own
+    // test below; stating this one unconditionally would have been an overclaim
+    // the source itself does not make.
+    setStoreWithMappedReport(SCREENSHOT_OPTIONS)
+
+    renderHook(() => useResultsSectionData())
+    const numbering = useCanvasStore.getState().optionNumbering
+
+    // Stated as the property rather than the literal map, so it keeps meaning
+    // the same thing if the fixture geometry is ever changed: read the cards
+    // in canvas order and the badges count up without a gap or a jump back.
+    expect(CANVAS_ORDER_IDS.map((id) => numbering[id])).toEqual([1, 2, 3, 4])
   })
 
   it('presents allOptions in the shared display order (one metric per surface)', () => {
@@ -156,7 +220,10 @@ describe('useResultsSectionData — option rank coherence', () => {
     const firstRun = { ...useCanvasStore.getState().optionNumbering }
 
     // Rerun: win probabilities flip AND a new option appears. Existing ids
-    // must keep their first-run ordinals; only the new id gets the next one.
+    // must keep their first-run ordinals; only the new id gets the next one —
+    // `max + 1`, WHEREVER it lands on the canvas. That residual is deliberate
+    // and documented: identity is append-only, so a card inserted mid-row
+    // carries the next free number rather than renumbering its neighbours.
     const rerun: OptionShape[] = [
       { id: 'opt_launch', label: 'Launch Course', mean: 36, winProbability: 0.05 },
       { id: 'opt_partner', label: 'Partner Up', mean: 30, winProbability: 0.1 },
@@ -183,23 +250,33 @@ describe('useResultsSectionData — option rank coherence', () => {
     expect(useCanvasStore.getState().optionNumbering).toBe(before)
   })
 
-  it('falls back to expected-value order for registration when win-probability coverage is partial', () => {
-    // Mixed coverage must not fabricate a win-probability ranking —
-    // sortOptionsForDisplay falls back to expected descending, and the
-    // registration follows the same rule.
+  it('registers in canvas order regardless of win-probability COVERAGE — the metric no longer decides', () => {
+    // Mixed coverage used to change the registration order, because the
+    // registration rode `sortOptionsForDisplay` and that function falls back
+    // from win probability to expected value when coverage is partial. Canvas
+    // position is not a metric, so partial coverage cannot move a badge at all.
     const partial: OptionShape[] = [
       { id: 'opt_launch', label: 'Launch Course', mean: 36, winProbability: 0.78 },
       { id: 'opt_partner', label: 'Partner Up', mean: 30, winProbability: undefined as unknown as number },
       { id: 'opt_solo', label: 'Continue Solo', mean: 12, winProbability: 0.08 },
     ]
+
+    // PRECONDITION: with this coverage the OLD rule (expected descending:
+    // launch, partner, solo) and the canvas order genuinely disagree, so a
+    // regression to metric-ordered registration REDs here.
+    const expectedValueOrder = ['opt_launch', 'opt_partner', 'opt_solo']
+    const canvasOrder = ['opt_solo', 'opt_partner', 'opt_launch']
+    expect(canvasOrder).not.toEqual(expectedValueOrder)
+
     setStoreWithMappedReport(partial)
 
     renderHook(() => useResultsSectionData())
 
+    // solo alone on the top row; partner (x=40) then launch (x=340) below it.
     expect(useCanvasStore.getState().optionNumbering).toEqual({
-      opt_launch: 1,
+      opt_solo: 1,
       opt_partner: 2,
-      opt_solo: 3,
+      opt_launch: 3,
     })
   })
 })

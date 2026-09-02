@@ -3843,22 +3843,31 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // accepted schema does not forbid any character in an id, so ANY separator
   // can split a legitimate id into fragments that register wrongly. The dep
   // key is canonical JSON (collision-free) and the ORIGINAL array registers.
-  // Registration goes through sortOptionsForDisplay explicitly (allOptions
-  // already carries that order, but first-seen ordinals are frozen forever,
-  // so the seeding order must be guaranteed at the registration site, not
-  // inherited): badge numbers then match the order every list renders in.
   //
-  // ROADMAP 1.267 — AND THE SEEDING ORDER IS ITSELF A DESIGNATION. Because
-  // first-seen ordinals are frozen FOREVER, seeding them from a probability
-  // sort means `Option 1` permanently records who led on the very first run.
-  // "Identity-anchored" only ever meant stable against LATER rank flips, not
-  // free of the first ranking. So a withheld first run seeds in canonical
-  // order — otherwise this slice would suppress the badge on the withheld
-  // screen while quietly minting the same designation into a store that a
-  // later permitted run then displays.
-  const optionIds = sortOptionsForDisplay(recommendation.allOptions, {
-    designationsWithheld: recommendation.verdict != null && !recommendation.verdict.hasLeadingOption,
-  }).map((o) => o.id)
+  // ⭐ THIS SITE REGISTERS MEMBERSHIP, NOT ORDER (Paul, 31 Aug 2026).
+  //
+  // It used to pass `sortOptionsForDisplay(...)` and the comment here used to
+  // say the seeding order "must be guaranteed at the registration site, not
+  // inherited". That is now FALSE and the sort is gone: `registerOptionNumbering`
+  // orders by canvas position itself, so anything this site passes is discarded
+  // except as a tiebreak between cards at the same point.
+  //
+  // Why it changed. Paul's canvas screenshot showed the option cards badged
+  // `1, 2, 4, 5, 3` left to right. Both halves of the old rule were working as
+  // written — ordinals seeded in probability order, frozen forever — and that
+  // WAS the defect: a first-run rank from this panel, printed on a row whose
+  // left-to-right order is ELK's. The two only ever agreed by coincidence.
+  // `Option N` is now the Nth card in canvas reading order, which is a fact
+  // about the canvas and therefore true on the surface that renders it.
+  //
+  // ROADMAP 1.267's concern is answered rather than dropped: the worry was
+  // that seeding from a probability sort mints a leader designation even on a
+  // withheld run. Canvas position is not a ranking of any kind, so there is no
+  // designation left to withhold, and the `designationsWithheld` branch this
+  // site used to need is gone with it. `sortOptionsForDisplay` still authors
+  // the DISPLAY ranking everywhere else (hero, cards, WinGauge, the display
+  // selector) — one order per question, which is the point.
+  const optionIds = recommendation.allOptions.map((o) => o.id)
   const optionIdsKey = JSON.stringify(optionIds)
   useEffect(() => {
     if (optionIds.length === 0) return
