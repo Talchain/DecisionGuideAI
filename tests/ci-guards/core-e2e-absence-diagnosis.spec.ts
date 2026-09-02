@@ -47,6 +47,8 @@ import { describe, expect, it } from 'vitest'
 import {
   ASSET_STALL_MS,
   classifyComposerAbsence,
+  findModuleLoadFailure,
+  MODULE_LOAD_FAILURE_PHRASES,
   selectStalled,
   type ComposerAbsenceInput,
 } from '../../e2e/core/lib/harness'
@@ -65,16 +67,44 @@ const base: ComposerAbsenceInput = {
   statusTexts: [],
   renderedChars: 0,
   bodyHead: '',
+  bodyText: '',
   url: 'https://x--olumi.netlify.app/#/canvas',
   stalledAssets: [],
   failedAssets: [],
 }
 
-/** A page that has rendered past its fallback — the shape of a real product failure. */
+/**
+ * A page that has rendered past its fallback — the shape of a real product failure.
+ * MEASURED against the deployed build: the guest landing is 313 chars with zero
+ * `role="status"`.
+ */
+const LANDING =
+  'Strategic reasoning Olumi turns messy strategic work into a living visual model ' +
+  'while keeping your judgement visible. This is an invite-only pilot.'
 const rendered = {
   statusTexts: [] as string[],
   renderedChars: 313,
-  bodyHead: 'Strategic reasoning Olumi turns messy strategic work into a living visual model',
+  bodyHead: LANDING,
+  bodyText: LANDING,
+}
+
+/**
+ * ⭐ THE REAL CORPUS FIXTURE, verbatim from run 33571760150's uploaded page snapshot —
+ * one of the five failures this suite labels asset delivery. NOTE WHAT IT LACKS: any
+ * `role="status"` at all, because a REJECTED lazy import REPLACES the Suspense
+ * fallback. Reproduced against the deployed build by aborting
+ * `**\/assets/ReactFlowGraph-*.css`: 318 chars, zero status regions, same filename.
+ */
+const ERROR_BOUNDARY_TEXT =
+  'Something went wrong The canvas encountered an unexpected error ' +
+  'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css ' +
+  'Show technical details Reload editor Copy debug info Report issue ' +
+  'Dismiss and continue (not recommended) We could not save your most recent changes.'
+const errorBoundary = {
+  statusTexts: [] as string[],
+  renderedChars: 318,
+  bodyHead: ERROR_BOUNDARY_TEXT.slice(0, 300),
+  bodyText: ERROR_BOUNDARY_TEXT,
 }
 
 describe('System E · the composer-absence verdict', () => {
@@ -168,7 +198,9 @@ describe('System E · the composer-absence verdict', () => {
       expect(selectStalled(open, now, ASSET_STALL_MS).map((a) => a.url)).toEqual([STALLED_CHUNK])
     })
 
-    it('keeps ASSET_STALL_MS strictly between the observed noise and the observed stall', () => {
+    // ⚠ THIS PINS THE INTERVAL, NOT THE VALUE. 500, 30_000 and 50_000 all leave this
+    // suite green, so 10_000 is CHOSEN within a measured window (N=3), not derived.
+    it('keeps ASSET_STALL_MS strictly inside the measured interval (447, 55000)', () => {
       expect(ASSET_STALL_MS).toBeGreaterThan(Math.max(...NOISE_AGES_MS))
       expect(ASSET_STALL_MS).toBeLessThan(REAL_STALL_MS)
     })
@@ -203,10 +235,99 @@ describe('System E · the composer-absence verdict', () => {
     })
   })
 
+
+  // ── defect 4 ────────────────────────────────────────────────────────────────
+  // `product` was reached from the ABSENCE of a fallback — the very rule this file
+  // enforces, violated in its own third branch. A REJECTED import replaces the
+  // fallback, so EVERY rejected-import failure routed to `product` by construction.
+  describe('defect 4 — the app\'s own error boundary is NAMED evidence', () => {
+    it('run 33571760150, verbatim, is ASSET DELIVERY and not product', () => {
+      const { verdict, message } = classifyComposerAbsence({ ...base, ...errorBoundary })
+      expect(verdict).toBe('asset-delivery')
+      expect(message).toContain('Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css')
+      expect(message).not.toContain('PRODUCT FAILURE')
+    })
+
+    it('never claims the app "rendered past its fallback" when the import rejected', () => {
+      const { message } = classifyComposerAbsence({ ...base, ...errorBoundary })
+      expect(message).not.toMatch(/rendered past its fallback/i)
+      expect(message).not.toMatch(/did not prevent the composer mounting/i)
+    })
+
+    it('fires with NO watch evidence at all — the boundary alone is enough', () => {
+      const { verdict } = classifyComposerAbsence({
+        ...base, ...errorBoundary, stalledAssets: [], failedAssets: [],
+      })
+      expect(verdict).toBe('asset-delivery')
+    })
+
+    it('explains WHY no loading status is on screen, rather than ignoring it', () => {
+      const { message } = classifyComposerAbsence({ ...base, ...errorBoundary })
+      expect(message).toMatch(/REPLACES the Suspense fallback/i)
+    })
+
+    it('scans the FULL body text, not the 300-char head', () => {
+      const buried = `${'x'.repeat(400)} Failed to fetch dynamically imported module: /assets/a.js`
+      const { verdict } = classifyComposerAbsence({
+        ...base, statusTexts: [], renderedChars: buried.length,
+        bodyHead: buried.slice(0, 300), bodyText: buried,
+      })
+      expect(verdict).toBe('asset-delivery')
+    })
+
+    it('a GENERIC error boundary is still a PRODUCT failure — the other direction', () => {
+      const generic = 'Something went wrong The canvas encountered an unexpected error Reload editor'
+      const { verdict } = classifyComposerAbsence({
+        ...base, statusTexts: [], renderedChars: generic.length,
+        bodyHead: generic, bodyText: generic,
+      })
+      expect(verdict).toBe('product')
+    })
+
+    it('the phrase list matches its observed member and rejects the generic sentence', () => {
+      expect(findModuleLoadFailure(ERROR_BOUNDARY_TEXT))
+        .toBe('Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css')
+      expect(findModuleLoadFailure('The canvas encountered an unexpected error')).toBeNull()
+      expect(findModuleLoadFailure(LANDING)).toBeNull()
+      expect(MODULE_LOAD_FAILURE_PHRASES.length).toBeGreaterThan(0)
+    })
+  })
+
+  // ── the fourth verdict ──────────────────────────────────────────────────────
+  describe('a blank or unreadable page is INDETERMINATE, never product', () => {
+    it('0 chars with nothing nameable asserts no cause', () => {
+      const { verdict, message } = classifyComposerAbsence({ ...base })
+      expect(verdict).toBe('indeterminate')
+      expect(message).toContain('INDETERMINATE')
+      expect(message).not.toContain('PRODUCT FAILURE')
+      expect(message).not.toContain('ASSET DELIVERY')
+    })
+
+    it('never emits the self-contradiction "the page IS rendered (0 chars)"', () => {
+      const { message } = classifyComposerAbsence({ ...base })
+      expect(message).not.toMatch(/page IS rendered \(0 chars\)/i)
+      expect(message).not.toMatch(/rendered 0 chars of content/i)
+    })
+
+    it('0 chars WITH nameable assets is asset delivery — the app never booted', () => {
+      const { verdict } = classifyComposerAbsence({
+        ...base, stalledAssets: [{ url: STALLED_CHUNK, ageMs: REAL_STALL_MS }],
+      })
+      expect(verdict).toBe('asset-delivery')
+    })
+
+    it('an unreadable page state does not become a product failure', () => {
+      const { verdict } = classifyComposerAbsence({
+        ...base, bodyHead: '(page state unreadable)', bodyText: undefined, renderedChars: 0,
+      })
+      expect(verdict).toBe('indeterminate')
+    })
+  })
+
   describe('the discrimination itself', () => {
     // ⚠ A classifier returning any CONSTANT satisfies every single-verdict assertion
     // above. Only the three-way spread proves it is discriminating at all.
-    it('yields three DIFFERENT verdicts for the three shapes', () => {
+    it('yields four DIFFERENT verdicts for the four shapes', () => {
       const product = classifyComposerAbsence({ ...base, ...rendered }).verdict
       const unknown = classifyComposerAbsence({
         ...base, statusTexts: ['Loading Canvas...'],
@@ -216,7 +337,8 @@ describe('System E · the composer-absence verdict', () => {
         statusTexts: ['Loading Canvas...'],
         stalledAssets: [{ url: STALLED_CHUNK, ageMs: REAL_STALL_MS }],
       }).verdict
-      expect(new Set([product, unknown, asset]).size).toBe(3)
+      const blank = classifyComposerAbsence({ ...base }).verdict
+      expect(new Set([product, unknown, asset, blank]).size).toBe(4)
     })
 
     it('finds the fallback among several status regions, not only the first', () => {

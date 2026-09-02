@@ -334,10 +334,15 @@ export interface StalledAsset { url: string; ageMs: number }
 /**
  * An asset outstanding at least this long is STALLED rather than in flight.
  *
- * DERIVED FROM THE CORPUS, not chosen: the observed in-flight noise is 80 ms and
- * 447 ms; the observed real stall ran from ~5 s into the run to the 60 s timeout,
- * i.e. ~55 s. Those are two orders of magnitude apart and 10 s sits between them
- * with room on both sides. Pinned in tests/ci-guards/core-e2e-absence-diagnosis.spec.ts.
+ * ⚠ CHOSEN WITHIN A MEASURED INTERVAL — NOT DERIVED, and an earlier revision of this
+ * comment overclaimed by calling it derived. What the corpus fixes is the INTERVAL:
+ * observed in-flight noise 80 ms and 447 ms, observed real stall ~55 s, so any value
+ * in `(447, 55_000)` separates them. **N=3 observations across two runs.** The exact
+ * value inside that window is a judgement, and the guard confirms it: 500, 30_000 and
+ * 50_000 all leave the suite at 18/18. So what is pinned is the interval, not 10_000.
+ *
+ * The failure direction is the safe one — too HIGH merely under-reports asset delivery
+ * and falls back to `indeterminate`, it does not manufacture a false accusation.
  */
 export const ASSET_STALL_MS = 10_000
 
@@ -401,15 +406,61 @@ export function installAssetWatch(page: Page): AssetDelivery {
  * stalled fetch/XHR cannot be seen by it BY CONSTRUCTION. That is precisely why a bare
  * fallback may not be blamed on `/assets/`.
  */
-export type ComposerAbsenceVerdict = 'asset-delivery' | 'stalled-cause-unidentified' | 'product'
+export type ComposerAbsenceVerdict =
+  | 'asset-delivery' | 'stalled-cause-unidentified' | 'product' | 'indeterminate'
+
+/**
+ * ⭐⭐ THE APP'S OWN ERROR BOUNDARY IS NAMED EVIDENCE, AND MISSING IT ROUTED A REAL
+ * ASSET FAILURE STRAIGHT INTO `product`.
+ *
+ * The first three-verdict version reached `product` from the ABSENCE of a `Loading…`
+ * fallback — which is the very rule it was written to enforce ("never from the absence
+ * of a signal"), violated in its own third branch. And it is not hypothetical: corpus
+ * run `33571760150`, one of the five this suite labels asset delivery, failed at
+ * `harness.ts:804` with NO `role="status"` anywhere on the page — because a REJECTED
+ * lazy import REPLACES the fallback with this boundary. The classifier returned
+ * `product` and footnoted the failed CSS as "NOT the verdict — the app had rendered
+ * past its fallback", which is false on that input. Every rejected-import failure
+ * routed to `product` BY CONSTRUCTION.
+ *
+ * REPRODUCED, not inferred: route-aborting the `ReactFlowGraph` CSS chunk against the
+ * deployed build renders that run's page verbatim — 318 chars, zero `role="status"`,
+ * and the same filename it named in CI.
+ *
+ * ⚠ ONLY MODULE/ASSET-SPECIFIC PHRASES BELONG HERE. The same boundary also prints the
+ * generic "The canvas encountered an unexpected error", which is exactly what a real
+ * product crash looks like — matching it would re-open the defect in the other
+ * direction. Only the first entry is OBSERVED in this corpus; the rest are Vite's and
+ * the bundler's sibling forms for the same condition, included because the next stall
+ * will not necessarily be a CSS preload.
+ */
+export const MODULE_LOAD_FAILURE_PHRASES: readonly RegExp[] = [
+  /Unable to preload CSS for \S+/i,          // OBSERVED — run 33571760150, reproduced
+  /Failed to fetch dynamically imported module:? \S*/i,
+  /error loading dynamically imported module:? \S*/i,
+  /ChunkLoadError/i,
+  /Loading (?:CSS )?chunk \S+ failed/i,
+]
+
+/** The matched phrase, or null. Pure, so the signature list is pinned without a browser. */
+export function findModuleLoadFailure(bodyText: string): string | null {
+  for (const re of MODULE_LOAD_FAILURE_PHRASES) {
+    const m = re.exec(bodyText)
+    if (m) return m[0]
+  }
+  return null
+}
 
 export interface ComposerAbsenceInput {
   where: string
   timeoutMs: number
   /** Text of EVERY `[role="status"]` on the page, already whitespace-collapsed. */
   statusTexts: string[]
+  /** 0 means the page rendered NOTHING or its state was unreadable — never "product". */
   renderedChars: number
   bodyHead: string
+  /** Full collapsed body text, scanned for the app's own module-failure boundary. */
+  bodyText?: string
   url: string
   /** ALREADY age-filtered by the caller — see ASSET_STALL_MS. */
   stalledAssets: StalledAsset[]
@@ -423,6 +474,12 @@ export function classifyComposerAbsence(
 ): { verdict: ComposerAbsenceVerdict; message: string } {
   const fallback = i.statusTexts.find((t) => LOADING_FALLBACK.test(t))
   const nameable = i.stalledAssets.length + i.failedAssets.length
+  const moduleError = findModuleLoadFailure(i.bodyText ?? i.bodyHead)
+  // ⚠ POSITIVE evidence that the app booted past its own loading state. `product` is
+  // reached only from THIS, never from the absence of a fallback (see the note on
+  // MODULE_LOAD_FAILURE_PHRASES — that absence is exactly what a rejected import looks
+  // like, and reading it as "rendered fine" is how run 33571760150 was mislabelled).
+  const appRendered = i.renderedChars > 0
 
   const named = [
     ...i.stalledAssets.map((a) => `${a.url} (open ${Math.round(a.ageMs / 1000)}s)`),
@@ -436,7 +493,35 @@ export function classifyComposerAbsence(
   let verdict: ComposerAbsenceVerdict
   const lines = [head]
 
-  if (fallback && nameable > 0) {
+  if (moduleError) {
+    // The APP ITSELF named the failure. Strongest evidence available, and it arrives
+    // with the fallback already gone — so it must be tested BEFORE any fallback logic.
+    verdict = 'asset-delivery'
+    lines.push(
+      `⚠ ASSET DELIVERY — the app's OWN error boundary named a module/asset failure:`,
+      `    "${moduleError}"`,
+      `  A REJECTED lazy import REPLACES the Suspense fallback, which is why no`,
+      `  "Loading…" status is on screen. Absence of a fallback here is NOT evidence the`,
+      `  app rendered fine — it is evidence the import rejected.`,
+      ...(nameable > 0
+        ? [`  The watch also saw ${nameable} asset(s) stalled or failed:`,
+           ...named.slice(0, 8).map((n) => `    ${n}`)]
+        : [`  (The watch itself named nothing — a preload rejection can complete as a`,
+           `   failed request the app reports before the watch's stall threshold.)`]),
+      `  ⚠ WHY the fetch failed is NOT diagnosed by this instrument.`,
+    )
+  } else if (!fallback && !appRendered && nameable > 0) {
+    // Nothing rendered at all, and assets can be named. Distinct from the counter-
+    // example that motivated the NAMED-evidence rule: there the app had demonstrably
+    // booted, so an unrelated abort could not be the cause. Here it never booted.
+    verdict = 'asset-delivery'
+    lines.push(
+      `⚠ ASSET DELIVERY — the page rendered NOTHING (0 chars) and ${nameable} asset(s)`,
+      `  never arrived:`,
+      ...named.slice(0, 8).map((n) => `    ${n}`),
+      `  ⚠ WHY those fetches did not complete is NOT diagnosed by this instrument.`,
+    )
+  } else if (fallback && nameable > 0) {
     verdict = 'asset-delivery'
     lines.push(
       `⚠ ASSET DELIVERY — NOT A PRODUCT DEFECT, AND NOT A TIMEOUT MARGIN.`,
@@ -457,20 +542,36 @@ export function classifyComposerAbsence(
       `  ⚠ This watch observes script/stylesheet only — a stalled fetch/XHR is invisible`,
       `  to it by construction, so absence of evidence here is not evidence of absence.`,
     )
-  } else {
+  } else if (appRendered) {
     verdict = 'product'
     lines.push(
-      `PRODUCT FAILURE — the page IS rendered (${i.renderedChars} chars), no loading`,
-      `  fallback is on screen, and the composer is genuinely absent.`,
+      `PRODUCT FAILURE — the page rendered ${i.renderedChars} chars of content, no loading`,
+      `  fallback is on screen, the app reported no module/asset failure, and the`,
+      `  composer is genuinely absent.`,
       `  On screen: "${i.bodyHead}"`,
     )
     if (nameable > 0) {
       lines.push(
         `  FYI ${nameable} asset(s) were still open or failed. NOT the verdict — the app`,
-        `  had rendered past its fallback, so these did not prevent the composer mounting:`,
+        `  rendered its own content and named no module failure, so these did not prevent`,
+        `  the composer mounting:`,
         ...named.slice(0, 8).map((n) => `    ${n}`),
       )
     }
+  } else {
+    // ⚠ THE HONEST FOURTH STATE. Nothing rendered, no fallback, nothing nameable —
+    // there is no positive evidence for ANY cause, so none is asserted. The old
+    // three-verdict version emitted the self-contradiction
+    // "PRODUCT FAILURE — the page IS rendered (0 chars)" here.
+    verdict = 'indeterminate'
+    lines.push(
+      `⚠ INDETERMINATE — no verdict is available, and none is being guessed.`,
+      `  The page rendered nothing (or its state was unreadable), no loading fallback is`,
+      `  on screen, the app named no module failure, and no asset could be named as`,
+      `  stalled or failed. That is an absence of evidence in every channel — which is`,
+      `  not evidence for any of them.`,
+      `  On screen: "${i.bodyHead}"`,
+    )
   }
 
   lines.push(`  url=${i.url}`)
@@ -501,6 +602,10 @@ export async function awaitFirstUseComposer(
           .map((el) => ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim())
           .filter((t) => t.length > 0),
         bodyHead: text.slice(0, 300),
+        // The boundary's module-failure sentence sits ~65 chars in on the observed
+        // case, but a longer app shell could push it past a 300-char head — so the
+        // scan gets the whole text, not the excerpt shown to the reader.
+        bodyText: text,
         rendered: text.length,
       }
     }).catch(() => null)
@@ -509,8 +614,11 @@ export async function awaitFirstUseComposer(
       where,
       timeoutMs,
       statusTexts: state?.statusTexts ?? [],
+      // A failed `page.evaluate` yields 0 — which routes to `indeterminate`, never to
+      // `product`. An unreadable page is not a rendered one.
       renderedChars: state?.rendered ?? 0,
       bodyHead: state?.bodyHead ?? '(page state unreadable)',
+      bodyText: state?.bodyText,
       url: state?.url ?? ORIGIN,
       stalledAssets: watch?.undelivered(ASSET_STALL_MS) ?? [],
       failedAssets: watch?.failed() ?? [],
