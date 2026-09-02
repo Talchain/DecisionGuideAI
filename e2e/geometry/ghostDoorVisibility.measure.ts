@@ -103,11 +103,84 @@ const INSTRUMENT = () => {
   }
 }
 
+/*
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ⭐⭐⭐ THE PANE MUST BE ABLE TO RENDER GEOMETRY AT ALL — a hard precondition,
+ * never a skip. Added 2 Sep 2026, after it produced a confident, fully-formed,
+ * completely void "the doors are hidden" report.
+ *
+ * A hidden browser pane reads `window.innerWidth`/`innerHeight` as **0** and
+ * does not fire `requestAnimationFrame`. In that state React Flow never
+ * measures the injected doors, so `nodeHasDimensions` is false and they render
+ * `visibility: hidden` BY CONSTRUCTION — with the guard present and executing,
+ * on a perfectly healthy build. Every symptom of the livelock appears, and none
+ * of the cause is there.
+ *
+ * ⚠ AND THE READING THAT DID *NOT* CATCH IT IS THE POINT. The report carried a
+ * contrast control — "19 of 19 real nodes visible" — and it read green, which is
+ * what made the verdict feel safe. Real nodes carry stored positions and do not
+ * depend on live measurement, so they stay visible through a total measurement
+ * outage. **The control was present, green, and structurally incapable of
+ * detecting the specific way the instrument had failed.** That is the whole
+ * lesson: a control has to be sensitive to the failure mode you actually have,
+ * not merely adjacent to the thing you are measuring (CLAUDE.md trap 13, and its
+ * sharper form 13e — a control that fires proves the probe sees SOMETHING, never
+ * that it sees the thing that broke).
+ *
+ * The other tell was read backwards too: two per-frame loops "timed out", which
+ * is exactly what a frame loop does when frames never come. A timeout was
+ * treated as a stuck renderer rather than as the measurement itself.
+ *
+ * ⚠ HARD FAILURE, NOT A SKIP, DELIBERATELY. A skipped geometry measure is a
+ * green run that proves nothing, and this file's entire job is to be the thing
+ * that cannot be satisfied by an environment which never rendered. If the pane
+ * cannot paint, the correct outcome is a loud red naming why.
+ *
+ * `setTimeout` DOES still run in a hidden pane, which is what makes the race
+ * below a real discriminator rather than two ways of hanging.
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+async function assertPaneCanRenderGeometry(page: import('@playwright/test').Page): Promise<void> {
+  const pane = await page.evaluate(async () => {
+    const rafFired = await new Promise<boolean>((resolve) => {
+      let settled = false
+      requestAnimationFrame(() => { if (!settled) { settled = true; resolve(true) } })
+      // A real timer, because a hidden pane still runs timers while it starves
+      // frames. This is the discrimination; without it both arms just hang.
+      setTimeout(() => { if (!settled) { settled = true; resolve(false) } }, 3000)
+    })
+    return {
+      innerW: window.innerWidth,
+      innerH: window.innerHeight,
+      clientW: document.documentElement.clientWidth,
+      clientH: document.documentElement.clientHeight,
+      rafFired,
+      visibilityState: document.visibilityState,
+    }
+  })
+
+  expect(
+    pane.innerW * pane.innerH,
+    `the browser pane has no viewport (${pane.innerW}x${pane.innerH}, document.visibilityState="${pane.visibilityState}") — it is hidden or unrendered. React Flow cannot measure a node in this state, so every door would read visibility:hidden BY CONSTRUCTION and this run would report a defect that is not there. This is a HARD FAILURE on purpose: show the pane and re-run.`,
+  ).toBeGreaterThan(0)
+
+  expect(
+    pane.clientW * pane.clientH,
+    `the document has no layout box (${pane.clientW}x${pane.clientH}) — nothing on this page has been laid out, so no geometry reading from it means anything.`,
+  ).toBeGreaterThan(0)
+
+  expect(
+    pane.rafFired,
+    `requestAnimationFrame did not fire within 3s (viewport ${pane.innerW}x${pane.innerH}, document.visibilityState="${pane.visibilityState}") — the pane is not painting. Every per-frame sample below would stall and every door would read visibility:hidden because React Flow never measures. A per-frame loop that "times out" IS this condition, not a stuck renderer.`,
+  ).toBe(true)
+}
+
 for (const id of STARTERS) {
   test(`GHOST doors are visible and focusable — ${id}`, async ({ page }) => {
     await page.addInitScript(INSTRUMENT)
     await preparePage(page, { width: 1440, height: 900 })
     await openCanvas(page)
+    await assertPaneCanRenderGeometry(page)
     await seedStarterDraft(page, id)
     await clearNotifications(page)
     await minimiseFloatingOlumiPanel(page)
@@ -281,6 +354,7 @@ for (const id of STARTERS) {
 test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, non-Expert view', async ({ page }) => {
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
+    await assertPaneCanRenderGeometry(page)
   await seedStarterDraft(page, 'vendor-selection')
   await clearNotifications(page)
   await minimiseFloatingOlumiPanel(page)
@@ -584,6 +658,7 @@ test('GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not a
   await page.addInitScript(INSTRUMENT)
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
+    await assertPaneCanRenderGeometry(page)
   await openSavedExample(page)
   await clearNotifications(page)
   await minimiseFloatingOlumiPanel(page)
@@ -607,6 +682,7 @@ test('GHOST doors are visible in the RESTORED class — a saved example after a 
   await page.addInitScript(INSTRUMENT)
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
+    await assertPaneCanRenderGeometry(page)
   await openSavedExample(page)
   await waitForVisualQuiescence(page)
 
