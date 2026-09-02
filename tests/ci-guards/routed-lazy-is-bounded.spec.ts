@@ -195,6 +195,13 @@ function walk(dir: string, out: string[] = []): string[] {
 
 const FILES = walk(SRC)
 
+interface Site {
+  file: string
+  symbol: string
+  line: number
+  bounded: boolean
+}
+
 /**
  * ⚠ COMMENTS ARE BLANKED, NOT DELETED — every character becomes a space and
  * newlines survive, so a match offset still maps to its real line number.
