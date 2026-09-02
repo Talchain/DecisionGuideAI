@@ -40,10 +40,23 @@
  *     healthy, and it still rejected.
  *
  * And Vite bakes the specifier at build time, so there is no URL here to
- * cache-bust. **The retry that works is a document reload**, which the error
- * boundaries already perform exactly once under a shared rate limit. A
- * `loader()` retry would add latency, double nothing useful, and read as
- * recovery while recovering nothing.
+ * cache-bust. **The retry that works is a document reload**, which the panel's
+ * own button performs. A `loader()` retry would add latency, double nothing
+ * useful, and read as recovery while recovering nothing.
+ *
+ * ── ⚠ THE TRADE THIS MAKES, NAMED SO IT IS NOT REDISCOVERED AS A BUG ────────
+ * Once the bound fires, React CACHES the rejection for that lazy component. If
+ * the stalled request completes a second later, the app does NOT heal itself —
+ * the user has to take the Reload the panel offers. Before this change they
+ * would eventually have been let in with no click.
+ *
+ * That is a deliberate exchange and the numbers are what make it defensible: the
+ * bound sits at 2.15x the slowest SUCCESSFUL load measured on the slowest
+ * connection this fix claims to support, so anything still arriving past it is
+ * far outside the range where a user is still waiting — and what they get in
+ * exchange for the click is an end to a wait that previously had none. The
+ * reload is also cheap, because `/assets/*` is served immutable and only the
+ * asset that stalled is re-requested.
  */
 import { lazy, type ComponentType } from 'react'
 import { CHUNK_STALL_BOUND_MS, createChunkStallError } from './staleBuildRecovery'
