@@ -36,6 +36,9 @@ import {
   crawlBundle, makeHttpChunkFetcher, assertCrawlIntegrity, assertControlsFired,
   BUNDLE_CONTROLS,
 } from './bundleCrawl'
+// ⭐ THE PRODUCT'S OWN CHUNK-FAILURE PREDICATE — pure, zero-import, single-writer.
+// Imported rather than restated: a second copy is this estate's dominant defect.
+import { isChunkLoadError } from '../../../src/lib/staleBuildRecovery'
 
 export const ORIGIN = process.env.CORE_UI_URL ?? 'https://staging--olumi.netlify.app'
 
@@ -274,7 +277,449 @@ export interface TurnStream {
   ended: boolean; sawTerminal: boolean; isStream: boolean; bytes: number
 }
 
+/**
+ * ⭐⭐ ASSET DELIVERY IS A SEPARATE FAILURE FROM PRODUCT FAILURE, AND UNTIL NOW THE
+ * SUITE COULD NOT TELL THEM APART.
+ *
+ * MEASURED 2026-09-02 over the 100 most recent `Staging Tests` runs, every attempt
+ * (94 completed Core E2E jobs, 10 failures — the jobs API serves only the LATEST
+ * attempt, so a re-run hides its own red and the first sweep undercounted by two).
+ * FIVE of those ten were not product failures at all: the deployed target never
+ * delivered the Canvas route's chunks, so the app sat on its Suspense fallback and
+ * the composer could not mount. Their page snapshots, from the uploaded artefacts:
+ *
+ *   run 33556631726 (E1) · run 33578060840 (E1) — `status "Loading Canvas"` only
+ *   run 33581772301 (E5) · run 33546491489 (E5) — `status "Loading Scenario"` only
+ *   run 33571760150 (E5) — the app's own error boundary:
+ *       "Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css"
+ *
+ * The trace for the first confirms it at the bytes: 59 requests, every one HTTP 200
+ * except `/assets/ReactFlowGraph-CdifbDa0.js`, which NEVER COMPLETED — and there was
+ * NO console error, so the dynamic import never rejected. It hung. The DOM agrees
+ * independently: a REJECTED lazy import rethrows to the error boundary and the
+ * fallback is replaced, so a fallback still on screen after 60s proves the import is
+ * still PENDING.
+ *
+ * ⚠ WHY THIS WATCH EXISTS RATHER THAN A LONGER TIMEOUT. On a healthy run the composer
+ * appears in a MEDIAN OF 587 ms (178 local entries against the same immutable
+ * permalink, 178/178 pass, p90 1,127 ms, max 6,584 ms) — a ~100x margin against the
+ * 60s budget it "exceeded". The failing wait resolved the locator ZERO times for its
+ * whole budget. A wait that resolves nothing for 60 seconds does not need 90.
+ *
+ * ⚠ AND WHY IT DOES NOT SOFTEN THE VERDICT. This records; it never skips, retries or
+ * downgrades. An undelivered bundle still FAILS — it simply says so by name, instead
+ * of reporting `element(s) not found` against a locator and sending the next reader
+ * after a timeout margin that was never the problem. That misreading cost a lane a
+ * full round on 2026-09-01.
+ *
+ * `window.fetch` cannot see this: script and stylesheet loads never go through it.
+ * These are Playwright-level listeners, so they also cannot perturb the app.
+ */
+export interface AssetDelivery {
+  /**
+   * Script/stylesheet requests outstanding for at least `minAgeMs`.
+   *
+   * ⚠ THE AGE IS NOT OPTIONAL AND THE FIRST VERSION OF THIS FILE THREW IT AWAY. It
+   * recorded `Date.now()` on every request and then returned bare URLs, so ANY
+   * request in flight at the moment of failure counted as "never completed".
+   * Measured in the same corpus: the PRODUCT failure `33555675895` — which
+   * successfully laid out 19 nodes — held two `/assets/*.js` still open at trace
+   * close, **447 ms and 80 ms old**. An age-blind reading shouts asset delivery at
+   * a run whose assets were simply still arriving.
+   */
+  undelivered: (minAgeMs?: number) => StalledAsset[]
+  /** Requests the browser reported as outright failed, with Chromium's reason. */
+  failed: () => Array<{ url: string; reason: string }>
+}
+
+export interface StalledAsset { url: string; ageMs: number }
+
+/**
+ * An asset outstanding at least this long is STALLED rather than in flight.
+ *
+ * ⚠ CHOSEN WITHIN A MEASURED INTERVAL — NOT DERIVED, and an earlier revision of this
+ * comment overclaimed by calling it derived. What the corpus fixes is the INTERVAL:
+ * observed in-flight noise 80 ms and 447 ms, observed real stall ~55 s, so any value
+ * in `(447, 55_000)` separates them. **N=3 observations across two runs.** The exact
+ * value inside that window is a judgement, and the guard confirms it: 500, 30_000 and
+ * 50_000 all leave the suite at 18/18. So what is pinned is the interval, not 10_000.
+ *
+ * The failure direction is the safe one — too HIGH merely under-reports asset delivery
+ * and falls back to `indeterminate`, it does not manufacture a false accusation.
+ */
+export const ASSET_STALL_MS = 10_000
+
+/** Pure, so the age rule can be pinned without a browser. */
+export function selectStalled(
+  open: Array<{ url: string; startedAt: number }>, now: number, minAgeMs: number,
+): StalledAsset[] {
+  return open
+    .map((o) => ({ url: o.url, ageMs: now - o.startedAt }))
+    .filter((o) => o.ageMs >= minAgeMs)
+    .sort((a, b) => b.ageMs - a.ageMs)
+}
+
+const ASSET_WATCH = new WeakMap<Page, AssetDelivery>()
+
+export function installAssetWatch(page: Page): AssetDelivery {
+  const existing = ASSET_WATCH.get(page)
+  if (existing) return existing // idempotent: two watches would double-count
+
+  // Keyed by the REQUEST, not the URL: two fetches of one URL would otherwise
+  // overwrite each other's start time and the age would be a fiction.
+  const open = new Map<unknown, { url: string; startedAt: number }>()
+  const failed: Array<{ url: string; reason: string }> = []
+  const isAsset = (r: { resourceType: () => string }): boolean =>
+    r.resourceType() === 'script' || r.resourceType() === 'stylesheet'
+
+  page.on('request', (r) => { if (isAsset(r)) open.set(r, { url: r.url(), startedAt: Date.now() }) })
+  page.on('requestfinished', (r) => { open.delete(r) })
+  page.on('requestfailed', (r) => {
+    open.delete(r)
+    if (isAsset(r)) failed.push({ url: r.url(), reason: r.failure()?.errorText ?? 'unknown' })
+  })
+
+  const watch: AssetDelivery = {
+    undelivered: (minAgeMs = ASSET_STALL_MS) => selectStalled([...open.values()], Date.now(), minAgeMs),
+    failed: () => [...failed],
+  }
+  ASSET_WATCH.set(page, watch)
+  return watch
+}
+
+/**
+ * ⭐⭐ THE VERDICT IS A PURE FUNCTION SO IT CAN BE PINNED WITHOUT A BROWSER.
+ *
+ * ⚠ THE FIRST VERSION OF THIS DIAGNOSIS WAS WRONG IN EXACTLY THE DIRECTION IT WAS
+ * WRITTEN TO PREVENT, and shipping it would have been worse than the locator message
+ * it replaced — because a SPECIFIC wrong explanation is believed, where a vague one is
+ * merely unhelpful. It said `if (stuckLoading || undelivered.length || failedAssets.length)`,
+ * so ANY ONE of three weak signals asserted asset delivery. Executed against it: a
+ * rendered page with an absent composer and one unrelated aborted script printed
+ * "THIS LOOKS LIKE ASSET DELIVERY" and "The app is still showing 'null', which is a
+ * Suspense fallback" — three false sentences about a genuine product failure.
+ *
+ * THE RULE NOW: assert a cause ONLY on POSITIVE, NAMED evidence, and never from the
+ * absence of a signal. Asset delivery requires BOTH that the app is demonstrably still
+ * on a Suspense fallback AND that at least one asset can be NAMED as stalled or failed.
+ * A fallback with nothing nameable is reported as CAUSE UNIDENTIFIED — not as asset
+ * delivery, and not as a product defect either.
+ *
+ * ⚠ STATED BLIND SPOT: the watch observes script and stylesheet requests only, so a
+ * stalled fetch/XHR cannot be seen by it BY CONSTRUCTION. That is precisely why a bare
+ * fallback may not be blamed on `/assets/`.
+ */
+export type ComposerAbsenceVerdict =
+  | 'asset-delivery' | 'stalled-cause-unidentified' | 'product' | 'indeterminate'
+
+/**
+ * ⭐⭐ THE APP'S OWN ERROR BOUNDARY IS NAMED EVIDENCE, AND MISSING IT ROUTED A REAL
+ * ASSET FAILURE STRAIGHT INTO `product`.
+ *
+ * The first three-verdict version reached `product` from the ABSENCE of a `Loading…`
+ * fallback — which is the very rule it was written to enforce ("never from the absence
+ * of a signal"), violated in its own third branch. Corpus run `33571760150`, one of the
+ * five this suite labels asset delivery, failed at `harness.ts:804` with NO
+ * `role="status"` anywhere, because a REJECTED lazy import REPLACES the fallback.
+ *
+ * ⚠⚠ AND THE FIRST FIX FOR THAT SHIPPED A HAND-WRITTEN SECOND COPY OF A PREDICATE THE
+ * PRODUCT ALREADY OWNS — this estate's dominant defect class, committed inside the fix
+ * for the previous one. `isChunkLoadError` in `src/lib/staleBuildRecovery.ts` is the
+ * SINGLE WRITER for "this page is running a build that no longer exists", is pure and
+ * zero-import, and is already pinned by `ErrorBoundary.recovery.spec.tsx`. My parallel
+ * list had already DRIFTED from it, missing three of its five shapes — including a
+ * regex defect (`:? \S*` made the trailing space MANDATORY, so the bare
+ * `error loading dynamically imported module` never matched).
+ *
+ * ⚠⚠ BUT THE REACHABILITY ARGUMENT FIRST GIVEN FOR THAT — INCLUDING IN MY OWN COMMIT
+ * MESSAGE — IS WITHDRAWN, AND THE CORRECTION IS THE POINT OF THIS PARAGRAPH. It was
+ * claimed those misses were reachable in BOUNDARY TEXT, and specifically that
+ * `Failed to load module script … MIME type "text/html"` was "Chrome's wording for the
+ * Netlify SPA fallback, on a chromium-only suite". MEASURED AFTERWARDS, BY SERVING A
+ * CHUNK AS `text/html` AND DRIVING CHROME DOWN BOTH PATHS: that MIME wording is a
+ * CONSOLE ERROR ONLY. It is never a thrown Error, so it cannot reach a React boundary
+ * and cannot reach this DOM-text channel at all. Chrome's dynamic-import path throws
+ * `Failed to fetch dynamically imported module: <url>` instead. And of the other two,
+ * `Importing a module script failed.` is SAFARI and `error loading dynamically imported
+ * module` is FIREFOX — neither reachable on a chromium-only suite either.
+ * NONE OF THE THREE NAMED MISSES WAS REACHABLE HERE.
+ *
+ * ⭐⭐ THE SUBSTANCE SURVIVES AND THE JUSTIFICATION GETS BETTER. A hand-written copy that
+ * had ALREADY drifted is a real defect whatever its shapes' reachability. And the
+ * durable reason to delegate is not "my list was short" — it is that NOBODY HAS TO
+ * REASON ABOUT WORDING REACHABILITY EVER AGAIN. Which browser throws which sentence,
+ * which sentences reach a boundary versus only a console, and what a future bundler or
+ * browser version changes, all stop being this file's problem the moment the product
+ * owns the predicate. Two careful readers got that reasoning wrong in consecutive
+ * rounds; delegation removes the need to get it right.
+ *
+ * SO THE DECISION IS DERIVED, NOT MIRRORED. `isModuleLoadFailureText` delegates to the
+ * product's own predicate and unions in ONE observed shape the product does not yet
+ * recognise. The next shape the product learns, this recognises for free — and
+ * `defect 5` in the guard proves that INHERITANCE behaviourally, so a "harmless"
+ * equivalent copy cannot quietly replace the delegation.
+ *
+ * ⚠ DECLARED BLIND SPOT OF THIS CHANNEL (raised in review; declined deliberately, not
+ * missed). `isChunkLoadError` tests `name + message`, so an error distinguished ONLY by
+ * its `name` — webpack's `ChunkLoadError` — is invisible here: `ErrorBoundary.tsx`
+ * renders `this.state.error?.message` and NEVER renders `.name` (derived at the bytes;
+ * `.name` appears nowhere in that file). No predicate work can fix that, because the
+ * channel is DOM text. Not fixed because the shape looks unreachable in a VITE build —
+ * Vite throws message-bearing errors and the product's own comment keeps the
+ * webpack-era form only "for safety". ⚠ THAT IS A REACHABILITY CLAIM OF EXACTLY THE
+ * KIND WITHDRAWN TWO PARAGRAPHS UP, so it is recorded as a declared limitation rather
+ * than dismissed: if it ever does occur, the failure direction is a FALSE `product`
+ * accusation, which is the harmful direction, not the safe one.
+ *
+ * ⚠ THE CSS-PRELOAD UNION IS A PRODUCT GAP, NOT A HARNESS QUIRK. `Unable to preload CSS
+ * for …` is the one shape WITNESSED IN THE WILD here (run 33571760150) and it is
+ * exactly what `isChunkLoadError` does not match — which is why that run got generic
+ * crash copy instead of the stale-build Reload affordance. Rowed separately as a
+ * user-facing gap; do not "fix" it by narrowing this union.
+ *
+ * ⚠ THIS BRANCH IS FIRST AND PRODUCES A VERDICT. It does not fail closed to
+ * `indeterminate` — by design, because the app naming its own module failure is the
+ * strongest evidence available and it arrives with the fallback already gone.
+ */
+
+/**
+ * The ONE shape witnessed here that the product's predicate does not yet accept.
+ * Kept narrow on purpose: widening it would let a generic crash win the match.
+ */
+export const OBSERVED_CSS_PRELOAD_FAILURE = /Unable to preload CSS for \S+/i
+
+/**
+ * DERIVED. The product decides; this only adds the witnessed gap.
+ * `isChunkLoadError` tests `name + message`, so passing text as a message is faithful.
+ */
+export function isModuleLoadFailureText(text: string): boolean {
+  if (!text) return false
+  return isChunkLoadError(new Error(text)) || OBSERVED_CSS_PRELOAD_FAILURE.test(text)
+}
+
+/**
+ * Quote extraction ONLY — the verdict never depends on this list.
+ *
+ * ⚠ WHY A LIST IS STILL SAFE HERE. A short list can no longer cause a false negative:
+ * the decision is `isModuleLoadFailureText`, and when it fires without a tidy quote the
+ * fallback below returns a bounded excerpt, so the answer is never null. The worst a
+ * stale entry can do is make the message less precise. Completeness against the
+ * product's own corpus is asserted in the guard regardless.
+ */
+const MODULE_FAILURE_QUOTES: readonly RegExp[] = [
+  OBSERVED_CSS_PRELOAD_FAILURE,
+  /Failed to fetch dynamically imported module:?\s*\S*/i,
+  /error loading dynamically imported module:?\s*\S*/i,
+  /Importing a module script failed\.?/i,
+  /Failed to load module script[^]{0,160}/i,
+  /Loading (?:CSS )?chunk [\w-]+ failed/i,
+  /ChunkLoadError/i,
+]
+
+/** The matched phrase when the derived predicate fires, else null. */
+export function findModuleLoadFailure(bodyText: string): string | null {
+  if (!isModuleLoadFailureText(bodyText)) return null
+  for (const re of MODULE_FAILURE_QUOTES) {
+    const m = re.exec(bodyText)
+    if (m) return m[0].trim()
+  }
+  // The product accepted a shape this list cannot quote. Never drop the positive.
+  return bodyText.slice(0, 200).trim()
+}
+
+export interface ComposerAbsenceInput {
+  where: string
+  timeoutMs: number
+  /** Text of EVERY `[role="status"]` on the page, already whitespace-collapsed. */
+  statusTexts: string[]
+  /** 0 means the page rendered NOTHING — never "product". */
+  renderedChars: number
+  /**
+   * ⚠ FALSE ONLY WHEN `page.evaluate` THREW. Without this the classifier reported
+   * "the page rendered NOTHING (0 chars)" about a page it could not read — a claim
+   * about an unobserved thing, the same family as the defect above it.
+   */
+  pageStateRead?: boolean
+  bodyHead: string
+  /** Full collapsed body text, scanned for the app's own module-failure boundary. */
+  bodyText?: string
+  url: string
+  /** ALREADY age-filtered by the caller — see ASSET_STALL_MS. */
+  stalledAssets: StalledAsset[]
+  failedAssets: Array<{ url: string; reason: string }>
+}
+
+const LOADING_FALLBACK = /^Loading\b.*\.\.\.$/
+
+export function classifyComposerAbsence(
+  i: ComposerAbsenceInput,
+): { verdict: ComposerAbsenceVerdict; message: string } {
+  const fallback = i.statusTexts.find((t) => LOADING_FALLBACK.test(t))
+  const nameable = i.stalledAssets.length + i.failedAssets.length
+  const moduleError = findModuleLoadFailure(i.bodyText ?? i.bodyHead)
+  // ⚠ POSITIVE evidence that the app booted past its own loading state. `product` is
+  // reached only from THIS, never from the absence of a fallback (see the note on
+  // OBSERVED_CSS_PRELOAD_FAILURE — that absence is exactly what a rejected import looks
+  // like, and reading it as "rendered fine" is how run 33571760150 was mislabelled).
+  const pageRead = i.pageStateRead !== false
+  const appRendered = pageRead && i.renderedChars > 0
+
+  const named = [
+    ...i.stalledAssets.map((a) => `${a.url} (open ${Math.round(a.ageMs / 1000)}s)`),
+    ...i.failedAssets.map((f) => `${f.url} [${f.reason}]`),
+  ]
+
+  const head =
+    `[core] the first-use composer never mounted during ${i.where} ` +
+    `(${i.timeoutMs}ms, zero resolutions).`
+
+  let verdict: ComposerAbsenceVerdict
+  const lines = [head]
+
+  if (moduleError) {
+    // The APP ITSELF named the failure. Strongest evidence available, and it arrives
+    // with the fallback already gone — so it must be tested BEFORE any fallback logic.
+    verdict = 'asset-delivery'
+    lines.push(
+      `⚠ ASSET DELIVERY — the app's OWN error boundary named a module/asset failure:`,
+      `    "${moduleError}"`,
+      `  A REJECTED lazy import REPLACES the Suspense fallback, which is why no`,
+      `  "Loading…" status is on screen. Absence of a fallback here is NOT evidence the`,
+      `  app rendered fine — it is evidence the import rejected.`,
+      ...(nameable > 0
+        ? [`  The watch also saw ${nameable} asset(s) stalled or failed:`,
+           ...named.slice(0, 8).map((n) => `    ${n}`)]
+        : [`  (The watch itself named nothing — a preload rejection can complete as a`,
+           `   failed request the app reports before the watch's stall threshold.)`]),
+      `  ⚠ WHY the fetch failed is NOT diagnosed by this instrument.`,
+    )
+  } else if (!fallback && !appRendered && nameable > 0) {
+    // Nothing rendered at all, and assets can be named. Distinct from the counter-
+    // example that motivated the NAMED-evidence rule: there the app had demonstrably
+    // booted, so an unrelated abort could not be the cause. Here it never booted.
+    verdict = 'asset-delivery'
+    lines.push(
+      pageRead
+        ? `⚠ ASSET DELIVERY — the page rendered NOTHING (0 chars) and ${nameable} asset(s)`
+        : `⚠ ASSET DELIVERY — the page state was UNREADABLE and ${nameable} asset(s)`,
+      `  never arrived:`,
+      ...named.slice(0, 8).map((n) => `    ${n}`),
+      `  ⚠ WHY those fetches did not complete is NOT diagnosed by this instrument.`,
+    )
+  } else if (fallback && nameable > 0) {
+    verdict = 'asset-delivery'
+    lines.push(
+      `⚠ ASSET DELIVERY — NOT A PRODUCT DEFECT, AND NOT A TIMEOUT MARGIN.`,
+      `  The app is still showing "${fallback}", a Suspense fallback, so the route's lazy`,
+      `  chunk has neither resolved nor rejected — and ${nameable} asset(s) never arrived:`,
+      ...named.slice(0, 8).map((n) => `    ${n}`),
+      `  Raising this budget cannot help: a healthy entry mounts the composer in ~590ms,`,
+      `  and this wait resolved its locator ZERO times.`,
+      `  ⚠ WHY those fetches did not complete is NOT diagnosed by this instrument.`,
+    )
+  } else if (fallback) {
+    verdict = 'stalled-cause-unidentified'
+    lines.push(
+      `⚠ STALLED, CAUSE UNIDENTIFIED — do not read this as asset delivery.`,
+      `  The app is still showing "${fallback}", a Suspense fallback, so the route's lazy`,
+      `  chunk has neither resolved nor rejected. But NO script or stylesheet was stalled`,
+      `  (>=${ASSET_STALL_MS}ms) or failed, so nothing can be named as the cause.`,
+      `  ⚠ This watch observes script/stylesheet only — a stalled fetch/XHR is invisible`,
+      `  to it by construction, so absence of evidence here is not evidence of absence.`,
+    )
+  } else if (appRendered) {
+    verdict = 'product'
+    lines.push(
+      `PRODUCT FAILURE — the page rendered ${i.renderedChars} chars of content, no loading`,
+      `  fallback is on screen, the app reported no module/asset failure, and the`,
+      `  composer is genuinely absent.`,
+      `  On screen: "${i.bodyHead}"`,
+    )
+    if (nameable > 0) {
+      lines.push(
+        `  FYI ${nameable} asset(s) were still open or failed. NOT the verdict — the app`,
+        `  rendered its own content and named no module failure, so these did not prevent`,
+        `  the composer mounting:`,
+        ...named.slice(0, 8).map((n) => `    ${n}`),
+      )
+    }
+  } else {
+    // ⚠ THE HONEST FOURTH STATE. Nothing rendered, no fallback, nothing nameable —
+    // there is no positive evidence for ANY cause, so none is asserted. The old
+    // three-verdict version emitted the self-contradiction
+    // "PRODUCT FAILURE — the page IS rendered (0 chars)" here.
+    verdict = 'indeterminate'
+    lines.push(
+      `⚠ INDETERMINATE — no verdict is available, and none is being guessed.`,
+      pageRead
+        ? `  The page rendered nothing (0 chars), no loading fallback is on screen, the app`
+        : `  The page state was UNREADABLE — so nothing below is a claim about what rendered.`,
+      pageRead
+        ? `  named no module failure, and no asset could be named as stalled or failed.`
+        : `  No loading fallback was seen, no module failure named, no asset nameable.`,
+      `  That is an absence of evidence in every channel — which is not evidence for any`,
+      `  of them.`,
+      `  On screen: "${i.bodyHead}"`,
+    )
+  }
+
+  lines.push(`  url=${i.url}`)
+  return { verdict, message: lines.join('\n') }
+}
+
+/**
+ * The first-use composer wait, shared by BOTH entry paths.
+ *
+ * Both `enterAsGuest` (guest) and `enterAuthenticated` (authenticated) waited on this
+ * same testid with their own inline `expect`, and 5 of the 10 measured failures landed
+ * on one of the two. Sharing the wait means the diagnosis is written once and neither
+ * path can drift away from it. This function only GATHERS; the verdict is
+ * `classifyComposerAbsence`, which is pure and pinned.
+ */
+export async function awaitFirstUseComposer(
+  page: Page, where: string, timeoutMs: number,
+): Promise<void> {
+  const watch = ASSET_WATCH.get(page)
+  try {
+    await expect(page.getByTestId('first-use-input-bar-textarea')).toBeVisible({ timeout: timeoutMs })
+  } catch (cause) {
+    const state = await page.evaluate(() => {
+      const text = (document.body.innerText ?? '').replace(/\s+/g, ' ').trim()
+      return {
+        url: location.href,
+        statusTexts: [...document.querySelectorAll('[role="status"]')]
+          .map((el) => ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim())
+          .filter((t) => t.length > 0),
+        bodyHead: text.slice(0, 300),
+        // The boundary's module-failure sentence sits ~65 chars in on the observed
+        // case, but a longer app shell could push it past a 300-char head — so the
+        // scan gets the whole text, not the excerpt shown to the reader.
+        bodyText: text,
+        rendered: text.length,
+      }
+    }).catch(() => null)
+
+    const { message } = classifyComposerAbsence({
+      where,
+      timeoutMs,
+      statusTexts: state?.statusTexts ?? [],
+      // A failed `page.evaluate` yields 0 — which routes to `indeterminate`, never to
+      // `product`. An unreadable page is not a rendered one.
+      renderedChars: state?.rendered ?? 0,
+      bodyHead: state?.bodyHead ?? '(page state unreadable)',
+      bodyText: state?.bodyText,
+      pageStateRead: state !== null,
+      url: state?.url ?? ORIGIN,
+      stalledAssets: watch?.undelivered(ASSET_STALL_MS) ?? [],
+      failedAssets: watch?.failed() ?? [],
+    })
+    throw new Error(`${message}\n\n--- original ---\n${String(cause)}`)
+  }
+}
+
 export async function installWireInterceptor(page: Page): Promise<void> {
+  // Every Core spec calls this first, so it is the one place that reaches them all.
+  installAssetWatch(page)
   await page.addInitScript(() => {
     const W = window as unknown as {
       __WIRE__: unknown[]; __TURNS__: unknown[]; __CORE_FETCH_WRAPPED__?: boolean
@@ -571,7 +1016,7 @@ export async function enterAsGuest(page: Page): Promise<void> {
     '[core] the guest entry affordance is not on the landing screen — the entry posture has moved',
   ).toBeVisible({ timeout: 30_000 })
   await guest.first().click()
-  await expect(page.getByTestId('first-use-input-bar-textarea')).toBeVisible({ timeout: 60_000 })
+  await awaitFirstUseComposer(page, 'the guest entry', 60_000)
 }
 
 export const CORE_BRIEF =
@@ -798,10 +1243,23 @@ export async function enterAuthenticated(page: Page): Promise<void> {
     '[core] the guest landing is showing — the injected session did not authenticate the app',
   ).not.toContainText(/Continue without an account/i, { timeout: 30_000 })
 
+  const composer = page.getByTestId('first-use-input-bar-textarea')
   const start = page.getByRole('button', { name: /start a new decision/i })
     .or(page.getByRole('link', { name: /start a new decision/i }))
+
+  // ⚠ `if (await start.count())` WAS A SNAPSHOT WITH NO WAIT. `count()` resolves
+  // immediately, so a landing that had not yet committed its render scored zero, the
+  // click never happened, and the 90s composer wait below could then NEVER resolve —
+  // it was waiting on a click that was silently skipped. The guard above it is no
+  // barrier either: `not.toContainText` is satisfied by an EMPTY body, so it passes
+  // hardest exactly when nothing has rendered.
+  //
+  // Waiting for the START AFFORDANCE alone would be wrong in the other direction —
+  // an authenticated visitor who lands straight on the composer never shows one, and
+  // that is a legitimate path. So wait for EITHER, which cannot break either path.
+  await expect(start.first().or(composer).first()).toBeVisible({ timeout: 30_000 })
   if (await start.count()) await start.first().click()
-  await expect(page.getByTestId('first-use-input-bar-textarea')).toBeVisible({ timeout: 90_000 })
+  await awaitFirstUseComposer(page, 'the authenticated entry', 90_000)
 }
 
 /**
