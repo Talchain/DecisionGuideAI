@@ -96,7 +96,8 @@ for (const id of STARTERS) {
         useCanvasStore: {
           getState: () => {
             results: Record<string, unknown>
-            edges: Array<{ id: string }>
+            edges: Array<{ id: string; source: string; target: string }>
+            nodes: Array<{ id: string; type?: string; data?: unknown }>
           }
           setState: (p: Record<string, unknown>) => void
         }
@@ -105,14 +106,33 @@ for (const id of STARTERS) {
       const prev = state.results
       const next: Record<string, unknown> = { ...prev, status: 'complete', progress: 100 }
       if (seedFragile) {
-        // The first few causal edges, marked with a MEASURED switch
-        // probability (absent would mean "not computed" and would render the
-        // honest-absence copy instead of a percentage).
+        // ⚠ CAUSAL EDGES ONLY, AND THIS IS NOT A DETAIL. Seeding the first
+        // three edges in store order produced ZERO badges on all five
+        // starters: the leading edges are the STRUCTURAL decision->option
+        // ones, which are never analysed and never badged. A knob that seeds
+        // an unbadgeable edge reports `fragileTags: 0` exactly like a broken
+        // renderer would (CLAUDE.md trap 13 — an absence claim needs an
+        // instrument that could have seen a presence).
+        const kindOf = (nodeId: string): unknown => {
+          const n = state.nodes.find((x) => x.id === nodeId)
+          return n?.type ?? (n?.data as Record<string, unknown> | undefined)?.kind
+        }
+        const causal = state.edges.filter((e) => {
+          const sk = kindOf(e.source)
+          const tk = kindOf(e.target)
+          if (sk === 'decision' && tk === 'option') return false
+          if (sk === 'option' && tk === 'factor') return false
+          return true
+        })
         next.report = {
           robustness: {
-            fragile_edges: state.edges.slice(0, 3).map((e) => ({
+            // Every causal edge, with a MEASURED switch probability (an absent
+            // one means "not computed" and renders the honest-absence copy
+            // instead of a percentage). Descending, so the top fragile edge —
+            // the only one badged in the default view — is unambiguous.
+            fragile_edges: causal.map((e, i) => ({
               edge_id: e.id,
-              switch_probability: 0.49,
+              switch_probability: Math.max(0.35, 0.9 - i * 0.01),
             })),
           },
         }
