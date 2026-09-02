@@ -220,6 +220,8 @@ describe('the exported corpus is COMPLETE, not merely self-consistent', () => {
     // shape this change exists for; a refactor that drops it must RED here.
     expect(CHUNK_LOAD_ERROR_SHAPES.some((m) => m.startsWith('Unable to preload CSS for'))).toBe(true)
     expect(isChunkLoadError(new Error('Unable to preload CSS for /assets/x.css'))).toBe(true)
+  })
+})
 
 /*
  * ─────────────────────────────────────────────────────────────────────────────
