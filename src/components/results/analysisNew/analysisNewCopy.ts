@@ -403,6 +403,17 @@ export const ANALYSIS_NEW_COPY = {
    * The success target — the question a strategist answers FIRST and this panel
    * never asked.
    */
+  /**
+   * ⭐ THE PRE-RUN PANEL'S ANSWER TO "WHY NOT?".
+   *
+   * ⚠ A HEADING ONLY — deliberately the single string this feature contributes.
+   * Every sentence beneath it is the run gate's own, rendered verbatim; adding
+   * copy here would be this surface making a claim about a refusal it did not
+   * compute.
+   */
+  whyNoAnalysis: {
+    heading: 'What this model needs before it can be analysed',
+  },
   successTarget: {
     label: 'Target',
     /**

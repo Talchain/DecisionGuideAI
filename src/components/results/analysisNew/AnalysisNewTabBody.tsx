@@ -58,6 +58,8 @@ import { buildNodeInsights } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
+import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
+import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
@@ -72,6 +74,17 @@ import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
 export interface AnalysisNewTabBodyProps {
+  /**
+   * ⭐ THE RUN GATE'S OWN PUBLISHED REFUSAL, passed rather than recomputed.
+   *
+   * `OutputsDock` already holds `runGateResult.blockedListing` — the gate
+   * publishes the summary string BESIDE the itemised list from one computation
+   * so consumers can prove they came from the same place. This panel renders it
+   * pre-run and adds no rung of its own. Optional: absent from every caller that
+   * has no gate result (specs, the legacy mount), and absence renders nothing.
+   */
+  blockedListing?: GateBlockedListing | null
+
   /** THE SAME instance OutputsDock hands ResultsBody. Never re-derived here. */
   resultsSectionData: ResultsSectionDataReturn
   isPreRun: boolean
@@ -138,6 +151,7 @@ export function AnalysisNewTabBody({
   onFocusNode,
   onReanalyse,
   onSendMessage,
+  blockedListing = null,
 }: AnalysisNewTabBodyProps) {
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
@@ -356,6 +370,12 @@ export function AnalysisNewTabBody({
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
             <p className={`${typography.panelBody} text-text-body`}>{COPY.status.preRun}</p>
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
+            {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
+                sentences above orient a reader who has not run one yet; neither
+                says anything to the reader who TRIED and was refused, which on
+                a saved model is the common case. Every line below is the run
+                gate's own; see `WhyNoAnalysisYet`. */}
+            <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
           </div>
         ) : null}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
