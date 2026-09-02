@@ -42,8 +42,12 @@
  *
  * ── THE CHOICE, PER CONSUMER ────────────────────────────────────────────────
  *
- * The class is added in the CAPTURE PHASE OF A KEYDOWN and removed in a
- * microtask, so it exists only for the duration of one key dispatch.
+ * The class is added in the CAPTURE PHASE OF A KEYDOWN and removed in a TIMER
+ * TASK, so it exists only for the duration of one key dispatch. (This header
+ * said "in a microtask" until 2 Sep 2026, contradicting the code beneath it:
+ * a microtask disarm was the first implementation and is the defect documented
+ * at the arming site. A stale sentence in the summary is how the next reader
+ * reintroduces it.)
  *
  *   · Consumer 1 (keyboard) sees it: React's dispatch is synchronous, so the
  *     node's own keydown handler — which runs later in the same dispatch —
@@ -99,7 +103,7 @@
  * all, while `closest()` — which walks the DOM tree, not the box tree — still
  * finds it.
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { NodeTypes } from '@xyflow/react'
 
 /**
@@ -130,75 +134,109 @@ const SCOPE_STYLE = { display: 'contents' } as const
 export const NODE_KEYBOARD_SCOPE_ATTR = 'data-node-keyboard-scope'
 
 /**
+ * THE MECHANISM, ON ITS OWN, SO THERE IS EXACTLY ONE OF IT.
+ *
+ * Arm `.nokey` on an element for the duration of one key dispatch and no
+ * longer. Returns the ref to put on the element that must carry the class, and
+ * the `onKeyDownCapture` handler to put on that same element.
+ *
+ * ⚠ EXTRACTED, NOT COPIED, AND THAT IS THE POINT. There is a SECOND place that
+ * needs this exact behaviour — `nodes/shared/NodePopover.tsx`, whose content is
+ * `createPortal`ed to `document.body` and is therefore NOT a DOM descendant of
+ * `.react-flow__node`, so the scope below can never reach it (`closest` walks
+ * the DOM tree; React propagates the event through the REACT tree, so React
+ * Flow's node handler still fires). Re-implementing the arm/disarm rules there
+ * would be a hand-maintained mirror of three separately-learned timing
+ * decisions — the timer-not-microtask disarm, the one-listener-per-instance
+ * pointerdown disarm, and the no-`className`-prop rule (CLAUDE.md trap 12).
+ *
+ * Every "why" for each of those decisions is in this file's header and in the
+ * comments below; they are properties of the mechanism, not of the node.
+ */
+export function useNodeKeyboardScope<T extends HTMLElement>(): {
+  ref: RefObject<T>
+  onKeyDownCapture: () => void
+} {
+  const ref = useRef<T>(null)
+
+  /*
+   * CAPTURE PHASE, so the class is on the element before the event reaches
+   * either the control's own handler or React Flow's node handler; TIMER
+   * removal, so it is gone the instant the dispatch finishes. React's event
+   * dispatch is synchronous, so every handler in this keydown — including the
+   * document-level ones the app relies on — runs before the timer task.
+   */
+  const disarmTimer = useRef<number | undefined>(undefined)
+
+  /*
+   * ⚠ ONE LISTENER FOR THE LIFETIME OF THE SCOPE, NOT ONE PER KEYSTROKE.
+   *
+   * This was registered inside the keydown handler with `{ once: true }`,
+   * which self-removes ONLY IF A POINTERDOWN EVER ARRIVES. Typing thirty
+   * characters with no click in between left thirty listeners on `document`,
+   * for every mounted node. A real leak, and it grew with use.
+   *
+   * Registered here it is one per scope, removed on unmount, and disarming an
+   * already-disarmed scope is a no-op — so nothing is lost by it being
+   * unconditional.
+   *
+   * It stays on `document` in the CAPTURE phase because that is what makes it
+   * run before `Pane.onPointerDownCapture` (the pane is a descendant of
+   * document): React Flow decides whether to start a marquee having seen no
+   * `.nokey`, whatever a pending timer is doing.
+   */
+  useEffect(() => {
+    const disarm = () => ref.current?.classList.remove(NODE_KEYBOARD_SCOPE_CLASS)
+    document.addEventListener('pointerdown', disarm, { capture: true })
+    return () => {
+      document.removeEventListener('pointerdown', disarm, { capture: true })
+      window.clearTimeout(disarmTimer.current)
+    }
+  }, [])
+
+  const onKeyDownCapture = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    el.classList.add(NODE_KEYBOARD_SCOPE_CLASS)
+
+    /*
+     * ⚠⚠ `queueMicrotask` WAS THE FIRST IMPLEMENTATION AND IT IS WRONG —
+     * caught by execution, not by reading. A microtask checkpoint runs every
+     * time the JS stack empties, and the browser empties it BETWEEN listener
+     * invocations of a single dispatch. So for a REAL key press the class was
+     * added during React's capture phase at the root container and removed
+     * again before the event bubbled back to React's node handler: the guard
+     * armed and disarmed without ever being read, and the bleed survived.
+     *
+     * It looked correct under a synthetic `dispatchEvent`, because calling
+     * `dispatchEvent` from script keeps the stack non-empty for the whole
+     * dispatch — AN INSTRUMENT THAT SHARED THE CODE'S OWN ASSUMPTION AND SO
+     * COULD NOT CONTRADICT IT. Only a real, trusted key press in a browser
+     * could see it.
+     *
+     * A timer task cannot run until the entire dispatch, including every
+     * document-level listener, has finished. The previous timer is cleared so
+     * a stale one cannot disarm a scope a later keystroke has just armed.
+     */
+    window.clearTimeout(disarmTimer.current)
+    disarmTimer.current = window.setTimeout(() => el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS), 0)
+  }, [])
+
+  return { ref, onKeyDownCapture }
+}
+
+/**
  * Wrap one node renderer so that key presses originating INSIDE it never reach
  * React Flow's node-level handler — and so that NOTHING ELSE changes.
+ *
+ * ⚠ SCOPE OF THIS WRAPPER, STATED: it covers DOM DESCENDANTS of the node only.
+ * Content `NodePopover` portals to `document.body` is outside it by
+ * construction and arms its own scope with the same hook — see
+ * `nodes/shared/NodePopover.tsx`.
  */
 export function withNodeKeyboardScope(NodeComponent: NodeRenderer): NodeRenderer {
   const Scoped: NodeRenderer = (props) => {
-    const ref = useRef<HTMLDivElement>(null)
-
-    /*
-     * CAPTURE PHASE, so the class is on the element before the event reaches
-     * either the control's own handler or React Flow's node handler; MICROTASK
-     * removal, so it is gone the instant the dispatch finishes. React's event
-     * dispatch is synchronous, so every handler in this keydown — including the
-     * document-level ones the app relies on — runs before the microtask.
-     */
-    const disarmTimer = useRef<number | undefined>(undefined)
-
-    /*
-     * ⚠ ONE LISTENER FOR THE LIFETIME OF THE NODE, NOT ONE PER KEYSTROKE.
-     *
-     * This was registered inside the keydown handler with `{ once: true }`,
-     * which self-removes ONLY IF A POINTERDOWN EVER ARRIVES. Typing thirty
-     * characters with no click in between left thirty listeners on `document`,
-     * for every mounted node. A real leak, and it grew with use.
-     *
-     * Registered here it is one per node, removed on unmount, and disarming an
-     * already-disarmed scope is a no-op — so nothing is lost by it being
-     * unconditional.
-     *
-     * It stays on `document` in the CAPTURE phase because that is what makes it
-     * run before `Pane.onPointerDownCapture` (the pane is a descendant of
-     * document): React Flow decides whether to start a marquee having seen no
-     * `.nokey`, whatever a pending timer is doing.
-     */
-    useEffect(() => {
-      const disarm = () => ref.current?.classList.remove(NODE_KEYBOARD_SCOPE_CLASS)
-      document.addEventListener('pointerdown', disarm, { capture: true })
-      return () => {
-        document.removeEventListener('pointerdown', disarm, { capture: true })
-        window.clearTimeout(disarmTimer.current)
-      }
-    }, [])
-
-    const onKeyDownCapture = useCallback(() => {
-      const el = ref.current
-      if (!el) return
-      el.classList.add(NODE_KEYBOARD_SCOPE_CLASS)
-
-      /*
-       * ⚠⚠ `queueMicrotask` WAS THE FIRST IMPLEMENTATION AND IT IS WRONG —
-       * caught by execution, not by reading. A microtask checkpoint runs every
-       * time the JS stack empties, and the browser empties it BETWEEN listener
-       * invocations of a single dispatch. So for a REAL key press the class was
-       * added during React's capture phase at the root container and removed
-       * again before the event bubbled back to React's node handler: the guard
-       * armed and disarmed without ever being read, and the bleed survived.
-       *
-       * It looked correct under a synthetic `dispatchEvent`, because calling
-       * `dispatchEvent` from script keeps the stack non-empty for the whole
-       * dispatch — AN INSTRUMENT THAT SHARED THE CODE'S OWN ASSUMPTION AND SO
-       * COULD NOT CONTRADICT IT. Only a real, trusted key press in a browser
-       * could see it.
-       *
-       * A timer task cannot run until the entire dispatch, including every
-       * document-level listener, has finished. The previous timer is cleared so
-       * a stale one cannot disarm a scope a later keystroke has just armed.
-       */
-      window.clearTimeout(disarmTimer.current)
-      disarmTimer.current = window.setTimeout(() => el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS), 0)
-    }, [])
+    const { ref, onKeyDownCapture } = useNodeKeyboardScope<HTMLDivElement>()
 
     /*
      * ⚠ NO `className` PROP, DELIBERATELY. React only writes `className` when it

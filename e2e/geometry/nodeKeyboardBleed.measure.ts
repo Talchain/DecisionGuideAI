@@ -243,8 +243,15 @@ async function censusFocusables(page: Page): Promise<FocusableCensusRow[]> {
  * through the REACT tree, so a keydown from a button in there STILL reaches
  * React Flow's node `onKeyDown`; `isInputDOMNode` walks the DOM tree, so
  * `closest('.nokey')` can never reach the scope, which lives inside
- * `.react-flow__node`. The bleed is therefore live for portalled content, at
- * this head, by this file's own definition.
+ * `.react-flow__node`.
+ *
+ * ⚠ THAT WAS TRUE OF THE PRODUCT UNTIL 2 Sep 2026 AND IS NO LONGER. `NodePopover`
+ * now arms the SAME scope on its own portalled subtree (`useNodeKeyboardScope`),
+ * and the driven `portalled:` test at the foot of this file measures it — 3 of 3
+ * driven controls bled with that fix removed, 0 with it in place. This function
+ * still exists and still counts, because a COUNT of the class the DOM census
+ * cannot reach is what keeps the completeness claim below honestly scoped: the
+ * census asserts over DOM descendants, and this says how much sits beyond them.
  *
  * ⚠ AND THE REASON THIS FUNCTION EXISTS IS AN INSTRUMENT DEFECT, NOT A CODE
  * ONE. `censusFocusables` walks `node.querySelectorAll(...)`, i.e. DOM
@@ -724,7 +731,8 @@ test.describe('in-node keyboard bleed', () => {
     }
     // eslint-disable-next-line no-console
     console.log(
-      `\n=== PORTALLED (BEYOND THE SCOPE, NOT GATED) === controls=${portalControls} in popovers=${portalPopovers} on nodes=${portalNodes}\n` +
+      `\n=== PORTALLED (BEYOND THIS CENSUS'S REACH; GATED BY THE POPOVER'S OWN SCOPE, DRIVEN SEPARATELY) === ` +
+        `controls=${portalControls} in popovers=${portalPopovers} on nodes=${portalNodes}\n` +
         portalSample.map((c) => `   "${c}"`).join('\n') +
         '\n',
     )
@@ -773,10 +781,13 @@ test.describe('in-node keyboard bleed', () => {
      *
      * (a) IT COVERS DOM DESCENDANTS ONLY. `NodePopover` portals node content to
      *     `document.body`, where React still routes the keydown to the node's
-     *     handler but `closest('.nokey')` cannot reach the scope. Those controls
-     *     are NOT gated at this head. They are counted separately below rather
-     *     than left as a silent exclusion — a probe that cannot see a class
-     *     returns a clean zero for it, which is indistinguishable from safety.
+     *     handler but `closest('.nokey')` cannot reach THIS scope. Those
+     *     controls are gated by the popover's OWN scope instead (added 2 Sep
+     *     2026), which this assertion cannot see and does not speak for — the
+     *     `portalled:` test at the foot of this file is what covers them. They
+     *     are counted separately below rather than left as a silent exclusion:
+     *     a probe that cannot see a class returns a clean zero for it, which is
+     *     indistinguishable from safety.
      *
      * (b) IT IS MEASURED BY A SYNTHETIC IN-PAGE `dispatchEvent`, which is the
      *     exact instrument that was proved BLIND to the microtask-disarm defect:
@@ -1164,5 +1175,520 @@ test.describe('in-node keyboard bleed', () => {
     await page.keyboard.press('Escape')
     await page.waitForTimeout(150)
     expect(await selectedNodeIds(page), 'Escape at the node no longer deselects it').toEqual([])
+  })
+
+  /*
+   * ── THE PORTALLED ARM ──────────────────────────────────────────────────────
+   *
+   * The census above counts portalled controls and asserts a MAGNITUDE FLOOR on
+   * them, but it never drives one — and until this test existed, the completeness
+   * claim `390/390 gated` was scoped to DOM DESCENDANTS with the portalled class
+   * counted and explicitly excluded. This is the arm that measures that class by
+   * DOING it.
+   *
+   * WHY IT IS A SEPARATE DEFECT FROM THE ONE ABOVE. `NodePopover`
+   * (`src/canvas/nodes/shared/NodePopover.tsx`) renders through
+   * `createPortal(…, document.body)`. React propagates events through the REACT
+   * tree, so a keydown from a button in there STILL reaches React Flow's node
+   * `onKeyDown` (`esm/index.mjs:2240`); `isInputDOMNode` walks the DOM tree
+   * (`@xyflow/system` `esm:846-854`), so `closest('.nokey')` can never reach the
+   * scope inside `.react-flow__node`, because a portalled element is not a
+   * descendant of it. Measured before the fix: Enter at "Add mitigation"
+   * selected the anchor node while `q` and a plain click both read `[]`.
+   *
+   * ── THE SAME THREE CONTROLS AS THE DRIVE ABOVE, FOR THE SAME REASONS ───────
+   *
+   *   'q'    — a key NOT in `elementSelectionKeys`; must never select. Without
+   *            it, a probe that reported "selected" for any key at all would be
+   *            indistinguishable from one measuring the bleed (trap 13e).
+   *   CLICK  — activation with no key anywhere near React Flow's node handler.
+   *            Some controls select their node ON PURPOSE, and reading
+   *            "selected after Enter" as a bleed would blame the library for
+   *            behaviour the product asked for.
+   *   FOCUS  — focus alone, no key. `focusin` bubbles, so focusing a control can
+   *            reach a node's focus handler; a selection appearing there was
+   *            never caused by a key press.
+   *
+   *         bleed  =  keyboard selects  AND  focus does NOT  AND  click does NOT
+   *
+   * ── AND THE PRECONDITION THAT KEEPS IT ABOUT THE RIGHT CLASS ──────────────
+   *
+   * Every driven control is asserted to be OUTSIDE its anchor node in the DOM.
+   * If the popover ever stopped portalling, the in-node scope would cover this
+   * content and this test would pass for a reason that has nothing to do with
+   * the portal boundary — a tautology wearing a green tick. That is a product
+   * change and it REDs here instead.
+   */
+
+  /**
+   * How many DISTINCT portalled control kinds must be driven.
+   *
+   * ⚠ A FLOOR, NOT A FIGURE, AND NOT `> 0` — the same lesson the census's
+   * `MIN_PORTALLED_CONTROLS` block records. One kind driven is a plausible,
+   * comfortable number that would read as coverage while a whole render path
+   * went unmeasured; the six kinds observed on this starter
+   * ("What could go wrong?", "What evidence supports this?", "What strengthens
+   * this?", "What reduces this?", "Add mitigation", "What if this changes?")
+   * are what makes 3 a floor with room under it rather than a target.
+   */
+  /**
+   * ⚠ THIS EQUALS THE MEASURED VALUE ON PURPOSE, AND THAT IS NOT AN OVERSIGHT.
+   * `vendor-selection` renders exactly three distinct portalled control names
+   * ("What evidence supports this?", "What if this changes?", "What could go
+   * wrong?"), so any shrink REDs — which is what a coverage guard is for. It is
+   * NOT a starvation guard: a floor with no room under it cannot also answer
+   * "is the probe seeing anything", and `MIN_PORTALLED_CONTROLS_SEEN` below is
+   * the number that does. If a popover control kind is ever deliberately
+   * removed, this needs re-deriving in that PR rather than nudging down.
+   */
+  const MIN_PORTALLED_KINDS_DRIVEN = 3
+  /** Driving is expensive — one fresh seed per key — so the driven set is capped. */
+  const MAX_PORTALLED_KINDS_DRIVEN = 4
+
+  /*
+   * ── AND THE STARVATION GUARD, WHICH IS A DIFFERENT QUESTION ────────────────
+   *
+   * "Did coverage shrink?" and "is this probe seeing anything?" are two
+   * questions and they need two numbers. The kind count is small by nature —
+   * this starter renders three distinct popover control names — so a floor on
+   * it has almost no room under it and cannot also serve as a magnitude check.
+   *
+   * The magnitude check is the TOTAL number of portalled controls the discovery
+   * sweep sees, which is the same population the census's `MIN_PORTALLED_CONTROLS`
+   * block calibrates. It is measured here on ONE starter, not five, so it is its
+   * own figure and not that one.
+   *
+   *   sample (vendor-selection only, 23 nodes)      popovers   controls
+   *   this lane, event-driven wait, run 1                  13         11
+   *   this lane, event-driven wait, run 2                  13         11
+   *   ──────────────────────────────────────────────────────────────────
+   *   BLINDED (a 60ms sleep against the 300ms ENTER_DELAY)  0          0
+   *
+   * The floor sits ~27% below the healthy samples and above anything the
+   * blinded probe produced, for the same reason as the census's: a `> 0` check
+   * passed a 95% collapse on this very file, because a comfortable small number
+   * is exactly what a reader quotes without a second look.
+   *
+   * ⚠ THE FLOOR IS ASSERTABLE; THE FIGURE IS NOT. Two runs were byte-identical
+   * because the waits are event-driven, but that is a different claim from the
+   * count being a property of the product — re-derive it, do not quote it.
+   *
+   * ── PROVEN TO BITE, in an isolated worktree (isolation proven by WRITING a
+   *    sentinel and asserting the source was unchanged), applied-check per
+   *    mutant, tree asserted clean before and after ────────────────────────────
+   *
+   *   mutant                              controls  popovers  floor  old `>0`
+   *   the 60ms historical defect                 0         0    RED       RED
+   *   coverage: every 5th node only              2         3    RED  **PASS**
+   *
+   * The second row is why the floor exists at all: a plausible-but-partial read
+   * is exactly what a sign check cannot see, and it is the failure a loaded
+   * machine actually produces.
+   *
+   * ── AND THE DEFECT ITSELF, the pair that matters (same worktree) ───────────
+   *
+   *   NodePopover renders `{children}`     3 controls   3 BLEED   3 ungated  RED
+   *   (i.e. the fix removed)               contrast 'q' clean, click/focus clean
+   *   NodePopover renders `{scoped}`       3 controls   0 BLEED   0 ungated  PASS
+   *
+   * It fails on the BEHAVIOURAL assertion, not on a control — which is what
+   * distinguishes a guard that bites from one that merely errors.
+   */
+  const MIN_PORTALLED_CONTROLS_SEEN = 8
+
+  /** Park the mouse, wait for every popover to close, then hover this node and wait for one to open. */
+  async function hoverForPopover(page: Page, nodeId: string): Promise<boolean> {
+    const box = await page.locator(`.react-flow__node[data-id="${nodeId}"]`).boundingBox()
+    if (!box) return false
+    // PARK FIRST and wait for DETACH: a neighbour's popover still open from the
+    // previous iteration would otherwise resolve the attach-wait instantly and
+    // be attributed to this node. There is no DOM ancestry to attribute by —
+    // that is the whole point of this class.
+    await page.mouse.move(4, 4)
+    await page
+      .waitForFunction(() => !document.querySelector('[data-node-popover]'), undefined, { timeout: POPOVER_WAIT_MS })
+      .catch(() => undefined)
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    return page
+      .waitForFunction(() => !!document.querySelector('[data-node-popover]'), undefined, { timeout: POPOVER_WAIT_MS })
+      .then(() => true)
+      .catch(() => false)
+  }
+
+  /** Focusable controls in the PORTALLED popovers currently open, by accessible name. */
+  async function openPortalledControls(page: Page): Promise<string[]> {
+    return page.evaluate((selector) => {
+      const out: string[] = []
+      for (const p of Array.from(document.querySelectorAll<HTMLElement>('[data-node-popover]'))) {
+        if (p.closest('.react-flow')) continue // the inline fallback is a DOM descendant; covered by the census
+        for (const el of Array.from(p.querySelectorAll<HTMLElement>(selector))) {
+          const name =
+            el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+          if (name) out.push(name)
+        }
+      }
+      return out
+    }, FOCUSABLE_SELECTOR)
+  }
+
+  /**
+   * Find, inside the currently-open portalled popovers, the control with this
+   * exact accessible name — and report what it is, rather than throwing.
+   *
+   * ⚠ IT RETURNS THE PORTAL FACTS TOO, because they are the precondition this
+   * arm exists for: `insideNode` must be FALSE. A control that turned out to be
+   * a DOM descendant of its node would be measuring the other defect.
+   */
+  async function portalledControlFacts(
+    page: Page,
+    nodeId: string,
+    name: string,
+  ): Promise<{ found: boolean; focused: boolean; insideNode: boolean; insideFlow: boolean; why: string }> {
+    return page.evaluate(
+      ({ nodeId: nid, name: cn, selector }) => {
+        const miss = { found: false, focused: false, insideNode: false, insideFlow: false, why: '' }
+        const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nid}"]`)
+        if (!node) return { ...miss, why: 'node not found' }
+        const pops = Array.from(document.querySelectorAll<HTMLElement>('[data-node-popover]')).filter(
+          (p) => !p.closest('.react-flow'),
+        )
+        if (pops.length === 0) return { ...miss, why: 'no portalled popover open' }
+        let el: HTMLElement | undefined
+        for (const p of pops) {
+          el = Array.from(p.querySelectorAll<HTMLElement>(selector)).find((c) => {
+            const n = c.getAttribute('aria-label') ?? (c.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+            return n === cn
+          })
+          if (el) break
+        }
+        if (!el) return { ...miss, why: 'control not found in any open portalled popover' }
+        const insideNode = node.contains(el)
+        const insideFlow = !!el.closest('.react-flow')
+        el.focus()
+        if (document.activeElement !== el) {
+          const cs = getComputedStyle(el)
+          return {
+            found: true,
+            focused: false,
+            insideNode,
+            insideFlow,
+            why: `focus() no-op: visibility=${cs.visibility} display=${cs.display} opacity=${cs.opacity}`,
+          }
+        }
+        return { found: true, focused: true, insideNode, insideFlow, why: '' }
+      },
+      { nodeId, name, selector: FOCUSABLE_SELECTOR },
+    )
+  }
+
+  /**
+   * Was the keydown gated at the moment React Flow could read it?
+   *
+   * ⚠⚠ SCOPE OF THIS READING, STATED PRECISELY, because it is NOT the same
+   * instrument the in-node `isGated` uses and it must not be quoted as if it
+   * were. For an in-node control the probe listens on the node element, which is
+   * exactly where React Flow's handler sits. A PORTALLED control is not a DOM
+   * descendant of the node, so a native listener there NEVER FIRES — React
+   * reaches React Flow's node handler only through its own tree propagation.
+   * This listens on `document` in the BUBBLE phase instead, which runs after
+   * React's entire synthetic dispatch and before the scope's timer-task disarm,
+   * i.e. STRICTLY LATER than React Flow's handler. The class is added in React's
+   * capture phase and removed on a timer, so an armed reading here implies an
+   * armed reading there — but it is an inference, not a direct observation, and
+   * the direct one is made in jsdom by
+   * `src/canvas/nodes/shared/__tests__/NodePopover.keyboardScope.spec.tsx`,
+   * which reads React Flow's own `isInputDOMNode` from inside the React tree.
+   *
+   * THE LOAD-BEARING CLAIM IN THIS FILE IS THE BEHAVIOUR BELOW, NOT THIS.
+   *
+   * An untrusted `KeyboardEvent` is safe here: the browser synthesises a click
+   * from Enter/Space only for TRUSTED events, so nothing is activated.
+   */
+  async function gatedAtDispatch(page: Page, name: string): Promise<{ found: boolean; armed: boolean }> {
+    return page.evaluate(
+      ({ name: cn, selector }) => {
+        const pops = Array.from(document.querySelectorAll<HTMLElement>('[data-node-popover]')).filter(
+          (p) => !p.closest('.react-flow'),
+        )
+        let el: HTMLElement | undefined
+        for (const p of pops) {
+          el = Array.from(p.querySelectorAll<HTMLElement>(selector)).find((c) => {
+            const n = c.getAttribute('aria-label') ?? (c.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+            return n === cn
+          })
+          if (el) break
+        }
+        // ⚠ "NOT FOUND" IS NOT "NOT GATED". Collapsing them would let a probe
+        // that lost its target report the product as ungated.
+        if (!el) return { found: false, armed: false }
+        let armed = false
+        const probe = (ev: Event) => {
+          const target = (ev.composedPath?.()?.[0] ?? ev.target) as Element | null
+          armed = !!target?.closest?.('.nokey')
+        }
+        document.addEventListener('keydown', probe, false)
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+        document.removeEventListener('keydown', probe, false)
+        return { found: true, armed }
+      },
+      { name, selector: FOCUSABLE_SELECTOR },
+    )
+  }
+
+  /**
+   * CONTRAST CONTROL FOR `gatedAtDispatch` — a control that is neither in a node
+   * nor in a popover must read UNGATED by the same probe, in the same run.
+   *
+   * Without it, a probe that had started answering `true` for everything (a
+   * stray permanent `.nokey`, a `closest` that stopped discriminating) would
+   * agree with a perfect result everywhere. An absence/presence probe needs a
+   * reading whose expected answer DIFFERS (trap 13e).
+   */
+  async function gatedAtDispatchForChromeControl(page: Page): Promise<{ name: string; armed: boolean } | null> {
+    return page.evaluate((selector) => {
+      const el = Array.from(document.querySelectorAll<HTMLElement>(selector)).find(
+        (c) => !c.closest('.react-flow') && !c.closest('[data-node-popover]'),
+      )
+      if (!el) return null
+      const label = el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40)
+      const name = label || `<${el.tagName.toLowerCase()}> (no accessible name)`
+      let armed = false
+      const probe = (ev: Event) => {
+        const target = (ev.composedPath?.()?.[0] ?? ev.target) as Element | null
+        armed = !!target?.closest?.('.nokey')
+      }
+      document.addEventListener('keydown', probe, false)
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+      document.removeEventListener('keydown', probe, false)
+      return { name, armed }
+    }, FOCUSABLE_SELECTOR)
+  }
+
+  test('portalled: Enter/Space at a control inside a portalled popover does not select the anchor node', async ({
+    page,
+  }) => {
+    test.setTimeout(900_000)
+    const STARTER: StarterId = 'vendor-selection'
+    await loadCanvas(page, STARTER)
+
+    // ── DISCOVERY: which portalled control kinds exist, and on which node ────
+    // Derived by hovering, never a hand-written list: a popover control added
+    // tomorrow is driven the day it renders (CLAUDE.md trap 12).
+    const nodeIds = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.react-flow__node')).map((n) => n.getAttribute('data-id') ?? ''),
+    )
+    const targets: Array<{ nodeId: string; name: string }> = []
+    const seen = new Set<string>()
+    let controlsSeen = 0
+    let popoversSeen = 0
+    /*
+     * ⚠ THE SWEEP DOES NOT STOP EARLY, EVEN THOUGH ONLY THE FIRST FEW KINDS ARE
+     * DRIVEN. Breaking out as soon as enough kinds were collected would make the
+     * magnitude below depend on how quickly a distinct name happened to turn up
+     * — so a healthy run that found its kinds on node 3 would report a tiny
+     * total and trip its own starvation floor. The totals must come from the
+     * same complete sweep every time.
+     */
+    for (const id of nodeIds) {
+      if (!(await hoverForPopover(page, id))) continue
+      popoversSeen++
+      for (const name of await openPortalledControls(page)) {
+        controlsSeen++
+        if (seen.has(name)) continue
+        seen.add(name)
+        if (targets.length < MAX_PORTALLED_KINDS_DRIVEN) targets.push({ nodeId: id, name })
+      }
+    }
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n=== PORTALLED DISCOVERY === ${controlsSeen} controls in ${popoversSeen} popovers across ${nodeIds.length} nodes; ` +
+        `${seen.size} distinct names; driving ${targets.length}\n` +
+        targets.map((t) => `   ${t.nodeId}  "${t.name}"`).join('\n') +
+        '\n',
+    )
+
+    /*
+     * ⭐ THE MAGNITUDE CHECK, and it is deliberately not `> 0`. A run whose
+     * hovers were starved by load opens a handful of popovers, drives whichever
+     * control it happened to catch, and reports a perfect clean table — which
+     * looks exactly like a healthy run. This is the reading that separates them.
+     */
+    expect(
+      controlsSeen,
+      `the discovery sweep saw only ${controlsSeen} portalled control(s) (floor ${MIN_PORTALLED_CONTROLS_SEEN}) — ` +
+        `it is starved or blind, and everything measured below it means nothing`,
+    ).toBeGreaterThanOrEqual(MIN_PORTALLED_CONTROLS_SEEN)
+
+    // AND COVERAGE: how many DISTINCT render paths are actually driven. A
+    // separate question from the one above, and a separate number.
+    expect(
+      targets.length,
+      `only ${targets.length} distinct portalled control kind(s) to drive (floor ${MIN_PORTALLED_KINDS_DRIVEN}) — ` +
+        `coverage has shrunk`,
+    ).toBeGreaterThanOrEqual(MIN_PORTALLED_KINDS_DRIVEN)
+
+    const table: string[] = []
+    let bleeding = 0
+    let contrastSelections = 0
+    let selfSelecting = 0
+    let ungated = 0
+
+    for (const { nodeId, name } of targets) {
+      const read: Record<string, string[]> = {}
+      let gated = false
+
+      /*
+       * ONE FRESH SEED PER KEY. Pressing Space on a popover control ACTIVATES
+       * it — these are "What could go wrong?", "Add mitigation" and the like,
+       * which send a message and re-render the graph — so the Enter row that
+       * followed would be measured against a control that no longer exists.
+       */
+      /*
+       * ⚠⚠ 'GATE' IS ITS OWN ROW, AND THAT IS A CORRECTION, NOT A STYLE CHOICE.
+       *
+       * The gate probe DISPATCHES a synthetic Enter at the control. Run inside a
+       * key row — which is where it started — that dispatch landed BEFORE the
+       * selection was read, so with the fix removed the synthetic Enter selected
+       * the node and the `q` row reported a selection `q` never caused: THE
+       * CONTRAST CONTROL FIRED FOR THE PROBE'S OWN SIDE EFFECT. At pristine it
+       * was invisible, because the fix makes that synthetic Enter harmless —
+       * i.e. a probe that is only correct when the product is correct, which is
+       * the one thing a probe may never be. It was found by running the
+       * fix-removed mutant, not by reading the code.
+       *
+       * On its own row it gets a fresh seed, takes no selection reading, and its
+       * side effect is discarded by the next row's reseed.
+       */
+      for (const key of ['FOCUS', ' ', 'Enter', 'q', 'CLICK', 'GATE']) {
+        // eslint-disable-next-line no-console
+        console.log(`[portalled] ${nodeId} "${name}" <- ${JSON.stringify(key)}`)
+        await reseed(page, STARTER)
+
+        // BASELINE PINNED IN-TEST: a row that began with the node already
+        // selected would report a bleed the key press never caused.
+        expect(await selectedNodeIds(page), 'a node was already selected at baseline').toEqual([])
+
+        const opened = await hoverForPopover(page, nodeId)
+        expect(opened, `no portalled popover opened for node ${nodeId} — nothing to press at`).toBe(true)
+
+        const facts = await portalledControlFacts(page, nodeId, name)
+        expect(facts.found, `control "${name}" not found in node ${nodeId}'s popover — ${facts.why}`).toBe(true)
+
+        /*
+         * ⭐ THE PRECONDITION THIS ARM EXISTS FOR, asserted on EVERY row rather
+         * than once: the control must be OUTSIDE its node in the DOM. If it is
+         * inside, the in-node scope already covers it and this row is measuring
+         * the other defect while reporting about this one.
+         */
+        expect(
+          facts.insideNode,
+          `control "${name}" is a DOM DESCENDANT of node ${nodeId} — the popover is no longer portalled, ` +
+            `so this row is not measuring the portalled class at all`,
+        ).toBe(false)
+        expect(
+          facts.insideFlow,
+          `control "${name}" is inside the .react-flow container — not portalled out of it`,
+        ).toBe(false)
+
+        if (key === 'CLICK') {
+          const clicked = await page.evaluate(
+            ({ name: cn, selector }) => {
+              const pops = Array.from(document.querySelectorAll<HTMLElement>('[data-node-popover]')).filter(
+                (p) => !p.closest('.react-flow'),
+              )
+              for (const p of pops) {
+                const el = Array.from(p.querySelectorAll<HTMLElement>(selector)).find((c) => {
+                  const n =
+                    c.getAttribute('aria-label') ?? (c.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+                  return n === cn
+                })
+                if (el) {
+                  el.click()
+                  return true
+                }
+              }
+              return false
+            },
+            { name, selector: FOCUSABLE_SELECTOR },
+          )
+          // POSITIVE CONTROL FOR THE COMPARATOR: an activation that never
+          // happened reports "the mouse does not select the node" for every
+          // control, i.e. it agrees with a bleed everywhere.
+          expect(clicked, `control "${name}" was not found to activate`).toBe(true)
+          await page.waitForTimeout(150)
+          read[key] = await selectedNodeIds(page)
+        } else if (key === 'FOCUS') {
+          expect(facts.focused, `control "${name}" could not take focus — ${facts.why}`).toBe(true)
+          await page.waitForTimeout(150)
+          read[key] = await selectedNodeIds(page)
+        } else if (key === 'GATE') {
+          const g = await gatedAtDispatch(page, name)
+          expect(g.found, `the gate probe lost control "${name}" — "not found" is not "not gated"`).toBe(true)
+          gated = g.armed
+        } else {
+          expect(facts.focused, `control "${name}" could not take focus — ${facts.why}`).toBe(true)
+          await page.keyboard.press(key)
+          await page.waitForTimeout(120)
+          read[key] = await selectedNodeIds(page)
+        }
+      }
+
+      const keyboardSelects = read[' '].includes(nodeId) || read.Enter.includes(nodeId)
+      const mouseSelects = read.CLICK.includes(nodeId)
+      const focusSelects = read.FOCUS.includes(nodeId)
+      const bled = keyboardSelects && !mouseSelects && !focusSelects
+      if (bled) bleeding++
+      if (mouseSelects || focusSelects) selfSelecting++
+      if (read.q.length > 0) contrastSelections++
+      if (!gated) ungated++
+      table.push(
+        `${bled ? 'BLEED     ' : focusSelects ? 'focus-sel ' : mouseSelects ? 'self-sel  ' : 'clean     '} ` +
+          `${nodeId} "${name}"  gated=${gated ? 'Y' : 'N'}\n` +
+          `        focus=${JSON.stringify(read.FOCUS)} space=${JSON.stringify(read[' '])}` +
+          ` enter=${JSON.stringify(read.Enter)} q=${JSON.stringify(read.q)} click=${JSON.stringify(read.CLICK)}`,
+      )
+    }
+
+    const chrome = await gatedAtDispatchForChromeControl(page)
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n=== PORTALLED DRIVE === ${targets.length} controls, ${bleeding} bleeding, ${selfSelecting} self-selecting, ` +
+        `${ungated} ungated\n${table.join('\n')}\n` +
+        `  contrast for the gate probe: ${chrome ? `"${chrome.name}" armed=${chrome.armed}` : 'NO CHROME CONTROL FOUND'}\n`,
+    )
+
+    /*
+     * CONTRAST CONTROL FOR THE GATE PROBE, SAME RUN, EXPECTED ANSWER DIFFERENT.
+     * Every `gated=Y` above is a `true` from this probe; a probe that had
+     * stopped discriminating would produce a perfect table. This is the reading
+     * that must come back FALSE.
+     */
+    expect(chrome, 'no control outside the canvas to contrast the gate probe against — the probe is unchecked').not.toBeNull()
+    expect(
+      chrome!.armed,
+      `the gate probe reported a control OUTSIDE the canvas ("${chrome!.name}") as gated — it is not discriminating, ` +
+        `so every gated=Y above is worthless`,
+    ).toBe(false)
+
+    // CONTRAST CONTROL ON THE KEY: 'q' is not in `elementSelectionKeys`.
+    expect(contrastSelections, "contrast control failed: 'q' selected a node — the probe is not discriminating").toBe(0)
+
+    // ── THE LOAD-BEARING CLAIM: no portalled control may select its anchor ──
+    expect(
+      bleeding,
+      'a control inside a PORTALLED popover still selects the node behind it — ' +
+        'the keyboard scope does not cross the portal boundary',
+    ).toBe(0)
+
+    // ── AND THE MECHANISM, for controls whose own action selects the node ───
+    // For a control that selects deliberately the selection reading decides
+    // nothing; whether React Flow's opt-out reaches it still does. Asserted for
+    // EVERY driven control, so a fix covering three of four still REDs.
+    expect(
+      ungated,
+      `${ungated} of ${targets.length} portalled controls have no .nokey ancestor at dispatch — ` +
+        'the scope does not reach them',
+    ).toBe(0)
   })
 })
