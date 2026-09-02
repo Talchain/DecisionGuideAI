@@ -463,8 +463,31 @@ function producerAuthoredImprovement(
  * Same shape and the SAME VET as its two siblings — `isSafeCeeText` on the
  * JOIN, degrade-whole on any unusable entry, de-duplicate, invent nothing.
  * Deliberately not a third rule.
+ *
+ * ── ⭐⭐ WHY IT IS EXPORTED (2 Sep 2026) ────────────────────────────────────
+ * It was private, and read on ONE branch: the one `canRunAnalysis` takes when
+ * `analysisReadiness` is not stated. The other branch composes from the
+ * PRODUCER's `blockers[]` — and `readinessObjectsToRun` clause (a) refuses on
+ * `status === 'blocked'` ALONE, on a payload whose blocker list is EMPTY BY
+ * CONSTRUCTION (its own comment derives this at CEE:
+ * *"`buildAnalysisRefusalReadiness` emits `status: 'blocked'` with NO
+ * `blockers` key"*). So on a CEE refusal turn the deciding authority refused and
+ * itemised nothing, `analysisBlockedSentences` returned its non-committal rung
+ * for the empty list, and this function — holding CEE's written refusal AND its
+ * named repairs, already in the store — was never asked.
+ *
+ * ⚠ THE CALLER'S CONTRACT, AND IT IS NOT OPTIONAL. The side-car may
+ * CORROBORATE a refusal the producer made; it may never AUTHOR one. The gate
+ * must therefore ask this only while the side-car ITSELF refuses
+ * (`can_run_analysis === false`) and its verdict is NOT stale — quoting an
+ * authority means inheriting its staleness, which is why `canRunAnalysis`
+ * forwards `readinessStale` on this arm having deliberately withheld it on the
+ * arm where the producer speaks for itself. Both conditions live at the call
+ * site because they are about WHEN to ask, not about what the answer says.
  */
-function producerAuthoredRefusal(readiness: GraphReadiness | null | undefined): string | null {
+export function readinessAuthoredRefusalItems(
+  readiness: GraphReadiness | null | undefined,
+): readonly GateBlockedItem[] | null {
   const issues = readiness?.readiness_issues
   if (Array.isArray(issues)) {
     // Only the repairs the user OWES. Note the test is the exact string
@@ -473,8 +496,24 @@ function producerAuthoredRefusal(readiness: GraphReadiness | null | undefined): 
     const actionable = issues.filter(
       (issue) => issue?.obligation !== 'offered' && issue?.waived_by_exclusion !== true,
     )
-    const authored = composeProducerAuthoredSentences(actionable.map((issue) => issue?.message))
-    if (authored !== null) return authored
+    const authored = composeProducerAuthoredSentenceList(actionable.map((issue) => issue?.message))
+    if (authored !== null) {
+      // ⚠ THE SAME SCOPE RULE AS `analysisBlockedItems`, NOT A SECOND ONE: the
+      // route attaches only where EXACTLY ONE issue authored that exact text.
+      // De-duplication can collapse two issues onto one line, and linking such a
+      // line would send the user to an arbitrary one of them while looking
+      // exactly as authoritative as a correct link.
+      return authored.map((text) => {
+        const authors = actionable.filter((i) => (i?.message ?? '').trim() === text)
+        if (authors.length !== 1) return { text }
+        const author = authors[0]
+        // Option first — the more actionable scope, and the one the user chose
+        // the words for. Same order every other reader of these fields uses.
+        const id = author.option_id ?? author.factor_id
+        const label = author.option_label ?? author.factor_label
+        return id === undefined && label === undefined ? { text } : { text, scope: { id, label } }
+      })
+    }
   }
 
   // ⭐⭐ THE FALLBACK IS NOT ALWAYS A REFUSAL, AND RENDERING IT AS ONE
@@ -524,9 +563,25 @@ function producerAuthoredRefusal(readiness: GraphReadiness | null | undefined): 
   if (readiness?.may_run === true) return null
 
   // Nothing the user owes — or nothing usable. CEE's own adjudicated headline.
+  //
+  // ⚠ NO SCOPE. It speaks for the WHOLE model, not for one option, so there is
+  // no single thing to route to — the same rule the de-duplicated lines above
+  // obey, reached from the other direction.
   const reason = readiness?.blocker_reason
   if (typeof reason !== 'string') return null
-  return composeProducerAuthoredSentences([reason])
+  const headline = composeProducerAuthoredSentenceList([reason])
+  return headline === null ? null : headline.map((text) => ({ text }))
+}
+
+/**
+ * The joined form — DERIVED from the item list, never composed beside it, for
+ * the same reason `composeAnalysisBlockedReason` is derived from
+ * `analysisBlockedSentences`: two expressions of one refusal can disagree, and
+ * the surface that gets the wrong one is quietly wrong.
+ */
+function producerAuthoredRefusal(readiness: GraphReadiness | null | undefined): string | null {
+  const items = readinessAuthoredRefusalItems(readiness)
+  return items === null ? null : items.map((item) => item.text).join(' ')
 }
 
 export function composeReadinessBlockedReason(
@@ -767,12 +822,21 @@ function producerAuthoredSentences(
  * fields support it, and degrade only to a LESS SPECIFIC TRUE claim — never to
  * a different one.
  *
- * ⚠ THE EMPTY LIST IS NOT A REFUSAL AND MUST NEVER REACH HERE. The contract is
- * explicit that `blockers: []` is a POSITIVE claim — the producer assessed
- * readiness and found nothing blocking — so a caller composing a refusal from
- * an empty list has already decided something this function cannot justify.
- * The guard below returns the non-committal rung rather than inventing a cause,
- * but the real protection is `readinessObjectsToRun`, which never asks.
+ * ⚠⚠ THE EMPTY LIST DOES REACH HERE, AND THIS COMMENT SAID IT COULD NOT
+ * (corrected 2 Sep 2026, by running the gate against the P0 witness payload).
+ * ~~The real protection is `readinessObjectsToRun`, which never asks.~~ It asks:
+ * clause (a) refuses on `status === 'blocked'` ALONE, and its own comment
+ * derives, at CEE, that `buildAnalysisRefusalReadiness` emits exactly that
+ * status with NO `blockers` key. So on every CEE refusal turn this function was
+ * handed `[]` and returned the non-committal rung — a reassurance in one file
+ * describing a guarantee the other file explicitly disclaims.
+ *
+ * The premise it rests on is still right for a STATED empty list: `blockers: []`
+ * beside a non-blocked status IS a positive claim, and nothing may compose a
+ * refusal from it. The error was believing no caller could arrive here anyway.
+ * The guard below stays as the floor; the CALLER now asks the side-car for a
+ * corroborating refusal first (`readinessAuthoredRefusalItems`), so the floor is
+ * reached only when neither authority has anything to say.
  *
  * ⭐ THE PRODUCER'S OWN SENTENCES FIRST (A4). `blocker.message` is contracted to
  * be rendered VERBATIM; the scope-label rungs below are the DEGRADE, reached
