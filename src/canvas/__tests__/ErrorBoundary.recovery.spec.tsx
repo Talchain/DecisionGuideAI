@@ -26,6 +26,7 @@
  * browser check recorded in the PR (production build via vite preview).
  */
 
+import { CHUNK_LOAD_ERROR_SHAPES, CHUNK_LOAD_NEAR_MISSES } from '../../lib/staleBuildRecovery'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import * as ErrorBoundaryModule from '../ErrorBoundary'
@@ -215,18 +216,14 @@ describe('CanvasErrorBoundary — crash recovery persistence', () => {
 
   it('5. isChunkLoadError recognises real browser message shapes and rejects ordinary errors', () => {
     expect(isChunkLoadError).toBeTypeOf('function')
-    const yes = [
-      'Failed to fetch dynamically imported module: https://x/assets/index-abc.js',
-      'error loading dynamically imported module',
-      'Importing a module script failed.',
-      'Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html".',
-      'Loading chunk 42 failed',
-    ]
-    const no = [
-      "Cannot read properties of undefined (reading 'label')",
-      'Maximum update depth exceeded',
-      'Network request failed',
-    ]
+    // DERIVED from the product's own corpus. This spec asks "does the boundary's
+    // predicate accept what the product says it accepts?" — so restating the list
+    // here would make it a copy that can drift silently. The corpus's own
+    // completeness is checked by hand in `src/lib/__tests__/staleBuildRecovery.spec.ts`,
+    // which is the guard that can notice the list is SHORT. Both, deliberately:
+    // derivation cannot see a short list, a corpus cannot see a drifted consumer.
+    const yes = CHUNK_LOAD_ERROR_SHAPES
+    const no = CHUNK_LOAD_NEAR_MISSES
     for (const m of yes) expect(isChunkLoadError!(new Error(m)), m).toBe(true)
     for (const m of no) expect(isChunkLoadError!(new Error(m)), m).toBe(false)
     expect(isChunkLoadError!(null)).toBe(false)

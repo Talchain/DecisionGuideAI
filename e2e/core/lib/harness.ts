@@ -454,10 +454,12 @@ export type ComposerAbsenceVerdict =
  * rounds; delegation removes the need to get it right.
  *
  * SO THE DECISION IS DERIVED, NOT MIRRORED. `isModuleLoadFailureText` delegates to the
- * product's own predicate and unions in ONE observed shape the product does not yet
- * recognise. The next shape the product learns, this recognises for free — and
- * `defect 5` in the guard proves that INHERITANCE behaviourally, so a "harmless"
- * equivalent copy cannot quietly replace the delegation.
+ * product's own predicate — WHOLLY, as of the CSS-preload widening. It used to union in
+ * one observed shape the product did not yet recognise; the product recognises it now,
+ * so that limb could only ever agree with the first and was removed. The next shape the
+ * product learns, this recognises for free — and `defect 5` in the guard proves that
+ * INHERITANCE behaviourally, so a "harmless" equivalent copy cannot quietly replace the
+ * delegation.
  *
  * ⚠ DECLARED BLIND SPOT OF THIS CHANNEL (raised in review; declined deliberately, not
  * missed). `isChunkLoadError` tests `name + message`, so an error distinguished ONLY by
@@ -471,11 +473,18 @@ export type ComposerAbsenceVerdict =
  * than dismissed: if it ever does occur, the failure direction is a FALSE `product`
  * accusation, which is the harmful direction, not the safe one.
  *
- * ⚠ THE CSS-PRELOAD UNION IS A PRODUCT GAP, NOT A HARNESS QUIRK. `Unable to preload CSS
- * for …` is the one shape WITNESSED IN THE WILD here (run 33571760150) and it is
- * exactly what `isChunkLoadError` does not match — which is why that run got generic
- * crash copy instead of the stale-build Reload affordance. Rowed separately as a
- * user-facing gap; do not "fix" it by narrowing this union.
+ * ⭐ THE CSS-PRELOAD GAP IS CLOSED — and this paragraph is kept, corrected, because the
+ * history is the useful part. `Unable to preload CSS for …` was the one shape WITNESSED
+ * IN THE WILD here (run 33571760150) that `isChunkLoadError` did NOT match, which is why
+ * that run got generic crash copy instead of the stale-build Reload affordance. It was
+ * rowed as a user-facing gap and the product has since been widened to accept it, so
+ * there is no union left to narrow: the delegation above is now total.
+ *
+ * Why it went unmatched for so long is the part worth keeping. In Vite's `preload()`
+ * helper ONLY css deps get a rejecting promise; a failed JS dep falls through and
+ * surfaces as the BROWSER's message. Every other shape the product matches is a browser
+ * string and this one is Vite's — the same deploy race wearing two vocabularies. If a
+ * third vocabulary ever appears, that asymmetry is where to look.
  *
  * ⚠ THIS BRANCH IS FIRST AND PRODUCES A VERDICT. It does not fail closed to
  * `indeterminate` — by design, because the app naming its own module failure is the
@@ -483,18 +492,33 @@ export type ComposerAbsenceVerdict =
  */
 
 /**
- * The ONE shape witnessed here that the product's predicate does not yet accept.
+ * ⭐ NO LONGER A GAP — the product accepts this shape now, so this pattern's job
+ * has changed and its old name would lie about it.
+ *
+ * It was introduced as "the ONE shape witnessed here that the product's
+ * predicate does not yet accept". That gap is closed: `isChunkLoadError` matches
+ * `Unable to preload CSS for` directly, so the union below became redundant and
+ * is gone. What survives is QUOTE EXTRACTION — pulling the tidy phrase out of a
+ * page's body text for the diagnosis message. That is a presentation job, not a
+ * decision, and the verdict never depends on it.
+ *
  * Kept narrow on purpose: widening it would let a generic crash win the match.
  */
 export const OBSERVED_CSS_PRELOAD_FAILURE = /Unable to preload CSS for \S+/i
 
 /**
- * DERIVED. The product decides; this only adds the witnessed gap.
+ * DERIVED, and now WHOLLY so — the product decides, full stop.
+ *
+ * This used to read `isChunkLoadError(...) || OBSERVED_CSS_PRELOAD_FAILURE.test(...)`,
+ * because the product did not yet accept Vite's CSS shape. It does, so the second
+ * limb could only ever agree with the first, and a redundant limb is a place for a
+ * future divergence to hide. Subtraction, not addition.
+ *
  * `isChunkLoadError` tests `name + message`, so passing text as a message is faithful.
  */
 export function isModuleLoadFailureText(text: string): boolean {
   if (!text) return false
-  return isChunkLoadError(new Error(text)) || OBSERVED_CSS_PRELOAD_FAILURE.test(text)
+  return isChunkLoadError(new Error(text))
 }
 
 /**

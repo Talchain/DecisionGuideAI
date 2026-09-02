@@ -16,35 +16,81 @@ import {
   isChunkLoadError,
   STALE_BUILD_ACTION_COPY,
   STALE_BUILD_NOTICE_COPY,
+  CHUNK_LOAD_ERROR_SHAPES,
+  CHUNK_LOAD_NEAR_MISSES,
 } from '../staleBuildRecovery'
+
+/**
+ * ⭐ THE HAND-WRITTEN CORPUS, AND IT IS HAND-WRITTEN ON PURPOSE.
+ *
+ * `CHUNK_LOAD_ERROR_SHAPES` is exported from the product so consumers DERIVE
+ * rather than copy — the boundary spec and the Core E2E guard both do now. But a
+ * derived guard proves AGREEMENT and can never prove COMPLETENESS: delete a shape
+ * from the export, narrow the predicate to match, and every derived consumer
+ * agrees with the smaller truth while staying green.
+ *
+ * These lists are the other half, and they earned their place immediately — the
+ * reconciliation at the bottom of this file caught the first draft of the export
+ * being SHORT by two shapes (`ChunkLoadError` and a negative). Ship both guards;
+ * drop either and a whole defect class goes unobserved.
+ */
+const HAND_WRITTEN_YES: readonly string[] = [
+  // Chrome
+  'Failed to fetch dynamically imported module: https://x/assets/canvas-abc.js',
+  // Firefox
+  'error loading dynamically imported module',
+  // Safari
+  'Importing a module script failed.',
+  // The shape a SPA fallback produces — 200 text/html where JS was expected.
+  'Failed to load module script: Expected a JavaScript module script but the server responded with a MIME type of "text/html".',
+  // webpack era, kept for safety
+  'Loading chunk 42 failed.',
+  'ChunkLoadError',
+  // ⭐ VITE'S OWN CSS SHAPE — and the only one on this list that Vite emits
+  // itself rather than the browser. Derived from the producer, not guessed:
+  // node_modules/vite/dist/node/chunks/*.js builds `Unable to preload CSS
+  // for ${dep}` in the stylesheet `error` listener inside `preload()`, then
+  // `handlePreloadError` RETHROWS it, so it unwinds to a React boundary
+  // exactly like a failed JS chunk.
+  //
+  // Why it went unmatched for so long: in that same helper only CSS deps
+  // get a rejecting promise. A failed JS dep falls through to `baseModule()`
+  // and surfaces as the BROWSER's "Failed to fetch dynamically imported
+  // module" — which is why every other entry on this list is a browser
+  // string and this one is not. The asymmetry is in Vite, not in us.
+  //
+  // Witnessed on staging in Core E2E run 33571760150 (2026-09-01): a lazy
+  // route's retired CSS chunk rendered "The canvas encountered an
+  // unexpected error", blaming the app for a deploy race.
+  'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css',
+]
+
+const HAND_WRITTEN_NO: readonly string[] = [
+  'Cannot read properties of undefined (reading "id")',
+  'Network request failed',
+  'Analysis returned no options',
+  'Maximum update depth exceeded',
+  // ⚠ NEAR-MISSES FOR THE CSS SHAPE. Over-matching is the DANGEROUS
+  // direction here: a false positive tells the user to reload for a defect
+  // reloading cannot fix, and buries the real error behind "Olumi was
+  // updated". These two are not decoration — each kills a different
+  // plausible over-broad rewrite of the pattern:
+  //   · /Unable to load/ or a bare /CSS/ mention
+  'Unable to load the stylesheet',
+  //   · a loose /preload.*CSS/i that ignores Vite's word order
+  'Failed to preload the CSS bundle',
+]
 
 describe('staleBuildRecovery — detector', () => {
   it('recognises the real browser message shapes', () => {
-    const yes = [
-      // Chrome
-      'Failed to fetch dynamically imported module: https://x/assets/canvas-abc.js',
-      // Firefox
-      'error loading dynamically imported module',
-      // Safari
-      'Importing a module script failed.',
-      // The shape a SPA fallback produces — 200 text/html where JS was expected.
-      'Failed to load module script: Expected a JavaScript module script but the server responded with a MIME type of "text/html".',
-      // webpack era, kept for safety
-      'Loading chunk 42 failed.',
-      'ChunkLoadError',
-    ]
+    const yes = HAND_WRITTEN_YES
     for (const m of yes) expect(isChunkLoadError(new Error(m)), m).toBe(true)
   })
 
   it('CONTRAST: rejects ordinary application errors', () => {
     // Without this arm the detector could be `() => true` and every test above
     // would still pass, turning every crash into "Olumi was updated".
-    const no = [
-      'Cannot read properties of undefined (reading "id")',
-      'Network request failed',
-      'Analysis returned no options',
-      'Maximum update depth exceeded',
-    ]
+    const no = HAND_WRITTEN_NO
     for (const m of no) expect(isChunkLoadError(new Error(m)), m).toBe(false)
     expect(isChunkLoadError(null)).toBe(false)
     expect(isChunkLoadError(undefined)).toBe(false)
@@ -142,5 +188,32 @@ describe('staleBuildRecovery — one reload, never a loop', () => {
     window.location.hash = '#/scenarios'
     ensureRouteHash()
     expect(window.location.hash).toBe('#/scenarios')
+  })
+})
+
+describe('the exported corpus is COMPLETE, not merely self-consistent', () => {
+  // The lists above are hand-written and reviewed here; the export is what other
+  // files derive from. These assertions are the join. Bidirectional on purpose: an
+  // export that GROWS past this file is as much a finding as one that shrinks,
+  // because it means a shape was added without its witness being reviewed here.
+  it('every hand-written shape is in the exported corpus, and vice versa', () => {
+    expect([...CHUNK_LOAD_ERROR_SHAPES].sort()).toEqual([...HAND_WRITTEN_YES].sort())
+    expect([...CHUNK_LOAD_NEAR_MISSES].sort()).toEqual([...HAND_WRITTEN_NO].sort())
+  })
+
+  it('CONTROL: the corpora are non-empty and do not overlap', () => {
+    // A reconciliation between two empty lists passes and proves nothing.
+    expect(CHUNK_LOAD_ERROR_SHAPES.length).toBeGreaterThanOrEqual(7)
+    expect(CHUNK_LOAD_NEAR_MISSES.length).toBeGreaterThanOrEqual(6)
+    for (const m of CHUNK_LOAD_NEAR_MISSES) {
+      expect(CHUNK_LOAD_ERROR_SHAPES, `${m} must not be in both`).not.toContain(m)
+    }
+  })
+
+  it('the CSS shape is present BY NAME, not merely by count', () => {
+    // Bound by identity, not by a count another entry could satisfy. This is the
+    // shape this change exists for; a refactor that drops it must RED here.
+    expect(CHUNK_LOAD_ERROR_SHAPES.some((m) => m.startsWith('Unable to preload CSS for'))).toBe(true)
+    expect(isChunkLoadError(new Error('Unable to preload CSS for /assets/x.css'))).toBe(true)
   })
 })
