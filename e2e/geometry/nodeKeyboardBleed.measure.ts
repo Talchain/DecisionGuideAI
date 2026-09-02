@@ -13,8 +13,18 @@
  * and hands the right-hand dock to the Inspector. A keyboard user cannot press
  * any in-node affordance without also getting a selection they did not ask for.
  *
- * ⚠ RUN IT DELIBERATELY, it is not in any gate:
- *     pnpm exec playwright test -c playwright.geometry.config.ts nodeKeyboardBleed
+ * ⚠ CORRECTED — THIS FILE IS NOW PARTLY GATED. It previously read "it is not in
+ * any gate", which was true when written and is no longer. THREE of its four
+ * arms (drive, pointer, opposite-direction) carry `GATE_TAG` and run on every
+ * push to `staging` and every PR into it, via the `Canvas Browser Gate
+ * (advisory)` job. The CENSUS arm remains a measure and is deliberately not
+ * gated. Which arms gate, and the shipped defect each one would have caught,
+ * are declared in `e2e/geometry/canvasGateSet.ts` — the registry, not this
+ * comment, is the authority, precisely so this sentence cannot go stale again.
+ *
+ *     pnpm run canvas:gate        # the three gated arms, as CI runs them
+ *     pnpm run geometry nodeKeyboardBleed   # everything here, census included
+ *
  * `*.measure.ts`, not `*.spec.ts`, so the main e2e config cannot collect it into
  * a run that has no dev server on its port — same convention as the sibling
  * measures in this directory.
@@ -47,7 +57,96 @@
  * accessibility defect for another. One direction alone is a guard watching one
  * door.
  *
- * Assertions bind by IDENTITY — the node's store id and the control's own
+ * ── ⭐⭐ "A PROBE THAT IS ONLY CORRECT WHEN THE PRODUCT IS" ──────────────────
+ *
+ * A DEFECT CLASS, not a one-off, and it was found TWICE IN THIS FILE IN ONE
+ * NIGHT by two lanes unaware of each other:
+ *   - the drive arm's `isGated` dispatched a real bubbling Enter BEFORE the key
+ *     under test was pressed. `Enter` is in React Flow's `elementSelectionKeys`,
+ *     so with the scope broken THE PROBE SELECTED THE NODE ITSELF;
+ *   - the portalled arm (PR #1146) had the same shape: its gate probe's
+ *     synthetic Enter landed before the selection was read, so with the fix
+ *     removed the `q` contrast control fired for THE PROBE'S OWN SIDE EFFECT.
+ *
+ * Both were invisible at pristine PRECISELY BECAUSE THE FIX MAKES THE PROBE'S
+ * ENTER HARMLESS. The probe is correct exactly when the product is correct, so
+ * it can never witness the product being wrong — and every green run agrees.
+ *
+ * ⭐ THE SWEEP OF THIS FILE (2026-09-02), recorded so the next reader inherits it
+ * rather than the anecdote. The question asked of every arm was: DOES ANYTHING
+ * READ STATE AFTER A PROBE THAT CAN ITSELF MUTATE THAT STATE?
+ *
+ * ⚠ SYMBOLS, NOT LINE NUMBERS. The first version of this sweep cited `:479`,
+ * `:628` and three others, and EVERY ONE OF THEM WAS ALREADY STALE WHEN IT
+ * SHIPPED — the same commit that wrote them moved the code. In a file whose own
+ * doctrine is that comments must not go stale, that is the defect it warns
+ * about, inside the paragraph warning about it. Grep the symbol.
+ *
+ *   isGated                   THE DEFECT. Fixed: it runs AFTER `pressAt`,
+ *                             reports `found` and `armed` SEPARATELY, and only
+ *                             the non-activating contrast key writes a verdict.
+ *   censusFocusables          SAME SHAPE, currently inert: it dispatches the
+ *                             identical bubbling Enter, but returns `armed`
+ *                             alone and never reads selection — and it belongs
+ *                             to the census arm, which is not gated. Left as
+ *                             is, NAMED rather than silently passed over,
+ *                             because it is one `selectedNodeIds` call away
+ *                             from being the same bug.
+ *   tryFocus / focusOnce      MUTATES (hover + `.focus()`, and `focusin`
+ *                             BUBBLES). ⭐⭐ AND THE LOAD-BEARING CALL SITE IS
+ *                             THE ONE INSIDE `pressAt`, NOT THE LOOP'S — read
+ *                             the next paragraph, because the obvious answer
+ *                             about this one is WRONG.
+ *   pointer arm               The control drag is separated from the
+ *                             measurement by `resetSelection`, and both
+ *                             readings are of the gesture under test.
+ *   opposite direction        Explicit Shift/pointer hygiene, then a full
+ *                             `loadCanvas`, then an asserted baseline, then its
+ *                             own measurement. No probe between.
+ *
+ * ⭐⭐ THE `tryFocus` CASE IN FULL, because an earlier version of this sweep got
+ * it wrong and a rule with a false worked example licenses exactly what it bans.
+ *
+ * That version said `tryFocus` is safe because "the per-key ASSERTED BASELINE
+ * `toEqual([])` follows it". That describes the LOOP's call site. There are
+ * three, and the load-bearing one is INSIDE `pressAt`, where the order is:
+ *
+ *     tryFocus(...)                      <- MUTATES (hover + focus, focusin bubbles)
+ *     expect(probe.ok, ...).toBe(true)   <- asserts FOCUS SUCCEEDED
+ *     page.keyboard.press(key)
+ *     return selectedNodeIds(page)       <- READS SELECTION
+ *
+ * An assertion does sit between the mutation and the reading — AND IT PINS A
+ * DIFFERENT STATE. `probe.ok` says the control took focus; it says NOTHING
+ * about whether focusing it selected the node. So the assertion is real, the
+ * ordering looks protected, and the reading is unguarded.
+ *
+ * ⭐ WHAT ACTUALLY PROTECTS THAT SITE IS NOT AN ASSERTION AT ALL — it is the
+ * FOCUS ATTRIBUTION ROW. The drive loop measures focus-with-no-key as its own
+ * row, and `bled` requires `!focusSelects`, so a selection caused by focusing
+ * is attributed to focus and subtracted rather than counted as a key bleed.
+ * A DESIGN feature of the measurement, not a guard in the code path — which is
+ * why reading the code path alone gave the wrong answer.
+ *
+ * ⚠⚠ THE RULE THIS LEAVES — all three clauses, because the first version had
+ * only the first and it would have licensed the next instance:
+ *
+ *   1. A probe may precede a reading only if it cannot mutate what is read, or
+ *      if something between them PINS THE SAME STATE THE READING MEASURES.
+ *      "An assertion sits between them" is NOT enough: `pressAt` has one, and
+ *      it pins focus success while the reading measures selection. An assertion
+ *      about a different state is a guard agreeing with itself (trap 13b).
+ *   2. A probe that runs AFTER a mutation must distinguish "I COULD NOT
+ *      MEASURE" from "I MEASURED A DEFECT". This is the clause the reorder
+ *      itself discovered: moving `isGated` after the press exposed it to a
+ *      target its own key had removed from the DOM, and the old boolean
+ *      returned the same `false` for "not gated" and "not found" — a FALSE
+ *      DEFECT. `{ found, armed }` is that clause implemented. Reorder without
+ *      it and you trade a masked assertion for a fabricable one.
+ *   3. When neither can be arranged, probe AFTER the measurement and let the
+ *      measurement own the state.
+ *
+  * Assertions bind by IDENTITY — the node's store id and the control's own
  * accessible name — never by "some node is selected", which another node could
  * satisfy (trap 19).
  */
@@ -60,6 +159,18 @@ import {
   waitForVisualQuiescence,
   type StarterId,
 } from '../visual/harness'
+/*
+ * ⭐ `GATE_TAG` ADMITS A TEST TO THE MERGE GATE. A test carrying it is run by
+ * `playwright.canvasgate.config.ts` on every push to `staging` and every PR into
+ * it — and it must ALSO be listed in `e2e/geometry/canvasGateSet.ts`, which names
+ * the shipped defect it would have caught. The two are asserted against each
+ * other after every gate run, so tagging without registering (or renaming a
+ * tagged test) is a RED, not a silent change of scope.
+ *
+ * Untagged tests in this file are still collected by the ordinary
+ * `playwright.geometry.config.ts` run. The tag decides what GATES, not what runs.
+ */
+import { GATE_TAG } from './canvasGateSet'
 
 const VIEWPORT = { width: 1440, height: 900 }
 
@@ -590,7 +701,20 @@ async function activateWithoutKey(page: Page, nodeId: string, controlName: strin
  * element and refusing to start a marquee. Reading the class at rest would
  * report the correct fix as ungated.
  */
-async function isGated(page: Page, nodeId: string, controlName: string): Promise<boolean> {
+/**
+ * ⚠ THREE OUTCOMES, NOT TWO — and the third is why this is not a boolean.
+ *
+ * This used to return `false` both for "the scope does not reach this control"
+ * and for "I could not find the control". Those are different facts, and
+ * collapsing them makes a MISSING TARGET indistinguishable from a REAL DEFECT
+ * (CLAUDE.md trap 21 — two questions under one name). It did not bite while the
+ * probe ran BEFORE the press; it becomes reachable the moment it runs after one,
+ * because an activation key can take its own target out of the DOM. Reported
+ * distinctly so a vanished control REDs as a vanished control.
+ */
+type GatedProbe = { readonly found: boolean; readonly armed: boolean }
+
+async function isGated(page: Page, nodeId: string, controlName: string): Promise<GatedProbe> {
   return page.evaluate(
     ({ nodeId: nid, controlName: cn, selector }) => {
       const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nid}"]`)
@@ -599,7 +723,7 @@ async function isGated(page: Page, nodeId: string, controlName: string): Promise
           c.getAttribute('aria-label') ?? (c.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80)
         return name === cn
       })
-      if (!el || !node) return false
+      if (!el || !node) return { found: false, armed: false }
       let armed = false
       const probe = (ev: Event) => {
         armed = !!(ev.target as Element | null)?.closest('.nokey')
@@ -607,7 +731,7 @@ async function isGated(page: Page, nodeId: string, controlName: string): Promise
       node.addEventListener('keydown', probe, true)
       el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
       node.removeEventListener('keydown', probe, true)
-      return armed
+      return { found: true, armed }
     },
     { nodeId, controlName, selector: FOCUSABLE_SELECTOR },
   )
@@ -800,7 +924,10 @@ test.describe('in-node keyboard bleed', () => {
     ).toBe(0)
   })
 
-  test('drive: Space/Enter at an in-node control, with a contrast control and an attribution control', async ({ page }) => {
+  test(
+    'drive: Space/Enter at an in-node control, with a contrast control and an attribution control',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
 
     let loaded: StarterId | null = null
@@ -895,8 +1022,74 @@ test.describe('in-node keyboard bleed', () => {
           await page.waitForTimeout(150)
           read[key] = await selectedNodeIds(page)
         } else {
-          gated[kind] = await isGated(page, c.nodeId, c.name)
+          /*
+           * ⭐⭐ ORDER IS LOAD-BEARING: MEASURE THE KEY UNDER TEST FIRST, THEN PROBE.
+           *
+           * `isGated` dispatches a REAL bubbling `Enter` keydown, and `Enter` is
+           * in React Flow's `elementSelectionKeys`
+           * (`@xyflow/react@12.10.2` `index.mjs:2177`). Running it BEFORE
+           * `pressAt` — which is how this shipped — meant that whenever the
+           * scope was broken THE PROBE SELECTED THE NODE ITSELF, before the key
+           * under test was ever pressed.
+           *
+           * Proven by execution, both directions, on a tree with the scope class
+           * renamed (i.e. reproducing #1129):
+           *     probe first  -> q=["dec_cdp"] x5, and the CONTRAST CONTROL at
+           *                     ':956' fires — "the probe is not discriminating"
+           *     probe second -> q=[] x5, and the HEADLINE assertion at ':959'
+           *                     fires — "an in-node control still selects the
+           *                     node behind it"
+           *
+           * Two things followed from the wrong order, and both are the reason
+           * this is not a cosmetic reorder: the headline assertion and the
+           * per-path `gated` assertion had NEVER EXECUTED under any mutant, and
+           * in the broken state the `space`/`enter` readings were contaminated
+           * by the probe's own Enter — so the arm could not distinguish "the key
+           * press bled" from "my probe bled", which is precisely the attribution
+           * question its FOCUS/CLICK rows exist to answer.
+           *
+           * ⚠⚠ AND THE HAZARD THE REORDER CREATES — closed, not reasoned away,
+           * because taking "just move the two lines" literally would trade a
+           * MASKED assertion for a FABRICABLE one. An activation key can take
+           * its own target OUT OF THE DOM (see the "ONE FRESH SEED PER KEY"
+           * note above), and a probe that cannot find its element used to
+           * return the same `false` as a genuinely ungated one — so measuring
+           * after a press could have manufactured a FALSE `gated=N`, on a real
+           * product with no defect in it. Two changes close it, and neither
+           * relies on this comment staying true:
+           *   - `isGated` reports `found` and `armed` SEPARATELY, so "I could
+           *     not measure" can never be read as "I measured a defect";
+           *   - it is CALLED ONLY ON THE CONTRAST KEY 'q', which is not an
+           *     activation key, so its target must survive its own press —
+           *     asserted in-test immediately below rather than assumed.
+           */
           read[key] = (await pressAt(page, c.nodeId, c.name, key)).selected
+          /*
+           * ⭐ PROBED ONCE, ON THE CONTRAST KEY ONLY — not on all three.
+           *
+           * It used to fire on ' ', 'Enter' and 'q' and discard the first two
+           * results, which is TEN NEEDLESS MUTATING DISPATCHES PER RUN. In a
+           * file whose central finding is that a probe must not mutate what it
+           * measures, leaving avoidable dispatches in is the wrong note to end
+           * on: every one of them is a synthetic bubbling Enter into a live
+           * canvas, i.e. more of exactly the thing that caused the defect.
+           *
+           * 'q' is the right and only place for it: it is not an activation
+           * key, so its target must survive its own press — which makes a
+           * vanished target here a HARD ERROR rather than a reading. On ' ' /
+           * 'Enter' a vanished target is EXPECTED (the press activated the
+           * control), so those passes could never have produced a trustworthy
+           * verdict anyway.
+           */
+          if (key === 'q') {
+            const probe = await isGated(page, c.nodeId, c.name)
+            expect(
+              probe.found,
+              `the gated probe could not find "${c.name}" after the contrast key — a false ` +
+                `gated=N would follow, so this REDs rather than reporting a number`,
+            ).toBe(true)
+            gated[kind] = probe.armed
+          }
         }
       }
 
@@ -986,7 +1179,10 @@ test.describe('in-node keyboard bleed', () => {
    * A drag that moves nothing satisfies "the node did not move" perfectly, so
    * neither assertion is worth anything without the other.
    */
-  test('pointer: Shift-drag over a node still starts a marquee, and does not move the node', async ({ page }) => {
+  test(
+    'pointer: Shift-drag over a node still starts a marquee, and does not move the node',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
     await loadCanvas(page, 'vendor-selection')
 
@@ -1093,7 +1289,10 @@ test.describe('in-node keyboard bleed', () => {
     ).toBe(before?.transform)
   })
 
-  test('opposite direction: Enter at the NODE still selects it, Escape still deselects', async ({ page }) => {
+  test(
+    'opposite direction: Enter at the NODE still selects it, Escape still deselects',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
 
     /*
@@ -1105,6 +1304,23 @@ test.describe('in-node keyboard bleed', () => {
      * An earlier version of this comment claimed the hygiene below made it
      * order-independent, on the strength of a single 4/4 green run. That was a
      * claim about intent, not a measurement, and it is withdrawn.
+     *
+     * ⭐ APPENDED (2026-09-02, the canvas-gate lane, at staging 8736a61a):
+     * **12 further PAIRED runs, 0 failures** — pooling to 19 paired / 1 failure.
+     * ⚠ READ THAT AS EVIDENCE ABOUT NOTHING MUCH: at a true 14% rate, twelve
+     * consecutive passes occur about 16% of the time (0.86^12), so 12/12 is an
+     * unremarkable draw and NOT a refutation — the same asymmetry this comment
+     * already states about 8/8 at the merge base, now in the other direction.
+     * That lane therefore did not reproduce it, did not root-cause it, and
+     * CHANGED NOTHING HERE. Appended rather than rewritten: these are dated
+     * measurements, and a record of what was measured is not a fixture to keep
+     * current (CLAUDE.md trap 14b).
+     *
+     * ⚠ IT IS NONETHELESS IN THE MERGE-PATH GATE, and that is a decision with a
+     * reason: dropping it would leave the gate watching one door. The job is
+     * ADVISORY, which is what absorbs the flake — never a retry. Root-causing
+     * this arm is the stated precondition for promoting that job to REQUIRED.
+     * Full argument at `canvasGateSet.ts` § KNOWN_FLAKE_IN_GATE.
      *
      * ⭐ IT IS NOT CAUSED BY THE FIX THIS FILE TESTS, and the reasoning is
      * mechanical rather than statistical: `closest()` walks UP, the keyboard
