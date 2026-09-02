@@ -483,18 +483,33 @@ export type ComposerAbsenceVerdict =
  */
 
 /**
- * The ONE shape witnessed here that the product's predicate does not yet accept.
+ * ⭐ NO LONGER A GAP — the product accepts this shape now, so this pattern's job
+ * has changed and its old name would lie about it.
+ *
+ * It was introduced as "the ONE shape witnessed here that the product's
+ * predicate does not yet accept". That gap is closed: `isChunkLoadError` matches
+ * `Unable to preload CSS for` directly, so the union below became redundant and
+ * is gone. What survives is QUOTE EXTRACTION — pulling the tidy phrase out of a
+ * page's body text for the diagnosis message. That is a presentation job, not a
+ * decision, and the verdict never depends on it.
+ *
  * Kept narrow on purpose: widening it would let a generic crash win the match.
  */
 export const OBSERVED_CSS_PRELOAD_FAILURE = /Unable to preload CSS for \S+/i
 
 /**
- * DERIVED. The product decides; this only adds the witnessed gap.
+ * DERIVED, and now WHOLLY so — the product decides, full stop.
+ *
+ * This used to read `isChunkLoadError(...) || OBSERVED_CSS_PRELOAD_FAILURE.test(...)`,
+ * because the product did not yet accept Vite's CSS shape. It does, so the second
+ * limb could only ever agree with the first, and a redundant limb is a place for a
+ * future divergence to hide. Subtraction, not addition.
+ *
  * `isChunkLoadError` tests `name + message`, so passing text as a message is faithful.
  */
 export function isModuleLoadFailureText(text: string): boolean {
   if (!text) return false
-  return isChunkLoadError(new Error(text)) || OBSERVED_CSS_PRELOAD_FAILURE.test(text)
+  return isChunkLoadError(new Error(text))
 }
 
 /**

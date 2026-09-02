@@ -93,7 +93,11 @@ import {
   selectStalled,
   type ComposerAbsenceInput,
 } from '../../e2e/core/lib/harness'
-import { isChunkLoadError } from '../../src/lib/staleBuildRecovery'
+import {
+  isChunkLoadError,
+  CHUNK_LOAD_ERROR_SHAPES,
+  CHUNK_LOAD_NEAR_MISSES,
+} from '../../src/lib/staleBuildRecovery'
 
 // ── the corpus, from the artefacts of the ten measured failures ──────────────
 /** Observed IN-FLIGHT noise on runs that were NOT asset failures (run 33555675895). */
@@ -347,21 +351,37 @@ describe('System E · the composer-absence verdict', () => {
   // restating it. Corpus AND derived guard, because neither alone is sufficient:
   // derivation cannot notice a SHORT product list, and a corpus cannot notice drift.
   describe('defect 5 — the predicate is DERIVED from the product, not copied', () => {
-    /** The product's own positive corpus (ErrorBoundary.recovery.spec.tsx, case 5). */
-    const PRODUCT_YES = [
-      'Failed to fetch dynamically imported module: https://x/assets/index-abc.js',
-      'error loading dynamically imported module',
-      'Importing a module script failed.',
-      'Failed to load module script: Expected a JavaScript-or-Wasm module script but the ' +
-        'server responded with a MIME type of "text/html".',
-      'Loading chunk 42 failed',
-    ]
-    /** The product's own negative corpus — the over-match control. */
-    const PRODUCT_NO = [
-      "Cannot read properties of undefined (reading 'label')",
-      'Maximum update depth exceeded',
-      'Network request failed',
-    ]
+    // ⭐ DERIVED, not copied — and this is the second time this exact block has
+    // taught the lesson. These two lists used to be hand-written here. When the
+    // product learned Vite's CSS shape, the copy stayed short and this file's
+    // union assertion would have gone on passing while testing one shape FEWER.
+    // A guard that keeps passing while covering less is strictly worse than one
+    // that breaks: it is the hand-maintained mirror, sitting inside the fix
+    // written to remove a hand-maintained mirror.
+    //
+    // The corpus now has ONE owner, exported beside the predicate it describes.
+    const PRODUCT_YES = CHUNK_LOAD_ERROR_SHAPES
+    const PRODUCT_NO = CHUNK_LOAD_NEAR_MISSES
+
+    it('the corpora are the PRODUCT\'s BY IDENTITY — a hand-written copy REDs', () => {
+      // ⭐⭐ THE SECOND DE-DELEGATION DETECTOR, and it exists because introducing
+      // the derivation above CREATED A NEW AXIS that nothing guarded.
+      //
+      // Measured, not assumed: replacing `PRODUCT_YES` with a short hand-written
+      // array left all 62 tests GREEN. Every content assertion in this file still
+      // passed, because a copy that is faithful TODAY agrees with everything —
+      // it only fails to inherit what the product learns TOMORROW, which is
+      // precisely the failure no test can observe at the moment it is written.
+      //
+      // Reference identity is what closes it. `toBe` cannot be satisfied by any
+      // literal, however faithful, so the only way to pass is to actually derive.
+      expect(PRODUCT_YES, 'PRODUCT_YES must BE the product corpus, not equal it').toBe(
+        CHUNK_LOAD_ERROR_SHAPES,
+      )
+      expect(PRODUCT_NO, 'PRODUCT_NO must BE the product corpus, not equal it').toBe(
+        CHUNK_LOAD_NEAR_MISSES,
+      )
+    })
 
     it('accepts EVERY shape the product accepts — the union assertion', () => {
       for (const m of PRODUCT_YES) {
@@ -408,20 +428,25 @@ describe('System E · the composer-absence verdict', () => {
       expect(verdict).toBe('asset-delivery')
     })
 
-    it('the CSS-preload union is the product GAP, and is the only addition', () => {
+    it('the CSS-preload shape is now the PRODUCT\'s, not a harness-only addition', () => {
       const css = 'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css'
-      // ⚠⚠ PLANTED RED — EXPECTED, AND HERE IS WHAT TO DO ABOUT IT.
-      // When the product is widened to recognise `Unable to preload CSS for …` (rowed
-      // as a user-facing gap: today that failure gets generic crash copy instead of the
-      // stale-build Reload affordance), THIS LINE GOES RED. That is the correct signal,
-      // not a break. FLIP IT TO `true` and then simplify or delete
-      // `OBSERVED_CSS_PRELOAD_FAILURE`, whose only reason to exist is this gap.
-      // Do NOT delete this guard, and do NOT re-narrow the harness to keep it green.
-      expect(isChunkLoadError(new Error(css)), 'the product does NOT yet accept this').toBe(false)
-      expect(isModuleLoadFailureText(css), 'the harness must, it was witnessed').toBe(true)
+      // ⭐ THE PLANTED RED FIRED, AND THIS IS IT DISCHARGED.
+      // The previous head asserted `false` here with an instruction attached: when
+      // the product is widened to recognise `Unable to preload CSS for …`, flip this
+      // to `true` and simplify the harness union. The product was widened, so this
+      // now asserts the closed state — the gap is gone, and `isModuleLoadFailureText`
+      // reaches the same answer by DELEGATION rather than by a second limb.
+      expect(isChunkLoadError(new Error(css)), 'the product accepts this now').toBe(true)
+      expect(isModuleLoadFailureText(css), 'and the harness inherits it, unedited').toBe(true)
+      // The pattern survives for QUOTE EXTRACTION only; it no longer decides anything.
       expect(OBSERVED_CSS_PRELOAD_FAILURE.test(css)).toBe(true)
       // Narrow on purpose: it must not swallow an unrelated CSS mention.
       expect(OBSERVED_CSS_PRELOAD_FAILURE.test('Unable to load the stylesheet')).toBe(false)
+      // ⛔ And the direction that would actually hurt a user: the product must NOT
+      // have widened into a generic CSS mention. A false positive here tells someone
+      // to reload for a defect a reload cannot fix.
+      expect(isChunkLoadError(new Error('Unable to load the stylesheet'))).toBe(false)
+      expect(isChunkLoadError(new Error('Failed to preload the CSS bundle'))).toBe(false)
     })
 
     // ⭐⭐ THE ONE THAT DETECTS DE-DELEGATION. An "equivalent" hand-written copy passes

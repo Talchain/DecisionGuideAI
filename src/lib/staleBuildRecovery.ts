@@ -79,6 +79,61 @@ export const CHUNK_RELOAD_GUARD_WINDOW_MS = 5 * 60 * 1000
  * reached by an unrelated error that merely mentions CSS. The near-misses in
  * `__tests__/staleBuildRecovery.spec.ts` pin that.
  */
+/**
+ * ⭐ THE WITNESSED SHAPES, EXPORTED SO THERE IS ONE OWNER.
+ *
+ * Three hand-written copies of this list existed at one point — the product
+ * spec, the boundary spec, and the Core E2E guard — and the copy is this
+ * estate's dominant defect class: a list a human must remember to sync WILL
+ * drift, and the drift always reads as green. Concretely, the CSS shape below
+ * was added to the predicate while the guard's copy stayed short, so its union
+ * assertion would have kept passing while testing one shape fewer.
+ *
+ * Both directions matter and neither guard is sufficient alone: DERIVATION
+ * cannot notice that this list is SHORT, and a CORPUS cannot notice that a
+ * consumer has drifted from the product. So this list is the corpus, and the
+ * consumers derive from it.
+ *
+ * Every entry is a shape actually observed, not a guess. Add to it only with a
+ * witness — a run id, or the producer's own source.
+ */
+export const CHUNK_LOAD_ERROR_SHAPES: readonly string[] = [
+  // Chrome
+  'Failed to fetch dynamically imported module: https://x/assets/canvas-abc.js',
+  // Firefox
+  'error loading dynamically imported module',
+  // Safari
+  'Importing a module script failed.',
+  // The shape a SPA fallback produces — 200 text/html where JS was expected.
+  'Failed to load module script: Expected a JavaScript module script but the server responded with a MIME type of "text/html".',
+  // webpack era, kept for safety
+  'Loading chunk 42 failed.',
+  'ChunkLoadError',
+  // Vite's own, and the ONLY entry the browser does not emit. In Vite's
+  // `preload()` helper only CSS deps get a rejecting promise; a failed JS dep
+  // falls through and surfaces as the browser's message above. Same deploy race,
+  // two vocabularies — which is exactly why this one sat unmatched.
+  // Witnessed on staging, Core E2E run 33571760150 (2026-09-01).
+  'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css',
+]
+
+/**
+ * The negative corpus — and it is not decoration. Over-matching is the DANGEROUS
+ * direction: a false positive tells a user to reload for a defect a reload cannot
+ * fix, and buries the real error behind "Olumi was updated". Each entry kills a
+ * different plausible over-broad rewrite.
+ */
+export const CHUNK_LOAD_NEAR_MISSES: readonly string[] = [
+  'Cannot read properties of undefined (reading "id")',
+  'Network request failed',
+  'Analysis returned no options',
+  'Maximum update depth exceeded',
+  // kills /Unable to load/ or a bare /CSS/ mention
+  'Unable to load the stylesheet',
+  // kills a loose /preload.*CSS/i that ignores Vite's word order
+  'Failed to preload the CSS bundle',
+]
+
 export function isChunkLoadError(error: Error | null | undefined): boolean {
   if (!error) return false
   const message = `${error.name ?? ''} ${error.message ?? ''}`
