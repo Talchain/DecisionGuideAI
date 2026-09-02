@@ -427,18 +427,49 @@ export type ComposerAbsenceVerdict =
  * for the previous one. `isChunkLoadError` in `src/lib/staleBuildRecovery.ts` is the
  * SINGLE WRITER for "this page is running a build that no longer exists", is pure and
  * zero-import, and is already pinned by `ErrorBoundary.recovery.spec.tsx`. My parallel
- * list MISSED THREE OF ITS FIVE SHAPES:
- *   · `Importing a module script failed.`            — absent entirely (Safari)
- *   · `Failed to load module script: … MIME type "text/html"` — absent entirely, and
- *     this is CHROME's wording for the Netlify SPA fallback, on a CHROMIUM-ONLY suite
- *   · `error loading dynamically imported module`    — a regex defect: `:? \S*` made
- *     the trailing space MANDATORY, so the bare form never matched
- * A boundary rendering any of those classified as `product` and printed "the app
- * reported no module/asset failure" while the screen said "part of it could not load".
+ * list had already DRIFTED from it, missing three of its five shapes — including a
+ * regex defect (`:? \S*` made the trailing space MANDATORY, so the bare
+ * `error loading dynamically imported module` never matched).
  *
- * SO THE DECISION IS NOW DERIVED, NOT MIRRORED. `isModuleLoadFailureText` delegates to
- * the product's own predicate and unions in ONE observed shape the product does not yet
- * recognise. The next shape the product learns, this recognises for free.
+ * ⚠⚠ BUT THE REACHABILITY ARGUMENT FIRST GIVEN FOR THAT — INCLUDING IN MY OWN COMMIT
+ * MESSAGE — IS WITHDRAWN, AND THE CORRECTION IS THE POINT OF THIS PARAGRAPH. It was
+ * claimed those misses were reachable in BOUNDARY TEXT, and specifically that
+ * `Failed to load module script … MIME type "text/html"` was "Chrome's wording for the
+ * Netlify SPA fallback, on a chromium-only suite". MEASURED AFTERWARDS, BY SERVING A
+ * CHUNK AS `text/html` AND DRIVING CHROME DOWN BOTH PATHS: that MIME wording is a
+ * CONSOLE ERROR ONLY. It is never a thrown Error, so it cannot reach a React boundary
+ * and cannot reach this DOM-text channel at all. Chrome's dynamic-import path throws
+ * `Failed to fetch dynamically imported module: <url>` instead. And of the other two,
+ * `Importing a module script failed.` is SAFARI and `error loading dynamically imported
+ * module` is FIREFOX — neither reachable on a chromium-only suite either.
+ * NONE OF THE THREE NAMED MISSES WAS REACHABLE HERE.
+ *
+ * ⭐⭐ THE SUBSTANCE SURVIVES AND THE JUSTIFICATION GETS BETTER. A hand-written copy that
+ * had ALREADY drifted is a real defect whatever its shapes' reachability. And the
+ * durable reason to delegate is not "my list was short" — it is that NOBODY HAS TO
+ * REASON ABOUT WORDING REACHABILITY EVER AGAIN. Which browser throws which sentence,
+ * which sentences reach a boundary versus only a console, and what a future bundler or
+ * browser version changes, all stop being this file's problem the moment the product
+ * owns the predicate. Two careful readers got that reasoning wrong in consecutive
+ * rounds; delegation removes the need to get it right.
+ *
+ * SO THE DECISION IS DERIVED, NOT MIRRORED. `isModuleLoadFailureText` delegates to the
+ * product's own predicate and unions in ONE observed shape the product does not yet
+ * recognise. The next shape the product learns, this recognises for free — and
+ * `defect 5` in the guard proves that INHERITANCE behaviourally, so a "harmless"
+ * equivalent copy cannot quietly replace the delegation.
+ *
+ * ⚠ DECLARED BLIND SPOT OF THIS CHANNEL (raised in review; declined deliberately, not
+ * missed). `isChunkLoadError` tests `name + message`, so an error distinguished ONLY by
+ * its `name` — webpack's `ChunkLoadError` — is invisible here: `ErrorBoundary.tsx`
+ * renders `this.state.error?.message` and NEVER renders `.name` (derived at the bytes;
+ * `.name` appears nowhere in that file). No predicate work can fix that, because the
+ * channel is DOM text. Not fixed because the shape looks unreachable in a VITE build —
+ * Vite throws message-bearing errors and the product's own comment keeps the
+ * webpack-era form only "for safety". ⚠ THAT IS A REACHABILITY CLAIM OF EXACTLY THE
+ * KIND WITHDRAWN TWO PARAGRAPHS UP, so it is recorded as a declared limitation rather
+ * than dismissed: if it ever does occur, the failure direction is a FALSE `product`
+ * accusation, which is the harmful direction, not the safe one.
  *
  * ⚠ THE CSS-PRELOAD UNION IS A PRODUCT GAP, NOT A HARNESS QUIRK. `Unable to preload CSS
  * for …` is the one shape WITNESSED IN THE WILD here (run 33571760150) and it is

@@ -42,7 +42,47 @@
 // between them; a change that moves it past either end breaks a named case here rather
 // than silently re-opening defect 3.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+/**
+ * ⭐⭐ THE DELEGATION ITSELF MUST BE GUARDED, OR THE FIX CAN BE SILENTLY UNDONE.
+ *
+ * Review measured this: replacing the delegation with an EQUIVALENT hand-written copy
+ * left the suite 39/39 GREEN. So "we removed the duplicate" was not the same claim as
+ * "the duplicate cannot come back" — and `stale-build-recovery-single-writer` cannot
+ * close the gap, because it walks `src/` only, which is exactly why it missed the
+ * original copy living under `e2e/`.
+ *
+ * This wrapper spies on the PRODUCT predicate and can also make it accept a fabricated
+ * shape. An implementation that truly delegates inherits that shape for free; ANY
+ * hand-written copy — however faithful today — does not. That is what makes the test
+ * detect de-delegation rather than mere disagreement.
+ *
+ * It spreads `importOriginal`, so real behaviour is unchanged for every other case in
+ * this file (trap: a bare `vi.mock` factory REPLACES the module and silently drops
+ * whatever it does not list).
+ */
+const productPredicate = vi.hoisted(() => ({
+  /** When set, the PRODUCT accepts any message containing this. */
+  fabricatedShape: null as string | null,
+  /** Messages the product predicate was actually asked about. */
+  asked: [] as string[],
+}))
+
+vi.mock('../../src/lib/staleBuildRecovery', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/staleBuildRecovery')>()
+  return {
+    ...actual,
+    isChunkLoadError: (error: Error | null | undefined): boolean => {
+      productPredicate.asked.push(error?.message ?? '')
+      if (
+        productPredicate.fabricatedShape &&
+        (error?.message ?? '').includes(productPredicate.fabricatedShape)
+      ) return true
+      return actual.isChunkLoadError(error)
+    },
+  }
+})
 
 import {
   ASSET_STALL_MS,
@@ -370,11 +410,52 @@ describe('System E · the composer-absence verdict', () => {
 
     it('the CSS-preload union is the product GAP, and is the only addition', () => {
       const css = 'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css'
+      // ⚠⚠ PLANTED RED — EXPECTED, AND HERE IS WHAT TO DO ABOUT IT.
+      // When the product is widened to recognise `Unable to preload CSS for …` (rowed
+      // as a user-facing gap: today that failure gets generic crash copy instead of the
+      // stale-build Reload affordance), THIS LINE GOES RED. That is the correct signal,
+      // not a break. FLIP IT TO `true` and then simplify or delete
+      // `OBSERVED_CSS_PRELOAD_FAILURE`, whose only reason to exist is this gap.
+      // Do NOT delete this guard, and do NOT re-narrow the harness to keep it green.
       expect(isChunkLoadError(new Error(css)), 'the product does NOT yet accept this').toBe(false)
       expect(isModuleLoadFailureText(css), 'the harness must, it was witnessed').toBe(true)
       expect(OBSERVED_CSS_PRELOAD_FAILURE.test(css)).toBe(true)
       // Narrow on purpose: it must not swallow an unrelated CSS mention.
       expect(OBSERVED_CSS_PRELOAD_FAILURE.test('Unable to load the stylesheet')).toBe(false)
+    })
+
+    // ⭐⭐ THE ONE THAT DETECTS DE-DELEGATION. An "equivalent" hand-written copy passes
+    // every other case in this file — it only fails HERE, because it cannot inherit a
+    // shape the product learns after it was written.
+    it('INHERITS a shape the product learns, with no edit here — de-delegation reds', () => {
+      const fabricated = 'Qx-shape-no-copy-could-know-about'
+      expect(
+        isModuleLoadFailureText(fabricated),
+        'baseline: unknown to product and harness alike',
+      ).toBe(false)
+
+      productPredicate.fabricatedShape = fabricated
+      try {
+        expect(
+          isModuleLoadFailureText(fabricated),
+          'the harness must accept whatever the PRODUCT accepts. A hand-written copy — ' +
+          'even one identical to today\'s regex — cannot inherit this, which is exactly ' +
+          'the silent de-delegation this case exists to catch.',
+        ).toBe(true)
+        expect(findModuleLoadFailure(fabricated), 'and must quote it').not.toBeNull()
+      } finally {
+        productPredicate.fabricatedShape = null
+      }
+    })
+
+    it('CALLS the product predicate rather than reimplementing its judgement', () => {
+      productPredicate.asked.length = 0
+      const probe = 'Zq-probe-string-for-the-delegation-call'
+      isModuleLoadFailureText(probe)
+      expect(
+        productPredicate.asked,
+        'isModuleLoadFailureText must ASK isChunkLoadError, not decide by itself',
+      ).toContain(probe)
     })
 
     it('a positive the quote list cannot phrase still returns a quote, never null', () => {
