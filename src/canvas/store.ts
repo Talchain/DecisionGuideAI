@@ -2774,7 +2774,55 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         }
       }
 
-      return { nodes: updatedNodes, selection }
+      /*
+       * ⭐⭐ KEEP THE PREVIOUS ARRAY WHEN NOTHING IN IT CHANGED — this is what
+       * made the four reasoning-frontier doors invisible to every sighted user.
+       *
+       * `applyNodeChanges` ALWAYS returns a new array (`@xyflow/react@12.10.2`,
+       * `dist/esm/index.mjs:591-666` — it pushes into a fresh `updatedElements`
+       * and only skips COPYING the individual members). A change addressed to an
+       * id this store does not hold is silently dropped, and the array identity
+       * still changes.
+       *
+       * The canvas injects four nodes DOWNSTREAM of this store — `__ghost-option__`,
+       * `__ghost-factor__`, `__ghost-risk__`, `__ghost-outcome__`, built in
+       * `ReactFlowGraph.tsx`'s `nodesWithGhost` memo. React Flow measures them like
+       * any other node and reports `dimensions` changes for them, which land here
+       * and match nothing. That produced a LIVELOCK, measured in a real browser:
+       *
+       *   RF measures ghost → `dimensions` change → this `set` mints a new `nodes`
+       *   array → the `s => s.nodes` selector re-renders the canvas → the memo
+       *   rebuilds the ghost node OBJECTS → `adoptUserNodes` rebuilds their
+       *   internals from the user node, whose `measured` is undefined
+       *   (`@xyflow/system@0.0.76:1620-1626`) → `nodeHasDimensions` false → React
+       *   Flow paints `visibility: hidden` (`index.mjs:2237`) and re-observes →
+       *   RF measures ghost → …
+       *
+       * Real nodes escape it because their measurement IS persisted here, so the
+       * rebuild reads dimensions back off the user node. The injected doors have
+       * no row in this store, so nothing can persist theirs — and the loop is
+       * therefore permanent, not transient. Measured at `a0b77f6c`, vendor-selection
+       * starter: 1,660 ResizeObserver callbacks and 1,668 re-observations of four
+       * elements whose box never changed, in a ~3s window, with all four reading
+       * `visibility: hidden` in all 12 samples while 19 of 19 real nodes read
+       * visible.
+       *
+       * ⚠ THE FIX IS NOT "IGNORE GHOST IDS", and that distinction matters. This
+       * store should not know the canvas injects anything — a hand-maintained list
+       * of foreign ids here would drift the first time another placeholder is
+       * added. The honest statement is narrower and has no list in it: a batch that
+       * changed none of our nodes must not churn our nodes' identity. That is true
+       * of the ghosts today and of anything injected tomorrow.
+       *
+       * Member-wise, not deep: `applyNodeChanges` shallow-copies exactly the
+       * elements it actually changed, so reference equality per member is the
+       * precise question — a deep compare would be both slower and less accurate.
+       */
+      const nodesChanged =
+        updatedNodes.length !== s.nodes.length ||
+        updatedNodes.some((n, i) => n !== s.nodes[i])
+
+      return { nodes: nodesChanged ? updatedNodes : s.nodes, selection }
     })
 
     if (isDrag) {
