@@ -313,10 +313,42 @@ export interface TurnStream {
  * These are Playwright-level listeners, so they also cannot perturb the app.
  */
 export interface AssetDelivery {
-  /** Script/stylesheet requests that were issued and never finished. */
-  undelivered: () => string[]
+  /**
+   * Script/stylesheet requests outstanding for at least `minAgeMs`.
+   *
+   * ⚠ THE AGE IS NOT OPTIONAL AND THE FIRST VERSION OF THIS FILE THREW IT AWAY. It
+   * recorded `Date.now()` on every request and then returned bare URLs, so ANY
+   * request in flight at the moment of failure counted as "never completed".
+   * Measured in the same corpus: the PRODUCT failure `33555675895` — which
+   * successfully laid out 19 nodes — held two `/assets/*.js` still open at trace
+   * close, **447 ms and 80 ms old**. An age-blind reading shouts asset delivery at
+   * a run whose assets were simply still arriving.
+   */
+  undelivered: (minAgeMs?: number) => StalledAsset[]
   /** Requests the browser reported as outright failed, with Chromium's reason. */
   failed: () => Array<{ url: string; reason: string }>
+}
+
+export interface StalledAsset { url: string; ageMs: number }
+
+/**
+ * An asset outstanding at least this long is STALLED rather than in flight.
+ *
+ * DERIVED FROM THE CORPUS, not chosen: the observed in-flight noise is 80 ms and
+ * 447 ms; the observed real stall ran from ~5 s into the run to the 60 s timeout,
+ * i.e. ~55 s. Those are two orders of magnitude apart and 10 s sits between them
+ * with room on both sides. Pinned in tests/ci-guards/core-e2e-absence-diagnosis.spec.ts.
+ */
+export const ASSET_STALL_MS = 10_000
+
+/** Pure, so the age rule can be pinned without a browser. */
+export function selectStalled(
+  open: Array<{ url: string; startedAt: number }>, now: number, minAgeMs: number,
+): StalledAsset[] {
+  return open
+    .map((o) => ({ url: o.url, ageMs: now - o.startedAt }))
+    .filter((o) => o.ageMs >= minAgeMs)
+    .sort((a, b) => b.ageMs - a.ageMs)
 }
 
 const ASSET_WATCH = new WeakMap<Page, AssetDelivery>()
@@ -325,24 +357,124 @@ export function installAssetWatch(page: Page): AssetDelivery {
   const existing = ASSET_WATCH.get(page)
   if (existing) return existing // idempotent: two watches would double-count
 
-  const open = new Map<string, number>()
+  // Keyed by the REQUEST, not the URL: two fetches of one URL would otherwise
+  // overwrite each other's start time and the age would be a fiction.
+  const open = new Map<unknown, { url: string; startedAt: number }>()
   const failed: Array<{ url: string; reason: string }> = []
   const isAsset = (r: { resourceType: () => string }): boolean =>
     r.resourceType() === 'script' || r.resourceType() === 'stylesheet'
 
-  page.on('request', (r) => { if (isAsset(r)) open.set(r.url(), Date.now()) })
-  page.on('requestfinished', (r) => { open.delete(r.url()) })
+  page.on('request', (r) => { if (isAsset(r)) open.set(r, { url: r.url(), startedAt: Date.now() }) })
+  page.on('requestfinished', (r) => { open.delete(r) })
   page.on('requestfailed', (r) => {
-    open.delete(r.url())
+    open.delete(r)
     if (isAsset(r)) failed.push({ url: r.url(), reason: r.failure()?.errorText ?? 'unknown' })
   })
 
   const watch: AssetDelivery = {
-    undelivered: () => [...open.keys()],
+    undelivered: (minAgeMs = ASSET_STALL_MS) => selectStalled([...open.values()], Date.now(), minAgeMs),
     failed: () => [...failed],
   }
   ASSET_WATCH.set(page, watch)
   return watch
+}
+
+/**
+ * ⭐⭐ THE VERDICT IS A PURE FUNCTION SO IT CAN BE PINNED WITHOUT A BROWSER.
+ *
+ * ⚠ THE FIRST VERSION OF THIS DIAGNOSIS WAS WRONG IN EXACTLY THE DIRECTION IT WAS
+ * WRITTEN TO PREVENT, and shipping it would have been worse than the locator message
+ * it replaced — because a SPECIFIC wrong explanation is believed, where a vague one is
+ * merely unhelpful. It said `if (stuckLoading || undelivered.length || failedAssets.length)`,
+ * so ANY ONE of three weak signals asserted asset delivery. Executed against it: a
+ * rendered page with an absent composer and one unrelated aborted script printed
+ * "THIS LOOKS LIKE ASSET DELIVERY" and "The app is still showing 'null', which is a
+ * Suspense fallback" — three false sentences about a genuine product failure.
+ *
+ * THE RULE NOW: assert a cause ONLY on POSITIVE, NAMED evidence, and never from the
+ * absence of a signal. Asset delivery requires BOTH that the app is demonstrably still
+ * on a Suspense fallback AND that at least one asset can be NAMED as stalled or failed.
+ * A fallback with nothing nameable is reported as CAUSE UNIDENTIFIED — not as asset
+ * delivery, and not as a product defect either.
+ *
+ * ⚠ STATED BLIND SPOT: the watch observes script and stylesheet requests only, so a
+ * stalled fetch/XHR cannot be seen by it BY CONSTRUCTION. That is precisely why a bare
+ * fallback may not be blamed on `/assets/`.
+ */
+export type ComposerAbsenceVerdict = 'asset-delivery' | 'stalled-cause-unidentified' | 'product'
+
+export interface ComposerAbsenceInput {
+  where: string
+  timeoutMs: number
+  /** Text of EVERY `[role="status"]` on the page, already whitespace-collapsed. */
+  statusTexts: string[]
+  renderedChars: number
+  bodyHead: string
+  url: string
+  /** ALREADY age-filtered by the caller — see ASSET_STALL_MS. */
+  stalledAssets: StalledAsset[]
+  failedAssets: Array<{ url: string; reason: string }>
+}
+
+const LOADING_FALLBACK = /^Loading\b.*\.\.\.$/
+
+export function classifyComposerAbsence(
+  i: ComposerAbsenceInput,
+): { verdict: ComposerAbsenceVerdict; message: string } {
+  const fallback = i.statusTexts.find((t) => LOADING_FALLBACK.test(t))
+  const nameable = i.stalledAssets.length + i.failedAssets.length
+
+  const named = [
+    ...i.stalledAssets.map((a) => `${a.url} (open ${Math.round(a.ageMs / 1000)}s)`),
+    ...i.failedAssets.map((f) => `${f.url} [${f.reason}]`),
+  ]
+
+  const head =
+    `[core] the first-use composer never mounted during ${i.where} ` +
+    `(${i.timeoutMs}ms, zero resolutions).`
+
+  let verdict: ComposerAbsenceVerdict
+  const lines = [head]
+
+  if (fallback && nameable > 0) {
+    verdict = 'asset-delivery'
+    lines.push(
+      `⚠ ASSET DELIVERY — NOT A PRODUCT DEFECT, AND NOT A TIMEOUT MARGIN.`,
+      `  The app is still showing "${fallback}", a Suspense fallback, so the route's lazy`,
+      `  chunk has neither resolved nor rejected — and ${nameable} asset(s) never arrived:`,
+      ...named.slice(0, 8).map((n) => `    ${n}`),
+      `  Raising this budget cannot help: a healthy entry mounts the composer in ~590ms,`,
+      `  and this wait resolved its locator ZERO times.`,
+      `  ⚠ WHY those fetches did not complete is NOT diagnosed by this instrument.`,
+    )
+  } else if (fallback) {
+    verdict = 'stalled-cause-unidentified'
+    lines.push(
+      `⚠ STALLED, CAUSE UNIDENTIFIED — do not read this as asset delivery.`,
+      `  The app is still showing "${fallback}", a Suspense fallback, so the route's lazy`,
+      `  chunk has neither resolved nor rejected. But NO script or stylesheet was stalled`,
+      `  (>=${ASSET_STALL_MS}ms) or failed, so nothing can be named as the cause.`,
+      `  ⚠ This watch observes script/stylesheet only — a stalled fetch/XHR is invisible`,
+      `  to it by construction, so absence of evidence here is not evidence of absence.`,
+    )
+  } else {
+    verdict = 'product'
+    lines.push(
+      `PRODUCT FAILURE — the page IS rendered (${i.renderedChars} chars), no loading`,
+      `  fallback is on screen, and the composer is genuinely absent.`,
+      `  On screen: "${i.bodyHead}"`,
+    )
+    if (nameable > 0) {
+      lines.push(
+        `  FYI ${nameable} asset(s) were still open or failed. NOT the verdict — the app`,
+        `  had rendered past its fallback, so these did not prevent the composer mounting:`,
+        ...named.slice(0, 8).map((n) => `    ${n}`),
+      )
+    }
+  }
+
+  lines.push(`  url=${i.url}`)
+  return { verdict, message: lines.join('\n') }
 }
 
 /**
@@ -351,12 +483,8 @@ export function installAssetWatch(page: Page): AssetDelivery {
  * Both `enterAsGuest` (guest) and `enterAuthenticated` (authenticated) waited on this
  * same testid with their own inline `expect`, and 5 of the 10 measured failures landed
  * on one of the two. Sharing the wait means the diagnosis is written once and neither
- * path can drift away from it.
- *
- * ⚠ THE DIAGNOSIS IS DERIVED FROM THE PAGE, NOT ASSUMED. It reads whatever is actually
- * on screen — the loading fallback, the error boundary — rather than asserting a cause.
- * If the app is fully rendered and the composer is genuinely absent, it says THAT, which
- * is a real product failure and must stay loud.
+ * path can drift away from it. This function only GATHERS; the verdict is
+ * `classifyComposerAbsence`, which is pure and pinned.
  */
 export async function awaitFirstUseComposer(
   page: Page, where: string, timeoutMs: number,
@@ -367,47 +495,27 @@ export async function awaitFirstUseComposer(
   } catch (cause) {
     const state = await page.evaluate(() => {
       const text = (document.body.innerText ?? '').replace(/\s+/g, ' ').trim()
-      const status = document.querySelector('[role="status"]')
       return {
         url: location.href,
-        statusText: (status as HTMLElement | null)?.innerText?.replace(/\s+/g, ' ').trim() ?? null,
+        statusTexts: [...document.querySelectorAll('[role="status"]')]
+          .map((el) => ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim())
+          .filter((t) => t.length > 0),
         bodyHead: text.slice(0, 300),
         rendered: text.length,
       }
     }).catch(() => null)
 
-    const undelivered = watch?.undelivered() ?? []
-    const failedAssets = watch?.failed() ?? []
-    const stuckLoading = /^Loading .*\.\.\.$/.test(state?.statusText ?? '')
-
-    const lines = [
-      `[core] the first-use composer never mounted during ${where} (${timeoutMs}ms, zero resolutions).`,
-    ]
-    if (stuckLoading || undelivered.length || failedAssets.length) {
-      lines.push(
-        `⚠ THIS LOOKS LIKE ASSET DELIVERY, NOT A PRODUCT DEFECT, AND NOT A TIMEOUT MARGIN.`,
-        `  The app is still showing "${state?.statusText}", which is a Suspense fallback: the`,
-        `  route's lazy chunk has neither resolved nor rejected. Raising this budget cannot help —`,
-        `  a healthy entry mounts the composer in ~590ms.`,
-      )
-      if (undelivered.length) {
-        lines.push(`  Never completed (${undelivered.length}): ${undelivered.slice(0, 8).join(', ')}`)
-      }
-      if (failedAssets.length) {
-        lines.push(
-          `  Failed outright (${failedAssets.length}): ` +
-          failedAssets.slice(0, 8).map((f) => `${f.url} [${f.reason}]`).join(', '),
-        )
-      }
-      lines.push(`  Target: ${ORIGIN} — re-check that this deploy still serves its own /assets/.`)
-    } else {
-      lines.push(
-        `The page IS rendered (${state?.rendered} chars) and the composer is genuinely absent —`,
-        `this is a product failure, not asset delivery. On screen: "${state?.bodyHead}"`,
-      )
-    }
-    lines.push(`  url=${state?.url}`)
-    throw new Error(`${lines.join('\n')}\n\n--- original ---\n${String(cause)}`)
+    const { message } = classifyComposerAbsence({
+      where,
+      timeoutMs,
+      statusTexts: state?.statusTexts ?? [],
+      renderedChars: state?.rendered ?? 0,
+      bodyHead: state?.bodyHead ?? '(page state unreadable)',
+      url: state?.url ?? ORIGIN,
+      stalledAssets: watch?.undelivered(ASSET_STALL_MS) ?? [],
+      failedAssets: watch?.failed() ?? [],
+    })
+    throw new Error(`${message}\n\n--- original ---\n${String(cause)}`)
   }
 }
 
