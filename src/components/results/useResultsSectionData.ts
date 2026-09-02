@@ -89,6 +89,7 @@ import {
   type AttributionSuppressionVerdict,
 } from './voi/attributionSuppression'
 import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
+import { resolveGoalTarget, type GoalTargetSource } from '../../canvas/domain/goalTarget'
 import { factorDisplaysValue } from '../../canvas/components/model-tab/utils'
 import {
   selectAssumedStrengthToResolve,
@@ -1484,6 +1485,69 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ?? null
   }, [goalThreshold, goalNode, ceeAnalysisReady, goalThresholdCap])
 
+  /**
+   * ⭐⭐ "HAS ANYONE SET A TARGET?" — WHICH IS NOT THE QUESTION
+   * `effectiveGoalThreshold` ANSWERS, AND HANDING OVER THE WRONG ONE DELETED
+   * COACHING FROM MODELS THAT NEEDED IT.
+   *
+   * ⚠ FOUND BY INDEPENDENT ADVERSARIAL REVIEW, AND IT IS THE FAILURE MODE I
+   * NAMED IN MY OWN PR BEFORE SHIPPING IT. The first cut of this change passed
+   * `effectiveGoalThreshold` straight into the pre-run recommendation. That memo
+   * answers a COMPUTE question — *what number should the analysis use as a
+   * target?* — so it deliberately falls back through `observedState.value`, an
+   * UNGATED `success_threshold`, and an unguarded `goal_threshold_raw`. Measured
+   * on the real hook and the real panel, three ordinary goal shapes then
+   * SILENCED the "Define what success looks like" card while the strip
+   * correctly showed "None set":
+   *
+   *     observed_state: { value: 3.2 }        → card silenced, strip "none"
+   *     goal_threshold_raw: ''                → card silenced, strip "none"
+   *     success_threshold: 0.6, no source     → card silenced, strip "none"
+   *
+   * That is the inverse of the defect this change exists to fix: a false claim
+   * traded for a missing prompt. And the strengthen row is the only surface
+   * carrying the `whyNow` / `tryThis` / provenance — the glance copy is already
+   * suppressed on goal-bearing models — so what vanished was the EXPLANATION,
+   * not a duplicate.
+   *
+   * ⚠ THE FIX IS NOT TO SHARE THE STRIP'S RESOLVER AND CALL IT ALIGNMENT.
+   * `resolveGoalTarget` is reused here because it is the estate's tested answer
+   * to *did someone state a target, and who* — it gates `success_threshold` on
+   * `threshold_source === 'user'` and guards blank strings at both legs, which
+   * is exactly the breadth this question needs. The two surfaces still answer
+   * different questions and still keep different code: the strip additionally
+   * demands EXPRESSIBILITY (user units it can print), which is why it admits
+   * the store scalar only at `representation === 'raw'`. Existence is broader,
+   * so the store scalar counts here at ANY representation — a normalised
+   * threshold is a target that exists and cannot be shown, and the honest
+   * result is the strip saying "none" while the card stays quiet.
+   *
+   * The one-directional invariant is unchanged and still the only one claimed:
+   *
+   *     the strip displaying a target  ⟹  the card's sentence is absent
+   *
+   * ⚠ FINITE NUMBERS ONLY. `goal_threshold_raw` is typed `number` on the node
+   * but `string | number` at `GoalTargetSource`, and a `'11'` does arrive: it
+   * reached `recommendation.goalThreshold` as a STRING in the first cut, in a
+   * field declared `number | null`. Coerced and guarded here rather than left
+   * for a consumer to trip over.
+   */
+  const statedGoalTarget = useMemo<number | null>(() => {
+    const finite = (v: unknown): number | null => {
+      const n = typeof v === 'string' ? Number(v.trim()) : v
+      return typeof n === 'number' && Number.isFinite(n) ? n : null
+    }
+    // 1 — the user's own act, whatever representation it is held in.
+    const fromStore = finite(goalThreshold)
+    if (fromStore !== null) return fromStore
+    // 2 — a target CEE verified from the brief.
+    const fromCee = finite(ceeAnalysisReady?.goal_threshold_raw)
+    if (fromCee !== null) return fromCee
+    // 3 — the node, through the predicate that already knows what "stated" means.
+    const fromNode = resolveGoalTarget(goalNode?.data as GoalTargetSource | null | undefined)
+    return fromNode === null ? null : finite(fromNode.raw)
+  }, [goalThreshold, ceeAnalysisReady, goalNode])
+
   /** Id -> node, for questions the label alone cannot answer. */
   const nodeById = useMemo(() => {
     const map = new Map<string, (typeof nodes)[number]>()
@@ -1720,42 +1784,48 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
            OMITTING IT HERE MADE THE PANEL CONTRADICT ITSELF ON SCREEN.
            Witnessed on deployed `f59ffc26` as a guest: open the
            "International Expansion Strategy" saved example and the Reasoning
-           tab renders, ~120px apart in one viewport —
+           tab renders, in the same panel and the same pre-run state —
 
              model strip     Target 11 £M ARR · From brief · Change
              strengthen card No measurable success target is set.
                              Source: your goal has no success threshold
                              (checked directly).
 
-           The strip reads the goal node (`resolveGoalTarget`). The card reads
+           The strip reads the goal node. The card reads
            `recommendation.goalThreshold`, which this early return did not
            carry — so `buildRecommendations`' `goalThreshold == null` test fired
            on every model with a brief-set target, and the card claimed a direct
            check of a goal it had never been shown. Reproduces on
            `market-entry` (11) and `pricing-model` (110).
 
-           ⚠ THIS IS NOT ALIGNING TWO DEFAULTS, which trap 21 rightly forbids
-           and which `successTargetLine.spec.tsx`:176-187 explicitly ruled out.
-           The two surfaces keep their own resolvers because they answer
-           different questions — the strip asks "is there a target we can SHOW,
-           in this reader's units, and whose is it?", the card asks "has anyone
-           set a measurable target at all?". Existence is the broader question,
-           so the honest invariant is one-directional and only that:
+           ⚠ NO SPATIAL CLAIM IS MADE HERE, DELIBERATELY. An earlier version of
+           this comment said the two sat "~120px apart, with no scrolling". I
+           never measured that, and the browser pane I drove reports
+           `visibilityState: "hidden"` and never fires rAF — it paints plausible
+           screenshots without running layout. Co-presence is a DOM-order fact
+           and survives; position is not, and is withdrawn. The spec below
+           asserts co-presence and no distance.
+
+           ⚠ THIS IS NOT ALIGNING TWO DEFAULTS, which trap 21 forbids and
+           `successTargetLine.spec.tsx`:176-187 explicitly ruled out. The
+           surfaces answer different questions — the strip asks "is there a
+           target we can SHOW, in this reader's units, and whose is it?", the
+           card asks "has anyone set a measurable target at all?". Existence is
+           the broader question, so the honest invariant is one-directional and
+           it is the only one claimed:
 
                the strip displaying a target  ⟹  the card's sentence is absent
 
            The converse stays false on purpose: a goal carrying only a
            normalised threshold is genuinely held-but-unexpressible to the strip
-           and genuinely set to the card, and those are two true sentences.
-           What was wrong was not the card's question — it was being made to
-           answer it with a fact nobody had given it.
+           and genuinely set to the card. What was wrong was not the card's
+           question — it was being made to answer it with a fact nobody had
+           given it.
 
-           `effectiveGoalThreshold` is the right thing to hand over because it
-           never reads `report`: it is store → `ceeAnalysisReady` → goal node,
-           all available before any run, and it is already what the post-run
-           branch passes (:2234) and already in this memo's deps (:2413). Its
-           absence here was where the `if` happens to sit, not a decision. */
-        goalThreshold: effectiveGoalThreshold,
+           ⚠⚠ AND IT IS `statedGoalTarget`, NOT `effectiveGoalThreshold`. See
+           that memo above: handing over the COMPUTE fallback silenced this card
+           on three ordinary goal shapes that have no stated target at all. */
+        goalThreshold: statedGoalTarget,
         isSingleOption: true,
         analysisStatus: 'computed',
       }

@@ -3,7 +3,7 @@
  *
  * ⚠⚠ WITNESSED ON DEPLOYED `f59ffc26`, as a guest, before any run. Open the
  * saved example "International Expansion Strategy" and the Reasoning tab
- * renders both of these, ~120px apart, with no scrolling:
+ * renders both of these, in the same panel and the same pre-run state:
  *
  *     model strip      Target 11 £M ARR · From brief · Change
  *     strengthen card  Define what success looks like
@@ -84,7 +84,16 @@ const SENTENCE = 'No measurable success target is set.'
  * it. The question the panel is actually being asked is "do you say this
  * sentence anywhere on screen", so the predicate reads the text.
  */
-const panelAsksForATarget = () => (document.body.textContent ?? '').includes(SENTENCE)
+const panelAsksForATarget = () => {
+  // ⚠ SCOPED TO THE REGION, NOT THE DOCUMENT. This sentence has TWO producers —
+  // `buildRecommendations` (the strengthen row) and the glance card. On a model
+  // with no goal node the glance renders it without the strengthen section
+  // being open at all, so a document-wide read would answer about a different
+  // surface than the one under test. The testid is already asserted by
+  // `openStrengthen`, so scoping is free.
+  const region = screen.queryByTestId(`${STRENGTHEN}-region`)
+  return (region?.textContent ?? '').includes(SENTENCE)
+}
 
 const openStrengthen = () => {
   fireEvent.click(screen.getByTestId(`${STRENGTHEN}-toggle`))
@@ -114,6 +123,41 @@ const GOAL_WITHOUT_TARGET = {
   type: 'goal',
   data: { label: 'Grow Total ARR Materially Within 12 Months' },
 }
+/**
+ * ⭐⭐ THE THREE SHAPES THAT MUST STILL ASK, AND THE REASON THIS FILE GREW.
+ *
+ * ⚠ FOUND BY INDEPENDENT REVIEW, ON THE FIRST CUT OF THIS FIX. Handing the
+ * card `effectiveGoalThreshold` — a COMPUTE fallback — silenced the coaching on
+ * every one of these while the strip correctly rendered "None set". A false
+ * claim traded for a missing prompt, which is worse than the defect being fixed
+ * because nothing on screen looks wrong.
+ *
+ * ⚠ AND THE CORPUS LESSON: the original pair here was "a full target" and
+ * "nothing at all" — the two ENDS. Every one of these lives in between, and a
+ * corpus of endpoints cannot see a predicate that is too broad in the middle.
+ * Check what a corpus EXCLUDES, not what it covers.
+ */
+const GOAL_OBSERVED_STATE_ONLY = {
+  id: 'g1', type: 'goal',
+  // An observed state is a measurement, never a target somebody set.
+  data: { label: 'Grow Total ARR', observed_state: { value: 3.2 } },
+}
+const GOAL_BLANK_RAW = {
+  id: 'g1', type: 'goal',
+  // A blank arrives in practice — `goalTarget.ts` and `GoalNode` BOTH guard it.
+  data: { label: 'Grow Total ARR', goal_threshold_raw: '' },
+}
+const GOAL_UNGATED_SUCCESS = {
+  id: 'g1', type: 'goal',
+  // No `threshold_source: 'user'`, so nobody stated this as the target.
+  data: { label: 'Grow Total ARR', success_threshold: 0.6 },
+}
+/** ⚠ A STRING, in a field the type says is a number. It does arrive. */
+const GOAL_STRING_RAW = {
+  id: 'g1', type: 'goal',
+  data: { label: 'Grow Total ARR', goal_threshold_raw: '11', goal_threshold_unit: '£M ARR' },
+}
+
 const CENSUS = [
   { id: 'o1', type: 'option', data: { label: 'Germany first' } },
   { id: 'o2', type: 'option', data: { label: 'Nordics first' } },
@@ -123,7 +167,7 @@ const CENSUS = [
 ]
 
 /** Pre-run: no report, first run not completed. The state a saved model opens in. */
-const seedPreRun = (goal: typeof GOAL_WITH_TARGET | typeof GOAL_WITHOUT_TARGET) => {
+const seedPreRun = (goal: { id: string; type: string; data: Record<string, unknown> }) => {
   useCanvasStore.setState({
     nodes: [goal, ...CENSUS],
     edges: [],
@@ -196,8 +240,49 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
     expect(screen.getByTestId(`${STRIP}-value`)).toHaveTextContent('11')
     expect(screen.queryByTestId(`${STRIP}-none`)).toBeNull()
 
-    // ⚠⚠ THE CLAIM. This is the sentence that stood 120px below the target.
+    // ⚠⚠ THE CLAIM. No distance is asserted — see the header. Co-presence in
+    // one panel state is the whole defect and is all that is claimed.
     expect(panelAsksForATarget()).toBe(false)
+  })
+
+  /**
+   * ⭐⭐⭐ THE REGRESSION THIS FIX ALMOST SHIPPED, PINNED AS A TABLE.
+   *
+   * Each of these carries something a COMPUTE fallback would happily use as a
+   * target, and none of them is a target anyone STATED. The card must keep
+   * asking on all three, and the strip must keep saying "none" — the two
+   * surfaces agreeing about an absence, which is the state the first cut broke.
+   *
+   * ⚠ `.each` so the failure names the shape. A loop that fails on case two
+   * reports one red and hides the other two.
+   */
+  it.each([
+    ['an observed state, which is a measurement and not a target', GOAL_OBSERVED_STATE_ONLY],
+    ['a BLANK goal_threshold_raw', GOAL_BLANK_RAW],
+    ['a success_threshold nobody marked as user-set', GOAL_UNGATED_SUCCESS],
+  ])('still asks for a target when the goal carries only %s', (_name, goal) => {
+    seedPreRun(goal)
+    render(<RealPanel />)
+    openStrengthen()
+
+    // The strip agrees there is nothing to show — so a silent card would be the
+    // panel losing the ask entirely, not two surfaces disagreeing.
+    expect(screen.getByTestId(`${STRIP}-none`)).toBeInTheDocument()
+    expect(panelAsksForATarget()).toBe(true)
+  })
+
+  /**
+   * ⚠ A STRING IN A FIELD TYPED `number | null`. `goal_threshold_raw` is
+   * `number` on the node type and `string | number` at `GoalTargetSource`, and
+   * the first cut let `'11'` reach `recommendation.goalThreshold` AS A STRING.
+   * It is coerced at the owner now, so the card is correctly silent AND the
+   * value that got there is a number.
+   */
+  it('coerces a string target rather than passing it through', () => {
+    seedPreRun(GOAL_STRING_RAW)
+    const { result } = renderHook(() => useResultsSectionData())
+    expect(result.current.recommendation.goalThreshold).toBe(11)
+    expect(typeof result.current.recommendation.goalThreshold).toBe('number')
   })
 
   /**
@@ -224,15 +309,31 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
    * target representation is added later: it constrains only the direction that
    * is actually a contradiction.
    */
-  it('the implication holds over both models: strip shows a target ⇒ no ask', () => {
-    for (const goal of [GOAL_WITH_TARGET, GOAL_WITHOUT_TARGET]) {
+  it('the implication holds across every model: strip shows a target ⇒ no ask', () => {
+    let antecedentSeen = 0
+    for (const goal of [
+      GOAL_WITH_TARGET, GOAL_WITHOUT_TARGET, GOAL_STRING_RAW,
+      GOAL_OBSERVED_STATE_ONLY, GOAL_BLANK_RAW, GOAL_UNGATED_SUCCESS,
+    ]) {
       cleanup()
       seedPreRun(goal)
       render(<RealPanel />)
       openStrengthen()
 
       const stripShowsATarget = screen.queryByTestId(`${STRIP}-value`) !== null
-      if (stripShowsATarget) expect(panelAsksForATarget()).toBe(false)
+      if (stripShowsATarget) {
+        antecedentSeen += 1
+        expect(panelAsksForATarget()).toBe(false)
+      }
     }
+    /**
+     * ⭐ THE ASSERTION FLOOR, AND WITHOUT IT THIS TEST WAS VACUOUS. An
+     * `if (antecedent)` with no floor passes when the antecedent NEVER HOLDS —
+     * proven by renaming the strip's `-value` testid, at which point this case
+     * went green with its named claim never once evaluated. Two of the six
+     * models must show a target; a change that stops the strip rendering one
+     * now REDs here instead of silently emptying the test.
+     */
+    expect(antecedentSeen).toBe(2)
   })
 })
