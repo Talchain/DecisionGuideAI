@@ -3,6 +3,15 @@
  * Contains Layer 2 content (bars, ConnRows, bias notes).
  * Renders via createPortal to escape ReactFlow's stacking context,
  * ensuring popovers always appear above adjacent nodes.
+ *
+ * ⚠ AND THAT PORTAL IS A KEYBOARD-SCOPE BOUNDARY. React propagates events
+ * through the React TREE, so a keydown in here still reaches React Flow's node
+ * handler; `isInputDOMNode` walks the DOM tree, so `closest('.nokey')` cannot
+ * reach the node's keyboard scope, which is inside `.react-flow__node`. Content
+ * rendered here is therefore NOT covered by `nodes/nodeKeyboardScope.tsx`.
+ * `data-node-popover` exists so the census in
+ * `e2e/geometry/nodeKeyboardBleed.measure.ts` can COUNT what sits beyond that
+ * boundary rather than returning a clean zero for a class it cannot see.
  * Tracks anchor position via rAF to stay aligned during pan/zoom.
  */
 import { useRef, useEffect, useState, type ReactNode } from 'react'
@@ -51,6 +60,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
   if (!anchorRef) {
     return (
       <div
+        data-node-popover=""
         className="absolute left-0 z-[9999] bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel"
         style={{ top: '100%', marginTop: 4, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
         onMouseEnter={onMouseEnter}
@@ -65,6 +75,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
 
   return createPortal(
     <div
+      data-node-popover=""
       className="fixed z-[9999] bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel"
       style={{ top: pos.top, left: pos.left, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
       onMouseEnter={onMouseEnter}

@@ -235,6 +235,87 @@ async function censusFocusables(page: Page): Promise<FocusableCensusRow[]> {
   }, FOCUSABLE_SELECTOR)
 }
 
+/**
+ * ⭐⭐ THE CLASS THE DOM CENSUS STRUCTURALLY CANNOT SEE — counted, never claimed.
+ *
+ * `NodePopover` (`src/canvas/nodes/shared/NodePopover.tsx:66`) renders node
+ * content through `createPortal(…, document.body)`. React propagates events
+ * through the REACT tree, so a keydown from a button in there STILL reaches
+ * React Flow's node `onKeyDown`; `isInputDOMNode` walks the DOM tree, so
+ * `closest('.nokey')` can never reach the scope, which lives inside
+ * `.react-flow__node`. The bleed is therefore live for portalled content, at
+ * this head, by this file's own definition.
+ *
+ * ⚠ AND THE REASON THIS FUNCTION EXISTS IS AN INSTRUMENT DEFECT, NOT A CODE
+ * ONE. `censusFocusables` walks `node.querySelectorAll(...)`, i.e. DOM
+ * DESCENDANTS. It returns a clean `0 ungated` for portalled controls because it
+ * cannot reach them — an absence claim from a probe that is blind to the class
+ * (CLAUDE.md trap 13e). The gap itself is legitimate scope for a follow-up; the
+ * claim "every control inside a node" was not, and this counts what that claim
+ * was silently excluding.
+ *
+ * The popovers render only while `visible`, so each node is hovered first.
+ * Attribution is by the anchor node hovered, not by DOM ancestry — there is no
+ * DOM ancestry to attribute by, which is the whole point.
+ *
+ * ⚠ THE HOVER DELAY IS 300ms AND IT IS DERIVED, NOT GUESSED:
+ * `hooks/usePopoverHover.ts:11` — `ENTER_DELAY = 300`. The first version of
+ * this probe waited 60ms, found NOTHING, and would have reported a clean zero
+ * for the very class it was written to count. That is the same defect as the
+ * DOM census's blindness, reproduced inside the instrument built to expose it.
+ * The caller asserts a non-zero find, so a probe that stops opening popovers
+ * REDs instead of quietly reporting safety.
+ */
+const POPOVER_ENTER_DELAY_MS = 300
+async function censusPortalledControls(page: Page): Promise<{
+  popovers: number
+  controls: number
+  nodesWithPopover: number
+  sample: string[]
+}> {
+  const nodeIds = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.react-flow__node')).map((n) => n.getAttribute('data-id') ?? ''),
+  )
+
+  let popovers = 0
+  let controls = 0
+  let nodesWithPopover = 0
+  const sample: string[] = []
+
+  for (const id of nodeIds) {
+    const box = await page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
+    if (!box) continue
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.waitForTimeout(POPOVER_ENTER_DELAY_MS + 150)
+
+    const found = await page.evaluate(
+      ({ selector }) => {
+        const pops = Array.from(document.querySelectorAll<HTMLElement>('[data-node-popover]'))
+        // Only those OUTSIDE the flow: the inline fallback branch renders in
+        // place and is already covered by the DOM census.
+        const portalled = pops.filter((p) => !p.closest('.react-flow'))
+        const ctl: string[] = []
+        for (const p of portalled) {
+          for (const el of Array.from(p.querySelectorAll<HTMLElement>(selector))) {
+            const name =
+              el.getAttribute('aria-label') ?? (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+            ctl.push(name)
+          }
+        }
+        return { popovers: portalled.length, controls: ctl }
+      },
+      { selector: FOCUSABLE_SELECTOR },
+    )
+
+    if (found.popovers > 0) nodesWithPopover++
+    popovers += found.popovers
+    controls += found.controls.length
+    for (const c of found.controls) if (sample.length < 12 && !sample.includes(c)) sample.push(c)
+  }
+
+  return { popovers, controls, nodesWithPopover, sample }
+}
+
 /** Ids of every node React Flow currently considers selected. Sorted, so two reads compare. */
 async function selectedNodeIds(page: Page): Promise<string[]> {
   return page.evaluate(() =>
@@ -525,7 +606,49 @@ test.describe('in-node keyboard bleed', () => {
       }
     }
     // eslint-disable-next-line no-console
-    console.log(`\n=== FOCUSABLE CENSUS === total=${total} ungated=${ungated}${lines.join('\n')}\n`)
+    console.log(`\n=== FOCUSABLE CENSUS (DOM DESCENDANTS) === total=${total} ungated=${ungated}${lines.join('\n')}\n`)
+
+    /*
+     * AND THE CLASS THE ABOVE CANNOT REACH. Counted per starter, reported
+     * alongside, and NOT folded into `total` — folding it in would make one
+     * number stand for two different claims.
+     */
+    let portalPopovers = 0
+    let portalControls = 0
+    let portalNodes = 0
+    const portalSample: string[] = []
+    for (const id of ALL) {
+      await loadCanvas(page, id)
+      const p = await censusPortalledControls(page)
+      portalPopovers += p.popovers
+      portalControls += p.controls
+      portalNodes += p.nodesWithPopover
+      for (const c of p.sample) if (portalSample.length < 12 && !portalSample.includes(c)) portalSample.push(c)
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n=== PORTALLED (BEYOND THE SCOPE, NOT GATED) === controls=${portalControls} in popovers=${portalPopovers} on nodes=${portalNodes}\n` +
+        portalSample.map((c) => `   "${c}"`).join('\n') +
+        '\n',
+    )
+
+    /*
+     * ⭐ POSITIVE CONTROL ON THE PORTAL PROBE ITSELF, and it is the assertion
+     * this whole section exists for.
+     *
+     * A count of zero here is indistinguishable from "the probe never opened a
+     * popover" — which is precisely how the DOM census came to report a clean
+     * `0 ungated` for a class it structurally could not reach. A probe reporting
+     * a comfortable number about a gap must first prove it can see the gap.
+     */
+    expect(
+      portalPopovers,
+      'the portal probe opened no popovers — it is blind, and its control count means nothing',
+    ).toBeGreaterThan(0)
+    expect(
+      portalControls,
+      'the portal probe found no controls in any popover — re-derive before quoting this section',
+    ).toBeGreaterThan(0)
 
     // POSITIVE CONTROL: the probe must be able to SEE controls at all. A census
     // that finds nothing looks identical to a canvas with nothing to find, and
@@ -546,13 +669,36 @@ test.describe('in-node keyboard bleed', () => {
      * assertion the day it renders — no one has to remember to extend anything
      * (CLAUDE.md trap 12).
      *
+     * ⚠⚠ TWO LIMITS ON THIS NUMBER, AND NEITHER IS SMALL. Read them before
+     * quoting `390/390` as though it were the whole claim.
+     *
+     * (a) IT COVERS DOM DESCENDANTS ONLY. `NodePopover` portals node content to
+     *     `document.body`, where React still routes the keydown to the node's
+     *     handler but `closest('.nokey')` cannot reach the scope. Those controls
+     *     are NOT gated at this head. They are counted separately below rather
+     *     than left as a silent exclusion — a probe that cannot see a class
+     *     returns a clean zero for it, which is indistinguishable from safety.
+     *
+     * (b) IT IS MEASURED BY A SYNTHETIC IN-PAGE `dispatchEvent`, which is the
+     *     exact instrument that was proved BLIND to the microtask-disarm defect:
+     *     calling `dispatchEvent` from script keeps the JS stack non-empty, so
+     *     the whole dispatch completes before any microtask runs. A regression
+     *     that re-introduced a microtask disarm would leave this census reading
+     *     390/390 while the product bled on every real key press. Only the
+     *     5-row drive below, which uses real trusted key presses, covers that
+     *     intersection — and it is a measure, not a gate.
+     *
      * ⚠ SCOPE, STATED: this counts elements the browser can FOCUS AT ALL, not
      * elements visible right now. Several are `visibility: hidden` until their
      * node is hovered or selected — they are still part of the surface the gate
      * must cover, because they become tab stops the moment the node is revealed.
      * The `focusableNow` column records which is which.
      */
-    expect(ungated, `${ungated} of ${total} focusable in-node elements are NOT gated — a keydown from any of them selects the node behind it`).toBe(0)
+    expect(
+      ungated,
+      `${ungated} of ${total} focusable in-node DOM DESCENDANTS are not gated — a keydown from any of them selects the node behind it. ` +
+        `(This assertion is scoped to DOM descendants; portalled controls are counted, not gated — see the header.)`,
+    ).toBe(0)
   })
 
   test('drive: Space/Enter at an in-node control, with a contrast control and an attribution control', async ({ page }) => {

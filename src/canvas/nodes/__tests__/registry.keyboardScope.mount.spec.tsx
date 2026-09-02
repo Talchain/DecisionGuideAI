@@ -45,7 +45,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import { createElement } from 'react'
-import { ReactFlow, ReactFlowProvider, type Node, type ReactFlowInstance } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, type Node } from '@xyflow/react'
 import { NODE_KEYBOARD_SCOPE_CLASS, withNodeKeyboardScope } from '../nodeKeyboardScope'
 
 /**
@@ -83,13 +83,11 @@ const NODES: Node[] = [{ id: NODE_ID, type: 'probe', position: { x: 0, y: 0 }, d
 const PROBE_TYPES = { probe: withNodeKeyboardScope(ProbeNode) }
 
 interface Harness {
-  selected: () => string[]
   /** How many `.nokey` elements existed at the moment the node handler ran. */
   scopeSeenByNodeHandler: number | null
 }
 
 function mountFlow(): Harness & { container: HTMLElement } {
-  let instance: ReactFlowInstance | null = null
   let scopeSeenByNodeHandler: number | null = null
 
   const { container } = render(
@@ -100,9 +98,6 @@ function mountFlow(): Harness & { container: HTMLElement } {
         nodes: NODES,
         edges: [],
         nodeTypes: PROBE_TYPES,
-        onInit: (i: ReactFlowInstance) => {
-          instance = i
-        },
       }),
     ),
   )
@@ -118,19 +113,6 @@ function mountFlow(): Harness & { container: HTMLElement } {
 
   return {
     container,
-    /*
-     * ⚠ READ FROM REACT FLOW'S OWN STORE, NOT FROM `onSelectionChange`.
-     *
-     * The first version of this harness read the selection through
-     * `onSelectionChange`, and MUTATION TESTING PROVED THOSE ASSERTIONS
-     * VACUOUS: with the scope disabled entirely, the two "does NOT select"
-     * rows still passed, because that callback had not delivered by the time
-     * they read it. Two opposite mutants — never arm, and never disarm —
-     * produced IDENTICAL red sets, which is the tell that a probe has stopped
-     * discriminating (CLAUDE.md trap 20). `getNodes()` is the authority the
-     * product itself reads.
-     */
-    selected: () => (instance?.getNodes() ?? []).filter((n) => n.selected).map((n) => n.id),
     get scopeSeenByNodeHandler() {
       return scopeSeenByNodeHandler
     },

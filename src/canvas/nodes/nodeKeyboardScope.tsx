@@ -99,7 +99,7 @@
  * all, while `closest()` — which walks the DOM tree, not the box tree — still
  * finds it.
  */
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import type { NodeTypes } from '@xyflow/react'
 
 /**
@@ -144,6 +144,34 @@ export function withNodeKeyboardScope(NodeComponent: NodeRenderer): NodeRenderer
      * dispatch is synchronous, so every handler in this keydown — including the
      * document-level ones the app relies on — runs before the microtask.
      */
+    const disarmTimer = useRef<number | undefined>(undefined)
+
+    /*
+     * ⚠ ONE LISTENER FOR THE LIFETIME OF THE NODE, NOT ONE PER KEYSTROKE.
+     *
+     * This was registered inside the keydown handler with `{ once: true }`,
+     * which self-removes ONLY IF A POINTERDOWN EVER ARRIVES. Typing thirty
+     * characters with no click in between left thirty listeners on `document`,
+     * for every mounted node. A real leak, and it grew with use.
+     *
+     * Registered here it is one per node, removed on unmount, and disarming an
+     * already-disarmed scope is a no-op — so nothing is lost by it being
+     * unconditional.
+     *
+     * It stays on `document` in the CAPTURE phase because that is what makes it
+     * run before `Pane.onPointerDownCapture` (the pane is a descendant of
+     * document): React Flow decides whether to start a marquee having seen no
+     * `.nokey`, whatever a pending timer is doing.
+     */
+    useEffect(() => {
+      const disarm = () => ref.current?.classList.remove(NODE_KEYBOARD_SCOPE_CLASS)
+      document.addEventListener('pointerdown', disarm, { capture: true })
+      return () => {
+        document.removeEventListener('pointerdown', disarm, { capture: true })
+        window.clearTimeout(disarmTimer.current)
+      }
+    }, [])
+
     const onKeyDownCapture = useCallback(() => {
       const el = ref.current
       if (!el) return
@@ -160,23 +188,16 @@ export function withNodeKeyboardScope(NodeComponent: NodeRenderer): NodeRenderer
        *
        * It looked correct under a synthetic `dispatchEvent`, because calling
        * `dispatchEvent` from script keeps the stack non-empty for the whole
-       * dispatch — an instrument that agreed with the code's mistake.
+       * dispatch — AN INSTRUMENT THAT SHARED THE CODE'S OWN ASSUMPTION AND SO
+       * COULD NOT CONTRADICT IT. Only a real, trusted key press in a browser
+       * could see it.
        *
        * A timer task cannot run until the entire dispatch, including every
-       * document-level listener, has finished.
+       * document-level listener, has finished. The previous timer is cleared so
+       * a stale one cannot disarm a scope a later keystroke has just armed.
        */
-      window.setTimeout(() => el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS), 0)
-
-      /*
-       * AND A HARD GUARANTEE FOR THE POINTER CONSUMER, which is the one that
-       * must never see a `.nokey` element. This listener is on `document` in
-       * the CAPTURE phase, so it runs before `Pane.onPointerDownCapture` (the
-       * pane is a descendant of document) — the scope is therefore disarmed
-       * before React Flow decides whether to start a marquee, whatever a timer
-       * happens to be doing.
-       */
-      const disarm = () => el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS)
-      document.addEventListener('pointerdown', disarm, { capture: true, once: true })
+      window.clearTimeout(disarmTimer.current)
+      disarmTimer.current = window.setTimeout(() => el.classList.remove(NODE_KEYBOARD_SCOPE_CLASS), 0)
     }, [])
 
     /*
