@@ -61,7 +61,7 @@ vi.mock('../../store', () => {
     goalThreshold: null,
     goalConstraints: [],
     ceeAnalysisReady: null,
-    lodActive: false,
+    lodRung: 'full',
     viewMode: 'expert',
     olumiAttention: null,
     selectNodeWithoutHistory: vi.fn(),

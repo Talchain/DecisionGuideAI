@@ -4,6 +4,7 @@ import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
+import type { LodRung } from './utils/zoomLegibility'
 import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition } from './store/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
@@ -999,9 +1000,12 @@ interface CanvasState {
    * focused node), cleared on blur/deselect/manual pan/node removal. While
    * active, usePathHighlight must not overwrite dimmedNodeIds. */
   focusDimSourceId: string | null
-  /** D2 (graph-visuals): level-of-detail — true when the main canvas zoom is
-   * below the LOD threshold; nodes simplify (body hidden, only key labels). */
-  lodActive: boolean
+  /** D2 (graph-visuals): level-of-detail — which rung of the semantic-zoom
+   * ladder the main canvas zoom sits on (`full` / `quiet` / `line`), written by
+   * `LodSync`. `line` is below the legibility floor and is exactly what the
+   * former `lodActive: true` meant; `quiet` is the band where labels are legible
+   * but a 14px mark is not. Rungs and their derivation: `utils/zoomLegibility`. */
+  lodRung: LodRung
   /** N3 (graph-visuals): nodes edited since the last analysis run — computed
    * by useEditedSinceRun (device-local diff vs the latest run snapshot,
    * same mechanism class as the What-changed chip). Drives the amber
@@ -1564,7 +1568,7 @@ interface CanvasState {
   /** N3: replace the edited-since-run set (called by the useEditedSinceRun effect). */
   setEditedSinceRunNodes: (ids: string[]) => void
   /** D2: set by the LodSync zoom watcher (skip-if-same). */
-  setLodActive: (active: boolean) => void
+  setLodRung: (rung: LodRung) => void
   // S.4: Toggle "user-reviewed" confirmation on a node (session-only)
   toggleConfirmedNode: (nodeId: string) => void
   // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
@@ -2764,7 +2768,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   dimmedEdgeIds: new Set<string>(),
   focusDimSourceId: null,
   editedSinceRunNodeIds: new Set<string>(),
-  lodActive: false,
+  lodRung: 'full',
   confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
   // Graph Lens: ephemeral canvas filtering state.
@@ -6562,9 +6566,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (get().focusDimSourceId === null) return
     set({ focusDimSourceId: null, dimmedNodeIds: new Set<string>() })
   },
-  setLodActive: (active: boolean) => {
-    if (get().lodActive === active) return
-    set({ lodActive: active })
+  setLodRung: (rung: LodRung) => {
+    if (get().lodRung === rung) return
+    set({ lodRung: rung })
   },
   setEditedSinceRunNodes: (ids: string[]) => {
     // No-op set-skip when unchanged so the effect's recompute on every node

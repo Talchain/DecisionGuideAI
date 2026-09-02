@@ -27,7 +27,7 @@
  * ⚠ THE PROBE ASSERTS ITS OWN PRECONDITIONS. A run in which the camera never
  * crossed the legibility floor would report zero blank bodies for the most
  * boring possible reason, and would look exactly like a fixed product (trap
- * 13). So `lodActive` and the node count are asserted before any count is
+ * 13). So the store's rung and the node count are asserted before any count is
  * believed, and a starter that fails either is a hard error.
  */
 import { test, expect, type Page } from '@playwright/test'
@@ -59,7 +59,7 @@ interface CardReading {
 
 interface Reading {
   zoom: number
-  lodActive: boolean
+  lodRung: string
   labelScale: number
   cards: CardReading[]
 }
@@ -67,7 +67,7 @@ interface Reading {
 async function readCanvas(page: Page): Promise<Reading> {
   return page.evaluate((ghostPrefix: string) => {
     const w = window as unknown as {
-      useCanvasStore: { getState: () => { lodActive: boolean; nodes: Array<{ id: string; type?: string }> } }
+      useCanvasStore: { getState: () => { lodRung?: string; nodes: Array<{ id: string; type?: string }> } }
     }
     const state = w.useCanvasStore.getState()
     const typeById = new Map(state.nodes.map((n) => [n.id, n.type ?? 'unknown']))
@@ -103,7 +103,7 @@ async function readCanvas(page: Page): Promise<Reading> {
       })
       .sort((a, b) => a.id.localeCompare(b.id))
 
-    return { zoom, lodActive: state.lodActive === true, labelScale, cards }
+    return { zoom, lodRung: state.lodRung ?? 'full', labelScale, cards }
   }, GHOST_ID_PREFIX)
 }
 
@@ -230,7 +230,7 @@ test('LADDER: what every card says at the zoom the laptop gesture parks at', asy
           phase,
           hasNotice,
           zoom: Number(r.zoom.toFixed(4)),
-          lodActive: r.lodActive,
+          lodRung: r.lodRung,
           labelScale: r.labelScale,
           cards: r.cards.length,
           bodyHidden: r.cards.filter((c) => c.bodyHidden).length,
@@ -253,7 +253,10 @@ test('LADDER: what every card says at the zoom the laptop gesture parks at', asy
         expect(whole.zoom, `${starter} @ ${vp.width}: the laptop gesture did not reach the low-zoom band`).toBeLessThan(
           LABEL_LEGIBLE_ZOOM,
         )
-        expect(whole.lodActive, `${starter} @ ${vp.width}: below the floor but lodActive is false`).toBe(true)
+        expect(
+          whole.lodRung,
+          `${starter} @ ${vp.width}: below the legibility floor but the store's rung is not \`line\``,
+        ).toBe('line')
       }
     }
   }

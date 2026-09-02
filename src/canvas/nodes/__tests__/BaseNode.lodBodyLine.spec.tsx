@@ -50,7 +50,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   // own rest-state shortening only runs outside the detailed view, and the
   // agreement assertions below compare against what the body actually renders.
   viewMode: 'standard',
-  lodActive: false,
+  lodRung: 'full',
   ...overrides,
 })
 
@@ -129,8 +129,8 @@ const setStore = (state: Record<string, unknown>) => {
   )
 }
 
-const renderFactor = (data: Record<string, unknown>, lodActive: boolean) => {
-  setStore({ lodActive })
+const renderFactor = (data: Record<string, unknown>, lodBodyHidden: boolean) => {
+  setStore({ lodRung: lodBodyHidden ? 'line' : 'full' })
   return render(
     <ReactFlowProvider>
       <FactorNode {...baseProps} id="factor-1" data={data} />
@@ -280,7 +280,7 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
       // declares it through `BaseNode`'s `lodMetric` prop. The permission
       // itself is pinned by `lodMetric.decisionGoal.spec.tsx`'s discriminating
       // pair — a withheld verdict must still name no leader here.
-      setStore({ lodActive: true, results: { status: 'complete', report: null } })
+      setStore({ lodRung: 'line', results: { status: 'complete', report: null } })
       render(
         <ReactFlowProvider>
           {/*
@@ -310,14 +310,46 @@ describe('BaseNode — the reduced line kept at level-of-detail zoom', () => {
       expect(line!.textContent!.toLowerCase()).not.toMatch(/lead|ahead|winner|too close/)
     })
 
-    it('CONTRAST CONTROL — is still absent on `action`, the type deliberately not attempted', () => {
-      // The other half of the pair above. If this ever goes green without a
-      // deliberate decision, the reduced line has widened by accident — which is
-      // exactly what the original tripwire existed to catch. `action` is named
-      // in `lodMetricLine.ts` as DELIBERATELY NOT ATTEMPTED, so it is the honest
-      // absence case, and it keeps this guard discriminating rather than
-      // agreeing with itself.
-      setStore({ lodActive: true, results: { status: 'complete', report: null } })
+    /**
+     * ⭐⭐ RE-POINTED, 2 Sep 2026 (Z2), AND THE RE-POINTING MAKES IT STRONGER.
+     *
+     * This was a CROSS-TYPE absence: `action` had no reduced line at all, and
+     * this test asserted that, so that a widening had to be deliberate. Z2 made
+     * the widening deliberately — an action card below the floor was a coloured
+     * box with a title and nothing else, on exactly the whole-model view every
+     * starter parks in — so the cross-type form would now simply be deleted.
+     *
+     * It is re-pointed into a WITHIN-TYPE PAIR instead, the way this file
+     * already treats `decision` above. That keeps the guard discriminating and
+     * on a better axis: the old form went green on ANY widening whatsoever,
+     * including one that printed an empty line for every action; the pair fails
+     * unless the line tracks the specific datum the card's own body renders.
+     */
+    it('is present on an `action` card that has a description (Z2)', () => {
+      setStore({ lodRung: 'line', results: { status: 'complete', report: null } })
+      render(
+        <ReactFlowProvider>
+          <ActionNode
+            {...baseProps}
+            type="action"
+            id="action-1"
+            data={{ label: 'Ship the pilot', type: 'action', description: 'Run a 4-week beta' }}
+          />
+        </ReactFlowProvider>,
+      )
+      expect(screen.getByText('Ship the pilot')).toBeInTheDocument()
+      const line = screen.queryByTestId('node-lod-line')
+      expect(line).not.toBeNull()
+      // Bound to the DATUM by identity, not to "some non-empty string" — which
+      // an unrelated widening could satisfy.
+      expect(line!.textContent!.trim()).toBe('Run a 4-week beta')
+    })
+
+    it('CONTRAST CONTROL — is absent on an `action` card with NO description', () => {
+      // The other half of the pair. An action with nothing to say must still say
+      // nothing: a blank line carrying a testid is the defect Z2 removes, not a
+      // smaller version of it.
+      setStore({ lodRung: 'line', results: { status: 'complete', report: null } })
       render(
         <ReactFlowProvider>
           <ActionNode

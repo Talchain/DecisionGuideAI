@@ -44,7 +44,7 @@ const makeStoreState = (o: Record<string, unknown> = {}) => ({
   edges: [],
   nodes: [],
   viewMode: 'standard',
-  lodActive: true,
+  lodRung: 'line',
   ...o,
 })
 
@@ -85,7 +85,7 @@ describe('the decision card is never an empty box at low zoom', () => {
   })
 
   it('CONTRAST CONTROL — above the floor there is no reduced line at all, so this is a ZOOM behaviour and not a second body', () => {
-    renderDecision({ nodes: [], edges: [], lodActive: false })
+    renderDecision({ nodes: [], edges: [], lodRung: 'full' })
     expect(lodLine()).toBeNull()
   })
 

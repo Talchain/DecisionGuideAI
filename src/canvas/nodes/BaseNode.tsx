@@ -19,6 +19,7 @@ import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useCanvasStore } from '../store'
+import { selectLodBodyHidden } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   NODE_CARD_MAX_W,
@@ -148,10 +149,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isAnalysisDriver = useCanvasStore(
     s => s.analysisHighlight?.source === 'drivers' && s.analysisHighlight?.nodeIds?.has(id) === true,
   )
-  // D2: level-of-detail — at low zoom nodes simplify to their coloured shape;
-  // only goal / decision / explicitly-kept nodes (the leading option) keep a
-  // readable title. Undefined-safe for spec store doubles without the slice.
-  const lodActive = useCanvasStore(s => s.lodActive === true)
+  /**
+   * D2: level-of-detail — which rung of the semantic-zoom ladder the canvas is
+   * on. Undefined-safe for spec store doubles without the slice: `selectLodBodyHidden`
+   * defaults an absent rung to `full`, i.e. an ordinary card.
+   *
+   * ⚠ TWO NAMES, BECAUSE THEY ARE TWO QUESTIONS. `lodBodyHidden` is "is the body
+   * blanked?" and is true at `line` only — every use below is a rename of the
+   * former `lodActive` and nothing more. `showCardControls` is "may this card
+   * show its in-card controls?", which the ladder will answer differently at
+   * `quiet`; it is DECLARED in `utils/zoomLegibility` and mounted by nothing
+   * yet. Collapsing them back into one flag is how the notice and the nodes
+   * would come to disagree (trap 21).
+   */
+  const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
   const lodKeepsTitle = nodeType === 'goal' || nodeType === 'decision' || lodKeepLabel
 
   /**
@@ -159,7 +170,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * "when I zoom out of the graph, the content in it shouldn't disappear —
    * it's a terrible user experience").
    *
-   * This used to be `lodActive && !lodKeepsTitle`, so below the 0.50
+   * This used to be `lodBodyHidden && !lodKeepsTitle`, so below the 0.50
    * level-of-detail threshold every node except the goal, the decision and the
    * leading option rendered its TITLE as `visibility: hidden` — and the body
    * with it. The graph became anonymous coloured boxes.
@@ -186,7 +197,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * rendering the SMALLEST text on the canvas.
    */
   const lodHideTitle = false
-  const lodBoostTitle = lodActive && lodKeepsTitle
+  const lodBoostTitle = lodBodyHidden && lodKeepsTitle
 
   // Graph Interaction P1: Node dimming for path highlighting
   // Nodes not on the highlighted path are dimmed (opacity ~0.4)
@@ -229,7 +240,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * describing behaviour the code has stopped having.
    *
    * What stays true at this level: `BaseNode` decides only WHEN a reduced line
-   * may appear — `lodActive`, i.e. below the legibility floor. It never decides
+   * may appear — `lodBodyHidden`, i.e. below the legibility floor. It never decides
    * what the line says, and there is no formatter in this file.
    */
   // (declared below, once `lodFacts` is available — see `lodBodyLine`.)
@@ -259,17 +270,17 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * it as `lodMetric` below.
    */
   const lodFacts = useMemo(() => {
-    if (!lodActive || nodeType !== 'option') return undefined
+    if (!lodBodyHidden || nodeType !== 'option') return undefined
     return resolveLodMetricFacts({
       nodeType,
       nodeId: id,
       data: data as Record<string, unknown> | undefined,
       ceeOptions: ceeAnalysisReady?.options,
     })
-  }, [lodActive, nodeType, id, ceeAnalysisReady, data])
+  }, [lodBodyHidden, nodeType, id, ceeAnalysisReady, data])
 
   const lodBodyLine = useMemo<string | null>(() => {
-    if (!lodActive) return null
+    if (!lodBodyHidden) return null
     /**
      * ⛔ THE OWNER'S OWN LINE WINS, AND AS OF 1 SEP 2026 THAT IS A SETTLED
      * OWNERSHIP SPLIT RATHER THAN A FALLBACK ORDER (see the map in
@@ -296,7 +307,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       displayMetadata,
       facts: lodFacts,
     })
-  }, [lodActive, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
+  }, [lodBodyHidden, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
 
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
@@ -495,7 +506,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     : undefined
 
   // One condition, two consumers (the mount below and the footer padding).
-  const showQuickActions = !lodActive && !isCausalLens && !isEvidenceLens
+  const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
 
   /**
    * ⭐⭐ AMBER ONLY — THE DASH IS A DIFFERENT CLAIM, AND IT WAS FALSE.
@@ -858,7 +869,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 `text-lg` boost  18px x 1 x zoom = 18 x zoom
 
               and `18z < 24z` for every positive z. `lodBoostTitle` is only ever
-              true when `lodActive`, i.e. only below the floor — so the boost
+              true when `lodBodyHidden`, i.e. only below the floor — so the boost
               was a flat 25% SHRINK on 100% of the cards it touched, 100% of the
               time. It read as an emphasis and behaved as its opposite.
 
@@ -888,7 +899,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               both branches. The declared size moves 18px -> 12px, so at the
               CANONICAL scale #1123 measures at (`--canvas-label-scale` = 1, i.e.
               zoom >= 1) these cards get SHORTER, never taller. And at zoom >= 1
-              `lodActive` is false, so this branch is not even reached there:
+              `lodBodyHidden` is false, so this branch is not even reached there:
               the height #1123 reserves is unchanged by this diff.
 
               What changes is the RENDERED height of two cards below the floor,
@@ -1019,7 +1030,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           wrapper contributes no height and the line is absolutely positioned,
           so admitting it with no children changes no geometry. */}
       {!isCausalLens && !isEvidenceLens && (children || lodBodyLine) ? (
-        <div className="relative text-left" style={lodActive ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodActive || undefined}>
+        <div className="relative text-left" style={lodBodyHidden ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodBodyHidden || undefined}>
           {children as ReactNode}
           {/* The reduced line (see `lodBodyLine` above for what it is and why
               the scope is what it is).

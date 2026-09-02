@@ -71,7 +71,7 @@
  *
  * ⚠ AND IT IS NOT PERFECTLY INVARIANT. THERE ARE TWO ANSWERS, NOT ONE, AND THE
  * SECOND IS WORTH NAMING RATHER THAN ROUNDING AWAY. Below `LABEL_LEGIBLE_ZOOM`
- * the store flag `lodActive` flips (`LodSync`), and this module pins the SCALE,
+ * the store rung `lodRung` changes (`LodSync`), and this module pins the SCALE,
  * not that FLAG — it cannot, because the flag is read by React components and
  * a re-render is not available inside a synchronous measurement. So:
  *

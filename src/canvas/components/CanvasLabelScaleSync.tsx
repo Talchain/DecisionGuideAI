@@ -6,7 +6,7 @@
  * WHY A CSS VARIABLE ON AN ANCESTOR, and not a prop or a store field.
  * -------------------------------------------------------------------
  * The scale changes on every zoom tick. Threading it through props, or through
- * the canvas store the way `LodSync` threads `lodActive`, would re-render every
+ * the canvas store the way `LodSync` threads `lodRung`, would re-render every
  * node and every edge on every wheel event — the cost the LOD flag was
  * deliberately designed around ("selecting the derived boolean, not the raw
  * zoom, means this component re-renders only when the flag flips"). A custom

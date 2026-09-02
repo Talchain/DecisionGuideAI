@@ -81,6 +81,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import type { LodRung } from '../../utils/zoomLegibility'
 
 const baseProps = {
   id: 'goal-1',
@@ -97,9 +98,9 @@ const baseProps = {
   draggable: true,
 }
 
-function renderCard(data: Record<string, unknown>, lodActive = false) {
+function renderCard(data: Record<string, unknown>, lodRung: LodRung = 'full') {
   vi.mocked(useCanvasStore).mockImplementation((selector) =>
-    selector(makeStoreState({ lodActive }) as never),
+    selector(makeStoreState({ lodRung }) as never),
   )
   const { container, unmount } = render(
     <ReactFlowProvider>
@@ -189,11 +190,11 @@ describe('the reduced line is DERIVED from the full-zoom card, never hand-copied
 
   for (const c of CASES) {
     it(`${c.name}: the low-zoom line is text the full-zoom card already shows`, () => {
-      const full = renderCard(c.data, false)
+      const full = renderCard(c.data, 'full')
       const fullText = full.text
       full.unmount()
 
-      const low = renderCard(c.data, true)
+      const low = renderCard(c.data, 'line')
       const line = low.lodLine
       low.unmount()
 
@@ -216,20 +217,20 @@ describe('the reduced line is DERIVED from the full-zoom card, never hand-copied
     // Without this, every assertion above could be satisfied by a card that
     // renders the line at all times, and the pin would be about a duplicated
     // body rather than about the reduced line.
-    const full = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, false)
+    const full = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, 'full')
     expect(full.lodLine).toBeNull()
     full.unmount()
 
-    const low = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, true)
+    const low = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, 'line')
     expect(low.lodLine).not.toBeNull()
     low.unmount()
   })
 
   it('CONTRAST CONTROL — two different targets produce two different lines, so the line is read and never defaulted', () => {
-    const a = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, true)
+    const a = renderCard({ goal_threshold_raw: 15, goal_threshold_unit: 'percent' }, 'line')
     const lineA = a.lodLine
     a.unmount()
-    const b = renderCard({ goal_threshold_raw: 9, goal_threshold_unit: 'months' }, true)
+    const b = renderCard({ goal_threshold_raw: 9, goal_threshold_unit: 'months' }, 'line')
     const lineB = b.lodLine
     b.unmount()
     expect(lineA).not.toBeNull()

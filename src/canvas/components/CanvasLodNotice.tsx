@@ -33,14 +33,22 @@
  * product disclosed the state at 0 of 5 viewports. So this component says which
  * one you are looking at, and offers the way back.
  *
- * It renders from the SAME store flag the nodes blank themselves on
- * (`lodActive`, written by `LodSync` from the live viewport transform), so the
- * notice cannot claim a state the nodes are not in — derive, don't mirror.
+ * It renders from the SAME store rung the nodes blank themselves on, through the
+ * SAME exported selector (`selectLodBodyHidden`, over the `lodRung` written by
+ * `LodSync` from the live viewport transform), so the notice cannot claim a
+ * state the nodes are not in — derive, don't mirror.
+ *
+ * ⚠ THE SELECTOR IS SHARED ON PURPOSE, AND THE SPLIT INTO RUNGS IS WHY. While
+ * level-of-detail was a boolean there was only one thing either surface could
+ * read. With three rungs there are two plausible predicates — "is the body
+ * hidden?" and "is the canvas simplified at all?" — and this notice must answer
+ * the FIRST, because its copy is a claim about the cards. Reading the rung and
+ * testing it here would be a second predicate wearing the same name (trap 21).
  */
 import { ZoomIn } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
 import { useCanvasStore } from '../store'
-import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden } from '../utils/zoomLegibility'
 import { cameraDuration } from '../utils/cameraMotion'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
@@ -50,8 +58,8 @@ export const CANVAS_LOD_NOTICE_TESTID = 'canvas-lod-notice'
 /**
  * The copy. Stated as the fact it is — the labels are hidden, and why — with no
  * apology and no claim about what the user should have done. "Zoomed out too far
- * to show labels" is true at exactly the moment `lodActive` is true, because
- * that flag IS `zoom < LABEL_LEGIBLE_ZOOM`.
+ * to show labels" is true at exactly the moment the body is hidden, because that
+ * rung IS `zoom < LABEL_LEGIBLE_ZOOM`.
  */
 /**
  * ⚠⚠ THIS SENTENCE HAS NOW BEEN FALSE TWICE, IN THE SAME WAY, AND THE PATTERN
@@ -80,11 +88,11 @@ export const CANVAS_LOD_NOTICE_COPY = 'Zoomed out — showing less on each card'
 export const CANVAS_LOD_NOTICE_ACTION = 'Zoom in for detail'
 
 export function CanvasLodNotice() {
-  const lodActive = useCanvasStore((s) => s.lodActive === true)
+  const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
   const { getViewport, setViewport } = useReactFlow()
   const prefersReducedMotion = usePrefersReducedMotion()
 
-  if (!lodActive) return null
+  if (!lodBodyHidden) return null
 
   return (
     <div
