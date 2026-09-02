@@ -56,6 +56,13 @@
  * and prove nothing about elapsed time. Sample COUNT is the honest unit here, and
  * the waits are real because `setTimeout` still runs.
  *
+ * ⚠ AND THAT MATTERS MORE SINCE THE PANE PRECONDITION BELOW LANDED: a HARD
+ * FAILURE THAT NEVER RUNS IS A SKIP WITH EXTRA STEPS. `e2e/geometry/` is
+ * referenced by zero workflows, so everything in this file — including the guard
+ * that refuses to measure an unrendered pane — protects MANUAL runs only. The
+ * authorised geometry CI job is what would give it teeth, and it is deliberately
+ * not built here.
+ *
  * Run it deliberately — it is in no gate:
  *     GEOMETRY_PORT=5393 pnpm exec playwright test -c playwright.geometry.config.ts --grep GHOST
  */
@@ -136,18 +143,55 @@ const INSTRUMENT = () => {
  * that cannot be satisfied by an environment which never rendered. If the pane
  * cannot paint, the correct outcome is a loud red naming why.
  *
- * `setTimeout` DOES still run in a hidden pane, which is what makes the race
- * below a real discriminator rather than two ways of hanging.
+ * ⚠⚠ AND THE FIRST VERSION OF THIS GUARD COULD NOT FIRE INSIDE ITS OWN HARNESS.
+ * It raced `window.requestAnimationFrame` against `window.setTimeout`, under the
+ * comment "setTimeout still runs while frames starve, so this is the
+ * discrimination". That is true of a real browser and FALSE HERE.
+ * `preparePage` calls `page.clock.setFixedTime` (`harness.ts:263`), and
+ * playwright-core 1.57.0's clock replaces BOTH functions with the same generic
+ * dispatcher — measured at the bytes in this harness: `__pwClock` present,
+ * `Date.isFake` true, and `String(window.requestAnimationFrame) ===
+ * String(window.setTimeout)`, both being `(...args) => api[method].apply(api,
+ * args)`. So the "two independent channels" were two entries on ONE queue,
+ * pumped by one native timer. Measured as a triple with the clock as the only
+ * variable: no clock + rAF killed → detected; no clock + healthy → passes; clock
+ * + rAF killed → **MISSED**. The harness under review was the missing cell.
+ *
+ * It now reads `__pwClock.builtins.*` — the real functions the clock keeps aside
+ * and does not replace — and falls back to the window ones only when no clock is
+ * installed, so the guard works in a plain browser too. And if a clock IS
+ * installed while `builtins` is unavailable, this FAILS LOUD rather than
+ * silently falling back to the faked pair: a Playwright upgrade that renames
+ * that property would otherwise re-open this exact hole with no red anywhere
+ * (CLAUDE.md trap 12 — a mirror must fail on drift, never assume-good).
+ *
+ * ⭐ THE SUBTLEST LESSON, AND THE REASON THIS PARAGRAPH IS LONG. The original
+ * guard shipped with a fault-injection proof that PASSED: kill rAF, watch it go
+ * red, applied-check confirming the fault landed and was no false survivor. All
+ * of that was true — and it settled less than it looked like it settled, because
+ * **the fault injected was not the condition being guarded against**. Killing
+ * `window.requestAnimationFrame` is not the same event as a pane that never
+ * paints, and only the second one also silences the timer the guard was racing.
+ * A green applied-check proves the fault landed; it says nothing about whether
+ * the fault is the hazard. Injecting the REAL condition — or, as here, varying
+ * the environment that distinguishes them — is the only thing that does.
  * ══════════════════════════════════════════════════════════════════════════════
  */
 async function assertPaneCanRenderGeometry(page: import('@playwright/test').Page): Promise<void> {
   const pane = await page.evaluate(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pwClock = (window as any).__pwClock
+    const builtinRaf = pwClock?.builtins?.requestAnimationFrame
+    const builtinTimer = pwClock?.builtins?.setTimeout
+    // The REAL channels. See the header: under `page.clock`, the window pair are
+    // two entries on one faked queue and cannot discriminate each other.
+    const raf: typeof window.requestAnimationFrame = builtinRaf ?? window.requestAnimationFrame
+    const timer: typeof window.setTimeout = builtinTimer ?? window.setTimeout
+
     const rafFired = await new Promise<boolean>((resolve) => {
       let settled = false
-      requestAnimationFrame(() => { if (!settled) { settled = true; resolve(true) } })
-      // A real timer, because a hidden pane still runs timers while it starves
-      // frames. This is the discrimination; without it both arms just hang.
-      setTimeout(() => { if (!settled) { settled = true; resolve(false) } }, 3000)
+      raf.call(window, () => { if (!settled) { settled = true; resolve(true) } })
+      timer.call(window, () => { if (!settled) { settled = true; resolve(false) } }, 3000)
     })
     return {
       innerW: window.innerWidth,
@@ -156,8 +200,22 @@ async function assertPaneCanRenderGeometry(page: import('@playwright/test').Page
       clientH: document.documentElement.clientHeight,
       rafFired,
       visibilityState: document.visibilityState,
+      clockInstalled: !!pwClock,
+      usedBuiltins: !!(builtinRaf && builtinTimer),
     }
   })
+
+  /*
+   * Fail loud on drift rather than fall back to the faked pair. If a clock is
+   * installed and `builtins` has moved or been renamed by a Playwright upgrade,
+   * the race below would silently become window-vs-window again — which is
+   * precisely the hole this guard was rewritten to close, and it would close it
+   * with no red anywhere.
+   */
+  expect(
+    pane.clockInstalled && !pane.usedBuiltins,
+    'a Playwright clock is installed but `__pwClock.builtins` is unavailable, so this guard would have raced two entries on the SAME faked queue and could not detect a non-painting pane. The property has moved — re-derive it against this playwright-core version before trusting any reading in this file.',
+  ).toBe(false)
 
   expect(
     pane.innerW * pane.innerH,
@@ -171,7 +229,7 @@ async function assertPaneCanRenderGeometry(page: import('@playwright/test').Page
 
   expect(
     pane.rafFired,
-    `requestAnimationFrame did not fire within 3s (viewport ${pane.innerW}x${pane.innerH}, document.visibilityState="${pane.visibilityState}") — the pane is not painting. Every per-frame sample below would stall and every door would read visibility:hidden because React Flow never measures. A per-frame loop that "times out" IS this condition, not a stuck renderer.`,
+    `requestAnimationFrame did not fire within 3s (viewport ${pane.innerW}x${pane.innerH}, document.visibilityState="${pane.visibilityState}", clock=${pane.clockInstalled ? 'installed, builtins' : 'none, window'}) — the pane is not painting. Every per-frame sample below would stall and every door would read visibility:hidden because React Flow never measures. A per-frame loop that "times out" IS this condition, not a stuck renderer.`,
   ).toBe(true)
 }
 
@@ -403,11 +461,22 @@ test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, n
  * churn through exactly the seam #1136 repaired, and no browser evidence
  * touched them.
  *
- * ⚠ THE STATE CLASS. `seedStarterDraft` asserts `layoutVersion > 0` — a layout
- * ran. A RESTORED model arrives through `hydrateGraphSlice` with real positions
- * and NO layout ever runs (`layoutVersion === 0`, and see the header of
- * `hooks/useRestoredLayoutWidth.ts`, which is built entirely on that fact). So
- * the class every returning user is in was invisible to this file.
+ * ⚠ THE ENTRY PATH. `seedStarterDraft` reaches the store by calling
+ * `applyDraftResult` in the page that is already open. A RETURNING user's graph
+ * arrives instead through the BOOT restore — `loadState()` → `hydrateGraphSlice`
+ * — in a document that has just loaded. That path was invisible to this file,
+ * and it is what the second test below covers.
+ *
+ * ⚠⚠ WHAT IT DOES **NOT** COVER, STATED PLAINLY BECAUSE THE FIRST VERSION OF
+ * THIS COMMENT GOT IT WRONG. `hooks/useRestoredLayoutWidth.ts` is built on a
+ * restored model never laying out (`layoutVersion === 0`), and this file claimed
+ * to exercise that. **It does not.** Measured on this fixture: `layoutVersion`
+ * reads **2 in 3 of 3 full-suite runs** and 0 in 5 of 6 standalone runs — so a
+ * layout usually DOES run here, and never reliably does not. The no-layout
+ * property is therefore UNCOVERED by this file and belongs to the layout lane;
+ * the door readings below are unaffected either way (0 hidden frames in every
+ * one of those runs). Saying "the restored class" without this paragraph would
+ * be a test whose stated precondition is not the one it achieves.
  *
  * That scoping gap is what allowed a report of "the deployed fix does not work
  * for real users" to stand for a day: the fix's evidence and the failure report
@@ -432,9 +501,9 @@ test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, n
  *   ghost re-observations              44             12,960
  *   real nodes visible (contrast)      19 / 19        19 / 19
  *
- * and through a real document reload (`layoutVersion === 0`, the restored
- * class): 0 / 2401 hidden at `53cc5196`, 2395 / 2395 hidden with the guard
- * reverted, 14,088 re-observations.
+ * and through a real document reload (the boot-restore path): 0 / 2401 hidden at
+ * `53cc5196`, 2395 / 2395 hidden with the guard reverted, 14,088
+ * re-observations.
  * ══════════════════════════════════════════════════════════════════════════════
  */
 
@@ -759,38 +828,37 @@ test('GHOST doors are visible in the RESTORED class — a saved example after a 
 
   expect(m.storeNodeCount, 'the reload restored no model').toBeGreaterThan(0)
 
-  // The doors are asserted BEFORE the class pin, deliberately, and the reason is
-  // itself a finding. With #1136 reverted, the livelock's churn drives the
-  // measure-then-layout pipeline and a layout RUNS on a restored model that
-  // should never lay one out — `layoutVersion` reads 2 instead of 0. So a class
-  // pin placed first fails on the precondition and the primary signal (4/4 doors
-  // hidden in 240 of 240 frames) never gets to speak. Both are enforced in the
-  // same run, so the test still cannot pass on the wrong class; the order only
-  // decides which truth you are told first, and the door reading is the one this
-  // file exists for.
+  // The doors are asserted BEFORE the entry-path pins, deliberately: both are
+  // enforced in the same run, so the test cannot pass on the wrong path either
+  // way, and the order only decides which truth you are told first. The door
+  // reading is the one this file exists for — with #1136 reverted it is 4/4
+  // hidden in 240 of 240 frames, and that should be the first thing a failing
+  // run says.
   assertFrontierIsUsable(m, 'restored')
 
   /*
-   * ⭐ THE STATE CLASS IS PINNED IN-TEST — CLAUDE.md trap 13b, a guard must pin
-   * its own precondition. Without this, a change that stopped the reload
-   * restoring (or started re-seeding after it) would leave this green while
-   * silently becoming a third copy of the fresh-draft test above.
+   * ⭐ WHAT THIS TEST COVERS, PINNED IN-TEST — CLAUDE.md trap 13b, a guard must
+   * pin its own precondition. Without these two, a change that stopped the
+   * reload restoring (or started re-seeding after it) would leave this green
+   * while silently becoming a third copy of the fresh-draft test above.
    *
-   * TWO FACTS, TOGETHER, ARE THE CLASS: this document is the one the RELOAD
-   * produced, and it holds a stamped saved-example graph. Nothing in this
-   * document applies a draft after the reload, so a graph that is here must have
-   * been RESTORED.
+   * THE CLAIM IS THE ENTRY PATH, AND ONLY THAT: this document is the one the
+   * RELOAD produced, and it holds a stamped saved-example graph. Nothing in this
+   * document applies a draft after the reload, so a graph that is here arrived
+   * through the BOOT RESTORE (`loadState()` → `hydrateGraphSlice`). Both halves
+   * are asserted, so the claim cannot quietly stop being true.
    *
-   * ⚠ AND `layoutVersion === 0` IS DELIBERATELY *NOT* THE PIN, though it is the
-   * property `hooks/useRestoredLayoutWidth.ts` is built on and it was my first
-   * choice. Measured across four runs it reads 0, 2, 2, 0 — the restored path
-   * runs a layout roughly half the time in this harness, and I have not
-   * established why. The doors are visible in every one of those runs (0 hidden
-   * frames, 20-32 re-observations), so it does not affect this file's verdict —
-   * but pinning on it would have made this test flaky for a reason that has
-   * nothing to do with the doors, and asserting a property that is only
-   * sometimes true is how a guard teaches people to ignore it. Reported below
-   * rather than asserted, and flagged as worth a look by the layout lane.
+   * ⚠⚠ IT DOES NOT CLAIM `layoutVersion === 0`, AND AN EARLIER VERSION OF THIS
+   * COMMENT EFFECTIVELY DID — which is the vacuity pattern appearing inside the
+   * file written to close a scoping gap. That property is what
+   * `hooks/useRestoredLayoutWidth.ts` depends on, it was my first choice of pin,
+   * and this fixture does not produce it: measured **2 in 3 of 3 full-suite runs**
+   * (the ordering a gate would use) and 0 in 5 of 6 standalone runs. Asserting it
+   * would red on ordering alone; describing the test as covering it would be a
+   * stated precondition the test never achieves. So it is neither asserted nor
+   * claimed — only REPORTED in the JSON below as a diagnostic, and handed to the
+   * layout lane as genuinely uncovered. The door verdict is unaffected: 0 hidden
+   * frames in every one of those runs, at both values.
    */
   expect(m.postReloadDocument, 'this document is not the one the reload produced, so the graph on screen was not restored — this test is not measuring the restored class').toBe(true)
   expect(m.starterStamped, 'the restored graph carries no starter stamp, so it is not the saved example this test opened').toBe(m.storeNodeCount)
