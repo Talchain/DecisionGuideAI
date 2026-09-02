@@ -3,14 +3,23 @@
  *
  * ## What this file exists to catch
  *
- * `firstRunNumbering.rankCoherence.spec.ts` (this directory) closed the
- * FIRST-RUN half of the option-rank-coherence contract: a production
- * screenshot showed badge "4" above badge "3" because ordinals were seeded
- * from an expected-value order while the rows sort by win probability. The
- * fix aligned the registration order to the display order — which makes the
- * two agree on run 1 and says nothing about run 2.
+ * `firstRunNumbering.rankCoherence.spec.ts` (this directory) holds the
+ * FIRST-RUN half of the option-numbering contract.
  *
- * On a RE-RUN THAT FLIPS THE LEADER they diverge again, and worse:
+ * ⚠ THAT CONTRACT CHANGED ON 31 Aug 2026 AND THIS PARAGRAPH USED TO DESCRIBE
+ * THE OLD ONE. It said the first-run fix "aligned the registration order to
+ * the display order", i.e. `Option N` was the first run's RANK. Paul's canvas
+ * screenshot then showed what that costs — option cards badged `1, 2, 4, 5, 3`
+ * left to right, a panel rank printed on an ELK-ordered row. `Option N` is now
+ * POSITIONAL IDENTITY: the Nth option card in canvas reading order (row-major),
+ * minted by `registerOptionNumbering` and frozen there.
+ *
+ * ⭐ NOTHING IN THIS FILE'S RULING CHANGED, and that is the useful part: rank
+ * and identity were already two quantities here, so making identity POSITIONAL
+ * rather than FIRST-RUN-RANK moved only what identity is derived from. The
+ * assertions below held through the change untouched.
+ *
+ * On a RE-RUN THAT FLIPS THE LEADER the two diverge, and visibly:
  *
  *   - `optionNumbering` is APPEND-ONLY (`canvas/store/stableOptionNumbers.ts`)
  *     — an id keeps its first ordinal forever.
@@ -118,6 +127,13 @@ function makeV2Response(win: Record<string, number>, leaderId: string): V2RunRes
   } as unknown as V2RunResponse
 }
 
+/** Canvas geometry: a single row, left to right — reading order a, b, c. */
+const CANVAS_POSITION: Record<string, { x: number; y: number }> = {
+  opt_a: { x: 40, y: 100 },
+  opt_b: { x: 340, y: 100 },
+  opt_c: { x: 640, y: 100 },
+}
+
 /** Put a completed run on the store, exactly as a finished analysis leaves it. */
 function seedRun(win: Record<string, number>, leaderId: string): void {
   const report = mapV2ResponseToReportV1(makeV2Response(win, leaderId), { seed: 42 })
@@ -127,7 +143,11 @@ function seedRun(win: Record<string, number>, leaderId: string): void {
     nodes: OPTIONS.map((o) => ({
       id: o.id,
       type: 'option',
-      position: { x: 0, y: 0 },
+      // Real canvas geometry: one row, left to right in OPTIONS order, so the
+      // frozen ordinals asserted below (`opt_a: 1, opt_b: 2, opt_c: 3`) are
+      // EARNED by position rather than inherited from the array. Cards stacked
+      // at a single point would produce the same map for the wrong reason.
+      position: CANVAS_POSITION[o.id],
       data: { kind: 'option', label: o.label },
     })) as never,
     edges: [],
@@ -157,7 +177,9 @@ function flipAndBuild(): HeroChartModel {
   const mintedOnRun1 = { ...useCanvasStore.getState().optionNumbering }
   // PRECONDITION, asserted in-test: without these exact frozen ordinals the
   // assertions below would pass for reasons unrelated to the defect (trap
-  // 13b — a discriminator must pin its own precondition).
+  // 13b — a discriminator must pin its own precondition). These are the CANVAS
+  // reading order (one row, a/b/c left to right), which on run 1 happens to
+  // coincide with the ranking — the flip below is what separates them.
   expect(mintedOnRun1).toEqual({ opt_a: 1, opt_b: 2, opt_c: 3 })
 
   seedRun(RUN2_WIN, 'opt_b')

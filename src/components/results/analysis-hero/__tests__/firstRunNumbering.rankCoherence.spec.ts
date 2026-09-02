@@ -1,17 +1,29 @@
 /**
- * Hero rows × first-run ordinal registration — rank coherence.
+ * Hero rows × first-run ordinal registration — RANK and IDENTITY are different.
  *
- * End-to-end half of the option-rank-coherence contract (hook half in
- * `../../__tests__/useResultsSectionData.optionRankCoherence.spec.ts`;
- * this file lives inside the analysis-hero module because the inertness
- * guard forbids importing the hero from anywhere else).
+ * End-to-end half of the option-numbering contract (hook half in
+ * `../../__tests__/useResultsSectionData.optionRankCoherence.spec.ts`; this
+ * file lives inside the analysis-hero module because the inertness guard
+ * forbids importing the hero from anywhere else).
  *
- * Production screenshot bug: badge "4" rendered ABOVE badge "3" because
- * ordinals were seeded from an expected-value order while the rows sort by
- * win probability (sortOptionsForDisplay). Pinned here: driving the REAL
- * hook (mapped report → registration effect → store numbering) and building
- * the hero model from its output yields stable numbers that ascend strictly
- * top-to-bottom on a first run.
+ * ⭐ THE CONTRACT CHANGED, 31 Aug 2026. It used to be "stable numbers ascend
+ * strictly top-to-bottom on a first run" — i.e. `Option N` WAS the first run's
+ * rank. Paul's canvas screenshot showed what that costs: the option cards read
+ * `1, 2, 4, 5, 3` left to right, because a rank minted in the results panel
+ * was printed on a row ordered by ELK.
+ *
+ * `Option N` is now POSITIONAL IDENTITY — the Nth option card in canvas
+ * reading order (row-major: y-row, then x). So on a first run the hero's two
+ * numbers are DIFFERENT QUANTITIES and are expected to disagree:
+ *
+ *   `row.index`       RANK — where this option placed in this run. Re-ranks
+ *                     on every run.
+ *   `row.stableNumber` IDENTITY — which card on the canvas this is. Frozen at
+ *                     first mint, never renumbered.
+ *
+ * That they differ from the FIRST run (not merely after a leader flip, which
+ * `rerunFlipNumbering.rankCoherence.spec.tsx` already pins) is the property
+ * this file now exists to hold.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -34,6 +46,29 @@ const SCREENSHOT_OPTIONS = [
   { id: 'opt_outsource', label: 'Outsource', mean: 18, winProbability: 0.02 },
   { id: 'opt_solo', label: 'Continue Solo', mean: 12, winProbability: 0.08 },
 ]
+
+/**
+ * Canvas geometry, chosen so reading order contradicts BOTH the array order
+ * and the win-probability order — otherwise a badge could match a rank by
+ * coincidence and this file would assert nothing.
+ *
+ *   row 1 (y=100):  opt_solo (x=40)     opt_outsource (x=340)
+ *   row 2 (y=520):  opt_partner (x=40)  opt_launch (x=340)
+ */
+const CANVAS_POSITION: Record<string, { x: number; y: number }> = {
+  opt_solo: { x: 40, y: 100 },
+  opt_outsource: { x: 340, y: 100 },
+  opt_partner: { x: 40, y: 520 },
+  opt_launch: { x: 340, y: 520 },
+}
+
+/** Canvas reading order → the ordinal each id must be minted with. */
+const CANVAS_ORDINAL: Record<string, number> = {
+  opt_solo: 1,
+  opt_outsource: 2,
+  opt_partner: 3,
+  opt_launch: 4,
+}
 
 function makeV2Response(): V2RunResponse {
   return {
@@ -87,7 +122,7 @@ beforeEach(() => {
     nodes: SCREENSHOT_OPTIONS.map((o) => ({
       id: o.id,
       type: 'option',
-      position: { x: 0, y: 0 },
+      position: CANVAS_POSITION[o.id],
       data: { kind: 'option', label: o.label },
     })) as any,
     edges: [],
@@ -98,20 +133,30 @@ beforeEach(() => {
 })
 
 describe('hero rows × first-run registration — rank coherence', () => {
-  it('stable numbers ascend strictly top-to-bottom on a first-run registration (no "4 above 3")', () => {
+  it('⭐ rank and identity are different quantities from the FIRST run — index ranks, stableNumber identifies', () => {
     const { result } = renderHook(() => useResultsSectionData())
     const model = chart(
       buildHeroModel(result.current, useCanvasStore.getState().optionNumbering),
     )
 
-    const stableNumbers = model.rows.map((r) => r.stableNumber)
-    expect(stableNumbers).toEqual([1, 2, 3, 4])
-    for (let i = 1; i < stableNumbers.length; i += 1) {
-      expect(stableNumbers[i]!).toBeGreaterThan(stableNumbers[i - 1]!)
+    // RANK: the rows are the run's ranking, so index counts 1..N down the panel.
+    expect(model.rows.map((r) => r.index)).toEqual([1, 2, 3, 4])
+
+    // IDENTITY: each row's stableNumber is ITS OWN id's canvas ordinal — bound
+    // by identity, never by position in this array (trap 19: another row could
+    // satisfy a value predicate).
+    for (const row of model.rows) {
+      expect(row.stableNumber).toBe(CANVAS_ORDINAL[row.id])
     }
+
+    // ⭐ AND THEY DISAGREE. Without this the two assertions above would both
+    // hold on the old first-run-rank behaviour, and this file would still be
+    // pinning the defect. Rows run launch(4), partner(3), solo(1), outsource(2).
+    expect(model.rows.map((r) => r.stableNumber)).not.toEqual(model.rows.map((r) => r.index))
+    expect(model.rows.map((r) => r.stableNumber)).toEqual([4, 3, 1, 2])
   })
 
-  it('row order and badge order agree with the win-probability ranking', () => {
+  it('ROW order follows the win-probability ranking (the badge no longer does, by design)', () => {
     const { result } = renderHook(() => useResultsSectionData())
     const model = chart(
       buildHeroModel(result.current, useCanvasStore.getState().optionNumbering),

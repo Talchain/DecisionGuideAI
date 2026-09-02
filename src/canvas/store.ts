@@ -4,7 +4,7 @@ import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
-import { assignStableOptionNumbers } from './store/stableOptionNumbers'
+import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition } from './store/stableOptionNumbers'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
 import {
@@ -4997,7 +4997,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   registerOptionNumbering: (optionIds) => {
     if (optionIds.length === 0) return
     const previous = get().optionNumbering
-    const next = assignStableOptionNumbers(previous, optionIds)
+    // ⭐ THE STORE OWNS ORDER; CALLERS OWN MEMBERSHIP (Paul, 31 Aug 2026).
+    //
+    // Callers say WHICH options exist. What `Option N` means — the Nth card in
+    // canvas reading order — is decided here, once, for every caller. It used
+    // to be decided at the registration site, which is how the badges came to
+    // be a frozen probability rank printed on an ELK-ordered row: the seeding
+    // order was a designation, and it was authored by whichever surface
+    // happened to register first.
+    //
+    // Ordering here rather than at the call site is what makes that
+    // unrepeatable — a new registration site cannot reintroduce it by passing
+    // a sorted array, because its order is discarded except as a tiebreak.
+    const ordered = orderOptionIdsByCanvasPosition(optionIds, get().nodes)
+    const next = assignStableOptionNumbers(previous, ordered)
     // Merge is append-only: skip the set entirely when nothing was new.
     if (Object.keys(next).length === Object.keys(previous).length) return
     set({ optionNumbering: next })

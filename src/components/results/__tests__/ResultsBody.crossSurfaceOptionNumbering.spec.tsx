@@ -4,9 +4,12 @@
  *
  * ## THIS IS THE LOAD-BEARING HALF OF THE BADGE FIX, NOT A SIDE-ASSERTION
  *
- * The hero badge used to render `stableNumber ?? index` — the ordinal frozen
- * on the FIRST run — while the list order, the leader fill and the "Highest
- * on this view" cue all stated the CURRENT rank. Pointing the badge at
+ * The hero badge used to render `stableNumber ?? index` — the frozen IDENTITY
+ * ordinal — while the list order, the leader fill and the "Highest on this
+ * view" cue all stated the CURRENT rank. (That identity ordinal was the first
+ * run's RANK until 31 Aug 2026 and is now the card's POSITION in canvas
+ * reading order; this file is about the two quantities being distinct, which
+ * is unaffected by where identity comes from.) Pointing the badge at
  * `row.index` closes that. But it opens the opposite-direction harm
  * immediately, and this estate's signature defect is exactly that trade: the
  * same option would then read "1" in the cockpit and "Option 2" on the card
@@ -74,6 +77,13 @@ const OPTIONS = [
 ]
 
 /** ONLY `win_probability` moves between the runs. */
+/** Canvas geometry: a single row, left to right — reading order a, b, c. */
+const CANVAS_POSITION: Record<string, { x: number; y: number }> = {
+  opt_a: { x: 40, y: 100 },
+  opt_b: { x: 340, y: 100 },
+  opt_c: { x: 640, y: 100 },
+}
+
 const RUN1_WIN: Record<string, number> = { opt_a: 0.7, opt_b: 0.2, opt_c: 0.1 }
 const RUN2_WIN: Record<string, number> = { opt_a: 0.2, opt_b: 0.7, opt_c: 0.1 }
 
@@ -123,7 +133,11 @@ function seedRun(win: Record<string, number>, leaderId: string): void {
     nodes: OPTIONS.map((o) => ({
       id: o.id,
       type: 'option',
-      position: { x: 0, y: 0 },
+      // Real canvas geometry: one row, left to right in OPTIONS order. `Option
+      // N` is POSITIONAL IDENTITY (the Nth card in canvas reading order, ruled
+      // 31 Aug 2026), so the frozen ordinals this file asserts are earned by
+      // position — not by the array order they happen to match.
+      position: CANVAS_POSITION[o.id],
       data: { kind: 'option', label: o.label },
     })) as never,
     edges: [],
@@ -152,7 +166,11 @@ function renderFlippedBody(): void {
   const frozen = { ...useCanvasStore.getState().optionNumbering }
   // PRECONDITION pinned in-test: these are the ordinals a real first run
   // mints. Fabricating them as a fixture would make every assertion below a
-  // statement about my own arithmetic (CLAUDE.md trap 16-inverse).
+  // statement about my own arithmetic (CLAUDE.md trap 16-inverse). Since
+  // 31 Aug 2026 they are CANVAS READING ORDER (the cards sit in one row, a/b/c
+  // left to right) rather than the first run's ranking — the numbers are the
+  // same here on purpose, so this file keeps testing the cross-surface
+  // question it was written for and not the seeding rule.
   expect(frozen).toEqual({ opt_a: 1, opt_b: 2, opt_c: 3 })
 
   seedRun(RUN2_WIN, 'opt_b')
