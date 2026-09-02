@@ -309,6 +309,22 @@ function blankComments(src: string): string {
  * `async () => ({ default: (await import(...)).default })` all survived at 8/8
  * green. A control must be sensitive to the specific way THIS instrument fails.
  *
+ * ⚠⚠ ROWED, NOT CLOSED — THE SCOPE IS 8 FILES OF 1,658, AND THAT IS A REAL LIMIT.
+ * A review measured it: `findDeclarations` misses six declaration forms (a TYPED
+ * const among them), and while a route-hosting file catches every one through
+ * this census, a file that hosts NO existing route declaration is not looked at
+ * at all. The attribution pair is exact — an identical typed-const declaration
+ * REDs in `poc/AppPoC.tsx` and is 8/8 GREEN in `routes/PlotWorkspace.tsx`, while
+ * the ORDINARY form REDs in that same non-hosting file, so location alone is not
+ * the cause.
+ *
+ * ⚠ AND A NEW ROUTE NATURALLY LANDS IN A NEW FILE, which is this guard's own
+ * stated purpose — so the gap points at the case it exists for. The fix is to
+ * widen the CLASSIFIER (those six forms), not the census; widening the census
+ * needs a ~26-file subtraction list and would reintroduce the mirror this guard
+ * removes. Recorded beside the thing that has the limitation, rather than in a
+ * row nobody reads.
+ *
  * ⚠ SCOPE, precisely: this reconciles only over files that ALREADY HOST at least
  * one classified route declaration. It is not a census of every dynamic import
  * in `src/` — there are 71 of those and most are ordinary `await import(...)`
