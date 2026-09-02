@@ -312,3 +312,410 @@ test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, n
   )
   expect(after, 'the frontier is meant to withdraw after an analysis outside Expert view').toBe(0)
 })
+
+/*
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ⭐⭐ THE TWO CLASSES THE EVIDENCE ABOVE DOES NOT COVER — added 2 Sep 2026.
+ *
+ * Everything above seeds with the harness's `seedStarterDraft`, which calls
+ * `applyDraftResult` DIRECTLY and asserts `layoutVersion > 0`. That is ONE
+ * route into ONE state class: a freshly drafted graph that has just been laid
+ * out. A user reaches neither of those from the landing screen.
+ *
+ * ⚠ THE ROUTE. Clicking a saved-example card runs `applyStarter`
+ * (`starters/loadStarter.ts`), not `applyDraftResult`, and it does two things
+ * the seeded path never does: `stampStarterProvenance` REPLACES every node
+ * object after the ingest, and it writes the autosave itself. Both are extra
+ * churn through exactly the seam #1136 repaired, and no browser evidence
+ * touched them.
+ *
+ * ⚠ THE STATE CLASS. `seedStarterDraft` asserts `layoutVersion > 0` — a layout
+ * ran. A RESTORED model arrives through `hydrateGraphSlice` with real positions
+ * and NO layout ever runs (`layoutVersion === 0`, and see the header of
+ * `hooks/useRestoredLayoutWidth.ts`, which is built entirely on that fact). So
+ * the class every returning user is in was invisible to this file.
+ *
+ * That scoping gap is what allowed a report of "the deployed fix does not work
+ * for real users" to stand for a day: the fix's evidence and the failure report
+ * were about different state classes, and nothing here could say so.
+ *
+ * ⭐ SAMPLED PER ANIMATION FRAME, not on a 250ms timer. The livelock oscillates
+ * at frame rate — the pre-fix arm below re-observes ~14,000 times in 20s and
+ * mints ~2,400 node arrays, roughly one per frame — so a door can PAINT for a
+ * frame and be discarded before the next sample. A sampler slower than the
+ * phenomenon reports a steady state that is not steady, in either direction: a
+ * founder sampling at 1.5s saw only `hidden` and a screenshot caught them
+ * painted. Frames are the honest unit.
+ *
+ * MEASURED, production builds, `build-vs-buy` opened by its card, one reader,
+ * positive control firing in BOTH arms (a discriminating pair — one arm alone
+ * proves nothing):
+ *
+ *                                      53cc5196    #1136 guard reverted
+ *   frames with any door hidden        0 / 2402       2398 / 2398
+ *   doors at rest                      4/4 visible    4/4 HIDDEN
+ *   nodes-array identities in 20s      0              2,397
+ *   ghost re-observations              44             12,960
+ *   real nodes visible (contrast)      19 / 19        19 / 19
+ *
+ * and through a real document reload (`layoutVersion === 0`, the restored
+ * class): 0 / 2401 hidden at `53cc5196`, 2395 / 2395 hidden with the guard
+ * reverted, 14,088 re-observations.
+ * ══════════════════════════════════════════════════════════════════════════════
+ */
+
+/** The saved-example card is the product's own route in. Bound by test id. */
+const SAVED_EXAMPLE: StarterId = 'build-vs-buy'
+
+/**
+ * Open a saved example the way a user does — the CARD, not `applyDraftResult`.
+ *
+ * The card's presence is asserted before the click so a renamed test id fails
+ * loudly here rather than turning every assertion below into a statement about
+ * an empty canvas.
+ */
+async function openSavedExample(page: import('@playwright/test').Page): Promise<void> {
+  const card = page.locator(`[data-testid="starter-decision-${SAVED_EXAMPLE}"]`)
+  await expect(card, 'the saved-example card is not on the landing screen — this route no longer exists').toBeVisible({ timeout: 30_000 })
+  await card.click()
+  await page.waitForFunction(
+    () => (window as unknown as { useCanvasStore: { getState: () => { nodes: unknown[] } } }).useCanvasStore.getState().nodes.length > 0,
+    undefined,
+    { timeout: 30_000 },
+  )
+}
+
+/**
+ * Sample every animation frame, and read the doors, the contrast control, the
+ * livelock counter and the positive control through ONE reader — so a control
+ * that agrees cannot be agreeing through a different code path.
+ */
+const FRAME_READER = async (GHOST: string) => {
+  const ghostEls = () =>
+    ([...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]).filter((el) =>
+      (el.dataset.id ?? '').startsWith(GHOST),
+    )
+  const realEls = () =>
+    ([...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]).filter(
+      (el) => !(el.dataset.id ?? '').startsWith(GHOST),
+    )
+  const focusable = (el: HTMLElement | null | undefined) => {
+    if (!el) return false
+    el.focus()
+    const ok = document.activeElement === el
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+    return ok
+  }
+  const CONTROL = '[role="button"]'
+  const controlIn = (el: HTMLElement | null | undefined) =>
+    (el?.querySelector(CONTROL) as HTMLElement | null) ?? null
+
+  const FRAMES = 240
+  /*
+   * Frames at the head of the window that are NOT asserted on. Measured across
+   * six runs, the doors read hidden in 0-2 frames and always at the very start
+   * (indices [], [0], [0,1]) — a settle transient, not the defect. 40 frames is
+   * an order of magnitude of headroom over the largest transient seen and still
+   * leaves 200 consecutive frames (~1.7s) under assertion. It is a SETTLE
+   * window, not a tolerance on the defect: the livelock reads hidden in every
+   * frame of the window including the last, so no choice of settle within the
+   * window could hide it.
+   */
+  const SETTLE_FRAMES = 40
+  let framesWithADoorHidden = 0
+  let framesWithNoDoor = 0
+  let framesAllDoorsVisible = 0
+  /*
+   * ⚠ COUNTED IN THE LOOP, NOT DERIVED FROM `hiddenFrameIndices` — and this cost
+   * a real defect on the way in. The indices array is CAPPED at 12 entries for
+   * legibility, so a run whose hidden frames start at index 0 fills it before
+   * index 40 and a count derived from it can never exceed 0 however long the
+   * livelock runs. Measured on the reverted arm: 240 of 240 frames hidden and
+   * the derived figure read ZERO — the settle assertion was structurally
+   * incapable of failing, and only the per-door at-rest reading caught the
+   * defect. A guard that cannot fail is not a guard (CLAUDE.md trap 13). The
+   * capped array stays, for diagnostics only.
+   */
+  let framesHiddenAfterSettle = 0
+  const hiddenFrameIndices: number[] = []
+  for (let i = 0; i < FRAMES; i++) {
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+    const g = ghostEls()
+    if (g.length === 0) framesWithNoDoor++
+    else if (g.some((el) => getComputedStyle(el).visibility === 'hidden')) {
+      framesWithADoorHidden++
+      if (i >= SETTLE_FRAMES) framesHiddenAfterSettle++
+      if (hiddenFrameIndices.length < 12) hiddenFrameIndices.push(i)
+    } else framesAllDoorsVisible++
+  }
+
+  const doors = ghostEls().map((el) => ({
+    id: el.dataset.id ?? el.id,
+    visibility: getComputedStyle(el).visibility,
+    w: el.offsetWidth,
+    h: el.offsetHeight,
+    innerText: (el.innerText || '').trim(),
+    textContent: (el.textContent || '').trim(),
+    controlArity: el.querySelectorAll(CONTROL).length,
+    innerRole: controlIn(el)?.getAttribute('role') ?? null,
+    focusesControl: focusable(controlIn(el)),
+  }))
+
+  // POSITIVE CONTROL: the same reader, shown a door it must call hidden.
+  let control: { visibility: string; innerText: string; focusable: boolean } | null = null
+  const first = ghostEls()[0]
+  if (first) {
+    const clone = first.cloneNode(true) as HTMLElement
+    clone.removeAttribute('data-id')
+    clone.style.visibility = 'hidden'
+    first.parentElement!.appendChild(clone)
+    control = {
+      visibility: getComputedStyle(clone).visibility,
+      innerText: (clone.innerText || '').trim(),
+      focusable: focusable(controlIn(clone)),
+    }
+    clone.remove()
+  }
+
+  const ro = (window as unknown as { __RO_LOG__: { observes: string[]; entries: string[] } }).__RO_LOG__
+  const store = (window as unknown as {
+    useCanvasStore: {
+      getState: () => {
+        nodes: Array<{ id: string; measured?: { width?: number; height?: number }; data?: { starterId?: unknown } }>
+        layoutVersion: number
+      }
+    }
+  }).useCanvasStore.getState()
+
+  return {
+    frames: FRAMES,
+    framesWithADoorHidden,
+    framesWithNoDoor,
+    framesAllDoorsVisible,
+    hiddenFrameIndices,
+    settleFrames: SETTLE_FRAMES,
+    // Hidden frames AFTER the settle window. See the assertion for why this, and
+    // not the raw count, is the honest discriminator — and see the loop above
+    // for why it is counted there rather than derived here.
+    framesHiddenAfterSettle,
+    doors,
+    control,
+    realTotal: realEls().length,
+    realVisible: realEls().filter((el) => getComputedStyle(el).visibility !== 'hidden').length,
+    ghostReobserves: ro.observes.filter((o) => o.startsWith(GHOST)).length,
+    realReobserves: ro.observes.filter((o) => !o.startsWith(GHOST)).length,
+    layoutVersion: store.layoutVersion,
+    /*
+     * Whether this DOCUMENT is the post-reload one, stamped by the same init
+     * script that carries the persisted records across the harness's storage
+     * wipe — so it can only be present in a document entered by that reload.
+     *
+     * ⚠ NOT `performance.getEntriesByType('navigation')`, which was the obvious
+     * choice and is EMPTY here: `preparePage` freezes the clock
+     * (`page.clock.setFixedTime`), and the navigation timing entry does not
+     * survive it. Asserting `.type === 'reload'` against that read `null` and
+     * failed loudly, which is the only reason it was caught rather than becoming
+     * a class pin that could never hold.
+     */
+    postReloadDocument: (window as unknown as { __GHOST_POST_RELOAD__?: boolean }).__GHOST_POST_RELOAD__ === true,
+    storeNodeCount: store.nodes.length,
+    realMeasuredCount: store.nodes.filter((n) => n.measured?.width && n.measured?.height).length,
+    starterStamped: store.nodes.filter((n) => typeof n.data?.starterId === 'string').length,
+  }
+}
+
+/** Every assertion both new classes share, so the two cannot drift apart. */
+function assertFrontierIsUsable(m: Awaited<ReturnType<typeof FRAME_READER>>, where: string): void {
+  // The control first: if the reader cannot see `hidden`, nothing below is evidence.
+  expect(m.control, `${where}: no door was placed at all, so the control could not be built`).not.toBeNull()
+  expect(m.control!.visibility, `${where}: the reader could not see a deliberately hidden door — every verdict below is vacuous`).toBe('hidden')
+  expect(m.control!.innerText, `${where}: innerText was not layout-aware, so the emptiness signal is not being read`).toBe('')
+  expect(m.control!.focusable, `${where}: a hidden control was focusable, so the focus probe does not discriminate`).toBe(false)
+
+  expect(m.doors.length, `${where}: the frontier placed no doors`).toBeGreaterThan(0)
+  for (const d of m.doors) {
+    expect(d.visibility, `${where}: ${d.id} is not visible to a sighted user`).not.toBe('hidden')
+    expect(d.w * d.h, `${where}: ${d.id} has a zero-area box`).toBeGreaterThan(0)
+    expect(d.innerText.length, `${where}: ${d.id} renders no visible label`).toBeGreaterThan(0)
+    expect(d.innerText, `${where}: ${d.id}'s visible label disagrees with its DOM text`).toBe(d.textContent)
+    expect(d.controlArity, `${where}: ${d.id} does not hold exactly one control, so this reading is not bound to the door's own affordance`).toBe(1)
+    expect(d.innerRole, `${where}: ${d.id} is not exposed as a control`).toBe('button')
+    expect(d.focusesControl, `${where}: ${d.id} is announced as a button but cannot be focused`).toBe(true)
+  }
+
+  expect(m.framesWithNoDoor, `${where}: the doors vanished from the DOM in ${m.framesWithNoDoor} of ${m.frames} frames`).toBe(0)
+
+  /*
+   * ⚠ THE DEFECT IS PERMANENCE, AND THIS ASSERTION SAYS SO RATHER THAN PICKING
+   * A TOLERANCE. Reverted, all four doors read hidden in 240 of 240 frames — the
+   * first, the last and every one between. At this tip the reading is 0-2 frames
+   * and always at the very start of the window. So the honest statement is not
+   * "a few hidden frames are acceptable" — a tuned limit, and one that would
+   * still pass at 20 scattered through the window — but "the hidden state must
+   * not survive the settle". A livelock cannot satisfy that at any settle value.
+   *
+   * ⚠ NAMED HONESTLY: I have not established WHAT paints those first frames. It
+   * is consistent with React Flow painting a node hidden until its first
+   * measurement, but sampling starts long after quiescence, so that is a
+   * plausible reading and not a derivation. The bound does not depend on the
+   * answer — only on the frames not repeating — but the gap is recorded rather
+   * than papered over, and it is worth resolving if this ever climbs.
+   */
+  expect(
+    m.framesHiddenAfterSettle,
+    `${where}: a door was hidden after the ${m.settleFrames}-frame settle — ${m.framesWithADoorHidden} of ${m.frames} frames hidden, at indices ${JSON.stringify(m.hiddenFrameIndices)}. The livelock reading is 240 of 240, every frame, including the last.`,
+  ).toBe(0)
+
+  // Contrast: the real nodes, in the same snapshot. A "hidden" reading is only
+  // a finding if something else in the same DOM reads visible.
+  expect(m.realTotal, `${where}: no real nodes to contrast against`).toBeGreaterThan(0)
+  expect(m.realVisible, `${where}: real nodes were hidden too, so this is not a ghost-specific reading`).toBe(m.realTotal)
+
+  // The livelock. Pre-fix this measured 12,960-14,088 re-observations of four
+  // elements whose box never changed; a healthy mount measures tens. The bound
+  // discriminates against a ~300x signal, it does not tune a limit.
+  expect(m.ghostReobserves, `${where}: the measure/discard livelock is back (${m.ghostReobserves} re-observations)`).toBeLessThan(200)
+
+  // The fix suppresses a store write; prove it did not suppress the real one.
+  expect(m.realMeasuredCount, `${where}: real nodes stopped persisting their measured dimensions`).toBe(m.storeNodeCount)
+}
+
+test('GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not applyDraftResult', async ({ page }) => {
+  await page.addInitScript(INSTRUMENT)
+  await preparePage(page, { width: 1440, height: 900 })
+  await openCanvas(page)
+  await openSavedExample(page)
+  await clearNotifications(page)
+  await minimiseFloatingOlumiPanel(page)
+  await waitForVisualQuiescence(page)
+
+  const m = await page.evaluate(FRAME_READER, GHOST_ID_PREFIX)
+  // eslint-disable-next-line no-console
+  console.log(`GHOSTJSON ${JSON.stringify({ where: 'saved-example', ...m, doors: m.doors.map((d) => d.id) })}`)
+
+  // THE ROUTE IS PINNED IN-TEST. `applyStarter` is the only thing that stamps
+  // `starterId`, so this asserts the graph arrived through the route this test
+  // exists to cover — without it, a change that silently rerouted the card
+  // through `applyDraftResult` would leave this passing as a duplicate of the
+  // tests above.
+  expect(m.starterStamped, 'the graph carries no starter stamp, so it did not arrive through applyStarter — this test is no longer about the saved-example route').toBe(m.storeNodeCount)
+
+  assertFrontierIsUsable(m, 'saved-example')
+})
+
+test('GHOST doors are visible in the RESTORED class — a saved example after a real reload', async ({ page }) => {
+  await page.addInitScript(INSTRUMENT)
+  await preparePage(page, { width: 1440, height: 900 })
+  await openCanvas(page)
+  await openSavedExample(page)
+  await waitForVisualQuiescence(page)
+
+  /*
+   * ⚠ THE HARNESS WIPES STORAGE ON EVERY NAVIGATION, AND THAT INCLUDES THE
+   * RELOAD. `preparePage` registers an init script calling `localStorage.clear()`
+   * so each capture starts from a pinned posture — correct for every other test
+   * here, and fatal for this one: it deletes the autosave the boot arbiter is
+   * about to restore FROM, so the reload lands on an empty canvas and the
+   * assertions below would pass or fail for reasons that have nothing to do with
+   * the doors. Measured: `olumi-canvas-autosave` 30,433 bytes before the reload,
+   * key absent after.
+   *
+   * So the records the product itself just wrote are carried across by hand and
+   * re-seeded by a LATER init script — later, therefore after the clear, because
+   * Playwright runs init scripts in registration order. Nothing is synthesised:
+   * every value is read back out of `localStorage`, and the boot path and
+   * `hydrateGraphSlice` then run exactly as they do for a returning user.
+   *
+   * ⚠ WHICH RESTORE PATH THIS EXERCISES, NAMED RATHER THAN LEFT TO INFERENCE.
+   * A guest opening a saved example gets NO scenario pointer
+   * (`olumi-canvas-current-scenario-id` is null, measured), so the boot arbiter's
+   * scenario/autosave branch does not claim it and `ReactFlowGraph`'s init effect
+   * falls through to `loadState()` → `hydrateGraphSlice`. Both keys are carried
+   * because the branch taken is the product's decision, not this test's: the
+   * autosave alone restores nothing here, which is exactly the trap of seeding
+   * the record you assumed would be read. What the class is defined by — real
+   * positions, `hydrateGraphSlice`, and no layout ever running — is asserted
+   * below, not assumed.
+   */
+  const carried = await page.evaluate(() => ({
+    autosave: localStorage.getItem('olumi-canvas-autosave'),
+    scenarioId: localStorage.getItem('olumi-canvas-current-scenario-id'),
+    canvasStorage: localStorage.getItem('canvas-storage'),
+  }))
+  expect(
+    carried.autosave || carried.canvasStorage,
+    'the saved example persisted nothing, so there is nothing for a reload to restore and this test would measure an empty canvas',
+  ).toBeTruthy()
+  await page.addInitScript((c: { autosave: string | null; scenarioId: string | null; canvasStorage: string | null }) => {
+    try {
+      if (c.autosave) localStorage.setItem('olumi-canvas-autosave', c.autosave)
+      if (c.scenarioId) localStorage.setItem('olumi-canvas-current-scenario-id', c.scenarioId)
+      if (c.canvasStorage) localStorage.setItem('canvas-storage', c.canvasStorage)
+    } catch { /* storage unavailable — the node-count wait below will catch it */ }
+    // Stamp the document this script runs in. Registered after the first load,
+    // so it marks the RELOADED document and nothing else — the class pin below
+    // reads it.
+    ;(window as unknown as { __GHOST_POST_RELOAD__?: boolean }).__GHOST_POST_RELOAD__ = true
+  }, carried)
+
+  // A REAL document reload. Not a hash change and not a store reset: the
+  // restore has to run, which is the whole point of this class.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('.react-flow')).toBeVisible({ timeout: 30_000 })
+  await page.waitForFunction(
+    () => typeof (window as unknown as { useCanvasStore?: { getState?: () => unknown } }).useCanvasStore?.getState === 'function',
+    undefined,
+    { timeout: 30_000 },
+  )
+  await page.waitForFunction(
+    () => (window as unknown as { useCanvasStore: { getState: () => { nodes: unknown[] } } }).useCanvasStore.getState().nodes.length > 0,
+    undefined,
+    { timeout: 30_000 },
+  )
+  await page.evaluate(() => document.fonts?.ready)
+  await clearNotifications(page)
+  await minimiseFloatingOlumiPanel(page)
+  await waitForVisualQuiescence(page)
+
+  const m = await page.evaluate(FRAME_READER, GHOST_ID_PREFIX)
+  // eslint-disable-next-line no-console
+  console.log(`GHOSTJSON ${JSON.stringify({ where: 'restored', ...m, doors: m.doors.map((d) => d.id) })}`)
+
+  expect(m.storeNodeCount, 'the reload restored no model').toBeGreaterThan(0)
+
+  // The doors are asserted BEFORE the class pin, deliberately, and the reason is
+  // itself a finding. With #1136 reverted, the livelock's churn drives the
+  // measure-then-layout pipeline and a layout RUNS on a restored model that
+  // should never lay one out — `layoutVersion` reads 2 instead of 0. So a class
+  // pin placed first fails on the precondition and the primary signal (4/4 doors
+  // hidden in 240 of 240 frames) never gets to speak. Both are enforced in the
+  // same run, so the test still cannot pass on the wrong class; the order only
+  // decides which truth you are told first, and the door reading is the one this
+  // file exists for.
+  assertFrontierIsUsable(m, 'restored')
+
+  /*
+   * ⭐ THE STATE CLASS IS PINNED IN-TEST — CLAUDE.md trap 13b, a guard must pin
+   * its own precondition. Without this, a change that stopped the reload
+   * restoring (or started re-seeding after it) would leave this green while
+   * silently becoming a third copy of the fresh-draft test above.
+   *
+   * TWO FACTS, TOGETHER, ARE THE CLASS: this document is the one the RELOAD
+   * produced, and it holds a stamped saved-example graph. Nothing in this
+   * document applies a draft after the reload, so a graph that is here must have
+   * been RESTORED.
+   *
+   * ⚠ AND `layoutVersion === 0` IS DELIBERATELY *NOT* THE PIN, though it is the
+   * property `hooks/useRestoredLayoutWidth.ts` is built on and it was my first
+   * choice. Measured across four runs it reads 0, 2, 2, 0 — the restored path
+   * runs a layout roughly half the time in this harness, and I have not
+   * established why. The doors are visible in every one of those runs (0 hidden
+   * frames, 20-32 re-observations), so it does not affect this file's verdict —
+   * but pinning on it would have made this test flaky for a reason that has
+   * nothing to do with the doors, and asserting a property that is only
+   * sometimes true is how a guard teaches people to ignore it. Reported below
+   * rather than asserted, and flagged as worth a look by the layout lane.
+   */
+  expect(m.postReloadDocument, 'this document is not the one the reload produced, so the graph on screen was not restored — this test is not measuring the restored class').toBe(true)
+  expect(m.starterStamped, 'the restored graph carries no starter stamp, so it is not the saved example this test opened').toBe(m.storeNodeCount)
+})
