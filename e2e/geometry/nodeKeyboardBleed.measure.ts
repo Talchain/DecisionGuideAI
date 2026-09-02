@@ -13,8 +13,18 @@
  * and hands the right-hand dock to the Inspector. A keyboard user cannot press
  * any in-node affordance without also getting a selection they did not ask for.
  *
- * ⚠ RUN IT DELIBERATELY, it is not in any gate:
- *     pnpm exec playwright test -c playwright.geometry.config.ts nodeKeyboardBleed
+ * ⚠ CORRECTED — THIS FILE IS NOW PARTLY GATED. It previously read "it is not in
+ * any gate", which was true when written and is no longer. THREE of its four
+ * arms (drive, pointer, opposite-direction) carry `GATE_TAG` and run on every
+ * push to `staging` and every PR into it, via the `Canvas Browser Gate
+ * (advisory)` job. The CENSUS arm remains a measure and is deliberately not
+ * gated. Which arms gate, and the shipped defect each one would have caught,
+ * are declared in `e2e/geometry/canvasGateSet.ts` — the registry, not this
+ * comment, is the authority, precisely so this sentence cannot go stale again.
+ *
+ *     pnpm run canvas:gate        # the three gated arms, as CI runs them
+ *     pnpm run geometry nodeKeyboardBleed   # everything here, census included
+ *
  * `*.measure.ts`, not `*.spec.ts`, so the main e2e config cannot collect it into
  * a run that has no dev server on its port — same convention as the sibling
  * measures in this directory.
@@ -60,6 +70,18 @@ import {
   waitForVisualQuiescence,
   type StarterId,
 } from '../visual/harness'
+/*
+ * ⭐ `GATE_TAG` ADMITS A TEST TO THE MERGE GATE. A test carrying it is run by
+ * `playwright.canvasgate.config.ts` on every push to `staging` and every PR into
+ * it — and it must ALSO be listed in `e2e/geometry/canvasGateSet.ts`, which names
+ * the shipped defect it would have caught. The two are asserted against each
+ * other after every gate run, so tagging without registering (or renaming a
+ * tagged test) is a RED, not a silent change of scope.
+ *
+ * Untagged tests in this file are still collected by the ordinary
+ * `playwright.geometry.config.ts` run. The tag decides what GATES, not what runs.
+ */
+import { GATE_TAG } from './canvasGateSet'
 
 const VIEWPORT = { width: 1440, height: 900 }
 
@@ -800,7 +822,10 @@ test.describe('in-node keyboard bleed', () => {
     ).toBe(0)
   })
 
-  test('drive: Space/Enter at an in-node control, with a contrast control and an attribution control', async ({ page }) => {
+  test(
+    'drive: Space/Enter at an in-node control, with a contrast control and an attribution control',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
 
     let loaded: StarterId | null = null
@@ -986,7 +1011,10 @@ test.describe('in-node keyboard bleed', () => {
    * A drag that moves nothing satisfies "the node did not move" perfectly, so
    * neither assertion is worth anything without the other.
    */
-  test('pointer: Shift-drag over a node still starts a marquee, and does not move the node', async ({ page }) => {
+  test(
+    'pointer: Shift-drag over a node still starts a marquee, and does not move the node',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
     await loadCanvas(page, 'vendor-selection')
 
@@ -1093,7 +1121,10 @@ test.describe('in-node keyboard bleed', () => {
     ).toBe(before?.transform)
   })
 
-  test('opposite direction: Enter at the NODE still selects it, Escape still deselects', async ({ page }) => {
+  test(
+    'opposite direction: Enter at the NODE still selects it, Escape still deselects',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
 
     /*
@@ -1105,6 +1136,23 @@ test.describe('in-node keyboard bleed', () => {
      * An earlier version of this comment claimed the hygiene below made it
      * order-independent, on the strength of a single 4/4 green run. That was a
      * claim about intent, not a measurement, and it is withdrawn.
+     *
+     * ⭐ APPENDED (2026-09-02, the canvas-gate lane, at staging 8736a61a):
+     * **12 further PAIRED runs, 0 failures** — pooling to 19 paired / 1 failure.
+     * ⚠ READ THAT AS EVIDENCE ABOUT NOTHING MUCH: at a true 14% rate, twelve
+     * consecutive passes occur about 16% of the time (0.86^12), so 12/12 is an
+     * unremarkable draw and NOT a refutation — the same asymmetry this comment
+     * already states about 8/8 at the merge base, now in the other direction.
+     * That lane therefore did not reproduce it, did not root-cause it, and
+     * CHANGED NOTHING HERE. Appended rather than rewritten: these are dated
+     * measurements, and a record of what was measured is not a fixture to keep
+     * current (CLAUDE.md trap 14b).
+     *
+     * ⚠ IT IS NONETHELESS IN THE MERGE-PATH GATE, and that is a decision with a
+     * reason: dropping it would leave the gate watching one door. The job is
+     * ADVISORY, which is what absorbs the flake — never a retry. Root-causing
+     * this arm is the stated precondition for promoting that job to REQUIRED.
+     * Full argument at `canvasGateSet.ts` § KNOWN_FLAKE_IN_GATE.
      *
      * ⭐ IT IS NOT CAUSED BY THE FIX THIS FILE TESTS, and the reasoning is
      * mechanical rather than statistical: `closest()` walks UP, the keyboard

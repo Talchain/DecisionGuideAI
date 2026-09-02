@@ -297,6 +297,153 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # ── Canvas browser gate (ADVISORY for now — see the promotion note) ──
+  #
+  # ⭐ WHY THIS JOB EXISTS. On 1-2 Sep 2026 three canvas defects shipped that NO
+  # gate in this repo could have caught, and the reason in each case is
+  # structural rather than an oversight:
+  #
+  #   1. THE IN-NODE KEYBOARD BLEED (#1129) — React Flow's node-level `onKeyDown`
+  #      lives in the ancestor React Flow renders AROUND every node component, so
+  #      the defect is in no node component's own tree, and NO TEST IN THIS REPO
+  #      MOUNTS `<ReactFlow>` AT ALL. A green suite over `src/canvas/nodes` was
+  #      silent about it BY CONSTRUCTION (CLAUDE.md trap 3b).
+  #   2. THE GHOST REASONING-FRONTIER DOORS — a layout livelock measuring 1,660
+  #      times in 3s left four affordances invisible from 27 March 2026. A
+  #      livelock is a property of a real layout engine in a real paint loop.
+  #   3. THE CANVAS NODE OVERLAP — card width not surviving reload, and card
+  #      HEIGHT being a function of ZOOM. jsdom has no geometry: every rect is 0.
+  #
+  # And the one browser-level check that already existed is INOPERATIVE: the
+  # self-test in `Visual Regression (advisory)` whose whole job is to prove the
+  # instrument can fail (`e2e/visual/selftest.visual.spec.ts`) sits inside that
+  # job's standing failure set. "Identical failure sets" from it is two runs of a
+  # broken instrument agreeing with each other, not evidence (CLAUDE.md trap 13).
+  #
+  # ⚠ THE CONSTRAINT THAT SHAPED IT: a job that takes twenty minutes will be
+  # routed around within a week — which is precisely how this repo acquired a
+  # permanently-red visual check. So this gate runs the SMALLEST SET THAT WOULD
+  # HAVE CAUGHT THE SHIPPED DEFECT and nothing else: three arms out of the twenty
+  # `e2e/geometry/*.measure.ts` files. MEASURED on darwin at this tip: 41.2s +
+  # 6.2s + 6.9s, 69s wall including the vite boot. The set, and the shipped
+  # defect each arm would have caught, are in `e2e/geometry/canvasGateSet.ts`.
+  #
+  # ⚠ ADVISORY ON PURPOSE, AND ONLY FOR NOW — the same posture, for the same
+  # stated reason, as `visual-regression` and `core-e2e` above. `staging`
+  # protection currently requires exactly one context, "Staging Gate"
+  # (derived, not assumed:
+  #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+  #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+  # ), and this job is deliberately ABSENT from that aggregator's `needs` at the
+  # end of this file. Promoting it is a separate, explicit ruling, and the
+  # precondition for taking it is stated rather than left to taste: its
+  # false-positive rate on `ubuntu-latest` must be OBSERVED over a run of pushes,
+  # not assumed. Gating on an unmeasured flake rate is how a check becomes a red
+  # everyone learns to ignore (CLAUDE.md trap 7) — which is the disease this job
+  # exists to cure, so it must not be the first thing the cure does.
+  #
+  # ⚠ NO RETRIES, DELIBERATELY. `playwright.canvasgate.config.ts` pins
+  # `retries: 0` and says why. A flake hidden by a retry is worse than a visible
+  # one. The one arm with a measured order-dependence is handled in the config
+  # and the registry, never with a retry or a sleep.
+  #
+  # ⭐ IT CANNOT REPORT SUCCESS HAVING EXECUTED NOTHING, and that is enforced in
+  # TWO places that are not the job:
+  #   - `e2e/geometry/globalSetup.ts` asks the dev server WHICH CHECKOUT it is
+  #     serving and refuses to measure a foreign one;
+  #   - `e2e/geometry/canvasGateTeardown.ts` asserts the assertions that RAN
+  #     against the registry BY NAME, in both directions, and REDs on a zero-run,
+  #     a missing arm, a skipped arm, or an unregistered one.
+  # Both live in globalSetup/globalTeardown rather than in a spec, so `--grep`
+  # cannot remove the check that proves the run measured anything. A check in
+  # this repo once reported SUCCESS having run nothing for 204 days.
+  canvas-gate:
+    name: Canvas Browser Gate (advisory)
+    needs: install
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    # Generous against a measured 69s wall so a slow runner is not a red, but far
+    # below the point at which anyone would route around it. A job that exceeds
+    # this is reporting a hang, and should be read as one.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore node_modules cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Chromium (Playwright)
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The gate boots its OWN vite dev server against THIS checkout, so unlike
+      # `core-e2e` above there is no deployed target to resolve and no build-drift
+      # question: a result here is a claim about the DIFF, on a pull request and
+      # on a push alike. That is the whole reason it can be a merge gate at all.
+      - name: Run the canvas gate
+        run: |
+          set -o pipefail
+          pnpm run canvas:gate
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canvas-gate-report
+          path: test-results/canvas-gate/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Canvas browser gate (advisory — does not block merges)'
+            echo ''
+            echo 'Browser-level assertions on the mounted canvas. jsdom cannot see this class'
+            echo 'of defect BY CONSTRUCTION — no test in this repo mounts `<ReactFlow>`, and'
+            echo 'jsdom returns 0 for every rect. Three shipped defects in one day were'
+            echo 'invisible to the whole suite for that reason.'
+            echo ''
+            if [ -f test-results/canvas-gate/ran-manifest.tsv ]; then
+              echo 'Gated assertions that ACTUALLY RAN (recorded per test, not inferred from the total):'
+              echo ''
+              echo '```'
+              cat test-results/canvas-gate/ran-manifest.tsv
+              echo '```'
+            else
+              echo '⚠ No run manifest — this run recorded nothing, so it measured nothing.'
+              echo 'The failure is upstream of the assertions: look for `globalSetup` refusing'
+              echo 'to measure, or a dev server that never booted.'
+            fi
+            echo ''
+            echo 'The gated set is closed and named in `e2e/geometry/canvasGateSet.ts`, where every'
+            echo 'entry states the SHIPPED DEFECT it would have caught. It cannot grow or shrink'
+            echo 'silently: selection is by tag at the test site, admission is by that registry,'
+            echo 'and the two are asserted against each other in `globalTeardown` after every run.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── Visual regression (ADVISORY — reports, never blocks) ─────────────
   #
   # WHY: between 2026-08-15 and 2026-08-17 roughly fifteen UI PRs merged, every

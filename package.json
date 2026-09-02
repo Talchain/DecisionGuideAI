@@ -62,6 +62,8 @@
     "e2e:staging:v5": "playwright test --config playwright.staging.config.ts",
     "e2e:core": "playwright test --config playwright.core.config.ts",
     "e2e:core:pinned": "CORE_UI_URL=$(node scripts/core-e2e/resolve-immutable-target.mjs) pnpm run e2e:core",
+  "canvas:gate": "playwright test -c playwright.canvasgate.config.ts",
+  "geometry": "playwright test -c playwright.geometry.config.ts",
   "visual": "playwright test -c playwright.visual.config.ts",
   "visual:bless": "bash scripts/visual/rebless.sh",
   "visual:check-refs": "bash scripts/visual/rebless.sh --check",
