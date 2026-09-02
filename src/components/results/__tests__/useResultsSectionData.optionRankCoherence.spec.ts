@@ -184,7 +184,12 @@ describe('useResultsSectionData — option rank coherence', () => {
     })
   })
 
-  it('⭐ THE USER-VISIBLE PROPERTY: ordinals ascend 1..N along the canvas reading order', () => {
+  it('⭐ AT MINT: ordinals ascend 1..N along the canvas reading order', () => {
+    // ⚠ SCOPED DELIBERATELY — "AT MINT", not "always". Ordinals are frozen when
+    // they are first assigned and are never recomputed, so a later re-layout can
+    // desynchronise them from reading order. That boundary is pinned by its own
+    // test below; stating this one unconditionally would have been an overclaim
+    // the source itself does not make.
     setStoreWithMappedReport(SCREENSHOT_OPTIONS)
 
     renderHook(() => useResultsSectionData())

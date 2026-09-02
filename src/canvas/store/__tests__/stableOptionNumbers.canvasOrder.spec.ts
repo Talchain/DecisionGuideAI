@@ -29,7 +29,7 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { orderOptionIdsByCanvasPosition } from '../stableOptionNumbers'
+import { orderOptionIdsByCanvasPosition, assignStableOptionNumbers } from '../stableOptionNumbers'
 
 /** A node carrying only what the ordering reads. */
 function at(id: string, x: number, y: number) {
@@ -59,7 +59,13 @@ describe('orderOptionIdsByCanvasPosition', () => {
     ])
   })
 
-  it('⭐ CONTROL: position beats caller order — the same nodes, either caller order, one result', () => {
+  it('⭐ CONTROL: position beats caller order WHEN THE ROW ANCHORS AGREE', () => {
+    // ⚠ SCOPED, because the unqualified claim is FALSE and a review measured it.
+    // `groupByYRow` seeds each row's anchor in INPUT order, so three nodes at
+    // y=100/108/116 — all inside the shared tolerance, but no two exactly equal —
+    // can group differently depending on the order they arrive in. Reachable
+    // after a manual drag, though not from a laid-out graph, whose rows share an
+    // exact y. This fixture uses one row at a single y, where the claim holds.
     const nodes = [at('opt_left', 0, 0), at('opt_right', 500, 0)]
 
     const forwards = orderOptionIdsByCanvasPosition(['opt_left', 'opt_right'], nodes)
@@ -146,5 +152,60 @@ describe('orderOptionIdsByCanvasPosition', () => {
     ]
 
     expect(orderOptionIdsByCanvasPosition(['opt_b', 'opt_a'], nodes)).toEqual(['opt_a', 'opt_b'])
+  })
+})
+
+describe('⚠ THE BOUNDARY: ordinals freeze at mint, and a re-layout can desynchronise them', () => {
+  // ⭐ THIS IS NOT A BUG REPORT DISGUISED AS A TEST. It pins the actual contract
+  // so the next reader does not have to discover it from a screenshot.
+  //
+  // `Option N` is POSITIONAL IDENTITY AT MINT, and identity is the whole point:
+  // the numbers are append-only and are never recomputed, so a card keeps its
+  // number across a re-run, a rename, and a reload. That is what makes "Option 3"
+  // mean the same card in the panel and on the canvas.
+  //
+  // The price is that a LATER re-layout — the ordinary conversational edit loop
+  // re-runs one — can move a card without moving its number, so reading order and
+  // ordinal drift apart. A review measured exactly that: a re-layout produced
+  // `1, 3, 4, 2`, and inserting an option mid-row produced `1, 5, 2, 3, 4` — the
+  // same SHAPE as the `1, 2, 4, 5, 3` originally reported.
+  //
+  // ⚠ So this change makes the badges correct AT FIRST RENDER, where they were
+  // previously wrong from the first render. It does not make them correct
+  // forever, and claiming otherwise would be the overclaim this file exists to
+  // avoid. Re-sorting on every layout is NOT the fix — it would destroy the one
+  // property identity exists to provide, and the no-renumber contract is pinned
+  // elsewhere. The open product question — whether a canvas card should carry a
+  // numeral at all, given the panel already owns identity — is the founder's,
+  // and is rowed rather than answered here.
+
+  it('the same ids re-ordered by a later layout would number DIFFERENTLY — which is why they are not re-numbered', () => {
+    const atMint = [at('opt_a', 0, 0), at('opt_b', 300, 0), at('opt_c', 600, 0)]
+    const minted = assignStableOptionNumbers({}, orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], atMint))
+    expect(minted).toEqual({ opt_a: 1, opt_b: 2, opt_c: 3 })
+
+    // A re-layout permutes the row. Positions changed; nothing re-mints.
+    const afterRelayout = [at('opt_c', 0, 0), at('opt_a', 300, 0), at('opt_b', 600, 0)]
+    const wouldBe = assignStableOptionNumbers({}, orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], afterRelayout))
+    expect(wouldBe).toEqual({ opt_c: 1, opt_a: 2, opt_b: 3 })
+
+    // The precondition, pinned in-test so this cannot pass by the two orders
+    // happening to coincide: they must genuinely disagree.
+    expect(wouldBe).not.toEqual(minted)
+  })
+
+  it('append-only: a new id takes max+1 wherever it lands, it does not renumber the row', () => {
+    const existing = { opt_a: 1, opt_b: 2, opt_c: 3 }
+    // The new card lands in the MIDDLE of the row by position...
+    const nodes = [at('opt_a', 0, 0), at('opt_new', 150, 0), at('opt_b', 300, 0), at('opt_c', 600, 0)]
+    const next = assignStableOptionNumbers(
+      existing,
+      orderOptionIdsByCanvasPosition(['opt_a', 'opt_new', 'opt_b', 'opt_c'], nodes),
+    )
+    // ...and still takes 4, leaving every existing card's number untouched.
+    expect(next).toEqual({ opt_a: 1, opt_new: 4, opt_b: 2, opt_c: 3 })
+    for (const [id, n] of Object.entries(existing)) {
+      expect(next[id], `${id} must keep its identity`).toBe(n)
+    }
   })
 })
