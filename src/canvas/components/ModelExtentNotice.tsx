@@ -44,6 +44,13 @@
  * node set is `excludeNonModelNodes` — the fit's OWN target set, so the notice
  * counts exactly what the camera was trying to frame and cannot disagree with
  * it about what the model is.
+ *
+ * ⚠ IT GOT THE NODE SET RIGHT AND THE FRAME WRONG, FOR THE WHOLE OF ITS LIFE
+ * UNTIL 2 Sep 2026. It passed `FocusCamera.insets` — the no-churn GATE frame,
+ * widened by companion occlusion — where it had to pass the FIT frame. The
+ * sentence above claimed it "cannot disagree with the camera"; on the frame it
+ * did, and with the companion open the disagreement printed "Showing 0 of 19
+ * elements" over nine visible nodes. See the fork named at the count itself.
  */
 import { useCallback, useMemo } from 'react'
 import { useReactFlow, useStore } from '@xyflow/react'
@@ -51,7 +58,7 @@ import { Maximize2 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { excludeNonModelNodes } from '../utils/fitTargets'
 import { computeFitPadding } from '../utils/computeFitPadding'
-import { countNodesOutsideFrame, readFocusCamera } from '../utils/cameraComfort'
+import { countNodesOutsideFrame, paddingToInsets, readFocusCamera } from '../utils/cameraComfort'
 import { cameraDuration } from '../utils/cameraMotion'
 import { claimCameraForUser } from '../utils/userCameraClaim'
 import { currentModelKey } from '../utils/currentModelKey'
@@ -81,7 +88,53 @@ export function ModelExtentNotice() {
   const outside = useMemo(() => {
     const cam = readFocusCamera(getViewport)
     if (!cam) return null
-    return countNodesOutsideFrame(modelNodes, cam.viewport, cam.paneWidth, cam.paneHeight, cam.insets)
+    // ⭐⭐ THE FIT'S FRAME, NEVER THE GATE'S — and this line shipped the wrong
+    // one. `readFocusCamera` returns TWO frames from one measurement:
+    // `padding` is what the FIT frames into (edge-anchored chrome only), and
+    // `insets` is the no-churn GATE frame, that same padding WIDENED by
+    // whatever the free-floating companion occludes. `cameraComfort`'s header
+    // documents the fork; `useFitViewOnLayoutVersion.fitNow` takes the same
+    // side this line now does, for the same reason, and says so.
+    //
+    // The two answer different questions (CLAUDE.md trap 21). The gate asks
+    // *"should the camera move?"*, for which counting an occluded node as
+    // uncomfortable is correct and fail-closed. This notice asks *"how many
+    // elements can the person SEE?"* and prints the answer, so a fail-closed
+    // frame becomes a false sentence.
+    //
+    // ⚠ WHAT IT COST, measured on deployed staging `f585969d`, real Chromium,
+    // 1280x800, companion open, rAF live at 121-122 ticks/s: three of the five
+    // shipped starters read **"Showing 0 of 19 / 0 of 18 / 0 of 19 elements"**
+    // at `translate(369px, 61px) scale(0.5)` — a normal, correctly fitted
+    // camera — while a per-node hit test found NINE on screen and un-occluded.
+    // Sampled once a second for twenty seconds: it never settled.
+    //
+    // A `fitView` inset is a FULL BAND, so clearing a 436x550 panel floating in
+    // the MIDDLE of the pane surrenders the whole bottom 691px of an 800px
+    // pane, unoccluded regions to its left and right included. The frame stays
+    // non-degenerate (117 > 65), so the count is returned rather than `null`
+    // and the notice renders the lie instead of hiding.
+    //
+    // The companion is movable, dismissible and minimisable; the fit padding's
+    // contributors are none of those (`computeFitPadding`, criteria 1-4). A
+    // sentence about what is on screen may only rest on the second kind.
+    //
+    // ⭐ AND THE DECISIVE ARGUMENT IS THE REMEDY, NOT THE GEOMETRY. This notice
+    // offers exactly one action — `showAll`, a CAMERA MOVE. A camera move
+    // cannot reveal a node behind the floating companion: the panel is fixed to
+    // the screen, so it covers whatever is under it at any zoom. Counting
+    // companion-occluded nodes therefore inflates a number whose own button is
+    // powerless to change it, and a count must only include what its remedy can
+    // fix. Measured live with the companion open (deployed `f585969d`): the fit
+    // frame lands within 0-3 of a per-node hit test on all five starters, and
+    // the gate frame lands on zero.
+    return countNodesOutsideFrame(
+      modelNodes,
+      cam.viewport,
+      cam.paneWidth,
+      cam.paneHeight,
+      paddingToInsets(cam.padding),
+    )
     // `transform` is the reactivity trigger; the camera is read fresh above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelNodes, getViewport, transform])
