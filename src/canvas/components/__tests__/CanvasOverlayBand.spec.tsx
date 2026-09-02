@@ -43,6 +43,41 @@ function Claimant({ cell, id, wants = true }: { cell: OverlayCell; id: string; w
 const [FIRST, SECOND] = OVERLAY_PRIORITY['bottom-centre']
 
 describe('CanvasOverlayBand — one slot, one occupant', () => {
+  /**
+   * ⭐⭐ THE ORDER IS WRITTEN OUT BY HAND, AND THAT IS DELIBERATE — CAUGHT BY A
+   * SURVIVING MUTANT ON THIS FILE'S FIRST VERSION.
+   *
+   * Every other assertion here destructures `FIRST` and `SECOND` from
+   * `OVERLAY_PRIORITY` at runtime. That makes them derived, which is the right
+   * shape for "the mechanism honours the table" — but it means a mutant that
+   * INVERTS the table moves the expectation along with it, and the suite stays
+   * green. Measured: swapping the first two entries left all eight tests
+   * passing. The guard was agreeing with itself (CLAUDE.md trap 13b).
+   *
+   * Derivation proves the code and the table AGREE; only a hand-written corpus
+   * can notice the table is WRONG (trap 12d). The two are not redundant and
+   * neither replaces the other, so both ship.
+   *
+   * The order encodes a product judgement about HONESTY, not a rendering
+   * preference: a sentence about the model's PROVENANCE ("this was not
+   * generated just now") outranks one about its STANDING ("nothing in it
+   * carries your judgement yet"), which outranks one about how much of it you
+   * can see, which outranks a rendering detail, which outranks a selection
+   * chip. Changing this list changes which true thing a user is not told.
+   */
+  const EXPECTED_BOTTOM_CENTRE = [
+    'starter-provenance-banner',
+    'first-model-notice',
+    'model-extent-notice',
+    'canvas-lod-notice',
+    'assistant-focus-chip',
+    'focus-mode-chip',
+  ]
+
+  it('the bottom-centre priority ORDER is the declared one, spelled out', () => {
+    expect([...OVERLAY_PRIORITY['bottom-centre']]).toEqual(EXPECTED_BOTTOM_CENTRE)
+  })
+
   it('POSITIVE CONTROL: the priority table under test is non-empty and ordered', () => {
     // Trap 13: every ordering assertion below is vacuous if the table is empty,
     // and `[undefined, undefined]` destructures without complaint.
