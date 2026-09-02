@@ -179,19 +179,50 @@ describe('⚠ THE BOUNDARY: ordinals freeze at mint, and a re-layout can desynch
   // numeral at all, given the panel already owns identity — is the founder's,
   // and is rowed rather than answered here.
 
-  it('the same ids re-ordered by a later layout would number DIFFERENTLY — which is why they are not re-numbered', () => {
+  it('a re-layout does NOT renumber — the freeze holds, and the drift is the price', () => {
+    // ⚠ THIS TEST WAS WRONG IN ITS FIRST FORM AND A REVIEW MEASURED IT. Both
+    // calls passed `{}` as `previous`, so the keep-existing branch never ran:
+    // deleting the freeze entirely left it GREEN while its own title claimed to
+    // be about why cards are not renumbered. It re-proved position-sensitivity,
+    // which this file already pins five times over.
+    //
+    // Repaired by passing the minted map back in, so the assertion is now ABOUT
+    // the freeze rather than beside it.
     const atMint = [at('opt_a', 0, 0), at('opt_b', 300, 0), at('opt_c', 600, 0)]
-    const minted = assignStableOptionNumbers({}, orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], atMint))
+    const minted = assignStableOptionNumbers(
+      {},
+      orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], atMint),
+    )
     expect(minted).toEqual({ opt_a: 1, opt_b: 2, opt_c: 3 })
 
-    // A re-layout permutes the row. Positions changed; nothing re-mints.
+    // A re-layout permutes the row. The ordinals are handed back in, as the
+    // store hands them back in, and must not move.
     const afterRelayout = [at('opt_c', 0, 0), at('opt_a', 300, 0), at('opt_b', 600, 0)]
-    const wouldBe = assignStableOptionNumbers({}, orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], afterRelayout))
-    expect(wouldBe).toEqual({ opt_c: 1, opt_a: 2, opt_b: 3 })
+    const afterFreeze = assignStableOptionNumbers(
+      minted,
+      orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], afterRelayout),
+    )
+    expect(afterFreeze, 'a re-layout must not renumber an existing card').toEqual(minted)
 
-    // The precondition, pinned in-test so this cannot pass by the two orders
-    // happening to coincide: they must genuinely disagree.
-    expect(wouldBe).not.toEqual(minted)
+    // THE PRECONDITION, pinned in-test: a fresh mint at the new positions gives a
+    // DIFFERENT answer. Without this the freeze assertion above would also pass
+    // if the two layouts happened to agree, and would prove nothing.
+    const ifReminted = assignStableOptionNumbers(
+      {},
+      orderOptionIdsByCanvasPosition(['opt_a', 'opt_b', 'opt_c'], afterRelayout),
+    )
+    expect(ifReminted).toEqual({ opt_c: 1, opt_a: 2, opt_b: 3 })
+    expect(
+      ifReminted,
+      'the two layouts must genuinely disagree, or the freeze proves nothing',
+    ).not.toEqual(minted)
+
+    // ⭐ And that difference IS the drift, stated rather than hidden: after this
+    // re-layout the cards read 2, 3, 1 left to right. Correct at first render,
+    // not correct forever. Re-sorting would destroy identity, which is the one
+    // property these numbers exist to provide.
+    const leftToRight = ['opt_c', 'opt_a', 'opt_b'].map((id) => afterFreeze[id])
+    expect(leftToRight).toEqual([3, 1, 2])
   })
 
   it('append-only: a new id takes max+1 wherever it lands, it does not renumber the row', () => {
