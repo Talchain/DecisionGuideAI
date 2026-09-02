@@ -175,6 +175,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    *
    * The anchors still get the boost; everything else keeps its ordinary title,
    * so no card's geometry assumption changes.
+   *
+   * ⭐⭐ AND THE "BOOST" WAS A 25% SHRINK, IN ITS ENTIRE DOMAIN OF APPLICATION —
+   * measured in a real browser on this tip, 1 Sep 2026. See the rendering
+   * branch below for the derivation; the short version is that the boost was
+   * spelled as a NON-CANVAS Tailwind size (`text-lg`), so it was the only title
+   * on the canvas that did not carry `--canvas-label-scale`, and below the
+   * legibility floor the counter-scale is exactly what keeps a title from
+   * collapsing. The two cards this product singles out as always-legible were
+   * rendering the SMALLEST text on the canvas.
    */
   const lodHideTitle = false
   const lodBoostTitle = lodActive && lodKeepsTitle
@@ -830,13 +839,57 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               `title` makes the full label reachable at a readable size
               whenever the clamp ellipsises it or the last resort fires (DS v5
               §2.4). The group's `aria-label` already carries it for assistive
-              tech; this is the sighted-hover half. */}
+              tech; this is the sighted-hover half.
+
+              ⭐⭐ THE ANCHOR'S "BOOST" USED TO BE `text-lg`, AND THAT MADE IT THE
+              SMALLEST TITLE ON THE CANVAS AT EVERY ZOOM IT APPLIED TO.
+              Measured in a real browser across all five committed starter
+              drafts at 1280x800 and 1440x900 (`e2e/geometry/zoomLadder.measure.ts`):
+              after "Show whole model" the goal and decision titles rendered at
+              **4.67px** while every ordinary card rendered **6.23px**, against
+              the DS v5 §2.4 canvas floor of 10px.
+
+              The derivation, and it holds for the whole domain rather than for
+              the sample. Canvas type carries `--canvas-label-scale`, which is
+              `labelCounterScale(zoom)` and is capped at `1/LABEL_LEGIBLE_ZOOM`
+              = 2. `text-lg` is a PANEL size and carries no such variable, so:
+
+                ordinary title   12px x 2 x zoom = 24 x zoom
+                `text-lg` boost  18px x 1 x zoom = 18 x zoom
+
+              and `18z < 24z` for every positive z. `lodBoostTitle` is only ever
+              true when `lodActive`, i.e. only below the floor — so the boost
+              was a flat 25% SHRINK on 100% of the cards it touched, 100% of the
+              time. It read as an emphasis and behaved as its opposite.
+
+              ⛔ THE FIX IS NOT A BIGGER NUMBER. DS v5 §2.3 fixes the canvas
+              scale at 13/11/10 (12/11/10 since #1088) and §2.4 forbids
+              inventing a fourth — `text-lg` was already outside that scale, so
+              counter-scaling 18px would have kept the violation and merely made
+              it louder. The anchor now uses the SAME `nodeTitle` token as every
+              other card, and takes its emphasis from WEIGHT and COLOUR, which
+              is what the design system says carries emphasis on the canvas.
+              Measured effect at the same zooms: 4.67px -> 6.23px, +33%, and one
+              fewer type size on the canvas.
+
+              ⚠ COORDINATION WITH #1123 (the row stride reserving a card at its
+              tallest), stated because that lane's bound rests on row slack.
+              This adds and removes NO line — the clamp stays `line-clamp-2` for
+              both branches. The declared size moves 18px -> 12px, so at the
+              CANONICAL scale #1123 measures at (`--canvas-label-scale` = 1, i.e.
+              zoom >= 1) these cards get SHORTER, never taller. And at zoom >= 1
+              `lodActive` is false, so this branch is not even reached there:
+              the height #1123 reserves is unchanged by this diff. What does
+              change is the RENDERED height of two cards below the floor, where
+              a 24px effective line box replaces an 18px one — a band in which
+              the layout does not re-run, because layout keys on `layoutVersion`
+              and not on zoom. */}
           <div
             data-testid="node-title"
             title={label}
             className={
               lodBoostTitle
-                ? 'text-lg font-semibold text-text-header break-words line-clamp-2'
+                ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
                 : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
             }
             style={lodHideTitle ? { visibility: 'hidden' } : undefined}

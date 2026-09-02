@@ -618,14 +618,46 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    *
    * Where no leader may be named it falls back to the RESTING line — a
    * statement about what is absent from this node, never about the analysis.
+   *
+   * ⭐⭐ AND ONE OF THOSE RESTING LINES WAS THE SAME SENTENCE ON EVERY MODEL —
+   * measured in a real browser, all five committed starter drafts, both
+   * 1280x800 and 1440x900 (`e2e/geometry/zoomLadder.measure.ts`, 1 Sep 2026).
+   * At the zoom "Show whole model" parks at, the anchor card's one line read
+   * `Nothing to show on this node` — 10 of 10 readings, identical.
+   *
+   * That is Paul's canvas-density ruling (31 Aug) failing in its purest form:
+   * *copy identical on every card is furniture, not information*. Here it is
+   * worse than furniture. A blank card is at least ambiguous; a sentence saying
+   * the anchor of the model has nothing on it is the product volunteering that
+   * its most important card is empty — while that same card is wired to three
+   * or four options and knows it.
+   *
+   * ⛔ THE REPLACEMENT IS A COUNT THE CARD ALREADY HOLDS, NOT A NEW NUMBER.
+   * `optionCount` is the SAME memo the `noOptionsLine` arm above branches on
+   * and the same one the pre-analysis ask sentence spells at line 373 — one
+   * authority, deduped by node id, and explicitly NOT a count of edges (see its
+   * own header: two edges to one option are a modelling defect the health check
+   * reports, not two options). So this cannot state a different number from the
+   * card two pixels away, which is exactly the trap `shared/lodMetricLine.ts`
+   * refused a central `decision` arm to avoid.
+   *
+   * ⚠ IT VARIES, WHICH IS THE WHOLE POINT: 4 on `build-vs-buy`, 3 on
+   * `market-entry`. And it is reachable only where `optionCount > 0`, because
+   * `optionCount === 0` is caught by the `noOptionsLine` arm above and keeps
+   * its CTA — the count is asserted here rather than assumed, so a future
+   * reordering of those arms cannot silently produce `0 options` on a card
+   * whose job is to say "Add options".
    */
   const lodMetric = useMemo<string | null>(() => {
     if (headline?.winnerLabel) {
       const pct = headline.winProb != null ? ` ${Math.round(headline.winProb * 100)}%` : ''
       return `${headline.winnerLabel}${pct}`
     }
+    if (resting.line === DECISION_RESTING_COPY.emptyLine && optionCount > 0) {
+      return `${optionCount} option${optionCount === 1 ? '' : 's'}`
+    }
     return resting.line
-  }, [headline, resting])
+  }, [headline, resting, optionCount])
 
   const restingState = (
     <div className="mt-1" data-testid="decision-node-resting-state">
