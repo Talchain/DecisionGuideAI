@@ -275,6 +275,18 @@ for (const id of STARTERS) {
       const fragileTagEls = [
         ...document.querySelectorAll('[data-testid="edge-fragile-tag"]'),
       ] as HTMLElement[]
+      // ⚠ THE TESTID EXISTS ONLY ON THE MERGED ROW, so it is BLIND on any
+      // build predating it and cannot support a before/after claim on its own.
+      // The fragility signal's own `title` string is owned by the same code in
+      // both arms (it moved from the badge to the row verbatim), so it is the
+      // one binding that identifies this signal across the change. Bound to
+      // the signal's OWN string, not to incidental rendered text.
+      const fragileByTitleEls = [
+        ...document.querySelectorAll('[title^="Sensitive assumption:"]'),
+      ] as HTMLElement[]
+      const strandedByTitle = fragileByTitleEls.filter(
+        (el) => !el.closest('[data-testid="edge-influence-label"]'),
+      ).length
       // A fragility row OUTSIDE a placed chip is the defect this closes: the
       // old badge was a free-floating sibling, so it had no chip ancestor.
       const strandedFragileTags = fragileTagEls.filter(
@@ -315,6 +327,8 @@ for (const id of STARTERS) {
         worstGlyphOverlapPx: Math.round(worstGlyphOverlapPx),
         fragileTags: fragileTagEls.length,
         strandedFragileTags,
+        fragileByTitle: fragileByTitleEls.length,
+        strandedByTitle,
         occluded,
         leaders: leaders.length,
         leaderDetail,
