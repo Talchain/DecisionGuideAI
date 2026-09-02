@@ -168,12 +168,72 @@ function codeOf(src: string): string {
 /** Anything that varies at runtime and could re-enter the solver. */
 const RUNTIME_DIMENSION = /innerWidth|innerHeight|getBoundingClientRect|visualViewport|clientWidth|clientHeight|matchMedia|['"`]\.react-flow['"`]|canvasSize/
 
-/** The modules that make up the canonical-layout pipeline. Recorded, not derived. */
+/**
+ * The modules that make up the canonical-layout pipeline. Recorded, not derived
+ * — and therefore a hand-maintained mirror that WENT SHORT (CLAUDE.md trap 12):
+ * `measureNodeHeightsAtLabelBound.ts` joined the pipeline on 1 Sep 2026 and this
+ * list did not know about it, so a genuine pipeline module sat outside the ban
+ * with nothing going red. Adding a module here is part of adding it to the
+ * pipeline.
+ */
 const LAYOUT_PIPELINE = [
   'src/canvas/utils/layout.ts',
   'src/canvas/utils/nodeLayoutConstants.ts',
   'src/canvas/layoutStore.ts',
+  'src/canvas/utils/measureNodeHeightsAtLabelBound.ts',
 ] as const
+
+/**
+ * ⭐⭐ ONE MODULE IN THE PIPELINE TOUCHES THE REACT FLOW ROOT ON PURPOSE, AND THE
+ * BAN ABOVE CONFLATES TWO QUESTIONS (CLAUDE.md trap 21 — two harms under one
+ * predicate is two questions under one name).
+ *
+ * `RUNTIME_DIMENSION` includes `'.react-flow'` as a PROXY for "reads a size that
+ * varies with the viewport". `measureNodeHeightsAtLabelBound` reads the React
+ * Flow root, and reads NO such size: it pins `--canvas-label-scale` to the
+ * CONSTANT `MAX_LABEL_COUNTER_SCALE` and reads `offsetHeight`, which is
+ * unzoomed model px. It exists precisely BECAUSE the pipeline had a hidden
+ * viewport input — the live zoom, arriving through `node.measured.height`,
+ * measured at ×2.05 between zoom 1.0 and 0.5 — and it removes it. Silence would
+ * be worse than an exception, so the exemption is NARROW and PINNED: the module
+ * must reference the constant, and must not reference any varying dimension.
+ */
+const LABEL_BOUND_MEASURER = 'src/canvas/utils/measureNodeHeightsAtLabelBound.ts'
+/** `.react-flow` alone, with the varying dimensions removed — see above. */
+const VARYING_DIMENSION = /innerWidth|innerHeight|getBoundingClientRect|visualViewport|clientWidth|clientHeight|matchMedia|canvasSize/
+
+/**
+ * ⭐⭐⭐ THE FIRST VERSION OF THIS EXEMPTION WAS THE DEFECT IT WAS ADDED BESIDE.
+ *
+ * It dropped `.react-flow` from the detector and pinned two things in its place:
+ * that the module measures at the CONSTANT bound, and that it reads no varying
+ * dimension. Both true, both beside the point — because in THIS module
+ * `.react-flow` was never a proxy for "a varying size". It is the selector that
+ * decides **WHICH INSTANCE**, and the exemption pinned nothing about that. So
+ * the module shipped `document.querySelector('.react-flow')`, the exact form its
+ * own partner bans by name, and the guard that encoded the rule had just been
+ * widened by the change that needed catching. (CLAUDE.md trap 21: two harms
+ * under one predicate is two questions under one name — and the answer is to
+ * name them apart, not to drop one.)
+ *
+ * So the two questions are now asked separately. `VARYING_DIMENSION` asks "does
+ * it read a size that moves with the viewport?"; `DOCUMENT_ROOTED_INSTANCE` asks
+ * "does it pick a React Flow instance from the DOCUMENT rather than from its own
+ * marker?" — and the second is asked of the exempted module SPECIFICALLY,
+ * because it is the only module the first question was relaxed for.
+ */
+/**
+ * ⚠ TWO LIMBS, BECAUSE THE TWO APIs SPELL A CLASS DIFFERENTLY — and the first
+ * draft of this had a THIRD limb that could never fire. It read
+ * `(querySelector|querySelectorAll|getElementsBy\w+)` in front of a mandatory
+ * `\.react-flow`, but `getElementsByClassName` takes the class **without a
+ * dot**, so that alternative was unreachable while looking exactly like
+ * protection. A branch that cannot fire is worse than no branch. Each limb below
+ * therefore has its OWN positive control in the test — a shared control proves
+ * only that *something* matches, which is how the dead limb survived review.
+ */
+const DOCUMENT_ROOTED_INSTANCE =
+  /document\s*\.\s*(?:querySelector(?:All)?\s*\(\s*[`'"][^`'"]*\.react-flow|getElementsByClassName\s*\(\s*[`'"]\s*react-flow)/
 
 afterEach(() => {
   document.querySelectorAll('.react-flow').forEach((el) => el.remove())
@@ -201,9 +261,73 @@ describe('R1 (structural) — no runtime dimension can reach the canonical layou
     for (const rel of LAYOUT_PIPELINE) {
       const full = resolve(REPO_ROOT, rel)
       expect(existsSync(full), `${rel} is missing — this guard is measuring nothing`).toBe(true)
-      if (RUNTIME_DIMENSION.test(codeOf(readFileSync(full, 'utf8')))) offenders.push(rel)
+      const code = codeOf(readFileSync(full, 'utf8'))
+      // The narrow exemption, and only for the one named module.
+      const detector = rel === LABEL_BOUND_MEASURER ? VARYING_DIMENSION : RUNTIME_DIMENSION
+      if (detector.test(code)) offenders.push(rel)
     }
     expect(offenders).toEqual([])
+
+    // ⭐ THE EXEMPTION PINS ITS OWN PRECONDITION (CLAUDE.md trap 13b): an
+    // exemption that only SUBTRACTS a rule is a hole. These two assertions are
+    // what make it a narrower rule instead — the module must measure at the
+    // CONSTANT bound, and must still be blind to every varying dimension.
+    const measurer = codeOf(readFileSync(resolve(REPO_ROOT, LABEL_BOUND_MEASURER), 'utf8'))
+    expect(
+      measurer,
+      'the exempted measurer no longer pins the scale to its constant bound — the exemption is now a hole',
+    ).toMatch(/MAX_LABEL_COUNTER_SCALE/)
+    expect(
+      VARYING_DIMENSION.test(measurer),
+      'the exempted measurer started reading a varying dimension',
+    ).toBe(false)
+
+    // ⭐ ROOT SELECTION — the half the first exemption did not ask about.
+    //
+    // ⚠⚠ THIS ASSERTION IS THE LOAD-BEARING ONE. Do not delete it believing the
+    // labelled negative control at the bottom of this test covers it: that one
+    // only shows the detector ignores `marker.closest('.react-flow')`, which is
+    // true of ANY detector that requires a leading `document.` — it is nearly
+    // free to pass and proves almost nothing. What has teeth is running the
+    // detector over the SHIPPED MODULE, which legitimately contains
+    // `document.querySelector(CANVAS_LABEL_SCALE_MARKER_SELECTOR)`: a detector
+    // written one notch too broad REDs here, on real code, immediately.
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test(measurer),
+      'the exempted measurer picks a React Flow instance from the DOCUMENT. In comparison mode the main canvas is unmounted and the only roots are two MiniCanvases rendering the same node ids, so this binds to a mini-map and returns its heights under the real nodes\' ids — which getNodeDimensions PREFERS over measured.height. Select up from the CanvasLabelScaleSync marker instead.',
+    ).toBe(false)
+    expect(
+      measurer,
+      'the exempted measurer no longer selects from the label-scale marker — there is nothing tying it to the MAIN canvas',
+    ).toMatch(/CANVAS_LABEL_SCALE_MARKER_SELECTOR[\s\S]*\.closest\(/)
+
+    // The two detectors must genuinely differ, or this is not an exemption at
+    // all, it is the same rule twice...
+    expect(RUNTIME_DIMENSION.test("document.querySelector('.react-flow')")).toBe(true)
+    expect(VARYING_DIMENSION.test("document.querySelector('.react-flow')")).toBe(false)
+    // ...and the replacement must genuinely BITE on what the drop let through.
+    // ⭐ ONE POSITIVE CONTROL PER LIMB. A single control proves only that
+    // SOMETHING in the alternation matches, which is precisely how a limb that
+    // could never fire sat here reading as coverage.
+    expect(DOCUMENT_ROOTED_INSTANCE.test("document.querySelector('.react-flow')")).toBe(true)
+    expect(DOCUMENT_ROOTED_INSTANCE.test('document.querySelectorAll(".react-flow__node")')).toBe(true)
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test("document.getElementsByClassName('react-flow')"),
+      'the getElementsByClassName limb does not fire — it takes a class WITHOUT a dot, so a pattern demanding ".react-flow" makes it unreachable',
+    ).toBe(true)
+    // The labelled negative control. ⚠ Weak by construction — it passes for any
+    // detector requiring a leading `document.`, so it is a smoke check, not the
+    // evidence. The module-level assertion above is what actually bites.
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test("marker.closest('.react-flow')"),
+      'the root-selection detector fires on the SANCTIONED form too — it is not discriminating, it is just banning the string',
+    ).toBe(false)
+    // And it must not fire on the shipped marker lookup, which is a
+    // `document.querySelector` that names NO React Flow instance.
+    expect(
+      DOCUMENT_ROOTED_INSTANCE.test('document.querySelector(CANVAS_LABEL_SCALE_MARKER_SELECTOR)'),
+      'the detector fires on the sanctioned marker lookup — it is banning `document.querySelector`, not instance selection',
+    ).toBe(false)
 
     // POSITIVE CONTROL on the detector — a synthetic offender must fire.
     expect(RUNTIME_DIMENSION.test('const w = window.innerWidth * 0.85')).toBe(true)

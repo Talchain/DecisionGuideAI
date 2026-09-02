@@ -59,6 +59,22 @@ interface LayoutOptions {
   spacing?: number
   layerSpacing?: number
   preserveLocked?: boolean
+  /**
+   * ⭐ HEIGHT AT THE COUNTER-SCALE BOUND, per node id — see
+   * `utils/measureNodeHeightsAtLabelBound.ts` for the defect and the numbers.
+   *
+   * `node.measured.height` is the card's height AT THE CURRENT VIEWPORT ZOOM
+   * (canvas type tokens multiply by `--canvas-label-scale`), so a stride
+   * computed from it is correct at exactly one zoom and wrong at every other
+   * zoom in the band — measured ×2.05 between zoom 1.0 and 0.5. This override
+   * carries the height at `MAX_LABEL_COUNTER_SCALE`, which is the tallest the
+   * card can ever be, so the stride clears it at EVERY zoom.
+   *
+   * ⚠ A MISSING ENTRY MEANS "NO BETTER INFORMATION", NOT ZERO. `getNodeDimensions`
+   * falls through to the existing precedence, so jsdom, SSR and any node that
+   * is not mounted behave exactly as before.
+   */
+  heightAtLabelBound?: Map<string, number>
 }
 
 type LayoutDirection = NonNullable<LayoutOptions['direction']>
@@ -195,7 +211,8 @@ export async function layoutGraph(
     // (no change in rendered width at gap=15 because of the floor).
     spacing = 15,
     layerSpacing,
-    preserveLocked = true
+    preserveLocked = true,
+    heightAtLabelBound,
   } = options
 
   const effectiveNodeSpacing = Math.max(20, spacing)
@@ -235,7 +252,14 @@ export async function layoutGraph(
       ? NODE_REGISTRY[fallbackType].defaultSize
       : { width: 220, height: DEFAULT_NODE_HEIGHT }
 
-    const rawHeight = measured?.height ?? node.height ?? defaultSize.height
+    // ⭐ THE BOUND FIRST, and only then the live measurement. See
+    // `heightAtLabelBound` on `LayoutOptions`: `measured.height` is the height
+    // at TODAY'S ZOOM, and the row stride computed from it is wrong at every
+    // other zoom. A node absent from the map falls through to the existing
+    // precedence unchanged — absence is "no better information", never zero.
+    const bound = heightAtLabelBound?.get(node.id)
+    const rawHeight = (typeof bound === 'number' && bound > 0 ? bound : undefined)
+      ?? measured?.height ?? node.height ?? defaultSize.height
     const height = Math.max(40, Math.round(rawHeight) + LAYOUT_PADDING_Y)
 
     return { width: elkBoxW, height }

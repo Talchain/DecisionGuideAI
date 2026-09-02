@@ -235,6 +235,35 @@ export function renderedLabelPx(declaredPx: number, zoom: number): number {
 export const CANVAS_LABEL_SCALE_VAR = '--canvas-label-scale'
 
 /**
+ * ⭐⭐ WHICH React Flow INSTANCE THE LABEL SCALE BELONGS TO — the ONE answer, so
+ * the writer and the reader cannot drift on it (CLAUDE.md trap 12).
+ *
+ * `CanvasLabelScaleSync` renders this marker as a child of the MAIN `<ReactFlow>`
+ * and walks UP from it (`markerRef.current.closest('.react-flow')`), on the
+ * stated grounds that `document.querySelector('.react-flow')` *"would reach the
+ * Compare-tab mini-maps and any other React Flow instance on the page"*. Anyone
+ * who has to find the SAME root must ask the same question the same way.
+ *
+ * ⚠ AND THIS IS NOT A STYLE RULE — IT DECIDES WHOSE CARDS GET MEASURED.
+ * `ReactFlowGraph.tsx` renders comparison mode as a TERNARY, so while it is on
+ * the main canvas is unmounted and the only roots on the page are two
+ * `<MiniCanvas>` instances rendering THE SAME graph's node ids, un-re-keyed. A
+ * document-rooted lookup binds to the first of those and returns a mini-map's
+ * heights under the real nodes' ids — and because
+ * `layoutGraph`'s `getNodeDimensions` PREFERS a supplied bound height, the
+ * "absent ⇒ fall through" safety never engages: the ids are present and wrong.
+ * Demonstrated by probe: one root → `{n1:300, n2:280}`; two roots →
+ * `{n1:90, n2:84}`, i.e. the first root's.
+ *
+ * Selecting from the marker degrades to the DESIGNED inert path instead: no
+ * marker, no root, empty map, `measured.height` as before.
+ */
+export const CANVAS_LABEL_SCALE_MARKER_TESTID = 'canvas-label-scale-sync'
+
+/** The selector that finds the marker above. Derived, never restated. */
+export const CANVAS_LABEL_SCALE_MARKER_SELECTOR = `[data-testid="${CANVAS_LABEL_SCALE_MARKER_TESTID}"]`
+
+/**
  * ⭐⭐ THE CEILING THE AUTO-FIT MUST NOT CROSS — the other end of the band.
  *
  * `LABEL_LEGIBLE_ZOOM` stops the product parking the camera somewhere too small
