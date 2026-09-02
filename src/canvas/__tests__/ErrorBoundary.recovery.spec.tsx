@@ -221,11 +221,21 @@ describe('CanvasErrorBoundary — crash recovery persistence', () => {
       'Importing a module script failed.',
       'Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html".',
       'Loading chunk 42 failed',
+      // Vite's own CSS-chunk shape — a retired stylesheet after a deploy is the
+      // same deploy race as a retired script, and reaches THIS boundary (the
+      // 2026-09-01 staging witness rendered "The canvas encountered an
+      // unexpected error" for exactly this string). Derived from the producer:
+      // `Unable to preload CSS for ${dep}`, thrown by Vite's preload helper.
+      'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css',
     ]
     const no = [
       "Cannot read properties of undefined (reading 'label')",
       'Maximum update depth exceeded',
       'Network request failed',
+      // Near-misses that pin the CSS shape as NARROW. Over-matching would tell
+      // the user to reload for something a reload cannot fix.
+      'Unable to load the stylesheet',
+      'Failed to preload the CSS bundle',
     ]
     for (const m of yes) expect(isChunkLoadError!(new Error(m)), m).toBe(true)
     for (const m of no) expect(isChunkLoadError!(new Error(m)), m).toBe(false)

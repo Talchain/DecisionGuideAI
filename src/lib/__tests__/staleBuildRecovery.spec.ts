@@ -32,6 +32,23 @@ describe('staleBuildRecovery — detector', () => {
       // webpack era, kept for safety
       'Loading chunk 42 failed.',
       'ChunkLoadError',
+      // ⭐ VITE'S OWN CSS SHAPE — and the only one on this list that Vite emits
+      // itself rather than the browser. Derived from the producer, not guessed:
+      // node_modules/vite/dist/node/chunks/*.js builds `Unable to preload CSS
+      // for ${dep}` in the stylesheet `error` listener inside `preload()`, then
+      // `handlePreloadError` RETHROWS it, so it unwinds to a React boundary
+      // exactly like a failed JS chunk.
+      //
+      // Why it went unmatched for so long: in that same helper only CSS deps
+      // get a rejecting promise. A failed JS dep falls through to `baseModule()`
+      // and surfaces as the BROWSER's "Failed to fetch dynamically imported
+      // module" — which is why every other entry on this list is a browser
+      // string and this one is not. The asymmetry is in Vite, not in us.
+      //
+      // Witnessed on staging in Core E2E run 33571760150 (2026-09-01): a lazy
+      // route's retired CSS chunk rendered "The canvas encountered an
+      // unexpected error", blaming the app for a deploy race.
+      'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css',
     ]
     for (const m of yes) expect(isChunkLoadError(new Error(m)), m).toBe(true)
   })
@@ -44,6 +61,15 @@ describe('staleBuildRecovery — detector', () => {
       'Network request failed',
       'Analysis returned no options',
       'Maximum update depth exceeded',
+      // ⚠ NEAR-MISSES FOR THE CSS SHAPE. Over-matching is the DANGEROUS
+      // direction here: a false positive tells the user to reload for a defect
+      // reloading cannot fix, and buries the real error behind "Olumi was
+      // updated". These two are not decoration — each kills a different
+      // plausible over-broad rewrite of the pattern:
+      //   · /Unable to load/ or a bare /CSS/ mention
+      'Unable to load the stylesheet',
+      //   · a loose /preload.*CSS/i that ignores Vite's word order
+      'Failed to preload the CSS bundle',
     ]
     for (const m of no) expect(isChunkLoadError(new Error(m)), m).toBe(false)
     expect(isChunkLoadError(null)).toBe(false)

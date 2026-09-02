@@ -53,11 +53,36 @@ export const CHUNK_RELOAD_GUARD_WINDOW_MS = 5 * 60 * 1000
  * module script failed", plus the MIME-type refusal a SPA fallback produces
  * ("Failed to load module script") and webpack-era "Loading chunk N failed"
  * kept for safety.
+ *
+ * ⭐ AND THE CSS HALF, WHICH IS NOT A BROWSER STRING. Every shape above is
+ * emitted by the BROWSER when a script fails. A lazy route's STYLESHEET fails
+ * somewhere else entirely: Vite's own `preload()` helper attaches a `load`/
+ * `error` pair to the injected `<link rel="stylesheet">` and rejects with
+ * `Unable to preload CSS for ${dep}`, which `handlePreloadError` then rethrows
+ * — so it unwinds to a React boundary exactly like a retired script does.
+ *
+ * That asymmetry is why this shape sat unmatched. In Vite's helper ONLY css
+ * deps get a rejecting promise; a failed JS dep falls through to `baseModule()`
+ * and surfaces as the browser's message. So a retired CSS chunk and a retired
+ * JS chunk are the same deploy race wearing two different vocabularies, and
+ * until now the product recognised only one of them: the user was told "the
+ * canvas encountered an unexpected error", which blames the app for a deploy
+ * race and withholds the one action that fixes it. Witnessed on staging in
+ * Core E2E run 33571760150 (2026-09-01), on
+ * `/assets/ReactFlowGraph-<hash>.css`.
+ *
+ * ⚠ THE CSS ALTERNATIVE IS DELIBERATELY THE WHOLE PHRASE, NOT A KEYWORD.
+ * Widening in this direction is asymmetrically dangerous: a missed shape costs
+ * a bad sentence, but a FALSE POSITIVE tells a user to reload for a defect a
+ * reload cannot fix, and hides the real error behind "Olumi was updated".
+ * `Unable to preload CSS for` is the producer's literal prefix and cannot be
+ * reached by an unrelated error that merely mentions CSS. The near-misses in
+ * `__tests__/staleBuildRecovery.spec.ts` pin that.
  */
 export function isChunkLoadError(error: Error | null | undefined): boolean {
   if (!error) return false
   const message = `${error.name ?? ''} ${error.message ?? ''}`
-  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Failed to load module script|Loading chunk [\w-]+ failed|ChunkLoadError/i.test(
+  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Failed to load module script|Loading chunk [\w-]+ failed|ChunkLoadError|Unable to preload CSS for/i.test(
     message
   )
 }
