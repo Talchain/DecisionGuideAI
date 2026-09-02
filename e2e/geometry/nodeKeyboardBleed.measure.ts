@@ -57,6 +57,52 @@
  * accessibility defect for another. One direction alone is a guard watching one
  * door.
  *
+ * ── ⭐⭐ "A PROBE THAT IS ONLY CORRECT WHEN THE PRODUCT IS" ──────────────────
+ *
+ * A DEFECT CLASS, not a one-off, and it was found TWICE IN THIS FILE IN ONE
+ * NIGHT by two lanes unaware of each other:
+ *   - the drive arm's `isGated` dispatched a real bubbling Enter BEFORE the key
+ *     under test was pressed. `Enter` is in React Flow's `elementSelectionKeys`,
+ *     so with the scope broken THE PROBE SELECTED THE NODE ITSELF;
+ *   - the portalled arm (PR #1146) had the same shape: its gate probe's
+ *     synthetic Enter landed before the selection was read, so with the fix
+ *     removed the `q` contrast control fired for THE PROBE'S OWN SIDE EFFECT.
+ *
+ * Both were invisible at pristine PRECISELY BECAUSE THE FIX MAKES THE PROBE'S
+ * ENTER HARMLESS. The probe is correct exactly when the product is correct, so
+ * it can never witness the product being wrong — and every green run agrees.
+ *
+ * ⭐ THE SWEEP OF THIS FILE (2026-09-02), recorded so the next reader inherits it
+ * rather than the anecdote. The question asked of every arm was: DOES ANYTHING
+ * READ STATE AFTER A PROBE THAT CAN ITSELF MUTATE THAT STATE?
+ *
+ *   isGated (:628)            THE DEFECT. Fixed: it now runs AFTER `pressAt`,
+ *                             reports `found` and `armed` separately, and only
+ *                             the non-activating contrast key writes a verdict.
+ *   censusFocusables (:249)   SAME SHAPE, currently inert: it dispatches the
+ *                             identical bubbling Enter, but returns `armed`
+ *                             alone and never reads selection — and it belongs
+ *                             to the census arm, which is not gated. Left as
+ *                             is, NAMED rather than silently passed over,
+ *                             because it is one `selectedNodeIds` call away
+ *                             from being the same bug.
+ *   tryFocus / focusOnce      MUTATES (hover + `.focus()`, and `focusin`
+ *     (:479, :504)            BUBBLES). Safe for the right reason, which is
+ *                             worth stating: what follows it is the per-key
+ *                             ASSERTED BASELINE `toEqual([])`, not a reading —
+ *                             so a selection it caused REDs instead of being
+ *                             absorbed into a number.
+ *   pointer arm (:1142)       The control drag is separated from the
+ *                             measurement by `resetSelection`, and both
+ *                             readings are of the gesture under test.
+ *   opposite direction        Explicit Shift/pointer hygiene, then a full
+ *     (:1241)                 `loadCanvas`, then an asserted baseline, then its
+ *                             own measurement. No probe between.
+ *
+ * ⚠ THE RULE THIS LEAVES: a probe may run before a reading only if it cannot
+ * mutate what is read, or if an ASSERTION — never another reading — sits
+ * between them. When in doubt, probe AFTER the measurement.
+ *
  * Assertions bind by IDENTITY — the node's store id and the control's own
  * accessible name — never by "some node is selected", which another node could
  * satisfy (trap 19).
@@ -612,7 +658,20 @@ async function activateWithoutKey(page: Page, nodeId: string, controlName: strin
  * element and refusing to start a marquee. Reading the class at rest would
  * report the correct fix as ungated.
  */
-async function isGated(page: Page, nodeId: string, controlName: string): Promise<boolean> {
+/**
+ * ⚠ THREE OUTCOMES, NOT TWO — and the third is why this is not a boolean.
+ *
+ * This used to return `false` both for "the scope does not reach this control"
+ * and for "I could not find the control". Those are different facts, and
+ * collapsing them makes a MISSING TARGET indistinguishable from a REAL DEFECT
+ * (CLAUDE.md trap 21 — two questions under one name). It did not bite while the
+ * probe ran BEFORE the press; it becomes reachable the moment it runs after one,
+ * because an activation key can take its own target out of the DOM. Reported
+ * distinctly so a vanished control REDs as a vanished control.
+ */
+type GatedProbe = { readonly found: boolean; readonly armed: boolean }
+
+async function isGated(page: Page, nodeId: string, controlName: string): Promise<GatedProbe> {
   return page.evaluate(
     ({ nodeId: nid, controlName: cn, selector }) => {
       const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nid}"]`)
@@ -621,7 +680,7 @@ async function isGated(page: Page, nodeId: string, controlName: string): Promise
           c.getAttribute('aria-label') ?? (c.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80)
         return name === cn
       })
-      if (!el || !node) return false
+      if (!el || !node) return { found: false, armed: false }
       let armed = false
       const probe = (ev: Event) => {
         armed = !!(ev.target as Element | null)?.closest('.nokey')
@@ -629,7 +688,7 @@ async function isGated(page: Page, nodeId: string, controlName: string): Promise
       node.addEventListener('keydown', probe, true)
       el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
       node.removeEventListener('keydown', probe, true)
-      return armed
+      return { found: true, armed }
     },
     { nodeId, controlName, selector: FOCUSABLE_SELECTOR },
   )
@@ -920,8 +979,61 @@ test.describe('in-node keyboard bleed', () => {
           await page.waitForTimeout(150)
           read[key] = await selectedNodeIds(page)
         } else {
-          gated[kind] = await isGated(page, c.nodeId, c.name)
+          /*
+           * ⭐⭐ ORDER IS LOAD-BEARING: MEASURE THE KEY UNDER TEST FIRST, THEN PROBE.
+           *
+           * `isGated` dispatches a REAL bubbling `Enter` keydown, and `Enter` is
+           * in React Flow's `elementSelectionKeys`
+           * (`@xyflow/react@12.10.2` `index.mjs:2177`). Running it BEFORE
+           * `pressAt` — which is how this shipped — meant that whenever the
+           * scope was broken THE PROBE SELECTED THE NODE ITSELF, before the key
+           * under test was ever pressed.
+           *
+           * Proven by execution, both directions, on a tree with the scope class
+           * renamed (i.e. reproducing #1129):
+           *     probe first  -> q=["dec_cdp"] x5, and the CONTRAST CONTROL at
+           *                     ':956' fires — "the probe is not discriminating"
+           *     probe second -> q=[] x5, and the HEADLINE assertion at ':959'
+           *                     fires — "an in-node control still selects the
+           *                     node behind it"
+           *
+           * Two things followed from the wrong order, and both are the reason
+           * this is not a cosmetic reorder: the headline assertion and the
+           * per-path `gated` assertion had NEVER EXECUTED under any mutant, and
+           * in the broken state the `space`/`enter` readings were contaminated
+           * by the probe's own Enter — so the arm could not distinguish "the key
+           * press bled" from "my probe bled", which is precisely the attribution
+           * question its FOCUS/CLICK rows exist to answer.
+           *
+           * ⚠ AND THE HAZARD THE REORDER CREATES, closed rather than reasoned
+           * away: an activation key can take its own target OUT OF THE DOM (see
+           * the "ONE FRESH SEED PER KEY" note above), and a probe that cannot
+           * find its element used to return the same `false` as a genuinely
+           * ungated one — so measuring after a press could have manufactured a
+           * FALSE `gated=N`. Two changes close it, and neither relies on this
+           * comment staying true:
+           *   - `isGated` now reports `found` and `armed` SEPARATELY, so a
+           *     vanished target can never be read as a defect;
+           *   - only the CONTRAST key 'q' writes the recorded verdict, and 'q'
+           *     is not an activation key, so its target must survive its own
+           *     press — asserted in-test, immediately below, rather than
+           *     assumed.
+           */
           read[key] = (await pressAt(page, c.nodeId, c.name, key)).selected
+          const probe = await isGated(page, c.nodeId, c.name)
+          // A vanished target is a HARD ERROR on the contrast key, never a
+          // reading: 'q' does not activate anything, so its target must survive
+          // its own press. On ' ' / 'Enter' a vanished target is EXPECTED (the
+          // press activated the control), and the value is overwritten by the
+          // 'q' pass that follows — so only 'q' may write the recorded verdict.
+          if (key === 'q') {
+            expect(
+              probe.found,
+              `the gated probe could not find "${c.name}" after the contrast key — a false ` +
+                `gated=N would follow, so this REDs rather than reporting a number`,
+            ).toBe(true)
+            gated[kind] = probe.armed
+          }
         }
       }
 

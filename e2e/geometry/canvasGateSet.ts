@@ -200,8 +200,70 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
  * how this repo acquired a browser check nobody looks at, and the cure must not
  * begin by administering the disease.
  */
-export const KNOWN_FLAKE_IN_GATE =
-  'opposite direction: Enter at the NODE still selects it, Escape still deselects'
+const KNOWN_FLAKE_TITLE = 'opposite direction: Enter at the NODE still selects it, Escape still deselects'
+
+/**
+ * ⭐ BOUND TO THE REGISTRY AT MODULE LOAD, NOT RESTATED BESIDE IT.
+ *
+ * The first version of this was a bare string sitting next to `GATED_TESTS` —
+ * a hand-maintained mirror, which is this estate's dominant defect class
+ * (CLAUDE.md trap 12): rename or retire the arm and the string keeps naming a
+ * test that no longer exists, silently, forever, while every sentence above it
+ * still reads as current. Resolving it THROUGH the registry means the mirror
+ * cannot drift, because there is no longer a second copy to drift.
+ *
+ * ⚠ AND IT FAILS LOUD RATHER THAN FALLING BACK. A lookup that returned
+ * `undefined` on a miss would turn a stale reference into a silent no-op — an
+ * absence that reads exactly like a healthy absence. This throws at config
+ * load, so a rename REDs the whole gate with a message naming the cause, in the
+ * same posture as `globalSetup`'s identity assertion.
+ */
+export const KNOWN_FLAKE_IN_GATE: GatedTest = (() => {
+  const found = GATED_TESTS.find((t) => t.title === KNOWN_FLAKE_TITLE)
+  if (!found) {
+    throw new Error(
+      `[canvas-gate] KNOWN_FLAKE_IN_GATE names a test that is not in GATED_TESTS:\n` +
+        `  looking for: ${KNOWN_FLAKE_TITLE}\n` +
+        `  registered : ${GATED_TESTS.map((t) => t.title).join('\n               ') || '(none)'}\n` +
+        `  The flake note above documents a specific gated arm. If that arm was renamed,\n` +
+        `  update KNOWN_FLAKE_TITLE; if it was RETIRED, delete the note with it — do not\n` +
+        `  leave a documented hazard pointing at nothing.`,
+    )
+  }
+  return found
+})()
+
+/**
+ * ⭐ ADMITTED IN PRINCIPLE, NOT YET GATED — because it does not exist on this
+ * branch, and a registry entry naming a test that is not there REDs the gate
+ * with `MISSING` on every run.
+ *
+ * `PR #1146` (sibling lane, unmerged at the time of writing) appends a fourth
+ * behavioural arm to `nodeKeyboardBleed.measure.ts`:
+ *
+ *     in-node keyboard bleed › portalled: Enter/Space at a control inside a
+ *     portalled popover does not select the anchor node
+ *
+ * ⚠ IT MEETS THIS REGISTRY'S OWN BAR and should be gated: it is a behavioural
+ * assertion, not a measure, and it covers a live user-facing defect across
+ * 56-59 controls — the same justification as the three arms above, not a weaker
+ * one. It is left out ONLY on sequencing.
+ *
+ * TO ADMIT IT, once #1146 is merged, in one commit:
+ *   1. add `{ tag: GATE_TAG }` to that test (selection, at its own site);
+ *   2. add its entry to `GATED_TESTS` above with the defect it catches;
+ *   3. re-measure the job's wall clock — four arms, and the runtime budget is
+ *      the constraint that shaped this whole gate.
+ * Steps 1 and 2 must land TOGETHER: either alone REDs, by design.
+ *
+ * Recorded here rather than in a chat message or a row, because a dependency
+ * that lives only in someone's memory is the scheduler that dies — this estate
+ * lost a standing reconciliation mechanism for a month exactly that way.
+ */
+export const PENDING_ADMISSION = {
+  test: 'portalled: Enter/Space at a control inside a portalled popover does not select the anchor node',
+  blockedOn: 'Talchain/DecisionGuideAI#1146 (adds the arm; unmerged)',
+} as const
 
 /** `"suite › title"`, the shape a Playwright `titlePath` collapses to. */
 export function gatedKey(t: GatedTest): string {

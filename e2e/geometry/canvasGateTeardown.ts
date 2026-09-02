@@ -29,8 +29,11 @@
  * `status === "passed" ? teardownStatus : status`, so a throw here fails the
  * run.
  *
- * `CANVAS_GATE_PARTIAL=1` is the documented escape hatch for a targeted local
- * run. It is never set in CI, and it prints what it skipped.
+ * `CANVAS_GATE_PARTIAL=1` is the documented escape hatch for a targeted LOCAL
+ * run. It prints what it skipped, and it is REFUSED outright when `CI` is set —
+ * an off-switch for the check that proves the run measured anything must not be
+ * reachable on the merge path. "It is never set in CI" was the first version of
+ * this sentence; a convention is not a guard.
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -63,10 +66,40 @@ export default function canvasGateTeardown(): void {
   const ranKeys = records.filter((r) => r.ran).map((r) => r.key)
   const notRun = records.filter((r) => !r.ran)
 
+  /*
+   * ⭐⭐ THE OFF-SWITCH IS REFUSED UNDER CI, AND THE REFUSAL IS THE POINT.
+   *
+   * An env var that disables the check proving the run measured anything is
+   * EXACTLY the shape of "a check reported SUCCESS having run nothing for 204
+   * days". A local escape hatch for a deliberately filtered run is genuinely
+   * useful; the same hatch reachable in CI is a way for this gate to go quietly
+   * vacuous — and nobody would see it, because the run would be GREEN.
+   *
+   * ⚠ ENFORCED HERE RATHER THAN AS A WORKFLOW STEP, deliberately. A CI-side
+   * check lives in the file whose author would be the one setting the variable,
+   * so it can be removed in the same edit that sets it. This cannot: disabling
+   * the guard in CI now requires editing the guard itself, which is a reviewable
+   * change to a file whose whole subject is not being bypassable.
+   *
+   * Note the direction of the failure — it REDs on the ATTEMPT rather than
+   * ignoring the variable and continuing. Silently overriding an operator would
+   * leave them believing they had filtered a run when they had not.
+   */
   if (process.env.CANVAS_GATE_PARTIAL === '1') {
+    if (process.env.CI) {
+      throw new Error(
+        `[canvas-gate] CANVAS_GATE_PARTIAL=1 IS REFUSED IN CI.\n` +
+          `  This variable disables the guard that proves the run measured anything, so in CI\n` +
+          `  it converts a merge-path check into a green no-op. It is a LOCAL affordance for a\n` +
+          `  deliberately filtered run and nothing else.\n` +
+          `  Ran ${ranKeys.length} of ${expected.length}: ${ranKeys.join(' | ') || '(none)'}\n` +
+          `  If a CI run genuinely needs a subset, change GATED_TESTS — that is a reviewable\n` +
+          `  decision with a stated reason, which is what this gate is for.`,
+      )
+    }
     // eslint-disable-next-line no-console
     console.log(
-      `[canvas-gate] CANVAS_GATE_PARTIAL=1 — completeness guard SKIPPED. ` +
+      `[canvas-gate] CANVAS_GATE_PARTIAL=1 — completeness guard SKIPPED (local only). ` +
         `Ran ${ranKeys.length} of ${expected.length}: ${ranKeys.join(' | ') || '(none)'}`,
     )
     return
