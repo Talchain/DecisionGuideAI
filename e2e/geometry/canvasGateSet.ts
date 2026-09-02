@@ -130,6 +130,16 @@ export const GATED_TESTS: readonly GatedTest[] = [
       '(CLAUDE.md trap 22b) — without this arm the gate would bless a fix that silently removed ' +
       'keyboard access to the canvas.',
   },
+  {
+    file: 'nodeKeyboardBleed.measure.ts',
+    suite: 'in-node keyboard bleed',
+    title: 'portalled: Enter/Space at a control inside a portalled popover does not select the anchor node',
+    catches:
+      'THE HALF THE DOM-SCOPED FIX STRUCTURALLY COULD NOT REACH. `closest()` walks the DOM tree, ' +
+      'and portalled popover content is NOT a DOM descendant of the node it belongs to — so the ' +
+      'first fix was correct and blind at the same time, across 56-59 controls. Shipped as #1146. ' +
+      'Without this arm the gate proves the bleed is closed only where the markup happens to nest.',
+  },
 ]
 
 /**
@@ -160,12 +170,20 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
 ]
 
 /**
- * ⚠⚠ THE ONE KNOWN FLAKE IN THE GATED SET — INCLUDED DELIBERATELY, NOT MISSED.
+ * ⭐⭐ NO LONGER A FLAKE — ROOT-CAUSED AND FIXED. The block below used to open
+ * "THE ONE KNOWN FLAKE IN THE GATED SET". That is retired, and the entry stays
+ * only because its MEASUREMENTS are a record and its reasoning about why the arm
+ * belongs in the gate is still correct.
  *
+ * ── WHAT WAS BELIEVED, AND WHY IT WAS REASONABLE ────────────────────────────
  * `'opposite direction: Enter at the NODE still selects it, Escape still
- * deselects'` has a measured, PRE-EXISTING order-dependence: it fails roughly
- * 14% of the time when it runs AFTER the pointer arm, and not at all in
- * isolation. The measurements, pooled:
+ * deselects'` was believed to have a PRE-EXISTING order-dependence: failing
+ * roughly 14% of the time after the pointer arm, never in isolation.
+ *
+ * ⚠ THE DATED MEASUREMENTS BELOW ARE KEPT VERBATIM. They are a record of what
+ * was observed on the days it was observed, not a fixture to keep current — a
+ * corpus that pins what was measured is EVIDENCE, and rewriting it would falsify
+ * the record. Only the CONCLUSIONS drawn from them have gone stale.
  *
  *     independent reviewer, at #1129's head   7 paired,  1 failure
  *                                             8 isolated, 0 failures
@@ -173,40 +191,83 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
  *     ------------------------------------------------------------------
  *     pooled                                 19 paired,  1 failure  (~5%)
  *
- * ⭐ AND THE 12/12 IS NOT A REFUTATION — SAYING SO IS THE POINT. At a true 14%
- * rate, twelve consecutive passes happen about 16% of the time (0.86^12). That
- * is an unremarkable draw, not evidence of a fix. The arm's own comment already
- * makes the symmetric point about 8/8 green at the merge base. So this lane did
- * NOT reproduce it and did NOT root-cause it, and has changed nothing about the
- * arm — a "fix" nobody can show fixing anything is how four consecutive wrong
+ * The reasoning attached to the 12/12 was also right at the time and is worth
+ * keeping: at a true 14% rate, twelve consecutive passes happen about 16% of the
+ * time (0.86^12), so twelve greens were an unremarkable draw and NOT evidence of
+ * a fix. A "fix" nobody can show fixing anything is how four consecutive wrong
  * diagnoses happened on the canvas overlap defect.
  *
- * ⭐ WHY IT IS IN THE GATE ANYWAY. Removing it would leave the gate WATCHING ONE
- * DOOR: the drive arm proves the bleed is closed, and only this arm proves the
- * closing did not kill React Flow's keyboard node selection — which may be the
- * only keyboard route to the Inspector. A gate that can bless a fix trading one
- * accessibility defect for another is worse than the flake (CLAUDE.md trap 22b).
+ * ── WHAT IS NOW MEASURED, AND IT REFUTES BOTH HALVES ────────────────────────
+ * Settled by #1147 (`2b7248b8`), which did what the note above said nobody had
+ * done — reproduced it, root-caused it, and discriminated the fix:
  *
- * ⭐ WHAT ABSORBS IT, AND IT IS NOT A RETRY. The job is ADVISORY
+ *   · RATE.  0/25 paired on staging, 0/25 isolated. Against a true 14% rate,
+ *     twenty-five consecutive passes is p ≈ 0.023. The 14% is refuted.
+ *   · ORDER. NOT order-dependent. Clears occur at the same rate isolated (5/16)
+ *     as paired (7/19) — Fisher p = 1.0. Order only widened the VARIANCE of when
+ *     the clear landed relative to the press.
+ *   · POOLING. The `#1129's head` row is `b186c26a`, an intermediate commit on a
+ *     branch and never a staging head. Pooling it with staging runs mixed two
+ *     trees now known to differ, so the ~5% is an artefact of the pooling.
+ *   · MECHANISM. Selection commits in 21-29 ms every time, then is
+ *     SPONTANEOUSLY CLEARED 0.65-0.93 s later by the ghost-node ResizeObserver
+ *     livelock. The test samples once at 150 ms and fails when a clear lands in
+ *     the window. Single-hunk control: 7/19 clears → 0/20 with the `nodesChanged`
+ *     identity guard applied, Fisher p = 0.0033.
+ *   · THE FIX SHIPPED IN `c1b662fc` (#1136), which is why it no longer
+ *     reproduces. ⚠ Not `a0b77f6c` — see the attribution note in
+ *     `src/canvas/store.ts`.
+ *
+ * The mechanical argument below also still holds, and #1147 re-affirmed it: the
+ * #1129 fix cannot cause this (`closest()` walks UP and the keyboard scope is a
+ * DESCENDANT of `.react-flow__node`; an instrumented run measured `anyNokey: 0`
+ * at the press in 12/12 runs).
+ *
+ * ⚠ The "re-run it in isolation first" advice is now USELESS and is removed: the
+ * arm was never order-dependent, so isolation discriminates nothing.
+ *
+ * ⭐ WHY IT IS IN THE GATE ANYWAY — unchanged, and independent of flakiness.
+ * Removing it would leave the gate WATCHING ONE DOOR: the drive arm proves the
+ * bleed is closed, and only this arm proves the closing did not kill React Flow's
+ * keyboard node selection — which may be the only keyboard route to the
+ * Inspector. A gate that can bless a fix trading one accessibility defect for
+ * another is worse than the flake (CLAUDE.md trap 22b).
+ *
+ * ⭐ WHAT ABSORBS A RED, AND IT IS NOT A RETRY — unchanged. The job is ADVISORY
  * (`continue-on-error: true`, absent from the "Staging Gate" aggregator's
  * `needs`), so an occasional red costs a reader one minute and blocks nobody.
  * `retries` stays 0: a flake hidden by a retry becomes an unknown-rate invisible
  * one, and this suite's whole job is to be believable when it goes red.
  *
- * ⚠ IF YOU ARE READING THIS BECAUSE THE GATE IS RED ON THIS ARM: its failure
- * message reads `keyboard node selection is GONE`, which looks catastrophic and
- * usually is not. Re-run the arm IN ISOLATION before assuming your diff caused
- * it — mechanically the #1129 fix cannot cause it (`closest()` walks UP and the
- * keyboard scope is a DESCENDANT of `.react-flow__node`; an instrumented run
- * measured `anyNokey: 0` at the press in 12/12 runs):
+ * ── ⚠⚠ PROMOTION TO REQUIRED: TWO PRECONDITIONS, AND ONLY ONE IS MET ────────
+ * The old text named this arm as THE stated precondition. That was never the
+ * whole bar, and a reader who fixed only this would have concluded promotion was
+ * clear when it is not.
  *
- *     pnpm exec playwright test -c playwright.geometry.config.ts \
- *       nodeKeyboardBleed --grep "opposite direction"
+ *   1. ✅ MET — root-cause this arm. Done, above.
+ *   2. ❌ NOT MET — `staging-full-tests.yml` (the `canvas-gate` job's own
+ *      comment) requires the false-positive rate on `ubuntu-latest` to be
+ *      OBSERVED over a run of pushes, not assumed. Derive it, do not inherit it:
  *
- * ⭐ THIS IS THE STATED PRECONDITION FOR PROMOTING THE JOB TO REQUIRED. Root-cause
- * this arm first. Putting a known-flaky assertion on the merge path is exactly
- * how this repo acquired a browser check nobody looks at, and the cure must not
- * begin by administering the disease.
+ *        gh run list -R Talchain/DecisionGuideAI \
+ *          --workflow staging-full-tests.yml --branch staging --limit 40 \
+ *          --json databaseId,conclusion,headSha,createdAt
+ *        # then per run:
+ *        gh api "repos/Talchain/DecisionGuideAI/actions/runs/<id>/jobs?filter=all" \
+ *          --jq '.jobs[]|select(.name|test("Canvas Browser Gate"))|.conclusion'
+ *
+ *      ⚠ `filter=all` matters: without it the API serves only the LATEST attempt
+ *      and any rate is an undercount (measured 1.5x here). Ignore `cancelled`
+ *      runs — staging is `cancel-in-progress`, so every merge kills the previous
+ *      run and a cancellation is not a signal.
+ *      Measured 2026-09-02: 4 clean non-cancelled staging runs. The trigger is
+ *      20 consecutive with no red that is not reproducible on the base. 4/20.
+ *
+ * ⚠ And the evidence retires the FLAKE rationale, not every rationale. This repo
+ * already has an advisory job that accumulated a standing red until nobody read
+ * it — `Visual Regression`, whose linux references went 199 commits stale.
+ * Promote this gate on its own merits, not automatically because one
+ * precondition cleared.
  */
 const KNOWN_FLAKE_TITLE = 'opposite direction: Enter at the NODE still selects it, Escape still deselects'
 
@@ -242,36 +303,27 @@ export const KNOWN_FLAKE_IN_GATE: GatedTest = (() => {
 })()
 
 /**
- * ⭐ ADMITTED IN PRINCIPLE, NOT YET GATED — because it does not exist on this
- * branch, and a registry entry naming a test that is not there REDs the gate
- * with `MISSING` on every run.
+ * ⭐ ADMITTED. The arm above was gated in this commit, and this note records the
+ * dependency that governed it rather than deleting the history silently.
  *
- * `PR #1146` (sibling lane, unmerged at the time of writing) appends a fourth
- * behavioural arm to `nodeKeyboardBleed.measure.ts`:
+ * It was held out ONLY on sequencing: a registry entry naming a test that is not
+ * on the branch REDs the gate with `MISSING` on every run. `PR #1146` merged as
+ * `eec43702`, so the arm exists and both halves — the `{ tag: GATE_TAG }` at its
+ * own site and the `GATED_TESTS` entry above — landed together here, because
+ * either alone REDs by design.
  *
- *     in-node keyboard bleed › portalled: Enter/Space at a control inside a
- *     portalled popover does not select the anchor node
+ * ⚠ Where that RED comes from is worth knowing, because it is not where people
+ * assume: the tag/registry pairing is enforced at globalTeardown
+ * (`canvasGateTeardown.ts`, MISSING / UNEXPECTED / duplicates), NOT at config
+ * load. The only config-load throw in this file is the `KNOWN_FLAKE_IN_GATE`
+ * IIFE, which fires if `KNOWN_FLAKE_TITLE` stops resolving.
  *
- * ⚠ IT MEETS THIS REGISTRY'S OWN BAR and should be gated: it is a behavioural
- * assertion, not a measure, and it covers a live user-facing defect across
- * 56-59 controls — the same justification as the three arms above, not a weaker
- * one. It is left out ONLY on sequencing.
- *
- * TO ADMIT IT, once #1146 is merged, in one commit:
- *   1. add `{ tag: GATE_TAG }` to that test (selection, at its own site);
- *   2. add its entry to `GATED_TESTS` above with the defect it catches;
- *   3. re-measure the job's wall clock — four arms, and the runtime budget is
- *      the constraint that shaped this whole gate.
- * Steps 1 and 2 must land TOGETHER: either alone REDs, by design.
- *
- * Recorded here rather than in a chat message or a row, because a dependency
- * that lives only in someone's memory is the scheduler that dies — this estate
- * lost a standing reconciliation mechanism for a month exactly that way.
+ * ⚠ STILL OWED: the job's wall clock has NOT been re-measured with four arms.
+ * The gate's budget is the constraint that shaped it, and this arm is the
+ * expensive one — it reseeds once per key per control, so its cost scales with
+ * the driven-kind cap rather than with the file. Read the figure off the job
+ * rather than extrapolating from a local run.
  */
-export const PENDING_ADMISSION = {
-  test: 'portalled: Enter/Space at a control inside a portalled popover does not select the anchor node',
-  blockedOn: 'Talchain/DecisionGuideAI#1146 (adds the arm; unmerged)',
-} as const
 
 /** `"suite › title"`, the shape a Playwright `titlePath` collapses to. */
 export function gatedKey(t: GatedTest): string {
