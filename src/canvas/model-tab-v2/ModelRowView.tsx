@@ -178,12 +178,22 @@ export function ModelRowView({
            without `min-w-0` lands at the identical width).
 
            What actually changed the outcome is two things, neither of them
-           `min-w-0`. `flex-1` is `flex: 1 1 0%`, giving the label the only
-           zero flex-basis in the row, so free space AND shortfall land on it
-           while every sibling sits at content size — before, the deficit was
-           shared in proportion to base size and the value cells took their
-           share by wrapping "35 %" off its own unit. And `whitespace-nowrap`
-           on those cells removes the wrap escape hatch entirely.
+           `min-w-0`. `flex-1` is `flex: 1 1 0%`: the label gets the only zero
+           flex-basis in the row, so all FREE SPACE lands on it while every
+           sibling sits at content size. `whitespace-nowrap` on the value cells
+           then removes the wrap escape hatch, so a cell that is squeezed
+           ellipsises instead of breaking "35 %" off its own unit.
+
+           ⚠ AND A CORRECTION TO THIS PARAGRAPH'S OWN FIRST DRAFT, which said
+           free space "AND shortfall" land on the label. Not so, and the
+           distinction matters: a `flex-basis: 0` item takes ZERO of a SHRINK
+           distribution, because the scaled shrink factor is base size × shrink
+           factor = 0. Growth lands here; a genuine shortfall lands on the
+           SIBLINGS. That is exactly why the Advanced id span later had to be
+           given `min-w-0 truncate` — with the label unable to absorb a
+           deficit, the id was the last default-shrink item and took it. Two
+           comments in this file described the deficit case incompatibly; this
+           is the one that matches the code.
 
            The label is the one thing here that can lose characters without
            losing meaning, so it is the one thing that should shrink. */
