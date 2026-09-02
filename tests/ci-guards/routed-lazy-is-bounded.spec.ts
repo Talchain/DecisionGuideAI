@@ -203,6 +203,22 @@ interface Site {
 }
 
 /**
+ * A `/` opens a REGEX LITERAL only where a value is expected; after an operand it
+ * is division. The preceding non-space character is the standard discriminator —
+ * imperfect in the general case, deliberately biased here toward TREATING IT AS
+ * A REGEX, because the failure that costs something is blanking real code.
+ */
+function isRegexStart(src: string, slash: number): boolean {
+  let k = slash - 1
+  while (k >= 0 && /\s/.test(src[k])) k -= 1
+  if (k < 0) return true
+  const prev = src[k]
+  if ('(,=:[!&|?{};+-*%^~<>'.includes(prev)) return true
+  const word = /[A-Za-z0-9_$]/.test(prev) ? (src.slice(0, k + 1).match(/[A-Za-z0-9_$]+$/) ?? [''])[0] : ''
+  return ['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'case', 'do', 'else', 'yield', 'await'].includes(word)
+}
+
+/**
  * ⚠ COMMENTS ARE BLANKED BY A STATE MACHINE, NOT BY TWO REGEXES.
  *
  * Blanking is needed because `lazyWithStallBound.ts` documents itself as a
@@ -221,18 +237,42 @@ interface Site {
  */
 function blankComments(src: string): string {
   const out = src.split('')
-  type State = 'code' | 'line' | 'block' | 'single' | 'double' | 'template'
+  type State = 'code' | 'line' | 'block' | 'single' | 'double' | 'template' | 'regex' | 'regexClass'
   let state: State = 'code'
   let i = 0
   while (i < src.length) {
     const c = src[i]
     const d = src[i + 1]
     if (state === 'code') {
+      // ⚠ A REGEX LITERAL CAN CONTAIN `//`, AND MISSING THAT LOSES REAL CODE.
+      // `/https?:\/\//` holds an escaped pair that reads as a line comment to a
+      // scanner without a regex state — everything after it on the line is
+      // blanked, so a route declared on that line disappears from BOTH the
+      // classifier and the census, which then agree with each other about
+      // nothing. A review found exactly that: a bare route beside such a regex
+      // was 8/8 green, and the twin with the slashes removed REDs.
+      //
+      // A regex literal only begins where a VALUE is expected, so the preceding
+      // non-space character discriminates it from division.
+      if (c === '/' && isRegexStart(src, i)) { state = 'regex'; i += 1; continue }
       if (c === '/' && d === '/') { state = 'line'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
       if (c === '/' && d === '*') { state = 'block'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
       if (c === "'") state = 'single'
       else if (c === '"') state = 'double'
       else if (c === '`') state = 'template'
+      i += 1
+      continue
+    }
+    if (state === 'regex') {
+      if (c === '\\') { i += 2; continue }
+      if (c === '[') { state = 'regexClass'; i += 1; continue }
+      if (c === '/' || c === '\n') { state = 'code' }
+      i += 1
+      continue
+    }
+    if (state === 'regexClass') {
+      if (c === '\\') { i += 2; continue }
+      if (c === ']') { state = 'regex' }
       i += 1
       continue
     }
