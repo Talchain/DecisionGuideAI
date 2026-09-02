@@ -1223,23 +1223,23 @@ test.describe('in-node keyboard bleed', () => {
   /**
    * How many DISTINCT portalled control kinds must be driven.
    *
-   * ⚠ A FLOOR, NOT A FIGURE, AND NOT `> 0` — the same lesson the census's
-   * `MIN_PORTALLED_CONTROLS` block records. One kind driven is a plausible,
-   * comfortable number that would read as coverage while a whole render path
-   * went unmeasured; the six kinds observed on this starter
-   * ("What could go wrong?", "What evidence supports this?", "What strengthens
-   * this?", "What reduces this?", "Add mitigation", "What if this changes?")
-   * are what makes 3 a floor with room under it rather than a target.
-   */
-  /**
-   * ⚠ THIS EQUALS THE MEASURED VALUE ON PURPOSE, AND THAT IS NOT AN OVERSIGHT.
-   * `vendor-selection` renders exactly three distinct portalled control names
-   * ("What evidence supports this?", "What if this changes?", "What could go
-   * wrong?"), so any shrink REDs — which is what a coverage guard is for. It is
-   * NOT a starvation guard: a floor with no room under it cannot also answer
-   * "is the probe seeing anything", and `MIN_PORTALLED_CONTROLS_SEEN` below is
-   * the number that does. If a popover control kind is ever deliberately
-   * removed, this needs re-deriving in that PR rather than nudging down.
+   * ⚠⚠ THIS EQUALS THE MEASURED VALUE. IT HAS ZERO HEADROOM, AND SAYING SO IS
+   * THE POINT — an earlier draft of this comment claimed "the six kinds
+   * observed on this starter … make 3 a floor with room under it". That was
+   * FALSE ABOUT ITS OWN HEAD and it was the first thing a reader hit. The six
+   * names came from a five-starter census; THIS SWEEP RUNS ON
+   * `vendor-selection` ALONE and finds exactly THREE distinct portalled control
+   * names — "What evidence supports this?", "What if this changes?", "What
+   * could go wrong?" — measured, twice, identically.
+   *
+   * So this is a coverage guard with no slack: any shrink REDs, which is what a
+   * coverage guard is for. It is NOT a starvation guard, and it cannot be made
+   * into one — a floor with no room under it cannot also answer "is the probe
+   * seeing anything at all". `MIN_PORTALLED_CONTROLS_SEEN` below is the number
+   * that answers that, and it is the one with the magnitude.
+   *
+   * If a popover control kind is ever deliberately removed, this needs
+   * re-deriving in that PR rather than quietly nudging down.
    */
   const MIN_PORTALLED_KINDS_DRIVEN = 3
   /** Driving is expensive — one fresh seed per key — so the driven set is capped. */
@@ -1293,6 +1293,22 @@ test.describe('in-node keyboard bleed', () => {
    *
    * It fails on the BEHAVIOURAL assertion, not on a control — which is what
    * distinguishes a guard that bites from one that merely errors.
+   *
+   * ── AND THE PAIR THAT PROVES THE NEIGHBOUR CORRECTION, measured 2 Sep ──────
+   *
+   * `keyboardSelects` was membership-bound (`includes(nodeId)`). Scenario: the
+   * fix removed AND the selection made to land on a neighbour rather than the
+   * anchor (`selectedNodeIds` renamed in the throwaway worktree).
+   *
+   *   keyboardSelects = read[...].length > 0    3 BLEED→NBR   RED (behavioural)
+   *   keyboardSelects = ...includes(nodeId)     3 "clean"     BEHAVIOURAL
+   *                                                           ASSERTION PASSES
+   *
+   * The second row is the defect being corrected: a live bleed reported CLEAN.
+   * Note what nearly hid it — that run still went red, but on the `ungated`
+   * MECHANISM assertion, which answers a different question and would not have
+   * fired had the control merely become input-like. A second guard passing for
+   * its own reasons is not a substitute for the first one working.
    */
   const MIN_PORTALLED_CONTROLS_SEEN = 8
 
@@ -1634,17 +1650,46 @@ test.describe('in-node keyboard bleed', () => {
         }
       }
 
-      const keyboardSelects = read[' '].includes(nodeId) || read.Enter.includes(nodeId)
+      /*
+       * ⚠⚠ THE TWO HALVES OF THIS PREDICATE ARE DELIBERATELY ASYMMETRIC, AND
+       * THE ASYMMETRY IS THE CORRECTION.
+       *
+       * `keyboardSelects` was `read[' '].includes(nodeId) || read.Enter.
+       * includes(nodeId)` — membership. A bleed that selected a NEIGHBOUR'S
+       * node therefore read CLEAN: a FALSE NEGATIVE, i.e. the arm reporting the
+       * defect absent while it was live. And a portalled popover is exactly
+       * where that is plausible, because the popover is positioned under its
+       * anchor and overlaps whatever is beneath it — there is no DOM ancestry
+       * tying the press to the node it looks attached to. It is `.length > 0`:
+       * a key press at a control must not change the selection AT ALL.
+       *
+       * The two attribution controls stay MEMBERSHIP-BOUND, and must not be
+       * "tidied" to match. They EXCUSE a keyboard selection, so a loose reading
+       * of them SUPPRESSES a bleed — the same harm, arriving from the other
+       * side. `includes(nodeId)` excuses only when the control's own action
+       * selects the node it belongs to, which is the thing that genuinely is
+       * not a bleed (`openNodeInspector` selects on purpose).
+       *
+       * One predicate guarding two opposite harms needs two parameters, not one
+       * (CLAUDE.md trap 22b). Loosest where a miss hides the defect; tightest
+       * where a hit hides it.
+       */
+      const keyboardSelects = read[' '].length > 0 || read.Enter.length > 0
       const mouseSelects = read.CLICK.includes(nodeId)
       const focusSelects = read.FOCUS.includes(nodeId)
       const bled = keyboardSelects && !mouseSelects && !focusSelects
+      // Record WHICH node was selected, so a neighbour-bleed is diagnosable
+      // from the failure output rather than only detectable by it.
+      const selectedBy = [...new Set([...read[' '], ...read.Enter])]
+      const ontoNeighbour = selectedBy.some((s) => s !== nodeId)
       if (bled) bleeding++
       if (mouseSelects || focusSelects) selfSelecting++
       if (read.q.length > 0) contrastSelections++
       if (!gated) ungated++
       table.push(
-        `${bled ? 'BLEED     ' : focusSelects ? 'focus-sel ' : mouseSelects ? 'self-sel  ' : 'clean     '} ` +
-          `${nodeId} "${name}"  gated=${gated ? 'Y' : 'N'}\n` +
+        `${bled ? (ontoNeighbour ? 'BLEED→NBR ' : 'BLEED     ') : focusSelects ? 'focus-sel ' : mouseSelects ? 'self-sel  ' : 'clean     '} ` +
+          `${nodeId} "${name}"  gated=${gated ? 'Y' : 'N'}` +
+          `${selectedBy.length ? `  selected=${JSON.stringify(selectedBy)}` : ''}\n` +
           `        focus=${JSON.stringify(read.FOCUS)} space=${JSON.stringify(read[' '])}` +
           ` enter=${JSON.stringify(read.Enter)} q=${JSON.stringify(read.q)} click=${JSON.stringify(read.CLICK)}`,
       )
@@ -1677,8 +1722,9 @@ test.describe('in-node keyboard bleed', () => {
     // ── THE LOAD-BEARING CLAIM: no portalled control may select its anchor ──
     expect(
       bleeding,
-      'a control inside a PORTALLED popover still selects the node behind it — ' +
-        'the keyboard scope does not cross the portal boundary',
+      'a key press at a control inside a PORTALLED popover still changed the node selection — ' +
+        'the keyboard scope does not cross the portal boundary. (This counts a selection of ANY node, ' +
+        'not just the anchor: a bleed onto a neighbour is the same defect and used to read clean.)',
     ).toBe(0)
 
     // ── AND THE MECHANISM, for controls whose own action selects the node ───
