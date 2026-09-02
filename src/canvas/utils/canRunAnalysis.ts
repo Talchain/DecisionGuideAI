@@ -43,6 +43,7 @@ import type { GraphReadiness } from '../hooks/useGraphReadiness'
 import {
   analysisBlockedItems,
   composeReadinessBlockedReason,
+  readinessAuthoredRefusalItems,
   type GateBlockedItem,
   type OptionNeedingValues,
 } from './composeBlockedReason'
@@ -917,9 +918,102 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     // warning about. `composeAnalysisBlockedReason` is DEFINED as
     // `analysisBlockedSentences(...).join(' ')`, so taking the array and joining
     // it here is byte-identical to the previous call and leaves one owner.
-    const composedItems: readonly GateBlockedItem[] = analysisReadiness
-      ? analysisBlockedItems(actionableBlockers(analysisReadiness.blockers))
-      : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
+    //
+    // ⭐⭐ AND WHEN THE DECIDING AUTHORITY ITEMISED NOTHING, THE OTHER ONE IS
+    // ASKED — TO CORROBORATE, NEVER TO DECIDE (2 Sep 2026).
+    //
+    // THE DEFECT, measured at deployed `3fdefbd3` by running this gate against
+    // the payload `WhyNoAnalysisYet`'s header captured. Clause (a) of
+    // `readinessObjectsToRun` refuses on `status === 'blocked'` ALONE, and the
+    // list it then composes from is EMPTY. The sentence was therefore composed
+    // from that empty list, and `analysisBlockedSentences` returns
+    // `BLOCKED_REASON_COPY.unspecified` for it — *"Olumi needs something more
+    // from this model … Ask in the chat"* — while the side-car held CEE's own
+    // written refusal, a refusal WITH A ROUTE, sitting unread in
+    // `readinessStore`.
+    //
+    // ⭐ RE-DERIVED AT CEE `c110c5e3` RATHER THAN INHERITED FROM THE COMMENT
+    // ABOVE, and it is worse than that comment said — three facts, each at the
+    // bytes:
+    //   · `buildAnalysisRefusalReadiness` has THREE exits
+    //     (`analysis-ready-helper.ts:1737-1745`, `:1761-1770`, `:1835-1844`);
+    //     ALL THREE emit `status: 'blocked'`, and the first two OMIT `blockers`
+    //     entirely. The third attaches them only when at least one survives
+    //     `AnalysisBlocker.safeParse`, and DELIBERATELY never substitutes `[]`.
+    //     `mapWireBlockers` (`compose/analysis-state-v1.ts:463-468`) maps an
+    //     absent list to `[]`, so the omission arrives here as an empty array.
+    //   · IT IS THE DEPLOYED RUN CHIP. `chip-click-dispatch.ts:854` — the
+    //     handler behind the product's own "Run analysis" affordance — is one of
+    //     its two production callers, and CEE's own recorded capture sits beside
+    //     it at `:810-817`: `status="blocked" … blocked_reason="MISSING_OPTION_VALUE"`
+    //     with `blockers` ABSENT. This is not a defensive edge case; it is the
+    //     measured behaviour of the button the P0 witness pressed.
+    //   · NOTHING COUPLES THE TWO. A sweep of CEE for an invariant tying
+    //     `status === 'blocked'` to a non-empty blocker list returns ZERO — with
+    //     the CONTRAST CONTROL `needs_user_input ⇒ blockers` returning six,
+    //     including a live validator (`cee/transforms/analysis-ready.ts:1346`,
+    //     `NEEDS_USER_INPUT_WITHOUT_BLOCKERS`). There is a rule for that status
+    //     and deliberately none for this one. So `blocked ⇒ itemised` is not a
+    //     guarantee the producer makes, and code that assumes it is wrong today.
+    //   · AND THE ADVISORY-ONLY VARIANT IS REACHABLE TOO:
+    //     `cee/unified-pipeline/stages/boundary.ts:196-203` pushes
+    //     `constraint_dropped` blockers onto `analysis_ready` gated on STRP
+    //     mutations and NOT on status — creating the array where none existed —
+    //     and that type is classified advisory, never actionable
+    //     (`canonical-analysis-state.ts:126-135`). `actionableBlockers` then
+    //     empties it again, which is why the arm below tests the FILTERED list.
+    //
+    // ⚠ TWO COMMENTS IN THIS REPO CONTRADICT EACH OTHER ON EXACTLY THIS, which
+    // is how it survived: `analysisBlockedSentences`' header says the empty list
+    // *"MUST NEVER REACH HERE … the real protection is `readinessObjectsToRun`,
+    // which never asks"*. It asks. That header is a stale reassurance; the
+    // clause is right and must stay. Corrected there rather than left to age.
+    //
+    // ⭐ THIS DOES NOT WEAKEN THE SUPERSESSION, and the distinction is the whole
+    // care. `readinessObjectsToRun` is UNTOUCHED: the producer alone decides
+    // WHETHER to refuse. What changes is only the EXPLANATION, and only where
+    // the deciding authority supplied none — the alternative is not the
+    // producer's words, it is OUR non-committal fallback. Naming the side-car's
+    // refusal there is this module's standing rule (degrade only to a LESS
+    // SPECIFIC TRUE claim from an authority that has one), not a second gate.
+    //
+    // ⚠ AND IT MAY ONLY EVER AGREE. Two conditions, both fail-closed:
+    //   · `can_run_analysis === false` — the side-car must itself be refusing.
+    //     A side-car that is not refusing is answering a different question, and
+    //     its sentence would explain a refusal it did not make (trap 21).
+    //   · `!readinessStale` — quoting an authority inherits its staleness. That
+    //     flag is deliberately WITHHELD three lines up, where the producer
+    //     speaks for itself and the side-car's evidence is irrelevant; here the
+    //     side-car IS the speaker, so it governs. Same fact, opposite duty.
+    // `readinessAuthoredRefusalItems` carries the rest — INV-P6's obligation
+    // filter, the `may_run` affirmative guard, the vet, and the scopes.
+    //
+    // ⚠ AND THE HONEST LIMIT OF THE CORROBORATION, disclosed rather than
+    // papered over (CEE `c110c5e3`). The two authorities are computed
+    // INDEPENDENTLY over possibly different objects: the turn ships a carrier
+    // the refusal builder already stripped and the composer is forbidden to
+    // re-derive (`analysis-state-v1.ts:12-19`), while the side-car re-assesses
+    // from the graph on every request and, when a `scenario_id` is supplied,
+    // from the PERSISTED one (`assist.v1.graph-readiness.ts:311-320`). So it can
+    // in principle be describing a different graph object. `readinessStale`
+    // covers the case this client can detect — the canvas moving under the
+    // verdict — and the residue is the same trust the `analysisReadiness == null`
+    // branch below has always placed in this sentence. What is NEW here is only
+    // the branch it is read on, never the degree of trust.
+    const producerBlockers = analysisReadiness
+      ? actionableBlockers(analysisReadiness.blockers)
+      : null
+    const corroboration =
+      producerBlockers !== null &&
+      producerBlockers.length === 0 &&
+      readiness?.can_run_analysis === false &&
+      !readinessStale
+        ? readinessAuthoredRefusalItems(readiness)
+        : null
+    const composedItems: readonly GateBlockedItem[] =
+      producerBlockers !== null
+        ? (corroboration ?? analysisBlockedItems(producerBlockers))
+        : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
     const composed = composedItems.map((item) => item.text).join(' ')
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)
