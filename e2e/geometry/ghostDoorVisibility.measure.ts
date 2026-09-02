@@ -135,6 +135,30 @@ for (const id of STARTERS) {
         ;(document.activeElement as HTMLElement | null)?.blur?.()
         return ok
       }
+      /*
+       * ⚠ THE DOOR'S CONTROL IS FOUND BY WHAT IT IS, NEVER BY WHERE IT SITS.
+       *
+       * This read `el.firstElementChild`, which is a claim about DEPTH, and the
+       * claim is about to stop being true: PR #1129 wraps every node's contents
+       * in a `display: contents` scope div, which becomes the node's first
+       * element child. That branch shares NO FILE with this one, so no textual
+       * conflict could ever have warned either lane — this instrument would
+       * simply have started reporting `innerRole: null` and `focusesControl:
+       * false` for four doors that were perfectly fine, and a browser measure
+       * that cries wolf gets deleted rather than fixed.
+       *
+       * A descendant query is depth-independent, so it reads the same door
+       * through zero wrappers or three. `arity` is returned alongside so the
+       * query cannot silently start resolving to SOMETHING ELSE: it is asserted
+       * to be exactly 1, which binds this reading to the door's own control by
+       * identity rather than to whatever happens to be found first
+       * (CLAUDE.md trap 19).
+       */
+      const CONTROL = '[role="button"]'
+      const controlIn = (el: HTMLElement | null | undefined) =>
+        (el?.querySelector(CONTROL) as HTMLElement | null) ?? null
+      const controlArity = (el: HTMLElement | null | undefined) =>
+        el ? el.querySelectorAll(CONTROL).length : 0
       const ghostEls = () =>
         ([...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]).filter((el) =>
           (el.dataset.id ?? '').startsWith(GHOST),
@@ -159,12 +183,13 @@ for (const id of STARTERS) {
       const doors = ghostEls().map((el) => ({
         ...readOne(el),
         focusesWrapper: focusable(el),
-        focusesControl: focusable(el.firstElementChild as HTMLElement | null),
-        innerRole: (el.firstElementChild as HTMLElement | null)?.getAttribute('role') ?? null,
+        focusesControl: focusable(controlIn(el)),
+        controlArity: controlArity(el),
+        innerRole: controlIn(el)?.getAttribute('role') ?? null,
       }))
 
       // POSITIVE CONTROL: the same reader, shown a door it should call hidden.
-      let control: { visibility: string; innerText: string; focusable: boolean } | null = null
+      let control: { visibility: string; innerText: string; focusable: boolean; controlArity: number } | null = null
       const first = ghostEls()[0]
       if (first) {
         const clone = first.cloneNode(true) as HTMLElement
@@ -174,7 +199,8 @@ for (const id of STARTERS) {
         control = {
           visibility: getComputedStyle(clone).visibility,
           innerText: (clone.innerText || '').trim(),
-          focusable: focusable(clone.firstElementChild as HTMLElement | null),
+          focusable: focusable(controlIn(clone)),
+          controlArity: controlArity(clone),
         }
         clone.remove()
       }
@@ -214,6 +240,7 @@ for (const id of STARTERS) {
     expect(m.control!.visibility, 'the reader could not see a deliberately hidden door — every verdict below is vacuous').toBe('hidden')
     expect(m.control!.innerText, 'innerText was not layout-aware, so the emptiness signal is not being read').toBe('')
     expect(m.control!.focusable, 'a hidden control was focusable, so the focus probe does not discriminate').toBe(false)
+    expect(m.control!.controlArity, 'the control resolver stopped finding exactly one control — it is reading something else now').toBe(1)
 
     // ── the frontier is placed at all
     expect(m.doors.length, 'the frontier placed no doors on this starter').toBeGreaterThan(0)
@@ -224,6 +251,7 @@ for (const id of STARTERS) {
       expect(d.w * d.h, `${d.id} has a zero-area box`).toBeGreaterThan(0)
       expect(d.innerText.length, `${d.id} renders no visible label`).toBeGreaterThan(0)
       expect(d.innerText, `${d.id}'s visible label disagrees with its DOM text`).toBe(d.textContent)
+      expect(d.controlArity, `${d.id} does not hold exactly one control, so this reading is not bound to the door's own affordance`).toBe(1)
       expect(d.innerRole, `${d.id} is not exposed as a control`).toBe('button')
       // Both channels must agree, and this is the assertion that says so: the
       // control a screen reader can reach is the control a sighted user sees.
