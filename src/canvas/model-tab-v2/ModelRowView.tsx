@@ -165,7 +165,15 @@ export function ModelRowView({
       <button
         type="button"
         data-testid={`model-row-v2-${row.id}-label`}
-        className={`${typography.bodySmall} text-text-body text-left truncate`}
+        /* ⚠⚠ `min-w-0 flex-1` IS WHAT MAKES `truncate` WORK HERE, and its
+           absence is why every short value to the right of this row wrapped.
+           A flex item's default `min-width:auto` refuses to shrink below its
+           content, so `truncate` could not act — flexbox took the space out of
+           the ATOMS instead, squeezing "35 %" into 32px and breaking a number
+           from its own unit. The label is the one thing in this row that can
+           lose characters without losing meaning, so it is the one thing that
+           should shrink. */
+        className={`${typography.bodySmall} text-text-body text-left truncate min-w-0 flex-1`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
@@ -182,7 +190,7 @@ export function ModelRowView({
         <span
           data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
           title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
-          className={`${typography.panelMeta} text-text-light whitespace-nowrap`}
+          className={`${typography.panelMeta} text-text-light whitespace-nowrap shrink-0`}
         >
           {GOAL_LABEL_FROM_BRIEF_COPY.pill}
         </span>
@@ -205,7 +213,7 @@ export function ModelRowView({
         value that may be perfectly well set. Absence is rendered as absence.
       */}
       {row.provenanceSource !== undefined && (
-        <span data-testid={`model-row-v2-${row.id}-provenance`}>
+        <span data-testid={`model-row-v2-${row.id}-provenance`} className="shrink-0">
           <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
         </span>
       )}
@@ -226,7 +234,7 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-confirm-as-is`}
           title="Confirm this value is correct"
           aria-label={`Confirm ${row.label} is correct`}
-          className={`${typography.buttonSmall} text-info underline decoration-dotted`}
+          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
           onClick={e => {
             e.stopPropagation()
             onConfirmValueAsIs?.(row.id)
@@ -242,7 +250,7 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-attention-${reason}`}
           title={ATTENTION_LABEL[reason]}
           aria-label={ATTENTION_LABEL[reason]}
-          className={`${typography.caption} text-warning`}
+          className={`${typography.caption} text-warning shrink-0`}
         >
           ⚠
         </span>
@@ -315,7 +323,7 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={typography.tabular}>
+            <span data-testid={testid} className={`${typography.tabular} shrink-0 whitespace-nowrap`}>
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
