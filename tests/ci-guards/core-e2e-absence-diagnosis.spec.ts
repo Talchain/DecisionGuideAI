@@ -48,10 +48,12 @@ import {
   ASSET_STALL_MS,
   classifyComposerAbsence,
   findModuleLoadFailure,
-  MODULE_LOAD_FAILURE_PHRASES,
+  isModuleLoadFailureText,
+  OBSERVED_CSS_PRELOAD_FAILURE,
   selectStalled,
   type ComposerAbsenceInput,
 } from '../../e2e/core/lib/harness'
+import { isChunkLoadError } from '../../src/lib/staleBuildRecovery'
 
 // ── the corpus, from the artefacts of the ten measured failures ──────────────
 /** Observed IN-FLIGHT noise on runs that were NOT asset failures (run 33555675895). */
@@ -284,12 +286,126 @@ describe('System E · the composer-absence verdict', () => {
       expect(verdict).toBe('product')
     })
 
-    it('the phrase list matches its observed member and rejects the generic sentence', () => {
+    it('quotes its observed member exactly and rejects the generic sentence', () => {
       expect(findModuleLoadFailure(ERROR_BOUNDARY_TEXT))
         .toBe('Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css')
       expect(findModuleLoadFailure('The canvas encountered an unexpected error')).toBeNull()
       expect(findModuleLoadFailure(LANDING)).toBeNull()
-      expect(MODULE_LOAD_FAILURE_PHRASES.length).toBeGreaterThan(0)
+    })
+  })
+
+  // ── defect 5 ────────────────────────────────────────────────────────────────
+  // The first fix for defect 4 shipped a HAND-WRITTEN SECOND COPY of a predicate the
+  // product already owns — this estate's dominant defect class, committed inside the
+  // fix for the previous one. It missed THREE OF FIVE product shapes, including
+  // Chrome's SPA-fallback MIME wording on a chromium-only suite.
+  //
+  // ⚠ THE LOAD-BEARING ASSERTION IS THE AGREEMENT, NOT THE CORPUS. `PRODUCT_YES`
+  // exercises it, but the property holds for ANY string: whatever the product accepts,
+  // the harness must accept. If this corpus goes stale, correctness still holds by
+  // derivation — that is the whole point of importing `isChunkLoadError` rather than
+  // restating it. Corpus AND derived guard, because neither alone is sufficient:
+  // derivation cannot notice a SHORT product list, and a corpus cannot notice drift.
+  describe('defect 5 — the predicate is DERIVED from the product, not copied', () => {
+    /** The product's own positive corpus (ErrorBoundary.recovery.spec.tsx, case 5). */
+    const PRODUCT_YES = [
+      'Failed to fetch dynamically imported module: https://x/assets/index-abc.js',
+      'error loading dynamically imported module',
+      'Importing a module script failed.',
+      'Failed to load module script: Expected a JavaScript-or-Wasm module script but the ' +
+        'server responded with a MIME type of "text/html".',
+      'Loading chunk 42 failed',
+    ]
+    /** The product's own negative corpus — the over-match control. */
+    const PRODUCT_NO = [
+      "Cannot read properties of undefined (reading 'label')",
+      'Maximum update depth exceeded',
+      'Network request failed',
+    ]
+
+    it('accepts EVERY shape the product accepts — the union assertion', () => {
+      for (const m of PRODUCT_YES) {
+        expect(isChunkLoadError(new Error(m)), `product accepts: ${m}`).toBe(true)
+        expect(isModuleLoadFailureText(m), `harness must too: ${m}`).toBe(true)
+        expect(findModuleLoadFailure(m), `and must quote it: ${m}`).not.toBeNull()
+      }
+    })
+
+    it('the three shapes the hand-written copy MISSED are now matched', () => {
+      // Absent entirely from the copy; the third failed on `:? \S*` making the
+      // trailing space mandatory, so the bare form never matched.
+      for (const m of [
+        'Importing a module script failed.',
+        'Failed to load module script: Expected a JavaScript-or-Wasm module script but ' +
+          'the server responded with a MIME type of "text/html".',
+        'error loading dynamically imported module',
+      ]) expect(isModuleLoadFailureText(m), m).toBe(true)
+    })
+
+    it('rejects every shape the product rejects — no over-match', () => {
+      for (const m of PRODUCT_NO) {
+        expect(isChunkLoadError(new Error(m)), m).toBe(false)
+        expect(isModuleLoadFailureText(m), m).toBe(false)
+      }
+    })
+
+    it('an ordinary product crash still classifies as PRODUCT end to end', () => {
+      for (const m of PRODUCT_NO) {
+        const { verdict } = classifyComposerAbsence({
+          ...base, statusTexts: [], renderedChars: m.length, bodyHead: m, bodyText: m,
+        })
+        expect(verdict, m).toBe('product')
+      }
+    })
+
+    it('a product shape reaches the ASSET DELIVERY verdict, not just the predicate', () => {
+      const mime = 'Olumi was updated while this page was open. Failed to load module ' +
+        'script: Expected a JavaScript-or-Wasm module script but the server responded ' +
+        'with a MIME type of "text/html".'
+      const { verdict } = classifyComposerAbsence({
+        ...base, statusTexts: [], renderedChars: mime.length, bodyHead: mime, bodyText: mime,
+      })
+      expect(verdict).toBe('asset-delivery')
+    })
+
+    it('the CSS-preload union is the product GAP, and is the only addition', () => {
+      const css = 'Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css'
+      expect(isChunkLoadError(new Error(css)), 'the product does NOT yet accept this').toBe(false)
+      expect(isModuleLoadFailureText(css), 'the harness must, it was witnessed').toBe(true)
+      expect(OBSERVED_CSS_PRELOAD_FAILURE.test(css)).toBe(true)
+      // Narrow on purpose: it must not swallow an unrelated CSS mention.
+      expect(OBSERVED_CSS_PRELOAD_FAILURE.test('Unable to load the stylesheet')).toBe(false)
+    })
+
+    it('a positive the quote list cannot phrase still returns a quote, never null', () => {
+      // Guarantees a short quote list can never cause a FALSE NEGATIVE.
+      const odd = 'ChunkLoadError'
+      expect(isModuleLoadFailureText(odd)).toBe(true)
+      expect(findModuleLoadFailure(odd)).not.toBeNull()
+    })
+  })
+
+  describe('an UNREADABLE page is never described as if it had been read', () => {
+    it('does not claim "rendered NOTHING (0 chars)" when evaluate threw', () => {
+      const { message } = classifyComposerAbsence({
+        ...base, pageStateRead: false,
+        stalledAssets: [{ url: STALLED_CHUNK, ageMs: REAL_STALL_MS }],
+      })
+      expect(message).toContain('UNREADABLE')
+      expect(message).not.toMatch(/rendered NOTHING \(0 chars\)/)
+    })
+
+    it('an unreadable page with nothing nameable is still INDETERMINATE', () => {
+      const { verdict, message } = classifyComposerAbsence({ ...base, pageStateRead: false })
+      expect(verdict).toBe('indeterminate')
+      expect(message).toContain('UNREADABLE')
+    })
+
+    it('an unreadable page can never be a PRODUCT failure, whatever the char count', () => {
+      const { verdict } = classifyComposerAbsence({
+        ...base, pageStateRead: false, renderedChars: 500, bodyHead: 'stale', bodyText: 'stale',
+      })
+      expect(verdict).not.toBe('product')
     })
   })
 

@@ -36,6 +36,9 @@ import {
   crawlBundle, makeHttpChunkFetcher, assertCrawlIntegrity, assertControlsFired,
   BUNDLE_CONTROLS,
 } from './bundleCrawl'
+// ⭐ THE PRODUCT'S OWN CHUNK-FAILURE PREDICATE — pure, zero-import, single-writer.
+// Imported rather than restated: a second copy is this estate's dominant defect.
+import { isChunkLoadError } from '../../../src/lib/staleBuildRecovery'
 
 export const ORIGIN = process.env.CORE_UI_URL ?? 'https://staging--olumi.netlify.app'
 
@@ -415,40 +418,82 @@ export type ComposerAbsenceVerdict =
  *
  * The first three-verdict version reached `product` from the ABSENCE of a `Loading…`
  * fallback — which is the very rule it was written to enforce ("never from the absence
- * of a signal"), violated in its own third branch. And it is not hypothetical: corpus
- * run `33571760150`, one of the five this suite labels asset delivery, failed at
- * `harness.ts:804` with NO `role="status"` anywhere on the page — because a REJECTED
- * lazy import REPLACES the fallback with this boundary. The classifier returned
- * `product` and footnoted the failed CSS as "NOT the verdict — the app had rendered
- * past its fallback", which is false on that input. Every rejected-import failure
- * routed to `product` BY CONSTRUCTION.
+ * of a signal"), violated in its own third branch. Corpus run `33571760150`, one of the
+ * five this suite labels asset delivery, failed at `harness.ts:804` with NO
+ * `role="status"` anywhere, because a REJECTED lazy import REPLACES the fallback.
  *
- * REPRODUCED, not inferred: route-aborting the `ReactFlowGraph` CSS chunk against the
- * deployed build renders that run's page verbatim — 318 chars, zero `role="status"`,
- * and the same filename it named in CI.
+ * ⚠⚠ AND THE FIRST FIX FOR THAT SHIPPED A HAND-WRITTEN SECOND COPY OF A PREDICATE THE
+ * PRODUCT ALREADY OWNS — this estate's dominant defect class, committed inside the fix
+ * for the previous one. `isChunkLoadError` in `src/lib/staleBuildRecovery.ts` is the
+ * SINGLE WRITER for "this page is running a build that no longer exists", is pure and
+ * zero-import, and is already pinned by `ErrorBoundary.recovery.spec.tsx`. My parallel
+ * list MISSED THREE OF ITS FIVE SHAPES:
+ *   · `Importing a module script failed.`            — absent entirely (Safari)
+ *   · `Failed to load module script: … MIME type "text/html"` — absent entirely, and
+ *     this is CHROME's wording for the Netlify SPA fallback, on a CHROMIUM-ONLY suite
+ *   · `error loading dynamically imported module`    — a regex defect: `:? \S*` made
+ *     the trailing space MANDATORY, so the bare form never matched
+ * A boundary rendering any of those classified as `product` and printed "the app
+ * reported no module/asset failure" while the screen said "part of it could not load".
  *
- * ⚠ ONLY MODULE/ASSET-SPECIFIC PHRASES BELONG HERE. The same boundary also prints the
- * generic "The canvas encountered an unexpected error", which is exactly what a real
- * product crash looks like — matching it would re-open the defect in the other
- * direction. Only the first entry is OBSERVED in this corpus; the rest are Vite's and
- * the bundler's sibling forms for the same condition, included because the next stall
- * will not necessarily be a CSS preload.
+ * SO THE DECISION IS NOW DERIVED, NOT MIRRORED. `isModuleLoadFailureText` delegates to
+ * the product's own predicate and unions in ONE observed shape the product does not yet
+ * recognise. The next shape the product learns, this recognises for free.
+ *
+ * ⚠ THE CSS-PRELOAD UNION IS A PRODUCT GAP, NOT A HARNESS QUIRK. `Unable to preload CSS
+ * for …` is the one shape WITNESSED IN THE WILD here (run 33571760150) and it is
+ * exactly what `isChunkLoadError` does not match — which is why that run got generic
+ * crash copy instead of the stale-build Reload affordance. Rowed separately as a
+ * user-facing gap; do not "fix" it by narrowing this union.
+ *
+ * ⚠ THIS BRANCH IS FIRST AND PRODUCES A VERDICT. It does not fail closed to
+ * `indeterminate` — by design, because the app naming its own module failure is the
+ * strongest evidence available and it arrives with the fallback already gone.
  */
-export const MODULE_LOAD_FAILURE_PHRASES: readonly RegExp[] = [
-  /Unable to preload CSS for \S+/i,          // OBSERVED — run 33571760150, reproduced
-  /Failed to fetch dynamically imported module:? \S*/i,
-  /error loading dynamically imported module:? \S*/i,
+
+/**
+ * The ONE shape witnessed here that the product's predicate does not yet accept.
+ * Kept narrow on purpose: widening it would let a generic crash win the match.
+ */
+export const OBSERVED_CSS_PRELOAD_FAILURE = /Unable to preload CSS for \S+/i
+
+/**
+ * DERIVED. The product decides; this only adds the witnessed gap.
+ * `isChunkLoadError` tests `name + message`, so passing text as a message is faithful.
+ */
+export function isModuleLoadFailureText(text: string): boolean {
+  if (!text) return false
+  return isChunkLoadError(new Error(text)) || OBSERVED_CSS_PRELOAD_FAILURE.test(text)
+}
+
+/**
+ * Quote extraction ONLY — the verdict never depends on this list.
+ *
+ * ⚠ WHY A LIST IS STILL SAFE HERE. A short list can no longer cause a false negative:
+ * the decision is `isModuleLoadFailureText`, and when it fires without a tidy quote the
+ * fallback below returns a bounded excerpt, so the answer is never null. The worst a
+ * stale entry can do is make the message less precise. Completeness against the
+ * product's own corpus is asserted in the guard regardless.
+ */
+const MODULE_FAILURE_QUOTES: readonly RegExp[] = [
+  OBSERVED_CSS_PRELOAD_FAILURE,
+  /Failed to fetch dynamically imported module:?\s*\S*/i,
+  /error loading dynamically imported module:?\s*\S*/i,
+  /Importing a module script failed\.?/i,
+  /Failed to load module script[^]{0,160}/i,
+  /Loading (?:CSS )?chunk [\w-]+ failed/i,
   /ChunkLoadError/i,
-  /Loading (?:CSS )?chunk \S+ failed/i,
 ]
 
-/** The matched phrase, or null. Pure, so the signature list is pinned without a browser. */
+/** The matched phrase when the derived predicate fires, else null. */
 export function findModuleLoadFailure(bodyText: string): string | null {
-  for (const re of MODULE_LOAD_FAILURE_PHRASES) {
+  if (!isModuleLoadFailureText(bodyText)) return null
+  for (const re of MODULE_FAILURE_QUOTES) {
     const m = re.exec(bodyText)
-    if (m) return m[0]
+    if (m) return m[0].trim()
   }
-  return null
+  // The product accepted a shape this list cannot quote. Never drop the positive.
+  return bodyText.slice(0, 200).trim()
 }
 
 export interface ComposerAbsenceInput {
@@ -456,8 +501,14 @@ export interface ComposerAbsenceInput {
   timeoutMs: number
   /** Text of EVERY `[role="status"]` on the page, already whitespace-collapsed. */
   statusTexts: string[]
-  /** 0 means the page rendered NOTHING or its state was unreadable — never "product". */
+  /** 0 means the page rendered NOTHING — never "product". */
   renderedChars: number
+  /**
+   * ⚠ FALSE ONLY WHEN `page.evaluate` THREW. Without this the classifier reported
+   * "the page rendered NOTHING (0 chars)" about a page it could not read — a claim
+   * about an unobserved thing, the same family as the defect above it.
+   */
+  pageStateRead?: boolean
   bodyHead: string
   /** Full collapsed body text, scanned for the app's own module-failure boundary. */
   bodyText?: string
@@ -477,9 +528,10 @@ export function classifyComposerAbsence(
   const moduleError = findModuleLoadFailure(i.bodyText ?? i.bodyHead)
   // ⚠ POSITIVE evidence that the app booted past its own loading state. `product` is
   // reached only from THIS, never from the absence of a fallback (see the note on
-  // MODULE_LOAD_FAILURE_PHRASES — that absence is exactly what a rejected import looks
+  // OBSERVED_CSS_PRELOAD_FAILURE — that absence is exactly what a rejected import looks
   // like, and reading it as "rendered fine" is how run 33571760150 was mislabelled).
-  const appRendered = i.renderedChars > 0
+  const pageRead = i.pageStateRead !== false
+  const appRendered = pageRead && i.renderedChars > 0
 
   const named = [
     ...i.stalledAssets.map((a) => `${a.url} (open ${Math.round(a.ageMs / 1000)}s)`),
@@ -516,7 +568,9 @@ export function classifyComposerAbsence(
     // booted, so an unrelated abort could not be the cause. Here it never booted.
     verdict = 'asset-delivery'
     lines.push(
-      `⚠ ASSET DELIVERY — the page rendered NOTHING (0 chars) and ${nameable} asset(s)`,
+      pageRead
+        ? `⚠ ASSET DELIVERY — the page rendered NOTHING (0 chars) and ${nameable} asset(s)`
+        : `⚠ ASSET DELIVERY — the page state was UNREADABLE and ${nameable} asset(s)`,
       `  never arrived:`,
       ...named.slice(0, 8).map((n) => `    ${n}`),
       `  ⚠ WHY those fetches did not complete is NOT diagnosed by this instrument.`,
@@ -566,10 +620,14 @@ export function classifyComposerAbsence(
     verdict = 'indeterminate'
     lines.push(
       `⚠ INDETERMINATE — no verdict is available, and none is being guessed.`,
-      `  The page rendered nothing (or its state was unreadable), no loading fallback is`,
-      `  on screen, the app named no module failure, and no asset could be named as`,
-      `  stalled or failed. That is an absence of evidence in every channel — which is`,
-      `  not evidence for any of them.`,
+      pageRead
+        ? `  The page rendered nothing (0 chars), no loading fallback is on screen, the app`
+        : `  The page state was UNREADABLE — so nothing below is a claim about what rendered.`,
+      pageRead
+        ? `  named no module failure, and no asset could be named as stalled or failed.`
+        : `  No loading fallback was seen, no module failure named, no asset nameable.`,
+      `  That is an absence of evidence in every channel — which is not evidence for any`,
+      `  of them.`,
       `  On screen: "${i.bodyHead}"`,
     )
   }
@@ -619,6 +677,7 @@ export async function awaitFirstUseComposer(
       renderedChars: state?.rendered ?? 0,
       bodyHead: state?.bodyHead ?? '(page state unreadable)',
       bodyText: state?.bodyText,
+      pageStateRead: state !== null,
       url: state?.url ?? ORIGIN,
       stalledAssets: watch?.undelivered(ASSET_STALL_MS) ?? [],
       failedAssets: watch?.failed() ?? [],
