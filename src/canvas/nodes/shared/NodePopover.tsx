@@ -4,18 +4,68 @@
  * Renders via createPortal to escape ReactFlow's stacking context,
  * ensuring popovers always appear above adjacent nodes.
  *
- * ⚠ AND THAT PORTAL IS A KEYBOARD-SCOPE BOUNDARY. React propagates events
- * through the React TREE, so a keydown in here still reaches React Flow's node
- * handler; `isInputDOMNode` walks the DOM tree, so `closest('.nokey')` cannot
- * reach the node's keyboard scope, which is inside `.react-flow__node`. Content
- * rendered here is therefore NOT covered by `nodes/nodeKeyboardScope.tsx`.
- * `data-node-popover` exists so the census in
- * `e2e/geometry/nodeKeyboardBleed.measure.ts` can COUNT what sits beyond that
- * boundary rather than returning a clean zero for a class it cannot see.
+ * ⚠ AND THAT PORTAL IS A KEYBOARD-SCOPE BOUNDARY — which is why this file
+ * carries a scope of its own. React propagates events through the React TREE,
+ * so a keydown in here still reaches React Flow's node handler
+ * (`@xyflow/react@12.10.2` `dist/esm/index.mjs:2240`, whose only guard is
+ * `isInputDOMNode`); `isInputDOMNode` walks the DOM TREE
+ * (`@xyflow/system@0.0.76` `esm:846-854`: `target.closest('.nokey')` from
+ * `composedPath()[0]`), so it can never reach `nodes/nodeKeyboardScope.tsx`'s
+ * scope, which lives inside `.react-flow__node`. A portalled element is not a
+ * descendant of that.
+ *
+ * MEASURED, before the fix: Enter at "Add mitigation" inside a portalled
+ * popover selected the anchor node (`["fac_ae_headcount"]`) and swung the dock
+ * to the Inspector, with the contrast key `q` and a plain click both reading
+ * `[]` — i.e. keyboard-only, which is the bleed's signature — while
+ * `node.contains(button)` was false.
+ *
+ * ── THE FIX: THE SAME SCOPE, ARMED HERE ─────────────────────────────────────
+ *
+ * `useNodeKeyboardScope` (`nodes/nodeKeyboardScope.tsx`) is the ONE mechanism,
+ * imported rather than restated. It adds `.nokey` in the CAPTURE phase of a key
+ * dispatch and removes it on a timer task, so:
+ *
+ *   · React Flow's KEYBOARD consumer sees it — our capture handler sits on an
+ *     ancestor of the control in the React tree, so it runs before the node's
+ *     bubble-phase `onKeyDown` in the same synchronous dispatch;
+ *   · React Flow's POINTER consumer (`Pane.onPointerDownCapture`,
+ *     `esm/index.mjs:1455-1456`, which REFUSES to start a marquee over a
+ *     `.nokey` target) can never see it, because no `.nokey` element exists at
+ *     rest. That matters more here than it does for the node scope: this
+ *     popover is portalled in the DOM but is still a REACT descendant of the
+ *     pane, so a permanent `.nokey` on it would be visible to that consumer
+ *     through React's own tree propagation.
+ *
+ * ⛔ NOT `stopPropagation`. `src/` registers ~30 document/window keydown
+ * listeners, overwhelmingly Escape-closes-this — one of them is
+ * `shared/ScienceIcon.tsx:56`, an in-node control's own Escape-to-close.
+ * Stopping the event would break the exact intent. `.nokey` stops nothing.
+ *
+ * ── WHY THE SCOPE IS AN INNER WRAPPER AND NOT THE CARD ITSELF ───────────────
+ *
+ * The card divs below carry a `className` prop. React rewrites `className`
+ * whenever it renders one, so a class this component adds imperatively would be
+ * racing React's own DOM write — and this component re-renders on an rAF loop
+ * that tracks the anchor. The scope is therefore a separate element with NO
+ * `className` prop, exactly as in `nodeKeyboardScope.tsx`, and `display:
+ * contents` so it generates no box: the card's padding, scrolling and width are
+ * untouched, while `closest()` — which walks the DOM tree, not the box tree —
+ * still finds it.
+ *
+ * It wraps `children` in BOTH branches. The inline fallback is already a DOM
+ * descendant of its node and so already covered by the node scope; wrapping it
+ * too means the coverage is a property of this component rather than of which
+ * branch a caller happens to hit.
+ *
+ * `data-node-popover` exists so the census and the driven portalled arm in
+ * `e2e/geometry/nodeKeyboardBleed.measure.ts` can find what sits beyond that
+ * boundary rather than returning a clean zero for a class they cannot see.
  * Tracks anchor position via rAF to stay aligned during pan/zoom.
  */
-import { useRef, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardScope'
 
 interface NodePopoverProps {
   visible: boolean
@@ -27,8 +77,14 @@ interface NodePopoverProps {
   anchorRef?: React.RefObject<HTMLElement | null>
 }
 
+/** No box, no layout effect — see the header. */
+const SCOPE_STYLE = { display: 'contents' } as const
+
 export function NodePopover({ visible, width, children, onMouseEnter, onMouseLeave, anchorRef }: NodePopoverProps) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  // ⚠ BEFORE EVERY EARLY RETURN. This component returns null on three separate
+  // paths; a hook called after any of them would break the rules of hooks.
+  const scope = useNodeKeyboardScope<HTMLDivElement>()
 
   // Track anchor position continuously while visible (handles pan/zoom)
   useEffect(() => {
@@ -54,6 +110,22 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
     return () => cancelAnimationFrame(rafId)
   }, [visible, anchorRef])
 
+  /*
+   * ⚠ NO `className` PROP ON THIS ELEMENT, DELIBERATELY — see the header. React
+   * only writes `className` when it renders one, so leaving it off means React
+   * never clobbers the class the scope handler adds.
+   */
+  const scoped = (
+    <div
+      ref={scope.ref}
+      style={SCOPE_STYLE}
+      onKeyDownCapture={scope.onKeyDownCapture}
+      {...{ [NODE_KEYBOARD_SCOPE_ATTR]: '' }}
+    >
+      {children}
+    </div>
+  )
+
   if (!visible) return null
 
   // Fallback: if no anchorRef, render inline (backward compat)
@@ -66,7 +138,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        {children}
+        {scoped}
       </div>
     )
   }
@@ -81,7 +153,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {children}
+      {scoped}
     </div>,
     document.body
   )
