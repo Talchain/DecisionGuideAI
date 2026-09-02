@@ -41,7 +41,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 const nodes: Array<{ id: string; type?: string; data?: unknown }> = []
 
@@ -162,17 +162,52 @@ describe('the census row grid', () => {
   })
 
   /**
-   * ⚠⚠ `display:contents` REMOVES THE ELEMENT'S PRINCIPAL BOX, and browsers
-   * have dropped `listitem` from the accessibility tree with it. Nothing else
-   * in the suite queries this census by role, so that loss would be silent.
-   * Bound to the same ELEMENTS, not merely the same count — a matching count
-   * over different nodes would pass while the rows themselves went unnamed.
+   * ⚠⚠ THIS ASSERTS THE ATTRIBUTES, NOT THE ACCESSIBILITY TREE, AND THE
+   * DIFFERENCE IS THE WHOLE POINT — the previous version was a control that
+   * could not fail.
+   *
+   * It read `within(list).getAllByRole('listitem')` and claimed to prove "the
+   * list keeps its semantics under `display:contents`". Independent review
+   * measured it with a discriminating mutant pair: DELETING `role="listitem"`
+   * from the source left it **6/6 GREEN**, while changing that role to
+   * `presentation` turned it RED. It could only ever see an explicitly WRONG
+   * role, never the loss it was named after — because jsdom applies no CSS, has
+   * no `display:contents` semantics, and maps `<li>` inside `<ul>` to
+   * `listitem` implicitly whatever the markup says.
+   *
+   * So the honest assertion is the checkable one: the attributes this component
+   * deliberately writes are present, and removing either REDs. What a browser's
+   * accessibility tree does with them is NOT tested here and is claimed
+   * nowhere — that needs a real screen reader.
    */
-  it('the list keeps its list semantics under `display:contents`', () => {
+  it('writes the explicit list roles the layout depends on', () => {
     openStrip()
     const list = screen.getByTestId(`${TID}-rows`)
     const rows = screen.getAllByTestId(`${TID}-row`)
 
-    expect(within(list).getAllByRole('listitem')).toEqual(rows)
+    expect(list).toHaveAttribute('role', 'list')
+    expect(rows.map((r) => r.getAttribute('role'))).toEqual([
+      'listitem',
+      'listitem',
+      'listitem',
+      'listitem',
+    ])
+  })
+
+  /**
+   * ⭐⭐ THE INVARIANT THE WHOLE DESIGN RESTS ON, AND IT WAS UNPINNED.
+   *
+   * With ONE grid on the `<ul>` and the rows dissolved into it, the columns line
+   * up only while every row contributes EXACTLY THREE grid items. A conditional
+   * fourth child — a badge, a spinner, anything added later behind a flag —
+   * silently shifts every subsequent row's columns, and every other assertion in
+   * this file stays green while the census goes ragged in a way nothing can see.
+   * Raised by independent review as the highest-value missing assertion, and it
+   * is the one that protects this fix from the future rather than from the past.
+   */
+  it('every row contributes exactly three grid items, or the columns shift', () => {
+    openStrip()
+    const rows = screen.getAllByTestId(`${TID}-row`)
+    expect(rows.map((r) => r.children.length)).toEqual([3, 3, 3, 3])
   })
 })
