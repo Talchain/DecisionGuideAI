@@ -263,6 +263,25 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
  *      Measured 2026-09-02: 4 clean non-cancelled staging runs. The trigger is
  *      20 consecutive with no red that is not reproducible on the base. 4/20.
  *
+ *      ⭐⭐ AND THE FIRST REAL DATUM ARRIVED THE SAME EVENING, ON A PR THAT
+ *      CHANGED ONLY PNG FILES. The job went RED at `Install Chromium
+ *      (Playwright)` because `packages.microsoft.com` returned 403 Forbidden on
+ *      an apt repository — "The repository ... is no longer signed". The gate
+ *      step itself was SKIPPED. It ran ZERO TESTS and reported a red.
+ *
+ *      That is the argument against promotion, and it is not the flake: an
+ *      "I COULD NOT MEASURE" is being reported through the same channel, and in
+ *      the same colour, as "I MEASURED A DEFECT". Required, this one apt 403
+ *      would have blocked every merge in the repo for a reason nobody here
+ *      controls, on a job that tested nothing. The trigger's own wording — no
+ *      red "that is not reproducible on the base" — excuses this red, which is
+ *      exactly why counting greens is not sufficient on its own: the failure
+ *      MODE is what promotion has to survive, not the rate.
+ *
+ *      Before promoting, make the job DISCRIMINATE those two states — a setup
+ *      failure must not present as a gate failure. Until it does, an advisory
+ *      red costs a reader a minute; a required one costs everyone the repo.
+ *
  * ⚠ And the evidence retires the FLAKE rationale, not every rationale. This repo
  * already has an advisory job that accumulated a standing red until nobody read
  * it — `Visual Regression`, whose linux references went 199 commits stale.
