@@ -41,6 +41,8 @@
  * Run: pnpm exec playwright test -c playwright.geometry.config.ts heightVsZoom
  */
 import { test, expect } from '@playwright/test'
+import { LAYOUT_PADDING_Y } from '../../src/canvas/utils/nodeLayoutConstants'
+import { LAYOUT_DENSITY_PRESETS } from '../../src/canvas/layoutStore'
 import {
   openCanvas,
   preparePage,
@@ -242,9 +244,19 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, async ({ page }) => {
   //
   // ⚠ `lodTitleBoostIsBounded.spec.ts` guards only the TITLE limb of LOD (the
   // −16px on the goal and decision cards). The −12px on the outcome/risk cards
-  // comes from other LOD-gated body content and has no CI guard at all — THIS
-  // assertion is the only thing in the repo that watches it, and it does not run
-  // in CI. Run this probe when you change LOD-gated body content.
+  // comes from other LOD-gated body content and has no CI guard at all — THE TWO
+  // assertions below are the only thing in the repo that watches it, and they do
+  // not run in CI. Run this probe when you change LOD-gated body content.
+  //
+  // ⭐ BOTH DIRECTIONS, because a layout can be computed in EITHER LOD state and
+  // the two failure modes are mirror images:
+  //   · layout computed with LOD OFF, then LOD turns on → a card that GREW
+  //     overflows the row band. Caught by `grew` below.
+  //   · layout computed with LOD ON, then LOD turns off → every card grows back
+  //     by its full LOD delta against a stride reserved for the shorter card.
+  //     Caught by `worstShrink < SUB_ROW_SLACK` below.
+  // The first was asserted from the start; the second rested on a margin stated
+  // in a comment until it was asserted here.
   //
   // ⭐⭐ ITS DETECTION FLOOR, MEASURED RATHER THAN ASSUMED — because the obvious
   // mutant SURVIVED and that had to be explained, not waved through (trap 13c:
@@ -302,7 +314,27 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, async ({ page }) => {
     'a card is TALLER with LOD on than the tallest it reaches with LOD off. The layout reserves the LOD-off height, so this card now overflows its row band below the legibility floor — the defect this PR closes, arriving through the LOD door.',
   ).toEqual([])
 
-  const lod = { lodOffSamples: lodOff.length, lodOnSamples: lodOn.length, cardsThatMoved: [...new Set(moved)].length, cardsThatGrew: grew.length }
+  // ⭐ THE OTHER DIRECTION, WHICH THE ASSERTION ABOVE DOES NOT COVER.
+  //
+  // `grew` catches a layout computed with LOD OFF meeting a taller LOD-on card.
+  // The mirror case is a layout computed while LOD is ON — it reserves the
+  // SHORTER height, and every card then GROWS by its LOD delta when the user
+  // zooms back in past the legibility floor. That direction rested only on a
+  // stated margin ("16px against 45px") in a comment. It is arithmetic the probe
+  // already holds both sides of, so it is asserted rather than stated.
+  //
+  // Bounded against the TIGHTEST slack the layout ever leaves — the SUB-ROW gap,
+  // derived from the same two values `normaliseTierRows` uses, never restated.
+  const SUB_ROW_SLACK = Math.round(LAYOUT_DENSITY_PRESETS.comfortable.layerSpacing * 0.6) + LAYOUT_PADDING_Y
+  const worstShrink = Math.max(0, ...lodOn.flatMap((s) =>
+    Object.entries(s.heights).map(([id, h]) => (worstOff[id] === undefined ? 0 : worstOff[id] - h)),
+  ))
+  expect(
+    worstShrink,
+    `a card's LOD delta (${worstShrink}px) has reached the tightest row slack the layout leaves (${SUB_ROW_SLACK}px). A layout computed while LOD is ON reserves the shorter height, so zooming back in past the legibility floor would now push a card into the row beneath it.`,
+  ).toBeLessThan(SUB_ROW_SLACK)
+
+  const lod = { lodOffSamples: lodOff.length, lodOnSamples: lodOn.length, cardsThatMoved: [...new Set(moved)].length, cardsThatGrew: grew.length, worstShrink, subRowSlack: SUB_ROW_SLACK }
 
   // ── COMPLETENESS, ASSERTED IN THE PROBE ITSELF ────────────────────────────
   // ⚠ A cell that produces no data is an INSTRUMENT failure, and it must be the

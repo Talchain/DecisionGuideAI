@@ -35,10 +35,14 @@
  *   PROVEN, and a change that made LOD-gated body content GROW would pass every
  *   test here.
  *
- *   The nearest thing to a guard on that limb is
- *   `heightVsZoom.measure.ts`'s per-card `LOD-on ≤ LOD-off` assertion, which is
- *   a real browser probe and does NOT run in CI. If you are changing LOD-gated
- *   body content, run it.
+ *   The nearest thing to a guard on that limb is `heightVsZoom.measure.ts`,
+ *   which asserts BOTH directions per card — that no card is TALLER with LOD on
+ *   (a layout computed with LOD off would be overflowed by it), and that no
+ *   card's LOD delta reaches the tightest row slack the layout leaves (a layout
+ *   computed with LOD ON reserves the shorter height, so every card grows by its
+ *   delta when the user zooms back in). Measured 16px against a 45px sub-row
+ *   slack. It is a real browser probe and does NOT run in CI. If you are
+ *   changing LOD-gated body content, run it.
  *
  *   ⚠ AND THE TWO ARE NOT INTERCHANGEABLE, measured by mutating the boost size
  *   one step at a time: this file compares DECLARED SIZES and so REDs at
