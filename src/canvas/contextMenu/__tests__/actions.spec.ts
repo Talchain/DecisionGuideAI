@@ -7,6 +7,7 @@ import {
   askAI,
   copyAction,
   duplicateAction,
+  insertFactorBetweenAction,
 } from '../actions'
 import type { NodeTarget, EdgeTarget, MultiTarget, PaneTarget } from '../types'
 import type { Node, Edge } from '@xyflow/react'
@@ -47,6 +48,7 @@ const mockStore = {
   createNodeId: vi.fn(() => 'new-1'),
   createEdgeId: vi.fn(() => 'enew-1'),
   setShowInspectorPanel: vi.fn(),
+  pushHistory: vi.fn(),
 }
 
 vi.mock('../../store', () => ({
@@ -208,6 +210,76 @@ describe('addConnectedFactorAction', () => {
     // the truth.
     expect(Object.keys(addNodeOp!.data ?? {}).sort()).toEqual(['kind', 'label'])
     expect(addNodeOp!.data).toEqual({ kind: 'factor', label: 'New factor' })
+  })
+})
+
+describe('insertFactorBetweenAction — the explicit unknown on the edge-split path', () => {
+  /**
+   * ⚠⚠ WHY THIS PATH GETS ITS OWN BLOCK, AND WHY IT NEEDS **TWO** ASSERTIONS.
+   *
+   * `insertFactorBetweenAction` installs its node by a bare
+   * `useCanvasStore.setState` rather than through a store add action, so it
+   * carries its OWN copy of the seed — and `commitValidatedMutation` chooses
+   * between that local branch and PLoT's validated graph AT RUNTIME, on whether
+   * `plot.validatePatch` exists. Two writers, one property, and neither guards
+   * the other: pinning one would leave the guarantee decided by a capability
+   * probe.
+   *
+   * ⭐ AND IT ARRIVES WORSE THAN THE CONNECTED-ADD PATH. Splitting an edge puts
+   * the new factor in the SOURCE position of the second new edge, so
+   * `outcomesAffected` is 1 the instant it appears — the precondition
+   * `FactorNode`'s "Uncertainty here affects {N} outcome{s}." needs is satisfied
+   * by construction here, with no direction caveat at all.
+   */
+  it('⭐⭐ neither writer seeds a category — the declared OP and the local setState agree', async () => {
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    ;(commitValidatedMutation as any).mockClear()
+    ;(useCanvasStore.setState as any).mockClear()
+
+    await insertFactorBetweenAction('e1', showToast)
+
+    // ── WRITER 1: the ops sent to PLoT's validatePatch ──────────────────────
+    const ops = (commitValidatedMutation as any).mock.calls[0]?.[0] as Array<{
+      op: string
+      data?: Record<string, unknown>
+    }>
+    const addNodeOp = ops?.find((o) => o.op === 'add_node')
+    // PRECONDITION PINNED IN-TEST: the op must exist, or "carries no category"
+    // is satisfied by the action having done nothing at all.
+    expect(addNodeOp, 'the action must declare an add_node op').toBeTruthy()
+    expect(addNodeOp!.data).toEqual({ kind: 'factor', label: 'New factor' })
+
+    // ── WRITER 2: the local setState updater, INVOKED, not merely inspected ──
+    const updater = (useCanvasStore.setState as any).mock.calls.at(-1)?.[0]
+    expect(typeof updater, 'the local branch must install via a setState updater').toBe('function')
+    const next = updater({ nodes: [], edges: [], selection: null })
+    // Bound by IDENTITY — the id the action minted — never "the last node" or
+    // "the factor", either of which another node could satisfy.
+    const created = (next.nodes as Array<{ id: string; data: Record<string, unknown> }>).find(
+      (n) => n.id === 'new-1',
+    )
+    expect(created, 'the local branch must create the node it minted an id for').toBeTruthy()
+    expect(created!.data).toEqual({ label: 'New factor', kind: 'factor' })
+  })
+
+  it('⭐ the new factor really does land in the SOURCE position — the precondition, pinned', async () => {
+    // Without this, the assertions above could be true of a topology in which
+    // the fabricated sentence could never have rendered anyway, and the block
+    // would be guarding a harm it cannot reach (CLAUDE.md trap 13b).
+    //
+    // ⚠ PERFORMS ITS OWN GESTURE rather than reading the previous test's mock
+    // calls: `beforeEach` runs `vi.clearAllMocks()`, so a `.mock.calls` read
+    // borrowed from a sibling test sees an EMPTY array here. A test that
+    // depends on another test's leftovers is a test whose result depends on
+    // file order.
+    ;(useCanvasStore.setState as any).mockClear()
+    await insertFactorBetweenAction('e1', showToast)
+
+    const updater = (useCanvasStore.setState as any).mock.calls.at(-1)?.[0]
+    expect(typeof updater, 'the local branch must install via a setState updater').toBe('function')
+    const next = updater({ nodes: [], edges: [], selection: null })
+    const outbound = (next.edges as Array<{ source: string }>).filter((e) => e.source === 'new-1')
+    expect(outbound.length).toBeGreaterThan(0)
   })
 })
 

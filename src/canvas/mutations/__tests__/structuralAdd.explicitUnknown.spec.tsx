@@ -37,8 +37,8 @@
  * store action rather than a literal — and that difference is the point, see
  * `GESTURE_CREATED_NODE_DATA` below. `duplicateSelected` and `pasteClipboard`
  * are pinned by neither. See the block on `pendingStructuralAdds` in
- * `canvas/store.ts` for the measured coverage of all four creation paths; it is
- * the only place that states it.
+ * `canvas/store.ts` for the derived manifest of the canvas's creation paths —
+ * nine of them, not four; it is the only place that states it.
  *
  * ⭐ THE LAYERS ARE TESTED SEPARATELY BECAUSE THEY CAN FAIL SEPARATELY:
  *   1. what `store.addNode` CREATES        (nothing to seed)

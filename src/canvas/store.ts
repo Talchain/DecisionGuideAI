@@ -772,10 +772,44 @@ interface CanvasState {
    * `planStructuralAddIntent` has exactly ONE call site: `addNode`. So the
    * durable guarantee covers the gestures that reach `addNode` — the pane
    * context menu, the six Command Palette "Add …" commands, the pre-analysis
-   * `AddRow` and the hero goal field.
+   * `AddRow`, the hero goal field, and the coaching nudges' "Add option" /
+   * "Add risk" (`hooks/useCEECoaching.ts`).
    *
-   * ⚠ THREE OTHER CREATION PATHS CAPTURE NOTHING, and they are NOT all
-   * deliberate:
+   * ⚠⚠ THIS BLOCK SAID "THREE OTHER CREATION PATHS". **THAT WAS SHORT, AND A
+   * SHORT MANIFEST IN THE PLACE EVERY LANE READS FOR SCOPE IS THE WORST KIND.**
+   * A derived sweep of the whole `src` tree on 2 Sep 2026 (contrast controls in
+   * the same run; `createNodeId` call sites plus every `[...nodes` append plus
+   * every `setState` that writes `nodes`) found **NINE live user-gesture
+   * creation paths**, not four. The three below are the ones that matter for
+   * the DURABLE guarantee. The others, recorded so the next lane does not
+   * rediscover them:
+   *
+   *   · `insertFactorBetweenAction` (`contextMenu/actions.ts`) — the edge
+   *     context menu's "Insert factor between". Bare `setState`, captures
+   *     nothing. It seeded `category: 'external'` on BOTH its writers until
+   *     2 Sep; that is fixed, and it is pinned there.
+   *   · `commitValidatedMutation`'s validated-graph branch — a SECOND installer
+   *     sitting behind every context-menu add. When `plot.validatePatch` exists
+   *     and returns a graph, `localApply()` NEVER RUNS and the nodes installed
+   *     are PLoT's. It mints no id and appends to no array, so a
+   *     `createNodeId`-only or `[...nodes`-only sweep is blind to it — which is
+   *     why it was missing here. Any per-node property this file guarantees
+   *     must be guaranteed in the declared `ops` too, or it holds only on
+   *     whichever branch a runtime capability probe selects.
+   *   · `TemplatesPanel` `handleMerge` / `handleMergeIntoCurrent`, and
+   *     `ReactFlowGraph.insertBlueprint` — template/blueprint installs. These
+   *     spread SERVER-SUPPLIED template data (`prior`, `utility`, and an
+   *     unbounded `...node.data`), so they are a different question from a
+   *     locally fabricated seed and are NOT addressed by the 2 Sep fix.
+   *
+   * ⚠ DERIVE THIS LIST, DO NOT INHERIT IT. It is a hand-maintained mirror and
+   * it has already been wrong once. The sweep that produces it is:
+   * `createNodeId` call sites + `[...<x>nodes` appends + `setState` writes of
+   * `nodes`, each with a contrast control — and note the second bullet above,
+   * which none of those three predicates catches on its own.
+   *
+   * ⚠ THE THREE THAT MATTER FOR DURABILITY CAPTURE NOTHING, and they are NOT
+   * all deliberate:
    *
    *   · `addNodeWithEdge` — FIVE user-reachable affordances: the four "Add
    *     connected …" context-menu items (`contextMenu/actions.ts:182, 285, 319,

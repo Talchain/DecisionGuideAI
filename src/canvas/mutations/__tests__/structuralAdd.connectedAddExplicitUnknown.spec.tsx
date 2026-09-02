@@ -3,9 +3,15 @@
  *
  * `structuralAdd.explicitUnknown.spec.tsx` pins the guarantee for
  * `store.addNode` and says, in terms, that it is NOT a claim about
- * `addNodeWithEdge`. This file closes that hole. The two are named apart and
- * neither restates the other's scope: the measured coverage of all four
- * creation paths lives on `pendingStructuralAdds` in `canvas/store.ts`.
+ * `addNodeWithEdge`. This file closes that hole for the RENDER half. The two
+ * are named apart and neither restates the other's scope: the derived manifest
+ * of the canvas's creation paths — nine of them, not four — lives on
+ * `pendingStructuralAdds` in `canvas/store.ts`, and that block is the only
+ * place that states it.
+ *
+ * ⚠ RENDERING AN EXPLICIT UNKNOWN AND BEING DURABLY SAVED ARE DIFFERENT
+ * CLAIMS. This file makes the first, and only the first. Nothing here gains a
+ * durable `structural_add` intent.
  *
  * The rule is the founder's and it is unchanged: *"a new factor arrives as an
  * explicit unknown, never a fabricated number. Don't 'helpfully' seed one."*
@@ -19,11 +25,17 @@
  * (`FactorNode.tsx`'s `edges.filter(e => e.source === props.id)`), so the digit
  * renders only when the new node is the edge's source. Derived at
  * `contextMenu/actions.ts`: `getEdgeDirectionForKind` returns `'to-target'`
- * for every kind except decision/option, and `'to-target'` puts the NEW node in
- * the source position. So the fabrication fires on "Add connected factor"
- * invoked on a factor, outcome or risk — and not on the same item invoked on a
- * decision or an option, nor on the option/outcome/risk items, which all pass
- * `'from-target'` explicitly.
+ * for every kind EXCEPT decision and option, and `'to-target'` puts the NEW
+ * node in the source position. So the fabrication fired on "Add connected
+ * factor" invoked on a factor, outcome, risk or GOAL — and not on the same
+ * item invoked on a decision or an option, nor on the option/outcome/risk
+ * items, which all pass `'from-target'` explicitly.
+ *
+ * ⚠ AND IT IS NOT THE ONLY PATH: `insertFactorBetweenAction` splits an edge and
+ * lands the new factor in the SOURCE position BY CONSTRUCTION — no direction
+ * caveat at all. It seeded the same category on both of its writers, and it is
+ * pinned in `contextMenu/__tests__/actions.spec.ts` rather than here, because
+ * it installs by bare `setState` rather than through a store add action.
  *
  * ⭐ THE SEED CAUSED THREE HARMS, NOT ONE, AND THE OTHER TWO HAVE NO DIRECTION
  * CONDITION — which is why the fix is the seed rather than the render gate:
