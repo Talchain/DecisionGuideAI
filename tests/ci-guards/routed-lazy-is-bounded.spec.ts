@@ -30,10 +30,15 @@
  *      with no `else` and were SILENTLY ABSENT from the offender list. Nine
  *      real sites were invisible. An unmatched declaration must be an error,
  *      never a skip.
- *   1b. And the census cannot SHRINK silently: a coarse `=> import(` count over
- *      the same corpus must equal the classified sites plus a named allowlist
- *      of non-declaration dynamic imports. A site that stops being classified
- *      REDs even if nothing else changes.
+ *   1b. And the census notices a SHRINK — within a stated scope, which the first
+ *      version of this paragraph overstated. A coarse count of zero-arg arrow
+ *      loaders, keyed on the ARROW where the classifier is keyed on the
+ *      DECLARATION, must equal the classified sites plus a named allowlist, IN
+ *      EVERY FILE THAT ALREADY HOSTS A ROUTE DECLARATION. That is 8 files of
+ *      1,658, and the limitation is spelled out at the census itself rather
+ *      than only here. It is NOT a census of every dynamic import in `src/`;
+ *      reconciling against all 71 of those would need a ~26-file subtraction
+ *      list, which is the mirror this guard exists to remove.
  *   2. ADMISSION to the exemption list is by hand, BY NAME, and BIDIRECTIONAL —
  *      an exemption naming a site that no longer exists REDs just as loudly as
  *      an unbounded new one. So the list cannot rot into a green lie.
@@ -244,6 +249,22 @@ function blankComments(src: string): string {
     const c = src[i]
     const d = src[i + 1]
     if (state === 'code') {
+      // ⚠⚠ ORDER MATTERS HERE AND GETTING IT WRONG COSTS THE WHOLE FEATURE.
+      // The comment openers are tested BEFORE the regex-start heuristic. The
+      // first version of this had them the other way round, and a review
+      // measured the damage: `isRegexStart` returns true after `}` `;` `{` `,`
+      // `=` and at start-of-file, so `//` and `/*` in those positions were
+      // entered as REGEX LITERALS and never blanked — 4,020,977 comment
+      // characters across 1,591 of 1,658 files, 65.6% of the total. Including
+      // `lazyWithStallBound.ts`, whose self-documentation is the stated reason
+      // blanking exists at all.
+      //
+      // It failed LOUD rather than hiding (regex and string states write
+      // nothing, so a false regex-start can only suppress blanking, which
+      // inflates the census), but a guard that REDs on its own docstrings is
+      // still broken.
+      if (c === '/' && d === '/') { state = 'line'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
+      if (c === '/' && d === '*') { state = 'block'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
       // ⚠ A REGEX LITERAL CAN CONTAIN `//`, AND MISSING THAT LOSES REAL CODE.
       // `/https?:\/\//` holds an escaped pair that reads as a line comment to a
       // scanner without a regex state — everything after it on the line is
@@ -252,11 +273,9 @@ function blankComments(src: string): string {
       // nothing. A review found exactly that: a bare route beside such a regex
       // was 8/8 green, and the twin with the slashes removed REDs.
       //
-      // A regex literal only begins where a VALUE is expected, so the preceding
-      // non-space character discriminates it from division.
+      // Reached only once the two-character comment openers above have been
+      // ruled out, so a `/` here is either a regex or a division.
       if (c === '/' && isRegexStart(src, i)) { state = 'regex'; i += 1; continue }
-      if (c === '/' && d === '/') { state = 'line'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
-      if (c === '/' && d === '*') { state = 'block'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
       if (c === "'") state = 'single'
       else if (c === '"') state = 'double'
       else if (c === '`') state = 'template'
