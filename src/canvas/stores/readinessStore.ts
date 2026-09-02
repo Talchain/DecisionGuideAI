@@ -19,6 +19,7 @@ import type {
   GraphReadiness,
   GraphReadinessLevel,
   GraphImprovement,
+  ReadinessIssue,
   DeduplicatedResponse,
 } from '../hooks/useGraphReadiness'
 import {
@@ -976,6 +977,68 @@ async function fetchReadiness(): Promise<void> {
         options_total: typeof data.options_total === 'number' ? data.options_total : undefined,
         goal_node_valid:
           typeof data.goal_node_valid === 'boolean' ? data.goal_node_valid : undefined,
+        // ── The producer's WRITTEN REFUSAL and its NAMED REPAIRS ──
+        //
+        // Same explicit-keep-list hazard as the three fields above, and this is
+        // where it cost the most: CEE composes a refusal sentence and a list of
+        // per-option repairs, and BOTH died on this line. Measured at the
+        // DEPLOYED staging bundle `8f5b7a0e` (71 chunks, 5.7 MB): `blocker_reason`
+        // 0 occurrences, `readiness_issues` 0 — against seven same-response
+        // CONTRAST CONTROLS that are all present in the same crawl
+        // (`blocked_reason` 1, `options_ready` 1, `options_total` 1,
+        // `goal_node_valid` 1, `can_run_analysis` 2, `scaffold_plan` 2,
+        // `confidence_explanation` 2). Absence proven by discrimination, not by
+        // a probe that might simply be blind.
+        //
+        // ⚠ THE TWIN. `blocker_reason` (singular "blocker", PROSE, this route)
+        // is not `blocked_reason` (a bare CODE on `analysis_ready`, 24 files and
+        // perfectly healthy). Grepping the wrong one reads green.
+        // CEE's admission verdict. Three-valued on the wire; `'unknown'` is
+        // PRESERVED rather than coerced, because "we could not ask" is not
+        // "we were refused". Anything else ⇒ undefined.
+        may_run:
+          typeof data.may_run === 'boolean' || data.may_run === 'unknown'
+            ? data.may_run
+            : undefined,
+        blocker_reason: typeof data.blocker_reason === 'string' ? data.blocker_reason : undefined,
+        // ⚠ `[]` IS PRESERVED, NOT COLLAPSED TO `undefined`. "CEE said nothing"
+        // and "CEE said there is nothing" are different facts and the type
+        // distinguishes them, so the normaliser must not erase the difference
+        // here. A non-array (absent/malformed/older CEE) ⇒ undefined.
+        //
+        // Entries are filtered to those carrying a usable `message` — the only
+        // field rendered — but the ARRAY's presence survives even if every entry
+        // is dropped, because that is still "CEE answered".
+        readiness_issues: Array.isArray(data.readiness_issues)
+          ? data.readiness_issues
+              .filter(
+                (issue: any) => issue && typeof issue.message === 'string' && issue.message.trim(),
+              )
+              .map((issue: any): ReadinessIssue => ({
+                message: issue.message,
+                ...(typeof issue.code === 'string' ? { code: issue.code } : {}),
+                ...(typeof issue.category === 'string' ? { category: issue.category } : {}),
+                ...(typeof issue.repairability === 'string'
+                  ? { repairability: issue.repairability }
+                  : {}),
+                ...(typeof issue.option_id === 'string' ? { option_id: issue.option_id } : {}),
+                ...(typeof issue.option_label === 'string'
+                  ? { option_label: issue.option_label }
+                  : {}),
+                ...(typeof issue.factor_id === 'string' ? { factor_id: issue.factor_id } : {}),
+                ...(typeof issue.factor_label === 'string'
+                  ? { factor_label: issue.factor_label }
+                  : {}),
+                // Carried because INV-P6 is decided on it. A missing/malformed
+                // obligation stays `undefined` and is NOT defaulted to
+                // 'required' — defaulting would turn an unknown into a demand,
+                // which is the direction of the harm.
+                ...(typeof issue.obligation === 'string' ? { obligation: issue.obligation } : {}),
+                ...(typeof issue.waived_by_exclusion === 'boolean'
+                  ? { waived_by_exclusion: issue.waived_by_exclusion }
+                  : {}),
+              }))
+          : undefined,
       }
 
       // Only cache the payload hash after a successful fetch — failed fetches

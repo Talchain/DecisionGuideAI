@@ -432,6 +432,103 @@ function producerAuthoredImprovement(
   )
 }
 
+/**
+ * The producer's own refusal, ready to render — or `null` when it cannot ship
+ * as written.
+ *
+ * ⭐⭐ THE INV-P6 FILTER IS THE POINT OF THIS FUNCTION, NOT AN ASIDE.
+ * The producer's comment on the field is explicit: *"A PANEL THAT IGNORES THIS
+ * FIELD REPRODUCES THE DEFECT. Rendering every entry of `readiness_issues[]` as
+ * a demand is what asked the user to supply effect values for links the product
+ * invented."* So the repairs are filtered to the ones the user actually OWES:
+ * `obligation !== 'offered'` and not `waived_by_exclusion`. That is CEE's own
+ * `headlineBlocker` predicate (`canonical-readiness.ts:371-373`), applied to the
+ * whole list rather than re-invented — same authority, same rule.
+ *
+ * ⚠ AND THE FALLBACK IS WHERE THE WITNESSED P0 ACTUALLY LANDS. On that model
+ * EVERY blocker was `offered`, so the actionable list is EMPTY — and a function
+ * that stopped there would have fixed nothing. `blocker_reason` is exactly the
+ * sentence CEE writes for that case ("This model can't be analysed yet. The
+ * values involved are Olumi's own suggestions, not yours — ask Olumi to work
+ * them through, or set them yourself"), and it is safe verbatim BECAUSE CEE
+ * already applied the same filter before writing it. It is a refusal with a
+ * route, which is the one thing the count copy could never be.
+ *
+ * ⚠ ORDER: actionable repairs FIRST. When the user genuinely owes work,
+ * naming every item beats one headline — understating the outstanding work by
+ * the number withheld is the defect the A2 rung already forbids for counts.
+ * `blocker_reason` is the first of those messages anyway, so preferring the
+ * list loses nothing and adds the rest.
+ *
+ * Same shape and the SAME VET as its two siblings — `isSafeCeeText` on the
+ * JOIN, degrade-whole on any unusable entry, de-duplicate, invent nothing.
+ * Deliberately not a third rule.
+ */
+function producerAuthoredRefusal(readiness: GraphReadiness | null | undefined): string | null {
+  const issues = readiness?.readiness_issues
+  if (Array.isArray(issues)) {
+    // Only the repairs the user OWES. Note the test is the exact string
+    // `'offered'`, never `!== 'required'`: an unknown future obligation class
+    // must not be silently promoted into a demand.
+    const actionable = issues.filter(
+      (issue) => issue?.obligation !== 'offered' && issue?.waived_by_exclusion !== true,
+    )
+    const authored = composeProducerAuthoredSentences(actionable.map((issue) => issue?.message))
+    if (authored !== null) return authored
+  }
+
+  // ⭐⭐ THE FALLBACK IS NOT ALWAYS A REFUSAL, AND RENDERING IT AS ONE
+  // REPRODUCES THE EXACT HARM THIS MODULE EXISTS TO END.
+  //
+  // CEE's fallback has THREE branches (`canonical-readiness.ts:417-421`), and
+  // reaching this line means the first — a headline the user owes — did not
+  // apply. Of the remaining two, ONE IS AFFIRMATIVE:
+  //
+  //   willProceed === true  → "This model can be analysed now. Some values are
+  //                            Olumi's suggestions — review them whenever you like."
+  //   willProceed === false → "This model can't be analysed yet. …"
+  //
+  // and `may_run` IS `willProceed` (`canonical-readiness.ts:400`). So without
+  // this guard the panel prints "This model can be analysed now" as the reason
+  // the Run button is disabled — two adjacent statements disagreeing about
+  // whether the model can be analysed, which is the founder-witnessed
+  // contradiction this whole change set was written to remove.
+  //
+  // ⚠ IT IS REACHABLE — DERIVED, NOT ASSUMED, at CEE `3575b189`:
+  //   · `blocker_reason` is emitted ONLY when `!safeToAnalyse`
+  //     (`canonical-readiness.ts:402`), and `readinessResultFrom` returns
+  //     `'unrecoverable'` IFF `!safeToAnalyse` (`analysis-ready-core.ts:150-190`)
+  //     — so this sentence can only arise on the SCAFFOLD branch.
+  //   · There, admission requires every blocker to be answered by
+  //     `answeredByExclusion || answeredByComputeDiscard`, and
+  //     `answeredByExclusion` is gated on `plan.will_scaffold_options`
+  //     (`analysis-ready-core.ts:876-892`). When every blocker is answered by
+  //     COMPUTE-DISCARD alone, `willProceed: true` returns with
+  //     `plan.will_scaffold_options === false` (`:911-918`).
+  //   · The route then publishes
+  //     `will_scaffold_options = plan.will_scaffold_options && willProceed`
+  //     (`canonical-readiness.ts:436`) ⇒ FALSE, with `can_run_analysis` false.
+  //   · The UI gate blocks on `!can_run_analysis && !will_scaffold_options`
+  //     and does not read `may_run` — so the gate shuts under an affirmative
+  //     sentence. Independently reproduced by driving the deployed panel.
+  //
+  // ⚠ BOUND TO THE PRODUCER'S BRANCH CONDITION, NEVER TO ITS COPY. Matching the
+  // affirmative STRING would be a hand-maintained mirror of CEE's wording that
+  // goes stale the first time that sentence is reworded, and silently — the
+  // failure would be a lie on screen, with every test still green.
+  //
+  // ⚠ AND IT IS SCOPED TO THIS ARM ONLY. Owed repairs are returned ABOVE, so a
+  // genuine demand still renders when `may_run === true` — suppressing those
+  // too would trade this contradiction for a lost repair, which is the
+  // one-door-at-a-time defect that produced this review.
+  if (readiness?.may_run === true) return null
+
+  // Nothing the user owes — or nothing usable. CEE's own adjudicated headline.
+  const reason = readiness?.blocker_reason
+  if (typeof reason !== 'string') return null
+  return composeProducerAuthoredSentences([reason])
+}
+
 export function composeReadinessBlockedReason(
   readiness: GraphReadiness | null | undefined,
   optionsNeedingValues: readonly OptionNeedingValues[] = [],
@@ -458,6 +555,29 @@ export function composeReadinessBlockedReason(
         .filter((l): l is string => l !== null)
     : []
   const canRunAfter = promiseIsLicensed(readiness)
+
+  // ── 0. THE PRODUCER'S OWN REFUSAL OUTRANKS EVERY SENTENCE WE COMPOSE ──
+  //
+  // Ordered ABOVE rung 1, and that ordering IS the fix. Rung 1 fires whenever
+  // `optionsNeedingValues` is non-empty and returns COUNT copy — so on the
+  // witnessed P0 (five options needing values) it always won, and the user got
+  // "5 options have no effect values yet" no matter what the verdict carried.
+  // Forwarding the fields without moving this above rung 1 changes nothing a
+  // user can see: the short-circuit discards them before they are ever read.
+  //
+  // Why the producer wins rather than merely filling a gap: this module's
+  // standing rule is to name the actual remedy when the authority supports it
+  // and to degrade only to a LESS SPECIFIC TRUE claim. CEE's sentences are
+  // instance-level ("Choose the missing effect value for X on Y"); ours are a
+  // count. Same authority, same verdict, strictly more specific — and it is the
+  // WHOLE point that the sentence the user reads is the sentence the gate
+  // produced, not a second computation of it that can drift.
+  //
+  // It cannot outrank the stale short-circuit: that returns at the top of this
+  // function, so a verdict describing a graph the user has already changed
+  // never reaches here.
+  const producerRefusal = producerAuthoredRefusal(readiness)
+  if (producerRefusal !== null) return producerRefusal
 
   // 1. Options awaiting effect values — the state a chat-added option lands in,
   //    and the one with a concrete remedy the user can act on.
