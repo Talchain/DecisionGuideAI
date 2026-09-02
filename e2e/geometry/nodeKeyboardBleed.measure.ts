@@ -1296,49 +1296,138 @@ test.describe('in-node keyboard bleed', () => {
     test.setTimeout(900_000)
 
     /*
-     * ⚠⚠ THIS TEST IS FLAKY WHEN RUN AFTER THE POINTER TEST, AND THE HYGIENE
-     * BELOW DID NOT FIX IT. Read this before spending an hour on a red here.
+     * ⭐⭐ RESOLVED (2 Sep 2026). THIS ARM IS NOT FLAKY ON STAGING, AND IT WAS
+     * NEVER ORDER-DEPENDENT. Both halves of the warning that stood here were
+     * wrong, and the second half is the one worth reading.
      *
-     * MEASURED by an independent reviewer at this head: **7 paired runs, 1
-     * failure; 8 isolated runs, 0 failures** — roughly a 14% rate in sequence.
-     * An earlier version of this comment claimed the hygiene below made it
-     * order-independent, on the strength of a single 4/4 green run. That was a
-     * claim about intent, not a measurement, and it is withdrawn.
+     * ⚠ THE DATED MEASUREMENTS BELOW ARE KEPT VERBATIM. They are records of
+     * what was actually observed, not a fixture to keep current (trap 14b —
+     * the convention the gate lane set in this block, and it is right). Every
+     * one of them still stands AS A MEASUREMENT. What is corrected here are the
+     * CONCLUSIONS drawn from them, which are claims, and which are refuted.
      *
-     * ⭐ APPENDED (2026-09-02, the canvas-gate lane, at staging 8736a61a):
-     * **12 further PAIRED runs, 0 failures** — pooling to 19 paired / 1 failure.
-     * ⚠ READ THAT AS EVIDENCE ABOUT NOTHING MUCH: at a true 14% rate, twelve
-     * consecutive passes occur about 16% of the time (0.86^12), so 12/12 is an
-     * unremarkable draw and NOT a refutation — the same asymmetry this comment
-     * already states about 8/8 at the merge base, now in the other direction.
-     * That lane therefore did not reproduce it, did not root-cause it, and
-     * CHANGED NOTHING HERE. Appended rather than rewritten: these are dated
-     * measurements, and a record of what was measured is not a fixture to keep
-     * current (CLAUDE.md trap 14b).
+     * ── THE RECORD, AS MEASURED ─────────────────────────────────────────────
      *
-     * ⚠ IT IS NONETHELESS IN THE MERGE-PATH GATE, and that is a decision with a
-     * reason: dropping it would leave the gate watching one door. The job is
-     * ADVISORY, which is what absorbs the flake — never a retry. Root-causing
-     * this arm is the stated precondition for promoting that job to REQUIRED.
-     * Full argument at `canvasGateSet.ts` § KNOWN_FLAKE_IN_GATE.
+     *   independent reviewer, at `b186c26a`      7 paired,  1 failure
+     *                                            8 isolated, 0 failures
+     *   canvas-gate lane, at staging 8736a61a   12 paired,  0 failures
+     *   THIS lane, at staging 8736a61a          25 paired,  0 failures
+     *                                           25 isolated, 0 failures
+     *   THIS lane, at `b186c26a`                25 paired,  1 failure (4%)
+     *                                           25 isolated, 0 failures
      *
-     * ⭐ IT IS NOT CAUSED BY THE FIX THIS FILE TESTS, and the reasoning is
-     * mechanical rather than statistical: `closest()` walks UP, the keyboard
-     * scope is a DESCENDANT of `.react-flow__node`, so a keydown originating at
-     * the node cannot reach it — and an instrumented run measured `anyNokey: 0`
-     * at the moment of the press in 12/12 runs. 8/8 green at the merge base
-     * cannot exclude the same ~14% rate either way, so it is recorded as
-     * PRE-EXISTING rather than attributed in either direction.
+     * ⚠ FIRST CORRECTION — `b186c26a` IS NOT "THIS HEAD" AND NEVER WAS A
+     * STAGING HEAD. It is an INTERMEDIATE COMMIT ON #1129'S OWN BRANCH (merged
+     * squashed as `81fb8b2c`). The reviewer's 14% was real, and it was taken on
+     * a tree that is not what anyone runs. The executable code of this test is
+     * byte-identical between the two heads, so the test was never the variable
+     * — the APP was.
      *
-     * ⚠ WHY IT MATTERS DISPROPORTIONATELY: this is the guard that proves the
-     * fix did NOT break keyboard node selection, and its failure message reads
-     * `keyboard node selection is GONE`. A ~14% flake with that wording will
-     * cost some future lane an hour proving it is not their fault. Rowed for a
-     * proper root-cause, deliberately not papered over with a retry.
+     * 0/25 paired on staging DOES now refute the 14% rate (0.86^25 ≈ 0.023),
+     * which the gate lane's 12/12 correctly declined to claim (0.86^12 ≈ 0.16).
+     * ⚠ BUT 1/25 vs 0/25 BETWEEN THE TWO TREES IS **NOT** SIGNIFICANT ON ITS
+     * OWN (Fisher p = 1.0). The difference between the trees does NOT rest on
+     * these failure counts. It rests on the clear-rate data below, which is
+     * measured on EVERY run instead of only on the rare red.
+     *
+     * ── ⭐⭐ SECOND CORRECTION: IT IS NOT ORDER-DEPENDENT ────────────────────
+     *
+     * The underlying instability fires at the same rate either way:
+     *
+     *     after the pointer arm    7/19 runs
+     *     in isolation             5/16 runs        Fisher p = 1.0
+     *
+     * Ordering only widens the VARIANCE of when the event lands relative to the
+     * press. It does not cause it. The paired-vs-isolated split that launched
+     * this whole investigation was a second-order effect, and 7-and-1 against
+     * 8-and-0 was underpowered to see that — 1-in-7 against 0-in-8 is perfectly
+     * consistent with a cause that ignores ordering entirely.
+     *
+     * ⭐ THE GENERAL LESSON, since this cost three lanes: TWO SMALL SAMPLES THAT
+     * DIFFER ARE NOT YET AN EFFECT. "It only fails in sequence" was a hypothesis
+     * about a mechanism dressed as an observation, and once it was written down
+     * as an observation every later lane inherited it — including the hygiene
+     * below, which was written to fix an ordering problem that did not exist.
+     *
+     * ── THE MECHANISM ───────────────────────────────────────────────────────
+     *
+     * The press ALWAYS works. Instrumented at the keydown, the `.selected` class
+     * commits in 21-29 ms in every arm on every run; it is never slow. What used
+     * to happen is that the selection was then SPONTANEOUSLY CLEARED 0.65-0.93 s
+     * later. This test takes ONE FIXED DOM SAMPLE at 150 ms, so it went red
+     * exactly when a clear landed inside that window.
+     *
+     *     `b186c26a`                         7/19 runs cleared
+     *     `b186c26a` + ONLY the guard hunk   0/20            Fisher p = 0.0033
+     *     staging `8736a61a`                 0/20
+     *
+     * The middle row is the DISCRIMINATING CONTROL: one hunk applied in
+     * isolation, so the result attributes to that hunk and not to the 60 files
+     * that differ between the heads. Commit latency also tightens from 21-66 ms
+     * to 25-29 ms when it is applied — the churn signature disappearing.
+     *
+     * The hunk is the `nodesChanged` identity guard on `onNodesChange`
+     * (`src/canvas/store.ts`), from **#1136 (`c1b662fc`)**, the ghost-doors
+     * livelock fix. Without it a `dimensions` batch matching none of the store's
+     * nodes still mints a new `nodes` array, and that churn wipes the
+     * freshly-set `selected` flag.
+     *
+     * ⚠ A CITATION TRAP, RECORDED BECAUSE IT NEARLY SHIPPED IN THIS COMMENT:
+     * this lane first credited the fix to `a0b77f6c` (#1119), because
+     * `store.ts`'s own header says *"Measured at `a0b77f6c`"*. That SHA is where
+     * the livelock was MEASURED (the then-current tip), not where it was FIXED;
+     * #1119 touches ZERO lines of `store.ts`. Derived with
+     * `git log -S "const nodesChanged" -- src/canvas/store.ts`.
+     * A MEASUREMENT ANCHOR IS NOT AN ATTRIBUTION.
+     *
+     * ── ⭐ IT WAS NEVER CAUSED BY THE FIX THIS FILE TESTS ───────────────────
+     *
+     * Confirmed, and now for a stronger reason than the mechanical argument:
+     * the target is a REAL node (`dec_cdp`) and its selection SUCCEEDS every
+     * single time, in ~25 ms. Nothing about the keyboard scope is involved in
+     * the clear. (The mechanical argument also still holds: `closest()` walks UP
+     * and the scope is a DESCENDANT of `.react-flow__node`.)
+     *
+     * ── TWO LIMITS OF THE INSTRUMENT, SO THEY ARE NOT RE-DERIVED ────────────
+     *
+     *   1. This lane wrapped `useCanvasStore.setState` to capture a stack at the
+     *      clear. IT NEVER FIRED: Zustand's internal `set` is captured at store
+     *      creation and does not route through `setState`. So the exact clearing
+     *      CALL SITE IS UNNAMED — not "implied to be React Flow". A probe that
+     *      cannot see is not evidence of absence (trap 13). What IS measured is
+     *      that the app store holds zero selected nodes at the moment the class
+     *      disappears.
+     *   2. While that tracer was installed it added a 2650 ms wait, which shifted
+     *      the Escape assertion below and produced `Escape at the node no longer
+     *      deselects it` failures. Those were an ARTEFACT OF THE PROBE, not a
+     *      product finding. Do not chase them.
+     *
+     * ── WHAT WAS DELIBERATELY NOT DONE ──────────────────────────────────────
+     *
+     * No retry, no `waitForTimeout`, no `test.describe.configure({ retries })`,
+     * and no change to any assertion. The defect is fixed upstream and the
+     * evidence says so; quietening a signal that is now telling the truth would
+     * be strictly worse than the flake was. If this DOES go red again it is a
+     * real claim about keyboard node selection — read the failure, not this
+     * comment, and re-derive before assuming it is this old ghost.
+     *
+     * ⚠ SCOPE OF THE ABOVE: chromium, `vendor-selection` starter, these two
+     * tests only (not the whole file), on a 10-core machine under load 11-18
+     * from concurrent lanes — contention that can only RAISE a timing flake,
+     * which makes the zero-failure staging arms conservative.
+     *
+     * ⚠⚠ `canvasGateSet.ts` § KNOWN_FLAKE_IN_GATE STILL DESCRIBES THIS ARM AS A
+     * LIVE ~14% ORDER-DEPENDENT FLAKE, AND IS SUPERSEDED BY THE ABOVE — both its
+     * rate and, more importantly, its "not at all in isolation" clause. It also
+     * names root-causing this arm as the stated precondition for promoting
+     * `Canvas Browser Gate` to REQUIRED; that precondition is met. This lane did
+     * not edit that file only because PR #1146 is in flight against the same
+     * registry and a collision there would be worse than the delay — it is the
+     * next edit someone should make, not an open question.
      *
      * The hygiene below stays because it is correct in itself — the starting
-     * state should be a PRECONDITION rather than an inheritance — but it is not
-     * a fix and must not be read as one.
+     * state should be a PRECONDITION rather than an inheritance — but it was
+     * never the fix and must not be read as one.
      */
     await page.keyboard.up('Shift').catch(() => undefined)
     await page.mouse.up().catch(() => undefined)
