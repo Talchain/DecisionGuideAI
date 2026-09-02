@@ -378,23 +378,6 @@ interface Site {
   bounded: boolean
 }
 
-/**
- * Dynamic imports that are NOT component declarations, named so the census can
- * reconcile exactly. These reach no Suspense boundary, so there is no wait to
- * bound — but they must be DECLARED rather than silently subtracted, and the
- * COUNT is asserted per file, because a stale subtraction hides a real site
- * one-for-one.
- */
-const NON_DECLARATION_DYNAMIC_IMPORTS: ReadonlyArray<{ file: string; count: number; why: string }> = [
-  {
-    file: 'canvas/starters/loadStarter.ts',
-    count: 5,
-    why:
-      'A record of starter-data loaders (JSON), not component declarations. No Suspense ' +
-      'boundary is involved, so there is no silent wait to bound.',
-  },
-]
-
 const SITES: Site[] = []
 const arrowLoadersPerFile = new Map<string, number>()
 for (const full of FILES) {
