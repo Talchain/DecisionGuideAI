@@ -91,9 +91,29 @@
  * the two this product singles out as always-legible, were rendering the
  * SMALLEST text on the canvas. Measured in Chromium across all five committed
  * starter drafts at 1280x800 and 1440x900 (`e2e/geometry/zoomLadder.measure.ts`):
- * **4.67px against 6.23px**. Reverting to `text-lg` would make this file green
- * and put that back. If you need to move the boost, move it to a SMALLER
- * counter-scaled size, never to a fixed one.
+ * **4.67px against 6.23px**. If you need to move the boost, move it to a
+ * SMALLER counter-scaled size, never to a fixed one.
+ *
+ * ⚠ AN EARLIER DRAFT OF THIS PARAGRAPH SAID REVERTING TO `text-lg` "WOULD MAKE
+ * THIS FILE GREEN". **THAT IS FALSE AT THIS TIP, AND IT WAS FALSE IN THE VERY
+ * COMMIT THAT WROTE IT.** It was true of the guard as #1123 shipped it, and the
+ * zero-slack assertion added below is exactly what changed it: with `text-lg`
+ * the slack reads 6px, not 0, and the mechanism reads `fixed`, not
+ * `counter-scaled`. Measured — that revert REDs **this file (2 failed)** as
+ * well as `nodes/__tests__/BaseNode.lodTitleLegibility.spec.tsx` (4 failed).
+ *
+ * Recorded rather than quietly deleted, because it is this estate's
+ * correcting-comment-is-the-false-one class occurring INSIDE a correction — and
+ * because this whole file is an argument about a comment that stayed true of
+ * the prose after it had gone false of the code. The error was conservative
+ * (it under-claimed the guard's reach) rather than hazardous, which is precisely
+ * why nobody would have re-checked it.
+ *
+ * ⭐ SO THE ACCURATE STATEMENT IS STRONGER THAN THE ONE IT REPLACES: reverting
+ * to a fixed-size boost is now caught in BOTH files rather than blessed by this
+ * one. Do not read that as making the header's warning redundant — a red here
+ * tells you the bound moved, and only the header tells you which direction is
+ * the trap.
  *
  * ⭐ WHY THE GUARD HAD TO CHANGE AT ALL — IT IS TRAP 21, NOT A CONFLICT. This
  * file and that change answer DIFFERENT QUESTIONS under similar names:
@@ -219,6 +239,43 @@ function lodBoostTitleClass(): string {
  * Returns `null` when the class declares no size this guard can price — which
  * the caller turns into a RED, never a pass. An unpriced class is an unbounded
  * one, and that rule is the reason this file exists.
+ *
+ * ⭐⭐ IT FAILS CLOSED, AND THAT PROPERTY IS WHY WIDENING THE READER LATER IS
+ * SAFE. Verified by execution against ten synthetic classes in independent
+ * review, not by reading this function:
+ *
+ *   · it REDs at **25px** as well as at the 36px the controls below use, so the
+ *     discrimination is a property of the comparison and not an artefact of the
+ *     one oversized case this file happens to name;
+ *   · **every shape it cannot price returns `null`, and `null` is a RED** —
+ *     including the two soft spots a reader would expect to be holes: a `calc()`
+ *     with **reversed operands** (`var(...) * 12px`) and Tailwind's
+ *     **underscore-for-space** arbitrary-value syntax. Neither is silently
+ *     priced at zero, and neither passes.
+ *
+ * So the failure mode of an unrecognised spelling is a build that stops, never
+ * a bound that quietly stops being checked. If you teach `lodBoostTitleClass`
+ * to read a new shape, that property is the thing you must not break.
+ *
+ * ⚠⚠ ONE REAL BLIND SPOT, RECORDED BECAUSE IT CHANGES WHAT THE DEFENCE RESTS
+ * ON. This function **short-circuits on the calc arm**: a class carrying BOTH a
+ * counter-scaled token AND a larger named size (`... calc(12px*var(...)) ...
+ * text-3xl`) is priced at 24px and passes. Demonstrated by an applied mutant in
+ * review — **this file stays green (4 passed)**.
+ *
+ * That is not an unguarded hole, and the layering genuinely holds: the raw
+ * `text-3xl` is caught by `canvas/__tests__/canvasTextCounterScale.census.spec.ts`,
+ * whose `KNOWN_FIXED` set is asserted EXACTLY, so a new un-counter-scaled size
+ * anywhere under the transform REDs there.
+ *
+ * ⛔ BUT THE CONSEQUENCE MUST BE STATED WHERE THE PRICER LIVES, NOT ONLY WHERE
+ * THE CENSUS DOES: **this pricer's safety now depends on the census's SCOPE.**
+ * If anyone narrows that census — excludes `nodes/`, drops the exact-set
+ * assertion, or stops walking the in-transform directories — this blind spot
+ * becomes live and nothing in this file will notice. Two guards covering one
+ * gap is defence in depth only for as long as both are pointed at it (CLAUDE.md
+ * trap 21: naming them apart is right, and it makes each one's dependence on
+ * the other invisible unless it is written down).
  */
 export function priceBoostSize(
   boostClass: string,
