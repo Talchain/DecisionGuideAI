@@ -166,6 +166,49 @@ describe('addConnectedFactorAction', () => {
       'from-target',
     )
   })
+
+  it('⭐⭐ the declared `add_node` op seeds NO category — the SECOND writer, not a duplicate', async () => {
+    // ⚠ WHY THIS GUARD EXISTS SEPARATELY FROM THE STORE'S. These ops are not
+    // decoration: `commitValidatedMutation` sends them to PLoT's
+    // `validatePatch` and, when it returns a validated graph, `setState`s THAT
+    // graph INSTEAD of calling `localApply()`. So a `category: 'external'` left
+    // here would re-seed the node on the validated branch even though
+    // `store.addNodeWithEdge` no longer seeds one — the explicit-unknown
+    // guarantee would hold on whichever branch happened to run. Two writers,
+    // one property; both need pinning.
+    //
+    // The store-side twin, driven against the REAL action and a REAL
+    // `FactorNode` mount, is
+    // `mutations/__tests__/structuralAdd.connectedAddExplicitUnknown.spec.tsx`.
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    ;(commitValidatedMutation as any).mockClear()
+
+    const target: NodeTarget = {
+      kind: 'node',
+      nodeId: 'g1',
+      nodeType: 'goal',
+      node: mockStore.nodes[1],
+      screenPos: { x: 0, y: 0 },
+    }
+    await addConnectedFactorAction(target, showToast)
+
+    const ops = (commitValidatedMutation as any).mock.calls[0]?.[0] as Array<{
+      op: string
+      data?: Record<string, unknown>
+    }>
+    // PRECONDITION PINNED IN-TEST (CLAUDE.md trap 13b): assert the op we mean to
+    // inspect is actually there, so a passing result cannot be the action
+    // silently emitting nothing.
+    const addNodeOp = ops?.find((o) => o.op === 'add_node')
+    expect(addNodeOp, 'the action must declare an add_node op').toBeTruthy()
+    // ⭐ BOUND AS A KEY SET, WHICH IS BOTH DIRECTIONS IN ONE ASSERTION. A
+    // one-sided "does not have `category`" would be satisfied just as happily
+    // by `data: {}` or a missing `data` — i.e. by destroying the op — and by
+    // any third key riding in. The exact set can be satisfied by nothing but
+    // the truth.
+    expect(Object.keys(addNodeOp!.data ?? {}).sort()).toEqual(['kind', 'label'])
+    expect(addNodeOp!.data).toEqual({ kind: 'factor', label: 'New factor' })
+  })
 })
 
 describe('markAsAssumption', () => {

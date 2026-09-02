@@ -785,20 +785,62 @@ interface CanvasState {
    *     here would durably save the node and silently DROP the edge, trading one
    *     silent loss for a subtler one. It rides with that lane.
    *
-   *     ⚠⚠ AND ON THIS PATH A NEW FACTOR **DOES RENDER A DIGIT**. It seeds
-   *     `category: 'external'`, and `FactorNode.tsx:668-671` renders
-   *     "Uncertainty here affects {N} outcome{s}." whenever
-   *     `nodeCategory === 'external' && outcomesAffected > 0` — which an
-   *     edge-creating add guarantees. So the explicit-unknown guarantee this
-   *     lane pins holds for `addNode` and NOT for `addNodeWithEdge`.
-   *     PRE-EXISTING and identical at base; `FactorNode.tsx` is untouched by
-   *     this lane, which is why it is recorded here rather than fixed here.
+   *     ⭐ RE-DERIVED 2 Sep 2026 AT CEE `staging` `3575b189`, because that
+   *     claim was load-bearing and had been taken on a lane's word:
+   *     `SYSTEM_EVENT_HANDLING` still reads
+   *     `structural_add_edge: 'reader_only_refusal'`
+   *     (`orchestrator-v5/system-events/dispatch.ts:316`), there is no
+   *     `*add-edge*` writer module beside `structural-add.ts` /
+   *     `structural-delete.ts` / `structural-rename.ts`, and the refusal copy
+   *     tells the user to ask in chat instead (`dispatch.ts:469-475`). **The
+   *     deliberate exclusion STANDS.** The contract states the same rule from
+   *     the other side: a `structural_add` node "has no incident edges by
+   *     construction", and "drawing a node and then an edge is two gestures
+   *     and two turns" (`boundary/turn-payload` `StructuralAddEvent`).
    *
-   *   · `duplicateSelected` (:3428) and `pasteClipboard` (:3472) — NOT
-   *     deliberate. Simply not done. A duplicated or pasted node is local-only
-   *     and vanishes on reload, exactly as an added one did before this lane.
+   *     ⚠⚠ THE DIGIT ON THIS PATH IS **FIXED** (2 Sep 2026), and the record of
+   *     it here was TOO BROAD in a way worth keeping visible. It said an
+   *     edge-creating add GUARANTEES `outcomesAffected > 0`. It does not:
+   *     `FactorNode` counts edges whose SOURCE is the node, so the digit
+   *     needed the new node in the SOURCE position — i.e. "Add connected
+   *     factor" on a factor/outcome/risk (`getEdgeDirectionForKind` →
+   *     `'to-target'`), and NOT on a decision/option, nor on the
+   *     option/outcome/risk items, which all pass `'from-target'`. The seed
+   *     itself was the defect and it is gone; see the note at
+   *     `addNodeWithEdge`.
    *
-   * Bringing those three under the same guarantee is real, unfinished W2 work.
+   *   · `duplicateSelected` (:3428) and `pasteClipboard` (:3472) — ⚠ THIS
+   *     ENTRY SAID "NOT deliberate. Simply not done." **DERIVED 2 Sep 2026,
+   *     THAT IS WRONG: they are blocked by the SAME missing writer as
+   *     `addNodeWithEdge`, and by a second thing the wire cannot express.**
+   *
+   *       (a) EDGES. Both copy edges — `duplicateSelected` every edge whose
+   *           BOTH endpoints are selected, `pasteClipboard` every clipboard
+   *           edge. With `structural_add_edge` reader-only, emitting
+   *           `structural_add` per node saves a DISCONNECTED subgraph and
+   *           drops the topology silently. That is the identical trade the
+   *           `addNodeWithEdge` exclusion refuses, and connectivity is what
+   *           goal-reachability and sensitivity are computed over.
+   *       (b) NODE DATA. Both copy `data: { ...node.data }` — value, prior,
+   *           `observedState`, category. The wire carries FOUR fields
+   *           (`node_id`, `node_kind`, `label`, `base_graph_hash`) and
+   *           `.strict()`s the rest, so a duplicated factor would persist
+   *           label-and-kind only, with its value dropped.
+   *       (c) COST. There is NO batched carrier: `SystemEventTurnPayload.event`
+   *           is one event, `StructuralAddEvent` holds no array, and
+   *           `applyStructuralAdd` builds a fixed one-element operation list.
+   *           The drain is serialised on purpose (each add moves the graph
+   *           hash), so pasting N nodes is N sequential turns and N
+   *           conversation rows.
+   *
+   *     A single-node duplicate with no copied data would be losslessly
+   *     expressible — but a guarantee that silently holds or fails on the size
+   *     of the selection is worse than a uniform "not yet", so it is NOT
+   *     shipped as a special case.
+   *
+   * ⭐ NET: all three remain uncovered, and the blocker is now ONE named thing
+   * for all three — a durable edge writer in CEE. Whoever builds it unblocks
+   * every path here at once; nothing else in this file needs to change first.
    * ─────────────────────────────────────────────────────────────────────────
    */
   pendingStructuralAdds: StructuralAddIntent[]
@@ -2801,10 +2843,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     //
     // ⚠⚠ IT IS **NOT** EVERY CREATION PATH IN THE CANVAS. `addNodeWithEdge`
     // (five user-reachable affordances), `duplicateSelected` and
-    // `pasteClipboard` capture NOTHING — and on `addNodeWithEdge` a new factor
-    // even renders a number. The measured scope, and which omissions are
-    // deliberate, is on `pendingStructuralAdds`; read it there rather than
-    // inferring coverage from this line.
+    // `pasteClipboard` capture NOTHING. The measured scope, and the derived
+    // reason each one is still uncovered, is on `pendingStructuralAdds`; read
+    // it there rather than inferring coverage from this line.
     const nodesAfter: Node[] = [...get().nodes, created]
     const plan = planStructuralAddIntent(get(), nodesAfter, id)
     set(() => ({ nodes: nodesAfter, ...plan.patch }))
@@ -2827,6 +2868,34 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const edgeId = get().createEdgeId()
     const [source, target] =
       edgeDirection === 'to-target' ? [nodeId, connectTo] : [connectTo, nodeId]
+    // ⚠⚠ NO `category`, AND ITS ABSENCE IS A FIX RATHER THAN AN OMISSION.
+    // This seeded `category: 'external'` on EVERY kind it creates, and that one
+    // word did three things, none of them true of a node the user just drew:
+    //
+    //   1. FABRICATED A NUMBER. `FactorNode.tsx` renders "Uncertainty here
+    //      affects {N} outcome{s}." on `nodeCategory === 'external' &&
+    //      outcomesAffected > 0`. A brand-new factor with no value rendered a
+    //      digit — the exact harm `mutations/structuralAdd.ts` exists to
+    //      prevent, on the one creation path that module does not cover.
+    //   2. SUPPRESSED THE AFFORDANCE THAT SAYS SO. `isFactorNeedsInput`
+    //      early-returns `false` on `category === 'external'`, so "needs your
+    //      judgement" stayed DARK on precisely the factors that need it —
+    //      the same shape as the ignorance-prior exemption that helper's own
+    //      header records as a measured defect.
+    //   3. HID IT FROM COACHING. `DecisionNode`'s triage line `continue`s past
+    //      an external factor, so a new valueless factor could never be named
+    //      as "Top gap: estimate …".
+    //
+    // ⚠ `external` IS A CEE CLASSIFICATION — "this quantity is outside the
+    // user's control, and its prior IS its evidence" — so asserting it about a
+    // node with no prior and no provenance was a claim nobody made. Absent, the
+    // node reads as what it is: `deriveControllability` returns `'unknown'`
+    // rather than a fabricated certainty, and the exemption is left intact for
+    // factors that genuinely carry the classification.
+    //
+    // Pinned in both directions, against the REAL store action and a REAL
+    // `FactorNode` mount, by
+    // `mutations/__tests__/structuralAdd.connectedAddExplicitUnknown.spec.tsx`.
     set((s) => ({
       nodes: [
         ...s.nodes,
@@ -2834,7 +2903,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           id: nodeId,
           type,
           position: pos,
-          data: { label: `New ${type}`, kind: type, category: 'external' },
+          data: { label: `New ${type}`, kind: type },
         },
       ],
       edges: [

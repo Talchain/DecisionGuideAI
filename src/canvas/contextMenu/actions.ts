@@ -276,7 +276,18 @@ export async function addConnectedFactorAction(
     : [target.nodeId, nodeId]
 
   const ops: PatchOperation[] = [
-    { op: 'add_node', target_id: nodeId, data: { kind: 'factor', label: 'New factor', category: 'external' } },
+    // ⚠ NO `category` — AND THIS IS THE SECOND WRITER, NOT A DUPLICATE OF THE
+    // STORE'S. `commitValidatedMutation` sends these ops to PLoT's
+    // `validatePatch` and, when it returns a validated graph, `setState`s THAT
+    // graph instead of calling `localApply()`. So a `category: 'external'` left
+    // here would re-seed the node on the validated path even though
+    // `store.addNodeWithEdge` no longer seeds one — the two must agree or the
+    // guarantee holds only on whichever branch happens to run. See the seed
+    // note in `store.addNodeWithEdge` for why the category is wrong at all.
+    //
+    // ⚠ The option/outcome/risk siblings below never declared one, so this line
+    // was also the only place the four items disagreed with each other.
+    { op: 'add_node', target_id: nodeId, data: { kind: 'factor', label: 'New factor' } },
     { op: 'add_edge', target_id: edgeId, data: { from: source, to: target_ } },
   ]
 
