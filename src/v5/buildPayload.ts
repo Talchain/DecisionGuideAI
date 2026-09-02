@@ -1127,11 +1127,41 @@ export const KNOWN_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>(
  *   is therefore a silent no-op, not a break; but the LIST WOULD BE LYING in
  *   the interval, and this registry's whole value is that it does not.
  *
- * NOT yet listed (deliberately withheld): the remaining coaching / elicitation
- * intents (`outside_view`, `pre_mortem`, `elicit_risks`, `estimate_help`,
- * `mitigation_help`, `discuss`). Several sparks now DECLARE these — the
- * declaration is deliberate and the gate is what withholds them, so each lights
- * up with zero further UI change the moment CEE routes it.
+ * - outside_view, pre_mortem, elicit_risks: the SAME typed coaching arm, widened
+ *   by CEE PR #1321 (`feat(coaching): route outside_view, pre_mortem and
+ *   elicit_risks to their authored methods`). Their affordances are the three
+ *   pre-analysis-v3 sparks `outside_view` ("Take the outside view"),
+ *   `pre_mortem` ("Run a pre-mortem") and `risks_upside` ("Find risks and
+ *   upside") — mounted, labelled and clickable for weeks while this list
+ *   withheld them, so each click reached CEE as anonymous prose. Derived from
+ *   `ROUTED_COACHING_INTENTS` at CEE `266b1d4f`, which is exactly
+ *   `challenge_frame, define_success, elicit_options, challenge_assumption,
+ *   outside_view, pre_mortem, elicit_risks` — this list is that set plus the
+ *   independent `add_option` rail, and nothing else.
+ *
+ * ⚠⚠ THE SENTENCE THAT USED TO SIT HERE WAS FALSE, AND IT COST A LANE A WRONG
+ * PREMISE. It read: "each lights up with zero further UI change the moment CEE
+ * routes it." That is wrong in the one way that matters — `isSendableToken` is
+ * a CONJUNCTION (`published ∧ accepted`), and this list IS the accepted half.
+ * A spark's declaration can never open the gate on its own; that is the entire
+ * point of the two-signal design documented above. CEE routing an intent is
+ * NECESSARY and NOT SUFFICIENT: this list must grow too, in a follow-up UI PR,
+ * which is what added the three entries below. Do not re-write that sentence.
+ *
+ * NOT listed, and each for its own reason — these are NOT one class:
+ * - `estimate_help`: ⚠ DELIBERATELY AND INDEFINITELY WITHHELD, not merely
+ *   "awaiting CEE". Its spark (`calibrate_estimates`) carries BOTH this intent
+ *   AND `action_type: 'analysis_readiness'` — a deterministic pre-route that
+ *   CLAIMS the turn and skips the LLM, so the coaching arm (which runs at the
+ *   LLM call) would never be reached. CEE #1321 excludes it for exactly this
+ *   reason and `turn-executor.ts` pins the invariant that no affordance carries
+ *   both. Adding it here would look wired and be dead. Routing it needs a
+ *   decision about WHICH authority owns the turn, not a registry edit.
+ *   Guarded below by `intentGate.spec.ts` with the reason in the failure
+ *   message.
+ * - `mitigation_help`, `discuss`: no CEE arm routes them today. Ordinary
+ *   "awaiting CEE" withholds — they light up when CEE routes them AND this list
+ *   grows in the same lockstep the entries above went through.
  */
 export const CEE_ACCEPTED_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>([
   'add_option',
@@ -1139,6 +1169,9 @@ export const CEE_ACCEPTED_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLi
   'define_success',
   'elicit_options',
   'challenge_assumption',
+  'outside_view',
+  'pre_mortem',
+  'elicit_risks',
 ])
 
 function sanitiseIntent(raw: string | undefined): IntentLiteral | undefined {

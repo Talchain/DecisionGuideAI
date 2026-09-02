@@ -544,9 +544,15 @@ export const ACTIONS_MENU = [
     prompt: 'Take the outside view on this decision: what do similar decisions and base rates suggest?',
     // Base-rate coaching — no ACTION vocabulary entry.
     action_type: null,
-    // Declared but NOT yet routed by CEE, so the send gate withholds it. The
-    // declaration is the point: when CEE's arm grows this intent, the send
-    // lights up with no change here.
+    // ⭐ ROUTED. CEE's typed coaching arm serves this intent (PR #1321), and
+    // `CEE_ACCEPTED_INTENTS` lists it, so the click now carries the intent and
+    // the coach answers with the base-rate method in front of it.
+    //
+    // ⚠ The comment that stood here said the send would light up "with no
+    // change here" once CEE routed it. That was FALSE and it cost a lane a
+    // wrong premise: the gate is a CONJUNCTION, so CEE routing is necessary and
+    // NOT sufficient — `CEE_ACCEPTED_INTENTS` in buildPayload.ts had to be
+    // widened too. Declaring an intent here can never open the gate.
     intent: 'outside_view',
   },
   {
@@ -555,7 +561,8 @@ export const ACTIONS_MENU = [
     prompt: 'Run a pre-mortem with me: imagine this choice failed a year from now. What went wrong?',
     // Failure-imagination coaching — no ACTION vocabulary entry.
     action_type: null,
-    // Declared, not yet routed — withheld by the send gate.
+    // ⭐ ROUTED (CEE #1321 + the accepted-list widening). Both halves of the
+    // send gate now hold, so the click reaches CEE as a typed pre-mortem.
     intent: 'pre_mortem',
   },
   {
@@ -565,7 +572,8 @@ export const ACTIONS_MENU = [
     // Gap-elicitation coaching (what is MISSING) — explain_* describes what
     // is present; no honest ACTION entry.
     action_type: null,
-    // Declared, not yet routed — withheld by the send gate.
+    // ⭐ ROUTED (CEE #1321 + the accepted-list widening). Both halves of the
+    // send gate now hold, so the click reaches CEE as a typed gap-elicitation.
     intent: 'elicit_risks',
   },
   {
@@ -579,8 +587,19 @@ export const ACTIONS_MENU = [
     // analysis facts). Live since the 0.20.0 re-vendor + CEE acceptance
     // (2026-07-20) — now sends.
     action_type: 'analysis_readiness',
-    // Declared, not yet routed — withheld. Independent of action_type, which
-    // is live: an intent names WHAT the user wants, a handler names HOW.
+    // ⚠⚠ DELIBERATELY WITHHELD, AND NOT MERELY "AWAITING CEE" — this is the one
+    // spark whose intent must NOT be routed as things stand, so do not append it
+    // to CEE_ACCEPTED_INTENTS alongside its siblings.
+    //
+    // This spark carries BOTH authorities: the `analysis_readiness` action_type
+    // above is LIVE and fires a DETERMINISTIC pre-route in CEE that claims the
+    // turn and skips the LLM. The typed coaching arm runs AT the LLM call, so a
+    // routed `estimate_help` directive would be built and never reached —
+    // wired-looking and dead, with nothing red anywhere. CEE #1321 excludes it
+    // for exactly this reason and `turn-executor.ts` pins the matching
+    // invariant that no affordance carries both. Routing it needs a decision
+    // about WHICH authority owns the turn, not a registry edit. Pinned by
+    // `intentGate.spec.ts` with the reason in the failure message.
     intent: 'estimate_help',
   },
   {
