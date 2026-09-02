@@ -23,10 +23,19 @@
  * This estate has twice shipped copy DARK by pinning it to a component the
  * deployed flags do not mount. So the mount path is asserted, not assumed:
  *
- *   1. `nodeTypes.option === OptionNode` is asserted IN-TEST against the real
+ *   1. The registry's mapping for `option` is asserted IN-TEST against the real
  *      `../registry`, which `src/canvas/ReactFlowGraph.tsx:21` imports. If the
  *      registry ever re-points `option` at another component, this pin fails
  *      LOUD rather than passing against a component nobody renders.
+ *      ⚠ IT IS NO LONGER `nodeTypes.option === OptionNode`, and the change is
+ *      not cosmetic: `nodeTypes` now exports every renderer wrapped in the
+ *      canvas keyboard scope (`nodeKeyboardScope.tsx`), so a reference-equality
+ *      pin against the bare component is false by construction. The claim this
+ *      guard exists to make — "the app mounts THIS component for this type" —
+ *      is preserved in full below, in two parts: the registry maps `option` to
+ *      `OptionNode`, AND what React Flow is handed is the scope around exactly
+ *      that renderer. `registry.keyboardScope.spec.tsx` pins the derivation
+ *      between the two maps in both directions.
  *   2. Derived from the SERVED BUNDLE, not from imports: the deployed staging
  *      build at tip `a81121d1` (`/version.json` commit ==
  *      `a81121d1c401a8d51bc4c32e53d1d0e63a7640a3`) carries this chip in
@@ -48,7 +57,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { nodeTypes } from '../registry'
+import { nodeTypes, rawNodeTypes } from '../registry'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -199,7 +208,14 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
   // this file that fails when the surface under test stops being the surface
   // the app renders.
   it('is the component the canvas node registry mounts for type "option"', () => {
-    expect(nodeTypes.option).toBe(OptionNode)
+    // The renderer the registry maps this type to.
+    expect(rawNodeTypes.option).toBe(OptionNode)
+    // And what React Flow is actually handed: the keyboard scope around THAT
+    // renderer, identified by name, so a scope applied to a different component
+    // fails here rather than passing on "something is exported for this key".
+    expect((nodeTypes.option as { displayName?: string }).displayName).toBe(
+      `NodeKeyboardScope(${OptionNode.displayName ?? OptionNode.name})`,
+    )
   })
 
   it('composes a CONTRASTIVE flip question, presupposing no verdict about the leader', () => {
