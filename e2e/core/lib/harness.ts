@@ -274,7 +274,146 @@ export interface TurnStream {
   ended: boolean; sawTerminal: boolean; isStream: boolean; bytes: number
 }
 
+/**
+ * ⭐⭐ ASSET DELIVERY IS A SEPARATE FAILURE FROM PRODUCT FAILURE, AND UNTIL NOW THE
+ * SUITE COULD NOT TELL THEM APART.
+ *
+ * MEASURED 2026-09-02 over the 100 most recent `Staging Tests` runs, every attempt
+ * (94 completed Core E2E jobs, 10 failures — the jobs API serves only the LATEST
+ * attempt, so a re-run hides its own red and the first sweep undercounted by two).
+ * FIVE of those ten were not product failures at all: the deployed target never
+ * delivered the Canvas route's chunks, so the app sat on its Suspense fallback and
+ * the composer could not mount. Their page snapshots, from the uploaded artefacts:
+ *
+ *   run 33556631726 (E1) · run 33578060840 (E1) — `status "Loading Canvas"` only
+ *   run 33581772301 (E5) · run 33546491489 (E5) — `status "Loading Scenario"` only
+ *   run 33571760150 (E5) — the app's own error boundary:
+ *       "Unable to preload CSS for /assets/ReactFlowGraph-CD2a-IkG.css"
+ *
+ * The trace for the first confirms it at the bytes: 59 requests, every one HTTP 200
+ * except `/assets/ReactFlowGraph-CdifbDa0.js`, which NEVER COMPLETED — and there was
+ * NO console error, so the dynamic import never rejected. It hung. The DOM agrees
+ * independently: a REJECTED lazy import rethrows to the error boundary and the
+ * fallback is replaced, so a fallback still on screen after 60s proves the import is
+ * still PENDING.
+ *
+ * ⚠ WHY THIS WATCH EXISTS RATHER THAN A LONGER TIMEOUT. On a healthy run the composer
+ * appears in a MEDIAN OF 587 ms (178 local entries against the same immutable
+ * permalink, 178/178 pass, p90 1,127 ms, max 6,584 ms) — a ~100x margin against the
+ * 60s budget it "exceeded". The failing wait resolved the locator ZERO times for its
+ * whole budget. A wait that resolves nothing for 60 seconds does not need 90.
+ *
+ * ⚠ AND WHY IT DOES NOT SOFTEN THE VERDICT. This records; it never skips, retries or
+ * downgrades. An undelivered bundle still FAILS — it simply says so by name, instead
+ * of reporting `element(s) not found` against a locator and sending the next reader
+ * after a timeout margin that was never the problem. That misreading cost a lane a
+ * full round on 2026-09-01.
+ *
+ * `window.fetch` cannot see this: script and stylesheet loads never go through it.
+ * These are Playwright-level listeners, so they also cannot perturb the app.
+ */
+export interface AssetDelivery {
+  /** Script/stylesheet requests that were issued and never finished. */
+  undelivered: () => string[]
+  /** Requests the browser reported as outright failed, with Chromium's reason. */
+  failed: () => Array<{ url: string; reason: string }>
+}
+
+const ASSET_WATCH = new WeakMap<Page, AssetDelivery>()
+
+export function installAssetWatch(page: Page): AssetDelivery {
+  const existing = ASSET_WATCH.get(page)
+  if (existing) return existing // idempotent: two watches would double-count
+
+  const open = new Map<string, number>()
+  const failed: Array<{ url: string; reason: string }> = []
+  const isAsset = (r: { resourceType: () => string }): boolean =>
+    r.resourceType() === 'script' || r.resourceType() === 'stylesheet'
+
+  page.on('request', (r) => { if (isAsset(r)) open.set(r.url(), Date.now()) })
+  page.on('requestfinished', (r) => { open.delete(r.url()) })
+  page.on('requestfailed', (r) => {
+    open.delete(r.url())
+    if (isAsset(r)) failed.push({ url: r.url(), reason: r.failure()?.errorText ?? 'unknown' })
+  })
+
+  const watch: AssetDelivery = {
+    undelivered: () => [...open.keys()],
+    failed: () => [...failed],
+  }
+  ASSET_WATCH.set(page, watch)
+  return watch
+}
+
+/**
+ * The first-use composer wait, shared by BOTH entry paths.
+ *
+ * Both `enterAsGuest` (guest) and `enterAuthenticated` (authenticated) waited on this
+ * same testid with their own inline `expect`, and 5 of the 10 measured failures landed
+ * on one of the two. Sharing the wait means the diagnosis is written once and neither
+ * path can drift away from it.
+ *
+ * ⚠ THE DIAGNOSIS IS DERIVED FROM THE PAGE, NOT ASSUMED. It reads whatever is actually
+ * on screen — the loading fallback, the error boundary — rather than asserting a cause.
+ * If the app is fully rendered and the composer is genuinely absent, it says THAT, which
+ * is a real product failure and must stay loud.
+ */
+export async function awaitFirstUseComposer(
+  page: Page, where: string, timeoutMs: number,
+): Promise<void> {
+  const watch = ASSET_WATCH.get(page)
+  try {
+    await expect(page.getByTestId('first-use-input-bar-textarea')).toBeVisible({ timeout: timeoutMs })
+  } catch (cause) {
+    const state = await page.evaluate(() => {
+      const text = (document.body.innerText ?? '').replace(/\s+/g, ' ').trim()
+      const status = document.querySelector('[role="status"]')
+      return {
+        url: location.href,
+        statusText: (status as HTMLElement | null)?.innerText?.replace(/\s+/g, ' ').trim() ?? null,
+        bodyHead: text.slice(0, 300),
+        rendered: text.length,
+      }
+    }).catch(() => null)
+
+    const undelivered = watch?.undelivered() ?? []
+    const failedAssets = watch?.failed() ?? []
+    const stuckLoading = /^Loading .*\.\.\.$/.test(state?.statusText ?? '')
+
+    const lines = [
+      `[core] the first-use composer never mounted during ${where} (${timeoutMs}ms, zero resolutions).`,
+    ]
+    if (stuckLoading || undelivered.length || failedAssets.length) {
+      lines.push(
+        `⚠ THIS LOOKS LIKE ASSET DELIVERY, NOT A PRODUCT DEFECT, AND NOT A TIMEOUT MARGIN.`,
+        `  The app is still showing "${state?.statusText}", which is a Suspense fallback: the`,
+        `  route's lazy chunk has neither resolved nor rejected. Raising this budget cannot help —`,
+        `  a healthy entry mounts the composer in ~590ms.`,
+      )
+      if (undelivered.length) {
+        lines.push(`  Never completed (${undelivered.length}): ${undelivered.slice(0, 8).join(', ')}`)
+      }
+      if (failedAssets.length) {
+        lines.push(
+          `  Failed outright (${failedAssets.length}): ` +
+          failedAssets.slice(0, 8).map((f) => `${f.url} [${f.reason}]`).join(', '),
+        )
+      }
+      lines.push(`  Target: ${ORIGIN} — re-check that this deploy still serves its own /assets/.`)
+    } else {
+      lines.push(
+        `The page IS rendered (${state?.rendered} chars) and the composer is genuinely absent —`,
+        `this is a product failure, not asset delivery. On screen: "${state?.bodyHead}"`,
+      )
+    }
+    lines.push(`  url=${state?.url}`)
+    throw new Error(`${lines.join('\n')}\n\n--- original ---\n${String(cause)}`)
+  }
+}
+
 export async function installWireInterceptor(page: Page): Promise<void> {
+  // Every Core spec calls this first, so it is the one place that reaches them all.
+  installAssetWatch(page)
   await page.addInitScript(() => {
     const W = window as unknown as {
       __WIRE__: unknown[]; __TURNS__: unknown[]; __CORE_FETCH_WRAPPED__?: boolean
@@ -571,7 +710,7 @@ export async function enterAsGuest(page: Page): Promise<void> {
     '[core] the guest entry affordance is not on the landing screen — the entry posture has moved',
   ).toBeVisible({ timeout: 30_000 })
   await guest.first().click()
-  await expect(page.getByTestId('first-use-input-bar-textarea')).toBeVisible({ timeout: 60_000 })
+  await awaitFirstUseComposer(page, 'the guest entry', 60_000)
 }
 
 export const CORE_BRIEF =
@@ -798,10 +937,23 @@ export async function enterAuthenticated(page: Page): Promise<void> {
     '[core] the guest landing is showing — the injected session did not authenticate the app',
   ).not.toContainText(/Continue without an account/i, { timeout: 30_000 })
 
+  const composer = page.getByTestId('first-use-input-bar-textarea')
   const start = page.getByRole('button', { name: /start a new decision/i })
     .or(page.getByRole('link', { name: /start a new decision/i }))
+
+  // ⚠ `if (await start.count())` WAS A SNAPSHOT WITH NO WAIT. `count()` resolves
+  // immediately, so a landing that had not yet committed its render scored zero, the
+  // click never happened, and the 90s composer wait below could then NEVER resolve —
+  // it was waiting on a click that was silently skipped. The guard above it is no
+  // barrier either: `not.toContainText` is satisfied by an EMPTY body, so it passes
+  // hardest exactly when nothing has rendered.
+  //
+  // Waiting for the START AFFORDANCE alone would be wrong in the other direction —
+  // an authenticated visitor who lands straight on the composer never shows one, and
+  // that is a legitimate path. So wait for EITHER, which cannot break either path.
+  await expect(start.first().or(composer).first()).toBeVisible({ timeout: 30_000 })
   if (await start.count()) await start.first().click()
-  await expect(page.getByTestId('first-use-input-bar-textarea')).toBeVisible({ timeout: 90_000 })
+  await awaitFirstUseComposer(page, 'the authenticated entry', 90_000)
 }
 
 /**
