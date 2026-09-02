@@ -656,13 +656,23 @@ test.describe('in-node keyboard bleed', () => {
 
   test('census: focusable controls inside .react-flow__node, all five starters', async ({ page }) => {
     /*
-     * ⚠ ITS OWN BUDGET. This was the only test in the file without one, at 156s
-     * against a 180s default — and it hard-timed out on a reviewer's cold run
-     * AFTER printing `390/390` and BEFORE every assertion, i.e. it produced a
-     * headline number and then failed without checking anything. The
-     * event-driven popover waits below should reclaim most of that; the budget
-     * is here so a slow machine cannot turn a passing measure into a printed
-     * number with no verdict.
+     * ⚠⚠ THIS BUDGET IS LOAD-BEARING. DO NOT REMOVE IT.
+     *
+     * This was the only test in the file without one, and it hard-timed out on
+     * a reviewer's cold run AFTER printing `390/390` and BEFORE every
+     * assertion — i.e. it produced a headline number and then failed without
+     * checking anything.
+     *
+     * ⚠ AND THE EVENT-DRIVEN WAITS DO NOT MAKE IT FIT. This comment used to say
+     * they "reclaim most of that", which was true of the intent and FALSE OF
+     * THE MEASUREMENT: an independent reviewer's run of this test with the
+     * waits in place took **192s**, against a 180s default. It would still
+     * hard-time-out. The budget is not headroom over a comfortable margin — it
+     * is the only thing holding this test up, and a future reader who deletes
+     * it as tidy-up gets a number with no verdict again.
+     *
+     * (Local runs measure ~200-210s wall for the whole file. Re-derive before
+     * trusting any figure here, including this one.)
      */
     test.setTimeout(900_000)
     const perStarter: Record<string, FocusableCensusRow[]> = {}
@@ -1087,19 +1097,32 @@ test.describe('in-node keyboard bleed', () => {
     test.setTimeout(900_000)
 
     /*
-     * ⚠ ORDER-INDEPENDENCE, AND WHY IT IS HERE RATHER THAN LEFT TO LUCK.
+     * ⚠⚠ THIS TEST IS FLAKY WHEN RUN AFTER THE POINTER TEST, AND THE HYGIENE
+     * BELOW DID NOT FIX IT. Read this before spending an hour on a red here.
      *
-     * This test failed roughly 1 in 5 when it ran AFTER the pointer test, on a
-     * tree byte-identical to one where it passed, and 3/3 in isolation. It is
-     * the guard that proves this fix did NOT break keyboard node selection, and
-     * its failure message reads as a catastrophe — so an intermittent red here
-     * costs someone a full investigation every time it fires.
+     * MEASURED by an independent reviewer at this head: **7 paired runs, 1
+     * failure; 8 isolated runs, 0 failures** — roughly a 14% rate in sequence.
+     * An earlier version of this comment claimed the hygiene below made it
+     * order-independent, on the strength of a single 4/4 green run. That was a
+     * claim about intent, not a measurement, and it is withdrawn.
      *
-     * The pointer test drives a Shift-drag. If it ends with a modifier still
-     * logically held or the pointer resting over a node, React Flow's next
-     * interaction is not the one this test thinks it is measuring. Releasing
-     * the modifiers and parking the pointer makes the starting state a
-     * PRECONDITION rather than an inheritance.
+     * ⭐ IT IS NOT CAUSED BY THE FIX THIS FILE TESTS, and the reasoning is
+     * mechanical rather than statistical: `closest()` walks UP, the keyboard
+     * scope is a DESCENDANT of `.react-flow__node`, so a keydown originating at
+     * the node cannot reach it — and an instrumented run measured `anyNokey: 0`
+     * at the moment of the press in 12/12 runs. 8/8 green at the merge base
+     * cannot exclude the same ~14% rate either way, so it is recorded as
+     * PRE-EXISTING rather than attributed in either direction.
+     *
+     * ⚠ WHY IT MATTERS DISPROPORTIONATELY: this is the guard that proves the
+     * fix did NOT break keyboard node selection, and its failure message reads
+     * `keyboard node selection is GONE`. A ~14% flake with that wording will
+     * cost some future lane an hour proving it is not their fault. Rowed for a
+     * proper root-cause, deliberately not papered over with a retry.
+     *
+     * The hygiene below stays because it is correct in itself — the starting
+     * state should be a PRECONDITION rather than an inheritance — but it is not
+     * a fix and must not be read as one.
      */
     await page.keyboard.up('Shift').catch(() => undefined)
     await page.mouse.up().catch(() => undefined)
