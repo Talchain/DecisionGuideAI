@@ -294,6 +294,49 @@ export interface ScaffoldPlan {
   option_count?: number
 }
 
+/**
+ * One entry of the graph-readiness verdict's `readiness_issues[]`.
+ *
+ * Field-for-field the producer's `RouteReadinessBlocker`
+ * (`olumi-assistants-service/src/cee/graph-readiness/canonical-readiness.ts:139-162`
+ * at CEE staging `3575b189`), read at the CEE bytes rather than inferred from a
+ * capture — a capture proves what it was pointed at, and the three in this repo
+ * are of `analysis_ready`, a different carrier that happens to share the name.
+ *
+ * ⭐⭐ `obligation` IS LOAD-BEARING AND IGNORING IT REPRODUCES THE DEFECT.
+ * The producer's own comment says so in as many words: *"A PANEL THAT IGNORES
+ * THIS FIELD REPRODUCES THE DEFECT. Rendering every entry of `readiness_issues[]`
+ * as a demand is what asked the user to supply effect values for links the
+ * product invented."* `required` = the user must answer. `offered` = the SYSTEM
+ * authored this structure, so it may be shown and offered for confirmation but
+ * NEVER DEMANDED (INV-P6). `waived_by_exclusion` marks a blocker the run will
+ * answer by holding the option out, so it is not the user's task either.
+ *
+ * This is precisely the refusal at the heart of the P0: every blocker was
+ * `offered`, which is why CEE's own headline says *"The values involved are
+ * Olumi's own suggestions, not yours"*. A naive forward that rendered all five
+ * messages as a task list would have shipped the very harm the refusal names.
+ *
+ * `obligation` is widened to `| (string & {})` so an UNKNOWN future class is
+ * carried rather than silently narrowed into one of today's two — and readers
+ * treat only the exact string `'offered'` as the waiver, never `!== 'required'`.
+ */
+export interface ReadinessIssue {
+  /** The producer's user-facing repair sentence. The only field we render. */
+  message: string
+  code?: string
+  category?: string
+  repairability?: string
+  option_id?: string
+  option_label?: string
+  factor_id?: string
+  factor_label?: string
+  /** `required` = the user owes this. `offered` = Olumi authored it (INV-P6). */
+  obligation?: 'required' | 'offered' | (string & {})
+  /** True when the run will proceed by excluding the option this names. */
+  waived_by_exclusion?: boolean
+}
+
 export interface GraphReadiness {
   readiness_score: number // 0-100
   readiness_level: GraphReadinessLevel
@@ -319,6 +362,77 @@ export interface GraphReadiness {
   options_ready?: number
   options_total?: number
   goal_node_valid?: boolean
+  /**
+   * CEE's OWN written refusal sentence, verbatim.
+   *
+   * ⚠ NOT `blocked_reason`. That is a DIFFERENT, healthy field on
+   * `analysis_ready` (a bare CODE, read by `AnalysisRefusalNotice`). This one
+   * is `blocker_reason` — singular "blocker", on the graph-readiness route,
+   * and it is PROSE. Differently-named twins are this estate's chronic defect,
+   * and here a grep for the wrong spelling reads perfectly healthy (24 files)
+   * while the real target is zero. Measured both at UI `8f5b7a0e`.
+   *
+   * OPTIONAL BECAUSE THE PRODUCER DECLARES IT OPTIONAL — derived at the CEE
+   * bytes, not assumed: `blocker_reason?: string` on
+   * `CEEGraphReadinessResponseV1` (`assist.v1.graph-readiness.ts:59`), and it
+   * is emitted only on the NOT-safe-to-analyse arm
+   * (`canonical-readiness.ts:402-422`). Absent ⇒ `undefined` ⇒ readers degrade.
+   *
+   * ⭐ SAFE TO RENDER VERBATIM AS A HEADLINE, and that is why it is preferred
+   * over our own composition. CEE has ALREADY applied INV-P6 to it: its
+   * `headlineBlocker` is `readiness_issues.find(i => i.obligation !== 'offered'
+   * && i.waived_by_exclusion !== true)` (`canonical-readiness.ts:371-373`), so
+   * when every blocker is over structure Olumi itself authored, this field
+   * falls back to an honest NON-DEMANDING sentence instead of quoting one of
+   * Olumi's own asks as the user's obstacle.
+   */
+  /**
+   * CEE's ADMISSION verdict — *"will the run actually proceed?"* — as distinct
+   * from `can_run_analysis`, which answers the stricter *"is this model ready
+   * as it stands?"*. Three-valued: `true | false | 'unknown'`
+   * (`canonical-readiness.ts:210`), where `'unknown'` means the caller could not
+   * reach the route at all.
+   *
+   * ⚠ CARRIED AS `'unknown'`, NOT COERCED TO A BOOLEAN. Collapsing the third
+   * value into `false` would turn "we could not ask" into "we were refused" —
+   * two different facts, and the producer declared three values precisely so a
+   * consumer would not have to guess between them.
+   *
+   * ⭐ WHY IT IS FORWARDED HERE RATHER THAN LEFT OUT. `blocker_reason` is NOT
+   * always a refusal. CEE's fallback has THREE branches
+   * (`canonical-readiness.ts:417-421`), and when no blocker is owed and the run
+   * WILL proceed it emits an AFFIRMATIVE sentence — *"This model can be
+   * analysed now…"* — in the same field. Without this verdict the UI cannot
+   * tell that sentence from a refusal, and would print "can be analysed now" as
+   * the reason the Run button is disabled: the P0's own contradiction
+   * reappearing inside the P0's fix. `may_run` is the field that discriminates,
+   * and `producerAuthoredRefusal` reads exactly this.
+   *
+   * ⚠ THIS IS NOT WIRED INTO THE RUN GATE. `canRunAnalysis` still blocks on
+   * `!can_run_analysis && !will_scaffold_options` and does not consult
+   * `may_run`. Making the gate read it is a real improvement and a SEPARATE
+   * change with its own blast radius; this field is forwarded here only so the
+   * COPY cannot contradict the gate. Naming the limit rather than implying the
+   * gate now honours it.
+   */
+  may_run?: boolean | 'unknown'
+  blocker_reason?: string
+  /**
+   * The producer's per-option, per-factor repairs — the instance-level text
+   * (`Choose the missing effect value for "X" on "Y".`) that makes a refusal
+   * actionable instead of a count.
+   *
+   * ⚠ `undefined` AND `[]` ARE DIFFERENT FACTS AND THE TYPE SAYS SO.
+   * `undefined` = the key was absent or malformed (older CEE, the V1/V2 body,
+   * the local 404/429 fallback) — we know nothing. `[]` = CEE answered and
+   * named no issues. The normaliser preserves the distinction rather than
+   * collapsing both to `[]`, because "the producer told us nothing" and "the
+   * producer told us there is nothing" license different copy. On the CURRENT
+   * producer the key is REQUIRED (`readiness_issues: RouteReadinessBlocker[]`,
+   * `assist.v1.graph-readiness.ts:84`); it is optional HERE because the UI
+   * must still be correct against the older builds it can meet.
+   */
+  readiness_issues?: ReadinessIssue[]
 }
 
 // ── Hook (thin wrapper) ────────────────────────────────────────────
