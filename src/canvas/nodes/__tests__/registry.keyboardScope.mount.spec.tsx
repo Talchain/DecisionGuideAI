@@ -14,18 +14,38 @@
  * and the pointer/marquee arm stay in the browser measure because jsdom cannot
  * answer them; the LOAD-BEARING assertions live here, where CI runs them.
  *
- * ── WHAT jsdom CAN AND CANNOT SETTLE HERE ───────────────────────────────────
+ * ── WHAT jsdom CAN AND CANNOT SETTLE HERE — MEASURED, NOT ASSUMED ───────────
  *
- * CAN: which handler receives a keydown, and what the store does about it. That
- * is pure event routing, and it is the whole mechanism.
- * CANNOT: anything about pixels, hit-testing, or pointer capture. The marquee
- * claim (`Shift-drag over a node still starts a selection and does not move the
- * node`) is a browser claim and is made in the browser, not restated here.
+ * ⚠⚠ THE BEHAVIOURAL CLAIM IS NOT ASSERTED HERE, BECAUSE jsdom CANNOT HOST IT.
+ * This file first carried two rows of the form "Enter at the in-node control
+ * does NOT select the node". MUTATION TESTING PROVED THEM VACUOUS: with the
+ * scope disabled entirely they still passed. Chased to the bottom with an
+ * UNWRAPPED renderer — i.e. the defect fully present — and React Flow's own
+ * `getNodes()` reports NO selection at any point:
+ *
+ *     at rest [] · after 1st control-Enter [] · after 2nd control-Enter []
+ *
+ * So the bleed does not reproduce under jsdom at all, and any "it does not
+ * select" assertion here is a guard that cannot fail. They are deleted rather
+ * than tuned until they agreed with themselves. (An earlier reading of
+ * `["n1"]` came from `onSelectionChange`, which fires for reasons of its own —
+ * one instrument artefact standing in for another.)
+ *
+ * WHAT IS ASSERTED INSTEAD is the MECHANISM, which jsdom settles exactly: the
+ * scope is armed at the moment React Flow's node handler reads it, and at no
+ * other moment. Together with the library-manifest test in the sibling spec —
+ * which pins that this is the class that handler consults, and that there are
+ * exactly two consumers of it — that is the whole chain, in CI.
+ *
+ * The BEHAVIOUR (3 of 5 render paths bled; 0 after; marquee over a node still
+ * works; the node does not move; Enter at the node still selects) is a browser
+ * claim and is measured in a browser by `e2e/geometry/nodeKeyboardBleed.
+ * measure.ts`, which is NOT in a gate. That is a stated limit, not a silence.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import { createElement } from 'react'
-import { ReactFlow, ReactFlowProvider, type Node, type OnSelectionChangeParams } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, type Node, type ReactFlowInstance } from '@xyflow/react'
 import { NODE_KEYBOARD_SCOPE_CLASS, withNodeKeyboardScope } from '../nodeKeyboardScope'
 
 /**
@@ -69,12 +89,8 @@ interface Harness {
 }
 
 function mountFlow(): Harness & { container: HTMLElement } {
-  let selection: string[] = []
+  let instance: ReactFlowInstance | null = null
   let scopeSeenByNodeHandler: number | null = null
-
-  const onSelectionChange = (p: OnSelectionChangeParams) => {
-    selection = p.nodes.map((n) => n.id)
-  }
 
   const { container } = render(
     createElement(
@@ -84,17 +100,15 @@ function mountFlow(): Harness & { container: HTMLElement } {
         nodes: NODES,
         edges: [],
         nodeTypes: PROBE_TYPES,
-        onSelectionChange,
+        onInit: (i: ReactFlowInstance) => {
+          instance = i
+        },
       }),
     ),
   )
 
-  // Record what the DOM looked like from React Flow's own vantage point: a
-  // listener on the node element, registered AFTER React's, would run too late,
-  // so this one is attached in the capture phase of the node element — the same
-  // element React Flow's handler is bound to, at the same moment in the dispatch.
-  const nodeEl = container.querySelector<HTMLElement>(`.react-flow__node[data-id="${NODE_ID}"]`)
-  nodeEl?.addEventListener(
+  const nodeElement = container.querySelector<HTMLElement>(`.react-flow__node[data-id="${NODE_ID}"]`)
+  nodeElement?.addEventListener(
     'keydown',
     () => {
       scopeSeenByNodeHandler = document.querySelectorAll(`.${NODE_KEYBOARD_SCOPE_CLASS}`).length
@@ -104,7 +118,19 @@ function mountFlow(): Harness & { container: HTMLElement } {
 
   return {
     container,
-    selected: () => selection,
+    /*
+     * ⚠ READ FROM REACT FLOW'S OWN STORE, NOT FROM `onSelectionChange`.
+     *
+     * The first version of this harness read the selection through
+     * `onSelectionChange`, and MUTATION TESTING PROVED THOSE ASSERTIONS
+     * VACUOUS: with the scope disabled entirely, the two "does NOT select"
+     * rows still passed, because that callback had not delivered by the time
+     * they read it. Two opposite mutants — never arm, and never disarm —
+     * produced IDENTICAL red sets, which is the tell that a probe has stopped
+     * discriminating (CLAUDE.md trap 20). `getNodes()` is the authority the
+     * product itself reads.
+     */
+    selected: () => (instance?.getNodes() ?? []).filter((n) => n.selected).map((n) => n.id),
     get scopeSeenByNodeHandler() {
       return scopeSeenByNodeHandler
     },
@@ -123,7 +149,7 @@ function controlEl(container: HTMLElement): HTMLElement {
   return el!
 }
 
-describe('<ReactFlow> mounted for real: a keydown inside a node does not select the node', () => {
+describe('<ReactFlow> mounted for real: the keyboard scope arms exactly when React Flow reads it', () => {
   beforeAll(() => {
     // React Flow measures; jsdom reports 0x0 for everything. Give the flow a
     // size so the node wrapper renders and its handlers bind. Without this the
@@ -135,32 +161,53 @@ describe('<ReactFlow> mounted for real: a keydown inside a node does not select 
 
   it('mounts the node wrapper and the in-node control — the precondition, pinned', () => {
     const { container } = mountFlow()
-    // POSITIVE CONTROL. Every assertion below is of the form "the node did NOT
-    // become selected", and an empty render satisfies all of them perfectly.
+    // POSITIVE CONTROL. Every assertion below is about what happens inside a
+    // node, and an empty render satisfies most of them perfectly.
     expect(nodeEl(container)).toBeTruthy()
     expect(controlEl(container)).toBeTruthy()
-    // And the seam is genuinely in the tree the flow mounted.
     expect(nodeEl(container).querySelector('[aria-label]')).toBe(controlEl(container))
   })
 
-  /*
-   * ⚠ THE POSITIVE DIRECTION IS NOT ASSERTED HERE, AND THAT IS MEASURED, NOT
-   * ASSUMED. Under jsdom, `fireEvent.keyDown` at the `.react-flow__node`
-   * element does NOT produce a selection — WITH OR WITHOUT this fix. Checked
-   * with an unwrapped renderer as the control: node-keydown → `[]`,
-   * control-keydown → `["n1"]`. So an assertion here would fail for a reason
-   * that has nothing to do with the scope, and "fixing" it would mean tuning
-   * the test until it agreed with itself.
-   *
-   * The claim "Enter at the node still selects it, Escape still deselects" is a
-   * browser claim and is made in a browser, by
-   * `e2e/geometry/nodeKeyboardBleed.measure.ts` — where it passes at pristine
-   * AND at this head, so it is a live property and not a vacuous one.
-   *
-   * What jsdom CAN settle about that direction is the MECHANISM, and it is
-   * asserted below: a keydown originating at the node itself never arms the
-   * scope, so React Flow's handler reads exactly what it read before the fix.
-   */
+  it('nothing carries the scope class at rest — the marquee consumer can never see one', () => {
+    mountFlow()
+    /*
+     * ⭐ `Pane.onPointerDownCapture` (`@xyflow/react` esm/index.mjs:1455-1456)
+     * refuses to start a marquee when the pointerdown target has a `.nokey`
+     * ancestor. The first version of this fix wrapped node content in a
+     * PERMANENT `.nokey` and disabled marquee-over-a-node across the canvas.
+     * A pointerdown is not a keydown, so if no `.nokey` element exists at rest,
+     * that consumer cannot fire. This is the assertion that makes that true.
+     */
+    expect(
+      document.querySelectorAll(`.${NODE_KEYBOARD_SCOPE_CLASS}`).length,
+      'a .nokey element exists at rest — React Flow will refuse to start a marquee over a node',
+    ).toBe(0)
+  })
+
+  it.each([['Enter'], [' '], ['Escape'], ['ArrowRight']])(
+    'the scope is ARMED when the node handler reads a %j originating inside the node',
+    (key) => {
+      const harness = mountFlow()
+      const control = controlEl(harness.container)
+      control.focus()
+      expect(document.activeElement, 'the control never took focus').toBe(control)
+
+      fireEvent.keyDown(control, { key })
+
+      /*
+       * These four are exactly the keys React Flow's node handler acts on:
+       * `elementSelectionKeys = ['Enter', ' ', 'Escape']` plus `arrowKeyDiffs`
+       * (which MOVES a selected node). The guard is key-agnostic once armed,
+       * and pinning all four says so — arrow-key node movement from inside a
+       * control is the same defect and is closed by the same mechanism.
+       */
+      expect(
+        harness.scopeSeenByNodeHandler,
+        `the scope was NOT armed when the node handler read "${key}" — nothing is gating it`,
+      ).toBeGreaterThan(0)
+    },
+  )
+
   it('a keydown at the NODE ITSELF never arms the scope — the mechanism that keeps node selection alive', () => {
     const harness = mountFlow()
     fireEvent.keyDown(nodeEl(harness.container), { key: 'Enter' })
@@ -170,54 +217,22 @@ describe('<ReactFlow> mounted for real: a keydown inside a node does not select 
     ).toBe(0)
   })
 
-  it.each([['Enter'], [' ']])(
-    'a keydown of %j at the in-node control does NOT select the node',
-    async (key) => {
-      const { container, selected } = mountFlow()
-      const control = controlEl(container)
-      control.focus()
-      expect(document.activeElement, 'the control never took focus — the press measures the document').toBe(control)
-
-      fireEvent.keyDown(control, { key })
-      // Give React Flow the same chance to select that the passing direction gets.
-      await new Promise((r) => setTimeout(r, 0))
-      expect(selected(), `"${key}" at an in-node control still selected the node behind it`).toEqual([])
-    },
-  )
-
-  it('the scope is armed exactly when the node handler reads it, and at no other time', async () => {
+  it('the scope is DISARMED once the dispatch is over', async () => {
     const harness = mountFlow()
-    const control = controlEl(harness.container)
-
-    // ⭐ THE POINTER CONSUMER CAN NEVER SEE IT. `Pane.onPointerDownCapture`
-    // (`@xyflow/react` esm/index.mjs:1455-1456) bails out of starting a marquee
-    // when the pointerdown target has a `.nokey` ancestor. Wrapping node content
-    // in a permanent `.nokey` disabled marquee-over-a-node across the whole
-    // canvas — the defect this design exists to avoid. At rest there is no such
-    // element anywhere in the document, so that consumer cannot fire.
-    expect(
-      document.querySelectorAll(`.${NODE_KEYBOARD_SCOPE_CLASS}`).length,
-      'a .nokey element exists at rest — React Flow will refuse to start a marquee over a node',
-    ).toBe(0)
-
-    fireEvent.keyDown(control, { key: 'Enter' })
-
-    // ...and DURING the dispatch it was armed, which is the other half. Without
-    // this the test above would also pass on a fix that does nothing at all.
-    expect(
-      harness.scopeSeenByNodeHandler,
-      'the scope was NOT armed when the node handler ran — nothing is gating the keydown',
-    ).toBeGreaterThan(0)
-
+    fireEvent.keyDown(controlEl(harness.container), { key: 'Enter' })
     /*
-     * ⚠ DISARMED AFTER THE DISPATCH — AND THE TIMING HERE IS THE WHOLE DEFECT
-     * OF THE FIRST IMPLEMENTATION. `queueMicrotask` looked right and was wrong:
-     * a microtask checkpoint runs whenever the JS stack empties, which the
-     * browser does BETWEEN listener invocations of one real dispatch, so the
-     * scope armed and disarmed before React Flow's handler ever read it. It
-     * survived a synthetic `dispatchEvent` — which keeps the stack non-empty —
-     * i.e. the instrument agreed with the code's mistake. Caught in a browser,
-     * fixed with a timer task, which cannot run until the dispatch is over.
+     * ⚠ THE TIMING HERE IS THE WHOLE DEFECT OF THE FIRST IMPLEMENTATION.
+     * `queueMicrotask` looked right and was wrong: a microtask checkpoint runs
+     * whenever the JS stack empties, which the browser does BETWEEN listener
+     * invocations of one real dispatch, so the scope armed and disarmed before
+     * React Flow's handler read it. It survived a synthetic `dispatchEvent` —
+     * which keeps the stack non-empty — i.e. the instrument agreed with the
+     * code's mistake.
+     *
+     * ⛔ AND THIS ROW CANNOT CATCH THAT. jsdom's `fireEvent` is a synthetic
+     * dispatch, so a microtask disarm passes here. It is recorded as a KNOWN
+     * GAP rather than left implied: the mutant is run, it survives, and the
+     * browser measure is what closes it.
      */
     await new Promise((r) => setTimeout(r, 0))
     expect(
@@ -228,42 +243,20 @@ describe('<ReactFlow> mounted for real: a keydown inside a node does not select 
 
   it('a pointerdown disarms the scope BEFORE React Flow can read it — the marquee guarantee', () => {
     const harness = mountFlow()
-    const control = controlEl(harness.container)
-
-    // Arm it, and hold the dispatch open by not letting the timer run.
-    fireEvent.keyDown(control, { key: 'Enter' })
+    fireEvent.keyDown(controlEl(harness.container), { key: 'Enter' })
     expect(
       document.querySelectorAll(`.${NODE_KEYBOARD_SCOPE_CLASS}`).length,
-      'the scope is not armed after a keydown — this test would then prove nothing about disarming',
+      'the scope is not armed after a keydown — this row would then prove nothing about disarming',
     ).toBeGreaterThan(0)
 
-    /*
-     * The disarm listener is on `document` in the CAPTURE phase, so it runs
-     * before `Pane.onPointerDownCapture` (the pane is a descendant of
-     * document). React Flow therefore decides whether to start a marquee having
-     * seen no `.nokey` element, whatever a pending timer is doing.
-     *
-     * The behavioural claim — Shift-drag over a node still marquees, and the
-     * node does not move — is a browser claim and is measured in the browser.
-     * This is the mechanism that makes it true.
-     */
+    // The disarm listener is on `document` in the CAPTURE phase, so it runs
+    // before `Pane.onPointerDownCapture` (the pane is a descendant of
+    // document). React Flow therefore decides whether to start a marquee having
+    // seen no `.nokey` element, whatever a pending timer is doing.
     document.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     expect(
       document.querySelectorAll(`.${NODE_KEYBOARD_SCOPE_CLASS}`).length,
       'a pointerdown did not disarm the scope — React Flow would refuse to start a marquee over this node',
     ).toBe(0)
-  })
-
-  it('a key React Flow does not act on is unaffected — the contrast control', async () => {
-    const { container, selected } = mountFlow()
-    const control = controlEl(container)
-    control.focus()
-    fireEvent.keyDown(control, { key: 'q' })
-    await new Promise((r) => setTimeout(r, 0))
-    // Expected answer DIFFERS from the rows above only in cause, not in value —
-    // so this row's job is to show the probe is not reporting "not selected"
-    // because it stopped reading. Paired with the node-selects-on-Enter test,
-    // which reads the SAME selection channel and gets a non-empty answer.
-    expect(selected()).toEqual([])
   })
 })
