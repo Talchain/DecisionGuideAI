@@ -203,44 +203,187 @@ interface Site {
 }
 
 /**
- * ⚠ COMMENTS ARE BLANKED, NOT DELETED — every character becomes a space and
- * newlines survive, so a match offset still maps to its real line number.
- * Blanking is needed at all because `lazyWithStallBound.ts` documents itself as
- * a "Drop-in for `lazy(() => import('...'))`", and a guard that counted prose
+ * ⚠ COMMENTS ARE BLANKED BY A STATE MACHINE, NOT BY TWO REGEXES.
+ *
+ * Blanking is needed because `lazyWithStallBound.ts` documents itself as a
+ * "Drop-in for `lazy(() => import('...'))`", and a guard that counted prose
  * would demand its own docstring be exempted.
  *
- * `(?<!:)` keeps `https://` out of the line-comment rule. Any residual blanking
- * error can only HIDE a site — and the census assertion below is what notices,
- * because it counts on the RAW source while classification runs on the blanked
- * copy. Eat a declaration and the two stop reconciling. (Counting both sides on
- * the blanked copy would have made the control blind to exactly the failure it
- * is here to catch.)
+ * The first version used `/\*[\s\S]*?\*\/` then `(?<!:)\/\/[^\n]*`, and a review
+ * found it CORRUPTS LIVE CODE: a line comment containing `/*` — an ordinary
+ * route glob like `/bff/cee/*` — opened a false block comment and blanked 80
+ * lines of `src/adapters/cee/client.ts`, including a live `fetch` and its error
+ * handling. 12 files carry that shape. A single pass that knows whether it is
+ * inside a comment, a string or a template literal cannot make that mistake.
+ *
+ * Characters are replaced with spaces rather than removed, so match offsets
+ * still map to real line numbers.
  */
 function blankComments(src: string): string {
-  const blank = (m: string) => m.replace(/[^\n]/g, ' ')
-  return src.replace(/\/\*[\s\S]*?\*\//g, blank).replace(/(?<!:)\/\/[^\n]*/g, blank)
+  const out = src.split('')
+  type State = 'code' | 'line' | 'block' | 'single' | 'double' | 'template'
+  let state: State = 'code'
+  let i = 0
+  while (i < src.length) {
+    const c = src[i]
+    const d = src[i + 1]
+    if (state === 'code') {
+      if (c === '/' && d === '/') { state = 'line'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
+      if (c === '/' && d === '*') { state = 'block'; out[i] = ' '; out[i + 1] = ' '; i += 2; continue }
+      if (c === "'") state = 'single'
+      else if (c === '"') state = 'double'
+      else if (c === '`') state = 'template'
+      i += 1
+      continue
+    }
+    if (state === 'line') {
+      if (c === '\n') { state = 'code'; i += 1; continue }
+      out[i] = ' '; i += 1; continue
+    }
+    if (state === 'block') {
+      if (c === '*' && d === '/') { out[i] = ' '; out[i + 1] = ' '; state = 'code'; i += 2; continue }
+      if (c !== '\n') out[i] = ' '
+      i += 1; continue
+    }
+    if (c === '\\') { i += 2; continue }
+    if ((state === 'single' && c === "'") || (state === 'double' && c === '"') || (state === 'template' && c === '`')) {
+      state = 'code'
+    }
+    i += 1
+  }
+  return out.join('')
 }
 
 /**
- * `const X = <anything>(() => import(`, ACROSS LINES.
+ * ⭐ THE SHRINK ALARM, and its scope is stated rather than implied.
  *
- * The callee is captured, never enumerated: `bounded` is then a question about
- * the captured string. That is what removes the silent third class — with an
- * alternation, an unrecognised callee matched nothing and vanished; here it
- * matches and is BARE. `\s*` spans newlines, so a declaration prettier wrapped
- * at `printWidth: 120` is still one site (`poc/AppPoC.tsx:99` is 122 chars, and
- * a single `npx prettier --write` would otherwise have removed a real public
- * route from the census with the guard still green).
+ * A DIFFERENT, dumber matcher: every zero-argument arrow loader — `() =>` or
+ * `async () =>` — with a dynamic import in its body. It is keyed on the ARROW,
+ * where the classifier is keyed on the DECLARATION, so the two can genuinely
+ * disagree. That matters, because the first version of this census matched
+ * `=>\s*import\(`, which was the classifier's OWN assumption: the "independent"
+ * counter shared the classifier's blind spot and could not see the thing it
+ * existed to see. A review proved it — three bare unbounded full-page routes
+ * written as `() => { return import(...) }`, `async () => await import(...)`,
+ * and the canonical named-export idiom
+ * `async () => ({ default: (await import(...)).default })` all survived at 8/8
+ * green. A control must be sensitive to the specific way THIS instrument fails.
+ *
+ * ⚠ SCOPE, precisely: this reconciles only over files that ALREADY HOST at least
+ * one classified route declaration. It is not a census of every dynamic import
+ * in `src/` — there are 71 of those and most are ordinary `await import(...)`
+ * calls inside functions, which no Suspense boundary is involved in. Reconciling
+ * against all of them would need a ~26-file subtraction list, and a list that
+ * large IS the hand-maintained mirror this guard exists to avoid. What this does
+ * catch is the case that matters: a loader going invisible IN A FILE THAT HOSTS
+ * ROUTES.
  */
-const DECL = /const\s+([A-Za-z0-9_$]+)\s*=\s*([A-Za-z0-9_$.]+)\s*\(\s*\(\s*\)\s*=>\s*import\(/g
+const ZERO_ARG_ARROW = /(?:async\s+)?\(\s*\)\s*=>/g
 
-/** Any `=> import(`, for the coarse census below. Runs on RAW source. */
-const ANY_DYNAMIC_IMPORT = /=>\s*import\(/g
+/**
+ * Zero-arg arrow loaders in a route-hosting file that are NOT route declarations.
+ * The COUNT is asserted, because a stale subtraction hides a real site
+ * one-for-one.
+ */
+const NON_DECLARATION_LOADERS: ReadonlyArray<{ file: string; count: number; why: string }> = [
+  {
+    file: 'poc/AppPoC.tsx',
+    count: 1,
+    why:
+      'A `;(async () => { ... })()` IIFE that probes for optional components with guarded ' +
+      'dynamic imports. It declares no component and mounts behind no Suspense boundary, so ' +
+      'there is no silent wait to bound.',
+  },
+]
+
+function countArrowLoaders(code: string): number {
+  let n = 0
+  for (const m of code.matchAll(ZERO_ARG_ARROW)) {
+    if (countDynamicImports(code.slice(m.index ?? 0, (m.index ?? 0) + 300)) > 0) n += 1
+  }
+  return n
+}
+
+const ANY_IMPORT_CALL = /\bimport\s*\(/g
+
+/**
+ * ⚠ TYPESCRIPT'S IMPORT *TYPE* SYNTAX IS NOT A DYNAMIC IMPORT, and it is common
+ * here: `Map<string, import('../lib/types').MappedFragileEdge>` is a type
+ * annotation that never loads anything at runtime. Counting it produced four
+ * false offenders on the first run of the broadened matcher, two of them whole
+ * component bodies that merely CONTAINED such an annotation.
+ *
+ * The discriminator is what follows the closing paren: a type import is
+ * dereferenced to a TYPE NAME (`.MappedFragileEdge`, capitalised) or a generic.
+ * A dynamic import is followed by nothing, or by a lowercase member like
+ * `.then(`. Narrow on purpose — over-excluding here would blind the census.
+ */
+function isTypePositionImport(code: string, importIndex: number): boolean {
+  let depth = 0
+  let k = code.indexOf('(', importIndex)
+  for (; k < code.length; k += 1) {
+    if (code[k] === '(') depth += 1
+    else if (code[k] === ')') { depth -= 1; if (depth === 0) break }
+  }
+  const after = code.slice(k + 1, k + 40)
+  return /^\s*(?:\.\s*[A-Z]|<)/.test(after)
+}
+
+function countDynamicImports(code: string): number {
+  let n = 0
+  for (const m of code.matchAll(ANY_IMPORT_CALL)) {
+    if (!isTypePositionImport(code, m.index ?? 0)) n += 1
+  }
+  return n
+}
+
+/**
+ * `const X = <anything>(...)` where the call contains a dynamic import ANYWHERE
+ * in its argument list.
+ *
+ * Balanced-paren scanning rather than a regex for the body, because the body can
+ * be an arrow expression, a block with a `return`, an `async` arrow with `await`,
+ * or an object-spread of a named export — and enumerating those is how the first
+ * version came to have a silent third class. The callee is CAPTURED, never
+ * enumerated, so an unrecognised one is BARE rather than invisible.
+ */
+interface Declaration {
+  symbol: string
+  callee: string
+  index: number
+}
+
+function findDeclarations(code: string): Declaration[] {
+  const HEAD = /(?:^|[\s;{}(])(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*([A-Za-z0-9_$.]+)\s*\(/g
+  const found: Declaration[] = []
+  for (const m of code.matchAll(HEAD)) {
+    const open = (m.index ?? 0) + m[0].length - 1
+    let depth = 0
+    let k = open
+    for (; k < code.length; k += 1) {
+      if (code[k] === '(') depth += 1
+      else if (code[k] === ')') { depth -= 1; if (depth === 0) break }
+    }
+    if (countDynamicImports(code.slice(open, k + 1)) > 0) {
+      found.push({ symbol: m[1], callee: m[2], index: m.index ?? 0 })
+    }
+  }
+  return found
+}
+
+interface Site {
+  file: string
+  symbol: string
+  line: number
+  bounded: boolean
+}
 
 /**
  * Dynamic imports that are NOT component declarations, named so the census can
  * reconcile exactly. These reach no Suspense boundary, so there is no wait to
- * bound — but they must be DECLARED rather than silently subtracted.
+ * bound — but they must be DECLARED rather than silently subtracted, and the
+ * COUNT is asserted per file, because a stale subtraction hides a real site
+ * one-for-one.
  */
 const NON_DECLARATION_DYNAMIC_IMPORTS: ReadonlyArray<{ file: string; count: number; why: string }> = [
   {
@@ -250,30 +393,25 @@ const NON_DECLARATION_DYNAMIC_IMPORTS: ReadonlyArray<{ file: string; count: numb
       'A record of starter-data loaders (JSON), not component declarations. No Suspense ' +
       'boundary is involved, so there is no silent wait to bound.',
   },
-  {
-    file: 'lib/lazyWithStallBound.ts',
-    count: 1,
-    why: 'Prose: the module documents itself as a drop-in for `lazy(() => import(...))`.',
-  },
-  {
-    file: 'canvas/components/coaching-panel/index.ts',
-    count: 1,
-    why: 'Prose: a comment describing what a later mount PR could do.',
-  },
 ]
 
 const SITES: Site[] = []
-let coarseCount = 0
+const arrowLoadersPerFile = new Map<string, number>()
 for (const full of FILES) {
   const rel = relative(SRC, full).split('\\').join('/')
   const raw = readFileSync(full, 'utf8')
   const code = blankComments(raw)
 
-  for (const _ of raw.matchAll(ANY_DYNAMIC_IMPORT)) coarseCount += 1
+  // Runs on the COMMENT-BLANKED copy, so prose does not inflate it.
+  arrowLoadersPerFile.set(rel, countArrowLoaders(code))
 
-  for (const m of code.matchAll(DECL)) {
-    const line = code.slice(0, m.index ?? 0).split('\n').length
-    SITES.push({ file: rel, symbol: m[1], line, bounded: m[2] === WRAPPER })
+  for (const d of findDeclarations(code)) {
+    SITES.push({
+      file: rel,
+      symbol: d.symbol,
+      line: code.slice(0, d.index).split('\n').length,
+      bounded: d.callee === WRAPPER,
+    })
   }
 }
 
@@ -299,34 +437,43 @@ describe('every full-page lazy boundary bounds its wait', () => {
     expect(SITES.filter((s) => !s.bounded).length, 'no BARE site found').toBeGreaterThan(0)
   })
 
-  it('CENSUS RECONCILES: every `=> import(` is classified or declared', () => {
-    // ⭐ THE SHRINK ALARM, and it is the half the first version lacked.
+  it('CENSUS RECONCILES in every route-hosting file — a loader cannot go invisible', () => {
+    // For each file that hosts at least one classified route declaration, the
+    // number of zero-arg arrow loaders must equal the number of classified sites
+    // plus whatever is NAMED below. Exact, not a floor: a floor admits silent
+    // shrinkage, which is the defect.
     //
-    // The classifier can only prove that what it SAW is right. It cannot notice
-    // what it stopped seeing — and that is precisely how nine sites were absent
-    // while six assertions stayed green. So a deliberately dumb matcher counts
-    // `=> import(` over the RAW corpus, and the total must reconcile exactly.
-    //
-    // Exact, not a floor: a floor admits silent shrinkage, which is the defect.
-    // If this REDs, either a new dynamic import needs classifying (fix the
-    // callee it uses) or it is genuinely not a component declaration — in which
-    // case NAME it in NON_DECLARATION_DYNAMIC_IMPORTS with a reason. Do not
-    // adjust a number to make this pass.
-    const declared = NON_DECLARATION_DYNAMIC_IMPORTS.reduce((n, e) => n + e.count, 0)
-    expect(
-      SITES.length + declared,
-      `census mismatch: ${coarseCount} dynamic import(s) in src/, but ${SITES.length} classified ` +
-        `+ ${declared} declared non-declarations. A site is invisible to the classifier.`,
-    ).toBe(coarseCount)
+    // If this REDs, either a loader stopped being classified (fix the classifier)
+    // or it is genuinely not a declaration — in which case NAME it, with a reason.
+    // Do not adjust a number to make this pass.
+    const declaredFor = (file: string) =>
+      NON_DECLARATION_LOADERS.filter((e) => e.file === file).reduce((n, e) => n + e.count, 0)
+
+    const routeHosting = [...new Set(SITES.map((s) => s.file))].sort()
+    expect(routeHosting.length, 'no route-hosting file found — the sweep is broken').toBeGreaterThan(3)
+
+    const mismatches = routeHosting
+      .map((file) => ({
+        file,
+        loaders: arrowLoadersPerFile.get(file) ?? 0,
+        classified: SITES.filter((s) => s.file === file).length,
+        declared: declaredFor(file),
+      }))
+      .filter((r) => r.loaders !== r.classified + r.declared)
+      .map(
+        (r) =>
+          `${r.file}: ${r.loaders} arrow loader(s) but ${r.classified} classified + ${r.declared} declared`,
+      )
+    expect(mismatches, 'a loader in a route-hosting file is invisible to the classifier').toEqual([])
   })
 
-  it('every declared non-declaration still names a real file', () => {
-    // Bidirectional, exactly as the exemption list is: an entry describing a
-    // file that no longer holds those imports is a stale subtraction, and a
-    // stale subtraction hides a real site one-for-one.
-    const files = new Set(FILES.map((f) => relative(SRC, f).split('\\').join('/')))
-    const stale = NON_DECLARATION_DYNAMIC_IMPORTS.map((e) => e.file).filter((f) => !files.has(f))
-    expect(stale, 'stale non-declaration entr(ies)').toEqual([])
+  it('every declared non-declaration loader still names a real, route-hosting file', () => {
+    // Bidirectional, exactly as the exemption list is: an entry naming a file
+    // that no longer hosts routes is a stale subtraction, and a stale subtraction
+    // hides a real site one-for-one.
+    const routeHosting = new Set(SITES.map((s) => s.file))
+    const stale = NON_DECLARATION_LOADERS.map((e) => e.file).filter((f) => !routeHosting.has(f))
+    expect(stale, 'stale non-declaration loader entr(ies)').toEqual([])
   })
 
   it('the routed lazies this fix was written for are bounded, BY NAME', () => {
