@@ -5,9 +5,10 @@
  * `store.addNode` and says, in terms, that it is NOT a claim about
  * `addNodeWithEdge`. This file closes that hole for the RENDER half. The two
  * are named apart and neither restates the other's scope: the derived manifest
- * of the canvas's creation paths — nine of them, not four — lives on
+ * of the canvas's creation paths — AT LEAST nine, not four — lives on
  * `pendingStructuralAdds` in `canvas/store.ts`, and that block is the only
- * place that states it.
+ * place that states it. The "at least" is load-bearing: a flat count there was
+ * short again within the hour.
  *
  * ⚠ RENDERING AN EXPLICIT UNKNOWN AND BEING DURABLY SAVED ARE DIFFERENT
  * CLAIMS. This file makes the first, and only the first. Nothing here gains a
@@ -81,9 +82,29 @@ vi.mock('../../layoutStore', () => ({
 }))
 // Spread the real flags module so a newly-added flag never goes silently absent
 // and throws at render (CLAUDE.md trap 12 — a `vi.mock` factory REPLACES the
-// module). Badges pinned OFF is the STRICTER posture: it removes the
-// evidence-gap badge from the picture entirely, so any digit this file finds is
-// found without help from a flag that may be off in production.
+// module).
+//
+// ⚠⚠ BADGES ARE PINNED **OFF**, AND THAT POSTURE CUTS OPPOSITE WAYS FOR THE TWO
+// KINDS OF ASSERTION IN THIS FILE. An earlier version of this comment called it
+// "the STRICTER posture" full stop. That is true of only one of them, and it is
+// not the one this file mainly exists for:
+//
+//   · For the POSITIVE CONTROL (`the digit DOES render`) it IS stricter. The
+//     digit is found with no help from a badge, so the control cannot be
+//     passing on a number some other flag put on screen.
+//
+//   · For the ABSENCE assertion (`renders NO NUMBER AT ALL`) it is the WEAKER
+//     posture, not the stronger one — and that assertion is the point of the
+//     file. Pinning badges off REMOVES a potential source of digits, which
+//     makes "no digit" EASIER to satisfy. The strict posture for that direction
+//     would be badges ON.
+//
+// So the scope of the absence claim is: a connected-add factor renders no digit
+// **with the evidence-gap badge suppressed**. It is not a claim about the
+// badge-on posture, and this file must not be read as making one. Stated rather
+// than silently narrowed — a control whose direction of conservatism is assumed
+// rather than derived is how a guard ends up watching one door (CLAUDE.md
+// trap 22b).
 vi.mock('../../../flags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../flags')>()),
   isGraphBadgesEnabled: vi.fn(() => false),

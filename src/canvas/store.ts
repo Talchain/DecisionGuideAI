@@ -779,10 +779,22 @@ interface CanvasState {
    * SHORT MANIFEST IN THE PLACE EVERY LANE READS FOR SCOPE IS THE WORST KIND.**
    * A derived sweep of the whole `src` tree on 2 Sep 2026 (contrast controls in
    * the same run; `createNodeId` call sites plus every `[...nodes` append plus
-   * every `setState` that writes `nodes`) found **NINE live user-gesture
-   * creation paths**, not four. The three below are the ones that matter for
-   * the DURABLE guarantee. The others, recorded so the next lane does not
-   * rediscover them:
+   * every `setState` that writes `nodes`) found **AT LEAST NINE live
+   * user-gesture creation paths**, not four.
+   *
+   * ⚠⚠ "AT LEAST", AND THE HEDGE IS LOAD-BEARING RATHER THAN MODEST. The first
+   * version of this correction said "NINE" flatly, and review found TWO MORE
+   * within the hour — `autoFix.addFactorNode` (`utils/autoFix.ts`,
+   * user-reachable from two click handlers, and it lands the factor in the
+   * SOURCE position) and `useBlueprintInsert` (`hooks/useBlueprintInsert.ts`).
+   * Neither seeds a category, so nothing above is wrong because of them — but a
+   * block correcting a count of four to a flat nine, while the true figure was
+   * at least eleven, would have repeated the exact defect it was written to
+   * fix, one turn later. **Any number here is a floor. Re-derive it; do not
+   * quote it.**
+   *
+   * The three below are the ones that matter for the DURABLE guarantee. The
+   * others, recorded so the next lane does not rediscover them:
    *
    *   · `insertFactorBetweenAction` (`contextMenu/actions.ts`) — the edge
    *     context menu's "Insert factor between". Bare `setState`, captures
@@ -796,11 +808,16 @@ interface CanvasState {
    *     why it was missing here. Any per-node property this file guarantees
    *     must be guaranteed in the declared `ops` too, or it holds only on
    *     whichever branch a runtime capability probe selects.
-   *   · `TemplatesPanel` `handleMerge` / `handleMergeIntoCurrent`, and
-   *     `ReactFlowGraph.insertBlueprint` — template/blueprint installs. These
-   *     spread SERVER-SUPPLIED template data (`prior`, `utility`, and an
-   *     unbounded `...node.data`), so they are a different question from a
-   *     locally fabricated seed and are NOT addressed by the 2 Sep fix.
+   *   · `TemplatesPanel` `handleMerge` / `handleMergeIntoCurrent`,
+   *     `ReactFlowGraph.insertBlueprint`, and `hooks/useBlueprintInsert.ts` —
+   *     template/blueprint installs. These spread SERVER-SUPPLIED template data
+   *     (`prior`, `utility`, and an unbounded `...node.data`), so they are a
+   *     different question from a locally fabricated seed and are NOT addressed
+   *     by the 2 Sep fix.
+   *   · `autoFix.addFactorNode` (`utils/autoFix.ts`) — reached from two click
+   *     handlers, and it lands the new factor in the SOURCE position, so it
+   *     satisfies `outcomesAffected > 0` the way `insertFactorBetween` does.
+   *     It seeds NO category, so the fabricated digit never rendered here.
    *
    * ⚠ DERIVE THIS LIST, DO NOT INHERIT IT. It is a hand-maintained mirror and
    * it has already been wrong once. The sweep that produces it is:
@@ -856,9 +873,14 @@ interface CanvasState {
    *           `addNodeWithEdge` exclusion refuses, and connectivity is what
    *           goal-reachability and sensitivity are computed over.
    *       (b) NODE DATA. Both copy `data: { ...node.data }` — value, prior,
-   *           `observedState`, category. The wire carries FOUR fields
-   *           (`node_id`, `node_kind`, `label`, `base_graph_hash`) and
-   *           `.strict()`s the rest, so a duplicated factor would persist
+   *           `observedState`, category. The wire event carries FIVE keys and
+   *           `.strict()`s the rest: the `kind` union discriminator plus
+   *           `node_id`, `node_kind`, `label`, `base_graph_hash`
+   *           (`v5/buildPayload.ts`). Only four are payload — which is why
+   *           `buildStructuralAddWirePayload` in `mutations/structuralAdd.ts`
+   *           returns four and its own header says so; the discriminator is
+   *           added at the `buildPayload` seam. Either way there is nowhere to
+   *           put a value, so a duplicated factor would persist
    *           label-and-kind only, with its value dropped.
    *       (c) COST. There is NO batched carrier: `SystemEventTurnPayload.event`
    *           is one event, `StructuralAddEvent` holds no array, and

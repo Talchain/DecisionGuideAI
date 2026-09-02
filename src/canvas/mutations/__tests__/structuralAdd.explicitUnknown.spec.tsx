@@ -38,7 +38,7 @@
  * `GESTURE_CREATED_NODE_DATA` below. `duplicateSelected` and `pasteClipboard`
  * are pinned by neither. See the block on `pendingStructuralAdds` in
  * `canvas/store.ts` for the derived manifest of the canvas's creation paths —
- * nine of them, not four; it is the only place that states it.
+ * AT LEAST nine, not four; it is the only place that states it.
  *
  * ⭐ THE LAYERS ARE TESTED SEPARATELY BECAUSE THEY CAN FAIL SEPARATELY:
  *   1. what `store.addNode` CREATES        (nothing to seed)
