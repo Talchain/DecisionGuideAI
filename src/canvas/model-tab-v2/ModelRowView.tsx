@@ -165,14 +165,28 @@ export function ModelRowView({
       <button
         type="button"
         data-testid={`model-row-v2-${row.id}-label`}
-        /* ⚠⚠ `min-w-0 flex-1` IS WHAT MAKES `truncate` WORK HERE, and its
+        /* ⚠⚠ `flex-1` IS WHAT MAKES THE LABEL ABSORB THE ROW'S DEFICIT, and its
            absence is why every short value to the right of this row wrapped.
-           A flex item's default `min-width:auto` refuses to shrink below its
-           content, so `truncate` could not act — flexbox took the space out of
-           the ATOMS instead, squeezing "35 %" into 32px and breaking a number
-           from its own unit. The label is the one thing in this row that can
-           lose characters without losing meaning, so it is the one thing that
-           should shrink. */
+
+           ⚠ CORRECTED, BECAUSE THE MECHANISM I FIRST WROTE HERE WAS FALSE. It
+           said `min-width:auto` "refuses to shrink below its content, so
+           `truncate` could not act". A flex item's automatic minimum size
+           resolves to ZERO whenever its main-axis `overflow` is not `visible`
+           — and this button already carried `truncate`, which sets
+           `overflow:hidden`. The label could always shrink; that was never the
+           blocker, and measurement confirms it (a `truncate` item with and
+           without `min-w-0` lands at the identical width).
+
+           What actually changed the outcome is two things, neither of them
+           `min-w-0`. `flex-1` is `flex: 1 1 0%`, giving the label the only
+           zero flex-basis in the row, so free space AND shortfall land on it
+           while every sibling sits at content size — before, the deficit was
+           shared in proportion to base size and the value cells took their
+           share by wrapping "35 %" off its own unit. And `whitespace-nowrap`
+           on those cells removes the wrap escape hatch entirely.
+
+           The label is the one thing here that can lose characters without
+           losing meaning, so it is the one thing that should shrink. */
         /* ⚠⚠ `min-w-[6rem]`, NOT `min-w-0`, AND THE FLOOR IS THE SECOND HALF OF
            THE FIX. `min-w-0` let `truncate` work — and then let it work all the
            way down: measured after the first pass, 24 labels were crushed and
@@ -294,10 +308,30 @@ export function ModelRowView({
         </span>
       )}
 
+      {/* ⚠⚠ LAST IN THE YIELD LADDER, AND IT HAD TO BE GIVEN ONE. Independent
+          review measured this span escaping the row by 85px at the 280px dock
+          floor — WORSE than before the fix, because the label's new `min-w`
+          floor stopped it absorbing and this was the only default-shrink item
+          left to take the deficit. `row.id` is `node.id`: a single unbreakable
+          `font-mono` token like `fac_platform_migration`, so without
+          `overflow:hidden` its automatic minimum is the whole token and it can
+          neither shrink nor wrap.
+
+          The ladder, most protected to least: the node's NAME (floored at
+          6rem) → the primary VALUE (never shrinks) → the estimate HINT → the
+          provenance pill → THIS. An Advanced-tier debug token is the right
+          thing to lose: the DOM text stays whole, so selection and copy still
+          yield the full id, and `title` names it. A row falling out of the
+          panel is not recoverable, which is this file's own stated rule.
+
+          ⚠ PRICED, NOT HIDDEN: `truncate` is `overflow:hidden` + ellipsis, so
+          at 280 in Advanced this span now reports as a signalled ellipsis in a
+          clipping scan. That is a disclosed loss, not a silent one. */}
       {tier === 'advanced' && (
         <span
           data-testid={`model-row-v2-${row.id}-id`}
-          className={`${typography.code} text-text-light`}
+          title={row.id}
+          className={`${typography.code} text-text-light min-w-0 truncate`}
         >
           {row.id}
         </span>
@@ -374,12 +408,32 @@ function ValueCell({
           </span>
         )
       case 'proposed':
+        /* ⚠⚠ THE WIDEST CELL IN THIS COMPONENT, AND THE ONE LIVE PATH THE
+           FIRST PASS MISSED. It carries `from → to`, a caption, and two
+           bordered chips in a 280px dock; measured, it began escaping the row
+           by 5px once the label stopped absorbing. Wrapping is allowed HERE
+           and nowhere else in the row, because there is no single atom that
+           can afford to go: the arrow pair must stay whole (a value broken
+           from its arrow is the defect this PR exists to fix), and a truncated
+           Confirm is a fake affordance. So the cell is permitted a second line
+           rather than pushing the row out of the panel.
+
+           ⚠ The row is therefore TALLER in `proposed`. That is deliberate and
+           transient — one row at a time can hold a commit state
+           (`commitByRowId` is a one-entry map) — and it is why the uniform
+           34px claim this PR makes is scoped to the IDLE row. Do not "fix"
+           this back to nowrap. */
         return (
-          <span data-testid={testid} className={typography.tabular}>
-            <span data-testid={`${testid}-from`}>{commit.from}</span>
-            {' → '}
-            <span data-testid={`${testid}-to`}>{commit.to}</span>
-            <span className={`${typography.caption} text-text-light ml-2`}>
+          <span
+            data-testid={testid}
+            className={`${typography.tabular} min-w-0 flex flex-wrap items-baseline`}
+          >
+            <span className="shrink-0 whitespace-nowrap">
+              <span data-testid={`${testid}-from`}>{commit.from}</span>
+              {' → '}
+              <span data-testid={`${testid}-to`}>{commit.to}</span>
+            </span>
+            <span className={`${typography.caption} text-text-light ml-2 min-w-0 truncate`}>
               Nothing has changed yet
             </span>
             {/*
@@ -390,7 +444,7 @@ function ValueCell({
             */}
             {onConfirmEdit && onDiscardEdit && (
               <span
-                className="ml-2 inline-flex gap-1"
+                className="ml-2 inline-flex gap-1 shrink-0"
                 onClick={e => e.stopPropagation()}
               >
                 <button
@@ -533,13 +587,20 @@ function ValueCell({
       data-testid={testid}
       title="Change this value"
       aria-label={`Change ${row.label}`}
-      /* ⚠⚠ THE SAME RULE AS THE READ-ONLY CELL ABOVE, AND IT HAS TO BE STATED
-         TWICE BECAUSE THIS COMPONENT HAS TWO RETURN PATHS. I patched the
-         `<span>` first, re-measured, and the tall rows were still 42px — every
-         one of them was EDITABLE, so they came out of this `<button>`, which
-         was still `display:block` with `white-space:normal` and wrapped its
-         estimate hint onto a second line. A fix applied to one of two paths is
-         a fix that half the rows never receive. */
+      /* ⚠⚠ THE SAME RULE AS THE READ-ONLY CELL ABOVE, STATED TWICE BECAUSE THE
+         RESTING ROW HAS TWO DIFFERENT ELEMENTS — a `<span>` when the value is
+         not editable here, this `<button>` when it is. I patched the `<span>`
+         first, re-measured, and the tall rows were still 42px: every one of
+         them was EDITABLE, so they came out of this `<button>`, which wrapped
+         its estimate hint onto a second line. A fix applied to one of the two
+         idle elements is a fix that half the rows never receive.
+
+         ⚠ CORRECTED: an earlier version of this comment said the COMPONENT has
+         "two return paths". It has EIGHT — editing-with-input, editing
+         fallback, proposed, inflight, applied, refused, and these two idle
+         arms. The rule is about the two IDLE elements, not about the function.
+         Getting that number wrong is what let the `proposed` cell ship
+         unfixed, and it was found by review rather than by me. */
       className={`${typography.tabular} text-left underline decoration-dotted flex items-baseline whitespace-nowrap ${
         estimate === null ? 'shrink-0' : 'min-w-0'
       }`}
