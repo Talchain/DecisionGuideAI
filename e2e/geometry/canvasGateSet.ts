@@ -99,7 +99,15 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'behind it and threw the dock to the Inspector. This arm drives real keys at one control ' +
       'per render path and reads the selected set after each, with a `q` CONTRAST CONTROL whose ' +
       'expected answer DIFFERS — so a probe that reported "selected" for any keypress at all ' +
-      'would fail here (CLAUDE.md trap 13e).',
+      'would fail here (CLAUDE.md trap 13e). ' +
+      '⭐ AND IT CARRIES A SECOND, INDEPENDENT DETECTOR that is easy to mistake for a ' +
+      'self-check on the probe: the per-render-path `gated` assertion. Demonstrated by a ' +
+      'reviewer breaking the keyboard scope FOR THE `goal` PATH ONLY — the run reported ' +
+      '0 bleeding and a clean contrast control, and the gated assertion FIRED ALONE. The goal ' +
+      'chip is self-selecting, so `bled` (which requires !mouseSelects && !focusSelects) is ' +
+      'STRUCTURALLY BLIND to it. That makes the gated assertion the SOLE detector for a real ' +
+      'product regression class — a fix that reaches four render paths and misses one that ' +
+      'selects itself anyway — and not merely a guard on this arm\'s own instrument.',
   },
   {
     file: 'nodeKeyboardBleed.measure.ts',

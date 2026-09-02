@@ -76,10 +76,16 @@
  * rather than the anecdote. The question asked of every arm was: DOES ANYTHING
  * READ STATE AFTER A PROBE THAT CAN ITSELF MUTATE THAT STATE?
  *
- *   isGated (:628)            THE DEFECT. Fixed: it now runs AFTER `pressAt`,
- *                             reports `found` and `armed` separately, and only
+ * ⚠ SYMBOLS, NOT LINE NUMBERS. The first version of this sweep cited `:479`,
+ * `:628` and three others, and EVERY ONE OF THEM WAS ALREADY STALE WHEN IT
+ * SHIPPED — the same commit that wrote them moved the code. In a file whose own
+ * doctrine is that comments must not go stale, that is the defect it warns
+ * about, inside the paragraph warning about it. Grep the symbol.
+ *
+ *   isGated                   THE DEFECT. Fixed: it runs AFTER `pressAt`,
+ *                             reports `found` and `armed` SEPARATELY, and only
  *                             the non-activating contrast key writes a verdict.
- *   censusFocusables (:249)   SAME SHAPE, currently inert: it dispatches the
+ *   censusFocusables          SAME SHAPE, currently inert: it dispatches the
  *                             identical bubbling Enter, but returns `armed`
  *                             alone and never reads selection — and it belongs
  *                             to the census arm, which is not gated. Left as
@@ -87,23 +93,60 @@
  *                             because it is one `selectedNodeIds` call away
  *                             from being the same bug.
  *   tryFocus / focusOnce      MUTATES (hover + `.focus()`, and `focusin`
- *     (:479, :504)            BUBBLES). Safe for the right reason, which is
- *                             worth stating: what follows it is the per-key
- *                             ASSERTED BASELINE `toEqual([])`, not a reading —
- *                             so a selection it caused REDs instead of being
- *                             absorbed into a number.
- *   pointer arm (:1142)       The control drag is separated from the
+ *                             BUBBLES). ⭐⭐ AND THE LOAD-BEARING CALL SITE IS
+ *                             THE ONE INSIDE `pressAt`, NOT THE LOOP'S — read
+ *                             the next paragraph, because the obvious answer
+ *                             about this one is WRONG.
+ *   pointer arm               The control drag is separated from the
  *                             measurement by `resetSelection`, and both
  *                             readings are of the gesture under test.
  *   opposite direction        Explicit Shift/pointer hygiene, then a full
- *     (:1241)                 `loadCanvas`, then an asserted baseline, then its
+ *                             `loadCanvas`, then an asserted baseline, then its
  *                             own measurement. No probe between.
  *
- * ⚠ THE RULE THIS LEAVES: a probe may run before a reading only if it cannot
- * mutate what is read, or if an ASSERTION — never another reading — sits
- * between them. When in doubt, probe AFTER the measurement.
+ * ⭐⭐ THE `tryFocus` CASE IN FULL, because an earlier version of this sweep got
+ * it wrong and a rule with a false worked example licenses exactly what it bans.
  *
- * Assertions bind by IDENTITY — the node's store id and the control's own
+ * That version said `tryFocus` is safe because "the per-key ASSERTED BASELINE
+ * `toEqual([])` follows it". That describes the LOOP's call site. There are
+ * three, and the load-bearing one is INSIDE `pressAt`, where the order is:
+ *
+ *     tryFocus(...)                      <- MUTATES (hover + focus, focusin bubbles)
+ *     expect(probe.ok, ...).toBe(true)   <- asserts FOCUS SUCCEEDED
+ *     page.keyboard.press(key)
+ *     return selectedNodeIds(page)       <- READS SELECTION
+ *
+ * An assertion does sit between the mutation and the reading — AND IT PINS A
+ * DIFFERENT STATE. `probe.ok` says the control took focus; it says NOTHING
+ * about whether focusing it selected the node. So the assertion is real, the
+ * ordering looks protected, and the reading is unguarded.
+ *
+ * ⭐ WHAT ACTUALLY PROTECTS THAT SITE IS NOT AN ASSERTION AT ALL — it is the
+ * FOCUS ATTRIBUTION ROW. The drive loop measures focus-with-no-key as its own
+ * row, and `bled` requires `!focusSelects`, so a selection caused by focusing
+ * is attributed to focus and subtracted rather than counted as a key bleed.
+ * A DESIGN feature of the measurement, not a guard in the code path — which is
+ * why reading the code path alone gave the wrong answer.
+ *
+ * ⚠⚠ THE RULE THIS LEAVES — all three clauses, because the first version had
+ * only the first and it would have licensed the next instance:
+ *
+ *   1. A probe may precede a reading only if it cannot mutate what is read, or
+ *      if something between them PINS THE SAME STATE THE READING MEASURES.
+ *      "An assertion sits between them" is NOT enough: `pressAt` has one, and
+ *      it pins focus success while the reading measures selection. An assertion
+ *      about a different state is a guard agreeing with itself (trap 13b).
+ *   2. A probe that runs AFTER a mutation must distinguish "I COULD NOT
+ *      MEASURE" from "I MEASURED A DEFECT". This is the clause the reorder
+ *      itself discovered: moving `isGated` after the press exposed it to a
+ *      target its own key had removed from the DOM, and the old boolean
+ *      returned the same `false` for "not gated" and "not found" — a FALSE
+ *      DEFECT. `{ found, armed }` is that clause implemented. Reorder without
+ *      it and you trade a masked assertion for a fabricable one.
+ *   3. When neither can be arranged, probe AFTER the measurement and let the
+ *      measurement own the state.
+ *
+  * Assertions bind by IDENTITY — the node's store id and the control's own
  * accessible name — never by "some node is selected", which another node could
  * satisfy (trap 19).
  */
@@ -1005,28 +1048,41 @@ test.describe('in-node keyboard bleed', () => {
            * press bled" from "my probe bled", which is precisely the attribution
            * question its FOCUS/CLICK rows exist to answer.
            *
-           * ⚠ AND THE HAZARD THE REORDER CREATES, closed rather than reasoned
-           * away: an activation key can take its own target OUT OF THE DOM (see
-           * the "ONE FRESH SEED PER KEY" note above), and a probe that cannot
-           * find its element used to return the same `false` as a genuinely
-           * ungated one — so measuring after a press could have manufactured a
-           * FALSE `gated=N`. Two changes close it, and neither relies on this
-           * comment staying true:
-           *   - `isGated` now reports `found` and `armed` SEPARATELY, so a
-           *     vanished target can never be read as a defect;
-           *   - only the CONTRAST key 'q' writes the recorded verdict, and 'q'
-           *     is not an activation key, so its target must survive its own
-           *     press — asserted in-test, immediately below, rather than
-           *     assumed.
+           * ⚠⚠ AND THE HAZARD THE REORDER CREATES — closed, not reasoned away,
+           * because taking "just move the two lines" literally would trade a
+           * MASKED assertion for a FABRICABLE one. An activation key can take
+           * its own target OUT OF THE DOM (see the "ONE FRESH SEED PER KEY"
+           * note above), and a probe that cannot find its element used to
+           * return the same `false` as a genuinely ungated one — so measuring
+           * after a press could have manufactured a FALSE `gated=N`, on a real
+           * product with no defect in it. Two changes close it, and neither
+           * relies on this comment staying true:
+           *   - `isGated` reports `found` and `armed` SEPARATELY, so "I could
+           *     not measure" can never be read as "I measured a defect";
+           *   - it is CALLED ONLY ON THE CONTRAST KEY 'q', which is not an
+           *     activation key, so its target must survive its own press —
+           *     asserted in-test immediately below rather than assumed.
            */
           read[key] = (await pressAt(page, c.nodeId, c.name, key)).selected
-          const probe = await isGated(page, c.nodeId, c.name)
-          // A vanished target is a HARD ERROR on the contrast key, never a
-          // reading: 'q' does not activate anything, so its target must survive
-          // its own press. On ' ' / 'Enter' a vanished target is EXPECTED (the
-          // press activated the control), and the value is overwritten by the
-          // 'q' pass that follows — so only 'q' may write the recorded verdict.
+          /*
+           * ⭐ PROBED ONCE, ON THE CONTRAST KEY ONLY — not on all three.
+           *
+           * It used to fire on ' ', 'Enter' and 'q' and discard the first two
+           * results, which is TEN NEEDLESS MUTATING DISPATCHES PER RUN. In a
+           * file whose central finding is that a probe must not mutate what it
+           * measures, leaving avoidable dispatches in is the wrong note to end
+           * on: every one of them is a synthetic bubbling Enter into a live
+           * canvas, i.e. more of exactly the thing that caused the defect.
+           *
+           * 'q' is the right and only place for it: it is not an activation
+           * key, so its target must survive its own press — which makes a
+           * vanished target here a HARD ERROR rather than a reading. On ' ' /
+           * 'Enter' a vanished target is EXPECTED (the press activated the
+           * control), so those passes could never have produced a trustworthy
+           * verdict anyway.
+           */
           if (key === 'q') {
+            const probe = await isGated(page, c.nodeId, c.name)
             expect(
               probe.found,
               `the gated probe could not find "${c.name}" after the contrast key — a false ` +
