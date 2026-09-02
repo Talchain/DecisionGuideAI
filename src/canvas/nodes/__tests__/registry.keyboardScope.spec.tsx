@@ -23,15 +23,27 @@
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { dirname, join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { createElement, type ComponentType } from 'react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { nodeTypes, rawNodeTypes } from '../registry'
-import { withNodeKeyboardScope, NODE_KEYBOARD_SCOPE_CLASS } from '../nodeKeyboardScope'
+import {
+  withNodeKeyboardScope,
+  NODE_KEYBOARD_SCOPE_CLASS,
+  NODE_KEYBOARD_SCOPE_ATTR,
+} from '../nodeKeyboardScope'
 
-/** React Flow's own opt-out class, spelled once here so a rename REDs loudly. */
-const SCOPE_SELECTOR = `.${NODE_KEYBOARD_SCOPE_CLASS}`
+/**
+ * ⚠ THE SCOPE IS FOUND BY ITS INERT ATTRIBUTE, NEVER BY `.nokey`. The class is
+ * absent except during a key dispatch, and that absence is the fix: a permanent
+ * `.nokey` disables React Flow's marquee-over-a-node
+ * (`Pane.onPointerDownCapture`, `@xyflow/react` esm/index.mjs:1455-1456). A
+ * test that bound to the class would only pass while the pointer consumer was
+ * broken.
+ */
+const SCOPE_SELECTOR = `[${NODE_KEYBOARD_SCOPE_ATTR}]`
 
 describe('node registry: keyboard scope coverage', () => {
   it('exports one wrapped renderer for every raw renderer, in both directions', () => {
@@ -116,36 +128,68 @@ describe('node registry: keyboard scope coverage', () => {
    * the one nobody would think to check, and the one that would take the whole
    * fix dark with a green suite.
    */
-  it("the scope class is the one React Flow's own isInputDOMNode looks for", () => {
+  it("the scope class is the one React Flow's own isInputDOMNode looks for, and BOTH consumers are accounted for", () => {
     // ⚠ RESOLVED THROUGH `@xyflow/react`, NOT FROM HERE. `@xyflow/system` is a
     // transitive dependency and pnpm does not hoist it, so resolving it from
     // this file throws MODULE_NOT_FOUND. Seeding a second `createRequire` at
     // React Flow's own entry resolves it the way React Flow itself does.
     const fromHere = createRequire(import.meta.url)
-    const fromReactFlow = createRequire(fromHere.resolve('@xyflow/react'))
-    const source = readFileSync(fromReactFlow.resolve('@xyflow/system'), 'utf8')
+    const reactEntry = fromHere.resolve('@xyflow/react')
+    const fromReactFlow = createRequire(reactEntry)
+    const systemSource = readFileSync(fromReactFlow.resolve('@xyflow/system'), 'utf8')
+    // ⚠ BUILD CAVEAT, STATED: Node's CJS resolution lands on each package's
+    // `require` entry (UMD for @xyflow/system), while Vite bundles the ESM
+    // build. They are the same source today — the assertions below hold on
+    // both, and the quote-agnostic regex is why. If the builds ever diverge in
+    // this respect, this guard is reading the wrong one and would need pointing
+    // at `dist/esm` explicitly.
+    // Node's `require` entry for @xyflow/react is the UMD build; the ESM
+    // bundle Vite actually ships sits alongside it under `dist/esm`.
+    const reactSource = readFileSync(join(dirname(dirname(reactEntry)), 'esm', 'index.mjs'), 'utf8')
 
-    // POSITIVE CONTROL: prove the probe is reading the right file before
-    // believing anything it says about the contents (trap 13). Without it, a
-    // resolution that landed on the wrong module would fail this test for the
-    // wrong reason — or, if the assertion were an absence, pass for one.
-    // (Both halves: the CJS entry is minified, so `function isInputDOMNode` is
-    // not the spelling there. `composedPath` proves this is the implementation
-    // and not a type stub or a re-export shim.)
-    expect(source, 'the resolved @xyflow/system does not mention isInputDOMNode — wrong file').toContain(
+    // POSITIVE CONTROLS: prove each probe is reading the right implementation
+    // before believing anything it says (trap 13). Without these, a resolution
+    // that landed on a stub would fail — or, for a count assertion, pass — for
+    // entirely the wrong reason.
+    expect(systemSource, 'the resolved @xyflow/system does not mention isInputDOMNode — wrong file').toContain(
       'isInputDOMNode',
     )
-    expect(source, 'the resolved @xyflow/system has no implementation body — a stub, not the module').toContain(
+    expect(systemSource, 'the resolved @xyflow/system has no implementation body — a stub, not the module').toContain(
       'composedPath',
     )
+    expect(reactSource, 'the resolved @xyflow/react is not the ESM bundle — wrong file').toContain(
+      'onPointerDownCapture',
+    )
 
-    // Quote style differs between the ESM and UMD builds, so match the call
-    // rather than one spelling of it.
-    const optOut = new RegExp(String.raw`closest\(\s*['"\`]\.${NODE_KEYBOARD_SCOPE_CLASS}['"\`]\s*\)`)
+    const optOut = new RegExp(String.raw`closest\(\s*['"\`]\.${NODE_KEYBOARD_SCOPE_CLASS}['"\`]\s*\)`, 'g')
+
+    /*
+     * ⭐⭐ THE COMPLETE CONSUMER MANIFEST, DERIVED — and the reason this test
+     * counts rather than merely checking presence.
+     *
+     * The first version of this fix put a PERMANENT `.nokey` on a wrapper around
+     * all node content, having enumerated ONE consumer. There are two, in two
+     * different packages:
+     *
+     *   1. `@xyflow/system` `isInputDOMNode` — the keyboard guard this fix arms.
+     *   2. `@xyflow/react` `Pane.onPointerDownCapture` — which REFUSES TO START
+     *      A MARQUEE when the pointerdown target has a `.nokey` ancestor.
+     *
+     * Opting the canvas out of (2) traded a keyboard defect for a worse pointer
+     * one: Shift-drag over a node stopped selecting a region. The whole design —
+     * arm on keydown, disarm before any pointerdown — exists to satisfy (1)
+     * while never being visible to (2).
+     *
+     * So a THIRD consumer appearing in an upgrade is not a curiosity, it is a
+     * change to this fix's premise. This assertion REDs when the count moves in
+     * either direction, which is the only way that premise stays checked.
+     */
+    const systemHits = systemSource.match(optOut) ?? []
+    const reactHits = reactSource.match(optOut) ?? []
     expect(
-      optOut.test(source),
-      `@xyflow/system no longer opts out on ".${NODE_KEYBOARD_SCOPE_CLASS}" — the node keyboard scope is disarmed and every other assertion in this file would still pass`,
-    ).toBe(true)
+      { system: systemHits.length, react: reactHits.length },
+      `the set of .nokey consumers in the shipped library has changed — re-derive the manifest in nodeKeyboardScope.tsx before trusting this fix`,
+    ).toEqual({ system: 1, react: 1 })
   })
 
   it('the scope generates no box, so it cannot move the graph', () => {
@@ -158,6 +202,13 @@ describe('node registry: keyboard scope coverage', () => {
     // box could move every node on the canvas. `display: contents` is the whole
     // reason this wrapper is safe to add.
     expect(scope.style.display).toBe('contents')
+
+    // AT REST THE CLASS IS ABSENT — the property the pointer consumer depends
+    // on, asserted at unit level as well as in the mounted spec.
+    expect(
+      scope.classList.contains(NODE_KEYBOARD_SCOPE_CLASS),
+      'the scope carries .nokey at rest — React Flow will refuse to start a marquee over a node',
+    ).toBe(false)
   })
 })
 

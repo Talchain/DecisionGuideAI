@@ -151,8 +151,25 @@ interface FocusableCensusRow {
   nodeVisibility: string
   /** Would React Flow's `isInputDOMNode` short-circuit on this target? */
   isInputLike: boolean
-  /** Does React Flow's own `.nokey` opt-out apply to this target? */
-  hasNokeyAncestor: boolean
+  /**
+   * ⭐ THE PROPERTY THAT ACTUALLY DECIDES THE DEFECT, measured by DOING IT: an
+   * untrusted `keydown` is dispatched at this element, and a listener sitting
+   * where React Flow's own node handler sits records whether
+   * `target.closest('.nokey')` was non-null AT THAT MOMENT.
+   *
+   * ⚠ IT IS NOT `closest('.nokey')` AT REST, AND THAT DISTINCTION IS THE FIX.
+   * The scope arms itself in the capture phase of a key dispatch and disarms in
+   * a microtask, precisely so that React Flow's OTHER `.nokey` consumer —
+   * `Pane.onPointerDownCapture`, which refuses to start a marquee over a
+   * `.nokey` element — never sees one. A census that read the class at rest
+   * would score the correct fix as ungated and the marquee-breaking one as
+   * perfect.
+   *
+   * An untrusted `KeyboardEvent` is safe to fire at every one of the 390: the
+   * browser synthesises a `click` from Enter/Space only for TRUSTED events, so
+   * nothing is activated and the page is not mutated.
+   */
+  armedOnKeydown: boolean
 }
 
 /** The selector React Flow's own focus model implies: anything the browser can focus. */
@@ -196,7 +213,21 @@ async function censusFocusables(page: Page): Promise<FocusableCensusRow[]> {
           nodeVisibility: getComputedStyle(node).visibility,
           isInputLike:
             ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName) || el.hasAttribute('contenteditable'),
-          hasNokeyAncestor: !!el.closest('.nokey'),
+          armedOnKeydown: (() => {
+            let armed = false
+            const probe = (ev: Event) => {
+              armed = !!(ev.target as Element | null)?.closest('.nokey')
+            }
+            // The node element is where React Flow's own handler is bound, so a
+            // native listener here reads what that handler reads. React 18
+            // dispatches its whole synthetic capture phase from the root
+            // container, so the scope has already armed by the time the event
+            // reaches this element.
+            node.addEventListener('keydown', probe, true)
+            el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+            node.removeEventListener('keydown', probe, true)
+            return armed
+          })(),
         })
       }
     }
@@ -392,7 +423,15 @@ async function activateWithoutKey(page: Page, nodeId: string, controlName: strin
   return selectedNodeIds(page)
 }
 
-/** Does React Flow's own opt-out apply to this control, at the moment of the press? */
+/**
+ * Does React Flow's own opt-out apply to this control AT THE MOMENT OF A PRESS?
+ *
+ * ⚠ MEASURED BY DISPATCHING, NOT BY READING THE CLASS AT REST. The scope arms
+ * itself only for the duration of a key dispatch — that is what keeps the
+ * pointer consumer (`Pane.onPointerDownCapture`) from ever seeing a `.nokey`
+ * element and refusing to start a marquee. Reading the class at rest would
+ * report the correct fix as ungated.
+ */
 async function isGated(page: Page, nodeId: string, controlName: string): Promise<boolean> {
   return page.evaluate(
     ({ nodeId: nid, controlName: cn, selector }) => {
@@ -402,8 +441,15 @@ async function isGated(page: Page, nodeId: string, controlName: string): Promise
           c.getAttribute('aria-label') ?? (c.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80)
         return name === cn
       })
-      if (!el) return false
-      return !!el.closest('.nokey')
+      if (!el || !node) return false
+      let armed = false
+      const probe = (ev: Event) => {
+        armed = !!(ev.target as Element | null)?.closest('.nokey')
+      }
+      node.addEventListener('keydown', probe, true)
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+      node.removeEventListener('keydown', probe, true)
+      return armed
     },
     { nodeId, controlName, selector: FOCUSABLE_SELECTOR },
   )
@@ -469,7 +515,7 @@ test.describe('in-node keyboard bleed', () => {
       total += rows.length
       lines.push(`\n── ${id}: ${rows.length} focusable elements inside .react-flow__node`)
       for (const r of rows) {
-        const gated = r.isInputLike || r.hasNokeyAncestor
+        const gated = r.isInputLike || r.armedOnKeydown
         if (!gated) ungated++
         lines.push(
           `   ${gated ? 'GATED  ' : 'UNGATED'} ${r.nodeType}/${r.nodeId} ${r.tag}` +
@@ -489,10 +535,11 @@ test.describe('in-node keyboard bleed', () => {
     /*
      * ⭐ THE COMPLETENESS CLAIM, AND THE ONLY PLACE IT LIVES.
      *
-     * Every focusable element inside every node, across all five starters, must
-     * be one React Flow's `isInputDOMNode` short-circuits on: an input-like
-     * element, or one with a `.nokey` ancestor. Measured at pristine: 390 rows,
-     * 390 ungated. With the registry-level scope: 390 rows, 0 ungated.
+     * For every focusable element inside every node, across all five starters, a
+     * keydown must be one React Flow's `isInputDOMNode` short-circuits on: the
+     * element is input-like, or the scope is ARMED at the moment the node's
+     * handler reads it. Measured at pristine: 390 rows, 390 ungated. With the
+     * registry-level scope: 390 rows, 0 ungated.
      *
      * It is derived from the DOM rather than from a list of components, so a
      * node type or an in-node control added tomorrow is covered by this
@@ -671,6 +718,136 @@ test.describe('in-node keyboard bleed', () => {
    * direction that only executes when the other direction already passes is not
    * really being measured.
    */
+  /*
+   * ── THE POINTER ARM ────────────────────────────────────────────────────────
+   *
+   * `.nokey` is a SHARED VOCABULARY with two consumers in the shipped library,
+   * and the first version of this fix enumerated one. Besides `isInputDOMNode`,
+   * `@xyflow/react@12.10.2` reads it in `Pane.onPointerDownCapture`
+   * (`dist/esm/index.mjs:1455-1456`) — the handler that exists SPECIFICALLY so a
+   * marquee can start over a node:
+   *
+   *     const isNoKeyEvent = !eventTargetIsContainer && !!event.target.closest('.nokey')
+   *     if (isNoKeyEvent || !isSelecting || !isSelectionActive || ...) return
+   *
+   * Wrapping node content in a permanent `.nokey` opted the whole canvas out of
+   * it: Shift-drag over a node stopped starting a marquee and DRAGGED THE NODE
+   * instead — a worse defect than the one being fixed. This arm is what would
+   * have caught it, and it runs in BOTH directions:
+   *
+   *   · a marquee must still start when the drag begins over a node, AND
+   *   · the node must not move while it does.
+   *
+   * A drag that moves nothing satisfies "the node did not move" perfectly, so
+   * neither assertion is worth anything without the other.
+   */
+  test('pointer: Shift-drag over a node still starts a marquee, and does not move the node', async ({ page }) => {
+    test.setTimeout(900_000)
+    await loadCanvas(page, 'vendor-selection')
+
+    /** The rect React Flow gives the node, read from the store's own position. */
+    const nodeGeom = async (id: string) =>
+      page.evaluate((nid) => {
+        const el = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nid}"]`)
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), transform: el.style.transform }
+      }, id)
+
+    /** Is a user-selection rectangle on screen right now? */
+    const marqueeVisible = () =>
+      page.evaluate(() => !!document.querySelector('.react-flow__selection, .react-flow__nodesselection-rect'))
+
+    // Pick a node that is fully on screen — a drag whose start point is outside
+    // the viewport measures nothing (this bit the click comparator earlier).
+    const target = await page.evaluate(() => {
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>('.react-flow__node'))) {
+        const r = el.getBoundingClientRect()
+        const onScreen =
+          r.width > 40 && r.height > 40 && r.x > 60 && r.y > 60 &&
+          r.x + r.width < window.innerWidth - 60 && r.y + r.height < window.innerHeight - 60
+        // Start the drag on BARE CARD BODY, not on a control: a pointerdown on a
+        // control is a different gesture and would prove nothing about the pane.
+        if (!onScreen) continue
+        const cx = Math.round(r.x + r.width / 2)
+        const cy = Math.round(r.y + r.height - 6)
+        const top = document.elementFromPoint(cx, cy)
+        if (!top || top.closest('button, [role="button"], a, input, textarea, select')) continue
+        return { id: el.getAttribute('data-id') ?? '', x: cx, y: cy }
+      }
+      return null
+    })
+    expect(target, 'no fully-on-screen node with bare card body to start a drag on').not.toBeNull()
+
+    const before = await nodeGeom(target!.id)
+    expect(before, 'the target node vanished before the drag').not.toBeNull()
+
+    // ── CONTROL: a Shift-drag from BARE PANE must marquee. If this fails the
+    // instrument is broken (Shift not reaching React Flow, selection disabled,
+    // wrong selector) and every row below is void.
+    const paneStart = await page.evaluate(() => {
+      const node = document.querySelector<HTMLElement>('.react-flow__node')
+      const pane = node?.closest<HTMLElement>('.react-flow__pane')
+      if (!pane) return null
+      const r = pane.getBoundingClientRect()
+      for (let fy = 0.06; fy < 0.96; fy += 0.04) {
+        for (let fx = 0.06; fx < 0.96; fx += 0.04) {
+          const x = Math.round(r.left + r.width * fx)
+          const y = Math.round(r.top + r.height * fy)
+          if (document.elementFromPoint(x, y) === pane) return { x, y }
+        }
+      }
+      return null
+    })
+    expect(paneStart, 'no bare-pane point to run the control drag from').not.toBeNull()
+
+    await page.keyboard.down('Shift')
+    await page.mouse.move(paneStart!.x, paneStart!.y)
+    await page.mouse.down()
+    await page.mouse.move(paneStart!.x + 90, paneStart!.y + 70, { steps: 6 })
+    const controlMarquee = await marqueeVisible()
+    await page.mouse.up()
+    await page.keyboard.up('Shift')
+    expect(
+      controlMarquee,
+      'CONTROL FAILED: a Shift-drag from bare pane did not start a marquee — the instrument, not the product',
+    ).toBe(true)
+
+    await resetSelection(page)
+
+    // ── THE MEASUREMENT: same gesture, started over a NODE.
+    await page.keyboard.down('Shift')
+    await page.mouse.move(target!.x, target!.y)
+    await page.mouse.down()
+    await page.mouse.move(target!.x + 90, target!.y + 70, { steps: 6 })
+    const overNodeMarquee = await marqueeVisible()
+    await page.mouse.up()
+    await page.keyboard.up('Shift')
+    await page.waitForTimeout(200)
+
+    const after = await nodeGeom(target!.id)
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `\n=== POINTER === node=${target!.id}\n` +
+        `  control (drag from bare pane): marquee=${controlMarquee}\n` +
+        `  over the node:                 marquee=${overNodeMarquee}\n` +
+        `  node transform before=${before?.transform} after=${after?.transform}\n`,
+    )
+
+    // DIRECTION 1: the marquee must still start.
+    expect(
+      overNodeMarquee,
+      'a Shift-drag starting over a node no longer starts a marquee — the pointer consumer of .nokey has been opted out',
+    ).toBe(true)
+
+    // DIRECTION 2: and the node must not have been dragged out of the layout.
+    expect(
+      after?.transform,
+      'the node MOVED during a Shift-drag — the marquee gesture is dragging nodes instead of selecting a region',
+    ).toBe(before?.transform)
+  })
+
   test('opposite direction: Enter at the NODE still selects it, Escape still deselects', async ({ page }) => {
     test.setTimeout(900_000)
     await loadCanvas(page, 'vendor-selection')
