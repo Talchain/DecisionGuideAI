@@ -216,16 +216,20 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
    * v5 §2.4 canvas floor of 10px. Measured in the browser at the zoom "Show
    * whole model" parks at: titles 4.67-7.78px, reduced lines 5.71-9.51px,
    * across all five starters and both viewports — every single reading
-   * sub-floor. This fix improves the two worst cards by 33% and does NOT lift
-   * anything over 10px.
+   * sub-floor. This fix improves the two anchor cards by **+33.0% to +33.3%**
+   * (the ratio is exactly 24/18; the readings that come in under it are the
+   * starters whose whole-model fit shifted <= 0.25% as the anchors' rendered
+   * height changed) and lifts exactly ONE of the twenty readings over the floor
+   * — headcount-allocation at 1440x900, 7.78px -> 10.35px. Nineteen remain
+   * sub-floor.
    *
-   * ⛔ IT IS NOT FIXED HERE BECAUSE THE FIX COLLIDES WITH AN OPEN LANE. Raising
-   * the cap grows every card at low zoom, and PR #1123 ("the row stride reserves
-   * the card at its tallest, not at today's zoom") is landing a bound that rests
-   * on 45-64px of row slack. Uncapping before that lands would spend slack the
-   * other lane is relying on, and would also reopen #758 (the font grew, the box
-   * did not) because `nodeLayoutConstants` sizes geometry for
-   * `MAX_LABEL_COUNTER_SCALE` exactly.
+   * ⛔ IT IS NOT FIXED HERE BECAUSE THE FIX SPENDS ANOTHER LANE'S MARGIN. Raising
+   * the cap grows every card at low zoom, and #1123 ("the row stride reserves
+   * the card at its tallest, not at today's zoom") — MERGED `d0fa3821`, 2 Sep
+   * 2026 — rests on 45-64px of row slack. Uncapping would spend margin that lane
+   * is relying on, and would also reopen #758 (the font grew, the box did not)
+   * because `nodeLayoutConstants` sizes geometry for `MAX_LABEL_COUNTER_SCALE`
+   * exactly.
    *
    * The premise below is the CAP, which is what would have to change.
    */

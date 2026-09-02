@@ -869,21 +869,47 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               it louder. The anchor now uses the SAME `nodeTitle` token as every
               other card, and takes its emphasis from WEIGHT and COLOUR, which
               is what the design system says carries emphasis on the canvas.
-              Measured effect at the same zooms: 4.67px -> 6.23px, +33%, and one
-              fewer type size on the canvas.
+              Measured effect at the same zooms: 4.67px -> 6.23px on the worst
+              card, 7.78px -> 10.35px on the best (the first reading in the
+              corpus to clear the 10px floor), and one fewer type size on the
+              canvas. **+33.0% to +33.3%**, not a flat figure: the underlying
+              ratio is exactly 24/18, and the readings that come in under it are
+              precisely the three starters whose whole-model fit shifted by
+              <= 0.25% when the anchor cards' rendered height changed.
 
-              ⚠ COORDINATION WITH #1123 (the row stride reserving a card at its
-              tallest), stated because that lane's bound rests on row slack.
+              ⚠ COORDINATION WITH #1123, WHICH HAS NOW MERGED (`d0fa3821`).
+              Stated at this level of detail because that lane's bound rests on
+              row slack, and because it ships a guard
+              (`__tests__/lodTitleBoostIsBounded.spec.ts`) that this change
+              takes to ZERO SLACK. Read that file's header before touching
+              either side.
+
               This adds and removes NO line — the clamp stays `line-clamp-2` for
               both branches. The declared size moves 18px -> 12px, so at the
               CANONICAL scale #1123 measures at (`--canvas-label-scale` = 1, i.e.
               zoom >= 1) these cards get SHORTER, never taller. And at zoom >= 1
               `lodActive` is false, so this branch is not even reached there:
-              the height #1123 reserves is unchanged by this diff. What does
-              change is the RENDERED height of two cards below the floor, where
-              a 24px effective line box replaces an 18px one — a band in which
-              the layout does not re-run, because layout keys on `layoutVersion`
-              and not on zoom. */}
+              the height #1123 reserves is unchanged by this diff.
+
+              What changes is the RENDERED height of two cards below the floor,
+              and the LINE BOX is the quantity, not the font size — an earlier
+              version of this note said "a 24px effective line box replaces an
+              18px one", which confused the two. `text-lg` carried Tailwind's
+              default 28px line-height (the old class set no `leading-*` at
+              all); `typography.nodeTitle` carries `leading-tight`, so at the 2x
+              cap it is 1.25 x 24 = 30px. **28px -> 30px per line**, not
+              18 -> 24.
+
+              Measured on #1123's own probe at this tip rather than argued
+              (`e2e/geometry/heightVsZoom.measure.ts`, build-vs-buy @1280x800):
+              because the title now declares the same size on BOTH sides of the
+              threshold, the title term's LOD delta is now ZERO. The worst
+              single-card LOD shrink went 16px -> 12px (`dec_billing` 333->321,
+              `goal_billing` 173->161, now matching the outcome/risk cards
+              exactly), `cardsThatGrew: 0`, against the same 45px sub-row slack.
+              The direction that lane's argument rests on is unchanged and the
+              margin is larger. The layout itself does not re-run in this band —
+              it keys on `layoutVersion`, not on zoom. */}
           <div
             data-testid="node-title"
             title={label}

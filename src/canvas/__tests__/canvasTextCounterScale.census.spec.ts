@@ -149,7 +149,9 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *
  *   The "resize" was therefore the fix, not its cost: the anchor now uses the
  *   same `nodeTitle` token as every other card and takes its emphasis from
- *   weight and colour, which removes a non-scale size AND renders 33% larger.
+ *   weight and colour, which removes a non-scale size AND renders +33.0% to
+ *   +33.3% larger (ratio exactly 24/18; the spread is the whole-model fit
+ *   shifting <= 0.25% as the anchor cards' rendered height changed).
  *   Pinned by `nodes/__tests__/BaseNode.lodTitleLegibility.spec.tsx`.
  *
  *   ⭐ THE TRANSFERABLE LESSON, because four entries below are held by the same

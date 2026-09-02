@@ -70,6 +70,89 @@
  * This spec is that comparison. It is deliberately a SOURCE-level guard: the two
  * quantities live in a Tailwind class and a token expression, so there is no
  * runtime object that holds both, and jsdom cannot render either (trap 3).
+ *
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ⭐⭐⭐ AMENDED 2 Sep 2026 — TWO MECHANISMS, AND **THE SLACK IS NOW ZERO**.
+ * ═════════════════════════════════════════════════════════════════════════════
+ *
+ * ⛔⛔ READ THIS BEFORE YOU "FIX" A RED HERE. THE OBVIOUS FIX REINSTATES A LIVE,
+ * MEASURED DEFECT.
+ *
+ * When this guard goes red the tempting move is to put `lodBoostTitle` back to
+ * `text-lg`. **Do not.** `text-lg` carries no `--canvas-label-scale`, and this
+ * boost applies ONLY below `LABEL_LEGIBLE_ZOOM`, where the ordinary title is
+ * counter-scaled to 24px. So:
+ *
+ *     ordinary title   12px x labelCounterScale(z) x z = 24z
+ *     `text-lg` boost  18px x 1                    x z = 18z
+ *
+ * and `18z < 24z` for every positive z. The "boost" was a **25% shrink on 100%
+ * of the cards it touched, 100% of the time** — the goal and decision cards,
+ * the two this product singles out as always-legible, were rendering the
+ * SMALLEST text on the canvas. Measured in Chromium across all five committed
+ * starter drafts at 1280x800 and 1440x900 (`e2e/geometry/zoomLadder.measure.ts`):
+ * **4.67px against 6.23px**. Reverting to `text-lg` would make this file green
+ * and put that back. If you need to move the boost, move it to a SMALLER
+ * counter-scaled size, never to a fixed one.
+ *
+ * ⭐ WHY THE GUARD HAD TO CHANGE AT ALL — IT IS TRAP 21, NOT A CONFLICT. This
+ * file and that change answer DIFFERENT QUESTIONS under similar names:
+ *
+ *     this guard  "is the boost's DECLARED px within the height the layout
+ *                  RESERVES?"        — a HEIGHT-SAFETY question
+ *     the change  "does the boost RENDER at least as large as an ordinary
+ *                  title?"           — a LEGIBILITY question
+ *
+ * Both answers are yes. The guard REDded on neither: its EXTRACTOR matched only
+ * a single-quoted literal and the class became a template literal, and its
+ * PRICER (`TAILWIND_TEXT_PX`) cannot price a `calc()` at all. Aligning the two
+ * questions would have been the wrong fix. So the concepts are named apart: a
+ * boost declares its size by one of TWO MECHANISMS, and each is priced on its
+ * own terms by `priceBoostSize` below.
+ *
+ *     FIXED           a named Tailwind size (`text-lg`). px is that number at
+ *                     every zoom, because nothing scales it.
+ *     COUNTER-SCALED  a `calc(Npx * var(--canvas-label-scale))` token. Its px AT
+ *                     THE CAP — the only place this boost applies — is
+ *                     `N * MAX_LABEL_COUNTER_SCALE`.
+ *
+ * Both are still compared against the same reserve, and both can still FAIL:
+ * `text-3xl` (30 > 24) and a counter-scaled `calc(18px * ...)` (36 > 24) are
+ * both rejected, and each has its own control below. An unrecognised mechanism
+ * REDs rather than passing — an unpriced class is an unbounded one.
+ *
+ * ⚠⚠⚠ AND THE NUMBER THE NEXT LANE MUST NOT LEARN THE HARD WAY:
+ *
+ *         THE SLACK IN THIS BOUND IS NOW **ZERO PIXELS**.
+ *
+ * The boost resolves to `typography.nodeTitle` — the SAME token the reserve is
+ * computed from — so the comparison is `24 <= 24`. It was `18 <= 24`, i.e. 6px
+ * of headroom, and that headroom is gone. **The bound holds EXACTLY, with no
+ * margin.** Any increase in the boost's declared px, or any DECREASE in
+ * `nodeTitle`'s (which would lower the reserve), breaks it on the same day —
+ * there is no longer a step you can take without this file going red. That is
+ * intentional and it is the correct trade (a 33% legibility gain on the two
+ * anchor cards for headroom that was never a design property, only an
+ * arithmetic accident), but it must be VISIBLE, not discovered.
+ *
+ * ⚠ A degenerate case is admitted deliberately and is stated rather than hidden:
+ * when the boost IS `typography.nodeTitle`, this comparison reduces to a value
+ * against itself and cannot fail (trap 13b). It is not vacuous overall — the
+ * pricer is a pure function and the controls below feed it synthetic classes of
+ * BOTH mechanisms and prove each one rejects an oversized boost — but nobody
+ * should read a green run here as evidence that the CURRENT configuration was
+ * checked against something. What the current configuration is checked against
+ * is the browser: `e2e/geometry/heightVsZoom.measure.ts`.
+ *
+ * ⭐ AND THE HEIGHT NEWS IS GOOD, measured on that probe at this tip rather than
+ * argued: because the title now declares the SAME size on both sides of the
+ * threshold, the title term's LOD delta is **zero**. The worst single-card LOD
+ * shrink across build-vs-buy @1280x800 went **16px -> 12px** (`dec_billing`
+ * 333->321, `goal_billing` 173->161, matching the outcome/risk cards exactly),
+ * `cardsThatGrew: 0`, against the same 45px sub-row slack. The -16px limb this
+ * file's header table attributes to the title is gone; the residual 12px is the
+ * un-guarded body-content limb the header already names. **The direction the
+ * whole argument rests on is unchanged, and the margin is larger.**
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -96,12 +179,63 @@ function declaredNodeTitlePx(): number {
   return Number(m![1])
 }
 
-/** The class the LOD title boost applies, read from BaseNode's own ternary. */
+/**
+ * The class the LOD title boost applies, read from BaseNode's own ternary, with
+ * any `${typography.X}` interpolation RESOLVED against the token object.
+ *
+ * ⚠ BOTH SPELLINGS, AND THAT IS NOT A LOOSENING. This used to match a
+ * single-quoted literal only, which is a claim about SYNTAX where the guard's
+ * question is about SIZE — so a class written as a template literal read as "the
+ * ternary was not found" rather than as a size to price. Widening the shapes it
+ * can READ does not widen what it ACCEPTS: everything it reads still goes
+ * through `priceBoostSize`, which rejects an oversized or unpriceable class
+ * either way.
+ *
+ * Interpolations are resolved from the imported `typography`, the same object
+ * the reserve is read from — so a token renamed or retyped surfaces here as an
+ * unresolvable interpolation (a hard error) rather than as a silently unpriced
+ * class.
+ */
 function lodBoostTitleClass(): string {
   const src = readFileSync(resolve(REPO_ROOT, 'src/canvas/nodes/BaseNode.tsx'), 'utf8')
-  const m = /lodBoostTitle\s*\n?\s*\?\s*'([^']+)'/.exec(src)
+  const m = /lodBoostTitle\s*\n?\s*\?\s*(?:'([^']*)'|`([^`]*)`)/.exec(src)
   expect(m, 'the lodBoostTitle ternary was not found in BaseNode — this guard is measuring nothing').not.toBeNull()
-  return m![1]
+  const raw = m![1] ?? m![2]!
+  return raw.replace(/\$\{\s*typography\.([A-Za-z0-9_$]+)\s*\}/g, (_all, name: string) => {
+    const value = (typography as Record<string, string | undefined>)[name]
+    expect(value, `the boost interpolates typography.${name}, which does not exist — this guard cannot price what it cannot resolve`).toBeDefined()
+    return value!
+  })
+}
+
+/**
+ * The declared px a boost class resolves to AT THE CAP, and by WHICH MECHANISM.
+ *
+ * ⭐ A PURE FUNCTION OVER THE CLASS STRING, deliberately, so the controls below
+ * can feed it synthetic classes of both mechanisms and prove each arm rejects an
+ * oversized boost. A pricer only ever exercised on the one class the product
+ * currently ships is a pricer nobody has tested (trap 13b).
+ *
+ * Returns `null` when the class declares no size this guard can price — which
+ * the caller turns into a RED, never a pass. An unpriced class is an unbounded
+ * one, and that rule is the reason this file exists.
+ */
+export function priceBoostSize(
+  boostClass: string,
+): { px: number; mechanism: 'fixed' | 'counter-scaled'; spelling: string } | null {
+  // COUNTER-SCALED first: a `calc()` token also contains no named size, so order
+  // is not ambiguous — but stating it removes the question.
+  const calc = /calc\(\s*(\d+(?:\.\d+)?)px\s*\*\s*var\(--canvas-label-scale/.exec(boostClass)
+  if (calc) {
+    return {
+      px: Number(calc[1]) * MAX_LABEL_COUNTER_SCALE,
+      mechanism: 'counter-scaled',
+      spelling: `calc(${calc[1]}px * var(--canvas-label-scale))`,
+    }
+  }
+  const named = boostClass.split(/\s+/).find((c) => c in TAILWIND_TEXT_PX)
+  if (named) return { px: TAILWIND_TEXT_PX[named]!, mechanism: 'fixed', spelling: named }
+  return null
 }
 
 describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', () => {
@@ -109,28 +243,74 @@ describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', 
     const reservedPx = declaredNodeTitlePx() * MAX_LABEL_COUNTER_SCALE
     const boostClass = lodBoostTitleClass()
 
-    const sizeClass = boostClass.split(/\s+/).find((c) => c in TAILWIND_TEXT_PX)
+    const priced = priceBoostSize(boostClass)
     expect(
-      sizeClass,
-      `the LOD title boost uses a text size this guard cannot price ("${boostClass}"). Add it to TAILWIND_TEXT_PX with its px — an unpriced class is an unbounded one.`,
-    ).toBeDefined()
+      priced,
+      `the LOD title boost uses a text size this guard cannot price ("${boostClass}"). Add a named size to TAILWIND_TEXT_PX with its px, or spell it as a counter-scaled calc() token — an unpriced class is an unbounded one.`,
+    ).not.toBeNull()
 
     expect(
-      TAILWIND_TEXT_PX[sizeClass!],
-      `the LOD title boost (${sizeClass}) is LARGER than the ${reservedPx}px the layout reserves. Below LABEL_LEGIBLE_ZOOM the goal and decision cards would grow past their row band and overlap the row beneath — the defect this PR closes, arriving through the other door.`,
+      priced!.px,
+      `the LOD title boost (${priced!.spelling}, ${priced!.mechanism}) declares ${priced!.px}px against the ${reservedPx}px the layout reserves. Below LABEL_LEGIBLE_ZOOM the goal and decision cards would grow past their row band and overlap the row beneath — the defect #1123 closes, arriving through the other door.`,
     ).toBeLessThanOrEqual(reservedPx)
   })
 
-  it('CONTRAST CONTROL: the comparison discriminates', () => {
+  /**
+   * ⚠⚠ THE SLACK, ASSERTED RATHER THAN DESCRIBED. The header says this bound now
+   * holds EXACTLY. A sentence saying so is a sentence that goes stale; this is
+   * the same statement in a form that REDs when it stops being true.
+   *
+   * It is pinned in BOTH directions on purpose (CLAUDE.md 22f — the honest way
+   * to carry a known-tight bound is a test that fails if the set grows OR
+   * shrinks). If the slack ever becomes POSITIVE again, someone has either
+   * shrunk the boost — which reopens the 25% shrink this file's header warns
+   * about — or raised `nodeTitle`, which moves the reserve. Either is a decision
+   * that must be taken deliberately, here, not discovered later in a screenshot.
+   */
+  it('THE SLACK IS ZERO — the bound holds exactly, and that is stated, not discovered', () => {
+    const reservedPx = declaredNodeTitlePx() * MAX_LABEL_COUNTER_SCALE
+    const priced = priceBoostSize(lodBoostTitleClass())!
+    expect(
+      reservedPx - priced.px,
+      'the headroom between the LOD title boost and the height the layout reserves has MOVED. ' +
+        'It was 6px (text-lg 18 vs 24) until 2 Sep 2026 and is 0px by design since. ' +
+        'If this is now positive, check you have not reinstated a fixed-size boost — read this file\'s header before "fixing" it.',
+    ).toBe(0)
+    expect(priced.mechanism, 'the boost stopped being counter-scaled — below the floor that is a SHRINK, not a boost').toBe('counter-scaled')
+  })
+
+  it('CONTRAST CONTROL: the comparison discriminates, in BOTH mechanisms', () => {
     // Without this, a guard whose extraction silently returned '' would agree
-    // forever (trap 13b — a guard agreeing with itself).
+    // forever (trap 13b — a guard agreeing with itself). And since the shipped
+    // boost now resolves to the same token as the reserve, the live comparison
+    // is 24 <= 24 and CANNOT fail — so the pricer's discrimination has to be
+    // proven on synthetic inputs or it is proven nowhere.
     const reservedPx = declaredNodeTitlePx() * MAX_LABEL_COUNTER_SCALE
     expect(reservedPx).toBe(24)
-    expect(TAILWIND_TEXT_PX['text-lg']).toBeLessThanOrEqual(reservedPx)
-    expect(TAILWIND_TEXT_PX['text-3xl']).toBeGreaterThan(reservedPx)
+
+    // FIXED mechanism — the original control, unchanged.
+    expect(priceBoostSize('text-lg foo')).toEqual({ px: 18, mechanism: 'fixed', spelling: 'text-lg' })
+    expect(priceBoostSize('text-lg')!.px).toBeLessThanOrEqual(reservedPx)
+    expect(priceBoostSize('text-3xl')!.px).toBeGreaterThan(reservedPx)
+
+    // COUNTER-SCALED mechanism — the arm added 2 Sep 2026. An oversized
+    // counter-scaled boost must be rejected exactly as an oversized fixed one
+    // is: 18px at the 2x cap is 36px, half again over the reserve.
+    expect(priceBoostSize('text-[length:calc(12px*var(--canvas-label-scale,1))]')!.px).toBe(24)
+    expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBe(36)
+    expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeGreaterThan(reservedPx)
+
+    // An unpriceable class is a RED, never a pass.
+    expect(priceBoostSize('font-semibold text-text-header break-words')).toBeNull()
+
     // And both extractors returned something real.
     expect(lodBoostTitleClass().length).toBeGreaterThan(0)
     expect(declaredNodeTitlePx()).toBeGreaterThan(0)
+
+    // The interpolation really was resolved — otherwise every assertion above
+    // would be pricing the literal text "${typography.nodeTitle}".
+    expect(lodBoostTitleClass()).not.toContain('${')
+    expect(lodBoostTitleClass()).toContain('--canvas-label-scale')
   })
 
   it('the threshold LOD flips at IS the zoom the counter-scale caps at', () => {
