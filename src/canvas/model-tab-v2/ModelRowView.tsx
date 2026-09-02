@@ -173,7 +173,18 @@ export function ModelRowView({
            from its own unit. The label is the one thing in this row that can
            lose characters without losing meaning, so it is the one thing that
            should shrink. */
-        className={`${typography.bodySmall} text-text-body text-left truncate min-w-0 flex-1`}
+        /* ⚠⚠ `min-w-[6rem]`, NOT `min-w-0`, AND THE FLOOR IS THE SECOND HALF OF
+           THE FIX. `min-w-0` let `truncate` work — and then let it work all the
+           way down: measured after the first pass, 24 labels were crushed and
+           "GDPR EU Data Residency Compliance" rendered in 26px, which is one
+           character and an ellipsis. A label truncated past legibility is not a
+           label; the row has told you nothing and taken a line to do it.
+
+           6rem holds roughly twelve characters, which is enough to recognise a
+           node you already know. Below that the row should give up something
+           else — see the estimate hint below, which is the secondary text that
+           can afford to go. */
+        className={`${typography.bodySmall} text-text-body text-left truncate min-w-[6rem] flex-1`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
@@ -213,7 +224,15 @@ export function ModelRowView({
         value that may be perfectly well set. Absence is rendered as absence.
       */}
       {row.provenanceSource !== undefined && (
-        <span data-testid={`model-row-v2-${row.id}-provenance`} className="shrink-0">
+        /* ⚠ THE LAST THING TO GIVE, AND IT DOES HAVE TO GIVE. On a 390px panel
+           the worst row wants 400px — glyph 11 + label 96 + value 153 +
+           provenance 76 + two 12px chips + 40px of gaps — so something must
+           yield or the row overflows the dock, which is what happened when this
+           was `shrink-0`. Priority, from most protected to least: the node's
+           NAME (floored at 6rem), the primary VALUE (never shrinks), the
+           estimate HINT, then this pill. A provenance label truncating is
+           recoverable; a row falling out of the panel is not. */
+        <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
           <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
         </span>
       )}
@@ -478,7 +497,12 @@ function ValueCell({
     display === null && row.estimateText !== undefined ? (
       <span
         data-testid={`${testid}-estimate`}
-        className={`${typography.caption} text-text-light ml-2`}
+        /* ⚠ SECONDARY, AND THEREFORE THE THING THAT GIVES WAY. "Olumi:
+           Moderate (0.5)" beside "Not set" pushed this cell to 180px — SEVEN
+           TIMES the label it was starving. The estimate is a hint about a value
+           the user has not set; the node's name is how they find the row at
+           all. So the hint truncates and the name does not. */
+        className={`${typography.caption} text-text-light ml-2 truncate min-w-0`}
       >
         Olumi: {row.estimateText}
       </span>
@@ -486,7 +510,17 @@ function ValueCell({
 
   if (!row.editable || !editorAvailable) {
     return (
-      <span data-testid={testid} className={typography.tabular}>
+      /* ⚠ `shrink-0` ONLY WHEN THERE IS NOTHING HERE THAT CAN AFFORD TO GO.
+         A bare value ("35 %") must never shrink — that is what broke a number
+         away from its own unit. A value carrying an ESTIMATE HINT is a
+         different case: the hint can truncate, so the cell is allowed to give
+         rather than starving the label. */
+      <span
+        data-testid={testid}
+        className={`${typography.tabular} flex items-baseline whitespace-nowrap ${
+          estimate === null ? 'shrink-0' : 'min-w-0'
+        }`}
+      >
         {display ?? ''}
         {estimate}
       </span>
@@ -499,7 +533,16 @@ function ValueCell({
       data-testid={testid}
       title="Change this value"
       aria-label={`Change ${row.label}`}
-      className={`${typography.tabular} text-left underline decoration-dotted`}
+      /* ⚠⚠ THE SAME RULE AS THE READ-ONLY CELL ABOVE, AND IT HAS TO BE STATED
+         TWICE BECAUSE THIS COMPONENT HAS TWO RETURN PATHS. I patched the
+         `<span>` first, re-measured, and the tall rows were still 42px — every
+         one of them was EDITABLE, so they came out of this `<button>`, which
+         was still `display:block` with `white-space:normal` and wrapped its
+         estimate hint onto a second line. A fix applied to one of two paths is
+         a fix that half the rows never receive. */
+      className={`${typography.tabular} text-left underline decoration-dotted flex items-baseline whitespace-nowrap ${
+        estimate === null ? 'shrink-0' : 'min-w-0'
+      }`}
       onClick={e => {
         e.stopPropagation()
         onBeginEdit?.(row.id)
