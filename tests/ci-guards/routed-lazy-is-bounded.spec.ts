@@ -371,13 +371,6 @@ function findDeclarations(code: string): Declaration[] {
   return found
 }
 
-interface Site {
-  file: string
-  symbol: string
-  line: number
-  bounded: boolean
-}
-
 const SITES: Site[] = []
 const arrowLoadersPerFile = new Map<string, number>()
 for (const full of FILES) {
