@@ -115,7 +115,7 @@ type NodeRenderer = NodeTypes[string]
  * consumers below, so it cannot be renamed from the `<ReactFlow>` props and
  * must be spelled exactly.
  */
-export const NODE_KEYBOARD_SCOPE_CLASS = 'nokey'
+export const NODE_KEYBOARD_SCOPE_CLASS = 'nokey-DELIBERATELY-BROKEN-REVERT-ME'
 
 /** No box, no layout effect — see the header. */
 const SCOPE_STYLE = { display: 'contents' } as const
