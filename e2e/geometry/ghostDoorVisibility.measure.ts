@@ -159,11 +159,29 @@ const INSTRUMENT = () => {
  *
  * It now reads `__pwClock.builtins.*` — the real functions the clock keeps aside
  * and does not replace — and falls back to the window ones only when no clock is
- * installed, so the guard works in a plain browser too. And if a clock IS
- * installed while `builtins` is unavailable, this FAILS LOUD rather than
- * silently falling back to the faked pair: a Playwright upgrade that renames
- * that property would otherwise re-open this exact hole with no red anywhere
- * (CLAUDE.md trap 12 — a mirror must fail on drift, never assume-good).
+ * installed, so the guard works in a plain browser too. Unless one of those two
+ * channels can be SHOWN to be real, it FAILS LOUD rather than silently racing
+ * the faked pair (CLAUDE.md trap 12 — a mirror must fail on drift, never
+ * assume-good).
+ *
+ * ⚠ AND THAT FAIL-LOUD CONDITION IS DELIBERATELY NAME-FREE, because its first
+ * version was not and was defeated in review: it asked "is a clock installed AND
+ * are builtins missing?", deriving the first half from `__pwClock` — the same
+ * global that could move. Renaming `__pwClock` while leaving the timers faked
+ * made the guard PASS on a page that could not paint. See the assertion for the
+ * replacement and its measured triple.
+ *
+ * ⚠⚠ AND A WARNING FOR WHOEVER VERIFIES THIS NEXT, because the obvious check is
+ * wrong. Playwright's `platformOriginals` **`.bind()`s** each original, so
+ * `String(builtins.requestAnimationFrame)` reads `function () { [native code] }`
+ * EVEN WHEN THE UNDERLYING FUNCTION IS A DEAD STUB. A source-string applied-check
+ * on the builtins would therefore read "native" and pass on a dead channel. Only
+ * EXERCISING the channel discriminates. This is the same lesson as the defect
+ * that created this file, one level down: a check that reads a DESCRIPTION of a
+ * channel rather than driving it can be confidently wrong. (The `[native code]`
+ * test in the reading below is applied to `window.requestAnimationFrame`, which
+ * the clock replaces with an unbound arrow function rather than binding — a
+ * different question, and the only one a string can answer here.)
  *
  * ⭐ THE SUBTLEST LESSON, AND THE REASON THIS PARAGRAPH IS LONG. The original
  * guard shipped with a fault-injection proof that PASSED: kill rAF, watch it go
@@ -202,20 +220,41 @@ async function assertPaneCanRenderGeometry(page: import('@playwright/test').Page
       visibilityState: document.visibilityState,
       clockInstalled: !!pwClock,
       usedBuiltins: !!(builtinRaf && builtinTimer),
+      /*
+       * Is the rAF we would FALL BACK to the browser's own? A clock replaces it
+       * with `(...args) => api[method].apply(api, args)`; the real one stringifies
+       * as `[native code]`. This is what makes the assertion below independent of
+       * Playwright's internal NAMES — see the header.
+       */
+      windowRafIsNative: /\[native code\]/.test(String(window.requestAnimationFrame)),
     }
   })
 
   /*
-   * Fail loud on drift rather than fall back to the faked pair. If a clock is
-   * installed and `builtins` has moved or been renamed by a Playwright upgrade,
-   * the race below would silently become window-vs-window again — which is
-   * precisely the hole this guard was rewritten to close, and it would close it
-   * with no red anywhere.
+   * ⭐ FAIL LOUD UNLESS THE CHANNELS ARE DEMONSTRABLY REAL — stated WITHOUT
+   * naming any Playwright internal, because the first version of this guard
+   * named two and could be defeated by renaming either.
+   *
+   * That version asked "is a clock installed AND are builtins missing?", deriving
+   * the first half from `__pwClock` — the very global that could move. Measured:
+   * rename `__pwClock`, leave the timers faked and the page unable to paint, and
+   * the guard PASSED — it fell back to the window pair, raced two entries on one
+   * faked queue, and reported `rafFired: true`. The original vacuity, restored
+   * silently, by the guard written to prevent it. Both names come from one line
+   * in Playwright's `_installIfNeeded` and neither is public API, so a rename of
+   * either is equally plausible.
+   *
+   * The condition below needs no such knowledge: either we used the real
+   * builtins, or the rAF we fell back to is the browser's own. Anything else —
+   * builtins gone, the clock global renamed, some future shape nobody has
+   * imagined — leaves us holding a function we cannot show is real, and that is
+   * a red. Measured as a triple: renamed global → red; normal harness → pass; no
+   * clock at all → pass.
    */
   expect(
-    pane.clockInstalled && !pane.usedBuiltins,
-    'a Playwright clock is installed but `__pwClock.builtins` is unavailable, so this guard would have raced two entries on the SAME faked queue and could not detect a non-painting pane. The property has moved — re-derive it against this playwright-core version before trusting any reading in this file.',
-  ).toBe(false)
+    pane.usedBuiltins || pane.windowRafIsNative,
+    'neither channel could be shown to be real: `__pwClock.builtins` was unavailable AND `window.requestAnimationFrame` is not native, so this guard would have raced two entries on the SAME faked queue and could not detect a non-painting pane. Playwright\'s clock internals have moved — re-derive them against this playwright-core version before trusting any reading in this file.',
+  ).toBe(true)
 
   expect(
     pane.innerW * pane.innerH,
