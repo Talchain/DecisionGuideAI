@@ -21,7 +21,7 @@
  *
  * ⭐ THE DISCRIMINATOR THAT DOES EXIST is specific to ADD: an add that lands
  * NECESSARILY moves CEE's analysis-affecting hash, because `projectNode`
- * unconditionally emits `{id, kind}` and a new unique id changes the projected
+ * emits the node's ID, so a new unique id changes the projected
  * `nodes` array. So `graph_hash === base_graph_hash` proves nothing was written.
  * The inference runs in ONE direction only, and it is the safe one — a hash that
  * moved proves only that SOMETHING changed, never that it was ours.

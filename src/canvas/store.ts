@@ -760,9 +760,46 @@ interface CanvasState {
    */
   structuralRenameLifecycle: StructuralRenameLifecycleRecord[]
   /**
-   * 0.50.0: add gestures awaiting the wire, captured SYNCHRONOUSLY against the
-   * POST-add graph — the new node only exists after the write. Drained by
-   * `useStructuralAddEvents`, which is the ONE sender.
+   * 0.50.0: add gestures awaiting the wire, captured against the POST-add graph
+   * — the new node only exists after the write — in the SAME `set()` that
+   * installs it. Drained by `useStructuralAddEvents`, which is the ONE sender.
+   *
+   * ─────────────────────────────────────────────────────────────────────────
+   * ⭐⭐⭐ SCOPE — THE MEASURED TRUTH, AND IT IS NARROWER THAN "A NODE YOU ADD".
+   * Every claim about this lane's coverage should be read against this block
+   * rather than restated, because a restatement is how a caveat gets lost.
+   *
+   * `planStructuralAddIntent` has exactly ONE call site: `addNode`. So the
+   * durable guarantee covers the gestures that reach `addNode` — the pane
+   * context menu, the six Command Palette "Add …" commands, the pre-analysis
+   * `AddRow` and the hero goal field.
+   *
+   * ⚠ THREE OTHER CREATION PATHS CAPTURE NOTHING, and they are NOT all
+   * deliberate:
+   *
+   *   · `addNodeWithEdge` — FIVE user-reachable affordances: the four "Add
+   *     connected …" context-menu items (`contextMenu/actions.ts:182, 285, 319,
+   *     352`) and the inspector's Add option (`inspector-v2/panels/
+   *     DecisionPanel.tsx:59`). DELIBERATE: `structural_add_edge` is
+   *     `'reader_only_refusal'` in CEE — no writer — so emitting `structural_add`
+   *     here would durably save the node and silently DROP the edge, trading one
+   *     silent loss for a subtler one. It rides with that lane.
+   *
+   *     ⚠⚠ AND ON THIS PATH A NEW FACTOR **DOES RENDER A DIGIT**. It seeds
+   *     `category: 'external'`, and `FactorNode.tsx:668-671` renders
+   *     "Uncertainty here affects {N} outcome{s}." whenever
+   *     `nodeCategory === 'external' && outcomesAffected > 0` — which an
+   *     edge-creating add guarantees. So the explicit-unknown guarantee this
+   *     lane pins holds for `addNode` and NOT for `addNodeWithEdge`.
+   *     PRE-EXISTING and identical at base; `FactorNode.tsx` is untouched by
+   *     this lane, which is why it is recorded here rather than fixed here.
+   *
+   *   · `duplicateSelected` (:3428) and `pasteClipboard` (:3472) — NOT
+   *     deliberate. Simply not done. A duplicated or pasted node is local-only
+   *     and vanishes on reload, exactly as an added one did before this lane.
+   *
+   * Bringing those three under the same guarantee is real, unfinished W2 work.
+   * ─────────────────────────────────────────────────────────────────────────
    */
   pendingStructuralAdds: StructuralAddIntent[]
   /**
@@ -2119,31 +2156,57 @@ function recordStructuralRenameIntent(
 }
 
 /**
- * Record one add gesture for the wire, against the POST-add graph.
+ * Plan one add gesture's durable intent, against the graph the caller is ABOUT
+ * TO INSTALL.
+ *
+ * ⭐⭐⭐ IT RETURNS A PATCH INSTEAD OF CALLING `set()`, AND THAT IS THE FIX FOR A
+ * MEASURED DEFECT — read this before "simplifying" it back.
+ *
+ * `useGraphEditEvents` SUBSCRIBES to the store. When the node write and the
+ * intent capture were two separate `set()` calls, the subscriber fired on the
+ * FIRST one, read `pendingStructuralAdds` as EMPTY, accumulated the add and
+ * advanced its snapshot — so `removeStructuralAddClaims` never saw a populated
+ * queue and the subtraction NEVER RAN. One gesture put `structural_add` AND a
+ * `direct_graph_edit` on the wire, and the notification half is the
+ * `'ack_and_commit'` path (turn row, NO graph write) the durable verb exists to
+ * replace. Proven by driving the real subscriber:
+ * `useGraphEditEvents.structuralAddClaims.spec.ts`.
+ *
+ * ⚠⚠ AND THE CAUSE IS AN INHERITANCE, NOT A TYPO — the reason this comment is
+ * long. `recordStructuralDeleteIntent` captures BEFORE its mutation and says so
+ * in terms: "Writes in its OWN `set()`, ahead of the removal's, so
+ * `useGraphEditEvents` sees a populated queue when it diffs the removal." An ADD
+ * must capture AFTER, because its subject does not exist until the node does.
+ * That inversion is correct — but the SUBTRACTION was inherited without
+ * inverting with it. Two mechanisms answering different questions under one
+ * shared helper (CLAUDE.md trap 21).
+ *
+ * Returning a patch lets {@link CanvasState.addNode} install the node and its
+ * intent in ONE `set()`, so both things are true at once: the capture reads a
+ * graph that CONTAINS the new node, and the subscriber's very first observation
+ * already sees the claim. **Any future caller must preserve that single
+ * transaction.**
  *
  * DELIBERATELY NOT GATED ON SUCCESS, the same asymmetry the rename twin
- * documents and for the same derived reason. The DELETE twin refuses the local
- * removal outright when it cannot express it durably, because a locally removed
- * node that resurrects on reload is the P0 that lane closed. An add that cannot
- * be sent still applies LOCALLY and simply claims no durability — which is what
- * the product did for its entire history before 0.50.0. Blocking it would be a
- * regression bought for tidiness.
+ * documents. The DELETE twin refuses the local removal outright when it cannot
+ * express it durably, because a locally removed node that resurrects on reload
+ * is the P0 that lane closed. An add that cannot be sent still applies LOCALLY
+ * and simply claims no durability — which is what the product did for its entire
+ * history before 0.50.0. Blocking it would be a regression bought for tidiness.
  *
- * ⚠ AND IT IS NOT CALLED from producer-driven writes: `captureStructuralAdd`
- * reads `_externalMutationActive`, the estate's existing name for "this is CEE's
- * own write coming back". Echoing a server-created node back to the server as a
- * user add would be a second authority arguing with the first — and here it
- * would mint a duplicate id, which is the one collision `base_graph_hash`
- * provably cannot catch.
+ * ⚠ AND IT STANDS DOWN on producer-driven writes: `captureStructuralAdd` reads
+ * `_externalMutationActive`, the estate's existing name for "this is CEE's own
+ * write coming back". Echoing a server-created node back as a user add would be
+ * a second authority arguing with the first — and here it would mint a duplicate
+ * id, the one collision `base_graph_hash` provably cannot catch.
  */
-function recordStructuralAddIntent(
-  get: () => CanvasState,
-  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+function planStructuralAddIntent(
+  state: CanvasState,
+  nodesAfter: Node[],
   nodeId: string,
-): void {
-  const state = get()
+): { patch: Partial<CanvasState>; deferred: boolean } {
   const result = captureStructuralAdd({
-    nodesAfter: state.nodes,
+    nodesAfter,
     nodeId,
     baseGraphHash: state.lastServerGraphHash,
     externalMutationActive: state._externalMutationActive > 0,
@@ -2158,21 +2221,32 @@ function recordStructuralAddIntent(
         ? crypto.randomUUID()
         : `sa-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   })
-  if (!result.ok) return
-  set((s) => ({ pendingStructuralAdds: [...s.pendingStructuralAdds, result.intent] }))
+  if (!result.ok) return { patch: {}, deferred: false }
+  return {
+    patch: { pendingStructuralAdds: [...state.pendingStructuralAdds, result.intent] },
+    deferred: result.deferred,
+  }
+}
 
-  // ⭐⭐ THE DEFERRED ARM. On a restored graph there is no `graph_hash` yet, so
-  // the model genuinely does not hold this node and will not until the next
-  // turn. The queue is memory-only, so a reload before then loses it — and
-  // SAYING SO IS THE POINT. UI #1025 was reverted for shipping a control that
-  // HID exactly this loss; blocking the add instead would regress a capability
-  // the product has always had. The third option is the honest one: apply it,
-  // queue it, and tell the user exactly where it stands.
-  //
-  // ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND. A scratch graph with no
-  // scenario and no authoritative graph has no saved model, so there is nothing
-  // to disclose and a notice would be noise. Same predicate as the rename lane's.
-  if (!result.deferred) return
+/**
+ * Tell the user a captured add is on the canvas but not yet in the model.
+ *
+ * ⚠ FIRED AFTER THE `set()`, NEVER INSIDE IT. A side effect in a store updater
+ * can re-enter, and the updater must stay a pure function of state.
+ *
+ * ⭐⭐ THE DEFERRED ARM. On a restored graph there is no `graph_hash` yet, so the
+ * model genuinely does not hold this node and will not until the next turn. The
+ * queue is memory-only, so a reload before then loses it — and SAYING SO IS THE
+ * POINT. UI #1025 was reverted for shipping a control that HID exactly this
+ * loss; blocking the add instead would regress a capability the product has
+ * always had. The third option is the honest one: apply it, queue it, and tell
+ * the user exactly where it stands.
+ *
+ * ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND. A scratch graph with no scenario
+ * and no authoritative graph has no saved model, so there is nothing to disclose
+ * and a notice would be noise. Same predicate as the rename lane's.
+ */
+function announceDeferredStructuralAdd(state: CanvasState): void {
   const ownsServerGraph = state.currentScenarioId != null || state.lastAuthoritativeGraph != null
   if (!ownsServerGraph) return
   if (typeof window === 'undefined') return
@@ -2686,25 +2760,58 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // `structuralAdd.explicitUnknown.spec.ts` fails loud if a key is ever added.
     const resolvedLabel =
       typeof label === 'string' && label.trim().length > 0 ? label.trim() : `Node ${id}`
-    set((s) => ({
-      nodes: [
-        ...s.nodes,
-        { id, type, position: pos || { x: 200, y: 200 }, data: { label: resolvedLabel } },
-      ],
-    }))
-    // ⭐ CAPTURE AFTER THE WRITE, and that ordering is the whole point — the
-    // mirror image of `updateNodeLabel`'s. A rename asserts `expected_label`, a
-    // fact about the graph BEFORE the gesture, so it must capture first. An add
-    // asserts the EXISTENCE of something that did not exist before, so its
-    // subject only exists once the node is in the store. Same discipline — read
-    // the graph the assertion is about — reaching opposite sides of one `set()`.
+    const created: Node = {
+      id,
+      type,
+      position: pos || { x: 200, y: 200 },
+      data: { label: resolvedLabel },
+    }
+
+    // ⭐⭐⭐ ONE `set()` — THE NODE AND ITS DURABLE INTENT, IN A SINGLE
+    // TRANSACTION. ⚠ DO NOT SPLIT THIS BACK INTO TWO.
     //
-    // ⭐⭐ THIS IS THE ONE CHOKEPOINT EVERY ADD GESTURE CROSSES: the pane context
-    // menu, all six Command Palette "Add …" commands, the pre-analysis AddRow
-    // and the hero goal field all land here. Capturing at any one of them would
-    // have left the others silent — the defect `StructuralDeleteDrainHost`'s
-    // header records as having shipped dark under a fully green suite.
-    recordStructuralAddIntent(get, set, id)
+    // Two `set()` calls is what the first cut of this lane shipped, and it made
+    // `removeStructuralAddClaims` DEAD: `useGraphEditEvents` subscribes to the
+    // store, so it fired on the node write, read `pendingStructuralAdds` as
+    // EMPTY, accumulated the add and advanced its snapshot. The queue was
+    // populated a moment later, with nothing left to subtract from. One gesture,
+    // TWO turns — `structural_add` plus a `direct_graph_edit` describing the
+    // same node, and the notification half is the 'ack_and_commit' path (turn
+    // row, NO graph write) the durable verb exists to replace.
+    //
+    // ⚠⚠ THE ORDERING DEPENDENCY, NAMED HERE AND AT `planStructuralAddIntent`
+    // AND AT `removeStructuralAddClaims`, because it is a TRAP-21 INHERITANCE
+    // rather than a slip. `recordStructuralDeleteIntent` captures BEFORE its
+    // mutation and its comment says why: "Writes in its OWN `set()`, ahead of
+    // the removal's, so `useGraphEditEvents` sees a populated queue when it
+    // diffs the removal." An ADD cannot capture before — its subject does not
+    // exist until the node does. Inverting the capture without inverting the
+    // subtraction is what broke it. The single transaction satisfies both
+    // constraints at once: the capture reads a graph that CONTAINS the new node,
+    // and the subscriber's first observation already carries the claim.
+    //
+    // The projected `nodesAfter` is exactly the array this `set()` installs —
+    // not a guess about it — so the capture reads the graph its assertion is
+    // about.
+    //
+    // ⭐⭐ THIS IS THE CHOKEPOINT FOR EVERY GESTURE THAT REACHES `addNode`: the
+    // pane context menu, the six Command Palette "Add …" commands, the
+    // pre-analysis AddRow and the hero goal field. Capturing at any one of them
+    // would have left the others silent.
+    //
+    // ⚠⚠ IT IS **NOT** EVERY CREATION PATH IN THE CANVAS. `addNodeWithEdge`
+    // (five user-reachable affordances), `duplicateSelected` and
+    // `pasteClipboard` capture NOTHING — and on `addNodeWithEdge` a new factor
+    // even renders a number. The measured scope, and which omissions are
+    // deliberate, is on `pendingStructuralAdds`; read it there rather than
+    // inferring coverage from this line.
+    const nodesAfter: Node[] = [...get().nodes, created]
+    const plan = planStructuralAddIntent(get(), nodesAfter, id)
+    set(() => ({ nodes: nodesAfter, ...plan.patch }))
+
+    // AFTER the transaction, never inside it — a store updater must stay a pure
+    // function of state.
+    if (plan.deferred) announceDeferredStructuralAdd(get())
     return null
   },
 

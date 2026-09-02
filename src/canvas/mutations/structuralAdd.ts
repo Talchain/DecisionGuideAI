@@ -42,6 +42,18 @@
  * silently destroys it. The gate is the STATUS — `typeof value === 'number'`
  * plus the provenance stamp — never the truthiness of the number.
  *
+ * ⚠⚠ AND THE GUARANTEE IS SCOPED TO THE `addNode` PATH — SAY IT THAT WAY,
+ * BECAUSE THE UNSCOPED VERSION IS FALSE. `addNodeWithEdge` seeds
+ * `category: 'external'`, and `FactorNode.tsx:668-671` renders "Uncertainty
+ * here affects {N} outcome{s}." on exactly that category once an edge exists —
+ * so a node created through the four "Add connected …" context-menu items or
+ * the inspector's Add option DOES render a digit. That path is pre-existing,
+ * identical at base, has no durable writer in this lane, and `FactorNode.tsx`
+ * is untouched here. The full measured scope — which creation paths capture and
+ * which of the omissions are deliberate — is the block on
+ * `pendingStructuralAdds` in `canvas/store.ts`. Do not restate it; a
+ * restatement is how the caveat gets lost.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⚠ POSITION IS NOT ON THE WIRE AT ALL, so the live overlap defect (saved
  * scenarios restoring frozen mid-convergence geometry) is untouched by this
@@ -334,9 +346,16 @@ export function buildStructuralAddWirePayload(
  * ⚠⚠ THE WIRE VOCABULARY AND THE PERSISTED VOCABULARY DISAGREE BY EXACTLY ONE
  * MEMBER, AND THE DISAGREEMENT IS LOAD-BEARING. `NodeKind` on the wire has
  * EIGHT members; CEE's persisted `NodeKindV3` has SEVEN — it has no
- * `constraint`. So `{node_kind: 'constraint'}` is a VALID payload that clears
- * CEE's ingress and dies at its writer's own gate, and the client is answered
- * with a COMMITTED 200: a turn spent, a commit performed, and no node written.
+ * `constraint`. So `{node_kind: 'constraint'}` is a VALID payload at the wire
+ * that CEE refuses server-side, answering with a COMMITTED 200: a turn spent, a
+ * commit performed, and no node written.
+ *
+ * ⚠ CORRECTED AFTER REVIEW — the refusal happens BEFORE the persistence writer,
+ * not at it. An earlier version of this comment said the payload "dies at its
+ * writer's own gate", which put the check one stage too late; the payload never
+ * reaches the persistence writer at all. The consequence for this module is
+ * unchanged, which is why the code is unchanged: a committed-200 refusal costs
+ * the user a turn either way, and standing down here costs nothing.
  *
  * Standing down here costs nothing and says something true, so the divergence
  * is applied BEFORE the wire rather than discovered after it.
@@ -396,13 +415,20 @@ export type StructuralAddReceipt =
  * cannot-confirm line, forever, on the one outcome the user most needs told.
  *
  * ⭐ THE DISCRIMINATOR THAT DOES EXIST, and it is specific to ADD:
- * **AN ADD THAT LANDS NECESSARILY MOVES THE ANALYSIS HASH.** `projectNode`
- * (CEE `context/graph-hash.ts:224-258`) unconditionally emits `{id, kind}` for
- * every node, so a new unique id changes the projected `nodes` array and
- * therefore the canonical string. (For an added OPTION it moves twice over —
- * `reconcileTopLevelOptionsFromNodes` appends a roster entry whose `status` is
- * in `projectOption`'s keep-list.) This is also why the writer sets
- * `rerun_recommended: true`, the opposite of rename's.
+ * **AN ADD THAT LANDS NECESSARILY MOVES THE ANALYSIS HASH.**
+ *
+ * ⚠ THE LOAD-BEARING FIELD IS THE **ID**, NOT THE KIND — corrected after review,
+ * because the first version of this paragraph said `projectNode` emits
+ * `{id, kind}` "unconditionally" and the `kind` half is CONDITIONAL. The
+ * argument never needed it: a projection that emits the node's ID at all means a
+ * NEW, UNIQUE id changes the projected `nodes` array and therefore the canonical
+ * string, whatever else is or is not included alongside it. (For an added OPTION
+ * it moves twice over — the top-level option roster gains an entry too.) This is
+ * also why the writer sets `rerun_recommended: true`, the opposite of rename's.
+ *
+ * ⚠ AND THE DESIGN DOES NOT REST ON THIS BEING EXHAUSTIVE. Even if some future
+ * projection change made an add hash-neutral, the inference below would degrade
+ * to `unproven` — the cannot-confirm line — and never to a false `proven`.
  *
  * Therefore `graph_hash === base_graph_hash` PROVES the persisted graph did not
  * move, which PROVES our node is not in it. The inference runs in exactly one
@@ -547,7 +573,10 @@ export const STRUCTURAL_ADD_LIFECYCLE_LIMIT = 20
  * `BASE_HASH_DIVERGED` arm composes an `assistant_text` — "The model has
  * changed since you added that, so I haven't put it in" — and **the client
  * never sees it**, because a 409 returns a `BoundaryError` envelope rather than
- * the writer's response (`route-v2.ts:2727-2775`). So the one refusal where
+ * the writer's response (CEE `orchestrator/route-v2.ts`; ⚠ the line range this
+ * comment used to cite was WRONG and is removed rather than guessed again — the
+ * BEHAVIOUR was independently confirmed, the citation was not). So the one
+ * refusal where
  * CEE's own words are unreachable is precisely the one where the UI must
  * supply them. Derived, not assumed by symmetry with the 200 arms.
  */

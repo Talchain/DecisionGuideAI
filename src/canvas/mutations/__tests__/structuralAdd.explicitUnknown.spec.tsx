@@ -28,6 +28,15 @@
  * `prior_is_unquantified === true` — and NEVER the truthiness of the number.
  * Each test below therefore ships its opposite-direction twin, adjacently.
  *
+ * ⚠⚠ SCOPE, STATED BEFORE THE CLAIM RATHER THAN AFTER IT: everything below is
+ * about the `store.addNode` path — the pane context menu, the Command Palette
+ * "Add …" commands, the pre-analysis AddRow and the hero goal field. It is NOT
+ * a claim about every way a node can be created. `addNodeWithEdge` seeds
+ * `category: 'external'` and its factors DO render "Uncertainty here affects
+ * {N} outcome{s}." (`FactorNode.tsx:668-671`) — pre-existing, identical at
+ * base, and out of this lane's scope. See the block on `pendingStructuralAdds`
+ * in `canvas/store.ts` for the measured coverage of all four creation paths.
+ *
  * ⭐ THE LAYERS ARE TESTED SEPARATELY BECAUSE THEY CAN FAIL SEPARATELY:
  *   1. what `store.addNode` CREATES        (nothing to seed)
  *   2. what the WIRE PAYLOAD carries       (nowhere to put one)

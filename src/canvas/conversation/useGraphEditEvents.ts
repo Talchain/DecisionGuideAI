@@ -192,6 +192,28 @@ export function removeStructuralDeleteClaims(
  * path the durable verb exists to replace. Two turns describing one gesture is
  * the second-authority defect this estate pays for most often.
  *
+ * ⚠⚠⚠ ORDERING DEPENDENCY — THIS HELPER IS DEAD UNLESS THE CLAIM IS ALREADY IN
+ * THE STORE WHEN THE SUBSCRIBER FIRES, AND IT SHIPPED DEAD ONCE FOR EXACTLY
+ * THAT REASON.
+ *
+ * `useGraphEditEvents` SUBSCRIBES. When `addNode` wrote the node in one `set()`
+ * and captured its intent in a LATER one, the subscriber fired on the first,
+ * read `pendingStructuralAdds` as EMPTY, accumulated the add and advanced its
+ * snapshot — so this function never received a populated array and the
+ * subtraction never ran. `store.addNode` therefore installs the node and the
+ * intent in ONE `set()`. **Do not split that, and do not add a caller that
+ * captures after its own mutation.**
+ *
+ * ⚠ ITS DELETE TWIN HAS THE OPPOSITE ORDERING AND THAT IS CORRECT, WHICH IS
+ * PRECISELY THE TRAP. `recordStructuralDeleteIntent` captures BEFORE the
+ * removal ("Writes in its OWN `set()`, ahead of the removal's…"), because a
+ * delete's subject exists before the gesture; an add's does not. Two mechanisms
+ * answering different questions, and inheriting one's ordering into the other
+ * is what broke this (CLAUDE.md trap 21). `useGraphEditEvents.structuralAddClaims.spec.ts`
+ * drives the REAL subscriber against a REAL `addNode` and is the only guard
+ * that can see it — the unit spec hands this function its own fixtures and
+ * therefore agrees with itself.
+ *
  * Bound by IDENTITY — the intent's exact node id — never by "this diff contains
  * adds". A gesture that added A while a producer added B must still report B.
  *

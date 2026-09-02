@@ -1043,7 +1043,9 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // INCONSISTENCY WITH `structural_rename` ABOVE. Rename needs one because
   // `label` sits outside CEE's analysis-affecting hash projection, so two
   // concurrent renames move NO hash. An add ALWAYS moves the hash — `projectNode`
-  // unconditionally emits `{id, kind}` — so the stale gate genuinely covers it.
+  // emits the node's ID and a new one is unique — so the stale gate genuinely
+  // covers it. ⚠ The ID is the load-bearing field: an earlier draft claimed
+  // `{id, kind}` was emitted 'unconditionally' and the `kind` half is not.
   // The one thing `base_graph_hash` cannot catch is a colliding id, because that
   // id is already in the graph the user was looking at, and CEE gates that
   // separately by reading its own persisted graph.

@@ -1,5 +1,5 @@
 /**
- * `store.addNode` — the ONE chokepoint every add gesture crosses, and the
+ * `store.addNode` — the chokepoint every gesture that REACHES IT crosses, and the
  * deferral disclosure that goes with it.
  *
  * ⭐⭐ WHY THE CAPTURE LIVES IN THE STORE ACTION AND NOT AT A CALL SITE. The pane

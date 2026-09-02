@@ -11,6 +11,17 @@
  * Two turns describing one gesture is the second-authority defect this estate
  * pays for most often, and the delete lane established the fix.
  *
+ * ⚠⚠ WHAT THIS FILE CANNOT SEE, STATED UP FRONT. Every case below hands
+ * `removeStructuralAddClaims` a HAND-BUILT diff and a HAND-BUILT claim array, so
+ * it can only prove the function is correct GIVEN a populated array. It cannot
+ * prove the function is ever CALLED with one — and it was not: the helper
+ * shipped dead, because `addNode` captured its intent in a later `set()` than
+ * the node write and the subscriber had already moved on. A guard fed its own
+ * fixtures agrees with itself. The guard that can see that class of defect is
+ * `useGraphEditEvents.structuralAddClaims.spec.ts`, which drives the real store
+ * action and reads what the real subscriber emitted. Both files are needed and
+ * neither supersedes the other.
+ *
  * ⭐ EVERY CASE SHIPS ITS OPPOSITE-DIRECTION TWIN. A subtraction that takes too
  * much silently stops reporting real producer changes; one that takes too little
  * doubles every gesture. Two different harms, one predicate.

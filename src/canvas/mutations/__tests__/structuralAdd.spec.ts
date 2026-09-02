@@ -98,8 +98,9 @@ describe('captureStructuralAdd — every stand-down has its accepting twin', () 
 
   it('TWIN — an unpersistable kind stands down BEFORE the wire; a persistable one goes', () => {
     // `constraint` clears CEE's INGRESS (it is one of NodeKind's 8 members) and
-    // dies at its writer's gate with a COMMITTED 200: a turn spent, a commit
-    // performed, no node written. Standing down here costs nothing.
+    // is refused server-side with a COMMITTED 200: a turn spent, a commit
+    // performed, no node written. (The refusal happens BEFORE the persistence
+    // writer — the payload never reaches it.) Standing down here costs nothing.
     const constrained = node('c_1', 'Budget cap', CEE_UNPERSISTABLE_NODE_KIND)
     expect(
       capture({ nodesAfter: [constrained], nodeId: 'c_1' }),

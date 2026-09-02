@@ -177,7 +177,9 @@ const UI_COVERAGE: Record<
   //
   // ⚠ AND NOTE THE ONE ASSERTION, against the rename's two. Add needs no
   // `expected_label` twin: an add ALWAYS moves the analysis-affecting hash
-  // (`projectNode` unconditionally emits `{id, kind}`), so the stale gate
+  // (a NEW, UNIQUE id changes the projected `nodes` array — ⚠ the load-bearing
+  // field is the ID; an earlier draft said `projectNode` emits `{id, kind}`
+  // 'unconditionally' and the `kind` half is CONDITIONAL), so the stale gate
   // genuinely covers it, whereas a rename moves no hash at all.
   //
   // ⚠ `node_id` IS LOWERCASE-PATTERNED HERE AND OPEN ON THE RENAME. Add mints a
