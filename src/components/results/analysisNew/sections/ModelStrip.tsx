@@ -709,25 +709,48 @@ export function ModelStrip({
           </p>
         ) : null}
 
-        <ul className="list-none p-0 m-0 flex flex-col gap-1">
+        {/* ⚠⚠ ONE GRID FOR FOUR ROWS, AND THE ONE PIXEL IS WHY IT MOVED HERE.
+            The label column was a literal `76px` on each `<li>`. That fits
+            Options/Factors/Risks and leaves "Outcomes" 52px of the 53px it
+            needs — so the panel's own census truncated one of its four
+            category names to "Outcome…" on every model, at every panel width.
+            Measured on deployed `a4d6e204`: textW 53 vs boxW 52, `truncate`
+            doing exactly what it was asked to.
+
+            A wider magic number is the same bet on today's copy — the
+            hand-maintained mirror in CSS form, broken by the next copy edit or
+            the first translation. `auto` sizes the column to its content
+            instead, so the labels fit by construction rather than by a number
+            someone has to keep correct.
+
+            ⚠ BUT `auto` ON THE `<li>` RESOLVES PER ROW. A grid on each row is
+            four independent grids, each sizing column 1 to its OWN label, and
+            the first version of this fix did exactly that. Measured in
+            Chromium at 280/416/480, the marks column then starts at four
+            different offsets — 26px apart, and 65px apart with translated
+            labels. Alignment is a property of the four rows TOGETHER, so the
+            template belongs on the one element that contains all four; each
+            `<li>` dissolves into it with `display:contents`. That is the
+            repo's existing idiom for this shape (`DisclosureRow.tsx:173-177`,
+            `DeeperAnalysis.tsx:107-111`). `gap-x-2` carries the old row `gap-2`
+            and `gap-y-1` the old `flex-col gap-1`, so no spacing moves. The
+            `truncate` on the label span stays as the genuine last resort.
+
+            ⚠ THE ROLES ARE EXPLICIT BECAUSE OF THAT. `display:contents` removes
+            the element's principal box, and browsers have dropped `listitem`
+            from the a11y tree with it. Nothing in the suite queries this list
+            by role, so the loss would be silent — which is why the spec
+            asserts it rather than trusting the markup. */}
+        <ul
+          role="list"
+          data-testid={`${testId}-rows`}
+          className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1"
+        >
           {visible.map(({ row, nodes, drawMarks, narrowed, uncapped }) => (
             <li
               key={row.kind}
-              /* ⚠⚠ `auto`, NOT A PIXEL WIDTH, AND THE ONE PIXEL IS THE POINT.
-                 This column was `76px`, which fits Options/Factors/Risks and
-                 leaves "Outcomes" 52px of the 53px it needs — so the panel's
-                 own census truncated one of its four category names to
-                 "Outcome…" on every model, at every panel width. Measured on
-                 deployed `a4d6e204`: textW 53 vs boxW 52, `truncate` doing
-                 exactly what it was asked to.
-
-                 A wider magic number would fix this model and break on the next
-                 copy edit or the first translation — it is the hand-maintained
-                 mirror in CSS form. `auto` sizes the column to its widest
-                 content across all four rows, so they stay aligned with each
-                 other AND the labels always fit, whatever they say. The
-                 `truncate` on the span stays as the genuine last resort. */
-              className="grid grid-cols-[auto_1fr_auto] items-center gap-2"
+              role="listitem"
+              className="contents"
               data-testid={`${testId}-row`}
               data-kind={row.kind}
               data-selected={kindFilter === row.kind ? 'true' : undefined}
