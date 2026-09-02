@@ -97,6 +97,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import path from 'node:path'
+import { stripComments } from '../../../tests/helpers/stripSourceComments'
 
 const ROOT = path.resolve(__dirname, '../../..')
 const TYPOGRAPHY = path.join(ROOT, 'src/styles/typography.ts')
@@ -127,8 +128,38 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *
  * Rendered size at the 0.50 auto-fit floor, for whoever picks these up:
  *
- *   nodes/BaseNode.tsx              18px (text-lg, the low-zoom LOD title
- *                                   boost) -> varies with zoom
+ *   ⭐⭐ RESOLVED 1 Sep 2026 AND REMOVED FROM THE SET BELOW —
+ *   `nodes/BaseNode.tsx: text-lg` (the low-zoom LOD title boost). It is worth
+ *   recording WHY, because the caution stated here was reasonable and the
+ *   measurement overturned it. This entry read "18px -> varies with zoom", and
+ *   the paragraph above declined to route it through a canvas token on the
+ *   grounds that doing so would RESIZE the element (18 -> 12 declared), which
+ *   is a visual-design decision a legibility lane may not take alone.
+ *
+ *   What that reasoning never computed is the SIGN. `text-lg` carries no
+ *   counter-scale, so it renders at `18 x zoom`; an ordinary card's title
+ *   renders at `12 x labelCounterScale(zoom) x zoom`, which below the
+ *   legibility floor is `24 x zoom`. And `lodBoostTitle` is only ever true
+ *   BELOW that floor. So the boost was smaller than an ordinary title on 100%
+ *   of the cards it touched, 100% of the time — measured in a real browser
+ *   (`e2e/geometry/zoomLadder.measure.ts`, five committed starter drafts x two
+ *   laptop viewports): 4.67px on the goal and decision cards against 6.23px on
+ *   every other card. The two cards this product singles out as always-legible
+ *   were the smallest text on the canvas.
+ *
+ *   The "resize" was therefore the fix, not its cost: the anchor now uses the
+ *   same `nodeTitle` token as every other card and takes its emphasis from
+ *   weight and colour, which removes a non-scale size AND renders +33.0% to
+ *   +33.3% larger (ratio exactly 24/18; the spread is the whole-model fit
+ *   shifting <= 0.25% as the anchor cards' rendered height changed).
+ *   Pinned by `nodes/__tests__/BaseNode.lodTitleLegibility.spec.tsx`.
+ *
+ *   ⭐ THE TRANSFERABLE LESSON, because four entries below are held by the same
+ *   argument: "routing this through a canvas token would resize it" is a reason
+ *   to MEASURE the resize, not a reason to stop. Compute what the site renders
+ *   at against what its neighbours render at, in a browser, before concluding
+ *   that leaving it alone is the conservative choice. Here it was the opposite.
+ *
  *   nodes/EvidenceGapBadge.tsx      7px  -> 3.5px  (also below the DS v5 §2.4
  *                                   10px canvas floor at zoom 1, so it needs a
  *                                   size ruling, not a counter-scale)
@@ -163,7 +194,6 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *                                   not a typography one, and out of scope here.
  */
 const KNOWN_FIXED = [
-  'nodes/BaseNode.tsx:text-lg',
   'nodes/EvidenceGapBadge.tsx:inline-7',
   'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
   'edges/StyledEdge.tsx:inline-16',
@@ -317,7 +347,34 @@ function census() {
   for (const file of files) {
     const rel = path.relative(CANVAS, file)
     if (PORTALLED.includes(rel)) continue
-    const raw = readFileSync(file, 'utf8')
+    /**
+     * ⭐⭐ COMMENTS ARE BLANKED BEFORE THE SCAN, AND THIS GUARD WAS GREEN FOR THE
+     * WRONG REASON WITHOUT IT (found 1 Sep 2026, by the change that removed
+     * `nodes/BaseNode.tsx:text-lg` from `KNOWN_FIXED`).
+     *
+     * The size scan below reads the file LINE BY LINE as raw text. `KNOWN_FIXED`
+     * is asserted EXACTLY, so its whole value is that it REDs when a pinned site
+     * is fixed and the pin goes stale. It did not: the fix removed the last
+     * `text-lg` from `BaseNode.tsx`'s CODE and left the string in the doc comment
+     * explaining WHY it had gone — and the scan counted the prose. A pin
+     * satisfiable by a sentence is not a pin, and the failure mode is silent in
+     * both directions: prose can hold a stale pin alive, and prose quoting a
+     * banned class can redden CI over text that ships nothing.
+     *
+     * `deriveScope()` above already strips comments for exactly this reason and
+     * says so; the size scan simply never did. Same defect, same file, one
+     * function apart — which is why this uses the SHARED stripper rather than a
+     * second local regex (CLAUDE.md trap 12: two hand-kept copies of one rule
+     * agree on the day they are written).
+     *
+     * ⛔ `stripComments`, NOT `blankNonCode`. The latter also blanks STRING
+     * BODIES, and every class name this census exists to find lives in a string
+     * literal — it would return a clean, empty, entirely vacuous census. The
+     * stripper keeps string/template/regex literals as code and replaces only
+     * comment characters with spaces, newlines intact, so the line numbers this
+     * scan reports stay exact.
+     */
+    const raw = stripComments(readFileSync(file, 'utf8'), file)
 
     // Cross-boundary renders: an imported component that appears as JSX here is
     // inside the transform even though it lives outside the walked directories.
