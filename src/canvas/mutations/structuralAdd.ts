@@ -42,17 +42,21 @@
  * silently destroys it. The gate is the STATUS — `typeof value === 'number'`
  * plus the provenance stamp — never the truthiness of the number.
  *
- * ⚠⚠ AND THE GUARANTEE IS SCOPED TO THE `addNode` PATH — SAY IT THAT WAY,
- * BECAUSE THE UNSCOPED VERSION IS FALSE. `addNodeWithEdge` seeds
- * `category: 'external'`, and `FactorNode.tsx:668-671` renders "Uncertainty
- * here affects {N} outcome{s}." on exactly that category once an edge exists —
- * so a node created through the four "Add connected …" context-menu items or
- * the inspector's Add option DOES render a digit. That path is pre-existing,
- * identical at base, has no durable writer in this lane, and `FactorNode.tsx`
- * is untouched here. The full measured scope — which creation paths capture and
- * which of the omissions are deliberate — is the block on
- * `pendingStructuralAdds` in `canvas/store.ts`. Do not restate it; a
- * restatement is how the caveat gets lost.
+ * ⚠⚠ THIS MODULE'S GUARANTEE IS SCOPED TO THE `addNode` PATH — SAY IT THAT
+ * WAY, BECAUSE THE UNSCOPED VERSION IS FALSE. `addNodeWithEdge`,
+ * `duplicateSelected` and `pasteClipboard` capture no durable intent, and the
+ * reason each one is uncovered is derived rather than assumed. **The full
+ * measured scope is the block on `pendingStructuralAdds` in
+ * `canvas/store.ts`, and it is the only place that states it.** Do not restate
+ * it here; a restatement is how the caveat gets lost — this paragraph used to
+ * carry its own copy, and that copy went stale the day the `category:
+ * 'external'` seed it described was removed.
+ *
+ * The RENDER half of the guarantee now holds on the connected-add path too
+ * (the seed is gone — see `store.addNodeWithEdge`), pinned by
+ * `__tests__/structuralAdd.connectedAddExplicitUnknown.spec.tsx`. Rendering an
+ * explicit unknown and being DURABLY SAVED are different claims; that file
+ * makes the first, and only the first.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⚠ POSITION IS NOT ON THE WIRE AT ALL, so the live overlap defect (saved

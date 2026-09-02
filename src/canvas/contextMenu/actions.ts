@@ -276,7 +276,18 @@ export async function addConnectedFactorAction(
     : [target.nodeId, nodeId]
 
   const ops: PatchOperation[] = [
-    { op: 'add_node', target_id: nodeId, data: { kind: 'factor', label: 'New factor', category: 'external' } },
+    // ⚠ NO `category` — AND THIS IS THE SECOND WRITER, NOT A DUPLICATE OF THE
+    // STORE'S. `commitValidatedMutation` sends these ops to PLoT's
+    // `validatePatch` and, when it returns a validated graph, `setState`s THAT
+    // graph instead of calling `localApply()`. So a `category: 'external'` left
+    // here would re-seed the node on the validated path even though
+    // `store.addNodeWithEdge` no longer seeds one — the two must agree or the
+    // guarantee holds only on whichever branch happens to run. See the seed
+    // note in `store.addNodeWithEdge` for why the category is wrong at all.
+    //
+    // ⚠ The option/outcome/risk siblings below never declared one, so this line
+    // was also the only place the four items disagreed with each other.
+    { op: 'add_node', target_id: nodeId, data: { kind: 'factor', label: 'New factor' } },
     { op: 'add_edge', target_id: edgeId, data: { from: source, to: target_ } },
   ]
 
@@ -420,7 +431,13 @@ export async function insertFactorBetweenAction(
   const newEdgeId2 = store.createEdgeId()
 
   const ops: PatchOperation[] = [
-    { op: 'add_node', target_id: newNodeId, data: { kind: 'factor', label: 'New factor', category: 'external' } },
+    // ⚠ NO `category` — the same fix, on the same defect, as the connected-add
+    // op above; see the seed note in `store.addNodeWithEdge`. This path is
+    // worse than that one on arrival, not better: it splits an edge, so the new
+    // factor lands as the SOURCE of `newEdgeId2` and `outcomesAffected` is 1
+    // the instant it appears. With the category seeded it rendered "Uncertainty
+    // here affects 1 outcome." about a factor the user had supplied nothing for.
+    { op: 'add_node', target_id: newNodeId, data: { kind: 'factor', label: 'New factor' } },
     { op: 'remove_edge', target_id: edgeId, data: {} },
     { op: 'add_edge', target_id: newEdgeId1, data: { from: edge.source, to: newNodeId } },
     { op: 'add_edge', target_id: newEdgeId2, data: { from: newNodeId, to: edge.target } },
@@ -436,7 +453,13 @@ export async function insertFactorBetweenAction(
           id: newNodeId,
           type: 'factor' as const,
           position: midPos,
-          data: { label: 'New factor', kind: 'factor', category: 'external' },
+          // ⚠ AND HERE TOO — the LOCAL branch. This action installs its node by
+          // bare `setState` rather than through a store add action, so it has
+          // its own copy of the seed and neither branch guards the other:
+          // whichever of `commitValidatedMutation`'s two paths runs is decided
+          // at RUNTIME by whether `plot.validatePatch` exists. Both must say
+          // the same thing or the guarantee is a coin toss.
+          data: { label: 'New factor', kind: 'factor' },
         }],
         edges: [
           ...s.edges.filter(e => e.id !== edgeId),
