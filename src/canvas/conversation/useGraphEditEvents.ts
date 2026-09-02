@@ -179,6 +179,67 @@ export function removeStructuralDeleteClaims(
   for (const op of diff.edgeOps.values()) diff.operations.add(op)
 }
 
+/**
+ * Drop from a diff the ADDS a `structural_add` intent has already claimed, so
+ * one gesture produces one turn.
+ *
+ * ⚠⚠ WITHOUT THIS, WIRING THE DURABLE ADD WRITER *INTRODUCES* A DEFECT RATHER
+ * THAN ONLY CLOSING ONE. `diffSnapshots` records a new id as `nodeOps: 'add'`
+ * and `buildSummary`/the emitter turn it into a `direct_graph_edit` with
+ * `change_type: 'add_node'`. So a single add gesture would reach CEE TWICE:
+ * once as the durable write, and once as a notification claiming the same node
+ * changed — and the notification half is the `'ack_and_commit'` no-graph-write
+ * path the durable verb exists to replace. Two turns describing one gesture is
+ * the second-authority defect this estate pays for most often.
+ *
+ * ⚠⚠⚠ ORDERING DEPENDENCY — THIS HELPER IS DEAD UNLESS THE CLAIM IS ALREADY IN
+ * THE STORE WHEN THE SUBSCRIBER FIRES, AND IT SHIPPED DEAD ONCE FOR EXACTLY
+ * THAT REASON.
+ *
+ * `useGraphEditEvents` SUBSCRIBES. When `addNode` wrote the node in one `set()`
+ * and captured its intent in a LATER one, the subscriber fired on the first,
+ * read `pendingStructuralAdds` as EMPTY, accumulated the add and advanced its
+ * snapshot — so this function never received a populated array and the
+ * subtraction never ran. `store.addNode` therefore installs the node and the
+ * intent in ONE `set()`. **Do not split that, and do not add a caller that
+ * captures after its own mutation.**
+ *
+ * ⚠ ITS DELETE TWIN HAS THE OPPOSITE ORDERING AND THAT IS CORRECT, WHICH IS
+ * PRECISELY THE TRAP. `recordStructuralDeleteIntent` captures BEFORE the
+ * removal ("Writes in its OWN `set()`, ahead of the removal's…"), because a
+ * delete's subject exists before the gesture; an add's does not. Two mechanisms
+ * answering different questions, and inheriting one's ordering into the other
+ * is what broke this (CLAUDE.md trap 21). `useGraphEditEvents.structuralAddClaims.spec.ts`
+ * drives the REAL subscriber against a REAL `addNode` and is the only guard
+ * that can see it — the unit spec hands this function its own fixtures and
+ * therefore agrees with itself.
+ *
+ * Bound by IDENTITY — the intent's exact node id — never by "this diff contains
+ * adds". A gesture that added A while a producer added B must still report B.
+ *
+ * The op check is load-bearing in the other direction too: an id that was ADDED
+ * by the gesture and REMOVED by something else in the same debounce window is a
+ * genuine removal and stays.
+ */
+export function removeStructuralAddClaims(
+  diff: DiffAccumulator,
+  pending: ReadonlyArray<{ nodeId: string }>,
+): void {
+  if (pending.length === 0) return
+  for (const intent of pending) {
+    if (diff.nodeOps.get(intent.nodeId) !== 'add') continue
+    diff.changedNodeIds.delete(intent.nodeId)
+    diff.nodeOps.delete(intent.nodeId)
+    diff.fieldsChanged.delete(intent.nodeId)
+  }
+  // `operations` is a set of op KINDS, not of ids, so it must be re-derived from
+  // what survived — leaving a stale 'add' would tell CEE an addition happened
+  // that this notification no longer names.
+  diff.operations.clear()
+  for (const op of diff.nodeOps.values()) diff.operations.add(op)
+  for (const op of diff.edgeOps.values()) diff.operations.add(op)
+}
+
 function buildSummary(acc: DiffAccumulator): string {
   const parts: string[] = []
   const nodeCount = acc.changedNodeIds.size
@@ -294,6 +355,10 @@ export function useGraphEditEvents(
       useGuidanceStore.getState().clearGuidanceItems()
 
       removeStructuralDeleteClaims(diff, curr.pendingStructuralDeletes)
+      // 0.50.0 — the same subtraction for the durable ADD writer. See
+      // `removeStructuralAddClaims`: without it, wiring that writer would put
+      // two turns on the wire for one gesture.
+      removeStructuralAddClaims(diff, curr.pendingStructuralAdds)
       if (diff.changedNodeIds.size === 0 && diff.changedEdgeIds.size === 0) {
         // Every change in this diff is already on the wire as a durable
         // removal. Advance the snapshot and emit nothing — one gesture, one

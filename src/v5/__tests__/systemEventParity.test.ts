@@ -42,6 +42,7 @@ const UI_WIRE_EVENT_TYPES = [
   'prior_range_edit',
   'structural_delete',
   'structural_rename',
+  'structural_add',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -161,6 +162,40 @@ const UI_COVERAGE: Record<
       base_graph_hash: 'f3d31f75957c5cb5',
     },
   },
+  // 0.50.0: the DURABLE NODE writer. Emitted by every add gesture through
+  // `store.addNode` → `useStructuralAddEvents`. Reader-first and DERIVED:
+  // CEE staging `d5455355` declares `structural_add: 'mutating'`
+  // (`system-events/dispatch.ts:315`) with its writer at
+  // `system-events/structural-add.ts`.
+  //
+  // ⚠⚠ NOTE WHAT IS *NOT* IN THIS PAYLOAD. There is no value, no prior, no
+  // position and no category, and no fifth key of any kind — the member is
+  // `.strict()` and the contract states that "EVERY OPTIONAL NodeV3 FIELD IS
+  // DELIBERATELY ABSENT". A new node arrives as an explicit unknown. If a future
+  // edit adds a key here, that is the fabrication this whole lane exists to
+  // prevent — check the contract before writing it.
+  //
+  // ⚠ AND NOTE THE ONE ASSERTION, against the rename's two. Add needs no
+  // `expected_label` twin: an add ALWAYS moves the analysis-affecting hash
+  // (a NEW, UNIQUE id changes the projected `nodes` array — ⚠ the load-bearing
+  // field is the ID; an earlier draft said `projectNode` emits `{id, kind}`
+  // 'unconditionally' and the `kind` half is CONDITIONAL), so the stale gate
+  // genuinely covers it, whereas a rename moves no hash at all.
+  //
+  // ⚠ `node_id` IS LOWERCASE-PATTERNED HERE AND OPEN ON THE RENAME. Add mints a
+  // new id against `NodeV3Schema.shape.id` (`/^[a-z0-9_:-]+$/`); rename
+  // addresses an existing one against the open endpoint schema, because
+  // narrowing that "would refuse live nodes".
+  structural_add: {
+    kind: 'system_event',
+    eventKind: 'structural_add',
+    payload: {
+      node_id: 'fac_supplier_risk',
+      node_kind: 'factor',
+      label: 'Supplier concentration risk',
+      base_graph_hash: 'f3d31f75957c5cb5',
+    },
+  },
 }
 
 describe('UI ↔ V5 system event parity', () => {
@@ -260,15 +295,21 @@ describe('UI ↔ V5 system event parity', () => {
       // a separately reviewed product/transport lane owns that future decision.
       'edge_strength_edit',
       // 0.50.0 added three direct-canvas verbs. `structural_rename` IS wired
-      // (see above). The other two are deferred, and the reason is CEE-side and
-      // derived rather than a UI preference:
-      //   · `structural_add`      — CEE declares it 'mutating' at staging
-      //     `4f0bd774`, so a writer exists; the UI emitter is a separate product
-      //     lane (a new node needs a value/kind decision this lane does not own).
-      //   · `structural_add_edge` — CEE still declares it 'reader_only_refusal',
-      //     i.e. it has NO writer. Emitting it would earn the user an honest
-      //     refusal and nothing else.
-      'structural_add',
+      // (see above) and `structural_add` IS NOW WIRED TOO — the durable node
+      // writer, which is the close of "the factor I added wasn't there when I
+      // came back". The value question that lane was waiting on is SETTLED and
+      // the answer is that there is nothing to settle: the wire member carries
+      // no value field at all, and CEE stamps a new factor with an explicit
+      // ignorance prior while refusing its own commit if a numeric level reaches
+      // the persisted bytes.
+      //
+      // Only ONE verb is still deferred, and the reason is CEE-side and derived
+      // rather than a UI preference:
+      //   · `structural_add_edge` — CEE still declares it 'reader_only_refusal'
+      //     (`system-events/dispatch.ts:316`, staging `d5455355`), i.e. it has
+      //     NO writer. Emitting it would earn the user an honest refusal and
+      //     nothing else — and worse, pairing it with `structural_add` would
+      //     durably save a node while silently dropping its edge.
       'structural_add_edge',
     ])
 
@@ -283,7 +324,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 8 of 13 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 10 of 16 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -300,14 +341,14 @@ describe('UI ↔ V5 system event parity', () => {
     // (patch_accepted, patch_dismissed, direct_graph_edit, feedback,
     // factor_value_edit, edge_adjudication, prior_range_edit,
     // structural_delete). 0.50.0 grew the union to 16 with three direct-canvas
-    // verbs and this lane wires ONE of them — `structural_rename`, the durable
-    // label writer — taking UI emission to 9. `structural_add` has a CEE writer
-    // but needs its own product lane; `structural_add_edge` has no CEE writer at
-    // all (still 'reader_only_refusal'), so emitting it would buy a refusal.
+    // verbs. The rename lane wired `structural_rename` (UI emission 8 -> 9) and
+    // the durable-add lane wires `structural_add` (9 -> 10). `structural_add_edge`
+    // has no CEE writer at all (still 'reader_only_refusal'), so emitting it
+    // would buy the user a refusal.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(9)
+    expect(uiEmittedCount).toBe(10)
     expect(V5_EVENT_KINDS).toHaveLength(16)
   })
 })

@@ -101,9 +101,16 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     requiredEvidence: 'Confirm as is and Undo confirmation do not mount',
   },
   preAnalysisV3StructuralAdd: {
-    authority: 'disabled',
+    authority: 'server_graph',
     entrySurfaces: ['pre-analysis v3 option group', 'pre-analysis v3 risk group'],
-    requiredEvidence: 'local Add controls are replaced by Olumi coaching actions',
+    requiredEvidence:
+      'inline Add rows mount and each add emits ONE structural_add carrying no value, resolved against the server receipt',
+  },
+  canvasNodeAddWithServerHash: {
+    authority: 'server_graph',
+    entrySurfaces: ['canvas pane context menu', 'command palette', 'pre-analysis v3 add rows', 'pre-analysis v3 hero goal'],
+    requiredEvidence:
+      'accepted structural_add plus receipt-gated removal on refusal; deferred when no CEE graph_hash has been seen, and disclosed',
   },
   analysisAssumedEdgeStrength: {
     authority: 'disabled',
@@ -189,12 +196,15 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       .map(([action]) => action)
       .sort()
     expect(graphEdits).toEqual([
-      // 0.50.0 — the rename joins the receipt-bearing set. ⚠ THIS LIST IS SORTED,
-      // so the new member lands FIRST rather than beside its delete sibling; that
-      // is the sort's doing, not a claim about ordering.
+      // 0.50.0 — the rename joined the receipt-bearing set, and the ADD joins it
+      // here. ⚠ THIS LIST IS SORTED, so the new members land first rather than
+      // beside their delete sibling; that is the sort's doing, not a claim about
+      // ordering.
+      'canvasNodeAddWithServerHash',
       'canvasNodeRenameWithServerHash',
       'modelFactorValue',
       'preAnalysisV3FactorValue',
+      'preAnalysisV3StructuralAdd',
       'structuralDeleteWithServerHash',
     ])
     expect(CANONICAL_EDIT_AUTHORITY.modelOptionIntervention).toBe('disabled')
@@ -207,7 +217,13 @@ describe('mutation authority is exhaustive and fail-closed', () => {
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorValue).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3FactorConfirmation).toBe('disabled')
-    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd).toBe('disabled')
+    // ⭐ FLIPPED BY THE DURABLE-ADD LANE. This assertion is the pristine RED
+    // that lane used: it locked the affordance dark, and it is the surface the
+    // flip lights up. Both new keys are asserted positively rather than merely
+    // dropped from the disabled list, so a silent regression to 'disabled'
+    // fails here rather than going unnoticed.
+    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd).toBe('server_graph')
+    expect(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.analysisAssumedEdgeStrength).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.canvasEdgeStrength).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.canvasFactorConfirmation).toBe('disabled')

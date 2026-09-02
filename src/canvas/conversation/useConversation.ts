@@ -59,6 +59,14 @@ import {
   type StructuralRenameIntent,
   type StructuralRenameNoticeKey,
 } from '../mutations/structuralRename'
+import {
+  readStructuralAddReceipt,
+  revertStructuralAdd,
+  STRUCTURAL_ADD_NOTICE,
+  type StructuralAddIntent,
+  type StructuralAddNoticeKey,
+} from '../mutations/structuralAdd'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
@@ -2280,6 +2288,8 @@ export interface SendTurnOpts {
   structuralDelete?: StructuralDeleteIntent
   /** schemas 0.50.0 — the rename gesture this `structural_rename` announces. */
   structuralRename?: StructuralRenameIntent
+  /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
+  structuralAdd?: StructuralAddIntent
   /**
    * Keep this system event with its caller when another turn owns the lock.
    *
@@ -2423,6 +2433,8 @@ export interface UseConversationReturn {
     structuralDelete?: StructuralDeleteIntent
     /** schemas 0.50.0 — the rename gesture this `structural_rename` announces. */
     structuralRename?: StructuralRenameIntent
+    /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
+    structuralAdd?: StructuralAddIntent
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
@@ -3148,6 +3160,150 @@ export function useConversation(): UseConversationReturn {
           role: 'assistant',
           synthetic: true,
           content: STRUCTURAL_RENAME_NOTICE[notice],
+          timestamp: new Date(),
+        })
+      }
+    },
+    [addMessage],
+  )
+
+  /**
+   * ⭐⭐ RESOLVE ONE `structural_add` AGAINST WHAT THE SERVER ACTUALLY DID.
+   *
+   * ⚠⚠ THE OBVIOUS DESIGN RESTS ON A FALSE PREMISE AND WAS WRITTEN DOWN AS
+   * THOUGH DERIVED — see `readStructuralAddReceipt`'s header for the full
+   * refutation. Short form: `draft_graph` is stamped on SUCCESS ARMS ONLY, so
+   * "the committed graph came back and lacks our node" is evidence that never
+   * arrives. The discriminator that does exist is the HASH: an add that lands
+   * necessarily moves CEE's analysis-affecting hash, so `graph_hash ===
+   * base_graph_hash` proves nothing was written.
+   *
+   * THE EVIDENCE, AND ITS THREE STATES (never two):
+   *   · `proven`   — the committed graph carries this id. Nothing to do; CEE's
+   *     own confirmation prose renders through the 200 branch, and for a factor
+   *     that prose already says "I haven't given it a value … I won't invent a
+   *     number", which is exactly the sentence this lane would otherwise have to
+   *     write itself.
+   *   · `refuted`  — the server did not write it. REMOVE the node, unless the
+   *     removal stands down (see below). No notice is added when CEE spoke: its
+   *     sentence names the actual reason ("Something with that identity is
+   *     already in your model, and I won't overwrite it") and ours would not.
+   *   · `unproven` — no evidence either way. KEEP the node and say we could not
+   *     confirm. Removing on a guess is data loss, which is strictly worse than
+   *     the uncertainty it would be trying to hide.
+   *
+   * ⚠ THE 409 IS THE ONE ARM WHERE THE UI MUST SUPPLY THE WORDS. CEE composes
+   * an `assistant_text` for `BASE_HASH_DIVERGED`, and the client never sees it —
+   * a 409 returns a `BoundaryError` envelope rather than the writer's response.
+   * So the twelve committed-200 refusals get CEE's voice and this one gets ours.
+   * Derived, not assumed by symmetry.
+   *
+   * ⚠ A 409 IS DECIDED BY THE SHARED PREDICATE, not by an equality: CEE has two
+   * 409 sources (the pre-write stale gate and the atomic CAS conflict) that both
+   * state a no-write guarantee, and `isProvenNoWriteConflict` is the ONE set
+   * every optimistic writer reads. A category outside it is an UNKNOWN and takes
+   * the cannot-confirm line, never a promise we cannot keep.
+   */
+  const resolveStructuralAdd = useCallback(
+    (
+      intent: StructuralAddIntent,
+      capturedScenarioId: string | null,
+      outcome:
+        | {
+            kind: 'response'
+            response: { draft_graph?: unknown; graph_hash?: unknown; assistant_text?: unknown }
+          }
+        | { kind: 'typed_error'; conflictCategory: string | undefined }
+        | { kind: 'transport' },
+    ) => {
+      const store = useCanvasStore.getState()
+      let notice: StructuralAddNoticeKey | null = null
+      let shouldRevert = false
+
+      // ⭐ SETTLE THE LIFECYCLE RECORD ON EVERY ARM, INCLUDING THE EARLY
+      // RETURNS. The record is the attempt/completion authority that outlives
+      // this React instance; leaving an arm unsettled would hand the drain's
+      // every-exit fallback an attempt the server DID answer, and it would tell
+      // the user "I couldn't confirm" about an add that plainly committed.
+      // `settleStructuralAdd` is idempotent, so whichever authority writes first
+      // owns the verdict.
+      const settle = (status: 'committed' | 'refused' | 'unconfirmed') => {
+        useCanvasStore.getState().settleStructuralAdd(intent.id, status)
+      }
+
+      if (outcome.kind === 'response') {
+        const receipt = readStructuralAddReceipt(intent, outcome.response)
+        if (receipt === 'proven') {
+          settle('committed')
+          return
+        }
+        if (receipt === 'refuted') {
+          settle('refused')
+          shouldRevert = true
+          // WITHHELD WHENEVER CEE ALREADY SPOKE — and on this arm it almost
+          // always has, with a better sentence than ours because it names the
+          // specific refusal.
+          const spoke =
+            typeof outcome.response.assistant_text === 'string' &&
+            outcome.response.assistant_text.trim().length > 0
+          notice = spoke ? null : 'refused_server'
+        } else {
+          // `unproven`. We hold no evidence about this node. Keep it.
+          settle('unconfirmed')
+          notice = 'unconfirmed_server'
+        }
+      } else if (outcome.kind === 'typed_error') {
+        const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
+        // A category the PRODUCER guarantees wrote nothing is a refusal we can
+        // state; anything else is an unknown, and calling an unknown a refusal
+        // would be the same overclaim in verdict form.
+        settle(provenNoWrite ? 'refused' : 'unconfirmed')
+        shouldRevert = provenNoWrite
+        notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+      } else {
+        settle('unconfirmed')
+        notice = 'unconfirmed_transport'
+      }
+
+      if (shouldRevert) {
+        const revertOutcome = revertStructuralAdd(
+          intent,
+          {
+            nodes: store.nodes,
+            edges: store.edges,
+            currentScenarioId: store.currentScenarioId,
+            applyStructuralAddRevert: store.applyStructuralAddRevert,
+          },
+          capturedScenarioId,
+          (n) => resolveNodeTypeLiteral(n),
+        )
+        // ⭐ THE STOOD-DOWN ARMS ARE NOT THE SAME AS THE RENAME TWIN'S, AND THE
+        // DIFFERENCE IS THE WHOLE POINT OF THIS LANE.
+        //
+        // A rename that stands down from its revert simply withholds the notice
+        // — the canvas already shows newer truth and nothing is owed. An ADD
+        // that stands down leaves a node the model DOES NOT HOLD sitting on the
+        // canvas, which is precisely the P0 shape this event exists to close. So
+        // silence here would re-create the harm one level up.
+        if (revertOutcome === 'stood_down_connected') {
+          // The removal was refused to protect an edge THIS GESTURE DID NOT
+          // CREATE. The node stays, and the state is named exactly.
+          notice = 'refused_left_on_canvas'
+        } else if (revertOutcome === 'stood_down') {
+          // The scenario moved on, or the node no longer holds what we sent.
+          // The copy promises the node is off the canvas; that promise is now
+          // false, so it is withheld rather than shipped beside a canvas it does
+          // not describe.
+          return
+        }
+      }
+
+      if (notice !== null) {
+        addMessage({
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          synthetic: true,
+          content: STRUCTURAL_ADD_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -4314,6 +4470,31 @@ export function useConversation(): UseConversationReturn {
           )
         }
 
+        // 0.50.0 — the ADD twin, and NOT gated on `target.kind !==
+        // 'typed_error'` for the same reason its two siblings are not: a 409 IS
+        // an outcome this event must resolve, and it is the ONE arm where CEE's
+        // own sentence never reaches the client.
+        const structuralAdd = opts.structuralAdd
+        if (
+          structuralAdd &&
+          systemEvent?.type === 'structural_add' &&
+          activeV5TurnIdRef.current === turnClientId
+        ) {
+          resolveStructuralAdd(
+            structuralAdd,
+            // Captured at DISPATCH, not read now — a scenario switch mid-turn
+            // must stand the removal down rather than delete a node from a
+            // decision the user never edited.
+            scenarioIdAtDispatch,
+            target.kind === 'typed_error'
+              ? {
+                  kind: 'typed_error',
+                  conflictCategory: extractConflictCategory(target.boundaryError),
+                }
+              : { kind: 'response', response: target.response },
+          )
+        }
+
         const optimisticEdit = opts.optimisticFactorEdit
         if (
           optimisticEdit &&
@@ -5252,6 +5433,15 @@ export function useConversation(): UseConversationReturn {
               kind: 'transport',
             })
           }
+          // 0.50.0 — the add twin. Same treatment and the same reason: the
+          // NODE is left alone (nothing was read, so removing it would be as
+          // unfounded as keeping it) and the user is told it is unconfirmed
+          // rather than left to discover it on the next reload.
+          if (opts.structuralAdd && systemEvent?.type === 'structural_add') {
+            resolveStructuralAdd(opts.structuralAdd, scenarioIdAtDispatch, {
+              kind: 'transport',
+            })
+          }
           // The same treatment for the OTHER optimistic writer, and for the
           // same reason: an unresolved value edit leaves the canvas showing a
           // number the model may not hold. No category, so it can only take
@@ -5590,6 +5780,8 @@ export function useConversation(): UseConversationReturn {
       structuralDelete?: StructuralDeleteIntent
       /** schemas 0.50.0 — the rename gesture this `structural_rename` announces. */
       structuralRename?: StructuralRenameIntent
+      /** schemas 0.50.0 — the add gesture this `structural_add` announces. */
+      structuralAdd?: StructuralAddIntent
       deferIfBusy?: boolean
     }) => {
       // No-op when orchestrator V2 is OFF
@@ -5635,6 +5827,15 @@ export function useConversation(): UseConversationReturn {
         // lane and `useConversation.structuralRenameOutcome.spec.ts` is what
         // found it, which is the argument for that spec existing.
         structuralRename: opts?.structuralRename,
+        // ⚠⚠ THE OTHER LINE THAT MUST NOT BE FORGOTTEN, and its absence is
+        // equally INVISIBLE: the resolver still exists, the opts type still
+        // declares the field, and every test that does not drive a real turn
+        // stays green — the add simply never resolves against the server and the
+        // canvas silently keeps a node the model refused. The rename lane
+        // shipped exactly this omission on its first cut and only an OUTCOME
+        // spec found it, which is why
+        // `useConversation.structuralAddOutcome.spec.ts` exists.
+        structuralAdd: opts?.structuralAdd,
         // ⚠ A DELETE MAY DEFER, AND THE DEDUPE KEY IS WHY THAT IS SAFE.
         // `enqueueDeferredSystemSend` collapses only `factor_value_edit`
         // (last-write-wins per target); every other type gets a per-enqueue

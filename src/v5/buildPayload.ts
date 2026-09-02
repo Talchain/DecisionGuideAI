@@ -43,6 +43,15 @@ import {
   isWireUsableNodeId,
   type StructuralRenameWireEvent,
 } from '../canvas/mutations/structuralRename'
+// ⚠ `isWireUsableNewNodeId` IS NOT `isWireUsableNodeId`. The add member mints an
+// id and validates it against the NARROW `NodeV3Schema.shape.id` pattern; the
+// rename member addresses an existing id and uses the OPEN endpoint schema. Two
+// predicates, named apart on purpose — see `adaptStructuralAdd` below.
+import {
+  isWireUsableNewNodeId,
+  WIRE_ADDABLE_NODE_KINDS,
+  type StructuralAddWireEvent,
+} from '../canvas/mutations/structuralAdd'
 // VALUE import, and deliberately so: the selection this module puts on the wire
 // must be the one the canvas holds AT SEND TIME, read at the moment the payload
 // is built. Passing it in from useConversation would be purer, but the store is
@@ -426,6 +435,11 @@ function systemEventToPayload(args: {
     }
     case 'structural_rename': {
       const event = adaptStructuralRename(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
+    case 'structural_add': {
+      const event = adaptStructuralAdd(eventPayload)
       if (event === null) return null
       return { ...base, event }
     }
@@ -1154,4 +1168,66 @@ function sanitiseIntent(raw: string | undefined): IntentLiteral | undefined {
     )
   }
   return undefined
+}
+
+/**
+ * `structural_add` (0.50.0) — the durable NODE write.
+ *
+ * FAIL-CLOSED ON THE CONTRACT'S OWN RULES, checked here rather than trusted from
+ * the caller, for the reason `adaptStructuralDelete` states: every member of
+ * this union is `.strict()` and the union is discriminated, so one malformed
+ * field does not lose the field, it loses the WHOLE TURN at CEE's ingress (422).
+ * The rules re-applied here are the schema's, not invented ones:
+ *
+ *   · `node_id` is `NodeV3Schema.shape.id` — `min(1).max(100)` AND the lowercase
+ *     `NODE_ID_PATTERN` `/^[a-z0-9_:-]+$/`. ⚠⚠ THIS IS NARROWER THAN ITS
+ *     SIBLINGS AND THE ASYMMETRY IS DELIBERATE ON BOTH SIDES. `structural_add`
+ *     MINTS a new id, and the contract's note says an id failing that pattern
+ *     "is one CEE cannot persist into GraphV3"; `structural_rename` and
+ *     `structural_add_edge` address EXISTING nodes and use the OPEN
+ *     `CanonicalEdgeEndpointIdSchema`, because narrowing those "would refuse
+ *     live nodes". Copying either predicate onto the other event is wrong in
+ *     opposite directions — hence `isWireUsableNewNodeId`, named apart from
+ *     `isWireUsableNodeId` so they cannot be swapped by symmetry.
+ *   · `label` is `NodeV3Schema.shape.label`, i.e. `min(1).max(200)`.
+ *   · `node_kind` is `NodeKind`, an 8-member enum — but only SEVEN of those are
+ *     persistable by CEE (`NodeKindV3` has no `constraint`), and the eighth
+ *     earns a COMMITTED 200 refusal rather than a 422. Standing down here costs
+ *     nothing and says something true.
+ *   · `base_graph_hash` is `z.string().min(1)` — absent, null and empty are all
+ *     forbidden; the stale gate is non-optional.
+ *
+ * ⚠⚠ THERE IS NO VALUE FIELD, NO PRIOR FIELD AND NO POSITION FIELD, AND NOTHING
+ * MAY BE ADDED HERE. The member is `.strict()`, so an extra key does not get
+ * dropped — it 422s the turn. More importantly it would be the fabrication this
+ * whole lane exists to prevent: CEE stamps a new factor with an explicit
+ * ignorance prior and refuses its own commit if a numeric level reaches the
+ * persisted bytes. `buildPayload.structuralAdd.spec.ts` pins the exact key set.
+ *
+ * A `null` return routes to `unsupported_system_event`, i.e. no turn at all —
+ * the right outcome: an unsendable add must not become a turn that claims
+ * something happened.
+ */
+function adaptStructuralAdd(
+  eventPayload: Record<string, unknown> | undefined,
+): StructuralAddWireEvent | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const node_id = eventPayload?.node_id
+  if (!isWireUsableNewNodeId(node_id)) return null
+
+  const label = eventPayload?.label
+  if (!isWireUsableLabel(label)) return null
+
+  const node_kind = eventPayload?.node_kind
+  if (typeof node_kind !== 'string' || !WIRE_ADDABLE_NODE_KINDS.has(node_kind)) return null
+
+  return {
+    kind: 'structural_add',
+    node_id,
+    node_kind,
+    label,
+    base_graph_hash,
+  } as StructuralAddWireEvent
 }

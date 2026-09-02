@@ -20,7 +20,6 @@ import { useCanvasStore } from '../../../store'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { Pill } from '../../pre-analysis/primitives/Pill'
 import { ATTRIBUTION_COPY, FIELD_FEEDBACK_COPY, MODEL_VIEW_COPY, PANEL_COPY, SPARK_PROMPTS } from '../constants'
-import { kindOf } from '../selectors/graphFacts'
 import { PanelIconButton } from '../ui/PanelIconButton'
 import { PanelDisclosure } from '../ui/PanelDisclosure'
 import { CalibrateDrillIn } from './CalibrateDrillIn'
@@ -55,19 +54,28 @@ const CLOSED_GROUPS: Record<GroupKey, boolean> = {
   estimates: false,
 }
 
+/**
+ * ⭐⭐ ONE GESTURE, ONE TURN — and the previous shape was wrong in two ways that
+ * only became reachable once both store actions gained durable writers.
+ *
+ * It used to `addNode()`, then SCAN for the node it had just made, then
+ * `updateNodeLabel()`. With `structural_add` and `structural_rename` both live
+ * that puts TWO turns on the wire for ONE user gesture, and the second is doomed
+ * by construction: the rename's `expected_label` describes a node the add has
+ * not finished creating, and its `base_graph_hash` was read before the add moved
+ * it.
+ *
+ * The scan was independently wrong. `nodes.filter(n => kindOf(n) === kind).at(-1)`
+ * binds by a VALUE PREDICATE another node satisfies the moment anything else
+ * adds one — CLAUDE.md trap 19, the defect where a test (or here, a writer)
+ * passes on a different object than the one it was written for. Naming the node
+ * at creation removes both problems and needs no scan at all.
+ */
 function addNamedNode(kind: 'option' | 'risk', label: string): boolean {
   const trimmed = label.trim()
   if (trimmed === '') return false
-  const store = useCanvasStore.getState()
-  const limit = store.addNode(undefined, kind)
-  if (limit) return false
-  const created = useCanvasStore
-    .getState()
-    .nodes.filter(n => kindOf(n) === kind)
-    .at(-1)
-  if (!created) return false
-  useCanvasStore.getState().updateNodeLabel(created.id, trimmed)
-  return true
+  const limit = useCanvasStore.getState().addNode(undefined, kind, trimmed)
+  return limit === null
 }
 
 /** Collapsible group: header (shape, name, meta) toggles the body + coach line. */

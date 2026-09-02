@@ -616,10 +616,18 @@ describe('Your decision — per-group collapse', () => {
 
     fireEvent.click(screen.getByTestId('pre-analysis-v3-groups-toggle-all'))
     expect(screen.getByTestId('pre-analysis-v3-estimate-f1')).toBeInTheDocument()
-    expect(screen.getByTestId('pre-analysis-v3-explore-options')).toHaveTextContent(
-      'Explore more options with Olumi',
-    )
-    expect(screen.queryByLabelText('Add another option')).not.toBeInTheDocument()
+    // ⭐ schemas 0.50.0 — RE-DERIVED, NOT BLANKET-UPDATED. This test's SUBJECT is
+    // collapse/expand, and these two lines are its proof that the options group
+    // BODY opened. They previously read that proof off the fallback "Explore
+    // more options with Olumi" link, because `preAnalysisV3StructuralAdd` was
+    // `'disabled'` and the inline AddRow never mounted. The durable-add lane
+    // gives that control a receipt-bearing carrier (`structural_add`) and flips
+    // the key to `'server_graph'`, so the group now renders the AddRow instead.
+    // Same subject, same proof, new marker — and the old `not.toBeInTheDocument`
+    // below was PINNING THE DARK STATE, so it is inverted rather than deleted.
+    expect(screen.getByTestId('pre-analysis-v3-add-option')).toBeInTheDocument()
+    expect(screen.getByLabelText('Add another option')).toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-explore-options')).not.toBeInTheDocument()
     expect(screen.getByTestId('pre-analysis-v3-groups-toggle-all')).toHaveTextContent('Collapse all')
 
     fireEvent.click(screen.getByTestId('pre-analysis-v3-groups-toggle-all'))
@@ -630,10 +638,14 @@ describe('Your decision — per-group collapse', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: /Your decision/ }))
     fireEvent.click(screen.getByRole('button', { name: /Risks and upside/ }))
-    expect(screen.getByTestId('pre-analysis-v3-explore-risks')).toHaveTextContent(
-      'Explore risks with Olumi',
-    )
-    expect(screen.queryByLabelText('Add a risk')).not.toBeInTheDocument()
+    // schemas 0.50.0 — same re-derivation as the options group above. The
+    // subject here is that ONE group toggles independently; the marker is
+    // whatever that group's body renders, which is now the inline AddRow.
+    expect(screen.getByTestId('pre-analysis-v3-add-risk')).toBeInTheDocument()
+    expect(screen.queryByTestId('pre-analysis-v3-explore-risks')).not.toBeInTheDocument()
+    // ⚠ AND THE INDEPENDENCE CLAIM IS UNTOUCHED: the OPTIONS group stays shut.
+    // Without this the test would pass on a panel that opened everything.
+    expect(screen.queryByTestId('pre-analysis-v3-add-option')).not.toBeInTheDocument()
     expect(screen.queryByTestId('pre-analysis-v3-estimate-f1')).not.toBeInTheDocument()
   })
 })
