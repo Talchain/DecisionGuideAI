@@ -713,7 +713,21 @@ export function ModelStrip({
           {visible.map(({ row, nodes, drawMarks, narrowed, uncapped }) => (
             <li
               key={row.kind}
-              className="grid grid-cols-[76px_1fr_auto] items-center gap-2"
+              /* ⚠⚠ `auto`, NOT A PIXEL WIDTH, AND THE ONE PIXEL IS THE POINT.
+                 This column was `76px`, which fits Options/Factors/Risks and
+                 leaves "Outcomes" 52px of the 53px it needs — so the panel's
+                 own census truncated one of its four category names to
+                 "Outcome…" on every model, at every panel width. Measured on
+                 deployed `a4d6e204`: textW 53 vs boxW 52, `truncate` doing
+                 exactly what it was asked to.
+
+                 A wider magic number would fix this model and break on the next
+                 copy edit or the first translation — it is the hand-maintained
+                 mirror in CSS form. `auto` sizes the column to its widest
+                 content across all four rows, so they stay aligned with each
+                 other AND the labels always fit, whatever they say. The
+                 `truncate` on the span stays as the genuine last resort. */
+              className="grid grid-cols-[auto_1fr_auto] items-center gap-2"
               data-testid={`${testId}-row`}
               data-kind={row.kind}
               data-selected={kindFilter === row.kind ? 'true' : undefined}
