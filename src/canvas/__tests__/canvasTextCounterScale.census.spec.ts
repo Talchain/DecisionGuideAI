@@ -165,19 +165,6 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *                                   size ruling, not a counter-scale)
  *   nodes/shared/NodeCoachingMarker 12px (typography.caption) -> 6.0px
  *
- *   edges/StyledEdge.tsx            16px -> 8.0px. The polarity glyph (+/−) on
- *                                   the DEFAULT lens, so it is on screen for
- *                                   every new user with a stated direction.
- *                                   16px is FIVE px above the top of the DS
- *                                   §2.3 canvas scale and four above §2.4's
- *                                   10-12px canvas band, so there is no canvas
- *                                   token to route it through: `nodeTitle`
- *                                   would shrink the glyph 16 -> 13 at zoom 1,
- *                                   and minting a fourth canvas size is a
- *                                   design-system change, not a legibility fix.
- *                                   ⭐ NEEDS A SIZE RULING. It is the only one
- *                                   of the five inline edge-label sizes left
- *                                   un-counter-scaled by #771.
  *   edges/EdgeEditPopover.tsx       panelHeader 14px -> 7.0px, panelMeta 11px
  *                                   -> 5.5px. PANEL tokens on a component that
  *                                   renders inside the transform (StyledEdge
@@ -196,7 +183,6 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
 const KNOWN_FIXED = [
   'nodes/EvidenceGapBadge.tsx:inline-7',
   'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
-  'edges/StyledEdge.tsx:inline-16',
   'edges/EdgeEditPopover.tsx:typography.panelHeader',
   'edges/EdgeEditPopover.tsx:typography.panelMeta',
 ] as const

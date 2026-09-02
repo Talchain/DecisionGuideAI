@@ -21,7 +21,11 @@ import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
-import { shouldShowEdgeLabel } from './edgeLabelVisibility'
+import {
+  shouldShowEdgeLabel,
+  selectPersistentStrengthIds,
+  type RankedCausalEdge,
+} from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
 import {
   readContestedState,
@@ -29,7 +33,13 @@ import {
   resolveEdgeDash,
   type EdgePresentationState,
 } from './edgePresentation'
-import { resolvePersistentLabelPlacements, LABEL_HALF_WIDTH, type PlacementEdge } from './edgeLabelCollision'
+import {
+  resolvePersistentLabelPlacements,
+  LABEL_HALF_WIDTH,
+  type PlacementEdge,
+  type LabelRowCount,
+  LABEL_ROW_GAP_PX,
+} from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { shouldShowLabel, getEdgeConfidence } from '../domain/edges'
 import {
@@ -45,7 +55,7 @@ import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
-import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn } from '../utils/fragileEdgeMatch'
+import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
@@ -83,6 +93,51 @@ const EMPTY_ID_SET: ReadonlySet<string> = new Set<string>()
  * silently cap the usable area at 20 wherever BaseEdge paints on top.
  */
 export const EDGE_HIT_AREA_WIDTH = 28
+
+/**
+ * The robustness fragile-edge list, read through one typed accessor.
+ * `ReportV1` does not declare `robustness`, so every inline `report.robustness`
+ * read costs a diagnostic; this narrows once, in one place, and the callers
+ * stay clean.
+ */
+function fragileEdgesOf(report: unknown): FragileEdgeCandidate[] {
+  const robustness = (report as { robustness?: { fragile_edges?: unknown } } | null | undefined)
+    ?.robustness
+  return (robustness?.fragile_edges as FragileEdgeCandidate[] | undefined) ?? []
+}
+
+/**
+ * Rank-order two causal edges for the persistent-label set by the strength a
+ * label is ENTITLED to speak about: a sourced strength outranks an unset one,
+ * larger magnitude outranks smaller, and the caller breaks the remaining ties
+ * by id. Returns a comparator result, so `|| a.id.localeCompare(b.id)` reads
+ * naturally at every call site.
+ *
+ * ⛔ ELIGIBILITY IS NOT DECIDED HERE. This orders; it never drops. The
+ * provenance gate that DROPS unsourced edges lives on the pre-analysis branch
+ * alone and is unchanged — a "3 or fewer" graph still labels edges whose
+ * strength nobody set, exactly as before.
+ */
+function compareEdgesByLabelStrength(
+  a: Record<string, unknown> | undefined,
+  b: Record<string, unknown> | undefined,
+): number {
+  const da = resolveEdgeSignedStrengthDisplay(a)
+  const db = resolveEdgeSignedStrengthDisplay(b)
+  if (da.show !== db.show) return da.show ? -1 : 1
+  if (!da.show || !db.show) return 0
+  return compareEdgeValueDisplays(
+    { ...da, value: Math.abs(da.value) },
+    { ...db, value: Math.abs(db.value) },
+    'desc',
+  )
+}
+
+/** Narrow a ranked edge to what the per-target cap needs. */
+const toRanked = (e: { id: string; target: string }): RankedCausalEdge => ({
+  id: e.id,
+  target: e.target,
+})
 
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
@@ -221,6 +276,54 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const fragileEdges = report.robustness.fragile_edges || []
     return isTopFragileEdgeFn(id, source, target, fragileEdges)
   }, [isFragileEdge, report, id, source, target])
+
+  /**
+   * The fragility sentence — ONE owner, two readers (the row's own `title`
+   * and the chip container's composed one), so the two cannot drift apart.
+   * Presence-branched on a MEASURED switch probability: absent means NOT
+   * COMPUTED, and `marginal_switch_probability` is a different Monte Carlo,
+   * never a fallback (pinned by StyledEdge.fragilePresence.spec).
+   */
+  const fragileSentence = fragileEdgeSwitchProb !== null
+    ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the result flips if this relationship changes`
+    : 'Sensitive assumption: outcome may flip if this relationship changes'
+
+  /**
+   * Every edge whose chip will carry a fragility ROW, graph-wide.
+   *
+   * ⚠ THIS IS NEW STATE, AND IT EXISTS FOR ONE REASON: the fragility badge
+   * used to render as a free-floating sibling at a hard-coded `labelX + 30`,
+   * outside `resolvePersistentLabelPlacements` entirely. That is why the
+   * founder saw "Sensitive · 49%" with no visible referent — and why
+   * DESIGN_SYSTEM.md's claim that "stacking is spaced by
+   * edgeLabelCollision.ts" was FALSE for this one signal. The resolver is a
+   * GLOBAL pass, so it needs every participant's id, not just this edge's.
+   *
+   * The membership rule is the badge's own, unchanged: every fragile edge in
+   * Detailed/Model, the single top fragile edge in the default view.
+   */
+  const fragileLabelIds = useMemo((): Set<string> => {
+    if (!isResultsMode) return new Set()
+    const fragileEdges = fragileEdgesOf(report)
+    if (fragileEdges.length === 0) return new Set()
+    const out = new Set<string>()
+    for (const e of getEdges()) {
+      // Structural edges are never analysed and never badged — the same
+      // exclusion the render gate below applies, kept in step here so a
+      // structural edge cannot reserve a placement slot it will not use.
+      const sn = getNode(e.source)
+      const tn = getNode(e.target)
+      const sk = sn?.type || (sn?.data as Record<string, unknown>)?.kind
+      const tk = tn?.type || (tn?.data as Record<string, unknown>)?.kind
+      if (sk === 'decision' && tk === 'option') continue
+      if (sk === 'option' && tk === 'factor') continue
+      const match = viewMode !== 'standard'
+        ? isEdgeFragileFn(e.id, e.source, e.target, fragileEdges)
+        : isTopFragileEdgeFn(e.id, e.source, e.target, fragileEdges)
+      if (match) out.add(e.id)
+    }
+    return out
+  }, [isResultsMode, report, viewMode, getEdges, getNode])
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -542,7 +645,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (sk === 'option' && tk === 'factor') return false   // intervention
       return true
     })
-    if (causalEdges.length <= 3) return new Set(causalEdges.map(e => e.id)) // all labelled when 3 or fewer
+    // ⭐ ONE LABEL PER TARGET (see selectPersistentStrengthIds). Applied to
+    // EVERY branch below, this one included — and this branch is the founder's
+    // screenshot: three edges converging on one goal card took the "3 or
+    // fewer, label them all" path and pinned all three into a space that fits
+    // two. Eligibility here is deliberately UNCHANGED (no provenance gate on
+    // this branch); the sort only decides WHICH edge wins a shared target, so
+    // a graph whose targets are all distinct keeps exactly the set it had.
+    if (causalEdges.length <= 3) {
+      const ordered = [...causalEdges].sort(
+        (a, b) =>
+          compareEdgesByLabelStrength(a.data as Record<string, unknown> | undefined, b.data as Record<string, unknown> | undefined) ||
+          a.id.localeCompare(b.id),
+      )
+      return selectPersistentStrengthIds(ordered.map(toRanked))
+    }
 
     if (isResultsMode && report) {
       // Post-analysis: use composite importance (same formula as stroke width)
@@ -555,11 +672,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         const goalSens = src ? Math.abs(src.elasticity ?? src.sensitivity_score ?? src.importance_score ?? 0) : 1.0
         return {
           id: e.id,
+          target: e.target,
           score: calculateEdgeImportance(ed?.beliefExists, ed?.weight ?? 0.5, goalSens),
         }
       })
-      scores.sort((a, b) => b.score - a.score)
-      return new Set(scores.slice(0, 3).map(s => s.id))
+      // Tie-break by id so a tie cannot be resolved by iteration order —
+      // the per-target cap makes the winner USER-VISIBLE, so "whichever came
+      // first" is no longer good enough.
+      scores.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+      return selectPersistentStrengthIds(scores)
     }
 
     // Pre-analysis: rank by |strength.mean|.
@@ -572,17 +693,44 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // unset sorts last and is then dropped, so when fewer than three edges
     // have a sourced strength fewer than three labels are pinned — rather
     // than filling the quota from edges we know nothing about.
-    const strengths: Array<{ id: string; magnitude: EdgeValueDisplay }> = []
+    const strengths: Array<{ id: string; target: string; magnitude: EdgeValueDisplay }> = []
     for (const e of causalEdges) {
       const display = resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined)
       if (!display.show) continue
-      strengths.push({ id: e.id, magnitude: { ...display, value: Math.abs(display.value) } })
+      strengths.push({ id: e.id, target: e.target, magnitude: { ...display, value: Math.abs(display.value) } })
     }
-    strengths.sort((a, b) => compareEdgeValueDisplays(a.magnitude, b.magnitude, 'desc'))
-    return new Set(strengths.slice(0, 3).map(s => s.id))
+    strengths.sort(
+      (a, b) =>
+        compareEdgeValueDisplays(a.magnitude, b.magnitude, 'desc') || a.id.localeCompare(b.id),
+    )
+    return selectPersistentStrengthIds(strengths)
   }, [getEdges, getNode, isResultsMode, report])
 
   const isTopStrengthEdge = !isStructuralEdge && topStrengthIds.has(id)
+
+  /**
+   * This edge renders a PERSISTENT chip — one pinned to the map rather than
+   * summoned by hover or selection — so it takes part in the global placement
+   * pass. A fragility row alone is enough: the badge is persistent too, and
+   * always was; it simply never told the resolver.
+   */
+  /**
+   * ONE CHIP PER EDGE. `showLabel` (below) is the STRENGTH ROW's gate, not the
+   * chip's: the chip is a CONTAINER and renders when EITHER row is admitted,
+   * so a fragile-but-not-top-strength edge gets a one-row chip that IS the old
+   * badge — same copy, same title, now placed by the resolver instead of
+   * floating at a hard-coded `labelX + 30`.
+   *
+   * The fragility gate is the badge's own, moved verbatim. It is declared HERE,
+   * above the placement pass, because `isPersistentChipEdge` reads it: this
+   * edge's membership of the fragile set and its render gate are ONE question
+   * with one answer, and asking the set again with `.has(id)` would be a second
+   * spelling of the same rule.
+   */
+  const showFragileRow =
+    (viewMode !== 'standard' ? isFragileEdge : isTopFragileEdge) && !isStructuralEdge
+
+  const isPersistentChipEdge = isTopStrengthEdge || showFragileRow
 
   // E3 part 2 (C2): subscribe to node geometry so a label re-dodges when ANY
   // node card moves onto it (this edge's own props only change when its own
@@ -635,7 +783,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // so it can never push a cleared label back under a card. The returned
   // offset is the TOTAL displacement (nudge + collision stack).
   const collisionOffset = useMemo(() => {
-    if (!isTopStrengthEdge) return { dx: 0, dy: 0 }
+    if (!isPersistentChipEdge) return { dx: 0, dy: 0 }
+    // How many stacked rows a given edge's chip renders. A chip with both a
+    // strength row and a fragility row is TALLER, and the resolver clears the
+    // box it is actually given.
+    const rowsFor = (edgeId: string): LabelRowCount | 0 => {
+      const n = (topStrengthIds.has(edgeId) ? 1 : 0) + (fragileLabelIds.has(edgeId) ? 1 : 0)
+      return n === 0 ? 0 : (n as LabelRowCount)
+    }
     const rectOf = (n: {
       position: { x: number; y: number }
       measured?: { width?: number; height?: number }
@@ -649,14 +804,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     })
     const placementEdges: PlacementEdge[] = []
     for (const e of getEdges()) {
-      if (!topStrengthIds.has(e.id)) continue
+      const rows = rowsFor(e.id)
+      if (rows === 0) continue
       // C2 review fix 1: a lens-hidden edge renders no label (the component
       // returns null below), so it must not occupy a label slot either.
       if (lensHiddenEdgeIds.has(e.id)) continue
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       if (!sn || !tn) continue
-      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn) })
+      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn), rows })
     }
     const nodeRects = getNodes()
       // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
@@ -667,7 +823,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // nodeRectsSignature is the recompute trigger for node movement (the
     // whole placement is derived from node geometry, so it covers this
     // edge's own endpoints too).
-  }, [isTopStrengthEdge, topStrengthIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature])
+  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature])
 
   // Total label displacement (Task 9c proximity nudge + collision stack),
   // relative to the rendered label anchor (labelX/labelY).
@@ -688,6 +844,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     isFirstEdge,
     showEdgeHint: Boolean(showEdgeHint),
   })
+
+  const showChip = showLabel || showFragileRow
+
+  /**
+   * The word beside the glyph. Where a PERSISTENT strength row is on screen,
+   * its text already names the direction ("Moderate boost" / "Strong drag"),
+   * so the +/− glyph would be the same datum on a second channel — the
+   * clutter the founder reported. It is suppressed THERE and nowhere else:
+   * beside a transient hover/selection chip, and on every other
+   * stated-direction edge, the glyph stays.
+   *
+   * ⛔ IT IS NEVER DELETED. `directionStroke.ts:23-32` measured this palette
+   * as separating WORSE for a dichromat than the green/red it replaced
+   * (ΔE2000 11.7 vs 28.3 under deuteranopia): the SHAPE, not the colour, is
+   * what carries polarity for a red-green dichromat here.
+   */
+  const strengthRowCarriesDirection = showLabel && isTopStrengthEdge
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
@@ -985,73 +1158,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           `direction` field — see the derivation at the top of this component.
           An unstated / declined / unrecognised direction renders NOTHING here;
           the graph says less rather than something it was never told. */}
-      {statedDirection && lensMode !== 'causal' && !isStructuralEdge && (
+      {statedDirection && lensMode !== 'causal' && !isStructuralEdge && !strengthRowCarriesDirection && (
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${targetX - 18}px,${targetY - 18}px)`,
               pointerEvents: 'none',
-              // ⚠ NOT counter-scaled, and DELIBERATELY so — the one site #771
-              // left alone, pinned in `canvasTextCounterScale.census.spec.ts`'s
-              // KNOWN_FIXED so it is a visible gap rather than an invisible one.
-              //
-              // This glyph renders at 8.0px at the 0.50 auto-fit floor, and it
-              // is on the DEFAULT lens, so it is the worst-placed of the five
-              // inline sizes in this file. It is still not this lane's to fix:
-              // 16px is five px above the top of the DS v5 §2.3 canvas scale
-              // (13/11/10) and four above §2.4's 10-12px canvas band, so no
-              // canvas token declares it. `nodeTitle` would shrink the glyph
-              // 16 -> 13 at zoom 1 — a silent resize — and minting a fourth
-              // canvas size is a design-system change, not a legibility fix.
-              // ⭐ NEEDS A SIZE RULING. Once ruled, route it through a token.
-              fontSize: '16px',
-              fontWeight: 700,
-              color: statedDirection === 'positive' ? '#059669' : '#dc2626',
-              // Chip surface = the panel token, matching the sibling edge-label
-              // chips (bg-panel) so it no longer glares on a dark canvas. Inline
-              // CSS-var idiom mirrors the other token refs in this file
-              // (e.g. the leader line's var(--border-default, #EEE6D8)); the
-              // hex is only a var() fallback, not a live literal.
-              backgroundColor: 'var(--bg-panel, #FEFEFE)',
-              padding: '0 3px',
-              borderRadius: '2px',
             }}
+            // ⭐ THE SIZE RULING THIS SITE ASKED FOR, MADE.
+            //
+            // What stood here: `fontSize: '16px'` with `fontWeight: 700`, a
+            // hard-coded #059669/#dc2626 and a `--bg-panel` chip — the ONE
+            // canvas text site #771 deliberately left un-counter-scaled,
+            // pinned in `canvasTextCounterScale.census.spec.ts`'s KNOWN_FIXED
+            // so it stayed a VISIBLE gap, with the note "⭐ NEEDS A SIZE
+            // RULING. Once ruled, route it through a token."
+            //
+            // Ruled: `typography.edgeLabel` — the canvas token its four
+            // sibling edge-label sites already use, so no fourth canvas size
+            // is minted and DS v5 §2.4's 10-12px band is respected. The
+            // apparent size goes 8.0px -> 10px at the 0.50 auto-fit floor
+            // (where the product's own post-layout fit parks a fresh model)
+            // and 16px -> 10px at zoom 1: it stops being the largest text on
+            // the canvas at rest AND stops being the smallest when zoomed out.
+            //
+            // The chip surface, the bold and the hard-coded hues go with it.
+            // Colour was never the load-bearing channel here — see
+            // `directionStroke.ts:23-32` — so the glyph reads as body text and
+            // the SHAPE does the work, which is what a dichromat relies on.
+            className={`${typography.edgeLabel} text-text-body`}
             aria-label={`Effect direction: ${statedDirection}`}
           >
             {statedDirection === 'positive' ? '+' : '−'}
-          </div>
-        </EdgeLabelRenderer>
-      )}
-
-      {/* Fragile edge warning badge. Detailed/Model view: every fragile edge.
-          E4 (graph-visuals): the default (standard) view shows the SINGLE top
-          fragile relationship so the key flip risk is on the map by default,
-          uncluttered. Structural edges are not analysed — never badged. */}
-      {(viewMode !== 'standard' ? isFragileEdge : isTopFragileEdge) && !isStructuralEdge && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX + 30}px,${labelY}px)`,
-              pointerEvents: 'all',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '2px 6px',
-              borderRadius: '4px',
-            }}
-            className="bg-panel text-text-body border border-info/30 shadow-sm"
-            title={fragileEdgeSwitchProb !== null
-              ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the result flips if this relationship changes`
-              : 'Sensitive assumption: outcome may flip if this relationship changes'}
-          >
-            <AlertTriangle size={12} />
-            {/* 10px, unchanged — via the canvas token so it sees the
-                counter-scale; inline it rendered at 5.0px. */}
-            <span className={typography.edgeLabel} style={{ fontWeight: 600 }}>
-              Sensitive{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
-            </span>
           </div>
         </EdgeLabelRenderer>
       )}
@@ -1119,7 +1258,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       )}
 
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
-      {showLabel && (
+      {showChip && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -1135,26 +1274,43 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // independently-written literal so the number stays observable.
               maxWidth: `${LABEL_HALF_WIDTH * 2}px`,
               overflow: 'hidden',
+              // ⭐ A COLUMN OF UP TO TWO ROWS — the strength row and the
+              // fragility row. The chip is a CONTAINER, not a fourth signal:
+              // each row keeps its own text, owner and title. The resolver is
+              // told the row count and clears the taller box (see
+              // `labelHalfHeightForRows`), which is what makes
+              // DESIGN_SYSTEM.md's "stacking is spaced by
+              // edgeLabelCollision.ts" true for the fragility signal — it was
+              // FALSE for as long as that badge painted at `labelX + 30`.
               display: 'flex',
-              // One line, always. The resolver clears a fixed 160x22 box, so
-              // the row may never wrap to a second line; the ellipsis that
-              // keeps the TEXT inside that box lives on the span below.
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              // Each ROW is still one line, always: the ellipsis that keeps
+              // the text inside the cleared box lives on the spans below.
               flexWrap: 'nowrap',
-              alignItems: 'center',
-              gap: '4px',
+              rowGap: `${LABEL_ROW_GAP_PX}px`,
               cursor: 'pointer',
               // C1: Smooth fade-in transition
               opacity: 1,
               transition: 'opacity 150ms ease-in-out',
             }}
             className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
-              isDark
-                ? 'bg-gray-900 text-gray-100 border-gray-600'
-                : 'bg-panel/95 text-text-header border-panel-border'
+              isDark ? 'bg-gray-900 text-gray-100' : 'bg-panel/95 text-text-header'
+            } ${
+              // The fragility row brings the old badge's border with it, so a
+              // fragile-only chip IS the badge — same copy, same surface, now
+              // placed by the resolver. Selected as ONE class rather than
+              // appended after another border colour: Tailwind resolves by
+              // stylesheet order, not by the order classes appear here.
+              showFragileRow
+                ? 'border-info/30'
+                : isDark
+                  ? 'border-gray-600'
+                  : 'border-panel-border'
             } ${hasSuggestion ? 'ring-2 ring-info ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
             role="note"
             data-testid="edge-influence-label"
-            aria-label={ariaLabel}
+            aria-label={showLabel ? ariaLabel : fragileSentence}
             title={(() => {
               // ⭐ CANVAS-BACKLOG S1 — THE SENTENCE THE PLATE CUTS OFF LIVES HERE NOW.
               //
@@ -1186,13 +1342,32 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               const baseTooltip = provenance
                 ? `${sentence} • Source: ${provenance}`
                 : sentence
-              return `${baseTooltip}\n\nDouble-click to inspect`
+              // Each ROW keeps its own title (below); the CONTAINER carries
+              // every sentence the chip is currently showing, and only those —
+              // a fragile-only chip must not describe a strength it is not
+              // displaying.
+              const parts = [
+                ...(showLabel ? [baseTooltip] : []),
+                ...(showFragileRow ? [fragileSentence] : []),
+              ]
+              return `${parts.join('\n')}\n\nDouble-click to inspect`
             })()}
             onDoubleClick={handleLabelDoubleClick}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            {(() => {
+            {showLabel && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'nowrap',
+                  alignItems: 'center',
+                  gap: '4px',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                }}
+              >
+                {(() => {
               const desc = edgeDescription
               return (
                 <>
@@ -1273,6 +1448,45 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 </>
               )
             })()}
+              </div>
+            )}
+
+            {/* THE FRAGILITY ROW — the former standalone badge, verbatim.
+                It kept its own copy, its own `title` and its own owner
+                (`getFragileEdgeSwitchProbability`); all it lost is the
+                hard-coded `labelX + 30` that put it outside the placement
+                pass and left it floating with no visible referent. */}
+            {showFragileRow && (
+              <div
+                data-testid="edge-fragile-tag"
+                style={{
+                  display: 'flex',
+                  flexWrap: 'nowrap',
+                  alignItems: 'center',
+                  gap: '4px',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                }}
+                className="text-text-body"
+                title={fragileSentence}
+              >
+                <AlertTriangle size={12} className="flex-shrink-0" />
+                {/* 10px via the canvas token so it sees the counter-scale;
+                    inline it rendered at 5.0px. */}
+                <span
+                  className={typography.edgeLabel}
+                  style={{
+                    fontWeight: 600,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Sensitive{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
+                </span>
+              </div>
+            )}
           </div>
         </EdgeLabelRenderer>
       )}
