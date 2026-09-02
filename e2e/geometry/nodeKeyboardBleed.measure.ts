@@ -258,15 +258,79 @@ async function censusFocusables(page: Page): Promise<FocusableCensusRow[]> {
  * Attribution is by the anchor node hovered, not by DOM ancestry — there is no
  * DOM ancestry to attribute by, which is the whole point.
  *
- * ⚠ THE HOVER DELAY IS 300ms AND IT IS DERIVED, NOT GUESSED:
- * `hooks/usePopoverHover.ts:11` — `ENTER_DELAY = 300`. The first version of
- * this probe waited 60ms, found NOTHING, and would have reported a clean zero
- * for the very class it was written to count. That is the same defect as the
- * DOM census's blindness, reproduced inside the instrument built to expose it.
- * The caller asserts a non-zero find, so a probe that stops opening popovers
- * REDs instead of quietly reporting safety.
+ * ⚠⚠ IT WAITS FOR THE POPOVER, IT DOES NOT SLEEP FOR IT — and the history is
+ * the reason.
+ *
+ * v1 slept 60ms against a derived `ENTER_DELAY = 300`
+ * (`hooks/usePopoverHover.ts:11`) and counted NOTHING: the instrument written
+ * to expose the DOM census's blindness reproduced that blindness exactly.
+ * v2 slept 450ms and worked — but a fixed sleep makes the count a race, which
+ * is why two runs of one commit gave 56 and 59, and it earns no floor: a
+ * timing-starved run and a genuinely empty canvas are indistinguishable.
+ *
+ * Waiting on the ELEMENT removes four problems at once: the blindness, the
+ * run-dependence, the ~30s of dead sleeping, and — the one that matters — it
+ * makes a MAGNITUDE FLOOR assertable, because a healthy run is no longer
+ * allowed to be starved.
+ *
+ * Each node is parked-then-hovered: popovers are closed first (waiting for
+ * DETACH, bounded) so a neighbour's popover left over from the previous
+ * iteration cannot be attributed here, then the hover waits for ATTACH.
  */
-const POPOVER_ENTER_DELAY_MS = 300
+/** 5x the derived `ENTER_DELAY`. A bound, not a sleep: it resolves on arrival. */
+const POPOVER_WAIT_MS = 1_500
+
+/*
+ * ── THE FLOOR, CALIBRATED AGAINST MEASURED RUNS, NOT GUESSED ────────────────
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE `toBeGreaterThan(0)` COULD NOT FAIL. The historical
+ * defect — a 60ms poll against a 300ms `ENTER_DELAY` — was restored in an
+ * isolated tree by an independent reviewer and the probe reported **3 controls
+ * in 3 popovers**, a 95% collapse, AND THE CONTROL PASSED, because 3 > 0.
+ *
+ * It did not reproduce as the literal zero I had seen, so the guard I wrote
+ * from that observation was aimed at the SYMPTOM rather than at the property.
+ * The property is "did this probe see a plausible FRACTION of what is there",
+ * and only a magnitude check answers it. A comfortable 3 is exactly the number
+ * a reader quotes without a second look.
+ *
+ *   sample                                    controls   popovers
+ *   independent reviewer, pristine                  55         57
+ *   this lane, fixed 450ms sleep, run 1              56         61
+ *   this lane, fixed 450ms sleep, run 2              59         65
+ *   independent reviewer, pristine x2 (identical)    56         62
+ *   this lane, event-driven wait                     58         63
+ *   ─────────────────────────────────────────────────────────────
+ *   BLINDED (the 60ms historical defect)              3          3
+ *
+ * The floor sits ~27% below the weakest healthy sample and ~13x above the
+ * blinded one, so it discriminates the case it exists for without tripping on
+ * legitimate variation. Same shape as this harness's `MIN_REFERENCE_BYTES`
+ * block — floors written from intuition rather than measurement fail in
+ * whichever direction you were not thinking about.
+ *
+ * ⚠ THE FLOOR IS ASSERTABLE; THE FIGURE IS NOT. The exact count stays a
+ * run-scoped finding (healthy samples spread 55-59), and nothing below quotes
+ * it as a property of the product. Two runs under the event-driven wait were
+ * byte-identical (58/63), so the selector wait removed the variance the fixed
+ * sleep created — but a floor is what makes the guard able to fail, and that is
+ * a different claim from the figure being stable.
+ *
+ * ── PROVEN TO BITE, with the pair that matters ──────────────────────────────
+ * Isolated worktree, pristine archive, applied-check on the named constant:
+ *
+ *   mutant                                   controls  popovers  floor  old `>0`
+ *   the historical 60ms defect                      0         0    RED       RED
+ *   coverage: every 20th node only                  1         4    RED  **PASS**
+ *
+ * The second row is the whole point. A plausible-but-partial read is the case
+ * the sign check could not see, and it is the case that actually happens on a
+ * loaded machine. (The historical defect read 0 here and 3 on the reviewer's
+ * machine — its magnitude is machine-dependent, which is precisely why a sign
+ * check is not enough.)
+ */
+const MIN_PORTALLED_CONTROLS = 40
+const MIN_PORTALLED_POPOVERS = 40
 async function censusPortalledControls(page: Page): Promise<{
   popovers: number
   controls: number
@@ -285,8 +349,21 @@ async function censusPortalledControls(page: Page): Promise<{
   for (const id of nodeIds) {
     const box = await page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()
     if (!box) continue
+
+    // PARK FIRST, and wait for every popover to CLOSE. Without this a popover
+    // still open from the previous node (LEAVE_DELAY is 100ms) resolves the
+    // attach-wait instantly and is counted against the wrong node.
+    await page.mouse.move(4, 4)
+    await page
+      .waitForFunction(() => !document.querySelector('[data-node-popover]'), undefined, { timeout: POPOVER_WAIT_MS })
+      .catch(() => undefined)
+
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-    await page.waitForTimeout(POPOVER_ENTER_DELAY_MS + 150)
+    // Resolves the moment the popover exists; the timeout is the bound for
+    // nodes that legitimately have none, and those are the only ones that pay it.
+    await page
+      .waitForFunction(() => !!document.querySelector('[data-node-popover]'), undefined, { timeout: POPOVER_WAIT_MS })
+      .catch(() => undefined)
 
     const found = await page.evaluate(
       ({ selector }) => {
@@ -578,6 +655,16 @@ test.describe('in-node keyboard bleed', () => {
   })
 
   test('census: focusable controls inside .react-flow__node, all five starters', async ({ page }) => {
+    /*
+     * ⚠ ITS OWN BUDGET. This was the only test in the file without one, at 156s
+     * against a 180s default — and it hard-timed out on a reviewer's cold run
+     * AFTER printing `390/390` and BEFORE every assertion, i.e. it produced a
+     * headline number and then failed without checking anything. The
+     * event-driven popover waits below should reclaim most of that; the budget
+     * is here so a slow machine cannot turn a passing measure into a printed
+     * number with no verdict.
+     */
+    test.setTimeout(900_000)
     const perStarter: Record<string, FocusableCensusRow[]> = {}
     for (const id of ALL) {
       await page.reload()
@@ -643,12 +730,14 @@ test.describe('in-node keyboard bleed', () => {
      */
     expect(
       portalPopovers,
-      'the portal probe opened no popovers — it is blind, and its control count means nothing',
-    ).toBeGreaterThan(0)
+      `the portal probe opened only ${portalPopovers} popovers (floor ${MIN_PORTALLED_POPOVERS}, healthy 57-65) — ` +
+        `it is starved or blind, and its control count means nothing`,
+    ).toBeGreaterThanOrEqual(MIN_PORTALLED_POPOVERS)
     expect(
       portalControls,
-      'the portal probe found no controls in any popover — re-derive before quoting this section',
-    ).toBeGreaterThan(0)
+      `the portal probe found only ${portalControls} controls (floor ${MIN_PORTALLED_CONTROLS}, healthy 55-59) — ` +
+        `a partial read of this gap is worse than none, because the number reads as reassurance`,
+    ).toBeGreaterThanOrEqual(MIN_PORTALLED_CONTROLS)
 
     // POSITIVE CONTROL: the probe must be able to SEE controls at all. A census
     // that finds nothing looks identical to a canvas with nothing to find, and
@@ -996,7 +1085,30 @@ test.describe('in-node keyboard bleed', () => {
 
   test('opposite direction: Enter at the NODE still selects it, Escape still deselects', async ({ page }) => {
     test.setTimeout(900_000)
+
+    /*
+     * ⚠ ORDER-INDEPENDENCE, AND WHY IT IS HERE RATHER THAN LEFT TO LUCK.
+     *
+     * This test failed roughly 1 in 5 when it ran AFTER the pointer test, on a
+     * tree byte-identical to one where it passed, and 3/3 in isolation. It is
+     * the guard that proves this fix did NOT break keyboard node selection, and
+     * its failure message reads as a catastrophe — so an intermittent red here
+     * costs someone a full investigation every time it fires.
+     *
+     * The pointer test drives a Shift-drag. If it ends with a modifier still
+     * logically held or the pointer resting over a node, React Flow's next
+     * interaction is not the one this test thinks it is measuring. Releasing
+     * the modifiers and parking the pointer makes the starting state a
+     * PRECONDITION rather than an inheritance.
+     */
+    await page.keyboard.up('Shift').catch(() => undefined)
+    await page.mouse.up().catch(() => undefined)
+    await page.mouse.move(4, 4)
+
     await loadCanvas(page, 'vendor-selection')
+
+    // The starting state is asserted, not assumed.
+    expect(await selectedNodeIds(page), 'a node was already selected before this test began').toEqual([])
 
     // ── DIRECTION 2: KEYBOARD NODE SELECTION MUST STILL WORK ───────────────
     // React Flow's element-selection keys are a real a11y feature, and the node
