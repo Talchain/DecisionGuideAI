@@ -25,7 +25,11 @@
 import { Component, ReactNode } from 'react'
 import {
   attemptStaleBuildReload,
+  CHUNK_STALL_HEADING_COPY,
+  CHUNK_STALL_NOTICE_COPY,
   isChunkLoadError,
+  isChunkStallError,
+  isChunkDeliveryFailure,
   reloadForCurrentBuild,
   STALE_BUILD_ACTION_COPY,
   STALE_BUILD_NOTICE_COPY,
@@ -62,10 +66,17 @@ export class BootErrorBoundary extends Component<Props, State> {
       stack: error.stack,
       componentStack: info?.componentStack?.slice(0, 600),
       isChunkLoadError: isChunkLoadError(error),
+      isChunkStallError: isChunkStallError(error),
     })
 
     // One rate-limited reload; the guard lives in the shared module so this
     // boundary and the canvas one share a single budget.
+    //
+    // ⚠ STILL `isChunkLoadError`, DELIBERATELY — a STALL does not auto-reload.
+    // A reload after a stale build almost always works, so it is a free win; a
+    // reload after a stall re-enters the same wait and can double a 45 s spinner
+    // to 90 s for no gain over the button below. `isChunkDeliveryFailure` in
+    // staleBuildRecovery.ts carries the full reasoning.
     if (isChunkLoadError(error)) {
       attemptStaleBuildReload()
     }
@@ -74,14 +85,19 @@ export class BootErrorBoundary extends Component<Props, State> {
   render() {
     const { error } = this.state
 
-    if (error && isChunkLoadError(error)) {
+    if (error && isChunkDeliveryFailure(error)) {
       // Reached when the automatic reload was already spent (see the guard
       // window). The next reload is the user's decision — the product does not
       // silently retry forever.
+      //
+      // ⚠ THE TESTID NAMES THE CAUSE, so a test binds to the notice it means by
+      // IDENTITY rather than by a value another cause could satisfy (CLAUDE.md
+      // trap 19). Both notices offer the same action; only one of them may say
+      // the build moved.
       return (
         <div
           role="alert"
-          data-testid="stale-build-notice"
+          data-testid={isChunkStallError(error) ? 'chunk-stall-notice' : 'stale-build-notice'}
           style={{
             padding: 16,
             background: 'var(--info-light, #BAD7E4)',
@@ -92,8 +108,12 @@ export class BootErrorBoundary extends Component<Props, State> {
             lineHeight: 1.6,
           }}
         >
-          <strong style={{ display: 'block', marginBottom: 6 }}>Olumi was updated</strong>
-          <p style={{ margin: '0 0 12px' }}>{STALE_BUILD_NOTICE_COPY}</p>
+          <strong style={{ display: 'block', marginBottom: 6 }}>
+            {isChunkStallError(error) ? CHUNK_STALL_HEADING_COPY : 'Olumi was updated'}
+          </strong>
+          <p style={{ margin: '0 0 12px' }}>
+            {isChunkStallError(error) ? CHUNK_STALL_NOTICE_COPY : STALE_BUILD_NOTICE_COPY}
+          </p>
           <button
             type="button"
             onClick={reloadForCurrentBuild}

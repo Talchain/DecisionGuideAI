@@ -1,7 +1,7 @@
 // src/main.tsx
 import './index.css';
 import { captureParticipantTokenFromUrl } from './collab/participantToken';
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
@@ -11,6 +11,7 @@ import { preloadPrompts } from './lib/prompt-preloader';
 // available assertion was that its copy appeared in this file, which a mutant
 // that made the branch unreachable passed straight through.
 import { BootErrorBoundary } from './BootErrorBoundary';
+import { lazyWithStallBound } from './lib/lazyWithStallBound';
 
 declare global {
   interface Window {
@@ -110,8 +111,14 @@ function Shell() {
   );
 }
 
-// Lazy-load the heavy app after Shell commits
-const AppPoC = lazy(() => import('./poc/AppPoC'));
+// Lazy-load the heavy app after Shell commits.
+//
+// ⭐ BOUNDED, like every routed lazy in AppPoC. This is the FIRST chunk that can
+// stall, and its Suspense fallback is <Shell/> — "Loading application…" — so an
+// unbounded wait here is the worst version of the defect: the whole app, with a
+// message that is a lie the moment the byte stream stops. BootErrorBoundary is
+// directly below and already knows how to say so.
+const AppPoC = lazyWithStallBound(() => import('./poc/AppPoC'), 'Olumi');
 
 (function boot() {
   try {

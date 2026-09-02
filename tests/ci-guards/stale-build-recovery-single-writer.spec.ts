@@ -116,6 +116,42 @@ describe('stale-build recovery — one detector, one sentence, one reload guard'
     expect(boundary).toContain('STALE_BUILD_NOTICE_COPY')
   })
 
+  /*
+   * ── THE SECOND CAUSE (2026-09-02): a chunk that STALLS rather than fails ──
+   * Added ADDITIVELY. The invariant is unchanged — one module owns what the
+   * product says when a chunk does not arrive — and a stall is a second cause of
+   * that one harm, not a second notice family. These arms exist so a later edit
+   * cannot quietly re-derive the stall detector, or drop the stall branch from a
+   * boundary and leave the silent spinner back in place with no red anywhere.
+   */
+  it('exactly one module defines the STALL marker', () => {
+    // The stall is detected by error NAME. A second module minting that literal
+    // is a second detector, which is precisely what this file bans.
+    expect(filesContaining("'ChunkStallError'")).toEqual([OWNER])
+  })
+
+  it('exactly one module owns the stall SENTENCE', () => {
+    expect(filesContaining('did not finish downloading')).toEqual([OWNER])
+  })
+
+  it.each(CONSUMERS)('%s consumes the stall detector too, rather than re-deriving it', (consumer) => {
+    const code = CORPUS.find(([rel]) => rel === consumer)![1]
+    expect(code, `${consumer} must use the shared stall detector`).toContain('isChunkStallError')
+  })
+
+  it('no boundary tells a stalled user the build moved', () => {
+    // ⚠ THE FALSE SENTENCE THIS WHOLE MODULE EXISTS TO PREVENT, one cause along.
+    // "Olumi was updated" is comfortable and wrong when a byte stream stopped —
+    // and because both causes end in the same Reload button, a boundary that
+    // reused the sentence would look entirely healthy.
+    for (const consumer of CONSUMERS) {
+      const code = CORPUS.find(([rel]) => rel === consumer)![1]
+      expect(code, `${consumer} must branch its notice on the cause`).toContain(
+        'CHUNK_STALL_NOTICE_COPY',
+      )
+    }
+  })
+
   it('no boundary claims the SERVER failed when the build simply moved', () => {
     // The forbidden framing, in the two modules that render a chunk failure.
     // A stale build is not a server error and must never be reported as one.
