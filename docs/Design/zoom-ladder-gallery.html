@@ -395,9 +395,19 @@
       Both say the same thing — “Olumi estimated this” — and they sit side by side.
     </p>
     <p>
-      <b>Counted at this SHA: 6 of the 87 cards</b> across the five starters. One of nineteen in build-vs-buy
-      (<em>Vendor Licensing Cost</em>); two in headcount-allocation, one in market-entry, two in vendor-selection,
-      none in pricing-model.
+      <b>Counted at this SHA: 20 of the 87 cards</b> across the five starters — build-vs-buy 5 of 19,
+      headcount-allocation 2 of 16, market-entry 4 of 18, pricing-model 3 of 15, vendor-selection 6 of 19.
+      Roughly one card in four, and it is on every starter.
+    </p>
+    <p class="caveat">
+      ⚠ <b>This page first said 6 of 87, and named the wrong card.</b> The count was taken from a
+      <em>top-level</em> <span class="mono">extractionType</span> field that nothing reads:
+      <span class="mono">useScienceIcons.ts:47</span> reads
+      <span class="mono">observedState?.extractionType</span>, and the draft mapper never bridges the two.
+      So the original worked example — <em>Vendor Licensing Cost</em> — has no
+      <span class="mono">observed_state</span> and draws only ONE Sparkles. Found in review and
+      re-derived independently from the five draft files. The correction makes the case
+      <b>stronger</b>, not weaker: the collision is about three times more common than stated.
     </p>
     <div class="vbody">
       <div class="vdemo" id="v2demo"></div>
@@ -696,9 +706,11 @@
       Separately <span class="mono">useScienceIcons.ts:76–84</span> pushes an <span class="mono">olumi-estimate</span>
       icon — also <span class="mono">Sparkles</span> — when
       <span class="mono">extractionType === 'inferred' &amp;&amp; !isReviewedSource(source)</span>.
-      Counting nodes in the five starter drafts that satisfy both: <b>6 of 87</b> — build-vs-buy 1/19
-      (<em>Vendor Licensing Cost</em>), headcount-allocation 2/16, market-entry 1/18, pricing-model 0/15,
-      vendor-selection 2/19.
+      ⚠ Note the field it reads: <span class="mono">observedState?.extractionType</span>
+      (<span class="mono">useScienceIcons.ts:47</span>), <em>not</em> the top-level
+      <span class="mono">extractionType</span>, which nothing consumes.
+      Counting nodes in the five starter drafts that satisfy both: <b>20 of 87</b> — build-vs-buy 5/19,
+      headcount-allocation 2/16, market-entry 4/18, pricing-model 3/15, vendor-selection 6/19.
     </p>
 
     <h3>Scope</h3>
@@ -1004,9 +1016,9 @@
   var FACTOR = TYPES[2];
   var DUPFACTOR = {
     key:'factor', name:'Factor',
-    title:'Vendor Licensing Cost',
-    body:[{t:'Range: 0.25 to 0.75', dim:false},{t:'External · inferred, unreviewed', dim:true}],
-    bar:0.5, lod:'Range: 0.25 to 0.75', lodSrc:'derived',
+    title:'Time to Live (Quarters)',
+    body:[{t:'Range: 0.4 to 0.9', dim:false},{t:'Olumi inferred · unreviewed', dim:true}],
+    bar:0.5, lod:'Range: 0.4 to 0.9', lodSrc:'derived',
     sci:['spread'], dupSparkles:true, confirm:true, note:''
   };
 
@@ -1026,7 +1038,7 @@
     d = document.getElementById('v2demo');
     if (d) d.innerHTML =
         '<div class="t-factor">'
-      +   demoWrap('Before — “Vendor Licensing Cost”, two Sparkles (ringed)',
+      +   demoWrap('Before — “Time to Live (Quarters)”, two Sparkles (ringed)',
                    stamp(DUPFACTOR,'full','today',1.0,{markDup:true}))
       +   demoWrap('After — one provenance mark',
                    stamp(DUPFACTOR,'full','prop',1.0,{}))
