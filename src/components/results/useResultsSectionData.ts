@@ -1558,6 +1558,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    * strings at this address against 21 numbers and 28 nulls — with a contrast
    * control proving the sweep was not blind.
    *
+   * ⚠⚠ THE LIMITS OF THAT DERIVATION, CARRIED WITH IT — my first write-down
+   * dropped them, which is how an honest scoped finding becomes a broader
+   * claim. It is a STATIC derivation plus fixture analysis: no code executed
+   * and NO LIVE WIRE CAPTURE taken. Its strongest evidence is recorded captures
+   * from 5 Apr to 4 Aug, up to a MONTH behind the tips read, and no open PR
+   * branches were swept in any repo. The reviewer that approved this change did
+   * not reproduce it.
+   *
+   * So the honest claim is "NOT REACHABLE ON THE EVIDENCE AVAILABLE", not
+   * "cannot reach". One fresh staging turn would settle it, and until one does,
+   * the string tolerance below stays.
+   *
    * So, stated plainly rather than left to be inferred:
    *   · the STRING tolerance below is DEFENSIVE. It costs nothing and it is
    *     not currently reachable from the wire.
