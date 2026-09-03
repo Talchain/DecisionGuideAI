@@ -1549,6 +1549,35 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    */
 
   /**
+   * ⚠⚠ WHICH HALF IS LOAD-BEARING, SETTLED AT THE CONTRACT (3 Sep 2026).
+   * An independent derivation across CEE, olumi-schemas, PLoT, ISL and the UI
+   * establishes that a NON-NUMERIC `goal_threshold_raw` cannot reach this code:
+   * the LLM cannot author the field (it is stripped at ingress in both
+   * adapters), every writer is `z.number()`-gated, and egress drops the trio
+   * unless it is finite. Across every captured payload in all five repos: 0
+   * strings at this address against 21 numbers and 28 nulls — with a contrast
+   * control proving the sweep was not blind.
+   *
+   * So, stated plainly rather than left to be inferred:
+   *   · the STRING tolerance below is DEFENSIVE. It costs nothing and it is
+   *     not currently reachable from the wire.
+   *   · the EXISTENCE half is LOAD-BEARING. Absence is common and real — 28
+   *     live nulls, `pickGoalThresholdTrio` returning `{}`, PLoT deleting the
+   *     quad, stage-4b stripping it — and it is what stops the card denying a
+   *     target the strip is displaying.
+   *
+   * ⚠ A TRAP FOR ANYONE RE-DERIVING THIS: grepping payloads for a
+   * string-valued `goal_threshold_raw` returns 84 hits, and every one is the
+   * literal `"absent"` — a diagnostic sentinel in a flag-gated telemetry
+   * channel meaning the field is MISSING. The obvious check gives the opposite
+   * answer to the correct one.
+   *
+   * ⚠ AND THE GAP THAT IS NOT OURS: the quad is not declared on `NodeV3Schema`
+   * at all; it crosses PLoT by allowlist, typed `number | string | null` with
+   * no boundary validation, and the UI envelope is a `.passthrough()` stub. A
+   * type change to this field today would be caught by nothing outside CEE.
+   * Rowed, not fixed here.
+   *
    * ⭐ EXISTENCE — *has anyone STATED a target?* Deliberately NOT numeric: a
    * target can be perfectly well stated and unrepresentable as a number.
    * `resolveGoalTarget` is the estate's tested answer for the node (it gates
