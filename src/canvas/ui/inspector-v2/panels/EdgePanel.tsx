@@ -279,8 +279,13 @@ export const EdgePanel = memo(function EdgePanel({
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
     origStrengthRef.current = localStrength
+    // ⭐ THE COMMIT SEAM FOR THE CONTINUOUS SLIDER (schemas 0.42.0). The drag
+    // has already written locally on every tick; releasing is what makes it
+    // durable. Emitting per tick instead would fire one CEE turn per animation
+    // frame — see `useEdgeMutations.commitStrength` for the full reasoning.
+    mutations.commitStrength(localStrength)
     confirmEdit('strength')
-  }, [clearPreview, localStrength, confirmEdit])
+  }, [mutations, clearPreview, localStrength, confirmEdit])
 
   const handleStrengthPresetChange = useCallback((v: number) => {
     // A preset click is a complete edit, not a continuously-dragged preview.
@@ -291,7 +296,7 @@ export const EdgePanel = memo(function EdgePanel({
     // Presets choose magnitude only. The sign is retained visually by
     // StrengthBandButtons, but retaining a sign is not the same as the user
     // stating it: preserve both direction and directionSource byte-for-byte.
-    mutations.setStrength(v, { preserveDirection: true })
+    mutations.commitStrength(v, { preserveDirection: true })
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
@@ -301,7 +306,13 @@ export const EdgePanel = memo(function EdgePanel({
     if (currentEstimatedWeight === null) return
     // Confirm the exact live canonical magnitude, not a band midpoint or local
     // slider draft. Magnitude confirmation says nothing about causal direction.
-    mutations.setStrength(currentEstimatedWeight, { preserveDirection: true })
+    // `intent: 'confirm_current'` is a PROVENANCE-ONLY act in the contract: it
+    // requires `direction_intent: 'preserve'` and the exact current magnitude,
+    // and CEE re-verifies after commit that nothing but provenance moved.
+    mutations.commitStrength(currentEstimatedWeight, {
+      preserveDirection: true,
+      intent: 'confirm_current',
+    })
     confirmEdit('strength')
   }, [currentEstimatedWeight, mutations, confirmEdit])
 

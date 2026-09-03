@@ -448,6 +448,11 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'edge_strength_edit': {
+      const event = adaptEdgeStrengthEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
       // the typed 0.22 `feedback` system event. The emitter
@@ -550,6 +555,11 @@ type PriorRangeEditWireEvent = Extract<
 type StructuralDeleteWireEvent = Extract<
   SystemEventTurnPayload['event'],
   { kind: 'structural_delete' }
+>
+/** The durable link-strength write (0.42.0) — derived, never hand-rolled. */
+type EdgeStrengthEditWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'edge_strength_edit' }
 >
 
 // Narrow an optional unknown field to a FINITE number, or undefined.
@@ -862,6 +872,90 @@ function adaptPriorRangeEdit(
   const distribution = stringField(eventPayload, 'distribution')
   if (distribution) event.distribution = distribution
   return event
+}
+
+/**
+ * `edge_strength_edit` (0.42.0) — the durable link-strength write.
+ *
+ * FAIL-CLOSED ON THE CONTRACT'S OWN RULES, checked here rather than trusted
+ * from the caller, for the reason `adaptStructuralDelete` gives below: every
+ * member of this union is `.strict()` and the union is discriminated, so one
+ * malformed field does not lose the field — it loses the WHOLE TURN (422).
+ *
+ * The rules re-applied here are the SCHEMA's, not invented ones:
+ *   · `CanonicalEdgeEndpointIdSchema` on `from`/`to` — non-blank, no
+ *     surrounding whitespace, never a `→`/`->` composite;
+ *   · `magnitude` is `min(0).max(1)`; `expected.mean` is `min(-1).max(1)`;
+ *   · `direction_intent` ∈ {preserve, positive, negative} and `intent` ∈
+ *     {set, confirm_current} — CLOSED enums, so an unrecognised string is
+ *     refused rather than passed through to be rejected at ingress;
+ *   · `refineEdgeStrengthEdit` — a non-zero `expected.mean` must AGREE with
+ *     `expected.effect_direction`, and `confirm_current` must both preserve
+ *     direction and restate `abs(expected.mean)` exactly.
+ *
+ * ⚠ THE ZERO CASE IS DELIBERATELY LEFT OPEN, matching the contract. At
+ * `expected.mean === 0` the refinement asserts NOTHING about
+ * `effect_direction`, because "direction cannot be recovered from the sign of
+ * zero" — dropping the field or forcing it positive there "would erase a live
+ * negative direction". So this adapter must NOT tighten it into an agreement
+ * check that the contract itself declines to make.
+ *
+ * A `null` return routes to `unsupported_system_event`, i.e. no turn at all —
+ * the right outcome for an unsendable edit, which must never become a turn that
+ * claims something happened.
+ */
+function adaptEdgeStrengthEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): EdgeStrengthEditWireEvent | null {
+  const from = stringField(eventPayload, 'from')
+  const to = stringField(eventPayload, 'to')
+  if (!isCanonicalEndpointId(from) || !isCanonicalEndpointId(to)) return null
+
+  const magnitude = finiteNumberField(eventPayload, 'magnitude')
+  if (magnitude === undefined || magnitude < 0 || magnitude > 1) return null
+
+  const direction_intent = stringField(eventPayload, 'direction_intent')
+  if (
+    direction_intent !== 'preserve' &&
+    direction_intent !== 'positive' &&
+    direction_intent !== 'negative'
+  ) {
+    return null
+  }
+
+  const intent = stringField(eventPayload, 'intent')
+  if (intent !== 'set' && intent !== 'confirm_current') return null
+
+  const rawExpected = eventPayload?.expected
+  if (!rawExpected || typeof rawExpected !== 'object') return null
+  const expectedRecord = rawExpected as Record<string, unknown>
+  const mean = finiteNumberField(expectedRecord, 'mean')
+  if (mean === undefined || mean < -1 || mean > 1) return null
+  const effect_direction = stringField(expectedRecord, 'effect_direction')
+  if (effect_direction !== 'positive' && effect_direction !== 'negative') return null
+
+  // `refineEdgeStrengthEdit`: non-zero mean and stated direction must agree.
+  // At zero the contract asserts nothing — see the header.
+  if (mean !== 0) {
+    const signDirection = mean < 0 ? 'negative' : 'positive'
+    if (effect_direction !== signDirection) return null
+  }
+
+  // `refineEdgeStrengthEdit`: confirm_current is provenance-only.
+  if (intent === 'confirm_current') {
+    if (direction_intent !== 'preserve') return null
+    if (magnitude !== Math.abs(mean)) return null
+  }
+
+  return {
+    kind: 'edge_strength_edit',
+    from,
+    to,
+    magnitude,
+    direction_intent,
+    expected: { mean, effect_direction },
+    intent,
+  }
 }
 
 /**

@@ -1058,6 +1058,41 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // (`system-events/dispatch.ts:315`), with the writer at
   // `system-events/structural-add.ts`.
   'structural_add',
+  // schemas 0.42.0 — the DURABLE LINK-STRENGTH writer, and the close of "I
+  // moved the strength slider and it was gone when I came back". `EdgePanel`
+  // shipped three strength affordances (signed slider, band presets, "confirm
+  // current strength") and ALL THREE landed in `useEdgeMutations.setStrength`,
+  // which did one local `updateEdge` and emitted nothing. There was no back
+  // door: client autosave is `localStorage`, and the client's `scenarios`
+  // writes touch `framing` / `analysis_status` / `title` / `is_pinned` /
+  // `is_archived` and never `graph`.
+  //
+  // ⚠ IT CARRIES NO `base_graph_hash`, AND THAT IS THE CONTRACT'S DECISION —
+  // NOT AN OMISSION TO CORRECT BY SYMMETRY WITH THE THREE MEMBERS ABOVE. Its
+  // stale gate is `expected { mean, effect_direction }`, which the contract
+  // calls "an optimistic-concurrency assertion, not the requested value". Every
+  // member of this union is `.strict()`, so attaching a `base_graph_hash` here
+  // would not be belt-and-braces — it would fail ingress and lose the WHOLE
+  // TURN. See `mutations/edgeStrengthEdit.ts` for why that also removes the
+  // deferral queue the structural members need.
+  //
+  // ⚠ READER-FIRST, same rule as the three above. Derived rather than assumed —
+  // CEE staging `f4c8f501` (build stamp witnessed at `/healthz`, 3 Sep 2026)
+  // pins schemas 0.50.0 and its `SYSTEM_EVENT_HANDLING` declares
+  // `edge_strength_edit: 'mutating'` (`system-events/dispatch.ts:291`), with the
+  // writer at `system-events/edge-strength-edit.ts` (landed `4775ce61`).
+  //
+  // ⚠⚠ AND A SECOND GATE THE OTHER MEMBERS DO NOT HAVE, recorded here because a
+  // later reader will otherwise infer durability from the 'mutating'
+  // declaration above. `dispatch.ts:571-576` DOWNGRADES this one event to
+  // `reader_only_refusal` unless `config.features.graphCas.rpcEnforce` is true,
+  // i.e. unless the Render-dashboard-only `CEE_V5_GRAPH_CAS_RPC` is `enforce`
+  // (the code default is `shadow`). Under the default the same deployed code
+  // answers HTTP 200 with `error_code: 'FEATURE_NOT_ENABLED'` and writes
+  // nothing. That value is UNOBSERVABLE FROM ANY CLIENT by construction —
+  // CEE's own `config/index.ts:353-365` says so — so the emitter is built to be
+  // correct under BOTH postures rather than to assume one.
+  'edge_strength_edit',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */

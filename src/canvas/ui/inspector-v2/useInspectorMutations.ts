@@ -5,10 +5,23 @@
  * Single interception point for validate-patch migration.
  */
 
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import { isProvenNoWriteConflict } from '../../../v5/provenNoWriteConflict'
+import {
+  buildEdgeStrengthEditWirePayload,
+  buildEdgeStrengthRevertPatch,
+  captureEdgeStrengthEdit,
+  edgeStrengthDivergedNotice,
+  readEdgeStrengthExpected,
+  readRefusedCurrentStrength,
+  EDGE_STRENGTH_NOTICE,
+  type EdgeStrengthDirectionIntent,
+  type EdgeStrengthEditIntent,
+  type EdgeStrengthExpected,
+} from '../../mutations/edgeStrengthEdit'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -80,6 +93,12 @@ export const EDGE_SETTER_FIELDS = {
   // `weight` + `weightSource` only, deliberately leaving `direction` alone —
   // see the setter's own header for why a magnitude cannot carry a sign.
   setStrength: ['weight', 'direction', 'weightSource', 'directionSource'],
+  // The DURABLE twin of `setStrength` (schemas 0.42.0). It writes the SAME
+  // fields — it is `setStrength` plus a wire emission, not a different write —
+  // so a caller can swap one for the other without changing what lands in the
+  // store. See the setter's own header for why the emission cannot live inside
+  // `setStrength` itself.
+  commitStrength: ['weight', 'direction', 'weightSource', 'directionSource'],
   setStd: ['strengthStd', 'strengthStdSource'],
   setExistsProbability: ['beliefExists', 'beliefExistsSource'],
   setLabel: ['label'],
@@ -460,9 +479,51 @@ export function useNodeMutations(nodeId: string) {
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
   const updateEdge = useCanvasStore(s => s.updateEdge)
+  const conversation = useOptionalConversationContext()
+  const sendSystemEvent = conversation?.sendSystemEvent
   const getEdge = useCallback(() => {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
   }, [edgeId])
+
+  /**
+   * ⭐⭐ THE SERVER-SIDE BASELINE FOR THIS EDGE — the one piece of state this
+   * hook holds, and the reason it must exist.
+   *
+   * `edge_strength_edit.expected` is an assertion about what CEE PERSISTED, and
+   * it must describe the edge as it was BEFORE the user's gesture. That is not
+   * readable at commit time: the signed slider calls `setStrength` on EVERY
+   * tick, so by the time the user releases it the store already holds the new
+   * value and reading "current" would assert the number we are about to send —
+   * a tautology CEE would compare against itself.
+   *
+   * So the baseline is captured on the FIRST write of a gesture (before that
+   * write lands) and advanced only when we learn something:
+   *   · a dispatch we hear no refusal for  → the server now holds what we sent;
+   *   · a refusal naming `details.edge.current` → the server's real value;
+   *   · anything else → cleared, so the next gesture re-reads the canvas.
+   *
+   * ⚠ A WRONG BASELINE IS SAFE BY CONSTRUCTION — it can only ever produce a
+   * REFUSAL, never a wrong write, because CEE compares the tuple exactly before
+   * mutating anything. That is what licenses a client-side baseline at all;
+   * see `mutations/edgeStrengthEdit.ts` for the full argument.
+   */
+  const expectedRef = useRef<EdgeStrengthExpected | null>(null)
+  const baselineEdgeIdRef = useRef<string>(edgeId)
+  if (baselineEdgeIdRef.current !== edgeId) {
+    // A different edge is a different assertion. Never carry one edge's
+    // baseline onto another — that is the value-predicate binding error this
+    // repo's specs exist to catch, reached through a stale ref.
+    baselineEdgeIdRef.current = edgeId
+    expectedRef.current = null
+  }
+
+  /** Capture the pre-write baseline once per gesture, from the LIVE edge. */
+  const captureBaseline = useCallback(() => {
+    if (expectedRef.current !== null) return
+    const edge = getEdge()
+    if (!edge) return
+    expectedRef.current = readEdgeStrengthExpected(edge)
+  }, [getEdge])
 
   /**
    * `mean` is a SIGNED strength: the magnitude is `|mean|` and, by default, the
@@ -550,5 +611,147 @@ export function useEdgeMutations(edgeId: string) {
     updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
   }, [edgeId, updateEdge, getEdge])
 
-  return { setStrength, setStd, setExistsProbability, setLabel, setDirection }
+
+  /**
+   * ⭐ THE DURABLE STRENGTH COMMIT (schemas 0.42.0) — `setStrength` plus the
+   * wire event that makes it survive a reload.
+   *
+   * ⚠⚠ WHY THE EMISSION IS NOT INSIDE `setStrength`, which is where a reader
+   * looking for "the single seam every caller shares" would put it — and where
+   * the sibling `setPriorRange` correctly puts its own.
+   *
+   * `setPriorRange` is called ONCE, on a commit. `setStrength` is called on
+   * EVERY TICK of a continuous drag (`EdgePanel.handleStrengthChange` →
+   * `SignedStrengthSlider.onChange`). Emitting there would fire one CEE TURN
+   * PER ANIMATION FRAME — dozens of turns, dozens of LLM calls, and a race in
+   * which the last write to land is whichever turn the network happened to
+   * finish last, not the value the user released on. So the local write and the
+   * durable commit are deliberately different verbs, and the affordances say
+   * which one they mean: the slider writes continuously and commits on BLUR,
+   * while a preset click and a confirmation are complete gestures that commit
+   * immediately.
+   *
+   * BEST-EFFORT AFTER THE LOCAL WRITE, exactly like `setPriorRange`: an absent
+   * conversation context or a failed send never breaks the local edit. What is
+   * NOT best-effort is honesty about the outcome — a refusal CEE proves it did
+   * not write is reverted, because leaving it is the product asserting a
+   * strength the model declined.
+   */
+  const commitStrength = useCallback((
+    mean: number,
+    opts?: {
+      preserveDirection?: boolean
+      /** `confirm_current` is provenance-only — see the contract's refinement. */
+      intent?: EdgeStrengthEditIntent
+      /** Surfaced to the user when the server declines. */
+      onNotice?: (message: string) => void
+    },
+  ) => {
+    // Capture the pre-write baseline BEFORE the local write, so `expected`
+    // describes the server's edge rather than the value we are about to send.
+    captureBaseline()
+    const expected = expectedRef.current
+    const edgesBefore = useCanvasStore.getState().edges
+
+    setStrength(mean, opts?.preserveDirection ? { preserveDirection: true } : undefined)
+
+    if (!sendSystemEvent) return
+
+    const intent: EdgeStrengthEditIntent = opts?.intent ?? 'set'
+    // ⚠ MIRRORS THE LOCAL WRITE EXACTLY, including at zero. `setStrength`
+    // writes `mean >= 0 ? 'positive' : 'negative'`, and `-0 >= 0` is `true`, so
+    // a signed drag to zero stamps POSITIVE locally. Sending anything else here
+    // — 'preserve', say — would leave the canvas and the model disagreeing
+    // about direction on exactly the value where the sign is unrecoverable.
+    // The limitation is `setStrength`'s, documented in its own header; this
+    // must not quietly diverge from it.
+    const directionIntent: EdgeStrengthDirectionIntent = opts?.preserveDirection
+      ? 'preserve'
+      : mean >= 0 ? 'positive' : 'negative'
+
+    const captured = captureEdgeStrengthEdit({
+      edgesBefore,
+      edgeId,
+      magnitude: Math.abs(mean),
+      directionIntent,
+      intent,
+      expected,
+      externalMutationActive: (useCanvasStore.getState() as { _externalMutationActive?: number })
+        ._externalMutationActive
+        ? true
+        : false,
+      makeId: () => `esr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    })
+    if (!captured.ok) return
+
+    const record = captured.intent
+    // Advance the baseline optimistically: if we hear nothing, the server holds
+    // what we sent, and the NEXT gesture must assert that rather than the value
+    // from before this one (which would refuse forever).
+    expectedRef.current = {
+      mean: record.directionIntent === 'negative' ? -record.magnitude : record.magnitude,
+      effect_direction:
+        record.directionIntent === 'preserve'
+          ? record.expected.effect_direction
+          : record.directionIntent,
+    }
+
+    void Promise.resolve(
+      sendSystemEvent({
+        type: 'edge_strength_edit',
+        payload: buildEdgeStrengthEditWirePayload(record),
+      }),
+    ).catch((err: unknown) => {
+      const conflictCategory = (err as { conflictCategory?: string } | null)?.conflictCategory
+      const kind = (err as { kind?: string } | null)?.kind
+
+      if (!isProvenNoWriteConflict(conflictCategory)) {
+        // We hold NO committed bytes, so we know neither that it landed nor
+        // that it did not. The value is LEFT ALONE — reverting on a guess is
+        // data loss, which is strictly worse than the lie it would prevent.
+        // The baseline is cleared so the next gesture re-reads the canvas
+        // rather than compounding an assertion we can no longer support.
+        expectedRef.current = null
+        opts?.onNotice?.(
+          kind === 'transport'
+            ? EDGE_STRENGTH_NOTICE.unconfirmed_transport
+            : EDGE_STRENGTH_NOTICE.unconfirmed_server,
+        )
+        return
+      }
+
+      // CEE proved it wrote nothing. The canvas must stop asserting the value.
+      const current = readRefusedCurrentStrength((err as { details?: unknown } | null)?.details)
+      const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
+      const stillOurs =
+        edge !== undefined &&
+        Math.abs(
+          ((edge.data as Record<string, unknown> | undefined)?.weight as number | undefined) ?? NaN,
+        ) === record.magnitude
+      // STAND-DOWN DISCIPLINE: write only when the edge STILL HOLDS THE
+      // MAGNITUDE THIS GESTURE SENT. If the user has edited again, or a server
+      // graph has landed, the canvas is describing something this gesture never
+      // saw and restoring would be a silent overwrite dressed as a correction.
+      if (stillOurs) {
+        updateEdge(edgeId, {
+          data: { ...(edge!.data as Record<string, unknown>), ...buildEdgeStrengthRevertPatch(record) },
+        })
+      }
+
+      // Re-baseline from the SERVER's own account where it gave one, so the
+      // user's next attempt asserts the truth and succeeds instead of refusing
+      // identically forever — an affordance terminating in refusal.
+      expectedRef.current = current
+      opts?.onNotice?.(
+        conflictCategory === 'edge_target_not_found' ||
+          conflictCategory === 'edge_target_ambiguous'
+          ? EDGE_STRENGTH_NOTICE.target_unresolvable
+          : conflictCategory === 'edge_expected_tuple_mismatch'
+            ? edgeStrengthDivergedNotice(current)
+            : EDGE_STRENGTH_NOTICE.base_hash_diverged,
+      )
+    })
+  }, [edgeId, updateEdge, setStrength, sendSystemEvent, captureBaseline])
+
+  return { setStrength, commitStrength, setStd, setExistsProbability, setLabel, setDirection }
 }

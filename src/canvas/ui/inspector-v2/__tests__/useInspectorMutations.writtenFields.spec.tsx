@@ -73,6 +73,10 @@ const NODE_SETTER_ARGS: Record<string, unknown[]> = {
 
 const EDGE_SETTER_ARGS: Record<string, unknown[]> = {
   setStrength: [0.5],
+  // The durable twin writes the SAME store fields as `setStrength` — it is that
+  // setter plus a wire emission. Driven here with no conversation context, so
+  // the emission is a no-op and only the local write is measured.
+  commitStrength: [0.5],
   setStd: [0.1],
   setExistsProbability: [0.8],
   setLabel: ['edge label'],

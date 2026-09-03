@@ -57,6 +57,33 @@
 export const PROVEN_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> = new Set([
   'BASE_HASH_DIVERGED',
   'rpc_cas_conflict',
+  // ── `edge_strength_edit` (0.42.0), CEE staging `f4c8f501` ────────────────
+  // All three are raised by `applyEdgeStrengthEdit` BEFORE the canonical
+  // handler is invoked and before `commitDirectAnswer` is reached, so no graph
+  // and no turn row is written. Each is added with the producer line that
+  // states the guarantee, per this module's own rule — never inferred from the
+  // category NAME, and never from `retryable: false`.
+  //
+  //   · `edge_expected_tuple_mismatch` — `system-events/edge-strength-edit.ts:366-396`.
+  //     The optimistic-concurrency gate: CEE compares `expected.mean` and
+  //     `expected.effect_direction` against its persisted edge EXACTLY (no
+  //     tolerance) and returns before any mutation.
+  //   · `edge_target_not_found` — `edge-strength-edit.ts:335-342`. The
+  //     canonical `(from, to)` resolves to ZERO edges in the persisted graph.
+  //   · `edge_target_ambiguous` — `edge-strength-edit.ts:343-359`. The pair
+  //     resolves to MORE THAN ONE edge; refusing is the only safe move, since
+  //     writing would mutate an edge the user never selected.
+  //
+  // ⚠ THE OPPOSITE DIRECTION IS PINNED TOO, because widening a set is only safe
+  // if its OUTSIDE is pinned: the reader-only refusal
+  // (`error_code: 'FEATURE_NOT_ENABLED'`, `reason: 'edge_strength_edit_reader_only'`)
+  // is NOT a member and must never become one — it arrives as an HTTP **200**
+  // with no `conflict_category` at all, so it never reaches this predicate.
+  // See `canvas/mutations/edgeStrengthEdit.ts` for why that case is handled as
+  // an unconfirmed outcome rather than a proven no-write.
+  'edge_expected_tuple_mismatch',
+  'edge_target_not_found',
+  'edge_target_ambiguous',
 ])
 
 /**
