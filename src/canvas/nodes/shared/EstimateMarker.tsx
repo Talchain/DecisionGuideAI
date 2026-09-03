@@ -1,5 +1,6 @@
 import { typography } from '../../../styles/typography'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../domain/vocabulary'
+import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 /**
  * EstimateMarker — R6 (Paul, 16 Aug 2026): "placeholder wall collapses to one
@@ -39,31 +40,49 @@ import { UNCONFIRMED_ESTIMATE_LABEL } from '../../domain/vocabulary'
  * word costs the bar. Only the hover text — which has no width budget — learns
  * the distinction.
  *
- * ⚠⚠ CORRECTED 3 Sep 2026, AND THE CORRECTION IS THE POINT. This paragraph used
- * to cite `lodMetric.riskOutcome.spec.tsx` pinning `'Strength 50% est.'`
- * byte-for-byte as evidence the token must not grow. **That string was the
- * defect.** It was the no-information default (`DEFAULT_EDGE_DATA.weight` is
- * 0.5) printed as a figure, beside a bar drawn EXACTLY HALF FULL, on five cards
- * of one canvas at once. A spec pinning a lie is not a width constraint; it is
- * the lie with a guard around it. The risk and outcome cards now say
- * `METRIC_UNSET.standalone` where nobody set the weight, and this marker no
- * longer rides that row.
+ * ⚠⚠ CORRECTED 3 Sep 2026, THEN CORRECTED AGAIN — AND THE SECOND CORRECTION IS
+ * THE ONE TO INHERIT. This paragraph used to cite `lodMetric.riskOutcome.spec.tsx`
+ * pinning `'Strength 50% est.'` byte-for-byte as evidence the token must not
+ * grow. Round 1 of PR #1174 replaced that with *"**That string was the defect** —
+ * the no-information default (`DEFAULT_EDGE_DATA.weight` is 0.5) … a spec
+ * pinning a lie"*. **THAT REPLACEMENT IS REFUTED BY MEASUREMENT** — see
+ * `metricVocabulary.ts`, which holds the canonical root-cause record so this
+ * file does not restate it. A bare `DEFAULT_EDGE_DATA.weight` cannot reach that
+ * row at all: it carries no provenance stamp, so the gate renders NO ROW.
  *
- * ⭐ SO `subject: 'strength'` HAS NO `<EstimateMarker />` CALL SITE ANY MORE —
- * AND IT IS NOT DEAD, BECAUSE ITS SENTENCE MOVED RATHER THAN DIED. The two
- * cards consume `ESTIMATE_SUBJECT_TITLE.strength` DIRECTLY as their unset row's
- * disclosure, so the distinction this file exists to keep (trap 21 — the header
+ * ⛔ SO THE RETIRED SPEC ARM WAS NOT "A SPEC PINNING A LIE" — it pinned a
+ * legitimate rendering of a PRODUCER's estimate, and this PR is deliberately
+ * changing that rendering. Calling a product decision a defect fix is CLAUDE.md
+ * trap 14 (an honest label overwritten by a more useful one), and the more
+ * rhetorically convenient sentence is exactly the one nobody re-checks. The
+ * risk and outcome cards now say `METRIC_UNSET.standalone` wherever no HUMAN
+ * has settled the weight, and this marker no longer rides that row.
+ *
+ * ⚠ SO `subject: 'strength'` HAS NO `<EstimateMarker />` CALL SITE, AND —
+ * CORRECTED — `ESTIMATE_SUBJECT_TITLE.strength` HAS NO PRODUCTION READER
+ * EITHER. Round 1 claimed here that the two cards "consume
+ * `ESTIMATE_SUBJECT_TITLE.strength` DIRECTLY … exactly one live reader", and
+ * used that to justify keeping it. Enumerated (`rg -a`, whole tree): the cards
+ * consume `unconfirmedStrengthDisclosure()`, which is built from
+ * `STRENGTH_OBJECT` and never touches `ESTIMATE_SUBJECT_TITLE`; the only
+ * production `<EstimateMarker />` is `FactorNode.tsx:911`, which passes no
+ * `subject` and defaults to `'value'`. The count was not one — it was ZERO, the
+ * opposite of the claim. `subject: 'strength'` and
+ * `ESTIMATE_SUBJECT_TITLE.strength` survive PINNED ONLY BY TESTS, and are named
+ * as such rather than defended.
+ *
+ * ⭐ THE SHARED CONSTANT THAT GENUINELY SURVIVES IS `STRENGTH_OBJECT`. That is
+ * what keeps the distinction this file exists to hold (trap 21 — the header
  * mark answers *who put this element here*, the strength sentence answers *this
- * connection's strength*) still has exactly one authority and exactly one live
- * reader. Collapsing `subject` back to a single title would merge the two
- * questions this file was written to name apart.
+ * connection's strength*) spelled in exactly one place.
  *
  * ⛔ AND IT IS NOT THE PROVENANCE GLYPH. A tempting "simplification" is to drop
- * `est.` for `NodeProvenanceMark`'s sparkle. That would be a FABRICATION:
- * the unconfirmed test is `weightSource !== 'user'` (`RiskNode` /
- * `OutcomeNode`'s `strengthIsUserStated`, inverted), which
- * INCLUDES a weight that was defaulted with no source at all. Rendering that as
- * AI authorship claims an author the data does not name — and
+ * `est.` for `NodeProvenanceMark`'s sparkle. That would be a FABRICATION: the
+ * unconfirmed test is `strengthIsHumanSettled` INVERTED
+ * (`canvas/domain/edgeStrengthSettlement.ts`), which asks whether a PERSON has
+ * taken responsibility — so it includes a producer's estimate, a template
+ * author's figure, and a weight defaulted with no source at all. Rendering any
+ * of those as AI authorship claims an author the data does not name, and
  * `NodeProvenanceMark`'s own rule is that unrecognised provenance renders
  * NOTHING rather than a guess. `UNCONFIRMED_ESTIMATE_LABEL` records the same
  * boundary in the domain vocabulary: "nobody has confirmed it" is a weaker and
@@ -126,12 +145,37 @@ export const ESTIMATE_SUBJECT_TITLE: Record<EstimateSubject, string> = {
  *                          not name one, and it deliberately does NOT open with
  *                          `UNCONFIRMED_ESTIMATE_LABEL`: "an estimate nobody
  *                          confirmed" would invent the estimate.
+ *
+ * ⛔ AND THE FIGURE'S AUTHOR IS NAMED FROM THE DATA, NEVER ASSUMED TO BE OLUMI.
+ * `EdgeValueSourceEnum` is `['user','cee','template']`, and `'template'` is
+ * DELIBERATELY distinct from `'cee'` — `edgeValueProvenance.ts`: *"a template
+ * weight is a real value, not a UI fallthrough"*, authored by a template author
+ * for this template rather than estimated for THIS user's decision. It has a
+ * live writer (`hooks/useBlueprintInsert.ts:109`, via `edgeValueSourcePatch` —
+ * a call shape a `weightSource: 'template'` grep does NOT see, which is how it
+ * was first missed). A blueprint-inserted risk→goal edge therefore reaches this
+ * sentence, and a hardcoded "Olumi is assuming" would credit Olumi with a
+ * number Olumi did not produce — the same fabrication class this row exists to
+ * close, one clause along.
  */
-export function unconfirmedStrengthDisclosure(assumedPct: number | null): string {
+export function unconfirmedStrengthDisclosure(
+  assumedPct: number | null,
+  /** Who supplied `assumedPct`. `null`/omitted is treated as unattributable. */
+  assumedSource?: EdgeValueSource | null,
+): string {
   if (assumedPct === null) {
     return `Nobody has set ${STRENGTH_OBJECT}. ${OPEN_DETAILS_SET}`
   }
-  return `Nobody has set ${STRENGTH_OBJECT}; Olumi is assuming ${assumedPct}%. ${OPEN_DETAILS_SET_OR_CONFIRM}`
+  // ⚠ ABSENCE-SAFE TOWARDS THE WEAKER CLAIM. Anything this cannot attribute
+  // falls through to the agentless wording, so an unrecognised source
+  // understates authorship rather than inventing one.
+  const assumer =
+    assumedSource === 'cee'
+      ? 'Olumi is assuming'
+      : assumedSource === 'template'
+        ? 'this template assumes'
+        : 'the current assumption is'
+  return `Nobody has set ${STRENGTH_OBJECT}; ${assumer} ${assumedPct}%. ${OPEN_DETAILS_SET_OR_CONFIRM}`
 }
 
 export function EstimateMarker({

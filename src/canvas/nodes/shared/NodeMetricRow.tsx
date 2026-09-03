@@ -29,51 +29,10 @@ import { typography } from '../../../styles/typography'
  *   · A `title` is unreachable by keyboard on a non-focusable row and absent on
  *     touch, so hiding the anchor there serves neither input class.
  */
-export interface NodeMetricRowProps {
+/** The props both branches carry, whatever the row is saying. */
+interface NodeMetricRowCommon {
   /** The noun: "Ahead", "Influence", "Strength". Rendered, never a tooltip. */
   label: string
-  /**
-   * 0..1. `null` renders no row at all — absence is not zero — UNLESS
-   * `unsetText` is supplied, in which case the row states the unknown instead.
-   */
-  value: number | null
-  /**
-   * Pre-formatted display string, so each node keeps its own rounding rules.
-   * Required whenever `value` is a number; unused on the `unsetText` branch,
-   * which by construction has no figure to print.
-   */
-  formatted?: string
-  /**
-   * ⭐ WHAT THIS ROW SAYS WHEN NOBODY HAS SET THE QUANTITY IT CAPTIONS.
-   *
-   * ⛔ THE DEFECT IT CLOSES. Five cards on one canvas read `Strength 50% est.`
-   * and each drew a bar EXACTLY HALF FULL — the no-information default in
-   * measurement grammar, on the same visual scale an option's COMPUTED win
-   * share uses two cards along. A half-full bar says "assessed, and middling".
-   * Nothing had assessed it.
-   *
-   * ⛔ AND WHY THERE IS NO EMPTY TRACK ON THIS BRANCH. The obvious rendering —
-   * keep the track, draw no fill — is refused by this component's own rule,
-   * three paragraphs down in the value branch: an unfilled full-width track
-   * "would read as 'measured, and it is nought'". Zero and unknown are
-   * different claims, and the bar has no way to distinguish them. So the track
-   * is not drawn at all, and the words take its column.
-   *
-   * ⚠ THE CAPTION COLUMN IS UNCHANGED, DELIBERATELY. The floor that gives every
-   * node type a shared start-x applies to both branches, so a reader scanning a
-   * board still meets `Strength` in the same place whether it is known or not —
-   * which is the comparison this component exists to make possible.
-   *
-   * ⚠ NO `trailing` ON THIS BRANCH. An `est.` marker beside "Not set yet" would
-   * be a second, weaker spelling of the same fact, at 7px.
-   */
-  unsetText?: string
-  /**
-   * Tailwind background class for the bar fill, e.g. `bg-option`.
-   * Required whenever `value` is a number; meaningless on the `unsetText`
-   * branch, which draws no bar — and passing one there would imply otherwise.
-   */
-  fillClass?: string
   /** Full sentence for assistive tech — what the number MEANS, not just its value. */
   phrase?: string
   /** Rendered after the value: an estimate marker, a confidence dot. */
@@ -99,6 +58,80 @@ export interface NodeMetricRowProps {
   title?: string
   testId?: string
 }
+
+/**
+ * ⭐ THE ROW THAT DRAWS A FIGURE. `formatted` AND `fillClass` ARE REQUIRED HERE,
+ * AND THAT REQUIREMENT IS THE POINT OF THE UNION BELOW.
+ *
+ * ⛔ WHY NOT `fillClass?: string` ON ONE FLAT INTERFACE. The unset branch draws
+ * no bar and has no fill to name, so the obvious way to let it omit `fillClass`
+ * is to make the prop optional for everyone. That is a real loss and it is
+ * silent: a caller passing a numeric `value` with no `fillClass` would then
+ * type-check and render `class="… undefined"` — an INVISIBLE FILL on a
+ * full-width track, i.e. a real value reported as an absence. That is precisely
+ * the failure the `max(4px, …)` floor below exists to prevent, arriving through
+ * the type system instead of through arithmetic.
+ *
+ * ⚠ `value` STAYS `number | null` ON THIS ARM, DELIBERATELY. `null` here keeps
+ * its original meaning — render nothing, absence is not zero — so `GoalNode`
+ * and `DecisionNode`, which pass a nullable probability through a separate
+ * boolean guard TypeScript cannot narrow through, are unaffected. The union
+ * discriminates on WHAT THE CALLER SUPPLIES, not on a literal tag.
+ */
+interface NodeMetricRowValueProps {
+  /** 0..1. `null` renders no row at all — absence is not zero. */
+  value: number | null
+  /** Pre-formatted display string, so each node keeps its own rounding rules. */
+  formatted: string
+  /** Tailwind background class for the bar fill, e.g. `bg-option`. */
+  fillClass: string
+  unsetText?: never
+}
+
+/**
+ * ⭐ THE ROW THAT STATES AN ABSENCE. WHAT THIS ROW SAYS WHEN NOBODY HAS
+ * ACCEPTED RESPONSIBILITY FOR THE QUANTITY IT CAPTIONS.
+ *
+ * ⛔ THE DEFECT IT CLOSES — and see `metricVocabulary.ts` for the canonical,
+ * MEASURED root-cause record, which is not restated here. In short: five cards
+ * on one canvas read `Strength 50% est.` and each drew a bar EXACTLY HALF FULL,
+ * on the same visual scale an option's COMPUTED win share uses two cards along.
+ * A half-full bar says "assessed, and middling".
+ *
+ * ⚠⚠ AND THE SENTENCE THAT USED TO END THAT PARAGRAPH — *"Nothing had assessed
+ * it"* — IS WITHDRAWN. It is false, and measurably so. Something DID assess
+ * these strengths: the drafting model did, and the figure reached the row
+ * through the provenance gate precisely BECAUSE a producer supplied it. A bare
+ * `DEFAULT_EDGE_DATA.weight` carries no stamp and renders no row at all. The
+ * honest claim is the narrower one this branch actually makes — *no human has
+ * settled it* — which is why the predicate feeding it is
+ * `strengthIsHumanSettled`, not a value-provenance read.
+ *
+ * ⛔ AND WHY THERE IS NO EMPTY TRACK ON THIS BRANCH. The obvious rendering —
+ * keep the track, draw no fill — is refused by this component's own rule in the
+ * value branch: an unfilled full-width track "would read as 'measured, and it
+ * is nought'". Zero and unknown are different claims, and the bar has no way to
+ * distinguish them. So the track is not drawn at all, and the words take its
+ * column.
+ *
+ * ⚠ THE CAPTION COLUMN IS UNCHANGED, DELIBERATELY. The floor that gives every
+ * node type a shared start-x applies to both branches, so a reader scanning a
+ * board still meets `Strength` in the same place whether it is known or not —
+ * which is the comparison this component exists to make possible.
+ *
+ * ⚠ NO `trailing` ON THIS BRANCH. An `est.` marker beside "Not set yet" would
+ * be a second, weaker spelling of the same fact, at 7px.
+ */
+interface NodeMetricRowUnsetProps {
+  value: null
+  unsetText: string
+  /** No figure to print and no bar to fill — passing either would imply otherwise. */
+  formatted?: never
+  fillClass?: never
+}
+
+export type NodeMetricRowProps = NodeMetricRowCommon &
+  (NodeMetricRowValueProps | NodeMetricRowUnsetProps)
 
 export function NodeMetricRow({
   label,

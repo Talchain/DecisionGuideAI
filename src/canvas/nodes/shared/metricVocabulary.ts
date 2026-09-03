@@ -77,11 +77,77 @@ export const METRIC_NOUN = {
 /**
  * ⭐ WHAT A CAPTIONED QUANTITY SAYS WHEN NOBODY HAS SET IT.
  *
+ * ⚠⚠ THE CANONICAL ROOT-CAUSE RECORD FOR THIS CHANGE LIVES HERE, AND THE FOUR
+ * OTHER FILES THAT TOUCH IT POINT AT IT RATHER THAN RESTATING IT. Round 1 of
+ * PR #1174 wrote the diagnosis out five times and got it wrong in all five.
+ *
  * THE DEFECT THIS CLOSES, witnessed on a real canvas (3 Sep 2026): five cards
- * read `Strength 50% est.` and each drew a progress bar EXACTLY HALF FULL.
- * `0.5` is the no-information default, and a proportional bar is measurement
- * grammar — the same grammar an option's computed win share uses two cards
- * along. The product was claiming an assessment it had never made.
+ * read `Strength 50% est.` and each drew a progress bar EXACTLY HALF FULL. A
+ * proportional bar is measurement grammar — the same grammar an option's
+ * computed win share uses two cards along. The product was drawing an estimate
+ * nobody had confirmed as though it had been assessed.
+ *
+ * ⛔ AND THE SENTENCE THAT USED TO SIT HERE — *"`0.5` is the no-information
+ * default… nothing had assessed it"* — IS REFUTED, BY MEASUREMENT, 3 Sep 2026.
+ * It is withdrawn wherever it appears.
+ *
+ *   1. A BARE `DEFAULT_EDGE_DATA.weight` CANNOT REACH THIS ROW AT ALL. The
+ *      provenance gate is `resolveEdgeSignedStrengthDisplay`, which refuses an
+ *      unstamped weight (`{show:false, reason:'not_set'}`), and
+ *      `DEFAULT_EDGE_DATA` deliberately carries no stamp. An unset default
+ *      renders NO ROW — never `Strength 50%`. For that string to appear, a wire
+ *      value must have arrived.
+ *
+ *   2. ⚠ AND THE STAMP IS THE UI'S OWN INFERENCE, NOT SOMETHING CEE WROTE. It
+ *      is tempting to describe these as "producer-stamped `cee`"; that is also
+ *      wrong. `weight_source` is written NOWHERE in CEE (0 occurrences, against
+ *      a contrast control of `strength_mean` in 273 files). The `'cee'` stamp
+ *      is applied HERE, by `applyDraftResult.mapDraftEdgeToCanvas`, keyed
+ *      purely on `wireSuppliedStrength` — the mere PRESENCE of a wire figure.
+ *      So the numbers are the drafting model's own output, passed through and
+ *      labelled by our ingestion. "A producer supplied it" is true; "a producer
+ *      declared its provenance" is not.
+ *
+ *   3. SO THE HONEST CLAIM IS THE NARROWER ONE: something DID assess these —
+ *      the drafting model did — and NO HUMAN HAS SETTLED IT. That is what the
+ *      row's own disclosure says, and it is the only claim the data licenses.
+ *      It is also why the predicate is `strengthIsHumanSettled` and not a
+ *      value-provenance read: see `canvas/domain/edgeStrengthSettlement.ts`.
+ *
+ * ⚠⚠ THE WITNESSED FLAT CANVAS IS THE MODAL FAILURE, NOT A CONSTANT — AND THIS
+ * IS THE CLAIM ROUND 1 MOST OVERSTATED. The five cards that prompted this change
+ * were the five outcome/risk nodes, each with exactly one outgoing edge — to the
+ * goal — all at `strength_mean` 0.5: everything UPSTREAM of the goal was
+ * differentiated and everything CONNECTING to it was flat. Measured across 12
+ * independent draws (orchestrator's bundle analysis,
+ * `CEE-GOAL-EDGE-STRENGTH-2026-09-03.md`), goal edges range −0.6 to +0.9 and
+ * VARY WITHIN most draws; **4 of 12 flatten completely.** So the correct
+ * statement is *"on drafts where the goal layer flattens — 4 of 12 draws
+ * measured"*. It is NOT "nearly every strength row", and NOT "the five most
+ * decisive relationships" — both were written before anything counted.
+ *
+ *   ⭐ The committed starters CORROBORATE that flatness is draw-dependent rather
+ *   than structural: measured over all five (`strength.mean` on all 24), the
+ *   values are a genuine spread — 0.18, 0.20, 0.22×2, 0.30×2, 0.35×3, 0.40×4,
+ *   0.45×3, 0.50×2, 0.55×5, 0.65 — so only **2 of 24** are 0.5 at all.
+ *
+ * ⚠⚠ THE BLAST RADIUS OF THE RENDERING CHANGE, MEASURED AND NOT SOFTENED — AND
+ * IT IS A DIFFERENT QUESTION FROM THE FLATTENING ABOVE. Withholding is decided
+ * by SETTLEMENT, not by the value, so it does not care whether a draw flattened:
+ * of the 24 risk/outcome→goal bridge edges across the five committed starters,
+ * **24 of 24 — 100% — lose their bar and their on-face figure**, because not one
+ * carries `validation`, `userReviewedStrength` or `weightSource: 'user'` (163
+ * starter edges scanned; contrast control: the same scan reports the keys that
+ * ARE present). The figure is DEMOTED to the row's `title` and screen-reader
+ * phrase, not deleted.
+ *
+ * ⭐ AND THAT 100% IS THE POINT, NOT AN EMBARRASSMENT TO BE SOFTENED. A user
+ * looking at the five edges that determine the answer, each declaring itself
+ * unset, above a computed 62%/38%, is the product's real epistemic position
+ * BECOMING VISIBLE. It was always true; it was previously hidden behind a
+ * half-full bar. Whether to keep that visibility is a PRODUCT call at 100%
+ * reach — Paul's to take — and it is stated in those terms rather than left for
+ * a later session to discover.
  *
  * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
  * this — the risk card, the outcome card, and the reduced line both of them

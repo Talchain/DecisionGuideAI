@@ -281,7 +281,7 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  *   Strength PRE-RUN  `RiskNode` / `OutcomeNode` render on `bridgeEdgeData`
  *                     alone — a memo over `state.edges`/`state.nodes` ONLY, no
  *                     report and no status.
- *   Not set  PRE-RUN  the same memo's `strengthIsUserStated === false` arm, and
+ *   Not set  PRE-RUN  the same memo's `strengthIsSettled === false` arm, and
  *              yet     pre-run is where it is MOST on screen: a drafted model
  *                     arrives with every bridge strength unset.
  *   est.     PRE-RUN  `FactorNode:911` `isInferred` (`data.observedState`).
@@ -386,7 +386,7 @@ export interface LegendBoardState {
  *             Its gate carries no results term at all, which is the whole of F1.
  *   Strength  `RiskNode` / `OutcomeNode` render on `bridgeEdgeData != null`, a
  *             memo over `state.edges`/`state.nodes` only.
- *   Not set yet  the same memo's `strengthIsUserStated === false` arm.
+ *   Not set yet  the same memo's `strengthIsSettled === false` arm.
  *   est.      `FactorNode:911` `isInferred` — factor values only since
  *             3 Sep 2026. Graph-authored; no results term.
  *

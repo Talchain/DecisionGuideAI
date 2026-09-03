@@ -131,6 +131,14 @@ function asSource(value: unknown): EdgeValueSource | null {
  * Returns `null` when nothing proves the value was set — which is the state
  * every UI default lands in. Callers MUST treat `null` as "we do not know this
  * number" and never render it as a measurement.
+ *
+ * ⛔ THIS ANSWERS "WHOSE NUMBER IS THIS?" AND NOTHING ELSE. It is NOT the test
+ * for whether a human has settled the value, and `!== 'user'` is NOT "nobody
+ * set it": `ModelTabBody.handleResolveContested` deliberately stamps `'cee'` on
+ * a strength a user explicitly adjudicated, because the number really is the
+ * producer's. Any surface about to say *"nobody has set this"* must consume
+ * `strengthIsHumanSettled` (`./edgeStrengthSettlement.ts`) instead — the two
+ * questions are named apart there, with the divergence that forced it.
  */
 export function edgeValueSource(
   data: Record<string, unknown> | undefined | null,

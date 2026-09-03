@@ -148,14 +148,24 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
       </ReactFlowProvider>,
     )
     /*
-     * ⚠⚠ THIS ASSERTION USED TO READ `'Strength 50% est.'`, AND THAT STRING WAS
-     * THE DEFECT (3 Sep 2026). `0.5` is `DEFAULT_EDGE_DATA.weight` — the
-     * no-information default — and five cards on one canvas printed it at once,
-     * each with a bar exactly half full. The finding this file was written to
-     * record is still exactly right (a risk card's ONE reliable datum is its
-     * bridge edge, not `probability` × `impact`); what was wrong was printing
-     * that datum as a figure when nobody had set it. The line still speaks —
-     * which is this file's whole point — and now says something true.
+     * ⚠⚠ THIS ASSERTION USED TO READ `'Strength 50% est.'`, AND THIS PR CHANGES
+     * IT DELIBERATELY (3 Sep 2026).
+     *
+     * ⛔ AND THE REASON FIRST GIVEN HERE WAS WRONG. Round 1 wrote *"that string
+     * WAS THE DEFECT — `0.5` is `DEFAULT_EDGE_DATA.weight`, the no-information
+     * default"*. REFUTED by measurement: a bare default carries no provenance
+     * stamp and renders NO ROW AT ALL, so it could never have produced this
+     * string. The figure came from a producer, and the arm retired here was a
+     * legitimate rendering of a producer's estimate — NOT "a spec pinning a
+     * lie". Calling a product decision a defect fix is CLAUDE.md trap 14, and it
+     * is corrected rather than quietly dropped. The canonical record is
+     * `shared/metricVocabulary.ts`.
+     *
+     * ⭐ WHAT ACTUALLY CHANGED, STATED HONESTLY: a strength no HUMAN has settled
+     * no longer prints as a bare figure at this rung. The finding this file was
+     * written to record is untouched and still exactly right (a risk card's ONE
+     * reliable datum is its bridge edge, not `probability` × `impact`); the line
+     * still speaks, which is this file's whole point.
      */
     expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
   })

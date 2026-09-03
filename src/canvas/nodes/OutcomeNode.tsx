@@ -6,7 +6,8 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
-import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
+import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
+import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
@@ -48,41 +49,51 @@ export const OutcomeNode = memo((props: NodeProps) => {
     // `RelationshipsSection`: a gate whose condition is a tautology.
     const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
     const signedMean = display.show ? display.value : null
-    // R6: is this strength an ESTIMATE or something the user stated? Derived
-    // from the edge's own provenance stamp — the same field the display gate
-    // above consults — never from a hardcoded word. `weightSource` absent means
-    // defaulted (edgeValueProvenance's stated invariant), which is an estimate;
-    // `'user'` means the user set it, and carries no marker at all.
-    const weightSource = (edge.data as Record<string, unknown> | undefined)?.weightSource
     const assumedPct = signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null
+    // ⚠ WHO SUPPLIED THE FIGURE — needed only to NAME the assumer in the unset
+    // row's disclosure, never to decide whether to draw it. `'template'` is a
+    // real third author (`useBlueprintInsert`), so the sentence cannot hardcode
+    // Olumi; `unconfirmedStrengthDisclosure` owns that wording.
+    const assumedSource = edgeValueSource(edge.data as Record<string, unknown> | undefined, 'weight')
     /**
-     * ⛔ THE ONE QUESTION THIS ROW ASKS: DID A HUMAN SET THIS STRENGTH?
+     * ⛔ THE ONE QUESTION THIS ROW ASKS: HAS A HUMAN ACCEPTED RESPONSIBILITY FOR
+     * THIS STRENGTH? — and it does NOT answer it here. `strengthIsHumanSettled`
+     * (`canvas/domain/edgeStrengthSettlement.ts`) is the ONE admission, and that
+     * module carries the full reasoning — including the render-witnessed
+     * divergence that forced it and why `resolved_by === 'user'` is too wide.
+     * It is deliberately not restated here: this card and `RiskNode` ask the
+     * same question, so they must not carry two copies of the answer.
      *
-     * It is NOT a new judgement, and that matters more than the verdict.
-     * `selectAssumedStrengthToResolve`
-     * (`components/results/strengthElicitation/selectAssumedStrengthToResolve.ts`)
-     * already owns "does this strength still need human judgement", and already
-     * rules — verbatim — that *"a CEE numeric estimate does not resolve itself
-     * merely because ingestion stamped `weightSource: 'cee'`"*. A second
-     * predicate here would be this estate's signature defect: one name, two
-     * questions, drifting apart (CLAUDE.md trap 21).
+     * ⚠⚠ THIS LINE READ `weightSource === 'user'` UNTIL 3 Sep 2026. That is
+     * VALUE provenance — *whose number is this?* — while the row's copy claims
+     * *nobody has set it*, a claim about a PERSON'S ACT. Two questions under one
+     * predicate (CLAUDE.md trap 21), diverging on a state a live affordance
+     * produces.
      *
      * ⚠ SCOPE BOUNDARY, STATED SO THE NEXT LANE INHERITS IT RATHER THAN
      * REDISCOVERS IT. A producer strength that is genuinely MEASURED rather
-     * than assumed would be withheld by this predicate too. Nothing on the wire
-     * distinguishes the two today — CEE stamps `'cee'` for both — so the CEE
-     * lane that makes real strengths arrive must land a distinguishable
-     * provenance, and THIS LINE is the single place to widen when it does.
+     * than assumed is withheld by this predicate too. Nothing on the wire
+     * distinguishes the two today, so the lane that makes real strengths arrive
+     * must land a distinguishable provenance, and `edgeStrengthSettlement.ts` is
+     * the single place to widen.
+     *
+     * ⚠ A DISCRIMINATED UNION, NOT TWO NULLABLE FIELDS. The settled arm's
+     * `bridgeStrengthPct` is `number`, so the render site cannot reach for a
+     * `?? 0` fallback — the previous shape carried one, and an unreachable
+     * fallback that would silently draw a 0% bar is exactly the "measured, and
+     * it is nought" claim this row refuses to make.
      */
-    const strengthIsUserStated = signedMean != null && weightSource === 'user'
-    return {
-      signedMean,
-      /** The figure to DRAW. Non-null only where a human stated it. */
-      bridgeStrengthPct: strengthIsUserStated ? assumedPct : null,
-      /** The figure to DISCLOSE — a producer's guess, or nothing at all. */
-      assumedPct: strengthIsUserStated ? null : assumedPct,
-      strengthIsUserStated,
+    if (assumedPct !== null && strengthIsHumanSettled(edge.data as Record<string, unknown> | undefined)) {
+      /** The figure to DRAW. Present only where a human has settled it. */
+      return {
+        strengthIsSettled: true as const,
+        bridgeStrengthPct: assumedPct,
+        assumedPct: null,
+        assumedSource: null,
+      }
     }
+    /** The figure to DISCLOSE — a producer's guess, or nothing at all. */
+    return { strengthIsSettled: false as const, bridgeStrengthPct: null, assumedPct, assumedSource }
   }, [edges, nodes, props.id])
 
   /**
@@ -102,12 +113,18 @@ export const OutcomeNode = memo((props: NodeProps) => {
    * The remedy — keep the number, append a 7px marker — treated the disclaimer
    * as the fix when the FIGURE was the claim. Measured on a real canvas
    * (3 Sep 2026): five cards reading `Strength 50% est.` at once, each drawing a
-   * bar exactly half full, because 0.5 is `DEFAULT_EDGE_DATA.weight` — the
-   * no-information default.
+   * bar exactly half full.
+   *
+   * ⚠⚠ THE REASON THAT USED TO END THAT PARAGRAPH — *"because 0.5 is
+   * `DEFAULT_EDGE_DATA.weight`, the no-information default"* — IS WITHDRAWN AS
+   * REFUTED. The canonical, measured root-cause record is in
+   * `shared/metricVocabulary.ts` and is deliberately NOT restated here: round 1
+   * of this change wrote the diagnosis out in five files and had it wrong in all
+   * five, which is the hand-maintained mirror this estate keeps paying for.
    *
    * ⛔ SO THE LINE NOW STATES THE PROVENANCE INSTEAD OF QUALIFYING IT. Where a
-   * human set the weight there is a figure and no marker, exactly as before.
-   * Where nobody did, there is no figure to qualify.
+   * human has SETTLED the weight there is a figure and no marker, exactly as
+   * before. Where nobody has, there is no figure to qualify.
    */
   const lodMetric = useMemo(() => {
     if (!bridgeEdgeData) return null
@@ -321,10 +338,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
              `title` and the screen-reader phrase, stated as an assumption.
              `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
              keyboard on a non-focusable row and absent on touch. */
-          bridgeEdgeData.strengthIsUserStated ? (
+          bridgeEdgeData.strengthIsSettled ? (
             <NodeMetricRow
               label={METRIC_NOUN.strength}
-              value={(bridgeEdgeData.bridgeStrengthPct ?? 0) / 100}
+              value={bridgeEdgeData.bridgeStrengthPct / 100}
               formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
               fillClass="bg-success"
               testId="outcome-strength-row"
@@ -335,8 +352,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
               value={null}
               unsetText={METRIC_UNSET.standalone}
               testId="outcome-strength-row"
-              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct)}
-              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct)}
+              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
+              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
             />
           )
         )}
