@@ -38,7 +38,7 @@ import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import { ValueProvenanceMark } from './ValueProvenanceMark'
 import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 
@@ -118,6 +118,41 @@ export function ModelRowView({
   const phase = commit?.phase ?? 'idle'
   const editorAvailable = row.editable && editConnected && typeof onBeginEdit === 'function'
 
+  /**
+   * ⚠⚠ THE RULE IS REDUNDANCY, NOT "ARE THE WORDS ON SCREEN" — and the earlier
+   * version of this comment stated the superseded rule TRUTHFULLY, which is
+   * worse than stating a false one. It said the cut "tracks what is RENDERED",
+   * and then supplied the fact that completes the wrong syllogism: that the
+   * words ARE present during `proposed`. A reader hitting a RED here would
+   * read that and conclude the TEST was wrong. It survives scrutiny and still
+   * misleads.
+   *
+   * THE RULE, stated once and correctly: the ⚠ is cut only where it is
+   * REDUNDANT — where the row is at rest and the cell already says "Not set"
+   * in words two atoms away. Everywhere else it is kept, because everywhere
+   * else "no value is set" is still an unresolved fact about the model.
+   *
+   * The two rules diverge on exactly the phases that render `commit.from` —
+   * `proposed` and `refused` — where the words ARE on screen but nothing has
+   * been committed, so the cell is describing a PROPOSAL or a REVERSION rather
+   * than a settled state. `phase === 'idle'` implements the redundancy rule;
+   * a words-rule would wrongly cut both.
+   *
+   * ⚠ AND THE CUT NEVER TOUCHES THE DATA. `row.attention` is untouched —
+   * `RepairQueueDeferral.spec` pins that deferring does not empty it, and the
+   * repair queue reads the same array. Only the glyph is suppressed.
+   *
+   * Pinned, with the divergent phases named, in
+   * `__tests__/rowAtomsDoNotWrap.spec.tsx` — see "the no-value ⚠ is cut only
+   * where it is REDUNDANT". If you are here because that spec is RED, read it
+   * before changing this line.
+   */
+  const printsNotSet =
+    phase === 'idle' && row.editable && editorAvailable && row.primaryValue === null
+  const attentionShown = row.attention.filter(
+    r => !(r === 'no-value' && printsNotSet),
+  )
+
   /*
    * ⚠ THE AFFORDANCE IS BOUND TO THE ATTENTION REASON, NOT TO A RE-DERIVED
    * PREDICATE. `unconfirmed-estimate` is already the one predicate this surface
@@ -165,7 +200,50 @@ export function ModelRowView({
       <button
         type="button"
         data-testid={`model-row-v2-${row.id}-label`}
-        className={`${typography.bodySmall} text-text-body text-left truncate`}
+        /* ⚠⚠ `flex-1` IS WHAT MAKES THE LABEL ABSORB THE ROW'S DEFICIT, and its
+           absence is why every short value to the right of this row wrapped.
+
+           ⚠ CORRECTED, BECAUSE THE MECHANISM I FIRST WROTE HERE WAS FALSE. It
+           said `min-width:auto` "refuses to shrink below its content, so
+           `truncate` could not act". A flex item's automatic minimum size
+           resolves to ZERO whenever its main-axis `overflow` is not `visible`
+           — and this button already carried `truncate`, which sets
+           `overflow:hidden`. The label could always shrink; that was never the
+           blocker, and measurement confirms it (a `truncate` item with and
+           without `min-w-0` lands at the identical width).
+
+           What actually changed the outcome is two things, neither of them
+           `min-w-0`. `flex-1` is `flex: 1 1 0%`: the label gets the only zero
+           flex-basis in the row, so all FREE SPACE lands on it while every
+           sibling sits at content size. `whitespace-nowrap` on the value cells
+           then removes the wrap escape hatch, so a cell that is squeezed
+           ellipsises instead of breaking "35 %" off its own unit.
+
+           ⚠ AND A CORRECTION TO THIS PARAGRAPH'S OWN FIRST DRAFT, which said
+           free space "AND shortfall" land on the label. Not so, and the
+           distinction matters: a `flex-basis: 0` item takes ZERO of a SHRINK
+           distribution, because the scaled shrink factor is base size × shrink
+           factor = 0. Growth lands here; a genuine shortfall lands on the
+           SIBLINGS. That is exactly why the Advanced id span later had to be
+           given `min-w-0 truncate` — with the label unable to absorb a
+           deficit, the id was the last default-shrink item and took it. Two
+           comments in this file described the deficit case incompatibly; this
+           is the one that matches the code.
+
+           The label is the one thing here that can lose characters without
+           losing meaning, so it is the one thing that should shrink. */
+        /* ⚠⚠ `min-w-[6rem]`, NOT `min-w-0`, AND THE FLOOR IS THE SECOND HALF OF
+           THE FIX. `min-w-0` let `truncate` work — and then let it work all the
+           way down: measured after the first pass, 24 labels were crushed and
+           "GDPR EU Data Residency Compliance" rendered in 26px, which is one
+           character and an ellipsis. A label truncated past legibility is not a
+           label; the row has told you nothing and taken a line to do it.
+
+           6rem holds roughly twelve characters, which is enough to recognise a
+           node you already know. Below that the row should give up something
+           else — see the estimate hint below, which is the secondary text that
+           can afford to go. */
+        className={`${typography.bodySmall} text-text-body text-left truncate min-w-[6rem] flex-1`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
@@ -182,7 +260,7 @@ export function ModelRowView({
         <span
           data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
           title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
-          className={`${typography.panelMeta} text-text-light whitespace-nowrap`}
+          className={`${typography.panelMeta} text-text-light whitespace-nowrap shrink-0`}
         >
           {GOAL_LABEL_FROM_BRIEF_COPY.pill}
         </span>
@@ -198,15 +276,37 @@ export function ModelRowView({
         onDiscardEdit={onDiscardEdit}
         onConfirmEdit={onConfirmEdit}
       />
-
       {/*
         showWhenAbsent={false} is deliberate: when nothing states a provenance the
         row shows NOTHING, rather than a "Not set" chip asserting a fact about a
         value that may be perfectly well set. Absence is rendered as absence.
       */}
       {row.provenanceSource !== undefined && (
-        <span data-testid={`model-row-v2-${row.id}-provenance`}>
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
+        /* ⚠ THE LAST THING TO GIVE, AND IT DOES HAVE TO GIVE. On a 390px panel
+           the worst row wants 400px — glyph 11 + label 96 + value 153 +
+           provenance 76 + two 12px chips + 40px of gaps — so something must
+           yield or the row overflows the dock, which is what happened when this
+           was `shrink-0`. Priority, from most protected to least: the node's
+           NAME (floored at 6rem), the primary VALUE (never shrinks), the
+           estimate HINT, then this. A provenance label truncating is
+           recoverable; a row falling out of the panel is not.
+
+           ⚠⚠ THAT PRICING WAS WRITTEN FOR A WORDED PILL AND THIS NOW HOLDS A
+           14px GLYPH. The wrapper is unchanged and only the child swapped, so
+           the sentence above quietly stopped being true: a truncated text span
+           reports as a signalled ellipsis, which this file's own doctrine calls
+           "a disclosed loss, not a silent one" — but a clipped glyph emits no
+           ellipsis and simply vanishes. By this file's own standard that is a
+           SILENT loss, which is the thing it refuses everywhere else.
+
+           ⚠ NOT CHANGED HERE, DELIBERATELY. Marks relieve roughly 62px of row
+           pressure, so it is unlikely to clip in practice, and nobody has
+           MEASURED it clipping — swapping to `shrink-0` would be an unmeasured
+           layout change to a row already under review, and would move the
+           deficit onto an atom that has not been priced for it. Rowed instead:
+           re-price the yield ladder now that its last item is indivisible. */
+        <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>
       )}
 
@@ -226,7 +326,7 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-confirm-as-is`}
           title="Confirm this value is correct"
           aria-label={`Confirm ${row.label} is correct`}
-          className={`${typography.buttonSmall} text-info underline decoration-dotted`}
+          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
           onClick={e => {
             e.stopPropagation()
             onConfirmValueAsIs?.(row.id)
@@ -236,13 +336,13 @@ export function ModelRowView({
         </button>
       )}
 
-      {row.attention.map(reason => (
+      {attentionShown.map(reason => (
         <span
           key={reason}
           data-testid={`model-row-v2-${row.id}-attention-${reason}`}
           title={ATTENTION_LABEL[reason]}
           aria-label={ATTENTION_LABEL[reason]}
-          className={`${typography.caption} text-warning`}
+          className={`${typography.caption} text-warning shrink-0`}
         >
           ⚠
         </span>
@@ -267,10 +367,30 @@ export function ModelRowView({
         </span>
       )}
 
+      {/* ⚠⚠ LAST IN THE YIELD LADDER, AND IT HAD TO BE GIVEN ONE. Independent
+          review measured this span escaping the row by 85px at the 280px dock
+          floor — WORSE than before the fix, because the label's new `min-w`
+          floor stopped it absorbing and this was the only default-shrink item
+          left to take the deficit. `row.id` is `node.id`: a single unbreakable
+          `font-mono` token like `fac_platform_migration`, so without
+          `overflow:hidden` its automatic minimum is the whole token and it can
+          neither shrink nor wrap.
+
+          The ladder, most protected to least: the node's NAME (floored at
+          6rem) → the primary VALUE (never shrinks) → the estimate HINT → the
+          provenance pill → THIS. An Advanced-tier debug token is the right
+          thing to lose: the DOM text stays whole, so selection and copy still
+          yield the full id, and `title` names it. A row falling out of the
+          panel is not recoverable, which is this file's own stated rule.
+
+          ⚠ PRICED, NOT HIDDEN: `truncate` is `overflow:hidden` + ellipsis, so
+          at 280 in Advanced this span now reports as a signalled ellipsis in a
+          clipping scan. That is a disclosed loss, not a silent one. */}
       {tier === 'advanced' && (
         <span
           data-testid={`model-row-v2-${row.id}-id`}
-          className={`${typography.code} text-text-light`}
+          title={row.id}
+          className={`${typography.code} text-text-light min-w-0 truncate`}
         >
           {row.id}
         </span>
@@ -315,7 +435,7 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={typography.tabular}>
+            <span data-testid={testid} className={`${typography.tabular} shrink-0 whitespace-nowrap`}>
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
@@ -347,12 +467,32 @@ function ValueCell({
           </span>
         )
       case 'proposed':
+        /* ⚠⚠ THE WIDEST CELL IN THIS COMPONENT, AND THE ONE LIVE PATH THE
+           FIRST PASS MISSED. It carries `from → to`, a caption, and two
+           bordered chips in a 280px dock; measured, it began escaping the row
+           by 5px once the label stopped absorbing. Wrapping is allowed HERE
+           and nowhere else in the row, because there is no single atom that
+           can afford to go: the arrow pair must stay whole (a value broken
+           from its arrow is the defect this PR exists to fix), and a truncated
+           Confirm is a fake affordance. So the cell is permitted a second line
+           rather than pushing the row out of the panel.
+
+           ⚠ The row is therefore TALLER in `proposed`. That is deliberate and
+           transient — one row at a time can hold a commit state
+           (`commitByRowId` is a one-entry map) — and it is why the uniform
+           34px claim this PR makes is scoped to the IDLE row. Do not "fix"
+           this back to nowrap. */
         return (
-          <span data-testid={testid} className={typography.tabular}>
-            <span data-testid={`${testid}-from`}>{commit.from}</span>
-            {' → '}
-            <span data-testid={`${testid}-to`}>{commit.to}</span>
-            <span className={`${typography.caption} text-text-light ml-2`}>
+          <span
+            data-testid={testid}
+            className={`${typography.tabular} min-w-0 flex flex-wrap items-baseline`}
+          >
+            <span className="shrink-0 whitespace-nowrap">
+              <span data-testid={`${testid}-from`}>{commit.from}</span>
+              {' → '}
+              <span data-testid={`${testid}-to`}>{commit.to}</span>
+            </span>
+            <span className={`${typography.caption} text-text-light ml-2 min-w-0 truncate`}>
               Nothing has changed yet
             </span>
             {/*
@@ -363,7 +503,7 @@ function ValueCell({
             */}
             {onConfirmEdit && onDiscardEdit && (
               <span
-                className="ml-2 inline-flex gap-1"
+                className="ml-2 inline-flex gap-1 shrink-0"
                 onClick={e => e.stopPropagation()}
               >
                 <button
@@ -470,7 +610,12 @@ function ValueCell({
     display === null && row.estimateText !== undefined ? (
       <span
         data-testid={`${testid}-estimate`}
-        className={`${typography.caption} text-text-light ml-2`}
+        /* ⚠ SECONDARY, AND THEREFORE THE THING THAT GIVES WAY. "Olumi:
+           Moderate (0.5)" beside "Not set" pushed this cell to 180px — SEVEN
+           TIMES the label it was starving. The estimate is a hint about a value
+           the user has not set; the node's name is how they find the row at
+           all. So the hint truncates and the name does not. */
+        className={`${typography.caption} text-text-light ml-2 truncate min-w-0`}
       >
         Olumi: {row.estimateText}
       </span>
@@ -478,7 +623,17 @@ function ValueCell({
 
   if (!row.editable || !editorAvailable) {
     return (
-      <span data-testid={testid} className={typography.tabular}>
+      /* ⚠ `shrink-0` ONLY WHEN THERE IS NOTHING HERE THAT CAN AFFORD TO GO.
+         A bare value ("35 %") must never shrink — that is what broke a number
+         away from its own unit. A value carrying an ESTIMATE HINT is a
+         different case: the hint can truncate, so the cell is allowed to give
+         rather than starving the label. */
+      <span
+        data-testid={testid}
+        className={`${typography.tabular} flex items-baseline whitespace-nowrap ${
+          estimate === null ? 'shrink-0' : 'min-w-0'
+        }`}
+      >
         {display ?? ''}
         {estimate}
       </span>
@@ -491,7 +646,23 @@ function ValueCell({
       data-testid={testid}
       title="Change this value"
       aria-label={`Change ${row.label}`}
-      className={`${typography.tabular} text-left underline decoration-dotted`}
+      /* ⚠⚠ THE SAME RULE AS THE READ-ONLY CELL ABOVE, STATED TWICE BECAUSE THE
+         RESTING ROW HAS TWO DIFFERENT ELEMENTS — a `<span>` when the value is
+         not editable here, this `<button>` when it is. I patched the `<span>`
+         first, re-measured, and the tall rows were still 42px: every one of
+         them was EDITABLE, so they came out of this `<button>`, which wrapped
+         its estimate hint onto a second line. A fix applied to one of the two
+         idle elements is a fix that half the rows never receive.
+
+         ⚠ CORRECTED: an earlier version of this comment said the COMPONENT has
+         "two return paths". It has EIGHT — editing-with-input, editing
+         fallback, proposed, inflight, applied, refused, and these two idle
+         arms. The rule is about the two IDLE elements, not about the function.
+         Getting that number wrong is what let the `proposed` cell ship
+         unfixed, and it was found by review rather than by me. */
+      className={`${typography.tabular} text-left underline decoration-dotted flex items-baseline whitespace-nowrap ${
+        estimate === null ? 'shrink-0' : 'min-w-0'
+      }`}
       onClick={e => {
         e.stopPropagation()
         onBeginEdit?.(row.id)

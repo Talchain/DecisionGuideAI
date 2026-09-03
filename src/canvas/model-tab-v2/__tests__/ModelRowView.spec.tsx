@@ -150,9 +150,43 @@ describe('ModelRowView — provenance absence is rendered as absence', () => {
 
   it('classifies the raw stamp through the shared classifier, not a local map', () => {
     render(<ModelRowView row={row({ id: 'f1', provenanceSource: 'user_confirmed' })} tier="plain" />)
-    // `user_confirmed` → "Confirmed by you". A local literal map would be the
-    // mirror defect that once rendered "Not set" over a confirmed value.
-    expect(screen.getByTestId('model-row-v2-f1-provenance')).toHaveTextContent('Confirmed by you')
+    /*
+     * `user_confirmed` → the `confirmed` kind → "Confirmed by you". A local
+     * literal map would be the mirror defect that once rendered "Not set" over
+     * a confirmed value.
+     *
+     * ⚠ REBOUND WHEN THE PILL BECAME A MARK. This read `toHaveTextContent`,
+     * which a glyph cannot satisfy. The words did not disappear — they moved to
+     * the ACCESSIBLE NAME — so the assertion now checks both halves, and the
+     * `data-provenance-kind` is the stronger of the two because it binds to the
+     * classifier's OUTPUT rather than to a display string that may be reworded.
+     */
+    const mark = screen.getByTestId('model-row-v2-f1-provenance-mark')
+    expect(mark).toHaveAttribute('data-provenance-kind', 'confirmed')
+    expect(mark).toHaveAttribute('aria-label', 'Confirmed by you')
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN, ADDED WITH THE MARK. Two rows whose sources
+   * classify DIFFERENTLY must render different marks — otherwise a single-kind
+   * assertion would pass against a component that had collapsed every kind to
+   * one glyph, which is exactly the failure a picture can hide and a word
+   * cannot.
+   */
+  it('renders a DIFFERENT mark for a different provenance kind', () => {
+    render(
+      <>
+        <ModelRowView row={row({ id: 'f1', provenanceSource: 'user_confirmed' })} tier="plain" />
+        <ModelRowView row={row({ id: 'f2', provenanceSource: 'cee_inference' })} tier="plain" />
+      </>,
+    )
+    const a = screen.getByTestId('model-row-v2-f1-provenance-mark')
+    const b = screen.getByTestId('model-row-v2-f2-provenance-mark')
+    expect(a).toHaveAttribute('data-provenance-kind', 'confirmed')
+    expect(b).toHaveAttribute('data-provenance-kind', 'ai')
+    expect(a.getAttribute('aria-label')).not.toBe(b.getAttribute('aria-label'))
+    // Shape, not hue: the glyphs must differ as ELEMENTS, not just in colour.
+    expect(a.innerHTML).not.toBe(b.innerHTML)
   })
 })
 
