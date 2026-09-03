@@ -333,6 +333,61 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
   })
 
   /**
+   * ⭐⭐⭐ THE SIX MODELS THAT REPRODUCED THE ORIGINAL DEFECT AFTER I HAD
+   * "FIXED" IT — the corpus an independent review built, and the reason the
+   * predicate is now two predicates.
+   *
+   * Every one of these states a target a person would recognise as a target,
+   * and none survives a numeric coercion. On the round-4 head each rendered the
+   * strip's target AND the card's denial in the same panel, including the
+   * verbatim "Source: your goal has no success threshold (checked directly)"
+   * that makes this a defect rather than a difference.
+   *
+   * ⚠ THEY ARE PINNED AS A GROUP because they are one class, not six cases:
+   * a target is STATED or it is not, and whether it happens to parse as a
+   * number is a separate question that must never gate the ask.
+   */
+  it.each([
+    ['a shorthand magnitude', { goal_threshold_raw: '200k' }],
+    ['a currency magnitude', { goal_threshold_raw: '\u00a311M' }],
+    ['a percentage', { goal_threshold_raw: '11%' }],
+    ['a thousands separator', { goal_threshold_raw: '1,100' }],
+    ['a comparator and currency', { goal_threshold_raw: '\u2265 \u00a31,000' }],
+  ])('does NOT ask for a target when the goal states %s', (_n, data) => {
+    seedPreRun({ id: 'g1', type: 'goal', data: { label: 'Grow Total ARR', ...data } })
+    render(<RealPanel />)
+    openStrengthen()
+
+    // The strip is displaying it, so a card denying it is the contradiction.
+    expect(screen.getByTestId(`${STRIP}-value`)).toBeInTheDocument()
+    expect(panelAsksForATarget()).toBe(false)
+  })
+
+  /** The same class through the USER's own act, which is worse to deny. */
+  it('does NOT ask when the user stated a non-numeric target themselves', () => {
+    seedPreRun({
+      id: 'g1', type: 'goal',
+      data: { label: 'Grow Total ARR', success_threshold: '20%', threshold_source: 'user' },
+    })
+    render(<RealPanel />)
+    openStrengthen()
+    expect(panelAsksForATarget()).toBe(false)
+  })
+
+  /**
+   * ⚠ AND THE NUMBER STAYS STRICT. Existence is broad; the numeric field is
+   * not, because a consumer doing arithmetic must never receive a coerced
+   * value. `null` here means "no NUMBER", never "no target" — the conflation
+   * that caused all of this.
+   */
+  it('reports the target as SET while carrying no number for it', () => {
+    seedPreRun({ id: 'g1', type: 'goal', data: { label: 'Grow Total ARR', goal_threshold_raw: '200k' } })
+    const { result } = renderHook(() => useResultsSectionData())
+    expect(result.current.recommendation.hasGoalTarget).toBe(true)
+    expect(result.current.recommendation.goalThreshold).toBeNull()
+  })
+
+  /**
    * ⭐⭐ THE OPPOSITE-DIRECTION TWIN, AND THE PROBE'S POSITIVE CONTROL.
    * `queryByText(SENTENCE)` returning null proves nothing unless the same query
    * can be shown to FIND that sentence on a model that deserves it. This case

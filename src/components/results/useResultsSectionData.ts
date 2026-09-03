@@ -1532,45 +1532,63 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    * field declared `number | null`. Coerced and guarded here rather than left
    * for a consumer to trip over.
    */
+  /**
+   * ⚠⚠ STOP TIGHTENING. This is now TWO memos because it is TWO QUESTIONS, and
+   * five rounds on one predicate proved they cannot share a parameter.
+   *
+   * The history is the argument. A single coercion answered both "is a target
+   * SET?" and "what NUMBER is it?", and every round moved the harm instead of
+   * closing it: too permissive silenced true coaching (`Number('')` is `0`);
+   * tightening to a decimal regex then denied `'200k'`, `'£11M'`, `'11%'`,
+   * `'≥ £1,000'` and a user-stated `'20%'` — real stated targets, measured
+   * reproducing the ORIGINAL defect on six pre-run models, with the strip
+   * displaying the target and the card denying it. A false positive that DROPS
+   * a constraint and one that INVENTS one are opposite harms and cannot share
+   * one window; this estate has that written down and I spent four rounds
+   * relearning it.
+   */
+
+  /**
+   * ⭐ EXISTENCE — *has anyone STATED a target?* Deliberately NOT numeric: a
+   * target can be perfectly well stated and unrepresentable as a number.
+   * `resolveGoalTarget` is the estate's tested answer for the node (it gates
+   * `success_threshold` on `threshold_source === 'user'` and guards blanks at
+   * both legs); the store scalar and CEE's raw count at any shape a human
+   * could have meant, blanks excluded.
+   */
+  const hasStatedGoalTarget = useMemo<boolean>(() => {
+    const stated = (v: unknown): boolean => {
+      if (v == null) return false
+      if (typeof v === 'number') return Number.isFinite(v)
+      if (typeof v === 'string') return v.trim() !== ''
+      return false
+    }
+    if (stated(goalThreshold)) return true
+    if (stated(ceeAnalysisReady?.goal_threshold_raw)) return true
+    const fromNode = resolveGoalTarget(goalNode?.data as GoalTargetSource | null | undefined)
+    return fromNode !== null && stated(fromNode.raw)
+  }, [goalThreshold, ceeAnalysisReady, goalNode])
+
+  /**
+   * ⭐ THE NUMBER — *what value should a numeric consumer use?* `null` here
+   * means "no number available", which is NOT the same as "no target set", and
+   * nothing may read it as such. It stays strict on purpose: a consumer doing
+   * arithmetic must never receive a coerced `0` for a blank, or `16` for
+   * `'0x10'`.
+   */
   const statedGoalTarget = useMemo<number | null>(() => {
-    /**
-     * ⚠⚠ THE BLANK GUARD IS THE WHOLE POINT — `Number('')` IS `0`, NOT `NaN`.
-     * Without it a blank `goal_threshold_raw` coerces to a perfectly finite
-     * zero, `statedGoalTarget` returns a number, and the card falls silent on a
-     * model that has NO target — re-opening, through the CEE branch, the exact
-     * harm this change exists to prevent. `goalTarget.ts` and `GoalNode` both
-     * guard blanks for the same reason, which is why the NODE branch below was
-     * already safe and this one was not.
-     *
-     * ⚠ It also matters that this is WIDER than the code it replaced: the
-     * previous CEE branch read `typeof … === 'number'` and so could never see a
-     * string at all. Coercing here bought string tolerance and, with it, the
-     * blank hole. A zero that someone actually typed is still a valid target
-     * and still passes.
-     */
     const finite = (v: unknown): number | null => {
       if (typeof v === 'number') return Number.isFinite(v) ? v : null
       if (typeof v !== 'string') return null
       const t = v.trim()
-      // ⚠ DECIMAL ONLY, AND DERIVED FROM WHAT A TARGET IS rather than from the
-      // one input that broke. `Number()` is far more permissive than "a number
-      // someone stated": it yields 0 for '' and '  ', 16 for '0x10', and reads
-      // `null`, `[]` and `false` as 0 in other positions. Special-casing the
-      // blank would have closed the case a reviewer happened to find and left
-      // its siblings open — the same guard-anchored-on-one-instance pattern
-      // this estate keeps paying for. A stated target is a decimal, optionally
-      // signed, optionally in scientific notation. Everything else is refused.
       if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(t)) return null
       const n = Number(t)
       return Number.isFinite(n) ? n : null
     }
-    // 1 — the user's own act, whatever representation it is held in.
     const fromStore = finite(goalThreshold)
     if (fromStore !== null) return fromStore
-    // 2 — a target CEE verified from the brief.
     const fromCee = finite(ceeAnalysisReady?.goal_threshold_raw)
     if (fromCee !== null) return fromCee
-    // 3 — the node, through the predicate that already knows what "stated" means.
     const fromNode = resolveGoalTarget(goalNode?.data as GoalTargetSource | null | undefined)
     return fromNode === null ? null : finite(fromNode.raw)
   }, [goalThreshold, ceeAnalysisReady, goalNode])
@@ -1853,6 +1871,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
            that memo above: handing over the COMPUTE fallback silenced this card
            on three ordinary goal shapes that have no stated target at all. */
         goalThreshold: statedGoalTarget,
+        hasGoalTarget: hasStatedGoalTarget,
         isSingleOption: true,
         analysisStatus: 'computed',
       }

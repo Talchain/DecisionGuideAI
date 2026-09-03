@@ -188,6 +188,24 @@ export interface StrengthenPhase3Item {
 export interface StrengthenInputs {
   /** Effective user success target (null = no measurable success definition). */
   goalThreshold: number | null
+  /**
+   * ⚠⚠ EXISTENCE, WHICH IS A DIFFERENT QUESTION FROM THE NUMBER — and the two
+   * were sharing `goalThreshold` until five rounds of tightening proved they
+   * cannot.
+   *
+   * `goalThreshold` answers *what number should the analysis use?* and is
+   * necessarily `number | null`. This answers *has anyone STATED a target?*,
+   * which is true of `'200k'`, `'£11M'`, `'11%'` and `'≥ £1,000'` — real
+   * stated targets that no numeric coercion can represent. Asking one
+   * `number | null` field to carry both meant every widening silenced true
+   * coaching and every tightening re-opened the contradiction, because a
+   * false positive that DROPS a constraint and one that INVENTS one cannot
+   * share a parameter.
+   *
+   * Optional so legacy and fixture callers keep their previous behaviour:
+   * `undefined` falls back to the numeric test.
+   */
+  hasStatedGoalTarget?: boolean
   /** Whether a completed analysis exists (most triggers need one). */
   analysisComplete: boolean
   /**

@@ -102,6 +102,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
     return {
       goalThreshold: data.recommendation.goalThreshold ?? null,
+      hasStatedGoalTarget: data.recommendation.hasGoalTarget,
       analysisComplete: data.recommendation.analysisStatus === 'computed',
       // ROADMAP 1.243: the OWNED leader entitlement, quoted from the single
       // verdict (`deriveDecisionVerdict`, the same instance the canvas and the
