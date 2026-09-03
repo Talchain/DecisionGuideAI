@@ -99,6 +99,7 @@
     "generate:flag-env": "node scripts/generate-flag-env.mjs",
     "ci:guard:flag-env": "node scripts/generate-flag-env.mjs --check",
     "ci:guard:bundle-env": "node scripts/ci/assert-bundle-env-allowlist.mjs",
+    "ci:guard:build-id": "node scripts/ci/assert-build-id-stamped.mjs dist",
     "ci:guard:bundle-credentials": "node scripts/ci/assert-no-bundle-credentials.mjs",
     "ci:guard:logger-emits": "node scripts/ci/assert-logger-emits.mjs",
     "ci:guard:validators-deterministic": "node scripts/ci/assert-validators-deterministic.mjs",

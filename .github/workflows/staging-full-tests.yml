@@ -1098,6 +1098,37 @@ jobs:
       - name: Generated validators are deterministic and up to date
         run: pnpm run ci:guard:validators-deterministic
 
+      # ⚠ WIRED HERE, AFTER THE BUILD, FOR THE SAME REASON AS THE THREE GUARDS
+      # ABOVE — and this one could not live anywhere else at all.
+      #
+      # `index.html` has carried `<meta name="x-build-id" content="%BUILD_ID%">`
+      # since b3af4611, unsubstituted. Measured on deployed staging 8f779ce3
+      # (2026-08-31): the served document contained that literal, and the safe
+      # screen rendered it to users. vite@5.4.2's `%X%` HTML hook reads
+      # `import.meta.env`, so it resolves `VITE_`-prefixed names only — and it
+      # warns about an unresolved name ONLY when the name carries an env prefix.
+      # `BUILD_ID` has none, so Vite silently returned the text unchanged on
+      # every build for the life of the placeholder. Full derivation at vite's
+      # bytes in the header of scripts/build-id.mjs.
+      #
+      # A vitest spec CANNOT hold this closed. The template is *supposed* to
+      # carry the placeholder — a source-level assertion is green both before
+      # and after the fix. Only reading the emitted `dist/` distinguishes "a
+      # substituter exists" from "the published bytes are stamped", which is the
+      # distinction that failed here.
+      #   Derived 2026-09-01:
+      #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
+      #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      #
+      # ⚠ AND HERE ONLY — deliberately NOT in `build:ci`, which is what Netlify
+      # runs (netlify.toml:20). A missing build id is evidence the DIAGNOSTIC is
+      # broken, never that the artefact is unsafe to serve, so it must gate the
+      # MERGE and must not be able to fail the staging DEPLOY. Reasoning in the
+      # POSTURE block of scripts/ci/assert-build-id-stamped.mjs; pinned, with a
+      # contrast control, in tests/ci-guards/build-id-stamp.spec.ts.
+      - name: Build id is stamped into every published HTML file
+        run: pnpm run ci:guard:build-id
+
       # The behavioural form of the same property, and the one a human actually
       # feels: a clean checkout plus one build must leave `git status` clean.
       # Deliberately whole-tree rather than scoped to src/generated — if any

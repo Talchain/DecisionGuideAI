@@ -9,6 +9,12 @@ import { shouldStubSupabase } from './scripts/supabase-stub-decision.mjs';
 // no read can fall back to inlining the WHOLE env object. See the header of
 // scripts/derive-vite-env-reads.mjs for the measured mechanism.
 import { buildNarrowEnvDefines } from './scripts/derive-vite-env-reads.mjs';
+// Substitutes `%BUILD_ID%` in index.html (and any public/ HTML copied verbatim).
+// Vite's own `%X%` HTML hook CANNOT resolve it — it reads `import.meta.env`, so
+// only `VITE_`-prefixed keys — and is silenced from even warning about an
+// unprefixed name, which is why the placeholder shipped to users unsubstituted.
+// Full derivation at vite's bytes in the header of scripts/build-id.mjs.
+import { buildIdPlugin } from './scripts/build-id.mjs';
 
 // ⚠️  CRITICAL: DO NOT ADD use-sync-external-store shim aliases!
 // The custom shim causes React #185 infinite loops because useCallback dependencies
@@ -83,7 +89,7 @@ export default defineConfig(({ mode, command }) => {
   };
 
   return {
-  plugins: [react()],
+  plugins: [react(), buildIdPlugin()],
   define: {
     // ⚠ SECURITY-LOAD-BEARING. Pins every VITE_* the source READS but that is NOT
     // SET in this build to literal `undefined`.
