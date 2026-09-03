@@ -33,8 +33,20 @@
  * definition. If they were deleted the guard would be no weaker.
  *
  * ⭐ THE ENUMERATION. A retired noun reaches a user's eye only by being
- * RENDERED, and on these surfaces there are exactly three ways a hand-typed
- * word gets rendered:
+ * RENDERED. THREE RENDERING POSITIONS ARE EXTRACTED HERE, and they are the
+ * three this sweep covers — NOT a complete account of how a word can reach a
+ * screen. A fourth is known, measured and NOT covered; it is named in
+ * `WHAT THIS STILL CANNOT DO` below, and you should read that before treating
+ * a green sweep as an absence claim.
+ *
+ * ⚠ This sentence said "there are exactly three ways a hand-typed word gets
+ * rendered" until a reviewer disproved it. The gap it hid was small; the
+ * completeness claim was not, because it tells a future reader the position
+ * list is closed. That is the same defect class round 2 blocked on — a false
+ * coverage claim in a comment — committed a second time, in the file that
+ * contains the sentence saying not to. Corrected rather than defended.
+ *
+ * The three extracted positions:
  *
  *   (A) as the value of a CAPTION-BEARING JSX ATTRIBUTE — `label`,
  *       `aria-label`, `title`, `placeholder`, `alt`, `aria-valuetext` — in any
@@ -49,9 +61,10 @@
  *       surface is built.
  *
  * Bare word · word+colon · word+whitespace · end-of-string · single- and
- * double-quoted · braced — every form the review asked for is one of A, B or
- * C, which is the point of deriving rather than listing: the enumeration is
- * over POSITIONS, and the spellings fall out of it.
+ * double-quoted · braced — every form round 2 asked for lands in A, B or C,
+ * which is the point of deriving rather than listing: the enumeration is over
+ * POSITIONS, and the spellings fall out of it. ⚠ "Every form ROUND 2 asked
+ * for" is the honest scope of that claim; it is not "every form".
  *
  * ⭐⭐ AND THE SECOND HALF, WHICH IS WHAT MAKES THE FIRST SURVIVABLE: being
  * rendered is not enough. What is banned is a CAPTION — a noun that LABELS A
@@ -100,6 +113,35 @@
  *  · It cannot prove the register's list is COMPLETE. A fifth quantity
  *    captioned with a fifth word nobody has thought of is invisible to it
  *    (trap 12d: derivation moves the risk, it does not remove it).
+ *  · ⛔⛔ THE FOURTH POSITION — A QUOTED STRING LITERAL THAT IS NOT AN
+ *    ATTRIBUTE VALUE IS NEVER EXTRACTED. Measured by a reviewer, three shapes,
+ *    all green at 9/9:
+ *      · a braced string in JSX CHILDREN — `<span>{'Achievement'}</span>`
+ *      · CONST INDIRECTION — `const CAPTION = 'Achievement'` consumed as
+ *        `label={CAPTION}`; extractor A sees a braced IDENTIFIER, not a string,
+ *        and the definition line is a bare literal nothing looks at
+ *      · CONCATENATION — `'Achievement ' + pct + '%'`
+ *
+ *    ⚠ AND IT IS NOT HYPOTHETICAL — THE IDIOM IS ALREADY LIVE IN THIS SCOPE.
+ *    `EstimateMarker.tsx:64` holds `SUBJECT_TITLE`, a const caption map
+ *    consumed at `:81` as `title={title ?? SUBJECT_TITLE[subject]}`. That
+ *    braced expression is invisible to extractor A; its members are caught
+ *    today ONLY INCIDENTALLY, because they happen to be written as template
+ *    literals and so fall to extractor C. Rewrite one with ordinary quotes —
+ *    `value: 'Achievement 68%'` — and this sweep is GREEN while a user reading
+ *    the `est.` hover text reads a retired caption. One quote character.
+ *
+ *    ⛔ DO NOT "JUST WIDEN THE EXTRACTOR" — that was measured too, with a
+ *    contrast control, and it OVER-widens. A bare string-literal extractor
+ *    fires on three live legitimate lines: `EstimateMarker.tsx:55`
+ *    (`export type EstimateSubject = 'value' | 'strength'`),
+ *    `<EstimateMarker subject="strength" />` — which is a row in this file's
+ *    OWN survivor corpus, and the reason `subject` was deliberately kept out
+ *    of `CAPTION_ATTR` — and the register's own `RETIRED_METRIC_NOUNS` array.
+ *    Closing this position needs its own survivor corpus, and
+ *    `'value' | 'strength'` is the case that corpus has to solve. It is a
+ *    piece of work, not a one-line edit, which is why this is DISCLOSED here
+ *    rather than quietly half-fixed.
  *  · The rule requires the quantity to be ADJACENT. A caption split across two
  *    JSX elements — `<span>Achievement</span><span>{pct}%</span>` — is still
  *    caught, by the end-of-string arm on the first span; but one written as
