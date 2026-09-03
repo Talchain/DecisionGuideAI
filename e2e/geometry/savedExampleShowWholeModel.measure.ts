@@ -52,6 +52,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { posturePins } from '../visual/flagPosture'
 import { seedStarterDraft, type StarterId } from '../visual/harness'
+import { OVERLAY_BAND_SELECTOR } from '../../src/canvas/utils/computeFitPadding'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
 const STARTERS: StarterId[] = [
@@ -191,7 +192,7 @@ interface Reading {
   outsidePane: string[]
   /** How the visible frame was computed, echoed so the number is auditable. */
   frame: { left: number; right: number; top: number; bottom: number }
-  occluders: { dock: boolean; sidebar: boolean; banner: boolean; dockByTestId: boolean }
+  occluders: { dock: boolean; sidebar: boolean; banner: boolean; dockByTestId: boolean; band: boolean }
   flowCount: number
 }
 
@@ -203,7 +204,7 @@ interface Reading {
  * selectors resolve to the same element.
  */
 async function readingOf(page: Page): Promise<Reading> {
-  return page.evaluate((ghostPrefix: string) => {
+  return page.evaluate(({ ghostPrefix, bandSelector }: { ghostPrefix: string; bandSelector: string }) => {
     const flowEl = document.querySelector('.react-flow')
     const flow = flowEl!.getBoundingClientRect()
     const vpEl = document.querySelector('.react-flow__viewport') as HTMLElement | null
@@ -220,12 +221,26 @@ async function readingOf(page: Page): Promise<Reading> {
     const dockByTestId = rectOf('[data-testid="outputs-dock"]')
     const sidebar = rectOf('nav[aria-label="Canvas tools"]')
     const banner = rectOf('[role="banner"]')
+    // ⭐⭐ THE FOURTH OCCLUDER. The bottom edge was `flow.bottom` — the pane's own
+    // edge — which counts the strip the canvas overlay band occupies as visible
+    // canvas. It is not: the band sits at `z-index 250` over the flow, it is a
+    // PERMANENT reservation rather than a conditional one, and
+    // `computeFitPadding` reserves for it by exactly this measurement. So every
+    // `outsideVisible` this file has ever emitted was an UNDERCOUNT (one measured
+    // case: 2 reported where 6 were occluded), and this file's whole output is
+    // before/after comparison — an instrument with a systematic undercount is
+    // not a comparison, it is a bias.
+    //
+    // ⚠ IMPORTED, NOT RESTATED: `src/canvas/utils/computeFitPadding.ts` has ZERO
+    // imports and is a pure DOM-measurement module, so taking its selector pulls
+    // no React into `tsconfig.tooling.json` and mints no mirror.
+    const band = rectOf(bandSelector)
 
     const visible = {
       left: sidebar ? sidebar.right : flow.left,
       right: dock ? dock.left : flow.right,
       top: banner ? banner.bottom : flow.top,
-      bottom: flow.bottom,
+      bottom: band ? band.top : flow.bottom,
     }
 
     const els = Array.from(document.querySelectorAll('.react-flow__node')) as HTMLElement[]
@@ -267,14 +282,45 @@ async function readingOf(page: Page): Promise<Reading> {
         sidebar: sidebar !== null,
         banner: banner !== null,
         dockByTestId: dockByTestId !== null,
+        // Reported so a reading taken with the band ABSENT — where `bottom`
+        // falls back to the pane edge and the frame is the old, blind one —
+        // cannot be read as a reading that accounted for it.
+        band: band !== null,
       },
       flowCount: document.querySelectorAll('.react-flow').length,
     }
-  }, GHOST_ID_PREFIX)
+  }, { ghostPrefix: GHOST_ID_PREFIX, bandSelector: OVERLAY_BAND_SELECTOR })
+}
+
+/**
+ * ⭐⭐ THE LATCH IS CLEARED BEFORE EVERY WAIT, AND WITHOUT THAT THESE HELPERS
+ * RETURN TRUE HAVING WAITED FOR NOTHING.
+ *
+ * `waitForFunction` evaluates its predicate IN THE PAGE, so `__swmLastT` /
+ * `__swmSince` are page globals that SURVIVE the call that wrote them. On every
+ * call after the first, the predicate's opening poll finds `__swmLastT` already
+ * equal to the current transform and `__swmSince` set seconds ago, so
+ * `now - __swmSince >= stable` holds on poll one and the helper resolves
+ * IMMEDIATELY — inside the ~160ms before a newly-started camera animation paints
+ * its first frame. Whatever is read next is the PREVIOUS camera.
+ *
+ * ⚠ AND THE DIRECTION OF THE ERROR IS THE EXPENSIVE ONE: this cannot hang and
+ * cannot time out, so it never presents as an instrument failure. It presents as
+ * a PRODUCT DEFECT — "the camera never moved" — and it produced exactly that
+ * false red on 2 Sep 2026. Clearing first makes the stability window one this
+ * call OBSERVED rather than one it inherited. `layoutSettled` carries the same
+ * defect with `__swmLastLv`/`__swmLvSince` and is fixed the same way: the class,
+ * not the instance that happened to be caught.
+ */
+async function clearSettleLatch(page: Page, keys: readonly string[]): Promise<void> {
+  await page.evaluate((ks: readonly string[]) => {
+    for (const k of ks) delete (window as unknown as Record<string, unknown>)[k]
+  }, keys)
 }
 
 /** Block until the rendered transform has not moved for `stableMs`. */
 async function cameraSettled(page: Page, stableMs = 500, timeoutMs = 20_000): Promise<void> {
+  await clearSettleLatch(page, ['__swmLastT', '__swmSince'])
   await page.waitForFunction(
     ({ stable }: { stable: number }) => {
       const w = window as unknown as { __swmLastT?: string; __swmSince?: number }
@@ -296,6 +342,7 @@ async function cameraSettled(page: Page, stableMs = 500, timeoutMs = 20_000): Pr
 
 /** Block until `layoutVersion` has not moved for `stableMs`. */
 async function layoutSettled(page: Page, stableMs = 1200, timeoutMs = 40_000): Promise<void> {
+  await clearSettleLatch(page, ['__swmLastLv', '__swmLvSince'])
   await page.waitForFunction(
     ({ stable }: { stable: number }) => {
       const w = window as unknown as {

@@ -74,6 +74,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { posturePins } from '../visual/flagPosture'
 import { seedStarterDraft } from '../visual/harness'
+import { OVERLAY_BAND_SELECTOR } from '../../src/canvas/utils/computeFitPadding'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 import { LABEL_LEGIBLE_ZOOM } from '../../src/canvas/utils/zoomLegibility'
 
@@ -88,6 +89,14 @@ interface Frame {
   modelNodeCount: number
   notice: string | null
   layoutVersion: number
+  /**
+   * Whether the canvas overlay band was found. Reported so a reading taken with
+   * the band absent — where `bottom` silently falls back to the pane edge and
+   * the frame is the OLD, blind one — cannot be mistaken for a reading that
+   * accounted for it. An occlusion claim whose occluder was not present is a
+   * different claim.
+   */
+  bandMounted: boolean
 }
 
 /**
@@ -97,7 +106,7 @@ interface Frame {
  * this cannot drift when a panel's width or the bar's height changes.
  */
 async function frameOf(page: Page): Promise<Frame> {
-  return page.evaluate((ghostPrefix: string) => {
+  return page.evaluate(({ ghostPrefix, bandSelector }: { ghostPrefix: string; bandSelector: string }) => {
     const flow = document.querySelector('.react-flow')!.getBoundingClientRect()
     const vpEl = document.querySelector('.react-flow__viewport') as HTMLElement
     const m = new DOMMatrixReadOnly(getComputedStyle(vpEl).transform)
@@ -110,11 +119,31 @@ async function frameOf(page: Page): Promise<Frame> {
     const dock = rectOf('aside[aria-label="Outputs dock"]')
     const sidebar = rectOf('nav[aria-label="Canvas tools"]')
     const banner = rectOf('[role="banner"]')
+    // ⭐⭐ THE FOURTH OCCLUDER, AND ITS ABSENCE MADE EVERY OCCLUSION NUMBER THIS
+    // FILE HAS EVER PRODUCED AN UNDERCOUNT. The bottom edge was `flow.bottom`,
+    // i.e. the pane's own edge — which treats the strip the canvas overlay band
+    // occupies as visible canvas. It is not: the band is `z-index 250` over the
+    // flow, it is a permanent reservation rather than a conditional one, and
+    // `computeFitPadding` reserves for it by exactly this measurement. One
+    // measured case: 2 nodes reported outside where 6 were actually occluded.
+    //
+    // ⚠ THE SELECTOR IS IMPORTED, NOT RESTATED. `overlayNodeOverlap.measure.ts`
+    // restates it (and `computeFitPadding.ts` restates the height) because
+    // reaching into `CanvasOverlayBand.tsx` pulls React into
+    // `tsconfig.tooling.json`. That reasoning does NOT apply here:
+    // `src/canvas/utils/computeFitPadding.ts` has ZERO imports — it is a pure
+    // DOM-measurement module, deliberately — so importing its exported selector
+    // costs nothing and abolishes a mirror instead of minting one.
+    const band = rectOf(bandSelector)
     const visible = {
       left: sidebar ? sidebar.right : flow.left,
       right: dock ? dock.left : flow.right,
       top: banner ? banner.bottom : flow.top,
-      bottom: flow.bottom,
+      // The band's TOP, for the same reason `computeFitPadding` uses
+      // `flowRect.bottom - band.top`: everything below it is reserved, not
+      // available. Falls back to the pane edge only when the band is genuinely
+      // not mounted.
+      bottom: band ? band.top : flow.bottom,
     }
     const nodes = (Array.from(document.querySelectorAll('.react-flow__node')) as HTMLElement[])
       .map((el) => ({ id: el.getAttribute('data-id') ?? '', r: el.getBoundingClientRect() }))
@@ -134,16 +163,50 @@ async function frameOf(page: Page): Promise<Frame> {
       modelNodeCount: nodes.length,
       notice: document.querySelector('[data-testid="model-extent-count"]')?.textContent ?? null,
       layoutVersion: w.useCanvasStore.getState().layoutVersion,
+      bandMounted: band !== null,
     }
-  }, ghostPrefix())
+  }, { ghostPrefix: ghostPrefix(), bandSelector: OVERLAY_BAND_SELECTOR })
 }
 
 function ghostPrefix(): string {
   return GHOST_ID_PREFIX
 }
 
+/**
+ * ⭐⭐ THE LATCH IS CLEARED BEFORE EVERY WAIT, AND WITHOUT THAT THIS HELPER
+ * RETURNS TRUE HAVING WAITED FOR NOTHING.
+ *
+ * `waitForFunction` runs its predicate IN THE PAGE, so `__lastT`/`__since` are
+ * page globals that SURVIVE the call that wrote them. On the second and every
+ * later call the predicate's first poll therefore finds `__lastT` already equal
+ * to the current transform and `__since` set seconds ago — so
+ * `now - __since >= stable` is true on poll one and the helper resolves
+ * IMMEDIATELY, during the ~160ms before the newly-started camera animation
+ * paints its first frame. Every reading taken after such a call is a reading of
+ * the PREVIOUS camera.
+ *
+ * ⚠ NOTE THE DIRECTION OF THE ERROR, because it is the expensive one: the
+ * helper cannot hang and cannot time out, so it never presents as an instrument
+ * failure. It presents as a PRODUCT DEFECT — "the camera did not move" /
+ * "n nodes are outside the visible canvas" — and it produced exactly that false
+ * red on 2 Sep 2026. A settle helper that can only ever fail towards "the
+ * product is broken" is worse than no helper at all.
+ *
+ * Clearing the latch first makes the stability window one this call OBSERVED,
+ * rather than one it inherited. `layoutSettled` below carries the identical
+ * defect with `__lastLv`/`__lvSince` and is fixed the same way — closing the
+ * class, not the one instance that was caught (CLAUDE.md: close against the
+ * enumeration, not the instances found).
+ */
+async function clearSettleLatch(page: Page, keys: readonly string[]): Promise<void> {
+  await page.evaluate((ks: readonly string[]) => {
+    for (const k of ks) delete (window as unknown as Record<string, unknown>)[k]
+  }, keys)
+}
+
 /** Block until the rendered transform has not moved for `stableMs`. */
 async function cameraSettled(page: Page, stableMs = 500, timeoutMs = 15_000): Promise<void> {
+  await clearSettleLatch(page, ['__lastT', '__since'])
   await page.waitForFunction(
     ({ stable }: { stable: number }) => {
       const w = window as unknown as { __lastT?: string; __since?: number }
@@ -165,6 +228,7 @@ async function cameraSettled(page: Page, stableMs = 500, timeoutMs = 15_000): Pr
 
 /** Block until `layoutVersion` has not moved for `stableMs`. */
 async function layoutSettled(page: Page, stableMs = 1500, timeoutMs = 30_000): Promise<void> {
+  await clearSettleLatch(page, ['__lastLv', '__lvSince'])
   await page.waitForFunction(
     ({ stable }: { stable: number }) => {
       const w = window as unknown as {
