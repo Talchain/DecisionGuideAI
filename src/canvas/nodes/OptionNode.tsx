@@ -1388,8 +1388,15 @@ export const OptionNode = memo((props: NodeProps) => {
    * keyboard on a non-focusable row (`NodeMetricRow`'s header states this and
    * UI-SEM-089 is the ruling behind it), so anything that is the ONLY statement
    * of what a number counts stays visible. `2 of 3` alone is not a fact about
-   * anything. What moved is a participle a reader can lose without losing the
-   * meaning.
+   * anything.
+   *
+   * ⛔⛔ AND `full` IS NOT MERELY A TOOLTIP — see the render site. It is
+   * carried BOTH on the `title` and in an out-of-flow span, because the first
+   * cut of this change put it on the `title` alone and that is an
+   * ACCESSIBILITY REGRESSION: the participle was previously ordinary rendered
+   * text and was announced; a bare `title` on a non-focusable `<p>` announces
+   * to nobody. Compaction buys space for a sighted reader; it does not license
+   * saying less to everyone else.
    */
   const completeness = useMemo(() => {
     if (isPostAnalysis || totalInterventionCount === 0 || totalFactorCount === 0) return null
@@ -1795,32 +1802,86 @@ export const OptionNode = memo((props: NodeProps) => {
                 produce, at a counter-scaled label size. The count is the only
                 thing a reader learns here from the card.
 
-                ⛔ WHY LOSING IT ON TOUCH IS ACCEPTABLE WHERE LOSING A CAPTION
-                IS NOT. The clause is a WAYFINDING HINT, not a statement about
-                the model: the inspector is reachable without it, from this
-                card's own quick actions (`Open details for {label}`) and from
-                double-click. Nothing in the clause is the only statement of a
-                fact. That is the whole distinction constraint (3) turns on,
-                and it is why the noun `factors` beside the count did NOT move.
+                ⛔⛔ THE SENTENCE SURVIVES TWICE, AND THE FIRST CUT OF THIS
+                CHANGE GOT IT WRONG — the identical mistake this file already
+                records being found and fixed on 31 Aug, 250 lines up. Moving a
+                clause to a bare `title` on a NON-FOCUSABLE `<p>` does not
+                "move" it: a `title` is unreachable by keyboard here and absent
+                on touch, so a clause that WAS announced (it was ordinary
+                rendered text) simply stops being announced. Compaction may cost
+                a sighted reader nothing and still be an accessibility
+                REGRESSION, and nothing in the census can see it — the census
+                excludes `title` and `sr-only` as "the destination", so it
+                cannot tell *moved and kept for AT* from *moved only*.
 
-                The `title` is the established recovery surface on this card —
-                the delta rows above use it for the same purpose. */}
-            {structuredDeltas.length === 0 && hasInterventions && (
-              <p
-                className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-                title={`Changes ${totalInterventionCount} factor${totalInterventionCount === 1 ? '' : 's'}. Open the inspector to see which ones.`}
-                data-testid={`option-change-count-${props.id}`}
-              >
-                Changes {totalInterventionCount} factor{totalInterventionCount === 1 ? '' : 's'}
-              </p>
-            )}
+                So this follows the win-anchor row above and the not-computed
+                badge below, which is the settled pattern on this card:
+                  · the `title`, for a pointer user on hover;
+                  · an out-of-flow span, for keyboard and screen-reader users;
+                  · the visible short form `aria-hidden`, so the line is
+                    announced ONCE in full rather than as a compacted form
+                    followed by a sentence repeating it.
+
+                What compaction buys is SPACE for a sighted reader. It is not a
+                licence to say less.
+
+                ⚠⚠ AND A CLAIM I MADE ABOUT THIS CHANGE WAS FALSE: "no card
+                changes height or width". Card height is MEASURED FROM THE DOM
+                (`store.ts` → `measureNodeHeightsAtLabelBound()` →
+                `layoutGraph`), and the comment 300 lines up records that a
+                comparable sentence "wraps to two or three lines at the
+                legibility floor". At the 230px minimum card width with
+                `edgeLabel` counter-scaled to 20px, 49 characters occupy lines
+                that 17 do not — so these edits CAN un-wrap a line and the card
+                CAN get shorter.
+
+                The DIRECTION is benign (cards shrink, ELK re-flows a shorter
+                row) and nothing here grows a card. But the false version of the
+                claim was doing work: it was the stated reason for deferring two
+                other findings, and "it would change card height" is not a
+                reason available to a change that already does. Both were
+                re-adjudicated on their real grounds, which were never about
+                height:
+
+                  · `{Severity} Risk` — NOT this class. Only the noun ` Risk` is
+                    invariant, and it is the word that says what "High" is high
+                    ON. That is the CAPTION shape (`Ahead 47%`) written
+                    backwards, and captions stay — the same rule that keeps
+                    `Strength` on the card two lines above it.
+                  · the differentiator — its sentence frame IS the caption for
+                    the factor name it carries, and the frame is what makes the
+                    name mean "the key one" rather than "another factor".
+                    Deleting the line to stop it repeating a label would remove
+                    the only statement of WHICH factor is key.
+
+                Neither deferral rested on height once the reason was written
+                down properly, which is the tell that the height claim was
+                doing rhetorical rather than load-bearing work. */}
+            {structuredDeltas.length === 0 && hasInterventions && (() => {
+              const short = `Changes ${totalInterventionCount} factor${totalInterventionCount === 1 ? '' : 's'}`
+              const full = `${short}. Open the inspector to see which ones.`
+              return (
+                <p
+                  className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+                  title={full}
+                  data-testid={`option-change-count-${props.id}`}
+                >
+                  <span aria-hidden="true">{short}</span>
+                  <span className={typography.screenReaderOnly}>{full}</span>
+                </p>
+              )
+            })()}
             {completeness && (
               <p
                 className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
                 title={completeness.full}
                 data-testid={`option-completeness-${props.id}`}
               >
-                {completeness.short}
+                {/* Same two-carrier shape as the line above. `N of M factors`
+                    is what a sighted reader needs; "specified for this option"
+                    is what makes it a sentence, and it is not dropped. */}
+                <span aria-hidden="true">{completeness.short}</span>
+                <span className={typography.screenReaderOnly}>{completeness.full}</span>
               </p>
             )}
             {/* Coaching chips inline (Detailed pre-analysis) — Standard renders

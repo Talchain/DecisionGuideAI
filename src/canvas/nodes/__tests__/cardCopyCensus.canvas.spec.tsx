@@ -63,12 +63,41 @@
  *    every card that reads them uses `.find()` (`OptionNode:1024`,
  *    `RiskNode:46`, `OutcomeNode:39`, `DecisionNode:311`), and
  *    "byte-identical across siblings" is vacuous where there are none.
- *  · `title` text is deliberately EXCLUDED from the offence set. A `title` that
- *    repeats on every card is the destination this change moves copy TO.
+ *  · `title` and `sr-only` text are deliberately EXCLUDED from the offence
+ *    set — both are the destination this change moves copy TO.
+ *    ⛔⛔ SO IT CANNOT SEE AN ACCESSIBILITY REGRESSION, AND THAT IS NOT A
+ *    QUIBBLE — IT MISSED ONE. A clause moved to a `title` AND an out-of-flow
+ *    span, and a clause moved to a `title` ALONE (announced to nobody, absent
+ *    on touch), produce byte-identical censuses. The first cut of the two
+ *    compacted lines below did the second and every assertion here passed.
+ *    A compaction guard cannot certify its own accessibility: that obligation
+ *    is pinned separately, by `twoCarrier`.
+ *  · ⛔ AT THE `lod-line` RUNG IT CAN ONLY SEE A WHOLE-LINE REPEAT. Below the
+ *    legibility floor the caption and its value are ONE leaf (`Ahead 47%`), so
+ *    an invariant CAPTION can never be isolated there — those buckets can fire
+ *    only when two cards' entire reduced lines match. Their emptiness against
+ *    THIS fixture is therefore weak evidence: the fixture's siblings differ by
+ *    construction, so the zero is close to guaranteed. It is not proof that the
+ *    rung is clean, and it must not be read as one.
  *  · Three siblings, not N. A run identical on three cards could still differ
  *    on a fourth; the census is a floor on repetition, never a proof of it.
  *  · It cannot tell a caption from a redundant noun. `High Risk` beside
  *    `70% likely · High impact` is adjudicated by a human below, not derived.
+ *  · ⭐⭐ AND THE ONE TO READ FIRST — WHICH VERDICTS ARE MEASUREMENTS AND WHICH
+ *    ARE OPINIONS. `ADJUDICATED_POSITIONS` marks each `by: 'census' | 'hand'`,
+ *    and the REACH test proves every one of them is genuinely mounted by some
+ *    bucket. Four are decided BY HAND and the census did not and could not rule
+ *    on them, because their runs differ across siblings and so can never enter
+ *    an identical-across-siblings set:
+ *      · the change-COUNT line and the completeness line — the two lines this
+ *        PR compacts. ⚠ THEY WERE ORIGINALLY PRESENTED AS CENSUS FINDINGS AND
+ *        THEY ARE NOT. The change-count line was reached by ZERO buckets until
+ *        `option · no-baseline · expert` was added; the completeness line reads
+ *        `1 / 2 / 3 of 6 factors` and can never be identical.
+ *      · the differentiator sentence and the risk severity badge — both KEPT.
+ *    A hand call is a legitimate way to decide a line. Presenting one as an
+ *    instrument's output is not, and the reach manifest exists so the two
+ *    cannot be confused again by a reader skimming for a green tick.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
@@ -222,10 +251,10 @@ type Phase = 'pre' | 'post'
 type ViewMode = 'standard' | 'expert'
 type Rung = 'full' | 'line'
 
-function applyStore(phase: Phase, viewMode: ViewMode, rung: Rung) {
+function applyStore(phase: Phase, viewMode: ViewMode, rung: Rung, nodes: typeof NODES = NODES) {
   vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector({
     hoveredOptionId: null,
-    nodes: NODES,
+    nodes,
     edges: EDGES,
     ceeAnalysisReady: CEE,
     results: {
@@ -307,15 +336,30 @@ function invariantRuns(perSibling: string[][]): string[] {
   return [...new Set(perSibling[0].filter((run) => perSibling.every((s) => s.includes(run))))].sort()
 }
 
+/**
+ * ⚠ THE FACTORS WITH NO RESOLVABLE BASELINE. `structuredDeltas` omits a change
+ * whose baseline is unknown, so with no `observedState` anywhere the delta rows
+ * are empty and the card falls back to its change-COUNT line. That fallback is
+ * a REAL card state — it is what a user sees on a graph CEE drafted without
+ * observed values — and it was reachable by NO bucket in the first version of
+ * this file, which is how the line this PR edits came to be credited to a
+ * census that never saw it.
+ */
+const NODES_NO_BASELINE = NODES.map((n) =>
+  n.id.startsWith('factor-') ? { ...n, data: { ...n.data, observedState: undefined } } : n,
+) as typeof NODES
+
 function censusFor(
   kind: string, ids: string[], phase: Phase, viewMode: ViewMode, rung: Rung,
-  metaOverlay: Record<string, unknown> = {},
+  metaOverlay: Record<string, unknown> = {}, nodes: typeof NODES = NODES,
 ) {
-  applyStore(phase, viewMode, rung)
+  applyStore(phase, viewMode, rung, nodes)
   return invariantRuns(ids.map((id) => visibleRuns(mountCard(kind, id, phase, metaOverlay))))
 }
 
-const BUCKETS: Array<[string, string, string[], Phase, ViewMode, Rung, Record<string, unknown>?]> = [
+const BUCKETS: Array<
+  [string, string, string[], Phase, ViewMode, Rung, Record<string, unknown>?, (typeof NODES)?]
+> = [
   ['option · pre · standard', 'option', OPTION_IDS, 'pre', 'standard', 'full'],
   ['option · pre · expert', 'option', OPTION_IDS, 'pre', 'expert', 'full'],
   ['option · post · standard', 'option', OPTION_IDS, 'post', 'standard', 'full'],
@@ -337,6 +381,10 @@ const BUCKETS: Array<[string, string, string[], Phase, ViewMode, Rung, Record<st
   // it is where repeated copy costs the most.
   // The run that computed nothing — see NOT_COMPUTED_META.
   ['option · not-computed · standard', 'option', OPTION_IDS, 'post', 'standard', 'full', NOT_COMPUTED_META],
+  // The graph with no observed values — see NODES_NO_BASELINE. This is the only
+  // bucket that reaches the change-COUNT line, which is one of the two lines
+  // this PR edits.
+  ['option · no-baseline · expert', 'option', OPTION_IDS, 'pre', 'expert', 'full', {}, NODES_NO_BASELINE],
   ['option · pre · lod-line', 'option', OPTION_IDS, 'pre', 'standard', 'line'],
   ['option · post · lod-line', 'option', OPTION_IDS, 'post', 'standard', 'line'],
   ['factor · pre · lod-line', 'factor', FACTOR_IDS, 'pre', 'standard', 'line'],
@@ -424,15 +472,26 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'Depends on:', // HEADING
     'Strength', // CAPTION
   ],
-  // ⭐ EVERY LOD BUCKET IS EMPTY, AND THAT IS THE MEASUREMENT THAT SETTLED THE
-  // INSTANCE THIS LANE WAS OPENED ON. A witness of deployed `a1fd39cc` read
+  // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED — DO NOT
+  // READ IT AS A CLEAN BILL. At this rung the caption and its value are ONE
+  // leaf (`Ahead 47%`), so no invariant caption can be isolated here; a bucket
+  // fires only if two cards' ENTIRE reduced lines match, and this fixture's
+  // siblings are disjoint by construction. The zeros are consistent with the
+  // rung being clean and equally consistent with the census being unable to
+  // look. What the LOD buckets DO establish is REACH — `node-lod-line` is in
+  // `ADJUDICATED_POSITIONS` and the reach test proves these buckets mount it.
+  //
+  // ⭐ THE REAL SETTLEMENT OF THE INSTANCE THIS LANE WAS OPENED ON IS THE
+  // VARIATION, NOT THE EMPTINESS. A witness of deployed `a1fd39cc` read
   // "Changes 2 factors" byte-identical on three of four option cards. Mounted
   // against options that change 1, 2 and 3 factors, the same position reads
   // "Changes 1 factor" / "Changes 2 factors" / "Changes 3 factors" — so the
   // deployed sighting was three options that genuinely each changed two
   // factors, NOT wording that says the same thing on every card. The reduced
   // line is already the compact form: one noun, one number, sentence on the
-  // `title`. Nothing to move.
+  // `title`. Nothing to move. That conclusion rests on the three cards reading
+  // DIFFERENTLY — a fact about the per-card runs, which the reach test and the
+  // fixture's disjointness both pin — and not on these buckets being empty.
   'option · not-computed · standard': [
     // ⭐ RESIDUAL, and adjudicated as KEPT. `NOT_COMPUTED_BADGE` is invariant on
     // every failed option by design — it is the statement of the state, and
@@ -442,6 +501,14 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // on the `title` and in sr-only text, neither of which the census counts.
     'Not computed',
   ],
+  // The change-COUNT fallback lives here and nowhere else. It does NOT enter
+  // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
+  // differ — and that is the point of the bucket: the position is REACHED, so
+  // the reach test below can prove it, and the adjudication of its wording is
+  // an honest hand call rather than a claim the census never tested.
+  'option · no-baseline · expert': [
+    'What could go wrong?', // CONTROL
+  ],
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
@@ -449,6 +516,75 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'risk · pre · lod-line': [],
   'outcome · pre · lod-line': [],
 }
+
+/**
+ * ⭐⭐⭐ THE REACH MANIFEST — WITHOUT THIS, "SCORED CLEAN" AND "NEVER LOOKED AT"
+ * ARE THE SAME RESULT.
+ *
+ * ⚠ THIS EXISTS BECAUSE THE CENSUS WAS CREDITED WITH FINDING TWO LINES IT HAD
+ * NEVER SEEN. Reviewed and reproduced:
+ *
+ *   · the change-COUNT line was reached by **0 of 24** buckets — it renders
+ *     only where no factor has an observed value, and no bucket built that
+ *     graph. (`option · no-baseline · expert` is that bucket, added since.)
+ *   · the completeness line VARIES across siblings (`1 / 2 / 3 of 6 factors`),
+ *     so it can never enter an identical-across-siblings census at all.
+ *
+ * Both were HAND-ADJUDICATED. That is a legitimate way to decide a line; it is
+ * not a census finding, and the difference has to be visible in the file rather
+ * than implied by adjacency.
+ *
+ * ⛔ AND THE CONSEQUENCE IS BIGGER THAN THOSE TWO LINES: every position the
+ * census scored CLEAN is only as trustworthy as its reach. A position the
+ * fixture never mounts produces an empty contribution, which is
+ * indistinguishable from a position that mounted and carried nothing repeated.
+ * So each adjudicated position is bound BY IDENTITY — a testid, or a predicate
+ * over the card's own runs — and asserted to be genuinely collected somewhere.
+ *
+ * ⚠ IDENTITY, NOT TEXT, AND THAT IS NOT PEDANTRY. A first attempt at this
+ * probe matched on the string `Changes 1 factor` and reported the position
+ * REACHED — by finding the LOW-ZOOM reduced line, a DIFFERENT position that
+ * happens to render the same words. Two positions, one string: the estate's
+ * signature defect, inside the instrument written to prove reach.
+ */
+type Position = {
+  /** What is adjudicated, and where the verdict is written down. */
+  what: string
+  /** How the census DECIDED it. */
+  by: 'census' | 'hand'
+  /** Present on this card? Bound by testid where one exists. */
+  present: (card: HTMLElement, runs: string[]) => boolean
+}
+
+const byTestId = (suffix: string) => (card: HTMLElement) =>
+  card.querySelector(`[data-testid$="${suffix}"]`) != null
+
+const ADJUDICATED_POSITIONS: Position[] = [
+  // ── decided BY THE CENSUS: these runs are (or are not) in EXPECTED_CENSUS
+  { what: 'option · the `Ahead` caption row', by: 'census', present: byTestId('-win-anchor-option-1') },
+  { what: 'option · the win percentage', by: 'census', present: byTestId('-win-readout-option-1') },
+  { what: 'factor · the `Influence` metric row', by: 'census', present: byTestId('factor-influence-row') },
+  { what: 'risk · the `Strength` metric row', by: 'census', present: byTestId('risk-strength-row') },
+  { what: 'outcome · the `Strength` metric row', by: 'census', present: byTestId('outcome-strength-row') },
+  { what: 'option · the not-computed badge', by: 'census', present: byTestId('-not-computed-option-1') },
+  { what: 'factor · the `Confidence` readout', by: 'census', present: (_c, r) => r.some((x) => x.startsWith('Confidence')) },
+  { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
+  { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('What strengthens this?') },
+  { what: 'option · the coaching chip', by: 'census', present: (_c, r) => r.includes('What could go wrong?') },
+  { what: 'shared · the `Driven by:` / `Depends on:` headings', by: 'census', present: (_c, r) => r.includes('Driven by:') || r.includes('Depends on:') },
+  { what: 'factor · the `Influences:` heading', by: 'census', present: (_c, r) => r.includes('Influences:') },
+  { what: 'option · the `What this option changes:` heading', by: 'census', present: (_c, r) => r.includes('What this option changes:') },
+  { what: 'shared · the reduced line below the legibility floor', by: 'census', present: (c) => c.querySelector('[data-testid="node-lod-line"]') != null },
+
+  // ── decided BY HAND: reached, but their runs can never enter an
+  //    identical-across-siblings census, so the census cannot rule on them.
+  //    Named here so nobody reads their absence from EXPECTED_CENSUS as a pass.
+  { what: 'option · the change-COUNT line (compacted by this PR)', by: 'hand', present: byTestId('-change-count-option-2') },
+  { what: 'option · the completeness line (compacted by this PR)', by: 'hand', present: byTestId('-completeness-option-3') },
+  { what: 'option · the differentiator sentence (KEPT)', by: 'hand', present: (_c, r) => r.some((x) => x.endsWith('is the key difference')) },
+  { what: 'risk · the severity badge `{Severity} Risk` (KEPT)', by: 'hand', present: (_c, r) => r.some((x) => /^(High|Medium|Low) Risk$/.test(x)) },
+  { what: 'risk · the exposure line `N% likely · X impact` (KEPT)', by: 'hand', present: (_c, r) => r.some((x) => x.includes('likely ·')) },
+]
 
 describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -504,8 +640,8 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
 
   it('the census is exactly what has been adjudicated — nothing added, nothing silently dropped', () => {
     const measured: Record<string, string[]> = {}
-    for (const [name, kind, ids, phase, viewMode, rung, metaOverlay] of BUCKETS) {
-      measured[name] = censusFor(kind, ids, phase, viewMode, rung, metaOverlay)
+    for (const [name, kind, ids, phase, viewMode, rung, metaOverlay, nodes] of BUCKETS) {
+      measured[name] = censusFor(kind, ids, phase, viewMode, rung, metaOverlay, nodes)
     }
     // ⚠ `toEqual` on the WHOLE object, not per bucket: a per-bucket loop with a
     // `?? []` default would pass for a bucket the pinned set forgot, which is
@@ -524,43 +660,116 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)
   })
 
-  it('the two lines this lane compacted keep their sentence on the hover, and only the quantity on the card', () => {
-    // Bound by TESTID, never by a value predicate a sibling line could satisfy
-    // (CLAUDE.md trap 19). Both live in Detailed pre-analysis.
+  /**
+   * ⭐⭐ THE COMPACTED LINES, AND THE ASSERTION THAT MATTERS MOST IS THE
+   * SR-ONLY ONE.
+   *
+   * The first cut of this change moved each clause to a bare `title` on a
+   * NON-FOCUSABLE `<p>`. Every visible assertion passed and it was an
+   * ACCESSIBILITY REGRESSION: the clause had been ordinary rendered text and
+   * was announced; a `title` there announces to nobody, and is absent on touch.
+   * `OptionNode` records the same mistake being found and fixed on 31 Aug, and
+   * `NodeMetricRow.tsx:58` makes the two-carrier rule a contract.
+   *
+   * ⛔ AND THE CENSUS IS STRUCTURALLY BLIND TO IT — which is why this is pinned
+   * here as a separate obligation rather than left to the census. `visibleRuns`
+   * removes `sr-only` and never reads `title`, on the grounds that both are
+   * "the destination". That is right for measuring repetition and useless for
+   * measuring LOSS: a clause moved-and-kept and a clause moved-and-dropped look
+   * identical to it. A compaction guard cannot certify its own accessibility.
+   */
+  const twoCarrier = (line: Element | null, short: string, full: string, what: string) => {
+    expect(line, `${what}: the line did not mount`).not.toBeNull()
+    const visible = line!.querySelector('[aria-hidden="true"]')
+    const announced = line!.querySelector('.sr-only')
+    expect(visible, `${what}: no aria-hidden visible span`).not.toBeNull()
+    expect(announced, `${what}: NO SR-ONLY CARRIER — the clause is announced to nobody`).not.toBeNull()
+    // The sighted reader gets the short form…
+    expect(visible!.textContent).toBe(short)
+    // …the pointer user gets the sentence on hover…
+    expect(line!.getAttribute('title')).toBe(full)
+    // …and keyboard/screen-reader users get it too, which is the half the
+    // first cut dropped.
+    expect(announced!.textContent).toBe(full)
+    // The compaction is real: the clause is genuinely off the visible line.
+    const clause = full.slice(short.length).trim()
+    expect(clause.length, `${what}: nothing was actually compacted`).toBeGreaterThan(8)
+    expect(visible!.textContent).not.toContain(clause)
+  }
+
+  it('the completeness line compacts for the eye and says the whole sentence to everyone else', () => {
     applyStore('pre', 'expert', 'full')
     const card = mountCard('option', 'option-3', 'pre')
-
-    const completeness = card.querySelector('[data-testid="option-completeness-option-3"]')
-    expect(completeness, 'the completeness line did not mount').not.toBeNull()
-    expect(completeness!.textContent).toBe('3 of 6 factors')
-    expect(completeness!.getAttribute('title')).toBe('3 of 6 factors specified for this option')
-    // The participle is off the card and recoverable on the hover — the two
-    // halves of the claim, asserted separately so neither can carry the other.
-    expect(completeness!.textContent).not.toContain('specified')
-    expect(completeness!.getAttribute('title')).toContain('specified')
+    twoCarrier(
+      card.querySelector('[data-testid="option-completeness-option-3"]'),
+      '3 of 6 factors',
+      '3 of 6 factors specified for this option',
+      'completeness',
+    )
   })
 
-  it('…and the change-count line does the same, on the branch that renders it', () => {
-    // This branch needs interventions with NO resolvable baseline, so the delta
-    // rows are empty and the count line is what the card falls back to.
-    const noBaseline = NODES.map((n) =>
-      n.id.startsWith('factor-') ? { ...n, data: { ...n.data, observedState: undefined } } : n,
-    )
-    vi.mocked(useCanvasStore).mockImplementation((selector: any) => selector({
-      hoveredOptionId: null, nodes: noBaseline, edges: EDGES, ceeAnalysisReady: CEE,
-      results: { status: 'idle', report: null },
-      highlightedNodes: new Set(), dimmedNodeIds: new Set(),
-      lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
-      goalThreshold: 0.6, goalConstraints: [], setHoveredOption: vi.fn(),
-      runMeta: { ceeReview: null }, viewMode: 'expert', lodRung: 'full',
-    }))
+  it('…and so does the change-count line, on the only bucket that reaches it', () => {
+    // Bound to the SAME fixture the `option · no-baseline · expert` bucket
+    // uses, so this case and the census cannot drift apart into two different
+    // notions of "the branch that renders it".
+    applyStore('pre', 'expert', 'full', NODES_NO_BASELINE)
     const card = mountCard('option', 'option-2', 'pre')
+    twoCarrier(
+      card.querySelector('[data-testid="option-change-count-option-2"]'),
+      'Changes 2 factors',
+      'Changes 2 factors. Open the inspector to see which ones.',
+      'change-count',
+    )
+  })
 
-    const line = card.querySelector('[data-testid="option-change-count-option-2"]')
-    expect(line, 'the change-count fallback did not mount — check the baseline fixture').not.toBeNull()
-    expect(line!.textContent).toBe('Changes 2 factors')
-    expect(line!.getAttribute('title')).toBe('Changes 2 factors. Open the inspector to see which ones.')
-    expect(line!.textContent).not.toContain('inspector')
-    expect(line!.getAttribute('title')).toContain('inspector')
+  /**
+   * ⭐ REACH. An absence claim is worth nothing from an instrument that never
+   * looked (CLAUDE.md trap 13 / 13e). This walks every bucket and asserts each
+   * adjudicated position is genuinely COLLECTED somewhere — so a position that
+   * no fixture mounts REDs by name instead of scoring clean.
+   */
+  it('REACH: every adjudicated position is actually collected by some bucket', () => {
+    const reachedIn = new Map<string, string[]>()
+    for (const [name, kind, ids, phase, viewMode, rung, metaOverlay, nodes] of BUCKETS) {
+      applyStore(phase, viewMode, rung, nodes)
+      for (const id of ids) {
+        // `visibleRuns` MUTATES the tree it is given (it strips popovers and the
+        // LOD-hidden body), so the positions are probed on a SECOND, untouched
+        // mount. Probing the stripped tree would report the popover-only and
+        // LOD positions as unreachable and the failure would look like a real
+        // finding.
+        const runs = visibleRuns(mountCard(kind, id, phase, metaOverlay ?? {}))
+        applyStore(phase, viewMode, rung, nodes)
+        const card = mountCard(kind, id, phase, metaOverlay ?? {})
+        for (const pos of ADJUDICATED_POSITIONS) {
+          if (pos.present(card, runs)) {
+            reachedIn.set(pos.what, [...(reachedIn.get(pos.what) ?? []), name])
+          }
+        }
+      }
+    }
+
+    const unreached = ADJUDICATED_POSITIONS.filter((p) => !reachedIn.has(p.what))
+    expect(
+      unreached.map((p) => `${p.what}  [decided by ${p.by}]`),
+      'these positions are ADJUDICATED but NO bucket mounts them — the verdict on them is ' +
+        'an opinion, not a measurement. Add a bucket that reaches each, or move it out of ' +
+        'the manifest and say in the scope note that it is undecided:',
+    ).toEqual([])
+
+    // DISCRIMINATION: the probe must be capable of returning FALSE. A `present`
+    // that always answers yes would satisfy the assertion above for every row.
+    // The not-computed badge is the discriminator — it exists in exactly one
+    // bucket and must be absent from the ordinary post-analysis one.
+    expect(reachedIn.get('option · the not-computed badge')).toEqual(
+      expect.arrayContaining(['option · not-computed · standard']),
+    )
+    expect(reachedIn.get('option · the not-computed badge')).not.toContain('option · post · standard')
+    // …and the two lines this PR edits are reached by exactly the buckets that
+    // can render them, bound by name rather than by count.
+    expect(reachedIn.get('option · the change-COUNT line (compacted by this PR)'))
+      .toEqual(expect.arrayContaining(['option · no-baseline · expert']))
+    expect(new Set(reachedIn.get('option · the change-COUNT line (compacted by this PR)')))
+      .toEqual(new Set(['option · no-baseline · expert']))
   })
 })
