@@ -254,6 +254,18 @@
  * outside. A node-component change that DID move these numbers would be a
  * finding, not a nuisance; that is why it is measured each time.
  *
+ * ⚠ AND A CORRECTION I OWE AGAINST MYSELF, BECAUSE IT IS CLAUDE.md TRAP 24b AND I
+ * WROTE IT INTO THE RECORD BEFORE CATCHING IT. A commit message on this branch
+ * said the advisory `Visual Regression` red *"passes at `ce5669d5`"* and was
+ * therefore inherited. **The passing reading was an IN-PROGRESS check filtered
+ * out by a `status == "completed"` predicate** — a check that has not finished is
+ * not a check that succeeded. Re-read after conclusion: it is a COMPLETED FAILURE
+ * at BOTH bases this branch has sat on (`bd18bace` and `ce5669d5`). The verdict
+ * — inherited, not caused here — is unchanged and now rests on two completed
+ * failures instead of on one absence. Filter on `.status == "completed"` FIRST
+ * and only then on `.conclusion`, and never read a verdict of either sign while
+ * anything is still running.
+ *
  * STATE CLASS (status-ladder fixture rule): FRESH seeded starter draft, no prior
  * camera, real clock, animations ON (`reducedMotion: no-preference`) — freezing
  * motion collapses `cameraDuration` to 0 and removes the window the camera
