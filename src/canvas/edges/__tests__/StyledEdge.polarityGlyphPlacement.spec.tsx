@@ -220,6 +220,75 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
     expect(contradictory.map(([t]) => t), 'a + and a − painted at the same point').toEqual([])
   })
 
+  /**
+   * ⭐ THE ATTRIBUTION HALF OF THE REMEDY, WHICH DISTINCTNESS ALONE DOES NOT
+   * COVER — and a surviving mutant is what exposed the gap.
+   *
+   * Replacing every sibling's resolved source centre with `null` (so placement
+   * falls back to a golden-angle fan that has nothing to do with the graph)
+   * SURVIVED the suite as first written: the fallback is still pairwise
+   * distinct, so every distinctness assertion held. Distinct-but-arbitrary is
+   * not the fix — the glyph has to sit on the edge it describes, or the reader
+   * cannot tell which edge a `+` belongs to. A survivor is a claim either way
+   * (CLAUDE.md 13c), so it is settled here with a discriminating fixture.
+   */
+  it('the glyph sits along its OWN edge — the offset points at that edge\'s source', () => {
+    buildFan(4, ['positive', 'negative'])
+    const glyphs = renderFan()
+    // `buildFan` puts the target centre exactly at the target handle anchor, so
+    // the offset is the transform minus TARGET_XY with no further correction.
+    for (let i = 0; i < glyphs.length; i++) {
+      const m = glyphs[i].transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*$/)!
+      const dx = Number(m[1]) - TARGET_XY.targetX
+      const dy = Number(m[2]) - TARGET_XY.targetY
+      const len = Math.hypot(dx, dy)
+      expect(len, `${glyphs[i].id} has a zero-length offset`).toBeGreaterThan(0)
+      const a = (Math.PI * (i + 1)) / 5 + Math.PI / 2
+      // Bound to THIS edge's own source by construction, not to "some source":
+      // a value predicate another edge could satisfy is trap 19.
+      //
+      // Precision 3 (5e-4), not more: the offset crosses the store selector as
+      // a string rounded to 2dp, so the recoverable direction is only good to
+      // about 0.005/26 ≈ 2e-4. Still far tighter than any wrong answer — the
+      // mutant this kills is off by tens of degrees, not by a rounding step.
+      expect(dx / len, `${glyphs[i].id} x-direction`).toBeCloseTo(Math.cos(a), 3)
+      expect(dy / len, `${glyphs[i].id} y-direction`).toBeCloseTo(Math.sin(a), 3)
+    }
+  })
+
+  /**
+   * ⭐ A RENDERING EDGE THE STORE SLICE HAS NOT CAUGHT UP WITH. `StyledEdge`
+   * inserts itself into its own sibling list if the slice omits it; without
+   * that, every such edge takes the resolver's caller-bug path and they all
+   * share one offset — the original defect, reached through a different door.
+   * The mutant that removes the insertion SURVIVED until this case existed,
+   * because the fixture above always lists every edge it renders.
+   */
+  it('two edges missing from the store slice still get distinct offsets', () => {
+    buildFan(3, ['positive', 'negative'])
+    const rendered = [...mockEdges]
+    // The slice lags: it knows about the first edge only.
+    mockEdges = [rendered[0]]
+    const seen: string[] = []
+    for (const e of rendered.slice(1)) {
+      const { container } = render(
+        <StyledEdge
+          {...({
+            id: e.id, source: e.source, target: e.target,
+            sourceX: 0, sourceY: 0, ...TARGET_XY,
+            sourcePosition: Position.Bottom, targetPosition: Position.Top,
+            selected: false, data: e.data,
+          } as any)}
+        />
+      )
+      const el = container.querySelector(`[data-edge-id="${e.id}"][aria-label^="Effect direction:"]`) as HTMLElement | null
+      expect(el, `no glyph for ${e.id}`).not.toBeNull()
+      seen.push(el!.style.transform)
+    }
+    expect(seen.length, 'fewer than two glyphs — vacuous').toBe(2)
+    expect(new Set(seen).size, `edges absent from the slice stacked: ${seen.join(' | ')}`).toBe(2)
+  })
+
   it('the transform still resolves to a real point near the shared target anchor', () => {
     // Distinctness bought by flinging glyphs across the canvas would be no fix.
     buildFan(4, ['positive'])
