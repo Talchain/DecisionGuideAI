@@ -1357,10 +1357,42 @@ export const OptionNode = memo((props: NodeProps) => {
     )
   }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, props.data, optionChips])
 
-  // Completeness assessment for Detailed pre-analysis view
-  const completenessText = useMemo(() => {
+  /**
+   * Completeness assessment for Detailed pre-analysis view.
+   *
+   * ⭐ TWO STRINGS, BECAUSE THE LINE HAS TWO JOBS (Paul, 31 Aug 2026: "saying
+   * the same copy on every node is a waste of space… it should show the bar
+   * with the percentage next to it to save space").
+   *
+   * ⚠ AND THE MEASUREMENT, NOT THE INTUITION — the census in
+   * `cardCopyCensus.canvas.spec.tsx`, three option siblings with 2/3/1
+   * interventions against a 3-factor board, read this position as:
+   *
+   *     [2 of 3] factors specified
+   *     [3 of 3] factors specified
+   *     [1 of 3] factors specified
+   *
+   * `totalFactorCount` is a GRAPH-WIDE count, so the denominator is identical
+   * on every option card by construction — only the numerator can differ. The
+   * brackets and the participle carry nothing at all. `2 of 3 factors` states
+   * both quantities and the noun; `specified for this option` is the sentence
+   * frame and goes to the hover, which is where this card already puts every
+   * other recoverable sentence (`d.fullLabel`, the node title's clamp).
+   *
+   * ⛔ WHAT IS DELIBERATELY *NOT* MOVED, and the rule it follows: the noun
+   * `factors` stays on the card. A hover is unreachable on touch and by
+   * keyboard on a non-focusable row (`NodeMetricRow`'s header states this and
+   * UI-SEM-089 is the ruling behind it), so anything that is the ONLY statement
+   * of what a number counts stays visible. `2 of 3` alone is not a fact about
+   * anything. What moved is a participle a reader can lose without losing the
+   * meaning.
+   */
+  const completeness = useMemo(() => {
     if (isPostAnalysis || totalInterventionCount === 0 || totalFactorCount === 0) return null
-    return `[${totalInterventionCount} of ${totalFactorCount}] factors specified`
+    return {
+      short: `${totalInterventionCount} of ${totalFactorCount} factors`,
+      full: `${totalInterventionCount} of ${totalFactorCount} factors specified for this option`,
+    }
   }, [isPostAnalysis, totalInterventionCount, totalFactorCount])
 
   // Win-probability readout, derived ONCE.
@@ -1746,13 +1778,46 @@ export const OptionNode = memo((props: NodeProps) => {
                 so without one this card would show NOTHING about its
                 interventions in Detailed view. Surface the count + where to
                 look instead of going silent. */}
+            {/* ⭐ THE INSTRUCTION IS THE INVARIANT HALF, AND IT IS THE HALF
+                THAT MOVED (Paul, 31 Aug 2026). Measured across three option
+                siblings, this position read
+
+                    Changes 2 factors — open the inspector for targets
+                    Changes 3 factors — open the inspector for targets
+                    Changes 1 factor  — open the inspector for targets
+
+                — thirty-three characters of identical navigation guidance on
+                every card in this state, on the narrowest card the starters
+                produce, at a counter-scaled label size. The count is the only
+                thing a reader learns here from the card.
+
+                ⛔ WHY LOSING IT ON TOUCH IS ACCEPTABLE WHERE LOSING A CAPTION
+                IS NOT. The clause is a WAYFINDING HINT, not a statement about
+                the model: the inspector is reachable without it, from this
+                card's own quick actions (`Open details for {label}`) and from
+                double-click. Nothing in the clause is the only statement of a
+                fact. That is the whole distinction constraint (3) turns on,
+                and it is why the noun `factors` beside the count did NOT move.
+
+                The `title` is the established recovery surface on this card —
+                the delta rows above use it for the same purpose. */}
             {structuredDeltas.length === 0 && hasInterventions && (
-              <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-                Changes {totalInterventionCount} factor{totalInterventionCount === 1 ? '' : 's'} — open the inspector for targets
+              <p
+                className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+                title={`Changes ${totalInterventionCount} factor${totalInterventionCount === 1 ? '' : 's'}. Open the inspector to see which ones.`}
+                data-testid={`option-change-count-${props.id}`}
+              >
+                Changes {totalInterventionCount} factor{totalInterventionCount === 1 ? '' : 's'}
               </p>
             )}
-            {completenessText && (
-              <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>{completenessText}</p>
+            {completeness && (
+              <p
+                className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+                title={completeness.full}
+                data-testid={`option-completeness-${props.id}`}
+              >
+                {completeness.short}
+              </p>
             )}
             {/* Coaching chips inline (Detailed pre-analysis) — Standard renders
                 them in the popover instead. */}
