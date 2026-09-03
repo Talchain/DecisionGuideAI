@@ -334,7 +334,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
               label={METRIC_NOUN.strength}
               value={null}
               unsetText={METRIC_UNSET.standalone}
-              fillClass="bg-success"
               testId="outcome-strength-row"
               title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct)}
               phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct)}

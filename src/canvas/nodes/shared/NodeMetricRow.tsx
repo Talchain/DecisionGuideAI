@@ -68,8 +68,12 @@ export interface NodeMetricRowProps {
    * be a second, weaker spelling of the same fact, at 7px.
    */
   unsetText?: string
-  /** Tailwind background class for the bar fill, e.g. `bg-option`. */
-  fillClass: string
+  /**
+   * Tailwind background class for the bar fill, e.g. `bg-option`.
+   * Required whenever `value` is a number; meaningless on the `unsetText`
+   * branch, which draws no bar — and passing one there would imply otherwise.
+   */
+  fillClass?: string
   /** Full sentence for assistive tech — what the number MEANS, not just its value. */
   phrase?: string
   /** Rendered after the value: an estimate marker, a confidence dot. */
