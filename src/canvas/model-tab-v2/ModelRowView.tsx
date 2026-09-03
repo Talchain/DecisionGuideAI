@@ -258,6 +258,28 @@ export function ModelRowView({
            recoverable; an atom squeezed below the width at which it renders
            any characters at all is not.
 
+           ⚠⚠ AND THIS CHANGE DOES EXACTLY THAT TO THIS PILL, WHICH THE SENTENCE
+           ABOVE CALLS UNACCEPTABLE. Measured by an independent seat in real
+           Chromium at 280px: **the provenance pill is 3px at HEAD.** At
+           merge-base it was 62px and, while it overflowed, it was REACHABLE by
+           scrolling the 88px escape. At HEAD it is clipped and unreachable at
+           any scroll position — because scrolling reveals atoms that OVERFLOW,
+           never atoms that were SHRUNK to nothing. Those are different fates and
+           the earlier "escape 0" measurement does not cover this one.
+
+           The trade is kept, deliberately: a row that stays inside the dock with
+           an unreadable pill beats a row that leaves the dock, and the pill's
+           content is on the node itself. **But the principle above forbids what
+           was just done, so it is now bounded rather than left standing as a
+           rule this file breaks:** the unacceptable case is an atom squeezed to
+           nothing AND carrying information available nowhere else. This pill
+           fails only the first half. If a future change gives the pill sole
+           carriage of anything, this trade must be reopened.
+
+           ⭐ Two rounds closed every other false sentence here and left both of
+           these, because a correcting sentence reads as already-audited. The
+           correction is the least-checked prose in any diff.
+
            ⚠ CORRECTED, AND THE CORRECTION IS THE POINT. This comment used to
            end "a row falling out of the panel is not [recoverable]". MEASURED
            on the deployed panel at `5dc287e8`, that justification is FALSE:
@@ -353,9 +375,32 @@ export function ModelRowView({
           yield the full id, and `title` names it — a signalled, recoverable
           loss, which is this file's own stated rule.
 
-          ⚠ PRICED, NOT HIDDEN: `truncate` is `overflow:hidden` + ellipsis, so
-          at 280 in Advanced this span now reports as a signalled ellipsis in a
-          clipping scan. That is a disclosed loss, not a silent one. */}
+          ⚠⚠ THE "DISCLOSED LOSS" CLAIM WAS FALSE AT THE ONE WIDTH IT MATTERS,
+          AND THE WAY IT WAS FALSE IS WORSE THAN BEING WRONG EVERYWHERE. It read
+          "at 280 in Advanced this span reports as a signalled ellipsis... a
+          disclosed loss, not a silent one". An independent seat MEASURED it in
+          real Chromium with the repo's own Tailwind build: **at the 280px floor
+          the id span is 6px against a 7.2px ellipsis glyph, so NO ELLIPSIS
+          RENDERS.** The loss is silent — the comment named the single property
+          it does not have. Its positive control fires (the label is also
+          `truncate`, also clipped, and floored at 96px, where the ellipsis DOES
+          render), so the probe can return both answers.
+
+          ⭐ AND THE BOUND IS THE LESSON, not the number. The old sentence is TRUE
+          at 390 / 416 / 480 and false only at 280. **A claim that holds at every
+          width a reader is likely to spot-check, and fails only at the floor,
+          validates itself against every casual check** — which is exactly how it
+          survived two review rounds that closed everything else. When you price
+          a loss, state the WIDTH you priced it at.
+
+          So, stated honestly: below roughly 390px the id is clipped with NO
+          visible ellipsis and the loss is SILENT, recoverable only via `title`,
+          selection/copy, or widening the dock. That is a worse trade than this
+          comment used to claim, and it is still the right atom to sacrifice —
+          an Advanced-tier debug token, last in the yield ladder. Rowed rather
+          than fixed: a floor on this span buys the deficit back out of the
+          provenance pill (see the D2 note above), which is a real regression
+          for a cosmetic gain. */}
       {tier === 'advanced' && (
         <span
           data-testid={`model-row-v2-${row.id}-id`}
