@@ -55,12 +55,15 @@ describe('intent wire allowlist — schema parity (derive-don\'t-mirror)', () =>
     // `.has()` per member: a `.has()` list is structurally blind to an entry
     // that should NOT be there, which is the direction with a cross-repo cost.
     //
-    // Provenance: `ROUTED_COACHING_INTENTS` at CEE `2b9b95d7` (PR #1321 head,
-    // read from `src/orchestrator-v5/coaching/typed-intent-directive.ts` at
-    // that SHA via the contents API on 2026-09-03) is exactly the seven below,
-    // plus the independent `add_option` rail. The earlier citation `266b1d4f`
-    // is a superseded head of the same PR; membership is unchanged between the
-    // two, but cite the SHA you actually read.
+    // Provenance: `ROUTED_COACHING_INTENTS` at CEE `staging` `f4c8f501`, read
+    // from `src/orchestrator-v5/coaching/typed-intent-directive.ts:212` in a
+    // fresh clone checked out at that SHA on 2026-09-03, is exactly the seven
+    // below, plus the independent `add_option` rail. That SHA is DEPLOYED
+    // (`cee-staging.onrender.com/healthz` → `build: "f4c8f50"`), which is what
+    // makes this list a claim about the running service rather than about a
+    // branch. Earlier revisions cited `2b9b95d7` and `266b1d4f`, both heads of
+    // the now-merged PR #1321; membership is identical across all three, but
+    // cite the deployed authority, not a closed PR branch.
     expect(new Set(CEE_ACCEPTED_INTENTS)).toEqual(
       new Set([
         'add_option',

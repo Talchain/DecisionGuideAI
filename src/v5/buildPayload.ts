@@ -1139,9 +1139,10 @@ export const KNOWN_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>(
  *   `pre_mortem` ("Run a pre-mortem") and `risks_upside` ("Find risks and
  *   upside") — mounted, labelled and clickable for weeks while this list
  *   withheld them, so each click reached CEE as anonymous prose. Derived from
- *   `ROUTED_COACHING_INTENTS` at CEE `2b9b95d7` (PR #1321 head, re-read at that
- *   SHA on 2026-09-03; the earlier citation `266b1d4f` is a superseded head of
- *   the same PR and the membership is identical), which is exactly
+ *   `ROUTED_COACHING_INTENTS` at CEE `staging` `f4c8f501` — merged and DEPLOYED
+ *   (`healthz` → `build: "f4c8f50"`), re-read at that SHA on 2026-09-03; the
+ *   earlier citations `2b9b95d7`/`266b1d4f` are heads of the now-closed PR
+ *   #1321 and the membership is identical — which is exactly
  *   `challenge_frame, define_success, elicit_options, challenge_assumption,
  *   outside_view, pre_mortem, elicit_risks` — this list is that set plus the
  *   independent `add_option` rail, and nothing else.

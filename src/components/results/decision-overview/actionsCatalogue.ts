@@ -26,13 +26,16 @@ export interface MethodEntry {
    * technique, prefill its prompt, and still never ask CEE to RUN it.
    *
    * ⚠ ABSENT IS THE COMMON CASE AND IS DELIBERATE. `CEE_ACCEPTED_INTENTS`
-   * (`v5/buildPayload.ts`) accepts far fewer intents than the `Intent` enum
-   * publishes — read that registry for the membership, never a count restated
-   * here — and the gate FAILS CLOSED, so an unmapped technique sends no intent
-   * and behaves exactly as it does today. A
-   * technique is mapped only where an accepted intent names the SAME move —
-   * never by rough resemblance, which would ask CEE to run the wrong protocol
-   * under a science label.
+   * (`v5/buildPayload.ts`) is the authority on which intents CEE accepts — read
+   * that registry, never a membership, count or magnitude restated here — and
+   * the gate FAILS CLOSED, so an unmapped technique sends no intent and behaves
+   * exactly as it does today. A technique is mapped only where an accepted
+   * intent names the SAME move — never by rough resemblance, which would ask
+   * CEE to run the wrong protocol under a science label. Note that acceptance
+   * is NOT the whole reason absence is common here: `outside_view` and
+   * `pre_mortem` ARE accepted and are STILL unmapped, as a held scope boundary
+   * between this surface and the pre-analysis sparks (see
+   * `techniquesInvokeDecisionScience.spec.ts`).
    */
   intent?: string
 }
