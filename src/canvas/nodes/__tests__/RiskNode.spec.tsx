@@ -4,6 +4,7 @@
  * Severity badge rendering
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { METRIC_NOUN } from '../shared/metricVocabulary'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
@@ -192,7 +193,7 @@ describe('RiskNode', () => {
     // assumed edge strength, NOT a computed goal drag. Post-analysis it must
     // keep the honest "assumed strength" wording and must NEVER relabel to
     // "goal drag" just because results.status flipped to 'complete'.
-    expect(screen.getByText('strength')).toBeInTheDocument() // UI-SEM-089: the noun, always
+    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument() // UI-SEM-089: the noun, always
     expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
     expect(screen.queryByText(/goal drag/)).toBeNull()
     expect(screen.getByText(/60%/)).toBeDefined()
@@ -328,7 +329,7 @@ describe('RiskNode', () => {
     it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
       bridgeStore({ weight: 0.6, direction: 'negative', weightSource: 'user' })
       renderRisk()
-      expect(screen.getByText('strength')).toBeInTheDocument() // UI-SEM-089: the noun, always
+      expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument() // UI-SEM-089: the noun, always
     expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
       expect(screen.getByText(/60%/)).toBeDefined()
     })
@@ -394,7 +395,7 @@ describe('RiskNode — UI-SEM-089: the bridge strength always carries an honest 
       seedBridge(source)
       renderRisk()
       expect(screen.getByText('85%')).toBeInTheDocument()
-      expect(screen.getByText('strength')).toBeInTheDocument()
+      expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
     },
   )
 
@@ -409,20 +410,20 @@ describe('RiskNode — UI-SEM-089: the bridge strength always carries an honest 
       }
       // …and the permitted noun IS there, so this cannot pass by rendering
       // nothing at all — the failure mode an absence-only guard has.
-      expect(text).toMatch(/strength/)
+      expect(text).toMatch(new RegExp(METRIC_NOUN.strength))
     },
   )
 
   it('marks ONLY the estimated branch, so the two claims stay separable', () => {
     seedBridge('user')
     const stated = renderRisk()
-    expect(stated.container.textContent).toMatch(/strength/)
+    expect(stated.container.textContent).toMatch(new RegExp(METRIC_NOUN.strength))
     expect(stated.queryByTestId('estimate-marker')).toBeNull()
     stated.unmount()
 
     seedBridge('cee')
     const estimated = renderRisk()
-    expect(estimated.container.textContent).toMatch(/strength/)
+    expect(estimated.container.textContent).toMatch(new RegExp(METRIC_NOUN.strength))
     expect(estimated.getByTestId('estimate-marker')).toBeInTheDocument()
   })
 })

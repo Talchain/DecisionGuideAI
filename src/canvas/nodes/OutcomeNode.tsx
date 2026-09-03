@@ -5,6 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
@@ -81,7 +82,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
   const lodMetric = useMemo(() => {
     const pct = bridgeEdgeData?.bridgeStrengthPct
     if (pct == null) return null
-    return `Strength ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
+    return `${METRIC_NOUN.strength} ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
   }, [bridgeEdgeData])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
@@ -176,7 +177,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
     <>
       <Sep />
       <p className={`${typography.edgeLabel} text-text-body m-0`}>
-        Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
+        {METRIC_NOUN.chance}: {Math.round(displayMetadata.achievementProbability * 100)}%
       </p>
       {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): the
           achievement-probability number above is scored from a MODELLED
@@ -256,14 +257,14 @@ export const OutcomeNode = memo((props: NodeProps) => {
             which is how these three drifted apart in the first place. */}
         {bridgeEdgeData?.bridgeStrengthPct != null && (
           <NodeMetricRow
-            label="strength"
+            label={METRIC_NOUN.strength}
             value={bridgeEdgeData.bridgeStrengthPct / 100}
             formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
             fillClass="bg-success"
             testId="outcome-strength-row"
             trailing={
               bridgeEdgeData.bridgeIsEstimated ? (
-                <EstimateMarker title="Strength estimated, not yet confirmed — open the details to set or confirm it" />
+                <EstimateMarker subject="strength" />
               ) : null
             }
           />

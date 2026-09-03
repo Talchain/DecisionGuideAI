@@ -3,6 +3,7 @@
  * T9: Bridge edge data — contribution % + qualitative direction
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { METRIC_NOUN } from '../shared/metricVocabulary'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
@@ -149,7 +150,7 @@ describe('OutcomeNode', () => {
     // assumed edge strength, NOT a computed goal contribution. Post-analysis it
     // must keep the honest "assumed strength" wording and must NEVER relabel to
     // "of your goal" just because results.status flipped to 'complete'.
-    expect(screen.getByText('strength')).toBeInTheDocument() // UI-SEM-089: the noun, always
+    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument() // UI-SEM-089: the noun, always
     expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
     expect(screen.queryByText(/of your goal/)).toBeNull()
     expect(screen.getByText(/75%/)).toBeDefined()
@@ -222,13 +223,13 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText('Achievement: 68%')).toBeDefined()
+    expect(screen.getByText(`${METRIC_NOUN.chance}: 68%`)).toBeDefined()
   })
 
   // Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): same
   // modelled-basis caveat as GoalNode/OptionCards, gated on the
   // already-computed achievementProbabilityIsModelledBasis flag, rendered
-  // adjacent to the "Achievement:" diagnostic line it qualifies.
+  // adjacent to the achievement diagnostic line it qualifies.
   it('renders the modelled-basis caveat adjacent to the achievement number when flagged', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -266,7 +267,7 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText('Achievement: 68%')).toBeDefined()
+    expect(screen.getByText(`${METRIC_NOUN.chance}: 68%`)).toBeDefined()
     expect(screen.queryByTestId('goal-fit-basis-caveat-outcome-node')).toBeNull()
   })
 
@@ -420,7 +421,7 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
     it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'user' })
       renderOutcome()
-      expect(screen.getByText('strength')).toBeInTheDocument() // UI-SEM-089: the noun, always
+      expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument() // UI-SEM-089: the noun, always
     expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
       expect(screen.getByText(/60%/)).toBeDefined()
     })
@@ -486,7 +487,7 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
       seedBridge(source)
       renderOutcome()
       expect(screen.getByText('85%')).toBeInTheDocument()
-      expect(screen.getByText('strength')).toBeInTheDocument()
+      expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
     },
   )
 
@@ -501,20 +502,20 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
       }
       // …and the permitted noun IS there, so this cannot pass by rendering
       // nothing at all — the failure mode an absence-only guard has.
-      expect(text).toMatch(/strength/)
+      expect(text).toMatch(new RegExp(METRIC_NOUN.strength))
     },
   )
 
   it('marks ONLY the estimated branch, so the two claims stay separable', () => {
     seedBridge('user')
     const stated = renderOutcome()
-    expect(stated.container.textContent).toMatch(/strength/)
+    expect(stated.container.textContent).toMatch(new RegExp(METRIC_NOUN.strength))
     expect(stated.queryByTestId('estimate-marker')).toBeNull()
     stated.unmount()
 
     seedBridge('cee')
     const estimated = renderOutcome()
-    expect(estimated.container.textContent).toMatch(/strength/)
+    expect(estimated.container.textContent).toMatch(new RegExp(METRIC_NOUN.strength))
     expect(estimated.getByTestId('estimate-marker')).toBeInTheDocument()
   })
 })

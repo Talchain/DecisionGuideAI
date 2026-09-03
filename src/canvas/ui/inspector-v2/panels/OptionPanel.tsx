@@ -12,6 +12,7 @@ import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
+import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import {
@@ -447,7 +448,7 @@ export const OptionPanel = memo(function OptionPanel({
                     <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
                       {formatWinProbability(displayMetadata.winRate)}
                     </div>
-                    <div className={`${typography.panelMeta} text-text-light`}>Chance of leading</div>
+                    <div className={`${typography.panelMeta} text-text-light`}>{METRIC_NOUN.ahead}</div>
                     <ResultsLink label="Compare all options" tab="compare" />
                   </div>
                 </div>
