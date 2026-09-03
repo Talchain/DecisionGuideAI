@@ -28,15 +28,32 @@ import {
   useOverlayCell,
   type OverlayCell,
 } from '../CanvasOverlayBand'
+import { createPortal } from 'react-dom'
+import { FocusModeChip } from '../FocusModeChip'
+import { useCanvasStore } from '../../store'
 
-/** A stand-in occupant that claims a real cell under a real id. */
+/**
+ * A stand-in occupant that claims a real cell under a real id.
+ *
+ * ⚠⚠ THIS RETURNED A FRAGMENT, WHILE ITS OWN COMMENT CLAIMED IT EXERCISED THE
+ * PORTAL PATH. It did not: `<>{body}</>` renders inline, exactly like the
+ * provider-less fallback, so `createPortal` was never reached by ANY test in the
+ * repo. A reviewer proved it with a surviving mutant — making `useOverlayCell`
+ * return `target: null` unconditionally, so every overlay draws back at the
+ * positions this change exists to remove, left 104/104 GREEN with identical
+ * counts, while a contrast mutant (height 64→96) REDDED 2. The kit
+ * discriminated; there was simply nothing pointed at the portal.
+ *
+ * It now portals, like every migrated component, and `lands INSIDE its cell`
+ * below asserts the placement rather than mere presence — `getByTestId` finds a
+ * portalled node and an inline node identically, which is why presence could
+ * never have caught this.
+ */
 function Claimant({ cell, id, wants = true }: { cell: OverlayCell; id: string; wants?: boolean }) {
   const { granted, target } = useOverlayCell(cell, id, wants)
   if (!wants || !granted) return null
   const body = <div data-testid={id}>{id}</div>
-  // Mirrors what every migrated component does, so the portal path itself is
-  // exercised rather than only the grant arithmetic.
-  return target ? <>{body}</> : body
+  return target ? createPortal(body, target) : body
 }
 
 /** The two highest bottom-centre claimants, by identity, from the shipped table. */
@@ -195,6 +212,90 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
     expect(band!.style.height).toBe(`${OVERLAY_BAND_HEIGHT}px`)
     expect(band!.style.pointerEvents).toBe('none')
     expect(band!.style.position).toBe('absolute')
+  })
+
+  it('an occupant LANDS INSIDE its declared cell — the portal path, asserted', () => {
+    // ⭐ THE ASSERTION THE SUITE WAS MISSING. Every other test here proves the
+    // grant ARITHMETIC (who wins, who withdraws). None proved the winner is
+    // actually MOVED into the band — and `getByTestId` cannot tell a portalled
+    // node from one rendered inline, so presence was satisfied either way.
+    // A reviewer's mutant (`target: null`, i.e. portal disabled, every overlay
+    // back at its old position) survived 104/104 because of exactly this.
+    //
+    // Binds by CONTAINMENT and by IDENTITY: the occupant must be a descendant
+    // of the element carrying `data-overlay-cell="bottom-centre"`, not merely
+    // present somewhere in the document.
+    const { container } = render(
+      <CanvasOverlayBandProvider>
+        <CanvasOverlayBand />
+        <Claimant cell="bottom-centre" id={FIRST} />
+      </CanvasOverlayBandProvider>,
+    )
+
+    const cell = container.querySelector('[data-overlay-cell="bottom-centre"]')
+    expect(cell, 'the bottom-centre cell must exist for an occupant to land in').not.toBeNull()
+
+    const occupant = screen.getByTestId(FIRST)
+    expect(
+      cell!.contains(occupant),
+      `'${FIRST}' rendered, but NOT inside [data-overlay-cell="bottom-centre"]. It is drawing ` +
+        `at its own position instead of in the band — which is the defect this band removes, ` +
+        `and it is invisible to any assertion that only checks the occupant is present.`,
+    ).toBe(true)
+  })
+
+  it('CONTRAST CONTROL: provider-less, the same occupant is NOT inside any cell', () => {
+    // The other direction, so the containment assertion above cannot pass by
+    // accident of the query. Rendered standalone there is no band at all, the
+    // fallback draws inline, and containment must be FALSE — this is the
+    // documented provider-less behaviour, pinned rather than assumed.
+    const { container } = render(<Claimant cell="bottom-centre" id={FIRST} />)
+    expect(screen.getByTestId(FIRST)).toBeInTheDocument()
+    expect(container.querySelector('[data-overlay-cell="bottom-centre"]')).toBeNull()
+  })
+
+  it('A REAL OCCUPANT lands inside the cell AND keeps its pointer events', () => {
+    // The stand-in `Claimant` above proves the MECHANISM. This proves a SHIPPED
+    // component travels it — a harness can portal correctly while the product
+    // does not, and the reviewer's finding was that no test anywhere mounted a
+    // real occupant under the provider.
+    //
+    // `FocusModeChip` is chosen because it is one of the two occupants that was
+    // NOT re-enabling pointer events: portalled into a cell that sets
+    // `pointer-events: none`, it rendered visibly and its "exit focus mode"
+    // button was not hit-testable. So this binds both findings to one mount.
+    useCanvasStore.getState().resetCanvas()
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Test Factor' } }],
+      selection: { nodeIds: new Set(['n1']), edgeIds: new Set() },
+      highlightedEdges: new Set(['e1', 'e2']),
+    } as never)
+
+    const { container } = render(
+      <CanvasOverlayBandProvider>
+        <CanvasOverlayBand />
+        <FocusModeChip />
+      </CanvasOverlayBandProvider>,
+    )
+
+    const chip = screen.getByTestId('focus-mode-chip')
+    const cell = container.querySelector('[data-overlay-cell="bottom-centre"]')
+    expect(cell, 'the bottom-centre cell must exist').not.toBeNull()
+    expect(
+      cell!.contains(chip),
+      'focus-mode-chip rendered but did not land inside the bottom-centre cell',
+    ).toBe(true)
+
+    // ⚠ SCOPE: jsdom computes no cascade, so this asserts the DECLARATION the
+    // component makes, not a hit test. A real-browser click was never taken —
+    // in either direction — and this comment is here so nobody reads the green
+    // as one. `overlayOwner.sourceScan.spec.ts` enforces the same property
+    // across all seven occupants from their bytes.
+    expect(
+      chip.className.includes('pointer-events-auto'),
+      'focus-mode-chip does not re-enable pointer events, so inside the band — which sets ' +
+        'pointer-events: none, and the property inherits — its exit button is a dead control.',
+    ).toBe(true)
   })
 
   it('the band is PERSISTENT — it renders with no occupants at all', () => {

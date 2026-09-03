@@ -62,7 +62,11 @@ export const FocusModeChip = memo(function FocusModeChip({ className = '' }: Foc
 
   const body = (
     <div
+      // `pointer-events-auto` is REQUIRED of every band occupant — see the note
+      // in `AssistantFocusChip`. Without it the "exit focus mode" button below
+      // inherits `pointer-events: none` from the cell and cannot be clicked.
       className={`
+        pointer-events-auto
         inline-flex items-center gap-2 px-4 py-2
         bg-paper-50 border border-sand-200 rounded-full
         shadow-[0_1px_2px_rgba(38,38,38,0.06)]

@@ -108,6 +108,14 @@ const BANNED_POSITIONS: ReadonlyArray<{ pattern: RegExp; was: string }> = [
   { pattern: /\bz-\[100\]/, was: 'the vacated top-centre chip column' },
 ]
 
+/**
+ * How a band occupant may re-enable pointer events. TWO SPELLINGS, deliberately:
+ * the Tailwind class and the inline style are both live in this set today
+ * (`LensInfoPanel` uses the style), and a predicate that knows only one of them
+ * reports a correct component as broken.
+ */
+const ENABLES_POINTER_EVENTS = /pointer-events-auto|pointerEvents\s*:\s*['"]auto['"]/
+
 describe('overlay ownership — derived from the migrated components’ bytes', () => {
   it('POSITIVE CONTROL: the scan reads real code and finds claims', () => {
     // Trap 13: an extractor that matched nothing would agree with every
@@ -131,6 +139,56 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
           `can never win the cell and would silently never render.`,
       ).toBe(true)
     }
+  })
+
+  it('every occupant re-enables pointer events — the band and its cells disable them', () => {
+    // ⭐ THE SHAPE OF THE DEFECT THIS CLOSES: five of seven occupants declared
+    // `pointer-events-auto` and two did not, so the class was already half-open
+    // when it was found. `AssistantFocusChip` and `FocusModeChip` had inherited
+    // the property from a `pointer-events-auto` wrapper in `ReactFlowGraph` that
+    // this change deletes; portalled into a cell, they rendered visibly and were
+    // NOT HIT-TESTABLE — "Dismiss Olumi focus" and "Clear selection and exit
+    // focus mode" were dead controls.
+    //
+    // The durable fix is this assertion rather than two class strings: the band
+    // and all three cells set `pointer-events: none`, the property INHERITS, and
+    // nothing else re-enables it, so the requirement is structural and belongs on
+    // every occupant that exists or is ever added. Bound to the enumerated
+    // MIGRATED set — the same set the banned-position scan uses — so a new
+    // occupant cannot join without satisfying it.
+    //
+    // ⚠⚠ BOTH SPELLINGS COUNT, AND THE FIRST VERSION OF THIS SCAN DID NOT KNOW
+    // THAT — it matched only the Tailwind class and REDDED `LensInfoPanel`,
+    // which enables the property with the inline style `pointerEvents: 'auto'`.
+    // That is a correct component and would have been "fixed" to satisfy a
+    // guard whose predicate was narrower than the property it claims to check.
+    // A false RED costs a real edit to correct code, so the predicate is the
+    // PROPERTY, not one syntax for it.
+    //
+    // ⚠ SCOPE, STATED: this proves the DECLARATION is present in the component's
+    // bytes. It is not a real-browser hit test, and jsdom cannot perform one.
+    for (const file of MIGRATED) {
+      const stripped = stripComments(readComponent(file))
+      expect(
+        ENABLES_POINTER_EVENTS.test(stripped),
+        `${file}: the component's own markup never re-enables pointer events — ` +
+          `neither the class \`pointer-events-auto\` nor the style \`pointerEvents: 'auto'\`. ` +
+          `The band and its cells set \`pointer-events: none\` and the property inherits, so ` +
+          `this occupant renders but cannot be clicked — its buttons are dead controls.`,
+      ).toBe(true)
+    }
+  })
+
+  it('CONTRAST CONTROL: the pointer-events scan discriminates, and sees BOTH spellings', () => {
+    // Proves the assertion above is the components' doing rather than a regex
+    // that matches anything — and, in the other direction, that it is not blind
+    // to the inline-style spelling, which is the false RED it already produced
+    // once. A guard that only sees one syntax reports a correct component as
+    // broken, which is as expensive as missing a broken one.
+    expect(ENABLES_POINTER_EVENTS.test('<div className="inline-flex items-center" />')).toBe(false)
+    expect(ENABLES_POINTER_EVENTS.test('<div className="pointer-events-auto flex" />')).toBe(true)
+    expect(ENABLES_POINTER_EVENTS.test("<div style={{ pointerEvents: 'auto' }} />")).toBe(true)
+    expect(ENABLES_POINTER_EVENTS.test('<div style={{ pointerEvents: "auto" }} />')).toBe(true)
   })
 
   it('every id in OVERLAY_PRIORITY has a claimant in the code — no dead rules', () => {
