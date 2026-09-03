@@ -62,9 +62,66 @@ export interface DegenerateChannel {
   reason: string
 }
 
-/** Stable distinct-count over mixed primitives, with `undefined` a real member. */
-function distinctCount(values: readonly unknown[]): number {
-  return new Set(values.map((v) => JSON.stringify(v ?? null))).size
+/* ────────────────────────────────────────────────────────────────────────────
+ * TWO DISTINCT-COUNTS, BECAUSE THE TWO SIDES ASK DIFFERENT QUESTIONS
+ * ────────────────────────────────────────────────────────────────────────────
+ * ⚠ There was ONE `distinctCount` here, keyed `JSON.stringify(v ?? null)`. That
+ * key maps `undefined`, `null` AND `NaN` all to the string `"null"`, so the
+ * three collapsed into one bucket on BOTH sides — while the `source` field's
+ * own doc above promised that "an absent field is a distinct state from a
+ * present one", and a test named `treats an absent source value as a distinct
+ * state, not as equal to null` passed on a corpus that contained no `null` at
+ * all. Measured on the predecessor: `distinctCount([undefined, null]) === 1`
+ * and `distinctCount([NaN, null]) === 1`. The comment and the test name were
+ * both claims, and both were false.
+ *
+ * The two sides are NOT one question (CLAUDE.md trap 21 — one name, two
+ * questions; the fix is to name them apart, not to align them):
+ *
+ *   · SOURCE — "how many different facts did the producer supply?" An absent
+ *     field, a field explicitly `null`, and a `NaN` are three different
+ *     producer states. Collapsing them lets "this field is MISSING on half the
+ *     corpus" masquerade as "this field is CONSTANT", which is exactly the
+ *     disagreement this guard exists to detect.
+ *
+ *   · RENDERED — "how many different things did the USER see?" A cell that
+ *     rendered `undefined` and a cell that rendered `null` both painted
+ *     NOTHING: one user-visible fact, not two. Separating them here would make
+ *     the guard fall SILENT on a genuinely flat surface — the failure direction
+ *     that costs a defect rather than a false alarm. A rendered `NaN` is NOT in
+ *     that bucket: "b NaN%" is a number painted on screen, not an empty cell.
+ *
+ * The asymmetry is deliberate, and `edgeRenderedDistribution.capture.spec.ts`
+ * pins it in BOTH directions — the source side must separate, the rendered side
+ * must not. One test alone would leave the other direction free to drift.
+ */
+
+/**
+ * Bucket key for a SOURCE value. `tag:` and `json:` cannot collide: every
+ * `JSON.stringify` result is prefixed, so no payload can spell a tag.
+ */
+function sourceKey(value: unknown): string {
+  if (value === undefined) return 'tag:absent'
+  if (value === null) return 'tag:null'
+  if (typeof value === 'number' && Number.isNaN(value)) return 'tag:nan'
+  return `json:${JSON.stringify(value)}`
+}
+
+/** Bucket key for a RENDERED value — both spellings of "painted nothing" are one. */
+function renderedKey(value: unknown): string {
+  if (value === undefined || value === null) return 'tag:nothing-painted'
+  if (typeof value === 'number' && Number.isNaN(value)) return 'tag:nan'
+  return `json:${JSON.stringify(value)}`
+}
+
+/** How many different facts the producer supplied across the corpus. */
+function distinctSourceCount(values: readonly unknown[]): number {
+  return new Set(values.map(sourceKey)).size
+}
+
+/** How many different things the user saw across the corpus. */
+function distinctRenderedCount(values: readonly unknown[]): number {
+  return new Set(values.map(renderedKey)).size
 }
 
 /**
@@ -90,8 +147,8 @@ export function findDegenerateRenderedChannels(
     // Fewer than two edges cannot distinguish "constant" from "one data point".
     if (sample.source.length < 2) continue
 
-    const sourceDistinct = distinctCount(sample.source)
-    const renderedDistinct = distinctCount(sample.rendered)
+    const sourceDistinct = distinctSourceCount(sample.source)
+    const renderedDistinct = distinctRenderedCount(sample.rendered)
 
     if (sourceDistinct > 1 && renderedDistinct === 1) {
       out.push({

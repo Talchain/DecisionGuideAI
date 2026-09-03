@@ -20,6 +20,8 @@ import {
   EDGE_PROVENANCED_FIELDS,
   EDGE_NUMERIC_PROVENANCED_FIELDS,
   EDGE_VALUE_SOURCE_KEYS,
+  EDGE_VALUE_DOMAINS,
+  withinEdgeValueDomain,
   edgeSourceKey,
   stripEdgeValueSourceKeys,
   type EdgeValueBand,
@@ -371,5 +373,124 @@ describe('withLiveEdgeValue — retargets the value, never the verdict', () => {
     const base = { show: true, value: 0.5, source: 'user' } as const
     expect(withLiveEdgeValue(base, NaN)).toEqual(base)
     expect(withLiveEdgeValue(base, Infinity)).toEqual(base)
+  })
+})
+
+/**
+ * ⭐ THE DOMAIN GATE — an out-of-range number is not a value.
+ *
+ * Before this, `resolveEdgeValueDisplay` gated PROVENANCE and FINITENESS and
+ * nothing else, so a stamped `beliefExists` of `1.5` resolved `show: true` and
+ * every surface reported it: `b 150%` on the canvas label and its aria-label,
+ * "150% confident" in the hover popover, band `high` in the inspector. `-0.2`
+ * resolved `show: true` too, fell below the label's hedge cut, and rendered
+ * "(uncertain)" — a hedge, which reads as a verdict about a real probability.
+ *
+ * Every case below is PAIRED with an in-domain twin on the identical shape, so
+ * a gate that simply refused everything would fail here rather than look green.
+ */
+describe('resolveEdgeValueDisplay — the domain gate', () => {
+  const stamped = (beliefExists: number) => ({
+    beliefExists,
+    beliefExistsSource: 'cee' as const,
+  })
+
+  it('refuses a stamped likelihood above 1, and admits its in-domain twin', () => {
+    expect(resolveEdgeValueDisplay(stamped(1.5), 'beliefExists')).toEqual({
+      show: false,
+      reason: 'absent',
+    })
+    // The twin: identical shape, identical stamp, one legal number.
+    expect(resolveEdgeValueDisplay(stamped(0.95), 'beliefExists')).toEqual({
+      show: true,
+      value: 0.95,
+      source: 'cee',
+    })
+  })
+
+  it('refuses a stamped likelihood below 0, and admits its in-domain twin', () => {
+    expect(resolveEdgeValueDisplay(stamped(-0.2), 'beliefExists')).toEqual({
+      show: false,
+      reason: 'absent',
+    })
+    expect(resolveEdgeValueDisplay(stamped(0.2), 'beliefExists')).toEqual({
+      show: true,
+      value: 0.2,
+      source: 'cee',
+    })
+  })
+
+  it('admits both endpoints — the gate is inclusive, not exclusive', () => {
+    // The failure direction nobody notices: a `>` where a `>=` belongs silently
+    // deletes the two most common stamped values in the corpus (0 and 1).
+    expect(resolveEdgeValueDisplay(stamped(0), 'beliefExists')).toEqual({
+      show: true,
+      value: 0,
+      source: 'cee',
+    })
+    expect(resolveEdgeValueDisplay(stamped(1), 'beliefExists')).toEqual({
+      show: true,
+      value: 1,
+      source: 'cee',
+    })
+  })
+
+  it('gates the LEGACY `belief` fallback too — the path with no ingestion clamp', () => {
+    // This is the reachable one. Both CEE ingestion paths clamp to [0, 1]
+    // (`applyDraftResult.ts:104`, `applyPatch.ts:129`), but the legacy fallback
+    // reads a raw persisted `belief` under a finiteness test only, and stored
+    // graphs are not re-validated against `EdgeDataSchema` on load.
+    expect(
+      resolveEdgeValueDisplay({ belief: 4, beliefExistsSource: 'cee' }, 'beliefExists'),
+    ).toEqual({ show: false, reason: 'absent' })
+    expect(
+      resolveEdgeValueDisplay({ belief: 0.4, beliefExistsSource: 'cee' }, 'beliefExists'),
+    ).toEqual({ show: true, value: 0.4, source: 'cee' })
+  })
+
+  it('rejects out-of-domain BEFORE consulting provenance, so an unstamped one reads the same', () => {
+    // Order matters for the reason code, and the reason drives copy: an
+    // impossible number is `absent` ("there is no number here"), never
+    // `not_set` ("nobody set it") — the latter would invite an affordance to
+    // set a value that is in fact already present and wrong.
+    expect(resolveEdgeValueDisplay({ beliefExists: 1.5 }, 'beliefExists')).toEqual({
+      show: false,
+      reason: 'absent',
+    })
+  })
+
+  it('leaves the OPEN-domain fields alone — this lane narrowed only beliefExists', () => {
+    // The scope note on EDGE_VALUE_DOMAINS, asserted rather than trusted. If a
+    // later lane closes these it must update this test deliberately.
+    expect(EDGE_VALUE_DOMAINS.weight).toEqual({ min: null, max: null })
+    expect(EDGE_VALUE_DOMAINS.strengthStd).toEqual({ min: null, max: null })
+    expect(
+      resolveEdgeValueDisplay({ weight: 99, weightSource: 'cee' }, 'weight'),
+    ).toEqual({ show: true, value: 99, source: 'cee' })
+  })
+
+  it('the domain record is TOTAL over the numeric registry', () => {
+    // Derived, not mirrored: adding a numeric provenanced field without a
+    // domain REDs here as well as failing to typecheck.
+    expect(Object.keys(EDGE_VALUE_DOMAINS).sort()).toEqual(
+      [...EDGE_NUMERIC_PROVENANCED_FIELDS].sort(),
+    )
+  })
+
+  it('withinEdgeValueDomain agrees with the record it reads', () => {
+    expect(withinEdgeValueDomain('beliefExists', 0.5)).toBe(true)
+    expect(withinEdgeValueDomain('beliefExists', 1.0000001)).toBe(false)
+    expect(withinEdgeValueDomain('beliefExists', -0.0000001)).toBe(false)
+    expect(withinEdgeValueDomain('weight', -50)).toBe(true)
+  })
+
+  it('the beliefExists domain matches what EdgeDataSchema already declares', () => {
+    // Bound to the schema rather than to a repeated literal: the gate exists to
+    // enforce at READ time what Zod declares at parse time, so if the schema
+    // moves and this does not, that is the drift to catch.
+    expect(EdgeDataSchema.safeParse({ beliefExists: 1.5 }).success).toBe(false)
+    expect(EdgeDataSchema.safeParse({ beliefExists: -0.2 }).success).toBe(false)
+    expect(EdgeDataSchema.safeParse({ beliefExists: EDGE_VALUE_DOMAINS.beliefExists.min! }).success).toBe(true)
+    expect(EdgeDataSchema.safeParse({ beliefExists: EDGE_VALUE_DOMAINS.beliefExists.max! }).success).toBe(true)
   })
 })

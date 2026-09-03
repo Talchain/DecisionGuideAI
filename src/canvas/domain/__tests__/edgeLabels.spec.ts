@@ -10,8 +10,10 @@ import {
   getEdgeLabel,
   getEdgeLabelMode,
   setEdgeLabelMode,
+  LABEL_HEDGE_CUT,
   type EdgeLabelMode
 } from '../edgeLabels'
+import { EDGE_VALUE_BAND_CUTS } from '../edgeValueProvenance'
 import type { EdgeDirectionDisplay, EdgeValueDisplay } from '../edgeValueProvenance'
 
 /**
@@ -116,23 +118,44 @@ describe('edgeLabels', () => {
       })
     })
 
-    describe('Belief thresholds', () => {
-      it('treats >= 80% as high confidence (no qualifier)', () => {
+    /**
+     * ⚠ THESE THREE TESTS WERE NAMED AFTER A FOUR-BAND VOCABULARY THE FUNCTION
+     * HAS NEVER EMITTED. They said "treats >= 80% as HIGH confidence" and
+     * "treats 60-80% as MEDIUM confidence" — but both produce the SAME output,
+     * no qualifier, so the 80% cut they named discriminates nothing. The names
+     * mirrored `describeEdge`'s old header block, which claimed the same four
+     * bands and was corrected in the same change as this.
+     *
+     * There is ONE cut here, `LABEL_HEDGE_CUT`, with two outcomes. The
+     * assertions are unchanged — they were always right; only the names claimed
+     * more structure than the code has.
+     */
+    describe('the hedge cut — one threshold, two outcomes', () => {
+      it('is silent at and above the cut, across the whole range above it', () => {
+        expect(describeEdge(SET(0.5), SET(LABEL_HEDGE_CUT), STATED_POSITIVE).label).toBe('Moderate boost')
+        expect(describeEdge(SET(0.5), SET(0.7), STATED_POSITIVE).label).toBe('Moderate boost')
+        expect(describeEdge(SET(0.5), SET(0.79), STATED_POSITIVE).label).toBe('Moderate boost')
         expect(describeEdge(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
         expect(describeEdge(SET(0.5), SET(0.85), STATED_POSITIVE).label).toBe('Moderate boost')
         expect(describeEdge(SET(0.5), SET(1.0), STATED_POSITIVE).label).toBe('Moderate boost')
       })
 
-      it('treats 60-80% as medium confidence (no qualifier)', () => {
-        expect(describeEdge(SET(0.5), SET(0.6), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(0.7), STATED_POSITIVE).label).toBe('Moderate boost')
-        expect(describeEdge(SET(0.5), SET(0.79), STATED_POSITIVE).label).toBe('Moderate boost')
-      })
-
-      it('treats < 60% as low confidence (adds uncertain)', () => {
+      it('hedges below the cut, across the whole range below it', () => {
         expect(describeEdge(SET(0.5), SET(0.59), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
         expect(describeEdge(SET(0.5), SET(0.4), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
         expect(describeEdge(SET(0.5), SET(0.1), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
+        expect(describeEdge(SET(0.5), SET(0), STATED_POSITIVE).label).toBe('Moderate boost (uncertain)')
+      })
+
+      it('there is no THIRD outcome anywhere in [0, 1] — the vocabulary really is binary', () => {
+        // The claim the old names made and never checked. Enumerated at a step
+        // fine enough to cross both retired cuts (0.6 and 0.8): every label is
+        // one of exactly two strings, so no band adjective survives anywhere.
+        const seen = new Set<string>()
+        for (let v = 0; v <= 1.0001; v += 0.01) {
+          seen.add(describeEdge(SET(0.5), SET(Math.min(v, 1)), STATED_POSITIVE).label)
+        }
+        expect([...seen].sort()).toEqual(['Moderate boost', 'Moderate boost (uncertain)'])
       })
     })
 
@@ -411,6 +434,27 @@ describe('edgeLabels', () => {
       expect(describeEdge(STRENGTH_NOT_SET, LIKELIHOOD_NOT_SET, NOT_STATED).label).toBe('Strength and likelihood not set')
     })
 
+    it('…and a known LOW likelihood on that same arm is hedged, not dropped', () => {
+      // ⚠ THIS ARM WAS REACHABLE AND PINNED NOWHERE. `rg` returned zero hits for
+      // 'Strength not set (uncertain)' across the whole repo: the `>= cut` twin
+      // above was covered, the `< cut` one was not, so the qualifier could have
+      // been dropped from this arm — or the arm deleted — with the suite green.
+      //
+      // Reached whenever the strength and direction are unset but the producer
+      // stamped a likelihood below the hedge cut. It is not hypothetical: CEE
+      // stamps `exists_probability` on edges whose `strength_mean` never
+      // arrives, and the EdgePanel slider writes any value in [0, 1].
+      expect(describeEdge(STRENGTH_NOT_SET, SET(0.4), NOT_STATED).label).toBe(
+        'Strength not set (uncertain)',
+      )
+      // Discriminating twin, bound to the CUT rather than to the arm: the same
+      // fixture one step above the cut must lose the qualifier. Without this a
+      // mutant that appended "(uncertain)" unconditionally would survive.
+      expect(describeEdge(STRENGTH_NOT_SET, SET(LABEL_HEDGE_CUT), NOT_STATED).label).toBe(
+        'Strength not set',
+      )
+    })
+
     it("the display's REASON does not change the sentence — absent and not_set read alike", () => {
       expect(describeEdge(STRENGTH_ABSENT, LIKELIHOOD_NOT_SET, NOT_STATED).label)
         .toBe(describeEdge(STRENGTH_NOT_SET, LIKELIHOOD_NOT_SET, NOT_STATED).label)
@@ -434,5 +478,54 @@ describe('edgeLabels', () => {
       expect(getEdgeLabel(STRENGTH_NOT_SET, LIKELIHOOD_NOT_SET, NOT_STATED, 'human').label).toBe('Strength and likelihood not set')
       expect(getEdgeLabel(STRENGTH_NOT_SET, LIKELIHOOD_NOT_SET, NOT_STATED, 'numeric').label).toBe('w not set')
     })
+  })
+})
+
+/**
+ * ⭐ THE HEDGE CUT AND THE BAND CUTS ARE TWO ANSWERS TO TWO QUESTIONS, AND THE
+ * DIVERGENCE IS PINNED HERE SO IT CANNOT DRIFT SILENTLY.
+ *
+ * Before this label read `beliefExists`, the `< 0.6` literal was applied to
+ * `data.belief` — which no live writer sets — so it was unreachable dead
+ * arithmetic and disagreeing with the band registry cost nothing. It is LIVE
+ * now, on the same field three other surfaces band with `EDGE_VALUE_BAND_CUTS`,
+ * whose own header exists because those cuts were once a hand-copied literal in
+ * three places.
+ *
+ * These tests do NOT assert that the two agree — they must not, they answer
+ * different questions (see `LABEL_HEDGE_CUT`'s header). They assert that the
+ * disagreement is the one we decided on, so that moving either number REDs and
+ * forces the copy decision to be taken deliberately.
+ */
+describe('LABEL_HEDGE_CUT vs EDGE_VALUE_BAND_CUTS — a named divergence, not a drifted mirror', () => {
+  it('is the value the bare literal had, unchanged by being named', () => {
+    expect(LABEL_HEDGE_CUT).toBe(0.6)
+  })
+
+  it('sits strictly between the two band cuts — so it can equal neither', () => {
+    // Bound by RELATION, not by three bare numbers: this keeps biting if the
+    // band registry moves, which is the drift the pin exists for.
+    expect(LABEL_HEDGE_CUT).toBeGreaterThan(EDGE_VALUE_BAND_CUTS.moderate)
+    expect(LABEL_HEDGE_CUT).toBeLessThan(EDGE_VALUE_BAND_CUTS.high)
+  })
+
+  it('names the two windows where the label and the inspector disagree', () => {
+    // ⚠ THIS IS A REACHABLE COPY INCONSISTENCY, PINNED RATHER THAN HIDDEN, and
+    // it is rowed in CANVAS-BACKLOG.md as a copy decision this PR did not take.
+    // The EdgePanel existence slider reaches every value below.
+
+    // [moderate, hedge): the inspector calls it moderate; the label hedges.
+    const hedgedButBandedModerate = 0.45
+    expect(hedgedButBandedModerate).toBeGreaterThanOrEqual(EDGE_VALUE_BAND_CUTS.moderate)
+    expect(hedgedButBandedModerate).toBeLessThan(LABEL_HEDGE_CUT)
+    expect(describeEdge(SET(0.5), SET(hedgedButBandedModerate), NOT_STATED).label)
+      .toMatch(/\(uncertain\)$/)
+
+    // [hedge, high): the label says nothing; the inspector still says moderate.
+    const unhedgedButBandedModerate = 0.65
+    expect(unhedgedButBandedModerate).toBeGreaterThanOrEqual(LABEL_HEDGE_CUT)
+    expect(unhedgedButBandedModerate).toBeLessThan(EDGE_VALUE_BAND_CUTS.high)
+    expect(describeEdge(SET(0.5), SET(unhedgedButBandedModerate), NOT_STATED).label)
+      .not.toMatch(/\(uncertain\)$/)
   })
 })

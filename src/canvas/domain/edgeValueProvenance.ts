@@ -375,6 +375,93 @@ export type EdgeValueDisplay =
   | { show: true; value: number; source: EdgeValueSource }
 
 /**
+ * The DOMAIN of each numeric provenanced field — what range of numbers is a
+ * possible value of this quantity at all.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * `resolveEdgeValueDisplay` gated PROVENANCE ("did anybody set this?") and
+ * FINITENESS ("is it a number?") and nothing else. A `beliefExists` of `1.5`
+ * therefore resolved `show: true` and rendered `b 150%` on the label, "150%
+ * confident" in the popover, and a `high` band in the inspector — three
+ * surfaces confidently reporting an impossible probability. `-0.2` was worse
+ * than useless: it resolved `show: true`, fell under the label's hedge cut and
+ * rendered "(uncertain)", which reads as a verdict about a real number.
+ *
+ * ⚠ IT IS NOT IMPOSSIBLE, AND THE PR THAT ADDED THIS CHECKED RATHER THAN
+ * ASSUMED. Three live paths can put an out-of-domain `beliefExists` in
+ * `edge.data`, derived by enumerating every writer:
+ *
+ *   1. `useInspectorMutations.setExistsProbability(ep)` (`:530`) writes `ep`
+ *      straight through with `beliefExistsSource: 'user'` and NO clamp of its
+ *      own. Today its only caller is a bounded `<input type="range">`, so the
+ *      bound lives in the markup, not in the function.
+ *   2. `migrateEdgeDataToV4` (`edges.ts:733`) writes `Math.sqrt(legacyBelief)`;
+ *      a legacy `belief` above 1 migrates to a `beliefExists` above 1.
+ *   3. `resolveEdgeValueDisplay`'s OWN legacy fallback reads a raw `data.belief`
+ *      (`:397`) under a finiteness test only. Persisted and imported graphs are
+ *      not re-validated against `EdgeDataSchema` on load, so the Zod
+ *      `.min(0).max(1)` at `edges.ts:204` does not stand between that value and
+ *      this resolver.
+ *
+ * The two CEE ingestion paths DO clamp (`applyDraftResult.ts:104`,
+ * `applyPatch.ts:129`, `DraftChat.ts:621`), which is why this was never seen in
+ * a capture — but "no producer we currently ship emits it" is a statement about
+ * today's producers, not a property of the seam.
+ *
+ * WHY HERE AND NOT AT THE LABEL
+ * -----------------------------
+ * The label is where the exposure was newly widened, and gating it there was
+ * the tempting small fix. It would have been CLAUDE.md trap 21 all over again,
+ * inside the PR that closed an instance of trap 21: the label would say
+ * "likelihood not set" while the popover one hover away said "150% confident".
+ * One quantity gets ONE verdict, so the gate belongs to the one owner and every
+ * surface inherits it.
+ *
+ * WHY A RECORD AND NOT AN `if`
+ * ----------------------------
+ * The domains genuinely differ — `beliefExists` is a probability, `weight` a
+ * clamped magnitude, `strengthStd` a standard deviation — so a single `[0,1]`
+ * test would be wrong for two of the three. Typing this as a TOTAL record over
+ * `EdgeNumericProvenancedField` makes adding a numeric field to
+ * `EDGE_PROVENANCED_FIELDS` a COMPILE error here rather than a silent
+ * inheritance of a neighbour's range (same rule as `EdgeValueBand`'s consumers).
+ * `null` is an explicit declaration that the quantity is unbounded on that
+ * side, not an omission.
+ *
+ * ⚠ SCOPE, STATED SO THIS DOES NOT READ AS COMPLETE. Only `beliefExists` has
+ * had its writers enumerated and its domain derived by this lane. `weight` and
+ * `strengthStd` are declared OPEN on purpose — not because they are unbounded
+ * in principle (ingestion clamps `weight` to `[0, 2]`), but because gating them
+ * would change what `ModelTabBody`'s sort, `RelationshipsSection` and the
+ * model-tab adapters do with values this lane has not enumerated. Closing them
+ * is its own piece of work, rowed in `CANVAS-BACKLOG.md`. A future lane that
+ * narrows them must derive the writers first, exactly as the block above does.
+ *
+ * ⚠ ALSO NOT COVERED: `resolveEdgeSignedStrengthDisplay` is a SEPARATE function
+ * and does not consult this record. It reads `strength_mean`/`weight` under a
+ * finiteness test only, and it is deliberately signed. This gate does not reach
+ * it, and nothing here should be read as a claim that it does.
+ */
+export const EDGE_VALUE_DOMAINS: Record<
+  EdgeNumericProvenancedField,
+  { readonly min: number | null; readonly max: number | null }
+> = {
+  /** A probability. `EdgeDataSchema` says `.min(0).max(1)`; this enforces it at READ time. */
+  beliefExists: { min: 0, max: 1 },
+  /** Declared open — see the scope note above. Not a claim that weight is unbounded. */
+  weight: { min: null, max: null },
+  /** Declared open — see the scope note above. */
+  strengthStd: { min: null, max: null },
+}
+
+/** Is this number a possible value of this quantity? See `EDGE_VALUE_DOMAINS`. */
+export function withinEdgeValueDomain(field: EdgeNumericProvenancedField, value: number): boolean {
+  const { min, max } = EDGE_VALUE_DOMAINS[field]
+  return (min === null || value >= min) && (max === null || value <= max)
+}
+
+/**
  * Resolve one edge value for display — THE read-side gate.
  *
  * Reads the same dual-field chain the rest of the canvas uses
@@ -402,6 +489,11 @@ export function resolveEdgeValueDisplay(
         : undefined
 
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return { show: false, reason: 'absent' }
+
+  // ⛔ OUT OF DOMAIN IS NOT A VALUE (see `EDGE_VALUE_DOMAINS`). Checked BEFORE
+  // provenance, because a stamped-but-impossible number is worse than an
+  // unstamped one: the stamp is what licenses every surface to speak it.
+  if (!withinEdgeValueDomain(field, raw)) return { show: false, reason: 'absent' }
 
   const source = edgeValueSource(data, field)
   if (source === null) return { show: false, reason: 'not_set' }

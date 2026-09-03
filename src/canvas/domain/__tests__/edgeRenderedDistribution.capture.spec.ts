@@ -1,5 +1,9 @@
 /**
- * The canvas edge renderers, run over the REAL 3 Sep 2026 capture.
+ * The canvas edge DOMAIN RESOLVERS, run over the REAL 3 Sep 2026 capture.
+ *
+ * ⚠ SCOPE FIRST, because the name invites the wrong reading: this spec runs the
+ * resolvers and `getEdgeLabel`, NOT `StyledEdge`. It is blind to a change in the
+ * component's wiring — demonstrated, see `resolveEdgeChannels`'s header below.
  *
  * WHY THIS CORPUS AND NOT A WRITTEN ONE
  * -------------------------------------
@@ -38,8 +42,30 @@ import {
 type CapturedEdge = Record<string, unknown> & { id: string }
 const EDGES = capture.edges as unknown as CapturedEdge[]
 
-/** Exactly StyledEdge's wiring: the label and the hover popover, per edge. */
-function renderEdge(data: CapturedEdge) {
+/**
+ * The DOMAIN RESOLVERS the canvas label and hover popover read, run per edge.
+ *
+ * ⚠ THIS IS NOT StyledEdge, AND THE HEADER THAT SAID "exactly StyledEdge's
+ * wiring" WAS AN OVER-CLAIM — measured, not argued. Under two mutants that
+ * fully reverted the production wiring in `StyledEdge.tsx` (the label reading
+ * the legacy `belief` again; the label's likelihood channel switched to
+ * `weight`), THIS SPEC STAYED GREEN while `StyledEdge.labelRecoverable` and
+ * `StyledEdge.edgeLabelStrengthWords.2950` went red. A spec that cannot fail
+ * when the code it claims to mirror is deleted is documentation, not a guard,
+ * and a header promising otherwise is the kind of already-audited-looking
+ * sentence nobody re-checks (CLAUDE.md trap 14).
+ *
+ * WHAT THIS SPEC IS FOR, stated at its true scope: the CORPUS. It is the only
+ * place the real 3 Sep capture meets the resolvers, and its job is to answer
+ * "over 24 real edges, does what the user sees track what CEE sent?" — a
+ * question no hand-authored fixture can ask honestly.
+ *
+ * WHAT PINS THE COMPONENT: `edges/__tests__/StyledEdge.labelRecoverable.spec.tsx`
+ * and `StyledEdge.edgeLabelStrengthWords.2950.spec.tsx` render the real
+ * component and are what RED when the wiring moves. Do not read a green run
+ * here as evidence about `StyledEdge.tsx`.
+ */
+function resolveEdgeChannels(data: CapturedEdge) {
   const strength = resolveEdgeSignedStrengthDisplay(data)
   const direction = resolveEdgeDirectionDisplay(data)
   const likelihood = resolveEdgeValueDisplay(data, 'beliefExists')
@@ -59,7 +85,7 @@ describe('canvas edge rendering over the 3 Sep 2026 capture', () => {
   })
 
   it('renders no channel flatter than its source', () => {
-    const rendered = EDGES.map(renderEdge)
+    const rendered = EDGES.map(resolveEdgeChannels)
 
     const samples: RenderedChannelSample[] = [
       {
@@ -88,7 +114,7 @@ describe('canvas edge rendering over the 3 Sep 2026 capture', () => {
   })
 
   it('the strength the user sees tracks strength_mean, not a constant', () => {
-    const pcts = EDGES.map((e) => renderEdge(e).popoverStrengthPct)
+    const pcts = EDGES.map((e) => resolveEdgeChannels(e).popoverStrengthPct)
     // The capture carries ten distinct strength_mean values; the rendering must
     // not collapse them. Bound by IDENTITY on the source, not by a bare count.
     expect(new Set(EDGES.map((e) => e.strength_mean)).size).toBe(10)
@@ -109,7 +135,7 @@ describe('canvas edge rendering over the 3 Sep 2026 capture', () => {
     expect(causal).toHaveLength(15)
 
     for (const e of causal) {
-      const r = renderEdge(e)
+      const r = resolveEdgeChannels(e)
       expect(r.popoverConfidencePct).toBe(80)
       expect(r.humanLabel).not.toMatch(/uncertain/i)
       expect(r.humanLabel).not.toMatch(/not set/i)
@@ -119,7 +145,7 @@ describe('canvas edge rendering over the 3 Sep 2026 capture', () => {
   it('the numeric label reports the likelihood CEE stamped', () => {
     const causal = EDGES.filter((e) => e.exists_probability === 0.8)
     for (const e of causal) {
-      expect(renderEdge(e).numericLabel).toMatch(/• b 80%$/)
+      expect(resolveEdgeChannels(e).numericLabel).toMatch(/• b 80%$/)
     }
   })
 })
@@ -191,12 +217,73 @@ describe('renderedDistributionGuard — positive controls', () => {
   })
 
   it('treats an absent source value as a distinct state, not as equal to null', () => {
-    // `undefined` and a rendered null are different facts; collapsing them
-    // would let "field missing" masquerade as "field constant".
+    // ⚠ THIS TEST'S NAME WAS FALSE FOR ONE ROUND, AND THE FIXTURE IS WHY. It
+    // asserted on `source: [undefined, 0.4]` — which contains no `null` at all,
+    // so it discriminated on the `0.4` and would have passed identically had
+    // `undefined` and `null` been the same bucket. They WERE: the guard keyed
+    // `JSON.stringify(v ?? null)`, so `distinctCount([undefined, null]) === 1`.
+    // A test name is a claim; this is the claim, and the source below is now
+    // the ONLY thing separating the two counts.
     expect(
       findDegenerateRenderedChannels([
-        { channel: 'absent-vs-present', source: [undefined, 0.4], rendered: ['—', '—'] },
+        { channel: 'absent-vs-null', source: [undefined, null], rendered: ['—', '—'] },
       ]),
     ).toHaveLength(1)
+  })
+
+  it('treats a NaN source as distinct from both an absent and a null one', () => {
+    // The third spelling the old key swallowed: `JSON.stringify(NaN)` is
+    // `"null"`, so a corpus that was half NaN read as constant.
+    expect(
+      findDegenerateRenderedChannels([
+        { channel: 'nan-vs-null', source: [NaN, null], rendered: ['—', '—'] },
+      ]),
+    ).toHaveLength(1)
+    expect(
+      findDegenerateRenderedChannels([
+        { channel: 'nan-vs-absent', source: [NaN, undefined], rendered: ['—', '—'] },
+      ]),
+    ).toHaveLength(1)
+  })
+
+  it('is SILENT when the source really is uniformly absent (the twin of the above)', () => {
+    // ⭐ THE OPPOSITE-DIRECTION TWIN (CLAUDE.md trap 22b). Separating absent
+    // from null buys a way to fire falsely: a channel whose source is missing
+    // on EVERY edge is genuinely constant, and a guard that shouted at it would
+    // be switched off within a week. Without this case the three above could be
+    // satisfied by a key that simply makes everything distinct.
+    expect(
+      findDegenerateRenderedChannels([
+        { channel: 'uniformly-absent', source: [undefined, undefined, undefined], rendered: ['—', '—', '—'] },
+      ]),
+    ).toEqual([])
+    expect(
+      findDegenerateRenderedChannels([
+        { channel: 'uniformly-null', source: [null, null], rendered: ['—', '—'] },
+      ]),
+    ).toEqual([])
+  })
+
+  it('counts the RENDERED side the other way: two spellings of "painted nothing" are ONE state', () => {
+    // ⭐ THE ASYMMETRY, PINNED. The source side must SEPARATE absent from null
+    // (above); the rendered side must COLLAPSE them, because a cell rendering
+    // `undefined` and a cell rendering `null` both painted nothing and the user
+    // saw one flat surface. A symmetric key would fall SILENT here — the
+    // failure direction that costs a defect rather than a false alarm.
+    const found = findDegenerateRenderedChannels([
+      { channel: 'nothing-painted-two-ways', source: [0.2, 0.9], rendered: [undefined, null] },
+    ])
+    expect(found).toHaveLength(1)
+    expect(found[0].sourceDistinct).toBe(2)
+  })
+
+  it('a rendered NaN is a painted number, not an empty cell', () => {
+    // "b NaN%" is on screen. It must not join the nothing-painted bucket, or a
+    // surface that painted NaN beside a blank would read as flat.
+    expect(
+      findDegenerateRenderedChannels([
+        { channel: 'nan-vs-blank', source: [0.2, 0.9], rendered: [NaN, null] },
+      ]),
+    ).toEqual([])
   })
 })

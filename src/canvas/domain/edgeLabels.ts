@@ -50,6 +50,42 @@ export interface EdgeDescription {
 }
 
 /**
+ * The likelihood at or above which the label STOPS HEDGING.
+ *
+ * ⚠⚠ THIS DELIBERATELY DIFFERS FROM `EDGE_VALUE_BAND_CUTS`, AND THE DIFFERENCE
+ * IS PINNED BY A TEST SO IT CANNOT DRIFT SILENTLY.
+ * ---------------------------------------------------------------------------
+ * `EDGE_VALUE_BAND_CUTS` (`edgeValueProvenance.ts`, `{ high: 0.7, moderate:
+ * 0.4 }`) answers **"which of four colour bands is this number in?"** — it is
+ * consumed by `EdgePanel`'s slider track and `RelationshipsSection`'s
+ * likelihood swatch, and it exists because those cuts were once a hand-copied
+ * literal in three places.
+ *
+ * `LABEL_HEDGE_CUT` answers a DIFFERENT question: **"is this number confident
+ * enough that a sentence about the effect should carry no caveat?"** It is
+ * binary, it governs prose rather than colour, and there is no value of it that
+ * makes the two agree — a two-outcome cut cannot be a three-cut band scale.
+ * Aligning them would be CLAUDE.md trap 21 done backwards: two questions forced
+ * under one number because the numbers looked like they ought to match.
+ *
+ * ⚠ THE CONSEQUENCE, STATED PLAINLY RATHER THAN HIDDEN: the two scales
+ * disagree on `[0.4, 0.6)` and `[0.6, 0.7)`. At `beliefExists = 0.45` the
+ * canvas label says "(uncertain)" while the inspector bands the same number
+ * **moderate/amber**; at `0.65` the label hedges nothing while the inspector
+ * still says **moderate**. That is a real, reachable copy inconsistency (the
+ * EdgePanel existence slider reaches both), and it is a COPY DECISION — which
+ * cut is right for prose — not a defect this PR is entitled to settle by
+ * picking a number. It is rowed in `CANVAS-BACKLOG.md` with the two windows
+ * named. What this constant buys today is that the divergence is NAMED,
+ * ADJACENT to the registry it differs from, and asserted in
+ * `edgeLabels.spec.ts` — so it can only change on purpose.
+ *
+ * The value is unchanged from the bare `0.6` literal that stood here. Nothing
+ * about the product's behaviour moves with this constant's introduction.
+ */
+export const LABEL_HEDGE_CUT = 0.6
+
+/**
  * Describe an edge in human-readable terms based on strength and belief
  *
  * Weight scale (applied to the RESOLVED strength's magnitude):
@@ -57,11 +93,19 @@ export interface EdgeDescription {
  * - Moderate: 0.3 <= |w| < 0.7
  * - Weak: |w| < 0.3
  *
- * Belief scale (confidence):
- * - High: b >= 80%
- * - Medium: 60% <= b < 80%
- * - Low: b < 60%
- * - Undefined: treat as uncertain
+ * Likelihood scale — TWO OUTCOMES, not four bands. See `LABEL_HEDGE_CUT`:
+ * - Set and >= the hedge cut → no qualifier
+ * - Set and <  the hedge cut → "(uncertain)"
+ * - NOT set                  → "(likelihood not set)"
+ *
+ * ⚠ THIS BLOCK USED TO READ "High: b >= 80% / Medium: 60% <= b < 80% / Low:
+ * b < 60% / Undefined: treat as uncertain", and every line of it was either
+ * false or decorative. `High` and `Medium` named bands the function never
+ * emitted — both produce no qualifier, so the 80% cut described nothing. And
+ * "Undefined: treat as uncertain" is precisely the behaviour this function was
+ * changed to STOP: an unset likelihood now says so instead of being reported as
+ * a low one. A reader going top-down met the false line ~50 lines before the
+ * capitalised block that contradicts it.
  *
  * ⚠⚠ THE STRENGTH IS A RESOLVED DISPLAY, NOT A RAW NUMBER (ROADMAP 2.950).
  * ------------------------------------------------------------------------
@@ -215,7 +259,7 @@ export function describeEdge(
   let label: string
   if (!likelihood.show) {
     label = `${claim} (likelihood not set)`
-  } else if (likelihood.value < 0.6) {
+  } else if (likelihood.value < LABEL_HEDGE_CUT) {
     label = `${claim} (uncertain)`
   } else {
     label = claim
