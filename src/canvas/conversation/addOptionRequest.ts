@@ -6,8 +6,9 @@
  * (`orchestrator-v5/routing/add-option-transaction.ts`) atomically holds
  * add_node(option) + add_edge(decision→option) + N × add_edge(option→factor),
  * the hold→consent→apply flow works, and the applied receipt carries a
- * `draft_graph` the canvas reconciles. The UI's wire gate is open
- * (`CEE_ACCEPTED_INTENTS = {'add_option'}`) and the parameter builder
+ * `draft_graph` the canvas reconciles. The UI's wire gate is open for
+ * `add_option` (it is a member of `CEE_ACCEPTED_INTENTS` — read that registry
+ * for what else is, never a copy of it written here) and the parameter builder
  * (`buildAddOptionParameters`) is spec-pinned.
  *
  * The ONLY missing piece was a surface that produces the chip. This module is

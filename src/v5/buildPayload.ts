@@ -154,9 +154,14 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
   const wireActionType = sanitiseActionType(input.chipMeta?.action_type)
   // The typed authored intent (0.22 `chip.intent`) rides the SAME two-signal
   // gate discipline as action_type: published in OUR vendored enum AND accepted
-  // by CEE's deployed service. `add_option` is the only value CEE currently
-  // routes (see CEE_ACCEPTED_INTENTS); every other intent is withheld and the
-  // chip behaves exactly like today's identity-only chip until CEE confirms it.
+  // by CEE's deployed service. `CEE_ACCEPTED_INTENTS` IS the accepted half and
+  // its declaration below is the only authority on membership — do not restate
+  // the list, or its cardinality, here. This comment said "`add_option` is the
+  // only value CEE currently routes" and stayed on this line, unread, through
+  // two widenings; it was false for weeks at the exact call site a lane tracing
+  // "why did my intent not send?" reads first. Any intent NOT in that registry
+  // is withheld and the chip behaves exactly like today's identity-only chip
+  // until CEE routes it AND the registry grows in lockstep.
   const wireIntent = sanitiseIntent(input.chipMeta?.intent)
 
   // Derive source: chipMeta presence with a PUBLISHED action_type signals a
@@ -1134,7 +1139,9 @@ export const KNOWN_INTENTS: ReadonlySet<IntentLiteral> = new Set<IntentLiteral>(
  *   `pre_mortem` ("Run a pre-mortem") and `risks_upside` ("Find risks and
  *   upside") — mounted, labelled and clickable for weeks while this list
  *   withheld them, so each click reached CEE as anonymous prose. Derived from
- *   `ROUTED_COACHING_INTENTS` at CEE `266b1d4f`, which is exactly
+ *   `ROUTED_COACHING_INTENTS` at CEE `2b9b95d7` (PR #1321 head, re-read at that
+ *   SHA on 2026-09-03; the earlier citation `266b1d4f` is a superseded head of
+ *   the same PR and the membership is identical), which is exactly
  *   `challenge_frame, define_success, elicit_options, challenge_assumption,
  *   outside_view, pre_mortem, elicit_risks` — this list is that set plus the
  *   independent `add_option` rail, and nothing else.

@@ -242,8 +242,9 @@ describe('first-class chip.id lift + intent send gate', () => {
  * lane exists to deliver, asserted on the ACTUAL HTTP BODY.
  *
  * ── THE DEFECT ───────────────────────────────────────────────────────────────
- * `CEE_ACCEPTED_INTENTS` had exactly ONE member. Four MOUNTED sparks carry
- * `action_type: null` (no honest handler exists for a conversation) and, until
+ * `CEE_ACCEPTED_INTENTS` had exactly ONE member. The MOUNTED coaching sparks
+ * carry `action_type: null` (no honest handler exists for a conversation and
+ * the count belongs to `constants.ts`, not to this line) and, until
  * now, carried nothing else either — so the click reached CEE as anonymous
  * prose and CEE re-inferred the intent from the message text. On the widening
  * card the fall-through was worse than silent: the turn took the free-text edit

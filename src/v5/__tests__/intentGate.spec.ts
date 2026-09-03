@@ -55,8 +55,12 @@ describe('intent wire allowlist — schema parity (derive-don\'t-mirror)', () =>
     // `.has()` per member: a `.has()` list is structurally blind to an entry
     // that should NOT be there, which is the direction with a cross-repo cost.
     //
-    // Provenance: `ROUTED_COACHING_INTENTS` at CEE `266b1d4f` (PR #1321) is
-    // exactly the seven below, plus the independent `add_option` rail.
+    // Provenance: `ROUTED_COACHING_INTENTS` at CEE `2b9b95d7` (PR #1321 head,
+    // read from `src/orchestrator-v5/coaching/typed-intent-directive.ts` at
+    // that SHA via the contents API on 2026-09-03) is exactly the seven below,
+    // plus the independent `add_option` rail. The earlier citation `266b1d4f`
+    // is a superseded head of the same PR; membership is unchanged between the
+    // two, but cite the SHA you actually read.
     expect(new Set(CEE_ACCEPTED_INTENTS)).toEqual(
       new Set([
         'add_option',
@@ -255,8 +259,14 @@ describe('withheld intents are visible in DEV — the drop is not silent', () =>
   /**
    * PRECONDITION PIN: prove this fixture is withheld BY THE GATE — published in
    * the vendored enum but absent from the acceptance registry. Without this the
-   * test would still pass if `pre_mortem` were simply an unknown token, and it
-   * would stop discriminating the moment CEE started routing it.
+   * test would still pass if `mitigation_help` were simply an unknown token,
+   * and it would stop discriminating the moment CEE started routing it.
+   *
+   * ⚠ Name the CURRENT fixture here, never the one it replaced. This sentence
+   * said `pre_mortem` — the token the very PR that moved the fixture made
+   * ACCEPTED — so the comment warning about decay had itself decayed, and cited
+   * as its example of a token that "would stop discriminating" the one that
+   * just had. When `WITHHELD_INTENT` moves again, move this name with it.
    */
   it('warns, naming the exact withheld intent, when a published-but-unrouted intent is declared', () => {
     expect(KNOWN_INTENTS.has(WITHHELD_INTENT as never)).toBe(true)
