@@ -13,7 +13,7 @@ import {
   LABEL_HEDGE_CUT,
   type EdgeLabelMode
 } from '../edgeLabels'
-import { EDGE_VALUE_BAND_CUTS } from '../edgeValueProvenance'
+import { EDGE_VALUE_BAND_CUTS, edgeValueBand } from '../edgeValueProvenance'
 import type { EdgeDirectionDisplay, EdgeValueDisplay } from '../edgeValueProvenance'
 
 /**
@@ -488,14 +488,29 @@ describe('edgeLabels', () => {
  * Before this label read `beliefExists`, the `< 0.6` literal was applied to
  * `data.belief` — which no live writer sets — so it was unreachable dead
  * arithmetic and disagreeing with the band registry cost nothing. It is LIVE
- * now, on the same field three other surfaces band with `EDGE_VALUE_BAND_CUTS`,
- * whose own header exists because those cuts were once a hand-copied literal in
- * three places.
+ * now, on the same field `EDGE_VALUE_BAND_CUTS` bands, whose own header exists
+ * because those cuts were once a hand-copied literal in three places.
+ *
+ * ⚠ ONE consumer, not three. An earlier draft of this block said "three other
+ * surfaces band with `EDGE_VALUE_BAND_CUTS`". Swept `src/` excluding
+ * `__tests__`: the registry's only non-test reader is `EdgePanel.tsx:230`, via
+ * `edgeValueBand`. `RelationshipsSection` bands the same field with a
+ * hand-copied `>= 70 / >= 40` on the ROUNDED percentage — a THIRD scale, not
+ * pinned here and not this lane's to change (see `LABEL_HEDGE_CUT`'s header).
  *
  * These tests do NOT assert that the two agree — they must not, they answer
  * different questions (see `LABEL_HEDGE_CUT`'s header). They assert that the
  * disagreement is the one we decided on, so that moving either number REDs and
  * forces the copy decision to be taken deliberately.
+ *
+ * ⚠ AND THE DISAGREEMENT IS ASSERTED BY CALLING BOTH SIDES. An earlier draft
+ * asserted only that the fixture values sat in the right numeric windows and
+ * left "the inspector bands this moderate" in a COMMENT. That could not see a
+ * change to `edgeValueBand` itself — proved by mutant M2 below, which makes it
+ * band 0.45 as `high` while every numeric-relation assertion stays green. The
+ * numeric-relation assertions are KEPT (they bind to the cut constants, which
+ * the band call alone would not), and the band call is added beside them: the
+ * two bind to different things and neither replaces the other.
  */
 describe('LABEL_HEDGE_CUT vs EDGE_VALUE_BAND_CUTS — a named divergence, not a drifted mirror', () => {
   it('is the value the bare literal had, unchanged by being named', () => {
@@ -510,12 +525,17 @@ describe('LABEL_HEDGE_CUT vs EDGE_VALUE_BAND_CUTS — a named divergence, not a 
   })
 
   it('names the two windows where the label and the inspector disagree', () => {
-    // ⚠ THIS IS A REACHABLE COPY INCONSISTENCY, PINNED RATHER THAN HIDDEN, and
-    // it is rowed in CANVAS-BACKLOG.md as a copy decision this PR did not take.
+    // ⚠ THIS IS A REACHABLE COPY INCONSISTENCY, PINNED RATHER THAN HIDDEN —
+    // and NOT rowed anywhere (measured against CANVAS-BACKLOG.md; see
+    // `LABEL_HEDGE_CUT`'s header). This test is part of the only record of it.
     // The EdgePanel existence slider reaches every value below.
 
-    // [moderate, hedge): the inspector calls it moderate; the label hedges.
+    // [moderate, hedge): the inspector bands it MODERATE and the label hedges.
+    // Both halves asserted by EXECUTION — `edgeValueBand` is the function
+    // EdgePanel actually calls, so this binds to the inspector's verdict rather
+    // than to a comment about it.
     const hedgedButBandedModerate = 0.45
+    expect(edgeValueBand(SET(hedgedButBandedModerate))).toBe('moderate')
     expect(hedgedButBandedModerate).toBeGreaterThanOrEqual(EDGE_VALUE_BAND_CUTS.moderate)
     expect(hedgedButBandedModerate).toBeLessThan(LABEL_HEDGE_CUT)
     expect(describeEdge(SET(0.5), SET(hedgedButBandedModerate), NOT_STATED).label)
@@ -523,9 +543,16 @@ describe('LABEL_HEDGE_CUT vs EDGE_VALUE_BAND_CUTS — a named divergence, not a 
 
     // [hedge, high): the label says nothing; the inspector still says moderate.
     const unhedgedButBandedModerate = 0.65
+    expect(edgeValueBand(SET(unhedgedButBandedModerate))).toBe('moderate')
     expect(unhedgedButBandedModerate).toBeGreaterThanOrEqual(LABEL_HEDGE_CUT)
     expect(unhedgedButBandedModerate).toBeLessThan(EDGE_VALUE_BAND_CUTS.high)
     expect(describeEdge(SET(0.5), SET(unhedgedButBandedModerate), NOT_STATED).label)
       .not.toMatch(/\(uncertain\)$/)
+
+    // The divergence is that ONE band is split by the hedge cut. Pinned as the
+    // joint state it is, so a future lane that moves either number sees the
+    // consequence rather than a bare inequality: same band, opposite sentence.
+    expect(edgeValueBand(SET(hedgedButBandedModerate)))
+      .toBe(edgeValueBand(SET(unhedgedButBandedModerate)))
   })
 })

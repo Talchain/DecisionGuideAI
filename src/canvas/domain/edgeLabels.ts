@@ -56,17 +56,37 @@ export interface EdgeDescription {
  * IS PINNED BY A TEST SO IT CANNOT DRIFT SILENTLY.
  * ---------------------------------------------------------------------------
  * `EDGE_VALUE_BAND_CUTS` (`edgeValueProvenance.ts`, `{ high: 0.7, moderate:
- * 0.4 }`) answers **"which of four colour bands is this number in?"** — it is
- * consumed by `EdgePanel`'s slider track and `RelationshipsSection`'s
- * likelihood swatch, and it exists because those cuts were once a hand-copied
+ * 0.4 }` — TWO cuts, four bands counting `unset`) answers **"which colour band
+ * is this number in?"**. Its one non-test consumer is `EdgePanel`, which reads
+ * it through `edgeValueBand` for the existence slider's colour and track-fill
+ * (`EdgePanel.tsx:230`). It exists because those cuts were once a hand-copied
  * literal in three places.
  *
  * `LABEL_HEDGE_CUT` answers a DIFFERENT question: **"is this number confident
  * enough that a sentence about the effect should carry no caveat?"** It is
- * binary, it governs prose rather than colour, and there is no value of it that
- * makes the two agree — a two-outcome cut cannot be a three-cut band scale.
- * Aligning them would be CLAUDE.md trap 21 done backwards: two questions forced
- * under one number because the numbers looked like they ought to match.
+ * binary and it governs prose rather than colour, so nothing obliges it to
+ * equal a band cut — and forcing it to would be CLAUDE.md trap 21 done
+ * backwards: two questions collapsed under one number because the numbers
+ * looked like they ought to match.
+ *
+ * ⚠ WHAT THIS BLOCK IS NOT ENTITLED TO SAY, and used to. It claimed
+ * `RelationshipsSection`'s likelihood swatch as a second consumer of the
+ * registry, and it claimed "there is no value of `LABEL_HEDGE_CUT` that makes
+ * the two agree". Both were false, and measurably so:
+ *   · `RelationshipsSection` does NOT read the registry. It hand-copies
+ *     `>= 70 / >= 40` on the ROUNDED percentage
+ *     (`components/model-tab/RelationshipsSection.tsx:210`), which the
+ *     registry's own header forbids ("Cut on the RAW value, never on a rounded
+ *     percentage"). So this field carries a THIRD scale, not two, and that
+ *     third one is a live instance of the mirror the registry was written to
+ *     abolish. It is NOT pinned by this file's tests and it needs the model-tab
+ *     owner — naming it here is the whole of what this lane did about it.
+ *   · Setting `LABEL_HEDGE_CUT` to `0.4` would make hedging mean exactly "band
+ *     is `low`"; setting it to `0.7` would make it mean exactly "band is not
+ *     `high`". Either lands the binary boundary ON a band boundary and leaves
+ *     no band split down the middle. The honest claim is the narrow one — the
+ *     two answer different questions, so they need not share a cut — not the
+ *     flattering one that they could not share a cut if they tried.
  *
  * ⚠ THE CONSEQUENCE, STATED PLAINLY RATHER THAN HIDDEN: the two scales
  * disagree on `[0.4, 0.6)` and `[0.6, 0.7)`. At `beliefExists = 0.45` the
@@ -75,10 +95,17 @@ export interface EdgeDescription {
  * still says **moderate**. That is a real, reachable copy inconsistency (the
  * EdgePanel existence slider reaches both), and it is a COPY DECISION — which
  * cut is right for prose — not a defect this PR is entitled to settle by
- * picking a number. It is rowed in `CANVAS-BACKLOG.md` with the two windows
- * named. What this constant buys today is that the divergence is NAMED,
- * ADJACENT to the registry it differs from, and asserted in
- * `edgeLabels.spec.ts` — so it can only change on purpose.
+ * picking a number.
+ *
+ * ⚠ AND IT IS NOT ROWED ANYWHERE. An earlier draft of this block said it was
+ * rowed in `CANVAS-BACKLOG.md`; measured against that file (both copies in
+ * `Talchain/olumi-programme-docs`, with a contrast control proving the probe
+ * sees rows S45–S49), no such row exists. A comment that claims a row is worse
+ * than one that admits there is none, because it teaches the next reader to
+ * stop looking. **This block and the test below are the ONLY record of the
+ * decision.** What the constant buys is that the divergence is NAMED, ADJACENT
+ * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
+ * can only change on purpose.
  *
  * The value is unchanged from the bare `0.6` literal that stood here. Nothing
  * about the product's behaviour moves with this constant's introduction.
@@ -145,8 +172,22 @@ export const LABEL_HEDGE_CUT = 0.6
  * `edges.ts:196`, whose only writer (per `analyticalNodeFields.ts:241`) is the
  * DEAD v1 edge inspector. Nothing on the live path writes it. So `belief` was
  * `undefined` on every edge CEE drafts, `confidence` fell to `'uncertain'`, and
- * the qualifier "(uncertain)" was appended to EVERY edge label on the canvas —
- * measured on the 3 Sep 2026 capture: 24 edges, 24 "(uncertain)".
+ * EVERY label this function produced carried the qualifier — measured by
+ * running `describeEdge` over the 3 Sep 2026 capture: 24 edges, 24
+ * "(uncertain)".
+ *
+ * ⚠ THAT FIGURE MEASURES THIS FUNCTION, NOT THE CANVAS, and an earlier draft
+ * said "EVERY edge label on the canvas". How many of the 24 a user saw is NOT
+ * established by the capture and no number for it is asserted here: labels are
+ * gated by `shouldShowEdgeLabel`, which requires a COMPLETED RUN, excludes
+ * structural edges, and then admits only the top-strength persistent set —
+ * capped at `PERSISTENT_LABEL_LIMIT` (3) — plus interaction-driven labels in
+ * Detailed/Model view. "24 of 24 causal edges are structural, so 15 were
+ * painted" is the same over-read one step smaller: it counts non-structural
+ * edges, not painted labels. What IS established, and is all the diagnosis
+ * needs: every label this function returned carried the word, so no painted
+ * label could have escaped it (CLAUDE.md trap 20 — a row minted from this must
+ * restate this scope, not the generalisation).
  *
  * Meanwhile the hover popover in the SAME component resolved
  * `resolveEdgeValueDisplay(edgeData, 'beliefExists')` and rendered
