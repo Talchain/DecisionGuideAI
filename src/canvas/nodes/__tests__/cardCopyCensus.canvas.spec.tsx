@@ -181,6 +181,35 @@ const BASE_META = {
   winRate: null, isResultsMode: false,
 }
 
+/**
+ * ⭐ THE NOT-COMPUTED BRANCH, AND WHY IT IS A BUCKET RATHER THAN A CAVEAT.
+ *
+ * `visibleRuns` excludes `sr-only` text, and a mutant DELETING that exclusion
+ * survived against the first version of this fixture — for a reason worth
+ * writing down: the one invariant sr-only run it reached
+ * (`NodeMetricRow`'s `phrase` on the factor influence row) is byte-identical to
+ * the VISIBLE caption beside it, so the set-dedupe absorbed it and the census
+ * did not move. The exclusion was inert, and an inert filter with a comment
+ * claiming it is load-bearing is a guard agreeing with itself (CLAUDE.md 13c —
+ * an equivalent mutant must be demonstrated, never assumed).
+ *
+ * This branch is what makes it bite. On a run where the simulation produced no
+ * valid samples for any option, all three cards carry the SAME sr-only
+ * sentence — invariant, and different from anything visible. With the exclusion
+ * in place the census records only the visible `Not computed` badge; with it
+ * deleted, a sentence that is already IN a hover-equivalent position would be
+ * reported as repeated card copy, i.e. the fix would read as the defect.
+ *
+ * One reason across all three siblings is the realistic shape, not a contrived
+ * one: `n_valid === 0` is a property of the run, so it fails every option at
+ * once.
+ */
+const NOT_COMPUTED_META = {
+  winRate: null,
+  winComputationFailed: true,
+  winComputationFailedReason: undefined,
+}
+
 type Phase = 'pre' | 'post'
 type ViewMode = 'standard' | 'expert'
 type Rung = 'full' | 'line'
@@ -244,9 +273,11 @@ function visibleRuns(root: HTMLElement): string[] {
   return out
 }
 
-function mountCard(kind: string, id: string, phase: Phase): HTMLElement {
+function mountCard(
+  kind: string, id: string, phase: Phase, metaOverlay: Record<string, unknown> = {},
+): HTMLElement {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-    ...BASE_META, ...(META[id] ?? {}), isResultsMode: phase === 'post',
+    ...BASE_META, ...(META[id] ?? {}), isResultsMode: phase === 'post', ...metaOverlay,
   } as any)
   const node = NODES.find((n) => n.id === id)!
   const Card = COMPONENTS[kind]
@@ -268,12 +299,15 @@ function invariantRuns(perSibling: string[][]): string[] {
   return [...new Set(perSibling[0].filter((run) => perSibling.every((s) => s.includes(run))))].sort()
 }
 
-function censusFor(kind: string, ids: string[], phase: Phase, viewMode: ViewMode, rung: Rung) {
+function censusFor(
+  kind: string, ids: string[], phase: Phase, viewMode: ViewMode, rung: Rung,
+  metaOverlay: Record<string, unknown> = {},
+) {
   applyStore(phase, viewMode, rung)
-  return invariantRuns(ids.map((id) => visibleRuns(mountCard(kind, id, phase))))
+  return invariantRuns(ids.map((id) => visibleRuns(mountCard(kind, id, phase, metaOverlay))))
 }
 
-const BUCKETS: Array<[string, string, string[], Phase, ViewMode, Rung]> = [
+const BUCKETS: Array<[string, string, string[], Phase, ViewMode, Rung, Record<string, unknown>?]> = [
   ['option · pre · standard', 'option', OPTION_IDS, 'pre', 'standard', 'full'],
   ['option · pre · expert', 'option', OPTION_IDS, 'pre', 'expert', 'full'],
   ['option · post · standard', 'option', OPTION_IDS, 'post', 'standard', 'full'],
@@ -293,6 +327,8 @@ const BUCKETS: Array<[string, string, string[], Phase, ViewMode, Rung]> = [
   // Below the legibility floor. Every card is reduced to ONE line here, and
   // this is the rung a real board sits at after "Show whole model" (~0.49), so
   // it is where repeated copy costs the most.
+  // The run that computed nothing — see NOT_COMPUTED_META.
+  ['option · not-computed · standard', 'option', OPTION_IDS, 'post', 'standard', 'full', NOT_COMPUTED_META],
   ['option · pre · lod-line', 'option', OPTION_IDS, 'pre', 'standard', 'line'],
   ['option · post · lod-line', 'option', OPTION_IDS, 'post', 'standard', 'line'],
   ['factor · pre · lod-line', 'factor', FACTOR_IDS, 'pre', 'standard', 'line'],
@@ -389,6 +425,15 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   // factors, NOT wording that says the same thing on every card. The reduced
   // line is already the compact form: one noun, one number, sentence on the
   // `title`. Nothing to move.
+  'option · not-computed · standard': [
+    // ⭐ RESIDUAL, and adjudicated as KEPT. `NOT_COMPUTED_BADGE` is invariant on
+    // every failed option by design — it is the statement of the state, and
+    // `OptionNode`'s own header argues at length for why a word beats silence
+    // here (silence in a row of bars reads as "it came last"). The SENTENCE
+    // that explains the state is already where this lane would have put it:
+    // on the `title` and in sr-only text, neither of which the census counts.
+    'Not computed',
+  ],
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
@@ -451,8 +496,8 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
 
   it('the census is exactly what has been adjudicated — nothing added, nothing silently dropped', () => {
     const measured: Record<string, string[]> = {}
-    for (const [name, kind, ids, phase, viewMode, rung] of BUCKETS) {
-      measured[name] = censusFor(kind, ids, phase, viewMode, rung)
+    for (const [name, kind, ids, phase, viewMode, rung, metaOverlay] of BUCKETS) {
+      measured[name] = censusFor(kind, ids, phase, viewMode, rung, metaOverlay)
     }
     // ⚠ `toEqual` on the WHOLE object, not per bucket: a per-bucket loop with a
     // `?? []` default would pass for a bucket the pinned set forgot, which is
