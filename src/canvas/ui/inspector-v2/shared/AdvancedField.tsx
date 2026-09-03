@@ -51,10 +51,37 @@ export function AdvancedField({
     setLocalValue(String(value ?? ''))
   }, [value])
 
+  /**
+   * ⭐⭐ `isNaN` IS NOT "IS THIS A USABLE NUMBER" — AND THE GAP WAS DRIVEN, NOT
+   * REASONED ABOUT.
+   *
+   * ⚠ REFUTED BY EXECUTION (independent review, 3 Sep 2026). A sibling change
+   * asserted this field "rejects a non-parsing input", and used that to argue a
+   * non-finite goal target was unreachable. Driven with discriminating controls
+   * — `42` commits, `abc` is refused — **`Infinity`, `-Infinity`, `1e400` and
+   * `9e999` ALL COMMITTED.** `parseFloat` returns `±Infinity` for every one of
+   * them, `isNaN(Infinity)` is `false`, and the input is `type="text"` on both
+   * branches below, so there is no browser sanitisation behind this either.
+   * `9e999` is a fat-finger, not an adversarial input.
+   *
+   * What committed then flowed into `goal_threshold_raw` through
+   * `useInspectorMutations.setThreshold`, an unguarded passthrough — so this
+   * one predicate is the reachable source of every non-finite magnitude in the
+   * model. `Number.isFinite` is the question actually being asked, and it is
+   * sign-symmetric where `isNaN` is not.
+   *
+   * ⚠ THE MESSAGE CHANGES WITH THE PREDICATE, DELIBERATELY. `Infinity` IS a
+   * number, so "Must be a number" would now be refusing a value while denying
+   * the reason — the class of copy defect this estate keeps paying for.
+   *
+   * ⚠ SCOPE. `parseFloat` also PREFIX-parses (`'11abc'` → `11`), which is a
+   * separate question about every numeric advanced field and is deliberately
+   * NOT changed here. Rowed, not folded in.
+   */
   const validate = useCallback((raw: string): string | null => {
     if (type !== 'number') return null
     const num = parseFloat(raw)
-    if (isNaN(num)) return 'Must be a number'
+    if (!Number.isFinite(num)) return 'Must be a finite number'
     if (min != null && num < min) return `Min: ${min}`
     if (max != null && num > max) return `Max: ${max}`
     return null
@@ -80,8 +107,12 @@ export function AdvancedField({
         setError(err)
         return
       }
+      // ⚠ MOVES IN STEP WITH `validate` ABOVE, AND MUST. This is the same
+      // question asked a second time; leaving it on `isNaN` would make the
+      // commit guard and the validator disagree about what a number is — one
+      // name, two predicates, which is the defect one level up.
       const num = parseFloat(localValue)
-      if (!isNaN(num)) onChange(num)
+      if (Number.isFinite(num)) onChange(num)
     } else {
       onChange(localValue)
     }
