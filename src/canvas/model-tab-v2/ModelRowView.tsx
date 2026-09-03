@@ -268,8 +268,32 @@ export function ModelRowView({
            the earlier "escape 0" measurement does not cover this one.
 
            The trade is kept, deliberately: a row that stays inside the dock with
-           an unreadable pill beats a row that leaves the dock, and the pill's
-           content is on the node itself. **But the principle above forbids what
+           an unreadable pill beats a row that leaves the dock, and the datum is
+           recoverable ON THIS ROW.
+
+           ⚠⚠ THAT CITATION WAS WRONG ONCE AND THE CORRECTION IS THE POINT. It
+           read "the pill's content is on the node itself". **False, measured:**
+           this pill renders `row.provenanceSource` = the node's
+           `observed_state.source` (`adapters.ts:461`), classified over twelve
+           literals (`valueProvenance.ts:145-172`); the canvas node renders
+           `NodeProvenanceMark` over `data.provenance`, which recognises exactly
+           three (`valueProvenance.ts:311-318`). **Disjoint fields, disjoint
+           vocabularies** — an absence sweep of `src/canvas/nodes/` returns ZERO
+           for `observed_state.source` and `classifyValueProvenance` while the
+           contrast controls (`observedState?.value` ×10, `classifyNodeProvenance`
+           imported and called) fire. So the node does NOT carry this datum.
+
+           The real carrier is `ModelDetailRegion.tsx:377`, which renders the
+           provenance content for `row.provenanceSource` when the row is
+           expanded — the SAME row, one interaction away, no canvas trip. The
+           conclusion is unchanged and the reason for it is now true.
+
+           ⭐ Note what the false version did: it discharged the "sole carrier"
+           half of the bound by pointing at a surface that renders a DIFFERENT
+           field under a similar name. Two provenance concepts, one word, and
+           the citation was never checked because it sounded right — this
+           estate's signature defect, committed inside the comment written to
+           bound a principle. **But the principle above forbids what
            was just done, so it is now bounded rather than left standing as a
            rule this file breaks:** the unacceptable case is an atom squeezed to
            nothing AND carrying information available nowhere else. This pill
@@ -372,8 +396,21 @@ export function ModelRowView({
           6rem) → the primary VALUE (never shrinks) → the estimate HINT → the
           provenance pill → THIS. An Advanced-tier debug token is the right
           thing to lose: the DOM text stays whole, so selection and copy still
-          yield the full id, and `title` names it — a signalled, recoverable
-          loss, which is this file's own stated rule.
+          yield the full id, and `title` names it — a recoverable loss, which is
+          this file's own stated rule.
+
+          ⚠ "SIGNALLED" WAS STRUCK FROM THAT SENTENCE, and the block below says
+          why: at the 280px floor no ellipsis renders, so nothing signals it.
+          The word is corrected HERE rather than only two paragraphs down,
+          because a reader who stops at this sentence must not carry away the
+          claim the next block withdraws.
+
+          ⚠ AND `title` IS THE ONE ROUTE A KEYBOARD OR TOUCH USER CANNOT TAKE:
+          it sits on a `<span>` with no `tabIndex` (0 in this file; contrast: 8
+          `aria-label`), so it is mouse-hover only. The recovery that survives
+          every input mode is the whole `{row.id}` in the DOM — assistive tech
+          and copy reach it. Listing `title` first was misleading about which
+          route is load-bearing.
 
           ⚠⚠ THE "DISCLOSED LOSS" CLAIM WAS FALSE AT THE ONE WIDTH IT MATTERS,
           AND THE WAY IT WAS FALSE IS WORSE THAN BEING WRONG EVERYWHERE. It read
