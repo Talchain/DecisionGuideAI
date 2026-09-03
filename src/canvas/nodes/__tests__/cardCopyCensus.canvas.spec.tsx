@@ -906,18 +906,26 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // of the hand calls — the manifest is the only place the number lives, and
     // it is read, never restated.
     //
-    // ⚠ SWEEPS THE PROSE, NOT THE CODE, AND THE FIRST CUT DID NOT. Run over the
-    // raw file it fired on its OWN explanatory comment and its OWN positive
-    // control — a rule that cannot tell a USE from a MENTION reads your
-    // explanation as the offence, which `metricNounVocabulary.canvas.spec.ts`
-    // records hitting in this same directory. Comments are stripped (the doc
-    // block is where the defect lived, and it is prose either way), and the
-    // control's phrase is assembled at runtime so the banned wording never
-    // appears verbatim in source.
+    // ⚠⚠ IT SWEEPS THE COMMENTS, AND TWO EARLIER CUTS OF THIS GOT IT WRONG IN
+    // OPPOSITE DIRECTIONS — which is the whole lesson of the row.
+    //
+    //   cut 1 swept the RAW file and fired on its own explanatory comment and
+    //     its own positive control: a rule that cannot tell a USE from a
+    //     MENTION reads your explanation as the offence
+    //     (`metricNounVocabulary.canvas.spec.ts` records hitting this in the
+    //     same directory);
+    //   cut 2 "fixed" that by STRIPPING COMMENTS — and a mutant restating the
+    //     tally in the scope note SURVIVED, green. The scope note IS a comment.
+    //     The guard had been made blind to the only place the defect has ever
+    //     occurred, and its own comment said so ("the doc block is where the
+    //     defect lived") while the code did the opposite.
+    //
+    // ⛔ SO THE DISCRIMINATOR IS USE-vs-MENTION, NOT CODE-vs-COMMENT. A tally
+    // inside quotation marks is a QUOTATION of the historic defect; a bare one
+    // is an assertion. Quoted spans are removed and everything else — comments
+    // included, because prose is where this lives — is swept.
     const raw = readFileSync(path.resolve(__dirname, 'cardCopyCensus.canvas.spec.tsx'), 'utf8')
-    const source = raw
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '')
+    const source = raw.replace(/"[^"\n]*"/g, '""')
     const TALLY = /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:of\s+them\s+)?(?:are|is|rows?|positions?)?\s*(?:are\s+)?decided\s+by\s+hand/i
     const offenders = source.split('\n')
       .map((line, i) => ({ line, i }))
@@ -932,8 +940,14 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // …and it must NOT fire on the manifest's own rows, or it would ban the
     // classification itself rather than a count of it.
     expect(TALLY.test("by: 'hand',")).toBe(false)
-    // …and the stripper must actually have stripped, or `source` is `raw` and
-    // the comment exclusion above is doing nothing.
-    expect(source.length, 'stripComments removed nothing').toBeLessThan(raw.length * 0.75)
+    // ⭐ THE ARM THAT CUT 2 DELETED. The sweep must reach COMMENT PROSE — that
+    // is the only place this defect has ever occurred — so a doc-block line is
+    // asserted to be visible to it. Without this the guard passes while blind.
+    expect(source, 'the sweep is not reading the doc block').toContain('THE CENSUS')
+    expect(source.split('\n').length, 'the sweep lost lines').toBe(raw.split('\n').length)
+    // …and the quote-stripper must actually strip, or the use/mention rule is
+    // inert and the historic quotations would RED.
+    expect(raw).toContain('"Four are decided BY HAND"')
+    expect(source, 'quoted mentions are not being neutralised').not.toContain('"Four are decided BY HAND"')
   })
 })
