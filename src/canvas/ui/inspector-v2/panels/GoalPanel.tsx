@@ -407,9 +407,23 @@ export const GoalPanel = memo(function GoalPanel({
           ) : (
             <div>
               <GoalThresholdEditor unit={scaleSafeUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
-              <p className={`${typography.panelMeta} text-info mt-1.5`}>
-                {GOAL_CONSTRAINT_COPY.targetUnlocks}
-              </p>
+              {/* ⚠ "Adding a specific target unlocks probability calculations."
+                  is TRUE only while there are none. It used to be unreachable
+                  whenever the pipeline held a number, because that state
+                  rendered the readout; routing the DIVERGENT arm here (store
+                  holds a number, node holds no captured target) would have made
+                  this sentence newly reachable beside a run that HAS produced
+                  probabilities — a fresh false claim bought with the fix for
+                  another one, which is the trade this PR exists to refuse.
+                  `targetDisplay == null` is exactly "the pipeline holds no
+                  number", so it is the condition the sentence is true under.
+                  The editor stands alone on the divergent arm and claims
+                  nothing: it carries its own label and placeholder. */}
+              {targetDisplay == null && (
+                <p className={`${typography.panelMeta} text-info mt-1.5`}>
+                  {GOAL_CONSTRAINT_COPY.targetUnlocks}
+                </p>
+              )}
             </div>
           )}
 

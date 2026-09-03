@@ -62,6 +62,7 @@ import { useAuth } from '../../../../contexts/AuthContext'
 import { selectGoalProbability } from '../../../../components/results/utils/selectGoalProbability'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { GOAL_CONSTRAINT_COPY, GOAL_STRINGS } from '../inspectorStrings'
+import { canCaptureGoalTarget } from '../../../domain/goalTarget'
 import { mapV5AnalysisToReport } from '../../../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
@@ -71,11 +72,48 @@ vi.mock('../../../../contexts/AuthContext', async (importOriginal) => {
 })
 
 const REAL_AUTH = { authenticated: true, user: { id: 'u-123', email: 'real@user.io' } }
+
+/**
+ * ⛔ THE PRECONDITION, PINNED IN-TEST. §4.2 renders its readout only when the
+ * goal has a CAPTURED target; on the divergent arm it renders the editor
+ * instead. Every readout assertion in this file is therefore conditional on
+ * this fact, and a guard whose precondition is not asserted is a guard that can
+ * stop discriminating without going red.
+ */
+function assertHasCapturedTarget() {
+  expect(canCaptureGoalTarget(GOAL_NODE.data)).toBe(false)
+}
+
+/**
+ * ⚠⚠ THIS NODE CARRIES A CAPTURED TARGET, AND IT HAD TO BE ADDED (#1172 round 2).
+ *
+ * Every test in this file is about the POSSESSIVE GATE on a goal that HAS a
+ * target — "a REAL probability_of_goal", "the CONSTRAINED joint basis". The
+ * fixture only ever set the STORE scalar (`goalThreshold: 0.8`) and left the
+ * node empty, because before this PR the store scalar WAS the entire gate on
+ * §4.2: nothing read the node, so nothing noticed the node said no target.
+ *
+ * That made the fixture the DIVERGENT arm — store holds a number, node holds
+ * nothing — which is exactly the state whose dead end #1172 exists to close:
+ * the canvas chip says "Target not captured — add one" and §4.2 answered
+ * "Success means reaching ≥ 0.8" with nothing to press. §4.2 now routes that
+ * arm to `GoalThresholdEditor`, so the readout is correctly absent there.
+ *
+ * The repair is to the FIXTURE, not to the gate: these tests name a goal with a
+ * target, so the node is given one. Nothing is relaxed — all thirteen
+ * assertions are unchanged and all thirteen still run on the readout branch
+ * they were written for. `assertHasCapturedTarget` below pins that, so the
+ * fixture cannot silently drift back onto the divergent arm and quietly stop
+ * exercising this file's subject (CLAUDE.md trap 13b).
+ */
 const GOAL_NODE = {
   id: 'goal1',
   type: 'goal',
   position: { x: 0, y: 0 },
-  data: { label: 'Grow Annual Revenue to £6,000,000' },
+  data: {
+    label: 'Grow Annual Revenue to £6,000,000',
+    goal_threshold_raw: 0.8,
+  },
 }
 
 /**
@@ -136,6 +174,7 @@ function recordOf(report: Record<string, unknown>) {
 }
 
 function setStore(report: Record<string, unknown>) {
+  assertHasCapturedTarget()
   const state = useCanvasStore.getState()
   useCanvasStore.setState({
     ...state,
@@ -289,6 +328,7 @@ describe('GoalPanel — possessive gate on a substituted joint goal figure (2.28
  */
 describe('GoalPanel — the Constraints-section restatement (ROADMAP 2.283, real shape)', () => {
   function setStoreWithConstraints(report: Record<string, unknown>) {
+    assertHasCapturedTarget()
     const state = useCanvasStore.getState()
     useCanvasStore.setState({
       ...state,

@@ -56,6 +56,7 @@ import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
 import { applyAnalysisReadyPatch } from '../../../conversation/utils/mirrorAnalysisReady'
 import { canCaptureGoalTarget } from '../../../domain/goalTarget'
+import { GOAL_CONSTRAINT_COPY } from '../inspectorStrings'
 import type { CEEAnalysisReady } from '../../../../adapters/cee/types'
 
 vi.mock('../../../../contexts/AuthContext', async (importOriginal) => {
@@ -208,6 +209,44 @@ describe('the goal panel answers the chip’s promise on every payload the chip 
 
     const { container } = renderPanel()
     expect(editorIn(container)).not.toBeNull()
+  })
+})
+
+describe('the editor the promise leads to may not claim there are no probabilities', () => {
+  /**
+   * ⚠ THE FALSE CLAIM THE FIX ITSELF COULD HAVE BOUGHT. "Adding a specific
+   * target unlocks probability calculations." is true only while there are
+   * none. It sits under `GoalThresholdEditor`, and before this change it was
+   * UNREACHABLE whenever the pipeline held a number, because that state
+   * rendered the readout instead. Routing the divergent arm to the editor made
+   * it newly reachable beside a run that HAS produced probabilities.
+   *
+   * Trading one false sentence for another is exactly what this PR exists to
+   * refuse (CLAUDE.md trap 23 — killing the symptom while the defect survives
+   * one element to the left), so the line is gated on the condition it is true
+   * under: the pipeline holds no number at all.
+   */
+  it('⛔ the divergent arm gets the editor WITHOUT the "unlocks probability calculations" claim', () => {
+    useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.8 }))
+    // The divergence, pinned: store holds a number, the node holds no target.
+    expect(useCanvasStore.getState().goalThreshold).toBe(0.8)
+    expect(canCaptureGoalTarget(goalData())).toBe(true)
+
+    const { container } = renderPanel()
+    const text = container.textContent ?? ''
+    expect(editorIn(container)).not.toBeNull()
+    expect(text).not.toContain(GOAL_CONSTRAINT_COPY.targetUnlocks)
+  })
+
+  it('CONTRAST — with NO number anywhere the claim is true, and is made', () => {
+    // Without this the assertion above is satisfied by copy that was deleted
+    // outright rather than gated (trap 13).
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+    expect(canCaptureGoalTarget(goalData())).toBe(true)
+
+    const { container } = renderPanel()
+    expect(editorIn(container)).not.toBeNull()
+    expect(container.textContent ?? '').toContain(GOAL_CONSTRAINT_COPY.targetUnlocks)
   })
 })
 
