@@ -17,12 +17,28 @@
  * mount. Whether the notice's button can still move the camera out of that state
  * is exactly the open question.
  *
- * ⭐ THIS FILE MEASURES; IT DOES NOT JUDGE.
- * Every arm emits one `SWMJSON` line and the only hard failures are INSTRUMENT
- * failures — a pane that cannot render, a starter that did not seed, a restore
- * that restored nothing. A product assertion here would abort the run on the
- * first bad arm and cost the other nineteen. The verdict is computed from the
- * emitted rows afterwards, where a non-reproduction is as reportable as a defect.
+ * ⭐ THIS FILE MEASURES; IT MOSTLY DOES NOT JUDGE.
+ * Every arm emits one `SWMJSON` line, and almost every hard failure is an
+ * INSTRUMENT failure — a pane that cannot render, a starter that did not seed, a
+ * restore that restored nothing. The verdict is computed from the emitted rows
+ * afterwards, where a non-reproduction is as reportable as a defect.
+ *
+ * ⚠⚠ CORRECTED — THIS PARAGRAPH SAID "the only hard failures are INSTRUMENT
+ * failures" AND THAT WAS FALSE AT ITS OWN BYTES. Of this file's 12 `expect(`
+ * calls, the one at the `after.outsideVisible ... toEqual([])` assertion below
+ * (search `left ${after.outsideVisible.length}`) is a PRODUCT VERDICT: it fails
+ * the arm when "Show whole model" leaves model nodes outside the visible canvas.
+ * It is pre-existing and it is deliberate — but it means the design rule stated
+ * here does not describe the file, and a reader who trusted this sentence would
+ * conclude no arm here can ever red on the product. It can.
+ * The sentence stays visible rather than being quietly rewritten, because a
+ * docblock that once misdescribed its own assertions is the thing the next
+ * reader needs warned about (CLAUDE.md trap 14b: an honest label overwritten is
+ * how the record stops meaning anything). ⭐ AND THE GENERAL LESSON, paid for
+ * twice in this change set: AN ENTRY WRITTEN FROM A DOCBLOCK RATHER THAN FROM
+ * THE ASSERTIONS IS A PERFECT SCORE ON THE WRONG EXAM (trap 13c). This header
+ * was the source for this file's `DELIBERATE_EXCLUSIONS` entry, and it carried
+ * its error straight into the registry.
  *
  * ⭐ THE INSTRUMENT IS ASSERTED FIRST, EVERY ARM (CLAUDE.md trap 13).
  * `assertPaneCanRenderGeometry` is reproduced from

@@ -240,24 +240,107 @@ export const GATED_TESTS: readonly GatedTest[] = [
   })) as GatedTest[]),
 
   ...([
-    { title: 'GHOST doors are visible and focusable — vendor-selection', what: 'the FRESH-DRAFT class, per starter' },
-    { title: 'GHOST doors are visible and focusable — market-entry', what: 'the FRESH-DRAFT class, per starter' },
-    { title: 'GHOST doors are visible and focusable — build-vs-buy', what: 'the FRESH-DRAFT class, per starter' },
-    { title: 'GHOST doors are visible and focusable — headcount-allocation', what: 'the FRESH-DRAFT class, per starter' },
-    { title: 'GHOST doors are visible and focusable — pricing-model', what: 'the FRESH-DRAFT class, per starter' },
+    {
+      title: 'GHOST doors are visible and focusable — vendor-selection',
+      what: 'the FRESH-DRAFT class, per starter',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
+    },
+    {
+      title: 'GHOST doors are visible and focusable — market-entry',
+      what: 'the FRESH-DRAFT class, per starter',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
+    },
+    {
+      title: 'GHOST doors are visible and focusable — build-vs-buy',
+      what: 'the FRESH-DRAFT class, per starter',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
+    },
+    {
+      title: 'GHOST doors are visible and focusable — headcount-allocation',
+      what: 'the FRESH-DRAFT class, per starter',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
+    },
+    {
+      title: 'GHOST doors are visible and focusable — pricing-model',
+      what: 'the FRESH-DRAFT class, per starter',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
+    },
     {
       title: 'GHOST doors SURVIVE a completed analysis in Standard view — Paul, 1 Sep 2026',
       what: 'THE OPPOSITE DIRECTION, and a ruling. Bound as an EQUALITY to the pre-analysis count, ' +
         'so a PARTIAL withdrawal — some tiers surviving, others vanishing — cannot pass as "still present"',
+      controls:
+        '⭐ ITS CONTROL, WHICH IS A DIFFERENT ONE AND IS THE RIGHT ONE FOR THIS ARM: A PRECONDITION ' +
+        'PIN. `expect(before).toBeGreaterThan(0)` asserts a door was actually placed before the ' +
+        'state change — without it, zero doors before and zero after is a happy-looking equality ' +
+        'that proves nothing (CLAUDE.md trap 13b). ' +
+        '⚠ IT DOES NOT CARRY THE POSITIVE CONTROL, THE LIVELOCK COUNTER OR THE ' +
+        'SUPPRESSED-TOO-MUCH CONTROL, and this entry claimed all three of it until it was read at ' +
+        'the bytes. It does not need them: it counts DOM presence across a state change rather ' +
+        'than reading visibility, so a blind visibility reader is not a failure mode it has. The ' +
+        'error was structural — one `catches` string `.map`ed over eight arms with different ' +
+        'bodies CANNOT be true of all of them, which is a hand-maintained mirror created by the ' +
+        '`.map` itself (CLAUDE.md trap 12). Each arm now states its own.',
     },
     {
       title: 'GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not applyDraftResult',
       what: 'a DIFFERENT SEED PATH. A fresh-draft witness is not evidence about `applyStarter`',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
     },
     {
       title: 'GHOST doors are visible in the RESTORED class — a saved example after a real reload',
       what: 'the RESTORED state class, where `layoutVersion` stays 0 and both fit triggers are latched off. ' +
         'The fixture state-class rule: a seeded session is not evidence about a reloaded one',
+      controls:
+        '⭐ ITS CONTROLS, TRUE OF THIS ARM: A POSITIVE CONTROL — the probe is shown a deliberately ' +
+        'hidden clone of a real door, in the same DOM, through the same reader, and must call it ' +
+        'hidden and unfocusable; without that, "everything reads visible" is also what a blind ' +
+        'probe says. A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing ' +
+        'appearance: a door can be visible at rest and still be re-measured hundreds of times a ' +
+        'second. AND A SUPPRESSED-TOO-MUCH CONTROL: real nodes must still persist their measured ' +
+        'dimensions.',
     },
   ].map((arm) => ({
     file: 'ghostDoorVisibility.measure.ts',
@@ -269,13 +352,7 @@ export const GATED_TESTS: readonly GatedTest[] = [
       `whose box never changed). This arm covers ${arm.what}. ` +
       'jsdom was GREEN throughout the entire period the doors were invisible, BY CONSTRUCTION: ' +
       'it has no layout, `innerText` is not layout-aware there, and `.focus()` succeeds on ' +
-      'elements a browser refuses to focus. ' +
-      '⭐ IT CARRIES ITS OWN POSITIVE CONTROL — the probe is shown a deliberately hidden clone ' +
-      'of a real door, in the same DOM, through the same reader, and must call it hidden and ' +
-      'unfocusable; without that, "everything reads visible" is also what a blind probe says. ' +
-      'AND A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing appearance: a ' +
-      'door can be visible at rest and still be re-measured hundreds of times a second. ' +
-      'AND a suppressed-too-much control: real nodes must still persist their measured dimensions.',
+      `elements a browser refuses to focus. ${arm.controls}`,
   })) as GatedTest[]),
 
   {
@@ -306,12 +383,26 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'restated) — the mirror case, where a layout computed while LOD is ON reserves the shorter ' +
       'height and zooming back in pushes a card into the row beneath. One direction alone is a ' +
       'guard watching one door (CLAUDE.md trap 22b). ' +
-      '⭐ AND ITS CONTROLS DISCRIMINATE: a POSITIVE one (`--canvas-label-scale` and the computed ' +
-      'title font-size MUST change across the series, or the probe never exercised the ' +
-      'mechanism); a CONTRAST one (an element OUTSIDE the React Flow subtree must NOT change, or ' +
-      'the probe is measuring a page re-render); a non-vacuity one ("NO card changed height ' +
+      '⭐ AND ITS TWO ASSERTED CONTROLS DISCRIMINATE: a non-vacuity one ("NO card changed height ' +
       'across the LOD threshold" REDs, because a comparison that discriminates nothing cannot ' +
       'report "nothing grew"); and a completeness one (every requested zoom was visited). ' +
+      '⚠⚠ AND TWO MORE THAT THIS ENTRY CLAIMED AND THE FILE DOES NOT ASSERT — CORRECTED AT THE ' +
+      'BYTES, THE SAME DEFECT AS `boundIsZoomInvariant` ABOVE AND FROM THE SAME DOCBLOCK ' +
+      '(`heightVsZoom.measure.ts:9-15`). The draft named a POSITIVE control ' +
+      '(`--canvas-label-scale` and the computed title font-size "MUST change across the ' +
+      'series") and a CONTRAST control (an element outside the React Flow subtree "must NOT ' +
+      'change"). The file has exactly 7 `expect(` calls — 315, 316, 330, 334, 354, 366, 367 — ' +
+      'and NONE of them references `labelScale`, `titleFont`, `outsideFont` or ' +
+      '`distinctScalesHeld`. All four are COMPUTED AND PRINTED into the `HZJSON` blob and never ' +
+      'asserted, so they are REPORTED DIAGNOSTICS, not controls: they will tell a human reading ' +
+      'the log that the mechanism was exercised, and they will not fail the arm if it was not. ' +
+      '(The negative is not this registry being blind — `labelScale` greps 3 hits in the file, ' +
+      'so the probe can see the symbol; it is simply never inside an `expect`.) ' +
+      '⭐ ONE ERROR CORRECTED IN A DOCBLOCK MEANS THE NEXT TWO SENTENCES NEED THE SAME CHECK. ' +
+      'The `boundIsZoomInvariant` correction above was made from this same docblock and the two ' +
+      'claims immediately following it were carried through unchecked. Promoting these two to ' +
+      'real assertions is a reasonable next step and is deliberately NOT taken here: it would ' +
+      'change what this arm REDs on, which needs its own base sweep. ' +
       '⚠ ITS DETECTION FLOOR IS MEASURED, NOT ASSUMED — `text-3xl` on the LOD title boost is a ' +
       'DEMONSTRATED equivalent mutant (at 30px the card lands level with its LOD-off self, so ' +
       'there is no harm to detect), and it REDs from `text-5xl` up. That floor is not a weakness, ' +
@@ -377,15 +468,71 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
   {
     what: 'savedExampleShowWholeModel.measure.ts (20 arms, ~200s darwin — the single most expensive file here)',
     why:
-      'EXCLUDED ON CLAIM TYPE FIRST, COST SECOND, and the order matters because the cost alone ' +
-      'would be a weaker reason. Its header is explicit: "THIS FILE MEASURES; IT DOES NOT ' +
-      'JUDGE ... the only hard failures are INSTRUMENT failures ... A product assertion here ' +
-      'would abort the run on the first bad arm and cost the other nineteen." That design is ' +
-      'right for what it is for — a before/after sweep where a NON-reproduction is as ' +
-      'reportable as a defect — and wrong for a merge gate. ⭐ ITS TWO INSTRUMENT DEFECTS ARE ' +
-      'FIXED IN THIS COMMIT ANYWAY (the overlay-band blindness and the settle latch, below): ' +
-      'an ungated measure whose numbers are systematically wrong still misleads every lane that ' +
-      'reads them, and a before/after built on a biased instrument is not a comparison.',
+      'EXCLUDED ON COST. ~200s darwin, the single most expensive file here, against a gate ' +
+      'budget (below) that has ~245s of headroom under the tightest observed critical path — ' +
+      'admitting it would spend nearly all of that on one file. ' +
+      '⚠⚠ THIS ENTRY PREVIOUSLY READ "EXCLUDED ON CLAIM TYPE FIRST, COST SECOND, and the order ' +
+      'matters because the cost alone would be a weaker reason", and QUOTED THIS FILE\'S HEADER ' +
+      'as its authority: "the only hard failures are INSTRUMENT failures". THE HEADER IS FALSE ' +
+      'AND THE ORDERING WAS UNSUPPORTED. Read at the bytes: the file has 12 `expect(` calls and ' +
+      'one of them — the `after.outsideVisible ... toEqual([])` assertion — is a PRODUCT ' +
+      'verdict, on the SAME property as the `showWholeModel` arm below. It is pre-existing and ' +
+      'identical at the base. So "same claim type as the other measures" was simply not true of ' +
+      'this file, and the honest reason is the one now stated: cost. The header has been ' +
+      'corrected in place with the error left visible. ' +
+      '⚠ WHAT IS STILL NOT ESTABLISHED, said plainly rather than implied: whether this file is ' +
+      'GREEN AT THE BASE was never measured, so admitting it later needs that sweep first — ' +
+      'this entry does not claim it would pass. ' +
+      '⭐ THE GENERATOR, because it produced three errors in this change set and not one: AN ' +
+      'ENTRY WRITTEN FROM A DOCBLOCK RATHER THAN FROM THE ASSERTIONS IS AN ORACLE WRITTEN FROM ' +
+      'THE WRONG SOURCE (CLAUDE.md trap 13c). Every entry in this file must be checked against ' +
+      '`expect(` calls, not against prose — including prose in the file it describes. ' +
+      '⭐ ITS TWO INSTRUMENT DEFECTS ARE FIXED IN THIS COMMIT ANYWAY (the overlay-band ' +
+      'blindness and the settle latch, below): an ungated measure whose numbers are ' +
+      'systematically wrong still misleads every lane that reads them, and a before/after built ' +
+      'on a biased instrument is not a comparison.',
+  },
+
+  {
+    what: "showWholeModel.measure.ts (2 arms) — 'the user's overview survives a re-layout of the same model' and its opposite-direction twin",
+    why:
+      '⚠⚠ WITHDRAWN: THIS WAS RECORDED HERE AS "RED AT THE BASE — A REAL RED, AND THE MOST ' +
+      'VALUABLE THING THIS ADMISSION ROUND FOUND", REPORTING 11 (then 12) OF 19 MODEL NODES ' +
+      'OUTSIDE THE VISIBLE CANVAS AFTER A FORCED RE-LAYOUT. THERE IS NO SUCH PRODUCT DEFECT. ' +
+      'THE RED WAS THIS HARNESS\'S OWN, AND IT IS FIXED IN THIS COMMIT. ' +
+      'The arm drove `applyLayout({ skipHistory: true })` under a comment claiming to reproduce ' +
+      '`useMeasureThenLayout`\'s corrective pass. It does not: all four production call sites ' +
+      '(`useMeasureThenLayout.ts:129,158,176,210`) pass ' +
+      '`{ skipHistory: true, initiatedBy: \'product\' }`, `store.ts:4050` defaults the omitted ' +
+      'option to `\'user\'`, and `useFitViewOnLayoutVersion.ts:317-320` reads it as ' +
+      '`layoutWasAutomatic = initiatedBy === \'product\'`, returning early only when that AND ' +
+      '`userOwnsCameraFor(currentModelKey())` hold. Omitting the option therefore exercised the ' +
+      'USER-INITIATED branch, where `releaseUserCameraClaim(); fitNow()` is the SPECIFIED ' +
+      'behaviour that Auto-arrange and the command palette depend on. ' +
+      '⭐ THE RED WAS ITS OWN REFUTATION, WHICH IS THE PART WORTH KEEPING: for the arm to fail, ' +
+      '`fitNow()` must have run; for `fitNow()` to run, the guard must not have applied; and the ' +
+      'guard would have applied had the call carried the argument production carries. ' +
+      '⭐ MEASURED, NOT ARGUED: with `initiatedBy: \'product\'` passed, BOTH arms pass — ' +
+      '`showWholeModel.measure.ts` 2 passed (36.5s), darwin, `playwright.geometry.config.ts`, ' +
+      'machine load ~5. Before: RED at 11->12 of 19 outside. After: GREEN. ' +
+      '⚠ SCOPE OF THAT NUMBER, because a local darwin run is not CI: it is one draw on one ' +
+      'machine, and it is offered as the before/after for THIS correction, not as a green-at-base ' +
+      'sweep. ' +
+      '⭐ WHY IT IS STILL NOT GATED, and this is a DECISION rather than an oversight: admitting ' +
+      'it would take the gate from 23 named arms to 25 and needs its own base sweep and budget ' +
+      're-derivation, which is a separate change from correcting a false record. It is now a ' +
+      'STRONG candidate — real assertions in both directions, preconditions pinned, and as of ' +
+      'this commit the guard\'s own precondition pinned IN the arm — and the next admission ' +
+      'round should take it. ' +
+      '⭐ THE GENERATOR, named so it is not repeated: THE HARNESS COPIED ONE ARGUMENT AND ' +
+      'DROPPED THE DISCRIMINATING ONE. `useFitViewOnLayoutVersion.ts:312` warns in terms that ' +
+      '`initiatedBy` is "a NEW EXPLICIT OPTION on `applyLayout`, never a second meaning for ' +
+      '`skipHistory`" — the exact confusion that comment exists to prevent, committed by a ' +
+      'fixture written from the production code\'s SHAPE rather than its BYTES (CLAUDE.md trap ' +
+      '16-inverse: a fixture you wrote yourself is not evidence about the wire). The arm now ' +
+      'asserts `lastLayoutInitiatedBy === \'product\'` and that the model identity is unchanged ' +
+      'immediately after the layout, so the same mistake REDs on the precondition line naming the ' +
+      'harness, instead of arriving two assertions later dressed as a product defect.',
   },
 
   /*
@@ -396,29 +543,31 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
    * 87 passed / 32 failed / 17.9m. These are FINDINGS, and they are rowed in
    * the PR rather than silently absorbed — a red nobody rowed is how a standing
    * red starts.
+   *
+   * ⚠⚠ AND THE 32 IS A COUNT OF REDS, NOT A COUNT OF PRODUCT DEFECTS — ONE OF
+   * THEM HAS ALREADY TURNED OUT TO BE THIS HARNESS'S OWN. `showWholeModel`'s
+   * first arm was in that 32 and was written up here as the round's most
+   * valuable finding; it was refuted at the bytes and is withdrawn above. The
+   * sweep's other 31 reds are UNDIAGNOSED — this lane did not open them — so
+   * the honest reading of the number is "31 arms whose cause is unknown, of
+   * which some unknown share are harness artefacts of the same class". A red at
+   * the base can be a product defect, a stale expectation, a darwin-only
+   * artefact, or a fixture that does not reproduce what its comment says it
+   * reproduces, and the last of those is now a MEASURED member of this set
+   * rather than a hypothetical one.
    */
-  {
-    what: "showWholeModel.measure.ts — 'the user's overview survives a re-layout of the same model' (RED at the base)",
-    why:
-      '⚠ A REAL RED, AND THE MOST VALUABLE THING THIS ADMISSION ROUND FOUND. At `bd18bace` it ' +
-      'reports 11 of 19 model nodes outside the visible canvas after a forced re-layout of the ' +
-      'SAME model — i.e. "Show whole model" does not survive a corrective layout pass at the ' +
-      'current tip. ⭐ AND IT IS NOT THE SETTLE-LATCH DEFECT: the latch was fixed first and the ' +
-      'arm was re-run, which is the only way to tell a false red from a true one. It moved ' +
-      '11 -> 12 of 19, and the extra node is the overlay-band fix correctly counting an ' +
-      'occlusion the old frame was blind to. Its opposite-direction twin ("a NEW model is still ' +
-      'framed by the product") PASSES, so this is one direction failing, not a broken file. ' +
-      'It is a strong future gate arm — real assertions, both directions, preconditions pinned ' +
-      '— and it is admissible the day the product change lands, not before.',
-  },
   {
     what: 'analysisAnswerFirst.measure.ts (2 arms), decisionNodeHittest.measure.ts (29 arms), viewportRestoreFit.measure.ts (1 of 3 arms), zoomLadder.measure.ts (RED at the base)',
     why:
       'Same rule. Measured at `bd18bace`: 32 of the directory\'s 119 arms fail at pristine and ' +
-      'these are the rest of them. ⚠ NAMED RATHER THAN SUMMARISED, because "some measures are ' +
-      'red" is the kind of sentence that stops anyone looking. Nothing here is a claim about ' +
-      'WHY they are red — a red at the base can be a product defect, a stale expectation or a ' +
-      'darwin-only artefact, and this lane did not diagnose them. Rowed in the PR.',
+      'these are the other 31 of them, the 32nd having been the withdrawn `showWholeModel` arm ' +
+      'above. ⚠ NAMED RATHER THAN SUMMARISED, because "some measures are red" is the kind of ' +
+      'sentence that stops anyone looking. Nothing here is a claim about WHY they are red — a ' +
+      'red at the base can be a product defect, a stale expectation, a darwin-only artefact or a ' +
+      'harness fixture that does not reproduce what it claims to, and this lane did not diagnose ' +
+      'them. ⚠ TREAT THEM AS UNDIAGNOSED IN BOTH DIRECTIONS: the one arm in this sweep that WAS ' +
+      'diagnosed turned out to be the harness, so "red at the base" must not be read as "product ' +
+      'defect at the base" for any of the rest either. Rowed in the PR.',
   },
 
   /*

@@ -173,6 +173,49 @@ function ghostPrefix(): string {
 }
 
 /**
+ * THE MODEL'S STRUCTURAL IDENTITY — the same inputs `currentModelKey()` is
+ * derived from, and deliberately not a re-implementation of the hash.
+ *
+ * `graphNeedsInitialLayout.ts:64-71` builds `structuralHash` from
+ * `nodes.map(n => n.id).sort()` and the sorted edge identities, and from
+ * nothing else — POSITIONS ARE NOT IN IT, which is precisely why a corrective
+ * re-layout of the same model leaves the key unchanged and the user's camera
+ * claim standing. Returning the two sorted lists rather than a recomputed hash
+ * keeps this a READ of the product's inputs: if the product ever starts keying
+ * on something else, this helper does not silently agree with a hash it
+ * computed itself (CLAUDE.md trap 12 — derive, don't mirror).
+ */
+async function modelIdentity(page: Page): Promise<{ nodeIds: string[]; edgeIds: string[] }> {
+  return await page.evaluate(() => {
+    const w = window as unknown as {
+      useCanvasStore: {
+        getState: () => {
+          nodes: Array<{ id: string }>
+          edges: Array<{
+            id?: string
+            source?: string
+            target?: string
+            sourceHandle?: string | null
+            targetHandle?: string | null
+          }>
+        }
+      }
+    }
+    const st = w.useCanvasStore.getState()
+    return {
+      nodeIds: st.nodes.map((n) => n.id).sort(),
+      edgeIds: st.edges
+        .map((e) =>
+          typeof e.id === 'string' && e.id.length > 0
+            ? e.id
+            : `${e.source ?? ''}|${e.sourceHandle ?? ''}|${e.target ?? ''}|${e.targetHandle ?? ''}`,
+        )
+        .sort(),
+    }
+  })
+}
+
+/**
  * ⭐⭐ THE LATCH IS CLEARED BEFORE EVERY WAIT, AND WITHOUT THAT THIS HELPER
  * RETURNS TRUE HAVING WAITED FOR NOTHING.
  *
@@ -317,13 +360,50 @@ test('the user\'s overview survives a re-layout of the same model', async ({ pag
   // This is the corrective pass `useMeasureThenLayout` runs when a card's
   // measured height changes. The MODEL is untouched: same nodes, same edges,
   // same ids — only its geometry is recomputed.
+  //
+  // ⚠⚠ `initiatedBy: 'product'` IS NOT OPTIONAL HERE, AND OMITTING IT IS WHY THIS
+  // ARM ONCE REPORTED A PRODUCT DEFECT THAT DOES NOT EXIST. The four production
+  // call sites (`useMeasureThenLayout.ts:129,158,176,210`) all pass
+  // `{ skipHistory: true, initiatedBy: 'product' }`. `store.ts:4050` defaults the
+  // option to `'user'` when it is omitted, and `useFitViewOnLayoutVersion.ts:317`
+  // reads it as `layoutWasAutomatic = initiatedBy === 'product'`. So a call that
+  // carries only `skipHistory` exercises the USER-INITIATED branch, where
+  // `releaseUserCameraClaim(); fitNow()` is the SPECIFIED behaviour — Auto-arrange
+  // and the command palette rely on it. The arm then reds every time, and its red
+  // says only "the guard did not apply", never "the product is broken".
+  // That hook's own comment names the trap: `initiatedBy` is "a NEW EXPLICIT
+  // OPTION on `applyLayout`, never a second meaning for `skipHistory`". Copying
+  // one argument and dropping the discriminating one is CLAUDE.md trap 16-inverse
+  // — a fixture you wrote yourself is not evidence about the wire.
   const lvBefore = framed.layoutVersion
-  await page.evaluate(async () => {
+  const identityBefore = await modelIdentity(page)
+  // ⚠⚠ `lastLayoutInitiatedBy` IS READ INSIDE THIS EVALUATE, NOT AFTER SETTLING,
+  // AND THE DIFFERENCE IS THE WHOLE VALUE OF THE PIN. The first version of this
+  // guard read it after `layoutSettled`/`cameraSettled` and was MEASURED to be
+  // incapable of failing: under the mutant that removes `initiatedBy` it still
+  // read `'product'`, because the re-layout's own measurement churn triggers
+  // `useMeasureThenLayout`'s genuinely product-initiated corrective pass, which
+  // overwrites the field before the assertion runs. The mutant redded on the
+  // product assertion instead — i.e. the pin sat there looking like a guard while
+  // the defect walked straight past it (CLAUDE.md trap 13: a check that cannot
+  // fail is not evidence). Reading it in the same turn as the call, before any
+  // settle, is what binds the assertion to THIS call's argument.
+  const initiatedByAtCall = await page.evaluate(async () => {
     const w = window as unknown as {
-      useCanvasStore: { getState: () => { applyLayout: (o?: { skipHistory?: boolean }) => Promise<unknown> } }
+      useCanvasStore: {
+        getState: () => {
+          applyLayout: (o?: { skipHistory?: boolean; initiatedBy?: 'user' | 'product' }) => Promise<unknown>
+          lastLayoutInitiatedBy?: string
+        }
+      }
     }
-    await w.useCanvasStore.getState().applyLayout({ skipHistory: true })
+    await w.useCanvasStore.getState().applyLayout({ skipHistory: true, initiatedBy: 'product' })
+    return w.useCanvasStore.getState().lastLayoutInitiatedBy ?? null
   })
+  expect(
+    initiatedByAtCall,
+    "the re-layout did not reach the store as product-initiated, so `layoutWasAutomatic` is false and this arm is measuring the USER-initiated branch, where re-framing is the SPECIFIED behaviour — fix the harness, not the product",
+  ).toBe('product')
   await layoutSettled(page)
   await cameraSettled(page)
   const after = await frameOf(page)
@@ -332,6 +412,37 @@ test('the user\'s overview survives a re-layout of the same model', async ({ pag
   expect(after.layoutVersion, 'the forced re-layout did not run — the check below would be vacuous').toBeGreaterThan(
     lvBefore,
   )
+
+  // ── THE PRECONDITION, PINNED IN THE ARM RATHER THAN ASSUMED ───────────────
+  // The guard this arm exists to gate is a CONJUNCTION
+  // (`useFitViewOnLayoutVersion.ts:318`):
+  //     layoutWasAutomatic && userOwnsCameraFor(currentModelKey())
+  // If either half is false the product is entitled to re-frame, and the
+  // assertions below would be measuring a branch nobody claimed. Both halves are
+  // pinned — the first at the call site above, the second here — so that failure
+  // is LOUD and lands on a line naming the HARNESS, instead of arriving, as it
+  // did once, dressed as a product defect two assertions later.
+  //
+  // ⚠ SCOPE, STATED RATHER THAN IMPLIED. `claimedModelKey` is a module-level
+  // variable in `utils/userCameraClaim.ts`, deliberately not store state and not
+  // exposed on `window`, so the harness CANNOT read the claim directly and this
+  // is not a claim that it did. What is pinned is the two INPUTS the guard
+  // derives its conjuncts from, both observable:
+  //   (1) `lastLayoutInitiatedBy`, read in the same turn as the call ABOVE — the
+  //       discriminating argument actually landed;
+  //   (2) the model identity is unchanged, so `currentModelKey()` is unchanged
+  //       and `userOwnsCameraFor` is comparing the key the user claimed. These
+  //       are exactly the inputs `structuralHash` consumes
+  //       (`graphNeedsInitialLayout.ts:64-71`): sorted node ids and sorted edge
+  //       identities, no positions.
+  // Whether the claim was released by something else is the PRODUCT question
+  // this arm asks, and is deliberately left to the assertions below rather than
+  // pinned here — pinning it would be a guard agreeing with itself.
+  const identityAfter = await modelIdentity(page)
+  expect(
+    identityAfter,
+    'the re-layout changed the MODEL, not just its geometry — a different model is one the product is entitled to re-frame, so the assertions below would be measuring the wrong branch',
+  ).toEqual(identityBefore)
   expect(
     after.outsideVisible,
     `after a re-layout of the SAME model, ${after.outsideVisible.length} of ${after.modelNodeCount} model nodes are outside the visible canvas again — the user's overview was discarded`,
