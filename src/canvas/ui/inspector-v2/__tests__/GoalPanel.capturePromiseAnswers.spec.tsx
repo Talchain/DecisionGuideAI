@@ -17,12 +17,13 @@
  * about the data.
  *
  * ── WHY THE TWO SURFACES DIVERGE, AND WHY ALIGNING THEM IS THE WRONG FIX ───
- * `setCeeAnalysisReady` writes the store scalar and NEVER touches the node; the
- * node's `goal_threshold_raw` has exactly one writer
- * (`backfillGoalThresholdOntoGoalNode`), reached from two OTHER call sites, and
- * it writes that key only when the payload carries it. So a payload with
- * `goal_threshold` and no raw moves one authority and not the other — by
- * design, because they answer different questions (CLAUDE.md trap 21):
+ * `setCeeAnalysisReady` writes the store scalar and NEVER touches the node. The
+ * node's target fields are written by other paths entirely —
+ * `backfillGoalThresholdOntoGoalNode` (CEE's raw, and only when the payload
+ * carries that key), `useInspectorMutations.setThreshold`, and
+ * `setGoalThresholdAndUpdateNode`. So a payload with `goal_threshold` and no raw
+ * moves one authority and not the other — by design, because they answer
+ * different questions (CLAUDE.md trap 21):
  *
  *   node   "has a target been CAPTURED onto this goal?"
  *   store  "does the run pipeline hold a NUMBER for this goal?"
@@ -50,7 +51,7 @@
  * closes the DEAD END, not that.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
 import { GoalPanel } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
 import { useAuth } from '../../../../contexts/AuthContext'
@@ -209,6 +210,41 @@ describe('the goal panel answers the chip’s promise on every payload the chip 
 
     const { container } = renderPanel()
     expect(editorIn(container)).not.toBeNull()
+  })
+})
+
+describe('the promise is “add one”, so the test is that a target can actually BE added', () => {
+  /**
+   * ⭐⭐ AN INPUT APPEARING IS NOT THE PROMISE BEING KEPT. Everything above pins
+   * that `GoalThresholdEditor` is ON SCREEN when the chip fires. That closes the
+   * dead end the review found, and it still stops one step short of what the
+   * chip actually says: *add one*. If the editor rendered but its commit path
+   * did not reach the NODE, the admission would stay `true` for ever — the chip
+   * would keep saying "Target not captured" after the user had captured one, and
+   * every guard in this file would still be green.
+   *
+   * So this drives it to completion: type, blur, and assert the ADMISSION FLIPS.
+   * `setGoalThresholdAndUpdateNode` writes `success_threshold` +
+   * `threshold_source: 'user'` onto the node, which is what
+   * `statedGoalTargetRaw` reads — so the loop closes on the same predicate both
+   * surfaces consume, rather than on a second one that happens to agree.
+   */
+  it('⭐ typing a target on the DIVERGENT arm flips the admission and retires the chip', async () => {
+    useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.8 }))
+    expect(canCaptureGoalTarget(goalData())).toBe(true)
+
+    const { container } = renderPanel()
+    const field = editorIn(container)
+    expect(field).not.toBeNull()
+
+    fireEvent.change(field!, { target: { value: '30000' } })
+    fireEvent.blur(field!)
+
+    // The NODE now carries the user's target, attested as theirs...
+    expect(goalData().success_threshold).toBe(30000)
+    expect(goalData().threshold_source).toBe('user')
+    // ...so the admission both surfaces read has flipped, and the chip retires.
+    expect(canCaptureGoalTarget(goalData())).toBe(false)
   })
 })
 

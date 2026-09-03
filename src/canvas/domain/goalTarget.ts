@@ -175,8 +175,13 @@ export function statedGoalTargetRaw(
  * "Target not captured — add one". The inspector's `GoalPanel` decided whether
  * to render `GoalThresholdEditor` from the STORE SCALAR `goalThreshold`, which
  * `setCeeAnalysisReady` writes WITHOUT EVER TOUCHING THE NODE (store.ts) —
- * the node's raw is written only by `backfillGoalThresholdOntoGoalNode`, from
- * different call sites, and only when the payload carries that key.
+ * the node's target fields are written by OTHER paths entirely —
+ * `backfillGoalThresholdOntoGoalNode` (CEE's raw, only when the payload carries
+ * that key), `useInspectorMutations.setThreshold`, and
+ * `setGoalThresholdAndUpdateNode` (the editor's own commit, which writes
+ * `success_threshold` + `threshold_source: 'user'`). None of them is
+ * `setCeeAnalysisReady`, which is the whole point: no write orders these two
+ * scalars, so they diverge.
  *
  * So on a payload carrying `goal_threshold` and no raw, the two disagreed and
  * the user was told to add a target, then told one already existed
