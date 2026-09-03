@@ -272,6 +272,91 @@ for (const id of STARTERS) {
       const glyphPx = glyphEls.length
         ? Math.round(parseFloat(getComputedStyle(glyphEls[0]).fontSize) * 10) / 10
         : null
+
+      // ⭐⭐ GLYPH-ON-GLYPH. THIS IS WHY THE DEFECT SHIPPED PAST THIS FILE.
+      //
+      // Everything above measures the glyph against LABELS (`glyphLabelOverlaps`)
+      // and against nothing else. A glyph painted exactly on top of ANOTHER
+      // GLYPH was invisible to every number this measure emitted — the
+      // instrument was pointed at glyph-on-chip, and the harm was glyph-on-glyph.
+      // CLAUDE.md trap 16: a capture proves what it was pointed at.
+      //
+      // The harm is specifically a TRUST defect, not a tidiness one. The +/-
+      // glyph is the NON-COLOUR direction channel a red-green dichromat relies
+      // on (`directionStroke.ts:23-32`). Where two glyphs stack, whichever
+      // paints last wins arbitrarily; where the stacked glyphs disagree in
+      // SIGN, the canvas asserts a direction that may be the opposite of the
+      // model's. `oppositeSignStacks` is that number and it must be 0.
+      //
+      // Bound by `data-edge-id`, never by portal order: `EdgeLabelRenderer`
+      // flattens every edge's children into one layer, so the Nth glyph is not
+      // the Nth edge as soon as any edge renders no glyph (CLAUDE.md trap 19).
+      const storeForGlyphs = (window as unknown as {
+        useCanvasStore?: { getState: () => { edges?: Array<{ id: string; source: string; target: string }> } }
+      }).useCanvasStore
+      const allEdges = storeForGlyphs?.getState().edges ?? []
+      const targetOf = new Map(allEdges.map((e) => [e.id, e.target]))
+
+      const glyphInfo = glyphEls.map((el) => {
+        const r = el.getBoundingClientRect()
+        const edgeId = el.getAttribute('data-edge-id')
+        return {
+          edgeId,
+          // The stated sign, read from the glyph's OWN accessible name rather
+          // than from its text, so a rendering change cannot silently reclassify.
+          sign: (el.getAttribute('aria-label') || '').replace('Effect direction: ', ''),
+          target: edgeId ? targetOf.get(edgeId) ?? null : null,
+          // Rounded to 0.1px: the deployed reading found byte-identical
+          // transforms, so this is not hiding a near-miss behind a tolerance.
+          cx: Math.round((r.left + r.width / 2) * 10) / 10,
+          cy: Math.round((r.top + r.height / 2) * 10) / 10,
+          rect: r,
+        }
+      })
+
+      // Distinct painted positions. `glyphs` vs `glyphSites` IS the collapse:
+      // 14 glyphs at 5 sites is the deployed reading this measure could not see.
+      const siteKey = (g: { cx: number; cy: number }) => `${g.cx},${g.cy}`
+      const sites = new Map<string, Array<{ edgeId: string | null; sign: string; target: string | null }>>()
+      for (const g of glyphInfo) {
+        const k = siteKey(g)
+        if (!sites.has(k)) sites.set(k, [])
+        sites.get(k)!.push({ edgeId: g.edgeId, sign: g.sign, target: g.target })
+      }
+      const stacks = [...sites.entries()]
+        .filter(([, v]) => v.length > 1)
+        .map(([k, v]) => ({
+          at: k,
+          n: v.length,
+          edges: v.map((x) => x.edgeId),
+          signs: [...new Set(v.map((x) => x.sign))],
+          targets: [...new Set(v.map((x) => x.target))],
+        }))
+      // THE MECHANISM CLAIM, measured rather than asserted: if every stack is
+      // exactly one target node, the glyphs are keyed on the TARGET HANDLE
+      // ANCHOR (`getHandlePosition(targetNode, targetHandle)`, which takes no
+      // edge input) and not on anything per-edge. A stack spanning two targets
+      // would REFUTE that mechanism.
+      const stacksWithOneTarget = stacks.filter((s) => s.targets.length === 1).length
+      const oppositeSignStacks = stacks.filter((s) => s.signs.length > 1).length
+      // Glyphs hidden underneath another glyph.
+      const glyphsBuried = stacks.reduce((acc, s) => acc + (s.n - 1), 0)
+
+      // Painted-box intersections, independent of the exact-centre test above,
+      // so a near-miss that still occludes is counted too.
+      let glyphGlyphOverlaps = 0
+      for (let i = 0; i < glyphInfo.length; i++) {
+        for (let j = i + 1; j < glyphInfo.length; j++) {
+          const a = glyphInfo[i].rect
+          const b = glyphInfo[j].rect
+          if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0 &&
+              Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0) glyphGlyphOverlaps++
+        }
+      }
+      // POSITIVE CONTROL for every zero above: a cell with fewer than two
+      // glyphs, or one where identity binding failed, CANNOT observe a stack,
+      // so its zeros are vacuous and must not be read as a pass.
+      const glyphVacuous = glyphInfo.length < 2 || glyphInfo.some((g) => g.edgeId === null)
       const fragileTagEls = [
         ...document.querySelectorAll('[data-testid="edge-fragile-tag"]'),
       ] as HTMLElement[]
@@ -325,6 +410,13 @@ for (const id of STARTERS) {
         glyphPx,
         glyphLabelOverlaps,
         worstGlyphOverlapPx: Math.round(worstGlyphOverlapPx),
+        glyphSites: sites.size,
+        glyphsBuried,
+        glyphGlyphOverlaps,
+        oppositeSignStacks,
+        stacksWithOneTarget,
+        glyphVacuous,
+        stacks,
         fragileTags: fragileTagEls.length,
         strandedFragileTags,
         fragileByTitle: fragileByTitleEls.length,
