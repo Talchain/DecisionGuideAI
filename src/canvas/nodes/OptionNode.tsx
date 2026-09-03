@@ -1459,9 +1459,10 @@ export const OptionNode = memo((props: NodeProps) => {
            dot and the coaching marker were.
 
            ⚠ THE RANK BADGE IS NOT ONE OF THE BOXES IT COULD COLLIDE WITH, and
-           saying otherwise would be inventing the harm. `sensitivityRank` has
-           exactly ONE assignment (`useNodeDisplayMetadata.ts:320`) and it sits
-           inside `if (nodeType === 'factor')` (:263); this call site passes
+           saying otherwise would be inventing the harm. In
+           `useNodeDisplayMetadata.ts`, `sensitivityRank` is declared `null` and
+           REASSIGNED in exactly one place — inside that hook's
+           `if (nodeType === 'factor')` branch; this call site passes
            `nodeType="option"`, so the rank badge cannot render on this card at
            all. The reachable collision set on a leading option is the edited
            dot and the coaching marker — which is what the spec drives, and it
@@ -1493,12 +1494,12 @@ export const OptionNode = memo((props: NodeProps) => {
            ordinal. Their intersection is 0px^2 both pre- and post-migration and
            at both ends of `--canvas-label-scale` — the pill sits ~27px above
            it. A missing ordinal has a different cause entirely: exactly one
-           site POPULATES `optionNumbering` — the single `registerOptionNumbering`
-           caller, `useResultsSectionData.ts:4071` — and it passes
-           `recommendation.allOptions.map(o => o.id)` (:4068), so an option card
-           absent from the analysis recommendation renders no ordinal at all.
+           site POPULATES `optionNumbering` — `registerOptionNumbering`'s only
+           product caller, in `useResultsSectionData.ts` — and it passes
+           `recommendation.allOptions.map(o => o.id)`, so an option card absent
+           from the analysis recommendation renders no ordinal at all.
            (`canvas/store.ts` also assigns the field, but only ever `{}`: an
-           initial value and three resets. Those clear the map; they never add a
+           initial value and four resets. Those clear the map; they never add a
            card to it, so they cannot be the cause of one card missing while
            others show.) That is not this seam's to fix and nothing here claims
            to.

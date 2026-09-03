@@ -78,13 +78,14 @@ interface BaseNodeProps extends NodeProps {
    * rather than competing with it.
    *
    * ⚠ THE RANK BADGE IS DELIBERATELY ABSENT FROM THAT COLLISION SET, because it
-   * cannot join it. `sensitivityRank` has exactly one assignment
-   * (`useNodeDisplayMetadata.ts:320`), inside `if (nodeType === 'factor')`
-   * (:263). BaseNode passes its own `nodeType`, and `cornerSlot`'s only caller
-   * passes `"option"` — so on the one node type that can supply this slot, the
-   * rank badge never renders. (It is still a member of the container's
-   * five-member order below: that order is written total so it stays correct if
-   * a gate ever changes.) `OptionNode.leadingPillCornerStack.spec.tsx` PINS the
+   * cannot join it. In `useNodeDisplayMetadata.ts`, `sensitivityRank` is
+   * declared `null` and REASSIGNED in exactly one place — inside that hook's
+   * `if (nodeType === 'factor')` branch. BaseNode passes its own `nodeType`,
+   * and `cornerSlot`'s only caller passes `"option"` — so on the one node type
+   * that can supply this slot, the rank badge never renders. (It is still a
+   * member of the container's five-member order below: that order is written
+   * total so it stays correct if a gate ever changes.)
+   * `OptionNode.leadingPillCornerStack.spec.tsx` PINS the
    * impossibility twice — at runtime, and against the hook's own source — so
    * such a change REDs rather than silently producing an overlap nobody
    * measured.
@@ -748,21 +749,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             No node is both. Their relative order is therefore UNOBSERVABLE at
             runtime; `cornerSlot` leads only because it is the caller's slot.
           • `StatusPill` vs `rank` — disjoint on ONE store field: the rank badge
-            requires `results.status === 'complete'` (`isResultsMode`,
-            `useNodeDisplayMetadata.ts:226`) and the pill requires
-            `results.status !== 'complete'` (`isPreRunMode`, THIS file, :288).
-            Exact complements. Pinned by
+            requires `results.status === 'complete'` (`isResultsMode`, declared
+            in `useNodeDisplayMetadata.ts`) and the pill requires
+            `results.status !== 'complete'` (`isPreRunMode`, declared in THIS
+            file). Exact complements. Pinned by
             `BaseNode.statusPillCornerStack.spec.tsx` with the REAL hook.
-            ⚠ The `:256` this cited until 2026-09-04 was wrong and was
-            inherited: `isPreRunMode` has never lived in the hook, and reading
-            both offsets against one filename sends the next session to an
-            unrelated line.
+            ⚠ THESE NAME SYMBOLS, NOT LINE OFFSETS, AND THAT IS THE POINT. This
+            sentence carried `:256` — the right offset against the wrong file —
+            and the correction that repaired the filename broke the number
+            instead, landing on a line that was right nowhere. A neighbouring
+            merge then moved the hook's own offsets again. A symbol survives
+            both; an offset buys one merge of accuracy and misdirects after it.
           • `cornerSlot` vs `rank` — impossible too, and by a mechanism one
             layer up from the other two: it is not that two render gates here
             exclude each other, but that the DATUM is never produced.
-            `sensitivityRank` has exactly ONE assignment
-            (`useNodeDisplayMetadata.ts:320`) and it sits inside
-            `if (nodeType === 'factor')` (:263). BaseNode passes its own
+            In `useNodeDisplayMetadata.ts`, `sensitivityRank` is declared
+            `null` and REASSIGNED in exactly one place — inside that hook's
+            `if (nodeType === 'factor')` branch. BaseNode passes its own
             `nodeType`, and OptionNode's is `"option"`, so on the only node type
             that can supply `cornerSlot` the rank badge can never render.
             Pinned by `OptionNode.leadingPillCornerStack.spec.tsx`.

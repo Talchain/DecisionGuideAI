@@ -110,7 +110,8 @@ test(`LEADPILL build-vs-buy @${VP.width}x${VP.height}`, async ({ page }) => {
 
     // ⚠ THE ORDINAL HAS TO BE SEEDED SEPARATELY, AND FINDING OUT WHY IS HALF
     // THE RESULT. `optionNumbering` has exactly ONE production writer —
-    // `useResultsSectionData.ts:4071` — and its membership is
+    // `registerOptionNumbering`'s only product caller, in
+    // `useResultsSectionData.ts` — and its membership is
     // `recommendation.allOptions`, i.e. the options present in the ANALYSIS,
     // registered when the RESULTS PANEL mounts. Seeding a completed run into
     // the store does not go near it, so the first arm of this measure reported
@@ -253,21 +254,34 @@ test(`LEADPILL build-vs-buy @${VP.width}x${VP.height}`, async ({ page }) => {
       `${atLabelScale1.labelScaleOnRoot}). The contrast arm proves nothing — fix the probe.`,
     )
   }
-  // ⚠ THE STACK IS EMPTY IN THIS STATE, AND THAT IS A STATED LIMIT, NOT A PASS.
-  // `siblings: []` means the pill-vs-sibling overlap numbers are measured
+  // ⚠ THE STACK IS EMPTY IN *THESE* ARMS, AND THAT IS A STATED LIMIT, NOT A PASS.
+  // `siblings: []` means the pill-vs-sibling overlap numbers below are measured
   // against nothing and must not be read as "no collision" (CLAUDE.md trap 13).
-  // Seeding a real occupant was ATTEMPTED and does not hold: the sensitivity
-  // rank is computed for FACTORS, the coaching marker needs a guidance store
-  // this harness does not expose, and writing `editedSinceRunNodeIds` directly
-  // is undone by the effect that recomputes it against the run snapshot
-  // (`setEditedSinceRunNodes`, store.ts:6612).
   //
-  // What carries the collision claim instead is `stackOriginInsidePill`, which
-  // this probe MEASURES: pre-migration the stack renders 0x0 at the corner, and
-  // its origin is the point every child is laid out from. If that point is
-  // inside the pill's rectangle, a child rendered there is under the pill.
-  // That last step is an inference — a stated one — about where a child WOULD
-  // land, not an observation of one; the unit suite pins the containment.
+  // ⭐ BUT THE OCCUPANT *CAN* BE SEEDED, AND WAS — this comment claimed the
+  // opposite until 2026-09-04 and the claim was false. A review of this PR
+  // seeded the coaching marker directly via
+  // `await import('/src/canvas/stores/guidanceStore.ts')` and measured the
+  // pill x coaching-marker intersection at **120px^2 pre-migration -> 0px^2
+  // post-migration** — full containment of the corner's only INTERACTIVE
+  // element, closed to zero. That is the strongest evidence this change has,
+  // and it is a real co-occupancy measurement rather than an inference.
+  // ⚠ RUNG: that number is the REVIEWER's, taken on their run; this lane did
+  // not re-execute the browser arm, so it is recorded here as reported, not as
+  // reproduced. Re-run it before quoting it as this suite's own output.
+  //
+  // The two limits that DID hold: the sensitivity rank is computed for FACTORS
+  // and so cannot appear on an option card at all, and writing
+  // `editedSinceRunNodeIds` directly is undone by the effect that recomputes it
+  // against the run snapshot (`setEditedSinceRunNodes` in `canvas/store.ts`).
+  //
+  // What carries the collision claim *within this file* is
+  // `stackOriginInsidePill`, which this probe MEASURES: pre-migration the stack
+  // renders 0x0 at the corner, and its origin is the point every child is laid
+  // out from. If that point is inside the pill's rectangle, a child rendered
+  // there is under the pill. That last step is an inference — a stated one —
+  // about where a child WOULD land, not an observation of one; the unit suite
+  // pins the containment, and the seeded measurement above observes it.
   //
   // ⚠ AND THE MARGIN IS THIN, SO QUOTE IT WITH THE NUMBER ATTACHED. On the
   // build-vs-buy run the pill's x-range is 317.5–392.0 and the stack's origin

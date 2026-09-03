@@ -29,9 +29,9 @@
  * and leave the ordinal to the one authority.
  *
  * ⚠ THE RANK BADGE IS NOT IN THE REACHABLE SET ON THIS CARD, so this suite does
- * not pretend it is. `sensitivityRank` has exactly ONE assignment
- * (`useNodeDisplayMetadata.ts:320`) and it sits inside
- * `if (nodeType === 'factor')` (:263); `OptionNode` passes `nodeType="option"`.
+ * not pretend it is. In `useNodeDisplayMetadata.ts`, `sensitivityRank` is
+ * declared `null` and REASSIGNED in exactly one place — inside that hook's
+ * `if (nodeType === 'factor')` branch; `OptionNode` passes `nodeType="option"`.
  * The largest set reachable beside the pill here is therefore the edited dot
  * and the coaching marker — three occupants, which is what the tests drive. The
  * impossibility itself is PINNED below, at runtime AND against the hook's own
@@ -60,9 +60,9 @@
  * at both ends of `--canvas-label-scale` (the pill sits ~27px above it at the
  * zoom the canvas actually settles on, where the scale is already at its 2x
  * cap). A missing ordinal has a different cause: exactly one site POPULATES
- * `optionNumbering` — the single `registerOptionNumbering` caller,
- * `useResultsSectionData.ts:4071` — and its membership is
- * `recommendation.allOptions` (:4068), so a card absent from the analysis
+ * `optionNumbering` — `registerOptionNumbering`'s only product caller, in
+ * `useResultsSectionData.ts` — and its membership is
+ * `recommendation.allOptions`, so a card absent from the analysis
  * recommendation renders no ordinal at all — nothing to do with this corner.
  * (`canvas/store.ts` assigns the field too, but only ever `{}`; those clear the
  * map and can never be why one card lacks an ordinal while its siblings have
