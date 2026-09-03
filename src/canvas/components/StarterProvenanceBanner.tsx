@@ -197,7 +197,19 @@ export function StarterProvenanceBanner() {
     <div
       data-testid="starter-provenance-banner"
       role="status"
-      className="pointer-events-auto flex items-center gap-3 rounded-lg bg-panel px-4 py-2 shadow-2"
+      // ⚠ `py-1`, NOT `py-2`, AND THE 8px IS MEASURED RATHER THAN TASTE. At
+      // `py-2` this banner renders 71px against a 64px band, and the cells are
+      // `align-items: flex-end`, so the surplus grows UPWARD out of the reserved
+      // strip and back over the canvas — reintroducing the very defect the band
+      // exists to remove, at a new address. Measured 71px in 10/10 readings of
+      // `overlayNodeOverlap.measure.ts` once the harness was fixed to mount this
+      // component at all.
+      //
+      // Shrinking the OCCUPANT rather than growing the BAND is deliberate: the
+      // band's height is charged to every user as bottom fit inset (+63px
+      // today), and it is charged whether or not this banner is on screen,
+      // whereas this padding is paid only by the banner.
+      className="pointer-events-auto flex items-center gap-3 rounded-lg bg-panel px-4 py-1 shadow-2"
       style={{ maxWidth: 'min(720px, 100%)' }}
     >
       <BookmarkCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-info" />

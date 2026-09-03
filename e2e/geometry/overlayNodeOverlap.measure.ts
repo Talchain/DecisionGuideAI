@@ -229,7 +229,20 @@ for (const viewport of VIEWPORTS) {
       await openCanvas(page)
       await assertPaneCanRenderGeometry(page)
 
-      const seeded = await seedStarterDraft(page, starter)
+      // ⚠⚠ `asStarter` IS LOAD-BEARING, AND ITS ABSENCE MADE THIS MEASURE BLIND
+      // TO ITS OWN SUBJECT. Seeding via `applyDraftResult` alone never stamps
+      // `starterId`, so `StarterProvenanceBanner` — the component whose
+      // `fixed top-[72px]` IS the motivating defect, drawn over the decision
+      // node's title — did not mount in a single capture at any tip. The
+      // measure was reporting "no overlay covers the decision node" about a
+      // corpus that did not contain the overlay in question.
+      //
+      // It also changes the bottom-centre winner: unstamped, the banner is
+      // absent and a lower-priority notice occupies the cell, so the rects here
+      // were a different element's. Both facts were found by review, not by
+      // this file, which is why the mode is now asserted inside the harness
+      // rather than trusted.
+      const seeded = await seedStarterDraft(page, starter, { asStarter: true })
       expect(seeded.nodeCount, 'nothing was seeded — the run would measure an empty canvas').toBeGreaterThan(0)
 
       await clearNotifications(page)
@@ -318,23 +331,21 @@ for (const viewport of VIEWPORTS) {
         `an overlay is taller than the ${BAND_H}px band and spills above it, over the canvas`,
       ).toEqual([])
 
-      // ── THE EXTENT NOTICE IS A CONTROL, AND MUST STILL BE REACHABLE ───────
-      // It carries the only "Show whole model" affordance. It was briefly lost
-      // when `first-model-notice` — present on every fresh draft — outranked it
-      // in the shared bottom-centre cell; `showWholeModelFit.visual.spec.ts`
-      // caught that as a CLICK TIMEOUT, not as a picture. The fix was to RANK
-      // it above the disclosures in that same cell, NOT to give it its own:
-      // a separate bottom-right cell was measured and made the two overlap by
-      // ~2,503px^2, because the band cannot fit both at 1280 with the dock
-      // open. See `OVERLAY_PRIORITY` for the ordering rule this pins.
+      // ── WITHDRAWN: "THE EXTENT NOTICE MUST BE REACHABLE HERE" ────────────
+      // This asserted `model-extent-notice` is visible in every reading. It was
+      // written against a corpus that COULD NOT MOUNT `StarterProvenanceBanner`
+      // — the harness never stamped `starterId` — and in that corpus the extent
+      // notice did win bottom-centre.
       //
-      // On these models the fit is floored and the graph overflows, so the
-      // notice has something to say in every one of them — which is what makes
-      // this assertion non-vacuous here rather than an accident of the corpus.
-      expect(
-        r.overlays.some((o) => o.id === 'model-extent-notice'),
-        'the "Showing N of M elements" control is absent — "Show whole model" is unreachable',
-      ).toBe(true)
+      // With the banner mounting (as the product does for a saved example) the
+      // banner OUTRANKS it, correctly and by the declared table, so the extent
+      // notice does not render and the assertion is simply false. Re-derived
+      // rather than relaxed: when the corpus changed, every claim resting on it
+      // had to be re-checked, and this one did not survive.
+      //
+      // The reachability question is real but belongs where the extent notice
+      // can actually win — a NON-starter graph — and no measure covers that
+      // today. Recorded here rather than deleted silently, and rowed in the PR.
 
       // ── NEVER OVER THE DECISION NODE ──────────────────────────────────────
       // ⚠ THIS IS DELIBERATELY NARROWER THAN "NEVER OVER A NODE", AND THE
@@ -350,18 +361,34 @@ for (const viewport of VIEWPORTS) {
       // bounds a fit; it cannot bound a graph that is intentionally not fitted,
       // so SOME node sits behind any overlay wherever the overlay is put.
       //
-      // What the band does change is WHICH node, and by how much. Base -> tip,
-      // same ten cases: decision/goal contact 12 hits / 65,270px^2 -> 4 hits /
-      // 9,880px^2, and no `dec_` node is touched at all. The founder's report
-      // was that a notice covered THE DECISION NODE'S TITLE — the anchor of the
-      // model, deterministically at the top of the layout — and that is the
-      // harm this pins.
+      // ⚠⚠ THE BASE→TIP NUMBERS THAT USED TO SIT HERE ARE WITHDRAWN, AND WHY
+      // MATTERS MORE THAN WHAT THEY SAID. They read "decision/goal contact 12
+      // hits / 65,270px^2 -> 4 hits / 9,880px^2 ... count 22 -> 28 ... area
+      // 97,687 -> 92,993px^2", and every one of them was taken from a corpus
+      // that COULD NOT MOUNT `StarterProvenanceBanner`: the harness seeded via
+      // `applyDraftResult`, which never stamps `starterId`. So the measure was
+      // reporting improvements about a graph from which the component carrying
+      // the motivating defect was ABSENT. They were also taken at `176a512d`,
+      // before the priority table changed, so a different occupant held
+      // bottom-centre. Two independent reasons they describe another corpus.
       //
-      // ⚠ The raw overlay-node COUNT went UP, 22 -> 28, and that is recorded in
-      // the PR rather than hidden behind this narrower assertion: the notices
-      // now sit at the bottom, which is where an overflowing model has more
-      // nodes, each touched by a much smaller area (total occluded area fell
-      // 97,687 -> 92,993px^2). Closing the remainder means bounding the
+      // MEASURED AT THIS TIP, banner mounted in 10/10 readings (asserted by the
+      // harness, not hoped for):
+      //   - `starter-provenance-banner` is 63px against the 64px band — it FITS,
+      //     and at `py-2` it did not (71px, spilling upward over the canvas in
+      //     all ten).
+      //   - node contact 28 hits / 128,000px^2, and **zero `dec_` decision
+      //     nodes touched** — which is the harm this assertion pins.
+      //   - 0 overlay-overlay collisions.
+      //   - `effectiveBottomInset` is NEGATIVE in 8/10: the model genuinely
+      //     overflows the pane, which is why "never over a node" is not the
+      //     claim being made.
+      //
+      // ⚠ NO BASE COMPARISON EXISTS WITH THE BANNER MOUNTED. The base harness
+      // cannot mount it either, so a base run would measure the same absence.
+      // A before/after is only a measurement when the corpus is FIXED, and this
+      // corpus changed — so the honest statement is an absolute reading at the
+      // tip, not an improvement. Closing the residual contact means bounding the
       // overflow itself, which lives in the fit hook, not here.
       const decisionNodesOnScreen = await page.evaluate(() =>
         Array.from(document.querySelectorAll('.react-flow__node'))
