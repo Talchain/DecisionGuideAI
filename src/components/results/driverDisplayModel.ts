@@ -155,26 +155,48 @@ const MAGNITUDE_FIELDS = [
 ] as const
 
 /**
- * Does this wire row carry ANY influence metric at all?
+ * Did this wire row carry data into the MAGNITUDE chain — the chain that
+ * produced its `rawElasticity`?
  *
  * ⚠ WHY THIS EXISTS: THE ZERO IS MANUFACTURED, NOT MEASURED. The feed's
  * normaliser ends its magnitude chain with a terminal `: 0`, and
  * `getRawElasticity` then reads that 0 back as though it were producer data.
- * So a row carrying NO metric field whatsoever arrives downstream
+ * So a row carrying NO magnitude field whatsoever arrives downstream
  * indistinguishable from a row that genuinely measured zero influence. The
  * Drivers panel absorbs this — a sub-threshold driver is filtered out of its
  * default view entirely (`isZeroImpact`, `hiddenZeroImpactCount`) — but the
  * canvas has no such filter and prints `Influence 0%` beside the node, which
  * is a measurement claim about a row nothing measured.
  *
+ * ⚠⚠ THE QUESTION IS ABOUT THE MAGNITUDE CHAIN, NOT ABOUT "ANY METRIC"
+ * (2026-09-04, review round 2). This was named `rowCarriesInfluenceMetric`
+ * and returned true on a finite `influence_score` too. But `influence_score`
+ * DOES NOT FEED `rawElasticity`: `normalizeFactorSensitivity` collapses only
+ * `elasticity → sensitivity_score → sensitivity → importance_score → 0`, and
+ * the producer score lands on the separate `influenceScore` field. So that
+ * limb could only ever DECIDE anything when the displayed basis was NOT
+ * `influence_score` — under complete producer coverage the call site's
+ * `provenance === 'influence_score'` limb has already short-circuited. It was
+ * redundant where it was right, and live only where it was wrong: a row
+ * `{ influence_score: 0.9 }` with no magnitude field, in an
+ * incomplete-coverage set, was licensed to render `Influence 0%` — a real 0.9
+ * displayed as its opposite, which is worse than the unmeasured row this
+ * guard was written to stop. Removing the limb, and renaming the function to
+ * the question it actually answers, is the fix. Reachability is STRUCTURAL —
+ * `selectDriverPolicyFeed` unions five heterogeneous sources and
+ * `selectDriverDisplayModel` requires EVERY row to carry `influenceScore`, so
+ * any mix drops the set onto the fallback basis (source 2, `legacyDrivers`,
+ * builds rows with `sensitivity` and no `influence_score` at all). It is NOT
+ * wire-witnessed: no live payload of this shape has been captured, so the
+ * frequency is unknown and only the behaviour is measured.
+ *
  * Absence fails closed; an explicit zero survives (`{ elasticity: 0 }` is a
  * real measurement and returns true).
  */
-export function rowCarriesInfluenceMetric(raw: unknown): boolean {
+export function rowCarriesMagnitudeMetric(raw: unknown): boolean {
   if (raw == null || typeof raw !== 'object') return false
   const f = raw as Record<string, unknown>
   const finite = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v)
-  if (finite(f.influence_score)) return true
   return MAGNITUDE_FIELDS.some((field) => finite(f[field]))
 }
 
@@ -489,8 +511,24 @@ export function hasClearInfluenceLeader(
  * beside it is its own kind of nonsense — the same set-level reasoning the
  * depth-1 gate already applied, now expressed as "how far does the ordering
  * hold" rather than "does it hold at all". Under the NO-HIDING ruling this
- * withholds a claim the data cannot support; it does not hide a finding, since
- * every factor's influence VALUE and its basis are still surfaced beside it.
+ * withholds a claim the data cannot support rather than hiding a finding.
+ *
+ * ⚠⚠ BUT IT IS NOT COSTLESS TO THE READER, AND THIS COMMENT USED TO SAY IT WAS
+ * (2026-09-04, review round 2). It read "it does not hide a finding, since
+ * every factor's influence VALUE and its basis are still surfaced beside it".
+ * On the ordinary set that is true. On the MAGNITUDE-LESS set it is false, and
+ * the falsifier is this PR's own sibling fix: when no factor carries a real
+ * magnitude, `computeNormalisedInfluences` returns the all-zero sentinel, the
+ * canvas withholds the influence figure as a manufactured zero, AND this depth
+ * returns 0 — so the node renders no rank, no number and no explanation.
+ * Measured, and pinned by `useNodeDisplayMetadata.rankGateBreadth.spec.ts`
+ * ("THE DEFECT (set-level)"): `[{ elasticity: 0.0001 }, { elasticity: 0.0002 }]`
+ * → `sensitivityRank = null`, `influence = null`, `influenceProvenance = null`,
+ * `inSensitivityAnalysis = true`. Both channels go quiet at once. That state is
+ * still the honest one — every number the badge could print there would be
+ * invented — but it makes the deferred tie/silence copy MORE load-bearing, not
+ * less, and it must not be justified by a sentence claiming the reader keeps
+ * the number. Copy is rowed as CANVAS-BACKLOG S47.
  *
  * ⚠ IT TAKES IDENTITIES, NOT A BAG OF NUMBERS — inherited from
  * `hasClearInfluenceLeader` above and load-bearing for the same reason: two

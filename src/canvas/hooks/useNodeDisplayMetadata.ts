@@ -15,7 +15,7 @@ import {
   compareByDisplayModel,
   determinedRankDepth,
   hasMeaningfulMagnitude,
-  rowCarriesInfluenceMetric,
+  rowCarriesMagnitudeMetric,
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
@@ -325,9 +325,21 @@ export function useNodeDisplayMetadata(
       // ranks would print a "#3" with no "#1" or "#2" beside it, which is a
       // second kind of nonsense; when the top is undetermined the ordinal
       // reading of the whole set is what fails. Under the NO-HIDING ruling this
-      // withholds a claim the data cannot support — it does not hide a finding:
-      // the influence VALUE and its provenance are still surfaced below, so the
-      // reader keeps the number and loses only the false ordering.
+      // withholds a claim the data cannot support rather than hiding a finding.
+      //
+      // ⚠⚠ ON THE ORDINARY SET THE READER KEEPS THE NUMBER; ON THE
+      // MAGNITUDE-LESS SET THEY KEEP NOTHING (2026-09-04, review round 2). This
+      // comment used to end "the reader keeps the number and loses only the
+      // false ordering", and the manufactured-zero fix a few lines below
+      // falsifies it: when no factor in the set carries a real magnitude, the
+      // all-zero sentinel makes `determinedRankDepth` return 0 AND the
+      // influence figure is withheld as unmeasured. Measured and pinned in
+      // `useNodeDisplayMetadata.rankGateBreadth.spec.ts` ("THE DEFECT
+      // (set-level)"): rank, value and provenance are ALL null while
+      // `inSensitivityAnalysis` is true — no rank, no number, no explanation.
+      // The silence is still the honest answer (every figure available there is
+      // invented), but it is a real cost to the reader and the deferred copy
+      // (CANVAS-BACKLOG S47) is what owes them the reason.
       //
       // ⚠⚠ THE GATE ASKED A NARROWER QUESTION THAN THE BADGE PROMISED, AND THE
       // GAP SHIPPED (2026-09-03). This read `hasClearInfluenceLeader(...) &&
@@ -419,7 +431,7 @@ export function useNodeDisplayMetadata(
           Number.isFinite(modelEntry.value) &&
           (modelEntry.provenance === 'influence_score' ||
             (hasMeaningfulMagnitude(rows) &&
-              rowCarriesInfluenceMetric(feed.rawFactors[rawRowForNode])))
+              rowCarriesMagnitudeMetric(feed.rawFactors[rawRowForNode])))
         if (measured && modelEntry) {
           influence = modelEntry.value
           influenceProvenance = modelEntry.provenance

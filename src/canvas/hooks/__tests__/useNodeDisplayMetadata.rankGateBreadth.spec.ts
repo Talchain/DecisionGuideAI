@@ -207,7 +207,41 @@ describe('useNodeDisplayMetadata — a manufactured zero is not a measurement', 
       expect(meta.influence).toBeNull()
       expect(meta.influenceProvenance).toBeNull()
       expect(meta.inSensitivityAnalysis).toBe(true)
+      // ⚠⚠ BOTH CHANNELS GO QUIET AT ONCE, AND THIS ASSERTION IS WHY THE
+      // "the reader keeps the number" RATIONALE WAS WITHDRAWN in round 2. The
+      // all-zero sentinel is also a total tie, so `determinedRankDepth`
+      // returns 0 and the rank is withheld too: no rank, no number, no
+      // explanation. Pinned here so the corrected comments in
+      // `driverDisplayModel.ts` and `useNodeDisplayMetadata.ts` are guarded by
+      // a measurement rather than by prose, and so a change that reopens the
+      // number WITHOUT copy REDs.
+      expect(meta.sensitivityRank).toBeNull()
     }
+  })
+
+  it('THE DEFECT (round 2): a producer influence_score with NO magnitude field still withholds the figure', () => {
+    // ⚠ THIS IS THE ROW-LEVEL DEFECT'S SHARPEST FORM, and the round-1 guard
+    // licensed it. `influence_score` does NOT feed `rawElasticity`:
+    // `normalizeFactorSensitivity`'s magnitude chain is
+    // `elasticity → sensitivity_score → sensitivity → importance_score → 0`,
+    // and the producer score lands on the separate `influenceScore` field.
+    // Coverage is INCOMPLETE here (two rows carry no `influence_score`), so
+    // `selectDriverDisplayModel` falls to the normalised-elasticity basis and
+    // this row's value is the terminal 0 — not the 0.9 the producer sent.
+    // Printing `Influence 0%` here is worse than the ghost row: a real 0.9
+    // displayed as its opposite.
+    setReport([
+      { factor_id: 'fac_a_pricing', elasticity: 3.6 },
+      { factor_id: 'fac_b_migration', elasticity: 1.2 },
+      { factor_id: 'fac_c_scored', influence_score: 0.9 },
+    ])
+    const scored = metaOf('fac_c_scored')
+    // PRECONDITION, pinned in-test: the set really is on the fallback basis,
+    // so this row's value really is the manufactured zero and not the 0.9.
+    expect(metaOf('fac_a_pricing').influenceProvenance).toBe('normalised_elasticity')
+    expect(scored.influence).toBeNull()
+    expect(scored.influenceProvenance).toBeNull()
+    expect(scored.inSensitivityAnalysis).toBe(true)
   })
 
   it('a genuine producer zero under COMPLETE coverage survives — it is an absolute score, not a sentinel', () => {
