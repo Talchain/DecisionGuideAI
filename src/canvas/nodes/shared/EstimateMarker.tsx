@@ -150,13 +150,46 @@ export const ESTIMATE_SUBJECT_TITLE: Record<EstimateSubject, string> = {
  * `EdgeValueSourceEnum` is `['user','cee','template']`, and `'template'` is
  * DELIBERATELY distinct from `'cee'` — `edgeValueProvenance.ts`: *"a template
  * weight is a real value, not a UI fallthrough"*, authored by a template author
- * for this template rather than estimated for THIS user's decision. It has a
- * live writer (`hooks/useBlueprintInsert.ts:109`, via `edgeValueSourcePatch` —
- * a call shape a `weightSource: 'template'` grep does NOT see, which is how it
- * was first missed). A blueprint-inserted risk→goal edge therefore reaches this
- * sentence, and a hardcoded "Olumi is assuming" would credit Olumi with a
- * number Olumi did not produce — the same fabrication class this row exists to
- * close, one clause along.
+ * for this template rather than estimated for THIS user's decision.
+ *
+ * ⚠⚠ THIS PARAGRAPH WAS WRONG THREE WAYS, AND ALL THREE CAME FROM COPYING A
+ * LIST WHOSE OWN CLOSING LINE SAYS "Re-derive this list rather than trusting
+ * it" (`edgeValueProvenance.ts`). Re-derived 3 Sep 2026 by sweeping
+ * `edgeValueSourcePatch(` and direct `weightSource:` writes across `src/`, with
+ * a contrast control (a sibling symbol that must be PRESENT) and a fabricated
+ * negative control (which must read zero) in the same run:
+ *
+ *   1. THE PATH DID NOT EXIST. It said `hooks/useBlueprintInsert.ts:109`; the
+ *      file is `canvas/hooks/useBlueprintInsert.ts` and the call is at :110.
+ *   2. "A live writer" WAS SINGULAR AND THERE ARE TWO. `ReactFlowGraph.tsx:1700`
+ *      writes `weight: edge.weight != null ? 'template' : undefined` — the
+ *      byte-identical call shape, its own comment saying "Matches
+ *      useBlueprintInsert". Both are listed in `edgeValueProvenance.ts` THREE
+ *      LINES APART; only the second was copied.
+ *   3. The same over-copy fed the `'cee'` account. Derived: SEVEN writers stamp
+ *      `weight: 'cee'` — five via `edgeValueSourcePatch` (`applyPatch.ts:205`,
+ *      `DraftChat.tsx:685`, `applyDraftResult.ts:167`, `store.ts:7085` and
+ *      `:7180`) and two directly (`ModelTabBody.tsx:751`,
+ *      `useModelActionApply.ts:358`). ⭐ AND THEY DO NOT ALL USE THE SAME
+ *      WARRANT: the draft path keys on the mere PRESENCE of a wire figure,
+ *      while `ModelTabBody:751` stamps a producer-SIGNED pass-2 mean — a
+ *      genuinely stronger claim. "Keyed purely on presence" is true of the
+ *      draft path (the witnessed population, so the root cause stands) and
+ *      false as a general statement about `'cee'`.
+ *
+ * ⚠ PRODUCT IMPACT OF (2): NONE — both writers stamp `'template'` and the
+ * branch below handles `'template'`, so the remedy was complete by luck of
+ * shape rather than by the sweep being right. Recorded because a record that is
+ * wrong for a harmless reason is still what the next session inherits.
+ *
+ * ⚠ AND THE ORIGINAL CAVEAT STANDS, because it is why the miss happened at all:
+ * `edgeValueSourcePatch` is a call shape a `weightSource: 'template'` grep does
+ * NOT see. Sweep the PATCH HELPER as well as the field name.
+ *
+ * A blueprint-inserted risk→goal edge therefore reaches this sentence, and a
+ * hardcoded "Olumi is assuming" would credit Olumi with a number Olumi did not
+ * produce — the same fabrication class this row exists to close, one clause
+ * along.
  */
 export function unconfirmedStrengthDisclosure(
   assumedPct: number | null,

@@ -149,6 +149,32 @@ export const METRIC_NOUN = {
  * reach — Paul's to take — and it is stated in those terms rather than left for
  * a later session to discover.
  *
+ * ⭐⭐ AND THE STRONGEST ARGUMENT FOR IT IS A PRECEDENT THIS RECORD DID NOT CITE:
+ * THE ESTATE ALREADY TOOK THIS EXACT DECISION ONE CHANNEL ALONG.
+ * `StyledEdge.tsx:1082`, ROADMAP 2.954 — in the causal lens an unset strength
+ * draws at FLOOR WIDTH *"so thickness never reports the `weight` default as a
+ * measurement."* Withholding a bar for an unsettled strength is the same
+ * refusal, on the card instead of the line. That is a much better justification
+ * than the flattening statistics above, which describe how OFTEN the old
+ * behaviour looked wrong rather than why it WAS wrong.
+ *
+ * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — NOT FIXED
+ * HERE. Thickness still carries the magnitude and `vectorEffect:
+ * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
+ * channels that does not degrade at low zoom (where this metric row sits at
+ * ~8.8px). But `weightMagnitudeToStrokeWidth` has three bands (≥0.7→3, ≥0.4→2,
+ * else 1.5) and `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest
+ * band. Across the 24 starter magnitudes (0.18–0.65) that is exactly TWO
+ * distinguishable widths, one of them ambiguous with "unset".
+ *
+ * ⛔ DELIBERATELY NOT BUILT. Whether "unset" should be visually distinct from
+ * "weakest" is a live product question with Paul, and changing
+ * `UNSET_EDGE_STROKE_WIDTH` or the band scheme would pre-empt it from a lane
+ * scoped to a card row. Rowed, not built. (An in-repo middle exists if he wants
+ * one: the canvas already uses DASH to mean uncertainty, so a visibly unsettled
+ * bar — hatched or ghosted, clearly outside measurement grammar — would keep 24
+ * edges comparable at a glance while still refusing the claim. Unexamined here.)
+ *
  * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
  * this — the risk card, the outcome card, and the reduced line both of them
  * declare below the legibility floor. That is exactly the hand-maintained
