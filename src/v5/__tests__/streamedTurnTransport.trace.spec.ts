@@ -20,7 +20,7 @@
  * The pairs below matter: settling the entry must not make it CLAIM anything
  * about the turn. This record observes the SSE open and nothing else.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const traceSpies = vi.hoisted(() => ({
   recordRequestPayload: vi.fn(),
@@ -190,5 +190,50 @@ describe('every path settles exactly once', () => {
         traceSpies.recordRequestPayload.mock.calls[0][0].id,
       )
     }
+  })
+})
+
+describe('the catch owns the fetch, not the diagnostic write', () => {
+  // The three cases above all reach the recorder through a HEALTHY store, so
+  // none of them can observe the scoping — they pass identically whether the
+  // success record sits inside the `try` or after it. This case is the one that
+  // discriminates, which is why it is written separately rather than folded in.
+  afterEach(() => {
+    // `mockImplementationOnce` is consumed on both arms today; resetting bounds
+    // the leak if a future change stops calling the recorder on this path.
+    traceSpies.recordResponsePayload.mockReset()
+  })
+
+  it('a throwing trace write on the success path is not reclassified as a transport failure', async () => {
+    // RED at the shipped code, which enclosed the success record in the `try`:
+    // the catch then saw the recorder's throw as the FETCH's, wrote a second
+    // record for the same id claiming `status: 0, source: 'unknown'`, and
+    // rejected a 200 open as `StreamAbandonedError` — which `runStreamedDraftTurn`
+    // reads as "fall back to the buffered turn". A success recorded as a failure,
+    // which is the defect this whole file exists to remove.
+    //
+    // Latent rather than firing today: `validateCEEResponse` is vacuous on the
+    // marker body and a real `Response` always has `.headers.entries()`. Pinned
+    // anyway, because "no current caller can trigger it" is a fact about today's
+    // callers, not a property of this function.
+    traceSpies.recordResponsePayload.mockImplementationOnce(() => {
+      throw new Error('trace store unavailable')
+    })
+
+    const caught = await openV5TurnStream(PAYLOAD, {
+      fetchImpl: (async () => sseResponse(200)) as never,
+    }).then(
+      () => null,
+      (e: unknown) => e,
+    )
+
+    // The open succeeded, so nothing may claim the stream was abandoned.
+    expect(caught).not.toBeInstanceOf(StreamAbandonedError)
+    expect((caught as Error).message).toBe('trace store unavailable')
+
+    // And no second, false record: the one write attempted carries the REAL
+    // status of the open, not the catch's `0`.
+    expect(traceSpies.recordResponsePayload).toHaveBeenCalledTimes(1)
+    expect(traceSpies.recordResponsePayload.mock.calls[0][0].status).toBe(200)
   })
 })

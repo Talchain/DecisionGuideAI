@@ -125,8 +125,21 @@ export async function openV5TurnStream(
     body: payload,
   })
 
+  // ⚠ THE `try` COVERS THE FETCH AND NOTHING ELSE — the same scoping
+  // `v5Adapter.callV5Turn` uses (`let res: Response; try { res = await
+  // fetchFn(…) } catch {…}`, success record after the block). Widening it to
+  // enclose the success-path record would widen the catch's question from
+  // *"did the fetch throw?"* to *"did the fetch throw OR did the diagnostic
+  // write throw?"* — two questions under one handler, which is the estate's
+  // signature defect. Concretely, a throw from `recordResponsePayload` or from
+  // `res.headers.entries()` would then write a SECOND record for this same
+  // `traceId` claiming `status: 0, source: 'unknown'`, and reject a 200 open as
+  // `StreamAbandonedError`, which this module's header documents as triggering
+  // a buffered re-send. That is exactly the defect this file exists to remove —
+  // a success recorded as a failure — reappearing one branch over.
+  let res: Response
   try {
-    const res = await fetchFn(url, {
+    res = await fetchFn(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,17 +149,6 @@ export async function openV5TurnStream(
       body: JSON.stringify(payload),
       signal: opts.signal,
     })
-    // `res.body` is the live SSE stream and is deliberately NOT read here —
-    // consuming it would starve the caller's frame reader. The body recorded is
-    // a marker naming what this record is and where the outcome actually lives.
-    recordResponsePayload({
-      id: traceId,
-      status: res.status,
-      headers: Object.fromEntries(res.headers.entries()),
-      body: STREAM_OPEN_TRACE_BODY,
-      duration: Date.now() - requestedAt,
-    })
-    return res
   } catch (e) {
     const err = e as Error
     // Same three-way classification the buffered adapter writes, for the same
@@ -180,6 +182,18 @@ export async function openV5TurnStream(
       `streamed turn could not be opened: ${err?.message ?? 'unknown'}`,
     )
   }
+
+  // `res.body` is the live SSE stream and is deliberately NOT read here —
+  // consuming it would starve the caller's frame reader. The body recorded is a
+  // marker naming what this record is and where the outcome actually lives.
+  recordResponsePayload({
+    id: traceId,
+    status: res.status,
+    headers: Object.fromEntries(res.headers.entries()),
+    body: STREAM_OPEN_TRACE_BODY,
+    duration: Date.now() - requestedAt,
+  })
+  return res
 }
 
 export const __streamInternals = { streamEndpointFor, terminalPayloadToResponse }

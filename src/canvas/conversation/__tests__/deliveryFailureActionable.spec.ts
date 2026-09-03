@@ -155,13 +155,31 @@ describe('retry safety', () => {
     expect(retrySafety({ verifiedNonDelivery: false, reusedRequestId: '' }).safe).toBe(false)
   })
 
-  it('the client DOES send X-Request-Id — the fact the old header denied', () => {
-    // This is the pin that keeps the header correction from going stale in the
-    // other direction: if the header stops being sent, `retrySafety`'s
-    // `request_id_reused` branch becomes unreachable and this reds.
+  it('the header BUILDER emits X-Request-Id in a shape CEE will honour', () => {
+    // ⚠ THIS CASE DOES NOT PIN THE CALL SITE. An earlier version of this comment
+    // said it did — "if the header stops being sent … this reds" — and that was
+    // false. Measured 2026-09-04 with a discriminating pair, mutant = deleting
+    // `...buildRequestIdHeaders(generateRequestId()),` from `useConversation.ts`
+    // (applied-check: exactly 1 file):
+    //
+    //   this file                                  → 22/22 GREEN
+    //   `useConversation.turnCorrelationHeader.spec.ts` → 6 failed / 2 passed
+    //
+    // It stays green because it calls a pure function and never loads the hook.
+    // The real pin is that sibling suite
+    // (`canvas/conversation/__tests__/useConversation.turnCorrelationHeader.spec.ts`),
+    // 8 cases: four over the `v5Headers` initialiser's source shape — two guards
+    // plus their own positive control and a vacuity pair — and four driving the
+    // live V5 path. **Do not delete it believing this case covers it** —
+    // `retrySafety`'s `request_id_reused` branch is only reachable in production
+    // while that header is genuinely sent, and this case cannot observe that.
+    //
+    // What this case DOES cover is the other half of the five-hop derivation in
+    // `deliveryUnknown.ts`: hop 2, that the minted id is one CEE accepts rather
+    // than regenerates. An id CEE rejects is replaced server-side, and reuse
+    // then buys no idempotency at all — so shape is load-bearing, not cosmetic.
     const headers = buildRequestIdHeaders(generateRequestId())
     expect(Object.keys(headers)).toContain('X-Request-Id')
-    // And the id it mints is one CEE will accept rather than regenerate.
     expect(Object.values(headers)[0]).toMatch(/^[A-Za-z0-9._-]{1,64}$/)
   })
 })
