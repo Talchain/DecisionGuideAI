@@ -1,11 +1,24 @@
 /**
  * CanvasLegendPopover — a compact "How to read this" toolbar disclosure.
  *
- * Presentational only: reads nothing from the graph and triggers no actions.
- * Opens on click (keyboard: Enter/Space activates); dismissed via outside-click
- * or Esc. Focus alone does not open it. Every rendered
+ * Presentational only in the sense that matters: it triggers no actions and
+ * mutates nothing. Opens on click (keyboard: Enter/Space activates); dismissed
+ * via outside-click or Esc. Focus alone does not open it. Every rendered
  * string is brief/amendment-approved (A4) — no Claude-authored copy, and no
  * "node/edge/graph" wording.
+ *
+ * ⚠ IT IS NO LONGER "reads nothing from the graph", AND THE OLD SENTENCE IS
+ * QUOTED BECAUSE IT WAS THE REASON THE NUMBER ROWS COULD LIE. A key that cannot
+ * see the phase has to describe every phase at once, and five of its seven
+ * number rows described markings that render only after a completed analysis —
+ * so a first-time reader, who opens the key PRECISELY BECAUSE they are
+ * confused, was told to look for badges that were on no card.
+ *
+ * It now reads TWO fields — `results.status` and `optionNumbering` × `nodes` —
+ * because one axis was not enough and a review proved it: the ordinal badge
+ * OUTLIVES the run that minted it, so a status-only gate withheld the row while
+ * the numbers were still on the cards. Each row is gated on the predicate ITS
+ * OWN CARD uses. See `LegendBoardState` and `METRIC_ROW_VISIBLE`.
  *
  * ⚠ The rule above used to end "if more copy is ever needed here, stop and ask
  * Paul." R6 (Paul, 16 Aug 2026) is that instruction being given: "orange
@@ -20,7 +33,7 @@
  * drawn: direction is a line colour plus a + or - marker. Every row here is now
  * derived from what StyledEdge actually paints.
  */
-import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react'
+import { useRef, useEffect, useLayoutEffect, useState, useCallback, type ReactNode } from 'react'
 import { HelpCircle } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
@@ -29,7 +42,8 @@ import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS } from '../nodes/shared/metricVocabulary'
+import { METRIC_LEGEND_ROWS, METRIC_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { useCanvasStore } from '../store'
 
 interface LegendRow {
   label: string
@@ -225,10 +239,205 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  * `metricVocabulary.spec.ts` REDs if a noun gains no row. Hand-listing them
  * here would be the mirror the register was introduced to abolish.
  */
-function MetricGroup() {
+/**
+ * ⭐⭐⭐ THE ROWS A PRE-RUN READER CANNOT SEE ARE NOT SHOWN TO A PRE-RUN READER.
+ *
+ * MEASURED ON THE DEPLOYED BUILD `bd18bace`: the row *"1, 2, 3 on an option: the
+ * order the options were first laid out in…"* described a marking that was on
+ * **none of the four option cards** — established by full leaf enumeration
+ * including `sr-only`, at scale 0.355 and again at 2.61 with detail expanded,
+ * with a contrast control that DID find a single-digit badge elsewhere on the
+ * page. The probe was not blind; the numbers genuinely were not there.
+ *
+ * ⭐ AND IT WAS NOT ONE ROW. Enumerating all seven rows against their render
+ * sites found FIVE in the same state. Derived at each card's own gate:
+ *
+ *   Ahead   POST-RUN  `OptionNode:1498` `winReadout !== null`, and `winReadout`
+ *                     returns null unless `displayMetadata.isResultsMode`
+ *                     (`useNodeDisplayMetadata:226`, `resultsStatus ===
+ *                     'complete'`). Second site `DecisionNode:764`, gated
+ *                     harder still on `deriveDecisionVerdict().hasLeadingOption`.
+ *   Chance  POST-RUN  `GoalNode:223` `hasThreshold && isResultsMode &&
+ *                     achievementProbability !== null`; the figure is
+ *                     `selectGoalProbability(report)`.
+ *   Influence POST-RUN `FactorNode:997` `isPostAnalysis && … influencePct != null`.
+ *                     ⚠ It is SENSITIVITY OUTPUT, not an authored weight —
+ *                     `selectDriverPolicyFeed(report)`. Pre-run the factor card
+ *                     renders `EdgePills` instead, which says "Link strength".
+ *   #1,#2,#3 POST-RUN `BaseNode:738` `typeof sensitivityRank === 'number'`;
+ *                     `sensitivityRank` is null whenever `!isResultsMode || !report`.
+ *   1,2,3   POST-RUN  `OptionNode:1459` `stableOptionNumber != null`. The node's
+ *                     OWN gate carries no results term — which is why this one
+ *                     had to be derived rather than read off the card — but
+ *                     `optionNumbering` has exactly ONE writer
+ *                     (`store.ts:5010` `registerOptionNumbering`) with exactly
+ *                     ONE production call site
+ *                     (`useResultsSectionData.ts:3874`), whose ids come from
+ *                     `recommendation.allOptions`, which is `[]` under
+ *                     `if (!hasCompletedFirstRun || !report)`
+ *                     (`useResultsSectionData.ts:1712`). So pre-run the map
+ *                     stays `{}` and the badge cannot mount.
+ *
+ *   Strength PRE-RUN  `RiskNode:247` / `OutcomeNode:253`
+ *                     `bridgeEdgeData?.bridgeStrengthPct != null`, a memo over
+ *                     `state.edges`/`state.nodes` ONLY — no report, no status.
+ *   est.     PRE-RUN  `FactorNode:911` `isInferred` (`data.observedState`),
+ *                     `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`
+ *                     (`edge.data.weightSource !== 'user'`). Graph-authored.
+ *
+ * ⛔ THE FIX IS WHEN A ROW IS SHOWN — NOT WHEN A NUMBER IS MINTED, AND NOT THE
+ * WORDS. Changing ordinal minting is a separate decision with its own
+ * consequences (`Option 2` would stop meaning one option), and the glosses in
+ * `metricVocabulary.ts` are the merged register — its nouns are correct. This
+ * file decides only WHETHER a row is on screen.
+ *
+ * ⛔ AND NO NEW COPY. This component's contract (top of file) is that every
+ * rendered string is brief-approved and "any FURTHER copy still stops and asks".
+ * So the alternative fix — rewording the rows to be true in both phases, or
+ * adding a "this appears after you run" line — is not available here without
+ * Paul. Gating the rows adds zero strings, which is why it is the fix.
+ *
+ * ⚠ THE CLASSIFICATION IS AN ALLOW-LIST OF THE **PRE-RUN** NOUNS, AND THE
+ * DIRECTION IS DELIBERATE. It is the shorter list (2 of 7), and more
+ * importantly it FAILS CLOSED: a noun added to the register and forgotten here
+ * is treated as post-run, so the worst case is a row withheld from a pre-run
+ * reader — never the defect being fixed, which is a row that ASSERTS SOMETHING
+ * ABSENT. An allow-list of post-run nouns would fail the other way and reopen it
+ * silently.
+ *
+ * ⚠ A DEFAULT IS NOT A CLASSIFICATION, so the safe default is paired with a
+ * spec that REDs when the register gains a noun this file has not placed
+ * (`every register noun is classified…`), and with a membership assertion that
+ * REDs if a name here stops matching the register — `'est.'` has no exported
+ * constant to reference, so it is the one re-typed literal in this file and it
+ * needs a guard of its own (CLAUDE.md trap 12). `METRIC_NOUN.strength` is a
+ * reference and cannot drift.
+ */
+/**
+ * What the legend needs to know about the board to decide which rows are true.
+ *
+ * ⚠ TWO FIELDS, NOT ONE, AND THE SECOND ONE IS A CORRECTION.
+ *
+ * The first version of this fix gated every withheld row on `isPostAnalysis`
+ * alone. A reviewer refuted it, and the refutation is the MIRROR IMAGE of the
+ * defect being fixed: `optionNumbering` is APPEND-ONLY and is cleared by exactly
+ * four paths (import, new decision, `loadScenario`, hydrate) — **none of them
+ * tied to `results.status`**. `resultsAnalysing()`, `resultsError()` and
+ * `resultsReset()` all leave it intact. So after any completed run, every
+ * non-`complete` status shows `1 2 3` on the cards WITH NO ROW EXPLAINING THEM.
+ * Measured 7/7 across the `ResultsStatus` union; the most reachable path is a
+ * labelled button — Run, then "Clear results" (`NodeInspector.tsx:846`), then
+ * open the key. Durable state, not a transient.
+ *
+ * ⭐ THE LESSON, AND IT IS THE ONE THIS FILE ALREADY CONTAINED: gate on THE
+ * MARKING, NOT ON THE RUN. Four of these rows gate on the same predicate their
+ * card uses; the ordinal row was gated on a PROXY for its card's predicate, and
+ * a proxy is exactly a second authority that agrees on the day it is written
+ * (CLAUDE.md trap 21). The repo even held the counter-example the whole time:
+ * `OptionNode.spec.tsx:2352` renders the badge with `results.status: 'idle'` and
+ * is green. Two specs in one suite would have disagreed about whether the
+ * marking is on screen.
+ */
+export interface LegendBoardState {
+  /** `results.status === 'complete'` — the predicate the cards restate. */
+  readonly isPostAnalysis: boolean
+  /**
+   * At least one MOUNTED node carries an ordinal, i.e. a badge is on screen.
+   *
+   * Read from the same source the badge reads (`optionNumbering[node.id]`,
+   * `OptionNode:401,1459`) rather than from a status. Intersected with `nodes`
+   * rather than testing the map for emptiness, so a number left in the map for a
+   * node that is no longer mounted cannot make the row promise a badge nobody
+   * can see — the same direction of error this whole change exists to close.
+   */
+  readonly ordinalsOnScreen: boolean
+}
+
+/**
+ * ⭐⭐ ONE PREDICATE PER ROW, EACH DERIVED FROM ITS OWN CARD'S GATE.
+ *
+ * ⚠ THIS REPLACED A TWO-WAY PRE/POST SPLIT, AND THE SPLIT WAS THE BUG. A single
+ * phase axis cannot express "the badge outlives the run that minted it", so the
+ * ordinal row was necessarily gated on something adjacent to its truth rather
+ * than on its truth. Per-row predicates cost more lines and are the only shape
+ * that can be RIGHT for a row whose marking has its own lifetime.
+ *
+ * Derived at each render site (line numbers are at `bd18bace`):
+ *
+ *   Ahead     `OptionNode:1498` `winReadout !== null`, null unless
+ *             `displayMetadata.isResultsMode`; `DecisionNode:764` gated harder
+ *             still on `deriveDecisionVerdict().hasLeadingOption`.
+ *   Chance    `GoalNode:223` `hasThreshold && isResultsMode &&
+ *             achievementProbability !== null`.
+ *   Influence `FactorNode:997` `isPostAnalysis && … influencePct != null`.
+ *             ⚠ SENSITIVITY OUTPUT, not an authored weight — pre-run the card
+ *             renders `EdgePills`, which says "Link strength": a different word
+ *             for a different quantity, so this row was not merely early.
+ *   #1,#2,#3  `BaseNode:738` `typeof sensitivityRank === 'number'`; null
+ *             whenever `!isResultsMode || !report`.
+ *   1,2,3     `OptionNode:1459` `stableOptionNumber != null` — AND NOTHING ELSE.
+ *             Its gate carries no results term at all, which is the whole of F1.
+ *   Strength  `RiskNode:247` / `OutcomeNode:258` `bridgeStrengthPct != null`, a
+ *             memo over `state.edges`/`state.nodes` only.
+ *   est.      `FactorNode:911` `isInferred`; `RiskNode:265` / `OutcomeNode:267`
+ *             `bridgeIsEstimated`. Graph-authored; no results term.
+ *
+ * ⚠ THE LIST ABOVE IS THE PRIMARY SITE PER NOUN, NOT THE ONLY ONE. A completeness
+ * sweep found SEVEN MORE, and the correction is recorded here rather than left
+ * as a tidy-looking table that is quietly short (trap 12d — a derived guard
+ * proves agreement, never completeness):
+ *
+ *   POST-RUN, all routed through `displayMetadata`, so the classification is
+ *   unchanged: `lodMetricLine:221` (factor LOD, Influence), `:249` (option LOD,
+ *   Ahead), `:305` (outcome LOD, Chance); `FactorNode:728` (detailed bar row,
+ *   mounted at `:1018` and at the `:1069` hover popover); `OutcomeNode:180`
+ *   (`detailedMetrics`, mounted at `:284`).
+ *
+ *   PRE-RUN, and these do NOT route through `displayMetadata`:
+ *   `RiskNode:92` and `OutcomeNode:85` paint `Strength N% est.` as reduced LOD
+ *   lines straight off `bridgeEdgeData`. They land on the same side as the
+ *   primary Strength/est. rows, so the conclusion holds — but it holds for a
+ *   different reason than "everything goes through `displayMetadata`", and a
+ *   reader checking that premise would have found it false.
+ *
+ * ⚠ `OutcomeNode:253` WAS WRONG IN THE FIRST VERSION OF THIS BLOCK — that line
+ * is now inside a comment and the gate is `:258`. Line numbers in a docblock are
+ * a hand-maintained mirror; they are kept because they are how the next reader
+ * finds the gate, and they are pinned to `bd18bace`. Re-derive before relying.
+ *
+ * ⚠ AN UNKNOWN NOUN FAILS CLOSED — it is withheld rather than falsely promised,
+ * because a row that promises an absent marking is the harm this file exists to
+ * prevent. A safe default is not a decision, so the spec REDs when the register
+ * grows a noun this map has not placed, and when a key here stops matching the
+ * register (three keys are re-typed literals with no exported constant).
+ */
+const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boolean>> = {
+  [METRIC_NOUN.ahead]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.strength]: () => true,
+  '#1, #2, #3': (b) => b.isPostAnalysis,
+  '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
+  'est.': () => true,
+}
+
+/** The nouns this file classifies. Exported so the spec can assert BOTH directions. */
+export const CLASSIFIED_METRIC_NOUNS: readonly string[] = Object.keys(METRIC_ROW_VISIBLE)
+
+/**
+ * The rows to render for a given board state.
+ *
+ * Exported so the spec asserts the SAME function the component renders through,
+ * rather than re-deriving the split and agreeing with itself (CLAUDE.md 13b).
+ */
+export function visibleMetricRows(board: LegendBoardState): readonly MetricLegendRow[] {
+  return METRIC_LEGEND_ROWS.filter((r) => METRIC_ROW_VISIBLE[r.noun]?.(board) ?? false)
+}
+
+function MetricGroup({ board }: { board: LegendBoardState }) {
   return (
     <div className="space-y-1.5">
-      {METRIC_LEGEND_ROWS.map(r => (
+      {visibleMetricRows(board).map(r => (
         <div key={r.noun} className={`${typography.panelMeta} text-text-light`}>
           <span className="text-text-body font-medium">{r.noun}</span>: {r.gloss}
         </div>
@@ -250,12 +459,140 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
   )
 }
 
+/**
+ * ⭐⭐ THE PANEL MUST FIT THE VIEWPORT IT OPENS IN — and until this landed it did
+ * not, on the most ordinary window size there is.
+ *
+ * MEASURED ON THE DEPLOYED BUILD `bd18bace`, 1280×800: the popover rendered
+ * **816px tall at y = −43**, with `overflow-y: visible` and
+ * `scrollHeight === clientHeight`. Its own heading "How to read this" sat at
+ * y = −30 and the first row at y = −6. Both were off-screen and unreachable by
+ * ANY means — no scrollbar, no keyboard, no drag. A reader who opened the key
+ * could not see what it was or read its first entry.
+ *
+ * ── THE MECHANISM, AND IT IS BOTH HALVES ────────────────────────────────────
+ *
+ *  1. THE HEIGHT WAS UNBOUNDED. There was no `max-height` anywhere on this
+ *     panel, and the rows have only grown — types, connections, thickness,
+ *     direction, colour, provenance, and most recently seven prose rows for the
+ *     numbers. At 816px the content does not fit an 800px window AT ALL, so no
+ *     amount of repositioning could have saved it. Every row added since the
+ *     `w-56` → `w-72` widening made this worse and nothing measured it: the
+ *     register's own note conceded "**this is the one claim in this change with
+ *     no automated witness**".
+ *
+ *  2. THE ANCHOR GROWS UPWARD, OFF THE TOP, WITH NO CLAMP. The toolbar is
+ *     `position: fixed; bottom: 12px` (`CanvasFloatingToolbar.module.css`) and
+ *     this panel is `absolute … bottom-0` inside it. So the panel's BOTTOM is
+ *     pinned near the foot of the window and its TOP is
+ *     `wrapperBottom − panelHeight` — a number that goes NEGATIVE the moment the
+ *     content is taller than the space above the button. There is no flip, no
+ *     collision detection and no clamp. At 800px the wrapper's bottom is 773,
+ *     and 773 − 816 = **−43**, which is exactly the y that was measured.
+ *
+ *     ⭐ This is also why it is the HEADING that disappears rather than the last
+ *     row: the panel overflows at the end it grows from, and the heading is the
+ *     first child.
+ *
+ * ── THE FIX, AND WHY IT IS MEASURED RATHER THAN WRITTEN IN CSS ───────────────
+ *
+ * The cap has to be "the distance from the top of the window down to the bottom
+ * of this panel", and CSS cannot express that: `calc(100vh - …)` would need the
+ * toolbar's bottom offset AND its padding restated here, which is the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12) — the
+ * toolbar changes its padding, this constant does not, and the drift reads as
+ * green. So the cap is DERIVED from the wrapper's own rect, which cannot drift
+ * from the layout because it IS the layout.
+ *
+ *     maxHeight = wrapperBottom − VIEWPORT_GUTTER_PX
+ *     ⟹ panelTop = wrapperBottom − panelHeight ≥ VIEWPORT_GUTTER_PX
+ *
+ * The panel therefore cannot render above the top of the viewport BY
+ * CONSTRUCTION, at any window height, rather than by a constant someone chose.
+ * The content is the point (the brief's words), so the panel scrolls rather than
+ * the rows shrinking: nothing is dropped, everything is reachable.
+ *
+ * ⚠ THE CSS CAP BELOW IS A SECOND GUARD, NOT THE SAME ONE. Inline style wins
+ * over the class, so the class only ever applies before the first measurement or
+ * where there is no layout at all (jsdom). It is deliberately CONSERVATIVE —
+ * `100vh − 96px` is smaller than the real budget — because its job is only to
+ * make an unbounded panel impossible in the CSS alone. A reader who deletes the
+ * measurement must still not be able to reproduce the 816px panel.
+ */
+const VIEWPORT_GUTTER_PX = 12
+
 export function CanvasLegendPopover() {
   // Local open-state — this is now the only canvas legend (the edge-thickness
   // scale is folded in below), so there's no second legend to coordinate with.
   // Display-only; not persisted.
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  /**
+   * The measured cap, in px. `null` means "not measured" — NOT "unbounded":
+   * the conservative CSS class carries the panel in that state. Kept as state
+   * rather than written straight to the node so the value is a render input and
+   * a resize re-renders through the normal path.
+   */
+  const [maxHeightPx, setMaxHeightPx] = useState<number | null>(null)
+  /**
+   * The SAME predicate the cards use — `isPostAnalysis = resultsStatus ===
+   * 'complete'` is restated verbatim in `OptionNode:402`, `FactorNode:46`,
+   * `GoalNode:72`, `DecisionNode:156`, `RiskNode:35`, `OutcomeNode:28` and
+   * `usePreAnalysisInbound:62`. Reading `results.status` here rather than a
+   * derived flag keeps this key on the same clock as the cards it describes: it
+   * cannot say a badge is on screen on a status where the card withholds it.
+   *
+   * (That the predicate is restated in eight places is itself the mirror this
+   * estate keeps paying for. Consolidating it touches six node components and is
+   * not this lane's to do — noted, not fixed.)
+   */
+  const isPostAnalysis = useCanvasStore(s => s.results.status === 'complete')
+  /**
+   * ⭐ THE ORDINAL ROW'S OWN PREDICATE — read from the badge's source, not from
+   * the run that minted it. See `LegendBoardState.ordinalsOnScreen` for why a
+   * status proxy was wrong here (F1: the badges outlive every non-`complete`
+   * status, so the row vanished while the numbers stayed on the cards).
+   *
+   * ⚠ The selector returns a BOOLEAN, not the map or a derived array —
+   * `ci:guard:zustand` (React #185) forbids a bare object selector, and a fresh
+   * object identity here would re-render the toolbar on every store tick.
+   */
+  const ordinalsOnScreen = useCanvasStore(s => {
+    const numbering = s.optionNumbering
+    if (!numbering) return false
+    return s.nodes.some(n => numbering[n.id] != null)
+  })
+  const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen }
+
+  /**
+   * ⚠ `useLayoutEffect`, not `useEffect`: this runs BEFORE paint, so the panel
+   * is never painted at its unbounded height. With `useEffect` the reader gets
+   * one frame of the 816px panel — the defect, briefly, on every open.
+   *
+   * ⚠ AND IT RE-MEASURES ON RESIZE. A cap computed once is a cap that is wrong
+   * as soon as the window changes, and shrinking the window is precisely how a
+   * reader arrives at the small heights this fix is for.
+   */
+  useLayoutEffect(() => {
+    if (!open) {
+      setMaxHeightPx(null)
+      return
+    }
+    const measure = () => {
+      const bottom = wrapRef.current?.getBoundingClientRect().bottom
+      // jsdom returns 0 for every rect (CLAUDE.md trap 3). A 0 here is "no
+      // layout to read", and answering it with a cap of `-12` would collapse the
+      // panel; fall back to the CSS guard instead of inventing a number.
+      if (typeof bottom !== 'number' || !Number.isFinite(bottom) || bottom <= 0) {
+        setMaxHeightPx(null)
+        return
+      }
+      setMaxHeightPx(Math.max(0, bottom - VIEWPORT_GUTTER_PX))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [open])
 
   const close = useCallback(() => setOpen(false), [])
   // Functional updater stays immune to focus-before-click staleness: a real mouse
@@ -300,23 +637,62 @@ export function CanvasLegendPopover() {
         <div
           role="dialog"
           aria-label="How to read this"
-          className="absolute left-full ml-2 bottom-0 w-72 bg-panel border border-panel-border rounded-lg shadow-panel p-3 z-[1200]"
+          /* `flex flex-col` + a capped height is what makes the rows region
+             shrinkable; `max-h-[calc(100vh-96px)]` is the conservative CSS
+             fallback described above and is overridden by the measured inline
+             cap on every real paint. */
+          className="absolute left-full ml-2 bottom-0 w-72 flex flex-col max-h-[calc(100vh-96px)] bg-panel border border-panel-border rounded-lg shadow-panel p-3 z-[1200]"
+          style={maxHeightPx === null ? undefined : { maxHeight: `${maxHeightPx}px` }}
           data-testid="canvas-legend-popover"
         >
-          <div className={`${typography.panelMeta} text-text-body font-medium mb-2`}>How to read this</div>
-          <LegendGroup rows={TYPE_ROWS} />
-          <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-          <LegendGroup rows={CONNECTION_ROWS} />
-          <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-          <LegendGroup rows={THICKNESS_ROWS} />
-          <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-          <LegendGroup rows={DIRECTION_ROWS} />
-      <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-      <LegendGroup rows={COLOUR_ROWS} />
-      <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-      <LegendGroup rows={PROVENANCE_ROWS} />
-      <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-      <MetricGroup />
+          {/* The heading stays OUT of the scroll region. It was the element the
+              defect put off-screen, and pinning it means a reader always knows
+              what they have opened, however far they scroll. */}
+          <div className={`${typography.panelMeta} text-text-body font-medium mb-2 shrink-0`}>How to read this</div>
+          {/* ⚠⚠ `min-h-0` IS REDUNDANT HERE TODAY, AND THE MEASUREMENT SAYS SO
+              — this comment previously claimed it was "load-bearing … without
+              it the panel goes back to 816px", and a mutant REFUTED that:
+              deleting `min-h-0` left the browser geometry BYTE-IDENTICAL at all
+              five viewport heights and every arm still passed. A claim about our
+              own code is still a claim (CLAUDE.md 12d).
+
+              WHY it is redundant: a flex item's automatic minimum size
+              (`min-height: auto`) is what would refuse to shrink below content —
+              but the flexbox spec zeroes it for a box whose `overflow` is
+              anything other than `visible`, and this box is `overflow-y: auto`.
+              So the SCROLL PROPERTY is already doing the work.
+
+              It is KEPT, not deleted, precisely because that makes the shrink
+              behaviour depend on a neighbouring class in the same list: change
+              `overflow-y` and the cap would start being ignored with nothing
+              else to catch it. Belt and braces, honestly labelled — and the
+              surviving mutant is recorded rather than read as a gap in the kit.
+
+              Deliberately NOT `flex-1`: `flex-basis: 0` in an auto-height column
+              can collapse the region to nothing. The default `flex: 0 1 auto`
+              sizes to content and shrinks only when capped, which is exactly the
+              wanted behaviour.
+
+              `overscroll-contain` stops a scroll that reaches the end of this
+              list chaining into the canvas behind it. */}
+          <div
+            className="min-h-0 overflow-y-auto overscroll-contain"
+            data-testid="canvas-legend-scroll"
+          >
+            <LegendGroup rows={TYPE_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={CONNECTION_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={THICKNESS_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={DIRECTION_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={COLOUR_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={PROVENANCE_ROWS} />
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <MetricGroup board={board} />
+          </div>
         </div>
       )}
     </div>
