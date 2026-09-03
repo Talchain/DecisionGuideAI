@@ -97,15 +97,27 @@ export interface EdgeDescription {
  * cut is right for prose — not a defect this PR is entitled to settle by
  * picking a number.
  *
- * ⚠ AND IT IS NOT ROWED ANYWHERE. An earlier draft of this block said it was
- * rowed in `CANVAS-BACKLOG.md`; measured against that file (both copies in
- * `Talchain/olumi-programme-docs`, with a contrast control proving the probe
- * sees rows S45–S49), no such row exists. A comment that claims a row is worse
- * than one that admits there is none, because it teaches the next reader to
- * stop looking. **This block and the test below are the ONLY record of the
- * decision.** What the constant buys is that the divergence is NAMED, ADJACENT
- * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
- * can only change on purpose.
+ * ⚠ AND IT IS NOT IN ANY DURABLE RECORD. An earlier draft of this block said it
+ * was "rowed in `CANVAS-BACKLOG.md`". Measured, with the artefact named rather
+ * than generalised:
+ *   · `Talchain/olumi-programme-docs` — the pushed, durable copy — holds
+ *     `CANVAS-BACKLOG.md` at two paths (`working-dir-mirror/`,
+ *     `artefacts/canvas-lane-2026-09-03/`) and NEITHER carries a row for this
+ *     divergence. Contrast control in the same sweep: rows S45–S49 all return
+ *     hits, so the probe discriminates.
+ *   · A local `CANVAS-BACKLOG.md` in the working directory DOES carry rows in
+ *     this range — but that directory is NOT A GIT REPOSITORY, so nothing
+ *     written there is committed, pushed, or readable by anyone else.
+ * ⚠ THE SECOND BULLET IS WHY THE FIRST DRAFT OF THIS CORRECTION SAID "NOT ROWED
+ * ANYWHERE" AND WAS ALSO WRONG: "absent from the artefacts I searched" is not
+ * "absent" (CLAUDE.md trap 20), and a correction inherits that trap as readily
+ * as the sentence it replaces.
+ *
+ * So: **this block and the test below are the only record of this decision that
+ * TRAVELS WITH THE CODE**, which is the property that matters to whoever reads
+ * the constant next. What the constant buys is that the divergence is NAMED,
+ * ADJACENT to the registry it differs from, and asserted in `edgeLabels.spec.ts`
+ * — so it can only change on purpose.
  *
  * The value is unchanged from the bare `0.6` literal that stood here. Nothing
  * about the product's behaviour moves with this constant's introduction.

@@ -435,9 +435,12 @@ export type EdgeValueDisplay =
  * in principle (ingestion clamps `weight` to `[0, 2]`), but because gating them
  * would change what `ModelTabBody`'s sort, `RelationshipsSection` and the
  * model-tab adapters do with values this lane has not enumerated. Closing them
- * is its own piece of work, and — measured against `CANVAS-BACKLOG.md` in
- * `Talchain/olumi-programme-docs` — it is NOT ROWED. An earlier draft of this
- * line said it was. This comment and the scope test in
+ * is its own piece of work, and it is NOT in the DURABLE backlog — measured
+ * against both copies of `CANVAS-BACKLOG.md` in `Talchain/olumi-programme-docs`
+ * with a contrast control; a local copy outside any git repository is not a
+ * record anyone else can read. An earlier draft of this line said flatly that
+ * it was "rowed". See `edgeLabels.ts`'s `LABEL_HEDGE_CUT` header for the full
+ * measurement. This comment and the scope test in
  * `__tests__/edgeValueProvenance.spec.ts` ("leaves the OPEN-domain fields
  * alone") are the only record that the omission is deliberate. A future lane
  * that narrows them must derive the writers first, exactly as the block above

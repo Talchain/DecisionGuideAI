@@ -526,8 +526,9 @@ describe('LABEL_HEDGE_CUT vs EDGE_VALUE_BAND_CUTS — a named divergence, not a 
 
   it('names the two windows where the label and the inspector disagree', () => {
     // ⚠ THIS IS A REACHABLE COPY INCONSISTENCY, PINNED RATHER THAN HIDDEN —
-    // and NOT rowed anywhere (measured against CANVAS-BACKLOG.md; see
-    // `LABEL_HEDGE_CUT`'s header). This test is part of the only record of it.
+    // and absent from the DURABLE backlog (see `LABEL_HEDGE_CUT`'s header for
+    // the artefacts searched and the contrast control). This test is part of
+    // the only record of it that travels with the code.
     // The EdgePanel existence slider reaches every value below.
 
     // [moderate, hedge): the inspector bands it MODERATE and the label hedges.
