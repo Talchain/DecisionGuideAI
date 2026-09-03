@@ -51,7 +51,7 @@ import {
   type CausalLensEdgeParams,
 } from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
-import { getEdgeLabel } from '../domain/edgeLabels'
+import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
@@ -860,7 +860,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * (ΔE2000 11.7 vs 28.3 under deuteranopia): the SHAPE, not the colour, is
    * what carries polarity for a red-green dichromat here.
    */
-  const strengthRowCarriesDirection = showLabel && isTopStrengthEdge
+  const strengthRowCarriesDirection =
+    showLabel &&
+    isTopStrengthEdge &&
+    // ⛔ AND THE LABEL MUST ACTUALLY SAY IT. Without this clause the predicate
+    // asserted its own name rather than checking it: in NUMERIC mode a stated
+    // POSITIVE renders `w 0.60 • b 85%` — no word, no sign, no direction — and
+    // the glyph was suppressed anyway, leaving polarity on hue alone. That is
+    // what `directionStroke.ts:23-32` forbids on a measurement. Asked of
+    // `edgeLabels.ts`, which owns both emitters, rather than re-derived from
+    // `labelMode` here.
+    labelCarriesDirection(edgeSignedStrength, directionDisplay, labelMode)
 
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //

@@ -30,6 +30,14 @@ let mockReport: Record<string, unknown> | null = null
 let mockEdges: Array<Record<string, unknown>> = []
 let mockViewMode = 'standard'
 let mockStatus = 'complete'
+/**
+ * ⚠ THIS WAS HARD-MOCKED TO 'human', AND THAT IS WHY THE FIRST VERSION OF THIS
+ * SUITE COULD NOT SEE THE DEFECT BELOW. `describeEdge` emits boost/drag
+ * whenever the direction is stated, so EVERY human-mode branch satisfies the
+ * suppression rule and the corpus structurally excluded the only class that
+ * breaks it. A corpus that cannot enter a mode cannot certify the code over it.
+ */
+let mockLabelMode: 'human' | 'numeric' = 'human'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -72,7 +80,7 @@ vi.mock('../../store', () => ({
 }))
 
 vi.mock('../../store/edgeLabelMode', () => ({
-  useEdgeLabelMode: vi.fn((selector: any) => selector({ mode: 'human' })),
+  useEdgeLabelMode: vi.fn((selector: any) => selector({ mode: mockLabelMode })),
 }))
 vi.mock('../../hooks/useTheme', () => ({ useIsDark: () => false }))
 vi.mock('../../hooks/useFirstTimeHints', () => ({
@@ -132,6 +140,7 @@ beforeEach(() => {
   mockEdges = []
   mockViewMode = 'standard'
   mockStatus = 'complete'
+  mockLabelMode = 'human'
 })
 
 describe('polarity glyph — suppressed only where a persistent chip already says it', () => {
@@ -197,5 +206,64 @@ describe('polarity glyph — suppressed only where a persistent chip already say
     const { container } = render(<StyledEdge {...(props as any)} />)
     expect(glyph(container)!.getAttribute('aria-label')).toBe('Effect direction: positive')
     expect(glyph(container)!.textContent).toBe('+')
+  })
+})
+
+/**
+ * NUMERIC MODE — the class the human-only corpus could not reach.
+ *
+ * ⛔ THIS GUARDS THE DICHROMAT CHANNEL. `formatNumericLabel`
+ * (`domain/edgeLabels.ts:242-255`) prints the magnitude through `signPrefix`
+ * (`:221-223`), which emits U+2212 for a stated NEGATIVE and NOTHING for a
+ * stated positive. So a numeric-positive chip reads `w 0.60 • b 85%` and
+ * carries no direction at all. Suppressing the glyph there leaves polarity
+ * resting on hue alone — which `directionStroke.ts:23-32` forbids in terms, on
+ * a measurement: this palette separates WORSE for a dichromat than the
+ * green/red it replaced (ΔE2000 11.7 vs 28.3 under deuteranopia).
+ *
+ * The rule is therefore NOT "always show the glyph in numeric mode" — the
+ * negative case genuinely does carry direction, in the sign — but "suppress
+ * only where the label actually says which way it goes".
+ */
+describe('polarity glyph — numeric mode suppresses only where the SIGN carries direction', () => {
+  it('THE DEFECT: a numeric POSITIVE chip carries no direction, so the glyph must survive', () => {
+    mockLabelMode = 'numeric'
+    pinAsTopStrength()
+    const { container } = render(<StyledEdge {...(props as any)} />)
+
+    const text = strengthText(container)!.textContent ?? ''
+    // Pin the precondition IN-TEST: this label really does lack a direction,
+    // so the assertion below is the code's doing and not the fixture's.
+    expect(text).not.toMatch(/boost|drag/)
+    expect(text).not.toContain('\u2212')
+    expect(glyph(container), 'polarity would rest on hue alone').not.toBeNull()
+  })
+
+  it('CONTROL: a numeric NEGATIVE chip DOES carry direction in the sign — glyph suppressed', () => {
+    mockLabelMode = 'numeric'
+    const negative = {
+      ...props,
+      data: { strength_mean: -0.6, effect_direction: 'negative' as const, exists_probability: 0.8 },
+    }
+    mockEdges = [{ id: 'e1', source: 'n1', target: 'n2', data: negative.data }]
+    const { container } = render(<StyledEdge {...(negative as any)} />)
+
+    expect(strengthText(container)!.textContent).toContain('\u2212')
+    expect(glyph(container)).toBeNull()
+  })
+
+  it('CONTROL: a numeric positive edge with NO persistent chip still shows the glyph', () => {
+    mockLabelMode = 'numeric'
+    const { container } = render(<StyledEdge {...(props as any)} />)
+    expect(strengthText(container)).toBeNull()
+    expect(glyph(container)).not.toBeNull()
+  })
+
+  it('CONTROL: human mode is unchanged — the word carries it, glyph suppressed', () => {
+    mockLabelMode = 'human'
+    pinAsTopStrength()
+    const { container } = render(<StyledEdge {...(props as any)} />)
+    expect(strengthText(container)!.textContent).toMatch(/boost|drag/)
+    expect(glyph(container)).toBeNull()
   })
 })
