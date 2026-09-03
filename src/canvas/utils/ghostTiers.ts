@@ -48,6 +48,36 @@ export interface GhostTier {
   id: string
   /** The node type whose row this sits at the end of. */
   siblingType: string
+  /**
+   * What the door SAYS on the canvas. A QUESTION, and the same question the
+   * `prompt` below goes on to ask Olumi in longer form.
+   *
+   * ⭐⭐ THESE WERE CATEGORY NOUNS — "Another option", "Another factor",
+   * "Another risk", "Another outcome" — AND THAT IS THE DEFECT THIS FIELD'S
+   * DOC EXISTS TO STOP COMING BACK.
+   *
+   * The standing criticism of this canvas is that every element is a
+   * CONCLUSION and nothing is a QUESTION. These four doors are the product's
+   * answer to it: the only affordance on the board whose job is to generate
+   * rather than to report. Labelled with the name of the tier they stand
+   * beside, they generated nothing — they read as an empty slot in a form, so
+   * the entire critical-and-creative-thinking half of the product rendered as
+   * the word "Another".
+   *
+   * ⚠ THE RULE, and it is checkable: if the string can be read as the NAME OF
+   * A CATEGORY, it is wrong. It must be answerable, in the user's own words,
+   * without knowing what a node or an edge is.
+   *
+   * ⚠ AND IT STILL ASSERTS NOTHING (the line the whole file is built on). "What
+   * else could go wrong?" claims no risk is missing; it is an open question
+   * beside a row of risks that demonstrably exist, which is the only thing the
+   * door's own placement already asserts. "Your risks are thin" would be a
+   * claim about the user's reasoning and belongs to the producer.
+   *
+   * ⚠ IT IS ALSO THE ACCESSIBLE NAME. Both renderers put this string in
+   * `aria-label`, so a screen-reader user hears the same question a sighted
+   * user reads (WCAG 2.5.3 label-in-name). Reword it and both move together.
+   */
   label: string
   /**
    * What clicking asks Olumi. A QUESTION, never an instruction to insert:
@@ -187,7 +217,11 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: GHOST_OPTION_NODE_ID,
     siblingType: 'option',
-    label: 'Another option',
+    // Options answer the decision, so the facilitator's question for widening
+    // the choice set is the plain one: what else could you do? Second person,
+    // no model vocabulary, and "else" is warranted because this door is only
+    // ever placed beside options that already exist.
+    label: 'What else could you do?',
     // Names the options that exist and asks what sits outside them. It does NOT
     // say they are too similar or badly framed — the user reads the list and
     // draws their own conclusion, which is the whole point.
@@ -198,7 +232,12 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: `${GHOST_ID_PREFIX}factor__`,
     siblingType: 'factor',
-    label: 'Another factor',
+    // A factor is the product's own "causal variable that can be measured or
+    // influenced" (`contextMenu/useMenuItems.ts`). "Drives" is that in
+    // ordinary English. Deliberately NOT "what else moves this outcome?" —
+    // `outcome` is a tier of its own here, and borrowing its name into the
+    // factor door's question makes the sentence read as a cross-reference.
+    label: 'What else drives this?',
     prompt: ({ namedSiblings, siblingCount, subject }) =>
       inventorySentence(namedSiblings, siblingCount, 'factor', 'factors') +
       `${about(subject)} What else could materially affect how this turns out?`,
@@ -206,7 +245,10 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: `${GHOST_ID_PREFIX}risk__`,
     siblingType: 'risk',
-    label: 'Another risk',
+    // A risk is a "potential negative outcome". "What could go wrong" is the
+    // ordinary-language form and the opening move of a pre-mortem, which is
+    // the method this door is standing in for.
+    label: 'What else could go wrong?',
     prompt: ({ namedSiblings, siblingCount, subject }) =>
       inventorySentence(namedSiblings, siblingCount, 'risk', 'risks') +
       `${about(subject)} What could go wrong that these do not already cover?` +
@@ -215,7 +257,11 @@ export const GHOST_TIERS: readonly GhostTier[] = [
   {
     id: `${GHOST_ID_PREFIX}outcome__`,
     siblingType: 'outcome',
-    label: 'Another outcome',
+    // An outcome is an "observable result". Asking where this LEADS asks for
+    // the consequence rather than restating the noun — and the different
+    // opener keeps the four doors from reading as one sentence repeated,
+    // which is the failure mode the nouns had.
+    label: 'Where else could this lead?',
     prompt: ({ namedSiblings, siblingCount, subject }) =>
       inventorySentence(namedSiblings, siblingCount, 'outcome', 'outcomes') +
       `${about(subject)} What further consequences could follow that these do not represent?`,
@@ -395,6 +441,23 @@ const OPTION_TIER: GhostTier = (() => {
   }
   return tier
 })()
+
+/**
+ * ⭐ THE PRE-ANALYSIS OPTION DOOR'S VISIBLE QUESTION — same owner as its sentence.
+ *
+ * `GhostOptionNode` is a different renderer (see the block below for why it was
+ * deliberately not folded into `GhostTierNode`), and it used to spell its own
+ * copy: "+ Explore another option", with an `aria-label` of "Add another
+ * option" that did not match it. Two hand-kept strings for one idea, in a
+ * component whose sentence had ALREADY been moved here for exactly that reason
+ * — so the door's question and the door's prompt could be reworded apart, and
+ * the estate's dominant defect (CLAUDE.md trap 12) had a home.
+ *
+ * It reads this instead. One tier table, one composer, one label, two
+ * renderers — and the visible text and the accessible name are now the same
+ * string by construction rather than by agreement.
+ */
+export const GHOST_OPTION_DOOR_LABEL: string = OPTION_TIER.label
 
 /**
  * ⭐⭐ THE PRE-ANALYSIS OPTION DOOR'S SENTENCE — the one door `#1060` did not reach.

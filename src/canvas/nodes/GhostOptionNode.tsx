@@ -26,6 +26,21 @@
  * silently re-open exactly what was just closed the first time a caller forgot.
  * `GhostTierNode` already behaves this way; the two doors agree rather than each
  * inventing a policy.
+ *
+ * ⭐⭐ AND THE VISIBLE COPY NOW COMES FROM THE SAME PLACE, for the same reason.
+ * This door said "+ Explore another option" while its `aria-label` said "Add
+ * another option" — two hand-kept strings for one idea, neither of which asked
+ * anything. Both are now `GHOST_OPTION_DOOR_LABEL`, the option tier's own
+ * question, so the sighted user and the screen-reader user get the same
+ * sentence (WCAG 2.5.3 label-in-name) and a rewording cannot reach one and
+ * miss the other.
+ *
+ * ⚠ THE GEOMETRY AND THE OUTLINE COLOUR ARE UNTOUCHED, DELIBERATELY. They
+ * carry a measured WCAG 1.4.11 result pinned by `GhostOptionNode.contrast.spec.ts`;
+ * this change is a string. `min-height` means the card GROWS for the longer
+ * sentence rather than clipping it — measured 56px at counter-scale 1 and
+ * 102px at the bound, unchanged from the old copy, which needed the same two
+ * and three lines respectively.
  */
 import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -33,6 +48,7 @@ import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
+import { GHOST_OPTION_DOOR_LABEL } from '../utils/ghostTiers'
 
 export const GhostOptionNode = memo((props: NodeProps) => {
   const prompt = (props.data as { prompt?: string } | undefined)?.prompt
@@ -47,7 +63,7 @@ export const GhostOptionNode = memo((props: NodeProps) => {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Add another option"
+      aria-label={GHOST_OPTION_DOOR_LABEL}
       className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex items-center justify-center nodrag nopan"
       style={{
         // A11y (WCAG 1.4.11, 3:1 non-text contrast). The outline is the only
@@ -99,7 +115,7 @@ export const GhostOptionNode = memo((props: NodeProps) => {
       <div className="flex items-center gap-1.5">
         <Plus size={14} className="text-text-light" />
         <span className={`${typography.edgeLabel} text-text-light`}>
-          + Explore another option
+          {GHOST_OPTION_DOOR_LABEL}
         </span>
       </div>
     </div>
