@@ -251,7 +251,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * gesture. The ruling this component implements says "nothing buried".
    *
    * ⚠ AND ONE LIMIT THE RATIONALE MUST NOT DENY: this whole layer unmounts at
-   * low zoom (`showQuickActions = !lodActive && …`, `BaseNode.tsx`), which is a
+   * low zoom (`showQuickActions = !lodBodyHidden && …`, `BaseNode.tsx`), which is a
    * plausible touch posture. Right-click still works there, so it is a gap
    * rather than a regression — but the button does not reach every state the
    * argument for it implies, and saying so here is cheaper than the next reader

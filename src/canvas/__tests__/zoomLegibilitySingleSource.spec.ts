@@ -128,6 +128,60 @@ describe('the scan itself bites (detector contract)', () => {
     expect(findLiteralZoomConstants('// const MIN_READABLE_ZOOM = 0.5')).toEqual([])
     expect(findLiteralZoomConstants('const doc = "const MIN_READABLE_ZOOM = 0.5"')).toEqual([])
   })
+
+  /**
+   * ⭐ ADDED 2 Sep 2026, WITH THE LADDER'S THIRD ZOOM CONSTANT.
+   *
+   * `ICON_LEGIBLE_ZOOM` is the first zoom constant to live in `zoomLegibility.ts`
+   * WITHOUT being one of the two names permitted above. It passes the scan only
+   * because it is genuinely derived — `CANVAS_TEXT_FLOOR_PX / CANVAS_BADGE_ICON_PX`
+   * — and nothing pinned that. The realistic rot is an author "simplifying" the
+   * quotient to `0.714`, which would both restate a number and lose its
+   * derivation. These cases pin that the scan bites that spelling.
+   */
+  it('would catch a bare-literal ICON_LEGIBLE_ZOOM — the ladder constant, spelled wrong', () => {
+    expect(findLiteralZoomConstants('export const ICON_LEGIBLE_ZOOM = 0.714')).toEqual([
+      'ICON_LEGIBLE_ZOOM = 0.714',
+    ])
+  })
+
+  it('does NOT catch the derived spelling actually shipped, nor the PX sizes it derives from', () => {
+    expect(
+      findLiteralZoomConstants(
+        'export const ICON_LEGIBLE_ZOOM = CANVAS_TEXT_FLOOR_PX / CANVAS_BADGE_ICON_PX',
+      ),
+    ).toEqual([])
+    // The two pixel sizes are out of scope by NAME, not by luck — the scan
+    // filters on /zoom/i. Pinned because the exact-count assertion below depends
+    // on them staying invisible to it.
+    expect(findLiteralZoomConstants('export const CANVAS_TEXT_FLOOR_PX = 10')).toEqual([])
+    expect(findLiteralZoomConstants('export const CANVAS_BADGE_ICON_PX = 14')).toEqual([])
+  })
+
+  it('KNOWN BLIND SPOT, pinned as exactly itself: a TRAILING literal escapes the scan', () => {
+    // ⚠ AN HONEST GAP, RECORDED RATHER THAN LEFT INVISIBLE (CLAUDE.md trap 22f:
+    // pin a known gap as an explicit set, so the suite is green for the right
+    // reason and REDs if the set grows OR shrinks).
+    //
+    // The regex matches `const NAME = <number>`, so it sees a LEADING literal
+    // and is blind to a trailing one. `LABEL_LEGIBLE_ZOOM * 1.4286` is a
+    // hand-written number wearing a derivation — the same shape as
+    // `AUTO_FIT_MAX_ZOOM = labelCounterScale(1)`, which is why that constant had
+    // to be NAMED above rather than caught.
+    //
+    // Not fixed here on purpose: widening this regex changes a guard that runs
+    // over every file under `src/canvas`, and it deserves its own change with
+    // its own mutants rather than riding along with a ladder PR.
+    expect(
+      findLiteralZoomConstants('const ICON_LEGIBLE_ZOOM = LABEL_LEGIBLE_ZOOM * 1.4286'),
+    ).toEqual([])
+    // The contrast that proves the scan is not simply blind to this NAME: swap
+    // the operands and it is caught. Without this the case above would pass just
+    // as well against a detector that had stopped working entirely.
+    expect(
+      findLiteralZoomConstants('const ICON_LEGIBLE_ZOOM = 1.4286 * LABEL_LEGIBLE_ZOOM'),
+    ).toEqual(['ICON_LEGIBLE_ZOOM = 1.4286'])
+  })
 })
 
 describe('one legibility number under src/canvas', () => {

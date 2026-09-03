@@ -1287,7 +1287,7 @@ describe('N1 — per-type selection ring', () => {
     // look at structure. A node never loses its name; the BODY still simplifies,
     // which is the part of the original rationale that holds.
     vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
-      sel({ ...nodeState([]), lodActive: true }),
+      sel({ ...nodeState([]), lodRung: 'line' }),
     )
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
     const title = screen.getAllByTestId('node-title')[0]
@@ -1299,7 +1299,7 @@ describe('N1 — per-type selection ring', () => {
 
   it('D2: at LOD zoom a goal node keeps a boosted, visible title', () => {
     vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
-      sel({ ...nodeState([]), lodActive: true }),
+      sel({ ...nodeState([]), lodRung: 'line' }),
     )
     render(<ReactFlowProvider><GoalNode {...selProps} id="goal-1" type="goal" selected={false} data={{ label: 'Ship the roadmap' }} /></ReactFlowProvider>)
     const title = screen.getAllByTestId('node-title')[0]

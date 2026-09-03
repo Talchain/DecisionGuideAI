@@ -111,14 +111,23 @@
  * 21 — two authorities answering different questions look like an
  * inconsistency to reconcile, and aligning them is the wrong fix):
  *
- *   factor · option              → THIS MODULE (no `lodMetric` prop is passed)
+ *   factor · option · action     → THIS MODULE (no `lodMetric` prop is passed)
  *   risk · outcome               → `RiskNode` / `OutcomeNode` (#1074)
  *   goal · decision              → `GoalNode` / `DecisionNode` (#1085)
- *   action                       → DELIBERATELY NOT ATTEMPTED (trap 20)
  *
- * The test that keeps this map honest is the contrast control in
- * `BaseNode.lodBodyLine.spec.tsx`: `action` must stay silent, so a widening
- * still has to be a decision rather than an accident.
+ * ⭐ `action` MOVED INTO THIS MODULE ON 2 SEP 2026 (Z2), and the honest reading
+ * of the line it replaced — "DELIBERATELY NOT ATTEMPTED (trap 20)" — is that it
+ * recorded an UNKNOWN rather than a finding that action had nothing to say. It
+ * had something to say: `ActionNode` renders `data.description` as its whole
+ * body and passes no `lodMetric`, so this resolver was already its live path and
+ * was returning `null` down it.
+ *
+ * The test that keeps this map honest is still the contrast control in
+ * `BaseNode.lodBodyLine.spec.tsx`, RE-POINTED from a cross-type absence into a
+ * WITHIN-TYPE pair: an action WITH a description gets a line, one WITHOUT gets
+ * none. That is a strictly stronger guard — the old form would have gone green
+ * on any widening whatever, including one that printed an empty line, while the
+ * pair discriminates on the datum itself.
  */
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
@@ -295,18 +304,48 @@ export function resolveLodMetricLine({
       return `Achievement ${Math.round(achievementProbability * 100)}%`
     }
 
-    // ⚠ `goal`, `decision` and `action` fall through DELIBERATELY.
+    case 'action': {
+      /**
+       * ⭐ Z2 — THE BLANK ACTION CARD. `action` was the one type with no reduced
+       * line at all, so below the legibility floor it rendered its coloured
+       * shape, its title, and nothing else. On the whole-model view — where
+       * every shipped starter parks, between zoom 0.26 and 0.38 — that is a box.
+       *
+       * ⚠ WHY THIS ARM IS REACHED WHERE A `risk` ARM WOULD BE DEAD CODE, and it
+       * was checked at the bytes rather than assumed: `ActionNode.tsx:11` passes
+       * NO `lodMetric` prop, so this resolver IS the live path for an action.
+       * Risk, outcome, goal and decision each format their own line and pass it
+       * as `lodMetric`, where `BaseNode` gives it precedence — an arm here for
+       * any of those four is unreachable with a green unit spec, which is the
+       * trap recorded at the head of this file.
+       *
+       * ⚠ AND WHY `description` IS THE RIGHT DATUM, not merely an available one:
+       * `ActionNode.tsx:12-16` renders `data.description` as the card's ENTIRE
+       * body. So the reduced line is a shortening of the very string the card
+       * shows one zoom step up — the same rule factor and option already follow
+       * — and it cannot state a second, differently-derived fact about the node.
+       *
+       * FIRST LINE ONLY, because the line is absolutely positioned inside a
+       * hidden body and must not grow the card's box; a description pasted from
+       * a brief routinely carries newlines. Withholds on absent, non-string,
+       * empty and whitespace-only — a blank line with a testid is the defect
+       * this arm exists to remove, not a smaller version of it.
+       */
+      const description = data.description
+      if (typeof description !== 'string') return null
+      const firstLine = description.split('\n')[0]?.trim() ?? ''
+      return firstLine.length > 0 ? firstLine : null
+    }
+
+    // ⚠ `goal` and `decision` fall through DELIBERATELY.
     //
-    // `goal` and `decision` are not silent — each declares its own line through
-    // `BaseNode`'s `lodMetric` prop (#1085), because each reads a datum this
-    // module cannot see: a user-stated threshold and a leader-claim PERMISSION
-    // respectively. A goal arm here would print `Target: 15%` beside a prop
-    // that prints the same target from a different expression, and a decision
-    // arm would be a second, differently-counted answer to "how many options?".
-    // Both were written, and both are deleted rather than shipped dark.
-    //
-    // `action` is genuinely NOT ATTEMPTED (trap 20), and the contrast control
-    // in `BaseNode.lodBodyLine.spec.tsx` keeps it that way on purpose.
+    // Neither is silent — each declares its own line through `BaseNode`'s
+    // `lodMetric` prop (#1085), because each reads a datum this module cannot
+    // see: a user-stated threshold and a leader-claim PERMISSION respectively. A
+    // goal arm here would print `Target: 15%` beside a prop that prints the same
+    // target from a different expression, and a decision arm would be a second,
+    // differently-counted answer to "how many options?". Both were written, and
+    // both are deleted rather than shipped dark.
     default:
       return null
   }

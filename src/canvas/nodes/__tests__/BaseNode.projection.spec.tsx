@@ -29,7 +29,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   goalThreshold: null,
   goalConstraints: [],
   ceeAnalysisReady: null,
-  lodActive: false,
+  lodRung: 'full',
   viewMode: 'expert',
   ...overrides,
 })

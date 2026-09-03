@@ -26,7 +26,8 @@
  * Result at `85742e9a` + this PR, 2/2 cells, 10/10 samples held: live Σ card
  * height takes SEVEN distinct values (3030 → 6211, ×2.05) while the measurer
  * takes TWO — one for every zoom ≥ `LABEL_LEGIBLE_ZOOM`, and a second, 92 px
- * (1.48%) SHORTER one below it, where `lodActive` flips. Worst single card
+ * (1.48%) SHORTER one below it, where the level-of-detail rung flips to
+ * `line`. Worst single card
  * 16 px, against 45–64 px of designed row slack. Named and bounded, not
  * invariant; see the measurer's header.
  *
@@ -52,6 +53,7 @@ import {
   waitForVisualQuiescence,
   type StarterId,
 } from '../visual/harness'
+import { LABEL_LEGIBLE_ZOOM } from '../../src/canvas/utils/zoomLegibility'
 
 const STARTER = (process.env.HZ_STARTER ?? 'build-vs-buy') as StarterId
 const VP = { width: Number(process.env.HZ_W ?? 1280), height: Number(process.env.HZ_H ?? 800) }
@@ -283,7 +285,12 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, async ({ page }) => {
   //   This probe compares RENDERED CARD HEIGHTS, so it is blind below the
   //   headroom — but it sees EVERY LOD-gated term, including the outcome/risk
   //   body limb that no CI test covers at all.
-  const LOD_THRESHOLD = 0.5
+  // DERIVED, never restated — `zoomLadder.measure.ts` imports the same
+  // constant. This was a hand-written `0.5`: a third copy of the legibility
+  // floor, in a file that partitions its whole sample on it, and nothing would
+  // have gone red when it stopped agreeing (CLAUDE.md trap 12). It sits outside
+  // `src/canvas`, so `zoomLegibilitySingleSource.spec.ts` never scanned it.
+  const LOD_THRESHOLD = LABEL_LEGIBLE_ZOOM
   const lodOff = usable.filter((s) => (s.settled ?? 0) >= LOD_THRESHOLD)
   const lodOn = usable.filter((s) => (s.settled ?? 1) < LOD_THRESHOLD)
 

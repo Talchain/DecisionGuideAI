@@ -124,11 +124,11 @@ test('CENSUS: what is painted on a resting card at each zoom', async ({ page }) 
           tally[key] = (tally[key] ?? 0) + 1
         }
       }
-      const w = window as unknown as { useCanvasStore: { getState: () => { lodActive: boolean } } }
+      const w = window as unknown as { useCanvasStore: { getState: () => { lodRung?: string } } }
       const vpEl = document.querySelector('.react-flow__viewport') as HTMLElement
       return {
         actualZoom: new DOMMatrixReadOnly(getComputedStyle(vpEl).transform).a,
-        lodActive: w.useCanvasStore.getState().lodActive === true,
+        lodRung: w.useCanvasStore.getState().lodRung ?? 'full',
         cards: nodes.length,
         painted: Object.fromEntries(Object.entries(tally).sort((a, b) => b[1] - a[1])),
       }

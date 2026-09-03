@@ -57,7 +57,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   edges: [],
   nodes: [],
   viewMode: 'standard',
-  lodActive: false,
+  lodRung: 'full',
   ...overrides,
 })
 
@@ -114,7 +114,7 @@ const baseProps = {
  * present implies source `'cee'`. That is what this builds.
  */
 const modelWithBridge = (nodeId: string, kind: string, strength: number, userStated?: boolean) => ({
-  lodActive: true,
+  lodRung: 'line',
   nodes: [
     { id: nodeId, type: kind, data: { type: kind } },
     { id: 'goal-1', data: { type: 'goal' } },
@@ -208,7 +208,7 @@ describe('CONTRAST CONTROL — the line is the bridge strength, not a default', 
 
   it('a risk with no bridge edge states nothing rather than inventing a figure', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
-      sel(makeStoreState({ lodActive: true, nodes: [{ id: 'risk-1', type: 'risk', data: { type: 'risk' } }], edges: [] }) as any),
+      sel(makeStoreState({ lodRung: 'line', nodes: [{ id: 'risk-1', type: 'risk', data: { type: 'risk' } }], edges: [] }) as any),
     )
     render(
       <ReactFlowProvider>
@@ -220,7 +220,7 @@ describe('CONTRAST CONTROL — the line is the bridge strength, not a default', 
 
   it('and above the floor there is no reduced line at all — this is a zoom behaviour', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
-      sel(makeStoreState({ ...modelWithBridge('risk-1', 'risk', 0.5), lodActive: false }) as any),
+      sel(makeStoreState({ ...modelWithBridge('risk-1', 'risk', 0.5), lodRung: 'full' }) as any),
     )
     render(
       <ReactFlowProvider>

@@ -56,7 +56,7 @@ const makeStoreState = (o: Record<string, unknown> = {}) => ({
   edges: [],
   nodes: [],
   viewMode: 'standard',
-  lodActive: true,
+  lodRung: 'line',
   ...o,
 })
 
@@ -151,13 +151,13 @@ describe('the boosted anchor title carries the canvas label scale', () => {
   })
 
   /**
-   * CONTRAST ON THE ZOOM AXIS. `lodBoostTitle` is `lodActive && lodKeepsTitle`,
+   * CONTRAST ON THE ZOOM AXIS. `lodBoostTitle` is `lodBodyHidden && lodKeepsTitle`,
    * so above the floor the anchor takes the ordinary treatment. Without this,
    * every assertion above would also pass on a build that boosted at all zooms
    * — a different product, and one whose card heights nothing has measured.
    */
   it('CONTRAST — above the floor the anchor takes the ordinary treatment', () => {
-    renderCard('decision', { lodActive: false })
+    renderCard('decision', { lodRung: 'full' })
     expect(titleClass()).toContain('text-text-body')
     expect(titleClass()).not.toContain('font-semibold')
   })

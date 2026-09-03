@@ -305,3 +305,132 @@ export const CANVAS_LABEL_SCALE_MARKER_SELECTOR = `[data-testid="${CANVAS_LABEL_
  * unclamped by design.
  */
 export const AUTO_FIT_MAX_ZOOM = 1
+
+/* ── the semantic-zoom LADDER ──────────────────────────────────────────────── */
+
+/**
+ * ⭐ WHY THERE IS A THIRD RUNG (Paul, 1 Sep 2026, on the deployed build):
+ * *"the canvas gets LESS readable as the model gets bigger."*
+ *
+ * Level-of-detail was a BOOLEAN, so the canvas had two states: the whole card,
+ * or a card with its body blanked. Measured across all ten shipped starter ×
+ * viewport combinations, "Show whole model" parks between zoom 0.26 and 0.38 and
+ * never above 0.44 — entirely inside the blanked half. So the view a user asks
+ * for in order to see the SHAPE of their model is the least informative view the
+ * product can render, and a boolean has nowhere to put "smaller, but not blank".
+ *
+ * The rungs, from the top:
+ *   `full`   — everything the card has.
+ *   `quiet`  — labels are legible but a 14px mark is not; the band where detail
+ *              should thin out rather than vanish.
+ *   `line`   — below the legibility floor: body hidden, title and one reduced
+ *              line only. This is exactly the old `lodActive === true`.
+ *
+ * ⚠ `quiet` IS DELIBERATELY UNSPENT AT THIS TIP. It behaves identically to
+ * `full`, and `BaseNode.lodQuietIsNoOp.spec.tsx` proves that by comparing the
+ * rendered DOM. Creating the rung and spending it are two changes on purpose:
+ * the second is visible on every canvas and is gated on a design veto, and
+ * shipping them together would make an invisible refactor unreviewable.
+ */
+
+/**
+ * The smallest text the canvas is allowed to render, in CSS pixels.
+ *
+ * `DESIGN_SYSTEM.md` § Typography → Canvas Nodes gives `edgeLabel` as 10px — the
+ * smallest canvas token there is — and § Typography → Rules states it as a
+ * range: *"Panel and canvas contexts use 10–12px for information density"*. Ten
+ * is the floor of that range.
+ */
+export const CANVAS_TEXT_FLOOR_PX = 10
+
+/**
+ * A canvas node badge, in CSS pixels.
+ *
+ * `DESIGN_SYSTEM.md` § Iconography → Sizing: *"Canvas node badge / panel inline
+ * | 14px | `w-3.5 h-3.5`"*.
+ */
+export const CANVAS_BADGE_ICON_PX = 14
+
+/**
+ * The zoom at which a canvas badge shrinks to the canvas text floor.
+ *
+ * ⭐ NOBODY CHOSE THIS NUMBER, AND THAT IS THE WHOLE POINT. A 14px mark drawn at
+ * zoom z occupies 14z screen pixels; it reaches the 10px floor at exactly 10/14
+ * ≈ 0.714. Written as the quotient rather than as its value so the number cannot
+ * drift from its reason — the estate's dominant defect is a hand-maintained
+ * mirror, and a rounded `0.714` sitting beside a comment explaining where 0.714
+ * came from is precisely that (CLAUDE.md trap 12).
+ *
+ * ⚠ IT MUST STAY IDENTIFIER-LED. `zoomLegibilitySingleSource.spec.ts` permits
+ * exactly two bare zoom literals under `src/canvas`, both in this file; this
+ * constant is legal only because it is genuinely derived. That spec now carries
+ * the detector-contract case proving a bare-literal spelling of this same name
+ * WOULD be caught, and pins the scan's known blind spot (a TRAILING literal,
+ * `X * 0.714`, escapes it) as exactly itself.
+ */
+export const ICON_LEGIBLE_ZOOM = CANVAS_TEXT_FLOOR_PX / CANVAS_BADGE_ICON_PX
+
+/** A rung of the semantic-zoom ladder. See the block comment above. */
+export type LodRung = 'full' | 'quiet' | 'line'
+
+/**
+ * Which rung a zoom sits on.
+ *
+ * ⚠ NaN RESOLVES TO `line`, AND THAT IS A PORT RATHER THAN A NEW OPINION. The
+ * predicate this replaces was `!(zoom >= LABEL_LEGIBLE_ZOOM)`, and `NaN >= 0.5`
+ * is false — so a torn-down or not-yet-measured viewport already read as
+ * level-of-detail active. Expressing the floor test in that same negated form
+ * keeps the behaviour bit-for-bit; `zoomLadder.spec.ts` asserts the agreement
+ * with `isLodZoom` across the range rather than asserting `'line'` outright, so
+ * the two cannot drift apart silently.
+ */
+export function resolveLodRung(zoom: number): LodRung {
+  if (!labelsRenderedAtZoom(zoom)) return 'line'
+  return zoom >= ICON_LEGIBLE_ZOOM ? 'full' : 'quiet'
+}
+
+/**
+ * Whether a card hides its body at this rung — the ONE predicate every surface
+ * that speaks about the blanked state must consume.
+ *
+ * ⛔ IT IS A FUNCTION SO THAT IT CANNOT BE RESTATED. `CanvasLodNotice` tells the
+ * user the cards are showing less; `BaseNode` is what makes that true. Those two
+ * were bound to one shared boolean, and `CanvasLodNotice.spec.tsx` exists
+ * because a notice with its own zoom predicate could claim a state the nodes are
+ * not in. Splitting the boolean into three rungs is exactly the moment that
+ * binding would break by accident, so the shared thing is now named.
+ */
+export function lodBodyHiddenAt(rung: LodRung): boolean {
+  return rung === 'line'
+}
+
+/**
+ * The store selector both surfaces use, defaulting an absent rung to `full`.
+ *
+ * Undefined-safe by construction: around ten spec store doubles set this slice
+ * by hand, and a double that omits it must render an ORDINARY card rather than a
+ * blanked one. Typed structurally so this module stays free of any store import.
+ */
+export function selectLodBodyHidden(state: { lodRung?: LodRung }): boolean {
+  return lodBodyHiddenAt(state.lodRung ?? 'full')
+}
+
+/**
+ * Whether a card shows its in-card controls at this rung.
+ *
+ * ⛔⛔ DECLARED, AND MOUNTED BY NOTHING AT THIS TIP. This is the named place the
+ * veto-gated follow-up hangs the quiet-rung behaviour on; it exists now so that
+ * PR starts from a definition instead of inventing one mid-flight. It is NOT
+ * wired to `BaseNode`'s quick-action gate, deliberately — doing so would change
+ * what a user sees between 0.5 and 0.714, which is the one thing this change
+ * promises not to do.
+ *
+ * ⚠ SO ITS UNIT SPEC IS EVIDENCE ABOUT THIS FUNCTION AND ABOUT NO SCREEN
+ * (CLAUDE.md trap 13b — a green test about code no mount reaches is a guard
+ * agreeing with itself). Stated here rather than left for a later reader to
+ * discover, because the danger is precisely that a passing spec reads as
+ * evidence the capability ships.
+ */
+export function cardControlsVisibleAt(rung: LodRung): boolean {
+  return rung === 'full'
+}
