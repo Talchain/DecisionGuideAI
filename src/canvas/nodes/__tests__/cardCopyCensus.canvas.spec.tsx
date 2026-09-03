@@ -50,11 +50,19 @@
  *    collection — a popover is already the hover treatment, so identical copy
  *    there is the fix, not the defect. Nothing here says anything about panels
  *    or the inspector.
- *  · It sees the states this fixture reaches. Baseline options, the
- *    not-computed branch, the close-call line, lens modes and the assistant
- *    focus state are NOT mounted, so a repeated line living only in one of
- *    those is invisible to it. The buckets are named in `BUCKETS`; that list is
- *    the honest scope.
+ *  · It sees the states this fixture reaches. Baseline options, the close-call
+ *    line, lens modes and the assistant focus state are NOT mounted, so a
+ *    repeated line living only in one of those is invisible to it. `BUCKETS` is
+ *    the honest scope, and it is the list to read — not this sentence. (This
+ *    line named the not-computed branch as unmounted for exactly as long as it
+ *    took to add that bucket, which is the drift this whole file is about.)
+ *  · Three of the six card kinds are accounted for WITHOUT mounting, and the
+ *    reasons are derivations rather than samples. `ActionNode.tsx` is 21 lines
+ *    and renders one interpolation, `{props.data.description}` — it has no
+ *    authored copy that COULD repeat. `goal` and `decision` are singletons:
+ *    every card that reads them uses `.find()` (`OptionNode:1024`,
+ *    `RiskNode:46`, `OutcomeNode:39`, `DecisionNode:311`), and
+ *    "byte-identical across siblings" is vacuous where there are none.
  *  · `title` text is deliberately EXCLUDED from the offence set. A `title` that
  *    repeats on every card is the destination this change moves copy TO.
  *  · Three siblings, not N. A run identical on three cards could still differ
