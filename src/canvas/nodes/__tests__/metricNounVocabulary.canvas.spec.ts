@@ -57,12 +57,17 @@
  * rendered is not enough. What is banned is a CAPTION — a noun that LABELS A
  * QUANTITY. That is the distinction the register states in prose and the
  * previous predicates tried to buy with punctuation. Formally, a retired noun
- * offends when, inside a rendered run, it either
+ * offends when, inside a rendered run,
  *
- *   (P1) IS the whole run            — `label="Achievement"`, `<p>Leads</p>`
- *   (P2) STARTS the run and is immediately followed by the QUANTITY —
- *        an interpolation, a digit or a `%`, with an optional colon between:
- *        `` `Achievement ${…}%` ``, `Achievement: {…}%`, `<p>Achievement 68%</p>`
+ *   it STARTS the rendered run, and what follows it is the QUANTITY — an
+ *   interpolation, a digit, a `%`, or NOTHING AT ALL — with an optional colon
+ *   between: `` `Achievement ${…}%` ``, `Achievement: {…}%`,
+ *   `<p>Achievement 68%</p>`, and — via the "nothing at all" arm —
+ *   `label="Achievement"` and `<p>Leads</p>`.
+ *
+ * ⚠ That was TWO rules until a mutant proved it was one: an explicit
+ * "stands alone" limb was deleted and the suite stayed green, because the
+ * end-of-string arm already covered it. See `isCaptionPosition`.
  *
  * ⛔ WHY NOT SIMPLY BAN THE BARE WORD. Measured, before this was written: a
  * whole-word ban on the four retired captions fires on SEVENTEEN lines in
@@ -72,8 +77,8 @@
  * and the register's own `RETIRED_METRIC_NOUNS` array. `strength` is ordinary
  * English on this surface and always was; the register says so. A guard that
  * reds on all of those is worked around inside a week, and then it guards
- * nothing. P1/P2 is what separates "the word appears" from "the word captions
- * a number".
+ * nothing. The caption rule is what separates "the word appears" from "the
+ * word captions a number".
  *
  * ⭐ THE BAN LIST IS DERIVED, NOT RE-TYPED. It is `RETIRED_METRIC_NOUNS`
  * itself. The previous version hand-wrote three regexes beside a four-item
@@ -95,13 +100,15 @@
  *  · It cannot prove the register's list is COMPLETE. A fifth quantity
  *    captioned with a fifth word nobody has thought of is invisible to it
  *    (trap 12d: derivation moves the risk, it does not remove it).
- *  · P2 requires the quantity to be adjacent. A caption split across two JSX
- *    elements — `<span>Achievement</span><span>{pct}%</span>` — is caught by
- *    P1 on the first span, but one written as `<span>Achievement of</span>`
- *    would read as prose and pass. That is the price of sparing "Link
- *    strength" and "Leads via", and it is a judgement, not a derivation.
- *  · It is line-based. A caption whose noun and quantity are on different
- *    source lines is seen only as far as P1 reaches.
+ *  · The rule requires the quantity to be ADJACENT. A caption split across two
+ *    JSX elements — `<span>Achievement</span><span>{pct}%</span>` — is still
+ *    caught, by the end-of-string arm on the first span; but one written as
+ *    `<span>Achievement of</span>` reads as prose and passes. That is the price
+ *    of sparing "Link strength" and "Leads via {factor}", and it is a
+ *    JUDGEMENT, not a derivation — the syntax cannot tell a caption noun from a
+ *    sentence verb, and this is where that limit lands.
+ *  · It is LINE-BASED. A caption whose noun and quantity sit on different source
+ *    lines is seen only as far as the end-of-string arm reaches.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -149,12 +156,32 @@ function renderedRuns(line: string): Run[] {
   return runs
 }
 
-/** P1/P2 — is this noun CAPTIONING this run, as opposed to appearing in it? */
+/**
+ * Is this noun CAPTIONING this run, as opposed to merely appearing in it?
+ *
+ * ⚠ ONE RULE, NOT TWO — AND THAT WAS MEASURED, NOT ASSUMED. This was first
+ * written with an explicit `if (t === noun) return true` limb for "stands
+ * alone" beside the alternation for "leads the quantity". A mutant that
+ * DELETED that limb SURVIVED, green: the `$` arm of the alternation below
+ * already matches the empty remainder, so the two limbs were the same limb and
+ * the comment claiming they were separately load-bearing was false. It is
+ * collapsed rather than kept-and-excused, because an equivalent mutant dressed
+ * as a distinct rule is how a guard acquires parts nobody can account for
+ * (CLAUDE.md trap 13c: a survivor is a claim, and it has to be demonstrated).
+ *
+ * So: the noun must START the run, and what follows it must be the QUANTITY —
+ *   `${…}` an interpolation · `68` a digit · `%` · or NOTHING AT ALL, which is
+ * the `$` arm and is what makes `label="Achievement"` and `<p>Leads</p>`
+ * captions. An optional colon is allowed between, because `Achievement: 68%`
+ * is the same caption with punctuation.
+ *
+ * What follows the noun being anything ELSE — a lower-case word, most of all —
+ * is prose, and prose is what "Link strength" and "Leads via {factor}" are.
+ */
 function isCaptionPosition(run: string, noun: string): boolean {
   const t = run.trim()
-  if (t === noun) return true // P1
   if (!t.startsWith(noun)) return false
-  return /^:?\s*(\$\{|\d|%|$)/.test(t.slice(noun.length)) // P2
+  return /^:?\s*(\$\{|\d|%|$)/.test(t.slice(noun.length))
 }
 
 /** The offending noun on a line, and the position that rendered it — or null. */
@@ -323,16 +350,22 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     }
   })
 
-  it('DISCRIMINATION: P1 and P2 each do work, and prose is what separates them', () => {
-    // A rule with two limbs can pass because one limb does everything. These
-    // pairs differ only in what FOLLOWS the noun, so they cannot both be
-    // decided by the same limb, and neither can be decided by the extractor.
-    expect(isCaptionPosition('Achievement', 'Achievement'), 'P1 is inert').toBe(true)
-    expect(isCaptionPosition('Achievement 68%', 'Achievement'), 'P2 is inert').toBe(true)
+  it('DISCRIMINATION: every arm of the caption rule decides a case the others do not', () => {
+    // ⚠ The version of this test that shipped first asserted "P1 and P2 each do
+    // work" — and a mutant deleting P1 stayed GREEN, because P1 was P2's `$`
+    // arm written twice. These rows are one-per-ARM of the surviving
+    // alternation, so no arm can be removed without a named case going red.
+    expect(isCaptionPosition('Achievement', 'Achievement'), 'the `$` arm — stands alone').toBe(true)
+    expect(isCaptionPosition('Achievement 68%', 'Achievement'), 'the digit arm').toBe(true)
+    expect(isCaptionPosition('Achievement %', 'Achievement'), 'the percent arm').toBe(true)
+    expect(isCaptionPosition('Achievement ${p}', 'Achievement'), 'the interpolation arm').toBe(true)
+    expect(isCaptionPosition('Achievement: 68%', 'Achievement'), 'the optional colon').toBe(true)
+    // …and the other direction for each: prose, which is the whole reason the
+    // rule is not a bare-word ban.
     expect(isCaptionPosition('Achievement of the goal', 'Achievement'), 'prose is being banned').toBe(false)
     expect(isCaptionPosition('Leads via', 'Leads'), 'the verb survivor would RED').toBe(false)
     expect(isCaptionPosition('Link strength', 'strength'), 'a noun mid-phrase is not a caption').toBe(false)
-    // …and the extractor is not doing the deciding: one line, both answers.
+    // …and the EXTRACTOR is not doing the deciding: one line, both answers.
     expect(offence(`<span title="Link strength">Leads 47%</span>`)?.noun).toBe('Leads')
   })
 
