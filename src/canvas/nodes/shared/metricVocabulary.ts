@@ -75,6 +75,40 @@ export const METRIC_NOUN = {
 } as const
 
 /**
+ * ⭐ WHAT A CAPTIONED QUANTITY SAYS WHEN NOBODY HAS SET IT.
+ *
+ * THE DEFECT THIS CLOSES, witnessed on a real canvas (3 Sep 2026): five cards
+ * read `Strength 50% est.` and each drew a progress bar EXACTLY HALF FULL.
+ * `0.5` is the no-information default, and a proportional bar is measurement
+ * grammar — the same grammar an option's computed win share uses two cards
+ * along. The product was claiming an assessment it had never made.
+ *
+ * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
+ * this — the risk card, the outcome card, and the reduced line both of them
+ * declare below the legibility floor. That is exactly the hand-maintained
+ * mirror this file exists to abolish (CLAUDE.md trap 12): a word in three
+ * places drifts, and the drift always reads as green.
+ *
+ * ⚠ `inline` IS DERIVED FROM `standalone`, NEVER RE-TYPED. The reduced line
+ * reads `Strength not set yet` — one leaf, so the state follows the noun in
+ * running text and must lower-case its first letter. Deriving it means a
+ * rewording of the card cannot leave the zoomed-out line saying something else.
+ *
+ * ⚠ AND WHY "yet". "Not set" is a deficit; "not set yet" is an invitation. The
+ * strength of a connection is the user's judgement to make — the row's own
+ * disclosure names the way to make it — and a card that reads as an apology for
+ * missing data teaches a reader to ignore it.
+ */
+const UNSET_STANDALONE = 'Not set yet'
+
+export const METRIC_UNSET = {
+  /** The card row's own text, standing alone in the value column. */
+  standalone: UNSET_STANDALONE,
+  /** The same state following a noun in the reduced line: "Strength not set yet". */
+  inline: `${UNSET_STANDALONE.charAt(0).toLowerCase()}${UNSET_STANDALONE.slice(1)}`,
+} as const
+
+/**
  * ⭐ THE LEGEND — the second half of Paul's ruling: "a legend where the model
  * is, not in a panel."
  *
@@ -205,6 +239,12 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     noun: '1, 2, 3 on an option',
     // ⚠ THE QUALIFIER IS LOAD-BEARING — see ORDINAL_ROW_MUST_STATE_MINT below.
     gloss: 'the order the options were first laid out in. Not a ranking, and it stays with a card when you move it.',
+  },
+  {
+    noun: METRIC_UNSET.standalone,
+    // ⚠ NO "node" / "edge" / "graph" — the popover's own spec bans all three,
+    // which is why this says "connects to the goal" rather than naming a link.
+    gloss: 'nobody has set how strongly this connects to the goal. Open the details to set it.',
   },
   {
     noun: 'est.',

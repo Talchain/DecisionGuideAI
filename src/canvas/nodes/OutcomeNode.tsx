@@ -5,7 +5,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
 import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
@@ -15,7 +15,7 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
-import { EstimateMarker, NodeMetricRow } from './shared'
+import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -54,10 +54,34 @@ export const OutcomeNode = memo((props: NodeProps) => {
     // defaulted (edgeValueProvenance's stated invariant), which is an estimate;
     // `'user'` means the user set it, and carries no marker at all.
     const weightSource = (edge.data as Record<string, unknown> | undefined)?.weightSource
+    const assumedPct = signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null
+    /**
+     * ⛔ THE ONE QUESTION THIS ROW ASKS: DID A HUMAN SET THIS STRENGTH?
+     *
+     * It is NOT a new judgement, and that matters more than the verdict.
+     * `selectAssumedStrengthToResolve`
+     * (`components/results/strengthElicitation/selectAssumedStrengthToResolve.ts`)
+     * already owns "does this strength still need human judgement", and already
+     * rules — verbatim — that *"a CEE numeric estimate does not resolve itself
+     * merely because ingestion stamped `weightSource: 'cee'`"*. A second
+     * predicate here would be this estate's signature defect: one name, two
+     * questions, drifting apart (CLAUDE.md trap 21).
+     *
+     * ⚠ SCOPE BOUNDARY, STATED SO THE NEXT LANE INHERITS IT RATHER THAN
+     * REDISCOVERS IT. A producer strength that is genuinely MEASURED rather
+     * than assumed would be withheld by this predicate too. Nothing on the wire
+     * distinguishes the two today — CEE stamps `'cee'` for both — so the CEE
+     * lane that makes real strengths arrive must land a distinguishable
+     * provenance, and THIS LINE is the single place to widen when it does.
+     */
+    const strengthIsUserStated = signedMean != null && weightSource === 'user'
     return {
       signedMean,
-      bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
-      bridgeIsEstimated: signedMean != null && weightSource !== 'user',
+      /** The figure to DRAW. Non-null only where a human stated it. */
+      bridgeStrengthPct: strengthIsUserStated ? assumedPct : null,
+      /** The figure to DISCLOSE — a producer's guess, or nothing at all. */
+      assumedPct: strengthIsUserStated ? null : assumedPct,
+      strengthIsUserStated,
     }
   }, [edges, nodes, props.id])
 
@@ -71,18 +95,27 @@ export const OutcomeNode = memo((props: NodeProps) => {
    * 0 of 3 risks and 0 of 3 outcomes, which is the very defect it was written to
    * fix (asking for the datum the node lacks) reproduced one type along.
    *
-   * ⛔ `est.` RIDES WITH THE NUMBER AND IS NOT OPTIONAL. It is the provenance
-   * marker `bridgeIsEstimated` produces, and the full-zoom card is required to
-   * show it beside this figure. A bare "Strength 50%" at low zoom would state as
-   * measured what the card two zoom levels up states as estimated — the same
-   * class of over-claim as printing a caveated probability with the caveat
-   * dropped. Where the user set the weight themselves there is no marker, and
-   * this correctly carries none.
+   * ⚠⚠ AND THE RULE THAT USED TO SIT HERE WAS RIGHT ABOUT THE PRINCIPLE AND
+   * WRONG ABOUT THE REMEDY. It read: *"`est.` RIDES WITH THE NUMBER AND IS NOT
+   * OPTIONAL… a bare 'Strength 50%' at low zoom would state as measured what
+   * the card two zoom levels up states as estimated."* The principle is exact.
+   * The remedy — keep the number, append a 7px marker — treated the disclaimer
+   * as the fix when the FIGURE was the claim. Measured on a real canvas
+   * (3 Sep 2026): five cards reading `Strength 50% est.` at once, each drawing a
+   * bar exactly half full, because 0.5 is `DEFAULT_EDGE_DATA.weight` — the
+   * no-information default.
+   *
+   * ⛔ SO THE LINE NOW STATES THE PROVENANCE INSTEAD OF QUALIFYING IT. Where a
+   * human set the weight there is a figure and no marker, exactly as before.
+   * Where nobody did, there is no figure to qualify.
    */
   const lodMetric = useMemo(() => {
-    const pct = bridgeEdgeData?.bridgeStrengthPct
-    if (pct == null) return null
-    return `${METRIC_NOUN.strength} ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
+    if (!bridgeEdgeData) return null
+    const pct = bridgeEdgeData.bridgeStrengthPct
+    if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
+    // The connection exists and nobody has said how strong it is. Saying so is
+    // the same true thing the full card says, in the width one line allows.
+    return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
   }, [bridgeEdgeData])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
@@ -237,11 +270,21 @@ export const OutcomeNode = memo((props: NodeProps) => {
             head, i.e. the guard had been inverted from a PRESENCE assertion to
             an ABSENCE one and could no longer see the masquerade.
 
-            The noun therefore stays on BOTH branches. What R6 actually removes
-            is the word "assumed", which was false for a value the user had
-            stated: "85% strength" when somebody set it, "85% strength · est."
-            when nobody did. The honesty claim and the placeholder-wall claim are
-            different claims and both are satisfied. */}
+            The noun therefore stays on BOTH branches.
+
+            ⚠⚠ AND THE SENTENCE THAT USED TO CLOSE THIS BLOCK IS WITHDRAWN AS OF
+            3 Sep 2026, BECAUSE IT DESCRIBED A RENDERING THAT NO LONGER EXISTS
+            AND DEFENDED ONE THAT SHOULD NOT HAVE. It read: *"What R6 actually
+            removes is the word 'assumed'… '85% strength' when somebody set it,
+            '85% strength · est.' when nobody did. The honesty claim and the
+            placeholder-wall claim are different claims and both are satisfied."*
+            Both claims were NOT satisfied. Collapsing "assumed" to a 7px `est.`
+            left a full percentage and a proportional bar making the assessment
+            claim, with the only qualification rendered as the smallest thing on
+            the card. Measured on a real canvas: five cards reading
+            `Strength 50% est.`, each with a bar exactly half full, for a value
+            that is `DEFAULT_EDGE_DATA.weight`. The `est.`-beside-the-figure
+            branch is gone; where nobody set the weight there is no figure. */}
         {/* ⭐ THE SHARED ROW, NOT A THIRD PRESENTATION OF THE SAME NUMBER.
             This rendered `70% strength · est.` — value first, no bar — while
             `RiskNode` rendered the SAME datum, from the SAME `bridgeEdgeData`
@@ -250,24 +293,53 @@ export const OutcomeNode = memo((props: NodeProps) => {
 
             Everything UI-SEM-089 requires is preserved and is now structural
             rather than repeated: the NOUN is the row's `label` and cannot go
-            missing, and the estimate marker rides `trailing` on the same
-            condition it did before. What changes is that the bar arrives, the
-            caption sits in the same 56px column as every other node type, and
-            the next node type gets it for free instead of hand-copying it —
-            which is how these three drifted apart in the first place. */}
-        {bridgeEdgeData?.bridgeStrengthPct != null && (
-          <NodeMetricRow
-            label={METRIC_NOUN.strength}
-            value={bridgeEdgeData.bridgeStrengthPct / 100}
-            formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
-            fillClass="bg-success"
-            testId="outcome-strength-row"
-            trailing={
-              bridgeEdgeData.bridgeIsEstimated ? (
-                <EstimateMarker subject="strength" />
-              ) : null
-            }
-          />
+            missing. The caption sits in the same 56px column as every other
+            node type, and the next node type gets it for free instead of
+            hand-copying it — which is how these three drifted apart in the
+            first place.
+
+            ⚠ CORRECTED 3 Sep 2026: this block used to add *"and the estimate
+            marker rides `trailing` on the same condition it did before"*. It no
+            longer does — `trailing` is empty on both branches, because a figure
+            that needs `est.` beside it is a figure this row does not print. */}
+        {bridgeEdgeData && (
+          /* ⭐ TWO ROWS, ONE CAPTION COLUMN — AND THE BAR IS THE THING THAT MOVES.
+
+             A proportional bar is measurement grammar: it is the same visual
+             scale an option's COMPUTED win share uses two cards along, and a
+             half-full one says "assessed, and middling". `DEFAULT_EDGE_DATA`
+             pins `weight: 0.5`, so five cards on one canvas drew exactly that
+             bar for a value nobody had ever supplied.
+
+             ⛔ THE ROW IS NOT DELETED, AND THAT IS THE OTHER HALF OF THE FIX.
+             An absent row reads as "nothing to see"; the reader needs to know
+             the connection EXISTS and that its strength is an open question —
+             one they can settle. The caption stays in the shared 3.5rem column
+             on both branches, so a board still scans as one table.
+
+             ⚠ THE PRODUCER'S NUMBER IS DEMOTED, NOT DELETED. It rides the
+             `title` and the screen-reader phrase, stated as an assumption.
+             `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
+             keyboard on a non-focusable row and absent on touch. */
+          bridgeEdgeData.strengthIsUserStated ? (
+            <NodeMetricRow
+              label={METRIC_NOUN.strength}
+              value={(bridgeEdgeData.bridgeStrengthPct ?? 0) / 100}
+              formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
+              fillClass="bg-success"
+              testId="outcome-strength-row"
+            />
+          ) : (
+            <NodeMetricRow
+              label={METRIC_NOUN.strength}
+              value={null}
+              unsetText={METRIC_UNSET.standalone}
+              fillClass="bg-success"
+              testId="outcome-strength-row"
+              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct)}
+              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct)}
+            />
+          )
         )}
 
         {/* Coaching chip moved to popover — see `outcomeChips` useMemo and

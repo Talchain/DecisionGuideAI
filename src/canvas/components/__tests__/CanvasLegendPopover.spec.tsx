@@ -12,7 +12,7 @@ import {
   visibleMetricRows,
 } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
-import { METRIC_NOUN, METRIC_LEGEND_ROWS } from '../../nodes/shared/metricVocabulary'
+import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 
 /**
@@ -327,7 +327,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   /** The rows whose card gate really is the phase. The ordinal row is NOT one. */
   const PHASE_GATED = METRIC_LEGEND_ROWS
     .map(r => r.noun)
-    .filter(n => n !== ORDINAL_NOUN && !['Strength', 'est.'].includes(n))
+    .filter(n => n !== ORDINAL_NOUN && ![METRIC_NOUN.strength, METRIC_UNSET.standalone, 'est.'].includes(n))
 
   it('POSITIVE CONTROL: there are phase-gated rows, and an ordinal row, to assert', () => {
     // Every loop below iterates one of these. An empty list satisfies them all
@@ -439,15 +439,21 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
    * hiding a row that describes something live. A guard watching one door would
    * bless a fix that emptied the section.
    */
-  it('⭐ OPPOSITE DIRECTION: the two always-live nouns appear at every status', () => {
-    // Derived at the cards: `Strength` is `bridgeStrengthPct != null` over
-    // `state.edges` alone (RiskNode:247, OutcomeNode:253) and `est.` is
-    // `isInferred` / `bridgeIsEstimated` (FactorNode:911, RiskNode:265,
-    // OutcomeNode:267). No results term in any of them.
+  it('⭐ OPPOSITE DIRECTION: the three always-live nouns appear at every status', () => {
+    // Derived at the cards: `Strength` and `Not set yet` both come from
+    // `bridgeEdgeData`, a memo over `state.edges`/`state.nodes` alone, and
+    // `est.` is `FactorNode`'s `isInferred` (`data.observedState`). No results
+    // term in any of them.
+    //
+    // ⚠ CORRECTED 3 Sep 2026 — this comment also credited `est.` to
+    // `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`. Gone: those cards
+    // no longer print a figure for an unset strength, so there is nothing there
+    // for `est.` to qualify.
     for (const status of ALL_STATUSES) {
       const text = openBoard(status)
       expect(text, `[${status}] "${METRIC_NOUN.strength}" is live but withheld`).toContain(METRIC_NOUN.strength)
       expect(text, `[${status}] "est." is live but withheld`).toContain('est.')
+      expect(text, `[${status}] "${METRIC_UNSET.standalone}" is live but withheld`).toContain(METRIC_UNSET.standalone)
       cleanup()
     }
   })
@@ -478,7 +484,10 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     const all = visibleMetricRows({ isPostAnalysis: true, ordinalsOnScreen: true }).map(r => r.noun)
     const none = visibleMetricRows({ isPostAnalysis: false, ordinalsOnScreen: false }).map(r => r.noun)
     expect(all).toEqual(registerNouns)
-    expect(none).toEqual([METRIC_NOUN.strength, 'est.'])
+    // ⭐ `METRIC_UNSET.standalone` joins the always-live set, and PRE-RUN is
+    // exactly where it earns its place: a drafted model arrives with every
+    // bridge strength unset, so this is the row a first-time reader most needs.
+    expect(none).toEqual([METRIC_NOUN.strength, METRIC_UNSET.standalone, 'est.'])
     // The two axes are INDEPENDENT — neither implies the other.
     expect(visibleMetricRows({ isPostAnalysis: false, ordinalsOnScreen: true }).map(r => r.noun)).toContain(ORDINAL_NOUN)
     expect(visibleMetricRows({ isPostAnalysis: true, ordinalsOnScreen: false }).map(r => r.noun)).not.toContain(ORDINAL_NOUN)

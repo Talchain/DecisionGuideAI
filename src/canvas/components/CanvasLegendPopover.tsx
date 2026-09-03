@@ -42,7 +42,7 @@ import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS, METRIC_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 
 interface LegendRow {
@@ -278,12 +278,19 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  *                     (`useResultsSectionData.ts:1712`). So pre-run the map
  *                     stays `{}` and the badge cannot mount.
  *
- *   Strength PRE-RUN  `RiskNode:247` / `OutcomeNode:253`
- *                     `bridgeEdgeData?.bridgeStrengthPct != null`, a memo over
- *                     `state.edges`/`state.nodes` ONLY — no report, no status.
- *   est.     PRE-RUN  `FactorNode:911` `isInferred` (`data.observedState`),
- *                     `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`
- *                     (`edge.data.weightSource !== 'user'`). Graph-authored.
+ *   Strength PRE-RUN  `RiskNode` / `OutcomeNode` render on `bridgeEdgeData`
+ *                     alone — a memo over `state.edges`/`state.nodes` ONLY, no
+ *                     report and no status.
+ *   Not set  PRE-RUN  the same memo's `strengthIsUserStated === false` arm, and
+ *              yet     pre-run is where it is MOST on screen: a drafted model
+ *                     arrives with every bridge strength unset.
+ *   est.     PRE-RUN  `FactorNode:911` `isInferred` (`data.observedState`).
+ *                     ⚠ CORRECTED 3 Sep 2026 — this row also named
+ *                     `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`.
+ *                     That identifier no longer exists: those cards print
+ *                     `METRIC_UNSET.standalone` instead of a figure plus a 7px
+ *                     marker, so `est.` is now a FACTOR-ONLY marking. Its row
+ *                     stays always-live for that reason, not the old one.
  *
  * ⛔ THE FIX IS WHEN A ROW IS SHOWN — NOT WHEN A NUMBER IS MINTED, AND NOT THE
  * WORDS. Changing ordinal minting is a separate decision with its own
@@ -377,10 +384,11 @@ export interface LegendBoardState {
  *             whenever `!isResultsMode || !report`.
  *   1,2,3     `OptionNode:1459` `stableOptionNumber != null` — AND NOTHING ELSE.
  *             Its gate carries no results term at all, which is the whole of F1.
- *   Strength  `RiskNode:247` / `OutcomeNode:258` `bridgeStrengthPct != null`, a
+ *   Strength  `RiskNode` / `OutcomeNode` render on `bridgeEdgeData != null`, a
  *             memo over `state.edges`/`state.nodes` only.
- *   est.      `FactorNode:911` `isInferred`; `RiskNode:265` / `OutcomeNode:267`
- *             `bridgeIsEstimated`. Graph-authored; no results term.
+ *   Not set yet  the same memo's `strengthIsUserStated === false` arm.
+ *   est.      `FactorNode:911` `isInferred` — factor values only since
+ *             3 Sep 2026. Graph-authored; no results term.
  *
  * ⚠ THE LIST ABOVE IS THE PRIMARY SITE PER NOUN, NOT THE ONLY ONE. A completeness
  * sweep found SEVEN MORE, and the correction is recorded here rather than left
@@ -394,11 +402,17 @@ export interface LegendBoardState {
  *   (`detailedMetrics`, mounted at `:284`).
  *
  *   PRE-RUN, and these do NOT route through `displayMetadata`:
- *   `RiskNode:92` and `OutcomeNode:85` paint `Strength N% est.` as reduced LOD
- *   lines straight off `bridgeEdgeData`. They land on the same side as the
- *   primary Strength/est. rows, so the conclusion holds — but it holds for a
- *   different reason than "everything goes through `displayMetadata`", and a
- *   reader checking that premise would have found it false.
+ *   `RiskNode` and `OutcomeNode` paint their bridge-strength reduced LOD lines
+ *   straight off `bridgeEdgeData`. They land on the same side as the primary
+ *   Strength row, so the conclusion holds — but it holds for a different reason
+ *   than "everything goes through `displayMetadata`", and a reader checking
+ *   that premise would have found it false.
+ *
+ *   ⚠ CORRECTED 3 Sep 2026 — this paragraph said those lines paint
+ *   `Strength N% est.`. They no longer can: a strength nobody set now renders
+ *   `METRIC_UNSET.standalone` with no figure and no bar, on the card and on the
+ *   reduced line alike. `est.` survives on `FactorNode`'s own value only, which
+ *   is why its row here is still always-live.
  *
  * ⚠ `OutcomeNode:253` WAS WRONG IN THE FIRST VERSION OF THIS BLOCK — that line
  * is now inside a comment and the gate is `:258`. Line numbers in a docblock are
@@ -418,6 +432,10 @@ const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boole
   [METRIC_NOUN.strength]: () => true,
   '#1, #2, #3': (b) => b.isPostAnalysis,
   '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
+  // ALWAYS LIVE, and pre-run is exactly when it is most on screen: a drafted
+  // model arrives with every bridge strength unset, so the risk and outcome
+  // cards say this before any analysis has run.
+  [METRIC_UNSET.standalone]: () => true,
   'est.': () => true,
 }
 

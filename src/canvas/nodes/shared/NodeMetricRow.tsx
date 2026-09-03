@@ -32,10 +32,42 @@ import { typography } from '../../../styles/typography'
 export interface NodeMetricRowProps {
   /** The noun: "Ahead", "Influence", "Strength". Rendered, never a tooltip. */
   label: string
-  /** 0..1. `null` renders no row at all — absence is not zero. */
+  /**
+   * 0..1. `null` renders no row at all — absence is not zero — UNLESS
+   * `unsetText` is supplied, in which case the row states the unknown instead.
+   */
   value: number | null
-  /** Pre-formatted display string, so each node keeps its own rounding rules. */
-  formatted: string
+  /**
+   * Pre-formatted display string, so each node keeps its own rounding rules.
+   * Required whenever `value` is a number; unused on the `unsetText` branch,
+   * which by construction has no figure to print.
+   */
+  formatted?: string
+  /**
+   * ⭐ WHAT THIS ROW SAYS WHEN NOBODY HAS SET THE QUANTITY IT CAPTIONS.
+   *
+   * ⛔ THE DEFECT IT CLOSES. Five cards on one canvas read `Strength 50% est.`
+   * and each drew a bar EXACTLY HALF FULL — the no-information default in
+   * measurement grammar, on the same visual scale an option's COMPUTED win
+   * share uses two cards along. A half-full bar says "assessed, and middling".
+   * Nothing had assessed it.
+   *
+   * ⛔ AND WHY THERE IS NO EMPTY TRACK ON THIS BRANCH. The obvious rendering —
+   * keep the track, draw no fill — is refused by this component's own rule,
+   * three paragraphs down in the value branch: an unfilled full-width track
+   * "would read as 'measured, and it is nought'". Zero and unknown are
+   * different claims, and the bar has no way to distinguish them. So the track
+   * is not drawn at all, and the words take its column.
+   *
+   * ⚠ THE CAPTION COLUMN IS UNCHANGED, DELIBERATELY. The floor that gives every
+   * node type a shared start-x applies to both branches, so a reader scanning a
+   * board still meets `Strength` in the same place whether it is known or not —
+   * which is the comparison this component exists to make possible.
+   *
+   * ⚠ NO `trailing` ON THIS BRANCH. An `est.` marker beside "Not set yet" would
+   * be a second, weaker spelling of the same fact, at 7px.
+   */
+  unsetText?: string
   /** Tailwind background class for the bar fill, e.g. `bg-option`. */
   fillClass: string
   /** Full sentence for assistive tech — what the number MEANS, not just its value. */
@@ -73,10 +105,39 @@ export function NodeMetricRow({
   trailing,
   title,
   testId,
+  unsetText,
 }: NodeMetricRowProps) {
   // Absence is not zero. A node with no measurement renders no row rather than
   // a full-width empty track, which would read as "measured, and it is nought".
-  if (value === null || !Number.isFinite(value)) return null
+  //
+  // ⭐ UNLESS THE CALLER HAS SOMETHING TRUE TO SAY ABOUT THE ABSENCE. Silence
+  // reads as "nothing to see"; a caller that knows the quantity EXISTS and is
+  // merely unset can say so, in the same caption column, with no bar and no
+  // figure. See `unsetText` in the props above for why there is no empty track.
+  if (value === null || !Number.isFinite(value)) {
+    if (unsetText === undefined || unsetText.length === 0) return null
+    return (
+      <div className="mt-1 flex items-center gap-1.5" data-testid={testId} title={title}>
+        <span
+          className={`${typography.edgeLabel} min-w-[3.5rem] shrink-0 text-text-light`}
+          aria-hidden="true"
+        >
+          {label}
+        </span>
+        {/* `min-w-0` + `truncate` so a longer future wording clips inside its
+            own box rather than painting over the caption beside it — the
+            failure mode `nodeTextClipping.visual.spec.ts` caught on the 230px
+            card at the auto-fit counter-scale. */}
+        <span
+          className={`${typography.edgeLabel} min-w-0 flex-1 truncate text-text-light italic`}
+          aria-hidden="true"
+        >
+          {unsetText}
+        </span>
+        {phrase ? <span className={typography.screenReaderOnly}>{phrase}</span> : null}
+      </div>
+    )
+  }
 
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
 
