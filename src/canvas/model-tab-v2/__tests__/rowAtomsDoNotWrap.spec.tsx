@@ -2,14 +2,29 @@
  * ⭐⭐ THE ROW'S SHRINK CONTRACT — the guard this fix shipped WITHOUT, and the
  * reason it had to be added.
  *
- * ⚠⚠ MEASURED BY INDEPENDENT REVIEW: replacing `ModelRowView.tsx` with its
- * merge-base version — a FULL REVERT of the entire fix, which against
- * merge-base `9c94a718` is **16 insertions and 138 deletions**
- * (`git diff --numstat 9c94a718..HEAD -- src/canvas/model-tab-v2/ModelRowView.tsx`
+ * ⚠⚠ MEASURED BY INDEPENDENT REVIEW **AT `ecf41dfb`**: replacing
+ * `ModelRowView.tsx` with its merge-base version — a FULL REVERT of the entire
+ * fix, which at that SHA was **16 insertions and 138 deletions**
+ * (`git diff --numstat 9c94a718..ecf41dfb -- src/canvas/model-tab-v2/ModelRowView.tsx`
  * → `138 16`) — turned **NOTHING** red. All 19 files and 300 tests in
  * `model-tab-v2/__tests__` passed, and so did the three `ModelTabBody` specs.
  * The fix added zero tests. That is CLAUDE.md trap 11 exactly: a fix whose
  * removal nothing objects to is a fix nothing is holding in place.
+ *
+ * ⚠⚠ THE SHA IN THAT COMMAND IS LOAD-BEARING, AND THE REASON IS A DEFECT THIS
+ * FILE COMMITTED AGAINST ITSELF. The figure was first written as `..HEAD`, and
+ * the very next commit — the ROW CONTAINER block below, added to close an
+ * independent review's blocker — moved it to `159 16`. So the sentence citing
+ * a measurement drifted **because of the fix for the previous review**, and a
+ * later reviewer correctly read `138` as wrong. `..HEAD` is a hand-maintained
+ * mirror wearing a command's clothing: it looks derived, and it silently
+ * re-points every time anyone touches this file.
+ *
+ * A revert measurement is a DATED CAPTURE of what the suite did on one tree,
+ * not a property of the current one — so it is pinned and append-only (trap
+ * 14b). **Do not "update" this number.** If you re-run the revert, add a new
+ * line naming YOUR SHA and leave this one standing; the claim it supports is
+ * "nothing held this fix in place at `ecf41dfb`", and that stays true forever.
  *
  * "jsdom cannot measure layout" is true and is NOT the excuse it looks like.
  * The defect was never a pixel — it was that specific atoms were allowed to
