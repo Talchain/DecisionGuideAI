@@ -32,7 +32,11 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
-import { isStatedTargetValue } from '../domain/goalTarget'
+import {
+  canCaptureGoalTarget,
+  statedGoalTargetRaw,
+  type GoalTargetSource,
+} from '../domain/goalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
@@ -193,15 +197,27 @@ export const GoalNode = memo((props: NodeProps) => {
   // ⚠ NON-FINITE IS NOT A TARGET, and that narrowing is now safe to make here:
   // `AdvancedField`'s guard (this PR) was admitting `Infinity`, `-Infinity`,
   // `1e400` and `9e999` straight through `setThreshold` onto this very field.
-  const userThreshold = props.data?.threshold_source === 'user'
-    ? (props.data?.success_threshold as unknown)
-    : undefined
-  const ceeThresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
-  const thresholdRaw = isStatedTargetValue(userThreshold)
-    ? (userThreshold as string | number)
-    : ceeThresholdRaw
+  //
+  // ⭐⭐⭐ AND THE WHOLE CHAIN NOW LIVES IN `domain/goalTarget.ts`, BECAUSE A
+  // SECOND SURFACE HAD TO ASK THE SAME QUESTION. `GoalPanel` decides whether to
+  // offer `GoalThresholdEditor`, and it was deciding from the STORE SCALAR —
+  // a different authority, written by a different reducer, which
+  // `setCeeAnalysisReady` moves without ever touching this node. The chip below
+  // promises "add one"; on a payload carrying `goal_threshold` and no raw the
+  // panel answered "Success means reaching ≥ 0.8" and offered nothing to press.
+  //
+  // The remedy is NOT to align the two authorities — they answer different
+  // questions and both answers are right (trap 21). It is to name the question
+  // the READER is asking — *may I add one?* — give it one owner, and have both
+  // consumers read it. `canCaptureGoalTarget` is that owner. Keeping a second
+  // copy of the resolution chain here is what let the two drift in the first
+  // place, so this card holds none.
+  const thresholdRaw = statedGoalTargetRaw(props.data as GoalTargetSource)
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
-  const hasThreshold = isStatedTargetValue(thresholdRaw)
+  // ⚠ ONE CALL, TWO READINGS, AND THEY CANNOT DISAGREE. `hasThreshold` is the
+  // negation of the admission by construction — never a parallel predicate.
+  const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
+  const hasThreshold = !canCaptureTarget
 
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),
@@ -604,12 +620,12 @@ export const GoalNode = memo((props: NodeProps) => {
         {/* No target, post-analysis: analysis done but no threshold to evaluate.
             Null-probability guard swaps the copy when the run produced no
             finite win_probability (BoundaryError / null probs / stale state). */}
-        {!hasThreshold && isPostAnalysis && noTargetStatusChip}
+        {canCaptureTarget && isPostAnalysis && noTargetStatusChip}
 
         {/* No target, pre-analysis: the "goal gap". Surface the missing target
             clearly (Paul-authored copy — brief primary + A1 secondary), then keep
             the existing coaching chip. */}
-        {!hasThreshold && !isPostAnalysis && noTargetStatusChip}
+        {canCaptureTarget && !isPostAnalysis && noTargetStatusChip}
 
         {/* With target: display it */}
         {targetLine !== null && (

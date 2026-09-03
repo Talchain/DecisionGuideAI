@@ -45,6 +45,7 @@ import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAncho
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { canCaptureGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 
 export const GoalPanel = memo(function GoalPanel({
@@ -185,12 +186,43 @@ export const GoalPanel = memo(function GoalPanel({
    * Null when the target is absent or not a finite number; the editor renders
    * instead, rather than a sentence ending in "NaN".
    */
+  //
+  // ⚠ THE SCALE-SAFE UNIT IS HOISTED BECAUSE IT NOW HAS TWO READERS. The
+  // readout below applies the unit only when the number is on the scale that
+  // unit describes; the EDITOR sits on the other side of the same branch and
+  // must obey the same rule, or "≥ 0.8 £" simply reappears inside the input.
+  // One expression, both consumers — never two copies of the tag check.
+  const scaleSafeUnit = goalThresholdRepresentation === 'normalised' ? undefined : thresholdUnit
   const targetDisplay = goalThreshold == null
     ? null
-    : formatGoalTarget(
-        goalThreshold,
-        goalThresholdRepresentation === 'normalised' ? null : thresholdUnit,
-      )
+    : formatGoalTarget(goalThreshold, scaleSafeUnit ?? null)
+
+  /**
+   * ⭐⭐⭐ THE ADMISSION THE CANVAS CHIP'S PROMISE RESTS ON.
+   *
+   * ⚠⚠ THIS PANEL AND THE GOAL CARD WERE ANSWERING TWO DIFFERENT QUESTIONS
+   * UNDER ONE IDEA, AND THE CARD SHIPPED A PROMISE THAT LANDED HERE.
+   * `GoalNode`'s chip fires on the NODE and says "Target not captured — add
+   * one". This branch decided from the STORE SCALAR. `setCeeAnalysisReady`
+   * writes that scalar and never touches the node, so a payload carrying
+   * `goal_threshold` and no raw moved one authority and not the other — and the
+   * reader was told to add a target, then told one already existed
+   * ("Success means reaching ≥ 0.8"), with nothing to press.
+   *
+   * The two authorities are NOT being aligned; they answer different questions
+   * and both are right (CLAUDE.md trap 21). What is shared is the third
+   * question — *may this reader add one?* — owned by `canCaptureGoalTarget`
+   * and read by both surfaces.
+   *
+   * ⚠ IT IS A DISJUNCT, NOT THE WHOLE GATE, AND THAT IS DELIBERATE. The editor
+   * ALSO keeps rendering when this panel has no number to display at all —
+   * the pre-existing branch where a brief-extracted raw sits on the node and
+   * `GoalThresholdEditor` pre-populates from it under a "From your brief"
+   * badge. Gating on the admission ALONE would delete that. As a sufficient
+   * condition that nothing overrides, the property the chip needs —
+   * *admission yes ⟹ the editor is on screen* — holds by construction.
+   */
+  const canCaptureTarget = canCaptureGoalTarget(node?.data as GoalTargetSource)
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
@@ -348,7 +380,7 @@ export const GoalPanel = memo(function GoalPanel({
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <PrimaryControlCard>
           {/* §4.2 Success target */}
-          {targetDisplay != null ? (
+          {targetDisplay != null && !canCaptureTarget ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
                 Success means reaching {'\u2265'} {targetDisplay}
@@ -374,7 +406,7 @@ export const GoalPanel = memo(function GoalPanel({
             </div>
           ) : (
             <div>
-              <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
+              <GoalThresholdEditor unit={scaleSafeUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
               <p className={`${typography.panelMeta} text-info mt-1.5`}>
                 {GOAL_CONSTRAINT_COPY.targetUnlocks}
               </p>

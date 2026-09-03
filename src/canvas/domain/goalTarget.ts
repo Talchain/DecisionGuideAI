@@ -141,3 +141,71 @@ export function statedTargetNumber(value: unknown): number | null {
   const parsed = Number(trimmed)
   return Number.isFinite(parsed) ? parsed : null
 }
+
+/**
+ * THE STATED TARGET, AS THE CARD RESOLVES IT — the value or `null`.
+ *
+ * ⚠ THIS IS `GoalNode`'s OWN CHAIN, MOVED HERE RATHER THAN RE-DERIVED. The card
+ * resolved it inline: a user-set `success_threshold` wins (and only when
+ * `threshold_source === 'user'` attests it), otherwise CEE's backfilled
+ * `goal_threshold_raw`, with `isStatedTargetValue` deciding EXISTENCE at both
+ * steps. Two copies of that chain is the hand-maintained mirror this module
+ * exists to abolish, so `GoalNode` now calls this and holds none of its own.
+ *
+ * Differs from `resolveGoalTarget` in one respect that matters: this answers
+ * EXISTENCE with `isStatedTargetValue`, so a `NaN` or an `Infinity` sitting in
+ * `success_threshold` is NOT a stated target. `resolveGoalTarget` admits any
+ * `typeof number` because its job is to carry provenance for a value that has
+ * already been judged to exist.
+ */
+export function statedGoalTargetRaw(
+  data: GoalTargetSource | null | undefined,
+): string | number | null {
+  if (!data) return null
+  const userThreshold = data.threshold_source === 'user' ? data.success_threshold : undefined
+  const chosen = isStatedTargetValue(userThreshold) ? userThreshold : data.goal_threshold_raw
+  return isStatedTargetValue(chosen) ? (chosen as string | number) : null
+}
+
+/**
+ * ⭐⭐⭐ THE ADMISSION: *CAN THIS PERSON ADD A SUCCESS TARGET RIGHT NOW?*
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE A CHIP PROMISED A ROUTE INTO A DEAD END. The goal
+ * card's chip fires on the NODE (`statedGoalTargetRaw` above) and says
+ * "Target not captured — add one". The inspector's `GoalPanel` decided whether
+ * to render `GoalThresholdEditor` from the STORE SCALAR `goalThreshold`, which
+ * `setCeeAnalysisReady` writes WITHOUT EVER TOUCHING THE NODE (store.ts) —
+ * the node's raw is written only by `backfillGoalThresholdOntoGoalNode`, from
+ * different call sites, and only when the payload carries that key.
+ *
+ * So on a payload carrying `goal_threshold` and no raw, the two disagreed and
+ * the user was told to add a target, then told one already existed
+ * ("Success means reaching ≥ 0.8"), with nothing to press. `store.ts` records
+ * that exact state having shipped.
+ *
+ * ── WHY THIS IS NOT "ALIGN THE TWO DEFAULTS" (CLAUDE.md trap 21) ───────────
+ * The two authorities answer DIFFERENT questions and both answers are correct:
+ *   the node scalar   "has a target been CAPTURED onto this goal?"
+ *   the store scalar  "does the run pipeline hold a NUMBER for this goal?"
+ * Making them agree would couple two things that were never the same question.
+ * What the USER is asking is a third thing — *may I add one?* — and that is the
+ * question this function is named for. Both consumers read THIS, so the chip's
+ * promise and the editor's presence cannot drift:
+ *
+ *   `GoalNode`  renders the chip  iff `canCaptureGoalTarget(node.data)`
+ *   `GoalPanel` renders the editor if `canCaptureGoalTarget(node.data)`
+ *
+ * The second is an `if`, not an `iff`, and deliberately: the panel ALSO keeps
+ * rendering the editor when it has no number to display at all, which is the
+ * pre-existing "From your brief" pre-population branch. The admission is a
+ * SUFFICIENT condition, never overridden — so *admission yes ⟹ editor present*
+ * holds by construction, which is exactly what makes the chip's promise honest.
+ *
+ * ⚠ IT TAKES THE NODE AND NOTHING ELSE, ON PURPOSE. Handing it the store
+ * scalar would put the card back on the weaker source this module's header
+ * exists to move it off, and would make the card's own chip depend on state the
+ * card cannot see.
+ */
+export function canCaptureGoalTarget(data: GoalTargetSource | null | undefined): boolean {
+  return statedGoalTargetRaw(data) == null
+}

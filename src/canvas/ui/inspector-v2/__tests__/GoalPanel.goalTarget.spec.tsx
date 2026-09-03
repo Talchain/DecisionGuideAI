@@ -191,6 +191,20 @@ describe('GoalPanel — success target: the number and its unit must come from o
     // stored number is a 0-1 fraction and the node's unit describes the raw
     // scale. Pairing them is the very sentence this PR exists to kill, so the
     // panel refuses to decorate a normalised magnitude with a raw unit.
+    //
+    // ⚠⚠ RE-BOUND, NOT RELAXED (#1172 round 2). This case USED TO assert the
+    // READOUT sentence `Success means reaching ≥ 0.8`. On this exact payload the
+    // node is left holding NO target — `setCeeAnalysisReady` never touches it and
+    // the backfill writes `goal_threshold_raw` only when the payload carries that
+    // key — so the canvas card renders `Target not captured — add one`, a chip
+    // that PROMISES a route into this panel. The readout answered that promise
+    // with "one already exists" and nothing to press. The branch now routes to
+    // `GoalThresholdEditor` (`canCaptureGoalTarget`, domain/goalTarget.ts).
+    //
+    // Every claim this case made is still made, and two are added: the number is
+    // asserted to SURVIVE — in the field, editable, where the sentence used to
+    // state it — and the unit suppression is asserted on the whole panel rather
+    // than on two substrings, so it now covers the editor's own unit slot too.
     useCanvasStore.getState().setCeeAnalysisReady(analysisReady({ goal_threshold: 0.8 }))
     applyAnalysisReadyPatch(
       { ceeAnalysisReady: analysisReady({ goal_threshold: 0.8, goal_threshold_unit: '£' }) },
@@ -198,10 +212,18 @@ describe('GoalPanel — success target: the number and its unit must come from o
     )
 
     expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('normalised')
-    const text = panelText()
-    expect(text).toContain('Success means reaching ≥ 0.8')
+    const { container } = renderPanel()
+    const field = container.querySelector<HTMLInputElement>('#goal-threshold')
+    expect(field).not.toBeNull()
+    expect(field!.value).toBe('0.8')
+    const text = container.textContent ?? ''
+    expect(text).toContain('Success means reaching')
     expect(text).not.toContain('0.8 £')
     expect(text).not.toContain('£0.8')
+    // STRONGER THAN THE PAIR ABOVE: the raw scale's unit is absent from this
+    // panel altogether, so no future arrangement of the same two elements can
+    // reintroduce the pairing by putting a space somewhere else.
+    expect(text).not.toContain('£')
   })
 
   it('a user-committed target is never clobbered by a CEE raw payload', () => {
