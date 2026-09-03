@@ -295,7 +295,29 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   },
   {
     noun: METRIC_NOUN.strength,
-    gloss: 'how strongly a risk or outcome connects to the goal; the same measure as line thickness',
+    // ⛔ THE CLAUSE THAT USED TO END THIS ROW — "; the same measure as line
+    // thickness" — IS NOW FALSE, AND IT WAS THIS CHANGE THAT FALSIFIED IT.
+    //
+    // The two channels ask DIFFERENT QUESTIONS (CLAUDE.md trap 21, and the
+    // separation is already written down in `domain/edgeStrengthSettlement.ts`):
+    //
+    //   this row      HAS A HUMAN SETTLED IT?   `strengthIsHumanSettled`
+    //   line width    WHOSE NUMBER IS THIS?     `edgeValueSource(data,'weight')`
+    //                                           via `resolveEdgeSignedStrengthDisplay`
+    //
+    // Before this change both surfaces reported the producer's figure, so the
+    // identity claim held. This change made the ROW refuse an unsettled
+    // strength while thickness — untouched, and deliberately so — keeps drawing
+    // the producer's magnitude (`StyledEdge` gates width on `.show`, which is
+    // provenance, not settlement). On a drafted board that is the SAME
+    // connection reading "Not set yet" on the card beside a line drawn at its
+    // magnitude. A key asserting the two are one measure turns that into a
+    // contradiction the reader cannot resolve.
+    //
+    // The identity claim is DROPPED rather than repaired, and the divergence is
+    // disclosed once, on the `METRIC_UNSET.standalone` row below — which is the
+    // row a reader is looking at when they meet the divergence.
+    gloss: 'how strongly a risk or outcome connects to the goal',
   },
   {
     noun: '#1, #2, #3',
@@ -309,8 +331,31 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
     noun: METRIC_UNSET.standalone,
     // ⚠ NO "node" / "edge" / "graph" — the popover's own spec bans all three,
-    // which is why this says "connects to the goal" rather than naming a link.
-    gloss: 'nobody has set how strongly this connects to the goal. Open the details to set it.',
+    // which is why this names "the line" and "this strength" rather than the
+    // thing they belong to.
+    //
+    // ⭐ THE MIDDLE SENTENCE IS THE ONE THAT STOPS THIS KEY CONTRADICTING THE
+    // CANVAS, and it is here rather than on the `Strength` row because this is
+    // the row on screen at the moment the reader meets the divergence.
+    //
+    // A drafted board arrives with a producer's figure on every bridge and a
+    // human's verdict on none. This row therefore says "Not set yet" while the
+    // line beside it is drawn at that figure's magnitude in its polarity
+    // colour. Both are correct — width answers "whose number is this?" and this
+    // row answers "has anyone settled it?" — but a reader given only the first
+    // half concludes one of the two surfaces is broken.
+    //
+    // "may still", not "does": width falls back to `UNSET_EDGE_STROKE_WIDTH` in
+    // grey when NOTHING supplied a figure (`resolveEdgeSignedStrengthDisplay` →
+    // `.show === false`), which is the separate state the thickness key's own
+    // "No strength suggested" row describes.
+    //
+    // ⚠ THE DEFINITION IS NOT RESTATED HERE, AND THAT IS THE BUDGET TALKING.
+    // `MAX_GLOSS_LENGTH` is 110 and a first draft carrying both the definition
+    // and this disclosure measured 135 — the guard caught it, which is what it
+    // is for. The definition lives one row up on `Strength`, in the same
+    // popover, so dropping it here loses nothing a reader cannot see.
+    gloss: 'nobody has set this strength. The line may still show a suggestion. Open the details to set it.',
   },
   {
     noun: 'est.',
