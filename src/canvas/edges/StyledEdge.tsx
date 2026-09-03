@@ -62,6 +62,7 @@ import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { resolvePolarityGlyphOffset, GLYPH_ANCHOR_RADIUS, type GlyphSibling } from '../utils/edgeGlyphPlacement'
 
 /**
  * StyledEdge with semantic visual properties
@@ -895,6 +896,94 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // `labelMode` here.
     labelCarriesDirection(edgeSignedStrength, directionDisplay, labelMode)
 
+  /**
+   * ⭐⭐ WHERE THE POLARITY GLYPH SITS — P0, AND THE ONE STATE THIS COMPONENT
+   * MUST NOT GET WRONG.
+   *
+   * It used to sit at `translate(targetX - 18, targetY - 18)`. `targetX/targetY`
+   * are `getHandlePosition(targetNode, targetHandle, targetPosition)` and take
+   * NO EDGE INPUT (`@xyflow/system@0.0.76` `dist/esm/index.mjs:1420-1438`), so
+   * every edge into a node painted its glyph at the same point. Measured on the
+   * geometry harness at `a1fd39cc`: 14 glyphs at 5 sites (`vendor-selection`),
+   * 18 at 6 (`market-entry`), 21 of 21 stacks resolving to exactly one target —
+   * and on every starter at least two stacks held BOTH a `+` and a `−`, so the
+   * visible mark was whichever painted last. See `edgeGlyphPlacement.ts`.
+   *
+   * ⚠ THIS SUBSCRIBES TO THE STORE RATHER THAN READING `getNode` IMPERATIVELY,
+   * AND THAT IS LOAD-BEARING, NOT TIDINESS. The resolution is only stable if
+   * every sibling instance computes it from the SAME node snapshot. A sibling's
+   * SOURCE node moving changes MY direction, but does not move MY endpoints and
+   * so would not re-render me: two instances on two snapshots can each conclude
+   * they are ring 0, and the stack comes back. The subscription is what keeps
+   * one snapshot under all of them.
+   *
+   * Returned as a STRING, not an object — `useStore` compares by reference, and
+   * a fresh `{dx, dy}` per store event would re-render every edge on every
+   * pointer move.
+   */
+  const glyphOffsetKey = useStore((st) => {
+    // Cheap gate: the two conditions knowable inside a store selector. The
+    // render below applies the full predicate; this only avoids paying for a
+    // computation whose result is thrown away.
+    if (!statedDirection || isStructuralEdge) return ''
+    // ⚠ TOLERATE A PARTIAL STORE SLICE. Eleven existing edge suites hand
+    // `useStore` a hand-built object with `nodes` and no `edges`, and an
+    // unguarded `for (const e of st.edges)` throws inside render — it took out
+    // 82 tests. The product always supplies both; a mock need not, and a
+    // component that crashes on a narrower slice than it expected is brittle
+    // regardless of who supplied it.
+    const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
+    const storeEdges = Array.isArray(st.edges) ? st.edges : []
+    const nodeById = new Map(storeNodes.map((n) => [n.id, n]))
+    const centreOf = (nodeId: string): { x: number; y: number } | null => {
+      const n = nodeById.get(nodeId)
+      if (!n) return null
+      const w = n.measured?.width ?? n.width ?? 200
+      const h = n.measured?.height ?? n.height ?? 80
+      // `position` is the parent-relative top-left; `internals.positionAbsolute`
+      // is what React Flow itself uses to place the handles this offset is
+      // applied at, so it is the basis that cannot disagree with `targetX/Y`.
+      const p = n.internals?.positionAbsolute ?? n.position
+      if (!p) return null
+      return { x: p.x + w / 2, y: p.y + h / 2 }
+    }
+    // ⚠ A MISSING TARGET NODE MUST NOT COLLAPSE BACK TO ONE POINT. An earlier
+    // draft returned a single constant offset here, which is the ORIGINAL
+    // DEFECT wearing a fallback's clothes — every edge into the node would
+    // share it again. Instead the whole group is handed null directions, which
+    // is the resolver's degraded branch: index-by-id radii, still pairwise
+    // distinct. A fallback for an unreachable state is still a state.
+    const targetCentre = centreOf(target)
+    const siblings: GlyphSibling[] = []
+    for (const e of storeEdges) {
+      // Every edge into this target, INCLUDING structural ones and ones whose
+      // glyph is suppressed. Deliberate: the assignment must not shift when a
+      // neighbour's chip appears on hover, or the glyph would jump under the
+      // pointer. A reserved-but-unused slot costs nothing.
+      if (e.target !== target) continue
+      siblings.push({ id: e.id, sourceCentre: targetCentre ? centreOf(e.source) : null })
+    }
+    // This edge is rendering, so it exists — even if the store slice handed to
+    // the selector has not caught up. Without this the resolver takes its
+    // caller-bug path and every such edge shares one offset.
+    if (!siblings.some((sib) => sib.id === id)) {
+      siblings.push({ id, sourceCentre: targetCentre ? centreOf(source) : null })
+    }
+    const { dx, dy } = resolvePolarityGlyphOffset(id, targetCentre ?? { x: 0, y: 0 }, siblings)
+    return `${Math.round(dx * 100) / 100},${Math.round(dy * 100) / 100}`
+  })
+
+  const glyphOffset = useMemo(() => {
+    if (glyphOffsetKey === '') {
+      // No node geometry at all (nodes not yet measured, or a unit test that
+      // mocks the store empty). Still never (0,0): the glyph keeps a definite
+      // place at the target end rather than landing on the handle itself.
+      return { dx: 0, dy: -GLYPH_ANCHOR_RADIUS }
+    }
+    const [dx, dy] = glyphOffsetKey.split(',').map(Number)
+    return { dx, dy }
+  }, [glyphOffsetKey])
+
   // ── Stroke + dash, from the one authority ────────────────────────────────
   //
   // NOTE WHAT IS NOT IN THIS STATE: `isResultsMode`. An edge's resting colour
@@ -1183,8 +1272,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           green/rose colour, is what carries polarity for a red-green dichromat
           (the palette separates WORSE than green/red under deuteranopia), so
           colour-alone polarity pre-run/Standard was a legibility gap. Positioned
-          at the target end (targetX/Y − 18), away from the mid-path label, so it
-          collision-avoids labels exactly as before. Causal lens shows its own
+          at the target end, away from the mid-path label, so it collision-avoids
+          labels exactly as before — but NOT at a fixed (targetX/Y − 18) any
+          more, because that point is shared by every edge into the node and the
+          glyphs stacked on it. `edgeGlyphPlacement.ts` carries the mechanism,
+          the measurement and the distinctness proof. Causal lens shows its own
           numeric parameter label instead. Structural edges have no semantic
           direction — excluded defensively. */}
       {/* ⭐ ROADMAP 2.580 member 2: gated on `statedDirection`, not on the raw
@@ -1196,7 +1288,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${targetX - 18}px,${targetY - 18}px)`,
+              transform: `translate(-50%, -50%) translate(${targetX + glyphOffset.dx}px,${targetY + glyphOffset.dy}px)`,
               pointerEvents: 'none',
             }}
             // ⭐ THE SIZE RULING THIS SITE ASKED FOR, MADE.
@@ -1222,6 +1314,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // the SHAPE does the work, which is what a dichromat relies on.
             className={`${typography.edgeLabel} text-text-body`}
             aria-label={`Effect direction: ${statedDirection}`}
+            // ⭐ IDENTITY BINDING. Without it the only way to attribute a glyph
+            // to an edge is its ORDER in the portal, and `EdgeLabelRenderer`
+            // portals every edge's children into one flat layer — so the Nth
+            // glyph is not the Nth edge whenever any edge renders no glyph.
+            // CLAUDE.md trap 19: an assertion binds to its object by IDENTITY.
+            // This is what lets the browser measure below count glyph-on-glyph
+            // stacking BY EDGE rather than by a value predicate.
+            data-edge-id={id}
           >
             {statedDirection === 'positive' ? '+' : '−'}
           </div>
