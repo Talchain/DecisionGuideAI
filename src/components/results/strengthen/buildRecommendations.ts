@@ -247,8 +247,16 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
    * `hasStatedGoalTarget` is the existence answer, `goalThreshold` stays the
    * number, and neither is asked to be the other.
    *
-   * `?? (inputs.goalThreshold == null)` keeps every legacy and fixture caller
-   * on exactly its previous behaviour.
+   * The `=== undefined` fallback keeps every legacy and fixture caller on
+   * exactly its previous behaviour.
+   *
+   * ⚠ IT IS `=== undefined`, NOT `??`, AND AN EARLIER VERSION OF THIS COMMENT
+   * SAID `??`. They differ on an explicit `null`: `??` would treat one as
+   * absent and fall back to the numeric test, while `=== undefined` treats it
+   * as a present answer of "no target stated". The type is `boolean | undefined`
+   * so `null` is not admitted, which is why the code is right — but a comment
+   * naming a mechanism the code beside it does not use is the defect this whole
+   * change is about, and it does not get an exemption for being small.
    */
   const noStatedTarget = inputs.hasStatedGoalTarget === undefined
     ? inputs.goalThreshold == null
