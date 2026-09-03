@@ -64,6 +64,40 @@ interface BaseNodeProps extends NodeProps {
   lodKeepLabel?: boolean
   maxWidth?: number
   headerSlot?: ReactNode
+  /**
+   * A caller-supplied member of the TOP-RIGHT CORNER STACK, rendered first in
+   * that container's DOM order.
+   *
+   * It exists so a node type with its own corner badge does not hand-write
+   * `absolute -top-2 -right-2 z-10` again. `OptionNode`'s "Leading option" pill
+   * did exactly that — the identical anchor and z as the stack — so on a
+   * leading option that also carried an edited-since-run dot or a coaching
+   * marker, two independently positioned boxes claimed one point. The corner
+   * has ONE owner (see the five-member contract on the stack itself below, and
+   * the `NodeQuickActions` note above it), and this is how a caller joins it
+   * rather than competing with it.
+   *
+   * ⚠ THE RANK BADGE IS DELIBERATELY ABSENT FROM THAT COLLISION SET, because it
+   * cannot join it. `sensitivityRank` has exactly one assignment
+   * (`useNodeDisplayMetadata.ts:320`), inside `if (nodeType === 'factor')`
+   * (:263). BaseNode passes its own `nodeType`, and `cornerSlot`'s only caller
+   * passes `"option"` — so on the one node type that can supply this slot, the
+   * rank badge never renders. (It is still a member of the container's
+   * five-member order below: that order is written total so it stays correct if
+   * a gate ever changes.) `OptionNode.leadingPillCornerStack.spec.tsx` PINS the
+   * impossibility twice — at runtime, and against the hook's own source — so
+   * such a change REDs rather than silently producing an overlap nobody
+   * measured.
+   *
+   * FIRST is deliberate where it is observable: the stack is anchored by its
+   * right edge and grows leftward, so a wide text pill entering here leaves the
+   * badges below at exactly the distance from the corner they already have, and
+   * leaves the interactive coaching marker rightmost — which is the reason the
+   * stack's contract puts it last. Against the `StatusPill` immediately below
+   * it the order is UNOBSERVABLE (disjoint by node type); against the edited
+   * dot and the coaching marker it is widest-first and load-bearing.
+   */
+  cornerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
   borderClassOverride?: string
   /**
@@ -93,7 +127,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   const description = typeof data?.description === 'string' ? data.description : undefined
 
@@ -678,48 +712,102 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           z), so the coaching marker fully covered the edited dot when both were
           present (Codex P2, browser-confirmed) — the same class of same-corner
           overlap the P1-5 rank/coaching fix addressed. They are now static flex
-          siblings here, ordered smallest-in-the-middle for legibility: rank
-          FIRST (reads "key driver #N"), then the small 10px edited-since-run
-          freshness dot, then the interactive coaching marker anchored at the
-          corner (rightmost — the easiest click target). The row is anchored by
+          siblings here, ordered smallest-in-the-middle for legibility: of those
+          three, rank came first (it reads "key driver #N"), then the small 10px
+          edited-since-run freshness dot, then the interactive coaching marker
+          anchored at the corner (rightmost — the easiest click target). ⚠ That
+          is the ORIGINAL three-member order and it is kept here as history:
+          rank is no longer the container's first child, because two wider
+          members have since joined ahead of it. The live order is the
+          five-member contract below, which is the one to read. The row is anchored by
           its right edge and grows leftward, keeping all three inside the top
           band (no title overlap) and off the node's right side; siblings never
           overlap, so each stays visible and the coaching button stays
           clickable. Each child self-gates, so the container is empty (0×0,
           inert) when none applies.
 
-          ⭐⭐ THE "NEEDS INPUT" PILL IS THE FOURTH OCCUPANT, AND IT JOINED THIS
-          STACK RATHER THAN BEING NUDGED (2026-09-03). `StatusPill` hand-wrote
-          `absolute -top-2 -right-1 z-10` — ONE PIXEL from this container's
-          `-right-2` and at the SAME z — so it was a rival authority in the very
-          corner this container exists to own, exactly like the three before it.
-          Measured in real Chromium before the move
-          (`e2e/geometry/statusPillCorner.measure.ts`, 1440x900, starters
-          `vendor-selection` / `build-vs-buy`, with a prior run in history): the
-          pill covered 15px² of the edited-since-run dot's 25px² — 60% of it.
-          The control arm with no run history measured zero, so the probe
-          discriminated.
+          ⭐⭐ THE CONTRACT IS NOW FIVE MEMBERS, AND IT IS STATED ONCE HERE
+          (reconciled 2026-09-04, when the fourth and fifth arrived one PR
+          apart). Two independent migrations each closed the same defect class
+          in this corner — factor/goal's "Needs input" `StatusPill` (#1177) and
+          option's "Leading option" pill (#1176, via `cornerSlot`) — and each
+          was written calling itself "the fourth occupant". Both cannot be, and
+          a reader following either sentence literally would renumber the other
+          out of the contract. The single contract, in DOM order:
 
-          ⚠ ORDER IS WIDEST-FIRST, and that is what puts the pill at the head:
-          the row is anchored by its RIGHT edge and grows LEFTWARD, so the widest
-          child must lead or it pushes the small badges away from the corner and
-          displaces the coaching marker from the rightmost, easiest click target.
-          The pill measured 67.9px against the dot's 5px at the same zoom, so it
-          leads by a wide margin. Order: pill · rank · edited-dot · coaching.
+              cornerSlot · StatusPill · rank · edited dot · coaching
 
-          ⚠ THE PILL AND THE RANK BADGE CANNOT ACTUALLY CO-OCCUR, and that is a
-          derived fact, not an accident of ordering: the rank badge requires
-          `results.status === 'complete'` (`useNodeDisplayMetadata.ts:226`) and the
-          pill requires `results.status !== 'complete'` (`isPreRunMode`, :256) —
-          exact complements on ONE store field. Both are placed here anyway so the
-          contract stays total if either gate ever changes;
-          `BaseNode.statusPillCornerStack.spec.tsx` PINS the impossibility with the
-          REAL hook so a change that makes them co-occur fails loudly instead of
-          silently overlapping. */}
+          ⚠ AND THREE OF THE TEN PAIRS CAN NEVER CO-OCCUR, which is derived,
+          not incidental — the contract is written total anyway so it stays
+          correct if a gate ever changes, and each impossibility is PINNED by a
+          spec that REDs on the change rather than silently overlapping:
+          • `cornerSlot` vs `StatusPill` — disjoint by NODE TYPE, structurally.
+            `cornerSlot` has exactly one caller (`OptionNode.tsx`,
+            `nodeType="option"`); the StatusPill arm below is gated
+            `isIncomplete && (nodeType === 'factor' || nodeType === 'goal')`.
+            No node is both. Their relative order is therefore UNOBSERVABLE at
+            runtime; `cornerSlot` leads only because it is the caller's slot.
+          • `StatusPill` vs `rank` — disjoint on ONE store field: the rank badge
+            requires `results.status === 'complete'` (`isResultsMode`,
+            `useNodeDisplayMetadata.ts:226`) and the pill requires
+            `results.status !== 'complete'` (`isPreRunMode`, THIS file, :288).
+            Exact complements. Pinned by
+            `BaseNode.statusPillCornerStack.spec.tsx` with the REAL hook.
+            ⚠ The `:256` this cited until 2026-09-04 was wrong and was
+            inherited: `isPreRunMode` has never lived in the hook, and reading
+            both offsets against one filename sends the next session to an
+            unrelated line.
+          • `cornerSlot` vs `rank` — impossible too, and by a mechanism one
+            layer up from the other two: it is not that two render gates here
+            exclude each other, but that the DATUM is never produced.
+            `sensitivityRank` has exactly ONE assignment
+            (`useNodeDisplayMetadata.ts:320`) and it sits inside
+            `if (nodeType === 'factor')` (:263). BaseNode passes its own
+            `nodeType`, and OptionNode's is `"option"`, so on the only node type
+            that can supply `cornerSlot` the rank badge can never render.
+            Pinned by `OptionNode.leadingPillCornerStack.spec.tsx`.
+          So the largest set reachable on ONE node is THREE: a wide pill (either
+          one, per node type) · the edited dot · the coaching marker.
+
+          ⚠ ORDER IS WIDEST-FIRST, and that is what puts a wide pill at the
+          head: the row is anchored by its RIGHT edge and grows LEFTWARD, so the
+          widest child must lead or it pushes the small badges away from the
+          corner and displaces the coaching marker from the rightmost, easiest
+          click target. The StatusPill measured 67.9px against the dot's 5px at
+          the same zoom, so it leads by a wide margin.
+
+          ⭐ HOW EACH ARRIVED, because the class is what matters more than the
+          count. `StatusPill` hand-wrote `absolute -top-2 -right-1 z-10` — ONE
+          pixel from this container's `-right-2` and at the SAME z. Measured in
+          real Chromium before the move (`e2e/geometry/statusPillCorner.measure.ts`,
+          1440x900, starters `vendor-selection` / `build-vs-buy`, with a prior
+          run in history): it covered 15px² of the edited-since-run dot's 25px²
+          — 60% of it, with a no-run-history control arm at zero, so the probe
+          discriminated. OptionNode's "Leading option" pill hand-wrote this
+          container's anchor and z BYTE-FOR-BYTE as an independent box outside
+          it, and was simply never migrated when the rank badge, the edited dot
+          and the coaching marker were; it now enters through `cornerSlot`. Each
+          previous instance in this corner was closed the same way — by folding
+          the new occupant in, never by adding another hand-written offset. */}
       <div
         data-testid={`node-corner-stack-${id}`}
         className="absolute -top-2 -right-2 z-10 flex items-center gap-1"
       >
+        {/* Caller-supplied corner member — first in DOM order. Today it has
+            exactly one caller: OptionNode's "Leading option" pill, which used
+            to hand-write this container's own `absolute -top-2 -right-2 z-10`
+            as a separate box outside it. It enters here so the corner keeps
+            exactly ONE positioning authority.
+
+            ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE:
+            `cornerSlot`'s only caller passes `nodeType="option"` and the
+            StatusPill arm is gated to `factor`/`goal`, so no node renders both
+            (see the five-member contract above). Widest-first governs each of
+            them against the three badges that follow, which is what keeps those
+            at their existing distance from the corner and the coaching marker
+            rightmost. See the `cornerSlot` prop. */}
+        {cornerSlot}
+
         {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
             factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
             / GoalNoTargetPre. Decision/option keep the warning border only.

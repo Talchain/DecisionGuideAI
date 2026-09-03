@@ -1441,19 +1441,79 @@ export const OptionNode = memo((props: NodeProps) => {
       }}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
-      {/* Winner badge -- top-right */}
-      {isRecommended && (
-        <span
-          className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
-        >
-          Leading option
-        </span>
-      )}
       <BaseNode
         {...props}
         nodeType="option"
         icon={metadata.icon}
         lodKeepLabel={isRecommended}
+        /* ⭐ THE LEADING-OPTION PILL IS A MEMBER OF THE CORNER STACK, NOT A
+           SECOND CLAIM ON THE CORNER.
+
+           It used to render above, as a sibling of this BaseNode, carrying
+           `absolute -top-2 -right-2 z-10` — byte-for-byte the anchor and z of
+           `node-corner-stack-{id}`, the container built to abolish exactly this
+           overlap. So a leading option that also had an edited-since-run dot or
+           a coaching marker drew two independently positioned boxes at one
+           point. BaseNode's own source already said this corner had an owner;
+           the pill was simply never migrated when the rank badge, the edited
+           dot and the coaching marker were.
+
+           ⚠ THE RANK BADGE IS NOT ONE OF THE BOXES IT COULD COLLIDE WITH, and
+           saying otherwise would be inventing the harm. `sensitivityRank` has
+           exactly ONE assignment (`useNodeDisplayMetadata.ts:320`) and it sits
+           inside `if (nodeType === 'factor')` (:263); this call site passes
+           `nodeType="option"`, so the rank badge cannot render on this card at
+           all. The reachable collision set on a leading option is the edited
+           dot and the coaching marker — which is what the spec drives, and it
+           is enough: two boxes at one point is the defect whatever the second
+           box is.
+
+           ⭐ THE LOAD-BEARING EVIDENCE IS THE DUPLICATED ANCHOR, NOT A
+           MEASUREMENT. Two boxes declaring `absolute -top-2 -right-2 z-10`
+           against the same positioned parent resolve to the same origin by
+           construction — that is a fact about the CSS, reproducible without a
+           browser, and it is why this migration is correct.
+
+           The browser run is corroboration, and its margin is thin enough that
+           it must be quoted with the margin attached. MEASURED pre-migration in
+           Chromium at 1440x900 on the build-vs-buy starter
+           (`e2e/geometry/leadingPillCorner.measure.ts`): the pill's box is
+           (317.5, 281.0) 74.5x16.5 — x-range 317.5–392.0 — and the corner stack
+           renders 0x0 at (391.5, 281.5). Its anchor therefore sits inside the
+           pill's x-range BY 0.5px, on a run where the stack itself was empty
+           and so had no width of its own. ⚠ Half a pixel is inside sub-pixel
+           rounding at this zoom: read it as CONSISTENT with a shared origin,
+           never as an independent proof of one, and do not build any later
+           claim on it. Note also that when the stack is empty its 0x0 origin is
+           its right edge; with children present it grows leftward from there,
+           which is a different rectangle than the one measured here.
+
+           ⚠ AND WHAT THE SAME MEASUREMENT REFUTED, because the suspicion is
+           the obvious one and it is wrong: the pill does NOT cover the option
+           ordinal. Their intersection is 0px^2 both pre- and post-migration and
+           at both ends of `--canvas-label-scale` — the pill sits ~27px above
+           it. A missing ordinal has a different cause entirely: exactly one
+           site POPULATES `optionNumbering` — the single `registerOptionNumbering`
+           caller, `useResultsSectionData.ts:4071` — and it passes
+           `recommendation.allOptions.map(o => o.id)` (:4068), so an option card
+           absent from the analysis recommendation renders no ordinal at all.
+           (`canvas/store.ts` also assigns the field, but only ever `{}`: an
+           initial value and three resets. Those clear the map; they never add a
+           card to it, so they cannot be the cause of one card missing while
+           others show.) That is not this seam's to fix and nothing here claims
+           to.
+
+           `shrink-0 whitespace-nowrap` keep it intact as a flex child, matching
+           how the other members declare themselves. It carries NO offset of its
+           own: the stack positions it. */
+        cornerSlot={isRecommended ? (
+          <span
+            data-testid={`leading-option-pill-${props.id}`}
+            className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
+          >
+            Leading option
+          </span>
+        ) : undefined}
         headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
             {stableOptionNumber != null && (
