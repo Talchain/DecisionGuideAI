@@ -338,8 +338,11 @@ jobs:
   # job spends under that costs the workflow nothing, so the budget is 600s of
   # job wall clock — a margin under the critical path, far under the 20-minute
   # timeout below, and far under the point at which anyone routes around it.
-  # MEASURED from this job's own step timings, not extrapolated:
+  # MEASURED from this job's own step timings, both sides, not extrapolated:
   #   before  226s job = 28s setup + 17s vite boot + 174s tests (4 arms)
+  #                      run 33743994788, `bd18bace`
+  #   after   346s job = 45s setup + 21s vite boot + 271s tests (23 arms)
+  #                      run 33750968965, `9c3a8e9b` — 254s under the budget
   # The set, the shipped defect each arm would have caught, what is still
   # excluded and why, and the standing rule for admitting the next one are all
   # in `e2e/geometry/canvasGateSet.ts`.

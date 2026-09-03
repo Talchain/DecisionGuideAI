@@ -446,12 +446,22 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
    * `timeout-minutes` and the "twenty minutes and people route around it"
    * threshold this file was shaped by.
    *
-   * MEASURED, from the job's own step timings rather than extrapolated:
-   *   before  226s job  =  28s setup  +  17s vite boot  + 174s tests (4 arms)
-   *   after   ~440s job = same setup/boot + ~390s tests (23 arms)
-   * The 4 -> 23 arm growth is ~6x the assertions for ~1.9x the wall clock,
-   * because the two arms already in the gate are the expensive ones (78s each
-   * on ubuntu; they reseed once per key per control).
+   * MEASURED FROM THE JOB'S OWN STEP TIMINGS, both sides, not extrapolated:
+   *   before  226s job  =  28s setup + 17s vite boot + 174s tests (4 arms)
+   *                        run 33743994788, `bd18bace`
+   *   after   346s job  =  45s setup + 21s vite boot + 271s tests (23 arms)
+   *                        run 33750968965, `9c3a8e9b`
+   * 254s of headroom under the budget. The 4 -> 23 arm growth is ~6x the
+   * assertions for 1.53x the wall clock, because the two arms already in the
+   * gate are the expensive ones (~66-78s each on ubuntu; they reseed once per
+   * key per control) and the 19 admitted ones average 10.5s.
+   *
+   * ⚠ THE PROJECTION THAT PRECEDED THIS MEASUREMENT WAS 440-465s — PESSIMISTIC
+   * BY ~100s, and it is left recorded rather than quietly replaced. It came from
+   * multiplying darwin timings by the worst observed ubuntu ratio (1.9x), which
+   * is the right way to be wrong for a budget decision: it can refuse an arm
+   * that would have fitted, and it cannot admit one that will not. Do not
+   * "correct" the multiplier downwards on the strength of one run.
    *
    * ⚠ ubuntu RUNS ~1.9x DARWIN ON THIS SUITE, derived from the three arms
    * measured on both (41.2 -> 78s, 6.2 -> 9.3s, 6.9 -> 8.7s) and applied at the
