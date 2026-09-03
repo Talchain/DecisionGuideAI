@@ -1365,15 +1365,19 @@ export const OptionNode = memo((props: NodeProps) => {
    * with the percentage next to it to save space").
    *
    * ⚠ AND THE MEASUREMENT, NOT THE INTUITION — the census in
-   * `cardCopyCensus.canvas.spec.tsx`, three option siblings with 2/3/1
-   * interventions against a 3-factor board, read this position as:
+   * `cardCopyCensus.canvas.spec.tsx` mounts three option siblings that
+   * intervene on 1, 2 and 3 of a six-factor board, and this position read
    *
-   *     [2 of 3] factors specified
-   *     [3 of 3] factors specified
-   *     [1 of 3] factors specified
+   *     [1 of 6] factors specified
+   *     [2 of 6] factors specified
+   *     [3 of 6] factors specified
    *
-   * `totalFactorCount` is a GRAPH-WIDE count, so the denominator is identical
-   * on every option card by construction — only the numerator can differ. The
+   * ⛔ THE DENOMINATOR IS THE POINT, AND IT IS TRUE OF EVERY BOARD, NOT JUST
+   * THIS FIXTURE: `totalFactorCount` counts the factors on the GRAPH, so it is
+   * identical on every option card BY CONSTRUCTION — only the numerator can
+   * ever differ. (The spec pins the `3 of 6` card by testid; the other two are
+   * quoted here to show the shape, and the invariance is a property of the
+   * expression above, not of the three numbers.) The
    * brackets and the participle carry nothing at all. `2 of 3 factors` states
    * both quantities and the noun; `specified for this option` is the sentence
    * frame and goes to the hover, which is where this card already puts every
@@ -1780,11 +1784,11 @@ export const OptionNode = memo((props: NodeProps) => {
                 look instead of going silent. */}
             {/* ⭐ THE INSTRUCTION IS THE INVARIANT HALF, AND IT IS THE HALF
                 THAT MOVED (Paul, 31 Aug 2026). Measured across three option
-                siblings, this position read
+                siblings whose counts differ, this position read
 
+                    Changes 1 factor  — open the inspector for targets
                     Changes 2 factors — open the inspector for targets
                     Changes 3 factors — open the inspector for targets
-                    Changes 1 factor  — open the inspector for targets
 
                 — thirty-three characters of identical navigation guidance on
                 every card in this state, on the narrowest card the starters
