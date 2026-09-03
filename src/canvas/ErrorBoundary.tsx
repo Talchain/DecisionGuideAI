@@ -4,15 +4,18 @@ import { captureError } from '../lib/monitoring'
 import { flushWorkToAutosave } from './persist/crashFlush'
 import {
   attemptStaleBuildReload,
+  CHUNK_STALL_HEADING_COPY,
+  CHUNK_STALL_NOTICE_COPY,
   ensureRouteHash,
   isChunkLoadError,
+  isChunkStallError,
   STALE_BUILD_NOTICE_COPY,
 } from '../lib/staleBuildRecovery'
 
 // Re-exported so existing consumers (and ErrorBoundary.recovery.spec.tsx, which
 // reads it off this module's namespace) keep working. The DEFINITION lives in
 // src/lib/staleBuildRecovery.ts — one detector, one sentence, one guard.
-export { isChunkLoadError }
+export { isChunkLoadError, isChunkStallError }
 
 interface Props {
   children: ReactNode
@@ -91,6 +94,12 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
     // Stale-chunk auto-recovery: one reload fixes a deploy race. Rate-limited
     // so a broken deploy shows the error panel instead of reload-looping.
+    //
+    // ⚠ A STALLED chunk is deliberately NOT in this branch. Reloading re-enters
+    // the same bounded wait, so a persistent stall would cost the user two full
+    // waits before anything appeared — the panel below is offered at the first
+    // bound instead, with the same Reload button under their control. See
+    // `isChunkDeliveryFailure` in staleBuildRecovery.ts, which owns the reasoning.
     if (isChunkLoadError(error)) {
       attemptStaleBuildReload()
     }
@@ -265,6 +274,10 @@ export class CanvasErrorBoundary extends Component<Props, State> {
   render() {
     const isRecurring = this.state.errorCount >= RECURRING_ERROR_THRESHOLD
     const isStaleBuild = isChunkLoadError(this.state.error)
+    // A chunk that never ARRIVED, as opposed to one that FAILED. Same panel,
+    // same action, different sentence — because "Olumi was updated" is false
+    // when a byte stream simply stopped, and this boundary must not say it.
+    const isChunkStall = isChunkStallError(this.state.error)
 
     // If error was dismissed, render children but show a warning banner
     if (this.state.hasError && this.state.dismissed) {
@@ -291,7 +304,17 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/95 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/95 backdrop-blur-sm"
+          data-testid="canvas-error-panel"
+          /*
+           * ⚠ THE CAUSE IS ON THE ELEMENT, not left to be inferred from copy. A
+           * browser test for the stall must be able to fail when the panel
+           * appears for the WRONG reason — binding it to "a panel is visible"
+           * would pass on any crash at all (CLAUDE.md trap 19).
+           */
+          data-error-cause={isStaleBuild ? 'stale-build' : isChunkStall ? 'chunk-stall' : 'unexpected'}
+        >
           <div className="bg-panel rounded-lg shadow-panel p-8 max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-panel rounded-full flex items-center justify-center flex-shrink-0">
@@ -304,14 +327,20 @@ export class CanvasErrorBoundary extends Component<Props, State> {
                     means the user's own decision is what comes next — which is
                     exactly what the sentence offers. */}
                 <h2 className="text-xl font-bold text-text-header">
-                  {isStaleBuild ? 'Olumi was updated' : 'Something went wrong'}
+                  {isStaleBuild
+                    ? 'Olumi was updated'
+                    : isChunkStall
+                      ? CHUNK_STALL_HEADING_COPY
+                      : 'Something went wrong'}
                 </h2>
                 <p className="text-sm text-text-body">
                   {isStaleBuild
                     ? STALE_BUILD_NOTICE_COPY
-                    : isRecurring
-                      ? 'A critical error keeps occurring. Please reload the page.'
-                      : 'The canvas encountered an unexpected error'}
+                    : isChunkStall
+                      ? CHUNK_STALL_NOTICE_COPY
+                      : isRecurring
+                        ? 'A critical error keeps occurring. Please reload the page.'
+                        : 'The canvas encountered an unexpected error'}
                 </p>
               </div>
             </div>

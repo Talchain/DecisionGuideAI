@@ -18,13 +18,31 @@ import { AuthProvider } from '../contexts/AuthContext'
 // so the ~250 KB chunk downloads only when diagnostics are requested. This is the
 // SINGLE mount — the duplicate ReactFlowGraph mount was removed.
 import { useShouldShowDebugPanel } from '../components/debug/debugPanelVisibility'
+import { lazyWithStallBound } from '../lib/lazyWithStallBound'
 
-// Lazy-loaded routes for code splitting
-const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
-const SandboxV1 = lazy(() => import('../routes/SandboxV1'))
-const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
-const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
-const PlcLab = lazy(() => import('../routes/PlcLab'))
+/**
+ * Lazy-loaded routes for code splitting.
+ *
+ * ⭐ EVERY ROUTED LAZY GOES THROUGH `lazyWithStallBound`, NOT BARE `lazy`.
+ *
+ * A route chunk that FAILS rejects and reaches `CanvasErrorBoundary` below. A
+ * route chunk that STALLS never settles, so no boundary is ever involved and the
+ * `<RouteContent>` Suspense fallback stays on screen forever — measured on
+ * staging as "Loading Canvas..." still alone on the page after 60 s, with zero
+ * console output. The wrapper bounds the wait so the SECOND case becomes the
+ * FIRST, and the recovery panel that already exists does the rest.
+ *
+ * ⚠ IT IS UNIFORM ON PURPOSE. The evidence names `/canvas` and `/scenario/:id`,
+ * but nothing about those two routes causes this — any of the 37 modules in a
+ * chunk's static closure stalling produces it, on any route. A fix applied only
+ * where the defect was observed leaves the same silent spinner on every other
+ * route with no test anywhere able to see it.
+ */
+const CanvasMVP = lazyWithStallBound(() => import('../routes/CanvasMVP'), 'The canvas')
+const SandboxV1 = lazyWithStallBound(() => import('../routes/SandboxV1'), 'The sandbox')
+const PlotShowcase = lazyWithStallBound(() => import('../routes/PlotShowcase'), 'The engine showcase')
+const PlotWorkspace = lazyWithStallBound(() => import('../routes/PlotWorkspace'), 'The engine workspace')
+const PlcLab = lazyWithStallBound(() => import('../routes/PlcLab'), 'The PLC lab')
 
 /**
  * A Suspense boundary that belongs to the ROUTE, not to the app shell.
@@ -74,16 +92,18 @@ function RouteContent({ children }: { children: React.ReactNode }) {
 const DebugPanel = lazy(() => import('../components/DebugPanel'))
 
 // C.1a: Scenario persistence routes
-const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
+const ScenarioListPage = lazyWithStallBound(() => import('../pages/ScenarioListPage'), 'Your scenarios')
 // Internal hero fixture gallery — flag-gated (staging-on/prod-off), unlinked.
-const HeroGallery = lazy(() => import('../routes/HeroGallery'))
-const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
-const ParticipantPacketPage = lazy(() => import('../pages/ParticipantPacketPage'))
-const PanelSetupPage = lazy(() => import('../pages/PanelSetupPage'))
-const LoginPage = lazy(() => import('../components/auth/LoginPage'))
-const AuthCallback = lazy(() => import('../components/auth/AuthCallback'))
-const AuthGuard = lazy(() => import('../components/auth/AuthGuard'))
-const ProfileSettingsPage = lazy(() => import('../pages/ProfileSettingsPage'))
+const HeroGallery = lazyWithStallBound(() => import('../routes/HeroGallery'), 'The hero gallery')
+const SharedBriefPage = lazyWithStallBound(() => import('../pages/SharedBriefPage'), 'The shared brief')
+const ParticipantPacketPage = lazyWithStallBound(() => import('../pages/ParticipantPacketPage'), 'The participant packet')
+const PanelSetupPage = lazyWithStallBound(() => import('../pages/PanelSetupPage'), 'Panel setup')
+const LoginPage = lazyWithStallBound(() => import('../components/auth/LoginPage'), 'The sign-in page')
+const AuthCallback = lazyWithStallBound(() => import('../components/auth/AuthCallback'), 'Sign-in')
+// ⚠ A LAYOUT ROUTE: a stall here blocks EVERY guarded route at once, so it needs
+// the bound at least as much as the leaf pages it wraps.
+const AuthGuard = lazyWithStallBound(() => import('../components/auth/AuthGuard'), 'The workspace')
+const ProfileSettingsPage = lazyWithStallBound(() => import('../pages/ProfileSettingsPage'), 'Profile settings')
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'

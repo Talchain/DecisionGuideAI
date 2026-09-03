@@ -12,8 +12,13 @@ import {
   attemptStaleBuildReload,
   CHUNK_RELOAD_GUARD_KEY,
   CHUNK_RELOAD_GUARD_WINDOW_MS,
+  CHUNK_STALL_HEADING_COPY,
+  CHUNK_STALL_NOTICE_COPY,
+  createChunkStallError,
   ensureRouteHash,
+  isChunkDeliveryFailure,
   isChunkLoadError,
+  isChunkStallError,
   STALE_BUILD_ACTION_COPY,
   STALE_BUILD_NOTICE_COPY,
   CHUNK_LOAD_ERROR_SHAPES,
@@ -215,5 +220,93 @@ describe('the exported corpus is COMPLETE, not merely self-consistent', () => {
     // shape this change exists for; a refactor that drops it must RED here.
     expect(CHUNK_LOAD_ERROR_SHAPES.some((m) => m.startsWith('Unable to preload CSS for'))).toBe(true)
     expect(isChunkLoadError(new Error('Unable to preload CSS for /assets/x.css'))).toBe(true)
+  })
+})
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * THE SECOND CAUSE: a chunk that STALLS rather than fails.
+ *
+ * The stale-build arms above are about an import that REJECTS. Everything below
+ * is about one that never settles at all — measured on staging as a permanent
+ * "Loading Canvas..." with zero console output. The two must stay NAMED APART:
+ * they are two causes of one harm, and exactly one of them may say the build
+ * moved (CLAUDE.md trap 21).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+describe('staleBuildRecovery — the stall detector', () => {
+  it('recognises the error the bounded loader produces', () => {
+    expect(isChunkStallError(createChunkStallError('The canvas', 45_000))).toBe(true)
+  })
+
+  it('binds to the error NAME, not to its prose', () => {
+    // The message is user-visible copy and will be reworded. A detector that
+    // parsed it would silently stop detecting on the first rewrite.
+    const e = createChunkStallError('The canvas', 45_000)
+    e.message = 'anything at all'
+    expect(isChunkStallError(e)).toBe(true)
+  })
+
+  it('CONTRAST: rejects ordinary application errors', () => {
+    // Without this the detector could be `() => true` and every arm above would
+    // still pass, turning every crash into "Olumi could not finish loading".
+    for (const m of ['Cannot read properties of undefined', 'Network request failed', 'boom']) {
+      expect(isChunkStallError(new Error(m)), m).toBe(false)
+    }
+    expect(isChunkStallError(null)).toBe(false)
+    expect(isChunkStallError(undefined)).toBe(false)
+  })
+
+  it('⭐ THE TWO CAUSES ARE DISJOINT — neither detector may claim the other', () => {
+    // This is the arm that stops the two sentences collapsing into one. If a
+    // stall satisfied isChunkLoadError, the product would tell a user on a dead
+    // CDN that Olumi had been updated — a comfortable, false explanation.
+    const stall = createChunkStallError('The canvas', 45_000)
+    const staleBuild = new Error('Failed to fetch dynamically imported module: /assets/x.js')
+
+    expect(isChunkLoadError(stall)).toBe(false)
+    expect(isChunkStallError(staleBuild)).toBe(false)
+    // ...and both are nonetheless a delivery failure, which is the question the
+    // boundaries ask when choosing a NAMED notice over the generic crash panel.
+    expect(isChunkDeliveryFailure(stall)).toBe(true)
+    expect(isChunkDeliveryFailure(staleBuild)).toBe(true)
+  })
+
+  it('CONTRAST: an ordinary error is not a delivery failure either', () => {
+    expect(isChunkDeliveryFailure(new Error('Maximum update depth exceeded'))).toBe(false)
+  })
+
+  it('the message names the surface and the wait, because it reaches the screen', () => {
+    // CanvasErrorBoundary prints error.message verbatim in its detail box.
+    expect(createChunkStallError('The canvas', 45_000).message).toBe(
+      'The canvas did not finish loading within 45s',
+    )
+  })
+})
+
+describe('staleBuildRecovery — the stall sentence is true', () => {
+  it('does not blame the server, the network, or the user', () => {
+    // ⚠ The measurement CANNOT distinguish a stalled CDN response from a stalled
+    // connection. Naming either would be a guess printed as a fact — and the
+    // whole reason this copy lives in one module is that a false sentence here
+    // is the harm, not the spinner.
+    expect(CHUNK_STALL_NOTICE_COPY).not.toMatch(/server|network|offline|your connection|check your/i)
+    expect(CHUNK_STALL_HEADING_COPY).not.toMatch(/server|network|offline|error|failed|crash/i)
+  })
+
+  it('says what happened and what to do', () => {
+    expect(CHUNK_STALL_NOTICE_COPY).toMatch(/did not finish downloading/i)
+    expect(CHUNK_STALL_NOTICE_COPY).toMatch(/reload/i)
+  })
+
+  it('⭐ never claims the build moved — that is the OTHER cause', () => {
+    expect(CHUNK_STALL_NOTICE_COPY).not.toMatch(/updated|new version|current version/i)
+    expect(CHUNK_STALL_HEADING_COPY).not.toMatch(/updated/i)
+    // CONTRAST, so this pair cannot pass by both sentences being empty.
+    expect(STALE_BUILD_NOTICE_COPY).toMatch(/updated/i)
+  })
+
+  it('the two sentences are actually different strings', () => {
+    expect(CHUNK_STALL_NOTICE_COPY).not.toBe(STALE_BUILD_NOTICE_COPY)
   })
 })

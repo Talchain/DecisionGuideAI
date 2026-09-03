@@ -20,7 +20,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BootErrorBoundary } from '../BootErrorBoundary'
-import { CHUNK_RELOAD_GUARD_KEY, STALE_BUILD_NOTICE_COPY } from '../lib/staleBuildRecovery'
+import {
+  CHUNK_RELOAD_GUARD_KEY,
+  CHUNK_STALL_HEADING_COPY,
+  CHUNK_STALL_NOTICE_COPY,
+  createChunkStallError,
+  STALE_BUILD_NOTICE_COPY,
+} from '../lib/staleBuildRecovery'
 
 function Boom({ message }: { message: string }): JSX.Element {
   throw new Error(message)
@@ -123,5 +129,90 @@ describe('BootErrorBoundary — the surface a mid-session deploy lands on', () =
       </BootErrorBoundary>,
     )
     expect(sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY)).not.toBeNull()
+  })
+})
+
+/**
+ * The boot chunk can STALL as well as fail, and this boundary is what the user
+ * meets when it does. Its Suspense fallback is `<Shell/>` — "Loading
+ * application…" — so before the bound existed a stalled boot chunk left that
+ * sentence on screen indefinitely while it had stopped being true.
+ *
+ * Both arms of the pair are here on purpose: the stall must produce a notice,
+ * and it must NOT produce the stale-build one.
+ */
+describe('BootErrorBoundary — a boot chunk that STALLS rather than fails', () => {
+  const reload = vi.fn()
+  let restoreConsole: () => void = () => {}
+
+  beforeEach(async () => {
+    /*
+     * ⚠ DRAIN FIRST, AND THE ORDER IS THE WHOLE POINT. `attemptStaleBuildReload`
+     * DEFERS its reload by `setTimeout(..., 0)` — never mid-render. The describe
+     * above spends that budget, so its stray timer fires during THIS describe and
+     * lands on whichever `window.location.reload` mock is installed at the time.
+     * Flushing it here, BEFORE the mock below replaces `window.location`, keeps
+     * that call attributed to the describe that caused it. Without this the
+     * reload-button arm reads 2 calls for one click — measured, not theorised.
+     */
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    reload.mockClear()
+    sessionStorage.clear()
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    restoreConsole = () => spy.mockRestore()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload, hash: '#/canvas' },
+    })
+  })
+
+  afterEach(() => {
+    restoreConsole()
+    cleanup()
+  })
+
+  function renderStall() {
+    const StallBoom = () => {
+      throw createChunkStallError('Olumi', 45_000)
+    }
+    render(
+      <BootErrorBoundary>
+        <StallBoom />
+      </BootErrorBoundary>,
+    )
+  }
+
+  it('shows a named notice with a way forward, not the generic crash panel', () => {
+    renderStall()
+    const notice = screen.getByTestId('chunk-stall-notice')
+    expect(notice).toHaveTextContent(CHUNK_STALL_HEADING_COPY)
+    expect(notice).toHaveTextContent(CHUNK_STALL_NOTICE_COPY)
+    expect(screen.queryByTestId('boot-render-error')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument()
+  })
+
+  it('⭐ CONTRAST: it does NOT say the build moved', () => {
+    // The load-bearing arm. Both causes end in the same button, so a boundary
+    // that reused the stale-build sentence would look fine and tell a lie.
+    renderStall()
+    const text = screen.getByTestId('chunk-stall-notice').textContent ?? ''
+    expect(text).not.toContain(STALE_BUILD_NOTICE_COPY)
+    expect(text).not.toMatch(/updated/i)
+    expect(screen.queryByTestId('stale-build-notice')).not.toBeInTheDocument()
+  })
+
+  it('the reload button works', async () => {
+    renderStall()
+    await userEvent.click(screen.getByRole('button', { name: /reload/i }))
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('⭐ does NOT spend the automatic reload — a stall must not re-enter the same wait', () => {
+    // A stall that auto-reloaded would stall again and cost the user a SECOND
+    // full bound before anything appeared. The stale-build arm above asserts the
+    // opposite for its own cause, which is what makes this a discrimination
+    // rather than a blanket "never reloads".
+    renderStall()
+    expect(sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY)).toBeNull()
   })
 })
