@@ -9,21 +9,17 @@
  *     its own — the tab already holds nodes/edges/fragility, and a second
  *     subscription would be a second render authority);
  *   · builds the row/detail projections through `adapters.ts`;
- *   · owns the ONE active edit's state machine
- *     (idle → editing → proposed → dispatched-and-idle);
+ *   · owns one active draft and preserves unconfirmed attempts per factor;
  *   · dispatches every write through `useModelEditAuthority` — the canonical
  *     factor-value transaction (event build → optimistic undo → sanctioned
  *     setter → `sendSystemEvent` with the undo riding the send). NOTHING here
  *     writes the store or the wire directly; the boundary guard enforces it.
  *
- * WHY THERE IS NO `inflight`/`applied` RENDER THIS TRAIN, stated so nobody
- * "fixes" it into a lie: the canonical dispatcher resolves refusal/acceptance
- * CENTRALLY (revert on refusal, stamp on acceptance) and hands back no receipt
- * — so after Confirm the row returns to rendering the STORE, which is
- * optimistic-then-authoritative, exactly as the v1 factor chip behaves. A row
- * that showed "applied" from its own echo would be an optimistic write wearing
- * a confirmation (contracts.ts §1 C11). When the receipt-bearing transaction
- * API lands, the three-beat's tail states plug in at `useModelEditAuthority`.
+ * Enter and blur submit a genuinely changed factor value once. The shared
+ * authority still returns dispatch status, not a completion receipt, so the
+ * attempt remains explicitly UNCONFIRMED. Never infer acceptance from its
+ * optimistic store echo. Primary owns the completion/lifecycle integration
+ * described in docs/model-tab-factor-edit-ux-handoff.md; this is a banked slice.
  *
  * EDIT COVERAGE AT THIS TIP (widened 18 Aug 2026, the REHOME → DELETE lane):
  *   · FACTOR VALUES — the reference canonical transaction, server-backed.
@@ -40,10 +36,11 @@
  * write instead would recreate F6 on the surface built to kill it.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { EdgeData } from '../domain/edges'
+import { classifyValueProvenance } from '../domain/valueProvenance'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
@@ -66,6 +63,8 @@ import {
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
+  /** Canonical scenario identity. Parent integration must supply this before promotion. */
+  modelIdentity?: string
   nodes: Node[]
   edges: Edge[]
   /** RAW user units — the store scalar, never converted here. */
@@ -115,13 +114,23 @@ const OPTION_INTERVENTION_CONNECTED = hasServerGraphAuthority(
 /** One active edit at a time — the row the user is currently changing. */
 interface ActiveEdit {
   rowId: string
-  phase: 'editing' | 'proposed'
   draft: string
-  /** What the row displayed when the edit began — the `from` of the proposal. */
+  initialDraft: string
+  initialNumeric: number | undefined
+  context: string
+  inputHint: string
+  error?: string
+  /** Captured display context, never asserted to be current after dispatch. */
   from: string
 }
 
-export function ModelTabV2Panel({
+export function ModelTabV2Panel(props: ModelTabV2PanelProps) {
+  // The shared parent owns scenario identity. A key resets drafts and unresolved
+  // attempts synchronously when it changes, including when factor IDs repeat.
+  return <ModelTabV2PanelContents key={props.modelIdentity} {...props} />
+}
+
+function ModelTabV2PanelContents({
   nodes,
   edges,
   goalThreshold,
@@ -188,6 +197,8 @@ export function ModelTabV2Panel({
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
+  const editRef = useRef<ActiveEdit | null>(null)
+  const [unconfirmed, setUnconfirmed] = useState<ReadonlyMap<string, Extract<EditCommitState, { phase: 'unconfirmed' }>>>(new Map())
   /**
    * The one intervention target being edited, if any.
    *
@@ -211,7 +222,15 @@ export function ModelTabV2Panel({
     [nodes, edges, goalThreshold, fragileEdgeIds],
   )
 
-  const rows = useMemo(() => toModelRows(projection), [projection])
+  const rows = useMemo(() => toModelRows(projection).map(row => {
+    const attempt = unconfirmed.get(row.id)
+    if (!attempt) return row
+    // This is an unresolved-edit overlay, not another canonical model. In the
+    // detail view too, name captured context as previous rather than silently
+    // presenting the shared hook's optimistic value/source as settled truth.
+    return { ...row, primaryValue: `Previous: ${attempt.from}`, provenanceSource: undefined,
+      estimateText: undefined, attention: [], editable: false }
+  }), [projection, unconfirmed])
 
   /**
    * ⚠ THE CHIP AND THE QUEUE ARE THE SAME DERIVATION, so they cannot disagree.
@@ -241,10 +260,13 @@ export function ModelTabV2Panel({
     () => (selectedId === null ? null : rows.find(r => r.id === selectedId) ?? null),
     [rows, selectedId],
   )
-  const selectedDetail = useMemo(
-    () => (selectedId === null ? null : toRowDetail(projection, selectedId)),
-    [projection, selectedId],
-  )
+  const selectedDetail = useMemo(() => {
+    if (selectedId === null) return null
+    const detail = toRowDetail(projection, selectedId)
+    const attempt = unconfirmed.get(selectedId)
+    if (!detail || !attempt) return detail
+    return { ...detail, basis: attempt.reason, secondaryValues: [], advancedParameters: [] }
+  }, [projection, selectedId, unconfirmed])
 
   /**
    * What a group action may quote back to the user.
@@ -329,68 +351,98 @@ export function ModelTabV2Panel({
   )
 
   const commitByRowId = useMemo(() => {
-    if (edit === null) return undefined
-    const state: EditCommitState =
-      edit.phase === 'editing'
-        ? { phase: 'editing', draft: edit.draft }
-        : { phase: 'proposed', from: edit.from, to: edit.draft }
-    return new Map<string, EditCommitState>([[edit.rowId, state]])
-  }, [edit])
+    const states = new Map<string, EditCommitState>(unconfirmed)
+    if (edit) states.set(edit.rowId, { phase: 'editing', draft: edit.draft,
+      context: edit.context, inputHint: edit.inputHint, error: edit.error })
+    return states.size ? states : undefined
+  }, [edit, unconfirmed])
 
   const beginEdit = useCallback(
     (rowId: string) => {
       const row = rows.find(r => r.id === rowId)
-      if (!row) return
+      if (!row || unconfirmed.has(rowId)) return
       const node = nodes.find(n => n.id === rowId)
       if (!node) return
-      // THE one seed rule (`resolveValueInputSeed`, default `raw_or_value`
-      // basis): the input shows `raw_value ?? value`, exactly as the inspector
-      // panel and the v1 Model-tab chips do. A second copy of that rule is how
-      // the scale ambiguity re-opens, so it is imported, never re-derived.
-      const { seed } = resolveValueInputSeed(node.data)
-      setEdit({
+      // Preserve the authority's basis even when the AI seed is shown only as
+      // context. Blanking the input does not authorize a scale conversion.
+      const { seed, inUserUnits } = resolveValueInputSeed(node.data)
+      const provenance = classifyValueProvenance(row.provenanceSource)
+      const initialDraft = provenance?.userOwned && seed !== undefined ? String(seed) : ''
+      const from = row.primaryValue ?? row.estimateText ?? (seed === undefined ? 'Not set' : String(seed))
+      const obs = (node.data.observedState ?? node.data.observed_state) as { unit?: string } | undefined
+      const next: ActiveEdit = {
         rowId,
-        phase: 'editing',
-        draft: seed === undefined ? '' : String(seed),
-        from: row.primaryValue ?? 'Not set',
-      })
+        draft: initialDraft,
+        initialDraft,
+        initialNumeric: seed,
+        from,
+        context: `${provenance?.kind === 'ai' ? 'Olumi estimate' : 'Current model'}: ${from}`,
+        inputHint: inUserUnits ? (obs?.unit ? `Enter a value in ${obs.unit}.` : 'Enter one number.')
+          : `Use model scale. Current model-scale value: ${seed}.`,
+      }
+      editRef.current = next
+      setInterventionEdit(null)
+      setEdit(next)
     },
-    [rows, nodes],
+    [rows, nodes, unconfirmed],
   )
 
   const changeDraft = useCallback((rowId: string, draft: string) => {
-    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft } : prev))
-  }, [])
-
-  const proposeEdit = useCallback((rowId: string) => {
-    setEdit(prev => {
-      if (!prev || prev.rowId !== rowId) return prev
-      // Intent must parse before it can be proposed. An unparseable draft
-      // stays in `editing` — nothing to confirm, nothing to send.
-      const num = parseFloat(prev.draft)
-      if (!Number.isFinite(num)) return prev
-      return { ...prev, phase: 'proposed' }
-    })
+    const current = editRef.current
+    if (!current || current.rowId !== rowId) return
+    const next = { ...current, draft, error: undefined }
+    editRef.current = next
+    setEdit(next)
   }, [])
 
   const discardEdit = useCallback((rowId: string) => {
-    setEdit(prev => (prev && prev.rowId === rowId ? null : prev))
+    if (editRef.current?.rowId !== rowId) return
+    editRef.current = null
+    setEdit(null)
   }, [])
 
-  const confirmEdit = useCallback(
+  const commitEdit = useCallback(
     (rowId: string) => {
-      if (!edit || edit.rowId !== rowId || edit.phase !== 'proposed') return
-      const num = parseFloat(edit.draft)
-      if (!Number.isFinite(num)) return
-      // The canonical transaction. Whatever the outcome, the edit state
-      // clears: on `dispatched`/`local_only` the store now shows the
-      // optimistic value (and the dispatcher owns refusal-revert); on
-      // `not_encodable` nothing was written anywhere — fail closed, and the
-      // row honestly shows the unchanged model.
-      authority.proposeFactorValue(num)
+      const current = editRef.current
+      if (!current || current.rowId !== rowId) return
+      const trimmed = current.draft.trim()
+      if (trimmed === current.initialDraft.trim()) { discardEdit(rowId); return }
+      // One complete decimal, optionally exponentiated. No prefixes, units,
+      // alternatives, hex, empty-string-to-zero coercion or non-finite values.
+      const valid = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed)
+      const num = valid ? Number(trimmed) : NaN
+      if (!Number.isFinite(num)) {
+        const next = { ...current, error: 'Enter one finite number, without alternatives or units.' }
+        editRef.current = next
+        setEdit(next)
+        return
+      }
+      if (num === current.initialNumeric) { discardEdit(rowId); return }
+      // Lock before dispatch: Enter, its resulting blur and repeated keydown
+      // can share one render, so React state alone is not a deduplication guard.
+      editRef.current = null
+      let reason = 'Not yet confirmed. Check the saved model before relying on this value.'
+      try {
+        const outcome = authority.proposeFactorValue(num)
+        if (outcome === 'not_encodable') {
+          const next = { ...current, error: 'This value could not be submitted. The model was not changed.' }
+          editRef.current = next
+          setEdit(next)
+          return
+        }
+        if (outcome === 'local_only') reason = 'Not saved to the shared model. This change is only on this device.'
+      } catch {
+        // A throw may follow an optimistic write. Only the shared transaction
+        // owner can decide whether to revert; never label this definitely saved
+        // or definitely rejected from a transport exception.
+        reason = 'Saving could not be confirmed. Check the saved model before retrying.'
+      }
+      setUnconfirmed(prev => new Map(prev).set(rowId, {
+        phase: 'unconfirmed', from: current.from, to: trimmed, reason,
+      }))
       setEdit(null)
     },
-    [edit, authority],
+    [authority, discardEdit],
   )
 
   /**
@@ -400,6 +452,7 @@ export function ModelTabV2Panel({
    * row and holding both would leave a draft the user can no longer see.
    */
   const confirmValueAsIs = useCallback((rowId: string) => {
+    editRef.current = null
     setEdit(null)
     setInterventionEdit(null)
     setPendingConfirmId(rowId)
@@ -408,6 +461,7 @@ export function ModelTabV2Panel({
   const beginInterventionEdit = useCallback(
     (factorId: string, seed: string) => {
       if (selectedId === null) return
+      editRef.current = null
       setEdit(null)
       setInterventionEdit({ optionId: selectedId, factorId, draft: seed })
     },
@@ -577,9 +631,8 @@ export function ModelTabV2Panel({
         editConnectedIds={editConnectedIds}
         onBeginEdit={beginEdit}
         onDraftChange={changeDraft}
-        onProposeEdit={proposeEdit}
+        onProposeEdit={commitEdit}
         onDiscardEdit={discardEdit}
-        onConfirmEdit={confirmEdit}
         onConfirmValueAsIs={FACTOR_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}

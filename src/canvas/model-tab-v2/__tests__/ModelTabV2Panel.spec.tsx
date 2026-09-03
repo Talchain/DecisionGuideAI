@@ -1,9 +1,9 @@
 /**
- * ModelTabV2Panel — the mount train's container spec (16 Aug 2026).
+ * ModelTabV2Panel — direct value editing at the mounted container.
  *
  * WHAT THIS PINS, and why each pin exists:
  *
- *  1. THE CANONICAL WRITE PATH. A v2 factor-value confirm must commit through
+ *  1. THE CANONICAL WRITE PATH. A v2 factor-value edit must commit through
  *     the SAME transaction the reference surface uses (`FactorsSection`
  *     `handleValueCommit`, ROADMAP 2.121 slice 1 / #513): build the wire event
  *     with `buildFactorValueEditEvent`, capture the optimistic undo BEFORE the
@@ -13,12 +13,16 @@
  *     the write around the dispatch (skips the send, or drops the undo) must
  *     go RED here — that is this spec's primary job.
  *
- *  2. THE INLINE-CHIP CONFIRM (ruling R9). The three-beat is edit → propose
- *     (nothing has changed yet) → confirm/discard chips in the row. No modal.
- *     Until Confirm is clicked the store must be UNTOUCHED and nothing may be
- *     sent — `proposed` is a statement of intent, not a write.
+ *  2. DIRECT EDIT INTENT. Enter and blur share one commit path. Opening an AI
+ *     estimate never prefills the user's contribution; unchanged, malformed
+ *     and composing input never writes. This brief supersedes the older
+ *     Enter → proposal → Confirm interaction for factor values.
  *
- *  3. HONEST NON-CONNECTED AFFORDANCES. Rows whose edits have NO canonical
+ *  3. DISPATCH IS NOT ACCEPTANCE. The real store rerenders after its optimistic
+ *     write. The row must still disclose that acknowledgement is unavailable,
+ *     rather than borrowing the optimistic provenance stamp as success.
+ *
+ *  4. HONEST NON-CONNECTED AFFORDANCES. Rows whose edits have NO canonical
  *     wire carrier at this tip (relationships, options, goal) keep the
  *     disabled affordance with the honest label. Enabling them without a
  *     carrier would recreate design §2 F6 (a local write indistinguishable
@@ -32,7 +36,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import { render, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 
 const sendSystemEvent = vi.fn()
@@ -63,7 +67,7 @@ const GOAL_ID = 'goal_arr'
 const OPTION_ID = 'opt_premium'
 const EDGE_ID = 'e_cost_to_goal'
 
-function cappedFactorNode(): Node {
+function cappedFactorNode(source = 'cee_inference'): Node {
   return {
     id: FACTOR_ID,
     type: 'factor',
@@ -77,7 +81,7 @@ function cappedFactorNode(): Node {
         raw_value: COMMITTED_RAW,
         cap: CAP,
         unit: '£',
-        source: 'cee_inference',
+        source,
       },
     },
   } as unknown as Node
@@ -120,9 +124,9 @@ function allNodes(): Node[] {
   return [goalNode(), optionNode(), cappedFactorNode()]
 }
 
-function seedStore() {
+function seedStore(nodes = allNodes()) {
   useCanvasStore.setState(
-    { nodes: allNodes(), edges: [stampedEdge()] } as never,
+    { nodes, edges: [stampedEdge()] } as never,
     false,
   )
 }
@@ -135,22 +139,47 @@ function observed(id: string): Record<string, unknown> {
   >
 }
 
-function renderPanel() {
-  render(
+/** Match ModelTabBody's live prop updates instead of freezing pre-edit nodes. */
+function StoreBackedPanel({ modelIdentity }: { modelIdentity?: string }) {
+  const nodes = useCanvasStore(state => state.nodes)
+  const edges = useCanvasStore(state => state.edges)
+  return (
     <ModelTabV2Panel
-      nodes={allNodes()}
-      edges={[stampedEdge()]}
+      nodes={nodes}
+      edges={edges}
       goalThreshold={null}
-    />,
+      modelIdentity={modelIdentity}
+    />
   )
 }
 
-/** Drive the row to the PROPOSED state: click value → type → Enter. */
-function proposeFactorValue(raw: string) {
-  fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`))
-  const input = screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)
+function renderPanel(modelIdentity?: string) {
+  return render(<StoreBackedPanel modelIdentity={modelIdentity} />)
+}
+
+function openValueEditor(id = FACTOR_ID): HTMLInputElement {
+  fireEvent.click(screen.getByTestId(`model-row-v2-${id}-value`))
+  return screen.getByTestId(`model-row-v2-${id}-value-input`) as HTMLInputElement
+}
+
+type CommitGesture = 'Enter' | 'blur'
+
+function commitInput(input: HTMLInputElement, gesture: CommitGesture) {
+  if (gesture === 'Enter') fireEvent.keyDown(input, { key: 'Enter' })
+  else fireEvent.blur(input)
+}
+
+function editFactorValue(raw: string, gesture: CommitGesture = 'Enter', id = FACTOR_ID) {
+  const input = openValueEditor(id)
   fireEvent.change(input, { target: { value: raw } })
-  fireEvent.keyDown(input, { key: 'Enter' })
+  commitInput(input, gesture)
+  return input
+}
+
+function expectNoChangeSettled(id = FACTOR_ID) {
+  expect(screen.getByTestId(`model-row-v2-${id}`)).toHaveAttribute('data-phase', 'idle')
+  expect(screen.queryByTestId(`model-row-v2-${id}-value-input`)).not.toBeInTheDocument()
+  expect(screen.queryByTestId(`model-row-v2-${id}-confirm`)).not.toBeInTheDocument()
 }
 
 beforeEach(() => {
@@ -207,38 +236,40 @@ describe('ModelTabV2Panel — outline, filter, tier, detail', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('ModelTabV2Panel — factor value edits ride the canonical transaction', () => {
-  it('clicking the value opens an input seeded from raw_value (the one seed rule)', () => {
+  it('opening an AI estimate leaves the contribution blank and shows Olumi separately', () => {
     renderPanel()
-    fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`))
-    const input = screen.getByTestId(
-      `model-row-v2-${FACTOR_ID}-value-input`,
-    ) as HTMLInputElement
-    expect(input.value).toBe(String(COMMITTED_RAW))
-  })
-
-  it('Enter proposes: confirm/discard chips render, the store is untouched, nothing is sent', () => {
-    renderPanel()
-    proposeFactorValue(String(NEW_RAW))
-    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-confirm`)).toBeInTheDocument()
-    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-discard`)).toBeInTheDocument()
-    // Nothing has changed yet — the design's own words for this beat.
-    expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    const input = openValueEditor()
+    expect(input.value).toBe('')
+    expect(input).toHaveFocus()
+    const row = screen.getByTestId(`model-row-v2-${FACTOR_ID}`)
+    expect(row).toHaveTextContent(/Olumi/)
+    expect(row).toHaveTextContent('£30,000')
     expect(observed(FACTOR_ID).source).toBe('cee_inference')
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
-  it('⭐ Confirm commits through the sanctioned setter AND dispatches the wire event with its undo', () => {
+  it.each(['user_override', 'user_confirmed', 'user'])('a %s value is seeded and selected for replacement', source => {
+    seedStore([goalNode(), optionNode(), cappedFactorNode(source)])
     renderPanel()
-    proposeFactorValue(String(NEW_RAW))
-    fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-confirm`))
+    const input = openValueEditor()
+    expect(input.value).toBe(String(COMMITTED_RAW))
+    expect(input.selectionStart).toBe(0)
+    expect(input.selectionEnd).toBe(input.value.length)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
 
-    // The sanctioned-setter write: value + raw_value + stamp, one update.
+  it.each<CommitGesture>(['Enter', 'blur'])('%s commits once through the real setter and wire event, without Confirm', gesture => {
+    renderPanel()
+    const input = editFactorValue(String(NEW_RAW), gesture)
+    // Enter can be followed by blur when its input unmounts. Replaying that
+    // event must not create a second turn.
+    fireEvent.blur(input)
+
     const obs = observed(FACTOR_ID)
     expect(obs.value).toBe(normaliseRawFactorValue(NEW_RAW, CAP))
     expect(obs.raw_value).toBe(NEW_RAW)
     expect(obs.source).toBe('user')
 
-    // The wire event — the SAME shape the reference surface emits.
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
     const [event, opts] = sendSystemEvent.mock.calls[0]
     expect(event.type).toBe('factor_value_edit')
@@ -250,51 +281,195 @@ describe('ModelTabV2Panel — factor value edits ride the canonical transaction'
       unit: '£',
     })
 
-    // The optimistic undo rides WITH the send — the dispatcher owns refusal
-    // resolution (revert) and acceptance (stamp). A confirm without it would
-    // keep a refused number on screen: the 2.129(b) split-brain.
     expect(opts?.optimisticFactorEdit).toBeDefined()
     expect(opts.optimisticFactorEdit.nodeId).toBe(FACTOR_ID)
     expect(opts.optimisticFactorEdit.sentValue).toBe(normaliseRawFactorValue(NEW_RAW, CAP))
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_ID}-confirm`)).not.toBeInTheDocument()
+
+    // The host reads the post-write store, including its optimistic user stamp.
+    // That stamp is not an acknowledgement and must not become settled UI truth.
+    const row = screen.getByTestId(`model-row-v2-${FACTOR_ID}`)
+    expect(row).toHaveAttribute('data-phase', 'unconfirmed')
+    expect(row).toHaveTextContent('Not yet confirmed')
+    expect(within(row).queryByText('User edited')).not.toBeInTheDocument()
   })
 
-  it('Discard reverts to idle: store untouched, nothing sent, original value shown', () => {
+  it.each<CommitGesture>(['Enter', 'blur'])('untouched AI input on %s does not claim a contribution', gesture => {
     renderPanel()
-    proposeFactorValue(String(NEW_RAW))
-    fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-discard`))
+    const input = openValueEditor()
+    commitInput(input, gesture)
     expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
     expect(observed(FACTOR_ID).source).toBe('cee_inference')
     expect(sendSystemEvent).not.toHaveBeenCalled()
-    // Back to the idle affordance, still bound to this row.
-    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`)).toBeInTheDocument()
-    expect(
-      screen.queryByTestId(`model-row-v2-${FACTOR_ID}-confirm`),
-    ).not.toBeInTheDocument()
+    expectNoChangeSettled()
   })
 
-  it('Escape in the input cancels without proposing', () => {
+  it.each(['30000', '30000.0', ' 3e4 ', '+30000'])('numerically unchanged AI value %s does not manufacture authorship', raw => {
     renderPanel()
-    fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`))
-    const input = screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)
-    fireEvent.change(input, { target: { value: '999' } })
+    editFactorValue(raw)
+    expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    expect(observed(FACTOR_ID).source).toBe('cee_inference')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expectNoChangeSettled()
+  })
+
+  it.each(['', '   '])('an empty contribution %j never turns the AI estimate into user authorship', raw => {
+    renderPanel()
+    editFactorValue(raw)
+    expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    expect(observed(FACTOR_ID).source).toBe('cee_inference')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expectNoChangeSettled()
+  })
+
+  it.each<CommitGesture>(['Enter', 'blur'])('an untouched user-owned value on %s is a no-op', gesture => {
+    seedStore([goalNode(), optionNode(), cappedFactorNode('user_override')])
+    renderPanel()
+    commitInput(openValueEditor(), gesture)
+    expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    expect(observed(FACTOR_ID).source).toBe('user_override')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expectNoChangeSettled()
+  })
+
+  it('Escape cancels a changed draft and a following blur does not commit it', () => {
+    renderPanel()
+    const input = openValueEditor()
+    fireEvent.change(input, { target: { value: String(NEW_RAW) } })
     fireEvent.keyDown(input, { key: 'Escape' })
-    expect(
-      screen.queryByTestId(`model-row-v2-${FACTOR_ID}-value-input`),
-    ).not.toBeInTheDocument()
+    fireEvent.blur(input)
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_ID}-value-input`)).not.toBeInTheDocument()
     expect(screen.queryByTestId(`model-row-v2-${FACTOR_ID}-confirm`)).not.toBeInTheDocument()
+    expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    expect(observed(FACTOR_ID).source).toBe('cee_inference')
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
-  it('a non-numeric draft cannot be proposed: Enter keeps the input open, nothing is sent', () => {
+  it.each([
+    '0.50.85', '0.85 or 0.9', '85%', 'NaN', 'Infinity', '-Infinity',
+    '1,000', '0x10', '0b11', '0o17', '1e309', 'not a number',
+  ])('rejects the whole invalid scalar %s visibly before any mutation', raw => {
     renderPanel()
-    fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`))
-    const input = screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)
-    fireEvent.change(input, { target: { value: 'not a number' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)).toBeInTheDocument()
+    const input = editFactorValue(raw)
+    expect(input).toHaveValue(raw)
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-error`)).toBeVisible()
+    fireEvent.blur(input)
     expect(screen.queryByTestId(`model-row-v2-${FACTOR_ID}-confirm`)).not.toBeInTheDocument()
     expect(sendSystemEvent).not.toHaveBeenCalled()
     expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    expect(observed(FACTOR_ID).source).toBe('cee_inference')
+  })
+
+  it.each([
+    ['20000.5', 20000.5],
+    [' 2e4 ', 20000],
+    ['+20000', 20000],
+    ['.5', 0.5],
+    ['0', 0],
+  ])('accepts a complete finite scalar %s through the existing scale contract', (raw, expected) => {
+    renderPanel()
+    editFactorValue(String(raw))
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0][0].payload).toMatchObject({
+      target_id: FACTOR_ID,
+      raw_value: expected,
+      value: normaliseRawFactorValue(Number(expected), CAP),
+    })
+  })
+
+  it.each(['£15,000', 'Moderate'])('an AI display of %s keeps its model-scale cue explicit and sends the entered model value unchanged', displayValue => {
+    const factor = cappedFactorNode()
+    factor.data.display_value = displayValue
+    factor.data.observedState = {
+      value: 0.5,
+      cap: CAP,
+      unit: '£',
+      source: 'cee_inference',
+    }
+    seedStore([goalNode(), factor])
+    renderPanel()
+    const input = openValueEditor()
+    expect(input).toHaveValue('')
+    const row = screen.getByTestId(`model-row-v2-${FACTOR_ID}`)
+    expect(row).toHaveTextContent(`Olumi estimate: ${displayValue}`)
+    expect(row).toHaveTextContent('Current model-scale value: 0.5')
+    fireEvent.change(input, { target: { value: '0.85' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0][0].payload.value).toBe(0.85)
+    expect(observed(FACTOR_ID).value).toBe(0.85)
+  })
+
+  it('a composing Enter and blur do not commit; Enter after composition does', () => {
+    renderPanel()
+    const input = openValueEditor()
+    fireEvent.compositionStart(input)
+    fireEvent.change(input, { target: { value: String(NEW_RAW) } })
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true, keyCode: 229 })
+    fireEvent.blur(input)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expect(observed(FACTOR_ID).raw_value).toBe(COMMITTED_RAW)
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)).toBeInTheDocument()
+    fireEvent.compositionEnd(input)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps an unconfirmed row marked while another factor is selected and edited', () => {
+    const second = { ...cappedFactorNode(), id: 'fac_second' }
+    seedStore([...allNodes(), second])
+    renderPanel()
+    editFactorValue(String(NEW_RAW))
+
+    fireEvent.click(screen.getByTestId('model-row-v2-fac_second'))
+    const secondInput = openValueEditor('fac_second')
+    expect(secondInput).toHaveFocus()
+    const firstRow = screen.getByTestId(`model-row-v2-${FACTOR_ID}`)
+    expect(firstRow).toHaveAttribute('data-phase', 'unconfirmed')
+    expect(firstRow).toHaveTextContent('Not yet confirmed')
+    expect(within(firstRow).queryByText('User edited')).not.toBeInTheDocument()
+
+    fireEvent.change(secondInput, { target: { value: '10000' } })
+    fireEvent.blur(secondInput)
+    expect(sendSystemEvent).toHaveBeenCalledTimes(2)
+    expect(sendSystemEvent.mock.calls.map(([event]) => event.payload.target_id)).toEqual([
+      FACTOR_ID, 'fac_second',
+    ])
+    expect(firstRow).toHaveAttribute('data-phase', 'unconfirmed')
+    expect(screen.getByTestId('model-row-v2-fac_second')).toHaveAttribute('data-phase', 'unconfirmed')
+  })
+
+  it('a synchronous transport failure never presents the optimistic value as confirmed', () => {
+    sendSystemEvent.mockImplementationOnce(() => { throw new Error('transport unavailable') })
+    renderPanel()
+    editFactorValue(String(NEW_RAW))
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    // The authority may already have written optimistically before transport
+    // throws; a store value alone must not certify persistence.
+    expect(observed(FACTOR_ID).raw_value).toBe(NEW_RAW)
+    const row = screen.getByTestId(`model-row-v2-${FACTOR_ID}`)
+    expect(row).toHaveAttribute('data-phase', 'unconfirmed')
+    expect(row).toHaveTextContent('Saving could not be confirmed')
+    expect(within(row).queryByText('User edited')).not.toBeInTheDocument()
+  })
+
+  it.each(['editing', 'unconfirmed'])('changing model identity resets a %s row even when factor IDs are reused', phase => {
+    const panel = renderPanel('model-a')
+    const input = openValueEditor()
+    fireEvent.change(input, { target: { value: String(NEW_RAW) } })
+    if (phase === 'unconfirmed') fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}`)).toHaveAttribute('data-phase', phase)
+    const sentBeforeNavigation = sendSystemEvent.mock.calls.length
+
+    // Same row identity, different Living Model. Checking immediately after
+    // rerender catches a reused draft/marker before a later interaction hides it.
+    panel.rerender(<StoreBackedPanel modelIdentity="model-b" />)
+    const row = screen.getByTestId(`model-row-v2-${FACTOR_ID}`)
+    expect(row).toHaveAttribute('data-phase', 'idle')
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_ID}-value-input`)).not.toBeInTheDocument()
+    expect(within(row).queryByText('Not yet confirmed')).not.toBeInTheDocument()
+    expect(sendSystemEvent).toHaveBeenCalledTimes(sentBeforeNavigation)
   })
 })
 

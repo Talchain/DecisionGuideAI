@@ -33,6 +33,7 @@
  * row says so in words.
  */
 
+import { useRef } from 'react'
 import { typography } from '../../styles/typography'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
@@ -75,7 +76,7 @@ export interface ModelRowViewProps {
   editConnected?: boolean
   /** Live-edit callbacks (the three-beat). Absent ⇒ the static renders below. */
   onDraftChange?: (id: string, draft: string) => void
-  /** Commit intent: editing → proposed. */
+  /** Submit the input through the host's single Enter/blur commit path. */
   onProposeEdit?: (id: string) => void
   /** Abandon the edit from either the input (Escape) or the proposal chip. */
   onDiscardEdit?: (id: string) => void
@@ -116,6 +117,11 @@ export function ModelRowView({
   onConfirmValueAsIs,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
+  const provenanceSource = commit?.phase === 'applied'
+    ? commit.provenanceSource
+    : commit?.phase === 'inflight' || commit?.phase === 'unconfirmed' || commit?.phase === 'refused'
+      ? undefined
+      : row.provenanceSource
   const editorAvailable = row.editable && editConnected && typeof onBeginEdit === 'function'
 
   /*
@@ -204,9 +210,9 @@ export function ModelRowView({
         row shows NOTHING, rather than a "Not set" chip asserting a fact about a
         value that may be perfectly well set. Absence is rendered as absence.
       */}
-      {row.provenanceSource !== undefined && (
+      {provenanceSource !== undefined && (
         <span data-testid={`model-row-v2-${row.id}-provenance`}>
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
+          <SourceProvenancePill source={provenanceSource} showWhenAbsent={false} />
         </span>
       )}
 
@@ -236,7 +242,8 @@ export function ModelRowView({
         </button>
       )}
 
-      {row.attention.map(reason => (
+      {row.attention.filter(reason => commit?.phase !== 'applied' ||
+        (reason !== 'unconfirmed-estimate' && reason !== 'no-value')).map(reason => (
         <span
           key={reason}
           data-testid={`model-row-v2-${row.id}-attention-${reason}`}
@@ -307,6 +314,8 @@ function ValueCell({
   onConfirmEdit?: (id: string) => void
 }) {
   const testid = `model-row-v2-${row.id}-value`
+  const composing = useRef(false)
+  const cancelled = useRef(false)
 
   if (commit && commit.phase !== 'idle') {
     switch (commit.phase) {
@@ -315,7 +324,8 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={typography.tabular}>
+            <span data-testid={testid} className={`${typography.tabular} min-w-0 flex flex-col gap-1`}>
+              {commit.context && <span className={`${typography.caption} text-text-light`}>{commit.context}</span>}
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
@@ -324,20 +334,42 @@ function ValueCell({
                 inputMode="decimal"
                 value={commit.draft}
                 aria-label={`New value for ${row.label}`}
+                aria-invalid={!!commit.error}
+                aria-describedby={`${testid}-hint${commit.error ? ` ${testid}-error` : ''}`}
+                onFocus={e => {
+                  cancelled.current = false
+                  e.currentTarget.select()
+                }}
                 onClick={e => e.stopPropagation()}
                 onChange={e => onDraftChange(row.id, e.target.value)}
+                onCompositionStart={() => { composing.current = true }}
+                onCompositionEnd={() => { composing.current = false }}
+                onBlur={() => {
+                  if (!cancelled.current && !composing.current) onProposeEdit(row.id)
+                }}
                 onKeyDown={e => {
+                  // Leave native text editing intact, but do not let canvas/outline
+                  // shortcuts turn selection, deletion or arrows into model actions.
+                  e.stopPropagation()
+                  if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return
                   if (e.key === 'Enter') {
                     e.preventDefault()
                     onProposeEdit(row.id)
                   }
                   if (e.key === 'Escape') {
                     e.preventDefault()
+                    cancelled.current = true
                     onDiscardEdit(row.id)
                   }
                 }}
                 className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
+              <span id={`${testid}-hint`} className={`${typography.caption} text-text-light`}>
+                {commit.inputHint} Enter or leave the field to save. Escape to cancel.
+              </span>
+              {commit.error && <span id={`${testid}-error`} data-testid={`${testid}-error`} role="alert" className={`${typography.caption} text-danger`}>
+                {commit.error}
+              </span>}
             </span>
           )
         }
@@ -393,6 +425,16 @@ function ValueCell({
           <span data-testid={testid} className={typography.tabular}>
             {commit.to}
             <span className={`${typography.caption} text-text-light ml-2`}>Saving…</span>
+          </span>
+        )
+      case 'unconfirmed':
+        return (
+          <span data-testid={testid} className={`${typography.tabular} min-w-0 flex flex-col gap-1`}>
+            <span>Your entry: {commit.to}</span>
+            <span className={`${typography.caption} text-text-light`}>Previous: {commit.from}</span>
+            <span role="status" data-testid={`${testid}-unconfirmed`} className={`${typography.caption} text-warning`}>
+              {commit.reason}
+            </span>
           </span>
         )
       case 'applied':
