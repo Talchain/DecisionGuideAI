@@ -142,7 +142,7 @@
  *     pricing-model         0.5013-0.5163 -> 0.4646-0.4788   above -> below floor
  *         first view:  no extent notice, 4 of 4  ->  "Showing 14 of 15", 9 of 9
  *
- *     headcount-allocation  0.5213-0.5390 -> 0.4820-0.4993   above -> below floor
+ *     headcount-allocation  0.5213-0.5390 -> 0.4817-0.4993   above -> below floor
  *         first view:  no extent notice, 4 of 4  ->  "Showing 15 of 16", 1 of 9
  *
  * ⚠ AN EARLIER DRAFT SAID `headcount-allocation` "offered no notice in any of
@@ -205,6 +205,16 @@
  * disjoint and add up: **2 behind the dock + 4 below the band's top edge = the 6
  * this file reports outside**, and those 4 are invisible to a band-blind frame.
  * REPORTED here rather than edited into files this lane does not own.
+ *
+ * ⭐ RE-MEASURED ACROSS A REBASE, because the base moved under this branch and
+ * `#1166` changed `OptionNode`'s card copy — which is exactly the kind of change
+ * that moves measured card heights and therefore every extent above. Re-run at
+ * `bd18bace` (n=2, 20 arms): the frame is unchanged at 760x635 / 920x735 with
+ * 165px of vertical chrome, the guard is still 0 arms behind the dock, and EVERY
+ * head range above still contains the new readings. One edge moved and is
+ * widened rather than left standing: `headcount-allocation` at 1440x900 read
+ * 0.4817, three ten-thousandths below the n=9 low of 0.4820, so the range says
+ * 0.4817. Nothing else moved outside its quoted band.
  *
  * STATE CLASS (status-ladder fixture rule): FRESH seeded starter draft, no prior
  * camera, real clock, animations ON (`reducedMotion: no-preference`) — freezing
