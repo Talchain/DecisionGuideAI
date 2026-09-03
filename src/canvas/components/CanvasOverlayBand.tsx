@@ -86,24 +86,33 @@ export type OverlayCell = 'bottom-left' | 'bottom-centre' | 'bottom-right'
  * simply expressed once, here, where every claimant is visible at the same
  * time, instead of as a `return null` inside one of them.
  *
- * The ordering rule is HONESTY FIRST: a sentence about the model's PROVENANCE
- * outranks one about its STANDING, which outranks one about how much of it you
- * are seeing, which outranks a rendering detail, which outranks a selection
- * chip. `StarterProvenanceBanner` leads because "this was not generated just
- * now" is the claim a user is most damaged by not seeing.
+ * ⭐⭐ THE ORDERING RULE IS **A CONTROL OUTRANKS A DISCLOSURE**, and it was
+ * MEASURED INTO EXISTENCE RATHER THAN REASONED. The first version of this table
+ * ordered by "honesty first" — provenance, then standing, then extent — which
+ * put `first-model-notice` above `model-extent-notice`. That reads as
+ * principled and it silently broke a capability: the first-model notice is
+ * present on EVERY fresh draft, so it always won, and the extent notice never
+ * rendered. `showWholeModelFit.visual.spec.ts` caught it as a CLICK TIMEOUT,
+ * not as a picture — the test could not click "Show whole model" because the
+ * button was not on the page.
  *
- * ⚠ A CONSEQUENCE WORTH STATING OUT LOUD: `FirstModelNotice` now outranks
- * `ModelExtentNotice`, and the two fire on overlapping graphs (a post-draft fit
- * clamps at the legibility floor, which is exactly when the extent notice
- * appears). Before this change they did not compete, because the first-model
- * notice had been pushed to TOP-centre precisely to avoid the extent notice —
- * which is how it ended up over the decision node. They compete now, one wins,
- * and the loser returns once the winner is dismissed. That is the rule working,
- * not a regression: the alternative is the two of them drawn on top of
- * each other, which is what the founder photographed.
+ * The two are not the same KIND of thing. The others are DISCLOSURES: if one is
+ * outranked the user reads a different true sentence, and the loser returns
+ * when the winner is dismissed. `model-extent-notice` carries the only
+ * affordance in the product for framing the whole model. **Suppressing a
+ * sentence costs a sentence; suppressing this costs a capability.**
  *
- * Every id here is the occupant's own `data-testid`, so the binding is by
- * IDENTITY rather than by a value predicate another element could satisfy, and
+ * ⚠ AND WHY THEY SHARE ONE CELL RATHER THAN GETTING ONE EACH — also measured.
+ * Giving the extent notice its own bottom-right cell made both render and then
+ * OVERLAP by 2,503px^2 in all ten cases: at 1280 with the dock open the band
+ * has 672px of usable width and the two notices need 760px. There is no
+ * arrangement in which both fit, so one yields, which is what "one slot, one
+ * occupant" means. Narrowing the first-model notice to fit does not help — its
+ * copy then wraps past the band's 64px and spills back over the canvas, which
+ * is the defect being fixed.
+ *
+ * Every id is the occupant's own `data-testid`, so the binding is by IDENTITY
+ * rather than a value predicate another element could satisfy, and
  * `overlayOwner.sourceScan.spec.ts` asserts this table and the call sites are
  * the same set in both directions.
  */
@@ -111,8 +120,8 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
   'bottom-left': ['lens-info-panel'],
   'bottom-centre': [
     'starter-provenance-banner',
-    'first-model-notice',
     'model-extent-notice',
+    'first-model-notice',
     'canvas-lod-notice',
     'assistant-focus-chip',
     'focus-mode-chip',

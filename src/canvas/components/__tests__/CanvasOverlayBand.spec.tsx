@@ -58,17 +58,18 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
    * can notice the table is WRONG (trap 12d). The two are not redundant and
    * neither replaces the other, so both ship.
    *
-   * The order encodes a product judgement about HONESTY, not a rendering
-   * preference: a sentence about the model's PROVENANCE ("this was not
-   * generated just now") outranks one about its STANDING ("nothing in it
-   * carries your judgement yet"), which outranks one about how much of it you
-   * can see, which outranks a rendering detail, which outranks a selection
-   * chip. Changing this list changes which true thing a user is not told.
+   * The order encodes a product judgement: A CONTROL OUTRANKS A DISCLOSURE.
+   * `model-extent-notice` carries the only "Show whole model" affordance, so
+   * suppressing it costs a capability, whereas suppressing a disclosure costs a
+   * sentence the user gets back when the winner is dismissed. An earlier
+   * "honesty first" ordering put the disclosures on top and made the button
+   * unreachable on every fresh draft. Changing this list changes which true
+   * thing a user is not told — and, above, what they can no longer do.
    */
   const EXPECTED_BOTTOM_CENTRE = [
     'starter-provenance-banner',
-    'first-model-notice',
     'model-extent-notice',
+    'first-model-notice',
     'canvas-lod-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
