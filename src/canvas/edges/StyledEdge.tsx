@@ -988,9 +988,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   const glyphOffset = useMemo(() => {
     if (glyphOffsetKey === '') {
-      // No node geometry at all (nodes not yet measured, or a unit test that
-      // mocks the store empty). Still never (0,0): the glyph keeps a definite
-      // place at the target end rather than landing on the handle itself.
+      // ⚠ REACHED ONLY WHERE NO GLYPH RENDERS. The selector returns '' from its
+      // opening gate and nowhere else, and that gate is a subset of the render
+      // predicate below (`statedDirection && !isStructuralEdge && ...`). So this
+      // constant is never the placement of a PAINTED glyph — which matters,
+      // because a constant here would be the original defect returning by the
+      // back door. Kept non-zero anyway rather than left to imply the handle
+      // anchor itself. If a future edit adds an early '' return on a path that
+      // DOES render, that edit has to come back and change this.
       return { dx: 0, dy: -GLYPH_ANCHOR_RADIUS }
     }
     const [dx, dy] = glyphOffsetKey.split(',').map(Number)
