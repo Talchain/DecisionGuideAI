@@ -83,3 +83,61 @@ export function resolveGoalTarget(
 
   return null
 }
+
+/**
+ * ⭐⭐ TWO QUESTIONS THAT WORE ONE NAME: *does a target EXIST* and *what NUMBER
+ * is it*. They are not the same question and they cannot share a predicate.
+ *
+ * ⚠ THIS IS NOT A NEW SPLIT. It is the one CEE-panel lane #1151 settled the
+ * same night, after five rounds of tightening and widening a single coercion
+ * each moved the harm rather than closing it: too permissive silences true
+ * coaching (`Number('')` is `0`, a fabricated target that reads as a real one),
+ * too strict denies `'200k'`, `'£11M'`, `'11%'` and `'≥ £1,000'` — real targets
+ * a person stated, which no `number | null` can hold. A false positive that
+ * DROPS a constraint and one that INVENTS one are opposite harms and cannot
+ * share one window.
+ *
+ * ⚠⚠ #1151 CARRIES ITS OWN INLINE `stated` / `finite` COPIES INSIDE
+ * `useResultsSectionData.ts`, WHICH THAT PR OWNS AND THIS ONE MUST NOT TOUCH.
+ * These two exports are the SAME PREDICATES, derived deliberately to the same
+ * semantics rather than invented in parallel. **Whichever of the two merges
+ * second must collapse the inline memos onto these functions** — two
+ * implementations of one rule is exactly the hand-maintained mirror that
+ * produced the divergence they both exist to close.
+ */
+
+/**
+ * EXISTENCE — *has anyone STATED a target?* Deliberately NOT numeric.
+ *
+ * A blank, whitespace, `null`, `undefined` and a non-finite number are not
+ * targets. Everything else a human could have meant is. `NaN` and `±Infinity`
+ * are excluded on purpose: nobody states them, and admitting them is how a
+ * literal "NaN" reaches a screen.
+ */
+export function isStatedTargetValue(value: unknown): boolean {
+  if (value == null) return false
+  if (typeof value === 'number') return Number.isFinite(value)
+  if (typeof value === 'string') return value.trim() !== ''
+  return false
+}
+
+/**
+ * THE NUMBER — *what value may a numeric consumer use?* Strict on purpose.
+ *
+ * `null` means "NO NUMBER", never "no target" — the conflation that caused all
+ * of this. A consumer doing arithmetic (the PLoT request boundary normalises
+ * this scalar) must never receive a coerced `0` for a blank, `16` for `'0x10'`,
+ * `1` for `true`, or a bare `NaN` for `'11%'`.
+ *
+ * The accepted grammar is what a stated decimal looks like: optionally signed,
+ * optionally scientific. `Number()` alone is not that grammar — it accepts hex,
+ * blanks, whitespace, `[]`, `false` and the words `Infinity`/`NaN`.
+ */
+export function statedTargetNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(trimmed)) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
+}

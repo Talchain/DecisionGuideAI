@@ -1,6 +1,7 @@
 // Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
 import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
+import { statedTargetNumber } from './domain/goalTarget'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
@@ -1981,9 +1982,17 @@ function deriveGoalThresholdFromNode(
   const data = goalNode?.data as
     | { threshold_source?: string; success_threshold?: number | null }
     | undefined
-  if (data?.threshold_source === 'user' && typeof data.success_threshold === 'number') {
+  // ⚠ THE SECOND WRITER OF THE SAME SCALAR, FOUND BY REVIEW AND FIXED HERE
+  // BECAUSE HALF A FIX IS THE DEFECT. `setCeeAnalysisReady`'s sync was guarded
+  // against non-finite magnitudes in this PR; this function writes the SAME
+  // `goalThreshold` field from the node and, on `typeof === 'number'`, would
+  // still admit `NaN` and `±Infinity` — reachable, because `AdvancedField` was
+  // committing exactly those (also fixed here). Closing one writer and leaving
+  // its twin is how a defect survives its own fix.
+  const userStated = statedTargetNumber(data?.threshold_source === 'user' ? data.success_threshold : undefined)
+  if (userStated !== null) {
     // A user target on the node is always stored raw (setGoalThresholdAndUpdateNode).
-    return { goalThreshold: data.success_threshold, goalThresholdRepresentation: 'raw' }
+    return { goalThreshold: userStated, goalThresholdRepresentation: 'raw' }
   }
   return { goalThreshold: null, goalThresholdRepresentation: null }
 }
@@ -5894,13 +5903,43 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // estate, so legacy/restored state is left alone.
       const supersedesOwnNormalisedGuess =
         ceeRepresentation === 'raw' && get().goalThresholdRepresentation === 'normalised'
-      if (ceeThreshold != null && (get().goalThreshold == null || supersedesOwnNormalisedGuess)) {
+      //
+      // ⭐⭐ THE STORE SCALAR IS THE *NUMBER*, NEVER THE EXISTENCE ANSWER — and
+      // the coercion this replaces could put a fabricated one there.
+      //
+      // It read `typeof ceeThreshold === 'number' ? ceeThreshold :
+      // Number(ceeThreshold)`, which has TWO holes, and the quieter one is the
+      // worse one:
+      //
+      //   · the `typeof number` arm has NO FINITENESS GUARD, so a `NaN` or an
+      //     `Infinity` was written through verbatim. `SuccessTargetLine` renders
+      //     this scalar with `String(fromStore)` — a literal **"NaN"** on screen.
+      //   · the `Number()` arm FABRICATES A ZERO for every falsy non-number the
+      //     field can hold: `''`, `'   '`, `'\n'`, `[]` and `false` all become
+      //     `0`. **That is worse than the NaN.** `NaN` announces itself; a `0`
+      //     target reads as a target somebody set, and this scalar is what the
+      //     PLoT request boundary normalises. `Number()` also yields `16` for
+      //     `'0x10'`, `1` for `true`, `Infinity` for `'Infinity'`, and `NaN` for
+      //     every stated-but-non-decimal target (`'11%'`, `'200k'`, `'£11M'`).
+      //
+      // ⚠ ABSENCE WAS NEVER THE HOLE, AND THE BRIEF THAT SENT ME HERE ASSUMED IT
+      // WAS. `Number(undefined)` is `NaN` and `Number(null)` is `0`, but neither
+      // reaches this call: `!= null` filters BOTH, so an absent target correctly
+      // writes nothing at all. The reachable-shape enumeration is on the spec.
+      //
+      // ⚠ AND THE FIX IS NOT "REJECT NON-NUMBERS EVERYWHERE". `'200k'` IS a
+      // target somebody stated — it simply has no number. Existence is answered
+      // separately and non-numerically by `isStatedTargetValue`; this field
+      // stays strict, and `null` here means "no NUMBER", never "no target".
+      // See the two-questions memo in `domain/goalTarget.ts`.
+      const ceeNumeric = statedTargetNumber(ceeThreshold)
+      if (ceeNumeric !== null && (get().goalThreshold == null || supersedesOwnNormalisedGuess)) {
         // Producer write (syncing the threshold FROM the analysis) — must not
         // self-dirty the freshness overlay.
-        get().setGoalThreshold(
-          typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold),
-          { fromCeeSync: true, representation: ceeRepresentation },
-        )
+        get().setGoalThreshold(ceeNumeric, {
+          fromCeeSync: true,
+          representation: ceeRepresentation,
+        })
       }
       // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
       //

@@ -32,6 +32,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { isStatedTargetValue } from '../domain/goalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
@@ -108,13 +109,40 @@ export const GoalNode = memo((props: NodeProps) => {
   // reconciled CEE round-trip) set one. Mirror computeSuccessState's priority:
   // a user-set success_threshold counts as "set" first; fall back to the
   // CEE-derived goal_threshold_raw.
+  //
+  // ⭐⭐ THE EXISTENCE PREDICATE IS SHARED NOW, AND SO IS THE PRECEDENCE.
+  //
+  // ⚠ THIS CARD AND THE HERO'S `computeSuccessState` GAVE OPPOSITE ANSWERS
+  // ABOUT WHETHER THE SAME GOAL HAD A TARGET AT ALL. This site read
+  // `String(x).trim() !== ''`; the hero read `typeof x === 'number'`. One node
+  // carrying `goal_threshold_raw: '11'` rendered "Target: 11" here while the
+  // hero field sat empty under "success needs setting".
+  //
+  // Both now go through `isStatedTargetValue` — the EXISTENCE half of the split
+  // in `domain/goalTarget.ts`, which this file's sibling resolver
+  // (`resolveGoalTarget`) already lives beside. Read the two-questions memo
+  // there before widening or tightening it.
+  //
+  // ⚠⚠ AND THE PRECEDENCE MOVED WITH IT, WHICH IS THE HALF A PREDICATE-ONLY
+  // FIX WOULD HAVE MISSED. This selected the user leg on `!= null`, so a goal
+  // carrying a BLANK user threshold beside a real CEE raw selected the blank
+  // and rendered "no target", while the hero fell through to the raw and
+  // rendered one. Same two answers, arrived at through the selection rather
+  // than the test — so the selection is "first STATED value wins", identically
+  // to `computeSuccessState`'s two legs.
+  //
+  // ⚠ NON-FINITE IS NOT A TARGET, and that narrowing is now safe to make here:
+  // `AdvancedField`'s guard (this PR) was admitting `Infinity`, `-Infinity`,
+  // `1e400` and `9e999` straight through `setThreshold` onto this very field.
   const userThreshold = props.data?.threshold_source === 'user'
-    ? (props.data?.success_threshold as number | null | undefined)
+    ? (props.data?.success_threshold as unknown)
     : undefined
   const ceeThresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
-  const thresholdRaw = userThreshold != null ? userThreshold : ceeThresholdRaw
+  const thresholdRaw = isStatedTargetValue(userThreshold)
+    ? (userThreshold as string | number)
+    : ceeThresholdRaw
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
-  const hasThreshold = thresholdRaw != null && String(thresholdRaw).trim() !== ''
+  const hasThreshold = isStatedTargetValue(thresholdRaw)
 
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),

@@ -8,18 +8,46 @@
  * displayed and never counts as "set": the user cannot see or meaningfully
  * confirm a number on a scale they were never shown. Occurrences of that
  * degradation are listed in the build report.
+ *
+ * ⚠ THE SCALE GUARD ABOVE IS NOT THE SAME GUARD AS "IS IT A NUMBER", and this
+ * file spent its whole life conflating them. Read the two-questions memo at
+ * `computeSuccessState` before touching either predicate: `isSet` answers
+ * EXISTENCE and is deliberately non-numeric; `rawValue` answers THE NUMBER and
+ * is deliberately strict. Both delegate to `canvas/domain/goalTarget.ts`, which
+ * the canvas goal card's own resolver already goes through.
  */
 
 import type { Node } from '@xyflow/react'
 import { classifyUnit } from '../../../utils/labelUtils'
+import { isStatedTargetValue, statedTargetNumber } from '../../../domain/goalTarget'
 import type { Attribution } from '../types'
 
 export interface SuccessState {
-  /** True when an honest display-scale success measure exists. */
+  /**
+   * EXISTENCE — true when a display-scale success target has been STATED.
+   *
+   * ⚠ NOT "we have a number for it". A goal stating `'200k'`, `'£11M'` or
+   * `'11%'` has a target and no number; `rawValue` is `null` there and `isSet`
+   * is `true`. Conflating the two is what made this selector and the canvas
+   * goal card give opposite answers about the same goal. Non-finite numbers
+   * (`NaN`, `±Infinity`) are refused: nobody states them.
+   */
   isSet: boolean
-  /** Formatted display text (e.g. "20%", "£150,000"), null when unset. */
+  /**
+   * Formatted display text (e.g. "20%", "£150,000"), null when unset.
+   *
+   * ⚠ `displayText !== null` ⟺ `isSet` on every return site, and
+   * `DecisionOverviewCard` derives its own `successIsSet` from exactly that.
+   * A stated target with no number renders VERBATIM rather than empty.
+   */
   displayText: string | null
-  /** Numeric prefill for the inline editor. */
+  /**
+   * THE NUMBER — a numeric prefill for the inline editor, and the only field
+   * safe for arithmetic.
+   *
+   * ⚠ `null` means "no NUMBER", NEVER "no target" — ask `isSet` for that. It
+   * is strict on purpose: no coerced `0` for a blank, no `16` for `'0x10'`.
+   */
   rawValue: number | null
   unit: string | null
   attribution: Attribution | null
@@ -107,12 +135,64 @@ export function computeSuccessState(
       (analysisReady.goal_threshold_unit as string)) ||
     null
 
-  // 1. User-set measure: the user's own number, on the scale they typed it.
-  if (data.threshold_source === 'user' && typeof data.success_threshold === 'number') {
+  /**
+   * ⭐⭐ EXISTENCE IS DECIDED NON-NUMERICALLY; THE NUMBER STAYS STRICT. This
+   * selector was asking ONE question — `typeof … === 'number'` — to answer TWO,
+   * and the canvas goal card was answering the other one, so the two surfaces
+   * disagreed **about whether the goal has a target at all**.
+   *
+   * ⚠ WITNESSED AS A PREDICATE DIVERGENCE, NOT A STYLE DIFFERENCE. `GoalNode`
+   * (`nodes/GoalNode.tsx:114-117`) counts a target as present with
+   * `thresholdRaw != null && String(thresholdRaw).trim() !== ''`, and
+   * `SuccessTargetLine` goes through `resolveGoalTarget`, which admits
+   * `string | number` with a blank guard at both legs. This selector admitted
+   * NUMBERS ONLY. One goal node carrying `goal_threshold_raw: '11'` therefore
+   * produced, on one screen:
+   *
+   *     canvas card   Target: 11
+   *     hero field    (empty) · "success needs setting"
+   *
+   * Same fact, two predicates, opposite answers. The same divergence exists on
+   * leg 1 for a user-stated `success_threshold: '20%'`.
+   *
+   * ⚠⚠ AND THE FIX IS NOT TO ALIGN TWO DEFAULTS — trap 21 forbids that, and it
+   * would be the wrong move here even so. The two things this selector returns
+   * answer different questions and now use different predicates:
+   *
+   *   `isSet`               EXISTENCE — has anyone STATED a target?  Broad.
+   *                         True of `'200k'`, `'£11M'`, `'11%'`, `'≥ £1,000'` —
+   *                         real targets no `number | null` can hold.
+   *   `rawValue`            THE NUMBER — what may a numeric consumer use? Strict.
+   *                         `null` means "no NUMBER", never "no target".
+   *
+   * Both come from `domain/goalTarget.ts`, the shared owner, so a future
+   * divergence has to go through one function. Read its two-questions memo
+   * before widening or tightening either.
+   *
+   * ⚠ NON-FINITE NUMBERS ARE NOT TARGETS, and that is a DELIBERATE narrowing.
+   * `typeof NaN === 'number'`, so a bare `NaN` used to reach `formatWithUnit`
+   * and render the literal **"NaN"** in the hero field. It is refused at both
+   * predicates now. The canvas card still renders it (`String(NaN)` is not
+   * blank) — that file belongs to another lane tonight and is pinned as a
+   * KNOWN-DIVERGENT shape on the cross-surface spec rather than silently left
+   * out of it. It is not reachable over the wire: JSON cannot encode `NaN`.
+   *
+   * ⚠ THE `displayText !== null ⟺ isSet` COUPLING IS LOAD-BEARING and pinned by
+   * `DecisionOverviewCard.primitiveSelectors.spec.tsx` — that card derives
+   * `successIsSet` from `displayText !== null` and nothing else. A stated
+   * target with no number therefore renders VERBATIM (the same fallback
+   * `SuccessTargetLine` uses), never an empty string.
+   */
+
+  // 1. User-set measure: the user's own target, on the scale they typed it.
+  const userStatedTarget = data.threshold_source === 'user' ? data.success_threshold : undefined
+  if (isStatedTargetValue(userStatedTarget)) {
+    const numeric = statedTargetNumber(userStatedTarget)
     return {
       isSet: true,
-      displayText: formatWithUnit(data.success_threshold, unit),
-      rawValue: data.success_threshold,
+      displayText:
+        numeric !== null ? formatWithUnit(numeric, unit) : String(userStatedTarget).trim(),
+      rawValue: numeric,
       unit,
       attribution: currentUser ?? { kind: 'person', displayName: 'You' },
       scaleAmbiguous: false,
@@ -120,20 +200,26 @@ export function computeSuccessState(
   }
 
   // 2. CEE-derived measure with a display-scale anchor.
-  const rawCandidate =
-    (typeof data.goal_threshold_raw === 'number' ? data.goal_threshold_raw : undefined) ??
-    (typeof analysisReady?.goal_threshold_raw === 'number'
-      ? (analysisReady.goal_threshold_raw as number)
-      : undefined)
-  if (rawCandidate != null) {
+  const rawCandidate = isStatedTargetValue(data.goal_threshold_raw)
+    ? data.goal_threshold_raw
+    : isStatedTargetValue(analysisReady?.goal_threshold_raw)
+      ? analysisReady?.goal_threshold_raw
+      : undefined
+  if (rawCandidate !== undefined) {
+    const numeric = statedTargetNumber(rawCandidate)
     // Attribution honesty (lane 35 fix 2): a display anchor whose value the
     // user stated in their brief (explicit-provenance stored constraint) is
     // the USER's target; only derived/defaulted values are Olumi's.
-    const userStated = matchesExplicitConstraint(rawCandidate, goalConstraints)
+    //
+    // ⚠ FAIL-CLOSED ON A TARGET WITH NO NUMBER. `matchesExplicitConstraint`
+    // compares numbers; a stated `'200k'` cannot be matched against one, so it
+    // keeps the Olumi attribution rather than borrowing the user's voice —
+    // which is what that helper's own header demands of every unmatched case.
+    const userStated = numeric !== null && matchesExplicitConstraint(numeric, goalConstraints)
     return {
       isSet: true,
-      displayText: formatWithUnit(rawCandidate, unit),
-      rawValue: rawCandidate,
+      displayText: numeric !== null ? formatWithUnit(numeric, unit) : String(rawCandidate).trim(),
+      rawValue: numeric,
       unit,
       attribution: userStated
         ? (currentUser ?? { kind: 'person', displayName: 'You' })
@@ -144,9 +230,13 @@ export function computeSuccessState(
 
   // 3. Normalised-only threshold: present on the wire but not displayable —
   //    degrade to unset (value-scale guard) and surface the ambiguity flag.
+  //
+  // ⚠ FINITE, not `typeof === 'number'`. A `NaN` here is not a normalised
+  // threshold we cannot express — it is nothing at all, and flagging it
+  // `scaleAmbiguous` would tell the user a value exists that never did.
   const normalisedOnly =
-    typeof data.goal_threshold === 'number' ||
-    typeof data.success_threshold === 'number' ||
-    typeof analysisReady?.goal_threshold === 'number'
+    Number.isFinite(data.goal_threshold) ||
+    Number.isFinite(data.success_threshold) ||
+    Number.isFinite(analysisReady?.goal_threshold)
   return { ...unset, scaleAmbiguous: normalisedOnly }
 }
