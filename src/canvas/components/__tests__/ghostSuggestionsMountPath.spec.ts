@@ -25,21 +25,27 @@
  *
  * ── WHAT THIS VERSION ASSERTS ──
  *
- * The two functions that actually decide, called directly:
+ *   `withGhostTiers(nodes)` — whether doors are produced for a real graph,
+ *      called directly. Delete the behaviour and this file REDS.
+ *   The `nodesWithGhost` memo in `ReactFlowGraph.tsx` carries NO view-mode and
+ *      NO results-status branch — read from source, brace-matched to that block.
  *
- *   `frontierIsVisible(resultsStatus, viewMode)` — whether the tier doors are
- *      on screen at all. Extracted out of a `useMemo` in a 2,700-line component
- *      for this reason: a condition no test can call cannot be pinned.
- *   `withGhostTiers(nodes)` — whether doors are produced for a real graph.
- *
- * Delete either behaviour and this file REDS. That is the property the old one
- * lacked.
+ * ⚠ THE SECOND ONE REPLACED A PREDICATE, AND THE SWAP IS THE POINT. There used
+ * to be a `frontierIsVisible(resultsStatus, viewMode)` here, gating the doors to
+ * Expert view after an analysis; Paul retired that rule on 1 Sep 2026. It was
+ * first kept as a constant-returning function on the argument that it was the
+ * only surface where a re-introduced gate could be caught — and a review
+ * refuted that by execution: the original gate, re-added at the MOUNT one line
+ * below the live call, left this file 12/12 green. It also only ever enumerated
+ * 2 of the 7 members `ResultsStatus` admits (`store.ts:241`), so gates on
+ * `streaming`, `error` and `cancelled` survived too. The function is deleted and
+ * the guard now reads the address the defect actually recurs at.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { Node } from '@xyflow/react'
-import { frontierIsVisible, withGhostTiers, isGhostNode } from '../../utils/ghostTiers'
+import { withGhostTiers, isGhostNode } from '../../utils/ghostTiers'
 
 /** A model shaped like a real one: three tiers with members, all named. */
 function model(): Node[] {
@@ -59,65 +65,6 @@ function model(): Node[] {
 // doors get produced was already red. `tsc` never saw it, because the typecheck
 // gate excludes test files — a type error inside a spec is invisible to it.
 const doorsIn = (nodes: Node[]) => nodes.filter((n) => isGhostNode(n.id))
-
-/**
- * ⭐ RE-POINTED, NOT RELAXED (Paul's ruling, 1 Sep 2026: the post-analysis
- * reasoning frontier must be reachable OUTSIDE Expert view).
- *
- * The previous version of this block pinned the OPPOSITE rule — that the doors
- * DISAPPEAR after an analysis in the ordinary view — and pinned it deliberately,
- * with a comment saying the behaviour was "raised as a product question
- * separately". That question has now been answered, so the assertion is turned
- * around to pin the answer rather than deleted to make room for it. The old
- * expectation REDs against this build, which is the point: nobody can restore
- * the Expert-only gate without a named test saying so.
- *
- * ⚠ AND NOTE WHAT THIS COSTS, because the old block's own comment named it: the
- * predicate is no longer DISCRIMINATING, and "returns the same answer for every
- * input" is the exact vacuity this file was rewritten to eliminate. It is not
- * vacuity here — it is the product rule — but an enumeration that agrees with
- * itself cannot tell you it is complete, so two things carry the weight instead:
- *
- *   1. The matrix below is EXHAUSTIVE over the real input space, not a sample.
- *      `ViewMode = 'standard' | 'expert'` (`store.ts:7489`) has exactly two
- *      members, so every combination that can reach this predicate is listed.
- *      Reintroduce a gate on EITHER axis and a named row REDs.
- *   2. The matrix asserts its own size first. An empty `it.each` table passes
- *      beautifully and agrees with every other table that ran nothing.
- *
- * The file's real discrimination now lives where it belongs — in
- * `withGhostTiers`, whose CONTRAST CONTROL below still proves an empty tier gets
- * no door. That function takes no view mode and no results status, so the axes
- * removed here cannot re-enter through it without a signature change.
- */
-describe('the frontier is visible when the product says it is', () => {
-  // Every (resultsStatus, viewMode) pair the mount can hand this predicate.
-  // Named rows, not a loop over a computed product, so a failure names the state.
-  const MATRIX: ReadonlyArray<readonly [string, string, string]> = [
-    ['before an analysis, in the ordinary view', 'idle', 'standard'],
-    ['before an analysis, in Expert view', 'idle', 'expert'],
-    ['AFTER an analysis, in the ordinary view — Paul, 1 Sep 2026', 'complete', 'standard'],
-    ['after an analysis, in Expert view', 'complete', 'expert'],
-  ]
-
-  it('POSITIVE CONTROL: the matrix is non-empty and covers both view modes', () => {
-    // Without this, deleting the table's rows would leave every assertion below
-    // passing by running zero times.
-    expect(MATRIX.length).toBe(4)
-    expect(new Set(MATRIX.map(([, , view]) => view))).toEqual(new Set(['standard', 'expert']))
-    expect(new Set(MATRIX.map(([, status]) => status))).toEqual(new Set(['idle', 'complete']))
-  })
-
-  it.each(MATRIX)('renders %s', (_name, resultsStatus, viewMode) => {
-    expect(frontierIsVisible(resultsStatus, viewMode)).toBe(true)
-  })
-
-  it('the Expert-only gate is GONE — not merely defaulted off', () => {
-    // The single assertion the old rule turned on, inverted. This is the row
-    // that REDs if `viewMode !== 'expert'` ever returns to the predicate.
-    expect(frontierIsVisible('complete', 'standard')).toBe(true)
-  })
-})
 
 describe('doors are actually produced for a real model', () => {
   it('places a door on every tier that has members', () => {
@@ -149,12 +96,11 @@ describe('doors are actually produced for a real model', () => {
  * ⭐ THE RESIDUAL GAP, CLOSED AS FAR AS A UNIT TEST CAN AND NAMED WHERE IT
  * CANNOT.
  *
- * Everything above calls `frontierIsVisible()` and `withGhostTiers()` directly.
- * That makes the suite sensitive to what those two functions DO — which is
- * exactly what the old source-text spec lacked. But the mount calls neither
- * directly in a test's presence, so **nothing above would fail if
- * `ReactFlowGraph` stopped calling them.** Delete the call site and every
- * assertion in this file still passes.
+ * Everything above calls `withGhostTiers()` directly. That makes the suite
+ * sensitive to what that function DOES — which is exactly what the old
+ * source-text spec lacked. But the mount does not call it in a test's presence,
+ * so **nothing above would fail if `ReactFlowGraph` stopped calling it.** Delete
+ * the call site and every assertion above still passes.
  *
  * That is not hypothetical in this repo: an independent review found the same
  * shape in UI #1057 the same evening — a wiring spec that called its function
@@ -184,22 +130,18 @@ describe('doors are actually produced for a real model', () => {
  * Read this file as: behaviour of the two functions, PROVEN; the call site is
  * live code, PROVEN; the mount reaches it, NOT PROVEN.
  */
-describe('the mount still calls the functions this file tests', () => {
+describe('the ghost mount carries no visibility gate', () => {
   const GRAPH = resolve(__dirname, '../../ReactFlowGraph.tsx')
 
   /**
    * ⚠ COMMENTS STRIPPED, AND THIS IS THE WHOLE POINT OF THE HELPER.
    *
-   * Without it, `/frontierIsVisible\s*\(/` matches a call sitting inside a
-   * COMMENT. A review proved it by mutation: it replaced the gate with a comment
-   * carrying the same call text plus an unconditional `return nodes` — frontier
-   * completely dead, no door ever produced — and all three tests below stayed
-   * GREEN. Delta pristine to dead-frontier: zero.
-   *
-   * The irony is worth recording rather than quietly fixing: the spec I DELETED
-   * to write this one had a `codeOnly()` helper doing exactly this, and I
-   * dropped it while removing that file's real defect. Its comment-stripping was
-   * the sound half of a spec whose fault lay elsewhere.
+   * Without it, a probe matches text sitting inside a COMMENT. A review proved
+   * that by mutation on an earlier version of this file: it replaced the gate
+   * with a comment carrying the same call text plus an unconditional
+   * `return nodes` — frontier completely dead, no door ever produced — and every
+   * test stayed GREEN. It matters doubly now, because the block below is
+   * DESCRIBED at length in a comment that necessarily spells both banned words.
    */
   const source = (): string => {
     const text = readFileSync(GRAPH, 'utf8')
@@ -216,20 +158,100 @@ describe('the mount still calls the functions this file tests', () => {
     return code
   }
 
-  it('invokes frontierIsVisible', () => {
-    expect(source()).toMatch(/frontierIsVisible\s*\(/)
+  /**
+   * The body of the `nodesWithGhost` memo — the exact region the gate lived in.
+   * Brace-matched rather than line-numbered, so it survives edits above it, and
+   * it refuses rather than returns a short string if the anchor moves.
+   */
+  const ghostMemoBody = (): string => {
+    const code = source()
+    const ANCHOR = 'const nodesWithGhost = useMemo(() => {'
+    const i = code.indexOf(ANCHOR)
+    if (i === -1) throw new Error('anchor `const nodesWithGhost = useMemo` not found — refusing to assert')
+    let depth = 0
+    const from = i + ANCHOR.length - 1
+    for (let j = from; j < code.length; j++) {
+      if (code[j] === '{') depth++
+      else if (code[j] === '}') {
+        depth--
+        if (depth === 0) {
+          const body = code.slice(from + 1, j)
+          if (body.trim().length < 400) {
+            throw new Error(`extracted ${body.trim().length} chars of memo body — refusing to assert`)
+          }
+          return body
+        }
+      }
+    }
+    throw new Error('unbalanced braces while extracting the ghost memo — refusing to assert')
+  }
+
+  /** The detector, factored out so a positive control can run it on known-guilty text. */
+  const gateAxesIn = (body: string): string[] =>
+    ['viewMode', 'resultsStatus', 'results.status'].filter((axis) => body.includes(axis))
+
+  it('CONTRAST CONTROL: the extraction found the right block', () => {
+    // Proves the absence assertion below is about the ghost memo and not about
+    // an empty or mis-located string. Binds by the identity of what the block
+    // composes, not by a length predicate any region could satisfy.
+    const body = ghostMemoBody()
+    expect(body).toContain('withGhostTiers')
+    expect(body).toContain('GHOST_OPTION_NODE_ID')
   })
 
-  it('invokes withGhostTiers', () => {
+  it('POSITIVE CONTROL: the detector fires on a gate it is meant to catch', () => {
+    // Without this, a detector that matched nothing would pass the assertion
+    // below by matching nothing — the exact vacuity this file exists to correct.
+    // The string is the ORIGINAL gate, verbatim, at its original address.
+    const guilty = `
+      if (resultsStatus === 'complete' && viewMode !== 'expert') return nodes
+      return withGhostTiers(nodes, tierGhosts)
+    `
+    expect(gateAxesIn(guilty).sort()).toEqual(['resultsStatus', 'viewMode'])
+    // And it must not fire on innocent text, or "fires" means nothing.
+    expect(gateAxesIn('return withGhostTiers(nodes, tierGhosts)')).toEqual([])
+  })
+
+  it('the ghost memo branches on NO view mode and NO results status', () => {
+    // ⚠ THIS IS A SOURCE-TEXT GUARD, NOT BEHAVIOURAL COVERAGE, and the
+    // distinction is the reason it exists. Paul ruled on 1 Sep 2026 that the
+    // reasoning frontier must be reachable outside Expert view. The predicate
+    // that used to gate it has been DELETED rather than neutered, because a
+    // constant-returning `frontierIsVisible` was kept on the claim that it was
+    // the only place a re-introduced gate could be caught, and a review refuted
+    // that by execution — the original gate re-added at THIS address, one line
+    // below the live call, left the suite fully green.
+    //
+    // So the guard is pointed at the address the defect actually recurs at.
+    // What it proves: no `viewMode` or `results.status` branch exists in this
+    // block. What it does NOT prove: that a door reaches a user's screen. See
+    // the note at the foot of this file.
+    expect(gateAxesIn(ghostMemoBody())).toEqual([])
+  })
+
+  it('the mount still calls withGhostTiers', () => {
     expect(source()).toMatch(/withGhostTiers\s*\(/)
   })
 
   it('POSITIVE CONTROL: the same probe finds a symbol that is genuinely absent', () => {
-    // Proves the two assertions above can FAIL. Without it, a regex that never
-    // matches anything would pass them both by matching nothing — the exact
-    // vacuity that let the previous version of this file stay green while the
-    // prop it asserted decided nothing.
-    expect(source()).not.toMatch(/frontierIsVisibleV99Fabricated\s*\(/)
+    expect(source()).not.toMatch(/withGhostTiersV99Fabricated\s*\(/)
     expect(source()).toMatch(/withGhostTiers\s*\(/)
   })
 })
+
+/**
+ * ⭐ WHAT NO TEST IN THIS REPO CAN WITNESS, STATED PLAINLY.
+ *
+ * Everything above is either a direct call to `withGhostTiers` or a source-text
+ * read of the mount. Neither renders anything, so neither can show that a door
+ * is on a user's screen after an analysis in Standard view — which is the whole
+ * of what Paul ruled. jsdom cannot prove visibility, and nothing in this repo
+ * renders `ReactFlowGraph`.
+ *
+ * The ONE instrument that could is `e2e/geometry/ghostDoorVisibility.measure.ts`,
+ * and until this change it asserted the OPPOSITE rule. It is re-pointed in the
+ * same commit — but it is referenced by ZERO CI workflows, so it will not RED
+ * for anyone, and this change therefore ships at the TESTED rung with no
+ * instrument in CI capable of witnessing its actual claim. Wiring that file into
+ * a workflow is rowed, not done here.
+ */

@@ -288,52 +288,6 @@ function readSubject(nodes: Node[]): ModelSubject | null {
 }
 
 /**
- * ⭐ WHETHER THE FRONTIER IS ON SCREEN AT ALL — the gate, named and exported.
- *
- * This was an inline condition inside a `useMemo` in a 2,700-line component
- * (`ReactFlowGraph.tsx`), which is the reason nothing could bind to it and the
- * reason a mount-path spec resorted to reading source text instead. An
- * assertion about a condition no test can call is not an assertion.
- *
- * ⚠ IT IS ALSO THE ONLY THING THAT DECIDES. There was believed to be a second
- * control — an `enableGhostSuggestions` prop — and there was not: it was
- * declared, defaulted `false`, destructured, and never read, so the doors
- * rendered on EVERY mount of the graph regardless. The prop is now deleted
- * rather than wired, because a switch whose only effect would be to turn off a
- * capability we want on is a dark-launch gate this estate has ruled against.
- *
- * ⚠ THE PRODUCT QUESTION THIS FUNCTION RAISED HAS BEEN ANSWERED (Paul, 1 Sep
- * 2026): the post-analysis reasoning frontier must be reachable OUTSIDE Expert
- * view. It used to read `!(isPostAnalysis && viewMode !== 'expert')` — after an
- * analysis completed, the doors disappeared in every view except Expert, which
- * is very likely the mechanism behind a deployed measurement of zero doors
- * against thirteen real nodes. That gate is now gone, and its removal is the
- * whole of this change.
- *
- * ⚠ WHY THE FUNCTION SURVIVES AS A CONSTANT, WHICH IS OTHERWISE THE SHAPE THIS
- * FILE CONDEMNS. `ViewMode = 'standard' | 'expert'` (`store.ts:7489`) has
- * exactly two members, so removing the Expert carve-out leaves nothing for the
- * predicate to decide, and a predicate that decides nothing is normally the
- * dead-prop pattern deleted from this very module. It is kept anyway, for one
- * reason: it is the ONLY callable surface where a re-introduced gate can be
- * caught. Deleting it would take the gate and the guard together, and the next
- * gate would arrive back inside a `useMemo` in a 2,700-line component, which is
- * precisely the state that made the last one unbindable. The mount still calls
- * it, `ghostSuggestionsMountPath.spec.ts` enumerates every input the mount can
- * hand it, and every row asserts `true`.
- *
- * ⚠ THE PARAMETERS ARE UNDERSCORED BECAUSE THEY NO LONGER DECIDE. Keeping the
- * signature keeps the call site — and therefore the pin — intact; underscoring
- * them stops the signature claiming an influence the body does not have.
- */
-export function frontierIsVisible(
-  _resultsStatus: string | null | undefined,
-  _viewMode: string,
-): boolean {
-  return true
-}
-
-/**
  * The members of one tier, by the producer's two spellings of a node's kind.
  *
  * ⚠ SPELLED ONCE ON PURPOSE. `withGhostTiers` and the legacy option door both
