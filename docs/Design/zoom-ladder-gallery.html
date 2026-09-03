@@ -402,7 +402,7 @@
     <p class="caveat">
       ⚠ <b>This page first said 6 of 87, and named the wrong card.</b> The count was taken from a
       <em>top-level</em> <span class="mono">extractionType</span> field that nothing reads:
-      <span class="mono">useScienceIcons.ts:47</span> reads
+      <span class="mono">useScienceIcons.ts:48</span> reads
       <span class="mono">observedState?.extractionType</span>, and the draft mapper never bridges the two.
       So the original worked example — <em>Vendor Licensing Cost</em> — has no
       <span class="mono">observed_state</span> and draws only ONE Sparkles. Found in review and
@@ -707,7 +707,7 @@
       icon — also <span class="mono">Sparkles</span> — when
       <span class="mono">extractionType === 'inferred' &amp;&amp; !isReviewedSource(source)</span>.
       ⚠ Note the field it reads: <span class="mono">observedState?.extractionType</span>
-      (<span class="mono">useScienceIcons.ts:47</span>), <em>not</em> the top-level
+      (<span class="mono">useScienceIcons.ts:48</span>), <em>not</em> the top-level
       <span class="mono">extractionType</span>, which nothing consumes.
       Counting nodes in the five starter drafts that satisfy both: <b>20 of 87</b> — build-vs-buy 5/19,
       headcount-allocation 2/16, market-entry 4/18, pricing-model 3/15, vendor-selection 6/19.
@@ -1017,8 +1017,8 @@
   var DUPFACTOR = {
     key:'factor', name:'Factor',
     title:'Time to Live (Quarters)',
-    body:[{t:'Range: 0.4 to 0.9', dim:false},{t:'Olumi inferred · unreviewed', dim:true}],
-    bar:0.5, lod:'Range: 0.4 to 0.9', lodSrc:'derived',
+    body:[{t:'Value 0.5', dim:false},{t:'Olumi inferred · unreviewed', dim:true}],
+    bar:0.5, lod:'Value 0.5', lodSrc:'illustrative',
     sci:['spread'], dupSparkles:true, confirm:true, note:''
   };
 
