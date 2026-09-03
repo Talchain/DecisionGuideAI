@@ -119,10 +119,27 @@ describe('a value never breaks from its own unit', () => {
 describe('the no-value ⚠ is cut only where it is REDUNDANT', () => {
   /**
    * ⭐ THE PAIR THAT BOUNDS THE ONE DELETION IN THIS CHANGE. The ⚠ is dropped
-   * only where "Not set" is actually rendered beside it. `ValueCell` prints
-   * those words on its EDITABLE idle arm and nowhere else, so both halves are
-   * asserted — a suppression that fired one atom wider would leave a row with
-   * no missing-value signal at all.
+   * only where it is REDUNDANT: the row at rest, with "Not set" already in the
+   * cell two atoms away. Everywhere else it is kept, because everywhere else
+   * "no value is set" is still an unresolved fact about the model.
+   *
+   * ⚠⚠ THIS DOC-BLOCK USED TO TEACH THE WORDS RULE AND ONE FALSE FACT, and it
+   * is corrected here rather than in passing because `ModelRowView.tsx` now
+   * ends by sending readers to this file — so it is the FIRST thing anyone
+   * debugging a RED will read.
+   *
+   * It said `ValueCell` prints "Not set" on its editable idle arm "and nowhere
+   * else". Measured, that is false in THREE places, and the falsehood is the
+   * exact one that produced the original defect:
+   *
+   *     CELL[idle, editable] = "Not set"
+   *     CELL[proposed]       = "Not set → 60 days…"
+   *     CELL[refused]        = "Not setDeclined."
+   *
+   * The last two render the words via `commit.from` and are precisely where a
+   * words-rule and the redundancy rule DISAGREE — the cases pinned below. This
+   * file already contained a passing test falsifying its own header; the tests
+   * were right and the prose was a round behind them.
    */
   it('is cut when the editable idle cell prints "Not set"', () => {
     render(
