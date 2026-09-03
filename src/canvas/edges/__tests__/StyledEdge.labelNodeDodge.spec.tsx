@@ -23,12 +23,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
-import { LABEL_HALF_HEIGHT, LABEL_HALF_WIDTH } from '../edgeLabelCollision'
+import { LABEL_HALF_HEIGHT, LABEL_HALF_WIDTH, labelHalfHeightForRows } from '../edgeLabelCollision'
 import { Position } from '@xyflow/react'
 
 // ── Node/edge registries — populated per test ───────────────────────────────
 const nodeRegistry: Record<string, any> = {}
 let edgeList: any[] = []
+/** Robustness report — set per test to make an edge's chip carry a second row. */
+let mockReport: any = null
+/**
+ * Edges the mocked matcher should treat as fragile. The matcher is mocked here
+ * (this suite is about GEOMETRY, not about robustness matching), so membership
+ * of this set is what gives a chip its second row.
+ */
+const fragileIds = new Set<string>()
 
 // STABLE useReactFlow surface: production useReactFlow returns a stable
 // instance, so the collision memo's [getEdges, getNode, getNodes] deps never
@@ -80,7 +88,7 @@ vi.mock('../../store', () => ({
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
       // Results complete → persistent top-strength labels render (E2 policy)
-      results: { status: 'complete', report: null },
+      results: { status: 'complete', report: mockReport },
       highlightedEdges: new Set<string>(),
       viewMode: 'standard',
       lens: lensState,
@@ -109,9 +117,12 @@ vi.mock('../../../flags', () => ({
 }))
 
 vi.mock('../../utils/fragileEdgeMatch', () => ({
-  isEdgeFragile: () => false,
-  getFragileEdgeSwitchProbability: () => null,
-  isTopFragileEdge: () => false,
+  // Driven by `fragileIds` rather than pinned to false: a chip's SECOND ROW is
+  // a geometry input (it makes the box taller), so this suite has to be able
+  // to produce one. Empty by default, so every pre-existing test is unchanged.
+  isEdgeFragile: (id: string) => fragileIds.has(id),
+  getFragileEdgeSwitchProbability: (id: string) => (fragileIds.has(id) ? 0.49 : null),
+  isTopFragileEdge: (id: string) => fragileIds.has(id),
 }))
 
 vi.mock('../../utils/graphDisplayCalculations', async (importOriginal) => ({
@@ -199,6 +210,8 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     nodeRegistry.n1 = card('n1', 'factor', -400, -40)
     nodeRegistry.n2 = card('n2', 'outcome', 200, -40)
     edgeList = [{ id: 'e1', source: 'n1', target: 'n2', data: { weight: 0.6 } }]
+    mockReport = null
+    fragileIds.clear()
     lensEnabled = false
     lensState = makeLens()
   })
@@ -605,4 +618,54 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       expect(labelClearOfRect(100 + dx, 60 + dy, { x: 0, y: 40, width: 200, height: 160 })).toBe(true)
     })
   })
+
+  /**
+   * ⛔ THE ROW COUNT MUST REACH THE RESOLVER FROM THE COMPONENT.
+   *
+   * A mutant that dropped `rows` from the `placementEdges` push survived every
+   * other spec in this change: the resolver's own unit tests pass `rows`
+   * directly, so they prove the RESOLVER honours it and say nothing about
+   * whether StyledEdge ever supplies it. This is that binding, and it is the
+   * only test in the suite that fails when the pass-through is removed.
+   *
+   * Geometry is DERIVED from the registry, not hand-copied: the blocker card
+   * is placed so that one step of travel clears a ONE-row box and leaves a
+   * TWO-row box still overlapping. So the same graph must displace a fragile
+   * (two-row) chip further than a plain (one-row) one.
+   */
+  it('a two-row chip is displaced further than a one-row chip on identical geometry', () => {
+    const anchorX = ((nodeRegistry.n1.position.x + 100) + (nodeRegistry.n2.position.x + 100)) / 2
+    const anchorY = ((nodeRegistry.n1.position.y + 80) + nodeRegistry.n2.position.y) / 2
+
+    // Card bottom sits between (anchor + STEP − twoRowHalf) and
+    // (anchor + STEP − oneRowHalf): one step clears the short box, not the tall.
+    const STEP = LABEL_HALF_HEIGHT * 2 + 2
+    const oneRowHalf = labelHalfHeightForRows(1)
+    const twoRowHalf = labelHalfHeightForRows(2)
+    const bottom = anchorY + STEP - Math.round((oneRowHalf + twoRowHalf) / 2)
+    nodeRegistry.blocker = card('blocker', 'factor', anchorX - 100, bottom - 80)
+
+    const dyOf = (c: HTMLElement) => {
+      const leader = c.querySelector('[data-testid="edge-label-leader"]')
+      if (!leader) return 0
+      return Number(leader.getAttribute('y2')) - Number(leader.getAttribute('y1'))
+    }
+
+    const plain = render(<StyledEdge {...edgeProps as any} />)
+    const dyOneRow = dyOf(plain.container)
+    plain.unmount()
+
+    // Same graph, same blocker — the ONLY change is a second chip row.
+    mockReport = { robustness: { fragile_edges: [{ edge_id: 'e1', switch_probability: 0.49 }] } }
+    fragileIds.add('e1')
+    const fragile = render(<StyledEdge {...edgeProps as any} />)
+    expect(
+      fragile.container.querySelector('[data-testid="edge-fragile-tag"]'),
+      'the second row did not render — the fixture, not the code, is wrong',
+    ).not.toBeNull()
+    const dyTwoRow = dyOf(fragile.container)
+
+    expect(Math.abs(dyTwoRow)).toBeGreaterThan(Math.abs(dyOneRow))
+  })
+
 })

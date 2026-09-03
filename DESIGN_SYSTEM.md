@@ -233,7 +233,10 @@ one format; never invent a fourth or blend them:
 | Existence confidence | "NN% conf." (hover panel row, with title/aria disclosure) | `ConnRow` |
 
 Labels render in `typography.edgeLabel`; stacking is spaced by
-`edgeLabelCollision.ts`. Known density issue: several options converging on
+`edgeLabelCollision.ts`. The weight label and the fragility badge share ONE
+placed chip per edge (`data-testid="edge-influence-label"`, one row each) — the
+chip is a CONTAINER, not a fourth signal, and each row keeps its own text,
+owner and title. Known density issue: several options converging on
 one goal can stack near-identical weight labels — prefer suppressing
 duplicates at the convergence (visibility rules live in
 `edgeLabelVisibility.ts`) over shrinking or restyling them.

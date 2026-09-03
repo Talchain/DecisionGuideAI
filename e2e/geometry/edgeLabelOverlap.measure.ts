@@ -62,6 +62,13 @@ const VP = { width: 1440, height: 900 }
 // rather than let a cold start silently shrink the measured set.
 test.describe.configure({ retries: 2 })
 
+/**
+ * Seed a minimal robustness report so the fragility signal is REACHABLE.
+ * Without it this measure cannot observe the fragility badge in either arm —
+ * see the comment at the seeding call below.
+ */
+const SEED_FRAGILE = process.env.SEED_FRAGILE === '1'
+
 for (const id of STARTERS) {
   test(`EDGELBL ${id} @${VP.width}x${VP.height}`, async ({ page }) => {
     await preparePage(page, VP)
@@ -76,17 +83,63 @@ for (const id of STARTERS) {
     // documented PRE-analysis branch (rank by |strength.mean|, provenance
     // gated) — the same branch a real user sees the moment a run completes on
     // a graph whose strengths came from the draft.
-    const applied = await page.evaluate(() => {
+    // ⚠⚠ THE MEASURE COULD NOT SEE THE FRAGILITY SIGNAL AT ALL UNTIL THIS KNOB.
+    // Flipping `results.status` with NO REPORT attached leaves
+    // `report.robustness.fragile_edges` empty, so `isFragileEdge` is false for
+    // every edge and the badge NEVER renders — an instrument that reports
+    // "0 fragility badges, 0 overlaps" whatever the code does (CLAUDE.md trap
+    // 13: an absence claim needs an instrument that could have seen a
+    // presence). SEED_FRAGILE=1 attaches a minimal robustness report so the
+    // signal is reachable and the before/after comparison is meaningful.
+    const applied = await page.evaluate((seedFragile: boolean) => {
       const w = window as unknown as {
         useCanvasStore: {
-          getState: () => { results: Record<string, unknown> }
+          getState: () => {
+            results: Record<string, unknown>
+            edges: Array<{ id: string; source: string; target: string }>
+            nodes: Array<{ id: string; type?: string; data?: unknown }>
+          }
           setState: (p: Record<string, unknown>) => void
         }
       }
-      const prev = w.useCanvasStore.getState().results
-      w.useCanvasStore.setState({ results: { ...prev, status: 'complete', progress: 100 } })
+      const state = w.useCanvasStore.getState()
+      const prev = state.results
+      const next: Record<string, unknown> = { ...prev, status: 'complete', progress: 100 }
+      if (seedFragile) {
+        // ⚠ CAUSAL EDGES ONLY, AND THIS IS NOT A DETAIL. Seeding the first
+        // three edges in store order produced ZERO badges on all five
+        // starters: the leading edges are the STRUCTURAL decision->option
+        // ones, which are never analysed and never badged. A knob that seeds
+        // an unbadgeable edge reports `fragileTags: 0` exactly like a broken
+        // renderer would (CLAUDE.md trap 13 — an absence claim needs an
+        // instrument that could have seen a presence).
+        const kindOf = (nodeId: string): unknown => {
+          const n = state.nodes.find((x) => x.id === nodeId)
+          return n?.type ?? (n?.data as Record<string, unknown> | undefined)?.kind
+        }
+        const causal = state.edges.filter((e) => {
+          const sk = kindOf(e.source)
+          const tk = kindOf(e.target)
+          if (sk === 'decision' && tk === 'option') return false
+          if (sk === 'option' && tk === 'factor') return false
+          return true
+        })
+        next.report = {
+          robustness: {
+            // Every causal edge, with a MEASURED switch probability (an absent
+            // one means "not computed" and renders the honest-absence copy
+            // instead of a percentage). Descending, so the top fragile edge —
+            // the only one badged in the default view — is unambiguous.
+            fragile_edges: causal.map((e, i) => ({
+              edge_id: e.id,
+              switch_probability: Math.max(0.35, 0.9 - i * 0.01),
+            })),
+          },
+        }
+      }
+      w.useCanvasStore.setState({ results: next })
       return w.useCanvasStore.getState().results.status
-    })
+    }, SEED_FRAGILE)
     if (applied !== 'complete') throw new Error(`results.status never became complete (got ${applied})`)
 
     await waitForVisualQuiescence(page)
@@ -195,6 +248,51 @@ for (const id of STARTERS) {
         }
         return false
       }
+      // THE POLARITY GLYPH and THE FRAGILITY ROW. The glyph is counted so its
+      // demotion is measured rather than asserted, and `glyphLabelOverlaps`
+      // is the specific harm it caused: a 16px bold chip painted at
+      // (targetX-18, targetY-18) sitting on top of a placed label.
+      const glyphEls = [
+        ...document.querySelectorAll('[aria-label^="Effect direction:"]'),
+      ] as HTMLElement[]
+      const glyphRects = glyphEls.map((el) => el.getBoundingClientRect())
+      let glyphLabelOverlaps = 0
+      let worstGlyphOverlapPx = 0
+      for (const gr of glyphRects) {
+        for (const lr of rects) {
+          const ix = Math.min(gr.right, lr.right) - Math.max(gr.left, lr.left)
+          const iy = Math.min(gr.bottom, lr.bottom) - Math.max(gr.top, lr.top)
+          if (ix > 0 && iy > 0) {
+            glyphLabelOverlaps++
+            worstGlyphOverlapPx = Math.max(worstGlyphOverlapPx, Math.min(ix, iy))
+          }
+        }
+      }
+      // Apparent size of the glyph, so the size ruling is a measurement.
+      const glyphPx = glyphEls.length
+        ? Math.round(parseFloat(getComputedStyle(glyphEls[0]).fontSize) * 10) / 10
+        : null
+      const fragileTagEls = [
+        ...document.querySelectorAll('[data-testid="edge-fragile-tag"]'),
+      ] as HTMLElement[]
+      // ⚠ THE TESTID EXISTS ONLY ON THE MERGED ROW, so it is BLIND on any
+      // build predating it and cannot support a before/after claim on its own.
+      // The fragility signal's own `title` string is owned by the same code in
+      // both arms (it moved from the badge to the row verbatim), so it is the
+      // one binding that identifies this signal across the change. Bound to
+      // the signal's OWN string, not to incidental rendered text.
+      const fragileByTitleEls = [
+        ...document.querySelectorAll('[title^="Sensitive assumption:"]'),
+      ] as HTMLElement[]
+      const strandedByTitle = fragileByTitleEls.filter(
+        (el) => !el.closest('[data-testid="edge-influence-label"]'),
+      ).length
+      // A fragility row OUTSIDE a placed chip is the defect this closes: the
+      // old badge was a free-floating sibling, so it had no chip ancestor.
+      const strandedFragileTags = fragileTagEls.filter(
+        (el) => !el.closest('[data-testid="edge-influence-label"]'),
+      ).length
+
       const leaders = [...document.querySelectorAll('[data-testid="edge-label-leader"]')] as unknown as SVGLineElement[]
       let occluded = 0
       let maxDy = 0
@@ -223,6 +321,14 @@ for (const id of STARTERS) {
         overlaps,
         worstLabelOverlapPx: Math.round(worstLabelOverlapPx),
         overlapPairs,
+        glyphs: glyphEls.length,
+        glyphPx,
+        glyphLabelOverlaps,
+        worstGlyphOverlapPx: Math.round(worstGlyphOverlapPx),
+        fragileTags: fragileTagEls.length,
+        strandedFragileTags,
+        fragileByTitle: fragileByTitleEls.length,
+        strandedByTitle,
         occluded,
         leaders: leaders.length,
         leaderDetail,

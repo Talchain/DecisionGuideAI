@@ -255,6 +255,43 @@ export function formatNumericLabel(
 }
 
 /**
+ * Does the label `getEdgeLabel` will render actually STATE which way the effect
+ * goes?
+ *
+ * ⛔ THIS IS THE DICHROMAT CHANNEL'S GATE, and it lives HERE — beside the two
+ * functions that emit the label — because it is a claim about what THEY print.
+ * Asking the question anywhere else means re-deriving their behaviour from
+ * outside, which is how one datum ends up with two spellings (CLAUDE.md trap
+ * 21). Both arms mirror their emitter exactly:
+ *
+ *   · HUMAN (`describeEdge`): every arm that has a stated direction prints
+ *     `boost`/`drag` — including "Boost, strength not set" — and every arm
+ *     without one says "direction not stated". So: `direction.show`.
+ *   · NUMERIC (`formatNumericLabel`): direction rides `signPrefix`, which emits
+ *     U+2212 for a stated NEGATIVE and NOTHING for a stated positive. And the
+ *     sign only reaches the string when there is a magnitude to sign — an unset
+ *     strength prints "not set". So: stated, negative, AND `strength.show`.
+ *
+ * The asymmetry is the whole point. `w 0.60 • b 85%` is a stated POSITIVE that
+ * names no direction, so a caller suppressing its own polarity signal on the
+ * strength of "the label says it" would be wrong exactly there — and nowhere
+ * else. Callers must not widen this to "numeric never carries direction": the
+ * negative case genuinely does.
+ */
+export function labelCarriesDirection(
+  strength: EdgeValueDisplay,
+  direction: EdgeDirectionDisplay,
+  mode?: EdgeLabelMode,
+): boolean {
+  if (!direction.show) return false
+  const actualMode = mode ?? getEdgeLabelMode()
+  if (actualMode === 'numeric') {
+    return strength.show && direction.direction === 'negative'
+  }
+  return true
+}
+
+/**
  * Get the appropriate edge label based on current mode.
  *
  * `strength` and `direction` sit BEFORE the optional `mode` so neither can be

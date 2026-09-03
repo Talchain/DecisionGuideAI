@@ -75,7 +75,15 @@ export interface LabelPoint {
   id: string
   x: number
   y: number
+  /**
+   * How many stacked rows this label's chip renders. Absent = one row, so
+   * every caller written before the chip gained a second row is unchanged.
+   */
+  rows?: LabelRowCount
 }
+
+/** A placed chip renders at most a strength row and a fragility row. */
+export type LabelRowCount = 1 | 2
 
 export interface LabelOffset {
   dx: number
@@ -129,6 +137,31 @@ const LABEL_BOX_HEIGHT =
   LABEL_DECLARED_FONT_PX * LABEL_LINE_HEIGHT_RATIO * MAX_LABEL_COUNTER_SCALE +
   LABEL_VERTICAL_CHROME_PX
 export const LABEL_HALF_HEIGHT = Math.ceil(LABEL_BOX_HEIGHT / 2)
+
+// Gap between the two stacked rows inside one chip. Inline px on a React Flow
+// child ARE graph units, so this does not move with zoom (unlike the TEXT
+// above it, which carries the counter-scale) — which is exactly why it is
+// added outside the scaled term below.
+export const LABEL_ROW_GAP_PX = 2
+
+/**
+ * Half-extent of a chip carrying `rows` stacked rows.
+ *
+ * ⛔ DERIVED FROM THE SAME QUANTITY AS `LABEL_BOX_HEIGHT` ABOVE, not written
+ * beside it. The one-row case reproduces `LABEL_HALF_HEIGHT` exactly — pinned
+ * in the spec — so the constant and this function cannot part company the way
+ * the literal `11` parted company from the 33-tall box it was mirroring.
+ * Only the TEXT stack multiplies: the 3px padding and 1px border are chrome
+ * on the chip, paid once however many rows sit inside it.
+ */
+export function labelHalfHeightForRows(rows: LabelRowCount | undefined): number {
+  const n = rows ?? 1
+  const boxHeight =
+    LABEL_DECLARED_FONT_PX * LABEL_LINE_HEIGHT_RATIO * MAX_LABEL_COUNTER_SCALE * n +
+    LABEL_VERTICAL_CHROME_PX +
+    LABEL_ROW_GAP_PX * (n - 1)
+  return Math.ceil(boxHeight / 2)
+}
 
 // Breathing space kept between two label boxes. The ONLY reason the
 // label-vs-label thresholds are not exactly the box extents.
@@ -206,12 +239,17 @@ const CANDIDATE_DYS: readonly number[] = (() => {
   return out
 })()
 
-function labelIntersectsRect(cx: number, cy: number, r: NodeRect): boolean {
+function labelIntersectsRect(
+  cx: number,
+  cy: number,
+  r: NodeRect,
+  halfHeight: number = LABEL_HALF_HEIGHT,
+): boolean {
   return (
     cx + LABEL_HALF_WIDTH > r.x &&
     cx - LABEL_HALF_WIDTH < r.x + r.width &&
-    cy + LABEL_HALF_HEIGHT > r.y &&
-    cy - LABEL_HALF_HEIGHT < r.y + r.height
+    cy + halfHeight > r.y &&
+    cy - halfHeight < r.y + r.height
   )
 }
 
@@ -220,6 +258,8 @@ export interface PlacementEdge {
   id: string
   sourceRect: NodeRect
   targetRect: NodeRect
+  /** Rows in this edge's chip (strength and/or fragility). Absent = one. */
+  rows?: LabelRowCount
 }
 
 // Task 9c proximity nudge: when a label anchor sits within NODE_PROXIMITY px
@@ -278,7 +318,7 @@ export function resolvePersistentLabelPlacements(
       ndy = (ex / len) * NUDGE_DISTANCE
     }
     nudges.set(e.id, { dx: ndx, dy: ndy })
-    points.push({ id: e.id, x: ax + ndx, y: ay + ndy })
+    points.push({ id: e.id, x: ax + ndx, y: ay + ndy, rows: e.rows })
   }
   const resolved = resolveLabelCollisionOffsets(points, nodeRects)
   const out = new Map<string, LabelOffset>()
@@ -299,9 +339,16 @@ export function resolveLabelCollisionOffsets(
   const sorted = [...points].sort(
     (a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id),
   )
-  const placed: Array<{ x: number; y: number }> = []
+  const placed: Array<{ x: number; y: number; halfHeight: number }> = []
   const out = new Map<string, LabelOffset>()
   for (const p of sorted) {
+    // ⛔ THE PAIR TEST IS NOW SYMMETRIC IN BOTH BOXES. Two chips overlap when
+    // the gap between their centres is less than the SUM of their half-
+    // heights (plus the gutter) — one quantity with two contributors, not one
+    // box's extent applied to both. For two one-row labels this is
+    // 17 + 17 + 2 = 36, i.e. exactly the `Y_THRESHOLD` the suite pins, so no
+    // existing displacement moves.
+    const pHalf = labelHalfHeightForRows(p.rows)
     // Nearest-clear-slot search over CANDIDATE_DYS. `penalty` is 0 for a slot
     // that collides with nothing; the first such slot wins, so the assignment
     // is the smallest displacement that resolves every collision.
@@ -311,10 +358,11 @@ export function resolveLabelCollisionOffsets(
       const cy = p.y + dy
       let penalty = 0
       for (const q of placed) {
-        if (Math.abs(q.x - p.x) < X_THRESHOLD && Math.abs(q.y - cy) < Y_THRESHOLD) penalty += LABEL_PENALTY
+        const yThreshold = pHalf + q.halfHeight + LABEL_GUTTER
+        if (Math.abs(q.x - p.x) < X_THRESHOLD && Math.abs(q.y - cy) < yThreshold) penalty += LABEL_PENALTY
       }
       for (const r of nodeRects) {
-        if (labelIntersectsRect(p.x, cy, r)) penalty += CARD_PENALTY
+        if (labelIntersectsRect(p.x, cy, r, pHalf)) penalty += CARD_PENALTY
       }
       if (penalty === 0) {
         bestDy = dy
@@ -336,7 +384,7 @@ export function resolveLabelCollisionOffsets(
     // leader line that runs underneath the node layer and is therefore never
     // painted. A crowded label at its own anchor is recoverable; a stranded
     // one reads as belonging to a different part of the graph.
-    placed.push({ x: p.x, y: p.y + bestDy })
+    placed.push({ x: p.x, y: p.y + bestDy, halfHeight: pHalf })
     out.set(p.id, { dx: 0, dy: bestDy })
   }
   return out

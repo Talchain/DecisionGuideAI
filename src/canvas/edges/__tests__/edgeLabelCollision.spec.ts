@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { resolveLabelCollisionOffsets, resolvePersistentLabelPlacements } from '../edgeLabelCollision'
+import {
+  resolveLabelCollisionOffsets,
+  resolvePersistentLabelPlacements,
+  labelHalfHeightForRows,
+  LABEL_HALF_HEIGHT,
+} from '../edgeLabelCollision'
 
 describe('resolveLabelCollisionOffsets — E3 label collision avoidance', () => {
   it('far-apart labels get no offset', () => {
@@ -405,5 +410,101 @@ describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-res
 
   it('empty edge set → empty map', () => {
     expect(resolvePersistentLabelPlacements([], [rect(0, 0)]).size).toBe(0)
+  })
+})
+
+/**
+ * TWO-ROW LABELS (one chip per edge).
+ *
+ * The fragility badge used to render as a free-floating sibling at a
+ * hard-coded `labelX + 30` — outside this resolver entirely, which is why the
+ * founder saw "Sensitive · 49%" floating with no visible referent. It is now a
+ * ROW inside the placed chip, so a chip carrying both a strength row and a
+ * fragile row is TALLER and the resolver has to know that.
+ *
+ * ⛔ WHAT DELIBERATELY DOES NOT MOVE: `STEP`. Every displacement literal in
+ * the suite above (±36, ±72, 216) is pinned against a one-row step, and those
+ * pins are the record of the 31 Aug re-derivation. Only the PAIR TEST and the
+ * CARD TEST consult per-label half-heights; the search grid is unchanged, so a
+ * two-row label simply takes two steps where one would not clear.
+ */
+describe('two-row labels — the pair test uses BOTH half-heights', () => {
+  it('LABEL_HALF_HEIGHT is the one-row half-extent and stays the exported default', () => {
+    expect(labelHalfHeightForRows(1)).toBe(LABEL_HALF_HEIGHT)
+  })
+
+  it('a two-row label is taller than a one-row label', () => {
+    expect(labelHalfHeightForRows(2)).toBeGreaterThan(labelHalfHeightForRows(1))
+  })
+
+  it('an undefined row count is treated as one row — every existing caller is unchanged', () => {
+    expect(labelHalfHeightForRows(undefined)).toBe(labelHalfHeightForRows(1))
+  })
+
+  it('CONTROL: two ONE-ROW labels 36 apart still clear — the pinned threshold is untouched', () => {
+    const out = resolveLabelCollisionOffsets([
+      { id: 'upper', x: 0, y: 0, rows: 1 },
+      { id: 'lower', x: 0, y: 36 , rows: 1 },
+    ])
+    expect(out.get('upper')).toEqual({ dx: 0, dy: 0 })
+    expect(out.get('lower')).toEqual({ dx: 0, dy: 0 })
+  })
+
+  it('THE POINT: the same 36 gap does NOT clear once the upper label carries two rows', () => {
+    const out = resolveLabelCollisionOffsets([
+      { id: 'upper', x: 0, y: 0, rows: 2 },
+      { id: 'lower', x: 0, y: 36, rows: 1 },
+    ])
+    expect(out.get('upper')).toEqual({ dx: 0, dy: 0 })
+    // The taller box overlaps the one below, so the lower label must move.
+    expect(out.get('lower')!.dy).not.toBe(0)
+    // …and it must end up genuinely clear of the two-row box.
+    const gap = Math.abs(36 + out.get('lower')!.dy - 0)
+    expect(gap).toBeGreaterThanOrEqual(labelHalfHeightForRows(2) + labelHalfHeightForRows(1))
+  })
+
+  it('a two-row label clears a node card by its OWN half-height, not the one-row one', () => {
+    // Card spans y 0..40 at x 0..200; anchor sits just below it. A one-row box
+    // clears where a two-row box still overlaps.
+    const card = { x: 0, y: 0, width: 200, height: 40 }
+    const oneRow = resolveLabelCollisionOffsets(
+      [{ id: 'a', x: 100, y: 40 + labelHalfHeightForRows(1), rows: 1 }],
+      [card],
+    )
+    expect(oneRow.get('a')).toEqual({ dx: 0, dy: 0 })
+    const twoRow = resolveLabelCollisionOffsets(
+      [{ id: 'a', x: 100, y: 40 + labelHalfHeightForRows(1), rows: 2 }],
+      [card],
+    )
+    expect(twoRow.get('a')!.dy).not.toBe(0)
+  })
+
+  it('resolvePersistentLabelPlacements carries a row count through to the resolver', () => {
+    const src = { x: 0, y: 0, width: 100, height: 40 }
+    const tgt = { x: 0, y: 300, width: 100, height: 40 }
+    // Two edges with an identical anchor: they must separate, and the
+    // separation must respect the two-row box.
+    const out = resolvePersistentLabelPlacements([
+      { id: 'a', sourceRect: src, targetRect: tgt, rows: 2 },
+      { id: 'b', sourceRect: src, targetRect: tgt, rows: 1 },
+    ])
+    expect(out.size).toBe(2)
+    const separation = Math.abs(out.get('a')!.dy - out.get('b')!.dy)
+    expect(separation).toBeGreaterThanOrEqual(
+      labelHalfHeightForRows(2) + labelHalfHeightForRows(1),
+    )
+  })
+
+  it('is deterministic under input reordering with mixed row counts', () => {
+    const pts = [
+      { id: 'a', x: 0, y: 0, rows: 2 as const },
+      { id: 'b', x: 0, y: 20, rows: 1 as const },
+      { id: 'c', x: 0, y: 40, rows: 2 as const },
+    ]
+    const forward = resolveLabelCollisionOffsets(pts)
+    const reversed = resolveLabelCollisionOffsets([...pts].reverse())
+    for (const id of ['a', 'b', 'c']) {
+      expect(forward.get(id)).toEqual(reversed.get(id))
+    }
   })
 })
