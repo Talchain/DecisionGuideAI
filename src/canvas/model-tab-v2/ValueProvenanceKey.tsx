@@ -26,7 +26,16 @@ import { typography } from '../../styles/typography'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 
-/** The three questions, and which kinds answer each. Total over the seven. */
+/**
+ * The questions a reader asks, and which kinds answer each. TOTAL over the
+ * seven kinds — `provenanceKeyIsTotal.spec` asserts that against the register,
+ * so a new kind cannot ship unkeyed.
+ *
+ * ⚠ FOUR groups, not three. An earlier version of this comment said "three
+ * questions" over a four-entry array: `panel` is deliberately NOT folded into
+ * "you own this", because `isUserOwnedKind` excludes it and collapsing it would
+ * assert something false about who authored the value.
+ */
 const GROUPS: ReadonlyArray<{ heading: string; kinds: readonly ValueProvenanceKind[] }> = [
   { heading: 'From what you gave us', kinds: ['brief'] },
   { heading: "Olumi's own estimate", kinds: ['ai'] },

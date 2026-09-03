@@ -148,23 +148,74 @@ describe('the no-value ⚠ is cut only where the WORDS are on screen', () => {
   })
 
   /**
-   * ⚠⚠ THE CASE THE FIRST CUT MISSED. On a live commit `ValueCell` returns
-   * early and never prints "Not set" — so suppressing the ⚠ there left the row
-   * showing NEITHER the words nor the mark, at the moment the user is editing.
+   * ⚠⚠ THE STATES THAT ARE ACTUALLY DEFECTIVE — and my first attempt at this
+   * test was pointed at the one that is not.
+   *
+   * I bounded the cut with a single non-idle case, `proposed`. Independent
+   * review enumerated all 128 states and showed `proposed` WAS NEVER
+   * DEFECTIVE: `ValueCell` renders `commit.from`, and the panel builds
+   * `from: row.primaryValue ?? 'Not set'`, so the real cell reads
+   * "Not set → 60…" and the words ARE on screen. My case only passed because
+   * it used `from: ''`, a shape `beginEdit` never produces for a null-valued
+   * row — a fixture outside the producer's output domain, which proves nothing
+   * about the product.
+   *
+   * A discriminating mutant (`phase === 'idle'` → `phase !== 'proposed'`)
+   * reopens the real defect and my 35 tests stayed GREEN. The three states that
+   * genuinely render no "Not set" are `editing`, `inflight` and `applied`, so
+   * those are what is pinned, each by name so a failure says which.
    */
-  it('is KEPT during a live commit, when the words are not rendered', () => {
+  it.each([
+    ['editing', { phase: 'editing', draft: '' }],
+    ['inflight', { phase: 'inflight', from: 'Not set', to: '60 days' }],
+    ['applied', { phase: 'applied', value: '60 days', provenanceSource: 'user' }],
+  ])('keeps the warning during %s, where the words are NOT rendered', (_n, commit) => {
     render(
       <ModelRowView
         row={row({ id: 'f3', primaryValue: null, attention: ['no-value'] })}
         tier="plain"
-        commit={{ phase: 'proposed', from: '', to: '60 days' }}
+        commit={commit as never}
         onBeginEdit={() => {}}
-        onConfirmEdit={() => {}}
+        onDraftChange={() => {}}
+        onProposeEdit={() => {}}
         onDiscardEdit={() => {}}
       />,
     )
     expect(screen.getByTestId('model-row-v2-f3-value')).not.toHaveTextContent('Not set')
     expect(screen.getByTestId('model-row-v2-f3-attention-no-value')).toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐ `proposed` KEEPS THE WARNING TOO, AND THAT IS DELIBERATE — this case
+   * exists because the obvious reading of the rule gets it wrong.
+   *
+   * The rule is "cut the ⚠ where the words are redundant". Review correctly
+   * established that `proposed` DOES render "Not set" (via `commit.from`), so
+   * on a words-are-on-screen reading the ⚠ should be cut here. It is not, and
+   * the reason is that the rule is about REDUNDANCY, not about the string:
+   * during `proposed` nothing has been committed, so "no value is set" is still
+   * a TRUE and unresolved fact about the model. The words in that cell are
+   * describing a PROPOSAL — "Not set → 60 days" — not a settled state.
+   *
+   * So the ⚠ is redundant only in the resting row, which is exactly what
+   * `phase === 'idle'` says. Erring toward showing it is also the safe
+   * direction: a spurious ⚠ is noise, a missing one loses the gap.
+   */
+  it('keeps the warning during proposed, because nothing is committed yet', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f4', primaryValue: null, attention: ['no-value'] })}
+        tier="plain"
+        commit={{ phase: 'proposed', from: 'Not set', to: '60 days' }}
+        onBeginEdit={() => {}}
+        onConfirmEdit={() => {}}
+        onDiscardEdit={() => {}}
+      />,
+    )
+    // The words ARE on screen here — pinned, so the reasoning above stays
+    // checkable rather than becoming a claim nobody re-tests.
+    expect(screen.getByTestId('model-row-v2-f4-value')).toHaveTextContent('Not set')
+    expect(screen.getByTestId('model-row-v2-f4-attention-no-value')).toBeInTheDocument()
   })
 })
 

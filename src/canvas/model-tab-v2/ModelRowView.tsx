@@ -131,12 +131,21 @@ export function ModelRowView({
    */
   /**
    * ⚠⚠ `phase === 'idle'` IS LOAD-BEARING AND WAS MISSING. `ValueCell` returns
-   * EARLY on any live commit (`if (commit && commit.phase !== 'idle')`), so
-   * during `editing` or `proposed` the words "Not set" are NOT on screen.
-   * Without this clause the ⚠ was suppressed anyway — the row losing its only
-   * missing-value signal at exactly the moment the user is acting on it, and
-   * showing neither the words nor the mark. The suppression must track what is
-   * RENDERED, not what the row's data alone implies.
+   * EARLY on any live commit, and on `editing`, `inflight` and `applied` the
+   * words "Not set" are NOT on screen — so without this clause the ⚠ was
+   * suppressed anyway and the row showed NEITHER the words nor the mark, at
+   * exactly the moment the user is acting on it.
+   *
+   * ⚠ CORRECTED: an earlier version of this comment also named `proposed`.
+   * Measured, that state is NOT defective — `ValueCell` renders `commit.from`
+   * and the panel builds `from: row.primaryValue ?? 'Not set'`, so the real
+   * cell reads "Not set → 60…" and the words ARE present. The defective states
+   * are the other three. Independent review found this by enumerating all 128
+   * states rather than accepting my bound; the guard is correct at 128/128, but
+   * the sentence justifying it was false for one of the states it named.
+   *
+   * The rule: the suppression tracks what is RENDERED, not what the row's data
+   * alone implies.
    */
   const printsNotSet =
     phase === 'idle' && row.editable && editorAvailable && row.primaryValue === null

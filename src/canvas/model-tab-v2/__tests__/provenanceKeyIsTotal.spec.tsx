@@ -11,9 +11,50 @@ import { describe, it, expect } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ValueProvenanceKey } from '../ValueProvenanceKey'
+import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
 
 const ALL_KINDS = Object.keys(VALUE_PROVENANCE_LABEL) as ValueProvenanceKind[]
+
+/**
+ * ⭐⭐⭐ THE MOUNT, WHICH IS THE HALF THAT WAS MISSING.
+ *
+ * ⚠⚠ MEASURED BY INDEPENDENT REVIEW: deleting `<ValueProvenanceKey />` from
+ * `ModelTabV2Panel` left **42 files / 682 tests GREEN**. Every case below
+ * renders the component DIRECTLY, so they prove the key is correct and say
+ * NOTHING about whether a user can reach it. That is this estate's chronic
+ * failure in its purest form — "we build more than we plug in" — and this PR's
+ * own body supplies the severity: without the key the marks are "a private
+ * code". A legend nobody can open is worse than no legend, because the reader
+ * learns the code exists and cannot read it.
+ *
+ * So the mount is asserted through the REAL panel, and deleting the mount now
+ * REDs here.
+ */
+describe('the key is REACHABLE from the panel, not merely correct', () => {
+  const goal = { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Grow ARR' } }
+  const factor = {
+    id: 'f1', type: 'factor', position: { x: 0, y: 0 },
+    data: { label: 'Churn pressure', observed_state: { value: 0.5, source: 'cee_inference' } },
+  }
+
+  it('mounts in the Model tab panel, where a reader can open it', () => {
+    render(<ModelTabV2Panel nodes={[goal, factor] as never} edges={[]} goalThreshold={null} />)
+
+    // Positive control: the panel genuinely rendered, so the presence below is
+    // about the key and not about a lucky query on a blank tree.
+    expect(screen.getByTestId('model-tab-v2-tier-toggle')).toBeInTheDocument()
+
+    const toggle = screen.getByTestId('model-tab-v2-provenance-key-toggle')
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-label', 'How to read these marks')
+
+    // And it OPENS from there — a mounted control that cannot be opened is the
+    // same defect one step later.
+    fireEvent.click(toggle)
+    expect(screen.getByTestId('model-tab-v2-provenance-key')).toBeInTheDocument()
+  })
+})
 
 describe('the provenance key', () => {
   it('is closed until asked for, and opens as a dialog', () => {
