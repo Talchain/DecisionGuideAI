@@ -323,10 +323,26 @@ jobs:
   # ⚠ THE CONSTRAINT THAT SHAPED IT: a job that takes twenty minutes will be
   # routed around within a week — which is precisely how this repo acquired a
   # permanently-red visual check. So this gate runs the SMALLEST SET THAT WOULD
-  # HAVE CAUGHT THE SHIPPED DEFECT and nothing else: three arms out of the twenty
-  # `e2e/geometry/*.measure.ts` files. MEASURED on darwin at this tip: 41.2s +
-  # 6.2s + 6.9s, 69s wall including the vite boot. The set, and the shipped
-  # defect each arm would have caught, are in `e2e/geometry/canvasGateSet.ts`.
+  # HAVE CAUGHT THE SHIPPED DEFECTS and nothing else.
+  #
+  # ⚠⚠ AND FOR A MONTH THAT SET WAS TOO SMALL, WHICH IS THE OPPOSITE FAILURE AND
+  # COST MORE. All four gated arms lived in ONE file, so of the three defects
+  # listed above this job watched ONE. Working browser guards for the other two
+  # sat in `e2e/geometry`, green, and CI ran neither — as did a guard for the
+  # overlay-over-node defect, which shipped TWICE. Admitting them (3 Sep 2026)
+  # takes the set to 23 arms across four files.
+  #
+  # ⭐ THE BUDGET IS DERIVED, NOT CHOSEN: this job runs in PARALLEL and is absent
+  # from `Staging Gate`'s `needs`, and the workflow's critical path is
+  # `Full Test Suite (shard 2/4)` at 674s (run 33743994788). Every second this
+  # job spends under that costs the workflow nothing, so the budget is 600s of
+  # job wall clock — a margin under the critical path, far under the 20-minute
+  # timeout below, and far under the point at which anyone routes around it.
+  # MEASURED from this job's own step timings, not extrapolated:
+  #   before  226s job = 28s setup + 17s vite boot + 174s tests (4 arms)
+  # The set, the shipped defect each arm would have caught, what is still
+  # excluded and why, and the standing rule for admitting the next one are all
+  # in `e2e/geometry/canvasGateSet.ts`.
   #
   # ⚠ ADVISORY ON PURPOSE, AND ONLY FOR NOW — the same posture, for the same
   # stated reason, as `visual-regression` and `core-e2e` above. `staging`
@@ -362,9 +378,12 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     continue-on-error: true
-    # Generous against a measured 69s wall so a slow runner is not a red, but far
-    # below the point at which anyone would route around it. A job that exceeds
-    # this is reporting a hang, and should be read as one.
+    # ⚠ THIS IS THE HANG DETECTOR, NOT THE BUDGET, and they are two different
+    # questions under one number (CLAUDE.md trap 21). The BUDGET is 600s of job
+    # wall clock and lives in `e2e/geometry/canvasGateSet.ts`; it is what decides
+    # whether an arm may be admitted. This ceiling is only "a job past here is
+    # reporting a hang, and should be read as one" — generous against the
+    # measured wall so a slow runner is never a red on its own.
     timeout-minutes: 20
     steps:
       - name: Checkout
