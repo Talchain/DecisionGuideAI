@@ -130,6 +130,7 @@
  * pair discriminates on the datum itself.
  */
 import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { METRIC_NOUN } from './metricVocabulary'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
 import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
@@ -217,7 +218,7 @@ export function resolveLodMetricLine({
       // reason.
       const { influence, influenceProvenance } = displayMetadata
       if (influence != null && influenceProvenance != null) {
-        return `Influence ${Math.round(influence * 100)}%`
+        return `${METRIC_NOUN.influence} ${Math.round(influence * 100)}%`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules
@@ -245,7 +246,7 @@ export function resolveLodMetricLine({
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
-        return `Ahead ${formatWinProbability(displayMetadata.winRate)}`
+        return `${METRIC_NOUN.ahead} ${formatWinProbability(displayMetadata.winRate)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and
@@ -301,7 +302,7 @@ export function resolveLodMetricLine({
       // cannot carry both, so the figure is withheld rather than shown stripped
       // of the disclosure that makes it honest.
       if (achievementProbabilityIsModelledBasis === true) return null
-      return `Achievement ${Math.round(achievementProbability * 100)}%`
+      return `${METRIC_NOUN.chance} ${Math.round(achievementProbability * 100)}%`
     }
 
     case 'action': {

@@ -192,8 +192,8 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * file can see what the board used to say.
  *
  * ⚠⚠ TWO LIVE USES OF "Leads" SURVIVE ON PURPOSE, AND BOTH ARE VERBS.
- * Disclosed here because the review found the second one and the residual
- * section had named only `lodMetricLine`:
+ * Disclosed here because a review found the second one while the PR body's
+ * residual section named only the low-zoom ladder (since closed):
  *
  *   · `DecisionNode` — the sentence "{X} leads in N% of scenarios", locked by
  *     the eight-surface owned-leader-claim corpus.
@@ -221,6 +221,31 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * fix is a gloss there, not the synonym back.
  */
 export const RETIRED_METRIC_NOUNS = ['Leads', 'Achievement', 'Chance of leading'] as const
+
+/**
+ * ⭐⭐ BOTH ZOOM LEVELS READ THIS REGISTER — the pair defect, closed.
+ *
+ * A card renders its metric through TWO code paths: the full-zoom row here, and
+ * `shared/lodMetricLine.ts` below the legibility floor. The first cut of this
+ * change renamed only the full-zoom half, which left an outcome card saying
+ * `Chance: 68%` zoomed in and `Achievement 68%` zoomed out — the SAME field
+ * (`displayMetadata.achievementProbability`), the SAME `Math.round(x * 100)`,
+ * two nouns. That is not a smaller version of the defect this file exists to
+ * fix; it is the same defect, moved to an axis nobody was sweeping.
+ *
+ * ⚠ IT WAS REACHABLE, not theoretical. `BaseNode` prefers a card's own
+ * `lodMetric` prop and falls through to the resolver when it is null
+ * (`BaseNode.tsx`), and `OutcomeNode`'s prop is null exactly when the outcome
+ * has no bridge edge to the goal. An unconnected outcome with a post-analysis
+ * achievement figure takes the resolver arm.
+ *
+ * ⭐ THE GENERAL LESSON, worth more than the fix: a per-site sweep cannot see a
+ * PAIR. Both halves can be individually defensible and still disagree with each
+ * other. When you rename something a user reads, ask which OTHER code path
+ * renders the same idea — zoom levels, panels, exports, screen-reader text —
+ * before calling the rename complete. All four low-zoom nouns now resolve from
+ * `METRIC_NOUN`, so the two paths cannot drift without one of them changing.
+ */
 
 /**
  * The qualifier the ordinal row MUST carry, pinned so a rewrite cannot drop it.

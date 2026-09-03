@@ -88,29 +88,29 @@ const BANNED: Array<{ re: RegExp; why: string }> = [
 ]
 
 /**
- * ⏳ A NAMED, EXPIRING EXEMPTION — the honest way to ship a known gap.
+ * ⏳ THERE IS NO EXEMPTION HERE, AND THE STORY OF WHY IS THE POINT.
  *
- * `lodMetricLine.ts` is inside SCOPE and carries `` `Achievement ${…}%` `` at
- * the low-zoom ladder. It is **owned by the zoom-ladder lane**, so this PR must
- * not edit it (file-ownership rule, three lanes live in this directory).
+ * This sweep briefly carried one. `lodMetricLine.ts` sits inside SCOPE and
+ * rendered `Achievement N%` at the low-zoom ladder while the full-zoom card had
+ * just been renamed to `Chance:` — the SAME quantity, read from the SAME field
+ * (`displayMetadata.achievementProbability`) with the SAME rounding, wearing
+ * two different nouns at two zoom levels of ONE card. The file belonged to
+ * another lane, so the first cut widened the predicate and exempted the file BY
+ * NAME with a stated reason, guarded by a test asserting the exempt file STILL
+ * offended — so the exemption would RED and be deleted the moment the rename
+ * landed.
  *
- * The choice was: leave the predicate narrow so the file passes silently, or
- * widen the predicate and exempt the file BY NAME. The first hides a real
- * remaining synonym behind a green tick — and hides every future one with it.
- * The second keeps the guard honest about everything else and makes this one
- * gap visible in the failure message.
+ * ⭐ IT EXPIRED WITHIN THE SAME PR, AND THE GUARD IS WHY. Once the ownership
+ * concern lifted, removing the exemption while the file still offended turned
+ * the suite RED on exactly the two tests it should have; renaming the noun
+ * turned it green. The design worked on its first outing — an exemption that
+ * cannot expire is a permanent hole with a comment on it, and this one could
+ * not outlive its reason.
  *
- * ⚠ THIS EXEMPTION MUST DIE. The test below asserts the file STILL CONTAINS
- * the retired noun — so the moment the zoom-ladder lane's follow-up renames it,
- * this spec REDs and whoever is here deletes the exemption. An exemption that
- * cannot expire is a permanent hole with a comment on it.
+ * ⚠ DO NOT ADD ONE BACK WITHOUT ITS EXPIRY GUARD. The sweep now covers every
+ * file in SCOPE with no holes, which is the only state in which its headline
+ * assertion means what it says.
  */
-const EXEMPT = new Map<string, string>([
-  [
-    'src/canvas/nodes/shared/lodMetricLine.ts',
-    'owned by the zoom-ladder lane; rename lands in its follow-up PR (see #1160 body)',
-  ],
-])
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
@@ -229,9 +229,8 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     }
   })
 
-  it('no canvas card hand-types a retired metric caption (outside the named exemption)', () => {
+  it('no canvas card hand-types a retired metric caption — WHOLE SCOPE, no exemptions', () => {
     const offenders = sources
-      .filter(({ file }) => !EXEMPT.has(file))
       .flatMap(({ file, body }) =>
         body.split('\n').flatMap((line, i) => {
           const hit = BANNED.find((b) => b.re.test(line))
@@ -241,27 +240,22 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     expect(offenders, `canvas cards still hand-type a retired caption:\n${offenders.join('\n')}`).toEqual([])
   })
 
-  it('⏳ the exemption is EARNED, and it EXPIRES — the exempt file still offends', () => {
-    // Three things at once, and all three are needed:
-    //  (a) the exempt path exists, so the exemption is not guarding a ghost;
-    //  (b) it STILL trips a banned predicate, so the exemption is doing real
-    //      work rather than sitting there as a permanent licence;
-    //  (c) therefore the day the zoom-ladder lane renames it, this REDs and
-    //      whoever is here deletes the entry. An exemption that cannot expire
-    //      is a hole with a comment on it.
-    expect(EXEMPT.size, 'exemptions should be rare — re-read before adding one').toBe(1)
-    for (const [file, reason] of EXEMPT) {
-      const found = sources.find((sx) => sx.file === file)
-      expect(found, `exempt path no longer exists: ${file} — delete the entry`).toBeDefined()
-      expect(reason.length, `exemption for ${file} carries no reason`).toBeGreaterThan(20)
-      const stillOffends = found!.body
-        .split('\n')
-        .some((line) => BANNED.some((b) => b.re.test(line)))
-      expect(
-        stillOffends,
-        `${file} no longer hand-types a retired caption — DELETE its exemption from EXEMPT`,
-      ).toBe(true)
-    }
+  it('⭐ the low-zoom ladder is IN SCOPE and clean — the pair that started this', () => {
+    // The defect the sweep was widened for: ONE card, ONE quantity, two nouns
+    // at two zoom levels. Assert the low-zoom path is actually SWEPT — not
+    // merely absent from the offender list, which an out-of-scope file also is.
+    const lod = sources.find((sx) => sx.file === 'src/canvas/nodes/shared/lodMetricLine.ts')
+    expect(lod, 'the low-zoom ladder left SCOPE — the pair is unguarded again').toBeDefined()
+    expect(lod!.body.length, 'read as empty — the assertions below would be vacuous').toBeGreaterThan(1000)
+
+    const offending = lod!.body
+      .split('\n')
+      .filter((line) => BANNED.some((b) => b.re.test(line)))
+    expect(offending, `the low-zoom ladder hand-types a retired caption:\n${offending.join('\n')}`).toEqual([])
+
+    // …and it reads its nouns FROM THE REGISTER, so the two zoom levels cannot
+    // drift apart again without this file changing.
+    expect(lod!.body, 'the low-zoom ladder no longer reads the register').toMatch(/METRIC_NOUN\./)
   })
 
   it('the register is the only place the live nouns are spelled', () => {

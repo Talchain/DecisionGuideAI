@@ -17,6 +17,7 @@
  * claim, to the real-browser harness.
  */
 import { describe, it, expect } from 'vitest'
+import { METRIC_NOUN } from '../metricVocabulary'
 import { resolveLodMetricLine } from '../lodMetricLine'
 import type { NodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 
@@ -159,7 +160,7 @@ describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one
           achievementProbabilityIsModelledBasis: false,
         }),
       }),
-    ).toBe('Achievement 70%')
+    ).toBe(`${METRIC_NOUN.chance} 70%`)
   })
 
   it('WITHHOLDS it on the modelled basis, where OutcomeNode is required to render the caveat beside it', () => {
