@@ -30,7 +30,7 @@ import type { Node, NodeProps } from '@xyflow/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { GhostOptionNode } from '../GhostOptionNode'
-import { GHOST_OPTION_NODE_ID, ghostOptionPrompt } from '../../utils/ghostTiers'
+import { GHOST_OPTION_NODE_ID, GHOST_OPTION_DOOR_LABEL, ghostOptionPrompt } from '../../utils/ghostTiers'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -97,7 +97,7 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
     // place (two derivations of one list, and they disagreed).
     const sent = captureSends()
     mount({ prompt: ghostOptionPrompt(MODEL) })
-    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }))
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     expect(sent.calls).toHaveLength(1)
     expect(sent.calls[0]).toBe(ghostOptionPrompt(MODEL))
@@ -110,7 +110,7 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
     // nowhere in the component.
     const sent = captureSends()
     mount({ prompt: ghostOptionPrompt(MODEL) })
-    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }))
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     const text = sent.calls[0]
     expect(text).toContain('Segment')
@@ -122,7 +122,7 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
   it('⛔ NEVER the static sentence — the exact string this door used to send', () => {
     const sent = captureSends()
     mount({ prompt: ghostOptionPrompt(MODEL) })
-    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }))
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     expect(sent.calls[0]).not.toContain(STATIC_SENTENCE)
     expect(sent.calls[0]).not.toContain('an additional option I haven')
@@ -140,12 +140,12 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
 
     const first = captureSends()
     const a = mount({ prompt: ghostOptionPrompt(MODEL) })
-    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }))
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
     a.unmount()
 
     const second = captureSends()
     mount({ prompt: ghostOptionPrompt(other) })
-    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }))
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     expect(first.calls[0]).not.toBe(second.calls[0])
     expect(second.calls[0]).toContain('Snowplow')
@@ -164,7 +164,7 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
     // agree rather than each inventing a policy.
     const sent = captureSends()
     mount({})
-    fireEvent.click(screen.getByRole('button', { name: 'Add another option' }))
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     expect(sent.calls).toEqual([])
   })
@@ -175,7 +175,7 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
     useGuidanceStore.setState({ _sendMessage: null })
     mount({ prompt: ghostOptionPrompt(MODEL) })
     expect(() =>
-      fireEvent.click(screen.getByRole('button', { name: 'Add another option' })),
+      fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })),
     ).not.toThrow()
   })
 })
@@ -193,5 +193,32 @@ describe('the static sentence is gone from the component, not merely unreached',
   it('carries no hardcoded sentence for the door to fall back to', () => {
     expect(source).not.toContain(STATIC_SENTENCE)
     expect(source).not.toContain('an additional option I haven')
+  })
+})
+
+/**
+ * ⚠⚠ THE VISIBLE TEXT WAS UNPINNED, AND A MUTANT PROVED IT (3 Sep 2026).
+ *
+ * Every lookup in this file finds the door by ACCESSIBLE NAME. So replacing the
+ * rendered `{GHOST_OPTION_DOOR_LABEL}` with a hardcoded "+ Explore another
+ * option" — restoring, exactly, the drift this PR closed — left the whole file
+ * GREEN: the `aria-label` still read the constant, so every `getByRole` still
+ * matched, and nothing in the suite ever looked at what a sighted user reads.
+ *
+ * That is the defect itself, not a hypothetical: the door SHIPPED with a
+ * visible "+ Explore another option" beside an `aria-label` of "Add another
+ * option", two hand-kept strings for one idea, and no test could see the
+ * difference between them.
+ */
+describe('the visible sentence and the accessible name are the same string', () => {
+  it('renders GHOST_OPTION_DOOR_LABEL as text, not only as the accessible name', () => {
+    mount({ prompt: 'anything' })
+    const door = screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })
+    // The load-bearing half: the accessible-name lookup above passes whatever
+    // the visible text says, so the visible text is asserted separately.
+    expect(door.textContent?.trim()).toBe(GHOST_OPTION_DOOR_LABEL)
+    expect(door).toHaveAttribute('aria-label', GHOST_OPTION_DOOR_LABEL)
+    // And it is a question, bound to the tier table rather than restated here.
+    expect(GHOST_OPTION_DOOR_LABEL.trim().endsWith('?')).toBe(true)
   })
 })
