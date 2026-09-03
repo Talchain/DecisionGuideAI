@@ -119,33 +119,33 @@ export function ModelRowView({
   const editorAvailable = row.editable && editConnected && typeof onBeginEdit === 'function'
 
   /**
-   * ⚠ THE ONE ⚠ THE MARKS LAYOUT CUTS, AND ONLY WHERE THE WORDS ARE PRESENT.
-   * `no-value` restates "Not set" two atoms away — but "Not set" prints ONLY on
-   * `ValueCell`'s editable arm; a non-editable empty cell is deliberately
-   * SILENT, and there this ⚠ is the only signal anything is missing. So the cut
-   * is conditioned on the words being on screen, not on the reason existing.
+   * ⚠⚠ THE RULE IS REDUNDANCY, NOT "ARE THE WORDS ON SCREEN" — and the earlier
+   * version of this comment stated the superseded rule TRUTHFULLY, which is
+   * worse than stating a false one. It said the cut "tracks what is RENDERED",
+   * and then supplied the fact that completes the wrong syllogism: that the
+   * words ARE present during `proposed`. A reader hitting a RED here would
+   * read that and conclude the TEST was wrong. It survives scrutiny and still
+   * misleads.
    *
-   * ⚠⚠ IT SUPPRESSES A GLYPH, NEVER THE DATA. `row.attention` is untouched —
-   * `RepairQueueDeferral.spec` pins that deferring does not empty it and the
-   * repair queue reads the same array.
-   */
-  /**
-   * ⚠⚠ `phase === 'idle'` IS LOAD-BEARING AND WAS MISSING. `ValueCell` returns
-   * EARLY on any live commit, and on `editing`, `inflight` and `applied` the
-   * words "Not set" are NOT on screen — so without this clause the ⚠ was
-   * suppressed anyway and the row showed NEITHER the words nor the mark, at
-   * exactly the moment the user is acting on it.
+   * THE RULE, stated once and correctly: the ⚠ is cut only where it is
+   * REDUNDANT — where the row is at rest and the cell already says "Not set"
+   * in words two atoms away. Everywhere else it is kept, because everywhere
+   * else "no value is set" is still an unresolved fact about the model.
    *
-   * ⚠ CORRECTED: an earlier version of this comment also named `proposed`.
-   * Measured, that state is NOT defective — `ValueCell` renders `commit.from`
-   * and the panel builds `from: row.primaryValue ?? 'Not set'`, so the real
-   * cell reads "Not set → 60…" and the words ARE present. The defective states
-   * are the other three. Independent review found this by enumerating all 128
-   * states rather than accepting my bound; the guard is correct at 128/128, but
-   * the sentence justifying it was false for one of the states it named.
+   * The two rules diverge on exactly the phases that render `commit.from` —
+   * `proposed` and `refused` — where the words ARE on screen but nothing has
+   * been committed, so the cell is describing a PROPOSAL or a REVERSION rather
+   * than a settled state. `phase === 'idle'` implements the redundancy rule;
+   * a words-rule would wrongly cut both.
    *
-   * The rule: the suppression tracks what is RENDERED, not what the row's data
-   * alone implies.
+   * ⚠ AND THE CUT NEVER TOUCHES THE DATA. `row.attention` is untouched —
+   * `RepairQueueDeferral.spec` pins that deferring does not empty it, and the
+   * repair queue reads the same array. Only the glyph is suppressed.
+   *
+   * Pinned, with the divergent phases named, in
+   * `__tests__/rowAtomsDoNotWrap.spec.tsx` — see "the no-value ⚠ is cut only
+   * where it is REDUNDANT". If you are here because that spec is RED, read it
+   * before changing this line.
    */
   const printsNotSet =
     phase === 'idle' && row.editable && editorAvailable && row.primaryValue === null
@@ -288,8 +288,23 @@ export function ModelRowView({
            yield or the row overflows the dock, which is what happened when this
            was `shrink-0`. Priority, from most protected to least: the node's
            NAME (floored at 6rem), the primary VALUE (never shrinks), the
-           estimate HINT, then this pill. A provenance label truncating is
-           recoverable; a row falling out of the panel is not. */
+           estimate HINT, then this. A provenance label truncating is
+           recoverable; a row falling out of the panel is not.
+
+           ⚠⚠ THAT PRICING WAS WRITTEN FOR A WORDED PILL AND THIS NOW HOLDS A
+           14px GLYPH. The wrapper is unchanged and only the child swapped, so
+           the sentence above quietly stopped being true: a truncated text span
+           reports as a signalled ellipsis, which this file's own doctrine calls
+           "a disclosed loss, not a silent one" — but a clipped glyph emits no
+           ellipsis and simply vanishes. By this file's own standard that is a
+           SILENT loss, which is the thing it refuses everywhere else.
+
+           ⚠ NOT CHANGED HERE, DELIBERATELY. Marks relieve roughly 62px of row
+           pressure, so it is unlikely to clip in practice, and nobody has
+           MEASURED it clipping — swapping to `shrink-0` would be an unmeasured
+           layout change to a row already under review, and would move the
+           deficit onto an atom that has not been priced for it. Rowed instead:
+           re-price the yield ladder now that its last item is indivisible. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
           <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>

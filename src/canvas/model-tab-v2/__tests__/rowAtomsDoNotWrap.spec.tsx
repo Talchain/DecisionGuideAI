@@ -116,7 +116,7 @@ describe('a value never breaks from its own unit', () => {
   })
 })
 
-describe('the no-value ⚠ is cut only where the WORDS are on screen', () => {
+describe('the no-value ⚠ is cut only where it is REDUNDANT', () => {
   /**
    * ⭐ THE PAIR THAT BOUNDS THE ONE DELETION IN THIS CHANGE. The ⚠ is dropped
    * only where "Not set" is actually rendered beside it. `ValueCell` prints
@@ -186,34 +186,37 @@ describe('the no-value ⚠ is cut only where the WORDS are on screen', () => {
   })
 
   /**
-   * ⭐⭐ `proposed` KEEPS THE WARNING TOO, AND THAT IS DELIBERATE — this case
-   * exists because the obvious reading of the rule gets it wrong.
+   * ⭐⭐ THE TWO PHASES WHERE THE RULES DIVERGE, AND BOTH MUST BE PINNED.
    *
-   * The rule is "cut the ⚠ where the words are redundant". Review correctly
-   * established that `proposed` DOES render "Not set" (via `commit.from`), so
-   * on a words-are-on-screen reading the ⚠ should be cut here. It is not, and
-   * the reason is that the rule is about REDUNDANCY, not about the string:
-   * during `proposed` nothing has been committed, so "no value is set" is still
-   * a TRUE and unresolved fact about the model. The words in that cell are
-   * describing a PROPOSAL — "Not set → 60 days" — not a settled state.
+   * `proposed` and `refused` are the only phases that render `commit.from`, so
+   * they are the only ones where "are the words on screen" and "is the ⚠
+   * redundant" give DIFFERENT answers. A words-rule would cut the ⚠ in both; the
+   * redundancy rule keeps it, because nothing has been committed — the cell is
+   * describing a PROPOSAL or a REVERSION, not a settled state, and "no value is
+   * set" remains an unresolved fact about the model.
    *
-   * So the ⚠ is redundant only in the resting row, which is exactly what
-   * `phase === 'idle'` says. Erring toward showing it is also the safe
-   * direction: a spurious ⚠ is noise, a missing one loses the gap.
+   * ⚠ I ENUMERATED THE RATIONALE AND THEN PINNED ONLY ONE OF ITS TWO PHASES.
+   * Independent review measured it: cutting the ⚠ in `refused` survived all 324
+   * tests here. Naming a rule and testing one member of the class it governs is
+   * the same defect as not enumerating at all — the guard just looks thorough.
    */
-  it('keeps the warning during proposed, because nothing is committed yet', () => {
+  it.each([
+    ['proposed', { phase: 'proposed', from: 'Not set', to: '60 days' }],
+    ['refused', { phase: 'refused', from: 'Not set', attempted: '60 days', reason: 'Declined.' }],
+  ])('keeps the warning during %s, because nothing is committed yet', (_n, commit) => {
     render(
       <ModelRowView
         row={row({ id: 'f4', primaryValue: null, attention: ['no-value'] })}
         tier="plain"
-        commit={{ phase: 'proposed', from: 'Not set', to: '60 days' }}
+        commit={commit as never}
         onBeginEdit={() => {}}
         onConfirmEdit={() => {}}
         onDiscardEdit={() => {}}
       />,
     )
-    // The words ARE on screen here — pinned, so the reasoning above stays
-    // checkable rather than becoming a claim nobody re-tests.
+    // The words ARE on screen in both — pinned, so the reasoning stays
+    // checkable rather than becoming a claim nobody re-tests. This is exactly
+    // where a words-rule would disagree with the shipped condition.
     expect(screen.getByTestId('model-row-v2-f4-value')).toHaveTextContent('Not set')
     expect(screen.getByTestId('model-row-v2-f4-attention-no-value')).toBeInTheDocument()
   })
