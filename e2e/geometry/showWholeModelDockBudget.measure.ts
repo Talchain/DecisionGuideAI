@@ -18,11 +18,11 @@
  *
  * `computeFitPadding` measures the dock's live rect and reserves it: at 1280x800
  * with the dock at its 416px default it returns `right: 444px`, and the fit
- * frames into the 760px of canvas actually left over. **Across 190 arms of this
- * file — 19 full runs, 9 at `9c94a718` and 10 at the pre-band `72a43938`, five
- * shipped starters x two viewports, dock asserted expanded at 416px, the button
- * actually offered and clicked in 162 of them — ZERO model nodes end the click
- * behind the dock**, and the same on a further 20 arms at the rebased base. A further 30 arms run independently in review agree, as do
+ * frames into the 760px of canvas actually left over. **Across 260 arms of this
+ * file — 26 full runs at five commits (10 at the pre-band `72a43938`, 9 at
+ * `9c94a718`, 2 at `bd18bace`, 2 at `ce5669d5`, 3 at `5dc287e8`), five shipped
+ * starters x two viewports, dock asserted expanded at 416px — ZERO model nodes
+ * end the click behind the dock.** A further 30 arms run independently in review agree, as do
  * 5 arms at `a1fd39cc` (the build the complaint was taken on) and the 20-arm
  * fresh/restored sweep in `savedExampleShowWholeModel.measure.ts`. The button
  * reaches the dock-aware overview and stays there.
@@ -175,25 +175,59 @@
  * on both quantities. **So the band does not make the race; it turns the race's
  * tall arm from harmless into user-visible.**
  *
- * ⭐ AND IT IS NOT ONLY 1440x900. At **1280x800** three starters report strictly
- * MORE of the model hidden in the default view at head (pre-band n=10, head n=9):
+ * ⭐⭐ AND IT IS NOT ONLY 1440x900 — BUT QUOTE THE RACE-FREE COUNTER, NOT THE
+ * PRODUCT'S NOTICE. At **1280x800** the band newly reserves a strip of canvas,
+ * and the number of model nodes sitting inside that strip in the DEFAULT VIEW is
+ * **`underBand`, which does not race at all**:
  *
- *     market-entry     "12 of 18" 9/10, "10 of 18" 1/10  ->  "9 of 18"  9/9
- *     pricing-model    "12 of 15" 10/10                  ->  "10 of 15" 9/9
- *     headcount-alloc  "14 of 16" 8/10, "13 of 16" 2/10  ->  "14 of 16" 4/9,
- *                                                            "10 of 16" 5/9
+ *                            pre-band        head
+ *     build-vs-buy            0 of 10       12, 16 of 16
+ *     vendor-selection        0 of 10       10, 16 of 16
+ *     market-entry            0 of 10       10, 16 of 16
+ *     headcount-allocation    0 of 10        4, 16 of 16
+ *     pricing-model           0 of 10        3, 16 of 16
  *
- * ⭐ READ THE HEADCOUNT ROW BY MODE, BECAUSE THE FLAT NUMBERS HIDE THE EFFECT.
- * Split by the extent race, pre-band n=10 against head n=9:
+ * **Identical node ids every single run, no variance, at all four head commits.**
+ * (Pre-band reads 0 BY CONSTRUCTION — the band element does not exist there — so
+ * the honest claim is "this many model nodes now sit in a region that was open
+ * canvas", not "the band newly covered them".)
+ *
+ * ⚠⚠ AND WHY THIS ROW USED TO QUOTE THE PRODUCT NOTICE INSTEAD — THE SAME TRAP, A
+ * FIFTH TIME, AND THIS ONE IS THE SHARPEST. An earlier draft nominated
+ * `market-entry` as the RACE-FREE CONTRAST on the grounds that "its extent is
+ * 2312 in all 19 runs, no race at all". **That is true of extent HEIGHT and false
+ * of the starter.** Its extent WIDTH takes **nine distinct values** — 1084-1122
+ * across 26 runs here, and 1057-1121 independently. **"No race" was a claim about
+ * the axis I happened to be measuring**, which is precisely what the four earlier
+ * instances above were. The consequence was live: the row asserted `"9 of 18"`
+ * 9 of 9, and an independent n=3 at the merge head drew **`"8 of 18"` once**, a
+ * value the table did not list. My own n=3 at the merge head drew `"9 of 18"`
+ * 3 of 3, so I cannot reproduce it and do not claim to — **which is itself the
+ * argument for quoting `underBand`, whose 16-of-16 needs no such defence.**
+ *
+ * ⭐ READ THE HEADCOUNT NOTICE ROW BY MODE, BECAUSE THE FLAT NUMBERS HIDE THE
+ * EFFECT. Split by the extent race, pre-band n=10 against head n=9 at `9c94a718`:
  *
  *     short mode  "14 of 16", 9 of 9 pre-band  ->  "14 of 16", 4 of 4 head
  *     tall mode   "13 of 16", 1 of 1 pre-band  ->  "10 of 16", 5 of 5 head
  *
  * **The band costs this starter NOTHING in the short mode and THREE more hidden
  * elements in the tall one** — not the flat "14 -> 10" an earlier draft implied,
- * which was wrong at both ends. `market-entry` is the contrast that shows the
- * band's cost is not merely a race artefact: its extent is **2312 in all 19
- * runs, no race at all**, and it still loses three elements.
+ * which was wrong at both ends. (Independently confirmed on 4 of 4 pre-band tall
+ * runs where this file has 1 of 1.)
+ *
+ * ⚠ TWO WAYS TO MISREAD EVERY FRACTION ON THIS PAGE, BOTH REAL:
+ *
+ *   1. **MODE FREQUENCIES ARE ENVIRONMENT-SPECIFIC, THE MAPPING IS NOT.** This
+ *      file measures 1 tall / 9 short at 1280x800 pre-band; an independent n=8
+ *      measures 4 tall / 4 short. Which mode a run lands in is a property of
+ *      MACHINE TIMING. What transfers is `mode -> notice`; the RATIO does not,
+ *      and a reader who inherits it inherits my laptop as a product fact.
+ *   2. **THE HEAD COLUMN IS POOLED ACROSS COMMITS; THE PRE-BAND COLUMN IS ONE.**
+ *      Head = 9 runs at `9c94a718` + 2 at `bd18bace` + 2 at `ce5669d5` + 3 at
+ *      `5dc287e8`. That is how a "16 of 16" survives a change of base — and why
+ *      an n=3 taken at one specific merge head can disagree with it. `underBand`
+ *      is quoted precisely because it is identical at all four.
  *
  * **This is a regression in the product's first view, and it is the most
  * decision-relevant number here.** It is REPORTED, not acted on: `#1162` solved
@@ -247,11 +281,13 @@
  *
  *     bd18bace   frame 760x635 / 920x735, chrome 165   guard 0/20
  *     ce5669d5   frame 760x635 / 920x735, chrome 165   guard 0/20
+ *     5dc287e8   frame 760x635 / 920x735, chrome 165   guard 0/30  (n=3)
  *
  * At `bd18bace` one edge moved and was widened rather than left standing —
  * `headcount-allocation` at 1440x900 read 0.4817 against the n=9 low of 0.4820.
- * At `ce5669d5` every quoted range contained every new reading with nothing
- * outside. A node-component change that DID move these numbers would be a
+ * At `ce5669d5` and `5dc287e8` every quoted range contained every new reading
+ * with nothing outside; `5dc287e8` touches only `src/components/results/*`, no
+ * canvas node component, and was measured anyway. A node-component change that DID move these numbers would be a
  * finding, not a nuisance; that is why it is measured each time.
  *
  * ⚠ AND A CORRECTION I OWE AGAINST MYSELF, BECAUSE IT IS CLAUDE.md TRAP 24b AND I
