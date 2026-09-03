@@ -753,8 +753,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             scanned by the glossary guard). Both surfaces answer one question —
             "success is undefined, what follows?" — so a single string is correct
             here rather than a two-questions-one-name conflation. The ACTION is not
-            duplicated: GoalNode co-renders its "No target set" chip in exactly this
-            state (GoalNode.tsx `{!hasThreshold && !isPostAnalysis && ...}`), and that
+            duplicated: GoalNode co-renders its "Target not captured — add one" chip in
+            exactly this state (GoalNode.tsx `{canCaptureTarget && !isPostAnalysis
+            && ...}`), and that
             chip carries both the action and its own aria-label. */}
         {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
           <StatusPill

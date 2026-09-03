@@ -304,7 +304,7 @@ describe('GoalNode', () => {
 
   it('does not show threshold context when goal_threshold_raw is absent', () => {
     renderGoal()
-    // No threshold display, shows the compact "No target set" chip instead (R5)
+    // No threshold display, shows the compact "Target not captured — add one" chip instead (R5)
     expect(screen.queryByText(/Target:/)).toBeNull()
     expect(screen.getByTestId('goal-node-no-target-chip')).toBeDefined()
   })

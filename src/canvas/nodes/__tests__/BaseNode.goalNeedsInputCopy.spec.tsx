@@ -19,7 +19,7 @@
  *
  * ⚠ WHY THE aria-label ASSERTION IS THE LOAD-BEARING ONE. `StatusPill` reuses
  * `title` as `aria-label` (StatusPill.tsx:29,32). A sighted user also reads the
- * co-rendered "No target set" chip; a screen-reader user received the pill's
+ * co-rendered "Target not captured — add one" chip; a screen-reader user received the pill's
  * sentence and it was the ONLY thing carrying this claim. Pinning the visible
  * title alone would leave the worse path unpinned.
  *

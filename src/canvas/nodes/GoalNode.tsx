@@ -2,9 +2,9 @@
  * Goal node component — v3 wireframe
  *
  * Layer 1 (always visible):
- *  - No threshold (either phase): one compact "No target set" status chip that
- *    opens this node's inspector. R5/L-47: no instructional prose, no full
- *    buttons on the node.
+ *  - No threshold (either phase): one compact "Target not captured — add one"
+ *    status chip that opens this node's inspector. R5/L-47: no instructional
+ *    prose, no full buttons on the node.
  *  - With threshold: `GOAL_TARGET_PREFIX` + value ("Target: 15%") + provenance
  *    icon. The SAME string is this card's reduced line below the legibility
  *    floor — see `targetLine`, which is the only place it is built.
@@ -61,7 +61,66 @@ import { formatGoalProbability } from '../../components/results/utils/displayFlo
  * contradicting body hidden.
  */
 const GOAL_TARGET_PREFIX = 'Target:'
-const GOAL_NO_TARGET_LINE = 'No target set'
+
+/**
+ * ⭐⭐⭐ THE NO-TARGET CHIP ANSWERS A QUESTION ABOUT THE MODEL, AND MUST NOT
+ * PHRASE ITS ANSWER AS A VERDICT ON THE READER.
+ *
+ * ⚠⚠ WITNESSED ON A REAL USER'S SCREEN, 3 Sep 2026. This card rendered its
+ * title and this chip ~20px apart:
+ *
+ *     title   Reach £30k MRR Within 18 Months
+ *     chip    No target set
+ *
+ * The target is IN THE TITLE. The anchor element of the whole model
+ * contradicted itself in one glance — and the chip was not lying about the
+ * data: the compiled model behind it carried `goal_threshold: null` and
+ * `goal_constraints: null` (real 19-turn session bundle,
+ * `Talchain/olumi-programme-docs` @ `b15bf3f`,
+ * `artefacts/manual-test-2026-09-03/`). Extraction is a separate defect with a
+ * separate owner; nothing here tries to fix it.
+ *
+ * ── TWO QUESTIONS UNDER ONE SENTENCE (CLAUDE.md trap 21) ───────────────────
+ *   what this card computes   "does the MODEL hold a threshold?"   → no
+ *   what the reader hears     "did I state a target?"              → you didn't
+ *
+ * The remedy trap 21 prescribes is to NAME THEM APART, not to align them and
+ * not to hide the chip. So the chip keeps answering the first question and
+ * moves its subject onto Olumi's CAPTURE rather than the user's statement.
+ * `Target not captured` is equally honest for the user who genuinely never
+ * stated one — nothing was captured either way — and it stops accusing the one
+ * who did.
+ *
+ * ⚠ THE SIBLING SURFACE IS DELIBERATELY NOT TOUCHED. The Reasoning panel's
+ * model strip says `Target · None set` (`analysisNewCopy.ts`), adjudicated
+ * there as a fact about the model under a `Target` caption that frames it as a
+ * readout. This chip has no such frame. The two are not a hand-copied pair and
+ * neither contradicts the other — both say the model holds nothing.
+ *
+ * ── AND THE REPAIR IS VISIBLE TEXT, NOT A TOOLTIP ─────────────────────────
+ * A `title` is unreachable by keyboard and absent on touch (the rule
+ * `NodeMetricRow`'s header states for its captions), so a chip that named the
+ * gap and parked the way out in a hover would leave both of those readers with
+ * a confession and no route. The route itself is not new: this chip has always
+ * called `openNodeInspector`, and the inspector's goal panel renders
+ * `GoalThresholdEditor` on exactly this null-target branch
+ * (`GoalPanel.tsx:351-381`). `GoalNode.noTargetChipCopy.spec.tsx` asserts the
+ * click still lands there, because copy that promises an affordance is honest
+ * only while the affordance answers.
+ *
+ * ── WHY THREE CONSTANTS AND NOT ONE STRING ────────────────────────────────
+ * The STATE is the only half small enough for the reduced line: `BaseNode`
+ * renders that line CSS-truncated with an ellipsis, so the repair clause would
+ * be cut mid-word below the legibility floor. The chip is COMPOSED from the
+ * same constant rather than written beside it — the last time this card kept
+ * two hand-written copies of one string they drifted by a colon within a day.
+ */
+/** The fact, and the reduced line below the legibility floor. */
+export const GOAL_NO_TARGET_STATE = 'Target not captured'
+/** The way out, appended at full zoom where there is room for it. */
+export const GOAL_NO_TARGET_REPAIR = 'add one'
+/** What the chip renders — derived, never a second hand-written copy. */
+export const GOAL_NO_TARGET_CHIP = `${GOAL_NO_TARGET_STATE} — ${GOAL_NO_TARGET_REPAIR}`
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -356,10 +415,18 @@ export const GoalNode = memo((props: NodeProps) => {
    * target is the state EVERY model is in before somebody sets one — the single
    * most common goal card there is, and below the floor it was an EMPTY BOX,
    * which is indistinguishable from a broken render. It now says the card's own
-   * words: `GOAL_NO_TARGET_LINE` is the same constant the full-zoom chip
-   * renders, so this states an ABSENCE and can never be mistaken for a value.
+   * words: `GOAL_NO_TARGET_STATE` is the same constant the full-zoom chip is
+   * COMPOSED from, so this states an ABSENCE and can never be mistaken for a
+   * value.
+   *
+   * ⚠ THE STATE, NOT THE WHOLE CHIP. The line below is CSS-truncated with an
+   * ellipsis (`BaseNode.tsx`), so appending the repair clause here would cut it
+   * mid-word at the one size where the body it belongs to is hidden. The
+   * agreement rule the sibling spec pins is a SUBSTRING rule — the reduced line
+   * must be text the full-zoom card already shows — and a shared constant
+   * satisfies it by construction rather than by anyone remembering to.
    */
-  const lodMetric = targetLine ?? GOAL_NO_TARGET_LINE
+  const lodMetric = targetLine ?? GOAL_NO_TARGET_STATE
 
 
   // Science icons (spec Section 4.1)
@@ -465,7 +532,12 @@ export const GoalNode = memo((props: NodeProps) => {
   // WITHOUT producing any probability are different situations with different
   // next actions, so they get different tooltips and different accessible
   // names. The visible chip text stays one short phrase either way: the point
-  // of R5 is that the node signals, and the detail lives one hover away.
+  // of R5 is that the node signals, and the DIAGNOSTIC lives one hover away.
+  //
+  // ⚠ THE REPAIR DOES NOT. It is in the visible text and in the accessible
+  // name, on both arms — a `title` is unreachable by keyboard and absent on
+  // touch, so a chip that named the gap and parked the way out in a hover would
+  // leave those readers with a confession and no route.
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
   const noTargetStatusChip = (
     <button
@@ -475,18 +547,18 @@ export const GoalNode = memo((props: NodeProps) => {
       className={`nodrag mt-1 inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       aria-label={
         noTargetDiagnostic
-          ? "No target set, and this run produced no probability — open this goal's details"
-          : "No target set — open this goal's details to set one"
+          ? `${GOAL_NO_TARGET_STATE}, and this run produced no probability — open this goal's details to ${GOAL_NO_TARGET_REPAIR}`
+          : `${GOAL_NO_TARGET_STATE} — open this goal's details to ${GOAL_NO_TARGET_REPAIR}`
       }
       title={
         noTargetDiagnostic
-          ? 'The analysis finished without producing a probability. Set a measurable target, and check the model for inputs that are still incomplete.'
-          : 'Add a measurable success target, e.g. metric, threshold or deadline'
+          ? "Olumi hasn't captured a measurable success target for this goal, and the analysis finished without producing a probability. Open its details to add one, and check the model for inputs that are still incomplete."
+          : "Olumi hasn't captured a measurable success target for this goal. Open its details to add one — a metric, a threshold or a deadline."
       }
       data-testid="goal-node-no-target-chip"
       data-diagnostic={noTargetDiagnostic ? 'no-probability' : undefined}
     >
-      {GOAL_NO_TARGET_LINE}
+      {GOAL_NO_TARGET_CHIP}
     </button>
   )
 
