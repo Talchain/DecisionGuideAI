@@ -116,6 +116,58 @@ describe('a value never breaks from its own unit', () => {
   })
 })
 
+describe('the no-value ⚠ is cut only where the WORDS are on screen', () => {
+  /**
+   * ⭐ THE PAIR THAT BOUNDS THE ONE DELETION IN THIS CHANGE. The ⚠ is dropped
+   * only where "Not set" is actually rendered beside it. `ValueCell` prints
+   * those words on its EDITABLE idle arm and nowhere else, so both halves are
+   * asserted — a suppression that fired one atom wider would leave a row with
+   * no missing-value signal at all.
+   */
+  it('is cut when the editable idle cell prints "Not set"', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f1', primaryValue: null, attention: ['no-value'] })}
+        tier="plain"
+        onBeginEdit={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('model-row-v2-f1-value')).toHaveTextContent('Not set')
+    expect(screen.queryByTestId('model-row-v2-f1-attention-no-value')).toBeNull()
+  })
+
+  it('is KEPT when the cell is silent, because there the ⚠ is the only signal', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f2', primaryValue: null, editable: false, attention: ['no-value'] })}
+        tier="plain"
+      />,
+    )
+    expect(screen.getByTestId('model-row-v2-f2-value')).toHaveTextContent('')
+    expect(screen.getByTestId('model-row-v2-f2-attention-no-value')).toBeInTheDocument()
+  })
+
+  /**
+   * ⚠⚠ THE CASE THE FIRST CUT MISSED. On a live commit `ValueCell` returns
+   * early and never prints "Not set" — so suppressing the ⚠ there left the row
+   * showing NEITHER the words nor the mark, at the moment the user is editing.
+   */
+  it('is KEPT during a live commit, when the words are not rendered', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f3', primaryValue: null, attention: ['no-value'] })}
+        tier="plain"
+        commit={{ phase: 'proposed', from: '', to: '60 days' }}
+        onBeginEdit={() => {}}
+        onConfirmEdit={() => {}}
+        onDiscardEdit={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('model-row-v2-f3-value')).not.toHaveTextContent('Not set')
+    expect(screen.getByTestId('model-row-v2-f3-attention-no-value')).toBeInTheDocument()
+  })
+})
+
 describe('the atoms that must hold their size', () => {
   it('the attention marker never shrinks', () => {
     render(<ModelRowView row={row({ id: 'f1', attention: ['unconfirmed-estimate'] })} tier="plain" />)

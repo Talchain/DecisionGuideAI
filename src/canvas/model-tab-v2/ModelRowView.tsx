@@ -129,7 +129,17 @@ export function ModelRowView({
    * `RepairQueueDeferral.spec` pins that deferring does not empty it and the
    * repair queue reads the same array.
    */
-  const printsNotSet = row.editable && editorAvailable && row.primaryValue === null
+  /**
+   * ⚠⚠ `phase === 'idle'` IS LOAD-BEARING AND WAS MISSING. `ValueCell` returns
+   * EARLY on any live commit (`if (commit && commit.phase !== 'idle')`), so
+   * during `editing` or `proposed` the words "Not set" are NOT on screen.
+   * Without this clause the ⚠ was suppressed anyway — the row losing its only
+   * missing-value signal at exactly the moment the user is acting on it, and
+   * showing neither the words nor the mark. The suppression must track what is
+   * RENDERED, not what the row's data alone implies.
+   */
+  const printsNotSet =
+    phase === 'idle' && row.editable && editorAvailable && row.primaryValue === null
   const attentionShown = row.attention.filter(
     r => !(r === 'no-value' && printsNotSet),
   )
