@@ -285,6 +285,57 @@ for (const viewport of VIEWPORTS) {
         `two overlays occupy the same space: ${JSON.stringify(r.overlayOverlayHits)}`,
       ).toEqual([])
 
+      // ── AN OCCUPANT MUST FIT INSIDE THE BAND ──────────────────────────────
+      // The band reserves a FIXED height and its cells align to the bottom, so
+      // an occupant taller than the band grows UPWARD, out of the reserved area
+      // and back over the canvas — reintroducing exactly the defect this change
+      // removes, with every unit test still green. Measured here because
+      // wrapped text is a rendering fact, not something jsdom can see.
+      //
+      // ⚠ 64 IS RESTATED HERE, NOT IMPORTED — AND THAT IS A MEASURED CHOICE,
+      // NOT LAZINESS. Importing `OVERLAY_BAND_HEIGHT` from the component pulls
+      // `CanvasOverlayBand.tsx` (and through `FloatingOlumiPanel`, most of the
+      // React app) into `tsconfig.tooling.json`, which compiles this file:
+      // measured at +168 diagnostics and a typecheck-ratchet RED in
+      // `src/lib/auth/accessValidation.ts`, a file this branch never touches.
+      // `computeFitPadding.ts` restates `OVERLAY_BAND_SELECTOR` for the same
+      // reason, and is guarded the same way.
+      //
+      // So the mirror is made to FAIL LOUD instead of being abolished:
+      // `overlayBandHeight.sourceScan.spec.ts` reads THIS FILE'S BYTES and REDs
+      // if this number and `OVERLAY_BAND_HEIGHT` ever disagree. Keep the
+      // literal on the next line in the form `const BAND_H = <number>` — the
+      // scan binds to that shape.
+      const BAND_H = 64
+      // The pill is excluded because it is NOT a band occupant — it is the
+      // fixed corner element the band must AVOID, and it is legitimately
+      // taller than a band cell.
+      const tooTall = r.overlays.filter(
+        (o) => o.id !== 'floating-olumi-panel-pill' && o.rect.height > BAND_H,
+      )
+      expect(
+        tooTall.map((o) => `${o.id}:${Math.round(o.rect.height)}px`),
+        `an overlay is taller than the ${BAND_H}px band and spills above it, over the canvas`,
+      ).toEqual([])
+
+      // ── THE EXTENT NOTICE IS A CONTROL, AND MUST STILL BE REACHABLE ───────
+      // It carries the only "Show whole model" affordance. It was briefly lost
+      // when `first-model-notice` — present on every fresh draft — outranked it
+      // in the shared bottom-centre cell; `showWholeModelFit.visual.spec.ts`
+      // caught that as a CLICK TIMEOUT, not as a picture. The fix was to RANK
+      // it above the disclosures in that same cell, NOT to give it its own:
+      // a separate bottom-right cell was measured and made the two overlap by
+      // ~2,503px^2, because the band cannot fit both at 1280 with the dock
+      // open. See `OVERLAY_PRIORITY` for the ordering rule this pins.
+      //
+      // On these models the fit is floored and the graph overflows, so the
+      // notice has something to say in every one of them — which is what makes
+      // this assertion non-vacuous here rather than an accident of the corpus.
+      expect(
+        r.overlays.some((o) => o.id === 'model-extent-notice'),
+        'the "Showing N of M elements" control is absent — "Show whole model" is unreachable',
+      ).toBe(true)
+
       // ── NEVER OVER THE DECISION NODE ──────────────────────────────────────
       // ⚠ THIS IS DELIBERATELY NARROWER THAN "NEVER OVER A NODE", AND THE
       // REASON IS A MEASUREMENT, NOT A CONVENIENCE — so it is stated rather
