@@ -59,6 +59,7 @@ export function buildStrengthenInputsForAnalysisNew({
   const phase3Items = guidanceItems.map(toStrengthenPhase3Item)
   return {
     goalThreshold: data.recommendation.goalThreshold ?? null,
+    hasStatedGoalTarget: data.recommendation.hasGoalTarget,
     analysisComplete: data.recommendation.analysisStatus === 'computed',
     // The OWNED leader entitlement, quoted from the single verdict and never
     // re-derived. A completed analysis is not an entitlement to name a leader.

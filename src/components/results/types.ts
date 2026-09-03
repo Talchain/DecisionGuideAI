@@ -389,6 +389,12 @@ export interface DecisionResultData {
   /** Symbol for currency (e.g., '$', '£') */
   outcomeUnitSymbol?: string
   goalThreshold?: number | null
+  /**
+   * ⚠ EXISTENCE, separate from the number above. True when a target has been
+   * STATED — including as `'200k'` or `'£11M'`, which no `number | null` can
+   * carry. `goalThreshold == null` means "no NUMBER", never "no target".
+   */
+  hasGoalTarget?: boolean
   /** Recommendation stability (0-1): how often the recommendation stays winner under uncertainty */
   recommendationStability?: number
   /** Win probability (0-1): how often this option beats alternatives */

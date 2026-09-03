@@ -230,8 +230,38 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // reaching for `analysisComplete` again.
   const leaderClaimWithheld = inputs.hasLeadingOption === false
 
-  // ── Clarify: define a measurable success (deterministic) ──────────────────
-  if (inputs.goalThreshold == null) {
+  /**
+   * ── Clarify: define a measurable success (deterministic) ──────────────────
+   *
+   * ⚠⚠ GATED ON EXISTENCE, NOT ON A NUMBER, AND THE DIFFERENCE IS THE WHOLE
+   * DEFECT. This read `inputs.goalThreshold == null` — a numeric test standing
+   * in for "has anyone set a target?". It is not the same question. A goal
+   * stating `200k`, `£11M`, `11%` or `≥ £1,000` HAS a target that no
+   * `number | null` can hold, so the card denied one while the model strip
+   * displayed it, in the same panel, with the words "your goal has no success
+   * threshold (checked directly)".
+   *
+   * Five rounds of tightening and widening a single coercion each moved that
+   * harm rather than closing it, because the two harms are opposite: too
+   * permissive silences true coaching, too strict re-opens the contradiction.
+   * `hasStatedGoalTarget` is the existence answer, `goalThreshold` stays the
+   * number, and neither is asked to be the other.
+   *
+   * The `=== undefined` fallback keeps every legacy and fixture caller on
+   * exactly its previous behaviour.
+   *
+   * ⚠ IT IS `=== undefined`, NOT `??`, AND AN EARLIER VERSION OF THIS COMMENT
+   * SAID `??`. They differ on an explicit `null`: `??` would treat one as
+   * absent and fall back to the numeric test, while `=== undefined` treats it
+   * as a present answer of "no target stated". The type is `boolean | undefined`
+   * so `null` is not admitted, which is why the code is right — but a comment
+   * naming a mechanism the code beside it does not use is the defect this whole
+   * change is about, and it does not get an exemption for being small.
+   */
+  const noStatedTarget = inputs.hasStatedGoalTarget === undefined
+    ? inputs.goalThreshold == null
+    : !inputs.hasStatedGoalTarget
+  if (noStatedTarget) {
     recs.push({
       id: SUCCESS_MEASURE_RECOMMENDATION_ID,
       helpType: 'clarify',
