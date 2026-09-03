@@ -934,6 +934,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // regardless of who supplied it.
     const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
     const storeEdges = Array.isArray(st.edges) ? st.edges : []
+    // ⚠ NOT A CLAIM ABOUT THESE VALUES — a local narrowing around a PRE-EXISTING
+    // typing break in this file. `EdgeProps<EdgeData>` does not resolve here, so
+    // `id`, `source` and `target` all arrive as `unknown` and several of this
+    // file's 27 baseline type errors are exactly that. React Flow supplies them
+    // as strings; narrowing locally keeps the ratchet honest instead of adding
+    // four more errors to a file that already carries the problem.
+    const selfId = id as string
+    const selfSource = source as string
+    const selfTarget = target as string
     const nodeById = new Map(storeNodes.map((n) => [n.id, n]))
     const centreOf = (nodeId: string): { x: number; y: number } | null => {
       const n = nodeById.get(nodeId)
@@ -943,9 +952,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // `position` is the parent-relative top-left; `internals.positionAbsolute`
       // is what React Flow itself uses to place the handles this offset is
       // applied at, so it is the basis that cannot disagree with `targetX/Y`.
-      const p = n.internals?.positionAbsolute ?? n.position
-      if (!p) return null
-      return { x: p.x + w / 2, y: p.y + h / 2 }
+      // Read structurally because the store types `nodes` as `Node`, which does
+      // not carry `internals` — and `position` is the correct answer anyway
+      // wherever nothing is parented, which is every node this app builds.
+      const internals = (n as { internals?: { positionAbsolute?: { x: number; y: number } } }).internals
+      const pos = internals?.positionAbsolute ?? n.position
+      if (!pos) return null
+      return { x: pos.x + w / 2, y: pos.y + h / 2 }
     }
     // ⚠ A MISSING TARGET NODE MUST NOT COLLAPSE BACK TO ONE POINT. An earlier
     // draft returned a single constant offset here, which is the ORIGINAL
@@ -953,23 +966,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // share it again. Instead the whole group is handed null directions, which
     // is the resolver's degraded branch: index-by-id radii, still pairwise
     // distinct. A fallback for an unreachable state is still a state.
-    const targetCentre = centreOf(target)
+    const targetCentre = centreOf(selfTarget)
     const siblings: GlyphSibling[] = []
     for (const e of storeEdges) {
       // Every edge into this target, INCLUDING structural ones and ones whose
       // glyph is suppressed. Deliberate: the assignment must not shift when a
       // neighbour's chip appears on hover, or the glyph would jump under the
       // pointer. A reserved-but-unused slot costs nothing.
-      if (e.target !== target) continue
+      if (e.target !== selfTarget) continue
       siblings.push({ id: e.id, sourceCentre: targetCentre ? centreOf(e.source) : null })
     }
     // This edge is rendering, so it exists — even if the store slice handed to
     // the selector has not caught up. Without this the resolver takes its
     // caller-bug path and every such edge shares one offset.
-    if (!siblings.some((sib) => sib.id === id)) {
-      siblings.push({ id, sourceCentre: targetCentre ? centreOf(source) : null })
+    if (!siblings.some((sib) => sib.id === selfId)) {
+      siblings.push({ id: selfId, sourceCentre: targetCentre ? centreOf(selfSource) : null })
     }
-    const { dx, dy } = resolvePolarityGlyphOffset(id, targetCentre ?? { x: 0, y: 0 }, siblings)
+    const { dx, dy } = resolvePolarityGlyphOffset(selfId, targetCentre ?? { x: 0, y: 0 }, siblings)
     return `${Math.round(dx * 100) / 100},${Math.round(dy * 100) / 100}`
   })
 
