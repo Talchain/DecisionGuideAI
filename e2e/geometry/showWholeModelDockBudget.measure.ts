@@ -18,37 +18,60 @@
  *
  * `computeFitPadding` measures the dock's live rect and reserves it: at 1280x800
  * with the dock at its 416px default it returns `right: 444px`, and the fit
- * frames into the 760px of canvas actually left over. **Across 60 arms of this
- * file — 6 full runs, 4 at `9c94a718` and 2 at the pre-band `72a43938`, five
- * shipped starters x two viewports, dock asserted expanded at 416px — ZERO model
- * nodes end the click behind the dock.** A further 30 arms run independently in
- * review agree, as do 5 arms at `a1fd39cc` (the build the complaint was taken
- * on) and the 20-arm fresh/restored sweep in
- * `savedExampleShowWholeModel.measure.ts`. The button reaches the dock-aware
- * overview and stays there.
+ * frames into the 760px of canvas actually left over. **Across 130 arms of this
+ * file — 13 full runs, 9 at `9c94a718` and 4 at the pre-band `72a43938`, five
+ * shipped starters x two viewports, dock asserted expanded at 416px, the button
+ * actually offered and clicked in 114 of them — ZERO model nodes end the click
+ * behind the dock.** A further 30 arms run independently in review agree, as do
+ * 5 arms at `a1fd39cc` (the build the complaint was taken on) and the 20-arm
+ * fresh/restored sweep in `savedExampleShowWholeModel.measure.ts`. The button
+ * reaches the dock-aware overview and stays there.
  *
  * ⭐ WHAT WAS ACTUALLY SEEN IS THE **DEFAULT VIEW**, NOT THE BUTTON.
  * `headcount-allocation` at 1280x800, dock expanded, after the product's own
  * automatic fit and before any click, has `opt_sales` (an option) and
  * `fac_quota_attainment` (a factor) behind the dock in **every** run.
  *
- * ⚠ ITS COUNTER IS BIMODAL, AND THE REPORTED STRING IS THE RARER MODE — say so
- * rather than claiming an exact reproduction. The measured extent height on this
- * starter races a corrective layout, and the notice tracks it:
+ * ⚠⚠ ITS COUNTER IS BIMODAL, THE MODE IS A RACE, AND — THE PART TWO SUCCESSIVE
+ * DRAFTS OF THIS FILE GOT WRONG — **THE MODE IS NOT A PROPERTY OF THE VIEWPORT.**
+ * `headcount-allocation`'s measured extent height races a corrective layout and
+ * settles into one of two values, and the notice tracks it:
  *
- *     extent 1472-1473 (3 of 4 runs)  ->  "Showing 14 of 16 elements"
- *     extent 1525      (1 of 4 runs)  ->  "Showing 10 of 16 elements"   <- as reported
+ *     extent ~1472  ->  "Showing 14 of 16 elements"
+ *     extent ~1524  ->  "Showing 10 of 16 elements"      <- as reported
  *
- * — and 0 of 3 independent runs saw the second. So the reported sighting is
- * real and REPRODUCES INTERMITTENTLY; it is not a deterministic state.
+ * At 1280x800, n=9: **5 tall / 4 short**. At 1440x900, n=9: **1 tall / 8 short**.
+ * At the pre-band commit, 1440x900, n=4: **2 tall / 2 short**. So BOTH modes occur
+ * at BOTH viewports and at both commits, and the reported string is the MAJORITY
+ * mode at 1280x800 once the sample is large enough to see it.
+ *
+ * ⚠ THIS IS THE SECOND TIME THIS FILE HAS MIS-STATED THIS, IN THE OPPOSITE
+ * DIRECTION EACH TIME, AND BOTH TIMES FROM TOO FEW RUNS. Draft 1 quoted a
+ * 1440x900 extent inside a 1280x800 sentence. Draft 2 corrected that and then
+ * called the reported string "the rarer mode, 1 of 4" — from four runs that
+ * happened to land 3-1, when nine land 5-4 the other way; and quoted a 1440x900
+ * head range of `0.4990-0.4993` from four runs that ALL happened to be short
+ * mode, when nine give **0.4820-0.4993** (which contains, exactly, the
+ * independently measured 0.4820 / 0.4823 / 0.4973 that flagged it). **Neither
+ * error was a viewport substitution; both were a range quoted from too small a
+ * sample of a BIMODAL variable, which is the failure the run-count rule below
+ * exists to catch.** Quote `n`, and quote it large enough to have seen both
+ * modes.
  *
  * ⚠ AND THE NOTICE IS NOT THIS FILE'S `outsideVisible` — two questions, one
  * shape (CLAUDE.md trap 21). The notice counts the STORE's model against the
  * PADDED FRAME when it renders; `outsideVisible` counts RENDERED DOM boxes
- * against the visible canvas. On the same default view they read 2-outside and
- * 6-outside respectively in three runs, and coincidentally agreed at 6 in the
- * fourth. Neither is wrong; they are not the same count and must not be
- * arithmetically reconciled.
+ * against the visible canvas.
+ *
+ * ⭐ AND THE DIFFERENCE CANNOT BE A FRAME EFFECT, WHICH IS WHAT SETTLES IT: the
+ * notice's frame is the STRICTER of the two — the padded frame is inset from the
+ * visible canvas by `GAP` on every side — and yet it reports FEWER nodes outside
+ * (2 against 6). A stricter frame cannot find less. What is left is the other
+ * term: the notice reasons in MODEL units (`position + measured.height`) while
+ * this file reasons in RENDERED pixels, and `measured.height x zoom` is not the
+ * rendered height, because card height is itself zoom-dependent through
+ * level-of-detail (the effect `canvasGateSet.ts` already names). Neither count
+ * is wrong; they must not be arithmetically reconciled.
  *
  * ⭐⭐ THE MECHANISM IS A BUDGET, NOT A BUG.
  * The product's automatic fit is floored at `LABEL_LEGIBLE_ZOOM` (0.5) — below
@@ -74,19 +97,28 @@
  *
  * **So the load-bearing quantity is `heightOnlyCeiling` — `frameHeight /
  * modelHeight`, the zoom the model could reach IF EVERY HORIZONTAL OCCLUDER
- * VANISHED.** It is untouched by the dock's width, by collapsing it, by removing
- * it, and by the sidebar. Measured at head, 1280x800, n=4, against a floor of
- * **0.50**:
+ * VANISHED.** It is structurally untouched by the dock's width, by collapsing it,
+ * by removing it, and by the sidebar, because `computeFitPadding`'s only cap
+ * (`capPair` / `MAX_PADDING_FRACTION`) is applied PER AXIS. Measured at head,
+ * 1280x800, **n=9**, against a floor of **0.50**:
  *
- *     build-vs-buy          0.2428          headcount-allocation  0.4164-0.4314
+ *     build-vs-buy          0.2361-0.2428   headcount-allocation  0.4164-0.4314
  *     vendor-selection      0.2892-0.2994   pricing-model         0.4014-0.4137
  *     market-entry          0.2747
  *
- * **Not one clears the floor, and the highest is 14% below it.** Collapsing the
+ * **Not one clears the floor, and the highest is 13.7% below it.** Collapsing the
  * dock (416 -> 40px) widens the frame 760 -> 1136 and moves none of these
  * numbers at all. **No horizontal change makes any starter whole-and-legible at
  * 1280x800.** That holds however the binding-axis coin lands, which is the point
  * of stating it this way.
+ *
+ * ⚠ ONE RESIDUAL, STATED RATHER THAN LEFT TO BE FOUND: `extent.height` is read
+ * from `measured` UNDER THE CURRENT CAMERA, so `heightOnlyCeiling` is not
+ * strictly a constant of the model — it inherits the same bimodal race as the
+ * notice above. It survives that because the margin it is asked to carry is
+ * 13.7% and the observed spread is 3.5%. A future model whose ceiling sits
+ * within a few percent of the floor would need this re-derived at a pinned
+ * camera before the same argument could be made about it.
  *
  * The frame at head: **760 x 635** at 1280x800 and **920 x 735** at 1440x900 —
  * 520px of horizontal chrome and **165px of vertical**, the latter being the
@@ -104,17 +136,31 @@
  *     vertical chrome   1280x800   102px -> 165px   (the band costs 63px)
  *                       1440x900   106px -> 165px   (the band costs 59px)
  *
- * At **1440x900** that crosses the legibility floor for two of the five:
+ * At **1440x900** that crosses the legibility floor for two of the five, and
+ * **BOTH crossings are user-visible** (pre-band n=4, head n=9):
  *
- *     headcount-allocation   needs 0.5180  ->  0.4990-0.4993   (above -> below)
- *     pricing-model          needs 0.5159  ->  0.4646-0.4788   (above -> below)
+ *     pricing-model         0.5013-0.5163 -> 0.4646-0.4788   above -> below floor
+ *         first view:  no extent notice, 4 of 4  ->  "Showing 14 of 15", 9 of 9
  *
- * and on `pricing-model` the crossing is **directly user-visible**: at
- * `72a43938` its first view showed the whole model with **no extent notice at
- * all**; at head it shows **"Showing 14 of 15 elements"** and offers the button.
- * `headcount-allocation` offered no notice in any of this file's runs at either
- * commit, but that arm is **BISTABLE** — an independent run measured 0.4823
- * (button offered) and 0.4973 (not) at the same commit.
+ *     headcount-allocation  0.5213-0.5390 -> 0.4820-0.4993   above -> below floor
+ *         first view:  no extent notice, 4 of 4  ->  "Showing 15 of 16", 1 of 9
+ *
+ * ⚠ AN EARLIER DRAFT SAID `headcount-allocation` "offered no notice in any of
+ * this file's runs at either commit" — TRUE OF ITS FOUR RUNS AND FALSE OF NINE,
+ * and it halved this file's own most decision-relevant finding. **There are two
+ * crossings, not one.** The headcount one is intermittent because it is gated on
+ * the TALL extent mode above: of the nine head runs, the single tall one is
+ * exactly the one that offers the button, and pre-band the tall mode still
+ * cleared the floor (794px of frame / 1523 = 0.5213). So the band does not make
+ * the race; it turns the race's tall arm from harmless into user-visible.
+ *
+ * ⭐ AND IT IS NOT ONLY 1440x900. At **1280x800** three starters report strictly
+ * MORE of the model hidden in the default view at head than pre-band, and two of
+ * those are deterministic across every run:
+ *
+ *     market-entry     "12 of 18" (4/4)  ->  "9 of 18"  (9/9)
+ *     pricing-model    "12 of 15" (4/4)  ->  "10 of 15" (9/9)
+ *     headcount-alloc  "14 of 16" (4/4)  ->  "10 of 16" (5/9), "14 of 16" (4/9)
  *
  * **This is a regression in the product's first view, and it is the most
  * decision-relevant number here.** It is REPORTED, not acted on: `#1162` solved
@@ -259,6 +305,17 @@ async function readFrame(page: Page, ghostPrefix: string): Promise<Reading> {
     // commit predating `CanvasOverlayBand`, which is exactly the comparison
     // this file is used for. Reproducing the whole formula removes the caveat
     // rather than carrying it.
+    // ⚠ SCOPE — TWO DELIBERATE DIVERGENCES FROM `computeFitPadding`, BOTH
+    // STRUCTURALLY UNREACHABLE AT THE VIEWPORTS THIS FILE DRIVES, NAMED HERE
+    // BECAUSE THE FILE EXISTS FOR CROSS-COMMIT WORK AND A FUTURE ARM MAY LEAVE
+    // THAT RANGE. (1) The module clamps each overlap with `Math.max(0, ...)`;
+    // this does not, so an occluder positioned entirely OUTSIDE the flow rect
+    // would contribute a negative overlap here and zero there — it cannot
+    // happen while all four are pinned to the pane's own edges. (2) The module
+    // applies `capPair` / `MAX_PADDING_FRACTION` (0.8), which this omits; at
+    // 1280x800 the per-axis totals are 520/1024 horizontally and 165/640
+    // vertically, so the cap is nowhere near binding. Re-derive both before
+    // trusting this frame on a materially smaller pane.
     const BASE_RATIO = 0.08
     const baseMargin = (d: number) =>
       Number.isFinite(d) && d > 0 ? Math.max(0, Math.floor((d - d / (1 + BASE_RATIO)) * 0.5)) : 0
