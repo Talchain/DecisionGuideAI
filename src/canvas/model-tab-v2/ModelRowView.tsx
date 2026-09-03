@@ -255,7 +255,18 @@ export function ModelRowView({
            was `shrink-0`. Priority, from most protected to least: the node's
            NAME (floored at 6rem), the primary VALUE (never shrinks), the
            estimate HINT, then this pill. A provenance label truncating is
-           recoverable; a row falling out of the panel is not. */
+           recoverable; an atom squeezed below the width at which it renders
+           any characters at all is not.
+
+           ⚠ CORRECTED, AND THE CORRECTION IS THE POINT. This comment used to
+           end "a row falling out of the panel is not [recoverable]". MEASURED
+           on the deployed panel at `5dc287e8`, that justification is FALSE:
+           the dock body is `overflow-x: auto` (clientWidth 278 / scrollWidth
+           314), so an over-wide row SCROLLS — escape count 0. Nothing falls
+           out of anything. The ladder is still right, but it is ordered by
+           LEGIBILITY under compression, not by a containment failure that does
+           not occur. Rewritten rather than deleted because the wrong reason
+           was load-bearing in four places and would have been re-derived. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
           <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
         </span>
@@ -318,11 +329,19 @@ export function ModelRowView({
         </span>
       )}
 
-      {/* ⚠⚠ LAST IN THE YIELD LADDER, AND IT HAD TO BE GIVEN ONE. Independent
-          review measured this span escaping the row by 85px at the 280px dock
-          floor — WORSE than before the fix, because the label's new `min-w`
-          floor stopped it absorbing and this was the only default-shrink item
-          left to take the deficit. `row.id` is `node.id`: a single unbreakable
+      {/* ⚠⚠ LAST IN THE YIELD LADDER, AND IT HAD TO BE GIVEN ONE.
+
+          ⚠ THE 85px FIGURE THAT USED TO STAND HERE IS WITHDRAWN. It read
+          "independent review measured this span escaping the row by 85px at
+          the 280px dock floor — WORSE than before the fix". That number came
+          from a REVIEWER'S FIXTURE, was inherited by me without reproduction,
+          and my own run against the real deployed panel then contradicted it:
+          the dock body scrolls, so escape is 0. Recording a scoped figure as
+          an unscoped fact is CLAUDE.md trap 20, and stating it as "review
+          measured" gave it an authority the measurement never had.
+
+          The REAL reason this atom is last is unchanged and does not need the
+          figure: `row.id` is `node.id`, a single unbreakable
           `font-mono` token like `fac_platform_migration`, so without
           `overflow:hidden` its automatic minimum is the whole token and it can
           neither shrink nor wrap.
@@ -331,8 +350,8 @@ export function ModelRowView({
           6rem) → the primary VALUE (never shrinks) → the estimate HINT → the
           provenance pill → THIS. An Advanced-tier debug token is the right
           thing to lose: the DOM text stays whole, so selection and copy still
-          yield the full id, and `title` names it. A row falling out of the
-          panel is not recoverable, which is this file's own stated rule.
+          yield the full id, and `title` names it — a signalled, recoverable
+          loss, which is this file's own stated rule.
 
           ⚠ PRICED, NOT HIDDEN: `truncate` is `overflow:hidden` + ellipsis, so
           at 280 in Advanced this span now reports as a signalled ellipsis in a
@@ -426,7 +445,9 @@ function ValueCell({
            can afford to go: the arrow pair must stay whole (a value broken
            from its arrow is the defect this PR exists to fix), and a truncated
            Confirm is a fake affordance. So the cell is permitted a second line
-           rather than pushing the row out of the panel.
+           rather than compressing atoms that cannot afford it. (It does not
+           "push the row out of the panel" — the dock body scrolls; see the
+           withdrawal at the Advanced id above.)
 
            ⚠ The row is therefore TALLER in `proposed`. That is deliberate and
            transient — one row at a time can hold a commit state

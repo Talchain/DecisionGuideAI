@@ -3,8 +3,10 @@
  * reason it had to be added.
  *
  * ⚠⚠ MEASURED BY INDEPENDENT REVIEW: replacing `ModelRowView.tsx` with its
- * merge-base version — a FULL REVERT of the entire fix, 16 insertions and 128
- * deletions — turned **NOTHING** red. All 19 files and 300 tests in
+ * merge-base version — a FULL REVERT of the entire fix, which against
+ * merge-base `9c94a718` is **16 insertions and 138 deletions**
+ * (`git diff --numstat 9c94a718..HEAD -- src/canvas/model-tab-v2/ModelRowView.tsx`
+ * → `138 16`) — turned **NOTHING** red. All 19 files and 300 tests in
  * `model-tab-v2/__tests__` passed, and so did the three `ModelTabBody` specs.
  * The fix added zero tests. That is CLAUDE.md trap 11 exactly: a fix whose
  * removal nothing objects to is a fix nothing is holding in place.
@@ -58,6 +60,64 @@ const cls = (testid: string) => screen.getByTestId(testid).className
  */
 const hasClass = (testid: string, name: string) =>
   cls(testid).split(/\s+/).includes(name)
+
+describe('the ROW CONTAINER — the half of the contract the atoms depend on', () => {
+  /**
+   * ⭐⭐ THE GAP AN INDEPENDENT REVIEW PROVED, AND IT IS THE WHOLE POINT OF THE
+   * FILE. Every other assertion here reads an ATOM's className. Not one of them
+   * touched the row `<li>` — and `flex-1`, `shrink-0` and `min-w-0` are
+   * MEANINGLESS OUTSIDE A FLEX FORMATTING CONTEXT. So the contract had a
+   * provable hole: add `flex-wrap` to the row, or drop `flex` from it, and
+   * every class this PR adds goes inert, ragged heights return, and all twelve
+   * tests still pass. Not probable — PROVABLE, because the assertions compare
+   * className strings and jsdom performs no layout, so a parent-only change
+   * *cannot* fail any of them.
+   *
+   * That is a guard agreeing with itself (CLAUDE.md trap 13b): each atom
+   * correctly states what it does under flex, and nothing states that flex is
+   * there. The fix is not a geometry harness — it is the container's half, in
+   * the paradigm this file already chose.
+   *
+   * ⚠ `flex-wrap` is asserted ABSENT, not merely `flex` present. Presence of
+   * `flex` is what makes the basis rules apply; absence of `flex-wrap` is what
+   * makes them apply on ONE LINE, which is the actual claim ("the row does not
+   * wrap"). Two different harms, so two assertions — one parameter cannot
+   * guard both directions.
+   */
+  it('establishes a single-line flex context, which is what makes every atom rule mean anything', () => {
+    render(<ModelRowView row={row({ id: 'f1' })} tier="plain" onBeginEdit={() => {}} />)
+
+    // The formatting context the atom rules are written against.
+    expect(hasClass('model-row-v2-f1', 'flex')).toBe(true)
+    expect(hasClass('model-row-v2-f1', 'items-center')).toBe(true)
+
+    // ⭐ The regression the reviewer constructed: wrapping the row silently
+    // re-opens ragged heights while every atom assertion stays green.
+    expect(hasClass('model-row-v2-f1', 'flex-wrap')).toBe(false)
+
+    // …and `inline-flex`/`grid` are not `flex`: the membership test splits on
+    // whitespace, so a swapped display class REDs here rather than passing on a
+    // substring match.
+    expect(hasClass('model-row-v2-f1', 'grid')).toBe(false)
+  })
+
+  /**
+   * The discriminating control for the assertion above. `hasClass` must be able
+   * to return BOTH answers about the same element, or `flex-wrap === false` is
+   * a control that cannot fail — it would read false on an element with no
+   * className at all, on a missing element, or on a broken helper.
+   */
+  it('the membership helper discriminates on the row element itself', () => {
+    render(<ModelRowView row={row({ id: 'f1' })} tier="plain" onBeginEdit={() => {}} />)
+    // A class that IS present reads true, on this exact element…
+    expect(hasClass('model-row-v2-f1', 'flex')).toBe(true)
+    // …and one that is not reads false. Both directions, one element.
+    expect(hasClass('model-row-v2-f1', 'wrap-me-i-do-not-exist')).toBe(false)
+    // The row is a real element carrying a real className — not an empty string
+    // that would make every membership question answer false.
+    expect(screen.getByTestId('model-row-v2-f1').className.trim().length).toBeGreaterThan(0)
+  })
+})
 
 describe('the label is the one atom that may lose characters — and it has a floor', () => {
   /**
@@ -149,8 +209,14 @@ describe('the Advanced id — round 2, and it made the escape WORSE before it wa
    * ⚠ `row.id` is a single unbreakable `font-mono` token, so without
    * `overflow:hidden` its automatic minimum is the whole token: it can neither
    * shrink nor wrap. Once the label gained its floor this was the only
-   * default-shrink item left, and independent review measured the row escaping
-   * by 85px at the 280px dock floor — WORSE than before the fix.
+   * default-shrink item left to take the deficit.
+   *
+   * ⚠ THE "85px ESCAPE AT THE 280px FLOOR" FIGURE IS WITHDRAWN — it was a
+   * reviewer's fixture number, inherited here without reproduction, and a run
+   * against the real deployed panel contradicted it (the dock body is
+   * `overflow-x: auto`, so escape is 0). The assertion below never depended on
+   * it: it pins `min-w-0 truncate` + `title`, i.e. that the loss is SIGNALLED
+   * and RECOVERABLE, which is true regardless of how far anything escaped.
    */
   it('truncates and names itself, rather than pushing the row out', () => {
     render(<ModelRowView row={row({ id: 'fac_platform_migration' })} tier="advanced" />)
@@ -176,7 +242,7 @@ describe('the `proposed` cell — the one LIVE path the first pass left unfixed'
    * It carries the most content in the component: `from → to`, a caption, and
    * two bordered chips, in a 280px dock. It is the only place in the row
    * permitted to WRAP, because nothing here can afford to be lost — so it takes
-   * a second line rather than pushing the row out of the panel.
+   * a second line rather than compressing atoms that cannot afford it.
    */
   it('is allowed to wrap, and the arrow pair is not', () => {
     render(
@@ -230,5 +296,37 @@ describe('the `proposed` cell — the one LIVE path the first pass left unfixed'
     expect(hasClass('model-row-v2-f1-label', 'zz-not-a-real-class')).toBe(false)
     // And prove the OLD predicate was the broken one, so nobody reinstates it.
     expect(/\bmin-w-\[6rem\]\b/.test(cls('model-row-v2-f1-label'))).toBe(false)
+  })
+})
+
+describe('the `editing` arm — LIVE, and until now rendered by no test in this file', () => {
+  /**
+   * ⚠ THE SPEC'S ONLY COMMIT FIXTURE WAS `{ phase: 'proposed' }`, so the
+   * `editing` arm — which a user reaches every time they click a value — was
+   * never rendered here at all, and its new `shrink-0 whitespace-nowrap` was
+   * unguarded. A prior review recorded this as a surviving mutant; it is one
+   * assertion, and the file was already open.
+   *
+   * `editing` is the arm that MUST NOT shrink: it hosts a text input the user
+   * is typing into. An input allowed to take the row's deficit collapses to a
+   * few characters wide while its own content is what the user is reading.
+   */
+  it('does not shrink or wrap while the user is typing into it', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f1' })}
+        tier="plain"
+        commit={{ phase: 'editing', draft: '52' } as const}
+        onDraftChange={() => {}}
+        onProposeEdit={() => {}}
+        onDiscardEdit={() => {}}
+      />,
+    )
+    // Precondition, pinned in-test: this really is the editing arm and not a
+    // fallback that happens to render — the input only exists on this branch.
+    expect(screen.getByTestId('model-row-v2-f1-value-input')).toHaveValue('52')
+
+    expect(hasClass('model-row-v2-f1-value', 'shrink-0')).toBe(true)
+    expect(hasClass('model-row-v2-f1-value', 'whitespace-nowrap')).toBe(true)
   })
 })
