@@ -325,6 +325,90 @@ describe('topAnchoredViewportWhenClamped', () => {
     expect(v!.x).toBe(INSETS.left + (960 - 250) / 2)
   })
 
+  // -------------------------------------------------------------------------
+  // ⭐⭐ THE MODEL WIDER THAN THE FRAME — the case every horizontal test above
+  // is structurally incapable of observing.
+  //
+  // Each existing case puts a model NARROWER than the frame (500 -> 250px in a
+  // 960px frame), so `(frameW - scaledW)` is positive and the `Math.max(0, …)`
+  // that used to wrap it is a NO-OP on every one of them. The suite could
+  // therefore be fully green while the clamp dumped 100% of the overflow on a
+  // single side (CLAUDE.md trap 22: a corpus that omits a value class the
+  // contract admits cannot certify the code over that class).
+  //
+  // MEASURED, real Chromium, hermetic geometry harness, `8e97879a`, on the two
+  // landscape starters at 1280x800 — the shape that overflows:
+  //
+  //                       visible gaps L / R      cards occluded (true rect
+  //                                                intersection, % of card)
+  //   before   headcount-allocation  16 / -112    2 cards, 83%  (opt_sales 13%)
+  //   after                         -48 / -48     1 card,  30%
+  //   before   pricing-model         16 / -112    2 cards, 83%  (opt_status_quo 13%)
+  //   after                         -48 / -48     1 card,  30%
+  //
+  // The option card buried under the OutputsDock is what makes this a defect
+  // rather than a preference: #979 — the commit that introduced this function —
+  // exists to put "the decision and its options" in the first view.
+  // -------------------------------------------------------------------------
+
+  it('⭐ splits the overflow evenly when the model is WIDER than the frame, instead of dumping it all on one side', () => {
+    const bounds = { x: 0, y: 0, width: 4000, height: 4000 }
+    const v = topAnchoredViewportWhenClamped(bounds, PANE_W, PANE_H, INSETS, 0.5)
+    expect(v).not.toBeNull()
+
+    const frameW = PANE_W - INSETS.left - INSETS.right
+    const scaledW = bounds.width * v!.zoom
+    // PRECONDITION PINNED IN-TEST (trap 13b): this fixture must actually be the
+    // overflow case, or the assertion below is a tautology about a case that
+    // never arises. If a later edit shrinks these bounds, this REDs here rather
+    // than silently passing while testing nothing.
+    expect(scaledW).toBeGreaterThan(frameW)
+
+    const modelLeft = v!.x + bounds.x * v!.zoom
+    const modelRight = modelLeft + scaledW
+    const frameLeft = INSETS.left
+    const frameRight = PANE_W - INSETS.right
+
+    const overflowLeft = frameLeft - modelLeft
+    const overflowRight = modelRight - frameRight
+    // Both sides genuinely overflow...
+    expect(overflowLeft).toBeGreaterThan(0)
+    expect(overflowRight).toBeGreaterThan(0)
+    // ...and by the SAME amount. The old `Math.max(0, …)` produced 0 / 1040.
+    expect(overflowLeft).toBe(overflowRight)
+  })
+
+  it('⭐ keeps the model centred on the frame when it overflows — binds by the centres, not by a literal', () => {
+    // Asymmetric insets, so "centred on the frame" and "centred on the pane"
+    // are DIFFERENT answers and this cannot pass by coincidence. These are the
+    // measured deployed insets at 1280x800 (left 76 / right 444: the expanded
+    // OutputsDock reserves 444, the collapsed rail 76).
+    const asymmetric = { top: 73, right: 444, bottom: 92, left: 76 }
+    const paneW = 1280
+    const bounds = { x: 24, y: 24, width: 1776, height: 1476 }
+    const v = topAnchoredViewportWhenClamped(bounds, paneW, 800, asymmetric, 0.5)
+    expect(v).not.toBeNull()
+
+    const frameW = paneW - asymmetric.left - asymmetric.right
+    const scaledW = bounds.width * v!.zoom
+    expect(scaledW).toBeGreaterThan(frameW) // precondition: really the overflow case
+
+    const modelCentre = v!.x + (bounds.x + bounds.width / 2) * v!.zoom
+    const frameCentre = asymmetric.left + frameW / 2
+    expect(modelCentre).toBeCloseTo(frameCentre, 6)
+    // And NOT the pane centre — proves the reservation is still respected.
+    expect(modelCentre).not.toBeCloseTo(paneW / 2, 0)
+  })
+
+  it('the overflow split is horizontal only — the top anchor is untouched by it', () => {
+    const bounds = { x: 0, y: 0, width: 4000, height: 4000 }
+    const v = topAnchoredViewportWhenClamped(bounds, PANE_W, PANE_H, INSETS, 0.5)
+    // Same guarantee as the top-anchor test above, asserted in the OVERFLOW
+    // case so a future horizontal change cannot quietly move the vertical.
+    expect(v!.y).toBe(INSETS.top - bounds.y * 0.5)
+    expect(v!.zoom).toBe(0.5)
+  })
+
   it('never zooms out to fit more in — the floor is the product\'s limit, not the user\'s', () => {
     const v = topAnchoredViewportWhenClamped(
       { x: 0, y: 0, width: 1000, height: 40000 }, PANE_W, PANE_H, INSETS, 0.5,
