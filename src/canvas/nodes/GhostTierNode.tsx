@@ -61,13 +61,39 @@ export const GHOST_TIER_TESTID = 'ghost-tier-node'
  *     clips instead. Sizing for the measured worst case AND letting the box
  *     grow means the clipping class is closed rather than tuned.
  *
- * `GHOST_DOOR_TEXT_MEASURE_PX` is the one measured number here: 88px declared
- * is the narrowest measure at which every one of the four questions still fits
- * two lines at the bound (measured 176px @22px; 160 spills the risk and
- * outcome doors to three lines). `GhostTierNode.doorGeometry.spec.tsx` re-does
- * this arithmetic and REDs if a label outgrows it.
+ * `GHOST_DOOR_TEXT_MEASURE_PX` is the one HAND-MEASURED number here: 88px
+ * declared is the narrowest measure at which every one of the four questions
+ * still fits two lines at the bound (Chromium with Inter, 3 Sep 2026: 176px
+ * @22px; 160 spills the risk and outcome doors to three lines).
+ *
+ * ⚠⚠ AND THE SENTENCE THAT STOOD HERE CLAIMED A GUARD THAT DOES NOT EXIST.
+ * It read: "`GhostTierNode.doorGeometry.spec.tsx` re-does this arithmetic and
+ * REDs if a label outgrows it." That is FALSE, and it was proven false by
+ * execution in review: this constant was referenced NOWHERE outside its own
+ * declaration, and mutating it `88 -> 60` — a value measured to spill the risk
+ * and outcome doors to three lines — left every test green (9/9 in the door
+ * spec; 115/115 across the 11 ghost-touching specs on the reviewer's wider
+ * sweep). Nothing related any label to this number. A comment asserting
+ * coverage that does not exist is worse than no comment: the next maintainer
+ * reads it and believes the fit is pinned.
+ *
+ * WHAT THE SPEC ACTUALLY GUARDS, as of #1173 round 2:
+ *   • the COMPOSITION — the width is this measure times the counter-scale plus
+ *     UNSCALED chrome, so scaling the chrome (the arithmetic error
+ *     `NODE_TITLE_RECLAIMED_PX` exists to record) REDs;
+ *   • the SOURCE SHAPE — both derived exports are written as derivations, not
+ *     as the literal they currently evaluate to;
+ *   • the VALUE of this constant — pinned, so moving it REDs.
+ *
+ * ⚠ WHAT NOTHING GUARDS: THE FIT ITSELF. No test in the vitest gate relates a
+ * rendered label to this measure, and none there can — jsdom has no layout
+ * (CLAUDE.md trap 3), so the text metrics the question needs do not exist.
+ * The value pin is a RE-MEASURE TRIPWIRE, not a fit guard: it says "this number
+ * came out of a browser on a date, go back to a browser before you move it".
+ * A real fit guard belongs in `e2e/geometry/ghostDoorVisibility.measure.ts`,
+ * which already drives these four doors in Chromium. Rowed, not built here.
  */
-const GHOST_DOOR_TEXT_MEASURE_PX = 88
+export const GHOST_DOOR_TEXT_MEASURE_PX = 88
 /** `typography.nodeLabel` — 11px, `leading-tight` (1.25). Declared, unscaled. */
 const GHOST_DOOR_LABEL_PX = 11
 const GHOST_DOOR_LINE_HEIGHT = 1.25

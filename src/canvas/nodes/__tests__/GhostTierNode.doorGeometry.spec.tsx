@@ -26,11 +26,25 @@
  * claim jsdom cannot support. The browser measurement is recorded in the PR and
  * in `GhostTierNode.tsx`'s own header.
  *
- * ⚠ THE MUTANT THAT MUST BITE: replace either export with the literal it
- * currently equals and the derivation tests below go RED, because they compute
- * the expectation from `MAX_LABEL_COUNTER_SCALE` at a DIFFERENT value. A test
- * asserting `GHOST_DOOR_W_PX === 187` would pass against a hardcoded 187 and
- * would be the hand-maintained mirror this whole file exists to prevent.
+ * ⚠⚠ WHICH GUARD BITES WHICH MUTANT — CORRECTED IN ROUND 2, BECAUSE THE
+ * SENTENCE THAT STOOD HERE WAS FALSE AND THIS FILE CONTRADICTED ITSELF.
+ * It read: "replace either export with the literal it currently equals and the
+ * derivation tests below go RED, because they compute the expectation from
+ * `MAX_LABEL_COUNTER_SCALE` at a DIFFERENT value."
+ *
+ * They do not. Measured: replacing `GHOST_DOOR_MIN_H_PX`'s derivation with the
+ * literal `78` it evaluates to leaves the height derivation test GREEN, and
+ * only the SOURCE GUARD goes red. At runtime a literal and a derivation that
+ * evaluates to it ARE the same number — which is exactly what the source
+ * guard's own comment says further down. The header and that comment asserted
+ * opposite things; the source guard's comment was the correct half.
+ *
+ * So, precisely:
+ *   • literal-instead-of-derivation  → caught by the SOURCE GUARD only;
+ *   • chrome multiplied by the scale → caught by the composition tests;
+ *   • the hand-measured 88 moved     → caught by the RE-MEASURE TRIPWIRE only;
+ *   • a label that no longer FITS    → caught by NOTHING here, and nothing in
+ *     jsdom can catch it. See the tripwire's own comment.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -43,6 +57,7 @@ import {
   GHOST_TIER_TESTID,
   GHOST_DOOR_W_PX,
   GHOST_DOOR_MIN_H_PX,
+  GHOST_DOOR_TEXT_MEASURE_PX,
 } from '../GhostTierNode'
 import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM, labelCounterScale } from '../../utils/zoomLegibility'
 import { GHOST_TIERS } from '../../utils/ghostTiers'
@@ -79,15 +94,47 @@ describe('the door is sized for the counter-scale bound, not hand-tuned', () => 
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
   })
 
-  it('the width is the text measure AT THE BOUND plus unscaled chrome', () => {
-    const textMeasureAtBound = GHOST_DOOR_W_PX - PAD_X_PX * 2 - BORDER_PX * 2
+  /**
+   * ⚠⚠ THIS REPLACED A TAUTOLOGY — AND THE FIRST REPLACEMENT WAS ALSO ONE.
+   * The version before this recovered the measure by DIVIDING `GHOST_DOOR_W_PX`
+   * by the counter-scale and then multiplying it back. That is an identity: it
+   * agreed with any value whose `(W - 11)` is even, so `88 -> 60` passed it.
+   * The round-1 author correctly identified the ORIGINAL sentinel as a tautology
+   * and replaced it with this one, which was tautological a different way — a
+   * correcting change reads as already-audited, so nobody re-checks it.
+   *
+   * It is non-vacuous now only because the measure arrives INDEPENDENTLY, as its
+   * own export, instead of being reconstructed out of the answer.
+   */
+  it('the width composes the DECLARED measure with chrome that does not scale', () => {
     // TEXT scales, CHROME does not — the distinction `NODE_TITLE_RECLAIMED_PX`
-    // records after the first cut multiplied the chrome and doubled it.
-    expect(textMeasureAtBound % MAX_LABEL_COUNTER_SCALE).toBe(0)
-    const declaredMeasure = textMeasureAtBound / MAX_LABEL_COUNTER_SCALE
+    // records after the first cut multiplied the chrome and counted it twice.
+    // Bite: scale the chrome, change the padding, or drop the scale factor.
     expect(GHOST_DOOR_W_PX).toBe(
-      declaredMeasure * MAX_LABEL_COUNTER_SCALE + PAD_X_PX * 2 + BORDER_PX * 2,
+      GHOST_DOOR_TEXT_MEASURE_PX * MAX_LABEL_COUNTER_SCALE + PAD_X_PX * 2 + BORDER_PX * 2,
     )
+  })
+
+  /**
+   * ⚠ A RE-MEASURE TRIPWIRE, NOT A FIT GUARD — and the distinction is the whole
+   * point, because the comment this answers claimed the fit was pinned when
+   * nothing pinned it (#1173 round 2).
+   *
+   * 88 is the ONE number on this card that came out of a browser rather than
+   * out of the legibility contract: the narrowest measure at which all four
+   * questions still fit two lines at the bound (Chromium + Inter, 3 Sep 2026).
+   * jsdom cannot re-derive it — no layout, no text metrics, CLAUDE.md trap 3 —
+   * so the only honest guard available in this gate is that MOVING it is loud.
+   *
+   * What this asserts: the constant is still 88. It REDs on any change,
+   * including the measured-bad `88 -> 60` that spills two doors to three lines.
+   * What it does NOT assert: that 88 is still CORRECT. A copy edit, a font
+   * change or a scale change can each invalidate it with this test still green.
+   * That question needs `e2e/geometry/ghostDoorVisibility.measure.ts`, which
+   * already drives these four doors in a real browser.
+   */
+  it('RE-MEASURE TRIPWIRE: the hand-measured text measure is pinned at 88', () => {
+    expect(GHOST_DOOR_TEXT_MEASURE_PX).toBe(88)
   })
 
   it('the height floor holds two lines of counter-scaled label plus unscaled chrome', () => {
