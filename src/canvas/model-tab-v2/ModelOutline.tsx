@@ -375,7 +375,35 @@ export function ModelOutline({
                     : 'No matches in this group'}
                 </p>
               ) : (
-                <ul role="listbox" aria-label={GROUP_TITLE[group.id]}>
+                /*
+                  ⭐ THE ONE GRID. Four tracks defined ONCE here; every row is
+                  `grid-cols-subgrid col-span-4` and adopts them, so the value
+                  column is a real column across the whole group rather than a
+                  per-row accident.
+
+                  Tracks, and why each is what it is:
+                    `auto`            glyph — intrinsic, never negotiates
+                    `minmax(0,1fr)`   identity — takes the slack. The `0` floor
+                                      is load-bearing: `1fr` alone resolves its
+                                      automatic minimum to `min-content`, so a
+                                      long label would push the value column
+                                      off-axis and reintroduce the defect.
+                    `auto`            value — the column this change exists for
+                    `auto`            meta — provenance, attention, id
+
+                  ⚠ THE COLUMN COUNT IS A CONTRACT WITH `ModelRowView`. A
+                  subgrid item adopts only the tracks it SPANS, so adding a
+                  fifth track here without moving `col-span-4` there makes rows
+                  silently stop aligning — no error, no red, just the old
+                  behaviour back. `rowAtomsAlignToOneGrid.spec.tsx` derives both
+                  numbers and asserts they agree.
+                */
+                <ul
+                  role="listbox"
+                  aria-label={GROUP_TITLE[group.id]}
+                  data-testid={`model-outline-v2-${group.id}-rows`}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+                >
                   {group.rows.map(row => (
                     <ModelRowView
                       key={row.id}

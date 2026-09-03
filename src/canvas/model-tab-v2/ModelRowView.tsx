@@ -148,7 +148,40 @@ export function ModelRowView({
       data-phase={phase}
       aria-selected={selected}
       role="option"
-      className={`flex items-center gap-2 px-2 py-1.5 border-b border-panel-border ${
+      /*
+        ⭐⭐ SUBGRID, NOT `display:contents` — AND THE DIFFERENCE IS THE WHOLE
+        REASON THIS ROW LOOKS DIFFERENT FROM THE CENSUS FIX.
+
+        The defect: every row was its own `flex` context, so a value's
+        x-position was a function of THAT row's label length and nothing else.
+        Driven on staging `b7d91382`, `Not set` landed at five different
+        x-positions in one list. The scan a user makes here is "which of these
+        has no value?" — a COLUMN question, unanswerable while the answer moves
+        horizontally on every row.
+
+        `ModelStrip` (#1138) fixed the same defect with grid-on-the-`<ul>` +
+        `display:contents` on each row. ⚠ THAT DOES NOT TRANSFER HERE, and
+        copying it would have been a regression: those rows are passive
+        `role="listitem"`. THESE are `role="option"` in a `listbox`, carrying
+        `aria-selected`, an `onClick`, a selection background and a bottom
+        border — all painted on the principal box. `display:contents` REMOVES
+        the principal box, so the selection background and border vanish and the
+        click target collapses to the union of the children, leaving the gaps
+        dead.
+
+        `grid-cols-subgrid` keeps the box — background, border, click target and
+        `aria-selected` all untouched — while the row's four cells adopt the
+        column tracks defined once on the `<ul>` in `ModelOutline.tsx`. Requires
+        Tailwind ≥3.4 (this repo: 3.4.19) and a modern target (Vite default; no
+        browserslist pin).
+
+        `col-span-4` is load-bearing: a subgrid item adopts only the tracks it
+        spans, so a row spanning fewer columns than the `<ul>` defines silently
+        stops aligning. If a fifth column is ever added, this number moves with
+        it — the guard in `rowAtomsAlignToOneGrid.spec.tsx` asserts the two
+        agree, derived from the `<ul>`, so drift REDs rather than mis-renders.
+      */
+      className={`grid grid-cols-subgrid col-span-4 items-center gap-2 px-2 py-1.5 border-b border-panel-border ${
         selected ? 'bg-panel-hover' : ''
       }`}
       onClick={() => onSelect?.(row.id)}
@@ -162,6 +195,10 @@ export function ModelRowView({
         {KIND_GLYPH[row.kind]}
       </span>
 
+      {/* ── CELL 2 · IDENTITY — the flexible track. `min-w-0` is required or
+          the button's automatic minimum keeps the column from ever shrinking,
+          which is the defect this file already fixed once at the atom level. */}
+      <span className="flex items-center gap-1.5 min-w-0">
       <button
         type="button"
         data-testid={`model-row-v2-${row.id}-label`}
@@ -231,6 +268,36 @@ export function ModelRowView({
         </span>
       )}
 
+      </span>
+      {/* ── CELL 3 · VALUE — the column this whole change exists to create.
+
+          ⚠⚠ THE TRACK IS `auto`, WHICH MEANS THIS CELL SIZES TO ITS CONTENT AND
+          TAKES THAT WIDTH OUT OF THE IDENTITY TRACK. That is correct for every
+          arm a producer can currently reach — `idle` and `proposed`, whose
+          content is bounded — and it is a LOADED GUN for the arms that are dark
+          today.
+
+          Named by an independent seat and traced by PRODUCER rather than by
+          field name: the sole live writer of `commit` is `ModelOutline.tsx:385`
+          ← `ModelTabV2Panel`'s `ActiveEdit`, typed `'editing' | 'proposed'`. So
+          `inflight`, `applied`, `refused` and the `editing` fallback are
+          unreachable — by accident of the host, not by design. `types.ts:108`
+          already specifies `applied` as receipt-driven, so the wiring is
+          PLANNED, not hypothetical.
+
+          ⚠ AND THE HAZARD IS LARGER AFTER THIS CHANGE, NOT SMALLER. Before the
+          grid, a row's deficit was distributed across every atom by flex. Now
+          the identity track is the only flexible one, so **100% of any width an
+          `auto` cell takes comes out of the label**. An unbounded `applied`
+          receipt would eat the name it sits beside.
+
+          NO CLASSES ARE ADDED TO THOSE BRANCHES HERE, deliberately: this file's
+          own rule is that classes go only where a witness can reach, and a
+          shrink contract on a branch with no producer is untestable decoration
+          that reads as coverage. **The hazard is recorded instead, at the site
+          the next author will open**, which is the thing a row in a register
+          cannot do. Whoever wires those arms: bound the content, and add the
+          contract in the same change. */}
       <ValueCell
         row={row}
         commit={commit}
@@ -247,6 +314,14 @@ export function ModelRowView({
         row shows NOTHING, rather than a "Not set" chip asserting a fact about a
         value that may be perfectly well set. Absence is rendered as absence.
       */}
+      {/* ── CELL 4 · META ─────────────────────────────────────────────────
+          Everything that is neither identity nor value: provenance, the
+          confirm affordance, attention markers, the deferred note and the
+          Advanced id. One cell so the whole run right-aligns as a block and
+          the value column above it stays a true column. `justify-end` is what
+          makes the alignment visible: without it the run starts at the cell's
+          left edge and the column is technically correct but reads ragged. */}
+      <span className="flex items-center justify-end gap-1.5 min-w-0">
       {row.provenanceSource !== undefined && (
         /* ⚠ THE LAST THING TO GIVE, AND IT DOES HAVE TO GIVE. On a 390px panel
            the worst row wants 400px — glyph 11 + label 96 + value 153 +
@@ -447,6 +522,7 @@ export function ModelRowView({
           {row.id}
         </span>
       )}
+      </span>
     </li>
   )
 }

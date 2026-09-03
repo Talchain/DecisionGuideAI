@@ -99,21 +99,48 @@ describe('the ROW CONTAINER — the half of the contract the atoms depend on', (
    * wrap"). Two different harms, so two assertions — one parameter cannot
    * guard both directions.
    */
-  it('establishes a single-line flex context, which is what makes every atom rule mean anything', () => {
+  it('establishes a single-line formatting context, which is what makes every atom rule mean anything', () => {
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" onBeginEdit={() => {}} />)
 
     // The formatting context the atom rules are written against.
-    expect(hasClass('model-row-v2-f1', 'flex')).toBe(true)
+    // ⚠⚠ SUPERSEDED, DELIBERATELY: this asserted `flex`. The row is now
+    // `grid grid-cols-subgrid col-span-4`, adopting tracks defined once on the
+    // `<ul>` — see `rowAtomsAlignToOneGrid.spec.tsx`, which owns that contract.
+    //
+    // The CLAIM of this test is unchanged and is why it survives the paradigm
+    // change rather than being deleted: the row must establish a formatting
+    // context in which the atom rules below MEAN something, on ONE LINE. Under
+    // flex that was `flex` present + `flex-wrap` absent. Under grid it is a
+    // fixed track count, which cannot wrap at all — a grid item goes to its
+    // track or nowhere.
+    //
+    // `flex-wrap` stays asserted absent below. It is now inert rather than
+    // load-bearing, and it is kept for exactly that reason: if anyone reverts
+    // the row to `flex`, that assertion is the one that still guards the
+    // original harm, and a guard that costs nothing to keep should not be
+    // dropped in a refactor that made it temporarily redundant.
+    expect(hasClass('model-row-v2-f1', 'grid')).toBe(true)
+    expect(hasClass('model-row-v2-f1', 'grid-cols-subgrid')).toBe(true)
     expect(hasClass('model-row-v2-f1', 'items-center')).toBe(true)
 
     // ⭐ The regression the reviewer constructed: wrapping the row silently
     // re-opens ragged heights while every atom assertion stays green.
     expect(hasClass('model-row-v2-f1', 'flex-wrap')).toBe(false)
 
-    // …and `inline-flex`/`grid` are not `flex`: the membership test splits on
-    // whitespace, so a swapped display class REDs here rather than passing on a
-    // substring match.
-    expect(hasClass('model-row-v2-f1', 'grid')).toBe(false)
+    // …and the display class must be the one this row actually declares. This
+    // previously asserted `grid` ABSENT, on the reasoning that a swapped
+    // display class should RED rather than pass on a substring match. The
+    // reasoning was right and the polarity is now inverted: `grid` is the
+    // declared context, and `flex` is the swap that must RED.
+    //
+    // ⚠ NOTE WHAT THIS ASSERTION IS FOR, because it is easy to delete as
+    // redundant once `rowAtomsAlignToOneGrid.spec.tsx` exists. That file owns
+    // the CROSS-FILE contract (tracks on the `<ul>` == span on the row). THIS
+    // one owns the local claim that the atom rules below have a formatting
+    // context to mean anything in. They fail on different mutations: reverting
+    // the `<ul>` REDs there and not here; reverting the row to `flex` REDs here
+    // and not there. Two questions, two guards.
+    expect(hasClass('model-row-v2-f1', 'flex')).toBe(false)
   })
 
   /**
@@ -125,7 +152,12 @@ describe('the ROW CONTAINER — the half of the contract the atoms depend on', (
   it('the membership helper discriminates on the row element itself', () => {
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" onBeginEdit={() => {}} />)
     // A class that IS present reads true, on this exact element…
-    expect(hasClass('model-row-v2-f1', 'flex')).toBe(true)
+    // ⚠ WAS `flex`. The row became `grid grid-cols-subgrid` when the atoms were
+    // aligned to one shared grid; `grid` is now the token that is certainly
+    // present. The control's JOB is unchanged — prove the helper can return
+    // true — so it must name a class the row actually has, or it silently
+    // becomes the cannot-pass control it was written to avoid.
+    expect(hasClass('model-row-v2-f1', 'grid')).toBe(true)
     // …and one that is not reads false. Both directions, one element.
     expect(hasClass('model-row-v2-f1', 'wrap-me-i-do-not-exist')).toBe(false)
     // The row is a real element carrying a real className — not an empty string
