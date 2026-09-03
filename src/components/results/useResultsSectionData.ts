@@ -1549,9 +1549,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
      * and still passes.
      */
     const finite = (v: unknown): number | null => {
-      if (typeof v === 'string' && v.trim() === '') return null
-      const n = typeof v === 'string' ? Number(v.trim()) : v
-      return typeof n === 'number' && Number.isFinite(n) ? n : null
+      if (typeof v === 'number') return Number.isFinite(v) ? v : null
+      if (typeof v !== 'string') return null
+      const t = v.trim()
+      // ⚠ DECIMAL ONLY, AND DERIVED FROM WHAT A TARGET IS rather than from the
+      // one input that broke. `Number()` is far more permissive than "a number
+      // someone stated": it yields 0 for '' and '  ', 16 for '0x10', and reads
+      // `null`, `[]` and `false` as 0 in other positions. Special-casing the
+      // blank would have closed the case a reviewer happened to find and left
+      // its siblings open — the same guard-anchored-on-one-instance pattern
+      // this estate keeps paying for. A stated target is a decimal, optionally
+      // signed, optionally in scientific notation. Everything else is refused.
+      if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(t)) return null
+      const n = Number(t)
+      return Number.isFinite(n) ? n : null
     }
     // 1 — the user's own act, whatever representation it is held in.
     const fromStore = finite(goalThreshold)

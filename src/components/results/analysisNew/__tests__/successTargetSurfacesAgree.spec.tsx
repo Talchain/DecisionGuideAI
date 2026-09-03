@@ -287,16 +287,37 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
    * value that got there is a number.
    */
   /**
-   * ⚠⚠ `Number('')` IS `0`, NOT `NaN` — so a blank arriving on the CEE branch
-   * coerced to a finite zero and silenced the card on a model with no target.
-   * The node branch was already safe (`resolveGoalTarget` guards blanks); this
-   * pins the two that were not, plus the zero someone genuinely typed, which
-   * must still count as a target.
+   * ⚠⚠ THE CLASS, NOT THE INSTANCE. `Number('')` is `0`, not `NaN` — that was
+   * the case a review found. But it is one member of a family: `Number()` also
+   * yields 0 for whitespace, `null`, `[]` and `false`, 16 for `'0x10'`, and
+   * `Infinity` for `'Infinity'`. A guard special-casing the blank would have
+   * closed the found case and left its siblings open, which is the
+   * anchored-on-one-instance pattern this estate keeps paying for.
+   *
+   * So the predicate is derived from what a STATED TARGET is — a decimal,
+   * optionally signed, optionally scientific — and everything else is refused.
+   * The table below is the family, with the accepted half proving the guard did
+   * not simply become "reject everything".
    */
   it.each([
-    ['a blank CEE threshold', { goal_threshold_raw: '' }, null],
-    ['a whitespace CEE threshold', { goal_threshold_raw: '   ' }, null],
+    // Refused — none of these is a target anybody stated.
+    ['a blank', { goal_threshold_raw: '' }, null],
+    ['whitespace', { goal_threshold_raw: '   ' }, null],
+    ['a newline', { goal_threshold_raw: '\n' }, null],
+    ['hex notation', { goal_threshold_raw: '0x10' }, null],
+    ['a thousands separator', { goal_threshold_raw: '1,000' }, null],
+    ['a unit suffix', { goal_threshold_raw: '11px' }, null],
+    ['the string Infinity', { goal_threshold_raw: 'Infinity' }, null],
+    ['the string NaN', { goal_threshold_raw: 'NaN' }, null],
+    ['a boolean', { goal_threshold_raw: false }, null],
+    ['an array', { goal_threshold_raw: [] }, null],
+    ['a bare Infinity', { goal_threshold_raw: Infinity }, null],
+    // Accepted — each IS a number someone could have stated.
     ['a real zero, which IS a target', { goal_threshold_raw: 0 }, 0],
+    ['a decimal string', { goal_threshold_raw: '11' }, 11],
+    ['a padded decimal string', { goal_threshold_raw: ' 11 ' }, 11],
+    ['a negative', { goal_threshold_raw: '-3.5' }, -3.5],
+    ['scientific notation', { goal_threshold_raw: '1e5' }, 100000],
   ])('%s', (_n, ready, expected) => {
     seedPreRun(GOAL_WITHOUT_TARGET)
     useCanvasStore.setState({ ceeAnalysisReady: ready } as never)
