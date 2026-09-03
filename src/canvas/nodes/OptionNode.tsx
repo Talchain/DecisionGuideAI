@@ -9,6 +9,7 @@ import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow, hasClearInfluenceLeader } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
   describeInterventionDirection,
@@ -1502,7 +1503,7 @@ export const OptionNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}
               aria-hidden="true"
             >
-              {COMPARATIVE_COPY.anchor}
+              {METRIC_NOUN.ahead}
             </span>
             <div
               className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"

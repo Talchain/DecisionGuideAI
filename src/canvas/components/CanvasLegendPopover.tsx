@@ -29,6 +29,7 @@ import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { METRIC_LEGEND_ROWS } from '../nodes/shared/metricVocabulary'
 
 interface LegendRow {
   label: string
@@ -199,6 +200,43 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
     }
   })
 
+/**
+ * ⭐⭐ THE NUMBERS — Paul, 31 Aug 2026: "Four different number vocabularies on
+ * one screen, none explained… one noun per idea, and a legend where the model
+ * is, not in a panel."
+ *
+ * This popover already explained every VISUAL channel the canvas uses — shape,
+ * line style, thickness, direction, colour, provenance glyph — and not one of
+ * the numbers printed on the cards. A reader could learn what a dashed line
+ * meant and still have no way to find out what `Ahead 47%` counted. The nouns
+ * were the more visible half of the defect; this is the half that makes them
+ * mean something.
+ *
+ * ⚠ NO SWATCH, SO NOT `LegendGroup`. Every other row keys a picture to a word.
+ * A number's "swatch" IS its word, and rendering the noun into the 24px swatch
+ * column would either clip it or force the column wider for every row above.
+ * These rows are `noun: gloss` sentences instead — which is also why they read
+ * in a slightly different voice from the rows above, and that is deliberate:
+ * they answer "what does this count?", not "what am I looking at?".
+ *
+ * ⚠ DERIVED FROM THE REGISTER. The rows come from `METRIC_LEGEND_ROWS`, the
+ * same module the cards read their captions from, so this key cannot explain a
+ * word the canvas does not print or miss one it does — and
+ * `metricVocabulary.spec.ts` REDs if a noun gains no row. Hand-listing them
+ * here would be the mirror the register was introduced to abolish.
+ */
+function MetricGroup() {
+  return (
+    <div className="space-y-1.5">
+      {METRIC_LEGEND_ROWS.map(r => (
+        <div key={r.noun} className={`${typography.panelMeta} text-text-light`}>
+          <span className="text-text-body font-medium">{r.noun}</span>: {r.gloss}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function LegendGroup({ rows }: { rows: LegendRow[] }) {
   return (
     <div className="space-y-1.5">
@@ -262,7 +300,7 @@ export function CanvasLegendPopover() {
         <div
           role="dialog"
           aria-label="How to read this"
-          className="absolute left-full ml-2 bottom-0 w-56 bg-panel border border-panel-border rounded-lg shadow-panel p-3 z-[1200]"
+          className="absolute left-full ml-2 bottom-0 w-72 bg-panel border border-panel-border rounded-lg shadow-panel p-3 z-[1200]"
           data-testid="canvas-legend-popover"
         >
           <div className={`${typography.panelMeta} text-text-body font-medium mb-2`}>How to read this</div>
@@ -277,6 +315,8 @@ export function CanvasLegendPopover() {
       <LegendGroup rows={COLOUR_ROWS} />
       <div className="h-px bg-panel-border my-2" aria-hidden="true" />
       <LegendGroup rows={PROVENANCE_ROWS} />
+      <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+      <MetricGroup />
         </div>
       )}
     </div>

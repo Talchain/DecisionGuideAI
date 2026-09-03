@@ -159,7 +159,7 @@ describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one
           achievementProbabilityIsModelledBasis: false,
         }),
       }),
-    ).toBe('Achievement 70%')
+    ).toBe('Chance 70%')
   })
 
   it('WITHHOLDS it on the modelled basis, where OutcomeNode is required to render the caveat beside it', () => {

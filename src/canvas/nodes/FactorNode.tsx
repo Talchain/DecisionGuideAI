@@ -10,6 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatInterventionChange } from '../utils/interventionDisplay'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
@@ -724,7 +725,7 @@ export const FactorNode = memo((props: NodeProps) => {
               className="flex items-center gap-1.5"
               title={influenceExplanation(displayMetadata.influenceProvenance)}
             >
-              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Influence</span>
+              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
               <div className="flex-1 min-w-0">
                 <DataBar
                   value={influencePct / 100}
@@ -995,7 +996,7 @@ export const FactorNode = memo((props: NodeProps) => {
             hierarchy; two rows is a list. */}
         {isPostAnalysis && !isDetailed && influencePct != null && displayMetadata.influenceProvenance != null && (
           <NodeMetricRow
-            label="Influence"
+            label={METRIC_NOUN.influence}
             value={influencePct / 100}
             formatted={`${influencePct}%`}
             fillClass="bg-info"

@@ -34,6 +34,7 @@
  * cannot prove visibility and nothing here claims it does.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { METRIC_NOUN } from '../shared/metricVocabulary'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import {
@@ -209,7 +210,7 @@ describe('DecisionNode — the leader figure gets the shared metric row', () => 
     const row = screen.getByTestId(DECISION_ROW)
     expect(row).toBeDefined()
     // The noun, so a bare percentage cannot read as something else (UI-SEM-089).
-    expect(row.textContent).toContain('Leads')
+    expect(row.textContent).toContain(METRIC_NOUN.ahead)
     expect(row.textContent).toContain(`${Math.round(WIN_LEADER * 100)}%`)
     // The bar is the point of the change, not an incidental div.
     expect(fillWidthWithin(DECISION_ROW)).toContain('66%')
@@ -251,7 +252,7 @@ describe('GoalNode — the achievement figure gets the shared metric row', () =>
       { goal_threshold_raw: '100', goal_threshold_unit: '%' },
     )
     const row = screen.getByTestId(GOAL_ROW)
-    expect(row.textContent).toContain('Chance')
+    expect(row.textContent).toContain(METRIC_NOUN.chance)
     expect(row.textContent).toContain('73%')
     expect(fillWidthWithin(GOAL_ROW)).toContain('73%')
   })

@@ -30,6 +30,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
@@ -618,7 +619,7 @@ export const GoalNode = memo((props: NodeProps) => {
             does not exist. It must never grow its own basis check. */}
         {showAchievementReadout && (
           <NodeMetricRow
-            label="Chance"
+            label={METRIC_NOUN.chance}
             value={displayMetadata.achievementProbability}
             formatted={achievementReadout ?? ''}
             fillClass="bg-goal"
