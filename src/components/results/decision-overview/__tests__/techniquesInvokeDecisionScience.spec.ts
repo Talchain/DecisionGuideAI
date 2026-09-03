@@ -73,13 +73,27 @@ describe('every mapped intent is one CEE actually routes', () => {
    * restraint rule forbids. Absence must stay the common case.
    */
   it('leaves a technique unmapped when no accepted intent names its move', () => {
-    // Withheld by CEE today (see the note on CEE_ACCEPTED_INTENTS), so a
-    // mapping would be silence dressed as science.
-    expect(byId('pre_mortem').intent).toBeUndefined()
-    expect(byId('outside_view').intent).toBeUndefined()
-    // No accepted intent means "review this reasoning for bias".
+    // No accepted intent means "review this reasoning for bias", nor
+    // "explore the trade-offs" — these are the honest unmapped cases and they
+    // carry this assertion's weight.
     expect(byId('review_bias').intent).toBeUndefined()
     expect(byId('explore_tradeoffs').intent).toBeUndefined()
+
+    // ⚠ THESE TWO ARE UNMAPPED FOR A DIFFERENT REASON AND THE TWO MUST NOT BE
+    // COLLAPSED. The comment here used to read "withheld by CEE today" — that
+    // was true when written and is now FALSE: `pre_mortem` and `outside_view`
+    // ARE routed by CEE (#1321) and ARE in `CEE_ACCEPTED_INTENTS`, which is why
+    // the guard above passes for the pre-analysis sparks that carry them.
+    //
+    // These are DECISION-OVERVIEW techniques — a different surface from the
+    // pre-analysis sparks, fired post-analysis rather than pre-analysis. Whether
+    // clicking a technique here means the same move as clicking the spark there
+    // has not been adjudicated, and mapping them on the strength of a matching
+    // NAME would be exactly the rough-resemblance pattern-matching the
+    // restraint rule forbids. Unmapped is a held SCOPE BOUNDARY, not a finding
+    // that no intent applies. Wiring them is separate, deliberate work.
+    expect(byId('pre_mortem').intent).toBeUndefined()
+    expect(byId('outside_view').intent).toBeUndefined()
 
     const unmapped = METHOD_CATALOGUE.filter((m) => !m.intent)
     expect(unmapped.length, 'most techniques are correctly unmapped').toBeGreaterThan(2)

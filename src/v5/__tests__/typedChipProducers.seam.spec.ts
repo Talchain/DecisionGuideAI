@@ -18,7 +18,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
 
 import { buildChipMeta, type ChipMetaInput } from '../../canvas/conversation/chipMeta'
-import { CEE_ACCEPTED_INTENTS, buildV5Payload, type BuildV5PayloadInput } from '../buildPayload'
+import { CEE_ACCEPTED_INTENTS, KNOWN_INTENTS, buildV5Payload, type BuildV5PayloadInput } from '../buildPayload'
 import { ACTIONS_MENU, SPARK_PROMPTS } from '../../canvas/components/pre-analysis-v3/constants'
 import { callV5Turn } from '../v5Adapter'
 import {
@@ -189,19 +189,51 @@ describe('first-class chip.id lift + intent send gate', () => {
     expect(body.chip?.id).toBe('explicit')
   })
 
-  it('WITHHOLDS a not-yet-accepted intent (pre_mortem) — no intent key on the wire', async () => {
-    // `pre_mortem` is PUBLISHED in the vendored enum and DECLARED by a mounted
-    // spark, and CEE has no arm for it — so the gate must still fail closed and
-    // the chip behave like an identity-only chip. (This case used to be
-    // `challenge_frame`; that intent is now routed, so the withhold arm moved
-    // to an intent that is genuinely unrouted rather than being deleted.)
+  it('WITHHOLDS a not-yet-accepted intent (mitigation_help) — no intent key on the wire', async () => {
+    // `mitigation_help` is PUBLISHED in the vendored enum and CEE has no arm
+    // for it — so the gate must still fail closed and the chip behave like an
+    // identity-only chip. (This case has now moved TWICE: it was
+    // `challenge_frame`, then `pre_mortem`, and each move happened because the
+    // intent it named became routed. That is the decay this fixture is prone
+    // to, so the precondition below is asserted IN-TEST rather than trusted.)
+    //
+    // ⭐ PRECONDITION PIN (trap 13b). Without these two lines this test passes
+    // for the WRONG REASON the moment `mitigation_help` is routed: the withhold
+    // arm would silently stop discriminating and assert nothing, exactly as it
+    // would have done here had the move been missed. It REDs instead.
+    expect(
+      KNOWN_INTENTS.has('mitigation_help' as never),
+      'mitigation_help must be PUBLISHED, or this fixture proves nothing about the gate — ' +
+        'an unpublished token is withheld by the other conjunct',
+    ).toBe(true)
+    expect(
+      CEE_ACCEPTED_INTENTS.has('mitigation_help' as never),
+      'mitigation_help is now ACCEPTED, so this withhold fixture no longer discriminates — ' +
+        'move it to an intent CEE still does not route, do not delete the case',
+    ).toBe(false)
+
     const body = await wireBody(
-      { intent: 'pre_mortem', parameters: { spark_id: 'pre_mortem' } },
+      { intent: 'mitigation_help', parameters: { spark_id: 'mitigation_probe' } },
       'chip',
     )
     expect(body.chip && 'intent' in body.chip).toBe(false)
-    expect(body.chip?.id).toBe('pre_mortem')
-    expect(body.chip?.parameters).toEqual({ spark_id: 'pre_mortem' })
+    expect(body.chip?.id).toBe('mitigation_probe')
+    expect(body.chip?.parameters).toEqual({ spark_id: 'mitigation_probe' })
+  })
+
+  it('SENDS a routed intent on the same turn shape — the withhold above is the gate, not the shape', async () => {
+    // ⭐ THE OTHER HALF OF THE DISCRIMINATING PAIR. The withhold assertion
+    // above is satisfied by a build that drops EVERY intent (or by a broken
+    // `wireBody` that never emits a chip.intent at all). This runs the SAME
+    // helper, the same source and the same parameter shape with a routed
+    // intent, so the only difference between the two outcomes is the gate.
+    expect(CEE_ACCEPTED_INTENTS.has('pre_mortem' as never)).toBe(true)
+    const body = await wireBody(
+      { intent: 'pre_mortem', parameters: { spark_id: 'mitigation_probe' } },
+      'chip',
+    )
+    expect(body.chip?.intent).toBe('pre_mortem')
+    expect(body.chip?.id).toBe('mitigation_probe')
   })
 })
 
@@ -210,8 +242,9 @@ describe('first-class chip.id lift + intent send gate', () => {
  * lane exists to deliver, asserted on the ACTUAL HTTP BODY.
  *
  * ── THE DEFECT ───────────────────────────────────────────────────────────────
- * `CEE_ACCEPTED_INTENTS` had exactly ONE member. Four MOUNTED sparks carry
- * `action_type: null` (no honest handler exists for a conversation) and, until
+ * `CEE_ACCEPTED_INTENTS` had exactly ONE member. The MOUNTED coaching sparks
+ * carry `action_type: null` (no honest handler exists for a conversation and
+ * the count belongs to `constants.ts`, not to this line) and, until
  * now, carried nothing else either — so the click reached CEE as anonymous
  * prose and CEE re-inferred the intent from the message text. On the widening
  * card the fall-through was worse than silent: the turn took the free-text edit
@@ -293,9 +326,25 @@ describe('typed coaching intents — mounted spark → chip.intent on the wire',
     const sent = declaringSparks.filter(s => CEE_ACCEPTED_INTENTS.has(s.intent as never))
     const withheld = declaringSparks.filter(s => !CEE_ACCEPTED_INTENTS.has(s.intent as never))
     expect(sent.map(s => s.id).sort()).toEqual(
-      ['define_success', 'pressure_test_frame', 'reflect_bias', 'widen_options'],
+      [
+        'define_success',
+        // The three sparks this lane lit up (CEE #1321 + the accepted-list
+        // widening). They are SPARK ids; `risks_upside` carries `elicit_risks`.
+        'outside_view',
+        'pre_mortem',
+        'pressure_test_frame',
+        'reflect_bias',
+        'risks_upside',
+        'widen_options',
+      ],
     )
-    expect(withheld.length, 'no spark is withheld — the gate has been opened wholesale').toBeGreaterThan(0)
+    // ⭐ The withheld arm is pinned BY IDENTITY, not by a count. A bare
+    // `length > 0` cannot see the one withhold that actually matters —
+    // `calibrate_estimates`/`estimate_help`, which must NOT become sendable
+    // because its spark also carries `action_type: 'analysis_readiness'`.
+    // A count would stay green if that spark were sent and some other one
+    // dropped instead.
+    expect(withheld.map(s => s.id).sort()).toEqual(['calibrate_estimates'])
   })
 
   it('a composer turn carrying the same intent value still sends it — the gate is not source-scoped', async () => {

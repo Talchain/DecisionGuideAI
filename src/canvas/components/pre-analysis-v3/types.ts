@@ -36,9 +36,12 @@ export interface SparkPrompt {
    * `ActionType` set above and decoupled from it: an `action_type` names a
    * deterministic HANDLER, an `intent` names WHAT THE USER WANTS).
    *
-   * This is what stops a coaching spark degrading to anonymous prose. Four
+   * This is what stops a coaching spark degrading to anonymous prose. Several
    * MOUNTED sparks carry `action_type: null` because no honest handler exists
-   * for a conversation — and until CEE grew a routing arm they therefore
+   * for a conversation (this line said "Four" and was stale — derive the set
+   * from `ACTIONS_MENU` / `SPARK_PROMPTS` in `constants.ts`, which is the
+   * registry, rather than reading a number here) — and until CEE
+   * grew a routing arm they therefore
    * carried NOTHING, so the click arrived as untyped text and CEE re-inferred
    * the intent from the message. `intent` is the honest typed value for
    * exactly those sparks.
