@@ -18,11 +18,11 @@
  *
  * `computeFitPadding` measures the dock's live rect and reserves it: at 1280x800
  * with the dock at its 416px default it returns `right: 444px`, and the fit
- * frames into the 760px of canvas actually left over. **Across 130 arms of this
- * file — 13 full runs, 9 at `9c94a718` and 4 at the pre-band `72a43938`, five
+ * frames into the 760px of canvas actually left over. **Across 190 arms of this
+ * file — 19 full runs, 9 at `9c94a718` and 10 at the pre-band `72a43938`, five
  * shipped starters x two viewports, dock asserted expanded at 416px, the button
- * actually offered and clicked in 114 of them — ZERO model nodes end the click
- * behind the dock.** A further 30 arms run independently in review agree, as do
+ * actually offered and clicked in 162 of them — ZERO model nodes end the click
+ * behind the dock**, and the same on a further 20 arms at the rebased base. A further 30 arms run independently in review agree, as do
  * 5 arms at `a1fd39cc` (the build the complaint was taken on) and the 20-arm
  * fresh/restored sweep in `savedExampleShowWholeModel.measure.ts`. The button
  * reaches the dock-aware overview and stays there.
@@ -41,9 +41,9 @@
  *     extent ~1524  ->  "Showing 10 of 16 elements"      <- as reported
  *
  * At 1280x800, n=9: **5 tall / 4 short**. At 1440x900, n=9: **1 tall / 8 short**.
- * At the pre-band commit, 1440x900, n=4: **2 tall / 2 short**. So BOTH modes occur
- * at BOTH viewports and at both commits, and the reported string is the MAJORITY
- * mode at 1280x800 once the sample is large enough to see it.
+ * At the pre-band commit, 1280x800, n=10: **1 tall / 9 short**. So BOTH modes
+ * occur at BOTH viewports and at both commits, and the reported string is the
+ * MAJORITY mode at 1280x800 once the sample is large enough to see it.
  *
  * ⚠ THIS IS THE SECOND TIME THIS FILE HAS MIS-STATED THIS, IN THE OPPOSITE
  * DIRECTION EACH TIME, AND BOTH TIMES FROM TOO FEW RUNS. Draft 1 quoted a
@@ -57,6 +57,18 @@
  * sample of a BIMODAL variable, which is the failure the run-count rule below
  * exists to catch.** Quote `n`, and quote it large enough to have seen both
  * modes.
+ *
+ * ⭐⭐ AND THE THIRD TIME IT HAPPENED, IT HAPPENED IN THE COLUMN NOBODY WAS
+ * LOOKING AT. Drafts 1-3 applied the run-count rule to the HEAD column — the one
+ * under scrutiny — and left the PRE-BAND column at n=4. Re-running it to n=10
+ * turned up two more instances immediately: `headcount-allocation` at 1280x800
+ * pre-band is NOT the deterministic "14 of 16" it was recorded as (its 9 short
+ * runs say 14, its 1 tall run says 13), and `market-entry` pre-band is not
+ * "12 of 18, 4 of 4" either (9 of 10, with one "10 of 18"). **A discipline
+ * applied only where you are being watched is not a discipline; it is a
+ * response.** The rule is per-COLUMN and per-CELL, and the cheapest way to
+ * honour it is to sample every side of a comparison to the same depth BEFORE
+ * writing any of it down.
  *
  * ⚠ AND THE NOTICE IS NOT THIS FILE'S `outsideVisible` — two questions, one
  * shape (CLAUDE.md trap 21). The notice counts the STORE's model against the
@@ -129,38 +141,59 @@
  * `#1162`, AND IT TOOK TWO STARTERS BELOW THE FLOOR THE SAME NIGHT.
  * ══════════════════════════════════════════════════════════════════════════════
  *
- * Measured at the pre-band parent `72a43938` (n=2) against head (n=4), with this
- * file's frame reproducing `computeFitPadding`'s base margin so the comparison is
- * like-for-like:
+ * Measured at the pre-band parent `72a43938` (**n=10**) against head (**n=9**),
+ * with this file's frame reproducing `computeFitPadding`'s base margin so the
+ * comparison is like-for-like:
  *
  *     vertical chrome   1280x800   102px -> 165px   (the band costs 63px)
  *                       1440x900   106px -> 165px   (the band costs 59px)
  *
  * At **1440x900** that crosses the legibility floor for two of the five, and
- * **BOTH crossings are user-visible** (pre-band n=4, head n=9):
+ * **BOTH crossings are user-visible**. ⚠ ONE METRIC ON BOTH SIDES — this table
+ * previously quoted `heightOnlyCeiling` on the pre-band side and
+ * `zoomToShowWhole` on the head side, a substitution that is INVISIBLE at head
+ * because head is height-bound and the two coincide there. Both columns are
+ * `zoomToShowWhole` (pre-band n=10, head n=9):
  *
- *     pricing-model         0.5013-0.5163 -> 0.4646-0.4788   above -> below floor
- *         first view:  no extent notice, 4 of 4  ->  "Showing 14 of 15", 9 of 9
+ *     pricing-model         0.5013-0.5173 -> 0.4646-0.4788   above -> below floor
+ *         clears floor: 10 of 10  ->  0 of 9
+ *         first view:  no extent notice, 10 of 10  ->  "Showing 14 of 15", 9 of 9
  *
- *     headcount-allocation  0.5213-0.5390 -> 0.4817-0.4993   above -> below floor
- *         first view:  no extent notice, 4 of 4  ->  "Showing 15 of 16", 1 of 9
+ *     headcount-allocation  0.5180        -> 0.4817-0.4993   above -> below floor
+ *         (pre-band is WIDTH-bound and dead constant at 920/1776; its height
+ *          ceiling was 0.5210-0.5394, so BOTH quantities cleared)
+ *         clears floor: 10 of 10  ->  0 of 9
+ *         first view:  no extent notice, 10 of 10  ->  "Showing 15 of 16", 1 of 9
  *
  * ⚠ AN EARLIER DRAFT SAID `headcount-allocation` "offered no notice in any of
  * this file's runs at either commit" — TRUE OF ITS FOUR RUNS AND FALSE OF NINE,
  * and it halved this file's own most decision-relevant finding. **There are two
  * crossings, not one.** The headcount one is intermittent because it is gated on
  * the TALL extent mode above: of the nine head runs, the single tall one is
- * exactly the one that offers the button, and pre-band the tall mode still
- * cleared the floor (794px of frame / 1523 = 0.5213). So the band does not make
- * the race; it turns the race's tall arm from harmless into user-visible.
+ * exactly the one that offers the button — and independently reproduced 7 of 7
+ * on a sample that split 3 tall / 1 short. Pre-band, the tall mode still cleared
+ * on both quantities. **So the band does not make the race; it turns the race's
+ * tall arm from harmless into user-visible.**
  *
  * ⭐ AND IT IS NOT ONLY 1440x900. At **1280x800** three starters report strictly
- * MORE of the model hidden in the default view at head than pre-band, and two of
- * those are deterministic across every run:
+ * MORE of the model hidden in the default view at head (pre-band n=10, head n=9):
  *
- *     market-entry     "12 of 18" (4/4)  ->  "9 of 18"  (9/9)
- *     pricing-model    "12 of 15" (4/4)  ->  "10 of 15" (9/9)
- *     headcount-alloc  "14 of 16" (4/4)  ->  "10 of 16" (5/9), "14 of 16" (4/9)
+ *     market-entry     "12 of 18" 9/10, "10 of 18" 1/10  ->  "9 of 18"  9/9
+ *     pricing-model    "12 of 15" 10/10                  ->  "10 of 15" 9/9
+ *     headcount-alloc  "14 of 16" 8/10, "13 of 16" 2/10  ->  "14 of 16" 4/9,
+ *                                                            "10 of 16" 5/9
+ *
+ * ⭐ READ THE HEADCOUNT ROW BY MODE, BECAUSE THE FLAT NUMBERS HIDE THE EFFECT.
+ * Split by the extent race, pre-band n=10 against head n=9:
+ *
+ *     short mode  "14 of 16", 9 of 9 pre-band  ->  "14 of 16", 4 of 4 head
+ *     tall mode   "13 of 16", 1 of 1 pre-band  ->  "10 of 16", 5 of 5 head
+ *
+ * **The band costs this starter NOTHING in the short mode and THREE more hidden
+ * elements in the tall one** — not the flat "14 -> 10" an earlier draft implied,
+ * which was wrong at both ends. `market-entry` is the contrast that shows the
+ * band's cost is not merely a race artefact: its extent is **2312 in all 19
+ * runs, no race at all**, and it still loses three elements.
  *
  * **This is a regression in the product's first view, and it is the most
  * decision-relevant number here.** It is REPORTED, not acted on: `#1162` solved
@@ -210,11 +243,10 @@
  * `#1166` changed `OptionNode`'s card copy — which is exactly the kind of change
  * that moves measured card heights and therefore every extent above. Re-run at
  * `bd18bace` (n=2, 20 arms): the frame is unchanged at 760x635 / 920x735 with
- * 165px of vertical chrome, the guard is still 0 arms behind the dock, and EVERY
- * head range above still contains the new readings. One edge moved and is
- * widened rather than left standing: `headcount-allocation` at 1440x900 read
- * 0.4817, three ten-thousandths below the n=9 low of 0.4820, so the range says
- * 0.4817. Nothing else moved outside its quoted band.
+ * 165px of vertical chrome, the guard is still 0 arms behind the dock, and every
+ * head range above still contains the new readings — `headcount-allocation` at
+ * 1440x900 read 0.4817 against the n=9 low of 0.4820, three ten-thousandths
+ * outside, so that range says 0.4817. Nothing else moved outside its band.
  *
  * STATE CLASS (status-ladder fixture rule): FRESH seeded starter draft, no prior
  * camera, real clock, animations ON (`reducedMotion: no-preference`) — freezing
