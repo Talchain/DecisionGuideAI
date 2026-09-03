@@ -239,14 +239,20 @@
  * this file reports outside**, and those 4 are invisible to a band-blind frame.
  * REPORTED here rather than edited into files this lane does not own.
  *
- * ⭐ RE-MEASURED ACROSS A REBASE, because the base moved under this branch and
- * `#1166` changed `OptionNode`'s card copy — which is exactly the kind of change
- * that moves measured card heights and therefore every extent above. Re-run at
- * `bd18bace` (n=2, 20 arms): the frame is unchanged at 760x635 / 920x735 with
- * 165px of vertical chrome, the guard is still 0 arms behind the dock, and every
- * head range above still contains the new readings — `headcount-allocation` at
- * 1440x900 read 0.4817 against the n=9 low of 0.4820, three ten-thousandths
- * outside, so that range says 0.4817. Nothing else moved outside its band.
+ * ⭐ RE-MEASURED ACROSS EVERY REBASE, AND NOT ASSUMED. The base moved twice under
+ * this branch, both times carrying a change to a NODE COMPONENT — `#1166`
+ * (`OptionNode` card copy) and `#1167` (`GoalNode`) — which is exactly the kind
+ * of change that moves measured card heights and therefore every extent above.
+ * Both were re-run rather than reasoned about (n=2 / 20 arms each):
+ *
+ *     bd18bace   frame 760x635 / 920x735, chrome 165   guard 0/20
+ *     ce5669d5   frame 760x635 / 920x735, chrome 165   guard 0/20
+ *
+ * At `bd18bace` one edge moved and was widened rather than left standing —
+ * `headcount-allocation` at 1440x900 read 0.4817 against the n=9 low of 0.4820.
+ * At `ce5669d5` every quoted range contained every new reading with nothing
+ * outside. A node-component change that DID move these numbers would be a
+ * finding, not a nuisance; that is why it is measured each time.
  *
  * STATE CLASS (status-ladder fixture rule): FRESH seeded starter draft, no prior
  * camera, real clock, animations ON (`reducedMotion: no-preference`) — freezing
