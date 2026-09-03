@@ -18,53 +18,107 @@
  *
  * `computeFitPadding` measures the dock's live rect and reserves it: at 1280x800
  * with the dock at its 416px default it returns `right: 444px`, and the fit
- * frames into the 760px of canvas actually left over. Driven in real Chromium on
- * five shipped starters x two viewports x two state classes, at BOTH the build
- * the complaint was taken on (`a1fd39cc`) and the current base, **every arm ends
- * the click with ZERO model nodes behind the dock.** The button reaches the
- * dock-aware overview and stays there.
+ * frames into the 760px of canvas actually left over. **Across 60 arms of this
+ * file — 6 full runs, 4 at `9c94a718` and 2 at the pre-band `72a43938`, five
+ * shipped starters x two viewports, dock asserted expanded at 416px — ZERO model
+ * nodes end the click behind the dock.** A further 30 arms run independently in
+ * review agree, as do 5 arms at `a1fd39cc` (the build the complaint was taken
+ * on) and the 20-arm fresh/restored sweep in
+ * `savedExampleShowWholeModel.measure.ts`. The button reaches the dock-aware
+ * overview and stays there.
  *
- * ⭐ WHAT WAS ACTUALLY SEEN IS THE **DEFAULT VIEW**, NOT THE BUTTON — and it
- * reproduces exactly. `headcount-allocation` at 1280x800, dock expanded, after
- * the product's own automatic fit and before any click:
+ * ⭐ WHAT WAS ACTUALLY SEEN IS THE **DEFAULT VIEW**, NOT THE BUTTON.
+ * `headcount-allocation` at 1280x800, dock expanded, after the product's own
+ * automatic fit and before any click, has `opt_sales` (an option) and
+ * `fac_quota_attainment` (a factor) behind the dock in **every** run.
  *
- *     zoom 0.5000   notice "Showing 10 of 16 elements"
- *     behind the dock: ["fac_quota_attainment", "opt_sales"]   (a factor, an option)
+ * ⚠ ITS COUNTER IS BIMODAL, AND THE REPORTED STRING IS THE RARER MODE — say so
+ * rather than claiming an exact reproduction. The measured extent height on this
+ * starter races a corrective layout, and the notice tracks it:
  *
- * — the same counter, the same element classes. The button was blamed for the
- * state it is offered *in*.
+ *     extent 1472-1473 (3 of 4 runs)  ->  "Showing 14 of 16 elements"
+ *     extent 1525      (1 of 4 runs)  ->  "Showing 10 of 16 elements"   <- as reported
  *
- * ⭐⭐ AND THE MECHANISM, WHICH IS A BUDGET AND NOT A BUG.
+ * — and 0 of 3 independent runs saw the second. So the reported sighting is
+ * real and REPRODUCES INTERMITTENTLY; it is not a deterministic state.
  *
+ * ⚠ AND THE NOTICE IS NOT THIS FILE'S `outsideVisible` — two questions, one
+ * shape (CLAUDE.md trap 21). The notice counts the STORE's model against the
+ * PADDED FRAME when it renders; `outsideVisible` counts RENDERED DOM boxes
+ * against the visible canvas. On the same default view they read 2-outside and
+ * 6-outside respectively in three runs, and coincidentally agreed at 6 in the
+ * fourth. Neither is wrong; they are not the same count and must not be
+ * arithmetically reconciled.
+ *
+ * ⭐⭐ THE MECHANISM IS A BUDGET, NOT A BUG.
  * The product's automatic fit is floored at `LABEL_LEGIBLE_ZOOM` (0.5) — below
  * it every node body renders blank, so an automatic fit is not allowed to park
  * there. `topAnchoredViewportWhenClamped` then pins the model's top-LEFT inside
  * the fit frame, which is the best available placement. Whatever will not fit at
- * 0.5 therefore overflows the frame's RIGHT edge — and the right edge is where a
- * 416px opaque panel is. The dock does not cause the loss; it decides that the
- * loss reads as *"an option has vanished"* rather than *"the model continues off
- * the edge"*.
+ * 0.5 overflows the frame's RIGHT edge — and the right edge is where a 416px
+ * opaque panel is. **The dock does not cause the loss; it decides that the loss
+ * reads as "an option has vanished" rather than "the model continues off the
+ * edge".**
  *
- * ⭐⭐⭐ THE NUMBER THAT SETTLES THE TRADE, AND IT IS NOT THE DOCK.
- * At 1280x800 the binding constraint is VERTICAL on all five starters. The fit
- * frame is 760 x **635**: the window's 800px of height less 73 (the floating
- * TopBar pill) and 92 (the `CanvasOverlayBand`) — **165px, 21% of the window,
- * spent on chrome before the model gets any.** The zoom each starter needs to be
- * shown whole, against a floor of 0.50:
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ⭐⭐⭐ WHY NO DOCK CHANGE CAN FIX IT — AND THE ARGUMENT DELIBERATELY DOES NOT
+ * REST ON A BINDING-AXIS LABEL.
+ * ══════════════════════════════════════════════════════════════════════════════
  *
- *     build-vs-buy          0.243     vendor-selection      0.291
- *     market-entry          0.276     headcount-allocation  0.417
- *     pricing-model         0.413
+ * The tempting statement is *"the binding axis is vertical, so the dock is
+ * irrelevant"*. **An earlier draft of this docblock said exactly that, said it
+ * of all five starters, and it was FALSE** — `headcount-allocation` at 1280x800
+ * measures width-bound in some runs and height-bound in others, because the two
+ * ceilings sit 0.8% apart inside a run-to-run band of up to 3.5%. A conclusion
+ * resting on that comparison is a coin toss dressed as a measurement.
  *
- * **Not one of them clears the floor.** Collapsing the dock cannot change that:
- * it buys horizontal room, and the constraint is vertical. `headcount-allocation`
- * needs 1524 model-px of height at zoom 0.5 = 762px of frame, and has 635.
+ * **So the load-bearing quantity is `heightOnlyCeiling` — `frameHeight /
+ * modelHeight`, the zoom the model could reach IF EVERY HORIZONTAL OCCLUDER
+ * VANISHED.** It is untouched by the dock's width, by collapsing it, by removing
+ * it, and by the sidebar. Measured at head, 1280x800, n=4, against a floor of
+ * **0.50**:
  *
- * So the honest statement of the product position is: **at 1280x800 no shipped
- * starter can be both fully visible and legible, and "Show whole model" is the
- * user choosing visibility over legibility — correctly, and with no floor, which
- * is why it works.** Widening what a user can see whole is a chrome-budget or
- * legibility-floor decision, not a padding one.
+ *     build-vs-buy          0.2428          headcount-allocation  0.4164-0.4314
+ *     vendor-selection      0.2892-0.2994   pricing-model         0.4014-0.4137
+ *     market-entry          0.2747
+ *
+ * **Not one clears the floor, and the highest is 14% below it.** Collapsing the
+ * dock (416 -> 40px) widens the frame 760 -> 1136 and moves none of these
+ * numbers at all. **No horizontal change makes any starter whole-and-legible at
+ * 1280x800.** That holds however the binding-axis coin lands, which is the point
+ * of stating it this way.
+ *
+ * The frame at head: **760 x 635** at 1280x800 and **920 x 735** at 1440x900 —
+ * 520px of horizontal chrome and **165px of vertical**, the latter being the
+ * floating TopBar pill (73) and the `CanvasOverlayBand` (92).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════
+ * ⚠⚠ AND THE VERTICAL BUDGET IS NOT A STANDING FACT — 56% OF IT ARRIVED WITH
+ * `#1162`, AND IT TOOK TWO STARTERS BELOW THE FLOOR THE SAME NIGHT.
+ * ══════════════════════════════════════════════════════════════════════════════
+ *
+ * Measured at the pre-band parent `72a43938` (n=2) against head (n=4), with this
+ * file's frame reproducing `computeFitPadding`'s base margin so the comparison is
+ * like-for-like:
+ *
+ *     vertical chrome   1280x800   102px -> 165px   (the band costs 63px)
+ *                       1440x900   106px -> 165px   (the band costs 59px)
+ *
+ * At **1440x900** that crosses the legibility floor for two of the five:
+ *
+ *     headcount-allocation   needs 0.5180  ->  0.4990-0.4993   (above -> below)
+ *     pricing-model          needs 0.5159  ->  0.4646-0.4788   (above -> below)
+ *
+ * and on `pricing-model` the crossing is **directly user-visible**: at
+ * `72a43938` its first view showed the whole model with **no extent notice at
+ * all**; at head it shows **"Showing 14 of 15 elements"** and offers the button.
+ * `headcount-allocation` offered no notice in any of this file's runs at either
+ * commit, but that arm is **BISTABLE** — an independent run measured 0.4823
+ * (button offered) and 0.4973 (not) at the same commit.
+ *
+ * **This is a regression in the product's first view, and it is the most
+ * decision-relevant number here.** It is REPORTED, not acted on: `#1162` solved
+ * a real overlap defect, and trading its band back for 60px is a founder call.
  *
  * ══════════════════════════════════════════════════════════════════════════════
  * WHAT THIS FILE ASSERTS, AND WHAT IT ONLY RECORDS.
@@ -83,6 +137,12 @@
  * silently, which is a founder decision, and it would abort the run on the first
  * arm and cost the rest.
  *
+ * ⚠ QUOTE THE NUMBERS WITH THEIR RUN COUNT. Two runs AT THE SAME COMMIT differ
+ * by up to 3.5% on `zoomToShowWhole`, because measured card heights race
+ * corrective layout passes. Every figure above carries its `n`. A single-run
+ * figure from this harness is an anecdote, and the 1440x900
+ * `headcount-allocation` arm is the standing proof of why.
+ *
  * ⭐ THE INSTRUMENT IS ASSERTED BEFORE ANY COUNT (CLAUDE.md trap 13). A sibling
  * lane's harness measured zero because its fixture never mounted the component
  * under test, and a zero for the wrong reason is indistinguishable from a pass.
@@ -95,8 +155,9 @@
  * "show whole model" MEASURES DO NOT. `showWholeModel.measure.ts` and
  * `savedExampleShowWholeModel.measure.ts` both take `bottom: flow.bottom`,
  * which predates `CanvasOverlayBand` (#1162) and is now a fourth occluder they
- * cannot see. Measured on `headcount-allocation`'s default view, counting the
- * band moves the outside-the-visible-canvas set from 3 nodes to 6. That is
+ * cannot see. On `headcount-allocation`'s default view at head the sets are
+ * disjoint and add up: **2 behind the dock + 4 below the band's top edge = the 6
+ * this file reports outside**, and those 4 are invisible to a band-blind frame.
  * REPORTED here rather than edited into files this lane does not own.
  *
  * STATE CLASS (status-ladder fixture rule): FRESH seeded starter draft, no prior
@@ -188,13 +249,26 @@ async function readFrame(page: Page, ghostPrefix: string): Promise<Reading> {
     const banner = rectOf('[role="banner"]')
     const band = rectOf('[data-canvas-overlay-band]')
 
-    // The genuinely-visible canvas, reserving each occluder's own GAP exactly as
-    // `computeFitPadding` does, so this frame IS the frame the fit targets.
+    // ⭐ THE FRAME REPRODUCES `computeFitPadding` EXACTLY, INCLUDING ITS BASE
+    // MARGIN — `max(baseMargin, occluderOverlap + GAP)` per side, with
+    // `baseMargin(d) = floor((d - d / (1 + BASE_RATIO)) * 0.5)` and
+    // BASE_RATIO 0.08. An earlier cut of this file fell back to the raw flow
+    // edge when a contributor was ABSENT, which silently overstated the frame
+    // by the base margin on that side — invisible at this tip (all four
+    // contributors exceed their base) and a 29px error at 1280x800 on any
+    // commit predating `CanvasOverlayBand`, which is exactly the comparison
+    // this file is used for. Reproducing the whole formula removes the caveat
+    // rather than carrying it.
+    const BASE_RATIO = 0.08
+    const baseMargin = (d: number) =>
+      Number.isFinite(d) && d > 0 ? Math.max(0, Math.floor((d - d / (1 + BASE_RATIO)) * 0.5)) : 0
+    const baseX = baseMargin(flow.width)
+    const baseY = baseMargin(flow.height)
     const frame = {
-      left: sidebar ? sidebar.right + GAP : flow.left,
-      right: dock ? dock.left - GAP : flow.right,
-      top: banner ? banner.bottom + GAP : flow.top,
-      bottom: band ? band.top - GAP : flow.bottom,
+      left: flow.left + Math.max(baseX, sidebar ? sidebar.right - flow.left + GAP : 0),
+      right: flow.right - Math.max(baseX, dock ? flow.right - dock.left + GAP : 0),
+      top: flow.top + Math.max(baseY, banner ? banner.bottom - flow.top + GAP : 0),
+      bottom: flow.bottom - Math.max(baseY, band ? flow.bottom - band.top + GAP : 0),
     }
 
     const nodes = (Array.from(document.querySelectorAll('.react-flow__node')) as HTMLElement[])
@@ -393,8 +467,10 @@ for (const size of SIZES) {
       // ── THE FRAME BUDGET — RECORDED, NEVER ASSERTED ────────────────────────
       const frameW = before.frame.right - before.frame.left
       const frameH = before.frame.bottom - before.frame.top
-      const zoomToShowWhole = Math.min(frameW / before.extent.width, frameH / before.extent.height)
-      const bindingAxis = frameW / before.extent.width < frameH / before.extent.height ? 'width' : 'height'
+      const widthOnlyCeiling = frameW / before.extent.width
+      const heightOnlyCeiling = frameH / before.extent.height
+      const zoomToShowWhole = Math.min(widthOnlyCeiling, heightOnlyCeiling)
+      const bindingAxis = widthOnlyCeiling < heightOnlyCeiling ? 'width' : 'height'
       const chromeVertical = before.paneHeight - frameH
       const chromeHorizontal = before.paneWidth - frameW
 
@@ -421,6 +497,12 @@ for (const size of SIZES) {
               chrome: { horizontal: Math.round(chromeHorizontal), vertical: Math.round(chromeVertical) },
               extent: before.extent,
               zoomToShowWhole: +zoomToShowWhole.toFixed(4),
+              // ⭐ THE TWO CEILINGS SEPARATELY, because the founder-facing
+              // question "would collapsing the dock fix this?" is answered by
+              // `heightOnlyCeiling` ALONE — it is what the model could reach if
+              // every horizontal occluder vanished, and no dock change moves it.
+              widthOnlyCeiling: +widthOnlyCeiling.toFixed(4),
+              heightOnlyCeiling: +heightOnlyCeiling.toFixed(4),
               bindingAxis,
               clearsLegibilityFloor: zoomToShowWhole >= LABEL_LEGIBLE_ZOOM,
             },
