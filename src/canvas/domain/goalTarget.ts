@@ -204,7 +204,23 @@ export function statedGoalTargetRaw(
  * rendering the editor when it has no number to display at all, which is the
  * pre-existing "From your brief" pre-population branch. The admission is a
  * SUFFICIENT condition, never overridden — so *admission yes ⟹ editor present*
- * holds by construction, which is exactly what makes the chip's promise honest.
+ * holds by construction.
+ *
+ * ⚠⚠ AND THAT SENTENCE ENDED "…, which is exactly what makes the chip's promise
+ * honest" UNTIL #1172 ROUND 3, WHERE MEASUREMENT REFUTED THE CONCLUSION. The
+ * implication is true and was re-derived end-to-end through the real
+ * `InspectorRouter`. It does not carry the conclusion, because **PRESENCE IS
+ * NOT ANSWERABILITY**: the router wraps the panel body in an unconditional
+ * `<fieldset disabled>`, so the editor this implication guarantees is rendered
+ * INERT. The chip's promise was "add one", not "see one", and it has been
+ * withdrawn (`GoalNode.tsx`); this module now guarantees exactly what it says
+ * and nothing about honesty downstream of it.
+ *
+ * The lesson worth keeping: an implication proved BY CONSTRUCTION is still only
+ * an implication about the thing it names. Whether that thing is any use to a
+ * reader is a different question, one mount further out, and it needed a
+ * different instrument to see — every guard in that PR mounted `GoalPanel`
+ * directly, where the boundary does not exist.
  *
  * ⚠ IT TAKES THE NODE AND NOTHING ELSE, ON PURPOSE. Handing it the store
  * scalar would put the card back on the weaker source this module's header

@@ -417,8 +417,39 @@ export const GoalPanel = memo(function GoalPanel({
                   another one, which is the trade this PR exists to refuse.
                   `targetDisplay == null` is exactly "the pipeline holds no
                   number", so it is the condition the sentence is true under.
-                  The editor stands alone on the divergent arm and claims
-                  nothing: it carries its own label and placeholder. */}
+
+                  ⚠⚠ THE LAST SENTENCE HERE READ "The editor stands alone on the
+                  divergent arm and claims nothing: it carries its own label and
+                  PLACEHOLDER" UNTIL #1172 ROUND 3, AND MEASUREMENT REFUTED IT.
+                  On the divergent arm the placeholder NEVER RENDERS, because
+                  the field is not empty: `GoalThresholdEditor` seeds from
+                  `goalThreshold != null ? String(goalThreshold) : rawString`,
+                  i.e. the STORE scalar first. Routing the divergent arm here
+                  made that seed reachable from this panel for the first time,
+                  so the editor arrives pre-filled with the pipeline's number on
+                  the very arm whose whole premise is that the node captured
+                  nothing. It does not "claim nothing" — it shows 0.8 under
+                  "Success means reaching" beside a card saying the target was
+                  not captured.
+
+                  ⚠ WHAT THAT DOES *NOT* CURRENTLY REACH, stated exactly so it
+                  is neither inherited nor lost: `handleBlur` has no dirty check,
+                  so committing that seed untouched would write
+                  `success_threshold: 0.8` + `threshold_source: 'user'` and
+                  re-tag the store 'raw' — reviving `≥ £0.8` and attesting a
+                  target the reader never stated. It is NOT user-reachable
+                  today, because `InspectorRouter`'s `<fieldset disabled>` inerts
+                  this input, and a disabled control fires neither focus nor
+                  blur. The finding was measured by mounting `GoalPanel`
+                  directly, where that boundary does not exist. So the SEED is a
+                  live display defect and the WRITE is fenced by the boundary —
+                  ⚠ AND THAT FENCE IS THE REASON CARVING THIS EDITOR OUT OF THE
+                  FIELDSET WOULD MAKE THINGS WORSE, NOT BETTER. Rowed; the
+                  remedy is to give the SEED the same admission that owns the
+                  chip (`canCaptureGoalTarget`), so nothing captured means an
+                  empty field — deliberately not done here, because it changes a
+                  component five other mounted surfaces share and must not break
+                  the "From your brief" pre-fill (node raw, store null). */}
               {targetDisplay == null && (
                 <p className={`${typography.panelMeta} text-info mt-1.5`}>
                   {GOAL_CONSTRAINT_COPY.targetUnlocks}

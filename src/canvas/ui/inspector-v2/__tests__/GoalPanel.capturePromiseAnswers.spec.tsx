@@ -1,10 +1,28 @@
 /**
- * ⭐⭐⭐ THE CHIP PROMISES A ROUTE. THIS FILE IS WHERE THE ROUTE ANSWERS.
+ * ⭐⭐⭐ THE ADMISSION THAT OWNS THE CHIP ALSO OWNS THE EDITOR'S PRESENCE.
+ *
+ * ⚠⚠ THIS FILE WAS TITLED "THE CHIP PROMISES A ROUTE. THIS FILE IS WHERE THE
+ * ROUTE ANSWERS" UNTIL #1172 ROUND 3, AND BOTH HALVES WERE WRONG BY THEN.
+ * The chip no longer promises a repair — the destination could not perform one
+ * — and this file could never have shown that it did: it imports and mounts
+ * `GoalPanel` DIRECTLY, so `InspectorRouter`'s `<fieldset disabled>` never
+ * exists here, and its completion case drives the field with `fireEvent`, which
+ * bypasses actionability. Every assertion below is TRUE; none of them is about
+ * answerability. That is the whole lesson — a green file can be bound to a
+ * mount the product does not produce (CLAUDE.md trap 3b), and the title is
+ * where the overclaim lived, not the tests.
+ *
+ * What this file DOES establish, and it is worth keeping: the implication
+ * `canCaptureGoalTarget(node.data) ⟹ the panel renders GoalThresholdEditor`,
+ * on every payload the chip fires on. Presence, by one shared admission rather
+ * than two defaults that happen to coincide. ANSWERABILITY is derived through
+ * the real router in `goalChipPromiseVsDestination.spec.tsx`.
  *
  * ⚠⚠ THE DEFECT THIS CLOSES WAS INTRODUCED BY ITS OWN FIX. #1172 changed the
  * goal card's chip from `No target set` — a passive falsehood — to
  * `Target not captured — add one`. "add one" is a PROMISE, and in a reachable
- * state it led nowhere:
+ * state it led nowhere (round 3 has since withdrawn that clause; the state
+ * described below is what round 2 found and closed):
  *
  *   chip   Target not captured — add one          (fires on the NODE)
  *   panel  Threshold set · Success means reaching ≥ 0.8      (reads the STORE)
@@ -128,7 +146,7 @@ beforeEach(() => {
   vi.mocked(useAuth).mockReturnValue(REAL_AUTH as unknown as ReturnType<typeof useAuth>)
 })
 
-describe('the goal panel answers the chip’s promise on every payload the chip fires on', () => {
+describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (presence, not answerability)', () => {
   it('POSITIVE CONTROL — when the two authorities AGREE a target exists, the editor is ABSENT', () => {
     // ⛔ Trap 13. Without this the whole file could be satisfied by a panel that
     // renders the editor unconditionally, and every assertion below would be

@@ -37,18 +37,30 @@
  * are not being aligned here. Neither contradicts the other: both say the model
  * holds nothing.
  *
- * ── AND THE SECOND HALF: A CHIP THAT NAMES A GAP MUST NAME THE REPAIR ──────
- * The visible text carries the route (`— add one`) rather than parking it in a
- * `title`, because a `title` is unreachable by keyboard and absent on touch —
- * the same rule `NodeMetricRow`'s header applies to its captions.
+ * ── ⚠⚠ AND THE SECOND HALF WAS WITHDRAWN IN ROUND 3, HAVING BEEN REFUTED ───
+ * THIS SECTION SAID: *"A CHIP THAT NAMES A GAP MUST NAME THE REPAIR … the
+ * inspector's goal panel renders `GoalThresholdEditor` on exactly the
+ * null-target branch this chip fires on (read at the bytes) … Copy that
+ * promises an affordance is only honest while the affordance answers."*
  *
- * ⚠ THE ROUTE ITSELF ALREADY EXISTED AND IS PINNED HERE RATHER THAN ADDED.
- * The chip has always called `openNodeInspector(id)`, and the inspector's goal
- * panel renders `GoalThresholdEditor` on exactly the null-target branch this
- * chip fires on (`GoalPanel.tsx:351-381`, read at the bytes). So the claim the
- * new copy makes — that there is somewhere to go — is a claim about behaviour,
- * and behaviour is what the last block asserts. Copy that promises an
- * affordance is only honest while the affordance answers.
+ * The BAR in that last sentence is right and is kept. The claim that this copy
+ * MET it was false. `InspectorRouter` wraps the panel body in an unconditional
+ * `<fieldset disabled>` beneath "those changes can't yet be saved", and
+ * `GoalThresholdEditor` renders a form control, which that fieldset inerts. The
+ * editor is PRESENT and does not ANSWER — so `— add one` named a route that
+ * dead-ends one layer below where "read at the bytes" was reading.
+ *
+ * ⚠ NOTE WHAT THAT PHRASE COST. "Read at the bytes" was true of the bytes it
+ * was pointed at (`GoalPanel`) and silent about the mount the product actually
+ * produces (`InspectorRouter` → `GoalPanel`). A capture proves what it was
+ * pointed at (CLAUDE.md trap 16/20), and an inspection claim inherits the scope
+ * of the file it inspected.
+ *
+ * The chip now states the fact and says only what the click does. The rule and
+ * its evidence live in `goalChipPromiseVsDestination.spec.tsx`, which mounts
+ * the REAL router and derives ACTIONABILITY — this file cannot see any of that,
+ * because it renders `GoalNode` against a mocked store with no inspector in it,
+ * and that limit is exactly why the promise shipped.
  *
  * ── PROOF SHAPE ───────────────────────────────────────────────────────────
  * RED-first at pristine `86786efb`: every assertion below fails, because the
@@ -127,8 +139,7 @@ import { useCanvasStore } from '../../store'
 import {
   GoalNode,
   GOAL_NO_TARGET_STATE,
-  GOAL_NO_TARGET_REPAIR,
-  GOAL_NO_TARGET_CHIP,
+  goalNoTargetChannels,
 } from '../GoalNode'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
 
@@ -192,21 +203,34 @@ describe('the no-target chip states a fact about the MODEL, never a verdict on t
     expect(renderGoal({ goal_threshold_raw: 30000, goal_threshold_unit: '£' }).chip).toBeNull()
   })
 
-  it('⭐ the visible chip text names the state AND the repair', () => {
+  it('⭐ the visible chip text names the state', () => {
     const { chip } = renderGoal()
     // IDENTITY, not a value predicate another element could satisfy: the chip
     // is found by its testid and its whole text is asserted.
-    expect(chip!.textContent).toBe(GOAL_NO_TARGET_CHIP)
-    expect(GOAL_NO_TARGET_CHIP).toContain(GOAL_NO_TARGET_STATE)
-    expect(GOAL_NO_TARGET_CHIP).toContain(GOAL_NO_TARGET_REPAIR)
+    expect(chip!.textContent).toBe(GOAL_NO_TARGET_STATE)
   })
 
-  it('⭐ THE COPY PIN, ONCE — the constants are what the card ships, in British English', () => {
-    // The single literal in this file. Everything else binds to the constants,
+  it('⭐⭐ THE RENDER↔COMPOSITION BINDING — every channel is what `goalNoTargetChannels` says', () => {
+    // ⚠ THIS IS THE ASSERTION THAT MAKES THE RULE IN
+    // `goalChipPromiseVsDestination.spec.tsx` BINDING. That file asserts over
+    // the COMPOSITION; without this, the component could drift from it and the
+    // rule would be guarding a function the card no longer renders — a guard
+    // agreeing with itself (CLAUDE.md trap 13b). Both arms, by identity.
+    for (const [diagnostic, overrides] of [
+      [false, {}],
+      [true, { results: { status: 'complete', report: {} } }],
+    ] as const) {
+      cleanup()
+      const { chip } = renderGoal({}, overrides as Record<string, unknown>)
+      expect(chip, `diagnostic=${diagnostic}`).not.toBeNull()
+      expect(channelsOf(chip!)).toEqual(goalNoTargetChannels({ diagnostic }))
+    }
+  })
+
+  it('⭐ THE COPY PIN, ONCE — the constant is what the card ships, in British English', () => {
+    // The single literal in this file. Everything else binds to the constant,
     // so a wording change edits exactly one line here and nothing drifts.
     expect(GOAL_NO_TARGET_STATE).toBe('Target not captured')
-    expect(GOAL_NO_TARGET_REPAIR).toBe('add one')
-    expect(GOAL_NO_TARGET_CHIP).toBe('Target not captured — add one')
   })
 
   it('⛔ no channel of the chip says the reader set no target', () => {
@@ -222,15 +246,26 @@ describe('the no-target chip states a fact about the MODEL, never a verdict on t
     }
   })
 
-  it('⛔ every channel names the repair route, including the two the sighted-hover path does not reach', () => {
-    // A screen-reader user gets the aria-label and nothing else; a touch user
-    // never sees the title. Parking the route in `title` alone would leave both
-    // with a confession and no way out.
+  it('⛔ every channel says what the CLICK does, and none promises a repair the destination cannot make', () => {
+    // ⚠⚠ THIS TEST WAS THE EXACT INVERSE UNTIL #1172 ROUND 3, and it was the
+    // inverse for a good reason that turned out to rest on a false premise:
+    // a screen-reader user gets the aria-label and nothing else, a touch user
+    // never sees the title, so a route parked in `title` alone leaves both with
+    // a confession and no way out. That argument is still right — which is why
+    // the promise had to be withdrawn from ALL THREE channels rather than the
+    // visible one, once the destination turned out to be inert. The reasoning
+    // that decides WHICH way this test points lives in
+    // `goalChipPromiseVsDestination.spec.tsx`, which derives the destination's
+    // inertness through the REAL router instead of asserting it here.
     const { chip } = renderGoal()
     const channels = channelsOf(chip!)
-    expect(channels.visible).toContain(GOAL_NO_TARGET_REPAIR)
-    expect(channels['aria-label']).toMatch(/add one/i)
-    expect(channels.title).toMatch(/add one/i)
+    for (const [name, text] of Object.entries(channels)) {
+      expect(text, `${name} channel`).not.toMatch(/\badd one\b/i)
+    }
+    // …and each still says what pressing it will do, so the ban is not
+    // satisfied by silence.
+    expect(channels['aria-label']).toMatch(/open this goal's details/i)
+    expect(channels.title).toMatch(/open its details/i)
   })
 
   it('the post-analysis diagnostic arm keeps its own accessible name and stays free of the withdrawn sentence', () => {
@@ -255,11 +290,11 @@ describe('the no-target chip states a fact about the MODEL, never a verdict on t
 
 describe('the reduced line carries the state, and is still text the full-zoom card shows', () => {
   it('below the legibility floor the card says the state, not the whole chip', () => {
-    // The reduced line is CSS-truncated with an ellipsis (`BaseNode.tsx:1052`),
-    // so the repair clause would be cut mid-word at that size. The STATE is the
-    // half that survives, and it comes from the same constant the chip renders
-    // — never a second hand-written copy (this file's own reason to exist is
-    // that the last such copy dropped a colon).
+    // The reduced line is CSS-truncated with an ellipsis (`BaseNode.tsx:1052`).
+    // Since round 3 withdrew the repair clause the chip and this line carry the
+    // SAME constant, so the truncation risk the clause introduced is gone — but
+    // the binding stays, because it is what stops the two becoming a
+    // hand-written pair again the next time the chip grows a second half.
     const { lodLine } = renderGoal({}, { lodRung: 'line' })
     expect(lodLine).toBe(GOAL_NO_TARGET_STATE)
   })
@@ -279,7 +314,15 @@ describe('the reduced line carries the state, and is still text the full-zoom ca
   })
 })
 
-describe('the repair the copy promises actually answers', () => {
+/**
+ * ⚠⚠ THIS BLOCK WAS NAMED "the repair the copy promises actually answers"
+ * UNTIL #1172 ROUND 3. It never checked that, and could not: it contains the
+ * select-and-raise route test and its control, which prove the chip RAISES the
+ * inspector and nothing about what the inspector can then do. The name claimed
+ * more than anything under it asserted — and the thing it claimed is false
+ * (`goalChipPromiseVsDestination.spec.tsx`). Renamed to what it measures.
+ */
+describe('the chip raises this goal’s inspector — the route, not the repair', () => {
   it('⭐ clicking the chip selects the goal and raises its inspector', () => {
     const raised = vi.fn()
     window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, raised)
