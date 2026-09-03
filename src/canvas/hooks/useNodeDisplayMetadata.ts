@@ -11,7 +11,12 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { NodeType } from '../domain/nodes'
-import { compareByDisplayModel, hasClearInfluenceLeader } from '../../components/results/driverDisplayModel'
+import {
+  compareByDisplayModel,
+  determinedRankDepth,
+  hasMeaningfulMagnitude,
+  rowCarriesMagnitudeMetric,
+} from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
@@ -23,6 +28,16 @@ import {
 import type { ResultsReport } from '../../components/results/types'
 import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
 import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
+
+/**
+ * The deepest ordinal the canvas badge is willing to print ("Key driver #N").
+ *
+ * Exported so the gate that decides WHETHER a rank is determined and the cap
+ * that decides HOW MANY get badged are one number. They were two — a gate
+ * about rank 1 and a literal `rank <= 3` — and the gap between them is exactly
+ * how `#2` and `#3` came to be handed out on alphabetical order.
+ */
+export const MAX_BADGED_RANK = 3
 
 export interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
@@ -310,14 +325,43 @@ export function useNodeDisplayMetadata(
       // ranks would print a "#3" with no "#1" or "#2" beside it, which is a
       // second kind of nonsense; when the top is undetermined the ordinal
       // reading of the whole set is what fails. Under the NO-HIDING ruling this
-      // withholds a claim the data cannot support — it does not hide a finding:
-      // the influence VALUE and its provenance are still surfaced below, so the
-      // reader keeps the number and loses only the false ordering.
+      // withholds a claim the data cannot support rather than hiding a finding.
+      //
+      // ⚠⚠ ON THE ORDINARY SET THE READER KEEPS THE NUMBER; ON THE
+      // MAGNITUDE-LESS SET THEY KEEP NOTHING (2026-09-04, review round 2). This
+      // comment used to end "the reader keeps the number and loses only the
+      // false ordering", and the manufactured-zero fix a few lines below
+      // falsifies it: when no factor in the set carries a real magnitude, the
+      // all-zero sentinel makes `determinedRankDepth` return 0 AND the
+      // influence figure is withheld as unmeasured. Measured and pinned in
+      // `useNodeDisplayMetadata.rankGateBreadth.spec.ts` ("THE DEFECT
+      // (set-level)"): rank, value and provenance are ALL null while
+      // `inSensitivityAnalysis` is true — no rank, no number, no explanation.
+      // The silence is still the honest answer (every figure available there is
+      // invented), but it is a real cost to the reader and the deferred copy
+      // (CANVAS-BACKLOG S47) is what owes them the reason.
+      //
+      // ⚠⚠ THE GATE ASKED A NARROWER QUESTION THAN THE BADGE PROMISED, AND THE
+      // GAP SHIPPED (2026-09-03). This read `hasClearInfluenceLeader(...) &&
+      // rank <= 3` — a gate about RANK 1 licensing THREE ordinals. On a real
+      // user's model (`{1.00, 0.67 x6, 0.00}`, six factors tied) the leader
+      // gate passes, so `#2` and `#3` went to two of the six tied factors,
+      // chosen by `compareByDisplayModel`'s fall-through to `key.localeCompare`
+      // — ALPHABETICAL NODE ID — under a tooltip that reads "ranked by
+      // influence on the outcome". The numeral is not the defect and is not
+      // removed: it is correct and valuable wherever the ordering is genuinely
+      // determined. Claiming it where it is not, and attributing it to a
+      // measurement, is. `determinedRankDepth` asks the badge's OWN question
+      // ("are ranks 1..3 each clear?") at the same owner, so on that set only
+      // `#1` is badged and every `#N` the canvas prints is true.
       const rank = ranked.findIndex(f => f.key === nodeId) + 1
-      const rankIsDetermined = hasClearInfluenceLeader(
+      // MAX_BADGED_RANK is the badge's promise, so it is what the gate is
+      // measured against — the depth and the cap can no longer drift apart.
+      const determinedDepth = determinedRankDepth(
         ranked.map((f) => ({ id: f.key, value: f.value })),
+        MAX_BADGED_RANK,
       )
-      sensitivityRank = rankIsDetermined && rank > 0 && rank <= 3 ? rank : null
+      sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
 
       // VoI rank: top-3 factors by value_of_information. Keyed off the shared
       // feed's canonical key (node_id → factor_id → id → label), so a row
@@ -349,8 +393,46 @@ export function useNodeDisplayMetadata(
         // rank used, on the same basis as the panel. Lane C4: carry the
         // model's provenance out with the value so the pill can disclose
         // the basis (set-relative top ≡ 100% vs absolute producer score).
+        //
+        // ⚠⚠ A MANUFACTURED ZERO IS NOT A MEASUREMENT, AND THE CANVAS IS THE
+        // ONLY SURFACE THAT PRINTS IT (2026-09-03). Two distinct routes put a
+        // display value of exactly 0 on a factor that measured nothing:
+        //
+        //   (a) SET-LEVEL. When no factor in the set carries a real magnitude,
+        //       `computeNormalisedInfluences` maps EVERY factor to 0 on
+        //       purpose — the all-zero sentinel that tells the Drivers panel to
+        //       switch to its direction-only view "instead of misleading ~100%
+        //       bars" (its words). It only applies on the fallback basis; under
+        //       complete producer coverage the values are real, so this is
+        //       gated on provenance and cannot swallow a genuine zero score.
+        //   (b) ROW-LEVEL. The feed's normaliser ends its magnitude chain with
+        //       a terminal `: 0`, so a row carrying NO metric field at all is
+        //       indistinguishable downstream from one that genuinely measured
+        //       zero influence.
+        //
+        // The panel absorbs both: a sub-threshold driver is filtered out of its
+        // default view entirely (`isZeroImpact` / `hiddenZeroImpactCount` in
+        // `useResultsSectionData`). The canvas cannot hide the NODE — it is the
+        // user's own model — but it must not print `Influence 0%` beside it, a
+        // measurement claim about a row nothing measured. Withholding the
+        // figure is the canvas's form of the panel's safeguard.
+        //
+        // Withholding here is sufficient and touches no other lane's file:
+        // `MetricPills` already requires BOTH a finite `influencePct` and a
+        // non-null `influenceProvenance` to render the number, and `null` is an
+        // already-handled state on this field (it is what a node outside the
+        // analysis returns). A real zero — `{ elasticity: 0 }` in a set that
+        // has magnitude data — still renders `Influence 0%`, because that is a
+        // finding, not an absence.
         const modelEntry = displayModel.get(nodeId)
-        if (modelEntry && Number.isFinite(modelEntry.value)) {
+        const rawRowForNode = rows.findIndex((r) => r.key === nodeId)
+        const measured =
+          modelEntry != null &&
+          Number.isFinite(modelEntry.value) &&
+          (modelEntry.provenance === 'influence_score' ||
+            (hasMeaningfulMagnitude(rows) &&
+              rowCarriesMagnitudeMetric(feed.rawFactors[rawRowForNode])))
+        if (measured && modelEntry) {
           influence = modelEntry.value
           influenceProvenance = modelEntry.provenance
         }

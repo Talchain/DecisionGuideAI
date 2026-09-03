@@ -90,11 +90,126 @@ export function resolveAnalysisMetric(input: {
 }
 
 /**
+ * The smallest |elasticity| this module will treat as a MEASUREMENT rather
+ * than as an absent one.
+ *
+ * ⚠ ONE OWNER FOR THE SENTINEL, BECAUSE THE ZERO IT PRODUCES IS NOT A VALUE.
+ * `computeNormalisedInfluences` maps a degenerate set to 0 for every factor —
+ * that 0 is a SIGNAL ("we have no magnitude data"), not a measured influence,
+ * and a consumer that cannot tell it from a real 0 will print `Influence 0%`
+ * about a factor nothing measured. It was an unnamed inline `0.001` here, so
+ * no consumer could ask the question at all; naming it is what makes
+ * `hasMeaningfulMagnitude` below derivable rather than a second copy.
+ */
+export const MAGNITUDE_DATA_EPSILON = 0.001
+
+/**
+ * Does this factor set carry magnitude data at all — i.e. will
+ * `computeNormalisedInfluences` return real proportions rather than the
+ * all-zero sentinel?
+ *
+ * Deliberately the exact complement of that function's degenerate branch
+ * (`actualMax < MAGNITUDE_DATA_EPSILON`), because the question a consumer is
+ * really asking is "is the number I got back a measurement or the sentinel?",
+ * and only the sentinel's PRODUCER can answer that. Derived from it, not
+ * copied beside it.
+ *
+ * ⚠ A NAMED, UNFOLDED RIVAL, so a later sweep does not have to rediscover it.
+ * `useResultsSectionData.ts:2780` computes the Drivers panel's
+ * `hasMagnitudeData` as `maxRawElasticity > 0.001` — the same concept, but
+ * `>` where this is `>=`. The two therefore DISAGREE on a set whose max
+ * magnitude is exactly `0.001`: the panel calls it magnitude-less and shows
+ * direction-only, while `computeNormalisedInfluences` does NOT degenerate and
+ * normalises that factor to 1.0. This module binds to the sentinel's producer
+ * because that is the only correct binding for "is my number real"; the panel
+ * boundary is left alone deliberately (it is another lane's file, and moving a
+ * threshold that gates a whole panel's display mode is not a drive-by change).
+ * Rowed rather than folded.
+ */
+export function hasMeaningfulMagnitude(
+  factors: ReadonlyArray<{ rawElasticity: number }>,
+): boolean {
+  if (factors.length === 0) return false
+  const max = Math.max(
+    ...factors.map((f) => (Number.isFinite(f.rawElasticity) ? Math.abs(f.rawElasticity) : 0)),
+  )
+  return max >= MAGNITUDE_DATA_EPSILON
+}
+
+/**
+ * The metric fields that can put a real magnitude on a driver row, in the
+ * order the feed's normaliser consults them.
+ *
+ * ⚠ THIS LIST IS A MIRROR OF `normalizeFactorSensitivity`'s CHAIN
+ * (`useResultsSectionData.ts`), so it gets a FAIL-LOUD completeness guard
+ * rather than a promise to keep it in sync: `driverRowMetricPresence.spec.ts`
+ * drives the real feed once per member (asserting the field IS in the chain)
+ * and once per plausible NON-member such as `contribution` (asserting it is
+ * NOT). A field added to or removed from the chain REDs that spec.
+ */
+const MAGNITUDE_FIELDS = [
+  'elasticity',
+  'sensitivity_score',
+  'sensitivity',
+  'importance_score',
+] as const
+
+/**
+ * Did this wire row carry data into the MAGNITUDE chain — the chain that
+ * produced its `rawElasticity`?
+ *
+ * ⚠ WHY THIS EXISTS: THE ZERO IS MANUFACTURED, NOT MEASURED. The feed's
+ * normaliser ends its magnitude chain with a terminal `: 0`, and
+ * `getRawElasticity` then reads that 0 back as though it were producer data.
+ * So a row carrying NO magnitude field whatsoever arrives downstream
+ * indistinguishable from a row that genuinely measured zero influence. The
+ * Drivers panel absorbs this — a sub-threshold driver is filtered out of its
+ * default view entirely (`isZeroImpact`, `hiddenZeroImpactCount`) — but the
+ * canvas has no such filter and prints `Influence 0%` beside the node, which
+ * is a measurement claim about a row nothing measured.
+ *
+ * ⚠⚠ THE QUESTION IS ABOUT THE MAGNITUDE CHAIN, NOT ABOUT "ANY METRIC"
+ * (2026-09-04, review round 2). This was named `rowCarriesInfluenceMetric`
+ * and returned true on a finite `influence_score` too. But `influence_score`
+ * DOES NOT FEED `rawElasticity`: `normalizeFactorSensitivity` collapses only
+ * `elasticity → sensitivity_score → sensitivity → importance_score → 0`, and
+ * the producer score lands on the separate `influenceScore` field. So that
+ * limb could only ever DECIDE anything when the displayed basis was NOT
+ * `influence_score` — under complete producer coverage the call site's
+ * `provenance === 'influence_score'` limb has already short-circuited. It was
+ * redundant where it was right, and live only where it was wrong: a row
+ * `{ influence_score: 0.9 }` with no magnitude field, in an
+ * incomplete-coverage set, was licensed to render `Influence 0%` — a real 0.9
+ * displayed as its opposite, which is worse than the unmeasured row this
+ * guard was written to stop. Removing the limb, and renaming the function to
+ * the question it actually answers, is the fix. Reachability is STRUCTURAL —
+ * `selectDriverPolicyFeed` unions five heterogeneous sources and
+ * `selectDriverDisplayModel` requires EVERY row to carry `influenceScore`, so
+ * any mix drops the set onto the fallback basis (source 2, `legacyDrivers`,
+ * builds rows with `sensitivity` and no `influence_score` at all). It is NOT
+ * wire-witnessed: no live payload of this shape has been captured, so the
+ * frequency is unknown and only the behaviour is measured.
+ *
+ * Absence fails closed; an explicit zero survives (`{ elasticity: 0 }` is a
+ * real measurement and returns true).
+ */
+export function rowCarriesMagnitudeMetric(raw: unknown): boolean {
+  if (raw == null || typeof raw !== 'object') return false
+  const f = raw as Record<string, unknown>
+  const finite = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v)
+  return MAGNITUDE_FIELDS.some((field) => finite(f[field]))
+}
+
+/** Exported for the completeness guard only — never for policy decisions. */
+export const MAGNITUDE_FIELD_NAMES: ReadonlyArray<string> = MAGNITUDE_FIELDS
+
+/**
  * Normalise raw elasticities to 0-1 relative to the largest magnitude in the
  * set (top = 1.0, others proportional). Degenerate sets (max |elasticity| <
- * 0.001) map every factor to 0 so a direction-only display is triggered
- * instead of misleading ~100% bars. Kept as a named export because several
- * surfaces consume the normalised value directly for semantic-label thresholds.
+ * MAGNITUDE_DATA_EPSILON) map every factor to 0 so a direction-only display is
+ * triggered instead of misleading ~100% bars. Kept as a named export because
+ * several surfaces consume the normalised value directly for semantic-label
+ * thresholds.
  */
 export function computeNormalisedInfluences(
   factors: Array<{ key: string; rawElasticity: number }>,
@@ -109,7 +224,7 @@ export function computeNormalisedInfluences(
   const actualMax = Math.max(...absoluteValues)
 
   // No meaningful magnitude data → all zero (direction-only display upstream).
-  if (actualMax < 0.001) {
+  if (actualMax < MAGNITUDE_DATA_EPSILON) {
     factors.forEach((f) => result.set(f.key, 0))
     return result
   }
@@ -358,16 +473,100 @@ export const INFLUENCE_TIE_EPSILON = 0.01
 export function hasClearInfluenceLeader(
   entries: ReadonlyArray<{ id: string; value: number }>,
 ): boolean {
-  if (entries.length === 0) return false
-  const safe = entries.map((e) => ({
-    id: e.id,
-    value: Number.isFinite(e.value) ? e.value : 0,
-  }))
-  const max = Math.max(...safe.map((e) => e.value))
-  const idsAtTop = new Set(
-    safe.filter((e) => max - e.value <= INFLUENCE_TIE_EPSILON).map((e) => e.id),
-  )
-  return idsAtTop.size === 1
+  // ONE QUESTION, ONE FUNCTION. "Is rank 1 clear?" is the depth-1 case of
+  // "how many leading ranks are clear?" — see `determinedRankDepth`. Keeping a
+  // separate body here would be two implementations of one tie notion, which
+  // is the drift this module exists to prevent. Equivalence with the original
+  // implementation is pinned over a corpus (including a randomised one) in
+  // `determinedRankDepth.equivalence.spec.ts`, so this fold is measured rather
+  // than argued.
+  return determinedRankDepth(entries, 1) === 1
+}
+
+/**
+ * How many LEADING ranks are genuinely determined — i.e. how deep can an
+ * ordinal claim go before it stops being supported by the numbers?
+ *
+ * Returns the largest `k <= maxDepth` such that ranks 1…k are EACH clear of
+ * the next distinct factor below them by more than `INFLUENCE_TIE_EPSILON`.
+ * Ranks beyond `k` are decided by the comparator's tie-breaks, which the user
+ * cannot see, and must not be claimed.
+ *
+ * ⚠⚠ WHY THIS EXISTS: THE GATE WAS NARROWER THAN THE BADGE IT GUARDS
+ * (2026-09-03). `hasClearInfluenceLeader` asks ONLY "is the TOP unique?", and
+ * `useNodeDisplayMetadata` then handed `#1`, `#2` AND `#3` out on the strength
+ * of that single answer. Measured on a real user's model, eight factors came
+ * back at `{1.00, 0.67 x6, 0.00}` — SIX of them tied. The leader gate passes
+ * (1.00 is clear of 0.67), so `#2` and `#3` were awarded to two of the six
+ * tied factors, selected by `compareByDisplayModel` falling through value →
+ * elasticity → `key.localeCompare` — i.e. **alphabetical node id**. The badge's
+ * own tooltip reads "ranked by influence on the outcome", so the product was
+ * asserting a sensitivity ranking it did not have AND attributing it to a
+ * measurement. The leader gate was tightened in 2026-08-30 and the `#2`/`#3`
+ * gate was never widened to match; this closes that gap at the same owner
+ * rather than minting a rival predicate.
+ *
+ * ⚠ THE DEPTH IS A PREFIX, DELIBERATELY. It stops at the first undetermined
+ * rank instead of skipping past it, because printing a `#3` with no `#2`
+ * beside it is its own kind of nonsense — the same set-level reasoning the
+ * depth-1 gate already applied, now expressed as "how far does the ordering
+ * hold" rather than "does it hold at all". Under the NO-HIDING ruling this
+ * withholds a claim the data cannot support rather than hiding a finding.
+ *
+ * ⚠⚠ BUT IT IS NOT COSTLESS TO THE READER, AND THIS COMMENT USED TO SAY IT WAS
+ * (2026-09-04, review round 2). It read "it does not hide a finding, since
+ * every factor's influence VALUE and its basis are still surfaced beside it".
+ * On the ordinary set that is true. On the MAGNITUDE-LESS set it is false, and
+ * the falsifier is this PR's own sibling fix: when no factor carries a real
+ * magnitude, `computeNormalisedInfluences` returns the all-zero sentinel, the
+ * canvas withholds the influence figure as a manufactured zero, AND this depth
+ * returns 0 — so the node renders no rank, no number and no explanation.
+ * Measured, and pinned by `useNodeDisplayMetadata.rankGateBreadth.spec.ts`
+ * ("THE DEFECT (set-level)"): `[{ elasticity: 0.0001 }, { elasticity: 0.0002 }]`
+ * → `sensitivityRank = null`, `influence = null`, `influenceProvenance = null`,
+ * `inSensitivityAnalysis = true`. Both channels go quiet at once. That state is
+ * still the honest one — every number the badge could print there would be
+ * invented — but it makes the deferred tie/silence copy MORE load-bearing, not
+ * less, and it must not be justified by a sentence claiming the reader keeps
+ * the number. Copy is rowed as CANVAS-BACKLOG S47.
+ *
+ * ⚠ IT TAKES IDENTITIES, NOT A BAG OF NUMBERS — inherited from
+ * `hasClearInfluenceLeader` above and load-bearing for the same reason: two
+ * entries sharing one id are ONE factor, and a factor is not tied with itself.
+ * Duplicate ids collapse to their highest value before the gaps are measured,
+ * which is exactly what the depth-1 case did by set-membership.
+ *
+ * A rank with no runner-up beneath it is trivially clear. An empty set has no
+ * determined rank at all.
+ */
+export function determinedRankDepth(
+  entries: ReadonlyArray<{ id: string; value: number }>,
+  maxDepth: number,
+): number {
+  if (entries.length === 0 || maxDepth < 1) return 0
+
+  // Collapse duplicate ids to their best value: one factor, one position.
+  const bestById = new Map<string, number>()
+  for (const e of entries) {
+    const value = Number.isFinite(e.value) ? e.value : 0
+    const seen = bestById.get(e.id)
+    if (seen === undefined || value > seen) bestById.set(e.id, value)
+  }
+
+  const values = [...bestById.values()].sort((a, b) => b - a)
+
+  let depth = 0
+  const limit = Math.min(maxDepth, values.length)
+  for (let rank = 1; rank <= limit; rank += 1) {
+    const isLast = rank === values.length
+    // Clear of the next DISTINCT factor below, or there is no factor below.
+    if (isLast || values[rank - 1] - values[rank] > INFLUENCE_TIE_EPSILON) {
+      depth = rank
+      continue
+    }
+    break
+  }
+  return depth
 }
 
 /**

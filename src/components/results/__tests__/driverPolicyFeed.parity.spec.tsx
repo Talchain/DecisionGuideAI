@@ -159,17 +159,42 @@ describe('C4 re-review — panel and canvas resolve the SAME ORDER, not just the
     expect(rowsByKey.get('n_down')?.displayInfluence).toBeCloseTo(4 / 9)
     expect(rowsByKey.get('n_up')?.displayInfluence).toBeCloseTo(4 / 9)
 
+    // VALUE parity is unconditional — both surfaces read one display model.
     for (const key of ['n_big', 'n_down', 'n_up']) {
       const canvas = renderHook(() => useNodeDisplayMetadata(key, 'factor'))
       expect(canvas.result.current.influence).toBeCloseTo(rowsByKey.get(key)!.displayInfluence!)
-      expect(canvas.result.current.sensitivityRank).toBe(rowsByKey.get(key)!.rank)
     }
 
-    // Pinned concretely: the tie resolves by the shared key tie-break, and the
-    // sign of the magnitude does not enter the ordering on either surface.
+    // The panel's own list ORDER is unchanged: a list must be in some order,
+    // and the sign of the magnitude still does not enter it on either surface.
     expect(rowsByKey.get('n_big')?.rank).toBe(1)
     expect(rowsByKey.get('n_down')?.rank).toBe(2)
     expect(rowsByKey.get('n_up')?.rank).toBe(3)
+
+    // ⚠⚠ RANK PARITY IS NOT VALUE PARITY, AND THIS CASE USED TO ASSERT IT
+    // (corrected 2026-09-03). `n_down` and `n_up` are TIED at 4/9; the panel's
+    // `rank` separates them only via `compareByDisplayModel`'s fall-through to
+    // `key.localeCompare` — ALPHABETICAL. This spec previously required the
+    // canvas badge to reproduce those ordinals, so it pinned the defect as
+    // correct: the badge is titled "ranked by influence on the outcome", and
+    // #2/#3 here are not. Note the test immediately below ALREADY forbids
+    // exactly this for a tie at the TOP — the gap was that the leader gate was
+    // tightened and the #2/#3 gate never was.
+    //
+    // ORDERING A LIST AND ASSERTING A RANK ARE TWO DIFFERENT QUESTIONS (trap
+    // 21). The panel keeps a total order because it must render rows in some
+    // sequence; the canvas makes an explicit comparative CLAIM, so it may only
+    // make the ones the numbers determine.
+    const bigCanvas = renderHook(() => useNodeDisplayMetadata('n_big', 'factor'))
+    expect(bigCanvas.result.current.sensitivityRank).toBe(1)
+    for (const tiedKey of ['n_down', 'n_up']) {
+      const canvas = renderHook(() => useNodeDisplayMetadata(tiedKey, 'factor'))
+      expect(canvas.result.current.sensitivityRank).toBeNull()
+      // PRECONDITION: the tied row IS in the analysis and keeps its number, so
+      // the null above is the gate firing and not an absent row.
+      expect(canvas.result.current.inSensitivityAnalysis).toBe(true)
+      expect(canvas.result.current.influence).toBeCloseTo(4 / 9)
+    }
   })
 
   it('producer basis: an exact tie yields no rendered ordinal, and the values still agree across surfaces', () => {
