@@ -89,7 +89,13 @@ describe('the overlay band height, spelled in two places', () => {
     // Proves the agreement above is the code's doing and not the regex quietly
     // failing to find anything. Same shape, different number: it must NOT equal
     // the exported height.
-    const drifted = 'const BAND_H = 96'.match(BAND_H_DECLARATION)
+    //
+    // The drifted value is DERIVED from the export rather than written as a
+    // literal. A hardcoded one collides the day the band is retuned to that
+    // number — measured: with a literal 96, mutating OVERLAY_BAND_HEIGHT to 96
+    // failed this control for a reason that has nothing to do with the scan.
+    const driftedValue = OVERLAY_BAND_HEIGHT + 32
+    const drifted = `const BAND_H = ${driftedValue}`.match(BAND_H_DECLARATION)
     expect(drifted).not.toBeNull()
     expect(Number(drifted![1])).not.toBe(OVERLAY_BAND_HEIGHT)
   })
