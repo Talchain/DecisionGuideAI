@@ -61,6 +61,7 @@ import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import {
   resolveEdgeDirectionDisplay,
   resolveEdgeSignedStrengthDisplay,
+  resolveEdgeValueDisplay,
 } from '../../domain/edgeValueProvenance'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { useEdgeLabelMode } from '../../store/edgeLabelMode'
@@ -206,9 +207,16 @@ const NEITHER_WIRE: WireEdge = (() => {
   return rest
 })()
 
+/** NOTHING set: strength, direction AND the likelihood all deleted. */
+const NOTHING_SET_WIRE: WireEdge = (() => {
+  const { exists_probability: _p, ...rest } = NEITHER_WIRE as Record<string, unknown> & { exists_probability?: unknown }
+  return rest
+})()
+
 const SET_DATA = ingest(SET_WIRE)
 const NO_STRENGTH_DATA = ingest(NO_STRENGTH_WIRE)
 const NEITHER_DATA = ingest(NEITHER_WIRE)
+const NOTHING_SET_DATA = ingest(NOTHING_SET_WIRE)
 
 // ── DOM readers, bound by identity (CLAUDE.md trap 19) ──────────────────────
 
@@ -352,8 +360,22 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
   })
 
   it('NEITHER set → the ratified popover copy, exactly', () => {
-    const { container } = renderEdge(NEITHER_DATA)
+    // The ratified sentence names LIKELIHOOD as well as strength, so it may
+    // only be spoken when the likelihood is absent too — hence
+    // NOTHING_SET_DATA, which deletes `exists_probability` as well. Reaching it
+    // through NEITHER_DATA (which still carries 0.88) would have been the label
+    // denying a number the popover was rendering at that moment.
+    const { container } = renderEdge(NOTHING_SET_DATA)
     expect(labelText(container)).toBe(RATIFIED_UNSET_COPY)
+  })
+
+  it('a KNOWN likelihood is not denied when strength and direction are unset', () => {
+    // The discriminating twin of the case above: same deletions, likelihood
+    // left in place. One fixture yields the fuller sentence, the other does not.
+    expect(resolveEdgeValueDisplay(NEITHER_DATA, 'beliefExists').show).toBe(true)
+    expect(resolveEdgeValueDisplay(NOTHING_SET_DATA, 'beliefExists').show).toBe(false)
+    const { container } = renderEdge(NEITHER_DATA)
+    expect(labelText(container)).toBe('Strength not set')
   })
 
   it('the NUMERIC channel does not print the fabricated number either', () => {
@@ -368,9 +390,26 @@ describe('StyledEdge edge label — strength words (ROADMAP 2.950, #627 lineage)
 
   it('still renders the full claim for a producer-sourced strength', () => {
     const { container } = renderEdge(SET_DATA)
-    // Byte-exact: the same string this edge rendered before this change. The
-    // capture carries no `belief`, so the (uncertain) qualifier applies.
-    expect(labelText(container)).toBe('Moderate drag (uncertain)')
+    /**
+     * ⭐ THIS PIN USED TO EXPECT 'Moderate drag (uncertain)', on the stated
+     * grounds that "the capture carries no `belief`". It carries no `belief`
+     * because nothing on the live path writes that legacy scalar — but it DOES
+     * carry `exists_probability: 0.88`, which ingestion stamps as
+     * `beliefExists: 0.88` with `beliefExistsSource: 'cee'` (pinned below).
+     * The label was reading the dead channel and reporting "uncertain" about a
+     * producer-sourced 88%, while this component's own hover popover rendered
+     * "88% confident" from the live one. The qualifier is gone because the
+     * likelihood is known, not because the gate was loosened.
+     */
+    expect(labelText(container)).toBe('Moderate drag')
+  })
+
+  it('PRECONDITION: the SET fixture carries a producer-stamped likelihood', () => {
+    // Trap 13b: pin the precondition in-test, or the assertion above could pass
+    // for the wrong reason (a likelihood that silently stopped resolving).
+    expect(resolveEdgeValueDisplay(SET_DATA, 'beliefExists')).toEqual({
+      show: true, value: 0.88, source: 'cee',
+    })
   })
 
   it('the numeric channel still prints a sourced strength, signed by the stated direction', () => {

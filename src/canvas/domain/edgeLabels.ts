@@ -50,6 +50,69 @@ export interface EdgeDescription {
 }
 
 /**
+ * The likelihood at or above which the label STOPS HEDGING.
+ *
+ * ⚠⚠ THIS DELIBERATELY DIFFERS FROM `EDGE_VALUE_BAND_CUTS`, AND THE DIFFERENCE
+ * IS PINNED BY A TEST SO IT CANNOT DRIFT SILENTLY.
+ * ---------------------------------------------------------------------------
+ * `EDGE_VALUE_BAND_CUTS` (`edgeValueProvenance.ts`, `{ high: 0.7, moderate:
+ * 0.4 }` — TWO cuts, four bands counting `unset`) answers **"which colour band
+ * is this number in?"**. Its one non-test consumer is `EdgePanel`, which reads
+ * it through `edgeValueBand` for the existence slider's colour and track-fill
+ * (`EdgePanel.tsx:230`). It exists because those cuts were once a hand-copied
+ * literal in three places.
+ *
+ * `LABEL_HEDGE_CUT` answers a DIFFERENT question: **"is this number confident
+ * enough that a sentence about the effect should carry no caveat?"** It is
+ * binary and it governs prose rather than colour, so nothing obliges it to
+ * equal a band cut — and forcing it to would be CLAUDE.md trap 21 done
+ * backwards: two questions collapsed under one number because the numbers
+ * looked like they ought to match.
+ *
+ * ⚠ WHAT THIS BLOCK IS NOT ENTITLED TO SAY, and used to. It claimed
+ * `RelationshipsSection`'s likelihood swatch as a second consumer of the
+ * registry, and it claimed "there is no value of `LABEL_HEDGE_CUT` that makes
+ * the two agree". Both were false, and measurably so:
+ *   · `RelationshipsSection` does NOT read the registry. It hand-copies
+ *     `>= 70 / >= 40` on the ROUNDED percentage
+ *     (`components/model-tab/RelationshipsSection.tsx:210`), which the
+ *     registry's own header forbids ("Cut on the RAW value, never on a rounded
+ *     percentage"). So this field carries a THIRD scale, not two, and that
+ *     third one is a live instance of the mirror the registry was written to
+ *     abolish. It is NOT pinned by this file's tests and it needs the model-tab
+ *     owner — naming it here is the whole of what this lane did about it.
+ *   · Setting `LABEL_HEDGE_CUT` to `0.4` would make hedging mean exactly "band
+ *     is `low`"; setting it to `0.7` would make it mean exactly "band is not
+ *     `high`". Either lands the binary boundary ON a band boundary and leaves
+ *     no band split down the middle. The honest claim is the narrow one — the
+ *     two answer different questions, so they need not share a cut — not the
+ *     flattering one that they could not share a cut if they tried.
+ *
+ * ⚠ THE CONSEQUENCE, STATED PLAINLY RATHER THAN HIDDEN: the two scales
+ * disagree on `[0.4, 0.6)` and `[0.6, 0.7)`. At `beliefExists = 0.45` the
+ * canvas label says "(uncertain)" while the inspector bands the same number
+ * **moderate/amber**; at `0.65` the label hedges nothing while the inspector
+ * still says **moderate**. That is a real, reachable copy inconsistency (the
+ * EdgePanel existence slider reaches both), and it is a COPY DECISION — which
+ * cut is right for prose — not a defect this PR is entitled to settle by
+ * picking a number.
+ *
+ * ⚠ AND IT IS NOT ROWED ANYWHERE. An earlier draft of this block said it was
+ * rowed in `CANVAS-BACKLOG.md`; measured against that file (both copies in
+ * `Talchain/olumi-programme-docs`, with a contrast control proving the probe
+ * sees rows S45–S49), no such row exists. A comment that claims a row is worse
+ * than one that admits there is none, because it teaches the next reader to
+ * stop looking. **This block and the test below are the ONLY record of the
+ * decision.** What the constant buys is that the divergence is NAMED, ADJACENT
+ * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
+ * can only change on purpose.
+ *
+ * The value is unchanged from the bare `0.6` literal that stood here. Nothing
+ * about the product's behaviour moves with this constant's introduction.
+ */
+export const LABEL_HEDGE_CUT = 0.6
+
+/**
  * Describe an edge in human-readable terms based on strength and belief
  *
  * Weight scale (applied to the RESOLVED strength's magnitude):
@@ -57,11 +120,19 @@ export interface EdgeDescription {
  * - Moderate: 0.3 <= |w| < 0.7
  * - Weak: |w| < 0.3
  *
- * Belief scale (confidence):
- * - High: b >= 80%
- * - Medium: 60% <= b < 80%
- * - Low: b < 60%
- * - Undefined: treat as uncertain
+ * Likelihood scale — TWO OUTCOMES, not four bands. See `LABEL_HEDGE_CUT`:
+ * - Set and >= the hedge cut → no qualifier
+ * - Set and <  the hedge cut → "(uncertain)"
+ * - NOT set                  → "(likelihood not set)"
+ *
+ * ⚠ THIS BLOCK USED TO READ "High: b >= 80% / Medium: 60% <= b < 80% / Low:
+ * b < 60% / Undefined: treat as uncertain", and every line of it was either
+ * false or decorative. `High` and `Medium` named bands the function never
+ * emitted — both produce no qualifier, so the 80% cut described nothing. And
+ * "Undefined: treat as uncertain" is precisely the behaviour this function was
+ * changed to STOP: an unset likelihood now says so instead of being reported as
+ * a low one. A reader going top-down met the false line ~50 lines before the
+ * capitalised block that contradicts it.
  *
  * ⚠⚠ THE STRENGTH IS A RESOLVED DISPLAY, NOT A RAW NUMBER (ROADMAP 2.950).
  * ------------------------------------------------------------------------
@@ -92,12 +163,54 @@ export interface EdgeDescription {
  * likelihood not set" (`edge-hover-popover-unset` in `StyledEdge`) — one
  * phrase for one concept, no new copy. When exactly one half has provenance,
  * that half speaks and the other says only that it was not set.
- * NOTE the two surfaces gate the same sentence on slightly different pairs:
- * the popover fires it on (strength unset AND likelihood unset) because it has
- * no direction line; this label fires it on (strength unset AND direction
- * unset) because `belief` — its only likelihood channel — is a raw legacy
- * field with no provenance marker to consult. Both remain silent about the
- * legacy `belief` value, which the tooltip still reports honestly.
+ *
+ * ⚠⚠ THE LIKELIHOOD IS NOW A PROVENANCE-GATED DISPLAY, FROM THE SAME OWNER THE
+ * POPOVER READS — AND THAT CLOSED A CONTRADICTION INSIDE ONE COMPONENT.
+ * ---------------------------------------------------------------------------
+ * This parameter used to be `belief: number | undefined`, and `StyledEdge`
+ * passed `edgeData?.belief` — the v3 legacy scalar, marked `@deprecated` in
+ * `edges.ts:196`, whose only writer (per `analyticalNodeFields.ts:241`) is the
+ * DEAD v1 edge inspector. Nothing on the live path writes it. So `belief` was
+ * `undefined` on every edge CEE drafts, `confidence` fell to `'uncertain'`, and
+ * EVERY label this function produced carried the qualifier — measured by
+ * running `describeEdge` over the 3 Sep 2026 capture: 24 edges, 24
+ * "(uncertain)".
+ *
+ * ⚠ THAT FIGURE MEASURES THIS FUNCTION, NOT THE CANVAS, and an earlier draft
+ * said "EVERY edge label on the canvas". How many of the 24 a user saw is NOT
+ * established by the capture and no number for it is asserted here: labels are
+ * gated by `shouldShowEdgeLabel`, which requires a COMPLETED RUN, excludes
+ * structural edges, and then admits only the top-strength persistent set —
+ * capped at `PERSISTENT_LABEL_LIMIT` (3) — plus interaction-driven labels in
+ * Detailed/Model view. "24 of 24 causal edges are structural, so 15 were
+ * painted" is the same over-read one step smaller: it counts non-structural
+ * edges, not painted labels. What IS established, and is all the diagnosis
+ * needs: every label this function returned carried the word, so no painted
+ * label could have escaped it (CLAUDE.md trap 20 — a row minted from this must
+ * restate this scope, not the generalisation).
+ *
+ * Meanwhile the hover popover in the SAME component resolved
+ * `resolveEdgeValueDisplay(edgeData, 'beliefExists')` and rendered
+ * "80% confident" for those same edges, from `exists_probability`, stamped
+ * `beliefExistsSource: 'cee'`. One edge, two surfaces, two answers to one
+ * question — CLAUDE.md trap 21, with the two spellings a grep could not pair
+ * because they are different words for the same thing.
+ *
+ * `beliefExists` is the ONE OWNER of "how likely is it that this relationship
+ * exists?" — already consulted by the popover, by the dashed-stroke existence
+ * styling, and by the Model tab's Relationships rows. The label now asks it
+ * too, through the same resolver, rather than keeping a second opinion. The
+ * parameter is an `EdgeValueDisplay` for the same reason `strength` and
+ * `direction` already are: there is no argument that means "0.5, source
+ * unknown", so a defaulted likelihood cannot produce a confidence word by
+ * accident and cannot be forgotten. (The old signature took a bare number and
+ * silently rendered `b NaN%` when handed the wrong shape.)
+ *
+ * The empty-state arm's SENTENCE now matches its gate. It named likelihood
+ * while its predicate never consulted one; with a real channel available,
+ * "Strength and likelihood not set" is reserved for the case where the
+ * likelihood is genuinely absent too, and an edge with a known likelihood but
+ * no strength says only that the strength is not set.
  *
  * ⚠⚠ THE DIRECTION IS AN ARGUMENT, NOT AN INFERENCE (ROADMAP 2.935, Codex MF5).
  * ----------------------------------------------------------------------------
@@ -142,7 +255,7 @@ export interface EdgeDescription {
  */
 export function describeEdge(
   strength: EdgeValueDisplay,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
 ): EdgeDescription {
   // The magnitude this label is entitled to speak about — null when nothing
@@ -160,12 +273,19 @@ export function describeEdge(
       ? `${strengthLabel} ${direction.direction === 'positive' ? 'boost' : 'drag'}`
       : `${strengthLabel} effect, direction not stated`
   } else if (!direction.show) {
-    // Neither half has provenance: the ratified popover copy, unqualified —
-    // there is no claim for the belief channel to qualify.
-    return {
-      label: 'Strength and likelihood not set',
-      tooltip: buildWeightTooltip(null, belief, direction),
+    // Neither strength nor direction has provenance. The ratified popover copy
+    // names LIKELIHOOD as well, so it may only be spoken when the likelihood is
+    // genuinely absent too — otherwise the label would deny a number the
+    // popover is at that moment rendering.
+    if (!likelihood.show) {
+      return {
+        label: 'Strength and likelihood not set',
+        tooltip: buildWeightTooltip(null, likelihood, direction),
+      }
     }
+    // A known likelihood, but nothing stated about the effect itself: say only
+    // what is missing, and let the qualifier below report the likelihood band.
+    claim = 'Strength not set'
   } else {
     // Direction stated, strength not set: the stated half speaks, the unset
     // half says so — same clause shape as the direction arm above, same
@@ -173,29 +293,20 @@ export function describeEdge(
     claim = `${direction.direction === 'positive' ? 'Boost' : 'Drag'}, strength not set`
   }
 
-  // Categorize confidence (if belief is provided)
-  let confidence: 'high' | 'medium' | 'low' | 'uncertain'
-  if (belief !== undefined) {
-    if (belief >= 0.8) {
-      confidence = 'high'
-    } else if (belief >= 0.6) {
-      confidence = 'medium'
-    } else {
-      confidence = 'low'
-    }
-  } else {
-    confidence = 'uncertain'
-  }
-
-  // Add confidence qualifier if belief is low or missing
+  // Categorise the likelihood — ONLY when one was actually set. An unset
+  // likelihood is not a low one: "(uncertain)" is a verdict about a number we
+  // have, and saying it about a number nobody supplied is the fabrication this
+  // gate exists to stop.
   let label: string
-  if (confidence === 'low' || confidence === 'uncertain') {
+  if (!likelihood.show) {
+    label = `${claim} (likelihood not set)`
+  } else if (likelihood.value < LABEL_HEDGE_CUT) {
     label = `${claim} (uncertain)`
   } else {
     label = claim
   }
 
-  return { label, tooltip: buildWeightTooltip(absWeight, belief, direction) }
+  return { label, tooltip: buildWeightTooltip(absWeight, likelihood, direction) }
 }
 
 /**
@@ -210,10 +321,10 @@ export function describeEdge(
  */
 function buildWeightTooltip(
   absWeight: number | null,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
 ): string {
-  const beliefText = belief !== undefined ? `${Math.round(belief * 100)}%` : 'not set'
+  const beliefText = likelihood.show ? `${Math.round(likelihood.value * 100)}%` : 'not set'
   const weightText =
     absWeight !== null ? `${signPrefix(direction)}${absWeight.toFixed(2)}` : 'not set'
   return `Weight: ${weightText}, Belief: ${beliefText}`
@@ -240,15 +351,15 @@ function signPrefix(direction: EdgeDirectionDisplay): string {
  */
 export function formatNumericLabel(
   strength: EdgeValueDisplay,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
 ): string {
   const weightText = strength.show
     ? `${signPrefix(direction)}${Math.abs(strength.value).toFixed(2)}`
     : 'not set'
 
-  if (belief !== undefined) {
-    return `w ${weightText} • b ${Math.round(belief * 100)}%`
+  if (likelihood.show) {
+    return `w ${weightText} • b ${Math.round(likelihood.value * 100)}%`
   }
 
   return `w ${weightText}`
@@ -300,19 +411,19 @@ export function labelCarriesDirection(
  */
 export function getEdgeLabel(
   strength: EdgeValueDisplay,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
   mode?: EdgeLabelMode,
 ): EdgeDescription {
   const actualMode = mode ?? getEdgeLabelMode()
 
   if (actualMode === 'numeric') {
-    const numericLabel = formatNumericLabel(strength, belief, direction)
+    const numericLabel = formatNumericLabel(strength, likelihood, direction)
     return {
       label: numericLabel,
       tooltip: numericLabel
     }
   }
 
-  return describeEdge(strength, belief, direction)
+  return describeEdge(strength, likelihood, direction)
 }

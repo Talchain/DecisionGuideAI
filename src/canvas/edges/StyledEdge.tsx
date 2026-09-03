@@ -369,7 +369,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const kind = edgeData?.kind ?? 'decision-probability'
   const label = edgeData?.label
   const confidence = edgeData?.confidence
-  const belief = edgeData?.belief      // v1.2
+  // `edgeData.belief` (the v3 legacy scalar) is deliberately NOT read here any
+  // more. It has no live writer, and reading it made the label contradict this
+  // component's own popover — see `edgeLikelihood` below.
   const provenance = edgeData?.provenance  // v1.2
   // ⭐ ROADMAP 2.580 member 2 — THE POLARITY GLYPH'S OWN, GATED, DIRECTION.
   //
@@ -438,6 +440,29 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // the "no verdict" claim; width simply stops asserting one.
   const edgeSignedStrength = useMemo(
     () => resolveEdgeSignedStrengthDisplay(edgeData as Record<string, unknown> | undefined),
+    [edgeData]
+  )
+  /**
+   * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
+   *
+   * The label used to be handed `belief` (:372) — the v3 legacy scalar, which
+   * nothing on the live path writes (its only writer is the dead v1 edge
+   * inspector). It was `undefined` on every CEE-drafted edge, so `describeEdge`
+   * classified the confidence as "uncertain" and appended "(uncertain)" to
+   * EVERY label on the canvas: 24 edges out of 24 on the 3 Sep 2026 capture.
+   *
+   * The popover below, in this same component, resolved `beliefExists` and
+   * rendered "80% confident" for those very edges. One edge, two surfaces, two
+   * answers to the one question "how likely is this relationship?" — and the
+   * canvas told the founder the answer was "uncertain" while its own tooltip
+   * knew it was 80%.
+   *
+   * Both now read `resolveEdgeValueDisplay(edgeData, 'beliefExists')`, so they
+   * cannot disagree again. Do not reintroduce a second likelihood channel here
+   * (CLAUDE.md trap 21).
+   */
+  const edgeLikelihood = useMemo(
+    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists'),
     [edgeData]
   )
   const edgeStrokeWidth = useMemo(
@@ -567,8 +592,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // assistive tech, so a name that omitted the description announced something
   // different from what was on screen.
   const edgeDescription = useMemo(
-    () => getEdgeLabel(edgeSignedStrength, belief, directionDisplay, labelMode),
-    [edgeSignedStrength, belief, directionDisplay, labelMode],
+    () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode),
+    [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode],
   )
   const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}`
 
@@ -1702,10 +1727,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         const strengthDisplay = resolveEdgeSignedStrengthDisplay(
           edgeData as Record<string, unknown> | undefined,
         )
-        const confidenceDisplay = resolveEdgeValueDisplay(
-          edgeData as Record<string, unknown> | undefined,
-          'beliefExists',
-        )
+        // The SAME resolution the label consumes (`edgeLikelihood`), not a
+        // second call — so the popover and the label cannot drift apart again.
+        const confidenceDisplay = edgeLikelihood
         const signedVal = strengthDisplay.show ? strengthDisplay.value : null
         const strengthPct = signedVal !== null ? Math.round(Math.abs(signedVal) * 100) : null
         const confidencePct = confidenceDisplay.show

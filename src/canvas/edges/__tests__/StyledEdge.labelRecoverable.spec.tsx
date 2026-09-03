@@ -16,8 +16,8 @@
  * `labelCounterScale` so its rendered size stays at the Design System floor.
  * So at `LABEL_LEGIBLE_ZOOM` — the zoom the product's own post-layout auto-fit
  * parks at, i.e. the view in the screenshot — the plate is ~80 CSS px holding
- * 10px text: about twelve glyphs, against a vocabulary that runs 24–48
- * characters ("Moderate effect, direction not stated (uncertain)").
+ * 10px text: about twelve glyphs, against a vocabulary that runs 13–58
+ * characters ("Moderate effect, direction not stated (likelihood not set)").
  *
  * Widening the plate is not free: `X_THRESHOLD` is DERIVED from that same
  * half-width, so a wider label is a wider exclusion box for every dodge, and
@@ -188,9 +188,34 @@ const NEITHER_WIRE: WireEdge = (() => {
   return rest
 })()
 
+/**
+ * Strength set, direction NOT stated, likelihood NOT supplied — the state that
+ * actually paints the vocabulary's LONGEST sentence.
+ *
+ * ⚠ THIS FIXTURE DID NOT EXIST FOR ONE ROUND, AND THE TEST BELOW WAS NAMED
+ * AFTER IT ANYWAY. `LONGEST_SENTENCE` was asserted only against its own
+ * `.length`, so the test called "the LONGEST sentence … is recoverable"
+ * exercised `DIRECTION_UNSET_DATA` — the 37-character sentence — and the
+ * 58-character one was never rendered by anything. A test's name is a claim.
+ *
+ * The deletion is producer-modelled, not invented: `mapDraftEdgeToCanvas` sets
+ * `beliefExists` EXPLICITLY to `undefined` when the wire carries no
+ * `belief_exists` / `exists_probability` / `belief` (`applyDraftResult.ts:104`),
+ * which overrides `DEFAULT_EDGE_DATA.beliefExists`, omits the
+ * `exists_probability` key and omits the `beliefExistsSource` stamp — so the
+ * likelihood resolves `show: false` and the label says so. That is the same
+ * key-deletion technique the two fixtures above already use.
+ */
+const LONGEST_WIRE: WireEdge = (() => {
+  const { exists_probability: _ep, ...rest } =
+    DIRECTION_UNSET_WIRE as WireEdge & { exists_probability?: unknown }
+  return rest
+})()
+
 const SET_DATA = ingest(SET_WIRE)
 const DIRECTION_UNSET_DATA = ingest(DIRECTION_UNSET_WIRE)
 const NEITHER_DATA = ingest(NEITHER_WIRE)
+const LONGEST_DATA = ingest(LONGEST_WIRE)
 
 // ── DOM readers, bound by identity (CLAUDE.md trap 19) ──────────────────────
 
@@ -223,9 +248,37 @@ const renderEdge = (data: Record<string, unknown>) =>
 // Independent literals. Written from the ratified copy, NOT read back from
 // `describeEdge`, so an assertion cannot agree with the code by construction
 // (CLAUDE.md trap 12d — a derived guard proves agreement, never correctness).
-const SET_SENTENCE = 'Moderate drag (uncertain)'
-const DIRECTION_UNSET_SENTENCE = 'Moderate effect, direction not stated (uncertain)'
-const NEITHER_SENTENCE = 'Strength and likelihood not set'
+//
+// ⭐ RE-DERIVED when the label's likelihood moved onto `beliefExists` (the
+// 3 Sep 2026 capture lane). Three of these fixtures carry a producer-stamped
+// `exists_probability`, so their labels no longer append "(uncertain)" — the
+// label was reporting uncertainty about a number CEE had in fact supplied. The
+// sentences are SHORTER there, but the vocabulary's longest member got LONGER
+// ("Moderate effect, direction not stated (likelihood not set)", 58 chars,
+// against the old "Moderate effect, direction not stated (uncertain)" at 49),
+// so this contract is more load-bearing than before, not less.
+//
+// ⚠ THE PREVIOUS SENTENCE HERE SAID 49 WAS **48**, AND ENDED "Lengths
+// re-measured, not adjusted to fit." Both halves were wrong at once: the number
+// was off by one AND the line asserting it had been measured had not been.
+// `'Moderate effect, direction not stated (uncertain)'.length === 49` — 37 for
+// the clause, 12 for " (uncertain)". A claim that a figure was measured is
+// itself a claim, and it is the one nobody re-checks (CLAUDE.md trap 14). Both
+// figures below are now pinned by an executing assertion rather than by a
+// comment, so a future edit to the copy REDs instead of silently rotting.
+const SET_SENTENCE = 'Moderate drag'
+const DIRECTION_UNSET_SENTENCE = 'Moderate effect, direction not stated'
+const NEITHER_SENTENCE = 'Strength not set'
+/**
+ * The longest sentence the vocabulary can produce — strength set, direction not
+ * stated, likelihood not set. Painted by `LONGEST_DATA`, not merely declared.
+ * That the vocabulary can produce nothing longer is asserted by exhaustive
+ * enumeration in `domain/__tests__/edgeLabels.spec.ts`, which is where the
+ * vocabulary lives; this file's job is that the sentence stays RECOVERABLE.
+ */
+const LONGEST_SENTENCE = 'Moderate effect, direction not stated (likelihood not set)'
+/** The pre-3-Sep longest, kept only to pin the off-by-one that stood in its place. */
+const RETIRED_LONGEST_SENTENCE = 'Moderate effect, direction not stated (uncertain)'
 
 describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKLOG S1)', () => {
   beforeEach(() => {
@@ -240,10 +293,26 @@ describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKL
   //    copy changes, THIS block REDs — not a recovery assertion passing because
   //    the string it was hunting stopped existing.
   describe('fixture preconditions (derived from the producer, not assumed)', () => {
-    it('the three fixtures paint the three sentences this contract is about', () => {
+    it('the four fixtures paint the four sentences this contract is about', () => {
       expect(visibleText(renderEdge(SET_DATA).container)).toBe(SET_SENTENCE)
       expect(visibleText(renderEdge(DIRECTION_UNSET_DATA).container)).toBe(DIRECTION_UNSET_SENTENCE)
       expect(visibleText(renderEdge(NEITHER_DATA).container)).toBe(NEITHER_SENTENCE)
+      // ⭐ The one that was declared but never rendered. Without this line the
+      // test below is named after a sentence no fixture produces.
+      expect(visibleText(renderEdge(LONGEST_DATA).container)).toBe(LONGEST_SENTENCE)
+    })
+
+    it('the sentence named LONGEST really is longer than every other fixture paints', () => {
+      // Bound by COMPARISON to the other fixtures, not by a bare threshold: a
+      // `> 50` assertion is satisfied by any long string and would have gone on
+      // passing while the "longest" sentence was unreachable.
+      for (const shorter of [SET_SENTENCE, DIRECTION_UNSET_SENTENCE, NEITHER_SENTENCE]) {
+        expect(LONGEST_SENTENCE.length).toBeGreaterThan(shorter.length)
+      }
+      expect(LONGEST_SENTENCE.length).toBe(58)
+      // The off-by-one that stood in the comment above for one round.
+      expect(RETIRED_LONGEST_SENTENCE.length).toBe(49)
+      expect(LONGEST_SENTENCE.length).toBeGreaterThan(RETIRED_LONGEST_SENTENCE.length)
     })
 
     it('the longest sentence really is long enough to be cut at the parked zoom', () => {
@@ -252,9 +321,20 @@ describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKL
       // at the Design System 10px floor, so roughly a dozen glyphs survive.
       // Every one of these sentences is far past that, which is WHY the
       // recovery route below is load-bearing rather than decorative.
-      expect(DIRECTION_UNSET_SENTENCE.length).toBeGreaterThan(40)
-      expect(SET_SENTENCE.length).toBeGreaterThan(20)
-      expect(NEITHER_SENTENCE.length).toBeGreaterThan(20)
+      expect(LONGEST_SENTENCE.length).toBeGreaterThan(50)
+      expect(DIRECTION_UNSET_SENTENCE.length).toBeGreaterThan(35)
+      expect(SET_SENTENCE.length).toBeGreaterThan(12)
+      expect(NEITHER_SENTENCE.length).toBeGreaterThan(15)
+    })
+
+    it('the RETIRED sentence is genuinely retired — no fixture paints it any more', () => {
+      // The comment on the recovery test below still quoted this string as if it
+      // were live copy. It is not: every fixture that carries a producer
+      // likelihood now suppresses "(uncertain)". Pinned so the quote cannot
+      // quietly become true again without someone noticing.
+      for (const data of [SET_DATA, DIRECTION_UNSET_DATA, NEITHER_DATA, LONGEST_DATA]) {
+        expect(visibleText(renderEdge(data).container)).not.toBe(RETIRED_LONGEST_SENTENCE)
+      }
     })
   })
 
@@ -271,10 +351,30 @@ describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKL
 
   it('the LONGEST sentence — the honesty copy — is recoverable', () => {
     // This is the one that matters most. "Moderate effect, direction not
-    // stated (uncertain)" is the product refusing to claim a direction, and it
-    // is the sentence the plate cuts hardest: a user reading the first dozen
-    // glyphs sees "Moderate effe…" and cannot tell that the product declined to
-    // state a direction at all.
+    // stated (likelihood not set)" is the product refusing to claim BOTH a
+    // direction and a likelihood, and it is the sentence the plate cuts
+    // hardest: a user reading the first dozen glyphs sees "Moderate effe…" and
+    // cannot tell that the product declined to state either.
+    //
+    // ⚠ THIS TEST RENDERED THE WRONG FIXTURE FOR ONE ROUND. It painted
+    // `DIRECTION_UNSET_DATA` — the 37-character sentence — while its name
+    // claimed the longest, and the comment above quoted the retired
+    // "…(uncertain)" copy as if it were live. The 58-character worst case, the
+    // one this contract exists for, was never rendered and never shown
+    // recoverable. It is `LONGEST_DATA` now, pinned by identity.
+    const { container } = renderEdge(LONGEST_DATA)
+    const tip = hoverText(container)
+    expect(visibleText(container), 'the fixture stopped painting the longest sentence').toBe(
+      LONGEST_SENTENCE,
+    )
+    expect(tip, `hover text read "${tip}"`).toContain(LONGEST_SENTENCE)
+  })
+
+  it('the shorter direction-unset sentence stays recoverable too', () => {
+    // Kept as its own case rather than folded into the one above: the two
+    // differ by the likelihood clause, and a single test covering both would
+    // pass on either. This is the sentence the previous round was actually
+    // measuring under the other one's name.
     const { container } = renderEdge(DIRECTION_UNSET_DATA)
     const tip = hoverText(container)
     expect(tip, `hover text read "${tip}"`).toContain(DIRECTION_UNSET_SENTENCE)
@@ -288,6 +388,7 @@ describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKL
       ['strength + direction set', SET_DATA],
       ['direction not stated', DIRECTION_UNSET_DATA],
       ['neither set', NEITHER_DATA],
+      ['direction and likelihood both unset (the longest)', LONGEST_DATA],
     ] as const) {
       const { container } = renderEdge(data)
       const painted = visibleText(container)
