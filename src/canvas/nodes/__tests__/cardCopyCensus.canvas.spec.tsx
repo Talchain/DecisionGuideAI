@@ -86,20 +86,39 @@
  *  · ⭐⭐ AND THE ONE TO READ FIRST — WHICH VERDICTS ARE MEASUREMENTS AND WHICH
  *    ARE OPINIONS. `ADJUDICATED_POSITIONS` marks each `by: 'census' | 'hand'`,
  *    and the REACH test proves every one of them is genuinely mounted by some
- *    bucket. Four are decided BY HAND and the census did not and could not rule
- *    on them, because their runs differ across siblings and so can never enter
- *    an identical-across-siblings set:
- *      · the change-COUNT line and the completeness line — the two lines this
- *        PR compacts. ⚠ THEY WERE ORIGINALLY PRESENTED AS CENSUS FINDINGS AND
- *        THEY ARE NOT. The change-count line was reached by ZERO buckets until
- *        `option · no-baseline · expert` was added; the completeness line reads
- *        `1 / 2 / 3 of 6 factors` and can never be identical.
- *      · the differentiator sentence and the risk severity badge — both KEPT.
- *    A hand call is a legitimate way to decide a line. Presenting one as an
- *    instrument's output is not, and the reach manifest exists so the two
- *    cannot be confused again by a reader skimming for a green tick.
+ *    bucket. The rows marked `by: 'hand'` were decided by a person: the census
+ *    did not and COULD NOT rule on them, because their runs differ across
+ *    siblings and so can never enter an identical-across-siblings set. Each
+ *    carries its own `why`, required by the type.
+ *    ⚠ THIS PARAGRAPH DELIBERATELY STATES NO COUNT. It used to say "Four are
+ *    decided BY HAND" while the manifest held FIVE, and the fifth — the risk
+ *    exposure line — appeared in no prose at all, so its verdict had no written
+ *    reason anywhere. The miscount then travelled through the PR body and a
+ *    relay to the reviewer without anyone counting. A tally of a list, kept by
+ *    hand beside the list, is the mirror this estate keeps paying for
+ *    (CLAUDE.md trap 12) — and it had grown inside the mechanism built to stop
+ *    mis-sourced verdicts. **Read the manifest. Do not read a number here.**
+ *    ⚠ Two lines this PR COMPACTS are among them, and they were originally
+ *    presented as census findings when they are not: the change-count line was
+ *    reached by ZERO buckets until `option · no-baseline · expert` was added,
+ *    and the completeness line reads `1 / 2 / 3 of 6 factors`. A hand call is a
+ *    legitimate way to decide a line; presenting one as an instrument's output
+ *    is not.
+ *  · ⚠ THE EXACT-SET DISCIPLINE THAT MAKES THE REACH TEST BITE IS APPLIED TO
+ *    ONE POSITION, AND THE MANIFEST READS STRONGER THAN THAT. `option · the
+ *    change-COUNT line` is asserted to be reached by EXACTLY
+ *    `option · no-baseline · expert` — which is what catches an imposter
+ *    position rendering the same words, the failure that broke the first
+ *    version of this probe. Every other text-bound predicate asserts only
+ *    "reached SOMEWHERE", so a second position rendering `Driven by:` or
+ *    `What reduces this?` would satisfy it. No such imposter exists today
+ *    (checked), and the guarantee is narrower than the row list looks. Stated
+ *    rather than widened, because widening it needs a per-position expected-set
+ *    and that is a piece of work, not a line.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
@@ -547,14 +566,46 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
  * happens to render the same words. Two positions, one string: the estate's
  * signature defect, inside the instrument written to prove reach.
  */
-type Position = {
-  /** What is adjudicated, and where the verdict is written down. */
-  what: string
-  /** How the census DECIDED it. */
-  by: 'census' | 'hand'
-  /** Present on this card? Bound by testid where one exists. */
-  present: (card: HTMLElement, runs: string[]) => boolean
-}
+type Position =
+  | {
+      what: string
+      /**
+       * DECIDED BY THE CENSUS. The position's run either is or is not in
+       * `EXPECTED_CENSUS`, and that set is asserted exactly — so the verdict is
+       * the instrument's and needs no prose.
+       */
+      by: 'census'
+      present: (card: HTMLElement, runs: string[]) => boolean
+    }
+  | {
+      what: string
+      /**
+       * DECIDED BY HAND. The census did not and COULD NOT rule on it: the run
+       * differs across siblings, so it can never enter an
+       * identical-across-siblings set.
+       */
+      by: 'hand'
+      /**
+       * ⭐⭐ REQUIRED BY THE TYPE, AND THAT IS THE POINT — the reason is not
+       * optional prose, it is a field a hand call cannot be added without.
+       *
+       * ⚠ THIS FIELD EXISTS BECAUSE THE PROSE VERSION DRIFTED IMMEDIATELY.
+       * The scope note above used to read "Four are decided BY HAND" while the
+       * manifest held FIVE, and the fifth — the risk exposure line — was named
+       * in no prose anywhere, so its KEPT verdict had NO WRITTEN REASON AT ALL.
+       * The miscount then propagated through the PR body and the relay to the
+       * reviewer: three hops, none of which counted.
+       *
+       * That is the hand-maintained mirror (CLAUDE.md trap 12) living INSIDE
+       * the mechanism built to stop mis-sourced verdicts — a count of a list,
+       * kept by hand, beside the list. The fix is not a corrected count. It is
+       * that no count is written down any more: the prose points AT the
+       * manifest, and `why` makes each hand call carry its own justification
+       * where it cannot be separated from the row it justifies.
+       */
+      why: string
+      present: (card: HTMLElement, runs: string[]) => boolean
+    }
 
 const byTestId = (suffix: string) => (card: HTMLElement) =>
   card.querySelector(`[data-testid$="${suffix}"]`) != null
@@ -562,7 +613,21 @@ const byTestId = (suffix: string) => (card: HTMLElement) =>
 const ADJUDICATED_POSITIONS: Position[] = [
   // ── decided BY THE CENSUS: these runs are (or are not) in EXPECTED_CENSUS
   { what: 'option · the `Ahead` caption row', by: 'census', present: byTestId('-win-anchor-option-1') },
-  { what: 'option · the win percentage', by: 'census', present: byTestId('-win-readout-option-1') },
+  // ⚠ RE-CLASSIFIED (review round 2). This was marked `by: 'census'` and it
+  // renders `47% / 31% / 15%` — it varies, so it sits in NO census bucket, and
+  // that is byte-for-byte the status of the completeness line below, which was
+  // marked `by: 'hand'`. One position, two provenances, decided by which line I
+  // happened to be looking at. Either reading is defensible; the two had to get
+  // the SAME one, and `hand` is the honest one because the census cannot rule
+  // on a run that can never repeat.
+  {
+    what: 'option · the win percentage',
+    by: 'hand',
+    why: 'KEPT — it is the varying quantity itself, which is the whole thing '
+      + "Paul's ruling says to put on the card. Its CAPTION (`Ahead`) is the "
+      + 'census-decided half, one row up.',
+    present: byTestId('-win-readout-option-1'),
+  },
   { what: 'factor · the `Influence` metric row', by: 'census', present: byTestId('factor-influence-row') },
   { what: 'risk · the `Strength` metric row', by: 'census', present: byTestId('risk-strength-row') },
   { what: 'outcome · the `Strength` metric row', by: 'census', present: byTestId('outcome-strength-row') },
@@ -579,11 +644,51 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // ── decided BY HAND: reached, but their runs can never enter an
   //    identical-across-siblings census, so the census cannot rule on them.
   //    Named here so nobody reads their absence from EXPECTED_CENSUS as a pass.
-  { what: 'option · the change-COUNT line (compacted by this PR)', by: 'hand', present: byTestId('-change-count-option-2') },
-  { what: 'option · the completeness line (compacted by this PR)', by: 'hand', present: byTestId('-completeness-option-3') },
-  { what: 'option · the differentiator sentence (KEPT)', by: 'hand', present: (_c, r) => r.some((x) => x.endsWith('is the key difference')) },
-  { what: 'risk · the severity badge `{Severity} Risk` (KEPT)', by: 'hand', present: (_c, r) => r.some((x) => /^(High|Medium|Low) Risk$/.test(x)) },
-  { what: 'risk · the exposure line `N% likely · X impact` (KEPT)', by: 'hand', present: (_c, r) => r.some((x) => x.includes('likely ·')) },
+  //    Each carries its own `why`; there is deliberately no count of them
+  //    anywhere in this file.
+  {
+    what: 'option · the change-COUNT line (compacted by this PR)',
+    by: 'hand',
+    why: 'COMPACTED — the invariant half was a wayfinding instruction, not a '
+      + 'statement about the model, and it survives on the `title` and in an '
+      + 'out-of-flow span. Reached by exactly one bucket, asserted as an exact set.',
+    present: byTestId('-change-count-option-2'),
+  },
+  {
+    what: 'option · the completeness line (compacted by this PR)',
+    by: 'hand',
+    why: 'COMPACTED — the denominator is a graph-wide factor count and so is '
+      + 'identical on every option card by construction; the brackets and the '
+      + 'participle carried nothing. The sentence survives on both carriers.',
+    present: byTestId('-completeness-option-3'),
+  },
+  {
+    what: 'option · the differentiator sentence',
+    by: 'hand',
+    why: 'KEPT — the sentence frame IS the caption for the factor name it '
+      + 'carries. Hovering the frame leaves a bare factor name directly beneath '
+      + 'a list of factor names, which on touch is an unexplained label.',
+    present: (_c, r) => r.some((x) => x.endsWith('is the key difference')),
+  },
+  {
+    what: 'risk · the severity badge `{Severity} Risk`',
+    by: 'hand',
+    why: 'KEPT — only the noun ` Risk` is invariant, and it says what "High" is '
+      + 'high ON. That is the caption shape (`Ahead 47%`) written backwards, and '
+      + 'captions stay. NOT deferred on card height, which was a false claim.',
+    present: (_c, r) => r.some((x) => /^(High|Medium|Low) Risk$/.test(x)),
+  },
+  {
+    what: 'risk · the exposure line `N% likely · X impact`',
+    by: 'hand',
+    // ⭐ THE ROW WHOSE VERDICT HAD NO REASON WRITTEN ANYWHERE. It was in the
+    // manifest and in no prose, which is exactly what the miscount concealed.
+    why: 'KEPT — `likely` and `impact` are the nouns naming the two quantities '
+      + 'beside them, so both are captions; only the separator is invariant. It '
+      + 'is also the line the severity badge above it is DERIVED from, so it is '
+      + 'the half of that pair that must survive if either does.',
+    present: (_c, r) => r.some((x) => x.includes('likely ·')),
+  },
 ]
 
 describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
@@ -771,5 +876,64 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
       .toEqual(expect.arrayContaining(['option · no-baseline · expert']))
     expect(new Set(reachedIn.get('option · the change-COUNT line (compacted by this PR)')))
       .toEqual(new Set(['option · no-baseline · expert']))
+  })
+
+  /**
+   * ⭐ EVERY HAND CALL CARRIES ITS OWN REASON, AND NOTHING ANYWHERE COUNTS THEM.
+   *
+   * The type already forces `why` to exist. This asserts it is a REASON and not
+   * a placeholder, and — the part that matters — that no prose in this file
+   * states how many hand calls there are. A tally beside a list is the mirror
+   * that produced the defect this row exists to close: the scope note said four
+   * while the manifest held five, and the row the miscount hid had no written
+   * justification at all.
+   */
+  it('PROVENANCE: every hand-decided position carries a real reason, and no count is written down', () => {
+    const hand = ADJUDICATED_POSITIONS.filter((p) => p.by === 'hand')
+    const census = ADJUDICATED_POSITIONS.filter((p) => p.by === 'census')
+    // Discrimination: both kinds must be populated, or the loops below are inert.
+    expect(hand.length, 'no hand calls — this test is vacuous').toBeGreaterThan(3)
+    expect(census.length, 'no census calls — the manifest is one-sided').toBeGreaterThan(5)
+
+    for (const p of hand) {
+      // A `why` that just restates the verdict is not a reason.
+      expect(p.why.length, `${p.what}: \`why\` is too short to be a reason`).toBeGreaterThan(60)
+      expect(p.why, `${p.what}: \`why\` must state the verdict it justifies`)
+        .toMatch(/^(KEPT|COMPACTED)\b/)
+    }
+
+    // ⛔ THE ANTI-MIRROR ASSERTION. No sentence in this file may state a tally
+    // of the hand calls — the manifest is the only place the number lives, and
+    // it is read, never restated.
+    //
+    // ⚠ SWEEPS THE PROSE, NOT THE CODE, AND THE FIRST CUT DID NOT. Run over the
+    // raw file it fired on its OWN explanatory comment and its OWN positive
+    // control — a rule that cannot tell a USE from a MENTION reads your
+    // explanation as the offence, which `metricNounVocabulary.canvas.spec.ts`
+    // records hitting in this same directory. Comments are stripped (the doc
+    // block is where the defect lived, and it is prose either way), and the
+    // control's phrase is assembled at runtime so the banned wording never
+    // appears verbatim in source.
+    const raw = readFileSync(path.resolve(__dirname, 'cardCopyCensus.canvas.spec.tsx'), 'utf8')
+    const source = raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+    const TALLY = /\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:of\s+them\s+)?(?:are|is|rows?|positions?)?\s*(?:are\s+)?decided\s+by\s+hand/i
+    const offenders = source.split('\n')
+      .map((line, i) => ({ line, i }))
+      .filter(({ line }) => TALLY.test(line))
+      .map(({ line, i }) => `${i + 1}: ${line.trim()}`)
+    expect(offenders, 'a hand-maintained tally of the manifest has come back:').toEqual([])
+
+    // POSITIVE CONTROL — the sweep must fire on the exact sentence that shipped
+    // the defect, or the empty result above means only that it cannot see.
+    const theSentenceThatShipped = ['Four', 'are', 'decided', 'BY', 'HAND'].join(' ')
+    expect(TALLY.test(`${theSentenceThatShipped} and the census could not rule`)).toBe(true)
+    // …and it must NOT fire on the manifest's own rows, or it would ban the
+    // classification itself rather than a count of it.
+    expect(TALLY.test("by: 'hand',")).toBe(false)
+    // …and the stripper must actually have stripped, or `source` is `raw` and
+    // the comment exclusion above is doing nothing.
+    expect(source.length, 'stripComments removed nothing').toBeLessThan(raw.length * 0.75)
   })
 })
