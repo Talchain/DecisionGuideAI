@@ -173,7 +173,7 @@ function SectionWriterNotice({
   return (
     <p
       data-testid={SECTION_WRITER_NOTICE_TESTID(group)}
-      className={`${typography.caption} text-text-light px-4 py-1`}
+      className={`${typography.panelBody} text-text-light px-4 py-1`}
     >
       {sectionWriterNoticeText(blocked.length, discuss.label)}
     </p>
@@ -368,7 +368,7 @@ export function ModelOutline({
               {group.rows.length === 0 ? (
                 <p
                   data-testid={`model-group-v2-${group.id}-empty`}
-                  className={`${typography.caption} text-text-light px-4 py-1`}
+                  className={`${typography.panelBody} text-text-light px-4 py-1`}
                 >
                   {filter.trim() === ''
                     ? 'Nothing in this group yet'

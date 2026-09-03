@@ -245,7 +245,7 @@ export function ModelRowView({
            node you already know. Below that the row should give up something
            else — see the estimate hint below, which is the secondary text that
            can afford to go. */
-        className={`${typography.bodySmall} text-text-body text-left truncate min-w-[6rem] flex-1`}
+        className={`${typography.panelBody} text-text-body text-left truncate min-w-[6rem] flex-1`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
@@ -425,7 +425,7 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-attention-${reason}`}
           title={ATTENTION_LABEL[reason]}
           aria-label={ATTENTION_LABEL[reason]}
-          className={`${typography.caption} text-warning shrink-0`}
+          className={`${typography.panelBody} text-warning shrink-0`}
         >
           ⚠
         </span>
@@ -444,7 +444,7 @@ export function ModelRowView({
           data-testid={`model-row-v2-${row.id}-deferred`}
           title={deferralLabel(row.deferred)}
           aria-label={deferralLabel(row.deferred)}
-          className={`${typography.caption} text-text-light`}
+          className={`${typography.panelBody} text-text-light`}
         >
           Left unresolved
         </span>
@@ -563,7 +563,7 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={`${typography.tabular} shrink-0 whitespace-nowrap`}>
+            <span data-testid={testid} className={`${typography.panelTabular} shrink-0 whitespace-nowrap`}>
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
@@ -584,13 +584,13 @@ function ValueCell({
                     onDiscardEdit(row.id)
                   }
                 }}
-                className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                className={`${typography.panelTabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
             </span>
           )
         }
         return (
-          <span data-testid={testid} className={typography.tabular}>
+          <span data-testid={testid} className={typography.panelTabular}>
             {commit.draft}
           </span>
         )
@@ -615,14 +615,14 @@ function ValueCell({
         return (
           <span
             data-testid={testid}
-            className={`${typography.tabular} min-w-0 flex flex-wrap items-baseline`}
+            className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
           >
             <span className="shrink-0 whitespace-nowrap">
               <span data-testid={`${testid}-from`}>{commit.from}</span>
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
             </span>
-            <span className={`${typography.caption} text-text-light ml-2 min-w-0 truncate`}>
+            <span className={`${typography.panelBody} text-text-light ml-2 min-w-0 truncate`}>
               Nothing has changed yet
             </span>
             {/*
@@ -660,24 +660,24 @@ function ValueCell({
         )
       case 'inflight':
         return (
-          <span data-testid={testid} className={typography.tabular}>
+          <span data-testid={testid} className={typography.panelTabular}>
             {commit.to}
-            <span className={`${typography.caption} text-text-light ml-2`}>Saving…</span>
+            <span className={`${typography.panelBody} text-text-light ml-2`}>Saving…</span>
           </span>
         )
       case 'applied':
         return (
-          <span data-testid={testid} className={typography.tabular}>
+          <span data-testid={testid} className={typography.panelTabular}>
             {commit.value}
           </span>
         )
       case 'refused':
         return (
-          <span data-testid={testid} className={typography.tabular}>
+          <span data-testid={testid} className={typography.panelTabular}>
             <span data-testid={`${testid}-reverted`}>{commit.from}</span>
             <span
               data-testid={`${testid}-refusal`}
-              className={`${typography.caption} text-danger ml-2`}
+              className={`${typography.panelBody} text-danger ml-2`}
             >
               {commit.reason}
             </span>
@@ -745,7 +745,7 @@ function ValueCell({
            TIMES the label it was starving. The estimate is a hint about a value
            the user has not set; the node's name is how they find the row at
            all. So the hint truncates and the name does not. */
-        className={`${typography.caption} text-text-light ml-2 truncate min-w-0`}
+        className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
       >
         Olumi: {row.estimateText}
       </span>
@@ -760,7 +760,7 @@ function ValueCell({
          rather than starving the label. */
       <span
         data-testid={testid}
-        className={`${typography.tabular} flex items-baseline whitespace-nowrap ${
+        className={`${typography.panelTabular} flex items-baseline whitespace-nowrap ${
           estimate === null ? 'shrink-0' : 'min-w-0'
         }`}
       >
@@ -790,7 +790,7 @@ function ValueCell({
          arms. The rule is about the two IDLE elements, not about the function.
          Getting that number wrong is what let the `proposed` cell ship
          unfixed, and it was found by review rather than by me. */
-      className={`${typography.tabular} text-left underline decoration-dotted flex items-baseline whitespace-nowrap ${
+      className={`${typography.panelTabular} text-left underline decoration-dotted flex items-baseline whitespace-nowrap ${
         estimate === null ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
