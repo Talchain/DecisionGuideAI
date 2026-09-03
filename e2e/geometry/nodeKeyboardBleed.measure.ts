@@ -1785,9 +1785,10 @@ test.describe('in-node keyboard bleed', () => {
     }, FOCUSABLE_SELECTOR)
   }
 
-  test('portalled: Enter/Space at a control inside a portalled popover does not select the anchor node', async ({
-    page,
-  }) => {
+  test(
+    'portalled: Enter/Space at a control inside a portalled popover does not select the anchor node',
+    { tag: GATE_TAG },
+    async ({ page }) => {
     test.setTimeout(900_000)
     const STARTER: StarterId = 'vendor-selection'
     await loadCanvas(page, STARTER)

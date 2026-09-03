@@ -3235,7 +3235,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
        * Real nodes escape it because their measurement IS persisted here, so the
        * rebuild reads dimensions back off the user node. The injected doors have
        * no row in this store, so nothing can persist theirs — and the loop is
-       * therefore permanent, not transient. Measured at `a0b77f6c`, vendor-selection
+       * therefore permanent, not transient.
+       *
+       * ⚠ A MEASUREMENT ANCHOR IS NOT AN ATTRIBUTION. The SHA below is where the
+       * livelock was MEASURED (the then-current tip), not where it was FIXED.
+       * A lane reading this header credited the guard to #1119 on the strength
+       * of it; #1119 touches ZERO lines of this file. Derived correctly:
+       * `git log -S "const nodesChanged" -- src/canvas/store.ts` names
+       * `c1b662fc` (#1136). Cite the fix by the commit that introduced it.
+       *
+       * Measured at `a0b77f6c`, vendor-selection
        * starter: 1,660 ResizeObserver callbacks and 1,668 re-observations of four
        * elements whose box never changed, in a ~3s window, with all four reading
        * `visibility: hidden` in all 12 samples while 19 of 19 real nodes read
