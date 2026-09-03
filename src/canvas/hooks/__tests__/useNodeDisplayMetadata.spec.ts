@@ -513,8 +513,17 @@ describe('useNodeDisplayMetadata — unified row feed (C4 fix 2)', () => {
     // display-safe driver-confidence source today, so the canvas withholds the
     // figure exactly as the Drivers panel does. Row B is still IN the set.
     expect(result.current.confidence).toBeNull()
-    expect(result.current.influence).toBe(0)
-    expect(result.current.influenceProvenance).toBe('normalised_elasticity')
+    // ⚠ Was `toBe(0)` / `'normalised_elasticity'` (corrected 2026-09-03). Row B
+    // carries NO metric field at all, so that 0 was MANUFACTURED — the feed's
+    // normaliser ends its magnitude chain with a terminal `: 0`, and the canvas
+    // was printing it as `Influence 0%`, a measurement claim about a row
+    // nothing measured. The Drivers panel never shows such a row in its default
+    // view (`isZeroImpact`); the canvas cannot hide the NODE, so it withholds
+    // the FIGURE instead. This case's stated subject — that a metric-less row
+    // SURVIVES the merge — is unchanged and still pinned by the assertion
+    // above it: row B is still IN the set.
+    expect(result.current.influence).toBeNull()
+    expect(result.current.influenceProvenance).toBeNull()
   })
 
   it('drivers_payload-only report: the canvas sees the rows the panel renders (same verdict both surfaces)', () => {
