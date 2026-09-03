@@ -7,6 +7,7 @@ import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from 
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
+import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 
@@ -158,6 +159,11 @@ export const RiskNode = memo((props: NodeProps) => {
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
 
+  // The counterfactual affordance's ONE sentence — rendered AND sent. Null when
+  // there is no top factor, or its label is blank: no affordance rather than a
+  // degenerate question.
+  const counterfactualQuestion = composeCounterfactualQuestion(topFactor?.connectedNodeLabel)
+
   // Coaching chips — same pair in both phases. Body never renders chips
   // directly; they live in popovers (Standard) or inline in Detailed view.
   const riskChips = useMemo(() => (
@@ -218,7 +224,12 @@ export const RiskNode = memo((props: NodeProps) => {
       {/* Actionable: factor-specific wording. Graph v1.1 Task 4: removed the
           "Driven by factors outside your control" lead-in — the dashed border
           on the connected external factor already communicates that. */}
-      {topFactor && (
+      {/* ⛔ ONE STRING. `counterfactualQuestion` is read by BOTH the label and
+          the message — see that module for why. This block previously rendered
+          the subject sliced to 18 chars INSIDE the sentence while sending the
+          full one, so the user read one question and asked another. Do not
+          re-introduce a slice here; if the line is too long, that is CSS. */}
+      {counterfactualQuestion && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} text-text-body m-0`}>
@@ -228,11 +239,11 @@ export const RiskNode = memo((props: NodeProps) => {
               onClick={(e) => {
                 e.stopPropagation()
                 const send = useGuidanceStore.getState()._sendMessage
-                if (send) send(`What if ${topFactor.connectedNodeLabel} worsens?`)
+                if (send) send(counterfactualQuestion)
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              What if {topFactor.connectedNodeLabel.length > 18 ? `${topFactor.connectedNodeLabel.slice(0, 18)}...` : topFactor.connectedNodeLabel} worsens?
+              {counterfactualQuestion}
             </button>
           </p>
         </>
