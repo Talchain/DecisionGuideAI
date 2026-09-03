@@ -269,7 +269,35 @@ export function ModelRowView({
       )}
 
       </span>
-      {/* ── CELL 3 · VALUE — the column this whole change exists to create. */}
+      {/* ── CELL 3 · VALUE — the column this whole change exists to create.
+
+          ⚠⚠ THE TRACK IS `auto`, WHICH MEANS THIS CELL SIZES TO ITS CONTENT AND
+          TAKES THAT WIDTH OUT OF THE IDENTITY TRACK. That is correct for every
+          arm a producer can currently reach — `idle` and `proposed`, whose
+          content is bounded — and it is a LOADED GUN for the arms that are dark
+          today.
+
+          Named by an independent seat and traced by PRODUCER rather than by
+          field name: the sole live writer of `commit` is `ModelOutline.tsx:385`
+          ← `ModelTabV2Panel`'s `ActiveEdit`, typed `'editing' | 'proposed'`. So
+          `inflight`, `applied`, `refused` and the `editing` fallback are
+          unreachable — by accident of the host, not by design. `types.ts:108`
+          already specifies `applied` as receipt-driven, so the wiring is
+          PLANNED, not hypothetical.
+
+          ⚠ AND THE HAZARD IS LARGER AFTER THIS CHANGE, NOT SMALLER. Before the
+          grid, a row's deficit was distributed across every atom by flex. Now
+          the identity track is the only flexible one, so **100% of any width an
+          `auto` cell takes comes out of the label**. An unbounded `applied`
+          receipt would eat the name it sits beside.
+
+          NO CLASSES ARE ADDED TO THOSE BRANCHES HERE, deliberately: this file's
+          own rule is that classes go only where a witness can reach, and a
+          shrink contract on a branch with no producer is untestable decoration
+          that reads as coverage. **The hazard is recorded instead, at the site
+          the next author will open**, which is the thing a row in a register
+          cannot do. Whoever wires those arms: bound the content, and add the
+          contract in the same change. */}
       <ValueCell
         row={row}
         commit={commit}
