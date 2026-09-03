@@ -112,6 +112,17 @@ const BANNED: Array<{ re: RegExp; why: string }> = [
  * assertion means what it says.
  */
 
+/**
+ * A live noun spelled as a LITERAL rather than read from the register — in a
+ * `label=` attribute or opening a template caption.
+ *
+ * ⚠ ONE DEFINITION, TWO GUARDS. The card guard and the low-zoom-ladder guard
+ * both use this. They were separate predicates for one round, which is how the
+ * ladder's version came to be weaker than the cards'.
+ */
+const LIVE_NOUN_LITERAL =
+  /(label=["'](Ahead|Chance|Influence|Strength)["']|`(Ahead|Chance|Influence|Strength) )/
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
     const p = path.join(dir, e)
@@ -253,9 +264,24 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
       .filter((line) => BANNED.some((b) => b.re.test(line)))
     expect(offending, `the low-zoom ladder hand-types a retired caption:\n${offending.join('\n')}`).toEqual([])
 
-    // …and it reads its nouns FROM THE REGISTER, so the two zoom levels cannot
-    // drift apart again without this file changing.
-    expect(lod!.body, 'the low-zoom ladder no longer reads the register').toMatch(/METRIC_NOUN\./)
+    // …and NO live noun is hand-typed there, so the two zoom levels cannot drift
+    // apart again.
+    //
+    // ⚠ THIS ASSERTION WAS TOO WEAK ON ITS FIRST DRAFT AND A MUTANT PROVED IT.
+    // It read `toMatch(/METRIC_NOUN\./)` — satisfied by ANY single reference,
+    // so re-typing one of the file's three nouns as a literal survived while
+    // the other two kept the guard green. A predicate that passes on partial
+    // compliance is the same defect as the colon-anchored ban one level up:
+    // written against the state in hand rather than the property required.
+    const handTyped = lod!.body
+      .split('\n')
+      .flatMap((line, i) =>
+        LIVE_NOUN_LITERAL.test(line) ? [`lodMetricLine.ts:${i + 1}  ${line.trim().slice(0, 80)}`] : [],
+      )
+    expect(handTyped, `the low-zoom ladder hand-types a live noun:\n${handTyped.join('\n')}`).toEqual([])
+    // All three of its nouns must come from the register.
+    expect((lod!.body.match(/METRIC_NOUN\./g) ?? []).length,
+      'the low-zoom ladder reads fewer nouns from the register than it renders').toBeGreaterThanOrEqual(3)
   })
 
   it('the register is the only place the live nouns are spelled', () => {
@@ -270,7 +296,7 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // RiskNode — in files this PR edits — were invisible to it while the test
     // claimed the register was "the only place" the nouns are spelled. A guard
     // whose name overstates its scope teaches the next session to stop looking.
-    const LIVE = /(label=["'](Ahead|Chance|Influence|Strength)["']|`(Ahead|Chance|Influence|Strength) \$\{)/
+    const LIVE = LIVE_NOUN_LITERAL
     const offenders = cards.flatMap(({ file, body }) =>
       body.split('\n').flatMap((line, i) =>
         LIVE.test(line)
