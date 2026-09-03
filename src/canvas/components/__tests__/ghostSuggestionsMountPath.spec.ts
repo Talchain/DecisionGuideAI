@@ -60,35 +60,62 @@ function model(): Node[] {
 // gate excludes test files — a type error inside a spec is invisible to it.
 const doorsIn = (nodes: Node[]) => nodes.filter((n) => isGhostNode(n.id))
 
+/**
+ * ⭐ RE-POINTED, NOT RELAXED (Paul's ruling, 1 Sep 2026: the post-analysis
+ * reasoning frontier must be reachable OUTSIDE Expert view).
+ *
+ * The previous version of this block pinned the OPPOSITE rule — that the doors
+ * DISAPPEAR after an analysis in the ordinary view — and pinned it deliberately,
+ * with a comment saying the behaviour was "raised as a product question
+ * separately". That question has now been answered, so the assertion is turned
+ * around to pin the answer rather than deleted to make room for it. The old
+ * expectation REDs against this build, which is the point: nobody can restore
+ * the Expert-only gate without a named test saying so.
+ *
+ * ⚠ AND NOTE WHAT THIS COSTS, because the old block's own comment named it: the
+ * predicate is no longer DISCRIMINATING, and "returns the same answer for every
+ * input" is the exact vacuity this file was rewritten to eliminate. It is not
+ * vacuity here — it is the product rule — but an enumeration that agrees with
+ * itself cannot tell you it is complete, so two things carry the weight instead:
+ *
+ *   1. The matrix below is EXHAUSTIVE over the real input space, not a sample.
+ *      `ViewMode = 'standard' | 'expert'` (`store.ts:7489`) has exactly two
+ *      members, so every combination that can reach this predicate is listed.
+ *      Reintroduce a gate on EITHER axis and a named row REDs.
+ *   2. The matrix asserts its own size first. An empty `it.each` table passes
+ *      beautifully and agrees with every other table that ran nothing.
+ *
+ * The file's real discrimination now lives where it belongs — in
+ * `withGhostTiers`, whose CONTRAST CONTROL below still proves an empty tier gets
+ * no door. That function takes no view mode and no results status, so the axes
+ * removed here cannot re-enter through it without a signature change.
+ */
 describe('the frontier is visible when the product says it is', () => {
-  // ⚠ THE DISCRIMINATING TRIPLE. Each row must differ from its neighbour, or
-  // the predicate is not discriminating and a constant `true` would pass.
-  it('renders before an analysis, in the ordinary view', () => {
-    expect(frontierIsVisible('idle', 'standard')).toBe(true)
+  // Every (resultsStatus, viewMode) pair the mount can hand this predicate.
+  // Named rows, not a loop over a computed product, so a failure names the state.
+  const MATRIX: ReadonlyArray<readonly [string, string, string]> = [
+    ['before an analysis, in the ordinary view', 'idle', 'standard'],
+    ['before an analysis, in Expert view', 'idle', 'expert'],
+    ['AFTER an analysis, in the ordinary view — Paul, 1 Sep 2026', 'complete', 'standard'],
+    ['after an analysis, in Expert view', 'complete', 'expert'],
+  ]
+
+  it('POSITIVE CONTROL: the matrix is non-empty and covers both view modes', () => {
+    // Without this, deleting the table's rows would leave every assertion below
+    // passing by running zero times.
+    expect(MATRIX.length).toBe(4)
+    expect(new Set(MATRIX.map(([, , view]) => view))).toEqual(new Set(['standard', 'expert']))
+    expect(new Set(MATRIX.map(([, status]) => status))).toEqual(new Set(['idle', 'complete']))
   })
 
-  it('renders after an analysis in Expert view', () => {
-    expect(frontierIsVisible('complete', 'expert')).toBe(true)
+  it.each(MATRIX)('renders %s', (_name, resultsStatus, viewMode) => {
+    expect(frontierIsVisible(resultsStatus, viewMode)).toBe(true)
   })
 
-  it('DISAPPEARS after an analysis in the ordinary view — the existing product behaviour, pinned so a change to it is deliberate', () => {
-    // This is very likely the mechanism behind a deployed measurement of zero
-    // doors against thirteen real nodes. It is preserved unchanged here and
-    // raised as a product question separately; what this assertion buys is that
-    // nobody can now move it without a test going red and saying so.
-    expect(frontierIsVisible('complete', 'standard')).toBe(false)
-  })
-
-  it('is not a constant — the three states above do not all agree', () => {
-    // Guards against the failure mode this whole file exists to correct: a
-    // predicate that returns the same answer for every input passes any number
-    // of individually-plausible assertions.
-    const answers = [
-      frontierIsVisible('idle', 'standard'),
-      frontierIsVisible('complete', 'expert'),
-      frontierIsVisible('complete', 'standard'),
-    ]
-    expect(new Set(answers).size).toBe(2)
+  it('the Expert-only gate is GONE — not merely defaulted off', () => {
+    // The single assertion the old rule turned on, inverted. This is the row
+    // that REDs if `viewMode !== 'expert'` ever returns to the predicate.
+    expect(frontierIsVisible('complete', 'standard')).toBe(true)
   })
 })
 

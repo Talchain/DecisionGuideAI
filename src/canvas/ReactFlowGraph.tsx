@@ -724,9 +724,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
   const nodesWithGhost = useMemo(() => {
-    // Pre-analysis: always show. Post-analysis: Expert view only.
-    // The predicate lives in `ghostTiers` so a test can call it — inline here,
-    // it was the one control over the frontier that nothing could bind to.
+    // Always show — the post-analysis Expert-only carve-out was removed on
+    // Paul's 1 Sep 2026 ruling that the reasoning frontier must be reachable
+    // outside Expert view. The predicate lives in `ghostTiers` so a test can
+    // call it — inline here, it was the one control over the frontier that
+    // nothing could bind to, and it is kept callable so a re-introduced gate
+    // still has somewhere to be caught.
     if (!frontierIsVisible(resultsStatus, viewMode)) return nodes
 
     /*

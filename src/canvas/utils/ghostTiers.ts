@@ -302,19 +302,35 @@ function readSubject(nodes: Node[]): ModelSubject | null {
  * rather than wired, because a switch whose only effect would be to turn off a
  * capability we want on is a dark-launch gate this estate has ruled against.
  *
- * ⚠ AND NOTE WHAT IT SAYS, because it is very likely the mechanism behind a
- * deployed measurement of zero doors against thirteen real nodes: after an
- * analysis completes, the frontier disappears in every view except Expert.
- * That is the existing behaviour, preserved here deliberately and unchanged —
- * whether it is the RIGHT behaviour is a product question, not a refactor, and
- * it is raised separately rather than flipped in passing.
+ * ⚠ THE PRODUCT QUESTION THIS FUNCTION RAISED HAS BEEN ANSWERED (Paul, 1 Sep
+ * 2026): the post-analysis reasoning frontier must be reachable OUTSIDE Expert
+ * view. It used to read `!(isPostAnalysis && viewMode !== 'expert')` — after an
+ * analysis completed, the doors disappeared in every view except Expert, which
+ * is very likely the mechanism behind a deployed measurement of zero doors
+ * against thirteen real nodes. That gate is now gone, and its removal is the
+ * whole of this change.
+ *
+ * ⚠ WHY THE FUNCTION SURVIVES AS A CONSTANT, WHICH IS OTHERWISE THE SHAPE THIS
+ * FILE CONDEMNS. `ViewMode = 'standard' | 'expert'` (`store.ts:7489`) has
+ * exactly two members, so removing the Expert carve-out leaves nothing for the
+ * predicate to decide, and a predicate that decides nothing is normally the
+ * dead-prop pattern deleted from this very module. It is kept anyway, for one
+ * reason: it is the ONLY callable surface where a re-introduced gate can be
+ * caught. Deleting it would take the gate and the guard together, and the next
+ * gate would arrive back inside a `useMemo` in a 2,700-line component, which is
+ * precisely the state that made the last one unbindable. The mount still calls
+ * it, `ghostSuggestionsMountPath.spec.ts` enumerates every input the mount can
+ * hand it, and every row asserts `true`.
+ *
+ * ⚠ THE PARAMETERS ARE UNDERSCORED BECAUSE THEY NO LONGER DECIDE. Keeping the
+ * signature keeps the call site — and therefore the pin — intact; underscoring
+ * them stops the signature claiming an influence the body does not have.
  */
 export function frontierIsVisible(
-  resultsStatus: string | null | undefined,
-  viewMode: string,
+  _resultsStatus: string | null | undefined,
+  _viewMode: string,
 ): boolean {
-  const isPostAnalysis = resultsStatus === 'complete'
-  return !(isPostAnalysis && viewMode !== 'expert')
+  return true
 }
 
 /**
