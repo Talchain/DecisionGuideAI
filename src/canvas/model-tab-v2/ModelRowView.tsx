@@ -38,7 +38,6 @@ import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
 import { ValueProvenanceMark } from './ValueProvenanceMark'
 import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
@@ -51,20 +50,6 @@ export interface ModelRowViewProps {
    * governs one thing only: whether the element's ID is shown.
    */
   tier: DetailTier
-  /**
-   * ⚠⚠ A COMPARISON PROP, NOT A FEATURE FLAG, AND IT DOES NOT SHIP.
-   * Paul, 2 Sep: *"Let's test this and see which works best… we need to get it
-   * implemented and visualised to see what works."* Both candidates are BUILT
-   * and rendered side by side over the same rows; the loser is DELETED before
-   * merge and this prop goes with it. No UI exposes it; nothing in the product
-   * passes it.
-   *
-   *   'pill'     — today's row, provenance as a worded pill.
-   *   'marks'    — provenance as a shape-distinct glyph from the register the
-   *                canvas already uses.
-   *   'two-line' — name+value on line one, provenance+status on line two.
-   */
-  rowLayout?: 'pill' | 'marks' | 'two-line'
   selected?: boolean
   /**
    * The authority's answer for this row's value, if an edit is in flight or has
@@ -118,7 +103,6 @@ export interface ModelRowViewProps {
 export function ModelRowView({
   row,
   tier,
-  rowLayout = 'pill',
   selected = false,
   commit,
   onSelect,
@@ -146,10 +130,9 @@ export function ModelRowView({
    * repair queue reads the same array.
    */
   const printsNotSet = row.editable && editorAvailable && row.primaryValue === null
-  const attentionShown =
-    rowLayout === 'pill'
-      ? row.attention
-      : row.attention.filter(r => !(r === 'no-value' && printsNotSet))
+  const attentionShown = row.attention.filter(
+    r => !(r === 'no-value' && printsNotSet),
+  )
 
   /*
    * ⚠ THE AFFORDANCE IS BOUND TO THE ATTENTION REASON, NOT TO A RE-DERIVED
@@ -174,15 +157,18 @@ export function ModelRowView({
     typeof onConfirmValueAsIs === 'function' &&
     row.attention.includes('unconfirmed-estimate')
 
-  /**
-   * ⚠ THE TWO-LINE CANDIDATE SPLITS BY QUESTION, NOT BY WIDTH. Line one is what
-   * you scan FOR — kind glyph, node name, value. Line two is what you scan for
-   * SECOND — where the value came from and what still needs doing. Nothing
-   * moves between the lines depending on available room: a row whose atoms
-   * rearrange under pressure cannot be scanned down a column at all.
-   */
-  const lineOne = (
-    <>
+  return (
+    <li
+      data-testid={`model-row-v2-${row.id}`}
+      data-kind={row.kind}
+      data-phase={phase}
+      aria-selected={selected}
+      role="option"
+      className={`flex items-center gap-2 px-2 py-1.5 border-b border-panel-border ${
+        selected ? 'bg-panel-hover' : ''
+      }`}
+      onClick={() => onSelect?.(row.id)}
+    >
       <span
         aria-label={KIND_LABEL[row.kind]}
         title={KIND_LABEL[row.kind]}
@@ -271,10 +257,6 @@ export function ModelRowView({
         onDiscardEdit={onDiscardEdit}
         onConfirmEdit={onConfirmEdit}
       />
-    </>
-  )
-  const lineTwo = (
-    <>
       {/*
         showWhenAbsent={false} is deliberate: when nothing states a provenance the
         row shows NOTHING, rather than a "Not set" chip asserting a fact about a
@@ -290,11 +272,7 @@ export function ModelRowView({
            estimate HINT, then this pill. A provenance label truncating is
            recoverable; a row falling out of the panel is not. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
-          {rowLayout === 'pill' ? (
-            <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
-          ) : (
-            <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
-          )}
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>
       )}
 
@@ -382,37 +360,6 @@ export function ModelRowView({
         >
           {row.id}
         </span>
-      )}
-    </>
-  )
-
-  return (
-    <li
-      data-testid={`model-row-v2-${row.id}`}
-      data-kind={row.kind}
-      data-phase={phase}
-      data-row-layout={rowLayout}
-      aria-selected={selected}
-      role="option"
-      className={`px-2 py-1.5 border-b border-panel-border ${
-        rowLayout === 'two-line'
-          ? 'flex flex-col items-stretch gap-0.5'
-          : 'flex items-center gap-2'
-      } ${selected ? 'bg-panel-hover' : ''}`}
-      onClick={() => onSelect?.(row.id)}
-    >
-      {rowLayout === 'two-line' ? (
-        <>
-          <div className="flex items-center gap-2 min-w-0">{lineOne}</div>
-          {/* Indented to the name's left edge so line two reads as a
-              continuation of THIS row rather than as a row of its own. */}
-          <div className="flex items-center gap-2 min-w-0 pl-5">{lineTwo}</div>
-        </>
-      ) : (
-        <>
-          {lineOne}
-          {lineTwo}
-        </>
       )}
     </li>
   )
