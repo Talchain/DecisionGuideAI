@@ -43,6 +43,7 @@ import {
   GHOST_TIER_TESTID,
   GHOST_DOOR_W_PX,
   GHOST_DOOR_MIN_H_PX,
+  GHOST_DOOR_TEXT_MEASURE_PX,
 } from '../GhostTierNode'
 import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM, labelCounterScale } from '../../utils/zoomLegibility'
 import { GHOST_TIERS } from '../../utils/ghostTiers'
@@ -79,15 +80,70 @@ describe('the door is sized for the counter-scale bound, not hand-tuned', () => 
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
   })
 
-  it('the width is the text measure AT THE BOUND plus unscaled chrome', () => {
-    const textMeasureAtBound = GHOST_DOOR_W_PX - PAD_X_PX * 2 - BORDER_PX * 2
+  /**
+   * ⚠ THIS TEST WAS A TAUTOLOGY UNTIL ROUND 2, IN A WAY ITS OWN PR CLAIMED TO
+   * HAVE FIXED. It recovered the declared measure by DIVIDING `GHOST_DOOR_W_PX`
+   * by `MAX_LABEL_COUNTER_SCALE` and multiplying it back — an identity that
+   * agrees with any value whose `(W − 11)` is even. The PR reported replacing
+   * it; what was actually added was the SOURCE GUARD below, and this identity
+   * stayed. A correcting change reads as already-audited, which is exactly how
+   * it survived a round.
+   *
+   * It is non-vacuous now because the expectation's right-hand side is built
+   * from an INDEPENDENTLY DECLARED export, not from the export under test. It
+   * REDs if the width drifts from the measure, or if the chrome is multiplied
+   * by the counter-scale (the `NODE_TITLE_RECLAIMED_PX` arithmetic error).
+   *
+   * ⚠ It does NOT red on `GHOST_DOOR_TEXT_MEASURE_PX` changing: both sides move
+   * together, which is the point — this test asks "is the width DERIVED from
+   * the measure?", and the tripwire below asks "is the measure STILL 88?".
+   * Two different questions; they are kept apart deliberately (CLAUDE.md trap
+   * 21) rather than folded into one assertion that answers neither cleanly.
+   */
+  it('the width is the DECLARED text measure at the bound plus unscaled chrome', () => {
     // TEXT scales, CHROME does not — the distinction `NODE_TITLE_RECLAIMED_PX`
     // records after the first cut multiplied the chrome and doubled it.
-    expect(textMeasureAtBound % MAX_LABEL_COUNTER_SCALE).toBe(0)
-    const declaredMeasure = textMeasureAtBound / MAX_LABEL_COUNTER_SCALE
     expect(GHOST_DOOR_W_PX).toBe(
-      declaredMeasure * MAX_LABEL_COUNTER_SCALE + PAD_X_PX * 2 + BORDER_PX * 2,
+      GHOST_DOOR_TEXT_MEASURE_PX * MAX_LABEL_COUNTER_SCALE + PAD_X_PX * 2 + BORDER_PX * 2,
     )
+    // And the chrome is genuinely unscaled: at a different counter-scale the
+    // width moves by the measure alone. Pins the relation's SHAPE, so a test
+    // that happens to agree arithmetically cannot agree for the wrong reason.
+    expect(GHOST_DOOR_W_PX - GHOST_DOOR_TEXT_MEASURE_PX * MAX_LABEL_COUNTER_SCALE).toBe(
+      PAD_X_PX * 2 + BORDER_PX * 2,
+    )
+  })
+
+  /**
+   * ⚠⚠ A TRIPWIRE, NOT A FIT GUARD — AND THE DISTINCTION IS THE WHOLE POINT.
+   *
+   * `GHOST_DOOR_TEXT_MEASURE_PX` is hand-measured in a real browser. Before
+   * round 2 it was referenced NOWHERE outside its own declaration: mutating it
+   * `88 → 60` (measured to spill two doors to three lines) left 115/115 tests
+   * green across 11 ghost-touching specs, while a comment above it claimed this
+   * very file "REDs if a label outgrows it".
+   *
+   * This assertion REDs on that mutation. That is ALL it does. It knows nothing
+   * about the copy: it would bless 88 for a sentence twice as long. Whether the
+   * four questions FIT at this measure is a text-metrics question jsdom cannot
+   * answer at all (CLAUDE.md trap 3) — a real fit guard needs a browser and
+   * belongs in `e2e/geometry/ghostDoorVisibility.measure.ts`. Rowed; not this
+   * PR. A weaker jsdom guard manufactured to fill that space would be the same
+   * defect wearing a passing test.
+   *
+   * So this is a hand-maintained mirror, ON PURPOSE, and named as one: its job
+   * is to make a change to the measure IMPOSSIBLE TO MAKE SILENTLY, forcing
+   * whoever moves it to re-measure and to move this line too.
+   */
+  it('TRIPWIRE: the hand-measured text measure is still the value that was measured', () => {
+    expect(
+      GHOST_DOOR_TEXT_MEASURE_PX,
+      'GHOST_DOOR_TEXT_MEASURE_PX is hand-measured in a browser (Chromium + Inter, 3 Sep 2026: ' +
+        '88px is the narrowest measure at which all four tier questions fit two lines at the ' +
+        'counter-scale bound). Nothing in jsdom can check the FIT. If you are changing this ' +
+        'number, or you changed a tier label, re-measure in a real browser first — then update ' +
+        'this line and the header in GhostTierNode.tsx.',
+    ).toBe(88)
   })
 
   it('the height floor holds two lines of counter-scaled label plus unscaled chrome', () => {
@@ -100,14 +156,15 @@ describe('the door is sized for the counter-scale bound, not hand-tuned', () => 
   })
 
   /**
-   * ⚠⚠ THIS IS A SOURCE-TEXT GUARD, AND IT REPLACED A TAUTOLOGY.
+   * ⚠⚠ THIS IS A SOURCE-TEXT GUARD. IT WAS ADDED ALONGSIDE A TAUTOLOGY IT DID
+   * NOT ACTUALLY REPLACE — corrected in round 2, see the width test above.
    *
-   * The test that stood here computed the expected width from
-   * `GHOST_DOOR_W_PX` itself — it recovered the declared measure by DIVIDING
-   * the export by `MAX_LABEL_COUNTER_SCALE` and then multiplied it back. That
-   * is an identity, so it agreed with any value at all. Proven by execution:
-   * replacing the whole derivation with the bare literal `187` — the exact
-   * defect this file exists to prevent — left it GREEN.
+   * The claim that stood here was that this guard REPLACED the identity-shaped
+   * width test. It did not: the guard was added and the identity stayed, so the
+   * file carried a correction that had not happened. Both now exist and answer
+   * different questions. Proven by execution: replacing the whole derivation
+   * with the bare literal `187` — the exact defect this file exists to prevent
+   * — left the identity GREEN, and this guard REDs on it.
    *
    * No BEHAVIOURAL test can tell a literal `187` from a derivation that
    * currently evaluates to 187, because at runtime they are the same number.

@@ -61,13 +61,42 @@ export const GHOST_TIER_TESTID = 'ghost-tier-node'
  *     clips instead. Sizing for the measured worst case AND letting the box
  *     grow means the clipping class is closed rather than tuned.
  *
- * `GHOST_DOOR_TEXT_MEASURE_PX` is the one measured number here: 88px declared
- * is the narrowest measure at which every one of the four questions still fits
- * two lines at the bound (measured 176px @22px; 160 spills the risk and
- * outcome doors to three lines). `GhostTierNode.doorGeometry.spec.tsx` re-does
- * this arithmetic and REDs if a label outgrows it.
+ * `GHOST_DOOR_TEXT_MEASURE_PX` is the one HAND-MEASURED number here: 88px
+ * declared is the narrowest measure at which every one of the four questions
+ * still fits two lines at the bound (measured 176px @22px in Chromium with
+ * Inter, 3 Sep 2026; 160 spills the risk and outcome doors to three lines).
+ *
+ * ⚠⚠ WHAT GUARDS THIS NUMBER, AND WHAT DOES NOT — STATED EXACTLY, BECAUSE THE
+ * SENTENCE THAT STOOD HERE WAS FALSE. It claimed
+ * `GhostTierNode.doorGeometry.spec.tsx` "re-does this arithmetic and REDs if a
+ * label outgrows it". It does not, and it cannot. Proven by execution in
+ * review: mutating this constant `88 → 60` — a value measured to spill the risk
+ * and outcome doors to three lines — left **115/115 tests green across 11
+ * ghost-touching specs**. No test looked at any label's rendered width, because
+ * jsdom has no layout and no text metrics (CLAUDE.md trap 3). A comment
+ * asserting coverage that does not exist is worse than no comment: the next
+ * maintainer reads it and believes the fit is pinned.
+ *
+ *   • GUARDED — the ARITHMETIC. The spec asserts `GHOST_DOOR_W_PX` is this
+ *     measure times `MAX_LABEL_COUNTER_SCALE` plus unscaled chrome, so the
+ *     width cannot drift from the measure or start multiplying the chrome.
+ *   • GUARDED — the VALUE, as a TRIPWIRE ONLY. The spec pins this constant to
+ *     88 so a change must be made deliberately rather than sliding through. It
+ *     REDs on `88 → 60`. It is a change-detector, NOT a fit guard: it knows
+ *     nothing about the copy and would happily bless 88 for a longer sentence.
+ *   • NOT GUARDED — THE FIT ITSELF. Whether these four strings actually fit two
+ *     lines at this measure is a text-metrics question that only a real browser
+ *     can answer. It belongs in `e2e/geometry/ghostDoorVisibility.measure.ts`,
+ *     not in jsdom. Rowed; see the PR. Until that lands, EDITING ANY OF THE
+ *     FOUR TIER LABELS REQUIRES RE-MEASURING IN A BROWSER — no test will catch
+ *     a label that outgrows this box, and the tripwire will not fire, because
+ *     the label changed and this number did not.
+ *
+ * The cost of being wrong is bounded and was verified in review: `minHeight` is
+ * a FLOOR with no `overflow: hidden`, and `break-words` is present, so a wrong
+ * measure costs a taller card — never a truncated word.
  */
-const GHOST_DOOR_TEXT_MEASURE_PX = 88
+export const GHOST_DOOR_TEXT_MEASURE_PX = 88
 /** `typography.nodeLabel` — 11px, `leading-tight` (1.25). Declared, unscaled. */
 const GHOST_DOOR_LABEL_PX = 11
 const GHOST_DOOR_LINE_HEIGHT = 1.25
