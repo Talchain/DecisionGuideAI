@@ -92,12 +92,40 @@ export interface EdgeDescription {
  * likelihood not set" (`edge-hover-popover-unset` in `StyledEdge`) — one
  * phrase for one concept, no new copy. When exactly one half has provenance,
  * that half speaks and the other says only that it was not set.
- * NOTE the two surfaces gate the same sentence on slightly different pairs:
- * the popover fires it on (strength unset AND likelihood unset) because it has
- * no direction line; this label fires it on (strength unset AND direction
- * unset) because `belief` — its only likelihood channel — is a raw legacy
- * field with no provenance marker to consult. Both remain silent about the
- * legacy `belief` value, which the tooltip still reports honestly.
+ *
+ * ⚠⚠ THE LIKELIHOOD IS NOW A PROVENANCE-GATED DISPLAY, FROM THE SAME OWNER THE
+ * POPOVER READS — AND THAT CLOSED A CONTRADICTION INSIDE ONE COMPONENT.
+ * ---------------------------------------------------------------------------
+ * This parameter used to be `belief: number | undefined`, and `StyledEdge`
+ * passed `edgeData?.belief` — the v3 legacy scalar, marked `@deprecated` in
+ * `edges.ts:196`, whose only writer (per `analyticalNodeFields.ts:241`) is the
+ * DEAD v1 edge inspector. Nothing on the live path writes it. So `belief` was
+ * `undefined` on every edge CEE drafts, `confidence` fell to `'uncertain'`, and
+ * the qualifier "(uncertain)" was appended to EVERY edge label on the canvas —
+ * measured on the 3 Sep 2026 capture: 24 edges, 24 "(uncertain)".
+ *
+ * Meanwhile the hover popover in the SAME component resolved
+ * `resolveEdgeValueDisplay(edgeData, 'beliefExists')` and rendered
+ * "80% confident" for those same edges, from `exists_probability`, stamped
+ * `beliefExistsSource: 'cee'`. One edge, two surfaces, two answers to one
+ * question — CLAUDE.md trap 21, with the two spellings a grep could not pair
+ * because they are different words for the same thing.
+ *
+ * `beliefExists` is the ONE OWNER of "how likely is it that this relationship
+ * exists?" — already consulted by the popover, by the dashed-stroke existence
+ * styling, and by the Model tab's Relationships rows. The label now asks it
+ * too, through the same resolver, rather than keeping a second opinion. The
+ * parameter is an `EdgeValueDisplay` for the same reason `strength` and
+ * `direction` already are: there is no argument that means "0.5, source
+ * unknown", so a defaulted likelihood cannot produce a confidence word by
+ * accident and cannot be forgotten. (The old signature took a bare number and
+ * silently rendered `b NaN%` when handed the wrong shape.)
+ *
+ * The empty-state arm's SENTENCE now matches its gate. It named likelihood
+ * while its predicate never consulted one; with a real channel available,
+ * "Strength and likelihood not set" is reserved for the case where the
+ * likelihood is genuinely absent too, and an edge with a known likelihood but
+ * no strength says only that the strength is not set.
  *
  * ⚠⚠ THE DIRECTION IS AN ARGUMENT, NOT AN INFERENCE (ROADMAP 2.935, Codex MF5).
  * ----------------------------------------------------------------------------
@@ -142,7 +170,7 @@ export interface EdgeDescription {
  */
 export function describeEdge(
   strength: EdgeValueDisplay,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
 ): EdgeDescription {
   // The magnitude this label is entitled to speak about — null when nothing
@@ -160,12 +188,19 @@ export function describeEdge(
       ? `${strengthLabel} ${direction.direction === 'positive' ? 'boost' : 'drag'}`
       : `${strengthLabel} effect, direction not stated`
   } else if (!direction.show) {
-    // Neither half has provenance: the ratified popover copy, unqualified —
-    // there is no claim for the belief channel to qualify.
-    return {
-      label: 'Strength and likelihood not set',
-      tooltip: buildWeightTooltip(null, belief, direction),
+    // Neither strength nor direction has provenance. The ratified popover copy
+    // names LIKELIHOOD as well, so it may only be spoken when the likelihood is
+    // genuinely absent too — otherwise the label would deny a number the
+    // popover is at that moment rendering.
+    if (!likelihood.show) {
+      return {
+        label: 'Strength and likelihood not set',
+        tooltip: buildWeightTooltip(null, likelihood, direction),
+      }
     }
+    // A known likelihood, but nothing stated about the effect itself: say only
+    // what is missing, and let the qualifier below report the likelihood band.
+    claim = 'Strength not set'
   } else {
     // Direction stated, strength not set: the stated half speaks, the unset
     // half says so — same clause shape as the direction arm above, same
@@ -173,29 +208,20 @@ export function describeEdge(
     claim = `${direction.direction === 'positive' ? 'Boost' : 'Drag'}, strength not set`
   }
 
-  // Categorize confidence (if belief is provided)
-  let confidence: 'high' | 'medium' | 'low' | 'uncertain'
-  if (belief !== undefined) {
-    if (belief >= 0.8) {
-      confidence = 'high'
-    } else if (belief >= 0.6) {
-      confidence = 'medium'
-    } else {
-      confidence = 'low'
-    }
-  } else {
-    confidence = 'uncertain'
-  }
-
-  // Add confidence qualifier if belief is low or missing
+  // Categorise the likelihood — ONLY when one was actually set. An unset
+  // likelihood is not a low one: "(uncertain)" is a verdict about a number we
+  // have, and saying it about a number nobody supplied is the fabrication this
+  // gate exists to stop.
   let label: string
-  if (confidence === 'low' || confidence === 'uncertain') {
+  if (!likelihood.show) {
+    label = `${claim} (likelihood not set)`
+  } else if (likelihood.value < 0.6) {
     label = `${claim} (uncertain)`
   } else {
     label = claim
   }
 
-  return { label, tooltip: buildWeightTooltip(absWeight, belief, direction) }
+  return { label, tooltip: buildWeightTooltip(absWeight, likelihood, direction) }
 }
 
 /**
@@ -210,10 +236,10 @@ export function describeEdge(
  */
 function buildWeightTooltip(
   absWeight: number | null,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
 ): string {
-  const beliefText = belief !== undefined ? `${Math.round(belief * 100)}%` : 'not set'
+  const beliefText = likelihood.show ? `${Math.round(likelihood.value * 100)}%` : 'not set'
   const weightText =
     absWeight !== null ? `${signPrefix(direction)}${absWeight.toFixed(2)}` : 'not set'
   return `Weight: ${weightText}, Belief: ${beliefText}`
@@ -240,15 +266,15 @@ function signPrefix(direction: EdgeDirectionDisplay): string {
  */
 export function formatNumericLabel(
   strength: EdgeValueDisplay,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
 ): string {
   const weightText = strength.show
     ? `${signPrefix(direction)}${Math.abs(strength.value).toFixed(2)}`
     : 'not set'
 
-  if (belief !== undefined) {
-    return `w ${weightText} • b ${Math.round(belief * 100)}%`
+  if (likelihood.show) {
+    return `w ${weightText} • b ${Math.round(likelihood.value * 100)}%`
   }
 
   return `w ${weightText}`
@@ -300,19 +326,19 @@ export function labelCarriesDirection(
  */
 export function getEdgeLabel(
   strength: EdgeValueDisplay,
-  belief: number | undefined,
+  likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
   mode?: EdgeLabelMode,
 ): EdgeDescription {
   const actualMode = mode ?? getEdgeLabelMode()
 
   if (actualMode === 'numeric') {
-    const numericLabel = formatNumericLabel(strength, belief, direction)
+    const numericLabel = formatNumericLabel(strength, likelihood, direction)
     return {
       label: numericLabel,
       tooltip: numericLabel
     }
   }
 
-  return describeEdge(strength, belief, direction)
+  return describeEdge(strength, likelihood, direction)
 }

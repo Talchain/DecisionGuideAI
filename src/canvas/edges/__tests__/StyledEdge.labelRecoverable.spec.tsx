@@ -16,8 +16,8 @@
  * `labelCounterScale` so its rendered size stays at the Design System floor.
  * So at `LABEL_LEGIBLE_ZOOM` — the zoom the product's own post-layout auto-fit
  * parks at, i.e. the view in the screenshot — the plate is ~80 CSS px holding
- * 10px text: about twelve glyphs, against a vocabulary that runs 24–48
- * characters ("Moderate effect, direction not stated (uncertain)").
+ * 10px text: about twelve glyphs, against a vocabulary that runs 13–58
+ * characters ("Moderate effect, direction not stated (likelihood not set)").
  *
  * Widening the plate is not free: `X_THRESHOLD` is DERIVED from that same
  * half-width, so a wider label is a wider exclusion box for every dodge, and
@@ -223,9 +223,20 @@ const renderEdge = (data: Record<string, unknown>) =>
 // Independent literals. Written from the ratified copy, NOT read back from
 // `describeEdge`, so an assertion cannot agree with the code by construction
 // (CLAUDE.md trap 12d — a derived guard proves agreement, never correctness).
-const SET_SENTENCE = 'Moderate drag (uncertain)'
-const DIRECTION_UNSET_SENTENCE = 'Moderate effect, direction not stated (uncertain)'
-const NEITHER_SENTENCE = 'Strength and likelihood not set'
+//
+// ⭐ RE-DERIVED when the label's likelihood moved onto `beliefExists` (the
+// 3 Sep 2026 capture lane). These fixtures carry a producer-stamped
+// `exists_probability`, so the label no longer appends "(uncertain)" — it was
+// reporting uncertainty about a number CEE had in fact supplied. The sentences
+// are SHORTER here, but the vocabulary's longest member got LONGER
+// ("Moderate effect, direction not stated (likelihood not set)", 58 chars,
+// against the old 48), so this contract is more load-bearing than before, not
+// less. Lengths re-measured, not adjusted to fit.
+const SET_SENTENCE = 'Moderate drag'
+const DIRECTION_UNSET_SENTENCE = 'Moderate effect, direction not stated'
+const NEITHER_SENTENCE = 'Strength not set'
+/** The longest sentence the vocabulary can now produce. */
+const LONGEST_SENTENCE = 'Moderate effect, direction not stated (likelihood not set)'
 
 describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKLOG S1)', () => {
   beforeEach(() => {
@@ -252,9 +263,10 @@ describe('StyledEdge edge label — a cut sentence stays reachable (CANVAS-BACKL
       // at the Design System 10px floor, so roughly a dozen glyphs survive.
       // Every one of these sentences is far past that, which is WHY the
       // recovery route below is load-bearing rather than decorative.
-      expect(DIRECTION_UNSET_SENTENCE.length).toBeGreaterThan(40)
-      expect(SET_SENTENCE.length).toBeGreaterThan(20)
-      expect(NEITHER_SENTENCE.length).toBeGreaterThan(20)
+      expect(LONGEST_SENTENCE.length).toBeGreaterThan(50)
+      expect(DIRECTION_UNSET_SENTENCE.length).toBeGreaterThan(35)
+      expect(SET_SENTENCE.length).toBeGreaterThan(12)
+      expect(NEITHER_SENTENCE.length).toBeGreaterThan(15)
     })
   })
 
