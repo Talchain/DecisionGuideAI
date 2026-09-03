@@ -82,7 +82,7 @@ import { computeFitPadding } from './utils/computeFitPadding'
 import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
-import { GHOST_TIERS, withGhostTiers, frontierIsVisible, ghostOptionPrompt } from './utils/ghostTiers'
+import { GHOST_TIERS, withGhostTiers, ghostOptionPrompt } from './utils/ghostTiers'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
@@ -713,22 +713,38 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
   const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const reconnecting = useCanvasStore(s => s.reconnecting)
-  const resultsStatus = useCanvasStore(s => s.results.status)
   // Week 3: AI Clarifier
   const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
   const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
 
   // M6: Scenario Comparison Mode (lives in useComparisonStore as of C3-3)
   const comparisonModeActive = useComparisonStore(s => s.comparisonMode.active)
-  const viewMode = useCanvasStore(s => s.viewMode)
 
   // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
   const nodesWithGhost = useMemo(() => {
-    // Pre-analysis: always show. Post-analysis: Expert view only.
-    // The predicate lives in `ghostTiers` so a test can call it — inline here,
-    // it was the one control over the frontier that nothing could bind to.
-    if (!frontierIsVisible(resultsStatus, viewMode)) return nodes
-
+    /*
+     * ⚠ THERE IS NO VISIBILITY GATE HERE, AND THAT IS THE POINT.
+     *
+     * This memo used to open with `if (!frontierIsVisible(resultsStatus,
+     * viewMode)) return nodes` — after an analysis completed, the doors
+     * disappeared in every view but Expert. Paul ruled on 1 Sep 2026 that the
+     * reasoning frontier must be reachable OUTSIDE Expert view, so the gate is
+     * gone and the two selectors that fed it went with it: `viewMode` and
+     * `results.status` are now read NOWHERE in this file.
+     *
+     * ⚠ THE GATE WAS FIRST REPLACED BY A CONSTANT-RETURNING `frontierIsVisible`,
+     * KEPT ON THE ARGUMENT THAT IT WAS THE ONLY PLACE A RE-INTRODUCED GATE COULD
+     * BE CAUGHT. A review refuted that by execution: re-adding the original gate
+     * HERE, on the line after the call, left the whole suite green. The seam
+     * caught a gate only when it was written inside the function AND keyed on
+     * one of the two status values the matrix happened to list — 2 of the 7 that
+     * `ResultsStatus` (`store.ts:241`) actually admits. A guard for the
+     * hypothetical that missed the realistic one.
+     *
+     * `ghostSuggestionsMountPath.spec.ts` now reads THIS BLOCK and fails if
+     * either axis reappears in it. That is a source-text guard, not behavioural
+     * coverage, and it is named as one there.
+     */
     /*
      * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
      *
@@ -796,7 +812,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * prefix, so they cannot inflate what the graph appears to contain.
      */
     return withGhostTiers([...nodes, ghostNode], tierGhosts)
-  }, [nodes, resultsStatus, viewMode])
+  }, [nodes])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.

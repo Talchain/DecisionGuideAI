@@ -288,36 +288,6 @@ function readSubject(nodes: Node[]): ModelSubject | null {
 }
 
 /**
- * ⭐ WHETHER THE FRONTIER IS ON SCREEN AT ALL — the gate, named and exported.
- *
- * This was an inline condition inside a `useMemo` in a 2,700-line component
- * (`ReactFlowGraph.tsx`), which is the reason nothing could bind to it and the
- * reason a mount-path spec resorted to reading source text instead. An
- * assertion about a condition no test can call is not an assertion.
- *
- * ⚠ IT IS ALSO THE ONLY THING THAT DECIDES. There was believed to be a second
- * control — an `enableGhostSuggestions` prop — and there was not: it was
- * declared, defaulted `false`, destructured, and never read, so the doors
- * rendered on EVERY mount of the graph regardless. The prop is now deleted
- * rather than wired, because a switch whose only effect would be to turn off a
- * capability we want on is a dark-launch gate this estate has ruled against.
- *
- * ⚠ AND NOTE WHAT IT SAYS, because it is very likely the mechanism behind a
- * deployed measurement of zero doors against thirteen real nodes: after an
- * analysis completes, the frontier disappears in every view except Expert.
- * That is the existing behaviour, preserved here deliberately and unchanged —
- * whether it is the RIGHT behaviour is a product question, not a refactor, and
- * it is raised separately rather than flipped in passing.
- */
-export function frontierIsVisible(
-  resultsStatus: string | null | undefined,
-  viewMode: string,
-): boolean {
-  const isPostAnalysis = resultsStatus === 'complete'
-  return !(isPostAnalysis && viewMode !== 'expert')
-}
-
-/**
  * The members of one tier, by the producer's two spellings of a node's kind.
  *
  * ⚠ SPELLED ONCE ON PURPOSE. `withGhostTiers` and the legacy option door both

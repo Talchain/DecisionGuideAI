@@ -44,10 +44,15 @@
  *  - LIVELOCK COUNTER. A door could be visible at rest and still be re-measured
  *    hundreds of times a second. The re-observation count is asserted, so the
  *    mechanism cannot come back wearing a passing appearance.
- *  - DIRECTION B. The frontier is deliberately WITHDRAWN after an analysis in
- *    every view but Expert (`frontierIsVisible`). The fix must not make doors
- *    appear where the product says they should not be, so the gate is flipped and
- *    the DOM must hold none.
+ *  - DIRECTION B. ⚠ RE-POINTED 2 Sep 2026, AND THE OLD TEXT IS QUOTED BECAUSE IT
+ *    WAS THE OPPOSITE RULE. It read: "The frontier is deliberately WITHDRAWN
+ *    after an analysis in every view but Expert (`frontierIsVisible`). The fix
+ *    must not make doors appear where the product says they should not be."
+ *    Paul ruled on 1 Sep 2026 that the post-analysis reasoning frontier must be
+ *    reachable OUTSIDE Expert view, `frontierIsVisible` is deleted, and this
+ *    direction is now the reverse: switch to Standard view with a completed
+ *    analysis and the doors must SURVIVE, at the same count. The precondition is
+ *    still pinned first, so "they survived" cannot pass because none were placed.
  *  - REAL NODES STILL MEASURE. The fix suppresses a store write. If it suppressed
  *    too much, real nodes would stop persisting their dimensions — so their
  *    `measured` is asserted present, which is the same write arriving.
@@ -448,7 +453,7 @@ for (const id of STARTERS) {
   })
 }
 
-test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, non-Expert view', async ({ page }) => {
+test('GHOST doors SURVIVE a completed analysis in Standard view — Paul, 1 Sep 2026', async ({ page }) => {
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
     await assertPaneCanRenderGeometry(page)
@@ -462,8 +467,9 @@ test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, n
     GHOST_ID_PREFIX,
   )
   // The precondition is PINNED rather than hoped for: if no door was placed, the
-  // "none present" assertion below would pass for the wrong reason (trap 13b).
-  expect(before, 'no door was placed before the gate was flipped, so the absence proves nothing').toBeGreaterThan(0)
+  // survival assertion below would pass for the wrong reason (trap 13b) — zero
+  // doors before and zero after is a happy-looking equality that proves nothing.
+  expect(before, 'no door was placed before the state change, so survival proves nothing').toBeGreaterThan(0)
 
   await page.evaluate(() => {
     const w = window as unknown as {
@@ -481,7 +487,14 @@ test('GHOST doors are ABSENT once the frontier is withdrawn — post-analysis, n
     (GHOST: string) => document.querySelectorAll(`.react-flow__node[data-id^="${GHOST}"]`).length,
     GHOST_ID_PREFIX,
   )
-  expect(after, 'the frontier is meant to withdraw after an analysis outside Expert view').toBe(0)
+  // ⚠ ASSERTED AS AN EQUALITY, NOT AS `> 0`. A partial withdrawal — some tiers'
+  // doors surviving and others vanishing — would satisfy "still present" while
+  // still breaking the ruling. Binding to the pre-change count makes the claim
+  // "nothing was withdrawn", which is what was actually ruled.
+  expect(
+    after,
+    'the reasoning frontier must remain reachable after an analysis outside Expert view (Paul, 1 Sep 2026)',
+  ).toBe(before)
 })
 
 /*
