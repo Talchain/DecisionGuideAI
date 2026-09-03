@@ -252,6 +252,52 @@ describe('polarity glyph — numeric mode suppresses only where the SIGN carries
     expect(glyph(container)).toBeNull()
   })
 
+  it('THE UNCOVERED CELL: numeric + stated NEGATIVE + UNSET strength renders `w not set` — no sign to carry direction', () => {
+    // ⛔ WHY THIS CASE EXISTS. The numeric arm of `labelCarriesDirection` is
+    // `strength.show && direction.direction === 'negative'`, and deleting the
+    // `strength.show &&` conjunct survived 109 tests across six specs. This is
+    // the cell that kills it: `formatNumericLabel` only reaches `signPrefix`
+    // when there is a magnitude to sign, so an UNSET strength prints
+    // `w not set` — a stated negative whose label says nothing about
+    // direction. Without the conjunct the glyph is suppressed here and
+    // polarity rests on hue alone, which `directionStroke.ts:23-32` forbids on
+    // a measurement (ΔE2000 11.7 vs 28.3 under deuteranopia).
+    //
+    // Reachable: two of `topStrengthIds`' three branches carry no provenance
+    // gate, so an edge whose strength nobody set can still be pinned — this
+    // spec's harness takes the "3 or fewer" branch, which is one of them.
+    mockLabelMode = 'numeric'
+    // Direction STATED (the producer's raw `effect_direction` proves it);
+    // strength deliberately UNSOURCED — a bare `weight` with no
+    // `strength_mean` and no `weight_source` resolves to `show: false`.
+    const unsetStrength = {
+      effect_direction: 'negative' as const,
+      weight: 0.5,
+      exists_probability: 0.8,
+    }
+    mockEdges = [{ id: 'e1', source: 'n1', target: 'n2', data: unsetStrength }]
+    const { container } = render(
+      <StyledEdge {...(props as any)} data={unsetStrength} />,
+    )
+
+    // ── PRECONDITIONS PINNED IN-TEST ────────────────────────────────────────
+    // Without these the assertion below could pass because the fixture failed
+    // to produce the state, rather than because the code is right.
+    const text = strengthText(container)
+    expect(text, 'the persistent chip did not render — fixture, not code').not.toBeNull()
+    // (a) the label really is the unset-strength rendering…
+    expect(text!.textContent).toContain('not set')
+    // (b) …so it carries NO direction: no word, and no minus sign.
+    expect(text!.textContent).not.toMatch(/boost|drag/)
+    expect(text!.textContent).not.toContain('\u2212')
+
+    // ── THE CLAIM ───────────────────────────────────────────────────────────
+    // Asserting the accessible name (not merely non-null) pins the OTHER
+    // precondition at the same time: a direction that was never stated would
+    // render no glyph at all and this would pass vacuously.
+    expect(glyph(container)?.getAttribute('aria-label')).toBe('Effect direction: negative')
+  })
+
   it('CONTROL: a numeric positive edge with NO persistent chip still shows the glyph', () => {
     mockLabelMode = 'numeric'
     const { container } = render(<StyledEdge {...(props as any)} />)

@@ -308,9 +308,32 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (fragileEdges.length === 0) return new Set()
     const out = new Set<string>()
     for (const e of getEdges()) {
-      // Structural edges are never analysed and never badged — the same
-      // exclusion the render gate below applies, kept in step here so a
-      // structural edge cannot reserve a placement slot it will not use.
+      // Exclude structural edges, so one cannot reserve a placement slot for a
+      // chip it will never render.
+      //
+      // ⚠ THIS IS NODE-KIND-ONLY, AND IT IS **NOT** THE RENDER GATE'S RULE.
+      // An earlier version of this comment claimed it was "the same exclusion,
+      // kept in step"; that was false. `isStructuralEdge` (above) consults
+      // `data.edge_type` FIRST: `'structural'` forces structural whatever the
+      // node kinds say, and ANY other non-empty value disables kind inference
+      // entirely. So the two can disagree in both directions:
+      //
+      //   · `edge_type: 'directed'` on a decision->option pair — and CEE emits
+      //     `"directed"` on every edge in the golden-path fixture — is NOT
+      //     structural to the render gate, so it may badge, while this filter
+      //     drops it: a chip that renders without a reserved slot.
+      //   · `edge_type: 'structural'` on a pair whose kinds do not match IS
+      //     structural to the render gate, while this filter keeps it: a slot
+      //     reserved for a chip that never renders.
+      //
+      // Both are placement-quality residuals, not correctness defects: the
+      // render gate alone decides what is drawn. Left as-is deliberately —
+      // sharing one predicate is a real fix and a different change.
+      //
+      // ⛔ AND THE PART NOT TO CLOSE BY ASSERTION: whether ISL's
+      // `fragile_edges` can contain a structural edge at all is UNDERIVED. If
+      // it cannot, both residuals are unreachable and this filter is redundant
+      // rather than wrong. Derive it before acting on either branch above.
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       const sk = sn?.type || (sn?.data as Record<string, unknown>)?.kind
