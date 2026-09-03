@@ -109,6 +109,18 @@
  *    sentence verb, and this is where that limit lands.
  *  · It is LINE-BASED. A caption whose noun and quantity sit on different source
  *    lines is seen only as far as the end-of-string arm reaches.
+ *  · ⚠ IT IS CALIBRATED TO THIS SCOPE, AND WIDENING THE SCOPE WOULD NOT BE
+ *    FREE — measured rather than supposed. Running this exact predicate over
+ *    the whole of `src/` (1,637 non-spec files) returns ONE hit outside these
+ *    cards, and it is a FALSE POSITIVE: `mapV5AnalysisToReport.ts:916` is an
+ *    object property key `strength:` on a line of its own, which the JSX-text
+ *    extractor reads as a text run. Nothing on a card surface is shaped like
+ *    that, which is why the scoped sweep is clean — but "extend SCOPE to catch
+ *    more" is a change that needs its own survivor corpus, not a one-line edit.
+ *    (That whole-tree run carried a contrast control: the LIVE captions
+ *    `Strength`/`Ahead`/`Chance` returned 5 hits in the same pass, so the zero
+ *    for retired captions is a real absence and not a blind instrument —
+ *    CLAUDE.md trap 13e.)
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
