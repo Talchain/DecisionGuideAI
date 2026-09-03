@@ -330,10 +330,11 @@ export async function openCanvas(page: Page): Promise<void> {
 export async function seedStarterDraft(
   page: Page,
   id: StarterId,
-): Promise<{ nodeCount: number; edgeCount: number; layoutVersion: number }> {
+  opts: { asStarter?: boolean } = {},
+): Promise<{ nodeCount: number; edgeCount: number; layoutVersion: number; starterStamped: boolean }> {
   const payload = readStarterDraft(id)
 
-  const result = await page.evaluate(async (draft) => {
+  const result = await page.evaluate(async ({ draft, starterId, asStarter }) => {
     // Resolved by the BROWSER against Vite's dev module graph, not by tsc and
     // not by the bundler — `page.evaluate` source is never processed by Vite.
     // Held in a variable so TypeScript does not try to resolve a path that only
@@ -342,7 +343,35 @@ export async function seedStarterDraft(
     const mod = (await import(/* @vite-ignore */ modulePath)) as {
       applyDraftResult: (p: unknown) => { nodeCount: number; edgeCount: number }
     }
-    const applied = mod.applyDraftResult(draft)
+
+    // ⭐ `asStarter` TAKES THE REAL PRODUCT PATH, and the difference is not
+    // cosmetic. `applyDraftResult` ingests a graph and stops; the product's
+    // `applyStarter` also STAMPS `starterId`/`starterTitle` onto every node,
+    // and that stamp is what `resolveStarterId` reads — so it is the sole
+    // condition under which `StarterProvenanceBanner` mounts at all.
+    //
+    // Seeding without it means the "Saved example" disclosure is absent from
+    // every capture, which is how the component carrying the MOTIVATING DEFECT
+    // (`fixed top-[72px]`, over the decision node's title) went unmeasured at
+    // every tip. It also changes which occupant wins bottom-centre, so the two
+    // modes are genuinely different corpora, not a detail.
+    //
+    // OPT-IN, deliberately: every existing caller and every committed reference
+    // image was taken WITHOUT the banner, and flipping the default would churn
+    // the whole visual corpus in a change about geometry.
+    let applied: { nodeCount: number; edgeCount: number }
+    if (asStarter) {
+      // Same reason as `modulePath` above: a string LITERAL here is a TS2307,
+      // because the path exists only as a dev-server URL and tsc tries to
+      // resolve it. Held in a variable so it is opaque to the compiler.
+      const starterPath = '/src/canvas/starters/loadStarter.ts'
+      const starterMod = (await import(/* @vite-ignore */ starterPath)) as {
+        applyStarter: (id: string) => Promise<{ nodeCount: number; edgeCount: number }>
+      }
+      applied = await starterMod.applyStarter(starterId)
+    } else {
+      applied = mod.applyDraftResult(draft)
+    }
 
     const w = window as unknown as {
       useCanvasStore: {
@@ -356,13 +385,27 @@ export async function seedStarterDraft(
       await new Promise((r) => setTimeout(r, 25))
     }
     const final = w.useCanvasStore.getState()
-    return { ...applied, layoutVersion: final.layoutVersion, pendingLayout: final.pendingLayout, layoutInProgress: final.layoutInProgress }
-  }, payload)
+    const nodes = (final as unknown as { nodes: ReadonlyArray<{ data?: Record<string, unknown> }> }).nodes
+    const starterStamped = nodes.some((n) => typeof n.data?.starterId === 'string' && n.data.starterId.length > 0)
+    return { ...applied, layoutVersion: final.layoutVersion, pendingLayout: final.pendingLayout, layoutInProgress: final.layoutInProgress, starterStamped }
+  }, { draft: payload, starterId: id, asStarter: opts.asStarter === true })
 
   expect(result.nodeCount, `starter "${id}" seeded no nodes — applyDraftResult no-ops silently on an empty payload`).toBeGreaterThan(0)
   expect(result.layoutVersion, 'layout never committed (layoutVersion still 0) — the capture would be of a stacked graph').toBeGreaterThan(0)
   expect(result.pendingLayout, 'layout still pending at capture time — non-deterministic positions').toBe(false)
   expect(result.layoutInProgress, 'layout still in progress at capture time — non-deterministic positions').toBe(false)
+  // ⚠ ASSERT THE MODE ACTUALLY TOOK, IN BOTH DIRECTIONS. A silent no-op here is
+  // the whole failure this option exists to fix: an unstamped seed produces a
+  // perfectly healthy-looking run in which the banner simply never mounts, and
+  // every "no overlap" reading about it is then vacuous (trap 13).
+  expect(
+    result.starterStamped,
+    opts.asStarter === true
+      ? `starter "${id}" was seeded with asStarter but no node carries a starterId — ` +
+        `StarterProvenanceBanner will not mount and any claim about it is vacuous`
+      : `starter "${id}" was seeded WITHOUT asStarter yet nodes carry a starterId — ` +
+        `the corpus is not the one this caller asked for`,
+  ).toBe(opts.asStarter === true)
   await freezeMotion(page)
   return result
 }

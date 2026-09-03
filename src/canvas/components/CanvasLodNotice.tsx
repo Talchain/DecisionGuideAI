@@ -46,7 +46,9 @@
  * testing it here would be a second predicate wearing the same name (trap 21).
  */
 import { ZoomIn } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { useReactFlow } from '@xyflow/react'
+import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
 import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden } from '../utils/zoomLegibility'
 import { cameraDuration } from '../utils/cameraMotion'
@@ -91,15 +93,22 @@ export function CanvasLodNotice() {
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
   const { getViewport, setViewport } = useReactFlow()
   const prefersReducedMotion = usePrefersReducedMotion()
+  // The cell decides WHERE this draws and whether it draws at all when a
+  // higher-priority occupant holds bottom-centre. `lodBodyHidden` is this
+  // component's own condition — the semantic-zoom ladder's own selector over
+  // `lodRung` (#1159), NOT a second reading of the rung — and it is passed as
+  // `wants` rather than returned on early, so a notice with nothing to say
+  // never holds the slot shut against one that has.
+  const { granted, target } = useOverlayCell('bottom-centre', CANVAS_LOD_NOTICE_TESTID, lodBodyHidden)
 
-  if (!lodBodyHidden) return null
+  if (!lodBodyHidden || !granted) return null
 
-  return (
+  const body = (
     <div
       data-testid={CANVAS_LOD_NOTICE_TESTID}
       role="status"
       aria-live="polite"
-      className="pointer-events-auto absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
+      className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
     >
       <ZoomIn className="h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />
       <span className={`${typography.panelMeta} text-text-body`}>{CANVAS_LOD_NOTICE_COPY}</span>
@@ -132,4 +141,8 @@ export function CanvasLodNotice() {
       </button>
     </div>
   )
+
+  // No band (a standalone render, which is how this component's own spec
+  // mounts it) means no portal target — draw inline, exactly as before.
+  return target ? createPortal(body, target) : body
 }

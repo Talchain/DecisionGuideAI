@@ -21,6 +21,7 @@ import { useEditedSinceRun } from './hooks/useEditedSinceRun'
 import { LodSync } from './components/LodSync'
 import { CanvasLabelScaleSync } from './components/CanvasLabelScaleSync'
 import { CanvasLodNotice } from './components/CanvasLodNotice'
+import { CanvasOverlayBand, CanvasOverlayBandProvider } from './components/CanvasOverlayBand'
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
@@ -2534,6 +2535,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }
 
   return (
+    // Wraps the whole canvas subtree so every overlay claimant — including
+    // `StarterProvenanceBanner`, which is mounted further down inside
+    // `FloatingOlumiPanelHost` — can reach the band's registry without being
+    // moved in the tree. The provider renders no element of its own; the band
+    // element is mounted once, below, beside the other canvas overlays.
+    <CanvasOverlayBandProvider>
     <MaybeConversationProvider>
     <div
       style={{
@@ -2644,9 +2651,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 the sizes before a 0.50 auto-fit halves them. Main canvas only:
                 the Compare-tab minis are deliberately simplified views. */}
             <CanvasLabelScaleSync />
-            {/* Says so when LodSync has blanked the labels — measured at 0 of 5
-                viewports before this shipped; see the component's header. */}
-            <CanvasLodNotice />
           </ReactFlow>
         )}
       </div>
@@ -2681,6 +2685,24 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           under the canvas legibility floor. A coaching card is read, so it
           holds a constant size and tracks its anchor by arithmetic instead. */}
       <OlumiAttentionCard />
+
+      {/* ⭐ THE CANVAS OVERLAY BAND — one slot, one occupant, never over a node.
+          Every notice below draws through this element rather than positioning
+          itself, and the band declares its fixed height to `computeFitPadding`
+          so the model is never fitted underneath it. Four components used to
+          claim top-centre independently and the only collision reasoning in the
+          codebase was a comment; the founder photographed the result.
+
+          `CanvasLodNotice` is mounted HERE rather than inside `<ReactFlow>`: as
+          a flow child it sat in the transformed subtree, and it belongs with
+          the other overlays. It still reads `useReactFlow()`, which resolves
+          against the surrounding `ReactFlowProvider` exactly as
+          `ModelExtentNotice` already did from this same position. */}
+      <CanvasOverlayBand />
+      <CanvasLodNotice />
+      <AssistantFocusChip />
+      <FocusModeChip />
+      <FirstModelNotice />
       <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
@@ -2689,23 +2711,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         onFitView={handleFitView}
         onAutoArrange={handleAutoArrange}
       />
-      {/* Two independent attention owners may coexist here: assistant focus is
-          dismissible/expiring; FocusModeChip is ordinary user selection. */}
-      <div
-        className="absolute z-[100] left-1/2 -translate-x-1/2 pointer-events-auto"
-        style={{ top: 'calc(var(--topbar-h, 0px) + 1rem)' }}
-      >
-        <div className="flex flex-col items-center gap-2">
-          <AssistantFocusChip />
-          <FocusModeChip />
-          {/* Says that a generated model is a starting point, while it still is
-              one. Lives in this stack rather than at bottom-centre because
-              `ModelExtentNotice` owns that position and fires on exactly the
-              same graphs — a post-draft fit clamps at the legibility floor. The
-              column already handles the collision with the two chips above it. */}
-          <FirstModelNotice />
-        </div>
-      </div>
+      {/* ⛔ TOP-CENTRE IS VACATED. The column that used to sit here —
+          `absolute z-[100] left-1/2 -translate-x-1/2` at
+          `top: calc(var(--topbar-h) + 1rem)` — held `AssistantFocusChip`,
+          `FocusModeChip` and `FirstModelNotice`, and its own comment explained
+          that `FirstModelNotice` lived here "rather than at bottom-centre
+          because `ModelExtentNotice` owns that position". That reasoning is why
+          the first-model notice ended up drawn across the decision node's
+          title: `--topbar-h` is 57px, so this column began at 73px, and the
+          product fit's top inset is 73px. The three components are now
+          band occupants and are mounted above; nothing may claim this position
+          again — `overlayOwner.sourceScan.spec.ts` REDs on the position strings. */}
 
       {/* Influence Explainer - shown when triggered from TopBar dropdown */}
       {shouldShowInfluenceExplainer && (
@@ -2956,6 +2972,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           removed the duplicate mount that used to live here (P1 review round 2). */}
     </div>
     </MaybeConversationProvider>
+    </CanvasOverlayBandProvider>
   )
 })
 

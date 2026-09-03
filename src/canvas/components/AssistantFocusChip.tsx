@@ -6,7 +6,9 @@
  * screen together without either authority clearing the other.
  */
 import { memo, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Sparkles, X } from 'lucide-react'
+import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
 import {
   dismissAssistantFocus,
@@ -34,11 +36,23 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
     if (target && (!targetExists || !scenarioMatches)) dismissAssistantFocus()
   }, [target, targetExists, scenarioMatches])
 
-  if (!target || !targetExists || !scenarioMatches) return null
+  const wants = Boolean(target) && targetExists && scenarioMatches
+  // `target` already names this component's focus target, so the cell's portal
+  // target is aliased rather than shadowed.
+  const { granted, target: cell } = useOverlayCell('bottom-centre', 'assistant-focus-chip', wants)
 
-  return (
+  if (!wants || !target || !granted) return null
+
+  const body = (
     <div
-      className="inline-flex max-w-[min(32rem,calc(100vw-2rem))] items-center gap-2 rounded-full border border-info/40 bg-panel px-3 py-2 shadow-2"
+      // `pointer-events-auto` is REQUIRED of every band occupant, not cosmetic:
+      // the band and all three cells set `pointer-events: none`, and the property
+      // inherits, so a claimant that does not re-enable it renders visibly and is
+      // not hit-testable — the dismiss button below would be dead. This chip and
+      // `FocusModeChip` used to inherit it from a `pointer-events-auto` wrapper in
+      // `ReactFlowGraph` that the band replaced. `overlayOwner.sourceScan.spec.ts`
+      // now requires this of all seven occupants, so the class cannot reopen.
+      className="pointer-events-auto inline-flex max-w-[min(32rem,calc(100vw-2rem))] items-center gap-2 rounded-full border border-info/40 bg-panel px-3 py-2 shadow-2"
       role="status"
       aria-live="polite"
       data-testid="assistant-focus-chip"
@@ -60,6 +74,8 @@ export const AssistantFocusChip = memo(function AssistantFocusChip() {
       </button>
     </div>
   )
+
+  return cell ? createPortal(body, cell) : body
 })
 
 export default AssistantFocusChip

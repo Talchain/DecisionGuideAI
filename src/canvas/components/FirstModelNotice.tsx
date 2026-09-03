@@ -59,7 +59,9 @@
  * the team HAS worked on, which is the lie this file exists to avoid.
  */
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useOverlayCell } from './CanvasOverlayBand'
 import type { Edge, Node } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { isReviewedByUser, isReviewedEdge } from './pre-analysis/utils/isReviewedByUser'
@@ -106,16 +108,35 @@ export function FirstModelNotice() {
   const edges = useCanvasStore((s) => s.edges)
   const [dismissed, setDismissed] = useState(false)
 
-  if (dismissed) return null
-  // Nothing on the canvas — there is no model to characterise.
-  if (nodes.length === 0) return null
-  // A bundled example already carries its own, stronger disclosure
-  // (`StarterProvenanceBanner`). Two notices about the same graph's standing
-  // would compete, and the starter one is the more important of the two.
-  if (resolveStarterId(nodes) !== null) return null
-  if (hasUserJudgedAnyElement(nodes, edges)) return null
+  // ⚠ THESE ARE NOT THE BAND'S QUESTION, AND COLLAPSING THEM INTO IT WOULD BE
+  // A DEFECT. `OVERLAY_PRIORITY` answers *"who gets bottom-centre when several
+  // components each have something true to say?"*. The conditions below answer
+  // *"is this sentence true and appropriate for THIS graph at all?"* — a
+  // different question, and the estate's signature defect is aligning two
+  // authorities that were never asking the same thing.
+  //
+  // The starter clause is the one that shows why. If it were deleted in favour
+  // of the priority table, the table would still hide this notice while the
+  // starter banner is up — but DISMISSING the starter banner would then release
+  // the cell and pop this notice in its place, on a bundled example, where its
+  // sentence was never the right one. The user would have dismissed a
+  // disclosure and been handed a second one. So it stays, and the band's job
+  // stays purely spatial.
+  const wants =
+    !dismissed &&
+    // Nothing on the canvas — there is no model to characterise.
+    nodes.length > 0 &&
+    // A bundled example already carries its own, stronger disclosure
+    // (`StarterProvenanceBanner`). Two notices about the same graph's standing
+    // would compete, and the starter one is the more important of the two.
+    resolveStarterId(nodes) === null &&
+    !hasUserJudgedAnyElement(nodes, edges)
 
-  return (
+  const { granted, target } = useOverlayCell('bottom-centre', FIRST_MODEL_NOTICE_TESTID, wants)
+
+  if (!wants || !granted) return null
+
+  const body = (
     <div
       data-testid={FIRST_MODEL_NOTICE_TESTID}
       role="status"
@@ -136,4 +157,6 @@ export function FirstModelNotice() {
       </button>
     </div>
   )
+
+  return target ? createPortal(body, target) : body
 }

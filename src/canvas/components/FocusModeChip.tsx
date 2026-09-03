@@ -15,7 +15,9 @@
  */
 
 import { memo, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
 
 interface FocusModeChipProps {
@@ -50,16 +52,21 @@ export const FocusModeChip = memo(function FocusModeChip({ className = '' }: Foc
   }, [selectionSize, highlightedEdgesSize, selectedId])
 
   // Don't render if not in focus mode
-  if (!isVisible) return null
+  const { granted, target } = useOverlayCell('bottom-centre', 'focus-mode-chip', isVisible)
+  if (!isVisible || !granted) return null
 
   // Truncate long titles
   const displayTitle = nodeTitle && nodeTitle.length > 25
     ? `${nodeTitle.slice(0, 24)}...`
     : nodeTitle
 
-  return (
+  const body = (
     <div
+      // `pointer-events-auto` is REQUIRED of every band occupant — see the note
+      // in `AssistantFocusChip`. Without it the "exit focus mode" button below
+      // inherits `pointer-events: none` from the cell and cannot be clicked.
       className={`
+        pointer-events-auto
         inline-flex items-center gap-2 px-4 py-2
         bg-paper-50 border border-sand-200 rounded-full
         shadow-[0_1px_2px_rgba(38,38,38,0.06)]
@@ -89,6 +96,8 @@ export const FocusModeChip = memo(function FocusModeChip({ className = '' }: Foc
       </button>
     </div>
   )
+
+  return target ? createPortal(body, target) : body
 })
 
 export default FocusModeChip

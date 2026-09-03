@@ -31,6 +31,7 @@ import {
   DOCK_SELECTOR,
   SIDEBAR_SELECTOR,
   TOP_BAR_SELECTOR,
+  OVERLAY_BAND_SELECTOR,
 } from '../utils/computeFitPadding'
 
 const SOURCE_PATH = resolve(__dirname, '../utils/computeFitPadding.ts')
@@ -56,6 +57,14 @@ const TOKEN_TO_SELECTOR: Record<string, string> = {
   DOCK_SELECTOR,
   SIDEBAR_SELECTOR,
   TOP_BAR_SELECTOR,
+  // Added when `CanvasOverlayBand` became a contributor. This guard RED-ed on
+  // the band first — naming it, and quoting criteria 1-4 back — and re-pointing
+  // it here is the ritual its own failure message prescribes. The criteria are
+  // applied and recorded at `OVERLAY_BAND_SELECTOR`'s declaration; the short
+  // version is that the BAND is persistent and non-dismissible even though its
+  // occupants are neither, which is exactly why the band exists rather than
+  // each notice contributing for itself.
+  OVERLAY_BAND_SELECTOR,
 }
 
 describe('computeFitPadding — the declared contributor set is derived from the bytes', () => {
