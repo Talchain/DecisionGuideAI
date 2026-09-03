@@ -641,49 +641,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       )}
 
-      {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
-          factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
-          / GoalNoTargetPre. Decision/option keep the warning border only.
-
-          ⭐ THE GOAL SENTENCE STATES A CONSEQUENCE, NEVER A GATE (28 Aug 2026).
-          It read "Set a success threshold to enable analysis" — and NOTHING gates
-          analysis on a threshold.
-
-          `isIncomplete`'s goal arm and `canRunAnalysis` answer DIFFERENT questions
-          and are CORRECTLY different. This marker asks "before results exist, does
-          this goal node carry a success target?" — completeness, one node. The run
-          gate (`canRunAnalysis` → `readinessObjectsToRun`) asks "has an authority
-          stated this model cannot be analysed now?" — admissibility, whole model,
-          producer-decided; it never reads node data at all. Aligning them is banned
-          by `readinessObjectsToRun`'s own header, which spends ~80 lines forbidding
-          exactly the parallel UI-side rule a threshold check would create. The gate
-          is right; this sentence was false.
-
-          What actually happens with no target: the run SUCCEEDS. The producer
-          synthesises `auto_goal_threshold` and returns a real analysis with goal-fit
-          claims honestly suppressed (GoalNode.tsx, crownCompliance.ts,
-          goalThresholdResolvers.ts). Then `results.status === 'complete'` clears
-          `isPreRunMode` and this pill vanishes with nothing set — the product
-          silently retracted its own claim rather than ever being contradicted.
-          `StatusPill` reuses `title` as `aria-label`, so a screen-reader user
-          received ONLY the false sentence: that is the path this fixes.
-
-          The replacement is IMPORTED, not re-typed. It is the string the
-          pre-analysis footer already ships for this exact state, and a re-typed
-          variant is invisible to every runtime check (that module's copy is also
-          scanned by the glossary guard). Both surfaces answer one question —
-          "success is undefined, what follows?" — so a single string is correct
-          here rather than a two-questions-one-name conflation. The ACTION is not
-          duplicated: GoalNode co-renders its "No target set" chip in exactly this
-          state (GoalNode.tsx `{!hasThreshold && !isPostAnalysis && ...}`), and that
-          chip carries both the action and its own aria-label. */}
-      {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
-        <StatusPill
-          label="Needs input"
-          title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
-        />
-      )}
-
       {/* Connection handles */}
       <Handle
         type="target"
@@ -729,11 +686,83 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           band (no title overlap) and off the node's right side; siblings never
           overlap, so each stays visible and the coaching button stays
           clickable. Each child self-gates, so the container is empty (0×0,
-          inert) when none applies. */}
+          inert) when none applies.
+
+          ⭐⭐ THE "NEEDS INPUT" PILL IS THE FOURTH OCCUPANT, AND IT JOINED THIS
+          STACK RATHER THAN BEING NUDGED (2026-09-03). `StatusPill` hand-wrote
+          `absolute -top-2 -right-1 z-10` — ONE PIXEL from this container's
+          `-right-2` and at the SAME z — so it was a rival authority in the very
+          corner this container exists to own, exactly like the three before it.
+          Measured in real Chromium before the move
+          (`e2e/geometry/statusPillCorner.measure.ts`, 1440x900, starters
+          `vendor-selection` / `build-vs-buy`, with a prior run in history): the
+          pill covered 15px² of the edited-since-run dot's 25px² — 60% of it.
+          The control arm with no run history measured zero, so the probe
+          discriminated.
+
+          ⚠ ORDER IS WIDEST-FIRST, and that is what puts the pill at the head:
+          the row is anchored by its RIGHT edge and grows LEFTWARD, so the widest
+          child must lead or it pushes the small badges away from the corner and
+          displaces the coaching marker from the rightmost, easiest click target.
+          The pill measured 67.9px against the dot's 5px at the same zoom, so it
+          leads by a wide margin. Order: pill · rank · edited-dot · coaching.
+
+          ⚠ THE PILL AND THE RANK BADGE CANNOT ACTUALLY CO-OCCUR, and that is a
+          derived fact, not an accident of ordering: the rank badge requires
+          `results.status === 'complete'` (`useNodeDisplayMetadata.ts:226`) and the
+          pill requires `results.status !== 'complete'` (`isPreRunMode`, :256) —
+          exact complements on ONE store field. Both are placed here anyway so the
+          contract stays total if either gate ever changes;
+          `BaseNode.statusPillCornerStack.spec.tsx` PINS the impossibility with the
+          REAL hook so a change that makes them co-occur fails loudly instead of
+          silently overlapping. */}
       <div
         data-testid={`node-corner-stack-${id}`}
         className="absolute -top-2 -right-2 z-10 flex items-center gap-1"
       >
+        {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
+            factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
+            / GoalNoTargetPre. Decision/option keep the warning border only.
+
+            ⭐ THE GOAL SENTENCE STATES A CONSEQUENCE, NEVER A GATE (28 Aug 2026).
+            It read "Set a success threshold to enable analysis" — and NOTHING gates
+            analysis on a threshold.
+
+            `isIncomplete`'s goal arm and `canRunAnalysis` answer DIFFERENT questions
+            and are CORRECTLY different. This marker asks "before results exist, does
+            this goal node carry a success target?" — completeness, one node. The run
+            gate (`canRunAnalysis` → `readinessObjectsToRun`) asks "has an authority
+            stated this model cannot be analysed now?" — admissibility, whole model,
+            producer-decided; it never reads node data at all. Aligning them is banned
+            by `readinessObjectsToRun`'s own header, which spends ~80 lines forbidding
+            exactly the parallel UI-side rule a threshold check would create. The gate
+            is right; this sentence was false.
+
+            What actually happens with no target: the run SUCCEEDS. The producer
+            synthesises `auto_goal_threshold` and returns a real analysis with goal-fit
+            claims honestly suppressed (GoalNode.tsx, crownCompliance.ts,
+            goalThresholdResolvers.ts). Then `results.status === 'complete'` clears
+            `isPreRunMode` and this pill vanishes with nothing set — the product
+            silently retracted its own claim rather than ever being contradicted.
+            `StatusPill` reuses `title` as `aria-label`, so a screen-reader user
+            received ONLY the false sentence: that is the path this fixes.
+
+            The replacement is IMPORTED, not re-typed. It is the string the
+            pre-analysis footer already ships for this exact state, and a re-typed
+            variant is invisible to every runtime check (that module's copy is also
+            scanned by the glossary guard). Both surfaces answer one question —
+            "success is undefined, what follows?" — so a single string is correct
+            here rather than a two-questions-one-name conflation. The ACTION is not
+            duplicated: GoalNode co-renders its "No target set" chip in exactly this
+            state (GoalNode.tsx `{!hasThreshold && !isPostAnalysis && ...}`), and that
+            chip carries both the action and its own aria-label. */}
+        {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
+          <StatusPill
+            label="Needs input"
+            title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
+          />
+        )}
+
         {/* Sensitivity rank badge — Results mode, top 3 factors. */}
         {typeof displayMetadata.sensitivityRank === 'number' && (
           <span
