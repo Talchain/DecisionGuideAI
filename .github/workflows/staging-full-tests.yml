@@ -342,7 +342,11 @@ jobs:
   #   before  226s job = 28s setup + 17s vite boot + 174s tests (4 arms)
   #                      run 33743994788, `bd18bace`
   #   after   346s job = 45s setup + 21s vite boot + 271s tests (23 arms)
-  #                      run 33750968965, `9c3a8e9b` — 254s under the budget
+  #                      run 33750968965, `9c3a8e9b`
+  #           429s job = the SAME 23 arms, run 33752104701, `e15987d8`
+  # ⚠ Budget against 429s, not 346s: two runs of an identical set differ by a
+  # quarter of the job, so one figure is a draw, not a measurement. See the
+  # budget block in `e2e/geometry/canvasGateSet.ts`.
   # The set, the shipped defect each arm would have caught, what is still
   # excluded and why, and the standing rule for admitting the next one are all
   # in `e2e/geometry/canvasGateSet.ts`.

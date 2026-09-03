@@ -491,10 +491,24 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
    *                        run 33743994788, `bd18bace`
    *   after   346s job  =  45s setup + 21s vite boot + 271s tests (23 arms)
    *                        run 33750968965, `9c3a8e9b`
-   * 254s of headroom under the budget. The 4 -> 23 arm growth is ~6x the
-   * assertions for 1.53x the wall clock, because the two arms already in the
-   * gate are the expensive ones (~66-78s each on ubuntu; they reseed once per
-   * key per control) and the 19 admitted ones average 10.5s.
+   *           429s job  =  the SAME 23 arms, run 33752104701, `e15987d8`,
+   *                        on a diff that changed only comments
+   *
+   * ⭐⭐ USE 429s, NOT 346s, AND THE 83s BETWEEN THEM IS THE POINT. Two runs of
+   * an identical set differ by a quarter of the job, so a single figure is not
+   * a measurement of this job, it is one draw from it — and the next lane will
+   * compute its headroom from whatever number is written here. Against 346s the
+   * headroom reads 254s and `draftFitCameraOwnership` (~103s) looks like an easy
+   * yes; against 429s it reads 171s and the same admission lands at ~532s, still
+   * inside 600s but with the margin nearly gone. Same decision, very different
+   * confidence. ⚠ Two observations bound nothing tightly: treat 429s as a FLOOR
+   * on the worst case, not as the worst case (CLAUDE.md trap 23 — compare
+   * distributions, never a rate).
+   *
+   * The 4 -> 23 arm growth is ~6x the assertions for 1.5-1.9x the wall clock,
+   * because the two arms already in the gate are the expensive ones (~66-78s
+   * each on ubuntu; they reseed once per key per control) and the 19 admitted
+   * ones average 10.5s.
    *
    * ⚠ THE PROJECTION THAT PRECEDED THIS MEASUREMENT WAS 440-465s — PESSIMISTIC
    * BY ~100s, and it is left recorded rather than quietly replaced. It came from
