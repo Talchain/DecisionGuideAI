@@ -137,6 +137,32 @@ export const METRIC_NOUN = {
  * `ORDINAL_ROW_MUST_STATE_MINT` pins the qualifier so the next "friendlier"
  * rewrite cannot quietly delete it.
  *
+ * ⚠⚠ TWO RESIDUALS IN THIS LIST, ROWED RATHER THAN BUILT (review of #1160,
+ * round 2, O1 and O2). Both are copy that is true of what it names and
+ * narrower than what a reader will infer. Neither is fixed here — the first
+ * because the fix is a behaviour change, the second because the fix is a
+ * basis-aware legend, and a legend cannot read a basis (see constraint 2
+ * above). They are written down so the next session inherits the limit rather
+ * than rediscovering it.
+ *
+ *   · O1 — "it stays with a card when you move it" HOLDS WITHIN A SESSION
+ *     ONLY. `optionNumbering` has no `persist()` and is reset to `{}` by
+ *     `importCanvas`, the new-decision path, `loadScenario` and
+ *     `hydrateGraphSlice`, then re-minted from the THEN-CURRENT reading order.
+ *     So after a drag AND A RELOAD the number does move. The sentence is true
+ *     of the action it names — dragging — and that is the connection round 1
+ *     required it to make; narrowing it to survive a reload would drop the
+ *     drag clause and reopen that finding. The honest fix is persistence, in
+ *     the lane that owns `optionNumbering`, not a vaguer sentence here.
+ *
+ *   · O2 — the `chance` gloss is basis-neutral about the POSSESSIVE but not
+ *     about the QUANTITY. `achievementProbability` is whatever
+ *     `selectGoalProbability` chose, and under `joint_goal_constrained` the
+ *     figure is P(ALL constraints jointly satisfied) while the gloss says
+ *     "reached the goal target". Same class of error the possessive reasoning
+ *     avoided, one level down — and it needs the same treatment the possessive
+ *     got, which is a basis-aware surface rather than a legend row.
+ *
  * ⚠ NOT EXHAUSTIVE, AND SAYING SO. `#1`/`#2` sensitivity ranks and `est.` are
  * here because they are numerals-with-a-meaning that a reader meets on the
  * card; `Stability` is not, because it renders with its noun spelled out in
@@ -213,6 +239,18 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * corpus for a copy preference — a bigger and differently-reviewed change.
  * `RETIRED_METRIC_NOUNS` therefore retires "Leads" AS A CAPTION only.
  *
+ * ⭐ `strength` (LOWER CASE) IS IN THIS LIST, AND IT IS RETIRED BY CASE RATHER
+ * THAN BY WORD. `Strength` is live; the lower-case caption that shipped on the
+ * risk and outcome cards is not. It is listed here — rather than left as a
+ * hand-written regex in the guard spec — because the guard now DERIVES its ban
+ * list from this array, and a ban list maintained in two places is the
+ * hand-maintained mirror this whole file exists to abolish (CLAUDE.md trap 12).
+ *
+ * ⚠ THE CASE DISTINCTION IS LOAD-BEARING AND THE GUARD RELIES ON IT. The sweep
+ * is case-SENSITIVE on purpose: `DecisionNode:718` renders the sentence
+ * "{X} leads in N% of scenarios" and `EdgePills` renders "Link strength", and
+ * both are ordinary English that must survive.
+ *
  * ⚠ `Chance of leading` is on the option INSPECTOR, not a card. It is retired
  * for the same reason as the rest — it was a third word for the first
  * quantity — but note it was the most *explanatory* of the three, and the
@@ -220,7 +258,7 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * plus the legend; if that reads as a loss on the inspector specifically, the
  * fix is a gloss there, not the synonym back.
  */
-export const RETIRED_METRIC_NOUNS = ['Leads', 'Achievement', 'Chance of leading'] as const
+export const RETIRED_METRIC_NOUNS = ['Leads', 'Achievement', 'Chance of leading', 'strength'] as const
 
 /**
  * The qualifier the ordinal row MUST carry, pinned so a rewrite cannot drop it.

@@ -136,6 +136,7 @@ import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
+import { METRIC_NOUN } from './metricVocabulary'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -301,7 +302,7 @@ export function resolveLodMetricLine({
       // cannot carry both, so the figure is withheld rather than shown stripped
       // of the disclosure that makes it honest.
       if (achievementProbabilityIsModelledBasis === true) return null
-      return `Achievement ${Math.round(achievementProbability * 100)}%`
+      return `${METRIC_NOUN.chance} ${Math.round(achievementProbability * 100)}%`
     }
 
     case 'action': {

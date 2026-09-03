@@ -14,25 +14,94 @@
  * That is the defect class this file exists for: not the eight words we just
  * fixed, but the ninth.
  *
- * MODELLED ON `baselineVocabulary.canvas.spec.ts`, deliberately — that guard
- * solved the identical shape (one object, three hand-written names, no
- * authority to rename) and its comment-stripping literal scanner is the part
- * worth reusing rather than re-inventing.
+ * ⚠⚠⚠ REBUILT AGAINST THE SPEC, AFTER TWO ROUNDS OF FIXING THE MUTANT IN HAND.
+ *
+ * Round 1 found `` `Achievement ${…}%` `` walking past `/\bAchievement:\s/`.
+ * The predicate was widened to `/\bAchievement[:\s]/` — which fixed THAT
+ * MUTANT and nothing else. Round 2 then walked six more through the same
+ * guard, all green: `label="Achievement"` (the canonical caption position, and
+ * the exact syntax the file's own sibling predicates were built on),
+ * `<p>Achievement</p>`, `aria-label="Achievement"`, `label={'Leads'}`,
+ * `` `Leads ${…}%` `` and `` `strength ${…}%` `` — the last two because only
+ * the `Achievement` predicate had ever been widened at all.
+ *
+ * ⛔ SO THE THIRD ROUND DOES NOT FIX THOSE SIX EITHER. Fixing the mutants a
+ * reviewer happened to type is what produced round 2, and doing it again would
+ * produce round 4. The predicate below is derived from an ENUMERATION of the
+ * positions a caption can occupy, and the reviewer's six are kept at the
+ * bottom purely as EVIDENCE THAT THE DERIVATION COVERS THEM — never as its
+ * definition. If they were deleted the guard would be no weaker.
+ *
+ * ⭐ THE ENUMERATION. A retired noun reaches a user's eye only by being
+ * RENDERED, and on these surfaces there are exactly three ways a hand-typed
+ * word gets rendered:
+ *
+ *   (A) as the value of a CAPTION-BEARING JSX ATTRIBUTE — `label`,
+ *       `aria-label`, `title`, `placeholder`, `alt`, `aria-valuetext` — in any
+ *       of its five spellings: `label="X"`, `label='X'`, `label={"X"}`,
+ *       `label={'X'}`, `` label={`X ${…}`} ``;
+ *   (B) as a JSX TEXT NODE — `<p>X</p>`, `<p>X 68%</p>`, `X {…}%`, or a bare
+ *       run of text between tags with no delimiter on its own line at all
+ *       (`OptionNode:1601` is `Leads via{' '}`, which is why the extractor
+ *       cannot simply look between `>` and `<` on one line);
+ *   (C) as a TEMPLATE LITERAL composed into a rendered string —
+ *       `` return `X ${…}%` ``, which is how every `lodMetric` caption on this
+ *       surface is built.
+ *
+ * Bare word · word+colon · word+whitespace · end-of-string · single- and
+ * double-quoted · braced — every form the review asked for is one of A, B or
+ * C, which is the point of deriving rather than listing: the enumeration is
+ * over POSITIONS, and the spellings fall out of it.
+ *
+ * ⭐⭐ AND THE SECOND HALF, WHICH IS WHAT MAKES THE FIRST SURVIVABLE: being
+ * rendered is not enough. What is banned is a CAPTION — a noun that LABELS A
+ * QUANTITY. That is the distinction the register states in prose and the
+ * previous predicates tried to buy with punctuation. Formally, a retired noun
+ * offends when, inside a rendered run, it either
+ *
+ *   (P1) IS the whole run            — `label="Achievement"`, `<p>Leads</p>`
+ *   (P2) STARTS the run and is immediately followed by the QUANTITY —
+ *        an interpolation, a digit or a `%`, with an optional colon between:
+ *        `` `Achievement ${…}%` ``, `Achievement: {…}%`, `<p>Achievement 68%</p>`
+ *
+ * ⛔ WHY NOT SIMPLY BAN THE BARE WORD. Measured, before this was written: a
+ * whole-word ban on the four retired captions fires on SEVENTEEN lines in
+ * scope, sixteen of them legitimate — `<span title="Link strength">`,
+ * `aria-label={`${pct}% link strength`}`, `<EstimateMarker subject="strength" />`,
+ * `const strength = Math.abs(signed)`, `type EstimateSubject = 'value' | 'strength'`,
+ * and the register's own `RETIRED_METRIC_NOUNS` array. `strength` is ordinary
+ * English on this surface and always was; the register says so. A guard that
+ * reds on all of those is worked around inside a week, and then it guards
+ * nothing. P1/P2 is what separates "the word appears" from "the word captions
+ * a number".
+ *
+ * ⭐ THE BAN LIST IS DERIVED, NOT RE-TYPED. It is `RETIRED_METRIC_NOUNS`
+ * itself. The previous version hand-wrote three regexes beside a four-item
+ * exported array — a mirror, one item short, and the missing item
+ * (`Chance of leading`) was never swept at all.
  *
  * SCOPE, stated so the absence claim means something: `src/canvas/nodes` —
- * the card surfaces that caption a number. Panels are NOT swept. That is a
- * real limit and it is deliberate: `OptionPanel`'s "Chance of leading" is
- * re-pointed by this change, but the inspector renders long-form prose where a
- * bare-literal ban would fire on legitimate sentences. The inspector's caption
- * is pinned by its own render assertion instead.
+ * the card surfaces that caption a number. Panels are NOT swept, because the
+ * inspector renders long-form prose. `OptionPanel`'s retired "Chance of
+ * leading" is pinned by a RENDER assertion instead —
+ * `OptionPanel.metricNoun.spec.tsx`, which exists because round 2 proved this
+ * comment's previous claim that it already did. It did not: reverting
+ * `OptionPanel` to the retired caption survived 129 files / 1612 tests. A
+ * false coverage claim in a comment is worse than an admitted gap, because it
+ * teaches the next reader to stop looking (CLAUDE.md trap 14) — and it was
+ * sitting inside the change written to abolish exactly that.
  *
- * ⚠ WHAT THIS CANNOT DO. A sweep proves agreement among the literals it can
- * SEE. It cannot prove the register's list is COMPLETE — a fifth quantity
- * captioned with a fifth word nobody has thought of yet is invisible to it
- * (CLAUDE.md trap 12d: derivation moves the risk, it does not remove it). The
- * cross-card render test at the bottom of this file is the other half: it
- * proves two surfaces agree on a WORD rather than proving no banned word
- * appears.
+ * ⚠ WHAT THIS STILL CANNOT DO.
+ *  · It cannot prove the register's list is COMPLETE. A fifth quantity
+ *    captioned with a fifth word nobody has thought of is invisible to it
+ *    (trap 12d: derivation moves the risk, it does not remove it).
+ *  · P2 requires the quantity to be adjacent. A caption split across two JSX
+ *    elements — `<span>Achievement</span><span>{pct}%</span>` — is caught by
+ *    P1 on the first span, but one written as `<span>Achievement of</span>`
+ *    would read as prose and pass. That is the price of sparing "Link
+ *    strength" and "Leads via", and it is a judgement, not a derivation.
+ *  · It is line-based. A caption whose noun and quantity are on different
+ *    source lines is seen only as far as P1 reaches.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -42,75 +111,61 @@ import { METRIC_NOUN, RETIRED_METRIC_NOUNS } from '../shared/metricVocabulary'
 const ROOT = path.resolve(__dirname, '../../../..')
 const SCOPE = ['src/canvas/nodes']
 
-/**
- * The retired captions, as they appeared in a `label=` or a rendered line.
- *
- * ⚠ ANCHORED TO THE CAPTION POSITION, NOT THE BARE WORD, and that precision is
- * the whole difficulty of this guard. "Chance" is a LIVE noun (`METRIC_NOUN.chance`)
- * and "strength" is a perfectly good English word that appears in prose,
- * variable names (`bridgeStrengthPct`) and test ids (`risk-strength-row`)
- * throughout this scope. A bare-word ban would fire on all of them and be
- * worked around within a week. What is banned is a hand-typed CAPTION.
- */
-const BANNED: Array<{ re: RegExp; why: string }> = [
-  {
-    re: /label=["']Leads["']/,
-    why: '`Leads` is the retired decision-card caption — use METRIC_NOUN.ahead',
-  },
-  {
-    re: /label=["']strength["']/,
-    why: '`strength` (lower case) is the retired bridge caption — use METRIC_NOUN.strength',
-  },
-  {
-    /**
-     * ⚠⚠ WIDENED AFTER THIS GUARD WAS PROVED BLIND (review of #1160).
-     *
-     * The first version was `/\bAchievement:\s/` — anchored on the COLON,
-     * because the colon was in the one call site I happened to be fixing.
-     * A reviewer re-typed the retired noun into `OutcomeNode.tsx` WITHOUT the
-     * colon — the very file this spec's positive control names by hand — and
-     * this sweep returned 6/6 GREEN. I reproduced it before fixing it.
-     *
-     * That is CLAUDE.md trap 22 exactly: the predicate was written against the
-     * FAILURE MODE IN HAND rather than against the thing being banned. The
-     * retired noun is "Achievement"; the colon was never part of it.
-     *
-     * `[:\s]` catches the caption forms — `Achievement:`, `Achievement {…}`,
-     * `` `Achievement ${…}` `` — while the word boundary spares the
-     * identifiers that legitimately contain it: `showAchievementReadout` (no
-     * boundary before a capital A mid-word), `achievementProbability`
-     * (lower case), and the type `AchievementProbability` (no `[:\s]` after).
-     * All three are asserted as survivors in the not-too-wide contrast below.
-     */
-    re: /\bAchievement[:\s]/,
-    why: '`Achievement` is the retired outcome-card caption — use METRIC_NOUN.chance',
-  },
-]
+/** (A) The attributes whose value a user reads. `testId`/`subject`/`className` are not here. */
+const CAPTION_ATTR =
+  /(?:aria-label|aria-valuetext|placeholder|label|title|alt)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)\s*\})/g
+
+/** (C) Any template literal — captions on this surface are composed with these. */
+const TEMPLATE = /`([^`]*)`/g
+
+type Run = { via: 'attr' | 'template' | 'jsx'; text: string }
 
 /**
- * ⏳ A NAMED, EXPIRING EXEMPTION — the honest way to ship a known gap.
+ * Every run of text a line can put on screen, tagged with WHICH of the three
+ * enumerated positions produced it.
  *
- * `lodMetricLine.ts` is inside SCOPE and carries `` `Achievement ${…}%` `` at
- * the low-zoom ladder. It is **owned by the zoom-ladder lane**, so this PR must
- * not edit it (file-ownership rule, three lanes live in this directory).
- *
- * The choice was: leave the predicate narrow so the file passes silently, or
- * widen the predicate and exempt the file BY NAME. The first hides a real
- * remaining synonym behind a green tick — and hides every future one with it.
- * The second keeps the guard honest about everything else and makes this one
- * gap visible in the failure message.
- *
- * ⚠ THIS EXEMPTION MUST DIE. The test below asserts the file STILL CONTAINS
- * the retired noun — so the moment the zoom-ladder lane's follow-up renames it,
- * this spec REDs and whoever is here deletes the exemption. An exemption that
- * cannot expire is a permanent hole with a comment on it.
+ * The tag is not decoration: the enumeration test below asserts the position
+ * as well as the catch, so deleting one extractor REDs the cases that depend
+ * on it BY NAME rather than being absorbed by another (CLAUDE.md trap 19 —
+ * bind by identity, never by a predicate something else could satisfy).
  */
-const EXEMPT = new Map<string, string>([
-  [
-    'src/canvas/nodes/shared/lodMetricLine.ts',
-    'owned by the zoom-ladder lane; rename lands in its follow-up PR (see #1160 body)',
-  ],
-])
+function renderedRuns(line: string): Run[] {
+  const runs: Run[] = []
+  for (const m of line.matchAll(CAPTION_ATTR)) {
+    const v = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5]
+    if (typeof v === 'string') runs.push({ via: 'attr', text: v })
+  }
+  for (const m of line.matchAll(TEMPLATE)) runs.push({ via: 'template', text: m[1] })
+  // (B) JSX text is what is LEFT once the code is taken away: blank the string
+  // and template literals, collapse braced expressions (innermost first, so
+  // `{Math.round(x)}` goes whole), then cut on tags.
+  let t = line.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''").replace(/`[^`]*`/g, '``')
+  let prev: string
+  do {
+    prev = t
+    t = t.replace(/\{[^{}]*\}/g, ' ')
+  } while (t !== prev)
+  for (const piece of t.split(/<[^>]*>|[<>]/)) if (piece.length > 0) runs.push({ via: 'jsx', text: piece })
+  return runs
+}
+
+/** P1/P2 — is this noun CAPTIONING this run, as opposed to appearing in it? */
+function isCaptionPosition(run: string, noun: string): boolean {
+  const t = run.trim()
+  if (t === noun) return true // P1
+  if (!t.startsWith(noun)) return false
+  return /^:?\s*(\$\{|\d|%|$)/.test(t.slice(noun.length)) // P2
+}
+
+/** The offending noun on a line, and the position that rendered it — or null. */
+function offence(line: string): { noun: string; via: Run['via'] } | null {
+  for (const run of renderedRuns(line)) {
+    for (const noun of RETIRED_METRIC_NOUNS) {
+      if (isCaptionPosition(run.text, noun)) return { noun, via: run.via }
+    }
+  }
+  return null
+}
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
@@ -173,95 +228,156 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     expect(sources.map((s) => s.file)).toContain('src/canvas/nodes/OutcomeNode.tsx')
   })
 
-  it('CONTRAST CONTROL: every banned predicate FIRES on the string it retired', () => {
-    // Each pattern is shown to match the exact literal it was written against,
-    // taken from the pre-change source. Without this, an absence assertion
-    // passes for the wrong reason — a typo in a regex is indistinguishable
-    // from a clean sweep (trap 13).
-    const wasOnTheBoard = [
-      'label="Leads"',
-      'label="strength"',
-      'Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%',
-    ]
-    for (const [i, sample] of wasOnTheBoard.entries()) {
-      expect(BANNED[i].re.test(sample), `banned predicate ${i} never fires — sweep is blind`).toBe(true)
-    }
-
-    // ⭐ THE REGRESSION THAT THIS GUARD SHIPPED ONCE. Every one of these was
-    // GREEN under the colon-anchored predicate. They are the mutant a reviewer
-    // ran against `OutcomeNode.tsx` and got 6/6 passing.
-    const COLONLESS = [
-      'Achievement {Math.round(displayMetadata.achievementProbability * 100)}%',
-      'return `Achievement ${Math.round(achievementProbability * 100)}%`',
-      '<p>Achievement 68%</p>',
-    ]
-    for (const sample of COLONLESS) {
-      expect(
-        BANNED.some((b) => b.re.test(sample)),
-        `the colon-less retired noun is invisible again: ${sample}`,
-      ).toBe(true)
+  it('the ban list IS the register — not a copy of it', () => {
+    // The previous version hand-wrote three regexes beside a four-item
+    // exported array. They agreed on the day they were written; the array's
+    // fourth entry, `Chance of leading`, was never swept for at all. Deriving
+    // is what stops that (trap 12), so it is asserted rather than assumed.
+    expect(offence(`label="Chance of leading"`)?.noun).toBe('Chance of leading')
+    expect(RETIRED_METRIC_NOUNS.length).toBeGreaterThan(3)
+    for (const noun of RETIRED_METRIC_NOUNS) {
+      expect(offence(`label="${noun}"`)?.noun, `"${noun}" is retired but unswept`).toBe(noun)
     }
   })
 
-  it('CONTRAST CONTROL: the predicates are NOT so wide they ban the live vocabulary', () => {
-    // The other direction, and the one that makes this guard survivable. A
-    // ban on the bare words would fire on all of these, every one of which is
-    // legitimate and present in scope today. If a later hand widens a pattern
-    // to "catch more", this is the test that stops it.
-    const mustSurvive = [
-      `label={METRIC_NOUN.strength}`,
-      `label={METRIC_NOUN.ahead}`,
-      `testId="risk-strength-row"`,
-      `bridgeEdgeData.bridgeStrengthPct`,
-      `const achievementReadout = ...`,
-      `label="Chance"`,
-      // ⭐ The identifiers the WIDENED `Achievement` pattern must not eat.
-      // Widening a predicate is where a guard stops being survivable, so each
-      // of these is a real line from the swept scope.
-      `{showAchievementReadout && (`,
-      `displayMetadata.achievementProbability !== null`,
-      `const rec = optionProbabilities[recommendedOptionId] as AchievementProbability`,
-      `achievementProbabilityIsModelledBasis`,
+  /**
+   * ⭐ THE ENUMERATION ITSELF — the derivation, in the form of a corpus.
+   *
+   * Each row names the POSITION it exercises and asserts the extractor that
+   * catches it. This is the definition of the guard; the reviewer's mutants
+   * further down are downstream of it.
+   */
+  it('ENUMERATION: every position a retired caption can occupy is caught', () => {
+    const positions: Array<[string, string, Run['via']]> = [
+      // (A) caption-bearing attributes, all five spellings
+      ['A · label, double-quoted', `<NodeMetricRow label="Achievement" />`, 'attr'],
+      ['A · label, single-quoted', `<NodeMetricRow label='Achievement' />`, 'attr'],
+      ['A · label, braced double', `<NodeMetricRow label={"Leads"} />`, 'attr'],
+      ['A · label, braced single', `<NodeMetricRow label={'Leads'} />`, 'attr'],
+      ['A · label, braced template', '<NodeMetricRow label={`Leads ${pct}%`} />', 'attr'],
+      ['A · aria-label', `<span aria-label="Achievement" />`, 'attr'],
+      ['A · title', `<span title="Achievement" />`, 'attr'],
+      ['A · placeholder', `<input placeholder="Achievement" />`, 'attr'],
+      ['A · alt', `<img alt="Achievement" />`, 'attr'],
+      ['A · aria-valuetext', `<div aria-valuetext="Achievement 68%" />`, 'attr'],
+      // (B) JSX text nodes
+      ['B · text node, bare word', `<p>Achievement</p>`, 'jsx'],
+      ['B · text node, word + number', `<p>Achievement 68%</p>`, 'jsx'],
+      ['B · text node, word + colon + expression', `Achievement: {Math.round(p * 100)}%`, 'jsx'],
+      ['B · text node, word + expression', `Achievement {Math.round(p * 100)}%`, 'jsx'],
+      ['B · text node, end of run', `<span>Leads</span>`, 'jsx'],
+      // (C) template literals
+      ['C · template, word + interpolation', 'return `Achievement ${Math.round(p * 100)}%`', 'template'],
+      ['C · template, lower-case retired caption', 'return `strength ${pct}%`', 'template'],
+      ['C · template, bare word', 'const line = `Achievement`', 'template'],
+      ['C · template, word + colon', 'const line = `Achievement: ${pct}%`', 'template'],
+      // the retired phrase, which the old hand-written predicates never swept
+      ['A · retired phrase', `<div title="Chance of leading" />`, 'attr'],
+      ['B · retired phrase', `<p>Chance of leading</p>`, 'jsx'],
     ]
-    for (const sample of mustSurvive) {
-      const hit = BANNED.find((b) => b.re.test(sample))
-      expect(hit?.why ?? null, `a banned predicate is too wide — it fires on "${sample}"`).toBeNull()
+    for (const [position, line, via] of positions) {
+      const hit = offence(line)
+      expect(hit, `NOT CAUGHT — ${position}: ${line}`).not.toBeNull()
+      // Bind to the extractor by identity: if the JSX extractor is deleted,
+      // the B rows must fail as B rows, not be quietly absorbed by another.
+      expect(hit!.via, `caught, but by the wrong extractor — ${position}`).toBe(via)
     }
   })
 
-  it('no canvas card hand-types a retired metric caption (outside the named exemption)', () => {
-    const offenders = sources
-      .filter(({ file }) => !EXEMPT.has(file))
-      .flatMap(({ file, body }) =>
-        body.split('\n').flatMap((line, i) => {
-          const hit = BANNED.find((b) => b.re.test(line))
-          return hit ? [`${file}:${i + 1}  ${hit.why}\n    ${line.trim().slice(0, 90)}`] : []
-        }),
-      )
+  it('CONTRAST CONTROL: the predicate is NOT so wide it bans the live vocabulary', () => {
+    // The other direction, and the one that makes this guard survivable. Every
+    // line here is real and present in scope today. A bare-word ban fires on
+    // sixteen of them; that version was measured and rejected before this one
+    // was written. If a later hand widens the rule to "catch more", this is
+    // the test that stops it.
+    const mustSurvive: Array<[string, string]> = [
+      ['the register is read by reference', `label={METRIC_NOUN.strength}`],
+      ['…and so is the other noun', `label={METRIC_NOUN.ahead}`],
+      ['a live noun is not a retired one', `label="Chance"`],
+      ['a kebab-case test id', `testId="risk-strength-row"`],
+      ['a camel-case field', `bridgeEdgeData.bridgeStrengthPct`],
+      ['a local variable', `const strength = Math.abs(signed)`],
+      ['…used in arithmetic', `pct: Math.round(strength * 100),`],
+      ['a union member, not a caption', `export type EstimateSubject = 'value' | 'strength'`],
+      ['a prop value naming a kind', `<EstimateMarker subject="strength" />`],
+      ['prose where the noun is not first', `<span title="Link strength" />`],
+      ['…including in a template', 'aria-label={`${p.pct}% link strength`}'],
+      ['…and in a longer sentence', `<span title="Link strength not set — open this connection" />`],
+      ['a conditional identifier', `{showAchievementReadout && (`],
+      ['a field read', `displayMetadata.achievementProbability !== null`],
+      ['a type name', `const rec = probs[recommendedId] as AchievementProbability`],
+      ['a longer field name', `achievementProbabilityIsModelledBasis`],
+      // ⭐ The two disclosed VERB survivors. The register decides these
+      // explicitly (`RETIRED_METRIC_NOUNS` retires "Leads" AS A CAPTION only)
+      // and `oneNounPerIdea.crossCard.spec.tsx` pins the decision. They are
+      // here because they are the cases the caption rule exists to spare.
+      ['the option card verb', `Leads via{' '}`],
+      ['the decision card verb, lower case', `{headline.winnerLabel} leads in {pct} of scenarios`],
+      // The register itself spells every retired noun, by design — it is the
+      // authority, not a surface. It is spared by the rule rather than by an
+      // exclusion list, which is why no exclusion list exists here any more.
+      ['the register declaring what it retired', `export const RETIRED = ['Leads', 'Achievement'] as const`],
+    ]
+    for (const [why, sample] of mustSurvive) {
+      expect(offence(sample)?.noun ?? null, `the predicate is too wide — it fires on ${why}: "${sample}"`).toBeNull()
+    }
+  })
+
+  it('DISCRIMINATION: P1 and P2 each do work, and prose is what separates them', () => {
+    // A rule with two limbs can pass because one limb does everything. These
+    // pairs differ only in what FOLLOWS the noun, so they cannot both be
+    // decided by the same limb, and neither can be decided by the extractor.
+    expect(isCaptionPosition('Achievement', 'Achievement'), 'P1 is inert').toBe(true)
+    expect(isCaptionPosition('Achievement 68%', 'Achievement'), 'P2 is inert').toBe(true)
+    expect(isCaptionPosition('Achievement of the goal', 'Achievement'), 'prose is being banned').toBe(false)
+    expect(isCaptionPosition('Leads via', 'Leads'), 'the verb survivor would RED').toBe(false)
+    expect(isCaptionPosition('Link strength', 'strength'), 'a noun mid-phrase is not a caption').toBe(false)
+    // …and the extractor is not doing the deciding: one line, both answers.
+    expect(offence(`<span title="Link strength">Leads 47%</span>`)?.noun).toBe('Leads')
+  })
+
+  /**
+   * ⭐ REGRESSION CASES — EVIDENCE, NOT DEFINITION.
+   *
+   * The seven mutations two rounds of review ran against this guard, six of
+   * which it passed while they were live on the card surface. They are kept so
+   * a future rewrite cannot silently reopen them, and they are LAST because
+   * they are downstream of the enumeration above: every one of them is already
+   * a row in it. If this block were deleted the guard would be unchanged.
+   */
+  it('REGRESSION: the seven mutants that walked past earlier versions of this guard', () => {
+    const shipped = [
+      ['round 1 · the colon anchor', 'const m = `Achievement ${1}%`'],
+      ['round 2 · M2, the canonical caption position', 'const m = <NodeMetricRow label="Achievement" />'],
+      ['round 2 · M3, one space from the contrast control', 'const m = <p>Achievement</p>'],
+      ['round 2 · M7, an accessible name', 'const m = <span aria-label="Achievement" />'],
+      ['round 2 · M4, a ban never widened at all', 'const m = `Leads ${1}%`'],
+      ['round 2 · M5, the braced spelling', "const m = <NodeMetricRow label={'Leads'} />"],
+      ['round 2 · M6, the other ban never widened', 'const m = `strength ${1}%`'],
+    ]
+    for (const [which, line] of shipped) {
+      expect(offence(line), `this guard shipped blind to it once already — ${which}: ${line}`).not.toBeNull()
+    }
+  })
+
+  it('no canvas card hand-types a retired metric caption', () => {
+    // ⏳ There is no exemption list any more. `lodMetricLine.ts` carried the
+    // last one — `` `Achievement ${…}%` `` at the low-zoom ladder, deferred to
+    // the zoom-ladder lane. That lane is blocked with no date, which would have
+    // left the board saying "Achievement" zoomed out and "Chance" zoomed in for
+    // days: the exact incoherence this change exists to remove. The rename was
+    // taken here instead (both surfaces read the same
+    // `displayMetadata.achievementProbability`, so the noun was the whole
+    // defect), and the expiry test that guarded the exemption RED on its first
+    // outing — naming the file and saying "DELETE its exemption" — which is
+    // what it was built to do.
+    const offenders = sources.flatMap(({ file, body }) =>
+      body.split('\n').flatMap((line, i) => {
+        const hit = offence(line)
+        return hit ? [`${file}:${i + 1}  [${hit.noun}, via ${hit.via}]\n    ${line.trim().slice(0, 90)}`] : []
+      }),
+    )
     expect(offenders, `canvas cards still hand-type a retired caption:\n${offenders.join('\n')}`).toEqual([])
-  })
-
-  it('⏳ the exemption is EARNED, and it EXPIRES — the exempt file still offends', () => {
-    // Three things at once, and all three are needed:
-    //  (a) the exempt path exists, so the exemption is not guarding a ghost;
-    //  (b) it STILL trips a banned predicate, so the exemption is doing real
-    //      work rather than sitting there as a permanent licence;
-    //  (c) therefore the day the zoom-ladder lane renames it, this REDs and
-    //      whoever is here deletes the entry. An exemption that cannot expire
-    //      is a hole with a comment on it.
-    expect(EXEMPT.size, 'exemptions should be rare — re-read before adding one').toBe(1)
-    for (const [file, reason] of EXEMPT) {
-      const found = sources.find((sx) => sx.file === file)
-      expect(found, `exempt path no longer exists: ${file} — delete the entry`).toBeDefined()
-      expect(reason.length, `exemption for ${file} carries no reason`).toBeGreaterThan(20)
-      const stillOffends = found!.body
-        .split('\n')
-        .some((line) => BANNED.some((b) => b.re.test(line)))
-      expect(
-        stillOffends,
-        `${file} no longer hand-types a retired caption — DELETE its exemption from EXEMPT`,
-      ).toBe(true)
-    }
   })
 
   it('the register is the only place the live nouns are spelled', () => {
@@ -300,5 +416,9 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     expect(live.length).toBeGreaterThan(3)
     expect(RETIRED_METRIC_NOUNS.length).toBeGreaterThan(2)
     expect(live).toContain('Strength')
+    // ⚠ …and the case distinction the sweep depends on is real: `Strength` is
+    // live while `strength` is retired. If these ever collapse, "Link strength"
+    // starts REDing and the guard gets worked around.
+    expect(RETIRED_METRIC_NOUNS as readonly string[]).toContain('strength')
   })
 })
