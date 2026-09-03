@@ -1533,7 +1533,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    * for a consumer to trip over.
    */
   const statedGoalTarget = useMemo<number | null>(() => {
+    /**
+     * ⚠⚠ THE BLANK GUARD IS THE WHOLE POINT — `Number('')` IS `0`, NOT `NaN`.
+     * Without it a blank `goal_threshold_raw` coerces to a perfectly finite
+     * zero, `statedGoalTarget` returns a number, and the card falls silent on a
+     * model that has NO target — re-opening, through the CEE branch, the exact
+     * harm this change exists to prevent. `goalTarget.ts` and `GoalNode` both
+     * guard blanks for the same reason, which is why the NODE branch below was
+     * already safe and this one was not.
+     *
+     * ⚠ It also matters that this is WIDER than the code it replaced: the
+     * previous CEE branch read `typeof … === 'number'` and so could never see a
+     * string at all. Coercing here bought string tolerance and, with it, the
+     * blank hole. A zero that someone actually typed is still a valid target
+     * and still passes.
+     */
     const finite = (v: unknown): number | null => {
+      if (typeof v === 'string' && v.trim() === '') return null
       const n = typeof v === 'string' ? Number(v.trim()) : v
       return typeof n === 'number' && Number.isFinite(n) ? n : null
     }

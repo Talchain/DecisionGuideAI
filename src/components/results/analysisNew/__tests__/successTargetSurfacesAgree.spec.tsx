@@ -177,6 +177,14 @@ const seedPreRun = (goal: { id: string; type: string; data: Record<string, unkno
     rawV2Response: null,
     goalThreshold: null,
     goalThresholdRepresentation: null,
+    /**
+     * ⚠ RESET EXPLICITLY. Without this, a case that seeds `ceeAnalysisReady`
+     * leaks it into every later case in the file — which is exactly what
+     * happened when the blank-threshold cases below were added, and it turned
+     * two unrelated tests red. A seed that does not clear every field it can
+     * set is a shared-state bug wearing a fixture's clothes.
+     */
+    ceeAnalysisReady: null,
   } as never)
 }
 
@@ -278,6 +286,24 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
    * It is coerced at the owner now, so the card is correctly silent AND the
    * value that got there is a number.
    */
+  /**
+   * ⚠⚠ `Number('')` IS `0`, NOT `NaN` — so a blank arriving on the CEE branch
+   * coerced to a finite zero and silenced the card on a model with no target.
+   * The node branch was already safe (`resolveGoalTarget` guards blanks); this
+   * pins the two that were not, plus the zero someone genuinely typed, which
+   * must still count as a target.
+   */
+  it.each([
+    ['a blank CEE threshold', { goal_threshold_raw: '' }, null],
+    ['a whitespace CEE threshold', { goal_threshold_raw: '   ' }, null],
+    ['a real zero, which IS a target', { goal_threshold_raw: 0 }, 0],
+  ])('%s', (_n, ready, expected) => {
+    seedPreRun(GOAL_WITHOUT_TARGET)
+    useCanvasStore.setState({ ceeAnalysisReady: ready } as never)
+    const { result } = renderHook(() => useResultsSectionData())
+    expect(result.current.recommendation.goalThreshold ?? null).toBe(expected)
+  })
+
   it('coerces a string target rather than passing it through', () => {
     seedPreRun(GOAL_STRING_RAW)
     const { result } = renderHook(() => useResultsSectionData())
