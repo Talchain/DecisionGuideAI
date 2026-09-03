@@ -200,6 +200,41 @@ export const GATED_TESTS: readonly GatedTest[] = [
 
   /*
    * ══════════════════════════════════════════════════════════════════════════
+   * ⭐⭐ EVERY ARM BELOW WAS SHOWN TO GO RED. An admitted arm that cannot fail
+   * is wall clock with no safety, so the admission evidence is a MUTATION, not
+   * a green run. Throwaway worktree outside the repo root, isolation proven by
+   * WRITING a sentinel and asserting the source did not change (CLAUDE.md trap
+   * 9g — `cp -R` can preserve an APFS hard link, and locating a path proves
+   * nothing); committed state only; restores HEAD-relative, never
+   * `git checkout -- <path>`, which restores from the INDEX and can write the
+   * defect back (trap 9h); applied-check scoped to `src/` asserting exactly one
+   * changed file each time; trailing control at the end.
+   *
+   *   A  band back over the canvas (`bottom: OVERLAY_BAND_BOTTOM` -> `top: 72`,
+   *      the shipped defect's own geometry)          -> OVERLAP 10/10 RED
+   *   B  revert the `nodesChanged` identity guard
+   *      (`c1b662fc`/#1136), restoring the livelock   -> GHOST 7 of 8 RED
+   *   C  LOD title boost -> `text-5xl` (the file's own
+   *      recorded discriminating size; `text-3xl` is a
+   *      DEMONSTRATED equivalent mutant)              -> HZ RED
+   *   D  re-introduce the post-analysis withdrawal
+   *      Paul deleted on 1 Sep                        -> GHOST arm 6 RED, ALONE
+   *   trailing control, src clean                     -> 19/19 GREEN
+   *
+   * ⭐ B AND D ARE A DISCRIMINATING PAIR, AND WITHOUT D THE EVIDENCE WOULD HAVE
+   * BEEN WRONG IN A WAY THAT LOOKS LIKE THOROUGHNESS. `GHOST doors SURVIVE a
+   * completed analysis` SURVIVED mutant B — it counts DOM presence, and the
+   * livelock hides doors rather than removing them, so B is simply not a
+   * mutation of that arm's property. A kit that stopped at "7 of 8 bit" would
+   * have shipped one arm with no evidence at all, and read as a strong result
+   * while doing it. D REDs that arm and ONLY that arm; B REDs the other seven
+   * and leaves it green. Neither alone shows binding — the RED/GREEN pair does
+   * (CLAUDE.md trap 19).
+   * ══════════════════════════════════════════════════════════════════════════
+   */
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
    * ⭐⭐ ADMITTED 3 Sep 2026 — THE GATE WAS WATCHING ONE DEFECT OUT OF THREE.
    *
    * The header above names three shipped defects as the reason this job exists.
@@ -293,17 +328,35 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'height in MODEL px moves with the zoom makes every row under-spaced with nothing in the ' +
       'layout being wrong. Nothing else in this gate watches it, and nothing in jsdom can: jsdom ' +
       'returns 0 for every rect. ' +
-      '⭐ THE ASSERTION IS THE ONE THE FIX RESTS ON, not the one the symptom suggests. It is not ' +
-      '"the layout ignores zoom" (provable in jsdom, and not the claim) but "the NUMBER WE FEED ' +
-      'the layout ignores zoom": `measureNodeHeightsAtLabelBound()` is called for real, in the ' +
-      'real browser, at every zoom in the series, and must return the same map while the live ' +
-      'heights beside it move x2. ' +
-      '⭐ THREE CONTROLS, ALL DISCRIMINATING: a POSITIVE one (`--canvas-label-scale` and the ' +
-      'computed title font-size MUST change across the series, or the probe never exercised the ' +
+      '⚠⚠ WHAT IT ASSERTS IS NARROWER THAN ITS TITLE, AND THIS ENTRY SAID OTHERWISE UNTIL IT WAS ' +
+      'CHECKED AT THE BYTES. The draft here claimed the arm asserts that ' +
+      '`measureNodeHeightsAtLabelBound()` returns the same map at every zoom. IT DOES NOT: ' +
+      '`boundIsZoomInvariant` is COMPUTED AND PRINTED in `HZJSON`, and there is no `expect` on ' +
+      'it anywhere in the file — which is correct, because it is FALSE at this tip by a named, ' +
+      'bounded margin (the map takes TWO values, one for every zoom at or above ' +
+      '`LABEL_LEGIBLE_ZOOM` and a 92px / 1.48% shorter one below it, where the LOD rung flips to ' +
+      '`line`). Asserting it would put this job permanently red. An oracle written from a ' +
+      'docblock rather than from the assertions is a perfect score on the wrong exam ' +
+      '(CLAUDE.md trap 13c), and this entry nearly shipped one. ' +
+      '⭐ WHAT IT DOES ASSERT, and it is the LOD DIRECTION, which is the half the safety argument ' +
+      'actually rests on: (a) no card is TALLER with LOD on than the tallest it reaches with LOD ' +
+      'off — the layout reserves the LOD-off height, so a card that grew overflows its row band; ' +
+      'and (b) the worst LOD SHRINK stays under the tightest slack the layout leaves ' +
+      '(`SUB_ROW_SLACK`, derived from the same two values `normaliseTierRows` uses, never ' +
+      'restated) — the mirror case, where a layout computed while LOD is ON reserves the shorter ' +
+      'height and zooming back in pushes a card into the row beneath. One direction alone is a ' +
+      'guard watching one door (CLAUDE.md trap 22b). ' +
+      '⭐ AND ITS CONTROLS DISCRIMINATE: a POSITIVE one (`--canvas-label-scale` and the computed ' +
+      'title font-size MUST change across the series, or the probe never exercised the ' +
       'mechanism); a CONTRAST one (an element OUTSIDE the React Flow subtree must NOT change, or ' +
-      'the probe is measuring a page re-render); and a non-vacuity one ("NO card changed height ' +
+      'the probe is measuring a page re-render); a non-vacuity one ("NO card changed height ' +
       'across the LOD threshold" REDs, because a comparison that discriminates nothing cannot ' +
-      'report "nothing grew"). ' +
+      'report "nothing grew"); and a completeness one (every requested zoom was visited). ' +
+      '⚠ ITS DETECTION FLOOR IS MEASURED, NOT ASSUMED — `text-3xl` on the LOD title boost is a ' +
+      'DEMONSTRATED equivalent mutant (at 30px the card lands level with its LOD-off self, so ' +
+      'there is no harm to detect), and it REDs from `text-5xl` up. That floor is not a weakness, ' +
+      'it IS the property. `lodTitleBoostIsBounded.spec.ts` compares DECLARED SIZES and is ' +
+      'strictly more sensitive on the title alone; neither substitutes for the other. ' +
       '⚠ ITS OWN FIRST VERSION WAS WORTHLESS IN BOTH DIRECTIONS — it set the camera and assumed ' +
       'it held, while the product re-fitted underneath it (`1.2 1 0.5 0.5 0.7` for a requested ' +
       '`1.2 1 0.9 0.8 0.7`). Every sample now re-reads the camera and excludes-and-reports what ' +
