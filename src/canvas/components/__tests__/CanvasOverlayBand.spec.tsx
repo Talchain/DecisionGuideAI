@@ -189,7 +189,10 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
     )
     const band = container.querySelector(OVERLAY_BAND_SELECTOR) as HTMLElement | null
     expect(band, 'the band element must be findable by the selector computeFitPadding uses').not.toBeNull()
-    expect(band!.style.height).toBe(`var(--canvas-overlay-band-h, ${OVERLAY_BAND_HEIGHT}px)`)
+    // A plain px height, deliberately: the `--canvas-overlay-band-h` token this
+    // once read was defined in no stylesheet, so the var always fell through to
+    // its fallback while claiming to be overridable.
+    expect(band!.style.height).toBe(`${OVERLAY_BAND_HEIGHT}px`)
     expect(band!.style.pointerEvents).toBe('none')
     expect(band!.style.position).toBe('absolute')
   })

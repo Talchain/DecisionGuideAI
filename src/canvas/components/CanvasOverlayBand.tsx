@@ -375,7 +375,16 @@ export function CanvasOverlayBand() {
           left: 0,
           right: 0,
           bottom: OVERLAY_BAND_BOTTOM,
-          height: `var(--canvas-overlay-band-h, ${OVERLAY_BAND_HEIGHT}px)`,
+          // ⚠ NOT `var(--canvas-overlay-band-h, …)`. That token was referenced
+          // here and DEFINED NOWHERE, so the var resolved to nothing and the
+          // fallback was always what rendered — an indirection that advertised
+          // a themeability hook the stylesheets never provided.
+          // `tests/ci-guards/css-var-resolution.spec.ts` exists to catch exactly
+          // that, and it caught this. Defining the token instead would buy the
+          // hook back at the price of a SECOND spelling of the height (CSS and
+          // TS), i.e. a fresh hand-maintained mirror for a capability nothing
+          // uses. One spelling, and `computeFitPadding` measures the rect.
+          height: `${OVERLAY_BAND_HEIGHT}px`,
           paddingLeft: OVERLAY_BAND_LEFT_PAD,
           paddingRight: rightPad,
           zIndex: OVERLAY_BAND_Z,

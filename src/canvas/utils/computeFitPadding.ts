@@ -327,10 +327,10 @@ export function computeFitPadding(flowEl?: Element | null): FitPadding {
       if (overlap > 0) top = Math.max(top, overlap + GAP)
     }
     // Bottom edge — the canvas overlay band. MEASURED like every other
-    // contributor rather than restated as `OVERLAY_BAND_HEIGHT + OVERLAY_BAND_BOTTOM`:
-    // the band's height is a CSS value behind a custom property
-    // (`--canvas-overlay-band-h`), and a second arithmetic copy of it here
-    // would be a hand-maintained mirror of a number that can be overridden.
+    // contributor rather than restated as `OVERLAY_BAND_HEIGHT + OVERLAY_BAND_BOTTOM`,
+    // which would be a hand-maintained arithmetic mirror of two constants owned
+    // by another module. Measuring the rect also keeps this correct if the band
+    // is ever restyled, without this file having to hear about it.
     const band = rectOf(OVERLAY_BAND_SELECTOR)
     if (band) {
       const overlap = Math.max(0, flowRect.bottom - band.top)
