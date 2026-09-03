@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasLegendPopover } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
+import { METRIC_NOUN, METRIC_LEGEND_ROWS } from '../../nodes/shared/metricVocabulary'
 
 // ⚠ THE NODE-TYPE WORD COMES FROM THE VOCABULARY CONSTANT, NOT A LITERAL.
 // The approved list is a hand-maintained mirror of what the legend renders;
@@ -152,5 +153,73 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
     expect(text).not.toMatch(/\bnode\b/)
     expect(text).not.toMatch(/\bedge\b/)
     expect(text).not.toMatch(/\bgraph\b/)
+  })
+})
+
+/**
+ * ⭐⭐ THE NUMBERS SECTION — Paul, 31 Aug 2026: "one noun per idea, and a legend
+ * where the model is — not in a panel."
+ *
+ * ⚠ THESE ARE PER-ROW ASSERTIONS ON PURPOSE. The `APPROVED` presence list at
+ * the top of this file is, by its own note, additive-blind: adding a row can
+ * never fail it. So a numbers section bolted on with no assertions of its own
+ * would be invisible to this suite — present, unpinned, and free to rot. Each
+ * row is derived from `METRIC_LEGEND_ROWS` rather than re-typed, so the spec
+ * cannot drift from the register the cards read.
+ */
+describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
+  function open() {
+    render(<CanvasLegendPopover />)
+    fireEvent.click(screen.getByTestId('btn-canvas-legend'))
+  }
+
+  it('POSITIVE CONTROL: there are rows to assert', () => {
+    // Every assertion below iterates the register. An empty register would
+    // satisfy all of them silently (trap 13).
+    expect(METRIC_LEGEND_ROWS.length).toBeGreaterThan(4)
+  })
+
+  it('explains every number the cards print, noun and gloss', () => {
+    open()
+    const text = screen.getByRole('dialog').textContent ?? ''
+    for (const row of METRIC_LEGEND_ROWS) {
+      expect(text, `the legend never says "${row.noun}"`).toContain(row.noun)
+      expect(text, `"${row.noun}" is named but not explained`).toContain(row.gloss)
+    }
+  })
+
+  it('explains the four captions a reader meets on a card', () => {
+    // Named explicitly as well as derived — so deleting a noun from the
+    // register cannot make the derived test above pass by iterating less.
+    open()
+    const text = screen.getByRole('dialog').textContent ?? ''
+    for (const noun of Object.values(METRIC_NOUN)) {
+      expect(text, `"${noun}" is captioned on a card but absent from the key`).toContain(noun)
+    }
+  })
+
+  it('⭐ CONTRAST: the RETIRED synonyms appear nowhere in the key', () => {
+    // The point of the change, stated as a test. A legend that explained both
+    // "Ahead" and "Leads" would document the confusion rather than end it —
+    // and this is the assertion that REDs if a later hand "helpfully" adds the
+    // old word back as a parenthetical.
+    open()
+    const text = screen.getByRole('dialog').textContent ?? ''
+    expect(text).not.toContain('Leads')
+    expect(text).not.toContain('Achievement')
+    expect(text).not.toContain('Chance of leading')
+    // Discrimination: the popover HAS text and the live noun IS there, so the
+    // three absences above are not passing on an empty container.
+    expect(text.length).toBeGreaterThan(200)
+    expect(text).toContain(METRIC_NOUN.ahead)
+  })
+
+  it('the numbers copy respects the popover vocabulary ban', () => {
+    // The container-level ban already runs above; this names the offending
+    // section, which the container assertion cannot do.
+    const joined = METRIC_LEGEND_ROWS.map(r => `${r.noun} ${r.gloss}`).join(' ').toLowerCase()
+    expect(joined).not.toMatch(/\bnode\b/)
+    expect(joined).not.toMatch(/\bedge\b/)
+    expect(joined).not.toMatch(/\bgraph\b/)
   })
 })

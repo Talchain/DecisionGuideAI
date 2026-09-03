@@ -22,6 +22,7 @@ import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { typography } from '../../styles/typography'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { NodeChip, NodeMetricRow, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
@@ -762,7 +763,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 corpus keeps biting on the copy it was written against. */}
             {showHeadline && headline && headline.winProb != null && (
               <NodeMetricRow
-                label="Leads"
+                label={METRIC_NOUN.ahead}
                 value={headline.winProb}
                 formatted={`${Math.round(headline.winProb * 100)}%`}
                 fillClass="bg-option"

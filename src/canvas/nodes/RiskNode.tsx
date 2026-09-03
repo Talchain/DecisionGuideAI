@@ -6,6 +6,7 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
@@ -88,7 +89,7 @@ export const RiskNode = memo((props: NodeProps) => {
   const lodMetric = useMemo(() => {
     const pct = bridgeEdgeData?.bridgeStrengthPct
     if (pct == null) return null
-    return `Strength ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
+    return `${METRIC_NOUN.strength} ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
   }, [bridgeEdgeData])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
@@ -254,14 +255,14 @@ export const RiskNode = memo((props: NodeProps) => {
              an unlabelled percentage beside a goal reads as a computed
              contribution, and that is what the noun exists to prevent. */
           <NodeMetricRow
-            label="strength"
+            label={METRIC_NOUN.strength}
             value={bridgeEdgeData.bridgeStrengthPct / 100}
             formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
             fillClass="bg-danger"
             testId="risk-strength-row"
             trailing={
               bridgeEdgeData.bridgeIsEstimated ? (
-                <EstimateMarker title="Strength estimated, not yet confirmed — open the details to set or confirm it" />
+                <EstimateMarker subject="strength" />
               ) : null
             }
           />
