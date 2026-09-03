@@ -709,11 +709,80 @@ export function ModelStrip({
           </p>
         ) : null}
 
-        <ul className="list-none p-0 m-0 flex flex-col gap-1">
+        {/* ⚠⚠ ONE GRID FOR FOUR ROWS, AND THE ONE PIXEL IS WHY IT MOVED HERE.
+            The label column was a literal `76px` on each `<li>`. That fits
+            Options/Factors/Risks and leaves "Outcomes" 52px of the 53px it
+            needs — so the panel's own census truncated one of its four
+            category names to "Outcome…" on every model, at every panel width.
+            Measured on deployed `a4d6e204`: textW 53 vs boxW 52, `truncate`
+            doing exactly what it was asked to.
+
+            A wider magic number is the same bet on today's copy — the
+            hand-maintained mirror in CSS form, broken by the next copy edit or
+            the first translation. `auto` sizes the column to its content
+            instead, so the labels fit by construction rather than by a number
+            someone has to keep correct.
+
+            ⚠ BUT `auto` ON THE `<li>` RESOLVES PER ROW. A grid on each row is
+            four independent grids, each sizing column 1 to its OWN label, and
+            the first version of this fix did exactly that. Measured in
+            Chromium at 280/416/480, the marks column then starts at four
+            different offsets — 26px apart, and 65px apart with translated
+            labels. Alignment is a property of the four rows TOGETHER, so the
+            template belongs on the one element that contains all four; each
+            `<li>` dissolves into it with `display:contents`. That is the
+            repo's existing idiom for this shape (`DisclosureRow.tsx:173-177`,
+            `DeeperAnalysis.tsx:107-111`) — though note those wrap a `<div>`
+            inside a `<dl>`, an element with no semantics to lose, so the
+            analogy carries for LAYOUT and not for the roles below. `gap-x-2`
+            carries the old row `gap-2` and `gap-y-1` the old `flex-col gap-1`,
+            so no spacing moves. The `truncate` on the label span stays as the
+            genuine last resort.
+
+            ⚠ THE COST OF `auto`, DISCLOSED RATHER THAN LEFT TO BE FOUND. The
+            label column is content-sized, so it is the MARKS column (`1fr`)
+            that pays, and `1fr` has no floor. Measured in headless Chromium at
+            280px against both templates: English is neutral-to-positive
+            (col1 84.75px vs the old 76px, marks 164px, no clipping). A German
+            translation of the four labels takes col1 to 169px and marks to
+            79.6px; a 33-character extreme takes marks to 36.5px and grows the
+            factor row to 205px. Nothing escapes the dock in any of those cases,
+            so the e2e overflow check stays quiet — which is exactly why it is
+            written down here. If the census is ever translated, floor the label
+            column rather than discovering this in the wild.
+
+            ⚠⚠ THE ROLES, AND A CORRECTION TO WHY THEY ARE HERE. An earlier
+            version of this comment said an explicit `role` restores what
+            `display:contents` removes. THAT IS FALSE, and independent review
+            sourced it: where a browser drops a `display:contents` element from
+            the accessibility tree it drops the element WITH its explicit role.
+            So `role="listitem"` is redundant where the bug is fixed (Chrome
+            ≥89, Firefox) and inert where it is not. It stays because it costs
+            nothing and records intent — NOT because it is a mitigation.
+
+            `role="list"` on the `<ul>` IS load-bearing, for a reason the old
+            sentence did not give: this element carries `list-none` AND is now
+            `display:grid`, and each of those independently strips list
+            semantics in Safari/VoiceOver. A different authority from the `<li>`
+            question, and the two were conflated under one sentence.
+
+            ⚠ WHAT REMAINS UNVERIFIED, SO NOBODY INHERITS IT AS SETTLED: in a
+            browser that still drops the `<li>`s, `role="list"` announces a list
+            whose item count is zero. jsdom cannot see any of this — it applies
+            no CSS and gives `<li>` in `<ul>` an implicit `listitem` regardless
+            — so the spec asserts the ATTRIBUTES ARE PRESENT, which is
+            checkable, and claims nothing about the a11y tree, which is not. A
+            real screen-reader pass is owed and has not been done. */}
+        <ul
+          role="list"
+          data-testid={`${testId}-rows`}
+          className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1"
+        >
           {visible.map(({ row, nodes, drawMarks, narrowed, uncapped }) => (
             <li
               key={row.kind}
-              className="grid grid-cols-[76px_1fr_auto] items-center gap-2"
+              role="listitem"
+              className="contents"
               data-testid={`${testId}-row`}
               data-kind={row.kind}
               data-selected={kindFilter === row.kind ? 'true' : undefined}
