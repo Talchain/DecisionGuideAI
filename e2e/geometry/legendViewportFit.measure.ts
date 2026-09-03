@@ -103,6 +103,16 @@ const WIDTH = 1280
  */
 const HEIGHTS = [800, 700, 600, 500, 420]
 
+/**
+ * The gutter the component keeps between the panel and the top of the window.
+ *
+ * ⚠ RESTATED HERE ON PURPOSE, NOT IMPORTED. This is a WITNESS: it must fail if
+ * the product's constant changes without someone looking at the geometry again.
+ * Importing the component's value would make the assertion agree with whatever
+ * the component happens to do (CLAUDE.md 13b) — the number is the claim.
+ */
+const VIEWPORT_GUTTER_PX = 12
+
 /** A row that renders in EVERY phase — the mount precondition names it. */
 const PHASE_INDEPENDENT_ROW = 'Weak effect'
 
@@ -264,6 +274,30 @@ test.describe('LEGEND fits its viewport', () => {
       // The panel cannot be taller than the window it is in.
       expect(g.panelHeight, `[${at}] the panel is taller than the viewport`).toBeLessThanOrEqual(g.viewportHeight)
 
+      // ⭐⭐ THE MEASURED CAP IS THE THING DOING THE WORK — and this is the
+      // assertion that says so.
+      //
+      // ⚠ ADDED AFTER A REVIEW SHOWED THE GUARD COULD NOT SEE ITS OWN
+      // MECHANISM (F2): deleting the measured inline cap and leaving only the
+      // conservative `max-h-[calc(100vh-96px)]` class SURVIVED every arm, green
+      // at every height, because that class alone yields
+      // `(h-27) - (h-96) = 69` — a constant 69px top, comfortably `>= 0`. So
+      // `top >= 0` proves the panel is on screen and proves NOTHING about which
+      // of the two guards put it there.
+      //
+      // The discriminator: where the content overflows, the panel is capped at
+      // exactly `wrapperBottom - GUTTER`, so its top is exactly the GUTTER.
+      // A CSS-fallback-only build reads 69 here and REDs. This also pins that
+      // the panel USES the space available to it rather than leaving a large
+      // unexplained gap above itself.
+      if (g.scrollScrollHeight > g.scrollClientHeight) {
+        expect(
+          g.panelTop,
+          `[${at}] the panel overflows but sits ${g.panelTop.toFixed(0)}px from the top, not the ${VIEWPORT_GUTTER_PX}px gutter — ` +
+            'the measured cap is not the constraint in force (a CSS-only fallback reads ~69)',
+        ).toBeLessThanOrEqual(VIEWPORT_GUTTER_PX + 1)
+      }
+
       // ⭐ IT ACTUALLY SCROLLS — asserted on the numbers, not on a class name.
       // Where the content does not fit, the scroll container must report real
       // overflow AND a real scroll must move it.
@@ -299,6 +333,81 @@ test.describe('LEGEND fits its viewport', () => {
     expect(overflowed.length, 'the panel never overflowed at ANY height — the scroll assertions never ran').toBeGreaterThan(0)
 
     console.log(`[LEGEND] overflowed at: ${overflowed.join(', ') || 'none'}; rows constant at ${counts[0]}`)
+  })
+
+  /**
+   * ⭐⭐ RESIZED WHILE OPEN — the path the other arms never exercise.
+   *
+   * ⚠ ADDED AFTER A REVIEW SHOWED THE GUARD COULD NOT SEE THIS EITHER (F2):
+   * deleting the component's `resize` listener SURVIVED BYTE-IDENTICALLY,
+   * because the sweep above CLOSES the legend before every `setViewportSize`,
+   * so every measurement was of a freshly-opened panel and the resize path was
+   * never run. A cap computed once is a cap that is wrong the moment the window
+   * changes — and shrinking the window is exactly how a reader arrives at the
+   * heights this fix is for.
+   *
+   * The legend is opened ONCE here and never closed. The assertion is that the
+   * panel stays on screen and stays at the gutter as the window shrinks under
+   * it, then GROWS BACK when the window is restored — the second half matters
+   * because a listener that only ever shrinks the cap would pass a one-way test
+   * and leave the panel needlessly short.
+   */
+  test('resized WHILE OPEN, the panel re-caps and stays on screen', async ({ page }) => {
+    await preparePage(page, { width: WIDTH, height: 800 })
+    await openCanvas(page)
+    const seeded = await seedStarterDraft(page, 'vendor-selection')
+    expect(seeded.nodeCount).toBeGreaterThan(0)
+    await clearNotifications(page)
+    await waitForVisualQuiescence(page)
+
+    // Post-run, so the content is tall enough to be capped at every height
+    // below — otherwise the panel simply fits and the arm asserts nothing.
+    await page.evaluate(() => {
+      const w = window as unknown as { useCanvasStore: { setState: (p: unknown) => void } }
+      w.useCanvasStore.setState({ results: { status: 'complete', progress: 100 } })
+    })
+
+    await openLegend(page)
+    const settle = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    await settle()
+
+    const seen: Array<{ h: number; top: number; height: number; capped: boolean }> = []
+    for (const height of [800, 600, 420, 300, 200, 800]) {
+      await page.setViewportSize({ width: WIDTH, height })
+      await settle()
+      // The popover must NOT have closed — a resize that dismissed it would
+      // make every assertion below vacuous.
+      await expect(page.getByTestId('canvas-legend-popover')).toBeVisible()
+      const g = await readPanel(page)
+      assertMounted(g, `resize-while-open ${WIDTH}x${height}`)
+      const capped = g.scrollScrollHeight > g.scrollClientHeight
+      seen.push({ h: height, top: g.panelTop, height: g.panelHeight, capped })
+      console.log(`[LEGEND resize] ${WIDTH}x${height}: top=${g.panelTop.toFixed(1)} h=${g.panelHeight.toFixed(0)} capped=${capped}`)
+
+      expect(g.panelTop, `[resize ${WIDTH}x${height}] the panel went above the top of the viewport`).toBeGreaterThanOrEqual(0)
+      expect(g.panelHeight, `[resize ${WIDTH}x${height}] the panel is taller than the window`).toBeLessThanOrEqual(g.viewportHeight)
+      if (capped) {
+        expect(
+          g.panelTop,
+          `[resize ${WIDTH}x${height}] the cap did not follow the resize — top=${g.panelTop.toFixed(0)}, expected the ${VIEWPORT_GUTTER_PX}px gutter`,
+        ).toBeLessThanOrEqual(VIEWPORT_GUTTER_PX + 1)
+      }
+    }
+
+    // ⭐ THE ARM MUST HAVE EXERCISED THE THING IT NAMES. If nothing was ever
+    // capped, the resize path proved nothing (trap 13).
+    expect(seen.filter((r) => r.capped).length, 'the panel was never capped during the resize sweep').toBeGreaterThan(2)
+
+    // ⭐ AND IT GROWS BACK. A listener that only shrinks would pass everything
+    // above while leaving the restored panel at the 200px height.
+    const first = seen[0]
+    const last = seen[seen.length - 1]
+    expect(last.h).toBe(first.h)
+    expect(
+      last.height,
+      `restored to ${last.h}px the panel is ${last.height}px, but it was ${first.height}px at the same size — the cap only shrinks`,
+    ).toBeGreaterThan(seen[seen.length - 2].height)
+    expect(Math.abs(last.height - first.height), 'the panel did not return to its original height').toBeLessThanOrEqual(1)
   })
 
   /**

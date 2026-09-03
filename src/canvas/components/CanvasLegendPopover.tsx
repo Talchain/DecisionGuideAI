@@ -12,10 +12,13 @@
  * see the phase has to describe every phase at once, and five of its seven
  * number rows described markings that render only after a completed analysis —
  * so a first-time reader, who opens the key PRECISELY BECAUSE they are
- * confused, was told to look for badges that were on no card. It now reads ONE
- * field, `results.status`, through the same predicate the cards themselves use
- * (`isPostAnalysis = resultsStatus === 'complete'`). See the block above
- * `PRE_ANALYSIS_METRIC_NOUNS`.
+ * confused, was told to look for badges that were on no card.
+ *
+ * It now reads TWO fields — `results.status` and `optionNumbering` × `nodes` —
+ * because one axis was not enough and a review proved it: the ordinal badge
+ * OUTLIVES the run that minted it, so a status-only gate withheld the row while
+ * the numbers were still on the cards. Each row is gated on the predicate ITS
+ * OWN CARD uses. See `LegendBoardState` and `METRIC_ROW_VISIBLE`.
  *
  * ⚠ The rule above used to end "if more copy is ever needed here, stop and ask
  * Paul." R6 (Paul, 16 Aug 2026) is that instruction being given: "orange
@@ -310,23 +313,131 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  * needs a guard of its own (CLAUDE.md trap 12). `METRIC_NOUN.strength` is a
  * reference and cannot drift.
  */
-export const PRE_ANALYSIS_METRIC_NOUNS: readonly string[] = [METRIC_NOUN.strength, 'est.']
+/**
+ * What the legend needs to know about the board to decide which rows are true.
+ *
+ * ⚠ TWO FIELDS, NOT ONE, AND THE SECOND ONE IS A CORRECTION.
+ *
+ * The first version of this fix gated every withheld row on `isPostAnalysis`
+ * alone. A reviewer refuted it, and the refutation is the MIRROR IMAGE of the
+ * defect being fixed: `optionNumbering` is APPEND-ONLY and is cleared by exactly
+ * four paths (import, new decision, `loadScenario`, hydrate) — **none of them
+ * tied to `results.status`**. `resultsAnalysing()`, `resultsError()` and
+ * `resultsReset()` all leave it intact. So after any completed run, every
+ * non-`complete` status shows `1 2 3` on the cards WITH NO ROW EXPLAINING THEM.
+ * Measured 7/7 across the `ResultsStatus` union; the most reachable path is a
+ * labelled button — Run, then "Clear results" (`NodeInspector.tsx:846`), then
+ * open the key. Durable state, not a transient.
+ *
+ * ⭐ THE LESSON, AND IT IS THE ONE THIS FILE ALREADY CONTAINED: gate on THE
+ * MARKING, NOT ON THE RUN. Four of these rows gate on the same predicate their
+ * card uses; the ordinal row was gated on a PROXY for its card's predicate, and
+ * a proxy is exactly a second authority that agrees on the day it is written
+ * (CLAUDE.md trap 21). The repo even held the counter-example the whole time:
+ * `OptionNode.spec.tsx:2352` renders the badge with `results.status: 'idle'` and
+ * is green. Two specs in one suite would have disagreed about whether the
+ * marking is on screen.
+ */
+export interface LegendBoardState {
+  /** `results.status === 'complete'` — the predicate the cards restate. */
+  readonly isPostAnalysis: boolean
+  /**
+   * At least one MOUNTED node carries an ordinal, i.e. a badge is on screen.
+   *
+   * Read from the same source the badge reads (`optionNumbering[node.id]`,
+   * `OptionNode:401,1459`) rather than from a status. Intersected with `nodes`
+   * rather than testing the map for emptiness, so a number left in the map for a
+   * node that is no longer mounted cannot make the row promise a badge nobody
+   * can see — the same direction of error this whole change exists to close.
+   */
+  readonly ordinalsOnScreen: boolean
+}
 
 /**
- * The rows to render for a given phase.
+ * ⭐⭐ ONE PREDICATE PER ROW, EACH DERIVED FROM ITS OWN CARD'S GATE.
+ *
+ * ⚠ THIS REPLACED A TWO-WAY PRE/POST SPLIT, AND THE SPLIT WAS THE BUG. A single
+ * phase axis cannot express "the badge outlives the run that minted it", so the
+ * ordinal row was necessarily gated on something adjacent to its truth rather
+ * than on its truth. Per-row predicates cost more lines and are the only shape
+ * that can be RIGHT for a row whose marking has its own lifetime.
+ *
+ * Derived at each render site (line numbers are at `bd18bace`):
+ *
+ *   Ahead     `OptionNode:1498` `winReadout !== null`, null unless
+ *             `displayMetadata.isResultsMode`; `DecisionNode:764` gated harder
+ *             still on `deriveDecisionVerdict().hasLeadingOption`.
+ *   Chance    `GoalNode:223` `hasThreshold && isResultsMode &&
+ *             achievementProbability !== null`.
+ *   Influence `FactorNode:997` `isPostAnalysis && … influencePct != null`.
+ *             ⚠ SENSITIVITY OUTPUT, not an authored weight — pre-run the card
+ *             renders `EdgePills`, which says "Link strength": a different word
+ *             for a different quantity, so this row was not merely early.
+ *   #1,#2,#3  `BaseNode:738` `typeof sensitivityRank === 'number'`; null
+ *             whenever `!isResultsMode || !report`.
+ *   1,2,3     `OptionNode:1459` `stableOptionNumber != null` — AND NOTHING ELSE.
+ *             Its gate carries no results term at all, which is the whole of F1.
+ *   Strength  `RiskNode:247` / `OutcomeNode:258` `bridgeStrengthPct != null`, a
+ *             memo over `state.edges`/`state.nodes` only.
+ *   est.      `FactorNode:911` `isInferred`; `RiskNode:265` / `OutcomeNode:267`
+ *             `bridgeIsEstimated`. Graph-authored; no results term.
+ *
+ * ⚠ THE LIST ABOVE IS THE PRIMARY SITE PER NOUN, NOT THE ONLY ONE. A completeness
+ * sweep found SEVEN MORE, and the correction is recorded here rather than left
+ * as a tidy-looking table that is quietly short (trap 12d — a derived guard
+ * proves agreement, never completeness):
+ *
+ *   POST-RUN, all routed through `displayMetadata`, so the classification is
+ *   unchanged: `lodMetricLine:221` (factor LOD, Influence), `:249` (option LOD,
+ *   Ahead), `:305` (outcome LOD, Chance); `FactorNode:728` (detailed bar row,
+ *   mounted at `:1018` and at the `:1069` hover popover); `OutcomeNode:180`
+ *   (`detailedMetrics`, mounted at `:284`).
+ *
+ *   PRE-RUN, and these do NOT route through `displayMetadata`:
+ *   `RiskNode:92` and `OutcomeNode:85` paint `Strength N% est.` as reduced LOD
+ *   lines straight off `bridgeEdgeData`. They land on the same side as the
+ *   primary Strength/est. rows, so the conclusion holds — but it holds for a
+ *   different reason than "everything goes through `displayMetadata`", and a
+ *   reader checking that premise would have found it false.
+ *
+ * ⚠ `OutcomeNode:253` WAS WRONG IN THE FIRST VERSION OF THIS BLOCK — that line
+ * is now inside a comment and the gate is `:258`. Line numbers in a docblock are
+ * a hand-maintained mirror; they are kept because they are how the next reader
+ * finds the gate, and they are pinned to `bd18bace`. Re-derive before relying.
+ *
+ * ⚠ AN UNKNOWN NOUN FAILS CLOSED — it is withheld rather than falsely promised,
+ * because a row that promises an absent marking is the harm this file exists to
+ * prevent. A safe default is not a decision, so the spec REDs when the register
+ * grows a noun this map has not placed, and when a key here stops matching the
+ * register (three keys are re-typed literals with no exported constant).
+ */
+const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boolean>> = {
+  [METRIC_NOUN.ahead]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.strength]: () => true,
+  '#1, #2, #3': (b) => b.isPostAnalysis,
+  '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
+  'est.': () => true,
+}
+
+/** The nouns this file classifies. Exported so the spec can assert BOTH directions. */
+export const CLASSIFIED_METRIC_NOUNS: readonly string[] = Object.keys(METRIC_ROW_VISIBLE)
+
+/**
+ * The rows to render for a given board state.
  *
  * Exported so the spec asserts the SAME function the component renders through,
  * rather than re-deriving the split and agreeing with itself (CLAUDE.md 13b).
  */
-export function metricRowsForPhase(isPostAnalysis: boolean): readonly MetricLegendRow[] {
-  if (isPostAnalysis) return METRIC_LEGEND_ROWS
-  return METRIC_LEGEND_ROWS.filter(r => PRE_ANALYSIS_METRIC_NOUNS.includes(r.noun))
+export function visibleMetricRows(board: LegendBoardState): readonly MetricLegendRow[] {
+  return METRIC_LEGEND_ROWS.filter((r) => METRIC_ROW_VISIBLE[r.noun]?.(board) ?? false)
 }
 
-function MetricGroup({ isPostAnalysis }: { isPostAnalysis: boolean }) {
+function MetricGroup({ board }: { board: LegendBoardState }) {
   return (
     <div className="space-y-1.5">
-      {metricRowsForPhase(isPostAnalysis).map(r => (
+      {visibleMetricRows(board).map(r => (
         <div key={r.noun} className={`${typography.panelMeta} text-text-light`}>
           <span className="text-text-body font-medium">{r.noun}</span>: {r.gloss}
         </div>
@@ -436,6 +547,22 @@ export function CanvasLegendPopover() {
    * not this lane's to do — noted, not fixed.)
    */
   const isPostAnalysis = useCanvasStore(s => s.results.status === 'complete')
+  /**
+   * ⭐ THE ORDINAL ROW'S OWN PREDICATE — read from the badge's source, not from
+   * the run that minted it. See `LegendBoardState.ordinalsOnScreen` for why a
+   * status proxy was wrong here (F1: the badges outlive every non-`complete`
+   * status, so the row vanished while the numbers stayed on the cards).
+   *
+   * ⚠ The selector returns a BOOLEAN, not the map or a derived array —
+   * `ci:guard:zustand` (React #185) forbids a bare object selector, and a fresh
+   * object identity here would re-render the toolbar on every store tick.
+   */
+  const ordinalsOnScreen = useCanvasStore(s => {
+    const numbering = s.optionNumbering
+    if (!numbering) return false
+    return s.nodes.some(n => numbering[n.id] != null)
+  })
+  const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen }
 
   /**
    * ⚠ `useLayoutEffect`, not `useEffect`: this runs BEFORE paint, so the panel
@@ -564,7 +691,7 @@ export function CanvasLegendPopover() {
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={PROVENANCE_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
-            <MetricGroup isPostAnalysis={isPostAnalysis} />
+            <MetricGroup board={board} />
           </div>
         </div>
       )}
