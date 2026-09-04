@@ -58,6 +58,19 @@ All side panel UI (results, inspector, issues, templates) uses **only three size
 | `panelHeader` | 14px, semibold | Section titles, winner name, key emphasis |
 | `panelBody` | 12px, regular | Body text, descriptions, bullets, card content |
 | `panelMeta` | 11px, regular | Badges, pills, axis labels, tertiary metadata |
+| `panelTabular` | 12px, regular, `tabular-nums` | Numbers in columns |
+
+**Four tokens, still three sizes.** `panelTabular` (added 4 Sep 2026) is `panelBody`'s
+size and weight with `tabular-nums` so digits share an advance width — 12px either way,
+so the strict three-size rule above is unchanged by it. It exists because the panel scale
+had no tabular variant, which forced every surface with aligned numbers to reach for the
+14px `tabular` token; that is how 14px became de-facto body text on the Model tab.
+Use it wherever a number sits in a column; use `panelBody` everywhere else.
+
+**Text inputs are NOT on the panel scale.** They stay at 14px (`bodySmall`, or `tabular`
+where the field holds a number). §2.2's override list below covers badges, buttons and
+helper text and deliberately does not cover inputs: 14px is this system's minimum
+accessible size (§2.1), and a 12px field is a usability regression at the 280px dock floor.
 
 **Scope:** `src/components/results/`, `src/canvas/panels/`, `src/canvas/ui/EdgeInspector*`, and any component rendered inside a side panel.
 

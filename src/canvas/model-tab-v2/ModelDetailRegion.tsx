@@ -271,7 +271,7 @@ export function ModelDetailRegion({
                           if (e.key === 'Enter') onCommitIntervention?.(iv.factorId)
                           if (e.key === 'Escape') onDiscardInterventionEdit?.()
                         }}
-                        className={`${typography.panelTabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                        className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
                       />
                       <button
                         type="button"

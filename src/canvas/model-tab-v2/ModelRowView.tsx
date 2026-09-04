@@ -584,7 +584,7 @@ function ValueCell({
                     onDiscardEdit(row.id)
                   }
                 }}
-                className={`${typography.panelTabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
             </span>
           )
