@@ -810,19 +810,19 @@ export function applyBootAnalysisVerdict(input: {
 // a cleared store. `resultsWithholdLeaderClaim` opens `if (!held) return`
 // (`canvas/store.ts`), so this call NO-OPS there, and nothing re-runs it when a
 // report later arrives. That is not a gap: with no report held there is no
-// designation on screen to withdraw. Two legs can still stamp such a device:
-// the TURN leg (`applyV5State` step 5b, added with this one) and the POLL leg
-// (`applyScenarioAnalysisRead` above). Each applies the withholding AFTER its
-// own results write — here `resultsComplete` at :435 then the stamp at :474,
-// there step 5 then step 5b — which is why that ordering is marked load-bearing
-// in both.
+// designation on screen to withdraw. Two legs can still stamp such a device
+// once a report does reach it: the TURN leg (`applyV5State` step 5b, added with
+// this one) and the POLL leg (`applyScenarioAnalysisRead` above). Each applies
+// the withholding AFTER its own results write — `resultsComplete` then the
+// stamp here, step 5 then step 5b there — which is why that ordering is marked
+// load-bearing in both.
 //
 // ⚠ BUT THE POLL LEG IS NOT A FALLBACK, and an earlier draft of this paragraph
-// implied it was. It arms solely on a standing `running` run state
-// (`hooks/useProvisionalAnalysisDelivery.ts:344-349`; its own doc: "Does nothing
-// until CEE reports a run in flight"), and it is the ONLY caller of
-// `applyScenarioAnalysisRead`. So on a scenario whose last analysis is already
-// COMPLETE it never arms, and nothing arrives from it at all.
+// implied it was. `useProvisionalAnalysisDelivery` — the hook this file's read
+// applier is called from — arms only while `run_state.kind` reads `running`
+// (its `runKey`, and its own doc: "Does nothing until CEE reports a run in
+// flight"). So on a scenario whose last analysis is already COMPLETE that hook
+// never arms.
 //
 // ⚠ AN UNPINNED ASSUMPTION, RECORDED RATHER THAN ENFORCED. The coverage above
 // depends on the local restore (`ReactFlowGraph`'s init effect →
@@ -831,8 +831,7 @@ export function applyBootAnalysisVerdict(input: {
 // behind two awaits (`getSessionIdentity`, then the scenario-graph fetch) in a
 // fire-and-forget hook. But NOTHING PINS IT, and if it ever inverted this leg
 // would silently no-op on `!held`. Deliberately not defended with ordering
-// machinery — the failure is a lost withholding on one boot, not a wrong claim,
-// and the poll leg re-asserts it on the next read.
+// machinery — the failure is a lost withholding, not a wrong claim.
 
 export interface BootLeaderClaimWithholdingStore {
   readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
