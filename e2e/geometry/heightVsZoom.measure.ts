@@ -6,13 +6,29 @@
  * then the stride is computed against a height the card does not keep, and
  * every row can be under-spaced without anything in the layout being wrong.
  *
- * CONTROLS (a probe with no control proves nothing — CLAUDE.md trap 13):
+ * CONTROLS (a probe with no control proves nothing — CLAUDE.md trap 13).
+ * ⚠ SPLIT INTO WHAT IS ENFORCED AND WHAT IS ONLY RECORDED, because this block
+ * previously listed all four under one heading and a reader took the heading
+ * for the guarantee. A declared control that nothing asserts is prose.
+ *
+ * ASSERTED — these RED the run:
+ *  · NON-VACUITY (`:346`): at least one card must CHANGE height across the LOD
+ *    threshold. A comparison that discriminates nothing cannot report that
+ *    nothing grew.
+ *  · COMPLETENESS (`:382`): every requested zoom was visited, and cards were
+ *    measured at all. A cell producing no data is an INSTRUMENT failure, and
+ *    the probe must be the thing that says so.
+ *
+ * CAPTURED AND NEVER READ — recorded in `HZJSON` for a human, enforced nowhere:
  *  · POSITIVE: the `--canvas-label-scale` custom property on the React Flow
- *    root, and the computed font-size of a node title, MUST change across the
- *    zoom series. If they do not, the probe never exercised the mechanism.
- *  · CONTRAST: an element OUTSIDE the React Flow subtree must NOT change its
- *    font-size across the same series. A probe that reports "everything moved"
- *    is measuring a page re-render, not this mechanism.
+ *    root (`:174`), and the computed font-size of a node title, SHOULD change
+ *    across the zoom series; if they do not, the probe never exercised the
+ *    mechanism — but nothing here checks that.
+ *  · CONTRAST: `outsideFont` (`:177`), an element OUTSIDE the React Flow
+ *    subtree, SHOULD NOT change across the same series; a probe reporting
+ *    "everything moved" is measuring a page re-render — again, unchecked.
+ *  Promoting these two to assertions is real work, not a rename: it needs a
+ *  settled-sample guard, since an unsettled camera moves neither.
  *
  * ⭐ AND THE SECOND HALF, WHICH IS THE ONE THE FIX ACTUALLY RESTS ON (review
  * note 1). "The layout ignores zoom" and "the number we feed the layout ignores
