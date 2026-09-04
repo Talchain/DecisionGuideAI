@@ -105,13 +105,36 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
     const ul = list('factors')
 
     expect(hasClass(ul, 'grid')).toBe(true)
-    expect(hasClass(ul, 'grid-cols-[auto_minmax(0,1fr)_auto_auto]')).toBe(true)
 
-    // The identity track must carry an explicit 0 floor. `1fr` alone resolves
-    // its automatic minimum to `min-content`, so a long label would push the
-    // value column off-axis and reintroduce the whole defect. This is the one
-    // token whose absence looks harmless and is not.
-    expect(classes(ul).some(c => c.includes('minmax(0,1fr)'))).toBe(true)
+    /**
+     * ⚠⚠ THE PROPERTY, NOT THE LITERAL — and the property is what this test
+     * always meant. It pinned `grid-cols-[auto_minmax(0,1fr)_auto_auto]`
+     * exactly, with the reason stated as: "`1fr` alone resolves its automatic
+     * minimum to `min-content`, so a long label would push the value column
+     * off-axis". That danger is `1fr` WITHOUT an explicit minimum. An explicit
+     * minimum of `6rem` bounds the track just as `0` does — it simply bounds it
+     * higher — so the string moved and the guarantee did not.
+     *
+     * It moved for a measured reason. On a factor row carrying an estimate
+     * hint the label rendered at **37px** — about four characters — because
+     * `1fr` means "a share of what is LEFT after the auto tracks reach
+     * max-content", so the value and attention columns were served first. A
+     * floor on the TRACK is the only thing that reserves width before they are:
+     * `min-w-[6rem]` on the label ITEM cannot, because these rows are
+     * `grid-cols-subgrid` and the parent sizes the track across every row.
+     *
+     * So: the identity track must declare an explicit, FIXED minimum. Never a
+     * bare `1fr`, and never `min-content`/`auto`, which are the unbounded forms
+     * this test exists to keep out.
+     */
+    const identityTrack = classes(ul)
+      .find(c => /^grid-cols-\[/.test(c))
+      ?.match(/minmax\(([^,]+),\s*1fr\)/)?.[1]
+    expect(identityTrack, 'the identity track must be minmax(<fixed>, 1fr)').toBeDefined()
+    expect(
+      /^(0|\d+(\.\d+)?(px|rem|em|ch))$/.test(identityTrack ?? ''),
+      `the identity track's floor must be a fixed length, not "${identityTrack}" — an unbounded minimum lets a long label push the value column off-axis`,
+    ).toBe(true)
 
     // No row may declare tracks of its own — that is the defect, restated.
     for (const r of rowsIn(ul)) {
