@@ -430,6 +430,33 @@ export function AtAGlance({
             </span>
           </div>
 
+          {/* ⚠ DIRECTLY UNDER THE LABEL, BEFORE THE BAR — the producer's reason
+              is the SECOND CLAUSE of a sentence whose first clause is the
+              verdict label, so it begins lowercase by construction: "Sensitive"
+              + "none of the factors we could test changed which option leads on
+              its own, but…". Rendered after the win bar it read as a detached
+              fragment starting mid-sentence — witnessed on the deployed build
+              (`b14cd478`, guest, 291px dock, completed run) as an 11px block
+              with its antecedent two elements away.
+
+              `AnalysisFooter` already renders this exact producer string
+              directly beneath its status word, with nothing between, and that
+              arrangement is proven (`AnalysisFooter.metaWrap.spec.tsx`). This
+              matches it.
+
+              ⚠ THE COPY IS UNCHANGED AND STAYS THE PRODUCER'S. This is an
+              ORDERING fix, not a rewrite — the same ruling `AnalysisFooter`
+              records: "Wrapping, not rewriting: the copy is the producer's and
+              stays verbatim." Capitalising the clause here would falsify a
+              sentence CEE composed as a continuation. */}
+          {glance.verdict.reason ? (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+              data-testid={`${testId}-verdict-reason`}
+            >
+              {glance.verdict.reason}
+            </p>
+          ) : null}
           {glance.winFraction !== null ? (
             <span
               className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
@@ -443,14 +470,6 @@ export function AtAGlance({
             </span>
           ) : null}
 
-          {glance.verdict.reason ? (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${testId}-verdict-reason`}
-            >
-              {glance.verdict.reason}
-            </p>
-          ) : null}
         </div>
       ) : null}
 
