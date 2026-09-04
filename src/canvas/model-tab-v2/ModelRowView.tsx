@@ -814,7 +814,14 @@ function ValueCell({
       <span
         data-testid={testid}
         className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
-          estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0 truncate'
+          /* ⚠ `min-w-0` ONLY — NEVER `truncate` HERE. This element is a FLEX
+             CONTAINER (`flex items-center`) holding the value and its estimate
+             hint. `truncate` sets `overflow:hidden` on the container, and the
+             rendered result was the value drawing OVER the label: rows read
+             "Bottom-Not sett… Olumi: Very high (0.8)". Caught in a screenshot
+             of this very change, not by a test — jsdom performs no layout.
+             The ellipsis belongs on a text LEAF, not on the flex box. */
+          estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
         }`}
       >
         {display ?? ''}
@@ -848,7 +855,7 @@ function ValueCell({
          fix that half the rows never receive." The editable rows are exactly the
          ones carrying "Not set", which is where the relationship list lives. */
       className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
-        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0 truncate'
+        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
         e.stopPropagation()
