@@ -164,9 +164,30 @@ describe('ModelTabBody — inference_warnings dual read (ROADMAP 2.173)', () => 
     setReport({ inference_warnings: WARNING_ITEMS })
     renderModelTab()
 
-    // Banner: 1 ROOT_NODE_DEFAULT_VALUE item → "1 factor has no value set"
-    expect(screen.getByTestId('root-node-warning')).toBeInTheDocument()
-    expect(screen.getByText(/1 factor has no value set/)).toBeInTheDocument()
+    // Banner: 1 ROOT_NODE_DEFAULT_VALUE item.
+    //
+    // ⚠⚠ THE BANNER MUST NAME THE SUBSET IT COUNTS. It counts
+    // ROOT_NODE_DEFAULT_VALUE warnings — STARTING factors where the engine
+    // substituted zero — not "factors with no value set", which is a different
+    // and larger set that `ModelOutline` counts separately and correctly.
+    //
+    // This previously read "1 factor has no value set" and rendered four inches
+    // below the outline's "Factors 3 · 3 with no value yet", so a user saw 1 and
+    // 3 for what looked like one question. `ModelOutline.tsx:192-213` records
+    // that this exact incoherence already "sent an expert lane chasing a
+    // regression that did not exist"; the outline half was fixed then and this
+    // half was not.
+    //
+    // Asserted as a PROPERTY, not a string: the banner must name the starting
+    // subset, and must NOT make the unqualified claim that collides with the
+    // outline.
+    const banner = screen.getByTestId('root-node-warning')
+    expect(banner).toBeInTheDocument()
+    expect(banner.textContent).toMatch(/starting factor/i)
+    expect(
+      /\bfactors? (?:has|have) no value set\b/i.test(banner.textContent ?? ''),
+      `the banner makes the unqualified "no value set" claim that collides with the outline: "${banner.textContent}"`,
+    ).toBe(false)
 
     expect(screen.getByText(/Inference warnings:/)).toBeInTheDocument()
     expectAuditRowCarriesEveryCode()

@@ -38,3 +38,39 @@ export type StaleReason = 'changed' | 'unconfirmed'
 export function staleReasonFromFreshness(freshness: string | null | undefined): StaleReason {
   return freshness === 'stale' ? 'changed' : 'unconfirmed'
 }
+
+/**
+ * ⭐⭐ THE SAME QUESTION THE FOOTER ANSWERS, READ FROM THE SAME AUTHORITY.
+ *
+ * `staleReasonFromFreshness` above maps the dock's displayed freshness, and it
+ * is correct about what it can see — but it CANNOT SEE A LOCAL EDIT. CEE's
+ * `freshness` only turns `'stale'` once the server knows; a user who has just
+ * changed a value on the canvas has produced a change this build knows about
+ * with certainty and CEE has not been told about yet.
+ *
+ * The footer already reads the wider authority. `ReanalyseBar`'s own header
+ * says so: the trust semantic is `'changed'` on "CEE 'stale' OR a local dirty
+ * edit". So on exactly that state the two surfaces disagreed ON SCREEN,
+ * witnessed on the deployed build:
+ *
+ *   footer  "Model changed. Results may be out of date."     (definite)
+ *   panel   "We cannot confirm whether this analysis
+ *            reflects the current model."                     (uncertain)
+ *
+ * The panel was not being careful, it was being blind — and a surface that says
+ * it cannot tell, beside one that just told you, reads as the product not
+ * knowing its own state. This estate's remedy for one question under two gates
+ * is ONE shared admission every consumer reads, never aligned defaults.
+ *
+ * ⚠ THE FAIL-CLOSED RULE IS UNCHANGED AND STILL ASYMMETRIC. Only `'changed'`
+ * — the authority's own affirmative — licenses the stronger claim. `'current'`,
+ * `'cannot_confirm'`, `'none'` and any token this build does not know all yield
+ * `'unconfirmed'`. A local dirty edit is EVIDENCE OF A CHANGE, so admitting it
+ * honours that rule rather than relaxing it: what is banned is asserting a
+ * change from an ABSENCE of evidence, not from its presence.
+ */
+export function staleReasonFromTrustSemantic(
+  semantic: string | null | undefined,
+): StaleReason {
+  return semantic === 'changed' ? 'changed' : 'unconfirmed'
+}
