@@ -94,10 +94,20 @@ const rel = (abs: string) => path.relative(REPO_ROOT, abs)
  * importers — so the list is now DERIVED by `D4` rather than written here, and
  * this sentence is only a summary of what that test asserts.
  *
- * ⭐ THAT PRECONDITION IS ASSERTED BELOW, NOT ASSUMED. Flip the constant to
- * `true` and this suite REDs, so the input must be fixed BEFORE the v1 stack can
- * reach a user. An exception whose validity condition is only written in a
- * comment is an exception that outlives its reason.
+ * ⭐ THAT PRECONDITION IS ASSERTED BELOW, NOT ASSUMED — ALL THREE CONJUNCTS OF
+ * IT. An earlier version of this sentence was true of only ONE (the constant),
+ * while the comment implied the whole chain; a reviewer mounted a live
+ * `<OptionsSection>` outside the gate and 3,219 tests stayed green. "Is it
+ * mounted?" is three facts, and any one alone leaves a route open:
+ *
+ *   D2  the gate's constant is `false`
+ *   D3  the hosts are rendered INSIDE that gate          (containment)
+ *   D4  nothing else imports the hosts at all            (importer closure)
+ *
+ * Flip the constant, mount a host outside the gate, or add a second importer,
+ * and this suite REDs — so the input must be fixed before ANY of those routes
+ * can put it in front of a user. An exception whose validity condition is only
+ * written in a comment is an exception that outlives its reason.
  */
 /**
  * ⚠ PINNED BY REASON AND MAGNITUDE, NOT BY LOCATION ALONE. An earlier version
