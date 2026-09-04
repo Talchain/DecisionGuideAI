@@ -505,7 +505,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     ? (nodeType === 'goal' ? 'border-text-light border-dashed' : 'border-text-light')
     : undefined
 
-  // One condition, two consumers (the mount below and the footer padding).
+  // ⚠ ONE CONDITION, ONE CONSUMER — the `NodeQuickActions` mount below.
+  //
+  // This line used to read "One condition, two consumers (the mount below and
+  // the footer padding)". FALSE at these bytes: the footer padding is a
+  // DISJUNCTION whose second arm is a hand-listed `factor | option` pair (see
+  // the `padding:` entry in the card style below). Corrected 4 Sep 2026 after a
+  // review found a PR had inherited the claim from THIS comment instead of
+  // reading the expression — CLAUDE.md trap 14, an honest label overwritten by
+  // a false one and then quoted back as evidence.
   const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
 
   /**
@@ -580,11 +588,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
         outlineOffset: isAnalysisDriver ? '3px' : undefined,
         backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
-        // Footer padding reserved on any card that renders something in its
-        // bottom band. That used to mean ActionIcons (factor, option) only; the
-        // R5 quick-action layer now sits bottom-right on every node type that
-        // mounts it, so the reservation follows the SAME condition rather than
-        // a hand-listed pair of node types that would silently go stale.
+        // ⚠ THIS IS A DISJUNCTION, AND THE COMMENT THAT USED TO SIT HERE
+        // DENIED IT. It said the reservation "follows the SAME condition rather
+        // than a hand-listed pair of node types". It does not: `4a337f70` OR'd
+        // `showQuickActions` in FRONT of the legacy `factor | option` pair and
+        // KEPT the pair. Both arms are live.
+        //
+        // WHERE THEY DIVERGE: exactly when `lodBodyHidden` is true — below the
+        // 0.5 legibility floor. There `showQuickActions` is false and
+        // `NodeQuickActions` is unmounted, yet a `factor` or `option` card
+        // still reserves 24px of bottom band for it (dead space), while every
+        // other node kind drops the reservation across the same threshold. That
+        // is the band the product's own clamped default camera operates in, so
+        // it is not cosmetic, and nothing pins the divergent branch.
+        //
+        // NOT changed here (4 Sep 2026, rowed): which way it should resolve —
+        // drop the reservation below the floor, or keep one uniform card box —
+        // is a design ruling, not a defect with a single obvious repair.
         padding: showQuickActions || ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens)
           ? '12px 12px 24px 12px'
           : '12px',
@@ -611,8 +631,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           same two shortcuts: ask Olumi about this, open this node's details.
           Bottom-RIGHT: the top-right corner is owned by node-corner-stack
           below, and this layer overlapped it by ~6px at a lower z until a
-          review caught it. `showQuickActions` is the single source for both the
-          mount and the footer padding that reserves its space. */}
+          review caught it. ⚠ `showQuickActions` gates THIS MOUNT ONLY. The
+          older sentence here called it "the single source for both the mount
+          and the footer padding"; that was false at these bytes — the padding
+          above is a disjunction that also fires on `factor` and `option` below
+          the legibility floor, where this layer is unmounted. */}
       {showQuickActions && (
         <NodeQuickActions
           nodeId={id}
