@@ -36,6 +36,7 @@
  */
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import { GATE_TAG } from './canvasGateSet'
 import {
   openCanvas, preparePage, seedStarterDraft, clearNotifications,
   minimiseFloatingOlumiPanel, freezeMotion, waitForVisualQuiescence,
@@ -86,8 +87,25 @@ async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
   }, rowId)
 }
 
+test.describe('model row edit reflow', () => {
 for (const width of WIDTHS) {
-  test(`MODEL ROW EDIT REFLOW @dock ${width}px`, async ({ page }) => {
+  /**
+   * ⭐ GATED. `GATE_TAG` admits this to the Canvas Browser Gate, and
+   * `canvasGateSet.ts` registers it BY NAME in both directions — tag without a
+   * registry entry is UNEXPECTED-red, registry entry without a tag is
+   * MISSING-red.
+   *
+   * ⚠ IT IS GATED BECAUSE `valueCellMetrics.ts` CLAIMS IT IS. That file says a
+   * browser test "fails loudly" if anyone changes the edit input's font size,
+   * line-height, border or padding. When this measure was first written it ran
+   * in ZERO CI jobs — not in the gate registry, its config invoked by no
+   * workflow, and `*.measure.ts` excluded by the default `testMatch` — so the
+   * sentence promised a guard that did not exist, guarding a hand-maintained
+   * constant, in a file whose own header calls itself a hand-maintained mirror.
+   * A reviewer found it. Registering the file was the better of the two
+   * closures because it makes the sentence TRUE rather than merely softening it.
+   */
+  test(`MODEL ROW EDIT REFLOW @dock ${width}px`, { tag: GATE_TAG }, async ({ page }) => {
     await preparePage(page, VP)
     await page.addInitScript((w) => {
       try { localStorage.setItem('panel.results.width', String(w)) } catch { /* asserted below */ }
@@ -167,3 +185,4 @@ for (const width of WIDTHS) {
     expect(Math.abs(textDelta), `entering edit moved the value itself by ${textDelta}px at a ${width}px dock`).toBeLessThanOrEqual(1)
   })
 }
+})

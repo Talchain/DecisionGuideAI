@@ -18,11 +18,24 @@
  * So the idle cell reserves the taller box and the glyph size changes inside a
  * stationary frame.
  *
- * ⭐ THIS NUMBER IS A HAND-MAINTAINED MIRROR OF THE INPUT'S BOX, AND IT IS PINNED
- * BY A BROWSER TEST RATHER THAN BY A COMMENT. `e2e/geometry/modelRowEditReflow.measure.ts`
- * measures the real rendered delta at both dock widths and REDs if it is not zero,
- * so changing the input's font size, line-height, border or padding without
- * changing this constant fails loudly. jsdom performs no layout, so no unit test
- * can hold this — that is why the guard is a geometry measure.
+ * ⭐ THIS NUMBER IS A HAND-MAINTAINED MIRROR OF THE INPUT'S BOX, AND WHAT PINS IT
+ * IS A GATED BROWSER TEST — `e2e/geometry/modelRowEditReflow.measure.ts`, both
+ * arms registered in `e2e/geometry/canvasGateSet.ts` and carrying `GATE_TAG`, so
+ * the **Canvas Browser Gate** runs them on every PR. It measures the real
+ * rendered delta at both dock widths and REDs if it is not zero, so changing the
+ * input's font size, line-height, border or padding without changing this
+ * constant fails loudly. jsdom performs no layout, so no unit test can hold
+ * this — that is why the guard is a geometry measure.
+ *
+ * ⚠ THAT SENTENCE WAS FALSE WHEN IT WAS FIRST WRITTEN, AND A REVIEWER CAUGHT IT.
+ * The measure existed but ran in ZERO CI jobs: absent from the gate registry,
+ * its config invoked by no workflow, and `*.measure.ts` excluded by the default
+ * `testMatch`. So this file promised the next lane a guard that did not exist,
+ * over a hand-maintained constant, in the paragraph that calls itself a
+ * hand-maintained mirror. The fix was to register the test rather than to soften
+ * the claim — a comment that describes a guard is worth nothing; a comment that
+ * NAMES one you can go and read is worth something. If you are reading this
+ * because the gate went red, the constant and the input's box have diverged:
+ * re-derive the box, do not raise the tolerance.
  */
 export const EDIT_RESERVED_HEIGHT_CLASS = 'min-h-[23px]'
