@@ -10,8 +10,11 @@
  * lines, and the two copies had drifted in three separate ways:
  *
  *   • `RiskNode.tsx` rendered the subject sliced to 18 chars + "..." INSIDE the
- *     sentence, and sent the full untruncated subject. A user read
- *     "What if which we believe is p… worsens?" and asked something else.
+ *     sentence, and sent the full untruncated subject. For the subject
+ *     "Regional Supplier Reliability", `slice(0, 18)` is "Regional Supplier "
+ *     — the trailing space is the 18th character — so a user READ
+ *     "What if Regional Supplier ... worsens?" and SENT
+ *     "What if Regional Supplier Reliability worsens?".
  *   • `FactorNode.tsx` rendered `cleanedLabel.toLowerCase()` and sent
  *     `cleanedLabel` un-lowercased.
  *   • `FactorNode.tsx` additionally sent a trailing "How should I plan for that
