@@ -141,3 +141,94 @@ export function statedTargetNumber(value: unknown): number | null {
   const parsed = Number(trimmed)
   return Number.isFinite(parsed) ? parsed : null
 }
+
+/**
+ * THE STATED TARGET, AS THE CARD RESOLVES IT — the value or `null`.
+ *
+ * ⚠ THIS IS `GoalNode`'s OWN CHAIN, MOVED HERE RATHER THAN RE-DERIVED. The card
+ * resolved it inline: a user-set `success_threshold` wins (and only when
+ * `threshold_source === 'user'` attests it), otherwise CEE's backfilled
+ * `goal_threshold_raw`, with `isStatedTargetValue` deciding EXISTENCE at both
+ * steps. Two copies of that chain is the hand-maintained mirror this module
+ * exists to abolish, so `GoalNode` now calls this and holds none of its own.
+ *
+ * Differs from `resolveGoalTarget` in one respect that matters: this answers
+ * EXISTENCE with `isStatedTargetValue`, so a `NaN` or an `Infinity` sitting in
+ * `success_threshold` is NOT a stated target. `resolveGoalTarget` admits any
+ * `typeof number` because its job is to carry provenance for a value that has
+ * already been judged to exist.
+ */
+export function statedGoalTargetRaw(
+  data: GoalTargetSource | null | undefined,
+): string | number | null {
+  if (!data) return null
+  const userThreshold = data.threshold_source === 'user' ? data.success_threshold : undefined
+  const chosen = isStatedTargetValue(userThreshold) ? userThreshold : data.goal_threshold_raw
+  return isStatedTargetValue(chosen) ? (chosen as string | number) : null
+}
+
+/**
+ * ⭐⭐⭐ THE ADMISSION: *CAN THIS PERSON ADD A SUCCESS TARGET RIGHT NOW?*
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE A CHIP PROMISED A ROUTE INTO A DEAD END. The goal
+ * card's chip fires on the NODE (`statedGoalTargetRaw` above). It SAID
+ * "Target not captured — add one" until #1172 round 3, which withdrew that
+ * promise; it now states the fact alone. The dead end below is what the
+ * promise pointed at. The inspector's `GoalPanel` decided whether
+ * to render `GoalThresholdEditor` from the STORE SCALAR `goalThreshold`, which
+ * `setCeeAnalysisReady` writes WITHOUT EVER TOUCHING THE NODE (store.ts) —
+ * the node's target fields are written by OTHER paths entirely —
+ * `backfillGoalThresholdOntoGoalNode` (CEE's raw, only when the payload carries
+ * that key), `useInspectorMutations.setThreshold`, and
+ * `setGoalThresholdAndUpdateNode` (the editor's own commit, which writes
+ * `success_threshold` + `threshold_source: 'user'`). None of them is
+ * `setCeeAnalysisReady`, which is the whole point: no write orders these two
+ * scalars, so they diverge.
+ *
+ * So on a payload carrying `goal_threshold` and no raw, the two disagreed and
+ * the user was told to add a target, then told one already existed
+ * ("Success means reaching ≥ 0.8"), with nothing to press. `store.ts` records
+ * that exact state having shipped.
+ *
+ * ── WHY THIS IS NOT "ALIGN THE TWO DEFAULTS" (CLAUDE.md trap 21) ───────────
+ * The two authorities answer DIFFERENT questions and both answers are correct:
+ *   the node scalar   "has a target been CAPTURED onto this goal?"
+ *   the store scalar  "does the run pipeline hold a NUMBER for this goal?"
+ * Making them agree would couple two things that were never the same question.
+ * What the USER is asking is a third thing — *may I add one?* — and that is the
+ * question this function is named for. Both consumers read THIS, so the chip's
+ * promise and the editor's presence cannot drift:
+ *
+ *   `GoalNode`  renders the chip  iff `canCaptureGoalTarget(node.data)`
+ *   `GoalPanel` renders the editor if `canCaptureGoalTarget(node.data)`
+ *
+ * The second is an `if`, not an `iff`, and deliberately: the panel ALSO keeps
+ * rendering the editor when it has no number to display at all, which is the
+ * pre-existing "From your brief" pre-population branch. The admission is a
+ * SUFFICIENT condition, never overridden — so *admission yes ⟹ editor present*
+ * holds by construction.
+ *
+ * ⚠⚠ AND THAT SENTENCE ENDED "…, which is exactly what makes the chip's promise
+ * honest" UNTIL #1172 ROUND 3, WHERE MEASUREMENT REFUTED THE CONCLUSION. The
+ * implication is true and was re-derived end-to-end through the real
+ * `InspectorRouter`. It does not carry the conclusion, because **PRESENCE IS
+ * NOT ANSWERABILITY**: the router wraps the panel body in an unconditional
+ * `<fieldset disabled>`, so the editor this implication guarantees is rendered
+ * INERT. The chip's promise was "add one", not "see one", and it has been
+ * withdrawn (`GoalNode.tsx`); this module now guarantees exactly what it says
+ * and nothing about honesty downstream of it.
+ *
+ * The lesson worth keeping: an implication proved BY CONSTRUCTION is still only
+ * an implication about the thing it names. Whether that thing is any use to a
+ * reader is a different question, one mount further out, and it needed a
+ * different instrument to see — every guard in that PR mounted `GoalPanel`
+ * directly, where the boundary does not exist.
+ *
+ * ⚠ IT TAKES THE NODE AND NOTHING ELSE, ON PURPOSE. Handing it the store
+ * scalar would put the card back on the weaker source this module's header
+ * exists to move it off, and would make the card's own chip depend on state the
+ * card cannot see.
+ */
+export function canCaptureGoalTarget(data: GoalTargetSource | null | undefined): boolean {
+  return statedGoalTargetRaw(data) == null
+}

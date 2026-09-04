@@ -900,10 +900,30 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             variant is invisible to every runtime check (that module's copy is also
             scanned by the glossary guard). Both surfaces answer one question —
             "success is undefined, what follows?" — so a single string is correct
-            here rather than a two-questions-one-name conflation. The ACTION is not
-            duplicated: GoalNode co-renders its "No target set" chip in exactly this
-            state (GoalNode.tsx `{!hasThreshold && !isPostAnalysis && ...}`), and that
-            chip carries both the action and its own aria-label. */}
+            here rather than a two-questions-one-name conflation.
+            ⚠ THIS BLOCK ONCE READ that the ACTION is not duplicated "because
+            GoalNode co-renders its `Target not captured — add one` chip … and that
+            chip carries both the action and its own aria-label". BOTH HALVES WERE
+            FALSE AT THIS HEAD, and they were written by an earlier round of THIS PR,
+            then not re-synced when the same PR withdrew that copy — the exact defect
+            class the final commit exists to correct, one file over.
+            Derived: `GoalNode.tsx:160` `export const GOAL_NO_TARGET_STATE =
+            'Target not captured'` — there is no "— add one", and after the
+            withdrawal the co-rendered chip states the FACT and offers NO action.
+            So the reason `StatusPill` needs no action here is NOT that a sibling
+            supplies one. It is that there is no action to offer while the
+            destination is inert.
+            ⚠ AN EARLIER DRAFT OF THIS BLOCK ADDED "…the fact plus a route to the
+            details, which is what both surfaces now give". THAT WAS FALSE, and it
+            was written while correcting a false sentence four lines above — which
+            is worth recording, because it is the same failure one round later.
+            `StatusPill` is a `<span role="status">` (`StatusPill.tsx:45-46`) with
+            NO handler: its channels are "Needs input" and the title sentence, and
+            neither is a route. Only the sibling chip is a real
+            `<button onClick={openNodeInspector}>` (`GoalNode.tsx:623`). So exactly
+            ONE of the two surfaces offers a route, and this pill states the fact
+            alone — which is the honest thing for an inert destination, and is the
+            whole reason it needs no action. */}
         {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
           <StatusPill
             label="Needs input"

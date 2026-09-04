@@ -2,9 +2,11 @@
  * Goal node component — v3 wireframe
  *
  * Layer 1 (always visible):
- *  - No threshold (either phase): one compact "No target set" status chip that
- *    opens this node's inspector. R5/L-47: no instructional prose, no full
- *    buttons on the node.
+ *  - No threshold (either phase): one compact "Target not captured" status chip
+ *    that opens this node's inspector. R5/L-47: no instructional prose, no full
+ *    buttons on the node. (It read "Target not captured — add one" until #1172
+ *    round 3 withdrew the repair clause; see the chip's own block below for
+ *    why the destination could not keep that promise.)
  *  - With threshold: `GOAL_TARGET_PREFIX` + value ("Target: 15%") + provenance
  *    icon. The SAME string is this card's reduced line below the legibility
  *    floor — see `targetLine`, which is the only place it is built.
@@ -32,7 +34,11 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
-import { isStatedTargetValue } from '../domain/goalTarget'
+import {
+  canCaptureGoalTarget,
+  statedGoalTargetRaw,
+  type GoalTargetSource,
+} from '../domain/goalTarget'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../components/results/utils/selectGoalProbability'
@@ -61,7 +67,120 @@ import { formatGoalProbability } from '../../components/results/utils/displayFlo
  * contradicting body hidden.
  */
 const GOAL_TARGET_PREFIX = 'Target:'
-const GOAL_NO_TARGET_LINE = 'No target set'
+
+/**
+ * ⭐⭐⭐ THE NO-TARGET CHIP ANSWERS A QUESTION ABOUT THE MODEL, AND MUST NOT
+ * PHRASE ITS ANSWER AS A VERDICT ON THE READER.
+ *
+ * ⚠⚠ WITNESSED ON A REAL USER'S SCREEN, 3 Sep 2026. This card rendered its
+ * title and this chip ~20px apart:
+ *
+ *     title   Reach £30k MRR Within 18 Months
+ *     chip    No target set
+ *
+ * The target is IN THE TITLE. The anchor element of the whole model
+ * contradicted itself in one glance — and the chip was not lying about the
+ * data: the compiled model behind it carried `goal_threshold: null` and
+ * `goal_constraints: null` (real 19-turn session bundle,
+ * `Talchain/olumi-programme-docs` @ `b15bf3f`,
+ * `artefacts/manual-test-2026-09-03/`). Extraction is a separate defect with a
+ * separate owner; nothing here tries to fix it.
+ *
+ * ── TWO QUESTIONS UNDER ONE SENTENCE (CLAUDE.md trap 21) ───────────────────
+ *   what this card computes   "does the MODEL hold a threshold?"   → no
+ *   what the reader hears     "did I state a target?"              → you didn't
+ *
+ * The remedy trap 21 prescribes is to NAME THEM APART, not to align them and
+ * not to hide the chip. So the chip keeps answering the first question and
+ * moves its subject onto Olumi's CAPTURE rather than the user's statement.
+ * `Target not captured` is equally honest for the user who genuinely never
+ * stated one — nothing was captured either way — and it stops accusing the one
+ * who did.
+ *
+ * ⚠ THE SIBLING SURFACE IS DELIBERATELY NOT TOUCHED. The Reasoning panel's
+ * model strip says `Target · None set` (`analysisNewCopy.ts`), adjudicated
+ * there as a fact about the model under a `Target` caption that frames it as a
+ * readout. This chip has no such frame. The two are not a hand-copied pair and
+ * neither contradicts the other — both say the model holds nothing.
+ *
+ * ── ⚠⚠ AND THE REPAIR CLAUSE IS WITHDRAWN — IT NAMED A ROUTE THAT IS INERT ──
+ * THIS BLOCK SAID, UNTIL #1172 ROUND 3: *"the inspector's goal panel renders
+ * `GoalThresholdEditor` on exactly this null-target branch, … because copy that
+ * promises an affordance is honest only while the affordance answers."* The
+ * BAR is right and is kept. The CLAIM THAT IT WAS MET WAS FALSE, and the reason
+ * is one layer below where the panel was being read.
+ *
+ * `InspectorRouter` wraps the whole panel body in an unconditional
+ * `<fieldset disabled data-authority="disabled">`, beneath a notice reading
+ * "The other fields here are read-only for now because those changes can't yet
+ * be saved." `GoalThresholdEditor` renders `<input id="goal-threshold">`, a
+ * form-associated element, which that fieldset inerts. So the journey the copy
+ * promised was: *Target not captured — add one* → click → *those changes can't
+ * yet be saved* → a DISABLED input. The editor is present; it does not answer.
+ *
+ * ⚠ AND THE OBVIOUS REMEDY IS THE WORSE LIE, WHICH IS WHY THE COPY MOVED AND
+ * THE BOUNDARY DID NOT. Carving this editor out of the fieldset — as
+ * `inspector-rename-trigger` already is — fails the precondition that carve-out
+ * rests on. The rename is outside because it SAVES TO THE SHARED MODEL:
+ * `updateNodeLabel` records a durable `structural_rename` intent that
+ * `useStructuralRenameEvents` puts on the wire. `setGoalThresholdAndUpdateNode`
+ * has no such carrier — `WIRE_SYSTEM_EVENT_TYPES` (`conversation/types.ts`) is
+ * the single source for the entire UI→CEE vocabulary and none of its eleven
+ * members carries a goal threshold, so the write reaches CEE only as a
+ * `direct_graph_edit` NOTIFICATION ('ack_and_commit': a turn row and NO graph
+ * write). It survives a reload in THIS browser (autosave hashes
+ * `success_threshold` by default — #457) and it does not reach the shared
+ * model. Carving it out would also stamp `threshold_source: 'user'` on the node
+ * that drives the PLoT request, attesting a target the reader never stated.
+ *
+ * So the chip now states the FACT and says only what the click actually does.
+ * Naming a live route instead (the Model tab's own goal section) is the better
+ * answer and is deliberately NOT guessed at here: which of those surfaces is
+ * mounted under the deployed flag posture is unmeasured, and a third
+ * unwitnessed promise is the defect, not the fix. ⚠ NOT YET IN THE REGISTER —
+ * handed to the orchestrator with this PR rather than minted here, because a
+ * mint-check that has not swept every tier is how this estate got fifteen
+ * colliding ids. Do not read this sentence as a row.
+ *
+ * `goalChipPromiseVsDestination.spec.tsx` holds the rule, and holds it as a
+ * CONDITIONAL: it derives the editor's inertness through the REAL router and
+ * bans a repair promise only while that holds. Make the editor answer and its
+ * first assertion REDs, which is the invitation to restore the promise
+ * deliberately rather than a ban that quietly outlives its reason.
+ *
+ * ── WHY A COMPOSITION AND NOT THREE HAND-WRITTEN STRINGS ───────────────────
+ * The promise had been written out THREE times — visible text, `aria-label`
+ * (two arms) and `title` (two arms) — so withdrawing it from the chip alone
+ * would have left it in the accessible name and the tooltip, where nobody
+ * greps. Every channel a reader can reach is now DERIVED from one function, and
+ * the rendered chip is asserted equal to it, so the next edit cannot move one
+ * and miss the others.
+ */
+/** The fact, and the reduced line below the legibility floor. */
+export const GOAL_NO_TARGET_STATE = 'Target not captured'
+
+/**
+ * Every channel a reader can reach the no-target chip through.
+ *
+ * ⚠ SAYS WHAT THE CLICK DOES, NOT WHAT THE READER CAN THEN FIX. "Open its
+ * details" is a claim about behaviour that holds; "to add one" was a claim
+ * about the destination that does not.
+ */
+export function goalNoTargetChannels({ diagnostic }: { diagnostic: boolean }): {
+  visible: string
+  'aria-label': string
+  title: string
+} {
+  return {
+    visible: GOAL_NO_TARGET_STATE,
+    'aria-label': diagnostic
+      ? `${GOAL_NO_TARGET_STATE}, and this run produced no probability — open this goal's details`
+      : `${GOAL_NO_TARGET_STATE} — open this goal's details`,
+    title: diagnostic
+      ? "Olumi hasn't captured a measurable success target for this goal, and the analysis finished without producing a probability. Open its details to see what the model holds, and check the model for inputs that are still incomplete."
+      : "Olumi hasn't captured a measurable success target for this goal. Open its details to see what the model holds.",
+  }
+}
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
@@ -134,15 +253,31 @@ export const GoalNode = memo((props: NodeProps) => {
   // ⚠ NON-FINITE IS NOT A TARGET, and that narrowing is now safe to make here:
   // `AdvancedField`'s guard (this PR) was admitting `Infinity`, `-Infinity`,
   // `1e400` and `9e999` straight through `setThreshold` onto this very field.
-  const userThreshold = props.data?.threshold_source === 'user'
-    ? (props.data?.success_threshold as unknown)
-    : undefined
-  const ceeThresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
-  const thresholdRaw = isStatedTargetValue(userThreshold)
-    ? (userThreshold as string | number)
-    : ceeThresholdRaw
+  //
+  // ⭐⭐⭐ AND THE WHOLE CHAIN NOW LIVES IN `domain/goalTarget.ts`, BECAUSE A
+  // SECOND SURFACE HAD TO ASK THE SAME QUESTION. `GoalPanel` decides whether to
+  // offer `GoalThresholdEditor`, and it was deciding from the STORE SCALAR —
+  // a different authority, written by a different reducer, which
+  // `setCeeAnalysisReady` moves without ever touching this node. On a payload
+  // carrying `goal_threshold` and no raw the panel answered "Success means
+  // reaching ≥ 0.8" and offered nothing to press, while the chip fired — the
+  // two surfaces contradicting each other about the same goal.
+  //
+  // The remedy is NOT to align the two authorities — they answer different
+  // questions and both answers are right (trap 21). It is to name the question
+  // the READER is asking — *has anything been captured onto this goal?* — give
+  // it one owner, and have both consumers read it. `canCaptureGoalTarget` is
+  // that owner. ⚠ It settles PRESENCE of the editor and says nothing about
+  // whether the editor can be USED; the inspector's authority fieldset decides
+  // that, which is the distinction round 3 had to unpick. Keeping a second
+  // copy of the resolution chain here is what let the two drift in the first
+  // place, so this card holds none.
+  const thresholdRaw = statedGoalTargetRaw(props.data as GoalTargetSource)
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
-  const hasThreshold = isStatedTargetValue(thresholdRaw)
+  // ⚠ ONE CALL, TWO READINGS, AND THEY CANNOT DISAGREE. `hasThreshold` is the
+  // negation of the admission by construction — never a parallel predicate.
+  const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
+  const hasThreshold = !canCaptureTarget
 
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),
@@ -356,10 +491,18 @@ export const GoalNode = memo((props: NodeProps) => {
    * target is the state EVERY model is in before somebody sets one — the single
    * most common goal card there is, and below the floor it was an EMPTY BOX,
    * which is indistinguishable from a broken render. It now says the card's own
-   * words: `GOAL_NO_TARGET_LINE` is the same constant the full-zoom chip
-   * renders, so this states an ABSENCE and can never be mistaken for a value.
+   * words: `GOAL_NO_TARGET_STATE` is the same constant the full-zoom chip is
+   * COMPOSED from, so this states an ABSENCE and can never be mistaken for a
+   * value.
+   *
+   * ⚠ THE STATE, NOT THE WHOLE CHIP. The line below is CSS-truncated with an
+   * ellipsis (`BaseNode.tsx`), so appending the repair clause here would cut it
+   * mid-word at the one size where the body it belongs to is hidden. The
+   * agreement rule the sibling spec pins is a SUBSTRING rule — the reduced line
+   * must be text the full-zoom card already shows — and a shared constant
+   * satisfies it by construction rather than by anyone remembering to.
    */
-  const lodMetric = targetLine ?? GOAL_NO_TARGET_LINE
+  const lodMetric = targetLine ?? GOAL_NO_TARGET_STATE
 
 
   // Science icons (spec Section 4.1)
@@ -465,28 +608,27 @@ export const GoalNode = memo((props: NodeProps) => {
   // WITHOUT producing any probability are different situations with different
   // next actions, so they get different tooltips and different accessible
   // names. The visible chip text stays one short phrase either way: the point
-  // of R5 is that the node signals, and the detail lives one hover away.
+  // of R5 is that the node signals, and the DIAGNOSTIC lives one hover away.
+  //
+  // ⚠ AND THE REPAIR IS NOW IN NONE OF THEM. It was in all three — visible
+  // text, accessible name and tooltip — and the destination it named is inert
+  // (see the header). Withdrawing it from the visible chip alone would have
+  // left the promise in the two channels nobody greps, so all three are DERIVED
+  // from `goalNoTargetChannels` and asserted equal to it.
   const noTargetDiagnostic = isPostAnalysis && !hasAnyProbability
+  const noTargetChannels = goalNoTargetChannels({ diagnostic: noTargetDiagnostic })
   const noTargetStatusChip = (
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
       onPointerDown={(e) => e.stopPropagation()}
       className={`nodrag mt-1 inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-      aria-label={
-        noTargetDiagnostic
-          ? "No target set, and this run produced no probability — open this goal's details"
-          : "No target set — open this goal's details to set one"
-      }
-      title={
-        noTargetDiagnostic
-          ? 'The analysis finished without producing a probability. Set a measurable target, and check the model for inputs that are still incomplete.'
-          : 'Add a measurable success target, e.g. metric, threshold or deadline'
-      }
+      aria-label={noTargetChannels['aria-label']}
+      title={noTargetChannels.title}
       data-testid="goal-node-no-target-chip"
       data-diagnostic={noTargetDiagnostic ? 'no-probability' : undefined}
     >
-      {GOAL_NO_TARGET_LINE}
+      {noTargetChannels.visible}
     </button>
   )
 
@@ -532,12 +674,12 @@ export const GoalNode = memo((props: NodeProps) => {
         {/* No target, post-analysis: analysis done but no threshold to evaluate.
             Null-probability guard swaps the copy when the run produced no
             finite win_probability (BoundaryError / null probs / stale state). */}
-        {!hasThreshold && isPostAnalysis && noTargetStatusChip}
+        {canCaptureTarget && isPostAnalysis && noTargetStatusChip}
 
         {/* No target, pre-analysis: the "goal gap". Surface the missing target
             clearly (Paul-authored copy — brief primary + A1 secondary), then keep
             the existing coaching chip. */}
-        {!hasThreshold && !isPostAnalysis && noTargetStatusChip}
+        {canCaptureTarget && !isPostAnalysis && noTargetStatusChip}
 
         {/* With target: display it */}
         {targetLine !== null && (
