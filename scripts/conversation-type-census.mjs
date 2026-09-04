@@ -32,6 +32,12 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+// The type-scale resolver lives in scripts/lib/type-scale.mjs so the Model-tab
+// minimum-size guard can import THE SAME resolver instead of hand-rolling a
+// second one (which failed open on four real tokens). It returns its errors
+// rather than pushing them, so the accumulation and reporting below are
+// unchanged — see the fail-loud contract in that file's header.
+import { classesToTraits, TW_SIZE_PX, TW_WEIGHT, TW_LEADING } from './lib/type-scale.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -71,19 +77,6 @@ const SCOPE_FILES = [
 const TYPOGRAPHY_TS = 'src/styles/typography.ts'
 const EXCLUDE_DIR_NAMES = new Set(['__tests__', 'tests', '__fixtures__'])
 
-// Tailwind v3 default theme (version-pinned; unknown names fail loud below).
-const TW_SIZE_PX = {
-  xs: 12, sm: 14, base: 16, lg: 18, xl: 20,
-  '2xl': 24, '3xl': 30, '4xl': 36, '5xl': 48, '6xl': 60,
-}
-const TW_WEIGHT = {
-  thin: 100, extralight: 200, light: 300, normal: 400, medium: 500,
-  semibold: 600, bold: 700, extrabold: 800, black: 900,
-}
-const TW_LEADING = {
-  none: 1, tight: 1.25, snug: 1.375, normal: 1.5, relaxed: 1.625, loose: 2,
-}
-
 const errors = []
 const hits = [] // { kind: 'size'|'weight'|'lineHeight', value, mechanism, file, line }
 
@@ -118,7 +111,11 @@ function parseTypographyTokens() {
   const re = /^\s{2}(\w+):\s*'([^']*)'/gm
   let m
   while ((m = re.exec(src)) !== null) {
-    tokens[m[1]] = classesToTraits(m[2], `${TYPOGRAPHY_TS} token "${m[1]}"`)
+    const traits = classesToTraits(m[2], `${TYPOGRAPHY_TS} token "${m[1]}"`)
+    // The resolver RETURNS its errors; the census owns the accumulation, so the
+    // message strings, their order and the exit-2 reporting are untouched.
+    for (const e of traits.errors) errors.push(e.message)
+    tokens[m[1]] = traits
   }
   if (Object.keys(tokens).length === 0) {
     errors.push(`No tokens parsed from ${TYPOGRAPHY_TS} — parser drift, fix the census`)
@@ -126,49 +123,6 @@ function parseTypographyTokens() {
   return tokens
 }
 
-/**
- * The one arbitrary-length shape the census resolves rather than rejects:
- * `text-[length:calc(13px*var(--canvas-label-scale,1))]`. The custom property's
- * fallback MUST be exactly 1, so the declared px is the size everywhere the
- * property is unset. Anything else keeps erroring.
- */
-const COUNTER_SCALED_PX = /^text-\[length:calc\((\d+(?:\.\d+)?)px\*var\(--[a-z0-9-]+,\s*1\)\)\]$/
-
-function classesToTraits(classString, context) {
-  const traits = { size: null, weight: null, lineHeight: null }
-  for (const cls of classString.split(/\s+/)) {
-    let m
-    if ((m = cls.match(/^text-\[(\d+(?:\.\d+)?)px\]$/))) {
-      traits.size = Number(m[1])
-    } else if ((m = cls.match(COUNTER_SCALED_PX))) {
-      // ONE sanctioned calc shape: a declared px multiplied by a counter-scale
-      // custom property that DEFAULTS TO 1. The census measures the declared
-      // type scale, and `var(--x, 1)` resolves to the declared px wherever the
-      // property is unset — which is everywhere outside the canvas subtree. So
-      // the size this census cares about is unchanged, and the regex is narrow
-      // enough that any OTHER calc/clamp/rem still falls through to the error
-      // below. See src/canvas/utils/zoomLegibility.ts for why the canvas tokens
-      // carry it. Deliberately NOT a general calc evaluator: a census that
-      // guesses at arithmetic is worse than one that refuses it (trap 12).
-      traits.size = Number(m[1])
-    } else if ((m = cls.match(/^text-\[/))) {
-      errors.push(`${context}: unsupported arbitrary text class "${cls}" (only [Npx] and [length:calc(Npx*var(--x,1))] handled)`)
-    } else if ((m = cls.match(/^text-(xs|sm|base|lg|xl|\dxl)$/))) {
-      if (!(m[1] in TW_SIZE_PX)) errors.push(`${context}: unknown text size "${cls}"`)
-      else traits.size = TW_SIZE_PX[m[1]]
-    } else if ((m = cls.match(/^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/))) {
-      traits.weight = TW_WEIGHT[m[1]]
-    } else if ((m = cls.match(/^leading-(none|tight|snug|normal|relaxed|loose)$/))) {
-      traits.lineHeight = TW_LEADING[m[1]]
-    } else if ((m = cls.match(/^leading-\[(\d+(?:\.\d+)?)\]$/))) {
-      traits.lineHeight = Number(m[1])
-    } else if (/^(leading-|text-\d)/.test(cls)) {
-      errors.push(`${context}: unhandled typographic class "${cls}"`)
-    }
-    // everything else (colour, family, tracking, sr-only, …) is not type-scale
-  }
-  return traits
-}
 
 // ---------------------------------------------------------------------------
 // Mechanism 1 + 2 + 4: TS/TSX files

@@ -186,24 +186,24 @@ function ItemCells({
         type="button"
         data-testid={`${base}-label`}
         onClick={() => onFocusOnCanvas?.(item.rowId)}
-        className={`${typography.bodySmall} text-text-body text-left truncate`}
+        className={`${typography.panelBody} text-text-body text-left truncate`}
       >
         {item.label}
       </button>
 
-      <span data-testid={`${base}-current`} className={`${typography.tabular} text-text-light`}>
+      <span data-testid={`${base}-current`} className={`${typography.panelTabular} text-text-light`}>
         {item.currentValue ?? 'No value set'}
       </span>
 
       {item.suggestedValue !== null && (
-        <span data-testid={`${base}-suggested`} className={`${typography.tabular} text-text-body`}>
+        <span data-testid={`${base}-suggested`} className={`${typography.panelTabular} text-text-body`}>
           {'→ '}
           {item.suggestedValue}
         </span>
       )}
 
       {item.basis !== null && (
-        <span data-testid={`${base}-basis`} className={`${typography.caption} text-text-light`}>
+        <span data-testid={`${base}-basis`} className={`${typography.panelBody} text-text-light`}>
           {item.basis}
         </span>
       )}
@@ -235,7 +235,7 @@ export function RepairQueueList({
         */}
         <p
           data-testid={`repair-queue-v2-${q}-count`}
-          className={`${typography.caption} text-text-light`}
+          className={`${typography.panelBody} text-text-light`}
         >
           {items.length === 1 ? '1 item' : `${items.length} items`}
           {deferredItems.length > 0 && ` · ${deferredItems.length} left unresolved`}
@@ -245,14 +245,14 @@ export function RepairQueueList({
       {items.length === 0 ? (
         <p
           data-testid={`repair-queue-v2-${q}-empty`}
-          className={`${typography.bodySmall} text-text-light`}
+          className={`${typography.panelBody} text-text-light`}
         >
           Nothing needs attention here.
         </p>
       ) : activeItems.length === 0 ? (
         <p
           data-testid={`repair-queue-v2-${q}-all-deferred`}
-          className={`${typography.bodySmall} text-text-light`}
+          className={`${typography.panelBody} text-text-light`}
         >
           Everything here has been left unresolved.
         </p>
@@ -311,7 +311,7 @@ export function RepairQueueList({
         <section data-testid={`repair-queue-v2-${q}-deferred-group`} className="opacity-70">
           <h4
             data-testid={`repair-queue-v2-${q}-deferred-heading`}
-            className={`${typography.label} text-text-light`}
+            className={`${typography.panelHeader} text-text-light`}
           >
             Left unresolved ({deferredItems.length})
           </h4>
@@ -334,7 +334,7 @@ export function RepairQueueList({
                 */}
                 <span
                   data-testid={`repair-queue-v2-${q}-item-${item.rowId}-deferral`}
-                  className={`${typography.caption} text-text-light`}
+                  className={`${typography.panelBody} text-text-light`}
                 >
                   {deferralLabel(item.deferred!)}
                 </span>
@@ -363,7 +363,7 @@ export function RepairQueueList({
           disabled
           title={NO_AUTHORITY_BATCH}
           aria-label={NO_AUTHORITY_BATCH}
-          className={`${typography.button} text-text-light cursor-not-allowed border border-panel-border rounded px-2 py-1 self-end`}
+          className={`${typography.buttonSmall} text-text-light cursor-not-allowed border border-panel-border rounded px-2 py-1 self-end`}
         >
           Apply all shown
         </button>

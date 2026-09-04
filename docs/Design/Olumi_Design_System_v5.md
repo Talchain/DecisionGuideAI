@@ -58,6 +58,63 @@ All side panel UI (results, inspector, issues, templates) uses **only three size
 | `panelHeader` | 14px, semibold | Section titles, winner name, key emphasis |
 | `panelBody` | 12px, regular | Body text, descriptions, bullets, card content |
 | `panelMeta` | 11px, regular | Badges, pills, axis labels, tertiary metadata |
+| `panelTabular` | 12px, regular, `tabular-nums` | Numbers in columns |
+
+**Four tokens, still three sizes.** `panelTabular` (added 4 Sep 2026) is `panelBody`'s
+size and weight with `tabular-nums` so digits share an advance width — 12px either way,
+so the strict three-size rule above is unchanged by it. It exists because the panel scale
+had no tabular variant, which forced every surface with aligned numbers to reach for the
+14px `tabular` token; that is how 14px became de-facto body text on the Model tab.
+Use it wherever a number sits in a column; use `panelBody` everywhere else.
+
+**Text inputs are NOT on the panel scale.** Every text input **rendered on a live route**
+stays at 14px (`bodySmall`, or `tabular` where the field holds a number). §2.2's override list
+below covers badges, buttons and helper text and deliberately does not cover inputs: 14px is
+this system's minimum accessible size (§2.1), and a 12px field is a usability regression at the
+280px dock floor.
+
+**"Rendered on a live route" is load-bearing, not a hedge.** Retained-but-unmounted source is
+out of scope until it is mounted, and the guard asserts the unmount rather than trusting it —
+so a control excepted on those grounds REDs the moment anything mounts it. This is what makes
+the exception principled instead of accidental. It is NOT a licence to leave a live control
+below the minimum: see the measured debt below, which is scope, not permission.
+
+> ⚠ **ENFORCED FOR THE MODEL TAB TODAY. THE REST OF PANEL SCOPE IS MEASURED DEBT, NOT
+> COMPLIANCE.** This rule is written for all panel scope, and panel scope does not currently
+> obey it. **Reproducible figure**, measured 4 Sep 2026 by running this PR's OWN shipped
+> instrument (`textEntryControls` + `judgeControls` from `tests/helpers/jsxTextEntryScan.ts`)
+> over the panel scope copied verbatim from `tools/ci-guards/check-ds-compliance.mjs`'s
+> `inScope` predicate — 155 files. An independent reviewer reproduced these numbers exactly:
+>
+> | | |
+> |---|---|
+> | text-entry controls in panel scope | **50** |
+> | **below 14px** (mechanically resolved) | **29** — 21 at 12px, **8 at 11px** |
+> | size not mechanically resolvable | **16** — the control's size comes through a variable (e.g. `FIELD_INPUT_CLASS`), so the scan reports it rather than guessing |
+> | unparseable size class | 0 |
+>
+> By area, below 14px: **15** `canvas/ui/inspector-v2` · **4** `results/analysisNew` ·
+> **4** `canvas/panels` · **3** `components/results` · 1 `results/coaching` ·
+> 1 `EdgeInspector` · 1 `canvas/components/model-tab` (the excepted, unmounted `InlineEdit`).
+>
+> ⚠ **29 IS A FLOOR, NOT A TOTAL.** A separate hand-trace that followed the variable
+> indirections resolved about ten of the 16 unresolvable cases — most of `results/modals`,
+> where `FIELD_INPUT_CLASS` resolves to `typography.panelBody` (12px) — putting the real
+> count near 39. **The two numbers answer different questions** (*what can a mechanical scan
+> prove* vs *what does the browser actually render*) and this table reports the reproducible
+> one, because a design document whose figures cannot be re-derived is the mirror this rule
+> exists to avoid. An earlier revision of this table printed the hand-traced 39 while claiming
+> the instrument's method; a reviewer caught it.
+>
+> `src/canvas/model-tab-v2/__tests__/inputsStayAtMinimumSize.spec.ts` enforces the rule for
+> the **Model tab only** — the two directories the DS guard already names as the Model
+> editor's panel scope. Widening its `MODEL_TAB_DIRS` is the whole change needed to extend
+> enforcement, and it should be widened **one owning lane at a time, with that lane fixing its
+> own controls** — not by one lane condemning controls it does not own.
+>
+> This paragraph exists so the rule is not a claim the codebase contradicts. A design rule
+> that reads as universal while a guard enforces a fraction of it is the hand-maintained mirror
+> this system keeps paying for: state the enforced scope, or state the debt.
 
 **Scope:** `src/components/results/`, `src/canvas/panels/`, `src/canvas/ui/EdgeInspector*`, and any component rendered inside a side panel.
 

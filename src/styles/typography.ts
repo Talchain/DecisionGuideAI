@@ -134,6 +134,23 @@ export const typography = {
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
 
+  /**
+   * 12px + tabular figures — the panel's NUMERIC body.
+   *
+   * ⚠ WHY THIS TOKEN HAD TO EXIST. The panel scale had no tabular variant, so
+   * every surface showing aligned numbers reached for `tabular` (14px) — the
+   * only tabular token there was. Measured on the deployed Model tab: that put
+   * **65 text nodes at 14px regular**, i.e. header-sized body text, and it is
+   * the single largest reason that panel reads as an undifferentiated wall
+   * while Analysis (New) — which uses only panel tokens — does not.
+   *
+   * Same size and weight as `panelBody`; the ONLY difference is
+   * `tabular-nums`, so digits share an advance width and columns of numbers
+   * line up. Use it wherever a number sits in a column; use `panelBody`
+   * everywhere else.
+   */
+  panelTabular: 'text-xs font-sans leading-relaxed tabular-nums',  // 12px — numbers in columns
+
   // Conversation panel — ONE type scale (lane F3, register 1.69(a)).
   // The panel renders exactly three sizes — 14 (panelHeader / chatProse /
   // bodySmall), 12 (panelBody), 11 (panelMeta) — plus the named 24px

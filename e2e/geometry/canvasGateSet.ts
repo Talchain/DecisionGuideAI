@@ -91,6 +91,46 @@ export interface GatedTest {
  */
 export const GATED_TESTS: readonly GatedTest[] = [
   {
+    file: 'modelRowEditReflow.measure.ts',
+    suite: 'model row edit reflow',
+    title: 'MODEL ROW EDIT REFLOW @dock 280px',
+    catches:
+      'A HAND-MAINTAINED CONSTANT WITH NO GUARD. `valueCellMetrics.ts` reserves the edit '
+      + 'input\'s box height on the idle value cell so clicking a value does not move the row. '
+      + 'That constant mirrors the input\'s font size, line-height, border and padding, and '
+      + 'NOTHING derives it — change any of them and the row reflows on click again while every '
+      + 'vitest spec stays green, because jsdom performs no layout (`rowAtomsDoNotWrap.spec.tsx:88` '
+      + 'says so outright). Measured before the fix: the row grew EXACTLY 3.50px at both dock '
+      + 'widths. This arm asserts rendered geometry — the row\'s own height, the top of the row '
+      + 'BELOW it, and the value\'s own top, because a reserved-height fix trades a row jump for a '
+      + 'possible TEXT jump and the assertion must be able to catch its own fix\'s failure mode. '
+      + 'It also asserts the 12px->14px transition ACTUALLY HAPPENED before asserting nothing '
+      + 'moved: an absence probe that never entered edit mode reports a perfectly still layout '
+      + 'for the excellent reason that nothing changed (CLAUDE.md trap 13). '
+      + '⭐ AND IT IS IN THE GATE BECAUSE ITS SOURCE COMMENT CLAIMED IT WAS — the file ran in zero '
+      + 'CI jobs while `valueCellMetrics.ts` told the next lane a browser test had them covered.',
+  },
+  {
+    file: 'modelRowEditReflow.measure.ts',
+    suite: 'model row edit reflow',
+    title: 'MODEL ROW EDIT REFLOW @dock 416px',
+    catches:
+      'A HAND-MAINTAINED CONSTANT WITH NO GUARD. `valueCellMetrics.ts` reserves the edit '
+      + 'input\'s box height on the idle value cell so clicking a value does not move the row. '
+      + 'That constant mirrors the input\'s font size, line-height, border and padding, and '
+      + 'NOTHING derives it — change any of them and the row reflows on click again while every '
+      + 'vitest spec stays green, because jsdom performs no layout (`rowAtomsDoNotWrap.spec.tsx:88` '
+      + 'says so outright). Measured before the fix: the row grew EXACTLY 3.50px at both dock '
+      + 'widths. This arm asserts rendered geometry — the row\'s own height, the top of the row '
+      + 'BELOW it, and the value\'s own top, because a reserved-height fix trades a row jump for a '
+      + 'possible TEXT jump and the assertion must be able to catch its own fix\'s failure mode. '
+      + 'It also asserts the 12px->14px transition ACTUALLY HAPPENED before asserting nothing '
+      + 'moved: an absence probe that never entered edit mode reports a perfectly still layout '
+      + 'for the excellent reason that nothing changed (CLAUDE.md trap 13). '
+      + '⭐ AND IT IS IN THE GATE BECAUSE ITS SOURCE COMMENT CLAIMED IT WAS — the file ran in zero '
+      + 'CI jobs while `valueCellMetrics.ts` told the next lane a browser test had them covered.',
+  },
+  {
     file: 'nodeKeyboardBleed.measure.ts',
     suite: 'in-node keyboard bleed',
     title: 'drive: Space/Enter at an in-node control, with a contrast control and an attribution control',

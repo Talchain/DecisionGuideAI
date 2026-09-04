@@ -27,6 +27,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
 import {
   classifyInterventionProvenance,
@@ -138,10 +139,10 @@ function FieldList({ fields, testid }: { fields: readonly DetailField[]; testid:
     <dl data-testid={testid} className="grid grid-cols-2 gap-x-3 gap-y-1">
       {fields.map(f => (
         <div key={f.label} className="contents">
-          <dt className={`${typography.caption} text-text-light`}>{f.label}</dt>
+          <dt className={`${typography.panelBody} text-text-light`}>{f.label}</dt>
           <dd
             data-testid={`${testid}-${f.label}`}
-            className={`${typography.tabular} text-text-body`}
+            className={`${typography.panelTabular} text-text-body`}
           >
             {f.value ?? 'Not stated'}
           </dd>
@@ -188,7 +189,7 @@ export function ModelDetailRegion({
   if (detail.rowId !== row.id) {
     return (
       <aside data-testid="model-detail-v2" data-mismatch="true">
-        <p data-testid="model-detail-v2-mismatch" className={`${typography.bodySmall} text-danger`}>
+        <p data-testid="model-detail-v2-mismatch" className={`${typography.panelBody} text-danger`}>
           This panel was given details for a different element, so it has not shown them.
         </p>
       </aside>
@@ -206,11 +207,11 @@ export function ModelDetailRegion({
       {/* 1 — What this is */}
       <section data-testid="model-detail-v2-what">
         <h3 className={`${typography.panelHeader} text-text-header`}>{row.label}</h3>
-        <p className={`${typography.caption} text-text-light`}>{KIND_LABEL[row.kind]}</p>
+        <p className={`${typography.panelBody} text-text-light`}>{KIND_LABEL[row.kind]}</p>
         {detail.description !== null && (
           <p
             data-testid="model-detail-v2-description"
-            className={`${typography.bodySmall} text-text-body`}
+            className={`${typography.panelBody} text-text-body`}
           >
             {detail.description}
           </p>
@@ -219,8 +220,8 @@ export function ModelDetailRegion({
 
       {/* 2 — Its value */}
       <section data-testid="model-detail-v2-value">
-        <h4 className={`${typography.label} text-text-header`}>Its value</h4>
-        <p data-testid="model-detail-v2-primary" className={`${typography.tabular} text-text-body`}>
+        <h4 className={`${typography.panelHeader} text-text-header`}>Its value</h4>
+        <p data-testid="model-detail-v2-primary" className={`${typography.panelTabular} text-text-body`}>
           {row.primaryValue ?? 'Not set'}
         </p>
         <FieldList fields={detail.secondaryValues} testid="model-detail-v2-secondary" />
@@ -238,7 +239,7 @@ export function ModelDetailRegion({
       */}
       {interventions.length > 0 && (
         <section data-testid="model-detail-v2-interventions">
-          <h4 className={`${typography.label} text-text-header`}>What this would change</h4>
+          <h4 className={`${typography.panelHeader} text-text-header`}>What this would change</h4>
           <ul>
             {interventions.map(iv => {
               const editing = interventionEdit?.factorId === iv.factorId
@@ -254,7 +255,7 @@ export function ModelDetailRegion({
                     entry it cannot name, so there is no `?? factorId` fallback
                     to leak one here — see `buildOptionInterventions`.
                   */}
-                  <span className={`${typography.bodySmall} text-text-body flex-1 truncate`}>
+                  <span className={`${typography.panelBody} text-text-body flex-1 truncate`}>
                     {iv.factorLabel}
                   </span>
 
@@ -306,14 +307,14 @@ export function ModelDetailRegion({
                           iv.numericValue === null ? '' : String(iv.numericValue),
                         )
                       }
-                      className={`${typography.tabular} underline decoration-dotted`}
+                      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center underline decoration-dotted`}
                     >
                       {iv.value ?? 'Not set'}
                     </button>
                   ) : (
                     <span
                       data-testid={`model-detail-v2-intervention-${iv.factorId}-value`}
-                      className={`${typography.tabular} text-text-light`}
+                      className={`${typography.panelTabular} text-text-light`}
                     >
                       {iv.value ?? 'Not set'}
                     </span>
@@ -376,14 +377,14 @@ export function ModelDetailRegion({
       */}
       {(hasProvenanceContent(row.provenanceSource, detail)) && (
       <section data-testid="model-detail-v2-provenance">
-        <h4 className={`${typography.label} text-text-header`}>Where it came from</h4>
+        <h4 className={`${typography.panelHeader} text-text-header`}>Where it came from</h4>
         {row.provenanceSource !== undefined && (
           <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
         )}
         {detail.basis !== null && (
           <p
             data-testid="model-detail-v2-basis"
-            className={`${typography.bodySmall} text-text-body`}
+            className={`${typography.panelBody} text-text-body`}
           >
             {detail.basis}
           </p>
@@ -391,7 +392,7 @@ export function ModelDetailRegion({
         {detail.adjustments.length > 0 && (
           <ul data-testid="model-detail-v2-adjustments">
             {detail.adjustments.map(a => (
-              <li key={a} className={`${typography.caption} text-text-light`}>
+              <li key={a} className={`${typography.panelBody} text-text-light`}>
                 {a}
               </li>
             ))}
@@ -402,9 +403,9 @@ export function ModelDetailRegion({
 
       {/* 4 — What it affects */}
       <section data-testid="model-detail-v2-affects">
-        <h4 className={`${typography.label} text-text-header`}>What it affects</h4>
+        <h4 className={`${typography.panelHeader} text-text-header`}>What it affects</h4>
         {detail.affects.length === 0 ? (
-          <p className={`${typography.caption} text-text-light`}>
+          <p className={`${typography.panelBody} text-text-light`}>
             Nothing in the model depends on this yet
           </p>
         ) : (
@@ -415,7 +416,7 @@ export function ModelDetailRegion({
                   type="button"
                   data-testid={`model-detail-v2-affects-${a.id}`}
                   onClick={() => onFocusOnCanvas?.(a.id)}
-                  className={`${typography.bodySmall} text-info text-left`}
+                  className={`${typography.panelBody} text-info text-left`}
                 >
                   {a.label}
                 </button>
@@ -431,9 +432,9 @@ export function ModelDetailRegion({
       */}
       {tier === 'advanced' && (
         <section data-testid="model-detail-v2-advanced">
-          <h4 className={`${typography.label} text-text-header`}>Advanced — model parameters</h4>
+          <h4 className={`${typography.panelHeader} text-text-header`}>Advanced — model parameters</h4>
           {detail.advancedParameters.length === 0 ? (
-            <p className={`${typography.caption} text-text-light`}>
+            <p className={`${typography.panelBody} text-text-light`}>
               This element has no model parameters
             </p>
           ) : (
