@@ -197,13 +197,34 @@ export const ResultsBody = memo(function ResultsBody({
   // the panel's most visible designation, so the comment would have STOPPED the
   // work rather than merely misdirecting it.
   //
-  // ALL FOUR designation channels fed from `resultsSectionData` now read the
-  // composed answer, and they are named here so the next reader can check
-  // rather than trust:
-  //   :650  OptionCards `hasLeadingOption`  — the crown, the ordinal, the order
-  //   :616  the win-probability gauge's `designationsWithheld`
-  //   TriageActionCardsBody `hasWinner`     — mounted at :450
-  //   StrengthenContainer `hasLeadingOption` — mounted at :509
+  // ⚠⚠⚠ AND THE VERSION AFTER THAT SAID "ALL FOUR" AND GAVE LINE NUMBERS. BOTH
+  // HALVES WERE WRONG, AND THEY WERE WRONG ON COMMIT — not stale by drift; the
+  // file had not moved since. Every one of the four integers was off (three by
+  // 16, one by 22). The worst, `:450`, did not land on nothing: it landed on a
+  // comment CONTAINING the string `TriageActionCardsBody`, so a reader
+  // following it saw the name they were told to expect and ticked it off.
+  // A comment written to stop people trusting reproduced the exact failure it
+  // named. Line numbers are a hand-maintained mirror of a file that moves
+  // whenever anyone edits it — including the edit that writes them.
+  //
+  // SIX channels read this answer, not four. Named by SYMBOL so they stay true
+  // as the file moves; grep the symbol rather than trusting a number:
+  //
+  //   in this file, all fed from `resultsSectionData`:
+  //     `designationsWithheld`                  — the const declared just below
+  //     `leaderClaimPermitted` prop             — a leader-claim gate by name
+  //     the win-probability gauge's `designationsWithheld`
+  //     OptionCards `hasLeadingOption`          — the crown, ordinal and order
+  //
+  //   and two components that call the reader THEMSELVES, so this file's own
+  //   call sites are not the whole story:
+  //     `TriageActionCardsBody` — `hasWinner`
+  //     `StrengthenContainer`   — `hasLeadingOption`
+  //
+  // Verify the set with a repo-wide grep for `leaderDesignationPermitted`
+  // (excluding `__tests__` and the reader's own module). If that returns more
+  // than these six consumers, this comment is short and the new one is
+  // unaudited — which is the failure mode above, one level up.
   //
   // `=== false` preserves the existing convention EXACTLY: a caller supplying no
   // verdict is a legacy fixture, not a withheld run, so `undefined` keeps
