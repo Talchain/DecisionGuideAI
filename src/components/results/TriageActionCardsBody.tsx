@@ -18,6 +18,13 @@
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
 import { leaderDesignationPermitted } from './leaderDesignation'
+// MAY THIS PANEL NAME A LEADER? The shared three-answer claim policy. The
+// footer below reads `leaderDesignationPermitted` directly because it needs
+// the tri-state for its own `unknown` glyph; the PROSE sites read
+// `leaderClaimWithheld`, which is that same answer with the strict `=== false`
+// spelling every copy branch wants. One authority, two spellings of the same
+// read — never a second derivation.
+import { leaderClaimWithheld } from './analysisClaimPolicy'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
@@ -376,6 +383,20 @@ function T1FlipRiskCallout({
   // footer speaks for a SOLO sweep of root factors. Same fix as the fragile card:
   // the presupposing verb goes, ALL data stays (see `fragileEdgeCopy`).
   const attestsNoFlip = attestsNoFactorFlip(data.recommendation.flipThresholds)
+  // ⚠ A SECOND, INDEPENDENT AUTHORITY — AND IT IS NOT THE FLIP ONE.
+  //
+  // `attestsNoFlip` answers "did a SOLO sweep of root factors move the
+  // leader?"; this answers "may this panel name a leader AT ALL?" Two
+  // questions, and on the witnessed run they disagreed: no flip attestation
+  // was present (so the strong branch below fired, with its percentage) while
+  // the footer three rows down said "Leading option not assessed". The user
+  // read "Two Mid-Level Developers at £70k Each could overtake (57%
+  // probability)" beside a panel that had declined to name a leader.
+  //
+  // Conjoining these two into one boolean would put two questions under one
+  // name (CLAUDE.md trap 21). They stay separate and compose at the point of
+  // use: a permitted run keeps BOTH branches exactly as before.
+  const mayNameLeader = !leaderClaimWithheld(data.recommendation)
   const switchPct = fragile.switchProbability != null
     ? Math.round(fragile.switchProbability * 100)
     : null
@@ -398,9 +419,29 @@ function T1FlipRiskCallout({
     >
       <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
       <p className={`${typography.panelBody} text-text-body`}>
-        If <strong>{fromLabelDisplay}</strong> shifts,{' '}
-        <strong>{altWinnerLabelDisplay}</strong>{' '}
-        {attestsNoFlip ? 'could gain ground' : 'could overtake'}
+        {/* ⭐ THE WITHHELD BRANCH KEEPS THE FINDING AND DROPS THE RANKING.
+            "{alt} could gain ground / could overtake" is a COMPARATIVE claim:
+            gaining ground on something, or overtaking it, both presuppose a
+            leader to close on. On a run that named none, the honest sentence
+            is the fragility itself — this factor moves the result — which is
+            the whole reason the callout exists and the whole reason its
+            Validate route matters.
+
+            The alternative option's NAME goes with the comparison, not out of
+            squeamishness: outside a ranking claim, "Two Mid-Level Developers
+            could…" has no predicate left to attach to. It survives in full on
+            the fragile card, which is where the finding lives in detail. */}
+        {mayNameLeader ? (
+          <>
+            If <strong>{fromLabelDisplay}</strong> shifts,{' '}
+            <strong>{altWinnerLabelDisplay}</strong>{' '}
+            {attestsNoFlip ? 'could gain ground' : 'could overtake'}
+          </>
+        ) : (
+          <>
+            If <strong>{fromLabelDisplay}</strong> shifts, the result could change
+          </>
+        )}
         {/* ⚠ THE PERCENTAGE GOES WITH THE VERB, and the reason is not the
             authority's rule alone — it is that the NUMBER WOULD SAY MORE THAN
             THE SENTENCE IT SITS IN. `switch_probability` means P(the
@@ -414,7 +455,13 @@ function T1FlipRiskCallout({
             This is not the product saying less: it is declining to say
             something false. The finding survives in full on the fragile card
             (count, labels, E-values, alt-winner, Stability pill). */}
-        {!attestsNoFlip && switchPct != null && ` (${switchPct}% probability)`}.
+        {/* ⚠ AND THE PERCENTAGE GOES WITH THE VERB IN THE WITHHELD BRANCH TOO,
+            for the SAME reason the comment above gives for the attested-no-flip
+            branch: `switch_probability` means P(the alternative OVERTAKES), so
+            it is a ranking claim expressed as a number. A run that may not name
+            a leader may not quantify one overtaking it either. It is a CLAIM,
+            not data, and it goes with the sentence that carried it. */}
+        {mayNameLeader && !attestsNoFlip && switchPct != null && ` (${switchPct}% probability)`}.
         {onFocusNode && fragile.fromId && (
           <>
             {' '}
@@ -502,7 +549,18 @@ function T1DominantNudge({
   // could change"; the P0 surface-copy cleanup retired that. The two
   // branches diverge only in noun choice — v17 hero says "the leading
   // option", legacy panel says "the result".
-  const trailingClause = useV17Copy
+  // ⚠ TWO GATES, AND THEY ANSWER DIFFERENT QUESTIONS. `useV17Copy` asks which
+  // VOCABULARY this host speaks; the claim policy asks whether this RUN may
+  // name a leader at all. Only the v17 branch ever said "the leading option",
+  // so only it needs the second gate — and a withheld run falls back to the
+  // legacy spelling, which is already the glossary-safe sentence this file
+  // ships for exactly this meaning. No new copy is authored.
+  //
+  // The claim lives in the `title` and `aria-label` long form, not in the
+  // visible row, which is precisely why a text-only sweep of the panel could
+  // not see it. A tooltip and a screen-reader announcement are the product
+  // speaking.
+  const trailingClause = useV17Copy && !leaderClaimWithheld(data.recommendation)
     ? 'If your assumptions about this factor are wrong, the leading option could change.'
     : 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
