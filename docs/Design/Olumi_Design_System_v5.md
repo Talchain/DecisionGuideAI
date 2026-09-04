@@ -67,10 +67,17 @@ had no tabular variant, which forced every surface with aligned numbers to reach
 14px `tabular` token; that is how 14px became de-facto body text on the Model tab.
 Use it wherever a number sits in a column; use `panelBody` everywhere else.
 
-**Text inputs are NOT on the panel scale.** They stay at 14px (`bodySmall`, or `tabular`
-where the field holds a number). §2.2's override list below covers badges, buttons and
-helper text and deliberately does not cover inputs: 14px is this system's minimum
-accessible size (§2.1), and a 12px field is a usability regression at the 280px dock floor.
+**Text inputs are NOT on the panel scale.** Every text input **rendered on a live route**
+stays at 14px (`bodySmall`, or `tabular` where the field holds a number). §2.2's override list
+below covers badges, buttons and helper text and deliberately does not cover inputs: 14px is
+this system's minimum accessible size (§2.1), and a 12px field is a usability regression at the
+280px dock floor.
+
+**"Rendered on a live route" is load-bearing, not a hedge.** Retained-but-unmounted source is
+out of scope until it is mounted, and the guard asserts the unmount rather than trusting it —
+so a control excepted on those grounds REDs the moment anything mounts it. This is what makes
+the exception principled instead of accidental. It is NOT a licence to leave a live control
+below the minimum: see the measured debt below, which is scope, not permission.
 
 > ⚠ **ENFORCED FOR THE MODEL TAB TODAY. THE REST OF PANEL SCOPE IS MEASURED DEBT, NOT
 > COMPLIANCE.** This rule is written for all panel scope, and panel scope does not currently
