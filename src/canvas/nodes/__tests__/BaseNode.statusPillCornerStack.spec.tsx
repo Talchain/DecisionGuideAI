@@ -18,9 +18,12 @@
  *
  * ⚠ THE PAIR THAT CANNOT HAPPEN, pinned below rather than assumed: the
  * sensitivity-rank badge requires `results.status === 'complete'`
- * (`useNodeDisplayMetadata.ts:226`) and the pill requires
- * `results.status !== 'complete'` (`BaseNode.tsx:256`) — exact complements on ONE
- * store field, so rank and pill are structurally unable to co-occur. This file
+ * (`isResultsMode`, declared in `useNodeDisplayMetadata.ts`) and the pill
+ * requires `results.status !== 'complete'` (`isPreRunMode`, declared in
+ * `BaseNode.tsx`) — exact complements on ONE store field, so rank and pill are
+ * structurally unable to co-occur. Both were line offsets until 2026-09-04;
+ * `#1175` moved the hook's and the corner-stack change moved BaseNode's, so
+ * both pointed at unrelated lines within days. Symbols do not move. This file
  * does NOT mock `useNodeDisplayMetadata`, so nothing here can manufacture a state
  * the product cannot reach (CLAUDE.md trap 16-inverse — a fixture you wrote
  * yourself is not evidence about the product).
