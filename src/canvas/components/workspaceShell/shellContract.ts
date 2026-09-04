@@ -137,8 +137,19 @@ export const SHELL_CONTAINER_NAME = 'workspace-shell'
  * both banned. `panelBody font-semibold` is a violation — the tokens carry
  * their own weight, and needing semibold at 14px means you wanted
  * `panelHeader`.
+ *
+ * ⚠ FOUR KEYS, STILL THREE SIZES. `panelTabular` (added 4 Sep 2026) is
+ * `panelBody`'s size and weight with `tabular-nums` — 12px either way — so the
+ * ONLY-THREE-SIZES rule above is unchanged by it. It is listed here because
+ * this list is what the conformance guard names as legal, and omitting a token
+ * the panel is meant to use would send the next lane to delete it.
  */
-export const SHELL_TYPOGRAPHY_KEYS = ['panelHeader', 'panelBody', 'panelMeta'] as const
+export const SHELL_TYPOGRAPHY_KEYS = [
+  'panelHeader',
+  'panelBody',
+  'panelMeta',
+  'panelTabular',
+] as const
 export type ShellTypographyKey = (typeof SHELL_TYPOGRAPHY_KEYS)[number]
 
 /**

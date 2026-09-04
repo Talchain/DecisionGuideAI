@@ -535,7 +535,15 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 38 -> 36 on 2026-08-31: the 32px display token was retired (it carried an
     // arbitrary size and a raw weight). Lowered here in the same PR so the
     // ratchet holds at the new floor rather than banking slack.
-    'src/styles/typography.ts': 36,
+    // 36 -> 37 on 2026-09-04: `panelTabular` was DEFINED here. This file is the
+    // typography AUTHORITY, so a token's own declaration is the one place a raw
+    // size legitimately appears — the ratchet counts declarations, not misuse.
+    // The rise is exactly +1 and it is exactly that line (measured: the token
+    // census in this file goes 38 -> 39 including comments, 36 -> 37 without).
+    // ⚠ Raising this pin is ONLY ever right for a token DECLARATION in this
+    // file. Anywhere else, and in this file for anything but a new token, the
+    // fix is to remove the raw size, never to bank slack here.
+    'src/styles/typography.ts': 37,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 2,
@@ -602,8 +610,16 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 31 Aug 2026: 106 -> 104, as the retired display token took an arbitrary
     // size and a raw weight out of `typography.ts` with it. Lowered in the same
     // PR as the map entry above, which is the whole point of the pair.
+    // ⚠ 4 Sep 2026: 104 -> 105 — the FIRST RISE this number has taken, and the
+    // only kind that is ever legitimate: `panelTabular` was DECLARED in
+    // `src/styles/typography.ts`, the typography authority, where a token's own
+    // declaration is the one place a raw size belongs. File count is unchanged
+    // at 30 — no new file entered the map, which is the discriminator that
+    // separates this from banking slack. A rise anywhere else, or a rise in
+    // this file for anything but a new token, is the defect this pair exists to
+    // catch and must be refused.
     expect(files).toBe(30)
-    expect(total).toBe(104)
+    expect(total).toBe(105)
   })
 })
 
