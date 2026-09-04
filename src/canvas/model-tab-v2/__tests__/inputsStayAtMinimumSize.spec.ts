@@ -44,7 +44,15 @@
  * are exactly what `tools/ci-guards/check-ds-compliance.mjs` names as the Model
  * editor's panel scope. The rest of panel scope (results, canvas/panels,
  * inspector-v2, EdgeInspector*) is NOT policed here and is recorded as measured
- * debt. Widening this DIR list is the whole change needed to extend it.
+ * debt.
+ *
+ * ⚠ WIDENING `MODEL_TAB_DIRS` IS NECESSARY BUT NOT SUFFICIENT, AND AN EARLIER
+ * VERSION OF THIS COMMENT SAID OTHERWISE. Adding a directory brings its controls
+ * into the offence domain immediately — measured over the whole of `src/`, the
+ * shipped scanner reports 161 offences, most of them `no-resolvable-size` where
+ * a className comes through a variable the scan declines to guess at. Extending
+ * enforcement therefore means widening the list AND triaging that surface's
+ * unresolvable controls with the owning lane. Say it that way round.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -91,9 +99,20 @@ const rel = (abs: string) => path.relative(REPO_ROOT, abs)
  * reach a user. An exception whose validity condition is only written in a
  * comment is an exception that outlives its reason.
  */
+/**
+ * ⚠ PINNED BY REASON AND MAGNITUDE, NOT BY LOCATION ALONE. An earlier version
+ * held a bare `file:line`, so the same control could drift from 12px to 11px —
+ * or from `below-minimum` to `unparseable-size` — and stay silently excepted.
+ * A reviewer found it. The key now carries the offence KIND and its DETAIL, so
+ * any change in WHY or HOW BADLY it offends REDs `D1`.
+ */
 const KNOWN_BELOW_MINIMUM: readonly string[] = [
-  'src/canvas/components/model-tab/InlineEdit.tsx:131',
+  'src/canvas/components/model-tab/InlineEdit.tsx:131 [below-minimum] typography.panelBody resolves to 12px',
 ]
+
+/** The exception key: location + reason + magnitude. */
+const offenceKey = (o: { id: string; kind: string; detail: string }) =>
+  `${o.id} [${o.kind}] ${o.detail}`
 
 describe('Model tab text-entry controls hold the 14px minimum', () => {
   const controls = MODEL_TAB_DIRS.flatMap(d => textEntryControls(d))
@@ -164,6 +183,28 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
       expect(out[0].detail).toMatch(/11px/)
     })
 
+    it('A9 a VARIANT-PREFIXED or !important below-minimum size is caught', () => {
+      // ⚠ THE SEVENTH SILENT-PASS ROUTE, found by review AFTER the first six were
+      // closed. The collector's prefix class excluded `:` and `!`, so
+      // `md:text-xs` and `!text-xs` were skipped and the control was judged on
+      // its COMPLIANT sibling utility. Latent (zero live instances measured) —
+      // closed anyway, because the helper's own comment claimed it collected
+      // every `text-*` token, and that sentence was false.
+      for (const cls of ['text-sm md:text-xs', 'text-sm !text-xs', 'text-sm hover:text-[11px]']) {
+        const out = judgeControls(
+          scanSource(`<input className="${cls}" />`, 'f.tsx'),
+          typography as Record<string, string>,
+        )
+        expect(out.map(o => o.kind), `"${cls}" slipped past the collector`).toEqual(['below-minimum'])
+      }
+      // Contrast control, same probe: a compliant variant must NOT fire, so the
+      // fix is a discrimination and not a blanket "any colon reds it".
+      expect(
+        judgeControls(scanSource(`<input className="text-sm md:text-base" />`, 'f.tsx'),
+          typography as Record<string, string>),
+      ).toEqual([])
+    })
+
     it('A8 a comment cannot smuggle a violation in, and cannot hide one either', () => {
       const commented = scanSource(`<input /* className="text-xs" */ className={typography.tabular} />`, 'f.tsx')
       expect(judgeControls(commented, typography as Record<string, string>)).toEqual([])
@@ -187,7 +228,7 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
 
   // ── C. THE RULE.
   it('C1 no Model-tab control renders below the 14px minimum', () => {
-    const unexpected = offences.filter(o => !KNOWN_BELOW_MINIMUM.includes(o.id))
+    const unexpected = offences.filter(o => !KNOWN_BELOW_MINIMUM.includes(offenceKey(o)))
     expect(
       unexpected.map(o => `${o.id} <${o.tag}> [${o.kind}] ${o.detail}`),
       `\nDS v5 §2.1: ${MINIMUM_PX}px is the minimum accessible size, and §2.2 does NOT list inputs\n` +
@@ -198,7 +239,7 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
 
   // ── D. THE EXCEPTION IS PINNED EXACTLY, AND ITS PRECONDITION IS ASSERTED.
   it('D1 the known-exception set matches the offences EXACTLY (reds if it grows OR shrinks)', () => {
-    const actual = offences.map(o => o.id).sort()
+    const actual = offences.map(offenceKey).sort()
     expect(
       actual,
       '\nThis set is pinned in BOTH directions on purpose.\n' +

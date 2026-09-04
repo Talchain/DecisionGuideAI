@@ -153,13 +153,27 @@ export function classNameValuesIn(span: string): string[] {
 /** `typography.<token>` references on the element. */
 export const TYPOGRAPHY_REF = /typography\.([A-Za-z_$][\w$]*)/g
 /**
- * Literal Tailwind `text-*` utilities on the element. Every `text-*` token is
- * collected and `BELOW_MINIMUM` does the discriminating — colour utilities
- * (`text-text-body`, `text-info`) and `text-sm` cannot match it, `text-xs` and
- * `text-[11px]` do. A `${typography.x}` interpolation never spells a literal
- * utility, so the two collectors cannot contaminate each other.
+ * Literal Tailwind `text-*` utilities on the element. Every such token is
+ * collected and the resolver does the discriminating — colour utilities
+ * (`text-text-body`, `text-info`) resolve to `absent` on the size axis, while
+ * `text-xs` and `text-[11px]` resolve to a size. A `${typography.x}`
+ * interpolation never spells a literal utility, so the two collectors cannot
+ * contaminate each other.
+ *
+ * ⚠ THE PREFIX CLASS CARRIES `:` AND `!`, AND AN EARLIER VERSION OF THIS COMMENT
+ * WAS FALSE WITHOUT THEM. It claimed "every `text-*` token is collected"; a
+ * reviewer refuted it by execution. With the old class, `"text-sm md:text-xs"`
+ * collected only `text-sm` and `"text-sm !text-xs"` only `text-sm`, so a
+ * variant-prefixed or important-flagged below-minimum size walked straight past
+ * the guard wearing its sibling utility's compliant size. The contrast in the
+ * same probe — `"text-sm text-xs"` — collected both, which is why the hole was
+ * invisible to a casual check.
+ *
+ * Measured at the time of the fix: ZERO live instances in `src/`, so this was a
+ * latent hole rather than a shipped defect. It is closed anyway, because a guard
+ * whose own comment overstates its reach is the mirror this file exists to kill.
  */
-export const LITERAL_TEXT_CLASS = /(?:^|[\s'"`{}(,])(text-[A-Za-z0-9[\]().:,%_-]+)/g
+export const LITERAL_TEXT_CLASS = /(?:^|[\s'"`{}(,:!])(text-[A-Za-z0-9[\]().:,%_-]+)/g
 
 export interface Control {
   readonly file: string
@@ -302,8 +316,14 @@ export function judgeControls(
 
     if (resolved.length === 0) {
       out.push({ kind: 'no-resolvable-size', file: rel, line: c.line, tag: c.tag, id,
+        // ⚠ THIS MESSAGE USED TO ASSERT "no className on the element at all",
+        // which is FALSE for the commonest case: an element WITH a className the
+        // scanner could not read (a variable, a helper call, a conditional). A
+        // reviewer measured 83 such controls across `src/` carrying that
+        // sentence. Saying "I found no size" is true; saying "there is no
+        // className" is a claim about the code that the scan cannot support.
         detail: candidates.length === 0
-          ? 'no className on the element at all'
+          ? 'no typography token or literal text-* utility could be read from this element — its className may be a variable, a helper call or a conditional, so the rendered size is not knowable from source'
           : `no size class among ${candidates.map(x => x.source).join(', ')} — the rendered size is inherited and this scan cannot see it` })
       continue
     }
