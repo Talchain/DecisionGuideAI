@@ -95,6 +95,13 @@
 // applied to option Y), and the robustness_gated disclosure flag. The
 // producer's own `text` sentence is deliberately NOT consumed.
 
+// The producer's per-option computation vocabulary and the ONE predicate over
+// it. Imported from the adapter layer rather than respelled here: a second
+// reading of `'failed'` would be a second authority on one question, which is
+// the defect class this whole module exists to end. `notAnalysedOptions.ts`
+// re-exports the same implementation for the component layer.
+import { optionEligibleToLead } from '../adapters/plot/optionComputeStatus'
+
 /** Producer band tokens (PLoT BriefBandedHeadline.band, closed set). */
 export type HeadlineBandedBand = 'very_close' | 'slightly_ahead' | 'clearly_ahead'
 
@@ -195,7 +202,22 @@ const FP_EPSILON = 1e-9
 /** Minimal shape this module reads out of the PLoT report. Structural, so a
  *  mapped ReportV1, a raw V2 response, or a hydrated report all satisfy it. */
 export interface DecisionVerdictReportLike {
-  option_probabilities?: Record<string, { win_probability?: number | null } | null | undefined> | null
+  option_probabilities?: Record<
+    string,
+    {
+      win_probability?: number | null
+      /**
+       * The producer's PER-OPTION computation classification, verbatim off the
+       * wire. `unknown` deliberately, matching `V2OptionComparison.status`: the
+       * shared contract declares it a BARE `z.ZodOptional<z.ZodString>`, not
+       * the closed enum its producer actually emits, so a token this UI has
+       * never heard of is a legal payload. Typing it `string` here would let it
+       * be read directly; `unknown` makes `narrowOptionComputeStatus` the only
+       * way in, and the compiler enforces that rather than a reviewer.
+       */
+      status?: unknown
+    } | null | undefined
+  > | null
   robustness?: {
     recommended_option_id?: string | null
     /** PLoT `computeNearTie` output. Snake and camel both appear on the wire. */
@@ -281,11 +303,47 @@ export function deriveDecisionVerdict(
   const { visibleOptionIds, rawHeadlineBanded } = options
   const probs = report.option_probabilities ?? {}
 
-  // Comparable options: those with a finite win probability that are still on
-  // the canvas (when a visibility set is supplied).
+  // Comparable options: those the producer actually COMPUTED, that carry a
+  // finite win probability, and that are still on the canvas (when a visibility
+  // set is supplied).
+  //
+  // ⚠⚠ "FINITE" WAS NOT ENOUGH, AND THE GAP DEFEATED THE LENGTH GUARD BELOW.
+  // ISL emits `status: 'failed'` exactly when `n_valid === 0` — ZERO finite
+  // Monte Carlo samples, so there is no distribution, no share and no rank
+  // behind any number attached to the option — and PLoT forwards a
+  // `win_probability: 0` beside it. Zero is finite. So a failed option counted
+  // as comparable, a run with ONE genuinely computed option plus ONE failed
+  // option reached `comparable.length === 2`, and this module went on to author
+  // a leader verdict where only one measurement existed. Measured at pristine
+  // `8915b0e2`: one computed option at 0.71 beside one failed option returned
+  // `hasLeadingOption: true, separation: 'clear', gapPp: 71` — a seventy-one
+  // point "lead" whose loser was a fabricated stand-in.
+  //
+  // ⭐ GATED ON THE PRODUCER'S EMITTED TOKEN, NEVER ON FALSINESS. A `win > 0`
+  // or truthiness test would be a SECOND, worse classification: it would admit
+  // a failed option carrying any non-zero fabricated value, and it would
+  // wrongly drop a GENUINE measured zero — an option ISL computed at n=10,000
+  // and found never wins. Those two are indistinguishable by value and
+  // distinguishable only by this field, which is the entire reason the producer
+  // sends it.
+  //
+  // The predicate is `optionEligibleToLead` — THE single eligibility authority,
+  // the same call `determineWinnerSelection` makes to choose the RENDERED
+  // leader. That shared call is load-bearing: when the verdict and the rendered
+  // identity were gated by different code, the verdict correctly dropped a
+  // failed option while the panel crowned it anyway.
+  // It delegates to `optionComputationProducedResult`, QUOTED and not
+  // respelled. It is the same one `OptionCards` forks on and the same reading
+  // PLoT's own `isFailedIslOption` applies, so the UI cannot classify an option
+  // differently from the service that crowned it (CLAUDE.md trap 21). In
+  // particular `'partial'` is a DISCLOSURE and stays in — the samples exist —
+  // and an ABSENT or unrecognised status stays in too, because that is the
+  // legacy V1 shape and reading silence as failure would suppress a real
+  // result.
   const comparable: Array<{ id: string; win: number }> = []
   for (const [id, entry] of Object.entries(probs)) {
     if (visibleOptionIds && !visibleOptionIds.has(id)) continue
+    if (!optionEligibleToLead(entry?.status)) continue
     const win = entry?.win_probability
     if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
   }
@@ -361,14 +419,75 @@ export function deriveDecisionVerdict(
     return { leaderId, separation: 'tied', hasLeadingOption: false, gapPp, source: 'producer_near_tie' }
   }
 
+  // ── An EXACT tie at the top has no argmax, so no ASSERTION may rest on one ─
+  //
+  // ⚠⚠ THE FOUNDER'S DEFECT: a headline naming a leader over two options the
+  // same panel reported as level ("currently leads" beside "essentially tied").
+  //
+  // `top1` is the head of a sort. When the top two win probabilities are EQUAL
+  // there is no argmax — `top1` is whichever key `Object.entries` happened to
+  // yield first. BOTH producer identity gates key on `top1.id`, so on an exact
+  // tie the entitlement was decided by object insertion order. Measured at
+  // pristine `8915b0e2`, two options at 0.35 each with one band naming `opt_a`:
+  //
+  //     keys {opt_a, opt_b} → hasLeadingOption: true,  separation: 'slight'
+  //     keys {opt_b, opt_a} → hasLeadingOption: false, separation: 'unknown'
+  //
+  // Same data, same producer signal, opposite claims. A verdict that flips on
+  // key order is not a verdict, and `hasLeadingOption: true` with `gapPp: 0`
+  // reaches `certaintyCopy`'s "{winner} currently leads".
+  //
+  // ⛔ EXACT EQUALITY, NOT A THRESHOLD, and this is the RIGHT predicate rather
+  // than a cautious one. ISL computes `win_probability = wins / n_samples` over
+  // a SHARED denominator, so a producer-side tie is BIT-IDENTICAL, and
+  // `Array.prototype.sort` is stable — exact equality is therefore precisely
+  // coextensive with "`top1` is arbitrary", the condition this guards. A
+  // seventh "too close to call" cutoff (this module's header records six) would
+  // be the same defect wearing a fix's clothes; closeness stays with the
+  // producer, whose `near_tie` and band both require a gap of 0.10.
+  //
+  // ⭐⭐ IT WITHHOLDS THE ASSERTION AND NEVER THE PRODUCER'S OWN DENIAL — AND
+  // THE FIRST VERSION OF THIS GUARD GOT THAT WRONG, WHICH IS WHY IT IS NOW A
+  // CLAMP AND NOT AN EARLY RETURN.
+  //
+  // At `f11432c5` this sat between Authority 1 and Authority 2 and returned
+  // `'unknown'` outright. A comment right here claimed it therefore "withheld
+  // only the assertion" — but a `very_close` BAND is an explicit producer tie
+  // call too, and the early return swallowed it before Authority 2 could speak.
+  // Measured: an exact tie carrying `headline_banded.band: 'very_close'`
+  // degraded the headline from "no clear leading option" to "the analysis did
+  // not put an option forward" — a TRUE sentence replaced by a weaker one. That
+  // is CLAUDE.md trap 22b exactly: one predicate cannot guard two opposite
+  // harms, and closing the assertion re-opened the denial. The comment asserted
+  // the property instead of testing it against the second authority.
+  //
+  // So the rule is applied where each authority produces its `separation`:
+  // an ASSERTING outcome ('clear' / 'slight') cannot stand on level numbers and
+  // falls to `'unknown'` (silence, never a counter-claim — a producer band of
+  // `clearly_ahead` over level numbers is a disagreement we have authority to
+  // resolve in neither direction); a DENIAL ('tied') passes through untouched.
+  const levelAtTop = top1.win === top2.win
+
   // ── Authority 2: the producer's leader-confidence band ──────────────────
   // Refines HOW far ahead. When authority 1 has already ruled "not a tie",
   // a band of `very_close` would contradict it, so the band may only refine
   // clear-vs-slight in that case — the producer's own tie call wins.
   if (bandApplies) {
     const banded = BAND_TO_SEPARATION[band!.band]
+    // ⭐ `&& !levelAtTop` — the promotion from a `very_close` band to 'slight'
+    // is itself an ASSERTION, so it must not fire on level numbers. Without it
+    // the clamp below would catch the result anyway, but as SILENCE rather than
+    // as the producer's own tie call: the band said `very_close` and the honest
+    // outcome is to keep saying so.
     const separation: LeaderSeparation =
-      banded === 'tied' && nearTieApplies && !nearTie!.isTie ? 'slight' : banded
+      banded === 'tied' && nearTieApplies && !nearTie!.isTie && !levelAtTop ? 'slight' : banded
+
+    // THE CLAMP. An asserting band cannot stand on an exact tie; a DENIAL
+    // ('tied') passes through and keeps "no clear leading option" on screen.
+    if (levelAtTop && separation !== 'tied') {
+      return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
+    }
+
     return {
       leaderId,
       separation,
@@ -381,6 +500,12 @@ export function deriveDecisionVerdict(
   // Authority 1 said "not a tie" and there is no band to refine it: a leading
   // option exists. Grade it on the leader's own win probability.
   if (nearTieApplies && !nearTie!.isTie) {
+    // THE CLAMP again. This branch only ever ASSERTS, so on level numbers there
+    // is nothing here to preserve — it falls to silence. (The producer's own
+    // `is_tie: true` denial was already returned above, untouched.)
+    if (levelAtTop) {
+      return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
+    }
     const separation: LeaderSeparation =
       top1.win >= LEADER_CLEAR_WIN_PROBABILITY - FP_EPSILON ? 'clear' : 'slight'
     return { leaderId, separation, hasLeadingOption: true, gapPp, source: 'producer_near_tie' }
