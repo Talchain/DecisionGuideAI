@@ -19,9 +19,17 @@
  *
  * ⚠ WHY THE aria-label ASSERTION IS THE LOAD-BEARING ONE. `StatusPill` reuses
  * `title` as `aria-label` (StatusPill.tsx:29,32). A sighted user also reads the
- * co-rendered "Target not captured — add one" chip; a screen-reader user received the pill's
- * sentence and it was the ONLY thing carrying this claim. Pinning the visible
- * title alone would leave the worse path unpinned.
+ * co-rendered goal chip; a screen-reader user received the pill's sentence and it
+ * was the ONLY thing carrying this claim. Pinning the visible title alone would
+ * leave the worse path unpinned.
+ *
+ * ⚠ THIS SENTENCE ONCE NAMED THAT CHIP AS READING "Target not captured — add one".
+ * That string does not exist at this head, and THIS PR is why: `825fbee0` changed
+ * this line from "No target set" (correct at the merge base) to copy the same
+ * commit introduced, and `7bc7a9f4` then withdrew that copy. `40f7918b` fixed the
+ * identical staleness in `BaseNode.tsx` and described the mechanism — but one
+ * commit produced TWO instances and only one was corrected. The chip now reads
+ * `GOAL_NO_TARGET_STATE` (`GoalNode.tsx:160`) = 'Target not captured'.
  *
  * ── PROOF SHAPE (RED-first is INVERTED — the string was unpinned, so a pin
  * passes immediately and proves nothing on its own) ────────────────────────

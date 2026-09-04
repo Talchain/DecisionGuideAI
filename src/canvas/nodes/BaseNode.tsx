@@ -764,9 +764,18 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             withdrawal the co-rendered chip states the FACT and offers NO action.
             So the reason `StatusPill` needs no action here is NOT that a sibling
             supplies one. It is that there is no action to offer while the
-            destination is inert: the honest answer to "success is undefined, what
-            follows?" is the fact plus a route to the details, which is what both
-            surfaces now give. */}
+            destination is inert.
+            ⚠ AN EARLIER DRAFT OF THIS BLOCK ADDED "…the fact plus a route to the
+            details, which is what both surfaces now give". THAT WAS FALSE, and it
+            was written while correcting a false sentence four lines above — which
+            is worth recording, because it is the same failure one round later.
+            `StatusPill` is a `<span role="status">` (`StatusPill.tsx:45-46`) with
+            NO handler: its channels are "Needs input" and the title sentence, and
+            neither is a route. Only the sibling chip is a real
+            `<button onClick={openNodeInspector}>` (`GoalNode.tsx:623`). So exactly
+            ONE of the two surfaces offers a route, and this pill states the fact
+            alone — which is the honest thing for an inert destination, and is the
+            whole reason it needs no action. */}
         {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
           <StatusPill
             label="Needs input"

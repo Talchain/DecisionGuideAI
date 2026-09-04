@@ -143,10 +143,26 @@ function renderInspector() {
  *
  * ⚠ IT DOES NOT CLOSE THE CLASS. This is a hand-written predicate over natural
  * language, so it can only ever prove that the phrasings it happens to spell are
- * absent. Measured at this head, 13 of 13 repair-promising sentences EVADE it,
- * four of them using its own verbs — e.g. "capture one", "specify a target",
- * "tell us your target", "define success". A green run here means "none of the
- * sampled phrasings is present", never "no repair is promised".
+ * absent. It requires BOTH a verb from {add,set,enter,type} AND an object from
+ * {one, "a target", it}, so a sentence evades it by missing EITHER axis. Derived
+ * here, on four ordinary repair phrasings — none matches:
+ *
+ *   "capture one"           verb ✗  object ✓
+ *   "specify a target"      verb ✗  object ✓
+ *   "tell us your target"   verb ✗  object ✗
+ *   "define success"        verb ✗  object ✗
+ *
+ * ⚠ AN EARLIER DRAFT SAID "four of them using its own verbs". THAT IS FALSE —
+ * none of the four reuses a verb; two reuse an OBJECT. It was relayed from a
+ * review report rather than derived, and it misnames the axis the predicate is
+ * short on, which defeats the point of this heading.
+ *
+ * A wider count (13 of 13 evading) has been reported by a reviewer; that corpus
+ * is NOT recorded here, so treat it as RELAYED, not re-derivable from this file.
+ * The four above are.
+ *
+ * A green run here means "none of the sampled phrasings is present", never
+ * "no repair is promised".
  *
  * ⚠ HAS ITS OWN POSITIVE CONTROL BELOW. An absence assertion over a predicate
  * nobody proved can FIRE is vacuous (CLAUDE.md trap 13), and a predicate is
