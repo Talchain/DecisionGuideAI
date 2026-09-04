@@ -69,10 +69,29 @@ export const EvidenceGapBadge = memo(function EvidenceGapBadge({
           ?
         </span>
       </div>
-      {/* Transparent hover zone — carries tooltip and accessible label */}
+      {/* The hover zone — and the ONLY thing that carries this badge's meaning.
+          ⚠ `aria-label` ON A BARE `<div>` IS DISCARDED. A `div` with no role
+          maps to `role="generic"`, and ARIA forbids a name on a generic
+          element — so screen readers dropped this label entirely and the badge
+          was, to them, absent. The comment above this said "carries tooltip and
+          accessible label"; measured on the deployed build, it carried the
+          tooltip only. `role="img"` is the smallest thing that makes a name
+          valid here, and it is the honest role: this IS a graphic conveying
+          meaning, not a control — there is nothing to activate.
+          ⚠ AND THE MEANING WAS MOUSE-ONLY. `title` needs hover, which touch
+          does not have, so the escalation ("critical evidence gap — better data
+          could change the result") reached only users with a pointer, on a 20px
+          transparent target. `tabIndex={0}` puts it in the tab order so a
+          keyboard user reaches it and the name is announced; the focus ring is
+          what stops that being an invisible stop.
+          ⛔ Deliberately NOT a `<button>`. There is no action behind it, and a
+          control that does nothing when pressed is worse than a graphic. */}
       <div
-        className="absolute -bottom-2.5 -right-2.5 w-5 h-5 rounded-full"
+        className="absolute -bottom-2.5 -right-2.5 w-5 h-5 rounded-full outline-none
+          focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1"
         style={{ zIndex: 2 }}
+        role="img"
+        tabIndex={0}
         title={tooltip}
         aria-label={tooltip}
         data-testid="evidence-gap-badge-hover"
