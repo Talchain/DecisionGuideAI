@@ -97,13 +97,28 @@ export interface EdgeDescription {
  * cut is right for prose — not a defect this PR is entitled to settle by
  * picking a number.
  *
- * ⚠ AND IT IS NOT ROWED ANYWHERE. An earlier draft of this block said it was
- * rowed in `CANVAS-BACKLOG.md`; measured against that file (both copies in
- * `Talchain/olumi-programme-docs`, with a contrast control proving the probe
- * sees rows S45–S49), no such row exists. A comment that claims a row is worse
- * than one that admits there is none, because it teaches the next reader to
- * stop looking. **This block and the test below are the ONLY record of the
- * decision.** What the constant buys is that the divergence is NAMED, ADJACENT
+ * ⭐ IT IS ROWED, AS **S58** in `CANVAS-BACKLOG.md` (`Talchain/olumi-programme-docs`,
+ * `origin/main`) — and that row states this divergence in the same terms this
+ * block does, down to the two reachable windows at 0.45 and 0.65. The row's
+ * open item is the one this block declines to settle: *whether prose should
+ * hedge at 0.6 or at the registry's 0.7.* **It is a copy decision, and it is
+ * owed.**
+ *
+ * ⚠ THIS SENTENCE SAID THE OPPOSITE — "AND IT IS NOT ROWED ANYWHERE" — AND IT
+ * WAS FALSE. Kept in the record rather than quietly swapped, because the
+ * correction is the lesson: the original was itself written to correct an
+ * *earlier* draft that claimed a row, and it over-corrected. Twice in a row,
+ * on one sentence, in opposite directions.
+ *
+ * ⚠ AND THE PROBE THAT "PROVED" THE ABSENCE WAS BLIND — that is how it
+ * happened. Re-derived here against `origin/main`: `S58` present at line 516,
+ * with a contrast control of `S45` reading **1** and a negative control `S900`
+ * reading **0**, so the instrument discriminates. A first attempt at this
+ * re-derivation anchored on a table-row pattern and returned **zero for the
+ * contrast too** — which voids a run rather than cleaning it. **An absence
+ * claim about a register is only as good as a control run in the same sweep.**
+ *
+ * What the constant still buys is unchanged: the divergence is NAMED, ADJACENT
  * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
  * can only change on purpose.
  *
