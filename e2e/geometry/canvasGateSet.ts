@@ -874,9 +874,18 @@ export const KNOWN_FLAKE_IN_GATE: GatedTest = (() => {
  * rather than extrapolating from a local run.
  *
  * ⭐ PARTLY SETTLED 4 Sep 2026: the four-arm distribution IS now measured — 7
- * `staging` runs, 199-277s, median 236s (budget block above). What remains owed
- * is a distribution at the CURRENT 25-arm set; nothing here has been measured
- * at that size.
+ * `staging` runs, 199-277s, median 236s (budget block above).
+ *
+ * ⭐ AND THE FIRST DRAW AT THE 25-ARM SET IS IN: **354s** job wall clock,
+ * `25 passed (5.2m)` of it tests, job `101188734128` on `0a5babab` (this PR's
+ * rebased head). Comfortably inside the 600s planning figure.
+ *
+ * ⚠ IT IS ONE DRAW, NOT A DISTRIBUTION, AND THIS FILE'S OWN BUDGET BLOCK IS THE
+ * REASON TO SAY SO: the same job drew 207s and 751s at SIX arms. 354s at 25 is
+ * therefore consistent with the whole 4-arm and 6-arm range and discriminates
+ * nothing about the cost of the 19 admitted arms. What remains owed is a
+ * DISTRIBUTION at this set (n >= 10) before any headroom subtraction is
+ * believed.
  */
 
 /** `"suite › title"`, the shape a Playwright `titlePath` collapses to. */
