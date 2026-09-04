@@ -271,6 +271,15 @@ export const GATED_TESTS: readonly GatedTest[] = [
     file: 'overlayNodeOverlap.measure.ts',
     suite: 'canvas overlay band',
     title: `OVERLAP ${cell}`,
+    /**
+     * ⚠ ONE STRING, EIGHT ARMS. This `catches` is `.map()`ed across every
+     * starter x viewport cell above, so it describes the ASSERTION FAMILY and
+     * not what any single cell caught. Read it that way: each cell runs the
+     * same three assertions against a different model and viewport. Written
+     * out because a shared description reads as eight independent findings,
+     * and this registry's whole purpose is that an entry says no more than
+     * it can.
+     */
     catches:
       'THE OVERLAY-OVER-NODE DEFECT, WHICH SHIPPED TWICE. The CI-rendered reference at staging ' +
       '`f59ffc26` shows the first-model notice painted across the decision node so only ' +
@@ -355,7 +364,12 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'restated) — the mirror case, where a layout computed while LOD is ON reserves the shorter ' +
       'height and zooming back in pushes a card into the row beneath. One direction alone is a ' +
       'guard watching one door (CLAUDE.md trap 22b). ' +
-      '⭐ AND ITS CONTROLS DISCRIMINATE: a POSITIVE one (`--canvas-label-scale` and the computed ' +
+      '⚠ ITS CONTROLS ARE PROSE, NOT ASSERTIONS — measured at the bytes: the four phrases below ' +
+      'appear in `heightVsZoom.measure.ts` 2/1/1/1 times and ZERO times inside any `expect(` ' +
+      '(contrast control: 7 `expect(` calls in that file, so the probe was not blind). They ' +
+      'describe an intent the file does not enforce, which is the same class this registry ' +
+      'exists to end. Kept as a DESIGN NOTE, restated as one: the controls it WOULD need are ' +
+      'a POSITIVE one (`--canvas-label-scale` and the computed ' +
       'title font-size MUST change across the series, or the probe never exercised the ' +
       'mechanism); a CONTRAST one (an element OUTSIDE the React Flow subtree must NOT change, or ' +
       'the probe is measuring a page re-render); a non-vacuity one ("NO card changed height ' +
@@ -433,12 +447,15 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
   {
     what: 'savedExampleShowWholeModel.measure.ts (20 arms, ~200s darwin — the single most expensive file here)',
     why:
-      'EXCLUDED ON CLAIM TYPE FIRST, COST SECOND, and the order matters because the cost alone ' +
-      'would be a weaker reason. Its header is explicit: "THIS FILE MEASURES; IT DOES NOT ' +
-      'JUDGE ... the only hard failures are INSTRUMENT failures ... A product assertion here ' +
-      'would abort the run on the first bad arm and cost the other nineteen." That design is ' +
-      'right for what it is for — a before/after sweep where a NON-reproduction is as ' +
-      'reportable as a defect — and wrong for a merge gate. ⭐ ITS TWO INSTRUMENT DEFECTS ARE ' +
+      '⚠ EXCLUDED ON COST. THE CLAIM-TYPE REASON THAT STOOD HERE WAS FALSE, and it is corrected ' +
+      'rather than deleted because it would have misled precisely the lane it was written for. ' +
+      'It quoted the header — "THIS FILE MEASURES; IT DOES NOT JUDGE ... the only hard failures ' +
+      'are INSTRUMENT failures" — and the header is wrong about its own file: `:571-575` is ' +
+      '`expect(after.outsideVisible, ...).toEqual([])`, a PRODUCT assertion, gated on ' +
+      '`clicked && after`. So a lane admitting this file on the strength of that sentence ' +
+      'would get exactly the first-bad-arm abort the entry claimed to be avoiding. ' +
+      'The surviving reason is cost, and cost alone — ~200s darwin, the most expensive file ' +
+      'here — which is weaker, and is stated as the weaker reason it is. ⭐ ITS TWO INSTRUMENT DEFECTS ARE ' +
       'FIXED IN THIS COMMIT ANYWAY (the overlay-band blindness and the settle latch, below): ' +
       'an ungated measure whose numbers are systematically wrong still misleads every lane that ' +
       'reads them, and a before/after built on a biased instrument is not a comparison.',
