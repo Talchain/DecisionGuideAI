@@ -196,8 +196,9 @@ describe('GoalPanel — success target: the number and its unit must come from o
     // READOUT sentence `Success means reaching ≥ 0.8`. On this exact payload the
     // node is left holding NO target — `setCeeAnalysisReady` never touches it and
     // the backfill writes `goal_threshold_raw` only when the payload carries that
-    // key — so the canvas card renders `Target not captured — add one`, a chip
-    // that PROMISES a route into this panel. The readout answered that promise
+    // key — so the canvas card rendered `Target not captured — add one`, a chip
+    // that PROMISED a route into this panel (copy withdrawn by #1172 round 3; it
+    // now reads `Target not captured` and promises nothing). The readout answered that promise
     // with "one already exists" and nothing to press. The branch now routes to
     // `GoalThresholdEditor` (`canCaptureGoalTarget`, domain/goalTarget.ts).
     //

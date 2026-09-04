@@ -171,8 +171,10 @@ export function statedGoalTargetRaw(
  * ⭐⭐⭐ THE ADMISSION: *CAN THIS PERSON ADD A SUCCESS TARGET RIGHT NOW?*
  *
  * ⚠⚠ THIS EXISTS BECAUSE A CHIP PROMISED A ROUTE INTO A DEAD END. The goal
- * card's chip fires on the NODE (`statedGoalTargetRaw` above) and says
- * "Target not captured — add one". The inspector's `GoalPanel` decided whether
+ * card's chip fires on the NODE (`statedGoalTargetRaw` above). It SAID
+ * "Target not captured — add one" until #1172 round 3, which withdrew that
+ * promise; it now states the fact alone. The dead end below is what the
+ * promise pointed at. The inspector's `GoalPanel` decided whether
  * to render `GoalThresholdEditor` from the STORE SCALAR `goalThreshold`, which
  * `setCeeAnalysisReady` writes WITHOUT EVER TOUCHING THE NODE (store.ts) —
  * the node's target fields are written by OTHER paths entirely —

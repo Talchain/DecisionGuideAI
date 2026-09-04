@@ -231,12 +231,16 @@ describe('the goal panel RENDERS THE EDITOR on every payload the chip fires on (
   })
 })
 
-describe('the promise is “add one”, so the test is that a target can actually BE added', () => {
+describe('the withdrawn promise was “add one”, so the test is that a target can actually BE added', () => {
   /**
    * ⭐⭐ AN INPUT APPEARING IS NOT THE PROMISE BEING KEPT. Everything above pins
    * that `GoalThresholdEditor` is ON SCREEN when the chip fires. That closes the
    * dead end the review found, and it still stops one step short of what the
-   * chip actually says: *add one*. If the editor rendered but its commit path
+   * chip SAID UNTIL #1172 round 3: *add one*. (It now reads
+   * `GOAL_NO_TARGET_STATE` = 'Target not captured' and promises no repair; this
+   * file's own header was corrected in round 3 and this line, 220 lines below it,
+   * was not — one commit, two instances, one corrected.) If the editor rendered
+   * but its commit path
    * did not reach the NODE, the admission would stay `true` for ever — the chip
    * would keep saying "Target not captured" after the user had captured one, and
    * every guard in this file would still be green.

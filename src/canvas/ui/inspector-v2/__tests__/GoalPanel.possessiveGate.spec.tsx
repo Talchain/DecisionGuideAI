@@ -95,7 +95,8 @@ function assertHasCapturedTarget() {
  *
  * That made the fixture the DIVERGENT arm — store holds a number, node holds
  * nothing — which is exactly the state whose dead end #1172 exists to close:
- * the canvas chip says "Target not captured — add one" and §4.2 answered
+ * the canvas chip SAID "Target not captured — add one" (withdrawn by #1172
+ * round 3; it now states the fact alone) and §4.2 answered
  * "Success means reaching ≥ 0.8" with nothing to press. §4.2 now routes that
  * arm to `GoalThresholdEditor`, so the readout is correctly absent there.
  *
