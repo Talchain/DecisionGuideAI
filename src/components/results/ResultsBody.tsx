@@ -10,6 +10,7 @@
  */
 
 import { useOptionCoverage } from '../../v5/blocks/useOptionCoverage'
+import { leaderDesignationPermitted } from './leaderDesignation'
 import { buildCoverageDisclosure } from './utils/optionCoverage'
 import { useCanvasNodeLabels } from '../../v5/blocks/useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
@@ -189,11 +190,26 @@ export const ResultsBody = memo(function ResultsBody({
   // here would silently drop that second question — which is exactly the defect
   // `leaderDesignationPermitted` exists to close.
   //
+  // ⚠⚠ AND AN EARLIER VERSION OF THIS COMMENT WAS FALSE BY OMISSION, WHICH IS
+  // WORSE THAN BEING WRONG. It said this file reads the composed answer — 420
+  // lines above two sites that still read ONE conjunct. A reviewer found them.
+  // A lane reading it would have concluded `ResultsBody` was done and skipped
+  // the panel's most visible designation, so the comment would have STOPPED the
+  // work rather than merely misdirecting it.
+  //
+  // ALL FOUR designation channels fed from `resultsSectionData` now read the
+  // composed answer, and they are named here so the next reader can check
+  // rather than trust:
+  //   :650  OptionCards `hasLeadingOption`  — the crown, the ordinal, the order
+  //   :616  the win-probability gauge's `designationsWithheld`
+  //   TriageActionCardsBody `hasWinner`     — mounted at :450
+  //   StrengthenContainer `hasLeadingOption` — mounted at :509
+  //
   // `=== false` preserves the existing convention EXACTLY: a caller supplying no
   // verdict is a legacy fixture, not a withheld run, so `undefined` keeps
   // today's behaviour and no fixture-driven mount changes.
   const designationsWithheld =
-    resultsSectionData.recommendation.leaderDesignationPermitted === false
+    leaderDesignationPermitted(resultsSectionData.recommendation) === false
 
   // Outcome-view lens — all three arms rank the SAME quantity family.
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
@@ -386,7 +402,7 @@ export const ResultsBody = memo(function ResultsBody({
           or Compare authority. */}
       <SectionErrorBoundary section="Decision brief">
         <DecisionBriefSectionContainer
-          leaderClaimPermitted={resultsSectionData.recommendation.leaderDesignationPermitted === true}
+          leaderClaimPermitted={leaderDesignationPermitted(resultsSectionData.recommendation) === true}
         />
       </SectionErrorBoundary>
 
@@ -613,7 +629,7 @@ export const ResultsBody = memo(function ResultsBody({
                 }))}
               decisionState={vm.decisionState}
               designationsWithheld={
-                resultsSectionData.recommendation.verdict?.hasLeadingOption === false
+                leaderDesignationPermitted(resultsSectionData.recommendation) === false
               }
               // ⭐ L65 — the same store-derived target signal the V7 goal
               // lens gates with (`recommendation.goalThreshold`). Lets the
@@ -647,7 +663,13 @@ export const ResultsBody = memo(function ResultsBody({
               // none of which claim anything", and row 1.306 refutes that at
               // the screenshots. Ordering, ordinal colour and the crown ARE
               // claims; OptionCards now gates them off this same boolean.
-              hasLeadingOption={resultsSectionData.recommendation.verdict?.hasLeadingOption}
+              // ⭐ THE CROWN. `OptionCards` turns this into its own
+              // `designationsWithheld`, which gates the crowned border, the
+              // ordinal rank swatch, `isLeader`, the leader fill and the card
+              // ORDER — plus the chip copy "What makes this the current
+              // leader?". It is the most visible designation on the panel, so
+              // it must read the COMPOSED answer and not Q2 alone.
+              hasLeadingOption={leaderDesignationPermitted(resultsSectionData.recommendation)}
               lensActive={riskAppetite !== 'neutral'}
               lensHighlightedId={riskAppetite !== 'neutral' && lensComparison.comparable ? lensComparison.id : undefined}
               stableNumbers={stableNumbersForCards}

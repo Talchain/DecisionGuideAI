@@ -17,6 +17,7 @@
  */
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
+import { leaderDesignationPermitted } from './leaderDesignation'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
@@ -595,8 +596,12 @@ function T1ChecksFooter({
   // headline and the canvas badge use. Absent verdict (older fixtures) falls
   // back to the historic presence check rather than silently reading false.
   const verdict = data.recommendation.verdict
+  // The COMPOSED answer, not Q2 alone: an affirmative footer designation on a
+  // model that licenses no comparative claim is the same lie as a crown.
+  // The absent-verdict fallback below is untouched — see NO DENIAL WITHOUT
+  // AUTHORITY, which is about a DIFFERENT absence.
   const hasWinner = verdict
-    ? verdict.hasLeadingOption
+    ? leaderDesignationPermitted(data.recommendation) === true
     : !!data.recommendation.recommendedOption
   // ⭐ NO DENIAL WITHOUT AUTHORITY (Analysis convergence, 18 Aug 2026).
   //
