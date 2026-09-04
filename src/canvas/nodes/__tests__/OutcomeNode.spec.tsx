@@ -3,7 +3,23 @@
  * T9: Bridge edge data — contribution % + qualitative direction
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { METRIC_NOUN } from '../shared/metricVocabulary'
+import { METRIC_NOUN, METRIC_UNSET } from '../shared/metricVocabulary'
+
+/**
+ * ⭐ THE SEEN HALF OF THE ROW, AND THE DISTINCTION IS LOAD-BEARING (3 Sep 2026).
+ *
+ * Where nobody set the bridge strength, the producer's assumed figure is
+ * DEMOTED to the row's screen-reader phrase rather than deleted — so
+ * `container.textContent` still contains "85%" while nothing on screen does.
+ * A guard that read the whole subtree would refuse the demotion this change is
+ * built on. `NodeMetricRow` marks every seen element `aria-hidden`, so the two
+ * audiences are already separated at the DOM; this reads the seen one.
+ */
+const seenText = (root: HTMLElement): string =>
+  Array.from(root.querySelectorAll('[aria-hidden="true"]'))
+    .map((el) => el.textContent ?? '')
+    .join(' ')
+
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
@@ -427,26 +443,51 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
     })
 
 
-    it('R6 POSITIVE CONTROL: a strength nobody stated carries the est. marker', () => {
+    it('⛔ a strength nobody stated states the UNKNOWN — no figure, no bar, no `est.`', () => {
+      /*
+       * ⚠⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE OPPOSITE WAS THE
+       * DEFECT. It read: *"R6 POSITIVE CONTROL: a strength nobody stated
+       * carries the est. marker"* — i.e. it certified that a producer's guess
+       * printed as `60%` beside a proportional bar, qualified only by `est.` at
+       * 7px. Measured on a real canvas 3 Sep 2026: five cards reading
+       * `Strength 50% est.` at once, each bar exactly half full — the DRAFTING
+       * MODEL's figures, which no human had settled. (Round 1 read that 0.5 as
+       * `DEFAULT_EDGE_DATA.weight`; REFUTED — an unstamped default carries no
+       * provenance stamp and renders no row at all. Canonical record:
+       * `shared/metricVocabulary.ts`.) The disclaimer was never the fix; the
+       * figure was the claim.
+       */
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
-      renderOutcome()
-      expect(screen.getByText(/60%/)).toBeDefined()
-      expect(screen.getByTestId('estimate-marker')).toBeDefined()
-    })
-    it('renders NOTHING for an edge nobody characterised (USER_EDGE_DEFAULTS)', () => {
-      bridgeStore({ ...USER_EDGE_DEFAULTS })
-      renderOutcome()
-      expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
-      expect(screen.queryByText(/30%/)).toBeNull()
+      const { container } = renderOutcome()
+      expect(seenText(container)).not.toMatch(/60%/)
+      expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
       expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
+    it('renders NO FIGURE for an edge nobody characterised (USER_EDGE_DEFAULTS) — it states the unknown', () => {
+      // ⚠ RENAMED 3 Sep 2026. It said "renders NOTHING", and nothing is what it
+      // used to do — which reads as "no connection here". The row now stays and
+      // names the open question. The figure assertion is unchanged and is still
+      // the load-bearing half: a UI fallback may never be printed.
+      bridgeStore({ ...USER_EDGE_DEFAULTS })
+      const { container } = renderOutcome()
+      expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
+      expect(seenText(container)).not.toMatch(/30%/)
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
+      expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+    })
 
-    it('renders NOTHING for a bare DEFAULT_EDGE_DATA weight of 0.5', () => {
+    it('renders NO FIGURE for a bare DEFAULT_EDGE_DATA weight of 0.5 — unstamped, so the gate refuses it', () => {
       bridgeStore({ ...DEFAULT_EDGE_DATA })
       renderOutcome()
       expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
       expect(screen.queryByText(/50%/)).toBeNull()
       expect(screen.queryByTestId('estimate-marker')).toBeNull()
+      // ⭐ 0.5 IS THE WITNESSED NUMERAL — BUT THIS CASE IS NOT THE WITNESSED
+      // ONE, AND CONFLATING THEM IS THE REFUTED ROUND-1 READING. The five cards
+      // carried a STAMPED wire 0.5 from the drafting model; a bare default is
+      // unstamped, so it never reached the row. Pinned here so that path stays
+      // refused. The row stays; the figure does not.
+      expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
     })
 
     it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {
@@ -481,15 +522,27 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
       }) as any)
     )
 
-  it.each([['user-stated', 'user'], ['estimated', 'cee']])(
-    'renders the figure AND its noun on the %s branch',
-    (_label, source) => {
-      seedBridge(source)
-      renderOutcome()
-      expect(screen.getByText('85%')).toBeInTheDocument()
-      expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
-    },
-  )
+  /**
+   * ⭐ THE DISCRIMINATING PAIR, RE-POINTED (3 Sep 2026). Both branches used to
+   * assert the SAME thing — figure + noun — which made this table blind to the
+   * one difference that matters. It now asserts what each branch is ENTITLED to
+   * say. UI-SEM-089's actual requirement (the noun is never dropped, so an
+   * unlabelled percentage cannot read as a computed contribution) holds on both.
+   */
+  it('renders the figure AND its noun on the user-stated branch', () => {
+    seedBridge('user')
+    renderOutcome()
+    expect(screen.getByText('85%')).toBeInTheDocument()
+    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
+  })
+
+  it('renders the NOUN and the unknown, and no figure, on the estimated branch', () => {
+    seedBridge('cee')
+    const { container } = renderOutcome()
+    expect(seenText(container)).not.toMatch(/85%/)
+    expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+    expect(screen.getByText(METRIC_NOUN.strength)).toBeInTheDocument()
+  })
 
   it.each([['user-stated', 'user'], ['estimated', 'cee']])(
     'never names it as a computed output on the %s branch',
@@ -506,16 +559,25 @@ describe('OutcomeNode — UI-SEM-089: the bridge strength always carries an hone
     },
   )
 
-  it('marks ONLY the estimated branch, so the two claims stay separable', () => {
+  it('⭐ the two claims stay separable — a figure on one branch, the unknown on the other', () => {
+    /*
+     * THE PAIR. If the row ignored provenance both branches would look alike;
+     * if the fix had over-fired, the user-stated figure would have gone too —
+     * the opposite-direction twin (CLAUDE.md trap 22b), and the reason this
+     * asserts BOTH directions rather than only the one that was wrong.
+     */
     seedBridge('user')
     const stated = renderOutcome()
-    expect(stated.container.textContent).toMatch(new RegExp(METRIC_NOUN.strength))
-    expect(stated.queryByTestId('estimate-marker')).toBeNull()
+    expect(seenText(stated.container)).toMatch(new RegExp(METRIC_NOUN.strength))
+    expect(seenText(stated.container)).toMatch(/85%/)
+    expect(stated.queryByText(METRIC_UNSET.standalone)).toBeNull()
     stated.unmount()
 
     seedBridge('cee')
     const estimated = renderOutcome()
-    expect(estimated.container.textContent).toMatch(new RegExp(METRIC_NOUN.strength))
-    expect(estimated.getByTestId('estimate-marker')).toBeInTheDocument()
+    expect(seenText(estimated.container)).toMatch(new RegExp(METRIC_NOUN.strength))
+    expect(seenText(estimated.container)).not.toMatch(/85%/)
+    expect(estimated.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
+    expect(estimated.queryByTestId('estimate-marker')).toBeNull()
   })
 })

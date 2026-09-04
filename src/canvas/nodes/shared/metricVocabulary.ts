@@ -75,6 +75,132 @@ export const METRIC_NOUN = {
 } as const
 
 /**
+ * ⭐ WHAT A CAPTIONED QUANTITY SAYS WHEN NOBODY HAS SET IT.
+ *
+ * ⚠⚠ THE CANONICAL ROOT-CAUSE RECORD FOR THIS CHANGE LIVES HERE, AND THE FOUR
+ * OTHER FILES THAT TOUCH IT POINT AT IT RATHER THAN RESTATING IT. Round 1 of
+ * PR #1174 wrote the diagnosis out five times and got it wrong in all five.
+ *
+ * THE DEFECT THIS CLOSES, witnessed on a real canvas (3 Sep 2026): five cards
+ * read `Strength 50% est.` and each drew a progress bar EXACTLY HALF FULL. A
+ * proportional bar is measurement grammar — the same grammar an option's
+ * computed win share uses two cards along. The product was drawing an estimate
+ * nobody had confirmed as though it had been assessed.
+ *
+ * ⛔ AND THE SENTENCE THAT USED TO SIT HERE — *"`0.5` is the no-information
+ * default… nothing had assessed it"* — IS REFUTED, BY MEASUREMENT, 3 Sep 2026.
+ * It is withdrawn wherever it appears.
+ *
+ *   1. A BARE `DEFAULT_EDGE_DATA.weight` CANNOT REACH THIS ROW AT ALL. The
+ *      provenance gate is `resolveEdgeSignedStrengthDisplay`, which refuses an
+ *      unstamped weight (`{show:false, reason:'not_set'}`), and
+ *      `DEFAULT_EDGE_DATA` deliberately carries no stamp. An unset default
+ *      renders NO ROW — never `Strength 50%`. For that string to appear, a wire
+ *      value must have arrived.
+ *
+ *   2. ⚠ AND THE STAMP IS THE UI'S OWN INFERENCE, NOT SOMETHING CEE WROTE. It
+ *      is tempting to describe these as "producer-stamped `cee`"; that is also
+ *      wrong. `weight_source` is written NOWHERE in CEE (0 occurrences, against
+ *      a contrast control of `strength_mean` in 273 files). The `'cee'` stamp
+ *      is applied HERE, by `applyDraftResult.mapDraftEdgeToCanvas`, keyed
+ *      purely on `wireSuppliedStrength` — the mere PRESENCE of a wire figure.
+ *      So the numbers are the drafting model's own output, passed through and
+ *      labelled by our ingestion. "A producer supplied it" is true; "a producer
+ *      declared its provenance" is not.
+ *
+ *   3. SO THE HONEST CLAIM IS THE NARROWER ONE: something DID assess these —
+ *      the drafting model did — and NO HUMAN HAS SETTLED IT. That is what the
+ *      row's own disclosure says, and it is the only claim the data licenses.
+ *      It is also why the predicate is `strengthIsHumanSettled` and not a
+ *      value-provenance read: see `canvas/domain/edgeStrengthSettlement.ts`.
+ *
+ * ⚠⚠ THE WITNESSED FLAT CANVAS IS THE MODAL FAILURE, NOT A CONSTANT — AND THIS
+ * IS THE CLAIM ROUND 1 MOST OVERSTATED. The five cards that prompted this change
+ * were the five outcome/risk nodes, each with exactly one outgoing edge — to the
+ * goal — all at `strength_mean` 0.5: everything UPSTREAM of the goal was
+ * differentiated and everything CONNECTING to it was flat. Measured across 12
+ * independent draws (orchestrator's bundle analysis,
+ * `CEE-GOAL-EDGE-STRENGTH-2026-09-03.md`), goal edges range −0.6 to +0.9 and
+ * VARY WITHIN most draws; **4 of 12 flatten completely.** So the correct
+ * statement is *"on drafts where the goal layer flattens — 4 of 12 draws
+ * measured"*. It is NOT "nearly every strength row", and NOT "the five most
+ * decisive relationships" — both were written before anything counted.
+ *
+ *   ⭐ The committed starters CORROBORATE that flatness is draw-dependent rather
+ *   than structural: measured over all five (`strength.mean` on all 24), the
+ *   values are a genuine spread — 0.18, 0.20, 0.22×2, 0.30×2, 0.35×3, 0.40×4,
+ *   0.45×3, 0.50×2, 0.55×5, 0.65 — so only **2 of 24** are 0.5 at all.
+ *
+ * ⚠⚠ THE BLAST RADIUS OF THE RENDERING CHANGE, MEASURED AND NOT SOFTENED — AND
+ * IT IS A DIFFERENT QUESTION FROM THE FLATTENING ABOVE. Withholding is decided
+ * by SETTLEMENT, not by the value, so it does not care whether a draw flattened:
+ * of the 24 risk/outcome→goal bridge edges across the five committed starters,
+ * **24 of 24 — 100% — lose their bar and their on-face figure**, because not one
+ * carries `validation`, `userReviewedStrength` or `weightSource: 'user'` (163
+ * starter edges scanned; contrast control: the same scan reports the keys that
+ * ARE present). The figure is DEMOTED to the row's `title` and screen-reader
+ * phrase, not deleted.
+ *
+ * ⭐ AND THAT 100% IS THE POINT, NOT AN EMBARRASSMENT TO BE SOFTENED. A user
+ * looking at the five edges that determine the answer, each declaring itself
+ * unset, above a computed 62%/38%, is the product's real epistemic position
+ * BECOMING VISIBLE. It was always true; it was previously hidden behind a
+ * half-full bar. Whether to keep that visibility is a PRODUCT call at 100%
+ * reach — Paul's to take — and it is stated in those terms rather than left for
+ * a later session to discover.
+ *
+ * ⭐⭐ AND THE STRONGEST ARGUMENT FOR IT IS A PRECEDENT THIS RECORD DID NOT CITE:
+ * THE ESTATE ALREADY TOOK THIS EXACT DECISION ONE CHANNEL ALONG.
+ * `StyledEdge.tsx:1082`, ROADMAP 2.954 — in the causal lens an unset strength
+ * draws at FLOOR WIDTH *"so thickness never reports the `weight` default as a
+ * measurement."* Withholding a bar for an unsettled strength is the same
+ * refusal, on the card instead of the line. That is a much better justification
+ * than the flattening statistics above, which describe how OFTEN the old
+ * behaviour looked wrong rather than why it WAS wrong.
+ *
+ * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — NOT FIXED
+ * HERE. Thickness still carries the magnitude and `vectorEffect:
+ * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
+ * channels that does not degrade at low zoom (where this metric row sits at
+ * ~8.8px). But `weightMagnitudeToStrokeWidth` has three bands (≥0.7→3, ≥0.4→2,
+ * else 1.5) and `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest
+ * band. Across the 24 starter magnitudes (0.18–0.65) that is exactly TWO
+ * distinguishable widths, one of them ambiguous with "unset".
+ *
+ * ⛔ DELIBERATELY NOT BUILT. Whether "unset" should be visually distinct from
+ * "weakest" is a live product question with Paul, and changing
+ * `UNSET_EDGE_STROKE_WIDTH` or the band scheme would pre-empt it from a lane
+ * scoped to a card row. Rowed, not built. (An in-repo middle exists if he wants
+ * one: the canvas already uses DASH to mean uncertainty, so a visibly unsettled
+ * bar — hatched or ghosted, clearly outside measurement grammar — would keep 24
+ * edges comparable at a glance while still refusing the claim. Unexamined here.)
+ *
+ * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
+ * this — the risk card, the outcome card, and the reduced line both of them
+ * declare below the legibility floor. That is exactly the hand-maintained
+ * mirror this file exists to abolish (CLAUDE.md trap 12): a word in three
+ * places drifts, and the drift always reads as green.
+ *
+ * ⚠ `inline` IS DERIVED FROM `standalone`, NEVER RE-TYPED. The reduced line
+ * reads `Strength not set yet` — one leaf, so the state follows the noun in
+ * running text and must lower-case its first letter. Deriving it means a
+ * rewording of the card cannot leave the zoomed-out line saying something else.
+ *
+ * ⚠ AND WHY "yet". "Not set" is a deficit; "not set yet" is an invitation. The
+ * strength of a connection is the user's judgement to make — the row's own
+ * disclosure names the way to make it — and a card that reads as an apology for
+ * missing data teaches a reader to ignore it.
+ */
+const UNSET_STANDALONE = 'Not set yet'
+
+export const METRIC_UNSET = {
+  /** The card row's own text, standing alone in the value column. */
+  standalone: UNSET_STANDALONE,
+  /** The same state following a noun in the reduced line: "Strength not set yet". */
+  inline: `${UNSET_STANDALONE.charAt(0).toLowerCase()}${UNSET_STANDALONE.slice(1)}`,
+} as const
+
+/**
  * ⭐ THE LEGEND — the second half of Paul's ruling: "a legend where the model
  * is, not in a panel."
  *
@@ -195,7 +321,29 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   },
   {
     noun: METRIC_NOUN.strength,
-    gloss: 'how strongly a risk or outcome connects to the goal; the same measure as line thickness',
+    // ⛔ THE CLAUSE THAT USED TO END THIS ROW — "; the same measure as line
+    // thickness" — IS NOW FALSE, AND IT WAS THIS CHANGE THAT FALSIFIED IT.
+    //
+    // The two channels ask DIFFERENT QUESTIONS (CLAUDE.md trap 21, and the
+    // separation is already written down in `domain/edgeStrengthSettlement.ts`):
+    //
+    //   this row      HAS A HUMAN SETTLED IT?   `strengthIsHumanSettled`
+    //   line width    WHOSE NUMBER IS THIS?     `edgeValueSource(data,'weight')`
+    //                                           via `resolveEdgeSignedStrengthDisplay`
+    //
+    // Before this change both surfaces reported the producer's figure, so the
+    // identity claim held. This change made the ROW refuse an unsettled
+    // strength while thickness — untouched, and deliberately so — keeps drawing
+    // the producer's magnitude (`StyledEdge` gates width on `.show`, which is
+    // provenance, not settlement). On a drafted board that is the SAME
+    // connection reading "Not set yet" on the card beside a line drawn at its
+    // magnitude. A key asserting the two are one measure turns that into a
+    // contradiction the reader cannot resolve.
+    //
+    // The identity claim is DROPPED rather than repaired, and the divergence is
+    // disclosed once, on the `METRIC_UNSET.standalone` row below — which is the
+    // row a reader is looking at when they meet the divergence.
+    gloss: 'how strongly a risk or outcome connects to the goal',
   },
   {
     noun: '#1, #2, #3',
@@ -205,6 +353,35 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
     noun: '1, 2, 3 on an option',
     // ⚠ THE QUALIFIER IS LOAD-BEARING — see ORDINAL_ROW_MUST_STATE_MINT below.
     gloss: 'the order the options were first laid out in. Not a ranking, and it stays with a card when you move it.',
+  },
+  {
+    noun: METRIC_UNSET.standalone,
+    // ⚠ NO "node" / "edge" / "graph" — the popover's own spec bans all three,
+    // which is why this names "the line" and "this strength" rather than the
+    // thing they belong to.
+    //
+    // ⭐ THE MIDDLE SENTENCE IS THE ONE THAT STOPS THIS KEY CONTRADICTING THE
+    // CANVAS, and it is here rather than on the `Strength` row because this is
+    // the row on screen at the moment the reader meets the divergence.
+    //
+    // A drafted board arrives with a producer's figure on every bridge and a
+    // human's verdict on none. This row therefore says "Not set yet" while the
+    // line beside it is drawn at that figure's magnitude in its polarity
+    // colour. Both are correct — width answers "whose number is this?" and this
+    // row answers "has anyone settled it?" — but a reader given only the first
+    // half concludes one of the two surfaces is broken.
+    //
+    // "may still", not "does": width falls back to `UNSET_EDGE_STROKE_WIDTH` in
+    // grey when NOTHING supplied a figure (`resolveEdgeSignedStrengthDisplay` →
+    // `.show === false`), which is the separate state the thickness key's own
+    // "No strength suggested" row describes.
+    //
+    // ⚠ THE DEFINITION IS NOT RESTATED HERE, AND THAT IS THE BUDGET TALKING.
+    // `MAX_GLOSS_LENGTH` is 110 and a first draft carrying both the definition
+    // and this disclosure measured 135 — the guard caught it, which is what it
+    // is for. The definition lives one row up on `Strength`, in the same
+    // popover, so dropping it here loses nothing a reader cannot see.
+    gloss: 'nobody has set this strength. The line may still show a suggestion. Open the details to set it.',
   },
   {
     noun: 'est.',

@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   METRIC_NOUN,
+  METRIC_UNSET,
   METRIC_LEGEND_ROWS,
   RETIRED_METRIC_NOUNS,
   ORDINAL_ROW_MUST_STATE_MINT,
@@ -136,6 +137,41 @@ describe('METRIC_LEGEND_ROWS', () => {
     const row = METRIC_LEGEND_ROWS.find((r) => r.noun === 'est.')!
     expect(row.gloss).toMatch(/Open the details/)
     expect(row.gloss).not.toMatch(/Open the card/)
+  })
+
+  /**
+   * ⭐⭐ N1 — THE KEY MAY NOT CLAIM THAT THE ROW AND THE LINE ARE ONE MEASURE.
+   *
+   * The `Strength` gloss used to end "; the same measure as line thickness".
+   * That was true while both surfaces reported the producer's figure. It stopped
+   * being true when the card began REFUSING an unsettled strength, because the
+   * two channels are gated on different questions and nothing changed thickness:
+   *
+   *   this row     `strengthIsHumanSettled`                  has a human settled it?
+   *   line width   `resolveEdgeSignedStrengthDisplay(...).show`  whose number is this?
+   *
+   * ⚠ THE ASSERTIONS ARE ON THE PROPERTY, NOT ON THE SENTENCE. Pinning the exact
+   * replacement copy would be a mirror that REDs on any rewording (trap 12);
+   * what must not come back is the CLAIM.
+   */
+  it('⭐ N1: the strength gloss makes no identity claim about line thickness', () => {
+    const strength = METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_NOUN.strength)!
+    // Positive control — we found a real row with real copy to examine.
+    expect(strength.gloss.length).toBeGreaterThan(20)
+    expect(strength.gloss, 'the "same measure as thickness" claim is back, and the cards no longer honour it')
+      .not.toMatch(/same (measure|thing|number|quantity)/i)
+    expect(strength.gloss, 'the strength row asserts a thickness equivalence again')
+      .not.toMatch(/thickness/i)
+  })
+
+  it('⭐ N1: the unset row discloses that the line may still show a figure', () => {
+    const unset = METRIC_LEGEND_ROWS.find((r) => r.noun === METRIC_UNSET.standalone)!
+    // Without this sentence the reader meets a card saying "Not set yet" beside
+    // a thick coloured line and has no way to reconcile them.
+    expect(unset.gloss, 'the unset row no longer warns that the line can still show a suggestion')
+      .toMatch(/may still/i)
+    // Contrast: it must not have become a promise that the line is blank.
+    expect(unset.gloss).not.toMatch(/no line|nothing is drawn/i)
   })
 
   it('no gloss uses the technical vocabulary the popover bans', () => {

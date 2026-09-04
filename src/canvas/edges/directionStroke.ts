@@ -87,9 +87,12 @@ import type { EdgeDirectionDisplay, EdgeValueDisplay } from '../domain/edgeValue
  *
  * ⚠ WHY THIS IS NOT SIMPLY THE GLYPH'S RULE. The two channels answer different
  * questions and must not be collapsed (CLAUDE.md trap 21). The glyph asks "did
- * anyone STATE a direction?". The stroke asks that AND "did anyone SET a
- * strength?", because grey is already this module's no-verdict colour for an
- * unset strength. A stated direction over an unset strength therefore draws a
+ * anyone STATE a direction?". The stroke asks that AND "did anyone SUPPLY a
+ * strength FIGURE?", because grey is already this module's no-verdict colour
+ * for a strength with no supplied value. ⚠ That is value PROVENANCE, not human
+ * SETTLEMENT (`domain/edgeStrengthSettlement.ts`): a card reading "Not set yet"
+ * can sit beside a coloured line, and that is correct rather than drift.
+ * A stated direction over an unsupplied strength therefore draws a
  * glyph on a grey line — correct, not drift, and a guard asserting the two
  * channels always agree would be wrong. See the spec's fixture table.
  */
@@ -99,7 +102,14 @@ export function computeDirectionStroke(
   isDark: boolean,
 ): string {
   const neutral = isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)'
-  // Nobody set this strength → no verdict.
+  // ⚠ "NOBODY SUPPLIED A FIGURE", NOT "NOBODY SET IT" — and the distinction is
+  // now load-bearing, because the cards print a literal "Not set yet" keyed on
+  // the OTHER question. `.show` is `edgeValueSource(data,'weight') !== null`
+  // (value provenance: WHOSE NUMBER IS THIS?). Human settlement is
+  // `strengthIsHumanSettled` in `domain/edgeStrengthSettlement.ts`, which this
+  // channel does not read — so a producer-supplied, human-unsettled strength
+  // draws a POLARITY colour here while its card says "Not set yet". Correct,
+  // and disclosed in the legend's own unset rows.
   if (!strength.show) return neutral
   // Nobody STATED this direction — defaulted, absent, explicitly declined, or
   // an unrecognised value that failed closed. The resolver owns that answer and

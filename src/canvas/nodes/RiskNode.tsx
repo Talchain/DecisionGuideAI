@@ -6,8 +6,9 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
-import { resolveEdgeSignedStrengthDisplay } from '../domain/edgeValueProvenance'
+import { METRIC_NOUN, METRIC_UNSET } from './shared/metricVocabulary'
+import { resolveEdgeSignedStrengthDisplay, edgeValueSource } from '../domain/edgeValueProvenance'
+import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
@@ -15,7 +16,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { EstimateMarker, NodeMetricRow } from './shared'
+import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -55,17 +56,57 @@ export const RiskNode = memo((props: NodeProps) => {
     // `RelationshipsSection`: a gate whose condition is a tautology.
     const display = resolveEdgeSignedStrengthDisplay(edge.data as Record<string, unknown> | undefined)
     const signedMean = display.show ? display.value : null
-    // R6: is this strength an ESTIMATE or something the user stated? Derived
-    // from the edge's own provenance stamp — the same field the display gate
-    // above consults — never from a hardcoded word. `weightSource` absent means
-    // defaulted (edgeValueProvenance's stated invariant), which is an estimate;
-    // `'user'` means the user set it, and carries no marker at all.
-    const weightSource = (edge.data as Record<string, unknown> | undefined)?.weightSource
-    return {
-      signedMean,
-      bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
-      bridgeIsEstimated: signedMean != null && weightSource !== 'user',
+    const assumedPct = signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null
+    // ⚠ WHO SUPPLIED THE FIGURE — needed only to NAME the assumer in the unset
+    // row's disclosure, never to decide whether to draw it. `'template'` is a
+    // real third author (`useBlueprintInsert`), so the sentence cannot hardcode
+    // Olumi; `unconfirmedStrengthDisclosure` owns that wording.
+    const assumedSource = edgeValueSource(edge.data as Record<string, unknown> | undefined, 'weight')
+    /**
+     * ⛔ THE ONE QUESTION THIS ROW ASKS: HAS A HUMAN ACCEPTED RESPONSIBILITY FOR
+     * THIS STRENGTH? — and it does NOT answer it here.
+     *
+     * ⚠⚠ CORRECTED 3 Sep 2026, AND THE CORRECTION IS THE WHOLE POINT. This line
+     * read `weightSource === 'user'`, and the paragraph here defended that as
+     * "the one question this row asks: did a human SET this strength". It was
+     * the wrong field for the sentence beside it. `weightSource` answers *whose
+     * number is this?*; the row's copy claims *nobody has set it*. Those are
+     * different questions (CLAUDE.md trap 21), and they DIVERGE on a state a
+     * live affordance produces: `ContestedEdgeCard`'s "Accept review" →
+     * `ModelTabBody.handleResolveContested` stamps `weightSource: 'cee'`
+     * deliberately (the value IS the producer's) while recording the user's
+     * adjudication in `validation`. The card therefore told a user who had just
+     * settled this strength that nobody had.
+     *
+     * ⛔ AND THE REMEDY IS NOT TO READ TWO FIELDS HERE. That would be a second
+     * answer to a question `selectAssumedStrengthToResolve` already owns, free
+     * to drift. `strengthIsHumanSettled` is the ONE admission both consume.
+     *
+     * ⚠ SCOPE BOUNDARY, STATED SO THE NEXT LANE INHERITS IT RATHER THAN
+     * REDISCOVERS IT. A producer strength that is genuinely MEASURED rather
+     * than assumed is withheld by this predicate too. Nothing on the wire
+     * distinguishes the two today — CEE stamps `'cee'` for both — so the CEE
+     * lane that makes real strengths arrive must land a distinguishable
+     * provenance, and `edgeStrengthSettlement.ts` is the single place to widen.
+     */
+    /**
+     * ⚠ A DISCRIMINATED UNION, NOT TWO NULLABLE FIELDS. The settled arm's
+     * `bridgeStrengthPct` is `number`, so the render site cannot reach for a
+     * `?? 0` fallback — the previous shape carried one, and an unreachable
+     * fallback that would silently draw a 0% bar is exactly the "measured, and
+     * it is nought" claim this row refuses to make.
+     */
+    if (assumedPct !== null && strengthIsHumanSettled(edge.data as Record<string, unknown> | undefined)) {
+      /** The figure to DRAW. Present only where a human has settled it. */
+      return {
+        strengthIsSettled: true as const,
+        bridgeStrengthPct: assumedPct,
+        assumedPct: null,
+        assumedSource: null,
+      }
     }
+    /** The figure to DISCLOSE — a producer's guess, or nothing at all. */
+    return { strengthIsSettled: false as const, bridgeStrengthPct: null, assumedPct, assumedSource }
   }, [edges, nodes, props.id])
 
   /**
@@ -78,18 +119,33 @@ export const RiskNode = memo((props: NodeProps) => {
    * 0 of 3 risks and 0 of 3 outcomes, which is the very defect it was written to
    * fix (asking for the datum the node lacks) reproduced one type along.
    *
-   * ⛔ `est.` RIDES WITH THE NUMBER AND IS NOT OPTIONAL. It is the provenance
-   * marker `bridgeIsEstimated` produces, and the full-zoom card is required to
-   * show it beside this figure. A bare "Strength 50%" at low zoom would state as
-   * measured what the card two zoom levels up states as estimated — the same
-   * class of over-claim as printing a caveated probability with the caveat
-   * dropped. Where the user set the weight themselves there is no marker, and
-   * this correctly carries none.
+   * ⚠⚠ AND THE RULE THAT USED TO SIT HERE WAS RIGHT ABOUT THE PRINCIPLE AND
+   * WRONG ABOUT THE REMEDY. It read: *"`est.` RIDES WITH THE NUMBER AND IS NOT
+   * OPTIONAL… a bare 'Strength 50%' at low zoom would state as measured what
+   * the card two zoom levels up states as estimated."* The principle is exact.
+   * The remedy — keep the number, append a 7px marker — treated the disclaimer
+   * as the fix when the FIGURE was the claim. Measured on a real canvas
+   * (3 Sep 2026): five cards reading `Strength 50% est.` at once, each drawing a
+   * bar exactly half full.
+   *
+   * ⚠⚠ THE REASON THAT USED TO END THAT PARAGRAPH — *"because 0.5 is
+   * `DEFAULT_EDGE_DATA.weight`, the no-information default"* — IS WITHDRAWN AS
+   * REFUTED. The canonical, measured root-cause record is in
+   * `shared/metricVocabulary.ts` and is deliberately NOT restated here: round 1
+   * of this change wrote the diagnosis out in five files and had it wrong in all
+   * five, which is the hand-maintained mirror this estate keeps paying for.
+   *
+   * ⛔ SO THE LINE NOW STATES THE PROVENANCE INSTEAD OF QUALIFYING IT. Where a
+   * human has SETTLED the weight there is a figure and no marker, exactly as
+   * before. Where nobody has, there is no figure to qualify.
    */
   const lodMetric = useMemo(() => {
-    const pct = bridgeEdgeData?.bridgeStrengthPct
-    if (pct == null) return null
-    return `${METRIC_NOUN.strength} ${pct}%${bridgeEdgeData?.bridgeIsEstimated ? ' est.' : ''}`
+    if (!bridgeEdgeData) return null
+    const pct = bridgeEdgeData.bridgeStrengthPct
+    if (pct != null) return `${METRIC_NOUN.strength} ${pct}%`
+    // The connection exists and nobody has said how strong it is. Saying so is
+    // the same true thing the full card says, in the width one line allows.
+    return `${METRIC_NOUN.strength} ${METRIC_UNSET.inline}`
   }, [bridgeEdgeData])
 
   // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
@@ -239,33 +295,69 @@ export const RiskNode = memo((props: NodeProps) => {
             head, i.e. the guard had been inverted from a PRESENCE assertion to
             an ABSENCE one and could no longer see the masquerade.
 
-            The noun therefore stays on BOTH branches. What R6 actually removes
-            is the word "assumed", which was false for a value the user had
-            stated: "85% strength" when somebody set it, "85% strength · est."
-            when nobody did. The honesty claim and the placeholder-wall claim are
-            different claims and both are satisfied. */}
-        {bridgeEdgeData?.bridgeStrengthPct != null && (
-          /* ⭐ THE SHARED ROW (1 Sep 2026). This was value-first inline text with
-             no bar, while options rendered an anchored row WITH one and factors
-             rendered a pill — three presentations of one idea, because each was
-             written where it was needed. A risk's strength was the only one a
-             reader could not compare at a glance.
+            The noun therefore stays on BOTH branches.
 
-             The noun is unchanged and still rendered text, so UI-SEM-089 holds:
-             an unlabelled percentage beside a goal reads as a computed
-             contribution, and that is what the noun exists to prevent. */
-          <NodeMetricRow
-            label={METRIC_NOUN.strength}
-            value={bridgeEdgeData.bridgeStrengthPct / 100}
-            formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
-            fillClass="bg-danger"
-            testId="risk-strength-row"
-            trailing={
-              bridgeEdgeData.bridgeIsEstimated ? (
-                <EstimateMarker subject="strength" />
-              ) : null
-            }
-          />
+            ⚠⚠ AND THE SENTENCE THAT USED TO CLOSE THIS BLOCK IS WITHDRAWN AS OF
+            3 Sep 2026, BECAUSE IT DESCRIBED A RENDERING THAT NO LONGER EXISTS
+            AND DEFENDED ONE THAT SHOULD NOT HAVE. It read: *"What R6 actually
+            removes is the word 'assumed'… '85% strength' when somebody set it,
+            '85% strength · est.' when nobody did. The honesty claim and the
+            placeholder-wall claim are different claims and both are satisfied."*
+            Both claims were NOT satisfied. Collapsing "assumed" to a 7px `est.`
+            left a full percentage and a proportional bar making the assessment
+            claim, with the only qualification rendered as the smallest thing on
+            the card. Measured on a real canvas: five cards reading
+            `Strength 50% est.`, each with a bar exactly half full — figures the
+            DRAFTING MODEL supplied, which no human had settled. (Round 1 read
+            that 0.5 as `DEFAULT_EDGE_DATA.weight`. Refuted: an unstamped default
+            cannot reach this row at all. Canonical record —
+            `shared/metricVocabulary.ts`.) The `est.`-beside-the-figure
+            branch is gone; where nobody set the weight there is no figure. */}
+        {bridgeEdgeData && (
+          /* ⭐ TWO ROWS, ONE CAPTION COLUMN — AND THE BAR IS THE THING THAT MOVES.
+
+             A proportional bar is measurement grammar: it is the same visual
+             scale an option's COMPUTED win share uses two cards along, and a
+             half-full one says "assessed, and middling". The five cards that
+             prompted this drew exactly that bar for the DRAFTING MODEL'S own
+             0.5 — a figure something DID supply, and no human had settled.
+
+             ⚠ NOT a bare `DEFAULT_EDGE_DATA.weight`, which is what round 1
+             claimed and is REFUTED: the default carries no provenance stamp, so
+             `resolveEdgeSignedStrengthDisplay` returns `{show:false}` and the
+             pre-PR gate rendered NO ROW. For `Strength 50%` to appear a wire
+             value must have arrived. Canonical record, including why the
+             flattening is modal (4 of 12 draws) rather than constant:
+             `shared/metricVocabulary.ts`.
+
+             ⛔ THE ROW IS NOT DELETED, AND THAT IS THE OTHER HALF OF THE FIX.
+             An absent row reads as "nothing to see"; the reader needs to know
+             the connection EXISTS and that its strength is an open question —
+             one they can settle. The caption stays in the shared 3.5rem column
+             on both branches, so a board still scans as one table.
+
+             ⚠ THE PRODUCER'S NUMBER IS DEMOTED, NOT DELETED. It rides the
+             `title` and the screen-reader phrase, stated as an assumption.
+             `NodeMetricRow` requires BOTH carriers: a `title` is unreachable by
+             keyboard on a non-focusable row and absent on touch. */
+          bridgeEdgeData.strengthIsSettled ? (
+            <NodeMetricRow
+              label={METRIC_NOUN.strength}
+              value={bridgeEdgeData.bridgeStrengthPct / 100}
+              formatted={`${bridgeEdgeData.bridgeStrengthPct}%`}
+              fillClass="bg-danger"
+              testId="risk-strength-row"
+            />
+          ) : (
+            <NodeMetricRow
+              label={METRIC_NOUN.strength}
+              value={null}
+              unsetText={METRIC_UNSET.standalone}
+              testId="risk-strength-row"
+              title={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
+              phrase={unconfirmedStrengthDisclosure(bridgeEdgeData.assumedPct, bridgeEdgeData.assumedSource)}
+            />
+          )
         )}
 
         {/* Severity badge + probability × impact pair — visible in STANDARD view

@@ -94,8 +94,10 @@ describe('EstimateMarker — the two objects are named apart', () => {
   })
 
   it('⛔ neither title claims an AUTHOR — `est.` is not a provenance badge', () => {
-    // `bridgeIsEstimated` includes "defaulted, with no source at all", so any
+    // The unconfirmed set includes "defaulted, with no source at all", so any
     // wording implying Olumi or an AI wrote the number would be a fabrication.
+    // (⚠ this comment named `bridgeIsEstimated` until 3 Sep 2026; that
+    // identifier is gone — the cards no longer print a figure to mark.)
     // This is the guard on the ⛔ ruling in the component header.
     for (const subject of ['value', 'strength'] as const) {
       const r = render(<EstimateMarker subject={subject} />)

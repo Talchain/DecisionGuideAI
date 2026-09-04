@@ -42,7 +42,7 @@ import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { METRIC_LEGEND_ROWS, METRIC_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 
 interface LegendRow {
@@ -127,10 +127,11 @@ const COLOUR_ROWS: LegendRow[] = [
 
 function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
   width: number
-  /** Stroke colour. The "not set yet" row NEEDS this: at 1.5px it is the same
-   *  width as "Weak effect", so colour is its only discriminator — a swatch
-   *  that hard-coded the body colour rendered the two rows pixel-identical and
-   *  the row's own caption ("thin and grey") was false about itself. */
+  /** Stroke colour. The "no strength suggested" row NEEDS this: at 1.5px it is
+   *  the same width as "Weak effect", so colour is its only discriminator — a
+   *  swatch that hard-coded the body colour rendered the two rows
+   *  pixel-identical and the row's own caption ("thin and grey") was false
+   *  about itself. */
   stroke?: string
   testId?: string
 }) {
@@ -168,8 +169,28 @@ const THICKNESS_ROWS: LegendRow[] = [
   // them apart — the colour does, which is why this swatch MUST carry the grey
   // stroke. It shipped without one for a review cycle and rendered identical to
   // the row above it, i.e. the caption said "grey" beside a body-coloured line.
+  //
+  // ⛔ THIS ROW USED TO BE LABELLED "Not set yet", AND THAT COLLIDED THE MOMENT
+  // THE CARDS STARTED PRINTING THAT EXACT STRING. Two rows in ONE popover, the
+  // same opening words, DIFFERENT conditions — and in the state that matters
+  // they contradict each other outright:
+  //
+  //   this row          `resolveEdgeSignedStrengthDisplay(...).show === false`
+  //                     — NOBODY SUPPLIED A FIGURE. Floor width, neutral grey
+  //                     (`computeDirectionStroke` returns `neutral` on `!show`).
+  //   the card's row    `strengthIsHumanSettled(...) === false`
+  //                     — nobody has SETTLED it. The producer's figure may well
+  //                     be present, in which case the line is drawn at its
+  //                     magnitude in a POLARITY colour: thick and green or rose,
+  //                     i.e. the exact opposite of "thin and grey".
+  //
+  // So a reader who took this row as the key to the card's wording was being
+  // taught to expect a thin grey line beside every "Not set yet" card, and a
+  // drafted board shows them thick coloured ones. The label now names the
+  // condition this row ACTUALLY describes; the card's row carries its own
+  // disclosure (`metricVocabulary.ts`, `METRIC_UNSET.standalone`).
   {
-    label: 'Not set yet: thin and grey',
+    label: 'No strength suggested: thin and grey',
     swatch: <ThicknessSwatch width={1.5} stroke="var(--edge-neutral)" testId="legend-thickness-unset" />,
   },
 ]
@@ -278,12 +299,27 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  *                     (`useResultsSectionData.ts:1712`). So pre-run the map
  *                     stays `{}` and the badge cannot mount.
  *
- *   Strength PRE-RUN  `RiskNode:247` / `OutcomeNode:253`
- *                     `bridgeEdgeData?.bridgeStrengthPct != null`, a memo over
- *                     `state.edges`/`state.nodes` ONLY — no report, no status.
- *   est.     PRE-RUN  `FactorNode:911` `isInferred` (`data.observedState`),
- *                     `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`
- *                     (`edge.data.weightSource !== 'user'`). Graph-authored.
+ *   Strength PRE-RUN  `RiskNode` / `OutcomeNode` render on `bridgeEdgeData`
+ *                     alone — a memo over `state.edges`/`state.nodes` ONLY, no
+ *                     report and no status.
+ *   Not set  PRE-RUN  the same memo's `strengthIsSettled === false` arm, and
+ *              yet     pre-run is where it is MOST on screen: a drafted model
+ *                     arrives with every bridge strength unset.
+ *   est.     PRE-RUN  `FactorNode:911` `isInferred` (`data.observedState`).
+ *                     ⚠ CORRECTED 3 Sep 2026 — this row also named
+ *                     `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`.
+ *                     That identifier no longer exists: those cards print
+ *                     `METRIC_UNSET.standalone` instead of a figure plus a 7px
+ *                     marker, so `est.` is now a FACTOR-ONLY marking.
+ *                     ⚠⚠ CORRECTED AGAIN, SAME DAY — the sentence that stood
+ *                     here said "its row stays always-live for that reason".
+ *                     FALSE, and it was false when written: deleting two of
+ *                     three producers is a reason to gate the row, not to keep
+ *                     it unconditional. The surviving site is gated on
+ *                     `isInferred && !isDetailed`, and `isDetailed` is
+ *                     BOARD-level (`viewMode === 'expert'`), so in expert view
+ *                     the marker renders NOWHERE. The row is now gated on
+ *                     `estimateMarkersOnScreen`.
  *
  * ⛔ THE FIX IS WHEN A ROW IS SHOWN — NOT WHEN A NUMBER IS MINTED, AND NOT THE
  * WORDS. Changing ordinal minting is a separate decision with its own
@@ -351,6 +387,34 @@ export interface LegendBoardState {
    * can see — the same direction of error this whole change exists to close.
    */
   readonly ordinalsOnScreen: boolean
+  /**
+   * ⭐ At least one MOUNTED card can render an `est.` marker.
+   *
+   * ⛔ WHY THIS FIELD EXISTS: THIS CHANGE DELETED TWO OF THE MARKER'S THREE
+   * PRODUCERS WHILE ITS ROW STAYED `() => true`.
+   *
+   * `<EstimateMarker />` had three production sites — `FactorNode:911`,
+   * `RiskNode:265`, `OutcomeNode:267`. The risk and outcome cards now print
+   * `METRIC_UNSET.standalone` instead of a figure plus a marker, so there is
+   * ONE site left, and its gate is `isInferred && !isDetailed`.
+   *
+   * `isDetailed` is `viewMode === 'expert'` (`FactorNode:47`) — a BOARD-level
+   * setting, not per-card. So in expert view the marker cannot render ANYWHERE,
+   * and an always-live row explained a marking the reader could not find. That
+   * is the exact harm `METRIC_ROW_VISIBLE` was introduced to close, walked
+   * through from the other side: the register spec REDs when a noun GAINS no
+   * row, and was structurally blind to a noun whose PRODUCERS were removed.
+   *
+   * ⚠ BOTH BOARD-LEVEL TERMS ARE CAPTURED EXACTLY, AND THE RESIDUAL IS STATED.
+   * `FactorNode:909` also requires `valueDisplay !== null`, which is derived
+   * inside the card from several fields. Re-deriving it here would be a SECOND
+   * AUTHORITY that agrees on the day it is written (trap 21), so it is not
+   * attempted. The residual over-show is therefore "expert view off, an
+   * inferred factor is mounted, but that factor renders no value line" — a
+   * strictly narrower set than the `() => true` this replaces, and the
+   * direction of the remaining error is unchanged, not widened.
+   */
+  readonly estimateMarkersOnScreen: boolean
 }
 
 /**
@@ -377,10 +441,13 @@ export interface LegendBoardState {
  *             whenever `!isResultsMode || !report`.
  *   1,2,3     `OptionNode:1459` `stableOptionNumber != null` — AND NOTHING ELSE.
  *             Its gate carries no results term at all, which is the whole of F1.
- *   Strength  `RiskNode:247` / `OutcomeNode:258` `bridgeStrengthPct != null`, a
+ *   Strength  `RiskNode` / `OutcomeNode` render on `bridgeEdgeData != null`, a
  *             memo over `state.edges`/`state.nodes` only.
- *   est.      `FactorNode:911` `isInferred`; `RiskNode:265` / `OutcomeNode:267`
- *             `bridgeIsEstimated`. Graph-authored; no results term.
+ *   Not set yet  the same memo's `strengthIsSettled === false` arm.
+ *   est.      `FactorNode:911` `isInferred && !isDetailed` — factor values only
+ *             since 3 Sep 2026. Graph-authored; no results term, but `isDetailed`
+ *             is `viewMode === 'expert'`, a BOARD-level setting, so this row is
+ *             gated on `estimateMarkersOnScreen` and NOT always-live.
  *
  * ⚠ THE LIST ABOVE IS THE PRIMARY SITE PER NOUN, NOT THE ONLY ONE. A completeness
  * sweep found SEVEN MORE, and the correction is recorded here rather than left
@@ -394,11 +461,19 @@ export interface LegendBoardState {
  *   (`detailedMetrics`, mounted at `:284`).
  *
  *   PRE-RUN, and these do NOT route through `displayMetadata`:
- *   `RiskNode:92` and `OutcomeNode:85` paint `Strength N% est.` as reduced LOD
- *   lines straight off `bridgeEdgeData`. They land on the same side as the
- *   primary Strength/est. rows, so the conclusion holds — but it holds for a
- *   different reason than "everything goes through `displayMetadata`", and a
- *   reader checking that premise would have found it false.
+ *   `RiskNode` and `OutcomeNode` paint their bridge-strength reduced LOD lines
+ *   straight off `bridgeEdgeData`. They land on the same side as the primary
+ *   Strength row, so the conclusion holds — but it holds for a different reason
+ *   than "everything goes through `displayMetadata`", and a reader checking
+ *   that premise would have found it false.
+ *
+ *   ⚠ CORRECTED 3 Sep 2026 — this paragraph said those lines paint
+ *   `Strength N% est.`. They no longer can: a strength nobody set now renders
+ *   `METRIC_UNSET.standalone` with no figure and no bar, on the card and on the
+ *   reduced line alike. `est.` survives on `FactorNode`'s own value only.
+ *   ⚠⚠ AND THAT IS WHY ITS ROW IS NOW GATED, NOT WHY IT IS ALWAYS-LIVE — the
+ *   first version of this paragraph drew the opposite conclusion from the same
+ *   fact. Losing producers narrows a marking's reach; it never widens it.
  *
  * ⚠ `OutcomeNode:253` WAS WRONG IN THE FIRST VERSION OF THIS BLOCK — that line
  * is now inside a comment and the gate is `:258`. Line numbers in a docblock are
@@ -418,7 +493,16 @@ const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boole
   [METRIC_NOUN.strength]: () => true,
   '#1, #2, #3': (b) => b.isPostAnalysis,
   '1, 2, 3 on an option': (b) => b.ordinalsOnScreen,
-  'est.': () => true,
+  // ALWAYS LIVE, and pre-run is exactly when it is most on screen: a drafted
+  // model arrives with every bridge strength unset, so the risk and outcome
+  // cards say this before any analysis has run.
+  [METRIC_UNSET.standalone]: () => true,
+  // ⛔ NO LONGER `() => true`. Two of this marker's three producers were deleted
+  // by the same change that left this row unconditional — see
+  // `LegendBoardState.estimateMarkersOnScreen`. The surviving site is gated on a
+  // BOARD-level setting (`viewMode === 'expert'`), so in expert view the row
+  // promised a marking that could not render anywhere on the board.
+  'est.': (b) => b.estimateMarkersOnScreen,
 }
 
 /** The nouns this file classifies. Exported so the spec can assert BOTH directions. */
@@ -562,7 +646,31 @@ export function CanvasLegendPopover() {
     if (!numbering) return false
     return s.nodes.some(n => numbering[n.id] != null)
   })
-  const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen }
+  /**
+   * ⭐ THE `est.` ROW'S OWN PREDICATE — read from the marker's surviving gate,
+   * `FactorNode:911` `isInferred && !isDetailed`, and from nothing else.
+   *
+   * `isInferred` is `data.observedState?.extractionType === 'inferred'`
+   * (`FactorNode:304`) and `isDetailed` is `viewMode === 'expert'`
+   * (`FactorNode:47`) — the SAME store field the card reads, not a proxy for it.
+   *
+   * ⚠ Intersected with mounted `nodes`, exactly as `ordinalsOnScreen` is, so an
+   * inferred factor that is no longer on the board cannot make this key promise
+   * a marker nobody can see.
+   *
+   * ⚠ BOOLEAN SELECTOR, not an object — `ci:guard:zustand` (React #185) forbids
+   * a bare object selector and a fresh identity re-renders the toolbar on every
+   * store tick. Same reason as `ordinalsOnScreen` above.
+   */
+  const estimateMarkersOnScreen = useCanvasStore(s => {
+    if (s.viewMode === 'expert') return false
+    return s.nodes.some(n => {
+      if (n.type !== 'factor') return false
+      const observed = (n.data as { observedState?: { extractionType?: unknown } } | undefined)?.observedState
+      return observed?.extractionType === 'inferred'
+    })
+  })
+  const board: LegendBoardState = { isPostAnalysis, ordinalsOnScreen, estimateMarkersOnScreen }
 
   /**
    * ⚠ `useLayoutEffect`, not `useEffect`: this runs BEFORE paint, so the panel

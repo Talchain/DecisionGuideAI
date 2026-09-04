@@ -131,6 +131,14 @@ function asSource(value: unknown): EdgeValueSource | null {
  * Returns `null` when nothing proves the value was set — which is the state
  * every UI default lands in. Callers MUST treat `null` as "we do not know this
  * number" and never render it as a measurement.
+ *
+ * ⛔ THIS ANSWERS "WHOSE NUMBER IS THIS?" AND NOTHING ELSE. It is NOT the test
+ * for whether a human has settled the value, and `!== 'user'` is NOT "nobody
+ * set it": `ModelTabBody.handleResolveContested` deliberately stamps `'cee'` on
+ * a strength a user explicitly adjudicated, because the number really is the
+ * producer's. Any surface about to say *"nobody has set this"* must consume
+ * `strengthIsHumanSettled` (`./edgeStrengthSettlement.ts`) instead — the two
+ * questions are named apart there, with the divergence that forced it.
  */
 export function edgeValueSource(
   data: Record<string, unknown> | undefined | null,
@@ -233,9 +241,18 @@ export function edgeValueSource(
  * `edgeValueSourcePatch(` call sites — `grep -rn 'edgeValueSourcePatch(' src/`,
  * excluding tests and this file — SEVEN, and every one is accounted for:
  *
+ * ⚠⚠ EVERY LINE NUMBER BELOW WAS STALE — RE-DERIVED 3 Sep 2026, AND THE COUNT
+ * (SEVEN) WAS THE ONLY PART THAT SURVIVED. `DraftChat` 637→685,
+ * `applyDraftResult` 165→167, `ReactFlowGraph` 1186→1700, `store` 4877→7085 and
+ * 4968→7180, `useBlueprintInsert` 109→110. A reviewer copied the
+ * `useBlueprintInsert` row verbatim into `EstimateMarker.tsx` — stale path and
+ * all — and took only that row, missing the `ReactFlowGraph` sibling THREE
+ * LINES ABOVE it, which stamps the same `'template'`. This is what the closing
+ * instruction below is for, and it had already been ignored once.
+ *
  *   STAMPS `direction` (a producer may state one on these paths):
- *     · components/DraftChat.tsx:637            draft ingestion
- *     · utils/applyDraftResult.ts:165           draft ingestion (alternate)
+ *     · components/DraftChat.tsx:685            draft ingestion
+ *     · utils/applyDraftResult.ts:167           draft ingestion (alternate)
  *     · conversation/utils/applyPatch.ts:205    graph_patch ingestion
  *
  *   DOES NOT, AND IS CORRECT BY CONSTRUCTION — these build edges from
@@ -243,10 +260,19 @@ export function edgeValueSource(
  *   writes one. `resolveEdgeDirectionDisplay` therefore returns
  *   `{show:false, reason:'absent'}`, which is the honest answer: a template or
  *   blueprint author supplied a weight, not a causal direction.
- *     · ReactFlowGraph.tsx:1186                 template insert   (weight: 'template')
- *     · store.ts:4877                           CEE apply         (weight: 'cee')
- *     · store.ts:4968                           CEE apply         (weight: 'cee')
- *     · hooks/useBlueprintInsert.ts:109         blueprint insert  (weight: 'template')
+ *     · ReactFlowGraph.tsx:1700                 template insert   (weight: 'template')
+ *     · store.ts:7085                           CEE apply         (weight: 'cee')
+ *     · store.ts:7180                           CEE apply         (weight: 'cee')
+ *     · hooks/useBlueprintInsert.ts:110         blueprint insert  (weight: 'template')
+ *
+ * ⚠ AND THIS MANIFEST IS `edgeValueSourcePatch(` CALL SITES ONLY — IT IS NOT THE
+ * SET OF WEIGHT-PROVENANCE WRITERS, and reading it as such is how the `'cee'`
+ * account was overstated one file along. Two more stamp `weight: 'cee'`
+ * DIRECTLY, without this helper: `ModelTabBody.tsx:751` (contested-edge
+ * `accepted_pass2`, keyed on a producer-SIGNED pass-2 mean — a stronger warrant
+ * than the draft paths' mere presence-of-a-figure) and
+ * `useModelActionApply.ts:358`. Seven `'cee'` weight writers in total; two
+ * `'template'`. Sweep BOTH shapes.
  *
  * If a future path starts writing `direction`, it belongs in the first group.
  * Re-derive this list rather than trusting it — it is a hand-maintained mirror

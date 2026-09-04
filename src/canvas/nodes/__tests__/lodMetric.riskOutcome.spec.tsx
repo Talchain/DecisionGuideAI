@@ -37,6 +37,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
 import { OutcomeNode } from '../OutcomeNode'
+import { METRIC_UNSET } from '../shared/metricVocabulary'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -146,7 +147,27 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
         <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toBe('Strength 50% est.')
+    /*
+     * ⚠⚠ THIS ASSERTION USED TO READ `'Strength 50% est.'`, AND THIS PR CHANGES
+     * IT DELIBERATELY (3 Sep 2026).
+     *
+     * ⛔ AND THE REASON FIRST GIVEN HERE WAS WRONG. Round 1 wrote *"that string
+     * WAS THE DEFECT — `0.5` is `DEFAULT_EDGE_DATA.weight`, the no-information
+     * default"*. REFUTED by measurement: a bare default carries no provenance
+     * stamp and renders NO ROW AT ALL, so it could never have produced this
+     * string. The figure came from a producer, and the arm retired here was a
+     * legitimate rendering of a producer's estimate — NOT "a spec pinning a
+     * lie". Calling a product decision a defect fix is CLAUDE.md trap 14, and it
+     * is corrected rather than quietly dropped. The canonical record is
+     * `shared/metricVocabulary.ts`.
+     *
+     * ⭐ WHAT ACTUALLY CHANGED, STATED HONESTLY: a strength no HUMAN has settled
+     * no longer prints as a bare figure at this rung. The finding this file was
+     * written to record is untouched and still exactly right (a risk card's ONE
+     * reliable datum is its bridge edge, not `probability` × `impact`); the line
+     * still speaks, which is this file's whole point.
+     */
+    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
   })
 
   it('an outcome does the same, from the same seam', () => {
@@ -163,22 +184,28 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
         />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toBe('Strength 70% est.')
+    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
   })
 })
 
-describe('⛔ `est.` is part of the figure, not decoration', () => {
+describe('⛔ the figure appears only where somebody stated it', () => {
   /*
    * THE DISCRIMINATING PAIR. Same node, same weight, two provenances. If the
-   * marker were hardcoded both would carry it; if it were dropped neither
-   * would. One of each is the only result that shows the provenance is being
-   * read — and it is the same rule as the caveat gate one level up: a figure
-   * may not appear at low zoom stripped of the disclosure the full card is
-   * required to show beside it.
+   * line ignored provenance both would print `50%`; if the fix had over-fired,
+   * neither would. One of each is the only result that shows the provenance is
+   * being read.
+   *
+   * ⚠⚠ RE-POINTED 3 Sep 2026, AND THE OLD FRAMING IS WORTH KEEPING VISIBLE.
+   * This block was titled *"`est.` is part of the figure, not decoration"*, and
+   * its reasoning — *"a figure may not appear at low zoom stripped of the
+   * disclosure the full card is required to show beside it"* — is exactly
+   * right. The error was in the remedy: it kept the figure and shrank the
+   * disclosure to 7px, when the figure was the claim the product could not
+   * support. The pair is unchanged in shape; what each arm expects is not.
    */
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('carries `est.` when nobody stated the weight', () => {
+  it('states the unknown when nobody stated the weight', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
       sel(makeStoreState(modelWithBridge('risk-1', 'risk', 0.5)) as any),
     )
@@ -187,7 +214,8 @@ describe('⛔ `est.` is part of the figure, not decoration', () => {
         <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    expect(lodLine()).toContain('est.')
+    expect(lodLine()).toBe(`Strength ${METRIC_UNSET.inline}`)
+    expect(lodLine()).not.toContain('50%')
   })
 
   it('and drops it when the user set the weight themselves', () => {

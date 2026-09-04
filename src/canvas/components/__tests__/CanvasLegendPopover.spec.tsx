@@ -5,6 +5,9 @@
  * vocabulary.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import {
   CanvasLegendPopover,
@@ -12,7 +15,7 @@ import {
   visibleMetricRows,
 } from '../CanvasLegendPopover'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
-import { METRIC_NOUN, METRIC_LEGEND_ROWS } from '../../nodes/shared/metricVocabulary'
+import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
 
 /**
@@ -34,19 +37,47 @@ const ALL_STATUSES = ['idle', 'preparing', 'connecting', 'streaming', 'complete'
 type Status = (typeof ALL_STATUSES)[number]
 
 /**
- * Drive the two axes the legend reads, INDEPENDENTLY.
+ * Drive the THREE axes the legend reads, INDEPENDENTLY.
  *
- * They are separate parameters because the defect lived in the cell where they
- * disagree — `optionNumbering` is append-only and no results transition clears
- * it, so `status !== 'complete'` with numbered nodes is reachable and durable.
- * A helper that set them together could not have produced that cell.
+ * They are separate parameters because every defect this file guards lived in a
+ * cell where two of them disagree — `optionNumbering` is append-only and no
+ * results transition clears it, so `status !== 'complete'` with numbered nodes
+ * is reachable and durable; and `est.`'s marker needs an inferred factor AND
+ * standard view, so "the factor is mounted but expert view hides its marker" is
+ * a cell a combined helper could not produce.
+ *
+ * ⚠ ONE TYPE, SHARED BY `setBoard` AND `openBoard`. They drifted the moment the
+ * third axis was added — `openBoard` kept the two-axis literal and the typecheck
+ * gate caught three TS2353s — which is the hand-maintained mirror (trap 12) in
+ * miniature, inside a spec file. Naming it once makes a new axis reach both.
  */
-function setBoard(status: Status, opts: { numberedNodes?: boolean } = {}): void {
+type BoardOpts = { numberedNodes?: boolean; inferredFactor?: boolean; expertView?: boolean }
+
+function setBoard(status: Status, opts: BoardOpts = {}): void {
   const numbered = opts.numberedNodes ?? false
+  // ⭐ THE THIRD AXIS, AND IT IS SEPARATE FOR THE SAME REASON THE SECOND IS.
+  // `est.`'s marker is gated on `isInferred && !isDetailed` — a NODE fact AND a
+  // BOARD setting — so the cell that matters is "an inferred factor is mounted
+  // AND expert view is on", where the marking is off screen while the factor is
+  // still there. A helper that tied the two together could not produce it.
+  const inferred = opts.inferredFactor ?? false
+  const nodes = [
+    ...(numbered ? [{ id: 'option-1', type: 'option', position: { x: 0, y: 0 }, data: {} }] : []),
+    ...(inferred
+      ? [{
+          id: 'factor-inferred',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          // The SAME field `FactorNode:304` reads — `data.observedState.extractionType`.
+          data: { observedState: { extractionType: 'inferred' } },
+        }]
+      : []),
+  ]
   useCanvasStore.setState({
     results: { status, progress: 0 },
-    nodes: numbered ? [{ id: 'option-1', type: 'option', position: { x: 0, y: 0 }, data: {} }] : [],
+    nodes,
     optionNumbering: numbered ? { 'option-1': 1 } : {},
+    viewMode: opts.expertView ? 'expert' : 'standard',
   } as never)
 }
 
@@ -166,7 +197,39 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
   it('explains grey as "not stated yet", the signal with no other channel', () => {
     open()
     expect(screen.getByText('Grey: direction not set yet')).toBeInTheDocument()
-    expect(screen.getByText('Not set yet: thin and grey')).toBeInTheDocument()
+    expect(screen.getByText('No strength suggested: thin and grey')).toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐ N1 — ONE POPOVER MUST NOT LABEL TWO DIFFERENT CONDITIONS WITH THE SAME
+   * WORDS (CLAUDE.md trap 21, at the level of rendered copy).
+   *
+   * The thickness key's unset row was labelled "Not set yet: thin and grey",
+   * which is `resolveEdgeSignedStrengthDisplay(...).show === false` — NOBODY
+   * SUPPLIED A FIGURE. The cards then began printing `METRIC_UNSET.standalone`,
+   * the literal string "Not set yet", for a DIFFERENT condition —
+   * `strengthIsHumanSettled(...) === false`, nobody SETTLED it — and the two
+   * are reachable apart: a drafted board carries a producer's figure on every
+   * bridge and a human's verdict on none, so the card says "Not set yet" beside
+   * a line that is thick and POLARITY-COLOURED. A reader using this row as the
+   * key to that card is being taught the exact opposite of what they can see.
+   *
+   * ⚠ ASSERTED AGAINST THE CONSTANT, NOT A LITERAL. If the card's wording
+   * changes, this guard follows it; a re-typed string here would be the mirror
+   * (trap 12) and would stop guarding the moment the two drifted.
+   */
+  it('⭐ N1: the thickness key does not reuse the card\'s "not settled" wording', () => {
+    open()
+    const swatch = screen.getByTestId('legend-thickness-unset')
+    const rowText = swatch.closest('div')?.textContent ?? ''
+    // Discrimination first: we are reading the right row, and it is not empty.
+    expect(rowText, 'the unset thickness row read empty — this guard is blind').toContain('thin and grey')
+    expect(rowText, `the thickness row opens with "${METRIC_UNSET.standalone}", the cards' settlement wording — two conditions, one label`)
+      .not.toMatch(new RegExp(`^\\s*${METRIC_UNSET.standalone}`))
+    // …and the card's own row IS still present under that wording, so the
+    // absence above is a de-collision, not a deletion.
+    const dialog = screen.getByRole('dialog').textContent ?? ''
+    expect(dialog).toContain(METRIC_UNSET.standalone)
   })
 
   /**
@@ -238,7 +301,13 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     // too, in the way F1 names: `complete` does not imply badges, so the
     // completeness claim has to state BOTH axes. The claim is "when every
     // marking is on the cards, every marking is explained".
-    setBoard('complete', { numberedNodes: true })
+    //
+    // ⚠⚠ AND IT IS THREE AXES, NOT TWO. `est.` was asserted here while its row
+    // was `() => true`, so this arm passed on a board carrying NO inferred
+    // factor — i.e. the completeness claim was being made about a marking the
+    // board did not have. Mounting one is what makes "every marking is on the
+    // cards" true of the fixture rather than merely asserted about it.
+    setBoard('complete', { numberedNodes: true, inferredFactor: true })
     open()
     const text = screen.getByRole('dialog').textContent ?? ''
     for (const row of METRIC_LEGEND_ROWS) {
@@ -316,7 +385,7 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
  * consequence: what a reader can read in each board state.
  */
 describe('CanvasLegendPopover — the key describes only what is on screen (Defect B)', () => {
-  function openBoard(status: Status, opts: { numberedNodes?: boolean } = {}): string {
+  function openBoard(status: Status, opts: BoardOpts = {}): string {
     setBoard(status, opts)
     render(<CanvasLegendPopover />)
     fireEvent.click(screen.getByTestId('btn-canvas-legend'))
@@ -327,7 +396,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
   /** The rows whose card gate really is the phase. The ordinal row is NOT one. */
   const PHASE_GATED = METRIC_LEGEND_ROWS
     .map(r => r.noun)
-    .filter(n => n !== ORDINAL_NOUN && !['Strength', 'est.'].includes(n))
+    .filter(n => n !== ORDINAL_NOUN && ![METRIC_NOUN.strength, METRIC_UNSET.standalone, 'est.'].includes(n))
 
   it('POSITIVE CONTROL: there are phase-gated rows, and an ordinal row, to assert', () => {
     // Every loop below iterates one of these. An empty list satisfies them all
@@ -439,17 +508,65 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
    * hiding a row that describes something live. A guard watching one door would
    * bless a fix that emptied the section.
    */
-  it('⭐ OPPOSITE DIRECTION: the two always-live nouns appear at every status', () => {
-    // Derived at the cards: `Strength` is `bridgeStrengthPct != null` over
-    // `state.edges` alone (RiskNode:247, OutcomeNode:253) and `est.` is
-    // `isInferred` / `bridgeIsEstimated` (FactorNode:911, RiskNode:265,
-    // OutcomeNode:267). No results term in any of them.
+  it('⭐ OPPOSITE DIRECTION: the status-independent nouns appear at every status', () => {
+    // Derived at the cards: `Strength` and `Not set yet` both come from
+    // `bridgeEdgeData`, a memo over `state.edges`/`state.nodes` alone, and
+    // `est.` is `FactorNode`'s `isInferred` (`data.observedState`). No results
+    // term in any of them.
+    //
+    // ⚠ CORRECTED 3 Sep 2026 — this comment also credited `est.` to
+    // `RiskNode:265` / `OutcomeNode:267` `bridgeIsEstimated`. Gone: those cards
+    // no longer print a figure for an unset strength, so there is nothing there
+    // for `est.` to qualify.
+    //
+    // ⚠⚠ CORRECTED AGAIN — the title said "the three ALWAYS-LIVE nouns", and
+    // `est.` was never one. Its marker is gated on `isInferred && !isDetailed`
+    // and TWO OF ITS THREE PRODUCERS WERE DELETED by the change this file
+    // guards. "Status-independent" is the true claim: no results term, but a
+    // board term. The arm therefore MOUNTS AN INFERRED FACTOR — the same fact
+    // the card reads — instead of asserting `est.` on an empty board, which is
+    // what let the unconditional row through.
     for (const status of ALL_STATUSES) {
-      const text = openBoard(status)
+      const text = openBoard(status, { inferredFactor: true })
       expect(text, `[${status}] "${METRIC_NOUN.strength}" is live but withheld`).toContain(METRIC_NOUN.strength)
       expect(text, `[${status}] "est." is live but withheld`).toContain('est.')
+      expect(text, `[${status}] "${METRIC_UNSET.standalone}" is live but withheld`).toContain(METRIC_UNSET.standalone)
       cleanup()
     }
+  })
+
+  /**
+   * ⭐⭐ N2 — THE DISCRIMINATING TRIPLE FOR `est.` (trap 19).
+   *
+   * The row shipped `() => true` while two of the marker's three production
+   * sites were deleted in the same change. Absence alone is what a blind probe
+   * reports, so all three cells are asserted from the same reader, and the two
+   * withholding cells fail for DIFFERENT reasons — one because the board setting
+   * hides the marker everywhere, one because no card carries the fact.
+   */
+  it('⭐ N2: "est." is shown only where its marker can actually render', () => {
+    // (a) Inferred factor, standard view — the marker's own gate is satisfied.
+    const shown = openBoard('idle', { inferredFactor: true })
+    expect(shown, '"est." withheld while its marker can render').toContain('est.')
+    cleanup()
+
+    // (b) EXPERT VIEW. `FactorNode:911` is `isInferred && !isDetailed`, and
+    // `isDetailed` is `viewMode === 'expert'` — BOARD-level, so the marker
+    // renders on NO card. This is the definitive half of the finding.
+    const expert = openBoard('idle', { inferredFactor: true, expertView: true })
+    expect(expert, 'expert view: the key explains a marking no card can render').not.toContain('est.')
+    // Discrimination — the popover is populated and the inferred factor IS
+    // still mounted, so this absence is the gate's doing, not an empty board.
+    expect(expert).toContain('Weak effect')
+    expect(useCanvasStore.getState().nodes.some(n => n.type === 'factor')).toBe(true)
+    cleanup()
+
+    // (c) Standard view, NO inferred factor — nothing on the board carries the
+    // marking. Fails for a different reason than (b), which is the point.
+    const noFactor = openBoard('idle')
+    expect(noFactor, 'no inferred factor is mounted, but the key promises one').not.toContain('est.')
+    expect(noFactor).toContain('Weak effect')
+    cleanup()
   })
 
   /**
@@ -473,15 +590,113 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
       expect(CLASSIFIED_METRIC_NOUNS, `"${noun}" is in the register but unclassified — place it against its card gate, do not guess`).toContain(noun)
     }
 
-    // …and the classification is EXERCISED, not merely present: with both axes
-    // true every row shows, with both false only the always-live ones do.
-    const all = visibleMetricRows({ isPostAnalysis: true, ordinalsOnScreen: true }).map(r => r.noun)
-    const none = visibleMetricRows({ isPostAnalysis: false, ordinalsOnScreen: false }).map(r => r.noun)
+    // …and the classification is EXERCISED, not merely present: with all axes
+    // true every row shows, with all false only the unconditional ones do.
+    const ALL_ON = { isPostAnalysis: true, ordinalsOnScreen: true, estimateMarkersOnScreen: true }
+    const ALL_OFF = { isPostAnalysis: false, ordinalsOnScreen: false, estimateMarkersOnScreen: false }
+    const all = visibleMetricRows(ALL_ON).map(r => r.noun)
+    const none = visibleMetricRows(ALL_OFF).map(r => r.noun)
     expect(all).toEqual(registerNouns)
-    expect(none).toEqual([METRIC_NOUN.strength, 'est.'])
-    // The two axes are INDEPENDENT — neither implies the other.
-    expect(visibleMetricRows({ isPostAnalysis: false, ordinalsOnScreen: true }).map(r => r.noun)).toContain(ORDINAL_NOUN)
-    expect(visibleMetricRows({ isPostAnalysis: true, ordinalsOnScreen: false }).map(r => r.noun)).not.toContain(ORDINAL_NOUN)
+    // ⭐ `METRIC_UNSET.standalone` joins the always-live set, and PRE-RUN is
+    // exactly where it earns its place: a drafted model arrives with every
+    // bridge strength unset, so this is the row a first-time reader most needs.
+    // ⚠ `est.` LEFT this set — its marker has a board-level gate, so it is not
+    // unconditional. See the N2 triple above.
+    expect(none).toEqual([METRIC_NOUN.strength, METRIC_UNSET.standalone])
+    // The three axes are INDEPENDENT — no one of them implies another.
+    expect(visibleMetricRows({ ...ALL_OFF, ordinalsOnScreen: true }).map(r => r.noun)).toContain(ORDINAL_NOUN)
+    expect(visibleMetricRows({ ...ALL_ON, ordinalsOnScreen: false }).map(r => r.noun)).not.toContain(ORDINAL_NOUN)
+    expect(visibleMetricRows({ ...ALL_OFF, estimateMarkersOnScreen: true }).map(r => r.noun)).toContain('est.')
+    expect(visibleMetricRows({ ...ALL_ON, estimateMarkersOnScreen: false }).map(r => r.noun)).not.toContain('est.')
+  })
+
+  /**
+   * ⭐⭐⭐ THE MISSING DIRECTION — A DELETED PRODUCER MUST RED.
+   *
+   * ⛔ WHY THIS TEST EXISTS. The guard above is bidirectional between the
+   * REGISTER and the CLASSIFIER, and that is not the axis the defect used. Both
+   * of its directions are satisfied by a noun whose CARD CODE HAS BEEN DELETED:
+   * the row is still in the register, the classifier still names it, the two
+   * still agree — and the marking is on no card. `est.` walked out through
+   * exactly that gap. Its production sites went `FactorNode:911` +
+   * `RiskNode:265` + `OutcomeNode:267` → `FactorNode:911` alone, in the same
+   * change, and every existing assertion here stayed green.
+   *
+   * So the third axis is NOUN → PRODUCER, read from the source the cards are
+   * actually built from rather than from a list someone remembers to update
+   * (CLAUDE.md trap 12: derive, do not mirror).
+   *
+   * ⚠ WHAT THIS CAN AND CANNOT PROVE (trap 12d — a derived guard proves
+   * agreement, never completeness). It proves each classified noun still has at
+   * least one site that renders it. It does NOT prove the site is reachable, and
+   * it does not prove the row's PREDICATE matches that site's gate — that is
+   * what the per-row arms above are for. A guard that claimed more than this
+   * would be the confident-instrument failure it exists to prevent.
+   *
+   * ⚠ IF THIS REDs, RE-DERIVE THE PRODUCER — DO NOT DELETE THE PROBE. A pattern
+   * that stops matching means the marking moved or died, and both are answers
+   * the legend needs.
+   */
+  const NODES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'nodes')
+
+  /**
+   * Each classified noun's card-side producer: the files that can put the
+   * marking on screen, and a pattern bound to the marking's IDENTITY rather
+   * than to incidental formatting (trap 19).
+   */
+  const NOUN_PRODUCERS: ReadonlyArray<{
+    noun: string
+    files: readonly string[]
+    pattern: RegExp
+  }> = [
+    { noun: METRIC_NOUN.ahead, files: ['OptionNode.tsx', 'DecisionNode.tsx'], pattern: /METRIC_NOUN\.ahead/ },
+    { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
+    { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /METRIC_NOUN\.influence/ },
+    { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.strength/ },
+    // The rank badge prints the numeral itself — there is no noun constant.
+    { noun: '#1, #2, #3', files: ['BaseNode.tsx'], pattern: /#\{displayMetadata\.sensitivityRank\}/ },
+    { noun: ORDINAL_NOUN, files: ['OptionNode.tsx'], pattern: /\{stableOptionNumber\}/ },
+    {
+      noun: METRIC_UNSET.standalone,
+      files: ['RiskNode.tsx', 'OutcomeNode.tsx'],
+      pattern: /unsetText=\{METRIC_UNSET\.standalone\}/,
+    },
+    // ⭐ THE ONE THE DEFECT WAS IN. Three sites → one; this is what would have
+    // REDded had it gone to zero, and what will RED if the last one goes.
+    { noun: 'est.', files: ['FactorNode.tsx'], pattern: /<EstimateMarker\s*\/>/ },
+  ]
+
+  function nodeSource(file: string): string {
+    return readFileSync(join(NODES_DIR, file), 'utf8')
+  }
+
+  it('⭐ INSTRUMENT CONTROLS: the scanner reads real files and can tell present from absent', () => {
+    // Positive control — the sources are non-empty. A probe that read nothing
+    // would agree with every absence claim in silence (trap 13).
+    for (const { files } of NOUN_PRODUCERS) {
+      for (const f of files) {
+        expect(nodeSource(f).length, `${f} read empty — the scan is blind, not clean`).toBeGreaterThan(1000)
+      }
+    }
+    // Contrast control — a pattern that IS present matches, and one that is
+    // deliberately absent does NOT. Without the negative half, a scanner that
+    // matched everything would score a perfect run.
+    expect(nodeSource('FactorNode.tsx')).toMatch(/<EstimateMarker\s*\/>/)
+    expect(nodeSource('FactorNode.tsx')).not.toMatch(/<ThisMarkingDoesNotExist\s*\/>/)
+    // …and the manifest itself cannot go short: every classified noun is in it.
+    expect([...NOUN_PRODUCERS].map(p => p.noun).sort()).toEqual([...CLASSIFIED_METRIC_NOUNS].sort())
+  })
+
+  it('⭐⭐ every classified noun still has a card that renders it', () => {
+    for (const { noun, files, pattern } of NOUN_PRODUCERS) {
+      const hits = files.filter(f => pattern.test(nodeSource(f)))
+      expect(
+        hits.length,
+        `"${noun}" is explained by the key but NO card renders it any more — ` +
+        `${pattern} matches none of ${files.join(', ')}. Re-derive the producer; ` +
+        `if the marking is genuinely gone, remove its row rather than this probe.`,
+      ).toBeGreaterThan(0)
+    }
   })
 
   it('the vocabulary ban survives at every status', () => {
