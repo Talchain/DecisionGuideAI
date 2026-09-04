@@ -505,15 +505,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     ? (nodeType === 'goal' ? 'border-text-light border-dashed' : 'border-text-light')
     : undefined
 
-  // ⚠ ONE CONDITION, ONE CONSUMER — the `NodeQuickActions` mount below.
+  // ⚠ ONE CONDITION, TWO READERS THAT DO NOT TRACK EACH OTHER.
   //
-  // This line used to read "One condition, two consumers (the mount below and
-  // the footer padding)". FALSE at these bytes: the footer padding is a
-  // DISJUNCTION whose second arm is a hand-listed `factor | option` pair (see
-  // the `padding:` entry in the card style below). Corrected 4 Sep 2026 after a
-  // review found a PR had inherited the claim from THIS comment instead of
-  // reading the expression — CLAUDE.md trap 14, an honest label overwritten by
-  // a false one and then quoted back as evidence.
+  // `showQuickActions` is read in exactly two places: the `NodeQuickActions`
+  // mount below, which it governs ALONE; and the card's `padding:` entry, where
+  // it is only the FIRST ARM of a disjunction whose second arm is a hand-listed
+  // `factor | option` pair. So the two do not move together — below the
+  // legibility floor the mount disappears while the padding survives on the
+  // second arm, which is the divergence documented at `padding:`.
+  //
+  // ⚠ THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS, and the pendulum is the
+  // lesson. It first read "One condition, two consumers", which had the COUNT
+  // right and the IMPLICATION wrong — a review found a PR had inherited "they
+  // follow the same condition" from it instead of reading the expression
+  // (CLAUDE.md trap 14). The correction on 4 Sep then over-swung to "ONE
+  // CONSUMER", which fixed the implication by breaking the count. Both readers
+  // are real; what differs is their ROLE. Naming them apart is the fix — trap
+  // 21, two questions under one name.
   const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
 
   /**
@@ -600,47 +608,33 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // still reserves 24px of bottom band for it (dead space), while every
         // other node kind drops the reservation across the same threshold.
         //
-        // ⚠ AN EARLIER ROUND OF THIS PR CALLED THIS "the band the product's own
-        // clamped default camera operates in". THAT IS FALSE, and it overstated
-        // reachability — the third time this PR has done that, which is why it
-        // is corrected rather than trimmed. `lodBodyHiddenAt(rung)` is
-        // `rung === 'line'` (`zoomLegibility.ts`), and `resolveLodRung` only
-        // returns `'line'` when `labelsRenderedAtZoom(zoom)` is false, i.e.
-        // BELOW `LABEL_LEGIBLE_ZOOM = 0.5`. The clamped camera parks at EXACTLY
-        // 0.5 — measured on deployed `113375a1`, transform
-        // `matrix(0.5, 0, 0, 0.5, 64, 61)`, banked at
-        // `Talchain/olumi-programme-docs` @ `canvas/derived-state-2026-09-04-fb`,
-        // `acceptance-evidence/canvas-baseline-113375a1-2026-09-04/` — so at the
-        // default camera this divergence is NOT active.
+        // ⛔ NO REACHABILITY CLAIM IS MADE HERE, DELIBERATELY.
         //
-        // ⚠⚠ AN EARLIER DRAFT THEN SAID "reachable only when a user zooms out
-        // past the floor by hand". ALSO FALSE — an overcorrection, and the
-        // FOURTH claim in this PR to misstate reachability. Two rounds flipped
-        // the same adjective ("the band the default camera operates in" ->
-        // "only by hand"), so this block now ENUMERATES the routes instead. An
-        // adjective is what kept flipping; a list cannot.
+        // Three rounds of this PR tried to state where a user meets this
+        // divergence, and all three were wrong: "the band the clamped default
+        // camera operates in" (overstated), "only by a manual zoom-out"
+        // (overcorrected), then a three-item route list — which round 6 showed
+        // was SHORT, and short by a route this repo had already measured.
         //
-        // ROUTES INTO `lodBodyHidden` (rung 'line', i.e. zoom < 0.5), derived:
-        //   1. ANY USER FIT — "Show whole model" (`ModelExtentNotice.tsx:220`),
-        //      the rail's "Fit to view" (`ReactFlowGraph.tsx:2391`), the
-        //      palette's "Zoom to Fit" (`CommandPalette.tsx:187`). These pass
-        //      `fitBoundsFor('user')`, which returns `{}` — "A USER fit gets
-        //      NEITHER bound" (`zoomLegibility.ts:97,109-111`), so NO floor
-        //      applies. Measured across all ten starter x viewport combinations,
-        //      "Show whole model" parks between 0.26 and 0.38 and never above
-        //      0.44 — "entirely inside the blanked half" (`:316-318`).
-        //      ⭐ SO ONE BUTTON PRESS REACHES IT, EVERY TIME. This file says so
-        //      itself ~310 lines below, in prose that predates this PR.
-        //   2. A manual zoom-out below the floor.
-        //   3. `resolveLodRung(NaN)` returns 'line' (`zoomLegibility.ts:379-386`).
+        // The list was short because it was scoped to the wrong axis.
+        // `LodSync.tsx` derives the rung from the LIVE VIEWPORT
+        // (`resolveLodRung(s.transform[2])`), so EVERY writer of the main
+        // canvas viewport is a route — not only fits that pass through
+        // `fitBoundsFor`. Two families were missing, and one is decisive:
+        // `useFitViewOnLayoutVersion.ts:360-366` already records that the
+        // product's floored fit can fail to run at all, leaving xyflow's bare
+        // mount `fitView` prop, which "parks at 0.4279 — BELOW
+        // `LABEL_LEGIBLE_ZOOM`". So even "the clamped default camera is NOT a
+        // route" was false.
         //
-        // NOT a route: the clamped default camera, which parks at EXACTLY 0.5.
+        // ⭐ A ROUTE LIST IN A COMMENT IS A HAND-MAINTAINED MIRROR, and this one
+        // was found short within a single round. The fix for a claim nobody can
+        // bound is NOT a better claim — it is no claim. If reachability must be
+        // asserted, it belongs in a DERIVED GUARD that fails loudly when a new
+        // viewport writer appears, not in prose someone must remember to update.
         //
-        // So this IS on a common path — the view a user asks for to see the
-        // shape of their model — and the priority should be read accordingly.
-        // It stays rowed here only because which way it resolves (drop the
-        // reservation below the floor, or one uniform card box) is a design
-        // ruling, not a defect with a single obvious repair.
+        // What IS pinned here, and is all that this block needs: the divergence
+        // condition above. It is unpinned by any test, and it is rowed.
         //
         // NOT changed here (4 Sep 2026, rowed): which way it should resolve —
         // drop the reservation below the floor, or keep one uniform card box —
