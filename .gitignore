@@ -1,5 +1,18 @@
 # Dependencies
-node_modules/
+# ⚠ NO TRAILING SLASH, DELIBERATELY. `node_modules/` matches a DIRECTORY and NOT
+# a SYMLINK of the same name, so a lane that symlinks an installed tree between
+# clones (a normal thing to do when running several worktrees) has that symlink
+# picked up by `git add -A` and COMMITTED as mode 120000.
+#
+# It then fails only in CI, which is the worst place for it: the real install
+# replaces the symlink with a directory, `git status` reports ` D node_modules`,
+# and the Production Build guard fails on "a build must not dirty the tree".
+# Locally the build stays clean, because locally the symlink IS what the tree has.
+#
+# Measured on this repo: with the slash, `git status` reports `?? node_modules`
+# for a symlink; without it, the symlink is ignored and a real directory is still
+# ignored. It happened twice in one session before this line was written.
+node_modules
 
 # Build outputs
 dist/
