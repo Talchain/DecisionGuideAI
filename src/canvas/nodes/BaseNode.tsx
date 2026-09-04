@@ -752,11 +752,21 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             variant is invisible to every runtime check (that module's copy is also
             scanned by the glossary guard). Both surfaces answer one question —
             "success is undefined, what follows?" — so a single string is correct
-            here rather than a two-questions-one-name conflation. The ACTION is not
-            duplicated: GoalNode co-renders its "Target not captured — add one" chip in
-            exactly this state (GoalNode.tsx `{canCaptureTarget && !isPostAnalysis
-            && ...}`), and that
-            chip carries both the action and its own aria-label. */}
+            here rather than a two-questions-one-name conflation.
+            ⚠ THIS BLOCK ONCE READ that the ACTION is not duplicated "because
+            GoalNode co-renders its `Target not captured — add one` chip … and that
+            chip carries both the action and its own aria-label". BOTH HALVES WERE
+            FALSE AT THIS HEAD, and they were written by an earlier round of THIS PR,
+            then not re-synced when the same PR withdrew that copy — the exact defect
+            class the final commit exists to correct, one file over.
+            Derived: `GoalNode.tsx:160` `export const GOAL_NO_TARGET_STATE =
+            'Target not captured'` — there is no "— add one", and after the
+            withdrawal the co-rendered chip states the FACT and offers NO action.
+            So the reason `StatusPill` needs no action here is NOT that a sibling
+            supplies one. It is that there is no action to offer while the
+            destination is inert: the honest answer to "success is undefined, what
+            follows?" is the fact plus a route to the details, which is what both
+            surfaces now give. */}
         {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
           <StatusPill
             label="Needs input"

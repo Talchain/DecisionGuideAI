@@ -139,7 +139,14 @@ function renderInspector() {
 }
 
 /**
- * The repair phrasings this rule bans while the destination is inert.
+ * A SAMPLED FLOOR over repair phrasings — NOT a ban, and it must not be read as one.
+ *
+ * ⚠ IT DOES NOT CLOSE THE CLASS. This is a hand-written predicate over natural
+ * language, so it can only ever prove that the phrasings it happens to spell are
+ * absent. Measured at this head, 13 of 13 repair-promising sentences EVADE it,
+ * four of them using its own verbs — e.g. "capture one", "specify a target",
+ * "tell us your target", "define success". A green run here means "none of the
+ * sampled phrasings is present", never "no repair is promised".
  *
  * ⚠ HAS ITS OWN POSITIVE CONTROL BELOW. An absence assertion over a predicate
  * nobody proved can FIRE is vacuous (CLAUDE.md trap 13), and a predicate is
