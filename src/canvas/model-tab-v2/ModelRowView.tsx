@@ -623,8 +623,26 @@ function ValueCell({
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
             </span>
+            {/* ⚠⚠ THE CAPTION IS ABOUT THE STORE, AND IT WAS WORDED AS IF IT
+                WERE ABOUT THE USER'S EDIT — a contradiction inside one cell.
+                "Nothing has changed yet" is TRUE of the canonical state (this
+                beat proposes; `Confirm` is what writes, and
+                `ModelTabV2Panel.spec.tsx` pins that the store is untouched and
+                nothing is sent). But it renders two atoms to the right of
+                `Not set → 45`, so the reader takes it as a denial of the value
+                they just typed.
+
+                Witnessed on the deployed build `b14cd478` (guest, 291px dock,
+                live-drafted model, completed run): the cell read
+                "Not set → 45 · Nothing has changed yet · Confirm · Discard".
+
+                "Not applied yet" says the same thing about the same subject and
+                cannot be read as contradicting the diff beside it. The
+                vocabulary is the estate's own — `HowComputedModal` renders
+                `applied ? 'Applied' : 'Not applied'` for this exact
+                distinction. */}
             <span className={`${typography.panelBody} text-text-light ml-2 min-w-0 truncate`}>
-              Nothing has changed yet
+              Not applied yet
             </span>
             {/*
               R9 — the inline confirm CHIPS. Rendered only when the host can
