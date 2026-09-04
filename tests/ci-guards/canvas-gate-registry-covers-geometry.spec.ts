@@ -146,28 +146,49 @@ describe('canvas gate registry covers e2e/geometry', () => {
   })
 
   // ── The matcher's own defect, pinned ───────────────────────────────────────
+  //
+  // ⚠⚠ THIS CONTROL'S FIRST FIXTURE COULD NOT FAIL, AND ITS COMMENT SAID
+  // OTHERWISE. It used `showWholeModel.measure.ts` against
+  // `savedExampleShowWholeModel.measure.ts` and `showWholeModelDockBudget.measure.ts`,
+  // claiming a plain `includes()` would wrongly account for it. MEASURED, by
+  // replacing `namesFile()` with `haystack.includes(file)` in a mutation
+  // worktree: 9/9 STAYED GREEN. Plain `includes()` already answers correctly
+  // there — `savedExample…` capitalises the stem (`ShowWholeModel`, and the
+  // match is case-sensitive) and `…DockBudget` has `D` where the needle has
+  // `.`. Derived over the whole directory in the same run: NO pair of real
+  // basenames is a substring of another, because camelCase capitalises every
+  // joined stem.
+  //
+  // ⭐ SO `namesFile()` IS DEFENSIVE, NOT CURRENTLY LOAD-BEARING, and this says
+  // so rather than implying otherwise — a comment describing a control it does
+  // not have is the exact defect class this PR's review found three times.
+  // The fixture below is the one that DOES discriminate: it needs a lowercase
+  // join, which is the only shape that defeats `includes()` when both names end
+  // in `.measure.ts`. Kept because the guard is cheap and the day someone adds
+  // `budget.measure.ts` beside a `…budget.measure.ts` it becomes real.
+
   it('CONTROL — a longer filename does not account for the shorter one it contains', () => {
-    // `savedExampleShowWholeModel.measure.ts` ends with `ShowWholeModel.measure.ts`
-    // and `showWholeModelDockBudget.measure.ts` shares its stem. A substring
-    // matcher would score `showWholeModel.measure.ts` as excluded on the
-    // strength of a DIFFERENT file's name — a probe answering about the wrong
-    // object (CLAUDE.md trap 19).
     const coverage = registryCoverage(
-      ['showWholeModel.measure.ts'],
+      ['budget.measure.ts'],
       [],
-      [
-        { what: 'savedExampleShowWholeModel.measure.ts is excluded', why: 'planted control' },
-        { what: 'showWholeModelDockBudget.measure.ts is excluded', why: 'planted control' },
-      ],
+      // Lowercase join: 'showWholeModelbudget.measure.ts' genuinely CONTAINS
+      // 'budget.measure.ts'. A plain `includes()` scores the file accounted-for
+      // on the strength of a DIFFERENT file's name — a probe answering about
+      // the wrong object (CLAUDE.md trap 19). This fixture REDs under that
+      // mutant; the previous one did not.
+      [{ what: 'showWholeModelbudget.measure.ts is excluded', why: 'planted control' }],
     )
-    expect(coverage.unaccounted).toEqual(['showWholeModel.measure.ts'])
+    expect(coverage.unaccounted).toEqual(['budget.measure.ts'])
   })
 
   it('CONTROL — and it still matches the file when it IS named', () => {
+    // The other half of the pair: without this, the test above is satisfied by
+    // a matcher that never matches anything (trap 22b — one direction alone is
+    // a guard watching one door).
     const coverage = registryCoverage(
-      ['showWholeModel.measure.ts'],
+      ['budget.measure.ts'],
       [],
-      [{ what: 'showWholeModel.measure.ts — red at the base', why: 'planted control' }],
+      [{ what: 'budget.measure.ts — red at the base', why: 'planted control' }],
     )
     expect(coverage.unaccounted).toEqual([])
   })

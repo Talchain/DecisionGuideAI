@@ -930,14 +930,28 @@ export interface RegistryCoverage {
 /**
  * Does `haystack` name this exact file?
  *
- * ⚠ A BARE `includes()` WOULD BE WRONG IN A WAY THIS DIRECTORY ACTUALLY
- * CONTAINS: `showWholeModel.measure.ts` is a suffix of
- * `savedExampleShowWholeModel.measure.ts` up to case, and
- * `showWholeModelDockBudget.measure.ts` shares its stem. A substring match
- * would silently score one file as "accounted for" because a DIFFERENT file's
- * name contains it — an absence probe answering about the wrong object
+ * A substring match would score a file as "accounted for" because a DIFFERENT
+ * file's name contains it — an absence probe answering about the wrong object
  * (CLAUDE.md trap 19). So the character before the match must not be part of
  * an identifier.
+ *
+ * ⚠⚠ BUT IT IS DEFENSIVE, NOT CURRENTLY LOAD-BEARING, AND THE FIRST VERSION OF
+ * THIS COMMENT CLAIMED OTHERWISE. It said the hazard was one "this directory
+ * ACTUALLY CONTAINS", naming `showWholeModel` against
+ * `savedExampleShowWholeModel` and `showWholeModelDockBudget`. MEASURED by
+ * replacing this function with `haystack.includes(file)` in a mutation
+ * worktree: the guard stayed 9/9 GREEN. Neither pair collides — the first
+ * capitalises the stem (`ShowWholeModel`; the match is case-sensitive) and the
+ * second has `D` where the needle has `.`. Derived over the whole directory in
+ * the same run: NO real basename is a substring of another, because camelCase
+ * capitalises every joined stem, and two names both ending `.measure.ts` can
+ * only collide on a LOWERCASE join (`budget.measure.ts` inside
+ * `…Modelbudget.measure.ts`).
+ *
+ * Kept, because it costs nothing and the lowercase-join shape is one rename
+ * away. But the claim is now the true one: this is a guard against a shape that
+ * has not yet occurred. `canvas-gate-registry-covers-geometry.spec.ts` carries
+ * the fixture that genuinely discriminates it.
  */
 function namesFile(haystack: string, file: string): boolean {
   let from = 0
