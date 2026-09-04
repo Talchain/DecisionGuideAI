@@ -24,10 +24,19 @@
  * covers the flip-threshold status note, the stress-test patterns and
  * `certaintyCopy`; `analysis-hero/__tests__/withheldProse.hero.spec.tsx`
  * covers `HERO_COPY.evidence.flipRisksNote`. Neither reaches
- * `rankActOnItRows` or `TriageActionCardsBody`'s two nudges — the three sites
- * below — so all three consulted the leader authority ZERO times. That is
- * CLAUDE.md trap 12d: derivation proves the copies agree, only a corpus
- * notices the list is short.
+ * `rankActOnItRows` or `TriageActionCardsBody`'s two nudges — the three
+ * defective sites — so all three consulted the leader authority ZERO times.
+ * That is CLAUDE.md trap 12d: derivation proves the copies agree, only a
+ * corpus notices the list is short.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHAT THIS FILE COVERS, AND WHAT IT DOES NOT
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Here: the claim-policy lattice (§1), `TriageActionCardsBody`'s two nudges
+ * (§3, §4) and the COMPOSED panel that reproduces the witness (§5).
+ * NOT here: SURFACE A, `rankActOnItRows` — see
+ * `analysis-hero/actOnIt/__tests__/actOnItLeaderClaim.spec.ts` and the import
+ * note below for why it cannot live in this file.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * BOTH DIRECTIONS, IN THE SAME FILE
@@ -50,139 +59,27 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TriageActionCardsBody } from '../TriageActionCardsBody'
-import { rankActOnItRows } from '../analysis-hero/actOnIt/rankActOnItRows'
 import {
   analysisClaimPolicy,
   leaderClaimWithheld,
 } from '../analysisClaimPolicy'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
+// ⚠ SURFACE A (`rankActOnItRows`) IS NOT TESTED HERE, and it is not an
+// oversight. `analysis-hero/__tests__/inertness.spec.ts` permits only
+// `ResultsBody` to import under `analysis-hero/`, and it caught this file's
+// first draft doing exactly that. Its arms live in
+// `analysis-hero/actOnIt/__tests__/actOnItLeaderClaim.spec.ts`; the fixture is
+// shared below so both halves describe the same run.
+import {
+  ALT_LABEL,
+  FACTOR_LABEL,
+  LEADER_CLAIM_RE,
+  PERMITTED,
+  WITHHELD,
+  admission,
+} from '../__fixtures__/leaderClaim.fixtures'
 import type { PermittedAnalysisMode } from '../../../adapters/cee/types'
-import type { DecisionVerdict } from '../../../lib/decisionVerdict'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-
-// ── The matcher ─────────────────────────────────────────────────────────────
-
-/**
- * Anything that asserts, or presupposes, that one option is out in front.
- *
- * ⚠ UNION, NEVER REPLACE — the rule `withheldProse.spec.tsx` learned the hard
- * way. Its own `LEADER_PRESUPPOSITION_RE` is a SIBLING of this one, not a
- * parent: this file adds the two comparative VERB phrases (`could gain
- * ground`, `could overtake`) that its surfaces do not emit and mine do. A verb
- * phrase saying an option closes on another presupposes something to close on,
- * so it belongs in the ban even though it contains no leader noun. Retired
- * shapes stay here permanently; they cost one token each and they are the only
- * thing standing between a reverted file and a green suite.
- */
-const LEADER_CLAIM_RE =
-  /leading option|likely leader|could gain ground|could overtake|your recommendation|the recommendation/i
-
-// ── Fixtures ────────────────────────────────────────────────────────────────
-
-const FACTOR_ID = 'fac_tech_lead'
-const FACTOR_LABEL = 'Technical Leadership Capacity'
-const ALT_LABEL = 'Two Mid-Level Developers at £70k Each'
-
-/**
- * The WITNESSED verdict: `separation: 'unknown'` is exactly the state that
- * renders the footer's "Leading option not assessed"
- * (`TriageActionCardsBody.tsx` — `winnerUndetermined`), and
- * `decisionVerdict.ts` returns `hasLeadingOption: false` with it at every
- * construction site.
- */
-const WITHHELD_VERDICT: DecisionVerdict = {
-  leaderId: 'opt_a',
-  separation: 'unknown',
-  hasLeadingOption: false,
-  gapPp: null,
-  source: 'none',
-}
-
-const PERMITTED_VERDICT: DecisionVerdict = {
-  leaderId: 'opt_a',
-  separation: 'clear',
-  hasLeadingOption: true,
-  gapPp: 40,
-  source: 'producer_band',
-}
-
-const admission = (mode: PermittedAnalysisMode) => ({
-  permitted_analysis_mode: mode,
-  reasons: [],
-})
-
-/**
- * One fixture builder for BOTH surfaces, so the withheld arm and the permitted
- * arm cannot differ in anything but the two fields under test.
- *
- * Carries live findings on purpose: a fragile edge (drives the flip callout and
- * the `risk-` row) and two influence-scored drivers separated well past
- * `INFLUENCE_TIE_EPSILON` (drives the dominant nudge). Without all three the
- * suppression arms would pass by rendering nothing — the vacuity this file's
- * ANTI-VACUITY cases exist to refuse.
- */
-function makeData(opts: {
-  verdict: DecisionVerdict
-  leaderDesignationPermitted: boolean
-  mode?: PermittedAnalysisMode
-}): ResultsSectionDataReturn {
-  return {
-    recommendation: {
-      analysisStatus: 'computed',
-      goalThreshold: null,
-      allOptions: [{ id: 'opt_a' }, { id: 'opt_b' }],
-      // No flip evidence either way ⇒ `attestsNoFactorFlip` is false ⇒ the
-      // callout takes its STRONG branch ("could overtake" + the percentage).
-      // That is the branch the witnessed defect rendered, and it is the branch
-      // a suppression must survive rather than dodge.
-      flipThresholds: undefined,
-      verdict: opts.verdict,
-      leaderDesignationPermitted: opts.leaderDesignationPermitted,
-      analysisAdmission: opts.mode ? admission(opts.mode) : undefined,
-    },
-    confidence: {
-      topFragileEdge: {
-        edgeId: `${FACTOR_ID}->goal`,
-        fromId: FACTOR_ID,
-        fromLabel: FACTOR_LABEL,
-        alternativeWinnerLabel: ALT_LABEL,
-        switchProbability: 0.57,
-      },
-      challengeFragileEdges: [],
-      robustnessStatus: null,
-      robustnessLevel: null,
-      m2BiasFindings: [],
-      evidenceGaps: [],
-      topEvidenceGaps: [],
-      nextActions: [],
-      topNextActions: [],
-    },
-    drivers: {
-      dominantFactorLabel: FACTOR_LABEL,
-      dominantFactorId: FACTOR_ID,
-      drivers: [],
-      topDrivers: [
-        { factorLabel: FACTOR_LABEL, matchedNodeId: FACTOR_ID, influenceScore: 0.92 },
-        { factorLabel: 'Runner up factor', matchedNodeId: 'fac_b', influenceScore: 0.31 },
-      ],
-      driversStatus: 'computed',
-      totalCount: 2,
-      hasMagnitudeData: true,
-    },
-  } as unknown as ResultsSectionDataReturn
-}
-
-/** The witnessed run: separation unknown, leader withheld, pre-admission CEE. */
-const WITHHELD = () =>
-  makeData({ verdict: WITHHELD_VERDICT, leaderDesignationPermitted: false })
-
-/** The run that licenses everything. */
-const PERMITTED = () =>
-  makeData({
-    verdict: PERMITTED_VERDICT,
-    leaderDesignationPermitted: true,
-    mode: 'comparative_leader',
-  })
 
 /** Visible text of a subtree PLUS every `title` and `aria-label` inside it. */
 function allText(root: Element): string {
@@ -231,15 +128,6 @@ function renderPanel(data: ResultsSectionDataReturn): { footer: string; prose: s
   const clone = container.cloneNode(true) as Element
   clone.querySelector('[data-testid="t1-checks-footer"]')!.remove()
   return { footer: allText(footerEl!), prose: allText(clone) }
-}
-
-/** The fragile-edge row's generated reason, located by IDENTITY (its key). */
-function fragileRowReason(data: ResultsSectionDataReturn): string {
-  const row = rankActOnItRows(data, { readyToBrief: false })
-    .find((r) => r.key === `risk-${FACTOR_ID}`)
-  expect(row, 'the fragile-edge row was never built — this arm would be vacuous')
-    .toBeDefined()
-  return row!.reason
 }
 
 // ── §0 PRECONDITION PINS ────────────────────────────────────────────────────
@@ -364,26 +252,6 @@ describe('§1 analysisClaimPolicy — THREE answers, driven from the lattice', (
     })
     expect(p.mayNameOrRankLeader).toBe(false)
     expect(p.mayShowComparativeFigures).toBe(true) // …and the figures survive it
-  })
-})
-
-// ── §2 SURFACE A — rankActOnItRows fragile row ──────────────────────────────
-
-describe('§2 SURFACE A — the act-on-it fragile row', () => {
-  it('ANTI-VACUITY: the PERMITTED run emits the witnessed sentence verbatim', () => {
-    expect(fragileRowReason(PERMITTED())).toBe(
-      `If the estimate changes for ${FACTOR_LABEL}, the leading option could change.`,
-    )
-  })
-
-  it('WITHHELD: the row names no leader', () => {
-    expect(fragileRowReason(WITHHELD())).not.toMatch(LEADER_CLAIM_RE)
-  })
-
-  it('WITHHELD DATA SURVIVES: the factor and the finding are still there', () => {
-    const reason = fragileRowReason(WITHHELD())
-    expect(reason).toContain(FACTOR_LABEL)
-    expect(reason).toContain('could change')
   })
 })
 
