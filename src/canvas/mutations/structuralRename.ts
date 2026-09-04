@@ -503,22 +503,50 @@ export function captureStructuralRename(
   //
   // `structural_add` IS a live `V5_EVENT_KINDS` member, and CEE DECLARES IT
   // 'mutating' AT STAGING `4f0bd774` — A WRITER EXISTS
-  // (`systemEventParity.test.ts:265`). What does not exist is the UI EMITTER,
-  // and it is absent on purpose: it sits in `knownDeferred`
-  // (`systemEventParity.test.ts:271`) awaiting its own product lane, because a
-  // new node needs a value/kind decision that lane will own.
+  // (`systemEventParity.test.ts:265`).
   //
-  // ⭐⭐ SO THE CORRECTNESS OF THIS STAND-DOWN DEPENDS ON THAT LANE NOT HAVING
-  // SHIPPED. The moment a UI `structural_add` emitter lands, a node this client
-  // created CAN become genuinely server-held — and it will be ABSENT from
-  // `lastAuthoritativeGraph` until the NEXT authoritative graph arrives. Inside
-  // that window this guard would silently suppress a LEGITIMATE rename, which is
-  // precisely the data-loss class #1108 was written to close.
+  // ⛔⛔ THE TRIPWIRE HAS FIRED. THE UI EMITTER HAS SHIPPED. Re-derived at
+  // `origin/staging` = `e8f7ea67` (the DEPLOYED build), 5 Sep 2026:
+  // `structural_add` is NO LONGER deferred — `systemEventParity.test.ts`'s
+  // `knownDeferred` block now reads *"`structural_add` IS NOW WIRED TOO — the
+  // durable node writer"*, and the emitter is `useStructuralAddEvents.ts:132`.
+  // The paragraph below used to say this guard's correctness "depends on that
+  // lane not having shipped". It has shipped. That sentence is kept, corrected
+  // rather than deleted, because a guard whose stated expiry has passed
+  // unnoticed is worse than one with no expiry at all — the note reads as
+  // current and nobody re-checks it.
   //
-  // REVISIT THIS GUARD WHEN THE `structural_add` EMITTER SHIPS. The trigger is
-  // mechanical and already loud: removing `structural_add` from `knownDeferred`
-  // REDs `systemEventParity.test.ts`'s emission-count lock, and this block is the
-  // reason that red must not be waved through with a count bump.
+  // ⭐⭐ BUT THE PREDICTED WINDOW IS NARROWER THAN THE PREDICTION, AND THE
+  // DIFFERENCE DECIDES WHETHER THIS IS A LIVE DEFECT. The forecast was that a
+  // client-created node would be "ABSENT from `lastAuthoritativeGraph` until
+  // the NEXT authoritative graph arrives". On the SUCCESS arm that window never
+  // opens: the receipt carries `draft_graph` post-commit only, `useConversation
+  // .ts:4861` passes it to `reconcileAppliedGraph`, and `mergeAppliedGraph
+  // .ts:606` calls `setLastAuthoritativeGraph` EVEN ON A NO-OP. So a proven add
+  // refreshes the record on its OWN turn and the new id is in it.
+  //
+  // ⚠ THE RESIDUAL WINDOW IS THE `unproven` AND 409 ARMS, where no `draft_graph`
+  // arrives, the record is NOT refreshed, and the node is deliberately KEPT
+  // (`readStructuralAddReceipt`: removing on a guess is data loss). There, and
+  // only there, this stand-down can fire on a node that MAY be server-held —
+  // suppressing a legitimate rename, the #1108 class.
+  //
+  // ⛔ THE FIX IS NOT AVAILABLE FROM THIS MODULE, AND THAT IS THE FINDING.
+  // Closing it needs to know WHICH adds were emitted since the last
+  // authoritative graph AND HOW THEY RESOLVED — conversation-layer state, not
+  // Canvas state. Naming the two questions apart is the shape of the remedy
+  // (CLAUDE.md trap 21): `lastAuthoritativeGraph.nodeIds` answers *"server-held
+  // AS OF the last authoritative graph"*; the stand-down needs *"provably not
+  // server-held NOW"*, and post-emitter those are different questions wearing
+  // one name. Routed rather than reached for: expanding this lane across the
+  // boundary is the "while we're here" work the scope rule bans.
+  //
+  // THE TRIPWIRE ITSELF STAYS ARMED AND IS STILL THE RIGHT SHAPE: removing a
+  // verb from `knownDeferred` REDs `systemEventParity.test.ts`'s emission-count
+  // lock, and this block is the reason such a red must not be waved through
+  // with a count bump. It fired exactly as designed; what failed is that the
+  // red was cleared by the lane that shipped the emitter, which had no reason
+  // to read a comment in a rename guard.
   //
   // The cure belongs HERE rather than at the receipt: with nothing to send,
   // there is no send to be unsure about. Suppressing the notice downstream would
