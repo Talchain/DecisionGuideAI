@@ -298,7 +298,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
-      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-0.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-1.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
@@ -306,7 +306,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           type="button"
           onClick={handleAsk}
           onPointerDown={stopPointer}
-          className="nodrag inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
           aria-label={`Ask Olumi about ${label}`}
           title={`Ask Olumi about ${label}`}
           data-testid={`node-action-ask-${nodeId}`}
@@ -328,7 +328,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           type="button"
           onClick={handleChallenge}
           onPointerDown={stopPointer}
-          className="nodrag inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
           aria-label={`Challenge ${label}`}
           title={`Challenge ${label} — what could be wrong or missing?`}
           data-testid={`node-action-challenge-${nodeId}`}
@@ -340,7 +340,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         type="button"
         onClick={handleInspect}
         onPointerDown={stopPointer}
-        className="nodrag inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
         aria-label={`Open details for ${label}`}
         title={`Open details for ${label}`}
         data-testid={`node-action-inspect-${nodeId}`}
@@ -361,14 +361,13 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         type="button"
         onClick={handleOpenMenu}
         onPointerDown={stopPointer}
-        /* ⭐ 20px VISUAL, 24px TARGET. `h-5 w-5` keeps it identical to its two
-           siblings, and the `before:-inset-[2px]` pseudo-element expands the
-           hit area to 24×24 — WCAG 2.2 AA 2.5.8's minimum. A button whose
-           entire purpose is touch reachability shipping a sub-minimum touch
-           target would be self-undermining, which is why this is fixed here
-           rather than rowed. The siblings share the shortfall and are left
-           alone: widening their targets is a change to controls this PR is not
-           about. */
+        /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
+           just this one. `h-5 w-5` keeps the visual identical to its siblings;
+           `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
+           2.5.8's minimum. The comment here used to end "the siblings share the
+           shortfall and are left alone" — a correctly-scoped decision then, and
+           the rowed work this change closes. See the wrapper's `gap-1.5` for
+           why the gap had to move with it. */
         className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
         aria-label={`More actions for ${label}`}
         /* Announces that a menu follows. `aria-haspopup` is used by five other
