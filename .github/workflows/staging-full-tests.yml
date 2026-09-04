@@ -330,7 +330,10 @@ jobs:
   # listed above this job watched ONE. Working browser guards for the other two
   # sat in `e2e/geometry`, green, and CI ran neither — as did a guard for the
   # overlay-over-node defect, which shipped TWICE. Admitting them (3 Sep 2026)
-  # takes the set to 23 arms across four files.
+  # takes the set to 25 arms across five files (19 admitted, plus the 4
+  # `nodeKeyboardBleed` arms and the 2 `modelRowEditReflow` arms #1179 landed).
+  # ⚠ DERIVE THE COUNT from `GATED_TESTS`; this comment is a mirror and said
+  # "23 across four" until the rebase.
   #
   # ⭐ THE BUDGET IS DERIVED, NOT CHOSEN: this job runs in PARALLEL and is absent
   # from `Staging Gate`'s `needs`, and the workflow's critical path is
@@ -345,7 +348,12 @@ jobs:
   #                      run 33750968965, `9c3a8e9b`
   #           429s job = the SAME 23 arms, run 33752104701, `e15987d8`
   # ⚠ Budget against 429s, not 346s: two runs of an identical set differ by a
-  # quarter of the job, so one figure is a draw, not a measurement. See the
+  # quarter of the job, so one figure is a draw, not a measurement.
+  # ⚠⚠ AND RE-DERIVED 4 Sep ACROSS ALL 13 NON-CANCELLED `staging` RUNS: this job
+  # drew 199-289s at 4-6 arms and ONCE 751s, at SIX arms, on `bfe26f26` (#1186,
+  # a `.gitignore` fix that changed no test code). 600s is a PLANNING figure,
+  # not a bound this job observes; `timeout-minutes: 20` below is the real one.
+  # 13/13 were green. Full distribution and what it does NOT license in the
   # budget block in `e2e/geometry/canvasGateSet.ts`.
   # The set, the shipped defect each arm would have caught, what is still
   # excluded and why, and the standing rule for admitting the next one are all

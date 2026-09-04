@@ -18,3 +18,16 @@ import { fileURLToPath } from 'node:url'
 export const GATE_OUTPUT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../test-results/canvas-gate')
 
 export const GATE_MANIFEST_PATH = resolve(GATE_OUTPUT_DIR, 'ran-manifest.tsv')
+
+/**
+ * `e2e/geometry` itself — the directory whose `*.measure.ts` files the registry
+ * in `canvasGateSet.ts` must account for, one way or the other.
+ *
+ * Derived from this file's own location for the same reason `GATE_OUTPUT_DIR`
+ * is: the coverage guard runs from BOTH the repo root (vitest) and from a
+ * Playwright worker, and `process.cwd()` is not the same in the two.
+ */
+export const GEOMETRY_DIR = dirname(fileURLToPath(import.meta.url))
+
+/** The suffix that marks a geometry measure file. */
+export const MEASURE_SUFFIX = '.measure.ts'

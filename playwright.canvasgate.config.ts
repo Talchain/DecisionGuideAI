@@ -71,7 +71,9 @@ export default defineConfig({
   // per-ARM, not per-run, and is deliberately far below the CI job timeout so a
   // stuck arm presents as a NAMED test timeout rather than as a killed job.
   //
-  // MEASURED on darwin at this tip, whole gate 23 arms / 4.2m: the slowest arm
+  // MEASURED on darwin at the pre-rebase tip, whole gate 23 arms / 4.2m (the
+  // set is now 25 — #1179's two `modelRowEditReflow` arms joined at the rebase
+  // and are NOT in this darwin measurement): the slowest arm
   // is `portalled` at 53.3s, then `drive` at 38.0s and `HZ build-vs-buy` at
   // 33.0s; the ten OVERLAP cells are 3.4-4.6s each. On ubuntu the same suite
   // runs ~1.66-1.9x slower (derived by comparing the three arms measured on

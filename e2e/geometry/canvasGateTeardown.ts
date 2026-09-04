@@ -36,10 +36,16 @@
  * this sentence; a convention is not a guard.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 
-import { GATE_MANIFEST_PATH } from './canvasGatePaths'
-import { DELIBERATE_EXCLUSIONS, GATE_TAG, expectedGatedKeys } from './canvasGateSet'
+import { GATE_MANIFEST_PATH, GEOMETRY_DIR, MEASURE_SUFFIX } from './canvasGatePaths'
+import {
+  DELIBERATE_EXCLUSIONS,
+  GATE_TAG,
+  coverageFailureMessage,
+  expectedGatedKeys,
+  registryCoverage,
+} from './canvasGateSet'
 
 interface Recorded {
   readonly key: string
@@ -164,9 +170,27 @@ export default function canvasGateTeardown(): void {
     )
   }
 
+  // ⭐ THE EXCLUSION LIST IS NOW ASSERTED, NOT JUST PRINTED.
+  //
+  // Until this block existed, the line below PRINTED `DELIBERATE_EXCLUSIONS`
+  // and nothing checked it against reality — so a new `*.measure.ts` was
+  // neither gated nor recorded, and no run went red. It had already drifted by
+  // four files (see `canvasGateSet.ts`). The same reconciliation runs in
+  // `tests/ci-guards/canvas-gate-registry-covers-geometry.spec.ts`, which is
+  // where it BLOCKS a merge; this copy makes it loud in the job that owns the
+  // gate, and costs one directory read.
+  const coverage = registryCoverage(
+    readdirSync(GEOMETRY_DIR)
+      .filter((f) => f.endsWith(MEASURE_SUFFIX))
+      .sort(),
+  )
+  const coverageFailure = coverageFailureMessage(coverage)
+  if (coverageFailure) throw new Error(coverageFailure)
+
   // eslint-disable-next-line no-console
   console.log(
     `[canvas-gate] completeness guard OK — ${ranKeys.length}/${expected.length} gated assertions ran, by name.\n` +
+      `[canvas-gate] registry coverage OK — every *.measure.ts in e2e/geometry is gated or recorded as excluded.\n` +
       DELIBERATE_EXCLUSIONS.map((e) => `[canvas-gate] not gated (by decision): ${e.what}`).join('\n'),
   )
 }
