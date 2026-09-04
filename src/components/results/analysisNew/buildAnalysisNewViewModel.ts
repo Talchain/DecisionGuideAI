@@ -37,6 +37,7 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import {
   ASSUMED_STRENGTH_TITLE,
   assumedStrengthAsk,
@@ -1453,7 +1454,7 @@ function buildAtAGlance(
   // absent an entitlement, the glance leads with the drivers instead.
   const leader = rec.recommendedOption
   const headline =
-    rec.verdict?.hasLeadingOption === true && leader && !rec.isSingleOption
+    leaderDesignationPermitted(rec) === true && leader && !rec.isSingleOption
       ? `${leader.label} currently scores higher`
       : null
 
@@ -1664,7 +1665,13 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * that `optionDisplayOrder`/`fragileEdgeCopy` state identically; an ABSENT
    * verdict is not a withheld claim.
    */
-  const designationsWithheld = rec.verdict != null && !rec.verdict.hasLeadingOption
+  // The composed answer, for the same reason as the hero and the Analysis tab:
+  // `verdict.hasLeadingOption` is one of TWO conjuncts, and a surface reading it
+  // alone designates a leader the model may not license.
+  // Through the SHARED READER — the raw field is `undefined` for any
+  // recommendation that did not come through `useResultsSectionData`, and
+  // `undefined === false` is `false`, which silently stops withholding.
+  const designationsWithheld = leaderDesignationPermitted(rec) === false
   if (designationsWithheld) return { kind: 'none' }
 
   /**
