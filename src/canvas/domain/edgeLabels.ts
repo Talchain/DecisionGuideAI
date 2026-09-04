@@ -110,13 +110,36 @@ export interface EdgeDescription {
  * *earlier* draft that claimed a row, and it over-corrected. Twice in a row,
  * on one sentence, in opposite directions.
  *
- * ⚠ AND THE PROBE THAT "PROVED" THE ABSENCE WAS BLIND — that is how it
- * happened. Re-derived here against `origin/main`: `S58` present at line 516,
- * with a contrast control of `S45` reading **1** and a negative control `S900`
- * reading **0**, so the instrument discriminates. A first attempt at this
- * re-derivation anchored on a table-row pattern and returned **zero for the
- * contrast too** — which voids a run rather than cleaning it. **An absence
- * claim about a register is only as good as a control run in the same sweep.**
+ * ⚠⚠ AND THE OBVIOUS EXPLANATION IS WRONG — THIS IS THE THIRD VERSION OF THIS
+ * PARAGRAPH, IN THE THIRD DIRECTION, AND THE FIRST TWO EACH SOUNDED FINISHED.
+ * A draft here said the probe that "proved" the absence WAS BLIND. It was not.
+ * `#1171`'s sweep carried a contrast control proving it saw rows S45–S49, and
+ * it was reading the pushed copies correctly: measured in the docs repo's whole
+ * history, `S58` has appeared in exactly ONE commit and ONE path — `593de90b`,
+ * 2026-09-03T23:42:23Z, **34 seconds** before `#1171`'s own squash. Until that
+ * moment the row lived only in the local `Documents/GitHub` working copy, which
+ * is NOT A GIT REPOSITORY. A sighted, correctly-controlled sweep of the pushed
+ * copies returned zero because the row was genuinely not in them.
+ *
+ * ⭐⭐ SO THE DEFECT WAS SCOPE, NOT BLINDNESS (CLAUDE.md trap 20): "absent from
+ * the pushed register" was recorded as "NOT ROWED ANYWHERE". And the lesson
+ * the blind-probe draft prescribed — *an absence claim is only as good as a
+ * control run in the same sweep* — WOULD NOT HAVE PREVENTED IT, because `#1171`
+ * already had one. A remedy that the defect already satisfies teaches the next
+ * reader to repeat it, which is worse than no remedy at all.
+ *
+ * THE LESSON THAT DOES BITE: **the register this estate treats as canonical is
+ * routinely edited in a directory that is not under version control, so
+ * "swept the repo" and "swept the register" are DIFFERENT CLAIMS.** An
+ * absence claim must name the artefact searched and the moment it was searched
+ * — not merely prove the instrument could see.
+ *
+ * Re-derived for this block against `origin/main`: `S58` present, contrast
+ * control `S45` reading **1**, negative control `S900` reading **0**, so the
+ * instrument discriminates. (A first attempt anchored on a table-row pattern
+ * and returned **zero for the contrast too** — which voids a run rather than
+ * cleaning it.) The row's line number is deliberately not restated here: it is
+ * another repo's numbering and would drift silently.
  *
  * What the constant still buys is unchanged: the divergence is NAMED, ADJACENT
  * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
