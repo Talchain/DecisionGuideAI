@@ -608,12 +608,39 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // returns `'line'` when `labelsRenderedAtZoom(zoom)` is false, i.e.
         // BELOW `LABEL_LEGIBLE_ZOOM = 0.5`. The clamped camera parks at EXACTLY
         // 0.5 — measured on deployed `113375a1`, transform
-        // `matrix(0.5, 0, 0, 0.5, 64, 61)` — so at the default camera this
-        // divergence is NOT active.
+        // `matrix(0.5, 0, 0, 0.5, 64, 61)`, banked at
+        // `Talchain/olumi-programme-docs` @ `canvas/derived-state-2026-09-04-fb`,
+        // `acceptance-evidence/canvas-baseline-113375a1-2026-09-04/` — so at the
+        // default camera this divergence is NOT active.
         //
-        // It is reachable only when a user zooms out past the floor by hand. So
-        // it is a real unpinned divergence and worth rowing, but it is not on
-        // the default path, and nothing here should be read as saying it is.
+        // ⚠⚠ AN EARLIER DRAFT THEN SAID "reachable only when a user zooms out
+        // past the floor by hand". ALSO FALSE — an overcorrection, and the
+        // FOURTH claim in this PR to misstate reachability. Two rounds flipped
+        // the same adjective ("the band the default camera operates in" ->
+        // "only by hand"), so this block now ENUMERATES the routes instead. An
+        // adjective is what kept flipping; a list cannot.
+        //
+        // ROUTES INTO `lodBodyHidden` (rung 'line', i.e. zoom < 0.5), derived:
+        //   1. ANY USER FIT — "Show whole model" (`ModelExtentNotice.tsx:220`),
+        //      the rail's "Fit to view" (`ReactFlowGraph.tsx:2391`), the
+        //      palette's "Zoom to Fit" (`CommandPalette.tsx:187`). These pass
+        //      `fitBoundsFor('user')`, which returns `{}` — "A USER fit gets
+        //      NEITHER bound" (`zoomLegibility.ts:97,109-111`), so NO floor
+        //      applies. Measured across all ten starter x viewport combinations,
+        //      "Show whole model" parks between 0.26 and 0.38 and never above
+        //      0.44 — "entirely inside the blanked half" (`:316-318`).
+        //      ⭐ SO ONE BUTTON PRESS REACHES IT, EVERY TIME. This file says so
+        //      itself ~310 lines below, in prose that predates this PR.
+        //   2. A manual zoom-out below the floor.
+        //   3. `resolveLodRung(NaN)` returns 'line' (`zoomLegibility.ts:379-386`).
+        //
+        // NOT a route: the clamped default camera, which parks at EXACTLY 0.5.
+        //
+        // So this IS on a common path — the view a user asks for to see the
+        // shape of their model — and the priority should be read accordingly.
+        // It stays rowed here only because which way it resolves (drop the
+        // reservation below the floor, or one uniform card box) is a design
+        // ruling, not a defect with a single obvious repair.
         //
         // NOT changed here (4 Sep 2026, rowed): which way it should resolve —
         // drop the reservation below the floor, or keep one uniform card box —
