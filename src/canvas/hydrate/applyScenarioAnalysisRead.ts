@@ -83,8 +83,47 @@
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
+import {
+  producerMarksAnalysisUnusable,
+  producerWithholdsLeaderClaim,
+} from '../../lib/coherence/crossSurfaceCoherence'
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
+
+/**
+ * Which producer fact withdrew the leading-option designation.
+ *
+ * ⚠ TWO REASONS, KEPT SEPARATE ALL THE WAY TO THE STORE, for the same reason
+ * this file's two divergence reasons are separate: they are two different
+ * producer facts with two different truth conditions, and fusing them under one
+ * name is how this estate has repeatedly bought one defect while selling
+ * another (trap 21). Distinct in telemetry and in tests, so a future relaxation
+ * of one cannot silently relax the other.
+ */
+export type LeaderClaimWithholdingReason = 'leader_claim_withheld' | 'analysis_unusable'
+
+/**
+ * Does this verdict withdraw the entitlement to name a leading option, and on
+ * whose account?
+ *
+ * ONE definition with THREE readers and no fourth spelling: the TURN leg
+ * (`v5/applyV5State.ts`, step 5b), the POLL leg (this file's
+ * `applyScenarioAnalysisRead`) and the BOOT leg (this file's
+ * `applyBootLeaderClaimWithholding`). Three legs answering one question with
+ * three predicates is how this estate's one-question-two-gates defects start.
+ *
+ * The predicates it composes are the coherence detector's own leaves, imported
+ * rather than respelled — see their declaration for why `requires_rerun` is
+ * deliberately excluded (it is staleness, and admitting it would withdraw the
+ * leading option on every ordinary edit).
+ */
+export function leaderClaimWithholdingReason(
+  verdict: AnalysisStateV1,
+): LeaderClaimWithholdingReason | null {
+  if (producerWithholdsLeaderClaim(verdict)) return 'leader_claim_withheld'
+  if (producerMarksAnalysisUnusable(verdict)) return 'analysis_unusable'
+  return null
+}
 
 /**
  * The kinds a FACT READ is entitled to report as an outcome. Exported so the
@@ -218,6 +257,18 @@ export interface ScenarioAnalysisApplyStore {
     v5Enrichment?: unknown
   }) => void
   readonly currentResultsHash?: string | null
+  /**
+   * Withdraw the leading-option designation from whatever report the slice
+   * currently holds. See `LeaderClaimWithholdingReason`.
+   *
+   * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay. What is withdrawn
+   * is the CLAIM the producer has just refused — CEE's own withheld projection
+   * draws the same line, shipping the DATA and withholding the DESIGNATION.
+   *
+   * Optional like every other member here: a store view that predates this
+   * field behaves exactly as it does today.
+   */
+  readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
 }
 
 export type ScenarioAnalysisApplyOutcome =
@@ -333,6 +384,33 @@ export function applyScenarioAnalysisRead(
     }
   }
 
+  // ── ⚠⚠ THE BRANCH THAT HAD NO ELSE ────────────────────────────────────────
+  //
+  // THE HARM, witnessed on deployed staging `113375a1` (drive 3, 4 Sep 2026).
+  // A user corrects a value. CEE answers `leader_claim { permitted: false,
+  // withheld_reason: 'separation_unavailable' }`, `requires_rerun: true` and
+  // `blocked_unusable: true` — and ships NO analysis block, because the numbers
+  // it holds no longer describe the model. The results write below is gated on
+  // that block, so this applier wrote NOTHING to the results slice, the
+  // previously-held report went on presenting itself as current, and the canvas
+  // went on wearing `Leading option` over a payload that had just refused to
+  // name one.
+  //
+  // ⭐ A WITHHOLDING IS A FACT ABOUT THE REPORT WE ALREADY HOLD, not only about
+  // one arriving. That is why it is applied here rather than folded into the
+  // results write: on the witnessed turn there is no results write to fold it
+  // into, and that turn is the whole defect.
+  //
+  // ⚠ AFTER THE DIVERGENCE GUARDS, DELIBERATELY. A verdict about a graph the
+  // user does not have must not suppress a designation on the one they do —
+  // this leg's rule is that a divergent read writes NOTHING, and a suppression
+  // is still a write.
+  //
+  // ⚠ AFTER THE TERMINAL-KIND GUARD, equally deliberately. `never_run` on a
+  // read is indistinguishable from "in flight" (the H4 guard above), and a
+  // verdict that has not answered yet cannot withhold anything.
+  const withholdingReason = leaderClaimWithholdingReason(verdict)
+
   // ── Results FIRST (see the header) ────────────────────────────────────────
   let resultsHydrated = false
   const block = input.analysisResult
@@ -344,6 +422,14 @@ export function applyScenarioAnalysisRead(
     // and re-seed the Compare capture). `alreadyHeld` still SETTLES the caller —
     // the answer arrived, we simply had it.
     if (hash === (input.store.currentResultsHash ?? null)) {
+      // ⚠ THE DEDUPE MUST NOT SWALLOW THE REFUSAL. The report is the same one;
+      // the PERMISSION over it is what has changed. Returning here without
+      // applying the withholding would let a second poll silently re-permit a
+      // claim the first one withdrew — the dedupe exists to stop a re-WRITE, not
+      // to stop the producer changing its mind about what may be said.
+      if (withholdingReason !== null) {
+        input.store.resultsWithholdLeaderClaim?.(withholdingReason)
+      }
       return { outcome: 'alreadyHeld', kind }
     }
     input.store.resultsComplete({
@@ -378,6 +464,14 @@ export function applyScenarioAnalysisRead(
       v5Enrichment: (block as { enrichment?: unknown }).enrichment ?? null,
     })
     resultsHydrated = true
+  }
+
+  // ⚠ AFTER the results write, and the ORDER IS THE CORRECTNESS. The
+  // withholding is stamped onto whatever report the slice holds; stamped BEFORE
+  // the write it would simply be overwritten by it, and CEE may legitimately
+  // ship an analysis AND refuse the designation over it on the same turn.
+  if (withholdingReason !== null) {
+    input.store.resultsWithholdLeaderClaim?.(withholdingReason)
   }
 
   input.store.setAnalysisStateV1?.(verdict)
@@ -654,4 +748,87 @@ export function applyBootAnalysisVerdict(input: {
 
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored', kind }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE BOOT WITHHOLDING — W1-e (c). A SECOND QUESTION UNDER THE SAME READ, AND
+// THE ONLY ONE OF THE TWO THAT IS MONOTONE.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// THE HARM, witnessed on deployed staging `113375a1` (drive 3, 4 Sep 2026):
+// CEE refuses to name a leading option, the refusal is rendered in the
+// conversation, the user reloads — and the refusal is gone while the
+// designation is still there. Measured post-reload: "did not run" 0
+// occurrences, "Leading option" 1. **The honest half was transient and the
+// unsafe half was durable, which is exactly backwards.**
+//
+// `applyBootAnalysisVerdict` above restores only `complete_stale`, and every
+// reason it gives for declining the rest STANDS — none of it is reopened here.
+// But its decline took the leader PERMISSION down with the run state, and the
+// two answer different questions (trap 21):
+//
+//   RUN STATE   "is this analysis current, and is this model analysable?"
+//               NOT monotone. The boot merge can falsify it by supplying the
+//               very values CEE was refusing over, and a restored `refused`
+//               reaches the run gate and DISABLES Analyse on a model that is
+//               fine right now. Declined, correctly.
+//   PERMISSION  "did the producer refuse to name a leading option?"
+//               MONOTONE. Nothing the boot merge does, and no local edit, can
+//               turn a refusal into a permission — only a NEW RUN can, and a
+//               new run brings a new report carrying no withholding at all.
+//
+// That is the SAME test the restorable set above applies to `complete_stale`
+// ("restore a verdict only if NOTHING THE BOOT MERGE DOES CAN FALSIFY IT"),
+// asked of a different fact. So this is a separate function with a separate
+// return type rather than a widened `applyBootAnalysisVerdict`: the run-state
+// restore cannot withhold a claim and this cannot restore a run state, and
+// neither can acquire the other's reasoning by accident.
+//
+// ⭐ WITHHOLD-ONLY, AND THE ASYMMETRY IS THE WHOLE SAFETY ARGUMENT. The client
+// cannot prove the report it restored from the autosave is the one this verdict
+// describes. So it may SUBTRACT a designation on the producer's word and may
+// never ADD one back. A wrongly-restored withholding costs the user a claim
+// they were not entitled to; a wrongly-restored permission would hand them one
+// about a run that never happened.
+//
+// ⭐ WHY THE RELOAD NEEDS THIS AT ALL, given that the withholding also rides
+// the report through the localStorage autosave: the two cover different
+// sessions. The autosave carries it for the device that saw the refusal; this
+// carries it for any device reading CEE's standing fact — a second browser, a
+// cleared store, a record written before this change shipped. Derived from the
+// producer on every boot rather than mirrored, so a stale client copy cannot be
+// the only thing standing between the user and the claim.
+
+export interface BootLeaderClaimWithholdingStore {
+  readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+}
+
+export type BootLeaderClaimWithholdingOutcome =
+  | { readonly outcome: 'withheld'; readonly reason: LeaderClaimWithholdingReason }
+  | { readonly outcome: 'noop'; readonly reason: 'no_verdict' | 'not_withheld' }
+
+/**
+ * Re-apply a boot read's leader-claim withholding, or decline to. Pure with
+ * respect to everything except the single store action it may call; never
+ * throws — a boot leg that throws is how a canvas ends up in an undefined
+ * state.
+ */
+export function applyBootLeaderClaimWithholding(input: {
+  readonly analysisState: AnalysisStateV1 | null
+  readonly store: BootLeaderClaimWithholdingStore
+}): BootLeaderClaimWithholdingOutcome {
+  const verdict = input.analysisState
+  // Absence is not a state — an older CEE, a graphless scenario and a verdict
+  // that failed the contract's validation all arrive here as `null`.
+  if (verdict == null) return { outcome: 'noop', reason: 'no_verdict' }
+
+  // ⚠ NO RUN-STATE GATE, and that is the point of this function rather than an
+  // oversight in it. The withholding is monotone under every kind, so gating it
+  // on the restorable set would reproduce the defect: on the witnessed turn the
+  // kind is `refused`, which that set correctly excludes.
+  const reason = leaderClaimWithholdingReason(verdict)
+  if (reason === null) return { outcome: 'noop', reason: 'not_withheld' }
+
+  input.store.resultsWithholdLeaderClaim?.(reason)
+  return { outcome: 'withheld', reason }
 }

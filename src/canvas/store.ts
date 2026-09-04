@@ -21,6 +21,7 @@ import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1 } from '../adapters/plot/types'
+import type { LeaderClaimWithholdingReason } from './hydrate/applyScenarioAnalysisRead'
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import {
@@ -1275,6 +1276,38 @@ interface CanvasState {
      */
     v5Enrichment?: unknown
   }) => void
+  /**
+   * WITHDRAW THE LEADING-OPTION DESIGNATION from the report currently held,
+   * on the producer's own word.
+   *
+   * ═══════════════════════════════════════════════════════════════════════
+   * THE HARM, witnessed on deployed staging `113375a1` (drive 3, 4 Sep 2026)
+   * ═══════════════════════════════════════════════════════════════════════
+   * A user corrects a value. CEE answers `leader_claim { permitted: false,
+   * withheld_reason: 'separation_unavailable' }` and ships NO analysis block —
+   * the numbers it holds no longer describe the model. Nothing wrote to this
+   * slice, so the previously-held report went on presenting itself and the
+   * canvas went on wearing `Leading option` over a payload that had just
+   * refused to name one. Then the user reloaded, the refusal vanished, and the
+   * unsafe claim stayed. **The honest half was transient and the unsafe half
+   * was durable.**
+   *
+   * ⭐ IT MARKS, IT DOES NOT DELETE. The user's result data is untouched: every
+   * win probability, every driver, every enrichment row stays exactly where it
+   * was, and `status` stays `complete`. What is withdrawn is the CLAIM — and
+   * CEE's own withheld projection draws the same line, shipping the DATA and
+   * withholding the DESIGNATION.
+   *
+   * ⭐ IT STAMPS THE REPORT, NOT THE SLICE, and that is what makes it survive.
+   * A slice-level flag would not ride the autosave record, so a reload would
+   * restore the report with its claim restored — the second half of the harm.
+   * The permission is bound to the artefact it is about.
+   *
+   * ⚠ ONE-WAY. There is no companion action that GRANTS. A new run brings a new
+   * report object carrying no stamp at all, which is how permission comes back
+   * — never by a client deciding the producer has changed its mind.
+   */
+  resultsWithholdLeaderClaim: (reason: LeaderClaimWithholdingReason) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> }) => void
   /** Capture detailed error information for Debug Panel */
   captureErrorDetail: (detail: ErrorDetail) => void
@@ -5036,6 +5069,50 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Merge is append-only: skip the set entirely when nothing was new.
     if (Object.keys(next).length === Object.keys(previous).length) return
     set({ optionNumbering: next })
+  },
+
+  /**
+   * See the declaration on `CanvasState` for the harm and the design. The
+   * implementation notes below are about the three ways it could go wrong.
+   */
+  resultsWithholdLeaderClaim: (reason) => {
+    const held = get().results.report
+    // ⚠ NOTHING HELD, NOTHING TO WITHDRAW — and NOTHING is the operative word,
+    // not an empty stamp. A withholding written with no report to attach it to
+    // would be a claim about an artefact that does not exist, and the next
+    // genuine result would arrive carrying it.
+    if (!held) return
+    const existing = held.producer_leader_permission
+    // IDEMPOTENT. The polling leg can deliver the same refusal on consecutive
+    // reads; re-stamping would allocate a new report object on every poll and
+    // re-render every results surface for no change.
+    if (existing && existing.permitted === false && existing.withheld_reason === reason) return
+
+    set(s => ({
+      results: {
+        ...s.results,
+        // Spread, never mutate: the previous object is held by `previousReport`
+        // snapshots and by the Compare capture, and rewriting it in place would
+        // retro-edit records of what was actually shown.
+        report: { ...held, producer_leader_permission: { permitted: false, withheld_reason: reason } },
+      },
+    }))
+
+    // ⭐ PERSISTED HERE, FOR THE SAME REASON `resultsComplete` PERSISTS THERE.
+    // `useAutosave`'s dirty check is `computeGraphHash(nodes, edges)` — GRAPH
+    // ONLY — and a withholding changes no node and no edge, so the 30s timer's
+    // early-return would skip this write entirely. Relying on it would persist
+    // the refusal only if the user happened to edit the graph afterwards, i.e.
+    // a fix that passes a store test and does nothing for the user who reloads.
+    // Sourced from the POST-set() state (Zustand's `set` is synchronous), so
+    // the record written is exactly the one this withholding produced.
+    try {
+      scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
+    } catch (err) {
+      // Never let a persistence failure take down the withholding — the claim
+      // is already off the screen, which is the part that matters.
+      console.warn('[resultsWithholdLeaderClaim] Failed to persist withholding to autosave', err)
+    }
   },
 
   resultsAnalysing: () => {

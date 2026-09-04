@@ -129,6 +129,66 @@ import {
 import { ANALYSIS_READY_STATUSES } from '../../adapters/cee/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
+// The two withholding predicates — EXPORTED, because they now have an ENFORCER
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ⚠ THIS MODULE IS A DETECTOR AND STAYS ONE. It reports contradictions; it does
+// not act on them, and CX4's own disposition below records that its Compare-tab
+// limb is still `NOT YET ENFORCED`. What is exported here are its LEAVES — the
+// two predicates over `analysis_state` — so the canvas enforcement built for
+// the witnessed leader-designation harm reads the SAME definition this file
+// detects on, rather than a second spelling of it (CLAUDE.md trap 12: the
+// dominant defect is the hand-maintained mirror). `detectCX4` below now calls
+// `producerWithholdsLeaderClaim` rather than restating its test inline, so the
+// two cannot drift.
+//
+// ⭐ TWO PREDICATES, NOT ONE, AND THEY ANSWER DIFFERENT QUESTIONS. Their
+// consumers happen to take the same action today — withdraw the leading-option
+// designation — and they are still kept apart, because a future relaxation of
+// one must not silently relax the other. Fusing two harms under one name is the
+// mistake this estate keeps paying for (trap 21).
+//
+//   Q1  `leader_claim.permitted === false`
+//       "the producer REFUSES PERMISSION to name a leading option."
+//   Q3  `blocked_unusable === true`
+//       "the producer says the analysis it is describing is NOT USABLE."
+//
+// ⛔ `requires_rerun` IS DELIBERATELY IN NEITHER, and that exclusion is the
+// load-bearing one. It means the graph has moved since the run — an ordinary
+// edit sets it — so a predicate that admitted it would withdraw the leading
+// option every time anybody edits anything: a fix for a lie that buys a gap
+// (trap 22b, "suppression too wide"). Staleness already has an owner, the
+// freshness slice, and what it says is "stale", not "unnameable".
+
+/**
+ * Q1 — has the producer REFUSED PERMISSION to name a leading option?
+ *
+ * ⚠ STRICT BOOLEAN `false`, never falsiness. The contract declares
+ * `leader_claim.permitted` as `z.ZodBoolean` inside a `.strict()` object
+ * (`@talchain/schemas` 0.50.0, `dist/boundary/analysis-state.d.ts:450-461`), so
+ * anything else on this seam is a producer we cannot READ — and an unreadable
+ * producer has said nothing. Absence is an older producer, never a refusal.
+ */
+export function producerWithholdsLeaderClaim(
+  state: Pick<AnalysisStateV1, 'leader_claim'> | null | undefined,
+): boolean {
+  return state?.leader_claim?.permitted === false
+}
+
+/**
+ * Q3 — has the producer declared the analysis it is describing UNUSABLE?
+ *
+ * A different fact from Q1 with a different owner on the producer side, and it
+ * arrives on turns where Q1 is silent. Naming a leader out of an analysis its
+ * own producer calls unusable is the same harm by another route.
+ */
+export function producerMarksAnalysisUnusable(
+  state: Pick<AnalysisStateV1, 'blocked_unusable'> | null | undefined,
+): boolean {
+  return state?.blocked_unusable === true
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Producer vocabularies
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -860,7 +920,10 @@ function detectCX3(input: CoherenceInput, out: CoherenceViolation[]): void {
 function detectCX4(input: CoherenceInput, out: CoherenceViolation[]): void {
   const state = input.analysisState
   if (state === null) return
-  if (state.leader_claim?.permitted !== false) return
+  // ONE definition of "the producer withheld", shared with the canvas
+  // enforcement. Restating `permitted !== false` inline here is what would let
+  // the detector and the enforcer drift.
+  if (!producerWithholdsLeaderClaim(state)) return
   const rows = renderedConditionalWinnerRows(input.enrichment?.conditional_winners)
   const naming = rows.filter(rowNamesAnOption)
   if (naming.length === 0) return
