@@ -1453,7 +1453,7 @@ function buildAtAGlance(
   // absent an entitlement, the glance leads with the drivers instead.
   const leader = rec.recommendedOption
   const headline =
-    rec.verdict?.hasLeadingOption === true && leader && !rec.isSingleOption
+    rec.leaderDesignationPermitted === true && leader && !rec.isSingleOption
       ? `${leader.label} currently scores higher`
       : null
 
@@ -1664,7 +1664,10 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * that `optionDisplayOrder`/`fragileEdgeCopy` state identically; an ABSENT
    * verdict is not a withheld claim.
    */
-  const designationsWithheld = rec.verdict != null && !rec.verdict.hasLeadingOption
+  // The composed answer, for the same reason as the hero and the Analysis tab:
+  // `verdict.hasLeadingOption` is one of TWO conjuncts, and a surface reading it
+  // alone designates a leader the model may not license.
+  const designationsWithheld = rec.leaderDesignationPermitted === false
   if (designationsWithheld) return { kind: 'none' }
 
   /**

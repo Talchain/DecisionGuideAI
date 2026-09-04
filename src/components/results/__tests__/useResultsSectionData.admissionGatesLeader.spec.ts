@@ -36,6 +36,8 @@ import { renderHook } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
+import { buildHeroModel } from '../analysis-hero/buildHeroModel'
+import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
 import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../../adapters/cee/types'
 
 const OPT_HEDGE = 'opt_hedge'
@@ -151,6 +153,99 @@ describe('permitted_analysis_mode gates leader designation — the two questions
     const rec = render()
     expect(rec?.verdict?.hasLeadingOption).toBe(true)
     expect(rec?.leaderDesignationPermitted).toBe(true)
+  })
+
+  /**
+   * ⚠ THE GATE MUST REACH THE SURFACES, NOT JUST THE HOOK. `useResultsSectionData`
+   * is called ONCE for the whole right panel and its result is threaded to the
+   * Analysis tab, the hero and Analysis (New). Asserting only the hook's field
+   * would prove the composition and say NOTHING about whether any surface reads
+   * it — and a half-gated panel is the exact failure this consumer exists to
+   * prevent: one tab honest while its sibling still names a winner.
+   *
+   * These arms drive the REAL chain — store -> hook -> builder — rather than
+   * handing a builder a synthetic recommendation, because a hand-built input
+   * encodes my model of the hook rather than the hook.
+   */
+  /**
+   * ⚠ THESE ARMS ASSERT `leaders`, NOT AN INTERNAL FLAG, AND THAT MATTERS.
+   * A first draft asserted `hero.designationsWithheld`. It passed, and a mutant
+   * even reddened it — but `HeroModel` does not DECLARE that property (it is
+   * returned untyped), so the typecheck gate caught an assertion reaching into
+   * a shape the type says cannot exist. `leaders` is the typed, user-visible
+   * outcome: `Record<HeroLens, string | null>`, nulled when the designation is
+   * withheld. Binding to the crown the user actually sees is strictly better
+   * than binding to the boolean behind it.
+   */
+  const heroLeaders = (data: ReturnType<typeof useResultsSectionData>) => {
+    const hero = buildHeroModel(data)
+    // The union has arms without `leaders`; reaching one of those would make
+    // every assertion below vacuous, so it is a hard failure rather than a skip.
+    expect('leaders' in hero, 'the hero returned a shape with no `leaders` — arm is vacuous').toBe(true)
+    return (hero as Extract<typeof hero, { leaders: unknown }>).leaders
+  }
+
+  it('ARM E — the HERO withholds its crown when the model refuses', () => {
+    setStore({ separated: true, admission: admission('quantified_provisional') })
+    const r = renderHook(() => useResultsSectionData())
+    const rec = r.result.current.recommendation
+    expect(rec?.allOptions?.length, 'harness precondition').toBe(2)
+    // Precondition pinned IN-ARM: Q2 is still true, so a withheld crown below is
+    // the MODEL's refusal and not a tied result.
+    expect(rec?.verdict?.hasLeadingOption, 'Q2 must still be TRUE, or this arm tests Q2').toBe(true)
+
+    const leaders = heroLeaders(r.result.current)
+    expect(Object.values(leaders).filter(Boolean),
+      'the hero still crowns an option the model does not license').toEqual([])
+  })
+
+  it('ARM F — the HERO still crowns when both permit (ARM E is not vacuous)', () => {
+    setStore({ separated: true, admission: admission('comparative_leader') })
+    const r = renderHook(() => useResultsSectionData())
+    expect(r.result.current.recommendation?.allOptions?.length, 'harness precondition').toBe(2)
+    const leaders = heroLeaders(r.result.current)
+    // Bound by IDENTITY to the option the fixture separates, not to "some leader".
+    expect(Object.values(leaders)).toContain(OPT_HEDGE)
+  })
+
+  it('ARM G — the HERO is unchanged when the producer has not spoken', () => {
+    setStore({ separated: true })
+    const r = renderHook(() => useResultsSectionData())
+    expect(r.result.current.recommendation?.allOptions?.length, 'harness precondition').toBe(2)
+    expect(Object.values(heroLeaders(r.result.current)),
+      'absence must keep today’s behaviour on every surface, not just the hook').toContain(OPT_HEDGE)
+  })
+
+  /**
+   * ⚠ ARM H EXISTS BECAUSE A MUTANT PROVED THE GAP. Reverting Analysis (New)'s
+   * gate to the single conjunct left the whole suite GREEN — the hero had an arm
+   * and Analysis (New) did not, which is precisely the half-gated panel this
+   * consumer exists to prevent, reproduced inside its own test file.
+   */
+  const analysisNewImplication = (data: ReturnType<typeof useResultsSectionData>) =>
+    buildAnalysisNewViewModel({
+      data, recommendations: [], isPreRun: false, isRunning: false, isStale: false,
+    }).modelImplication
+
+  it('ARM H — ANALYSIS (NEW) withholds its model implication when the model refuses', () => {
+    setStore({ separated: true, admission: admission('quantified_provisional') })
+    const r = renderHook(() => useResultsSectionData())
+    expect(r.result.current.recommendation?.allOptions?.length, 'harness precondition').toBe(2)
+    expect(r.result.current.recommendation?.verdict?.hasLeadingOption,
+      'Q2 must still be TRUE, or this arm tests Q2').toBe(true)
+    expect(analysisNewImplication(r.result.current).kind).toBe('none')
+  })
+
+  it('ARM I — ANALYSIS (NEW) still speaks when both permit (ARM H is not vacuous)', () => {
+    // ⚠ `modelImplication` returns {kind:'none'} for SEVERAL reasons — a single
+    // option, too few options, mismatched centres. Without this contrast, ARM H
+    // would pass on a build where the implication is 'none' for a reason that
+    // has nothing to do with admission.
+    setStore({ separated: true, admission: admission('comparative_leader') })
+    const r = renderHook(() => useResultsSectionData())
+    expect(r.result.current.recommendation?.allOptions?.length, 'harness precondition').toBe(2)
+    expect(analysisNewImplication(r.result.current).kind,
+      'ARM H proves nothing unless this arm is NOT none').not.toBe('none')
   })
 
   it('every mode BELOW comparative_leader withholds, and only that one permits', () => {

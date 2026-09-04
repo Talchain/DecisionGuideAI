@@ -276,7 +276,17 @@ export function buildHeroModel(
   // A caller supplying NO verdict is a legacy fixture, not a withheld run, so
   // it keeps byte-identical behaviour. The live path always supplies one
   // (`useResultsSectionData` derives it unconditionally).
-  const designationsWithheld = recommendation.verdict != null && !recommendation.verdict.hasLeadingOption
+  // READS THE COMPOSED ANSWER, NOT ONE CONJUNCT. `verdict.hasLeadingOption`
+  // answers only "did this result separate the arms"; designating a leader also
+  // requires the MODEL to license a comparative claim
+  // (`permitted_analysis_mode === 'comparative_leader'`). Reading the verdict
+  // here would name a leader on a model whose confidence-bearing numbers Olumi
+  // invented rather than the user stating.
+  //
+  // `=== false` preserves the existing convention EXACTLY: a caller supplying no
+  // verdict is a legacy fixture, not a withheld run, so `undefined` keeps
+  // today's behaviour and the gallery fixtures are unaffected.
+  const designationsWithheld = recommendation.leaderDesignationPermitted === false
 
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
