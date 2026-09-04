@@ -27,6 +27,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
 import {
   classifyInterventionProvenance,
@@ -306,7 +307,7 @@ export function ModelDetailRegion({
                           iv.numericValue === null ? '' : String(iv.numericValue),
                         )
                       }
-                      className={`${typography.panelTabular} underline decoration-dotted`}
+                      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center underline decoration-dotted`}
                     >
                       {iv.value ?? 'Not set'}
                     </button>

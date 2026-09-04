@@ -34,6 +34,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -563,7 +564,7 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={`${typography.panelTabular} shrink-0 whitespace-nowrap`}>
+            <span data-testid={testid} className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}>
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
@@ -760,7 +761,7 @@ function ValueCell({
          rather than starving the label. */
       <span
         data-testid={testid}
-        className={`${typography.panelTabular} flex items-baseline whitespace-nowrap ${
+        className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
           estimate === null ? 'shrink-0' : 'min-w-0'
         }`}
       >
@@ -790,7 +791,7 @@ function ValueCell({
          arms. The rule is about the two IDLE elements, not about the function.
          Getting that number wrong is what let the `proposed` cell ship
          unfixed, and it was found by review rather than by me. */
-      className={`${typography.panelTabular} text-left underline decoration-dotted flex items-baseline whitespace-nowrap ${
+      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
         estimate === null ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
