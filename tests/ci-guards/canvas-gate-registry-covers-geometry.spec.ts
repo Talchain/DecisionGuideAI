@@ -46,12 +46,10 @@ import { readdirSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import { GEOMETRY_DIR, MEASURE_SUFFIX } from '../../e2e/geometry/canvasGatePaths'
-import {
-  DELIBERATE_EXCLUSIONS,
-  GATED_TESTS,
-  coverageFailureMessage,
-  registryCoverage,
-} from '../../e2e/geometry/canvasGateSet'
+// `registryCoverage()` defaults to the real `GATED_TESTS` / `DELIBERATE_EXCLUSIONS`,
+// which is what the two real-tree tests below exercise; the controls inject
+// synthetic ones so each fails for exactly one reason.
+import { coverageFailureMessage, registryCoverage } from '../../e2e/geometry/canvasGateSet'
 
 function measureFilesOnDisk(): string[] {
   return readdirSync(GEOMETRY_DIR)
@@ -76,29 +74,75 @@ describe('canvas gate registry covers e2e/geometry', () => {
     expect(coverageFailureMessage(coverage) ?? 'covered').toBe('covered')
   })
 
-  // ── The three positive controls ────────────────────────────────────────────
+  // ── The positive controls ──────────────────────────────────────────────────
   // Each plants exactly one defect and asserts the checker names exactly it.
+  //
+  // ⚠ THEY RUN OVER SYNTHETIC INPUTS, NOT OVER THE REAL DIRECTORY, AND THAT IS
+  // A CORRECTION. The first version built them by appending a planted file to
+  // `measureFilesOnDisk()`, which coupled every control to the registry's
+  // CURRENT state: two mutation runs against the real registry (removing an
+  // exclusion; renaming a gated file) each failed the coverage test AND a
+  // control, because the control's `toEqual([...])` saw the genuine drift
+  // alongside its own plant. That is one control answering two questions — it
+  // still went red, but it went red for a reason that was not its own, and a
+  // reader debugging a real drift would have been sent to look at the control.
+  // A control must fail for EXACTLY ONE reason (CLAUDE.md trap 21; "one control
+  // cannot cover two defects"). Synthetic inputs give it that, and the real
+  // directory is still exercised by the two tests above.
+
+  const SYNTHETIC_FILES = ['alpha.measure.ts', 'beta.measure.ts'] as const
+  const SYNTHETIC_GATED = [{ file: 'alpha.measure.ts', suite: 's', title: 't', catches: 'c' }]
+  const SYNTHETIC_EXCLUSIONS = [{ what: 'beta.measure.ts — a measure', why: 'synthetic' }]
+
+  it('CONTROL — the synthetic baseline is itself clean, or the plants below prove nothing', () => {
+    // Trap 13b: a control that cannot PASS is as worthless as one that cannot
+    // fail. If this baseline were already dirty, every plant below would "bite"
+    // without the plant doing anything.
+    const coverage = registryCoverage([...SYNTHETIC_FILES], SYNTHETIC_GATED, SYNTHETIC_EXCLUSIONS)
+    expect(coverageFailureMessage(coverage)).toBeNull()
+  })
 
   it('CONTROL — an unregistered file on disk is reported UNACCOUNTED', () => {
-    const planted = [...measureFilesOnDisk(), 'zzNobodyRegisteredThis.measure.ts']
-    const coverage = registryCoverage(planted)
+    const coverage = registryCoverage(
+      [...SYNTHETIC_FILES, 'zzNobodyRegisteredThis.measure.ts'],
+      SYNTHETIC_GATED,
+      SYNTHETIC_EXCLUSIONS,
+    )
     expect(coverage.unaccounted).toEqual(['zzNobodyRegisteredThis.measure.ts'])
+    expect(coverage.staleGated).toEqual([])
+    expect(coverage.staleExcluded).toEqual([])
     expect(coverageFailureMessage(coverage)).toContain('UNACCOUNTED')
   })
 
   it('CONTROL — a GATED_TESTS entry naming a file that is gone is reported STALE', () => {
-    const coverage = registryCoverage(measureFilesOnDisk(), [
-      { file: 'zzDeletedGatedFile.measure.ts', suite: 's', title: 't', catches: 'c' },
-    ])
+    const coverage = registryCoverage(
+      [...SYNTHETIC_FILES],
+      [...SYNTHETIC_GATED, { file: 'zzDeletedGatedFile.measure.ts', suite: 's', title: 't', catches: 'c' }],
+      SYNTHETIC_EXCLUSIONS,
+    )
     expect(coverage.staleGated).toEqual(['zzDeletedGatedFile.measure.ts'])
+    expect(coverage.unaccounted).toEqual([])
   })
 
   it('CONTROL — a DELIBERATE_EXCLUSIONS entry naming a file that is gone is reported STALE', () => {
-    const coverage = registryCoverage(measureFilesOnDisk(), GATED_TESTS, [
-      ...DELIBERATE_EXCLUSIONS,
+    const coverage = registryCoverage([...SYNTHETIC_FILES], SYNTHETIC_GATED, [
+      ...SYNTHETIC_EXCLUSIONS,
       { what: 'zzDeletedExcludedFile.measure.ts — retired', why: 'planted control' },
     ])
     expect(coverage.staleExcluded).toEqual(['zzDeletedExcludedFile.measure.ts'])
+    expect(coverage.unaccounted).toEqual([])
+  })
+
+  it('CONTROL — the checker reads the EXPORTED CONSTANTS, not the file text', () => {
+    // Measured during the mutation run: with the `showWholeModelDockBudget`
+    // exclusion ENTRY deleted, that filename still appeared 3 times in this
+    // registry's prose, and the guard correctly reported the file UNACCOUNTED.
+    // A grep-over-the-source implementation would have passed. Pinned here so a
+    // future "simplification" to a text scan REDs.
+    const coverage = registryCoverage(['gamma.measure.ts'], [], [
+      { what: 'not this one', why: 'gamma.measure.ts is mentioned only in a REASON, never in `what`' },
+    ])
+    expect(coverage.unaccounted).toEqual(['gamma.measure.ts'])
   })
 
   // ── The matcher's own defect, pinned ───────────────────────────────────────
