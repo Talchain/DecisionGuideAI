@@ -16,6 +16,16 @@
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 
 /**
+ * Join a list the way a sentence needs it: "a", "a and b", "a, b and c".
+ * British English — no serial comma before the final "and".
+ */
+function joinWithAnd(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  if (items.length === 2) return `${items[0]} and ${items[1]}`
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
+/**
  * Stands in for a label that cannot be safely interpolated into a generated
  * sentence — blank, a bare node id, or one carrying a banned glossary term.
  * `safeInterpolatedLabel` is the shared guard; this is what it falls back to.
@@ -747,8 +757,17 @@ export const ANALYSIS_NEW_COPY = {
      * did not make. An unrecognised key is DROPPED rather than shown raw, and
      * if nothing survives the mapping the generic sentence above stands.
      */
+    /**
+     * ⚠ JOINED WITH A CONJUNCTION, NOT A BARE COMMA. `join(', ')` produced
+     * "the win share, the robustness check did not come back" — a comma splice
+     * that reads as a truncated sentence, witnessed on the deployed build in
+     * the panel's most prominent warning. Two missing results is the common
+     * case, so this was the usual rendering rather than an edge one.
+     *
+     * British English list punctuation: no serial comma before "and".
+     */
     provisionalNaming: (missing: readonly string[]) =>
-      `This analysis is partial — ${missing.join(', ')} did not come back.`,
+      `This analysis is partial — ${joinWithAnd(missing)} did not come back.`,
     /**
      * Field names as THIS surface says them. Furniture: naming our own fields,
      * never a statement about the run. Keys are the producer's own vocabulary.

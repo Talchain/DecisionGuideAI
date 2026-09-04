@@ -82,7 +82,8 @@ export interface ModelRowViewProps {
   onDiscardEdit?: (id: string) => void
   /** The inline confirm chip — dispatches the canonical transaction. */
   onConfirmEdit?: (id: string) => void
-  /**
+  
+/**
    * Ratify this row's AI-estimated value as correct — the v1 Confirm ✓,
    * rehomed (18 Aug 2026).
    *
@@ -99,6 +100,39 @@ export interface ModelRowViewProps {
    * cannot honour it.
    */
   onConfirmValueAsIs?: (id: string) => void
+}
+
+/**
+ * ⭐ MAY THIS VALUE GIVE UP WIDTH TO THE LABEL BESIDE IT?
+ *
+ * `shrink-0` exists to stop a number breaking away from its unit — "35 %"
+ * splitting across the gap is the defect it was written for. That protection is
+ * about ATOMICITY, and a multi-word qualitative PHRASE has none: "Moderate
+ * positive effect" truncates to "Moderate positive…" and still says what it
+ * means.
+ *
+ * ⚠ WHY THIS MATTERS, MEASURED. The identity track is the only flexible one, so
+ * 100% of the width an `auto` value cell takes comes out of the label — this
+ * file records that hazard for the arms that were dark. It arrived on a LIVE
+ * arm instead: at a 291px dock, thirteen relationship rows each rendered a
+ * ~24-character effect phrase as immovable, pushing the label to its 6rem floor.
+ * FOUR CONSECUTIVE ROWS read "Development he… Moderate positive effect", with
+ * the arrow and the target — the half that tells them apart — truncated away.
+ * Witnessed on the deployed build.
+ *
+ * A row whose identity is unreadable is worse than a phrase missing its last
+ * word, and between the two the phrase is the one repeated on every row.
+ *
+ * The predicate is deliberately narrow: prose only. Anything carrying a DIGIT
+ * is a measurement and keeps its protection, as does anything short enough that
+ * shrinking it would buy the label nothing.
+ */
+function valueMayShrink(display: string | null): boolean {
+  if (display === null) return false
+  const text = display.trim()
+  if (/\d/.test(text)) return false
+  if (!text.includes(' ')) return false
+  return text.length > 12
 }
 
 export function ModelRowView({
@@ -780,7 +814,7 @@ function ValueCell({
       <span
         data-testid={testid}
         className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
-          estimate === null ? 'shrink-0' : 'min-w-0'
+          estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0 truncate'
         }`}
       >
         {display ?? ''}
@@ -809,8 +843,12 @@ function ValueCell({
          arms. The rule is about the two IDLE elements, not about the function.
          Getting that number wrong is what let the `proposed` cell ship
          unfixed, and it was found by review rather than by me. */
+      /* ⚠ THE SAME PREDICATE AS THE `<span>` ABOVE, AND THIS FILE'S OWN RULE IS
+         WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
+         fix that half the rows never receive." The editable rows are exactly the
+         ones carrying "Not set", which is where the relationship list lives. */
       className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
-        estimate === null ? 'shrink-0' : 'min-w-0'
+        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0 truncate'
       }`}
       onClick={e => {
         e.stopPropagation()
