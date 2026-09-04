@@ -72,6 +72,31 @@ where the field holds a number). §2.2's override list below covers badges, butt
 helper text and deliberately does not cover inputs: 14px is this system's minimum
 accessible size (§2.1), and a 12px field is a usability regression at the 280px dock floor.
 
+> ⚠ **ENFORCED FOR THE MODEL TAB TODAY. THE REST OF PANEL SCOPE IS MEASURED DEBT, NOT
+> COMPLIANCE.** This rule is written for all panel scope, and panel scope does not currently
+> obey it. Measured 4 Sep 2026 at `6870d5e5`, by re-executing
+> `tools/ci-guards/check-ds-compliance.mjs`'s own `panel-typography-scoped` predicate over a
+> walk of `src/` (contrast controls in the same run: `<input` 36, `<textarea` 15,
+> `<select` 6, against fabricated `<inputt` 0 / `<textareaX` 0):
+>
+> | | |
+> |---|---|
+> | text-entry controls in panel scope | **50** |
+> | below 14px | **39** |
+> | of those, **rendered on a live route** | **26** — 16 `canvas/ui/inspector-v2`, 5 `results/modals`, 4 `results/analysisNew`, 1 `results/coaching` |
+> | at 11px | **8** |
+> | size not resolvable at all | 3 (two carry TWO font-size utilities on one element) |
+>
+> `src/canvas/model-tab-v2/__tests__/inputsStayAtMinimumSize.spec.ts` enforces the rule for
+> the **Model tab only** — the two directories the DS guard already names as the Model
+> editor's panel scope. Widening its `MODEL_TAB_DIRS` is the whole change needed to extend
+> enforcement, and it should be widened **one owning lane at a time, with that lane fixing its
+> own controls** — not by one lane condemning 26 controls it does not own.
+>
+> This paragraph exists so the rule is not a claim the codebase contradicts. A design rule
+> that reads as universal while a guard enforces a tenth of it is the hand-maintained mirror
+> this system keeps paying for: state the enforced scope, or state the debt.
+
 **Scope:** `src/components/results/`, `src/canvas/panels/`, `src/canvas/ui/EdgeInspector*`, and any component rendered inside a side panel.
 
 **Panel context overrides for shared components:**
