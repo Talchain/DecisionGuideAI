@@ -444,7 +444,9 @@ export const GoalPanel = memo(function GoalPanel({
                   directly, where that boundary does not exist. So the SEED is a
                   live display defect and the WRITE is fenced by the boundary —
                   ⚠ AND THAT FENCE IS THE REASON CARVING THIS EDITOR OUT OF THE
-                  FIELDSET WOULD MAKE THINGS WORSE, NOT BETTER. Rowed; the
+                  FIELDSET WOULD MAKE THINGS WORSE, NOT BETTER. ⚠ NOT YET IN
+                  THE REGISTER — handed to the orchestrator with this PR, not
+                  minted here; do not read this as a row. The
                   remedy is to give the SEED the same admission that owns the
                   chip (`canCaptureGoalTarget`), so nothing captured means an
                   empty field — deliberately not done here, because it changes a

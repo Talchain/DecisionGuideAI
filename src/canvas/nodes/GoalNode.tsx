@@ -137,7 +137,10 @@ const GOAL_TARGET_PREFIX = 'Target:'
  * Naming a live route instead (the Model tab's own goal section) is the better
  * answer and is deliberately NOT guessed at here: which of those surfaces is
  * mounted under the deployed flag posture is unmeasured, and a third
- * unwitnessed promise is the defect, not the fix. Rowed.
+ * unwitnessed promise is the defect, not the fix. ⚠ NOT YET IN THE REGISTER —
+ * handed to the orchestrator with this PR rather than minted here, because a
+ * mint-check that has not swept every tier is how this estate got fifteen
+ * colliding ids. Do not read this sentence as a row.
  *
  * `goalChipPromiseVsDestination.spec.tsx` holds the rule, and holds it as a
  * CONDITIONAL: it derives the editor's inertness through the REAL router and
