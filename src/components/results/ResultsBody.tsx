@@ -207,23 +207,40 @@ export const ResultsBody = memo(function ResultsBody({
   // named. Line numbers are a hand-maintained mirror of a file that moves
   // whenever anyone edits it — including the edit that writes them.
   //
-  // SIX channels read this answer, not four. Named by SYMBOL so they stay true
-  // as the file moves; grep the symbol rather than trusting a number:
+  // ⚠⚠⚠ AND "SIX" WAS ALSO SHORT. A reviewer counted NINE at the previous head;
+  // this PR adds two more. DERIVED at this tip, code only, tests and the
+  // reader's own module excluded: ELEVEN call sites across SIX files, and ZERO
+  // raw-field designation reads outside the type declaration.
   //
-  //   in this file, all fed from `resultsSectionData`:
-  //     `designationsWithheld`                  — the const declared just below
-  //     `leaderClaimPermitted` prop             — a leader-claim gate by name
-  //     the win-probability gauge's `designationsWithheld`
-  //     OptionCards `hasLeadingOption`          — the crown, ordinal and order
+  // That is the THIRD count in this comment's history — four, six, eleven — and
+  // the lesson is not "count more carefully". It is that ANY enumeration written
+  // by hand is a mirror of a moving tree. Named by SYMBOL and by FILE so the set
+  // survives edits; re-derive it rather than trusting the number:
   //
-  //   and two components that call the reader THEMSELVES, so this file's own
-  //   call sites are not the whole story:
-  //     `TriageActionCardsBody` — `hasWinner`
-  //     `StrengthenContainer`   — `hasLeadingOption`
+  //   this file (4):  `designationsWithheld` · `leaderClaimPermitted` prop ·
+  //                   the win-probability gauge · OptionCards `hasLeadingOption`
+  //   TriageActionCardsBody (1):        `hasWinner`
+  //   StrengthenContainer (1):          `hasLeadingOption`
+  //   buildHeroModel (1):               `designationsWithheld`
+  //   buildAnalysisNewViewModel (3):    at-a-glance headline · model implication ·
+  //                                     the "What we checked" leader row
+  //   buildStrengthenInputsForAnalysisNew (1): `hasLeadingOption` (the mirror)
+  //
+  // ⚠ THREE IDIOMS, NOT TWO, AND THE THIRD IS INVISIBLE AT THE CALL SITE.
+  //   `=== false`  withholds — absence reads as NOT withheld (permissive)
+  //   `=== true`   speaks    — absence reads as DO NOT SPEAK (conservative)
+  //   raw pass-through (this file's OptionCards prop, and StrengthenContainer)
+  //                          — defers the comparison one component down, where
+  //                            it resolves to `=== false`. The permissive
+  //                            reading, chosen somewhere you cannot see it here.
+  // Each is correct for its surface and each preserves that surface's prior
+  // behaviour, so this is NOT one-name-two-questions — the remedy is naming, not
+  // aligning. But "does absence fail safe?" has two answers in this file, and
+  // only running it settles which.
   //
   // Verify the set with a repo-wide grep for `leaderDesignationPermitted`
   // (excluding `__tests__` and the reader's own module). If that returns more
-  // than these six consumers, this comment is short and the new one is
+  // than these eleven call sites, this comment is short again and the new one is
   // unaudited — which is the failure mode above, one level up.
   //
   // `=== false` preserves the existing convention EXACTLY: a caller supplying no

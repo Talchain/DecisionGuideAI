@@ -2069,10 +2069,24 @@ function buildChecks(data: ResultsSectionDataReturn): AnalysisNewViewModel['chec
    * `recommendedOption` is non-null on such a run. Importing the fallback would
    * therefore have this section tick "Has leading option" on exactly the runs
    * where the product is withholding one. Absent verdict is NOT ASSESSED.
+   *
+   * ⚠⚠ TWO DIFFERENT FALLBACKS, AND ONLY ONE IS BANNED — a reviewer found this
+   * row still reading raw Q2 while the ban above was cited as the reason. The
+   * banned one is `!!recommendedOption`: a UI-DERIVED claim rebuilt from numbers
+   * the producer deliberately kept silent about. `leaderDesignationPermitted`'s
+   * fallback is `?? verdict?.hasLeadingOption` — it falls back to the PRODUCER'S
+   * OWN Q2, never to a UI derivation, so it cannot resurrect Authority 3. The
+   * paragraph above forbids INVENTING a leader; it does not license ignoring the
+   * MODEL's refusal to license one.
+   *
+   * Reading raw Q2 here rendered "Has leading option / pass" on a run the model
+   * refuses to let us claim a leader on — and the reviewer's CONTRAST CONTROL is
+   * what makes it damning: the PERMITTED run produced an identical row, so the
+   * gate was not reaching this section at all.
    */
   const verdict = rec.verdict
   const leaderCode: ChecksCode =
-    verdict?.hasLeadingOption === true
+    leaderDesignationPermitted(rec) === true
       ? 'leader_present'
       : // ⚠ THE DENIAL IS LICENSED BY `'tied'` ALONE. `decisionVerdict.ts:166-168`
         // is explicit that `'unknown'` licenses SILENCE, never a denial — so an
