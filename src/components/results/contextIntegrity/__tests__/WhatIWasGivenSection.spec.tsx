@@ -764,9 +764,23 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       manifest,
     })
     render(<WhatIWasGivenSection />)
-    expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      "0 of 0 figures you mentioned aren't in the model yet",
-    )
+    const summary = screen.getByTestId('what-i-was-given-summary').textContent ?? ''
+
+    // ⚠ THE DISTINCTION IS WHAT THIS PROTECTS, NOT THE STRING. This zero means
+    // "we looked and your brief had no figures", and it must stay separable
+    // from the zeros above that mean "we could not look". That is asserted
+    // directly: it must NOT be the cannot-show sentence.
+    expect(summary).not.toBe("I can't show this yet")
+
+    // ⚠⚠ AND IT MAY NOT REPORT A SHORTFALL THAT DOES NOT EXIST. The original
+    // wording here was "0 of 0 figures you mentioned aren't in the model yet" —
+    // a double negative about nothing, witnessed as this section's subtitle on
+    // the deployed build. A zero "allowed to reassure" that reads as a
+    // deficiency is not reassuring; it was the right STATE with the wrong
+    // sentence.
+    expect(/\d+ of \d+/.test(summary), `a no-figures brief still reports a tally: "${summary}"`).toBe(false)
+    expect(/aren't in the model/.test(summary), `a no-figures brief still reports a shortfall: "${summary}"`).toBe(false)
+    expect(summary.length, 'the reassuring zero must still say something').toBeGreaterThan(0)
   })
 
   it('renders nothing only when there is genuinely nothing on file', () => {

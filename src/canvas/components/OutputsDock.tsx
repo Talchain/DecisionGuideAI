@@ -28,6 +28,7 @@ import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, Message
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
 import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
@@ -148,7 +149,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
-import { staleReasonFromFreshness } from '../../components/results/analysisNew/staleReason'
+import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -998,7 +999,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * the distinction through its own notice; handing it a second authority for
    * one question is the trap this is fixing, not a symmetry to restore.
    */
-  const analysisStaleReason = staleReasonFromFreshness(displayedFreshness)
+  /**
+   * ⭐⭐ READ FROM THE TRUST SEMANTIC, NOT FROM `displayedFreshness` — the two
+   * answer the same question and only one of them can see a LOCAL EDIT.
+   *
+   * `displayedFreshness` turns `'stale'` when CEE says so. `ReanalyseBar`'s
+   * header states the wider rule it already uses: the trust semantic is
+   * `'changed'` on "CEE 'stale' OR a local dirty edit". So immediately after a
+   * user edits a value, the footer said "Model changed. Results may be out of
+   * date." while this panel said "We cannot confirm whether this analysis
+   * reflects the current model" — both on screen, witnessed on the deployed
+   * build. The panel was not being careful, it was blind.
+   *
+   * ONE shared admission, read by both surfaces. The fail-closed rule is
+   * unchanged: only the authority's own `'changed'` licenses the stronger
+   * sentence — see `staleReasonFromTrustSemantic`.
+   */
+  const { semantic: analysisTrustSemantic } = useAnalysisTrust()
+  const analysisStaleReason = staleReasonFromTrustSemantic(analysisTrustSemantic)
   // Brief step 6 — the composed run state that decides WHICH truth-state
   // banner this surface may render. It derives nothing new: it maps the
   // verdicts the refusal/freshness/results owners already publish onto the

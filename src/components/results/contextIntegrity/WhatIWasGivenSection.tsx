@@ -430,10 +430,29 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
   // `items` is capped (`truncated`) while `total` is not, so counting rendered
   // rows against an uncapped total silently under-reports on a long brief.
   const notYetCount = tally === null ? 0 : tally.absent + tally.proseOnly
+  /**
+   * ⚠⚠ THREE STATES, NOT ONE TEMPLATE. The single template rendered
+   * "0 of 0 figures you mentioned aren't in the model yet" on a brief with no
+   * figures in it — a double negative about nothing, witnessed on the deployed
+   * build as this section's subtitle. It also stated the GOOD outcome
+   * negatively: "0 of 5 … aren't in the model yet" is the all-clear, phrased as
+   * a shortfall.
+   *
+   *   no figures at all  → say there is nothing to track, and count nothing
+   *   all of them landed → say so positively; it is the reassuring state
+   *   some are missing   → the original sentence, which is right for that case
+   *
+   * The counting rule above is unchanged: totals come from the manifest's
+   * tallies, never from the capped `items` array.
+   */
   const subtitle =
     tally === null
       ? "I can't show this yet"
-      : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
+      : tally.total === 0
+        ? 'No figures to track from your brief yet'
+        : notYetCount === 0
+          ? `All ${tally.total} figures you mentioned are in the model`
+          : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
 
   const addMessage = (item: NotModelledItem) =>
     onSendMessage?.(composeNotModelledQuestion(item, briefText))
