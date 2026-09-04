@@ -52,8 +52,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { typography } from '../../../styles/typography'
 import {
-  scanSource, textEntryControls, judgeControls, openingTagSpan, MINIMUM_PX,
+  scanSource, textEntryControls, judgeControls, openingTagSpan, balancedBraceEnd,
+  jsxSourceFilesIn, MINIMUM_PX,
 } from '../../../../tests/helpers/jsxTextEntryScan'
+import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
 const V2_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SRC_DIR = path.resolve(V2_DIR, '..', '..')
@@ -74,10 +76,15 @@ const rel = (abs: string) => path.relative(REPO_ROOT, abs)
  * rule that condemns it, and pretending otherwise would make the rule false.
  *
  * It is excepted because it is NOT MOUNTED: every one of its call sites lives in
- * `GoalSection` / `OptionsSection` / `FactorsSection` / `RelationshipsSection` /
- * `RisksSection`, whose only non-test importer is `ModelTabBody.tsx`, which
- * renders them inside `{LEGACY_DETAILED_EDITOR_MOUNTED && (` — and that constant
- * is hardcoded `false`.
+ * `GoalSection` / `OptionsSection` / `FactorsSection` / `RelationshipsSection`,
+ * whose only non-test importer is `ModelTabBody.tsx`, which renders them inside
+ * `{LEGACY_DETAILED_EDITOR_MOUNTED && (` — and that constant is hardcoded `false`.
+ *
+ * ⚠ THIS LIST SAID *FIVE* SECTIONS AND NAMED `RisksSection`, WHICH DOES NOT
+ * IMPORT `InlineEdit` AT ALL. A reviewer caught it. The error came from copying
+ * `ModelTabBody`'s five-section import list instead of deriving InlineEdit's own
+ * importers — so the list is now DERIVED by `D4` rather than written here, and
+ * this sentence is only a summary of what that test asserts.
  *
  * ⭐ THAT PRECONDITION IS ASSERTED BELOW, NOT ASSUMED. Flip the constant to
  * `true` and this suite REDs, so the input must be fixed BEFORE the v1 stack can
@@ -215,5 +222,95 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
 
     // Pin the reason too: the exception is about THIS component's mount path.
     expect(host).toMatch(/\{LEGACY_DETAILED_EDITOR_MOUNTED\s*&&\s*\(/)
+  })
+
+  /**
+   * ⚠⚠ D3 AND D4 EXIST BECAUSE D2 ALONE DID NOT ASSERT WHAT ITS OWN COMMENT
+   * CLAIMED, AND A REVIEWER PROVED IT BY EXECUTION.
+   *
+   * D2 pins the VALUE of the constant and the EXISTENCE of the gate string. It
+   * does NOT pin that the InlineEdit-hosting sections are INSIDE that gate, nor
+   * that `ModelTabBody` is their only importer. The reviewer's mutant inserted a
+   * live `<OptionsSection …>` render OUTSIDE the gate block — mounting a 12px
+   * input on the real Model tab route — and **3,219 tests stayed green**.
+   *
+   * So the sentence "the input must be fixed BEFORE the v1 stack can reach a
+   * user" was FALSE as shipped: the v1 stack could reach a user by a route the
+   * guard was not watching. The exception needs all THREE conjuncts, because
+   * "is it mounted?" is answered by three separate facts:
+   *   D2  the gate's constant is false
+   *   D3  the hosts are rendered INSIDE that gate           (containment)
+   *   D4  nothing else renders the hosts at all             (importer closure)
+   * Any one of them alone leaves a live mount path unguarded.
+   */
+  const INLINE_EDIT_HOSTS = ['GoalSection', 'OptionsSection', 'FactorsSection', 'RelationshipsSection'] as const
+
+  it('D3 the InlineEdit hosts are rendered INSIDE the unmount gate, not merely beside it', () => {
+    const hostPath = path.join(SRC_DIR, 'canvas', 'components', 'ModelTabBody.tsx')
+    const code = stripComments(readFileSync(hostPath, 'utf8'), hostPath)
+
+    const gateOpen = code.indexOf('{LEGACY_DETAILED_EDITOR_MOUNTED')
+    expect(gateOpen, 'the unmount gate is gone from ModelTabBody').toBeGreaterThan(-1)
+    const gateEnd = balancedBraceEnd(code, gateOpen)
+    expect(gateEnd, 'the unmount gate block is unbalanced — cannot bound it').toBeGreaterThan(gateOpen)
+
+    // Every render site of every host must fall inside [gateOpen, gateEnd).
+    const outside: string[] = []
+    for (const host of INLINE_EDIT_HOSTS) {
+      const re = new RegExp(`<${host}(?![A-Za-z0-9_$])`, 'g')
+      let m: RegExpExecArray | null
+      while ((m = re.exec(code)) !== null) {
+        if (m.index < gateOpen || m.index >= gateEnd) {
+          outside.push(`<${host}> at offset ${m.index} (gate spans ${gateOpen}..${gateEnd})`)
+        }
+      }
+    }
+    expect(
+      outside,
+      '\nAn InlineEdit-hosting section is rendered OUTSIDE the unmount gate, so its 12px\n' +
+        'input is on a live route. Fix InlineEdit.tsx and remove its line from\n' +
+        'KNOWN_BELOW_MINIMUM before this can land.\n',
+    ).toEqual([])
+
+    // Precondition of this test, pinned in-test: it must have found renders at
+    // all, or it asserts the absence of something it never looked for.
+    const renderCount = INLINE_EDIT_HOSTS.reduce(
+      (n, h) => n + (code.match(new RegExp(`<${h}(?![A-Za-z0-9_$])`, 'g')) ?? []).length, 0)
+    expect(renderCount, 'no host renders found at all — this assertion would be vacuous').toBeGreaterThan(0)
+  })
+
+  it('D4 ModelTabBody is the ONLY non-test importer of every InlineEdit host', () => {
+    // DERIVED, not the hand-written list that was wrong. `RisksSection` was named
+    // in that list and does not import InlineEdit at all.
+    const importers: Record<string, string[]> = {}
+    for (const file of jsxSourceFilesIn(path.join(SRC_DIR, 'canvas'))) {
+      const text = readFileSync(file, 'utf8')
+      for (const host of INLINE_EDIT_HOSTS) {
+        if (new RegExp(`from '[^']*model-tab/${host}'`).test(text)) {
+          ;(importers[host] ??= []).push(rel(file))
+        }
+      }
+    }
+    // Contrast control: the scan must SEE the known importer, or its silence
+    // proves nothing.
+    for (const host of INLINE_EDIT_HOSTS) {
+      expect(importers[host] ?? [], `no importer found for ${host} — the scan is blind`).toContain(
+        'src/canvas/components/ModelTabBody.tsx',
+      )
+    }
+    const extra = Object.entries(importers).flatMap(([h, fs]) =>
+      fs.filter(f => f !== 'src/canvas/components/ModelTabBody.tsx').map(f => `${h} <- ${f}`))
+    expect(
+      extra,
+      '\nA second importer of an InlineEdit host appeared. That is a second mount path,\n' +
+        'and the unmount exception above no longer holds. Fix InlineEdit.tsx first.\n',
+    ).toEqual([])
+
+    // And InlineEdit itself must still be imported only by those hosts.
+    const inlineEditImporters = jsxSourceFilesIn(path.join(SRC_DIR, 'canvas'))
+      .filter(f => /from '[^']*\/InlineEdit'/.test(readFileSync(f, 'utf8')))
+      .map(f => path.basename(f, '.tsx'))
+      .sort()
+    expect(inlineEditImporters).toEqual([...INLINE_EDIT_HOSTS].sort())
   })
 })

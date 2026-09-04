@@ -81,27 +81,39 @@ below the minimum: see the measured debt below, which is scope, not permission.
 
 > ⚠ **ENFORCED FOR THE MODEL TAB TODAY. THE REST OF PANEL SCOPE IS MEASURED DEBT, NOT
 > COMPLIANCE.** This rule is written for all panel scope, and panel scope does not currently
-> obey it. Measured 4 Sep 2026 at `6870d5e5`, by re-executing
-> `tools/ci-guards/check-ds-compliance.mjs`'s own `panel-typography-scoped` predicate over a
-> walk of `src/` (contrast controls in the same run: `<input` 36, `<textarea` 15,
-> `<select` 6, against fabricated `<inputt` 0 / `<textareaX` 0):
+> obey it. **Reproducible figure**, measured 4 Sep 2026 by running this PR's OWN shipped
+> instrument (`textEntryControls` + `judgeControls` from `tests/helpers/jsxTextEntryScan.ts`)
+> over the panel scope copied verbatim from `tools/ci-guards/check-ds-compliance.mjs`'s
+> `inScope` predicate — 155 files. An independent reviewer reproduced these numbers exactly:
 >
 > | | |
 > |---|---|
 > | text-entry controls in panel scope | **50** |
-> | below 14px | **39** |
-> | of those, **rendered on a live route** | **26** — 16 `canvas/ui/inspector-v2`, 5 `results/modals`, 4 `results/analysisNew`, 1 `results/coaching` |
-> | at 11px | **8** |
-> | size not resolvable at all | 3 (two carry TWO font-size utilities on one element) |
+> | **below 14px** (mechanically resolved) | **29** — 21 at 12px, **8 at 11px** |
+> | size not mechanically resolvable | **16** — the control's size comes through a variable (e.g. `FIELD_INPUT_CLASS`), so the scan reports it rather than guessing |
+> | unparseable size class | 0 |
+>
+> By area, below 14px: **15** `canvas/ui/inspector-v2` · **4** `results/analysisNew` ·
+> **4** `canvas/panels` · **3** `components/results` · 1 `results/coaching` ·
+> 1 `EdgeInspector` · 1 `canvas/components/model-tab` (the excepted, unmounted `InlineEdit`).
+>
+> ⚠ **29 IS A FLOOR, NOT A TOTAL.** A separate hand-trace that followed the variable
+> indirections resolved about ten of the 16 unresolvable cases — most of `results/modals`,
+> where `FIELD_INPUT_CLASS` resolves to `typography.panelBody` (12px) — putting the real
+> count near 39. **The two numbers answer different questions** (*what can a mechanical scan
+> prove* vs *what does the browser actually render*) and this table reports the reproducible
+> one, because a design document whose figures cannot be re-derived is the mirror this rule
+> exists to avoid. An earlier revision of this table printed the hand-traced 39 while claiming
+> the instrument's method; a reviewer caught it.
 >
 > `src/canvas/model-tab-v2/__tests__/inputsStayAtMinimumSize.spec.ts` enforces the rule for
 > the **Model tab only** — the two directories the DS guard already names as the Model
 > editor's panel scope. Widening its `MODEL_TAB_DIRS` is the whole change needed to extend
 > enforcement, and it should be widened **one owning lane at a time, with that lane fixing its
-> own controls** — not by one lane condemning 26 controls it does not own.
+> own controls** — not by one lane condemning controls it does not own.
 >
 > This paragraph exists so the rule is not a claim the codebase contradicts. A design rule
-> that reads as universal while a guard enforces a tenth of it is the hand-maintained mirror
+> that reads as universal while a guard enforces a fraction of it is the hand-maintained mirror
 > this system keeps paying for: state the enforced scope, or state the debt.
 
 **Scope:** `src/components/results/`, `src/canvas/panels/`, `src/canvas/ui/EdgeInspector*`, and any component rendered inside a side panel.
