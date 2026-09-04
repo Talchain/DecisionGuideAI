@@ -60,24 +60,30 @@ describe('undoDraft stands the authoritative record down', () => {
     // would also null these, and an undo invalidates none of them.
     useCanvasStore.setState({ currentScenarioId: 'scn-1', serverGraphIdentity: { any: 1 } } as never)
     useCanvasStore.getState().undoDraft()
-    const s = useCanvasStore.getState() as Record<string, unknown>
+    const s = useCanvasStore.getState() as unknown as Record<string, unknown>
     expect(s.currentScenarioId).toBe('scn-1')
     expect(s.serverGraphIdentity).not.toBeNull()
   })
 
-  it('every enumerated graph-replacement site is named in the store', async () => {
-    // The enumeration is the repo's own, not a list maintained here.
-    const fs = await import('node:fs'); const path = await import('node:path')
-    const reg = path.resolve(process.cwd(), 'src/canvas/registration/useImportRegistration.ts')
-    expect(fs.existsSync(reg), `enumeration source missing: ${reg}`).toBe(true)
-    const doc = fs.readFileSync(reg, 'utf8')
-    expect(doc.length, 'enumeration file read as empty').toBeGreaterThan(500)
-    const sites = ['importCanvas', 'hydrateGraphSlice', 'loadScenario', 'undoDraft']
-      .filter(n => doc.includes(n))
-    // CONTRAST CONTROL: if the enumeration were renamed away, this would drop
-    // and the assertion below would pass on an empty set.
-    expect(sites.length, 'the enumeration no longer names the four sites').toBe(4)
-    const store = fs.readFileSync(path.resolve(process.cwd(), 'src/canvas/store.ts'), 'utf8')
-    for (const site of sites) expect(store, `${site} is not defined in the store`).toContain(`${site}:`)
-  })
+  /**
+   * ⛔ A THIRD TEST STOOD HERE AND IT WAS VACUOUS. DELETED RATHER THAN REPAIRED.
+   *
+   * It claimed to close this defect "against the enumeration, not the
+   * instance" by asserting four site names appear in two files. A reviewer
+   * MEASURED it: gutting an enumerated site (`hydrateGraphSlice`) left it
+   * **3/3 green**. It checked that names are SPELLED, never that the sites
+   * BEHAVE — so it was precisely the hand-maintained mirror it claimed to
+   * replace, wearing the vocabulary of the thing that would have caught it.
+   *
+   * ⚠ AND THE ENUMERATION IT RESTED ON ANSWERS A DIFFERENT QUESTION.
+   * `useImportRegistration.ts:6-7` lists where `importPendingServerRegistration`
+   * is DERIVED — not where the graph is REPLACED. `reset()` (`store.ts:3975`)
+   * is a fifth replacement site absent from that list. Two questions under one
+   * list, which is this estate's signature defect and the exact thing the
+   * deleted test was written to guard against.
+   *
+   * A real version must CALL each site and assert the record stands down. That
+   * is worth building; a test that cannot fail is worse than no test, because
+   * it stops the next reader looking.
+   */
 })
