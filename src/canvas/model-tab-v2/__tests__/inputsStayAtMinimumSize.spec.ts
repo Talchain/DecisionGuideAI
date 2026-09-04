@@ -340,6 +340,15 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
     // true; the check was narrower than the claim, which is the defect class this
     // whole spec exists to close. Now: all of `src`, `.ts` and `.tsx`, both quote
     // styles, static and dynamic.
+    //
+    // ⚠ RESIDUE, NAMED RATHER THAN IMPLIED CLOSED. The clause above lists a
+    // `.ts` barrel among what used to be invisible, which reads as though
+    // barrels are now covered. They are not. `SPEC` requires `model-tab/<host>`
+    // CONTIGUOUS, and a DIRECTORY import — `from '../model-tab'`, resolving to
+    // an `index.ts` that re-exports the host — never produces that substring.
+    // Measured: such a consumer passes 16/16 GREEN. This is a REDUCTION of a
+    // pre-existing gap, not a new one, and no barrel exists today; closing it
+    // needs re-export resolution, which is a different check from a path regex.
     const SPEC = (host: string) =>
       new RegExp(`(?:from|import)\\s*\\(?\\s*['"\`][^'"\`]*model-tab/${host}['"\`]`)
     const importers: Record<string, string[]> = {}
