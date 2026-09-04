@@ -42,6 +42,47 @@ describe('the read — no UI-generated strategic conclusion', () => {
     expect(glanceOf(decisionWithLeaderWithheld()).headline).toBeNull()
   })
 
+  /**
+   * ⭐⭐ THE MUTANT THIS FILE COULD NOT KILL, and the procedure for killing it was
+   * written three lines from the unpinned line and not run on it.
+   *
+   * `buildAnalysisNewViewModel.ts` gates this headline on the COMPOSED answer.
+   * A reviewer reverted that gate to the Q2 conjunct — `rec.verdict
+   * ?.hasLeadingOption === true` — and the whole sweep stayed **188/188 GREEN**
+   * while a positive control in the same run REDDED. The cases above cannot see
+   * it: `decisionWithLeaderWithheld()` withholds via Q2, so composed and Q2 agree
+   * on every fixture in this file.
+   *
+   * ⚠ NOTE THE NARROWER GAP, because it decides what this arm must assert.
+   * Reverting to the raw FIELD (`rec.leaderDesignationPermitted === true`)
+   * already reds this file. What nothing asserted is that the gate reads the
+   * COMPOSED answer — field OR the producer's Q2 — rather than one conjunct.
+   * So the fixture below must separate the two questions, not merely be absent.
+   */
+  it('MODEL refuses while Q2 permits → NO headline (the gate is the composed answer, not Q2)', () => {
+    const d = genuineDecision()
+    const data = {
+      ...d,
+      recommendation: { ...d.recommendation, leaderDesignationPermitted: false },
+    } as ResultsSectionDataReturn
+    // Preconditions pinned IN-ARM, both directions, so this cannot pass for the
+    // wrong reason: Q2 must be TRUE (or it is testing Q2), and the unmodified
+    // fixture must produce a headline (or "null" proves nothing).
+    expect(data.recommendation?.verdict?.hasLeadingOption, 'Q2 must be TRUE or this arm tests Q2').toBe(true)
+    expect(glanceOf(d).headline, 'the base fixture must HAVE a headline to lose').not.toBeNull()
+
+    expect(glanceOf(data).headline).toBeNull()
+  })
+
+  it('MODEL permits and Q2 permits → the headline returns (the arm above is not always-null)', () => {
+    const d = genuineDecision()
+    const data = {
+      ...d,
+      recommendation: { ...d.recommendation, leaderDesignationPermitted: true },
+    } as ResultsSectionDataReturn
+    expect(glanceOf(data).headline).toBe('Raise price currently scores higher')
+  })
+
   it('renders no headline for an open strategic challenge, but still has drivers to lead with', () => {
     const g = glanceOf(openStrategicChallenge())
     expect(g.headline).toBeNull()

@@ -33,6 +33,7 @@
  */
 
 import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import { adaptivePriorityFromStage } from '../strengthen/StrengthenContainer'
 import { toStrengthenPhase3Item } from '../strengthen/buildRecommendations'
 import { mergeBiasFindingTypes } from '../strengthen/biasTypesFromGuidance'
@@ -63,7 +64,13 @@ export function buildStrengthenInputsForAnalysisNew({
     analysisComplete: data.recommendation.analysisStatus === 'computed',
     // The OWNED leader entitlement, quoted from the single verdict and never
     // re-derived. A completed analysis is not an entitlement to name a leader.
-    hasLeadingOption: data.recommendation.verdict?.hasLeadingOption,
+    // ⚠ THE COMPOSED ANSWER, matching `StrengthenContainer` exactly. Passing raw
+    // Q2 here made Analysis (New) invite the user to CHALLENGE THE LEADER on a
+    // run where the producer refuses to name one, while the Analysis tab
+    // suppressed the same invitation — the harm `buildRecommendations.ts:220-231`
+    // documents, reached through a mirror that was faithful about every key
+    // except this one.
+    hasLeadingOption: leaderDesignationPermitted(data.recommendation),
     flipThresholds: data.recommendation.flipThresholds ?? null,
     fragileEdges: fragile
       .filter((fe) => typeof fe.switch_probability === 'number')

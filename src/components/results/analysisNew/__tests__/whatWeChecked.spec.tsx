@@ -68,6 +68,38 @@ describe('leader check — the denial is licensed by `tied` alone', () => {
     )
   })
 
+  /**
+   * ⭐⭐ THE DISCRIMINATING PAIR THIS SPEC WAS MISSING, and its absence is why a
+   * reviewer found this row still ticking "Has leading option / pass" on a run
+   * the MODEL refuses to let us claim a leader on.
+   *
+   * Every case above sets `verdict` and omits `leaderDesignationPermitted`. With
+   * Q1 absent the composed answer collapses to Q2, so this spec compared the
+   * gate against the one input on which it CANNOT discriminate — 69 green tests
+   * over a row that no admission could ever change. The reviewer's contrast
+   * control is the tell: the PERMITTED run produced an identical row, meaning
+   * the gate was not reaching this section at all.
+   *
+   * Both halves are required. The refusing arm alone is satisfied by a gate that
+   * withholds unconditionally; the permitting arm proves it is not always-refuse.
+   */
+  it('MODEL refuses while Q2 permits → NOT leader_present (the gate reaches this row)', () => {
+    const data = makeData({
+      recommendation: { verdict: verdict({}), leaderDesignationPermitted: false },
+    })
+    // Precondition pinned IN-ARM: Q2 is TRUE, so a non-pass below is the MODEL's
+    // refusal and not a tied or unknown result.
+    expect(data.recommendation?.verdict?.hasLeadingOption, 'Q2 must be TRUE or this arm tests Q2').toBe(true)
+    expect(codeFor(data, 'leader')).not.toBe('leader_present')
+  })
+
+  it('MODEL permits and Q2 permits → leader_present (the refusing arm is not vacuous)', () => {
+    const data = makeData({
+      recommendation: { verdict: verdict({}), leaderDesignationPermitted: true },
+    })
+    expect(codeFor(data, 'leader')).toBe('leader_present')
+  })
+
   it("separation 'tied' → leader_tied (the ONE licensed denial)", () => {
     const data = makeData({
       recommendation: { verdict: verdict({ separation: 'tied', hasLeadingOption: false }) },

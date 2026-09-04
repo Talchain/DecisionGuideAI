@@ -37,6 +37,7 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import {
   ASSUMED_STRENGTH_TITLE,
   assumedStrengthAsk,
@@ -1453,7 +1454,7 @@ function buildAtAGlance(
   // absent an entitlement, the glance leads with the drivers instead.
   const leader = rec.recommendedOption
   const headline =
-    rec.verdict?.hasLeadingOption === true && leader && !rec.isSingleOption
+    leaderDesignationPermitted(rec) === true && leader && !rec.isSingleOption
       ? `${leader.label} currently scores higher`
       : null
 
@@ -1664,7 +1665,13 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * that `optionDisplayOrder`/`fragileEdgeCopy` state identically; an ABSENT
    * verdict is not a withheld claim.
    */
-  const designationsWithheld = rec.verdict != null && !rec.verdict.hasLeadingOption
+  // The composed answer, for the same reason as the hero and the Analysis tab:
+  // `verdict.hasLeadingOption` is one of TWO conjuncts, and a surface reading it
+  // alone designates a leader the model may not license.
+  // Through the SHARED READER — the raw field is `undefined` for any
+  // recommendation that did not come through `useResultsSectionData`, and
+  // `undefined === false` is `false`, which silently stops withholding.
+  const designationsWithheld = leaderDesignationPermitted(rec) === false
   if (designationsWithheld) return { kind: 'none' }
 
   /**
@@ -2062,10 +2069,24 @@ function buildChecks(data: ResultsSectionDataReturn): AnalysisNewViewModel['chec
    * `recommendedOption` is non-null on such a run. Importing the fallback would
    * therefore have this section tick "Has leading option" on exactly the runs
    * where the product is withholding one. Absent verdict is NOT ASSESSED.
+   *
+   * ⚠⚠ TWO DIFFERENT FALLBACKS, AND ONLY ONE IS BANNED — a reviewer found this
+   * row still reading raw Q2 while the ban above was cited as the reason. The
+   * banned one is `!!recommendedOption`: a UI-DERIVED claim rebuilt from numbers
+   * the producer deliberately kept silent about. `leaderDesignationPermitted`'s
+   * fallback is `?? verdict?.hasLeadingOption` — it falls back to the PRODUCER'S
+   * OWN Q2, never to a UI derivation, so it cannot resurrect Authority 3. The
+   * paragraph above forbids INVENTING a leader; it does not license ignoring the
+   * MODEL's refusal to license one.
+   *
+   * Reading raw Q2 here rendered "Has leading option / pass" on a run the model
+   * refuses to let us claim a leader on — and the reviewer's CONTRAST CONTROL is
+   * what makes it damning: the PERMITTED run produced an identical row, so the
+   * gate was not reaching this section at all.
    */
   const verdict = rec.verdict
   const leaderCode: ChecksCode =
-    verdict?.hasLeadingOption === true
+    leaderDesignationPermitted(rec) === true
       ? 'leader_present'
       : // ⚠ THE DENIAL IS LICENSED BY `'tied'` ALONE. `decisionVerdict.ts:166-168`
         // is explicit that `'unknown'` licenses SILENCE, never a denial — so an
