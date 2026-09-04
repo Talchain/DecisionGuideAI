@@ -22,7 +22,7 @@ import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
-import { applyBootAnalysisVerdict } from './applyScenarioAnalysisRead'
+import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding } from './applyScenarioAnalysisRead'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -210,6 +210,38 @@ export async function hydrateCanvasFromServer(
         verdictOutcome.outcome === 'restored'
           ? verdictOutcome.kind
           : verdictOutcome.reason,
+    })
+
+    // ── W1-e (c) — THE WITHHOLDING SURVIVES THE RELOAD ──────────────────────
+    //
+    // A SECOND QUESTION UNDER THE SAME READ, and the restore above answers only
+    // the first. `applyBootAnalysisVerdict` declines every kind but
+    // `complete_stale`, correctly — but the witnessed refusal arrives as
+    // `refused`, so its decline took the leader PERMISSION down with the run
+    // state and the unsafe designation came back on every reload (staging
+    // `113375a1`, drive 3, 4 Sep 2026: "did not run" 0 occurrences, "Leading
+    // option" 1).
+    //
+    // The withholding is MONOTONE — nothing the merge below does can turn a
+    // refusal into a permission — so it passes the same test the restorable set
+    // is chosen by, under every kind. It is WITHHOLD-ONLY: it can subtract a
+    // claim and can never grant one. See its own header for the full argument.
+    //
+    // ⚠ CALLED FROM THE SAME PLACE, so there is ONE placement rule to reason
+    // about rather than two. That rule is ACCEPTANCE, not position: both exits
+    // that represent an accepted graph, and neither refusal — a suppression is
+    // still a write, and a verdict about a graph the user does not have must
+    // not act on the one they do.
+    const withholdingOutcome = applyBootLeaderClaimWithholding({
+      analysisState: result.analysisState,
+      store: {
+        resultsWithholdLeaderClaim: useCanvasStore.getState().resultsWithholdLeaderClaim,
+      },
+    })
+    logger.debug('server_graph_hydration.boot_leader_claim', {
+      scenarioId,
+      outcome: withholdingOutcome.outcome,
+      detail: withholdingOutcome.reason,
     })
   }
 

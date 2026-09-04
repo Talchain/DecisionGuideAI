@@ -1,5 +1,6 @@
 import type { DriversPayload } from '../driversAdapter'
 import type { CeeErrorCodeType } from '@talchain/schemas'
+import type { ProducerLeaderPermission } from '../../lib/decisionVerdict'
 
 export type ConfidenceLevel = 'low' | 'medium' | 'high'
 
@@ -147,6 +148,31 @@ export interface ReportV1 {
   // Brief E Task 1: Per-option goal probabilities
   // Maps option node IDs to their goal achievement probabilities
   option_probabilities?: Record<string, OptionProbability>
+
+  /**
+   * The PRODUCER'S PERMISSION to name a leading option, bound to the report it
+   * was uttered about. Declared, read and written in exactly three places:
+   *   WRITTEN  `canvas/store.ts` → `resultsWithholdLeaderClaim`
+   *   READ     `lib/decisionVerdict.ts` → `readProducerLeaderPermission`
+   *   SOURCED  CEE's `analysis_state.leader_claim`, carried verbatim
+   *
+   * ⭐ IT LIVES ON THE REPORT BECAUSE THE CLAIM DOES. On the wire the fact rides
+   * `analysis_state`, which `applyV5State` clears on every turn that does not
+   * restate it — correctly, since its contract is "CEE stated this FOR THIS
+   * TURN". The designation it governs belongs to the REPORT, which outlives the
+   * turn, the session and the reload. Read from the turn-scoped slice it
+   * evaporates on the user's next message and the withheld claim returns, which
+   * is the harm this field exists to close (staging `113375a1`, 4 Sep 2026).
+   *
+   * ⚠ ABSENT ON EVERY REPORT WRITTEN BEFORE THIS CHANGE, and on every V1/V2
+   * PLoT path, so absence MUST read as "the producer has not spoken" and never
+   * as a refusal. `readProducerLeaderPermission` is the only reader and is
+   * fail-open by construction.
+   *
+   * The full derivation is in `lib/decisionVerdict.ts` beside the reader, not
+   * restated here — one authority per fact.
+   */
+  producer_leader_permission?: ProducerLeaderPermission | null
   // Goal node info for display
   goal_node?: {
     id: string
