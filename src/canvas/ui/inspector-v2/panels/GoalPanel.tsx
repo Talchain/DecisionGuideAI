@@ -449,9 +449,31 @@ export const GoalPanel = memo(function GoalPanel({
                   minted here; do not read this as a row. The
                   remedy is to give the SEED the same admission that owns the
                   chip (`canCaptureGoalTarget`), so nothing captured means an
-                  empty field — deliberately not done here, because it changes a
-                  component five other mounted surfaces share and must not break
-                  the "From your brief" pre-fill (node raw, store null). */}
+                  empty field — deliberately not done here, on SCOPE. ⚠ The reason
+                  given here until a sweep at `4a1eba8c` was "it changes a component
+                  five other mounted surfaces share". BOTH HALVES WERE FALSE, and
+                  they were false in the direction that keeps a live display defect
+                  deferred. Derived at `4a1eba8c`: outside this file
+                  `GoalThresholdEditor` has exactly TWO non-test render sites, and
+                  both are in the SAME component (`NodeInspector.tsx:445`, `:760`).
+                  That component has no reachable render site — `InspectorModal.tsx:17`
+                  is the module literal `const USE_INSPECTOR_V2 = true` (not an env
+                  read, so no `define` in `vite.config.ts` pins it) and `:160` returns
+                  above the file's only `<NodeInspector>`; the other renderer,
+                  `PropertiesPanel`, has zero non-test importers. So: ONE other
+                  component, ZERO with a reachable render site.
+                  The "five" is the STORE ACTION's call-site list attached to the
+                  wrong noun — `setGoalThresholdAndUpdateNode`, whose non-test call
+                  sites numbered six besides this editor at that SHA. None of them
+                  renders this component, and mountedness was never measured for any
+                  of them. A count of call sites is not a count of surfaces, and the
+                  word "mounted" turned a recorded unknown into an asserted fact.
+                  ⚠ The second half survives as a CONSTRAINT, not as a reason: the
+                  change must not break the "From your brief" pre-fill (node raw,
+                  store null). It is not an obstacle either — `canCaptureGoalTarget`
+                  IS `statedGoalTargetRaw(data) == null`, so a stated
+                  `goal_threshold_raw` makes it false and gating the seed on that
+                  admission preserves the pre-fill by construction. */}
               {targetDisplay == null && (
                 <p className={`${typography.panelMeta} text-info mt-1.5`}>
                   {GOAL_CONSTRAINT_COPY.targetUnlocks}
