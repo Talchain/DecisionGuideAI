@@ -774,7 +774,10 @@ export function AnalysisNewTabBody({
           >
             <h3
               id="analysis-new-decision-voi-heading"
-              className={`${typography.panelMeta} text-text-light mb-1`}
+              // `panelHeader` — a section title, for the same reason as
+              // `WhatWeChecked`. These two were the only section headings on
+              // this tab not rendering at 14px/600.
+              className={`${typography.panelHeader} text-text-header mb-1`}
               data-testid="analysis-new-decision-voi-heading"
             >
               {COPY.decisionVoi.label}
