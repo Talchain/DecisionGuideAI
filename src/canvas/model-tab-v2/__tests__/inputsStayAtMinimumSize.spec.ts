@@ -61,7 +61,7 @@ import { fileURLToPath } from 'node:url'
 import { typography } from '../../../styles/typography'
 import {
   scanSource, textEntryControls, judgeControls, openingTagSpan, balancedBraceEnd,
-  jsxSourceFilesIn, MINIMUM_PX,
+  sourceFilesIn, MINIMUM_PX,
 } from '../../../../tests/helpers/jsxTextEntryScan'
 import { stripComments } from '../../../../tests/helpers/stripSourceComments'
 
@@ -333,13 +333,20 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
   it('D4 ModelTabBody is the ONLY non-test importer of every InlineEdit host', () => {
     // DERIVED, not the hand-written list that was wrong. `RisksSection` was named
     // in that list and does not import InlineEdit at all.
+    // ⚠ WIDENED AFTER REVIEW. This walked `src/canvas` only, matching
+    // SINGLE-QUOTED STATIC imports of `.tsx` files — so an importer elsewhere in
+    // `src`, or double-quoted, or a dynamic `import()`, or a `.ts` barrel, was
+    // invisible while the test's title said "the ONLY importer". The claim was
+    // true; the check was narrower than the claim, which is the defect class this
+    // whole spec exists to close. Now: all of `src`, `.ts` and `.tsx`, both quote
+    // styles, static and dynamic.
+    const SPEC = (host: string) =>
+      new RegExp(`(?:from|import)\\s*\\(?\\s*['"\`][^'"\`]*model-tab/${host}['"\`]`)
     const importers: Record<string, string[]> = {}
-    for (const file of jsxSourceFilesIn(path.join(SRC_DIR, 'canvas'))) {
+    for (const file of sourceFilesIn(SRC_DIR)) {
       const text = readFileSync(file, 'utf8')
       for (const host of INLINE_EDIT_HOSTS) {
-        if (new RegExp(`from '[^']*model-tab/${host}'`).test(text)) {
-          ;(importers[host] ??= []).push(rel(file))
-        }
+        if (SPEC(host).test(text)) (importers[host] ??= []).push(rel(file))
       }
     }
     // Contrast control: the scan must SEE the known importer, or its silence
@@ -358,9 +365,9 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
     ).toEqual([])
 
     // And InlineEdit itself must still be imported only by those hosts.
-    const inlineEditImporters = jsxSourceFilesIn(path.join(SRC_DIR, 'canvas'))
-      .filter(f => /from '[^']*\/InlineEdit'/.test(readFileSync(f, 'utf8')))
-      .map(f => path.basename(f, '.tsx'))
+    const inlineEditImporters = sourceFilesIn(SRC_DIR)
+      .filter(f => /(?:from|import)\s*\(?\s*['"`][^'"`]*\/InlineEdit['"`]/.test(readFileSync(f, 'utf8')))
+      .map(f => path.basename(f).replace(/\.tsx?$/, ''))
       .sort()
     expect(inlineEditImporters).toEqual([...INLINE_EDIT_HOSTS].sort())
   })
