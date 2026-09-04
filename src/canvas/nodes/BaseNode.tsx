@@ -540,7 +540,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     ? (nodeType === 'goal' ? 'border-text-light border-dashed' : 'border-text-light')
     : undefined
 
-  // One condition, two consumers (the mount below and the footer padding).
+  // ⚠ ONE CONDITION, TWO READERS THAT DO NOT TRACK EACH OTHER.
+  //
+  // `showQuickActions` is read in exactly two places: the `NodeQuickActions`
+  // mount below, which it governs ALONE; and the card's `padding:` entry, where
+  // it is only the FIRST ARM of a disjunction whose second arm is a hand-listed
+  // `factor | option` pair. So the two do not move together — below the
+  // legibility floor the mount disappears while the padding survives on the
+  // second arm, which is the divergence documented at `padding:`.
+  //
+  // ⚠ THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS, and the pendulum is the
+  // lesson. It first read "One condition, two consumers", which had the COUNT
+  // right and the IMPLICATION wrong — a review found a PR had inherited "they
+  // follow the same condition" from it instead of reading the expression
+  // (CLAUDE.md trap 14). The correction on 4 Sep then over-swung to "ONE
+  // CONSUMER", which fixed the implication by breaking the count. Both readers
+  // are real; what differs is their ROLE. Naming them apart is the fix — trap
+  // 21, two questions under one name.
   const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
 
   /**
@@ -615,11 +631,49 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
         outlineOffset: isAnalysisDriver ? '3px' : undefined,
         backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
-        // Footer padding reserved on any card that renders something in its
-        // bottom band. That used to mean ActionIcons (factor, option) only; the
-        // R5 quick-action layer now sits bottom-right on every node type that
-        // mounts it, so the reservation follows the SAME condition rather than
-        // a hand-listed pair of node types that would silently go stale.
+        // ⚠ THIS IS A DISJUNCTION, AND THE COMMENT THAT USED TO SIT HERE
+        // DENIED IT. It said the reservation "follows the SAME condition rather
+        // than a hand-listed pair of node types". It does not: `4a337f70` OR'd
+        // `showQuickActions` in FRONT of the legacy `factor | option` pair and
+        // KEPT the pair. Both arms are live.
+        //
+        // WHERE THEY DIVERGE: exactly when `lodBodyHidden` is true — below the
+        // 0.5 legibility floor. There `showQuickActions` is false and
+        // `NodeQuickActions` is unmounted, yet a `factor` or `option` card
+        // still reserves 24px of bottom band for it (dead space), while every
+        // other node kind drops the reservation across the same threshold.
+        //
+        // ⛔ NO REACHABILITY CLAIM IS MADE HERE, DELIBERATELY.
+        //
+        // Three rounds of this PR tried to state where a user meets this
+        // divergence, and all three were wrong: "the band the clamped default
+        // camera operates in" (overstated), "only by a manual zoom-out"
+        // (overcorrected), then a three-item route list — which round 6 showed
+        // was SHORT, and short by a route this repo had already measured.
+        //
+        // The list was short because it was scoped to the wrong axis.
+        // `LodSync.tsx` derives the rung from the LIVE VIEWPORT
+        // (`resolveLodRung(s.transform[2])`), so EVERY writer of the main
+        // canvas viewport is a route — not only fits that pass through
+        // `fitBoundsFor`. Two families were missing, and one is decisive:
+        // `useFitViewOnLayoutVersion.ts:360-366` already records that the
+        // product's floored fit can fail to run at all, leaving xyflow's bare
+        // mount `fitView` prop, which "parks at 0.4279 — BELOW
+        // `LABEL_LEGIBLE_ZOOM`". So even "the clamped default camera is NOT a
+        // route" was false.
+        //
+        // ⭐ A ROUTE LIST IN A COMMENT IS A HAND-MAINTAINED MIRROR, and this one
+        // was found short within a single round. The fix for a claim nobody can
+        // bound is NOT a better claim — it is no claim. If reachability must be
+        // asserted, it belongs in a DERIVED GUARD that fails loudly when a new
+        // viewport writer appears, not in prose someone must remember to update.
+        //
+        // What IS pinned here, and is all that this block needs: the divergence
+        // condition above. It is unpinned by any test, and it is rowed.
+        //
+        // NOT changed here (4 Sep 2026, rowed): which way it should resolve —
+        // drop the reservation below the floor, or keep one uniform card box —
+        // is a design ruling, not a defect with a single obvious repair.
         padding: showQuickActions || ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens)
           ? '12px 12px 24px 12px'
           : '12px',
@@ -646,8 +700,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           same two shortcuts: ask Olumi about this, open this node's details.
           Bottom-RIGHT: the top-right corner is owned by node-corner-stack
           below, and this layer overlapped it by ~6px at a lower z until a
-          review caught it. `showQuickActions` is the single source for both the
-          mount and the footer padding that reserves its space. */}
+          review caught it. ⚠ `showQuickActions` gates THIS MOUNT ONLY. The
+          older sentence here called it "the single source for both the mount
+          and the footer padding"; that was false at these bytes — the padding
+          above is a disjunction that also fires on `factor` and `option` below
+          the legibility floor, where this layer is unmounted. */}
       {showQuickActions && (
         <NodeQuickActions
           nodeId={id}

@@ -24,6 +24,8 @@ import {
   DEFAULT_NODE_HEIGHT,
   topAnchoredViewportWhenClamped,
 } from '../cameraComfort'
+import { computeFitPadding, DOCK_SELECTOR, SIDEBAR_SELECTOR } from '../computeFitPadding'
+import { dockWidthBounds, responsiveDockWidth } from '../../components/dockWidth'
 
 const PANE_W = 1000
 const PANE_H = 800
@@ -325,6 +327,103 @@ describe('topAnchoredViewportWhenClamped', () => {
     expect(v!.x).toBe(INSETS.left + (960 - 250) / 2)
   })
 
+  // -------------------------------------------------------------------------
+  // ⭐⭐ THE MODEL WIDER THAN THE FRAME — the case every horizontal test above
+  // is structurally incapable of observing.
+  //
+  // Each existing case puts a model NARROWER than the frame (500 -> 250px in a
+  // 960px frame), so `(frameW - scaledW)` is positive and the `Math.max(0, …)`
+  // that used to wrap it is a NO-OP on every one of them. The suite could
+  // therefore be fully green while the clamp dumped 100% of the overflow on a
+  // single side (CLAUDE.md trap 22: a corpus that omits a value class the
+  // contract admits cannot certify the code over that class).
+  //
+  // MEASURED, real Chromium, hermetic geometry harness, `8e97879a`, on the two
+  // landscape starters at 1280x800 — the shape that overflows:
+  //
+  //                       visible gaps L / R      cards occluded (true rect
+  //                                                intersection, % of card)
+  //   before   headcount-allocation  16 / -112    2 cards, 83%  (opt_sales 13%)
+  //   after                         -48 / -48     1 card,  30%
+  //   before   pricing-model         16 / -112    2 cards, 83%  (opt_status_quo 13%)
+  //   after                         -48 / -48     1 card,  30%
+  //
+  // The option card buried under the OutputsDock is what makes this a defect
+  // rather than a preference: #979 — the commit that introduced this function —
+  // exists to put "the decision and its options" in the first view.
+  // -------------------------------------------------------------------------
+
+  it('⭐ splits the overflow evenly when the model is WIDER than the frame, instead of dumping it all on one side', () => {
+    const bounds = { x: 0, y: 0, width: 4000, height: 4000 }
+    const v = topAnchoredViewportWhenClamped(bounds, PANE_W, PANE_H, INSETS, 0.5)
+    expect(v).not.toBeNull()
+
+    const frameW = PANE_W - INSETS.left - INSETS.right
+    const scaledW = bounds.width * v!.zoom
+    // PRECONDITION PINNED IN-TEST (trap 13b): this fixture must actually be the
+    // overflow case, or the assertion below is a tautology about a case that
+    // never arises. If a later edit shrinks these bounds, this REDs here rather
+    // than silently passing while testing nothing.
+    expect(scaledW).toBeGreaterThan(frameW)
+
+    const modelLeft = v!.x + bounds.x * v!.zoom
+    const modelRight = modelLeft + scaledW
+    const frameLeft = INSETS.left
+    const frameRight = PANE_W - INSETS.right
+
+    const overflowLeft = frameLeft - modelLeft
+    const overflowRight = modelRight - frameRight
+    // Both sides genuinely overflow...
+    expect(overflowLeft).toBeGreaterThan(0)
+    expect(overflowRight).toBeGreaterThan(0)
+    // ...and by the SAME amount. The old `Math.max(0, …)` produced 0 / 1040.
+    expect(overflowLeft).toBe(overflowRight)
+  })
+
+  it('⭐ keeps the model centred on the frame when it overflows — binds by the centres, not by a literal', () => {
+    // Asymmetric insets, so "centred on the frame" and "centred on the pane"
+    // are DIFFERENT answers and this cannot pass by coincidence. These are the
+    // measured deployed insets at 1280x800 (left 76 / right 444: the expanded
+    // OutputsDock reserves 444, the collapsed rail 76).
+    //
+    // ⚠ `bottom: 92` is the CURRENT-TIP value and it differs from the `29` in
+    // `useFitViewOnLayoutVersion.clampedTopAnchor.spec.tsx`. Both are right at
+    // their own tip: 29 is the bare base margin, read on deployed staging
+    // `83f20058` (1 Sep); `CanvasOverlayBand` (#1162, `9c94a718`, 3 Sep) then
+    // became a bottom contributor, and `overlap 76 + GAP 16 = 92` follows from
+    // `OVERLAY_BAND_HEIGHT` 64 + `OVERLAY_BAND_BOTTOM` 12 + `GAP` 16 — pinned
+    // by `computeFitPadding.overlayBand.spec.ts`. #1162 is in this branch's
+    // base, so 92 is the value here. The sibling spec's header is stale by
+    // construction and is rowed, not edited from this lane.
+    const asymmetric = { top: 73, right: 444, bottom: 92, left: 76 }
+    const paneW = 1280
+    // `headcount-allocation`'s MEASURED bbox — see the residual block at the
+    // end of this file for the citation. A previous version of this fixture
+    // used height 1476, which matches no starter.
+    const bounds = { x: 24, y: 24, width: 1776, height: 1527 }
+    const v = topAnchoredViewportWhenClamped(bounds, paneW, 800, asymmetric, 0.5)
+    expect(v).not.toBeNull()
+
+    const frameW = paneW - asymmetric.left - asymmetric.right
+    const scaledW = bounds.width * v!.zoom
+    expect(scaledW).toBeGreaterThan(frameW) // precondition: really the overflow case
+
+    const modelCentre = v!.x + (bounds.x + bounds.width / 2) * v!.zoom
+    const frameCentre = asymmetric.left + frameW / 2
+    expect(modelCentre).toBeCloseTo(frameCentre, 6)
+    // And NOT the pane centre — proves the reservation is still respected.
+    expect(modelCentre).not.toBeCloseTo(paneW / 2, 0)
+  })
+
+  it('the overflow split is horizontal only — the top anchor is untouched by it', () => {
+    const bounds = { x: 0, y: 0, width: 4000, height: 4000 }
+    const v = topAnchoredViewportWhenClamped(bounds, PANE_W, PANE_H, INSETS, 0.5)
+    // Same guarantee as the top-anchor test above, asserted in the OVERFLOW
+    // case so a future horizontal change cannot quietly move the vertical.
+    expect(v!.y).toBe(INSETS.top - bounds.y * 0.5)
+    expect(v!.zoom).toBe(0.5)
+  })
+
   it('never zooms out to fit more in — the floor is the product\'s limit, not the user\'s', () => {
     const v = topAnchoredViewportWhenClamped(
       { x: 0, y: 0, width: 1000, height: 40000 }, PANE_W, PANE_H, INSETS, 0.5,
@@ -340,5 +439,175 @@ describe('topAnchoredViewportWhenClamped', () => {
       topAnchoredViewportWhenClamped({ x: 0, y: 0, width: 1000, height: 4000 }, PANE_W, PANE_H,
         { top: 500, right: 20, bottom: 500, left: 20 }, 0.5),
     ).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// THE PRICED RESIDUAL — what the even split costs at the LEFT edge
+//
+// Splitting a clamped fit's overflow moves the model's left edge toward the
+// pane edge. At the dock's shipped default that leaves a 12px pane margin; at
+// the dock's MAXIMUM user-draggable width the edge goes 20px OFF-PANE, which is
+// somewhere the old `Math.max(0, …)` never went. Both figures were named in the
+// PR body and asserted NOWHERE — a residual that lives only in prose drifts
+// silently, and the honest way to ship a known gap is to pin it EXACTLY so the
+// suite REDs if it grows OR shrinks (CLAUDE.md trap 22f).
+//
+// ⭐ THE INSETS ARE DERIVED, NOT RESTATED. They come from calling the real
+// `computeFitPadding` on stubbed occluder rects, and the dock's width comes
+// from `dockWidth.ts` rather than a literal — so a change to the GAP, the base
+// margin, the dock's bounds or its responsive ratio REDs here rather than
+// leaving these numbers quietly wrong. The CONTROL arm pins the derivation
+// against the insets measured on deployed staging (left 76 / right 444), so
+// this block cannot pass by agreeing with itself.
+// ---------------------------------------------------------------------------
+describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and pinned', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /** The 1280x800 laptop every figure in this file is taken at. */
+  const PANE = { width: 1280, height: 800 }
+  /** `OutputsDock` is positioned `right: 12`; the collapsed rail `left: 12`, 48 wide. */
+  const DOCK_RIGHT_OFFSET = 12
+  const RAIL = { left: 12, width: 48, height: 191 }
+  /**
+   * `headcount-allocation`'s MEASURED bounding box in flow units — one of the
+   * two starters this change moves. Read in Chromium across the five shipped
+   * starters and recorded in `Talchain/olumi-programme-docs` at
+   * `artefacts/canvas-lane-2026-09-03/canvas-vertical-fit-2026-09-04.md` §3
+   * (`1776 x 1527`; `pricing-model` is `1776 x 1584`, the same width).
+   *
+   * ⚠ A previous fixture in this file used `1776 x 1476`, a height matching
+   * neither starter. The width was always the measured one; the height was not,
+   * and an invented fixture dimension in a file that cites measurements is how
+   * a corpus stops being evidence. `x`/`y` are non-zero so the
+   * `- bounds.x * zoom` term is genuinely exercised.
+   */
+  const HEADCOUNT_BOUNDS = { x: 24, y: 24, width: 1776, height: 1527 }
+
+  /**
+   * ⭐ A SECOND, WIDER MODEL — because pricing this residual at ONE width is what
+   * made the arms below read as more general than they are.
+   *
+   * Measured on the DEPLOYED build `113375a1` in real Chrome (clean profile,
+   * 1280x800), one draw of the founder sales-hiring brief: bbox `1070 x 663` CSS
+   * px at zoom 0.5, i.e. `2140 x 1326` flow units. Banked with the raw JSON at
+   * `Talchain/olumi-programme-docs` @ `canvas/derived-state-2026-09-04-fb`,
+   * `acceptance-evidence/canvas-baseline-113375a1-2026-09-04/`.
+   *
+   * ⚠ THE CLIFF, derived rather than restated. With the shipped dock,
+   * `insets.left = 76` and `frameW = 1280 - 76 - 444 = 760`, so
+   *   modelLeftEdge = insets.left + (frameW - width * 0.5) / 2 = 456 - width / 4
+   * which is negative for any bbox WIDER THAN 1824 FLOW UNITS. The starters sit
+   * 1776 wide — 2.7% UNDER that cliff. An ordinary typed brief clears it by 17%.
+   * So off-pane is NOT a widened-dock-only state, and the arms below must not be
+   * read as saying it is.
+   */
+  const FOUNDER_BOUNDS = { x: 24, y: 24, width: 2140, height: 1326 }
+
+  /** The insets the product itself would compute with the dock at `dockWidth`. */
+  function insetsForDockWidth(dockWidth: number) {
+    const flow = fakeEl({
+      left: 0, top: 0, right: PANE.width, bottom: PANE.height,
+      width: PANE.width, height: PANE.height,
+    })
+    const dockLeft = PANE.width - DOCK_RIGHT_OFFSET - dockWidth
+    stubSelectors({
+      [DOCK_SELECTOR]: fakeEl({
+        left: dockLeft, right: PANE.width - DOCK_RIGHT_OFFSET,
+        width: dockWidth, top: 14, bottom: 786, height: 772,
+      }),
+      [SIDEBAR_SELECTOR]: fakeEl({
+        left: RAIL.left, right: RAIL.left + RAIL.width, width: RAIL.width,
+        top: 300, bottom: 300 + RAIL.height, height: RAIL.height,
+      }),
+    })
+    return paddingToInsets(computeFitPadding(flow))
+  }
+
+  /** The model's left edge in pane coordinates, from the function's own output. */
+  function modelLeftEdge(insets: ReturnType<typeof insetsForDockWidth>) {
+    const v = topAnchoredViewportWhenClamped(
+      HEADCOUNT_BOUNDS, PANE.width, PANE.height, insets, 0.5,
+    )
+    expect(v).not.toBeNull()
+    // PRECONDITION PINNED IN-TEST: these arms are about the OVERFLOW case. If a
+    // future inset change makes the frame wide enough, this REDs here rather
+    // than quietly asserting a margin in a case the defect cannot reach.
+    const frameW = PANE.width - insets.left - insets.right
+    expect(HEADCOUNT_BOUNDS.width * v!.zoom).toBeGreaterThan(frameW)
+    return v!.x + HEADCOUNT_BOUNDS.x * v!.zoom
+  }
+
+  it('CONTROL: the stubbed dock and rail reproduce the insets measured on deployed staging', () => {
+    // Without this the whole block is a guard agreeing with itself: the stubs
+    // would define the geometry AND the expectation. 76 / 444 were read off a
+    // real page load at 1280x800 with the dock expanded
+    // (`useFitViewOnLayoutVersion.clampedTopAnchor.spec.tsx`).
+    expect(responsiveDockWidth(PANE.width)).toBe(416)
+    const insets = insetsForDockWidth(responsiveDockWidth(PANE.width))
+    expect(insets.left).toBe(76)
+    expect(insets.right).toBe(444)
+  })
+
+  it('⭐ at the dock SHIPPED default, a STARTER-WIDTH model keeps a 12px pane margin', () => {
+    // The residual the change buys, stated in the PR body and until now pinned
+    // nowhere. Under the reverted `Math.max(0, …)` this was 76.
+    // ⚠ TRUE OF THIS WIDTH ONLY. 12px is what 1776 units buys; the margin is
+    // `456 - width / 4`, so it is gone by 1824. The next arm prices that.
+    expect(modelLeftEdge(insetsForDockWidth(responsiveDockWidth(PANE.width)))).toBe(12)
+  })
+
+  it('⛔ but a MEASURED ordinary model goes 79px OFF-PANE at that SAME shipped default', () => {
+    // The finding this block previously could not see, because it priced the
+    // residual at one width. This is not a hypothetical wider model: it is the
+    // founder brief measured on deployed `113375a1`, and it clears the 1824-unit
+    // cliff by 17%. EXACTLY -79, not `toBeLessThan(0)` — a range assertion would
+    // let this deteriorate silently, which is the failure mode being guarded.
+    const insets = insetsForDockWidth(responsiveDockWidth(PANE.width))
+    const v = topAnchoredViewportWhenClamped(
+      FOUNDER_BOUNDS, PANE.width, PANE.height, insets, 0.5,
+    )
+    expect(v).not.toBeNull()
+    // Pin the PRECONDITION in-test: this model must actually be clamped, or the
+    // assertion below would be about a code path that never ran.
+    const frameW = PANE.width - insets.left - insets.right
+    expect(FOUNDER_BOUNDS.width * v!.zoom).toBeGreaterThan(frameW)
+    expect(v!.x + FOUNDER_BOUNDS.x * v!.zoom).toBe(-79)
+  })
+
+  // ⚠ THIS ARM IS ABOUT THE STARTER WIDTH, AND IT IS NOT THE ONLY WAY OFF-PANE
+  // IS REACHED. The arm above shows a measured ordinary model going off-pane at
+  // the SHIPPED default. Widening the dock is a second, independent route to the
+  // same state, not the only one.
+  it('⚠ KNOWN, PRICED AND UNFIXED: at STARTER width, the dock MAXIMUM of 480 also goes 20px OFF-PANE', () => {
+    const maxDock = dockWidthBounds(PANE.width).max
+    expect(maxDock).toBe(480)
+    // EXACTLY -20, not `toBeLessThan(0)`. A range assertion would let this
+    // deteriorate silently, which is the failure mode being guarded. A user who
+    // has widened the dock keeps that width, so this state persists.
+    expect(modelLeftEdge(insetsForDockWidth(maxDock))).toBe(-20)
+  })
+
+  it('and the trade there is still net-positive — MORE of the model is visible than before', () => {
+    // The honest asymmetry: dock-occluded content is recoverable by collapsing
+    // the dock, one click; off-pane content is not. This arm says the exchange
+    // is still worth making, and REDs if a future change stops it being so.
+    const maxDock = dockWidthBounds(PANE.width).max
+    const insets = insetsForDockWidth(maxDock)
+    const dockLeft = PANE.width - DOCK_RIGHT_OFFSET - maxDock
+    const scaledW = HEADCOUNT_BOUNDS.width * 0.5
+
+    // `Math.max(0, …)` of a negative term is 0, so the reverted expression put
+    // the model's left edge exactly at `insets.left`. Derived, not restated.
+    const before = insets.left
+    const after = modelLeftEdge(insets)
+
+    const visible = (left: number) =>
+      Math.max(0, Math.min(left + scaledW, dockLeft) - Math.max(left, 0))
+
+    expect(visible(after)).toBeGreaterThan(visible(before))
+    expect([visible(before), visible(after)]).toEqual([712, 788])
   })
 })

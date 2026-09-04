@@ -421,9 +421,49 @@ export function topAnchoredViewportWhenClamped(
   // Clamped. Keep the zoom the product already chose, centre horizontally as
   // the fit does, and pin the model's TOP inside the frame instead of its
   // middle.
+  //
+  // ⭐⭐ THE HORIZONTAL TERM IS DELIBERATELY UNCLAMPED, AND IT USED TO BE
+  // `Math.max(0, (frameW - scaledW) / 2)` (4 Sep 2026).
+  //
+  // At the legibility floor a WIDE model can be broader than the frame, and
+  // then that term is negative. Clamping it to 0 does not centre anything: it
+  // pins the model's LEFT edge to `insets.left` and dumps 100% of the overflow
+  // on the RIGHT — which is where the expanded OutputsDock is. So the widest
+  // models, the ones with the least room to spare, were the ones pushed under
+  // the panel, while the left inset kept breathing room it could not afford.
+  //
+  // MEASURED in real Chromium on the hermetic geometry harness at `8e97879a`,
+  // 1280x800, the two landscape starters (`headcount-allocation`,
+  // `pricing-model`), true rect intersection with the live dock/rail/banner
+  // boxes — not a full-band approximation:
+  //
+  //     before   gaps  16 / -112     2 cards occluded, 83% of card area
+  //                                  (incl. an OPTION card, 13% under the dock)
+  //     after    gaps -48 /  -48     1 card  occluded, 30% of card area
+  //
+  // Letting the term go negative splits the excess evenly instead. It cannot
+  // make the model fit — at 1280 a 1776-unit model needs 888px at zoom 0.5
+  // against 792px of visible canvas, so ~96px is lost whatever we do — but it
+  // chooses WHERE, and it stops choosing the one edge that costs a whole
+  // panel. Measured at 1280x800: the dock is 416x772, the left rail 48x191, so
+  // the mirrored left overflow occluded NOTHING on either starter (checked by
+  // rect intersection, not inferred — a full-band approximation had wrongly
+  // predicted new left-edge clipping).
+  //
+  // ⚠ This matters for #979's own promise — "the first view contains the
+  // decision and its options". The clamp was breaking it: `opt_sales` and
+  // `opt_status_quo` sat under the dock at 1280x800. The decision node is
+  // unaffected either way (it sits at the model's centre, measured).
+  //
+  // ⚠ WHY NO EXISTING TEST SAW THIS: every horizontal case in
+  // `cameraComfort.spec.ts` used a model NARROWER than the frame, where the
+  // clamp is a no-op (CLAUDE.md trap 22 — a corpus that omits a value class
+  // the contract admits cannot certify the code over that class). The
+  // overflow cases added alongside this change pin their own precondition
+  // (`scaledW > frameW`) so they cannot go vacuous.
   const zoom = floorZoom
   const scaledW = bounds.width * zoom
-  const x = insets.left + Math.max(0, (frameW - scaledW) / 2) - bounds.x * zoom
+  const x = insets.left + (frameW - scaledW) / 2 - bounds.x * zoom
   const y = insets.top - bounds.y * zoom
   return { x, y, zoom }
 }
