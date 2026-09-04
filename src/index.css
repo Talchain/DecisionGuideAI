@@ -729,8 +729,29 @@
    `contents` on the fieldset means it has no box of its own, so this styles
    descendants and never the wrapper. */
 [data-authority="disabled"] :disabled {
-  opacity: 0.55;
+  /* ⛔ NO `opacity` HERE, DELIBERATELY — it was `0.55` and it faded THE MODEL'S
+     OWN CONTENT, not just the affordance. Every panel renders the node's
+     description in a `<textarea>` inside this fieldset
+     (`FactorControllablePanel.tsx:404`, `OptionPanel.tsx:288`,
+     `GoalPanel.tsx:344`), so the rule took that text from 10.5:1 to 3.0:1 —
+     below WCAG 2.2 AA 1.4.3's 4.5:1 minimum. **Read-only should still be
+     readable.**
+
+     ⚠ AND IT CANNOT BE FIXED BY EXEMPTING THE TEXT. `opacity` creates a
+     stacking context and composites the whole subtree; a child cannot exceed
+     its parent's opacity, so there is no "full-strength value inside a faded
+     field". The channel had to move, not the number — and tuning `0.55`
+     upward would only have traded one unmeasured ratio for another.
+
+     Inertness is now signalled on channels that carry NO information: the
+     cursor, the border and the surface. Full-strength text means the contrast
+     is by construction identical to the enabled state, so this rule cannot put
+     any field below AA regardless of theme — which a tuned opacity could not
+     promise. The placeholder keeps its own fade below: it IS an invitation, so
+     it is the one part that should read as withdrawn. */
   cursor: not-allowed;
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
 }
 
 /* The placeholder is the part that most reads as an invitation ("Enter
