@@ -165,9 +165,11 @@ import { ANALYSIS_READY_STATUSES } from '../../adapters/cee/types'
  *
  * ⚠ STRICT BOOLEAN `false`, never falsiness. The contract declares
  * `leader_claim.permitted` as `z.ZodBoolean` inside a `.strict()` object
- * (`@talchain/schemas` 0.50.0, `dist/boundary/analysis-state.d.ts:450-461`), so
- * anything else on this seam is a producer we cannot READ — and an unreadable
- * producer has said nothing. Absence is an older producer, never a refusal.
+ * (`@talchain/schemas` 0.50.0, `dist/boundary/analysis-state.d.ts`, symbol
+ * `AnalysisLeaderClaimSchema` — cited by symbol rather than by line because the
+ * vendored `.d.ts` is regenerated on every bump), so anything else on this seam
+ * is a producer we cannot READ — and an unreadable producer has said nothing.
+ * Absence is an older producer, never a refusal.
  */
 export function producerWithholdsLeaderClaim(
   state: Pick<AnalysisStateV1, 'leader_claim'> | null | undefined,

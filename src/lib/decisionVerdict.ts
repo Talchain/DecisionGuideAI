@@ -241,13 +241,18 @@ export interface ProducerLeaderPermission {
  * Read the permission fail-OPEN.
  *
  * ⭐ ABSENCE MEANS AN OLDER PRODUCER, NEVER "NO". `permitted` is REQUIRED and
- * BOOLEAN inside `leader_claim` at the pinned contract (`@talchain/schemas`
- * 0.50.0, `dist/boundary/analysis-state.d.ts:450-461` —
- * `leader_claim: z.ZodObject<{ permitted: z.ZodBoolean, ... }, 'strict'>`), but
- * the field on the REPORT is new here and is absent from every report this UI
- * has ever persisted, from every V1/V2 PLoT path, and from every producer older
- * than this change. Reading absence as a refusal would blank the leading option
- * on every restored answer in the estate.
+ * BOOLEAN inside `leader_claim` at the pinned contract — `@talchain/schemas`
+ * 0.50.0, `dist/boundary/analysis-state.d.ts`, symbol
+ * `AnalysisLeaderClaimSchema` (`permitted: z.ZodBoolean` in a `"strict"`
+ * object), inlined identically as `AnalysisStateV1Schema`'s `leader_claim`.
+ * ⚠ CITED BY SYMBOL, NOT BY LINE: this is a VENDORED `.d.ts` that is
+ * regenerated on every bump, so a line number here is stale at the next one and
+ * silently misdirects rather than failing.
+ *
+ * But the field on the REPORT is new here and is absent from every report this
+ * UI has ever persisted, from every V1/V2 PLoT path, and from every producer
+ * older than this change. Reading absence as a refusal would blank the leading
+ * option on every restored answer in the estate.
  *
  * ⚠ STRICT BOOLEAN, NOT FALSINESS. `0`, `''`, `null` and a missing block are
  * all falsy and none of them is the producer saying no. A malformed field is a
@@ -451,8 +456,8 @@ export function deriveDecisionVerdict(
   // from the producer: `computeNearTie` (PLoT `routes/v2/run.ts:2045`) returns
   // `NearTieInfoV3 | undefined` and every non-undefined exit sets
   // `top_option_id`; its sole attachment site assigns the block WHOLE or omits
-  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.48.0 — the version
-  // THIS repo pins, `file:./vendor/talchain-schemas-0.48.0.tgz`) declares
+  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.50.0 — the version
+  // THIS repo pins, `file:./vendor/talchain-schemas-0.50.0.tgz`) declares
   // `top_option_id: z.string()` — REQUIRED, while the BLOCK is `.optional()`.
   // Three real captures in this repo carry all six keys. So a `near_tie`
   // arriving without its identity is CONTRACT-INVALID, and the only thing that

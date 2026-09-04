@@ -792,12 +792,38 @@ export function applyBootAnalysisVerdict(input: {
 // about a run that never happened.
 //
 // ⭐ WHY THE RELOAD NEEDS THIS AT ALL, given that the withholding also rides
-// the report through the localStorage autosave: the two cover different
-// sessions. The autosave carries it for the device that saw the refusal; this
-// carries it for any device reading CEE's standing fact — a second browser, a
-// cleared store, a record written before this change shipped. Derived from the
-// producer on every boot rather than mirrored, so a stale client copy cannot be
-// the only thing standing between the user and the claim.
+// the report through the localStorage autosave — and ⚠ ITS EXACT SCOPE, which
+// an earlier draft of this paragraph OVERSTATED. It claimed this leg carries
+// the withholding "for a second browser, a cleared store". IT DOES NOT, and a
+// future session reading that would believe reload coverage exists where it
+// does not.
+//
+// WHAT IT COVERS: a boot whose results slice ALREADY HOLDS A REPORT, and whose
+// stamp is missing or out of date —
+//   · a record written before this change shipped: a report, no stamp;
+//   · a record stamped while the claim was still permitted, when CEE has
+//     refused since. The stamp is RE-DERIVED from the producer on every boot
+//     rather than trusted from the record, so a stale client copy cannot be the
+//     only thing standing between the user and the claim.
+//
+// ⛔ WHAT IT DOES NOT COVER: a boot with NO restored report — a second browser,
+// a cleared store. `resultsWithholdLeaderClaim` opens `if (!held) return`
+// (`canvas/store.ts`), so this call NO-OPS there, and nothing re-runs it when a
+// report later arrives. That is not a gap: with no report held there is no
+// designation on screen to withdraw. Those devices get their report from the
+// POLL leg instead, and THE POLL LEG STAMPS IT ITSELF — `applyScenarioAnalysisRead`
+// applies the same withholding AFTER its own `resultsComplete` write, which is
+// exactly why that ordering is marked load-bearing there.
+//
+// ⚠ AN UNPINNED ASSUMPTION, RECORDED RATHER THAN ENFORCED. The coverage above
+// depends on the local restore (`ReactFlowGraph`'s init effect →
+// `restoreAnalysisFromAutosave`) having landed before this runs. In practice it
+// has: that restore is synchronous in the boot effect, while this leg sits
+// behind two awaits (`getSessionIdentity`, then the scenario-graph fetch) in a
+// fire-and-forget hook. But NOTHING PINS IT, and if it ever inverted this leg
+// would silently no-op on `!held`. Deliberately not defended with ordering
+// machinery — the failure is a lost withholding on one boot, not a wrong claim,
+// and the poll leg re-asserts it on the next read.
 
 export interface BootLeaderClaimWithholdingStore {
   readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void

@@ -109,6 +109,34 @@ describe('applyBootLeaderClaimWithholding — a refusal outlives the reload', ()
     expect(outcome).toEqual({ outcome: 'noop', reason: 'not_withheld' })
   })
 
+  it('THE OTHER REASON: `blocked_unusable` withholds at boot with `analysis_unusable`', () => {
+    // ⚠ THE ONLY ARM IN THIS SUITE THAT REACHES Q3. Every case above sets
+    // `leader_claim.permitted: false`, so `leaderClaimWithholdingReason`
+    // short-circuits on Q1 and returns `leader_claim_withheld` before Q3 is ever
+    // consulted — the boot leg's `analysis_unusable` path was unexercised here
+    // while the poll leg covered it. A suite that only ever reaches the first
+    // branch of a two-branch predicate cannot see the second one break.
+    //
+    // So Q1 is explicitly PERMITTED and only Q3 fires: the reason must be
+    // `analysis_unusable`, not `leader_claim_withheld`. Asserting the REASON and
+    // not merely that something was withheld is what binds this to Q3 — the two
+    // are kept apart all the way to the store precisely so a relaxation of one
+    // cannot silently relax the other.
+    const resultsWithholdLeaderClaim = vi.fn()
+    const outcome = applyBootLeaderClaimWithholding({
+      analysisState: verdict({
+        run_state: { kind: 'complete_current', computed_at: '2026-09-04T10:00:00Z' },
+        leader_claim: { permitted: true },
+        requires_rerun: false,
+        blocked_unusable: true,
+      }),
+      store: { resultsWithholdLeaderClaim },
+    })
+    expect(resultsWithholdLeaderClaim).toHaveBeenCalledTimes(1)
+    expect(resultsWithholdLeaderClaim).toHaveBeenCalledWith('analysis_unusable')
+    expect(outcome).toEqual({ outcome: 'withheld', reason: 'analysis_unusable' })
+  })
+
   it('⛔ NEGATIVE — `requires_rerun` alone does NOT withhold at boot either', () => {
     // The same over-suppression control as the live leg, at the same predicate.
     // Both legs read ONE definition of "withholds"; if they ever diverge, one
