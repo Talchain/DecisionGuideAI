@@ -198,7 +198,8 @@ export const GoalPanel = memo(function GoalPanel({
     : formatGoalTarget(goalThreshold, scaleSafeUnit ?? null)
 
   /**
-   * ⭐⭐⭐ THE ADMISSION THE CANVAS CHIP'S PROMISE RESTS ON.
+   * ⭐⭐⭐ THE ADMISSION — *may this reader add a target?* — AND, UNTIL #1172
+   * ROUND 3, WHAT THE CANVAS CHIP'S REPAIR PROMISE RESTED ON.
    *
    * ⚠⚠ THIS PANEL AND THE GOAL CARD WERE ANSWERING TWO DIFFERENT QUESTIONS
    * UNDER ONE IDEA, AND THE CARD SHIPPED A PROMISE THAT LANDED HERE.
