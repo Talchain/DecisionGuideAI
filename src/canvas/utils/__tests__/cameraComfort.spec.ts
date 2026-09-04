@@ -486,6 +486,26 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
    */
   const HEADCOUNT_BOUNDS = { x: 24, y: 24, width: 1776, height: 1527 }
 
+  /**
+   * ⭐ A SECOND, WIDER MODEL — because pricing this residual at ONE width is what
+   * made the arms below read as more general than they are.
+   *
+   * Measured on the DEPLOYED build `113375a1` in real Chrome (clean profile,
+   * 1280x800), one draw of the founder sales-hiring brief: bbox `1070 x 663` CSS
+   * px at zoom 0.5, i.e. `2140 x 1326` flow units. Banked with the raw JSON at
+   * `Talchain/olumi-programme-docs` @ `canvas/derived-state-2026-09-04-fb`,
+   * `acceptance-evidence/canvas-baseline-113375a1-2026-09-04/`.
+   *
+   * ⚠ THE CLIFF, derived rather than restated. With the shipped dock,
+   * `insets.left = 76` and `frameW = 1280 - 76 - 444 = 760`, so
+   *   modelLeftEdge = insets.left + (frameW - width * 0.5) / 2 = 456 - width / 4
+   * which is negative for any bbox WIDER THAN 1824 FLOW UNITS. The starters sit
+   * 1776 wide — 2.7% UNDER that cliff. An ordinary typed brief clears it by 17%.
+   * So off-pane is NOT a widened-dock-only state, and the arms below must not be
+   * read as saying it is.
+   */
+  const FOUNDER_BOUNDS = { x: 24, y: 24, width: 2140, height: 1326 }
+
   /** The insets the product itself would compute with the dock at `dockWidth`. */
   function insetsForDockWidth(dockWidth: number) {
     const flow = fakeEl({
@@ -531,13 +551,37 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
     expect(insets.right).toBe(444)
   })
 
-  it('⭐ at the dock SHIPPED default of 416 the model keeps a 12px pane margin', () => {
+  it('⭐ at the dock SHIPPED default, a STARTER-WIDTH model keeps a 12px pane margin', () => {
     // The residual the change buys, stated in the PR body and until now pinned
     // nowhere. Under the reverted `Math.max(0, …)` this was 76.
+    // ⚠ TRUE OF THIS WIDTH ONLY. 12px is what 1776 units buys; the margin is
+    // `456 - width / 4`, so it is gone by 1824. The next arm prices that.
     expect(modelLeftEdge(insetsForDockWidth(responsiveDockWidth(PANE.width)))).toBe(12)
   })
 
-  it('⚠ KNOWN, PRICED AND UNFIXED: at the dock MAXIMUM width of 480 the left edge goes 20px OFF-PANE', () => {
+  it('⛔ but a MEASURED ordinary model goes 79px OFF-PANE at that SAME shipped default', () => {
+    // The finding this block previously could not see, because it priced the
+    // residual at one width. This is not a hypothetical wider model: it is the
+    // founder brief measured on deployed `113375a1`, and it clears the 1824-unit
+    // cliff by 17%. EXACTLY -79, not `toBeLessThan(0)` — a range assertion would
+    // let this deteriorate silently, which is the failure mode being guarded.
+    const insets = insetsForDockWidth(responsiveDockWidth(PANE.width))
+    const v = topAnchoredViewportWhenClamped(
+      FOUNDER_BOUNDS, PANE.width, PANE.height, insets, 0.5,
+    )
+    expect(v).not.toBeNull()
+    // Pin the PRECONDITION in-test: this model must actually be clamped, or the
+    // assertion below would be about a code path that never ran.
+    const frameW = PANE.width - insets.left - insets.right
+    expect(FOUNDER_BOUNDS.width * v!.zoom).toBeGreaterThan(frameW)
+    expect(v!.x + FOUNDER_BOUNDS.x * v!.zoom).toBe(-79)
+  })
+
+  // ⚠ THIS ARM IS ABOUT THE STARTER WIDTH, AND IT IS NOT THE ONLY WAY OFF-PANE
+  // IS REACHED. The arm above shows a measured ordinary model going off-pane at
+  // the SHIPPED default. Widening the dock is a second, independent route to the
+  // same state, not the only one.
+  it('⚠ KNOWN, PRICED AND UNFIXED: at STARTER width, the dock MAXIMUM of 480 also goes 20px OFF-PANE', () => {
     const maxDock = dockWidthBounds(PANE.width).max
     expect(maxDock).toBe(480)
     // EXACTLY -20, not `toBeLessThan(0)`. A range assertion would let this
