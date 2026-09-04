@@ -68,7 +68,11 @@ import { genuineDecision, highUncertainty, makeDriver, openStrategicChallenge } 
  * passed raw Q2 (`true`) — so Analysis (New) invited the user to challenge a
  * leader on a run where the producer refuses to name one.
  */
-const modelRefusesButResultSeparates = () => {
+// ⚠ RETURN TYPE PINNED. Without it this factory widens `typeof data` at the
+// call site into a UNION, and `render(<StrengthenContainer data={enriched} />)`
+// stops type-checking — which is precisely what CI caught (TS2322 x2) after a
+// push where local typecheck was unrunnable at load 191.
+const modelRefusesButResultSeparates = (): ReturnType<typeof genuineDecision> => {
   const d = genuineDecision()
   return {
     ...d,
@@ -80,7 +84,7 @@ const modelRefusesButResultSeparates = () => {
       // separating the two questions and start agreeing for the wrong reason.
       verdict: { ...(d.recommendation?.verdict ?? {}), hasLeadingOption: true },
     },
-  }
+  } as ReturnType<typeof genuineDecision>
 }
 
 const SCENARIOS = {
