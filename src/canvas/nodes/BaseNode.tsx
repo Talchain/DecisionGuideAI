@@ -598,9 +598,22 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // 0.5 legibility floor. There `showQuickActions` is false and
         // `NodeQuickActions` is unmounted, yet a `factor` or `option` card
         // still reserves 24px of bottom band for it (dead space), while every
-        // other node kind drops the reservation across the same threshold. That
-        // is the band the product's own clamped default camera operates in, so
-        // it is not cosmetic, and nothing pins the divergent branch.
+        // other node kind drops the reservation across the same threshold.
+        //
+        // ⚠ AN EARLIER ROUND OF THIS PR CALLED THIS "the band the product's own
+        // clamped default camera operates in". THAT IS FALSE, and it overstated
+        // reachability — the third time this PR has done that, which is why it
+        // is corrected rather than trimmed. `lodBodyHiddenAt(rung)` is
+        // `rung === 'line'` (`zoomLegibility.ts`), and `resolveLodRung` only
+        // returns `'line'` when `labelsRenderedAtZoom(zoom)` is false, i.e.
+        // BELOW `LABEL_LEGIBLE_ZOOM = 0.5`. The clamped camera parks at EXACTLY
+        // 0.5 — measured on deployed `113375a1`, transform
+        // `matrix(0.5, 0, 0, 0.5, 64, 61)` — so at the default camera this
+        // divergence is NOT active.
+        //
+        // It is reachable only when a user zooms out past the floor by hand. So
+        // it is a real unpinned divergence and worth rowing, but it is not on
+        // the default path, and nothing here should be read as saying it is.
         //
         // NOT changed here (4 Sep 2026, rowed): which way it should resolve —
         // drop the reservation below the floor, or keep one uniform card box —
