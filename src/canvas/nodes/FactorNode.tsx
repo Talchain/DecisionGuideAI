@@ -11,6 +11,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
+import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatInterventionChange } from '../utils/interventionDisplay'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
@@ -34,6 +35,10 @@ export const FactorNode = memo((props: NodeProps) => {
   const observedState = props.data?.observedState as ObservedState | undefined
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
+
+  // The counterfactual affordance's ONE sentence — rendered AND sent. Null when
+  // the label is blank: no affordance rather than a degenerate question.
+  const counterfactualQuestion = composeCounterfactualQuestion(cleanedLabel)
   const cleanedData = cleanedLabel ? { ...props.data, label: cleanedLabel } : props.data
 
   const hoveredOptionId = useCanvasStore(state => state.hoveredOptionId)
@@ -950,18 +955,23 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* Post-analysis external: scenario link — high-priority only in
             Standard. Detailed always. */}
-        {isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && (
+        {/* ⛔ ONE STRING. `counterfactualQuestion` is read by BOTH the label and
+            the message — see that module for why. This block previously rendered
+            `cleanedLabel.toLowerCase()` while sending the label un-lowercased,
+            plus a trailing "How should I plan for that scenario?" that appeared
+            nowhere on screen. The user read one question and asked another. */}
+        {isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && counterfactualQuestion && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
-                useGuidanceStore.getState()._sendMessage?.(`What if ${cleanedLabel} worsens? How should I plan for that scenario?`)
+                if (counterfactualQuestion) useGuidanceStore.getState()._sendMessage?.(counterfactualQuestion)
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              What if {cleanedLabel.toLowerCase()} worsens?
+              {counterfactualQuestion}
             </button>
           </p>
         )}
