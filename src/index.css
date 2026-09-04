@@ -750,7 +750,16 @@
      promise. The placeholder keeps its own fade below: it IS an invitation, so
      it is the one part that should read as withdrawn. */
   cursor: not-allowed;
+  /* ⚠ THE FALLBACKS ARE LOAD-BEARING, NOT BELT-AND-BRACES. An unsupported or
+     malformed `color-mix()` is dropped as an INVALID DECLARATION — silently,
+     per CSS error handling — and with no fallback the field would revert to
+     looking exactly like an editable one. That is the defect this rule exists
+     to close, reappearing through its own remedy with nothing to notice it.
+     A plain value first, the richer one second: the cascade takes the later
+     declaration only if it parses. */
+  border-color: rgba(0, 0, 0, 0.22);
   border-color: color-mix(in srgb, currentColor 22%, transparent);
+  background-color: rgba(0, 0, 0, 0.05);
   background-color: color-mix(in srgb, currentColor 5%, transparent);
 }
 

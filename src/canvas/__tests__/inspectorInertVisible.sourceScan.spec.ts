@@ -48,8 +48,28 @@ describe('read-only Inspector — inert controls read as inert', () => {
 
   it('carries BOTH channels — a colour change alone is not a signal every user has', () => {
     const rule = css.match(/\[data-authority="disabled"\]\s+:disabled\s*\{[^}]*\}/)?.[0] ?? ''
-    expect(rule).toMatch(/opacity/)
-    expect(rule).toMatch(/cursor:\s*not-allowed/)
+    // ⚠ STRIP COMMENTS FIRST, AND THIS IS NOT TIDINESS. `[^}]*` swallows the
+    // block's own rationale, so before this line existed the assertion below
+    // could be satisfied by PROSE. It was: the rationale explains why there is
+    // no `opacity` here, and the old `expect(rule).toMatch(/opacity/)` went on
+    // passing against a block that had none — a review caught it with a
+    // discriminating pair (adding a real `opacity` declaration changed nothing;
+    // deleting the word from the COMMENT alone REDed it). **This spec and
+    // `readOnlyFieldsStayReadable.spec.ts` were asserting opposite things about
+    // the same block, both green.**
+    const decls = rule.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(decls, 'comment-stripping left nothing to assert against').toMatch(/\{/)
+
+    // The point of this test is UNCHANGED — inertness must not rest on one
+    // channel — but the channels moved. `opacity` used to be the visual half
+    // and it faded the model's own text below AA, so the visual signal is now
+    // the field's chrome and the non-colour signal is still the cursor.
+    expect(decls, 'no visual inertness channel').toMatch(/border-color\s*:|background-color\s*:/)
+    expect(decls, 'no pointer-affordance channel').toMatch(/cursor:\s*not-allowed/)
+
+    // ⭐ AND PIN THE DISAGREEMENT SHUT. Asserting the absence here means the two
+    // specs cannot drift back into contradicting each other silently.
+    expect(decls, 'opacity is back — it fades the value, see readOnlyFieldsStayReadable').not.toMatch(/(^|[\s;])opacity\s*:/)
   })
 
   it('the correction is in BOTH files, not just the one that was corrected', () => {
