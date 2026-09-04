@@ -810,10 +810,19 @@ export function applyBootAnalysisVerdict(input: {
 // a cleared store. `resultsWithholdLeaderClaim` opens `if (!held) return`
 // (`canvas/store.ts`), so this call NO-OPS there, and nothing re-runs it when a
 // report later arrives. That is not a gap: with no report held there is no
-// designation on screen to withdraw. Those devices get their report from the
-// POLL leg instead, and THE POLL LEG STAMPS IT ITSELF — `applyScenarioAnalysisRead`
-// applies the same withholding AFTER its own `resultsComplete` write, which is
-// exactly why that ordering is marked load-bearing there.
+// designation on screen to withdraw. Two legs can still stamp such a device:
+// the TURN leg (`applyV5State` step 5b, added with this one) and the POLL leg
+// (`applyScenarioAnalysisRead` above). Each applies the withholding AFTER its
+// own results write — here `resultsComplete` at :435 then the stamp at :474,
+// there step 5 then step 5b — which is why that ordering is marked load-bearing
+// in both.
+//
+// ⚠ BUT THE POLL LEG IS NOT A FALLBACK, and an earlier draft of this paragraph
+// implied it was. It arms solely on a standing `running` run state
+// (`hooks/useProvisionalAnalysisDelivery.ts:344-349`; its own doc: "Does nothing
+// until CEE reports a run in flight"), and it is the ONLY caller of
+// `applyScenarioAnalysisRead`. So on a scenario whose last analysis is already
+// COMPLETE it never arms, and nothing arrives from it at all.
 //
 // ⚠ AN UNPINNED ASSUMPTION, RECORDED RATHER THAN ENFORCED. The coverage above
 // depends on the local restore (`ReactFlowGraph`'s init effect →
