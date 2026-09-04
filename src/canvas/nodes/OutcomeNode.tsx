@@ -299,8 +299,11 @@ export const OutcomeNode = memo((props: NodeProps) => {
             left a full percentage and a proportional bar making the assessment
             claim, with the only qualification rendered as the smallest thing on
             the card. Measured on a real canvas: five cards reading
-            `Strength 50% est.`, each with a bar exactly half full, for a value
-            that is `DEFAULT_EDGE_DATA.weight`. The `est.`-beside-the-figure
+            `Strength 50% est.`, each with a bar exactly half full — figures the
+            DRAFTING MODEL supplied, which no human had settled. (Round 1 read
+            that 0.5 as `DEFAULT_EDGE_DATA.weight`. Refuted: an unstamped default
+            cannot reach this row at all. Canonical record —
+            `shared/metricVocabulary.ts`.) The `est.`-beside-the-figure
             branch is gone; where nobody set the weight there is no figure. */}
         {/* ⭐ THE SHARED ROW, NOT A THIRD PRESENTATION OF THE SAME NUMBER.
             This rendered `70% strength · est.` — value first, no bar — while
@@ -324,9 +327,17 @@ export const OutcomeNode = memo((props: NodeProps) => {
 
              A proportional bar is measurement grammar: it is the same visual
              scale an option's COMPUTED win share uses two cards along, and a
-             half-full one says "assessed, and middling". `DEFAULT_EDGE_DATA`
-             pins `weight: 0.5`, so five cards on one canvas drew exactly that
-             bar for a value nobody had ever supplied.
+             half-full one says "assessed, and middling". The five cards that
+             prompted this drew exactly that bar for the DRAFTING MODEL'S own
+             0.5 — a figure something DID supply, and no human had settled.
+
+             ⚠ NOT a bare `DEFAULT_EDGE_DATA.weight`, which is what round 1
+             claimed and is REFUTED: the default carries no provenance stamp, so
+             `resolveEdgeSignedStrengthDisplay` returns `{show:false}` and the
+             pre-PR gate rendered NO ROW. For `Strength 50%` to appear a wire
+             value must have arrived. Canonical record, including why the
+             flattening is modal (4 of 12 draws) rather than constant:
+             `shared/metricVocabulary.ts`.
 
              ⛔ THE ROW IS NOT DELETED, AND THAT IS THE OTHER HALF OF THE FIX.
              An absent row reads as "nothing to see"; the reader needs to know

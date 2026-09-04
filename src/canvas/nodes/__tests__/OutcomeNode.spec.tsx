@@ -450,8 +450,11 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
        * carries the est. marker"* — i.e. it certified that a producer's guess
        * printed as `60%` beside a proportional bar, qualified only by `est.` at
        * 7px. Measured on a real canvas 3 Sep 2026: five cards reading
-       * `Strength 50% est.` at once, each bar exactly half full, for
-       * `DEFAULT_EDGE_DATA.weight`. The disclaimer was never the fix; the
+       * `Strength 50% est.` at once, each bar exactly half full — the DRAFTING
+       * MODEL's figures, which no human had settled. (Round 1 read that 0.5 as
+       * `DEFAULT_EDGE_DATA.weight`; REFUTED — an unstamped default carries no
+       * provenance stamp and renders no row at all. Canonical record:
+       * `shared/metricVocabulary.ts`.) The disclaimer was never the fix; the
        * figure was the claim.
        */
       bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
@@ -473,14 +476,17 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
     })
 
-    it('renders NO FIGURE for a bare DEFAULT_EDGE_DATA weight of 0.5 — the exact witnessed default', () => {
+    it('renders NO FIGURE for a bare DEFAULT_EDGE_DATA weight of 0.5 — unstamped, so the gate refuses it', () => {
       bridgeStore({ ...DEFAULT_EDGE_DATA })
       renderOutcome()
       expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
       expect(screen.queryByText(/50%/)).toBeNull()
       expect(screen.queryByTestId('estimate-marker')).toBeNull()
-      // ⭐ 0.5 IS THE WITNESSED VALUE. Five cards printed it as `Strength 50%`
-      // beside a half-full bar. The row stays; the figure does not.
+      // ⭐ 0.5 IS THE WITNESSED NUMERAL — BUT THIS CASE IS NOT THE WITNESSED
+      // ONE, AND CONFLATING THEM IS THE REFUTED ROUND-1 READING. The five cards
+      // carried a STAMPED wire 0.5 from the drafting model; a bare default is
+      // unstamped, so it never reached the row. Pinned here so that path stays
+      // refused. The row stays; the figure does not.
       expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
     })
 
