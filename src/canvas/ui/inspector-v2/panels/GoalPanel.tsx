@@ -202,8 +202,9 @@ export const GoalPanel = memo(function GoalPanel({
    *
    * ⚠⚠ THIS PANEL AND THE GOAL CARD WERE ANSWERING TWO DIFFERENT QUESTIONS
    * UNDER ONE IDEA, AND THE CARD SHIPPED A PROMISE THAT LANDED HERE.
-   * `GoalNode`'s chip fires on the NODE and says "Target not captured — add
-   * one". This branch decided from the STORE SCALAR. `setCeeAnalysisReady`
+   * `GoalNode`'s chip fires on the NODE. It SAID "Target not captured — add
+   * one" until #1172 round 3 withdrew the repair clause; it now states the fact
+   * alone. This branch decided from the STORE SCALAR. `setCeeAnalysisReady`
    * writes that scalar and never touches the node, so a payload carrying
    * `goal_threshold` and no raw moved one authority and not the other — and the
    * reader was told to add a target, then told one already existed

@@ -54,8 +54,17 @@
  *
  *     canCaptureGoalTarget(node.data)  ⟹  the panel renders GoalThresholdEditor
  *
- * and the chip renders exactly when the antecedent holds. So the promise is
- * sound BY CONSTRUCTION rather than by two defaults happening to coincide.
+ * and the chip renders exactly when the antecedent holds.
+ *
+ * ⚠⚠ THIS ONCE CONCLUDED "So the promise is sound BY CONSTRUCTION rather than by
+ * two defaults happening to coincide". MEASUREMENT REFUTED THAT IN ROUND 3, and
+ * `goalTarget.ts` records the identical withdrawal for its own twin of this
+ * sentence — fixed one file over, missed here until round 7. The implication is
+ * true and re-derived through the real `InspectorRouter`; it does NOT carry the
+ * conclusion, because **PRESENCE IS NOT ANSWERABILITY**: the router wraps the
+ * panel body in an unconditional `<fieldset disabled>`, so the editor this
+ * implication guarantees is rendered INERT. The promise was "add one", not
+ * "see one", and it has been withdrawn.
  *
  * ── RED-FIRST at pristine `1f7238ab` (signatures in the PR body) ───────────
  * Both divergent arms rendered the readout and NO editor; the corpus
@@ -270,7 +279,7 @@ describe('the withdrawn promise was “add one”, so the test is that a target 
   })
 })
 
-describe('the editor the promise leads to may not claim there are no probabilities', () => {
+describe('the editor the WITHDRAWN promise led to may not claim there are no probabilities', () => {
   /**
    * ⚠ THE FALSE CLAIM THE FIX ITSELF COULD HAVE BOUGHT. "Adding a specific
    * target unlocks probability calculations." is true only while there are
@@ -308,7 +317,7 @@ describe('the editor the promise leads to may not claim there are no probabiliti
   })
 })
 
-describe('the implication the chip’s promise rests on, over a corpus', () => {
+describe('the implication the chip’s WITHDRAWN promise rested on, over a corpus', () => {
   /**
    * Node shapes × store scalars. The corpus is written from the CONTRACT the
    * two writers admit — a store number with no node target, a node target with
@@ -377,7 +386,7 @@ describe('the implication the chip’s promise rests on, over a corpus', () => {
   })
 })
 
-describe('the editor the promise leads to may not wear a unit the number is not on', () => {
+describe('the editor the WITHDRAWN promise led to may not wear a unit the number is not on', () => {
   it('⛔ a normalised magnitude reaches the editor WITHOUT the raw scale’s unit', () => {
     // ROADMAP 2.315's defect, one element to the left: "≥ 0.8 £" is a magnitude
     // on one scale wearing the other scale's unit. Routing this arm to the
