@@ -182,9 +182,18 @@ export const ResultsBody = memo(function ResultsBody({
   // patterns). Absent verdict ⇒ NOT withheld, the same convention
   // `buildV7Lenses` and `buildHeroModel` use for a verdict-less caller, so no
   // fixture-driven mount changes behaviour.
+  // ⚠ READS THE COMPOSED ANSWER, NOT ONE CONJUNCT. `verdict.hasLeadingOption`
+  // answers only "did the result separate the arms"; designating a leader also
+  // requires that the MODEL licenses a comparative claim at all
+  // (`permitted_analysis_mode === 'comparative_leader'`). Reading the verdict
+  // here would silently drop that second question — which is exactly the defect
+  // `leaderDesignationPermitted` exists to close.
+  //
+  // `=== false` preserves the existing convention EXACTLY: a caller supplying no
+  // verdict is a legacy fixture, not a withheld run, so `undefined` keeps
+  // today's behaviour and no fixture-driven mount changes.
   const designationsWithheld =
-    resultsSectionData.recommendation.verdict != null
-    && !resultsSectionData.recommendation.verdict.hasLeadingOption
+    resultsSectionData.recommendation.leaderDesignationPermitted === false
 
   // Outcome-view lens — all three arms rank the SAME quantity family.
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
@@ -377,7 +386,7 @@ export const ResultsBody = memo(function ResultsBody({
           or Compare authority. */}
       <SectionErrorBoundary section="Decision brief">
         <DecisionBriefSectionContainer
-          leaderClaimPermitted={resultsSectionData.recommendation.verdict?.hasLeadingOption === true}
+          leaderClaimPermitted={resultsSectionData.recommendation.leaderDesignationPermitted === true}
         />
       </SectionErrorBoundary>
 

@@ -20,6 +20,7 @@ import type { PercentilesSource } from './utils/downsideCopy'
 import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts'
 import type { M2BiasFinding } from './mapM2BiasFindings'
 import type { NotAnalysedReason } from './utils/notAnalysedOptions'
+import type { AnalysisAdmissionV1 } from '../../adapters/cee/types'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -444,6 +445,29 @@ export interface DecisionResultData {
    * and must not compute its own. See that module for the diagnosis.
    */
   verdict?: DecisionVerdict
+  /**
+   * ⭐ MAY THIS PANEL DESIGNATE A LEADER ON THIS RUN? The COMPOSED answer to two
+   * separate questions, and the field every designation site must read.
+   *
+   *   Q1 does the MODEL license a comparative claim?  `permitted_analysis_mode`
+   *   Q2 did THIS RESULT separate the arms?           `verdict.hasLeadingOption`
+   *
+   * ⚠ `verdict` above answers Q2 ONLY. A site that reads
+   * `verdict.hasLeadingOption` to decide a DESIGNATION is reading one of two
+   * conjuncts and will name a leader the model does not license — the defect
+   * this field exists to close.
+   *
+   * `undefined` keeps today's behaviour (a legacy fixture supplying no verdict is
+   * not a withheld run), which is why consumers test `=== false` / `=== true`
+   * rather than coercing.
+   */
+  leaderDesignationPermitted?: boolean
+  /**
+   * CEE's raw admission for this turn — the source of the "what would change it"
+   * copy (`reasons[]`) and of `missing_important_inputs[]`.
+   * `undefined` ⇒ a pre-admission CEE, never a refusal.
+   */
+  analysisAdmission?: AnalysisAdmissionV1
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
   /**

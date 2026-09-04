@@ -15,6 +15,7 @@
 import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
+import { licensesComparativeLeaderClaim } from '../../canvas/hooks/useAnalysisReady'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -2214,7 +2215,34 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Derived ONCE, here, and passed to the leaf sorts via `allOptions`
     // already being canonical — plus explicitly to each of them, so a leaf
     // cannot silently re-impose a ranking.
-    const designationsWithheld = !leaderVerdict.hasLeadingOption
+    // Q1 - THE MODEL'S LICENCE. "Does the model, as CEE admitted it THIS TURN,
+    // license a comparative-leader claim at all?" A property of the GRAPH,
+    // decided before the run: strong separation between two machine-invented
+    // estimates is a perfectly good run and still not a licence to say "Robust".
+    //
+    // ABSENCE => OLDER PRODUCER => EXACTLY TODAY'S BEHAVIOUR. This `true` arm is
+    // what makes the consumer safe to land before the CEE half merges. It is not
+    // a convenience default and it carries its own test (ARM A).
+    const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
+      ceeAnalysisReady?.analysis_admission,
+    )
+
+    // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
+    // of the RUN. Quoted VERBATIM from the one module entitled to answer it —
+    // not widened, not narrowed, not re-derived.
+    const resultSeparatesArms = leaderVerdict.hasLeadingOption
+
+    // COMPOSE - two answers, two lines, one conjunction.
+    // THE TWO TERMS HAVE OPPOSITE ABSENCE ARMS ON PURPOSE:
+    //     Q1 absent => true   (the producer has not spoken, so nothing changes)
+    //     Q2 absent => false  (no result, so no claim may be authored)
+    // Aligning them — `??`-ing one through the other, or giving them a shared
+    // default — would put two questions under one name, which is the defect this
+    // estate has paid for twice. Neither term is folded into the other, and
+    // neither is ever read alone at a render site.
+    const leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms
+
+    const designationsWithheld = !leaderDesignationPermitted
 
     // Order by the SHARED display sort (win probability when every option
     // carries one, else expected value — sortOptionsForDisplay), independent
@@ -2461,6 +2489,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // read it too, ROADMAP 1.267) and quoted here. One derivation, one
       // answer, no mirror.
       verdict: leaderVerdict,
+      // PUBLISHED ALONGSIDE THE VERDICT, NEVER IN PLACE OF IT. `verdict` keeps
+      // meaning exactly "did the result separate the arms" (Q2). These two are
+      // the NEW question — "may this panel DESIGNATE?" — and its raw evidence.
+      leaderDesignationPermitted,
+      // Raw, for `reasons[]` (the "what would change it" copy) and
+      // `missing_important_inputs[]`. Undefined => pre-admission CEE.
+      analysisAdmission: ceeAnalysisReady?.analysis_admission,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
