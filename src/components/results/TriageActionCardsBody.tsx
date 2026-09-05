@@ -24,7 +24,13 @@ import { leaderDesignationPermitted } from './leaderDesignation'
 // `leaderClaimWithheld`, which is that same answer with the strict `=== false`
 // spelling every copy branch wants. One authority, two spellings of the same
 // read — never a second derivation.
-import { leaderClaimWithheld } from './analysisClaimPolicy'
+//
+// MAY THIS PANEL STATE A STRENGTH WORD? `mayStateStability` is the THIRD
+// answer, and it is deliberately NOT the leader answer: separation is a
+// property of this result, robustness a property of the run's sensitivity.
+// The two are read separately here — never conjoined, never one standing in
+// for the other (CLAUDE.md trap 21).
+import { analysisClaimPolicy, leaderClaimWithheld } from './analysisClaimPolicy'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
@@ -714,13 +720,37 @@ function T1ChecksFooter({
   // producer's meaning; a missing field (older PLoT builds) keeps the
   // "Robustness unknown" state. See ROBUSTNESS-VERDICT-CONTRACT.
   const robustnessVerdict = data.recommendation.robustnessVerdict
-  const robustOk = robustnessVerdict === 'robust'
+  // ⭐ THE MODEL'S AUTHORSHIP, NOT THE RUN'S OUTCOME (#1206, witnessed on
+  // deployed `91724b01`). CEE's admission carries its own sentence about this:
+  //
+  //   "Figures can be shown as provisional, but no option can be called the
+  //    leader and NO RESULT CAN BE CALLED STABLE OR ROBUST until you have set
+  //    at least one of them."
+  //
+  // On that run `permitted_analysis_mode` was `quantified_provisional` and this
+  // glyph rendered "Robust" anyway — while the glyph BESIDE it correctly said
+  // "Leading option not assessed". Half of one admission consumed, half not.
+  //
+  // `mayStateStability` is lattice-only (`comparative_leader` alone licenses a
+  // strength word) and is NOT conjoined with separation: a run may separate its
+  // arms and still license no statement about a ranking holding.
+  const mayStateStability = analysisClaimPolicy(data.recommendation).mayStateStability
+  // The producer's verdict still decides WHICH determinate state we would have
+  // rendered; the admission decides whether we may state it at all. Kept as two
+  // reads so neither silently becomes the other.
+  const robustOk = robustnessVerdict === 'robust' && mayStateStability
   // Determinate = a real robust/sensitive claim exists. Explicit allowlist —
   // 'not_assessed' and unknown values must never render as "Sensitive".
+  //
+  // ⚠ "Sensitive to assumptions" IS ALSO A STABILITY VERDICT. Suppressing only
+  // the flattering word would leave the panel free to state the unflattering
+  // one on the same unlicensed authority — a gate that fires in one direction
+  // is not a gate, it is an editorial preference.
   const robustKnown =
-    robustnessVerdict === 'robust' ||
-    robustnessVerdict === 'moderate' ||
-    robustnessVerdict === 'fragile'
+    mayStateStability &&
+    (robustnessVerdict === 'robust' ||
+      robustnessVerdict === 'moderate' ||
+      robustnessVerdict === 'fragile')
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   // ⭐ NO DENIAL WITHOUT AUTHORITY — THE EVIDENCE TWIN (UX gate point 8,
   // 18 Aug 2026). This is the SAME ruling applied 24 lines above to the leader
@@ -828,16 +858,55 @@ function T1ChecksFooter({
           // "Sensitive" alone names no subject. Sensitive to WHAT is the whole
           // content of the verdict, and the producer's own reason phrase (the
           // tooltip below) has always said "to assumptions".
+          // ⭐ A FOURTH STATE, AND THE OTHER THREE ARE ALL FALSE HERE.
+          //
+          //   · "Robustness not assessed" says the producer did not test. It
+          //     did.
+          //   · "Robustness unknown" says no verdict came back. One did.
+          //   · "Robust" / "Sensitive to assumptions" state that verdict, which
+          //     is the thing the admission withholds.
+          //
+          // The run tested, and the result held. What is missing is the
+          // AUTHORSHIP that would entitle this panel to say so — so the label
+          // names what is unestablished rather than something that failed to
+          // happen.
           notOkLabel={
-            robustKnown
-              ? 'Sensitive to assumptions'
-              : robustnessVerdict === 'not_assessed'
-                ? 'Robustness not assessed'
-                : 'Robustness unknown'
+            !mayStateStability
+              ? 'Robustness not established'
+              : robustKnown
+                ? 'Sensitive to assumptions'
+                : robustnessVerdict === 'not_assessed'
+                  ? 'Robustness not assessed'
+                  : 'Robustness unknown'
           }
           // Producer-owned reason phrase, verbatim (native tooltip) — never
           // authored in the UI, never shown without its verdict.
-          title={data.recommendation.robustnessVerdictReason}
+          //
+          // ⛔ ON THE WITHHELD STATE THE PRODUCER'S REASON IS REPLACED, NOT
+          // APPENDED: `robustnessVerdictReason` explains the verdict we are
+          // declining to state, so rendering it here would carry the claim
+          // through the tooltip after the label withdrew it.
+          //
+          // ⛔ AND THREE THINGS THIS SENTENCE MUST NOT DO, each derived at the
+          // bytes rather than chosen for tone:
+          //  1. NO "our estimates", and no attribution to Olumi. The witnessed
+          //     payload was `user_stated: 0`, `machine_authored: 9`,
+          //     `unattributed: 8` of 17 — so "Olumi's figures" is FALSE of
+          //     nearly half of them. `glanceProvenanceCopy.ts` keeps a variant
+          //     for exactly this reason, one that "attributes the figures to
+          //     nobody, so it cannot commit the authorship claim this module
+          //     exists to prevent"; that is the vocabulary reused here.
+          //  2. NO NUMBER AND NO COUNT. The wire licenses a per-input
+          //     provenance flag, not a proportion, and this panel has already
+          //     had invented metrics caught on it.
+          //  3. NO PROMISED OUTCOME. Setting a value buys the PERMISSION to
+          //     state a verdict, not a favourable one — "whether it is", never
+          //     "that it is".
+          title={
+            !mayStateStability
+              ? 'The check ran, but on figures whose source is not established there is no basis for calling the result robust. Set a value you know and we can say whether it is.'
+              : data.recommendation.robustnessVerdictReason
+          }
           dataTestid="checks-robust"
         />
         <ChecksGlyph
@@ -926,13 +995,29 @@ function ChecksGlyph({
 function StabilityNarrative({
   itemCount,
   stabilityScore,
+  mayStateStability = true,
 }: {
   itemCount: number
   stabilityScore: number | undefined
+  /**
+   * ⭐ `Stability: 78%` IS A STRENGTH FIGURE, and it sat here ungated while the
+   * module minting the answer had no consumer at all (cold review, F-COLD-4).
+   * A percentage is not exempt from the admission: "how stable" presupposes the
+   * ranking whose stability the producer refuses to have described.
+   *
+   * ⚠ DEFAULTS TRUE so absence keeps today's behaviour byte for byte — this
+   * consumer must be safe to land ahead of any producer change.
+   *
+   * ⛔ AND THE SUPPRESSED ARM AUTHORS NO NEW COPY. It falls to the lede this
+   * component ALREADY renders when the producer sends no figure, so the
+   * withheld run and the figure-less run read identically and no fifth sentence
+   * enters the surface. What is withdrawn is the figure, not the section.
+   */
+  mayStateStability?: boolean
 }) {
   if (itemCount === 0) return null
   const stabilityPct =
-    typeof stabilityScore === 'number' && Number.isFinite(stabilityScore)
+    typeof stabilityScore === 'number' && Number.isFinite(stabilityScore) && mayStateStability
       ? Math.round(stabilityScore * 100)
       : null
   // ⛔ Two claims removed here, both of which the queue can no longer support.
@@ -1139,6 +1224,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
           <StabilityNarrative
             itemCount={top3.length}
             stabilityScore={stabilityScore}
+            mayStateStability={analysisClaimPolicy(data.recommendation).mayStateStability}
           />
 
           {/* ⛔ REMOVED: the "No high-value evidence gaps. Your current

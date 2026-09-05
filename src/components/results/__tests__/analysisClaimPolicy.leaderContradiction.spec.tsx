@@ -33,11 +33,32 @@
  * WHAT THIS FILE COVERS, AND WHAT IT DOES NOT
  * ═══════════════════════════════════════════════════════════════════════════
  * Here: the claim-policy lattice (§1), `TriageActionCardsBody`'s two nudges
- * (§3, §4), the COMPOSED panel that reproduces the witness (§5) and SURFACE D,
- * `ConditionalWinnerCards` (§6).
+ * (§3, §4), the COMPOSED panel that reproduces the witness (§5), SURFACE D,
+ * `ConditionalWinnerCards` (§6), the checks footer's affirmative DENIAL (§7)
+ * and the STRENGTH WORD (§8, issue #1206).
  * NOT here: SURFACE A, `rankActOnItRows` — see
  * `analysis-hero/actOnIt/__tests__/actOnItLeaderClaim.spec.ts` and the import
  * note below for why it cannot live in this file.
+ * NOT here either: the Reasoning tab (`analysisNew`), which renders the SAME
+ * unlicensed "Stable" / "Robust" #1206 witnessed and reads none of these
+ * answers. Those files are held by open PR #1192 and the surface has a named
+ * owner on #1206 — so that half is a LIVE GAP deliberately left open, not a
+ * covered one.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠ WHICH SURFACE EMITTED THE WITNESSED SENTENCE — CORRECTED
+ * ═══════════════════════════════════════════════════════════════════════════
+ * This header presented "the leading option could change" as SURFACE C's
+ * sentence. It is not. `useV17Copy` DEFAULTS TO FALSE and the single production
+ * mount (`ResultsBody`) passes none, so SURFACE C's conjunct
+ * (`useV17Copy && !leaderClaimWithheld(...)`) cannot fire on the deployed path
+ * at all. The witnessed sentence is emitted by SURFACE A (`rankActOnItRows`),
+ * which is v17-INDEPENDENT. SURFACE C's gate is correct and is defence in
+ * depth against the day that branch mounts — it is not the fix for the witness,
+ * and a reader who inherits the old attribution would be chasing the wrong
+ * component. §7's three DEPLOYED POSTURE arms render with `useV17Copy` ABSENT
+ * so the gates that actually reach a user are pinned at the posture that
+ * reaches them (CLAUDE.md trap 3b).
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * BOTH DIRECTIONS, IN THE SAME FILE
@@ -73,10 +94,13 @@ import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysi
 // shared below so both halves describe the same run.
 import {
   ALT_LABEL,
+  FACTOR_ID,
   FACTOR_LABEL,
   LEADER_CLAIM_RE,
   LOW_BUCKET_LABEL,
+  MODE_WITHHELD,
   PERMITTED,
+  PERMITTED_STABILITY,
   SPLIT_VALUE,
   WITHHELD,
   admission,
@@ -447,7 +471,7 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     expect(card.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('neutral')
   })
 
-  it('WITHHELD DATA SURVIVES: the row, the split value and BOTH probabilities stay', () => {
+  it('WITHHELD DATA SURVIVES: the row, the factor and the split value stay', () => {
     // CX4's remedy in one assertion: strip the NAME, never the row. Delete the
     // card instead of stripping it and this REDs while the arm above still
     // passes — which is why the two must both exist.
@@ -455,6 +479,53 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     expect(text).toContain('Conditional scenarios')
     expect(text).toContain(FACTOR_LABEL)
     expect(text).toContain(`flips at ${SPLIT_VALUE}`)
+  })
+
+  /**
+   * ⚠⚠ THIS ARM USED TO ASSERT THE OPPOSITE — it required `Above: 61%` and
+   * `Below: 55%` to survive, and called that "information preserved". A cold
+   * review measured what it actually preserved:
+   *
+   *     Above: 61%   Below: 55%
+   *
+   * Those are two DIFFERENT options' win probabilities (the row's own
+   * `winner_flips: true` precondition guarantees it), printed side by side with
+   * both subjects removed — so they read as one quantity under two conditions.
+   * On this fixture the larger belongs to the option that is NOT recommended,
+   * so a reader anchoring on the recommendation reads it backwards. The label
+   * filter did not preserve the information; it minted a new and wrong reading.
+   *
+   * The row keeps everything that survives the withholding on its own terms —
+   * the factor, the threshold, the flip — which is the science. A number whose
+   * subject has been stripped is not a measurement this surface may still show.
+   */
+  it('WITHHELD: an ORPHANED probability is dropped with its subject', () => {
+    const { text } = cardOf(WITHHELD())
+    expect(text).not.toContain('61%')
+    expect(text).not.toContain('55%')
+    expect(text).not.toContain('Above:')
+    expect(text).not.toContain('Below:')
+  })
+
+  it('SCOPED: a probability that never had a label is UNTOUCHED', () => {
+    // The opposite-direction twin, and the reason the suppression is written
+    // against `labelSuppressed` rather than against `mayNameLeader`. Where the
+    // producer sent no `winner_label`, there was never a subject to lose — that
+    // side must render exactly as it does today, or the fix has quietly become
+    // a blanket ban on percentages (the over-suppression this component
+    // refuses).
+    const d = WITHHELD() as unknown as { confidence: Record<string, unknown> }
+    d.confidence.conditionalWinners = [
+      {
+        factor_label: FACTOR_LABEL,
+        factor_id: FACTOR_ID,
+        split_value: SPLIT_VALUE,
+        winner_flips: true,
+        high_bucket: { winner_id: 'opt_b', win_probability: 0.61 },
+        low_bucket: { winner_id: 'opt_a', win_probability: 0.55 },
+      },
+    ]
+    const { text } = cardOf(d as unknown as ResultsSectionDataReturn)
     expect(text).toContain('Above: 61%')
     expect(text).toContain('Below: 55%')
   })
@@ -495,13 +566,11 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
  * answers are not one.
  */
 describe('§7 the checks footer denies a leader only when licensed to', () => {
-  /** A run the MODE withholds: figures licensed, leader not, arms separated. */
-  const modeWithheld = (): ResultsSectionDataReturn => {
-    const d = PERMITTED() as unknown as { recommendation: Record<string, unknown> }
-    d.recommendation.leaderDesignationPermitted = false
-    d.recommendation.analysisAdmission = admission('quantified_provisional')
-    return d as unknown as ResultsSectionDataReturn
-  }
+  // Promoted to `__fixtures__/leaderClaim.fixtures.ts` so §8 and the Strengthen
+  // caller guard read the SAME definition of this run. Two copies of the state
+  // that discriminates would be two chances for one of them to stop
+  // reproducing it silently.
+  const modeWithheld = MODE_WITHHELD
 
   it('PRECONDITION: this fixture is genuinely the divergent state', () => {
     // Pin it IN-TEST (trap 13b): assert the payload really does separate the
@@ -551,5 +620,269 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
     render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
     expect(screen.getByTestId('checks-winner').textContent ?? '')
       .toContain('Leading option not assessed')
+  })
+
+  /**
+   * ⭐⭐ THE DEPLOYED POSTURE, AND EVERY ARM ABOVE MISSES IT.
+   *
+   * `TriageActionCardsBody`'s `useV17Copy` DEFAULTS TO FALSE, and the single
+   * production JSX mount — `ResultsBody.tsx` — passes no `useV17Copy` at all.
+   * The element then travels on as an opaque `actOnItQueueSlot?: ReactNode` and
+   * nothing clones it (the only `cloneElement` in `src/` is the canvas
+   * tooltip). So the posture a user actually loads is `useV17Copy={false}`,
+   * and EVERY render in this file passes `useV17Copy` — 13 of them at the cold
+   * review, none at the deployed posture. That is CLAUDE.md trap 3b: a green
+   * suite about a branch the deployment does not render.
+   *
+   * ⚠ AND IT CHANGES AN ATTRIBUTION IN THIS FILE'S OWN HEADER. §4's SURFACE C
+   * conjunct (`useV17Copy && !leaderClaimWithheld(...)`) CANNOT FIRE on the
+   * production mount: with v17 off the trailing clause takes the legacy arm
+   * regardless. The witnessed sentence "the leading option could change" is
+   * emitted by SURFACE A (`rankActOnItRows`), which is v17-INDEPENDENT and
+   * correctly gated. SURFACE C's branch is v17-only and currently unmounted;
+   * its gate is correct and is defence in depth, not the fix for the witness.
+   *
+   * These arms therefore pin the two gates that DO reach a user, at the posture
+   * that reaches them.
+   */
+  it('DEPLOYED POSTURE: the footer withholds with useV17Copy absent', () => {
+    render(<TriageActionCardsBody data={modeWithheld()} onFocusNode={() => {}} />)
+    const t = screen.getByTestId('checks-winner').textContent ?? ''
+    expect(t).toContain('Leading option not assessed')
+    expect(t).not.toContain('No clear leader')
+  })
+
+  it('DEPLOYED POSTURE: SURFACE D still names no option with useV17Copy absent', () => {
+    const { container } = render(
+      <TriageActionCardsBody data={WITHHELD()} onFocusNode={() => {}} />,
+    )
+    const card = container.querySelector('[data-testid="conditional-winner-cards"]')
+    expect(card, 'the card never mounted at the deployed posture — this arm would be vacuous')
+      .not.toBeNull()
+    const text = allText(card!)
+    expect(text).not.toContain(ALT_LABEL)
+    expect(text).not.toContain(LOW_BUCKET_LABEL)
+    expect(text).not.toMatch(LEADER_CLAIM_RE)
+  })
+
+  it('DEPLOYED POSTURE ANTI-VACUITY: a licensed run still names the winner', () => {
+    const { container } = render(
+      <TriageActionCardsBody data={PERMITTED()} onFocusNode={() => {}} />,
+    )
+    const card = container.querySelector('[data-testid="conditional-winner-cards"]')
+    expect(card).not.toBeNull()
+    // Proves the deployed posture can render the claim at all — without this,
+    // the two arms above would pass on a surface that says nothing to anyone.
+    expect(allText(card!)).toContain(ALT_LABEL)
+  })
+})
+
+// ── §8 THE STRENGTH WORD — "Robust" and "Stability: n%" need their own licence ─
+
+/**
+ * ⭐⭐ THE THIRD ANSWER, WIRED — issue #1206, witnessed on deployed `91724b01`.
+ *
+ * The producer's own admission carried the rule in words:
+ *
+ *   "Figures can be shown as provisional, but no option can be called the
+ *    leader and NO RESULT CAN BE CALLED STABLE OR ROBUST until you have set at
+ *    least one of them."
+ *
+ * On that run (`permitted_analysis_mode: 'quantified_provisional'`, zero
+ * user-stated parameters) the panel rendered "Robust" and "Stable" — while the
+ * glyph BESIDE it correctly rendered "Leading option not assessed". Half of one
+ * admission consumed and half not, which is why `mayStateStability` had to be a
+ * separate answer rather than a second reading of the leader gate.
+ *
+ * ⚠ THE ORIGINAL AUTHOR DEFERRED THIS FOR A STATED REASON — "no deployed run
+ * was witnessed at `quantified_provisional`, and gating the robustness glyph
+ * risks the over-suppression defect". The first half is now false: #1206 IS
+ * that witness. The second half is honoured rather than dismissed — every arm
+ * below has a PERMITTED twin carrying the identical robustness payload, so a
+ * gate jammed shut fails just as loudly as a gate removed.
+ *
+ * ⚠ WHY NOT `robustness_not_assessed` OR `robustness_unknown`. Both are FALSE
+ * here, and that is the whole argument for a fourth state. The run DID test
+ * ("did not test how the result behaves" — false) and a verdict DID come back
+ * ("no robustness verdict came back" — false). What is missing is the
+ * AUTHORSHIP that entitles this panel to state it, so the label names what is
+ * unestablished rather than something that failed to happen.
+ */
+describe('§8 the strength word is licensed by the admission, not by the verdict', () => {
+  const STABILITY = { verdict: 'robust' as const, score: 0.78 }
+
+  it('PRECONDITION: the producer DID return a strength verdict on this run', () => {
+    // Pin it in-test (trap 13b). Without this, every suppression arm below
+    // could pass because the fixture quietly stopped carrying a verdict — a
+    // gate proven against a run that had nothing to say proves nothing.
+    const rec = MODE_WITHHELD(STABILITY).recommendation as unknown as Record<string, unknown>
+    expect(rec.robustnessVerdict).toBe('robust')
+    expect(rec.recommendationStability).toBe(0.78)
+    expect(analysisClaimPolicy(rec).mayStateStability).toBe(false)
+    // …and the LEADER answer is a separate read. If these two ever collapse
+    // into one field, this assertion is what notices.
+    expect(analysisClaimPolicy(rec).mayShowComparativeFigures).toBe(true)
+  })
+
+  it('MODE-WITHHELD: the glyph states what is unestablished, not "Robust"', () => {
+    render(<TriageActionCardsBody data={MODE_WITHHELD(STABILITY)} onFocusNode={() => {}} />)
+    const t = screen.getByTestId('checks-robust').textContent ?? ''
+    expect(t).toContain('Robustness not established')
+    expect(t).not.toContain('Robust ')
+    expect(t).not.toBe('Robust')
+    // The two states that would be FALSE here.
+    expect(t).not.toContain('Robustness not assessed')
+    expect(t).not.toContain('Robustness unknown')
+  })
+
+  it('MODE-WITHHELD: "Sensitive to assumptions" is withheld too — the gate is not editorial', () => {
+    // The unflattering verdict is a stability verdict as well. A gate that
+    // suppressed only the favourable word would be a preference, not a licence.
+    render(
+      <TriageActionCardsBody
+        data={MODE_WITHHELD({ verdict: 'fragile', score: 0.4 })}
+        onFocusNode={() => {}}
+      />,
+    )
+    const t = screen.getByTestId('checks-robust').textContent ?? ''
+    expect(t).toContain('Robustness not established')
+    expect(t).not.toContain('Sensitive to assumptions')
+  })
+
+  it('MODE-WITHHELD: the producer reason is REPLACED, not carried through the tooltip', () => {
+    const { container } = render(
+      <TriageActionCardsBody data={MODE_WITHHELD(STABILITY)} onFocusNode={() => {}} />,
+    )
+    const title = container
+      .querySelector('[data-testid="checks-robust"]')
+      ?.getAttribute('title') ?? ''
+    // The reason for the verdict we are declining to state must not survive in
+    // an attribute after the label withdrew it.
+    expect(title).not.toContain('held up across the ranges we varied')
+    // The reason, then the action. Both halves pinned so a later edit cannot
+    // drop the actionable one and leave a dead end.
+    expect(title).toContain('there is no basis for calling the result robust')
+    expect(title).toContain('Set a value you know')
+  })
+
+  it('THE COPY COMMITS NO AUTHORSHIP CLAIM AND MINTS NO METRIC', () => {
+    const { container } = render(
+      <TriageActionCardsBody data={MODE_WITHHELD(STABILITY)} onFocusNode={() => {}} />,
+    )
+    const title = container
+      .querySelector('[data-testid="checks-robust"]')
+      ?.getAttribute('title') ?? ''
+    // 1. Attributes the figures to NOBODY. The witnessed payload was
+    //    user_stated 0, machine_authored 9, UNATTRIBUTED 8 of 17 — so naming
+    //    Olumi as the author would be false of nearly half of them, and it is
+    //    the exact claim `glanceProvenanceCopy.ts` exists to prevent.
+    for (const forbidden of ['our estimate', 'our own', "Olumi's", 'we estimated', 'your figures']) {
+      expect(title.toLowerCase()).not.toContain(forbidden.toLowerCase())
+    }
+    // 2. No number and no count — the wire licenses a per-input provenance
+    //    flag, not a proportion, and this surface has had invented metrics
+    //    caught on it before.
+    expect(title).not.toMatch(/\d/)
+    // 3. No promised OUTCOME. Setting a value buys permission to state a
+    //    verdict, not a favourable one.
+    expect(title).toContain('whether it is')
+    expect(title).not.toMatch(/we (can|will) (say|show|confirm) (that )?it is robust/i)
+  })
+
+  it('MODE-WITHHELD: the stability PERCENTAGE is withdrawn, the section is not', () => {
+    render(<TriageActionCardsBody data={MODE_WITHHELD(STABILITY)} onFocusNode={() => {}} />)
+    const el = screen.getByTestId('stability-narrative')
+    const t = el.textContent ?? ''
+    expect(t).not.toContain('Stability:')
+    expect(t).not.toContain('78%')
+    // Over-suppression guard: the line still introduces the queue. Deleting the
+    // section instead of the figure REDs here.
+    expect(t).toContain('Inputs worth confirming:')
+  })
+
+  // ── PERMITTED TWINS — every arm above, pointing the other way ──────────────
+
+  it('ANTI-VACUITY: a licensed run still reads "Robust"', () => {
+    render(
+      <TriageActionCardsBody data={PERMITTED_STABILITY(STABILITY)} onFocusNode={() => {}} />,
+    )
+    const t = screen.getByTestId('checks-robust').textContent ?? ''
+    expect(t).toContain('Robust')
+    expect(t).not.toContain('Robustness not established')
+  })
+
+  it('ANTI-VACUITY: a licensed run still reads "Sensitive to assumptions"', () => {
+    render(
+      <TriageActionCardsBody
+        data={PERMITTED_STABILITY({ verdict: 'fragile', score: 0.4 })}
+        onFocusNode={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('checks-robust').textContent ?? '')
+      .toContain('Sensitive to assumptions')
+  })
+
+  it('ANTI-VACUITY: a licensed run still states the stability percentage', () => {
+    render(
+      <TriageActionCardsBody data={PERMITTED_STABILITY(STABILITY)} onFocusNode={() => {}} />,
+    )
+    expect(screen.getByTestId('stability-narrative').textContent ?? '')
+      .toContain('Stability: 78%')
+  })
+
+  it('ANTI-VACUITY: a licensed run keeps the producer reason in the tooltip', () => {
+    const { container } = render(
+      <TriageActionCardsBody data={PERMITTED_STABILITY(STABILITY)} onFocusNode={() => {}} />,
+    )
+    expect(
+      container.querySelector('[data-testid="checks-robust"]')?.getAttribute('title') ?? '',
+    ).toContain('held up across the ranges we varied')
+  })
+
+  it('UNCHANGED: the two honest absence states still render on a licensed run', () => {
+    // The gate must not have swallowed the states that were already correct.
+    // `not_assessed` is the producer SAYING it did not assess; an absent field
+    // is the producer saying nothing. Both survive.
+    render(
+      <TriageActionCardsBody
+        data={PERMITTED_STABILITY({ verdict: 'not_assessed', score: 0.78 })}
+        onFocusNode={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('checks-robust').textContent ?? '')
+      .toContain('Robustness not assessed')
+
+    const noVerdict = PERMITTED() as unknown as { recommendation: Record<string, unknown> }
+    expect(noVerdict.recommendation.robustnessVerdict).toBeUndefined()
+    render(
+      <TriageActionCardsBody
+        data={noVerdict as unknown as ResultsSectionDataReturn}
+        onFocusNode={() => {}}
+      />,
+    )
+    expect(screen.getAllByTestId('checks-robust').at(-1)?.textContent ?? '')
+      .toContain('Robustness unknown')
+  })
+
+  it('THE ABSENT ADMISSION KEEPS TODAY’S BEHAVIOUR — this consumer lands ahead of any producer', () => {
+    // `WITHHELD()` carries NO admission. The lattice-only answers default TRUE
+    // on absence, so a pre-admission CEE must see the strength word exactly as
+    // it does today. This is the arm that makes the change safe to deploy in
+    // either order.
+    const d = WITHHELD() as unknown as { recommendation: Record<string, unknown> }
+    d.recommendation.robustnessVerdict = 'robust'
+    d.recommendation.recommendationStability = 0.78
+    d.recommendation.analysisAdmission = undefined
+    const c = (d as unknown as { confidence: Record<string, unknown> }).confidence
+    c.evidenceGaps = [{ factorId: FACTOR_ID, factorLabel: FACTOR_LABEL, confidence: 40, voi: 0.5, targetNodeId: FACTOR_ID }]
+    c.topEvidenceGaps = c.evidenceGaps
+    render(
+      <TriageActionCardsBody
+        data={d as unknown as ResultsSectionDataReturn}
+        onFocusNode={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('checks-robust').textContent ?? '').toContain('Robust')
+    expect(screen.getByTestId('stability-narrative').textContent ?? '').toContain('Stability: 78%')
   })
 })

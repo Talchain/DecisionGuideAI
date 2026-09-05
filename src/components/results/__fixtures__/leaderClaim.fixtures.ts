@@ -151,10 +151,36 @@ export const CONDITIONAL_WINNERS = () => [
   },
 ]
 
+/**
+ * The one evidence gap that makes the TRIAGE QUEUE mount — and therefore the
+ * only way `StabilityNarrative` reaches the DOM at all (it returns `null` on
+ * `itemCount === 0`). Opt-in, so every arm written before the stability work
+ * renders byte-identically to what it rendered then.
+ */
+export const STABILITY_QUEUE_GAP = {
+  factorId: FACTOR_ID,
+  factorLabel: FACTOR_LABEL,
+  confidence: 40,
+  voi: 0.5,
+  suggestion: 'This estimate is the AI’s, not yours.',
+  targetNodeId: FACTOR_ID,
+}
+
 export function makeLeaderClaimData(opts: {
   verdict: DecisionVerdict
   leaderDesignationPermitted: boolean
   mode?: PermittedAnalysisMode
+  /**
+   * Opt-in ROBUSTNESS payload: the producer's verdict, its reason, the
+   * stability figure, and the queue item without which the narrative line does
+   * not mount.
+   *
+   * ⚠ THE VERDICT IS `'robust'` ON PURPOSE in the suppression arms. A gate
+   * tested against a run that had nothing to say would pass by dodging — the
+   * state that discriminates is one where the producer DID return a strength
+   * verdict and the admission still forbids stating it.
+   */
+  stability?: { verdict: 'robust' | 'moderate' | 'fragile' | 'not_assessed'; score: number }
 }): ResultsSectionDataReturn {
   return {
     recommendation: {
@@ -169,6 +195,17 @@ export function makeLeaderClaimData(opts: {
       verdict: opts.verdict,
       leaderDesignationPermitted: opts.leaderDesignationPermitted,
       analysisAdmission: opts.mode ? admission(opts.mode) : undefined,
+      ...(opts.stability
+        ? {
+            robustnessVerdict: opts.stability.verdict,
+            // Producer-owned reason phrase. Present so the WITHHELD arm can
+            // prove the tooltip is REPLACED rather than merely empty — an
+            // absent reason would let a suppression pass without showing it
+            // withdrew anything.
+            robustnessVerdictReason: 'held up across the ranges we varied',
+            recommendationStability: opts.stability.score,
+          }
+        : {}),
     },
     confidence: {
       topFragileEdge: {
@@ -192,6 +229,9 @@ export function makeLeaderClaimData(opts: {
       // right by accident and the anti-vacuity twin would pass vacuously too.
       conditionalWinners: CONDITIONAL_WINNERS(),
       recommendedOptionId: 'opt_a',
+      ...(opts.stability
+        ? { evidenceGaps: [STABILITY_QUEUE_GAP], topEvidenceGaps: [STABILITY_QUEUE_GAP] }
+        : {}),
     },
     drivers: {
       dominantFactorLabel: FACTOR_LABEL,
@@ -229,4 +269,54 @@ export const PERMITTED = (): ResultsSectionDataReturn =>
     verdict: PERMITTED_VERDICT,
     leaderDesignationPermitted: true,
     mode: 'comparative_leader',
+  })
+
+/**
+ * ⭐ THE RUN THE **MODE** WITHHOLDS — figures licensed, leader not, ARMS
+ * SEPARATED. This is the state issue #1206 witnessed on deployed `91724b01`
+ * (`permitted_analysis_mode: 'quantified_provisional'`, zero user-stated
+ * parameters), and it is the only fixture that can see three different defects:
+ *
+ *   · the footer's affirmative DENIAL ("No clear leader") — §7;
+ *   · the unlicensed STRENGTH WORD ("Robust", "Stability: {n}%") — §8;
+ *   · a Strengthen caller threading Q2 alone.
+ *
+ * ⚠ `WITHHELD()` CANNOT SUBSTITUTE, and that is the whole point of a second
+ * fixture. Its separation is already `'unknown'`, so a predicate reading
+ * separation alone is right about it FOR THE WRONG REASON. Discrimination
+ * needs `'clear'` separation with the leader withheld by the LATTICE — the
+ * exact row §1 uses to prove the three answers are not one.
+ *
+ * Built from `PERMITTED()` and moved DOWN the lattice so the two arms differ in
+ * nothing but the admission and the composed leader answer.
+ */
+export const MODE_WITHHELD = (
+  stability?: { verdict: 'robust' | 'moderate' | 'fragile' | 'not_assessed'; score: number },
+): ResultsSectionDataReturn => {
+  const d = makeLeaderClaimData({
+    verdict: PERMITTED_VERDICT,
+    leaderDesignationPermitted: true,
+    mode: 'comparative_leader',
+    ...(stability ? { stability } : {}),
+  }) as unknown as { recommendation: Record<string, unknown> }
+  d.recommendation.leaderDesignationPermitted = false
+  d.recommendation.analysisAdmission = admission('quantified_provisional')
+  return d as unknown as ResultsSectionDataReturn
+}
+
+/**
+ * The fully licensed twin of `MODE_WITHHELD`, carrying the SAME robustness
+ * payload. Every suppression arm below has one of these beside it: a gate that
+ * is only ever tested in the withholding direction is indistinguishable from a
+ * gate jammed shut, and over-suppression is the defect the original author of
+ * this PR deferred the stability work to avoid.
+ */
+export const PERMITTED_STABILITY = (
+  stability: { verdict: 'robust' | 'moderate' | 'fragile' | 'not_assessed'; score: number },
+): ResultsSectionDataReturn =>
+  makeLeaderClaimData({
+    verdict: PERMITTED_VERDICT,
+    leaderDesignationPermitted: true,
+    mode: 'comparative_leader',
+    stability,
   })

@@ -49,6 +49,36 @@
  * test `=== false` to withhold and `=== true` to assert; neither is coerced.
  * Flattening that third value into a boolean here would re-open the exact
  * regression `leaderDesignation.ts` documents.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHO READS EACH ANSWER — stated because two of the three once had NOBODY
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A published answer with no consumer is a field that LOOKS enforced. A cold
+ * review measured `mayStateStability` and `mayShowComparativeFigures` at ZERO
+ * production readers while `mayNameOrRankLeader` had five — with an ungated
+ * `Stability: {n}%` sitting in the same file as the unread stability answer.
+ * So the consumers are named here, and a reader who finds this list short
+ * should treat that as the finding:
+ *
+ *   Q-LEADER     `TriageActionCardsBody` (prose ×2, `ConditionalWinnerCards`
+ *                mount), `analysis-hero/actOnIt/rankActOnItRows`.
+ *   Q-STABILITY  `TriageActionCardsBody` — the checks-footer robustness glyph
+ *                and `StabilityNarrative`'s percentage. (#1206)
+ *   Q-FIGURES    NO SUPPRESSING CONSUMER, DELIBERATELY — and this one is not
+ *                a gap. It is the answer that LICENSES rather than withholds:
+ *                on `quantified_provisional` the figures are admitted, and the
+ *                panel already shows them. Its job is to make the permission
+ *                EXPLICIT so a future suppression cannot be written against
+ *                "the run is provisional" and blank a surface the producer
+ *                admitted — the over-suppression this module's header calls a
+ *                worse product than the defect it replaced. It is read by §1's
+ *                lattice table, which is what stops it drifting silently.
+ *
+ * ⚠ THE REASONING TAB IS NOT COVERED. #1206 witnessed the SAME unlicensed
+ * "Stable" / "Robust" on `analysisNew`, which reads none of these answers.
+ * That half is deliberately out of scope here — those files are held by open
+ * PR #1192 and the surface has a named owner on #1206 — and it is a live gap,
+ * not a closed one.
  */
 import { leaderDesignationPermitted } from './leaderDesignation'
 import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../adapters/cee/types'

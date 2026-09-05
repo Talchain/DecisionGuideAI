@@ -204,9 +204,31 @@ export function ConditionalWinnerCards({
           // withdraw it. `crossSurfaceCoherence.rowNamesAnOption` names this
           // function by line as the place the choice is made.
           //
-          // The PERCENTAGE stays. It is a bucket-conditional probability — a
-          // measurement, not a designation — and dropping it would be the
-          // over-suppression this component's header already refuses.
+          // ⚠⚠ AND THE PERCENTAGE DOES NOT SURVIVE ITS SUBJECT — CORRECTED.
+          // This said "the PERCENTAGE stays: it is a bucket-conditional
+          // probability — a measurement, not a designation". True of the
+          // number, false of the PAIR, and the pair is what the footer renders.
+          // Stripping both labels left:
+          //
+          //     Above: 61%   Below: 55%
+          //
+          // By this row's own precondition (`winner_flips: true`) those are
+          // DIFFERENT options' win probabilities. Side by side without their
+          // subjects they read as one quantity under two conditions — and on
+          // the witnessed fixture the larger belongs to the option that is NOT
+          // recommended, so a reader anchoring on the recommendation reads it
+          // exactly backwards. That is not the row's information preserved; it
+          // is a new, wrong reading minted by the label filter.
+          //
+          // So an ORPHANED percentage is dropped: one whose label existed and
+          // was suppressed. Where the producer sent no `winner_label` at all
+          // there was never a subject to lose, and that side renders exactly as
+          // it does today — the suppression is scoped to the harm.
+          //
+          // Over-suppression is still refused: the neutral sentence above keeps
+          // the factor, the threshold and the flip, which is the science; the
+          // permitted arm keeps label AND percentage untouched.
+          const labelSuppressed = bucket.winner_label !== undefined && !mayNameLeader
           const label = bucket.winner_label !== undefined && mayNameLeader
             ? (useV17Copy ? safeInterpolatedLabel(bucket.winner_label, 'the other option') : bucket.winner_label)
             : undefined
@@ -215,7 +237,7 @@ export function ConditionalWinnerCards({
             : undefined
           if (label !== undefined && pct !== undefined) return `${label} (${pct})`
           if (label !== undefined) return label
-          if (pct !== undefined) return pct
+          if (pct !== undefined && !labelSuppressed) return pct
           return undefined
         }
         const aboveText = sideText(w.high_bucket)

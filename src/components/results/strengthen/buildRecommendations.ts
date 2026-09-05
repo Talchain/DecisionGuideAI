@@ -229,22 +229,36 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // here, so a trigger added later cannot quietly reintroduce the conflation by
   // reaching for `analysisComplete` again.
   //
-  // ⚠ NAME COLLISION, AND IT IS THE DANGEROUS KIND — SAME NAME, DIFFERENT
-  // QUESTION. `analysisClaimPolicy.ts` now EXPORTS a `leaderClaimWithheld`
-  // that answers the COMPOSED question ("may this panel name a leader?" =
-  // the CEE lattice AND this result's separation). This local answers Q2
-  // ALONE ("did this run separate the arms?"), because `inputs` carries no
-  // admission and this module is not on that seam.
+  // ⚠ SAME NAME AS THE EXPORT IN `analysisClaimPolicy.ts`, AND — SINCE #1190 —
+  // THE SAME ANSWER. This local is NOT a second question. Both production
+  // callers thread the COMPOSED answer into `inputs.hasLeadingOption`:
   //
-  // They agree on three of the four lattice modes and diverge on
-  // `quantified_provisional`, so importing the export here — or assuming this
-  // local already means it — would silently change which triggers fire.
-  // Neither is wrong; they are two questions, and this estate's signature
-  // defect is putting two questions under one name (CLAUDE.md trap 21). The
-  // name is left alone rather than churned: renaming a symbol with live
-  // readers to document a hazard is a bigger change than the hazard, and this
-  // comment is what a reader needs. If this module ever gains the admission,
-  // read the export and delete the local — do not widen the local in place.
+  //   `strengthen/StrengthenContainer.tsx`                  → leaderDesignationPermitted(data.recommendation)
+  //   `analysisNew/buildStrengthenInputsForAnalysisNew.ts`  → leaderDesignationPermitted(data.recommendation)
+  //
+  // so on every live path `inputs.hasLeadingOption` already carries the CEE
+  // lattice AND this result's separation, and this local means exactly what
+  // the export means. Importing the export here would change no trigger.
+  //
+  // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT SAID THE OPPOSITE — that the local
+  // "answers Q2 ALONE, because `inputs` carries no admission and this module
+  // is not on that seam", and that importing the export "would silently change
+  // which triggers fire". Both sentences were false at the tip that shipped
+  // them: `StrengthenContainer` already threaded the composed answer, so the
+  // divergence was never local-vs-export but CALLER-vs-CALLER, and #1190 then
+  // closed the one caller that did read Q2 alone. A false comment describing
+  // successor work is worse than no comment — it tells the next reader the
+  // question is settled in the wrong direction — which is why the correction
+  // is recorded here rather than the old text simply being deleted.
+  //
+  // THE REAL, REMAINING HAZARD IS THE INTERFACE, NOT THE NAME. This module
+  // DERIVES nothing: it reads whatever its caller threaded. A third caller
+  // that threads `verdict.hasLeadingOption` instead would silently re-open the
+  // divergence on `quantified_provisional`, here, with no red. That is pinned
+  // by `__tests__/strengthenInputsCallersThreadComposed.spec.ts`, which
+  // enumerates the production call sites rather than trusting this paragraph —
+  // a comment is a hand-maintained mirror, and this one has already drifted
+  // once (CLAUDE.md trap 12).
   const leaderClaimWithheld = inputs.hasLeadingOption === false
 
   /**
