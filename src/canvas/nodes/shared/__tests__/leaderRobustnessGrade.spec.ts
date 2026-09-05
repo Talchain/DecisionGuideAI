@@ -55,39 +55,42 @@ describe('leaderRobustnessGrade — the hedged grades, and only those', () => {
     expect(leaderRobustnessGrade(report)).toBeNull()
   })
 
-  it('an UNRECOGNISED level is not silently re-derived from the numeric', () => {
-    // The producer said something we do not understand. Falling through to the
-    // stability number here would let an unknown vocabulary quietly acquire our
-    // meaning — so an unrecognised level is a refusal, even when a numeric that
-    // WOULD hedge sits beside it.
+  it('an UNRECOGNISED level is a refusal, not a fall-through', () => {
     expect(
       leaderRobustnessGrade(withRobustness({ level: 'catastrophic', recommendation_stability: 0.05 })),
     ).toBeNull()
   })
 
-  // ── NUMERIC FALLBACK, for the runs where PLoT omits `level` ───────────────
-  it('a low numeric stability stands in when the level is absent', () => {
-    expect(leaderRobustnessGrade(withRobustness({ recommendation_stability: 0.2 }))?.level)
-      .toMatch(/^(low|very_low)$/)
-  })
-
-  it('TWIN — a high numeric stability yields null', () => {
-    expect(leaderRobustnessGrade(withRobustness({ recommendation_stability: 0.95 }))).toBeNull()
-  })
-
+  // ── THE WITHHELD FIELD IS NEVER READ ─────────────────────────────────────
+  // ⚠⚠ THESE ARE THE MOST IMPORTANT CASES IN THE FILE, and they pin the
+  // ABSENCE of a behaviour the first cut of this helper actually had.
+  //
+  // PLoT deliberately withholds `robustness.recommendation_stability`: ISL
+  // derives it as `option_wins[winner] / n_samples`, i.e. the leader's
+  // `win_probability` RELABELLED, carrying "zero independent information"
+  // (see `withheldFieldReadBan.spec.ts`, which REDs on a grown pin and is what
+  // caught this). Grading a run from it would fabricate a robustness statistic
+  // out of the very number the badge sits beside.
+  //
+  // So a grade is shown ONLY when the producer sent a categorical `level`.
+  // These cases would all have PASSED-BY-FALLBACK before the fix and now assert
+  // an honest silence instead.
   it.each([
+    ['a fragile-looking numeric', 0.05],
+    ['a low numeric', 0.2],
+    ['a high numeric', 0.95],
     ['NaN', Number.NaN],
-    ['Infinity', Number.POSITIVE_INFINITY],
-    ['a numeric string', '0.2'],
-  ])('TWIN — a non-finite stability (%s) yields null rather than a coerced grade', (_n, stability) => {
+  ])('no `level`, only recommendation_stability (%s): stays silent', (_n, stability) => {
     expect(leaderRobustnessGrade(withRobustness({ recommendation_stability: stability }))).toBeNull()
   })
 
-  it('the explicit level WINS over a disagreeing numeric', () => {
-    // Precondition pinned in-test: the numeric alone WOULD hedge. So this case
-    // is provably about precedence and not about a fixture that hedges nothing.
-    expect(leaderRobustnessGrade(withRobustness({ recommendation_stability: 0.05 }))).not.toBeNull()
+  it('the numeric cannot OVERRIDE an explicit level in either direction', () => {
+    // Both directions, so neither a fabricated hedge nor a fabricated
+    // reassurance can enter through the numeric.
     expect(leaderRobustnessGrade(withRobustness({ level: 'high', recommendation_stability: 0.05 }))).toBeNull()
+    expect(
+      leaderRobustnessGrade(withRobustness({ level: 'very_low', recommendation_stability: 0.99 })),
+    ).toMatchObject({ level: 'very_low' })
   })
 
   it('every returned grade carries a non-empty title naming what it qualifies', () => {

@@ -187,13 +187,19 @@ describe('OptionNode — the run\'s robustness travels with the leader claim', (
     expect(screen.queryByTestId(GRADE)).toBeNull()
   })
 
-  it('numeric stability stands in when the producer omits the level', () => {
-    renderOption(reportWithRobustness({ recommendation_stability: 0.2 }))
-    expect(screen.getByTestId(GRADE)).toBeInTheDocument()
-  })
-
-  it('TWIN — numeric stability that is HIGH yields no grade', () => {
-    renderOption(reportWithRobustness({ recommendation_stability: 0.95 }))
+  // ⚠⚠ THE WITHHELD FIELD IS NEVER READ. PLoT deliberately withholds
+  // `recommendation_stability` — it is the leader's `win_probability`
+  // relabelled, with "zero independent information" (see
+  // `withheldFieldReadBan.spec.ts`). Grading the card from it would fabricate a
+  // robustness statistic out of the very number printed beside it. The card
+  // stays SILENT rather than hedging from a number nothing can vouch for, and
+  // the crown is unaffected either way.
+  it.each([
+    ['a fragile-looking numeric', 0.05],
+    ['a high numeric', 0.95],
+  ])('no `level`, only recommendation_stability (%s): crown shown, no grade', (_n, stability) => {
+    renderOption(reportWithRobustness({ recommendation_stability: stability }))
+    expect(screen.getByTestId(PILL)).toBeInTheDocument()
     expect(screen.queryByTestId(GRADE)).toBeNull()
   })
 

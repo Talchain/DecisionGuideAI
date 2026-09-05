@@ -45,10 +45,7 @@
  * which is already `Record<RobustnessLevel, string>` so a new union member is a
  * compile error rather than a blank badge.
  */
-import {
-  ROBUSTNESS_BADGE_LABELS,
-  deriveStabilityLevel,
-} from '../../../lib/stability'
+import { ROBUSTNESS_BADGE_LABELS } from '../../../lib/stability'
 import type { RobustnessLevel } from '../../../lib/mappers/types'
 
 /** The grades that carry a hedge. `high`/`moderate` need no caveat beside a claim. */
@@ -77,30 +74,34 @@ function isHedged(level: unknown): level is HedgedRobustnessLevel {
  * invented caveat on a run we were told nothing about. The opposite default
  * would hedge every legacy payload.
  *
- * Prefers the explicit categorical `robustness.level` (populated by
- * `mapV5AnalysisToReport`, and the field GoalNode already reads); falls back to
- * the numeric `recommendation_stability` through the shared classifier, which
- * is the same fallback the results panel uses for the runs where PLoT omits
- * `level`.
+ * ⚠⚠ IT READS `robustness.level` AND NOTHING ELSE. DO NOT ADD A NUMERIC
+ * FALLBACK. The first cut of this helper fell back to
+ * `deriveStabilityLevel(robustness.recommendation_stability)` — the pattern the
+ * results panel uses and the one this lane's own brief proposed. It was WRONG,
+ * and `withheldFieldReadBan.spec.ts` caught it by REDDING on a grown pin.
+ *
+ * PLoT DELIBERATELY WITHHOLDS `recommendation_stability` (`routes/v2/run.ts` at
+ * PLoT `8bf54150`): ISL derives it as `option_wins[winner] / n_samples`, i.e.
+ * the leader's `win_probability` RELABELLED, carrying — in the producer's own
+ * words — "zero independent information". Grading a run from it would have
+ * manufactured a robustness statistic out of the very number the badge sits
+ * next to, and printed it as an independent measurement. A hedge fabricated
+ * from the claim it qualifies is worse than no hedge: this lane exists to stop
+ * the canvas overstating what it knows, and that fallback would have had it
+ * overstate in a new place while looking like a fix.
+ *
+ * The cost is accepted and named: on a run where PLoT sends no `level`, no
+ * hedge is shown. That is an honest silence. The panel's existing numeric reads
+ * are PINNED DEBT in that ban's known-gap set, not a licence to add a 32nd.
  */
 export function leaderRobustnessGrade(report: unknown): LeaderRobustnessGrade | null {
   if (!report || typeof report !== 'object') return null
   const robustness = (report as { robustness?: unknown }).robustness
   if (!robustness || typeof robustness !== 'object') return null
 
-  const r = robustness as { level?: unknown; recommendation_stability?: unknown }
-
-  // Explicit categorical grade first — the producer's own verdict.
-  let level: unknown = r.level
-  if (!isHedged(level)) {
-    // Unrecognised or absent: only a NUMERIC stability may stand in. A level
-    // string we do not recognise is not silently re-derived into a grade.
-    if (level != null) return null
-    const stability = r.recommendation_stability
-    if (typeof stability !== 'number' || !Number.isFinite(stability)) return null
-    level = deriveStabilityLevel(stability)
-    if (!isHedged(level)) return null
-  }
+  // The producer's own categorical verdict, or nothing.
+  const level: unknown = (robustness as { level?: unknown }).level
+  if (!isHedged(level)) return null
 
   return {
     level,
