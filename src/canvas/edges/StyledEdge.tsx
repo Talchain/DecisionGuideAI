@@ -58,6 +58,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate } from '../utils/fragileEdgeMatch'
 import { existenceCertaintyToLineStyle, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
+import { PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } from '../ui/truncation'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -1648,19 +1649,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               >
                 <AlertTriangle size={12} className="flex-shrink-0" />
                 {/* 10px via the canvas token so it sees the counter-scale;
-                    inline it rendered at 5.0px. */}
-                <span
-                  className={typography.edgeLabel}
-                  style={{
-                    fontWeight: 600,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Sensitive{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
+                    inline it rendered at 5.0px.
+
+                    ⭐ TWO SPANS, AND THE SPLIT IS THE FIX. This was ONE span
+                    carrying both the word and the percentage under
+                    `textOverflow: 'ellipsis'`, and the ellipsis cuts from the
+                    END — so the digits went before the word. The deployed build
+                    painted `Sensitive · 5…`: the reader is shown a magnitude,
+                    and it is the wrong one, on the product's own sensitivity
+                    signal. (That sighting recorded the CUT string only. The
+                    full `Sensitive · 49%` at :299 is a separate founder
+                    sighting, of the placement defect, on an unestablished edge
+                    — do not read the two as one reading.) The row
+                    is `nowrap` inside a container
+                    whose `maxWidth` is fixed at `LABEL_HALF_WIDTH * 2` while
+                    this text COUNTER-SCALES, so the pressure is real and grows
+                    the further the user zooms out.
+
+                    Now the word is the truncating half and the number is
+                    `PROTECTED_VALUE_STYLE`: under pressure "Sensitive" becomes
+                    "Sensi…" and `· 49%` survives intact. See
+                    `../ui/truncation.ts` for the rule and the gate. */}
+                <span className={typography.edgeLabel} style={{ fontWeight: 600, ...TRUNCATING_LABEL_STYLE }}>
+                  Sensitive
                 </span>
+                {fragileEdgeSwitchProb !== null && (
+                  <span
+                    data-testid="edge-fragile-tag-value"
+                    className={typography.edgeLabel}
+                    style={{ fontWeight: 600, ...PROTECTED_VALUE_STYLE }}
+                  >
+                    {` · ${Math.round(fragileEdgeSwitchProb * 100)}%`}
+                  </span>
+                )}
               </div>
             )}
           </div>

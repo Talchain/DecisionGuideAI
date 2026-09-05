@@ -147,7 +147,12 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
   it('PIN (badge): a marginal-only fragile edge badges "Sensitive" with NO percentage and the honest-absence title', () => {
     setFragileEdges([{ edge_id: 'e1', marginal_switch_probability: 0.9 }])
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
-    const badge = screen.getByText(/Sensitive/)
+    // The badge is the ROW, not the word. The label and the value are now
+    // separate spans (the value must not share an ellipsis with the label),
+    // so a text predicate matches the label span alone and reads a badge
+    // with its number stripped off. Binding by testid asserts the same
+    // thing about the whole badge, and cannot drift with the markup again.
+    const badge = screen.getByTestId('edge-fragile-tag')
     expect(badge.textContent).not.toContain('90%')
     expect(badge.textContent).not.toMatch(/·\s*\d+%/)
     const titled = badge.closest('[title]')
@@ -169,7 +174,12 @@ describe('StyledEdge — fragility number presence-branches on measured switch_p
   it('CONTROL (badge): a measured switch_probability still renders "Sensitive · NN%" and the quantified title', () => {
     setFragileEdges([{ edge_id: 'e1', switch_probability: 0.42, marginal_switch_probability: 0.9 }])
     render(<StyledEdge {...(defaultEdgeProps as any)} />)
-    const badge = screen.getByText(/Sensitive/)
+    // The badge is the ROW, not the word. The label and the value are now
+    // separate spans (the value must not share an ellipsis with the label),
+    // so a text predicate matches the label span alone and reads a badge
+    // with its number stripped off. Binding by testid asserts the same
+    // thing about the whole badge, and cannot drift with the markup again.
+    const badge = screen.getByTestId('edge-fragile-tag')
     expect(badge.textContent).toContain('42%')
     expect(badge.textContent).not.toContain('90%')
     const titled = badge.closest('[title]')

@@ -116,12 +116,30 @@ export const InlineField = memo(function InlineField({
     return (
       <div className="grid min-h-8 grid-cols-[56px_1fr_auto] items-center gap-2">
         <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
+        {/* ⭐ THIS READ `truncate`, AND THE FIELD IT TRUNCATES IS A VALUE.
+            `HeroSection` passes `hero.success.displayText`, which
+            `selectors/computeSuccessState.ts` builds with `formatWithUnit` — a
+            number and its unit — so `£2,500,000 ARR` ellipsised mid-magnitude.
+            Worse than the edge badge for recovery: there was no `title`, and
+            `role="textbox"` without `tabIndex` is not focusable, so the full
+            number had no hover, keyboard OR touch route. The editable branch
+            below uses a real `<input>`, which scrolls and is caret-recoverable
+            — but this branch is the one that ships: `readOnly` is
+            `!GOAL_SUCCESS_EDIT_CONNECTED`, and `mutationAuthority.ts` declares
+            `goalSuccessTarget: 'disabled'`, so `hasServerGraphAuthority` is
+            false and the truncating branch is unconditional today.
+
+            The remedy is the one `nodes/OptionNode.tsx` already ratified for a
+            value that will not fit: the value "keeps as many lines as it needs".
+            `min-h-8` is a FLOOR, so wrapping costs a taller row and never a
+            wrong magnitude. `break-words` bounds the one case wrapping cannot
+            reach — a single unbroken token wider than the column. */}
         <span
           id={inputId}
           role="textbox"
           aria-label={ariaLabel}
           aria-readonly="true"
-          className={`${typography.panelBody} min-w-0 truncate px-2 text-text-header ${value ? '' : 'text-text-light'}`}
+          className={`${typography.panelBody} min-w-0 break-words px-2 text-text-header ${value ? '' : 'text-text-light'}`}
         >
           {value || placeholder}
         </span>
