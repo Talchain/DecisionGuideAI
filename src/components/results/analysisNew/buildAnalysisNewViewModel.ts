@@ -488,7 +488,7 @@ function driverFinding(
         : undefined,
     groundedIn: setRelative
       ? 'factor sensitivity, ranked within this run'
-      : 'the producer influence score',
+      : "Olumi's structural influence score",
     // A defaulted confidence is a placeholder, not a measurement — say so
     // rather than rendering it as evidence.
     marker: d.isDefaultedConfidence ? 'not_assessed' : undefined,
@@ -496,7 +496,7 @@ function driverFinding(
     inspect: rows(
       row('Influence', pctOrNull(influence)),
       row('Rank', d.influenceRank != null ? String(d.influenceRank) : String(d.rank)),
-      row('Basis', d.displayProvenance === 'influence_score' ? 'producer influence score' : 'ranked within this run'),
+      row('Basis', d.displayProvenance === 'influence_score' ? "Olumi's structural influence score" : 'ranked within this run'),
       // Absence-safe: a defaulted or absent confidence prints nothing.
       row('Confidence', d.isDefaultedConfidence ? null : pctOrNull(d.confidence)),
       row('Attribution stability', d.attributionStability),
@@ -1064,7 +1064,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   if (inputs.isPreRun) return { groups: [], critiques: [], caveats: [] }
 
   const run = rows(
-    row('Run identity', inputs.responseHash),
+    row('Run reference', inputs.responseHash),
     row('Simulations', inputs.nSamples != null ? String(inputs.nSamples) : null),
     row('Seed', inputs.seedUsed != null ? String(inputs.seedUsed) : null),
     row('Analysis status', data.recommendation.analysisStatus),
@@ -1078,7 +1078,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   const coverage = rows(
     row('Result completeness', data.completeness.status),
     row(
-      'Fields the producer did not supply',
+      'Not included in this result',
       data.completeness.missing.length ? data.completeness.missing.join(', ') : null,
     ),
     row(

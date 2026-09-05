@@ -647,7 +647,7 @@ export const ANALYSIS_NEW_COPY = {
     basisRelativeExplain:
       'Each bar is scaled against the strongest factor in this run, so the bars rank the factors against each other. They are not shares of the outcome.',
     basisAbsoluteExplain:
-      "Each bar shows the producer's own structural influence score, scaled against the strongest factor in this run.",
+      "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
   },
 
   markers: {
