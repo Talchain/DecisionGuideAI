@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import ts from 'typescript'
 import { staleReasonFromFreshness, staleReasonFromTrustSemantic } from '../staleReason'
 
 describe('staleReasonFromFreshness', () => {
@@ -66,21 +67,88 @@ describe('staleReasonFromTrustSemantic — the one the dock actually calls', () 
   )
 
   /**
-   * ⚠ AND THE WIRING, because a correct function called by nobody is the
-   * defect this whole PR is about. If the dock is switched back to the
-   * freshness reader — which cannot see a local dirty edit — the panel goes
-   * back to disagreeing with its own footer, and every case above still
-   * passes.
+   * ⚠⚠ THE WIRING — AND THE TEXT VERSION OF THIS WAS DEFEATED THREE WAYS.
+   *
+   * It read `OutputsDock.tsx` as a STRING: `toContain('staleReasonFromTrustSemantic(')`
+   * plus `includes('staleReasonFromFreshness(') === false`. A reviewer landed
+   * all three of these past it, every one green, one of them fully shippable:
+   *
+   *   A  import { staleReasonFromFreshness as staleReasonFromTrustSemantic }
+   *      ← the alias leaves `staleReasonFromTrustSemantic(` at the call site,
+   *        and the import has a SPACE after the name rather than `(`, so BOTH
+   *        halves of the string check read clean. Identical signatures, so it
+   *        TYPECHECKS. ⚠ And the trust-semantic domain is
+   *        `changed`/`current`/`cannot_confirm` — never `'stale'` — so aliased,
+   *        the dock returns `'unconfirmed'` UNCONDITIONALLY and the panel can
+   *        never say the model changed again. The original defect, reborn,
+   *        with 238 files / 2,700 tests green under it.
+   *   B  comment the call out and hardcode `'unconfirmed'`
+   *   C  shadow it with a local function carrying the old `=== 'stale'` logic
+   *
+   * So this reads the SYNTAX rather than the characters, and each clause kills
+   * a named attack:
+   *
+   *   · the import's ORIGINAL export name, not the local alias   → kills A
+   *   · the identifier is actually CALLED, not merely imported   → kills B
+   *   · nothing local declares that name                         → kills C
+   *
+   * ⚠ WHAT IT STILL IS NOT: a behavioural test. It proves the dock is wired to
+   * the right function, not that the rendered panel says the right thing. The
+   * behavioural version needs the dock rendered with `useAnalysisTrust` mocked
+   * — ~10 `vi.mock` calls, per the existing dock specs — and that is the
+   * stronger artefact. Stated as a known gap rather than left implied.
    */
-  it('the dock reads the TRUST semantic, not the freshness one', () => {
-    const dock = fs.readFileSync(
-      path.resolve(__dirname, '../../../../canvas/components/OutputsDock.tsx'),
-      'utf8',
+  it('the dock is wired to the TRUST reader — by syntax, not by string match', () => {
+    const file = path.resolve(__dirname, '../../../../canvas/components/OutputsDock.tsx')
+    const sf = ts.createSourceFile(
+      file,
+      fs.readFileSync(file, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
     )
-    expect(dock).toContain('staleReasonFromTrustSemantic(')
+    const NAME = 'staleReasonFromTrustSemantic'
+
+    let importedOriginal: string | null = null
+    let localAlias: string | null = null
+    let called = false
+    let shadowed = false
+
+    const walk = (n: ts.Node): void => {
+      if (ts.isImportDeclaration(n) && /analysisNew\/staleReason/.test(n.moduleSpecifier.getText(sf))) {
+        const named = n.importClause?.namedBindings
+        if (named && ts.isNamedImports(named)) {
+          for (const el of named.elements) {
+            // `propertyName` is the ORIGINAL export; `name` is the local alias.
+            const original = (el.propertyName ?? el.name).getText(sf)
+            if (el.name.getText(sf) === NAME) {
+              importedOriginal = original
+              localAlias = el.name.getText(sf)
+            }
+          }
+        }
+      }
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === NAME) called = true
+      if ((ts.isFunctionDeclaration(n) || ts.isVariableDeclaration(n)) && n.name && n.name.getText(sf) === NAME) {
+        shadowed = true
+      }
+      ts.forEachChild(n, walk)
+    }
+    walk(sf)
+
+    // PRECONDITION: the import must exist at all, or every clause below is
+    // vacuously satisfied by a file that imports nothing.
+    expect(localAlias, 'the dock does not import the reader at all').toBe(NAME)
+
     expect(
-      dock.includes('staleReasonFromFreshness('),
-      'the dock must not read freshness — it cannot see a local dirty edit',
-    ).toBe(false)
+      importedOriginal,
+      'ATTACK A: the dock imports a DIFFERENT export under this name. Aliased ' +
+        'to the freshness reader it returns `unconfirmed` unconditionally, ' +
+        'because the trust domain never contains `stale` — so the panel can ' +
+        'never say the model changed.',
+    ).toBe(NAME)
+
+    expect(called, 'ATTACK B: imported but never called — the derivation does not run').toBe(true)
+    expect(shadowed, 'ATTACK C: a local declaration shadows the import').toBe(false)
   })
 })

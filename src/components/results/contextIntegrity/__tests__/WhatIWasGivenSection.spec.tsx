@@ -168,6 +168,63 @@ describe('the fixtures carry the case they are used to prove (anti-vacuity)', ()
  * while scenario B is current" — never to a value predicate another decision's
  * brief could also satisfy (CLAUDE.md trap 19).
  */
+/**
+ * ⚠ THE SUBTITLE'S SINGULAR ARM HAD ZERO COVERAGE, and a reviewer proved it:
+ * reverting the `n === 1` branch left **347 files / 5,721 tests green**, with a
+ * contrast control confirming this very spec is alive and aimed at this
+ * subtitle. Same shape as the blocker it shipped beside — a fix with no
+ * assertion behind it — and the second singular/plural miss of the night,
+ * introduced in the change that corrected the first one two files away.
+ */
+describe('the subtitle counts in English', () => {
+  /**
+   * ⚠ THE MANIFEST SHAPE IS DERIVED FROM THE TYPE, NOT GUESSED. A first draft
+   * passed `manifest: []` and the render threw on `.items` — the component
+   * reads `manifest.quantities` when `status === 'derived'`, and
+   * `notYetCount = absent + proseOnly`. Building it from the interface is what
+   * makes `total` mean what the subtitle claims it means.
+   */
+  const seedTally = (total: number): void => {
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
+      briefText: 'A brief.',
+      manifest: {
+        status: 'derived',
+        unavailableReason: null,
+        // absent = 0 and proseOnly = 0 → notYetCount = 0 → the ALL-PRESENT arm,
+        // which is the one carrying the singular bug.
+        quantities: { total, inModel: total, proseOnly: 0, absent: 0, truncated: false, items: [] },
+        declaredExclusions: { status: 'none', items: [] },
+        inferredFactors: { status: 'none', items: [] },
+        notTracked: [],
+      } as never,
+    })
+  }
+
+  const subtitle = (): string => {
+    render(<WhatIWasGivenSection />)
+    return screen.getByTestId('what-i-was-given-summary').textContent ?? ''
+  }
+
+  it('n = 1 reads in the singular, and never "All 1 figures"', () => {
+    seedTally(1)
+    const text = subtitle()
+    // PRECONDITION: the all-present arm must be the one rendering, or "not
+    // plural" holds because a different sentence is on screen entirely.
+    expect(text).toMatch(/in the model/i)
+    expect(text, 'the defect: "All 1 figures you mentioned are in the model"').not.toMatch(
+      /All 1 figures/i,
+    )
+  })
+
+  it('n > 1 still reads in the plural — the discriminating twin', () => {
+    // Without this, the singular arm could be satisfied by copy that never
+    // says "figures" at all, for any count.
+    seedTally(3)
+    expect(subtitle()).toMatch(/All 3 figures/i)
+  })
+})
+
 describe("identity gate — the receipt never speaks for a decision it isn't about", () => {
   it('THE P0: content recorded for another scenario is NOT rendered on this one', () => {
     // Scenario A's brief is in the store; scenario B (LIVE) is on screen.
