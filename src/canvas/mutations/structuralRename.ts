@@ -133,6 +133,12 @@ export type StructuralRenameStandDownReason =
   | 'external_mutation'
   /** The node is not on the canvas, so there is nothing to name on the wire. */
   | 'node_not_found'
+  /**
+   * The node is on the canvas but CEE is KNOWN not to hold it — a node created
+   * this session that no authoritative graph has ever carried. See
+   * {@link CaptureStructuralRenameInput.authoritativeNodeIds}.
+   */
+  | 'node_not_server_held'
   /** `label === expected_label`. The contract's own refinement refuses this. */
   | 'no_change'
   /** The node id or either label fails a bound the contract enforces at ingress. */
@@ -314,9 +320,36 @@ export type StructuralRenameTerminalStatus = Exclude<
 >
 
 /**
- * How many records to keep. The drain is SERIALISED (one gesture at a time), so
- * at most one record is ever `in_flight` and a plain "keep the newest N" cannot
- * evict a live attempt.
+ * How many records to keep.
+ *
+ * ⚠ THIS COMMENT USED TO CLAIM MORE THAN THE CODE GUARANTEES, and it is
+ * corrected rather than left to rot. It read: "The drain is SERIALISED (one
+ * gesture at a time), so at most one record is ever `in_flight` and a plain
+ * 'keep the newest N' cannot evict a live attempt." The serialisation lock is
+ * `drainingRef` in `useStructuralRenameEvents`, which is a `useRef` and
+ * therefore PER-INSTANCE — a remount mid-drain gives the new instance a fresh
+ * `false` and permits two concurrent loops. So "at most one `in_flight`" is
+ * stronger than the code delivers.
+ *
+ * What IS guaranteed, stated no more strongly than the code delivers:
+ * `beginStructuralRenameSend` moves one intent out of the queue and into the
+ * lifecycle inside a SINGLE functional `set()`, so no observer can see a gesture
+ * in neither, and each call appends exactly one record. The number of `in_flight`
+ * records is therefore bounded by the number of concurrently mounted drains, not
+ * by one — a count nowhere near 20, so the cap still cannot evict a live attempt.
+ * That, and not the false one-at-a-time invariant, is what the limit rests on.
+ *
+ * ⚠ AND IT IS DELIBERATELY NOT CLAIMED THAT TWO LOOPS CANNOT CLAIM THE SAME
+ * INTENT. `beginStructuralRenameSend` reads `queued[0]` OUTSIDE its `set()` and
+ * slices inside it, so a genuine remount race could hand two callers the same
+ * head while removing two entries. Unreachable in practice on the deployed
+ * single-drain mount, and out of scope for the lane that corrected this comment —
+ * recorded here rather than silently smoothed over, because the whole point of
+ * the correction is that this block should not assert what it has not checked.
+ *
+ * ⚠ THE CODE IS NOT RESTRUCTURED HERE. The defect was the CLAIM: an invariant
+ * written stronger than its mechanism is what lets a later change lean on a
+ * guarantee nobody is enforcing.
  */
 export const STRUCTURAL_RENAME_LIFECYCLE_LIMIT = 20
 
@@ -330,6 +363,58 @@ export interface CaptureStructuralRenameInput {
   readonly baseGraphHash: string | null
   /** `_externalMutationActive > 0` — a producer write, not a user gesture. */
   readonly externalMutationActive: boolean
+  /**
+   * ⭐⭐ THE NODE IDS CEE IS KNOWN TO HOLD — `lastAuthoritativeGraph.nodeIds`,
+   * or `null` when no authoritative graph has been seen this session.
+   *
+   * DERIVED FROM AN EXISTING AUTHORITY, NOT MINTED HERE. All four production
+   * writers of that field describe it in exactly these terms, and they were read
+   * rather than assumed: the cold load (`store.ts:6672`) — "the persisted graph
+   * IS CEE's view of this scenario, so everything in it is an element CEE has
+   * acknowledged"; `applyDraftResult.ts:288` — "a fresh draft IS an
+   * authoritative CEE graph"; `mergeAppliedGraph.ts:601` — "the receipt is proof
+   * that CEE has seen exactly these elements"; `mergeServerGraph.ts:445` — the
+   * same sentence as the cold load. The reconciler ALREADY uses this record to
+   * answer this class of question ("only removes elements CEE has previously
+   * acknowledged"), so this is a second reader of one authority rather than a
+   * second authority.
+   *
+   * ⚠ THE FIELD-NAME GREP FINDS ONLY ONE OF THOSE FOUR. The honest manifest
+   * comes from the SETTER (`store.ts:5552`, `set({ lastAuthoritativeGraph })`)
+   * plus the one direct assignment on the cold-load path (`store.ts:6680`) —
+   * subscribe to the field, do not grep for it.
+   *
+   * ⭐⭐ BUT "SECOND READER, NOT SECOND AUTHORITY" IS NOT WHAT MAKES THIS SAFE,
+   * AND THE COMMENT USED TO STOP THERE. The two readers need this record tight
+   * in OPPOSITE directions:
+   *
+   *   · THE RECONCILER reads MEMBERSHIP to AUTHORISE A DELETION
+   *     (`mergeAppliedGraph.ts:483`, `ackNodeIds.has(n.id) && !wire.has(n.id)`).
+   *     An UNDER-BROAD record simply removes less. FAIL-SAFE — which is why it
+   *     can afford `authoritative?.nodeIds ?? []`.
+   *   · THIS READER reads NON-MEMBERSHIP to SUPPRESS A SEND. An under-broad
+   *     record silently drops a legitimate rename. HARMED — which is exactly why
+   *     the same `?? []` would be a data-loss defect here.
+   *
+   * So this is THE FIRST CONSUMER THAT REQUIRES COMPLETENESS, and the earlier
+   * argument cannot carry it: a record that has always been good enough to
+   * authorise deletions has never once been asked to be exhaustive.
+   *
+   * ⭐ WHAT ACTUALLY CARRIES IT IS WIRE-GRAPH COMPLETENESS, verified at the
+   * bytes of all four writers rather than inferred: every one replaces the whole
+   * record with the FULL graph it just observed, and not one is incremental —
+   * `mergeAppliedGraph.ts:606` takes every key of the receipt graph,
+   * `mergeServerGraph.ts:461` every key of the server graph, and
+   * `applyDraftResult.ts:293` / `store.ts:6680` run `identityFromCanvasGraph`
+   * over the entire applied draft and the entire loaded scenario. CEE attaches
+   * the full committed graph, so a record that EXISTS is complete for the graph
+   * it saw. THAT is the property this stand-down rests on. If a writer ever
+   * becomes a delta, this reader breaks and the reconciler does not.
+   *
+   * ⚠ `null` IS "NO EVIDENCE", NEVER "NOT HELD", and the asymmetry is the whole
+   * safety property — see {@link captureStructuralRename}.
+   */
+  readonly authoritativeNodeIds: readonly string[] | null
   /** Injected so the capture is deterministic under test. */
   readonly makeId: () => string
 }
@@ -384,6 +469,119 @@ export function captureStructuralRename(
   // satisfy. Two nodes may legitimately share a label; only one has this id.
   const node = input.nodesBefore.find((n) => n.id === input.nodeId)
   if (!node) return { ok: false, reason: 'node_not_found' }
+
+  // ⭐⭐ A RENAME OF A NODE CEE HAS NEVER SEEN IS NOT AN UNCERTAINTY — IT IS A
+  // CERTAINTY, AND SENDING IT REPORTED THE FORMER.
+  //
+  // `HeroSection.tsx:85` and `YourDecisionSection.tsx:69` `addNode` and then
+  // immediately `updateNodeLabel(created.id, …)` — that is how naming a new
+  // goal, option or risk works in the pre-analysis panel, and
+  // `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"` makes it the DEPLOYED posture. CEE
+  // reloads its OWN persisted graph, and TODAY no UI code path tells it about a
+  // node this client created, so the committed bytes cannot carry one.
+  // `readStructuralRenameReceipt` therefore returned
+  // `unproven` — CORRECTLY, an absent node is a different event and that
+  // distinction stays — but `unproven` sets `notice = 'unconfirmed_server'`,
+  // which put "I couldn't confirm that new name reached the saved model" into
+  // the conversation on an ordinary happy path, and burnt a turn doing it.
+  //
+  // ⚠⚠ THAT PREMISE IS CONTINGENT, IT HAS AN OWNER, AND IT EXPIRES — AND AN
+  // EARLIER DRAFT OF THIS COMMENT ERASED THE TRIPWIRE BY GETTING IT WRONG. It
+  // claimed `structural_add` "does not exist in this repo at all (swept `rg -a`:
+  // zero occurrences, against a contrast control of `structural_rename` in nine
+  // files)". BOTH ARMS OF THAT SWEEP WERE FALSE. It is corrected here rather
+  // than deleted, because the truth is the thing a later change needs to hit.
+  //
+  // Re-measured with `rg -a` at `origin/staging` @ `ee76d07a`, 1 Sep 2026, with
+  // a fabricated-symbol contrast control in the SAME run:
+  //
+  //     structural_add                      6 occurrences in  1 file
+  //                                           (3 token-exact; the other 3 are
+  //                                            `structural_add_edge`)
+  //     structural_rename                  45 occurrences in 16 files
+  //     structural_zzz_fabricated_control   0 occurrences in  0 files
+  //
+  // `structural_add` IS a live `V5_EVENT_KINDS` member, and CEE DECLARES IT
+  // 'mutating' AT STAGING `4f0bd774` — A WRITER EXISTS
+  // (`systemEventParity.test.ts:265`).
+  //
+  // ⛔⛔ THE TRIPWIRE HAS FIRED. THE UI EMITTER HAS SHIPPED. Re-derived at
+  // `origin/staging` = `e8f7ea67` (the DEPLOYED build), 5 Sep 2026:
+  // `structural_add` is NO LONGER deferred — `systemEventParity.test.ts`'s
+  // `knownDeferred` block now reads *"`structural_add` IS NOW WIRED TOO — the
+  // durable node writer"*, and the emitter is `useStructuralAddEvents.ts:132`.
+  // The paragraph below used to say this guard's correctness "depends on that
+  // lane not having shipped". It has shipped. That sentence is kept, corrected
+  // rather than deleted, because a guard whose stated expiry has passed
+  // unnoticed is worse than one with no expiry at all — the note reads as
+  // current and nobody re-checks it.
+  //
+  // ⭐⭐ BUT THE PREDICTED WINDOW IS NARROWER THAN THE PREDICTION, AND THE
+  // DIFFERENCE DECIDES WHETHER THIS IS A LIVE DEFECT. The forecast was that a
+  // client-created node would be "ABSENT from `lastAuthoritativeGraph` until
+  // the NEXT authoritative graph arrives". On the SUCCESS arm that window never
+  // opens: the receipt carries `draft_graph` post-commit only, `useConversation
+  // .ts:4861` passes it to `reconcileAppliedGraph`, and `mergeAppliedGraph
+  // .ts:606` calls `setLastAuthoritativeGraph` EVEN ON A NO-OP. So a proven add
+  // refreshes the record on its OWN turn and the new id is in it.
+  //
+  // ⚠ THE RESIDUAL WINDOW IS THE `unproven` AND 409 ARMS, where no `draft_graph`
+  // arrives, the record is NOT refreshed, and the node is deliberately KEPT
+  // (`readStructuralAddReceipt`: removing on a guess is data loss). There, and
+  // only there, this stand-down can fire on a node that MAY be server-held —
+  // suppressing a legitimate rename, the #1108 class.
+  //
+  // ⛔ THE FIX IS NOT AVAILABLE FROM THIS MODULE, AND THAT IS THE FINDING.
+  // Closing it needs to know WHICH adds were emitted since the last
+  // authoritative graph AND HOW THEY RESOLVED — conversation-layer state, not
+  // Canvas state. Naming the two questions apart is the shape of the remedy
+  // (CLAUDE.md trap 21): `lastAuthoritativeGraph.nodeIds` answers *"server-held
+  // AS OF the last authoritative graph"*; the stand-down needs *"provably not
+  // server-held NOW"*, and post-emitter those are different questions wearing
+  // one name. Routed rather than reached for: expanding this lane across the
+  // boundary is the "while we're here" work the scope rule bans.
+  //
+  // THE TRIPWIRE ITSELF STAYS ARMED AND IS STILL THE RIGHT SHAPE: removing a
+  // verb from `knownDeferred` REDs `systemEventParity.test.ts`'s emission-count
+  // lock, and this block is the reason such a red must not be waved through
+  // with a count bump. It fired exactly as designed; what failed is that the
+  // red was cleared by the lane that shipped the emitter, which had no reason
+  // to read a comment in a rename guard.
+  //
+  // The cure belongs HERE rather than at the receipt: with nothing to send,
+  // there is no send to be unsure about. Suppressing the notice downstream would
+  // leave the turn burnt and the queue churning; calling the receipt `refuted`
+  // would be a claim the bytes do not support AND would arm the revert against
+  // the user's own typing.
+  //
+  // ⚠⚠ POSITIVE EVIDENCE ONLY, AND THE ASYMMETRY IS DELIBERATE. `null` means no
+  // authoritative graph has been seen — an absence of evidence, not evidence of
+  // absence — and it must NOT stand down: that state is exactly where #1108's
+  // deferral disclosure lives, and suppressing it there would re-open the
+  // data-loss P0 that lane closed. An EMPTY record is a different thing: a
+  // server graph WAS read and carried nothing, which is positive evidence. The
+  // two cannot be collapsed by a `?? []`, and `store.renameStandDownForUnheldNode
+  // .spec.ts` reds if they are.
+  //
+  // ⚠ AND THE ID-SHAPE SHORTCUT WAS REJECTED AT THE BYTES: `createNodeId`
+  // returns `String(nextNodeId)`, a bare counter with nothing marking a client
+  // id apart from a server one. `reseedIds` advances that counter past the
+  // maximum loaded id WITHOUT rewriting any id — which is both what keeps this
+  // record valid across a restore and what makes a freshly minted id provably
+  // unable to collide with a server-held one.
+  // ⚠ `Array.isArray` RATHER THAN `!== null`, and it is not defensive noise. The
+  // stand-down must fire only on a RECORD WE HOLD; anything that is not an array
+  // is not a record, so the absent/unknown cases all fall through to the
+  // existing behaviour instead of throwing. An earlier `!== null` form let an
+  // `undefined` past the guard and then threw on `.includes` — and this runs
+  // inside `updateNodeLabel`, so that throw would have taken the user's LOCAL
+  // rename down with it: a far worse harm than the notice this lane removes.
+  // TypeScript still requires the field, so a real call site cannot omit it by
+  // accident; this only decides which way a malformed one fails.
+  const authoritative = input.authoritativeNodeIds
+  if (Array.isArray(authoritative) && !authoritative.includes(input.nodeId)) {
+    return { ok: false, reason: 'node_not_server_held' }
+  }
 
   const data = (node.data ?? {}) as Record<string, unknown>
   const rawPrevious = data.label
