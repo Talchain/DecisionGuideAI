@@ -61,6 +61,26 @@ function row(id: string, group: ModelGroupId, over: Partial<ModelRow> = {}): Mod
 const classes = (el: Element) => el.className.toString().split(/\s+/).filter(Boolean)
 const hasClass = (el: Element, name: string) => classes(el).includes(name)
 
+/**
+ * Split a `grid-cols-[…]` class into its tracks on TOP-LEVEL `_` only, so
+ * `minmax(6rem,1fr)` stays one track. One parser, used by every track
+ * assertion — the defect it replaces was two assertions about one class string
+ * where only one of them actually looked at a track.
+ */
+function parseTracks(gridClass: string): string[] {
+  const body = gridClass.slice('grid-cols-['.length, -1)
+  const out: string[] = []
+  let depth = 0
+  let cur = ''
+  for (const ch of body) {
+    if (ch === '(') depth++
+    else if (ch === ')') depth--
+    if (ch === '_' && depth === 0) { out.push(cur); cur = '' } else cur += ch
+  }
+  out.push(cur)
+  return out
+}
+
 /** The `<ul>` for a group, by identity rather than by position. */
 const list = (group: ModelGroupId) => screen.getByTestId(`model-outline-v2-${group}-rows`)
 
@@ -128,8 +148,23 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
      * this test exists to keep out.
      */
     const gridClass = classes(ul).find(c => /^grid-cols-\[/.test(c))
-    const identityTrack = gridClass?.match(/minmax\(([^,]+),\s*1fr\)/)?.[1]
-    expect(identityTrack, 'the identity track must be minmax(<fixed>, 1fr)').toBeDefined()
+    expect(gridClass, 'the list must declare its own tracks').toBeDefined()
+
+    /**
+     * ⚠ PARSED AND BOUND BY POSITION, BECAUSE THE FIRST CUT WAS NEITHER. It
+     * regex-searched the WHOLE class string for `minmax(<x>,1fr)`, so moving the
+     * floor onto a different track left the identity track a bare `auto` and the
+     * assertion still green — a guard about track 2 that never looked at track 2.
+     * The parser was already three lines below, used for the value track only.
+     */
+    const trackList = parseTracks(gridClass!)
+    // PRECONDITION: four tracks, or every index below names a different column.
+    expect(trackList.length, `expected four tracks, parsed ${JSON.stringify(trackList)}`).toBe(4)
+    const identityTrack = /^minmax\(([^,]+),\s*1fr\)$/.exec(trackList[1]!)?.[1]
+    expect(
+      identityTrack,
+      `track 2 must be the identity track, minmax(<fixed>, 1fr) — parsed "${trackList[1]}"`,
+    ).toBeDefined()
     /**
      * ⚠⚠ `0` WAS THE FIRST ALTERNATIVE HERE, AND `0` IS THE DEFECT.
      *
@@ -181,31 +216,78 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
      * `minmax(0,…)`, `minmax(0px,…)` and every other zero spelling fail it,
      * which is the same arms-race lesson as the floor parse above.
      */
-    // Split the bracket body on TOP-LEVEL `_` only, so `minmax(6rem,1fr)` stays
-    // one track. The value column is track 3 of 4.
-    const body = gridClass!.slice('grid-cols-['.length, -1)
-    const trackList: string[] = []
-    let depth = 0
-    let cur = ''
-    for (const ch of body) {
-      if (ch === '(') depth++
-      else if (ch === ')') depth--
-      if (ch === '_' && depth === 0) { trackList.push(cur); cur = '' } else cur += ch
-    }
-    trackList.push(cur)
-    // PRECONDITION: four tracks, or "track 3" names something else entirely and
-    // the assertion below is about the wrong column.
-    expect(trackList.length, `expected four tracks, parsed ${JSON.stringify(trackList)}`).toBe(4)
-    const valueTrack = trackList[2]
+    /**
+     * ⚠⚠ PARSED, NOT MATCHED — AND THE FIRST CUT OF THIS LINE WAS A REGEX
+     * WRITTEN DIRECTLY BENEATH A COMMENT DECLARING THAT ARMS RACE OVER.
+     *
+     * It was `.not.toMatch(/^minmax\(\s*0(?:\.0+)?(?:px|rem|em|ch)?\s*,/)`, and
+     * review defeated it with `minmax(0%,auto)`, `minmax(0vw,auto)` and
+     * `minmax(00px,auto)` — the last of which the comment above names BY NAME as
+     * a spelling that had already beaten this file once. The floor assertion two
+     * blocks up had been fixed by parsing for exactly this reason; its neighbour
+     * was written as a match anyway.
+     *
+     * The property: the value track must keep an AUTOMATIC minimum. `auto`,
+     * `min-content` and `max-content` do; any zero-valued length or percentage
+     * does not, in every unit and every spelling, because `parseFloat` reads
+     * them all as 0 and reads a keyword as NaN.
+     */
+    const valueTrack = trackList[2]!
+    const valueMin = /^minmax\(([^,]+),/.exec(valueTrack)?.[1]?.trim()
+    const removesAutomaticMinimum = valueMin !== undefined && Number.parseFloat(valueMin) === 0
     expect(
-      valueTrack,
-      `the value track must keep its automatic minimum — "${valueTrack}" removes it, and a value with no floor is crushed under a long figure`,
-    ).not.toMatch(/^minmax\(\s*0(?:\.0+)?(?:px|rem|em|ch)?\s*,/)
+      removesAutomaticMinimum,
+      `the value track must keep its automatic minimum — "${valueTrack}" removes it (min sizing function "${valueMin}" resolves to zero), and a value with no floor is crushed under a long figure`,
+    ).toBe(false)
 
     // No row may declare tracks of its own — that is the defect, restated.
     for (const r of rowsIn(ul)) {
       expect(classes(r).some(c => /^grid-cols-\[/.test(c))).toBe(false)
     }
+  })
+
+  /**
+   * ⭐⭐ THE LOAD-BEARING NUMBER, WHICH NOTHING GUARDED — AND IT IS A PAIR.
+   *
+   * The fix works because the identity TRACK's floor and the label BUTTON's
+   * `min-w-[…]` are the same length. They live in two files and were two
+   * hand-maintained numbers with nothing asserting they agree, which is this
+   * estate's dominant defect class.
+   *
+   * Review measured what that costs, in a browser rather than by inspection:
+   * dropping the track floor to `1px` left 60/60 GREEN and readmitted **95px**
+   * of the 95.7px defect; raising the button to `9rem` left 60/60 GREEN and
+   * readmitted 48px. Either number could move alone, and every check agreed.
+   *
+   * So this derives BOTH from the rendered DOM — the track from the list's own
+   * class, the floor from the button the list actually rendered — and asserts
+   * they are the same length. Neither can drift without the other.
+   */
+  it('⭐ the track floor and the label button’s minimum are ONE length, derived from both', () => {
+    render(<ModelOutline rows={FIXTURE} tier="plain" />)
+    const ul = list('factors')
+
+    const trackFloor = /^minmax\(([^,]+),\s*1fr\)$/.exec(
+      parseTracks(classes(ul).find(c => /^grid-cols-\[/.test(c))!)[1]!,
+    )?.[1]
+    expect(trackFloor, 'the identity track must carry a floor to compare').toBeDefined()
+
+    // The button the list really rendered, not a fixture's idea of it.
+    const labelButton = ul.querySelector('[data-testid$="-label"]')
+    expect(labelButton, 'the row must render an identity control to compare against').not.toBeNull()
+    const buttonFloor = classes(labelButton!)
+      .map(c => /^min-w-\[([^\]]+)\]$/.exec(c)?.[1])
+      .find(Boolean)
+    expect(
+      buttonFloor,
+      `the label control must declare its own minimum — classes were ${JSON.stringify(classes(labelButton!))}`,
+    ).toBeDefined()
+
+    expect(
+      buttonFloor,
+      `the identity track's floor (${trackFloor}) and the label control's minimum (${buttonFloor}) are ONE decision in two files. ` +
+        'Review measured that moving either one alone readmits the overlap while every check stays green.',
+    ).toBe(trackFloor)
   })
 
   it('every row adopts those tracks by subgrid, and spans all of them', () => {
