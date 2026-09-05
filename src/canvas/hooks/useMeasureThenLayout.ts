@@ -47,6 +47,48 @@ export function useMeasureThenLayout(): void {
   const nodesInitialized = useNodesInitialized()
   const nodeLookup = useReactFlowStore((s) => s.nodeLookup)
 
+  /**
+   * ⭐ THE TRIGGER FOR THE TWO CORRECTIONS BELOW. WITHOUT IT THEY ARE DEAD CODE.
+   *
+   * React Flow MUTATES `nodeLookup` IN PLACE as cards measure — it does not
+   * replace the Map. So `useReactFlowStore(s => s.nodeLookup)` returns the SAME
+   * reference before and after a card reaches its final height, React never
+   * re-renders on that account, this effect never re-runs, and neither
+   * correction below ever gets the chance to observe the growth. The layout
+   * committed against the cards' transient first-paint heights is then
+   * TERMINAL, which is precisely the shipped overlap.
+   *
+   * Measured in real Chromium at `d4ff3683`, seeding the `pricing-model`
+   * starter at 1440x900 (`e2e/geometry/overlapHeightTimeline.measure.ts`):
+   *   t=688ms  layoutVersion 0  cards 119/139/154/125/110 px
+   *   t=1512ms layoutVersion 1  row pitches [183,230,218,137,155]
+   *                             cards ALREADY 253/300/251/269/244 px
+   * A 137 px pitch under a 161 px card overlaps by 24 px, and in 5 of 6 runs
+   * nothing corrected it. The discriminating experiment
+   * (`e2e/geometry/overlapTriggerProbe.measure.ts`) nudged ONLY the identity of
+   * the store's `nodes` array — no geometry, position or content touched — and
+   * the graph corrected itself from 15 overlapping pairs at layoutVersion 1 to
+   * ZERO at layoutVersion 3. The logic was never wrong; it was never woken.
+   *
+   * ⚠ A DERIVED SIGNATURE, NOT A HAND-MAINTAINED LIST (CLAUDE.md trap 12): it
+   * is computed from whatever `nodeLookup` currently holds, so a new node type
+   * or a renamed field cannot silently drop out of it.
+   *
+   * ⚠ AND IT MUST BE STABLE WHEN NOTHING CHANGED. A value that differs on every
+   * call (a counter, a fresh object, `Date.now()`) would also "fix" the failing
+   * assertion while re-running this effect on every React Flow emission —
+   * re-laying out the model under a reader, which the hook's own doctrine calls
+   * a worse defect than the overlap. Both directions are pinned by
+   * `useMeasureThenLayout.heightSubscription.spec.tsx`.
+   */
+  const measuredHeightSignature = useReactFlowStore((s) => {
+    let signature = ''
+    for (const [id, node] of s.nodeLookup) {
+      signature += `${id}:${node.measured?.height ?? 0};`
+    }
+    return signature
+  })
+
   // Deadline (ms since epoch) for the fallback timer; survives effect re-runs.
   const fallbackDeadlineRef = useRef<number | null>(null)
 
@@ -217,6 +259,9 @@ export function useMeasureThenLayout(): void {
     layoutRequestId,
     nodesInitialized,
     nodeLookup,
+    // The dep that actually changes when a card's measured height changes;
+    // `nodeLookup` alone does not, because React Flow mutates it in place.
+    measuredHeightSignature,
     storeNodes,
     applyLayout,
   ])
