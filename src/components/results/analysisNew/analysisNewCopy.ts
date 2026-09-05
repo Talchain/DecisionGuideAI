@@ -20,6 +20,68 @@ import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
  * sentence — blank, a bare node id, or one carrying a banned glossary term.
  * `safeInterpolatedLabel` is the shared guard; this is what it falls back to.
  */
+/**
+ * The estate's one list joiner. `Intl.ListFormat` is already this repo's answer
+ * for prose lists (`OptionPreview.tsx:439`); reusing it means the en-GB comma
+ * rules have one owner rather than two, and it is correct at every arity —
+ * which a `.join(', ')` is not, as the partial-result ribbon proved on a
+ * deployed build.
+ */
+type ConjunctionListFormat = {
+  format: (items: readonly string[]) => string
+}
+
+/**
+ * ⚠ TYPED LOCALLY, AND NOT BECAUSE `Intl.ListFormat` IS EXOTIC. This repo's
+ * `lib` does not declare it, so the ambient `Intl` type has no `ListFormat` —
+ * the estate's other call site (`OptionPreview.tsx:439`) reaches for it anyway
+ * and carries the resulting error as BASELINED DEBT. Adding a third instance of
+ * that debt to close a defect would be trading one silent wrong for another,
+ * so the capability is declared once, here, with the reason attached.
+ *
+ * The runtime has had it since Node 14 / every browser we support; the gap is
+ * purely in the compiler's view of the platform.
+ */
+/**
+ * ⚠ BUILT LAZILY, NOT AT MODULE SCOPE. Constructing it on import means an
+ * environment without `Intl.ListFormat` throws during IMPORT — which no
+ * `SectionErrorBoundary` can catch, so the whole chunk goes rather than one
+ * section. The estate's other call site builds it at render, which is
+ * catchable. Support is universal in practice; the asymmetry was still worth
+ * removing, and review named it.
+ */
+let conjunctionList: ConjunctionListFormat | null = null
+function getConjunctionList(): ConjunctionListFormat {
+  conjunctionList ??= new (
+    Intl as unknown as {
+      ListFormat: new (
+        locale: string,
+        options: { style: 'long'; type: 'conjunction' },
+      ) => ConjunctionListFormat
+    }
+  ).ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+  return conjunctionList
+}
+
+/**
+ * The estate's one prose-list joiner: `A`, `A and B`, `A, B and C`.
+ * Exported so a second consumer reuses it rather than minting a second parser
+ * for the en-GB comma rules — the drift this panel has already paid for once.
+ */
+export function formatConjunctionList(items: readonly string[]): string {
+  return getConjunctionList().format(items)
+}
+
+const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList().format(items) }
+
+/**
+ * The coverage warning with no names in it. Held as a const because
+ * `provisionalNaming` falls back to it: the guarantee "an empty list never
+ * emits a sentence fragment" then belongs to the STRING, not to its one
+ * call site, and survives a second caller.
+ */
+const PROVISIONAL_UNNAMED = 'This analysis is partial — some results are missing.'
+
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
 export const ANALYSIS_NEW_COPY = {
@@ -73,6 +135,30 @@ export const ANALYSIS_NEW_COPY = {
      * mean different things by it.
      */
     checks: 'What we checked',
+  },
+
+  /**
+   * ⭐ WHAT IS BEHIND EACH COLLAPSED DETAIL ROW.
+   *
+   * The design pack draws a subtitle on every one of its three collapsed rows,
+   * and these are its words. A title plus a count is a container name and a
+   * number; the subtitle is the part that tells a reader whether the row is
+   * worth a click.
+   *
+   * ⚠ FURNITURE, ASSERTING NOTHING. Each says what KIND of thing is inside, and
+   * stays true of a row that turns out to be empty — which these rows can be.
+   * "The findings this run leads with" would be a claim, and false on a run that
+   * produced none; "what this run could not settle" is a description of the
+   * container and holds either way.
+   *
+   * Only the three DETAIL rows get one. They sit together at the foot of the
+   * panel as the drawer a reader opens for method and receipts; the sections
+   * above are content, not a drawer, and a subtitle there would be decoration.
+   */
+  sectionSubtitles: {
+    drivers: 'What moves the outcome, and through what',
+    uncertainty: 'What this run could not settle',
+    deeper: 'Method, provenance and receipts',
   },
 
   /**
@@ -368,6 +454,25 @@ export const ANALYSIS_NEW_COPY = {
     lowers: 'Lowers the goal',
     raises: 'Raises the goal',
     /**
+     * ⚠⚠ THE SCALE, AND IT IS DELIBERATELY NOT A PERCENTAGE.
+     *
+     * The bars are scaled to the STRONGEST DRIVER IN THIS RUN
+     * (`buildAnalysisNewViewModel.ts:558/565`), never to a sum and never to 1.0
+     * — the builder's own comment states why: scaling to a sum would render
+     * each bar as a SHARE OF THE OUTCOME, "a claim neither basis licenses".
+     *
+     * So an axis reading 0%–100% would be exactly the unlicensed claim, dressed
+     * as a courtesy to the reader. What the outer edge actually means is "the
+     * strongest driver this run found", and what the centre means is "no effect
+     * on the goal". Naming those two points is the whole scale, and it is the
+     * only scale the data supports.
+     *
+     * Witnessed by Paul on deployed `a9c2e050`: the chart gave direction with no
+     * reference point, so a bar's position and length were unreadable.
+     */
+    axisCentre: 'no effect',
+    axisEdge: 'strongest this run',
+    /**
      * ⚠ NOT "no direction" AND NOT SILENCE. `mixed` and `unknown` are results:
      * the producer measured the factor and declined to assert one direction.
      * "Direction not established" says that; "no direction" would report an
@@ -647,7 +752,7 @@ export const ANALYSIS_NEW_COPY = {
     basisRelativeExplain:
       'Each bar is scaled against the strongest factor in this run, so the bars rank the factors against each other. They are not shares of the outcome.',
     basisAbsoluteExplain:
-      "Each bar shows the producer's own structural influence score, scaled against the strongest factor in this run.",
+      "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
   },
 
   markers: {
@@ -730,7 +835,7 @@ export const ANALYSIS_NEW_COPY = {
      * levels: naming them apart is what stops a later reader folding them into
      * one and making the badge speak for the run (CLAUDE.md trap 21).
      */
-    provisional: 'This analysis is partial — some results are missing.',
+    provisional: PROVISIONAL_UNNAMED,
     /**
      * ⭐⭐ THE SAME WARNING, SAYING WHICH RESULTS.
      *
@@ -748,7 +853,9 @@ export const ANALYSIS_NEW_COPY = {
      * if nothing survives the mapping the generic sentence above stands.
      */
     provisionalNaming: (missing: readonly string[]) =>
-      `This analysis is partial — ${missing.join(', ')} did not come back.`,
+      missing.length === 0
+        ? PROVISIONAL_UNNAMED
+        : `This analysis is partial — ${MISSING_LIST.format(missing as string[])} did not come back.`,
     /**
      * Field names as THIS surface says them. Furniture: naming our own fields,
      * never a statement about the run. Keys are the producer's own vocabulary.
@@ -766,8 +873,18 @@ export const ANALYSIS_NEW_COPY = {
        * producer's own words — "zero independent information". Naming it as a
        * result that "did not come back" would warn a reader about the absence of
        * something withdrawn deliberately, on every run, and imply they are
-       * missing a measurement that never existed. `deriveResultCompleteness`
-       * never adds it either; the unknown-key drop handles it silently.
+       * missing a measurement that never existed.
+       *
+       * ⚠⚠ THIS COMMENT USED TO END "`deriveResultCompleteness` never adds it
+       * either; the unknown-key drop handles it silently." THE SECOND CLAUSE IS
+       * RIGHT AND THE FIRST IS FALSE — corrected at the bytes, 5 Sep 2026.
+       * `useResultCompleteness.ts:224` DOES `missing.add('recommendation_stability')`,
+       * always paired with `robustness_level` in the same branch. So the
+       * unknown-key drop is the ONLY thing keeping this key off screen, on every
+       * run where robustness is unavailable — load-bearing, not a safety net for
+       * a case that cannot arise. Two consumers depend on it: `buildStatus`'s
+       * `missingResults`, and the "Not included in this result" row in
+       * `buildDeeper` (pinned by `missingResultsNamedInWords.spec.tsx`).
        */
       decision_review: 'the decision review',
       top_drivers: 'the drivers',

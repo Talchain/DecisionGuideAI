@@ -214,7 +214,7 @@ describe('OutputsDock DOM', () => {
       // than the list being loosened: an exact, ordered list is what catches a
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
-      'Analysis (New)',
+      'Reasoning',
       'Model',
     ])
   })
@@ -1209,7 +1209,7 @@ describe('I.2a: Secondary action button interaction', () => {
       // than the list being loosened: an exact, ordered list is what catches a
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
-      'Analysis (New)',
+      'Reasoning',
       'Model',
     ])
     // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and

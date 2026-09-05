@@ -40,7 +40,17 @@ import {
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
-import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
+import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
+import {
+  ATTENTION_IS_SEVERE,
+  UNWRITTEN_QUESTION_TITLE,
+  labelIsTypeDefault,
+  ATTENTION_LABEL,
+  ATTENTION_MARK,
+  KIND_GLYPH,
+  KIND_LABEL,
+  deferralLabel,
+} from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 
 export interface ModelRowViewProps {
@@ -152,8 +162,35 @@ export interface ModelRowViewProps {
  * The leaf truncates ONLY when the value may shrink. A bare value ("35 %")
  * must never be cut — that is the defect that broke a number from its unit.
  */
-function ValueLeaf({ display, mayShrink }: { display: string | null; mayShrink: boolean }) {
-  return <span className={mayShrink ? 'truncate min-w-0' : undefined}>{display ?? ''}</span>
+function ValueLeaf({
+  display,
+  mayShrink,
+  editable = false,
+}: {
+  display: string | null
+  mayShrink: boolean
+  /**
+   * ⭐ THE EDIT AFFORDANCE LIVES HERE, NOT ON THE WRAPPING `<button>`.
+   * Witnessed on deployed `a9c2e050`: `underline decoration-dotted` sat on the
+   * button, `text-decoration` propagates to every descendant, and so the
+   * secondary "Olumi: Low (0)" hint beside the value was underlined too —
+   * promising a click that does nothing to it, on a row where nothing else is a
+   * link. The mark belongs on the one thing the click edits.
+   */
+  editable?: boolean
+}) {
+  return (
+    <span
+      className={[
+        mayShrink ? 'truncate min-w-0' : '',
+        editable ? 'underline decoration-dotted' : '',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined}
+    >
+      {display ?? ''}
+    </span>
+  )
 }
 
 /**
@@ -318,13 +355,114 @@ export function ModelRowView({
            node you already know. Below that the row should give up something
            else — see the estimate hint below, which is the secondary text that
            can afford to go. */
-        className={`${typography.panelBody} text-text-body text-left truncate min-w-[6rem] flex-1`}
+        /* ⚠ THE FULL LABEL ON `title`. The identity column truncates, and
+           before this the truncated remainder was unreachable by any VISUAL
+           means — no hover, no tooltip, nothing. Witnessed on the deployed
+           build: three relationship rows all read "Tech Lead Hired..." with no
+           way to tell them apart by eye. This does not FIX that (a tooltip is
+           not an answer to an unreadable row, and it is unreachable by touch
+           and keyboard) — it stops the remainder being lost outright while the
+           column itself is dealt with.
+
+           ⚠ A CORRECTION TO THIS COMMENT'S OWN FIRST DRAFT, which said
+           "unreachable by ANY means". THAT SUPERLATIVE WAS FALSE, and the
+           domain it overstated is exactly the one the sentence above already
+           narrows. The full label is this button's own TEXT CONTENT, and this
+           button carries no `aria-label` ATTRIBUTE — every `aria-label` inside
+           the element is comment prose, this sentence included — so the
+           UNTRUNCATED label has always been its accessible name. `truncate` is
+           `overflow:hidden` + `text-overflow:ellipsis`: presentational only,
+           with no effect on the accessibility tree. The contrast control for
+           that absence is in this same file and needs no count to stay true —
+           sibling controls DO carry the attribute, and quote the label in full
+           (`Confirm … is correct`, `New value for …`, `Change …`), so a sweep
+           that found nothing here is discriminating rather than blind. For a
+           screen-reader user the remainder was never lost at all; the defect
+           is, and always was, a VISUAL one.
+
+           ⚠ AND THAT STILL HOLDS UNDER THE ENDPOINT SPLIT BELOW, which landed
+           on this branch after this correction was written — checked rather
+           than assumed, because a rebase is exactly where a sentence like this
+           goes stale. `relationshipIdentity` builds the label as
+           `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}` and hands the same two
+           halves to `labelEndpoints` (`adapters.ts:303,355`), and the
+           separator constant carries its own spaces, so the three spans
+           concatenate to text content byte-identical to `row.label`. Either
+           branch, the accessible name is the whole label. */
+        /* ⚠ A PLACEHOLDER NAMES ITSELF ON MORE THAN COLOUR — but be precise
+           about how much this buys. `title` is the accessible DESCRIPTION, not
+           the NAME: once an element has content the name comes from the content,
+           as `9d4979e` established in this same file. Most screen readers
+           announce the description, some do not by default, and the NAME a
+           reader hears is still "Question".
+           
+           An earlier version of this comment claimed three channels and that
+           "the title says it in words too" for assistive tech — an overclaim,
+           corrected on review. Colour and italics carry it for sighted readers;
+           the description is a weaker second channel; a genuinely equal one
+           would need the name itself to change, which is a vocabulary decision
+           and is ratified elsewhere. */
+        title={labelIsTypeDefault(row) ? UNWRITTEN_QUESTION_TITLE : row.label}
+        className={`${typography.panelBody} ${
+          labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
+        } text-left min-w-[6rem] flex-1 ${
+          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'truncate'
+        }`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
         }}
       >
-        {row.label}
+        {/* ⭐⭐ A DIRECTED RELATIONSHIP TRUNCATES FROM BOTH ENDS, NEVER FROM ONE.
+            Witnessed on deployed `a9c2e050`: three consecutive rows all read
+            "Tech Lead Hired…". They were three edges out of ONE source node, so
+            the only thing telling them apart was the TARGET — and a single
+            `truncate` eats the tail first, which is exactly the half that
+            discriminates. At the 6rem floor the row said the same thing three
+            times.
+
+            Each endpoint now gets `flex-1 min-w-0 truncate`, so they share the
+            column and ellipsise independently: "Tech L… → Deliv…" instead of
+            "Tech Lead H…". Both ends survive at ANY width, which is the
+            property — for a directed edge both endpoints are identity and
+            neither is optional.
+
+            ⚠ ONLY WHEN A PAIR EXISTS. An edge carrying its OWN authored label
+            has no endpoints and keeps the plain single truncate; splitting a
+            sentence on an arrow it happens to contain would invent a structure
+            nobody wrote. `labelEndpoints` is set only where a pair is real, so
+            the two states are distinguished by data rather than by a guess.
+
+            ⚠ CORRECTED: an earlier version of this comment said the accessible
+            name "comes from the row's own `aria-label`/`title`". FALSE at the
+            bytes — this button has no `aria-label`, and `title` is a last-resort
+            fallback that never applies once an element has content. The name is
+            computed FROM THESE SPANS. That is fine, and it is fine for a
+            specific reason rather than by luck: the separator is the shared
+            constant, rendered `whitespace-pre` in its own non-hidden span, so
+            the concatenation is byte-identical to `row.label`. The spec asserts
+            that with `.textContent` equality, not `toHaveTextContent`, which
+            whitespace-normalises and would pass an accname that inserted
+            inter-element spaces. */}
+        {row.labelEndpoints ? (
+          <>
+            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[0]}</span>
+            {/* ⚠ NOT `aria-hidden`, AND THE SPACES ARE IN THE STRING. The
+                separator IS the shared constant, so the button's text content
+                stays byte-identical to `row.label` — a screen reader, a
+                copy-paste and the `title` all read exactly what they read
+                before. Hiding the arrow and spacing the halves with `gap`
+                would have left assistive tech with
+                "Tech Lead HiredDelivery Throughput", which is a regression
+                dressed as a layout tidy-up. */}
+            <span className="shrink-0 text-text-light whitespace-pre">
+              {RELATIONSHIP_LABEL_SEPARATOR}
+            </span>
+            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[1]}</span>
+          </>
+        ) : (
+          row.label
+        )}
       </button>
 
       {/* The label is the user's own sentence lifted from the brief, not an
@@ -492,17 +630,43 @@ export function ModelRowView({
         </button>
       )}
 
-      {row.attention.map(reason => (
-        <span
-          key={reason}
-          data-testid={`model-row-v2-${row.id}-attention-${reason}`}
-          title={ATTENTION_LABEL[reason]}
-          aria-label={ATTENTION_LABEL[reason]}
-          className={`${typography.panelBody} text-warning shrink-0`}
-        >
-          ⚠
-        </span>
-      ))}
+      {/*
+        ⭐ ONE MARK PER REASON, AND EACH SAYS WHICH.
+        Witnessed on deployed `a9c2e050`: this was `⚠` for all five reasons, in
+        one colour, mapped over an unbounded array — so a contested-AND-fragile
+        relationship drew two identical marks and the row said "something is
+        wrong here, twice" without saying what either time. The five sentences
+        existed the whole time, in `title` only.
+
+        Three things changed, and each answers a separate rule:
+          · SHAPE carries the meaning (`ATTENTION_MARK`), so the row is legible
+            without a legend — which matters because the estate's one legend
+            component sits inside the unmounted legacy block.
+          · COLOUR carries SEVERITY, not category: `fragile` is the only reason
+            that says the ANSWER could change, so it alone keeps `text-warning`
+            and the rest are `text-text-light`. That is DS §1's three-channel
+            rule and the design pack's "filled = act on it, outline = noted".
+          · The icon is a component, never a unicode character — DS §9.9 names
+            `'⚠'` explicitly, and the `emoji-icon` guard could not see a bare
+            JSX text node, so the rule was real and unenforced here.
+      */}
+      {row.attention.map(reason => {
+        const Mark = ATTENTION_MARK[reason]
+        return (
+          <span
+            key={reason}
+            data-testid={`model-row-v2-${row.id}-attention-${reason}`}
+            title={ATTENTION_LABEL[reason]}
+            aria-label={ATTENTION_LABEL[reason]}
+            role="img"
+            className={`shrink-0 ${
+              ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
+            }`}
+          >
+            <Mark className="w-3.5 h-3.5" aria-hidden="true" />
+          </span>
+        )
+      })}
 
       {/*
         The deferred marker (design §4.2, §5.3). ⚠ It is rendered AFTER the
@@ -892,7 +1056,7 @@ function ValueCell({
          WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
          fix that half the rows never receive." The editable rows are exactly the
          ones carrying "Not set", which is where the relationship list lives. */
-      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
+      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center whitespace-nowrap ${
         estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
@@ -904,7 +1068,7 @@ function ValueCell({
           to one of the two idle elements is a fix that half the rows never
           receive." The editable rows are exactly the ones carrying the long
           strength bands, so this is the site the overflow was measured on. */}
-      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} />
+      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
       {estimate}
     </button>
   )

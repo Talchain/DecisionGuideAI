@@ -33,6 +33,31 @@ import type { ModelImplication as ModelImplicationModel } from '../analysisNewTy
 
 export interface ModelImplicationProps {
   implication: ModelImplicationModel
+  /**
+   * ⚠ THIS BLOCK IS THE ONLY ONE ON THE PANEL THAT DOES NOT REST BEHIND A
+   * CHEVRON, and it makes the strongest claim on the surface — which is exactly
+   * why it needs its own staleness qualifier rather than relying on the ribbon
+   * far above it. Raised by review when the block was first mounted: before
+   * that it had no importers, so the exposure did not exist.
+   *
+   * `markers.stale` is the panel's existing word for this ("From an earlier
+   * run") — not a second wording of one fact.
+   */
+  isStale?: boolean
+  /**
+   * ⚠ WHETHER ANOTHER SURFACE IS ALREADY ASKING FOR THE SUCCESS TARGET.
+   *
+   * The `needs_target` reading closes with "Set a success target and the same
+   * run also answers which option is most likely to hit it" — an ASK. The model
+   * strip asks for the same thing, and `successTargetAskedOnce.spec.tsx` exists
+   * because this panel once put one fact on screen four times, three of them
+   * here. Mounting this block created a new claimant that neither ask-once
+   * guard could see, because neither mentions `implication` or `needs_target`.
+   *
+   * When the strip is already asking, this block keeps its OUTCOME reading and
+   * drops the ask. The finding is not lost; the third request for one thing is.
+   */
+  targetAskedElsewhere?: boolean
   testId?: string
 }
 
@@ -54,6 +79,8 @@ function Claim({ sentence, testId }: { sentence: string; testId: string }) {
 
 export function ModelImplication({
   implication,
+  isStale = false,
+  targetAskedElsewhere = false,
   testId = 'analysis-new-implication',
 }: ModelImplicationProps) {
   if (implication.kind === 'none') return null
@@ -85,16 +112,38 @@ export function ModelImplication({
         className={`${typography.panelHeader} text-text flex items-center gap-1.5 m-0`}
       >
         <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-light" />
-        {COPY.sections.implications}
+        <span className="min-w-0 flex-1">{COPY.sections.implications}</span>
+        {isStale ? (
+          <span
+            className={`${typography.panelMeta} text-text-light shrink-0 font-normal`}
+            data-testid={`${testId}-stale`}
+          >
+            {COPY.markers.stale}
+          </span>
+        ) : null}
       </h3>
 
-      <p className={`${typography.panelBody} text-text-light mt-1.5 mb-0`} data-testid={`${testId}-lead`}>
-        {diverged
-          ? COPY.implications.divergedLead
-          : needsTarget
-            ? COPY.implications.needsTargetLead
-            : COPY.implications.alignedLead(implication.label)}
-      </p>
+      {/* ⚠ THE LEAD GOES WITH THE ASK, NOT SEPARATELY.
+          `needsTargetLead` is "Only one reading of this run is available." — a
+          statement of a LIMITATION whose only job is to set up the sentence that
+          says how to lift it. Suppressing the ask on its own left the panel
+          announcing a dead end: a limitation stated, its remedy deleted, and
+          nothing on the strip explaining that a target unlocks a second reading.
+          Raised by review, and it is the right catch — the first fix removed a
+          duplicate ask and created a worse sentence than the one it removed.
+          The outcome claim below stands on its own and is untouched. */}
+      {needsTarget && targetAskedElsewhere ? null : (
+        <p
+          className={`${typography.panelBody} text-text-light mt-1.5 mb-0`}
+          data-testid={`${testId}-lead`}
+        >
+          {diverged
+            ? COPY.implications.divergedLead
+            : needsTarget
+              ? COPY.implications.needsTargetLead
+              : COPY.implications.alignedLead(implication.label)}
+        </p>
+      )}
 
       <ul className="list-none p-0 mt-2 mb-0 space-y-1">
         <Claim sentence={implication.outcome.sentence} testId={`${testId}-outcome`} />
@@ -103,13 +152,18 @@ export function ModelImplication({
         )}
       </ul>
 
-      <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${testId}-resolve`}>
-        {diverged
-          ? COPY.implications.divergedResolve
-          : needsTarget
-            ? COPY.implications.needsTargetUnlock
-            : COPY.implications.alignedResolve}
-      </p>
+      {needsTarget && targetAskedElsewhere ? null : (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
+          data-testid={`${testId}-resolve`}
+        >
+          {diverged
+            ? COPY.implications.divergedResolve
+            : needsTarget
+              ? COPY.implications.needsTargetUnlock
+              : COPY.implications.alignedResolve}
+        </p>
+      )}
     </section>
   )
 }

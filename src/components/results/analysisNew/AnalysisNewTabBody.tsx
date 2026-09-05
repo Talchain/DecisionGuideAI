@@ -69,6 +69,7 @@ import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
+import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
@@ -149,6 +150,54 @@ export interface AnalysisNewTabBodyProps {
  * set, rather than as a ternary chain inside JSX. Each returns the string whose
  * documented truth condition (`analysisNewCopy.ts`) the run actually satisfies.
  */
+/**
+ * The coaching list, WHOLE. Nothing is removed.
+ *
+ * ⚠⚠ THIS SUMMARY SAID "with the promoted card removed" AFTER THE REMOVAL WAS
+ * REVERTED. The body was corrected and the JSDoc — the tooltip every call site
+ * hovers — was left describing behaviour that no longer exists, above a long
+ * and correct explanation of why it does not. A reader meets the summary first.
+ * Caught by review; it is the same defect this PR fixes two commits earlier
+ * ("close the provenance leak two comments say is already closed").
+ *
+ * `focused` is accepted and IGNORED on purpose: it keeps the decision visible
+ * at the call site rather than leaving a bare array pass-through that reads as
+ * an oversight. The reasoning is in the body.
+ */
+export function selectAlsoWorthDoing<T extends { id: string }>(
+  interventions: readonly T[],
+  _focused: { id: string } | null,
+): T[] {
+  /**
+   * ⚠⚠ THIS EXCLUDED THE PROMOTED CARD, AND THAT WAS A CAPABILITY REGRESSION.
+   * Reverted 5 Sep 2026 on an independent review's finding, which was right and
+   * which I should have caught: my own argument for keeping the card at n=1 —
+   * "the dismissal is how a human stays authoritative over the coaching" —
+   * applies just as hard at every n, and I did not notice.
+   *
+   * The two surfaces are NOT interchangeable. The glance card is a pointer:
+   * icon, label, method chip, one sentence, one click. The Strengthen card
+   * carries the severity, the method as a dispatchable control, the science
+   * grounding, "show on canvas", "I disagree", the source line — and DISMISS.
+   *
+   * And dismiss is load-bearing in a way that makes the regression worse than
+   * "some buttons moved": retiring a recommendation is the ONLY thing that
+   * advances `glancePrimary`. Exclude the promoted card and the user cannot
+   * reach its dismiss, so the focus card can never be advanced — one
+   * recommendation pinned to the top of the panel for the life of the run.
+   *
+   * The duplication is real and stays open. It costs a repeated paragraph to
+   * someone who OPENS the section; the exclusion cost a capability to everyone.
+   * The right fix is the Focus/Also split the design pack draws, where the
+   * affordances live on the focus card — which is an IA change, and is with
+   * Paul.
+   *
+   * Kept as a function, and exported, so the decision has one place to live and
+   * its guard can pin it rather than being reasoned about again from scratch.
+   */
+  return [...interventions]
+}
+
 function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
   // Pre-run: nothing has been returned OR not returned. No claim either way.
   if (vm.status.isPreRun) return null
@@ -340,6 +389,11 @@ export function AnalysisNewTabBody({
       interventions.find((rec) => rec.id !== SUCCESS_MEASURE_RECOMMENDATION_ID) ?? null
     )
   }, [vm.strengthen.interventions, stripOffersTarget])
+
+  const alsoWorthDoing = useMemo(
+    () => selectAlsoWorthDoing(vm.strengthen.interventions, glancePrimary),
+    [vm.strengthen.interventions, glancePrimary],
+  )
 
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
@@ -646,7 +700,7 @@ export function AnalysisNewTabBody({
         <WhatIWasGivenSection onSendMessage={onSendMessage} />
 
         <StrengthenTheReasoning
-          interventions={vm.strengthen.interventions}
+          interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
@@ -685,6 +739,31 @@ export function AnalysisNewTabBody({
             It costs ONE collapsed row at rest — the same idiom as every
             section below it — so closing the largest content gap on the
             surface does not spend the first viewport. */}
+        {/* ── WHAT YOUR MODEL IMPLIES ─────────────────────────────────────
+            ⭐ MOUNTED 5 Sep 2026. This block was written, typed, gated, built
+            onto the view model and covered by two spec files — and had ZERO
+            production importers, which the estate had already noticed and
+            written down (`heroWithholdsOnTheSameCells.spec.ts:30`). So the
+            design pack's centrepiece, and every sentence in
+            `analysisNewCopy.ts:108-178`, reached no screen: the panel showed
+            the option ROWS and never the sentence saying what they mean.
+
+            It leads the rows rather than following them, because when the two
+            readings DISAGREE that is the most decision-relevant thing the run
+            produced — the component's own header argues it at length, and the
+            prototype draws it the same way.
+
+            ⚠ IT ADDS NO CLAIM. Every sentence arrives pre-composed and already
+            gated: `{kind:'none'}` for pre-run, for a single option, and on any
+            run whose verdict withholds the leader claim — in which case this
+            renders nothing at all. Mounting a component is exactly the change
+            that could put a withheld claim on screen, so that is pinned. */}
+        <ModelImplication
+          implication={vm.modelImplication}
+          isStale={vm.status.isStale}
+          targetAskedElsewhere={stripOffersTarget}
+        />
+
         <OptionsComparison options={vm.optionsComparison} />
 
         {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
@@ -712,6 +791,7 @@ export function AnalysisNewTabBody({
         {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.drivers}
+          subtitle={COPY.sectionSubtitles.drivers}
           findings={vm.drivers.findings}
           preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
           // ⚠ The caveat is a function of the PRODUCER's provenance token, not
@@ -773,6 +853,7 @@ export function AnalysisNewTabBody({
         {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.uncertainty}
+          subtitle={COPY.sectionSubtitles.uncertainty}
           findings={vm.uncertainty.findings}
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
