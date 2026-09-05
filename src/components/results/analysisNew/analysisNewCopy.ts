@@ -785,8 +785,18 @@ export const ANALYSIS_NEW_COPY = {
        * producer's own words — "zero independent information". Naming it as a
        * result that "did not come back" would warn a reader about the absence of
        * something withdrawn deliberately, on every run, and imply they are
-       * missing a measurement that never existed. `deriveResultCompleteness`
-       * never adds it either; the unknown-key drop handles it silently.
+       * missing a measurement that never existed.
+       *
+       * ⚠⚠ THIS COMMENT USED TO END "`deriveResultCompleteness` never adds it
+       * either; the unknown-key drop handles it silently." THE SECOND CLAUSE IS
+       * RIGHT AND THE FIRST IS FALSE — corrected at the bytes, 5 Sep 2026.
+       * `useResultCompleteness.ts:224` DOES `missing.add('recommendation_stability')`,
+       * always paired with `robustness_level` in the same branch. So the
+       * unknown-key drop is the ONLY thing keeping this key off screen, on every
+       * run where robustness is unavailable — load-bearing, not a safety net for
+       * a case that cannot arise. Two consumers depend on it: `buildStatus`'s
+       * `missingResults`, and the "Not included in this result" row in
+       * `buildDeeper` (pinned by `missingResultsNamedInWords.spec.tsx`).
        */
       decision_review: 'the decision review',
       top_drivers: 'the drivers',
