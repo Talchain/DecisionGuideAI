@@ -688,7 +688,16 @@ export function ModelStrip({
                does. */
             aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
             className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-              verifyActive ? 'bg-warning text-text-on-color' : 'bg-warning/10 text-warning hover:bg-warning/20'
+              /* ⚠ PRESSED IS A RING, NOT A HOTTER AMBER. Solid `bg-warning`
+                 made amber carry TWO questions at once: "how urgent is this?"
+                 and "is this filter on?" — so switching a filter ON made the
+                 panel look like something had got worse. Severity keeps the
+                 hue; the pressed state is carried by a ring, which no other
+                 status on this panel uses. `aria-pressed` above already says
+                 it to assistive tech; this is the sighted half. */
+              verifyActive
+                ? 'bg-warning/20 text-warning ring-1 ring-warning'
+                : 'bg-warning/10 text-warning hover:bg-warning/20'
             }`}
             data-testid={`${testId}-verify-toggle`}
           >
@@ -988,7 +997,14 @@ export function ModelStrip({
                   would restate a claim this panel already makes once. */}
               {activeInsight.driverLabel !== null ? (
                 <span
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info`}
+                  /* ⚠ NEUTRAL — IT SHARES A CHIP ROW WITH FOUR PRESSABLE PILLS.
+                     This is a `<span>` stating a fact; the pills below it are
+                     `<button>`s carrying `hover:bg-info/20`. All five were
+                     `rounded-full bg-info/10 text-info` at `panelMeta`, so at
+                     rest they were indistinguishable and hover — the only
+                     difference — does not exist on touch. Shape still says
+                     "chip"; colour now says "not a control". */
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-panel-hover px-2 py-0.5 text-text-light`}
                   data-testid={`${testId}-detail-driver`}
                 >
                   {COPY.glance.whatMattersMost}

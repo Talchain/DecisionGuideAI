@@ -76,7 +76,37 @@ export function SectionShell({
 
   return (
     <section
-      className="border-b border-panel-border last:border-b-0"
+      /* ⭐ A2 — CONTAINMENT BY FILL, BUT NOT AT THE COST OF THE DIVIDER.
+         (Design pick A2, ratified 5 Sep; corrected after review measured it.)
+
+         ⚠⚠ THE FIRST VERSION TRADED A VISIBLE RULE FOR AN INVISIBLE FILL. It
+         dropped the 1px `border-panel-border` and used `bg-panel-hover/40`,
+         which composites to `rgb(254, 252, 249.6)` over a `rgb(254, 254, 254)`
+         panel — a contrast of 1.015:1, measured against the deployed build's
+         own tokens. The reader lost a divider they could see and gained one
+         they could not.
+
+         ⚠ AND MY OWN COMMENT ARGUED THE WRONG COMPARISON. It defended dropping
+         the border by pointing at the 2px accent box — a thing ALREADY REMOVED
+         from this panel. The live alternative was a 1px rule, and that was
+         never weighed. A justification aimed at a defect that no longer exists
+         is not a justification.
+
+         So: full-strength `bg-panel-hover` (1.038:1 — about 2.5× the
+         separation, which is what a subtle surface is), AND the rule stays. A
+         rule between sections is a RULE RUNNING EDGE TO EDGE, which the design
+         asks for; it was never the one-sided box border it bans. The fill
+         groups the header with the body it opened; the rule keeps separating
+         one section from the next. Nothing is given up.
+
+         ⚠ `-mx-2 px-2`, NOT `px-2`: padding alone moved the section title 8px
+         sideways on open (x 25→33, width 228→212) — witnessed by clicking, not
+         by reading classes. The negative margin lets the FILL reach the panel
+         edge while the CONTENT stays exactly where it was, so opening a
+         section no longer nudges its own heading. */
+      className={`border-b border-panel-border last:border-b-0 ${
+        open ? 'rounded-md bg-panel-hover -mx-2 px-2' : ''
+      }`}
       data-testid={testId}
       // ⚠ STILL A LABELLED LANDMARK. Turning the section header into a
       // disclosure control must not cost the landmark its name — the dock's own

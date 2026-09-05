@@ -661,7 +661,16 @@ export function StrengthenTheReasoning({
                     ) : null}
                     {grounding ? (
                       <span
-                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info`}
+                        /* ⚠ NEUTRAL, AND THE CHIP TEN LINES ABOVE IS WHY. That
+                           one is a `<button>`; this is a `<span>`. Both were
+                           `rounded-full bg-info/10 text-info` at `panelMeta`,
+                           so at REST they were pixel-identical — the only
+                           difference was `hover:bg-info/20`, which does not
+                           exist on touch and is invisible until you have
+                           already guessed. Provenance is metadata, not an
+                           action: it keeps the pill SHAPE (still a chip) and
+                           gives up the action COLOUR. */
+                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-panel-hover px-2 py-0.5 text-text-light`}
                         data-testid={`${testId}-science-grounding`}
                         data-dsk-claim-id={grounding.claimId}
                         {...(grounding.protocolId
@@ -695,7 +704,12 @@ export function StrengthenTheReasoning({
                     className={`${typography.panelBody} text-text-light mt-1 mb-0`}
                     data-testid={`${testId}-try`}
                   >
-                    <span className="text-info">{STRENGTHEN_COPY.tryThisLead}</span>{' '}
+                    {/* ⚠ NOT `text-info`. This is a lead-in LABEL inside a paragraph, and
+                        it was the link colour — so the panel used one colour for
+                        "press me" and for "read me", four lines above a button
+                        that genuinely is pressable. Emphasis now comes from the
+                        header colour, which is already on the panel's palette. */}
+                    <span className="text-text-header">{STRENGTHEN_COPY.tryThisLead}</span>{' '}
                     {rec.tryThis}
                   </p>
                 ) : null}
