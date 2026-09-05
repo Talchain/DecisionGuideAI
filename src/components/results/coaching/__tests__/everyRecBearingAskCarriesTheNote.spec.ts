@@ -59,28 +59,41 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 /** Every `openAskOlumi({ … })` payload in product code, comments removed. */
+/** The payload extractor, exposed so its brace-balancing can be tested directly. */
+export function extractPayloads(src0: string): string[] {
+  const src = stripComments(src0)
+  const out: string[] = []
+  const re = /(?:openAskOlumi|\.openAsk)\(\s*\{/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(src)) !== null) {
+    let depth = 0
+    let i = m.index + m[0].length - 1
+    const start = i
+    for (; i < src.length; i++) {
+      if (src[i] === '{') depth++
+      else if (src[i] === '}') {
+        depth--
+        if (depth === 0) break
+      }
+    }
+    out.push(src.slice(start, i + 1))
+  }
+  return out
+}
+
 function askPayloads(): Array<{ file: string; body: string }> {
   const found: Array<{ file: string; body: string }> = []
   for (const file of walk(SRC)) {
     const raw = readFileSync(file, 'utf8')
     if (!raw.includes('openAskOlumi(') && !raw.includes('.openAsk(')) continue
     if (file.endsWith('askOlumiStore.ts')) continue // the definition, not a caller
-    const src = stripComments(raw)
-    const re = /(?:openAskOlumi|\.openAsk)\(\s*\{/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(src)) !== null) {
-      // Balance braces from the opening `{` to capture the whole payload.
-      let depth = 0
-      let i = m.index + m[0].length - 1
-      const start = i
-      for (; i < src.length; i++) {
-        if (src[i] === '{') depth++
-        else if (src[i] === '}') {
-          depth--
-          if (depth === 0) break
-        }
-      }
-      found.push({ file: file.replace(SRC, 'src'), body: src.slice(start, i + 1) })
+    // ⚠ ONE extractor, not two. An earlier draft of this file duplicated the
+    // brace-balancing here and exported a second copy for the tests to
+    // exercise — so the tests would have proven a copy the guard did not use,
+    // and the two could drift silently. That is CLAUDE.md trap 12 committed
+    // inside a guard written to end a different instance of it.
+    for (const body of extractPayloads(raw)) {
+      found.push({ file: file.replace(SRC, 'src'), body })
     }
   }
   return found
@@ -113,6 +126,37 @@ describe('every rec-bearing ask route carries the producer\'s note', () => {
     expect(stripComments(withProse)).not.toContain('rec.whyNow')
     // …and it must NOT strip real code, or the guard would pass by blindness.
     expect(stripComments('openAskOlumi({ context: rec.whyNow })')).toContain('rec.whyNow')
+  })
+
+  it('the extractor survives NESTED payloads, in both directions', () => {
+    // `parameters: { method_id }` is real in this codebase, so a brace counter
+    // that stopped at the first `}` would truncate the payload BEFORE
+    // `attentionNote` and report a compliant route as a violation. A guard
+    // that cries wolf gets disabled, which is worse than no guard.
+    const withNote = extractPayloads(
+      'openAskOlumi({ context: rec.whyNow, parameters: { a: { b: 1 } }, attentionNote: n })',
+    )
+    expect(withNote).toHaveLength(1)
+    expect(withNote[0]).toContain('attentionNote')
+
+    const withoutNote = extractPayloads(
+      'openAskOlumi({ context: rec.whyNow, parameters: { a: { b: 1 } } })',
+    )
+    expect(withoutNote).toHaveLength(1)
+    expect(withoutNote[0]).not.toContain('attentionNote')
+  })
+
+  it('one call cannot absorb a NEIGHBOUR\'s note — the masking failure', () => {
+    // The inverse of truncation: if the counter over-ran the closing brace, a
+    // compliant call sitting after a violating one would supply the
+    // `attentionNote` the scan is looking for, and the violation would pass.
+    const two = extractPayloads(
+      'openAskOlumi({ context: rec.whyNow }) ; openAskOlumi({ context: rec.title, attentionNote: n })',
+    )
+    expect(two).toHaveLength(2)
+    expect(two[0], 'the first payload absorbed the second\'s note — violations would be masked')
+      .not.toContain('attentionNote')
+    expect(two[1]).toContain('attentionNote')
   })
 
   it('EVERY rec-bearing ask route passes attentionNote', () => {
