@@ -84,7 +84,29 @@ export const INFLUENCE_EXPLANATION_RELATIVE =
  * where deleting it would force an unrelated lane to take a breaking change on
  * my schedule.
  */
-export const INFLUENCE_EXPLANATION_ABSOLUTE = INFLUENCE_EXPLANATION_RELATIVE
+export const INFLUENCE_EXPLANATION_ABSOLUTE =
+  "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
+
+/**
+ * ⚠⚠ THE TWO ARMS STAY DISTINCT, AND THAT IS #1221'S GUARD DOING ITS JOB.
+ *
+ * My first cut aliased this constant to the relative one, on the reasoning that
+ * both bases are set-relative so the sentence is the same. `influenceScaleCopy.
+ * noRunProvenance.spec.ts` REDded — a positive control written by the canvas
+ * lane asserting "the two arms still make their OWN distinct claims, so a later
+ * change that collapsed them into one bland string would be visible here."
+ *
+ * It was right and I was wrong. The SCALE is shared; the QUANTITY is not.
+ * `influence_score` is the producer's structural score and
+ * `normalised_elasticity` is this app's own normalisation of a raw elasticity —
+ * which is exactly why only the first licenses a figure. A reader hovering the
+ * pill needs to know which one they are looking at, and an alias would have
+ * taken that away to fix something else.
+ *
+ * So both arms name their own quantity and NEITHER claims an absolute scale.
+ * The symbol keeps its name because canvas surfaces import it; renaming it is a
+ * coordinated change, not mine to make unilaterally.
+ */
 
 /** Drivers panel ranking explainer — generic (absolute or unstamped basis). */
 export const INFLUENCE_RANKING_EXPLAINER_GENERIC =

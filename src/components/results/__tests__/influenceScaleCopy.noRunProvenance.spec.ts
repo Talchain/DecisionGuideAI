@@ -64,8 +64,22 @@ describe('influence copy — no string attributes the figure to the analysis run
     }
     // And the two arms still make their OWN distinct claims — so a later change
     // that collapsed them into one bland string would be visible here.
-    expect(INFLUENCE_EXPLANATION_ABSOLUTE).toContain('absolute')
+    // ⚠ THE WITNESS CHANGED; THE PROPERTY DID NOT. This asserted the producer
+    // arm contains "absolute" — a true witness for a FALSE claim. #1228
+    // established that `influence_score` is set-relative (normalised against
+    // `max|influence|`; every capture in this repo maxes at exactly 1.0), so
+    // that word had to go.
+    //
+    // What this control is FOR survives untouched, and it caught a real
+    // over-reach: the first cut of #1228 aliased the two constants together and
+    // this REDded, exactly as its author intended. The arms must stay distinct.
+    expect(INFLUENCE_EXPLANATION_ABSOLUTE).not.toBe(INFLUENCE_EXPLANATION_RELATIVE)
+    expect(INFLUENCE_EXPLANATION_ABSOLUTE).toContain('structural influence score')
     expect(INFLUENCE_EXPLANATION_RELATIVE).toContain('relative to the strongest')
+    // And neither may claim an absolute scale any more.
+    for (const [name, copy] of ALL_INFLUENCE_COPY) {
+      expect(copy.toLowerCase(), `${name} claims an absolute scale`).not.toContain('absolute')
+    }
   })
 
   it.each(ALL_INFLUENCE_COPY)(
@@ -77,14 +91,39 @@ describe('influence copy — no string attributes the figure to the analysis run
     },
   )
 
-  it('the absolute arm still names its SCALE — removing the lie did not blank the disclosure', () => {
-    // The opposite-direction twin. A fix that closed the false claim by deleting
-    // the basis entirely would leave a bare percentage, which is the defect one
-    // level down: `driverDisplayModel.ts` records that `influence_score` is "an
-    // absolute producer scale, not a share", and the reader must still be told.
-    expect(INFLUENCE_EXPLANATION_ABSOLUTE).toMatch(/absolute causal influence score/)
-    expect(influenceBarAriaLabel('influence_score')).toMatch(/absolute causal influence score/)
-    expect(influencePillAriaLabel(60, 'influence_score')).toMatch(/absolute causal influence score/)
+  it('the producer arm still names its SCALE — removing the lie did not blank the disclosure', () => {
+    /**
+     * The opposite-direction twin, and its INTENT is untouched: a fix that
+     * closed the false claim by deleting the basis entirely would leave a bare
+     * percentage, which is the defect one level down. The reader must still be
+     * told what the scale is.
+     *
+     * ⚠⚠ ONLY THE WITNESS CHANGED, AND THE PREMISE IT CITED WAS THE FALSEHOOD.
+     * This asserted the phrase "absolute causal influence score", on the stated
+     * grounds that "`driverDisplayModel.ts` records that `influence_score` is
+     * 'an absolute producer scale, not a share'". **That sentence in
+     * `driverDisplayModel.ts` was wrong**, and it is corrected at its source in
+     * the same change as this. `influence_score` is normalised against
+     * `max|influence|` — top row 1.0 by construction, every capture in this repo
+     * maxing at exactly 1.0.
+     *
+     * So this guard was defending a true property with a false witness. The
+     * property stays; the witness becomes the scale that is actually there.
+     */
+    // ⚠ "strongest", not one exact phrasing — the three surfaces word it
+    // differently on purpose ("relative to" / "scaled against"), and pinning one
+    // literal would RED on a legitimate rewording rather than on a lost
+    // disclosure. The property is that the reference point is named.
+    for (const copy of [
+      INFLUENCE_EXPLANATION_ABSOLUTE,
+      influenceBarAriaLabel('influence_score'),
+      influencePillAriaLabel(60, 'influence_score'),
+    ]) {
+      expect(copy, `the scale reference is missing: "${copy}"`).toMatch(/strongest/)
+    }
+    // ⚠ And the disclosure is not merely present but INFORMATIVE — the
+    // 100%-by-construction fact is the whole point of telling the reader.
+    expect(influencePillAriaLabel(60, 'influence_score')).toMatch(/always shows 100%/)
   })
 
   it('the relative arm is untouched — its claim was about SCALING, never provenance', () => {

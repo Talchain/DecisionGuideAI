@@ -889,7 +889,12 @@ describe('FactorNode', () => {
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
       expect(row?.getAttribute('title')).toBe(
-        'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+        // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
+        // deliberately NOT one string — #1221's positive control forbids
+        // collapsing them and is right: the scale is shared, the measurement
+        // is not. #1228 changed only that this one stopped calling itself
+        // absolute.
+        "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
       )
     })
 

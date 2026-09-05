@@ -33,10 +33,30 @@ export interface DriverDisplayEntry {
 
 /**
  * The bases that may license a numeric analysis claim in mounted UI copy.
- * `influence_score` is an absolute producer scale, not a share. The
- * elasticity fallback is set-relative. Pre-analysis influence and value of
- * information are separate producer metrics and must never borrow each
- * other's label.
+ *
+ * ⚠⚠ THIS SAID "`influence_score` is an absolute producer scale, not a share"
+ * UNTIL 6 Sep 2026, AND THAT SENTENCE PROPAGATED. It is the premise PR #1221
+ * cited, in good faith and by name, when it removed a DIFFERENT falsehood from
+ * the same tooltip clause and deliberately kept the scale wording: "the
+ * producer's own declared semantics". A careful lane got a false sentence from
+ * this file and had no reason to doubt it.
+ *
+ * BOTH stamped bases are SET-RELATIVE. `influence_score` is the producer's
+ * normalisation against `max|influence|` — its top row is 1.0 BY CONSTRUCTION —
+ * and `normalised_elasticity` is this app's own normalisation of a raw
+ * elasticity. They are two different NORMALISATIONS, not absolute vs relative.
+ *
+ * Measured on data rather than argued from code: every capture in this repo
+ * carrying `influence_score` has a maximum of EXACTLY 1.0, twelve files
+ * including live staging responses.
+ *
+ * ⚠ The distinction between them is real and worth keeping — one is a producer
+ * measurement and the other our fallback, which is why only the first licenses
+ * a FIGURE. That is a provenance question, not a scale one, and conflating the
+ * two is what this sentence was doing.
+ *
+ * Pre-analysis influence and value of information remain separate producer
+ * metrics and must never borrow each other's label.
  */
 export type AnalysisMetricBasis =
   | DriverDisplayProvenance
