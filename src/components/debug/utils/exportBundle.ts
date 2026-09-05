@@ -2464,9 +2464,10 @@ const CONSOLE_LOGS_UNAVAILABLE_REASON =
  *           returns exactly that one line, so nothing else in the config
  *           branches on the mode at all;
  *       `minify: 'terser'` + `terserOptions.compress.drop_console: true`
- *           `:163-168`, sitting in the returned config with NO condition
- *           over them (the file's only conditional spreads are two plugin
- *           entries at `:123` and `:127`).
+ *           `:163-168`, sitting in the returned `build` object with NO
+ *           condition over them. The file's only two conditional spreads
+ *           are `resolve.alias` entries (`:123`, `:127`), nowhere near
+ *           `build` — so nothing gates terser on anything.
  *   - `ci.yml:432` then runs `ci:no-console`, which FAILS the build if
  *     `dist` contains any `console.<name>(` outside three excluded
  *     filename patterns — `*.map`, `dist/assets/vendor-*.js`,
