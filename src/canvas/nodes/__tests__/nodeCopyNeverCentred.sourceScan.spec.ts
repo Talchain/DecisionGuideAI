@@ -29,17 +29,44 @@
  * ## What each assertion covers, and what it does not
  *
  * Statically decidable, so asserted at zero across the whole node surface:
- * `text-center`, `textAlign`, and `flex-col` co-occurring with `items-center`.
+ * `text-center`; `textAlign`; a kebab-case `text-align` set to `center` (the
+ * Tailwind v3 arbitrary-property spelling `[text-align:center]`, which
+ * contains neither of the first two); the grid shorthands
+ * `place-items-center`, `place-content-center` and `justify-items-center`
+ * (each sets the INLINE axis, so each centres copy whatever the display — all
+ * three have zero uses here today, making those a review event on arrival
+ * rather than a claim about existing code); and `flex-col` co-occurring with
+ * `items-center`.
  *
- * NOT asserted globally: `justify-center` on a flex row. Thirteen uses remain
- * and every one centres a glyph in a fixed small box, which is correct. A
- * static scan cannot separate those from a row that centres copy without
- * parsing each element's full className for a dimension token, and a guard
- * with false positives is one that gets weakened. The two ghost doors — the
- * only flex-centred COPY blocks in the surface — are instead pinned by
- * identity, per file. A new `justify-center` around copy elsewhere in the node
- * surface is a real residual gap in this guard; it is named here rather than
- * papered over.
+ * NOT asserted globally: `justify-center`. Thirteen uses remain and all
+ * thirteen are correct — but for TWO different reasons, and an earlier version
+ * of this header gave only the first:
+ *
+ *   - Twelve sit on a flex ROW, where `justify-*` is horizontal, and each
+ *     centres a single icon, character or numeric token in a box with an
+ *     explicit small dimension (`w-3 h-3`, `w-4 h-4`, `h-4 min-w-[16px]`,
+ *     `h-5 w-5`, `h-[22px] w-[22px]`, or an inline `minWidth: 20px`) — the
+ *     cannot-wrap case above.
+ *   - The thirteenth, `GhostTierNode.tsx:155`, is NOT that. It is a flex
+ *     COLUMN, so `justify-*` there is the VERTICAL axis and centres the door's
+ *     content block vertically in a box sized for two lines. That same line is
+ *     the one this PR changed — `items-center` → `items-start` — because on a
+ *     column `items-*` is the horizontal axis. The `justify-center` is
+ *     correctly KEPT.
+ *
+ * Which axis a class controls is the entire rule of this file, so a header
+ * describing all thirteen as glyph boxes teaches the opposite of what the
+ * guard enforces. THIS BLOCK IS AUTHORITATIVE: its counts are derived from the
+ * same blanked sources the tests below read, and any shorter summary elsewhere
+ * — the PR body included — defers to it.
+ *
+ * A static scan cannot separate a row centring a glyph from a row centring
+ * copy without parsing each element's full className for a dimension token,
+ * and a guard with false positives is one that gets weakened. The two ghost
+ * doors — the only flex-centred COPY blocks in the surface — are instead
+ * pinned by identity, per file. A new `justify-center` around copy elsewhere
+ * in the node surface is a real residual gap in this guard; it is named here
+ * rather than papered over.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -121,6 +148,42 @@ function hits(pred: (line: string) => boolean): string[] {
   return found
 }
 
+/**
+ * A line is the right unit for a single token and the WRONG unit for a
+ * CO-OCCURRENCE. `flex-col` and `items-center` can sit in one className that
+ * spans lines, and a per-line predicate reads that as clean — so the
+ * co-occurrence is asserted over the whole class VALUE as well.
+ *
+ * Reaches `className="…"` and ``className={`…`}``, the two forms this surface
+ * uses. It does NOT reach a value built by a ternary or a helper call; those
+ * stay covered by the per-line scan only. The two scans run TOGETHER and
+ * neither supersedes the other — that union, not either one alone, is the
+ * coverage claim.
+ */
+const CLASS_VALUE = /className\s*=\s*(?:"([^"]*)"|\{\s*`([^`]*)`\s*\})/g
+
+const CLASS_VALUES: { file: string; value: string }[] = []
+for (const [f, src] of BLANKED) {
+  CLASS_VALUE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = CLASS_VALUE.exec(src)) !== null) {
+    CLASS_VALUES.push({ file: f.slice(NODES_DIR.length + 1), value: m[1] ?? m[2] ?? '' })
+  }
+}
+
+function classHits(pred: (value: string) => boolean): string[] {
+  return CLASS_VALUES.filter((c) => pred(c.value)).map((c) => c.file)
+}
+
+/**
+ * The arbitrary-property spelling. Named once so the assertion and its
+ * positive control below test the SAME regex — a control that compiles its own
+ * copy proves nothing about the one doing the work. `_` is Tailwind's space
+ * escape, and the optional quotes reach `'text-align': 'center'` in a JS style
+ * object as well as `[text-align:center]` in a class.
+ */
+const TEXT_ALIGN_CENTRE = /text-align\b[\s'"]*:[\s'"_]*center/
+
 describe('canvas node surface — copy is never centrally aligned', () => {
   it('the scan is pointed at real files and can SEE the class family (contrast control)', () => {
     // Without this, every assertion below could pass by scanning nothing —
@@ -132,6 +195,13 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     expect(hits((l) => l.includes('className')).length).toBeGreaterThan(100)
     expect(hits((l) => l.includes('items-center')).length).toBeGreaterThan(20)
     expect(hits((l) => l.includes('justify-center')).length).toBeGreaterThan(5)
+
+    // The class-value scan needs its own control for the same reason, plus a
+    // PRECONDITION: it exists only to see co-occurrences a per-line scan
+    // splits, so if no class value spans lines it is asserting over the same
+    // unit as `hits` and the extra coverage is imaginary. Both must hold.
+    expect(CLASS_VALUES.length).toBeGreaterThan(200)
+    expect(CLASS_VALUES.filter((c) => c.value.includes('\n')).length).toBeGreaterThan(0)
   })
 
   it('no text-center anywhere in the node surface', () => {
@@ -142,7 +212,39 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     expect(hits((l) => l.includes('textAlign'))).toEqual([])
   })
 
+  it('no kebab-case text-align set to center — the arbitrary-property spelling', () => {
+    // `[text-align:center]` is valid Tailwind v3 and contains neither
+    // `text-center` nor `textAlign`, so both assertions above are blind to it.
+    // Positive control FIRST: the correct answer over the tree is zero, so the
+    // tree itself cannot demonstrate this predicate is capable of firing, and
+    // an absence asserted by a regex that matches nothing is vacuous.
+    expect(TEXT_ALIGN_CENTRE.test('className="[text-align:center]"')).toBe(true)
+    expect(TEXT_ALIGN_CENTRE.test("style={{ 'text-align': 'center' }}")).toBe(true)
+    expect(TEXT_ALIGN_CENTRE.test('className="text-left"')).toBe(false)
+    expect(hits((l) => TEXT_ALIGN_CENTRE.test(l))).toEqual([])
+  })
+
+  it('no grid centring shorthand — these set the INLINE axis, so they centre copy', () => {
+    // Unlike `justify-*` on a row, whose axis depends on the flex direction,
+    // `place-items-*` and `place-content-*` are two-axis shorthands and
+    // `justify-items-*` is the inline axis on a grid — all horizontal whatever
+    // the display, so no dimension-token exemption applies. Zero uses today.
+    expect(
+      hits(
+        (l) =>
+          l.includes('place-items-center') ||
+          l.includes('place-content-center') ||
+          l.includes('justify-items-center'),
+      ),
+    ).toEqual([])
+  })
+
   it('no flex-col that also centres its items — on a column that is the HORIZONTAL axis', () => {
+    // Asserted over the whole class VALUE, so a className split across lines
+    // cannot hide the pair. This is the strictly larger scan.
+    expect(classHits((v) => v.includes('flex-col') && v.includes('items-center'))).toEqual([])
+    // And per line as well, because the extractor does not reach every form a
+    // className can take (ternaries, helper calls). Union coverage, kept.
     expect(hits((l) => l.includes('flex-col') && l.includes('items-center'))).toEqual([])
   })
 
@@ -200,7 +302,7 @@ describe('canvas node surface — the UA button centring is overridden', () => {
     expect(registry).toMatch(/import\s+['"]\.\/nodeTextAlign\.css['"]/)
   })
 
-  it('is keyed on the attribute NodePopover actually emits', () => {
+  it('is keyed on the attribute NodePopover emits — asserted at EACH of its two sites', () => {
     // The portalled half. With an `anchorRef`, `NodePopover` createPortals to
     // document.body, so that branch's content is NOT a descendant of
     // `.react-flow__node`; `NodeChip` — the shared chip every node type uses —
@@ -208,9 +310,14 @@ describe('canvas node surface — the UA button centring is overridden', () => {
     // either side must go red rather than go quiet.
     //
     // The component emits the attribute at TWO sites (the portalled branch and
-    // the no-anchorRef inline fallback). That is why the mutant for this test
-    // has to rename BOTH: renaming one leaves the attribute genuinely still
-    // emitted, so a GREEN would be correct and would prove nothing.
+    // the no-anchorRef inline fallback), and they are NOT interchangeable:
+    // selector 1 (`.react-flow__node button`) already covers the inline one,
+    // so `[data-node-popover]` is the ONLY selector reaching the portalled
+    // one. A single whole-file match cannot tell the sites apart — deleting
+    // the attribute from the portalled branch alone left this test green while
+    // every text-bearing button in the portalled popover re-centred. So each
+    // site is now asserted separately, bound to the structural feature that
+    // identifies it rather than to a count.
     //
     // ⚠ THE ATTRIBUTE NAME IS DERIVED FROM THE CSS, NOT WRITTEN TWICE, and the
     // match is BOUNDED. The first version of this test hardcoded the name and
@@ -221,7 +328,18 @@ describe('canvas node surface — the UA button centring is overridden', () => {
     const attr = css.match(/\[([a-z-]+)\]\s+button/)?.[1]
     expect(attr).toBe('data-node-popover')
     const popover = blankComments(readFileSync(join(NODES_DIR, 'shared/NodePopover.tsx'), 'utf8'))
-    expect(popover).toMatch(new RegExp(`${attr}(?![a-zA-Z0-9_-])`))
-    expect(popover).toMatch(/createPortal/)
+
+    // Split at the CALL, not the import: the import is `{ createPortal }` with
+    // no paren, so `createPortal(` names the call alone. Asserting it occurs
+    // exactly once pins the split's own precondition — with two calls, or
+    // none, the halves below would not be the branches this test names.
+    const CALL = 'createPortal('
+    expect(popover.split(CALL)).toHaveLength(2)
+    const inlineHalf = popover.slice(0, popover.indexOf(CALL))
+    const portalledHalf = popover.slice(popover.indexOf(CALL))
+
+    const emitted = new RegExp(`${attr}(?![a-zA-Z0-9_-])`)
+    expect(inlineHalf).toMatch(emitted) // the no-anchorRef inline fallback
+    expect(portalledHalf).toMatch(emitted) // the branch that escapes the node
   })
 })
