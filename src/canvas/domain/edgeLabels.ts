@@ -123,12 +123,13 @@ export interface EdgeDescription {
  * correctly-controlled sweep of the pushed copies returned zero because the
  * row was genuinely not in them.
  *
- * ⚠ THAT SENTENCE IS SCOPED ON PURPOSE, AND AN EARLIER DRAFT OF IT WAS NOT.
- * It read "`S58` has appeared in exactly ONE commit and ONE path" — a
- * repo-wide count, which was **already false when it was written** (a session
- * note on another branch mentions the row) and which drifts every time anyone
- * writes the string. Naming the paths searched and the date is what the lesson
- * below actually demands; a bare count names neither.
+ * ⚠ THAT SENTENCE IS SCOPED ON PURPOSE. An earlier draft made the same claim
+ * as a bare repo-wide count. The count was CORRECT when measured — a reviewer
+ * re-derived it with token boundaries and got 1, against a contrast of 4 for
+ * `S45` and 0 for a negative control — and it went stale within MINUTES,
+ * because the review that checked it wrote the second occurrence. A count with
+ * no date is a claim that decays without telling anyone; naming the paths and
+ * the moment is what the lesson below actually demands.
  *
  * ⭐⭐ SO THE DEFECT WAS SCOPE, NOT BLINDNESS (CLAUDE.md trap 20): "absent from
  * the pushed register" was recorded as "NOT ROWED ANYWHERE". And the lesson
