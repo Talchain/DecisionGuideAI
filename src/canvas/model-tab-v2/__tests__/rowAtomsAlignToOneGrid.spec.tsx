@@ -105,13 +105,73 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
     const ul = list('factors')
 
     expect(hasClass(ul, 'grid')).toBe(true)
-    expect(hasClass(ul, 'grid-cols-[auto_minmax(0,1fr)_auto_auto]')).toBe(true)
 
-    // The identity track must carry an explicit 0 floor. `1fr` alone resolves
-    // its automatic minimum to `min-content`, so a long label would push the
-    // value column off-axis and reintroduce the whole defect. This is the one
-    // token whose absence looks harmless and is not.
-    expect(classes(ul).some(c => c.includes('minmax(0,1fr)'))).toBe(true)
+    /**
+     * ⚠⚠ THE PROPERTY, NOT THE LITERAL — and the property is what this test
+     * always meant. It pinned `grid-cols-[auto_minmax(0,1fr)_auto_auto]`
+     * exactly, with the reason stated as: "`1fr` alone resolves its automatic
+     * minimum to `min-content`, so a long label would push the value column
+     * off-axis". That danger is `1fr` WITHOUT an explicit minimum. An explicit
+     * minimum of `6rem` bounds the track just as `0` does — it simply bounds it
+     * higher — so the string moved and the guarantee did not.
+     *
+     * It moved for a measured reason. On a factor row carrying an estimate
+     * hint the label rendered at **37px** — about four characters — because
+     * `1fr` means "a share of what is LEFT after the auto tracks reach
+     * max-content", so the value and attention columns were served first. A
+     * floor on the TRACK is the only thing that reserves width before they are:
+     * `min-w-[6rem]` on the label ITEM cannot, because these rows are
+     * `grid-cols-subgrid` and the parent sizes the track across every row.
+     *
+     * So: the identity track must declare an explicit, FIXED minimum. Never a
+     * bare `1fr`, and never `min-content`/`auto`, which are the unbounded forms
+     * this test exists to keep out.
+     */
+    const gridClass = classes(ul).find(c => /^grid-cols-\[/.test(c))
+    const identityTrack = gridClass?.match(/minmax\(([^,]+),\s*1fr\)/)?.[1]
+    expect(identityTrack, 'the identity track must be minmax(<fixed>, 1fr)').toBeDefined()
+    /**
+     * ⚠⚠ `0` WAS THE FIRST ALTERNATIVE HERE, AND `0` IS THE DEFECT.
+     *
+     * The pattern was `/^(0|\d+(\.\d+)?(px|rem|em|ch))$/`, so the exact pre-PR
+     * track `minmax(0,1fr)` captured `"0"` and PASSED. Restoring the literal
+     * pre-PR grid string left this whole file GREEN (23 files / 341 passed) —
+     * a guard written to hold a floor, admitting the floor-less value it was
+     * written about. Found by an independent review that reverted the fix
+     * rather than reading the regex.
+     *
+     * The property is a NON-ZERO fixed length. A zero minimum is exactly "a
+     * share of what is left", spelled differently, which is how the label
+     * reached 37px in the first place.
+     */
+    /**
+     * ⚠⚠ AND THE FIRST NARROWING WAS STILL A REGEX ARMS RACE. It was
+     * `/^(?!0(?:px|rem|em|ch)?$)…/`, which rejects the literal `0` and admits
+     * every spelling of it: `0.0rem`, `00px`, `0.00px`, `000rem` all left this
+     * spec GREEN. Found in review, and it is the same shape as the wiring pin
+     * next door — five rounds of narrowing a string, each defeat moving
+     * sideways within it.
+     *
+     * So this PARSES the value instead of matching it. A number and a unit,
+     * and the number must be greater than zero. There is no spelling of zero
+     * that survives `parseFloat`, which is what takes it out of the arms race.
+     */
+    const floor = /^(\d+(?:\.\d+)?)(px|rem|em|ch)$/.exec(identityTrack ?? '')
+    expect(
+      floor !== null && Number.parseFloat(floor[1]!) > 0,
+      `the identity track's floor must be a NON-ZERO fixed length, not "${identityTrack}" — an unbounded (or zero) minimum lets a long label push the value column off-axis, and every spelling of zero is a zero`,
+    ).toBe(true)
+
+    /**
+     * ⭐ THE OTHER HALF OF THE SAME CHANGE, WHICH NOTHING PINNED EITHER.
+     * `894ef8ab` also moved the value track from `auto` to `minmax(0,auto)` so
+     * a long value can shrink instead of stealing the identity column's width.
+     * Reverting that half was invisible to every test in this directory.
+     */
+    expect(
+      gridClass,
+      'the value track must be shrinkable — a bare `auto` takes its max-content width before the identity track is served',
+    ).toMatch(/minmax\(0,\s*auto\)/)
 
     // No row may declare tracks of its own — that is the defect, restated.
     for (const r of rowsIn(ul)) {

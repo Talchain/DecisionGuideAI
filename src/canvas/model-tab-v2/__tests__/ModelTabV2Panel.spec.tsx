@@ -227,6 +227,39 @@ describe('ModelTabV2Panel — factor value edits ride the canonical transaction'
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
+  /**
+   * ⭐⭐ THE CAPTION MAY NOT CONTRADICT THE DIFF IT SITS BESIDE.
+   *
+   * This beat renders `from → to` and a caption in ONE cell. The caption is
+   * about the STORE — nothing is written until Confirm, which the test above
+   * pins — but it had been worded "Nothing has changed yet", two atoms to the
+   * right of "Not set → 45". Witnessed on the deployed build `b14cd478`
+   * (guest, 291px dock, live-drafted model, completed run), the cell read:
+   *
+   *   "Not set → 45 · Nothing has changed yet · Confirm · Discard"
+   *
+   * A reader takes that as a denial of the value they just typed. "Not applied
+   * yet" makes the same true statement about the same subject without
+   * contradicting the diff.
+   *
+   * This asserts the PROPERTY, not the string: whatever the caption says, it
+   * must not claim nothing changed while a proposed value is on screen.
+   */
+  it('the proposed-value caption does not deny the change staged beside it', () => {
+    renderPanel()
+    proposeFactorValue(String(NEW_RAW))
+    const cell = screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`)
+
+    // Precondition pinned in-arm: a diff must actually be on screen, or the
+    // assertion below is about a cell in some other state.
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-to`).textContent).toBe(String(NEW_RAW))
+
+    expect(
+      /nothing has changed/i.test(cell.textContent ?? ''),
+      `the cell shows a staged change and also claims nothing changed: "${cell.textContent}"`,
+    ).toBe(false)
+  })
+
   it('⭐ Confirm commits through the sanctioned setter AND dispatches the wire event with its undo', () => {
     renderPanel()
     proposeFactorValue(String(NEW_RAW))

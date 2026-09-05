@@ -402,7 +402,39 @@ export function ModelOutline({
                   role="listbox"
                   aria-label={GROUP_TITLE[group.id]}
                   data-testid={`model-outline-v2-${group.id}-rows`}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+/* ⚠⚠ THE LABEL TRACK HAS A FLOOR, AND THE VALUE TRACK CAN GIVE.
+                     Both halves are required; neither works alone.
+
+                     MEASURED on a factor row with an estimate hint: the label
+                     "Bottom-Up Adoption Friction" rendered at **37px** — about
+                     four characters — while its value took 173px and the
+                     attention column 111px. Unreadable, and present on
+                     `staging` before this change (verified by reverting this
+                     file to origin/staging and re-measuring: 51px of genuine
+                     box overlap, identical).
+
+                     WHY THE OBVIOUS FIXES DO NOT WORK, both tried and measured:
+                     `1fr` means "a share of what is left AFTER the other tracks
+                     are sized", so an `auto` track is satisfied to max-content
+                     FIRST and the label only ever gets the remainder. And
+                     `min-w-[6rem]` on the label ITEM cannot help either: these
+                     rows are `grid-cols-subgrid`, so the PARENT sizes the track
+                     across every row at once and one item's minimum is not the
+                     track's.
+
+                     A track MINIMUM is honoured before other tracks reach their
+                     maximum. So the floor belongs on the TRACK — `minmax(6rem,
+                     1fr)` — and the value track needs `minmax(0,auto)` so it
+                     has somewhere to give from.
+
+                     ⚠ NUMBERS STAY SAFE BY CONSTRUCTION. Track sizing takes the
+                     MAXIMUM of the items' minimum contributions, and
+                     `ModelRowView` gives `min-w-0` only to values that may
+                     shrink (prose, or a value carrying an estimate hint). A
+                     bare "35 %" keeps its automatic minimum and holds the track
+                     open on its own, so the floor is derived from the content
+                     rather than written as a magic number. */
+                  className="grid grid-cols-[auto_minmax(6rem,1fr)_minmax(0,auto)_auto]"
                 >
                   {group.rows.map(row => (
                     <ModelRowView
