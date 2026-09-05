@@ -24,6 +24,10 @@
  *   - `prompt_identity`  — `_diagnostic_trace.prompt_identity` when
  *                          present on the turn record (passthrough;
  *                          UI-doctrine: never fabricated)
+ *   - `user_message`     — the user's own words for the turn, secrets-
+ *                          scrubbed, and withheld entirely (with a stated
+ *                          reason) wherever `shouldCaptureUserAuthoredText()`
+ *                          is false
  *
  * The payload trace store itself caps at 20 entries total across ALL
  * services (`MAX_PAYLOADS` in `payload-trace-store.ts`), so
@@ -37,6 +41,11 @@
  */
 
 import { isCeeService, isV5TurnEndpoint } from './v5TraceMatching'
+import {
+  scrubSecretsInString,
+  shouldCaptureUserAuthoredText,
+  USER_AUTHORED_TEXT_OMITTED_REASON,
+} from '../utils/payloadRedaction'
 import {
   ANALYSIS_PRODUCING_ACTION_TYPES,
   readScenarioId,
@@ -77,6 +86,51 @@ export interface RecentConversationTurn {
   /** True when `assistant_text` is a non-empty string. */
   has_assistant_text: boolean
   /**
+   * The user's own message for this turn, read from the root `message`
+   * field of the captured V5 turn REQUEST body. Null when the turn
+   * carried none (e.g. a system-initiated run), and null whenever
+   * `shouldCaptureUserAuthoredText()` is false — in which case
+   * `user_message_omitted_reason` on the result says so.
+   *
+   * ⚠ ADDED 2026-09-05, and this is the field the module was missing.
+   * Every turn already carried the model's reply and the served prompt
+   * identity, and nothing carried the thing they were answering — so a
+   * reviewer could judge 19 assistant turns without being able to see one
+   * of the questions. Reply, prompt identity and question now sit on the
+   * same record.
+   *
+   * ## What has and has not been done to this string
+   *
+   * ⚠ CORRECTED 2026-09-05. This doc previously said the value was "a
+   * passthrough of an already-scrubbed value". That was FALSE: the trace
+   * store's `redactPayload` pass is KEY-structural (plus a length cap) and
+   * `scrubSecretsInString` is applied there to string RESPONSE bodies
+   * only, never to request bodies. Nothing had value-scrubbed this string.
+   *
+   * Rather than weaken the claim, the code now makes it true — this module
+   * applies `scrubSecretsInString` itself, so the same secrets pass runs
+   * over `user_message` as over `user_actions[].detail.user_text`. One
+   * data class, one treatment.
+   *
+   * What that pass does NOT do is remove personal data: names, emails,
+   * phone numbers, figures and card numbers are retained by design. See
+   * the function's own doc comment; do not read "scrubbed" as "anonymised".
+   *
+   * Upstream bounds still apply and are not re-applied here: the trace
+   * store caps request-body strings at
+   * `DEBUG_BUNDLE_REDACTION_OPTIONS.maxStringLength`, and `message` is not
+   * a never-truncate key.
+   */
+  user_message: string | null
+  /** True when `user_message` is a non-empty string. */
+  has_user_message: boolean
+  /**
+   * How the message was entered (`composer`, `chip`, `chip_click`,
+   * `retry`). Distinguishes what the user TYPED from a chip's canned
+   * text — the founder's bundle contained only the latter.
+   */
+  user_message_source: string | null
+  /**
    * Passthrough of `_diagnostic_trace.prompt_identity` (served prompt
    * identity — e.g. staging_version / PMS id — when CEE's diagnostic
    * trace is enabled and the field is present on the turn record).
@@ -103,6 +157,28 @@ export interface RecentConversationTurnsResult {
    * from a scenario with real conversation should read > 0 here.
    */
   llm_authored_count: number
+  /**
+   * Of the captured turns, how many carried a non-null `user_message`.
+   * The twin of `llm_authored_count`: a bundle from a real conversation
+   * should read > 0 on BOTH, and a zero here is the specific defect this
+   * field was added to make visible.
+   *
+   * Necessarily 0 when `user_message_omitted_reason` is present — read
+   * that field before reading a zero here as the defect.
+   */
+  user_authored_count: number
+  /**
+   * Present ONLY when `shouldCaptureUserAuthoredText()` is false, i.e.
+   * when every `user_message` above was withheld by policy rather than
+   * absent from the turn. Its whole job is to separate "the user typed
+   * nothing" from "this build does not carry user prose" — the ambiguity
+   * the user-text capture exists to remove.
+   *
+   * Absent in a capturing environment: a field that is always present
+   * says nothing, and a reader would have to parse its value to learn the
+   * posture.
+   */
+  user_message_omitted_reason?: string
 }
 
 /**
@@ -114,6 +190,44 @@ function readAssistantText(p: ConversationTurnSourcePayload): string | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
   const text = (body as Record<string, unknown>).assistant_text
   return typeof text === 'string' && text.length > 0 ? text : null
+}
+
+/**
+ * Read the root `message` field from a V5 CEE turn's captured REQUEST
+ * body — the user's own words for this turn — and run the shared secrets
+ * pass over it.
+ *
+ * `buildPayload.ts` puts the user's text at root `message` on the
+ * `kind: 'message'` turn shapes (`MessageTurnPayload.message`, written at
+ * `buildPayload.ts:191` and `:486`), with `source` recording whether it
+ * came from the composer, a chip, or a retry.
+ *
+ * NOT every V5 turn shape, which is what this said before: a
+ * `kind: 'system_event'` payload (`buildPayload.ts:403`) carries no root
+ * `message` at all, and correctly yields null here.
+ *
+ * `source` is a short enum-like discriminator, not user prose, so it is
+ * NOT withheld by the user-text admission and is not scrubbed.
+ */
+function readUserMessage(
+  p: ConversationTurnSourcePayload,
+  captureUserText: boolean,
+): { text: string | null; source: string | null } {
+  const body = (p as { request?: { body?: unknown } }).request?.body
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { text: null, source: null }
+  }
+  const root = body as Record<string, unknown>
+  const message = root.message
+  const source = root.source
+  const text =
+    captureUserText && typeof message === 'string' && message.length > 0
+      ? scrubSecretsInString(message)
+      : null
+  return {
+    text,
+    source: typeof source === 'string' && source.length > 0 ? source : null,
+  }
 }
 
 /**
@@ -164,10 +278,17 @@ export function selectRecentConversationTurns(
     (p) => isCeeService(p) && isV5TurnEndpoint(p),
   )
 
+  // THE gate for verbatim user prose — the same predicate the bundle's
+  // `user_actions[].detail.user_text` reads. Evaluated ONCE per selection
+  // so every turn in one result answers to one decision, and so the
+  // omission reason below cannot disagree with the turns beside it.
+  const captureUserText = shouldCaptureUserAuthoredText()
+
   const turns: RecentConversationTurn[] = v5Turns.slice(0, cap).map((p) => {
     const turnKind = readTurnOrActionType(p)
     const assistantText = readAssistantText(p)
     const promptIdentity = readPromptIdentity(p)
+    const userMessage = readUserMessage(p, captureUserText)
     return {
       trace_id: typeof p.id === 'string' ? p.id : null,
       timestamp: typeof p.timestamp === 'number' ? p.timestamp : null,
@@ -179,6 +300,9 @@ export function selectRecentConversationTurns(
       scenario_id: readScenarioId(p),
       assistant_text: assistantText,
       has_assistant_text: assistantText !== null,
+      user_message: userMessage.text,
+      has_user_message: userMessage.text !== null,
+      user_message_source: userMessage.source,
       prompt_identity: promptIdentity,
       has_prompt_identity: promptIdentity !== null,
     }
@@ -190,5 +314,9 @@ export function selectRecentConversationTurns(
     truncated: v5Turns.length > turns.length,
     captured_count: turns.length,
     llm_authored_count: turns.filter((t) => t.has_assistant_text).length,
+    user_authored_count: turns.filter((t) => t.has_user_message).length,
+    ...(captureUserText
+      ? {}
+      : { user_message_omitted_reason: USER_AUTHORED_TEXT_OMITTED_REASON }),
   }
 }
