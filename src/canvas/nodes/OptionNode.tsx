@@ -175,19 +175,39 @@ function computeBehindReason(
 
 /**
  * Compute differentiator labels for ALL non-baseline options in one pass.
- * Returns a Map<optionId, string | null> where the string is the complete
- * sentence to render (e.g. "Tech lead hired is the key difference" or
- * "Tech lead hired → 90%").
+ * Returns a Map<optionId, { label, fullLabel, factorId } | null> where
+ * `label` is the complete sentence to render (e.g. "Tech lead hired is the
+ * key difference" or "Tech lead hired → 90%") and `fullLabel` is THAT SAME
+ * SENTENCE built from the untruncated factor label.
+ *
+ * ⭐ WHY `fullLabel` EXISTS — ellipsis-with-recovery, not
+ * ellipsis-with-nowhere-to-go. It is the standard this file already applies
+ * to the intervention chips below ("so the full string was recoverable").
+ * Witnessed on deployed staging `16336b13`: this footer rendered "Account
+ * Executive… is the key difference" and "Platform Engineer… → Low (0)" with
+ * the elided words present NOWHERE in the DOM. `compactFactorLabel` shortens
+ * in JS, so there is no CSS overflow for a browser tooltip to recover, and
+ * the node-level aria-label does not contain the truncated text — the user
+ * is told something is the key difference and not told what.
+ *
+ * ⚠ THE LABEL STILL TRUNCATES, DELIBERATELY. The card is width-constrained
+ * and the standing rule is "label truncates, value NEVER truncates"
+ * (PR #1220, merged and deployed). `fullLabel` changes only what HOVER can
+ * recover; the visible text, the width and the truncation length are
+ * untouched.
  *
  * When two options share the same top-differentiating factor, values are
  * appended to disambiguate. If the values are also identical (or both
  * produce empty formatted text), the differentiator is suppressed for both.
+ * That de-duplication reads the VISIBLE `label` — two options whose footers
+ * read the same on screen are indistinguishable to a user however their
+ * hover text differs.
  */
 function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
-): Map<string, { label: string; factorId: string } | null> {
-  const result = new Map<string, { label: string; factorId: string } | null>()
+): Map<string, { label: string; fullLabel: string; factorId: string } | null> {
+  const result = new Map<string, { label: string; fullLabel: string; factorId: string } | null>()
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -265,19 +285,30 @@ function computeAllDifferentiators(
   }
 
   // Phase 3: build label for each option
-  const candidateLabels = new Map<string, string>()
+  const candidateLabels = new Map<string, { label: string; fullLabel: string }>()
   for (const [optionId, { factorId, myValue, myDisplayValue }] of bestFactors.entries()) {
     const factorNode = nodes.find(n => n.id === factorId)
     const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
-    const compactLabel = compactFactorLabel(cleanFactorLabel(rawLabel), 20)
+    const fullFactorLabel = cleanFactorLabel(rawLabel)
+    const compactLabel = compactFactorLabel(fullFactorLabel, 20)
 
-    if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
-      // Unique factor — simple sentence
-      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} is the key difference`)
-    } else if (myDisplayValue) {
-      // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
-      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${myDisplayValue}`)
-    } else {
+    // ⭐ ONE code path, evaluated TWICE — once with the compacted label token
+    // and once with the untruncated one. The branches below are deliberately
+    // NOT duplicated: a second hand-maintained copy of this sentence-building
+    // logic is the drift this estate pays for most often, and the two
+    // sentences must stay identical apart from the label token or the hover
+    // stops recovering the very thing it is hovering over.
+    const buildSentence = (labelToken: string): string => {
+      const leading = `${labelToken.charAt(0).toUpperCase()}${labelToken.slice(1)}`
+
+      if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
+        // Unique factor — simple sentence
+        return `${leading} is the key difference`
+      }
+      if (myDisplayValue) {
+        // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
+        return `${leading} \u2192 ${myDisplayValue}`
+      }
       // Shared factor — disambiguate. Placeholder-unit factors (scale, index, score, …)
       // have no real-world anchor, so tier labels like "Very high" are meaningless.
       // For those, skip formatting entirely and use directional language against
@@ -291,46 +322,47 @@ function computeAllDifferentiators(
       // Audit §8 P0-4: "Does not change" fires ONLY on exact equality with the
       // baseline (shared formatter semantics) — never a ±0.1 display epsilon.
       const directional = (): string =>
-        describeInterventionDirection(observedBaselineFor(factorId), myValue, compactLabel)
-      if (unitKind === 'placeholder') {
-        candidateLabels.set(optionId, directional())
-      } else {
-        const formatted = formatInterventionValue(
-          myValue,
-          effectiveUnit,
-          obs?.factor_type,
-          obs?.cap,
-          obs?.value,
-          obs?.raw_value,
-        )
-        // A unitless qualitative factor (e.g. factor_type="quality", no unit)
-        // still reaches formatInterventionValue's qualitativeTierLabel branch
-        // and returns "Very high" / "High" / …. These tier labels are just as
-        // meaningless in differentiator text as the placeholder-unit ones,
-        // so force directional phrasing whenever the formatter returned one.
-        if (formatted && !isTierLabel(formatted)) {
-          candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
-        } else {
-          candidateLabels.set(optionId, directional())
-        }
-      }
+        describeInterventionDirection(observedBaselineFor(factorId), myValue, labelToken)
+      if (unitKind === 'placeholder') return directional()
+
+      const formatted = formatInterventionValue(
+        myValue,
+        effectiveUnit,
+        obs?.factor_type,
+        obs?.cap,
+        obs?.value,
+        obs?.raw_value,
+      )
+      // A unitless qualitative factor (e.g. factor_type="quality", no unit)
+      // still reaches formatInterventionValue's qualitativeTierLabel branch
+      // and returns "Very high" / "High" / …. These tier labels are just as
+      // meaningless in differentiator text as the placeholder-unit ones,
+      // so force directional phrasing whenever the formatter returned one.
+      if (formatted && !isTierLabel(formatted)) return `${leading} \u2192 ${formatted}`
+      return directional()
     }
+
+    candidateLabels.set(optionId, {
+      label: buildSentence(compactLabel),
+      fullLabel: buildSentence(fullFactorLabel),
+    })
   }
 
-  // Phase 4: suppress any labels that are still identical across options
+  // Phase 4: suppress any labels that are still identical across options.
+  // Counted on the VISIBLE sentence — what a user can actually compare.
   const labelCount = new Map<string, number>()
-  for (const label of candidateLabels.values()) {
+  for (const { label } of candidateLabels.values()) {
     labelCount.set(label, (labelCount.get(label) ?? 0) + 1)
   }
 
-  for (const [optionId, label] of candidateLabels.entries()) {
+  for (const [optionId, { label, fullLabel }] of candidateLabels.entries()) {
     if ((labelCount.get(label) ?? 0) > 1) {
       result.set(optionId, null)
     } else {
       const factorId = bestFactors.get(optionId)?.factorId
       // Carry the factorId so the option card can drop this footer line when
       // the same factor is already shown as a visible "from → to" chip.
-      result.set(optionId, factorId ? { label, factorId } : null)
+      result.set(optionId, factorId ? { label, fullLabel, factorId } : null)
     }
   }
 
@@ -779,7 +811,7 @@ export const OptionNode = memo((props: NodeProps) => {
    * one pass. See that helper's docblock for the algorithm, thresholds, and
    * deduplication logic. Returns null for baseline/post-analysis.
    */
-  const differentiator = useMemo<{ label: string; factorId: string } | null>(() => {
+  const differentiator = useMemo<{ label: string; fullLabel: string; factorId: string } | null>(() => {
     if (isPostAnalysis) return null
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
@@ -1899,7 +1931,21 @@ export const OptionNode = memo((props: NodeProps) => {
             already shows the full intervention list). */}
         {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiator
           && !differentiatorDuplicatesChip && (
-          <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
+            /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
+               carries a 20-char compaction of the factor label, so the elision
+               is a JS one: `text-overflow` never fires, the "…" is IN THE TEXT,
+               and a browser tooltip has no overflow to recover. Witnessed on
+               deployed staging `16336b13` as "Account Executive… is the key
+               difference" — a claim about what differentiates this option with
+               the SUBJECT of the claim absent from the DOM. Native `title` is
+               the canvas-node tooltip idiom in this repo — see the
+               structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
+               Undefined when nothing was elided, so hover never merely repeats
+               what is already on screen. */
+            title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
+          >
             {differentiator.label}
           </p>
         )}
