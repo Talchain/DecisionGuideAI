@@ -108,6 +108,23 @@ describe('an attention mark says WHICH', () => {
     }
   })
 
+  it('COLOUR carries severity: only "could flip the result" is a warning', () => {
+    // ⚠ UNPINNED UNTIL REVIEW CAUGHT IT. Half of this change is "shape says
+    // which, colour says how bad" — and the suite asserted only the shape, so
+    // adding `contested` to the severe set, or reverting all five to
+    // `text-warning`, was invisible. The claim needs a guard or it is a comment.
+    renderRow(ALL)
+    const severe = ALL.filter((r) => markFor(r).className.includes('text-warning'))
+    expect(severe, 'only a reason that says the ANSWER could change is a warning').toEqual([
+      'fragile',
+    ])
+    // And the rest are toned DOWN, not merely not-warning — an untoned mark
+    // would inherit body colour and read as ordinary content.
+    for (const r of ALL.filter((x) => x !== 'fragile')) {
+      expect(markFor(r).className, `${r} must be a note, not an alarm`).toContain('text-text-light')
+    }
+  })
+
   it('every reason still carries its sentence as an accessible name', () => {
     renderRow(ALL)
     for (const reason of ALL) {

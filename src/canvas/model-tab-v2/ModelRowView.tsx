@@ -425,9 +425,17 @@ export function ModelRowView({
             nobody wrote. `labelEndpoints` is set only where a pair is real, so
             the two states are distinguished by data rather than by a guess.
 
-            ⚠ The arrow is `aria-hidden` and the accessible name still comes
-            from the row's own `aria-label`/`title`, so nothing about the label
-            changes for a screen reader — this is a layout change only. */}
+            ⚠ CORRECTED: an earlier version of this comment said the accessible
+            name "comes from the row's own `aria-label`/`title`". FALSE at the
+            bytes — this button has no `aria-label`, and `title` is a last-resort
+            fallback that never applies once an element has content. The name is
+            computed FROM THESE SPANS. That is fine, and it is fine for a
+            specific reason rather than by luck: the separator is the shared
+            constant, rendered `whitespace-pre` in its own non-hidden span, so
+            the concatenation is byte-identical to `row.label`. The spec asserts
+            that with `.textContent` equality, not `toHaveTextContent`, which
+            whitespace-normalises and would pass an accname that inserted
+            inter-element spaces. */}
         {row.labelEndpoints ? (
           <>
             <span className="truncate min-w-0 flex-1">{row.labelEndpoints[0]}</span>

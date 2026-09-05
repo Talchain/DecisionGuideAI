@@ -161,33 +161,36 @@ export interface AnalysisNewTabBodyProps {
  */
 export function selectAlsoWorthDoing<T extends { id: string }>(
   interventions: readonly T[],
-  focused: { id: string } | null,
+  _focused: { id: string } | null,
 ): T[] {
-  /* ⚠ RETURNS A MUTABLE ARRAY, and that is the CI job talking, not taste:
-     `StrengthenTheReasoningProps.interventions` is `Recommendation[]`, so a
-     `readonly` return is a type error at the mount — one the LOCAL gate cannot
-     see, because `tsconfig.build.json` type-checks `src/` and the CI job checks
-     more. A green `pnpm typecheck` is necessary and not sufficient. */
-  if (focused === null) return [...interventions]
   /**
-   * ⚠⚠ THE LONE RECOMMENDATION KEEPS ITS CARD, AND THAT IS NOT A HEDGE.
+   * ⚠⚠ THIS EXCLUDED THE PROMOTED CARD, AND THAT WAS A CAPABILITY REGRESSION.
+   * Reverted 5 Sep 2026 on an independent review's finding, which was right and
+   * which I should have caught: my own argument for keeping the card at n=1 —
+   * "the dismissal is how a human stays authoritative over the coaching" —
+   * applies just as hard at every n, and I did not notice.
    *
-   * The glance card is a POINTER — icon, action label, method chip, one
-   * sentence. The Strengthen card is the full one: the finding's own title, the
-   * method as a dispatchable control, the science grounding, "show on canvas",
-   * and the dismissal that is how a human stays authoritative over the
-   * coaching. Excluding unconditionally would, on a one-recommendation run,
-   * delete every one of those affordances to prevent a repeat that does not
-   * occur — the section is collapsed at rest, so at rest there is no second
-   * copy to remove.
+   * The two surfaces are NOT interchangeable. The glance card is a pointer:
+   * icon, label, method chip, one sentence, one click. The Strengthen card
+   * carries the severity, the method as a dispatchable control, the science
+   * grounding, "show on canvas", "I disagree", the source line — and DISMISS.
    *
-   * What the exclusion is FOR is the state Paul was in: the section opened,
-   * with other findings under it, the promoted one repeating at the top. Below
-   * two items there is no "also" to be relative to, so there is nothing to fix
-   * and something to lose.
+   * And dismiss is load-bearing in a way that makes the regression worse than
+   * "some buttons moved": retiring a recommendation is the ONLY thing that
+   * advances `glancePrimary`. Exclude the promoted card and the user cannot
+   * reach its dismiss, so the focus card can never be advanced — one
+   * recommendation pinned to the top of the panel for the life of the run.
+   *
+   * The duplication is real and stays open. It costs a repeated paragraph to
+   * someone who OPENS the section; the exclusion cost a capability to everyone.
+   * The right fix is the Focus/Also split the design pack draws, where the
+   * affordances live on the focus card — which is an IA change, and is with
+   * Paul.
+   *
+   * Kept as a function, and exported, so the decision has one place to live and
+   * its guard can pin it rather than being reasoned about again from scratch.
    */
-  if (interventions.length < 2) return [...interventions]
-  return interventions.filter((rec) => rec.id !== focused.id)
+  return [...interventions]
 }
 
 function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
@@ -769,7 +772,11 @@ export function AnalysisNewTabBody({
             run whose verdict withholds the leader claim — in which case this
             renders nothing at all. Mounting a component is exactly the change
             that could put a withheld claim on screen, so that is pinned. */}
-        <ModelImplication implication={vm.modelImplication} />
+        <ModelImplication
+          implication={vm.modelImplication}
+          isStale={vm.status.isStale}
+          targetAskedElsewhere={stripOffersTarget}
+        />
 
         <OptionsComparison options={vm.optionsComparison} />
 

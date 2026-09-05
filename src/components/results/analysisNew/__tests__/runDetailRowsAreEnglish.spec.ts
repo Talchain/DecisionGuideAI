@@ -36,7 +36,7 @@ import { makeData, manyFragileEdges } from './analysisNewFixtures'
  * could not see the class beside it. CLAUDE.md trap 13d: write the invariant
  * against the SPEC, which is "no producer vocabulary", not against the example.
  */
-const WIRE_TOKEN = /^[a-z][a-z0-9_]*$/
+const WIRE_TOKEN = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$|^(computed|full|partial|skipped|unavailable)$/
 
 /**
  * The exception, and the only one. `Run reference` is an opaque support handle
@@ -93,6 +93,14 @@ describe('the run-detail rows speak English', () => {
     expect(WIRE_TOKEN.test('Partial')).toBe(false)
     expect(WIRE_TOKEN.test('Not assessed')).toBe(false)
     expect(WIRE_TOKEN.test('the win share')).toBe(false)
+    // ⚠ AND A LEGITIMATE VALUE THE FIRST PATTERN WOULD HAVE FLAGGED. `Automatic
+    // noise applied` emits `'yes, provisional'`, whose parts are ordinary
+    // lowercase English — a bare `/^[a-z][a-z0-9_]*$/` calls both of them
+    // producer vocabulary. The pattern now catches snake_case OR the five
+    // status tokens by name, which is the actual class, rather than "any
+    // lowercase word". It passed only because this fixture never emits that row.
+    expect(WIRE_TOKEN.test('yes')).toBe(false)
+    expect(WIRE_TOKEN.test('provisional')).toBe(false)
   })
 
   it('no row renders an EMPTY value', () => {
