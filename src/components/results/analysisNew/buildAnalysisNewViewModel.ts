@@ -78,7 +78,11 @@ import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
-import { ANALYSIS_NEW_COPY as COPY, ANALYSIS_NEW_LABEL_FALLBACK } from './analysisNewCopy'
+import {
+  ANALYSIS_NEW_COPY as COPY,
+  ANALYSIS_NEW_LABEL_FALLBACK,
+  formatConjunctionList,
+} from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
@@ -1107,7 +1111,7 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
          come back" — so leaving it here would have fixed the vocabulary and
          kept the grammar. Taking either side wholesale would have dropped a
          real fix. */
-      missingResultPhrases.length ? MISSING_PHRASE_LIST.format(missingResultPhrases) : null,
+      missingResultPhrases.length ? formatConjunctionList(missingResultPhrases) : null,
     ),
     row(
       'Evidence coverage',
@@ -1749,15 +1753,6 @@ function usableOptionLabel(o: OptionResult): string | null {
  * something the producer did not say. Replacing underscores is the smallest
  * change that removes the wire SHAPE without adding meaning.
  */
-/**
- * The one joiner for prose lists on this surface — the same authority the
- * status ribbon uses, so the two cannot disagree about en-GB comma rules.
- */
-const MISSING_PHRASE_LIST = new Intl.ListFormat('en-GB', {
-  style: 'long',
-  type: 'conjunction',
-})
-
 function plainStatus(status: string | null | undefined): string | null {
   if (status == null) return null
   const trimmed = status.trim()

@@ -28,7 +28,7 @@
  * and it is right about the en-GB comma rules without anyone maintaining them.
  */
 import { describe, expect, it } from 'vitest'
-import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 
 const NAME = (n: number) =>
   Object.values(COPY.status.missingResultLabels).slice(0, n)
@@ -58,7 +58,7 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
     // Asserted against `Intl.ListFormat` itself rather than a literal, so this
     // cannot drift from the authority it is meant to be delegating to — and it
     // states the property (an en-GB conjunction list), not one example of it.
-    const expected = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' }).format([
+    const expected = formatConjunctionList([
       'the win share',
       'the sensitivity check',
       'the robustness check',

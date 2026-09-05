@@ -45,7 +45,7 @@ function renderRow(attention: readonly AttentionReason[]) {
   cleanup()
   render(
     <ul>
-      <ModelRowView row={{ ...ROW, attention }} onSelect={vi.fn()} />
+      <ModelRowView tier="plain" row={{ ...ROW, attention }} onSelect={vi.fn()} />
     </ul>,
   )
 }

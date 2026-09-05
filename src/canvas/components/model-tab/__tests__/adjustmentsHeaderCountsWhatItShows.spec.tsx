@@ -31,7 +31,8 @@ const POST_RUN = [
 
 function renderAdjustments(props: Record<string, unknown>) {
   cleanup()
-  render(<ModelAdjustments adjustments={[]} repairActions={[]} postRunRepairs={[]} {...(props as never)} />)
+  const merged = { adjustments: [], repairActions: [], postRunRepairs: [], ...props }
+  render(<ModelAdjustments {...(merged as Parameters<typeof ModelAdjustments>[0])} />)
 }
 
 describe('the adjustments header counts what it shows', () => {
