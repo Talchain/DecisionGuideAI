@@ -94,23 +94,53 @@ export const DECISION_ANCHOR_BRIEF_COPY = {
 export const ANCHOR_BRIEF_MAX_CHARS = 160
 
 /**
- * Truncate text at a word boundary \u2014 and NEVER inside a word.
+ * Truncate text at a word boundary — and NEVER inside a word.
  *
- * \u26a0 THE OLD FALLBACK CLIPPED MID-WORD. When no space sat past 60% of the
+ * ⚠ THE OLD FALLBACK CLIPPED MID-WORD. When no space sat past 60% of the
  * measure it returned the raw `substring`, so `"Snowflake-Native"` could arrive
- * as `"Snowflake-Nativ\u2026"`. That is the same harm this file's own triage-line
- * comment records being measured on deployed `384a2b4f` \u2014 a word cut before it
- * names the thing to go and fix \u2014 just reached through the helper instead of
- * through CSS. It is fixed HERE, in the one owner, rather than by adding a
- * second differently-named truncator beside it: two same-shaped helpers with
- * different edge cases is this estate's twins defect (CLAUDE.md trap 16).
+ * as `"Snowflake-Nativ…"`. That is the same harm this file's own triage-line
+ * comment records being measured on deployed `384a2b4f` — a word cut before it
+ * names the thing to go and fix — just reached through the helper instead of
+ * through CSS.
+ *
+ * ⚠⚠ THIS IS NOT THE ONE OWNER, AND AN EARLIER DRAFT OF THIS COMMENT SAID IT
+ * WAS. The false sentence claimed the exact property this change does not have,
+ * so it is corrected here rather than deleted. `canvas/nodes/OptionNode.tsx:38`
+ * holds a `truncateAtWord` that was VERBATIM this one: extract both bodies at
+ * `5b764fa6` and they differ on a single line, the suffix (`…` here, `...`
+ * there), with a live caller at `OptionNode.tsx:1326` that still clips mid-word.
+ * `src/utils/text.ts:15-22` already recorded the pair, and its author's reason
+ * for leaving them alone — "quietly changing what a canvas node displays is not
+ * this change's business." A THIRD, exported `truncateAtWord` lives at
+ * `components/results/analysisNew/nameOrClaim.ts:137` with its own edge cases
+ * (it normalises unicode spaces, and returns the input UNCHANGED when the first
+ * word overruns, where this one keeps that word and appends an ellipsis).
+ *
+ * So the true statement is: three same-named truncators exist, this PR fixes
+ * ONE, and the two node twins that were algorithmically identical now DIVERGE.
+ * Converging all three is the remedy; it is ROWED as an explicit follow-up in
+ * the PR body rather than done here, because #1226 is already open against
+ * `OptionNode.tsx` and two of this lane's PRs on one file is the overlap that
+ * cost an adjudication cycle earlier the same night (CLAUDE.md trap 16).
  *
  * The rule now: cut at the last space at or before the measure; if the first
  * word is longer than the measure, keep that whole word and cut after it; if
- * there is no space at all, the text is one word and is returned whole. A
- * single unbroken token can therefore exceed the measure \u2014 that is deliberate,
- * and its HEIGHT is bounded by the caller's line clamp rather than by mutilating
- * the word.
+ * there is no space at all, the text is one word and is returned whole. A FOURTH
+ * case those three do not describe: text that BEGINS with a space and whose next
+ * space sits past the measure collapses to a bare `…`, because both boundary
+ * searches land on index 0. Unreachable at every call site today — the brief is
+ * `.trim()`ed in the `anchorBrief` memo, the triage labels by `cleanFactorLabel`
+ * — so it is documented, not guarded.
+ *
+ * ⚠ A SINGLE UNBROKEN TOKEN CAN EXCEED THE MEASURE, AND WHAT BOUNDS IT DIFFERS
+ * PER CALLER — do not read this as one guarantee. The anchor brief renders in a
+ * `line-clamp-3 break-words` blockquote, so its height is genuinely bounded. The
+ * two TRIAGE call sites below (`Top gap: estimate …` / `Top gap: validate …`,
+ * measure 40) render in a div with NO clamp and NO `break-words`, so there the
+ * only bound is the token's own length: 60 characters where the old rule gave
+ * 41. Pinned by `__tests__/DecisionNode.triageTruncation.spec.tsx`, which is
+ * jsdom and therefore says nothing about pixels; clamping that line is rowed in
+ * the PR body, not done here.
  */
 function truncateAtWord(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
@@ -982,11 +1012,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 it. An ellipsis with somewhere to go is a caveat; an ellipsis
                 with nowhere to go is hiding.
 
-                Wrapping is bounded, so this cannot grow without limit: the
-                label is already shortened to 40 chars by `truncateAtWord`
-                above, capping the line near 59 characters — two lines at this
-                measure. `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any
-                node text starts overflowing its box again. */}
+                Wrapping is bounded FOR ORDINARY PROSE: `truncateAtWord` above
+                cuts the label at the last word boundary at or before 40, which
+                caps this line near 59 characters — two lines at this measure.
+
+                ⚠ THAT CAP IS NO LONGER ABSOLUTE, AND THIS PR IS WHAT MOVED IT.
+                `truncateAtWord` now returns a single unbroken token WHOLE rather
+                than mutilating it, so a 51-character one-word label prints at 51,
+                not 40. This div carries no `line-clamp` and no `break-words`, so
+                an over-long token has nothing to wrap on. The trade is deliberate
+                — a word cut open is worse than a word that overruns — and it is
+                measured and pinned by
+                `__tests__/DecisionNode.triageTruncation.spec.tsx`; a clamp for
+                this line is rowed in the PR body.
+                `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any node text
+                starts overflowing its box again. */}
             {showTriageLine && (
               <div className={`${typography.edgeLabel} text-text-body mt-1`}>
                 {triageLine}
