@@ -278,7 +278,25 @@ describe('⭐ THE OTHER DOOR — the honest analysis must still be delivered', (
     expect(writes).toEqual(['verdict'])
   })
 
-  it('the EMPTY-CANVAS exemption survives — foreign options cannot make nothing divergent', () => {
+  it('⭐ the EMPTY-CANVAS exemption is LOAD-BEARING — a fresh scenario still delivers', () => {
+    // ⚠ THIS TEST WAS WRITTEN WRONG FIRST, AND A MUTANT CAUGHT IT. The original
+    // version seeded an empty canvas but left the authoritative record present,
+    // so deleting the exemption entirely left the suite GREEN: acceptance was
+    // arriving through the containment conjunct's FAIL-OPEN (an empty canvas
+    // yields an empty snapshot, which cannot be compared), never through the
+    // exemption. A guard agreeing with itself.
+    //
+    // The fixture below is the only shape in which the exemption is the SOLE
+    // route to acceptance, so the assertion can only pass because of it.
+    seedStarterTemplateCanvas({ nodes: [] as never, lastAuthoritativeGraph: null })
+    // PRECONDITION PINNED IN-TEST: with a null record the second conjunct is
+    // false whatever containment says, so `true` here is the exemption's doing.
+    expect(useCanvasStore.getState().nodes.length).toBe(0)
+    expect(useCanvasStore.getState().lastAuthoritativeGraph).toBeNull()
+    expect(acceptance()).toBe(true)
+  })
+
+  it('foreign options cannot make an EMPTY canvas divergent either', () => {
     // There is no local graph for a verdict to misdescribe, and this is the case
     // the zero-overlap guard calls "the whole point of the feature".
     seedStarterTemplateCanvas({ nodes: [] as never })
