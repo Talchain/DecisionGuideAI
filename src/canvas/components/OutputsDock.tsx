@@ -3547,6 +3547,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   resultsSectionData={resultsSectionData}
                   isPreRun={isPreRun}
                   isRunning={isRunning}
+                  /* ⭐ THE SAME AUTHORITY THE COVER ABOVE READS. `isRunning` is
+                     the dock's LOCAL flag and stays where it is because it
+                     feeds the view model; the busy MARKER must agree with the
+                     cover and the announcer, which read
+                     `localRunning || wireRunning`. Passing the local one here
+                     left the tab telling the user a run was in flight while
+                     leaving its content unmarked. */
+                  isBusy={composedAnalysisState.trust.isRunning}
                   nSamples={(report as any)?.summary?.n_samples_used ?? (report as any)?.meta?.n_samples}
                   seedUsed={(report as any)?.meta?.seed}
                   responseHash={results?.hash}

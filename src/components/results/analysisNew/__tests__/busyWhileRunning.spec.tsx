@@ -40,12 +40,13 @@ import { openStrategicChallenge } from './analysisNewFixtures'
 
 afterEach(cleanup)
 
-function mount(isRunning: boolean) {
+function mount(isRunning: boolean, isBusy?: boolean) {
   render(
     <AnalysisNewTabBody
       resultsSectionData={openStrategicChallenge()}
       isPreRun={false}
       isRunning={isRunning}
+      isBusy={isBusy}
       isStale={false}
       responseHash="run_abc123"
     />,
@@ -87,5 +88,33 @@ describe('the Reasoning tab marks its content busy while a run is in flight', ()
     const busy = Array.from(document.querySelectorAll('[aria-busy]'))
     expect(busy, 'exactly one busy element').toHaveLength(1)
     expect(busy[0]).toBe(root)
+  })
+
+  // ── THE DIVERGENCE THE REVIEW FOUND, PINNED ────────────────────────────────
+  //
+  // The first cut marked busy from the dock's LOCAL `isRunning` while the cover
+  // and the announcer beside it read the COMPOSED `localRunning || wireRunning`.
+  // Demonstrated by execution at that head: `cover=present`, `isRunning_prop=false`,
+  // `aria-busy=null` — the user told a run had started, the content unmarked.
+  // That is precisely the surface #1201 exists to stop this tab being.
+  //
+  // ⚠ ONLY THIS DIRECTION IS TESTED, DELIBERATELY. The composed value is
+  // `localRunning || wireRunning`, so it is a SUPERSET of the local one and
+  // `isBusy === false` while `isRunning === true` is unreachable from the
+  // producer. Asserting it would be asserting a state the dock cannot emit.
+  it('marks busy on a WIRE-asserted run the local flag does not see', () => {
+    expect(mount(false, true)).toHaveAttribute('aria-busy', 'true')
+  })
+
+  // ⚠ ONE MOUNT PER TEST. `cleanup` runs between tests, not within one, so two
+  // mounts in a single test leave two bodies in the DOM and `getByTestId` throws
+  // on the duplicate — which is how the first cut of this pair failed, on the
+  // harness rather than on the property.
+  it('an absent composed value falls back to the local flag — never to "not running"', () => {
+    expect(mount(true, undefined)).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('an absent composed value with an idle local flag stays unmarked', () => {
+    expect(mount(false, undefined)).not.toHaveAttribute('aria-busy')
   })
 })

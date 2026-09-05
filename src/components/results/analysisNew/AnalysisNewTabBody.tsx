@@ -90,6 +90,28 @@ export interface AnalysisNewTabBodyProps {
   resultsSectionData: ResultsSectionDataReturn
   isPreRun: boolean
   isRunning: boolean
+  /**
+   * ⭐ THE COMPOSED RUN AUTHORITY, AND IT IS A DIFFERENT QUESTION FROM
+   * `isRunning` ABOVE — which is why it is a second prop and not a swap.
+   *
+   * `isRunning` feeds `useAnalysisNewViewModel`, so it decides `vm.status` and
+   * every sentence derived from it; changing what it carries would move all of
+   * that. This one decides ONE thing: whether the content is marked busy for
+   * assistive tech.
+   *
+   * They must not diverge, and they did. Review of the first cut demonstrated
+   * by execution that the marker read the dock's LOCAL `isRunning` while
+   * `AnalysisRunStateCover` and `AnalysisRunAnnouncer` — mounted beside it, on
+   * the same tab — read the composed `localRunning || wireRunning`. In the
+   * wire-asserted-run class the user was TOLD an analysis was running and the
+   * content was NOT marked: `cover=present`, `isRunning_prop=false`,
+   * `aria-busy=null`. This surface was the one thing #1201 exists to stop it
+   * being: the surface blind to a wire-asserted run.
+   *
+   * Absent, it falls back to `isRunning` — today's behaviour for any caller
+   * that has not been given the composed value, never a silent "not running".
+   */
+  isBusy?: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
   /**
@@ -144,6 +166,7 @@ export function AnalysisNewTabBody({
   resultsSectionData,
   isPreRun,
   isRunning,
+  isBusy,
   isStale,
   staleReason = 'unconfirmed',
   nSamples,
@@ -360,8 +383,11 @@ export function AnalysisNewTabBody({
          shape of this one. So does this.
          `|| undefined` so the attribute is ABSENT when false rather than
          `aria-busy="false"` — the same form the four siblings use, and the
-         difference matters to assistive tech. */
-      aria-busy={isRunning || undefined}
+         difference matters to assistive tech.
+         ⚠ `isBusy`, NOT `isRunning`: the marker answers the same question the
+         cover and the announcer answer, and must read the same authority they
+         read. See the prop's own note for the divergence this closes. */
+      aria-busy={(isBusy ?? isRunning) || undefined}
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
