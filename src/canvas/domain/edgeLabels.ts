@@ -117,8 +117,10 @@ export interface EdgeDescription {
  * it was reading the pushed copies correctly. **Measured across the three
  * `CANVAS-BACKLOG.md` paths in `Talchain/olumi-programme-docs`, as at
  * 2026-09-05** (contrast `S45`, negative control `S900`): `S58` entered at
- * `593de90b`, 2026-09-03T23:42:23Z — **34 seconds** before `#1171`'s own
- * squash. Until that moment the row lived only in the local
+ * `593de90b`, 2026-09-03T23:42:23Z — **barely half a minute** before `#1171`'s
+ * own squash (the exact figure lands at 33-35s depending which timestamp you
+ * take, which is the same instability this paragraph is about, so it is not
+ * quoted to the second). Until that moment the row lived only in the local
  * `Documents/GitHub` working copy, which is NOT A GIT REPOSITORY. A sighted,
  * correctly-controlled sweep of the pushed copies returned zero because the
  * row was genuinely not in them.
@@ -153,12 +155,12 @@ export interface EdgeDescription {
  * absence claim must name the artefact searched and the moment it was searched
  * — not merely prove the instrument could see.
  *
- * Re-derived for this block against `origin/main`: `S58` present, contrast
- * control `S45` reading **1**, negative control `S900` reading **0**, so the
- * instrument discriminates. (A first attempt anchored on a table-row pattern
- * and returned **zero for the contrast too** — which voids a run rather than
- * cleaning it.) The row's line number is deliberately not restated here: it is
- * another repo's numbering and would drift silently.
+ * Re-derived for this block against `origin/main`: `S58` present, the contrast
+ * control FIRED and the negative control read ZERO, so the instrument
+ * discriminates. (A first attempt anchored on a table-row pattern returned
+ * **zero for the contrast too** — which voids a run rather than cleaning it.)
+ * Neither the contrast's count nor the row's line number is restated here:
+ * both are another repo's numbering and both drift silently.
  *
  * What the constant still buys is unchanged: the divergence is NAMED, ADJACENT
  * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it

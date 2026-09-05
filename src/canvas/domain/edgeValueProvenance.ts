@@ -463,9 +463,11 @@ export type EdgeValueDisplay =
  * model-tab adapters do with values this lane has not enumerated. Closing them
  * is its own piece of work, and it IS ROWED — as **S59** in
  * `CANVAS-BACKLOG.md` (`Talchain/olumi-programme-docs`, `origin/main`), the row
- * immediately after S58, added by the same commit and describing this PR
- * nearly verbatim: it names `weight` and `strengthStd` as OPEN on purpose and
- * records that `resolveEdgeSignedStrengthDisplay` is not covered either.
+ * immediately after S58, added by the same commit and describing **#1171** —
+ * the lane that INTRODUCED the gate this block documents, not the PR you are
+ * reading — nearly verbatim: it names `weight` and `strengthStd` as OPEN on
+ * purpose and records that `resolveEdgeSignedStrengthDisplay` is not covered
+ * either.
  *
  * ⚠ THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS. It first claimed a row,
  * was "corrected" to NOT ROWED, and that correction was false — the third of
