@@ -197,9 +197,14 @@ function readAssistantText(p: ConversationTurnSourcePayload): string | null {
  * body — the user's own words for this turn — and run the shared secrets
  * pass over it.
  *
- * `buildPayload.ts` puts the user's text at `message` on every V5 turn
- * shape (`MessageTurnPayload.message`), with `source` recording whether
- * it came from the composer, a chip, or a retry.
+ * `buildPayload.ts` puts the user's text at root `message` on the
+ * `kind: 'message'` turn shapes (`MessageTurnPayload.message`, written at
+ * `buildPayload.ts:191` and `:486`), with `source` recording whether it
+ * came from the composer, a chip, or a retry.
+ *
+ * NOT every V5 turn shape, which is what this said before: a
+ * `kind: 'system_event'` payload (`buildPayload.ts:403`) carries no root
+ * `message` at all, and correctly yields null here.
  *
  * `source` is a short enum-like discriminator, not user prose, so it is
  * NOT withheld by the user-text admission and is not scrubbed.

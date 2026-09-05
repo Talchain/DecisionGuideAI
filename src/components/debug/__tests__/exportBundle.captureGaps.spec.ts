@@ -397,9 +397,25 @@ describe('user_text honours the one user-prose admission', () => {
     expect(detail).not.toHaveProperty('user_text_omitted_reason')
   })
 
-  it('OMITS the text and SAYS SO in a production build with no opt-in', () => {
+  it('OMITS the text and SAYS SO in the one reachable non-capturing state', () => {
+    // MEASURED, not assumed. Of the 20 combinations of DEV x VITE_APP_ENV x
+    // opt-in, exactly ONE has the debug panel mountable (so a bundle can
+    // exist at all) while the admission is false: a production-mode build
+    // with VITE_APP_ENV UNSET and no opt-in. That is also production's real
+    // posture per `netlify.toml` — `VITE_APP_ENV = "staging"` is set only
+    // under `[context.staging.environment]` (:90) and the production context
+    // inherits only `[build.environment]` (:60-62), which does not set it.
+    //
+    // The previous version of this case pinned VITE_APP_ENV='production',
+    // where `shouldShowDebugPanel` is false and no bundle can be produced —
+    // a guard that cannot fire on any reachable artefact.
+    //
+    // '' faithfully models an absent key for all three predicates:
+    // `'' || 'development'` === `undefined || 'development'` for the panel,
+    // and the trace store disables on both ('' -> empty_app_env_..., absent
+    // -> missing_app_env_...).
     vi.stubEnv('DEV', false)
-    vi.stubEnv('VITE_APP_ENV', 'production')
+    vi.stubEnv('VITE_APP_ENV', '')
     vi.stubEnv('VITE_ENABLE_PAYLOAD_INSPECTION', '')
     pushTypedMessage('We are deciding whether to acquire the smaller competitor.')
 
@@ -414,13 +430,48 @@ describe('user_text honours the one user-prose admission', () => {
     )
   })
 
-  it('CONTAINS the text under the production-build inspection opt-in', () => {
-    // The reviewed defect's exact state. The trace store captures request
-    // bodies here, so the bundle already holds the user's prose; emitting
-    // an omission marker would make the artefact misdescribe itself.
+  // -------------------------------------------------------------------------
+  // The two REACHABLE states in which the narrow gate would have lied.
+  //
+  // ⚠ The state this pair replaces was VITE_APP_ENV='production' + opt-in,
+  // named in the PR body, a code comment and two specs as "the reviewed
+  // defect's exact state". It is not reachable: `shouldShowDebugPanel`
+  // (`debugPanelVisibility.ts:20-22`) returns false unless VITE_APP_ENV is
+  // 'staging' or 'development' (or absent, which falls open to
+  // 'development'), and `exportDebugBundleAsync` has exactly one non-test
+  // caller — `DebugPanelV2.tsx:88`, inside that panel. No artefact, no lie.
+  //
+  // Measured over all 20 DEV x VITE_APP_ENV x opt-in combinations, running
+  // the real panel gate, the real trace-store gate and both predicates,
+  // `panel && storeEnabled && !narrow` holds in exactly three states — the
+  // two below, plus VITE_APP_ENV='development' WITH the opt-in, which is
+  // the same admission disjunct as the second.
+  // -------------------------------------------------------------------------
+
+  it('CONTAINS the text with VITE_APP_ENV unset and the inspection opt-in', () => {
+    // Reachable state 1. Production's real VITE_APP_ENV posture is unset,
+    // so this is the one an opt-in actually reaches in a deployed build.
     vi.stubEnv('DEV', false)
-    vi.stubEnv('VITE_APP_ENV', 'production')
+    vi.stubEnv('VITE_APP_ENV', '')
     vi.stubEnv('VITE_ENABLE_PAYLOAD_INSPECTION', 'true')
+    pushTypedMessage('We are deciding whether to acquire the smaller competitor.')
+
+    const detail = typedActionDetail()
+    expect(detail!.user_text).toBe(
+      'We are deciding whether to acquire the smaller competitor.',
+    )
+    expect(detail).not.toHaveProperty('user_text_omitted_reason')
+  })
+
+  it('CONTAINS the text with VITE_APP_ENV=development and NO opt-in at all', () => {
+    // Reachable state 2, and the one the previous write-up missed entirely:
+    // the exposure needs no opt-in flag. A production-MODE build with
+    // VITE_APP_ENV='development' mounts the panel, enables the trace store
+    // (`app_env_development_enabled`) and leaves the narrow gate false — so
+    // the narrow gate would deny holding prose the bundle holds.
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_APP_ENV', 'development')
+    vi.stubEnv('VITE_ENABLE_PAYLOAD_INSPECTION', '')
     pushTypedMessage('We are deciding whether to acquire the smaller competitor.')
 
     const detail = typedActionDetail()
@@ -469,39 +520,84 @@ describe('GAP 4 — unavailable capture states say why', () => {
   // Gap-4 `not_implemented` marker.
   // -------------------------------------------------------------------------
 
-  it('says console capture is impossible in a build that strips the producers', () => {
-    vi.stubEnv('MODE', 'production')
-    const bundle = buildDebugBundle(makeDebugData()) as unknown as {
+  /** Read the marker under an explicitly-stated MODE/DEV state. */
+  function consoleMarkerUnder(mode: string, dev: boolean) {
+    vi.stubEnv('MODE', mode)
+    vi.stubEnv('DEV', dev)
+    return (buildDebugBundle(makeDebugData()) as unknown as {
       console_logs_capture: {
         available: boolean
         producers_stripped_at_build: boolean
         unavailable_reason?: string
       }
-    }
-    expect(bundle.console_logs_capture.producers_stripped_at_build).toBe(true)
-    expect(bundle.console_logs_capture.available).toBe(false)
-    expect(bundle.console_logs_capture.unavailable_reason).toContain(
-      'not_capturable_in_this_build',
-    )
+    }).console_logs_capture
+  }
+
+  it('says console capture is impossible in a default `vite build`', () => {
+    // mode==='production' + build output: BOTH strippers fire.
+    const m = consoleMarkerUnder('production', false)
+    expect(m.producers_stripped_at_build).toBe(true)
+    expect(m.available).toBe(false)
+    expect(m.unavailable_reason).toContain('not_capturable_in_this_build')
     // The reason must name the BUILD-TIME cause, so the next reader does
     // not re-attempt interception.
-    expect(bundle.console_logs_capture.unavailable_reason).toContain('BUILD time')
+    expect(m.unavailable_reason).toContain('BUILD time')
+    // ...and it must name the UNCONDITIONAL stripper, because naming only
+    // the mode-gated one is what made the old derivation permissive.
+    expect(m.unavailable_reason).toContain('UNCONDITIONAL')
   })
 
-  it('claims no unavailability in a build that keeps the producers', () => {
+  it('says stripped for a `--mode staging` build, where only terser fires', () => {
+    // THE PERMISSIVE HOLE THIS CASE EXISTS TO CLOSE. `producers_stripped_at_
+    // build` used to read `import.meta.env.MODE === 'production'` alone,
+    // under a comment claiming it read "the same expression vite.config.ts
+    // switches esbuild.drop on". `grep -n "mode ===" vite.config.ts` returns
+    // exactly one line (:199, esbuild.drop) — terser's `drop_console`
+    // (:163-168) is UNCONDITIONAL. So a `vite build --mode staging` lost
+    // every call site to terser while this marker reported the console
+    // record as trustworthy. Wrong in the permissive direction, in the one
+    // field whose job is to stop a reader trusting an empty channel.
+    const m = consoleMarkerUnder('staging', false)
+    expect(m.producers_stripped_at_build).toBe(true)
+    expect(m.available).toBe(false)
+  })
+
+  it('claims no unavailability under the dev server, where the producers survive', () => {
     // Opposite-direction twin. Without it, a marker hardcoded to
-    // "unavailable" would pass the case above while saying nothing.
-    vi.stubEnv('MODE', 'development')
-    const bundle = buildDebugBundle(makeDebugData()) as unknown as {
-      console_logs_capture: {
-        available: boolean
-        producers_stripped_at_build: boolean
-        unavailable_reason?: string
-      }
-    }
-    expect(bundle.console_logs_capture.producers_stripped_at_build).toBe(false)
-    expect(bundle.console_logs_capture.available).toBe(true)
-    expect(bundle.console_logs_capture).not.toHaveProperty('unavailable_reason')
+    // "unavailable" would pass the cases above while saying nothing.
+    // Under the Vite dev server there is no minify step at all and
+    // `debugLogBuffer` auto-enables, so `available: true` is correct.
+    const m = consoleMarkerUnder('development', true)
+    expect(m.producers_stripped_at_build).toBe(false)
+    expect(m.available).toBe(true)
+    expect(m).not.toHaveProperty('unavailable_reason')
+  })
+
+  it('keeps the mode disjunct load-bearing: neither signal is redundant', () => {
+    // mode==='production' with DEV true — the terser proxy says "not a
+    // build", the esbuild disjunct still reports stripped. Delete either
+    // disjunct and one of these four console cases REDs.
+    const m = consoleMarkerUnder('production', true)
+    expect(m.producers_stripped_at_build).toBe(true)
+    expect(m.available).toBe(false)
+  })
+
+  it('KNOWN GAP, pinned exactly: `NODE_ENV=development vite build` is invisible here', () => {
+    // Terser's `drop_console` is unconditional, so it strips in this build
+    // too — but its condition cannot be READ (there is none), and the proxy
+    // used for "this is build output", `!import.meta.env.DEV`, is false
+    // here. That artefact is indistinguishable at runtime from the dev
+    // server; separating them needs a build-time flag in `vite.config.ts`,
+    // which this change does not touch.
+    //
+    // Pinned as an explicit KNOWN-DROPPED state rather than left silent, so
+    // this REDs if the gap grows OR shrinks — including if someone closes
+    // it properly and forgets to retire this case.
+    const m = consoleMarkerUnder('development', true)
+    expect(m.producers_stripped_at_build).toBe(false)
+    // The gap is exactly this one state. Its two neighbours are covered:
+    expect(consoleMarkerUnder('development', false).producers_stripped_at_build).toBe(true)
+    expect(consoleMarkerUnder('production', true).producers_stripped_at_build).toBe(true)
   })
 })
 

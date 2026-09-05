@@ -198,12 +198,44 @@ export function shouldCaptureDetailedPayload(): boolean {
  *                                          | VITE_APP_ENV=development
  *                                          | VITE_APP_ENV=staging
  *
- * `VITE_ENABLE_PAYLOAD_INSPECTION=true` is a documented explicit opt-in
- * that works in a PRODUCTION build. In that state the trace store captures
- * request bodies, so the bundle already carries the user's prose — under
- * `payloads.cee_request` at minimum, which predates any of this. Gating the
- * user-text fields on the narrower predicate there would have the bundle
- * emit an omission marker while HOLDING the very thing it says it omitted.
+ * ## Where the narrow gate would actually lie — MEASURED, not reasoned
+ *
+ * A bundle only exists where `shouldShowDebugPanel()` is true
+ * (`debugPanelVisibility.ts:18-22`): `exportDebugBundleAsync` has exactly
+ * ONE non-test caller, `DebugPanelV2.tsx:88`, inside that panel. So the
+ * question is not where the two gates diverge, but where they diverge AND
+ * an artefact can exist for the marker to lie in.
+ *
+ * Executed over all 20 combinations of `DEV` × `VITE_APP_ENV` ∈ {unset,
+ * development, staging, production, qa-sandbox} × opt-in ∈ {unset, true},
+ * running the real `shouldShowDebugPanel`, the real trace-store gate and
+ * both predicates. `panel && storeEnabled && !narrow` — a bundle exists, it
+ * holds the user's prose, and the narrow gate would deny holding it — is
+ * true in exactly THREE states, every one of them a production-MODE build:
+ *
+ *   VITE_APP_ENV unset         + VITE_ENABLE_PAYLOAD_INSPECTION=true
+ *   VITE_APP_ENV='development'   (NO opt-in required)
+ *   VITE_APP_ENV='development' + opt-in
+ *
+ * ⚠ `VITE_APP_ENV='production'` + opt-in is NOT one of them, and an earlier
+ * version of this comment named exactly that as the defect's state. There
+ * the store does capture, but `shouldShowDebugPanel` returns false, so no
+ * artefact exists. Pinning it would have been a guard that cannot fire —
+ * and someone hardening later would have blocked the opt-in in production,
+ * closed nothing, and left all three reachable states open.
+ *
+ * The production-relevant posture is `VITE_APP_ENV` UNSET, not
+ * `'production'`: `netlify.toml:90` sets `VITE_APP_ENV = "staging"` only
+ * under `[context.staging.environment]`, and `:60-62` states the production
+ * context inherits only from `[build.environment]`, which does not set it.
+ * (A claim about repo config only — Netlify dashboard vars are invisible
+ * from here and could falsify it in either direction.)
+ *
+ * In all three states the trace store is ALREADY enabled, so the bundle
+ * already carries that prose under `payloads.cee_request` at minimum, which
+ * predates any of this. Gating the user-text fields on the narrower
+ * predicate there would have the bundle emit an omission marker while
+ * HOLDING the very thing it says it omitted.
  *
  * Taking the union makes the marker true of the artefact as a whole:
  *
@@ -211,9 +243,33 @@ export function shouldCaptureDetailedPayload(): boolean {
  *                  omission. Honest.
  *   union FALSE  → the trace-store gate is necessarily false too (it is a
  *                  strict subset of this disjunction), so the store captured
- *                  nothing, `payloads.cee_request` is null, and there is no
- *                  user prose anywhere in the bundle. The omission marker is
- *                  then true of the WHOLE bundle, not just of one field.
+ *                  nothing and every store-fed carrier is null. Measured
+ *                  over the same 20 states: states where the union admits
+ *                  prose the narrow gate would have withheld AND the store
+ *                  is disabled = 0, with a contrast control showing 5 states
+ *                  where the union genuinely widens, so the zero is not
+ *                  vacuous. The union's marginal disclosure is bounded to
+ *                  MORE INSTANCES OF A CLASS ALREADY PRESENT in the same
+ *                  artefact.
+ *
+ * ⚠ SCOPE OF THE OMISSION MARKER, stated because the sentence that stood
+ * here claimed more than anything bounds. It is true of every `payloads.*`
+ * carrier and every `recent_conversation_turns` record. It is NOT a
+ * whole-artefact claim: `full_graph` carries user-authored node `label` /
+ * `description` (`exportBundle.ts:2154-2156`) and is not gated by this
+ * predicate — it rides a separate, default-OFF checkbox
+ * (`DebugPanelV2.tsx:63`). The previous wording, "there is no user prose
+ * anywhere in the bundle", was false of `full_graph`.
+ *
+ * ## Why the union, and not "narrow the gate and null the carriers"
+ *
+ * Because `payloads.cee_request` is not the only store-fed prose carrier:
+ * `plot_request`, `isl_request`, `m2_request` and `cee_downstream_request`
+ * are all `?.request?.body` off the same store (`useDebugData.ts:4333-4341`),
+ * as are the per-turn records. A marker scoped that way is true only while a
+ * hand-maintained list of prose-bearing carriers stays complete, and a
+ * carrier added later would silently reinstate this exact lie with no red
+ * anywhere. The union needs no list.
  *
  * ## Keeping it derived
  *

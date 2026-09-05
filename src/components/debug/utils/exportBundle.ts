@@ -1277,9 +1277,16 @@ interface DebugBundle {
     available: boolean
     /**
      * Did this build strip the `console.*()` call sites themselves?
-     * Read from `import.meta.env.MODE` — the SAME expression
-     * `vite.config.ts` switches its `esbuild.drop` on — rather than
-     * restating that config's decision as a second boolean here.
+     *
+     * ⚠ WHAT THIS DERIVES FROM, precisely — an earlier version of this
+     * doc said it read "the SAME expression `vite.config.ts` switches
+     * `esbuild.drop` on", which was false in the PERMISSIVE direction.
+     * `vite.config.ts` has TWO console strippers and only one is
+     * mode-gated (`grep -n "mode ===" vite.config.ts` returns exactly one
+     * line, `:199`); `terserOptions.compress.drop_console` (`:163-168`)
+     * is unconditional. See `describeConsoleLogCapture` for the two
+     * signals now OR-ed together, and for the one residual state this
+     * boolean still cannot see.
      */
     producers_stripped_at_build: boolean
     /** Present whenever `available` is false. */
@@ -2424,7 +2431,7 @@ function collectUserActions(): UserActionEntry[] {
  * bundle so a reader can grep for it across bundles.
  */
 const CONSOLE_LOGS_UNAVAILABLE_REASON =
-  'not_capturable_in_this_build: the console.*() call sites are removed at BUILD time, before any interceptor could see them (vite.config.ts esbuild.drop=["console","debugger"] and terserOptions.compress.drop_console, both active at mode==="production" — which is how netlify.toml builds staging, since build:ci runs a bare `vite build` with no --mode). ci.yml then runs ci:no-console, which FAILS the build if dist contains any console.<name>( outside vendored chunks, so the absence is asserted rather than inferred. Starting the interceptor earlier cannot fix this: capturing staging console diagnostics requires the PRODUCERS to survive the build (e.g. a debugLog() helper that is not a bare console.* call), which is a build-policy change with a CI guard attached.'
+  'not_capturable_in_this_build: the console.*() call sites are removed at BUILD time, before any interceptor could see them. vite.config.ts carries TWO strippers and only one is mode-gated: esbuild.drop=["console","debugger"] fires at mode==="production" (:199), while terserOptions.compress.drop_console (:163-168) is UNCONDITIONAL and therefore applies to every vite build at any --mode. netlify.toml builds staging through build:ci, a bare `vite build` with no --mode, so both fire there. ci.yml then runs ci:no-console, which FAILS the build if dist contains any console.<name>( outside three excluded filename patterns (*.map, dist/assets/vendor-*.js, dist/assets/auth-*.js), so the absence is asserted rather than inferred. Starting the interceptor earlier cannot fix this: capturing staging console diagnostics requires the PRODUCERS to survive the build (e.g. a debugLog() helper that is not a bare console.* call), which is a build-policy change with a CI guard attached.'
 
 /**
  * Say whether `console_logs` can be believed, and when it cannot, why.
@@ -2450,22 +2457,70 @@ const CONSOLE_LOGS_UNAVAILABLE_REASON =
  *     context-specific command override. The staging context differs from
  *     production only by `VITE_APP_ENV`, so staging builds at
  *     `mode === 'production'`.
- *   - `vite.config.ts` sets `esbuild.drop = ['console','debugger']` and
- *     `terserOptions.compress.drop_console = true` on that mode.
- *   - `ci.yml` then runs `ci:no-console`, which FAILS the build if `dist`
- *     contains any `console.<name>(` outside the vendored chunks. CI
- *     asserts the absence; it is not an inference.
+ *   - `vite.config.ts` has TWO console strippers, and only ONE is
+ *     mode-gated:
+ *       `esbuild.drop = ['console','debugger']`  `:199`, gated on
+ *           `mode === 'production'` — and `grep -n "mode ===" vite.config.ts`
+ *           returns exactly that one line, so nothing else in the config
+ *           branches on the mode at all;
+ *       `minify: 'terser'` + `terserOptions.compress.drop_console: true`
+ *           `:163-168`, sitting in the returned config with NO condition
+ *           over them (the file's only conditional spreads are two plugin
+ *           entries at `:123` and `:127`).
+ *   - `ci.yml:432` then runs `ci:no-console`, which FAILS the build if
+ *     `dist` contains any `console.<name>(` outside three excluded
+ *     filename patterns — `*.map`, `dist/assets/vendor-*.js`,
+ *     `dist/assets/auth-*.js` (`package.json`). Named as patterns rather
+ *     than as "the vendored chunks", because `vite.config.ts:170-177` sets
+ *     NO `manualChunks`, so nothing in this repo establishes `auth-*` as
+ *     vendor-only. CI asserts the absence; it is not an inference.
  *
  * A real fix has to make the PRODUCERS survive the build — e.g. route
  * diagnostics through a `debugLog()` helper that is not a bare `console.*`
  * call — and changing `drop` is a build-policy decision with a CI guard
  * attached, so it is not this change's to make. Recorded here so the next
  * reader is not tempted to re-attempt interception.
+ *
+ * ## What the boolean derives from, and what it cannot see
+ *
+ * ⚠ This function previously read `import.meta.env.MODE === 'production'`
+ * alone, under a comment claiming it was "the SAME expression
+ * `vite.config.ts` switches `esbuild.drop` on. Read, not restated." Both
+ * halves were false, and the error ran in the PERMISSIVE direction — the
+ * one direction that matters in a marker whose entire job is to stop a
+ * reader trusting an empty channel. It duplicated the comparison rather
+ * than reading it (it would track a new *mode*, never a change to the
+ * *condition*), and it was blind to terser, which is not mode-gated at
+ * all. A `vite build --mode staging` therefore reported
+ * `producers_stripped_at_build: false, available: true` while terser had
+ * already removed every call site.
+ *
+ * Terser's condition CANNOT be read, because it has none. `build.minify`
+ * applies to every `vite build` and never to the dev server, so
+ * `!import.meta.env.DEV` is used as a PROXY for "this artefact came out of
+ * a build" — an inference, stated as one, not a derivation dressed up as
+ * a reading.
+ *
+ * KNOWN RESIDUAL GAP, pinned by
+ * `exportBundle.captureGaps.spec.ts` so it REDs if it grows or shrinks:
+ * a build run as `NODE_ENV=development vite build` has `DEV === true` in
+ * its output while terser has still stripped the producers, and that
+ * artefact is indistinguishable at runtime from the dev server — closing
+ * it needs a build-time flag in `vite.config.ts`, which this change does
+ * not touch. Every ordinary build (`vite build`, and `--mode <anything>`,
+ * where Vite leaves `NODE_ENV=production`) is covered.
  */
 function describeConsoleLogCapture(): DebugBundle['console_logs_capture'] {
-  // Same expression `vite.config.ts` switches `esbuild.drop` on. Read,
-  // not restated: if that condition ever changes, this reads the new one.
-  const producersStripped = import.meta.env.MODE === 'production'
+  // Stripper 1 — `esbuild.drop`, gated on the mode (vite.config.ts:199).
+  // This DUPLICATES that comparison; it cannot read it. Kept as its own
+  // disjunct so a future change that makes `esbuild.drop` fire somewhere
+  // terser does not is still reported.
+  const strippedByEsbuildDrop = import.meta.env.MODE === 'production'
+  // Stripper 2 — terser's `drop_console`, which is unconditional in the
+  // config (vite.config.ts:163-168) and so has no expression to read.
+  // `!DEV` is a proxy for "this is build output, not the dev server".
+  const strippedByTerserMinify = !import.meta.env.DEV
+  const producersStripped = strippedByEsbuildDrop || strippedByTerserMinify
 
   return {
     available: !producersStripped,

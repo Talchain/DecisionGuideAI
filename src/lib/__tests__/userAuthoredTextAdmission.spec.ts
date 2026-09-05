@@ -6,13 +6,29 @@
  * `user_actions[].detail.user_text` and
  * `recent_conversation_turns[].user_message` capture the same data class —
  * the user's own words — and shipped for review behind two DIFFERENT
- * gates. A cold review found the consequence: in a production build with
- * `VITE_ENABLE_PAYLOAD_INSPECTION=true` (a documented opt-in that works in
- * a production build) the trace store captures request bodies, so the
- * bundle carried the user's verbatim messages under `user_message` WHILE
- * emitting an omission marker beside them. A bundle that says it omitted
- * something it in fact contains is worse than either capture gap, because
- * a reader trusts the marker.
+ * gates. A cold review found the consequence: in states where the trace
+ * store captures request bodies but the narrower gate is false, the bundle
+ * carried the user's verbatim messages under `user_message` WHILE emitting
+ * an omission marker beside them. A bundle that says it omitted something
+ * it in fact contains is worse than either capture gap, because a reader
+ * trusts the marker.
+ *
+ * ⚠ WHICH STATES, corrected. A second review found that the state named
+ * everywhere in the first write-up — `VITE_APP_ENV='production'` plus the
+ * `VITE_ENABLE_PAYLOAD_INSPECTION=true` opt-in — CANNOT PRODUCE A BUNDLE:
+ * `shouldShowDebugPanel` (`debugPanelVisibility.ts:20-22`) returns false
+ * unless `VITE_APP_ENV` is 'staging' or 'development' (or absent, which
+ * falls open to 'development'), and `exportDebugBundleAsync` has exactly
+ * one non-test caller, inside that panel. Measured over all 20
+ * combinations of `DEV` × `VITE_APP_ENV` × opt-in, `panel && storeEnabled
+ * && !narrow` is true in exactly three states, none of them that one:
+ *
+ *   VITE_APP_ENV UNSET         + opt-in          (production's real posture)
+ *   VITE_APP_ENV='development' + no opt-in       (needs NO flag at all)
+ *   VITE_APP_ENV='development' + opt-in
+ *
+ * The cases below pin those, because a case pinned to a state no artefact
+ * can reach is a guard that cannot fire.
  *
  * It also found that NO test executed either gate — all twelve specs
  * touching the modules `vi.mock` them away — which is how it reached
@@ -77,10 +93,21 @@ function stubEnv(env: {
   )
 }
 
-/** The one env state in which no path may carry user prose. */
+/**
+ * The one REACHABLE env state in which no path may carry user prose: a
+ * production-mode build with `VITE_APP_ENV` unset and no opt-in. Of the 20
+ * combinations, this is the only one where the debug panel can mount (so a
+ * bundle exists at all) and the admission is false.
+ *
+ * '' models an absent key faithfully for every predicate involved:
+ * `'' || 'development'` === `undefined || 'development'` for the panel, and
+ * the trace store disables on both ('' → `empty_app_env_capture_disabled`,
+ * absent → `missing_app_env_capture_disabled`). It previously read
+ * `VITE_APP_ENV: 'production'` — where the panel cannot mount at all.
+ */
 const NON_CAPTURING = {
   DEV: false,
-  VITE_APP_ENV: 'production',
+  VITE_APP_ENV: '',
   VITE_ENABLE_PAYLOAD_INSPECTION: '',
 } as const
 
@@ -98,8 +125,19 @@ afterEach(() => {
 // ===========================================================================
 
 describe('shouldCaptureUserAuthoredText — the gate is executed', () => {
-  it('is FALSE in a production build with no opt-in', () => {
+  it('is FALSE in the one reachable non-capturing state (app env unset, no opt-in)', () => {
     stubEnv(NON_CAPTURING)
+    expect(shouldCaptureUserAuthoredText()).toBe(false)
+  })
+
+  it('is FALSE with an explicit VITE_APP_ENV=production and no opt-in', () => {
+    // Predicate-level only: no bundle can be produced in this state (the
+    // panel refuses to mount), so it pins the gate, not a reachable lie.
+    stubEnv({
+      DEV: false,
+      VITE_APP_ENV: 'production',
+      VITE_ENABLE_PAYLOAD_INSPECTION: '',
+    })
     expect(shouldCaptureUserAuthoredText()).toBe(false)
   })
 
@@ -113,20 +151,38 @@ describe('shouldCaptureUserAuthoredText — the gate is executed', () => {
     expect(shouldCaptureUserAuthoredText()).toBe(true)
   })
 
-  it('is TRUE under the production-build payload-inspection opt-in', () => {
-    // The state that produced the reviewed defect: a production build in
-    // which the trace store DOES capture request bodies. The admission
-    // must be true here, or the bundle would deny holding prose it holds.
+  it('is TRUE with VITE_APP_ENV unset and the payload-inspection opt-in', () => {
+    // REACHABLE STATE 1 of the three. Production's real `VITE_APP_ENV`
+    // posture is unset, the panel therefore mounts, and the opt-in enables
+    // the trace store — so the admission must be true here, or the bundle
+    // would deny holding prose it holds.
     stubEnv({
       DEV: false,
-      VITE_APP_ENV: 'production',
+      VITE_APP_ENV: '',
       VITE_ENABLE_PAYLOAD_INSPECTION: 'true',
     })
     expect(shouldCaptureUserAuthoredText()).toBe(true)
   })
 
-  it('is TRUE when VITE_APP_ENV is development', () => {
-    stubEnv({ DEV: false, VITE_APP_ENV: 'development' })
+  it('is TRUE when VITE_APP_ENV is development, with NO opt-in', () => {
+    // REACHABLE STATE 2, and the one the first write-up missed: the
+    // exposure needs no opt-in flag at all. `app_env_development_enabled`
+    // turns the trace store on while the narrow gate stays false.
+    stubEnv({
+      DEV: false,
+      VITE_APP_ENV: 'development',
+      VITE_ENABLE_PAYLOAD_INSPECTION: '',
+    })
+    expect(shouldCaptureUserAuthoredText()).toBe(true)
+  })
+
+  it('is TRUE when VITE_APP_ENV is development AND the opt-in is set', () => {
+    // REACHABLE STATE 3.
+    stubEnv({
+      DEV: false,
+      VITE_APP_ENV: 'development',
+      VITE_ENABLE_PAYLOAD_INSPECTION: 'true',
+    })
     expect(shouldCaptureUserAuthoredText()).toBe(true)
   })
 })
@@ -237,7 +293,16 @@ describe('the admission is never false while payload-trace capture is enabled', 
       env: { DEV: false, VITE_APP_ENV: 'development' },
     },
     {
-      label: 'production build with the explicit inspection opt-in',
+      label: 'app env UNSET with the explicit inspection opt-in',
+      // The reachable state an opt-in actually meets in a deployed build:
+      // the store enables via `explicit_debug_flag_enabled` while the
+      // narrow gate is false, and the panel still mounts. Absent from the
+      // first version of this matrix, which is why the exposure went
+      // under-described.
+      env: { DEV: false, VITE_APP_ENV: '', VITE_ENABLE_PAYLOAD_INSPECTION: 'true' },
+    },
+    {
+      label: 'explicit app env production with the inspection opt-in',
       env: {
         DEV: false,
         VITE_APP_ENV: 'production',
@@ -245,10 +310,10 @@ describe('the admission is never false while payload-trace capture is enabled', 
       },
     },
     {
-      label: 'production build, no opt-in',
+      label: 'explicit app env production, no opt-in',
       env: { DEV: false, VITE_APP_ENV: 'production' },
     },
-    { label: 'missing app env', env: { DEV: false } },
+    { label: 'app env unset, no opt-in', env: { DEV: false } },
     {
       label: 'unknown app env',
       env: { DEV: false, VITE_APP_ENV: 'qa-sandbox' },
