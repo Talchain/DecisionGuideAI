@@ -76,25 +76,37 @@ export function SectionShell({
 
   return (
     <section
-      /* ⭐ A2 — CONTAINMENT BY FILL AND RADIUS, NOT BY A BOX (design pick,
-         ratified 5 Sep). An OPEN section takes a tinted surface and a radius,
-         and gives up its rule: the fill is what groups the header with the body
-         it opened, so a second rule underneath would be drawing the box twice.
-         A CLOSED section is just a row in a list and keeps the rule.
+      /* ⭐ A2 — CONTAINMENT BY FILL, BUT NOT AT THE COST OF THE DIVIDER.
+         (Design pick A2, ratified 5 Sep; corrected after review measured it.)
 
-         ⚠ WHY NOT A BORDER. The panel carried a 2px accent box on four
-         sections; at a glance it read as focus or as an error, and two open
-         sections produced two competing boxes. A fill has no edge to mistake
-         for a state, and it still reads as one surface when two are open —
-         which is the case the box version failed.
+         ⚠⚠ THE FIRST VERSION TRADED A VISIBLE RULE FOR AN INVISIBLE FILL. It
+         dropped the 1px `border-panel-border` and used `bg-panel-hover/40`,
+         which composites to `rgb(254, 252, 249.6)` over a `rgb(254, 254, 254)`
+         panel — a contrast of 1.015:1, measured against the deployed build's
+         own tokens. The reader lost a divider they could see and gained one
+         they could not.
 
-         `my-1` is load-bearing: without it the tint runs straight into the
-         neighbouring row and the radius is invisible. */
-      className={
-        open
-          ? 'rounded-md bg-panel-hover/40 my-1 px-2'
-          : 'border-b border-panel-border last:border-b-0'
-      }
+         ⚠ AND MY OWN COMMENT ARGUED THE WRONG COMPARISON. It defended dropping
+         the border by pointing at the 2px accent box — a thing ALREADY REMOVED
+         from this panel. The live alternative was a 1px rule, and that was
+         never weighed. A justification aimed at a defect that no longer exists
+         is not a justification.
+
+         So: full-strength `bg-panel-hover` (1.038:1 — about 2.5× the
+         separation, which is what a subtle surface is), AND the rule stays. A
+         rule between sections is a RULE RUNNING EDGE TO EDGE, which the design
+         asks for; it was never the one-sided box border it bans. The fill
+         groups the header with the body it opened; the rule keeps separating
+         one section from the next. Nothing is given up.
+
+         ⚠ `-mx-2 px-2`, NOT `px-2`: padding alone moved the section title 8px
+         sideways on open (x 25→33, width 228→212) — witnessed by clicking, not
+         by reading classes. The negative margin lets the FILL reach the panel
+         edge while the CONTENT stays exactly where it was, so opening a
+         section no longer nudges its own heading. */
+      className={`border-b border-panel-border last:border-b-0 ${
+        open ? 'rounded-md bg-panel-hover -mx-2 px-2' : ''
+      }`}
       data-testid={testId}
       // ⚠ STILL A LABELLED LANDMARK. Turning the section header into a
       // disclosure control must not cost the landmark its name — the dock's own
