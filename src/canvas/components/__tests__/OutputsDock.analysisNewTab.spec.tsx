@@ -215,7 +215,7 @@ afterEach(() => {
 describe('MOUNT PATH — the declarations this experiment depends on', () => {
   it('declares Analysis (New) as a presented surface, adjacent to Analysis', () => {
     expect(WORKSPACE_SURFACES.analysisNew.presentedAsTab).toBe(true)
-    expect(WORKSPACE_SURFACES.analysisNew.label).toBe('Analysis (New)')
+    expect(WORKSPACE_SURFACES.analysisNew.label).toBe('Reasoning')
     const order = WORKSPACE_SURFACE_ORDER
     expect(order.indexOf('analysisNew')).toBe(order.indexOf('results') + 1)
     // CONTRAST CONTROL: not every declared surface is presented, so "some
@@ -296,7 +296,7 @@ describe('B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT', () => {
     renderDock()
     const tab = screen.getByTestId(NEW_TAB)
     expect(tab).toBeInTheDocument()
-    expect(tab).toHaveTextContent('Analysis (New)')
+    expect(tab).toHaveTextContent('Reasoning')
   })
 
   it('Analysis, not Analysis (New), is what the dock opens on', () => {

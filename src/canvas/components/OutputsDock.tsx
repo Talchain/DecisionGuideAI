@@ -3542,7 +3542,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 startedAt={composedAnalysisState.trust.runStartedAt}
                 contentRetained={!isPreRun}
               />
-              <SectionErrorBoundary section="Analysis (New)">
+              <SectionErrorBoundary section="Reasoning">
                 <AnalysisNewTabBody
                   resultsSectionData={resultsSectionData}
                   isPreRun={isPreRun}
