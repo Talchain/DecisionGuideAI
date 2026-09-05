@@ -163,15 +163,44 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
     ).toBe(true)
 
     /**
-     * ⭐ THE OTHER HALF OF THE SAME CHANGE, WHICH NOTHING PINNED EITHER.
-     * `894ef8ab` also moved the value track from `auto` to `minmax(0,auto)` so
-     * a long value can shrink instead of stealing the identity column's width.
-     * Reverting that half was invisible to every test in this directory.
+     * ⚠⚠ THIS ASSERTION USED TO PIN `minmax(0,auto)` ON THE VALUE TRACK, AND IT
+     * WAS PINNING THE HARMFUL HALF.
+     *
+     * It was justified as "a long value can shrink instead of stealing the
+     * identity column's width". The identity FLOOR above already secures that:
+     * measured on the deployed build's own rows, the floor alone takes
+     * label-over-value to zero at 416px AND at the 280px dock floor (51.6px and
+     * 96px of overlap removed). What `minmax(0,auto)` added was a REGRESSION —
+     * CSS Grid §6.6 grants the automatic minimum only when the min sizing
+     * function is `auto`, so that spelling removes it, and at 280px with
+     * "£1,250,000 per year" the value box was crushed to 44.4px against 118px
+     * of content. With `auto` it sizes to 118.4px and fits.
+     *
+     * So the contract is now the opposite one, and it is pinned as a PROPERTY
+     * rather than a spelling: the value track must keep an automatic minimum.
+     * `minmax(0,…)`, `minmax(0px,…)` and every other zero spelling fail it,
+     * which is the same arms-race lesson as the floor parse above.
      */
+    // Split the bracket body on TOP-LEVEL `_` only, so `minmax(6rem,1fr)` stays
+    // one track. The value column is track 3 of 4.
+    const body = gridClass!.slice('grid-cols-['.length, -1)
+    const trackList: string[] = []
+    let depth = 0
+    let cur = ''
+    for (const ch of body) {
+      if (ch === '(') depth++
+      else if (ch === ')') depth--
+      if (ch === '_' && depth === 0) { trackList.push(cur); cur = '' } else cur += ch
+    }
+    trackList.push(cur)
+    // PRECONDITION: four tracks, or "track 3" names something else entirely and
+    // the assertion below is about the wrong column.
+    expect(trackList.length, `expected four tracks, parsed ${JSON.stringify(trackList)}`).toBe(4)
+    const valueTrack = trackList[2]
     expect(
-      gridClass,
-      'the value track must be shrinkable — a bare `auto` takes its max-content width before the identity track is served',
-    ).toMatch(/minmax\(0,\s*auto\)/)
+      valueTrack,
+      `the value track must keep its automatic minimum — "${valueTrack}" removes it, and a value with no floor is crushed under a long figure`,
+    ).not.toMatch(/^minmax\(\s*0(?:\.0+)?(?:px|rem|em|ch)?\s*,/)
 
     // No row may declare tracks of its own — that is the defect, restated.
     for (const r of rowsIn(ul)) {

@@ -423,18 +423,30 @@ export function ModelOutline({
                      track's.
 
                      A track MINIMUM is honoured before other tracks reach their
-                     maximum. So the floor belongs on the TRACK — `minmax(6rem,
-                     1fr)` — and the value track needs `minmax(0,auto)` so it
-                     has somewhere to give from.
+                     maximum. So the floor belongs on the TRACK —
+                     `minmax(6rem,1fr)` — and that is the WHOLE change.
 
-                     ⚠ NUMBERS STAY SAFE BY CONSTRUCTION. Track sizing takes the
-                     MAXIMUM of the items' minimum contributions, and
-                     `ModelRowView` gives `min-w-0` only to values that may
-                     shrink (prose, or a value carrying an estimate hint). A
-                     bare "35 %" keeps its automatic minimum and holds the track
-                     open on its own, so the floor is derived from the content
-                     rather than written as a magic number. */
-                  className="grid grid-cols-[auto_minmax(6rem,1fr)_minmax(0,auto)_auto]"
+                     ⚠⚠ THE VALUE TRACK KEEPS `auto`, AND AN EARLIER CUT OF THIS
+                     FIX DID NOT. It read `minmax(0,auto)`, justified here by a
+                     sentence claiming *"NUMBERS STAY SAFE BY CONSTRUCTION …
+                     a bare '35 %' keeps its automatic minimum"*. That sentence
+                     was FALSE THE DAY IT WAS WRITTEN: CSS Grid §6.6 grants the
+                     automatic minimum only when the track's min sizing function
+                     is `auto`, and `minmax(0,auto)` is exactly the spelling that
+                     removes it. `ValueLeaf` cannot cover the gap either, because
+                     `valueMayShrink` returns false for anything containing a
+                     digit.
+
+                     Measured on the DEPLOYED build's own rows (dock driven to
+                     both reachable widths, value text set to
+                     "£1,250,000 per year"): with `minmax(0,auto)` at the 280px
+                     floor the value box is crushed to 44.4px against 118px of
+                     content; with `auto` it sizes to 118.4px and fits. And the
+                     identity floor ALONE reaches zero label-over-value at 416px
+                     AND 280px — 51.6px and 96px of overlap removed — so the
+                     second track change bought nothing and cost the numeric
+                     case. */
+                  className="grid grid-cols-[auto_minmax(6rem,1fr)_auto_auto]"
                 >
                   {group.rows.map(row => (
                     <ModelRowView

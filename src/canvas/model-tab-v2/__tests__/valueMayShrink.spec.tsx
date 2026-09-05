@@ -73,6 +73,15 @@ describe('valueMayShrink — which values may lose characters, and which may not
    */
   it.each([
     ['a bare percentage', '35 %'],
+    // ⚠ THE DIGIT GUARD'S ONLY COVERAGE, AND IT HAD NONE. Every other
+    // digit-bearing member here is <= 12 characters, so the LENGTH clause
+    // decided all of them and deleting `if (/\d/.test(text)) return false` left
+    // the whole file green. This one is 19 characters WITH a space, so the
+    // length clause says "may shrink" and only the digit guard can say no. It
+    // is also the exact value that crushed the value track to 44.4px against
+    // 118px of content when the grid carried `minmax(0,auto)`.
+    ['a long currency figure with a unit', '£1,250,000 per year'],
+    ['a long numeric range', '0.25 to 0.75 per quarter'],
     ['a quantity with a unit', '45 days'],
     ['a signed number', '-0.8'],
     ['a currency figure', '£1.2m'],
@@ -147,6 +156,42 @@ describe('ValueLeaf — the ellipsis sits on the text leaf, never on the flex bo
       /\btruncate\b/.test(el.className),
     )
     expect(clipped.length, 'exactly one clipping leaf inside the value cell').toBe(1)
+    expect(clipped[0]?.textContent).toBe(longValue)
+  })
+
+  /**
+   * ⚠⚠ THE EDITABLE BUTTON BRANCH — WHICH THE GUARD ABOVE NEVER REACHED.
+   *
+   * `relationshipRow` is named `editable: true`, and that is NOT what opens the
+   * editor: `editorAvailable` also needs `onBeginEdit`, which the renders above
+   * do not pass. So every assertion above landed on the read-only SPAN, and
+   * deleting `ValueLeaf` from the BUTTON branch — the live relationships path
+   * this change headlines — left 57/57 green.
+   *
+   * The precondition is pinned in-test by asserting the tag, so this cannot
+   * quietly drift back onto the span it was written to escape.
+   */
+  it('the EDITABLE value renders a button, and the ellipsis still sits on the leaf', () => {
+    render(
+      <ModelRowView
+        row={relationshipRow('r3', longValue)}
+        tier="plain"
+        editConnected
+        onBeginEdit={() => {}}
+      />,
+    )
+    const cell = screen.getByTestId('model-row-v2-r3-value')
+    // PRECONDITION: this is the button branch, not the span the other tests hit.
+    expect(cell.tagName, 'fixture must reach the EDITABLE branch').toBe('BUTTON')
+    expect(cell).toHaveTextContent(longValue)
+    expect(
+      cell.className,
+      '`truncate` on the flex CONTAINER is the measured text-over-text defect',
+    ).not.toMatch(/\btruncate\b/)
+    const clipped = Array.from(cell.querySelectorAll('span')).filter(el =>
+      /\btruncate\b/.test(el.className),
+    )
+    expect(clipped.length, 'exactly one clipping leaf inside the editable value cell').toBe(1)
     expect(clipped[0]?.textContent).toBe(longValue)
   })
 
