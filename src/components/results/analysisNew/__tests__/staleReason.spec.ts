@@ -115,7 +115,24 @@ describe('staleReasonFromTrustSemantic — the one the dock actually calls', () 
     let shadowed = false
 
     const walk = (n: ts.Node): void => {
-      if (ts.isImportDeclaration(n) && /analysisNew\/staleReason/.test(n.moduleSpecifier.getText(sf))) {
+      // ⚠⚠ ANCHORED, AND UNANCHORED IS HOW ATTACK D1 GOT THROUGH. The check was
+      // a SUBSTRING match, so `analysisNew/staleReasonCompat.ts` satisfied it —
+      // and a re-export shim there (`export { staleReasonFromFreshness as
+      // staleReasonFromTrustSemantic }`) puts the aliasing one hop away, where
+      // the IMMEDIATE import has no `propertyName` for clause A to read.
+      // Result: pin green, typecheck green, 2,057 tests green, and the dock
+      // returning `unconfirmed` for every member of the domain — Attack A's
+      // outcome verbatim. The mechanism was isolated with a contrast control:
+      // the same shim at `analysisNew/compat/reader.ts` REDs, differing only
+      // in path.
+      //
+      // ⚠ WHAT ANCHORING DOES NOT DO: it kills the shim-PATH family, not
+      // re-exports in general. A shim at the exact path would still pass, and
+      // only a behavioural test closes that. Stated, not implied.
+      if (
+        ts.isImportDeclaration(n) &&
+        /analysisNew\/staleReason['"]$/.test(n.moduleSpecifier.getText(sf).trim())
+      ) {
         const named = n.importClause?.namedBindings
         if (named && ts.isNamedImports(named)) {
           for (const el of named.elements) {
