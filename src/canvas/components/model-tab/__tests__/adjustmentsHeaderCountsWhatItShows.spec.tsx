@@ -78,6 +78,38 @@ describe('the adjustments header counts what it shows', () => {
     ).toContain('analysis-time')
   })
 
+  it('THE OTHER HALF: one factor PLUS post-run repairs keeps them all', () => {
+    /**
+     * ⚠⚠ THE MUTANT THE ROUND-3 SEAT PROVED SURVIVES 37/37.
+     *
+     * The gate has two conjuncts — `totalCount === 1 && postRunRepairs.length
+     * === 0` — and dropping the second one passed the entire suite. A
+     * discriminating probe showed it is not equivalent: `(1 factor, 3 post-run)`
+     * takes the compact arm, which RETURNS EARLY, and **all three repairs leave
+     * the DOM with nothing red.**
+     *
+     * The two halves were masking each other: my `(0,0,1)` case exercises
+     * `totalCount === 1` being false, and nothing exercised the second conjunct
+     * on its own. So the fix was right and the guard could not tell if half of
+     * it were removed — the same shape as "a guard written against the NUMBER
+     * was blind to the ROW DISAPPEARING", one level up.
+     *
+     * Asserted by CONTENT, for the same reason as its sibling above.
+     */
+    renderAdjustments({
+      adjustments: [{ code: 'A', type: 'A', target: 'X', detail: 'one factor' }],
+      postRunRepairs: [
+        { code: 'R1', target: 'A', detail: 'first analysis-time repair' },
+        { code: 'R2', target: 'B', detail: 'second analysis-time repair' },
+        { code: 'R3', target: 'C', detail: 'third analysis-time repair' },
+      ],
+    })
+    const text = screen.getByTestId('model-adjustments').textContent ?? ''
+    expect(text, 'the compact arm returned early and dropped the repairs').toContain(
+      'analysis-time',
+    )
+  })
+
   it('DISCRIMINATOR: a single FACTOR adjustment still takes the compact arm', () => {
     // The gate must stay narrow. Widening it to "never compact" would throw
     // away the layout the compact arm exists for.

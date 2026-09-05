@@ -118,19 +118,21 @@ describe('the run-detail rows speak English', () => {
     for (const t of ['failed', 'blocked', 'error', 'suppressed']) {
       expect(WIRE_TOKEN.test(t), `"${t}" is producer vocabulary`).toBe(true)
     }
-    expect(WIRE_TOKEN.test('Partial')).toBe(false)
-    expect(WIRE_TOKEN.test('Not assessed')).toBe(false)
     expect(WIRE_TOKEN.test('the win share')).toBe(false)
-    // ⚠ AND A LEGITIMATE VALUE THE FIRST PATTERN WOULD HAVE FLAGGED. `Automatic
-    // noise applied` emits `'yes, provisional'`, whose parts are ordinary
-    // lowercase English — a bare `/^[a-z][a-z0-9_]*$/` calls both of them
-    // producer vocabulary. The pattern now catches snake_case OR the five
-    // status tokens by name, which is the actual class, rather than "any
-    // lowercase word". It passed only because this fixture never emits that row.
-    // ⚠ `'yes, provisional'` is a legitimate value and the pattern now matches
-    // each of its parts — so the SPLIT is what must not flag it. The row check
-    // below exempts it by label, which is honest: the exemption is visible and
-    // named, rather than hidden inside a pattern pretending to be general.
+    /**
+     * ⚠⚠ THIS BLOCK CARRIED A DESCRIPTION OF THE SUPERSEDED PATTERN, sitting
+     * directly above a comment that contradicted it and a file header that
+     * contradicted both. It said the pattern "catches snake_case OR the five
+     * status tokens by name" — the SECOND of three attempts, and the one whose
+     * hole let `failed`, `blocked`, `error` and `suppressed` through. Removed
+     * on review; the header carries the full three-attempt history once.
+     *
+     * `'yes, provisional'` is a legitimate value whose parts ARE ordinary
+     * lowercase words, so the pattern matches each of them by design. What must
+     * not flag it is the ROW, and the exemption is by LABEL in `OPAQUE_ROWS` —
+     * visible and named, rather than a hole carved in a pattern pretending to be
+     * general.
+     */
     expect(WIRE_TOKEN.test('yes')).toBe(true)
     expect(WIRE_TOKEN.test('Partial')).toBe(false)
     expect(WIRE_TOKEN.test('Not assessed')).toBe(false)

@@ -107,21 +107,42 @@ export function ModelImplication({
       data-implication-kind={implication.kind}
       aria-labelledby={`${testId}-title`}
     >
-      <h3
-        id={`${testId}-title`}
-        className={`${typography.panelHeader} text-text flex items-center gap-1.5 m-0`}
-      >
-        <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-light" />
-        <span className="min-w-0 flex-1">{COPY.sections.implications}</span>
+      {/*
+        ⚠⚠ THE STALE MARKER IS A SIBLING OF THE HEADING, NOT A CHILD OF IT, AND
+        THAT IS TWO FIXES IN ONE.
+        
+        It sat inside the `<h3>`, where `panelHeader`'s `font-semibold` reached
+        it — `panelMeta` declares no weight of its own — so it carried a raw
+        `font-normal` to escape. That token trips the `raw-typography` guard,
+        and this component's own header says "no raw weights". Moving the marker
+        out removes the inheritance instead of overriding it.
+        
+        ⭐ AND THE GUARD ONLY FIRED BECAUSE THIS PR IS THE MOUNT. The file had no
+        importers, so no conformance guard had ever scanned it — it was fully
+        typed and covered by two spec files and still non-conformant, because
+        its specs ran and the estate's guards did not. Mounting a dark component
+        is never a one-line change.
+        
+        It is also better as markup: the marker is a qualifier on the SECTION,
+        not part of its name, and `aria-labelledby` points at this heading.
+      */}
+      <div className="flex items-center gap-1.5">
+        <h3
+          id={`${testId}-title`}
+          className={`${typography.panelHeader} text-text flex items-center gap-1.5 m-0 min-w-0 flex-1`}
+        >
+          <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-light" />
+          <span className="min-w-0">{COPY.sections.implications}</span>
+        </h3>
         {isStale ? (
           <span
-            className={`${typography.panelMeta} text-text-light shrink-0 font-normal`}
+            className={`${typography.panelMeta} text-text-light shrink-0`}
             data-testid={`${testId}-stale`}
           >
             {COPY.markers.stale}
           </span>
         ) : null}
-      </h3>
+      </div>
 
       {/* ⚠ THE LEAD GOES WITH THE ASK, NOT SEPARATELY.
           `needsTargetLead` is "Only one reading of this run is available." — a
