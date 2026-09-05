@@ -35,7 +35,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 const RELATIVE_TOOLTIP =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const ABSOLUTE_TOOLTIP =
-  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+  'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
 const GENERIC_TOOLTIP = 'Influence: how much this factor affects the outcome'
 const RELATIVE_EXPLAINER =
   'Ranked by how much each factor affects the outcome, relative to the strongest factor'

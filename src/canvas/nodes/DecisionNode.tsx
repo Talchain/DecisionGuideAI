@@ -31,6 +31,7 @@ import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../doma
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 
 /**
@@ -444,6 +445,17 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // not there.
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
   const showHeadline = Boolean(headline)
+  /**
+   * AXIS 2 for the leader sentence. Same shared owner the option card reads —
+   * never re-spelled here, because two local expressions of one question is
+   * exactly how the canvas ended up with three robustness vocabularies already
+   * (this node's own `stabilityDisplay` thresholds, GoalNode's inline read, and
+   * the shared classifier). A DISCLOSURE only: `headline` above is untouched.
+   */
+  const robustnessGrade = useMemo(
+    () => (isPostAnalysis ? leaderRobustnessGrade(report) : null),
+    [isPostAnalysis, report],
+  )
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
   // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
   // oversight. "Challenge this result" deserves the same treatment as the
@@ -742,6 +754,22 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                     </button>
                   </>
                 ) : null}
+              </div>
+            )}
+            {/* AXIS 2, ON THE STRONGEST SENTENCE THE CANVAS SPEAKS.
+                "{X} leads in N% of scenarios" renders in Standard AND Detailed,
+                while this node's existing stability line is `isDetailed`-gated
+                (see `showStabilityLine`) — i.e. behind a hover popover in the
+                Standard view the founder was in. So the claim was always-on and
+                its caveat was not. Gated on `showHeadline && headline` so the
+                disclosure cannot appear without the sentence it qualifies. */}
+            {showHeadline && headline && robustnessGrade && (
+              <div
+                className={`${typography.edgeLabel} text-text-light mt-0.5`}
+                data-testid="decision-leader-robustness"
+                title={robustnessGrade.title}
+              >
+                {robustnessGrade.label}: small changes could flip which option leads.
               </div>
             )}
 

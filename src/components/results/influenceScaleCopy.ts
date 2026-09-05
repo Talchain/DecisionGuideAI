@@ -30,9 +30,42 @@ export const INFLUENCE_EXPLANATION_GENERIC =
 export const INFLUENCE_EXPLANATION_RELATIVE =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 
-/** Header tooltip / pill title — absolute producer basis. */
+/**
+ * Header tooltip / pill title — absolute producer basis.
+ *
+ * ⚠⚠ DO NOT RESTORE "from the analysis". It was removed 5 Sep 2026 because it
+ * is FALSE, and it is the kind of clause that reads as harmless polish on the
+ * way back in.
+ *
+ * WHAT WAS MEASURED (PLoT `d37c8cfd`). The producer's `influence_score` is
+ * `normalised_influence` — a normalised product of authored edge `strength.mean`
+ * along the paths to the goal (`lib/factor-influence.ts:546-556, :798`). Its own
+ * header states *"No dependency on parameter_uncertainties — derived purely from
+ * edge data"* (`:505`), and `routes/v2/run.ts:5503-5504` filters option and
+ * decision nodes OUT of the graph it is computed over, at a line that runs
+ * BEFORE the ISL result exists (`:7610`). The graph path is PRIMARY and ISL is
+ * the fallback (`run.ts:7983`).
+ *
+ * THE CONSEQUENCE A USER SEES, and the reason this matters. A founder ran an
+ * analysis twice — adding a fourth option and flipping the leader outright,
+ * win probabilities fully redistributed — and the five canvas influence numbers
+ * were byte-identical across both runs. They could not have moved. The tooltip
+ * meanwhile attributed them to the run.
+ *
+ * ⭐ WHAT THIS FILE DELIBERATELY DOES NOT SAY. It no longer claims the number
+ * comes FROM the run, and it does not claim it is INVARIANT ACROSS runs either.
+ * The second claim is true on the graph path and is NOT bounded from this repo:
+ * the ISL fallback arm is unmeasured, and the CEE→PLoT round trip for edge
+ * weights was never derived. Stating only the scale — which is the producer's
+ * own declared semantics (`driverDisplayModel.ts:36`, "an absolute producer
+ * scale, not a share") — removes a false claim without buying an unbounded one.
+ *
+ * ⚠ THE `normalised_elasticity` ARM IS UNTOUCHED ON PURPOSE. Its wording makes a
+ * SCALING claim ("relative to the strongest"), never a provenance claim, so it
+ * was not false and re-wording it would assert something not derived here.
+ */
 export const INFLUENCE_EXPLANATION_ABSOLUTE =
-  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+  'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
 
 /** Drivers panel ranking explainer — generic (absolute or unstamped basis). */
 export const INFLUENCE_RANKING_EXPLAINER_GENERIC =
@@ -75,7 +108,7 @@ export function influencePillAriaLabel(
   return provenance === 'normalised_elasticity'
     ? `Relative influence ${pct}%, scaled against the strongest factor. The top driver always shows 100%`
     : provenance === 'influence_score'
-      ? `Influence score ${pct}%, an absolute causal influence score from the analysis`
+      ? `Influence score ${pct}%, an absolute causal influence score`
       : 'Influence basis unavailable'
 }
 
@@ -114,7 +147,7 @@ export function influenceBarAriaLabel(
   return provenance === 'normalised_elasticity'
     ? 'Influence, relative to the strongest factor. The top driver always shows 100%'
     : provenance === 'influence_score'
-      ? 'Influence, an absolute causal influence score from the analysis'
+      ? 'Influence, an absolute causal influence score'
       : 'Influence'
 }
 

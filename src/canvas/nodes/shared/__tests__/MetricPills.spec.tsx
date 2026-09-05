@@ -21,7 +21,7 @@ import { MetricPills } from '../MetricPills'
 const RELATIVE_TITLE =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const ABSOLUTE_TITLE =
-  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+  'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
 
 describe('MetricPills — influence-scale disclosure (lane C4)', () => {
   // Review fix 5: aria-label on a role-less <span> is unreliably announced
@@ -41,7 +41,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
   it('producer basis: pill carries the absolute-basis wording, never the relative claim', () => {
     render(<MetricPills influencePct={62} influenceProvenance="influence_score" />)
     const pill = screen.getByRole('img', {
-      name: 'Influence score 62%, an absolute causal influence score from the analysis',
+      name: 'Influence score 62%, an absolute causal influence score',
     })
     expect(pill.textContent).toBe('Influence score 62%')
     expect(pill.getAttribute('title')).toBe(ABSOLUTE_TITLE)
