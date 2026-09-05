@@ -360,9 +360,28 @@ export function applyScenarioAnalysisRead(
   // Boot alone cannot arm it (`running` is boot-declined), which is why this
   // needed its own repair rather than riding the boot fix.
   //
-  // ⚠ SCOPE, CARRIED WITH THE FIX: reachable IN CODE, conditional on a refused
-  // boot, which has NOT been observed live. Given a refused boot the harm
-  // follows; that refused boots reach real users is unproven.
+  // ⚠⚠ SCOPE — CORRECTED, AND THE OLD SCOPE WAS WRONG IN THE DIRECTION THAT
+  // MATTERS. This comment used to read: "reachable IN CODE, conditional on a
+  // refused boot, which has NOT been observed live". **Withdrawn.** The harm
+  // was WITNESSED ON THE DEPLOYED BUILD (issue #1204) and NO REFUSED BOOT IS
+  // REQUIRED: the reproduction is guest · load one shipped starter · send one
+  // brief · first turn. `applyStarter` (`loadStarter.ts:216`) routes the starter
+  // through `applyDraftResult`, which installs the starter's nodes and then, at
+  // `applyDraftResult.ts:293`, UNCONDITIONALLY records
+  // `identityFromCanvasGraph(nodes, edges)` over those same nodes — so the
+  // acceptance proxy `lastAuthoritativeGraph !== null` is satisfied by the very
+  // gesture that puts a graph CEE never accepted on the canvas. ⚠ An earlier
+  // version of this sentence said the record is seeded EMPTY by "creating a
+  // scenario" with the starter's nodes landing after; that is withdrawn — the
+  // empty seed is `store.ts:5504` inside `loadScenario`, and the starter path
+  // records a FULL record. The conclusion is unchanged (this predicate reads
+  // only `!== null`), but the mechanism was wrong at the bytes and a correcting
+  // comment reads as already adjudicated. A scope that says "unproven for real
+  // users" teaches every later reader to deprioritise a live P0; that is why it
+  // is corrected here rather than only in the register. The supplying derivation
+  // now also requires
+  // OPTION-IDENTITY CONTAINMENT (`useProvisionalAnalysisDelivery.ts`), which is
+  // what closes the witnessed journey.
   //
   // ⚠ PLACED BEFORE THE RESULTS HYDRATION BELOW, AND THAT IS A DECISION.
   // Declining the verdict while still writing the REPORT would show the user
