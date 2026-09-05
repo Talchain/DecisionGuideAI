@@ -472,7 +472,7 @@ export type EdgeValueDisplay =
  * ⚠ THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS. It first claimed a row,
  * was "corrected" to NOT ROWED, and that correction was false — the third of
  * three instances of one claim from a single sweep, and the second whose row
- * sits two lines from the one the other instance was about. The failure was
+ * is ADJACENT to the one the other instance was about. The failure was
  * closing against the INSTANCE found rather than the ENUMERATION the register
  * already held. The scope test in `__tests__/edgeValueProvenance.spec.ts`
  * ("leaves the OPEN-domain fields alone") remains the record that the omission
