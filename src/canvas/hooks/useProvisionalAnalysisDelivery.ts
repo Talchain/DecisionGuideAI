@@ -114,8 +114,11 @@ import {
 
 /**
  * ABSOLUTE offsets from arming, in ms — not gaps. Front-loaded around the ~20s
- * commit, then held at a constant 8s step (never wider than the opening wait)
- * out to the bound.
+ * commit, then stepped at 6-8s out to the bound — never wider than the opening
+ * wait, which is the property P2 actually pins. Measured gaps in seconds:
+ * `8, 6, 6, 7, 8x12, 7`. An earlier version of this sentence said "a constant
+ * 8s step"; the final step (123s -> 130s) is 7s, so it was false of the very
+ * list it sits above.
  *
  * Exported so the spec asserts the SCHEDULE rather than restating it (trap 12),
  * and so the budget claim in the header is checkable.
@@ -129,10 +132,21 @@ export const PROVISIONAL_DELIVERY_DELAYS_MS: readonly number[] = [
  * The bound. Past this the hook stops and writes nothing (H3).
  *
  * Equals `TURN_WAIT_MS` from `v5/getTimeoutMs.ts` — the client's budget for the
- * same computation on the manual path — and the two are tied together by
- * assertion in `provisionalDeliveryReachesSlowRuns.spec.ts` rather than by this
- * sentence. It is deliberately DERIVED from the last offset rather than written
- * twice, so the schedule cannot end anywhere other than the declared bound.
+ * same computation on the manual path — and the two are tied together by the
+ * assertion `expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBe(TURN_WAIT_MS)` in
+ * `provisionalDeliveryReachesSlowRuns.spec.ts` rather than by this sentence.
+ *
+ * ⚠ That assertion was ADDED because this sentence was false when first
+ * shipped. The spec then pinned only a BAND (`>= SERVER_TURN_DEADLINE_MS`,
+ * `<= TURN_WAIT_MS`), so a review moved the last offset to 127_000 and all
+ * fourteen tests stayed GREEN while "Equals `TURN_WAIT_MS`" was untrue — the
+ * sentence was the only thing holding the equality, i.e. exactly the
+ * hand-maintained mirror it claims to have escaped (trap 12). If you weaken
+ * that pin back to a band, delete this paragraph too; a comment describing a
+ * guard that no longer exists is worse than no comment.
+ *
+ * It is deliberately DERIVED from the last offset rather than written twice, so
+ * the schedule cannot end anywhere other than the declared bound.
  */
 export const PROVISIONAL_DELIVERY_DEADLINE_MS =
   PROVISIONAL_DELIVERY_DELAYS_MS[PROVISIONAL_DELIVERY_DELAYS_MS.length - 1]

@@ -121,10 +121,22 @@ describe('P1 — the provisional bound covers the server bound the manual path a
     expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBeGreaterThanOrEqual(SERVER_TURN_DEADLINE_MS)
   })
 
-  it('is no more generous than this client`s own turn budget for that computation', () => {
-    // The ceiling is the manual path's budget. It keeps the bound a WAIT rather
-    // than a background job, and — unlike a round literal — it says why.
-    expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBeLessThanOrEqual(TURN_WAIT_MS)
+  it('IS this client`s own turn budget for that computation, not merely within it', () => {
+    // ⚠ EQUALITY, not a ceiling — and the reason is the finding that put it
+    // here. The hook's own comment claims the two constants are EQUAL and that
+    // the equality is held "by assertion rather than by this sentence". A
+    // `<=` pin does not hold an equality: with it, the last offset could move
+    // to 127_000 and every test in this file stayed GREEN while the sentence
+    // went false — measured, not supposed. The sentence WAS the mirror it
+    // claimed to have escaped (trap 12).
+    //
+    // Equality is the right predicate, not merely the one that makes the
+    // sentence true: the manual and provisional paths are the SAME
+    // CEE -> PLoT -> ISL computation waited on by the SAME client, so the
+    // budget is one number, not two related ones. The two sides are derived
+    // independently — this one from the last schedule offset in the hook, that
+    // one from `v5/getTimeoutMs` — so a drift on EITHER side REDs here.
+    expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBe(TURN_WAIT_MS)
   })
 })
 
