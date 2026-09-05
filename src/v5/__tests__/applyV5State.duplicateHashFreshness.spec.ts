@@ -215,29 +215,36 @@ describe('the briefed false-negative fix is UNSAFE on the silent arm — held de
  * ⭐ THE COMPOSITION MATRIX — pending model-changing edits × duplicate hash ×
  * freshness arm, driven against the REAL store.
  *
- * WHICH CELLS THE HOLD ACTUALLY REACHES — measured by mutation on 2026-09-05,
- * not asserted. The hold is the three `pendingEmittedEdits` refusals in
- * `canvas/store.ts`, and breaking each one REDs a DIFFERENT cell of this matrix:
+ * WHICH CELLS THE HOLD REACHES — ASSERTED HERE, NOT TABULATED ELSEWHERE. This
+ * comment previously carried a mutation table mapping each of the three
+ * `pendingEmittedEdits` refusals in `canvas/store.ts` to the cell it REDs. That
+ * mapping was true when written; it is the kind of thing that silently stops
+ * being true. So every hold-sensitive cell below now runs its own DISCRIMINATING
+ * PAIR in-test: the cell as specified, then the SAME arm with the hold's only
+ * input removed, asserting the outcome FLIPS.
  *
- *   · `setAnalysisFreshness`'s `pendingEmittedEdits === 0` conjunct → CELLs 7 and 8
- *   · `noteRunCompletedWithoutVerdict`'s hold                      → CELL 3
- *   · `clearAnalysisFreshnessDirty`'s early return                 → CELL 7
+ * ⚠ WHAT THE PAIRS DO AND DO NOT DO, measured rather than assumed. They are NOT
+ * the detector for a broken refusal: CELLs 1, 5 and 6 already pin the
+ * contrast outcomes independently, and breaking any of the three refusals REDs
+ * the affected cell on its FIRST assertion (measured on all three). What the
+ * pairs add is that each cell states its own CAUSE where the cell is read — so
+ * "CELL 8 is bound to the hold" is checkable in one glance instead of resting
+ * on a table somewhere else that can go stale while every test stays green.
+ * CELL 4 is the one place the pin IS the detector, and that is measured below.
  *
- * So the hold-sensitive cells are 3, 7 and 8. CELL 8 — pending edits × duplicate
- * hash × explicit verdict — is the one that makes this PR's shipped half compose
- * with the RETAINED hash gate, because it is bound to the hold on the very arm
- * where the gate does nothing.
+ * CELL 8 — pending edits × duplicate hash × explicit verdict — is what makes
+ * this PR's shipped half compose with the RETAINED hash gate: it is bound to the
+ * hold on the very arm where the gate does nothing.
  *
- * ⚠ CELL 4 IS NOT ONE OF THEM, and this comment claimed it was until
+ * ⚠ CELL 4 IS THE EXCEPTION, and this comment claimed the opposite until
  * 2026-09-05. Both freshness resolvers sit INSIDE `applyV5State`'s
  * `hash !== prevHash` gate, so on a duplicate hash neither is called: CELL 4 is
- * governed by that gate plus the deliberate silent-verdict retain, and all three
- * hold-mutants leave it GREEN. It is a matrix-completeness pin, not evidence
- * about the hold — and the cell asserts that about itself rather than leaving a
- * comment to be trusted.
+ * governed by that gate plus the deliberate silent-verdict retain. Its pair
+ * therefore asserts the outcome is IDENTICAL with the hold input removed — the
+ * same instrument, pointed the other way.
  *
  * CELLs 1, 2, 5 and 6 carry no pending edits, so the hold cannot bite there by
- * construction.
+ * construction, and they are the contrast arms the pairs above run against.
  */
 describe('composition: the widened undispatched-edit hold governs every arm', () => {
   describe('the turn is SILENT about freshness', () => {
@@ -249,6 +256,15 @@ describe('composition: the widened undispatched-edit hold governs every arm', ()
     })
     it('CELL 3 — pending edits, NEW hash → stays dirty', () => {
       expect(runCell({ pendingEmittedEdits: 1, duplicateHash: false, carriesVerdict: false })).toBe(true)
+
+      // DISCRIMINATING PAIR. Same arm, hold input removed (this is CELL 1) —
+      // the outcome must FLIP, or the assertion above is passing for some
+      // reason other than the hold. Measured: of the three `pendingEmittedEdits`
+      // refusals, only `noteRunCompletedWithoutVerdict`'s REDs this cell.
+      expect(
+        runCell({ pendingEmittedEdits: 0, duplicateHash: false, carriesVerdict: false }),
+        'the hold is what keeps CELL 3 dirty — with it removed this arm resolves',
+      ).toBe(false)
     })
     it('CELL 4 — pending edits, DUPLICATE hash → stays dirty (the HASH GATE, not the hold)', () => {
       expect(runCell({ pendingEmittedEdits: 1, duplicateHash: true, carriesVerdict: false })).toBe(true)
@@ -277,9 +293,27 @@ describe('composition: the widened undispatched-edit hold governs every arm', ()
         runCell({ pendingEmittedEdits: 1, duplicateHash: false, carriesVerdict: true }),
         'the verdict was computed without the queued change',
       ).toBe(true)
+
+      // DISCRIMINATING PAIR. Same arm, hold input removed (CELL 5) — must FLIP.
+      expect(
+        runCell({ pendingEmittedEdits: 0, duplicateHash: false, carriesVerdict: true }),
+        'the hold is what keeps CELL 7 dirty — with it removed this arm resolves',
+      ).toBe(false)
     })
     it('CELL 8 — pending edits, DUPLICATE hash → stays dirty', () => {
       expect(runCell({ pendingEmittedEdits: 1, duplicateHash: true, carriesVerdict: true })).toBe(true)
+
+      // ⭐ THE COMPOSITION CELL, AND ITS DISCRIMINATING PAIR. This is the arm
+      // where the retained hash gate does NOTHING, so whatever holds the
+      // overlay here is this PR's widened hold and nothing else. Same arm with
+      // the hold input removed is CELL 6, which resolves via the reducer, so
+      // the two must differ. Measured: a broken `pendingEmittedEdits` refusal
+      // REDs the FIRST assertion here, not this one — this line is not the
+      // detector, it is what makes the CAUSE checkable at the cell.
+      expect(
+        runCell({ pendingEmittedEdits: 0, duplicateHash: true, carriesVerdict: true }),
+        'CELL 8 is bound to the hold, not to the hash gate — removing the hold must flip it',
+      ).toBe(false)
     })
   })
 

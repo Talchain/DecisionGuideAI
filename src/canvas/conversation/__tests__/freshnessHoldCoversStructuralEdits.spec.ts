@@ -310,4 +310,35 @@ describe('what actually pins the model-changing set', () => {
     // ⚠ WHAT THIS DOES NOT CATCH: CEE re-classifying an existing kind as
     // 'mutating'. Both lists here would be unchanged and this stays GREEN.
   })
+
+  /**
+   * ⭐ THE COMPLETENESS QUESTION, ANSWERED AS AN ASSERTION RATHER THAN A
+   * SENTENCE. CEE's `SYSTEM_EVENT_HANDLING` classifies FIVE kinds `'mutating'`;
+   * the list above names FOUR. The fifth is `edge_strength_edit`, and the
+   * reason it is not here is not an oversight to be argued in prose — it is a
+   * RELATIONSHIP between two lists in this repo, so it is pinned:
+   * `edge_strength_edit` is not a member of `WIRE_SYSTEM_EVENT_TYPES` at all,
+   * so it cannot be serialised, cannot be enqueued behind the in-flight lock,
+   * and is outside anything `publishPendingEditCount` is able to see.
+   *
+   * ⚠ THIS IS THE FAILURE WE WANT. `model-tab-v2/contracts.ts` records
+   * `proposeEdgeStrength → edge_strength_edit` as in-flight work. The day that
+   * emitter lands, the member joins `WIRE_SYSTEM_EVENT_TYPES` — and this test
+   * AND the PARTITION above both go RED until someone adjudicates it into one
+   * side. A count in a comment would have gone quietly stale instead.
+   */
+  it("the fifth kind CEE calls 'mutating' is not a wire member, so this filter cannot reach it", () => {
+    const wire = WIRE_SYSTEM_EVENT_TYPES as readonly string[]
+
+    // Contrast control first — an absence claim from a probe that sees nothing
+    // is blindness, not evidence.
+    expect(wire, 'contrast control — the probe can see a member that IS present').toContain(
+      'structural_rename',
+    )
+
+    expect(
+      wire,
+      'when this REDs, edge_strength_edit is sendable and the held list needs adjudicating',
+    ).not.toContain('edge_strength_edit')
+  })
 })
