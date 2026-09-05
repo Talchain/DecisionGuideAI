@@ -123,13 +123,27 @@ export function ModelImplication({
         ) : null}
       </h3>
 
-      <p className={`${typography.panelBody} text-text-light mt-1.5 mb-0`} data-testid={`${testId}-lead`}>
-        {diverged
-          ? COPY.implications.divergedLead
-          : needsTarget
-            ? COPY.implications.needsTargetLead
-            : COPY.implications.alignedLead(implication.label)}
-      </p>
+      {/* ⚠ THE LEAD GOES WITH THE ASK, NOT SEPARATELY.
+          `needsTargetLead` is "Only one reading of this run is available." — a
+          statement of a LIMITATION whose only job is to set up the sentence that
+          says how to lift it. Suppressing the ask on its own left the panel
+          announcing a dead end: a limitation stated, its remedy deleted, and
+          nothing on the strip explaining that a target unlocks a second reading.
+          Raised by review, and it is the right catch — the first fix removed a
+          duplicate ask and created a worse sentence than the one it removed.
+          The outcome claim below stands on its own and is untouched. */}
+      {needsTarget && targetAskedElsewhere ? null : (
+        <p
+          className={`${typography.panelBody} text-text-light mt-1.5 mb-0`}
+          data-testid={`${testId}-lead`}
+        >
+          {diverged
+            ? COPY.implications.divergedLead
+            : needsTarget
+              ? COPY.implications.needsTargetLead
+              : COPY.implications.alignedLead(implication.label)}
+        </p>
+      )}
 
       <ul className="list-none p-0 mt-2 mb-0 space-y-1">
         <Claim sentence={implication.outcome.sentence} testId={`${testId}-outcome`} />

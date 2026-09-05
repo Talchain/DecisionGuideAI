@@ -42,14 +42,26 @@ type ConjunctionListFormat = {
  * The runtime has had it since Node 14 / every browser we support; the gap is
  * purely in the compiler's view of the platform.
  */
-const CONJUNCTION_LIST: ConjunctionListFormat = new (
-  Intl as unknown as {
-    ListFormat: new (
-      locale: string,
-      options: { style: 'long'; type: 'conjunction' },
-    ) => ConjunctionListFormat
-  }
-).ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+/**
+ * ⚠ BUILT LAZILY, NOT AT MODULE SCOPE. Constructing it on import means an
+ * environment without `Intl.ListFormat` throws during IMPORT — which no
+ * `SectionErrorBoundary` can catch, so the whole chunk goes rather than one
+ * section. The estate's other call site builds it at render, which is
+ * catchable. Support is universal in practice; the asymmetry was still worth
+ * removing, and review named it.
+ */
+let conjunctionList: ConjunctionListFormat | null = null
+function getConjunctionList(): ConjunctionListFormat {
+  conjunctionList ??= new (
+    Intl as unknown as {
+      ListFormat: new (
+        locale: string,
+        options: { style: 'long'; type: 'conjunction' },
+      ) => ConjunctionListFormat
+    }
+  ).ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+  return conjunctionList
+}
 
 /**
  * The estate's one prose-list joiner: `A`, `A and B`, `A, B and C`.
@@ -57,10 +69,10 @@ const CONJUNCTION_LIST: ConjunctionListFormat = new (
  * for the en-GB comma rules — the drift this panel has already paid for once.
  */
 export function formatConjunctionList(items: readonly string[]): string {
-  return CONJUNCTION_LIST.format(items)
+  return getConjunctionList().format(items)
 }
 
-const MISSING_LIST = CONJUNCTION_LIST
+const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList().format(items) }
 
 /**
  * The coverage warning with no names in it. Held as a const because

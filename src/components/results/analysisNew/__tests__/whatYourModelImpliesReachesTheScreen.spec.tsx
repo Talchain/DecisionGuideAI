@@ -125,6 +125,14 @@ describe('the implication block reaches a screen', () => {
       screen.queryByTestId('analysis-new-implication-resolve'),
       'a third request for one target',
     ).toBeNull()
+    // ⚠ AND THE LEAD GOES WITH IT. Suppressing the ask alone left "Only one
+    // reading of this run is available." standing with its remedy deleted — a
+    // limitation announced as a dead end, which is a worse sentence than the
+    // duplicate ask it replaced. Raised by review.
+    expect(
+      screen.queryByTestId('analysis-new-implication-lead'),
+      'a limitation stated with its remedy removed',
+    ).toBeNull()
   })
 
   it('DISCRIMINATOR: when NOTHING else asks, this block still does', () => {
@@ -137,6 +145,7 @@ describe('the implication block reaches a screen', () => {
     cleanup()
     render(<ModelImplication implication={NEEDS} />)
     expect(screen.getByTestId('analysis-new-implication-resolve')).toBeVisible()
+    expect(screen.getByTestId('analysis-new-implication-lead')).toBeVisible()
   })
 
   it('DISCRIMINATOR: a DIVERGED reading keeps its close either way', () => {
@@ -145,6 +154,7 @@ describe('the implication block reaches a screen', () => {
     cleanup()
     render(<ModelImplication implication={DIVERGED} targetAskedElsewhere />)
     expect(screen.getByTestId('analysis-new-implication-resolve')).toBeVisible()
+    expect(screen.getByTestId('analysis-new-implication-lead')).toBeVisible()
   })
 
   it('THE WIRING: the tab body passes staleness through', () => {

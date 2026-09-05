@@ -256,20 +256,26 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   // totalCount keeps its historic meaning (all visible rows) for any gating
   // logic that depends on whether anything at all is present.
   /**
-   * ⚠⚠ `postRunRepairs` IS IN THE COUNT NOW, AND LEAVING IT OUT DROPPED CONTENT
-   * — not merely a number. This gates the compact single-item layout, whose arm
-   * RETURNS EARLY and never renders the post-run block. So `adjustments = [one
-   * factor]` with `postRunRepairs = [three items]` gave `totalCount === 1`, took
-   * the compact path, and **three analysis-time adjustments vanished from the
-   * UI**. Strictly worse than the "0 adjustments" header this file was opened to
-   * fix, and concealed by a comment claiming the value meant "all visible rows"
-   * when it never counted the third array.
+   * ⚠⚠ `postRunRepairs` IS DELIBERATELY *NOT* IN THIS SUM, AND I ADDED IT ONCE
+   * AND BROKE THE COMPONENT.
    *
-   * Found by an independent review, not by me: I had looked at this very value,
-   * reasoned about widening it, and decided against — on the strength of the
-   * comment rather than the code.
+   * `totalCount` gates the compact single-item arm below, and that arm RETURNS
+   * EARLY — it never renders the post-run block. Widening the sum sent a
+   * post-run-only payload into a layout built for one factor adjustment, where
+   * both its locals are `undefined`: the header claimed an adjustment over an
+   * empty span and the repair rendered nowhere.
+   *
+   * The spec's own header had said so, verbatim, before I did it: "Adding
+   * post-run repairs to it would silently reroute a post-run-only payload into
+   * a layout built for one factor adjustment." I widened it anyway, answering a
+   * review finding, and left that paragraph standing above the change.
+   *
+   * The two questions stay apart. `totalCount` = how many rows the compact arm
+   * would have to draw. `adjustmentTally` = what the multi-item HEADER may
+   * claim. The compact arm additionally requires that there be no post-run
+   * block to lose.
    */
-  const totalCount = factorCount + repairActions.length + postRunRepairs.length
+  const totalCount = factorCount + repairActions.length
   /**
    * What the multi-item HEADER may claim. Deliberately a different number from
    * `totalCount`: that one gates layout and is documented as meaning "all
@@ -282,7 +288,10 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   const autoFixAdj = grouped.filter(a => !CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
 
   // Single fix: compact inline row — no collapsible wrapper
-  if (totalCount === 1) {
+  /* ⚠ AND THE GATE IS THE HONEST ONE: compact only when there is genuinely ONE
+     thing to show. `totalCount === 1` alone was true of `(1 factor, 0 repairs,
+     3 post-run)` too, and returned early on all three. */
+  if (totalCount === 1 && postRunRepairs.length === 0) {
     const singleAdj = grouped[0]
     const singleRepair = repairActions[0]
     // Header uses factor-specific copy only when the sole item is a factor

@@ -151,13 +151,18 @@ export interface AnalysisNewTabBodyProps {
  * documented truth condition (`analysisNewCopy.ts`) the run actually satisfies.
  */
 /**
- * The coaching list with the promoted card removed — "also worth doing" being,
- * literally, what is left once one thing is under focus.
+ * The coaching list, WHOLE. Nothing is removed.
  *
- * ⚠ IDENTITY, NOT TEXT. See the call site's note: two findings can legitimately
- * share a producer sentence, so a text-based filter would silently delete one.
- * A `null` focus removes nothing, which is the pre-run and no-recommendation
- * case and must leave the list whole.
+ * ⚠⚠ THIS SUMMARY SAID "with the promoted card removed" AFTER THE REMOVAL WAS
+ * REVERTED. The body was corrected and the JSDoc — the tooltip every call site
+ * hovers — was left describing behaviour that no longer exists, above a long
+ * and correct explanation of why it does not. A reader meets the summary first.
+ * Caught by review; it is the same defect this PR fixes two commits earlier
+ * ("close the provenance leak two comments say is already closed").
+ *
+ * `focused` is accepted and IGNORED on purpose: it keeps the decision visible
+ * at the call site rather than leaving a bare array pass-through that reads as
+ * an oversight. The reasoning is in the body.
  */
 export function selectAlsoWorthDoing<T extends { id: string }>(
   interventions: readonly T[],
@@ -390,25 +395,6 @@ export function AnalysisNewTabBody({
     [vm.strengthen.interventions, glancePrimary],
   )
 
-  /**
-   * "Also worth doing" — the coaching list MINUS the one card the panel has
-   * already promoted to the top.
-   *
-   * ⭐ WITNESSED (Paul, deployed `a9c2e050`): the same ~40-word producer
-   * paragraph rendered twice on one screen — once under "Work through with
-   * Olumi" in the glance, once under "Narrow framing" here — because this list
-   * was passed through unfiltered and `STRENGTHEN_PREVIEW` keeps the top item
-   * visible. Two headings, two surfaces, one finding.
-   *
-   * ⚠ BOUND BY `id`, NEVER BY TEXT. On the phase-3 path `signal` and `whyNow`
-   * are both set from one `item.body`, so two genuinely different findings can
-   * carry the same sentence; excluding by text would delete the second one
-   * (CLAUDE.md trap 19 — an assertion, or a filter, must bind to its object by
-   * identity and not by a value another object could satisfy).
-   *
-   * Exported so the property has a guard that does not have to render the whole
-   * tab to see it.
-   */
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return

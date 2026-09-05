@@ -1836,16 +1836,17 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * ⚠⚠ THIS GATE DIVERGES FROM ITS TWO SIBLINGS IN THIS FILE, DELIBERATELY —
    * and the divergence is now LIVE, because this block has importers.
    *
-   * `:1546` and `:2244` both answer the same question as
+   * Its two siblings (search `leaderDesignationPermitted(`) both answer the
+   * same question as
    * `leaderDesignationPermitted(rec) === true`, i.e. they WITHHOLD when
    * `rec.verdict == null`. This line PERMITS in that case, and
-   * `designationWithheldTruthTable.spec.ts:83` pins that as intended
+   * `designationWithheldTruthTable.spec.ts` pins that as intended
    * (`withholds({ verdict: null, … })` → `false`). So it is not a slip to
    * align — aligning it would RED a ratified truth table.
    *
    * ⭐ THE REACHABILITY ARGUMENT, PINNED HERE RATHER THAN LEFT IN A REVIEW:
    * `verdict == null` does not occur on the production path.
-   * `useResultsSectionData.ts:2491` sets `verdict: leaderVerdict` from
+   * `useResultsSectionData` sets `verdict: leaderVerdict` from
    * `deriveDecisionVerdict`, whose signature is `): DecisionVerdict` —
    * non-nullable — and which returns `UNKNOWN_VERDICT` rather than null on every
    * early exit (`decisionVerdict.ts:359-363`).
@@ -1859,6 +1860,11 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * Raised by an independent review, which also established the reachability
    * argument above; recorded at the bytes because a reachability claim that
    * lives only in a review comment is a claim the next reader cannot find.
+   *
+   * ⚠ AND THE REFERENCES ARE BY SYMBOL, NOT BY LINE. The first version of this
+   * block cited `:1546` / `:2244` / `:1830` — and the block's own ~35 lines
+   * pushed every one of them out of date the moment it was written. A comment
+   * that moves its own targets should not cite coordinates.
    */
   const designationsWithheld = rec.verdict != null && leaderDesignationPermitted(rec) !== true
   if (designationsWithheld) return { kind: 'none' }
