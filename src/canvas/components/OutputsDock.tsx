@@ -106,7 +106,6 @@ import { focusFloating } from '../hooks/useFloatingFocus'
 import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
-import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { PreAnalysisPanel } from './pre-analysis'
@@ -926,20 +925,6 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Wave1-L2: the run's TRUE start, so the banner narrates the age of the RUN
   // rather than the age of the banner (survives remounts and tab switches).
   const resultsStartedAt = useCanvasStore(selectResultsStartedAt)
-  /**
-   * #1198 — THE COMPOSED RUN PAIR, for the surfaces that narrate a run.
-   *
-   * `isRunning` below is the LOCAL derivation (`resultsStatus` ∈ preparing /
-   * connecting / streaming). `useAnalysisTrust()` is the composed authority:
-   * `localRunning || wireRunning` with `runStartedAt` supplied by whichever
-   * source asserts the run — a pair `analysisStateSelector.ts:477-500` says in
-   * terms must not be split, because splitting it re-opened two measured
-   * defects (a banner narrating its own age, and a cover torn down mid-run).
-   * Compare, Model and the coaching panel all read the trust pair; this is the
-   * same read, so the four in-flight treatments cannot disagree about whether a
-   * run is happening. The local `isRunning` is left exactly as it was.
-   */
-  const analysisTrust = useAnalysisTrust()
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
   // ROADMAP 2.1127 — provenance of the report on screen, PROVEN from the store's
@@ -3535,18 +3520,26 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   regression, not the fix.
 
                   Fed from the COMPOSED trust pair, not from the dock's local
-                  `isRunning`. An earlier cut of this used the local one on the
+                  `isRunning`. An earlier cut used the local one on the
                   reasoning that it avoided a second source at this call site;
-                  that was backwards. `useAnalysisTrust()` IS the single
-                  authority (`localRunning || wireRunning`, with the clock
-                  supplied by whichever source asserts the run), the local
-                  derivation is the narrower half of it, and the three sibling
-                  surfaces that already mount this cover all read the trust
-                  pair. Using the local value here would have made this tab the
-                  only one that cannot see a wire-asserted run. */}
+                  that was backwards. The composed selector IS the single
+                  authority — `localRunning || wireRunning`, with the clock
+                  supplied by whichever source asserts the run
+                  (`analysisStateSelector.ts:477-500`, which states in terms
+                  that the pair must not be split) — and the local derivation is
+                  its narrower half. The three sibling surfaces that already
+                  mount this cover all read the trust pair; the local value
+                  would have made this tab the only one blind to a wire-asserted
+                  run.
+
+                  ⚠ AND IT IS READ FROM `composedAnalysisState`, ALREADY BOUND
+                  ABOVE, rather than from a second `useAnalysisTrust()` call —
+                  that hook is literally `useAnalysisState().trust`, so calling
+                  it here would have been two subscriptions to one authority in
+                  the file whose comments argue against exactly that. */}
               <AnalysisRunStateCover
-                isRunning={analysisTrust.isRunning}
-                startedAt={analysisTrust.runStartedAt}
+                isRunning={composedAnalysisState.trust.isRunning}
+                startedAt={composedAnalysisState.trust.runStartedAt}
                 contentRetained={!isPreRun}
               />
               <SectionErrorBoundary section="Analysis (New)">
