@@ -1605,11 +1605,24 @@ export const OptionNode = memo((props: NodeProps) => {
               <span
                 data-testid={`option-stable-number-${props.id}`}
                 aria-label={`Option ${stableOptionNumber}`}
-                // Declared glyph: a fixed 16px box whose content is an ordinal.
-                // One digit is exempt from the alignment guard by length; a
-                // TENTH option makes it two characters and would trip the guard
-                // for a box where centring is correct. Declared now so the tenth
-                // option is not a surprise RED (see BaseNode's rank badge).
+                // Declared glyph: a fixed 16px box whose content is an ordinal,
+                // where centring IS the design.
+                //
+                // ⚠ NO GUARD READS THIS ATTRIBUTE HERE, AND AN EARLIER DRAFT OF
+                // THIS COMMENT SAID A TENTH OPTION "WOULD TRIP THE GUARD". It
+                // cannot. `data-node-glyph` has ONE consumer repo-wide — the
+                // walker in `__tests__/nodeCopyIsNeverCentred.spec.tsx` — and
+                // that walker does not mount OptionNode; it mounts RiskNode,
+                // GhostTierNode, GhostOptionNode, DecisionNode and BaseNode. The
+                // sibling static scan never reads the attribute at all.
+                //
+                // Measured at 11f8f594 with a discriminating pair: deleting THIS
+                // line and nothing else (applied-check 1) leaves the walker 13/13
+                // and the static scan 11/11 GREEN, while deleting BaseNode's
+                // occurrence alone REDs the walker 3 of 13. So this declaration
+                // is a CONVENTION for the day OptionNode is walked — the
+                // exemption stays visible in the diff — not an exemption in
+                // force. Nothing here would go red if it were removed.
                 data-node-glyph
                 className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >

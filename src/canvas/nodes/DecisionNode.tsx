@@ -137,10 +137,17 @@ export const ANCHOR_BRIEF_MAX_CHARS = 160
  * `line-clamp-3 break-words` blockquote, so its height is genuinely bounded. The
  * two TRIAGE call sites below (`Top gap: estimate …` / `Top gap: validate …`,
  * measure 40) render in a div with NO clamp and NO `break-words`, so there the
- * only bound is the token's own length: 60 characters where the old rule gave
- * 41. Pinned by `__tests__/DecisionNode.triageTruncation.spec.tsx`, which is
- * jsdom and therefore says nothing about pixels; clamping that line is rowed in
- * the PR body, not done here.
+ * only bound is the token's own length — unbounded above, where the old rule
+ * capped the label at the measure plus one ellipsis character.
+ *
+ * ⚠ THE SIZE OF THAT TRADE IS NOT STATED HERE. An earlier draft of this
+ * sentence gave "60 characters where the old rule gave 41"; 60 matches neither
+ * frame of the fixture it described. The trade is now DERIVED IN-TEST by
+ * `__tests__/DecisionNode.triageTruncation.spec.tsx`, in the label frame and
+ * the whole-line frame, against the pre-PR rule reproduced verbatim — so it
+ * cannot drift out of agreement with the code beneath it. That spec is jsdom
+ * and therefore says nothing about pixels; clamping this line is rowed in the
+ * PR body, not done here.
  */
 function truncateAtWord(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
@@ -1018,8 +1025,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
                 ⚠ THAT CAP IS NO LONGER ABSOLUTE, AND THIS PR IS WHAT MOVED IT.
                 `truncateAtWord` now returns a single unbroken token WHOLE rather
-                than mutilating it, so a 51-character one-word label prints at 51,
-                not 40. This div carries no `line-clamp` and no `break-words`, so
+                than mutilating it, so a one-word label prints at ITS OWN length,
+                however long that is, where the old rule capped it at 41 (the
+                measure plus one ellipsis character). The magnitude is derived
+                in-test rather than restated here — see
+                `__tests__/DecisionNode.triageTruncation.spec.tsx`; an earlier
+                draft of this sentence said "at 51, not 40", and the old rule
+                gave 41. This div carries no `line-clamp` and no `break-words`, so
                 an over-long token has nothing to wrap on. The trade is deliberate
                 — a word cut open is worse than a word that overruns — and it is
                 measured and pinned by

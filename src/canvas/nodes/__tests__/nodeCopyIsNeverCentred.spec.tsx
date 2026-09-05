@@ -1,5 +1,8 @@
 /**
- * ⭐⭐ NODE COPY IS NEVER HORIZONTALLY CENTRED — a DERIVED invariant, not a file list.
+ * ⭐⭐ NODE COPY IS NEVER HORIZONTALLY CENTRED — mechanism-derived, and FIVE
+ * COMPONENTS DEEP. Read the coverage block below before trusting a green run:
+ * this file is not the whole guarantee and an earlier draft of this header
+ * claimed it was.
  *
  * Paul, 5 Sep 2026, on the deployed canvas: *"It should NEVER be centrally
  * aligned. Strip any formatting that says central alignment within the nodes."*
@@ -13,8 +16,38 @@
  * mechanism 4 below.
  *
  * So this enumerates the MECHANISMS by which copy can end up centred and walks
- * the rendered subtree looking for any of them. A new centred string fails this
- * whatever file it is written in and whichever mechanism it uses.
+ * the rendered subtree looking for any of them.
+ *
+ * ── ⚠⚠ WHAT THIS COVERS, AND THE 9-OF-14 GAP IT DOES NOT ───────────────────
+ *
+ * An earlier draft of this header said a new centred string "fails this
+ * whatever file it is written in and whichever mechanism it uses". That is
+ * FALSE about this walker and it is the sentence a later session would have
+ * inherited. This is a jsdom render of FIVE components — the five imported
+ * below — out of the 14 `.tsx` node components in this directory. Derived at
+ * `11f8f594`: `ls src/canvas/nodes/*.tsx` = 14, imports below = 5.
+ *
+ * The real guarantee is a PAIR of instruments, and it is UNEVEN PER MECHANISM:
+ *
+ *   ✅ mechanisms 1, 2 and 4 — `text-center`, inline `textAlign`, and `flex-col`
+ *      co-occurring with `items-center` — are asserted at ZERO across the WHOLE
+ *      node surface by the sibling `nodeCopyNeverCentred.sourceScan.spec.ts`
+ *      (43 non-test `.ts`/`.tsx` files under this directory, walked
+ *      recursively). Those three do fail "whatever file it is written in".
+ *
+ *   ⚠ mechanisms 3 and 5 — `mx-auto`, and a flex ROW plus `justify-center` —
+ *      are covered ONLY here, i.e. only inside those five components. That scan
+ *      deliberately does not assert `justify-center` globally — its own header
+ *      is AUTHORITATIVE on why, and on how many uses remain, because it derives
+ *      that count from the same comment-blanked sources it tests; this file
+ *      does not restate it. `mx-auto` is asserted NOWHERE outside this file.
+ *
+ * Concretely: centring copy with `mx-auto`, or with a `justify-center` flex row,
+ * inside `ActionNode`, `ConstraintBadge`, `EvidenceGapBadge`, `FactorNode`,
+ * `GoalNode`, `NodeShapeIndicator`, `OptionNode`, `OutcomeNode` or
+ * `nodeKeyboardScope` fails NEITHER instrument today. Nine of the fourteen, two
+ * of the five mechanisms. Closing it means mounting those components here or
+ * widening the static scan — not editing this sentence.
  *
  * ── THE FIVE MECHANISMS, AND WHY A CLASS-NAME SWEEP MISSES TWO ─────────────
  *
@@ -243,7 +276,7 @@ describe('the walker can see a centring it is pointed at (positive control)', ()
   })
 })
 
-describe('no node renders centred copy', () => {
+describe('the five walked components render no centred copy (see header: 9 of 14 unwalked)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   it('RiskNode — the severity badge is body copy in the always-visible Standard view', () => {

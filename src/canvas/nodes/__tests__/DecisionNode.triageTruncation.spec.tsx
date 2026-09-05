@@ -5,10 +5,12 @@
  * WHY THIS FILE EXISTS
  * --------------------
  * `truncateAtWord` (`DecisionNode.tsx`) was rewritten in this PR so it never
- * cuts inside a word. Its two PRE-EXISTING callers are the triage line at
- * `DecisionNode.tsx:274` and `:313` (`Top gap: estimate …` / `Top gap: validate
- * …`, measure 40) — a user-visible sentence that has nothing to do with the
- * anchor brief the rewrite was written for. The two specs that already touch
+ * cuts inside a word. Its two PRE-EXISTING callers are the triage line's
+ * `Top gap: estimate …` and `Top gap: validate …` template literals (measure
+ * 40) — a user-visible sentence that has nothing to do with the anchor brief
+ * the rewrite was written for. (Cited by the strings they build, not by line
+ * number: an earlier draft gave `:274`/`:313`, which this PR's own docblock
+ * then pushed to `:304`/`:343`.) The two specs that already touch
  * this line (`DecisionNode.restingState.spec.tsx`, `.triageProvenance.spec.tsx`)
  * both use "Brand perception", 16 characters, which never reaches the measure.
  * So the behaviour moved under a green suite. Measured on the real change:
@@ -201,10 +203,16 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
    * ⚠ THE DELIBERATE OVERRUN, AND IT IS THE ONE WITH A CONSEQUENCE. A single
    * unbroken token has no boundary to cut at, so the rule returns it WHOLE and
    * the string exceeds the measure. On the anchor brief that is bounded by
-   * `line-clamp-3`; the triage line has NO clamp, so this is the case where
-   * the new rule can make the line longer than the old one did (60 characters
-   * here against the old rule's 41). Pinned so the trade is visible, and rowed
-   * in the PR body rather than silently absorbed.
+   * `line-clamp-3`; the triage line has NO clamp, so this is the case where the
+   * new rule prints a LONGER line than the old one did.
+   *
+   * ⚠ THE SIZE OF THAT TRADE IS NOT STATED IN PROSE HERE, BECAUSE AN EARLIER
+   * DRAFT STATED IT WRONG: it said "60 characters here against the old rule's
+   * 41", and 60 matches NEITHER frame — the label is 52 and the whole line 70.
+   * It is now DERIVED IN-TEST below, in both frames, against the pre-PR rule
+   * reproduced verbatim from `5b764fa6`. A number a test derives cannot drift;
+   * a number a comment asserts already has. Clamping this line is rowed in the
+   * PR body rather than silently absorbed.
    */
   it('returns a single unbroken token whole, exceeding the measure by design', () => {
     const token = 'Snowflakenativebuildcapacityinthedataplatformteamnow'
@@ -217,6 +225,33 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
     // No ellipsis anywhere on this line: nothing was cut, so nothing may claim
     // to have been.
     expect(screen.queryByText(/Top gap: validate .*…/)).toBeNull()
+
+    // ---- THE TRADE, MEASURED FROM THIS FIXTURE ----------------------------
+    // `OLD_RULE` is the pre-PR `DecisionNode` helper reproduced verbatim from
+    // `5b764fa6` (0.6 heuristic, single-character ellipsis) so the comparison
+    // is against what actually shipped, not a remembered version of it. It is
+    // deliberately a local copy: importing it is impossible (the helper is
+    // private and this PR replaced it), and pinning the old OUTPUT is the only
+    // way the size of the regression can be stated without drifting.
+    const OLD_RULE = (text: string, maxLength: number): string => {
+      if (text.length <= maxLength) return text
+      const truncated = text.substring(0, maxLength)
+      const lastSpace = truncated.lastIndexOf(' ')
+      return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '\u2026'
+    }
+    const PREFIX = 'Top gap: validate '
+    const oldLabel = OLD_RULE(token, TRIAGE_MEASURE)
+
+    // Label frame: whole token vs the old cap of measure + one ellipsis char.
+    expect(token.length).toBe(52)
+    expect(oldLabel.length).toBe(41)
+    // Whole-line frame — what the user actually reads on the card.
+    expect((PREFIX + token).length).toBe(70)
+    expect((PREFIX + oldLabel).length).toBe(59)
+    // The precondition that makes the two frames a COMPARISON and not two
+    // unrelated numbers: the old rule really did cut this token, mid-word.
+    expect(oldLabel).not.toBe(token)
+    expect(token.startsWith(oldLabel.slice(0, -1))).toBe(true)
   })
 
   /**
