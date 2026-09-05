@@ -30,6 +30,7 @@ import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
 import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
+import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
@@ -105,6 +106,7 @@ import { focusFloating } from '../hooks/useFloatingFocus'
 import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { PreAnalysisPanel } from './pre-analysis'
@@ -924,6 +926,20 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // Wave1-L2: the run's TRUE start, so the banner narrates the age of the RUN
   // rather than the age of the banner (survives remounts and tab switches).
   const resultsStartedAt = useCanvasStore(selectResultsStartedAt)
+  /**
+   * #1198 — THE COMPOSED RUN PAIR, for the surfaces that narrate a run.
+   *
+   * `isRunning` below is the LOCAL derivation (`resultsStatus` ∈ preparing /
+   * connecting / streaming). `useAnalysisTrust()` is the composed authority:
+   * `localRunning || wireRunning` with `runStartedAt` supplied by whichever
+   * source asserts the run — a pair `analysisStateSelector.ts:477-500` says in
+   * terms must not be split, because splitting it re-opened two measured
+   * defects (a banner narrating its own age, and a cover torn down mid-run).
+   * Compare, Model and the coaching panel all read the trust pair; this is the
+   * same read, so the four in-flight treatments cannot disagree about whether a
+   * run is happening. The local `isRunning` is left exactly as it was.
+   */
+  const analysisTrust = useAnalysisTrust()
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
   // ROADMAP 2.1127 — provenance of the report on screen, PROVEN from the store's
@@ -3500,6 +3516,39 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                * whole tab is the experiment, so degrading it as a unit is the
                * honest granularity. Sections inside can earn their own later.
                */
+              <>
+              {/* #1198 — THE RUN, SHOWN. `AnalysisRunStateCover` is the shared
+                  in-flight treatment for dock surfaces outside the Analysis
+                  tab; Compare, Model and the coaching panel all mount it, and
+                  this tab — added later — never did. Dispatching a run with it
+                  fronted therefore changed nothing on screen, and the reachable
+                  path is this tab's OWN "Re-analyse": the auto-switch above
+                  fires only from idle/cancelled, so a re-run leaves the user
+                  exactly here.
+
+                  ⚠ VISUAL ONLY, DELIBERATELY. The dock-level announcer yields
+                  just for `results`, so it ALREADY says "Analysis started." on
+                  this tab — assistive tech was told and a sighted user was not.
+                  The cover mounts the banner with `announces={false}`, keeping
+                  one live region per surface (the stacked-narration class
+                  Wave1-L2 exists to prevent). A second one here would be the
+                  regression, not the fix.
+
+                  Fed from the COMPOSED trust pair, not from the dock's local
+                  `isRunning`. An earlier cut of this used the local one on the
+                  reasoning that it avoided a second source at this call site;
+                  that was backwards. `useAnalysisTrust()` IS the single
+                  authority (`localRunning || wireRunning`, with the clock
+                  supplied by whichever source asserts the run), the local
+                  derivation is the narrower half of it, and the three sibling
+                  surfaces that already mount this cover all read the trust
+                  pair. Using the local value here would have made this tab the
+                  only one that cannot see a wire-asserted run. */}
+              <AnalysisRunStateCover
+                isRunning={analysisTrust.isRunning}
+                startedAt={analysisTrust.runStartedAt}
+                contentRetained={!isPreRun}
+              />
               <SectionErrorBoundary section="Analysis (New)">
                 <AnalysisNewTabBody
                   resultsSectionData={resultsSectionData}
@@ -3521,6 +3570,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   blockedListing={runBlockedListing}
                 />
               </SectionErrorBoundary>
+              </>
             )}
             {effectiveActiveTab === 'compare' && (
               // 2.581 — ONE expert mode for the product. The Compare pill used
