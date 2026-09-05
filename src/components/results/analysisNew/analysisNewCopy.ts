@@ -27,7 +27,40 @@ import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
  * which a `.join(', ')` is not, as the partial-result ribbon proved on a
  * deployed build.
  */
-const MISSING_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+type ConjunctionListFormat = {
+  format: (items: readonly string[]) => string
+}
+
+/**
+ * ⚠ TYPED LOCALLY, AND NOT BECAUSE `Intl.ListFormat` IS EXOTIC. This repo's
+ * `lib` does not declare it, so the ambient `Intl` type has no `ListFormat` —
+ * the estate's other call site (`OptionPreview.tsx:439`) reaches for it anyway
+ * and carries the resulting error as BASELINED DEBT. Adding a third instance of
+ * that debt to close a defect would be trading one silent wrong for another,
+ * so the capability is declared once, here, with the reason attached.
+ *
+ * The runtime has had it since Node 14 / every browser we support; the gap is
+ * purely in the compiler's view of the platform.
+ */
+const CONJUNCTION_LIST: ConjunctionListFormat = new (
+  Intl as unknown as {
+    ListFormat: new (
+      locale: string,
+      options: { style: 'long'; type: 'conjunction' },
+    ) => ConjunctionListFormat
+  }
+).ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+
+/**
+ * The estate's one prose-list joiner: `A`, `A and B`, `A, B and C`.
+ * Exported so a second consumer reuses it rather than minting a second parser
+ * for the en-GB comma rules — the drift this panel has already paid for once.
+ */
+export function formatConjunctionList(items: readonly string[]): string {
+  return CONJUNCTION_LIST.format(items)
+}
+
+const MISSING_LIST = CONJUNCTION_LIST
 
 /**
  * The coverage warning with no names in it. Held as a const because
@@ -90,6 +123,30 @@ export const ANALYSIS_NEW_COPY = {
      * mean different things by it.
      */
     checks: 'What we checked',
+  },
+
+  /**
+   * ⭐ WHAT IS BEHIND EACH COLLAPSED DETAIL ROW.
+   *
+   * The design pack draws a subtitle on every one of its three collapsed rows,
+   * and these are its words. A title plus a count is a container name and a
+   * number; the subtitle is the part that tells a reader whether the row is
+   * worth a click.
+   *
+   * ⚠ FURNITURE, ASSERTING NOTHING. Each says what KIND of thing is inside, and
+   * stays true of a row that turns out to be empty — which these rows can be.
+   * "The findings this run leads with" would be a claim, and false on a run that
+   * produced none; "what this run could not settle" is a description of the
+   * container and holds either way.
+   *
+   * Only the three DETAIL rows get one. They sit together at the foot of the
+   * panel as the drawer a reader opens for method and receipts; the sections
+   * above are content, not a drawer, and a subtitle there would be decoration.
+   */
+  sectionSubtitles: {
+    drivers: 'What moves the outcome, and through what',
+    uncertainty: 'What this run could not settle',
+    deeper: 'Method, provenance and receipts',
   },
 
   /**

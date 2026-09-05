@@ -159,6 +159,31 @@ export const KIND_LABEL: Record<ModelElementKind, string> = {
  * default — a hand-maintained mark set that quietly reuses one shape is exactly
  * what was being fixed.
  */
+/**
+ * Is this row still carrying its TYPE's default name rather than one a person
+ * wrote?
+ *
+ * Witnessed on deployed `a9c2e050`: a row in the Goal group read "Question"
+ * beside what looked like an empty checkbox. Both halves are correct on their
+ * own — `Question` is `DECISION_NODE_LABEL`, whose own doc argues it "invites
+ * the user to write theirs", and the box is `'□'`, the decision kind glyph. The
+ * defect is that the invitation is drawn in exactly the treatment an authored
+ * label gets, so nothing distinguishes "not written yet" from "named Question".
+ *
+ * ⚠ COMPARED BY VALUE AGAINST THE CONSTANT, NOT BY KIND. Muting every decision
+ * row would grey out every question a user HAS written — the failure mode that
+ * makes this worse than the defect. The estate's precedent is
+ * `utils/ghostTiers.ts:302`, which refuses a label equal to the unnamed
+ * fallback for the same reason: a producer default is not a name a user typed.
+ */
+export function labelIsTypeDefault(row: { kind: ModelElementKind; label: string }): boolean {
+  return row.kind === 'decision' && row.label.trim() === DECISION_NODE_LABEL
+}
+
+/** What a placeholder name says it is, for hover and assistive tech. */
+export const UNWRITTEN_QUESTION_TITLE =
+  'Your question is not written yet — open this to write it.'
+
 export const ATTENTION_MARK: Record<AttentionReason, LucideIcon> = {
   'no-value': CircleDashed,
   'unconfirmed-estimate': HelpCircle,

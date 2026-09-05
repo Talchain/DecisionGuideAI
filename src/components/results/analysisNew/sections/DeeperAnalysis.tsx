@@ -68,15 +68,30 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={open ? `${testId}-region` : undefined}
-            className={`${typography.panelBody} text-text-light flex items-center gap-1.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            className={`${typography.panelBody} text-text-light flex items-start gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-toggle`}
           >
             {open ? (
-              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+              <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+              <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
             )}
-            {COPY.sections.deeper}
+            {/* ⚠ THIS ROW IS THE ODD ONE OUT AND IS NOT MIGRATED HERE. Every
+                other collapsed row on the panel is a `SectionShell` — icon,
+                count, chevron. This one is a bare button, which the IA audit
+                flagged. Moving it onto the shell is a real change with its own
+                review; what it gets NOW is the subtitle the design pack draws
+                on all three detail rows, in the shell's own shape, so the three
+                read as one group rather than two-and-a-stray. */}
+            <span className="min-w-0">
+              <span className="block">{COPY.sections.deeper}</span>
+              <span
+                className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                data-testid={`${testId}-subtitle`}
+              >
+                {COPY.sectionSubtitles.deeper}
+              </span>
+            </span>
           </button>
 
           {open ? (

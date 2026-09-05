@@ -41,7 +41,7 @@ function renderRow(over: Partial<ModelRow> = {}) {
   cleanup()
   render(
     <ul>
-      <ModelRowView
+      <ModelRowView tier="plain"
         row={{ ...ROW, ...over }}
         editConnected
         onBeginEdit={vi.fn()}
@@ -93,7 +93,7 @@ describe('the edit underline marks the value, not its neighbours', () => {
     cleanup()
     render(
       <ul>
-        <ModelRowView row={{ ...ROW, editable: false, primaryValue: '£12,000' }} onSelect={vi.fn()} />
+        <ModelRowView tier="plain" row={{ ...ROW, editable: false, primaryValue: '£12,000' }} onSelect={vi.fn()} />
       </ul>,
     )
     expect(underliningAncestors(screen.getByText('£12,000'))).toEqual([])

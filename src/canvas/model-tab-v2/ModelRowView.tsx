@@ -43,6 +43,8 @@ import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePi
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
+  UNWRITTEN_QUESTION_TITLE,
+  labelIsTypeDefault,
   ATTENTION_LABEL,
   ATTENTION_MARK,
   KIND_GLYPH,
@@ -361,8 +363,15 @@ export function ModelRowView({
            unreadable row, and it is unreachable by touch and keyboard) — it
            stops the remainder being lost outright while the column itself is
            dealt with. */
-        title={row.label}
-        className={`${typography.panelBody} text-text-body text-left min-w-[6rem] flex-1 ${
+        /* ⚠ A PLACEHOLDER NAMES ITSELF ON THREE CHANNELS, NOT ONE. Colour
+           alone is the channel a screen reader cannot use, and DS §1 asks for
+           three. So the title says it in words too, and the word itself is
+           untouched — the vocabulary decision behind "Question" is ratified and
+           this changes only how it is drawn. */
+        title={labelIsTypeDefault(row) ? UNWRITTEN_QUESTION_TITLE : row.label}
+        className={`${typography.panelBody} ${
+          labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
+        } text-left min-w-[6rem] flex-1 ${
           row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'truncate'
         }`}
         onClick={e => {

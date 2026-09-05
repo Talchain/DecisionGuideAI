@@ -31,7 +31,7 @@ import type { ModelRow } from '../types'
 import type { Edge, Node } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
 import { relationshipIdentity, toModelRows, RELATIONSHIP_LABEL_SEPARATOR } from '../adapters'
-import type { ModelProjectionInput } from '../types'
+import type { ModelProjectionInput } from '../adapters'
 
 const LABELS = new Map([
   ['n1', 'Tech Lead Hired'],
@@ -121,7 +121,7 @@ describe('a relationship row carries both endpoints as structure', () => {
     cleanup()
     render(
       <ul>
-        <ModelRowView row={{ ...REL, ...over }} onSelect={vi.fn()} onFocusOnCanvas={vi.fn()} />
+        <ModelRowView tier="plain" row={{ ...REL, ...over }} onSelect={vi.fn()} onFocusOnCanvas={vi.fn()} />
       </ul>,
     )
     return screen.getByTestId('model-row-v2-e1-label')

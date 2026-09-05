@@ -162,8 +162,13 @@ export interface AnalysisNewTabBodyProps {
 export function selectAlsoWorthDoing<T extends { id: string }>(
   interventions: readonly T[],
   focused: { id: string } | null,
-): readonly T[] {
-  if (focused === null) return interventions
+): T[] {
+  /* ⚠ RETURNS A MUTABLE ARRAY, and that is the CI job talking, not taste:
+     `StrengthenTheReasoningProps.interventions` is `Recommendation[]`, so a
+     `readonly` return is a type error at the mount — one the LOCAL gate cannot
+     see, because `tsconfig.build.json` type-checks `src/` and the CI job checks
+     more. A green `pnpm typecheck` is necessary and not sufficient. */
+  if (focused === null) return [...interventions]
   /**
    * ⚠⚠ THE LONE RECOMMENDATION KEEPS ITS CARD, AND THAT IS NOT A HEDGE.
    *
@@ -181,7 +186,7 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
    * two items there is no "also" to be relative to, so there is nothing to fix
    * and something to lose.
    */
-  if (interventions.length < 2) return interventions
+  if (interventions.length < 2) return [...interventions]
   return interventions.filter((rec) => rec.id !== focused.id)
 }
 
@@ -793,6 +798,7 @@ export function AnalysisNewTabBody({
         {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.drivers}
+          subtitle={COPY.sectionSubtitles.drivers}
           findings={vm.drivers.findings}
           preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
           // ⚠ The caveat is a function of the PRODUCER's provenance token, not
@@ -854,6 +860,7 @@ export function AnalysisNewTabBody({
         {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.uncertainty}
+          subtitle={COPY.sectionSubtitles.uncertainty}
           findings={vm.uncertainty.findings}
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
