@@ -53,6 +53,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
+import { Target } from 'lucide-react'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -200,6 +201,14 @@ const nodeProps = (over: Record<string, unknown>) =>
     ...over,
   }) as unknown as NodeProps
 
+/** BaseNode is not a react-flow node type — it takes the full prop set
+ *  directly, exactly as `BaseNode.maxWidth.spec.tsx` supplies it. */
+const baseNodeProps = {
+  id: 'n-1', type: 'factor', selected: false, dragging: false, zIndex: 0,
+  isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0,
+  deletable: true, draggable: true, selectable: true,
+} as unknown as NodeProps
+
 const mount = (ui: React.ReactElement) =>
   render(<ReactFlowProvider>{ui}</ReactFlowProvider>).container
 
@@ -272,7 +281,7 @@ describe('no node renders centred copy', () => {
 
   it('DecisionNode — the anchor card, title and body', () => {
     const container = mount(
-      <DecisionNode {...nodeProps({ type: 'decision', data: { type: 'decision', label: 'Should we hire a tech lead?' } })} />,
+      <DecisionNode {...(nodeProps({ type: 'decision', data: { type: 'decision', label: 'Should we hire a tech lead?' } }) as any)} />,
     )
     expect(container.textContent).toContain('Should we hire a tech lead?')
     const found = centredCopy(container)
@@ -282,10 +291,10 @@ describe('no node renders centred copy', () => {
   it('BaseNode — the shared card chrome every node type inherits', () => {
     const container = mount(
       <BaseNode
-        id="n-1"
+        {...baseNodeProps}
         nodeType="factor"
+        icon={Target}
         data={{ type: 'factor', label: 'Developer headcount', description: 'How many engineers are funded.' }}
-        selected={false}
       >
         <div>Body copy that must read left to right</div>
       </BaseNode>,
@@ -313,7 +322,7 @@ describe('the card DECLARES its alignment rather than inheriting it', () => {
    */
   it('BaseNode declares text-left on its root, so no ancestor can centre a node', () => {
     const container = mount(
-      <BaseNode id="n-1" nodeType="factor" data={{ type: 'factor', label: 'Developer headcount' }} selected={false}>
+      <BaseNode {...baseNodeProps} nodeType="factor" icon={Target} data={{ type: 'factor', label: 'Developer headcount' }}>
         <div>Body</div>
       </BaseNode>,
     )
