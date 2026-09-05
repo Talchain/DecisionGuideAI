@@ -199,14 +199,23 @@ export function deriveResultCompleteness(
   //
   // Worked through: four computed options and one failed. Field 2 sees the
   // four, `anyWin` is true, and it says nothing. Field 3 sees the failed one
-  // and marks `expected_outcome`. **Field 3 is currently the ONLY thing that
-  // discloses a partially-failed run at all** — gating it on `status` would
-  // leave that run disclosed by neither field.
+  // and marks `expected_outcome`. So WITHIN THIS HOOK field 3 is the only
+  // predicate that discloses a partially-failed run, and gating it on `status`
+  // would make the completeness signal silent on that run.
   //
-  // ⚠ WHAT IS ACTUALLY MISSING is a disclosure that names the real event. A
-  // failed option is reported to the user as "the expected outcome" being
-  // absent, which is true of the symptom and wrong about the cause. That is a
-  // new user-facing string and a new key in `missingResultLabels`, i.e. its own
+  // ⚠ SCOPED TO THIS HOOK ON PURPOSE — an earlier version of this comment said
+  // field 3 was "the ONLY thing that discloses a partially-failed run at all",
+  // and that is FALSE. `OptionCards.tsx:1367` renders `NotComputedOptionCard`
+  // off the same `status`, and `buildAnalysisNewViewModel.ts` reads it too. The
+  // user is not left with nothing; the COMPLETENESS BANNER is what goes quiet.
+  // The design decision is unchanged — the superlative was, and a superlative
+  // in a sentence about coverage is exactly the part nobody measures.
+  //
+  // ⚠ WHAT IS MISSING FROM THIS HOOK is a disclosure that names the real event.
+  // Through this path a failed option reaches the user as "the expected
+  // outcome" being absent — true of the symptom, wrong about the cause. Other
+  // surfaces do name it; this one cannot, because `missing` is keyed by FIELD
+  // and the event is about an OPTION. A new key and a new string, i.e. its own
   // change — rowed, not smuggled in here.
   if (optionIds.length > 0) {
     const anyOutcomeMissing = optionIds.some((id) => {
