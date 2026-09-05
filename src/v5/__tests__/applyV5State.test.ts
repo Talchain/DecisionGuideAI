@@ -716,6 +716,20 @@ describe('applyV5State — goal-threshold quad ingestion (ROADMAP 1.22)', () => 
     data: { label: 'Goal', kind: 'goal' },
   } as unknown as V5ApplicatorStore['nodes'][number]
 
+  // P0 #1204 — the option this readiness NAMES must be a node on the canvas.
+  // It always was in the real product: `validateCeeAnalysisReady` discards a
+  // readiness with a missing option node on EVERY scenario load
+  // (`store.ts` loadScenario), so a model whose readiness names a non-existent
+  // option is one no restore path would keep. This double simply omitted the
+  // node because the applicator did not read it until the containment gate was
+  // added; the fixture's model is now coherent rather than minimal.
+  const optionNode = {
+    id: 'opt-a',
+    type: 'option',
+    position: { x: 0, y: 100 },
+    data: { label: 'Option A', kind: 'option' },
+  } as unknown as V5ApplicatorStore['nodes'][number]
+
   function responseWith(
     analysisReady: Record<string, unknown> | undefined,
     extra: Record<string, unknown> = {},
@@ -740,7 +754,7 @@ describe('applyV5State — goal-threshold quad ingestion (ROADMAP 1.22)', () => 
   // would treat CEE echoing back its own just-received threshold as a user
   // edit and invalidate the very analysis this same turn just set fresh.
   it('calls the injected backfillGoalThreshold hook with the normalised analysis_ready', () => {
-    const { store, backfillGoalThreshold } = makeStore([goalNode])
+    const { store, backfillGoalThreshold } = makeStore([goalNode, optionNode])
     applyV5State(
       responseWith({
         status: 'ready',
