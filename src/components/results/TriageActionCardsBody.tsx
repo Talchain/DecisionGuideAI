@@ -1097,6 +1097,13 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
             recommendedOptionId={data.confidence.recommendedOptionId}
             onFocusNode={onFocusNode}
             useV17Copy={useV17Copy}
+            // SURFACE D — the fourth leader-claiming site on this panel, and
+            // the only one that was gated purely on array length. It sat in
+            // THIS FILE, beside the other three, and all three sweeps missed
+            // it: they hunted leader VERBS, and this card's verb is "leads",
+            // which `LEADER_CLAIM_RE` did not carry. The matcher now does;
+            // this prop is the fix the matcher exists to keep honest.
+            mayNameLeader={!leaderClaimWithheld(data.recommendation)}
           />
         </div>
       )}

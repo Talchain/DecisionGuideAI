@@ -41,7 +41,40 @@ export const ALT_LABEL = 'Two Mid-Level Developers at £70k Each'
  * would make the assertion satisfiable only by deleting the honest half.
  */
 export const LEADER_CLAIM_RE =
-  /leading option|likely leader|could gain ground|could overtake|your recommendation|the recommendation/i
+  /leading option|likely leader|could gain ground|could overtake|leads instead|your recommendation|the recommendation/i
+
+/**
+ * ⚠ WHY `leads instead` AND NOT `\bleads\b`, AND WHY THE BOUND IS WRITTEN DOWN.
+ *
+ * `leads instead` was added after a cold review found SURFACE D
+ * (`ConditionalWinnerCards`) rendering *"…{option} leads instead."* on a
+ * withheld run, PAST this matcher — its verb was simply not in the list, so
+ * the §6 sweep below returned false about the very sentence it was pointed at.
+ * A guard that agrees with itself for a reason unrelated to the property it
+ * names is this estate's most expensive defect, so the widening is recorded
+ * here rather than in a commit message.
+ *
+ * A bare `\bleads\b` was measured and REJECTED. It matches two sentences that
+ * are CORRECT on a withheld run and must survive:
+ *   · the card's neutral arm — "Which option leads depends on {factor} — the
+ *     analysis flips at {N}" (names no option: the claim a withheld run is
+ *     entitled to make);
+ *   · its header help text — "Factors that change which option leads when they
+ *     shift" (generic copy, no option identity at all).
+ * Banning those would make the withheld arm satisfiable only by DELETING the
+ * card — over-suppression, the worse defect, and the exact failure mode
+ * `renderPanel`'s footer-exclusion note already records one level up.
+ *
+ * So this is a BOUNDED LEXICAL TRIPWIRE with a declared bound, the shape
+ * `crossSurfaceCoherence.PRESENCE_ASSERTION_PHRASES` argues for: a short list
+ * of phrases the product ACTUALLY EMITTED, never a predicate over an unbounded
+ * phrasing space. It is not what closes the defect. What closes it is the
+ * IDENTITY assertion beside every use of this matcher — the option LABEL must
+ * not appear in the withheld panel's prose at all (CLAUDE.md trap 19: bind to
+ * the object, never to a predicate another object could satisfy). The regex
+ * catches a rewording that keeps the label out; the identity assertion catches
+ * a rewording that keeps the label in. Neither subsumes the other.
+ */
 
 /**
  * The WITNESSED verdict. `separation: 'unknown'` is exactly the state that
@@ -80,6 +113,44 @@ export const admission = (mode: PermittedAnalysisMode): AnalysisAdmissionV1 => (
  * suppression arm could pass by rendering nothing — the vacuity the
  * ANTI-VACUITY cases exist to refuse.
  */
+export const SPLIT_VALUE = 3
+export const LOW_BUCKET_LABEL = 'Senior Hire at £110k'
+
+/**
+ * The conditional-winner row SURFACE D renders, and the reason the cold review
+ * could reproduce a leader claim inside the file this fix already edited.
+ *
+ * ⚠ IT IS POPULATED ON BOTH ARMS, DELIBERATELY. The original fixture left
+ * `conditionalWinners` absent, so the composed §5 arm asserted "no leader claim
+ * anywhere" over a panel on which the card never mounted — TWO independent
+ * reasons the guard passed (a blind matcher and an empty fixture), and fixing
+ * only one would leave it agreeing with itself for a new reason.
+ *
+ * Every field is what makes the row RENDER and DESIGNATE, so a suppression
+ * cannot pass by dodging:
+ *   · `winner_flips: true` + finite `split_value` — the component's own filter
+ *     (`ConditionalWinnerCards.tsx:85-89`); without both, it returns null and
+ *     the withheld arm passes on an unmounted component;
+ *   · two DIFFERENT `winner_id`s, one of them `recommendedOptionId` — the only
+ *     configuration that reaches the DIRECTIONAL arm ("{alt} leads instead")
+ *     rather than the neutral one the fix falls back to;
+ *   · `winner_label` on BOTH buckets — the footer designation
+ *     ("Above: {name} (61%)"), which is a second, VERBLESS naming that a
+ *     matcher hunting leader verbs cannot see;
+ *   · `win_probability` on both — the DATA that must SURVIVE the withholding,
+ *     so over-suppression fails loudly instead of scoring as a pass.
+ */
+export const CONDITIONAL_WINNERS = () => [
+  {
+    factor_label: FACTOR_LABEL,
+    factor_id: FACTOR_ID,
+    split_value: SPLIT_VALUE,
+    winner_flips: true,
+    high_bucket: { winner_id: 'opt_b', winner_label: ALT_LABEL, win_probability: 0.61 },
+    low_bucket: { winner_id: 'opt_a', winner_label: LOW_BUCKET_LABEL, win_probability: 0.55 },
+  },
+]
+
 export function makeLeaderClaimData(opts: {
   verdict: DecisionVerdict
   leaderDesignationPermitted: boolean
@@ -115,6 +186,12 @@ export function makeLeaderClaimData(opts: {
       topEvidenceGaps: [],
       nextActions: [],
       topNextActions: [],
+      // SURFACE D. `recommendedOptionId` must match exactly one bucket's
+      // `winner_id` or the component takes its neutral arm for a reason that
+      // has nothing to do with the fix under test — the arm would then be
+      // right by accident and the anti-vacuity twin would pass vacuously too.
+      conditionalWinners: CONDITIONAL_WINNERS(),
+      recommendedOptionId: 'opt_a',
     },
     drivers: {
       dominantFactorLabel: FACTOR_LABEL,
@@ -131,7 +208,18 @@ export function makeLeaderClaimData(opts: {
   } as unknown as ResultsSectionDataReturn
 }
 
-/** The witnessed run: separation unknown, leader withheld, pre-admission CEE. */
+/**
+ * The witnessed run: separation unknown, leader withheld, NO ADMISSION FIELD.
+ *
+ * ⚠ CORRECTED. This said "pre-admission CEE", which is a claim about the
+ * PRODUCER, and the PR body quotes that same run's `quantified_provisional`
+ * admission — so the two disagreed about the run they describe. What is true
+ * here is narrower and is a statement about THIS FIXTURE, not about staging:
+ * `mode` is left undefined, which exercises the ABSENT-admission arm. That arm
+ * is the one worth pinning, because it is the arm that makes this consumer
+ * safe to land ahead of any producer change — the leader answer is withheld by
+ * the composed field alone, with the lattice contributing nothing.
+ */
 export const WITHHELD = (): ResultsSectionDataReturn =>
   makeLeaderClaimData({ verdict: WITHHELD_VERDICT, leaderDesignationPermitted: false })
 

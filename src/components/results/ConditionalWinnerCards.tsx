@@ -68,6 +68,42 @@ interface ConditionalWinnerCardsProps {
    * kept so remaining callers and tests are untouched.
    */
   useV17Copy?: boolean
+  /**
+   * May this run DESIGNATE a leading option?
+   *
+   * ⚠ THIS IS NOT A VISIBILITY SWITCH, AND THE DIFFERENCE IS THE WHOLE POINT.
+   * `false` strips the NAME and keeps the ROW: the factor, the split value,
+   * the flip claim and both buckets' probabilities all still reach the user.
+   * A withheld run is entitled to the science; it is not entitled to be told
+   * WHICH option wins each bucket. Hiding the card would be the
+   * over-suppression failure — a worse product than the contradiction, and
+   * the one this seam has been broken by before.
+   *
+   * The disposition is not invented here. `crossSurfaceCoherence.ts` already
+   * adjudicated this exact pair as CX4 (`leader_withheld_vs_leader_designated`,
+   * `disposition: 'suppress_at_consumer'`): *"The action is to strip the NAME,
+   * never the row — the producer's own withheld-claim projection strips exactly
+   * the identity members and forwards the factor-level science, so the consumer
+   * applies the withholding the producer failed to apply."* This prop is that
+   * action, and `rowNamesAnOption` in that module is the same predicate read
+   * from the other end: a bucket carrying `winner_label` is a designation, a
+   * bucket carrying only `win_probability` is data.
+   *
+   * ⚠ SCOPE, STATED SO IT CANNOT BE OVER-READ (CLAUDE.md trap 20). CX4's
+   * `enforcedAt: ''` records that its COMPARE-tab limb is unenforced because
+   * `leader_claim` is not in scope at the snapshot-factory seam. This prop
+   * does NOT close that limb and this comment does not claim it does. It
+   * enforces the same QUESTION at the Analysis-tab seam, from the authority
+   * that IS in scope here — the composed `leaderDesignationPermitted` the
+   * results hook already publishes.
+   *
+   * Default `true`: absence of an answer keeps today's behaviour byte for
+   * byte, the same absence arm every other consumer of the leader authority
+   * uses. A `false` default would blank the card on every legacy caller and
+   * every fixture — including the coherence pairs spec, which renders this
+   * component to prove `rowNamesAnOption` agrees with the real DOM.
+   */
+  mayNameLeader?: boolean
 }
 
 /** Which direction arm a row can honestly claim. */
@@ -78,6 +114,7 @@ export function ConditionalWinnerCards({
   recommendedOptionId,
   onFocusNode,
   useV17Copy = false,
+  mayNameLeader = true,
 }: ConditionalWinnerCardsProps) {
   // Producer attestation ONLY — label comparison cannot see a same-label
   // flip and renders label churn as a phantom scenario. A row without a
@@ -127,7 +164,13 @@ export function ConditionalWinnerCards({
         const highId = w.high_bucket.winner_id
         const lowId = w.low_bucket.winner_id
         let arm: DirectionArm = 'neutral'
-        if (recommendedOptionId && highId && lowId && highId !== lowId) {
+        // WITHHELD ⇒ the NEUTRAL arm, which is the arm this component already
+        // ships for "direction cannot be honestly bound". It is reused rather
+        // than a fourth arm authored, because the sentence it renders —
+        // "Which option leads depends on {factor} — the analysis flips at {N}"
+        // — is already the exact claim a withheld run is entitled to make: the
+        // factor, the threshold, the flip, and no option identity. No new copy.
+        if (mayNameLeader && recommendedOptionId && highId && lowId && highId !== lowId) {
           if (lowId === recommendedOptionId) arm = 'high-alt'
           else if (highId === recommendedOptionId) arm = 'low-alt'
         }
@@ -152,7 +195,19 @@ export function ConditionalWinnerCards({
         // present, percentage when present, neither minted. A side with
         // nothing to say is omitted; so is an empty footer.
         const sideText = (bucket: ConditionalWinnerBucket): string | undefined => {
-          const label = bucket.winner_label !== undefined
+          // ⚠ THE SECOND DESIGNATION, AND IT IS THE ONE THE PROSE SWEEP MISSES.
+          // "Above: Two Mid-Level Developers at £70k Each (61%)" names which
+          // option leads in that bucket just as surely as the directional
+          // sentence does — it simply does it without a verb, which is why a
+          // regex hunting leader VERBS reads the footer as clean. Forcing the
+          // neutral arm above without stripping this would move the claim, not
+          // withdraw it. `crossSurfaceCoherence.rowNamesAnOption` names this
+          // function by line as the place the choice is made.
+          //
+          // The PERCENTAGE stays. It is a bucket-conditional probability — a
+          // measurement, not a designation — and dropping it would be the
+          // over-suppression this component's header already refuses.
+          const label = bucket.winner_label !== undefined && mayNameLeader
             ? (useV17Copy ? safeInterpolatedLabel(bucket.winner_label, 'the other option') : bucket.winner_label)
             : undefined
           const pct = bucket.win_probability !== undefined

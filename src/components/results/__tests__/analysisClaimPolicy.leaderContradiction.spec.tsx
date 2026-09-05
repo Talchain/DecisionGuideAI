@@ -33,7 +33,8 @@
  * WHAT THIS FILE COVERS, AND WHAT IT DOES NOT
  * ═══════════════════════════════════════════════════════════════════════════
  * Here: the claim-policy lattice (§1), `TriageActionCardsBody`'s two nudges
- * (§3, §4) and the COMPOSED panel that reproduces the witness (§5).
+ * (§3, §4), the COMPOSED panel that reproduces the witness (§5) and SURFACE D,
+ * `ConditionalWinnerCards` (§6).
  * NOT here: SURFACE A, `rankActOnItRows` — see
  * `analysis-hero/actOnIt/__tests__/actOnItLeaderClaim.spec.ts` and the import
  * note below for why it cannot live in this file.
@@ -74,7 +75,9 @@ import {
   ALT_LABEL,
   FACTOR_LABEL,
   LEADER_CLAIM_RE,
+  LOW_BUCKET_LABEL,
   PERMITTED,
+  SPLIT_VALUE,
   WITHHELD,
   admission,
 } from '../__fixtures__/leaderClaim.fixtures'
@@ -364,5 +367,105 @@ describe('§5 COMPOSED — the withholding and the claim cannot share a panel', 
     expect(footer).toContain('What we checked')
     expect(prose).not.toContain('What we checked')
     expect(prose).toContain(FACTOR_LABEL)
+  })
+})
+
+// ── §6 SURFACE D — the conditional-winner cards ─────────────────────────────
+
+/**
+ * ⭐ THE FOURTH SURFACE, AND IT WAS INSIDE THE FILE THE FIX ALREADY EDITED.
+ *
+ * `ConditionalWinnerCards` is mounted from `TriageActionCardsBody` gated on
+ * NOTHING but array length. A cold review rendered the WITHHELD fixture above
+ * with `conditionalWinners` populated and nothing else changed, and got the
+ * witnessed defect's exact shape back:
+ *
+ *   footer  "Leading option not assessed"
+ *   prose   "When Technical Leadership Capacity exceeds 3, Two Mid-Level
+ *            Developers at £70k Each LEADS INSTEAD."
+ *   prose   "Above: Two Mid-Level Developers at £70k Each (61%)"
+ *
+ * ⚠ TWO INDEPENDENT REASONS §5 PASSED OVER IT, AND BOTH ARE CLOSED HERE,
+ * BECAUSE CLOSING ONE WOULD LEAVE THE GUARD AGREEING WITH ITSELF FOR A NEW
+ * REASON.
+ *   1. `LEADER_CLAIM_RE` carried no `leads`, so the sweep returned FALSE about
+ *      the very sentence it was pointed at. Measured: adding `leads instead`
+ *      to the matcher alone, with the product code untouched, flips §5's
+ *      withheld arm GREEN → RED. Its green was vacuous.
+ *   2. The fixtures never populated `conditionalWinners`, so §5 asserted "no
+ *      leader claim anywhere" over a panel on which the card never mounted.
+ *      It is populated on BOTH arms now.
+ *
+ * ⚠ AND THE ASSERTIONS BELOW DO NOT REST ON THE MATCHER. A regex over rendered
+ * prose is a lexical tripwire whose bound is declared in the fixture; what
+ * BINDS here is IDENTITY — the option LABELS must not appear in the withheld
+ * panel at all (CLAUDE.md trap 19). The two catch different rewordings and
+ * neither subsumes the other, so both are asserted.
+ *
+ * The remedy is the one `crossSurfaceCoherence.ts` already adjudicated for
+ * this pair (CX4, `suppress_at_consumer`): STRIP THE NAME, NEVER THE ROW. So
+ * every withheld arm below has a twin asserting the row's INFORMATION —
+ * the factor, the split value, both bucket probabilities — is still on screen.
+ * A suppression that deleted the card passes the absence assertions and fails
+ * these.
+ */
+describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', () => {
+  const cardOf = (data: ResultsSectionDataReturn) => {
+    const { container } = render(
+      <TriageActionCardsBody data={data} useV17Copy onFocusNode={() => {}} />,
+    )
+    const card = container.querySelector('[data-testid="conditional-winner-cards"]')
+    // Bound to the ELEMENT. A suppression that unmounted the card would fail
+    // HERE rather than pass every absence assertion below by vanishing — the
+    // over-suppression failure, which is the worse defect of the two.
+    expect(card, 'the conditional card never mounted — every §6 arm would be vacuous')
+      .not.toBeNull()
+    return { card: card!, text: allText(card!) }
+  }
+
+  it('ANTI-VACUITY: the PERMITTED run names the winner and states the direction', () => {
+    const { card, text } = cardOf(PERMITTED())
+    // The exact sentence the withheld arm must NOT produce. If this ever stops
+    // rendering, the arm below is passing because the product went quiet.
+    expect(text).toContain(`${ALT_LABEL} leads instead`)
+    expect(text).toContain(`Above: ${ALT_LABEL} (61%)`)
+    expect(text).toContain(`Below: ${LOW_BUCKET_LABEL} (55%)`)
+    expect(card.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('high-alt')
+  })
+
+  it('WITHHELD: the card names NO option — by identity, not only by matcher', () => {
+    const { card, text } = cardOf(WITHHELD())
+    // IDENTITY (trap 19): the option labels themselves, which no rewording can
+    // dodge while still designating a winner.
+    expect(text).not.toContain(ALT_LABEL)
+    expect(text).not.toContain(LOW_BUCKET_LABEL)
+    // The verb phrase, and the matcher, as a second and independent net.
+    expect(text).not.toContain('leads instead')
+    expect(text).not.toMatch(LEADER_CLAIM_RE)
+    // The DIRECTION is a designation too — "exceeds" vs "falls below" says
+    // which side the recommended option is on, which presupposes one.
+    expect(card.querySelector('[data-cw-arm]')?.getAttribute('data-cw-arm')).toBe('neutral')
+  })
+
+  it('WITHHELD DATA SURVIVES: the row, the split value and BOTH probabilities stay', () => {
+    // CX4's remedy in one assertion: strip the NAME, never the row. Delete the
+    // card instead of stripping it and this REDs while the arm above still
+    // passes — which is why the two must both exist.
+    const { text } = cardOf(WITHHELD())
+    expect(text).toContain('Conditional scenarios')
+    expect(text).toContain(FACTOR_LABEL)
+    expect(text).toContain(`flips at ${SPLIT_VALUE}`)
+    expect(text).toContain('Above: 61%')
+    expect(text).toContain('Below: 55%')
+  })
+
+  it('WITHHELD: the composed panel states the withholding and SURFACE D agrees with it', () => {
+    // §5's arm, re-asserted now that the card actually mounts on it. This is
+    // the arm that was green for two wrong reasons before.
+    const { footer, prose } = renderPanel(WITHHELD())
+    expect(footer).toContain('Leading option not assessed')
+    expect(prose).toContain('Conditional scenarios')
+    expect(prose).not.toMatch(LEADER_CLAIM_RE)
+    expect(prose).not.toContain(ALT_LABEL)
   })
 })
