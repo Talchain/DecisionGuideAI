@@ -76,7 +76,25 @@ export function SectionShell({
 
   return (
     <section
-      className="border-b border-panel-border last:border-b-0"
+      /* ⭐ A2 — CONTAINMENT BY FILL AND RADIUS, NOT BY A BOX (design pick,
+         ratified 5 Sep). An OPEN section takes a tinted surface and a radius,
+         and gives up its rule: the fill is what groups the header with the body
+         it opened, so a second rule underneath would be drawing the box twice.
+         A CLOSED section is just a row in a list and keeps the rule.
+
+         ⚠ WHY NOT A BORDER. The panel carried a 2px accent box on four
+         sections; at a glance it read as focus or as an error, and two open
+         sections produced two competing boxes. A fill has no edge to mistake
+         for a state, and it still reads as one surface when two are open —
+         which is the case the box version failed.
+
+         `my-1` is load-bearing: without it the tint runs straight into the
+         neighbouring row and the radius is invisible. */
+      className={
+        open
+          ? 'rounded-md bg-panel-hover/40 my-1 px-2'
+          : 'border-b border-panel-border last:border-b-0'
+      }
       data-testid={testId}
       // ⚠ STILL A LABELLED LANDMARK. Turning the section header into a
       // disclosure control must not cost the landmark its name — the dock's own
