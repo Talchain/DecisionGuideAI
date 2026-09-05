@@ -82,6 +82,59 @@ import {
 } from '../hydrate/applyScenarioAnalysisRead'
 
 /**
+ * ── OPTION-IDENTITY CONTAINMENT (issue #1204) ─────────────────────────────
+ *
+ * Are the options CEE's readiness NAMES actually present on the canvas whose
+ * ids were snapshotted alongside it?
+ *
+ * ⚠ THIS IS THE SAME QUESTION `graphAcceptedForCanvas` ALREADY ASKS, measured
+ * better — NOT a second concept smuggled under one name (trap 21). The field
+ * asks *"is what the user is looking at the graph CEE is talking about?"*;
+ * `lastAuthoritativeGraph !== null` is a proxy for it that this module's own
+ * header already concedes is necessary-but-not-sufficient. If an option CEE
+ * names is not on the canvas, the canvas is PROVABLY not that graph. The
+ * precedent is `mergeServerGraph`'s refusal — *"ZERO overlap with a NON-EMPTY
+ * canvas means these are two unrelated graphs"* — tightened from overlap to
+ * containment, because an analysis that compared even ONE option the user does
+ * not have is still an analysis of a different model, and the sentence on
+ * screen is "Analysis reflects the current model."
+ *
+ * ⚠ THE TWO OPERANDS ARE WRITTEN BY ONE `set()` AND COME FROM DIFFERENT
+ * SOURCES, which is what makes the comparison mean anything: `setCeeAnalysisReady`
+ * stores CEE's payload and snapshots the LOCAL canvas ids in the same reducer
+ * (`store.ts`). They therefore cannot skew against each other through later
+ * canvas churn — the comparison is fixed at the instant CEE spoke.
+ *
+ * ⚠⚠ FAILS OPEN ON EVERY ABSENT OR UNUSABLE OPERAND, deliberately. Only
+ * POSITIVE evidence of divergence may decline. No readiness, no options, no
+ * snapshot, or an option carrying no usable id are all "cannot judge", and
+ * inventing a decline there would trade one lie for a broad new gap — the
+ * over-fix this seam has been repaired for before. The malformed-option case
+ * is a DECISION, pinned by a named test, not an accident: if the product later
+ * wants to refuse unidentifiable options, that is the line to change.
+ *
+ * Exported so the decision is testable directly rather than only through the
+ * store, and so a future reader can see the rule instead of inferring it.
+ */
+export function ceeReadinessOptionsAreOnCanvas(
+  ready: { options?: ReadonlyArray<{ id?: unknown }> } | null | undefined,
+  snapshotNodeIds: readonly string[] | null | undefined,
+): boolean {
+  if (ready == null) return true
+  const options = ready.options
+  if (!Array.isArray(options) || options.length === 0) return true
+  if (snapshotNodeIds == null || snapshotNodeIds.length === 0) return true
+  const onCanvas = new Set(snapshotNodeIds)
+  // `every` over the JUDGEABLE options only: an id-less option is skipped
+  // (it is not evidence of divergence), a well-formed one is checked.
+  return options.every((o) => {
+    const id = o?.id
+    if (typeof id !== 'string' || id.length === 0) return true
+    return onCanvas.has(id)
+  })
+}
+
+/**
  * Delays from arming, in ms. Front-loaded around the ~20s commit, then spread.
  * Exported so the spec asserts the SCHEDULE rather than restating it (trap 12),
  * and so the budget claim in the header is checkable.
@@ -310,7 +363,29 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // "the whole point of the feature" — it hydrates in full. Treating it as
     // divergent would withhold the verdict on a fresh scenario, which is the
     // over-fix that closes the lie by opening a gap.
-    graphAcceptedForCanvas: s.lastAuthoritativeGraph !== null || s.nodes.length === 0,
+    //
+    // ⚠⚠ THE SECOND CONJUNCT CLOSES ISSUE #1204, AND THE SCOPE THIS FILE USED
+    // TO CARRY WAS WRONG. The recorded scope was "reachable in code, CONDITIONAL
+    // ON A REFUSED BOOT, which has not been observed live". NO REFUSED BOOT IS
+    // REQUIRED. Creating a scenario seeds `lastAuthoritativeGraph` with an
+    // EMPTY-BUT-NON-NULL identity record — `identityFromCanvasGraph(nodes, edges)`
+    // on an empty scenario, whose own comment says "an empty scenario yields an
+    // EMPTY record, which is the honest value for it" — and the starter
+    // template's nodes are installed AFTER that seed. So the first conjunct is
+    // satisfied BY THE VERY GESTURE THAT CREATES THE HAZARD, and the guard was
+    // dark for the plainest journey the product has: guest · load one shipped
+    // starter · send one brief · first turn. Live-measured `derivedGraphAccepted:
+    // true` with an EMPTY authoritative record against a 16-node canvas.
+    //
+    // STRICTLY STRONGER, NEVER LOOSER: `A'` implies `A`, so this can only ever
+    // decline more, never accept something the previous rule refused. That
+    // implication is asserted over the truth table in
+    // `__tests__/provisionalDelivery.optionIdentityContainment.spec.ts` rather
+    // than argued here.
+    graphAcceptedForCanvas:
+      s.nodes.length === 0 ||
+      (s.lastAuthoritativeGraph !== null &&
+        ceeReadinessOptionsAreOnCanvas(s.ceeAnalysisReady, s.ceeAnalysisReadyNodeIds)),
   }
 }
 
