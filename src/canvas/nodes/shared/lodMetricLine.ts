@@ -247,9 +247,16 @@ export function resolveLodMetricLine({
       // "show the bar with the percentage next to it", the sentence on hover.
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
         // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
-        // `Ahead ${…}` while `:305` two hundred lines below already read
-        // `${METRIC_NOUN.chance}`, so a rename in the register changed the
-        // zoomed-IN card and left this zoomed-OUT one saying the old word.
+        // `Ahead ${…}` while its sibling arm, the `achievementProbability`
+        // return in this same function, already read `${METRIC_NOUN.chance}`.
+        // So a rename in the register changed the zoomed-IN card and left this
+        // zoomed-OUT one saying the old word.
+        //
+        // ⚠ CITED BY SYMBOL, NOT BY LINE. An earlier version of this comment
+        // said "`:305`, two hundred lines below"; both numbers were wrong (314,
+        // and 56 lines) and a neighbouring edit would have falsified any
+        // correct pair anyway. The sibling is findable by name for as long as
+        // it exists, which a line number is not.
         // The estate adjudicated this exact case in this exact file for the
         // sibling noun (`Achievement` -> `Chance`) and took it here rather
         // than deferring, precisely so the board could not say two words for
