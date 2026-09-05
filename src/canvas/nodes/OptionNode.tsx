@@ -1605,6 +1605,12 @@ export const OptionNode = memo((props: NodeProps) => {
               <span
                 data-testid={`option-stable-number-${props.id}`}
                 aria-label={`Option ${stableOptionNumber}`}
+                // Declared glyph: a fixed 16px box whose content is an ordinal.
+                // One digit is exempt from the alignment guard by length; a
+                // TENTH option makes it two characters and would trip the guard
+                // for a box where centring is correct. Declared now so the tenth
+                // option is not a surprise RED (see BaseNode's rank badge).
+                data-node-glyph
                 className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >
                 {stableOptionNumber}
