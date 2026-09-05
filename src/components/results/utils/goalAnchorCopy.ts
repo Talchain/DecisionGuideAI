@@ -222,15 +222,36 @@ export const COMPARATIVE_COPY = {
    * `Chance`); `Ahead` was the only one naming an OUTCOME, which is why it
    * read as the odd one out.
    *
-   * `Scenarios` renders as "72%" over "Scenarios" — measurement language,
-   * no claim about which option is right, and it satisfies the register's own
-   * rule that every noun is a SINGLE SENTENCE-CASE WORD, which a first draft
-   * (`of scenarios`) broke. The guard was right: the siblings are all single
-   * nouns, and matching them is what makes the four read as one set.
+   * `Win share` NAMES THE QUANTITY, which is what the three siblings do and
+   * what neither `Ahead` nor a first draft's `Scenarios` did. The distinction,
+   * from the review that caught it: 72% IS the influence / strength / chance,
+   * but 72% is NOT the scenarios — it is the proportion OF them. `Scenarios`
+   * swapped naming the OUTCOME for naming the SAMPLE SPACE; neither is the
+   * quantity, and only this caption would have made the reader supply a
+   * preposition.
+   *
+   * ⭐ AND IT IS NOT NEW VOCABULARY — `lodMetricLine.ts` already calls this
+   * quantity a "win share" in its own prose. The register is adopting the
+   * term the code was using internally, not minting one.
+   *
+   * ⚠ TWO WORDS, DELIBERATELY, AND THE REGISTER'S RULE BENDS HERE ON A STATED
+   * REASON. The siblings are ONE-PLACE quantities (a factor's influence, an
+   * edge's strength). This one is TWO-PLACE: the share of runs in which THIS
+   * option beat THE OTHERS. A bare noun cannot carry a two-place quantity
+   * without the reader filling the gap — so the constraint that bends is the
+   * word count, not the meaning. `Win share` is the same width as the shipping
+   * `Influence`, so the layout reason for the original rule is untouched.
+   *
+   * ⚠ `Win` HERE IS ARITHMETIC, NOT A VERDICT. `Ahead` was an adjective
+   * describing this option's STATUS — a result handed to the user. `Win share`
+   * is the NAME OF A MEASURE, the same way `Chance` is. That distinction is
+   * what Paul's steer was about: *"we're not telling them which outcome won"*
+   * is a rule against pronouncing a winner, not against naming the metric that
+   * was computed.
    * The full `phrase()` above keeps "came out ahead", and should: it is an
    * explicit statement about SIMULATED SCENARIOS, not a recommendation.
    */
-  anchor: 'Scenarios',
+  anchor: 'Win share',
   /**
    * The same claim with NO magnitude — for the runs that carry the
    * comparative RANK but not a displayable probability for the leader.

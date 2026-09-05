@@ -75,12 +75,43 @@ describe('METRIC_NOUN', () => {
     expect(quoted.test(`ahead: '${COMPARATIVE_COPY.anchor}',`), 'the literal detector never fires').toBe(true)
   })
 
-  it('every noun is a single sentence-case word', () => {
+  /**
+   * ⚠ THE ONE-WORD RULE BENDS FOR TWO-PLACE QUANTITIES, ON A STATED REASON.
+   *
+   * `influence`, `strength` and `chance` are ONE-PLACE: 72% IS the influence,
+   * IS the strength, IS the chance. A bare noun names them exactly.
+   *
+   * `ahead` is TWO-PLACE — the share of runs in which THIS option beat THE
+   * OTHERS — and no single noun carries that without the reader supplying a
+   * preposition, which is how the register arrived at `Ahead` (naming the
+   * outcome) and then briefly at `Scenarios` (naming the sample space).
+   * Neither named the quantity. `Win share` does.
+   *
+   * So the exception is the ARITY of the quantity, not a taste. The layout
+   * reason the rule existed is untouched: `Win share` is the same width as the
+   * shipping `Influence`. Sentence case still holds for every entry.
+   */
+  const TWO_PLACE_NOUNS = new Set(['ahead'])
+
+  it('every noun is sentence case, and one word unless the quantity is two-place', () => {
     for (const [key, noun] of Object.entries(METRIC_NOUN)) {
       expect(noun, `${key} is empty`).toBeTruthy()
-      expect(noun, `${key} ("${noun}") is more than one word`).not.toMatch(/\s/)
-      expect(noun, `${key} ("${noun}") is not sentence case`).toMatch(/^[A-Z][a-z]+$/)
+      expect(noun, `${key} ("${noun}") is not sentence case`).toMatch(/^[A-Z][a-z]/)
+      if (!TWO_PLACE_NOUNS.has(key)) {
+        expect(noun, `${key} ("${noun}") is more than one word`).not.toMatch(/\s/)
+        expect(noun, `${key} ("${noun}") is not a single sentence-case word`).toMatch(/^[A-Z][a-z]+$/)
+      } else {
+        // The exception is bounded: at most two words, still sentence case,
+        // so it cannot become a sentence by drift.
+        expect(noun.split(/\s+/).length, `${key} ("${noun}") exceeds two words`).toBeLessThanOrEqual(2)
+      }
     }
+  })
+
+  it('the two-place exception list stays SHORT — a third entry needs its own reason', () => {
+    // Guards the exception from becoming the rule. If a quantity is genuinely
+    // two-place, add it AND say why above; do not widen this silently.
+    expect(TWO_PLACE_NOUNS.size).toBeLessThanOrEqual(1)
   })
 
   it('the four nouns are distinct — one noun per idea, not one noun for four', () => {

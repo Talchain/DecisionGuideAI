@@ -246,7 +246,16 @@ export function resolveLodMetricLine({
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
-        return `Ahead ${formatWinProbability(displayMetadata.winRate)}`
+        // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
+        // `Ahead ${…}` while `:305` two hundred lines below already read
+        // `${METRIC_NOUN.chance}`, so a rename in the register changed the
+        // zoomed-IN card and left this zoomed-OUT one saying the old word.
+        // The estate adjudicated this exact case in this exact file for the
+        // sibling noun (`Achievement` -> `Chance`) and took it here rather
+        // than deferring, precisely so the board could not say two words for
+        // one number at two zoom levels. Nothing REDded because the canvas
+        // noun guard filters sources to `*Node.tsx` and this file is not one.
+        return `${METRIC_NOUN.ahead} ${formatWinProbability(displayMetadata.winRate)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and
