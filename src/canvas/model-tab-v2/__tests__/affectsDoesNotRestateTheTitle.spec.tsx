@@ -21,9 +21,10 @@
  * would delete real information rather than remove a repetition.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { ModelDetailRegion } from '../ModelDetailRegion'
 import type { ModelRow, ModelRowDetail } from '../types'
+import { RELATIONSHIP_LABEL_SEPARATOR } from '../adapters'
 
 const TARGET = { id: 'n_boost', label: 'Boost Productivity' }
 
@@ -88,6 +89,65 @@ describe('the derived-title case — the repetition goes, the affordance stays',
     fireEvent.click(control)
     // Binds by IDENTITY — the target's id, not "a click happened".
     expect(onFocusOnCanvas).toHaveBeenCalledWith(TARGET.id)
+  })
+})
+
+/**
+ * ⭐⭐ AN OUTSIDE CORPUS, BOTH DIRECTIONS — because this began as a PREDICATE
+ * OVER TEXT, and this estate has watched that class oscillate through four
+ * rounds before anyone admitted the approach was wrong.
+ *
+ * The first version asked *"does the title contain the target's label?"*.
+ * Measured over these cases it produced FIVE false suppressions, and a
+ * word-boundary match does not rescue it — "Revenue Growth Rate" contains
+ * "Revenue" as a whole word. The exit was to stop asking about the text and
+ * ask about the CONSTRUCTION: the derived title ends with the shared
+ * separator plus the target's label, by construction.
+ *
+ * ⚠ WHICH DIRECTION IS WORSE MATTERS, AND IT IS NOT SYMMETRIC. A false KEEP
+ * leaves a redundant heading — the defect this fix exists to remove, and
+ * visible. A false SUPPRESSION drops a heading over a genuinely different
+ * detail. Both are cheap here BECAUSE the affordance survives either way: the
+ * suppressed branch still renders the target's label inside a working control,
+ * so no route and no content is lost — only the heading. That asymmetry is
+ * what keeps this from being a four-round problem, and it is why the predicate
+ * is allowed to be simple as long as it fails toward KEEPING.
+ */
+describe('the corpus — both directions, cases not drawn from the implementation', () => {
+  /*
+   * ⚠ IMPORTED, NOT SPELT. A first draft wrote the separator into this spec as
+   * a literal — which is the same hand-maintained mirror the export was
+   * created to remove, reintroduced one file along. Both the builder and the
+   * detail region now read this constant, and so does the corpus, so the three
+   * cannot drift apart.
+   */
+  const SEP = RELATIONSHIP_LABEL_SEPARATOR
+  const cases: Array<[string, string, boolean, string]> = [
+    [`Hit Next Launch Date${SEP}Boost Productivity`, 'Boost Productivity', true, 'the reported case'],
+    [`Onboarding Quality${SEP}Churn`, 'Churn', true, 'short target, derived title'],
+    ['Product gaps mediate churn', 'Churn Rate', false, 'producer-named edge'],
+    ['Boost productivity', 'Boost Productivity', false, 'case differs'],
+    [`Reduce Costs${SEP}Margin`, 'Cost', false, 'substring: Cost inside Costs'],
+    ['Revenue Growth Rate', 'Revenue', false, 'substring: whole word, different node'],
+    ['Sales drives Revenue Growth', 'Revenue', false, 'substring inside a longer name'],
+    [`Time Pressure${SEP}Team Capacity`, 'Capacity', false, 'substring: inside Team Capacity'],
+    [`Churn${SEP}Revenue`, 'Churn', false, 'target is the FROM half, not the TO half'],
+  ]
+
+  it.each(cases)('%s / %s → suppress=%s (%s)', (label, target, shouldSuppress) => {
+    render(
+      <ModelDetailRegion
+        row={relationshipRow(label)}
+        detail={detail({ affects: [{ id: 'n', label: target }] })}
+        tier="plain"
+      />,
+    )
+    const headingPresent = screen.queryByText(HEADING) !== null
+    expect(headingPresent).toBe(!shouldSuppress)
+    // The affordance survives in BOTH branches — this is what makes a wrong
+    // answer cost a heading rather than content.
+    expect(screen.getByTestId('model-detail-v2-affects-n')).toBeTruthy()
+    cleanup()
   })
 })
 

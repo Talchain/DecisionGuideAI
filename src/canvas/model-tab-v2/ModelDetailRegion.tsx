@@ -29,6 +29,7 @@
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   classifyInterventionProvenance,
   type ValueProvenanceKind,
@@ -164,8 +165,18 @@ export function ModelDetailRegion({
   onDiscardInterventionEdit,
 }: ModelDetailRegionProps) {
   /**
-   * ⚠ THE QUESTION IS "DOES THE TITLE ALREADY SAY THIS?", NOT "IS THIS AN
-   * EDGE?". Written as a containment check against the row's own rendered
+   * ⚠ THE QUESTION IS "WAS THIS TITLE DERIVED AS `from → to`?", NOT
+   * "DOES THE TITLE CONTAIN THIS STRING?" — and the difference was measured.
+   * A substring match produced FIVE false suppressions over a ten-case corpus
+   * ("Cost" inside "Costs", "Revenue" inside "Revenue Growth Rate",
+   * "Capacity" inside "Team Capacity"), and a word-boundary match does not
+   * rescue it because "Revenue Growth Rate" contains "Revenue" as a whole
+   * word. That is where a predicate over text stops being winnable — this
+   * estate has watched one oscillate through four rounds — so the test is
+   * structural instead: the derived form ENDS WITH the shared separator plus
+   * the target's label, by construction. Same corpus: 10/10, zero false
+   * suppressions, and it fails in the SAFE direction (keeps the heading)
+   * whenever the format differs at all. Written as a containment check against the row's own rendered
    * label rather than as `kind === 'relationship'`, because a producer-named
    * relationship does NOT name its target in the title and genuinely needs the
    * section. Deriving it from the label keeps the two in step even if
@@ -176,7 +187,7 @@ export function ModelDetailRegion({
     detail !== null &&
     detail.affects.length === 1 &&
     detail.affects[0] !== undefined &&
-    row.label.includes(detail.affects[0].label)
+    row.label.endsWith(`${RELATIONSHIP_LABEL_SEPARATOR}${detail.affects[0].label}`)
   /*
    * The identity gate. This is deliberately a VISIBLE refusal rather than a
    * silent `return null`: a detail region that quietly vanishes looks like a
