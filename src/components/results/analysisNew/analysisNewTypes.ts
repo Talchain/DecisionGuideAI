@@ -45,6 +45,24 @@ export interface InspectRow {
   label: string
   /** Already formatted for display by the adapter. Components never compute. */
   value: string
+  /**
+   * A row whose `value` is a SENTENCE, not a datum keyed by `label`.
+   *
+   * ⚠ ADDITIVE AND OPT-IN, so the six groups that are genuinely term/definition
+   * pairs are untouched. It exists because "Model gaps the analysis worked
+   * around" is not a term/definition list at all: its `label` was the producer's
+   * error code, so the `<dt>` column printed EDGE_E_VALUE_NON_FINITE_DROPPED to
+   * the user (witnessed by Paul on deployed `a9c2e050`).
+   *
+   * The estate's ratified shape for this content is sentence-first with the code
+   * de-emphasised after it — `ModelHealthSection.tsx:393-398`, pinned by
+   * `auditInferenceWarningsNeverBareCode.spec.tsx`, whose header rules the
+   * property is `code + sentence`, NEVER `sentence instead of code`. A
+   * two-column grid cannot express that order, which is why the flag exists
+   * rather than a swap of the two columns: swapping would put the sentence in
+   * the muted column and the code in the emphasised one, which is worse.
+   */
+  statement?: boolean
 }
 
 /**

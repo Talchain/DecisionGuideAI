@@ -107,8 +107,42 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
                   <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                     {group.rows.map((r, i) => (
                       <div key={`${i}:${r.label}`} className="contents">
-                        <dt className={`${typography.panelMeta} text-text-light break-words`}>{r.label}</dt>
-                        <dd className={`${typography.panelMeta} text-text-body break-words min-w-0`}>{r.value}</dd>
+                        {/* ⚠ A STATEMENT ROW IS NOT A TERM/DEFINITION PAIR, and
+                            rendering it as one is what printed a machine code to
+                            the user. Its `label` is the producer's code: kept in
+                            the DOM for support, tests and assistive tech, but not
+                            given the `<dt>` column, because the column's whole
+                            visual job is "this names the thing beside it" and a
+                            code does not name a sentence.
+                            The `<dl>` stays valid — every `<dd>` still has its
+                            `<dt>` — and the six term/definition groups are
+                            untouched, since the flag is opt-in per row. */}
+                        {r.statement ? (
+                          <>
+                            <dt className="sr-only">{r.label}</dt>
+                            <dd
+                              className={`${typography.panelMeta} text-text-body break-words min-w-0 col-span-2`}
+                              data-gap-code={r.label || undefined}
+                            >
+                              {r.value}
+                              {/* The code, de-emphasised, AFTER the sentence —
+                                  the Model tab's ratified shape. `aria-hidden`
+                                  because the `<dt>` above already carries it, so
+                                  a screen reader hears it once, not twice. It is
+                                  a separate element rather than appended to
+                                  `r.value` because a spec requires that string
+                                  to BE the shared humaniser's output. */}
+                              {r.label ? (
+                                <span className="text-text-light" aria-hidden="true">{` (${r.label})`}</span>
+                              ) : null}
+                            </dd>
+                          </>
+                        ) : (
+                          <>
+                            <dt className={`${typography.panelMeta} text-text-light break-words`}>{r.label}</dt>
+                            <dd className={`${typography.panelMeta} text-text-body break-words min-w-0`}>{r.value}</dd>
+                          </>
+                        )}
                       </div>
                     ))}
                   </dl>
