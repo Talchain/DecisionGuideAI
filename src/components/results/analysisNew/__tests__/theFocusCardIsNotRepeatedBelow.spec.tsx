@@ -49,6 +49,16 @@ describe('the focused item is not repeated in the list below it', () => {
     expect(rest.map((r) => r.id)).toEqual(['r2', 'r3'])
   })
 
+  it('DISCRIMINATOR: a LONE recommendation keeps its full card', () => {
+    // ⚠ Excluding unconditionally would delete the only card carrying the
+    // method control, the science grounding and the dismissal — to prevent a
+    // repeat that cannot happen, because the section rests CLOSED and there is
+    // no second copy on screen. Below two items there is no "also" to be
+    // relative to. Measured: removing this branch takes the section off the
+    // surface on a one-recommendation run and REDs seven order specs.
+    expect(selectAlsoWorthDoing([A] as never, A as never).map((r) => r.id)).toEqual(['r1'])
+  })
+
   it('DISCRIMINATOR: bound by IDENTITY, not by a value another item could match', () => {
     // Two items can legitimately carry the same producer sentence — the phase-3
     // path sets `signal` and `whyNow` from one `item.body`, so text equality is

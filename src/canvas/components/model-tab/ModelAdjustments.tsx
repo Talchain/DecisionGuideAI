@@ -256,6 +256,14 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   // totalCount keeps its historic meaning (all visible rows) for any gating
   // logic that depends on whether anything at all is present.
   const totalCount = factorCount + repairActions.length
+  /**
+   * What the multi-item HEADER may claim. Deliberately a different number from
+   * `totalCount`: that one gates layout and is documented as meaning "all
+   * visible rows" for gating; this one must never be zero while the section is
+   * on screen, which is the whole defect it exists to close.
+   */
+  const adjustmentTally =
+    repairActions.length > 0 ? repairActions.length : postRunRepairs.length
   const constraintAdj = grouped.filter(a => CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
   const autoFixAdj = grouped.filter(a => !CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
 
@@ -300,9 +308,23 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
         <Wrench size={14} className="text-info flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className={`${typography.panelHeader} text-text-header`}>
+            {/* ⚠ THE THIRD BRANCH IS NOT DEFENSIVE PADDING — it is a state the
+                section already renders. The mount test admits `postRunRepairs`
+                (see the early return above) while `totalCount` counts only the
+                other two arrays, so a post-run-only payload reaches HERE with
+                both counts at zero and the header read "Olumi applied 0
+                adjustments" over a populated list. A heading that states a
+                count is a claim about what is under it.
+
+                It is fixed here rather than by widening `totalCount`, because
+                that value also gates the compact single-item layout and its own
+                comment reserves it for that: rerouting a post-run payload into
+                a one-factor layout would trade a wrong number for a wrong
+                shape. The header is a different question, so it gets its own
+                answer (CLAUDE.md trap 21). */}
             {factorCount > 0
               ? `Olumi adjusted ${factorCount} ${factorCount === 1 ? 'factor' : 'factors'}`
-              : `Olumi applied ${repairActions.length} ${repairActions.length === 1 ? 'adjustment' : 'adjustments'}`}
+              : `Olumi applied ${adjustmentTally} ${adjustmentTally === 1 ? 'adjustment' : 'adjustments'}`}
           </span>
         </div>
         {isExpanded ? (

@@ -1067,9 +1067,9 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
     row('Run reference', inputs.responseHash),
     row('Simulations', inputs.nSamples != null ? String(inputs.nSamples) : null),
     row('Seed', inputs.seedUsed != null ? String(inputs.seedUsed) : null),
-    row('Analysis status', data.recommendation.analysisStatus),
-    row('Drivers status', data.drivers.driversStatus),
-    row('Robustness status', conf.robustnessStatus),
+    row('Analysis status', plainStatus(data.recommendation.analysisStatus)),
+    row('Drivers status', plainStatus(data.drivers.driversStatus)),
+    row('Robustness status', plainStatus(conf.robustnessStatus)),
   )
   if (run.length) groups.push({ title: 'This run', rows: run })
 
@@ -1097,10 +1097,17 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
     .filter((label): label is string => Boolean(label))
 
   const coverage = rows(
-    row('Result completeness', data.completeness.status),
+    row('Result completeness', plainStatus(data.completeness.status)),
     row(
       'Not included in this result',
-      missingResultPhrases.length ? missingResultPhrases.join(', ') : null,
+      /* ⚠ BOTH HALVES OF TWO SEPARATE FIXES, KEPT. The mapping above is the
+         earlier one (pinned by `missingResultsNamedInWords.spec.tsx`); the
+         joiner is the later one. A bare `join(', ')` is exactly the defect the
+         status ribbon shipped — "the win share, the robustness check did not
+         come back" — so leaving it here would have fixed the vocabulary and
+         kept the grammar. Taking either side wholesale would have dropped a
+         real fix. */
+      missingResultPhrases.length ? MISSING_PHRASE_LIST.format(missingResultPhrases) : null,
     ),
     row(
       'Evidence coverage',
@@ -1268,7 +1275,11 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
       'Automatic noise applied',
       data.autoNoiseProvenance?.applied && data.autoNoiseProvenance?.isProvisional ? 'yes, provisional' : null,
     ),
-    row('Per-factor attribution withheld', data.attributionSuppression === 'not_attested' ? null : String(data.attributionSuppression ?? '')),
+    /* ⚠ `String(undefined ?? '')` IS `''`, NOT `null` — so an absent value used
+       to emit a LABELLED ROW WITH A BLANK CELL, which reads as a rendering
+       failure rather than as an absence. `rows()` drops a null; it cannot drop
+       an empty string it was handed. */
+    row('Per-factor attribution withheld', plainStatus(data.attributionSuppression === 'not_attested' ? null : data.attributionSuppression)),
   )
   if (provenance.length) groups.push({ title: 'Provenance', rows: provenance })
 
@@ -1724,6 +1735,45 @@ function usableOptionLabel(o: OptionResult): string | null {
  * outcome" while showing a median would be false. Same data, different
  * obligation — so the difference is deliberate, and it is the safe direction.
  */
+/**
+ * A producer status token as this surface says it.
+ *
+ * ⚠ THE SAME RULE THE GAP-CODE GROUP ALREADY GOT, APPLIED TO ITS NEIGHBOURS.
+ * These rows printed `computed`, `full`, `skipped`, `not_assessed` — the wire
+ * enum verbatim, in a user-facing value cell. A reader has never met that
+ * vocabulary, and the panel's own rule is that a machine token is content at
+ * most, never the thing a person is asked to read.
+ *
+ * ⚠ AN UNKNOWN TOKEN IS TITLE-CASED, NOT DROPPED. Dropping it would delete a
+ * diagnostic the row exists to carry; inventing a sentence for it would assert
+ * something the producer did not say. Replacing underscores is the smallest
+ * change that removes the wire SHAPE without adding meaning.
+ */
+/**
+ * The one joiner for prose lists on this surface — the same authority the
+ * status ribbon uses, so the two cannot disagree about en-GB comma rules.
+ */
+const MISSING_PHRASE_LIST = new Intl.ListFormat('en-GB', {
+  style: 'long',
+  type: 'conjunction',
+})
+
+function plainStatus(status: string | null | undefined): string | null {
+  if (status == null) return null
+  const trimmed = status.trim()
+  if (trimmed === '') return null
+  const known: Record<string, string> = {
+    computed: 'Computed',
+    full: 'Complete',
+    partial: 'Partial',
+    skipped: 'Not computed',
+    unavailable: 'Unavailable',
+    not_assessed: 'Not assessed',
+    not_attested: 'Not stated',
+  }
+  return known[trimmed] ?? `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`.replace(/_/g, ' ')
+}
+
 function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication {
   const rec = data.recommendation
   const options = rec.allOptions ?? []
