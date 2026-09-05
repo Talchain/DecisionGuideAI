@@ -295,7 +295,34 @@ export function buildHeroModel(
   // The reader's `??` fallback is what preserves the historic behaviour: the
   // composed answer when the hook produced one, else `verdict.hasLeadingOption`.
   // `=== false` then keeps a caller with NO verdict at today's behaviour.
-  const designationsWithheld = leaderDesignationPermitted(recommendation) === false
+  /*
+   * ⚠⚠ `!== true` AND VERDICT-GATED — NOT `=== false`. A truth table over
+   * `composed × verdict × hasLeadingOption` found the strict-equality form
+   * DIVERGING FROM THE PREDICATE IT REPLACED IN TWO REACHABLE CELLS, and one
+   * of them fails OPEN:
+   *
+   *   composed absent · verdict present · hasLeadingOption UNDEFINED
+   *     old: withhold      new: DO NOT WITHHOLD      ← a leader claim on a run
+   *                                                    where nothing licenses one
+   *   composed absent · verdict NULL
+   *     old: no claim      new: withhold             ← a withholding notice on a
+   *                                                    run that never happened
+   *
+   * The first is the same `undefined` this fix exists to handle: the composed
+   * field is absent for any recommendation that did not come through
+   * `useResultsSectionData`, and `undefined === false` is `false`, which stops
+   * the withholding. Replacing one `undefined ===` bug with its mirror is not
+   * a fix. `!== true` fails CLOSED — unknown withholds — and the `verdict`
+   * guard keeps "no run" meaning no claim in either direction rather than
+   * asserting one.
+   *
+   * The two cells where `=== false` looked wrong for `composed === true` are
+   * UNREACHABLE: `useResultsSectionData.ts:2243` computes
+   * `leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms`
+   * and `resultSeparatesArms IS verdict.hasLeadingOption`, so `composed === true`
+   * implies Q2 true. Named here so the next reader does not re-derive it.
+   */
+  const designationsWithheld = recommendation.verdict != null && leaderDesignationPermitted(recommendation) !== true
 
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
