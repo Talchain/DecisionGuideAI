@@ -239,7 +239,7 @@ export function resolveStructuralRenameBase(
  * What the user is told when a rename is captured but cannot be sent YET.
  *
  * ⚠⚠ THIS SENTENCE IS THE DIFFERENCE BETWEEN THIS LANE AND THE ONE THAT WAS
- * REVERTED. UI #1025 was reverted for shipping a control that HID the loss. The
+ * REVERTED. UI #1025 REVERTED #1024 for shipping a control that HID the loss. The
  * failure mode here is real and reachable — the queue is memory-only, so a
  * reload before the next turn does lose the rename — and the copy names it
  * rather than implying a durability the product has not earned. It also names

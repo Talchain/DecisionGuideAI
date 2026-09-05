@@ -490,8 +490,14 @@ export function revertStructuralDelete(
 export { PROVEN_NO_WRITE_CONFLICT_CATEGORIES as STRUCTURAL_DELETE_NO_WRITE_CONFLICT_CATEGORIES } from '../../v5/provenNoWriteConflict'
 
 /**
- * The one honest sentence for a delete whose fate we could not confirm, keyed by
- * OUTCOME rather than composed at each site.
+ * The one honest sentence for a delete that WAS SENT, keyed by OUTCOME rather
+ * than composed at each site.
+ *
+ * ⚠ NOT "whose fate we could not confirm", which this gloss said and which is
+ * false of its own first member: `base_hash_diverged` is the case where CEE
+ * GUARANTEES it wrote nothing, as the entry itself states 50 lines down. Two of
+ * the three are unconfirmed; one is confirmed-negative. The shared property is
+ * that a turn happened.
  *
  * ⚠ EMITTED ONLY WHERE CEE'S OWN PROSE DOES NOT RENDER. On a 200 the
  * `assistant_text` branch of `sendTurn` renders CEE's message for system turns
@@ -558,19 +564,29 @@ export const STRUCTURAL_DELETE_NOTICE = {
  * ⚠ THE ACTION NAMED IS THE ONE THAT WORKS, derived the same way its sibling
  * `base_hash_diverged` derives its own: `lastServerGraphHash` has exactly ONE
  * non-test writer (`setLastServerGraphHash`), whose only non-test caller is
- * `applyV5State.ts:1210`, on a turn response. So no turn, no hash, however long
- * the user waits — and a reload makes it worse, not better (see the
- * `base_hash_diverged` note: hydration returns `graph_identity_hash`, never a
- * `graph_hash`). Any message re-syncs.
+ * `applyV5State.ts:1210`, on a turn response. A reload makes it worse, not
+ * better (see the `base_hash_diverged` note: hydration returns
+ * `graph_identity_hash`, never a `graph_hash`). Any message re-syncs.
+ *
+ * ⛔ A WRITER MANIFEST AND A DISPATCH QUESTION ARE NOT THE SAME QUESTION, and an
+ * earlier version of this note joined them with a "So" that does not carry.
+ * Enumerating writers says what CAN stamp a hash; it says nothing about what
+ * FIRES one unprompted. Derived separately: one automatic dispatcher exists,
+ * `usePanelApplyDrain`, hosted inside `isAiPanelV2Enabled()`. It is
+ * mount-triggered and 5-minute-bounded, so "no turn, no hash, however long the
+ * user waits" holds in the DEPLOYED posture (`aiPanelV2` defaults true and is
+ * `"true"` in `netlify.toml`) — and would be false under the documented
+ * `aiPanelV2=false` rollback. The claim is posture-dependent; naming the
+ * posture is the honest form of it.
  *
  * ⛔ AND IT MUST NOT BORROW THE ADD/RENAME PROMISE. `STRUCTURAL_ADD_DEFERRED_NOTICE`
  * and `STRUCTURAL_RENAME_DEFERRED_NOTICE` can say "I'll save it with your next
  * message" because those gestures DEFER — they stand on the canvas and queue.
  * A stood-down delete queues nothing and restores, so the same promise here
- * would be a durability claim nothing keeps, which is what UI #1025 was
- * reverted for. The gesture stays with the user.
+ * would be a durability claim nothing keeps — the defect UI #1025 REVERTED
+ * #1024 for. The gesture stays with the user.
  */
 export const STRUCTURAL_DELETE_STOOD_DOWN_NOTICE =
-  "Nothing was removed — I haven't seen the saved model's current state in this session, so I can't address a deletion to it. Ask me anything about this decision and I'll re-sync, then delete it again."
+  "Nothing was removed — I haven't confirmed the saved model's current state in this session, so I can't address a deletion to it. Ask me anything about this decision and I'll re-sync, then delete it again."
 
 export type StructuralDeleteNoticeKey = keyof typeof STRUCTURAL_DELETE_NOTICE

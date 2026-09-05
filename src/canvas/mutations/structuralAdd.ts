@@ -494,7 +494,7 @@ export function readStructuralAddReceipt(
  *
  * ⚠⚠ THE SPECIFICITY IS THE WHOLE POINT, and it is inherited from the rename
  * lane rather than re-invented: what happened, what has NOT, when it will, and
- * what is lost if they reload first. UI #1025 was reverted for shipping a
+ * what is lost if they reload first. UI #1025 REVERTED #1024 for shipping a
  * control that HID exactly this loss. The failure mode here is real and
  * reachable — the queue is memory-only — so the copy names it rather than
  * implying a durability the product has not earned, and it names the thing that
