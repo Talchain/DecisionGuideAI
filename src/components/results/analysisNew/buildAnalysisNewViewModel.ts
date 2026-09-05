@@ -1147,8 +1147,40 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // machine code is right content for an audit trail and wrong content for a
   // caveat strip.
   const caveats = (conf.inferenceWarnings ?? []).filter(isStripEntry)
+  // ⚠⚠ THE CODE LEAVES THE TERM COLUMN — AND NOTHING ELSE ABOUT THIS CHANGES.
+  //
+  // Witnessed by Paul on deployed `a9c2e050`: this group printed
+  // `EDGE_E_VALUE_NON_FINITE_DROPPED` and `ROOT_NODE_DEFAULT_VALUE` as the `<dt>`
+  // of a two-column list — the first thing the eye lands on, in the panel whose
+  // job is to make a chain of reasoning trustworthy. The argument above is right
+  // that a machine code belongs in an audit trail; what it missed is that the
+  // TERM column is not an audit trail, it is a heading.
+  //
+  // `statement: true` moves the code out of the visual term column and into the
+  // row's accessible name, and the renderer prints it de-emphasised AFTER the
+  // sentence — the shape `ModelHealthSection.tsx:393-398` already ships and
+  // `auditInferenceWarningsNeverBareCode.spec.tsx` already rules on: the
+  // property is `code + sentence`, never `sentence instead of code`.
+  //
+  // ⚠⚠ TWO THINGS I TRIED FIRST AND REVERTED, BOTH REFUTED BY SPECS THAT
+  // ALREADY ENCODE THE RIGHT ANSWER:
+  //  (1) COLLAPSING DUPLICATES to `x2`. `deeperAnalysisEvidence.spec.tsx:200`
+  //      exists to forbid exactly that, and its reason is the point: "the
+  //      producer repeats a code when it raises the same condition about two
+  //      DIFFERENT nodes". Two rows are two findings. Collapsing them would have
+  //      made one finding out of two and still not named either node — the
+  //      user's actual complaint, made worse while looking tidier.
+  //  (2) APPENDING the code to `value`. `deeperAnalysisEvidence.spec.tsx:218`
+  //      requires `value` to BE the shared humaniser's output for that entry, so
+  //      the code is the renderer's business, not the string's.
+  //
+  // ⚠ STILL OPEN, AND STATED RATHER THAN IMPLIED: the two rows remain
+  // indistinguishable, because `selectHumanisedInferenceWarningsOutsideStrip`
+  // projects to `{code, title}` and drops `affected_labels`. Naming the node in
+  // each row needs that shared selector widened, which changes the existing
+  // Analysis tab too — a separate change, not a silent one.
   const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(conf.inferenceWarnings)
-    .map((w) => ({ label: w.code, value: w.title }))
+    .map((w) => ({ label: w.code, value: w.title, statement: true }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
 
   // ⚠ READINESS SIGNALS, RENDERED AS THE PRODUCER'S OWN NUMBERS. `m1_coaching
